@@ -36,7 +36,7 @@ function hostFromUrl(url: string): string {
 }
 
 function eventVerb(entry: ActivityEntry): string {
-  if (entry.phase === 'tool') return entry.meta?.url ? 'open.url' : entry.meta?.toolName ?? 'tool.call';
+  if (entry.phase === 'tool') return entry.meta?.url ? 'open source' : 'research step';
   if (entry.phase === 'analysis') return 'think';
   if (entry.phase === 'output') return 'write';
   if (entry.phase === 'error') return 'error';
@@ -80,7 +80,7 @@ export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchA
   }, [entries]);
 
   const visibleEntries = entries.slice(-12).reverse();
-  const currentStep = isWriting ? 'Writing section' : sources.length > 0 ? 'Reading sources' : hasRealUpdates ? 'Searching web' : 'Starting worker';
+  const currentStep = isWriting ? 'Writing section' : sources.length > 0 ? 'Reading sources' : hasRealUpdates ? 'Finding sources' : 'Starting research';
 
   const timeline = [
     {
@@ -90,7 +90,7 @@ export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchA
       active: !hasRealUpdates,
     },
     {
-      label: 'Search web',
+      label: 'Find sources',
       detail: 'Find competitors, reviews, ads, pricing, and category pages.',
       complete: sources.length > 0,
       active: hasRealUpdates && sources.length === 0 && !isWriting,
@@ -219,7 +219,7 @@ export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchA
 
             <div className="min-h-0 p-4">
               <div className="mb-3 flex items-center justify-between">
-                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">Tool activity</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">Activity</p>
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/26">latest first</span>
               </div>
               {visibleEntries.length > 0 ? (
@@ -247,7 +247,7 @@ export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchA
               ) : (
                 <div className="flex min-h-[150px] items-center justify-center rounded-[8px] border border-dashed border-white/[0.08] bg-white/[0.012] px-6 text-center">
                   <p className="max-w-sm text-xs leading-5 text-white/34">
-                    Waiting for the research worker to start emitting tool events. The report will appear as source-backed blocks once this section finishes.
+                    Waiting for research updates. The report will appear as source-backed blocks once this section finishes.
                   </p>
                 </div>
               )}

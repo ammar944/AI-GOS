@@ -600,8 +600,8 @@ export function JourneyResearchSandbox({
               Single-section QA harness
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-              This page dispatches the real Journey research worker against a sandbox-scoped
-              `journey_sessions` row, so prompts, tools, worker activity, persistence, and result
+              This page dispatches the real Journey research service against a sandbox-scoped
+              `journey_sessions` row, so prompts, research activity, persistence, and result
               shapes stay on the production path while the live Journey session stays untouched.
             </p>
           </div>

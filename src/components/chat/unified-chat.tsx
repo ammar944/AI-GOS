@@ -123,7 +123,7 @@ const MODE_CONFIG: ModeConfig[] = [
     Icon: Brain,
     color: 'var(--text-secondary)',
     glowStyle: 'shadow-[0_0_0_1px_var(--border-focus)]',
-    streamingLabel: 'Claude is thinking...',
+    streamingLabel: 'Thinking...',
   },
   {
     id: 'thinking',
@@ -131,7 +131,7 @@ const MODE_CONFIG: ModeConfig[] = [
     Icon: Sparkles,
     color: '#a855f7',
     glowStyle: 'shadow-[0_0_0_1px_rgba(168,85,247,0.6)]',
-    streamingLabel: 'Claude is reasoning...',
+    streamingLabel: 'Reasoning...',
   },
   {
     id: 'research',
@@ -597,7 +597,7 @@ interface StreamingStatusProps {
 function StreamingStatus({ mode, isStreaming, streamingDuration }: StreamingStatusProps) {
   if (!isStreaming) return null;
 
-  // Only show "Claude is thinking..." after 3s in normal mode.
+  // Only show the normal processing label after 3s.
   // In thinking mode, always show. In research mode, always show.
   // Don't show anything for normal mode under 3s (just let the dots in the message handle it).
   if (mode === 'normal' && streamingDuration < 3000) return null;

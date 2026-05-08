@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
-import { generateObject, generateText, Output } from 'ai';
+import { generateObject, generateText, Output, type ToolSet } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createGateway } from '@ai-sdk/gateway';
 import { perplexity, MODELS } from '@/lib/ai/providers';
@@ -426,14 +426,16 @@ async function runGatewayAnthropicWebSearchPrefill(websiteUrl: string, linkedinU
   // AI SDK v6's deprecated generateObject() API does not accept tools; structured
   // generateText({ output: output.object(...) }) is the v6 path that supports both
   // Zod-validated output and Anthropic's native provider-defined web search tool.
+  const gatewayTools = {
+    web_search: anthropic.tools.webSearch_20250305({ maxUses: 5 }),
+  } as unknown as ToolSet;
+
   const { output: rawOutput } = await generateText({
     model: gateway(GATEWAY_ANTHROPIC_MODEL),
     output: Output.object({ schema: companyResearchSchema }),
     system: SYSTEM_PROMPT,
     prompt: `Use Anthropic native web search and the company's website to fill the onboarding schema.\n\nWebsite: ${websiteUrl}\n${linkedinUrl ? `LinkedIn: ${linkedinUrl}\n` : ''}\n\nReturn ONLY valid JSON. Include every schema field. Every field must be an object: {"value": string|null, "confidence": number, "sourceUrl": string|null, "reasoning": string}. Use null when not verified. Do not invent data. Prefer the company's own site and credible sources.\n\nCOMPETITOR RESEARCH (IMPORTANT): Actively search the web for direct competitors using queries like "[company name] competitors" and "[company name] alternatives".`,
-    tools: {
-      web_search: anthropic.tools.webSearch_20250305({ maxUses: 5 }),
-    },
+    tools: gatewayTools,
     temperature: 0,
     maxOutputTokens: 8000,
     abortSignal: createTimeoutSignal(AI_PREFILL_TIMEOUT),

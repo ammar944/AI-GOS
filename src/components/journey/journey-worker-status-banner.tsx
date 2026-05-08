@@ -58,7 +58,7 @@ export function JourneyWorkerStatusBanner({
             Research Operations
           </p>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Journey is tracking worker pickup, background execution, and dispatch failures here.
+            Journey is tracking queue status, background execution, and dispatch failures here.
           </p>
         </div>
       </div>

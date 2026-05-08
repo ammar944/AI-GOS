@@ -81,6 +81,40 @@ interface JourneySessionSnapshotResponse {
   error?: string;
 }
 
+async function readResearchSnapshotErrorResponse(
+  response: Response,
+): Promise<Record<string, string | number | null>> {
+  let message: string | null = null;
+
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+      message = payload.error;
+    }
+  } catch {
+    // Ignore malformed error bodies and fall back to status metadata.
+  }
+
+  return {
+    status: Number.isFinite(response.status) ? response.status : null,
+    message,
+  };
+}
+
+function logResearchSnapshotFetchFailure(
+  failure: Record<string, string | number | null>,
+): void {
+  if (failure.status === 401) {
+    console.warn(
+      '[journey] Research result polling paused until the session is verified:',
+      failure,
+    );
+    return;
+  }
+
+  console.error('[journey] Failed to fetch current research results:', failure);
+}
+
 /**
  * Subscribe to Supabase Realtime for research results.
  * Calls onSectionComplete whenever a new section arrives in journey_sessions.research_results.
@@ -134,6 +168,10 @@ export function useResearchRealtime({
 
     let cancelled = false;
 
+    function stopPolling(): void {
+      window.clearInterval(interval);
+    }
+
     const fetchCurrentResults = async () => {
       try {
         const response = await fetch(buildJourneySessionUrl(activeRunId), {
@@ -143,9 +181,11 @@ export function useResearchRealtime({
 
         if (!response.ok) {
           if (!cancelled) {
-            console.error('[journey] Failed to fetch current research results:', {
-              status: response.status,
-            });
+            const failure = await readResearchSnapshotErrorResponse(response);
+            logResearchSnapshotFetchFailure(failure);
+            if (failure.status === 401) {
+              stopPolling();
+            }
           }
           return;
         }
@@ -207,15 +247,15 @@ export function useResearchRealtime({
       }
     };
 
-    void fetchCurrentResults();
     const interval = window.setInterval(() => {
       void fetchCurrentResults();
     }, 2000);
+    void fetchCurrentResults();
 
     return () => {
       cancelled = true;
       clearTimeout(timeout);
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [activeRunId, userId, timeoutMs, resetSignal, ignoreUpdatedBefore, skipRunIdCheck]);
 }

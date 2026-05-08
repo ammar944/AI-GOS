@@ -199,7 +199,7 @@ function buildActivityCheck(
     key: 'activity',
     title: 'Worker activity',
     status: 'pending',
-    detail: 'No worker activity recorded for this section yet.',
+      detail: 'No research activity recorded for this section yet.',
   };
 }
 

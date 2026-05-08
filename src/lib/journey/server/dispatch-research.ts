@@ -199,7 +199,7 @@ function summarizeDeepResearchProgram(payload: unknown): string | null {
 
   if (payload.status === 'error') {
     const error = typeof payload.error === 'string' ? payload.error : 'unknown error';
-    return `Company deep research failed: ${error}`;
+    return `Company research failed: ${error}`;
   }
 
   if (payload.status !== 'complete') {
@@ -211,7 +211,7 @@ function summarizeDeepResearchProgram(payload: unknown): string | null {
   const serialized = JSON.stringify(corpus, null, 1);
 
   return serialized.length > MAX_DEEP_RESEARCH_CONTEXT_CHARS
-    ? `${serialized.slice(0, MAX_DEEP_RESEARCH_CONTEXT_CHARS)}\n... [deep research corpus truncated]`
+    ? `${serialized.slice(0, MAX_DEEP_RESEARCH_CONTEXT_CHARS)}\n... [company research corpus truncated]`
     : serialized;
 }
 
@@ -308,7 +308,7 @@ async function injectPriorResearchContext(
     const upstreamSections = DISPATCH_PIPELINE_ORDER.slice(0, sectionIndex);
     const researchSections: string[] = [];
     if (deepResearchContext) {
-      researchSections.push(`## Company Deep Research Corpus\n${deepResearchContext}`);
+      researchSections.push(`## Company Research Corpus\n${deepResearchContext}`);
     }
 
     for (const key of upstreamSections) {

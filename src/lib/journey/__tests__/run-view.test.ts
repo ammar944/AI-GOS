@@ -157,15 +157,21 @@ describe('buildJourneyRunView', () => {
     });
     expect(view.status).toBe('running');
     expect(view.sections.map((section) => section.id)).toEqual([
+      'deepResearchProgram',
       'industryMarket',
       'icpValidation',
       'competitors',
+      'offerAnalysis',
       'crossAnalysis',
       'keywordIntel',
-      'offerAnalysis',
       'mediaPlan',
     ]);
     expect(view.sections[0]).toMatchObject({
+      id: 'deepResearchProgram',
+      phase: 'queued',
+      status: 'queued',
+    });
+    expect(view.sections[1]).toMatchObject({
       id: 'industryMarket',
       phase: 'review',
       status: 'complete',
@@ -174,8 +180,8 @@ describe('buildJourneyRunView', () => {
         message: 'Synthesized market overview.',
       },
     });
-    expect(view.sections[0].cards.length).toBeGreaterThan(0);
-    expect(view.sections[1]).toMatchObject({
+    expect(view.sections[1].cards.length).toBeGreaterThan(0);
+    expect(view.sections[2]).toMatchObject({
       id: 'icpValidation',
       phase: 'researching',
       status: 'running',
@@ -184,8 +190,8 @@ describe('buildJourneyRunView', () => {
         message: 'Validating ICP reachability.',
       },
     });
-    expect(view.sections[3].pendingDependencyReason).toBe(
-      'Waiting for Buyer & ICP to finish.',
+    expect(view.sections[4].pendingDependencyReason).toBe(
+      'Waiting for Deep Research.',
     );
     expect(view.artifactsBySection.industryMarket?.section).toBe('industryMarket');
     expect(view.artifactsByTool.researchIndustry).toHaveLength(1);
@@ -239,10 +245,13 @@ describe('buildJourneyRunView', () => {
       messages: null,
     });
 
-    expect(view.status).toBe('queued');
-    expect(view.sections.every((section) => section.status === 'queued')).toBe(true);
-    expect(view.sections.every((section) => section.phase === 'queued')).toBe(true);
-    expect(view.sections.every((section) => section.latestEvent === null)).toBe(true);
+    expect(view.status).toBe('running');
+    expect(view.sections[0].status).toBe('running');
+    expect(view.sections.slice(1).every((section) => section.status === 'queued')).toBe(true);
+    expect(view.sections.slice(1).every((section) => section.phase === 'queued')).toBe(true);
+    expect(view.sections.every((section) => section.latestEvent === null)).toBe(false);
+    expect(view.sections[0].latestEvent).not.toBeNull();
+    expect(view.sections.slice(1).every((section) => section.latestEvent === null)).toBe(true);
     expect(view.deepResearchActivity).toMatchObject({
       jobId: 'job-deep',
       section: 'deepResearchProgram',

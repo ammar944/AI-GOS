@@ -40,16 +40,16 @@ function createFailureItem(
   errorMessage: string | undefined,
 ): JourneyWorkerStatusItem | null {
   const label = getSectionLabel(section);
-  const errorDetail = errorMessage?.trim() || 'No worker detail was returned.';
+  const errorDetail = errorMessage?.trim() || 'No research detail was returned.';
 
   if (failureKind === 'worker-unavailable') {
     return {
       section,
       kind: 'worker-unavailable',
       tone: 'error',
-      title: `${label}: Worker unavailable`,
+      title: `${label}: Research unavailable`,
       detail:
-        `${errorDetail} Start the research worker on :3001 or verify ` +
+        `${errorDetail} Start the research service on :3001 or verify ` +
         '`RAILWAY_WORKER_URL` before retrying this step.',
     };
   }
@@ -73,8 +73,8 @@ function createFailureItem(
       tone: 'error',
       title: `${label}: Dispatch failed`,
       detail:
-        `${errorDetail} The request did not reach a stable worker run. Retry the ` +
-        'section after checking the worker logs.',
+        `${errorDetail} The request did not reach a stable research run. Retry the ` +
+        'section after checking the research logs.',
     };
   }
 
@@ -96,8 +96,8 @@ function createActiveItem(
       tone: 'warning',
       title: `${label}: Chat timed out`,
       detail: isRunning
-        ? `${label} hit the Journey timeout, but the worker is still running in the background. Results will appear when the write completes.`
-        : `${label} has not been picked up by the worker yet. Check that the research worker is reachable on :3001 or via \`RAILWAY_WORKER_URL\`.`,
+        ? `${label} hit the Journey timeout, but research is still running in the background. Results will appear when the write completes.`
+        : `${label} has not started yet. Check that the research service is reachable on :3001 or via \`RAILWAY_WORKER_URL\`.`,
     };
   }
 
@@ -106,9 +106,9 @@ function createActiveItem(
       section,
       kind: 'running',
       tone: 'info',
-      title: `${label}: Worker running`,
+      title: `${label}: Research running`,
       detail:
-        `${label} is executing in the research worker now. Journey will update ` +
+        `${label} is running now. Journey will update ` +
         'the artifact as soon as the result is written.',
     };
   }
@@ -117,10 +117,10 @@ function createActiveItem(
     section,
     kind: 'queued',
     tone: 'info',
-    title: `${label}: Worker queued`,
+    title: `${label}: Research queued`,
     detail:
-      `${label} has been dispatched and is waiting for worker pickup. If this ` +
-      'state lingers, check that the worker is listening on :3001.',
+      `${label} has been dispatched and is waiting to start. If this ` +
+      'state lingers, check that the research service is listening on :3001.',
   };
 }
 

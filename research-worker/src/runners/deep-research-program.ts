@@ -1,4 +1,3 @@
-import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
   createClient,
   buildRunnerTelemetry,
@@ -17,6 +16,13 @@ import { maybeCachedSystem } from '../utils/prompt-cache';
 const DEEP_RESEARCH_MODEL = process.env.RESEARCH_DEEP_PROGRAM_MODEL ?? MODELS.STANDARD;
 const DEEP_RESEARCH_MAX_TOKENS = Number(process.env.RESEARCH_DEEP_PROGRAM_MAX_TOKENS ?? 20000);
 const DEEP_RESEARCH_TIMEOUT_MS = Number(process.env.RESEARCH_DEEP_PROGRAM_TIMEOUT_MS ?? 900000);
+const DEEP_RESEARCH_REPAIR_TIMEOUT_MS = Number(process.env.RESEARCH_DEEP_PROGRAM_REPAIR_TIMEOUT_MS ?? 120000);
+const DEEP_RESEARCH_REPAIR_MAX_TOKENS = Number(process.env.RESEARCH_DEEP_PROGRAM_REPAIR_MAX_TOKENS ?? 12000);
+
+interface CapturedDeepResearchSource {
+  title: string;
+  url: string;
+}
 
 const DEEP_RESEARCH_SYSTEM_PROMPT = `You are AI-GOS's Deep Research Agent for a supervised GTM workspace.
 
@@ -83,8 +89,54 @@ ONBOARDING FIELD RULES
 
 CRITICAL RETURN CONTRACT
 - Do not export, attach, or summarize the final JSON as a file.
-- You may use code_execution only as scratch analysis. The final assistant response itself must contain the complete JSON object.
+- The final assistant response itself must contain the complete JSON object.
 - The final response must start with "{" and end with "}". No preamble, no completion note, no file path, no markdown.`;
+
+const DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT = `You repair an AI-GOS Deep Research Agent draft into the required onboarding JSON.
+
+Return ONLY valid JSON. No markdown fences, no preamble.
+
+Rules:
+- Use only the supplied original user context, captured sources, and incomplete draft.
+- Do not invent facts. Unsupported onboarding fields must be {"value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not verified in captured evidence."}.
+- Preserve source URLs exactly when used.
+- The output shape must match the Deep Research Agent contract:
+{
+  "corpus": {
+    "company": "string",
+    "category": "string",
+    "researchSummary": "string",
+    "sources": [{"title":"string","url":"string","whyItMatters":"string"}],
+    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+  },
+  "onboardingFields": {
+    "companyName": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "businessModel": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "industryVertical": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "primaryIcpDescription": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "jobTitles": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "companySize": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "geography": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "headquartersLocation": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "productDescription": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "coreDeliverables": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "pricingTiers": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "valueProp": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "guarantees": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "topCompetitors": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "uniqueEdge": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "marketProblem": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "situationBeforeBuying": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "desiredTransformation": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "commonObjections": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "brandPositioning": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "testimonialQuote": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "caseStudiesUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "testimonialsUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "pricingUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "demoUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"}
+  }
+}`;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -202,6 +254,47 @@ function formatEvidenceLine(evidence: unknown): string | null {
   return `- ${claim ?? quote}${source ? ` (${source})` : ''}`;
 }
 
+function addCapturedSource(
+  sources: CapturedDeepResearchSource[],
+  source: CapturedDeepResearchSource,
+): void {
+  if (sources.some((candidate) => candidate.url === source.url)) {
+    return;
+  }
+
+  sources.push(source);
+}
+
+function formatCapturedSources(
+  sources: CapturedDeepResearchSource[],
+): string {
+  if (sources.length === 0) {
+    return 'No web sources were captured before repair.';
+  }
+
+  return sources
+    .slice(0, 24)
+    .map((source) => `- ${source.title} (${source.url})`)
+    .join('\n');
+}
+
+function readMessageText(message: { content?: unknown }): string {
+  if (!Array.isArray(message.content)) {
+    return '';
+  }
+
+  return message.content
+    .map((block) => {
+      if (!isRecord(block) || block.type !== 'text') {
+        return '';
+      }
+
+      return typeof block.text === 'string' ? block.text : '';
+    })
+    .join('\n')
+    .trim();
+}
+
 export function formatDeepResearchArtifactMarkdown(
   parsed: Record<string, unknown>,
   context: string,
@@ -233,13 +326,50 @@ export function formatDeepResearchArtifactMarkdown(
   };
 }
 
-async function downloadAnthropicFileText(
+async function repairDeepResearchJson(
   client: ReturnType<typeof createClient>,
-  fileId: string,
-): Promise<string | null> {
-  const response = await client.beta.files.download(fileId);
-  const text = await response.text();
-  return text.trim().length > 0 ? text : null;
+  input: {
+    context: string;
+    draftText: string;
+    sources: CapturedDeepResearchSource[];
+  },
+): Promise<{
+  parsed: Record<string, unknown>;
+  rawText: string;
+  message: Parameters<typeof buildRunnerTelemetry>[0];
+}> {
+  const repairMessage = await Promise.race([
+    client.messages.create({
+      model: DEEP_RESEARCH_MODEL,
+      max_tokens: DEEP_RESEARCH_REPAIR_MAX_TOKENS,
+      temperature: 0,
+      system: maybeCachedSystem(DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT) as Parameters<typeof client.messages.create>[0]['system'],
+      messages: [
+        {
+          role: 'user',
+          content: `ORIGINAL USER CONTEXT\n${input.context}\n\nCAPTURED SOURCES\n${formatCapturedSources(input.sources)}\n\nINCOMPLETE DRAFT / MODEL OUTPUT\n${input.draftText || 'No draft text was produced.'}\n\nRepair this into the required JSON object now.`,
+        },
+      ],
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Deep research repair timed out after ${Math.round(DEEP_RESEARCH_REPAIR_TIMEOUT_MS / 1000)}s`)),
+        DEEP_RESEARCH_REPAIR_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+
+  const rawText = readMessageText(repairMessage);
+  const parsed = tryExtractJson(rawText);
+  if (!parsed || !isRecord(parsed)) {
+    throw new Error('Deep research repair returned no parseable JSON');
+  }
+
+  return {
+    parsed,
+    rawText,
+    message: repairMessage as Parameters<typeof buildRunnerTelemetry>[0],
+  };
 }
 
 export async function runDeepResearchProgram(
@@ -260,8 +390,8 @@ export async function runDeepResearchProgram(
     }
 
     const client = createClient({ enableSkillsBeta: true });
-    const codeExecutionOutputFileIds: string[] = [];
-    const codeExecutionStdouts: string[] = [];
+    const capturedSources: CapturedDeepResearchSource[] = [];
+    let latestTextSnapshot = '';
     const initialArtifactTitle = `${inferCompanyNameFromContext(context) ?? 'Company'} GTM Research`;
     await emitRunnerProgress(onProgress, 'runner', 'starting company research extraction');
     await emitArtifactProgress(onProgress, {
@@ -303,16 +433,12 @@ export async function runDeepResearchProgram(
           runStreamedToolRunner(runner, {
             onProgress,
             synthesisMessage: 'assembling company corpus for onboarding',
-            maxToolIterations: 8,
-            onCodeExecutionOutputFile: (fileId) => {
-              if (!codeExecutionOutputFileIds.includes(fileId)) {
-                codeExecutionOutputFileIds.push(fileId);
-              }
+            maxToolIterations: 20,
+            onTextSnapshot: (snapshot) => {
+              latestTextSnapshot = snapshot;
             },
-            onCodeExecutionStdout: (stdout) => {
-              if (!codeExecutionStdouts.includes(stdout)) {
-                codeExecutionStdouts.push(stdout);
-              }
+            onWebSearchSource: (source) => {
+              addCapturedSource(capturedSources, source);
             },
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Deep research program timed out after ${Math.round(DEEP_RESEARCH_TIMEOUT_MS / 1000)}s`)), DEEP_RESEARCH_TIMEOUT_MS)),
@@ -321,72 +447,34 @@ export async function runDeepResearchProgram(
       'deepResearchProgram',
     );
 
-    const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
-    const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
+    const resultText = readMessageText(finalMsg) || latestTextSnapshot;
     let parsed: unknown | null = tryExtractJson(resultText);
-    let parseSource = parsed ? 'assistant text' : null;
-
-    if (!parsed) {
-      for (const stdout of codeExecutionStdouts) {
-        parsed = tryExtractJson(stdout);
-        if (parsed) {
-          parseSource = 'code execution stdout';
-          break;
-        }
-      }
-    }
-
-    if (!parsed && codeExecutionOutputFileIds.length > 0) {
-      await emitRunnerProgress(onProgress, 'tool', 'reading exported JSON from code execution output');
-      for (const fileId of codeExecutionOutputFileIds) {
-        try {
-          const fileText = await downloadAnthropicFileText(client, fileId);
-          parsed = fileText ? tryExtractJson(fileText) : null;
-          if (parsed) {
-            parseSource = `code execution file ${fileId}`;
-            break;
-          }
-        } catch (downloadError) {
-          console.warn('[deep-research-program] Could not read code execution output file:', {
-            fileId,
-            error: downloadError instanceof Error ? downloadError.message : String(downloadError),
-          });
-        }
-      }
-    }
+    let rawText = resultText;
+    let telemetryMessage: Parameters<typeof buildRunnerTelemetry>[0] = finalMsg;
 
     if (!parsed || !isRecord(parsed)) {
       console.error('[deep-research-program] JSON extraction failed:', {
         assistantTextPreview: resultText.slice(0, 500),
-        codeExecutionOutputFileCount: codeExecutionOutputFileIds.length,
-        codeExecutionStdoutCount: codeExecutionStdouts.length,
       });
-      await emitArtifactProgress(onProgress, {
-        type: 'artifact-section-state',
-        section: 'deepResearchProgram',
-        status: 'error',
-        title: initialArtifactTitle,
+      await emitRunnerProgress(onProgress, 'analysis', 'repairing deep research JSON from captured evidence');
+      const repaired = await repairDeepResearchJson(client, {
+        context,
+        draftText: resultText,
+        sources: capturedSources,
       });
-      return {
-        status: 'error',
-        section: 'deepResearchProgram',
-        error:
-          'Deep research returned no parseable JSON in assistant text, code execution stdout, or exported files',
-        durationMs: Date.now() - startTime,
-        rawText: resultText,
-        telemetry: buildRunnerTelemetry(finalMsg),
-      };
+      parsed = repaired.parsed;
+      rawText = `${resultText}\n\n--- repaired JSON ---\n${repaired.rawText}`.trim();
+      telemetryMessage = repaired.message;
     }
-
-    if (parseSource) {
-      console.log(`[deep-research-program] Parsed JSON from ${parseSource}`);
+    if (!isRecord(parsed)) {
+      throw new Error('Deep research returned no parseable JSON after repair');
     }
+    const parsedRecord: Record<string, unknown> = parsed;
 
-    const onboardingFieldCount = countUsableOnboardingFields(parsed);
+    const onboardingFieldCount = countUsableOnboardingFields(parsedRecord);
     if (onboardingFieldCount === 0) {
       console.error('[deep-research-program] Missing onboardingFields payload:', {
-        parseSource,
-        keys: Object.keys(parsed),
+        keys: Object.keys(parsedRecord),
       });
       await emitArtifactProgress(onProgress, {
         type: 'artifact-section-state',
@@ -400,12 +488,12 @@ export async function runDeepResearchProgram(
         error:
           'Deep research returned no usable onboardingFields. The onboarding review cannot open from shallow prefill data.',
         durationMs: Date.now() - startTime,
-        rawText: resultText,
-        telemetry: buildRunnerTelemetry(finalMsg),
+        rawText,
+        telemetry: buildRunnerTelemetry(telemetryMessage),
       };
     }
 
-    const artifact = formatDeepResearchArtifactMarkdown(parsed, context);
+    const artifact = formatDeepResearchArtifactMarkdown(parsedRecord, context);
     await emitArtifactProgress(onProgress, {
       type: 'artifact-delta',
       section: 'deepResearchProgram',
@@ -427,14 +515,15 @@ export async function runDeepResearchProgram(
     return {
       status: 'complete',
       section: 'deepResearchProgram',
-      data: parsed,
+      data: parsedRecord,
+      artifact,
       durationMs: Date.now() - startTime,
-      rawText: resultText,
-      telemetry: buildRunnerTelemetry(finalMsg),
+      rawText,
+      telemetry: buildRunnerTelemetry(telemetryMessage),
       provenance: {
         status: 'sourced',
-        citationCount: Array.isArray((parsed.corpus as Record<string, unknown> | undefined)?.sources)
-          ? ((parsed.corpus as Record<string, unknown>).sources as unknown[]).length
+        citationCount: Array.isArray((parsedRecord.corpus as Record<string, unknown> | undefined)?.sources)
+          ? ((parsedRecord.corpus as Record<string, unknown>).sources as unknown[]).length
           : 0,
       },
     };

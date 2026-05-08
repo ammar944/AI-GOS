@@ -97,7 +97,7 @@ describe('flushBufferedResearchChunks', () => {
 });
 
 describe('buildDeepResearchAgentStreamState', () => {
-  it('shows Deep Research Agent as the first visible assistant step and hides inactive specialists', () => {
+  it('shows Research Agent as the first visible assistant step and hides inactive specialists', () => {
     const state = buildDeepResearchAgentStreamState({
       activeRunId: 'run-1',
       deepResearchStatus: 'starting',
@@ -110,12 +110,61 @@ describe('buildDeepResearchAgentStreamState', () => {
       'deepResearchProgram',
     ]);
     expect(state.visibleSteps[0]).toMatchObject({
-      name: 'Deep Research Agent',
+      name: 'Research Agent',
       status: 'running',
     });
     expect(state.hiddenSections).toContain('industryMarket');
     expect(state.hiddenSections).toContain('competitors');
-    expect(state.assistantOpening).toContain('Deep Research Agent');
+    expect(state.assistantOpening).toContain('Research Agent');
+  });
+
+  it('does not fabricate a streaming artifact from a restored run id alone', () => {
+    const state = buildDeepResearchAgentStreamState({
+      activeRunId: 'run-restored',
+      deepResearchStatus: 'idle',
+      phase: 'workspace',
+      researchActivity: {},
+      researchResults: {},
+    });
+
+    const artifact = getArtifactState(state);
+
+    expect(state.hasRunStarted).toBe(false);
+    expect(state.visibleSteps).toEqual([]);
+    expect(artifact.status).toBe('idle');
+    expect(artifact.sections).toEqual([]);
+    expect(state.assistantOpening).toContain('ready');
+  });
+
+  it('reveals persisted downstream sections even when the deep research result is absent', () => {
+    const state = buildDeepResearchAgentStreamState({
+      activeRunId: 'run-restored',
+      deepResearchStatus: 'idle',
+      phase: 'workspace',
+      researchActivity: {},
+      researchResults: {
+        industryMarket: {
+          status: 'complete',
+          section: 'industryMarket',
+          data: {
+            sectionTitle: 'Market Category',
+            statusSummary: 'Market section is persisted.',
+          },
+          durationMs: 1000,
+        },
+      },
+    });
+
+    const artifact = getArtifactState(state);
+
+    expect(state.visibleSteps.map((step) => step.section)).toEqual([
+      'industryMarket',
+    ]);
+    expect(state.bufferedSteps).toEqual([]);
+    expect(artifact.sections.map((section) => section.section)).toEqual([
+      'industryMarket',
+    ]);
+    expect(artifact.sections[0]?.content).toContain('Market section is persisted.');
   });
 
   it('builds the first live artifact section from typed Deep Research artifact events', () => {
@@ -171,7 +220,7 @@ describe('buildDeepResearchAgentStreamState', () => {
     );
   });
 
-  it('keeps generic analysis logs out of artifact prose while still showing the skeleton', () => {
+  it('adds live tool and analysis updates to the streaming artifact body', () => {
     const state = buildDeepResearchAgentStreamState({
       activeRunId: 'run-1',
       deepResearchStatus: 'starting',
@@ -206,13 +255,16 @@ describe('buildDeepResearchAgentStreamState', () => {
     expect(artifact.sections).toHaveLength(1);
     expect(artifact.sections[0]?.section).toBe('deepResearchProgram');
     expect(artifact.sections[0]?.content).toContain(
-      'Deep Research Agent is building the source-backed corpus',
+      'Research Agent is building the source-backed corpus',
     );
-    expect(artifact.sections[0]?.content).not.toContain(
-      'This generic log must not become report prose',
+    expect(artifact.sections[0]?.content).toContain(
+      '### Live Research Activity',
     );
-    expect(artifact.sections[0]?.content).not.toContain(
+    expect(artifact.sections[0]?.content).toContain(
       'Opened Airtable pricing page',
+    );
+    expect(artifact.sections[0]?.content).toContain(
+      'draft This generic log must not become report prose',
     );
   });
 
@@ -226,6 +278,10 @@ describe('buildDeepResearchAgentStreamState', () => {
         deepResearchProgram: {
           status: 'complete',
           section: 'deepResearchProgram',
+          artifact: {
+            title: 'Airtable GTM Research',
+            markdown: '## Deep Research\n\nDurable Deep Research artifact from persisted result.',
+          },
           data: {
             corpus: {
               company: 'Airtable',
@@ -268,10 +324,15 @@ describe('buildDeepResearchAgentStreamState', () => {
     });
 
     const artifact = getArtifactState(state);
+    const deepSection = artifact.sections.find(
+      (section) => section.section === 'deepResearchProgram',
+    );
     const marketSection = artifact.sections.find(
       (section) => section.section === 'industryMarket',
     );
 
+    expect(deepSection?.title).toBe('Airtable GTM Research');
+    expect(deepSection?.content).toContain('Durable Deep Research artifact');
     expect(marketSection?.content).toContain('Category ownership');
     expect(marketSection?.content).toContain('connected app platform');
     expect(marketSection?.sourceUrls).toEqual(['https://www.airtable.com/product']);

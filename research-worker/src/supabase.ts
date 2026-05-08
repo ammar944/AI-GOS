@@ -73,6 +73,10 @@ export interface ResearchResult {
   status: 'complete' | 'partial' | 'error';
   section: string;
   data?: unknown;
+  artifact?: {
+    title: string;
+    markdown: string;
+  };
   error?: string;
   durationMs: number;
   rawText?: string;

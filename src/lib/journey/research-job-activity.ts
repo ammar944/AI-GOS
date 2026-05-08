@@ -99,6 +99,20 @@ async function readResearchJobActivityErrorResponse(
   };
 }
 
+function logResearchJobActivityFetchFailure(
+  failure: Record<string, string | number | null>,
+): void {
+  if (failure.status === 401) {
+    console.warn(
+      '[journey] Research job activity polling paused until the session is verified:',
+      failure,
+    );
+    return;
+  }
+
+  console.error('[journey] Failed to fetch research job activity:', failure);
+}
+
 export function useResearchJobActivity({
   userId,
   activeRunId,
@@ -121,6 +135,10 @@ export function useResearchJobActivity({
 
     let cancelled = false;
 
+    function stopPolling(): void {
+      window.clearInterval(interval);
+    }
+
     const fetchCurrentActivity = async () => {
       try {
         const response = await fetch(buildJourneySessionUrl(activeRunId), {
@@ -130,10 +148,11 @@ export function useResearchJobActivity({
 
         if (!response.ok) {
           if (!cancelled) {
-            console.error(
-              '[journey] Failed to fetch research job activity:',
-              await readResearchJobActivityErrorResponse(response),
-            );
+            const failure = await readResearchJobActivityErrorResponse(response);
+            logResearchJobActivityFetchFailure(failure);
+            if (failure.status === 401) {
+              stopPolling();
+            }
           }
           return;
         }
@@ -169,14 +188,14 @@ export function useResearchJobActivity({
       }
     };
 
-    void fetchCurrentActivity();
     const interval = window.setInterval(() => {
       void fetchCurrentActivity();
     }, 2000);
+    void fetchCurrentActivity();
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [userId, activeRunId, resetKey, ignoreUpdatedBefore]);
 

@@ -225,7 +225,7 @@ export function JourneyRunEventLog({
             Event log
           </p>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Persisted worker events grouped by stage
+            Persisted research events grouped by stage
           </p>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-tertiary)]">

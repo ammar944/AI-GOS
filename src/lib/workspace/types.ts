@@ -1,4 +1,5 @@
 export type SectionKey =
+  | 'deepResearchProgram'
   | 'industryMarket'
   | 'competitors'
   | 'icpValidation'

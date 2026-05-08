@@ -33,6 +33,7 @@ interface ApprovalGateProps {
 type GateState = 'complete' | 'partial' | 'failure';
 
 const LABEL_BY_SECTION: Record<SectionKey, string> = {
+  deepResearchProgram: 'Research',
   industryMarket: 'Market',
   icpValidation: 'ICP',
   competitors: 'Competitors',

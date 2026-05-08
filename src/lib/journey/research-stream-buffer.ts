@@ -3,6 +3,10 @@ import {
   type JourneyArtifactSection,
   type JourneyArtifactState,
 } from '@/lib/journey/research-artifact-state';
+import type {
+  ResearchJobUpdate,
+  ResearchUpdateMeta,
+} from '@/lib/journey/research-job-activity-core';
 
 export type ResearchStreamingEntry = {
   text: string;
@@ -38,11 +42,11 @@ export interface DeepResearchAgentStepDefinition {
 }
 
 export interface DeepResearchProgressUpdate {
-  at?: string;
-  id?: string;
+  at: string;
+  id: string;
   message: string;
-  phase?: string;
-  meta?: unknown;
+  phase: ResearchJobUpdate['phase'];
+  meta?: ResearchUpdateMeta;
 }
 
 export interface DeepResearchActivityLike {
@@ -109,50 +113,50 @@ export interface BuildDeepResearchAgentStreamStateOptions {
 export const DEEP_RESEARCH_AGENT_STEPS: readonly DeepResearchAgentStepDefinition[] = [
   {
     section: 'deepResearchProgram',
-    name: 'Deep Research Agent',
-    skill: 'web_search + code_execution',
+    name: 'Research Agent',
+    skill: 'source collection + analysis',
     description: 'Builds company corpus and usable profile context.',
   },
   {
     section: 'industryMarket',
     name: 'Market Category Agent',
-    skill: 'ai-gos-market-category-intelligence',
+    skill: 'market intelligence',
     description: 'Category, urgency, market motion.',
   },
   {
     section: 'icpValidation',
     name: 'Buyer / ICP Agent',
-    skill: 'ai-gos-buyer-icp-validation',
+    skill: 'buyer analysis',
     description: 'Buyer segments, triggers, objections.',
   },
   {
     section: 'competitors',
     name: 'Competitive Positioning Agent',
-    skill: 'ai-gos-competitive-positioning',
+    skill: 'competitive analysis',
     description: 'Alternatives, claims, weak spots.',
   },
   {
     section: 'offerAnalysis',
     name: 'Offer Diagnostic Agent',
-    skill: 'ai-gos-offer-performance-diagnostic',
+    skill: 'offer review',
     description: 'Promise, friction, conversion gaps.',
   },
   {
     section: 'keywordIntel',
     name: 'Demand Intent Agent',
-    skill: 'ai-gos-demand-intent-signals',
+    skill: 'demand signals',
     description: 'Search demand and intent clusters.',
   },
   {
     section: 'crossAnalysis',
     name: 'GTM Synthesis Agent',
-    skill: 'ai-gos-gtm-synthesis',
+    skill: 'GTM synthesis',
     description: 'Converts evidence into strategy.',
   },
   {
     section: 'mediaPlan',
     name: 'Activation Plan Agent',
-    skill: 'ai-gos-activation-plan',
+    skill: 'activation planning',
     description: 'Turns strategy into execution moves.',
   },
 ] as const;
@@ -202,19 +206,16 @@ function hasAnyRunEvidence(
   options: BuildDeepResearchAgentStreamStateOptions,
 ): boolean {
   return (
-    Boolean(options.activeRunId) ||
-    options.phase === 'prefilling' ||
-    options.phase === 'workspace' ||
     options.deepResearchStatus !== 'idle' ||
     Object.values(options.researchActivity).some(Boolean) ||
-    Object.values(options.researchResults).some(Boolean)
+    Object.values(options.researchResults).some(Boolean) ||
+    Boolean(options.activeResearchSections?.size)
   );
 }
 
 function getStepStatus(
   step: DeepResearchAgentStepDefinition,
   options: BuildDeepResearchAgentStreamStateOptions,
-  hasRunStarted: boolean,
 ): DeepResearchAgentStepStatus {
   const result = options.researchResults[step.section];
   const activity = options.researchActivity[step.section];
@@ -245,8 +246,7 @@ function getStepStatus(
 
   if (
     step.section === 'deepResearchProgram' &&
-    hasRunStarted &&
-    options.deepResearchStatus !== 'complete'
+    (options.deepResearchStatus === 'starting' || options.deepResearchStatus === 'queued')
   ) {
     return 'running';
   }
@@ -299,6 +299,44 @@ function canRevealNext(status: DeepResearchAgentStepStatus): boolean {
   return status === 'complete' || status === 'partial';
 }
 
+function hasStepEvidence(
+  step: DeepResearchAgentStepDefinition,
+  options: BuildDeepResearchAgentStreamStateOptions,
+): boolean {
+  return Boolean(
+    options.researchActivity[step.section] ||
+      options.researchResults[step.section] ||
+      options.activeResearchSections?.has(step.section) ||
+      (step.section === 'deepResearchProgram' && options.deepResearchStatus !== 'idle'),
+  );
+}
+
+function getAssistantOpening(
+  hasRunStarted: boolean,
+  visibleSteps: readonly DeepResearchAgentStepView[],
+): string {
+  if (!hasRunStarted) {
+    return 'This Journey run is ready. Start a company research command to create the first source-backed artifact.';
+  }
+
+  const activeStep =
+    visibleSteps.find((step) => step.status === 'running') ?? null;
+
+  if (activeStep?.section === 'deepResearchProgram') {
+    return 'Research Agent is checking source-backed company context before writing the first GTM section.';
+  }
+
+  if (activeStep) {
+    return `${activeStep.name} is writing the next GTM report section from the saved research corpus.`;
+  }
+
+  if (visibleSteps.some((step) => step.status === 'complete' || step.status === 'partial')) {
+    return 'Research artifacts are saved. Review the latest evidence-backed output below.';
+  }
+
+  return 'Waiting for research updates for this run.';
+}
+
 export function buildDeepResearchAgentStreamState(
   options: BuildDeepResearchAgentStreamStateOptions,
 ): DeepResearchAgentStreamState {
@@ -307,17 +345,21 @@ export function buildDeepResearchAgentStreamState(
   const bufferedSteps: DeepResearchAgentStepView[] = [];
   const hiddenSections: string[] = [];
   let revealUnlocked = hasRunStarted;
+  const hasDownstreamEvidence = DEEP_RESEARCH_AGENT_STEPS
+    .filter((step) => step.section !== 'deepResearchProgram')
+    .some((step) => hasStepEvidence(step, options));
 
   for (const step of DEEP_RESEARCH_AGENT_STEPS) {
-    const status = getStepStatus(step, options, hasRunStarted);
+    const status = getStepStatus(step, options);
     const stepView = createStepView(step, status, options);
 
     if (step.section === 'deepResearchProgram') {
-      if (hasRunStarted) {
+      if (status === 'idle') {
+        hiddenSections.push(step.section);
+        revealUnlocked = hasDownstreamEvidence;
+      } else {
         visibleSteps.push(stepView);
         revealUnlocked = canRevealNext(status);
-      } else {
-        hiddenSections.push(step.section);
       }
       continue;
     }
@@ -356,8 +398,7 @@ export function buildDeepResearchAgentStreamState(
 
   return {
     hasRunStarted,
-    assistantOpening:
-      'Deep Research Agent starting. I’m checking source-backed company context before writing the first GTM section.',
+    assistantOpening: getAssistantOpening(hasRunStarted, visibleSteps),
     visibleSteps,
     bufferedSteps,
     hiddenSections,

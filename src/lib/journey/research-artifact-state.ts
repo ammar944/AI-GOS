@@ -42,6 +42,7 @@ export interface JourneyArtifactActivityLike {
 export interface JourneyArtifactResultLike {
   status?: string;
   data?: unknown;
+  artifact?: unknown;
 }
 
 export interface JourneyArtifactStepLike {
@@ -60,7 +61,7 @@ export interface BuildJourneyArtifactStateOptions {
 const DEFAULT_ARTIFACT_TITLE = 'Live GTM Research Artifact';
 
 const SECTION_TITLES: Record<string, string> = {
-  deepResearchProgram: 'Deep Research',
+  deepResearchProgram: 'Company Research',
   industryMarket: 'Market Category',
   icpValidation: 'Buyer / ICP',
   competitors: 'Competitive Positioning',
@@ -91,7 +92,22 @@ function readStringArray(value: unknown): string[] {
 }
 
 function getResultData(result: JourneyArtifactResultLike | null | undefined): Record<string, unknown> | null {
-  return isRecord(result?.data) ? result.data : null;
+  const data = isRecord(result?.data) ? result.data : null;
+  const artifact = isRecord(result?.artifact) ? result.artifact : null;
+
+  if (data && artifact) {
+    return { ...data, artifact };
+  }
+
+  if (data) {
+    return data;
+  }
+
+  if (artifact) {
+    return { artifact };
+  }
+
+  return null;
 }
 
 function defaultSectionTitle(section: string, fallbackName: string): string {
@@ -231,6 +247,12 @@ function formatGenericSectionResult(data: Record<string, unknown>): string {
 }
 
 function formatDeepResearchResult(data: Record<string, unknown>): string {
+  const artifact = isRecord(data.artifact) ? data.artifact : null;
+  const artifactMarkdown = readString(artifact?.markdown);
+  if (artifactMarkdown) {
+    return artifactMarkdown;
+  }
+
   const corpus = isRecord(data.corpus) ? data.corpus : data;
   const summary = readString(corpus.researchSummary);
   const evidence = Array.isArray(corpus.evidence) ? corpus.evidence : [];
@@ -280,7 +302,7 @@ function formatResultContent(
 
 function defaultSectionContent(section: string, name: string): string {
   if (section === 'deepResearchProgram') {
-    return 'Deep Research Agent is building the source-backed corpus...';
+    return 'Research Agent is building the source-backed corpus...';
   }
 
   return `${name} is preparing this report section from the saved corpus...`;
@@ -298,6 +320,82 @@ function getArtifactEvents(step: JourneyArtifactStepLike) {
   return sortUpdates(step.activity?.updates)
     .map((update) => parseJourneyArtifactEvent(update, step.section))
     .filter((event): event is JourneyArtifactEvent => event !== null);
+}
+
+function readProgressMeta(
+  update: JourneyArtifactProgressUpdateLike,
+): Record<string, unknown> | null {
+  return isRecord(update.meta) ? update.meta : null;
+}
+
+function formatLiveActivityUpdate(
+  update: JourneyArtifactProgressUpdateLike,
+): string | null {
+  if (update.phase === 'artifact') {
+    return null;
+  }
+
+  const meta = readProgressMeta(update);
+  const url = readString(meta?.url);
+  const pageTitle = readString(meta?.pageTitle);
+  const toolName = readString(meta?.toolName);
+  const message = update.message.trim();
+  if (message.length === 0) {
+    return null;
+  }
+
+  if (url) {
+    return `- Source found: [${pageTitle ?? url}](${url})`;
+  }
+
+  if (toolName === 'web_search' && typeof meta?.resultCount === 'number') {
+    return `- Source search returned ${meta.resultCount} results.`;
+  }
+
+  if (update.phase === 'tool') {
+    return `- ${message}`;
+  }
+
+  if (update.phase === 'analysis') {
+    return `- ${message}`;
+  }
+
+  if (update.phase === 'output') {
+    return `- ${message}`;
+  }
+
+  if (update.phase === 'error') {
+    return `- ${message}`;
+  }
+
+  return null;
+}
+
+function formatLiveActivityContent(
+  step: JourneyArtifactStepLike,
+): string {
+  const lines = sortUpdates(step.activity?.updates)
+    .map(formatLiveActivityUpdate)
+    .filter((line): line is string => Boolean(line));
+
+  if (lines.length === 0) {
+    return '';
+  }
+
+  return `### Live Research Activity\n${lines.slice(-18).join('\n')}`;
+}
+
+function collectActivitySourceUrls(
+  step: JourneyArtifactStepLike,
+  urls: SourceUrls,
+): void {
+  for (const update of step.activity?.updates ?? []) {
+    const meta = readProgressMeta(update);
+    const url = readString(meta?.url);
+    if (url && /^https?:\/\//iu.test(url)) {
+      urls.add(url);
+    }
+  }
 }
 
 function applyArtifactEvents(
@@ -359,21 +457,36 @@ function buildArtifactSection(step: JourneyArtifactStepLike): {
   }
 
   const data = getResultData(step.result);
+  const resultArtifact = isRecord(data?.artifact) ? data.artifact : null;
   const fallbackTitle =
-    readString(data?.sectionTitle) ?? defaultSectionTitle(step.section, step.name);
+    readString(resultArtifact?.title) ??
+    readString(data?.sectionTitle) ??
+    defaultSectionTitle(step.section, step.name);
   const eventState = applyArtifactEvents(step, fallbackTitle);
   const resultContent =
     step.status === 'complete' || step.status === 'partial'
       ? formatResultContent(step.section, data)
       : '';
+  const liveActivityContent =
+    step.status === 'running' ? formatLiveActivityContent(step) : '';
+  const eventContent = eventState.content.trim();
+  const runningBaseContent =
+    step.status === 'running' && eventContent.length === 0
+      ? defaultSectionContent(step.section, step.name)
+      : eventContent;
+  const streamingContent = [
+    runningBaseContent,
+    liveActivityContent,
+  ].filter((part) => part.length > 0).join('\n\n');
   const content =
     resultContent.trim().length > 0
       ? resultContent
-      : eventState.content.trim().length > 0
-        ? eventState.content
+      : streamingContent.length > 0
+        ? streamingContent
         : defaultSectionContent(step.section, step.name);
   const sourceUrls = new Set<string>();
   collectSourceUrls(data, sourceUrls);
+  collectActivitySourceUrls(step, sourceUrls);
 
   return {
     artifactTitle: eventState.artifactTitle,
@@ -430,7 +543,6 @@ function getActiveArtifactSection(
 }
 
 export function buildJourneyArtifactState({
-  activeRunId,
   visibleSteps,
 }: BuildJourneyArtifactStateOptions): JourneyArtifactState {
   const sections: JourneyArtifactSection[] = [];
@@ -446,16 +558,6 @@ export function buildJourneyArtifactState({
     if (built.artifactTitle) {
       title = built.artifactTitle;
     }
-  }
-
-  if (sections.length === 0 && activeRunId) {
-    sections.push({
-      section: 'deepResearchProgram',
-      title: SECTION_TITLES.deepResearchProgram,
-      status: 'drafting',
-      content: defaultSectionContent('deepResearchProgram', 'Deep Research Agent'),
-      sourceUrls: [],
-    });
   }
 
   return {

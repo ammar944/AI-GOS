@@ -568,6 +568,11 @@ export async function runStreamedToolRunner(
     onProgress?: RunnerProgressReporter;
     synthesisMessage?: string;
     maxToolIterations?: number;
+    onTextSnapshot?: (snapshot: string) => void;
+    onWebSearchSource?: (source: {
+      title: string;
+      url: string;
+    }) => void;
     onCodeExecutionOutputFile?: (fileId: string) => void;
     onCodeExecutionStdout?: (stdout: string) => void;
   },
@@ -636,6 +641,14 @@ export async function runStreamedToolRunner(
         seenWebSearchResultIds.add(signature);
         const results = Array.isArray(resultBlock.content) ? resultBlock.content : [];
         const resultCount = results.length;
+        for (const result of results) {
+          if (typeof result.url === 'string' && result.url.trim().length > 0) {
+            options.onWebSearchSource?.({
+              title: sanitizeForJson(normalizeWhitespace(result.title ?? result.url)),
+              url: result.url,
+            });
+          }
+        }
         for (const message of describeWebSearchResultBlock(resultBlock)) {
           const sourceMeta: ProgressMeta = { toolName: 'web_search', resultCount };
           // Extract URL from source messages (format: "source: title (host)")
@@ -695,6 +708,8 @@ export async function runStreamedToolRunner(
       if (snapshot.trim().length === 0) {
         return;
       }
+
+      options.onTextSnapshot?.(snapshot);
 
       if (!sawAnalysisText) {
         sawAnalysisText = true;

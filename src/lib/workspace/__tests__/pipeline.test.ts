@@ -6,24 +6,26 @@ import {
   isFinalSection,
 } from '../pipeline';
 
-// Pipeline order runs synthesis after competitor intel, then turns that context
-// into keyword intelligence before offer and media-plan execution.
-
 describe('SECTION_PIPELINE', () => {
-  it('has 7 sections in correct order', () => {
+  it('has 8 sections in correct order', () => {
     expect(SECTION_PIPELINE).toEqual([
+      'deepResearchProgram',
       'industryMarket',
       'icpValidation',
       'competitors',
+      'offerAnalysis',
       'crossAnalysis',
       'keywordIntel',
-      'offerAnalysis',
       'mediaPlan',
     ]);
   });
 });
 
 describe('getNextSection', () => {
+  it('returns industryMarket after deepResearchProgram', () => {
+    expect(getNextSection('deepResearchProgram')).toBe('industryMarket');
+  });
+
   it('returns icpValidation after industryMarket', () => {
     expect(getNextSection('industryMarket')).toBe('icpValidation');
   });
@@ -32,8 +34,8 @@ describe('getNextSection', () => {
     expect(getNextSection('icpValidation')).toBe('competitors');
   });
 
-  it('returns crossAnalysis after competitors', () => {
-    expect(getNextSection('competitors')).toBe('crossAnalysis');
+  it('returns offerAnalysis after competitors', () => {
+    expect(getNextSection('competitors')).toBe('offerAnalysis');
   });
 
   it('returns null after mediaPlan (last section)', () => {
@@ -45,33 +47,41 @@ describe('getNextSection', () => {
   });
 
   it('returns offerAnalysis after keywordIntel', () => {
-    expect(getNextSection('keywordIntel')).toBe('offerAnalysis');
+    expect(getNextSection('offerAnalysis')).toBe('crossAnalysis');
   });
 
-  it('returns mediaPlan after offerAnalysis', () => {
-    expect(getNextSection('offerAnalysis')).toBe('mediaPlan');
+  it('returns mediaPlan after keywordIntel', () => {
+    expect(getNextSection('keywordIntel')).toBe('mediaPlan');
   });
 });
 
 describe('getSectionIndex', () => {
-  it('returns 0 for industryMarket', () => {
-    expect(getSectionIndex('industryMarket')).toBe(0);
+  it('returns 0 for deepResearchProgram', () => {
+    expect(getSectionIndex('deepResearchProgram')).toBe(0);
   });
 
-  it('returns 1 for icpValidation', () => {
-    expect(getSectionIndex('icpValidation')).toBe(1);
+  it('returns 1 for industryMarket', () => {
+    expect(getSectionIndex('industryMarket')).toBe(1);
   });
 
-  it('returns 2 for competitors', () => {
-    expect(getSectionIndex('competitors')).toBe(2);
+  it('returns 2 for icpValidation', () => {
+    expect(getSectionIndex('icpValidation')).toBe(2);
   });
 
-  it('returns 3 for crossAnalysis', () => {
-    expect(getSectionIndex('crossAnalysis')).toBe(3);
+  it('returns 3 for competitors', () => {
+    expect(getSectionIndex('competitors')).toBe(3);
   });
 
-  it('returns 6 for mediaPlan', () => {
-    expect(getSectionIndex('mediaPlan')).toBe(6);
+  it('returns 4 for offerAnalysis', () => {
+    expect(getSectionIndex('offerAnalysis')).toBe(4);
+  });
+
+  it('returns 5 for crossAnalysis', () => {
+    expect(getSectionIndex('crossAnalysis')).toBe(5);
+  });
+
+  it('returns 7 for mediaPlan', () => {
+    expect(getSectionIndex('mediaPlan')).toBe(7);
   });
 });
 

@@ -353,14 +353,14 @@ export function RightRail({ className }: RightRailProps) {
               'text-[10px] font-mono animate-pulse',
               deepResearch ? 'text-[var(--text-secondary)]' : 'text-[var(--text-secondary)]',
             )}>
-              {deepResearch ? 'deep thinking...' : 'thinking...'}
+              {deepResearch ? 'thinking more...' : 'thinking...'}
             </span>
           )}
-          {/* Deep Research toggle */}
+          {/* Reasoning depth toggle */}
           <button
             type="button"
             onClick={() => setDeepResearch((v) => !v)}
-            title={deepResearch ? 'Deep Research ON — extended reasoning' : 'Deep Research OFF — standard mode'}
+            title={deepResearch ? 'Extended reasoning ON' : 'Extended reasoning OFF'}
             className={cn(
               'rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wider transition-all',
               deepResearch
@@ -368,7 +368,7 @@ export function RightRail({ className }: RightRailProps) {
                 : 'text-[var(--text-quaternary)] hover:text-[var(--text-tertiary)] hover:bg-white/5',
             )}
           >
-            {deepResearch ? 'Deep' : 'Deep'}
+            Depth
           </button>
         </div>
       </div>

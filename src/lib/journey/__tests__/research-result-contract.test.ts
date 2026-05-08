@@ -6,6 +6,51 @@ import {
 } from '../research-result-contract';
 
 describe('research-result-contract', () => {
+  it('preserves Deep Research results and their durable artifact payload', () => {
+    const result = normalizeStoredResearchResults(
+      {
+        deepResearchProgram: {
+          status: 'complete',
+          section: 'deepResearchProgram',
+          durationMs: 24000,
+          artifact: {
+            title: 'Airtable GTM Research',
+            markdown: '## Deep Research\n\nAirtable sells a connected app platform.',
+          },
+          data: {
+            corpus: {
+              company: 'Airtable',
+              researchSummary: 'Airtable sells a connected app platform.',
+            },
+            onboardingFields: {
+              companyName: {
+                value: 'Airtable',
+                confidence: 95,
+                sourceUrl: 'https://airtable.com',
+                reasoning: 'Verified from company site.',
+              },
+            },
+          },
+        },
+      },
+      'boundary',
+    );
+
+    expect(result.deepResearchProgram).toMatchObject({
+      status: 'complete',
+      section: 'deepResearchProgram',
+      artifact: {
+        title: 'Airtable GTM Research',
+        markdown: expect.stringContaining('connected app platform'),
+      },
+      data: {
+        corpus: {
+          company: 'Airtable',
+        },
+      },
+    });
+  });
+
   it('normalizes legacy section ids and adds provenance metadata for valid artifacts', () => {
     const result = normalizeStoredResearchResult('crossAnalysis', {
       status: 'complete',

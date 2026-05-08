@@ -41,6 +41,7 @@ describe('useResearchRealtime', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockFetch.mockReset();
   });
 
@@ -161,6 +162,38 @@ describe('useResearchRealtime', () => {
         updatedAt: '2026-03-12T08:59:59.000Z',
       },
     );
+  });
+
+  it('pauses polling on auth failures instead of raising console errors', async () => {
+    const onSectionComplete = vi.fn();
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: 'Unauthorized',
+      }),
+    });
+
+    renderHook(() =>
+      useResearchRealtime({
+        userId: 'user-123',
+        activeRunId: 'run-123',
+        onSectionComplete,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(console.warn).toHaveBeenCalledWith(
+        '[journey] Research result polling paused until the session is verified:',
+        {
+          message: 'Unauthorized',
+          status: 401,
+        },
+      );
+    });
+    expect(console.error).not.toHaveBeenCalled();
+    expect(onSectionComplete).not.toHaveBeenCalled();
   });
 });
 

@@ -153,9 +153,9 @@ export function JourneyDebugPanel({
           )}
         </DebugBlock>
 
-        <DebugBlock title="Tool Timeline">
+        <DebugBlock title="Activity Timeline">
           {toolTimeline.length === 0 ? (
-            <EmptyLine text="No tool parts in the current message history." />
+            <EmptyLine text="No activity parts in the current message history." />
           ) : (
             <div className="space-y-2">
               {toolTimeline.map((tool, index) => (
@@ -172,7 +172,7 @@ export function JourneyDebugPanel({
                   </summary>
                   <div className="mt-2 space-y-2">
                     <DebugRow label="Message" value={tool.messageId} mono />
-                    <DebugRow label="Tool call" value={tool.toolCallId || '-'} mono />
+                    <DebugRow label="Call ID" value={tool.toolCallId || '-'} mono />
                     {tool.errorText ? <DebugRow label="Error" value={tool.errorText} mono /> : null}
                     <CodeDump label="Input" value={formatJson(tool.input)} />
                     <CodeDump label="Output" value={formatJson(tool.output)} />

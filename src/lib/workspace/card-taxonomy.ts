@@ -130,6 +130,87 @@ function makeCard(
   };
 }
 
+function parseDeepResearchCorpusCards(section: SectionKey, data: Record<string, unknown>): CardState[] {
+  const cards: CardState[] = [];
+  const corpus = asRecord(data.corpus);
+  const onboardingFields = asRecord(data.onboardingFields);
+
+  const company = asString(corpus?.company);
+  const category = asString(corpus?.category);
+  const researchSummary = asString(corpus?.researchSummary);
+
+  if (company || researchSummary) {
+    const lines: string[] = [];
+    if (company) lines.push(`**Company:** ${company}`);
+    if (category) lines.push(`**Category:** ${category}`);
+    if (researchSummary) lines.push(researchSummary);
+    cards.push(makeCard(section, 'prose-card', company ? `${company} Research` : 'Company Research', {
+      text: lines.join('\n\n'),
+    }, 'Source-backed company context from the deep research corpus'));
+  }
+
+  const sources = Array.isArray(corpus?.sources) ? (corpus!.sources as Record<string, unknown>[]) : [];
+  if (sources.length > 0) {
+    const sourceItems = sources
+      .map((s) => {
+        const title = asString(s.title);
+        const url = asString(s.url);
+        const why = asString(s.whyItMatters);
+        if (!title) return null;
+        return url ? `[${title}](${url})${why ? ` — ${why}` : ''}` : `${title}${why ? ` — ${why}` : ''}`;
+      })
+      .filter((s): s is string => s !== null);
+    if (sourceItems.length > 0) {
+      cards.push(makeCard(section, 'bullet-list', 'Sources', {
+        items: sourceItems,
+        accent: 'var(--accent-blue)',
+      }, `${sourceItems.length} sources gathered for the research corpus`));
+    }
+  }
+
+  const evidence = Array.isArray(corpus?.evidence) ? (corpus!.evidence as Record<string, unknown>[]) : [];
+  const evidenceItems = evidence
+    .map((e) => {
+      const claim = asString(e.claim);
+      const source = asString(e.source);
+      const quote = asString(e.quote);
+      const confidence = asNumber(e.confidence);
+      if (!claim) return null;
+      const parts: string[] = [claim];
+      if (quote) parts.push(`> "${quote}"`);
+      if (source) parts.push(`— ${source}${confidence != null ? ` (confidence: ${confidence})` : ''}`);
+      return parts.join('\n');
+    })
+    .filter((e): e is string => e !== null);
+
+  if (evidenceItems.length > 0) {
+    cards.push(makeCard(section, 'insight-card', 'Evidence', {
+      insights: evidenceItems.slice(0, 8).map((insight) => ({
+        insight,
+        source: 'Deep Research Agent',
+      })),
+    }, 'Evidence-backed claims with source attribution'));
+  }
+
+  if (onboardingFields) {
+    const fieldEntries = Object.entries(onboardingFields);
+    const populated = fieldEntries.filter(([, v]) => {
+      const field = asRecord(v);
+      return field && asString(field.value) != null;
+    });
+
+    cards.push(makeCard(section, 'stat-grid', 'Onboarding Fields', {
+      stats: [
+        { label: 'Fields Extracted', value: String(populated.length) },
+        { label: 'Total Fields', value: String(fieldEntries.length) },
+      ],
+      layout: 'definition',
+    }, `${populated.length} of ${fieldEntries.length} onboarding fields extracted from research`));
+  }
+
+  return cards;
+}
+
 function parseIndustryMarket(
   data: Record<string, unknown>,
   opportunityIntel?: Record<string, unknown>,
@@ -1337,6 +1418,8 @@ export function parseResearchToCards(
   }
 
   switch (section) {
+    case 'deepResearchProgram':
+      return parseDeepResearchCorpusCards(section, data);
     case 'industryMarket':
       return parseIndustryMarket(data, intelData?.opportunityIntel);
     case 'competitors':

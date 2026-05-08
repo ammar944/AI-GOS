@@ -15,7 +15,7 @@ export function ReportSources({ sources }: ReportSourcesProps) {
           <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/26">pending evidence</span>
         </div>
         <p className="mt-3 max-w-xl text-xs leading-5 text-white/36">
-          Source links will appear here once the research worker emits visited URLs or the report blocks include citations.
+          Source links will appear here once the research run records source URLs or the report blocks include citations.
         </p>
       </section>
     );

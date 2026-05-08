@@ -37,6 +37,10 @@ export interface StoredResearchResult<
   status: StoredResearchResultStatus;
   section: TSection;
   data?: TData;
+  artifact?: {
+    title: string;
+    markdown: string;
+  };
   error?: string;
   durationMs: number;
   rawText?: string;
@@ -56,9 +60,15 @@ type BoundaryStoredResearchResult = StoredResearchResult<
   string
 >;
 
+type DeepResearchStoredResult = StoredResearchResult<
+  Record<string, unknown>,
+  'deepResearchProgram'
+>;
+
 type NormalizedResearchResult =
   | CanonicalStoredResearchResult
-  | BoundaryStoredResearchResult;
+  | BoundaryStoredResearchResult
+  | DeepResearchStoredResult;
 
 type ResultTarget = 'canonical' | 'boundary';
 
@@ -69,6 +79,7 @@ const WRAPPER_KEYS = new Set([
   'error',
   'durationMs',
   'rawText',
+  'artifact',
   'validation',
   'citations',
   'sources',
@@ -128,6 +139,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0
+    ? value
+    : undefined;
+}
+
+function asStoredResearchResultStatus(
+  value: unknown,
+): StoredResearchResultStatus | undefined {
+  return value === 'complete' || value === 'partial' || value === 'error'
     ? value
     : undefined;
 }
@@ -447,12 +466,100 @@ function projectResult<T extends CanonicalStoredResearchResult>(
   };
 }
 
+function isDeepResearchProgramSection(
+  section: unknown,
+  result: Record<string, unknown> | null,
+): boolean {
+  return result?.section === 'deepResearchProgram' || section === 'deepResearchProgram';
+}
+
+function readArtifactPayload(
+  value: unknown,
+): DeepResearchStoredResult['artifact'] | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const title = asString(value.title);
+  const markdown = asString(value.markdown);
+  if (!title || !markdown) {
+    return undefined;
+  }
+
+  return { title, markdown };
+}
+
+function normalizeDeepResearchProgramResult(
+  section: unknown,
+  candidate: unknown,
+): DeepResearchStoredResult | null {
+  const result = isRecord(candidate) ? candidate : null;
+  if (!isDeepResearchProgramSection(section, result)) {
+    return null;
+  }
+
+  if (!result) {
+    return {
+      status: 'error',
+      section: 'deepResearchProgram',
+      durationMs: 0,
+      error: 'Company research result is not an object payload.',
+    };
+  }
+
+  const payloadRecord = getPayloadRecord(result);
+  const explicitStatus = asStoredResearchResultStatus(result.status);
+  const status: StoredResearchResultStatus = explicitStatus ??
+    (payloadRecord
+      ? 'complete'
+      : 'error');
+  const durationMs = asDurationMs(result.durationMs);
+  const rawText = asString(result.rawText);
+  const { data: candidateData, metadata } = payloadRecord
+    ? splitPayloadMetadata(payloadRecord)
+    : { data: {}, metadata: {} };
+  const metadataRecord = {
+    ...metadata,
+    citations: result.citations ?? metadata.citations,
+    sources: result.sources ?? metadata.sources,
+    provenance: result.provenance ?? metadata.provenance,
+    content: rawText,
+  };
+  const citations = getResearchCitations(metadataRecord);
+  const provenance = getResearchProvenance(metadataRecord, citations);
+
+  return {
+    status,
+    section: 'deepResearchProgram',
+    durationMs,
+    data: candidateData,
+    artifact:
+      readArtifactPayload(result.artifact) ??
+      readArtifactPayload(candidateData.artifact),
+    rawText,
+    citations,
+    provenance,
+    telemetry: asTelemetry(result.telemetry),
+    error:
+      status === 'error'
+        ? asString(result.error) ?? 'Company research failed.'
+        : status === 'partial'
+          ? asString(result.error) ?? 'Company research artifact requires review.'
+          : undefined,
+  };
+}
+
 export function normalizeStoredResearchResult(
   section: unknown,
   candidate: unknown,
   target: ResultTarget = 'canonical',
 ): NormalizedResearchResult | null {
   const result = isRecord(candidate) ? candidate : null;
+  const deepResearchResult = normalizeDeepResearchProgramResult(section, candidate);
+  if (deepResearchResult) {
+    return deepResearchResult;
+  }
+
   const canonicalSection = getCanonicalSectionId(section, result);
 
   if (!canonicalSection) {
@@ -480,18 +587,14 @@ export function normalizeStoredResearchResult(
     );
   }
 
-  const hasExplicitStatus =
-    result.status === 'complete' ||
-    result.status === 'partial' ||
-    result.status === 'error';
   const durationMs = asDurationMs(result.durationMs);
   const rawText = asString(result.rawText);
   const payloadRecord = getPayloadRecord(result);
-  const status = hasExplicitStatus
-    ? result.status
-    : payloadRecord
+  const explicitStatus = asStoredResearchResultStatus(result.status);
+  const status = explicitStatus ??
+    (payloadRecord
       ? 'complete'
-      : 'error';
+      : 'error');
   const { data: candidateData, metadata } = payloadRecord
     ? splitPayloadMetadata(payloadRecord)
     : { data: {}, metadata: {} };

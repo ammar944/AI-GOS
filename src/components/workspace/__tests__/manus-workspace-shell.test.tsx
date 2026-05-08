@@ -5,6 +5,7 @@ import { ManusWorkspaceShell } from '../manus-workspace-shell';
 import type { SectionKey, SectionPhase, WorkspaceState } from '@/lib/workspace/types';
 
 const sectionStates: Record<SectionKey, SectionPhase> = {
+  deepResearchProgram: 'approved',
   industryMarket: 'approved',
   icpValidation: 'researching',
   competitors: 'queued',

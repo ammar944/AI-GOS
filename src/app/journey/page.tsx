@@ -31,6 +31,7 @@ import type { OnboardingState } from '@/lib/journey/session-state';
 import type { TerminalLogEntry } from '@/components/journey/terminal-stream';
 import {
   createJourneyGuardedFetch,
+  formatJourneyErrorMessage,
 } from '@/lib/journey/http';
 import {
   createJourneyRunId,
@@ -59,6 +60,43 @@ const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'offerAnalysis',
 ]);
 
+const JOURNEY_REPORT_SECTION_ORDER = [
+  'industryMarket',
+  'icpValidation',
+  'competitors',
+  'offerAnalysis',
+  'keywordIntel',
+  'crossAnalysis',
+  'mediaPlan',
+] as const;
+
+function isResearchSectionComplete(
+  result: ResearchSectionResult | null | undefined,
+): boolean {
+  return result?.status === 'complete';
+}
+
+function getActiveJourneyReportSection(
+  activeSections: ReadonlySet<string>,
+): string | null {
+  return JOURNEY_REPORT_SECTION_ORDER.find((section) =>
+    activeSections.has(section),
+  ) ?? null;
+}
+
+function getNextPendingJourneyReportSection(
+  results: Record<string, ResearchSectionResult | null>,
+  activeSections: ReadonlySet<string>,
+): string | null {
+  if (getActiveJourneyReportSection(activeSections)) {
+    return null;
+  }
+
+  return JOURNEY_REPORT_SECTION_ORDER.find((section) =>
+    !isResearchSectionComplete(results[section]),
+  ) ?? null;
+}
+
 type JourneyPhaseView = 'welcome' | 'prefilling' | 'resume' | 'workspace';
 type LinkDeepResearchStatus = 'idle' | 'starting' | 'queued' | 'complete' | 'error';
 
@@ -82,7 +120,16 @@ function isJourneyPhaseView(value: string | null): value is JourneyPhaseView {
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return formatJourneyErrorMessage(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+class JourneyLaunchInfrastructureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'JourneyLaunchInfrastructureError';
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -134,11 +181,12 @@ async function fetchDeepResearchOnboardingFields(
 ): Promise<Record<string, string>> {
   const response = await fetch(
     `/api/journey/session?runId=${encodeURIComponent(runId)}`,
+    { credentials: 'same-origin' },
   );
 
   if (!response.ok) {
     throw new Error(
-      `Failed to load deep research onboarding fields for run ${runId}: HTTP ${response.status}`,
+      `Failed to load company research onboarding fields for run ${runId}: HTTP ${response.status}`,
     );
   }
 
@@ -158,11 +206,16 @@ async function waitForResearchSectionComplete(
   for (let attempt = 0; attempt < LINK_DEEP_RESEARCH_MAX_POLLS; attempt++) {
     const response = await fetch(
       `/api/journey/research-status?runId=${encodeURIComponent(runId)}&section=${encodeURIComponent(section)}`,
+      {
+        credentials: 'same-origin',
+      },
     );
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to read ${section} status for run ${runId}: HTTP ${response.status}`,
+      throw new JourneyLaunchInfrastructureError(
+        response.status === 401
+          ? 'Your session expired. Refresh the page and try again.'
+          : `Failed to read ${section} status for run ${runId}: HTTP ${response.status}`,
       );
     }
 
@@ -182,7 +235,7 @@ async function waitForResearchSectionComplete(
     if (payload.status === 'partial') {
       throw new Error(
         payload.error ??
-          `${section} returned a partial result for run ${runId}; workspace launch requires complete deep research fields`,
+          `${section} returned a partial result for run ${runId}; workspace launch requires complete company research fields`,
       );
     }
 
@@ -219,9 +272,12 @@ function JourneyPageContent() {
   const journeyPhaseRef = useRef<JourneyPhaseView>('welcome');
   // Guard ref to prevent double workspace transitions.
   const hasTransitionedToWorkspaceRef = useRef(false);
+  const workspaceTransitionInFlightRef = useRef(false);
+  const loggedDeepResearchReadyRef = useRef(false);
   const loggedResearchStartsRef = useRef<Set<string>>(new Set());
   const loggedResearchErrorsRef = useRef<Set<string>>(new Set());
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
+  const dispatchingSectionsRef = useRef<Set<string>>(new Set());
 
   // Journey phase: controls which view renders.
   // Session storage restores after hydration so the first server/client render matches.
@@ -272,7 +328,7 @@ function JourneyPageContent() {
   const [realtimeResetSignal, setRealtimeResetSignal] = useState(0);
   const [researchResetAt, setResearchResetAt] = useState<string | null>(null);
   // Clear stale research data from Supabase and reset local state.
-  // Called when starting a new Journey workspace from a durable deep research profile.
+  // Called when starting a new Journey workspace from a durable company research profile.
   const resetResearchState = useCallback((userId: string, nextRunId: string) => {
     const resetAt = new Date().toISOString();
 
@@ -285,9 +341,13 @@ function JourneyPageContent() {
     setArtifactFeedbackSection(null);
     setRecentlyApprovedArtifactSection(null);
     artifactAutoOpenedSectionsRef.current = new Set();
+    hasTransitionedToWorkspaceRef.current = false;
+    workspaceTransitionInFlightRef.current = false;
+    loggedDeepResearchReadyRef.current = false;
     loggedResearchStartsRef.current = new Set();
     loggedResearchErrorsRef.current = new Set();
     loggedResearchTimeoutFallbacksRef.current = new Set();
+    dispatchingSectionsRef.current = new Set();
 
     // 2. Reset the Realtime hook's internal seen-sections tracking
     setResearchResetAt(resetAt);
@@ -457,7 +517,11 @@ function JourneyPageContent() {
   }, []);
 
   // Supabase Realtime — receive async research results
-  const { user } = useUser();
+  const {
+    isLoaded: isUserLoaded,
+    isSignedIn,
+    user,
+  } = useUser();
 
   const beginFreshJourneyRun = useCallback((): string => {
     const nextRunId = createJourneyRunId();
@@ -484,6 +548,15 @@ function JourneyPageContent() {
   const addLog = useCallback((level: TerminalLogEntry['level'], message: string) => {
     setTerminalLogs((prev) => [...prev.slice(-50), { level, message, timestamp: Date.now() }]);
   }, []);
+
+  const logDeepResearchReady = useCallback(() => {
+    if (loggedDeepResearchReadyRef.current) {
+      return;
+    }
+
+    loggedDeepResearchReadyRef.current = true;
+    addLog('ok', 'Company research corpus ready for section synthesis');
+  }, [addLog]);
 
   const markResearchQueued = useCallback(
     (section: string) => {
@@ -557,7 +630,10 @@ function JourneyPageContent() {
 
   const enterWorkspaceFromDeepResearchFields = useCallback(
     async (runId: string, fields: Record<string, string>): Promise<void> => {
-      if (hasTransitionedToWorkspaceRef.current) {
+      if (
+        hasTransitionedToWorkspaceRef.current ||
+        workspaceTransitionInFlightRef.current
+      ) {
         return;
       }
 
@@ -581,10 +657,11 @@ function JourneyPageContent() {
 
       if (Object.keys(acceptedJourneyFields).length === 0) {
         throw new Error(
-          `Cannot open Journey workspace for run ${runId}: deep research returned no usable onboarding fields`,
+          `Cannot open Journey workspace for run ${runId}: company research returned no usable onboarding fields`,
         );
       }
 
+      workspaceTransitionInFlightRef.current = true;
       const displayName = acceptedJourneyFields.companyName || 'this company';
       const orderedFieldKeys = Object.keys(acceptedJourneyFields);
       const context = buildJourneyResearchContext(
@@ -593,15 +670,27 @@ function JourneyPageContent() {
       );
       const guardedFetch = createJourneyGuardedFetch('Journey');
 
-      await guardedFetch('/api/journey/session', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clearResearch: false,
-          fields: acceptedJourneyFields,
-          activeRunId: runId,
-        }),
-      });
+      try {
+        await guardedFetch('/api/journey/session', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clearResearch: false,
+            fields: acceptedJourneyFields,
+            activeRunId: runId,
+          }),
+        });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        console.warn('[journey] Failed to persist company research workspace context', {
+          runId,
+          error: message,
+        });
+        addLog(
+          'warn',
+          `Workspace context persistence failed for run ${runId}: ${message}. Continuing with local company research fields.`,
+        );
+      }
 
       setResumeTransportState(acceptedJourneyFields);
       resumeTransportStateRef.current = acceptedJourneyFields;
@@ -611,13 +700,27 @@ function JourneyPageContent() {
       setJourneyPhase('workspace');
       addLog(
         'ok',
-        'Opened workspace from deep research context',
+        'Opened workspace from company research context',
       );
 
-      const result = await dispatchResearchSection('industryMarket', runId, context);
+      dispatchingSectionsRef.current.add('industryMarket');
+      markResearchQueued('industryMarket');
+      let result: Awaited<ReturnType<typeof dispatchResearchSection>>;
+      try {
+        result = await dispatchResearchSection('industryMarket', runId, context);
+      } finally {
+        dispatchingSectionsRef.current.delete('industryMarket');
+        workspaceTransitionInFlightRef.current = false;
+      }
       if (result.status === 'error') {
         const errorMessage =
           result.error ?? `Market & Category dispatch failed for run ${runId}`;
+        setActiveResearch((prev) => {
+          if (!prev.has('industryMarket')) return prev;
+          const next = new Set(prev);
+          next.delete('industryMarket');
+          return next;
+        });
         setResearchResults((prev) => ({
           ...prev,
           industryMarket: {
@@ -631,7 +734,6 @@ function JourneyPageContent() {
         return;
       }
 
-      markResearchQueued('industryMarket');
       addLog(
         'run',
         `Market & Category synthesis queued from deep corpus (job: ${result.jobId ?? 'unknown'})`,
@@ -647,6 +749,7 @@ function JourneyPageContent() {
 
   const markResearchDispatchError = useCallback(
     (section: string, errorMessage: string) => {
+      dispatchingSectionsRef.current.delete(section);
       const activity = researchJobActivity[section];
       const shouldIgnore = shouldIgnoreDispatchError({
         errorMessage,
@@ -731,6 +834,76 @@ function JourneyPageContent() {
     ],
   );
 
+  const dispatchJourneyReportSection = useCallback(
+    (section: string) => {
+      const runId = activeRunIdRef.current;
+      const fields = resumeTransportStateRef.current ?? deepResearchOnboardingFields;
+      const fieldRecord = isRecord(fields)
+        ? Object.fromEntries(
+            Object.entries(fields).filter(([, value]) => typeof value === 'string'),
+          ) as Record<string, string>
+        : {};
+
+      if (!runId) {
+        setLinkDeepResearchError('Start a Journey run before dispatching the next section.');
+        return;
+      }
+
+      if (activeResearch.has(section) || dispatchingSectionsRef.current.has(section)) {
+        return;
+      }
+
+      if (isResearchSectionComplete(researchResults[section])) {
+        return;
+      }
+
+      if (Object.keys(fieldRecord).length === 0) {
+        setLinkDeepResearchError('Company research context is required before running report sections.');
+        return;
+      }
+
+      dispatchingSectionsRef.current.add(section);
+      markResearchQueued(section);
+      const context = buildJourneyResearchContext(fieldRecord, Object.keys(fieldRecord));
+
+      void dispatchResearchSection(section, runId, context)
+        .then((dispatchResult) => {
+          dispatchingSectionsRef.current.delete(section);
+          if (dispatchResult.status === 'error') {
+            markResearchDispatchError(
+              section,
+              dispatchResult.error ?? `${SECTION_META[section] ?? section} dispatch failed`,
+            );
+            return;
+          }
+          markResearchQueued(section);
+        })
+        .catch((error: unknown) => {
+          dispatchingSectionsRef.current.delete(section);
+          markResearchDispatchError(section, getErrorMessage(error));
+        });
+    },
+    [
+      activeResearch,
+      deepResearchOnboardingFields,
+      markResearchDispatchError,
+      markResearchQueued,
+      researchResults,
+    ],
+  );
+
+  const handleRunNextSection = useCallback(() => {
+    const nextSection = getNextPendingJourneyReportSection(
+      researchResults,
+      activeResearch,
+    );
+    if (!nextSection) {
+      return;
+    }
+
+    dispatchJourneyReportSection(nextSection);
+  }, [activeResearch, dispatchJourneyReportSection, researchResults]);
+
   // Track research tool dispatch from the agent stream → mark sections as active/loading
   useEffect(() => {
     const dispatchStates = extractResearchDispatchState(messages);
@@ -814,6 +987,7 @@ function JourneyPageContent() {
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
+      dispatchingSectionsRef.current.delete(section);
       // Track research completion (always update state regardless of phase)
       setResearchResults((prev) => ({ ...prev, [section]: result }));
       setActiveResearch((prev) => {
@@ -869,62 +1043,64 @@ function JourneyPageContent() {
       }
 
       if (journeyPhaseRef.current === 'workspace') {
-        const runId = activeRunIdRef.current;
-        const fields = resumeTransportStateRef.current ?? deepResearchOnboardingFields;
-        const fieldRecord = isRecord(fields) ? Object.fromEntries(
-          Object.entries(fields).filter(([, value]) => typeof value === 'string'),
-        ) as Record<string, string> : {};
         const queuedOrComplete = {
           ...researchResults,
           [section]: result,
         };
-        const queueAgentSection = (nextSection: string): void => {
-          if (!runId || activeResearch.has(nextSection) || queuedOrComplete[nextSection]) {
-            return;
-          }
+        const nextActiveResearch = new Set(activeResearch);
+        nextActiveResearch.delete(section);
+        const nextSection = getNextPendingJourneyReportSection(
+          queuedOrComplete,
+          nextActiveResearch,
+        );
 
-          const context = buildJourneyResearchContext(fieldRecord, Object.keys(fieldRecord));
-          void dispatchResearchSection(nextSection, runId, context)
-            .then((dispatchResult) => {
-              if (dispatchResult.status === 'error') {
-                markResearchDispatchError(
-                  nextSection,
-                  dispatchResult.error ?? `${SECTION_META[nextSection] ?? nextSection} dispatch failed`,
-                );
-                return;
-              }
-              markResearchQueued(nextSection);
-            })
-            .catch((error: unknown) => {
-              markResearchDispatchError(nextSection, getErrorMessage(error));
-            });
-        };
-
-        if (section === 'industryMarket') {
-          queueAgentSection('competitors');
-          queueAgentSection('icpValidation');
-        }
-        if (section === 'competitors') {
-          queueAgentSection('offerAnalysis');
-        }
-        if (
-          ['industryMarket', 'competitors', 'icpValidation', 'offerAnalysis'].includes(section) &&
-          ['industryMarket', 'competitors', 'icpValidation', 'offerAnalysis'].every(
-            (requiredSection) => queuedOrComplete[requiredSection]?.status === 'complete',
-          )
-        ) {
-          queueAgentSection('crossAnalysis');
-        }
-        if (section === 'crossAnalysis') {
-          queueAgentSection('keywordIntel');
-        }
-        if (section === 'keywordIntel') {
-          queueAgentSection('mediaPlan');
+        if (nextSection) {
+          dispatchJourneyReportSection(nextSection);
         }
       }
 
     },
   });
+
+  useEffect(() => {
+    if (
+      journeyPhase !== 'prefilling' ||
+      !activeRunId ||
+      hasTransitionedToWorkspaceRef.current
+    ) {
+      return;
+    }
+
+    const deepResearchResult = researchResults.deepResearchProgram;
+    if (!isResearchSectionComplete(deepResearchResult)) {
+      return;
+    }
+
+    const deepResearchFields =
+      extractDeepResearchOnboardingFields(deepResearchResult);
+    if (Object.keys(deepResearchFields).length === 0) {
+      return;
+    }
+
+    setDeepResearchOnboardingFields(deepResearchFields);
+    setLinkDeepResearchStatus('complete');
+    setLinkDeepResearchError(null);
+    logDeepResearchReady();
+
+    void enterWorkspaceFromDeepResearchFields(activeRunId, deepResearchFields)
+      .catch((error: unknown) => {
+        const message = getErrorMessage(error);
+        setLinkDeepResearchError(message);
+        addLog('err', `Company research handoff failed: ${message}`);
+      });
+  }, [
+    activeRunId,
+    addLog,
+    enterWorkspaceFromDeepResearchFields,
+    journeyPhase,
+    logDeepResearchReady,
+    researchResults.deepResearchProgram,
+  ]);
 
   // Only show timeout warnings for sections that are actually running.
   useEffect(() => {
@@ -1009,16 +1185,36 @@ function JourneyPageContent() {
     addLog('inf', 'Starting fresh journey');
   }, [addLog, beginFreshJourneyRun]);
 
-  const handleAnalyzeCompanyLink = useCallback(() => {
-    const researchCommand = parseJourneyResearchInput(prefillWebsiteUrl);
+  const handleAnalyzeCompanyLink = useCallback((input?: string) => {
+    const rawInput =
+      typeof input === 'string' ? input.trim() : prefillWebsiteUrl;
+    const researchCommand = parseJourneyResearchInput(rawInput);
     const websiteUrl = researchCommand.websiteUrl;
+    if (typeof input === 'string') {
+      setPrefillWebsiteUrl(rawInput);
+    }
     if (!websiteUrl) {
-      setLinkDeepResearchStatus('error');
+      setLinkDeepResearchStatus('idle');
       setLinkDeepResearchError(
         'Enter a valid company domain or URL after the research command.',
       );
       return;
     }
+
+    if (!isUserLoaded) {
+      setLinkDeepResearchStatus('idle');
+      setLinkDeepResearchError('Checking your session. Try again in a moment.');
+      return;
+    }
+
+    if (!isSignedIn || !user?.id) {
+      setLinkDeepResearchStatus('idle');
+      setLinkDeepResearchError(
+        'Sign in before starting Journey research.',
+      );
+      return;
+    }
+
     const nextRunId = createJourneyRunId();
     const sourceFields: Record<string, string> = {
       websiteUrl,
@@ -1032,10 +1228,10 @@ function JourneyPageContent() {
     setDeepResearchOnboardingFields({});
     setLinkDeepResearchStatus('starting');
     setLinkDeepResearchError(null);
-    commitActiveRunId(nextRunId);
-    addLog('run', `Starting company deep research and profile extraction for ${websiteUrl}`);
+    addLog('run', `Starting company research and profile extraction for ${websiteUrl}`);
     setJourneyPhase('prefilling');
 
+    let deepResearchQueued = false;
     void guardedFetch('/api/journey/session', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1045,41 +1241,82 @@ function JourneyPageContent() {
         activeRunId: nextRunId,
       }),
     })
-      .then(() => dispatchResearchSection('deepResearchProgram', nextRunId, sourceContext))
+      .then(() => {
+        commitActiveRunId(nextRunId);
+        return dispatchResearchSection('deepResearchProgram', nextRunId, sourceContext);
+      })
       .then(async (result) => {
         if (result.status === 'error') {
-          throw new Error(result.error ?? 'Company deep research dispatch failed');
+          throw new JourneyLaunchInfrastructureError(
+            result.error ?? 'Company research dispatch failed',
+          );
         }
 
+        deepResearchQueued = true;
         setLinkDeepResearchStatus('queued');
-        addLog('run', `Company deep research queued (job: ${result.jobId ?? 'unknown'})`);
+        addLog('run', `Company research queued (job: ${result.jobId ?? 'unknown'})`);
         await waitForResearchSectionComplete(nextRunId, 'deepResearchProgram');
         const deepResearchFields = await fetchDeepResearchOnboardingFields(nextRunId);
         if (Object.keys(deepResearchFields).length === 0) {
           throw new Error(
-            'Company deep research completed without onboardingFields; refusing to open the workspace from shallow context.',
+            'Company research completed without onboardingFields; refusing to open the workspace from shallow context.',
           );
         }
         setDeepResearchOnboardingFields(deepResearchFields);
         setLinkDeepResearchStatus('complete');
-        addLog(
-          'ok',
-          'Company deep research corpus ready for section synthesis',
-        );
+        logDeepResearchReady();
         await enterWorkspaceFromDeepResearchFields(nextRunId, deepResearchFields);
       })
       .catch((error: unknown) => {
         const message = getErrorMessage(error);
-        setLinkDeepResearchStatus('error');
+        if (hasTransitionedToWorkspaceRef.current) {
+          addLog(
+            'warn',
+            `Company research polling ended after workspace handoff for run ${nextRunId}: ${message}`,
+          );
+          return;
+        }
+        if (deepResearchQueued) {
+          setLinkDeepResearchError(message);
+          addLog(
+            'warn',
+            `Company research polling failed for run ${nextRunId}: ${message}. Waiting for realtime research results.`,
+          );
+          return;
+        }
+        activeRunIdRef.current = null;
+        setActiveRunId(null);
+        dispatchingSectionsRef.current = new Set();
+        setActiveResearch(new Set());
+        clearStoredJourneySession();
+        setLinkDeepResearchStatus('idle');
         setLinkDeepResearchError(message);
-        addLog('err', `Company deep research failed: ${message}`);
+        addLog('err', `Company research failed: ${message}`);
       });
   }, [
     addLog,
     commitActiveRunId,
     enterWorkspaceFromDeepResearchFields,
+    isSignedIn,
+    isUserLoaded,
+    logDeepResearchReady,
     prefillWebsiteUrl,
+    user?.id,
   ]);
+
+  const activeReportSection = useMemo(
+    () => getActiveJourneyReportSection(activeResearch),
+    [activeResearch],
+  );
+  const nextPendingReportSection = useMemo(
+    () => getNextPendingJourneyReportSection(researchResults, activeResearch),
+    [activeResearch, researchResults],
+  );
+  const displayedNextSection = activeReportSection ?? nextPendingReportSection;
+  const nextSectionLabel =
+    journeyPhase === 'workspace' && displayedNextSection
+      ? SECTION_META[displayedNextSection] ?? displayedNextSection
+      : null;
 
   if (journeyPhase === 'resume' && savedSession) {
     return (
@@ -1117,6 +1354,9 @@ function JourneyPageContent() {
         researchResults={researchResults}
         activeResearchSections={activeResearch}
         messages={messages}
+        nextSectionLabel={nextSectionLabel}
+        isNextSectionRunning={Boolean(activeReportSection)}
+        onRunNextSection={handleRunNextSection}
         onRetryDeepResearch={() => {
           setDeepResearchOnboardingFields({});
           setLinkDeepResearchStatus('idle');
@@ -1141,6 +1381,7 @@ function JourneyPageContent() {
           setStoredJourneyCompanyName(null);
           setResearchResults({});
           setActiveResearch(new Set());
+          dispatchingSectionsRef.current = new Set();
           setJourneyPhase('welcome');
         }}
       />
@@ -1156,4 +1397,5 @@ const SECTION_META: Record<string, string> = {
   offerAnalysis: 'Offer Analysis',
   crossAnalysis: 'Strategic Synthesis',
   keywordIntel: 'Keyword Intel',
+  mediaPlan: 'Media Plan',
 };

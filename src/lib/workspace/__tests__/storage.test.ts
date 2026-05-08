@@ -8,6 +8,7 @@ function createMockState(sessionId = 'test-session'): WorkspaceState {
     phase: 'workspace',
     currentSection: 'industryMarket',
     sectionStates: {
+      deepResearchProgram: 'approved',
       industryMarket: 'review',
       competitors: 'queued',
       icpValidation: 'queued',

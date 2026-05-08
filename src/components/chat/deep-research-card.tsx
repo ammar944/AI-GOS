@@ -189,7 +189,7 @@ export function DeepResearchCard({ data, isStreaming = false }: DeepResearchCard
             className="font-semibold uppercase tracking-wider"
             style={{ fontSize: '11px', letterSpacing: '0.05em', color: 'var(--accent-amber)' }}
           >
-            Deep Research
+            Research
           </span>
           {isStreaming && (
             <motion.span

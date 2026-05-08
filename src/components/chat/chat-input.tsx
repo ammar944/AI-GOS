@@ -313,7 +313,7 @@ export function ChatInput({
                 color: 'var(--text-tertiary)',
               }}
             >
-              Claude Opus
+              Advanced
               <ChevronDown size={10} style={{ opacity: 0.6 }} />
             </button>
 

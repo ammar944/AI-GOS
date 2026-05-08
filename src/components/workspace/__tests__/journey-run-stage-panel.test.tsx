@@ -5,6 +5,7 @@ import type { JourneyRunView } from '@/lib/journey/run-view';
 import type { SectionKey, SectionPhase } from '@/lib/workspace/types';
 
 const sectionStates: Record<SectionKey, SectionPhase> = {
+  deepResearchProgram: 'approved',
   industryMarket: 'review',
   icpValidation: 'researching',
   competitors: 'queued',

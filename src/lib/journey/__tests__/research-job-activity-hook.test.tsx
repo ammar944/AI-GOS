@@ -52,6 +52,7 @@ describe('useResearchJobActivity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     mockQuery.maybeSingle.mockResolvedValue({
       data: null,
@@ -115,7 +116,7 @@ describe('useResearchJobActivity', () => {
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 
-  it('logs structured API failures instead of an empty error object', async () => {
+  it('pauses polling on auth failures instead of raising console errors', async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 401,
@@ -132,14 +133,15 @@ describe('useResearchJobActivity', () => {
     );
 
     await waitFor(() => {
-      expect(console.error).toHaveBeenCalledWith(
-        '[journey] Failed to fetch research job activity:',
+      expect(console.warn).toHaveBeenCalledWith(
+        '[journey] Research job activity polling paused until the session is verified:',
         {
           message: 'Unauthorized',
           status: 401,
         },
       );
     });
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it('does not poll until an active run id exists', async () => {

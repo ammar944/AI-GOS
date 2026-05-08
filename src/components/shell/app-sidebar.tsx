@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Compass, FileText, Building2, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/logo';
+import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 import { useOptionalShell } from '@/components/shell/shell-provider';
@@ -23,7 +24,7 @@ const NAV_ITEMS: NavEntry[] = [
   { icon: Building2, label: 'Profiles', href: '/profiles' },
 ];
 
-function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) {
+function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }): React.JSX.Element {
   const pathname = usePathname();
   const isActive =
     item.href === '/dashboard'
@@ -56,9 +57,14 @@ function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) 
   );
 }
 
-export function AppSidebar() {
+export function AppSidebar(): React.JSX.Element {
   const shell = useOptionalShell();
   const [localCollapsed, setLocalCollapsed] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Use shell context when available, otherwise fall back to local state
   const collapsed = shell?.sidebarCollapsed ?? localCollapsed;
@@ -82,25 +88,29 @@ export function AppSidebar() {
             </Link>
 
             {/* Collapse button — right side of header row */}
-            <button
+            <Button
               type="button"
               onClick={toggleSidebar}
               title="Collapse sidebar"
-              className="flex items-center justify-center w-7 h-7 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150 shrink-0 ml-1"
+              variant="ghost"
+              size="icon-sm"
+              className="ml-1 shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             >
               <PanelLeftClose size={15} />
-            </button>
+            </Button>
           </>
         ) : (
           /* Collapsed: logomark as expand trigger */
-          <button
+          <Button
             type="button"
             onClick={toggleSidebar}
             title="Expand sidebar"
-            className="flex items-center justify-center w-8 h-8 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
+            variant="ghost"
+            size="icon-sm"
+            className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
           >
             <PanelLeft size={16} />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -115,14 +125,18 @@ export function AppSidebar() {
       <div className="mt-auto flex flex-col gap-1 px-2">
         <ThemeToggle expanded={expanded} />
         <div className={cn('flex items-center h-10', expanded ? 'px-4' : 'justify-center')}>
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{
-              elements: {
-                avatarBox: 'w-8 h-8',
-              },
-            }}
-          />
+          {isMounted ? (
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: 'w-8 h-8',
+                },
+              }}
+            />
+          ) : (
+            <div aria-hidden="true" className="h-8 w-8 rounded-full border bg-muted" />
+          )}
         </div>
       </div>
     </aside>

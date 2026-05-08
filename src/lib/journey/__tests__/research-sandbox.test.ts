@@ -433,6 +433,62 @@ describe('research sandbox helpers', () => {
     });
   });
 
+  it('preserves non-sandbox Deep Research results while applying sandbox resets', () => {
+    const filtered = applyJourneySandboxSectionResets({
+      metadata: {
+        researchSandbox: {
+          sectionResetAt: {
+            competitors: '2026-03-11T10:00:00.000Z',
+          },
+        },
+      },
+      researchResults: {
+        deepResearchProgram: {
+          status: 'complete',
+          section: 'deepResearchProgram',
+          durationMs: 24000,
+          artifact: {
+            title: 'Airtable GTM Research',
+            markdown: '## Deep Research\n\nAirtable source-backed corpus.',
+          },
+          data: {
+            corpus: {
+              company: 'Airtable',
+              researchSummary: 'Airtable source-backed corpus.',
+            },
+            onboardingFields: {
+              companyName: {
+                value: 'Airtable',
+                confidence: 95,
+                sourceUrl: 'https://airtable.com',
+                reasoning: 'Verified from company site.',
+              },
+            },
+          },
+        },
+        competitors: validCompetitorIntelResult,
+      },
+      jobStatus: {
+        'job-old': {
+          status: 'error',
+          tool: 'researchCompetitors',
+          startedAt: '2026-03-11T09:59:00.000Z',
+          completedAt: '2026-03-11T10:01:00.000Z',
+        },
+      },
+    });
+
+    expect(filtered.researchResults.deepResearchProgram).toMatchObject({
+      status: 'complete',
+      section: 'deepResearchProgram',
+      artifact: {
+        markdown: expect.stringContaining('source-backed corpus'),
+      },
+    });
+    expect(filtered.researchResults.competitors).toBeUndefined();
+    expect(filtered.jobStatus).toEqual({});
+  });
+
   it('builds a unified sandbox report with timing, token, cost, and chart summaries', () => {
     const report = buildJourneyResearchSandboxUnifiedReport({
       sandboxResults: {

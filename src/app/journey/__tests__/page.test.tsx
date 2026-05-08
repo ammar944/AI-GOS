@@ -1,8 +1,14 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { UIMessage } from 'ai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import JourneyPage from '../page';
+
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 type MockChatStatus = 'ready' | 'streaming' | 'submitted';
 
@@ -253,6 +259,8 @@ vi.mock('@ai-sdk/react', async () => {
 
 vi.mock('@clerk/nextjs', () => ({
   useUser: () => ({
+    isLoaded: true,
+    isSignedIn: true,
     user: { id: 'user_123' },
   }),
 }));
@@ -616,7 +624,7 @@ describe('JourneyPage Manus launch wiring', () => {
       fireEvent.change(screen.getByLabelText('Research command or company URL'), {
         target: { value: 'research airtable.com' },
       });
-      fireEvent.click(screen.getByLabelText('Start deep research'));
+      fireEvent.click(screen.getByLabelText('Start research'));
     });
 
     await waitFor(() => {
@@ -634,17 +642,36 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(screen.getByTestId('journey-user-command')).toHaveTextContent(
       'research airtable.com',
     );
-    expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Research Agent').length).toBeGreaterThan(0);
   });
 
-  it('routes the link-first CTA through company deep research and opens the workspace from deep fields', async () => {
+  it('rejects an invalid pasted research target without creating a failed artifact', async () => {
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
+        target: { value: 'research aritable' },
+      });
+      fireEvent.click(screen.getByLabelText('Start research'));
+    });
+
+    expect(dispatchResearchSectionMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('journey-user-command')).toHaveTextContent(
+      'research aritable',
+    );
+    expect(screen.getByText(/valid company domain/u)).toBeInTheDocument();
+    expect(screen.queryByText(/Research Agent — failed/u)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
+  });
+
+  it('routes the link-first CTA through company research and opens the workspace from deep fields', async () => {
     render(<JourneyPage />);
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Research command or company URL'), {
         target: { value: 'https://saaslaunch.net' },
       });
-      fireEvent.click(screen.getByLabelText('Start deep research'));
+      fireEvent.click(screen.getByLabelText('Start research'));
     });
 
     await waitFor(() => {
@@ -677,6 +704,113 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
 
+  it('opens the workspace from realtime company research results when polling fails', async () => {
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      if (url.includes('/api/journey/research-status')) {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: async () => ({ error: 'Unauthorized' }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+    });
+
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
+        target: { value: 'https://saaslaunch.net' },
+      });
+      fireEvent.click(screen.getByLabelText('Start research'));
+    });
+
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'deepResearchProgram',
+        expect.any(String),
+        expect.stringContaining('Website: https://saaslaunch.net'),
+      );
+    });
+
+    await emitResearchResult('deepResearchProgram', {
+      onboardingFields: {
+        companyName: {
+          value: 'Realtime SaaSLaunch',
+          confidence: 92,
+        },
+        businessModel: {
+          value: 'Realtime B2B SaaS growth agency',
+          confidence: 90,
+        },
+        productDescription: {
+          value: 'Realtime pipeline growth operating system.',
+          confidence: 88,
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'industryMarket',
+        expect.any(String),
+        expect.stringContaining('Company Name: Realtime SaaSLaunch'),
+      );
+    });
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+      'Market Overview',
+    );
+  });
+
+  it('auto-runs the next report section after the active section completes', async () => {
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
+        target: { value: 'https://saaslaunch.net' },
+      });
+      fireEvent.click(screen.getByLabelText('Start research'));
+    });
+
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'industryMarket',
+        expect.any(String),
+        expect.stringContaining('Company Name: Deep SaaSLaunch'),
+      );
+    });
+
+    await emitResearchResult('industryMarket', {
+      sectionTitle: 'Market Category',
+      statusSummary: 'Market category finished first.',
+    });
+
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'icpValidation',
+        expect.any(String),
+        expect.stringContaining('Company Name: Deep SaaSLaunch'),
+      );
+    });
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+      'ICP Validation',
+    );
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+      'running',
+    );
+  });
+
   it('does not expose manual onboarding from the URL-first launch screen', () => {
     render(<JourneyPage />);
 
@@ -696,7 +830,7 @@ describe('JourneyPage Manus launch wiring', () => {
       fireEvent.change(screen.getByLabelText('Research command or company URL'), {
         target: { value: 'https://saaslaunch.net' },
       });
-      fireEvent.click(screen.getByLabelText('Start deep research'));
+      fireEvent.click(screen.getByLabelText('Start research'));
     });
 
     await waitFor(() => {
@@ -767,7 +901,7 @@ describe('JourneyPage Manus launch wiring', () => {
     await waitFor(() => {
       expect(realtimeControls.getActiveRunId()).toBe('run-refresh');
     });
-    expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Research Agent').length).toBeGreaterThan(0);
     expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
       'Market Category',
     );
@@ -809,14 +943,14 @@ describe('JourneyPage artifact orchestration', () => {
     });
   });
 
-  it('renders Deep Research Agent as the first assistant-visible output after a research command', async () => {
+  it('renders Research Agent as the first assistant-visible output after a research command', async () => {
     const { container } = render(<JourneyPage />);
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Research command or company URL'), {
         target: { value: 'research airtable.com' },
       });
-      fireEvent.click(screen.getByLabelText('Start deep research'));
+      fireEvent.click(screen.getByLabelText('Start research'));
     });
 
     await waitFor(() => {
@@ -833,9 +967,9 @@ describe('JourneyPage artifact orchestration', () => {
     );
 
     expect(firstAssistantOutput).not.toBeNull();
-    expect(firstAssistantOutput).toHaveTextContent('Deep Research Agent');
+    expect(firstAssistantOutput).toHaveTextContent('Research Agent');
     expect(firstAssistantOutput).toHaveTextContent(
-      'Deep Research Agent starting',
+      'checking source-backed company context',
     );
     expect(
       command.compareDocumentPosition(firstAssistantOutput as Node) &
@@ -844,7 +978,7 @@ describe('JourneyPage artifact orchestration', () => {
     expect(screen.queryByText('Buyer / ICP Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
     expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Deep Research Agent is building the source-backed corpus',
+      'Research Agent is building the source-backed corpus',
     );
     expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
       'Market Category',
@@ -965,7 +1099,7 @@ describe('JourneyPage artifact orchestration', () => {
       );
     });
     expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Draft inference pending source review',
+      'Airtable is positioned',
     );
     const firstDraftText =
       screen.getByTestId('deep-research-report-artifact').textContent ?? '';
@@ -1063,13 +1197,24 @@ describe('JourneyPage artifact orchestration', () => {
 
     const artifact = screen.getByTestId('deep-research-report-artifact');
 
-    expect(artifact).toHaveTextContent('Market Category');
+    expect(artifact).toHaveTextContent('Offer Diagnostic');
+    expect(artifact).not.toHaveTextContent('Market complete from persisted snapshot.');
+
+    fireEvent.click(within(artifact).getByRole('button', { name: /Market Category/u }));
     expect(artifact).toHaveTextContent('Market complete from persisted snapshot.');
+
+    fireEvent.click(within(artifact).getByRole('button', { name: /Buyer ICP/u }));
     expect(artifact).toHaveTextContent('Buyer ICP');
     expect(artifact).toHaveTextContent('ICP draft needs source review.');
+
+    fireEvent.click(
+      within(artifact).getByRole('button', { name: /Competitive Positioning/u }),
+    );
     expect(artifact).toHaveTextContent('Competitive Positioning');
     expect(artifact).toHaveTextContent('Competitor section complete from persisted snapshot.');
-    expect(artifact).toHaveTextContent('Offer Diagnostic');
+
+    fireEvent.click(within(artifact).getByRole('button', { name: /Offer Diagnostic/u }));
+    expect(artifact).toHaveTextContent('Offer analysis is being written from the saved corpus.');
     expect(artifact).not.toHaveTextContent('Demand Intent');
     expect(artifact).not.toHaveTextContent('Keyword output finished early.');
   });

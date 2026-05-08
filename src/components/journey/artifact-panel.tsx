@@ -58,14 +58,14 @@ function formatElapsed(iso: string | undefined, now: number): string | null {
 
 function getArtifactWaitGuidance(section: string): string {
   if (section === 'competitors' || section === 'icpValidation') {
-    return '[NOTE] This section usually takes 2-3 minutes. Live worker activity streams first; the full artifact appears only after the final write completes.';
+    return '[NOTE] This section usually takes 2-3 minutes. Live research activity streams first; the full artifact appears only after the final write completes.';
   }
 
   if (section === 'offerAnalysis') {
-    return '[NOTE] This section usually takes 1-2 minutes. The full artifact appears once the worker finishes the final synthesis write.';
+    return '[NOTE] This section usually takes 1-2 minutes. The full artifact appears once the final synthesis write completes.';
   }
 
-  return '[INFO] Final artifact blocks will render once the worker writes the completed result.';
+  return '[INFO] Final artifact blocks will render once the completed result is written.';
 }
 
 // -- Loading State -------------------------------------------------------------
@@ -83,9 +83,9 @@ function ArtifactLoading({
   const heartbeatAgo = formatElapsed(activity?.lastHeartbeat, now);
   const statusLabel =
     activity?.status === 'running'
-      ? 'Worker Running'
+      ? 'Research Running'
       : activity?.status === 'error'
-        ? 'Worker Error'
+        ? 'Research Error'
         : 'Queued';
 
   const streamedUpdates = collapseResearchJobUpdates(activity?.updates)
@@ -101,10 +101,10 @@ function ArtifactLoading({
   const fallbackLines = [
     `[LIVE] ${label} research dispatched from Journey.`,
     activity?.startedAt
-      ? `[RUN] Worker started ${startedAgo ?? 'just now'} ago.`
-      : '[WAIT] Waiting for worker pickup.',
+      ? `[RUN] Research started ${startedAgo ?? 'just now'} ago.`
+      : '[WAIT] Waiting for research start.',
     heartbeatAgo
-      ? `[PING] Last worker heartbeat ${heartbeatAgo} ago.`
+      ? `[PING] Last research heartbeat ${heartbeatAgo} ago.`
       : null,
     activity?.status === 'error' && activity.error
       ? `[ERR] ${activity.error}`

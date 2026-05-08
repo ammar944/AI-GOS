@@ -166,14 +166,14 @@ function formatElapsed(iso: string | undefined, now: number): string | null {
 
 function getLoadingExpectation(section: string): string {
   if (section === 'competitors' || section === 'icpValidation') {
-    return '[NOTE] Usually 2-3 minutes end-to-end. The card is showing live worker activity while the final artifact is still being assembled.';
+    return '[NOTE] Usually 2-3 minutes end-to-end. The card is showing live research activity while the final artifact is still being assembled.';
   }
 
   if (section === 'offerAnalysis') {
-    return '[NOTE] Usually 1-2 minutes end-to-end. Final analysis appears after the worker finishes its write.';
+    return '[NOTE] Usually 1-2 minutes end-to-end. Final analysis appears after the research write finishes.';
   }
 
-  return '[NOTE] Live worker activity is streaming. Final analysis appears when the completed result is written.';
+  return '[NOTE] Live research activity is streaming. Final analysis appears when the completed result is written.';
 }
 
 // ─── Loading Card (Active research in progress) ─────────────────────────────
@@ -190,7 +190,7 @@ function LoadingCard({
   const now = useTicker(Boolean(activity?.startedAt || activity?.lastHeartbeat));
   const startedAgo = formatElapsed(activity?.startedAt, now);
   const heartbeatAgo = formatElapsed(activity?.lastHeartbeat, now);
-  const statusLabel = activity?.startedAt ? 'Worker Running' : 'Queued';
+  const statusLabel = activity?.startedAt ? 'Research Running' : 'Queued';
   const latestUpdate = collapseResearchJobUpdates(activity?.updates).at(-1);
   const latestUpdateAge = formatElapsed(latestUpdate?.at, now);
 
@@ -210,7 +210,7 @@ function LoadingCard({
       <h3 className="text-lg font-medium mb-2 text-brand-accent">{meta.label}</h3>
       <div className="space-y-2 text-xs font-mono text-[var(--text-secondary)] leading-relaxed">
         <p>[LIVE] Research dispatched from Journey.</p>
-        <p>{activity?.startedAt ? `[RUN] Started ${startedAgo ?? 'just now'} ago.` : '[WAIT] Waiting for worker pickup.'}</p>
+        <p>{activity?.startedAt ? `[RUN] Started ${startedAgo ?? 'just now'} ago.` : '[WAIT] Waiting for research start.'}</p>
         {latestUpdate && (
           <p>[{latestUpdate.phase.toUpperCase()}] {latestUpdate.message}{latestUpdate.count > 1 ? ` x${latestUpdate.count}` : ''}{latestUpdateAge ? ` · ${latestUpdateAge} ago` : ''}</p>
         )}

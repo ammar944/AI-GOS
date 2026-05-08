@@ -724,12 +724,16 @@ export function applyJourneySandboxSectionResets(input: {
   ) as Record<string, PersistedResearchJobStatusRow>;
 
   const latestJobsBySection = getLatestJobBySection(filteredJobStatus);
+  const normalizedResults = normalizeStoredResearchResults(
+    input.researchResults,
+    'boundary',
+  );
   const filteredResearchResults = Object.fromEntries(
-    Object.entries(normalizeJourneySandboxResearchResults(input.researchResults)).filter(
+    Object.entries(normalizedResults).filter(
       ([section, result]) => {
         const normalizedSection = normalizeJourneyResearchSandboxSection(section);
         if (!normalizedSection) {
-          return false;
+          return true;
         }
 
         const resetAt = sectionResetTimestamp(resets, normalizedSection);

@@ -53,7 +53,7 @@ interface JourneyStreamRequest {
   currentSection?: string;
   /** Cards visible in the current section — injected into system prompt */
   sectionCards?: SectionCardContext[];
-  /** Deep Research mode — extended thinking + thorough analysis */
+  /** Extended reasoning mode for deeper analysis */
   deepResearch?: boolean;
   /** Workspace chat mode from the report rail. */
   workspaceChatMode?: 'normal' | 'thinking' | 'research';
@@ -263,7 +263,7 @@ export async function POST(request: Request) {
 
   // ── Offer refinement mode ──────────────────────────────────────────────
   // Detect if the RightRail chat contains offer score data (seeded by frontend).
-  // If so, append refinement instructions so Claude knows to use updateField.
+  // If so, append refinement instructions so the assistant knows to use updateField.
   const isRefinementChat = requestMessages.some(
     (m) =>
       m.role === 'assistant' &&
@@ -292,12 +292,12 @@ Rules:
 6. If the user says "re-run" or "re-analyze", call runDeepResearchProgram with the current offer context and requested scope.`;
   }
 
-  // ── Deep Research mode ─────────────────────────────────────────────────
+  // ── Extended reasoning mode ────────────────────────────────────────────
   const isDeepResearch = body.deepResearch === true;
   if (isDeepResearch) {
-    systemPrompt += `\n\n## Deep Research Mode (active)
+    systemPrompt += `\n\n## Extended Reasoning Mode (active)
 
-The user has enabled Deep Research mode. You MUST:
+The user has enabled extended reasoning. You MUST:
 - Think deeply and thoroughly before responding — use extended reasoning
 - Provide comprehensive, analytical responses with specific evidence
 - Cross-reference data points across sections when available
@@ -338,7 +338,7 @@ Rules:
   }
 
   // ── Workspace card context injection ───────────────────────────────────
-  // When the right-rail chat sends sectionCards, inject them so Claude can
+  // When the right-rail chat sends sectionCards, inject them so the assistant can
   // reference and edit specific card data.
   const sectionCards = body.sectionCards;
   const currentSectionKey = body.currentSection;

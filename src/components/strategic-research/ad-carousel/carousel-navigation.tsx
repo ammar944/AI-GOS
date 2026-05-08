@@ -5,7 +5,8 @@ import { useCarousel } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 
 export function CarouselNavigation({ total }: { total: number }) {
-  const { selectedIndex, scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel();
+  const { api, scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel();
+  const selectedIndex = api?.selectedScrollSnap() ?? 0;
 
   return (
     <div className="flex flex-col items-center gap-3 mt-6">

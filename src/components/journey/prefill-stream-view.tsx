@@ -71,7 +71,7 @@ function getThinkingSteps(
     {
       id: 'corpus',
       label: 'Building company corpus',
-      description: 'The worker is collecting sources, evidence, competitors, and gaps.',
+      description: 'AI-GOS is collecting sources, evidence, competitors, and gaps.',
     },
     {
       id: 'fields',
@@ -267,8 +267,8 @@ export function PrefillStreamView({
                           </ol>
                         ) : (
                           <p className="text-xs leading-5 text-[#8e97a6]">
-                            Waiting for the worker heartbeat. Tool and analysis
-                            updates will appear here as the deep research job runs.
+                            Waiting for research updates. Source and analysis
+                            progress will appear here as the run starts.
                           </p>
                         )}
                       </div>
@@ -277,7 +277,7 @@ export function PrefillStreamView({
                     <div className="space-y-3">
                       <p className="text-sm leading-6 text-[#fcfcfa]">
                         {isError
-                          ? `Deep research failed before workspace launch: ${deepResearchError ?? 'Unknown error'}`
+                          ? `Company research failed before workspace launch: ${deepResearchError ?? 'Unknown error'}`
                           : isComplete
                             ? 'Company corpus is ready. Opening the Journey workspace.'
                             : 'Building the company corpus before any report section starts.'}

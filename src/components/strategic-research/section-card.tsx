@@ -142,7 +142,7 @@ export function SectionCard({
             {/* Reviewed badge */}
             {isReviewed && (
               <Badge
-                variant="success"
+                variant="default"
                 className="gap-1"
                 style={{
                   borderColor: 'var(--success)',

@@ -3,17 +3,19 @@ import type { SectionKey, SectionPhase } from './types';
 // Pipeline order: competitors before offer so the offer runner gets
 // verified competitor pricing via the intelligence chain in dispatch/route.ts.
 export const SECTION_PIPELINE: SectionKey[] = [
+  'deepResearchProgram',
   'industryMarket',
   'icpValidation',
   'competitors',
+  'offerAnalysis',
   'crossAnalysis',
   'keywordIntel',
-  'offerAnalysis',
   'mediaPlan',
 ];
 
 /** Human-readable labels for pipeline sections (UI + API errors). */
 export const SECTION_PIPELINE_LABELS: Record<SectionKey, string> = {
+  deepResearchProgram: 'Deep Research',
   industryMarket: 'Market & Category',
   icpValidation: 'Buyer & ICP',
   competitors: 'Competitors',
@@ -103,9 +105,9 @@ export const RESEARCH_SECTIONS: SectionKey[] = [
   'industryMarket',
   'icpValidation',
   'competitors',
+  'offerAnalysis',
   'crossAnalysis',
   'keywordIntel',
-  'offerAnalysis',
 ];
 
 export function getNextSection(current: SectionKey): SectionKey | null {

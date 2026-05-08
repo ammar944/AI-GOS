@@ -73,7 +73,7 @@ export function SectionCard({
 }: SectionCardProps): ReactElement {
   const [isCopying, setIsCopying] = useState(false);
   const latestActivityMessage =
-    activity?.updates?.at(-1)?.message ?? 'Research worker is warming up.';
+    activity?.updates?.at(-1)?.message ?? 'Research is warming up.';
   const preview = getPreview(data);
 
   const handleCopy = async (): Promise<void> => {

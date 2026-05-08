@@ -1,7 +1,16 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { describe, expect, it, vi, beforeAll } from "vitest";
 
-import { JourneyAgentChat } from '@/components/journey/journey-agent-chat';
+import { JourneyAgentChat } from "@/components/journey/journey-agent-chat";
+
+beforeAll(() => {
+  global.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
 
 const baseProps = {
   websiteUrl: '',
@@ -18,13 +27,30 @@ const baseProps = {
   messages: [],
 };
 
+function JourneyAgentChatHarness({
+  onSubmitWebsite,
+}: {
+  onSubmitWebsite: (input: string) => void;
+}) {
+  const [websiteUrl, setWebsiteUrl] = useState("");
+
+  return (
+    <JourneyAgentChat
+      {...baseProps}
+      websiteUrl={websiteUrl}
+      onWebsiteUrlChange={setWebsiteUrl}
+      onSubmitWebsite={onSubmitWebsite}
+    />
+  );
+}
+
 describe('JourneyAgentChat', () => {
   it('renders the minimal AionUI-style agent chat entry instead of workspace preview chrome', () => {
     render(<JourneyAgentChat {...baseProps} />);
 
     expect(screen.getByText('What company should I research?')).toBeInTheDocument();
-    expect(screen.getByText(/Anthropic GTM agents · chat mode/u)).toBeInTheDocument();
-    expect(screen.getByText(/Claude web search \+ code execution \+ Platform Skills/u)).toBeInTheDocument();
+    expect(screen.getByText(/GTM research workspace/u)).toBeInTheDocument();
+    expect(screen.getByText(/Source-backed research \+ GTM synthesis/u)).toBeInTheDocument();
     expect(screen.getByPlaceholderText('research airtable.com or paste company URL...')).toBeInTheDocument();
 
     expect(screen.queryByText('Live report artifact preview')).not.toBeInTheDocument();
@@ -33,7 +59,7 @@ describe('JourneyAgentChat', () => {
     expect(screen.queryByText('Onboarding review')).not.toBeInTheDocument();
   });
 
-  it('submits the company research command through the deep research composer', () => {
+  it('submits the company research command through the deep research composer', async () => {
     const onSubmitWebsite = vi.fn();
 
     render(
@@ -44,12 +70,72 @@ describe('JourneyAgentChat', () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText('Start deep research'));
+    // PromptInputSubmit is enabled when websiteUrl is valid and status is idle
+    const submitBtn = screen.getByLabelText("Start research");
+    expect(submitBtn).not.toBeDisabled();
+    fireEvent.click(submitBtn);
 
-    expect(onSubmitWebsite).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onSubmitWebsite).toHaveBeenCalledWith("research airtable.com");
+    });
   });
 
-  it('renders only Deep Research Agent as the first visible assistant output once a run starts', () => {
+  it('submits the current pasted domain value instead of waiting on stale state', async () => {
+    const onSubmitWebsite = vi.fn();
+
+    render(<JourneyAgentChatHarness onSubmitWebsite={onSubmitWebsite} />);
+
+    fireEvent.change(screen.getByLabelText("Research command or company URL"), {
+      target: { value: "airtable.com" },
+    });
+    fireEvent.click(screen.getByLabelText("Start research"));
+
+    await waitFor(() => {
+      expect(onSubmitWebsite).toHaveBeenCalledWith("airtable.com");
+    });
+  });
+
+  it('shows validation errors without fabricating failed reasoning or artifacts', () => {
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="research aritable"
+        deepResearchError="Enter a valid company domain or URL after the research command."
+      />,
+    );
+
+    expect(screen.getByTestId('journey-user-command')).toHaveTextContent(
+      'research aritable',
+    );
+    expect(screen.getByText(/valid company domain/u)).toBeInTheDocument();
+    expect(screen.queryByText(/Research Agent — failed/u)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
+  });
+
+  it('renders a run-next-section control when a workspace section is ready', () => {
+    const onRunNextSection = vi.fn();
+
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="airtable.com"
+        activeRunId="journey-test-123"
+        phase="workspace"
+        nextSectionLabel="Market Overview"
+        onRunNextSection={onRunNextSection}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Run next research section: Market Overview/u,
+      }),
+    );
+
+    expect(onRunNextSection).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders only Research Agent as the first visible assistant output once a run starts', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
@@ -59,13 +145,27 @@ describe('JourneyAgentChat', () => {
       />,
     );
 
-    expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
-    expect(screen.getByText(/checking source-backed company context/u)).toBeInTheDocument();
+    expect(screen.getAllByText('Research Agent').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/checking source-backed company context/u).length).toBeGreaterThan(0);
     expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
       'Market Category',
     );
     expect(screen.queryByText('GTM Synthesis Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Journey Workbench')).not.toBeInTheDocument();
+  });
+
+  it('does not show a fake streaming artifact for a restored run with no activity', () => {
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        activeRunId="journey-restored-123"
+        phase="workspace"
+      />,
+    );
+
+    expect(screen.getByText(/Journey run is ready/u)).toBeInTheDocument();
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
+    expect(screen.queryByText(/building the source-backed corpus/u)).not.toBeInTheDocument();
   });
 
   it('renders a live artifact skeleton immediately when Deep Research starts', () => {
@@ -82,7 +182,7 @@ describe('JourneyAgentChat', () => {
       'Live GTM Research Artifact',
     );
     expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Deep Research Agent is building the source-backed corpus',
+      'Research Agent is building the source-backed corpus',
     );
   });
 
@@ -164,5 +264,77 @@ describe('JourneyAgentChat', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(artifact).toHaveTextContent('Live GTM Research Artifact');
+  });
+
+  it('renders an operator control for the next report section when provided', () => {
+    const onRunNextSection = vi.fn();
+
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="research airtable.com"
+        activeRunId="journey-test-123"
+        phase="workspace"
+        deepResearchStatus="complete"
+        deepResearchFields={{ companyName: 'Airtable' }}
+        nextSectionLabel="Market Category"
+        onRunNextSection={onRunNextSection}
+      />,
+    );
+
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+      'Next report section: Market Category',
+    );
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+      'Company research is ready',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Run next research section: Market Category',
+      }),
+    );
+
+    expect(onRunNextSection).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the live artifact growth count as sections are added', () => {
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="research airtable.com"
+        activeRunId="journey-test-123"
+        phase="workspace"
+        deepResearchStatus="complete"
+        deepResearchFields={{ companyName: 'Airtable' }}
+        researchResults={{
+          deepResearchProgram: {
+            status: 'complete',
+            section: 'deepResearchProgram',
+            durationMs: 10,
+            data: {
+              corpus: {
+                researchSummary: 'Company research corpus saved.',
+              },
+            },
+          },
+          industryMarket: {
+            status: 'complete',
+            section: 'industryMarket',
+            durationMs: 12,
+            data: {
+              statusSummary: 'Market section saved.',
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('artifact-growth-summary')).toHaveTextContent(
+      '2 of 2 sections saved',
+    );
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Market section saved.',
+    );
   });
 });

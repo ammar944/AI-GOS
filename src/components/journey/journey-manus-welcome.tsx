@@ -14,8 +14,8 @@ export interface JourneyManusWelcomeProps {
 }
 
 const AGENT_STEPS = [
-  { label: 'Deep research corpus', detail: 'Anthropic web search + code execution', icon: Search, state: 'ready' },
-  { label: 'Platform Skills agents', detail: 'Market, ICP, competitors, offer, demand', icon: Sparkles, state: 'ready' },
+  { label: 'Company research corpus', detail: 'Source collection + analysis', icon: Search, state: 'ready' },
+  { label: 'GTM specialist analysis', detail: 'Market, ICP, competitors, offer, demand', icon: Sparkles, state: 'ready' },
   { label: 'Report artifact', detail: 'Evidence-backed GTM sections, not schema cards', icon: FileText, state: 'queued' },
 ];
 
@@ -61,14 +61,14 @@ export function JourneyManusWelcome({
                 Agent console
               </div>
               <div className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.07] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-200">
-                Anthropic runtime
+                Ready
               </div>
             </div>
             <h1 className="max-w-[14ch] text-[42px] font-semibold leading-[0.94] tracking-[-0.045em] text-[#f8f5eb]">
               Build the GTM report like an agent run.
             </h1>
             <p className="mt-4 max-w-sm text-sm leading-6 text-[#9c998f]">
-              Paste a company URL. AI-GOS runs Claude deep research, invokes the GTM Platform Skills specialist team, and writes a live report artifact.
+              Paste a company URL. AI-GOS builds a source-backed research corpus, runs GTM specialist analysis, and writes a live report artifact.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export function JourneyManusWelcome({
                 <button
                   type="submit"
                   disabled={!canAnalyze}
-                  aria-label="Start deep research"
+                  aria-label="Start research"
                   className="flex h-12 shrink-0 items-center gap-2 rounded-[12px] bg-[#f6f3ea] px-4 text-sm font-medium text-[#11110f] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Run
@@ -179,7 +179,7 @@ export function JourneyManusWelcome({
                   <section className="border-b border-white/[0.06] pb-5">
                     <div className="mb-2 flex items-center gap-2 text-xs text-[#91a5ff]">
                       <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                      Anthropic Platform Skills output
+                      GTM specialist output
                     </div>
                     <h3 className="text-xl font-medium tracking-[-0.02em] text-[#f4efe2]">Executive verdict</h3>
                     <p className="mt-3 max-w-3xl text-sm leading-7 text-[#aaa59a]">
