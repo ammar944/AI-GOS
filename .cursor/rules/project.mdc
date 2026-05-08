@@ -20,7 +20,7 @@ User flow:
 5. User clicks Run section -> next pending report section dispatches
 6. Section completes -> Run section control rotates to the next pending section, ready for the next click
 7. User clicks through the pipeline section by section (industryMarket, icpValidation, competitors, offerAnalysis, keywordIntel, crossAnalysis)
-8. After 6 report sections: guided prompt for Media Plan
+8. After the 6 report sections (industryMarket through crossAnalysis): guided prompt for Media Plan
 9. After media plan: guided prompt for Scripts
 10. All results saved to profile
 
