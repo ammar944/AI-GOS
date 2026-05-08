@@ -1,11 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { Check, X, Loader2 } from 'lucide-react';
-import { MagneticButton } from '@/components/ui/magnetic-button';
-import { GradientBorder } from '@/components/ui/gradient-border';
+import { Button } from '@/components/ui/button';
 import { SECTION_LABELS } from '@/lib/ai/chat-tools/utils';
-import { springs } from '@/lib/motion';
 import { EditDiffView } from './edit-diff-view';
 
 interface EditApprovalCardProps {
@@ -26,86 +23,52 @@ export function EditApprovalCard({
   oldValue,
   newValue,
   explanation,
-  diffPreview,
+  // diffPreview reserved for future inline diff preview
+  diffPreview: _diffPreview, // eslint-disable-line @typescript-eslint/no-unused-vars
   isApproving,
   onApprove,
   onReject,
 }: EditApprovalCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ ...springs.smooth, duration: 0.3 }}
-      className="my-2"
-    >
-      <GradientBorder className="w-full" innerClassName="p-4 space-y-3 overflow-hidden">
-        <div className="flex items-center gap-2">
-          <motion.div
-            className="w-2 h-2 rounded-full"
-            style={{ background: '#f59e0b' }}
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <span className="text-sm font-medium" style={{ color: '#f59e0b' }}>
-            Proposed Edit
-          </span>
-        </div>
+    <div className="my-2 rounded-md border border-border bg-card p-4 space-y-3 overflow-hidden">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+        <span className="text-sm font-medium text-amber-500">Proposed Edit</span>
+      </div>
 
-        <div
-          className="rounded-lg p-3 space-y-2 overflow-hidden"
-          style={{
-            background: 'rgba(0, 0, 0, 0.3)',
-            border: '1px solid rgba(245, 158, 11, 0.2)',
-          }}
+      <div className="rounded-md border border-amber-500/20 bg-background/40 p-3 space-y-2 overflow-hidden">
+        <div className="text-xs text-muted-foreground">
+          <span className="font-medium">{SECTION_LABELS[section] || section}</span>
+          {' / '}
+          <span className="font-mono break-all">{fieldPath}</span>
+        </div>
+        <p className="text-xs text-muted-foreground/80">{explanation}</p>
+        <EditDiffView oldValue={oldValue} newValue={newValue} fieldPath={fieldPath} />
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          onClick={onApprove}
+          disabled={isApproving}
+          className="flex-1"
         >
-          <div
-            className="text-xs"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            <span className="font-medium">
-              {SECTION_LABELS[section] || section}
-            </span>
-            {' / '}
-            <span className="font-mono break-all">{fieldPath}</span>
-          </div>
-          <p
-            className="text-xs"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            {explanation}
-          </p>
-          <EditDiffView oldValue={oldValue} newValue={newValue} fieldPath={fieldPath} />
-        </div>
-
-        <div className="flex gap-2">
-          <MagneticButton
-            onClick={onApprove}
-            disabled={isApproving}
-            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
-            style={{ background: '#22c55e', color: '#ffffff' }}
-          >
-            {isApproving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
-            Approve
-          </MagneticButton>
-          <MagneticButton
-            onClick={onReject}
-            disabled={isApproving}
-            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
-            style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <X className="w-4 h-4" />
-            Reject
-          </MagneticButton>
-        </div>
-      </GradientBorder>
-    </motion.div>
+          {isApproving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Check className="w-4 h-4" />
+          )}
+          Approve
+        </Button>
+        <Button
+          onClick={onReject}
+          disabled={isApproving}
+          variant="outline"
+          className="flex-1"
+        >
+          <X className="w-4 h-4" />
+          Reject
+        </Button>
+      </div>
+    </div>
   );
 }

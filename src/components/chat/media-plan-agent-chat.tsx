@@ -10,13 +10,14 @@ import {
 } from 'ai';
 import type { UIMessage } from 'ai';
 
+import { cn } from '@/lib/utils';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
 import { ValidationCascadeCard } from './validation-cascade-card';
-import { MagneticButton } from '@/components/ui/magnetic-button';
+import { Button } from '@/components/ui/button';
 import { VoiceInputButton } from './voice-input-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { applyMediaPlanEdit } from '@/lib/ai/media-plan-chat-tools/utils';
@@ -397,22 +398,11 @@ export function MediaPlanAgentChat({
             elements.push(
               <div
                 key={`${message.id}-edit-done-${i}`}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg my-1 text-xs"
-                style={{
-                  background: 'rgba(34, 197, 94, 0.1)',
-                  border: '1px solid rgba(34, 197, 94, 0.2)',
-                  color: '#22c55e',
-                }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md my-1 text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
               >
                 Edit applied to {String(sectionLabel)} / {String(output.fieldPath)}
                 {!!output.requiresValidationCascade && (
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded ml-1"
-                    style={{
-                      background: 'rgba(167, 139, 250, 0.15)',
-                      color: '#a78bfa',
-                    }}
-                  >
+                  <span className="text-[10px] px-1.5 py-0.5 rounded ml-1 bg-violet-400/15 text-violet-400">
                     cascade needed
                   </span>
                 )}
@@ -497,10 +487,10 @@ export function MediaPlanAgentChat({
                     Budget Simulation
                   </span>
                   <span
-                    className="text-[10px] ml-auto"
-                    style={{
-                      color: sim.delta.budgetChange > 0 ? '#22c55e' : '#ef4444',
-                    }}
+                    className={cn(
+                      'text-[10px] ml-auto',
+                      sim.delta.budgetChange > 0 ? 'text-emerald-500' : 'text-destructive',
+                    )}
                   >
                     {sim.delta.budgetChange > 0 ? '+' : ''}
                     {sim.delta.budgetChangePercent}%
@@ -584,12 +574,7 @@ export function MediaPlanAgentChat({
           elements.push(
             <div
               key={`${message.id}-error-${i}`}
-              className="px-3 py-2 rounded-lg my-1 text-xs"
-              style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                color: '#ef4444',
-              }}
+              className="px-3 py-2 rounded-md my-1 text-xs bg-destructive/10 border border-destructive/20 text-destructive"
             >
               Tool error: {toolPart.errorText || 'Unknown error'}
             </div>
@@ -623,24 +608,24 @@ export function MediaPlanAgentChat({
 
         {(canUndo || canRedo) && (
           <div className="flex items-center gap-1">
-            <MagneticButton
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={handleUndo}
               disabled={!canUndo}
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: 'transparent', opacity: canUndo ? 1 : 0.4 }}
               title={canUndo ? `Undo (${undoDepth})` : 'Nothing to undo'}
             >
-              <Undo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            </MagneticButton>
-            <MagneticButton
+              <Undo2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={handleRedo}
               disabled={!canRedo}
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: 'transparent', opacity: canRedo ? 1 : 0.4 }}
               title="Redo"
             >
-              <Redo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            </MagneticButton>
+              <Redo2 className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </div>
@@ -702,14 +687,7 @@ export function MediaPlanAgentChat({
 
         {/* Error display */}
         {error && (
-          <div
-            className="mx-5 my-2 px-3 py-2 rounded-lg text-xs"
-            style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: '#ef4444',
-            }}
-          >
+          <div className="mx-5 my-2 px-3 py-2 rounded-md text-xs bg-destructive/10 border border-destructive/20 text-destructive">
             {error.message || 'An error occurred. Please try again.'}
           </div>
         )}
@@ -793,21 +771,15 @@ export function MediaPlanAgentChat({
                 disabled={isLoading}
                 compact
               />
-              <MagneticButton
+              <Button
                 type="submit"
+                variant="ghost"
+                size="icon-sm"
                 disabled={!input.trim() || isLoading}
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: input.trim() && !isLoading
-                    ? 'var(--text-primary)'
-                    : 'transparent',
-                  color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
-                  opacity: !input.trim() || isLoading ? 0.4 : 1,
-                  transition: 'all 0.15s ease',
-                }}
+                className="flex-shrink-0"
               >
                 <Send className="w-4 h-4" />
-              </MagneticButton>
+              </Button>
             </div>
           </div>
         </form>
@@ -829,42 +801,17 @@ function MediaPlanQuickSuggestions({
 }) {
   return (
     <div className="flex flex-wrap gap-2 justify-center">
-      {MEDIA_PLAN_SUGGESTIONS.map((suggestion, index) => (
-        <motion.button
+      {MEDIA_PLAN_SUGGESTIONS.map((suggestion) => (
+        <Button
           key={suggestion}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: index * 0.05 }}
+          variant="outline"
+          size="sm"
           onClick={() => !disabled && onSelect(suggestion)}
           disabled={disabled}
-          className="flex-shrink-0 cursor-pointer transition-all duration-200"
-          style={{
-            padding: '6px 12px',
-            background: 'transparent',
-            border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: disabled
-              ? 'var(--text-quaternary, #444444)'
-              : 'var(--text-tertiary, #666666)',
-            opacity: disabled ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (!disabled) {
-              e.currentTarget.style.borderColor = 'var(--border-default, rgba(255, 255, 255, 0.12))';
-              e.currentTarget.style.color = 'var(--text-secondary, #a0a0a0)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!disabled) {
-              e.currentTarget.style.borderColor = 'var(--border-subtle, rgba(255, 255, 255, 0.08))';
-              e.currentTarget.style.color = 'var(--text-tertiary, #666666)';
-            }
-          }}
+          className="flex-shrink-0 text-xs"
         >
           {suggestion}
-        </motion.button>
+        </Button>
       ))}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { MagneticButton } from '@/components/ui/magnetic-button';
+import { Button } from '@/components/ui/button';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 
 interface VoiceInputButtonProps {
@@ -83,9 +83,9 @@ export function VoiceInputButton({ onTranscript, onRecordingChange, stopRecordin
   };
 
   const getColor = () => {
-    if (isError) return '#ef4444';
-    if (isRecording) return '#f97316';
-    if (isTranscribing) return '#f97316';
+    if (isError) return 'var(--accent-red, #ef4444)';
+    if (isRecording) return 'var(--accent-amber)';
+    if (isTranscribing) return 'var(--accent-amber)';
     if (hasTranscript) return 'var(--accent-green)';
     if (!isSupported) return 'var(--text-quaternary)';
     return 'var(--text-tertiary)';
@@ -103,11 +103,12 @@ export function VoiceInputButton({ onTranscript, onRecordingChange, stopRecordin
   const sizeClass = compact ? 'w-8 h-8' : 'w-10 h-10';
 
   return (
-    <MagneticButton
+    <Button
       type="button"
+      variant="ghost"
       onClick={handleClick}
       disabled={isDisabledState}
-      className={`${sizeClass} rounded-lg flex items-center justify-center ${
+      className={`${sizeClass} rounded-md p-0 ${
         isRecording ? 'voice-recording-pulse' : ''
       }`}
       style={{
@@ -117,11 +118,10 @@ export function VoiceInputButton({ onTranscript, onRecordingChange, stopRecordin
           : `1px solid ${isRecording ? 'var(--accent-amber)' : hasTranscript ? 'var(--accent-green)' : 'var(--border-subtle)'}`,
         color: getColor(),
         opacity: isDisabledState && !isTranscribing ? 0.5 : 1,
-        transition: 'all 0.2s ease',
       }}
       title={getTitle()}
     >
       {getIcon()}
-    </MagneticButton>
+    </Button>
   );
 }

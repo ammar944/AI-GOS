@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Square, Paperclip, ChevronDown } from 'lucide-react';
 
-import { MagneticButton } from '@/components/ui/magnetic-button';
+import { Button } from '@/components/ui/button';
 import { VoiceInputButton } from './voice-input-button';
 import { SlashCommandPalette } from './slash-command-palette';
 import type { SlashCommand } from './slash-command-palette';
@@ -22,10 +22,10 @@ interface ChatInputProps {
 
 const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-amber)' },
-  { name: 'edit', description: 'Edit a blueprint section', icon: 'Pencil', color: '#f59e0b' },
-  { name: 'compare', description: 'Compare competitors or strategies', icon: 'GitCompare', color: '#a855f7' },
-  { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: '#06b6d4' },
-  { name: 'visualize', description: 'Generate visual breakdowns', icon: 'Eye', color: '#22c55e' },
+  { name: 'edit', description: 'Edit a blueprint section', icon: 'Pencil', color: 'var(--accent-amber)' },
+  { name: 'compare', description: 'Compare competitors or strategies', icon: 'GitCompare', color: 'var(--accent-purple)' },
+  { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: 'var(--text-secondary)' },
+  { name: 'visualize', description: 'Generate visual breakdowns', icon: 'Eye', color: 'var(--accent-green)' },
 ];
 
 export function ChatInput({
@@ -200,39 +200,18 @@ export function ChatInput({
 
   // Border colour priority: recording > focused > default
   const borderColor = isVoiceRecording
-    ? 'rgba(249, 115, 22, 0.5)'
+    ? 'var(--accent-amber)'
     : isFocused
-      ? 'var(--border-focus, #4d6fff)'
+      ? 'var(--border-focus, var(--accent-blue))'
       : 'var(--border-default)';
-
-  const boxShadow =
-    isFocused && !isVoiceRecording
-      ? '0 0 24px rgba(77,111,255,0.12)'
-      : 'none';
 
   const canSend = input.trim().length > 0 && !isInputDisabled;
   const showStop = isLoading && !!onStop;
 
   return (
     <div className={cn('relative', className)}>
-      {/* Gradient fade above the input */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          bottom: '100%',
-          left: 0,
-          right: 0,
-          height: '48px',
-          background:
-            'linear-gradient(180deg, transparent, var(--bg-chat) 30%)',
-          pointerEvents: 'none',
-          zIndex: 1,
-        }}
-      />
-
       {/* Slash command palette — rendered above the form */}
-      <div style={{ position: 'relative', zIndex: 60 }}>
+      <div className="relative z-[60]">
         <SlashCommandPalette
           commands={filteredCommands}
           isOpen={isSlashPaletteOpen}
@@ -241,17 +220,13 @@ export function ChatInput({
         />
       </div>
 
-      {/* Input container — Figma AI style: textarea + toolbar in one rounded box */}
+      {/* Input container — textarea + toolbar in one rounded box */}
       <form
         onSubmit={handleSubmit}
+        className="relative overflow-hidden rounded-md transition-colors"
         style={{
-          borderRadius: '12px',
           background: 'var(--bg-input)',
           border: `1px solid ${borderColor}`,
-          boxShadow,
-          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-          overflow: 'hidden',
-          position: 'relative',
         }}
       >
         {/* Auto-expanding textarea */}
@@ -269,9 +244,8 @@ export function ChatInput({
           }
           disabled={isInputDisabled && !isVoiceRecording}
           rows={1}
-          className="w-full px-3.5 pt-3 pb-1.5 text-sm outline-none resize-none overflow-y-auto leading-[1.55] bg-transparent scrollbar-hide"
+          className="w-full px-3.5 pt-3 pb-1.5 text-sm outline-none resize-none overflow-y-auto leading-[1.55] bg-transparent scrollbar-hide text-foreground"
           style={{
-            color: 'var(--text-primary)',
             minHeight: '36px',
             maxHeight: '160px',
           }}
@@ -331,37 +305,32 @@ export function ChatInput({
           <div className="flex items-center gap-1.5">
             {/* Stop button (only when streaming) */}
             {showStop && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={onStop}
-                className="w-7 h-7 rounded-[7px] flex items-center justify-center"
-                style={{
-                  background: 'var(--bg-hover)',
-                  border: '1px solid var(--border-default)',
-                  cursor: 'pointer',
-                }}
+                className="w-7 h-7 rounded-md p-0"
                 title="Stop generating"
               >
-                <Square size={10} style={{ color: 'var(--text-secondary)' }} />
-              </button>
+                <Square size={10} className="text-muted-foreground" />
+              </Button>
             )}
 
             {/* Send button */}
-            <MagneticButton
+            <Button
               type="submit"
+              size="icon"
               disabled={!canSend && !showStop}
-              className="w-7 h-7 rounded-[7px] flex items-center justify-center flex-shrink-0"
+              className="w-7 h-7 rounded-md p-0 flex-shrink-0"
               style={{
-                background:
-                  canSend ? 'var(--accent-green)' : 'transparent',
-                color:
-                  canSend ? '#ffffff' : 'var(--text-quaternary)',
+                background: canSend ? 'var(--accent-green)' : 'transparent',
+                color: canSend ? 'var(--text-on-accent, white)' : 'var(--text-quaternary)',
                 opacity: !canSend ? 0.4 : 1,
-                transition: 'all 0.15s ease',
               }}
             >
               <Send size={14} />
-            </MagneticButton>
+            </Button>
           </div>
         </div>
       </form>
