@@ -18,6 +18,7 @@ import type { OnboardingFormData } from '@/lib/onboarding/types';
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
+import { SectionShell } from '@/components/research-v2/section-shell';
 import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard';
 
 // ---------------------------------------------------------------------------
@@ -428,10 +429,10 @@ export default function ResearchV2Page() {
       )}
 
       {state.kind === 'sections' && (
-        // Phase 4 will mount the section UI here.
-        <div className="p-8 text-muted-foreground">
-          Section view — Phase 4 will mount the section shell here.
-        </div>
+        <SectionShell
+          runId={state.runId}
+          currentSection={state.currentSection}
+        />
       )}
 
       {state.kind === 'error' && (
