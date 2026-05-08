@@ -2,7 +2,7 @@
 
 // /research-v2 — top-level page component.
 // Owns the 5-state machine (welcome → corpus → onboarding → sections → error).
-// Phase 3 will replace the onboarding stub. Phase 4 will replace the sections stub.
+// Phase 3 mounts the onboarding wizard. Phase 4 will replace the sections stub.
 
 import { useReducer, useEffect, useCallback, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -18,6 +18,7 @@ import type { OnboardingFormData } from '@/lib/onboarding/types';
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
+import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -311,6 +312,19 @@ export default function ResearchV2Page() {
   }, [state]);
 
   // -----------------------------------------------------------------------
+  // Onboarding complete callback (Phase 3 mount)
+  // Wizard persists its own data to Supabase via the existing journey path.
+  // Page just needs the trigger to advance to the sections stage.
+  // -----------------------------------------------------------------------
+
+  const handleOnboardingComplete = useCallback(
+    (_data: OnboardingFormData) => {
+      dispatch({ type: 'ONBOARDING_COMPLETE' });
+    },
+    [],
+  );
+
+  // -----------------------------------------------------------------------
   // Error recovery
   // -----------------------------------------------------------------------
 
@@ -407,10 +421,10 @@ export default function ResearchV2Page() {
       )}
 
       {state.kind === 'onboarding' && (
-        // Phase 3 will mount the onboarding wizard here.
-        <div className="p-8 text-muted-foreground">
-          Onboarding step — Phase 3 will mount the wizard here.
-        </div>
+        <OnboardingWizard
+          initialData={state.prefill}
+          onComplete={handleOnboardingComplete}
+        />
       )}
 
       {state.kind === 'sections' && (
