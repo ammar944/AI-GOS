@@ -14,6 +14,12 @@ export const TOOL_SECTION_MAP = {
   resolveIdentity: 'identityResolution',
   extractMeetingTranscript: 'meetingExtraction',
   runDeepResearchProgram: 'deepResearchProgram',
+  positioningMarketCategory: 'positioningMarketCategory',
+  positioningBuyerICP: 'positioningBuyerICP',
+  positioningCompetitorLandscape: 'positioningCompetitorLandscape',
+  positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
+  positioningDemandIntent: 'positioningDemandIntent',
+  positioningOfferDiagnostic: 'positioningOfferDiagnostic',
 } as const;
 
 const LEGACY_TO_CANONICAL_SECTION_MAP: Record<string, string> = {

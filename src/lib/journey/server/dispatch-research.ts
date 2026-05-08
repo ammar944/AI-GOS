@@ -29,6 +29,12 @@ export const SECTION_TO_TOOL = {
   keywordIntel: 'researchKeywords',
   mediaPlan: 'researchMediaPlan',
   deepResearchProgram: 'runDeepResearchProgram',
+  positioningMarketCategory: 'positioningMarketCategory',
+  positioningBuyerICP: 'positioningBuyerICP',
+  positioningCompetitorLandscape: 'positioningCompetitorLandscape',
+  positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
+  positioningDemandIntent: 'positioningDemandIntent',
+  positioningOfferDiagnostic: 'positioningOfferDiagnostic',
 } as const;
 
 export type JourneyResearchSection = keyof typeof SECTION_TO_TOOL;

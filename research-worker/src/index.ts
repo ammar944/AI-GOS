@@ -11,6 +11,12 @@ import {
   runJourneyKeywordIntel,
   runJourneyCrossAnalysis,
   runJourneyMediaPlan,
+  runPositioningMarketCategory,
+  runPositioningBuyerICP,
+  runPositioningCompetitorLandscape,
+  runPositioningVoiceOfCustomer,
+  runPositioningDemandIntent,
+  runPositioningOfferDiagnostic,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
@@ -69,7 +75,13 @@ type ToolName =
   | 'researchMediaPlan'
   | 'runDeepResearchProgram'
   | 'resolveIdentity'
-  | 'extractMeetingTranscript';
+  | 'extractMeetingTranscript'
+  | 'positioningMarketCategory'
+  | 'positioningBuyerICP'
+  | 'positioningCompetitorLandscape'
+  | 'positioningVoiceOfCustomer'
+  | 'positioningDemandIntent'
+  | 'positioningOfferDiagnostic';
 
 import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
 
@@ -109,6 +121,12 @@ const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgre
   runDeepResearchProgram,
   resolveIdentity: resolveProductIdentity,
   extractMeetingTranscript: runMeetingExtraction,
+  positioningMarketCategory: runPositioningMarketCategory,
+  positioningBuyerICP: runPositioningBuyerICP,
+  positioningCompetitorLandscape: runPositioningCompetitorLandscape,
+  positioningVoiceOfCustomer: runPositioningVoiceOfCustomer,
+  positioningDemandIntent: runPositioningDemandIntent,
+  positioningOfferDiagnostic: runPositioningOfferDiagnostic,
 };
 
 // -- Health -------------------------------------------------------------------

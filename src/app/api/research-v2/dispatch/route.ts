@@ -1,0 +1,137 @@
+// Research-v2 dispatch route — Pre-Pitch Positioning Audit (6 sections).
+//
+// Body: { runId, sectionId, context? }
+// - sectionId: one of POSITIONING_SECTION_IDS.
+// - context: optional. When omitted, the dispatch service still injects
+//   prior research, reference docs, meeting intel, and identity classifications
+//   from the existing buildJourneyResearchDispatchContext path.
+// - runId: required so writes land on the active journey session row.
+//
+// Idempotency: before proxying to the worker, read the section's current
+// status from journey_sessions.research_results[sectionId]. Already-running
+// → 409. Already-complete → 200 with the existing payload status. Otherwise
+// proceed via the existing dispatchJourneyResearchForUser pipeline (which
+// also stamps activeJourneyRunId, prevents stale writes, and forwards to the
+// Railway worker /run endpoint).
+
+import { auth } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+import {
+  POSITIONING_SECTION_IDS,
+  isPositioningSectionId,
+  type PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
+import { dispatchJourneyResearchForUser } from '@/lib/journey/server/dispatch-research';
+import { createAdminClient } from '@/lib/supabase/server';
+
+interface ResearchV2DispatchRequest {
+  runId?: unknown;
+  sectionId?: unknown;
+  context?: unknown;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+interface ExistingSectionStatus {
+  status: 'running' | 'complete' | 'partial' | 'error' | 'unknown';
+  hasMarkdown: boolean;
+}
+
+async function readSectionStatus(
+  userId: string,
+  runId: string,
+  sectionId: PositioningSectionId,
+): Promise<ExistingSectionStatus | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('research_results')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(
+      `[research-v2] Failed to read existing status for ${sectionId}:`,
+      error.message,
+    );
+    return null;
+  }
+
+  const results = data?.research_results as
+    | Record<string, { status?: string; artifact?: { markdown?: string } }>
+    | null
+    | undefined;
+  const entry = results?.[sectionId];
+  if (!entry) {
+    return null;
+  }
+
+  const status =
+    typeof entry.status === 'string' &&
+    ['running', 'complete', 'partial', 'error'].includes(entry.status)
+      ? (entry.status as ExistingSectionStatus['status'])
+      : 'unknown';
+  const hasMarkdown = Boolean(entry.artifact?.markdown);
+
+  return { status, hasMarkdown };
+}
+
+export async function POST(req: Request): Promise<NextResponse> {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = (await req.json()) as ResearchV2DispatchRequest;
+  const sectionId = readString(body.sectionId);
+  const runId = readString(body.runId);
+  const context = readString(body.context) ?? '';
+
+  if (!sectionId || !runId) {
+    return NextResponse.json(
+      {
+        error: 'Missing required fields: runId, sectionId',
+        sectionIds: POSITIONING_SECTION_IDS,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (!isPositioningSectionId(sectionId)) {
+    return NextResponse.json(
+      {
+        error: `Unknown sectionId: ${sectionId}`,
+        sectionIds: POSITIONING_SECTION_IDS,
+      },
+      { status: 400 },
+    );
+  }
+
+  const existing = await readSectionStatus(userId, runId, sectionId);
+  if (existing?.status === 'running') {
+    return NextResponse.json(
+      { status: 'already_running', sectionId, runId },
+      { status: 409 },
+    );
+  }
+  if (existing?.status === 'complete' && existing.hasMarkdown) {
+    return NextResponse.json(
+      { status: 'already_complete', sectionId, runId },
+      { status: 200 },
+    );
+  }
+
+  const result = await dispatchJourneyResearchForUser({
+    userId,
+    section: sectionId,
+    runId,
+    context,
+  });
+
+  return NextResponse.json(result);
+}

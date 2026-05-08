@@ -18,7 +18,7 @@ const JOURNEY_SECTION_MODEL = process.env.RESEARCH_JOURNEY_SECTION_MODEL ?? MODE
 const JOURNEY_SECTION_MAX_TOKENS = Number(process.env.RESEARCH_JOURNEY_SECTION_MAX_TOKENS ?? 18000);
 const JOURNEY_SECTION_TIMEOUT_MS = Number(process.env.RESEARCH_JOURNEY_SECTION_TIMEOUT_MS ?? 600000);
 
-interface JourneySectionSpec {
+export interface JourneySectionSpec {
   section: string;
   title: string;
   skill: string;
@@ -213,7 +213,7 @@ export function formatJourneySectionArtifactMarkdown(
   return sections.join('\n\n');
 }
 
-async function runJourneySection(
+export async function runJourneySection(
   spec: JourneySectionSpec,
   context: string,
   onProgress?: RunnerProgressReporter,
