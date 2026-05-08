@@ -28,7 +28,9 @@ import { ThinkingBlock } from './thinking-block';
 import { ExportMenu } from './export-menu';
 import { BranchIndicator, BranchHereButton, BranchPill } from './branch-indicator';
 import { ShortcutsHelp } from './shortcuts-help';
-import { MagneticButton } from '@/components/ui/magnetic-button';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { useChatPersistence } from '@/hooks/use-chat-persistence';
 import { useChatShortcuts } from '@/hooks/use-chat-shortcuts';
@@ -708,32 +710,26 @@ export function AgentChat({
           // editBlueprint - show applied confirmation
           if (toolName === 'editBlueprint' && output && !output.error) {
             elements.push(
-              <div
+              <Alert
                 key={`${message.id}-edit-done-${i}`}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg my-1 text-xs"
-                style={{
-                  background: 'rgba(34, 197, 94, 0.1)',
-                  border: '1px solid rgba(34, 197, 94, 0.2)',
-                  color: '#22c55e',
-                }}
+                className="my-1 py-1.5 text-xs border-green-500/20 bg-green-500/10 text-green-500"
               >
-                <span className="flex-1 truncate min-w-0">
-                  Edit applied to {String(output.section)} / {String(output.fieldPath)}
-                </span>
-                {editCtx && (
-                  <button
-                    onClick={() => editCtx.requestNavigation(String(output.section), String(output.fieldPath))}
-                    className="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium transition-colors hover:brightness-125"
-                    style={{
-                      background: 'rgba(34, 197, 94, 0.15)',
-                      border: '1px solid rgba(34, 197, 94, 0.3)',
-                      color: '#4ade80',
-                    }}
-                  >
-                    View Change
-                  </button>
-                )}
-              </div>
+                <AlertDescription className="flex items-center gap-2">
+                  <span className="flex-1 truncate min-w-0">
+                    Edit applied to {String(output.section)} / {String(output.fieldPath)}
+                  </span>
+                  {editCtx && (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => editCtx.requestNavigation(String(output.section), String(output.fieldPath))}
+                      className="shrink-0 text-[11px] font-medium text-green-400 hover:text-green-300 hover:bg-green-500/15"
+                    >
+                      View Change
+                    </Button>
+                  )}
+                </AlertDescription>
+              </Alert>
             );
           }
 
@@ -826,17 +822,15 @@ export function AgentChat({
         // Error state
         if (toolPart.state === 'output-error') {
           elements.push(
-            <div
+            <Alert
               key={`${message.id}-error-${i}`}
-              className="px-3 py-2 rounded-lg my-1 text-xs"
-              style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                color: '#ef4444',
-              }}
+              variant="destructive"
+              className="my-1 py-2 text-xs"
             >
-              Tool error: {toolPart.errorText || 'Unknown error'}
-            </div>
+              <AlertDescription>
+                Tool error: {toolPart.errorText || 'Unknown error'}
+              </AlertDescription>
+            </Alert>
           );
         }
       }
@@ -875,24 +869,24 @@ export function AgentChat({
         <div className="flex-1" />
         {(canUndo || canRedo) && (
           <>
-            <MagneticButton
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={handleUndo}
               disabled={!canUndo}
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: 'transparent', opacity: canUndo ? 1 : 0.4 }}
               title={canUndo ? `Undo (${undoDepth})` : 'Nothing to undo'}
             >
               <Undo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            </MagneticButton>
-            <MagneticButton
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={handleRedo}
               disabled={!canRedo}
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: 'transparent', opacity: canRedo ? 1 : 0.4 }}
               title="Redo"
             >
               <Redo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            </MagneticButton>
+            </Button>
             {/* Divider between undo/redo and export */}
             <div
               style={{
@@ -912,7 +906,7 @@ export function AgentChat({
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto py-4 px-0 chat-messages-scroll">
+      <ScrollArea className="flex-1 py-4 px-0">
         {/* Empty state */}
         {messages.length === 0 && !isLoading && !isPersistenceLoading && (
           <div className="px-4 py-8 text-center">
@@ -1014,20 +1008,15 @@ export function AgentChat({
 
         {/* Error display */}
         {error && (
-          <div
-            className="mx-4 my-2 px-3 py-2 rounded-lg text-xs"
-            style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: '#ef4444',
-            }}
-          >
-            {error.message || 'An error occurred. Please try again.'}
-          </div>
+          <Alert variant="destructive" className="mx-4 my-2 text-xs">
+            <AlertDescription>
+              {error.message || 'An error occurred. Please try again.'}
+            </AlertDescription>
+          </Alert>
         )}
 
         <div ref={messagesEndRef} />
-      </div>
+      </ScrollArea>
 
       {/* Input area */}
       <div className="flex-shrink-0 px-3.5 pb-3.5 pt-3" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-chat)' }}>
