@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
@@ -190,7 +193,12 @@ function ArtifactLoading({
         </span>
       </div>
 
-      <div className="w-full max-w-xl glass-surface rounded-[var(--radius-control)] p-4">
+      <div className="w-full max-w-xl space-y-3">
+        <Skeleton className="h-4 w-3/4 rounded-md" />
+        <Skeleton className="h-4 w-1/2 rounded-md" />
+      </div>
+
+      <div className="w-full max-w-xl glass-surface rounded-md p-4">
         <div className="space-y-2 text-xs font-mono text-text-secondary">
           {logLines.map((line) => (
             <div key={line.id}>{line.text}</div>
@@ -327,7 +335,7 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
           </h3>
           <div className="space-y-3">
             {trends.map((trend, i) => (
-              <div key={i} className="glass-surface rounded-[var(--radius-control)] p-3">
+              <div key={i} className="glass-surface rounded-md p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={cn(
                     'text-[10px] font-mono uppercase px-1.5 py-0.5 rounded',
@@ -389,7 +397,7 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
 
 function StatBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="glass-surface rounded-[var(--radius-control)] p-3">
+    <div className="glass-surface rounded-md p-3">
       <span className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider block mb-1">
         {label}
       </span>
@@ -511,7 +519,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-8 pb-8">
       {/* Your Ads section — client's own ads */}
       {clientAdInsight && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-4 border border-[var(--border-default)]">
+        <section className="glass-surface rounded-md p-4 space-y-4 border border-[var(--border-default)]">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-text-primary">Your Ads</h3>
             <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
@@ -585,7 +593,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
         const counterPositioning = asString(threat?.counterPositioning);
 
         return (
-          <section key={name} className="glass-surface rounded-[var(--radius-control)] p-4 space-y-4">
+          <section key={name} className="glass-surface rounded-md p-4 space-y-4">
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -617,7 +625,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {pricingTiers.map((tier) => (
-                      <div key={tier.name} className="glass-surface rounded-[var(--radius-control)] p-3 space-y-1">
+                      <div key={tier.name} className="glass-surface rounded-md p-3 space-y-1">
                         <p className="text-xs font-mono text-text-tertiary uppercase">{tier.name}</p>
                         <p className="text-sm font-semibold text-text-primary">{tier.price}</p>
                         {tier.description && (
@@ -628,7 +636,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
                   </div>
                 </div>
               ) : price && /\$\d+/.test(price) ? (
-                <div className="glass-surface rounded-[var(--radius-control)] p-3 flex items-center gap-4">
+                <div className="glass-surface rounded-md p-3 flex items-center gap-4">
                   <div className="flex-1">
                     <span className="text-xs font-mono text-text-tertiary uppercase tracking-widest">Pricing</span>
                     <p className="text-sm font-medium text-text-primary mt-1">{price}</p>
@@ -662,7 +670,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
             )}
 
             {adActivity && (
-              <div className="glass-surface rounded-[var(--radius-control)] p-3 space-y-2">
+              <div className="glass-surface rounded-md p-3 space-y-2">
                 <h4 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest">
                   Ad Activity
                 </h4>
@@ -760,7 +768,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
             {whiteSpaceGaps.map((gap, index) => (
               <div
                 key={`${gap.gap ?? 'gap'}-${index}`}
-                className="glass-surface rounded-[var(--radius-control)] p-4 space-y-2"
+                className="glass-surface rounded-md p-4 space-y-2"
               >
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-text-primary">
@@ -822,7 +830,7 @@ function ICPValidationDocument({ data }: { data: Record<string, unknown> }) {
       </section>
 
       {finalVerdict && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4">
+        <section className="glass-surface rounded-md p-4">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-2">
             Final Verdict
           </h3>
@@ -886,7 +894,7 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
       </section>
 
       {reasoning && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4">
+        <section className="glass-surface rounded-md p-4">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-2">
             Recommendation Rationale
           </h3>
@@ -895,7 +903,7 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
       )}
 
       {pricingAnalysis && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-3">
+        <section className="glass-surface rounded-md p-4 space-y-3">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest">
             Pricing Analysis
           </h3>
@@ -943,7 +951,7 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
       />
 
       {marketFitAssessment && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4">
+        <section className="glass-surface rounded-md p-4">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-2">
             Market Fit Assessment
           </h3>
@@ -962,7 +970,7 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
             {redFlags.map((flag, index) => (
               <div
                 key={`${flag.issue ?? 'flag'}-${index}`}
-                className="glass-surface rounded-[var(--radius-control)] p-4 space-y-2"
+                className="glass-surface rounded-md p-4 space-y-2"
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-text-primary">
@@ -1027,7 +1035,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-8 pb-8">
       {(recommendedAngle || leadRecommendation || differentiator) && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-3">
+        <section className="glass-surface rounded-md p-4 space-y-3">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest">
             Positioning Strategy
           </h3>
@@ -1038,7 +1046,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
             <p className="text-sm leading-relaxed text-text-secondary">{leadRecommendation}</p>
           )}
           {differentiator && (
-            <div className="rounded-[var(--radius-control)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-text-secondary">
+            <div className="rounded-md bg-[var(--bg-surface)] px-3 py-2 text-sm text-text-secondary">
               <span className="font-medium text-text-primary">Differentiator:</span> {differentiator}
             </div>
           )}
@@ -1046,7 +1054,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
       )}
 
       {planningContext && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-3">
+        <section className="glass-surface rounded-md p-4 space-y-3">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest">
             Planning Context
           </h3>
@@ -1081,7 +1089,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
               const description = asString(chart.description);
 
               return (
-                <div key={`${title}-${index}`} className="glass-surface rounded-[var(--radius-control)] p-4 space-y-3">
+                <div key={`${title}-${index}`} className="glass-surface rounded-md p-4 space-y-3">
                   <div>
                     <h4 className="text-sm font-medium text-text-primary">{title}</h4>
                     {description && (
@@ -1093,7 +1101,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
                     <img
                       src={imageUrl}
                       alt={title}
-                      className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--bg-surface)] object-cover"
+                      className="w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] object-cover"
                     />
                   )}
                 </div>
@@ -1104,7 +1112,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
       )}
 
       {narrative && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4">
+        <section className="glass-surface rounded-md p-4">
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-2">
             Strategic Narrative
           </h3>
@@ -1128,7 +1136,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
               }
 
               return (
-                <div key={`${headline}-${index}`} className="glass-surface rounded-[var(--radius-control)] p-3 space-y-1">
+                <div key={`${headline}-${index}`} className="glass-surface rounded-md p-3 space-y-1">
                   <div className="flex items-center gap-2">
                     {source && (
                       <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
@@ -1160,7 +1168,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
               const rationale = asString(platform.rationale);
 
               return (
-                <div key={`${name}-${index}`} className="glass-surface rounded-[var(--radius-control)] p-3 space-y-2">
+                <div key={`${name}-${index}`} className="glass-surface rounded-md p-3 space-y-2">
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-sm font-medium text-text-primary">{name}</p>
                     {role && (
@@ -1194,7 +1202,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
               const evidence = asString(angle.evidence);
 
               return (
-                <div key={`${title}-${index}`} className="glass-surface rounded-[var(--radius-control)] p-3 space-y-2">
+                <div key={`${title}-${index}`} className="glass-surface rounded-md p-3 space-y-2">
                   <p className="text-sm font-medium text-text-primary">{title}</p>
                   {hook && <p className="text-sm leading-relaxed text-text-secondary">{hook}</p>}
                   {evidence && (
@@ -1296,7 +1304,7 @@ function MediaPlanDocument({ data }: { data: Record<string, unknown> }) {
           </h3>
           <div className="space-y-2">
             {budgetRows.map((row, index) => (
-              <div key={`${row.platform}-${index}`} className="glass-surface rounded-[var(--radius-control)] p-3 flex items-center justify-between gap-4">
+              <div key={`${row.platform}-${index}`} className="glass-surface rounded-md p-3 flex items-center justify-between gap-4">
                 <span className="text-sm text-text-primary">{row.platform}</span>
                 <span className="text-sm text-text-secondary">
                   {row.amount !== null ? `$${row.amount.toLocaleString()}` : 'Budget TBD'}
@@ -1374,7 +1382,7 @@ export function ArtifactPanel({
           {approved ? (
             <div className="w-2.5 h-2.5 rounded-full bg-accent-green" />
           ) : isComplete ? (
-            <div className="w-2.5 h-2.5 rounded-full bg-[var(--section-market)]" style={{ boxShadow: '0 0 10px color-mix(in srgb, var(--section-market) 30%, transparent)' }} />
+            <div className="w-2.5 h-2.5 rounded-full bg-[var(--section-market)]" />
           ) : (
             <Loader2 className="w-4 h-4 text-[var(--section-market)] animate-spin" />
           )}
@@ -1388,18 +1396,19 @@ export function ArtifactPanel({
           </div>
         </div>
         {showCloseButton ? (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Close artifact panel"
-            className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-text-tertiary hover:text-text-secondary transition-colors"
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         ) : null}
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pt-6">
+      <ScrollArea className="flex-1 px-6 pt-6">
         {status === 'loading' && (
           <ArtifactLoading activity={activity} label={meta.label} section={section} />
         )}
@@ -1429,7 +1438,7 @@ export function ArtifactPanel({
             <p className="text-sm text-accent-red">Research failed. The agent will continue with available data.</p>
           </div>
         )}
-      </div>
+      </ScrollArea>
 
       {/* Footer -- Approval button */}
       {showReviewControls ? (
@@ -1442,30 +1451,20 @@ export function ArtifactPanel({
           ) : (
             <div className="space-y-3">
               <div className="flex gap-3">
-                <button
+                <Button
                   onClick={onApprove}
                   disabled={!isComplete}
-                  className={cn(
-                    'flex-1 py-2.5 rounded-[var(--radius-control)] text-sm font-medium transition-all duration-200',
-                    isComplete
-                      ? 'sl-btn-primary cursor-pointer'
-                      : 'bg-[var(--bg-surface)] text-text-tertiary cursor-not-allowed',
-                  )}
+                  className="flex-1"
                 >
                   {isComplete ? 'Looks Good' : 'Waiting for research...'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline"
                   onClick={onRequestChanges}
                   disabled={!isComplete}
-                  className={cn(
-                    'rounded-[var(--radius-control)] border px-4 py-2.5 text-sm font-medium transition-colors duration-200',
-                    isComplete
-                      ? 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                      : 'border-[var(--border-glass)] text-text-tertiary cursor-not-allowed',
-                  )}
                 >
                   Needs changes
-                </button>
+                </Button>
               </div>
               {feedbackMode && (
                 <p className="text-xs leading-relaxed text-amber-200/70">
