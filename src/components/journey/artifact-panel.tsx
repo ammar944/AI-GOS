@@ -68,6 +68,59 @@ function getArtifactWaitGuidance(section: string): string {
   return '[INFO] Final artifact blocks will render once the completed result is written.';
 }
 
+/**
+ * User-visible label for each `artifact-section-state` status emitted by the
+ * worker (research-worker/src/runner.ts ProgressMeta.status union).
+ *
+ * The worker emits in this order for happy-path runs:
+ *   queued → researching → drafting → complete
+ * Plus citing (when the model is appending sources), partial (validation
+ * failed but result usable), or error.
+ */
+const SECTION_STATE_LABELS: Record<string, string> = {
+  queued: 'Queued',
+  researching: 'Researching',
+  drafting: 'Drafting',
+  citing: 'Citing sources',
+  complete: 'Complete',
+  partial: 'Partial result',
+  error: 'Error',
+};
+
+/**
+ * Find the most recent `artifact-section-state` update for a given section in
+ * the worker's activity update stream. This drives the user-visible label so
+ * the panel says "Researching" while the worker is gathering evidence,
+ * "Drafting" right before the markdown write, "Error" on failure — instead of
+ * the coarse activity-level "running / error / queued" regardless of phase.
+ *
+ * Returns null when no section-state update has landed yet; the caller falls
+ * back to activity-level status so the panel still shows something sensible
+ * during the first ~hundred ms after dispatch before the first emit arrives.
+ */
+function getLatestSectionStateStatus(
+  activity: ResearchJobActivity | undefined,
+  section: string,
+): string | null {
+  const updates = activity?.updates;
+  if (!updates || updates.length === 0) {
+    return null;
+  }
+  for (let i = updates.length - 1; i >= 0; i--) {
+    const update = updates[i];
+    const meta = update?.meta as Record<string, unknown> | undefined;
+    if (
+      meta &&
+      meta.eventType === 'artifact-section-state' &&
+      meta.section === section &&
+      typeof meta.status === 'string'
+    ) {
+      return meta.status;
+    }
+  }
+  return null;
+}
+
 // -- Loading State -------------------------------------------------------------
 function ArtifactLoading({
   activity,
@@ -81,12 +134,22 @@ function ArtifactLoading({
   const now = useTicker(Boolean(activity?.startedAt || activity?.lastHeartbeat));
   const startedAgo = formatElapsed(activity?.startedAt, now);
   const heartbeatAgo = formatElapsed(activity?.lastHeartbeat, now);
+  // Honest streaming contract: the panel label tracks what the worker is
+  // actually doing right now — researching, drafting, or errored — not just
+  // whether the job is "running". When the worker has emitted a section-state
+  // update, prefer that. Otherwise fall back to the activity-level status so
+  // the first hundred milliseconds after dispatch don't render an empty
+  // string. "Worker Running" / "Research Running" wording is gone — the
+  // verb is the phase, not the runtime state of a process.
+  const sectionStateStatus = getLatestSectionStateStatus(activity, section);
   const statusLabel =
-    activity?.status === 'running'
-      ? 'Research Running'
-      : activity?.status === 'error'
-        ? 'Research Error'
-        : 'Queued';
+    sectionStateStatus !== null && SECTION_STATE_LABELS[sectionStateStatus]
+      ? SECTION_STATE_LABELS[sectionStateStatus]
+      : activity?.status === 'running'
+        ? 'Researching'
+        : activity?.status === 'error'
+          ? 'Error'
+          : 'Queued';
 
   const streamedUpdates = collapseResearchJobUpdates(activity?.updates)
     .slice(-10)

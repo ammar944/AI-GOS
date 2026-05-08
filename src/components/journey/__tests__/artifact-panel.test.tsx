@@ -280,7 +280,7 @@ describe('ArtifactPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Research Running')).toBeInTheDocument();
+    expect(screen.getByText('Researching')).toBeInTheDocument();
     expect(screen.getByText(/searching: "b2b saas paid media agencies"/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Waiting for research...' })).toBeDisabled();
 
@@ -292,7 +292,7 @@ describe('ArtifactPanel', () => {
       />,
     );
 
-    expect(screen.queryByText('Research Running')).not.toBeInTheDocument();
+    expect(screen.queryByText('Researching')).not.toBeInTheDocument();
     expect(screen.getByText('Hey Digital')).toBeInTheDocument();
     expect(screen.getByText('SalesCaptain (salescaptain.io)')).toBeInTheDocument();
     expect(screen.getAllByText(/^Our Advantage vs /).length).toBeGreaterThan(0);
@@ -448,5 +448,256 @@ describe('ArtifactPanel', () => {
     expect(screen.getByText('Qualified pipeline generated')).toBeInTheDocument();
     expect(screen.getByText('Launch Sequence')).toBeInTheDocument();
     expect(screen.getAllByText(/LinkedIn/i).length).toBeGreaterThan(0);
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Phase 7 — honest streaming: the loading panel surfaces the worker's
+  // artifact-section-state phase ('researching' | 'drafting' | 'error') so the
+  // label tracks what is actually happening instead of the coarse activity-
+  // level "running / queued / error" label.
+  //
+  // The worker emits these state transitions in journey-section-synthesis.ts:
+  //   start → 'researching'
+  //   right before markdown write → 'drafting'
+  //   on success → 'complete'
+  //   on JSON parse failure or thrown error → 'error'
+  // ──────────────────────────────────────────────────────────────────────────
+  describe('honest section-state phase labels', () => {
+    const baseProps = {
+      section: 'competitors',
+      onApprove: vi.fn(),
+      onRequestChanges: vi.fn(),
+      onClose: vi.fn(),
+      approved: false,
+    };
+
+    it('falls back to "Researching" when activity is running but no section-state update has landed yet', () => {
+      render(
+        <ArtifactPanel
+          {...baseProps}
+          status="loading"
+          activity={{
+            jobId: 'job-1',
+            section: 'competitors',
+            status: 'running',
+            tool: 'researchCompetitors',
+            startedAt: '2026-03-10T18:07:15.100Z',
+            updates: [],
+          }}
+        />,
+      );
+
+      expect(screen.getByText('Researching')).toBeInTheDocument();
+      expect(screen.queryByText('Research Running')).not.toBeInTheDocument();
+      expect(screen.queryByText(/streaming/iu)).not.toBeInTheDocument();
+    });
+
+    it('shows "Researching" when worker emitted artifact-section-state status=researching', () => {
+      render(
+        <ArtifactPanel
+          {...baseProps}
+          status="loading"
+          activity={{
+            jobId: 'job-1',
+            section: 'competitors',
+            status: 'running',
+            tool: 'researchCompetitors',
+            startedAt: '2026-03-10T18:07:15.100Z',
+            updates: [
+              {
+                at: '2026-03-10T18:07:15.110Z',
+                id: 'state-1',
+                message: 'researching',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-section-state',
+                  section: 'competitors',
+                  status: 'researching',
+                  title: 'Competitive Positioning',
+                },
+              },
+            ],
+          }}
+        />,
+      );
+
+      expect(screen.getByText('Researching')).toBeInTheDocument();
+    });
+
+    it('shows "Drafting" when worker has progressed to artifact-section-state status=drafting', () => {
+      render(
+        <ArtifactPanel
+          {...baseProps}
+          status="loading"
+          activity={{
+            jobId: 'job-1',
+            section: 'competitors',
+            status: 'running',
+            tool: 'researchCompetitors',
+            startedAt: '2026-03-10T18:07:15.100Z',
+            updates: [
+              {
+                at: '2026-03-10T18:07:15.110Z',
+                id: 'state-1',
+                message: 'researching',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-section-state',
+                  section: 'competitors',
+                  status: 'researching',
+                  title: 'Competitive Positioning',
+                },
+              },
+              {
+                at: '2026-03-10T18:08:30.000Z',
+                id: 'state-2',
+                message: 'drafting',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-section-state',
+                  section: 'competitors',
+                  status: 'drafting',
+                  title: 'Competitive Positioning',
+                },
+              },
+            ],
+          }}
+        />,
+      );
+
+      expect(screen.getByText('Drafting')).toBeInTheDocument();
+      // Latest section-state wins; the panel must not still display Researching.
+      expect(screen.queryByText(/^Researching$/u)).not.toBeInTheDocument();
+    });
+
+    it('shows "Error" when worker emitted artifact-section-state status=error (e.g., JSON parse failure)', () => {
+      render(
+        <ArtifactPanel
+          {...baseProps}
+          status="loading"
+          activity={{
+            jobId: 'job-1',
+            section: 'competitors',
+            status: 'running',
+            tool: 'researchCompetitors',
+            startedAt: '2026-03-10T18:07:15.100Z',
+            updates: [
+              {
+                at: '2026-03-10T18:07:15.110Z',
+                id: 'state-1',
+                message: 'researching',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-section-state',
+                  section: 'competitors',
+                  status: 'researching',
+                  title: 'Competitive Positioning',
+                },
+              },
+              {
+                at: '2026-03-10T18:09:00.000Z',
+                id: 'state-2',
+                message: 'error',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-section-state',
+                  section: 'competitors',
+                  status: 'error',
+                  title: 'Competitive Positioning',
+                },
+              },
+            ],
+          }}
+        />,
+      );
+
+      expect(screen.getByText('Error')).toBeInTheDocument();
+      expect(screen.queryByText('Research Error')).not.toBeInTheDocument();
+    });
+
+    it('ignores artifact-section-state updates targeted at a different section', () => {
+      render(
+        <ArtifactPanel
+          {...baseProps}
+          section="competitors"
+          status="loading"
+          activity={{
+            jobId: 'job-1',
+            section: 'competitors',
+            status: 'running',
+            tool: 'researchCompetitors',
+            startedAt: '2026-03-10T18:07:15.100Z',
+            updates: [
+              // A different section's drafting state must not influence
+              // the competitors panel label.
+              {
+                at: '2026-03-10T18:08:00.000Z',
+                id: 'state-other',
+                message: 'drafting',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-section-state',
+                  section: 'industryMarket',
+                  status: 'drafting',
+                  title: 'Market Category',
+                },
+              },
+            ],
+          }}
+        />,
+      );
+
+      // No section-state for competitors → falls back to activity-level label.
+      expect(screen.getByText('Researching')).toBeInTheDocument();
+      expect(screen.queryByText('Drafting')).not.toBeInTheDocument();
+    });
+
+    it('strips "Research Running" wording entirely — it must not render under any phase', () => {
+      // Render every phase plus the fallback path; none should produce the
+      // old "Research Running" / "Worker Running" / "streaming" strings.
+      const phases: Array<'researching' | 'drafting' | 'citing' | 'partial' | 'error' | 'queued'> = [
+        'researching',
+        'drafting',
+        'citing',
+        'partial',
+        'error',
+        'queued',
+      ];
+
+      for (const phase of phases) {
+        const { unmount } = render(
+          <ArtifactPanel
+            {...baseProps}
+            status="loading"
+            activity={{
+              jobId: `job-${phase}`,
+              section: 'competitors',
+              status: 'running',
+              tool: 'researchCompetitors',
+              startedAt: '2026-03-10T18:07:15.100Z',
+              updates: [
+                {
+                  at: '2026-03-10T18:07:15.110Z',
+                  id: `state-${phase}`,
+                  message: phase,
+                  phase: 'artifact',
+                  meta: {
+                    eventType: 'artifact-section-state',
+                    section: 'competitors',
+                    status: phase,
+                    title: 'Competitive Positioning',
+                  },
+                },
+              ],
+            }}
+          />,
+        );
+
+        expect(screen.queryByText('Research Running')).not.toBeInTheDocument();
+        expect(screen.queryByText('Worker Running')).not.toBeInTheDocument();
+        expect(screen.queryByText(/streaming/iu)).not.toBeInTheDocument();
+        unmount();
+      }
+    });
   });
 });

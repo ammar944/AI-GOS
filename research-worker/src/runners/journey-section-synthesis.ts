@@ -225,17 +225,14 @@ async function runJourneySection(
     await emitRunnerProgress(onProgress, 'runner', `${spec.title} starting`, {
       toolName: spec.skill,
     });
+    // Honest streaming contract: we are about to gather evidence, not draft text.
+    // Frontend label maps this to "Researching"; tool/runner emissions stream
+    // into the activity log while the corpus + web search work happens.
     await emitArtifactProgress(onProgress, {
       type: 'artifact-section-state',
       section: spec.section,
-      status: 'drafting',
+      status: 'researching',
       title: spec.title,
-    });
-    await emitArtifactProgress(onProgress, {
-      type: 'artifact-delta',
-      section: spec.section,
-      title: spec.title,
-      delta: `\n\n## ${spec.title}\n\n${spec.title} is writing this section from the source-backed corpus...`,
     });
 
     const finalMsg = await runWithBackoff(
@@ -271,6 +268,15 @@ async function runJourneySection(
     const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
     const parsed = extractJson(resultText);
     if (!isRecord(parsed)) {
+      // Honest streaming contract: research finished but JSON parse failed.
+      // Surface the error to the artifact panel so the label flips from
+      // "Researching" to "Error" instead of hanging at the start state.
+      await emitArtifactProgress(onProgress, {
+        type: 'artifact-section-state',
+        section: spec.section,
+        status: 'error',
+        title: spec.title,
+      });
       return {
         status: 'error',
         section: spec.section,
@@ -282,6 +288,16 @@ async function runJourneySection(
     }
 
     const data = normalizeSectionPayload(parsed, spec);
+    // Honest streaming contract: research is done; about to write the real
+    // markdown into the artifact. Frontend label maps this to "Drafting".
+    // This is the brief window between the JSON returning and the delta being
+    // appended — short, but it is the actual drafting moment.
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: spec.section,
+      status: 'drafting',
+      title: asString(data.sectionTitle) ?? spec.title,
+    });
     await emitArtifactProgress(onProgress, {
       type: 'artifact-delta',
       section: spec.section,

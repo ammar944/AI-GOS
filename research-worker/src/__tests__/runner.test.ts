@@ -154,6 +154,45 @@ describe('buildArtifactProgressUpdate', () => {
       },
     });
   });
+
+  // Phase 7 — honest streaming contract. The frontend ArtifactLoading panel
+  // reads meta.status off the most recent artifact-section-state row in
+  // job_status.updates. This test locks every status the worker is allowed
+  // to emit so the frontend label map (SECTION_STATE_LABELS in
+  // src/components/journey/artifact-panel.tsx) stays in sync.
+  it.each([
+    ['queued', 'Queued'],
+    ['researching', 'Researching'],
+    ['drafting', 'Drafting'],
+    ['citing', 'Citing sources'],
+    ['complete', 'Complete'],
+    ['partial', 'Partial result'],
+    ['error', 'Error'],
+  ] as const)(
+    'builds artifact-section-state for status=%s (frontend label: "%s")',
+    (status, _expectedLabel) => {
+      const update = buildArtifactProgressUpdate({
+        type: 'artifact-section-state',
+        section: 'competitors',
+        status,
+        title: 'Competitive Positioning',
+      });
+
+      expect(update).toMatchObject({
+        message: status,
+        phase: 'artifact',
+        meta: {
+          eventType: 'artifact-section-state',
+          section: 'competitors',
+          status,
+          title: 'Competitive Positioning',
+        },
+      });
+      expect(update.at).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
+      expect(typeof update.id).toBe('string');
+      expect(update.id?.length).toBeGreaterThan(0);
+    },
+  );
 });
 
 describe('sanitizeForJson', () => {
