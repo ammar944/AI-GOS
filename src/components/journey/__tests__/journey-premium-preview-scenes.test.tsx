@@ -37,6 +37,6 @@ describe('JourneyPremiumPreview', () => {
     render(<JourneyPremiumPreview scene="chat" showSceneSwitcher={false} />);
 
     expect(screen.getByText('Operator conversation')).toBeInTheDocument();
-    expect(screen.getByTestId('journey-chat-input')).toHaveAttribute('data-variant', 'premium');
+    expect(screen.getByTestId('journey-chat-input')).toBeInTheDocument();
   });
 });

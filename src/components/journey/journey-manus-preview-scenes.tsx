@@ -413,7 +413,6 @@ function ManusChatScene(): React.JSX.Element {
           <JourneyChatInput
             onSubmit={() => {}}
             isLoading={false}
-            variant="paper"
             placeholder="Ask Journey to turn this into a sharper paid acquisition brief..."
             className="max-w-none"
           />

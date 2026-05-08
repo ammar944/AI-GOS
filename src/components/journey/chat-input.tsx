@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Send, FileUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { SlashCommandPalette, type SlashCommand } from '@/components/chat/slash-command-palette';
 
 const SLASH_COMMANDS: SlashCommand[] = [
@@ -21,7 +22,6 @@ interface JourneyChatInputProps {
   isLoading: boolean;
   disabled?: boolean;
   placeholder?: string;
-  variant?: 'default' | 'studio' | 'paper' | 'premium';
   className?: string;
   /** Called when user selects a file for N&D upload */
   onFileUpload?: (file: File) => void;
@@ -34,7 +34,6 @@ export function JourneyChatInput({
   isLoading,
   disabled = false,
   placeholder = 'Ask AIGOS to refine the strategy...',
-  variant = 'default',
   className,
   onFileUpload,
   isUploading = false,
@@ -45,13 +44,13 @@ export function JourneyChatInput({
     const file = e.target.files?.[0];
     if (!file || !onFileUpload) return;
     if (file.size > MAX_FILE_SIZE) {
-      // Reset file input
       e.target.value = '';
       return;
     }
     onFileUpload(file);
     e.target.value = '';
   }, [onFileUpload]);
+
   const [input, setInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSlashPaletteOpen, setIsSlashPaletteOpen] = useState(false);
@@ -136,216 +135,77 @@ export function JourneyChatInput({
   return (
     <div
       data-testid="journey-chat-input"
-      data-variant={variant}
-      className={cn(
-        'w-full max-w-2xl pointer-events-auto',
-        variant === 'studio' && 'journey-studio-chat-input max-w-[56rem]',
-        variant === 'premium' && 'journey-premium-chat-input max-w-[58rem]',
-        className,
-      )}
+      className={cn('w-full max-w-2xl pointer-events-auto', className)}
     >
-      <div className="relative group">
-        {/* Gradient glow border */}
-        <div
-          className={cn(
-            'absolute -inset-0.5 bg-gradient-to-r from-brand-accent to-brand-success rounded-[12px] blur transition duration-500',
-            variant === 'studio'
-              ? 'opacity-35'
-              : variant === 'premium'
-                ? isFocused
-                  ? 'opacity-30'
-                  : 'opacity-18'
-              : variant === 'paper'
-                ? isFocused
-                  ? 'opacity-15'
-                  : 'opacity-0'
-                : isFocused
-                  ? 'opacity-40'
-                  : 'opacity-20',
-          )}
+      <div
+        className={cn(
+          'relative flex items-center rounded-md border border-border bg-background px-4 py-3',
+          isFocused && 'border-ring ring-[3px] ring-ring/50',
+        )}
+      >
+        {/* Slash command palette */}
+        <SlashCommandPalette
+          commands={filteredCommands}
+          isOpen={isSlashPaletteOpen}
+          selectedIndex={safeSelectedIndex}
+          onSelect={handleCommandSelect}
         />
-        {/* Input container */}
-        <div
-          className={cn(
-            'relative border shadow-2xl',
-            variant === 'studio'
-              ? [
-                  'overflow-hidden rounded-[20px] border-[var(--border-default)]',
-                  'bg-[linear-gradient(180deg,rgba(17,16,13,0.96),rgba(9,9,8,0.94))]',
-                  'shadow-[0_24px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.04)]',
-                ]
-              : variant === 'premium'
-                ? [
-                    'overflow-hidden rounded-[6px] border-[var(--border-default)]',
-                    'bg-[linear-gradient(180deg,rgba(14,14,12,0.96),rgba(7,7,6,0.98))]',
-                    'shadow-[0_26px_72px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.04)]',
-                  ]
-              : variant === 'paper'
-                ? [
-                    'overflow-hidden rounded-[26px] border-black/8 bg-[#fdfbf6]',
-                    'shadow-[0_22px_70px_rgba(17,16,13,0.08),inset_0_1px_0_rgba(255,255,255,0.8)]',
-                  ]
-              : 'flex items-center rounded-[12px] border-[var(--border-default)] bg-[#0a0a0a] px-4 py-3',
-          )}
-        >
-          {variant === 'studio' || variant === 'paper' || variant === 'premium' ? (
-            <div
-              className={cn(
-                'px-4 py-3',
-                variant === 'paper'
-                  ? 'border-b border-black/6'
-                  : 'border-b border-[var(--border-default)]',
-              )}
-            >
-              {variant === 'premium' ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
-                    <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 text-[var(--text-secondary)]">
-                      Mode
-                    </span>
-                    <span className="rounded-full border border-brand-accent/20 bg-brand-accent/10 px-2.5 py-1 text-brand-accent">
-                      Directive
-                    </span>
-                    <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 text-[var(--text-secondary)]">
-                      Scope
-                    </span>
-                    <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-[var(--text-secondary)]">
-                      Market Overview
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {['9 sources', '1 approval', 'Research live'].map((chip) => (
-                      <span
-                        key={chip}
-                        className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-secondary)]"
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  {(variant === 'paper'
-                    ? ['Intake', 'Refine', 'Approve', 'Research']
-                    : ['Ask', 'Refine', 'Approve', 'Research']
-                  ).map((chip) => (
-                    <span
-                      key={chip}
-                      className={cn(
-                        'rounded-full px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em]',
-                        variant === 'paper'
-                          ? 'border border-black/8 bg-white text-[#7b756d]'
-                          : 'border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)]',
-                      )}
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
 
-          <div
-              className={cn(
-                'relative flex items-center',
-                (variant === 'studio' || variant === 'paper' || variant === 'premium')
-                  ? 'px-4 py-4 sm:px-5'
-                  : '',
-              )}
-            >
-            {/* Slash command palette */}
-            <SlashCommandPalette
-              commands={filteredCommands}
-              isOpen={isSlashPaletteOpen}
-              selectedIndex={safeSelectedIndex}
-              onSelect={handleCommandSelect}
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => {
+            const value = e.target.value;
+            setInput(value);
+            setIsSlashPaletteOpen(value.startsWith('/'));
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder={placeholder}
+          disabled={disabled || (isLoading && !canSend)}
+          rows={1}
+          className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none scrollbar-hide leading-relaxed"
+          style={{ minHeight: '20px', maxHeight: '120px' }}
+        />
+
+        {/* Document upload */}
+        {onFileUpload && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_DOC_TYPES}
+              onChange={handleFileChange}
+              className="hidden"
+              aria-label="Upload niche document"
             />
-
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                const value = e.target.value;
-                setInput(value);
-                setIsSlashPaletteOpen(value.startsWith('/'));
-              }}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder={placeholder}
-              disabled={disabled || (isLoading && !canSend)}
-              rows={1}
-              className={cn(
-                'flex-1 resize-none bg-transparent outline-none scrollbar-hide leading-relaxed',
-                variant === 'studio'
-                  ? 'text-[15px] text-[var(--text-primary)] placeholder-[var(--text-quaternary)]'
-                  : variant === 'premium'
-                    ? 'text-[15px] text-[var(--text-primary)] placeholder-[var(--text-quaternary)]'
-                  : variant === 'paper'
-                    ? 'text-[15px] text-[var(--text-primary)] placeholder-[var(--text-quaternary)]'
-                  : 'text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)]',
-              )}
-              style={{ minHeight: '20px', maxHeight: '120px' }}
-            />
-
-            {/* Document upload */}
-            {onFileUpload && (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={ACCEPTED_DOC_TYPES}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  aria-label="Upload niche document"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading || isLoading}
-                  title={isUploading ? 'Extracting...' : 'Upload niche & demographics document'}
-                  className={cn(
-                    'mr-1 rounded-lg p-2 transition-all',
-                    isUploading
-                      ? 'text-[var(--accent-amber)] animate-pulse'
-                      : 'text-[var(--text-quaternary)] hover:text-[var(--text-secondary)] hover:bg-white/5',
-                  )}
-                >
-                  {isUploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
-                </button>
-              </>
-            )}
-
-            {/* Send button */}
-            <button
+            <Button
               type="button"
-              onClick={handleSubmit}
-              disabled={!canSend}
-              aria-label="Send message"
-              className={cn(
-                'ml-2 rounded-lg transition-all',
-                variant === 'studio' || variant === 'premium' ? 'p-2.5' : 'p-2',
-                canSend
-                  ? variant === 'studio'
-                    ? 'bg-brand-accent/12 text-brand-accent hover:bg-brand-accent/20'
-                    : variant === 'premium'
-                      ? 'bg-brand-accent/15 text-brand-accent hover:bg-brand-accent/24'
-                    : variant === 'paper'
-                      ? 'bg-[#1f1d18] text-white hover:opacity-92'
-                    : 'bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                  : variant === 'paper'
-                    ? 'cursor-default bg-[#ece7dc] text-[#b4aea3]'
-                    : variant === 'premium'
-                      ? 'cursor-default bg-[var(--bg-hover)] text-[var(--text-quaternary)]'
-                    : 'cursor-default text-[var(--text-quaternary)]',
-              )}
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || isLoading}
+              title={isUploading ? 'Extracting...' : 'Upload niche & demographics document'}
+              className="mr-1"
             >
-              <Send size={16} />
-            </button>
-          </div>
-        </div>
+              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
+            </Button>
+          </>
+        )}
+
+        {/* Send button */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={handleSubmit}
+          disabled={!canSend}
+          aria-label="Send message"
+          className="ml-2"
+        >
+          <Send size={16} />
+        </Button>
       </div>
     </div>
   );

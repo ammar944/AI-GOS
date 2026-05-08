@@ -877,7 +877,6 @@ function ChatScene(): React.JSX.Element {
           <JourneyChatInput
             onSubmit={() => {}}
             isLoading={false}
-            variant="premium"
             placeholder="Direct the next move, refine the brief, or approve the current section..."
             className="max-w-none"
           />
