@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowUp,
@@ -169,42 +169,195 @@ function statusLabel(status: JourneyArtifactSection['status']): string {
   return 'ready';
 }
 
+function cleanArtifactContent(content: string): string {
+  const cleaned = content
+    .replace(/^#\s+https?:\/\/[^\s]+\s+GTM Research\s*/i, '')
+    .replace(/^#\s+https?:\/\/[^\s]+\s*/im, '')
+    .replace(/^#{1,3}\s+(Deep Research|Market Category|ICP Validation|Competitor Intel|Offer Analysis|Keyword Intel|Strategic Synthesis)\s*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return cleaned;
+}
+
+function SourceBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-blue-400/20 bg-blue-400/[0.08] px-1.5 py-0.5 text-[11px] font-medium text-blue-200 no-underline">
+      <Search className="h-2.5 w-2.5" aria-hidden="true" />
+      source
+    </span>
+  );
+}
+
+const URL_REGEX = /(https?:\/\/[^\s<>"']+?)([.,;:!?)\]]*)(?=\s|$)/i;
+
+function parseUrl(text: string): { url: string; trailing: string } | null {
+  const match = text.match(URL_REGEX);
+  if (!match) return null;
+  return { url: match[1], trailing: match[2] };
+}
+
+function safeHostname(rawUrl: string): string | null {
+  try {
+    return new URL(rawUrl).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+function renderArtifactContent(content: string): React.ReactNode[] {
+  const paragraphs = content.split(/\n\n+/);
+  return paragraphs.filter(Boolean).map((block, i) => {
+    const lines = block.split('\n');
+    return (
+      <p key={i} className="text-sm leading-7 text-[var(--text-2,#c8c1b4)]">
+        {lines.map((line, j) => (
+          <span key={j}>
+            {j > 0 ? <br /> : null}
+            {line
+              .split(/(\[source\])/gi)
+              .map((part, k) => {
+                if (part.toLowerCase() === '[source]') {
+                  return <SourceBadge key={k} />;
+                }
+                const parsed = parseUrl(part);
+                if (!parsed) return part;
+                const hostname = safeHostname(parsed.url);
+                if (hostname) {
+                  return (
+                    <span key={k}>
+                      <a href={parsed.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 rounded-md border border-[var(--border-accent,transparent)] bg-[var(--accent-dim,rgba(54,94,255,0.08))] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-soft,#9aa9ff)] underline-offset-2 hover:underline">
+                        {hostname}
+                      </a>
+                      {parsed.trailing}
+                    </span>
+                  );
+                }
+                return (
+                  <span key={k}>
+                    <a href={parsed.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                      {parsed.url}
+                    </a>
+                    {parsed.trailing}
+                  </span>
+                );
+              })}
+          </span>
+        ))}
+      </p>
+    );
+  });
+}
+
 function ReportArtifact({ artifact }: { artifact: JourneyArtifactState }) {
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   if (artifact.sections.length === 0) return null;
 
+  const completedSections = artifact.sections.filter(
+    (s) => s.status === 'complete' || s.status === 'partial'
+  );
+  const hasActiveStreaming = artifact.sections.some(
+    (s) => s.status === 'drafting' || s.status === 'researching' || s.status === 'citing'
+  );
+
+  const displaySections = activeSection
+    ? artifact.sections.filter((s) => s.section === activeSection)
+    : artifact.sections;
+
   return (
-    <div className="mx-auto w-full max-w-[780px] px-4 py-3" data-testid="deep-research-report-artifact">
-      <div className="rounded-lg border border-white/[0.08] bg-[#10100f] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.22)]">
-        <div className="mb-5 flex items-start justify-between gap-4">
+    <div className="w-full px-6 py-4" data-testid="deep-research-report-artifact">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-2,#10100f)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-6 py-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#77736a]">Live GTM Research Artifact</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-[#f5f1e7]">{artifact.title}</h2>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--text-3,#77736a)]">Live GTM Research Artifact</p>
+            <h2 className="mt-1.5 text-xl font-semibold tracking-[-0.025em] text-[var(--text-1,#f5f1e7)]">{artifact.title}</h2>
           </div>
-          <span className="rounded-full border border-blue-400/15 bg-blue-400/[0.06] px-2.5 py-1 text-xs text-blue-200">
-            {artifact.status}
-          </span>
+          <div className="flex items-center gap-2">
+            {hasActiveStreaming ? (
+              <span className="rounded-full border border-blue-400/15 bg-blue-400/[0.06] px-2.5 py-1 text-xs text-blue-200">
+                streaming
+              </span>
+            ) : completedSections.length === artifact.sections.length ? (
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-2.5 py-1 text-xs text-emerald-200">
+                complete
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {artifact.sections.map((section) => (
-            <section key={section.section} className="border-t border-white/[0.07] pt-5 first:border-t-0 first:pt-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-[#9aa9ff]">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{section.title}</span>
-                <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[#8f8b82]">
-                  {statusLabel(section.status)}
-                </span>
-              </div>
-              <div className="whitespace-pre-line text-sm leading-7 text-[#c8c1b4]">
-                {section.content}
-              </div>
-              <p className="mt-3 text-xs leading-5 text-[#77736a]">
-                {section.sourceUrls.length > 0
-                  ? `${section.sourceUrls.length} source${section.sourceUrls.length === 1 ? '' : 's'} attached`
-                  : 'Draft inference pending source review'}
-              </p>
-            </section>
-          ))}
+        {artifact.sections.length > 1 ? (
+          <div className="flex gap-0 overflow-x-auto border-b border-[var(--border)] px-4">
+            {artifact.sections.map((section) => {
+              const isActive = activeSection === section.section || (!activeSection && artifact.sections.length > 1);
+              return (
+                <button
+                  key={section.section}
+                  type="button"
+                  onClick={() => setActiveSection(activeSection === section.section ? null : section.section)}
+                  className={`shrink-0 border-b-2 px-3 py-2.5 text-[12px] font-medium transition-colors ${
+                    isActive
+                      ? 'border-[var(--accent,#365eff)] text-[var(--text-1,#f4f1e8)]'
+                      : 'border-transparent text-[var(--text-4,#68645c)] hover:text-[var(--text-2,#8b90a0)]'
+                  }`}
+                >
+                  {section.title}
+                  <span className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${
+                    section.status === 'complete' || section.status === 'partial' ? 'bg-emerald-400' :
+                    section.status === 'drafting' || section.status === 'researching' || section.status === 'citing' ? 'bg-blue-400 animate-pulse' :
+                    section.status === 'error' ? 'bg-red-400' : 'bg-[var(--text-4)]'
+                  }`} />
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="space-y-0 px-6 py-5">
+          {displaySections.map((section, index) => {
+            const isPartial = section.status === 'partial';
+            const isError = section.status === 'error';
+            const cleaned = cleanArtifactContent(section.content);
+
+            return (
+              <section key={section.section}>
+                {index > 0 ? (
+                  <div className="my-4 flex items-center gap-2 text-xs text-emerald-300/70">
+                    <div className="h-px flex-1 bg-emerald-400/[0.12]" />
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>Chapter complete</span>
+                    <div className="h-px flex-1 bg-emerald-400/[0.12]" />
+                  </div>
+                ) : null}
+                <div className={index > 0 ? 'pt-2' : ''}>
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                    <Sparkles className="h-3.5 w-3.5 text-[var(--accent-soft,#9aa9ff)]" aria-hidden="true" />
+                    <span className="font-medium text-[var(--text-2,#c8c1b4)]">{section.title}</span>
+                    <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--text-3,#8f8b82)]">
+                      {statusLabel(section.status)}
+                    </span>
+                  </div>
+                  {isPartial ? (
+                    <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
+                      This section is incomplete. Some content is available below.
+                    </div>
+                  ) : null}
+                  {isError ? (
+                    <div className="mb-4 rounded-lg border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-100">
+                      This section failed to generate.
+                    </div>
+                  ) : null}
+                  <div className="space-y-3">
+                    {renderArtifactContent(cleaned || section.content)}
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-[var(--text-3,#77736a)]">
+                    {section.sourceUrls.length > 0
+                      ? `${section.sourceUrls.length} source${section.sourceUrls.length === 1 ? '' : 's'} attached`
+                      : isPartial ? 'Partial draft — sources may be incomplete' :
+                      section.status === 'complete' ? 'Draft inference pending source review' : 'Gathering sources...'}
+                  </p>
+                </div>
+              </section>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -285,7 +438,7 @@ export function JourneyAgentChat({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-0 py-6">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {!hasSubmittedUrl && displayedMessages.length === 0 ? (
           <div className="mx-auto flex min-h-[calc(100vh-240px)] w-full max-w-[780px] flex-col justify-center px-4">
             <div className="mb-7">
@@ -300,81 +453,66 @@ export function JourneyAgentChat({
           </div>
         ) : null}
 
-        <div className="space-y-2">
-          {hasSubmittedUrl ? (
-            <div className="mx-auto w-full max-w-[780px] px-4 py-2">
-              <div
-                data-testid="journey-user-command"
-                className="ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-[#23231f] px-4 py-3 text-sm leading-6 text-[#f4f1e8]"
-              >
-                {researchCommand.displayText || `research ${companyName ?? 'this company'}`}
-              </div>
-            </div>
-          ) : null}
-
-          {hasSubmittedUrl ? (
-            <div className="mx-auto w-full max-w-[780px] px-4 py-3">
-              <div
-                data-testid="journey-assistant-output"
-                className="rounded-2xl border border-white/[0.07] bg-[#11110f] p-4"
-              >
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-blue-300" />
-                  <p className="text-sm font-medium text-[#f4f1e8]">Deep Research Agent</p>
+        {hasSubmittedUrl ? (
+          <div className="min-h-0 flex-1 overflow-y-auto py-6">
+            <div className="space-y-2">
+              <div className="mx-auto w-full max-w-[780px] px-4 py-2">
+                <div
+                  data-testid="journey-user-command"
+                  className="ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-[#23231f] px-4 py-3 text-sm leading-6 text-[#f4f1e8]"
+                >
+                  {researchCommand.displayText || `research ${companyName ?? 'this company'}`}
                 </div>
-                <p className="mb-3 text-sm leading-6 text-[#c8c1b4]">{agentState.assistantOpening}</p>
-                {deepResearchError ? (
-                  <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] p-3 text-sm text-red-100">
-                    {deepResearchError}
-                    {onRetryDeepResearch ? (
-                      <button type="button" onClick={onRetryDeepResearch} className="ml-3 underline decoration-red-200/50 underline-offset-4">
-                        Retry
-                      </button>
-                    ) : null}
+              </div>
+
+              <div className="mx-auto w-full max-w-[780px] px-4 py-3">
+                <div
+                  data-testid="journey-assistant-output"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--bg-2,#11110f)] p-4"
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-blue-300" />
+                    <p className="text-sm font-medium text-[var(--text-1,#f4f1e8)]">Deep Research Agent</p>
                   </div>
-                ) : null}
-                {Object.keys(deepResearchFields).length > 0 ? (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-[#817d73]">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-                    Company research corpus saved for section synthesis
+                  <p className="mb-3 text-sm leading-6 text-[var(--text-2,#c8c1b4)]">{agentState.assistantOpening}</p>
+                  {deepResearchError ? (
+                    <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] p-3 text-sm text-red-100">
+                      {deepResearchError}
+                      {onRetryDeepResearch ? (
+                        <button type="button" onClick={onRetryDeepResearch} className="ml-3 underline decoration-red-200/50 underline-offset-4">
+                          Retry
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {Object.keys(deepResearchFields).length > 0 ? (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-[var(--text-3,#817d73)]">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+                      Company research corpus saved for section synthesis
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <ReportArtifact artifact={agentState.artifact} />
+
+              {displayedMessages.map((message) => (
+                <div key={message.id} className="mx-auto w-full max-w-[780px] px-4 py-2">
+                  <div
+                    data-testid={
+                      message.role === 'assistant'
+                        ? 'journey-chat-assistant-message'
+                        : 'journey-chat-user-message'
+                    }
+                    className={message.role === 'user' ? 'ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-[#23231f] px-4 py-3 text-sm leading-6' : 'max-w-none text-sm leading-7 text-[var(--text-2,#c8c1b4)]'}
+                  >
+                    {message.text}
                   </div>
-                ) : null}
-              </div>
+                </div>
+              ))}
             </div>
-          ) : null}
-
-          {hasSubmittedUrl ? (
-            <ReportArtifact artifact={agentState.artifact} />
-          ) : null}
-
-          {hasSubmittedUrl && agentState.visibleSteps.length > 0 ? (
-            <div className="mx-auto w-full max-w-[780px] px-4 py-3">
-              <div className="space-y-2">
-                {agentState.visibleSteps.map((step) => (
-                  <AgentStep
-                    key={step.section}
-                    step={step}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {displayedMessages.map((message) => (
-            <div key={message.id} className="mx-auto w-full max-w-[780px] px-4 py-2">
-              <div
-                data-testid={
-                  message.role === 'assistant'
-                    ? 'journey-chat-assistant-message'
-                    : 'journey-chat-user-message'
-                }
-                className={message.role === 'user' ? 'ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-[#23231f] px-4 py-3 text-sm leading-6' : 'max-w-none text-sm leading-7 text-[#c8c1b4]'}
-              >
-                {message.text}
-              </div>
-            </div>
-          ))}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       <footer className="shrink-0 border-t border-white/[0.06] bg-[#0b0b0a]/95 px-4 py-4 backdrop-blur-md">

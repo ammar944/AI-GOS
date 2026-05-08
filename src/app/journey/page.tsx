@@ -1083,7 +1083,7 @@ function JourneyPageContent() {
 
   if (journeyPhase === 'resume' && savedSession) {
     return (
-      <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
+      <AppShell sidebar={<AppSidebar />} className="font-sans bg-[#0b0b0a]">
         <main className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[#0b0b0a] px-6">
           <div className="w-full max-w-3xl">
             <ResumePrompt
@@ -1098,7 +1098,11 @@ function JourneyPageContent() {
   }
 
   return (
-    <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
+    <AppShell
+      sidebar={<AppSidebar />}
+      wide
+      className="font-sans bg-[#0b0b0a]"
+    >
       <JourneyAgentChat
         websiteUrl={prefillWebsiteUrl}
         onWebsiteUrlChange={setPrefillWebsiteUrl}
