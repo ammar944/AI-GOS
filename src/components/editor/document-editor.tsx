@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { GradientBorder } from "@/components/ui/gradient-border";
+import { cn } from "@/lib/utils";
 import { StreamingCursor } from "./streaming-cursor";
 
 interface DocumentEditorProps {
@@ -107,8 +107,8 @@ export function DocumentEditor({
   const lineCount = lines.length;
 
   return (
-    <GradientBorder animate={isStreaming} className={className}>
-      <div style={{ borderRadius: 15, overflow: "hidden" }}>
+    <div className={cn("border border-border rounded-md bg-card overflow-hidden", className)}>
+      <div>
         {/* Window chrome */}
         <WindowChrome filename={filename} />
 
@@ -143,6 +143,6 @@ export function DocumentEditor({
           </div>
         </div>
       </div>
-    </GradientBorder>
+    </div>
   );
 }

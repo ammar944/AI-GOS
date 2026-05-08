@@ -14,7 +14,7 @@ import {
   Shield,
   Check,
 } from "lucide-react";
-import { GradientBorder } from "@/components/ui/gradient-border";
+import { Card } from "@/components/ui/card";
 import { fadeUp, easings } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -730,7 +730,7 @@ export function OnboardingWizard({
       </div>
 
       {/* Form Card */}
-      <GradientBorder className="overflow-hidden">
+      <Card className="overflow-hidden">
         <motion.div
           key={currentStep}
           className="p-6 md:p-8"
@@ -742,7 +742,7 @@ export function OnboardingWizard({
         >
           {renderStepContent()}
         </motion.div>
-      </GradientBorder>
+      </Card>
     </div>
   );
 }

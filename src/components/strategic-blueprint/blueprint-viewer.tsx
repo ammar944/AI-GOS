@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { GradientBorder } from "@/components/ui/gradient-border";
+import { Card } from "@/components/ui/card";
 import { DocumentEditor } from "@/components/editor/document-editor";
 import { highlightLine } from "@/lib/syntax";
 import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
@@ -111,7 +111,7 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
   return (
     <div className="w-full space-y-6">
       {/* Header with metadata and export */}
-      <GradientBorder>
+      <Card>
         <div
           className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-6"
         >
@@ -180,17 +180,17 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
             </TooltipProvider>
           </div>
         </div>
-      </GradientBorder>
+      </Card>
 
-      {/* Document Editor Display with GradientBorder */}
-      <GradientBorder animate={isStreaming}>
+      {/* Document Editor Display */}
+      <div className="border border-border rounded-md bg-card">
         <DocumentEditor
           content={content}
           filename="strategic-blueprint.md"
           isStreaming={isStreaming}
           highlightLine={highlightLine}
         />
-      </GradientBorder>
+      </div>
     </div>
   );
 }

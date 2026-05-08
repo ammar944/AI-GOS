@@ -3,9 +3,9 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Wand2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
-import { MagneticButton } from "@/components/ui/magnetic-button";
+import { Button } from "@/components/ui/button";
 import { ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import { updateOnboardingData as persistOnboardingData } from "@/lib/actions/onboarding";
 import { setOnboardingData as saveOnboardingData } from "@/lib/storage/local-storage";
@@ -62,19 +62,15 @@ export function EditOnboardingClient({ initialData }: Props) {
       <header className="sticky top-0 z-50 w-full border-b border-border/50 backdrop-blur-sm bg-background/80">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
-            <MagneticButton
-              className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-colors duration-200 hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] cursor-pointer"
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2"
               onClick={() => router.push("/dashboard")}
-              style={{
-                border: "1px solid var(--border-default)",
-                color: "var(--text-secondary)",
-                background: "transparent",
-                fontFamily: "var(--font-sans), Inter, sans-serif",
-              }}
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
-            </MagneticButton>
+            </Button>
 
             <h1
               className="text-lg font-semibold"
