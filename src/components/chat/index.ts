@@ -3,7 +3,6 @@ export { MessageBubble } from "./message-bubble";
 export { TypingIndicator } from "./typing-indicator";
 export { FollowUpSuggestions, generateFollowUpSuggestions, EMPTY_STATE_SUGGESTIONS } from "./follow-up-suggestions";
 export { ChatMessage } from "./chat-message";
-export { AgentChat } from "./agent-chat";
 export { MediaPlanAgentChat } from "./media-plan-agent-chat";
 export { ChatInput } from "./chat-input";
 export { SlashCommandPalette } from "./slash-command-palette";

@@ -1036,9 +1036,10 @@ describe('JourneyPage Manus launch wiring', () => {
       expect(realtimeControls.getActiveRunId()).toBe('run-refresh');
     });
     expect(screen.getAllByText('Research Agent').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
-      'Market Category',
-    );
+    // Stage 1 (corpus-building) does NOT render the report artifact — corpus is
+    // infrastructure, not a deliverable. The corpus terminal IS the surface.
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
+    expect(screen.getByTestId('journey-corpus-terminal')).toBeInTheDocument();
   });
 });
 
@@ -1111,15 +1112,10 @@ describe('JourneyPage artifact orchestration', () => {
     ).toBeTruthy();
     expect(screen.queryByText('Buyer / ICP Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
-    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Research Agent is building the source-backed corpus',
-    );
-    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
-      'Market Category',
-    );
-    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
-      'Offer Diagnostic',
-    );
+    // Stage 1 (corpus-building) renders the corpus terminal, not the report artifact.
+    // Corpus is infrastructure: NO Wikipedia summary, NO report artifact during build.
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
+    expect(screen.getByTestId('journey-corpus-terminal')).toBeInTheDocument();
   });
 
   it('buffers out-of-order backend completions and reveals specialists in canonical UI order', async () => {

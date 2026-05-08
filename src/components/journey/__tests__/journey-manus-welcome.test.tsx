@@ -70,7 +70,6 @@ describe('JourneyAgentChat', () => {
       />,
     );
 
-    // PromptInputSubmit is enabled when websiteUrl is valid and status is idle
     const submitBtn = screen.getByLabelText("Start research");
     expect(submitBtn).not.toBeDisabled();
     fireEvent.click(submitBtn);
@@ -121,6 +120,8 @@ describe('JourneyAgentChat', () => {
         websiteUrl="airtable.com"
         activeRunId="journey-test-123"
         phase="workspace"
+        deepResearchStatus="complete"
+        deepResearchFields={{ companyName: 'Airtable' }}
         nextSectionLabel="Market Overview"
         onRunNextSection={onRunNextSection}
       />,
@@ -135,7 +136,7 @@ describe('JourneyAgentChat', () => {
     expect(onRunNextSection).toHaveBeenCalledTimes(1);
   });
 
-  it('renders only Research Agent as the first visible assistant output once a run starts', () => {
+  it('shows Research Agent in the assistant status bubble once a run starts', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
@@ -147,10 +148,6 @@ describe('JourneyAgentChat', () => {
 
     expect(screen.getAllByText('Research Agent').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/checking source-backed company context/u).length).toBeGreaterThan(0);
-    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
-      'Market Category',
-    );
-    expect(screen.queryByText('GTM Synthesis Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Journey Workbench')).not.toBeInTheDocument();
   });
 
@@ -165,10 +162,9 @@ describe('JourneyAgentChat', () => {
 
     expect(screen.getByText(/Journey run is ready/u)).toBeInTheDocument();
     expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
-    expect(screen.queryByText(/building the source-backed corpus/u)).not.toBeInTheDocument();
   });
 
-  it('renders a live artifact skeleton immediately when Deep Research starts', () => {
+  it('keeps the corpus build out of the report artifact pane (Stage 1 contract)', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
@@ -178,15 +174,12 @@ describe('JourneyAgentChat', () => {
       />,
     );
 
-    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Live GTM Research Artifact',
-    );
-    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Research Agent is building the source-backed corpus',
-    );
+    // Stage 1: chain-of-thought + corpus terminal — never the report artifact.
+    expect(screen.getByTestId('journey-corpus-terminal')).toBeInTheDocument();
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
   });
 
-  it('renders typed Deep Research artifact deltas without leaking profile field counts', () => {
+  it('does not surface raw deep-research markdown into the report artifact during corpus build', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
@@ -219,13 +212,13 @@ describe('JourneyAgentChat', () => {
       />,
     );
 
-    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Airtable is positioned as an app platform for teams.',
-    );
-    expect(screen.queryByText(/Company corpus is ready with/u)).not.toBeInTheDocument();
+    // Corpus markdown stays as data — it must NOT appear inside the report artifact pane.
+    expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
+    // The corpus terminal IS the surface for in-flight corpus work.
+    expect(screen.getByTestId('journey-corpus-terminal')).toBeInTheDocument();
   });
 
-  it('places the live artifact after the assistant output', () => {
+  it('places the corpus terminal after the assistant output during Stage 1', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
@@ -257,13 +250,13 @@ describe('JourneyAgentChat', () => {
     );
 
     const assistant = screen.getByTestId('journey-assistant-output');
-    const artifact = screen.getByTestId('deep-research-report-artifact');
+    const terminal = screen.getByTestId('journey-corpus-terminal');
 
     expect(
-      assistant.compareDocumentPosition(artifact) &
+      assistant.compareDocumentPosition(terminal) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(artifact).toHaveTextContent('Live GTM Research Artifact');
+    expect(terminal).toHaveTextContent('https://www.airtable.com/product');
   });
 
   it('renders an operator control for the next report section when provided', () => {
@@ -298,7 +291,7 @@ describe('JourneyAgentChat', () => {
     expect(onRunNextSection).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the live artifact growth count as sections are added', () => {
+  it('shows the live artifact growth count as report sections are added (Stage 3)', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
@@ -308,16 +301,6 @@ describe('JourneyAgentChat', () => {
         deepResearchStatus="complete"
         deepResearchFields={{ companyName: 'Airtable' }}
         researchResults={{
-          deepResearchProgram: {
-            status: 'complete',
-            section: 'deepResearchProgram',
-            durationMs: 10,
-            data: {
-              corpus: {
-                researchSummary: 'Company research corpus saved.',
-              },
-            },
-          },
           industryMarket: {
             status: 'complete',
             section: 'industryMarket',
@@ -331,7 +314,7 @@ describe('JourneyAgentChat', () => {
     );
 
     expect(screen.getByTestId('artifact-growth-summary')).toHaveTextContent(
-      '2 of 2 sections saved',
+      '1 of 1 section saved',
     );
     expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
       'Market section saved.',

@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BrainIcon,
   CheckCircle2,
   ChevronDown,
   Globe2,
   Play,
+  SearchIcon,
   Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +52,25 @@ import { Source } from "@/components/ai-elements/sources";
 import { Tool } from "@/components/ai-elements/tool";
 import { ToolContent } from "@/components/ai-elements/tool";
 import { ToolHeader } from "@/components/ai-elements/tool";
+import {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
+import {
+  Queue,
+  QueueItem,
+  QueueItemContent,
+  QueueItemIndicator,
+} from "@/components/ai-elements/queue";
+import {
+  Terminal,
+  TerminalContent,
+  TerminalHeader,
+  TerminalStatus,
+  TerminalTitle,
+} from "@/components/ai-elements/terminal";
 import type { ResearchSectionResult } from "@/lib/journey/research-realtime";
 import type { ResearchJobActivity } from "@/lib/journey/research-job-activity-core";
 import { parseJourneyResearchInput } from "@/lib/journey/research-command";
@@ -57,6 +78,44 @@ import {
   buildDeepResearchAgentStreamState,
 } from "@/lib/journey/research-stream-buffer";
 import type { JourneyArtifactState } from "@/lib/journey/research-artifact-state";
+
+export type ArtifactStage =
+  | "corpus-building"
+  | "onboarding-review"
+  | "section-streaming";
+
+const REPORT_SECTION_ORDER = [
+  "industryMarket",
+  "icpValidation",
+  "competitors",
+  "offerAnalysis",
+  "keywordIntel",
+  "crossAnalysis",
+  "mediaPlan",
+] as const;
+
+const SECTION_DISPLAY_LABELS: Record<string, string> = {
+  industryMarket: "Industry Research",
+  icpValidation: "ICP Validation",
+  competitors: "Competitor Intel",
+  offerAnalysis: "Offer Analysis",
+  keywordIntel: "Keyword Intelligence",
+  crossAnalysis: "Strategic Synthesis",
+  mediaPlan: "Media Plan",
+};
+
+const FIELD_DISPLAY_LABELS: Record<string, string> = {
+  companyName: "Company name",
+  websiteUrl: "Website",
+  businessModel: "Business model",
+  industry: "Industry",
+  productCategory: "Product category",
+  targetMarket: "Target market",
+  primaryAudience: "Primary audience",
+  valueProposition: "Value proposition",
+  pricingModel: "Pricing model",
+  competitors: "Competitors",
+};
 
 interface JourneyAgentChatProps {
   websiteUrl: string;
@@ -77,6 +136,7 @@ interface JourneyAgentChatProps {
   onRunNextSection?: () => void;
   onRetryDeepResearch?: () => void;
   onStartFresh?: () => void;
+  artifactStage?: ArtifactStage;
 }
 
 interface NextSectionControlProps {
@@ -109,6 +169,14 @@ function getMessageRole(message: unknown): string | null {
 function formatArtifactGrowth(completedCount: number, totalCount: number): string {
   const sectionLabel = totalCount === 1 ? "section" : "sections";
   return `${completedCount} of ${totalCount} ${sectionLabel} saved`;
+}
+
+function formatFieldLabel(key: string): string {
+  if (FIELD_DISPLAY_LABELS[key]) return FIELD_DISPLAY_LABELS[key];
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
 }
 
 function NextSectionControl({
@@ -159,9 +227,7 @@ function NextSectionControl({
   );
 }
 
-// --- Compact step status tools (chat side) ---
-// Each research step renders as a single collapsible <Tool> showing only
-// name + status badge. No activity log here — that lives in the artifact.
+// --- Compact step status tools (chat side, Stage 3) ---
 
 function stepToolState(status: string): "input-available" | "output-available" | "output-error" {
   if (status === "running") return "input-available";
@@ -202,7 +268,7 @@ function CompactStepTools({ steps }: { steps: ShadcnReasoningStep[] }): React.JS
   );
 }
 
-// --- Source List (using registry Sources components) ---
+// --- Source List ---
 
 function SourceList({ urls }: { urls: string[] }) {
   const sources = urlsToSources(urls);
@@ -220,9 +286,256 @@ function SourceList({ urls }: { urls: string[] }) {
   );
 }
 
-// --- Artifact Panel (using registry Artifact components) ---
-// Shows the ACTUAL research document content as the headline.
-// Activity log items are collapsed <Tool> entries below each section.
+// --- Stage 1: Corpus Terminal ---
+// Bloomberg-terminal style streaming view of source URLs being collected.
+
+interface CorpusTerminalProps {
+  artifact: JourneyArtifactState;
+  isStreaming: boolean;
+  websiteHost: string | null;
+}
+
+function buildTerminalOutput(artifact: JourneyArtifactState): string {
+  const corpus = artifact.sections.find(
+    (s) => s.section === "deepResearchProgram",
+  );
+  if (!corpus) {
+    return "Initializing source-backed research...";
+  }
+
+  const lines: string[] = [];
+  lines.push(`> phase: ${corpus.status}`);
+  lines.push(`> sources collected: ${corpus.sourceUrls.length}`);
+  lines.push("");
+
+  if (corpus.sourceUrls.length === 0) {
+    lines.push("Awaiting first source. Search engine warming...");
+  } else {
+    for (const url of corpus.sourceUrls) {
+      lines.push(`+ ${url}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function CorpusTerminal({
+  artifact,
+  isStreaming,
+  websiteHost,
+}: CorpusTerminalProps): React.JSX.Element {
+  const output = buildTerminalOutput(artifact);
+  const corpus = artifact.sections.find(
+    (s) => s.section === "deepResearchProgram",
+  );
+  const sourceCount = corpus?.sourceUrls.length ?? 0;
+  const stepLabel = corpus?.status === "complete"
+    ? "corpus complete"
+    : isStreaming
+      ? "scoring relevance"
+      : "starting";
+  const headerHost = websiteHost ?? "research-corpus";
+
+  return (
+    <div
+      className="mx-auto w-full max-w-[780px] px-4 py-3"
+      data-testid="journey-corpus-terminal"
+    >
+      <Terminal output={output} isStreaming={isStreaming}>
+        <TerminalHeader>
+          <TerminalTitle>
+            <span className="font-mono uppercase tracking-wide">
+              {headerHost.toUpperCase()}
+            </span>
+            <span className="ml-3 text-xs">
+              sources: {sourceCount} | step: {stepLabel}
+            </span>
+          </TerminalTitle>
+          <TerminalStatus />
+        </TerminalHeader>
+        <TerminalContent />
+      </Terminal>
+    </div>
+  );
+}
+
+// --- Stage 1: Chain of Thought reasoning ---
+
+function reasoningIcon(stepId: string) {
+  if (stepId === "deepResearchProgram") return SearchIcon;
+  return BrainIcon;
+}
+
+function chainStepStatus(
+  status: ShadcnReasoningStep["status"],
+): "complete" | "active" | "pending" {
+  if (status === "complete" || status === "partial") return "complete";
+  if (status === "running") return "active";
+  return "pending";
+}
+
+interface CorpusReasoningProps {
+  steps: ShadcnReasoningStep[];
+}
+
+function CorpusReasoning({ steps }: CorpusReasoningProps): React.JSX.Element | null {
+  if (steps.length === 0) return null;
+
+  return (
+    <div className="mx-auto w-full max-w-[780px] px-4 py-3">
+      <div
+        data-testid="journey-chain-of-thought"
+        className="rounded-md border bg-card p-4"
+      >
+        <ChainOfThought defaultOpen>
+          <ChainOfThoughtHeader>Reasoning trace</ChainOfThoughtHeader>
+          <ChainOfThoughtContent>
+            {steps.map((step) => (
+              <ChainOfThoughtStep
+                key={step.id}
+                icon={reasoningIcon(step.id)}
+                label={step.name}
+                description={step.verdict ?? step.description}
+                status={chainStepStatus(step.status)}
+              />
+            ))}
+          </ChainOfThoughtContent>
+        </ChainOfThought>
+      </div>
+    </div>
+  );
+}
+
+// --- Stage 2: Onboarding review card ---
+
+interface OnboardingReviewCardProps {
+  fields: Record<string, string>;
+}
+
+function OnboardingReviewCard({
+  fields,
+}: OnboardingReviewCardProps): React.JSX.Element {
+  const entries = Object.entries(fields).filter(([, value]) => value.trim().length > 0);
+
+  return (
+    <div
+      className="mx-auto w-full max-w-[780px] px-4 py-3"
+      data-testid="journey-onboarding-review"
+    >
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">
+            Company research corpus saved
+          </CardTitle>
+          <CardDescription>
+            Review the prefilled fields. Run the first report section when ready.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          {entries.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No fields prefilled yet.
+            </p>
+          ) : (
+            entries.map(([key, value]) => (
+              <div
+                key={key}
+                className="flex flex-col gap-1 rounded-md border bg-muted/35 p-3"
+                data-testid={`journey-onboarding-field-${key}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    {formatFieldLabel(key)}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    AI filled
+                  </Badge>
+                </div>
+                <p className="text-sm leading-5 text-foreground">{value}</p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// --- Stage 3: Section Queue ---
+
+interface SectionQueueProps {
+  researchResults: Record<string, ResearchSectionResult | null>;
+  activeResearchSections?: ReadonlySet<string>;
+}
+
+function SectionQueue({
+  researchResults,
+  activeResearchSections,
+}: SectionQueueProps): React.JSX.Element {
+  return (
+    <div
+      className="mx-auto w-full max-w-[780px] px-4 py-3"
+      data-testid="journey-section-queue"
+    >
+      <Queue className="rounded-md">
+        <p className="px-1 pt-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          Report queue
+        </p>
+        <ul className="space-y-0.5">
+          {REPORT_SECTION_ORDER.map((section) => {
+            const result = researchResults[section];
+            const isComplete = result?.status === "complete";
+            const isPartial = result?.status === "partial";
+            const isError = result?.status === "error";
+            const isActive = activeResearchSections?.has(section) ?? false;
+            const label = SECTION_DISPLAY_LABELS[section] ?? section;
+            const stateLabel = isError
+              ? "error"
+              : isComplete
+                ? "complete"
+                : isPartial
+                  ? "draft"
+                  : isActive
+                    ? "running"
+                    : "pending";
+
+            return (
+              <QueueItem
+                key={section}
+                data-testid={`journey-queue-item-${section}`}
+                data-state={stateLabel}
+                aria-current={isActive ? "step" : undefined}
+                className={
+                  isActive
+                    ? "border border-primary/40 bg-primary/[0.06]"
+                    : undefined
+                }
+              >
+                <div className="flex w-full items-center gap-2">
+                  <QueueItemIndicator completed={isComplete || isPartial} />
+                  <QueueItemContent
+                    completed={isComplete}
+                    className={isActive ? "text-foreground" : undefined}
+                  >
+                    {label}
+                  </QueueItemContent>
+                  <Badge
+                    variant="outline"
+                    className="ml-auto text-[10px] font-normal"
+                  >
+                    {stateLabel}
+                  </Badge>
+                </div>
+              </QueueItem>
+            );
+          })}
+        </ul>
+      </Queue>
+    </div>
+  );
+}
+
+// --- Stage 3: Artifact Panel ---
 
 function statusLabel(status: string): string {
   if (status === "drafting" || status === "researching" || status === "citing" || status === "queued") {
@@ -251,22 +564,34 @@ function isStreamingStatus(status: string): boolean {
 
 function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
   const props = journeyArtifactToShadcnProps(artifact);
+  // Stage 3 only renders the report sections, never the corpus deepResearchProgram entry.
+  const reportSections = props.sections.filter(
+    (s) => s.id !== "deepResearchProgram",
+  );
+  const reportCompletedCount = reportSections.filter(
+    (s) => s.status === "complete" || s.status === "partial",
+  ).length;
+  const reportTotal = reportSections.length;
+  const reportHasStreaming = reportSections.some((s) => isStreamingStatus(s.status));
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   useEffect(() => {
-    if (props.activeSection) {
+    if (props.activeSection && props.activeSection !== "deepResearchProgram") {
       setActiveSection(props.activeSection);
     }
   }, [props.activeSection]);
 
-  if (props.sections.length === 0) return null;
+  if (reportSections.length === 0) return null;
 
   const displaySections = activeSection
-    ? props.sections.filter((s) => s.id === activeSection)
-    : props.sections;
+    ? reportSections.filter((s) => s.id === activeSection)
+    : reportSections;
 
   return (
-    <div className="mx-auto w-full max-w-[780px] px-4 py-3" data-testid="deep-research-report-artifact">
+    <div
+      className="mx-auto w-full max-w-[780px] px-4 py-3"
+      data-testid="deep-research-report-artifact"
+    >
       <Artifact>
         <ArtifactHeader>
           <div>
@@ -281,14 +606,14 @@ function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
               className="mt-2 text-xs text-muted-foreground"
               aria-live="polite"
             >
-              {formatArtifactGrowth(props.completedCount, props.totalCount)}
-              {props.hasActiveStreaming ? " - live update active" : ""}
+              {formatArtifactGrowth(reportCompletedCount, reportTotal)}
+              {reportHasStreaming ? " - live update active" : ""}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {props.hasActiveStreaming ? (
+            {reportHasStreaming ? (
               <Badge variant="default">streaming</Badge>
-            ) : props.completedCount === props.totalCount ? (
+            ) : reportCompletedCount === reportTotal ? (
               <Badge className="border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200">
                 complete
               </Badge>
@@ -296,9 +621,9 @@ function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
           </div>
         </ArtifactHeader>
 
-        {props.sections.length > 1 ? (
+        {reportSections.length > 1 ? (
           <div className="flex gap-0 overflow-x-auto border-b px-4">
-            {props.sections.map((section) => {
+            {reportSections.map((section) => {
               const isActive = activeSection === section.id;
               return (
                 <button
@@ -381,6 +706,47 @@ function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
   );
 }
 
+// --- Stage derivation helper (default when no prop passed) ---
+
+function deriveDefaultStage(args: {
+  phase: JourneyAgentChatProps["phase"];
+  deepResearchStatus: JourneyAgentChatProps["deepResearchStatus"];
+  researchActivity: Record<string, ResearchJobActivity | undefined>;
+  researchResults: Record<string, ResearchSectionResult | null>;
+  activeResearchSections?: ReadonlySet<string>;
+}): ArtifactStage {
+  const reportTouched = REPORT_SECTION_ORDER.some(
+    (section) =>
+      args.activeResearchSections?.has(section) ||
+      Boolean(args.researchResults[section]) ||
+      Boolean(args.researchActivity[section]),
+  );
+
+  if (reportTouched) return "section-streaming";
+
+  if (
+    args.deepResearchStatus === "complete" &&
+    args.phase === "workspace"
+  ) {
+    return "onboarding-review";
+  }
+
+  return "corpus-building";
+}
+
+function getWebsiteHost(websiteUrl: string): string | null {
+  const trimmed = websiteUrl.trim();
+  if (!trimmed) return null;
+  try {
+    const withProtocol = trimmed.startsWith("http")
+      ? trimmed
+      : `https://${trimmed}`;
+    return new URL(withProtocol).hostname;
+  } catch {
+    return null;
+  }
+}
+
 // --- Main Export ---
 
 export function JourneyAgentChat({
@@ -402,6 +768,7 @@ export function JourneyAgentChat({
   onRunNextSection,
   onRetryDeepResearch,
   onStartFresh,
+  artifactStage,
 }: JourneyAgentChatProps): React.JSX.Element {
   const hasSubmittedUrl =
     activeRunId !== null ||
@@ -455,6 +822,36 @@ export function JourneyAgentChat({
     [agentState.visibleSteps],
   );
 
+  const reportReasoningSteps = useMemo(
+    () => reasoningSteps.filter((step) => step.id !== "deepResearchProgram"),
+    [reasoningSteps],
+  );
+
+  const resolvedStage: ArtifactStage = useMemo(
+    () =>
+      artifactStage ??
+      deriveDefaultStage({
+        phase,
+        deepResearchStatus,
+        researchActivity,
+        researchResults,
+        activeResearchSections,
+      }),
+    [
+      activeResearchSections,
+      artifactStage,
+      deepResearchStatus,
+      phase,
+      researchActivity,
+      researchResults,
+    ],
+  );
+
+  const websiteHost = useMemo(
+    () => getWebsiteHost(websiteUrl) ?? (companyName ?? null),
+    [companyName, websiteUrl],
+  );
+
   const handlePromptSubmit = (promptMessage: { text: string; files: unknown[] }) => {
     const nextInput = promptMessage.text.trim();
     onWebsiteUrlChange(nextInput);
@@ -465,8 +862,7 @@ export function JourneyAgentChat({
 
   const showWelcome = !hasSubmittedUrl && displayedMessages.length === 0;
 
-  // Derive the compact status for the assistant Tool in the chat rail.
-  // Running/Completed/Error — single source of truth, no activity log.
+  // Compact assistant status — Tool component, single source of truth.
   const assistantToolState: "input-available" | "output-available" | "output-error" =
     deepResearchError
       ? "output-error"
@@ -576,7 +972,7 @@ export function JourneyAgentChat({
                 </div>
               </div>
 
-              {/* Compact assistant status — Tool component, not a bespoke bubble */}
+              {/* Compact assistant status — single source of truth */}
               <div className="mx-auto w-full max-w-[780px] px-4 py-2">
                 <Tool
                   defaultOpen
@@ -610,27 +1006,50 @@ export function JourneyAgentChat({
                         {agentState.assistantOpening}
                       </p>
                     )}
-                    {Object.keys(deepResearchFields).length > 0 ? (
-                      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-                        Company research corpus saved for section synthesis
-                      </div>
-                    ) : null}
                   </ToolContent>
                 </Tool>
               </div>
 
-              <NextSectionControl
-                nextSectionLabel={nextSectionLabel}
-                isNextSectionRunning={isNextSectionRunning}
-                onRunNextSection={onRunNextSection}
-              />
+              {/* Stage 1: corpus-building — chain-of-thought + terminal, NO artifact panel */}
+              {resolvedStage === "corpus-building" ? (
+                <>
+                  <CorpusReasoning steps={reasoningSteps} />
+                  <CorpusTerminal
+                    artifact={agentState.artifact}
+                    isStreaming={agentState.artifact.status === "streaming" || isGenerating}
+                    websiteHost={websiteHost}
+                  />
+                </>
+              ) : null}
 
-              {/* Compact step status indicators — no activity log, just state */}
-              <CompactStepTools steps={reasoningSteps} />
+              {/* Stage 2: onboarding-review — review fields + run-section CTA */}
+              {resolvedStage === "onboarding-review" ? (
+                <>
+                  <OnboardingReviewCard fields={deepResearchFields} />
+                  <NextSectionControl
+                    nextSectionLabel={nextSectionLabel}
+                    isNextSectionRunning={isNextSectionRunning}
+                    onRunNextSection={onRunNextSection}
+                  />
+                </>
+              ) : null}
 
-              {/* Artifact panel — THE source of truth for document content */}
-              <ArtifactPanel artifact={agentState.artifact} />
+              {/* Stage 3: section-streaming — queue + artifact + compact tools + run-next */}
+              {resolvedStage === "section-streaming" ? (
+                <>
+                  <SectionQueue
+                    researchResults={researchResults}
+                    activeResearchSections={activeResearchSections}
+                  />
+                  <ArtifactPanel artifact={agentState.artifact} />
+                  <CompactStepTools steps={reportReasoningSteps} />
+                  <NextSectionControl
+                    nextSectionLabel={nextSectionLabel}
+                    isNextSectionRunning={isNextSectionRunning}
+                    onRunNextSection={onRunNextSection}
+                  />
+                </>
+              ) : null}
 
               {displayedMessages.map((message) => (
                 <div key={message.id} className="mx-auto w-full max-w-[780px] px-4">

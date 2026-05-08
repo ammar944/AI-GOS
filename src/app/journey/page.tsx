@@ -1263,6 +1263,34 @@ function JourneyPageContent() {
       ? SECTION_META[displayedNextSection] ?? displayedNextSection
       : null;
 
+  // Derive the artifact stage for JourneyAgentChat:
+  //  - 'section-streaming': any report section has been touched (active, complete,
+  //    or has running worker activity / artifact deltas)
+  //  - 'onboarding-review': corpus complete, in workspace, no section started yet
+  //  - 'corpus-building': prefilling phase or corpus not yet complete
+  const artifactStage: 'corpus-building' | 'onboarding-review' | 'section-streaming' = useMemo(() => {
+    const reportTouched = JOURNEY_REPORT_SECTION_ORDER.some(
+      (section) =>
+        activeResearch.has(section) ||
+        Boolean(researchResults[section]) ||
+        Boolean(researchJobActivity[section]),
+    );
+    if (reportTouched) return 'section-streaming';
+    if (
+      linkDeepResearchStatus === 'complete' &&
+      journeyPhase === 'workspace'
+    ) {
+      return 'onboarding-review';
+    }
+    return 'corpus-building';
+  }, [
+    activeResearch,
+    journeyPhase,
+    linkDeepResearchStatus,
+    researchJobActivity,
+    researchResults,
+  ]);
+
   if (journeyPhase === 'resume' && savedSession) {
     return (
       <AppShell sidebar={<AppSidebar />} className="font-sans bg-[#0b0b0a]">
@@ -1302,6 +1330,7 @@ function JourneyPageContent() {
         nextSectionLabel={nextSectionLabel}
         isNextSectionRunning={Boolean(activeReportSection)}
         onRunNextSection={handleRunNextSection}
+        artifactStage={artifactStage}
         onRetryDeepResearch={() => {
           setDeepResearchOnboardingFields({});
           setLinkDeepResearchStatus('idle');
