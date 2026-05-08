@@ -60,8 +60,10 @@ describe('JourneyAgentChat', () => {
     );
 
     expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Starting source-backed company research/u)).toBeInTheDocument();
-    expect(screen.queryByText('Market Category Agent')).not.toBeInTheDocument();
+    expect(screen.getByText(/checking source-backed company context/u)).toBeInTheDocument();
+    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
+      'Market Category',
+    );
     expect(screen.queryByText('GTM Synthesis Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Journey Workbench')).not.toBeInTheDocument();
   });
@@ -123,8 +125,8 @@ describe('JourneyAgentChat', () => {
     expect(screen.queryByText(/Company corpus is ready with/u)).not.toBeInTheDocument();
   });
 
-  it('places the live artifact before compact activity rows', () => {
-    const { container } = render(
+  it('places the live artifact after the assistant output', () => {
+    render(
       <JourneyAgentChat
         {...baseProps}
         websiteUrl="research airtable.com"
@@ -156,16 +158,11 @@ describe('JourneyAgentChat', () => {
 
     const assistant = screen.getByTestId('journey-assistant-output');
     const artifact = screen.getByTestId('deep-research-report-artifact');
-    const activity = container.querySelector('[data-testid="journey-agent-activity"]');
 
-    expect(activity).not.toBeNull();
     expect(
       assistant.compareDocumentPosition(artifact) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(
-      artifact.compareDocumentPosition(activity as Node) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(artifact).toHaveTextContent('Live GTM Research Artifact');
   });
 });

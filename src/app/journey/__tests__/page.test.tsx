@@ -670,7 +670,9 @@ describe('JourneyPage Manus launch wiring', () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'Market Category',
+      );
     });
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
@@ -740,7 +742,9 @@ describe('JourneyPage Manus launch wiring', () => {
       expect.stringContaining('Website: https://saaslaunch.net'),
     );
     await waitFor(() => {
-      expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'Market Category',
+      );
     });
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
@@ -764,7 +768,9 @@ describe('JourneyPage Manus launch wiring', () => {
       expect(realtimeControls.getActiveRunId()).toBe('run-refresh');
     });
     expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Market Category Agent')).not.toBeInTheDocument();
+    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
+      'Market Category',
+    );
   });
 });
 
@@ -835,11 +841,17 @@ describe('JourneyPage artifact orchestration', () => {
       command.compareDocumentPosition(firstAssistantOutput as Node) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(firstAssistantOutput).not.toHaveTextContent('Market Category Agent');
-    expect(screen.queryByText('Market Category Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Buyer / ICP Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
-    expect(screen.queryByText('Offer Diagnostic Agent')).not.toBeInTheDocument();
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Deep Research Agent is building the source-backed corpus',
+    );
+    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
+      'Market Category',
+    );
+    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
+      'Offer Diagnostic',
+    );
   });
 
   it('buffers out-of-order backend completions and reveals specialists in canonical UI order', async () => {
@@ -867,10 +879,16 @@ describe('JourneyPage artifact orchestration', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'Market category finished first.',
+      );
     });
-    expect(screen.getByText('Buyer / ICP Agent')).toBeInTheDocument();
-    expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Market Category',
+    );
+    expect(screen.getByTestId('deep-research-report-artifact')).not.toHaveTextContent(
+      'Competitors finished before ICP.',
+    );
 
     await emitResearchResult('icpValidation', {
       sectionTitle: 'Buyer ICP',
@@ -878,22 +896,20 @@ describe('JourneyPage artifact orchestration', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Competitive Positioning Agent')).toBeInTheDocument();
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'Competitors finished before ICP.',
+      );
     });
 
-    const marketAgent = screen.getByText('Market Category Agent');
-    const icpAgent = screen.getByText('Buyer / ICP Agent');
-    const competitorAgent = screen.getByText('Competitive Positioning Agent');
+    const artifactText =
+      screen.getByTestId('deep-research-report-artifact').textContent ?? '';
+    const marketIndex = artifactText.indexOf('Market category finished first.');
+    const icpIndex = artifactText.indexOf('ICP validation now finished.');
+    const competitorIndex = artifactText.indexOf('Competitors finished before ICP.');
 
-    expect(
-      marketAgent.compareDocumentPosition(icpAgent) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      icpAgent.compareDocumentPosition(competitorAgent) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(screen.getAllByText('Competitors finished before ICP.').length).toBeGreaterThan(0);
+    expect(marketIndex).toBeGreaterThan(-1);
+    expect(icpIndex).toBeGreaterThan(marketIndex);
+    expect(competitorIndex).toBeGreaterThan(icpIndex);
   });
 
   it('shows the central report artifact growing from typed worker artifact events', async () => {
@@ -1040,19 +1056,21 @@ describe('JourneyPage artifact orchestration', () => {
     render(<JourneyPage />);
 
     await waitFor(() => {
-      expect(screen.getAllByText('Offer Diagnostic Agent').length).toBeGreaterThan(0);
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'Offer analysis is being written from the saved corpus.',
+      );
     });
 
-    expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
-    expect(screen.getAllByText('Market complete from persisted snapshot.').length).toBeGreaterThan(0);
-    expect(screen.getByText('Buyer / ICP Agent')).toBeInTheDocument();
-    expect(screen.getAllByText('ICP draft needs source review.').length).toBeGreaterThan(0);
-    expect(screen.getByText('Competitive Positioning Agent')).toBeInTheDocument();
-    expect(screen.getAllByText('Competitor section complete from persisted snapshot.').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-      'Offer analysis is being written from the saved corpus.',
-    );
-    expect(screen.queryByText('Demand Intent Agent')).not.toBeInTheDocument();
-    expect(screen.queryByText('Keyword output finished early.')).not.toBeInTheDocument();
+    const artifact = screen.getByTestId('deep-research-report-artifact');
+
+    expect(artifact).toHaveTextContent('Market Category');
+    expect(artifact).toHaveTextContent('Market complete from persisted snapshot.');
+    expect(artifact).toHaveTextContent('Buyer ICP');
+    expect(artifact).toHaveTextContent('ICP draft needs source review.');
+    expect(artifact).toHaveTextContent('Competitive Positioning');
+    expect(artifact).toHaveTextContent('Competitor section complete from persisted snapshot.');
+    expect(artifact).toHaveTextContent('Offer Diagnostic');
+    expect(artifact).not.toHaveTextContent('Demand Intent');
+    expect(artifact).not.toHaveTextContent('Keyword output finished early.');
   });
 });
