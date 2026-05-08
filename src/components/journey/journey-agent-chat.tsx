@@ -25,7 +25,6 @@ import {
 } from "@/components/ai-elements/artifact";
 import type {
   ShadcnReasoningStep,
-  ShadcnToolEvent,
 } from "@/lib/journey/shadcn-adapters";
 import {
   journeyArtifactToShadcnProps,
@@ -44,9 +43,6 @@ import { PromptInputTools } from "@/components/ai-elements/prompt-input";
 import { PromptInputTextarea } from "@/components/ai-elements/prompt-input";
 import { PromptInputSubmit } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { Reasoning } from "@/components/ai-elements/reasoning";
-import { ReasoningTrigger } from "@/components/ai-elements/reasoning";
-import { ReasoningContent } from "@/components/ai-elements/reasoning";
 import { Sources } from "@/components/ai-elements/sources";
 import { SourcesTrigger } from "@/components/ai-elements/sources";
 import { SourcesContent } from "@/components/ai-elements/sources";
@@ -128,7 +124,7 @@ function NextSectionControl({
     <div className="mx-auto w-full max-w-[780px] px-4 py-3">
       <div
         data-testid="journey-next-section-control"
-        className="flex flex-col gap-4 rounded-2xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-4 rounded-md border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -163,125 +159,43 @@ function NextSectionControl({
   );
 }
 
-// --- Reasoning Steps (using registry Reasoning components) ---
+// --- Compact step status tools (chat side) ---
+// Each research step renders as a single collapsible <Tool> showing only
+// name + status badge. No activity log here — that lives in the artifact.
 
-const TOOL_EVENT_PHASE_LABELS: Record<ShadcnToolEvent["phase"], string> = {
-  runner: "runner",
-  tool: "research",
-  analysis: "analysis",
-  artifact: "artifact",
-  output: "output",
-  error: "error",
-};
-
-function getToolEventLabel(event: ShadcnToolEvent): string {
-  if (event.toolName === "web_search") return "source";
-  if (event.toolName === "code_execution") return "analysis";
-  return event.toolName ?? TOOL_EVENT_PHASE_LABELS[event.phase];
+function stepToolState(status: string): "input-available" | "output-available" | "output-error" {
+  if (status === "running") return "input-available";
+  if (status === "error") return "output-error";
+  return "output-available";
 }
 
-function AgentActivityFeed({
-  events,
-  isRunning,
-}: {
-  events: ShadcnToolEvent[];
-  isRunning: boolean;
-}): React.JSX.Element | null {
-  if (events.length === 0 && !isRunning) {
-    return null;
-  }
-
-  const state = isRunning ? "input-available" : "output-available";
-
-  return (
-    <Tool defaultOpen={isRunning} className="mt-3 mb-0 bg-background/80">
-      <ToolHeader
-        type="dynamic-tool"
-        toolName="research-activity"
-        title="Live research activity"
-        state={state}
-      />
-      <ToolContent className="space-y-2">
-        {events.length === 0 ? (
-          <p className="text-muted-foreground text-xs">
-            Waiting for research updates.
-          </p>
-        ) : (
-          events.map((event) => (
-            <div
-              key={event.id}
-              className="flex min-w-0 items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs"
-            >
-              <Badge variant="outline" className="shrink-0 text-[10px]">
-                {getToolEventLabel(event)}
-              </Badge>
-              <div className="min-w-0 flex-1">
-                <p className="text-foreground">{event.message}</p>
-                {event.url ? (
-                  <a
-                    href={event.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 block truncate text-muted-foreground underline-offset-4 hover:underline"
-                  >
-                    {event.pageTitle ?? event.url}
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          ))
-        )}
-      </ToolContent>
-    </Tool>
-  );
-}
-
-function ReasoningSteps({ steps }: { steps: ShadcnReasoningStep[] }): React.JSX.Element | null {
+function CompactStepTools({ steps }: { steps: ShadcnReasoningStep[] }): React.JSX.Element | null {
   if (steps.length === 0) return null;
 
   return (
-    <div className="mx-auto w-full max-w-[780px] px-4 py-3">
+    <div className="mx-auto w-full max-w-[780px] space-y-1 px-4 py-2">
       {steps.map((step) => {
         const isRunning = step.status === "running";
-        const isError = step.status === "error";
-        const verdict = step.verdict ?? step.description;
 
         return (
-          <Reasoning
-            key={step.id}
-            defaultOpen={isRunning}
-            isStreaming={isRunning}
-          >
-            <ReasoningTrigger
-              getThinkingMessage={(streaming) => {
-                if (streaming) {
-                  return (
-                    <span className="flex items-center gap-2">
-                      <span className="font-medium text-foreground text-xs">
-                        {step.name}
-                      </span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {step.skill}
-                      </Badge>
-                    </span>
-                  );
-                }
-                if (isError) {
-                  return <span className="text-red-400 text-xs">{step.name} — failed</span>;
-                }
-                return <span className="text-xs">{step.name} — complete</span>;
-              }}
+          <Tool key={step.id} defaultOpen={false} className="mb-0">
+            <ToolHeader
+              type="dynamic-tool"
+              toolName={step.id}
+              title={step.name}
+              state={stepToolState(step.status)}
             />
-            <ReasoningContent>
-              <div className="space-y-2">
-                <p>{verdict ?? step.description}</p>
-                <AgentActivityFeed
-                  events={step.toolEvents}
-                  isRunning={isRunning}
-                />
-              </div>
-            </ReasoningContent>
-          </Reasoning>
+            <ToolContent className="py-2 px-3">
+              <p className="text-xs text-muted-foreground">
+                {step.verdict ?? step.description}
+              </p>
+              {isRunning ? (
+                <p className="mt-1 text-xs text-muted-foreground/70">
+                  Writing report section...
+                </p>
+              ) : null}
+            </ToolContent>
+          </Tool>
         );
       })}
     </div>
@@ -307,6 +221,8 @@ function SourceList({ urls }: { urls: string[] }) {
 }
 
 // --- Artifact Panel (using registry Artifact components) ---
+// Shows the ACTUAL research document content as the headline.
+// Activity log items are collapsed <Tool> entries below each section.
 
 function statusLabel(status: string): string {
   if (status === "drafting" || status === "researching" || status === "citing" || status === "queued") {
@@ -327,6 +243,10 @@ function cleanArtifactContent(content: string): string {
     )
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function isStreamingStatus(status: string): boolean {
+  return status === "drafting" || status === "researching" || status === "citing" || status === "queued";
 }
 
 function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
@@ -387,9 +307,9 @@ function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
                   onClick={() =>
                     setActiveSection(activeSection === section.id ? null : section.id)
                   }
-                  className={`shrink-0 border-b-2 px-3 py-2.5 text-[12px] font-medium transition-colors ${
+                  className={`cursor-pointer shrink-0 border-b-2 px-3 py-2.5 text-[12px] font-medium transition-colors duration-150 ${
                     isActive
-                      ? "border-[var(--accent,#365eff)] text-foreground"
+                      ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground/80"
                   }`}
                 >
@@ -398,9 +318,7 @@ function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
                     className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${
                       section.status === "complete" || section.status === "partial"
                         ? "bg-emerald-400"
-                        : section.status === "drafting" ||
-                            section.status === "researching" ||
-                            section.status === "citing"
+                        : isStreamingStatus(section.status)
                           ? "bg-blue-400 animate-pulse"
                           : section.status === "error"
                             ? "bg-red-400"
@@ -432,19 +350,19 @@ function ArtifactPanel({ artifact }: { artifact: JourneyArtifactState }) {
                   ) : null}
                   <div className={index > 0 ? "pt-2" : ""}>
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                      <Sparkles className="h-3.5 w-3.5 text-[var(--accent-soft,#9aa9ff)]" aria-hidden="true" />
+                      <Sparkles className="h-3.5 w-3.5 text-primary/60" aria-hidden="true" />
                       <span className="font-medium text-foreground/80">
                         {section.title}
                       </span>
                       <Badge variant="outline">{statusLabel(section.status)}</Badge>
                     </div>
                     {isPartial ? (
-                      <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
+                      <div className="mb-4 rounded-md border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
                         This section is incomplete. Some content is available below.
                       </div>
                     ) : null}
                     {isError ? (
-                      <div className="mb-4 rounded-lg border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-100">
+                      <div className="mb-4 rounded-md border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-100">
                         This section failed to generate.
                       </div>
                     ) : null}
@@ -547,6 +465,15 @@ export function JourneyAgentChat({
 
   const showWelcome = !hasSubmittedUrl && displayedMessages.length === 0;
 
+  // Derive the compact status for the assistant Tool in the chat rail.
+  // Running/Completed/Error — single source of truth, no activity log.
+  const assistantToolState: "input-available" | "output-available" | "output-error" =
+    deepResearchError
+      ? "output-error"
+      : isGenerating
+        ? "input-available"
+        : "output-available";
+
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
       <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background/90 px-4 backdrop-blur-md">
@@ -625,7 +552,7 @@ export function JourneyAgentChat({
                 </CardHeader>
                 <CardContent className="space-y-3 p-5 pt-0">
                   {["Research corpus", "Specialist sections", "Final artifact"].map((item, index) => (
-                    <div key={item} className="flex items-center gap-3 rounded-lg border bg-background/70 px-3 py-2.5">
+                    <div key={item} className="flex items-center gap-3 rounded-md border bg-background/70 px-3 py-2.5">
                       <div className="flex size-7 items-center justify-center rounded-full border text-xs text-muted-foreground">
                         {index + 1}
                       </div>
@@ -642,52 +569,55 @@ export function JourneyAgentChat({
               <div className="mx-auto w-full max-w-[780px] px-4 py-2">
                 <div
                   data-testid="journey-user-command"
-                  className="ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-secondary px-4 py-3 text-sm leading-6"
+                  className="ml-auto max-w-[82%] rounded-md rounded-tr-sm bg-secondary px-4 py-3 text-sm leading-6"
                 >
                   {researchCommand.displayText ||
                     `research ${companyName ?? "this company"}`}
                 </div>
               </div>
 
-              <div className="mx-auto w-full max-w-[780px] px-4 py-3">
-                <div
+              {/* Compact assistant status — Tool component, not a bespoke bubble */}
+              <div className="mx-auto w-full max-w-[780px] px-4 py-2">
+                <Tool
+                  defaultOpen
                   data-testid="journey-assistant-output"
-                  className="rounded-2xl border bg-card p-4"
                 >
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-blue-300" />
-                    <p className="text-sm font-medium">
-                      Research Agent
-                    </p>
-                  </div>
-                  {isGenerating ? (
-                    <Shimmer className="h-4 w-3/4">Researching...</Shimmer>
-                  ) : null}
-                  {deepResearchError ? (
-                    <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] p-3 text-sm text-red-100">
-                      {deepResearchError}
-                      {onRetryDeepResearch ? (
-                        <button
-                          type="button"
-                          onClick={onRetryDeepResearch}
-                          className="ml-3 underline decoration-red-200/50 underline-offset-4"
-                        >
-                          Retry
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mb-3 text-sm leading-6 text-muted-foreground">
-                      {agentState.assistantOpening}
-                    </p>
-                  )}
-                  {Object.keys(deepResearchFields).length > 0 ? (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-                      Company research corpus saved for section synthesis
-                    </div>
-                  ) : null}
-                </div>
+                  <ToolHeader
+                    type="dynamic-tool"
+                    toolName="research-agent"
+                    title="Research Agent"
+                    state={assistantToolState}
+                  />
+                  <ToolContent className="py-2 px-3">
+                    {isGenerating ? (
+                      <Shimmer className="h-4 w-3/4">Researching...</Shimmer>
+                    ) : null}
+                    {deepResearchError ? (
+                      <div className="rounded-md border border-red-400/20 bg-red-400/[0.06] p-3 text-sm text-red-100">
+                        {deepResearchError}
+                        {onRetryDeepResearch ? (
+                          <button
+                            type="button"
+                            onClick={onRetryDeepResearch}
+                            className="ml-3 cursor-pointer underline decoration-red-200/50 underline-offset-4 transition-colors duration-150 hover:text-red-50"
+                          >
+                            Retry
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {agentState.assistantOpening}
+                      </p>
+                    )}
+                    {Object.keys(deepResearchFields).length > 0 ? (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+                        Company research corpus saved for section synthesis
+                      </div>
+                    ) : null}
+                  </ToolContent>
+                </Tool>
               </div>
 
               <NextSectionControl
@@ -696,8 +626,10 @@ export function JourneyAgentChat({
                 onRunNextSection={onRunNextSection}
               />
 
-              <ReasoningSteps steps={reasoningSteps} />
+              {/* Compact step status indicators — no activity log, just state */}
+              <CompactStepTools steps={reasoningSteps} />
 
+              {/* Artifact panel — THE source of truth for document content */}
               <ArtifactPanel artifact={agentState.artifact} />
 
               {displayedMessages.map((message) => (
@@ -719,7 +651,7 @@ export function JourneyAgentChat({
         <div className="mx-auto w-full max-w-[800px]">
           <PromptInput
             onSubmit={handlePromptSubmit}
-            className="rounded-2xl shadow-[0_18px_70px_rgba(0,0,0,0.28)] transition-colors focus-within:border-primary/50"
+            className="rounded-md shadow-sm transition-colors duration-150 focus-within:border-primary/50"
           >
             <PromptInputTextarea
               aria-label="Research command or company URL"

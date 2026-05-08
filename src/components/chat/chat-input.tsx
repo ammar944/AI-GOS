@@ -1,13 +1,20 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Square, Paperclip, ChevronDown } from 'lucide-react';
+import { Paperclip, ChevronDown } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
 import { VoiceInputButton } from './voice-input-button';
 import { SlashCommandPalette } from './slash-command-palette';
 import type { SlashCommand } from './slash-command-palette';
 import { cn } from '@/lib/utils';
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+} from '@/components/ai-elements/prompt-input';
 
 interface ChatInputProps {
   onSubmit: (message: string) => void;
@@ -38,14 +45,12 @@ export function ChatInput({
   textareaRef,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [isSlashPaletteOpen, setIsSlashPaletteOpen] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
 
   const stopRecordingRef = useRef<(() => void) | null>(null);
   const internalRef = useRef<HTMLTextAreaElement>(null);
-  // Use external ref when provided, otherwise use internal
   const inputRef = textareaRef || internalRef;
 
   // Derive filtered commands from the current input
@@ -57,18 +62,6 @@ export function ChatInput({
     [isSlashPaletteOpen, slashFilter]
   );
 
-  // Auto-resize textarea: min 36px (2 rows), max 160px (~7 rows)
-  const autoResize = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, []);
-
-  useEffect(() => {
-    autoResize();
-  }, [input, autoResize]);
-
   // Keep selected index in bounds when filtered list changes
   useEffect(() => {
     setSelectedCommandIndex((prev) =>
@@ -76,8 +69,7 @@ export function ChatInput({
     );
   }, [filteredCommands.length]);
 
-  // Voice transcript — insert at cursor position, reading DOM value to avoid
-  // recreating the callback on every keystroke
+  // Voice transcript — insert at cursor position
   const handleTranscript = useCallback((text: string) => {
     const el = inputRef.current;
     if (!el) {
@@ -98,18 +90,13 @@ export function ChatInput({
       el.setSelectionRange(newCursorPos, newCursorPos);
       el.focus();
     });
-  }, []);
+  }, [inputRef]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       setInput(value);
-
-      if (value.startsWith('/')) {
-        setIsSlashPaletteOpen(true);
-      } else {
-        setIsSlashPaletteOpen(false);
-      }
+      setIsSlashPaletteOpen(value.startsWith('/'));
     },
     []
   );
@@ -121,29 +108,16 @@ export function ChatInput({
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, []);
+  }, [inputRef]);
 
-  const handleSubmit = useCallback(
-    (e?: React.FormEvent) => {
-      e?.preventDefault();
-      const trimmed = input.trim();
-      if (!trimmed || (isLoading && !onStop)) return;
-
-      onSubmit(trimmed);
-      setInput('');
-      setIsSlashPaletteOpen(false);
-      setSelectedCommandIndex(0);
-
-      requestAnimationFrame(() => {
-        const el = inputRef.current;
-        if (el) {
-          el.style.height = 'auto';
-          el.style.height = '36px';
-        }
-      });
-    },
-    [input, isLoading, onStop, onSubmit]
-  );
+  const handleSubmit = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed || (isLoading && !onStop)) return;
+    onSubmit(trimmed);
+    setInput('');
+    setIsSlashPaletteOpen(false);
+    setSelectedCommandIndex(0);
+  }, [input, isLoading, onStop, onSubmit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -173,11 +147,8 @@ export function ChatInput({
         }
       }
 
-      // Standard keyboard behaviour
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      } else if (e.key === 'Escape') {
+      // Escape while recording stops voice
+      if (e.key === 'Escape') {
         e.preventDefault();
         if (isVoiceRecording) {
           stopRecordingRef.current?.();
@@ -191,20 +162,11 @@ export function ChatInput({
       filteredCommands,
       selectedCommandIndex,
       handleCommandSelect,
-      handleSubmit,
       isVoiceRecording,
     ]
   );
 
   const isInputDisabled = (isLoading && !onStop) || disabled;
-
-  // Border colour priority: recording > focused > default
-  const borderColor = isVoiceRecording
-    ? 'var(--accent-amber)'
-    : isFocused
-      ? 'var(--border-focus, var(--accent-blue))'
-      : 'var(--border-default)';
-
   const canSend = input.trim().length > 0 && !isInputDisabled;
   const showStop = isLoading && !!onStop;
 
@@ -220,53 +182,43 @@ export function ChatInput({
         />
       </div>
 
-      {/* Input container — textarea + toolbar in one rounded box */}
-      <form
-        onSubmit={handleSubmit}
-        className="relative overflow-hidden rounded-md transition-colors"
-        style={{
-          background: 'var(--bg-input)',
-          border: `1px solid ${borderColor}`,
+      <PromptInput
+        onSubmit={({ text }) => {
+          const trimmed = text.trim();
+          if (!trimmed || (isLoading && !onStop)) return;
+          onSubmit(trimmed);
+          setInput('');
+          setIsSlashPaletteOpen(false);
+          setSelectedCommandIndex(0);
         }}
       >
-        {/* Auto-expanding textarea */}
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder={
-            isVoiceRecording
-              ? 'Listening...'
-              : placeholder
-          }
-          disabled={isInputDisabled && !isVoiceRecording}
-          rows={1}
-          className="w-full px-3.5 pt-3 pb-1.5 text-sm outline-none resize-none overflow-y-auto leading-[1.55] bg-transparent scrollbar-hide text-foreground"
-          style={{
-            minHeight: '36px',
-            maxHeight: '160px',
-          }}
-        />
-
-        {/* Toolbar row — inside the container */}
-        <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
+        <PromptInputBody>
+          <PromptInputTextarea
+            ref={inputRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              isVoiceRecording
+                ? 'Listening...'
+                : placeholder
+            }
+            disabled={isInputDisabled && !isVoiceRecording}
+            className="min-h-9 max-h-[160px]"
+          />
+        </PromptInputBody>
+        <PromptInputFooter>
           {/* Left toolbar: Attach + Model selector + Voice */}
-          <div className="flex items-center gap-1">
-            {/* Attach file (coming soon — disabled placeholder) */}
+          <PromptInputTools>
+            {/* Attach file (coming soon -- disabled placeholder) */}
             <button
               type="button"
               disabled
               title="Attach file (coming soon)"
-              className="w-7 h-7 rounded-md flex items-center justify-center"
+              className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded-md border-none opacity-50"
               style={{
                 background: 'transparent',
                 color: 'var(--text-tertiary)',
-                opacity: 0.5,
-                cursor: 'not-allowed',
-                border: 'none',
               }}
             >
               <Paperclip size={15} />
@@ -277,10 +229,9 @@ export function ChatInput({
               type="button"
               disabled
               title="Model selection (coming soon)"
-              className="flex items-center gap-1 px-2 py-1 rounded-md"
+              className="flex items-center gap-1 rounded-md border-none px-2 py-1"
               style={{
                 background: 'transparent',
-                border: 'none',
                 cursor: 'default',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '10.5px',
@@ -299,41 +250,18 @@ export function ChatInput({
               disabled={isLoading}
               compact
             />
-          </div>
+          </PromptInputTools>
 
           {/* Right toolbar: Stop + Send */}
-          <div className="flex items-center gap-1.5">
-            {/* Stop button (only when streaming) */}
-            {showStop && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={onStop}
-                className="w-7 h-7 rounded-md p-0"
-                title="Stop generating"
-              >
-                <Square size={10} className="text-muted-foreground" />
-              </Button>
-            )}
-
-            {/* Send button */}
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!canSend && !showStop}
-              className="w-7 h-7 rounded-md p-0 flex-shrink-0"
-              style={{
-                background: canSend ? 'var(--accent-green)' : 'transparent',
-                color: canSend ? 'var(--text-on-accent, white)' : 'var(--text-quaternary)',
-                opacity: !canSend ? 0.4 : 1,
-              }}
-            >
-              <Send size={14} />
-            </Button>
-          </div>
-        </div>
-      </form>
+          <PromptInputSubmit
+            status={
+              showStop ? 'streaming' : undefined
+            }
+            onStop={onStop}
+            disabled={!canSend && !showStop}
+          />
+        </PromptInputFooter>
+      </PromptInput>
     </div>
   );
 }

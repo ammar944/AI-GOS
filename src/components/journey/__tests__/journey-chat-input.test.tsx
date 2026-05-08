@@ -31,6 +31,33 @@ vi.mock('@/components/chat/slash-command-palette', () => ({
     ) : null,
 }));
 
+// Mock PromptInput components to render simple HTML equivalents for testing
+vi.mock('@/components/ai-elements/prompt-input', () => {
+  const React = require('react');
+  return {
+    PromptInput: ({ onSubmit, children }: { onSubmit: (msg: { text: string; files: unknown[] }) => void; children: React.ReactNode }) => {
+      const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const text = (formData.get('message') as string) || '';
+        onSubmit({ text, files: [] });
+      };
+      return <form onSubmit={handleSubmit}>{children}</form>;
+    },
+    PromptInputBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    PromptInputTextarea: React.forwardRef(
+      (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>, ref: React.Ref<HTMLTextAreaElement>) => (
+        <textarea ref={ref} name="message" {...props} />
+      )
+    ),
+    PromptInputFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    PromptInputTools: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    PromptInputSubmit: (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+      <button type="submit" aria-label="Submit" {...props} />
+    ),
+  };
+});
+
 function renderInput(props: Partial<React.ComponentProps<typeof JourneyChatInput>> = {}) {
   const defaultProps = {
     onSubmit: vi.fn(),

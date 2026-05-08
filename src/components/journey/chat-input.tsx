@@ -1,10 +1,18 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Send, FileUp, Loader2 } from 'lucide-react';
+import { useState, useRef, useCallback, useMemo } from 'react';
+import { FileUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { SlashCommandPalette, type SlashCommand } from '@/components/chat/slash-command-palette';
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+} from '@/components/ai-elements/prompt-input';
 
 const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-amber)' },
@@ -38,24 +46,10 @@ export function JourneyChatInput({
   onFileUpload,
   isUploading = false,
 }: JourneyChatInputProps): React.JSX.Element {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !onFileUpload) return;
-    if (file.size > MAX_FILE_SIZE) {
-      e.target.value = '';
-      return;
-    }
-    onFileUpload(file);
-    e.target.value = '';
-  }, [onFileUpload]);
-
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   const [isSlashPaletteOpen, setIsSlashPaletteOpen] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Slash command filtering
   const slashFilter = input.startsWith('/') ? input.slice(1).toLowerCase() : '';
@@ -70,31 +64,21 @@ export function JourneyChatInput({
     ? 0
     : Math.min(selectedCommandIndex, filteredCommands.length - 1);
 
-  // Auto-resize textarea
-  const autoResize = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  }, []);
-
-  useEffect(() => { autoResize(); }, [input, autoResize]);
-
-  const handleSubmit = useCallback(() => {
-    const trimmed = input.trim();
-    if (!trimmed || isLoading || disabled) return;
-    onSubmit(trimmed);
-    setInput('');
-    setIsSlashPaletteOpen(false);
-    setSelectedCommandIndex(0);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
-  }, [input, isLoading, disabled, onSubmit]);
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onFileUpload) return;
+    if (file.size > MAX_FILE_SIZE) {
+      e.target.value = '';
+      return;
+    }
+    onFileUpload(file);
+    e.target.value = '';
+  }, [onFileUpload]);
 
   const handleCommandSelect = useCallback((command: SlashCommand) => {
     setInput(`/${command.name} `);
     setIsSlashPaletteOpen(false);
     setSelectedCommandIndex(0);
-    requestAnimationFrame(() => { textareaRef.current?.focus(); });
   }, []);
 
   const handleKeyDown = useCallback(
@@ -122,12 +106,30 @@ export function JourneyChatInput({
           return;
         }
       }
+
+      // Standard Enter → submit (PromptInputTextarea handles this in production
+      // via form.requestSubmit(), but we also handle it here for consistency)
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        handleSubmit();
+        const trimmed = input.trim();
+        if (trimmed && !isLoading && !disabled) {
+          onSubmit(trimmed);
+          setInput('');
+          setIsSlashPaletteOpen(false);
+          setSelectedCommandIndex(0);
+        }
       }
     },
-    [handleSubmit, isSlashPaletteOpen, filteredCommands, safeSelectedIndex, handleCommandSelect]
+    [isSlashPaletteOpen, filteredCommands, safeSelectedIndex, handleCommandSelect, input, isLoading, disabled, onSubmit]
+  );
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setInput(value);
+      setIsSlashPaletteOpen(value.startsWith('/'));
+    },
+    []
   );
 
   const canSend = input.trim().length > 0 && !isLoading && !disabled;
@@ -137,12 +139,7 @@ export function JourneyChatInput({
       data-testid="journey-chat-input"
       className={cn('w-full max-w-2xl pointer-events-auto', className)}
     >
-      <div
-        className={cn(
-          'relative flex items-center rounded-md border border-border bg-background px-4 py-3',
-          isFocused && 'border-ring ring-[3px] ring-ring/50',
-        )}
-      >
+      <div className="relative">
         {/* Slash command palette */}
         <SlashCommandPalette
           commands={filteredCommands}
@@ -151,61 +148,56 @@ export function JourneyChatInput({
           onSelect={handleCommandSelect}
         />
 
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => {
-            const value = e.target.value;
-            setInput(value);
-            setIsSlashPaletteOpen(value.startsWith('/'));
+        <PromptInput
+          onSubmit={({ text }) => {
+            const trimmed = text.trim();
+            if (!trimmed || isLoading || disabled) return;
+            onSubmit(trimmed);
+            setInput('');
+            setIsSlashPaletteOpen(false);
+            setSelectedCommandIndex(0);
           }}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder={placeholder}
-          disabled={disabled || (isLoading && !canSend)}
-          rows={1}
-          className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none scrollbar-hide leading-relaxed"
-          style={{ minHeight: '20px', maxHeight: '120px' }}
-        />
-
-        {/* Document upload */}
-        {onFileUpload && (
-          <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_DOC_TYPES}
-              onChange={handleFileChange}
-              className="hidden"
-              aria-label="Upload niche document"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading || isLoading}
-              title={isUploading ? 'Extracting...' : 'Upload niche & demographics document'}
-              className="mr-1"
-            >
-              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
-            </Button>
-          </>
-        )}
-
-        {/* Send button */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={handleSubmit}
-          disabled={!canSend}
-          aria-label="Send message"
-          className="ml-2"
         >
-          <Send size={16} />
-        </Button>
+          <PromptInputBody>
+            <PromptInputTextarea
+              value={input}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={disabled || (isLoading && !canSend)}
+              className="min-h-10 max-h-[120px]"
+            />
+          </PromptInputBody>
+          <PromptInputFooter>
+            <PromptInputTools>
+              {/* Document upload */}
+              {onFileUpload && (
+                <>
+                  <input
+                    ref={docInputRef}
+                    type="file"
+                    accept={ACCEPTED_DOC_TYPES}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    aria-label="Upload niche document"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => docInputRef.current?.click()}
+                    disabled={isUploading || isLoading}
+                    title={isUploading ? 'Extracting...' : 'Upload niche & demographics document'}
+                    className="cursor-pointer"
+                  >
+                    {isUploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
+                  </Button>
+                </>
+              )}
+            </PromptInputTools>
+            <PromptInputSubmit disabled={!canSend} />
+          </PromptInputFooter>
+        </PromptInput>
       </div>
     </div>
   );
