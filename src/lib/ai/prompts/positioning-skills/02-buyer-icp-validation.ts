@@ -1,91 +1,89 @@
 // Pre-Pitch Positioning Audit — Section 02
-// Required-outputs derived from section name "Buyer & ICP Validation"; the
-// verbatim user paste is not in the worktree. Evidence-rules + buying-committee
-// pattern mirrors icp-targeting-skill.ts.
+// Required-outputs bullets are the verbatim spec from the user's 2026-05-09 paste.
+// Evidence-rules pattern mirrors industry-market-skill.ts.
 // Prepended to the buyerIcpValidation runner system prompt.
 
 export const BUYER_ICP_VALIDATION_SKILL = `
 ## Buyer & ICP Validation — Section 02
 
-Strategic question: **who actually buys this, and is the ICP real or aspirational?**
-This section validates that the ICP can be NAMED, REACHED, and is ACTIVELY in pain — not assumed from a positioning deck.
+Strategic question this section answers: **does the ICP they described exist in the wild, and in what shape?**
+Output validates the buyer hypothesis with public-signal evidence — not assumed from a positioning deck.
 
 ### Required outputs
 
-- **Named ICP companies**
-  - At least 10 real companies that fit the ICP, with company name + employee count + industry
-  - Source for each (current customer, public case study, LinkedIn, public funding announcement)
-  - Flag if you cannot name 10 — that signals an abstract or aspirational ICP
-- **Buying committee map**
-  - Economic Buyer: title, budget authority, what ROI they care about
-  - Technical Buyer: title, evaluation criteria, common objection (security/integration/scale)
-  - Champion: title, internal pain that motivates them, what ammunition they need
-  - Blocker(s): IT/security/legal/finance — what slows or kills deals
-  - End User: title, daily-job-to-be-done, UX expectations
-- **ICP segmentation**
-  - Tier-A (best fit, highest LTV): firmographic + signal definition
-  - Tier-B (workable, second priority): how it differs from A
-  - Tier-C (avoid / disqualify): why this segment doesn't work
-- **Reachability evidence**
-  - LinkedIn matched audience size for Tier-A targeting
-  - Meta/Google matched-audience size for the same definition
-  - At least 2 platforms reachable above viable thresholds (LinkedIn 50K+, Meta 1M+ cold, Google 1K+ monthly searches for top intent term)
-  - Flag if Tier-A is reachable on <2 platforms — paid media is then high-risk
-- **Triggering events (urgency drivers)**
-  - 3-5 events that create buying urgency (funding round, leadership change, regulatory deadline, public outage, layoffs, new platform launch)
-  - For each: how detectable from public signal, how to operationalize as ad-targeting condition
-- **Buyer psychology — top 5 mental models that apply**
-  - From: Jobs-to-Be-Done, Loss Aversion, Anchoring, Social Proof, Status Quo Bias, Goal Gradient, Peak-End
-  - For each: why it applies to THIS buyer (not generic), example trigger phrase
-- **ICP confidence score (0-100)**
-  - Formula: validated buyer language sourced (+30) + platform targeting confirmed (+25) + budget authority verified (+25) + named real companies ≥10 (+20)
-  - 80-100 = validated; 60-79 = workable, test with small budget; <60 = invalid, recommend primary research
+- **ICP existence check**
+  - Account counts by firmographic cut: industry / sub-industry, employee bands (1-50, 51-200, 201-1K, 1K-10K, 10K+), revenue bands, geography, tech-stack signals where relevant
+  - Cite the source for each count (LinkedIn Sales Navigator, ZoomInfo, BuiltWith, public industry data) WITH date observed
+  - Flag if the addressable ICP is <100 accounts globally — signals a niche or aspirational segment
+- **Persona reality**
+  - Buyer titles, seniority levels, typical team size, org-chart position (who they report to, what reports to them)
+  - Source per title: LinkedIn title-search counts, named real individuals at named real ICP companies, current relevant job postings
+  - At least 5 named real persons at named real ICP companies WITH source URL (LinkedIn, public bios, conference rosters)
+- **Awareness-level distribution across the ICP** (unaware → most-aware)
+  - Estimate the share of the ICP at each Schwartz awareness level: unaware, problem-aware, solution-aware, product-aware, most-aware
+  - Evidence per level: search-volume split between informational vs commercial queries, review-language sophistication, content gaps in competitor pages
+  - Implication for ad copy — the dominant awareness level dictates the headline strategy (problem-led vs solution-led vs product-led)
+- **Buying context — observable triggers that move accounts from passive to active**
+  - Public events that flip an account from browsing to evaluating: funding rounds, leadership changes, regulatory deadlines, layoffs, public incidents, platform migrations, hiring spikes for the relevant role
+  - For each trigger: how to detect from public signal (LinkedIn activity, SEC filings, Crunchbase, news, BuiltWith change alerts), how to operationalize as ad-targeting or outbound condition
+  - Estimated trigger-to-evaluation window (immediate / weeks / quarters)
+- **Where they actually cluster**
+  - Named communities — subreddits, Discord servers, Slack workspaces, vendor communities, industry forums
+  - Named newsletters with ICP-fit subscriber estimates
+  - Named conferences / events with ICP-fit attendance
+  - Named podcasts with ICP-fit listenership
+  - Source per claim: public subscriber counts where available, founder/admin LinkedIn signals, traffic estimators (SimilarWeb, Sparktoro)
 
 ### Evidence rules
 
-- **Real names or none.** If you cannot name 10 real companies in the ICP, say "ICP is abstract — recommend primary discovery before ad spend."
-- **Verbatim buyer language.** Quote real reviews, real LinkedIn posts, real Reddit threads. Cite source URL. Do not paraphrase the company's positioning deck.
-- **Audience numbers must be live.** Cite the source date — LinkedIn audience sizes shift weekly.
-- **Distinguish Champion from End User.** Champions have political capital and need slides. End Users have daily pain and need GIFs. Different ad creatives.
-- **Triggering events must be detectable.** "They're frustrated" is not a trigger. "Filed S-1 last week" is.
-- **Budget authority is a hard claim.** Cite a public org chart, ZoomInfo signal, or named contact — not a guess from job title.
+- **Cite or omit.** Every quantitative claim has a source URL and the date observed. No untraceable counts.
+- **Real names or none.** If you cannot name 5 real individuals at named real ICP companies, say "ICP is abstract — recommend primary discovery before ad spend." Do not fabricate persona examples.
+- **Audience numbers must be live.** Cite the source date — LinkedIn audience sizes and BuiltWith counts shift weekly.
+- **Trigger detectability is binary.** Either the signal is publicly observable (LinkedIn job changes, SEC filings, Crunchbase rounds, BuiltWith deltas) or it is not. "Internal frustration" is not a detectable trigger.
+- **Awareness levels need evidence.** Don't assume the ICP's awareness level from the company's positioning deck. Pull search-volume distribution and review-language samples.
+- **Cluster claims need traffic numbers.** "They hang out in this subreddit" with no subscriber count is not evidence. Cite SimilarWeb / Sparktoro / public counts.
+- **Recency.** Prefer 2025-2026 sources. If the only available source is 2023+, flag it as historical.
 
-### Output structure
+### Output structure (markdown the worker validator parses)
 
 \`\`\`
 # Buyer & ICP Validation
 
-## Named ICP Companies (≥10)
-- <Company>, <employees>, <industry> — source: <url>
-- ...
+## ICP Existence
+- Account counts by cut:
+  - Industry / sub-industry: <n> (source: <url>, <date>)
+  - Employee bands: <ranges and counts>
+  - Revenue bands: <ranges and counts>
+  - Geography: <regions and counts>
+  - Tech-stack signals: <signals and counts>
+- Total addressable accounts: <n>
+- Verdict: <named-real|niche|aspirational>
 
-## Buying Committee
-- Economic Buyer: <title> — controls <budget>, optimizes for <ROI metric>
-- Technical Buyer: <title> — evaluates <criteria>, blocks on <objection>
-- Champion: <title> — pain: <pain>, needs: <ammunition>
-- Blocker(s): <title> — <how they slow deals>
-- End User: <title> — daily job: <job>
+## Persona Reality
+- Title 1: <title> — seniority <level>, team size <n>, reports to <role>
+  - Source: <LinkedIn search url>, <date>; named persons: <list with urls>
+- Title 2: ...
 
-## ICP Segmentation
-- Tier-A: <firmographic + signal definition>
-- Tier-B: <delta from A>
-- Tier-C disqualify: <why>
+## Awareness-Level Distribution
+- Unaware: <%> — evidence: <signal>
+- Problem-aware: <%> — evidence: <signal>
+- Solution-aware: <%> — evidence: <signal>
+- Product-aware: <%> — evidence: <signal>
+- Most-aware: <%> — evidence: <signal>
+- Dominant level: <level> → headline strategy: <problem-led|solution-led|product-led>
 
-## Reachability
-- LinkedIn audience: <n> (source date: <date>)
-- Meta cold audience: <n>
-- Google top intent kw monthly searches: <n>
-- Verdict: reachable on <n>/3 platforms (viable: ≥2)
+## Buying Context (Triggers)
+- Trigger: <event>; detection: <signal source>; targeting condition: <condition>; trigger-to-evaluation window: <range>
 
-## Triggering Events
-- <event> — public signal: <signal>, ad-targeting condition: <condition>
+## Where They Cluster
+- Communities: <name> — <subscriber count>, source: <url>
+- Newsletters: <name> — <subscriber estimate>, source: <url>
+- Events: <name> — <attendance>, source: <url>
+- Podcasts: <name> — <listenership>, source: <url>
 
-## Buyer Psychology (top 5)
-- <model> — applies because <reason>; trigger phrase: "<phrase>"
-
-## ICP Confidence
-- Score: <0-100>
-- Verdict: <validated|workable|invalid>
-- Top assumptions to retire with primary research: <list>
+## Confidence & Gaps
+- High-confidence claims: <list>
+- Low-confidence claims: <list with reasons>
+- Bullets unable to source: <list>
 \`\`\`
 `;

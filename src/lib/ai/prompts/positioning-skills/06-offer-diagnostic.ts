@@ -1,133 +1,120 @@
 // Pre-Pitch Positioning Audit — Section 06
-// Required-outputs derived from section name "Offer & Performance Diagnostic";
-// the verbatim user paste is not in the worktree. Evidence-rules + offer-strength
-// dimensions mirror offer-analysis-skill.ts.
+// Required-outputs bullets are the verbatim spec from the user's 2026-05-09 paste.
+// Evidence-rules pattern mirrors industry-market-skill.ts.
 // Prepended to the offerDiagnostic runner system prompt.
+//
+// Note: this section is the only one driven primarily by the COMPANY's own
+// reported metrics (from corpus + onboarding fields), not external research.
+// The diagnostic asks whether the company's internal evidence supports the
+// motion they claim — and where the offer leaks against that evidence.
 
 export const OFFER_DIAGNOSTIC_SKILL = `
 ## Offer & Performance Diagnostic — Section 06
 
-Strategic question: **does the offer survive cold traffic, and where does it leak?**
-Output is the offer audit: structure, pricing posture, conversion gap vs benchmarks, and the specific fixes that move performance before media spend scales.
+Strategic question this section answers: **what does the company's own evidence say about offer-market fit and where the funnel breaks?**
+Output is a self-data audit using the company's REPORTED metrics — the proof, the leaks, and the contradictions between what they claim and what their own numbers say.
 
 ### Required outputs
 
-- **Current offer anatomy** (verbatim from the company's site)
-  - Headline (hero h1) — exact words
-  - Subhead / value prop — exact words
-  - CTA — exact words
-  - Pricing structure: tiers, prices, billing cadence, free tier, trial length
-  - Guarantee: refund policy, SLA, money-back terms (or absence)
-  - Onboarding promise (time-to-value claim) — exact words
-  - Risk-reversal mechanisms (pilot, free migration, no credit card, etc.)
-- **Offer strength score (6 dimensions, 1-10 each)**
-  - Pain Relevance — does it solve a hair-on-fire problem? (cite Section 04 hair-on-fire pain)
-  - Urgency — is there a reason to buy NOW vs later? (regulatory deadline, price increase, expiring bonus)
-  - Differentiation — can a buyer distinguish this from top 3 alternatives in 10 seconds? (cite Section 03 positioning map)
-  - Tangibility — can the buyer visualize the specific outcome (number, before/after, time saved)?
-  - Proof — case studies > testimonials > claims; rank what's present
-  - Pricing Logic — does the price make intuitive sense relative to the value delivered?
-  - Score = sum (max 60). 50+ = strong. 35-49 = workable, fix dimensions <7. <35 = the offer is the bottleneck, not the media.
-- **Conversion benchmark gap**
-  - Identify the company's segment: low-touch SaaS / mid-market SaaS / enterprise / e-commerce / local services
-  - Compare visible signals (site CTA, pricing page) against segment cold-traffic conversion floors:
-    - Free trial / freemium: 10-25% visitor-to-signup
-    - Low-touch SaaS (<$50/mo): 2-5% LP CVR
-    - Mid-market SaaS ($200-2K/mo): 1-3% to demo
-    - Enterprise ($5K+/mo): 0.5-2% to meeting
-    - E-commerce: 2-4% (5-8% optimized DTC)
-  - Where the offer is below floor: cite the specific element (price hidden, generic CTA, no proof, etc.)
-- **Pricing teardown**
-  - Strategy: value-based / cost-plus / good-better-best / freemium / usage-based / outcome-based
-  - Anchor mechanics: is there a deliberate decoy or a high-end anchor?
-  - Charm vs round pricing: $97 (deal-coded) vs $100 (quality-coded) — does it match brand position?
-  - Annual vs monthly: discount level (industry standard 15-20%); justify if higher
-  - Competitor price comparison: cite Section 03 competitor pricing posture; identify if company is above / below / at parity
-- **Risk-reversal audit**
-  - Trial length: <7 days too short for considered B2B; >30 days creates procrastination; 7-14 optimal for low/mid-touch
-  - Money-back guarantee: present? terms?
-  - Pilot program: paid pilot vs free pilot — which fits the segment?
-  - Cancel-anytime visibility: is friction hidden in fine print?
-- **Cold-traffic readiness checklist**
-  - Above-the-fold: outcome headline + how-it-works subhead + CTA + social proof — all present?
-  - Specificity: "$47K saved in 90 days" beats "save money" — does the page have specific outcomes?
-  - One CTA per page (multiple CTAs reduce conversion 20-30%)
-  - Trust signals: customer logos / review counts / security badges / "as seen in"
-  - Objection handling: FAQ or comparison addresses top 3 buyer objections (cite Section 04)
-  - Page speed: <3s load time mandatory
-  - Mobile responsiveness: hero stack works at 375px viewport
-- **Top 5 offer fixes (ranked by expected impact)**
-  - For each: the specific change, the dimension it improves, the evidence it will move (e.g. "add a 7-day money-back — Pricing Logic: 5→8")
-  - Sequenced: which fix first, which depends on which
+- **Offer-market fit evidence — proof points from their own reported metrics**
+  - Pull every quantitative claim the company has made about itself (from the corpus, onboarding answers, homepage, case studies, public press, podcast appearances, founder posts)
+  - Per claim: the metric, the value, the source URL or onboarding field, the date observed
+  - Categorize each claim as evidence type: customer-outcome (e.g. "saved customer X $47K in 90 days") / scale (e.g. "10K active users") / engagement (e.g. "85% weekly active") / commercial (e.g. "$2M ARR, 130% NDR")
+  - Flag claims that lack a source (the most-quoted number on the homepage but never substantiated)
+- **Funnel diagnosis — where conversion actually breaks, against reported CAC / LTV / cycle / MRR**
+  - Pull the company's own reported CAC, LTV, payback period, cycle length, MRR, churn (monthly + annual), gross margin where any are visible in corpus / onboarding / public sources
+  - For each, the reported value AND a sanity check against segment benchmarks (low-touch SaaS, mid-market SaaS, enterprise, ecommerce, local services)
+  - Identify the specific funnel stage where their numbers say they leak: top-of-funnel (volume), MQL→SQL (qualification), SQL→opportunity (engagement), opportunity→close (conversion), activation (TTV), retention (churn), expansion (NDR)
+  - Per leak: the reported value, the segment benchmark range, the size of the gap
+- **Channel truth — what has and hasn't worked, with quantified evidence, not opinions**
+  - Inventory every channel they have actually tested (paid search, paid social, content, SEO, outbound, partnerships, events, referrals, affiliate, PR)
+  - Per channel: spend or effort, results (leads / pipeline / closed-won), CAC by channel where reported, the time window
+  - Distinguish channels with quantified evidence ("Google Ads, $20K spend, 12 SQLs, $1.7K CAC, Q1 2026") from channels with opinion-only signal ("LinkedIn ads didn't work for us")
+  - The 2-3 channels with actual proof of working — these are the scale candidates
+  - The 2-3 channels with proof of NOT working at the price they ran them — these are the avoid list
+- **Retention and activation health — do customers stay and reach the first value moment**
+  - Activation: define the first-value moment for this product (the action that predicts retention) using their reported activation criterion if they have one, or infer from product type if they do not
+  - Activation rate: % of new signups / new customers that hit first value within a stated window — pull from their own reporting
+  - Retention curve: monthly cohort retention at 1 / 3 / 6 / 12 months where reported; logo retention vs revenue retention
+  - NDR (net dollar retention) where reported
+  - Churn diagnosis: voluntary vs involuntary; primary stated reason where they have surveyed
+  - Health verdict: healthy / leaky / death-spiral, against segment benchmarks
+- **Red flags in their own numbers — contradictions between claimed motion and actual math**
+  - Identify cases where a stated motion contradicts a stated number: "we are PLG" but cycle is 90+ days; "we are SLG" but ACV is sub-$5K; "we have product-market fit" but monthly churn is 8%; "we are scaling" but CAC payback is 30+ months; "we are bootstrapped and lean" but burn implies 12-month runway
+  - Per contradiction: the claim, the contradicting number, the source, the implication
+  - Identify cases where the same metric is reported differently in different surfaces (homepage vs deck vs founder podcast) — this is a credibility signal
+  - The 3-5 highest-impact red flags — these are the things that block confident scale before they are resolved
 
 ### Evidence rules
 
-- **Verbatim site copy.** Pull headline / subhead / CTA exactly as they appear. Don't summarize.
-- **Cite the URL + date for every site quote.** Sites change weekly.
-- **Benchmarks are floors, not targets.** Below-floor = a hard structural problem. At-floor = needs creative iteration. Above-floor = scale media.
-- **Distinguish offer fixes from media fixes.** If the offer scores <35 on strength, no amount of better ad creative saves it. Say so.
-- **Score conservatively.** 10/10 on any dimension requires extraordinary evidence (e.g. category-defining proof point, multi-year case-study moat).
-- **Tie back to other sections.** Pain Relevance cites Section 04. Differentiation cites Section 03. Urgency cites Section 01 structural forces and Section 05 triggering signals. The offer is the synthesis.
-- **No invented prices.** If pricing isn't public, say "pricing-on-request" and flag the friction cost (sales-led-only filters out 50-70% of cold buyers).
+- **Self-data only.** This section uses the company's OWN numbers. Do not import external benchmark numbers as if they were the company's data.
+- **Cite or omit.** Every metric has a source URL or a corpus / onboarding field reference WITH date observed. No untraceable metrics.
+- **Distinguish reported from inferred.** A reported number from their case study is high-confidence. A back-calculated number ("if their site says 100 customers and ARR is $1M then ACV is $10K") is inferred — flag it.
+- **Benchmark comparisons are floors, not targets.** A metric below benchmark = a hard structural problem. At benchmark = needs creative iteration. Above benchmark = scale.
+- **No invented metrics.** If a metric is not visible in their corpus / onboarding / public surfaces, say "not reported" — do not estimate from segment averages and present it as theirs.
+- **Channel claims need spend AND result.** "Google Ads worked" with no spend or CAC is opinion, not channel truth.
+- **Contradictions require both sides quoted.** If you flag a red flag, quote both the claim and the contradicting number with sources.
+- **The diagnostic synthesizes prior sections.** Tie funnel leaks to ICP / awareness-level mismatch (Section 02), competitor pricing realities (Section 03), and the dominant pain language (Section 04). Cite the section + the specific finding.
 
-### Output structure
+### Output structure (markdown the worker validator parses)
 
 \`\`\`
 # Offer & Performance Diagnostic
 
-## Current Offer Anatomy (verbatim)
-- Headline: "<exact>"
-- Subhead: "<exact>"
-- CTA: "<exact>"
-- Pricing: <tiers and amounts>
-- Guarantee: <terms or "none">
-- Onboarding promise: "<exact or none>"
-- Risk reversal: <list>
-- Source: <url>, <date>
+## Offer-Market Fit Evidence (their own numbers)
+### Customer outcomes
+- "<verbatim claim>" — value: <metric>; source: <url|corpus field>, <date>
+### Scale claims
+- ...
+### Engagement claims
+- ...
+### Commercial claims
+- ...
+### Unsubstantiated claims
+- "<claim with no source>" — appears on <surface> but not substantiated anywhere
 
-## Offer Strength Score (60 max)
-- Pain Relevance: <n>/10 — <reason citing Section 04>
-- Urgency: <n>/10 — <reason>
-- Differentiation: <n>/10 — <reason citing Section 03>
-- Tangibility: <n>/10 — <reason>
-- Proof: <n>/10 — <reason>
-- Pricing Logic: <n>/10 — <reason>
-- TOTAL: <sum>/60 — <strong|workable|bottleneck>
+## Funnel Diagnosis
+- Reported CAC: $<n> (source: <url>, <date>) — segment benchmark: $<low-high>; gap: <±%>
+- Reported LTV: $<n> — segment benchmark: $<low-high>; LTV/CAC: <ratio>
+- Payback period: <months> — segment benchmark: <range>
+- Cycle length: <days> — segment benchmark: <range>
+- MRR: $<n>; growth rate: <%/mo>
+- Churn: monthly <%>, annual <%>; segment benchmark: <range>
+- Funnel leak diagnosis:
+  - Stage: <stage>; reported value: <metric>; benchmark: <range>; gap size: <description>
 
-## Benchmark Gap
-- Segment: <low-touch SaaS|mid-market|enterprise|ecommerce|local>
-- Cold-traffic floor for segment: <range>
-- Where the offer leaks: <list of specific elements below floor>
+## Channel Truth
+### Quantified — what has worked
+- Channel: <name>; spend / effort: <value>; result: <leads/pipeline/closed-won>; CAC: $<n>; window: <date range>; source: <url|corpus field>
+### Quantified — what has NOT worked
+- Channel: <name>; spend / effort: <value>; result: <under-floor metric>; window: <date range>; source: <url|corpus field>
+### Opinion-only (insufficient evidence)
+- Channel: <name>; statement: "<claim>"; missing: <spend|result|date>
+- Scale candidates (proven): <list>
+- Avoid list (proven not at this price): <list>
 
-## Pricing Teardown
-- Strategy: <value-based|cost-plus|GBB|freemium|usage|outcome>
-- Anchor: <decoy/high-end/none>
-- Charm vs round: <classification + brand-fit assessment>
-- Annual discount: <%>
-- Competitor parity: <above|at|below>
+## Retention & Activation Health
+- First-value moment: <defined action>; window: <time>; source for definition: <url|inferred-from-product-type>
+- Activation rate: <%> of <cohort>; benchmark: <range>; source: <url>
+- Cohort retention: 1mo <%>, 3mo <%>, 6mo <%>, 12mo <%>; logo vs revenue: <delta>
+- NDR: <%>; source: <url>
+- Voluntary vs involuntary churn: <split>
+- Top stated churn reason: "<verbatim>" — source: <url>
+- Health verdict: <healthy|leaky|death-spiral>; reason
 
-## Risk Reversal
-- Trial: <length, fit assessment>
-- Money-back: <terms or none>
-- Pilot: <paid|free|none>
-- Cancel friction: <observed>
-
-## Cold-Traffic Readiness
-- Above-the-fold: <pass/fail per element>
-- Specificity: <pass/fail with example>
-- Single CTA: <pass/fail>
-- Trust signals: <pass/fail with list>
-- Objection handling: <pass/fail with top-3 from Section 04>
-- Page speed: <s, pass/fail>
-- Mobile: <pass/fail>
-
-## Top 5 Offer Fixes (ranked)
-1. <fix> — improves <dimension> from <n> to <n>; depends on: <prior fix or none>
+## Red Flags (contradictions in their own evidence)
+1. Claim: "<verbatim>"; contradicting number: <metric value>; source of contradiction: <url>; implication: <what this means>
 2. ...
+- Highest-impact red flags (top 3-5): <list>
+
+## Cross-Section Synthesis
+- Funnel leak vs Section 02 awareness mismatch: <linkage>
+- Pricing posture vs Section 03 competitor parity: <linkage>
+- Cold-traffic offer vs Section 04 hair-on-fire pain: <linkage>
 
 ## Confidence & Gaps
-- Visible-signal claims (site copy): high-confidence
-- Inferred-from-segment claims: medium-confidence
-- Hidden-pricing flags: <list>
+- High-confidence findings (reported + sourced): <list>
+- Inferred findings (back-calculated): <list>
+- Metrics not reported anywhere: <list>
 \`\`\`
 `;
