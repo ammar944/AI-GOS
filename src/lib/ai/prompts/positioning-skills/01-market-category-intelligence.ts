@@ -39,35 +39,24 @@ Output is the cold-traffic positioning brief's first page — the buyer's mental
 - **Recency matters.** Prefer 2025-2026 sources. If the only available source is 2023+, flag it as historical.
 - **Distinguish opinion from data.** Forrester quotes are opinion; G2 review counts are data. Mark accordingly.
 
-### Output structure (markdown the worker validator parses)
+### Output shape
+Return JSON with this exact key set, no extra keys, no markdown fences:
 
 \`\`\`
-# Market & Category Intelligence
-
-## Category Definition
-- Buyer-language definition: <sentence>
-- Adjacent confusable categories: <list with disambiguators>
-- G2/Capterra category: <slug or "no category exists yet">
-
-## Market Size & Trajectory
-- SAM: $<n> (source: <url>, <date>)
-- Funding (last 12mo): <n> deals, $<total>; top funded — <name> ($<round>, <investor>)
-- Hiring velocity: <n> open roles across top-5 (source: <url>)
-- Search trend (24mo): <up/flat/down> <±%> (source: Google Trends, <date>)
-
-## Structural Forces
-- Regulatory: <driver, deadline, impact>
-- Platform shifts: <shift, when, impact>
-- Buyer-behavior shifts: <signal, evidence>
-
-## Category Maturity
-- Classification: <emerging|growing|consolidating|commoditizing>
-- Evidence: <bullets matching the rubric>
-- Cold-traffic ad implication: <educate|differentiate|price-attack>
-
-## Confidence & Gaps
-- High-confidence claims: <list>
-- Low-confidence claims: <list with reasons>
-- Sources unable to verify: <list>
+{
+  "sectionTitle": "Market & Category Intelligence",
+  "specialistAgent": "Market & Category Specialist",
+  "skillUsed": "ai-gos-market-category-intelligence",
+  "verdict": "string — one-sentence section read",
+  "statusSummary": "string — 2-3 sentence executive summary",
+  "confidence": 0,
+  "keyFindings": [{"title": "string — maps to one of the Required-outputs bullets above", "detail": "string", "evidence": "string", "sourceUrl": "string or null"}],
+  "evidenceQuotes": [{"quote": "string", "source": "string", "url": "string or null", "interpretation": "string"}],
+  "risksOrGaps": ["string"],
+  "recommendedMoves": ["string"],
+  "sources": [{"title": "string", "url": "string", "whyItMatters": "string"}]
+}
 \`\`\`
+
+If the corpus has thin evidence on a bullet, return what you have and surface the gap in risksOrGaps. Do not fabricate.
 `;

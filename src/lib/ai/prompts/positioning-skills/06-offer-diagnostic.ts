@@ -56,65 +56,24 @@ Output is a self-data audit using the company's REPORTED metrics — the proof, 
 - **Contradictions require both sides quoted.** If you flag a red flag, quote both the claim and the contradicting number with sources.
 - **The diagnostic synthesizes prior sections.** Tie funnel leaks to ICP / awareness-level mismatch (Section 02), competitor pricing realities (Section 03), and the dominant pain language (Section 04). Cite the section + the specific finding.
 
-### Output structure (markdown the worker validator parses)
+### Output shape
+Return JSON with this exact key set, no extra keys, no markdown fences:
 
 \`\`\`
-# Offer & Performance Diagnostic
-
-## Offer-Market Fit Evidence (their own numbers)
-### Customer outcomes
-- "<verbatim claim>" — value: <metric>; source: <url|corpus field>, <date>
-### Scale claims
-- ...
-### Engagement claims
-- ...
-### Commercial claims
-- ...
-### Unsubstantiated claims
-- "<claim with no source>" — appears on <surface> but not substantiated anywhere
-
-## Funnel Diagnosis
-- Reported CAC: $<n> (source: <url>, <date>) — segment benchmark: $<low-high>; gap: <±%>
-- Reported LTV: $<n> — segment benchmark: $<low-high>; LTV/CAC: <ratio>
-- Payback period: <months> — segment benchmark: <range>
-- Cycle length: <days> — segment benchmark: <range>
-- MRR: $<n>; growth rate: <%/mo>
-- Churn: monthly <%>, annual <%>; segment benchmark: <range>
-- Funnel leak diagnosis:
-  - Stage: <stage>; reported value: <metric>; benchmark: <range>; gap size: <description>
-
-## Channel Truth
-### Quantified — what has worked
-- Channel: <name>; spend / effort: <value>; result: <leads/pipeline/closed-won>; CAC: $<n>; window: <date range>; source: <url|corpus field>
-### Quantified — what has NOT worked
-- Channel: <name>; spend / effort: <value>; result: <under-floor metric>; window: <date range>; source: <url|corpus field>
-### Opinion-only (insufficient evidence)
-- Channel: <name>; statement: "<claim>"; missing: <spend|result|date>
-- Scale candidates (proven): <list>
-- Avoid list (proven not at this price): <list>
-
-## Retention & Activation Health
-- First-value moment: <defined action>; window: <time>; source for definition: <url|inferred-from-product-type>
-- Activation rate: <%> of <cohort>; benchmark: <range>; source: <url>
-- Cohort retention: 1mo <%>, 3mo <%>, 6mo <%>, 12mo <%>; logo vs revenue: <delta>
-- NDR: <%>; source: <url>
-- Voluntary vs involuntary churn: <split>
-- Top stated churn reason: "<verbatim>" — source: <url>
-- Health verdict: <healthy|leaky|death-spiral>; reason
-
-## Red Flags (contradictions in their own evidence)
-1. Claim: "<verbatim>"; contradicting number: <metric value>; source of contradiction: <url>; implication: <what this means>
-2. ...
-- Highest-impact red flags (top 3-5): <list>
-
-## Cross-Section Synthesis
-- Funnel leak vs Section 02 awareness mismatch: <linkage>
-- Pricing posture vs Section 03 competitor parity: <linkage>
-- Cold-traffic offer vs Section 04 hair-on-fire pain: <linkage>
-
-## Confidence & Gaps
-- High-confidence findings (reported + sourced): <list>
-- Inferred findings (back-calculated): <list>
-- Metrics not reported anywhere: <list>
+{
+  "sectionTitle": "Offer & Performance Diagnostic",
+  "specialistAgent": "Offer & Performance Specialist",
+  "skillUsed": "ai-gos-offer-diagnostic",
+  "verdict": "string — one-sentence section read",
+  "statusSummary": "string — 2-3 sentence executive summary",
+  "confidence": 0,
+  "keyFindings": [{"title": "string — maps to one of the Required-outputs bullets above", "detail": "string", "evidence": "string", "sourceUrl": "string or null"}],
+  "evidenceQuotes": [{"quote": "string", "source": "string", "url": "string or null", "interpretation": "string"}],
+  "risksOrGaps": ["string"],
+  "recommendedMoves": ["string"],
+  "sources": [{"title": "string", "url": "string", "whyItMatters": "string"}]
+}
 \`\`\`
+
+If the corpus has thin evidence on a bullet, return what you have and surface the gap in risksOrGaps. Do not fabricate.
 `;

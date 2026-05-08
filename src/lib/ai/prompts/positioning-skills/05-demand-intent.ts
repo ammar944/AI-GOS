@@ -50,55 +50,24 @@ Output is the demand map: where buyers are searching, what they are searching fo
 - **Community / event claims need a number.** Subscriber count, attendance, thread frequency. No number = no evidence.
 - **Recency.** Prefer 2025-2026 data. Flag anything 2023+ as historical.
 
-### Output structure (markdown the worker validator parses)
+### Output shape
+Return JSON with this exact key set, no extra keys, no markdown fences:
 
 \`\`\`
-# Demand & Intent Signals
-
-## Keyword Demand (≥20)
-### Transactional
-- "<kw>" — US <vol>/mo, global <vol>/mo, CPC $<low-high>, top-3: <domains>; YoY: <±%>
-### Commercial Investigation
-- ...
-### Informational
-- ...
-### Navigational
-- ...
-- Source: <provider>, exported <date>
-- Content-only top-3 (paid-wedge candidates): <list>
-
-## Question Mining
-### Topic: <buyer topic>
-- "<verbatim question>" — <source>, <url>, <date>
-- ...
-- Top 10 highest-frequency questions: <list with frequency counts>
-
-## Content Gaps
-- Topic: <topic>; volume <n>/mo; current top URL: <url>; gap: <what is missing>
-- ...
-- Top 5-7 fillable gaps: <list>
-
-## Intent Signals in the Wild
-### Job postings
-- Query: "<search>" — <n> postings (LinkedIn / Indeed / Greenhouse, <date>); targeting condition: <condition>
-### RFPs
-- <RFP title> — <url>, close date <date>
-### News triggers
-- Trigger type: <type>; example: <event URL>, <date>; trigger-to-evaluation window: <range>; targeting condition: <condition>
-
-## Event & Community Signal Map
-### Conferences
-- <name> — <attendance>, dates: <dates>, source: <url>
-### Communities
-- <name> (subreddit/Discord/Slack/forum) — <subscribers>, thread freq: <n>/wk for "<term>"; source: <url>
-### Publications / Newsletters
-- <name> — <subscribers>, source: <url>
-### Podcasts
-- <name> — <listenership signal>, source: <url>
-
-## Confidence & Gaps
-- High-confidence claims: <list>
-- Single-source claims: <list>
-- Bullets unable to source: <list>
+{
+  "sectionTitle": "Demand & Intent Signals",
+  "specialistAgent": "Demand & Intent Specialist",
+  "skillUsed": "ai-gos-demand-intent",
+  "verdict": "string — one-sentence section read",
+  "statusSummary": "string — 2-3 sentence executive summary",
+  "confidence": 0,
+  "keyFindings": [{"title": "string — maps to one of the Required-outputs bullets above", "detail": "string", "evidence": "string", "sourceUrl": "string or null"}],
+  "evidenceQuotes": [{"quote": "string", "source": "string", "url": "string or null", "interpretation": "string"}],
+  "risksOrGaps": ["string"],
+  "recommendedMoves": ["string"],
+  "sources": [{"title": "string", "url": "string", "whyItMatters": "string"}]
+}
 \`\`\`
+
+If the corpus has thin evidence on a bullet, return what you have and surface the gap in risksOrGaps. Do not fabricate.
 `;

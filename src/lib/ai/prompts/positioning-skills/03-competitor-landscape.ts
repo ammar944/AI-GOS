@@ -53,60 +53,24 @@ Output is the buyer's perception of "the alternatives" — not the company's pre
 - **Narrative arc claims need a source page.** If the about page does not state a villain, do not invent one. Note "no explicit narrative arc" instead.
 - **Recency.** Prefer 2025-2026 sources. Flag anything 2023+ as historical.
 
-### Output structure (markdown the worker validator parses)
+### Output shape
+Return JSON with this exact key set, no extra keys, no markdown fences:
 
 \`\`\`
-# Competitor Landscape & Positioning
-
-## Full Competitor Set
-### Direct
-- <Name> — <1-line buyer-language framing>; source: <url>, <date>
-### Indirect
-- <Name> — adjacent category <category>, same job: <job>; source: <url>, <date>
-### Status-Quo
-- <e.g. "stay on spreadsheets"> — why it persists: <reason>
-### DIY
-- <e.g. "internal Python script"> — feasibility: <reason>; cost to maintain: <signal>
-
-## Positioning Taxonomy (top 5 direct)
-### <Competitor 1>
-- Hero (verbatim): "<...>"
-- Subhead (verbatim): "<...>"
-- CTA (verbatim): "<...>"
-- Category claim: <leader|challenger|niche|disruptor|unbundler|native-AI>
-- Problem frame (their words): "<...>"
-- Source: <url>, <date>
-
-## Pricing Reality
-- <Competitor> — tiers: <list with amounts>; packaging: <pattern>; annual discount: <%>; source: <url>, <date>
-- <Competitor with gated pricing> — public signal: "<contact sales>"; pricing-on-request flag: <yes>
-
-## Share-of-Voice Map
-### Search terms (top 10-20)
-- "<term>" — top-3 organic: <list>; paid bidders: <list>; source: <provider>, <date>
-### Communities
-- <community name> — most-mentioned competitor: <name> (<n> threads in <date range>); source: <search url>
-### Publications
-- <publication> — coverage in last 12mo: <list with urls>
-
-## Strengths & Weaknesses
-### <Competitor 1>
-- Strengths (verbatim 4-5★):
-  - "<quote>" — <reviewer role>, <url>, <date>
-- Weaknesses (verbatim 1-3★):
-  - "<quote>" — <reviewer role>, <url>, <date>
-- Analyst placement: <Forrester/Gartner/IDC/G2 Grid> — <position>, source: <url>, <date>
-
-## Narrative Arc (top 5)
-### <Competitor 1>
-- Villain: <named or "implicit/none">
-- Hero: <named or "implicit/none">
-- Transformation: <before vs after>
-- Source: <url>, <date>
-
-## Confidence & Gaps
-- High-confidence claims: <list>
-- Single-source claims: <list>
-- Competitors unable to verify: <list>
+{
+  "sectionTitle": "Competitor Landscape & Positioning",
+  "specialistAgent": "Competitor Landscape Specialist",
+  "skillUsed": "ai-gos-competitor-landscape",
+  "verdict": "string — one-sentence section read",
+  "statusSummary": "string — 2-3 sentence executive summary",
+  "confidence": 0,
+  "keyFindings": [{"title": "string — maps to one of the Required-outputs bullets above", "detail": "string", "evidence": "string", "sourceUrl": "string or null"}],
+  "evidenceQuotes": [{"quote": "string", "source": "string", "url": "string or null", "interpretation": "string"}],
+  "risksOrGaps": ["string"],
+  "recommendedMoves": ["string"],
+  "sources": [{"title": "string", "url": "string", "whyItMatters": "string"}]
+}
 \`\`\`
+
+If the corpus has thin evidence on a bullet, return what you have and surface the gap in risksOrGaps. Do not fabricate.
 `;

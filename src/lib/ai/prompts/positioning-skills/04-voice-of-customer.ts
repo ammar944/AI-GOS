@@ -49,44 +49,24 @@ Output is the verbatim language pool that fuels every ad headline, body, and reb
 - **Switching stories need named prior tools.** "Switched from a competitor" without naming the prior tool is not actionable — flag and request the named source or omit.
 - **Decision criteria from buyer language only.** Do not infer criteria from competitor feature pages — those are vendor claims, not buyer priorities.
 
-### Output structure (markdown the worker validator parses)
+### Output shape
+Return JSON with this exact key set, no extra keys, no markdown fences:
 
 \`\`\`
-# Voice of Customer & Objection Evidence
-
-## Pain Language (≥15 verbatim quotes)
-### Theme: <theme that emerged>
-- "<quote>" — <reviewer role>, <source url>, <date>
-- ...
-### Theme: <next theme>
-- ...
-
-## Top 5 Objections
-1. "<verbatim objection>" — <n> independent sources; defuse with: <proof artifact>; current site addresses: <yes|partial|no>; sources: <urls>
-2. ...
-
-## Switching Stories
-- Story: switched from <named tool> to <named tool>; trigger (verbatim): "<...>"; source: <url>, <date>; time-to-evaluation: <range>
-- ...
-- Recurring switching trigger types: <list>
-
-## Stated Decision Criteria
-- "<verbatim quote>" — <role>, <url>, <date>
-- ...
-- Top 5-7 criteria across independent sources: <list>
-- Criteria that BLOCKED (separate from "matter"): <list>
-
-## Success-State Language
-### Quantified outcomes
-- "<verbatim quote with number/timeframe>" — <role>, <url>, <date>
-### Qualitative outcomes
-- "<verbatim relief/pride/control quote>" — <role>, <url>, <date>
-### Hair-on-fire success phrases (headline candidates)
-- "<phrase>" — source: <url>, <date>
-
-## Confidence & Gaps
-- Themes with strong cross-source evidence: <list>
-- Themes with single-source evidence: <list>
-- Themes for which no real quote was found: <list>
+{
+  "sectionTitle": "Voice of Customer & Objection Evidence",
+  "specialistAgent": "Voice of Customer Specialist",
+  "skillUsed": "ai-gos-voice-of-customer",
+  "verdict": "string — one-sentence section read",
+  "statusSummary": "string — 2-3 sentence executive summary",
+  "confidence": 0,
+  "keyFindings": [{"title": "string — maps to one of the Required-outputs bullets above", "detail": "string", "evidence": "string", "sourceUrl": "string or null"}],
+  "evidenceQuotes": [{"quote": "string", "source": "string", "url": "string or null", "interpretation": "string"}],
+  "risksOrGaps": ["string"],
+  "recommendedMoves": ["string"],
+  "sources": [{"title": "string", "url": "string", "whyItMatters": "string"}]
+}
 \`\`\`
+
+If the corpus has thin evidence on a bullet, return what you have and surface the gap in risksOrGaps. Do not fabricate.
 `;

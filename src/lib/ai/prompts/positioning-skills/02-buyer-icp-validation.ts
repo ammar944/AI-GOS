@@ -44,46 +44,24 @@ Output validates the buyer hypothesis with public-signal evidence — not assume
 - **Cluster claims need traffic numbers.** "They hang out in this subreddit" with no subscriber count is not evidence. Cite SimilarWeb / Sparktoro / public counts.
 - **Recency.** Prefer 2025-2026 sources. If the only available source is 2023+, flag it as historical.
 
-### Output structure (markdown the worker validator parses)
+### Output shape
+Return JSON with this exact key set, no extra keys, no markdown fences:
 
 \`\`\`
-# Buyer & ICP Validation
-
-## ICP Existence
-- Account counts by cut:
-  - Industry / sub-industry: <n> (source: <url>, <date>)
-  - Employee bands: <ranges and counts>
-  - Revenue bands: <ranges and counts>
-  - Geography: <regions and counts>
-  - Tech-stack signals: <signals and counts>
-- Total addressable accounts: <n>
-- Verdict: <named-real|niche|aspirational>
-
-## Persona Reality
-- Title 1: <title> — seniority <level>, team size <n>, reports to <role>
-  - Source: <LinkedIn search url>, <date>; named persons: <list with urls>
-- Title 2: ...
-
-## Awareness-Level Distribution
-- Unaware: <%> — evidence: <signal>
-- Problem-aware: <%> — evidence: <signal>
-- Solution-aware: <%> — evidence: <signal>
-- Product-aware: <%> — evidence: <signal>
-- Most-aware: <%> — evidence: <signal>
-- Dominant level: <level> → headline strategy: <problem-led|solution-led|product-led>
-
-## Buying Context (Triggers)
-- Trigger: <event>; detection: <signal source>; targeting condition: <condition>; trigger-to-evaluation window: <range>
-
-## Where They Cluster
-- Communities: <name> — <subscriber count>, source: <url>
-- Newsletters: <name> — <subscriber estimate>, source: <url>
-- Events: <name> — <attendance>, source: <url>
-- Podcasts: <name> — <listenership>, source: <url>
-
-## Confidence & Gaps
-- High-confidence claims: <list>
-- Low-confidence claims: <list with reasons>
-- Bullets unable to source: <list>
+{
+  "sectionTitle": "Buyer & ICP Validation",
+  "specialistAgent": "Buyer & ICP Specialist",
+  "skillUsed": "ai-gos-buyer-icp-validation",
+  "verdict": "string — one-sentence section read",
+  "statusSummary": "string — 2-3 sentence executive summary",
+  "confidence": 0,
+  "keyFindings": [{"title": "string — maps to one of the Required-outputs bullets above", "detail": "string", "evidence": "string", "sourceUrl": "string or null"}],
+  "evidenceQuotes": [{"quote": "string", "source": "string", "url": "string or null", "interpretation": "string"}],
+  "risksOrGaps": ["string"],
+  "recommendedMoves": ["string"],
+  "sources": [{"title": "string", "url": "string", "whyItMatters": "string"}]
+}
 \`\`\`
+
+If the corpus has thin evidence on a bullet, return what you have and surface the gap in risksOrGaps. Do not fabricate.
 `;
