@@ -10,27 +10,27 @@ interface LogoProps {
 
 const sizeClasses = {
   sm: {
-    width: 36,
-    height: 36,
+    width: 96,
+    height: 32,
   },
   md: {
     width: 140,
-    height: 44,
+    height: 47,
   },
   lg: {
     width: 170,
-    height: 52,
+    height: 57,
   },
   xl: {
     width: 200,
-    height: 62,
+    height: 67,
   },
 }
 
 function Logo({
   className,
   size = "md",
-}: LogoProps) {
+}: LogoProps): React.JSX.Element {
   const sizes = sizeClasses[size]
 
   return (
@@ -45,18 +45,18 @@ function Logo({
         alt="SaaSLaunch"
         width={sizes.width}
         height={sizes.height}
-        className="object-contain"
+        className="h-auto w-auto object-contain"
         priority
       />
     </div>
   )
 }
 
-function LogoMark({ className, size = "md" }: { className?: string; size?: "sm" | "md" | "lg" }) {
+function LogoMark({ className, size = "md" }: { className?: string; size?: "sm" | "md" | "lg" }): React.JSX.Element {
   const iconSizes = {
-    sm: { width: 32, height: 32 },
-    md: { width: 40, height: 40 },
-    lg: { width: 48, height: 48 },
+    sm: { width: 32, height: 11 },
+    md: { width: 40, height: 13 },
+    lg: { width: 48, height: 16 },
   }
 
   return (
@@ -72,7 +72,7 @@ function LogoMark({ className, size = "md" }: { className?: string; size?: "sm" 
         alt="SaaSLaunch"
         width={iconSizes[size].width}
         height={iconSizes[size].height}
-        className="object-contain"
+        className="h-auto w-auto object-contain"
       />
     </div>
   )
