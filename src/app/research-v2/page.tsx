@@ -13,13 +13,14 @@ import {
   INITIAL_STATE,
   type ResearchV2State,
 } from '@/lib/research-v2/state-machine';
-import type { OnboardingFormData } from '@/lib/onboarding/types';
+import type { OnboardingV2Data } from '@/lib/research-v2/onboarding-v2-types';
+import { prefillFromCorpus } from '@/lib/research-v2/prefill-from-corpus';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { SectionShell } from '@/components/research-v2/section-shell';
-import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard';
+import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,23 +53,17 @@ function inferResumeState(
     return { kind: 'corpus', runId, phase: 'streaming' };
   }
 
-  // Corpus complete — infer onboarding prefill from corpus data
+  // Corpus complete — map corpus onboardingFields to V2 prefill
   const corpusData = corpus.data as Record<string, unknown> | undefined;
   const onboardingFields = corpusData?.onboardingFields as
     | Record<string, { value?: unknown }>
     | undefined;
 
-  const prefill: Partial<OnboardingFormData> = {};
-  if (onboardingFields) {
-    for (const [key, field] of Object.entries(onboardingFields)) {
-      if (field?.value && typeof field.value === 'string') {
-        (prefill as Record<string, unknown>)[key] = field.value;
-      }
-    }
-  }
+  const prefill: Partial<OnboardingV2Data> = onboardingFields
+    ? prefillFromCorpus(onboardingFields)
+    : {};
 
-  // TODO Phase 3+: detect if onboarding was completed (no marker in DB yet)
-  // For now, always resume at onboarding if corpus is complete.
+  // Always resume at onboarding if corpus is complete (no completion marker in DB yet).
   return { kind: 'onboarding', runId, prefill };
 }
 
@@ -296,12 +291,7 @@ export default function ResearchV2Page() {
             | { data?: { onboardingFields?: Record<string, { value?: unknown }> } }
             | undefined;
           const onboardingFields = corpus?.data?.onboardingFields ?? {};
-          const prefill: Partial<OnboardingFormData> = {};
-          for (const [key, field] of Object.entries(onboardingFields)) {
-            if (field?.value && typeof field.value === 'string') {
-              (prefill as Record<string, unknown>)[key] = field.value;
-            }
-          }
+          const prefill: Partial<OnboardingV2Data> = prefillFromCorpus(onboardingFields);
           dispatch({ type: 'CORPUS_COMPLETE', prefill });
         } else {
           dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
@@ -319,7 +309,7 @@ export default function ResearchV2Page() {
   // -----------------------------------------------------------------------
 
   const handleOnboardingComplete = useCallback(
-    (_data: OnboardingFormData) => {
+    (_data: OnboardingV2Data) => {
       dispatch({ type: 'ONBOARDING_COMPLETE' });
     },
     [],
@@ -422,7 +412,7 @@ export default function ResearchV2Page() {
       )}
 
       {state.kind === 'onboarding' && (
-        <OnboardingWizard
+        <OnboardingWizardV2
           initialData={state.prefill}
           onComplete={handleOnboardingComplete}
         />
