@@ -18,11 +18,19 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import {
   POSITIONING_SECTION_IDS,
-  isPositioningSectionId,
-  type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { dispatchJourneyResearchForUser } from '@/lib/journey/server/dispatch-research';
 import { createAdminClient } from '@/lib/supabase/server';
+
+const ACCEPTED_DISPATCH_SECTIONS = [
+  'deepResearchProgram',
+  ...POSITIONING_SECTION_IDS,
+] as const;
+type AcceptedDispatchSection = (typeof ACCEPTED_DISPATCH_SECTIONS)[number];
+
+function isAcceptedDispatchSection(value: string): value is AcceptedDispatchSection {
+  return (ACCEPTED_DISPATCH_SECTIONS as readonly string[]).includes(value);
+}
 
 interface ResearchV2DispatchRequest {
   runId?: unknown;
@@ -44,7 +52,7 @@ interface ExistingSectionStatus {
 async function readSectionStatus(
   userId: string,
   runId: string,
-  sectionId: PositioningSectionId,
+  sectionId: string,
 ): Promise<ExistingSectionStatus | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -96,17 +104,17 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json(
       {
         error: 'Missing required fields: runId, sectionId',
-        sectionIds: POSITIONING_SECTION_IDS,
+        sectionIds: ACCEPTED_DISPATCH_SECTIONS,
       },
       { status: 400 },
     );
   }
 
-  if (!isPositioningSectionId(sectionId)) {
+  if (!isAcceptedDispatchSection(sectionId)) {
     return NextResponse.json(
       {
         error: `Unknown sectionId: ${sectionId}`,
-        sectionIds: POSITIONING_SECTION_IDS,
+        sectionIds: ACCEPTED_DISPATCH_SECTIONS,
       },
       { status: 400 },
     );
