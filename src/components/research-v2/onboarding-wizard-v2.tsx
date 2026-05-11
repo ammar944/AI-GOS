@@ -282,9 +282,10 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Section nav bar */}
-      <nav className="border-b bg-background">
-        <div className="overflow-x-auto">
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-2xl mx-auto w-full">
+        {/* Section nav bar — sits above the form, shares its centered width */}
+        <nav className="mb-5 rounded-md border bg-background overflow-x-auto">
           <div className="flex min-w-max">
             {SECTION_META.map((s, i) => {
               const NavIcon = ICON_MAP[s.icon];
@@ -296,7 +297,7 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
                   type="button"
                   onClick={() => handleNavJump(i)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-3.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
+                    'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
                     isActive
                       ? 'border-primary bg-accent text-accent-foreground'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50',
@@ -311,11 +312,8 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
               );
             })}
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-2xl mx-auto w-full">
         {/* Section header */}
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2 rounded-md bg-muted">
