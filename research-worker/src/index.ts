@@ -473,9 +473,8 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     } finally {
       clearInterval(heartbeatInterval);
       activeJobs.delete(jobId);
-      releaseSlot();
     }
-  })();
+  })().finally(releaseSlot);
 });
 
 // -- Ad Scripts ---------------------------------------------------------------
