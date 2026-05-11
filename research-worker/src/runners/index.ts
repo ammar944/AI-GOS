@@ -1,10 +1,3 @@
-export { runResearchIndustry } from './industry';
-export { runResearchCompetitors } from '../competitors';
-export { runResearchICP } from './icp';
-export { runResearchOffer } from './offer';
-export { runSynthesizeResearch } from './synthesize';
-export { runResearchKeywords } from './keywords';
-export { runMediaPlan } from './media-plan';
 export { resolveProductIdentity } from '../identity/resolve-identity';
 export { runMeetingExtraction } from './meeting-extract';
 export { runDeepResearchProgram } from './deep-research-program';
