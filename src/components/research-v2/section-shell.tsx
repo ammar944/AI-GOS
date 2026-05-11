@@ -11,7 +11,23 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronRight, CheckCircle2, Circle, Loader2, XCircle } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import {
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  FileText,
+  Loader2,
+  XCircle,
+} from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 
 import {
@@ -83,6 +99,7 @@ export function SectionShell({ runId }: SectionShellProps) {
   const userId = user?.id ?? null;
 
   const [progressOpen, setProgressOpen] = useState(false);
+  const [artifactOpen, setArtifactOpen] = useState(false);
   const [sectionStates, setSectionStates] = useState<
     Record<PositioningSectionId, SectionState>
   >(() =>
@@ -200,7 +217,15 @@ export function SectionShell({ runId }: SectionShellProps) {
       }
 
       // Update artifact panel
-      setArtifactSections((prev) => ({ ...prev, [sectionId]: markdown }));
+      setArtifactSections((prev) => {
+        const next = { ...prev, [sectionId]: markdown };
+        // Auto-open the artifact sheet on the FIRST completion so the user
+        // discovers the panel exists. After that, leave it to the user.
+        if (Object.keys(prev).length === 0) {
+          setArtifactOpen(true);
+        }
+        return next;
+      });
 
       // Update section states with markdown
       setSectionStates((prev) => ({
@@ -502,7 +527,62 @@ export function SectionShell({ runId }: SectionShellProps) {
       {/* ------------------------------------------------------------------ */}
       {/* Center: chat                                                         */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-border">
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Top bar — artifact trigger lives here so it's always reachable.
+            Kept thin (h-11) to stay out of the chat's way. */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 h-11 border-b border-border">
+          <div className="text-xs text-muted-foreground tabular-nums">
+            {completedSections.length === 0
+              ? 'Run sections to build your audit'
+              : `${completedSections.length}/${POSITIONING_SECTION_IDS.length} sections complete`}
+          </div>
+          <Sheet open={artifactOpen} onOpenChange={setArtifactOpen}>
+            <SheetTrigger asChild>
+              <Button
+                size="sm"
+                variant={completedSections.length > 0 ? 'default' : 'outline'}
+                className="rounded-md h-7 px-2.5 text-xs gap-1.5"
+                disabled={completedSections.length === 0}
+                aria-label="View Pre-Pitch Positioning Audit"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                View Audit
+                {completedSections.length > 0 && (
+                  <span className="ml-0.5 rounded-sm bg-background/20 px-1 py-px text-[10px] font-medium tabular-nums leading-none">
+                    {completedSections.length}
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="w-full sm:max-w-xl flex flex-col gap-0 p-0"
+            >
+              <SheetHeader className="shrink-0 px-5 py-4 border-b border-border">
+                <SheetTitle className="text-base font-semibold tracking-tight">
+                  Pre-Pitch Positioning Audit
+                </SheetTitle>
+                <SheetDescription className="text-xs">
+                  {completedSections.length === 0
+                    ? 'Sections will appear here as they complete.'
+                    : `${completedSections.length} of ${POSITIONING_SECTION_IDS.length} sections complete`}
+                </SheetDescription>
+              </SheetHeader>
+              <ScrollArea className="flex-1 px-5 py-5">
+                {artifactMarkdown ? (
+                  <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-xl prose-h2:text-base prose-h3:text-sm prose-p:leading-relaxed prose-blockquote:border-l-2 prose-blockquote:border-foreground/20 prose-blockquote:not-italic prose-blockquote:text-foreground prose-blockquote:font-normal prose-hr:border-border">
+                    <ReactMarkdown>{artifactMarkdown}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Run your first section to populate the audit.
+                  </p>
+                )}
+              </ScrollArea>
+            </SheetContent>
+          </Sheet>
+        </div>
+
         <ScrollArea className="flex-1 px-4 py-4">
           <div className="space-y-3 max-w-2xl mx-auto">
             {chatEntries.map((entry) => {
@@ -601,31 +681,6 @@ export function SectionShell({ runId }: SectionShellProps) {
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Right: artifact panel                                                */}
-      {/* ------------------------------------------------------------------ */}
-      <aside className="w-[480px] shrink-0 overflow-hidden flex flex-col">
-        <div className="shrink-0 px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-medium">Pre-Pitch Positioning Audit</h2>
-          <p className="text-xs text-muted-foreground">
-            {completedSections.length === 0
-              ? 'Sections will appear here as they complete.'
-              : `${completedSections.length} of ${POSITIONING_SECTION_IDS.length} sections complete`}
-          </p>
-        </div>
-
-        <ScrollArea className="flex-1 px-4 py-4">
-          {artifactMarkdown ? (
-            <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown>{artifactMarkdown}</ReactMarkdown>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Run your first section to populate the audit.
-            </p>
-          )}
-        </ScrollArea>
-      </aside>
     </div>
   );
 }
