@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Building2, Users, Package, TrendingUp, Sparkles, Target, Route,
+  Building2, Users, Package, TrendingUp, Sparkles, Target, Route, Check,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 import {
   SECTION_META,
@@ -41,6 +42,26 @@ const ICON_MAP: Record<SectionIconName, LucideIcon> = {
 };
 
 // ---------------------------------------------------------------------------
+// Completion helper
+// ---------------------------------------------------------------------------
+
+function isSectionComplete(
+  sectionId: string,
+  data: Partial<OnboardingV2Data>,
+): boolean {
+  const section = SECTION_META.find((s) => s.id === sectionId);
+  if (!section) return false;
+  return section.fields
+    .filter((f) => f.required)
+    .every((f) => {
+      const value = data[f.key];
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== undefined && value !== null && value !== '';
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -62,7 +83,6 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
 
   function setField<K extends keyof OnboardingV2Data>(key: K, value: OnboardingV2Data[K]) {
     setData(prev => ({ ...prev, [key]: value }));
-    // Clear error on change
     if (errors[key]) {
       setErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
     }
@@ -88,7 +108,6 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
     const schema = SECTION_SCHEMAS[step];
     if (!schema) return true;
 
-    // Build partial object for this step's fields
     const partial: Record<string, unknown> = {};
     for (const field of section.fields) {
       partial[field.key] = data[field.key];
@@ -130,6 +149,11 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
       setStep(s => s - 1);
       setErrors({});
     }
+  }
+
+  function handleNavJump(index: number) {
+    setStep(index);
+    setErrors({});
   }
 
   // -------------------------------------------------------------------------
@@ -258,22 +282,37 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Step indicator */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b bg-background">
-        {SECTION_META.map((s, i) => (
-          <div
-            key={s.id}
-            className={[
-              'h-2 rounded-full transition-all',
-              i === step
-                ? 'flex-1 bg-primary'
-                : i < step
-                  ? 'w-8 bg-primary/40'
-                  : 'w-8 bg-muted',
-            ].join(' ')}
-          />
-        ))}
-      </div>
+      {/* Section nav bar */}
+      <nav className="border-b bg-background">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max">
+            {SECTION_META.map((s, i) => {
+              const NavIcon = ICON_MAP[s.icon];
+              const isActive = i === step;
+              const complete = isSectionComplete(s.id, data);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleNavJump(i)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-3.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
+                    isActive
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                  )}
+                >
+                  <NavIcon className="h-4 w-4 shrink-0" />
+                  <span className="max-w-[90px] truncate">{s.title}</span>
+                  {complete && (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-2xl mx-auto w-full">
