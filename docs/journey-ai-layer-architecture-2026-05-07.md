@@ -1,15 +1,28 @@
 # Journey AI Layer Architecture - 2026-05-07
 
-## Decision
+## Current State (updated 2026-05-11)
 
-`/journey` is the canonical AI product layer for the new workflow.
+Active user surface: `/research-v2` (`src/app/research-v2/page.tsx`)
+Active dispatch route: `/api/research-v2/dispatch` (`src/app/api/research-v2/dispatch/route.ts`)
+Active dispatch helper: `src/lib/journey/server/dispatch-research.ts`
+Active worker runners: `runDeepResearchProgram` + 6 `positioning*` runners
+Pipeline: `deepResearchProgram → positioningMarketCategory → positioningBuyerICP → positioningCompetitorLandscape → positioningVoiceOfCustomer → positioningDemandIntent → positioningOfferDiagnostic`
 
-Do not move this flow to a new `/gtm` runtime. The swap is behind `/journey`: keep the user-facing Journey workspace and replace the older backend assumptions with a skill/tool/API-backed research layer.
+The `/journey` page route was deleted in Phase 6. The workspace-page cluster was deleted in Phase 7.
+The legacy per-section dispatch route (`/api/journey/dispatch`) was retired in F1 (dispatch unification).
+
+---
+
+## Decision (original 2026-05-07)
+
+`/research-v2` is the canonical AI product layer for the current workflow (previously planned as `/journey`).
+
+Do not move this flow to a new `/gtm` runtime. The swap is behind the research-v2 surface: keep the user-facing workspace and replace the older backend assumptions with a skill/tool/API-backed research layer.
 
 ## Product Flow
 
 ```text
-link entry on /journey
+link entry on /research-v2
   -> deep research starts
   -> shared research context is saved
   -> onboarding/profile context is filled from research evidence
@@ -25,7 +38,7 @@ The user should not be forced through the old manual extracted-field review gate
 
 ## Runtime Ownership
 
-### `/journey` app layer
+### `/research-v2` app layer
 
 Owns:
 
@@ -39,7 +52,7 @@ This layer should remain built around the Vercel AI SDK architecture already in 
 
 - `useChat`
 - `DefaultChatTransport`
-- `/api/journey/stream`
+- `/api/journey/stream` (workspace chat/edit stream — still active)
 - UI message streams
 - AI SDK tools for workspace actions such as editing cards or updating fields
 
@@ -55,7 +68,7 @@ Owns:
 - section artifact synthesis from the corpus
 - writeback to `journey_sessions.research_results`
 
-This backend can keep living in `research-worker/` while it is being swapped. The worker is an implementation detail behind `/api/journey/dispatch`, not a new user-facing product route.
+This backend can keep living in `research-worker/` while it is being swapped. The worker is an implementation detail behind `/api/research-v2/dispatch`, not a new user-facing product route.
 
 ## Agent Architecture
 
@@ -150,7 +163,7 @@ The Vercel AI SDK stream route is the integration point: workspace assistant, ar
 Do not claim this flow is wired until one fresh run proves:
 
 ```text
-/journey link entry
+/research-v2 link entry
   -> prefill/deep research starts
   -> workspace opens without manual field-review detour
   -> deep research worker accepts the job

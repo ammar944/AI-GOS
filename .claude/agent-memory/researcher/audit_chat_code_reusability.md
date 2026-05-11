@@ -4,6 +4,8 @@ description: Comprehensive analysis of existing chat components, hooks, and patt
 type: reference
 ---
 
+> **DEPRECATED 2026-05-11** — This file documents implementation that was removed in Phase 6 (journey-page deletion), Phase 7 (workspace-page cluster + 7 legacy worker runners), and F1 (dispatch unification). Kept as history. For current architecture see `docs/journey-ai-layer-architecture-2026-05-07.md` and the `/research-v2` route.
+
 # Chat Code Reusability Audit — COMPLETE
 
 ## Executive Summary
