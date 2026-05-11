@@ -23,10 +23,14 @@ function phaseIcon(phase: ResearchJobUpdate['phase']): string {
       return '🔍';
     case 'analysis':
       return '🧠';
+    case 'thinking':
+      return '💭';
     case 'artifact':
       return '📄';
     case 'output':
       return '✓';
+    case 'heartbeat':
+      return '⏱';
     case 'error':
       return '✗';
     default:
