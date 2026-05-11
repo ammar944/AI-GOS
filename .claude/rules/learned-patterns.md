@@ -19,3 +19,9 @@
 ## Testing
 - Pre-existing TS errors in openrouter tests and chat blueprint tests are expected — don't try to fix them
 - When Vitest tests fail with import errors, check `vitest.config.ts` path aliases match `tsconfig.json`
+
+## Handoff hygiene
+- When writing a handoff that touches `research-worker/`, run `cd research-worker && npm run build` and capture ITS baseline BEFORE writing the doc — the worker has its own pre-existing errors (express/apify missing `@types/*` as of 2026-05-11) that don't show in the frontend `npx tsc` count. Inheriting the frontend baseline as the worker gate produces false "build clean" reports.
+- When a kill list deletes a source file that's referenced from a barrel/registry, the kill list MUST explicitly include "remove imports from `index.ts`, remove entries from `TOOL_RUNNERS` map, remove variants from `ToolName` union, and any other registry" as separate sub-items. Deleting the source file alone leaves dangling references and breaks the worker build on next compile (caught in Phase 7 Cluster B — handoff said "edit 2 files," reality needed 4+).
+- When deleting components or modules, include their `__tests__/*.test.ts*` files in the kill list. The tsc gate must NOT pass `__tests__/` hits through unconditionally — orphan tests emit `TS2307 cannot find module` once their targets are gone, silently failing the baseline check (Phase 7 needed 2 extra cleanup commits to sweep orphan tests).
+- When a handoff specifies file paths, verify each via `find src -name '<basename>'` BEFORE writing the path into the doc. Sketched paths cause execution drift — e.g. Phase 7 handoff said "workspace/dispatch-client.ts" but the only `dispatch-client.ts` lived in `src/lib/`, and Cluster A.3 (deleting an API route) is what orphaned it; the executor had to hunt for the right file and add it as a follow-up commit.
