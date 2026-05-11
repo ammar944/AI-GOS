@@ -326,13 +326,20 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
                       <span
                         aria-hidden
                         className={cn(
-                          'inline-flex h-4 w-4 shrink-0 items-center justify-center font-mono text-[10px] tabular-nums',
-                          isActive ? 'text-primary font-semibold' : done ? 'text-primary' : 'text-muted-foreground/70',
+                          'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors duration-150',
+                          isActive
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : done
+                              ? 'bg-primary/15 text-primary border-primary/40'
+                              : 'bg-background text-muted-foreground border-border group-hover:border-foreground/40 group-hover:text-foreground',
                         )}
                       >
-                        {done ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : String(i + 1).padStart(2, '0')}
+                        {done ? (
+                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        ) : (
+                          <NavIcon className="h-3 w-3" />
+                        )}
                       </span>
-                      {isActive && <NavIcon className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
                       <span
                         className={cn(
                           'min-w-0 truncate text-[11px] leading-none transition-colors duration-150',
