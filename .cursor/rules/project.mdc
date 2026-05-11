@@ -24,7 +24,7 @@ User flow:
 
 Progression contract: every report section requires an operator click. The only auto-dispatch is the URL-form deepResearchProgram (step 3). This is the supervised progression locked in the research-v2 positioning audit plan.
 
-Research dispatch: Button clicks -> POST /api/journey/dispatch -> Railway worker -> Supabase -> realtime to frontend.
+Research dispatch: Button clicks -> POST /api/research-v2/dispatch -> Railway worker -> Supabase -> realtime to frontend.
 Chat sidebar: Post-research editing only (editCard, updateField). Does NOT trigger research.
 
 Pipeline: deepResearchProgram -> positioningMarketCategory -> positioningBuyerICP -> positioningCompetitorLandscape -> positioningVoiceOfCustomer -> positioningDemandIntent -> positioningOfferDiagnostic

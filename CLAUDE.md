@@ -55,38 +55,38 @@ AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-e
 
 **Stack**: Next.js 16, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
 
-### Journey Flow (IMPORTANT — read carefully)
+### Research-v2 Flow (IMPORTANT — read carefully)
 
-`/journey` is the canonical AI product layer for the new workflow. Do not move this flow to a separate `/gtm` runtime. The backend is being swapped behind Journey so the user-facing route can stay stable.
+`/research-v2` is the canonical user-facing surface. The `/journey` page route has been deleted.
 
-The target Journey flow is **link-entry → deep research saves context → onboarding/profile context fills from evidence → central Manus/Codex-style workspace → report sections synthesize one by one → edit-by-chat / deeper research on request**.
+The flow is **form-driven, not chat-driven**. URL entry → deepResearchProgram corpus → operator-clicked positioning sections → results saved to profile.
 
 **User flow:**
-1. Enter company URL or approved business link on `/journey`.
-2. Prefill/deep research starts without forcing the old extracted-field review gate.
-3. The central workspace opens with research-derived onboarding/profile context.
-4. The deep research worker builds a shared corpus and writes section artifacts to Supabase.
-5. Workspace cards hydrate via Supabase polling/realtime, section by section like a Cursor/Codex report being generated.
-6. The Vercel AI SDK chat rail edits artifacts, explains sources/gaps, updates fields through explicit tools, and can queue deeper research when the user asks.
-7. Downstream media plan and scripts run from the saved research/profile context.
+1. Enter company URL or approved business link on `/research-v2`.
+2. deepResearchProgram dispatches automatically (corpus + onboarding fields).
+3. Corpus completes → workspace opens with the Run section operator control.
+4. User clicks Run section → next pending positioning section dispatches.
+5. Section completes → Run section control rotates to the next pending section.
+6. User clicks through all positioning sections one by one.
+7. All results saved to profile.
 
-**Research dispatch**: Journey route/API → `POST /api/journey/dispatch` → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.
+**Research dispatch**: Button clicks → `POST /api/research-v2/dispatch` (accepts `deepResearchProgram` + all `POSITIONING_SECTION_IDS`) → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.
 
-**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/journey/stream` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Do not replace the Journey workspace/chat shell with raw worker output.
+**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/journey/stream` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Chat sidebar is post-research editing only — does NOT trigger research.
 
 **Prompt enforcement phase**: Do not hard schema-force the deep research section cards yet. Validate API inputs, run IDs, dispatch envelopes, persistence shape, and parsable JSON. Prompt-enforce the shared corpus, evidence standards, source coverage, section quality, confidence notes, and source gaps until the prompts stabilize.
 
-**Pipeline order**: `identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan`
+**Pipeline order**: `deepResearchProgram → positioningMarketCategory → positioningBuyerICP → positioningCompetitorLandscape → positioningVoiceOfCustomer → positioningDemandIntent → positioningOfferDiagnostic`
 
-**Runners** (in `research-worker/src/runners/`): industry, icp, competitors, offer, keywords, synthesize, media-plan, ad-scripts, meeting-extract. Each runner: primary phase → repair phase → rescue phase with fallback models.
+**Runners** (in `research-worker/src/runners/`): `runDeepResearchProgram` + 6 positioning runners (`positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`). Each runner: primary phase → repair phase → rescue phase with fallback models.
 
 ### Key Files
 | What | Where |
 |------|-------|
-| Journey page | `src/app/journey/page.tsx` |
-| Journey workspace chat/edit stream | `src/app/api/journey/stream/route.ts` |
-| Research dispatch | `src/app/api/journey/dispatch/route.ts` |
-| Dispatch client | `src/lib/journey/dispatch-client.ts` |
+| Research-v2 page | `src/app/research-v2/page.tsx` |
+| Workspace chat/edit stream | `src/app/api/journey/stream/route.ts` |
+| Research dispatch route | `src/app/api/research-v2/dispatch/route.ts` |
+| Dispatch helper | `src/lib/journey/server/dispatch-research.ts` |
 | Research realtime | `src/lib/journey/research-realtime.ts` |
 | Card taxonomy | `src/lib/workspace/card-taxonomy.ts` |
 | Field catalog | `src/lib/journey/field-catalog.ts` |
@@ -94,7 +94,6 @@ The target Journey flow is **link-entry → deep research saves context → onbo
 | Worker entry | `research-worker/src/index.ts` |
 | Identity resolver | `research-worker/src/identity/resolve-identity.ts` |
 | Meeting intel | `src/lib/meeting-intel/` |
-| Current AI-layer decision | `docs/journey-ai-layer-architecture-2026-05-07.md` |
 
 ### Profiles & Scripts
 - Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Scripts, Assets.
