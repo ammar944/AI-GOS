@@ -23,9 +23,18 @@ import { workerBus } from './events';
 import { dispatchIntelligenceCards } from './intelligence/dispatcher';
 import { emitTelemetry } from './telemetry';
 import { getAnthropicSkillsRuntimeStatus } from './anthropic-skills';
+import { createSemaphore } from './utils/semaphore';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
+
+// -- Concurrency cap ----------------------------------------------------------
+// When the frontend fires the 6 positioning sections in parallel, this cap
+// keeps concurrent /run executions bounded so we don't thunder the Anthropic
+// API. Default 6 matches the positioning section count; overridable via
+// WORKER_RUN_CONCURRENCY env var.
+const WORKER_RUN_CONCURRENCY = Number(process.env.WORKER_RUN_CONCURRENCY ?? 6);
+const runSemaphore = createSemaphore(WORKER_RUN_CONCURRENCY);
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -161,15 +170,22 @@ const activeJobs = new Map<
 
 // -- Run ----------------------------------------------------------------------
 app.post('/run', requireApiKey, async (req: express.Request, res: express.Response) => {
+  // Cap concurrent /run executions. Release fires either on early-return
+  // (400 validation) or from the detached async's `finally` once the runner
+  // settles, so the slot is bounded by actual runner work — not just the
+  // synchronous setup phase before the 202 response.
+  const releaseSlot = await runSemaphore.acquire();
   const { tool, context, userId, jobId, runId, baselineMetrics, documentId } = req.body as RunJobRequest;
 
   if (!tool || !context || !userId || !jobId) {
+    releaseSlot();
     res.status(400).json({ error: 'tool, context, userId, jobId are required' });
     return;
   }
 
   const runner = TOOL_RUNNERS[tool];
   if (!runner) {
+    releaseSlot();
     res.status(400).json({ error: `Unknown tool: ${tool}` });
     return;
   }
@@ -457,6 +473,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     } finally {
       clearInterval(heartbeatInterval);
       activeJobs.delete(jobId);
+      releaseSlot();
     }
   })();
 });
