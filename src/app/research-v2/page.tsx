@@ -267,12 +267,12 @@ export default function ResearchV2Page() {
 
       // Dispatch corpus runner
       const context = buildCorpusContext(websiteUrl);
-      const dispatchRes = await fetch('/api/journey/dispatch', {
+      const dispatchRes = await fetch('/api/research-v2/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
-          section: 'deepResearchProgram',
+          sectionId: 'deepResearchProgram',
           runId,
           context,
         }),
@@ -391,12 +391,12 @@ export default function ResearchV2Page() {
       if (state.from === 'corpus') {
         dispatch({ type: 'CORPUS_START', runId: state.runId });
         const context = buildCorpusContext(lastUrlRef.current);
-        const res = await fetch('/api/journey/dispatch', {
+        const res = await fetch('/api/research-v2/dispatch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({
-            section: 'deepResearchProgram',
+            sectionId: 'deepResearchProgram',
             runId: state.runId,
             context,
           }),
