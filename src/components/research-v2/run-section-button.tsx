@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
-export type SectionRunState = 'idle' | 'pending' | 'running' | 'complete' | 'error';
+export type SectionRunState = 'idle' | 'pending' | 'queued' | 'running' | 'complete' | 'error';
 
 export interface RunSectionButtonProps {
   runId: string;
@@ -34,7 +35,7 @@ export function RunSectionButton({
 
   async function handleClick() {
     console.log('[run-section-button] handleClick entry', { state, runId, sectionId });
-    if (state !== 'idle' && state !== 'error') return;
+    if (state !== 'idle' && state !== 'error' && state !== 'complete') return;
 
     console.log('[run-section-button] guard passed, dispatching');
     setErrorMessage(null);
@@ -92,6 +93,19 @@ export function RunSectionButton({
     }
   }
 
+  if (state === 'queued') {
+    return (
+      <div className="flex items-center gap-2">
+        <span
+          className="text-xs text-muted-foreground animate-pulse"
+          aria-live="polite"
+        >
+          Queued…
+        </span>
+      </div>
+    );
+  }
+
   if (state === 'pending') {
     return (
       <div className="flex items-center gap-2">
@@ -104,7 +118,10 @@ export function RunSectionButton({
   if (state === 'running') {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground animate-pulse">
+        <span
+          className="text-xs text-muted-foreground animate-pulse"
+          aria-live="polite"
+        >
           Running: {sectionLabel}…
         </span>
       </div>
@@ -112,7 +129,18 @@ export function RunSectionButton({
   }
 
   if (state === 'complete') {
-    return null;
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="self-start gap-1.5"
+        onClick={() => { void handleClick(); }}
+        aria-label={`Re-run ${sectionLabel}`}
+      >
+        <RotateCcw className="h-3 w-3" aria-hidden="true" />
+        Re-run
+      </Button>
+    );
   }
 
   const isError = state === 'error';

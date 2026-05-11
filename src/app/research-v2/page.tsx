@@ -22,6 +22,9 @@ import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { SectionShell } from '@/components/research-v2/section-shell';
 import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
 
+const PARALLEL_SECTIONS_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS === 'true';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -29,6 +32,27 @@ import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v
 function buildCorpusContext(websiteUrl: string): string {
   return `websiteUrl: ${websiteUrl}\nWebsite: ${websiteUrl}`;
 }
+
+const dispatchAllPositioningSections = async (runId: string): Promise<void> => {
+  const sectionIds = [
+    'positioningMarketCategory',
+    'positioningBuyerICP',
+    'positioningCompetitorLandscape',
+    'positioningVoiceOfCustomer',
+    'positioningDemandIntent',
+    'positioningOfferDiagnostic',
+  ] as const;
+
+  await Promise.allSettled(
+    sectionIds.map((sectionId) =>
+      fetch('/api/research-v2/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sectionId, runId }),
+      }),
+    ),
+  );
+};
 
 /**
  * Infer which research-v2 stage the session is in based on persisted data.
@@ -329,11 +353,20 @@ export default function ResearchV2Page() {
           const onboardingFields = corpus?.data?.onboardingFields ?? {};
           const prefill: Partial<OnboardingV2Data> = prefillFromCorpus(onboardingFields);
           dispatch({ type: 'CORPUS_COMPLETE', prefill });
+          if (PARALLEL_SECTIONS_ENABLED && runId) {
+            void dispatchAllPositioningSections(runId);
+          }
         } else {
           dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
+          if (PARALLEL_SECTIONS_ENABLED && runId) {
+            void dispatchAllPositioningSections(runId);
+          }
         }
       } catch {
         dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
+        if (PARALLEL_SECTIONS_ENABLED && runId) {
+          void dispatchAllPositioningSections(runId);
+        }
       }
     })();
   }, [state]);
