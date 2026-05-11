@@ -14,13 +14,16 @@
  */
 
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import type { ContentBlock } from '@anthropic-ai/sdk/resources/messages/messages';
 import {
   buildRunnerTelemetry,
   createClient,
+  describeToolUseBlock,
   emitRunnerProgress,
   extractJson,
   runStreamedToolRunner,
   runWithBackoff,
+  sanitizeForJson,
   type RunnerProgressReporter,
   type RunnerProgressUpdate,
 } from './runner';
@@ -214,6 +217,133 @@ export async function runCascadeMessageAttempt(
     `cascade:${config.mode}`,
   );
 
+  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
+  return {
+    resultText: textBlock?.type === 'text' ? textBlock.text : '',
+    telemetry: buildRunnerTelemetry(finalMsg),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Streaming attempt (for in-flight activity-log progress)
+// ---------------------------------------------------------------------------
+
+/** Models that support extended thinking. Used to gate the thinking config. */
+const THINKING_CAPABLE_MODEL_PATTERNS = [
+  /opus-4/,
+  /sonnet-4/,
+];
+
+function modelSupportsThinking(model: string): boolean {
+  return THINKING_CAPABLE_MODEL_PATTERNS.some((pattern) => pattern.test(model));
+}
+
+/**
+ * Truncates a JSON-stringified value to ~80 chars for compact progress messages.
+ * Newlines collapsed so the row stays single-line.
+ */
+export function shortInputSummary(input: unknown): string {
+  let text: string;
+  try {
+    text = JSON.stringify(input);
+  } catch {
+    text = String(input);
+  }
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  const MAX = 80;
+  return collapsed.length > MAX ? `${collapsed.slice(0, MAX - 1)}…` : collapsed;
+}
+
+/**
+ * Executes a streaming attempt via client.messages.stream.
+ *
+ * Same contract as runCascadeMessageAttempt (no tools), but surfaces in-flight
+ * thinking + tool_use content blocks through `onProgress` so the frontend
+ * activity log gets real-time updates instead of a 3-4 minute silent wait.
+ *
+ * Listens to the `contentBlock` event (fires once per block at stop time),
+ * which is the simplest path for chunky activity-log rows. Block-duration is
+ * measured against a cursor advanced after each block completes.
+ *
+ * Extended thinking is enabled (display: 'summarized') for models that support
+ * it, so thinking blocks are produced and emitted. For other models the helper
+ * still works — thinking blocks simply will not be present.
+ */
+export async function runStreamingAttempt(
+  config: CascadeAttemptConfig,
+  onProgress?: RunnerProgressReporter,
+): Promise<CascadeAttemptResult> {
+  const client = createClient();
+  await emitRunnerProgress(onProgress, 'analysis', config.synthesisMessage);
+
+  const streamParams: Parameters<typeof client.messages.stream>[0] = {
+    model: config.model,
+    max_tokens: config.maxTokens,
+    system: maybeCachedSystem(config.system) as Parameters<typeof client.messages.stream>[0]['system'],
+    messages: [{ role: 'user', content: config.userMessage }],
+  };
+
+  if (modelSupportsThinking(config.model)) {
+    // budget_tokens must be ≥1024 and less than max_tokens.
+    const budget = Math.min(5000, Math.max(1024, Math.floor(config.maxTokens / 4)));
+    if (budget < config.maxTokens) {
+      streamParams.thinking = { type: 'enabled', budget_tokens: budget };
+    }
+  }
+
+  const finalMsg = await runWithBackoff(
+    () => {
+      const stream = client.messages.stream(streamParams);
+      let cursorMs = Date.now();
+
+      stream.on('contentBlock', (block: ContentBlock) => {
+        const nowMs = Date.now();
+        const elapsedSec = Math.max(1, Math.round((nowMs - cursorMs) / 1000));
+        cursorMs = nowMs;
+
+        if (block.type === 'thinking') {
+          void emitRunnerProgress(
+            onProgress,
+            'thinking',
+            `Thought for ${elapsedSec}s`,
+          );
+          return;
+        }
+
+        if (block.type === 'tool_use') {
+          const summary = shortInputSummary(block.input);
+          void emitRunnerProgress(
+            onProgress,
+            'tool',
+            `Calling ${sanitizeForJson(block.name)}: ${sanitizeForJson(summary)}`,
+            { toolName: block.name },
+          );
+          return;
+        }
+        // Other block types (text, server_tool_use, redacted_thinking, etc.)
+        // are not surfaced here — the finalMessage carries the text result and
+        // server tool calls are handled by the tool-runner path, not this helper.
+      });
+
+      return Promise.race([
+        stream.finalMessage(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(`Sub-agent timed out after ${config.timeoutMs / 1000}s`),
+              ),
+            config.timeoutMs,
+          ),
+        ),
+      ]);
+    },
+    `cascade:${config.mode}`,
+  );
+
+  // finalMsg.content is ContentBlock[] for non-beta messages. The text block
+  // shape is identical between beta and non-beta unions, so the existing
+  // findLast pattern works without a cast.
   const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
   return {
     resultText: textBlock?.type === 'text' ? textBlock.text : '',
