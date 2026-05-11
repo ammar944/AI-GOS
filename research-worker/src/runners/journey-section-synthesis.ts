@@ -15,7 +15,7 @@ import { MODELS } from '../models';
 import { maybeCachedSystem } from '../utils/prompt-cache';
 
 const JOURNEY_SECTION_MODEL = process.env.RESEARCH_JOURNEY_SECTION_MODEL ?? MODELS.STANDARD;
-const JOURNEY_SECTION_MAX_TOKENS = Number(process.env.RESEARCH_JOURNEY_SECTION_MAX_TOKENS ?? 18000);
+const JOURNEY_SECTION_MAX_TOKENS = Number(process.env.RESEARCH_JOURNEY_SECTION_MAX_TOKENS ?? 10000);
 const JOURNEY_SECTION_TIMEOUT_MS = Number(process.env.RESEARCH_JOURNEY_SECTION_TIMEOUT_MS ?? 600000);
 
 export interface JourneySectionSpec {
@@ -105,7 +105,10 @@ Rules:
 - Every important claim needs evidence or an explicit gap.
 - Make the output read like a GTM strategist report artifact, not a JSON form fill.
 - If the corpus lacks evidence, name the missing source and continue with a bounded recommendation.
-- Keep findings concrete and client-useful.`;
+- Keep findings concrete and client-useful.
+- HARD LIMITS for v1: at most 5 keyFindings, 4 evidenceQuotes, 6 sources, 5 recommendedMoves, 5 risksOrGaps.
+- Be concise. Prefer one sharp sentence over three average ones.
+- Output JSON only. No explanatory prose.`;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
