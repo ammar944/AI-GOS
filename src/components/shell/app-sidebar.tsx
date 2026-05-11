@@ -19,7 +19,7 @@ interface NavEntry {
 
 const NAV_ITEMS: NavEntry[] = [
   { icon: Home, label: 'Home', href: '/dashboard' },
-  { icon: Compass, label: 'Journey', href: '/journey' },
+  { icon: Compass, label: 'Research V2', href: '/research-v2' },
   { icon: FileText, label: 'Research', href: '/research' },
   { icon: Building2, label: 'Profiles', href: '/profiles' },
 ];

@@ -96,7 +96,7 @@ export function EmptyState({
 
       <div className="flex items-center justify-center gap-3 mt-7">
         {(variant === "all" || variant === "blueprints") && cfg.cta && (
-          <Link href="/journey">
+          <Link href="/research-v2">
             <Button variant="default" size="default">
               <Sparkles className="size-4" />
               {cfg.cta}
@@ -116,7 +116,7 @@ export function EmptyState({
         )}
 
         {variant === "research" && (
-          <Link href="/journey">
+          <Link href="/research-v2">
             <Button variant="default" size="default">
               <Sparkles className="size-4" />
               Start Research

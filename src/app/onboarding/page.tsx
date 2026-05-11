@@ -34,5 +34,5 @@ export default async function OnboardingPage() {
   }
 
   // Not completed - go to journey entry point
-  redirect("/journey");
+  redirect("/research-v2");
 }

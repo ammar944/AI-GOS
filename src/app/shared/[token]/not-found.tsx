@@ -28,7 +28,7 @@ export default function SharedSessionNotFound() {
           </p>
         </div>
         <Link
-          href="/journey"
+          href="/research-v2"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-opacity hover:opacity-90 cursor-pointer bg-[var(--accent-green)] text-white"
         >
           Create Your Own

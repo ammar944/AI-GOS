@@ -274,7 +274,7 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
           Run a research journey to unlock offer scores, positioning, and key findings.
         </p>
         <Link
-          href="/journey"
+          href="/research-v2"
           className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-md bg-[var(--accent-green)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
         >
           <Compass className="size-3.5" />
@@ -393,7 +393,7 @@ function ResearchTab({
             : 'Start a journey to see research history here.'}
         </p>
         <Link
-          href="/journey"
+          href="/research-v2"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--accent-green)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
         >
           <Compass className="size-3.5" />
