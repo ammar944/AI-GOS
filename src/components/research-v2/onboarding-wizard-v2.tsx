@@ -77,6 +77,27 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
   const section = SECTION_META[step];
   const completedCount = SECTION_META.reduce((n, s) => n + (isSectionComplete(s.id, data) ? 1 : 0), 0);
 
+  // Incomplete required fields in the CURRENT section — drives the "X required left" jump link.
+  const incompleteRequired = section.fields.filter(f => {
+    if (!f.required) return false;
+    const value = data[f.key];
+    if (typeof value === 'string') return value.trim().length === 0;
+    if (Array.isArray(value)) return value.length === 0;
+    return value === undefined || value === null || value === '';
+  });
+
+  function jumpToFirstIncomplete() {
+    const first = incompleteRequired[0];
+    if (!first) return;
+    const key = first.key as string;
+    // Matches plain inputs (id = key) and radio/checkbox items (id = key-optionValue).
+    const el = document.querySelector<HTMLElement>(`[id^="${CSS.escape(key)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // preventScroll: avoid the browser re-scrolling away from the smooth scrollIntoView target.
+    el.focus({ preventScroll: true });
+  }
+
   // -------------------------------------------------------------------------
   // Field update helpers
   // -------------------------------------------------------------------------
@@ -368,6 +389,22 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
             {section.fields.map(field => renderField(field))}
           </CardContent>
         </Card>
+
+        {/* Required-fields-left jump link */}
+        {incompleteRequired.length > 0 && (
+          <button
+            type="button"
+            onClick={jumpToFirstIncomplete}
+            aria-label={`Jump to first of ${incompleteRequired.length} incomplete required field${incompleteRequired.length === 1 ? '' : 's'}`}
+            className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm px-1 py-0.5"
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden />
+            <span>
+              {incompleteRequired.length} required field{incompleteRequired.length === 1 ? '' : 's'} left
+            </span>
+            <span className="opacity-60" aria-hidden>→ jump</span>
+          </button>
+        )}
       </div>
 
       {/* Sticky footer */}
