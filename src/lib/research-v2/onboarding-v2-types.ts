@@ -179,6 +179,8 @@ export interface SectionField {
 export interface SectionMeta {
   id: string;
   title: string;
+  /** Compact label for the section nav (≤ 12 chars). Falls back to title if absent. */
+  shortTitle?: string;
   description: string;
   icon: SectionIconName;
   fields: SectionField[];
@@ -188,6 +190,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'product-revenue',
     title: 'Product & Revenue Model',
+    shortTitle: 'Product',
     description: 'Understand how the product works and how it\'s sold',
     icon: 'Building2',
     fields: [
@@ -234,6 +237,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'icp-pain',
     title: 'ICP + Pain',
+    shortTitle: 'ICP',
     description: 'Fuel targeting, messaging, and creative',
     icon: 'Users',
     fields: [
@@ -258,6 +262,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'offer-experience',
     title: 'Offer & Product Experience',
+    shortTitle: 'Offer',
     description: 'Understand conversion, activation, and retention',
     icon: 'Package',
     fields: [
@@ -270,6 +275,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'pricing-economics',
     title: 'Pricing & Economics',
+    shortTitle: 'Pricing',
     description: 'Anchor CAC strategy and scaling potential',
     icon: 'TrendingUp',
     fields: [
@@ -283,6 +289,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'competition-positioning',
     title: 'Competition & Positioning',
+    shortTitle: 'Compete',
     description: 'Differentiate ads and messaging',
     icon: 'Sparkles',
     fields: [
@@ -295,6 +302,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'goals-strategy',
     title: 'Goals & Strategy',
+    shortTitle: 'Goals',
     description: 'Define what success looks like so GTM aligns',
     icon: 'Target',
     fields: [
@@ -309,6 +317,7 @@ export const SECTION_META: SectionMeta[] = [
   {
     id: 'current-marketing',
     title: 'Current Marketing & Performance',
+    shortTitle: 'Marketing',
     description: 'Diagnose what\'s working and where to fix',
     icon: 'Route',
     fields: [

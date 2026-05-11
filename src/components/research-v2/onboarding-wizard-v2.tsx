@@ -76,6 +76,7 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
   const totalSteps = SECTION_META.length;
   const section = SECTION_META[step];
   const Icon = ICON_MAP[section.icon];
+  const completedCount = SECTION_META.reduce((n, s) => n + (isSectionComplete(s.id, data) ? 1 : 0), 0);
 
   // -------------------------------------------------------------------------
   // Field update helpers
@@ -284,34 +285,72 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
     <div className="flex flex-col min-h-screen">
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-2xl mx-auto w-full">
-        {/* Section nav bar — sits above the form, shares its centered width */}
-        <nav className="mb-5 rounded-md border bg-background overflow-x-auto">
-          <div className="flex min-w-max">
+        {/* Section nav: segmented progress rail + 7 numbered cells.
+            Three states per cell — idle | current | done. */}
+        <nav aria-label="Onboarding sections" className="mb-5 select-none">
+          <div className="flex items-baseline justify-between mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            <span>
+              <span className="text-foreground">{String(step + 1).padStart(2, '0')}</span>
+              <span className="text-muted-foreground/60"> / {String(totalSteps).padStart(2, '0')}</span>
+              <span className="ml-2 text-muted-foreground/80">{section.shortTitle ?? section.title}</span>
+            </span>
+            <span>{completedCount} / {totalSteps} complete</span>
+          </div>
+          <ol className="grid grid-cols-7 gap-1" role="list">
             {SECTION_META.map((s, i) => {
               const NavIcon = ICON_MAP[s.icon];
               const isActive = i === step;
-              const complete = isSectionComplete(s.id, data);
+              const done = isSectionComplete(s.id, data);
+              const label = s.shortTitle ?? s.title;
               return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => handleNavJump(i)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
-                    isActive
-                      ? 'border-primary bg-accent text-accent-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                  )}
-                >
-                  <NavIcon className="h-4 w-4 shrink-0" />
-                  <span className="max-w-[90px] truncate">{s.title}</span>
-                  {complete && (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  )}
-                </button>
+                <li key={s.id} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleNavJump(i)}
+                    aria-current={isActive ? 'step' : undefined}
+                    aria-label={`Step ${i + 1} of ${totalSteps}: ${s.title}${done ? ' (complete)' : ''}${isActive ? ' (current)' : ''}`}
+                    className={cn(
+                      'group relative w-full text-left rounded-md transition-colors duration-150',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      isActive ? 'bg-accent/40' : 'hover:bg-accent/30',
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'block h-[2px] w-full rounded-full transition-colors duration-150',
+                        isActive ? 'bg-primary' : done ? 'bg-primary/40' : 'bg-border group-hover:bg-border/80',
+                      )}
+                    />
+                    <span className="flex items-center gap-1.5 px-2 pt-2 pb-1.5 min-w-0">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'inline-flex h-4 w-4 shrink-0 items-center justify-center font-mono text-[10px] tabular-nums',
+                          isActive ? 'text-primary font-semibold' : done ? 'text-primary' : 'text-muted-foreground/70',
+                        )}
+                      >
+                        {done ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : String(i + 1).padStart(2, '0')}
+                      </span>
+                      {isActive && <NavIcon className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
+                      <span
+                        className={cn(
+                          'min-w-0 truncate text-[11px] leading-none transition-colors duration-150',
+                          isActive
+                            ? 'font-semibold text-foreground tracking-tight'
+                            : done
+                              ? 'font-medium text-foreground/80 group-hover:text-foreground'
+                              : 'font-medium text-muted-foreground group-hover:text-foreground',
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </span>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </nav>
 
         {/* Section header */}
