@@ -75,7 +75,6 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
 
   const totalSteps = SECTION_META.length;
   const section = SECTION_META[step];
-  const Icon = ICON_MAP[section.icon];
   const completedCount = SECTION_META.reduce((n, s) => n + (isSectionComplete(s.id, data) ? 1 : 0), 0);
 
   // -------------------------------------------------------------------------
@@ -360,17 +359,8 @@ export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizard
           </ol>
         </nav>
 
-        {/* Section header */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2 rounded-md bg-muted">
-            <Icon className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Step {step + 1} of {totalSteps}</p>
-            <h2 className="text-lg font-semibold leading-tight">{section.title}</h2>
-            <p className="text-sm text-muted-foreground">{section.description}</p>
-          </div>
-        </div>
+        {/* Section description — step + title already live in the nav above */}
+        <p className="text-sm text-muted-foreground mb-5">{section.description}</p>
 
         {/* Questions */}
         <Card>
