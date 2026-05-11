@@ -568,7 +568,7 @@ export function SectionShell({ runId }: SectionShellProps) {
                     : `${completedSections.length} of ${POSITIONING_SECTION_IDS.length} sections complete`}
                 </SheetDescription>
               </SheetHeader>
-              <ScrollArea className="flex-1 px-5 py-5">
+              <ScrollArea className="flex-1 min-h-0 px-5 py-5">
                 {artifactMarkdown ? (
                   <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-xl prose-h2:text-base prose-h3:text-sm prose-p:leading-relaxed prose-blockquote:border-l-2 prose-blockquote:border-foreground/20 prose-blockquote:not-italic prose-blockquote:text-foreground prose-blockquote:font-normal prose-hr:border-border">
                     <ReactMarkdown>{artifactMarkdown}</ReactMarkdown>
