@@ -502,10 +502,58 @@ async function injectIdentityClassifications(
   }
 }
 
+async function injectOnboardingAnswers(
+  runId: string | null | undefined,
+  userId: string,
+  context: string,
+): Promise<string> {
+  if (!runId) {
+    return context;
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const { data: sessionRow } = await supabase
+      .from('journey_sessions')
+      .select('onboarding_data')
+      .eq('user_id', userId)
+      .eq('run_id', runId)
+      .maybeSingle();
+
+    const onboardingData = sessionRow?.onboarding_data as Record<string, unknown> | null;
+    if (!onboardingData || Object.keys(onboardingData).length === 0) {
+      return context;
+    }
+
+    const lines: string[] = [];
+    for (const [key, value] of Object.entries(onboardingData)) {
+      if (value === null || value === undefined || value === '') continue;
+      if (Array.isArray(value) && value.length === 0) continue;
+      const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+      lines.push(`${key}: ${displayValue}`);
+    }
+
+    if (lines.length === 0) {
+      return context;
+    }
+
+    const block = `### User Onboarding Answers (Pre-Pitch Positioning Audit)\n${lines.join('\n')}`;
+    return `${block}\n\n${context}`;
+  } catch (error) {
+    console.warn('[dispatch] Failed to inject onboarding answers:', error);
+    return context;
+  }
+}
+
 export async function buildJourneyResearchDispatchContext(
   params: JourneyResearchDispatchParams,
 ): Promise<string> {
   let enrichedContext = params.context;
+  enrichedContext = await injectOnboardingAnswers(
+    params.runId,
+    params.userId,
+    enrichedContext,
+  );
   enrichedContext = await injectPriorResearchContext(
     params.section,
     params.runId,
