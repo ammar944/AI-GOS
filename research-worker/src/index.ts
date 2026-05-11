@@ -4,13 +4,6 @@ import {
   resolveProductIdentity,
   runMeetingExtraction,
   runDeepResearchProgram,
-  runJourneyIndustryMarket,
-  runJourneyCompetitors,
-  runJourneyICPValidation,
-  runJourneyOfferAnalysis,
-  runJourneyKeywordIntel,
-  runJourneyCrossAnalysis,
-  runJourneyMediaPlan,
   runPositioningMarketCategory,
   runPositioningBuyerICP,
   runPositioningCompetitorLandscape,
@@ -66,13 +59,6 @@ function requireApiKey(
 
 // -- Types --------------------------------------------------------------------
 type ToolName =
-  | 'researchIndustry'
-  | 'researchCompetitors'
-  | 'researchICP'
-  | 'researchOffer'
-  | 'synthesizeResearch'
-  | 'researchKeywords'
-  | 'researchMediaPlan'
   | 'runDeepResearchProgram'
   | 'resolveIdentity'
   | 'extractMeetingTranscript'
@@ -108,16 +94,6 @@ interface RunJobRequest {
 }
 
 const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgressReporter) => Promise<ResearchResult>> = {
-  // Journey section synthesis now runs through Anthropic Platform Skills
-  // specialist agents. /journey no longer routes through the legacy
-  // categorySnapshot/validatedPersona/campaignGroups schema runners.
-  researchIndustry: runJourneyIndustryMarket,
-  researchCompetitors: runJourneyCompetitors,
-  researchICP: runJourneyICPValidation,
-  researchOffer: runJourneyOfferAnalysis,
-  synthesizeResearch: runJourneyCrossAnalysis,
-  researchKeywords: runJourneyKeywordIntel,
-  researchMediaPlan: runJourneyMediaPlan,
   runDeepResearchProgram,
   resolveIdentity: resolveProductIdentity,
   extractMeetingTranscript: runMeetingExtraction,
@@ -562,9 +538,8 @@ app.listen(PORT, () => {
 // -- Stale job detection ------------------------------------------------------
 const STALE_THRESHOLD_MS = 300_000; // 5 minutes
 
-// Per-tool overrides — media plan runs 6 sequential generateObject() calls
+// Per-tool overrides
 const TOOL_STALE_THRESHOLDS: Partial<Record<ToolName, number>> = {
-  researchMediaPlan: 900_000, // 15 minutes for 6-block sequential generation
   runDeepResearchProgram: 900_000, // company corpus extraction can run longer than global 5m
 };
 

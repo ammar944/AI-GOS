@@ -346,24 +346,3 @@ export async function runJourneySection(
     };
   }
 }
-
-export const runJourneyIndustryMarket = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.industryMarket, context, onProgress);
-
-export const runJourneyCompetitors = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.competitors, context, onProgress);
-
-export const runJourneyICPValidation = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.icpValidation, context, onProgress);
-
-export const runJourneyOfferAnalysis = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.offerAnalysis, context, onProgress);
-
-export const runJourneyKeywordIntel = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.keywordIntel, context, onProgress);
-
-export const runJourneyCrossAnalysis = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.crossAnalysis, context, onProgress);
-
-export const runJourneyMediaPlan = (context: string, onProgress?: RunnerProgressReporter) =>
-  runJourneySection(SECTION_SPECS.mediaPlan, context, onProgress);
