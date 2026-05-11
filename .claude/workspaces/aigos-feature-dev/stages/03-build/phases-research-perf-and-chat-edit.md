@@ -351,7 +351,23 @@ After each phase, HQ updates this doc's phase map table with actual time spent (
 
 (Resolve before or during the relevant phase; don't let executors guess.)
 
-1. **Branch strategy**: should each phase land on `feat/research-v2` directly, or branch a `feat/research-perf-and-chat-edit` off it and merge after P4? HQ's call: **branch + merge after P4** for cleaner rollback story.
+1. **Branch strategy** — RESOLVED 2026-05-12 (post-P1): **stay on `feat/research-v2`**. Reasoning: P1 already landed 6 atomic, well-named commits directly on `feat/research-v2`. Each commit is `git revert`-safe individually. Cutting a separate branch post-hoc would mean rebasing 6 commits with no real safety win since the phase-by-phase QA gates are the real rollback boundary. If P3 or P4 hits architectural retreat, we branch off THEN.
+
+## P1 outcomes (recorded 2026-05-12)
+
+- **Status**: ✅ PASS — 10/10 QA checks
+- **Commits**: 6 (`a225885e`, `d9d92925`, `4c8b13e7`, `695a6221`, `292ac476`, `a529afae`)
+- **Code-touching files**: 11 (~150 lines of actual code; rest of insertions are docs)
+- **Tests**: 379 worker tests passing (zero regressions); 2/2 new concurrency-cap tests pass
+- **TSC**: 0 errors (better than baseline)
+- **Quality wins beyond plan**:
+  - `695a6221`: imported canonical `POSITIONING_SECTION_IDS` instead of plan's hardcoded array
+  - `a529afae`: closed a semaphore slot-leak window in the IIFE prologue (executor caught it)
+- **Concerns**: none. Cleanup commits kept as-is (rebase-squash declined — visible fix history > silent amend).
+
+## Original open questions (continued)
+
+2. **Realtime delivery of patches** — TBD during P3 QA.
 2. **Realtime delivery of patches**: from spec section 9 open question — does a JSONB patch on `research_runs.data` trigger the existing realtime channel? If not, P3 atom 10 needs to also write a synthetic activity row. HQ to verify during P3 QA.
 3. **Concurrent edits**: what if user fires two reruns on the same section before the first completes? Spec says deferred; HQ confirms the deferral or adds an atom to P3.
 4. **Chat history truncation**: classifier currently gets last 6 messages. Is that enough? Watch in P4; if classifier loses context on long sessions, bump to 10 or summarize older.
