@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/sheet';
 import {
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CheckCircle2,
   Circle,
@@ -29,6 +30,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
+import { cn } from '@/lib/utils';
 
 import {
   POSITIONING_SECTION_IDS,
@@ -128,6 +130,12 @@ export function SectionShell({ runId }: SectionShellProps) {
     Partial<Record<PositioningSectionId, string>>
   >({});
 
+  // Which completed section the audit sheet is showing right now. Null until
+  // the first section completes. User-controlled after that — new completions
+  // don't yank the view away from what they're reading.
+  const [activeArtifactSection, setActiveArtifactSection] =
+    useState<PositioningSectionId | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Track which sections we've already toasted for
@@ -226,6 +234,10 @@ export function SectionShell({ runId }: SectionShellProps) {
         }
         return next;
       });
+      // Selection rule: if no section is selected yet (first completion, or
+      // every prior selection got blown away), point at the one we just got.
+      // Otherwise leave the active section alone — the user may be reading it.
+      setActiveArtifactSection((prev) => prev ?? sectionId);
 
       // Update section states with markdown
       setSectionStates((prev) => ({
@@ -466,11 +478,22 @@ export function SectionShell({ runId }: SectionShellProps) {
     (id) => sectionStates[id].status === 'complete',
   );
 
-  const artifactMarkdown = POSITIONING_SECTION_IDS.map(
-    (id) => artifactSections[id] ?? '',
-  )
-    .filter(Boolean)
-    .join('\n\n---\n\n');
+  const activeMarkdown = activeArtifactSection
+    ? (artifactSections[activeArtifactSection] ?? '')
+    : '';
+
+  // Prev/next navigation across COMPLETED sections only — we don't let the
+  // user step into a pending one. Index is based on the global ordering, not
+  // the completion order, so the navigation feels like a numbered playlist.
+  const activeCompletedIdx = activeArtifactSection
+    ? completedSections.indexOf(activeArtifactSection)
+    : -1;
+  const prevCompletedSection =
+    activeCompletedIdx > 0 ? completedSections[activeCompletedIdx - 1] : null;
+  const nextCompletedSection =
+    activeCompletedIdx >= 0 && activeCompletedIdx < completedSections.length - 1
+      ? completedSections[activeCompletedIdx + 1]
+      : null;
 
   const allComplete =
     completedSections.length === POSITIONING_SECTION_IDS.length;
@@ -568,10 +591,97 @@ export function SectionShell({ runId }: SectionShellProps) {
                     : `${completedSections.length} of ${POSITIONING_SECTION_IDS.length} sections complete`}
                 </SheetDescription>
               </SheetHeader>
+
+              {/* Section selector — pill group with prev/next. Only completed
+                  sections are clickable; pending sections render muted with an
+                  em-dash so the user can see what's coming without being
+                  tempted to click. Sized to wrap onto two rows for the longer
+                  labels ("Voice of Customer & Objection Evidence" etc.). */}
+              {completedSections.length > 0 && (
+                <div className="shrink-0 border-b border-border px-5 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-wrap gap-1.5 min-w-0">
+                      {POSITIONING_SECTION_IDS.map((id, idx) => {
+                        const isComplete =
+                          sectionStates[id].status === 'complete';
+                        const isActive = activeArtifactSection === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            disabled={!isComplete}
+                            onClick={() => setActiveArtifactSection(id)}
+                            aria-pressed={isActive}
+                            aria-label={
+                              isComplete
+                                ? `View ${POSITIONING_SECTION_LABELS[id]}`
+                                : `${POSITIONING_SECTION_LABELS[id]} (not yet complete)`
+                            }
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] leading-none font-medium transition-colors',
+                              isActive &&
+                                'border-foreground bg-foreground text-background',
+                              !isActive &&
+                                isComplete &&
+                                'border-border bg-background text-foreground hover:border-foreground/40 hover:bg-muted/60 cursor-pointer',
+                              !isComplete &&
+                                'border-dashed border-border/60 bg-transparent text-muted-foreground/60 cursor-not-allowed',
+                            )}
+                          >
+                            <span className="tabular-nums opacity-70">
+                              {idx + 1}
+                            </span>
+                            <span className="truncate max-w-[160px]">
+                              {POSITIONING_SECTION_LABELS[id]}
+                            </span>
+                            {!isComplete && (
+                              <span aria-hidden="true" className="opacity-60">
+                                —
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {completedSections.length > 1 && (
+                      <div className="shrink-0 flex items-center gap-0.5">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 rounded-md"
+                          disabled={!prevCompletedSection}
+                          onClick={() =>
+                            prevCompletedSection &&
+                            setActiveArtifactSection(prevCompletedSection)
+                          }
+                          aria-label="Previous completed section"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 rounded-md"
+                          disabled={!nextCompletedSection}
+                          onClick={() =>
+                            nextCompletedSection &&
+                            setActiveArtifactSection(nextCompletedSection)
+                          }
+                          aria-label="Next completed section"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <ScrollArea className="flex-1 min-h-0 px-5 py-5">
-                {artifactMarkdown ? (
+                {activeMarkdown ? (
                   <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-xl prose-h2:text-base prose-h3:text-sm prose-p:leading-relaxed prose-blockquote:border-l-2 prose-blockquote:border-foreground/20 prose-blockquote:not-italic prose-blockquote:text-foreground prose-blockquote:font-normal prose-hr:border-border">
-                    <ReactMarkdown>{artifactMarkdown}</ReactMarkdown>
+                    <ReactMarkdown>{activeMarkdown}</ReactMarkdown>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
