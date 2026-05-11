@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
-} from '../journey-keyword-intel-detail';
+} from '../keyword-intel-detail';
 
 describe('JourneyKeywordIntelDetail', () => {
   it('renders grouped keyword plans, starting set recommendations, negatives, and confidence notes', () => {

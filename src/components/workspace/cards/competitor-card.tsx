@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { BulletList } from './bullet-list';
-import { CompetitorAdEvidence } from '@/components/journey/competitor-ad-evidence';
+import { CompetitorAdEvidence } from '@/components/research/competitor-ad-evidence';
 
 interface CompetitorCardProps {
   name: string;

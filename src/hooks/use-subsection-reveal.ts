@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { buildSubsectionCards } from '@/components/journey/intel-cards/build-subsection-cards';
-import type { SubsectionCard } from '@/components/journey/intel-cards/build-subsection-cards';
+import { buildSubsectionCards } from '@/components/research/intel-cards/build-subsection-cards';
+import type { SubsectionCard } from '@/components/research/intel-cards/build-subsection-cards';
 
 export function useSubsectionReveal(
   sectionKey: string,

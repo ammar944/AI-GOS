@@ -41,7 +41,7 @@ import {
 import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
-} from '@/components/journey/journey-keyword-intel-detail';
+} from '@/components/research/keyword-intel-detail';
 import { OfferStatementList } from '@/components/workspace/cards/offer-statement-list';
 import { IceTable } from '@/components/workspace/cards/ice-table';
 import { OpportunityCard } from '@/components/workspace/cards/opportunity-card';
