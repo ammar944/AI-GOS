@@ -588,10 +588,10 @@ export async function dispatchJourneyResearchForUser(
   const context = params.context.trim();
   const runId = typeof params.runId === 'string' ? params.runId.trim() : '';
 
-  if (!section || !context) {
+  if (!section) {
     return createDispatchError(
       section,
-      'Missing required fields: section, context',
+      'Missing required fields: section',
     );
   }
 
