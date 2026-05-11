@@ -42,6 +42,12 @@ interface UseResearchJobActivityOptions {
   ignoreUpdatedBefore?: string | null;
 }
 
+// Stable empty-state sentinel. Returning a fresh `{}` literal on every render
+// caused an infinite re-render loop in consumers whose effects depend on the
+// hook's return value (e.g. SectionShell's `useEffect([activity])`).
+const EMPTY_RESEARCH_JOB_ACTIVITY: Readonly<Record<string, ResearchJobActivity>> =
+  Object.freeze({});
+
 interface JourneySessionActivityResponse {
   metadata: Record<string, unknown> | null;
   jobStatus: Record<string, ResearchJobStatusRow> | null;
@@ -200,7 +206,7 @@ export function useResearchJobActivity({
   }, [userId, activeRunId, resetKey, ignoreUpdatedBefore]);
 
   if (!userId || !activeRunId || activityState.resetKey !== resetKey) {
-    return {};
+    return EMPTY_RESEARCH_JOB_ACTIVITY;
   }
 
   return activityState.data;
