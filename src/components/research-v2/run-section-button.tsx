@@ -31,8 +31,10 @@ export function RunSectionButton({
   }
 
   async function handleClick() {
+    console.log('[run-section-button] handleClick entry', { state, runId, sectionId });
     if (state !== 'idle' && state !== 'error') return;
 
+    console.log('[run-section-button] guard passed, dispatching');
     setState('pending');
 
     try {
@@ -98,7 +100,7 @@ export function RunSectionButton({
       variant={isError ? 'destructive' : 'default'}
       size="sm"
       className="rounded-md"
-      onClick={() => void handleClick()}
+      onClick={() => { console.log('[run-section-button] onClick fired', { runId, sectionId, state }); void handleClick(); }}
     >
       {isError ? `Retry: ${sectionLabel}` : `Run section: ${sectionLabel}`}
     </Button>
