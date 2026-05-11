@@ -44,6 +44,16 @@ export const RESEARCH_TOOL_TO_SECTION_MAP = {
   researchKeywords: 'keywordIntel',
   researchMediaPlan: 'mediaPlan',
   runDeepResearchProgram: 'deepResearchProgram',
+  // Pre-Pitch Positioning Audit (research-v2). Worker tool name === frontend
+  // section id — identity mapping. The frontend `useResearchJobActivity` hook
+  // reads job_status[].tool, looks it up here, and exposes the activity under
+  // the section id key so SectionShell can render the thinking-block + status.
+  positioningMarketCategory: 'positioningMarketCategory',
+  positioningBuyerICP: 'positioningBuyerICP',
+  positioningCompetitorLandscape: 'positioningCompetitorLandscape',
+  positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
+  positioningDemandIntent: 'positioningDemandIntent',
+  positioningOfferDiagnostic: 'positioningOfferDiagnostic',
 } as const;
 
 export type ResearchToolName = keyof typeof RESEARCH_TOOL_TO_SECTION_MAP;
