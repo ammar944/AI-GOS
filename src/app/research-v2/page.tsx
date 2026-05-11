@@ -304,15 +304,43 @@ export default function ResearchV2Page() {
 
   // -----------------------------------------------------------------------
   // Onboarding complete callback (Phase 3 mount)
-  // Wizard persists its own data to Supabase via the existing journey path.
-  // Page just needs the trigger to advance to the sections stage.
+  // POSTs wizard data to the persist endpoint, then advances state.
   // -----------------------------------------------------------------------
 
   const handleOnboardingComplete = useCallback(
-    (_data: OnboardingV2Data) => {
+    async (data: OnboardingV2Data) => {
+      if (state.kind !== 'onboarding') return;
+      const runId = state.runId;
+
+      try {
+        const res = await fetch('/api/research-v2/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ runId, data }),
+        });
+
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          dispatch({
+            type: 'ERROR',
+            from: 'onboarding',
+            message: body.error ?? `Failed to save onboarding data (HTTP ${res.status})`,
+          });
+          return;
+        }
+      } catch (err) {
+        dispatch({
+          type: 'ERROR',
+          from: 'onboarding',
+          message: err instanceof Error ? err.message : 'Failed to save onboarding data',
+        });
+        return;
+      }
+
       dispatch({ type: 'ONBOARDING_COMPLETE' });
     },
-    [],
+    [state],
   );
 
   // -----------------------------------------------------------------------
