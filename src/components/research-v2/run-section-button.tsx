@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 export type SectionRunState = 'idle' | 'pending' | 'running' | 'complete' | 'error';
@@ -23,6 +24,7 @@ export function RunSectionButton({
   onStateChange,
 }: RunSectionButtonProps) {
   const [internalState, setInternalState] = useState<SectionRunState>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const state = externalState ?? internalState;
 
   function setState(next: SectionRunState) {
@@ -35,6 +37,7 @@ export function RunSectionButton({
     if (state !== 'idle' && state !== 'error') return;
 
     console.log('[run-section-button] guard passed, dispatching');
+    setErrorMessage(null);
     setState('pending');
 
     try {
@@ -53,19 +56,38 @@ export function RunSectionButton({
 
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        console.error('[run-section] dispatch failed:', body.error);
+        console.error('[run-section] dispatch failed (HTTP error):', body.error);
+        setErrorMessage(body.error ?? `HTTP ${res.status}`);
         setState('error');
         return;
       }
 
-      const data = (await res.json()) as { status?: string };
+      const data = (await res.json()) as { status?: string; error?: string };
+      console.log('[run-section-button] dispatch response', data);
+
+      if (data.status === 'error') {
+        console.error('[run-section] worker dispatch failed:', data.error);
+        setErrorMessage(data.error ?? 'Dispatch failed');
+        setState('error');
+        return;
+      }
+
       if (data.status === 'already_complete') {
         setState('complete');
-      } else {
+      } else if (
+        data.status === 'queued' ||
+        data.status === 'running' ||
+        data.status === 'already_running'
+      ) {
         setState('running');
+      } else {
+        console.error('[run-section] unexpected dispatch status:', data.status);
+        setErrorMessage(`Unexpected status: ${String(data.status)}`);
+        setState('error');
       }
     } catch (err) {
       console.error('[run-section] fetch error:', err);
+      setErrorMessage(err instanceof Error ? err.message : String(err));
       setState('error');
     }
   }
@@ -96,13 +118,20 @@ export function RunSectionButton({
   const isError = state === 'error';
 
   return (
-    <Button
-      variant={isError ? 'destructive' : 'default'}
-      size="sm"
-      className="rounded-md"
-      onClick={() => { console.log('[run-section-button] onClick fired', { runId, sectionId, state }); void handleClick(); }}
-    >
-      {isError ? `Retry: ${sectionLabel}` : `Run section: ${sectionLabel}`}
-    </Button>
+    <div className="flex flex-col gap-2">
+      <Button
+        variant={isError ? 'destructive' : 'default'}
+        size="sm"
+        className="rounded-md self-start"
+        onClick={() => { console.log('[run-section-button] onClick fired', { runId, sectionId, state }); void handleClick(); }}
+      >
+        {isError ? `Retry: ${sectionLabel}` : `Run section: ${sectionLabel}`}
+      </Button>
+      {isError && errorMessage && (
+        <Alert variant="destructive" className="py-2">
+          <AlertDescription className="text-xs">{errorMessage}</AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }
