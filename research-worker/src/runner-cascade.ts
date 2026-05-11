@@ -367,7 +367,7 @@ export async function runCascadeAttemptWithObservability(
   const hasTools = config.tools.length > 0;
   const runAttempt = hasTools
     ? (deps.runToolAttempt ?? runCascadeToolAttempt)
-    : (deps.runMessageAttempt ?? runCascadeMessageAttempt);
+    : (deps.runMessageAttempt ?? runStreamingAttempt);
   const progressLabel = config.progressLabel ?? config.mode;
 
   await emitRunnerProgress(onProgress, 'runner', `${progressLabel} started`);
