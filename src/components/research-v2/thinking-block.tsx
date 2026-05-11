@@ -88,7 +88,7 @@ export function ThinkingBlock({
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div className="mt-2 ml-5 space-y-1 border-l border-border pl-3">
+        <div className="mt-2 ml-5 space-y-1 border-l border-border pl-3 max-h-80 overflow-y-auto pr-2">
           {updates.length === 0 && isRunning && (
             <p className="text-xs text-muted-foreground animate-pulse">
               Starting…

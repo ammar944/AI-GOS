@@ -126,10 +126,8 @@ export function SectionShell({ runId }: SectionShellProps) {
     activeRunId: runId,
   });
 
-  // Sync job status into sectionStates and trigger chat advances
+  // Sync job status into sectionStates (pure state mirror — no side effects).
   useEffect(() => {
-    const newlyCompleted: PositioningSectionId[] = [];
-
     setSectionStates((prev) => {
       const next = { ...prev };
 
@@ -147,24 +145,12 @@ export function SectionShell({ runId }: SectionShellProps) {
 
         if (jobStatus !== current.status) {
           next[sectionId] = { ...current, status: jobStatus, errorMessage: job.error };
-
-          if (jobStatus === 'complete' && !prevCompletedRef.current.has(sectionId)) {
-            newlyCompleted.push(sectionId);
-          }
         }
       }
 
       return next;
     });
-
-    // Process newly completed sections
-    for (const sectionId of newlyCompleted) {
-      if (prevCompletedRef.current.has(sectionId)) continue;
-      prevCompletedRef.current.add(sectionId);
-
-      void handleSectionCompleted(sectionId);
-    }
-  }, [activity]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activity]);
 
   // Fetch artifact for completed section and advance chat
   const handleSectionCompleted = useCallback(
@@ -254,6 +240,25 @@ export function SectionShell({ runId }: SectionShellProps) {
     },
     [runId],
   );
+
+  // Detect newly-completed sections and fire side effects.
+  // MUST come AFTER handleSectionCompleted is defined (block-scoped const).
+  // MUST also be separate from the state-sync effect above: in React 18
+  // batched mode, setState updaters run on the next render commit (not
+  // synchronously), so any array we tried to mutate inside the updater
+  // closure would still be empty when read in the trailing code — the side
+  // effects would never fire and the artifact panel would stay stuck on its
+  // empty-state copy.
+  useEffect(() => {
+    for (const sectionId of POSITIONING_SECTION_IDS) {
+      const job = activity[sectionId];
+      if (!job) continue;
+      if (job.status === 'complete' && !prevCompletedRef.current.has(sectionId)) {
+        prevCompletedRef.current.add(sectionId);
+        void handleSectionCompleted(sectionId);
+      }
+    }
+  }, [activity, handleSectionCompleted]);
 
   // Auto-scroll chat on new entries
   useEffect(() => {
