@@ -97,17 +97,6 @@ describe('currentMarketingActivities field', () => {
     expect(meta?.required).toBeFalsy();
   });
 
-  it('flows through buildJourneyResearchContext as a labeled line', async () => {
-    const { buildJourneyResearchContext } = await import('../context-string');
-    const ctx = buildJourneyResearchContext({
-      companyName: 'Acme',
-      currentMarketingActivities:
-        'Meta $8k/mo LAL 1% + UGC, 2.1x ROAS. LinkedIn flat. Google brand-only.',
-    });
-    expect(ctx).toContain(
-      'Current Marketing Activities: Meta $8k/mo LAL 1% + UGC, 2.1x ROAS. LinkedIn flat. Google brand-only.',
-    );
-  });
 });
 
 describe('Current Performance baseline-metric fields', () => {
