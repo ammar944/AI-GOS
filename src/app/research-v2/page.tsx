@@ -15,6 +15,7 @@ import {
 } from '@/lib/research-v2/state-machine';
 import type { OnboardingV2Data } from '@/lib/research-v2/onboarding-v2-types';
 import { prefillFromCorpus } from '@/lib/research-v2/prefill-from-corpus';
+import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
@@ -34,20 +35,12 @@ function buildCorpusContext(websiteUrl: string): string {
 }
 
 const dispatchAllPositioningSections = async (runId: string): Promise<void> => {
-  const sectionIds = [
-    'positioningMarketCategory',
-    'positioningBuyerICP',
-    'positioningCompetitorLandscape',
-    'positioningVoiceOfCustomer',
-    'positioningDemandIntent',
-    'positioningOfferDiagnostic',
-  ] as const;
-
   await Promise.allSettled(
-    sectionIds.map((sectionId) =>
+    POSITIONING_SECTION_IDS.map((sectionId) =>
       fetch('/api/research-v2/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ sectionId, runId }),
       }),
     ),
