@@ -12,6 +12,7 @@ import {
   runPositioningOfferDiagnostic,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
+import { createEmitProgress } from './emit-progress';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
 import { writeDeadLetter } from './dead-letter';
 import { sanitizeForJson, type RunnerProgressReporter } from './runner';
@@ -234,7 +235,6 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
 
     const contextWithDate = sanitizeForJson(dateContext + baselineBlock + provenanceInstruction + context);
     let statusWriteChain = Promise.resolve();
-    let lastProgressSignature: string | null = null;
     let jobFinalized = false;
 
     const queueJobStatusWrite = (row: Parameters<typeof writeJobStatus>[2]) => {
@@ -251,49 +251,36 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       return statusWriteChain;
     };
 
-    const emitProgress: RunnerProgressReporter = async (update) => {
-      if (jobFinalized) {
-        return;
-      }
+    const { emitProgress } = createEmitProgress({
+      queueWrite: queueJobStatusWrite,
+      getJobFinalized: () => jobFinalized,
+      runId,
+      status: 'running',
+      tool,
+      startedAt: new Date(startMs).toISOString(),
+    });
 
-      const signature = update.phase === 'artifact'
-        ? null
-        : `${update.phase}:${update.message}`;
-      if (signature && signature === lastProgressSignature) {
-        return;
-      }
-      lastProgressSignature = signature;
-
-      await queueJobStatusWrite({
-        runId,
-        status: 'running',
-        tool,
-        startedAt: new Date(startMs).toISOString(),
-        lastHeartbeat: new Date().toISOString(),
-        updates: [
-          {
-            at: update.at ?? new Date().toISOString(),
-            id: update.id ?? crypto.randomUUID(),
-            message: update.message,
-            phase: update.phase,
-            ...(update.meta ? { meta: update.meta } : {}),
-          },
-        ],
-      });
-    };
-
-    // Heartbeat: write 'running' status every 30s so the poller knows we're alive
+    // Heartbeat: write 'running' status every 30s so the poller knows we're alive.
+    // Includes an updates[] entry so the frontend activity log shows activity.
     const heartbeatInterval = setInterval(async () => {
       if (jobFinalized) {
         return;
       }
-
+      const now = new Date().toISOString();
       await queueJobStatusWrite({
         runId,
         status: 'running',
         tool,
         startedAt: new Date(startMs).toISOString(),
-        lastHeartbeat: new Date().toISOString(),
+        lastHeartbeat: now,
+        updates: [
+          {
+            at: now,
+            id: crypto.randomUUID(),
+            message: 'Still running…',
+            phase: 'heartbeat',
+          },
+        ],
       });
     }, 30_000);
 

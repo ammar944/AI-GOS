@@ -218,7 +218,7 @@ export interface JobStatusUpdate {
   at: string;
   id: string;
   message: string;
-  phase: 'runner' | 'tool' | 'analysis' | 'artifact' | 'output' | 'error';
+  phase: 'runner' | 'tool' | 'analysis' | 'thinking' | 'artifact' | 'output' | 'heartbeat' | 'error';
   meta?: JobStatusUpdateMeta;
 }
 

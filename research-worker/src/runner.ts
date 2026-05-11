@@ -117,8 +117,10 @@ export type RunnerProgressPhase =
   | 'runner'
   | 'tool'
   | 'analysis'
+  | 'thinking'
   | 'artifact'
   | 'output'
+  | 'heartbeat'
   | 'error';
 
 export interface RunnerProgressUpdate {
