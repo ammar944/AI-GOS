@@ -17,19 +17,17 @@ User flow:
 2. Review/edit in form (UnifiedFieldReview)
 3. Submit -> dispatches deepResearchProgram (corpus + onboarding fields)
 4. Corpus completes -> workspace opens with the Run section operator control
-5. User clicks Run section -> next pending report section dispatches
+5. User clicks Run section -> next pending positioning section dispatches
 6. Section completes -> Run section control rotates to the next pending section, ready for the next click
-7. User clicks through the pipeline section by section (industryMarket, icpValidation, competitors, offerAnalysis, keywordIntel, crossAnalysis)
-8. After the 6 report sections (industryMarket through crossAnalysis): guided prompt for Media Plan
-9. After media plan: guided prompt for Scripts
-10. All results saved to profile
+7. User clicks through the pipeline section by section (positioningMarketCategory, positioningBuyerICP, positioningCompetitorLandscape, positioningVoiceOfCustomer, positioningDemandIntent, positioningOfferDiagnostic)
+8. All results saved to profile
 
-Progression contract: every report section requires an operator click. The only auto-dispatch is the URL-form deepResearchProgram (step 3). This is the supervised progression locked in the rescue/deep-research-six-cards rescue plan.
+Progression contract: every report section requires an operator click. The only auto-dispatch is the URL-form deepResearchProgram (step 3). This is the supervised progression locked in the research-v2 positioning audit plan.
 
 Research dispatch: Button clicks -> POST /api/journey/dispatch -> Railway worker -> Supabase -> realtime to frontend.
 Chat sidebar: Post-research editing only (editCard, updateField). Does NOT trigger research.
 
-Pipeline: deepResearchProgram -> industryMarket -> icpValidation -> competitors -> offerAnalysis -> keywordIntel -> crossAnalysis -> mediaPlan
+Pipeline: deepResearchProgram -> positioningMarketCategory -> positioningBuyerICP -> positioningCompetitorLandscape -> positioningVoiceOfCustomer -> positioningDemandIntent -> positioningOfferDiagnostic
 
 ## Conventions
 
