@@ -33,18 +33,44 @@ function buildCorpusContext(websiteUrl: string): string {
 /**
  * Infer which research-v2 stage the session is in based on persisted data.
  * Returns null when there is no in-flight session to resume.
+ *
+ * Routing priority:
+ *   1. Any positioning section row in research_results / job_status → 'sections' (audit live)
+ *   2. onboarding_data populated → 'sections' (onboarding done, no positioning runs yet)
+ *   3. corpus complete                       → 'onboarding'
+ *   4. corpus pending / streaming            → 'corpus'
+ *   5. no corpus at all                      → 'welcome' (caller treats null as welcome)
  */
 function inferResumeState(
   runId: string,
   researchResults: Record<string, unknown> | null,
+  onboardingData: Record<string, unknown> | null,
+  jobStatus: Record<string, unknown> | null,
 ): ResearchV2State | null {
   if (!runId) return null;
+
+  const hasPositioningResult = researchResults
+    ? Object.keys(researchResults).some((key) => key.startsWith('positioning'))
+    : false;
+  const hasPositioningJob = jobStatus
+    ? Object.keys(jobStatus).some((key) => key.startsWith('positioning'))
+    : false;
+
+  // 1. Audit is live — sections in progress or done
+  if (hasPositioningResult || hasPositioningJob) {
+    return { kind: 'sections', runId, currentSection: null };
+  }
+
+  // 2. Onboarding completed but no positioning runs yet — land on section picker
+  if (onboardingData && Object.keys(onboardingData).length > 0) {
+    return { kind: 'sections', runId, currentSection: null };
+  }
 
   const corpus = researchResults?.deepResearchProgram as
     | { status?: string; data?: unknown }
     | undefined;
 
-  // No corpus result yet — corpus is still streaming
+  // 4. No corpus result yet — corpus is still streaming
   if (!corpus) {
     return { kind: 'corpus', runId, phase: 'streaming' };
   }
@@ -53,7 +79,7 @@ function inferResumeState(
     return { kind: 'corpus', runId, phase: 'streaming' };
   }
 
-  // Corpus complete — map corpus onboardingFields to V2 prefill
+  // 3. Corpus complete, no onboarding yet — map corpus onboardingFields to V2 prefill
   const corpusData = corpus.data as Record<string, unknown> | undefined;
   const onboardingFields = corpusData?.onboardingFields as
     | Record<string, { value?: unknown }>
@@ -63,7 +89,6 @@ function inferResumeState(
     ? prefillFromCorpus(onboardingFields)
     : {};
 
-  // Always resume at onboarding if corpus is complete (no completion marker in DB yet).
   return { kind: 'onboarding', runId, prefill };
 }
 
@@ -133,6 +158,8 @@ export default function ResearchV2Page() {
         const data = (await res.json()) as {
           runId?: string | null;
           researchResults?: Record<string, unknown> | null;
+          jobStatus?: Record<string, unknown> | null;
+          onboardingData?: Record<string, unknown> | null;
           updatedAt?: string | null;
           metadata?: Record<string, unknown> | null;
         };
@@ -154,6 +181,8 @@ export default function ResearchV2Page() {
         const resumed = inferResumeState(
           data.runId,
           data.researchResults ?? null,
+          data.onboardingData ?? null,
+          data.jobStatus ?? null,
         );
         if (!resumed) return;
 
@@ -177,8 +206,15 @@ export default function ResearchV2Page() {
       if (!res.ok) return;
       const data = (await res.json()) as {
         researchResults?: Record<string, unknown> | null;
+        jobStatus?: Record<string, unknown> | null;
+        onboardingData?: Record<string, unknown> | null;
       };
-      const resumed = inferResumeState(runId, data.researchResults ?? null);
+      const resumed = inferResumeState(
+        runId,
+        data.researchResults ?? null,
+        data.onboardingData ?? null,
+        data.jobStatus ?? null,
+      );
       if (resumed) {
         dispatch({ type: 'RESUME', state: resumed });
         setRunIdInUrl(runId);

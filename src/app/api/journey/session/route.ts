@@ -60,7 +60,7 @@ async function readLatestJourneySession(userId: string) {
   const supabase = createAdminClient();
   return supabase
     .from('journey_sessions')
-    .select('id, profile_id, metadata, research_results, job_status, messages, updated_at, run_id, created_at')
+    .select('id, profile_id, metadata, research_results, job_status, onboarding_data, messages, updated_at, run_id, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -219,7 +219,7 @@ export async function GET(request: Request) {
   if (requestedRunId) {
     const { data: runData, error: runError } = await supabase
       .from('journey_sessions')
-      .select('id, profile_id, metadata, research_results, job_status, messages, updated_at, run_id, created_at')
+      .select('id, profile_id, metadata, research_results, job_status, onboarding_data, messages, updated_at, run_id, created_at')
       .eq('user_id', userId)
       .eq('run_id', requestedRunId)
       .maybeSingle();
@@ -243,6 +243,8 @@ export async function GET(request: Request) {
           (runData?.research_results as Record<string, unknown> | null | undefined) ?? null,
         jobStatus:
           (runData?.job_status as Record<string, unknown> | null | undefined) ?? null,
+        onboardingData:
+          (runData?.onboarding_data as Record<string, unknown> | null | undefined) ?? null,
         runId: storedRunId ?? runData?.run_id ?? null,
         updatedAt: runData?.updated_at ?? null,
         sessionId: runData?.id ?? null,
@@ -279,6 +281,8 @@ export async function GET(request: Request) {
         (data?.research_results as Record<string, unknown> | null | undefined) ?? null,
       jobStatus:
         (data?.job_status as Record<string, unknown> | null | undefined) ?? null,
+      onboardingData:
+        (data?.onboarding_data as Record<string, unknown> | null | undefined) ?? null,
       runId: storedRunId ?? data?.run_id ?? null,
       updatedAt: data?.updated_at ?? null,
       sessionId: data?.id ?? null,
