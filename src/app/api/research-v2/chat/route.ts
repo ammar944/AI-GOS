@@ -280,24 +280,27 @@ export async function POST(req: Request): Promise<Response> {
       const newSection: Record<string, unknown> = isWrapped
         ? { ...wrapper, data: patchedInner }
         : { ...patchedInner };
-      const newResults = {
-        ...researchResults,
-        [intent.target_section]: newSection,
-      };
 
-      const { error: updateError } = await supabase
-        .from('journey_sessions')
-        .update({ research_results: newResults })
-        .eq('user_id', userId)
-        .eq('run_id', runId);
+      // Use the atomic per-section JSONB merge RPC. Writing the whole
+      // research_results column back would clobber any concurrent worker
+      // section write that landed between our read and write.
+      const { error: rpcError } = await supabase.rpc(
+        'merge_journey_session_research_result',
+        {
+          p_user_id: userId,
+          p_run_id: runId,
+          p_section: intent.target_section,
+          p_result: newSection,
+        },
+      );
 
-      if (updateError) {
+      if (rpcError) {
         logSupabaseError(
-          'update_research_results_patch',
+          'merge_research_results_patch',
           { runId, userId },
-          updateError,
+          rpcError,
         );
-        throw new Error(`Failed to persist patch: ${updateError.message}`);
+        throw new Error(`Failed to persist patch: ${rpcError.message}`);
       }
 
       const ackText = `Updated ${intent.target_section} → ${intent.patch.path} = ${JSON.stringify(intent.patch.value)}`;

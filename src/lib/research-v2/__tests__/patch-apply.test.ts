@@ -3,6 +3,10 @@ import { describe, it, expect } from 'vitest';
 import { applyPatch, isValidPath } from '../patch-apply';
 
 describe('isValidPath', () => {
+  it('accepts a bare identifier', () => {
+    expect(isValidPath('foo')).toBe(true);
+  });
+
   it('accepts simple dotted paths', () => {
     expect(isValidPath('foo.bar')).toBe(true);
     expect(isValidPath('keyFindings[0].evidence')).toBe(true);
@@ -16,11 +20,27 @@ describe('isValidPath', () => {
   it('rejects paths with dangerous tokens', () => {
     expect(isValidPath('__proto__.foo')).toBe(false);
     expect(isValidPath('constructor.prototype')).toBe(false);
+    expect(isValidPath('foo.constructor.bar')).toBe(false);
   });
 
   it('rejects paths starting with a dot or bracket', () => {
     expect(isValidPath('.foo')).toBe(false);
     expect(isValidPath('[0].bar')).toBe(false);
+  });
+
+  it('rejects trailing dot and double dots', () => {
+    expect(isValidPath('foo.')).toBe(false);
+    expect(isValidPath('foo..bar')).toBe(false);
+  });
+
+  it('rejects empty or non-numeric brackets', () => {
+    expect(isValidPath('keyFindings[].evidence')).toBe(false);
+    expect(isValidPath('keyFindings[abc].evidence')).toBe(false);
+    expect(isValidPath('sources[1a].url')).toBe(false);
+  });
+
+  it('rejects identifiers starting with digits', () => {
+    expect(isValidPath('1foo.bar')).toBe(false);
   });
 });
 

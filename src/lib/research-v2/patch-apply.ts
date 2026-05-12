@@ -3,17 +3,31 @@ import type { IntentPatch } from './intent-router.types';
 const DANGEROUS_TOKENS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
- * Validates a JSONB patch path. Accepts dotted paths with optional bracket
- * indices (e.g. "keyFindings[0].evidence", "sources[2].url"). Rejects empty
- * paths, leading dot/bracket, and any path containing __proto__, constructor,
- * or prototype to block prototype pollution.
+ * Whole-string grammar for a JSONB patch path:
+ *   path     := segment ("." segment)*
+ *   segment  := identifier ("[" digits "]")*
+ *   identifier := /[A-Za-z_][A-Za-z0-9_]*\/
+ *
+ * Rejects: empty paths, leading/trailing dot, double dots, empty brackets
+ * (`foo[]`), non-numeric brackets (`foo[abc]`), and anything else the old
+ * `split(/[.\[\]]+/).filter(Boolean)` tokenizer used to silently swallow.
+ */
+const PATH_REGEX =
+  /^[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*)*$/;
+
+/**
+ * Validates a JSONB patch path. Accepts dotted paths with optional numeric
+ * bracket indices (e.g. "keyFindings[0].evidence", "sources[2].url"). Rejects
+ * empty paths, leading/trailing dot, malformed brackets, and any path
+ * containing __proto__, constructor, or prototype to block prototype pollution.
  */
 export function isValidPath(path: string): boolean {
   if (!path) return false;
-  if (path.startsWith('.') || path.startsWith('[')) return false;
-  const segments = path.split(/[.\[\]]+/).filter(Boolean);
-  if (segments.length === 0) return false;
-  return !segments.some((seg) => DANGEROUS_TOKENS.has(seg));
+  if (!PATH_REGEX.test(path)) return false;
+  const identifiers = path
+    .split(/[.\[\]]/)
+    .filter((s) => s && !/^\d+$/.test(s));
+  return !identifiers.some((id) => DANGEROUS_TOKENS.has(id));
 }
 
 interface PathToken {
