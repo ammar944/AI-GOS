@@ -11,6 +11,7 @@ import {
   ToolGapSchema,
   apiErrorGap,
   credentialGap,
+  errorToGap,
   timedFetch,
   type ToolGap,
 } from './_shared';
@@ -81,8 +82,7 @@ export const firecrawlAgentTool = tool({
         sourceUrl: data.data?.metadata?.sourceURL,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return apiErrorGap(`Firecrawl request failed: ${message}`) as ToolGap;
+      return errorToGap(err, 'Firecrawl request failed');
     }
   },
 });

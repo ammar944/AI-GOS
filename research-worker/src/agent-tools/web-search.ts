@@ -22,19 +22,12 @@ import {
   type ToolGap,
 } from './_shared';
 
-const WebSearchOutputSchema = z.union([
-  z.object({
-    type: z.literal('result'),
-    query: z.string(),
-    notice: z.string(),
-  }),
-  ToolGapSchema,
-]);
-
 /**
- * The AI SDK fallback wrapper. The real production path uses Anthropic's
- * server-side web_search_20250901 tool, configured at the agent level rather
- * than as an AI SDK tool() — this stub exists for parity and tests.
+ * The AI SDK fallback wrapper. Production agents inject Anthropic's
+ * server-side web_search_20250901 via provider tools — this AI SDK shim
+ * returns a `not_implemented` gap so the subagent surfaces "web search not
+ * wired in this code path" cleanly rather than silently succeeding with
+ * empty results (the Phase 3a Codex review caught the silent-success bug).
  */
 export const webSearchAgentTool = tool({
   description:
@@ -47,17 +40,12 @@ export const webSearchAgentTool = tool({
       .default(5)
       .describe('Maximum number of results to return.'),
   }),
-  outputSchema: WebSearchOutputSchema,
-  execute: async ({ query }) => {
-    // Subagents in Phase 3b configure web_search at the Anthropic provider
-    // level — this fallback only runs in test contexts.
-    return {
-      type: 'result' as const,
-      query,
-      notice:
-        'webSearchAgentTool fallback hit. Production agents should invoke Anthropic web_search_20250901 via provider tools instead of this AI SDK shim.',
-    };
-  },
+  execute: async (): Promise<ToolGap> => ({
+    type: 'gap',
+    reason: 'not_implemented',
+    message:
+      'AI SDK web_search shim hit. Production agents must configure Anthropic web_search_20250901 via providerOptions — Phase 3b wires this in the subagent definitions.',
+  }),
 });
 
 /**

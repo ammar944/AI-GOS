@@ -93,27 +93,53 @@ export async function runMarketCategorySpike(input: SpikeInput): Promise<{
 
 ${MARKET_CATEGORY_INSTRUCTIONS}`;
 
-  const { text } = await marketCategorySpikeAgent.generate({
-    prompt,
-    abortSignal: input.abortSignal,
-  });
+  let markdown = '';
+  let terminalStatus: 'complete' | 'error' = 'complete';
+  let errorPayload: Record<string, unknown> | null = null;
+  try {
+    const generation = await marketCategorySpikeAgent.generate({
+      prompt,
+      abortSignal: input.abortSignal,
+    });
+    markdown = generation.text;
+  } catch (err) {
+    terminalStatus = 'error';
+    errorPayload = {
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
 
-  await commitArtifactSection(
+  // Commit terminal state — covers both success and failure so the section
+  // never gets stuck in `running`. start_section_run pins revision=0 +
+  // section_run_id, so the first CAS lands at expected=0.
+  const commit = await commitArtifactSection(
     artifactId,
     'positioningMarketCategory',
     sectionRunId,
-    0, // first commit on a freshly-started run
+    0,
     {
-      status: 'complete',
+      status: terminalStatus,
       title: 'Market Category',
-      markdown: text,
+      markdown,
       claims: [],
       sources: [],
-      error: null,
+      error: errorPayload,
     },
   );
 
-  return { artifactId, sectionRunId, markdown: text };
+  if (!commit?.ok) {
+    throw new Error(
+      `Phase 3a spike commit failed (conflict=${commit?.conflict}, revision=${commit?.revision}). A concurrent run already advanced the section — check research_section_runs for the live run id.`,
+    );
+  }
+
+  if (terminalStatus === 'error') {
+    throw new Error(
+      `Phase 3a spike agent.generate failed: ${errorPayload?.message ?? 'unknown'}`,
+    );
+  }
+
+  return { artifactId, sectionRunId, markdown };
 }
 
 // CLI entry point — `tsx research-worker/src/agents/market-category-spike.ts ...`

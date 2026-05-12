@@ -13,8 +13,8 @@ import { z } from 'zod';
 
 import {
   ToolGapSchema,
-  apiErrorGap,
   credentialGap,
+  errorToGap,
   timedFetch,
   type ToolGap,
 } from './_shared';
@@ -90,7 +90,7 @@ export const spyfuAgentTool = tool({
       if (message.startsWith('missing_credential:')) {
         return credentialGap('SPYFU_API_KEY') as ToolGap;
       }
-      return apiErrorGap(`SpyFu request failed: ${message}`) as ToolGap;
+      return errorToGap(err, 'SpyFu request failed');
     }
   },
 });

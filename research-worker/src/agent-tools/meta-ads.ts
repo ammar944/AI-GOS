@@ -1,13 +1,37 @@
 /**
- * Meta Ads transparency wrapper — Phase 3a shape uses the same SearchAPI
- * fallback as adlibrary.ts. The Competitor Landscape subagent calls this
- * when it specifically wants the Meta-side ad inventory; adlibrary is the
- * more general entry point.
+ * Meta Ads transparency wrapper — wraps adlibrary with platform pinned to
+ * 'meta'. Codex Phase 3a QA caught that re-exporting adLibraryAgentTool
+ * verbatim let a model omit `platform` and silently default to meta on
+ * google_ads. We narrow the schema so each alias has correct semantics.
  */
 
-import { adLibraryAgentTool } from './adlibrary';
+import { tool } from 'ai';
+import { z } from 'zod';
 
-// Phase 3a alias — the Meta-specific entry just narrows adLibrary's
-// platform parameter. Phase 3b can split if richer Meta-only features
-// (page transparency, advertiser spend) are wired.
-export const metaAdsAgentTool = adLibraryAgentTool;
+import { adLibraryAgentTool } from './adlibrary';
+import { type ToolGap } from './_shared';
+
+type AdLibraryResult = Awaited<
+  ReturnType<NonNullable<typeof adLibraryAgentTool.execute>>
+>;
+
+export const metaAdsAgentTool = tool({
+  description:
+    'Look up active Meta (Facebook + Instagram) advertising creative for a brand. Returns a small set of ad URLs + snippets you can cite as evidence the competitor is running paid acquisition on Meta.',
+  inputSchema: z.object({
+    advertiser: z.string(),
+    max_results: z.number().int().default(8),
+  }),
+  execute: async (
+    { advertiser, max_results },
+    opts,
+  ): Promise<AdLibraryResult | ToolGap> => {
+    if (!adLibraryAgentTool.execute) {
+      return { type: 'gap', reason: 'not_implemented', message: 'adLibrary tool has no execute' };
+    }
+    return adLibraryAgentTool.execute(
+      { advertiser, platform: 'meta', max_results },
+      opts,
+    );
+  },
+});

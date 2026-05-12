@@ -10,6 +10,7 @@ import { z } from 'zod';
 import {
   ToolGapSchema,
   apiErrorGap,
+  errorToGap,
   timedFetch,
   type ToolGap,
 } from './_shared';
@@ -60,8 +61,7 @@ export const pagespeedAgentTool = tool({
         audits: lr?.audits ?? null,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return apiErrorGap(`PageSpeed request failed: ${message}`) as ToolGap;
+      return errorToGap(err, 'PageSpeed request failed');
     }
   },
 });

@@ -59,6 +59,31 @@ export interface FetchOptions extends RequestInit {
   abortSignal?: AbortSignal;
 }
 
+/**
+ * Combines abort signals via AbortSignal.any when available (Node 20+) or
+ * a small polyfill otherwise. The worker's package.json declares
+ * engines.node >= 18.17 where AbortSignal.timeout is stable; on Railway's
+ * Node 22 production runtime AbortSignal.any is also native.
+ */
+function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
+  if (signals.length === 1) return signals[0]!;
+  if (typeof (AbortSignal as unknown as { any?: typeof AbortSignal.any }).any === 'function') {
+    return AbortSignal.any(signals);
+  }
+  // Polyfill for older runtimes.
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), {
+      once: true,
+    });
+  }
+  return controller.signal;
+}
+
 export async function timedFetch(
   url: string,
   options: FetchOptions = {},
@@ -68,8 +93,26 @@ export async function timedFetch(
   if (abortSignal) signals.push(abortSignal);
   return fetch(url, {
     ...init,
-    signal: AbortSignal.any(signals),
+    signal: composeAbortSignals(signals),
   });
+}
+
+/**
+ * Detects an AbortError (external abort or timeout) so wrappers can surface
+ * a typed `aborted` gap rather than a generic api_error.
+ */
+export function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { name?: unknown; code?: unknown };
+  return e.name === 'AbortError' || e.name === 'TimeoutError' || e.code === 'ABORT_ERR';
+}
+
+export function errorToGap(err: unknown, prefix: string): ToolGap {
+  if (isAbortError(err)) {
+    return { type: 'gap', reason: 'aborted', message: `${prefix}: aborted` };
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return apiErrorGap(`${prefix}: ${message}`);
 }
 
 // ---------------------------------------------------------------------------
