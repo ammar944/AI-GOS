@@ -32,6 +32,9 @@ export * from './_shared';
 // Convenience tool maps per positioning subagent. Phase 3b uses these
 // directly in the subagent definitions.
 
+import { anthropic } from '@ai-sdk/anthropic';
+import type { ToolSet } from 'ai';
+
 import { firecrawlAgentTool } from './firecrawl';
 import { pagespeedAgentTool } from './pagespeed';
 import { reviewsAgentTool } from './reviews';
@@ -41,22 +44,45 @@ import { metaAdsAgentTool } from './meta-ads';
 import { googleAdsAgentTool } from './google-ads';
 import { keywordAdProbeAgentTool } from './keyword-ad-probe';
 import { ga4AgentTool } from './ga4';
-import { codeExecutionAgentTool } from './code-execution';
-import { webSearchAgentTool } from './web-search';
 
-export const POSITIONING_TOOL_MAPS = {
+/**
+ * Anthropic provider-native tools. The SDK injects them at the model call
+ * level so Claude executes web_search + code_execution server-side. Phase
+ * 3a's webSearchAgentTool + codeExecutionAgentTool shims existed because
+ * the spike couldn't verify these factories were exported from
+ * @ai-sdk/anthropic; Phase 3b's Codex QA caught that those shims returned
+ * not_implemented gaps and broke every subagent's web search.
+ */
+const anthropicWebSearch = anthropic.tools.webSearch_20250305({});
+const anthropicCodeExecution = anthropic.tools.codeExecution_20250825({});
+
+// Provider tools + user-defined tool() wrappers have incompatible
+// Schema<never> vs Schema<input> generics in the AI SDK v6 type. The
+// runtime composition works fine — cast each map to ToolSet so the
+// ToolLoopAgent accepts the mixed registry.
+export const POSITIONING_TOOL_MAPS: {
+  positioningMarketCategory: ToolSet;
+  positioningBuyerICP: ToolSet;
+  positioningCompetitorLandscape: ToolSet;
+  positioningVoiceOfCustomer: ToolSet;
+  positioningDemandIntent: ToolSet;
+  positioningOfferDiagnostic: ToolSet;
+} = {
   positioningMarketCategory: {
-    web_search: webSearchAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    web_search: anthropicWebSearch as any,
     firecrawl: firecrawlAgentTool,
     pagespeed: pagespeedAgentTool,
   },
   positioningBuyerICP: {
-    web_search: webSearchAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    web_search: anthropicWebSearch as any,
     reviews: reviewsAgentTool,
     firecrawl: firecrawlAgentTool,
   },
   positioningCompetitorLandscape: {
-    web_search: webSearchAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    web_search: anthropicWebSearch as any,
     spyfu: spyfuAgentTool,
     adlibrary: adLibraryAgentTool,
     meta_ads: metaAdsAgentTool,
@@ -64,21 +90,25 @@ export const POSITIONING_TOOL_MAPS = {
     firecrawl: firecrawlAgentTool,
   },
   positioningVoiceOfCustomer: {
-    web_search: webSearchAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    web_search: anthropicWebSearch as any,
     reviews: reviewsAgentTool,
     firecrawl: firecrawlAgentTool,
   },
   positioningDemandIntent: {
-    web_search: webSearchAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    web_search: anthropicWebSearch as any,
     keyword_ad_probe: keywordAdProbeAgentTool,
     firecrawl: firecrawlAgentTool,
   },
   positioningOfferDiagnostic: {
-    web_search: webSearchAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    web_search: anthropicWebSearch as any,
     ga4: ga4AgentTool,
     pagespeed: pagespeedAgentTool,
     reviews: reviewsAgentTool,
     firecrawl: firecrawlAgentTool,
-    code_execution: codeExecutionAgentTool,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    code_execution: anthropicCodeExecution as any,
   },
-} as const;
+};

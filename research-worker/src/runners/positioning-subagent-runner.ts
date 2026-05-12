@@ -79,20 +79,23 @@ Use the confirmed company corpus, prior approved Journey artifacts, and any tool
 CONTEXT:
 ${refinedContext}`;
 
-  try {
-    const result = await Promise.race([
-      agent.generate({ prompt }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () =>
-            reject(
-              new Error(`Subagent timeout after ${SUBAGENT_TIMEOUT_MS / 1000}s`),
-            ),
-          SUBAGENT_TIMEOUT_MS,
-        ),
-      ),
-    ]);
+  // P2 fix: AbortController so the timeout actually cancels the in-flight
+  // agent.generate() (and its tool calls). Previously Promise.race resolved
+  // the timeout but the agent kept running, burning Anthropic quota until
+  // the model returned.
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(
+    () => controller.abort(new Error(`Subagent timeout after ${SUBAGENT_TIMEOUT_MS / 1000}s`)),
+    SUBAGENT_TIMEOUT_MS,
+  );
 
+  try {
+    const result = await agent.generate({
+      prompt,
+      abortSignal: controller.signal,
+    });
+
+    clearTimeout(timeoutHandle);
     const rawText = (result as { text?: string }).text ?? '';
     const parsed = extractJson(rawText);
     if (!isRecord(parsed)) {
@@ -143,6 +146,7 @@ ${refinedContext}`;
       durationMs: Date.now() - startTime,
     };
   } catch (err) {
+    clearTimeout(timeoutHandle);
     const message = err instanceof Error ? err.message : String(err);
     await emitRunnerProgress(onProgress, 'error', message);
     return {
