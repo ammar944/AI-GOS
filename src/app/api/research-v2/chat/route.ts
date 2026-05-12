@@ -1,6 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { auth } from '@clerk/nextjs/server';
-import { convertToModelMessages, streamText } from 'ai';
+import { streamText, type ModelMessage } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -22,7 +22,7 @@ const chatTextPartSchema = z.object({
 
 const chatMessageSchema = z.object({
   id: z.string().optional(),
-  role: z.enum(['user', 'assistant', 'system']),
+  role: z.enum(['user', 'assistant']),
   parts: z.array(chatTextPartSchema),
 });
 
@@ -454,10 +454,22 @@ export async function POST(req: Request): Promise<Response> {
 
 Answer the user's question grounded in the audit above. If they ask for clarification on a section, refer to specific findings. If they ask a question that would require running new research or modifying a section, you may suggest "I can rerun the [section] with that refinement — want me to?" but do not actually trigger anything; this turn is conversational only.`;
 
+  // Build model messages from server-owned audit_chat_messages rows instead
+  // of the browser-supplied body.messages. chatHistory was loaded above with
+  // role IN ('user', 'assistant'), scoped to (userId, runId), ordered ASC,
+  // and already includes the just-inserted current user turn as its last
+  // item — so we use it directly. This (a) preserves context after a page
+  // reload (when body.messages is empty) and (b) prevents the client from
+  // forging system/assistant roles to steer the audit-grounded reply.
+  const conversationMessages: ModelMessage[] = chatHistory.map((msg) => ({
+    role: msg.role,
+    content: msg.content,
+  }));
+
   const conversation = streamText({
     model: anthropic('claude-sonnet-4-6'),
     system: conversationSystem,
-    messages: await convertToModelMessages(body.messages as never),
+    messages: conversationMessages,
     async onFinish({ text }) {
       const assistantInsert: AuditChatInsert = {
         run_id: runId,
