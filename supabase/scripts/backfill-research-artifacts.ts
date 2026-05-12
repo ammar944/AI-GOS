@@ -59,6 +59,22 @@ async function backfillSection(
   zone: string,
   legacy: LegacySection,
 ): Promise<void> {
+  // Skip rows where a live run has already taken the section. We never want
+  // backfill to clobber an in-flight or freshly-committed write — the legacy
+  // JSONB shape is strictly older than any normalized row that exists.
+  const { data: existing } = await supabase
+    .from('research_artifact_sections')
+    .select('revision, status, section_run_id')
+    .eq('artifact_id', artifactId)
+    .eq('zone', zone)
+    .maybeSingle();
+  if (existing) {
+    console.log(
+      `[backfill] skipped ${artifactId}:${zone} — section already exists (revision ${existing.revision}, status ${existing.status})`,
+    );
+    return;
+  }
+
   const markdown = legacy.artifact?.markdown ?? null;
   const status = legacy.status ?? 'idle';
 
@@ -71,11 +87,12 @@ async function backfillSection(
   };
 
   // section_run_id is null for backfilled rows; the first legitimate write
-  // creates a real run via start_section_run and bumps revision from 0 → 1.
+  // after backfill must pass section_run_id matching the active run (the row
+  // we insert here leaves section_run_id pointing at the placeholder, which
+  // no live runner will use — so the active-run guard rejects accidental
+  // overwrites until start_section_run pins a real run).
   const placeholderRunId = '00000000-0000-0000-0000-000000000000';
 
-  // CAS from revision=0 to seed the row. If a row already exists with
-  // revision > 0 (concurrent live write), bail — don't clobber live data.
   const { data, error } = await supabase.rpc('commit_artifact_section', {
     p_artifact_id: artifactId,
     p_zone: zone,

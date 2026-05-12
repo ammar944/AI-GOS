@@ -315,6 +315,7 @@ function extractClaimsFromEnvelope(data: unknown): unknown[] {
   const envelope = data as Record<string, unknown>;
   const claims: unknown[] = [];
 
+  // Canonical envelope shape per json-to-markdown.ts.
   if (Array.isArray(envelope.keyFindings)) {
     envelope.keyFindings.forEach((finding, idx) => {
       if (finding && typeof finding === 'object') {
@@ -333,6 +334,39 @@ function extractClaimsFromEnvelope(data: unknown): unknown[] {
       }
     });
   }
+
+  // Older runner outputs use `claims` directly. Mirror the projector so we
+  // don't drop valid evidence the legacy JSONB path would have rendered.
+  if (Array.isArray(envelope.claims)) {
+    envelope.claims.forEach((c, idx) => {
+      if (typeof c === 'string') {
+        claims.push({
+          id: `claim-${idx}`,
+          text: c,
+          confidence: 0.5,
+          sourceIds: [],
+        });
+        return;
+      }
+      if (c && typeof c === 'object') {
+        const obj = c as Record<string, unknown>;
+        if (typeof obj.text === 'string') {
+          claims.push({
+            id: typeof obj.id === 'string' ? obj.id : `claim-${idx}`,
+            text: obj.text,
+            confidence:
+              typeof obj.confidence === 'number'
+                ? Math.max(0, Math.min(1, obj.confidence))
+                : 0.5,
+            sourceIds: Array.isArray(obj.sourceIds)
+              ? obj.sourceIds.filter((s): s is string => typeof s === 'string')
+              : [],
+          });
+        }
+      }
+    });
+  }
+
   return claims;
 }
 
@@ -389,6 +423,29 @@ function extractSourcesFromEnvelope(data: unknown, citations: ResearchResult['ci
         }
       });
     }
+    // Older runner outputs use `references` / `citations` arrays at envelope
+    // level. Mirror the projector's fallbacks so we don't silently drop them.
+    for (const key of ['references', 'citations'] as const) {
+      const value = envelope[key];
+      if (Array.isArray(value)) {
+        value.forEach((r) => {
+          if (typeof r === 'string') {
+            push(r);
+          } else if (r && typeof r === 'object') {
+            const obj = r as Record<string, unknown>;
+            if (typeof obj.url === 'string') {
+              push(
+                obj.url,
+                typeof obj.title === 'string' ? obj.title : undefined,
+                typeof obj.whyItMatters === 'string'
+                  ? obj.whyItMatters
+                  : undefined,
+              );
+            }
+          }
+        });
+      }
+    }
   }
 
   if (Array.isArray(citations)) {
@@ -402,6 +459,25 @@ function extractSourcesFromEnvelope(data: unknown, citations: ResearchResult['ci
   return Array.from(seen.values());
 }
 
+async function readCurrentSection(
+  artifactId: string,
+  zone: string,
+): Promise<{ revision: number; section_run_id: string | null } | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('research_artifact_sections')
+    .select('revision, section_run_id')
+    .eq('artifact_id', artifactId)
+    .eq('zone', zone)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    revision: typeof data.revision === 'number' ? data.revision : 0,
+    section_run_id:
+      typeof data.section_run_id === 'string' ? data.section_run_id : null,
+  };
+}
+
 async function writeArtifactSectionFromLegacy(
   userId: string,
   runId: string,
@@ -411,15 +487,15 @@ async function writeArtifactSectionFromLegacy(
   const artifactId = await ensureArtifact(userId, runId);
   if (!artifactId) return;
 
-  const sectionRunId = await startSectionRun(
-    artifactId,
-    section,
-    userId,
-    null,
-  );
-  if (!sectionRunId) return;
-
-  const expectedRevision = await readCurrentSectionRevision(artifactId, section);
+  // Phase 2 dual-write goes straight to a terminal commit. We skip
+  // start_section_run so the projector never sees a transient `running`
+  // state that lies about the legacy JSONB already being `complete`. When
+  // a section already has a pinned active run (Phase 3b subagent in flight),
+  // reuse that section_run_id so commit_artifact_section's active-run guard
+  // accepts the write.
+  const current = await readCurrentSection(artifactId, section);
+  const sectionRunId = current?.section_run_id ?? crypto.randomUUID();
+  const expectedRevision = current?.revision ?? 0;
 
   const patch: ArtifactSectionPatch = {
     status: result.status,
@@ -440,15 +516,7 @@ async function writeArtifactSectionFromLegacy(
 
   if (commit?.conflict) {
     console.warn(
-      `[worker] artifact-section commit conflict on ${section} (revision ${commit.revision}) — retrying once`,
-    );
-    const retryRevision = await readCurrentSectionRevision(artifactId, section);
-    await commitArtifactSection(
-      artifactId,
-      section,
-      sectionRunId,
-      retryRevision,
-      patch,
+      `[worker] artifact-section commit conflict on ${section} (revision ${commit.revision}) — skipping retry; live run owns the slot`,
     );
   }
 }

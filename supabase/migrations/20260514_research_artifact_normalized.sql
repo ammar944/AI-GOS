@@ -217,10 +217,13 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare v_current_revision int;
+declare
+  v_current_revision int;
+  v_current_run_id uuid;
 begin
   begin
-    select revision into v_current_revision
+    select revision, section_run_id
+      into v_current_revision, v_current_run_id
       from research_artifact_sections
       where artifact_id = p_artifact_id and zone = p_zone
       for update nowait;
@@ -231,6 +234,11 @@ begin
   end;
 
   if v_current_revision is null then
+    -- No row exists yet. Only allow insert when caller expects revision 0.
+    if p_expected_revision <> 0 then
+      return query select false, -1, true;
+      return;
+    end if;
     insert into research_artifact_sections (
       artifact_id, zone, revision, section_run_id, status,
       title, markdown, claims, sources, error, updated_at
@@ -247,12 +255,44 @@ begin
       coalesce(p_patch->'sources', '[]'::jsonb),
       p_patch->'error',
       now()
-    );
+    )
+    on conflict (artifact_id, zone) do nothing;
+
+    -- If on_conflict swallowed the insert, surface as conflict so caller retries.
+    if not found then
+      return query select false, -1, true;
+      return;
+    end if;
+
+    -- Mark terminal on insert path too.
+    if (p_patch->>'status') in ('complete', 'error', 'partial') then
+      update research_section_runs
+        set status = p_patch->>'status',
+            completed_at = case
+              when p_patch->>'status' = 'complete' then now()
+              else completed_at
+            end,
+            error = case
+              when p_patch->>'status' = 'error' then p_patch->'error'
+              else error
+            end
+        where id = p_section_run_id;
+    end if;
+
     return query select true, 1, false;
     return;
   end if;
 
   if v_current_revision <> p_expected_revision then
+    return query select false, v_current_revision, true;
+    return;
+  end if;
+
+  -- Active-run guard: if the row has a pinned section_run_id, the caller MUST
+  -- match it (or pass it on first write). Stale runners whose run is no longer
+  -- the active one cannot overwrite a section that has advanced to a newer run.
+  if v_current_run_id is not null
+     and v_current_run_id <> p_section_run_id then
     return query select false, v_current_revision, true;
     return;
   end if;
@@ -327,7 +367,14 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- Grants — service_role calls these RPCs; authenticated users read tables.
+-- SECURITY DEFINER functions default to PUBLIC execute, which would let
+-- end-user JWTs bypass RLS. Revoke PUBLIC first, then grant only service_role.
 -- ---------------------------------------------------------------------------
+
+revoke execute on function ensure_artifact(text, text) from public, anon, authenticated;
+revoke execute on function start_section_run(uuid, text, text, text) from public, anon, authenticated;
+revoke execute on function commit_artifact_section(uuid, text, uuid, int, jsonb) from public, anon, authenticated;
+revoke execute on function append_section_event(uuid, text, text, jsonb) from public, anon, authenticated;
 
 grant execute on function ensure_artifact(text, text) to service_role;
 grant execute on function start_section_run(uuid, text, text, text) to service_role;
