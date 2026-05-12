@@ -1,6 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { auth } from '@clerk/nextjs/server';
-import { type ModelMessage, streamText } from 'ai';
+import { convertToModelMessages, streamText } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -68,15 +68,6 @@ function findLastUserMessage(
   messages: ChatRequestMessage[],
 ): ChatRequestMessage | null {
   return [...messages].reverse().find((message) => message.role === 'user') ?? null;
-}
-
-function buildEchoMessages(userText: string): ModelMessage[] {
-  return [
-    {
-      role: 'user',
-      content: userText,
-    },
-  ];
 }
 
 /**
@@ -412,13 +403,29 @@ export async function POST(req: Request): Promise<Response> {
     return ackStream.toUIMessageStreamResponse();
   }
 
-  // Fallback / converse path — stub-echo behaviour until atom 11 wires in the
-  // grounded converse runner. The user message is already persisted above.
-  const result = streamText({
-    model: anthropic('claude-haiku-4-5-20251001'),
-    system:
-      'You are an audit artifact editing assistant. This route is in stub mode: acknowledge receipt, summarize the requested edit, and explain that execution paths will be enabled next.',
-    messages: buildEchoMessages(userText),
+  // Converse path — fall-through default. Ground the model in a slim summary of
+  // every section the runner has produced so it can reference specific findings
+  // when the user asks follow-up questions. Empty audits (no sections yet) get
+  // an explicit note rather than a blank summary.
+  const auditSummary = auditContext.sections
+    .map(
+      (s) =>
+        `## ${s.title}\nStatus: ${s.statusSummary}\nKey findings: ${s.keyFindingTitles.join('; ')}`,
+    )
+    .join('\n\n');
+
+  const conversationSystem = `You are an audit-editing assistant helping a strategist refine a Pre-Pitch Positioning Audit. The user has 6 positioning sections; ${
+    auditContext.sections.length > 0
+      ? `here is a summary of what's been generated:\n\n${auditSummary}`
+      : 'the audit has not generated any sections yet.'
+  }
+
+Answer the user's question grounded in the audit above. If they ask for clarification on a section, refer to specific findings. If they ask a question that would require running new research or modifying a section, you may suggest "I can rerun the [section] with that refinement — want me to?" but do not actually trigger anything; this turn is conversational only.`;
+
+  const conversation = streamText({
+    model: anthropic('claude-sonnet-4-6'),
+    system: conversationSystem,
+    messages: await convertToModelMessages(body.messages as never),
     async onFinish({ text }) {
       const assistantInsert: AuditChatInsert = {
         run_id: runId,
@@ -440,7 +447,7 @@ export async function POST(req: Request): Promise<Response> {
       }
     },
     onError({ error }) {
-      console.error('[research-v2/chat] Assistant stream failed', {
+      console.error('[research-v2/chat] Converse stream failed', {
         runId,
         userId,
         message: error instanceof Error ? error.message : String(error),
@@ -448,5 +455,5 @@ export async function POST(req: Request): Promise<Response> {
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return conversation.toUIMessageStreamResponse();
 }
