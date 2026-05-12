@@ -342,37 +342,66 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   if (intent.kind === 'rerun' && intent.target_section) {
-    // Fire dispatch without blocking the chat response. The worker takes the
-    // chatRefinement and re-runs the targeted section asynchronously; the
-    // activity log surfaces progress on the artifact panel.
+    // Dispatch synchronously so we can surface a real error to the user
+    // instead of telling them the job was queued when it wasn't. A 10s
+    // AbortController guards against a stuck worker hanging the chat reply.
     const dispatchUrl = new URL('/api/research-v2/dispatch', req.url).toString();
-    void fetch(dispatchUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: req.headers.get('cookie') ?? '',
-      },
-      body: JSON.stringify({
-        sectionId: intent.target_section,
-        runId,
-        chatRefinement: intent.instruction,
-      }),
-    }).catch((dispatchError) => {
+    const refinement = intent.instruction.trim();
+
+    let dispatchOk = false;
+    let dispatchFailureReason: string | null = null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const res = await fetch(dispatchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: req.headers.get('cookie') ?? '',
+        },
+        body: JSON.stringify({
+          sectionId: intent.target_section,
+          runId,
+          chatRefinement: intent.instruction,
+        }),
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        dispatchOk = true;
+      } else {
+        dispatchFailureReason = `${res.status} ${res.statusText || 'error'}`;
+        console.error('[research-v2/chat] Rerun dispatch returned non-ok', {
+          runId,
+          userId,
+          targetSection: intent.target_section,
+          status: res.status,
+          statusText: res.statusText,
+        });
+      }
+    } catch (dispatchError) {
+      const isAbort =
+        dispatchError instanceof Error && dispatchError.name === 'AbortError';
+      dispatchFailureReason = isAbort
+        ? 'timeout after 10s'
+        : dispatchError instanceof Error
+          ? dispatchError.message
+          : String(dispatchError);
       console.error('[research-v2/chat] Rerun dispatch fetch failed', {
         runId,
         userId,
         targetSection: intent.target_section,
-        message:
-          dispatchError instanceof Error
-            ? dispatchError.message
-            : String(dispatchError),
+        message: dispatchFailureReason,
       });
-    });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-    const refinement = intent.instruction.trim();
-    const ackText = refinement
-      ? `Rerunning ${intent.target_section} with refinement: "${refinement}". Watch the section activity log for live progress.`
-      : `Rerunning ${intent.target_section}. Watch the section activity log for live progress.`;
+    const ackText = dispatchOk
+      ? refinement
+        ? `Rerunning ${intent.target_section} with refinement: "${refinement}". Watch the section activity log for live progress.`
+        : `Rerunning ${intent.target_section}. Watch the section activity log for live progress.`
+      : `Couldn't queue rerun for ${intent.target_section}: ${dispatchFailureReason ?? 'unknown error'}. Please try again.`;
 
     const assistantInsert: AuditChatInsert = {
       run_id: runId,
@@ -388,7 +417,7 @@ export async function POST(req: Request): Promise<Response> {
 
     if (ackInsertError) {
       logSupabaseError(
-        'insert_rerun_ack',
+        dispatchOk ? 'insert_rerun_ack' : 'insert_rerun_failure_ack',
         { runId, userId, role: 'assistant' },
         ackInsertError,
       );

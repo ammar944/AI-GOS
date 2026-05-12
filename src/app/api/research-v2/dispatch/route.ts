@@ -50,6 +50,11 @@ interface ExistingSectionStatus {
   hasMarkdown: boolean;
 }
 
+interface JobStatusEntry {
+  status?: string;
+  tool?: string;
+}
+
 async function readSectionStatus(
   userId: string,
   runId: string,
@@ -88,6 +93,49 @@ async function readSectionStatus(
   const hasMarkdown = Boolean(entry.artifact?.markdown);
 
   return { status, hasMarkdown };
+}
+
+/**
+ * Look up the journey_sessions.job_status JSONB column for an active worker
+ * job targeting `sectionId`. Returns the jobId of the first running entry, or
+ * null when no active job exists. Used to block duplicate reruns while a
+ * worker is already in flight for the same section.
+ */
+async function findActiveJobForSection(
+  userId: string,
+  runId: string,
+  sectionId: string,
+): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('job_status')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(
+      `[research-v2] Failed to read job_status for active-job check on ${sectionId}:`,
+      error.message,
+    );
+    return null;
+  }
+
+  const jobStatus = data?.job_status as Record<string, JobStatusEntry> | null;
+  if (!jobStatus) return null;
+
+  for (const [jobId, entry] of Object.entries(jobStatus)) {
+    if (
+      entry &&
+      typeof entry === 'object' &&
+      entry.status === 'running' &&
+      entry.tool === sectionId
+    ) {
+      return jobId;
+    }
+  }
+  return null;
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
@@ -129,6 +177,28 @@ export async function POST(req: Request): Promise<NextResponse> {
       { status: 409 },
     );
   }
+
+  // Chat-driven reruns bypass the research_results 'already_complete'
+  // short-circuit (the operator asked to re-run with a refinement), but we
+  // still must not queue a duplicate worker. journey_sessions.job_status is
+  // the source of truth for active worker lifecycles — if a job for this
+  // section is already running, return 409 and let the chat surface report
+  // it to the user.
+  if (chatRefinement) {
+    const activeJobId = await findActiveJobForSection(userId, runId, sectionId);
+    if (activeJobId) {
+      return NextResponse.json(
+        {
+          error: 'section already running',
+          sectionId,
+          runId,
+          jobId: activeJobId,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // Chat-driven reruns intentionally bypass the already_complete short-circuit:
   // the operator explicitly asked the chat to re-run this section with a new
   // refinement, so we must re-dispatch even if a prior artifact exists.

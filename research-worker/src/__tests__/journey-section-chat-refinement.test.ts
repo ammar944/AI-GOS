@@ -27,4 +27,11 @@ describe('buildContextWithRefinement', () => {
     expect(out).toContain('focus on X');
     expect(out).not.toContain('   focus on X   ');
   });
+
+  it('replaces unpaired surrogates in refinement', () => {
+    const lone = '\uD800abc';
+    const out = buildContextWithRefinement('ctx', lone);
+    expect(out).toContain('�');
+    expect(out).not.toContain('\uD800');
+  });
 });

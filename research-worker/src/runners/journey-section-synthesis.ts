@@ -7,6 +7,7 @@ import {
   extractJson,
   runStreamedToolRunner,
   runWithBackoff,
+  sanitizeForJson,
   type RunnerProgressReporter,
 } from '../runner';
 import type { ResearchResult } from '../supabase';
@@ -38,7 +39,12 @@ export function buildContextWithRefinement(
 ): string {
   const trimmed = chatRefinement?.trim();
   if (!trimmed) return context;
-  return `${context}\n\n--- USER REFINEMENT ---\n${trimmed}`;
+  // Sanitize the refinement before appending so unpaired surrogates from
+  // pasted text don't slip past the worker's existing sanitizer (which runs
+  // once over the base context in /run) and trigger Anthropic's "no low
+  // surrogate" error downstream.
+  const safe = sanitizeForJson(trimmed);
+  return `${context}\n\n--- USER REFINEMENT ---\n${safe}`;
 }
 
 const SECTION_SPECS = {
