@@ -9,17 +9,13 @@ import {
 } from '@/components/ai/reasoning';
 import { Shimmer } from '@/components/ai/shimmer';
 import {
-  useResearchJobActivity,
   collapseResearchJobUpdates,
   type ResearchJobUpdate,
 } from '@/lib/journey/research-job-activity';
 import { cn } from '@/lib/utils';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 interface ZoneActivityProps {
-  userId: string;
-  runId: string;
-  sectionId: PositioningSectionId;
+  updates: ResearchJobUpdate[] | undefined;
   isRunning: boolean;
   isComplete: boolean;
   className?: string;
@@ -64,18 +60,14 @@ function deriveDurationSeconds(updates: ResearchJobUpdate[]): number | undefined
 }
 
 export function ZoneActivity({
-  userId,
-  runId,
-  sectionId,
+  updates,
   isRunning,
   isComplete,
   className,
 }: ZoneActivityProps) {
-  const activity = useResearchJobActivity({ userId, activeRunId: runId });
-  const job = activity[sectionId];
   const collapsed = useMemo(
-    () => collapseResearchJobUpdates(job?.updates),
-    [job?.updates],
+    () => collapseResearchJobUpdates(updates),
+    [updates],
   );
   const duration = useMemo(() => deriveDurationSeconds(collapsed), [collapsed]);
 

@@ -12,6 +12,9 @@ import {
 import {
   sectionEnvelopeToMarkdown,
   type PositioningSectionEnvelope,
+  type SectionKeyFinding,
+  type SectionEvidenceQuote,
+  type SectionSource,
 } from '@/lib/research-v2/json-to-markdown';
 
 import {
@@ -27,9 +30,10 @@ import {
 type ResearchJobActivityState = {
   status?: 'running' | 'complete' | 'error' | 'idle' | string;
   updates?: ResearchJobUpdate[];
+  jobId?: string;
 };
 
-type ResearchJobActivityMap = Partial<
+export type ResearchJobActivityMap = Partial<
   Record<PositioningSectionId, ResearchJobActivityState>
 >;
 
@@ -38,6 +42,7 @@ type RawSectionRow = {
   data?: unknown;
   artifact?: { markdown?: string | null } | null;
   error?: string | null;
+  citations?: unknown;
 };
 
 export type AuditArtifactInput = {
@@ -64,6 +69,7 @@ function mapJobStatusToZoneStatus(
   resultStatus: string | undefined,
 ): ZoneStatus {
   if (resultStatus === 'complete') return 'complete';
+  if (resultStatus === 'partial') return 'partial';
   if (resultStatus === 'error' || jobStatus === 'error') return 'error';
   if (jobStatus === 'running' || jobStatus === 'pending') return 'running';
   if (resultStatus === 'pending') return 'running';
@@ -102,87 +108,160 @@ function projectNarrative(row: RawSectionRow | null | undefined): string {
   return '';
 }
 
+function isKeyFinding(value: unknown): value is SectionKeyFinding {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { title?: unknown }).title === 'string' &&
+    typeof (value as { detail?: unknown }).detail === 'string'
+  );
+}
+
+function isEvidenceQuote(value: unknown): value is SectionEvidenceQuote {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { quote?: unknown }).quote === 'string' &&
+    typeof (value as { source?: unknown }).source === 'string'
+  );
+}
+
+function isSectionSource(value: unknown): value is SectionSource {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { url?: unknown }).url === 'string'
+  );
+}
+
 function projectClaims(row: RawSectionRow | null | undefined): ArtifactClaim[] {
   if (!row?.data || typeof row.data !== 'object') return [];
   const envelope = row.data as Record<string, unknown>;
-  const claimsCandidate =
-    envelope.claims ??
-    envelope.key_claims ??
-    envelope.findings ??
-    null;
-  if (!Array.isArray(claimsCandidate)) return [];
-  return claimsCandidate
-    .map((c, idx) => {
+
+  const claims: ArtifactClaim[] = [];
+
+  if (Array.isArray(envelope.keyFindings)) {
+    envelope.keyFindings.forEach((finding, idx) => {
+      if (!isKeyFinding(finding)) return;
+      const text = finding.detail
+        ? `${finding.title}: ${finding.detail}`
+        : finding.title;
+      claims.push({
+        id: `kf-${idx}`,
+        text,
+        confidence: 0.6,
+        sourceIds: finding.sourceUrl
+          ? [normalizeSourceId(finding.sourceUrl)]
+          : [],
+      });
+    });
+  }
+
+  if (Array.isArray(envelope.claims)) {
+    envelope.claims.forEach((c, idx) => {
       if (typeof c === 'string') {
-        return {
+        claims.push({
           id: `claim-${idx}`,
           text: c,
           confidence: 0.5,
-          sourceIds: [] as string[],
-        };
+          sourceIds: [],
+        });
+        return;
       }
       if (c && typeof c === 'object') {
         const obj = c as Record<string, unknown>;
-        const text = typeof obj.text === 'string' ? obj.text : null;
-        if (!text) return null;
-        const sourceIds = Array.isArray(obj.sourceIds)
-          ? obj.sourceIds.filter((s): s is string => typeof s === 'string')
-          : [];
-        const rawConfidence =
-          typeof obj.confidence === 'number' ? obj.confidence : 0.5;
-        return {
-          id: typeof obj.id === 'string' ? obj.id : `claim-${idx}`,
-          text,
-          confidence: Math.max(0, Math.min(1, rawConfidence)),
-          sourceIds,
-        };
+        if (typeof obj.text === 'string') {
+          claims.push({
+            id: typeof obj.id === 'string' ? obj.id : `claim-${idx}`,
+            text: obj.text,
+            confidence:
+              typeof obj.confidence === 'number'
+                ? Math.max(0, Math.min(1, obj.confidence))
+                : 0.5,
+            sourceIds: Array.isArray(obj.sourceIds)
+              ? obj.sourceIds.filter((s): s is string => typeof s === 'string')
+              : [],
+          });
+        }
       }
-      return null;
-    })
-    .filter((claim): claim is ArtifactClaim => claim !== null);
+    });
+  }
+
+  return claims;
+}
+
+function normalizeSourceId(url: string): string {
+  return `src::${url}`;
 }
 
 function projectSources(
   zoneId: string,
   row: RawSectionRow | null | undefined,
 ): ArtifactSource[] {
-  if (!row?.data || typeof row.data !== 'object') return [];
-  const envelope = row.data as Record<string, unknown>;
-  const sourcesCandidate =
-    envelope.sources ?? envelope.references ?? envelope.citations ?? null;
-  if (!Array.isArray(sourcesCandidate)) return [];
-  return sourcesCandidate
-    .map((s, idx): ArtifactSource | null => {
-      if (typeof s === 'string') {
-        return {
-          id: `${zoneId}-src-${idx}`,
-          url: s,
-          title: null,
-          fetchedAt: null,
-          snippet: null,
-          zoneId,
-        };
-      }
-      if (s && typeof s === 'object') {
-        const obj = s as Record<string, unknown>;
-        const url = typeof obj.url === 'string' ? obj.url : null;
-        if (!url) return null;
-        return {
-          id:
-            typeof obj.id === 'string'
-              ? obj.id
-              : `${zoneId}-src-${idx}`,
-          url,
-          title: typeof obj.title === 'string' ? obj.title : null,
-          fetchedAt:
-            typeof obj.fetchedAt === 'string' ? obj.fetchedAt : null,
-          snippet: typeof obj.snippet === 'string' ? obj.snippet : null,
-          zoneId,
-        };
-      }
-      return null;
-    })
-    .filter((src): src is ArtifactSource => src !== null);
+  if (!row) return [];
+  const dedup = new Map<string, ArtifactSource>();
+
+  const push = (
+    url: string,
+    title?: string | null,
+    snippet?: string | null,
+  ) => {
+    if (!url || dedup.has(url)) return;
+    dedup.set(url, {
+      id: normalizeSourceId(url),
+      url,
+      title: title ?? null,
+      fetchedAt: null,
+      snippet: snippet ?? null,
+      zoneId,
+    });
+  };
+
+  const data = row.data && typeof row.data === 'object' ? (row.data as Record<string, unknown>) : null;
+
+  if (data) {
+    if (Array.isArray(data.sources)) {
+      data.sources.forEach((s) => {
+        if (isSectionSource(s)) push(s.url, s.title ?? null, s.whyItMatters ?? null);
+      });
+    }
+    if (Array.isArray(data.keyFindings)) {
+      data.keyFindings.forEach((f) => {
+        if (isKeyFinding(f) && f.sourceUrl) {
+          push(f.sourceUrl, f.title, f.evidence ?? null);
+        }
+      });
+    }
+    if (Array.isArray(data.evidenceQuotes)) {
+      data.evidenceQuotes.forEach((q) => {
+        if (isEvidenceQuote(q)) {
+          const url = (q as { url?: unknown }).url;
+          if (typeof url === 'string') push(url, q.source, q.quote);
+        }
+      });
+    }
+    if (Array.isArray(data.references)) {
+      data.references.forEach((r) => {
+        if (typeof r === 'string') push(r);
+        else if (isSectionSource(r)) push(r.url, r.title ?? null);
+      });
+    }
+    if (Array.isArray(data.citations)) {
+      data.citations.forEach((r) => {
+        if (typeof r === 'string') push(r);
+        else if (isSectionSource(r)) push(r.url, r.title ?? null);
+      });
+    }
+  }
+
+  if (Array.isArray(row.citations)) {
+    row.citations.forEach((r) => {
+      if (typeof r === 'string') push(r);
+      else if (isSectionSource(r)) push(r.url, r.title ?? null);
+    });
+  }
+
+  return Array.from(dedup.values());
 }
 
 function projectThesis(
@@ -196,19 +275,44 @@ function projectThesis(
   const data = corpus.data as Record<string, unknown> | undefined;
   if (!data || typeof data !== 'object') return null;
 
+  // deepResearchProgram corpus output. Field names vary across runner
+  // revisions; project from the most-likely keys and fall back gracefully.
+  // Phase 2 swaps this to read from the normalized research_artifacts.thesis
+  // JSONB column, at which point the fragility below disappears.
+  const onboardingFields =
+    (data.onboardingFields as Record<string, unknown> | undefined) ?? null;
+  const synthesis =
+    (data.synthesis as Record<string, unknown> | undefined) ?? null;
+
   const positioning_statement =
-    typeof data.positioning_statement === 'string'
-      ? data.positioning_statement
-      : null;
+    pickString(data, 'positioning_statement') ??
+    pickString(synthesis, 'positioning_statement') ??
+    pickString(synthesis, 'positioning') ??
+    null;
+
   const target_user =
-    typeof data.target_user === 'string' ? data.target_user : null;
-  const jtbd = typeof data.jtbd === 'string' ? data.jtbd : null;
-  const competitors = Array.isArray(data.competitors)
-    ? data.competitors.filter((c): c is string => typeof c === 'string')
-    : null;
-  const win_axes = Array.isArray(data.win_axes)
-    ? data.win_axes.filter((c): c is string => typeof c === 'string')
-    : null;
+    pickString(data, 'target_user') ??
+    pickString(onboardingFields, 'icp') ??
+    pickString(synthesis, 'target_user') ??
+    null;
+
+  const jtbd =
+    pickString(data, 'jtbd') ??
+    pickString(onboardingFields, 'jtbd') ??
+    pickString(synthesis, 'jtbd') ??
+    null;
+
+  const competitors =
+    pickStringArray(data, 'competitors') ??
+    pickStringArray(synthesis, 'competitors') ??
+    pickStringArray(onboardingFields, 'competitors') ??
+    null;
+
+  const win_axes =
+    pickStringArray(data, 'win_axes') ??
+    pickStringArray(synthesis, 'win_axes') ??
+    pickStringArray(synthesis, 'differentiators') ??
+    null;
 
   if (
     !positioning_statement &&
@@ -229,16 +333,37 @@ function projectThesis(
   };
 }
 
+function pickString(
+  source: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  if (!source) return null;
+  const value = source[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function pickStringArray(
+  source: Record<string, unknown> | null | undefined,
+  key: string,
+): string[] | null {
+  if (!source) return null;
+  const value = source[key];
+  if (!Array.isArray(value)) return null;
+  const out = value.filter((v): v is string => typeof v === 'string' && !!v);
+  return out.length > 0 ? out : null;
+}
+
 function computeArtifactStatus(zones: Record<string, ArtifactZone>): AuditArtifact['status'] {
   const states = Object.values(zones).map((z) => z.status);
   if (states.length === 0) return 'idle';
   const hasRunning = states.some((s) => s === 'running');
   const hasComplete = states.some((s) => s === 'complete');
   const hasError = states.some((s) => s === 'error');
+  const hasPartial = states.some((s) => s === 'partial');
   const allComplete = states.every((s) => s === 'complete');
   if (allComplete) return 'complete';
   if (hasRunning) return 'running';
-  if (hasComplete && hasError) return 'partial';
+  if (hasPartial || (hasComplete && hasError)) return 'partial';
   if (hasComplete) return 'partial';
   if (hasError) return 'error';
   return 'idle';
@@ -264,7 +389,7 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
 
     zones[zoneId] = {
       zone: zoneId,
-      sectionRunId: null,
+      sectionRunId: job?.jobId ?? null,
       revision: 0,
       status,
       title: POSITIONING_SECTION_LABELS[zoneId] ?? zoneId,

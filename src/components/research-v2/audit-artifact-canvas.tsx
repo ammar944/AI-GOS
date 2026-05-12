@@ -20,21 +20,17 @@ import {
 import {
   collectAllSources,
   projectAuditArtifact,
+  type ResearchJobActivityMap,
 } from '@/lib/research-v2/audit-artifact-view';
 import type { AuditArtifact } from '@/lib/research-v2/audit-artifact-schema';
 
 import { ArtifactZone } from './artifact-zone';
 import { SourcesPanel } from './sources-panel';
 
-type JobActivityForArtifact = Parameters<
-  typeof projectAuditArtifact
->[0]['jobActivity'];
-
 interface AuditArtifactCanvasProps {
   runId: string;
-  userId: string | null;
   researchResults: Record<string, unknown> | null | undefined;
-  jobActivity: JobActivityForArtifact;
+  jobActivity: ResearchJobActivityMap | null | undefined;
   className?: string;
 }
 
@@ -98,7 +94,6 @@ function ThesisCard({ thesis }: { thesis: AuditArtifact['thesis'] }) {
 
 export function AuditArtifactCanvas({
   runId,
-  userId,
   researchResults,
   jobActivity,
   className,
@@ -130,8 +125,7 @@ export function AuditArtifactCanvas({
                   <ArtifactZone
                     key={zoneId}
                     zone={zone}
-                    runId={runId}
-                    userId={userId}
+                    activityUpdates={jobActivity?.[zoneId]?.updates}
                   />
                 );
               })}

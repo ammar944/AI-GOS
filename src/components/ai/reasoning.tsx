@@ -169,7 +169,13 @@ export const ReasoningContent = memo(({ className, children, markdown, ...props 
     )}
     {...props}
   >
-    {markdown !== undefined ? <Streamdown>{markdown}</Streamdown> : children}
+    {markdown !== undefined ? (
+      <Streamdown>{markdown}</Streamdown>
+    ) : typeof children === "string" ? (
+      <Streamdown>{children}</Streamdown>
+    ) : (
+      children
+    )}
   </CollapsibleContent>
 ))
 

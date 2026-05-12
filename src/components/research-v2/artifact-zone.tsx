@@ -25,15 +25,13 @@ import {
 } from '@/components/ui/collapsible';
 import { Shimmer } from '@/components/ai/shimmer';
 import { cn } from '@/lib/utils';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
-
+import type { ResearchJobUpdate } from '@/lib/journey/research-job-activity';
 import type { ArtifactZone as ArtifactZoneData } from '@/lib/research-v2/audit-artifact-schema';
 import { ZoneActivity } from './zone-activity';
 
 interface ArtifactZoneProps {
   zone: ArtifactZoneData;
-  runId: string;
-  userId: string | null;
+  activityUpdates: ResearchJobUpdate[] | undefined;
 }
 
 function StatusBadge({ status }: { status: ArtifactZoneData['status'] }) {
@@ -72,7 +70,7 @@ function StatusBadge({ status }: { status: ArtifactZoneData['status'] }) {
   );
 }
 
-export function ArtifactZone({ zone, runId, userId }: ArtifactZoneProps) {
+export function ArtifactZone({ zone, activityUpdates }: ArtifactZoneProps) {
   const [narrativeOpen, setNarrativeOpen] = useState(true);
   const [claimsOpen, setClaimsOpen] = useState(false);
 
@@ -105,11 +103,9 @@ export function ArtifactZone({ zone, runId, userId }: ArtifactZoneProps) {
         ) : null}
       </CardHeader>
       <CardContent className="flex-1 space-y-3 text-sm">
-        {userId && (isRunning || zone.activity.length > 0) ? (
+        {(isRunning || (activityUpdates && activityUpdates.length > 0)) ? (
           <ZoneActivity
-            userId={userId}
-            runId={runId}
-            sectionId={zone.zone as PositioningSectionId}
+            updates={activityUpdates}
             isRunning={isRunning}
             isComplete={isComplete}
           />

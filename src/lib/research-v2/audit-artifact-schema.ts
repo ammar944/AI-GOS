@@ -10,7 +10,7 @@ export const AUDIT_ARTIFACT_STATUSES = [
   'error',
 ] as const;
 
-export const ZONE_STATUSES = ['idle', 'running', 'complete', 'error'] as const;
+export const ZONE_STATUSES = ['idle', 'running', 'complete', 'partial', 'error'] as const;
 
 export const ACTIVITY_EVENT_TYPES = [
   'tool-start',

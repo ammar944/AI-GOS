@@ -81,8 +81,14 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
     if (!runId) return;
     let cancelled = false;
     let timer: number | null = null;
+    let inFlight = false;
+    let version = 0;
+    let lastApplied = 0;
 
     const tick = async () => {
+      if (inFlight) return; // skip overlapping polls
+      inFlight = true;
+      const tickVersion = ++version;
       try {
         const url = new URL('/api/journey/session', window.location.origin);
         url.searchParams.set('runId', runId);
@@ -94,9 +100,14 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
           researchResults?: Record<string, unknown> | null;
         };
         if (cancelled) return;
+        // Drop responses that came back after a newer one already applied.
+        if (tickVersion < lastApplied) return;
+        lastApplied = tickVersion;
         setResearchResults(data.researchResults ?? null);
       } catch {
         // swallow — polling will retry
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -165,7 +176,19 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
     });
   }, []);
 
-  const currentError = currentSection ? errorBySection[currentSection] : null;
+  // Fallback to the first non-complete section when the parent state machine
+  // hasn't pinned a currentSection yet (e.g. on initial sections-state entry).
+  // This keeps the operator's Run-section affordance reachable in every state.
+  const operatorSection = useMemo<PositioningSectionId | null>(() => {
+    if (currentSection) return currentSection;
+    return (
+      POSITIONING_SECTION_IDS.find(
+        (id) => sectionStatuses[id] !== 'complete',
+      ) ?? null
+    );
+  }, [currentSection, sectionStatuses]);
+
+  const currentError = operatorSection ? errorBySection[operatorSection] : null;
 
   return (
     <div className="flex h-svh overflow-hidden bg-background">
@@ -241,17 +264,17 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {currentSection ? (
+            {operatorSection ? (
               <RunSectionButton
                 runId={runId}
-                sectionId={currentSection}
-                sectionLabel={POSITIONING_SECTION_LABELS[currentSection]}
+                sectionId={operatorSection}
+                sectionLabel={POSITIONING_SECTION_LABELS[operatorSection]}
                 externalState={
-                  sectionStatuses[currentSection] === 'running'
+                  sectionStatuses[operatorSection] === 'running'
                     ? 'running'
-                    : sectionStatuses[currentSection] === 'complete'
+                    : sectionStatuses[operatorSection] === 'complete'
                       ? 'complete'
-                      : sectionStatuses[currentSection] === 'error'
+                      : sectionStatuses[operatorSection] === 'error'
                         ? 'error'
                         : 'idle'
                 }
@@ -261,12 +284,12 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
           </div>
         </header>
 
-        {currentError && currentSection ? (
+        {currentError && operatorSection ? (
           <div className="px-4 pt-3">
             <SectionErrorCard
               runId={runId}
-              sectionId={currentSection}
-              sectionLabel={POSITIONING_SECTION_LABELS[currentSection]}
+              sectionId={operatorSection}
+              sectionLabel={POSITIONING_SECTION_LABELS[operatorSection]}
               errorMessage={currentError}
               onRetry={handleRetrySection}
               onSkip={handleSkipSection}
@@ -276,7 +299,6 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
 
         <AuditArtifactCanvas
           runId={runId}
-          userId={userId}
           researchResults={researchResults}
           jobActivity={activity}
           className="flex-1"
