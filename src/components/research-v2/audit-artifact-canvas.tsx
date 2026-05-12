@@ -20,6 +20,7 @@ import {
 import {
   collectAllSources,
   projectAuditArtifact,
+  type ArtifactSectionRow,
   type ResearchJobActivityMap,
 } from '@/lib/research-v2/audit-artifact-view';
 import type { AuditArtifact } from '@/lib/research-v2/audit-artifact-schema';
@@ -30,6 +31,7 @@ import { SourcesPanel } from './sources-panel';
 interface AuditArtifactCanvasProps {
   runId: string;
   researchResults: Record<string, unknown> | null | undefined;
+  artifactSections?: Record<string, unknown> | null | undefined;
   jobActivity: ResearchJobActivityMap | null | undefined;
   className?: string;
 }
@@ -95,6 +97,7 @@ function ThesisCard({ thesis }: { thesis: AuditArtifact['thesis'] }) {
 export function AuditArtifactCanvas({
   runId,
   researchResults,
+  artifactSections,
   jobActivity,
   className,
 }: AuditArtifactCanvasProps) {
@@ -104,8 +107,12 @@ export function AuditArtifactCanvas({
         runId,
         researchResults,
         jobActivity,
+        artifactSections: artifactSections as
+          | Record<string, ArtifactSectionRow>
+          | null
+          | undefined,
       }),
-    [runId, researchResults, jobActivity],
+    [runId, researchResults, artifactSections, jobActivity],
   );
 
   const allSources = useMemo(() => collectAllSources(artifact), [artifact]);

@@ -45,11 +45,30 @@ type RawSectionRow = {
   citations?: unknown;
 };
 
+export type ArtifactSectionRow = {
+  zone: string;
+  status: string;
+  revision: number;
+  section_run_id: string | null;
+  title: string | null;
+  markdown: string | null;
+  claims: unknown;
+  sources: unknown;
+  error: unknown;
+  updated_at: string | null;
+};
+
 export type AuditArtifactInput = {
   runId: string;
   researchResults: Record<string, unknown> | null | undefined;
   jobActivity: ResearchJobActivityMap | null | undefined;
   artifactId?: string | null;
+  /**
+   * Phase 2 dual-read: normalized research_artifact_sections rows keyed by
+   * zone. When present, these take precedence over researchResults JSONB.
+   * Phase 4 cleanup removes the JSONB fallback once dual-write is stable.
+   */
+  artifactSections?: Record<string, ArtifactSectionRow> | null | undefined;
 };
 
 const PHASE_TO_EVENT_TYPE: Record<string, ArtifactActivityEvent['type']> = {
@@ -369,14 +388,75 @@ function computeArtifactStatus(zones: Record<string, ArtifactZone>): AuditArtifa
   return 'idle';
 }
 
+function projectZoneFromNormalized(
+  zoneId: string,
+  normalized: ArtifactSectionRow,
+  job: ResearchJobActivityState | undefined,
+  legacyError: string | null,
+): ArtifactZone {
+  const claims = Array.isArray(normalized.claims)
+    ? (normalized.claims as ArtifactClaim[])
+    : [];
+  const sources = Array.isArray(normalized.sources)
+    ? (normalized.sources as ArtifactSource[])
+    : [];
+  const activity = projectActivity(job?.updates);
+
+  const errorPayload =
+    normalized.error && typeof normalized.error === 'object'
+      ? (normalized.error as Record<string, unknown>)
+      : null;
+  const errorMessage =
+    typeof errorPayload?.message === 'string'
+      ? (errorPayload.message as string)
+      : legacyError;
+
+  const status = mapJobStatusToZoneStatus(job?.status, normalized.status);
+
+  return {
+    zone: zoneId,
+    sectionRunId: normalized.section_run_id ?? job?.jobId ?? null,
+    revision: typeof normalized.revision === 'number' ? normalized.revision : 0,
+    status,
+    title:
+      normalized.title ??
+      (POSITIONING_SECTION_LABELS as Record<string, string>)[zoneId] ??
+      zoneId,
+    narrative: normalized.markdown ?? '',
+    claims,
+    sources,
+    activity,
+    errorMessage,
+    partialAt: null,
+  };
+}
+
 export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
   const zones: Record<string, ArtifactZone> = {};
 
   for (const zoneId of POSITIONING_SECTION_IDS) {
+    const job = input.jobActivity?.[zoneId];
+    const normalized = input.artifactSections?.[zoneId];
+
+    if (normalized) {
+      const legacyRow = (input.researchResults?.[zoneId] ?? null) as
+        | RawSectionRow
+        | null;
+      zones[zoneId] = projectZoneFromNormalized(
+        zoneId,
+        normalized,
+        job,
+        legacyRow?.error ?? null,
+      );
+      continue;
+    }
+
+    // Legacy fallback: research_results JSONB. Removed in Phase 4 cleanup
+    // once the dual-write has been live long enough for backfill to seed
+    // every existing artifact row.
     const row = (input.researchResults?.[zoneId] ?? null) as
       | RawSectionRow
       | null;
-    const job = input.jobActivity?.[zoneId];
 
     const status = mapJobStatusToZoneStatus(
       job?.status,

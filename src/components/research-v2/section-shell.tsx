@@ -69,6 +69,9 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
   const [researchResults, setResearchResults] = useState<
     Record<string, unknown> | null
   >(null);
+  const [artifactSections, setArtifactSections] = useState<
+    Record<string, unknown> | null
+  >(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatOpen, setChatOpen] = useState(true);
   const [errorBySection, setErrorBySection] = useState<
@@ -98,12 +101,14 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
         if (!resp.ok) return;
         const data = (await resp.json()) as {
           researchResults?: Record<string, unknown> | null;
+          artifactSections?: Record<string, unknown> | null;
         };
         if (cancelled) return;
         // Drop responses that came back after a newer one already applied.
         if (tickVersion < lastApplied) return;
         lastApplied = tickVersion;
         setResearchResults(data.researchResults ?? null);
+        setArtifactSections(data.artifactSections ?? null);
       } catch {
         // swallow — polling will retry
       } finally {
@@ -300,6 +305,7 @@ export function SectionShell({ runId, currentSection }: SectionShellProps) {
         <AuditArtifactCanvas
           runId={runId}
           researchResults={researchResults}
+          artifactSections={artifactSections}
           jobActivity={activity}
           className="flex-1"
         />

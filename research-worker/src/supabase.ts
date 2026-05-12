@@ -168,6 +168,289 @@ async function writeResearchResultInner(
   }
 
   console.log(`[worker] Wrote ${section} result (${result.status}) for user ${userId}`);
+
+  // Phase 2 dual-write: also commit to the normalized research_artifact_sections
+  // table so the new canvas/projector can read structured rows. Best-effort —
+  // failures here log but do NOT throw, since journey_sessions.research_results
+  // remains the canonical source until Phase 3b fully cuts over.
+  if (result.runId) {
+    void writeArtifactSectionFromLegacy(userId, result.runId, section, result)
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[worker] artifact-section dual-write failed for ${section}: ${message}`,
+        );
+      });
+  }
+}
+
+// ===========================================================================
+// Phase 2: normalized research-artifact write-through helpers.
+//
+// Bridges the legacy writeResearchResultInner path to the new
+// research_artifacts / research_artifact_sections schema introduced in
+// 20260514_research_artifact_normalized.sql. Phase 3b will swap subagents
+// to call these directly (skipping the legacy JSONB write entirely).
+// ===========================================================================
+
+export async function ensureArtifact(
+  userId: string,
+  runId: string,
+): Promise<string | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc('ensure_artifact', {
+    p_user_id: userId,
+    p_run_id: runId,
+  });
+  if (error) {
+    console.warn(`[worker] ensure_artifact failed: ${error.message}`);
+    return null;
+  }
+  return typeof data === 'string' ? data : null;
+}
+
+export async function startSectionRun(
+  artifactId: string,
+  zone: string,
+  requestedBy: string,
+  prompt: string | null,
+): Promise<string | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc('start_section_run', {
+    p_artifact_id: artifactId,
+    p_zone: zone,
+    p_requested_by: requestedBy,
+    p_prompt: prompt,
+  });
+  if (error) {
+    console.warn(`[worker] start_section_run failed: ${error.message}`);
+    return null;
+  }
+  return typeof data === 'string' ? data : null;
+}
+
+export interface ArtifactSectionPatch {
+  status: 'idle' | 'running' | 'complete' | 'partial' | 'error';
+  title?: string;
+  markdown?: string;
+  claims?: unknown;
+  sources?: unknown;
+  error?: unknown;
+}
+
+export interface CommitArtifactSectionResult {
+  ok: boolean;
+  revision: number;
+  conflict: boolean;
+}
+
+export async function commitArtifactSection(
+  artifactId: string,
+  zone: string,
+  sectionRunId: string,
+  expectedRevision: number,
+  patch: ArtifactSectionPatch,
+): Promise<CommitArtifactSectionResult | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc('commit_artifact_section', {
+    p_artifact_id: artifactId,
+    p_zone: zone,
+    p_section_run_id: sectionRunId,
+    p_expected_revision: expectedRevision,
+    p_patch: patch,
+  });
+  if (error) {
+    console.warn(`[worker] commit_artifact_section failed: ${error.message}`);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    ok: Boolean(row.ok),
+    revision: typeof row.revision === 'number' ? row.revision : 0,
+    conflict: Boolean(row.conflict),
+  };
+}
+
+export async function appendSectionEvent(
+  sectionRunId: string,
+  eventType: string,
+  message: string | null,
+  payload: unknown,
+): Promise<string | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc('append_section_event', {
+    p_section_run_id: sectionRunId,
+    p_event_type: eventType,
+    p_message: message,
+    p_payload: payload ?? null,
+  });
+  if (error) {
+    console.warn(`[worker] append_section_event failed: ${error.message}`);
+    return null;
+  }
+  return typeof data === 'string' ? data : null;
+}
+
+async function readCurrentSectionRevision(
+  artifactId: string,
+  zone: string,
+): Promise<number> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('research_artifact_sections')
+    .select('revision')
+    .eq('artifact_id', artifactId)
+    .eq('zone', zone)
+    .maybeSingle();
+  if (error) {
+    console.warn(`[worker] read revision failed: ${error.message}`);
+    return 0;
+  }
+  return typeof data?.revision === 'number' ? data.revision : 0;
+}
+
+function extractClaimsFromEnvelope(data: unknown): unknown[] {
+  if (!data || typeof data !== 'object') return [];
+  const envelope = data as Record<string, unknown>;
+  const claims: unknown[] = [];
+
+  if (Array.isArray(envelope.keyFindings)) {
+    envelope.keyFindings.forEach((finding, idx) => {
+      if (finding && typeof finding === 'object') {
+        const f = finding as Record<string, unknown>;
+        if (typeof f.title === 'string') {
+          const text =
+            typeof f.detail === 'string' ? `${f.title}: ${f.detail}` : f.title;
+          claims.push({
+            id: `kf-${idx}`,
+            text,
+            confidence: 0.6,
+            sourceIds:
+              typeof f.sourceUrl === 'string' ? [`src::${f.sourceUrl}`] : [],
+          });
+        }
+      }
+    });
+  }
+  return claims;
+}
+
+function extractSourcesFromEnvelope(data: unknown, citations: ResearchResult['citations']): unknown[] {
+  const seen = new Map<string, { id: string; url: string; title?: string; snippet?: string }>();
+  const push = (url: string, title?: string, snippet?: string) => {
+    if (!url || seen.has(url)) return;
+    seen.set(url, { id: `src::${url}`, url, title, snippet });
+  };
+
+  if (data && typeof data === 'object') {
+    const envelope = data as Record<string, unknown>;
+    if (Array.isArray(envelope.sources)) {
+      envelope.sources.forEach((s) => {
+        if (s && typeof s === 'object') {
+          const obj = s as Record<string, unknown>;
+          if (typeof obj.url === 'string') {
+            push(
+              obj.url,
+              typeof obj.title === 'string' ? obj.title : undefined,
+              typeof obj.whyItMatters === 'string'
+                ? obj.whyItMatters
+                : undefined,
+            );
+          }
+        }
+      });
+    }
+    if (Array.isArray(envelope.keyFindings)) {
+      envelope.keyFindings.forEach((f) => {
+        if (f && typeof f === 'object') {
+          const obj = f as Record<string, unknown>;
+          if (typeof obj.sourceUrl === 'string') {
+            push(
+              obj.sourceUrl,
+              typeof obj.title === 'string' ? obj.title : undefined,
+              typeof obj.evidence === 'string' ? obj.evidence : undefined,
+            );
+          }
+        }
+      });
+    }
+    if (Array.isArray(envelope.evidenceQuotes)) {
+      envelope.evidenceQuotes.forEach((q) => {
+        if (q && typeof q === 'object') {
+          const obj = q as Record<string, unknown>;
+          if (typeof obj.url === 'string') {
+            push(
+              obj.url,
+              typeof obj.source === 'string' ? obj.source : undefined,
+              typeof obj.quote === 'string' ? obj.quote : undefined,
+            );
+          }
+        }
+      });
+    }
+  }
+
+  if (Array.isArray(citations)) {
+    citations.forEach((c) => {
+      if (c && typeof c.url === 'string') {
+        push(c.url, c.title);
+      }
+    });
+  }
+
+  return Array.from(seen.values());
+}
+
+async function writeArtifactSectionFromLegacy(
+  userId: string,
+  runId: string,
+  section: string,
+  result: ResearchResult,
+): Promise<void> {
+  const artifactId = await ensureArtifact(userId, runId);
+  if (!artifactId) return;
+
+  const sectionRunId = await startSectionRun(
+    artifactId,
+    section,
+    userId,
+    null,
+  );
+  if (!sectionRunId) return;
+
+  const expectedRevision = await readCurrentSectionRevision(artifactId, section);
+
+  const patch: ArtifactSectionPatch = {
+    status: result.status,
+    title: result.artifact?.title,
+    markdown: result.artifact?.markdown,
+    claims: extractClaimsFromEnvelope(result.data),
+    sources: extractSourcesFromEnvelope(result.data, result.citations),
+    error: result.error ? { message: result.error } : null,
+  };
+
+  const commit = await commitArtifactSection(
+    artifactId,
+    section,
+    sectionRunId,
+    expectedRevision,
+    patch,
+  );
+
+  if (commit?.conflict) {
+    console.warn(
+      `[worker] artifact-section commit conflict on ${section} (revision ${commit.revision}) — retrying once`,
+    );
+    const retryRevision = await readCurrentSectionRevision(artifactId, section);
+    await commitArtifactSection(
+      artifactId,
+      section,
+      sectionRunId,
+      retryRevision,
+      patch,
+    );
+  }
 }
 
 /**

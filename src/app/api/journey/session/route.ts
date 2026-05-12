@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getJourneyRunIdFromMetadata } from '@/lib/journey/journey-run';
 import { buildJourneyRunView } from '@/lib/journey/run-view';
 import { createAdminClient } from '@/lib/supabase/server';
@@ -12,6 +13,57 @@ import {
 } from '@/lib/journey/workspace-messages';
 import type { SectionKey } from '@/lib/workspace/types';
 import type { UIMessage } from 'ai';
+
+/**
+ * Phase 2 dual-read helper. Returns the normalized
+ * research_artifact_sections rows for a given (userId, runId) keyed by zone,
+ * or null when no artifact exists yet (consumers fall back to research_results
+ * JSONB in that case).
+ */
+export interface ArtifactSectionSnapshot {
+  zone: string;
+  status: string;
+  revision: number;
+  section_run_id: string | null;
+  title: string | null;
+  markdown: string | null;
+  claims: unknown;
+  sources: unknown;
+  error: unknown;
+  updated_at: string | null;
+}
+
+async function fetchArtifactSections(
+  supabase: SupabaseClient,
+  userId: string,
+  runId: string,
+): Promise<Record<string, ArtifactSectionSnapshot> | null> {
+  try {
+    const { data: artifact } = await supabase
+      .from('research_artifacts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('run_id', runId)
+      .maybeSingle();
+    if (!artifact?.id) return null;
+
+    const { data: sections, error } = await supabase
+      .from('research_artifact_sections')
+      .select(
+        'zone, status, revision, section_run_id, title, markdown, claims, sources, error, updated_at',
+      )
+      .eq('artifact_id', artifact.id);
+    if (error || !Array.isArray(sections)) return null;
+
+    const map: Record<string, ArtifactSectionSnapshot> = {};
+    for (const row of sections as ArtifactSectionSnapshot[]) {
+      if (row.zone) map[row.zone] = row;
+    }
+    return Object.keys(map).length > 0 ? map : null;
+  } catch {
+    return null;
+  }
+}
 
 interface JourneySessionPatchRequest {
   activeRunId?: string;
@@ -236,6 +288,12 @@ export async function GET(request: Request) {
     const storedRunId = getJourneyRunIdFromMetadata(metadata);
     const view = runData ? buildJourneyRunView(runData) : null;
 
+    const artifactSections = await fetchArtifactSections(
+      supabase,
+      userId,
+      requestedRunId,
+    );
+
     return new Response(
       JSON.stringify({
         metadata,
@@ -250,6 +308,7 @@ export async function GET(request: Request) {
         sessionId: runData?.id ?? null,
         profileId: runData?.profile_id ?? null,
         view,
+        artifactSections,
         workspaceMessages: requestedSection
           ? readWorkspaceSectionMessages(runData?.messages, requestedSection)
           : undefined,
