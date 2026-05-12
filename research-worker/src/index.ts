@@ -101,9 +101,23 @@ interface RunJobRequest {
    * business_profile_documents and the meeting status is updated.
    */
   documentId?: string;
+  /**
+   * Optional refinement string supplied by the research-v2 chat surface when
+   * the intent classifier returns kind='rerun'. The runner appends this as a
+   * USER REFINEMENT block to the section context so the model focuses the
+   * rerun on the user's stated direction (e.g. "focus on Cartesia").
+   */
+  chatRefinement?: string;
 }
 
-const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgressReporter) => Promise<ResearchResult>> = {
+const TOOL_RUNNERS: Record<
+  ToolName,
+  (
+    context: string,
+    onProgress?: RunnerProgressReporter,
+    chatRefinement?: string,
+  ) => Promise<ResearchResult>
+> = {
   runDeepResearchProgram,
   resolveIdentity: resolveProductIdentity,
   extractMeetingTranscript: runMeetingExtraction,
@@ -175,7 +189,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   // settles, so the slot is bounded by actual runner work — not just the
   // synchronous setup phase before the 202 response.
   const releaseSlot = await runSemaphore.acquire();
-  const { tool, context, userId, jobId, runId, baselineMetrics, documentId } = req.body as RunJobRequest;
+  const { tool, context, userId, jobId, runId, baselineMetrics, documentId, chatRefinement } = req.body as RunJobRequest;
 
   if (!tool || !context || !userId || !jobId) {
     releaseSlot();
@@ -306,7 +320,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         phase: 'runner',
       });
       const runnerStartMs = Date.now();
-      const result = await runner(contextWithDate, emitProgress);
+      const result = await runner(contextWithDate, emitProgress, chatRefinement);
       const runnerDurationMs = Date.now() - runnerStartMs;
       console.log(`[timing] ${tool} runner completed in ${(runnerDurationMs / 1000).toFixed(1)}s`);
       emitTelemetry({

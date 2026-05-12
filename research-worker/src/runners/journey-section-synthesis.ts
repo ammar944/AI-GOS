@@ -26,6 +26,21 @@ export interface JourneySectionSpec {
   outputEmphasis: string[];
 }
 
+/**
+ * Append a USER REFINEMENT block to the section context when the operator has
+ * supplied a chat-driven refinement (rerun intent). Returns the context
+ * unchanged when the refinement is missing or whitespace-only so callers can
+ * pass through unconditionally without an extra branch.
+ */
+export function buildContextWithRefinement(
+  context: string,
+  chatRefinement: string | undefined,
+): string {
+  const trimmed = chatRefinement?.trim();
+  if (!trimmed) return context;
+  return `${context}\n\n--- USER REFINEMENT ---\n${trimmed}`;
+}
+
 const SECTION_SPECS = {
   industryMarket: {
     section: 'industryMarket',
@@ -220,7 +235,9 @@ export async function runJourneySection(
   spec: JourneySectionSpec,
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> {
+  const refinedContext = buildContextWithRefinement(context, chatRefinement);
   const startTime = Date.now();
   try {
     const container = buildDeepResearchContainerParams();
@@ -252,7 +269,7 @@ export async function runJourneySection(
           system: maybeCachedSystem(SYSTEM_PROMPT) as Parameters<typeof client.beta.messages.toolRunner>[0]['system'],
           messages: [{
             role: 'user',
-            content: `Specialist agent: ${spec.title}\nPlatform skill to apply: ${spec.skill}\nMission: ${spec.mission}\nOutput emphasis: ${spec.outputEmphasis.join(', ')}\n\nUse the confirmed company corpus, prior approved Journey artifacts, uploaded/meeting context, and any fresh Anthropic web-search evidence needed. Produce the normalized report artifact JSON only.\n\nCONTEXT:\n${context}`,
+            content: `Specialist agent: ${spec.title}\nPlatform skill to apply: ${spec.skill}\nMission: ${spec.mission}\nOutput emphasis: ${spec.outputEmphasis.join(', ')}\n\nUse the confirmed company corpus, prior approved Journey artifacts, uploaded/meeting context, and any fresh Anthropic web-search evidence needed. Produce the normalized report artifact JSON only.\n\nCONTEXT:\n${refinedContext}`,
           }],
         });
         return Promise.race([

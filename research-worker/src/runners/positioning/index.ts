@@ -124,61 +124,73 @@ export function isPositioningSectionId(
 export const runPositioningMarketCategory = (
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> =>
   runJourneySection(
     POSITIONING_SECTION_SPECS.positioningMarketCategory,
     context,
     onProgress,
+    chatRefinement,
   );
 
 export const runPositioningBuyerICP = (
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> =>
   runJourneySection(
     POSITIONING_SECTION_SPECS.positioningBuyerICP,
     context,
     onProgress,
+    chatRefinement,
   );
 
 export const runPositioningCompetitorLandscape = (
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> =>
   runJourneySection(
     POSITIONING_SECTION_SPECS.positioningCompetitorLandscape,
     context,
     onProgress,
+    chatRefinement,
   );
 
 export const runPositioningVoiceOfCustomer = (
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> =>
   runJourneySection(
     POSITIONING_SECTION_SPECS.positioningVoiceOfCustomer,
     context,
     onProgress,
+    chatRefinement,
   );
 
 export const runPositioningDemandIntent = (
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> =>
   runJourneySection(
     POSITIONING_SECTION_SPECS.positioningDemandIntent,
     context,
     onProgress,
+    chatRefinement,
   );
 
 export const runPositioningOfferDiagnostic = (
   context: string,
   onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
 ): Promise<ResearchResult> =>
   runJourneySection(
     POSITIONING_SECTION_SPECS.positioningOfferDiagnostic,
     context,
     onProgress,
+    chatRefinement,
   );
 
 export const POSITIONING_RUNNERS: Record<
@@ -186,6 +198,7 @@ export const POSITIONING_RUNNERS: Record<
   (
     context: string,
     onProgress?: RunnerProgressReporter,
+    chatRefinement?: string,
   ) => Promise<ResearchResult>
 > = {
   positioningMarketCategory: runPositioningMarketCategory,

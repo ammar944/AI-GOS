@@ -77,6 +77,12 @@ export interface JourneyResearchDispatchParams {
   runId?: string | null;
   context: string;
   baselineMetrics?: BaselineMetrics;
+  /**
+   * Optional refinement supplied by the research-v2 chat surface when a
+   * rerun intent is detected. Forwarded through to the worker so the
+   * runner can append it as a USER REFINEMENT block.
+   */
+  chatRefinement?: string;
 }
 
 /** Extract key summary fields from upstream research for synthesis context.
@@ -624,5 +630,6 @@ export async function dispatchJourneyResearchForUser(
   return dispatchResearchForUser(tool, section, enrichedContext, params.userId, {
     activeRunId: runId,
     baselineMetrics: params.baselineMetrics,
+    chatRefinement: params.chatRefinement,
   });
 }

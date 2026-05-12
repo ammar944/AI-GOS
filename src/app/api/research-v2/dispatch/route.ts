@@ -36,6 +36,7 @@ interface ResearchV2DispatchRequest {
   runId?: unknown;
   sectionId?: unknown;
   context?: unknown;
+  chatRefinement?: unknown;
 }
 
 function readString(value: unknown): string | null {
@@ -99,6 +100,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const sectionId = readString(body.sectionId);
   const runId = readString(body.runId);
   const context = readString(body.context) ?? '';
+  const chatRefinement = readString(body.chatRefinement);
 
   if (!sectionId || !runId) {
     return NextResponse.json(
@@ -127,7 +129,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       { status: 409 },
     );
   }
-  if (existing?.status === 'complete' && existing.hasMarkdown) {
+  // Chat-driven reruns intentionally bypass the already_complete short-circuit:
+  // the operator explicitly asked the chat to re-run this section with a new
+  // refinement, so we must re-dispatch even if a prior artifact exists.
+  if (existing?.status === 'complete' && existing.hasMarkdown && !chatRefinement) {
     return NextResponse.json(
       { status: 'already_complete', sectionId, runId },
       { status: 200 },
@@ -139,6 +144,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     section: sectionId,
     runId,
     context,
+    ...(chatRefinement ? { chatRefinement } : {}),
   });
 
   return NextResponse.json(result);

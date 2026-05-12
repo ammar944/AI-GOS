@@ -24,6 +24,12 @@ export interface DispatchResearchOptions {
    * emit insufficient-data states for any field that needs a missing metric.
    */
   baselineMetrics?: BaselineMetrics;
+  /**
+   * Optional chat-driven refinement forwarded from the research-v2 chat
+   * surface when the intent classifier returns kind='rerun'. The worker
+   * appends this verbatim to the runner context as a USER REFINEMENT block.
+   */
+  chatRefinement?: string;
 }
 
 export interface JourneyToolExecutionContext {
@@ -145,6 +151,9 @@ export async function dispatchResearchForUser(
               : {}),
             ...(options.baselineMetrics !== undefined
               ? { baselineMetrics: options.baselineMetrics }
+              : {}),
+            ...(typeof options.chatRefinement === 'string' && options.chatRefinement.trim().length > 0
+              ? { chatRefinement: options.chatRefinement.trim() }
               : {}),
           }),
           signal: AbortSignal.timeout(5000),

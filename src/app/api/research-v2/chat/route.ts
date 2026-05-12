@@ -4,6 +4,12 @@ import { type ModelMessage, streamText } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { classifyIntent } from '@/lib/research-v2/intent-router';
+import type {
+  AuditContextSummary,
+  ChatMessageForRouter,
+  SectionSummary,
+} from '@/lib/research-v2/intent-router.types';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const maxDuration = 60;
@@ -32,7 +38,21 @@ interface AuditChatInsert {
   user_id: string;
   role: 'user' | 'assistant';
   content: string;
-  intent?: 'converse';
+  intent?: 'rerun' | 'converse';
+  target_section?: string | null;
+}
+
+const POSITIONING_SECTION_KEYS = [
+  'positioningMarketCategory',
+  'positioningBuyerICP',
+  'positioningCompetitorLandscape',
+  'positioningVoiceOfCustomer',
+  'positioningDemandIntent',
+  'positioningOfferDiagnostic',
+] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function extractText(message: ChatRequestMessage): string {
@@ -56,6 +76,42 @@ function buildEchoMessages(userText: string): ModelMessage[] {
       content: userText,
     },
   ];
+}
+
+/**
+ * Build slim per-section summaries from journey_sessions.research_results so the
+ * intent classifier can pick the most relevant target_section. Each runner
+ * writes its payload under a key like `positioningMarketCategory` with either
+ * the artifact directly or wrapped in { data: {...} } — handle both shapes.
+ */
+function extractSectionSummaries(
+  researchResults: Record<string, unknown>,
+): SectionSummary[] {
+  return POSITIONING_SECTION_KEYS.filter((key) => researchResults[key]).map(
+    (key) => {
+      const raw = researchResults[key];
+      const wrapper = isRecord(raw) ? raw : {};
+      const inner = isRecord(wrapper.data) ? wrapper.data : wrapper;
+
+      const title =
+        (typeof inner.sectionTitle === 'string' && inner.sectionTitle.trim()) ||
+        key;
+      const statusSummary =
+        (typeof inner.statusSummary === 'string' && inner.statusSummary.trim()) ||
+        '';
+      const keyFindingTitles = Array.isArray(inner.keyFindings)
+        ? (inner.keyFindings as Array<unknown>)
+            .map((finding) =>
+              isRecord(finding) && typeof finding.title === 'string'
+                ? finding.title.trim()
+                : '',
+            )
+            .filter((t): t is string => t.length > 0)
+        : [];
+
+      return { sectionId: key, title, statusSummary, keyFindingTitles };
+    },
+  );
 }
 
 function logSupabaseError(
@@ -127,7 +183,7 @@ export async function POST(req: Request): Promise<Response> {
   const supabase = createAdminClient();
   const { data: session, error: sessionError } = await supabase
     .from('journey_sessions')
-    .select('run_id')
+    .select('run_id, research_results')
     .eq('user_id', userId)
     .eq('run_id', runId)
     .maybeSingle();
@@ -180,6 +236,102 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  // Build audit context + load recent chat history for the intent classifier.
+  const researchResults = isRecord(session.research_results)
+    ? (session.research_results as Record<string, unknown>)
+    : {};
+  const auditContext: AuditContextSummary = {
+    runId,
+    sections: extractSectionSummaries(researchResults),
+  };
+
+  const { data: historyRows } = await supabase
+    .from('audit_chat_messages')
+    .select('role, content')
+    .eq('run_id', runId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  const chatHistory: ChatMessageForRouter[] = (historyRows ?? [])
+    .filter(
+      (row): row is { role: 'user' | 'assistant'; content: string } =>
+        (row.role === 'user' || row.role === 'assistant') &&
+        typeof row.content === 'string',
+    )
+    .map((row) => ({ role: row.role, content: row.content }))
+    .reverse();
+
+  const intent = await classifyIntent({
+    userMessage: userText,
+    auditContext,
+    chatHistory,
+  });
+
+  if (intent.kind === 'rerun' && intent.target_section) {
+    // Fire dispatch without blocking the chat response. The worker takes the
+    // chatRefinement and re-runs the targeted section asynchronously; the
+    // activity log surfaces progress on the artifact panel.
+    const dispatchUrl = new URL('/api/research-v2/dispatch', req.url).toString();
+    void fetch(dispatchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: req.headers.get('cookie') ?? '',
+      },
+      body: JSON.stringify({
+        sectionId: intent.target_section,
+        runId,
+        chatRefinement: intent.instruction,
+      }),
+    }).catch((dispatchError) => {
+      console.error('[research-v2/chat] Rerun dispatch fetch failed', {
+        runId,
+        userId,
+        targetSection: intent.target_section,
+        message:
+          dispatchError instanceof Error
+            ? dispatchError.message
+            : String(dispatchError),
+      });
+    });
+
+    const refinement = intent.instruction.trim();
+    const ackText = refinement
+      ? `Rerunning ${intent.target_section} with refinement: "${refinement}". Watch the section activity log for live progress.`
+      : `Rerunning ${intent.target_section}. Watch the section activity log for live progress.`;
+
+    const assistantInsert: AuditChatInsert = {
+      run_id: runId,
+      user_id: userId,
+      role: 'assistant',
+      content: ackText,
+      intent: 'rerun',
+      target_section: intent.target_section,
+    };
+    const { error: ackInsertError } = await supabase
+      .from('audit_chat_messages')
+      .insert(assistantInsert);
+
+    if (ackInsertError) {
+      logSupabaseError(
+        'insert_rerun_ack',
+        { runId, userId, role: 'assistant' },
+        ackInsertError,
+      );
+    }
+
+    const ackStream = streamText({
+      model: anthropic('claude-haiku-4-5-20251001'),
+      system:
+        'You are an audit-editing assistant. Output exactly the user-supplied text — no rephrasing, no additions.',
+      prompt: ackText,
+    });
+    return ackStream.toUIMessageStreamResponse();
+  }
+
+  // Fallback / converse path — stub-echo behaviour until atom 11 wires in the
+  // grounded converse runner. The user message is already persisted above.
   const result = streamText({
     model: anthropic('claude-haiku-4-5-20251001'),
     system:
