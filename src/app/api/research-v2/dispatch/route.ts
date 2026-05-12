@@ -178,25 +178,24 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
-  // Chat-driven reruns bypass the research_results 'already_complete'
-  // short-circuit (the operator asked to re-run with a refinement), but we
-  // still must not queue a duplicate worker. journey_sessions.job_status is
-  // the source of truth for active worker lifecycles — if a job for this
-  // section is already running, return 409 and let the chat surface report
-  // it to the user.
-  if (chatRefinement) {
-    const activeJobId = await findActiveJobForSection(userId, runId, sectionId);
-    if (activeJobId) {
-      return NextResponse.json(
-        {
-          error: 'section already running',
-          sectionId,
-          runId,
-          jobId: activeJobId,
-        },
-        { status: 409 },
-      );
-    }
+  // Defense-in-depth: research_results[section].status is only written at
+  // completion, so it can't catch a dispatch that races with an in-flight
+  // worker. journey_sessions.job_status is the authoritative in-flight
+  // signal — check it for both chat reruns and normal-path dispatches
+  // (e.g. a manual "Run section" click during the post-onboarding fan-out
+  // window, where SectionShell briefly renders idle buttons before polling
+  // sees the queued jobs).
+  const activeJobId = await findActiveJobForSection(userId, runId, sectionId);
+  if (activeJobId) {
+    return NextResponse.json(
+      {
+        error: 'section already running',
+        sectionId,
+        runId,
+        jobId: activeJobId,
+      },
+      { status: 409 },
+    );
   }
 
   // Chat-driven reruns intentionally bypass the already_complete short-circuit:
