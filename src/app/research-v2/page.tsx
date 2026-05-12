@@ -346,20 +346,11 @@ export default function ResearchV2Page() {
           const onboardingFields = corpus?.data?.onboardingFields ?? {};
           const prefill: Partial<OnboardingV2Data> = prefillFromCorpus(onboardingFields);
           dispatch({ type: 'CORPUS_COMPLETE', prefill });
-          if (PARALLEL_SECTIONS_ENABLED && runId) {
-            void dispatchAllPositioningSections(runId);
-          }
         } else {
           dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
-          if (PARALLEL_SECTIONS_ENABLED && runId) {
-            void dispatchAllPositioningSections(runId);
-          }
         }
       } catch {
         dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
-        if (PARALLEL_SECTIONS_ENABLED && runId) {
-          void dispatchAllPositioningSections(runId);
-        }
       }
     })();
   }, [state]);
@@ -401,6 +392,9 @@ export default function ResearchV2Page() {
       }
 
       dispatch({ type: 'ONBOARDING_COMPLETE' });
+      if (PARALLEL_SECTIONS_ENABLED) {
+        void dispatchAllPositioningSections(runId);
+      }
     },
     [state],
   );
