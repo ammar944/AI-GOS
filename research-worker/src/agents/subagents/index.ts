@@ -1,0 +1,120 @@
+/**
+ * Phase 3b subagent registry. Each subagent is a ToolLoopAgent with a
+ * domain-scoped tool map from POSITIONING_TOOL_MAPS (Phase 3a) and a
+ * zone-specific instruction set.
+ *
+ * Phase 3b worker dispatcher (journey-section-synthesis.ts → runJourneySection)
+ * selects the right subagent by spec.section and calls subagent.generate().
+ *
+ * Models: opus-4-6 across the board for quality. Token budget per design
+ * Premise: ~$7-15/run (vs $1.50-2 on Platform Skills) — Anthropic's
+ * published 15× multiplier for parallel-subagent systems.
+ */
+
+import { anthropic } from '@ai-sdk/anthropic';
+import { stepCountIs, ToolLoopAgent } from 'ai';
+
+import {
+  POSITIONING_TOOL_MAPS,
+} from '../../agent-tools';
+
+import {
+  BUYER_ICP_INSTRUCTIONS,
+  COMPETITOR_LANDSCAPE_INSTRUCTIONS,
+  DEMAND_INTENT_INSTRUCTIONS,
+  MARKET_CATEGORY_INSTRUCTIONS,
+  OFFER_DIAGNOSTIC_INSTRUCTIONS,
+  VOICE_OF_CUSTOMER_INSTRUCTIONS,
+} from './_instructions';
+
+const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
+const SUBAGENT_STEP_CAP = stepCountIs(12);
+
+export const marketAgent = new ToolLoopAgent({
+  model: SUBAGENT_MODEL,
+  instructions: MARKET_CATEGORY_INSTRUCTIONS,
+  tools: POSITIONING_TOOL_MAPS.positioningMarketCategory,
+  stopWhen: SUBAGENT_STEP_CAP,
+  experimental_telemetry: {
+    isEnabled: true,
+    functionId: 'positioningMarketCategory',
+  },
+});
+
+export const buyerIcpAgent = new ToolLoopAgent({
+  model: SUBAGENT_MODEL,
+  instructions: BUYER_ICP_INSTRUCTIONS,
+  tools: POSITIONING_TOOL_MAPS.positioningBuyerICP,
+  stopWhen: SUBAGENT_STEP_CAP,
+  experimental_telemetry: {
+    isEnabled: true,
+    functionId: 'positioningBuyerICP',
+  },
+});
+
+export const competitorAgent = new ToolLoopAgent({
+  model: SUBAGENT_MODEL,
+  instructions: COMPETITOR_LANDSCAPE_INSTRUCTIONS,
+  tools: POSITIONING_TOOL_MAPS.positioningCompetitorLandscape,
+  stopWhen: SUBAGENT_STEP_CAP,
+  experimental_telemetry: {
+    isEnabled: true,
+    functionId: 'positioningCompetitorLandscape',
+  },
+});
+
+export const vocAgent = new ToolLoopAgent({
+  model: SUBAGENT_MODEL,
+  instructions: VOICE_OF_CUSTOMER_INSTRUCTIONS,
+  tools: POSITIONING_TOOL_MAPS.positioningVoiceOfCustomer,
+  stopWhen: SUBAGENT_STEP_CAP,
+  experimental_telemetry: {
+    isEnabled: true,
+    functionId: 'positioningVoiceOfCustomer',
+  },
+});
+
+export const demandAgent = new ToolLoopAgent({
+  model: SUBAGENT_MODEL,
+  instructions: DEMAND_INTENT_INSTRUCTIONS,
+  tools: POSITIONING_TOOL_MAPS.positioningDemandIntent,
+  stopWhen: SUBAGENT_STEP_CAP,
+  experimental_telemetry: {
+    isEnabled: true,
+    functionId: 'positioningDemandIntent',
+  },
+});
+
+export const offerAgent = new ToolLoopAgent({
+  model: SUBAGENT_MODEL,
+  instructions: OFFER_DIAGNOSTIC_INSTRUCTIONS,
+  tools: POSITIONING_TOOL_MAPS.positioningOfferDiagnostic,
+  stopWhen: SUBAGENT_STEP_CAP,
+  experimental_telemetry: {
+    isEnabled: true,
+    functionId: 'positioningOfferDiagnostic',
+  },
+});
+
+/**
+ * Section-id → subagent lookup. The 6 positioning section ids come from
+ * `src/lib/ai/prompts/positioning-skills/index.ts` (POSITIONING_SECTION_IDS).
+ * deepResearchProgram is intentionally NOT registered here — corpus stays
+ * on Platform Skills per design Open Question 7.
+ */
+export const POSITIONING_SUBAGENTS = {
+  positioningMarketCategory: marketAgent,
+  positioningBuyerICP: buyerIcpAgent,
+  positioningCompetitorLandscape: competitorAgent,
+  positioningVoiceOfCustomer: vocAgent,
+  positioningDemandIntent: demandAgent,
+  positioningOfferDiagnostic: offerAgent,
+} as const;
+
+export type PositioningSubagentId = keyof typeof POSITIONING_SUBAGENTS;
+
+export function isPositioningSubagentId(
+  value: string,
+): value is PositioningSubagentId {
+  return value in POSITIONING_SUBAGENTS;
+}

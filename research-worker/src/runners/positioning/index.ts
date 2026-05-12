@@ -16,8 +16,30 @@ import {
   runJourneySection,
   type JourneySectionSpec,
 } from '../journey-section-synthesis';
+import { runJourneySectionViaSubagent } from '../positioning-subagent-runner';
 import type { RunnerProgressReporter } from '../../runner';
 import type { ResearchResult } from '../../supabase';
+
+/**
+ * Phase 3b cutover gate. When ENABLE_POSITIONING_SUBAGENTS is set, each
+ * positioning runner dispatches through the AI SDK ToolLoopAgent subagent
+ * (with domain-scoped tools) instead of the Platform Skills toolRunner.
+ * Defaults to `true` — Phase 3b ships the subagent path as the default.
+ * Set explicitly to "false" to roll back to Platform Skills without a deploy.
+ */
+const USE_SUBAGENTS = process.env.ENABLE_POSITIONING_SUBAGENTS !== 'false';
+
+function runPositioningSection(
+  spec: JourneySectionSpec,
+  context: string,
+  onProgress?: RunnerProgressReporter,
+  chatRefinement?: string,
+): Promise<ResearchResult> {
+  if (USE_SUBAGENTS) {
+    return runJourneySectionViaSubagent(spec, context, onProgress, chatRefinement);
+  }
+  return runJourneySection(spec, context, onProgress, chatRefinement);
+}
 
 export const POSITIONING_SECTION_SPECS = {
   positioningMarketCategory: {
@@ -126,7 +148,7 @@ export const runPositioningMarketCategory = (
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
 ): Promise<ResearchResult> =>
-  runJourneySection(
+  runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningMarketCategory,
     context,
     onProgress,
@@ -138,7 +160,7 @@ export const runPositioningBuyerICP = (
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
 ): Promise<ResearchResult> =>
-  runJourneySection(
+  runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningBuyerICP,
     context,
     onProgress,
@@ -150,7 +172,7 @@ export const runPositioningCompetitorLandscape = (
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
 ): Promise<ResearchResult> =>
-  runJourneySection(
+  runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningCompetitorLandscape,
     context,
     onProgress,
@@ -162,7 +184,7 @@ export const runPositioningVoiceOfCustomer = (
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
 ): Promise<ResearchResult> =>
-  runJourneySection(
+  runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningVoiceOfCustomer,
     context,
     onProgress,
@@ -174,7 +196,7 @@ export const runPositioningDemandIntent = (
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
 ): Promise<ResearchResult> =>
-  runJourneySection(
+  runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningDemandIntent,
     context,
     onProgress,
@@ -186,7 +208,7 @@ export const runPositioningOfferDiagnostic = (
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
 ): Promise<ResearchResult> =>
-  runJourneySection(
+  runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningOfferDiagnostic,
     context,
     onProgress,
