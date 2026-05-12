@@ -4,6 +4,11 @@ import { streamText, type ModelMessage } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  extractOrchestratorSideEffects,
+  positioningOrchestratorAgent,
+  type OrchestratorSideEffect,
+} from '@/lib/research-v2/agents/positioning-orchestrator';
 import { classifyIntent } from '@/lib/research-v2/intent-router';
 import type {
   AuditContextSummary,
@@ -12,6 +17,11 @@ import type {
 } from '@/lib/research-v2/intent-router.types';
 import { applyPatch } from '@/lib/research-v2/patch-apply';
 import { createAdminClient } from '@/lib/supabase/server';
+
+const ENABLE_POSITIONING_ORCHESTRATOR =
+  process.env.ENABLE_POSITIONING_ORCHESTRATOR === 'true';
+const ORCHESTRATOR_TIMEOUT_MS = 45_000;
+const DISPATCH_TIMEOUT_MS = 10_000;
 
 export const maxDuration = 60;
 
@@ -120,6 +130,333 @@ function logSupabaseError(
     message: error.message,
     details: error.details,
     hint: error.hint,
+  });
+}
+
+/**
+ * Phase 4: translate an orchestrator-emitted intent (`rerun_section` /
+ * `edit_claim` / `edit_narrative`) into a real side-effect: dispatch route
+ * call for reruns, atomic JSONB merge for surgical edits. Narration-only
+ * intents (`explain_source`, `summarize_artifact`) are no-ops here — they
+ * are answered in the assistant's text reply.
+ *
+ * Failures are logged but do not throw — the assistant's text response has
+ * already been streamed, so the user sees the orchestrator's intent stated
+ * even if the side-effect step fails. The caller decides how to surface it.
+ */
+async function applyOrchestratorSideEffect(
+  effect: OrchestratorSideEffect,
+  ctx: {
+    userId: string;
+    runId: string;
+    supabase: ReturnType<typeof createAdminClient>;
+    researchResults: Record<string, unknown>;
+    requestUrl: string;
+    cookieHeader: string;
+  },
+): Promise<{ ok: boolean; reason?: string }> {
+  if (effect.intent === 'rerun_section') {
+    const zone =
+      typeof effect.payload.zone === 'string' ? effect.payload.zone : null;
+    const refinement =
+      typeof effect.payload.refinement === 'string'
+        ? effect.payload.refinement
+        : null;
+    if (!zone) return { ok: false, reason: 'rerun_section missing zone' };
+
+    const dispatchUrl = new URL(
+      '/api/research-v2/dispatch',
+      ctx.requestUrl,
+    ).toString();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      DISPATCH_TIMEOUT_MS,
+    );
+    try {
+      const res = await fetch(dispatchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: ctx.cookieHeader,
+        },
+        body: JSON.stringify({
+          sectionId: zone,
+          runId: ctx.runId,
+          chatRefinement: refinement ?? undefined,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        return {
+          ok: false,
+          reason: `dispatch ${res.status} ${res.statusText || 'error'}`,
+        };
+      }
+      return { ok: true };
+    } catch (err) {
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      return {
+        ok: false,
+        reason: isAbort
+          ? `dispatch timeout after ${DISPATCH_TIMEOUT_MS / 1000}s`
+          : err instanceof Error
+            ? err.message
+            : String(err),
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  if (effect.intent === 'edit_claim' || effect.intent === 'edit_narrative') {
+    const zone =
+      typeof effect.payload.zone === 'string' ? effect.payload.zone : null;
+    if (!zone) return { ok: false, reason: `${effect.intent} missing zone` };
+
+    const wrapper = isRecord(ctx.researchResults[zone])
+      ? (ctx.researchResults[zone] as Record<string, unknown>)
+      : null;
+    if (!wrapper) {
+      return {
+        ok: false,
+        reason: `${effect.intent}: zone ${zone} not yet generated`,
+      };
+    }
+    const isWrapped = isRecord(wrapper.data);
+    const inner = isWrapped
+      ? (wrapper.data as Record<string, unknown>)
+      : wrapper;
+
+    // Build a structured patch the existing applyPatch helper can apply.
+    // edit_claim: `keyFindings.<idx>.title = newText` when claimId is "kf-<n>".
+    // edit_narrative: `narrativeMarkdown = patch`.
+    let patchPath: string | null = null;
+    let patchValue: unknown = null;
+    if (effect.intent === 'edit_claim') {
+      const claimId =
+        typeof effect.payload.claimId === 'string'
+          ? effect.payload.claimId
+          : null;
+      const newText =
+        typeof effect.payload.newText === 'string'
+          ? effect.payload.newText
+          : null;
+      if (!claimId || newText === null) {
+        return { ok: false, reason: 'edit_claim missing claimId or newText' };
+      }
+      const match = /^kf-(\d+)$/.exec(claimId);
+      if (!match) {
+        return {
+          ok: false,
+          reason: `edit_claim: only kf-<idx> claim ids are supported in Phase 4 (got "${claimId}")`,
+        };
+      }
+      patchPath = `keyFindings.${match[1]}.title`;
+      patchValue = newText;
+    } else {
+      const patch =
+        typeof effect.payload.patch === 'string'
+          ? effect.payload.patch
+          : null;
+      if (patch === null) {
+        return { ok: false, reason: 'edit_narrative missing patch' };
+      }
+      patchPath = 'narrativeMarkdown';
+      patchValue = patch;
+    }
+
+    try {
+      const patchedInner = applyPatch(inner, {
+        path: patchPath,
+        value: patchValue,
+      });
+      const newSection: Record<string, unknown> = isWrapped
+        ? { ...wrapper, data: patchedInner }
+        : { ...patchedInner };
+      const { error: rpcError } = await ctx.supabase.rpc(
+        'merge_journey_session_research_result',
+        {
+          p_user_id: ctx.userId,
+          p_run_id: ctx.runId,
+          p_section: zone,
+          p_result: newSection,
+        },
+      );
+      if (rpcError) {
+        return { ok: false, reason: `rpc: ${rpcError.message}` };
+      }
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        reason: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  // explain_source and summarize_artifact are narration-only — handled
+  // inline in the orchestrator's text response.
+  return { ok: true };
+}
+
+/**
+ * Phase 4 turn runner. Streams the positioning orchestrator agent and writes
+ * the assistant turn + applies side-effects in onFinish.
+ *
+ * Why onFinish vs synchronous side-effects: the existing intent-router runs
+ * BEFORE the stream so it can dispatch upfront. The orchestrator decides
+ * which tool(s) to call DURING the stream, so side-effects can only be
+ * applied after toolResults resolves. The SSE response is kept open until
+ * onFinish settles, so failures still log but the user has already received
+ * the assistant's narration.
+ */
+async function runOrchestratorTurn(opts: {
+  userId: string;
+  runId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+  researchResults: Record<string, unknown>;
+  chatHistory: ChatMessageForRouter[];
+  auditContext: AuditContextSummary;
+  req: Request;
+}): Promise<Response> {
+  const { userId, runId, supabase, researchResults, chatHistory, auditContext, req } = opts;
+
+  const auditSummary = auditContext.sections
+    .map(
+      (s) =>
+        `## ${s.title}\nStatus: ${s.statusSummary}\nKey findings: ${s.keyFindingTitles.join('; ')}`,
+    )
+    .join('\n\n');
+
+  // System message carries per-request audit state. The agent's persistent
+  // role lives in its `instructions` (set in the constructor). Combining the
+  // two keeps the agent reusable across runs.
+  const messages: ModelMessage[] = [
+    {
+      role: 'system',
+      content: `Current artifact (run ${runId}):\n\n${auditSummary || 'No sections generated yet.'}`,
+    },
+    ...chatHistory.map<ModelMessage>((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+  ];
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    ORCHESTRATOR_TIMEOUT_MS,
+  );
+
+  let result;
+  try {
+    result = await positioningOrchestratorAgent.stream({
+      messages,
+      abortSignal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.error('[research-v2/chat orchestrator] stream() failed', {
+      runId,
+      userId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json(
+      {
+        error: 'Orchestrator failed to start',
+        runId,
+        details: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
+  }
+
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const requestUrl = req.url;
+
+  return result.toUIMessageStreamResponse({
+    onFinish: async ({ responseMessage }) => {
+      clearTimeout(timeoutId);
+
+      // Extract assistant text from the UI message parts so it can be
+      // persisted for history. UI message parts have a discriminated `type`
+      // — collect every text part in order.
+      const assistantText =
+        responseMessage && Array.isArray(responseMessage.parts)
+          ? responseMessage.parts
+              .filter(
+                (
+                  part,
+                ): part is Extract<
+                  (typeof responseMessage.parts)[number],
+                  { type: 'text' }
+                > => isRecord(part) && part.type === 'text',
+              )
+              .map((part) => (typeof part.text === 'string' ? part.text : ''))
+              .join('')
+              .trim()
+          : '';
+
+      if (assistantText.length > 0) {
+        const assistantInsert: AuditChatInsert = {
+          run_id: runId,
+          user_id: userId,
+          role: 'assistant',
+          content: assistantText,
+          intent: 'converse',
+        };
+        const { error: assistantInsertError } = await supabase
+          .from('audit_chat_messages')
+          .insert(assistantInsert);
+        if (assistantInsertError) {
+          logSupabaseError(
+            'insert_orchestrator_assistant',
+            { runId, userId, role: 'assistant' },
+            assistantInsertError,
+          );
+        }
+      }
+
+      let toolResults: Array<{ output?: unknown }> = [];
+      try {
+        toolResults = (await result.toolResults) as Array<{
+          output?: unknown;
+        }>;
+      } catch (err) {
+        console.error(
+          '[research-v2/chat orchestrator] toolResults rejected',
+          {
+            runId,
+            userId,
+            message: err instanceof Error ? err.message : String(err),
+          },
+        );
+      }
+
+      const effects = extractOrchestratorSideEffects(toolResults);
+      for (const effect of effects) {
+        const outcome = await applyOrchestratorSideEffect(effect, {
+          userId,
+          runId,
+          supabase,
+          researchResults,
+          requestUrl,
+          cookieHeader,
+        });
+        if (!outcome.ok) {
+          console.error(
+            '[research-v2/chat orchestrator] side-effect failed',
+            {
+              runId,
+              userId,
+              intent: effect.intent,
+              reason: outcome.reason,
+            },
+          );
+        }
+      }
+    },
   });
 }
 
@@ -253,6 +590,23 @@ export async function POST(req: Request): Promise<Response> {
     )
     .map((row) => ({ role: row.role, content: row.content }))
     .reverse();
+
+  // Phase 4: when the orchestrator flag is on, route the entire turn through
+  // the ToolLoopAgent. The agent's 5 meta-tools (rerunSection / editClaim /
+  // editNarrative / explainSource / summarizeArtifact) handle the same
+  // surface area as the legacy intent-router branches; side-effects are
+  // applied here via extractOrchestratorSideEffects → applyOrchestratorSideEffect.
+  if (ENABLE_POSITIONING_ORCHESTRATOR) {
+    return await runOrchestratorTurn({
+      userId,
+      runId,
+      supabase,
+      researchResults,
+      chatHistory,
+      auditContext,
+      req,
+    });
+  }
 
   const intent = await classifyIntent({
     userMessage: userText,
