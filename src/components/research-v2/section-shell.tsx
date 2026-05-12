@@ -9,7 +9,6 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -44,6 +43,7 @@ import {
 } from '@/lib/research-v2/json-to-markdown';
 
 import { ChatMessage } from './chat-message';
+import { ChatThread } from './chat-thread';
 import { RunSectionButton, type SectionRunState } from './run-section-button';
 import { ThinkingBlock } from './thinking-block';
 import { SectionErrorCard } from './section-error-card';
@@ -121,9 +121,6 @@ export function SectionShell({ runId }: SectionShellProps) {
       sectionId: POSITIONING_SECTION_IDS[0],
     },
   ]);
-
-  const [refineInput, setRefineInput] = useState('');
-  const [isRefining, setIsRefining] = useState(false);
 
   // Artifact: accumulated markdown (each section appends below)
   const [artifactSections, setArtifactSections] = useState<
@@ -411,66 +408,6 @@ export function SectionShell({ runId }: SectionShellProps) {
   }
 
   // -------------------------------------------------------------------------
-  // Chat refinement
-  // -------------------------------------------------------------------------
-
-  async function handleRefineSubmit() {
-    if (!refineInput.trim() || isRefining) return;
-
-    const instruction = refineInput.trim();
-    setRefineInput('');
-    setIsRefining(true);
-
-    setChatEntries((prev) => [
-      ...prev,
-      { id: `user-${Date.now()}`, role: 'user', content: instruction },
-    ]);
-
-    try {
-      const res = await fetch('/api/research-v2/refine', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ runId, instruction }),
-      });
-
-      const data = (await res.json().catch(() => ({}))) as { status?: string };
-
-      if (data.status === 'not_implemented') {
-        setChatEntries((prev) => [
-          ...prev,
-          {
-            id: `refine-stub-${Date.now()}`,
-            role: 'assistant',
-            content:
-              'Refinement is coming in Phase 5. For now, you can re-run any section after editing your onboarding answers.',
-          },
-        ]);
-      } else {
-        setChatEntries((prev) => [
-          ...prev,
-          {
-            id: `refine-ack-${Date.now()}`,
-            role: 'assistant',
-            content: 'Refinement queued. The section will re-run shortly.',
-          },
-        ]);
-      }
-    } catch {
-      setChatEntries((prev) => [
-        ...prev,
-        {
-          id: `refine-err-${Date.now()}`,
-          role: 'assistant',
-          content: 'Failed to send refinement request. Please try again.',
-        },
-      ]);
-    } finally {
-      setIsRefining(false);
-    }
-  }
-
-  // -------------------------------------------------------------------------
   // Derived
   // -------------------------------------------------------------------------
 
@@ -494,9 +431,6 @@ export function SectionShell({ runId }: SectionShellProps) {
     activeCompletedIdx >= 0 && activeCompletedIdx < completedSections.length - 1
       ? completedSections[activeCompletedIdx + 1]
       : null;
-
-  const allComplete =
-    completedSections.length === POSITIONING_SECTION_IDS.length;
 
   // -------------------------------------------------------------------------
   // Render
@@ -755,40 +689,7 @@ export function SectionShell({ runId }: SectionShellProps) {
           </div>
         </ScrollArea>
 
-        {/* Chat input */}
-        <div className="shrink-0 border-t border-border px-4 py-3">
-          <div className="flex gap-2 max-w-2xl mx-auto">
-            <Textarea
-              placeholder={
-                allComplete
-                  ? 'Ask AIGOS to refine any section…'
-                  : 'Refine after sections complete…'
-              }
-              className="min-h-[2.5rem] max-h-32 resize-none rounded-md text-sm"
-              value={refineInput}
-              onChange={(e) => setRefineInput(e.target.value)}
-              disabled={isRefining}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleRefineSubmit();
-                }
-              }}
-            />
-            <Button
-              size="sm"
-              className="rounded-md shrink-0 self-end"
-              disabled={!refineInput.trim() || isRefining}
-              onClick={() => void handleRefineSubmit()}
-            >
-              {isRefining ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Send'
-              )}
-            </Button>
-          </div>
-        </div>
+        <ChatThread runId={runId} userId={userId} />
       </div>
 
     </div>
