@@ -53,7 +53,17 @@ interface ExistingSectionStatus {
 interface JobStatusEntry {
   status?: string;
   tool?: string;
+  startedAt?: string;
 }
+
+// Mirror of research-worker TOOL_STALE_THRESHOLDS. The dispatch route uses
+// these to ignore stale 'running' job_status rows left behind by a crashed
+// worker (the worker's own in-memory stale-check only runs while the
+// process is alive).
+const STALE_THRESHOLD_MS = 300_000; // 5 min default — match worker value
+const TOOL_STALE_THRESHOLDS: Record<string, number> = {
+  runDeepResearchProgram: 900_000, // 15 min — corpus extraction is slow
+};
 
 async function readSectionStatus(
   userId: string,
@@ -125,15 +135,46 @@ async function findActiveJobForSection(
   const jobStatus = data?.job_status as Record<string, JobStatusEntry> | null;
   if (!jobStatus) return null;
 
+  const now = Date.now();
   for (const [jobId, entry] of Object.entries(jobStatus)) {
     if (
-      entry &&
-      typeof entry === 'object' &&
-      entry.status === 'running' &&
-      entry.tool === sectionId
+      !entry ||
+      typeof entry !== 'object' ||
+      entry.status !== 'running' ||
+      entry.tool !== sectionId
     ) {
-      return jobId;
+      continue;
     }
+
+    const threshold =
+      TOOL_STALE_THRESHOLDS[sectionId] ?? STALE_THRESHOLD_MS;
+    const startedAtMs =
+      typeof entry.startedAt === 'string'
+        ? Date.parse(entry.startedAt)
+        : NaN;
+
+    if (!Number.isFinite(startedAtMs)) {
+      // Missing/unparseable startedAt — fail open on retry rather than
+      // blocking forever.
+      console.warn(
+        '[research-v2] Ignoring running job with missing/unparseable startedAt',
+        { jobId, tool: entry.tool, startedAt: entry.startedAt },
+      );
+      continue;
+    }
+
+    const ageMs = now - startedAtMs;
+    if (ageMs > threshold) {
+      console.warn('[research-v2] Ignoring stale running job', {
+        jobId,
+        tool: entry.tool,
+        ageMs,
+        threshold,
+      });
+      continue;
+    }
+
+    return jobId;
   }
   return null;
 }
