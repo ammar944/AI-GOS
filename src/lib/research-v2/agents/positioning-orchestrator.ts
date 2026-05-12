@@ -17,7 +17,6 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 import { z } from 'zod';
 
-import { createAdminClient } from '@/lib/supabase/server';
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 
 const ZoneIdSchema = z.enum(POSITIONING_SECTION_IDS);
@@ -52,11 +51,10 @@ const rerunSection = tool({
       ),
   }),
   execute: async ({ zone, refinement }) => {
-    const supabase = await createAdminClient();
     // The orchestrator's tool context doesn't carry runId/userId directly;
     // those flow through the chat route's session context. For Phase 4 we
-    // surface a structured "intent" the chat route's onFinish hook can read
-    // from the tool-call message stream and translate into a real dispatch.
+    // surface a structured "intent" the chat route's onFinish hook reads
+    // (via onStepFinish collection) and translates into a real dispatch.
     // Phase 5 wires the direct worker call.
     return {
       type: 'rerun-requested' as const,
@@ -66,7 +64,6 @@ const rerunSection = tool({
       // Hint for the chat route post-processor:
       _intent: 'rerun_section',
       _payload: { zone, refinement: refinement ?? null },
-      _supabase_present: supabase !== null,
     };
   },
 });

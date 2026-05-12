@@ -187,6 +187,12 @@ async function applyOrchestratorSideEffect(
         }),
         signal: controller.signal,
       });
+      // 409 from the dispatch route means "already running" — the worker
+      // is already processing this zone, so the user's rerun intent is
+      // satisfied. Treat it as a successful outcome, not a failure.
+      if (res.status === 409) {
+        return { ok: true, reason: 'already running' };
+      }
       if (!res.ok) {
         return {
           ok: false,
@@ -229,8 +235,12 @@ async function applyOrchestratorSideEffect(
       : wrapper;
 
     // Build a structured patch the existing applyPatch helper can apply.
-    // edit_claim: `keyFindings.<idx>.title = newText` when claimId is "kf-<n>".
-    // edit_narrative: `narrativeMarkdown = patch`.
+    // The patch path grammar (src/lib/research-v2/patch-apply.ts) uses
+    // bracket index syntax: `keyFindings[0].title`, NOT `keyFindings.0.title`.
+    // edit_claim: when claimId is "kf-<n>", patch the n-th key finding's title.
+    // edit_narrative: patch `artifact.markdown` — that's the rendered field
+    // the workspace UI displays (see writeResearchResult in the worker:
+    // `artifact: { title, markdown }`).
     let patchPath: string | null = null;
     let patchValue: unknown = null;
     if (effect.intent === 'edit_claim') {
@@ -252,7 +262,7 @@ async function applyOrchestratorSideEffect(
           reason: `edit_claim: only kf-<idx> claim ids are supported in Phase 4 (got "${claimId}")`,
         };
       }
-      patchPath = `keyFindings.${match[1]}.title`;
+      patchPath = `keyFindings[${match[1]}].title`;
       patchValue = newText;
     } else {
       const patch =
@@ -262,7 +272,7 @@ async function applyOrchestratorSideEffect(
       if (patch === null) {
         return { ok: false, reason: 'edit_narrative missing patch' };
       }
-      patchPath = 'narrativeMarkdown';
+      patchPath = 'artifact.markdown';
       patchValue = patch;
     }
 
@@ -317,10 +327,20 @@ async function runOrchestratorTurn(opts: {
   supabase: ReturnType<typeof createAdminClient>;
   researchResults: Record<string, unknown>;
   chatHistory: ChatMessageForRouter[];
+  userText: string;
   auditContext: AuditContextSummary;
   req: Request;
 }): Promise<Response> {
-  const { userId, runId, supabase, researchResults, chatHistory, auditContext, req } = opts;
+  const {
+    userId,
+    runId,
+    supabase,
+    researchResults,
+    chatHistory,
+    userText,
+    auditContext,
+    req,
+  } = opts;
 
   const auditSummary = auditContext.sections
     .map(
@@ -332,7 +352,7 @@ async function runOrchestratorTurn(opts: {
   // System message carries per-request audit state. The agent's persistent
   // role lives in its `instructions` (set in the constructor). Combining the
   // two keeps the agent reusable across runs.
-  const messages: ModelMessage[] = [
+  const baseMessages: ModelMessage[] = [
     {
       role: 'system',
       content: `Current artifact (run ${runId}):\n\n${auditSummary || 'No sections generated yet.'}`,
@@ -343,20 +363,55 @@ async function runOrchestratorTurn(opts: {
     })),
   ];
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    ORCHESTRATOR_TIMEOUT_MS,
-  );
+  // Defensive: if the history fetch returned empty or lagged behind the
+  // just-inserted user row, the orchestrator would lose the user's actual
+  // instruction. Append the validated request text when it isn't already
+  // the last message. classifyIntent uses userText directly for the same
+  // reason — we mirror that guarantee here.
+  const lastMsg = baseMessages.at(-1);
+  const messages: ModelMessage[] =
+    lastMsg &&
+    lastMsg.role === 'user' &&
+    typeof lastMsg.content === 'string' &&
+    lastMsg.content === userText
+      ? baseMessages
+      : [...baseMessages, { role: 'user', content: userText }];
 
-  let result;
+  // Compose the abort signal from a 45s timeout AND the inbound request
+  // signal. AbortSignal.any() (Node 20+) fires when EITHER aborts. This
+  // closes the quota-leak window when the client disconnects mid-turn —
+  // previously only the internal timer could abort the agent.
+  const timeoutSignal = AbortSignal.timeout(ORCHESTRATOR_TIMEOUT_MS);
+  const combinedSignal: AbortSignal =
+    typeof AbortSignal.any === 'function'
+      ? AbortSignal.any([timeoutSignal, req.signal])
+      : timeoutSignal;
+
+  // P1 fix: collect tool results across EVERY step via onStepFinish.
+  // StreamTextResult.toolResults only carries the FINAL step's results,
+  // and the final step in a ToolLoopAgent turn is post-tool narration with
+  // zero tool calls — so reading from there missed every actionable
+  // intent. onStepFinish runs after each LLM step (tool-calling and
+  // narration alike) and the per-step `toolResults` is the source of truth.
+  const collectedToolResults: Array<{ output?: unknown }> = [];
+
+  let result: Awaited<ReturnType<typeof positioningOrchestratorAgent.stream>>;
   try {
     result = await positioningOrchestratorAgent.stream({
       messages,
-      abortSignal: controller.signal,
+      abortSignal: combinedSignal,
+      onStepFinish: (step) => {
+        const stepResults = (step as { toolResults?: unknown }).toolResults;
+        if (Array.isArray(stepResults)) {
+          for (const tr of stepResults) {
+            if (isRecord(tr)) {
+              collectedToolResults.push(tr as { output?: unknown });
+            }
+          }
+        }
+      },
     });
   } catch (err) {
-    clearTimeout(timeoutId);
     console.error('[research-v2/chat orchestrator] stream() failed', {
       runId,
       userId,
@@ -377,8 +432,6 @@ async function runOrchestratorTurn(opts: {
 
   return result.toUIMessageStreamResponse({
     onFinish: async ({ responseMessage }) => {
-      clearTimeout(timeoutId);
-
       // Extract assistant text from the UI message parts so it can be
       // persisted for history. UI message parts have a discriminated `type`
       // — collect every text part in order.
@@ -418,23 +471,8 @@ async function runOrchestratorTurn(opts: {
         }
       }
 
-      let toolResults: Array<{ output?: unknown }> = [];
-      try {
-        toolResults = (await result.toolResults) as Array<{
-          output?: unknown;
-        }>;
-      } catch (err) {
-        console.error(
-          '[research-v2/chat orchestrator] toolResults rejected',
-          {
-            runId,
-            userId,
-            message: err instanceof Error ? err.message : String(err),
-          },
-        );
-      }
-
-      const effects = extractOrchestratorSideEffects(toolResults);
+      const effects = extractOrchestratorSideEffects(collectedToolResults);
+      const failureReasons: string[] = [];
       for (const effect of effects) {
         const outcome = await applyOrchestratorSideEffect(effect, {
           userId,
@@ -453,6 +491,33 @@ async function runOrchestratorTurn(opts: {
               intent: effect.intent,
               reason: outcome.reason,
             },
+          );
+          failureReasons.push(
+            `${effect.intent} failed: ${outcome.reason ?? 'unknown error'}`,
+          );
+        }
+      }
+
+      // P2 fix: surface side-effect failures back to the user. The SSE
+      // stream has already closed, so we can't append to the current
+      // assistant turn — instead we persist a follow-up assistant message
+      // that the workspace UI will render on its next history refresh.
+      if (failureReasons.length > 0) {
+        const failureInsert: AuditChatInsert = {
+          run_id: runId,
+          user_id: userId,
+          role: 'assistant',
+          content: `⚠️ Orchestrator side-effect(s) could not complete: ${failureReasons.join('; ')}`,
+          intent: 'converse',
+        };
+        const { error: failureInsertError } = await supabase
+          .from('audit_chat_messages')
+          .insert(failureInsert);
+        if (failureInsertError) {
+          logSupabaseError(
+            'insert_orchestrator_failure_followup',
+            { runId, userId, role: 'assistant' },
+            failureInsertError,
           );
         }
       }
@@ -603,6 +668,7 @@ export async function POST(req: Request): Promise<Response> {
       supabase,
       researchResults,
       chatHistory,
+      userText,
       auditContext,
       req,
     });
