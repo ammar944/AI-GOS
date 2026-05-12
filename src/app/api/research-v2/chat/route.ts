@@ -10,6 +10,7 @@ import type {
   ChatMessageForRouter,
   SectionSummary,
 } from '@/lib/research-v2/intent-router.types';
+import { applyPatch } from '@/lib/research-v2/patch-apply';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const maxDuration = 60;
@@ -38,7 +39,7 @@ interface AuditChatInsert {
   user_id: string;
   role: 'user' | 'assistant';
   content: string;
-  intent?: 'rerun' | 'converse';
+  intent?: 'rerun' | 'patch' | 'converse';
   target_section?: string | null;
 }
 
@@ -267,6 +268,87 @@ export async function POST(req: Request): Promise<Response> {
     auditContext,
     chatHistory,
   });
+
+  if (
+    intent.kind === 'patch' &&
+    intent.target_section &&
+    intent.patch &&
+    isRecord(researchResults[intent.target_section])
+  ) {
+    const wrapper = researchResults[intent.target_section] as Record<
+      string,
+      unknown
+    >;
+    const isWrapped = isRecord(wrapper.data);
+    const inner = isWrapped
+      ? (wrapper.data as Record<string, unknown>)
+      : wrapper;
+
+    try {
+      const patchedInner = applyPatch(inner, intent.patch);
+      const newSection: Record<string, unknown> = isWrapped
+        ? { ...wrapper, data: patchedInner }
+        : { ...patchedInner };
+      const newResults = {
+        ...researchResults,
+        [intent.target_section]: newSection,
+      };
+
+      const { error: updateError } = await supabase
+        .from('journey_sessions')
+        .update({ research_results: newResults })
+        .eq('user_id', userId)
+        .eq('run_id', runId);
+
+      if (updateError) {
+        logSupabaseError(
+          'update_research_results_patch',
+          { runId, userId },
+          updateError,
+        );
+        throw new Error(`Failed to persist patch: ${updateError.message}`);
+      }
+
+      const ackText = `Updated ${intent.target_section} → ${intent.patch.path} = ${JSON.stringify(intent.patch.value)}`;
+
+      const assistantInsert: AuditChatInsert = {
+        run_id: runId,
+        user_id: userId,
+        role: 'assistant',
+        content: ackText,
+        intent: 'patch',
+        target_section: intent.target_section,
+      };
+      const { error: ackInsertError } = await supabase
+        .from('audit_chat_messages')
+        .insert(assistantInsert);
+
+      if (ackInsertError) {
+        logSupabaseError(
+          'insert_patch_ack',
+          { runId, userId, role: 'assistant' },
+          ackInsertError,
+        );
+      }
+
+      const ackStream = streamText({
+        model: anthropic('claude-haiku-4-5-20251001'),
+        system:
+          'You are an audit-editing assistant. Output exactly the user-supplied text — no rephrasing, no additions.',
+        prompt: ackText,
+      });
+      return ackStream.toUIMessageStreamResponse();
+    } catch (err) {
+      console.error('[research-v2/chat] Patch apply failed', {
+        runId,
+        userId,
+        targetSection: intent.target_section,
+        path: intent.patch.path,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      // Fall through to converse path so the user still gets a response.
+    }
+  }
 
   if (intent.kind === 'rerun' && intent.target_section) {
     // Fire dispatch without blocking the chat response. The worker takes the
