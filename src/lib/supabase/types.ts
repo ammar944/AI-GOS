@@ -23,6 +23,38 @@ export interface OnboardingData {
 export interface Database {
   public: {
     Tables: {
+      audit_chat_messages: {
+        Row: {
+          id: string;
+          run_id: string;
+          user_id: string;
+          role: "user" | "assistant" | "system";
+          content: string;
+          intent: "rerun" | "patch" | "converse" | null;
+          target_section: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          user_id: string;
+          role: "user" | "assistant" | "system";
+          content: string;
+          intent?: "rerun" | "patch" | "converse" | null;
+          target_section?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          run_id?: string;
+          user_id?: string;
+          role?: "user" | "assistant" | "system";
+          content?: string;
+          intent?: "rerun" | "patch" | "converse" | null;
+          target_section?: string | null;
+          created_at?: string;
+        };
+      };
       user_profiles: {
         Row: {
           id: string;
