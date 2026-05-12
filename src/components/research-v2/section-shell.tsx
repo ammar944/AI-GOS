@@ -1,34 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  Loader2,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  XCircle,
+} from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  Circle,
-  FileText,
-  Loader2,
-  XCircle,
-} from 'lucide-react';
-import { useUser } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 
 import {
@@ -37,661 +28,306 @@ import {
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
-import {
-  sectionEnvelopeToMarkdown,
-  type PositioningSectionEnvelope,
-} from '@/lib/research-v2/json-to-markdown';
 
-import { ChatMessage } from './chat-message';
+import { AuditArtifactCanvas } from './audit-artifact-canvas';
 import { ChatThread } from './chat-thread';
 import { RunSectionButton, type SectionRunState } from './run-section-button';
-import { ThinkingBlock } from './thinking-block';
 import { SectionErrorCard } from './section-error-card';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 interface SectionShellProps {
   runId: string;
   currentSection: PositioningSectionId | null;
 }
 
-type SectionStatus = 'idle' | 'running' | 'complete' | 'error';
+type ZoneStatus = 'idle' | 'running' | 'complete' | 'error';
 
-interface SectionState {
-  status: SectionStatus;
-  markdown?: string;
-  errorMessage?: string;
-}
-
-interface ChatEntry {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  sectionId?: PositioningSectionId;
-  showRunButton?: boolean;
-  showThinking?: boolean;
-  showError?: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Progress strip status icon
-// ---------------------------------------------------------------------------
-
-function StatusIcon({ status }: { status: SectionStatus }) {
-  switch (status) {
-    case 'complete':
-      return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />;
-    case 'running':
-      return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
-    case 'error':
-      return <XCircle className="h-3.5 w-3.5 text-destructive" />;
-    default:
-      return <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />;
+function deriveZoneStatus(
+  jobStatus: string | undefined,
+  resultStatus: string | undefined,
+): ZoneStatus {
+  if (resultStatus === 'complete') return 'complete';
+  if (resultStatus === 'error' || jobStatus === 'error') return 'error';
+  if (jobStatus === 'running' || jobStatus === 'pending' || resultStatus === 'pending') {
+    return 'running';
   }
+  return 'idle';
 }
 
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
+function statusIcon(status: ZoneStatus) {
+  if (status === 'running')
+    return <Loader2 className="size-3 animate-spin text-primary" />;
+  if (status === 'complete')
+    return <CheckCircle2 className="size-3 text-emerald-600" />;
+  if (status === 'error') return <XCircle className="size-3 text-destructive" />;
+  return <Circle className="size-3 text-muted-foreground" />;
+}
 
-export function SectionShell({ runId }: SectionShellProps) {
+export function SectionShell({ runId, currentSection }: SectionShellProps) {
   const { user } = useUser();
   const userId = user?.id ?? null;
 
-  const [progressOpen, setProgressOpen] = useState(false);
-  const [artifactOpen, setArtifactOpen] = useState(false);
-  const [sectionStates, setSectionStates] = useState<
-    Record<PositioningSectionId, SectionState>
-  >(() =>
-    Object.fromEntries(
-      POSITIONING_SECTION_IDS.map((id) => [id, { status: 'idle' as SectionStatus }]),
-    ) as Record<PositioningSectionId, SectionState>,
-  );
-
-  // Chat history
-  const [chatEntries, setChatEntries] = useState<ChatEntry[]>(() => [
-    {
-      id: 'init',
-      role: 'assistant',
-      content:
-        'Corpus and onboarding complete. Run each section below to generate your Pre-Pitch Positioning Audit.',
-      showRunButton: true,
-      sectionId: POSITIONING_SECTION_IDS[0],
-    },
-  ]);
-
-  // Artifact: accumulated markdown (each section appends below)
-  const [artifactSections, setArtifactSections] = useState<
+  const [researchResults, setResearchResults] = useState<
+    Record<string, unknown> | null
+  >(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [errorBySection, setErrorBySection] = useState<
     Partial<Record<PositioningSectionId, string>>
   >({});
 
-  // Which completed section the audit sheet is showing right now. Null until
-  // the first section completes. User-controlled after that — new completions
-  // don't yank the view away from what they're reading.
-  const [activeArtifactSection, setActiveArtifactSection] =
-    useState<PositioningSectionId | null>(null);
+  const activity = useResearchJobActivity({ userId, activeRunId: runId });
 
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Track which sections we've already toasted for
-  const toastedRef = useRef<Set<PositioningSectionId>>(new Set());
-  const prevCompletedRef = useRef<Set<PositioningSectionId>>(new Set());
-
-  // -------------------------------------------------------------------------
-  // Poll activity to detect section completion
-  // -------------------------------------------------------------------------
-
-  const activity = useResearchJobActivity({
-    userId,
-    activeRunId: runId,
-  });
-
-  // Sync job status into sectionStates (pure state mirror — no side effects).
   useEffect(() => {
-    setSectionStates((prev) => {
-      const next = { ...prev };
+    if (!runId) return;
+    let cancelled = false;
+    let timer: number | null = null;
 
-      for (const sectionId of POSITIONING_SECTION_IDS) {
-        const job = activity[sectionId];
-        if (!job) continue;
-
-        const current = prev[sectionId];
-        const jobStatus: SectionStatus =
-          job.status === 'complete'
-            ? 'complete'
-            : job.status === 'error'
-              ? 'error'
-              : 'running';
-
-        if (jobStatus !== current.status) {
-          next[sectionId] = { ...current, status: jobStatus, errorMessage: job.error };
-        }
-      }
-
-      return next;
-    });
-  }, [activity]);
-
-  // Fetch artifact for completed section and advance chat
-  const handleSectionCompleted = useCallback(
-    async (sectionId: PositioningSectionId) => {
-      const label = POSITIONING_SECTION_LABELS[sectionId];
-
-      // Toast
-      if (!toastedRef.current.has(sectionId)) {
-        toastedRef.current.add(sectionId);
-        toast.success(`${label} complete.`);
-      }
-
-      // Fetch the artifact markdown from the session
-      let markdown = '';
+    const tick = async () => {
       try {
-        const res = await fetch(`/api/journey/session?runId=${runId}`, {
-          cache: 'no-store',
+        const url = new URL('/api/journey/session', window.location.origin);
+        url.searchParams.set('runId', runId);
+        const resp = await fetch(url.toString(), {
           credentials: 'same-origin',
         });
-        if (res.ok) {
-          const data = (await res.json()) as {
-            researchResults?: Record<
-              string,
-              {
-                status?: string;
-                data?: unknown;
-                artifact?: { markdown?: string };
-              }
-            > | null;
-          };
-          const entry = data.researchResults?.[sectionId];
-          if (entry?.artifact?.markdown) {
-            markdown = entry.artifact.markdown;
-          } else if (entry?.data) {
-            // Fallback: convert JSON envelope to markdown
-            try {
-              markdown = sectionEnvelopeToMarkdown(
-                entry.data as PositioningSectionEnvelope,
-              );
-            } catch {
-              markdown = `# ${label}\n\nSection complete.`;
-            }
-          }
-        }
-      } catch {
-        markdown = `# ${label}\n\nSection complete.`;
-      }
-
-      // Update artifact panel
-      setArtifactSections((prev) => {
-        const next = { ...prev, [sectionId]: markdown };
-        // Auto-open the artifact sheet on the FIRST completion so the user
-        // discovers the panel exists. After that, leave it to the user.
-        if (Object.keys(prev).length === 0) {
-          setArtifactOpen(true);
-        }
-        return next;
-      });
-      // Selection rule: if no section is selected yet (first completion, or
-      // every prior selection got blown away), point at the one we just got.
-      // Otherwise leave the active section alone — the user may be reading it.
-      setActiveArtifactSection((prev) => prev ?? sectionId);
-
-      // Update section states with markdown
-      setSectionStates((prev) => ({
-        ...prev,
-        [sectionId]: { ...prev[sectionId], markdown, status: 'complete' },
-      }));
-
-      // Find next pending section
-      const currentIdx = POSITIONING_SECTION_IDS.indexOf(sectionId);
-      const nextSectionId = POSITIONING_SECTION_IDS[currentIdx + 1] as
-        | PositioningSectionId
-        | undefined;
-
-      // Advance chat
-      setChatEntries((prev) => {
-        // Remove the thinking block entry for this section
-        const filtered = prev.filter(
-          (e) => !(e.showThinking && e.sectionId === sectionId),
-        );
-
-        const completionEntry: ChatEntry = {
-          id: `complete-${sectionId}`,
-          role: 'assistant',
-          content: nextSectionId
-            ? `Section complete. ${label} added to your audit.`
-            : 'All sections complete. Refine via chat input below.',
-          ...(nextSectionId
-            ? {
-                showRunButton: true,
-                sectionId: nextSectionId,
-              }
-            : {}),
+        if (!resp.ok) return;
+        const data = (await resp.json()) as {
+          researchResults?: Record<string, unknown> | null;
         };
-
-        return [...filtered, completionEntry];
-      });
-    },
-    [runId],
-  );
-
-  // Detect newly-completed sections and fire side effects.
-  // MUST come AFTER handleSectionCompleted is defined (block-scoped const).
-  // MUST also be separate from the state-sync effect above: in React 18
-  // batched mode, setState updaters run on the next render commit (not
-  // synchronously), so any array we tried to mutate inside the updater
-  // closure would still be empty when read in the trailing code — the side
-  // effects would never fire and the artifact panel would stay stuck on its
-  // empty-state copy.
-  useEffect(() => {
-    for (const sectionId of POSITIONING_SECTION_IDS) {
-      const job = activity[sectionId];
-      if (!job) continue;
-      if (job.status === 'complete' && !prevCompletedRef.current.has(sectionId)) {
-        prevCompletedRef.current.add(sectionId);
-        void handleSectionCompleted(sectionId);
+        if (cancelled) return;
+        setResearchResults(data.researchResults ?? null);
+      } catch {
+        // swallow — polling will retry
       }
+    };
+
+    void tick();
+    timer = window.setInterval(() => void tick(), 2500);
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearInterval(timer);
+    };
+  }, [runId]);
+
+  const sectionStatuses = useMemo(() => {
+    const map = {} as Record<PositioningSectionId, ZoneStatus>;
+    for (const id of POSITIONING_SECTION_IDS) {
+      const row = researchResults?.[id] as { status?: string } | undefined;
+      const job = activity[id];
+      map[id] = deriveZoneStatus(job?.status, row?.status);
     }
-  }, [activity, handleSectionCompleted]);
+    return map;
+  }, [researchResults, activity]);
 
-  // Auto-scroll chat on new entries
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatEntries.length]);
-
-  // -------------------------------------------------------------------------
-  // Section run state changes (from RunSectionButton)
-  // -------------------------------------------------------------------------
-
-  function handleRunStateChange(
-    sectionId: PositioningSectionId,
-    state: SectionRunState,
-  ) {
-    if (state === 'running' || state === 'pending') {
-      setSectionStates((prev) => ({
-        ...prev,
-        [sectionId]: { ...prev[sectionId], status: 'running' },
-      }));
-
-      // Add thinking block to chat
-      setChatEntries((prev) => {
-        const alreadyHasThinking = prev.some(
-          (e) => e.showThinking && e.sectionId === sectionId,
-        );
-        if (alreadyHasThinking) return prev;
-
-        // Remove the run button entry for this section
-        const filtered = prev.map((e) =>
-          e.showRunButton && e.sectionId === sectionId
-            ? { ...e, showRunButton: false }
-            : e,
-        );
-
-        return [
-          ...filtered,
-          {
-            id: `thinking-${sectionId}`,
-            role: 'assistant' as const,
-            content: '',
-            sectionId,
-            showThinking: true,
-          },
-        ];
-      });
-    }
-
-    if (state === 'error') {
-      setSectionStates((prev) => ({
-        ...prev,
-        [sectionId]: { ...prev[sectionId], status: 'error' },
-      }));
-
-      setChatEntries((prev) => {
-        const filtered = prev.filter(
-          (e) => !(e.showThinking && e.sectionId === sectionId),
-        );
-        return [
-          ...filtered,
-          {
-            id: `error-${sectionId}`,
-            role: 'assistant' as const,
-            content: '',
-            sectionId,
-            showError: true,
-          },
-        ];
-      });
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // Section error: retry / skip
-  // -------------------------------------------------------------------------
-
-  function handleRetrySection(sectionId: PositioningSectionId) {
-    setSectionStates((prev) => ({
-      ...prev,
-      [sectionId]: { ...prev[sectionId], status: 'idle' },
-    }));
-    setChatEntries((prev) =>
-      prev.map((e) =>
-        e.showError && e.sectionId === sectionId
-          ? { ...e, showError: false, showRunButton: true }
-          : e,
+  const completedCount = useMemo(
+    () =>
+      POSITIONING_SECTION_IDS.reduce(
+        (n, id) => (sectionStatuses[id] === 'complete' ? n + 1 : n),
+        0,
       ),
-    );
-  }
-
-  function handleSkipSection(sectionId: PositioningSectionId) {
-    setSectionStates((prev) => ({
-      ...prev,
-      [sectionId]: { ...prev[sectionId], status: 'error', errorMessage: 'Skipped' },
-    }));
-
-    const currentIdx = POSITIONING_SECTION_IDS.indexOf(sectionId);
-    const nextSectionId = POSITIONING_SECTION_IDS[currentIdx + 1] as
-      | PositioningSectionId
-      | undefined;
-
-    setChatEntries((prev) => {
-      const filtered = prev.filter(
-        (e) => !(e.showError && e.sectionId === sectionId),
-      );
-      const skipEntry: ChatEntry = {
-        id: `skip-${sectionId}`,
-        role: 'assistant',
-        content: `Skipped ${POSITIONING_SECTION_LABELS[sectionId]}.`,
-        ...(nextSectionId ? { showRunButton: true, sectionId: nextSectionId } : {}),
-      };
-      return [...filtered, skipEntry];
-    });
-  }
-
-  // -------------------------------------------------------------------------
-  // Derived
-  // -------------------------------------------------------------------------
-
-  const completedSections = POSITIONING_SECTION_IDS.filter(
-    (id) => sectionStates[id].status === 'complete',
+    [sectionStatuses],
   );
 
-  const activeMarkdown = activeArtifactSection
-    ? (artifactSections[activeArtifactSection] ?? '')
-    : '';
+  const handleRunStateChange = useCallback(
+    (sectionId: PositioningSectionId, state: SectionRunState) => {
+      if (state === 'error') {
+        setErrorBySection((prev) => ({
+          ...prev,
+          [sectionId]: `Failed to dispatch ${POSITIONING_SECTION_LABELS[sectionId]}. Try again.`,
+        }));
+      } else {
+        setErrorBySection((prev) => {
+          if (!(sectionId in prev)) return prev;
+          const next = { ...prev };
+          delete next[sectionId];
+          return next;
+        });
+      }
+    },
+    [],
+  );
 
-  // Prev/next navigation across COMPLETED sections only — we don't let the
-  // user step into a pending one. Index is based on the global ordering, not
-  // the completion order, so the navigation feels like a numbered playlist.
-  const activeCompletedIdx = activeArtifactSection
-    ? completedSections.indexOf(activeArtifactSection)
-    : -1;
-  const prevCompletedSection =
-    activeCompletedIdx > 0 ? completedSections[activeCompletedIdx - 1] : null;
-  const nextCompletedSection =
-    activeCompletedIdx >= 0 && activeCompletedIdx < completedSections.length - 1
-      ? completedSections[activeCompletedIdx + 1]
-      : null;
+  const handleRetrySection = useCallback((sectionId: PositioningSectionId) => {
+    setErrorBySection((prev) => {
+      if (!(sectionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
+  }, []);
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
+  const handleSkipSection = useCallback((sectionId: PositioningSectionId) => {
+    setErrorBySection((prev) => {
+      if (!(sectionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
+  }, []);
 
-  if (!userId) return null;
+  const currentError = currentSection ? errorBySection[currentSection] : null;
 
   return (
-    <div className="flex h-svh overflow-hidden">
-      {/* ------------------------------------------------------------------ */}
-      {/* Left: section progress strip                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <aside className="shrink-0 border-r border-border">
-        <Collapsible open={progressOpen} onOpenChange={setProgressOpen}>
-          <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-3 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
-            {progressOpen ? (
-              <ChevronDown className="h-3 w-3 shrink-0" />
-            ) : (
-              <ChevronRight className="h-3 w-3 shrink-0" />
+    <div className="flex h-svh overflow-hidden bg-background">
+      {/* Left rail — section progress */}
+      <aside
+        className={cn(
+          'border-r bg-muted/20 flex flex-col transition-[width] duration-200',
+          sidebarOpen ? 'w-60' : 'w-11',
+        )}
+      >
+        <div className="flex items-center justify-between border-b px-2 py-2">
+          <span
+            className={cn(
+              'text-xs font-semibold',
+              !sidebarOpen && 'sr-only',
             )}
-            <span className="font-medium">Sections</span>
-            <span className="ml-1 tabular-nums">
-              {completedSections.length}/{POSITIONING_SECTION_IDS.length}
-            </span>
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            <ul className="px-2 pb-3 space-y-0.5 min-w-[200px]">
-              {POSITIONING_SECTION_IDS.map((id, idx) => (
-                <li
-                  key={id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs"
-                >
-                  <StatusIcon status={sectionStates[id].status} />
+          >
+            Sections ({completedCount}/{POSITIONING_SECTION_IDS.length})
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {sidebarOpen ? (
+              <PanelLeftClose className="size-4" />
+            ) : (
+              <PanelLeftOpen className="size-4" />
+            )}
+          </Button>
+        </div>
+        <ul className="p-2 space-y-1 flex-1 overflow-auto">
+          {POSITIONING_SECTION_IDS.map((id) => {
+            const status = sectionStatuses[id];
+            const isCurrent = id === currentSection;
+            return (
+              <li
+                key={id}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs',
+                  isCurrent && 'bg-muted',
+                )}
+                title={POSITIONING_SECTION_LABELS[id]}
+              >
+                {statusIcon(status)}
+                {sidebarOpen ? (
                   <span
-                    className={
-                      sectionStates[id].status === 'complete'
-                        ? 'text-foreground'
-                        : 'text-muted-foreground'
-                    }
+                    className={cn(
+                      'truncate',
+                      status === 'complete' && 'text-muted-foreground',
+                    )}
                   >
-                    {idx + 1}. {POSITIONING_SECTION_LABELS[id]}
+                    {POSITIONING_SECTION_LABELS[id]}
                   </span>
-                </li>
-              ))}
-            </ul>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+
+      {/* Center — canvas */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="border-b px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight">
+              Pre-Pitch Positioning Audit
+            </span>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              {completedCount}/{POSITIONING_SECTION_IDS.length} sections complete
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {currentSection ? (
+              <RunSectionButton
+                runId={runId}
+                sectionId={currentSection}
+                sectionLabel={POSITIONING_SECTION_LABELS[currentSection]}
+                externalState={
+                  sectionStatuses[currentSection] === 'running'
+                    ? 'running'
+                    : sectionStatuses[currentSection] === 'complete'
+                      ? 'complete'
+                      : sectionStatuses[currentSection] === 'error'
+                        ? 'error'
+                        : 'idle'
+                }
+                onStateChange={handleRunStateChange}
+              />
+            ) : null}
+          </div>
+        </header>
+
+        {currentError && currentSection ? (
+          <div className="px-4 pt-3">
+            <SectionErrorCard
+              runId={runId}
+              sectionId={currentSection}
+              sectionLabel={POSITIONING_SECTION_LABELS[currentSection]}
+              errorMessage={currentError}
+              onRetry={handleRetrySection}
+              onSkip={handleSkipSection}
+            />
+          </div>
+        ) : null}
+
+        <AuditArtifactCanvas
+          runId={runId}
+          userId={userId}
+          researchResults={researchResults}
+          jobActivity={activity}
+          className="flex-1"
+        />
+      </div>
+
+      {/* Right rail — chat (post-research refinement) */}
+      <aside
+        className={cn(
+          'border-l bg-muted/10 flex flex-col transition-[width] duration-200',
+          chatOpen ? 'w-80' : 'w-11',
+        )}
+      >
+        <Collapsible
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          className="flex flex-col h-full"
+        >
+          <CollapsibleTrigger
+            asChild
+            className="flex w-full items-center justify-between gap-2 border-b px-2 py-2 hover:bg-muted/40 text-xs font-semibold"
+          >
+            <button type="button" aria-label={chatOpen ? 'Collapse chat' : 'Expand chat'}>
+              {chatOpen ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    <MessageSquare className="size-3.5" />
+                    Chat
+                  </span>
+                  <ChevronRight className="size-4" />
+                </>
+              ) : (
+                <span className="mx-auto inline-flex items-center justify-center">
+                  <ChevronLeft className="size-4" />
+                </span>
+              )}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent
+            forceMount
+            className={cn(
+              'flex-1 overflow-hidden',
+              !chatOpen && 'hidden',
+            )}
+          >
+            {userId ? (
+              <ChatThread runId={runId} userId={userId} className="h-full" />
+            ) : null}
           </CollapsibleContent>
         </Collapsible>
       </aside>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Center: chat                                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Top bar — artifact trigger lives here so it's always reachable.
-            Kept thin (h-11) to stay out of the chat's way. */}
-        <div className="shrink-0 flex items-center justify-between gap-2 px-4 h-11 border-b border-border">
-          <div className="text-xs text-muted-foreground tabular-nums">
-            {completedSections.length === 0
-              ? 'Run sections to build your audit'
-              : `${completedSections.length}/${POSITIONING_SECTION_IDS.length} sections complete`}
-          </div>
-          <Sheet open={artifactOpen} onOpenChange={setArtifactOpen}>
-            <SheetTrigger asChild>
-              <Button
-                size="sm"
-                variant={completedSections.length > 0 ? 'default' : 'outline'}
-                className="rounded-md h-7 px-2.5 text-xs gap-1.5"
-                disabled={completedSections.length === 0}
-                aria-label="View Pre-Pitch Positioning Audit"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                View Audit
-                {completedSections.length > 0 && (
-                  <span className="ml-0.5 rounded-sm bg-background/20 px-1 py-px text-[10px] font-medium tabular-nums leading-none">
-                    {completedSections.length}
-                  </span>
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="w-full sm:max-w-xl flex flex-col gap-0 p-0"
-            >
-              <SheetHeader className="shrink-0 px-5 py-4 border-b border-border">
-                <SheetTitle className="text-base font-semibold tracking-tight">
-                  Pre-Pitch Positioning Audit
-                </SheetTitle>
-                <SheetDescription className="text-xs">
-                  {completedSections.length === 0
-                    ? 'Sections will appear here as they complete.'
-                    : `${completedSections.length} of ${POSITIONING_SECTION_IDS.length} sections complete`}
-                </SheetDescription>
-              </SheetHeader>
-
-              {/* Section selector — pill group with prev/next. Only completed
-                  sections are clickable; pending sections render muted with an
-                  em-dash so the user can see what's coming without being
-                  tempted to click. Sized to wrap onto two rows for the longer
-                  labels ("Voice of Customer & Objection Evidence" etc.). */}
-              {completedSections.length > 0 && (
-                <div className="shrink-0 border-b border-border px-5 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex flex-wrap gap-1.5 min-w-0">
-                      {POSITIONING_SECTION_IDS.map((id, idx) => {
-                        const isComplete =
-                          sectionStates[id].status === 'complete';
-                        const isActive = activeArtifactSection === id;
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            disabled={!isComplete}
-                            onClick={() => setActiveArtifactSection(id)}
-                            aria-pressed={isActive}
-                            aria-label={
-                              isComplete
-                                ? `View ${POSITIONING_SECTION_LABELS[id]}`
-                                : `${POSITIONING_SECTION_LABELS[id]} (not yet complete)`
-                            }
-                            className={cn(
-                              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] leading-none font-medium transition-colors',
-                              isActive &&
-                                'border-foreground bg-foreground text-background',
-                              !isActive &&
-                                isComplete &&
-                                'border-border bg-background text-foreground hover:border-foreground/40 hover:bg-muted/60 cursor-pointer',
-                              !isComplete &&
-                                'border-dashed border-border/60 bg-transparent text-muted-foreground/60 cursor-not-allowed',
-                            )}
-                          >
-                            <span className="tabular-nums opacity-70">
-                              {idx + 1}
-                            </span>
-                            <span className="truncate max-w-[160px]">
-                              {POSITIONING_SECTION_LABELS[id]}
-                            </span>
-                            {!isComplete && (
-                              <span aria-hidden="true" className="opacity-60">
-                                —
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {completedSections.length > 1 && (
-                      <div className="shrink-0 flex items-center gap-0.5">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 rounded-md"
-                          disabled={!prevCompletedSection}
-                          onClick={() =>
-                            prevCompletedSection &&
-                            setActiveArtifactSection(prevCompletedSection)
-                          }
-                          aria-label="Previous completed section"
-                        >
-                          <ChevronLeft className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 rounded-md"
-                          disabled={!nextCompletedSection}
-                          onClick={() =>
-                            nextCompletedSection &&
-                            setActiveArtifactSection(nextCompletedSection)
-                          }
-                          aria-label="Next completed section"
-                        >
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <ScrollArea className="flex-1 min-h-0 px-5 py-5">
-                {activeMarkdown ? (
-                  <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-xl prose-h2:text-base prose-h3:text-sm prose-p:leading-relaxed prose-blockquote:border-l-2 prose-blockquote:border-foreground/20 prose-blockquote:not-italic prose-blockquote:text-foreground prose-blockquote:font-normal prose-hr:border-border">
-                    <ReactMarkdown>{activeMarkdown}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Run your first section to populate the audit.
-                  </p>
-                )}
-              </ScrollArea>
-            </SheetContent>
-          </Sheet>
-        </div>
-
-        <ScrollArea className="flex-1 px-4 py-4">
-          <div className="space-y-3 max-w-2xl mx-auto">
-            {chatEntries.map((entry) => {
-              if (entry.showThinking && entry.sectionId && userId) {
-                return (
-                  <div key={entry.id} className="px-2 py-1">
-                    <ThinkingBlock
-                      userId={userId}
-                      runId={runId}
-                      sectionId={entry.sectionId}
-                      sectionLabel={POSITIONING_SECTION_LABELS[entry.sectionId]}
-                    />
-                  </div>
-                );
-              }
-
-              if (entry.showError && entry.sectionId) {
-                return (
-                  <div key={entry.id}>
-                    <SectionErrorCard
-                      runId={runId}
-                      sectionId={entry.sectionId}
-                      sectionLabel={POSITIONING_SECTION_LABELS[entry.sectionId]}
-                      errorMessage={sectionStates[entry.sectionId].errorMessage}
-                      onRetry={handleRetrySection}
-                      onSkip={handleSkipSection}
-                    />
-                  </div>
-                );
-              }
-
-              return (
-                <div key={entry.id}>
-                  {entry.content && (
-                    <ChatMessage role={entry.role} content={entry.content} />
-                  )}
-                  {entry.showRunButton && entry.sectionId && (
-                    <div className="mt-2 ml-2">
-                      <RunSectionButton
-                        runId={runId}
-                        sectionId={entry.sectionId}
-                        sectionLabel={POSITIONING_SECTION_LABELS[entry.sectionId]}
-                        externalState={
-                          sectionStates[entry.sectionId].status === 'complete'
-                            ? 'complete'
-                            : sectionStates[entry.sectionId].status === 'running'
-                              ? 'running'
-                              : sectionStates[entry.sectionId].status === 'error'
-                                ? 'error'
-                                : 'idle'
-                        }
-                        onStateChange={handleRunStateChange}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
-        </ScrollArea>
-
-        <ChatThread runId={runId} userId={userId} />
-      </div>
-
     </div>
   );
 }
