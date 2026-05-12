@@ -19,7 +19,10 @@ import { NextResponse } from 'next/server';
 import {
   POSITIONING_SECTION_IDS,
 } from '@/lib/ai/prompts/positioning-skills';
-import { dispatchJourneyResearchForUser } from '@/lib/journey/server/dispatch-research';
+import {
+  dispatchJourneyResearchForUser,
+  SECTION_TO_TOOL,
+} from '@/lib/journey/server/dispatch-research';
 import { createAdminClient } from '@/lib/supabase/server';
 
 const ACCEPTED_DISPATCH_SECTIONS = [
@@ -135,19 +138,27 @@ async function findActiveJobForSection(
   const jobStatus = data?.job_status as Record<string, JobStatusEntry> | null;
   if (!jobStatus) return null;
 
+  // Translate dispatch sectionId → worker tool name. The worker persists
+  // job_status[jobId].tool using the worker tool name (e.g.
+  // 'runDeepResearchProgram'), not the dispatch sectionId
+  // ('deepResearchProgram'). Fall back to sectionId so unknown sections
+  // still get the (loose) guard rather than no guard.
+  const toolName =
+    (SECTION_TO_TOOL as Record<string, string>)[sectionId] ?? sectionId;
+
   const now = Date.now();
   for (const [jobId, entry] of Object.entries(jobStatus)) {
     if (
       !entry ||
       typeof entry !== 'object' ||
       entry.status !== 'running' ||
-      entry.tool !== sectionId
+      entry.tool !== toolName
     ) {
       continue;
     }
 
     const threshold =
-      TOOL_STALE_THRESHOLDS[sectionId] ?? STALE_THRESHOLD_MS;
+      TOOL_STALE_THRESHOLDS[toolName] ?? STALE_THRESHOLD_MS;
     const startedAtMs =
       typeof entry.startedAt === 'string'
         ? Date.parse(entry.startedAt)
@@ -158,7 +169,13 @@ async function findActiveJobForSection(
       // blocking forever.
       console.warn(
         '[research-v2] Ignoring running job with missing/unparseable startedAt',
-        { jobId, tool: entry.tool, startedAt: entry.startedAt },
+        {
+          jobId,
+          sectionId,
+          toolName,
+          tool: entry.tool,
+          startedAt: entry.startedAt,
+        },
       );
       continue;
     }
@@ -167,6 +184,8 @@ async function findActiveJobForSection(
     if (ageMs > threshold) {
       console.warn('[research-v2] Ignoring stale running job', {
         jobId,
+        sectionId,
+        toolName,
         tool: entry.tool,
         ageMs,
         threshold,
