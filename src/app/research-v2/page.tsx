@@ -389,6 +389,19 @@ export default function ResearchV2Page() {
       }
 
       dispatch({ type: 'ONBOARDING_COMPLETE' });
+
+      // Phase 7.5 kickoff: seed the parent + six queued children and
+      // fire-and-forget the worker /orchestrate route. The page-level
+      // AgentArtifactSurface polls /api/research-v2/audit-state for live
+      // chip + section state once it mounts.
+      void fetch('/api/research-v2/orchestrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ run_id: runId }),
+      }).catch((err) => {
+        console.warn('[research-v2] orchestrate kickoff failed:', err);
+      });
     },
     [state],
   );

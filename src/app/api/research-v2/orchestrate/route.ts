@@ -24,10 +24,12 @@ import {
 } from '@/lib/research-v2/orchestrate-db';
 import { createAdminClient } from '@/lib/supabase/server';
 
-const RequestSchema = z.object({
-  journey_session_id: z.string().uuid(),
-  run_id: z.string().uuid(),
-});
+const RequestSchema = z
+  .object({
+    run_id: z.string().uuid(),
+    journey_session_id: z.string().uuid().optional(),
+  })
+  .passthrough();
 
 interface JourneySessionRow {
   id: string;
@@ -38,14 +40,14 @@ interface JourneySessionRow {
 
 async function loadOwnedSession(
   userId: string,
-  sessionId: string,
+  runId: string,
 ): Promise<JourneySessionRow | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('journey_sessions')
     .select('id,user_id,run_id,research_results')
-    .eq('id', sessionId)
     .eq('user_id', userId)
+    .eq('run_id', runId)
     .maybeSingle();
 
   if (error) {
@@ -96,21 +98,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     throw err;
   }
 
-  const session = await loadOwnedSession(userId, body.journey_session_id);
+  const session = await loadOwnedSession(userId, body.run_id);
   if (!session) {
     return NextResponse.json(
       { error: 'session_not_found' },
       { status: 404 },
-    );
-  }
-
-  if (session.run_id && session.run_id !== body.run_id) {
-    return NextResponse.json(
-      {
-        error: 'run_id_mismatch',
-        message: 'run_id does not match the active journey session run',
-      },
-      { status: 409 },
     );
   }
 
@@ -130,6 +122,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       runId: body.run_id,
       zones: POSITIONING_SECTION_IDS,
     });
+
+    // Phase 7.5 kickoff: fire-and-forget the worker /orchestrate route so it
+    // starts running the six children under bounded concurrency. The HTTP
+    // response returns the seeded ids immediately so the UI can render the
+    // queued chips while the worker is still spinning up.
+    void kickoffWorker({
+      parentAuditRunId: seeded.parent_audit_run_id,
+      runId: body.run_id,
+    });
+
     return NextResponse.json(seeded, { status: 200 });
   } catch (err) {
     if (err instanceof OrchestrateRpcError) {
@@ -140,5 +142,49 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
     throw err;
+  }
+}
+
+const WORKER_KICKOFF_TIMEOUT_MS = 5000;
+
+async function kickoffWorker(input: {
+  parentAuditRunId: string;
+  runId: string;
+}): Promise<void> {
+  const workerUrl = process.env.RAILWAY_WORKER_URL?.trim();
+  const workerKey = process.env.RAILWAY_API_KEY?.trim();
+  if (!workerUrl || !workerKey) {
+    console.warn(
+      '[orchestrate] worker kickoff skipped — RAILWAY_WORKER_URL/RAILWAY_API_KEY missing',
+    );
+    return;
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WORKER_KICKOFF_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${workerUrl}/orchestrate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${workerKey}`,
+      },
+      body: JSON.stringify({ parent_audit_run_id: input.parentAuditRunId }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.warn(
+        `[orchestrate] worker kickoff returned ${res.status} for run ${input.runId}: ${body.slice(0, 200)}`,
+      );
+    }
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === 'AbortError';
+    console.warn(
+      `[orchestrate] worker kickoff ${isAbort ? 'timed out' : 'failed'} for run ${input.runId}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    clearTimeout(timer);
   }
 }

@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 
 import { POSITIONING_SECTION_IDS, POSITIONING_SECTION_LABELS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
 
 import { AuditArtifactCanvas } from './audit-artifact-canvas';
@@ -77,7 +78,25 @@ export function AgentArtifactSurface({
   showArtifact = true,
   onSubmit,
 }: AgentArtifactSurfaceProps) {
-  const states = useMemo(() => workerStates ?? defaultStates(), [workerStates]);
+  // When the parent doesn't pass workerStates explicitly (the default
+  // research-v2 page mount), poll the audit-state endpoint so chips reflect
+  // live worker progress. Polling auto-stops once every chip is terminal.
+  const live = useAuditState(runId);
+  const states = useMemo(
+    () =>
+      workerStates ??
+      (live.workerStates.length > 0 ? live.workerStates : defaultStates()),
+    [workerStates, live.workerStates],
+  );
+  const liveResearchResults = useMemo(() => {
+    const out: Record<string, { artifact: { markdown?: string; title?: string } }> = {};
+    for (const [zone, body] of Object.entries(live.sectionsByZone)) {
+      if (body && (body.markdown || body.title)) {
+        out[zone] = { artifact: body };
+      }
+    }
+    return out;
+  }, [live.sectionsByZone]);
   const [draft, setDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
 
@@ -118,7 +137,11 @@ export function AgentArtifactSurface({
               data-testid="artifact-document"
               className="rounded-md border border-[var(--border)] bg-[var(--bg-1)] p-8"
             >
-              <AuditArtifactCanvas runId={runId} researchResults={null as never} />
+              <AuditArtifactCanvas
+                runId={runId}
+                researchResults={liveResearchResults as never}
+                jobActivity={null}
+              />
             </main>
           </>
         )}

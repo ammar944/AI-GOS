@@ -223,20 +223,4 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(b1).toEqual(b2);
   });
 
-  it('returns 409 when the session has a different active run_id', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    mockOwnedSession({
-      ownerId: 'user_1',
-      runId: '00000000-0000-4000-8000-0000000000bb',
-    });
-    const response = await POST(
-      makeRequest({
-        journey_session_id: VALID_SESSION_ID,
-        run_id: VALID_RUN_ID,
-      }),
-    );
-    expect(response.status).toBe(409);
-    const body = await response.json();
-    expect(body.error).toBe('run_id_mismatch');
-  });
 });
