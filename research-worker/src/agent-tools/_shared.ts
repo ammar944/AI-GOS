@@ -65,7 +65,7 @@ export interface FetchOptions extends RequestInit {
  * engines.node >= 18.17 where AbortSignal.timeout is stable; on Railway's
  * Node 22 production runtime AbortSignal.any is also native.
  */
-function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
+export function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
   if (signals.length === 1) return signals[0]!;
   if (typeof (AbortSignal as unknown as { any?: typeof AbortSignal.any }).any === 'function') {
     return AbortSignal.any(signals);

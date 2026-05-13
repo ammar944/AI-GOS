@@ -165,28 +165,22 @@ async function applyOrchestratorSideEffect(
     const usePartialContext = effect.payload.usePartialContext === true;
     if (!zone) return { ok: false, reason: 'rerun_section missing zone' };
 
-    // Phase 5 — when the orchestrator wants the partial output as context
-    // (or just wants the abort-then-dispatch semantics), route through
-    // /rerun-section. The plain /dispatch path is still used when no
-    // partial context is requested AND the section isn't currently
-    // running — but /rerun-section's abort+dispatch flow is a safe
-    // superset, so route everything through it.
-    const targetPath = usePartialContext
-      ? '/api/research-v2/rerun-section'
-      : '/api/research-v2/dispatch';
-    const dispatchUrl = new URL(targetPath, ctx.requestUrl).toString();
-    const requestBody = usePartialContext
-      ? {
-          runId: ctx.runId,
-          zone,
-          usePartialContext: true,
-          refinement: refinement ?? undefined,
-        }
-      : {
-          sectionId: zone,
-          runId: ctx.runId,
-          chatRefinement: refinement ?? undefined,
-        };
+    // Phase 5 — always route rerun intents through /rerun-section so the
+    // abort-then-dispatch sequence is consistent. /dispatch returns 409 for
+    // already-running sections; /rerun-section aborts the in-flight run
+    // first, mints a new section_run_id, and dispatches. The
+    // usePartialContext flag controls whether we additionally inject the
+    // prior partial markdown as <previous_attempt_partial> context.
+    const dispatchUrl = new URL(
+      '/api/research-v2/rerun-section',
+      ctx.requestUrl,
+    ).toString();
+    const requestBody: Record<string, unknown> = {
+      runId: ctx.runId,
+      zone,
+      usePartialContext,
+      ...(refinement ? { refinement } : {}),
+    };
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),

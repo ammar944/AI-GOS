@@ -77,6 +77,20 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
+  // P2 fix — only abort runs that are still active. Terminal rows
+  // (complete/error/partial) already settled; aborting them would
+  // mutate historical runs and confuse the projector.
+  if (section?.status !== 'running') {
+    return NextResponse.json(
+      {
+        ok: true,
+        aborted: false,
+        reason: `section status is ${section?.status ?? 'unknown'} — nothing to abort`,
+      },
+      { status: 200 },
+    );
+  }
+
   const workerUrl = process.env.RAILWAY_WORKER_URL;
   const workerKey = process.env.RAILWAY_API_KEY;
   if (!workerUrl || !workerKey) {

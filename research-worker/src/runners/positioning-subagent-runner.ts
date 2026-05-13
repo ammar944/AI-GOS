@@ -14,6 +14,7 @@
 
 import { extractJson, emitRunnerProgress, type RunnerProgressReporter } from '../runner';
 import { type ResearchResult } from '../supabase';
+import { composeAbortSignals } from '../agent-tools/_shared';
 import {
   POSITIONING_SUBAGENTS,
   isPositioningSubagentId,
@@ -94,10 +95,11 @@ ${refinedContext}`;
     SUBAGENT_TIMEOUT_MS,
   );
 
-  const composedSignal: AbortSignal =
-    typeof AbortSignal.any === 'function' && externalAbortSignal
-      ? AbortSignal.any([timeoutController.signal, externalAbortSignal])
-      : timeoutController.signal;
+  const composedSignal: AbortSignal = composeAbortSignals(
+    externalAbortSignal
+      ? [timeoutController.signal, externalAbortSignal]
+      : [timeoutController.signal],
+  );
 
   // Phase 5: track the most recent step's text so we can recover partial
   // output if the tool loop fails before emitting a final envelope.

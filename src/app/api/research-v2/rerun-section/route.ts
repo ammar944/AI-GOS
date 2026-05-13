@@ -101,6 +101,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   let partialMarkdown: string | null = null;
   let activeSectionRunId: string | null = null;
+  let sectionStatus: string | null = null;
   if (artifact) {
     const { data: section } = await supabase
       .from('research_artifact_sections')
@@ -113,6 +114,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       if (typeof section.section_run_id === 'string') {
         activeSectionRunId = section.section_run_id;
       }
+      sectionStatus = typeof section.status === 'string' ? section.status : null;
       const errorPayload =
         section.error && typeof section.error === 'object'
           ? (section.error as Record<string, unknown>)
@@ -131,10 +133,17 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
   }
 
-  // Best-effort abort the prior run so its writes can't race the retry.
+  // Best-effort abort the prior run, but only if it's still active.
+  // Calling /abort on a terminal run would stamp aborted_at onto a
+  // historical row and confuse the canvas projector.
   const workerUrl = process.env.RAILWAY_WORKER_URL;
   const workerKey = process.env.RAILWAY_API_KEY;
-  if (workerUrl && workerKey && activeSectionRunId) {
+  if (
+    workerUrl &&
+    workerKey &&
+    activeSectionRunId &&
+    sectionStatus === 'running'
+  ) {
     await abortIfRunning({
       workerUrl,
       workerKey,

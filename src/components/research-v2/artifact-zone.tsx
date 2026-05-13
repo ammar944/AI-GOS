@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Circle,
   Loader2,
+  X,
 } from 'lucide-react';
 
 import {
@@ -18,6 +19,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
@@ -113,7 +115,21 @@ export function ArtifactZone({
               zone.title
             )}
           </CardTitle>
-          <StatusBadge status={zone.status} />
+          <div className="flex items-center gap-1.5">
+            <StatusBadge status={zone.status} />
+            {isRunning && onCancel ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2"
+                onClick={() => void onCancel(zone.zone)}
+                title="Cancel this section"
+              >
+                <X className="size-3" />
+                Cancel
+              </Button>
+            ) : null}
+          </div>
         </div>
         {isError && !onRetry && zone.errorMessage ? (
           <p className="text-xs text-destructive">{zone.errorMessage}</p>

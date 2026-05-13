@@ -647,10 +647,13 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
   if (targetSectionRunId) {
     try {
       const supabase = getClient();
+      // P2 fix — only stamp aborted_at on still-running rows. A terminal
+      // row (complete/error/partial) should never be re-marked as aborted.
       await supabase
         .from('research_section_runs')
         .update({ aborted_at: new Date().toISOString() })
         .eq('id', targetSectionRunId)
+        .eq('status', 'running')
         .is('aborted_at', null);
     } catch (writeErr) {
       console.warn('[abort] aborted_at write failed:', writeErr);
@@ -733,25 +736,18 @@ const STALE_RUN_THRESHOLD_MIN = Number(
 async function reapOrphanedSectionRuns(): Promise<void> {
   try {
     const supabase = getClient();
-    const cutoffIso = new Date(
-      Date.now() - STALE_RUN_THRESHOLD_MIN * 60_000,
-    ).toISOString();
-    const { data, error } = await supabase
-      .from('research_section_runs')
-      .update({
-        status: 'error',
-        aborted_at: new Date().toISOString(),
-        error: { type: 'orphaned_after_restart' },
-      })
-      .eq('status', 'running')
-      .is('aborted_at', null)
-      .lt('started_at', cutoffIso)
-      .select('id');
+    // Phase 5 P1 fix: call the RPC so both research_section_runs AND the
+    // matching research_artifact_sections rows flip to 'error' atomically.
+    // The projector reads the sections table — updating only the runs
+    // table would leave the canvas stuck on a stale 'running' tile.
+    const { data, error } = await supabase.rpc('reap_orphaned_section_runs', {
+      p_threshold_minutes: STALE_RUN_THRESHOLD_MIN,
+    });
     if (error) {
       console.warn('[reaper] failed:', error.message);
       return;
     }
-    const reaped = Array.isArray(data) ? data.length : 0;
+    const reaped = typeof data === 'number' ? data : 0;
     if (reaped > 0) {
       console.log(`[reaper] Marked ${reaped} orphaned section_runs as error`);
     }
