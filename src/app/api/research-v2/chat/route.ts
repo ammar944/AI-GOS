@@ -16,6 +16,7 @@ import type {
   SectionSummary,
 } from '@/lib/research-v2/intent-router.types';
 import { applyPatch } from '@/lib/research-v2/patch-apply';
+import { commitChatPatchAuto } from '@/lib/research-v2/chat-write-through';
 import { createAdminClient } from '@/lib/supabase/server';
 
 const ENABLE_POSITIONING_ORCHESTRATOR =
@@ -293,17 +294,24 @@ async function applyOrchestratorSideEffect(
       const newSection: Record<string, unknown> = isWrapped
         ? { ...wrapper, data: patchedInner }
         : { ...patchedInner };
-      const { error: rpcError } = await ctx.supabase.rpc(
-        'merge_journey_session_research_result',
+
+      // Phase 3: write through the normalized research_artifact_sections row
+      // (source of truth for the artifact UI) before mirroring into the legacy
+      // journey_sessions.research_results JSONB. commitChatPatchAuto handles
+      // the section_run_id + expectedRevision lookup so the chat route stays
+      // ignorant of artifact internals.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const writeResult = await commitChatPatchAuto(
+        ctx.supabase as any,
         {
-          p_user_id: ctx.userId,
-          p_run_id: ctx.runId,
-          p_section: zone,
-          p_result: newSection,
+          userId: ctx.userId,
+          runId: ctx.runId,
+          zone,
+          patchedSection: newSection,
         },
       );
-      if (rpcError) {
-        return { ok: false, reason: `rpc: ${rpcError.message}` };
+      if (!writeResult.ok) {
+        return { ok: false, reason: `write_through: ${writeResult.reason}` };
       }
       return { ok: true };
     } catch (err) {
