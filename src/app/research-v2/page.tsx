@@ -21,6 +21,9 @@ import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { SectionShell } from '@/components/research-v2/section-shell';
+import { AgentArtifactSurface } from '@/components/research-v2/agent-artifact-surface';
+
+const ARTIFACT_UI_V2 = process.env.NEXT_PUBLIC_ARTIFACT_UI_V2 === 'true';
 import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
 
 const PARALLEL_SECTIONS_ENABLED =
@@ -503,10 +506,14 @@ export default function ResearchV2Page() {
       )}
 
       {state.kind === 'sections' && (
-        <SectionShell
-          runId={state.runId}
-          currentSection={state.currentSection}
-        />
+        ARTIFACT_UI_V2 ? (
+          <AgentArtifactSurface runId={state.runId} />
+        ) : (
+          <SectionShell
+            runId={state.runId}
+            currentSection={state.currentSection}
+          />
+        )
       )}
 
       {state.kind === 'error' && (
