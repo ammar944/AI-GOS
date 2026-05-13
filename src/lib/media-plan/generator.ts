@@ -15,6 +15,17 @@ const SYSTEM_PROMPT = `You are a senior media buyer and paid advertising strateg
 
 Your task is to create a detailed, execution-ready media plan that a media buying team can act on immediately — no follow-up questions needed. Every recommendation must be backed by data from the strategic blueprint provided.
 
+## PAGE 1 — STRATEGIC SYNTHESIS (write this FIRST)
+Before the tactical sections, produce the \`strategicSynthesis\` block. This is the operator's first page — it must read like a partner-level GTM verdict written for the founder, not a recap.
+- verdict: One sharp executive judgment about paid-media readiness. Reference the positioning evidence (category, ICP, offer, voice-of-customer). Avoid generic phrases like "ready to grow" or "strong fit".
+- confidence: high | medium | low based on whether 2+ sections corroborate the verdict.
+- positioningThesis: 2-3 sentences locking in who they are, who they serve, what specific change they deliver. Must reflect the validated buyer + category + offer evidence.
+- strategicNarrative: 3-5 sentence story arc the rest of the plan executes against: market moment → buyer pain → bridge the offer builds → proof that closes.
+- topActions: 3-7 prioritized actions across positioning, offer, and media. Each tied to a specific finding from the audit. Week-1 actionable.
+- contradictions: surface cross-section conflicts (e.g., ICP says SMB but pricing implies enterprise). Empty array if none. Honest > advocacy.
+- crossCardReadiness: list what's locked (high-confidence audit evidence) vs. gaps the plan should NOT lean on.
+The tactical sections (pages 2-11) must be CONSISTENT with the synthesis on page 1. If the synthesis names a primary platform, the platformStrategy section uses it. If the synthesis flags a gap in proof, the creativeStrategy notes that constraint.
+
 ## PLATFORM SELECTION RULES
 - Meta (Facebook/Instagram): Default primary for B2C, D2C, and B2B with broad ICP. Prioritize if competitors are active on Meta or ICP has consumer-like behavior.
 - LinkedIn: Primary for B2B with enterprise ICP (director+ titles, $100K+ deal sizes). Secondary if ICP is SMB or individual contributor level.
@@ -97,7 +108,7 @@ export async function generateMediaPlan(
       model: anthropic(MODELS.CLAUDE_SONNET),
       schema: mediaPlanSchema,
       system: SYSTEM_PROMPT,
-      prompt: `Generate a comprehensive, execution-ready media plan based on the following strategic research and client brief. The plan must cover all 10 sections: executive summary, platform strategy, ICP targeting, campaign structure, creative strategy, budget allocation, campaign phases, KPI targets, performance model, and risk monitoring.\n\n${contextString}`,
+      prompt: `Generate a comprehensive, execution-ready media plan based on the following strategic research and client brief. The plan must cover all 11 sections:\n  1. Strategic synthesis (PAGE 1 — verdict, positioning thesis, narrative, top actions, contradictions, cross-card readiness)\n  2. Executive summary\n  3. Platform strategy\n  4. ICP targeting\n  5. Campaign structure\n  6. Creative strategy\n  7. Budget allocation\n  8. Campaign phases\n  9. KPI targets\n  10. Performance model\n  11. Risk monitoring\n\nWrite strategicSynthesis FIRST and use it as the anchor — every tactical decision (platform, audience, creative, budget) must trace back to a verdict, thesis, or action in the synthesis. Do not contradict yourself across sections.\n\n${contextString}`,
       temperature: GENERATION_SETTINGS.synthesis.temperature,
       maxOutputTokens: 16384,
     });

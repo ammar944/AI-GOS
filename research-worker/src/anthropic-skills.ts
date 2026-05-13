@@ -13,7 +13,11 @@ const AI_GOS_GTM_PLATFORM_SKILL_IDS = [
   'skill_01HDWUcp2WqmLnp5P4xFmMQi', // ai-gos-demand-intent-signals — uploaded 2026-05-06 20:36
   'skill_01L8KjoVof4LSeqUi9wxs849', // ai-gos-offer-performance-diagnostic — uploaded 2026-05-06 20:37
   'skill_014w2QX6HN1p5yktgHpAdC4x', // ai-gos-gtm-synthesis — uploaded 2026-05-06 20:36
-  'skill_017YWtSBuYw8KGLuZNLUNULL', // ai-gos-activation-plan — uploaded 2026-05-06 20:35
+  // 'skill_017YWtSBuYw8KGLuZNLUNULL', // ai-gos-activation-plan — KILLED 2026-05-13:
+  //   synthesis + activation are now folded into the inline media-plan generator
+  //   (src/lib/media-plan/generator.ts) as a single 11-section structured output.
+  //   The standalone skill is deprecated; remove the .zip + bundle once we've
+  //   shipped one media plan run that uses the new strategicSynthesis page 1.
 ] as const;
 
 type SkillType = 'anthropic' | 'custom';

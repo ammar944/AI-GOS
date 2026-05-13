@@ -450,7 +450,56 @@ export interface RiskMonitoring {
 // Complete Media Plan Output
 // =============================================================================
 
+// =============================================================================
+// Strategic Synthesis — Page 1 of media plan (folded in from
+// ai-gos-gtm-synthesis 2026-05-13; replaces the standalone
+// ai-gos-activation-plan + cross-analysis skill steps).
+// =============================================================================
+
+export interface StrategicSynthesisAction {
+  action: string;
+  rationale: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface StrategicSynthesisContradiction {
+  contradiction: string;
+  impact: string;
+  resolution: string;
+}
+
+export interface StrategicSynthesisCrossCardReadiness {
+  locked: string[];
+  gaps: string[];
+}
+
+export interface MediaPlanStrategicSynthesis {
+  /** One sharp executive verdict tying the audit to media-buy readiness. */
+  verdict: string;
+  /** Confidence in the verdict based on cross-section corroboration. */
+  confidence: 'high' | 'medium' | 'low';
+  /** The locked positioning thesis (2–3 sentences). */
+  positioningThesis: string;
+  /** 3–5 sentence narrative the media plan executes against. */
+  strategicNarrative: string;
+  /** Top 3–7 prioritized actions across positioning, offer, and media. */
+  topActions: StrategicSynthesisAction[];
+  /** Cross-section contradictions found in the audit. */
+  contradictions: StrategicSynthesisContradiction[];
+  /** What is/isn't ready to underpin the media plan, by audit section. */
+  crossCardReadiness: StrategicSynthesisCrossCardReadiness;
+}
+
 export interface MediaPlanOutput {
+  /**
+   * Page 1: cross-section synthesis (verdict, positioning thesis, narrative, top actions).
+   * Optional during the 2026-05-13 fold-in rollout — the single-phase
+   * generator (src/lib/media-plan/generator.ts) always produces this via
+   * the updated 11-section schema, while the legacy multi-phase pipeline
+   * (src/lib/media-plan/pipeline.ts) will gain a synthesis phase as a
+   * follow-up. Once both paths emit it, flip this to required.
+   */
+  strategicSynthesis?: MediaPlanStrategicSynthesis;
   /** Executive summary of the media plan */
   executiveSummary: MediaPlanExecutiveSummary;
   /** Per-platform strategy breakdown */

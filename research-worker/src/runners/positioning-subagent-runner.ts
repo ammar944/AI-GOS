@@ -83,8 +83,17 @@ ${args.lastStepText.slice(0, 8000)}`,
     });
     clearTimeout(handle);
     return result.output ?? null;
-  } catch {
+  } catch (repairErr) {
     clearTimeout(handle);
+    // Per codex review 2026-05-13: log abort vs. ordinary repair failures
+    // separately so the two failure modes are distinguishable in worker logs.
+    const aborted =
+      repairErr instanceof Error && repairErr.name === 'AbortError';
+    const repairMessage =
+      repairErr instanceof Error ? repairErr.message : String(repairErr);
+    console.warn(
+      `[repair] ${aborted ? 'aborted' : 'failed'} for ${args.spec.section}: ${repairMessage}`,
+    );
     return null;
   }
 }
@@ -165,9 +174,11 @@ ${refinedContext}`;
       : [timeoutController.signal],
   );
 
-  // Phase 5: track the most recent step's text so we can recover partial
-  // output if the tool loop fails before emitting a final envelope.
-  let lastStepText = '';
+  // Track step snapshots so we can recover partial output if the tool
+  // loop fails before emitting a final envelope. Per codex review
+  // 2026-05-13: capture text + tool calls + tool results, not just text —
+  // step-cap failures often have tool-only steps with empty text.
+  const stepSnapshots: string[] = [];
   let stepCount = 0;
   const MAX_EXPECTED_STEPS = 6;
 
@@ -175,10 +186,34 @@ ${refinedContext}`;
     const result = await agent.generate({
       prompt,
       abortSignal: composedSignal,
-      onStepFinish: ({ text }: { text?: string }) => {
+      onStepFinish: (step: {
+        text?: string;
+        toolCalls?: Array<{ toolName?: string; input?: unknown }>;
+        toolResults?: Array<{ toolName?: string; output?: unknown }>;
+      }) => {
         stepCount += 1;
-        if (typeof text === 'string' && text.trim().length > 0) {
-          lastStepText = text;
+        const parts: string[] = [];
+        if (typeof step.text === 'string' && step.text.trim().length > 0) {
+          parts.push(step.text.trim());
+        }
+        if (Array.isArray(step.toolCalls)) {
+          for (const call of step.toolCalls) {
+            if (!call?.toolName) continue;
+            const args =
+              call.input !== undefined ? JSON.stringify(call.input).slice(0, 400) : '';
+            parts.push(`[tool:${call.toolName}] ${args}`);
+          }
+        }
+        if (Array.isArray(step.toolResults)) {
+          for (const tr of step.toolResults) {
+            if (!tr?.toolName) continue;
+            const out =
+              tr.output !== undefined ? JSON.stringify(tr.output).slice(0, 400) : '';
+            parts.push(`[result:${tr.toolName}] ${out}`);
+          }
+        }
+        if (parts.length > 0) {
+          stepSnapshots.push(parts.join('\n'));
         }
       },
     });
@@ -240,10 +275,15 @@ ${refinedContext}`;
     // a best-effort partial snapshot. With Output.object() schema
     // enforcement on the happy path, this only fires when the agent
     // errored or hit step cap without emitting a schema-valid envelope.
-    // We do NOT attempt to parse `lastStepText` as JSON — intermediate
-    // step text is rarely a complete envelope. Instead we snapshot
-    // whatever the loop produced so the section row gets context, not
-    // a hard error with empty data.
+    // We do NOT attempt to parse the snapshot as JSON — intermediate
+    // step content is rarely a complete envelope. Instead we hand the
+    // joined snapshot to the repair pass and fall back to the bare
+    // snapshot if repair fails.
+    //
+    // Per codex review 2026-05-13: snapshot now includes tool calls +
+    // tool results, so step-cap failures with tool-only final steps
+    // still yield repair-usable context.
+    const lastStepText = stepSnapshots.slice(-3).join('\n\n').slice(0, 12000);
     if (lastStepText) {
       const partialAt =
         stepCount > 0

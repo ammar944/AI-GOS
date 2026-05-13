@@ -5,6 +5,7 @@ import { FUNNEL_STAGE_LABELS } from './schemas';
 import type {
   MediaPlanOutput,
   MediaPlanExecutiveSummary,
+  MediaPlanStrategicSynthesis,
   PlatformStrategy,
   ICPTargeting,
   CampaignStructure,
@@ -29,6 +30,44 @@ function fmtPct(n: number | null | undefined): string {
 // ---------------------------------------------------------------------------
 // Section serializers
 // ---------------------------------------------------------------------------
+
+function strategicSynthesisMd(d: MediaPlanStrategicSynthesis): string {
+  const lines: string[] = [
+    `# Page 1 — Strategic Synthesis`,
+    ``,
+    `**Verdict** *(confidence: ${d.confidence})* — ${d.verdict}`,
+    ``,
+    `## Positioning Thesis`,
+    d.positioningThesis,
+    ``,
+    `## Strategic Narrative`,
+    d.strategicNarrative,
+    ``,
+    `## Top Actions`,
+  ];
+  for (const action of d.topActions) {
+    lines.push(`- **${action.priority.toUpperCase()}** — ${action.action}`);
+    lines.push(`  - Why: ${action.rationale}`);
+  }
+  if (d.contradictions.length > 0) {
+    lines.push(``, `## Cross-Section Contradictions`);
+    for (const c of d.contradictions) {
+      lines.push(`- **${c.contradiction}**`);
+      lines.push(`  - Impact: ${c.impact}`);
+      lines.push(`  - Resolve: ${c.resolution}`);
+    }
+  }
+  lines.push(``, `## Cross-Card Readiness`);
+  if (d.crossCardReadiness.locked.length > 0) {
+    lines.push(`**Locked:**`);
+    for (const l of d.crossCardReadiness.locked) lines.push(`- ${l}`);
+  }
+  if (d.crossCardReadiness.gaps.length > 0) {
+    lines.push(`**Gaps:**`);
+    for (const g of d.crossCardReadiness.gaps) lines.push(`- ${g}`);
+  }
+  return lines.join('\n');
+}
 
 function executiveSummaryMd(d: MediaPlanExecutiveSummary): string {
   return [
@@ -359,6 +398,9 @@ export function mediaPlanToMarkdown(plan: MediaPlanOutput): string {
     ``,
     `> Generated ${plan.metadata?.generatedAt ? new Date(plan.metadata.generatedAt).toLocaleDateString() : "—"}`,
     ``,
+    ...(plan.strategicSynthesis
+      ? [strategicSynthesisMd(plan.strategicSynthesis), ``, `---`, ``]
+      : []),
     executiveSummaryMd(plan.executiveSummary),
     ``,
     platformStrategyMd(plan.platformStrategy),

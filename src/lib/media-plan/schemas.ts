@@ -630,10 +630,54 @@ export const riskMonitoringSchema = z.object({
 }).describe('Risk identification and monitoring with assumptions');
 
 // =============================================================================
+// Strategic Synthesis — Page 1 of the media plan (folded in from
+// ai-gos-gtm-synthesis 2026-05-13; replaces the standalone activation-plan
+// + cross-analysis skill steps).
+// =============================================================================
+
+export const strategicSynthesisSchema = z.object({
+  verdict: z.string()
+    .describe('One sharp executive verdict on whether the company is ready to scale paid media. Reference the positioning evidence — not a generic "ready to grow".'),
+
+  confidence: z.enum(['high', 'medium', 'low'])
+    .describe('Confidence in the verdict based on cross-section evidence corroboration.'),
+
+  positioningThesis: z.string()
+    .describe('The locked positioning thesis — who they are, who they serve, what specific change they deliver. 2-3 sentences. Must reflect the validated buyer, category, and offer evidence from the audit.'),
+
+  strategicNarrative: z.string()
+    .describe('3-5 sentence narrative arc the media plan is executing against: the market moment, the buyer pain, the bridge the offer builds, the proof that closes. This is the story page 1 tells the operator.'),
+
+  topActions: z.array(z.object({
+    action: z.string().describe('Specific, week-1 actionable move tied to evidence from the audit.'),
+    rationale: z.string().describe('1 sentence evidence-backed reason.'),
+    priority: z.enum(['high', 'medium', 'low']),
+  })).min(3).max(7)
+    .describe('Top 3-7 prioritized actions across positioning, offer, and media. Each ties to specific keyFindings from the positioning sections.'),
+
+  contradictions: z.array(z.object({
+    contradiction: z.string().describe('Conflict between two sections of the positioning audit (e.g., ICP claims SMB but pricing implies enterprise).'),
+    impact: z.string().describe('Why this matters before paid media spend.'),
+    resolution: z.string().describe('Concrete way to resolve before scaling spend.'),
+  })).max(5)
+    .describe('Cross-section contradictions found in the positioning audit. Empty array if none. Up to 5 of the most material.'),
+
+  crossCardReadiness: z.object({
+    locked: z.array(z.string())
+      .describe('Audit sections with high-confidence evidence. Each entry names the section and a one-line summary of what is locked.'),
+    gaps: z.array(z.string())
+      .describe('Audit sections with weak/missing evidence that the media plan should NOT lean on. Each entry names the section + the gap.'),
+  }).describe('What is and is not ready to underpin the media plan, by audit section.'),
+}).describe('Strategic synthesis — page 1 of the media plan. Generated FIRST, before the tactical sections, by synthesizing across all six positioning audit cards.');
+
+// =============================================================================
 // Complete Media Plan Schema (excludes metadata — populated post-generation)
 // =============================================================================
 
 export const mediaPlanSchema = z.object({
+  strategicSynthesis: strategicSynthesisSchema
+    .describe('Page 1: cross-section synthesis — verdict, positioning thesis, narrative, top actions, contradictions. Folded in from the deprecated ai-gos-gtm-synthesis + ai-gos-activation-plan skills (2026-05-13).'),
+
   executiveSummary: executiveSummarySchema
     .describe('High-level strategy overview and priorities'),
 
@@ -669,4 +713,4 @@ export const mediaPlanSchema = z.object({
 
   validationWarnings: z.array(z.string()).optional()
     .describe('Validation warnings collected during deterministic post-processing. System-populated, do not provide.'),
-}).describe('Complete media plan for paid advertising campaign — 10 sections');
+}).describe('Complete media plan for paid advertising campaign — 11 sections (page 1: strategic synthesis; pages 2-11: tactical execution).');

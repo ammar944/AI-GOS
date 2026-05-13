@@ -29,7 +29,12 @@ import {
 import { PositioningEnvelopeSchema } from './envelope-schema';
 
 const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
-const SUBAGENT_STEP_CAP = stepCountIs(12);
+// 13 = 12 prompt-instructed tool calls + 1 final structured-output step.
+// AI SDK v6 `Output.object()` consumes an additional step for the schema
+// emission; sizing the cap at 12 truncates the loop one step before the
+// schema can land. See AI SDK docs structured-output troubleshooting +
+// codex review feedback 2026-05-13.
+const SUBAGENT_STEP_CAP = stepCountIs(13);
 
 // Schema-enforced final answer for all 6 positioning subagents. Replaces
 // the manual `extractJson(rawText)` parse-and-pray pipeline that produced
