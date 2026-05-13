@@ -1,6 +1,7 @@
 import type { MediaPlanSectionKey } from "@/lib/media-plan/section-constants";
 import type { MediaPlanOutput } from "@/lib/media-plan/types";
 import {
+  StrategicSynthesisContent,
   ExecutiveSummaryContent,
   PlatformStrategyContent,
   ICPTargetingContent,
@@ -27,6 +28,8 @@ export function MediaPlanSectionContent({
   onFieldChange,
 }: MediaPlanSectionContentProps) {
   switch (sectionKey) {
+    case "strategicSynthesis":
+      return <StrategicSynthesisContent data={mediaPlan.strategicSynthesis} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "executiveSummary":
       return <ExecutiveSummaryContent data={mediaPlan.executiveSummary} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "platformStrategy":

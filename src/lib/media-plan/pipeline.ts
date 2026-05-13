@@ -102,6 +102,7 @@ export interface PipelineResult {
 // =============================================================================
 
 const SECTION_LABELS: Record<MediaPlanSectionKey, string> = {
+  strategicSynthesis: 'Strategic Synthesis',
   executiveSummary: 'Executive Summary',
   platformStrategy: 'Platform Strategy',
   icpTargeting: 'ICP Targeting',

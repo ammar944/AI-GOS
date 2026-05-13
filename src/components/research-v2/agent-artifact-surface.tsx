@@ -45,17 +45,19 @@ async function defaultChatSubmit(
   focusedZone: string | null,
 ): Promise<void> {
   try {
-    // P2b — chat route expects `{ runId, messages: [...] }` per
-    // chatRequestSchema. Previously we sent `{ userText, intent }` which
-    // failed validation and silently 400'd. Wrap the user's text as a
-    // single user message and include focusedZone so "tighten this
-    // claim" resolves to whatever the user is currently viewing.
+    // Codex review fix (2026-05-13): chatRequestSchema requires each
+    // message to be { role, parts: [{ type: 'text', text }] } — the
+    // AI SDK v6 UIMessage shape. Sending `{ role, content }` 400's
+    // before reaching the orchestrator, which kills every chat/edit
+    // command typed into the artifact composer.
     await fetch('/api/research-v2/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         runId,
-        messages: [{ role: 'user', content: text }],
+        messages: [
+          { role: 'user', parts: [{ type: 'text', text }] },
+        ],
         ...(focusedZone ? { focusedZone } : {}),
       }),
     });
@@ -387,13 +389,36 @@ function ZoneActivity({ events }: { events: SectionActivityEvent[] }) {
       </div>
       <ol className="flex flex-col gap-1.5 text-[12px] leading-[1.5] text-[color:var(--text-2)]">
         {events.slice(-8).map((ev) => {
+          // Codex review fix (2026-05-13): the orchestrator wraps the
+          // runner's onProgress event as `payload: { event: RunnerProgressUpdate }`
+          // (see research-worker/src/index.ts ~line 733). The runner-side
+          // toolNames / textPreview live under `payload.event.meta`, not at
+          // top level. We try both nestings so a future direct-write path
+          // (no orchestrator wrapper) still renders.
           const payload = ev.payload ?? {};
-          const tools = Array.isArray(payload['toolNames'])
-            ? (payload['toolNames'] as string[]).filter((t) => typeof t === 'string')
+          const wrapper =
+            payload['event'] && typeof payload['event'] === 'object'
+              ? (payload['event'] as Record<string, unknown>)
+              : null;
+          const meta =
+            wrapper?.['meta'] && typeof wrapper['meta'] === 'object'
+              ? (wrapper['meta'] as Record<string, unknown>)
+              : null;
+          const rawTools =
+            meta?.['toolNames'] ??
+            payload['toolNames'] ??
+            null;
+          const tools = Array.isArray(rawTools)
+            ? rawTools.filter((t): t is string => typeof t === 'string')
             : [];
-          const text =
-            typeof payload['textPreview'] === 'string'
-              ? (payload['textPreview'] as string)
+          const rawText =
+            (meta?.['textPreview'] as unknown) ??
+            (payload['textPreview'] as unknown) ??
+            null;
+          const text = typeof rawText === 'string' ? rawText : null;
+          const wrapperMessage =
+            wrapper && typeof wrapper['message'] === 'string'
+              ? (wrapper['message'] as string)
               : null;
           return (
             <li key={ev.id} className="flex flex-col gap-0.5">
@@ -404,9 +429,9 @@ function ZoneActivity({ events }: { events: SectionActivityEvent[] }) {
                   <span className="text-[color:var(--text-2)]">{tools.join(', ')}</span>
                 )}
               </div>
-              {(ev.message || text) && (
+              {(ev.message || wrapperMessage || text) && (
                 <div className="line-clamp-2 text-[color:var(--text-2)]">
-                  {ev.message ?? text}
+                  {ev.message ?? wrapperMessage ?? text}
                 </div>
               )}
             </li>
@@ -423,15 +448,40 @@ function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: Sect
   );
 
   if (!anyComplete) {
+    // Codex review fix (2026-05-13): even before the first section
+    // commits, we want to show the live activity feed for whichever
+    // zones are running — that's the silent-30s gap this UI is meant
+    // to fill. Build a list of running zones with events.
+    const runningZones = POSITIONING_SECTION_IDS.filter(
+      (zone) => (statusByZone[zone] ?? 'queued') === 'running',
+    );
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
-          Awaiting first section
+      <div className="flex flex-col items-center gap-6 py-12 text-center">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+            Awaiting first section
+          </div>
+          <p className="mt-3 max-w-[42ch] text-[13px] leading-[1.5] text-[color:var(--text-3)]">
+            The orchestrator is fanning out six positioning subagents.
+            Completed sections will appear inline as they commit.
+          </p>
         </div>
-        <p className="max-w-[42ch] text-[13px] leading-[1.5] text-[color:var(--text-3)]">
-          The orchestrator is fanning out six positioning subagents. Completed
-          sections will appear inline as they commit.
-        </p>
+        {runningZones.length > 0 && (
+          <div className="w-full max-w-2xl space-y-4 text-left">
+            {runningZones.map((zone) => {
+              const events = eventsByZone[zone] ?? [];
+              if (events.length === 0) return null;
+              return (
+                <div key={zone}>
+                  <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--accent)]">
+                    {POSITIONING_SECTION_LABELS[zone]}
+                  </div>
+                  <ZoneActivity events={events} />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }

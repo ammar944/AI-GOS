@@ -13,6 +13,7 @@ import {
   BarChart3,
   Calculator,
   ShieldAlert,
+  Compass,
 } from "lucide-react";
 
 // =============================================================================
@@ -20,6 +21,7 @@ import {
 // =============================================================================
 
 export type MediaPlanSectionKey =
+  | "strategicSynthesis"
   | "executiveSummary"
   | "platformStrategy"
   | "icpTargeting"
@@ -36,6 +38,10 @@ export type MediaPlanSectionKey =
 // =============================================================================
 
 export const MEDIA_PLAN_SECTION_ORDER: MediaPlanSectionKey[] = [
+  // Page 1 — folded in from ai-gos-gtm-synthesis + ai-gos-activation-plan
+  // skills 2026-05-13. Optional at runtime (legacy media plans pre-fold
+  // don't have it); renderers skip when mediaPlan.strategicSynthesis is undefined.
+  "strategicSynthesis",
   "executiveSummary",
   "platformStrategy",
   "icpTargeting",
@@ -53,6 +59,7 @@ export const MEDIA_PLAN_SECTION_ORDER: MediaPlanSectionKey[] = [
 // =============================================================================
 
 export const MEDIA_PLAN_SECTION_LABELS: Record<MediaPlanSectionKey, string> = {
+  strategicSynthesis: "Strategic Synthesis",
   executiveSummary: "Executive Summary",
   platformStrategy: "Platform Strategy",
   icpTargeting: "ICP Targeting",
@@ -67,6 +74,7 @@ export const MEDIA_PLAN_SECTION_LABELS: Record<MediaPlanSectionKey, string> = {
 
 /** Short labels for pagination dots / compact UI */
 export const MEDIA_PLAN_SECTION_SHORT_LABELS: Record<MediaPlanSectionKey, string> = {
+  strategicSynthesis: "Synthesis",
   executiveSummary: "Summary",
   platformStrategy: "Platforms",
   icpTargeting: "ICP",
@@ -84,6 +92,7 @@ export const MEDIA_PLAN_SECTION_SHORT_LABELS: Record<MediaPlanSectionKey, string
 // =============================================================================
 
 export const MEDIA_PLAN_SECTION_ICONS: Record<MediaPlanSectionKey, LucideIcon> = {
+  strategicSynthesis: Compass,
   executiveSummary: FileText,
   platformStrategy: Globe,
   icpTargeting: Target,

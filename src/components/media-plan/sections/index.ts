@@ -1,3 +1,4 @@
+export { StrategicSynthesisContent } from "./strategic-synthesis-section";
 export { ExecutiveSummaryContent } from "./executive-summary-section";
 export { PlatformStrategyContent } from "./platform-strategy-section";
 export { ICPTargetingContent } from "./icp-targeting-section";
