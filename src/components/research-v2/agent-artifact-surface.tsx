@@ -18,8 +18,6 @@ import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
 
-import { AuditArtifactCanvas } from './audit-artifact-canvas';
-
 export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted';
 
 export interface WorkerChipState {
@@ -88,15 +86,11 @@ export function AgentArtifactSurface({
       (live.workerStates.length > 0 ? live.workerStates : defaultStates()),
     [workerStates, live.workerStates],
   );
-  const liveResearchResults = useMemo(() => {
-    const out: Record<string, { artifact: { markdown?: string; title?: string } }> = {};
-    for (const [zone, body] of Object.entries(live.sectionsByZone)) {
-      if (body && (body.markdown || body.title)) {
-        out[zone] = { artifact: body };
-      }
-    }
+  const statusByZone = useMemo(() => {
+    const out: Record<string, WorkerChipStatus> = {};
+    for (const w of states) out[w.section_id] = w.status;
     return out;
-  }, [live.sectionsByZone]);
+  }, [states]);
   const [draft, setDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
 
@@ -137,10 +131,9 @@ export function AgentArtifactSurface({
               data-testid="artifact-document"
               className="rounded-md border border-[var(--border)] bg-[var(--bg-1)] p-8"
             >
-              <AuditArtifactCanvas
-                runId={runId}
-                researchResults={liveResearchResults as never}
-                jobActivity={null}
+              <SectionContentList
+                statusByZone={statusByZone}
+                sectionsByZone={live.sectionsByZone}
               />
             </main>
           </>
@@ -236,6 +229,90 @@ function WorkerChipsRow({ states }: { states: WorkerChipState[] }) {
           {POSITIONING_SECTION_LABELS[state.section_id].split(' & ')[0]}
         </span>
       ))}
+    </div>
+  );
+}
+
+interface SectionContentListProps {
+  statusByZone: Record<string, WorkerChipStatus>;
+  sectionsByZone: Record<string, { markdown?: string; title?: string }>;
+}
+
+function SectionContentList({ statusByZone, sectionsByZone }: SectionContentListProps) {
+  const anyComplete = Object.values(sectionsByZone).some(
+    (s) => s && (s.markdown || s.title),
+  );
+
+  if (!anyComplete) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+          Awaiting first section
+        </div>
+        <p className="max-w-[42ch] text-[13px] leading-[1.5] text-[color:var(--text-3)]">
+          The orchestrator is fanning out six positioning subagents. Completed
+          sections will appear inline as they commit.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-10">
+      {POSITIONING_SECTION_IDS.map((zone) => {
+        const status = statusByZone[zone] ?? 'queued';
+        const body = sectionsByZone[zone];
+        const isComplete = Boolean(body && (body.markdown || body.title));
+        if (isComplete) {
+          return (
+            <section
+              key={zone}
+              id={`section-${zone}`}
+              data-testid={`artifact-section-${zone}`}
+              className="flex flex-col gap-3"
+            >
+              <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+                <h2 className="text-[16px] font-medium tracking-[-0.005em] text-[color:var(--text-1)]">
+                  {body?.title ?? POSITIONING_SECTION_LABELS[zone]}
+                </h2>
+                <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--green)]">
+                  complete
+                </span>
+              </header>
+              <div
+                className="whitespace-pre-wrap text-[14px] leading-[1.6] text-[color:var(--text-2)]"
+                data-testid={`artifact-section-body-${zone}`}
+              >
+                {body?.markdown ?? ''}
+              </div>
+            </section>
+          );
+        }
+        return (
+          <section
+            key={zone}
+            id={`section-${zone}`}
+            data-testid={`artifact-section-${zone}`}
+            className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--border)] pb-3"
+          >
+            <h2 className="text-[16px] font-medium tracking-[-0.005em] text-[color:var(--text-3)]">
+              {POSITIONING_SECTION_LABELS[zone]}
+            </h2>
+            <span
+              data-status={status}
+              className={cn(
+                'font-mono text-[10px] uppercase tracking-[0.06em]',
+                status === 'running' && 'text-[color:var(--accent)] animate-pulse',
+                status === 'queued' && 'text-[color:var(--text-3)]',
+                status === 'error' && 'text-[color:var(--red)]',
+                status === 'aborted' && 'text-[color:var(--amber)]',
+              )}
+            >
+              {status === 'running' ? 'generating…' : status}
+            </span>
+          </section>
+        );
+      })}
     </div>
   );
 }
