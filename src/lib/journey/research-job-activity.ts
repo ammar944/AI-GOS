@@ -44,7 +44,7 @@ interface UseResearchJobActivityOptions {
 
 // Stable empty-state sentinel. Returning a fresh `{}` literal on every render
 // caused an infinite re-render loop in consumers whose effects depend on the
-// hook's return value (e.g. SectionShell's `useEffect([activity])`).
+// hook's return value (e.g. the sections view's `useEffect([activity])`).
 const EMPTY_RESEARCH_JOB_ACTIVITY: Readonly<Record<string, ResearchJobActivity>> =
   Object.freeze({});
 

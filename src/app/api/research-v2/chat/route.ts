@@ -9,7 +9,6 @@ import {
   positioningOrchestratorAgent,
   type OrchestratorSideEffect,
 } from '@/lib/research-v2/agents/positioning-orchestrator';
-import { classifyIntent } from '@/lib/research-v2/intent-router';
 import type {
   AuditContextSummary,
   ChatMessageForRouter,
@@ -19,16 +18,8 @@ import { applyPatch } from '@/lib/research-v2/patch-apply';
 import { commitChatPatchAuto } from '@/lib/research-v2/chat-write-through';
 import { createAdminClient } from '@/lib/supabase/server';
 
-// Phase 5: the positioning orchestrator is the default chat command surface.
-// LEGACY_CHAT_INTENTS=true is the escape hatch that re-enables the pre-Phase 4
-// intent-router branch (rerun / patch / converse) for a single release window
-// before Phase 7 deletes it entirely. The historical
-// ENABLE_POSITIONING_ORCHESTRATOR flag is kept as an explicit override so
-// existing dev environments that already set it keep working — Phase 7
-// removes both.
-const LEGACY_CHAT_INTENTS = process.env.LEGACY_CHAT_INTENTS === 'true';
-const ENABLE_POSITIONING_ORCHESTRATOR =
-  process.env.ENABLE_POSITIONING_ORCHESTRATOR === 'true' || !LEGACY_CHAT_INTENTS;
+// The positioning orchestrator is the only chat command surface; every turn
+// runs through it. The earlier legacy intent-router branch is gone.
 const ORCHESTRATOR_TIMEOUT_MS = 45_000;
 const DISPATCH_TIMEOUT_MS = 10_000;
 
@@ -681,268 +672,20 @@ export async function POST(req: Request): Promise<Response> {
     .map((row) => ({ role: row.role, content: row.content }))
     .reverse();
 
-  // Phase 4: when the orchestrator flag is on, route the entire turn through
-  // the ToolLoopAgent. The agent's 5 meta-tools (rerunSection / editClaim /
-  // editNarrative / explainSource / summarizeArtifact) handle the same
-  // surface area as the legacy intent-router branches; side-effects are
-  // applied here via extractOrchestratorSideEffects → applyOrchestratorSideEffect.
-  if (ENABLE_POSITIONING_ORCHESTRATOR) {
-    return await runOrchestratorTurn({
-      userId,
-      runId,
-      supabase,
-      researchResults,
-      chatHistory,
-      userText,
-      auditContext,
-      req,
-    });
-  }
-
-  const intent = await classifyIntent({
-    userMessage: userText,
-    auditContext,
+  // Phase 7: every turn runs through the ToolLoopAgent. The agent's 5
+  // meta-tools (rerunSection / editClaim / editNarrative / explainSource /
+  // summarizeArtifact) handle the entire chat command surface. Side-effects
+  // are applied here via extractOrchestratorSideEffects →
+  // applyOrchestratorSideEffect; the legacy intent-router branch is gone.
+  return await runOrchestratorTurn({
+    userId,
+    runId,
+    supabase,
+    researchResults,
     chatHistory,
+    userText,
+    auditContext,
+    req,
   });
 
-  if (
-    intent.kind === 'patch' &&
-    intent.target_section &&
-    intent.patch &&
-    isRecord(researchResults[intent.target_section])
-  ) {
-    const wrapper = researchResults[intent.target_section] as Record<
-      string,
-      unknown
-    >;
-    const isWrapped = isRecord(wrapper.data);
-    const inner = isWrapped
-      ? (wrapper.data as Record<string, unknown>)
-      : wrapper;
-
-    try {
-      const patchedInner = applyPatch(inner, intent.patch);
-      const newSection: Record<string, unknown> = isWrapped
-        ? { ...wrapper, data: patchedInner }
-        : { ...patchedInner };
-
-      // Use the atomic per-section JSONB merge RPC. Writing the whole
-      // research_results column back would clobber any concurrent worker
-      // section write that landed between our read and write.
-      const { error: rpcError } = await supabase.rpc(
-        'merge_journey_session_research_result',
-        {
-          p_user_id: userId,
-          p_run_id: runId,
-          p_section: intent.target_section,
-          p_result: newSection,
-        },
-      );
-
-      if (rpcError) {
-        logSupabaseError(
-          'merge_research_results_patch',
-          { runId, userId },
-          rpcError,
-        );
-        throw new Error(`Failed to persist patch: ${rpcError.message}`);
-      }
-
-      const ackText = `Updated ${intent.target_section} → ${intent.patch.path} = ${JSON.stringify(intent.patch.value)}`;
-
-      const assistantInsert: AuditChatInsert = {
-        run_id: runId,
-        user_id: userId,
-        role: 'assistant',
-        content: ackText,
-        intent: 'patch',
-        target_section: intent.target_section,
-      };
-      const { error: ackInsertError } = await supabase
-        .from('audit_chat_messages')
-        .insert(assistantInsert);
-
-      if (ackInsertError) {
-        logSupabaseError(
-          'insert_patch_ack',
-          { runId, userId, role: 'assistant' },
-          ackInsertError,
-        );
-      }
-
-      const ackStream = streamText({
-        model: anthropic('claude-haiku-4-5-20251001'),
-        system:
-          'You are an audit-editing assistant. Output exactly the user-supplied text — no rephrasing, no additions.',
-        prompt: ackText,
-      });
-      return ackStream.toUIMessageStreamResponse();
-    } catch (err) {
-      console.error('[research-v2/chat] Patch apply failed', {
-        runId,
-        userId,
-        targetSection: intent.target_section,
-        path: intent.patch.path,
-        message: err instanceof Error ? err.message : String(err),
-      });
-      // Fall through to converse path so the user still gets a response.
-    }
-  }
-
-  if (intent.kind === 'rerun' && intent.target_section) {
-    // Dispatch synchronously so we can surface a real error to the user
-    // instead of telling them the job was queued when it wasn't. A 10s
-    // AbortController guards against a stuck worker hanging the chat reply.
-    const dispatchUrl = new URL('/api/research-v2/dispatch', req.url).toString();
-    const refinement = intent.instruction.trim();
-
-    let dispatchOk = false;
-    let dispatchFailureReason: string | null = null;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10_000);
-    try {
-      const res = await fetch(dispatchUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: req.headers.get('cookie') ?? '',
-        },
-        body: JSON.stringify({
-          sectionId: intent.target_section,
-          runId,
-          chatRefinement: intent.instruction,
-        }),
-        signal: controller.signal,
-      });
-      if (res.ok) {
-        dispatchOk = true;
-      } else {
-        dispatchFailureReason = `${res.status} ${res.statusText || 'error'}`;
-        console.error('[research-v2/chat] Rerun dispatch returned non-ok', {
-          runId,
-          userId,
-          targetSection: intent.target_section,
-          status: res.status,
-          statusText: res.statusText,
-        });
-      }
-    } catch (dispatchError) {
-      const isAbort =
-        dispatchError instanceof Error && dispatchError.name === 'AbortError';
-      dispatchFailureReason = isAbort
-        ? 'timeout after 10s'
-        : dispatchError instanceof Error
-          ? dispatchError.message
-          : String(dispatchError);
-      console.error('[research-v2/chat] Rerun dispatch fetch failed', {
-        runId,
-        userId,
-        targetSection: intent.target_section,
-        message: dispatchFailureReason,
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    const ackText = dispatchOk
-      ? refinement
-        ? `Rerunning ${intent.target_section} with refinement: "${refinement}". Watch the section activity log for live progress.`
-        : `Rerunning ${intent.target_section}. Watch the section activity log for live progress.`
-      : `Couldn't queue rerun for ${intent.target_section}: ${dispatchFailureReason ?? 'unknown error'}. Please try again.`;
-
-    const assistantInsert: AuditChatInsert = {
-      run_id: runId,
-      user_id: userId,
-      role: 'assistant',
-      content: ackText,
-      intent: 'rerun',
-      target_section: intent.target_section,
-    };
-    const { error: ackInsertError } = await supabase
-      .from('audit_chat_messages')
-      .insert(assistantInsert);
-
-    if (ackInsertError) {
-      logSupabaseError(
-        dispatchOk ? 'insert_rerun_ack' : 'insert_rerun_failure_ack',
-        { runId, userId, role: 'assistant' },
-        ackInsertError,
-      );
-    }
-
-    const ackStream = streamText({
-      model: anthropic('claude-haiku-4-5-20251001'),
-      system:
-        'You are an audit-editing assistant. Output exactly the user-supplied text — no rephrasing, no additions.',
-      prompt: ackText,
-    });
-    return ackStream.toUIMessageStreamResponse();
-  }
-
-  // Converse path — fall-through default. Ground the model in a slim summary of
-  // every section the runner has produced so it can reference specific findings
-  // when the user asks follow-up questions. Empty audits (no sections yet) get
-  // an explicit note rather than a blank summary.
-  const auditSummary = auditContext.sections
-    .map(
-      (s) =>
-        `## ${s.title}\nStatus: ${s.statusSummary}\nKey findings: ${s.keyFindingTitles.join('; ')}`,
-    )
-    .join('\n\n');
-
-  const conversationSystem = `You are an audit-editing assistant helping a strategist refine a Pre-Pitch Positioning Audit. The user has 6 positioning sections; ${
-    auditContext.sections.length > 0
-      ? `here is a summary of what's been generated:\n\n${auditSummary}`
-      : 'the audit has not generated any sections yet.'
-  }
-
-Answer the user's question grounded in the audit above. If they ask for clarification on a section, refer to specific findings. If they ask a question that would require running new research or modifying a section, you may suggest "I can rerun the [section] with that refinement — want me to?" but do not actually trigger anything; this turn is conversational only.`;
-
-  // Build model messages from server-owned audit_chat_messages rows instead
-  // of the browser-supplied body.messages. chatHistory was loaded above with
-  // role IN ('user', 'assistant'), scoped to (userId, runId), ordered ASC,
-  // and already includes the just-inserted current user turn as its last
-  // item — so we use it directly. This (a) preserves context after a page
-  // reload (when body.messages is empty) and (b) prevents the client from
-  // forging system/assistant roles to steer the audit-grounded reply.
-  const conversationMessages: ModelMessage[] = chatHistory.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
-
-  const conversation = streamText({
-    model: anthropic('claude-sonnet-4-6'),
-    system: conversationSystem,
-    messages: conversationMessages,
-    async onFinish({ text }) {
-      const assistantInsert: AuditChatInsert = {
-        run_id: runId,
-        user_id: userId,
-        role: 'assistant',
-        content: text,
-        intent: 'converse',
-      };
-      const { error: assistantInsertError } = await supabase
-        .from('audit_chat_messages')
-        .insert(assistantInsert);
-
-      if (assistantInsertError) {
-        logSupabaseError(
-          'insert_assistant_message',
-          { runId, userId, role: 'assistant' },
-          assistantInsertError,
-        );
-      }
-    },
-    onError({ error }) {
-      console.error('[research-v2/chat] Converse stream failed', {
-        runId,
-        userId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    },
-  });
-
-  return conversation.toUIMessageStreamResponse();
 }

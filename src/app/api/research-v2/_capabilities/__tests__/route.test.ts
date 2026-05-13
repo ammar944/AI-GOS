@@ -1,9 +1,11 @@
 /**
  * Integration tests for GET /api/research-v2/_capabilities
  *
- * Verifies the JSON shape and value mapping required by the orchestrator +
- * artifact UI cycle Phase 0. The response is the local frontend flag state
- * merged with a best-effort reflection of the worker /capabilities response.
+ * Phase 7: the response shape is now { worker_url, worker_version,
+ * orchestrate_supported }. The three rollout-gate flags
+ * (orchestrator_enabled, parallel_sections_enabled, artifact_ui_v2) were
+ * removed when the orchestrator + centered artifact UI became the only
+ * code path.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,9 +16,6 @@ describe('GET /api/research-v2/_capabilities', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     process.env = { ...ORIGINAL_ENV };
-    delete process.env.ENABLE_POSITIONING_ORCHESTRATOR;
-    delete process.env.NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS;
-    delete process.env.NEXT_PUBLIC_ARTIFACT_UI_V2;
     delete process.env.RAILWAY_WORKER_URL;
     delete process.env.RAILWAY_API_KEY;
   });
@@ -26,60 +25,29 @@ describe('GET /api/research-v2/_capabilities', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns 200 with the full capabilities key set when no worker is configured', async () => {
+  it('returns 200 with only worker_url, worker_version, orchestrate_supported', async () => {
     const { GET } = await import('../route');
     const response = await GET();
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(Object.keys(json).sort()).toEqual(
-      [
-        'artifact_ui_v2',
-        'orchestrate_supported',
-        'orchestrator_enabled',
-        'parallel_sections_enabled',
-        'worker_url',
-        'worker_version',
-      ].sort(),
+      ['orchestrate_supported', 'worker_url', 'worker_version'].sort(),
     );
-    expect(typeof json.orchestrator_enabled).toBe('boolean');
-    expect(typeof json.parallel_sections_enabled).toBe('boolean');
-    expect(typeof json.artifact_ui_v2).toBe('boolean');
     expect(typeof json.worker_url).toBe('string');
     expect(typeof json.worker_version).toBe('string');
     expect(typeof json.orchestrate_supported).toBe('boolean');
+  });
+
+  it('reports worker_version="unconfigured" when RAILWAY_WORKER_URL is unset', async () => {
+    const { GET } = await import('../route');
+    const response = await GET();
+    const json = await response.json();
     expect(json.worker_url).toBe('');
     expect(json.worker_version).toBe('unconfigured');
     expect(json.orchestrate_supported).toBe(false);
   });
 
-  it('reflects local frontend flags exactly when set to "true"', async () => {
-    process.env.ENABLE_POSITIONING_ORCHESTRATOR = 'true';
-    process.env.NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS = 'true';
-    process.env.NEXT_PUBLIC_ARTIFACT_UI_V2 = 'true';
-    process.env.RAILWAY_WORKER_URL = 'http://worker.invalid';
-    const { GET } = await import('../route');
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('unreachable'));
-    const response = await GET();
-    const json = await response.json();
-    expect(json.orchestrator_enabled).toBe(true);
-    expect(json.parallel_sections_enabled).toBe(true);
-    expect(json.artifact_ui_v2).toBe(true);
-    expect(json.worker_url).toBe('http://worker.invalid');
-  });
-
-  it('treats any value other than "true" as false', async () => {
-    process.env.ENABLE_POSITIONING_ORCHESTRATOR = '1';
-    process.env.NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS = 'yes';
-    process.env.NEXT_PUBLIC_ARTIFACT_UI_V2 = 'on';
-    const { GET } = await import('../route');
-    const response = await GET();
-    const json = await response.json();
-    expect(json.orchestrator_enabled).toBe(false);
-    expect(json.parallel_sections_enabled).toBe(false);
-    expect(json.artifact_ui_v2).toBe(false);
-  });
-
-  it('reports worker_version="unreachable" and orchestrate_supported=false when worker fetch fails', async () => {
+  it('reports worker_version="unreachable" when worker fetch fails', async () => {
     process.env.RAILWAY_WORKER_URL = 'http://worker.invalid';
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('boom'));
     const { GET } = await import('../route');

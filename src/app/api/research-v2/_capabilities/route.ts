@@ -10,20 +10,16 @@
 
 import { NextResponse } from 'next/server';
 
+// Phase 7: rollout-gate flags (orchestrator_enabled, parallel_sections_enabled,
+// artifact_ui_v2) removed — the orchestrator + centered artifact UI are the
+// only path. Only worker reachability + capability remain.
 export interface ResearchV2Capabilities {
-  orchestrator_enabled: boolean;
-  parallel_sections_enabled: boolean;
-  artifact_ui_v2: boolean;
   worker_url: string;
   worker_version: string;
   orchestrate_supported: boolean;
 }
 
 const WORKER_FETCH_TIMEOUT_MS = 1500;
-
-function boolFromEnv(value: string | undefined): boolean {
-  return value === 'true';
-}
 
 async function fetchWorkerCapabilities(
   workerUrl: string,
@@ -72,11 +68,6 @@ export async function GET(): Promise<NextResponse<ResearchV2Capabilities>> {
     await fetchWorkerCapabilities(workerUrl, apiKey);
 
   const payload: ResearchV2Capabilities = {
-    orchestrator_enabled: boolFromEnv(process.env.ENABLE_POSITIONING_ORCHESTRATOR),
-    parallel_sections_enabled: boolFromEnv(
-      process.env.NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS,
-    ),
-    artifact_ui_v2: boolFromEnv(process.env.NEXT_PUBLIC_ARTIFACT_UI_V2),
     worker_url: workerUrl,
     worker_version,
     orchestrate_supported,

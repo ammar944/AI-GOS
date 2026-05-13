@@ -20,9 +20,10 @@ export interface WorkerCapabilities {
     ga4: boolean;
     charting: boolean;
   };
-  orchestrator_enabled: boolean;
-  parallel_sections_enabled: boolean;
-  artifact_ui_v2: boolean;
+  // Phase 7: orchestrator_enabled / parallel_sections_enabled / artifact_ui_v2
+  // were rollout-gate flags; the orchestrator and centered artifact UI are
+  // now the only path. Only worker_url, worker_version, and
+  // orchestrate_supported remain to keep ops health-checks observable.
   worker_url: string;
   worker_version: string;
   orchestrate_supported: boolean;
@@ -66,10 +67,6 @@ export function buildCapabilitiesPayload(
       ga4: Boolean(env.GA4_PROPERTY_ID && env.GA4_SERVICE_ACCOUNT_JSON),
       charting: true,
     },
-    orchestrator_enabled: env.ENABLE_POSITIONING_ORCHESTRATOR === 'true',
-    parallel_sections_enabled:
-      env.NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS === 'true',
-    artifact_ui_v2: env.NEXT_PUBLIC_ARTIFACT_UI_V2 === 'true',
     worker_url: env.RAILWAY_WORKER_URL ?? '',
     worker_version: input.workerVersion,
     orchestrate_supported: input.orchestrateSupported ?? false,

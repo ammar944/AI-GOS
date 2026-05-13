@@ -243,7 +243,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   // worker. journey_sessions.job_status is the authoritative in-flight
   // signal — check it for both chat reruns and normal-path dispatches
   // (e.g. a manual "Run section" click during the post-onboarding fan-out
-  // window, where SectionShell briefly renders idle buttons before polling
+  // window, where the sections view briefly renders idle buttons before polling
   // sees the queued jobs).
   const activeJobId = await findActiveJobForSection(userId, runId, sectionId);
   if (activeJobId) {

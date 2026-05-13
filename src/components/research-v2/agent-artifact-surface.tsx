@@ -1,9 +1,6 @@
-// Phase 4 of the orchestrator + artifact UI cycle.
-//
-// Replaces the six-card SectionShell grid with one centered artifact
-// document driven by a centered chat composer. Mounted only when
-// NEXT_PUBLIC_ARTIFACT_UI_V2=true; the legacy SectionShell remains in
-// place for rollback until Phase 7 removes it.
+// Centered artifact document driven by a centered chat composer. This is
+// the only research-v2 sections view post-Phase 7; the prior six-card grid
+// is gone.
 //
 // Layout (matches the goal-plan §3.2):
 //   - Initial: centered composer only, narrow max-width, calm bg.
