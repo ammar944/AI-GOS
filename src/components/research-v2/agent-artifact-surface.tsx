@@ -35,8 +35,28 @@ export interface AgentArtifactSurfaceProps {
   workerStates?: WorkerChipState[];
   /** When false, the centered composer sits alone — no chips, no artifact. */
   showArtifact?: boolean;
-  /** Submit handler for the centered chat composer. */
+  /**
+   * Submit handler for the centered chat composer. When omitted, the
+   * composer POSTs the prompt to /api/research-v2/chat — the artifact's
+   * command line by default.
+   */
   onSubmit?: (text: string) => void;
+}
+
+async function defaultChatSubmit(runId: string, text: string): Promise<void> {
+  try {
+    await fetch('/api/research-v2/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        runId,
+        userText: text,
+        intent: 'converse',
+      }),
+    });
+  } catch (err) {
+    console.warn('[artifact-surface] chat submit failed:', err);
+  }
 }
 
 const STATUS_CLASS: Record<WorkerChipStatus, string> = {
@@ -69,7 +89,11 @@ export function AgentArtifactSurface({
     const text = draft.trim();
     if (!text) return;
     setDraft('');
-    onSubmit?.(text);
+    if (onSubmit) {
+      onSubmit(text);
+    } else {
+      void defaultChatSubmit(runId, text);
+    }
   };
 
   return (

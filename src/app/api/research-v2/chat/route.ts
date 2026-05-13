@@ -19,8 +19,16 @@ import { applyPatch } from '@/lib/research-v2/patch-apply';
 import { commitChatPatchAuto } from '@/lib/research-v2/chat-write-through';
 import { createAdminClient } from '@/lib/supabase/server';
 
+// Phase 5: the positioning orchestrator is the default chat command surface.
+// LEGACY_CHAT_INTENTS=true is the escape hatch that re-enables the pre-Phase 4
+// intent-router branch (rerun / patch / converse) for a single release window
+// before Phase 7 deletes it entirely. The historical
+// ENABLE_POSITIONING_ORCHESTRATOR flag is kept as an explicit override so
+// existing dev environments that already set it keep working — Phase 7
+// removes both.
+const LEGACY_CHAT_INTENTS = process.env.LEGACY_CHAT_INTENTS === 'true';
 const ENABLE_POSITIONING_ORCHESTRATOR =
-  process.env.ENABLE_POSITIONING_ORCHESTRATOR === 'true';
+  process.env.ENABLE_POSITIONING_ORCHESTRATOR === 'true' || !LEGACY_CHAT_INTENTS;
 const ORCHESTRATOR_TIMEOUT_MS = 45_000;
 const DISPATCH_TIMEOUT_MS = 10_000;
 
