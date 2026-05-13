@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { POSITIONING_SECTION_IDS, POSITIONING_SECTION_LABELS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
@@ -93,6 +93,28 @@ export function AgentArtifactSurface({
   }, [states]);
   const [draft, setDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
+
+  // Auto-kickoff: if the polled state reports no parent run yet (older runs
+  // that pre-date the Phase 7.5 ONBOARDING_COMPLETE wire, or any resume
+  // where the kickoff fetch was interrupted), fire orchestrate once. The
+  // route is idempotent on (user_id, run_id) so a duplicate call is safe.
+  const kickoffFired = useRef(false);
+  useEffect(() => {
+    if (workerStates) return; // explicit override, skip auto-kickoff
+    if (kickoffFired.current) return;
+    if (live.parent_audit_run_id !== null) return;
+    if (live.workerStates.length === 0) return; // still loading
+    kickoffFired.current = true;
+    void fetch('/api/research-v2/orchestrate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ run_id: runId }),
+    }).catch((err) => {
+      console.warn('[artifact-surface] auto-kickoff failed:', err);
+      kickoffFired.current = false;
+    });
+  }, [workerStates, live.parent_audit_run_id, live.workerStates.length, runId]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
