@@ -737,8 +737,16 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
           undefined,
           signal,
         )) as unknown as Record<string, unknown>;
+        // Runners return { status, artifact: { title, markdown }, data, ... }.
+        // The orchestrator expects flat { markdown, title } on SectionRunResult.
+        const artifact =
+          result.artifact && typeof result.artifact === 'object'
+            ? (result.artifact as { title?: unknown; markdown?: unknown })
+            : null;
         const markdown =
-          typeof result.markdown === 'string' ? result.markdown : undefined;
+          typeof artifact?.markdown === 'string' ? artifact.markdown : undefined;
+        const title =
+          typeof artifact?.title === 'string' ? artifact.title : undefined;
         const claims = Array.isArray(result.claims)
           ? (result.claims as unknown[])
           : undefined;
@@ -748,6 +756,7 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
         return {
           status: 'complete',
           markdown,
+          title,
           claims,
           sources,
         } satisfies SectionRunResult;
