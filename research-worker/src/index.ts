@@ -32,6 +32,11 @@ import { dispatchIntelligenceCards } from './intelligence/dispatcher';
 import { emitTelemetry } from './telemetry';
 import { getAnthropicSkillsRuntimeStatus } from './anthropic-skills';
 import { createSemaphore } from './utils/semaphore';
+import { buildCapabilitiesPayload } from './capabilities';
+import pkg from '../package.json';
+
+const WORKER_VERSION: string =
+  typeof pkg.version === 'string' ? pkg.version : 'unknown';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -179,36 +184,13 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/capabilities', (_req, res) => {
-  const anthropicSkills = getAnthropicSkillsRuntimeStatus();
-  res.json({
-    status: 'ok',
-    anthropic: {
-      authConfigured: Boolean(
-        process.env.ANTHROPIC_API_KEY?.trim() ||
-          process.env.ANTHROPIC_AUTH_TOKEN?.trim(),
-      ),
-      skills: anthropicSkills,
-    },
-    tools: {
-      webSearch: true,
-      spyfu: Boolean(process.env.SPYFU_API_KEY),
-      firecrawl: Boolean(process.env.FIRECRAWL_API_KEY),
-      googleAds: Boolean(
-        process.env.GOOGLE_ADS_DEVELOPER_TOKEN &&
-          process.env.GOOGLE_ADS_CLIENT_ID &&
-          process.env.GOOGLE_ADS_CLIENT_SECRET &&
-          process.env.GOOGLE_ADS_REFRESH_TOKEN &&
-          process.env.GOOGLE_ADS_CUSTOMER_ID,
-      ),
-      metaAds: Boolean(
-        process.env.META_ACCESS_TOKEN && process.env.META_BUSINESS_ACCOUNT_ID,
-      ),
-      ga4: Boolean(
-        process.env.GA4_PROPERTY_ID && process.env.GA4_SERVICE_ACCOUNT_JSON,
-      ),
-      charting: true,
-    },
-  });
+  res.json(
+    buildCapabilitiesPayload({
+      env: process.env,
+      workerVersion: WORKER_VERSION,
+      orchestrateSupported: false,
+    }),
+  );
 });
 
 // -- Active job tracking (for stale detection) --------------------------------

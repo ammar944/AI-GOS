@@ -49,6 +49,19 @@ CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ```
 Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
 
+## research-v2 feature flags + capabilities
+
+Four flags drive the orchestrator + artifact UI rollout (see `docs/research-v2/feature-flags.md` and `docs/2026-05-13-orchestrator-and-artifact-ui-goal.md`). All default to **false**:
+
+- `ENABLE_POSITIONING_ORCHESTRATOR` — chat ToolLoopAgent orchestrator (flips on at Phase 5)
+- `NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS` — legacy browser fan-out (removed at Phase 7)
+- `NEXT_PUBLIC_ARTIFACT_UI_V2` — centered `AgentArtifactSurface` UI (flips on at Phase 4)
+- (worker-only) `ORCHESTRATOR_CONCURRENCY` — bounded section concurrency, default 3 (Phase 2+)
+
+Diff frontend vs worker reality with one grep:
+- `GET /api/research-v2/_capabilities` — Next.js mirror, fetches worker `/capabilities` (1.5s timeout)
+- `GET /capabilities` on the Railway worker — own env + package version, `orchestrate_supported` flips to `true` at Phase 2
+
 ## Architecture
 
 AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-extracted fields, then step through a research pipeline that produces: 6 research sections, a media plan, and ad scripts.
