@@ -80,7 +80,7 @@ export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchA
   }, [entries]);
 
   const visibleEntries = entries.slice(-12).reverse();
-  const currentStep = isWriting ? 'Writing section' : sources.length > 0 ? 'Reading sources' : hasRealUpdates ? 'Finding sources' : 'Starting research';
+  const currentStep = isWriting ? 'Writing section' : sources.length > 0 ? 'Reading sources' : hasRealUpdates ? 'Finding sources' : 'Starting worker';
 
   const timeline = [
     {
@@ -247,7 +247,7 @@ export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchA
               ) : (
                 <div className="flex min-h-[150px] items-center justify-center rounded-[8px] border border-dashed border-white/[0.08] bg-white/[0.012] px-6 text-center">
                   <p className="max-w-sm text-xs leading-5 text-white/34">
-                    Waiting for research updates. The report will appear as source-backed blocks once this section finishes.
+                    Waiting for the research worker to start emitting tool events. The report will appear as source-backed blocks once this section finishes.
                   </p>
                 </div>
               )}
