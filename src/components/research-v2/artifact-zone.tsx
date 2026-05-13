@@ -28,10 +28,21 @@ import { cn } from '@/lib/utils';
 import type { ResearchJobUpdate } from '@/lib/journey/research-job-activity';
 import type { ArtifactZone as ArtifactZoneData } from '@/lib/research-v2/audit-artifact-schema';
 import { ZoneActivity } from './zone-activity';
+import { ZoneErrorCard } from './zone-error-card';
+
+export type ZoneRetryHandler = (opts: {
+  zoneId: string;
+  usePartialContext: boolean;
+}) => void | Promise<void>;
+
+export type ZoneCancelHandler = (zoneId: string) => void | Promise<void>;
 
 interface ArtifactZoneProps {
   zone: ArtifactZoneData;
   activityUpdates: ResearchJobUpdate[] | undefined;
+  onRetry?: ZoneRetryHandler;
+  onCancel?: ZoneCancelHandler;
+  isRetrying?: boolean;
 }
 
 function StatusBadge({ status }: { status: ArtifactZoneData['status'] }) {
@@ -70,7 +81,13 @@ function StatusBadge({ status }: { status: ArtifactZoneData['status'] }) {
   );
 }
 
-export function ArtifactZone({ zone, activityUpdates }: ArtifactZoneProps) {
+export function ArtifactZone({
+  zone,
+  activityUpdates,
+  onRetry,
+  onCancel,
+  isRetrying,
+}: ArtifactZoneProps) {
   const [narrativeOpen, setNarrativeOpen] = useState(true);
   const [claimsOpen, setClaimsOpen] = useState(false);
 
@@ -98,11 +115,26 @@ export function ArtifactZone({ zone, activityUpdates }: ArtifactZoneProps) {
           </CardTitle>
           <StatusBadge status={zone.status} />
         </div>
-        {zone.errorMessage ? (
+        {isError && !onRetry && zone.errorMessage ? (
           <p className="text-xs text-destructive">{zone.errorMessage}</p>
         ) : null}
       </CardHeader>
       <CardContent className="flex-1 space-y-3 text-sm">
+        {isError && onRetry ? (
+          <ZoneErrorCard
+            zoneId={zone.zone}
+            zoneTitle={zone.title}
+            errorMessage={zone.errorMessage ?? null}
+            partialNarrative={zone.partialNarrative ?? null}
+            partialAt={zone.partialAt ?? null}
+            isRetrying={isRetrying}
+            onRetry={({ usePartialContext }) =>
+              onRetry({ zoneId: zone.zone, usePartialContext })
+            }
+            onCancel={onCancel ? () => onCancel(zone.zone) : undefined}
+          />
+        ) : null}
+
         {(isRunning || (activityUpdates && activityUpdates.length > 0)) ? (
           <ZoneActivity
             updates={activityUpdates}

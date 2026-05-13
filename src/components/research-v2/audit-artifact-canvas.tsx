@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Card,
@@ -116,6 +116,62 @@ export function AuditArtifactCanvas({
   );
 
   const allSources = useMemo(() => collectAllSources(artifact), [artifact]);
+  const [retrying, setRetrying] = useState<Set<string>>(() => new Set());
+
+  const handleRetry = useCallback(
+    async ({
+      zoneId,
+      usePartialContext,
+    }: {
+      zoneId: string;
+      usePartialContext: boolean;
+    }) => {
+      setRetrying((prev) => {
+        const next = new Set(prev);
+        next.add(zoneId);
+        return next;
+      });
+      try {
+        const res = await fetch('/api/research-v2/rerun-section', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ runId, zone: zoneId, usePartialContext }),
+        });
+        if (!res.ok && res.status !== 409) {
+          const detail = await res.text().catch(() => '');
+          console.error(
+            '[canvas] rerun-section failed',
+            res.status,
+            detail.slice(0, 200),
+          );
+        }
+      } catch (err) {
+        console.error('[canvas] rerun-section threw', err);
+      } finally {
+        setRetrying((prev) => {
+          const next = new Set(prev);
+          next.delete(zoneId);
+          return next;
+        });
+      }
+    },
+    [runId],
+  );
+
+  const handleCancel = useCallback(
+    async (zoneId: string) => {
+      try {
+        await fetch('/api/research-v2/abort-section', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ runId, zone: zoneId }),
+        });
+      } catch (err) {
+        console.error('[canvas] abort-section threw', err);
+      }
+    },
+    [runId],
+  );
 
   return (
     <div className={cn('flex flex-col h-full overflow-hidden', className)}>
@@ -133,6 +189,9 @@ export function AuditArtifactCanvas({
                     key={zoneId}
                     zone={zone}
                     activityUpdates={jobActivity?.[zoneId]?.updates}
+                    onRetry={handleRetry}
+                    onCancel={handleCancel}
+                    isRetrying={retrying.has(zoneId)}
                   />
                 );
               })}

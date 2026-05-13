@@ -81,6 +81,8 @@ export const ArtifactZoneSchema = z.object({
   activity: z.array(ArtifactActivityEventSchema),
   errorMessage: z.string().nullable().optional(),
   partialAt: z.number().min(0).max(100).nullable().optional(),
+  errorPartial: z.boolean().optional(),
+  partialNarrative: z.string().nullable().optional(),
 });
 export type ArtifactZone = z.infer<typeof ArtifactZoneSchema>;
 

@@ -51,6 +51,7 @@ export async function runJourneySectionViaSubagent(
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  externalAbortSignal?: AbortSignal,
 ): Promise<ResearchResult> {
   const startTime = Date.now();
 
@@ -83,16 +84,37 @@ ${refinedContext}`;
   // agent.generate() (and its tool calls). Previously Promise.race resolved
   // the timeout but the agent kept running, burning Anthropic quota until
   // the model returned.
-  const controller = new AbortController();
+  //
+  // Phase 5: compose the timeout signal with the worker's external signal
+  // (heartbeat self-termination or /abort route) so EITHER source can stop
+  // the run.
+  const timeoutController = new AbortController();
   const timeoutHandle = setTimeout(
-    () => controller.abort(new Error(`Subagent timeout after ${SUBAGENT_TIMEOUT_MS / 1000}s`)),
+    () => timeoutController.abort(new Error(`Subagent timeout after ${SUBAGENT_TIMEOUT_MS / 1000}s`)),
     SUBAGENT_TIMEOUT_MS,
   );
+
+  const composedSignal: AbortSignal =
+    typeof AbortSignal.any === 'function' && externalAbortSignal
+      ? AbortSignal.any([timeoutController.signal, externalAbortSignal])
+      : timeoutController.signal;
+
+  // Phase 5: track the most recent step's text so we can recover partial
+  // output if the tool loop fails before emitting a final envelope.
+  let lastStepText = '';
+  let stepCount = 0;
+  const MAX_EXPECTED_STEPS = 6;
 
   try {
     const result = await agent.generate({
       prompt,
-      abortSignal: controller.signal,
+      abortSignal: composedSignal,
+      onStepFinish: ({ text }: { text?: string }) => {
+        stepCount += 1;
+        if (typeof text === 'string' && text.trim().length > 0) {
+          lastStepText = text;
+        }
+      },
     });
 
     clearTimeout(timeoutHandle);
@@ -148,6 +170,76 @@ ${refinedContext}`;
   } catch (err) {
     clearTimeout(timeoutHandle);
     const message = err instanceof Error ? err.message : String(err);
+
+    // Phase 5 — partial-output recovery.
+    //
+    // If the tool loop captured any step text before erroring, attempt to
+    // parse a partial envelope and surface what we have. The dual-write
+    // path translates `partialMeta` into `error.partial=true` +
+    // `error.partialAt` on the normalized section row so the canvas can
+    // render a ZoneErrorCard with the "Retry with partial as context"
+    // option.
+    if (lastStepText) {
+      const parsed = extractJson(lastStepText);
+      const partialEnvelope = isRecord(parsed) ? (parsed as SubagentEnvelope) : null;
+      const sectionTitle = asString(partialEnvelope?.sectionTitle) ?? spec.title;
+      const partialAt =
+        stepCount > 0
+          ? Math.min(95, Math.round((stepCount / MAX_EXPECTED_STEPS) * 100))
+          : 25;
+
+      const finalEnvelope: Record<string, unknown> = partialEnvelope
+        ? {
+            sectionTitle,
+            verdict: asString(partialEnvelope.verdict) ?? 'Partial — runner failed mid-stream',
+            statusSummary:
+              asString(partialEnvelope.statusSummary) ??
+              `${sectionTitle} captured a partial snapshot before the runner errored.`,
+            confidence:
+              typeof partialEnvelope.confidence === 'number'
+                ? Math.max(0, Math.min(10, partialEnvelope.confidence))
+                : 3,
+            agentRuntime: 'ai-sdk-subagent',
+            keyFindings: Array.isArray(partialEnvelope.keyFindings) ? partialEnvelope.keyFindings : [],
+            evidenceQuotes: Array.isArray(partialEnvelope.evidenceQuotes) ? partialEnvelope.evidenceQuotes : [],
+            risksOrGaps: Array.isArray(partialEnvelope.risksOrGaps) ? partialEnvelope.risksOrGaps : [],
+            recommendedMoves: Array.isArray(partialEnvelope.recommendedMoves)
+              ? partialEnvelope.recommendedMoves
+              : [],
+            sources: Array.isArray(partialEnvelope.sources) ? partialEnvelope.sources : [],
+          }
+        : {
+            sectionTitle,
+            verdict: 'Partial — no parseable envelope in snapshot',
+            statusSummary: lastStepText.slice(0, 600),
+            confidence: 2,
+            agentRuntime: 'ai-sdk-subagent',
+            keyFindings: [],
+            evidenceQuotes: [],
+            risksOrGaps: [],
+            recommendedMoves: [],
+            sources: [],
+          };
+
+      const partialMarkdown = formatJourneySectionArtifactMarkdown(finalEnvelope, spec);
+
+      await emitRunnerProgress(
+        onProgress,
+        'error',
+        `${message} (partial snapshot preserved at ${partialAt}%)`,
+      );
+
+      return {
+        status: 'error',
+        section: spec.section,
+        error: message,
+        data: finalEnvelope,
+        artifact: { title: sectionTitle, markdown: partialMarkdown },
+        partialMeta: { partial: true, partialAt },
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     await emitRunnerProgress(onProgress, 'error', message);
     return {
       status: 'error',

@@ -11,7 +11,15 @@ import {
   runPositioningDemandIntent,
   runPositioningOfferDiagnostic,
 } from './runners';
-import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
+import {
+  writeResearchResult,
+  writeJobStatus,
+  writeScriptPackUpdate,
+  getClient,
+  ensureArtifact,
+  startSectionRun,
+  type ResearchResult,
+} from './supabase';
 import { createEmitProgress } from './emit-progress';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
 import { writeDeadLetter } from './dead-letter';
@@ -116,6 +124,7 @@ const TOOL_RUNNERS: Record<
     context: string,
     onProgress?: RunnerProgressReporter,
     chatRefinement?: string,
+    abortSignal?: AbortSignal,
   ) => Promise<ResearchResult>
 > = {
   runDeepResearchProgram,
@@ -128,6 +137,37 @@ const TOOL_RUNNERS: Record<
   positioningDemandIntent: runPositioningDemandIntent,
   positioningOfferDiagnostic: runPositioningOfferDiagnostic,
 };
+
+const POSITIONING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
+  'positioningMarketCategory',
+  'positioningBuyerICP',
+  'positioningCompetitorLandscape',
+  'positioningVoiceOfCustomer',
+  'positioningDemandIntent',
+  'positioningOfferDiagnostic',
+]);
+
+const TOOL_TO_ZONE: Partial<Record<ToolName, string>> = {
+  positioningMarketCategory: 'positioningMarketCategory',
+  positioningBuyerICP: 'positioningBuyerICP',
+  positioningCompetitorLandscape: 'positioningCompetitorLandscape',
+  positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
+  positioningDemandIntent: 'positioningDemandIntent',
+  positioningOfferDiagnostic: 'positioningOfferDiagnostic',
+};
+
+// ---------------------------------------------------------------------------
+// Phase 5 — abort infrastructure.
+//
+// Each running positioning section is registered in `abortControllers` keyed
+// by its section_run_id. The `/abort` route can then look up the controller
+// and call .abort() to interrupt an in-flight tool-loop.
+//
+// `sectionRunIdByJob` is a reverse lookup that lets the per-job heartbeat
+// query research_section_runs.aborted_at for the right section_run_id.
+// ---------------------------------------------------------------------------
+const abortControllers = new Map<string, AbortController>();
+const sectionRunIdByJob = new Map<string, string>();
 
 // -- Health -------------------------------------------------------------------
 app.get('/health', (_req, res) => {
@@ -290,8 +330,52 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       startedAt: new Date(startMs).toISOString(),
     });
 
+    // Phase 5 — abort infrastructure registration.
+    //
+    // For positioning sections we mint a section_run_id up front so the
+    // /abort route can target this specific run, and so the heartbeat can
+    // poll research_section_runs.aborted_at as the self-termination signal.
+    // Non-positioning tools (deepResearchProgram, resolveIdentity,
+    // extractMeetingTranscript) skip this — they still get an AbortController
+    // keyed by jobId for /abort, but no aborted_at polling.
+    const abortController = new AbortController();
+    let sectionRunId: string | null = null;
+    const isPositioning = POSITIONING_TOOL_NAMES.has(tool);
+    if (isPositioning && runId) {
+      try {
+        const artifactId = await ensureArtifact(userId, runId);
+        if (artifactId) {
+          const zone = TOOL_TO_ZONE[tool] ?? tool;
+          sectionRunId = await startSectionRun(
+            artifactId,
+            zone,
+            userId,
+            chatRefinement ?? null,
+          );
+        }
+      } catch (preflightErr) {
+        // Non-fatal — proceed without abort tracking. The run still
+        // completes via the legacy dual-write path.
+        console.warn(
+          `[worker] start_section_run preflight failed for ${tool}:`,
+          preflightErr,
+        );
+      }
+    }
+
+    if (sectionRunId) {
+      abortControllers.set(sectionRunId, abortController);
+      sectionRunIdByJob.set(jobId, sectionRunId);
+    }
+    // Also register by jobId so the legacy abort-by-jobId path (and the
+    // detached-async finalizer below) can release reliably.
+    abortControllers.set(jobId, abortController);
+
     // Heartbeat: write 'running' status every 30s so the poller knows we're alive.
     // Includes an updates[] entry so the frontend activity log shows activity.
+    // For positioning runs with a section_run_id, also poll
+    // research_section_runs.aborted_at — if non-null, self-terminate the
+    // in-flight tool loop via abortController.abort().
     const heartbeatInterval = setInterval(async () => {
       if (jobFinalized) {
         return;
@@ -312,6 +396,26 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           },
         ],
       });
+
+      if (sectionRunId && !abortController.signal.aborted) {
+        try {
+          const supabase = getClient();
+          const { data } = await supabase
+            .from('research_section_runs')
+            .select('aborted_at')
+            .eq('id', sectionRunId)
+            .maybeSingle();
+          if (data && data.aborted_at) {
+            console.warn(
+              `[abort] Heartbeat detected aborted_at on section_run ${sectionRunId} — self-terminating job ${jobId}`,
+            );
+            abortController.abort(new Error('aborted via heartbeat'));
+          }
+        } catch (pollErr) {
+          // Best-effort — log but don't crash the heartbeat.
+          console.warn('[abort] heartbeat aborted_at poll failed:', pollErr);
+        }
+      }
     }, 30_000);
 
     try {
@@ -320,7 +424,12 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         phase: 'runner',
       });
       const runnerStartMs = Date.now();
-      const result = await runner(contextWithDate, emitProgress, chatRefinement);
+      const result = await runner(
+        contextWithDate,
+        emitProgress,
+        chatRefinement,
+        abortController.signal,
+      );
       const runnerDurationMs = Date.now() - runnerStartMs;
       console.log(`[timing] ${tool} runner completed in ${(runnerDurationMs / 1000).toFixed(1)}s`);
       emitTelemetry({
@@ -487,8 +596,72 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     } finally {
       clearInterval(heartbeatInterval);
       activeJobs.delete(jobId);
+      // Phase 5 — release abort registrations. Repeated deletes are
+      // idempotent so an out-of-band /abort call cannot race with this.
+      abortControllers.delete(jobId);
+      if (sectionRunId) {
+        abortControllers.delete(sectionRunId);
+        sectionRunIdByJob.delete(jobId);
+      }
     }
   })().finally(releaseSlot);
+});
+
+// -- Abort --------------------------------------------------------------------
+//
+// Accepts { sectionRunId } or { jobId }. Calls .abort() on the matching
+// AbortController if one exists, writes aborted_at to research_section_runs
+// (idempotent), and returns 200. Unknown keys also return 200 — repeated
+// aborts after a run already settled are no-ops.
+app.post('/abort', requireApiKey, async (req: express.Request, res: express.Response) => {
+  const { sectionRunId, jobId } = req.body as {
+    sectionRunId?: string;
+    jobId?: string;
+  };
+
+  if (!sectionRunId && !jobId) {
+    res.status(400).json({ error: 'sectionRunId or jobId is required' });
+    return;
+  }
+
+  let controllerKey: string | null = null;
+  if (sectionRunId && abortControllers.has(sectionRunId)) {
+    controllerKey = sectionRunId;
+  } else if (jobId && abortControllers.has(jobId)) {
+    controllerKey = jobId;
+  }
+
+  if (controllerKey) {
+    const controller = abortControllers.get(controllerKey);
+    if (controller && !controller.signal.aborted) {
+      controller.abort(new Error('aborted via /abort route'));
+    }
+  }
+
+  // Stamp aborted_at so heartbeat self-termination and out-of-process
+  // observers can see the request. If the caller didn't pass sectionRunId,
+  // derive it from the jobId → sectionRunId map.
+  const targetSectionRunId =
+    sectionRunId ?? (jobId ? sectionRunIdByJob.get(jobId) ?? null : null);
+
+  if (targetSectionRunId) {
+    try {
+      const supabase = getClient();
+      await supabase
+        .from('research_section_runs')
+        .update({ aborted_at: new Date().toISOString() })
+        .eq('id', targetSectionRunId)
+        .is('aborted_at', null);
+    } catch (writeErr) {
+      console.warn('[abort] aborted_at write failed:', writeErr);
+    }
+  }
+
+  res.json({
+    ok: true,
+    aborted: Boolean(controllerKey),
+    sectionRunId: targetSectionRunId,
+  });
 });
 
 // -- Ad Scripts ---------------------------------------------------------------
@@ -547,9 +720,50 @@ app.post('/api/scripts', requireApiKey, async (req: express.Request, res: expres
   })();
 });
 
+// -- Stale-run reaper on boot -------------------------------------------------
+//
+// If the worker process was killed mid-run, research_section_runs rows are
+// left in 'running' state with no live AbortController behind them. On boot,
+// mark any running section_run older than STALE_RUN_THRESHOLD_MIN as
+// 'error' with aborted_at=now() so the projector flips the zone to its error
+// state and the user can retry. Idempotent — safe to run on every boot.
+const STALE_RUN_THRESHOLD_MIN = Number(
+  process.env.WORKER_STALE_RUN_THRESHOLD_MIN ?? 15,
+);
+async function reapOrphanedSectionRuns(): Promise<void> {
+  try {
+    const supabase = getClient();
+    const cutoffIso = new Date(
+      Date.now() - STALE_RUN_THRESHOLD_MIN * 60_000,
+    ).toISOString();
+    const { data, error } = await supabase
+      .from('research_section_runs')
+      .update({
+        status: 'error',
+        aborted_at: new Date().toISOString(),
+        error: { type: 'orphaned_after_restart' },
+      })
+      .eq('status', 'running')
+      .is('aborted_at', null)
+      .lt('started_at', cutoffIso)
+      .select('id');
+    if (error) {
+      console.warn('[reaper] failed:', error.message);
+      return;
+    }
+    const reaped = Array.isArray(data) ? data.length : 0;
+    if (reaped > 0) {
+      console.log(`[reaper] Marked ${reaped} orphaned section_runs as error`);
+    }
+  } catch (err) {
+    console.warn('[reaper] threw:', err);
+  }
+}
+
 // -- Start --------------------------------------------------------------------
 app.listen(PORT, () => {
   console.log(`[worker] Research worker listening on :${PORT}`);
+  void reapOrphanedSectionRuns();
 });
 
 // -- Stale job detection ------------------------------------------------------

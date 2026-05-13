@@ -162,12 +162,31 @@ async function applyOrchestratorSideEffect(
       typeof effect.payload.refinement === 'string'
         ? effect.payload.refinement
         : null;
+    const usePartialContext = effect.payload.usePartialContext === true;
     if (!zone) return { ok: false, reason: 'rerun_section missing zone' };
 
-    const dispatchUrl = new URL(
-      '/api/research-v2/dispatch',
-      ctx.requestUrl,
-    ).toString();
+    // Phase 5 — when the orchestrator wants the partial output as context
+    // (or just wants the abort-then-dispatch semantics), route through
+    // /rerun-section. The plain /dispatch path is still used when no
+    // partial context is requested AND the section isn't currently
+    // running — but /rerun-section's abort+dispatch flow is a safe
+    // superset, so route everything through it.
+    const targetPath = usePartialContext
+      ? '/api/research-v2/rerun-section'
+      : '/api/research-v2/dispatch';
+    const dispatchUrl = new URL(targetPath, ctx.requestUrl).toString();
+    const requestBody = usePartialContext
+      ? {
+          runId: ctx.runId,
+          zone,
+          usePartialContext: true,
+          refinement: refinement ?? undefined,
+        }
+      : {
+          sectionId: zone,
+          runId: ctx.runId,
+          chatRefinement: refinement ?? undefined,
+        };
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -180,11 +199,7 @@ async function applyOrchestratorSideEffect(
           'Content-Type': 'application/json',
           Cookie: ctx.cookieHeader,
         },
-        body: JSON.stringify({
-          sectionId: zone,
-          runId: ctx.runId,
-          chatRefinement: refinement ?? undefined,
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
       // 409 from the dispatch route means "already running" — the worker

@@ -410,8 +410,21 @@ function projectZoneFromNormalized(
     typeof errorPayload?.message === 'string'
       ? (errorPayload.message as string)
       : legacyError;
-
+  const errorPartial =
+    errorPayload?.partial === true || typeof errorPayload?.partialAt === 'number';
+  const partialAt =
+    typeof errorPayload?.partialAt === 'number'
+      ? Math.max(0, Math.min(100, errorPayload.partialAt))
+      : null;
+  // When status==='error' AND we captured a partial snapshot, the section's
+  // `markdown` column already holds that partial. Surface it on a distinct
+  // field so the error card can show it without confusing it with a
+  // completed narrative.
   const status = mapJobStatusToZoneStatus(job?.status, normalized.status);
+  const partialNarrative =
+    status === 'error' && errorPartial && typeof normalized.markdown === 'string'
+      ? normalized.markdown
+      : null;
 
   return {
     zone: zoneId,
@@ -422,12 +435,14 @@ function projectZoneFromNormalized(
       normalized.title ??
       (POSITIONING_SECTION_LABELS as Record<string, string>)[zoneId] ??
       zoneId,
-    narrative: normalized.markdown ?? '',
+    narrative: status === 'error' && errorPartial ? '' : normalized.markdown ?? '',
     claims,
     sources,
     activity,
     errorMessage,
-    partialAt: null,
+    partialAt,
+    errorPartial,
+    partialNarrative,
   };
 }
 
@@ -479,6 +494,8 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
       activity,
       errorMessage: row?.error ?? null,
       partialAt: null,
+      errorPartial: false,
+      partialNarrative: null,
     };
   }
 

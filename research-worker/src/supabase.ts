@@ -99,6 +99,17 @@ export interface ResearchResult {
     }>;
   };
   telemetry?: RunnerTelemetry;
+  /**
+   * Phase 5 — partial-output preservation. When a runner catches mid-stream
+   * failure but recovered a usable snapshot, it sets `partialMeta` and the
+   * dual-write path forwards it onto `research_artifact_sections.error.partial`
+   * + `.partialAt` so the canvas can render the ZoneErrorCard with the
+   * "Retry with partial as context" option enabled.
+   */
+  partialMeta?: {
+    partial: true;
+    partialAt: number;
+  };
 }
 
 async function isActiveJourneyRun(
@@ -497,13 +508,23 @@ async function writeArtifactSectionFromLegacy(
   const sectionRunId = current?.section_run_id ?? crypto.randomUUID();
   const expectedRevision = current?.revision ?? 0;
 
+  const errorPayload =
+    result.error || result.partialMeta
+      ? {
+          ...(result.error ? { message: result.error } : {}),
+          ...(result.partialMeta
+            ? { partial: true, partialAt: result.partialMeta.partialAt }
+            : {}),
+        }
+      : null;
+
   const patch: ArtifactSectionPatch = {
     status: result.status,
     title: result.artifact?.title,
     markdown: result.artifact?.markdown,
     claims: extractClaimsFromEnvelope(result.data),
     sources: extractSourcesFromEnvelope(result.data, result.citations),
-    error: result.error ? { message: result.error } : null,
+    error: errorPayload,
   };
 
   const commit = await commitArtifactSection(

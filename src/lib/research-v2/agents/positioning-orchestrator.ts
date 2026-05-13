@@ -40,7 +40,7 @@ You do NOT do research yourself; you orchestrate. Be terse. When the user asks f
 
 const rerunSection = tool({
   description:
-    'Rerun a positioning section with optional refinement. Use when the user wants fresh research, not a surgical edit.',
+    'Rerun a positioning section with optional refinement. Use when the user wants fresh research, not a surgical edit. Set usePartialContext=true when the section previously errored and the user wants to build on the partial snapshot.',
   inputSchema: z.object({
     zone: ZoneIdSchema,
     refinement: z
@@ -49,21 +49,26 @@ const rerunSection = tool({
       .describe(
         'Optional natural-language refinement (e.g. "focus on enterprise tier").',
       ),
+    usePartialContext: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, the retry includes the prior partial markdown as <previous_attempt_partial> context.',
+      ),
   }),
-  execute: async ({ zone, refinement }) => {
-    // The orchestrator's tool context doesn't carry runId/userId directly;
-    // those flow through the chat route's session context. For Phase 4 we
-    // surface a structured "intent" the chat route's onFinish hook reads
-    // (via onStepFinish collection) and translates into a real dispatch.
-    // Phase 5 wires the direct worker call.
+  execute: async ({ zone, refinement, usePartialContext }) => {
     return {
       type: 'rerun-requested' as const,
       zone,
       refinement: refinement ?? null,
-      message: `Queued rerun for ${zone}${refinement ? ` (refinement: ${refinement})` : ''}. The worker will pick it up via the dispatch route.`,
-      // Hint for the chat route post-processor:
+      usePartialContext: usePartialContext === true,
+      message: `Queued rerun for ${zone}${refinement ? ` (refinement: ${refinement})` : ''}${usePartialContext ? ' [building on partial output]' : ''}.`,
       _intent: 'rerun_section',
-      _payload: { zone, refinement: refinement ?? null },
+      _payload: {
+        zone,
+        refinement: refinement ?? null,
+        usePartialContext: usePartialContext === true,
+      },
     };
   },
 });

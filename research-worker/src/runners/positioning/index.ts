@@ -34,9 +34,16 @@ function runPositioningSection(
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> {
   if (USE_SUBAGENTS) {
-    return runJourneySectionViaSubagent(spec, context, onProgress, chatRefinement);
+    return runJourneySectionViaSubagent(
+      spec,
+      context,
+      onProgress,
+      chatRefinement,
+      abortSignal,
+    );
   }
   return runJourneySection(spec, context, onProgress, chatRefinement);
 }
@@ -147,72 +154,84 @@ export const runPositioningMarketCategory = (
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> =>
   runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningMarketCategory,
     context,
     onProgress,
     chatRefinement,
+    abortSignal,
   );
 
 export const runPositioningBuyerICP = (
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> =>
   runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningBuyerICP,
     context,
     onProgress,
     chatRefinement,
+    abortSignal,
   );
 
 export const runPositioningCompetitorLandscape = (
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> =>
   runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningCompetitorLandscape,
     context,
     onProgress,
     chatRefinement,
+    abortSignal,
   );
 
 export const runPositioningVoiceOfCustomer = (
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> =>
   runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningVoiceOfCustomer,
     context,
     onProgress,
     chatRefinement,
+    abortSignal,
   );
 
 export const runPositioningDemandIntent = (
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> =>
   runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningDemandIntent,
     context,
     onProgress,
     chatRefinement,
+    abortSignal,
   );
 
 export const runPositioningOfferDiagnostic = (
   context: string,
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> =>
   runPositioningSection(
     POSITIONING_SECTION_SPECS.positioningOfferDiagnostic,
     context,
     onProgress,
     chatRefinement,
+    abortSignal,
   );
 
 export const POSITIONING_RUNNERS: Record<
@@ -221,6 +240,7 @@ export const POSITIONING_RUNNERS: Record<
     context: string,
     onProgress?: RunnerProgressReporter,
     chatRefinement?: string,
+    abortSignal?: AbortSignal,
   ) => Promise<ResearchResult>
 > = {
   positioningMarketCategory: runPositioningMarketCategory,
