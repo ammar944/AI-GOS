@@ -178,6 +178,7 @@ export function AgentArtifactSurface({
               <SectionContentList
                 statusByZone={statusByZone}
                 sectionsByZone={live.sectionsByZone}
+                eventsByZone={live.eventsByZone}
               />
             </main>
           </>
@@ -311,9 +312,61 @@ function WorkerChipsRow({ states }: { states: WorkerChipState[] }) {
 interface SectionContentListProps {
   statusByZone: Record<string, WorkerChipStatus>;
   sectionsByZone: Record<string, { markdown?: string; title?: string }>;
+  eventsByZone: Record<string, SectionActivityEvent[]>;
 }
 
-function SectionContentList({ statusByZone, sectionsByZone }: SectionContentListProps) {
+export interface SectionActivityEvent {
+  id: string;
+  event_type: string;
+  message: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/** P2a: live agent-activity feed below in-flight zones — Claude.ai-style. */
+function ZoneActivity({ events }: { events: SectionActivityEvent[] }) {
+  if (events.length === 0) return null;
+  return (
+    <div
+      data-testid="zone-activity"
+      className="mt-2 rounded-md border border-dashed border-[var(--border)] bg-[var(--bg-2)] p-3"
+    >
+      <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+        Agent activity
+      </div>
+      <ol className="flex flex-col gap-1.5 text-[12px] leading-[1.5] text-[color:var(--text-2)]">
+        {events.slice(-8).map((ev) => {
+          const payload = ev.payload ?? {};
+          const tools = Array.isArray(payload['toolNames'])
+            ? (payload['toolNames'] as string[]).filter((t) => typeof t === 'string')
+            : [];
+          const text =
+            typeof payload['textPreview'] === 'string'
+              ? (payload['textPreview'] as string)
+              : null;
+          return (
+            <li key={ev.id} className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+                <span>{new Date(ev.created_at).toLocaleTimeString()}</span>
+                <span className="text-[color:var(--accent)]">{ev.event_type}</span>
+                {tools.length > 0 && (
+                  <span className="text-[color:var(--text-2)]">{tools.join(', ')}</span>
+                )}
+              </div>
+              {(ev.message || text) && (
+                <div className="line-clamp-2 text-[color:var(--text-2)]">
+                  {ev.message ?? text}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: SectionContentListProps) {
   const anyComplete = Object.values(sectionsByZone).some(
     (s) => s && (s.markdown || s.title),
   );
@@ -363,28 +416,33 @@ function SectionContentList({ statusByZone, sectionsByZone }: SectionContentList
             </section>
           );
         }
+        const events = eventsByZone[zone] ?? [];
         return (
           <section
             key={zone}
             id={`section-${zone}`}
             data-testid={`artifact-section-${zone}`}
-            className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--border)] pb-3"
+            className="flex flex-col gap-2 border-b border-dashed border-[var(--border)] pb-3"
           >
-            <h2 className="text-[16px] font-medium tracking-[-0.005em] text-[color:var(--text-3)]">
-              {POSITIONING_SECTION_LABELS[zone]}
-            </h2>
-            <span
-              data-status={status}
-              className={cn(
-                'font-mono text-[10px] uppercase tracking-[0.06em]',
-                status === 'running' && 'text-[color:var(--accent)] animate-pulse',
-                status === 'queued' && 'text-[color:var(--text-3)]',
-                status === 'error' && 'text-[color:var(--red)]',
-                status === 'aborted' && 'text-[color:var(--amber)]',
-              )}
-            >
-              {status === 'running' ? 'generating…' : status}
-            </span>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[16px] font-medium tracking-[-0.005em] text-[color:var(--text-3)]">
+                {POSITIONING_SECTION_LABELS[zone]}
+              </h2>
+              <span
+                data-status={status}
+                className={cn(
+                  'font-mono text-[10px] uppercase tracking-[0.06em]',
+                  status === 'running' && 'text-[color:var(--accent)] animate-pulse',
+                  status === 'queued' && 'text-[color:var(--text-3)]',
+                  status === 'error' && 'text-[color:var(--red)]',
+                  status === 'aborted' && 'text-[color:var(--amber)]',
+                )}
+              >
+                {status === 'running' ? 'generating…' : status}
+              </span>
+            </div>
+            {/* P2a: show the agent-activity feed for running zones */}
+            {status === 'running' && <ZoneActivity events={events} />}
           </section>
         );
       })}

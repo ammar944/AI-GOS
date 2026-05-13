@@ -18,6 +18,7 @@ const EMPTY: AuditStateResponse = {
   children_total: 0,
   workerStates: [],
   sectionsByZone: {},
+  eventsByZone: {},
 };
 
 export function useAuditState(runId: string): AuditStateResponse {

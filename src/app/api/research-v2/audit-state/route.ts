@@ -19,6 +19,14 @@ export type WorkerStatus =
   | 'error'
   | 'aborted';
 
+export interface SectionEvent {
+  id: string;
+  event_type: string;
+  message: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export interface AuditStateResponse {
   parent_audit_run_id: string | null;
   parent_status: string | null;
@@ -29,6 +37,13 @@ export interface AuditStateResponse {
     status: WorkerStatus;
   }>;
   sectionsByZone: Record<string, { markdown?: string; title?: string }>;
+  /**
+   * P2a — live agent-activity feed per zone. Up to the 12 most recent
+   * events per zone, ordered ascending so a render-time `.slice(-N)` is
+   * cheap. Populated only while a section is non-terminal; the UI uses
+   * these to show a Claude.ai-style live activity panel during the run.
+   */
+  eventsByZone: Record<string, SectionEvent[]>;
 }
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
@@ -77,6 +92,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
           status: 'queued' as WorkerStatus,
         })),
         sectionsByZone: {},
+        eventsByZone: {},
       },
       { status: 200 },
     );
@@ -84,7 +100,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   const parentId = parent.id as string;
 
-  const [runsResp, sectionsResp] = await Promise.all([
+  const [runsResp, sectionsResp, eventsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
       .select('zone, status, started_at')
@@ -94,6 +110,15 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .from('research_artifact_sections')
       .select('zone, status, title, markdown')
       .eq('artifact_id', parentId),
+    // P2a — last 60 events across all zones for this parent run (cap so a
+    // single request never balloons; the 6 zones × ~10 events each fit
+    // comfortably). Ordered ascending so the UI can render chronologically.
+    supabase
+      .from('research_section_events')
+      .select('id, zone, event_type, message, payload, created_at')
+      .eq('artifact_id', parentId)
+      .order('created_at', { ascending: false })
+      .limit(60),
   ]);
 
   if (runsResp.error || sectionsResp.error) {
@@ -102,6 +127,10 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       runsResp.error?.message ?? sectionsResp.error?.message,
     );
     return NextResponse.json({ error: 'lookup_failed' }, { status: 500 });
+  }
+  if (eventsResp.error) {
+    // Events are best-effort — log and continue with empty events.
+    console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
   }
 
   // Pick the most recent non-terminal run per zone for the chip; fall back
@@ -140,6 +169,26 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     status: byZone.get(section_id) ?? ('queued' as WorkerStatus),
   }));
 
+  // P2a — group events by zone, cap at 12 newest per zone (events came
+  // back ordered desc by created_at — we re-sort ascending so the UI
+  // shows chronological flow).
+  const eventsByZone: Record<string, SectionEvent[]> = {};
+  for (const row of eventsResp.data ?? []) {
+    const zone = row.zone as string;
+    const event: SectionEvent = {
+      id: row.id as string,
+      event_type: row.event_type as string,
+      message: (row.message as string | null) ?? null,
+      payload: (row.payload as Record<string, unknown> | null) ?? null,
+      created_at: row.created_at as string,
+    };
+    if (!eventsByZone[zone]) eventsByZone[zone] = [];
+    if (eventsByZone[zone].length < 12) eventsByZone[zone].push(event);
+  }
+  for (const zone of Object.keys(eventsByZone)) {
+    eventsByZone[zone].reverse();
+  }
+
   return NextResponse.json(
     {
       parent_audit_run_id: parentId,
@@ -148,6 +197,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       children_total: (parent.children_total as number | null) ?? 0,
       workerStates,
       sectionsByZone,
+      eventsByZone,
     },
     { status: 200 },
   );

@@ -95,6 +95,13 @@ export interface ProgressMeta {
   dataPoints?: Array<{ label: string; value: string }>;
   toolName?: string;
   resultCount?: number;
+  // P2a (2026-05-13): per-step agent-activity payload — emitted by the
+  // ToolLoopAgent subagent runner's onStepFinish and forwarded by the
+  // orchestrator into research_section_events. The frontend ZoneActivity
+  // component reads these to render a Claude.ai-style live feed.
+  stepNumber?: number;
+  toolNames?: string[];
+  textPreview?: string;
   eventType?:
     | 'artifact-clear'
     | 'artifact-delta'

@@ -186,19 +186,21 @@ ${refinedContext}`;
     const result = await agent.generate({
       prompt,
       abortSignal: composedSignal,
-      onStepFinish: (step: {
+      onStepFinish: async (step: {
         text?: string;
         toolCalls?: Array<{ toolName?: string; input?: unknown }>;
         toolResults?: Array<{ toolName?: string; output?: unknown }>;
       }) => {
         stepCount += 1;
         const parts: string[] = [];
+        const toolNames: string[] = [];
         if (typeof step.text === 'string' && step.text.trim().length > 0) {
           parts.push(step.text.trim());
         }
         if (Array.isArray(step.toolCalls)) {
           for (const call of step.toolCalls) {
             if (!call?.toolName) continue;
+            toolNames.push(call.toolName);
             const args =
               call.input !== undefined ? JSON.stringify(call.input).slice(0, 400) : '';
             parts.push(`[tool:${call.toolName}] ${args}`);
@@ -215,6 +217,23 @@ ${refinedContext}`;
         if (parts.length > 0) {
           stepSnapshots.push(parts.join('\n'));
         }
+        // P2a — agent-activity feed: forward each step to onProgress so the
+        // orchestrator emits it as a research_section_events row. The
+        // frontend (audit-state route + ZoneActivity component) reads these
+        // and renders a Claude.ai-style live activity feed under each
+        // section while the run is in flight.
+        const message =
+          toolNames.length > 0
+            ? `Step ${stepCount}: ${toolNames.join(', ')}`
+            : `Step ${stepCount}`;
+        await emitRunnerProgress(onProgress, 'runner', message, {
+          stepNumber: stepCount,
+          toolNames,
+          textPreview:
+            typeof step.text === 'string'
+              ? step.text.trim().slice(0, 280)
+              : undefined,
+        });
       },
     });
 
