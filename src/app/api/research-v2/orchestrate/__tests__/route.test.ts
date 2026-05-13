@@ -42,6 +42,10 @@ vi.mock('@/lib/research-v2/orchestrate-db', async () => {
   };
 });
 
+vi.mock('@/lib/journey/server/dispatch-research', () => ({
+  buildJourneyResearchDispatchContext: vi.fn().mockResolvedValue(''),
+}));
+
 const { POST } = await import('../route');
 
 function makeRequest(body: unknown): Request {

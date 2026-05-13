@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import { buildJourneyResearchDispatchContext } from '@/lib/journey/server/dispatch-research';
 import {
   OrchestrateRpcError,
   seedOrchestration,
@@ -127,9 +128,33 @@ export async function POST(request: Request): Promise<NextResponse> {
     // starts running the six children under bounded concurrency. The HTTP
     // response returns the seeded ids immediately so the UI can render the
     // queued chips while the worker is still spinning up.
+    //
+    // Phase 7.6: enrich the context the worker hands to each section
+    // runner. buildJourneyResearchDispatchContext layers in the corpus,
+    // onboarding answers, reference docs, meeting intel, and identity
+    // classifications. We build it once per parent run (using the
+    // market-category section as the canonical seed for identity-
+    // classification scoping) and pass it to all six children — a fine
+    // tradeoff for Phase 7.6 since the per-section diffs are minor.
+    let sharedContext = '';
+    try {
+      sharedContext = await buildJourneyResearchDispatchContext({
+        userId,
+        runId: body.run_id,
+        section: 'positioningMarketCategory',
+        context: '',
+      });
+    } catch (err) {
+      console.warn(
+        '[orchestrate] context build failed — sections will run with empty context:',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
     void kickoffWorker({
       parentAuditRunId: seeded.parent_audit_run_id,
       runId: body.run_id,
+      context: sharedContext,
     });
 
     return NextResponse.json(seeded, { status: 200 });
@@ -150,6 +175,7 @@ const WORKER_KICKOFF_TIMEOUT_MS = 5000;
 async function kickoffWorker(input: {
   parentAuditRunId: string;
   runId: string;
+  context: string;
 }): Promise<void> {
   const workerUrl = process.env.RAILWAY_WORKER_URL?.trim();
   const workerKey = process.env.RAILWAY_API_KEY?.trim();
@@ -169,7 +195,10 @@ async function kickoffWorker(input: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${workerKey}`,
       },
-      body: JSON.stringify({ parent_audit_run_id: input.parentAuditRunId }),
+      body: JSON.stringify({
+        parent_audit_run_id: input.parentAuditRunId,
+        context: input.context,
+      }),
       signal: controller.signal,
     });
     if (!res.ok) {
