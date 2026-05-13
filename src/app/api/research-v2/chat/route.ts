@@ -39,6 +39,11 @@ const chatMessageSchema = z.object({
 const chatRequestSchema = z.object({
   runId: z.string().trim().min(1),
   messages: z.array(chatMessageSchema).min(1),
+  // P2b — selection context: the section the user is currently viewing
+  // in the artifact UI. Passed through to the orchestrator's system
+  // prompt so commands like "tighten this claim" resolve to the right
+  // zone without forcing the user to name it.
+  focusedZone: z.string().trim().min(1).optional(),
 });
 
 type ChatRequestBody = z.infer<typeof chatRequestSchema>;
@@ -346,6 +351,8 @@ async function runOrchestratorTurn(opts: {
   userText: string;
   auditContext: AuditContextSummary;
   req: Request;
+  /** P2b — zone the user is currently viewing in the artifact UI. */
+  focusedZone?: string;
 }): Promise<Response> {
   const {
     userId,
@@ -356,6 +363,7 @@ async function runOrchestratorTurn(opts: {
     userText,
     auditContext,
     req,
+    focusedZone,
   } = opts;
 
   const auditSummary = auditContext.sections
@@ -373,6 +381,18 @@ async function runOrchestratorTurn(opts: {
       role: 'system',
       content: `Current artifact (run ${runId}):\n\n${auditSummary || 'No sections generated yet.'}`,
     },
+    // P2b — selection context. When the user says "tighten this claim",
+    // "cite source", "rerun this section", they mean the section they're
+    // currently viewing in the artifact. Surface that here so the
+    // orchestrator's editClaim / editNarrative / rerunSection tools can
+    // resolve "this" → focusedZone without forcing the user to name the
+    // section explicitly.
+    ...(focusedZone
+      ? [{
+          role: 'system' as const,
+          content: `The user is currently viewing the "${focusedZone}" zone of the artifact. When their request uses "this", "here", or otherwise omits the zone, default to "${focusedZone}". If they explicitly name a different zone, use that one instead.`,
+        }]
+      : []),
     ...chatHistory.map<ModelMessage>((m) => ({
       role: m.role,
       content: m.content,
@@ -575,7 +595,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const body = parsedBody.data;
-  const { runId, messages } = body;
+  const { runId, messages, focusedZone } = body;
   const lastUserMessage = findLastUserMessage(messages);
   const userText = lastUserMessage ? extractText(lastUserMessage) : '';
 
@@ -686,6 +706,7 @@ export async function POST(req: Request): Promise<Response> {
     userText,
     auditContext,
     req,
+    focusedZone,
   });
 
 }

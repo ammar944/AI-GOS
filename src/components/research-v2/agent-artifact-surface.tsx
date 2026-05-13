@@ -39,15 +39,24 @@ export interface AgentArtifactSurfaceProps {
   onSubmit?: (text: string) => void;
 }
 
-async function defaultChatSubmit(runId: string, text: string): Promise<void> {
+async function defaultChatSubmit(
+  runId: string,
+  text: string,
+  focusedZone: string | null,
+): Promise<void> {
   try {
+    // P2b — chat route expects `{ runId, messages: [...] }` per
+    // chatRequestSchema. Previously we sent `{ userText, intent }` which
+    // failed validation and silently 400'd. Wrap the user's text as a
+    // single user message and include focusedZone so "tighten this
+    // claim" resolves to whatever the user is currently viewing.
     await fetch('/api/research-v2/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         runId,
-        userText: text,
-        intent: 'converse',
+        messages: [{ role: 'user', content: text }],
+        ...(focusedZone ? { focusedZone } : {}),
       }),
     });
   } catch (err) {
@@ -93,6 +102,10 @@ export function AgentArtifactSurface({
   }, [states]);
   const [draft, setDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  // P2b — track which section is in the viewport so chat commands like
+  // "tighten this claim" can resolve "this" without forcing the user to
+  // name the zone explicitly. Updated by IntersectionObserver below.
+  const [focusedZone, setFocusedZone] = useState<string | null>(null);
 
   // Auto-kickoff: if the polled state reports no parent run yet (older runs
   // that pre-date the Phase 7.5 ONBOARDING_COMPLETE wire, or any resume
@@ -124,9 +137,47 @@ export function AgentArtifactSurface({
     if (onSubmit) {
       onSubmit(text);
     } else {
-      void defaultChatSubmit(runId, text);
+      void defaultChatSubmit(runId, text, focusedZone);
     }
   };
+
+  // P2b — IntersectionObserver tracks which `[data-testid^="artifact-section-"]`
+  // is most-visible. We pick the entry with the largest intersection ratio so
+  // the focused zone always reflects what the user is actually reading.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-testid^="artifact-section-"]'),
+    );
+    if (sections.length === 0) return;
+
+    let bestZone: string | null = focusedZone;
+    let bestRatio = 0;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const zone = (entry.target as HTMLElement).id?.replace(/^section-/, '') ?? null;
+          if (!zone) continue;
+          if (entry.isIntersecting && entry.intersectionRatio > bestRatio) {
+            bestRatio = entry.intersectionRatio;
+            bestZone = zone;
+          }
+        }
+        if (bestZone && bestZone !== focusedZone) {
+          setFocusedZone(bestZone);
+        }
+        // Reset for next observer fire so the highest-ratio winner is fresh each pass.
+        bestRatio = 0;
+      },
+      { threshold: [0.25, 0.5, 0.75] },
+    );
+
+    for (const section of sections) observer.observe(section);
+    return () => observer.disconnect();
+  // Re-bind when the set of sections rendered changes (zones complete/error).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.sectionsByZone, live.workerStates]);
 
   const [dispatchState, setDispatchState] = useState<'idle' | 'firing' | 'fired' | 'error'>('idle');
   const handleDispatch = async () => {
