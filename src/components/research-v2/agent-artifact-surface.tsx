@@ -128,6 +128,26 @@ export function AgentArtifactSurface({
     }
   };
 
+  const [dispatchState, setDispatchState] = useState<'idle' | 'firing' | 'fired' | 'error'>('idle');
+  const handleDispatch = async () => {
+    setDispatchState('firing');
+    try {
+      const res = await fetch('/api/research-v2/orchestrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ run_id: runId }),
+      });
+      setDispatchState(res.ok ? 'fired' : 'error');
+      // Reset to idle after a beat so the button can be re-fired.
+      setTimeout(() => setDispatchState('idle'), 2500);
+    } catch (err) {
+      console.warn('[artifact-surface] manual dispatch failed:', err);
+      setDispatchState('error');
+      setTimeout(() => setDispatchState('idle'), 2500);
+    }
+  };
+
   return (
     <div
       data-testid="agent-artifact-surface"
@@ -144,6 +164,8 @@ export function AgentArtifactSurface({
                 onOpenSources={() => setSourcesOpen(true)}
                 onRerun={() => onSubmit?.('rerun')}
                 onExport={() => onSubmit?.('export markdown')}
+                onDispatch={handleDispatch}
+                dispatchState={dispatchState}
               />
             </header>
 
@@ -204,15 +226,46 @@ interface ArtifactToolbarProps {
   onOpenSources: () => void;
   onRerun: () => void;
   onExport: () => void;
+  onDispatch?: () => void;
+  dispatchState?: 'idle' | 'firing' | 'fired' | 'error';
 }
 
 export function ArtifactToolbar({
   onOpenSources,
   onRerun,
   onExport,
+  onDispatch,
+  dispatchState = 'idle',
 }: ArtifactToolbarProps) {
   return (
     <div className="flex items-center gap-2" data-testid="artifact-toolbar">
+      {onDispatch && (
+        <button
+          type="button"
+          onClick={onDispatch}
+          disabled={dispatchState === 'firing'}
+          data-testid="dispatch-button"
+          className={cn(
+            'rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.06em]',
+            dispatchState === 'firing' &&
+              'border-[var(--accent)] text-[color:var(--accent)] animate-pulse',
+            dispatchState === 'fired' &&
+              'border-[color:var(--green)] text-[color:var(--green)]',
+            dispatchState === 'error' &&
+              'border-[color:var(--red)] text-[color:var(--red)]',
+            dispatchState === 'idle' &&
+              'border-[var(--accent)] text-[color:var(--accent)] hover:bg-[color:var(--accent-dim)]',
+          )}
+        >
+          {dispatchState === 'firing'
+            ? 'Dispatching…'
+            : dispatchState === 'fired'
+              ? 'Dispatched ✓'
+              : dispatchState === 'error'
+                ? 'Failed — retry'
+                : 'Dispatch'}
+        </button>
+      )}
       <ToolbarButton onClick={onOpenSources} label="Sources" />
       <ToolbarButton onClick={onRerun} label="Rerun" />
       <ToolbarButton onClick={onExport} label="Export" />
