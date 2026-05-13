@@ -33,6 +33,22 @@ import { emitTelemetry } from './telemetry';
 import { getAnthropicSkillsRuntimeStatus } from './anthropic-skills';
 import { createSemaphore } from './utils/semaphore';
 import { buildCapabilitiesPayload } from './capabilities';
+import { runPositioningAuditOrchestrator } from './runners/positioning-audit-orchestrator';
+import type {
+  OrchestratorDeps,
+  SectionRunResult,
+} from './runners/positioning-audit-orchestrator';
+import {
+  isParentAuditAborted,
+  loadChildrenForParent,
+  loadParentRun,
+  markSectionRunStatus,
+  rollupParentStatus,
+} from './db/artifact-runs';
+import {
+  appendSectionEvent,
+  commitArtifactSection,
+} from './supabase';
 import pkg from '../package.json';
 
 const WORKER_VERSION: string =
@@ -188,7 +204,7 @@ app.get('/capabilities', (_req, res) => {
     buildCapabilitiesPayload({
       env: process.env,
       workerVersion: WORKER_VERSION,
-      orchestrateSupported: false,
+      orchestrateSupported: true,
     }),
   );
 });
@@ -647,6 +663,144 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
     aborted: Boolean(controllerKey),
     sectionRunId: targetSectionRunId,
   });
+});
+
+// -- Orchestrator (Phase 2) ---------------------------------------------------
+//
+// POST /orchestrate accepts { parent_audit_run_id, context? }. Returns 202
+// with the parent id immediately, then drives the six positioning subagents
+// under that parent via runPositioningAuditOrchestrator with bounded
+// concurrency. Events stream into research_section_events and the parent
+// row rolls up to complete | partial | error | aborted.
+
+const parentOrchestrationAbort = new Map<string, AbortController>();
+
+app.post('/orchestrate', requireApiKey, async (req: express.Request, res: express.Response) => {
+  const { parent_audit_run_id, context } = req.body as {
+    parent_audit_run_id?: string;
+    context?: string;
+  };
+
+  if (!parent_audit_run_id) {
+    res.status(400).json({ error: 'parent_audit_run_id is required' });
+    return;
+  }
+
+  const parent = await loadParentRun(parent_audit_run_id);
+  if (!parent) {
+    res.status(404).json({ error: 'parent_audit_run_id not found' });
+    return;
+  }
+
+  // Mark parent as running before returning 202.
+  await rollupParentStatus(parent_audit_run_id, 'running', 0).catch((err) => {
+    console.warn('[orchestrator] initial rollup running failed:', err);
+  });
+
+  const concurrency = Math.max(
+    1,
+    Number(process.env.ORCHESTRATOR_CONCURRENCY ?? 3),
+  );
+
+  res.status(202).json({
+    parent_audit_run_id,
+    job_id: parent_audit_run_id,
+    concurrency,
+  });
+
+  const parentAbortController = new AbortController();
+  parentOrchestrationAbort.set(parent_audit_run_id, parentAbortController);
+
+  const sharedContext = typeof context === 'string' ? context : '';
+
+  const deps: OrchestratorDeps = {
+    loadChildren: (id) => loadChildrenForParent(id),
+    markChildRunning: (sectionRunId) =>
+      markSectionRunStatus(sectionRunId, 'running'),
+    markChildTerminal: (sectionRunId, status, error) =>
+      markSectionRunStatus(sectionRunId, status, { error: error ?? null }),
+    runSection: async ({ zone, sectionRunId, signal, onProgress }) => {
+      const runner = TOOL_RUNNERS[zone as ToolName];
+      if (!runner) {
+        return {
+          status: 'error',
+          error: { code: 'unknown_zone', message: `no runner for zone ${zone}` },
+        } satisfies SectionRunResult;
+      }
+      try {
+        const result = (await runner(
+          sharedContext,
+          async (event) => {
+            // Forward runner progress events to the orchestrator event stream.
+            await onProgress('searching', { event });
+          },
+          undefined,
+          signal,
+        )) as unknown as Record<string, unknown>;
+        const markdown =
+          typeof result.markdown === 'string' ? result.markdown : undefined;
+        const claims = Array.isArray(result.claims)
+          ? (result.claims as unknown[])
+          : undefined;
+        const sources = Array.isArray(result.sources)
+          ? (result.sources as unknown[])
+          : undefined;
+        return {
+          status: 'complete',
+          markdown,
+          claims,
+          sources,
+        } satisfies SectionRunResult;
+      } catch (err) {
+        const aborted = signal.aborted;
+        const message = err instanceof Error ? err.message : 'unknown error';
+        if (aborted) throw err;
+        return {
+          status: 'error',
+          error: { code: 'runner_failed', message },
+        } satisfies SectionRunResult;
+      }
+    },
+    commitSection: async ({ parentAuditRunId, sectionRunId, zone, result }) => {
+      await commitArtifactSection(
+        parentAuditRunId,
+        zone,
+        sectionRunId,
+        0,
+        {
+          status: 'complete',
+          title: result.title,
+          markdown: result.markdown,
+          claims: result.claims ?? [],
+          sources: result.sources ?? [],
+          error: null,
+        },
+      );
+    },
+    emitEvent: async ({ sectionRunId, type, payload }) => {
+      await appendSectionEvent(sectionRunId, type, null, payload ?? null);
+    },
+    rollupParent: ({ parentAuditRunId, status, children_complete }) =>
+      rollupParentStatus(parentAuditRunId, status, children_complete),
+    isParentAborted: (id) => isParentAuditAborted(id),
+  };
+
+  // Detached run — the 202 has already been sent. Errors are surfaced via
+  // the parent rollup status + event stream rather than the HTTP response.
+  runPositioningAuditOrchestrator(
+    {
+      parentAuditRunId: parent_audit_run_id,
+      concurrency,
+      parentAbortSignal: parentAbortController.signal,
+    },
+    deps,
+  )
+    .catch((err) => {
+      console.error(`[orchestrator] parent ${parent_audit_run_id} crashed:`, err);
+    })
+    .finally(() => {
+      parentOrchestrationAbort.delete(parent_audit_run_id);
+    });
 });
 
 // -- Ad Scripts ---------------------------------------------------------------
