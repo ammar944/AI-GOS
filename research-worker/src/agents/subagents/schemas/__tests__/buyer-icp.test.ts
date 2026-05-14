@@ -18,42 +18,17 @@ const ENVELOPE_CORE = {
 
 const RICH_FIELDS = {
   personas: [
-    {
-      name: 'Alex P',
-      title: 'Director RevOps',
-      company: 'Acme SaaS',
-      sourceUrl: 'https://linkedin.com/in/alex',
-    },
-    {
-      name: 'Beth Q',
-      title: 'VP RevOps',
-      company: 'Bravo Corp',
-      sourceUrl: 'https://linkedin.com/in/beth',
-    },
-    {
-      name: 'Carl R',
-      title: 'RevOps Lead',
-      company: 'Charlie Inc',
-      sourceUrl: 'https://linkedin.com/in/carl',
-    },
-    {
-      name: 'Dana S',
-      title: 'Head of RevOps',
-      company: 'Delta Co',
-      sourceUrl: 'https://linkedin.com/in/dana',
-    },
-    {
-      name: 'Erin T',
-      title: 'Sr RevOps Manager',
-      company: 'Echo LLC',
-      sourceUrl: 'https://linkedin.com/in/erin',
-    },
+    { name: 'Alex P', title: 'Director RevOps', company: 'Acme', sourceUrl: 'https://linkedin.com/in/alex', role: 'champion', evidence: 'Case study' },
+    { name: 'Beth Q', title: 'VP RevOps', company: 'Bravo', sourceUrl: 'https://linkedin.com/in/beth', role: 'buyer', evidence: 'Conference' },
+    { name: 'Carl R', title: 'Lead', company: 'Charlie', sourceUrl: 'https://linkedin.com/in/carl', role: 'buyer', evidence: 'Bio' },
+    { name: 'Dana S', title: 'Head', company: 'Delta', sourceUrl: 'https://linkedin.com/in/dana', role: 'buyer', evidence: 'G2' },
+    { name: 'Erin T', title: 'Manager', company: 'Echo', sourceUrl: 'https://linkedin.com/in/erin', role: 'champion', evidence: 'Podcast' },
   ],
-  icpAccountCounts: {
-    industry: { value: 'SaaS', source: 'LinkedIn', dateObserved: '2026-05-14' },
-    employeeBands: { value: '200-1000', source: 'LinkedIn', dateObserved: '2026-05-14' },
-    revenueBands: { value: '$10M-$100M', source: 'ZoomInfo', dateObserved: '2026-05-14' },
-  },
+  icpAccountCounts: [
+    { cutType: 'industry' as const, value: 'SaaS', source: 'LinkedIn', dateObserved: '2026-05-14' },
+    { cutType: 'employeeBands' as const, value: '200-1000', source: 'LinkedIn', dateObserved: '2026-05-14' },
+    { cutType: 'revenueBands' as const, value: '$10M-$100M', source: 'ZoomInfo', dateObserved: '2026-05-14' },
+  ],
   awarenessDistribution: [
     { level: 'unaware' as const, evidence: '60% informational search' },
     { level: 'problem-aware' as const, evidence: 'Reviews lean problem-first' },
@@ -62,20 +37,16 @@ const RICH_FIELDS = {
     { level: 'most-aware' as const, evidence: 'NPS promoters cite features' },
   ],
   triggers: [
-    { name: 'Funding round', detectionSignal: 'Crunchbase filter, last 30 days' },
-    { name: 'Leadership change', detectionSignal: 'LinkedIn job-change alerts' },
-    { name: 'Hiring spike', detectionSignal: 'LinkedIn jobs API delta >3x baseline' },
+    { name: 'Funding round', detectionSignal: 'Crunchbase filter', window: 'weeks' as const },
+    { name: 'Leadership change', detectionSignal: 'LinkedIn job-change alerts', window: 'immediate' as const },
+    { name: 'Hiring spike', detectionSignal: 'Jobs API delta', window: 'quarters' as const },
   ],
-  clusters: {
-    communities: [
-      { name: 'r/RevOps', subscribers: 15000, sourceUrl: 'https://reddit.com/r/RevOps' },
-      { name: 'RevOps Co-op Slack', subscribers: 8500, sourceUrl: 'https://revopscoop.com' },
-    ],
-    newsletters: [
-      { name: 'RevOps Roundup', subscribers: 12000, sourceUrl: 'https://revopsroundup.com' },
-      { name: 'The RevOps Letter', subscribers: 7000, sourceUrl: 'https://revopsletter.com' },
-    ],
-  },
+  clusters: [
+    { bucketType: 'community' as const, name: 'r/RevOps', metric: 15000, sourceUrl: 'https://reddit.com/r/RevOps' },
+    { bucketType: 'community' as const, name: 'RevOps Slack', metric: 8500, sourceUrl: 'https://revopscoop.com' },
+    { bucketType: 'newsletter' as const, name: 'RevOps Roundup', metric: 12000, sourceUrl: 'https://revopsroundup.com' },
+    { bucketType: 'newsletter' as const, name: 'RevOps Letter', metric: 7000, sourceUrl: 'https://revopsletter.com' },
+  ],
 };
 
 describe('BuyerICPSectionSchema', () => {
@@ -85,30 +56,41 @@ describe('BuyerICPSectionSchema', () => {
   });
 
   it('still requires envelope-core fields (sectionTitle/verdict/statusSummary)', () => {
-    const { sectionTitle, ...withoutTitle } = ENVELOPE_CORE;
+    const { sectionTitle: _t, ...withoutTitle } = ENVELOPE_CORE;
     const result = BuyerICPSectionSchema.safeParse({ ...withoutTitle, ...RICH_FIELDS });
     expect(result.success).toBe(false);
   });
 
   it('requires personas[] (rich field)', () => {
-    const { personas, ...withoutPersonas } = RICH_FIELDS;
+    const { personas: _p, ...withoutPersonas } = RICH_FIELDS;
     const result = BuyerICPSectionSchema.safeParse({ ...ENVELOPE_CORE, ...withoutPersonas });
     expect(result.success).toBe(false);
   });
 
   it('requires awarenessDistribution[] (rich field)', () => {
-    const { awarenessDistribution, ...withoutAwareness } = RICH_FIELDS;
+    const { awarenessDistribution: _a, ...withoutAwareness } = RICH_FIELDS;
     const result = BuyerICPSectionSchema.safeParse({ ...ENVELOPE_CORE, ...withoutAwareness });
     expect(result.success).toBe(false);
   });
 
-  it('accepts personas with only the required keys (role+evidence optional)', () => {
-    const slim = {
+  it('requires triggers[].window (no longer optional)', () => {
+    const bad = {
       ...RICH_FIELDS,
-      personas: RICH_FIELDS.personas.map(({ role: _r, evidence: _e, ...rest }) => rest),
+      triggers: [{ name: 'Funding', detectionSignal: 'Crunchbase' }],
     };
-    const result = BuyerICPSectionSchema.safeParse({ ...ENVELOPE_CORE, ...slim });
-    expect(result.success).toBe(true);
+    const result = BuyerICPSectionSchema.safeParse({ ...ENVELOPE_CORE, ...bad });
+    expect(result.success).toBe(false);
+  });
+
+  it('requires clusters as a flat array (not nested object)', () => {
+    const bad = {
+      ...RICH_FIELDS,
+      clusters: {
+        communities: RICH_FIELDS.clusters.filter((c) => c.bucketType === 'community'),
+      } as unknown as typeof RICH_FIELDS.clusters,
+    };
+    const result = BuyerICPSectionSchema.safeParse({ ...ENVELOPE_CORE, ...bad });
+    expect(result.success).toBe(false);
   });
 
   it('rejects an awareness level outside the Schwartz enum', () => {
@@ -122,11 +104,27 @@ describe('BuyerICPSectionSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects clusters bucketType outside the enum', () => {
+    const bad = {
+      ...RICH_FIELDS,
+      clusters: [
+        {
+          bucketType: 'made-up' as unknown as 'community',
+          name: 'x',
+          metric: 0,
+          sourceUrl: 'https://x.com',
+        },
+      ],
+    };
+    const result = BuyerICPSectionSchema.safeParse({ ...ENVELOPE_CORE, ...bad });
+    expect(result.success).toBe(false);
+  });
+
   it('exposes the inferred BuyerICPSection type with rich fields', () => {
-    // Type-only check via parse — if .data is not narrow enough the build fails.
     const parsed = BuyerICPSectionSchema.parse({ ...ENVELOPE_CORE, ...RICH_FIELDS });
-    expect(parsed.personas.length).toBeGreaterThan(0);
-    expect(parsed.clusters.communities.length).toBe(2);
-    expect(parsed.triggers[0].detectionSignal).toBeTypeOf('string');
+    expect(parsed.personas.length).toBe(5);
+    expect(parsed.icpAccountCounts.length).toBe(3);
+    expect(parsed.clusters.filter((c) => c.bucketType === 'community').length).toBe(2);
+    expect(parsed.triggers[0].window).toBe('weeks');
   });
 });
