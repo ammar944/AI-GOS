@@ -25,7 +25,7 @@ import {
   MARKET_CATEGORY_INSTRUCTIONS,
   OFFER_DIAGNOSTIC_INSTRUCTIONS,
   VOICE_OF_CUSTOMER_INSTRUCTIONS,
-} from './_instructions';
+} from './_skill-loader';
 import { PositioningEnvelopeSchema } from './envelope-schema';
 
 const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
