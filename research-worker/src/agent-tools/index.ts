@@ -9,7 +9,7 @@
  * | positioningCompetitorLandscape | web_search, spyfu, adlibrary, meta-ads, google-ads, firecrawl |
  * | positioningVoiceOfCustomer     | web_search, reviews, firecrawl                            |
  * | positioningDemandIntent        | web_search, keyword-ad-probe, firecrawl                   |
- * | positioningOfferDiagnostic     | web_search, ga4, pagespeed, reviews, firecrawl, code_execution |
+ * | positioningOfferDiagnostic     | web_search, ga4, pagespeed, reviews, firecrawl, Anthropic code tool |
  */
 
 export { adLibraryAgentTool } from './adlibrary';
@@ -47,7 +47,7 @@ import { ga4AgentTool } from './ga4';
 
 /**
  * Anthropic provider-native tools. The SDK injects them at the model call
- * level so Claude executes web_search + code_execution server-side. Phase
+ * level so Claude executes web search + code execution server-side. Phase
  * 3a's webSearchAgentTool + codeExecutionAgentTool shims existed because
  * the spike couldn't verify these factories were exported from
  * @ai-sdk/anthropic; Phase 3b's Codex QA caught that those shims returned
@@ -75,16 +75,12 @@ export const POSITIONING_TOOL_MAPS: {
     pagespeed: pagespeedAgentTool,
   },
   positioningBuyerICP: {
+    // BuyerICP — research tools only. ADR-0002: typed structure comes from
+    // streamObject(BuyerICPArtifactSchema).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     web_search: anthropicWebSearch as any,
     reviews: reviewsAgentTool,
     firecrawl: firecrawlAgentTool,
-    // PILOT — enables in-skill plan-validate-execute via scripts/validate.py.
-    // Agent writes validate.py + plan.json to /tmp and runs the validator in
-    // Anthropic's sandbox. See SKILL.md "Validator Source" section for the
-    // script the agent should write.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    code_execution: anthropicCodeExecution as any,
   },
   positioningCompetitorLandscape: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

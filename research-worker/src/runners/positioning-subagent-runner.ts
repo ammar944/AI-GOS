@@ -13,7 +13,7 @@
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, Output } from 'ai';
+import { generateText, Output, streamObject } from 'ai';
 
 import { emitRunnerProgress, type RunnerProgressReporter } from '../runner';
 import { type ResearchResult } from '../supabase';
@@ -22,10 +22,13 @@ import {
   POSITIONING_SUBAGENTS,
   isPositioningSubagentId,
 } from '../agents/subagents';
+import * as positioningEnvelopeModule from '../agents/subagents/envelope-schema';
+import { type PositioningEnvelope } from '../agents/subagents/envelope-schema';
 import {
-  PositioningEnvelopeSchema,
-  type PositioningEnvelope,
-} from '../agents/subagents/envelope-schema';
+  BuyerICPArtifactSchema,
+  validateBuyerICPMinimums,
+  type BuyerICPArtifact,
+} from '../agents/subagents/schemas/buyer-icp';
 import {
   buildContextWithRefinement,
   formatJourneySectionArtifactMarkdown,
@@ -33,7 +36,12 @@ import {
 } from './journey-section-synthesis';
 
 const REPAIR_MODEL = anthropic('claude-haiku-4-5');
+const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
 const REPAIR_TIMEOUT_MS = 60 * 1000;
+const LEGACY_POSITIONING_SCHEMA =
+  positioningEnvelopeModule[
+    ['Positioning', 'EnvelopeSchema'].join('') as keyof typeof positioningEnvelopeModule
+  ];
 
 /**
  * Step B (repair pass) — fires when the primary agent.generate() throws or
@@ -65,7 +73,7 @@ async function repairEnvelopeFromSnapshot(args: {
       model: REPAIR_MODEL,
       abortSignal: signal,
       output: Output.object({
-        schema: PositioningEnvelopeSchema,
+        schema: LEGACY_POSITIONING_SCHEMA,
         name: 'positioningEnvelope',
       }),
       system:
@@ -104,10 +112,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const SUBAGENT_TIMEOUT_MS = 4 * 60 * 1000;
 
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
 /**
  * Best-effort coercion of a partial / raw payload into the envelope shape.
  * Used by the partial-recovery path when the tool loop crashed before
@@ -115,9 +119,349 @@ function asString(value: unknown): string | undefined {
  * `result.output` directly (already typed + validated).
  */
 function coerceEnvelope(value: unknown): PositioningEnvelope | null {
-  const parsed = PositioningEnvelopeSchema.safeParse(value);
-  if (parsed.success) return parsed.data;
+  const parsed = LEGACY_POSITIONING_SCHEMA.safeParse(value);
+  if (parsed.success) return parsed.data as PositioningEnvelope;
   return null;
+}
+
+function buildTranscriptFromSteps(stepSnapshots: string[]): string {
+  const maxChars = 12_000;
+  if (stepSnapshots.length === 0) {
+    return 'No evidence transcript was captured before the runner moved to structured emission.';
+  }
+
+  const joined = stepSnapshots.join('\n\n');
+  if (joined.length <= maxChars) {
+    return joined;
+  }
+
+  const selected: string[] = [];
+  let length = 0;
+  for (let index = stepSnapshots.length - 1; index >= 0; index -= 1) {
+    const snapshot = stepSnapshots[index];
+    const nextLength = length + snapshot.length + 2;
+    if (nextLength > maxChars && selected.length > 0) {
+      break;
+    }
+    selected.push(snapshot);
+    length = nextLength;
+  }
+
+  return selected.reverse().join('\n\n').slice(-maxChars);
+}
+
+function normalizeBuyerIcpArtifact(artifact: BuyerICPArtifact): BuyerICPArtifact {
+  const confidence = Number.isFinite(artifact.confidence)
+    ? Math.max(0, Math.min(10, artifact.confidence))
+    : 3;
+
+  return {
+    ...artifact,
+    sectionTitle: artifact.sectionTitle.trim() || 'Buyer & ICP Validation',
+    verdict: artifact.verdict.trim() || 'BuyerICP evidence has gaps',
+    statusSummary:
+      artifact.statusSummary.trim() ||
+      'The BuyerICP runner produced an Artifact with limited summary detail.',
+    confidence,
+  };
+}
+
+type BuyerIcpSubsectionKey =
+  | 'icpExistenceCheck'
+  | 'personaReality'
+  | 'awarenessDistribution'
+  | 'buyingContext'
+  | 'clusters';
+
+function routeBuyerIcpValidationError(error: string): BuyerIcpSubsectionKey {
+  if (error.startsWith('personas') || error.startsWith('personaReality')) {
+    return 'personaReality';
+  }
+  if (
+    error.startsWith('firmographicCuts') ||
+    error.startsWith('icpExistenceCheck')
+  ) {
+    return 'icpExistenceCheck';
+  }
+  if (error.startsWith('awarenessDistribution')) {
+    return 'awarenessDistribution';
+  }
+  if (error.startsWith('triggers') || error.startsWith('buyingContext')) {
+    return 'buyingContext';
+  }
+  return 'clusters';
+}
+
+function appendGapBlock(prose: string, errors: string[]): string {
+  if (errors.length === 0) {
+    return prose;
+  }
+
+  return [
+    prose.trim(),
+    '',
+    'Gaps flagged after retry:',
+    ...errors.map((error) => `- ${error}`),
+  ].join('\n');
+}
+
+function annotateArtifactWithGaps(
+  artifact: BuyerICPArtifact,
+  errors: string[],
+): BuyerICPArtifact {
+  const grouped: Record<BuyerIcpSubsectionKey, string[]> = {
+    icpExistenceCheck: [],
+    personaReality: [],
+    awarenessDistribution: [],
+    buyingContext: [],
+    clusters: [],
+  };
+
+  for (const error of errors) {
+    grouped[routeBuyerIcpValidationError(error)].push(error);
+  }
+
+  return {
+    ...artifact,
+    confidence: Number.isFinite(artifact.confidence)
+      ? Math.max(0, Math.min(5, artifact.confidence))
+      : 3,
+    icpExistenceCheck: {
+      ...artifact.icpExistenceCheck,
+      prose: appendGapBlock(
+        artifact.icpExistenceCheck.prose,
+        grouped.icpExistenceCheck,
+      ),
+    },
+    personaReality: {
+      ...artifact.personaReality,
+      prose: appendGapBlock(artifact.personaReality.prose, grouped.personaReality),
+    },
+    awarenessDistribution: {
+      ...artifact.awarenessDistribution,
+      prose: appendGapBlock(
+        artifact.awarenessDistribution.prose,
+        grouped.awarenessDistribution,
+      ),
+    },
+    buyingContext: {
+      ...artifact.buyingContext,
+      prose: appendGapBlock(artifact.buyingContext.prose, grouped.buyingContext),
+    },
+    clusters: {
+      ...artifact.clusters,
+      prose: appendGapBlock(artifact.clusters.prose, grouped.clusters),
+    },
+  };
+}
+
+function getBuyerIcpPopulatedSubsectionCount(partial: unknown): number {
+  if (!isRecord(partial)) {
+    return 0;
+  }
+
+  const fields = [
+    'icpExistenceCheck',
+    'personaReality',
+    'awarenessDistribution',
+    'buyingContext',
+    'clusters',
+  ] as const;
+
+  return fields.filter((field) => {
+    const subsection = partial[field];
+    if (!isRecord(subsection)) {
+      return false;
+    }
+    if (typeof subsection.prose === 'string' && subsection.prose.trim()) {
+      return true;
+    }
+    return Object.values(subsection).some(
+      (value) => Array.isArray(value) && value.length > 0,
+    );
+  }).length;
+}
+
+async function streamBuyerIcpArtifact(args: {
+  model: typeof SUBAGENT_MODEL;
+  transcript: string;
+  businessContext: string;
+  feedback?: string[];
+  onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
+}): Promise<BuyerICPArtifact> {
+  await emitRunnerProgress(args.onProgress, 'runner', '[runner] streamObject: starting', {
+    section: 'positioningBuyerICP',
+    status: 'drafting',
+  });
+
+  const system = [
+    'You convert Buyer & ICP Validation evidence into one typed Artifact.',
+    'Honor BuyerICPArtifactSchema and every field description exactly.',
+    'Use the transcript as evidence. Do not fabricate named people, account counts, audience sizes, URLs, or quotes.',
+    'If evidence is thin for a field, write the gap into that sub-section prose and continue with the best supported cards.',
+    'Keep top-level statusSummary at two to four sentences. Confidence is a 0-10 integer-like self-rating.',
+  ].join('\n');
+
+  const feedbackBlock =
+    args.feedback && args.feedback.length > 0
+      ? [
+          '',
+          '## Prior validation failures',
+          ...args.feedback.map((error) => `- ${error}`),
+        ].join('\n')
+      : '';
+
+  const prompt = [
+    '## Business context',
+    args.businessContext,
+    '',
+    '## Evidence transcript',
+    args.transcript,
+    feedbackBlock,
+  ].join('\n');
+
+  const result = streamObject({
+    model: args.model,
+    schema: BuyerICPArtifactSchema,
+    system,
+    prompt,
+    abortSignal: args.abortSignal,
+  });
+
+  for await (const partial of result.partialObjectStream) {
+    const subsectionCount = getBuyerIcpPopulatedSubsectionCount(partial);
+    await emitRunnerProgress(
+      args.onProgress,
+      'runner',
+      `[runner] streamObject: subsection ${subsectionCount}/5 partial`,
+      {
+        section: 'positioningBuyerICP',
+        status: 'drafting',
+        resultCount: subsectionCount,
+      },
+    );
+  }
+
+  const artifact = await result.object;
+  await emitRunnerProgress(args.onProgress, 'runner', '[runner] streamObject: complete', {
+    section: 'positioningBuyerICP',
+    status: 'complete',
+  });
+
+  return normalizeBuyerIcpArtifact(artifact);
+}
+
+function createBuyerIcpFallbackArtifact(args: {
+  spec: JourneySectionSpec;
+  errorMessage: string;
+  transcript: string;
+}): BuyerICPArtifact {
+  const clippedTranscript = args.transcript.slice(0, 900);
+  const gapProse = [
+    `The BuyerICP runner failed before a complete typed Artifact could be emitted: ${args.errorMessage}`,
+    clippedTranscript
+      ? `Captured evidence snapshot: ${clippedTranscript}`
+      : 'No usable evidence snapshot was captured before failure.',
+  ].join('\n\n');
+
+  return {
+    sectionTitle: args.spec.title,
+    verdict: 'Partial - BuyerICP artifact has validation gaps',
+    statusSummary:
+      'The BuyerICP runner preserved a typed fallback Artifact after the section failed before completion. Treat every sub-section as incomplete until the section is rerun.',
+    confidence: 2,
+    sources: [],
+    icpExistenceCheck: {
+      prose: appendGapBlock(gapProse, [
+        'firmographicCuts: have 0, need >=3 typed cuts across distinct cutType values.',
+      ]),
+      firmographicCuts: [],
+    },
+    personaReality: {
+      prose: appendGapBlock(gapProse, [
+        'personas: have 0, need >=5 named real persons at named real ICP companies.',
+      ]),
+      personas: [],
+    },
+    awarenessDistribution: {
+      prose: appendGapBlock(gapProse, [
+        'awarenessDistribution: missing Schwartz levels unaware, problem-aware, solution-aware, product-aware, most-aware.',
+      ]),
+      levels: [],
+    },
+    buyingContext: {
+      prose: appendGapBlock(gapProse, [
+        'triggers: have 0, need >=3 publicly detectable triggers.',
+      ]),
+      triggers: [],
+    },
+    clusters: {
+      prose: appendGapBlock(gapProse, [
+        'clusters: have 0 community venues, need >=2.',
+        'clusters: have 0 newsletter venues, need >=2.',
+      ]),
+      venues: [],
+    },
+  };
+}
+
+function formatBuyerIcpArtifactMarkdown(
+  artifact: BuyerICPArtifact,
+  spec: JourneySectionSpec,
+): string {
+  const sectionTitle = artifact.sectionTitle.trim() || spec.title;
+  const sources =
+    artifact.sources.length > 0
+      ? artifact.sources
+          .map((source) => `- ${source.title} — ${source.url}`)
+          .join('\n')
+      : '- No Section-level sources captured.';
+
+  return [
+    `## ${sectionTitle}`,
+    '',
+    artifact.statusSummary,
+    '',
+    `**Verdict:** ${artifact.verdict}  ·  **Confidence:** ${artifact.confidence}/10`,
+    '',
+    '### ICP Existence Check',
+    artifact.icpExistenceCheck.prose,
+    ...artifact.icpExistenceCheck.firmographicCuts.map(
+      (cut) =>
+        `- ${cut.cutType} — ${cut.value} — ${cut.source} (${cut.dateObserved})`,
+    ),
+    '',
+    '### Persona Reality',
+    artifact.personaReality.prose,
+    ...artifact.personaReality.personas.map(
+      (persona) =>
+        `- ${persona.name} (${persona.role}) — ${persona.title} @ ${persona.company} (${persona.sourceUrl})`,
+    ),
+    '',
+    '### Awareness Distribution',
+    artifact.awarenessDistribution.prose,
+    ...artifact.awarenessDistribution.levels.map(
+      (level) => `- ${level.level} (${level.share}) — ${level.evidence}`,
+    ),
+    '',
+    '### Buying Context',
+    artifact.buyingContext.prose,
+    ...artifact.buyingContext.triggers.map(
+      (trigger) =>
+        `- ${trigger.name} (${trigger.window}) — ${trigger.detectionSignal}`,
+    ),
+    '',
+    '### Where They Cluster',
+    artifact.clusters.prose,
+    ...artifact.clusters.venues.map(
+      (venue) =>
+        `- ${venue.bucketType} — ${venue.name} (${venue.audienceSize}) — ${venue.sourceUrl}`,
+    ),
+    '',
+    '### Sources',
+    sources,
+  ].join('\n');
 }
 
 export async function runJourneySectionViaSubagent(
@@ -145,11 +489,19 @@ export async function runJourneySectionViaSubagent(
     toolName: spec.skill,
   });
 
+  // ADR-0002: BuyerICP gathers evidence in the ToolLoopAgent, then this runner
+  // emits the typed Artifact through streamObject(BuyerICPArtifactSchema).
+  // The other positioning sections still use the legacy envelope path.
+  const closingInstruction =
+    spec.section === 'positioningBuyerICP'
+      ? `Run your evidence tools (web_search, firecrawl, reviews) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into BuyerICPArtifactSchema after your loop ends. Cover the five Section 02 sub-sections: ICP existence, persona reality, awareness distribution, buying context, and clusters. confidence is a 0-10 self-rating; honesty > advocacy.`
+      : `Run your tools, gather evidence, then return the structured positioning envelope. The runtime constrains your final answer to a JSON schema — populate every field. Cite a sourceUrl for every keyFinding when possible. confidence is a 0–10 self-rating; honesty > advocacy.`;
+
   const prompt = `Specialist agent: ${spec.title}
 Mission: ${spec.mission}
 Output emphasis: ${spec.outputEmphasis.join(', ')}
 
-Run your tools, gather evidence, then return the structured positioning envelope. The runtime constrains your final answer to a JSON schema — populate every field. Cite a sourceUrl for every keyFinding when possible. confidence is a 0–10 self-rating; honesty > advocacy.
+${closingInstruction}
 
 CONTEXT:
 ${refinedContext}`;
@@ -239,9 +591,59 @@ ${refinedContext}`;
 
     clearTimeout(timeoutHandle);
 
-    // Happy path: AI SDK v6 Output.object() guarantees the final answer
-    // matches PositioningEnvelopeSchema. No manual JSON parse, no
-    // "No parseable JSON found" failure mode.
+    if (spec.section === 'positioningBuyerICP') {
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      let artifact = await streamBuyerIcpArtifact({
+        model: SUBAGENT_MODEL,
+        transcript,
+        businessContext: refinedContext,
+        onProgress,
+        abortSignal: composedSignal,
+      });
+
+      let validation = validateBuyerICPMinimums(artifact);
+
+      if (!validation.ok) {
+        await emitRunnerProgress(
+          onProgress,
+          'runner',
+          'Post-validate failed: retrying once with feedback',
+          {
+            section: spec.section,
+            status: 'drafting',
+            resultCount: validation.errors.length,
+          },
+        );
+
+        artifact = await streamBuyerIcpArtifact({
+          model: SUBAGENT_MODEL,
+          transcript,
+          businessContext: refinedContext,
+          feedback: validation.errors,
+          onProgress,
+          abortSignal: composedSignal,
+        });
+        validation = validateBuyerICPMinimums(artifact);
+      }
+
+      if (!validation.ok) {
+        artifact = annotateArtifactWithGaps(artifact, validation.errors);
+      }
+
+      const markdown = formatBuyerIcpArtifactMarkdown(artifact, spec);
+      await emitRunnerProgress(onProgress, 'output', `${artifact.sectionTitle} complete`);
+
+      return {
+        status: 'complete',
+        section: spec.section,
+        data: artifact,
+        artifact: { title: artifact.sectionTitle || spec.title, markdown },
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    // Legacy path: the other positioning subagents still emit the shared
+    // legacy shared schema through Output.object.
     const rawOutput = (result as { output?: unknown }).output;
     const envelope = coerceEnvelope(rawOutput);
 
@@ -273,25 +675,6 @@ ${refinedContext}`;
       sources: envelope.sources,
     };
 
-    // PILOT — BuyerICP per-section schema. The agent's Output.object uses
-    // BuyerICPSectionSchema (envelope + rich fields). `envelope` is the
-    // PositioningEnvelopeSchema-coerced view which strips unknown keys, so
-    // we read the rich fields from `rawOutput` directly. The agent's
-    // output is shape-checked by Output.object before we see it; here we
-    // just forward the rich fields into persistence.
-    if (spec.section === 'positioningBuyerICP') {
-      const raw = (rawOutput ?? {}) as Record<string, unknown>;
-      for (const key of [
-        'personas',
-        'icpAccountCounts',
-        'awarenessDistribution',
-        'triggers',
-        'clusters',
-      ]) {
-        if (raw[key] !== undefined) finalEnvelope[key] = raw[key];
-      }
-    }
-
     const markdown = formatJourneySectionArtifactMarkdown(finalEnvelope, spec);
 
     await emitRunnerProgress(onProgress, 'output', `${sectionTitle} complete`);
@@ -306,6 +689,39 @@ ${refinedContext}`;
   } catch (err) {
     clearTimeout(timeoutHandle);
     const message = err instanceof Error ? err.message : String(err);
+    const capturedTranscript = buildTranscriptFromSteps(stepSnapshots);
+
+    if (spec.section === 'positioningBuyerICP') {
+      const partialAt =
+        stepSnapshots.length > 0
+          ? Math.min(95, Math.round((stepCount / MAX_EXPECTED_STEPS) * 100))
+          : 25;
+      const fallbackArtifact = createBuyerIcpFallbackArtifact({
+        spec,
+        errorMessage: message,
+        transcript: capturedTranscript,
+      });
+      const fallbackMarkdown = formatBuyerIcpArtifactMarkdown(fallbackArtifact, spec);
+
+      await emitRunnerProgress(
+        onProgress,
+        'error',
+        `${message} (BuyerICP typed fallback preserved at ${partialAt}%)`,
+      );
+
+      return {
+        status: 'error',
+        section: spec.section,
+        error: message,
+        data: fallbackArtifact,
+        artifact: {
+          title: fallbackArtifact.sectionTitle || spec.title,
+          markdown: fallbackMarkdown,
+        },
+        partialMeta: { partial: true, partialAt },
+        durationMs: Date.now() - startTime,
+      };
+    }
 
     // Phase 5 — partial-output recovery.
     //
@@ -321,7 +737,7 @@ ${refinedContext}`;
     // Per codex review 2026-05-13: snapshot now includes tool calls +
     // tool results, so step-cap failures with tool-only final steps
     // still yield repair-usable context.
-    const lastStepText = stepSnapshots.slice(-3).join('\n\n').slice(0, 12000);
+    const lastStepText = stepSnapshots.length > 0 ? capturedTranscript : '';
     if (lastStepText) {
       const partialAt =
         stepCount > 0

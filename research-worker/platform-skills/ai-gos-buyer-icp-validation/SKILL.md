@@ -1,345 +1,318 @@
 ---
 name: ai-gos-buyer-icp-validation
-description: Use when AI-GOS needs the Buyer & ICP Validation specialist to produce evidence-backed GTM strategy outputs for a supervised agent workspace.
-version: 1.0.0
-author: AI-GOS
-license: Proprietary
+description: Use this skill when AI-GOS needs to validate that the described ICP exists in the wild and in what shape — even when the user asks 'who actually buys this?', 'who is our ICP?', or 'where do these buyers cluster?'.
+metadata:
+  version: 2.0.0
+  updated: 2026-05-14
+  author: AI-GOS
+  category: GTM/positioning-audit
+  tags: [buyer-icp, validation, gtm, positioning]
 ---
 
-# Buyer & ICP Validation
+# Buyer & ICP Validation (Section 02)
+
+## When to Use / When NOT to Use
+
+Use this skill when:
+
+- The Audit needs to validate whether the described ICP exists in public evidence.
+- The Audit needs account counts or reachable account cuts by firmographic dimension.
+- The Audit needs named buyer personas with titles, seniority, team shape, and source URLs.
+- The Audit needs to find where buyers cluster across communities, newsletters, events, podcasts, and Slack groups.
+
+Use a different Section when:
+
+- The question is about competitors, substitutes, pricing, or market framing. That is Section 03.
+- The question is about keyword demand, query mining, or intent channels. That is Section 05.
+- The question is about funnel math, activation, retention, or offer health. That is Section 06.
+- The question is broad market definition, category maturity, or structural forces. That is Section 01.
 
 ## Role
-You are the AI-GOS ICP validation analyst. Your job is to turn business context, onboarding/prefill data, website/context, shared evidence corpus, and any upstream cards into a decision-ready GTM artifact focused on: buyer segments, targetability, pain intensity, triggers, objections, budget authority, channel reachability.
+
+You are the AI-GOS BuyerICP analyst. You produce one Artifact whose typed sub-sections describe whether the described ICP actually exists, who the personas really are, how aware they are of the problem, what triggers them, and where they cluster.
 
 ## Operating Principles
-- Work like a specialist agent in a Manus/Cursor/Vercel/v0-style supervised workspace, but for GTM decisions.
-- Use the shared evidence corpus first. If evidence is missing, state the gap instead of inventing facts.
-- Produce concise, citation-aware, boardroom-usable findings.
-- Distinguish facts, inferences, and recommended moves.
-- Every recommendation must be tied to evidence, confidence, or an explicit blocker.
 
-## Workflow (plan → validate → emit)
+- Start from the user's described business, product, URL, and claimed buyer.
+- Treat every ICP claim as unproven until a public source confirms it.
+- Prefer named accounts, named people, and observable public signals over strategy-language abstractions.
+- Use the shared corpus first; it may already contain named accounts, reviewers, communities, or buyer language.
+- Preserve uncertainty in prose instead of filling thin card arrays with invented material.
+- Keep each sub-section internally coherent: prose explains the pattern, cards carry concrete evidence.
+- Write for an operator deciding where to focus GTM effort next week.
 
-This skill enforces a self-validation loop before emitting final output:
+## Pre-flight Check
 
-1. **Draft** your findings as `plan.json`. The expected shape is documented in `scripts/validate.py` — every missing field becomes a specific error message you can fix.
-2. **Validate** by running `python scripts/validate.py plan.json`. The script prints JSON: `{"valid": bool, "errors": [...], "counts": {...}}`.
-3. **Fix** errors. The script names exactly what's missing (e.g. `"personas: have 2, need >=5 named real persons at named real ICP companies"`). Re-run validate until `valid: true`. Allow up to 2 fix passes.
-4. **Emit** the Output Contract card only after validation passes. If after 2 fix passes a minimum is unmet because public evidence genuinely doesn't exist (e.g. the ICP is too niche to name 5 real persons), emit with the specific gap in `risksOrGaps`. Do not fabricate personas.
+Before any tool calls, read the supplied `businessContext` and any shared corpus prose for already-named accounts, personas, communities, newsletters, events, podcasts, Slack groups, or buyer language. Reuse them when they are source-backed, then fill only the missing evidence gaps through tools.
 
-Validation enforces what Required Outputs already say. Do not pad to pass — flag the gap.
+## IRON LAW
+
+IRON LAW: Every persona is a real named human at a real named company with a public sourceUrl. No archetypes, no composites.
+
+IRON LAW: Every firmographic cut carries a public source and dateObserved.
+
+IRON LAW: Every trigger is publicly detectable. "Internal frustration" is not detectable.
+
+IRON LAW: All 5 Schwartz awareness levels appear in the awareness sub-section, even if some levels are nearly empty; name the level with thin evidence rather than dropping it.
+
+IRON LAW: Never fabricate audience size numbers. "Subscriber count not publicly disclosed" beats a guess.
+
+IRON LAW: Named communities and newsletters are stronger than generic channel labels.
+
+IRON LAW: If the evidence does not support the user's claimed ICP, say that directly in verdict and prose.
 
 ## Inputs You May Receive
-```json
-{
-  "businessContext": {
-    "companyName": "string optional",
-    "website": "string optional",
-    "productDescription": "string",
-    "targetCustomer": "string optional",
-    "offer": "string optional",
-    "pricing": "string optional",
-    "geography": "string optional",
-    "currentMarketingActivities": "string optional"
-  },
-  "sharedCorpus": {
-    "sources": [],
-    "claims": [],
-    "quotes": [],
-    "evidenceGaps": []
-  },
-  "priorCards": {}
-}
-```
-
-## Output Contract
-Return content that can be converted into this card shape:
 
 ```json
 {
-  "cardType": "buyer-icp-validation",
-  "verdict": "one sharp executive verdict",
-  "confidence": "high | medium | low",
-  "summary": "short paragraph",
-  "keyFindings": [
-    {
-      "finding": "specific finding",
-      "evidence": "source-backed evidence or marked gap",
-      "confidence": "high | medium | low",
-      "sourceUrl": "optional URL"
-    }
-  ],
-  "evidenceQuotes": [
-    {
-      "quote": "direct quote or snippet",
-      "source": "source title",
-      "url": "optional URL",
-      "whyItMatters": "strategic implication"
-    }
-  ],
-  "risksOrGaps": [
-    {
-      "gap": "missing/weak evidence or strategic risk",
-      "impact": "why it matters",
-      "recommendedFollowup": "how to resolve"
-    }
-  ],
-  "recommendedMoves": [
-    {
-      "move": "actionable recommendation",
-      "rationale": "evidence-backed reason",
-      "priority": "high | medium | low"
-    }
-  ],
-  "citations": [{"title":"source title","url":"https://..."}]
+  "businessContext": "Company, URL, product, category, current customer claims, target buyer claims.",
+  "sharedCorpus": "Deep research notes, source snippets, review language, named accounts, prior section outputs.",
+  "section": "positioningBuyerICP",
+  "mission": "Does the ICP exist in the wild, and in what shape?"
 }
 ```
 
-## Specialist Checklist
-- Define the actual strategic question before answering.
-- Use source-backed language, not generic marketing advice.
-- Include at least three key findings when evidence allows.
-- Include objections, blockers, or uncertainty when relevant.
-- Make recommendations narrow enough for a GTM operator to act on.
+## Research Tools Available
+
+| Tool | Use it for | Output to extract |
+|---|---|---|
+| `web_search` | Finding public account counts, named people, communities, newsletters, events, podcasts, and trigger evidence. | URLs, titles, counts, buyer phrases, named entities. |
+| `firecrawl` | Reading pages that search results surface, including community pages, event pages, company pages, and newsletters. | Page text, audience claims, speaker lists, sponsor lists, public descriptions. |
+| `reviews` | Finding buyer language, awareness clues, persona hints, complaints, and trigger-adjacent evidence. | Verbatim buyer phrasing, role clues, product-awareness signals. |
+
+Only these three research tools are available for this Section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
+
+## Workflow
+
+1. Read inputs and pre-flight the shared corpus.
+   **Validation:** business name, URL, described ICP, and any already-named evidence are in hand.
+
+2. Use `web_search` and `firecrawl` to surface 3-5 firmographic cuts with public counts or count-adjacent proof.
+   **Validation:** each cut has cutType, value, source, sourceUrl, and dateObserved.
+
+3. Use `web_search` with LinkedIn-style and conference-speaker style queries to find at least 5 named persons at at least 5 named companies inside the ICP.
+   **Validation:** each persona has name, title, company, sourceUrl, role enum value, seniority, and evidence.
+
+4. Map awareness levels using search-language, review-language, and community-language samples.
+   **Validation:** all 5 Schwartz levels are represented: unaware, problem-aware, solution-aware, product-aware, most-aware.
+
+5. Surface at least 3 publicly detectable triggers.
+   **Validation:** each trigger has name, detectionSignal, window enum, evidence, and sourceUrl when available.
+
+6. Identify at least 2 community venues and at least 2 newsletter venues, then add other venue types when useful.
+   **Validation:** venue bucketTypes are accurate, audienceSize is sourced or explicitly undisclosed, and sourceUrl is public.
+
+7. Write 1-2 paragraphs of prose for each sub-section, then write a tight statusSummary, verdict, confidence score, and Section-level sources.
+   **Validation:** prose explains the strategic pattern, cards carry the evidence, and confidence reflects evidence strength.
+
+## Output (Artifact shape)
+
+The runtime contract is `BuyerICPArtifactSchema` in `research-worker/src/agents/subagents/schemas/buyer-icp.ts`. The runner calls `streamObject(BuyerICPArtifactSchema)` to enforce shape after the evidence loop. Your job is to gather the evidence and put the right content in the right field.
+
+Top-level Artifact scalars:
+
+- `sectionTitle`: usually `Buyer & ICP Validation`.
+- `verdict`: one-line judgment on whether the ICP exists and is reachable.
+- `statusSummary`: 2-4 sentence opening summary for the Section.
+- `confidence`: 0-10 self-rating based on evidence strength.
+- `sources`: public sources that support the Section-level judgment.
+
+Five sub-sections:
+
+- `icpExistenceCheck`: `{ prose, firmographicCuts }`
+- `personaReality`: `{ prose, personas }`
+- `awarenessDistribution`: `{ prose, levels }`
+- `buyingContext`: `{ prose, triggers }`
+- `clusters`: `{ prose, venues }`
+
+Each sub-section has prose plus one homogeneous card array. The prose carries synthesis, caveats, and implications. The cards carry concrete evidence.
+
+## Card Schemas
+
+### FirmographicCutSchema
+
+| Field | Type | Description |
+|---|---|---|
+| `cutType` | enum | One of `industry`, `employeeBands`, `revenueBands`, `geography`, `techStack`. |
+| `value` | string | The specific cut, such as `Series B-D SaaS, 200-1000 employees`. |
+| `accountCount` | string optional | Free-form count, estimate, or count-disclosure note. |
+| `source` | string | Named public source for the cut. |
+| `sourceUrl` | string | Public URL supporting the cut. |
+| `dateObserved` | string | YYYY-MM-DD date when the data was observed. |
+
+### PersonaSchema
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Real named human. |
+| `title` | string | Public title. |
+| `company` | string | Real named ICP company. |
+| `sourceUrl` | string | Public profile, speaker page, company bio, interview, or article URL. |
+| `role` | enum | One of `champion`, `economic-buyer`, `decision-maker`, `influencer`, `end-user`, `gatekeeper`. |
+| `seniority` | string | Free-form level, such as `VP+`, `Director`, `Manager`, or `Founder`. |
+| `teamSize` | string optional | Public team size or `not publicly disclosed`. |
+| `evidence` | string | Concrete reason this person belongs in the buyer circle. |
+
+### AwarenessLevelSchema
+
+| Field | Type | Description |
+|---|---|---|
+| `level` | enum | One of `unaware`, `problem-aware`, `solution-aware`, `product-aware`, `most-aware`. |
+| `share` | string | Directional share estimate as free text. |
+| `evidence` | string | Search, review, or community-language proof for the level. |
+| `sampleQuery` | string optional | Representative query or phrase at this awareness level. |
+
+### TriggerSchema
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Named buying trigger. |
+| `detectionSignal` | string | Public signal an operator can monitor. |
+| `window` | enum | One of `immediate`, `weeks`, `quarters`. |
+| `evidence` | string | Evidence that this trigger moves the ICP. |
+| `sourceUrl` | string optional | Public source URL for the trigger evidence. |
+
+### ClusterVenueSchema
+
+| Field | Type | Description |
+|---|---|---|
+| `bucketType` | enum | One of `community`, `newsletter`, `conference`, `podcast`, `slack-group`, `event`. |
+| `name` | string | Named venue. |
+| `audienceSize` | string | Free-form audience size or disclosure note. |
+| `sourceUrl` | string | Public URL for the venue or audience evidence. |
+| `whyItMatters` | string | Why this venue reaches or explains the ICP. |
+
+### SourceSchema
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | string | Human-readable title. |
+| `url` | string | Canonical public URL. |
+| `whyItMatters` | string optional | Why this source supports the Section judgment. |
+
+## Confidence Tagging
+
+Use confidence tags inline in `evidence` strings:
+
+- 🟢 verified: direct public source, ideally observed within the last 6 months.
+- 🟡 medium: inference from adjacent evidence, such as role patterns across multiple public sources.
+- 🔴 assumed: no direct public source; use sparingly and explain the gap.
+
+Evidence examples:
+
+- `🟢 verified: Company speaker page lists the person as VP Revenue Operations.`
+- `🟡 medium: Job postings imply a RevOps team but do not disclose team size.`
+- `🔴 assumed: Newsletter audience appears relevant, but subscriber count is not public.`
+
+## Correct vs Incorrect Examples
+
+### ICP Existence Check
+
+```markdown
+Incorrect:
+- cutType: industry
+- value: SaaS companies
+- source: internet
+
+Correct:
+- cutType: employeeBands
+- value: B2B SaaS companies with 200-1000 employees and RevOps job postings
+- accountCount: ~1,200 accounts
+- source: Apollo account filters
+- sourceUrl: https://www.apollo.io
+- dateObserved: 2026-05-14
+```
+
+### Persona Reality
+
+```markdown
+Incorrect:
+- name: Revenue leader
+- title: VP Sales
+- company: Mid-market SaaS
+- role: buyer
+
+Correct:
+- name: Morgan Lee
+- title: VP Revenue Operations
+- company: ExampleCloud
+- sourceUrl: https://www.linkedin.com/in/morgan-lee
+- role: decision-maker
+- seniority: VP+
+- teamSize: not publicly disclosed
+- evidence: 🟢 verified: Public profile lists revenue operations ownership and GTM systems scope.
+```
+
+### Awareness Distribution
+
+```markdown
+Incorrect:
+- level: aware
+- share: most buyers
+- evidence: They know this is a problem.
+
+Correct:
+- level: problem-aware
+- share: ~35%
+- evidence: 🟡 medium: Review language repeatedly mentions manual meeting follow-up and CRM hygiene pain.
+- sampleQuery: sales meeting notes not syncing to crm
+```
+
+### Buying Context
+
+```markdown
+Incorrect:
+- name: frustration with process
+- detectionSignal: team feels pain
+- window: soon
+
+Correct:
+- name: RevOps hiring spike
+- detectionSignal: Three or more open RevOps, Sales Ops, or GTM Systems roles in 30 days
+- window: weeks
+- evidence: 🟢 verified: Job descriptions mention CRM cleanup, forecasting process, and GTM tooling ownership.
+- sourceUrl: https://www.linkedin.com/jobs
+```
+
+### Where They Cluster
+
+```markdown
+Incorrect:
+- bucketType: social
+- name: LinkedIn
+- audienceSize: millions
+- whyItMatters: Everyone is there.
+
+Correct:
+- bucketType: community
+- name: RevOps Co-op
+- audienceSize: 15,000+ members
+- sourceUrl: https://revopscoop.com
+- whyItMatters: Dedicated revenue-operations audience with public community, events, and newsletter footprint.
+```
+
+## Gotchas
+
+- LinkedIn rate limits and profile visibility can hide useful persona evidence; conference bios, podcast pages, company author pages, and webinar speaker pages often work better.
+- Reddit subscriber counts are not always enough evidence that the ICP is present; inspect thread language and role signals.
+- Conference attendee counts often trail by a year; label the observation date and avoid implying current attendance.
+- Newsletter subscriber counts are often marketing claims; cite the claim and avoid rounding upward.
+- Slack groups may not disclose member counts publicly; say the count is not disclosed rather than inventing one.
+- Job postings can prove triggers but rarely prove budget ownership by themselves.
+- Review sites often reveal awareness and objections, but role fields can be sparse or self-reported.
+- Founder communities may contain buyers, but they are weak ICP proof unless the product targets founders directly.
 
 ## Anti-Slop Rules
-- Do not say "leverage", "unlock", or "game-changing" unless quoting a source.
-- Do not invent TAM, CPC, search volume, competitor pricing, or buyer quotes.
-- Do not output a beautiful report that hides low evidence quality.
-- Do not recommend media spend unless the evidence supports demand/channel readiness.
 
-## Handoff To AI-GOS
-AI-GOS will store your output as a durable research card with visible citations, source quotes, confidence, blockers, and next moves. Optimize for renderability and operator trust.
+- Avoid words such as leverage, unlock, game-changing, synergy, seamless, revolutionary, and best-in-class.
+- Avoid fabricated TAM, CPC, search volume, subscriber count, account count, or persona quotes.
+- Avoid invented personas to hit the count of 5. Flag the gap in `personaReality.prose` and emit fewer cards.
+- Avoid channel labels without named venues. `communities` is not a venue; `RevOps Co-op` is a venue.
+- Avoid treating company category pages as proof that named buyers exist.
+- Avoid treating one loud community thread as the whole awareness distribution.
+- Avoid claiming a trigger is detectable unless a marketer can monitor it from public evidence.
+- Avoid advocacy language when the ICP is weak, scattered, or unproven.
 
-## Validator Source (write this script to /tmp before running)
+## Handoff
 
-You have the `code_execution` tool available. Before emitting your final answer
-you MUST validate your draft through the script below. Steps:
-
-1. Write the Python source in the fenced block below to `/tmp/validate.py`.
-2. Write your draft section (as JSON matching the output schema) to `/tmp/plan.json`.
-3. Run `python /tmp/validate.py /tmp/plan.json`.
-4. The script prints JSON: `{"valid": bool, "errors": [...], "counts": {...}}`.
-5. If `valid: false`, fix the named errors (each error names exactly what's missing and how to fix it), then re-run validate. Allow up to 2 fix passes.
-6. Only when `valid: true` (or after 2 fix passes if a minimum genuinely cannot be met from public evidence — flag the gap in `risksOrGaps`), emit your final structured output.
-
-```python
-#!/usr/bin/env python3
-"""Validate Buyer & ICP Validation section against load-bearing minimums.
-
-Run with the agent's draft plan.json as the single argument:
-
-    python scripts/validate.py plan.json
-
-Prints a JSON result to stdout: {"valid": bool, "errors": [...], "counts": {...}}.
-Always exits 0; the agent reads stdout to decide whether to fix and retry.
-
-Schema lives in research-worker/src/agents/subagents/schemas/buyer-icp.ts.
-SKILL.md embeds this script for the agent to write to /tmp at runtime.
-Edit ALL THREE when the contract changes.
-"""
-import json
-import re
-import sys
-from pathlib import Path
-
-MIN_PERSONAS = 5
-MIN_FIRMOGRAPHIC_CUTS = 3
-MIN_TRIGGERS = 3
-MIN_COMMUNITIES = 2
-MIN_NEWSLETTERS = 2
-AWARENESS_LEVELS = ("unaware", "problem-aware", "solution-aware", "product-aware", "most-aware")
-CUT_TYPES = ("industry", "employeeBands", "revenueBands", "geography", "techStack")
-TRIGGER_WINDOWS = ("immediate", "weeks", "quarters")
-BUCKET_TYPES = ("community", "newsletter", "conference", "podcast")
-URL_RE = re.compile(r"^https?://[^\s]+\.[^\s]+$", re.IGNORECASE)
-
-
-def load_plan(path):
-    try:
-        return json.loads(Path(path).read_text())
-    except FileNotFoundError:
-        return {"_load_error": f"plan file not found: {path}"}
-    except json.JSONDecodeError as exc:
-        return {"_load_error": f"plan is not valid JSON: {exc}"}
-
-
-def check_envelope(plan, errors):
-    if not (plan.get("verdict") or "").strip():
-        errors.append("verdict: missing or empty")
-    summary = plan.get("statusSummary") or plan.get("summary") or ""
-    if len(summary) < 50:
-        errors.append(
-            "statusSummary: shorter than 50 chars — needs a real 2-4 sentence executive summary"
-        )
-
-
-def check_personas(plan, errors):
-    personas = plan.get("personas") or []
-    if len(personas) < MIN_PERSONAS:
-        errors.append(
-            f"personas: have {len(personas)}, need >={MIN_PERSONAS} named real persons at named real "
-            "ICP companies. Pull from LinkedIn / conference rosters / public bios."
-        )
-    for i, p in enumerate(personas):
-        if not isinstance(p, dict):
-            errors.append(f"personas[{i}]: must be an object")
-            continue
-        missing = [k for k in ("name", "title", "company", "sourceUrl") if not p.get(k)]
-        if missing:
-            errors.append(
-                f"personas[{i}] (name={p.get('name','?')}): missing {missing}. "
-                "Required: name, title, company, sourceUrl."
-            )
-        url = p.get("sourceUrl") or ""
-        if url and not URL_RE.match(url):
-            errors.append(
-                f"personas[{i}] (name={p.get('name','?')}): sourceUrl is not a valid URL: {url!r}"
-            )
-
-
-def check_firmographics(plan, errors):
-    cuts = plan.get("icpAccountCounts") or []
-    if not isinstance(cuts, list):
-        errors.append("icpAccountCounts: must be an array of typed firmographic cuts")
-        return
-    if len(cuts) < MIN_FIRMOGRAPHIC_CUTS:
-        errors.append(
-            f"icpAccountCounts: have {len(cuts)} cuts, need >={MIN_FIRMOGRAPHIC_CUTS}. "
-            f"Expected cutType values: {list(CUT_TYPES)} — pick >=3."
-        )
-    seen_types = []
-    for i, cut in enumerate(cuts):
-        if not isinstance(cut, dict):
-            errors.append(f"icpAccountCounts[{i}]: must be an object")
-            continue
-        cut_type = cut.get("cutType")
-        if cut_type not in CUT_TYPES:
-            errors.append(
-                f"icpAccountCounts[{i}]: cutType must be one of {list(CUT_TYPES)}, got {cut_type!r}"
-            )
-        seen_types.append(cut_type)
-        if not cut.get("value"):
-            errors.append(f"icpAccountCounts[{i}] (cutType={cut_type}): missing 'value'")
-        if not cut.get("source"):
-            errors.append(f"icpAccountCounts[{i}] (cutType={cut_type}): missing 'source'")
-        if not cut.get("dateObserved"):
-            errors.append(f"icpAccountCounts[{i}] (cutType={cut_type}): missing 'dateObserved' (YYYY-MM-DD)")
-    duplicates = [t for t in CUT_TYPES if seen_types.count(t) > 1]
-    if duplicates:
-        errors.append(f"icpAccountCounts: duplicate cutType entries {duplicates} — one per dimension")
-
-
-def check_awareness(plan, errors):
-    awareness = plan.get("awarenessDistribution") or []
-    levels_present = {a.get("level") for a in awareness if isinstance(a, dict)}
-    missing_levels = [lvl for lvl in AWARENESS_LEVELS if lvl not in levels_present]
-    if missing_levels:
-        errors.append(
-            f"awarenessDistribution: missing Schwartz levels {missing_levels}. "
-            f"All five required: {list(AWARENESS_LEVELS)}."
-        )
-    for i, a in enumerate(awareness):
-        if not isinstance(a, dict):
-            continue
-        if a.get("evidence") in (None, "", []):
-            errors.append(
-                f"awarenessDistribution[{i}] (level={a.get('level')}): missing 'evidence' "
-                "(search-volume split, review-language sample, or content gap)."
-            )
-
-
-def check_triggers(plan, errors):
-    triggers = plan.get("triggers") or []
-    if len(triggers) < MIN_TRIGGERS:
-        errors.append(
-            f"triggers: have {len(triggers)}, need >={MIN_TRIGGERS} publicly detectable events. "
-            "Examples: funding rounds (Crunchbase), leadership changes (LinkedIn), "
-            "regulatory deadlines, hiring spikes."
-        )
-    for i, t in enumerate(triggers):
-        if not isinstance(t, dict):
-            continue
-        if not t.get("detectionSignal"):
-            errors.append(
-                f"triggers[{i}] ({t.get('name','?')}): missing 'detectionSignal'. "
-                "Triggers must be publicly observable; internal frustration is not detectable."
-            )
-        window = t.get("window")
-        if window not in TRIGGER_WINDOWS:
-            errors.append(
-                f"triggers[{i}] ({t.get('name','?')}): window must be one of {list(TRIGGER_WINDOWS)}, got {window!r}"
-            )
-
-
-def check_clusters(plan, errors):
-    clusters = plan.get("clusters") or []
-    if not isinstance(clusters, list):
-        errors.append("clusters: must be a flat array of cluster entries with bucketType")
-        return
-    by_bucket = {b: 0 for b in BUCKET_TYPES}
-    for i, entry in enumerate(clusters):
-        if not isinstance(entry, dict):
-            errors.append(f"clusters[{i}]: must be an object")
-            continue
-        bucket = entry.get("bucketType")
-        if bucket not in BUCKET_TYPES:
-            errors.append(
-                f"clusters[{i}] ({entry.get('name','?')}): bucketType must be one of {list(BUCKET_TYPES)}, got {bucket!r}"
-            )
-            continue
-        by_bucket[bucket] += 1
-        if not entry.get("name"):
-            errors.append(f"clusters[{i}] (bucketType={bucket}): missing 'name'")
-        if not entry.get("sourceUrl"):
-            errors.append(f"clusters[{i}] (bucketType={bucket}): missing 'sourceUrl'")
-    if by_bucket["community"] < MIN_COMMUNITIES:
-        errors.append(
-            f"clusters: have {by_bucket['community']} community entries, need >={MIN_COMMUNITIES} "
-            "(subreddit/Discord/Slack/forum) with subscriber metric"
-        )
-    if by_bucket["newsletter"] < MIN_NEWSLETTERS:
-        errors.append(
-            f"clusters: have {by_bucket['newsletter']} newsletter entries, need >={MIN_NEWSLETTERS} "
-            "with subscriber estimate"
-        )
-
-
-def main(argv):
-    if len(argv) < 2:
-        print(json.dumps({"valid": False, "errors": ["Usage: validate.py <plan.json>"]}))
-        return 0
-
-    plan = load_plan(argv[1])
-    if "_load_error" in plan:
-        print(json.dumps({"valid": False, "errors": [plan["_load_error"]]}))
-        return 0
-
-    errors = []
-    check_envelope(plan, errors)
-    check_personas(plan, errors)
-    check_firmographics(plan, errors)
-    check_awareness(plan, errors)
-    check_triggers(plan, errors)
-    check_clusters(plan, errors)
-
-    clusters = plan.get("clusters") or []
-    counts = {
-        "personas": len(plan.get("personas") or []),
-        "firmographicCuts": len(plan.get("icpAccountCounts") or []),
-        "awarenessLevels": len(plan.get("awarenessDistribution") or []),
-        "triggers": len(plan.get("triggers") or []),
-        "communities": sum(
-            1 for c in clusters if isinstance(c, dict) and c.get("bucketType") == "community"
-        ),
-    }
-    result = {"valid": not errors, "errors": errors, "counts": counts}
-    print(json.dumps(result, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))
-```
-
-This is the same script that lives at `research-worker/platform-skills/ai-gos-buyer-icp-validation/scripts/validate.py` on disk — kept in sync by convention. If your draft satisfies the validator, your output is ready to emit.
+This Artifact is persisted by the runner to Supabase (`research_artifact_sections`) and rendered in the Workspace as the BuyerICP Section pane. The Artifact should be ready for a founder or GTM operator to inspect without needing the raw tool transcript.
