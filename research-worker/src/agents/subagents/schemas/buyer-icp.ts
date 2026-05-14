@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SourceSchema } from './_shared';
+
 /**
  * Bespoke Section 02 Artifact schema for ADR-0002.
  *
@@ -48,17 +50,6 @@ const CLUSTER_BUCKETS = [
 ] as const;
 
 const VALID_URL_PATTERN = /^https?:\/\/\S+\.\S+/;
-
-export const SourceSchema = z
-  .object({
-    title: z.string().describe('Human-readable source title.'),
-    url: z.string().describe('Canonical public URL for the source.'),
-    whyItMatters: z
-      .string()
-      .optional()
-      .describe('Why this source supports the BuyerICP judgment.'),
-  })
-  .describe('Public source used to support the Section 02 Artifact.');
 
 export const FirmographicCutSchema = z
   .object({

@@ -12,7 +12,8 @@
     "eval:snapshot": "ts-node-dev --transpile-only evals/snapshot.ts",
     "eval:research": "ts-node-dev --transpile-only evals/run-eval.ts",
     "eval:baseline": "ts-node-dev --transpile-only evals/baseline-run.ts",
-    "eval:pilot:buyer-icp": "ts-node-dev --transpile-only evals/pilot-buyer-icp.ts"
+    "eval:pilot:buyer-icp": "ts-node-dev --transpile-only evals/pilot-buyer-icp.ts",
+    "eval:pilot:market-category": "ts-node-dev --transpile-only evals/pilot-market-category.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

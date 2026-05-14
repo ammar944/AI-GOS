@@ -30,6 +30,11 @@ import {
   type BuyerICPArtifact,
 } from '../agents/subagents/schemas/buyer-icp';
 import {
+  MarketCategoryArtifactSchema,
+  validateMarketCategoryMinimums,
+  type MarketCategoryArtifact,
+} from '../agents/subagents/schemas/market-category';
+import {
   buildContextWithRefinement,
   formatJourneySectionArtifactMarkdown,
   type JourneySectionSpec,
@@ -148,6 +153,312 @@ function buildTranscriptFromSteps(stepSnapshots: string[]): string {
   }
 
   return selected.reverse().join('\n\n').slice(-maxChars);
+}
+
+function normalizeMarketCategoryArtifact(
+  artifact: MarketCategoryArtifact,
+): MarketCategoryArtifact {
+  const confidence = Number.isFinite(artifact.confidence)
+    ? Math.max(0, Math.min(10, artifact.confidence))
+    : 3;
+
+  return {
+    ...artifact,
+    sectionTitle: artifact.sectionTitle.trim() || 'Market & Category Intelligence',
+    verdict: artifact.verdict.trim() || 'Market Category evidence has gaps',
+    statusSummary:
+      artifact.statusSummary.trim() ||
+      'The Market Category runner produced an Artifact with limited summary detail.',
+    confidence,
+  };
+}
+
+type MarketCategorySubsectionKey =
+  | 'categoryDefinition'
+  | 'marketSize'
+  | 'structuralForces'
+  | 'categoryMaturity';
+
+function routeMarketCategoryValidationError(
+  error: string,
+): MarketCategorySubsectionKey {
+  if (
+    error.startsWith('adjacentCategories') ||
+    error.startsWith('categoryDefinition') ||
+    error.startsWith('sources') ||
+    error.startsWith('sectionTitle') ||
+    error.startsWith('verdict') ||
+    error.startsWith('statusSummary') ||
+    error.startsWith('confidence')
+  ) {
+    return 'categoryDefinition';
+  }
+  if (error.startsWith('marketSize')) {
+    return 'marketSize';
+  }
+  if (error.startsWith('structuralForces')) {
+    return 'structuralForces';
+  }
+  return 'categoryMaturity';
+}
+
+function annotateMarketCategoryArtifactWithGaps(
+  artifact: MarketCategoryArtifact,
+  errors: string[],
+): MarketCategoryArtifact {
+  const grouped: Record<MarketCategorySubsectionKey, string[]> = {
+    categoryDefinition: [],
+    marketSize: [],
+    structuralForces: [],
+    categoryMaturity: [],
+  };
+
+  for (const error of errors) {
+    grouped[routeMarketCategoryValidationError(error)].push(error);
+  }
+
+  return {
+    ...artifact,
+    confidence: Number.isFinite(artifact.confidence)
+      ? Math.max(0, Math.min(5, artifact.confidence))
+      : 3,
+    categoryDefinition: {
+      ...artifact.categoryDefinition,
+      prose: appendGapBlock(
+        artifact.categoryDefinition.prose,
+        grouped.categoryDefinition,
+      ),
+    },
+    marketSize: {
+      ...artifact.marketSize,
+      prose: appendGapBlock(artifact.marketSize.prose, grouped.marketSize),
+    },
+    structuralForces: {
+      ...artifact.structuralForces,
+      prose: appendGapBlock(
+        artifact.structuralForces.prose,
+        grouped.structuralForces,
+      ),
+    },
+    categoryMaturity: {
+      ...artifact.categoryMaturity,
+      prose: appendGapBlock(
+        artifact.categoryMaturity.prose,
+        grouped.categoryMaturity,
+      ),
+    },
+  };
+}
+
+function getMarketCategoryPopulatedSubsectionCount(partial: unknown): number {
+  if (!isRecord(partial)) {
+    return 0;
+  }
+
+  const fields = [
+    'categoryDefinition',
+    'marketSize',
+    'structuralForces',
+    'categoryMaturity',
+  ] as const;
+
+  return fields.filter((field) => {
+    const subsection = partial[field];
+    if (!isRecord(subsection)) {
+      return false;
+    }
+    if (typeof subsection.prose === 'string' && subsection.prose.trim()) {
+      return true;
+    }
+    if (
+      field === 'categoryMaturity' &&
+      isRecord(subsection.classification) &&
+      typeof subsection.classification.evidenceSummary === 'string' &&
+      subsection.classification.evidenceSummary.trim()
+    ) {
+      return true;
+    }
+    return Object.values(subsection).some(
+      (value) => Array.isArray(value) && value.length > 0,
+    );
+  }).length;
+}
+
+async function streamMarketCategoryArtifact(args: {
+  model: typeof SUBAGENT_MODEL;
+  transcript: string;
+  businessContext: string;
+  feedback?: string[];
+  onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
+}): Promise<MarketCategoryArtifact> {
+  await emitRunnerProgress(args.onProgress, 'runner', '[runner] streamObject: starting', {
+    section: 'positioningMarketCategory',
+    status: 'drafting',
+  });
+
+  const system = [
+    'You convert Market & Category Intelligence evidence into one typed Artifact.',
+    'Honor MarketCategoryArtifactSchema and every field description exactly.',
+    'Use the transcript as evidence. Do not fabricate market size, funding, hiring, search-trend, category, or maturity claims.',
+    'If evidence is thin for a field, write the gap into that sub-section prose and continue with the best supported cards.',
+    'categoryMaturity.classification is one object, not an array. Confidence is a 0-10 integer-like self-rating.',
+  ].join('\n');
+
+  const feedbackBlock =
+    args.feedback && args.feedback.length > 0
+      ? [
+          '',
+          '## Prior validation failures',
+          ...args.feedback.map((error) => `- ${error}`),
+        ].join('\n')
+      : '';
+
+  const prompt = [
+    '## Business context',
+    args.businessContext,
+    '',
+    '## Evidence transcript',
+    args.transcript,
+    feedbackBlock,
+  ].join('\n');
+
+  const result = streamObject({
+    model: args.model,
+    schema: MarketCategoryArtifactSchema,
+    system,
+    prompt,
+    abortSignal: args.abortSignal,
+  });
+
+  for await (const partial of result.partialObjectStream) {
+    const subsectionCount = getMarketCategoryPopulatedSubsectionCount(partial);
+    await emitRunnerProgress(
+      args.onProgress,
+      'runner',
+      `[runner] streamObject: subsection ${subsectionCount}/4 partial`,
+      {
+        section: 'positioningMarketCategory',
+        status: 'drafting',
+        resultCount: subsectionCount,
+      },
+    );
+  }
+
+  const artifact = await result.object;
+  await emitRunnerProgress(args.onProgress, 'runner', '[runner] streamObject: complete', {
+    section: 'positioningMarketCategory',
+    status: 'complete',
+  });
+
+  return normalizeMarketCategoryArtifact(artifact);
+}
+
+function createMarketCategoryFallbackArtifact(args: {
+  spec: JourneySectionSpec;
+  errorMessage: string;
+  transcript: string;
+}): MarketCategoryArtifact {
+  const clippedTranscript = args.transcript.slice(0, 900);
+  const gapProse = [
+    `The Market Category runner failed before a complete typed Artifact could be emitted: ${args.errorMessage}`,
+    clippedTranscript
+      ? `Captured evidence snapshot: ${clippedTranscript}`
+      : 'No usable evidence snapshot was captured before failure.',
+  ].join('\n\n');
+
+  return {
+    sectionTitle: args.spec.title,
+    verdict: 'Partial - Market Category artifact has validation gaps',
+    statusSummary:
+      'The Market Category runner preserved a typed fallback Artifact after the section failed before completion. Treat every sub-section as incomplete until the section is rerun.',
+    confidence: 2,
+    sources: [],
+    categoryDefinition: {
+      prose: appendGapBlock(gapProse, [
+        'adjacentCategories: have 0, need >=2 categories buyers confuse this with.',
+        'sources: have 0, need >=3 Section-level sources.',
+      ]),
+      adjacentCategories: [],
+    },
+    marketSize: {
+      prose: appendGapBlock(gapProse, [
+        'marketSize.signals: have 0, need >=3 public trajectory signals.',
+      ]),
+      signals: [],
+    },
+    structuralForces: {
+      prose: appendGapBlock(gapProse, [
+        'structuralForces: have 0, need >=3 forces covering regulation, platform-shift, and buyer-behavior.',
+        'structuralForces: missing force types regulation, platform-shift, buyer-behavior.',
+      ]),
+      forces: [],
+    },
+    categoryMaturity: {
+      prose: appendGapBlock(gapProse, [
+        'categoryMaturity.classification.supportingSignals: have 0, need >=2 maturity signals.',
+      ]),
+      classification: {
+        stage: 'emerging',
+        evidenceSummary:
+          'Fallback classification only. The runner did not capture enough evidence for a reliable maturity judgment.',
+        supportingSignals: [],
+      },
+    },
+  };
+}
+
+function formatMarketCategoryArtifactMarkdown(
+  artifact: MarketCategoryArtifact,
+  spec: JourneySectionSpec,
+): string {
+  const sectionTitle = artifact.sectionTitle.trim() || spec.title;
+  const sources =
+    artifact.sources.length > 0
+      ? artifact.sources
+          .map((source) => `- ${source.title} — ${source.url}`)
+          .join('\n')
+      : '- No Section-level sources captured.';
+
+  return [
+    `## ${sectionTitle}`,
+    '',
+    artifact.statusSummary,
+    '',
+    `**Verdict:** ${artifact.verdict}  ·  **Confidence:** ${artifact.confidence}/10`,
+    '',
+    '### Category Definition',
+    artifact.categoryDefinition.prose,
+    ...artifact.categoryDefinition.adjacentCategories.map(
+      (category) =>
+        `- ${category.name} — confused because ${category.whyBuyersConfuseIt} — disambiguator: ${category.disambiguatingSignal}`,
+    ),
+    '',
+    '### Market Size And Trajectory',
+    artifact.marketSize.prose,
+    ...artifact.marketSize.signals.map(
+      (signal) =>
+        `- ${signal.signalType} (${signal.trajectory}) — ${signal.name} — ${signal.sourceTitle} (${signal.dateObserved})`,
+    ),
+    '',
+    '### Structural Forces',
+    artifact.structuralForces.prose,
+    ...artifact.structuralForces.forces.map(
+      (force) =>
+        `- ${force.forceType} — ${force.name} — ${force.implication}`,
+    ),
+    '',
+    '### Category Maturity',
+    artifact.categoryMaturity.prose,
+    `- Stage: ${artifact.categoryMaturity.classification.stage}`,
+    `- Evidence: ${artifact.categoryMaturity.classification.evidenceSummary}`,
+    ...artifact.categoryMaturity.classification.supportingSignals.map(
+      (signal) => `- ${signal.signalType} — ${signal.evidence}`,
+    ),
+    '',
+    '### Sources',
+    sources,
+  ].join('\n');
 }
 
 function normalizeBuyerIcpArtifact(artifact: BuyerICPArtifact): BuyerICPArtifact {
@@ -489,11 +800,13 @@ export async function runJourneySectionViaSubagent(
     toolName: spec.skill,
   });
 
-  // ADR-0002: BuyerICP gathers evidence in the ToolLoopAgent, then this runner
-  // emits the typed Artifact through streamObject(BuyerICPArtifactSchema).
-  // The other positioning sections still use the legacy envelope path.
+  // ADR-0002: migrated sections gather evidence in the ToolLoopAgent, then
+  // this runner emits the typed Artifact through streamObject(SectionSchema).
+  // Unmigrated positioning sections still use the legacy envelope path.
   const closingInstruction =
-    spec.section === 'positioningBuyerICP'
+    spec.section === 'positioningMarketCategory'
+      ? `Run your evidence tools (web_search, firecrawl, pagespeed) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into MarketCategoryArtifactSchema after your loop ends. Cover the four Section 01 sub-sections: category definition and adjacent categories, market size and trajectory signals, structural forces, and the single category maturity classification object. confidence is a 0-10 self-rating; honesty > advocacy.`
+      : spec.section === 'positioningBuyerICP'
       ? `Run your evidence tools (web_search, firecrawl, reviews) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into BuyerICPArtifactSchema after your loop ends. Cover the five Section 02 sub-sections: ICP existence, persona reality, awareness distribution, buying context, and clusters. confidence is a 0-10 self-rating; honesty > advocacy.`
       : `Run your tools, gather evidence, then return the structured positioning envelope. The runtime constrains your final answer to a JSON schema — populate every field. Cite a sourceUrl for every keyFinding when possible. confidence is a 0–10 self-rating; honesty > advocacy.`;
 
@@ -590,6 +903,60 @@ ${refinedContext}`;
     });
 
     clearTimeout(timeoutHandle);
+
+    if (spec.section === 'positioningMarketCategory') {
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      let artifact = await streamMarketCategoryArtifact({
+        model: SUBAGENT_MODEL,
+        transcript,
+        businessContext: refinedContext,
+        onProgress,
+        abortSignal: composedSignal,
+      });
+
+      let validation = validateMarketCategoryMinimums(artifact);
+
+      if (!validation.ok) {
+        await emitRunnerProgress(
+          onProgress,
+          'runner',
+          'Post-validate failed: retrying once with feedback',
+          {
+            section: spec.section,
+            status: 'drafting',
+            resultCount: validation.errors.length,
+          },
+        );
+
+        artifact = await streamMarketCategoryArtifact({
+          model: SUBAGENT_MODEL,
+          transcript,
+          businessContext: refinedContext,
+          feedback: validation.errors,
+          onProgress,
+          abortSignal: composedSignal,
+        });
+        validation = validateMarketCategoryMinimums(artifact);
+      }
+
+      if (!validation.ok) {
+        artifact = annotateMarketCategoryArtifactWithGaps(
+          artifact,
+          validation.errors,
+        );
+      }
+
+      const markdown = formatMarketCategoryArtifactMarkdown(artifact, spec);
+      await emitRunnerProgress(onProgress, 'output', `${artifact.sectionTitle} complete`);
+
+      return {
+        status: 'complete',
+        section: spec.section,
+        data: artifact,
+        artifact: { title: artifact.sectionTitle || spec.title, markdown },
+        durationMs: Date.now() - startTime,
+      };
+    }
 
     if (spec.section === 'positioningBuyerICP') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
@@ -690,6 +1057,41 @@ ${refinedContext}`;
     clearTimeout(timeoutHandle);
     const message = err instanceof Error ? err.message : String(err);
     const capturedTranscript = buildTranscriptFromSteps(stepSnapshots);
+
+    if (spec.section === 'positioningMarketCategory') {
+      const partialAt =
+        stepSnapshots.length > 0
+          ? Math.min(95, Math.round((stepCount / MAX_EXPECTED_STEPS) * 100))
+          : 25;
+      const fallbackArtifact = createMarketCategoryFallbackArtifact({
+        spec,
+        errorMessage: message,
+        transcript: capturedTranscript,
+      });
+      const fallbackMarkdown = formatMarketCategoryArtifactMarkdown(
+        fallbackArtifact,
+        spec,
+      );
+
+      await emitRunnerProgress(
+        onProgress,
+        'error',
+        `${message} (Market Category typed fallback preserved at ${partialAt}%)`,
+      );
+
+      return {
+        status: 'error',
+        section: spec.section,
+        error: message,
+        data: fallbackArtifact,
+        artifact: {
+          title: fallbackArtifact.sectionTitle || spec.title,
+          markdown: fallbackMarkdown,
+        },
+        partialMeta: { partial: true, partialAt },
+        durationMs: Date.now() - startTime,
+      };
+    }
 
     if (spec.section === 'positioningBuyerICP') {
       const partialAt =

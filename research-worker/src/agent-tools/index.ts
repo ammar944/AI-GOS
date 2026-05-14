@@ -69,6 +69,8 @@ export const POSITIONING_TOOL_MAPS: {
   positioningOfferDiagnostic: ToolSet;
 } = {
   positioningMarketCategory: {
+    // Market Category — research tools only. ADR-0002: typed structure comes
+    // from streamObject(MarketCategoryArtifactSchema).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     web_search: anthropicWebSearch as any,
     firecrawl: firecrawlAgentTool,

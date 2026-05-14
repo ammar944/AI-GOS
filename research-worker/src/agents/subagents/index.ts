@@ -50,12 +50,15 @@ const SUBAGENT_OUTPUT = Output.object({
     'Final structured envelope for the positioning section. Populate every field; cite sourceUrl wherever possible.',
 });
 
-export const marketAgent = new ToolLoopAgent({
+/**
+ * Market Category gathers evidence only. ADR-0002 moves the typed Artifact
+ * emission to positioning-subagent-runner.ts via
+ * streamObject(MarketCategoryArtifactSchema) after this tool loop completes.
+ */
+export const marketCategoryAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: MARKET_CATEGORY_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningMarketCategory,
-  stopWhen: SUBAGENT_STEP_CAP,
-  output: SUBAGENT_OUTPUT,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningMarketCategory',
@@ -133,7 +136,7 @@ export const offerAgent = new ToolLoopAgent({
  * on Platform Skills per design Open Question 7.
  */
 export const POSITIONING_SUBAGENTS = {
-  positioningMarketCategory: marketAgent,
+  positioningMarketCategory: marketCategoryAgent,
   positioningBuyerICP: buyerIcpAgent,
   positioningCompetitorLandscape: competitorAgent,
   positioningVoiceOfCustomer: vocAgent,

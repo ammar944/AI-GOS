@@ -44,10 +44,29 @@ No `code_execution` tool. No `validate.py` in-loop. No per-brick artifact-builde
 
 Every Section's Artifact has the same top-level scalars:
 ```
-title, verdict { text, confidence }, sources: SourceSchema[]
+sectionTitle, verdict, statusSummary, confidence, sources: SourceSchema[]
 ```
 
 Below that: a fixed set of **named sub-sections** matching that Section's canonical bullets. Each sub-section is shaped `{ prose: markdown, <cards>: HomogeneousTypedCardArray }`. No global discriminated union of Card types — each sub-section's card array is exactly one type.
+
+### Market & Category Intelligence (Section 01) — 4 sub-sections
+
+| Sub-section | Card / nested type | Canonical bullet |
+|---|---|---|
+| `categoryDefinition` | `AdjacentCategorySchema[]` | "Category definition and the adjacent categories buyers confuse it with" |
+| `marketSize` | `MarketSizeSignalSchema[]` | "Market size and trajectory signals" |
+| `structuralForces` | `StructuralForceSchema[]` | "Structural forces moving the market" |
+| `categoryMaturity` | `MaturityClassificationSchema` | "Category maturity with evidence" |
+
+Section 01 has the first exception to the homogeneous-card-array pattern:
+`categoryMaturity.classification` is one nested classification object, not an
+array. The classification object carries `stage`, `evidenceSummary`, and
+`supportingSignals`.
+
+Section 01 port validation (2026-05-15): `eval:pilot:market-category -- --company
+Fellow --url https://fellow.app` passed in 412.9s with all 4 sub-sections
+present, 0 `code_execution` calls, and one post-validate retry. The final
+Artifact carried one duplicate-force validation gap inline rather than hiding it.
 
 ### BuyerICP (Section 02) example — 5 sub-sections
 
