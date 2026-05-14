@@ -36,12 +36,19 @@ def load_plan(path):
 
 
 def check_envelope(plan, errors):
-    if plan.get("cardType") != "buyer-icp-validation":
-        errors.append(f"cardType: expected 'buyer-icp-validation', got {plan.get('cardType')!r}")
+    # cardType is informational only — the worker's Output.object schema doesn't
+    # produce it. If present, sanity-check the value; otherwise skip.
+    card_type = plan.get("cardType")
+    if card_type is not None and card_type != "buyer-icp-validation":
+        errors.append(f"cardType: if present, expected 'buyer-icp-validation', got {card_type!r}")
     if not (plan.get("verdict") or "").strip():
         errors.append("verdict: missing or empty")
-    if len((plan.get("summary") or "")) < 50:
-        errors.append("summary: shorter than 50 chars")
+    # Accept either 'statusSummary' (worker schema) or 'summary' (SKILL.md prose).
+    summary = plan.get("statusSummary") or plan.get("summary") or ""
+    if len(summary) < 50:
+        errors.append(
+            "statusSummary: shorter than 50 chars — needs a real 2-4 sentence executive summary"
+        )
 
 
 def check_personas(plan, errors):

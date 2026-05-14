@@ -79,6 +79,12 @@ export const POSITIONING_TOOL_MAPS: {
     web_search: anthropicWebSearch as any,
     reviews: reviewsAgentTool,
     firecrawl: firecrawlAgentTool,
+    // PILOT — enables in-skill plan-validate-execute via scripts/validate.py.
+    // Agent writes validate.py + plan.json to /tmp and runs the validator in
+    // Anthropic's sandbox. See SKILL.md "Validator Source" section for the
+    // script the agent should write.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    code_execution: anthropicCodeExecution as any,
   },
   positioningCompetitorLandscape: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

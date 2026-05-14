@@ -27,6 +27,7 @@ import {
   VOICE_OF_CUSTOMER_INSTRUCTIONS,
 } from './_skill-loader';
 import { PositioningEnvelopeSchema } from './envelope-schema';
+import { BuyerICPSectionSchema } from './schemas/buyer-icp';
 
 const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
 // 13 = 12 prompt-instructed tool calls + 1 final structured-output step.
@@ -50,6 +51,18 @@ const SUBAGENT_OUTPUT = Output.object({
     'Final structured envelope for the positioning section. Populate every field; cite sourceUrl wherever possible.',
 });
 
+// PILOT — BuyerICP per-section schema. Adds rich fields (personas[],
+// icpAccountCounts{}, awarenessDistribution[], triggers[], clusters{}) that
+// scripts/validate.py enforces inside the agent's code_execution loop.
+// Other 5 subagents still use SUBAGENT_OUTPUT until this pattern is proven
+// in production, then they migrate one at a time.
+const BUYER_ICP_OUTPUT = Output.object({
+  schema: BuyerICPSectionSchema,
+  name: 'buyerIcpSection',
+  description:
+    'Final structured BuyerICP section with envelope core + rich fields (personas, icpAccountCounts, awarenessDistribution, triggers, clusters). The agent MUST validate this against scripts/validate.py via code_execution before emitting.',
+});
+
 export const marketAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: MARKET_CATEGORY_INSTRUCTIONS,
@@ -67,7 +80,7 @@ export const buyerIcpAgent = new ToolLoopAgent({
   instructions: BUYER_ICP_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningBuyerICP,
   stopWhen: SUBAGENT_STEP_CAP,
-  output: SUBAGENT_OUTPUT,
+  output: BUYER_ICP_OUTPUT,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningBuyerICP',

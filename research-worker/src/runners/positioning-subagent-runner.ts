@@ -273,6 +273,24 @@ ${refinedContext}`;
       sources: envelope.sources,
     };
 
+    // PILOT — BuyerICP per-section schema. The agent's output includes rich
+    // fields (personas, icpAccountCounts, awarenessDistribution, triggers,
+    // clusters) that envelope coercion would strip. Carry them through to
+    // persistence so the rich content is preserved for the markdown
+    // formatter and downstream renderer to consume.
+    if (spec.section === 'positioningBuyerICP') {
+      const rich = envelope as Record<string, unknown>;
+      for (const key of [
+        'personas',
+        'icpAccountCounts',
+        'awarenessDistribution',
+        'triggers',
+        'clusters',
+      ]) {
+        if (rich[key] !== undefined) finalEnvelope[key] = rich[key];
+      }
+    }
+
     const markdown = formatJourneySectionArtifactMarkdown(finalEnvelope, spec);
 
     await emitRunnerProgress(onProgress, 'output', `${sectionTitle} complete`);
