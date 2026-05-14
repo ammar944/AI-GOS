@@ -26,6 +26,7 @@ import {
   type AuditArtifact,
   type ZoneStatus,
 } from '@/lib/research-v2/audit-artifact-schema';
+import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
 
 type ResearchJobActivityState = {
   status?: 'running' | 'complete' | 'error' | 'idle' | string;
@@ -40,7 +41,7 @@ export type ResearchJobActivityMap = Partial<
 type RawSectionRow = {
   status?: string | null;
   data?: unknown;
-  artifact?: { markdown?: string | null } | null;
+  artifact?: { markdown?: string | null; data?: unknown; typedArtifact?: unknown } | null;
   error?: string | null;
   citations?: unknown;
 };
@@ -55,6 +56,9 @@ export type ArtifactSectionRow = {
   claims: unknown;
   sources: unknown;
   error: unknown;
+  data?: unknown;
+  artifact?: unknown;
+  typedArtifact?: unknown;
   updated_at: string | null;
 };
 
@@ -125,6 +129,179 @@ function projectNarrative(row: RawSectionRow | null | undefined): string {
     }
   }
   return '';
+}
+
+type BuyerICPTypedZone = ArtifactZone & {
+  buyerIcpArtifact?: BuyerICPArtifact;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || isString(value);
+}
+
+function isSource(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.title) &&
+    isString(value.url) &&
+    isOptionalString(value.whyItMatters) &&
+    isOptionalString(value.accessedAt)
+  );
+}
+
+function isFirmographicCut(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.cutType) &&
+    isString(value.value) &&
+    isOptionalString(value.accountCount) &&
+    isString(value.source) &&
+    isString(value.sourceUrl) &&
+    isString(value.dateObserved)
+  );
+}
+
+function isPersona(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.name) &&
+    isString(value.title) &&
+    isString(value.company) &&
+    isString(value.sourceUrl) &&
+    isString(value.role) &&
+    isString(value.seniority) &&
+    isOptionalString(value.teamSize) &&
+    isString(value.evidence)
+  );
+}
+
+function isAwarenessLevel(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.level) &&
+    isString(value.share) &&
+    isString(value.evidence) &&
+    isOptionalString(value.sampleQuery)
+  );
+}
+
+function isTrigger(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.name) &&
+    isString(value.detectionSignal) &&
+    isString(value.window) &&
+    isString(value.evidence) &&
+    isOptionalString(value.sourceUrl)
+  );
+}
+
+function isClusterVenue(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.bucketType) &&
+    isString(value.name) &&
+    isString(value.audienceSize) &&
+    isString(value.sourceUrl) &&
+    isString(value.whyItMatters)
+  );
+}
+
+function isArrayOf(
+  value: unknown,
+  predicate: (item: unknown) => boolean,
+): boolean {
+  return Array.isArray(value) && value.every(predicate);
+}
+
+function isBuyerICPArtifact(value: unknown): value is BuyerICPArtifact {
+  if (!isRecord(value)) return false;
+  if (
+    !isString(value.sectionTitle) ||
+    !isString(value.verdict) ||
+    !isString(value.statusSummary) ||
+    typeof value.confidence !== 'number' ||
+    !isArrayOf(value.sources, isSource)
+  ) {
+    return false;
+  }
+
+  const icpExistenceCheck = value.icpExistenceCheck;
+  const personaReality = value.personaReality;
+  const awarenessDistribution = value.awarenessDistribution;
+  const buyingContext = value.buyingContext;
+  const clusters = value.clusters;
+
+  return (
+    isRecord(icpExistenceCheck) &&
+    isString(icpExistenceCheck.prose) &&
+    isArrayOf(icpExistenceCheck.firmographicCuts, isFirmographicCut) &&
+    isRecord(personaReality) &&
+    isString(personaReality.prose) &&
+    isArrayOf(personaReality.personas, isPersona) &&
+    isRecord(awarenessDistribution) &&
+    isString(awarenessDistribution.prose) &&
+    isArrayOf(awarenessDistribution.levels, isAwarenessLevel) &&
+    isRecord(buyingContext) &&
+    isString(buyingContext.prose) &&
+    isArrayOf(buyingContext.triggers, isTrigger) &&
+    isRecord(clusters) &&
+    isString(clusters.prose) &&
+    isArrayOf(clusters.venues, isClusterVenue)
+  );
+}
+
+function unwrapBuyerICPArtifact(value: unknown): BuyerICPArtifact | null {
+  if (isBuyerICPArtifact(value)) return value;
+  if (!isRecord(value)) return null;
+
+  const candidates = [
+    value.data,
+    value.artifact,
+    value.typedArtifact,
+    value.buyerIcpArtifact,
+  ];
+
+  for (const candidate of candidates) {
+    if (isBuyerICPArtifact(candidate)) return candidate;
+    if (isRecord(candidate)) {
+      const nested = unwrapBuyerICPArtifact(candidate);
+      if (nested) return nested;
+    }
+  }
+
+  return null;
+}
+
+function projectBuyerICPArtifact(
+  zoneId: string,
+  ...candidates: readonly unknown[]
+): BuyerICPArtifact | null {
+  if (zoneId !== 'positioningBuyerICP') return null;
+  for (const candidate of candidates) {
+    const artifact = unwrapBuyerICPArtifact(candidate);
+    if (artifact) return artifact;
+  }
+  return null;
+}
+
+function withBuyerICPArtifact(
+  zone: ArtifactZone,
+  artifact: BuyerICPArtifact | null,
+): ArtifactZone {
+  if (!artifact) return zone;
+  return {
+    ...zone,
+    buyerIcpArtifact: artifact,
+  } as BuyerICPTypedZone;
 }
 
 function isKeyFinding(value: unknown): value is SectionKeyFinding {
@@ -393,6 +570,7 @@ function projectZoneFromNormalized(
   normalized: ArtifactSectionRow,
   job: ResearchJobActivityState | undefined,
   legacyError: string | null,
+  buyerIcpArtifact: BuyerICPArtifact | null,
 ): ArtifactZone {
   const claims = Array.isArray(normalized.claims)
     ? (normalized.claims as ArtifactClaim[])
@@ -426,7 +604,7 @@ function projectZoneFromNormalized(
       ? normalized.markdown
       : null;
 
-  return {
+  return withBuyerICPArtifact({
     zone: zoneId,
     sectionRunId: normalized.section_run_id ?? job?.jobId ?? null,
     revision: typeof normalized.revision === 'number' ? normalized.revision : 0,
@@ -443,7 +621,7 @@ function projectZoneFromNormalized(
     partialAt,
     errorPartial,
     partialNarrative,
-  };
+  }, buyerIcpArtifact);
 }
 
 export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
@@ -457,11 +635,17 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
       const legacyRow = (input.researchResults?.[zoneId] ?? null) as
         | RawSectionRow
         | null;
+      const buyerIcpArtifact = projectBuyerICPArtifact(
+        zoneId,
+        normalized,
+        legacyRow,
+      );
       zones[zoneId] = projectZoneFromNormalized(
         zoneId,
         normalized,
         job,
         legacyRow?.error ?? null,
+        buyerIcpArtifact,
       );
       continue;
     }
@@ -482,7 +666,7 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
     const claims = projectClaims(row);
     const sources = projectSources(zoneId, row);
 
-    zones[zoneId] = {
+    zones[zoneId] = withBuyerICPArtifact({
       zone: zoneId,
       sectionRunId: job?.jobId ?? null,
       revision: 0,
@@ -496,7 +680,7 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
       partialAt: null,
       errorPartial: false,
       partialNarrative: null,
-    };
+    }, projectBuyerICPArtifact(zoneId, row));
   }
 
   return {
