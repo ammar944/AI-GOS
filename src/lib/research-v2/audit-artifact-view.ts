@@ -222,7 +222,7 @@ function isArrayOf(
   return Array.isArray(value) && value.every(predicate);
 }
 
-function isBuyerICPArtifact(value: unknown): value is BuyerICPArtifact {
+export function isBuyerICPArtifact(value: unknown): value is BuyerICPArtifact {
   if (!isRecord(value)) return false;
   if (
     !isString(value.sectionTitle) ||

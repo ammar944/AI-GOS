@@ -15,8 +15,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { POSITIONING_SECTION_IDS, POSITIONING_SECTION_LABELS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { isBuyerICPArtifact } from '@/lib/research-v2/audit-artifact-view';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
+import { BuyerICPArtifactRenderer } from './buyer-icp';
 
 export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted';
 
@@ -364,7 +366,7 @@ function WorkerChipsRow({ states }: { states: WorkerChipState[] }) {
 
 interface SectionContentListProps {
   statusByZone: Record<string, WorkerChipStatus>;
-  sectionsByZone: Record<string, { markdown?: string; title?: string }>;
+  sectionsByZone: Record<string, { markdown?: string; title?: string; data?: unknown }>;
   eventsByZone: Record<string, SectionActivityEvent[]>;
 }
 
@@ -444,7 +446,7 @@ function ZoneActivity({ events }: { events: SectionActivityEvent[] }) {
 
 function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: SectionContentListProps) {
   const anyComplete = Object.values(sectionsByZone).some(
-    (s) => s && (s.markdown || s.title),
+    (s) => s && (s.markdown || s.title || s.data),
   );
 
   if (!anyComplete) {
@@ -491,7 +493,11 @@ function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: Sect
       {POSITIONING_SECTION_IDS.map((zone) => {
         const status = statusByZone[zone] ?? 'queued';
         const body = sectionsByZone[zone];
-        const isComplete = Boolean(body && (body.markdown || body.title));
+        const isComplete = Boolean(body && (body.markdown || body.title || body.data));
+        const buyerIcpArtifact =
+          zone === 'positioningBuyerICP' && isBuyerICPArtifact(body?.data)
+            ? body.data
+            : null;
         if (isComplete) {
           return (
             <section
@@ -508,12 +514,16 @@ function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: Sect
                   complete
                 </span>
               </header>
-              <div
-                className="whitespace-pre-wrap text-[14px] leading-[1.6] text-[color:var(--text-2)]"
-                data-testid={`artifact-section-body-${zone}`}
-              >
-                {body?.markdown ?? ''}
-              </div>
+              {buyerIcpArtifact ? (
+                <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
+              ) : (
+                <div
+                  className="whitespace-pre-wrap text-[14px] leading-[1.6] text-[color:var(--text-2)]"
+                  data-testid={`artifact-section-body-${zone}`}
+                >
+                  {body?.markdown ?? ''}
+                </div>
+              )}
             </section>
           );
         }

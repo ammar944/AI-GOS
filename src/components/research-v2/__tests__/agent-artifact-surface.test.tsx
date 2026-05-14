@@ -1,8 +1,11 @@
 /** @vitest-environment jsdom */
 import { render, fireEvent, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentArtifactSurface } from '../agent-artifact-surface';
+import { buyerIcpArtifactFixture } from '../buyer-icp/__tests__/test-fixtures';
+
+const useAuditStateMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../audit-artifact-canvas', () => ({
   AuditArtifactCanvas: ({ runId }: { runId: string }) => (
@@ -10,7 +13,25 @@ vi.mock('../audit-artifact-canvas', () => ({
   ),
 }));
 
+vi.mock('@/lib/research-v2/use-audit-state', () => ({
+  useAuditState: useAuditStateMock,
+}));
+
+const EMPTY_AUDIT_STATE = {
+  parent_audit_run_id: null,
+  parent_status: null,
+  children_complete: 0,
+  children_total: 0,
+  workerStates: [],
+  sectionsByZone: {},
+  eventsByZone: {},
+};
+
 describe('AgentArtifactSurface', () => {
+  beforeEach(() => {
+    useAuditStateMock.mockReturnValue(EMPTY_AUDIT_STATE);
+  });
+
   it('renders the centered composer with no left/right rails', () => {
     render(<AgentArtifactSurface runId="run-abc" />);
     expect(screen.getByTestId('composer')).toBeTruthy();
@@ -71,5 +92,33 @@ describe('AgentArtifactSurface', () => {
     expect(
       screen.getByTestId('worker-chip-positioningBuyerICP').getAttribute('data-status'),
     ).toBe('complete');
+  });
+
+  it('renders typed BuyerICP cards from audit-state instead of the markdown fallback', () => {
+    useAuditStateMock.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: 'parent-run',
+      workerStates: [
+        { section_id: 'positioningMarketCategory', status: 'queued' },
+        { section_id: 'positioningBuyerICP', status: 'complete' },
+        { section_id: 'positioningCompetitorLandscape', status: 'queued' },
+        { section_id: 'positioningVoiceOfCustomer', status: 'queued' },
+        { section_id: 'positioningDemandIntent', status: 'queued' },
+        { section_id: 'positioningOfferDiagnostic', status: 'queued' },
+      ],
+      sectionsByZone: {
+        positioningBuyerICP: {
+          title: buyerIcpArtifactFixture.sectionTitle,
+          markdown: 'markdown fallback should not render',
+          data: buyerIcpArtifactFixture,
+        },
+      },
+    });
+
+    render(<AgentArtifactSurface runId="run-abc" />);
+
+    expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
+    expect(screen.getByText('Confidence 8/10')).toBeInTheDocument();
+    expect(screen.queryByText('markdown fallback should not render')).toBeNull();
   });
 });

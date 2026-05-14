@@ -36,7 +36,10 @@ export interface AuditStateResponse {
     section_id: PositioningSectionId;
     status: WorkerStatus;
   }>;
-  sectionsByZone: Record<string, { markdown?: string; title?: string }>;
+  sectionsByZone: Record<
+    string,
+    { markdown?: string; title?: string; data?: unknown }
+  >;
   /**
    * P2a — live agent-activity feed per zone. Up to the 12 most recent
    * events per zone, ordered ascending so a render-time `.slice(-N)` is
@@ -47,6 +50,20 @@ export interface AuditStateResponse {
 }
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function pickSectionData(
+  researchResults: unknown,
+  zone: string,
+): unknown | null {
+  if (!isRecord(researchResults)) return null;
+  const section = researchResults[zone];
+  if (!isRecord(section)) return null;
+  return section.data ?? null;
+}
 
 function normalizeStatus(raw: unknown): WorkerStatus {
   if (typeof raw !== 'string') return 'queued';
@@ -100,7 +117,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   const parentId = parent.id as string;
 
-  const [runsResp, sectionsResp, eventsResp] = await Promise.all([
+  const [runsResp, sectionsResp, eventsResp, sessionResp] = await Promise.all([
     supabase
       .from('research_section_runs')
       .select('zone, status, started_at')
@@ -119,6 +136,12 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .eq('artifact_id', parentId)
       .order('created_at', { ascending: false })
       .limit(60),
+    supabase
+      .from('journey_sessions')
+      .select('research_results')
+      .eq('user_id', userId)
+      .eq('run_id', runId)
+      .maybeSingle(),
   ]);
 
   if (runsResp.error || sectionsResp.error) {
@@ -131,6 +154,12 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   if (eventsResp.error) {
     // Events are best-effort — log and continue with empty events.
     console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
+  }
+  if (sessionResp.error) {
+    console.warn(
+      '[audit-state] journey session lookup failed:',
+      sessionResp.error.message,
+    );
   }
 
   // Pick the most recent non-terminal run per zone for the chip; fall back
@@ -150,16 +179,22 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     }
   }
 
-  const sectionsByZone: Record<string, { markdown?: string; title?: string }> = {};
+  const researchResults = sessionResp.data?.research_results ?? null;
+  const sectionsByZone: AuditStateResponse['sectionsByZone'] = {};
   for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
     const status = row.status as string | null;
     const title = row.title as string | null | undefined;
     const markdown = row.markdown as string | null | undefined;
-    if (status === 'complete' && (markdown || title)) {
+    const typedData =
+      zone === 'positioningBuyerICP'
+        ? pickSectionData(researchResults, zone)
+        : null;
+    if (status === 'complete' && (markdown || title || typedData)) {
       sectionsByZone[zone] = {
         ...(title ? { title } : {}),
         ...(markdown ? { markdown } : {}),
+        ...(typedData ? { data: typedData } : {}),
       };
     }
   }
