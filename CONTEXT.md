@@ -1,6 +1,6 @@
 # AI-GOS Domain Context
 
-AI-GOS is a Manus-for-GTM-SaaS product: a user submits a company URL and receives a deeply researched **Pre-Pitch Positioning Audit** — six positioning **Sections**, each produced by an autonomous **Subagent** that streams a structured **Artifact** of text and **Cards** the user can read, share, and act on.
+AI-GOS is a Manus-for-GTM-SaaS product: a user submits a company URL and receives a deeply researched **Pre-Pitch Positioning Audit** — six positioning **Sections** produced by autonomous **Subagents** and presented in the **Workspace** as a readable **Audit**.
 
 This document is the project glossary. It defines the domain terms that load-bear the codebase. Implementation details belong in `docs/architecture/`; design decisions belong in `docs/adr/`. The canonical sub-section structure for each Section lives in `docs/research-sections.md` and overrides any conflicting interpretation here.
 
@@ -8,24 +8,32 @@ This document is the project glossary. It defines the domain terms that load-bea
 
 Full details in `docs/architecture/2026-05-14-positioning-audit-stack.md`. One-paragraph summary so this file is the single entry point.
 
-**Stack:** Next.js 16 (Workspace UI) → Railway research-worker (Subagents) → Anthropic API via **AI SDK v6**. The Workspace polls Supabase tables for live state. Skills are local `SKILL.md` files loaded into Subagent system instructions at worker boot via `_skill-loader.ts`. Each Subagent emits its Section's Artifact via **`streamObject(SectionArtifactSchema)`** — one structured output per Section, schema-enforced at the provider boundary, post-validated for cardinality minimums by the runner. The agent loop is **AI SDK v6's `ToolLoopAgent`** — provider-agnostic. Model swap is a config change, not a skill rewrite (ADR-0003).
+**Stack:** Next.js 16 (Workspace UI) -> Railway research-worker (Subagents) -> Anthropic API via **AI SDK v6**. The Workspace polls Supabase tables for live state. Skills are local `SKILL.md` files loaded into Subagent system instructions at worker boot via `_skill-loader.ts`. The accepted target is one structured **Artifact** per Section via **`streamObject(SectionArtifactSchema)`**, schema-enforced at the provider boundary and post-validated for cardinality minimums by the runner. The agent loop is **AI SDK v6's `ToolLoopAgent`** — provider-agnostic. Model swap should be a config change, not a skill rewrite (ADR-0003).
+
+**Current implementation status (2026-05-15):**
+- Section 01, **Market & Category Intelligence**, is ported to `MarketCategoryArtifactSchema`, `streamObject`, runner-side minimum validation, and a rewritten local Skill.
+- Section 02, **Buyer & ICP Validation**, is ported to `BuyerICPArtifactSchema`, `streamObject`, runner-side minimum validation, and a rewritten local Skill.
+- Sections 03-06 still use the transitional `PositioningEnvelopeSchema` / `Output.object` path and several legacy Skills still mention `plan.json` / `scripts/validate.py`. Do not copy that pattern into new work.
+- The active Workspace currently polls `/api/research-v2/audit-state` and renders committed Section `title` / `markdown` from `research_artifact_sections`. Typed Card rendering is the target, not yet the live renderer for all Sections.
 
 **Load-bearing pieces:**
 - AI SDK v6 `ToolLoopAgent` — agent loop (`research-worker/src/agents/subagents/index.ts`)
-- AI SDK v6 `streamObject(schema)` — typed Artifact output; Zod schemas in `research-worker/src/agents/subagents/schemas/`
+- AI SDK v6 `streamObject(schema)` — typed Artifact output for ported Sections; Zod schemas in `research-worker/src/agents/subagents/schemas/`
 - Local SKILL.md harness — `research-worker/platform-skills/<skill>/SKILL.md`, loaded by `_skill-loader.ts`
 - Runner-side post-validate — enforces cardinality minimums (Anthropic rejects `.min()/.max()` on structured-output schemas); one retry with feedback on failure, then emit-with-gaps
-- Per-Section bespoke schemas driven by `docs/research-sections.md` — no generic envelope
+- Per-Section bespoke schemas driven by `docs/research-sections.md` — no new generic envelope work; `PositioningEnvelopeSchema` is transitional legacy for unported Sections only
 - Supabase persistence: `research_artifacts`, `research_section_runs`, `research_artifact_sections`, `research_section_events`
 - Workspace UI: `AgentArtifactSurface` polls `/api/research-v2/audit-state`
 
-**Anti-stack — what we deliberately don't use:**
+**Anti-stack — accepted target for new work and completed ports:**
 - ❌ No Anthropic Platform Skills `.zip` uploads (ADR-0003)
-- ❌ No `code_execution` tool / `validate.py` in-loop (ADR-0002)
-- ❌ No `Output.object` with generic envelope (`findings + quotes + risks + moves`) (ADR-0002)
+- ❌ No new `code_execution` tool / `validate.py` in-loop (ADR-0002)
+- ❌ No new `Output.object` work with generic envelope (`findings + quotes + risks + moves`) (ADR-0002)
 - ❌ No per-brick artifact-builder tools (`add_persona`, `set_verdict`) (ADR-0002, supersedes ADR-0001)
 - ❌ No discriminated unions of Card types in arrays — each sub-section's array is homogeneous
 - ❌ No Anthropic-specific patterns at the framework layer — AI SDK v6 abstractions throughout
+
+Known drift: Offer Diagnostic still has a `code_execution` tool in its map, and Sections 03-06 still have legacy Skill language around `validate.py`. Treat those as cleanup targets during each Section port, not as current architecture.
 
 ## Language
 
@@ -38,7 +46,7 @@ One of the six positioning research units that compose an Audit. The fixed set i
 _Avoid_: Card (a Card is a typed entry inside a sub-section), report, chunk, module
 
 **Subagent**:
-A `ToolLoopAgent` instance (AI SDK v6) that runs one Section. Each Subagent is bound to one Skill, one section-specific Artifact schema, and a tool map of research tools. Lives in `research-worker/src/agents/subagents/`.
+A `ToolLoopAgent` instance (AI SDK v6) that runs one Section. Each Subagent is bound to one Skill and a tool map of research tools. Ported Subagents also bind to one section-specific Artifact schema through the runner's `streamObject` step. Lives in `research-worker/src/agents/subagents/`.
 _Avoid_: Agent (too generic — also describes the orchestrator), worker, runner
 
 **Skill**:
@@ -46,7 +54,7 @@ A `SKILL.md` file under `research-worker/platform-skills/` that defines a Sectio
 _Avoid_: Prompt (skill is broader — includes workflow + schema), system message
 
 **Artifact**:
-The structured deliverable a Section produces — one typed object containing top-level scalars (`title`, `verdict`, `confidence`, `sources`) and a set of named **sub-sections** matching the Section's canonical structure (per `docs/research-sections.md`). Each sub-section has its own `prose` markdown narrative and one or more homogeneous typed Card arrays. Streams to the Workspace via `streamObject(SectionArtifactSchema)` as the Subagent works. The Artifact IS the Section's output. There is no separate "report" or "envelope."
+The structured deliverable a ported Section produces — one typed object containing top-level scalars (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`) and a set of named **sub-sections** matching the Section's canonical structure (per `docs/research-sections.md`). Each sub-section has its own `prose` markdown narrative and one or more homogeneous typed Card arrays, except explicit schema-owned single-object fields such as Market Category's `categoryMaturity.classification`. The Artifact IS the Section's target output. There is no new "report" or "envelope" contract.
 _Avoid_: Report, card collection, markdown blob, envelope
 
 **Sub-section**:
@@ -58,7 +66,7 @@ The free-form markdown narrative inside one sub-section of an Artifact. The Suba
 _Avoid_: Body, text, content (too generic)
 
 **Card**:
-One typed entry inside a sub-section's typed card array (e.g., `personaReality.personas`, `clusters.venues`). Each sub-section's card array is **homogeneous** — one Card type per array, no discriminated union of card types. Each Card has a typed shape defined by the Section's Artifact schema (e.g., `PersonaSchema`, `FirmographicCutSchema`). Renders as one shadcn component on the Workspace surface.
+One typed entry inside a sub-section's typed card array (e.g., `personaReality.personas`, `clusters.venues`). Each sub-section's card array is **homogeneous** — one Card type per array, no discriminated union of card types. Each Card has a typed shape defined by the Section's Artifact schema (e.g., `PersonaSchema`, `FirmographicCutSchema`). Card-level rendering in the Workspace is the target UI shape; the live Workspace still renders committed Section markdown for some flows.
 _Avoid_: UI brick (prior name — do not use in new code), block, widget, component (too generic)
 
 **Workspace**:
@@ -74,20 +82,21 @@ Briefly proposed in ADR-0001 (one tool per UI brick), superseded by ADR-0002 (on
 _Avoid_: Use **Artifact** + **Sub-section** + **Card** instead.
 
 **Envelope** _(deprecated)_:
-Legacy generic `{verdict, statusSummary, findings, quotes, risks, moves, sources}` shape used as an `Output.object` final-output contract across all 6 Sections. Forced every Section into the same flow regardless of its canonical structure. Being replaced by per-Section Artifacts whose sub-sections come from `docs/research-sections.md`.
+Legacy generic `{verdict, statusSummary, findings, quotes, risks, moves, sources}` shape used as an `Output.object` final-output contract before the per-Section Artifact port. It forced every Section into the same flow regardless of its canonical structure. Sections 03-06 still use this as migration state until they are ported.
 _Avoid_: Use Artifact + Sub-section instead.
 
 ## Relationships
 
 - One **Audit** contains six **Sections** (fixed set, ordered)
 - Each **Section** is produced by exactly one **Subagent**
-- Each **Subagent** is bound to exactly one **Skill** and one section-specific Artifact schema
-- Each **Subagent** produces exactly one **Artifact** per run
-- Each **Artifact** contains top-level scalars (`title`, `verdict`, `confidence`, `sources`) and a fixed set of named **sub-sections** matching `docs/research-sections.md`
+- Each **Subagent** is bound to exactly one **Skill** and one research tool map
+- Each ported **Subagent** produces exactly one **Artifact** per run via a section-specific Artifact schema
+- Each **Artifact** contains top-level scalars (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`) and a fixed set of named **sub-sections** matching `docs/research-sections.md`
 - Each **sub-section** has its own `prose` markdown narrative and one or more **homogeneous** typed Card arrays — no global discriminated union of Card types
 - Each **Card** lives in exactly one sub-section's card array
-- The Subagent emits the Artifact via one `streamObject(schema)` call; structure comes from the schema, not from individual tool calls
+- Ported Sections emit the Artifact via one runner-owned `streamObject(schema)` call after the evidence loop; structure comes from the schema, not from individual tool calls
 - The **Workspace** renders one Audit at a time, with one Artifact pane per Section
+- Legacy Sections 03-06 still emit `PositioningEnvelopeSchema` until ported; this is migration state, not target architecture
 
 ## Example dialogue
 
@@ -105,7 +114,7 @@ _Avoid_: Use Artifact + Sub-section instead.
 >
 > **Dev:** "And the live activity feed — is that a separate stream?"
 >
-> **Domain expert:** "Different stream, different view. The activity feed shows research tool calls (`web_search`, `firecrawl`) the Subagent makes while gathering evidence. The Artifact pane shows the `streamObject` output as it materializes — title arrives first, then each sub-section populates (prose tokens, then its cards). Two streams, two views, both live."
+> **Domain expert:** "Different stream, different view. The activity feed shows research tool calls (`web_search`, `firecrawl`) the Subagent makes while gathering evidence. For ported Sections, the runner then converts the evidence transcript into one typed Artifact with `streamObject`. The current Workspace commits and renders Section markdown; the typed Card renderer is the target next layer."
 
 ## Flagged ambiguities
 

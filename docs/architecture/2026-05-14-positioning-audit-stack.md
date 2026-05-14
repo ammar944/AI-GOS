@@ -12,12 +12,12 @@ This doc is read first before code changes touching subagents, schemas, skills, 
 |---|---|---|
 | Workspace UI | Next.js 16 + shadcn/ui (new-york) + Tailwind CSS v4 | `src/app/research-v2/`, `src/components/research-v2/` |
 | Agent loop | **AI SDK v6 — `ToolLoopAgent`** | `research-worker/src/agents/subagents/index.ts` |
-| Structured output | **AI SDK v6 — `streamObject(schema)`** with Zod schemas | invoked from runner per Section |
-| Provider | Anthropic Claude (Opus 4.7 currently); **swappable** via provider config | `src/lib/ai/providers.ts`, `research-worker/src/agents/subagents/index.ts` |
+| Structured output | **AI SDK v6 — `streamObject(schema)`** with Zod schemas | invoked from runner for ported Sections |
+| Provider | Anthropic Claude (`claude-opus-4-6` currently); **swappable** via provider config | `src/lib/ai/providers.ts`, `research-worker/src/agents/subagents/index.ts` |
 | Skill harness | **Local `SKILL.md` files**, loaded into Subagent system instructions at worker boot | `research-worker/platform-skills/<skill>/SKILL.md`, loaded by `_skill-loader.ts` |
 | Research tools | `web_search`, `firecrawl`, `reviews` (per-Section tool map) | `research-worker/src/agents/subagents/index.ts` |
-| Streaming to UI | SSE / partial JSON via `streamObject`'s `partialObjectStream` | runner → Supabase → `/api/research-v2/audit-state` → client poll |
-| Persistence | Supabase tables `research_artifacts` (parent run), `research_section_runs` (per-Section), `research_artifact_sections` (per-Section Artifact JSON), `research_section_events` (live activity log) | worker writes via `research-worker/src/db/artifact-runs.ts` |
+| Streaming to UI | activity events plus committed Section projection | runner -> Supabase -> `/api/research-v2/audit-state` -> client poll |
+| Persistence | Supabase tables `research_artifacts` (parent run), `research_section_runs` (per-Section), `research_artifact_sections` (per-Section projection), `research_section_events` (live activity log) | worker writes via `research-worker/src/db/artifact-runs.ts` and `research-worker/src/supabase.ts` |
 | Workspace pane | `AgentArtifactSurface` polls `/api/research-v2/audit-state` | `src/components/research-v2/agent-artifact-surface.tsx` |
 | Auth | Clerk (workspace), `RAILWAY_API_KEY` (worker dispatch) | `src/middleware.ts`, `src/app/api/research-v2/dispatch/route.ts` |
 
@@ -25,16 +25,31 @@ This doc is read first before code changes touching subagents, schemas, skills, 
 
 ## Agent shape (per Section)
 
-Each of the 6 Sections is produced by exactly one Subagent — a `ToolLoopAgent` instance. The Subagent:
+Each of the 6 Sections is produced by exactly one Subagent — a `ToolLoopAgent` instance. The accepted target shape for a ported Section is:
 
 1. **Boot:** `_skill-loader.ts` reads its `SKILL.md` from local disk; content is injected into the Subagent's `system` instructions
 2. **Run:** Receives `businessContext` + (optional) `sharedCorpus` from the orchestrator
 3. **Gather:** Calls research tools (`web_search`, `firecrawl`, `reviews`) to build evidence — these are normal AI SDK tools in the Subagent's tool map
-4. **Emit:** Produces ONE structured Artifact via `streamObject(SectionArtifactSchema)`. Provider-agnostic. Schema enforced at the AI SDK + provider boundary
+4. **Emit:** Produces ONE structured Artifact via runner-owned `streamObject(SectionArtifactSchema)`. Provider-agnostic. Schema enforced at the AI SDK + provider boundary
 5. **Validate:** Runner post-validates cardinality minimums (the rules SKILL.md describes in prose). On failure: ONE retry with the validator's errors fed back as a feedback message; persistent failure → emit-with-gaps flagged in the relevant sub-section's prose
-6. **Stream to UI:** Partial object streams to Supabase → frontend polls → `AgentArtifactSurface` renders incrementally
+6. **Commit to UI projection:** final Artifact is projected into `research_artifact_sections`; activity events stream separately through `research_section_events`
 
-No `code_execution` tool. No `validate.py` in-loop. No per-brick artifact-builder tools. Structure comes from the schema, not from tool calls.
+No new `code_execution` tool. No `validate.py` in-loop. No per-brick artifact-builder tools. Structure comes from the schema, not from tool calls.
+
+## Current implementation status (2026-05-15)
+
+The architecture is mid-port, not fully landed across all 6 Sections.
+
+| Section | Runtime status | Schema / Skill status |
+|---|---|---|
+| 01. Market & Category Intelligence | Ported evidence loop -> `streamObject(MarketCategoryArtifactSchema)` | `market-category.ts`, rewritten local Skill, `eval:pilot:market-category` |
+| 02. Buyer & ICP Validation | Ported evidence loop -> `streamObject(BuyerICPArtifactSchema)` | `buyer-icp.ts`, rewritten local Skill, `eval:pilot:buyer-icp` |
+| 03. Competitor Landscape & Positioning | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py` |
+| 04. Voice of Customer & Objection Evidence | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py` |
+| 05. Demand & Intent Signals | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py` |
+| 06. Offer & Performance Diagnostic | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py`; tool map still contains `code_execution` |
+
+Do not treat the legacy Envelope path as the architecture. It is migration state while each remaining Section is ported to its own Artifact schema and rewritten Skill.
 
 ---
 
@@ -78,7 +93,7 @@ Artifact carried one duplicate-force validation gap inline rather than hiding it
 | `buyingContext` | `TriggerSchema[]` | "Buying context — observable triggers" |
 | `clusters` | `ClusterVenueSchema[]` | "Where they actually cluster" |
 
-Other Sections (Market & Category, Competitor Landscape, VoC, Demand & Intent, Offer Diagnostic) follow the same pattern — sub-sections per their canonical bullets, each with its own homogeneous Card type.
+Remaining Section ports should follow the same pattern — sub-sections per their canonical bullets, each with its own homogeneous Card type unless the Section schema explicitly owns a single-object field like `categoryMaturity.classification`.
 
 ---
 
@@ -130,8 +145,8 @@ Our extension beyond the public state of the art: typed Card schemas + Zod-enfor
 ## What's NOT in the stack
 
 - ❌ **Anthropic Platform Skills `.zip` uploads** — ADR-0003. The `platform-skills/*.zip` files are dead artifacts.
-- ❌ **`code_execution` tool / `validate.py` in-loop** — ADR-0002. Replaced by runner-side post-validate.
-- ❌ **`Output.object` with generic envelope** (`verdict + findings + quotes + risks + moves`) — ADR-0002.
+- ❌ **`code_execution` tool / `validate.py` in-loop** — ADR-0002. Replaced by runner-side post-validate in ported Sections.
+- ❌ **New `Output.object` work with generic envelope** (`verdict + findings + quotes + risks + moves`) — ADR-0002. Existing unported Sections still use this temporarily.
 - ❌ **Per-brick artifact-builder tools** (`add_persona`, `set_verdict`, etc.) — ADR-0002.
 - ❌ **Discriminated unions of Card types in arrays** — ADR-0002 consequence. Each sub-section's Card array is homogeneous.
 - ❌ **`Output.object` reach-around via `code_execution` stdout parsing** — ADR-0002. Runner reads Subagent output via `streamObject`, period.
@@ -140,15 +155,13 @@ Our extension beyond the public state of the art: typed Card schemas + Zod-enfor
 
 ---
 
-## Execution-ready next moves (BuyerICP spike)
+## Execution-ready next moves
 
-1. Rewrite `research-worker/src/agents/subagents/schemas/buyer-icp.ts` — new `BuyerICPArtifactSchema` (5 sub-sections, granular Persona enums, fixed Card field gaps); export `validateBuyerICPMinimums` next to it
-2. Rewrite `research-worker/platform-skills/ai-gos-buyer-icp-validation/SKILL.md` — new structural template; drop validate.py / Output Contract / plan-validate-emit envelope language
-3. Rewrite the BuyerICP Subagent in `research-worker/src/agents/subagents/index.ts` — switch from `Output.object` to `streamObject(BuyerICPArtifactSchema)`, drop the `code_execution` tool from the BuyerICP tool map
-4. Wire post-validate into the runner — call after `streamObject` returns; one retry on failure with errors as feedback; then emit-with-gaps
-5. Rewrite `research-worker/evals/pilot-buyer-icp.ts` — new pass criteria (streamObject completes, artifact parses, 5 sub-sections present, minimums pass post-validate)
-6. Run the pilot, iterate until the artifact lands cleanly on a known company
-7. Port to the other 5 Sections one at a time, each driven by its own canonical sub-section list in `docs/research-sections.md`
+1. Port Section 03, Competitor Landscape & Positioning, to a bespoke Artifact schema and rewritten Skill.
+2. Remove `plan.json` / `scripts/validate.py` language from each Section as it is ported.
+3. Remove Offer Diagnostic's `code_execution` tool when Section 06 is ported.
+4. Keep `PositioningEnvelopeSchema` only as a temporary Adapter for unported Sections.
+5. After all six Sections are ported, delete the legacy Envelope path and update the Workspace projection to render typed sub-sections and Cards directly.
 
 ---
 
