@@ -13,17 +13,16 @@
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, Output, streamObject } from 'ai';
+import { streamObject } from 'ai';
 
 import { emitRunnerProgress, type RunnerProgressReporter } from '../runner';
 import { type ResearchResult } from '../supabase';
 import { composeAbortSignals } from '../agent-tools/_shared';
 import {
   POSITIONING_SUBAGENTS,
+  type PositioningSubagentId,
   isPositioningSubagentId,
 } from '../agents/subagents';
-import * as positioningEnvelopeModule from '../agents/subagents/envelope-schema';
-import { type PositioningEnvelope } from '../agents/subagents/envelope-schema';
 import {
   BuyerICPArtifactSchema,
   validateBuyerICPMinimums,
@@ -56,98 +55,16 @@ import {
 } from '../agents/subagents/schemas/voc-objection-evidence';
 import {
   buildContextWithRefinement,
-  formatJourneySectionArtifactMarkdown,
   type JourneySectionSpec,
 } from './journey-section-synthesis';
 
-const REPAIR_MODEL = anthropic('claude-haiku-4-5');
 const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
-const REPAIR_TIMEOUT_MS = 60 * 1000;
-const LEGACY_POSITIONING_SCHEMA =
-  positioningEnvelopeModule[
-    ['Positioning', 'EnvelopeSchema'].join('') as keyof typeof positioningEnvelopeModule
-  ];
-
-/**
- * Step B (repair pass) — fires when the primary agent.generate() throws or
- * produces a schema-invalid output. Calls a cheap haiku model with the
- * tool-loop snapshot and asks it to coerce a valid PositioningEnvelope.
- *
- * Mirrors the deep-research-program.ts repair pattern (lines 318–365).
- * Cheap by design: no tools, short prompt, haiku model, 1-minute timeout.
- */
-async function repairEnvelopeFromSnapshot(args: {
-  spec: JourneySectionSpec;
-  lastStepText: string;
-  errorMessage: string;
-  externalAbortSignal?: AbortSignal;
-}): Promise<PositioningEnvelope | null> {
-  const repairController = new AbortController();
-  const handle = setTimeout(
-    () => repairController.abort(new Error(`Repair pass timeout after ${REPAIR_TIMEOUT_MS / 1000}s`)),
-    REPAIR_TIMEOUT_MS,
-  );
-  const signal = composeAbortSignals(
-    args.externalAbortSignal
-      ? [repairController.signal, args.externalAbortSignal]
-      : [repairController.signal],
-  );
-
-  try {
-    const result = await generateText({
-      model: REPAIR_MODEL,
-      abortSignal: signal,
-      output: Output.object({
-        schema: LEGACY_POSITIONING_SCHEMA,
-        name: 'positioningEnvelope',
-      }),
-      system:
-        'You are a JSON-repair specialist. Coerce the provided partial research snapshot into the required positioning envelope. Preserve every concrete claim and URL the snapshot contains. For sections with no signal, use empty arrays. Never invent sources or numbers.',
-      prompt: `Section: ${args.spec.title} (${args.spec.section})
-Mission: ${args.spec.mission}
-
-The primary subagent failed before producing a schema-valid envelope:
-ERROR: ${args.errorMessage}
-
-Below is the last captured snapshot from the tool loop. Convert it into the structured envelope. If the snapshot is shallow, populate what's safe and leave the rest empty. Mark confidence = 3 unless the snapshot itself is rich.
-
-SNAPSHOT:
-${args.lastStepText.slice(0, 8000)}`,
-    });
-    clearTimeout(handle);
-    return result.output ?? null;
-  } catch (repairErr) {
-    clearTimeout(handle);
-    // Per codex review 2026-05-13: log abort vs. ordinary repair failures
-    // separately so the two failure modes are distinguishable in worker logs.
-    const aborted =
-      repairErr instanceof Error && repairErr.name === 'AbortError';
-    const repairMessage =
-      repairErr instanceof Error ? repairErr.message : String(repairErr);
-    console.warn(
-      `[repair] ${aborted ? 'aborted' : 'failed'} for ${args.spec.section}: ${repairMessage}`,
-    );
-    return null;
-  }
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
 const SUBAGENT_TIMEOUT_MS = 4 * 60 * 1000;
-
-/**
- * Best-effort coercion of a partial / raw payload into the envelope shape.
- * Used by the partial-recovery path when the tool loop crashed before
- * producing a schema-valid final answer. The happy path reads
- * `result.output` directly (already typed + validated).
- */
-function coerceEnvelope(value: unknown): PositioningEnvelope | null {
-  const parsed = LEGACY_POSITIONING_SCHEMA.safeParse(value);
-  if (parsed.success) return parsed.data as PositioningEnvelope;
-  return null;
-}
 
 function buildTranscriptFromSteps(stepSnapshots: string[]): string {
   const maxChars = 12_000;
@@ -173,6 +90,31 @@ function buildTranscriptFromSteps(stepSnapshots: string[]): string {
   }
 
   return selected.reverse().join('\n\n').slice(-maxChars);
+}
+
+function buildTypedArtifactClosingInstruction(
+  section: PositioningSubagentId,
+): string {
+  switch (section) {
+    case 'positioningMarketCategory':
+      return `Run your evidence tools (web_search, firecrawl, pagespeed) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into MarketCategoryArtifactSchema after your loop ends. Cover the four Section 01 sub-sections: category definition and adjacent categories, market size and trajectory signals, structural forces, and the single category maturity classification object. confidence is a 0-10 self-rating; honesty > advocacy.`;
+    case 'positioningBuyerICP':
+      return `Run your evidence tools (web_search, firecrawl, reviews) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into BuyerICPArtifactSchema after your loop ends. Cover the five Section 02 sub-sections: ICP existence, persona reality, awareness distribution, buying context, and clusters. confidence is a 0-10 self-rating; honesty > advocacy.`;
+    case 'positioningCompetitorLandscape':
+      return `Run your evidence tools (web_search, spyfu, adlibrary, meta_ads, google_ads, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into CompetitorLandscapeArtifactSchema after your loop ends. Cover the six Section 03 sub-sections: full competitor set, positioning taxonomy, pricing reality, share of voice, public weaknesses, and narrative arcs. Preserve verbatim competitor copy and complaint text. Use not disclosed or gated when pricing is unavailable. confidence is a 0-10 self-rating; honesty > advocacy.`;
+    case 'positioningVoiceOfCustomer':
+      return `Run your evidence tools (web_search, reviews, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into VoiceOfCustomerArtifactSchema after your loop ends. Cover the five Section 04 sub-sections: pain language, objections, switching stories, decision criteria, and success language. Preserve verbatim buyer language exactly, including typos, caps, profanity, and slang. confidence is a 0-10 self-rating; honesty > advocacy.`;
+    case 'positioningDemandIntent':
+      return `Run your evidence tools (web_search, keyword_ad_probe, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into DemandIntentArtifactSchema after your loop ends. Cover the five Section 05 sub-sections: keyword demand, question mining, content gaps, intent signals, and venue map. Preserve buyer questions verbatim. Use not disclosed for unavailable keyword volume or venue audience size. Every keyword needs dateObserved. confidence is a 0-10 self-rating; honesty > advocacy.`;
+    case 'positioningOfferDiagnostic':
+      return `Run your evidence tools (web_search, ga4, pagespeed, reviews, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into OfferPerformanceArtifactSchema after your loop ends. Cover the five Section 06 sub-sections: offer-market fit, funnel diagnosis, channel truth, retention health, and red flags. Use self-data only. Use not disclosed for missing CAC, LTV, conversion, MRR, payback, activation, retention, channel ROI, and first-value timing. A red flag needs claimed motion, actual evidence, and contradiction. confidence is a 0-10 self-rating; honesty > advocacy.`;
+    default:
+      return assertUnhandledPositioningSection(section);
+  }
+}
+
+function assertUnhandledPositioningSection(section: never): never {
+  throw new Error(`No typed Artifact runner branch exists for positioning section: ${section}`);
 }
 
 function normalizeMarketCategoryArtifact(
@@ -2136,23 +2078,9 @@ export async function runJourneySectionViaSubagent(
     toolName: spec.skill,
   });
 
-  // ADR-0002: migrated sections gather evidence in the ToolLoopAgent, then
-  // this runner emits the typed Artifact through streamObject(SectionSchema).
-  // Unmigrated positioning sections still use the legacy envelope path.
-  const closingInstruction =
-    spec.section === 'positioningMarketCategory'
-      ? `Run your evidence tools (web_search, firecrawl, pagespeed) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into MarketCategoryArtifactSchema after your loop ends. Cover the four Section 01 sub-sections: category definition and adjacent categories, market size and trajectory signals, structural forces, and the single category maturity classification object. confidence is a 0-10 self-rating; honesty > advocacy.`
-      : spec.section === 'positioningBuyerICP'
-      ? `Run your evidence tools (web_search, firecrawl, reviews) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into BuyerICPArtifactSchema after your loop ends. Cover the five Section 02 sub-sections: ICP existence, persona reality, awareness distribution, buying context, and clusters. confidence is a 0-10 self-rating; honesty > advocacy.`
-      : spec.section === 'positioningCompetitorLandscape'
-      ? `Run your evidence tools (web_search, spyfu, adlibrary, meta_ads, google_ads, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into CompetitorLandscapeArtifactSchema after your loop ends. Cover the six Section 03 sub-sections: full competitor set, positioning taxonomy, pricing reality, share of voice, public weaknesses, and narrative arcs. Preserve verbatim competitor copy and complaint text. Use not disclosed or gated when pricing is unavailable. confidence is a 0-10 self-rating; honesty > advocacy.`
-      : spec.section === 'positioningVoiceOfCustomer'
-      ? `Run your evidence tools (web_search, reviews, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into VoiceOfCustomerArtifactSchema after your loop ends. Cover the five Section 04 sub-sections: pain language, objections, switching stories, decision criteria, and success language. Preserve verbatim buyer language exactly, including typos, caps, profanity, and slang. confidence is a 0-10 self-rating; honesty > advocacy.`
-      : spec.section === 'positioningDemandIntent'
-      ? `Run your evidence tools (web_search, keyword_ad_probe, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into DemandIntentArtifactSchema after your loop ends. Cover the five Section 05 sub-sections: keyword demand, question mining, content gaps, intent signals, and venue map. Preserve buyer questions verbatim. Use not disclosed for unavailable keyword volume or venue audience size. Every keyword needs dateObserved. confidence is a 0-10 self-rating; honesty > advocacy.`
-      : spec.section === 'positioningOfferDiagnostic'
-      ? `Run your evidence tools (web_search, ga4, pagespeed, reviews, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into OfferPerformanceArtifactSchema after your loop ends. Cover the five Section 06 sub-sections: offer-market fit, funnel diagnosis, channel truth, retention health, and red flags. Use self-data only. Use not disclosed for missing CAC, LTV, conversion, MRR, payback, activation, retention, channel ROI, and first-value timing. A red flag needs claimed motion, actual evidence, and contradiction. confidence is a 0-10 self-rating; honesty > advocacy.`
-      : `Run your tools, gather evidence, then return the structured positioning envelope. The runtime constrains your final answer to a JSON schema — populate every field. Cite a sourceUrl for every keyFinding when possible. confidence is a 0–10 self-rating; honesty > advocacy.`;
+  // ADR-0002: positioning sections gather evidence in the ToolLoopAgent, then
+  // this runner emits typed Artifacts through streamObject(SectionSchema).
+  const closingInstruction = buildTypedArtifactClosingInstruction(spec.section);
 
   const prompt = `Specialist agent: ${spec.title}
 Mission: ${spec.mission}
@@ -2192,7 +2120,7 @@ ${refinedContext}`;
   const MAX_EXPECTED_STEPS = 6;
 
   try {
-    const result = await agent.generate({
+    await agent.generate({
       prompt,
       abortSignal: composedSignal,
       onStepFinish: async (step: {
@@ -2569,50 +2497,7 @@ ${refinedContext}`;
       };
     }
 
-    // Legacy path: the other positioning subagents still emit the shared
-    // legacy shared schema through Output.object.
-    const rawOutput = (result as { output?: unknown }).output;
-    const envelope = coerceEnvelope(rawOutput);
-
-    if (!envelope) {
-      // Shouldn't happen with schema-enforced output; if it does, fall
-      // through to the partial-recovery path with whatever the loop
-      // captured so we never lose the work.
-      await emitRunnerProgress(
-        onProgress,
-        'error',
-        'Subagent returned output that failed schema validation; attempting partial recovery',
-      );
-      throw new Error('Subagent output failed schema validation');
-    }
-
-    const sectionTitle = envelope.sectionTitle.trim() || spec.title;
-    const finalEnvelope: Record<string, unknown> = {
-      sectionTitle,
-      verdict: envelope.verdict.trim() || 'Pending review',
-      statusSummary:
-        envelope.statusSummary.trim() ||
-        `${sectionTitle} produced by the ${spec.section} subagent.`,
-      confidence: Math.max(0, Math.min(10, envelope.confidence)),
-      agentRuntime: 'ai-sdk-subagent',
-      keyFindings: envelope.keyFindings,
-      evidenceQuotes: envelope.evidenceQuotes,
-      risksOrGaps: envelope.risksOrGaps,
-      recommendedMoves: envelope.recommendedMoves,
-      sources: envelope.sources,
-    };
-
-    const markdown = formatJourneySectionArtifactMarkdown(finalEnvelope, spec);
-
-    await emitRunnerProgress(onProgress, 'output', `${sectionTitle} complete`);
-
-    return {
-      status: 'complete',
-      section: spec.section,
-      data: finalEnvelope,
-      artifact: { title: sectionTitle, markdown },
-      durationMs: Date.now() - startTime,
-    };
+    return assertUnhandledPositioningSection(spec.section);
   } catch (err) {
     clearTimeout(timeoutHandle);
     const message = err instanceof Error ? err.message : String(err);
@@ -2820,112 +2705,6 @@ ${refinedContext}`;
           title: fallbackArtifact.sectionTitle || spec.title,
           markdown: fallbackMarkdown,
         },
-        partialMeta: { partial: true, partialAt },
-        durationMs: Date.now() - startTime,
-      };
-    }
-
-    // Phase 5 — partial-output recovery.
-    //
-    // If the tool loop captured any step text before erroring, surface
-    // a best-effort partial snapshot. With Output.object() schema
-    // enforcement on the happy path, this only fires when the agent
-    // errored or hit step cap without emitting a schema-valid envelope.
-    // We do NOT attempt to parse the snapshot as JSON — intermediate
-    // step content is rarely a complete envelope. Instead we hand the
-    // joined snapshot to the repair pass and fall back to the bare
-    // snapshot if repair fails.
-    //
-    // Per codex review 2026-05-13: snapshot now includes tool calls +
-    // tool results, so step-cap failures with tool-only final steps
-    // still yield repair-usable context.
-    const lastStepText = stepSnapshots.length > 0 ? capturedTranscript : '';
-    if (lastStepText) {
-      const partialAt =
-        stepCount > 0
-          ? Math.min(95, Math.round((stepCount / MAX_EXPECTED_STEPS) * 100))
-          : 25;
-
-      // Step B (repair pass): try once to coerce the partial snapshot into
-      // a schema-valid envelope via a cheap haiku call before falling back
-      // to the bare snapshot.
-      await emitRunnerProgress(onProgress, 'runner', 'Attempting repair pass on partial snapshot');
-      const repaired = await repairEnvelopeFromSnapshot({
-        spec,
-        lastStepText,
-        errorMessage: message,
-        externalAbortSignal,
-      });
-
-      if (repaired) {
-        const sectionTitle = repaired.sectionTitle.trim() || spec.title;
-        const finalEnvelope: Record<string, unknown> = {
-          sectionTitle,
-          verdict: repaired.verdict.trim() || 'Partial — repaired from snapshot',
-          statusSummary:
-            repaired.statusSummary.trim() ||
-            `${sectionTitle} repaired from partial snapshot after primary runner failure.`,
-          confidence: Math.max(0, Math.min(10, repaired.confidence)),
-          agentRuntime: 'ai-sdk-subagent-repaired',
-          keyFindings: repaired.keyFindings,
-          evidenceQuotes: repaired.evidenceQuotes,
-          risksOrGaps: [
-            `Primary runner failed at step ${stepCount}; result recovered via repair pass.`,
-            ...repaired.risksOrGaps,
-          ],
-          recommendedMoves: repaired.recommendedMoves,
-          sources: repaired.sources,
-        };
-
-        const repairedMarkdown = formatJourneySectionArtifactMarkdown(finalEnvelope, spec);
-        await emitRunnerProgress(
-          onProgress,
-          'output',
-          `${sectionTitle} repaired from partial snapshot (${partialAt}%)`,
-        );
-
-        return {
-          // Still surface as error so the UI shows the partial badge, but
-          // the data is schema-valid and renderable.
-          status: 'error',
-          section: spec.section,
-          error: message,
-          data: finalEnvelope,
-          artifact: { title: sectionTitle, markdown: repairedMarkdown },
-          partialMeta: { partial: true, partialAt },
-          durationMs: Date.now() - startTime,
-        };
-      }
-
-      // Repair failed too — fall back to bare snapshot.
-      const sectionTitle = spec.title;
-      const finalEnvelope: Record<string, unknown> = {
-        sectionTitle,
-        verdict: 'Partial — runner failed before final envelope',
-        statusSummary: lastStepText.slice(0, 600),
-        confidence: 2,
-        agentRuntime: 'ai-sdk-subagent',
-        keyFindings: [],
-        evidenceQuotes: [],
-        risksOrGaps: [`Runner failed mid-loop at step ${stepCount}: ${message}`],
-        recommendedMoves: [],
-        sources: [],
-      };
-
-      const partialMarkdown = formatJourneySectionArtifactMarkdown(finalEnvelope, spec);
-
-      await emitRunnerProgress(
-        onProgress,
-        'error',
-        `${message} (partial snapshot preserved at ${partialAt}%, repair pass failed)`,
-      );
-
-      return {
-        status: 'error',
-        section: spec.section,
-        error: message,
-        data: finalEnvelope,
-        artifact: { title: sectionTitle, markdown: partialMarkdown },
         partialMeta: { partial: true, partialAt },
         durationMs: Date.now() - startTime,
       };
