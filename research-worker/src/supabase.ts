@@ -244,6 +244,7 @@ export interface ArtifactSectionPatch {
   status: 'idle' | 'running' | 'complete' | 'partial' | 'error';
   title?: string;
   markdown?: string;
+  data?: unknown;
   claims?: unknown;
   sources?: unknown;
   error?: unknown;
@@ -522,6 +523,7 @@ async function writeArtifactSectionFromLegacy(
     status: result.status,
     title: result.artifact?.title,
     markdown: result.artifact?.markdown,
+    data: result.data,
     claims: extractClaimsFromEnvelope(result.data),
     sources: extractSourcesFromEnvelope(result.data, result.citations),
     error: errorPayload,

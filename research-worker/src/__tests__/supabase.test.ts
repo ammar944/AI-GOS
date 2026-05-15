@@ -158,6 +158,45 @@ describe('worker supabase writers', () => {
       { auth: { persistSession: false } },
     );
   });
+
+  it('passes typed artifact data through commit_artifact_section patches', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: [{ ok: true, revision: 1, conflict: false }],
+      error: null,
+    });
+    const { commitArtifactSection } = await import('../supabase');
+    const typedArtifact = {
+      sectionTitle: 'Market & Category Intelligence',
+      statusSummary: 'Category is validated from public evidence',
+    };
+
+    const result = await commitArtifactSection(
+      '00000000-0000-4000-8000-000000000001',
+      'positioningMarketCategory',
+      '00000000-0000-4000-8000-000000000002',
+      0,
+      {
+        status: 'complete',
+        title: 'Market & Category Intelligence',
+        markdown: '## Market',
+        data: typedArtifact,
+        claims: [],
+        sources: [],
+        error: null,
+      },
+    );
+
+    expect(result).toEqual({ ok: true, revision: 1, conflict: false });
+    expect(mockRpc).toHaveBeenCalledWith('commit_artifact_section', {
+      p_artifact_id: '00000000-0000-4000-8000-000000000001',
+      p_zone: 'positioningMarketCategory',
+      p_section_run_id: '00000000-0000-4000-8000-000000000002',
+      p_expected_revision: 0,
+      p_patch: expect.objectContaining({
+        data: typedArtifact,
+      }),
+    });
+  });
 });
 
 describe('mergeJobUpdates', () => {

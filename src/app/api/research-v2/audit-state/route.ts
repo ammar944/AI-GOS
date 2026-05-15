@@ -51,20 +51,6 @@ export interface AuditStateResponse {
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function pickSectionData(
-  researchResults: unknown,
-  zone: string,
-): unknown | null {
-  if (!isRecord(researchResults)) return null;
-  const section = researchResults[zone];
-  if (!isRecord(section)) return null;
-  return section.data ?? null;
-}
-
 function normalizeStatus(raw: unknown): WorkerStatus {
   if (typeof raw !== 'string') return 'queued';
   if (raw === 'running' || raw === 'complete' || raw === 'error' || raw === 'aborted') {
@@ -117,7 +103,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   const parentId = parent.id as string;
 
-  const [runsResp, sectionsResp, eventsResp, sessionResp] = await Promise.all([
+  const [runsResp, sectionsResp, eventsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
       .select('zone, status, started_at')
@@ -125,7 +111,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .order('started_at', { ascending: true }),
     supabase
       .from('research_artifact_sections')
-      .select('zone, status, title, markdown')
+      .select('zone, status, title, markdown, data')
       .eq('artifact_id', parentId),
     // P2a — last 60 events across all zones for this parent run (cap so a
     // single request never balloons; the 6 zones × ~10 events each fit
@@ -136,12 +122,6 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .eq('artifact_id', parentId)
       .order('created_at', { ascending: false })
       .limit(60),
-    supabase
-      .from('journey_sessions')
-      .select('research_results')
-      .eq('user_id', userId)
-      .eq('run_id', runId)
-      .maybeSingle(),
   ]);
 
   if (runsResp.error || sectionsResp.error) {
@@ -154,12 +134,6 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   if (eventsResp.error) {
     // Events are best-effort — log and continue with empty events.
     console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
-  }
-  if (sessionResp.error) {
-    console.warn(
-      '[audit-state] journey session lookup failed:',
-      sessionResp.error.message,
-    );
   }
 
   // Pick the most recent non-terminal run per zone for the chip; fall back
@@ -179,22 +153,19 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     }
   }
 
-  const researchResults = sessionResp.data?.research_results ?? null;
   const sectionsByZone: AuditStateResponse['sectionsByZone'] = {};
   for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
     const status = row.status as string | null;
     const title = row.title as string | null | undefined;
     const markdown = row.markdown as string | null | undefined;
-    const typedData =
-      zone === 'positioningBuyerICP'
-        ? pickSectionData(researchResults, zone)
-        : null;
-    if (status === 'complete' && (markdown || title || typedData)) {
+    const typedData = row.data as unknown;
+    const hasTypedData = typedData !== null && typedData !== undefined;
+    if (status === 'complete' && (markdown || title || hasTypedData)) {
       sectionsByZone[zone] = {
         ...(title ? { title } : {}),
         ...(markdown ? { markdown } : {}),
-        ...(typedData ? { data: typedData } : {}),
+        ...(hasTypedData ? { data: typedData } : {}),
       };
     }
   }

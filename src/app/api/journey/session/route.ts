@@ -27,6 +27,7 @@ export interface ArtifactSectionSnapshot {
   section_run_id: string | null;
   title: string | null;
   markdown: string | null;
+  data: unknown;
   claims: unknown;
   sources: unknown;
   error: unknown;
@@ -50,7 +51,7 @@ async function fetchArtifactSections(
     const { data: sections, error } = await supabase
       .from('research_artifact_sections')
       .select(
-        'zone, status, revision, section_run_id, title, markdown, claims, sources, error, updated_at',
+        'zone, status, revision, section_run_id, title, markdown, data, claims, sources, error, updated_at',
       )
       .eq('artifact_id', artifact.id);
     if (error || !Array.isArray(sections)) return null;
@@ -332,6 +333,10 @@ export async function GET(request: Request) {
   const metadata = (data?.metadata as Record<string, unknown> | null | undefined) ?? null;
   const storedRunId = getJourneyRunIdFromMetadata(metadata);
   const view = data ? buildJourneyRunView(data) : null;
+  const latestRunId = storedRunId ?? data?.run_id ?? null;
+  const artifactSections = latestRunId
+    ? await fetchArtifactSections(supabase, userId, latestRunId)
+    : null;
 
   return new Response(
     JSON.stringify({
@@ -342,11 +347,12 @@ export async function GET(request: Request) {
         (data?.job_status as Record<string, unknown> | null | undefined) ?? null,
       onboardingData:
         (data?.onboarding_data as Record<string, unknown> | null | undefined) ?? null,
-      runId: storedRunId ?? data?.run_id ?? null,
+      runId: latestRunId,
       updatedAt: data?.updated_at ?? null,
       sessionId: data?.id ?? null,
       profileId: data?.profile_id ?? null,
       view,
+      artifactSections,
       workspaceMessages: requestedSection
         ? readWorkspaceSectionMessages(data?.messages, requestedSection)
         : undefined,

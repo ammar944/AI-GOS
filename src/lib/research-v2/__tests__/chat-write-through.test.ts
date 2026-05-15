@@ -67,6 +67,28 @@ describe('extractNormalizedPatch', () => {
     expect(out.claims).toEqual([]);
     expect(out.sources).toEqual([]);
   });
+
+  it('carries wrapper data as the typed artifact payload', () => {
+    const typedArtifact = {
+      sectionTitle: 'Buyer ICP',
+      statusSummary: 'Specific buyer pattern exists',
+    };
+    const out = extractNormalizedPatch({
+      data: typedArtifact,
+      artifact: {
+        markdown: 'rendered markdown',
+        title: 'Rendered title',
+      },
+    });
+    expect(out.markdown).toBe('rendered markdown');
+    expect(out.title).toBe('Rendered title');
+    expect(out.data).toBe(typedArtifact);
+  });
+
+  it('omits data for markdown-only edits so the database preserves typed payloads', () => {
+    const out = extractNormalizedPatch({ markdown: 'tightened copy' });
+    expect('data' in out).toBe(false);
+  });
 });
 
 describe('commitChatPatch', () => {
@@ -96,6 +118,41 @@ describe('commitChatPatch', () => {
       'commit_artifact_section',
       'merge_journey_session_research_result',
     ]);
+  });
+
+  it('passes typed artifact data to commit_artifact_section when present', async () => {
+    const mock = makeRpcMock();
+    mock.when('ensure_artifact', { data: ARTIFACT_ID });
+    mock.when('commit_artifact_section', {
+      data: [{ ok: true, revision: 2, conflict: false }],
+    });
+    mock.when('merge_journey_session_research_result', { data: null });
+    const typedArtifact = {
+      sectionTitle: 'Buyer ICP',
+      statusSummary: 'Specific buyer pattern exists',
+    };
+
+    const result = await commitChatPatch(mock, {
+      userId: 'user_1',
+      runId: '00000000-0000-4000-8000-000000000aaa',
+      zone: 'positioningBuyerICP',
+      sectionRunId: '00000000-0000-4000-8000-0000000000bb',
+      expectedRevision: 1,
+      patchedSection: {
+        data: typedArtifact,
+        artifact: { markdown: 'tightened', title: 'Buyer ICP' },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    const commitCall = mock.calls.find(
+      (call) => call.fn === 'commit_artifact_section',
+    );
+    expect(commitCall?.args.p_patch).toMatchObject({
+      data: typedArtifact,
+      markdown: 'tightened',
+      title: 'Buyer ICP',
+    });
   });
 
   it('returns conflict=true on a stale_revision row from commit_artifact_section', async () => {

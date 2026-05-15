@@ -81,6 +81,7 @@ async function backfillSection(
   const patch: Record<string, unknown> = {
     status,
     markdown,
+    ...(legacy.data !== undefined ? { data: legacy.data } : {}),
     claims: [],
     sources: [],
     error: legacy.error ? { message: legacy.error } : null,
