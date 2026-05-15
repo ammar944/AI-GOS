@@ -4,7 +4,7 @@
 //
 // Layout (matches the goal-plan §3.2):
 //   - Initial: centered composer only, narrow max-width, calm bg.
-//   - Generating: artifact document centered, six compact worker chips
+//   - Running: artifact document centered, six compact worker chips
 //     above it, composer pinned bottom-center.
 //   - Ready: same shape — artifact reads as one premium positioning audit
 //     document with anchors per section, toolbar in the top right.
@@ -48,6 +48,18 @@ export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'ab
 export interface WorkerChipState {
   section_id: PositioningSectionId;
   status: WorkerChipStatus;
+  phase?: string;
+  phaseLabel?: string;
+  phaseStartedAt?: string | null;
+  latestTool?: string | null;
+  latestSource?: string | null;
+  latestActivity?: string | null;
+  nextStep?: string | null;
+  wave?: number | null;
+  totalWaves?: number | null;
+  concurrency?: number | null;
+  elapsedMs?: number | null;
+  capabilityGaps?: Array<Record<string, unknown>>;
 }
 
 export interface AgentArtifactSurfaceProps {
@@ -179,11 +191,34 @@ function getAuditStatusLabel(stats: {
   running: number;
   blocked: number;
   total: number;
+  activePhase?: string | null;
 }): string {
   if (stats.complete === stats.total) return 'Audit ready';
   if (stats.blocked > 0) return 'Needs review';
-  if (stats.running > 0) return 'Generating';
+  if (stats.running > 0) return stats.activePhase ?? 'In progress';
   return 'Queued';
+}
+
+function formatElapsed(elapsedMs: number | null | undefined): string | null {
+  if (typeof elapsedMs !== 'number' || !Number.isFinite(elapsedMs)) return null;
+  if (elapsedMs < 60_000) return `${Math.max(1, Math.round(elapsedMs / 1000))}s`;
+  return `${Math.round(elapsedMs / 60_000)}m`;
+}
+
+function displayHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function getWaveSummary(states: WorkerChipState[]): string | null {
+  const active = states.find((state) => state.wave && state.totalWaves);
+  if (!active?.wave || !active.totalWaves) return null;
+  const running = states.filter((state) => state.status === 'running').length;
+  const queued = states.filter((state) => state.status === 'queued').length;
+  return `Wave ${active.wave} of ${active.totalWaves} - ${running} running, ${queued} queued`;
 }
 
 export function AgentArtifactSurface({
@@ -207,6 +242,11 @@ export function AgentArtifactSurface({
     for (const w of states) out[w.section_id] = w.status;
     return out;
   }, [states]);
+  const stateByZone = useMemo(() => {
+    const out: Partial<Record<PositioningSectionId, WorkerChipState>> = {};
+    for (const state of states) out[state.section_id] = state;
+    return out;
+  }, [states]);
   const auditSources = useMemo(
     () => collectAuditSources(live.sectionsByZone),
     [live.sectionsByZone],
@@ -218,12 +258,17 @@ export function AgentArtifactSurface({
     const blocked = states.filter(
       (state) => state.status === 'error' || state.status === 'aborted',
     ).length;
+    const activePhase =
+      states.find((state) => state.status === 'running')?.phaseLabel ??
+      states.find((state) => state.status === 'running')?.phase ??
+      null;
 
     return {
       total,
       complete,
       running,
       blocked,
+      activePhase,
       sourceCount: auditSources.length,
       progressPercent: getProgressPercent(complete, total),
     };
@@ -368,7 +413,7 @@ export function AgentArtifactSurface({
                   />
                 </div>
 
-                <AuditProgressSummary stats={auditStats} />
+                <AuditProgressSummary stats={auditStats} waveSummary={getWaveSummary(states)} />
                 <WorkerChipsRow states={states} />
               </div>
             </header>
@@ -391,6 +436,7 @@ export function AgentArtifactSurface({
 
               <SectionContentList
                 statusByZone={statusByZone}
+                stateByZone={stateByZone}
                 sectionsByZone={live.sectionsByZone}
                 eventsByZone={live.eventsByZone}
               />
@@ -446,13 +492,15 @@ interface AuditProgressSummaryProps {
     complete: number;
     running: number;
     blocked: number;
+    activePhase?: string | null;
     total: number;
     sourceCount: number;
     progressPercent: number;
   };
+  waveSummary: string | null;
 }
 
-function AuditProgressSummary({ stats }: AuditProgressSummaryProps): ReactElement {
+function AuditProgressSummary({ stats, waveSummary }: AuditProgressSummaryProps): ReactElement {
   return (
     <div
       data-testid="audit-progress-summary"
@@ -473,6 +521,11 @@ function AuditProgressSummary({ stats }: AuditProgressSummaryProps): ReactElemen
             style={{ width: `${stats.progressPercent}%` }}
           />
         </div>
+        {waveSummary ? (
+          <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-secondary)]">
+            {waveSummary}
+          </div>
+        ) : null}
       </div>
       <div className="grid grid-cols-3 gap-2 text-center md:w-[270px]">
         <AuditMetric label="Running" value={stats.running} />
@@ -604,7 +657,7 @@ function WorkerChipsRow({ states }: { states: WorkerChipState[] }): ReactElement
               {SECTION_SHORT_LABELS[state.section_id]}
             </span>
             <span className="block font-mono text-[9px] uppercase tracking-[0.06em]">
-              {state.status === 'running' ? 'Generating' : state.status}
+              {state.phaseLabel ?? state.phase ?? state.status}
             </span>
           </span>
         </a>
@@ -615,6 +668,7 @@ function WorkerChipsRow({ states }: { states: WorkerChipState[] }): ReactElement
 
 interface SectionContentListProps {
   statusByZone: Record<string, WorkerChipStatus>;
+  stateByZone: Partial<Record<PositioningSectionId, WorkerChipState>>;
   sectionsByZone: Record<string, SectionArtifactBody>;
   eventsByZone: Record<string, SectionActivityEvent[]>;
 }
@@ -635,17 +689,22 @@ export interface SectionActivityEvent {
   created_at: string;
 }
 
-/** P2a: live agent-activity feed below in-flight zones — Claude.ai-style. */
-function ZoneActivity({ events }: { events: SectionActivityEvent[] }): ReactElement | null {
+function RawZoneActivity({
+  zone,
+  events,
+}: {
+  zone: PositioningSectionId;
+  events: SectionActivityEvent[];
+}): ReactElement | null {
   if (events.length === 0) return null;
   return (
-    <div
-      data-testid="zone-activity"
+    <details
+      data-testid={`raw-events-details-${zone}`}
       className="mt-2 rounded-md border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3"
     >
-      <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
-        Agent activity
-      </div>
+      <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+        Raw activity
+      </summary>
       <ol className="flex flex-col gap-1.5 text-[12px] leading-[1.5] text-[color:var(--text-secondary)]">
         {events.slice(-8).map((ev) => {
           // Codex review fix (2026-05-13): the orchestrator wraps the
@@ -697,11 +756,60 @@ function ZoneActivity({ events }: { events: SectionActivityEvent[] }): ReactElem
           );
         })}
       </ol>
+    </details>
+  );
+}
+
+function SectionLiveStatus({ state }: { state: WorkerChipState }): ReactElement | null {
+  const elapsed = formatElapsed(state.elapsedMs);
+  if (
+    !state.latestActivity &&
+    !state.nextStep &&
+    !state.latestTool &&
+    !state.latestSource &&
+    !elapsed
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 grid gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 text-[12px] leading-[1.5] text-[color:var(--text-secondary)] sm:grid-cols-2">
+      {state.latestActivity ? (
+        <div className="sm:col-span-2 text-[color:var(--text-primary)]">
+          {state.latestActivity}
+        </div>
+      ) : null}
+      {state.nextStep ? (
+        <div className="font-mono text-[10px] uppercase tracking-[0.06em]">
+          Next: {state.nextStep}
+        </div>
+      ) : null}
+      {state.latestTool ? (
+        <div className="font-mono text-[10px] uppercase tracking-[0.06em]">
+          Tool: {state.latestTool}
+        </div>
+      ) : null}
+      {state.latestSource ? (
+        <div className="font-mono text-[10px] uppercase tracking-[0.06em]">
+          Source: {displayHost(state.latestSource)}
+        </div>
+      ) : null}
+      {elapsed ? (
+        <div className="font-mono text-[10px] uppercase tracking-[0.06em]">
+          Elapsed: {elapsed}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function StatusPill({ status }: { status: WorkerChipStatus }): ReactElement {
+function StatusPill({
+  status,
+  label,
+}: {
+  status: WorkerChipStatus;
+  label?: string | null;
+}): ReactElement {
   return (
     <span
       data-status={status}
@@ -714,13 +822,14 @@ function StatusPill({ status }: { status: WorkerChipStatus }): ReactElement {
         className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[status])}
         aria-hidden="true"
       />
-      {status === 'running' ? 'generating' : status}
+      {label ?? status}
     </span>
   );
 }
 
 function SectionContentList({
   statusByZone,
+  stateByZone,
   sectionsByZone,
   eventsByZone,
 }: SectionContentListProps): ReactElement {
@@ -748,13 +857,15 @@ function SectionContentList({
             <div className="w-full max-w-2xl space-y-4 text-left">
               {runningZones.map((zone) => {
                 const events = eventsByZone[zone] ?? [];
-                if (events.length === 0) return null;
+                const state = stateByZone[zone];
+                if (!state && events.length === 0) return null;
                 return (
                   <div key={zone}>
                     <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--accent-blue)]">
                       {POSITIONING_SECTION_LABELS[zone]}
                     </div>
-                    <ZoneActivity events={events} />
+                    {state ? <SectionLiveStatus state={state} /> : null}
+                    <RawZoneActivity zone={zone} events={events} />
                   </div>
                 );
               })}
@@ -769,6 +880,7 @@ function SectionContentList({
         const typedArtifact = body
           ? pickPositioningTypedArtifact(body, zone)
           : null;
+        const state = stateByZone[zone];
         const isComplete = Boolean(
           body && (body.markdown || body.title || body.data || typedArtifact),
         );
@@ -793,7 +905,10 @@ function SectionContentList({
                     {typedArtifact?.sectionTitle ?? body?.title ?? POSITIONING_SECTION_LABELS[zone]}
                   </h2>
                 </div>
-                <StatusPill status="complete" />
+                <StatusPill
+                  status="complete"
+                  label={state?.phaseLabel ?? state?.phase ?? 'Complete'}
+                />
               </header>
               {buyerIcpArtifact ? (
                 <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
@@ -831,10 +946,13 @@ function SectionContentList({
                   {POSITIONING_SECTION_LABELS[zone]}
                 </h2>
               </div>
-              <StatusPill status={status} />
+              <StatusPill
+                status={status}
+                label={state?.phaseLabel ?? state?.phase ?? status}
+              />
             </div>
-            {/* P2a: show the agent-activity feed for running zones */}
-            {status === 'running' && <ZoneActivity events={events} />}
+            {status === 'running' && state ? <SectionLiveStatus state={state} /> : null}
+            <RawZoneActivity zone={zone} events={events} />
           </section>
         );
       })}

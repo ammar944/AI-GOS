@@ -1,433 +1,348 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Building2, Users, Package, TrendingUp, Sparkles, Target, Route, Check,
-  type LucideIcon,
-} from 'lucide-react';
+import { useMemo, useState, type ReactElement } from 'react';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
+import { buildOnboardingReviewMetadata } from '@/lib/research-v2/onboarding-review';
 import {
-  SECTION_META,
-  SECTION_SCHEMAS,
   EMPTY_ONBOARDING_V2,
+  OnboardingV2Schema,
+  SECTION_META,
+  type OnboardingFieldReview,
+  type OnboardingFieldReviewState,
+  type OnboardingPrefillMetadata,
+  type OnboardingReviewMetadata,
   type OnboardingV2Data,
-  type SectionIconName,
+  type SectionField,
 } from '@/lib/research-v2/onboarding-v2-types';
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
 
 interface OnboardingWizardV2Props {
   initialData?: Partial<OnboardingV2Data>;
-  onComplete: (data: OnboardingV2Data) => void;
+  initialPrefillMetadata?: OnboardingPrefillMetadata;
+  onComplete: (
+    data: OnboardingV2Data,
+    reviewMetadata: OnboardingReviewMetadata,
+  ) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Icon map
-// ---------------------------------------------------------------------------
-
-const ICON_MAP: Record<SectionIconName, LucideIcon> = {
-  Building2, Users, Package, TrendingUp, Sparkles, Target, Route,
+const STATE_CLASS: Record<OnboardingFieldReviewState, string> = {
+  'AI-filled': 'border-[var(--accent-green)] text-[color:var(--accent-green)]',
+  'User-edited': 'border-[var(--accent-blue)] text-[color:var(--accent-blue)]',
+  Missing: 'border-[var(--accent-red)] text-[color:var(--accent-red)]',
+  'Needs review': 'border-[var(--accent-amber)] text-[color:var(--accent-amber)]',
 };
 
-// ---------------------------------------------------------------------------
-// Completion helper
-// ---------------------------------------------------------------------------
-
-function isSectionComplete(
-  sectionId: string,
-  data: Partial<OnboardingV2Data>,
-): boolean {
-  const section = SECTION_META.find((s) => s.id === sectionId);
-  if (!section) return false;
-  return section.fields
-    .filter((f) => f.required)
-    .every((f) => {
-      const value = data[f.key];
-      if (typeof value === 'string') return value.trim().length > 0;
-      if (Array.isArray(value)) return value.length > 0;
-      return value !== undefined && value !== null && value !== '';
-    });
+function pinnedLabel(review: OnboardingFieldReview): string {
+  if (review.key === 'idealCustomer') return 'Ideal Customer';
+  return review.label;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+function FieldStateBadge({
+  state,
+}: {
+  state: OnboardingFieldReviewState;
+}): ReactElement {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-6 shrink-0 items-center rounded-full border px-2 font-mono text-[10px] uppercase tracking-[0.06em]',
+        STATE_CLASS[state],
+      )}
+    >
+      {state}
+    </span>
+  );
+}
 
-export function OnboardingWizardV2({ initialData, onComplete }: OnboardingWizardV2Props) {
-  const [step, setStep] = useState(0);
+export function OnboardingWizardV2({
+  initialData,
+  initialPrefillMetadata = {},
+  onComplete,
+}: OnboardingWizardV2Props): ReactElement {
   const [data, setData] = useState<OnboardingV2Data>({
     ...EMPTY_ONBOARDING_V2,
     ...initialData,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const totalSteps = SECTION_META.length;
-  const section = SECTION_META[step];
-  const completedCount = SECTION_META.reduce((n, s) => n + (isSectionComplete(s.id, data) ? 1 : 0), 0);
+  const review = useMemo(
+    () => buildOnboardingReviewMetadata(data, initialPrefillMetadata),
+    [data, initialPrefillMetadata],
+  );
 
-  // Incomplete required fields in the CURRENT section — drives the "X required left" jump link.
-  const incompleteRequired = section.fields.filter(f => {
-    if (!f.required) return false;
-    const value = data[f.key];
-    if (typeof value === 'string') return value.trim().length === 0;
-    if (Array.isArray(value)) return value.length === 0;
-    return value === undefined || value === null || value === '';
-  });
+  const pinnedReviews = review.pinnedFieldKeys
+    .map((key) => review.fields[key])
+    .filter((field): field is OnboardingFieldReview => Boolean(field));
 
-  function jumpToFirstIncomplete() {
-    const first = incompleteRequired[0];
-    if (!first) return;
-    const key = first.key as string;
-    // Matches plain inputs (id = key) and radio/checkbox items (id = key-optionValue).
-    const el = document.querySelector<HTMLElement>(`[id^="${CSS.escape(key)}"]`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // preventScroll: avoid the browser re-scrolling away from the smooth scrollIntoView target.
-    el.focus({ preventScroll: true });
-  }
-
-  // -------------------------------------------------------------------------
-  // Field update helpers
-  // -------------------------------------------------------------------------
-
-  function setField<K extends keyof OnboardingV2Data>(key: K, value: OnboardingV2Data[K]) {
-    setData(prev => ({ ...prev, [key]: value }));
+  function setField<K extends keyof OnboardingV2Data>(
+    key: K,
+    value: OnboardingV2Data[K],
+  ): void {
+    setData((prev) => ({ ...prev, [key]: value }));
     if (errors[key]) {
-      setErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     }
   }
 
-  function toggleChannel(value: string) {
-    setData(prev => {
+  function toggleChannel(value: string): void {
+    setData((prev) => {
       const channels = prev.channels.includes(value)
-        ? prev.channels.filter(c => c !== value)
+        ? prev.channels.filter((channel) => channel !== value)
         : [...prev.channels, value];
       return { ...prev, channels };
     });
     if (errors.channels) {
-      setErrors(prev => { const next = { ...prev }; delete next.channels; return next; });
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.channels;
+        return next;
+      });
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Validation
-  // -------------------------------------------------------------------------
-
-  function validateStep(): boolean {
-    const schema = SECTION_SCHEMAS[step];
-    if (!schema) return true;
-
-    const partial: Record<string, unknown> = {};
-    for (const field of section.fields) {
-      partial[field.key] = data[field.key];
-    }
-
-    const result = schema.safeParse(partial);
-    if (result.success) {
-      setErrors({});
-      return true;
-    }
-
-    const newErrors: Record<string, string> = {};
-    for (const issue of result.error.issues) {
-      const key = issue.path[0] as string;
-      if (key && !newErrors[key]) {
-        newErrors[key] = issue.message;
+  function handleSubmit(): void {
+    const parsed = OnboardingV2Schema.safeParse(data);
+    if (!parsed.success) {
+      const nextErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (typeof key === 'string' && !nextErrors[key]) {
+          nextErrors[key] = issue.message;
+        }
       }
+      setErrors(nextErrors);
+      return;
     }
-    setErrors(newErrors);
-    return false;
-  }
 
-  // -------------------------------------------------------------------------
-  // Navigation
-  // -------------------------------------------------------------------------
-
-  function handleNext() {
-    if (!validateStep()) return;
-    if (step < totalSteps - 1) {
-      setStep(s => s + 1);
-      setErrors({});
-    } else {
-      onComplete(data);
-    }
-  }
-
-  function handleBack() {
-    if (step > 0) {
-      setStep(s => s - 1);
-      setErrors({});
-    }
-  }
-
-  function handleNavJump(index: number) {
-    setStep(index);
     setErrors({});
+    onComplete(parsed.data, review);
   }
 
-  // -------------------------------------------------------------------------
-  // Render helpers
-  // -------------------------------------------------------------------------
-
-  function renderField(field: typeof section.fields[number]) {
+  function renderField(field: SectionField): ReactElement {
+    const reviewField = review.fields[field.key];
+    const state = reviewField?.state ?? 'Missing';
     const error = errors[field.key as string];
+    const fieldId = field.key as string;
 
-    const labelEl = (
-      <Label htmlFor={field.key as string} className="text-sm font-medium leading-none">
-        {field.label}
-        {field.required
-          ? <span className="text-destructive ml-0.5">*</span>
-          : <span className="text-muted-foreground ml-1 font-normal text-xs">
+    const label = (
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Label htmlFor={fieldId} className="text-sm font-medium leading-snug">
+          {field.label}
+          {field.required ? (
+            <span className="ml-0.5 text-destructive">*</span>
+          ) : (
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
               {field.description ?? '(optional)'}
             </span>
-        }
-      </Label>
+          )}
+        </Label>
+        <FieldStateBadge state={state} />
+      </div>
     );
+
+    return (
+      <div
+        key={fieldId}
+        data-testid={`onboarding-field-${fieldId}`}
+        className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4"
+      >
+        <div className="space-y-3">
+          {label}
+          {renderFieldControl(field)}
+          {reviewField?.sourceUrl ? (
+            <div className="break-all font-mono text-[10px] text-[color:var(--text-tertiary)]">
+              Source: {reviewField.sourceUrl}
+            </div>
+          ) : null}
+          {reviewField?.reasoning ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {reviewField.reasoning}
+            </p>
+          ) : null}
+          {error ? (
+            <Alert variant="destructive" className="px-3 py-2">
+              <AlertDescription className="text-xs">{error}</AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function renderFieldControl(field: SectionField): ReactElement {
+    const fieldId = field.key as string;
+    const error = errors[fieldId];
 
     if (field.type === 'radio') {
       return (
-        <div key={field.key as string} className="space-y-2">
-          {labelEl}
-          <RadioGroup
-            value={(data[field.key] as string) ?? ''}
-            onValueChange={v => setField(field.key, v as never)}
-            className="flex flex-col gap-1.5 pt-1"
-          >
-            {field.options?.map(opt => (
-              <div key={opt.value} className="flex items-center gap-2">
-                <RadioGroupItem value={opt.value} id={`${field.key as string}-${opt.value}`} />
-                <Label
-                  htmlFor={`${field.key as string}-${opt.value}`}
-                  className="font-normal cursor-pointer text-sm"
-                >
-                  {opt.label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-          {error && (
-            <Alert variant="destructive" className="py-2 px-3">
-              <AlertDescription className="text-xs">{error}</AlertDescription>
-            </Alert>
-          )}
-        </div>
+        <RadioGroup
+          value={(data[field.key] as string) ?? ''}
+          onValueChange={(value) => setField(field.key, value as never)}
+          className="grid gap-2 pt-1 sm:grid-cols-2"
+        >
+          {field.options?.map((option) => (
+            <div key={option.value} className="flex min-h-9 items-center gap-2">
+              <RadioGroupItem value={option.value} id={`${fieldId}-${option.value}`} />
+              <Label
+                htmlFor={`${fieldId}-${option.value}`}
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
       );
     }
 
     if (field.type === 'checkbox') {
       return (
-        <div key={field.key as string} className="space-y-2">
-          {labelEl}
-          <div className="flex flex-wrap gap-3 pt-1">
-            {field.options?.map(opt => (
-              <div key={opt.value} className="flex items-center gap-2">
-                <Checkbox
-                  id={`${field.key as string}-${opt.value}`}
-                  checked={(data.channels as string[]).includes(opt.value)}
-                  onCheckedChange={() => toggleChannel(opt.value)}
-                />
-                <Label
-                  htmlFor={`${field.key as string}-${opt.value}`}
-                  className="font-normal cursor-pointer text-sm"
-                >
-                  {opt.label}
-                </Label>
-              </div>
-            ))}
-          </div>
-          {error && (
-            <Alert variant="destructive" className="py-2 px-3">
-              <AlertDescription className="text-xs">{error}</AlertDescription>
-            </Alert>
-          )}
+        <div className="grid gap-2 pt-1 sm:grid-cols-2">
+          {field.options?.map((option) => (
+            <div key={option.value} className="flex min-h-9 items-center gap-2">
+              <Checkbox
+                id={`${fieldId}-${option.value}`}
+                checked={data.channels.includes(option.value)}
+                onCheckedChange={() => toggleChannel(option.value)}
+              />
+              <Label
+                htmlFor={`${fieldId}-${option.value}`}
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                {option.label}
+              </Label>
+            </div>
+          ))}
         </div>
       );
     }
 
     if (field.type === 'textarea') {
       return (
-        <div key={field.key as string} className="space-y-1.5">
-          {labelEl}
-          <Textarea
-            id={field.key as string}
-            value={(data[field.key] as string) ?? ''}
-            onChange={e => setField(field.key, e.target.value as never)}
-            placeholder={field.placeholder}
-            rows={3}
-            className={error ? 'border-destructive' : ''}
-          />
-          {error && (
-            <Alert variant="destructive" className="py-2 px-3">
-              <AlertDescription className="text-xs">{error}</AlertDescription>
-            </Alert>
-          )}
-        </div>
+        <Textarea
+          id={fieldId}
+          aria-label={field.label}
+          value={(data[field.key] as string) ?? ''}
+          onChange={(event) => setField(field.key, event.target.value as never)}
+          placeholder={field.placeholder}
+          rows={3}
+          className={cn(error && 'border-destructive')}
+        />
       );
     }
 
-    // default: text
     return (
-      <div key={field.key as string} className="space-y-1.5">
-        {labelEl}
-        <Input
-          id={field.key as string}
-          value={(data[field.key] as string) ?? ''}
-          onChange={e => setField(field.key, e.target.value as never)}
-          placeholder={field.placeholder}
-          className={error ? 'border-destructive' : ''}
-        />
-        {error && (
-          <Alert variant="destructive" className="py-2 px-3">
-            <AlertDescription className="text-xs">{error}</AlertDescription>
-          </Alert>
-        )}
-      </div>
+      <Input
+        id={fieldId}
+        aria-label={field.label}
+        value={(data[field.key] as string) ?? ''}
+        onChange={(event) => setField(field.key, event.target.value as never)}
+        placeholder={field.placeholder}
+        className={cn(error && 'border-destructive')}
+      />
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-2xl mx-auto w-full">
-        {/* Section nav: segmented progress rail + 7 numbered cells.
-            Three states per cell — idle | current | done. */}
-        <nav aria-label="Onboarding sections" className="mb-5 select-none">
-          <div className="flex items-baseline justify-between mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-            <span>
-              <span className="text-foreground">{String(step + 1).padStart(2, '0')}</span>
-              <span className="text-muted-foreground/60"> / {String(totalSteps).padStart(2, '0')}</span>
-              <span className="ml-2 text-muted-foreground/80">{section.shortTitle ?? section.title}</span>
-            </span>
-            <span>{completedCount} / {totalSteps} complete</span>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 pb-28">
+        <header className="space-y-3 border-b border-[var(--border-subtle)] pb-5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            GTM Brief Review
           </div>
-          <ol className="grid grid-cols-7 gap-1" role="list">
-            {SECTION_META.map((s, i) => {
-              const NavIcon = ICON_MAP[s.icon];
-              const isActive = i === step;
-              const done = isSectionComplete(s.id, data);
-              const label = s.shortTitle ?? s.title;
-              return (
-                <li key={s.id} className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => handleNavJump(i)}
-                    aria-current={isActive ? 'step' : undefined}
-                    aria-label={`Step ${i + 1} of ${totalSteps}: ${s.title}${done ? ' (complete)' : ''}${isActive ? ' (current)' : ''}`}
-                    className={cn(
-                      'group relative w-full text-left rounded-md transition-colors duration-150',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                      isActive ? 'bg-accent/40' : 'hover:bg-accent/30',
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'block h-[2px] w-full rounded-full transition-colors duration-150',
-                        isActive ? 'bg-primary' : done ? 'bg-primary/40' : 'bg-border group-hover:bg-border/80',
-                      )}
-                    />
-                    <span className="flex items-center gap-1.5 px-2 pt-2 pb-1.5 min-w-0">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors duration-150',
-                          isActive
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : done
-                              ? 'bg-primary/15 text-primary border-primary/40'
-                              : 'bg-background text-muted-foreground border-border group-hover:border-foreground/40 group-hover:text-foreground',
-                        )}
-                      >
-                        {done ? (
-                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                        ) : (
-                          <NavIcon className="h-3 w-3" />
-                        )}
-                      </span>
-                      <span
-                        className={cn(
-                          'min-w-0 truncate text-[11px] leading-none transition-colors duration-150',
-                          isActive
-                            ? 'font-semibold text-foreground tracking-tight'
-                            : done
-                              ? 'font-medium text-foreground/80 group-hover:text-foreground'
-                              : 'font-medium text-muted-foreground group-hover:text-foreground',
-                        )}
-                      >
-                        {label}
-                      </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-[0]">Confirm every field</h1>
+              <p className="mt-2 max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
+                Review the AI-filled GTM Brief before the audit is frozen and
+                handed to the six positioning Sections.
+              </p>
+            </div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+              {review.fieldCount} fields
+            </div>
+          </div>
+        </header>
+
+        <section
+          data-testid="onboarding-review-pinned"
+          className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4"
+        >
+          <div className="flex flex-col gap-1">
+            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              Review first
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Missing and low-confidence fields are pinned here; every field
+              still remains editable in its original section below.
+            </p>
+          </div>
+          {pinnedReviews.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No missing or low-confidence fields.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {pinnedReviews.map((field) => (
+                <a
+                  key={field.key}
+                  href={`#${field.key}`}
+                  className="flex min-h-16 items-start justify-between gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-left hover:border-[var(--border-hover)]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {pinnedLabel(field)}
                     </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                      {field.sectionTitle}
+                    </span>
+                  </span>
+                  <FieldStateBadge state={field.state} />
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
 
-        {/* Section description — step + title already live in the nav above */}
-        <p className="text-sm text-muted-foreground mb-5">{section.description}</p>
-
-        {/* Questions */}
-        <Card>
-          <CardContent className="p-4 space-y-5">
-            {section.fields.map(field => renderField(field))}
-          </CardContent>
-        </Card>
-
-        {/* Required-fields-left jump link */}
-        {incompleteRequired.length > 0 && (
-          <button
-            type="button"
-            onClick={jumpToFirstIncomplete}
-            aria-label={`Jump to first of ${incompleteRequired.length} incomplete required field${incompleteRequired.length === 1 ? '' : 's'}`}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm px-1 py-0.5"
-          >
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden />
-            <span>
-              {incompleteRequired.length} required field{incompleteRequired.length === 1 ? '' : 's'} left
-            </span>
-            <span className="opacity-60" aria-hidden>→ jump</span>
-          </button>
-        )}
+        <div className="flex flex-col gap-6">
+          {SECTION_META.map((section) => (
+            <section
+              key={section.id}
+              data-testid={`onboarding-section-${section.id}`}
+              className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4"
+            >
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold tracking-[0]">{section.title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
+              </div>
+              <div className="grid gap-3">
+                {section.fields.map((field) => renderField(field))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
 
-      {/* Sticky footer */}
-      <div className="fixed bottom-0 inset-x-0 bg-background border-t px-4 py-3 flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          disabled={step === 0}
-          className="w-24"
-        >
-          Back
-        </Button>
-
-        <span className="text-sm text-muted-foreground">
-          {step + 1} / {totalSteps}
-        </span>
-
-        <Button
-          onClick={handleNext}
-          className="w-24"
-        >
-          {step === totalSteps - 1 ? 'Submit' : 'Next'}
-        </Button>
+      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+          <div className="hidden font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground sm:block">
+            {review.counts.Missing} missing · {review.counts['Needs review']} needs review
+          </div>
+          <Button type="button" onClick={handleSubmit} className="ml-auto min-w-32">
+            Run audit
+          </Button>
+        </div>
       </div>
     </div>
   );

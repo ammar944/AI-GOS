@@ -28,6 +28,8 @@ function makeChildren(): ChildRow[] {
 interface DepRecorder {
   deps: OrchestratorDeps;
   emitted: Array<{ section_run_id: string; type: string }>;
+  contexts: Array<{ section_run_id: string; zone: string; context: string }>;
+  phases: Array<{ section_run_id: string; phase: string }>;
   childStatus: Map<string, string>;
   parentStatus: { status: string; children_complete: number } | null;
   runningAtCheck: number[];
@@ -37,10 +39,13 @@ interface DepRecorder {
 function makeRecorder(opts: {
   children?: ChildRow[];
   runSection?: OrchestratorDeps['runSection'];
+  buildSectionContext?: OrchestratorDeps['buildSectionContext'];
   isParentAborted?: () => Promise<boolean>;
 } = {}): DepRecorder {
   const children = opts.children ?? makeChildren();
   const emitted: Array<{ section_run_id: string; type: string }> = [];
+  const contexts: DepRecorder['contexts'] = [];
+  const phases: DepRecorder['phases'] = [];
   const childStatus = new Map<string, string>();
   let parentStatus: DepRecorder['parentStatus'] = null;
   let running = 0;
@@ -48,8 +53,12 @@ function makeRecorder(opts: {
   let commits = 0;
 
   const defaultRunSection: OrchestratorDeps['runSection'] = async ({
+    sectionRunId,
+    zone,
+    context,
     onProgress,
   }) => {
+    contexts.push({ section_run_id: sectionRunId, zone, context });
     running += 1;
     runningAtCheck.push(running);
     await onProgress('searching', { query: 'demo' });
@@ -65,12 +74,20 @@ function makeRecorder(opts: {
 
   const recorder: DepRecorder = {
     emitted,
+    contexts,
+    phases,
     childStatus,
     parentStatus,
     runningAtCheck,
     commits,
     deps: {
       loadChildren: async () => children,
+      buildSectionContext:
+        opts.buildSectionContext ??
+        (async ({ zone }) => ({ context: `context:${zone}`, capabilityGaps: [] })),
+      updatePhase: async ({ sectionRunId, phase }) => {
+        phases.push({ section_run_id: sectionRunId, phase });
+      },
       markChildRunning: async (id) => {
         childStatus.set(id, 'running');
       },
@@ -168,6 +185,78 @@ describe('runPositioningAuditOrchestrator', () => {
     );
     const seq = r.emitted.map((e) => e.type);
     expect(seq).toEqual(['started', 'searching', 'complete']);
+  });
+
+  it('passes distinct Section Context Pack strings into each child run', async () => {
+    const r = makeRecorder({
+      buildSectionContext: async ({ zone }) => ({
+        context: `SECTION_CONTEXT_PACK:${zone}`,
+        capabilityGaps: [],
+      }),
+    });
+
+    await runPositioningAuditOrchestrator(
+      { parentAuditRunId: 'p1', concurrency: 6 },
+      r.deps,
+    );
+
+    expect(r.contexts).toHaveLength(6);
+    expect(new Set(r.contexts.map((entry) => entry.context)).size).toBe(6);
+    expect(r.contexts[0]?.context).toBe('SECTION_CONTEXT_PACK:positioningMarketCategory');
+  });
+
+  it('writes phase transitions in order for a successful section', async () => {
+    const r = makeRecorder({
+      children: [
+        { section_run_id: 'run-1', zone: 'positioningMarketCategory', status: 'queued' },
+      ],
+      runSection: async ({ sectionRunId, zone, context, onProgress }) => {
+        r.contexts.push({ section_run_id: sectionRunId, zone, context });
+        await onProgress('searching', {
+          event: { meta: { toolNames: ['web_search'], textPreview: 'reading source' } },
+        });
+        await onProgress('partial', {
+          event: { meta: { status: 'drafting' } },
+        });
+        await onProgress('partial', {
+          event: { meta: { status: 'validating' } },
+        });
+        return { status: 'complete' };
+      },
+    });
+
+    await runPositioningAuditOrchestrator(
+      { parentAuditRunId: 'p1', concurrency: 1 },
+      r.deps,
+    );
+
+    expect(r.phases.map((entry) => entry.phase)).toEqual([
+      'Queued',
+      'Compiling context',
+      'Reading sources',
+      'Drafting',
+      'Validating',
+      'Complete',
+    ]);
+  });
+
+  it('marks a completed section as Needs review when the pack has capability gaps', async () => {
+    const r = makeRecorder({
+      children: [
+        { section_run_id: 'run-1', zone: 'positioningCompetitorLandscape', status: 'queued' },
+      ],
+      buildSectionContext: async ({ zone }) => ({
+        context: `SECTION_CONTEXT_PACK:${zone}`,
+        capabilityGaps: [{ tool: 'spyfu', reason: 'missing', impact: 'no spend data' }],
+      }),
+    });
+
+    await runPositioningAuditOrchestrator(
+      { parentAuditRunId: 'p1', concurrency: 1 },
+      r.deps,
+    );
+
+    expect(r.phases.at(-1)?.phase).toBe('Needs review');
   });
 
   it('isolates abort to one child without aborting siblings (no parent abort)', async () => {

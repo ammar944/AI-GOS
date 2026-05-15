@@ -40,7 +40,7 @@ interface SupabaseRpcLike {
   rpc(
     fn: string,
     args: Record<string, unknown>,
-  ): Promise<{ data: unknown; error: { message: string } | null }>;
+  ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>

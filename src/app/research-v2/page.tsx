@@ -13,9 +13,14 @@ import {
   INITIAL_STATE,
   type ResearchV2State,
 } from '@/lib/research-v2/state-machine';
-import type { OnboardingV2Data } from '@/lib/research-v2/onboarding-v2-types';
-import { prefillFromCorpus } from '@/lib/research-v2/prefill-from-corpus';
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import type {
+  OnboardingReviewMetadata,
+  OnboardingV2Data,
+} from '@/lib/research-v2/onboarding-v2-types';
+import {
+  prefillFromCorpusWithMetadata,
+  type CorpusOnboardingField,
+} from '@/lib/research-v2/prefill-from-corpus';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
@@ -30,19 +35,6 @@ import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v
 function buildCorpusContext(websiteUrl: string): string {
   return `websiteUrl: ${websiteUrl}\nWebsite: ${websiteUrl}`;
 }
-
-const dispatchAllPositioningSections = async (runId: string): Promise<void> => {
-  await Promise.allSettled(
-    POSITIONING_SECTION_IDS.map((sectionId) =>
-      fetch('/api/research-v2/dispatch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ sectionId, runId }),
-      }),
-    ),
-  );
-};
 
 /**
  * Infer which research-v2 stage the session is in based on persisted data.
@@ -96,14 +88,19 @@ function inferResumeState(
   // 3. Corpus complete, no onboarding yet — map corpus onboardingFields to V2 prefill
   const corpusData = corpus.data as Record<string, unknown> | undefined;
   const onboardingFields = corpusData?.onboardingFields as
-    | Record<string, { value?: unknown }>
+    | Record<string, CorpusOnboardingField>
     | undefined;
 
-  const prefill: Partial<OnboardingV2Data> = onboardingFields
-    ? prefillFromCorpus(onboardingFields)
-    : {};
+  const prefill = onboardingFields
+    ? prefillFromCorpusWithMetadata(onboardingFields)
+    : { data: {}, metadata: {} };
 
-  return { kind: 'onboarding', runId, prefill };
+  return {
+    kind: 'onboarding',
+    runId,
+    prefill: prefill.data,
+    prefillMetadata: prefill.metadata,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -128,15 +125,15 @@ export default function ResearchV2Page() {
 
   const runIdFromUrl = searchParams.get('runId');
 
-  function setRunIdInUrl(runId: string) {
+  const setRunIdInUrl = useCallback((runId: string): void => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('runId', runId);
     router.replace(`/research-v2?${params.toString()}`, { scroll: false });
-  }
+  }, [router, searchParams]);
 
-  function clearRunIdInUrl() {
+  const clearRunIdInUrl = useCallback((): void => {
     router.replace('/research-v2', { scroll: false });
-  }
+  }, [router]);
 
   // -----------------------------------------------------------------------
   // Resume-on-revisit: on mount, check for an in-flight session
@@ -148,6 +145,33 @@ export default function ResearchV2Page() {
     runId: string;
   } | null>(null);
   const hasAttemptedResume = useRef(false);
+
+  const hydrateFromRunId = useCallback(async (runId: string): Promise<void> => {
+    try {
+      const res = await fetch(`/api/journey/session?runId=${runId}`, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        researchResults?: Record<string, unknown> | null;
+        jobStatus?: Record<string, unknown> | null;
+        onboardingData?: Record<string, unknown> | null;
+      };
+      const resumed = inferResumeState(
+        runId,
+        data.researchResults ?? null,
+        data.onboardingData ?? null,
+        data.jobStatus ?? null,
+      );
+      if (resumed) {
+        dispatch({ type: 'RESUME', state: resumed });
+        setRunIdInUrl(runId);
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [setRunIdInUrl]);
 
   useEffect(() => {
     if (!isUserLoaded || !user) return;
@@ -209,34 +233,7 @@ export default function ResearchV2Page() {
         // Silently ignore — resume is best-effort
       }
     })();
-  }, [isUserLoaded, user, runIdFromUrl]);
-
-  async function hydrateFromRunId(runId: string) {
-    try {
-      const res = await fetch(`/api/journey/session?runId=${runId}`, {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as {
-        researchResults?: Record<string, unknown> | null;
-        jobStatus?: Record<string, unknown> | null;
-        onboardingData?: Record<string, unknown> | null;
-      };
-      const resumed = inferResumeState(
-        runId,
-        data.researchResults ?? null,
-        data.onboardingData ?? null,
-        data.jobStatus ?? null,
-      );
-      if (resumed) {
-        dispatch({ type: 'RESUME', state: resumed });
-        setRunIdInUrl(runId);
-      }
-    } catch {
-      // Silently ignore
-    }
-  }
+  }, [hydrateFromRunId, isUserLoaded, runIdFromUrl, user]);
 
   function handleConfirmResume() {
     if (!resumeBanner) return;
@@ -315,7 +312,7 @@ export default function ResearchV2Page() {
     } finally {
       setIsCorpusStarting(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setRunIdInUrl]);
 
   // -----------------------------------------------------------------------
   // Corpus complete callback
@@ -338,16 +335,21 @@ export default function ResearchV2Page() {
             researchResults?: Record<string, unknown> | null;
           };
           const corpus = data.researchResults?.deepResearchProgram as
-            | { data?: { onboardingFields?: Record<string, { value?: unknown }> } }
+            | { data?: { onboardingFields?: Record<string, CorpusOnboardingField> } }
             | undefined;
           const onboardingFields = corpus?.data?.onboardingFields ?? {};
-          const prefill: Partial<OnboardingV2Data> = prefillFromCorpus(onboardingFields);
-          dispatch({ type: 'CORPUS_COMPLETE', prefill });
+          const prefill = prefillFromCorpusWithMetadata(onboardingFields);
+          dispatch({
+            type: 'CORPUS_COMPLETE',
+            prefill: prefill.data,
+            prefillMetadata: prefill.metadata,
+          });
         } else {
-          dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
+          dispatch({ type: 'CORPUS_COMPLETE', prefill: {}, prefillMetadata: {} });
         }
       } catch {
-        dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
+        console.warn('[research-v2] corpus prefill failed; continuing with empty review data');
+        dispatch({ type: 'CORPUS_COMPLETE', prefill: {}, prefillMetadata: {} });
       }
     })();
   }, [state]);
@@ -358,7 +360,7 @@ export default function ResearchV2Page() {
   // -----------------------------------------------------------------------
 
   const handleOnboardingComplete = useCallback(
-    async (data: OnboardingV2Data) => {
+    async (data: OnboardingV2Data, reviewMetadata: OnboardingReviewMetadata) => {
       if (state.kind !== 'onboarding') return;
       const runId = state.runId;
 
@@ -367,7 +369,7 @@ export default function ResearchV2Page() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ runId, data }),
+          body: JSON.stringify({ runId, data, reviewMetadata }),
         });
 
         if (!res.ok) {
@@ -449,7 +451,7 @@ export default function ResearchV2Page() {
     clearRunIdInUrl();
     setResumeBanner(null);
     dispatch({ type: 'RESET_TO_WELCOME' });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clearRunIdInUrl]);
 
   // -----------------------------------------------------------------------
   // Render
@@ -505,6 +507,7 @@ export default function ResearchV2Page() {
       {state.kind === 'onboarding' && (
         <OnboardingWizardV2
           initialData={state.prefill}
+          initialPrefillMetadata={state.prefillMetadata}
           onComplete={handleOnboardingComplete}
         />
       )}

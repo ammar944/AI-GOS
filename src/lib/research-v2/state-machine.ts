@@ -1,7 +1,10 @@
 // Pure TypeScript state machine for the /research-v2 flow.
 // No side effects, no DB calls, no fetch. All IO lives in page.tsx useEffect.
 
-import type { OnboardingV2Data } from './onboarding-v2-types';
+import type {
+  OnboardingPrefillMetadata,
+  OnboardingV2Data,
+} from './onboarding-v2-types';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 // ---------------------------------------------------------------------------
@@ -19,6 +22,7 @@ export type ResearchV2State =
       kind: 'onboarding';
       runId: string;
       prefill: Partial<OnboardingV2Data>;
+      prefillMetadata: OnboardingPrefillMetadata;
     }
   | {
       kind: 'sections';
@@ -44,7 +48,11 @@ export type ResearchV2Action =
   | { type: 'CORPUS_STREAMING' }
   | { type: 'CORPUS_FINALIZING' }
   // Corpus → Onboarding: worker completed, prefill available
-  | { type: 'CORPUS_COMPLETE'; prefill: Partial<OnboardingV2Data> }
+  | {
+      type: 'CORPUS_COMPLETE';
+      prefill: Partial<OnboardingV2Data>;
+      prefillMetadata?: OnboardingPrefillMetadata;
+    }
   // Onboarding → Sections: user submitted onboarding form
   | { type: 'ONBOARDING_COMPLETE' }
   // Sections: track active section
@@ -88,6 +96,7 @@ export function researchV2Reducer(
         kind: 'onboarding',
         runId: state.runId,
         prefill: action.prefill,
+        prefillMetadata: action.prefillMetadata ?? {},
       };
 
     case 'ONBOARDING_COMPLETE':

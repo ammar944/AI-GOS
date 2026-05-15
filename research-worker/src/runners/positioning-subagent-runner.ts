@@ -92,22 +92,37 @@ function buildTranscriptFromSteps(stepSnapshots: string[]): string {
   return selected.reverse().join('\n\n').slice(-maxChars);
 }
 
-function buildTypedArtifactClosingInstruction(
+async function emitSectionRunnerPhase(
+  onProgress: RunnerProgressReporter | undefined,
+  section: string,
+  status: 'drafting' | 'validating',
+): Promise<void> {
+  await emitRunnerProgress(
+    onProgress,
+    'runner',
+    status === 'drafting'
+      ? 'Drafting typed Artifact from Section Context Pack evidence'
+      : 'Validating typed Artifact against Section minimums',
+    { section, status },
+  );
+}
+
+export function buildTypedArtifactClosingInstruction(
   section: PositioningSubagentId,
 ): string {
   switch (section) {
     case 'positioningMarketCategory':
-      return `Run your evidence tools (web_search, firecrawl, pagespeed) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into MarketCategoryArtifactSchema after your loop ends. Cover the four Section 01 sub-sections: category definition and adjacent categories, market size and trajectory signals, structural forces, and the single category maturity classification object. confidence is a 0-10 self-rating; honesty > advocacy.`;
+      return `Read the Section Context Pack first. Synthesize from source-backed evidence in the pack before considering external tools. Use external tools only for listed evidence gaps within maxExternalLookups: 2, and preserve unavailable tools as capability gaps. Produce a concise evidence brief with concrete source URLs. The runner converts the accumulated transcript into MarketCategoryArtifactSchema after your loop ends. Cover the four Section 01 sub-sections: category definition and adjacent categories, market size and trajectory signals, structural forces, and the single category maturity classification object. confidence is a 0-10 self-rating; honesty > advocacy.`;
     case 'positioningBuyerICP':
-      return `Run your evidence tools (web_search, firecrawl, reviews) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into BuyerICPArtifactSchema after your loop ends. Cover the five Section 02 sub-sections: ICP existence, persona reality, awareness distribution, buying context, and clusters. confidence is a 0-10 self-rating; honesty > advocacy.`;
+      return `Read the Section Context Pack first. Synthesize from source-backed evidence in the pack before considering external tools. Use external tools only for listed evidence gaps within maxExternalLookups: 2, and preserve unavailable tools as capability gaps. Produce a concise evidence brief with concrete source URLs. The runner converts the accumulated transcript into BuyerICPArtifactSchema after your loop ends. Cover the five Section 02 sub-sections: ICP existence, persona reality, awareness distribution, buying context, and clusters. confidence is a 0-10 self-rating; honesty > advocacy.`;
     case 'positioningCompetitorLandscape':
-      return `Run your evidence tools (web_search, spyfu, adlibrary, meta_ads, google_ads, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into CompetitorLandscapeArtifactSchema after your loop ends. Cover the six Section 03 sub-sections: full competitor set, positioning taxonomy, pricing reality, share of voice, public weaknesses, and narrative arcs. Preserve verbatim competitor copy and complaint text. Use not disclosed or gated when pricing is unavailable. confidence is a 0-10 self-rating; honesty > advocacy.`;
+      return `Read the Section Context Pack first. Synthesize from source-backed evidence in the pack before considering external tools. Use external tools only for listed evidence gaps within maxExternalLookups: 2, and preserve unavailable tools as capability gaps. Produce a concise evidence brief with concrete source URLs. The runner converts the accumulated transcript into CompetitorLandscapeArtifactSchema after your loop ends. Cover the six Section 03 sub-sections: full competitor set, positioning taxonomy, pricing reality, share of voice, public weaknesses, and narrative arcs. Preserve verbatim competitor copy and complaint text. Use not disclosed or gated when pricing is unavailable. confidence is a 0-10 self-rating; honesty > advocacy.`;
     case 'positioningVoiceOfCustomer':
-      return `Run your evidence tools (web_search, reviews, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into VoiceOfCustomerArtifactSchema after your loop ends. Cover the five Section 04 sub-sections: pain language, objections, switching stories, decision criteria, and success language. Preserve verbatim buyer language exactly, including typos, caps, profanity, and slang. confidence is a 0-10 self-rating; honesty > advocacy.`;
+      return `Read the Section Context Pack first. Synthesize from source-backed evidence in the pack before considering external tools. Use external tools only for listed evidence gaps within maxExternalLookups: 2, and preserve unavailable tools as capability gaps. Produce a concise evidence brief with concrete source URLs. The runner converts the accumulated transcript into VoiceOfCustomerArtifactSchema after your loop ends. Cover the five Section 04 sub-sections: pain language, objections, switching stories, decision criteria, and success language. Preserve verbatim buyer language exactly, including typos, caps, profanity, and slang. confidence is a 0-10 self-rating; honesty > advocacy.`;
     case 'positioningDemandIntent':
-      return `Run your evidence tools (web_search, keyword_ad_probe, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into DemandIntentArtifactSchema after your loop ends. Cover the five Section 05 sub-sections: keyword demand, question mining, content gaps, intent signals, and venue map. Preserve buyer questions verbatim. Use not disclosed for unavailable keyword volume or venue audience size. Every keyword needs dateObserved. confidence is a 0-10 self-rating; honesty > advocacy.`;
+      return `Read the Section Context Pack first. Synthesize from source-backed evidence in the pack before considering external tools. Use external tools only for listed evidence gaps within maxExternalLookups: 2, and preserve unavailable tools as capability gaps. Produce a concise evidence brief with concrete source URLs. The runner converts the accumulated transcript into DemandIntentArtifactSchema after your loop ends. Cover the five Section 05 sub-sections: keyword demand, question mining, content gaps, intent signals, and venue map. Preserve buyer questions verbatim. Use not disclosed for unavailable keyword volume or venue audience size. Every keyword needs dateObserved. confidence is a 0-10 self-rating; honesty > advocacy.`;
     case 'positioningOfferDiagnostic':
-      return `Run your evidence tools (web_search, ga4, pagespeed, reviews, firecrawl) and produce a concise evidence brief with concrete source URLs. You are gathering evidence only; the runner converts the accumulated transcript into OfferPerformanceArtifactSchema after your loop ends. Cover the five Section 06 sub-sections: offer-market fit, funnel diagnosis, channel truth, retention health, and red flags. Use self-data only. Use not disclosed for missing CAC, LTV, conversion, MRR, payback, activation, retention, channel ROI, and first-value timing. A red flag needs claimed motion, actual evidence, and contradiction. confidence is a 0-10 self-rating; honesty > advocacy.`;
+      return `Read the Section Context Pack first. Synthesize from source-backed evidence in the pack before considering external tools. Use external tools only for listed evidence gaps within maxExternalLookups: 2, and preserve unavailable tools as capability gaps. Produce a concise evidence brief with concrete source URLs. The runner converts the accumulated transcript into OfferPerformanceArtifactSchema after your loop ends. Cover the five Section 06 sub-sections: offer-market fit, funnel diagnosis, channel truth, retention health, and red flags. Use self-data only. Use not disclosed for missing CAC, LTV, conversion, MRR, payback, activation, retention, channel ROI, and first-value timing. A red flag needs claimed motion, actual evidence, and contradiction. confidence is a 0-10 self-rating; honesty > advocacy.`;
     default:
       return assertUnhandledPositioningSection(section);
   }
@@ -2178,6 +2193,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningMarketCategory') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
+      await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamMarketCategoryArtifact({
         model: SUBAGENT_MODEL,
         transcript,
@@ -2186,6 +2202,7 @@ ${refinedContext}`;
         abortSignal: composedSignal,
       });
 
+      await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateMarketCategoryMinimums(artifact);
 
       if (!validation.ok) {
@@ -2200,6 +2217,7 @@ ${refinedContext}`;
           },
         );
 
+        await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamMarketCategoryArtifact({
           model: SUBAGENT_MODEL,
           transcript,
@@ -2208,6 +2226,7 @@ ${refinedContext}`;
           onProgress,
           abortSignal: composedSignal,
         });
+        await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateMarketCategoryMinimums(artifact);
       }
 
@@ -2232,6 +2251,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningBuyerICP') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
+      await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamBuyerIcpArtifact({
         model: SUBAGENT_MODEL,
         transcript,
@@ -2240,6 +2260,7 @@ ${refinedContext}`;
         abortSignal: composedSignal,
       });
 
+      await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateBuyerICPMinimums(artifact);
 
       if (!validation.ok) {
@@ -2254,6 +2275,7 @@ ${refinedContext}`;
           },
         );
 
+        await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamBuyerIcpArtifact({
           model: SUBAGENT_MODEL,
           transcript,
@@ -2262,6 +2284,7 @@ ${refinedContext}`;
           onProgress,
           abortSignal: composedSignal,
         });
+        await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateBuyerICPMinimums(artifact);
       }
 
@@ -2283,6 +2306,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningCompetitorLandscape') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
+      await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamCompetitorLandscapeArtifact({
         model: SUBAGENT_MODEL,
         transcript,
@@ -2291,6 +2315,7 @@ ${refinedContext}`;
         abortSignal: composedSignal,
       });
 
+      await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateCompetitorLandscapeMinimums(artifact);
 
       if (!validation.ok) {
@@ -2305,6 +2330,7 @@ ${refinedContext}`;
           },
         );
 
+        await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamCompetitorLandscapeArtifact({
           model: SUBAGENT_MODEL,
           transcript,
@@ -2313,6 +2339,7 @@ ${refinedContext}`;
           onProgress,
           abortSignal: composedSignal,
         });
+        await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateCompetitorLandscapeMinimums(artifact);
       }
 
@@ -2337,6 +2364,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningVoiceOfCustomer') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
+      await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamVoiceOfCustomerArtifact({
         model: SUBAGENT_MODEL,
         transcript,
@@ -2345,6 +2373,7 @@ ${refinedContext}`;
         abortSignal: composedSignal,
       });
 
+      await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateVoiceOfCustomerMinimums(artifact);
 
       if (!validation.ok) {
@@ -2359,6 +2388,7 @@ ${refinedContext}`;
           },
         );
 
+        await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamVoiceOfCustomerArtifact({
           model: SUBAGENT_MODEL,
           transcript,
@@ -2367,6 +2397,7 @@ ${refinedContext}`;
           onProgress,
           abortSignal: composedSignal,
         });
+        await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateVoiceOfCustomerMinimums(artifact);
       }
 
@@ -2391,6 +2422,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningDemandIntent') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
+      await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamDemandIntentArtifact({
         model: SUBAGENT_MODEL,
         transcript,
@@ -2399,6 +2431,7 @@ ${refinedContext}`;
         abortSignal: composedSignal,
       });
 
+      await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateDemandIntentMinimums(artifact);
 
       if (!validation.ok) {
@@ -2413,6 +2446,7 @@ ${refinedContext}`;
           },
         );
 
+        await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamDemandIntentArtifact({
           model: SUBAGENT_MODEL,
           transcript,
@@ -2421,6 +2455,7 @@ ${refinedContext}`;
           onProgress,
           abortSignal: composedSignal,
         });
+        await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateDemandIntentMinimums(artifact);
       }
 
@@ -2445,6 +2480,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningOfferDiagnostic') {
       const transcript = buildTranscriptFromSteps(stepSnapshots);
+      await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamOfferPerformanceArtifact({
         model: SUBAGENT_MODEL,
         transcript,
@@ -2453,6 +2489,7 @@ ${refinedContext}`;
         abortSignal: composedSignal,
       });
 
+      await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateOfferPerformanceMinimums(artifact);
 
       if (!validation.ok) {
@@ -2467,6 +2504,7 @@ ${refinedContext}`;
           },
         );
 
+        await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamOfferPerformanceArtifact({
           model: SUBAGENT_MODEL,
           transcript,
@@ -2475,6 +2513,7 @@ ${refinedContext}`;
           onProgress,
           abortSignal: composedSignal,
         });
+        await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateOfferPerformanceMinimums(artifact);
       }
 

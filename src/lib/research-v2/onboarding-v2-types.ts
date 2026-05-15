@@ -68,6 +68,46 @@ export interface OnboardingV2Data {
   growthTrend: string;
 }
 
+export interface OnboardingFieldPrefillMetadata {
+  value: string;
+  confidence: number | null;
+  sourceUrl: string | null;
+  reasoning: string | null;
+}
+
+export type OnboardingPrefillMetadata = Partial<
+  Record<keyof OnboardingV2Data, OnboardingFieldPrefillMetadata>
+>;
+
+export type OnboardingFieldReviewState =
+  | 'AI-filled'
+  | 'User-edited'
+  | 'Missing'
+  | 'Needs review';
+
+export interface OnboardingFieldReview {
+  key: keyof OnboardingV2Data;
+  label: string;
+  sectionId: string;
+  sectionTitle: string;
+  state: OnboardingFieldReviewState;
+  value: string | string[];
+  aiValue: string | null;
+  confidence: number | null;
+  sourceUrl: string | null;
+  reasoning: string | null;
+}
+
+export interface OnboardingReviewMetadata {
+  source: 'onboarding_v2_review';
+  fieldCount: number;
+  lowConfidenceThreshold: number;
+  pinnedFieldKeys: Array<keyof OnboardingV2Data>;
+  counts: Record<OnboardingFieldReviewState, number>;
+  fields: Partial<Record<keyof OnboardingV2Data, OnboardingFieldReview>>;
+  savedAt?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Zod schema for full form validation
 // ---------------------------------------------------------------------------

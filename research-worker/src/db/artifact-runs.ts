@@ -6,6 +6,7 @@
 // to make Phase 2 deps swappable in unit tests.
 
 import { getClient } from '../supabase';
+import type { SectionPhaseUpdate } from '../runners/section-phase';
 
 export interface SectionChildRow {
   section_run_id: string;
@@ -125,4 +126,114 @@ export async function loadParentRun(
     user_id: data.user_id as string,
     run_id: data.run_id as string,
   };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+export interface SectionContextPackInputs {
+  gtmBriefSnapshot: Record<string, unknown>;
+  gtmBriefReview: Record<string, unknown> | null;
+  corpus: unknown;
+}
+
+export async function loadSectionContextPackInputs(
+  parentAuditRunId: string,
+): Promise<SectionContextPackInputs> {
+  const supabase = getClient();
+  const { data: parent, error: parentError } = await supabase
+    .from('research_artifacts')
+    .select('user_id, run_id, thesis')
+    .eq('id', parentAuditRunId)
+    .maybeSingle();
+
+  if (parentError) {
+    throw new Error(
+      `[orchestrator] loadSectionContextPackInputs parent failed: ${parentError.message}`,
+    );
+  }
+  if (!parent) {
+    throw new Error(
+      `[orchestrator] loadSectionContextPackInputs parent ${parentAuditRunId} not found`,
+    );
+  }
+
+  const userId = parent.user_id as string;
+  const runId = parent.run_id as string;
+  const { data: session, error: sessionError } = await supabase
+    .from('journey_sessions')
+    .select('research_results,onboarding_data,metadata')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (sessionError) {
+    throw new Error(
+      `[orchestrator] loadSectionContextPackInputs session failed: ${sessionError.message}`,
+    );
+  }
+
+  const thesis = asRecord(parent.thesis) ?? {};
+  const gtmBriefSnapshot =
+    asRecord(thesis.gtmBriefSnapshot) ??
+    asRecord(session?.onboarding_data) ??
+    {};
+  const metadata = asRecord(session?.metadata);
+  const gtmBriefReview =
+    asRecord(thesis.gtmBriefReview) ??
+    asRecord(metadata?.researchV2OnboardingReview);
+  const researchResults = asRecord(session?.research_results);
+  const deepResearch = asRecord(researchResults?.deepResearchProgram);
+
+  return {
+    gtmBriefSnapshot,
+    gtmBriefReview,
+    corpus: deepResearch?.data ?? researchResults ?? {},
+  };
+}
+
+export async function updateSectionRunPhase(
+  sectionRunId: string,
+  update: SectionPhaseUpdate,
+): Promise<void> {
+  const supabase = getClient();
+  const { data, error: readError } = await supabase
+    .from('research_section_runs')
+    .select('telemetry, started_at')
+    .eq('id', sectionRunId)
+    .maybeSingle();
+
+  if (readError) {
+    throw new Error(
+      `[orchestrator] updateSectionRunPhase read failed: ${readError.message}`,
+    );
+  }
+
+  const now = new Date();
+  const startedAt =
+    typeof data?.started_at === 'string'
+      ? Date.parse(data.started_at)
+      : now.getTime();
+  const currentTelemetry = asRecord(data?.telemetry) ?? {};
+  const nextTelemetry: Record<string, unknown> = {
+    ...currentTelemetry,
+    ...update,
+    phaseStartedAt: update.phaseStartedAt ?? now.toISOString(),
+    elapsedMs: update.elapsedMs ?? Math.max(0, now.getTime() - startedAt),
+  };
+
+  const { error: updateError } = await supabase
+    .from('research_section_runs')
+    .update({ telemetry: nextTelemetry })
+    .eq('id', sectionRunId);
+
+  if (updateError) {
+    throw new Error(
+      `[orchestrator] updateSectionRunPhase update failed: ${updateError.message}`,
+    );
+  }
 }

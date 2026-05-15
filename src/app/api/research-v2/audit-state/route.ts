@@ -19,6 +19,15 @@ export type WorkerStatus =
   | 'error'
   | 'aborted';
 
+export type AuditSectionPhase =
+  | 'Queued'
+  | 'Compiling context'
+  | 'Reading sources'
+  | 'Drafting'
+  | 'Validating'
+  | 'Complete'
+  | 'Needs review';
+
 export interface SectionEvent {
   id: string;
   event_type: string;
@@ -35,6 +44,18 @@ export interface AuditStateResponse {
   workerStates: Array<{
     section_id: PositioningSectionId;
     status: WorkerStatus;
+    phase: AuditSectionPhase;
+    phaseLabel: AuditSectionPhase;
+    phaseStartedAt: string | null;
+    latestTool: string | null;
+    latestSource: string | null;
+    latestActivity: string | null;
+    nextStep: string | null;
+    wave: number | null;
+    totalWaves: number | null;
+    concurrency: number | null;
+    elapsedMs: number | null;
+    capabilityGaps: Array<Record<string, unknown>>;
   }>;
   sectionsByZone: Record<
     string,
@@ -50,6 +71,15 @@ export interface AuditStateResponse {
 }
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
+const PHASES: ReadonlySet<string> = new Set([
+  'Queued',
+  'Compiling context',
+  'Reading sources',
+  'Drafting',
+  'Validating',
+  'Complete',
+  'Needs review',
+]);
 
 function normalizeStatus(raw: unknown): WorkerStatus {
   if (typeof raw !== 'string') return 'queued';
@@ -57,6 +87,89 @@ function normalizeStatus(raw: unknown): WorkerStatus {
     return raw;
   }
   return 'queued';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+function pickString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function pickNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function defaultPhaseForStatus(status: WorkerStatus): AuditSectionPhase {
+  if (status === 'complete') return 'Complete';
+  if (status === 'error' || status === 'aborted') return 'Needs review';
+  if (status === 'running') return 'Reading sources';
+  return 'Queued';
+}
+
+function normalizePhase(
+  raw: unknown,
+  status: WorkerStatus,
+): AuditSectionPhase {
+  const phase = pickString(raw);
+  if (phase && PHASES.has(phase)) return phase as AuditSectionPhase;
+  return defaultPhaseForStatus(status);
+}
+
+function normalizeCapabilityGaps(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<string, unknown> => Boolean(asRecord(item)));
+}
+
+interface WorkerStateReadModel {
+  status: WorkerStatus;
+  phase: AuditSectionPhase;
+  phaseLabel: AuditSectionPhase;
+  phaseStartedAt: string | null;
+  latestTool: string | null;
+  latestSource: string | null;
+  latestActivity: string | null;
+  nextStep: string | null;
+  wave: number | null;
+  totalWaves: number | null;
+  concurrency: number | null;
+  elapsedMs: number | null;
+  capabilityGaps: Array<Record<string, unknown>>;
+}
+
+function buildWorkerStateReadModel(row: {
+  status?: unknown;
+  telemetry?: unknown;
+}): WorkerStateReadModel {
+  const status = normalizeStatus(row.status);
+  const telemetry = asRecord(row.telemetry) ?? {};
+  const phase = normalizePhase(telemetry.phase, status);
+
+  return {
+    status,
+    phase,
+    phaseLabel: phase,
+    phaseStartedAt: pickString(telemetry.phaseStartedAt),
+    latestTool: pickString(telemetry.latestTool),
+    latestSource: pickString(telemetry.latestSource),
+    latestActivity: pickString(telemetry.latestActivity),
+    nextStep: pickString(telemetry.nextStep),
+    wave: pickNumber(telemetry.wave),
+    totalWaves: pickNumber(telemetry.totalWaves),
+    concurrency: pickNumber(telemetry.concurrency),
+    elapsedMs: pickNumber(telemetry.elapsedMs),
+    capabilityGaps: normalizeCapabilityGaps(telemetry.capabilityGaps),
+  };
+}
+
+function queuedWorkerState(): WorkerStateReadModel {
+  return buildWorkerStateReadModel({ status: 'queued', telemetry: null });
 }
 
 export async function GET(req: Request): Promise<NextResponse<AuditStateResponse | { error: string }>> {
@@ -92,7 +205,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
         children_total: 0,
         workerStates: POSITIONING_SECTION_IDS.map((section_id) => ({
           section_id,
-          status: 'queued' as WorkerStatus,
+          ...queuedWorkerState(),
         })),
         sectionsByZone: {},
         eventsByZone: {},
@@ -106,7 +219,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const [runsResp, sectionsResp, eventsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
-      .select('zone, status, started_at')
+      .select('zone, status, started_at, telemetry')
       .eq('artifact_id', parentId)
       .order('started_at', { ascending: true }),
     supabase
@@ -138,18 +251,21 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   // Pick the most recent non-terminal run per zone for the chip; fall back
   // to the latest row if all are terminal.
-  const byZone = new Map<string, WorkerStatus>();
+  const byZone = new Map<string, WorkerStateReadModel>();
   for (const row of runsResp.data ?? []) {
     const zone = row.zone as string;
-    const status = normalizeStatus(row.status);
+    const model = buildWorkerStateReadModel({
+      status: row.status,
+      telemetry: row.telemetry,
+    });
     const current = byZone.get(zone);
     if (!current) {
-      byZone.set(zone, status);
+      byZone.set(zone, model);
       continue;
     }
     // Prefer non-terminal; otherwise keep first.
-    if (TERMINAL.has(current) && !TERMINAL.has(status)) {
-      byZone.set(zone, status);
+    if (TERMINAL.has(current.status) && !TERMINAL.has(model.status)) {
+      byZone.set(zone, model);
     }
   }
 
@@ -172,7 +288,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   const workerStates = POSITIONING_SECTION_IDS.map((section_id) => ({
     section_id,
-    status: byZone.get(section_id) ?? ('queued' as WorkerStatus),
+    ...(byZone.get(section_id) ?? queuedWorkerState()),
   }));
 
   // P2a — group events by zone, cap at 12 newest per zone (events came

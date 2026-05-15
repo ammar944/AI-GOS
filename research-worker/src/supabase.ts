@@ -581,6 +581,7 @@ export interface JobStatusUpdateMeta {
     | 'queued'
     | 'researching'
     | 'drafting'
+    | 'validating'
     | 'citing'
     | 'complete'
     | 'partial'

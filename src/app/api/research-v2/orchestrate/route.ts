@@ -18,8 +18,8 @@ import { NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import { buildJourneyResearchDispatchContext } from '@/lib/journey/server/dispatch-research';
 import {
+  freezeReviewedBriefSnapshot,
   OrchestrateRpcError,
   seedOrchestration,
 } from '@/lib/research-v2/orchestrate-db';
@@ -37,6 +37,8 @@ interface JourneySessionRow {
   user_id: string;
   run_id: string | null;
   research_results: Record<string, { status?: string } | null> | null;
+  onboarding_data: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
 }
 
 async function loadOwnedSession(
@@ -46,7 +48,7 @@ async function loadOwnedSession(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('journey_sessions')
-    .select('id,user_id,run_id,research_results')
+    .select('id,user_id,run_id,research_results,onboarding_data,metadata')
     .eq('user_id', userId)
     .eq('run_id', runId)
     .maybeSingle();
@@ -62,6 +64,19 @@ function corpusReady(session: JourneySessionRow): boolean {
   const results = session.research_results ?? {};
   const corpus = results['deepResearchProgram'];
   return corpus?.status === 'complete';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+function getOnboardingReviewMetadata(
+  metadata: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  return asRecord(metadata?.researchV2OnboardingReview);
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -124,37 +139,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       zones: POSITIONING_SECTION_IDS,
     });
 
-    // Phase 7.5 kickoff: fire-and-forget the worker /orchestrate route so it
-    // starts running the six children under bounded concurrency. The HTTP
-    // response returns the seeded ids immediately so the UI can render the
-    // queued chips while the worker is still spinning up.
-    //
-    // Phase 7.6: enrich the context the worker hands to each section
-    // runner. buildJourneyResearchDispatchContext layers in the corpus,
-    // onboarding answers, reference docs, meeting intel, and identity
-    // classifications. We build it once per parent run (using the
-    // market-category section as the canonical seed for identity-
-    // classification scoping) and pass it to all six children — a fine
-    // tradeoff for Phase 7.6 since the per-section diffs are minor.
-    let sharedContext = '';
-    try {
-      sharedContext = await buildJourneyResearchDispatchContext({
-        userId,
-        runId: body.run_id,
-        section: 'positioningMarketCategory',
-        context: '',
-      });
-    } catch (err) {
-      console.warn(
-        '[orchestrate] context build failed — sections will run with empty context:',
-        err instanceof Error ? err.message : String(err),
-      );
-    }
+    await freezeReviewedBriefSnapshot({
+      parentAuditRunId: seeded.parent_audit_run_id,
+      gtmBriefSnapshot: session.onboarding_data ?? {},
+      gtmBriefReview: getOnboardingReviewMetadata(session.metadata),
+    });
 
     void kickoffWorker({
       parentAuditRunId: seeded.parent_audit_run_id,
       runId: body.run_id,
-      context: sharedContext,
     });
 
     return NextResponse.json(seeded, { status: 200 });
@@ -175,7 +168,6 @@ const WORKER_KICKOFF_TIMEOUT_MS = 5000;
 async function kickoffWorker(input: {
   parentAuditRunId: string;
   runId: string;
-  context: string;
 }): Promise<void> {
   const workerUrl = process.env.RAILWAY_WORKER_URL?.trim();
   const workerKey = process.env.RAILWAY_API_KEY?.trim();
@@ -197,7 +189,6 @@ async function kickoffWorker(input: {
       },
       body: JSON.stringify({
         parent_audit_run_id: input.parentAuditRunId,
-        context: input.context,
       }),
       signal: controller.signal,
     });

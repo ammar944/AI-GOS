@@ -10,6 +10,7 @@ import {
   runPositioningVoiceOfCustomer,
   runPositioningDemandIntent,
   runPositioningOfferDiagnostic,
+  isPositioningSectionId,
 } from './runners';
 import {
   writeResearchResult,
@@ -42,9 +43,15 @@ import {
   isParentAuditAborted,
   loadChildrenForParent,
   loadParentRun,
+  loadSectionContextPackInputs,
   markSectionRunStatus,
   rollupParentStatus,
+  updateSectionRunPhase,
 } from './db/artifact-runs';
+import {
+  buildSectionContextPack,
+  serializeSectionContextPack,
+} from './runners/section-context-pack';
 import {
   appendSectionEvent,
   commitArtifactSection,
@@ -667,7 +674,7 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
 
 // -- Orchestrator (Phase 2) ---------------------------------------------------
 //
-// POST /orchestrate accepts { parent_audit_run_id, context? }. Returns 202
+// POST /orchestrate accepts { parent_audit_run_id }. Returns 202
 // with the parent id immediately, then drives the six positioning subagents
 // under that parent via runPositioningAuditOrchestrator with bounded
 // concurrency. Events stream into research_section_events and the parent
@@ -676,9 +683,8 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
 const parentOrchestrationAbort = new Map<string, AbortController>();
 
 app.post('/orchestrate', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { parent_audit_run_id, context } = req.body as {
+  const { parent_audit_run_id } = req.body as {
     parent_audit_run_id?: string;
-    context?: string;
   };
 
   if (!parent_audit_run_id) {
@@ -711,15 +717,50 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
   const parentAbortController = new AbortController();
   parentOrchestrationAbort.set(parent_audit_run_id, parentAbortController);
 
-  const sharedContext = typeof context === 'string' ? context : '';
+  const packInputsPromise = loadSectionContextPackInputs(parent_audit_run_id);
+  const workerCapabilities = buildCapabilitiesPayload({
+    workerVersion: WORKER_VERSION,
+    orchestrateSupported: true,
+  }).tools;
 
   const deps: OrchestratorDeps = {
     loadChildren: (id) => loadChildrenForParent(id),
+    buildSectionContext: async ({ zone }) => {
+      if (!isPositioningSectionId(zone)) {
+        throw new Error(`[orchestrator] unknown positioning zone ${zone}`);
+      }
+      const packInputs = await packInputsPromise;
+      const pack = buildSectionContextPack({
+        sectionId: zone,
+        gtmBriefSnapshot: packInputs.gtmBriefSnapshot,
+        gtmBriefReview: packInputs.gtmBriefReview,
+        corpus: packInputs.corpus,
+        capabilities: workerCapabilities,
+      });
+      return {
+        context: serializeSectionContextPack(pack),
+        capabilityGaps: pack.capabilityGaps,
+      };
+    },
+    updatePhase: ({ sectionRunId, phase, phaseStartedAt, latestTool, latestSource, latestActivity, nextStep, wave, totalWaves, concurrency, elapsedMs, capabilityGaps }) =>
+      updateSectionRunPhase(sectionRunId, {
+        phase,
+        phaseStartedAt,
+        latestTool,
+        latestSource,
+        latestActivity,
+        nextStep,
+        wave,
+        totalWaves,
+        concurrency,
+        elapsedMs,
+        capabilityGaps,
+      }),
     markChildRunning: (sectionRunId) =>
       markSectionRunStatus(sectionRunId, 'running'),
     markChildTerminal: (sectionRunId, status, error) =>
       markSectionRunStatus(sectionRunId, status, { error: error ?? null }),
-    runSection: async ({ zone, sectionRunId, signal, onProgress }) => {
+    runSection: async ({ zone, context: sectionContext, signal, onProgress }) => {
       const runner = TOOL_RUNNERS[zone as ToolName];
       if (!runner) {
         return {
@@ -729,7 +770,7 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
       }
       try {
         const result = (await runner(
-          sharedContext,
+          sectionContext,
           async (event) => {
             // Forward runner progress events to the orchestrator event stream.
             await onProgress('searching', { event });

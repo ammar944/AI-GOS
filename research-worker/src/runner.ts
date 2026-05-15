@@ -113,6 +113,7 @@ export interface ProgressMeta {
     | 'queued'
     | 'researching'
     | 'drafting'
+    | 'validating'
     | 'citing'
     | 'complete'
     | 'partial'

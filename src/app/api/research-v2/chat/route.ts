@@ -18,6 +18,8 @@ import { applyPatch } from '@/lib/research-v2/patch-apply';
 import { commitChatPatchAuto } from '@/lib/research-v2/chat-write-through';
 import { createAdminClient } from '@/lib/supabase/server';
 
+type ChatPatchSupabase = Parameters<typeof commitChatPatchAuto>[0];
+
 // The positioning orchestrator is the only chat command surface; every turn
 // runs through it. The earlier legacy intent-router branch is gone.
 const ORCHESTRATOR_TIMEOUT_MS = 45_000;
@@ -154,7 +156,7 @@ async function applyOrchestratorSideEffect(
   ctx: {
     userId: string;
     runId: string;
-    supabase: ReturnType<typeof createAdminClient>;
+    supabase: ChatPatchSupabase;
     researchResults: Record<string, unknown>;
     requestUrl: string;
     cookieHeader: string;
@@ -304,9 +306,8 @@ async function applyOrchestratorSideEffect(
       // journey_sessions.research_results JSONB. commitChatPatchAuto handles
       // the section_run_id + expectedRevision lookup so the chat route stays
       // ignorant of artifact internals.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const writeResult = await commitChatPatchAuto(
-        ctx.supabase as any,
+        ctx.supabase,
         {
           userId: ctx.userId,
           runId: ctx.runId,

@@ -12,6 +12,8 @@
 // wires the real deps and exposes POST /orchestrate.
 
 import { createSemaphore } from '../utils/semaphore';
+import type { SectionCapabilityGap } from './section-context-pack';
+import type { SectionPhase, SectionPhaseUpdate } from './section-phase';
 
 /** Terminal status values for a section child run. */
 export type ChildTerminalStatus = 'complete' | 'error' | 'aborted';
@@ -50,6 +52,23 @@ export type OrchestratorEventType =
 export interface OrchestratorDeps {
   /** Load every child section_run for the parent (any status). */
   loadChildren: (parentAuditRunId: string) => Promise<ChildRow[]>;
+  /** Build the per-Section Context Pack string before the child runner starts. */
+  buildSectionContext: (input: {
+    parentAuditRunId: string;
+    sectionRunId: string;
+    zone: string;
+    wave: number;
+    concurrency: number;
+  }) => Promise<{
+    context: string;
+    capabilityGaps: SectionCapabilityGap[];
+  }>;
+  /** Persist compact phase state for the product read model. */
+  updatePhase: (input: {
+    parentAuditRunId: string;
+    sectionRunId: string;
+    zone: string;
+  } & SectionPhaseUpdate) => Promise<void>;
   /** Transition a child from queued → running. Idempotent. */
   markChildRunning: (sectionRunId: string) => Promise<void>;
   /** Persist a terminal status on a child. */
@@ -63,6 +82,7 @@ export interface OrchestratorDeps {
     parentAuditRunId: string;
     sectionRunId: string;
     zone: string;
+    context: string;
     signal: AbortSignal;
     onProgress: (
       type: 'searching' | 'partial',
@@ -115,6 +135,60 @@ const TERMINAL_STATES: ReadonlySet<string> = new Set([
   'aborted',
 ]);
 
+function getWave(index: number, concurrency: number): number {
+  return Math.floor(index / concurrency) + 1;
+}
+
+function getTotalWaves(total: number, concurrency: number): number {
+  return Math.max(1, Math.ceil(total / concurrency));
+}
+
+function nestedRecord(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const child = record[key];
+  if (!child || typeof child !== 'object' || Array.isArray(child)) return null;
+  return child as Record<string, unknown>;
+}
+
+function pickString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function phaseFromProgressPayload(payload: Record<string, unknown> | undefined): SectionPhase {
+  const wrapper = nestedRecord(payload, 'event');
+  const meta = nestedRecord(wrapper ?? payload, 'meta');
+  const status = pickString(meta?.status);
+  if (status === 'drafting') return 'Drafting';
+  if (status === 'validating') return 'Validating';
+  return 'Reading sources';
+}
+
+function latestToolFromProgressPayload(payload: Record<string, unknown> | undefined): string | null {
+  const wrapper = nestedRecord(payload, 'event');
+  const meta = nestedRecord(wrapper ?? payload, 'meta');
+  const raw = meta?.toolNames;
+  if (!Array.isArray(raw)) return null;
+  const tool = raw.find((item): item is string => typeof item === 'string' && item.length > 0);
+  return tool ?? null;
+}
+
+function latestActivityFromProgressPayload(payload: Record<string, unknown> | undefined): string | null {
+  const wrapper = nestedRecord(payload, 'event');
+  const meta = nestedRecord(wrapper ?? payload, 'meta');
+  return (
+    pickString(meta?.textPreview) ??
+    pickString(wrapper?.message) ??
+    pickString(payload?.message) ??
+    null
+  );
+}
+
 function rollupStatus(
   parentAborted: boolean,
   terminals: ChildTerminalStatus[],
@@ -140,6 +214,27 @@ export async function runPositioningAuditOrchestrator(
   // Run only non-terminal children. Terminal ones are reflected as-is in
   // the rollup so reruns mid-flight don't redo work that's already complete.
   const eligible = all.filter((c) => !TERMINAL_STATES.has(c.status));
+  const totalWaves = getTotalWaves(eligible.length, concurrency);
+  const waveBySectionRunId = new Map<string, number>();
+  eligible.forEach((child, index) => {
+    waveBySectionRunId.set(child.section_run_id, getWave(index, concurrency));
+  });
+
+  await Promise.all(
+    eligible.map((child, index) =>
+      deps.updatePhase({
+        parentAuditRunId: options.parentAuditRunId,
+        sectionRunId: child.section_run_id,
+        zone: child.zone,
+        phase: 'Queued',
+        latestActivity: `Waiting for wave ${getWave(index, concurrency)} of ${totalWaves}`,
+        nextStep: 'Compile Section Context Pack',
+        wave: getWave(index, concurrency),
+        totalWaves,
+        concurrency,
+      }),
+    ),
+  );
 
   const childTerminalStatusBySectionRunId = new Map<string, ChildTerminalStatus>();
   // Pre-fill terminals from the DB so the rollup includes them.
@@ -193,21 +288,62 @@ export async function runPositioningAuditOrchestrator(
         zone: child.zone,
         type: 'started',
       });
+      const wave = waveBySectionRunId.get(child.section_run_id) ?? 1;
+      await deps.updatePhase({
+        parentAuditRunId: options.parentAuditRunId,
+        sectionRunId: child.section_run_id,
+        zone: child.zone,
+        phase: 'Compiling context',
+        latestActivity: 'Building Section Context Pack',
+        nextStep: 'Read source excerpts',
+        wave,
+        totalWaves,
+        concurrency,
+      });
+
+      const sectionContext = await deps.buildSectionContext({
+        parentAuditRunId: options.parentAuditRunId,
+        sectionRunId: child.section_run_id,
+        zone: child.zone,
+        wave,
+        concurrency,
+      });
 
       try {
         const result = await deps.runSection({
           parentAuditRunId: options.parentAuditRunId,
           sectionRunId: child.section_run_id,
           zone: child.zone,
+          context: sectionContext.context,
           signal: childAbortController.signal,
-          onProgress: (type, payload) =>
-            deps.emitEvent({
+          onProgress: async (type, payload) => {
+            const phase = phaseFromProgressPayload(payload);
+            await deps.updatePhase({
+              parentAuditRunId: options.parentAuditRunId,
+              sectionRunId: child.section_run_id,
+              zone: child.zone,
+              phase,
+              latestTool: latestToolFromProgressPayload(payload),
+              latestActivity: latestActivityFromProgressPayload(payload),
+              nextStep:
+                phase === 'Drafting'
+                  ? 'Validate typed Artifact'
+                  : phase === 'Validating'
+                    ? 'Commit section Artifact'
+                    : 'Draft typed Artifact',
+              wave,
+              totalWaves,
+              concurrency,
+              capabilityGaps: sectionContext.capabilityGaps,
+            });
+            await deps.emitEvent({
               parentAuditRunId: options.parentAuditRunId,
               sectionRunId: child.section_run_id,
               zone: child.zone,
               type,
               payload,
-            }),
+            });
+          },
         });
 
         if (result.status === 'complete') {
@@ -222,6 +358,24 @@ export async function runPositioningAuditOrchestrator(
             sectionRunId: child.section_run_id,
             zone: child.zone,
             type: 'complete',
+          });
+          await deps.updatePhase({
+            parentAuditRunId: options.parentAuditRunId,
+            sectionRunId: child.section_run_id,
+            zone: child.zone,
+            phase:
+              sectionContext.capabilityGaps.length > 0
+                ? 'Needs review'
+                : 'Complete',
+            latestActivity:
+              sectionContext.capabilityGaps.length > 0
+                ? 'Section committed with capability gaps'
+                : 'Section committed',
+            nextStep: null,
+            wave,
+            totalWaves,
+            concurrency,
+            capabilityGaps: sectionContext.capabilityGaps,
           });
           await deps.markChildTerminal(child.section_run_id, 'complete');
           childTerminalStatusBySectionRunId.set(child.section_run_id, 'complete');
@@ -240,6 +394,18 @@ export async function runPositioningAuditOrchestrator(
             'error',
             result.error ?? null,
           );
+          await deps.updatePhase({
+            parentAuditRunId: options.parentAuditRunId,
+            sectionRunId: child.section_run_id,
+            zone: child.zone,
+            phase: 'Needs review',
+            latestActivity: result.error?.message ?? 'Section failed',
+            nextStep: 'Review error and retry section',
+            wave,
+            totalWaves,
+            concurrency,
+            capabilityGaps: sectionContext.capabilityGaps,
+          });
           childTerminalStatusBySectionRunId.set(child.section_run_id, 'error');
         }
       } catch (err) {

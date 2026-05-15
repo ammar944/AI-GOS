@@ -154,6 +154,72 @@ describe('AgentArtifactSurface', () => {
     ).toBe('complete');
   });
 
+  it('renders phase labels, latest activity, and wave state without generic running copy', () => {
+    useAuditStateMock.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: 'parent-run',
+      children_total: 6,
+      workerStates: [
+        {
+          section_id: 'positioningMarketCategory',
+          status: 'running',
+          phase: 'Compiling context',
+          phaseLabel: 'Compiling context',
+          latestTool: 'web_search',
+          latestSource: 'https://example.com/category',
+          latestActivity: 'Building Section Context Pack',
+          nextStep: 'Read source excerpts',
+          elapsedMs: 1200,
+          wave: 1,
+          totalWaves: 2,
+          concurrency: 3,
+          capabilityGaps: [],
+        },
+        {
+          section_id: 'positioningBuyerICP',
+          status: 'running',
+          phase: 'Reading sources',
+          phaseLabel: 'Reading sources',
+          latestTool: null,
+          latestSource: null,
+          latestActivity: null,
+          nextStep: null,
+          elapsedMs: 900,
+          wave: 1,
+          totalWaves: 2,
+          concurrency: 3,
+          capabilityGaps: [],
+        },
+        { section_id: 'positioningCompetitorLandscape', status: 'running', phase: 'Drafting', phaseLabel: 'Drafting' },
+        { section_id: 'positioningVoiceOfCustomer', status: 'queued', phase: 'Queued', phaseLabel: 'Queued' },
+        { section_id: 'positioningDemandIntent', status: 'queued', phase: 'Queued', phaseLabel: 'Queued' },
+        { section_id: 'positioningOfferDiagnostic', status: 'queued', phase: 'Queued', phaseLabel: 'Queued' },
+      ],
+      eventsByZone: {
+        positioningMarketCategory: [
+          {
+            id: 'event-1',
+            event_type: 'searching',
+            message: 'raw debug event',
+            payload: null,
+            created_at: '2026-05-15T12:00:00.000Z',
+          },
+        ],
+      },
+    });
+
+    render(<AgentArtifactSurface runId="run-abc" />);
+
+    expect(screen.getAllByText('Compiling context')).toHaveLength(3);
+    expect(screen.getAllByText('Building Section Context Pack')).toHaveLength(2);
+    expect(screen.getAllByText('Next: Read source excerpts')).toHaveLength(2);
+    expect(screen.getAllByText('Tool: web_search')).toHaveLength(2);
+    expect(screen.getAllByText('Source: example.com')).toHaveLength(2);
+    expect(screen.getByText('Wave 1 of 2 - 3 running, 3 queued')).toBeInTheDocument();
+    expect(screen.queryByText('Generating')).toBeNull();
+    expect(screen.getAllByTestId('raw-events-details-positioningMarketCategory')).toHaveLength(2);
+  });
+
   it('renders typed BuyerICP cards from audit-state instead of the markdown fallback', () => {
     useAuditStateMock.mockReturnValue({
       ...EMPTY_AUDIT_STATE,

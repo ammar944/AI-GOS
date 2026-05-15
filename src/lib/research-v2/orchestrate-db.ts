@@ -34,6 +34,97 @@ export interface SeedOrchestrationInput {
   zones?: readonly PositioningSectionId[];
 }
 
+export interface FrozenGtmBriefThesisPatchInput {
+  existingThesis: Record<string, unknown> | null;
+  gtmBriefSnapshot: Record<string, unknown>;
+  gtmBriefReview: Record<string, unknown> | null;
+  frozenAt: string;
+}
+
+export interface FrozenGtmBriefThesisPatchResult {
+  shouldUpdate: boolean;
+  thesis: Record<string, unknown>;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+export function buildFrozenGtmBriefThesisPatch(
+  input: FrozenGtmBriefThesisPatchInput,
+): FrozenGtmBriefThesisPatchResult {
+  const existingThesis = input.existingThesis ?? {};
+  if (
+    existingThesis.source === 'onboarding_v2_review' &&
+    asRecord(existingThesis.gtmBriefSnapshot)
+  ) {
+    return { shouldUpdate: false, thesis: existingThesis };
+  }
+
+  return {
+    shouldUpdate: true,
+    thesis: {
+      ...existingThesis,
+      source: 'onboarding_v2_review',
+      frozenAt: input.frozenAt,
+      gtmBriefSnapshot: input.gtmBriefSnapshot,
+      gtmBriefReview: input.gtmBriefReview,
+    },
+  };
+}
+
+export async function freezeReviewedBriefSnapshot(input: {
+  parentAuditRunId: string;
+  gtmBriefSnapshot: Record<string, unknown>;
+  gtmBriefReview: Record<string, unknown> | null;
+  frozenAt?: string;
+}): Promise<'frozen' | 'already_frozen'> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('research_artifacts')
+    .select('thesis')
+    .eq('id', input.parentAuditRunId)
+    .maybeSingle();
+
+  if (error) {
+    throw new OrchestrateRpcError(
+      `research_artifacts thesis read failed: ${error.message}`,
+      error,
+    );
+  }
+
+  const patch = buildFrozenGtmBriefThesisPatch({
+    existingThesis: asRecord((data as { thesis?: unknown } | null)?.thesis),
+    gtmBriefSnapshot: input.gtmBriefSnapshot,
+    gtmBriefReview: input.gtmBriefReview,
+    frozenAt: input.frozenAt ?? new Date().toISOString(),
+  });
+
+  if (!patch.shouldUpdate) {
+    return 'already_frozen';
+  }
+
+  const { error: updateError } = await supabase
+    .from('research_artifacts')
+    .update({
+      thesis: patch.thesis,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.parentAuditRunId);
+
+  if (updateError) {
+    throw new OrchestrateRpcError(
+      `research_artifacts thesis update failed: ${updateError.message}`,
+      updateError,
+    );
+  }
+
+  return 'frozen';
+}
+
 export async function seedOrchestration(
   input: SeedOrchestrationInput,
 ): Promise<SeedOrchestrationResult> {
