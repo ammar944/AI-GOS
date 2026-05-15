@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentArtifactSurface } from '../agent-artifact-surface';
@@ -76,6 +76,12 @@ describe('AgentArtifactSurface', () => {
     expect(screen.getByTestId('artifact-document')).toBeTruthy();
   });
 
+  it('renders all six audit section anchors before the first section completes', () => {
+    render(<AgentArtifactSurface runId="run-abc" />);
+    expect(screen.getAllByTestId(/^artifact-section-/)).toHaveLength(6);
+    expect(screen.getByText('Awaiting first section')).toBeInTheDocument();
+  });
+
   it('hides the artifact-document when showArtifact=false (initial centered-composer state)', () => {
     render(<AgentArtifactSurface runId="run-abc" showArtifact={false} />);
     expect(screen.queryByTestId('artifact-document')).toBeNull();
@@ -86,8 +92,35 @@ describe('AgentArtifactSurface', () => {
   it('opens the sources drawer when the toolbar Sources button is clicked', () => {
     render(<AgentArtifactSurface runId="run-abc" />);
     expect(screen.queryByTestId('sources-drawer')).toBeNull();
-    fireEvent.click(screen.getByText('Sources'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
     expect(screen.getByTestId('sources-drawer')).toBeTruthy();
+  });
+
+  it('lists typed artifact sources in the audit sources drawer', () => {
+    useAuditStateMock.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: 'parent-run',
+      workerStates: [
+        { section_id: 'positioningMarketCategory', status: 'complete' },
+        { section_id: 'positioningBuyerICP', status: 'queued' },
+        { section_id: 'positioningCompetitorLandscape', status: 'queued' },
+        { section_id: 'positioningVoiceOfCustomer', status: 'queued' },
+        { section_id: 'positioningDemandIntent', status: 'queued' },
+        { section_id: 'positioningOfferDiagnostic', status: 'queued' },
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          title: marketCategoryArtifactFixture.sectionTitle,
+          data: marketCategoryArtifactFixture,
+        },
+      },
+    });
+
+    render(<AgentArtifactSurface runId="run-abc" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+    const drawer = screen.getByTestId('sources-drawer');
+    expect(within(drawer).getByText('Market source')).toBeInTheDocument();
+    expect(within(drawer).getByText('Market & Category Intelligence')).toBeInTheDocument();
   });
 
   it('calls onSubmit with the trimmed composer text', () => {
