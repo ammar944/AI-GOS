@@ -1,3 +1,13 @@
 node_modules/
 dist/
 .env
+
+# Anthropic Platform Skills upload pipeline — dead per ADR-0003
+platform-skills/*.zip
+platform-skills/anthropic-upload-manifest.json
+platform-skills/manifest.json
+platform-skills/upload-to-anthropic.sh
+platform-skills-zips-only/
+
+# Plugin workspace artifacts
+.omc/
