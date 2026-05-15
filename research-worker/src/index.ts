@@ -19,6 +19,7 @@ import {
   getClient,
   ensureArtifact,
   startSectionRun,
+  readCurrentArtifactSection,
   type ResearchResult,
 } from './supabase';
 import { createEmitProgress } from './emit-progress';
@@ -52,6 +53,12 @@ import {
   buildSectionContextPack,
   serializeSectionContextPack,
 } from './runners/section-context-pack';
+import type { PositioningRunnerOptions } from './runners/positioning-subagent-runner';
+import {
+  DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE,
+  normalizePositioningExecutionMode,
+  type PositioningExecutionMode,
+} from './runners/positioning-execution-mode';
 import {
   appendSectionEvent,
   commitArtifactSection,
@@ -153,6 +160,7 @@ const TOOL_RUNNERS: Record<
     onProgress?: RunnerProgressReporter,
     chatRefinement?: string,
     abortSignal?: AbortSignal,
+    options?: PositioningRunnerOptions,
   ) => Promise<ResearchResult>
 > = {
   runDeepResearchProgram,
@@ -683,8 +691,11 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
 const parentOrchestrationAbort = new Map<string, AbortController>();
 
 app.post('/orchestrate', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { parent_audit_run_id } = req.body as {
+  const { parent_audit_run_id, executionMode: rawExecutionMode, zones: rawZones, refinement } = req.body as {
     parent_audit_run_id?: string;
+    executionMode?: unknown;
+    zones?: unknown;
+    refinement?: unknown;
   };
 
   if (!parent_audit_run_id) {
@@ -707,11 +718,29 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
     1,
     Number(process.env.ORCHESTRATOR_CONCURRENCY ?? 3),
   );
+  const executionMode = normalizePositioningExecutionMode(
+    rawExecutionMode,
+    DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE,
+  );
+  const zones =
+    Array.isArray(rawZones)
+      ? rawZones.filter((zone): zone is string => typeof zone === 'string')
+      : undefined;
+  if (zones?.some((zone) => !isPositioningSectionId(zone))) {
+    res.status(400).json({ error: 'zones must contain only positioning section ids' });
+    return;
+  }
+  const chatRefinement =
+    typeof refinement === 'string' && refinement.trim().length > 0
+      ? refinement.trim()
+      : undefined;
 
   res.status(202).json({
     parent_audit_run_id,
     job_id: parent_audit_run_id,
     concurrency,
+    executionMode,
+    zones: zones ?? null,
   });
 
   const parentAbortController = new AbortController();
@@ -740,9 +769,10 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
       return {
         context: serializeSectionContextPack(pack),
         capabilityGaps: pack.capabilityGaps,
+        toolBudget: pack.toolBudget,
       };
     },
-    updatePhase: ({ sectionRunId, phase, phaseStartedAt, latestTool, latestSource, latestActivity, nextStep, wave, totalWaves, concurrency, elapsedMs, capabilityGaps }) =>
+    updatePhase: ({ sectionRunId, phase, phaseStartedAt, latestTool, latestSource, latestActivity, nextStep, wave, totalWaves, concurrency, elapsedMs, capabilityGaps, executionMode: phaseExecutionMode }) =>
       updateSectionRunPhase(sectionRunId, {
         phase,
         phaseStartedAt,
@@ -755,12 +785,13 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
         concurrency,
         elapsedMs,
         capabilityGaps,
+        executionMode: phaseExecutionMode,
       }),
     markChildRunning: (sectionRunId) =>
       markSectionRunStatus(sectionRunId, 'running'),
     markChildTerminal: (sectionRunId, status, error) =>
       markSectionRunStatus(sectionRunId, status, { error: error ?? null }),
-    runSection: async ({ zone, context: sectionContext, signal, onProgress }) => {
+    runSection: async ({ zone, context: sectionContext, executionMode: sectionExecutionMode, toolBudget, signal, onProgress }) => {
       const runner = TOOL_RUNNERS[zone as ToolName];
       if (!runner) {
         return {
@@ -775,8 +806,12 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
             // Forward runner progress events to the orchestrator event stream.
             await onProgress('searching', { event });
           },
-          undefined,
+          chatRefinement,
           signal,
+          {
+            executionMode: sectionExecutionMode,
+            toolBudget,
+          },
         )) as unknown as Record<string, unknown>;
         // Runners return { status, artifact: { title, markdown }, data, ... }.
         // The orchestrator expects flat { markdown, title } on SectionRunResult.
@@ -794,12 +829,24 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
         const sources = Array.isArray(result.sources)
           ? (result.sources as unknown[])
           : undefined;
+        const status = result.status === 'complete' ? 'complete' : 'error';
         return {
-          status: 'complete',
+          status,
           markdown,
           title,
+          data: result.data,
           claims,
           sources,
+          error:
+            status === 'error'
+              ? {
+                  code: 'runner_failed',
+                  message:
+                    typeof result.error === 'string'
+                      ? result.error
+                      : 'section runner returned an error',
+                }
+              : null,
         } satisfies SectionRunResult;
       } catch (err) {
         const aborted = signal.aborted;
@@ -811,21 +858,40 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
         } satisfies SectionRunResult;
       }
     },
-    commitSection: async ({ parentAuditRunId, sectionRunId, zone, result }) => {
-      await commitArtifactSection(
+    commitSection: async ({ parentAuditRunId, sectionRunId, zone, result, executionMode: sectionExecutionMode, signal }) => {
+      if (signal.aborted) {
+        throw new Error('section aborted before commit');
+      }
+      const expectedRevision =
+        sectionExecutionMode === 'deep'
+          ? ((await readCurrentArtifactSection(parentAuditRunId, zone))?.revision ?? 0)
+          : 0;
+      if (signal.aborted) {
+        throw new Error('section aborted before commit');
+      }
+      const commit = await commitArtifactSection(
         parentAuditRunId,
         zone,
         sectionRunId,
-        0,
+        expectedRevision,
         {
           status: 'complete',
           title: result.title,
           markdown: result.markdown,
+          data: result.data,
           claims: result.claims ?? [],
           sources: result.sources ?? [],
           error: null,
         },
       );
+      if (!commit) {
+        throw new Error(`commit_artifact_section returned no result for ${zone}`);
+      }
+      if (commit.conflict || !commit.ok) {
+        throw new Error(
+          `commit_artifact_section conflict for ${zone} at revision ${commit.revision}`,
+        );
+      }
     },
     emitEvent: async ({ sectionRunId, type, payload }) => {
       await appendSectionEvent(sectionRunId, type, null, payload ?? null);
@@ -842,6 +908,8 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
       parentAuditRunId: parent_audit_run_id,
       concurrency,
       parentAbortSignal: parentAbortController.signal,
+      executionMode,
+      zones,
     },
     deps,
   )

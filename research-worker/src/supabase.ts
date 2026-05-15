@@ -471,10 +471,15 @@ function extractSourcesFromEnvelope(data: unknown, citations: ResearchResult['ci
   return Array.from(seen.values());
 }
 
-async function readCurrentSection(
+export interface CurrentArtifactSection {
+  revision: number;
+  section_run_id: string | null;
+}
+
+export async function readCurrentArtifactSection(
   artifactId: string,
   zone: string,
-): Promise<{ revision: number; section_run_id: string | null } | null> {
+): Promise<CurrentArtifactSection | null> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('research_artifact_sections')
@@ -505,7 +510,7 @@ async function writeArtifactSectionFromLegacy(
   // a section already has a pinned active run (Phase 3b subagent in flight),
   // reuse that section_run_id so commit_artifact_section's active-run guard
   // accepts the write.
-  const current = await readCurrentSection(artifactId, section);
+  const current = await readCurrentArtifactSection(artifactId, section);
   const sectionRunId = current?.section_run_id ?? crypto.randomUUID();
   const expectedRevision = current?.revision ?? 0;
 

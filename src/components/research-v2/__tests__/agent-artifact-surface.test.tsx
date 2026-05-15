@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, fireEvent, screen, within } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentArtifactSurface } from '../agent-artifact-surface';
@@ -56,6 +56,7 @@ const marketCategoryArtifactFixture = {
 
 describe('AgentArtifactSurface', () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     useAuditStateMock.mockReturnValue(EMPTY_AUDIT_STATE);
   });
 
@@ -283,5 +284,47 @@ describe('AgentArtifactSurface', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('markdown fallback should not render')).toBeNull();
+  });
+
+  it('shows Deepen on committed draft sections and posts a deep rerun', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    useAuditStateMock.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: 'parent-run',
+      workerStates: [
+        {
+          section_id: 'positioningMarketCategory',
+          status: 'complete',
+          phase: 'Committed',
+          phaseLabel: 'Committed',
+          executionMode: 'draft',
+        },
+        { section_id: 'positioningBuyerICP', status: 'queued' },
+        { section_id: 'positioningCompetitorLandscape', status: 'queued' },
+        { section_id: 'positioningVoiceOfCustomer', status: 'queued' },
+        { section_id: 'positioningDemandIntent', status: 'queued' },
+        { section_id: 'positioningOfferDiagnostic', status: 'queued' },
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          title: marketCategoryArtifactFixture.sectionTitle,
+          markdown: 'draft markdown',
+          data: marketCategoryArtifactFixture,
+        },
+      },
+    });
+
+    render(<AgentArtifactSurface runId="run-abc" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Deepen' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      runId: 'run-abc',
+      zone: 'positioningMarketCategory',
+      executionMode: 'deep',
+      usePartialContext: false,
+    });
   });
 });

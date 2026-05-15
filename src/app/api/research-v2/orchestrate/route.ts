@@ -29,6 +29,7 @@ const RequestSchema = z
   .object({
     run_id: z.string().uuid(),
     journey_session_id: z.string().uuid().optional(),
+    executionMode: z.enum(['draft', 'deep']).optional(),
   })
   .passthrough();
 
@@ -148,6 +149,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     void kickoffWorker({
       parentAuditRunId: seeded.parent_audit_run_id,
       runId: body.run_id,
+      executionMode: body.executionMode ?? 'draft',
     });
 
     return NextResponse.json(seeded, { status: 200 });
@@ -168,6 +170,7 @@ const WORKER_KICKOFF_TIMEOUT_MS = 5000;
 async function kickoffWorker(input: {
   parentAuditRunId: string;
   runId: string;
+  executionMode: 'draft' | 'deep';
 }): Promise<void> {
   const workerUrl = process.env.RAILWAY_WORKER_URL?.trim();
   const workerKey = process.env.RAILWAY_API_KEY?.trim();
@@ -189,6 +192,7 @@ async function kickoffWorker(input: {
       },
       body: JSON.stringify({
         parent_audit_run_id: input.parentAuditRunId,
+        executionMode: input.executionMode,
       }),
       signal: controller.signal,
     });

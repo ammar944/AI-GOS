@@ -113,6 +113,9 @@ function defaultSeededRows() {
 describe('POST /api/research-v2/orchestrate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    delete process.env.RAILWAY_WORKER_URL;
+    delete process.env.RAILWAY_API_KEY;
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
@@ -204,6 +207,31 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(body.section_run_ids.map((r: { section_id: string }) => r.section_id)).toEqual(
       [...POSITIONING_SECTION_IDS],
     );
+  });
+
+  it('kicks the worker with draft execution mode by default', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+    process.env.RAILWAY_WORKER_URL = 'https://worker.example';
+    process.env.RAILWAY_API_KEY = 'worker-key';
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://worker.example/orchestrate');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      parent_audit_run_id: PARENT_ID,
+      executionMode: 'draft',
+    });
   });
 
   it('passes the canonical six POSITIONING_SECTION_IDS to seed_orchestration', async () => {

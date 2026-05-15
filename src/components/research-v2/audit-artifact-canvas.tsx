@@ -135,7 +135,12 @@ export function AuditArtifactCanvas({
         const res = await fetch('/api/research-v2/rerun-section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ runId, zone: zoneId, usePartialContext }),
+          body: JSON.stringify({
+            runId,
+            zone: zoneId,
+            executionMode: 'deep',
+            usePartialContext,
+          }),
         });
         if (!res.ok && res.status !== 409) {
           const detail = await res.text().catch(() => '');

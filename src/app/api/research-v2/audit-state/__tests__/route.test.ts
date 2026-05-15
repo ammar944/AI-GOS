@@ -103,6 +103,7 @@ describe('GET /api/research-v2/audit-state', () => {
     routeMocks.runsQuery.order.mockResolvedValue({
       data: [
         {
+          id: 'section-run-market',
           zone: 'positioningMarketCategory',
           status: 'running',
           started_at: '2026-05-15T12:00:00.000Z',
@@ -118,6 +119,7 @@ describe('GET /api/research-v2/audit-state', () => {
             concurrency: 3,
             elapsedMs: 1200,
             capabilityGaps: [{ tool: 'firecrawl', reason: 'missing' }],
+            executionMode: 'draft',
           },
         },
       ],
@@ -142,6 +144,7 @@ describe('GET /api/research-v2/audit-state', () => {
       concurrency: 3,
       elapsedMs: 1200,
       capabilityGaps: [{ tool: 'firecrawl', reason: 'missing' }],
+      executionMode: 'draft',
     });
   });
 
@@ -155,6 +158,59 @@ describe('GET /api/research-v2/audit-state', () => {
       status: 'queued',
       phase: 'Queued',
       phaseLabel: 'Queued',
+      executionMode: null,
+    });
+  });
+
+  it('prefers the committed artifact section run over a newer terminal row', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-newer-error',
+          zone: 'positioningMarketCategory',
+          status: 'error',
+          started_at: '2026-05-15T12:05:00.000Z',
+          telemetry: {
+            phase: 'Needs review',
+            executionMode: 'deep',
+          },
+        },
+        {
+          id: 'run-committed-draft',
+          zone: 'positioningMarketCategory',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+            executionMode: 'draft',
+          },
+        },
+      ],
+      error: null,
+    });
+    routeMocks.sectionsQuery.eq.mockResolvedValue({
+      data: [
+        {
+          zone: 'positioningMarketCategory',
+          section_run_id: 'run-committed-draft',
+          status: 'complete',
+          title: 'Market & Category Intelligence',
+          markdown: 'draft markdown',
+          data: null,
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'complete',
+      phase: 'Committed',
+      executionMode: 'draft',
     });
   });
 });

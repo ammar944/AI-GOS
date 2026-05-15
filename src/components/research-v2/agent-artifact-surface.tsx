@@ -60,6 +60,7 @@ export interface WorkerChipState {
   concurrency?: number | null;
   elapsedMs?: number | null;
   capabilityGaps?: Array<Record<string, unknown>>;
+  executionMode?: 'draft' | 'deep' | null;
 }
 
 export interface AgentArtifactSurfaceProps {
@@ -275,6 +276,9 @@ export function AgentArtifactSurface({
   }, [states, auditSources.length]);
   const [draft, setDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [deepeningZones, setDeepeningZones] = useState<Set<string>>(
+    () => new Set(),
+  );
   // P2b — track which section is in the viewport so chat commands like
   // "tighten this claim" can resolve "this" without forcing the user to
   // name the zone explicitly. Updated by IntersectionObserver below.
@@ -380,6 +384,44 @@ export function AgentArtifactSurface({
     }
   };
 
+  const handleDeepenSection = async (zone: PositioningSectionId): Promise<void> => {
+    setDeepeningZones((prev) => {
+      const next = new Set(prev);
+      next.add(zone);
+      return next;
+    });
+    try {
+      const response = await fetch('/api/research-v2/rerun-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          runId,
+          zone,
+          executionMode: 'deep',
+          usePartialContext: false,
+        }),
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        console.warn(
+          `[artifact-surface] deepen failed for ${zone}: ${response.status} ${detail.slice(0, 200)}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[artifact-surface] deepen threw for ${zone}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setDeepeningZones((prev) => {
+        const next = new Set(prev);
+        next.delete(zone);
+        return next;
+      });
+    }
+  };
+
   return (
     <div
       data-testid="agent-artifact-surface"
@@ -439,6 +481,10 @@ export function AgentArtifactSurface({
                 stateByZone={stateByZone}
                 sectionsByZone={live.sectionsByZone}
                 eventsByZone={live.eventsByZone}
+                deepeningZones={deepeningZones}
+                onDeepenSection={(zone) => {
+                  void handleDeepenSection(zone);
+                }}
               />
             </main>
           </>
@@ -671,6 +717,8 @@ interface SectionContentListProps {
   stateByZone: Partial<Record<PositioningSectionId, WorkerChipState>>;
   sectionsByZone: Record<string, SectionArtifactBody>;
   eventsByZone: Record<string, SectionActivityEvent[]>;
+  deepeningZones: Set<string>;
+  onDeepenSection: (zone: PositioningSectionId) => void;
 }
 
 interface SectionArtifactBody {
@@ -832,6 +880,8 @@ function SectionContentList({
   stateByZone,
   sectionsByZone,
   eventsByZone,
+  deepeningZones,
+  onDeepenSection,
 }: SectionContentListProps): ReactElement {
   const anyComplete = Object.values(sectionsByZone).some(
     (s) => s && (s.markdown || s.title || s.data || pickPositioningTypedArtifact(s)),
@@ -850,7 +900,7 @@ function SectionContentList({
             </div>
             <p className="mt-3 max-w-[48ch] text-[13px] leading-[1.6] text-[color:var(--text-tertiary)]">
               The orchestrator is fanning out six positioning subagents.
-              Completed sections will appear inline as they commit.
+              Committed sections will appear inline as they commit.
             </p>
           </div>
           {runningZones.length > 0 && (
@@ -881,6 +931,8 @@ function SectionContentList({
           ? pickPositioningTypedArtifact(body, zone)
           : null;
         const state = stateByZone[zone];
+        const canDeepen = state?.executionMode === 'draft';
+        const isDeepening = deepeningZones.has(zone);
         const isComplete = Boolean(
           body && (body.markdown || body.title || body.data || typedArtifact),
         );
@@ -907,9 +959,25 @@ function SectionContentList({
                 </div>
                 <StatusPill
                   status="complete"
-                  label={state?.phaseLabel ?? state?.phase ?? 'Complete'}
+                  label={state?.phaseLabel ?? state?.phase ?? 'Committed'}
                 />
               </header>
+              {canDeepen ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onDeepenSection(zone)}
+                    disabled={isDeepening}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--accent-blue)] px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      className={cn('size-3', isDeepening && 'animate-spin')}
+                      aria-hidden="true"
+                    />
+                    {isDeepening ? 'Deepening' : 'Deepen'}
+                  </button>
+                </div>
+              ) : null}
               {buyerIcpArtifact ? (
                 <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
               ) : typedArtifact ? (

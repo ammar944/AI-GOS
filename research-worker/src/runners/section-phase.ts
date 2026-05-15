@@ -1,4 +1,5 @@
 import type { SectionCapabilityGap } from './section-context-pack';
+import type { PositioningExecutionMode } from './positioning-execution-mode';
 
 export const SECTION_PHASES = [
   'Queued',
@@ -6,7 +7,7 @@ export const SECTION_PHASES = [
   'Reading sources',
   'Drafting',
   'Validating',
-  'Complete',
+  'Committed',
   'Needs review',
 ] as const;
 
@@ -24,4 +25,5 @@ export interface SectionPhaseUpdate {
   concurrency?: number | null;
   elapsedMs?: number | null;
   capabilityGaps?: SectionCapabilityGap[];
+  executionMode?: PositioningExecutionMode;
 }

@@ -108,6 +108,7 @@ export interface ProgressMeta {
     | 'artifact-section-state'
     | 'artifact-finish';
   section?: string;
+  executionMode?: 'draft' | 'deep';
   title?: string;
   status?:
     | 'queued'

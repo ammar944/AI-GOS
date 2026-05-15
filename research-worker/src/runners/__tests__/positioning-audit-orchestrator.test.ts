@@ -17,6 +17,11 @@ const ZONES = [
   'positioningOfferDiagnostic',
 ] as const;
 
+const DEFAULT_TOOL_BUDGET = {
+  maxExternalLookups: 2,
+  allowedTools: ['web_search'],
+};
+
 function makeChildren(): ChildRow[] {
   return ZONES.map((zone, i) => ({
     section_run_id: `run-${i + 1}`,
@@ -84,7 +89,11 @@ function makeRecorder(opts: {
       loadChildren: async () => children,
       buildSectionContext:
         opts.buildSectionContext ??
-        (async ({ zone }) => ({ context: `context:${zone}`, capabilityGaps: [] })),
+        (async ({ zone }) => ({
+          context: `context:${zone}`,
+          capabilityGaps: [],
+          toolBudget: DEFAULT_TOOL_BUDGET,
+        })),
       updatePhase: async ({ sectionRunId, phase }) => {
         phases.push({ section_run_id: sectionRunId, phase });
       },
@@ -95,7 +104,8 @@ function makeRecorder(opts: {
         childStatus.set(id, status);
       },
       runSection: opts.runSection ?? defaultRunSection,
-      commitSection: async () => {
+      commitSection: async ({ signal }) => {
+        if (signal.aborted) throw new Error('aborted before commit');
         commits += 1;
         recorder.commits = commits;
       },
@@ -192,6 +202,7 @@ describe('runPositioningAuditOrchestrator', () => {
       buildSectionContext: async ({ zone }) => ({
         context: `SECTION_CONTEXT_PACK:${zone}`,
         capabilityGaps: [],
+        toolBudget: DEFAULT_TOOL_BUDGET,
       }),
     });
 
@@ -236,7 +247,7 @@ describe('runPositioningAuditOrchestrator', () => {
       'Reading sources',
       'Drafting',
       'Validating',
-      'Complete',
+      'Committed',
     ]);
   });
 
@@ -248,6 +259,7 @@ describe('runPositioningAuditOrchestrator', () => {
       buildSectionContext: async ({ zone }) => ({
         context: `SECTION_CONTEXT_PACK:${zone}`,
         capabilityGaps: [{ tool: 'spyfu', reason: 'missing', impact: 'no spend data' }],
+        toolBudget: DEFAULT_TOOL_BUDGET,
       }),
     });
 
@@ -340,5 +352,69 @@ describe('runPositioningAuditOrchestrator', () => {
     expect(result.status).toBe('complete');
     expect(r.commits).toBe(1);
     expect(r.parentStatus?.children_complete).toBe(2);
+  });
+
+  it('defaults initial orchestration to draft mode', async () => {
+    const seenModes: string[] = [];
+    const r = makeRecorder({
+      children: [
+        { section_run_id: 'run-1', zone: 'positioningMarketCategory', status: 'queued' },
+      ],
+      runSection: async ({ executionMode }) => {
+        seenModes.push(executionMode);
+        return { status: 'complete' };
+      },
+    });
+
+    await runPositioningAuditOrchestrator(
+      { parentAuditRunId: 'p1', concurrency: 1 },
+      r.deps,
+    );
+
+    expect(seenModes).toEqual(['draft']);
+  });
+
+  it('runs only the requested zone when a zone filter is provided', async () => {
+    const r = makeRecorder();
+
+    await runPositioningAuditOrchestrator(
+      {
+        parentAuditRunId: 'p1',
+        concurrency: 6,
+        zones: ['positioningVoiceOfCustomer'],
+        executionMode: 'deep',
+      },
+      r.deps,
+    );
+
+    expect(r.contexts).toHaveLength(1);
+    expect(r.contexts[0]?.zone).toBe('positioningVoiceOfCustomer');
+  });
+
+  it('prevents commit when the section timeout fires before commit', async () => {
+    const r = makeRecorder({
+      children: [
+        { section_run_id: 'run-1', zone: 'positioningMarketCategory', status: 'queued' },
+      ],
+      runSection: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return { status: 'complete' };
+      },
+    });
+    const promise = runPositioningAuditOrchestrator(
+      {
+        parentAuditRunId: 'p1',
+        concurrency: 1,
+        sectionTimeoutMs: 5,
+      },
+      r.deps,
+    );
+
+    await vi.advanceTimersByTimeAsync(50);
+    const result = await promise;
+
+    expect(result.status).toBe('error');
+    expect(r.commits).toBe(0);
+    expect(r.phases.at(-1)?.phase).toBe('Needs review');
   });
 });

@@ -13,16 +13,20 @@
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
-import { streamObject } from 'ai';
+import { streamObject, type LanguageModel } from 'ai';
 
 import { emitRunnerProgress, type RunnerProgressReporter } from '../runner';
 import { type ResearchResult } from '../supabase';
-import { composeAbortSignals } from '../agent-tools/_shared';
 import {
-  POSITIONING_SUBAGENTS,
+  createPositioningSubagent,
+  type BudgetedToolRuntime,
+  type ToolBudgetExhaustedResult,
   type PositioningSubagentId,
   isPositioningSubagentId,
 } from '../agents/subagents';
+import { MODELS } from '../models';
+import type { SectionToolBudget } from './section-context-pack';
+import type { PositioningExecutionMode } from './positioning-execution-mode';
 import {
   BuyerICPArtifactSchema,
   validateBuyerICPMinimums,
@@ -58,13 +62,14 @@ import {
   type JourneySectionSpec,
 } from './journey-section-synthesis';
 
-const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
+export interface PositioningRunnerOptions {
+  executionMode?: PositioningExecutionMode;
+  toolBudget?: SectionToolBudget;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
-
-const SUBAGENT_TIMEOUT_MS = 4 * 60 * 1000;
 
 function buildTranscriptFromSteps(stepSnapshots: string[]): string {
   const maxChars = 12_000;
@@ -90,6 +95,43 @@ function buildTranscriptFromSteps(stepSnapshots: string[]): string {
   }
 
   return selected.reverse().join('\n\n').slice(-maxChars);
+}
+
+function buildDraftTranscript(context: string): string {
+  return [
+    'Draft mode: no external evidence loop was run.',
+    'Use the Section Context Pack as the complete source material for this first-pass Artifact.',
+    'Preserve capability and evidence gaps explicitly in prose where the pack is thin.',
+    '',
+    context,
+  ].join('\n');
+}
+
+function firstEvidenceGapId(context: string): string | undefined {
+  const match = context.match(/-\s+(gap-\d+):/);
+  return match?.[1];
+}
+
+function getModelForExecutionMode(mode: PositioningExecutionMode): LanguageModel {
+  return anthropic(mode === 'draft' ? MODELS.STANDARD : MODELS.STRONG);
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  const reason = signal.reason;
+  if (reason instanceof Error) throw reason;
+  throw new Error(typeof reason === 'string' ? reason : 'section run aborted');
+}
+
+function formatBudgetExhaustedResult(result: ToolBudgetExhaustedResult): string {
+  return [
+    '[tool_budget_exhausted]',
+    `maxExternalLookups: ${result.maxExternalLookups}`,
+    result.unresolvedEvidenceGapId
+      ? `unresolvedEvidenceGapId: ${result.unresolvedEvidenceGapId}`
+      : 'unresolvedEvidenceGapId: unknown',
+    result.message,
+  ].join(' ');
 }
 
 async function emitSectionRunnerPhase(
@@ -262,7 +304,7 @@ function getMarketCategoryPopulatedSubsectionCount(partial: unknown): number {
 }
 
 async function streamMarketCategoryArtifact(args: {
-  model: typeof SUBAGENT_MODEL;
+  model: LanguageModel;
   transcript: string;
   businessContext: string;
   feedback?: string[];
@@ -571,7 +613,7 @@ function getBuyerIcpPopulatedSubsectionCount(partial: unknown): number {
 }
 
 async function streamBuyerIcpArtifact(args: {
-  model: typeof SUBAGENT_MODEL;
+  model: LanguageModel;
   transcript: string;
   businessContext: string;
   feedback?: string[];
@@ -898,7 +940,7 @@ function getCompetitorLandscapePopulatedSubsectionCount(partial: unknown): numbe
 }
 
 async function streamCompetitorLandscapeArtifact(args: {
-  model: typeof SUBAGENT_MODEL;
+  model: LanguageModel;
   transcript: string;
   businessContext: string;
   feedback?: string[];
@@ -1277,7 +1319,7 @@ function getVoiceOfCustomerPopulatedSubsectionCount(partial: unknown): number {
 }
 
 async function streamVoiceOfCustomerArtifact(args: {
-  model: typeof SUBAGENT_MODEL;
+  model: LanguageModel;
   transcript: string;
   businessContext: string;
   feedback?: string[];
@@ -1577,7 +1619,7 @@ function getDemandIntentPopulatedSubsectionCount(partial: unknown): number {
 }
 
 async function streamDemandIntentArtifact(args: {
-  model: typeof SUBAGENT_MODEL;
+  model: LanguageModel;
   transcript: string;
   businessContext: string;
   feedback?: string[];
@@ -1883,7 +1925,7 @@ function getOfferPerformancePopulatedSubsectionCount(partial: unknown): number {
 }
 
 async function streamOfferPerformanceArtifact(args: {
-  model: typeof SUBAGENT_MODEL;
+  model: LanguageModel;
   transcript: string;
   businessContext: string;
   feedback?: string[];
@@ -2074,6 +2116,7 @@ export async function runJourneySectionViaSubagent(
   onProgress?: RunnerProgressReporter,
   chatRefinement?: string,
   externalAbortSignal?: AbortSignal,
+  options: PositioningRunnerOptions = {},
 ): Promise<ResearchResult> {
   const startTime = Date.now();
 
@@ -2086,11 +2129,25 @@ export async function runJourneySectionViaSubagent(
     };
   }
 
-  const agent = POSITIONING_SUBAGENTS[spec.section];
+  const executionMode = options.executionMode ?? 'deep';
+  const sectionModel = getModelForExecutionMode(executionMode);
+  const deepSubagent =
+    executionMode === 'deep'
+      ? createPositioningSubagent({
+          section: spec.section,
+          model: sectionModel,
+          toolBudget: options.toolBudget,
+          unresolvedEvidenceGapId: firstEvidenceGapId(context),
+        })
+      : null;
+  const toolBudgetRuntime: BudgetedToolRuntime | null =
+    deepSubagent?.toolRuntime ?? null;
+  const agent = deepSubagent?.agent ?? null;
   const refinedContext = buildContextWithRefinement(context, chatRefinement);
 
   await emitRunnerProgress(onProgress, 'runner', `${spec.title} starting (subagent)`, {
     toolName: spec.skill,
+    executionMode,
   });
 
   // ADR-0002: positioning sections gather evidence in the ToolLoopAgent, then
@@ -2106,26 +2163,6 @@ ${closingInstruction}
 CONTEXT:
 ${refinedContext}`;
 
-  // P2 fix: AbortController so the timeout actually cancels the in-flight
-  // agent.generate() (and its tool calls). Previously Promise.race resolved
-  // the timeout but the agent kept running, burning Anthropic quota until
-  // the model returned.
-  //
-  // Phase 5: compose the timeout signal with the worker's external signal
-  // (heartbeat self-termination or /abort route) so EITHER source can stop
-  // the run.
-  const timeoutController = new AbortController();
-  const timeoutHandle = setTimeout(
-    () => timeoutController.abort(new Error(`Subagent timeout after ${SUBAGENT_TIMEOUT_MS / 1000}s`)),
-    SUBAGENT_TIMEOUT_MS,
-  );
-
-  const composedSignal: AbortSignal = composeAbortSignals(
-    externalAbortSignal
-      ? [timeoutController.signal, externalAbortSignal]
-      : [timeoutController.signal],
-  );
-
   // Track step snapshots so we can recover partial output if the tool
   // loop fails before emitting a final envelope. Per codex review
   // 2026-05-13: capture text + tool calls + tool results, not just text —
@@ -2135,73 +2172,84 @@ ${refinedContext}`;
   const MAX_EXPECTED_STEPS = 6;
 
   try {
-    await agent.generate({
-      prompt,
-      abortSignal: composedSignal,
-      onStepFinish: async (step: {
-        text?: string;
-        toolCalls?: Array<{ toolName?: string; input?: unknown }>;
-        toolResults?: Array<{ toolName?: string; output?: unknown }>;
-      }) => {
-        stepCount += 1;
-        const parts: string[] = [];
-        const toolNames: string[] = [];
-        if (typeof step.text === 'string' && step.text.trim().length > 0) {
-          parts.push(step.text.trim());
-        }
-        if (Array.isArray(step.toolCalls)) {
-          for (const call of step.toolCalls) {
-            if (!call?.toolName) continue;
-            toolNames.push(call.toolName);
-            const args =
-              call.input !== undefined ? JSON.stringify(call.input).slice(0, 400) : '';
-            parts.push(`[tool:${call.toolName}] ${args}`);
+    if (executionMode === 'deep' && agent) {
+      await agent.generate({
+        prompt,
+        abortSignal: externalAbortSignal,
+        onStepFinish: async (step: {
+          text?: string;
+          toolCalls?: Array<{ toolName?: string; input?: unknown }>;
+          toolResults?: Array<{ toolName?: string; output?: unknown }>;
+        }) => {
+          stepCount += 1;
+          const parts: string[] = [];
+          const toolNames: string[] = [];
+          if (typeof step.text === 'string' && step.text.trim().length > 0) {
+            parts.push(step.text.trim());
           }
-        }
-        if (Array.isArray(step.toolResults)) {
-          for (const tr of step.toolResults) {
-            if (!tr?.toolName) continue;
-            const out =
-              tr.output !== undefined ? JSON.stringify(tr.output).slice(0, 400) : '';
-            parts.push(`[result:${tr.toolName}] ${out}`);
+          if (Array.isArray(step.toolCalls)) {
+            for (const call of step.toolCalls) {
+              if (!call?.toolName) continue;
+              toolNames.push(call.toolName);
+              const args =
+                call.input !== undefined ? JSON.stringify(call.input).slice(0, 400) : '';
+              parts.push(`[tool:${call.toolName}] ${args}`);
+            }
           }
-        }
-        if (parts.length > 0) {
-          stepSnapshots.push(parts.join('\n'));
-        }
-        // P2a — agent-activity feed: forward each step to onProgress so the
-        // orchestrator emits it as a research_section_events row. The
-        // frontend (audit-state route + ZoneActivity component) reads these
-        // and renders a Claude.ai-style live activity feed under each
-        // section while the run is in flight.
-        const message =
-          toolNames.length > 0
-            ? `Step ${stepCount}: ${toolNames.join(', ')}`
-            : `Step ${stepCount}`;
-        await emitRunnerProgress(onProgress, 'runner', message, {
-          stepNumber: stepCount,
-          toolNames,
-          textPreview:
-            typeof step.text === 'string'
-              ? step.text.trim().slice(0, 280)
-              : undefined,
-        });
-      },
-    });
-
-    clearTimeout(timeoutHandle);
+          if (Array.isArray(step.toolResults)) {
+            for (const tr of step.toolResults) {
+              if (!tr?.toolName) continue;
+              const out =
+                tr.output !== undefined ? JSON.stringify(tr.output).slice(0, 400) : '';
+              parts.push(`[result:${tr.toolName}] ${out}`);
+            }
+          }
+          const exhaustedResults =
+            toolBudgetRuntime?.recordProviderToolCalls(toolNames) ?? [];
+          for (const exhausted of exhaustedResults) {
+            parts.push(formatBudgetExhaustedResult(exhausted));
+          }
+          if (parts.length > 0) {
+            stepSnapshots.push(parts.join('\n'));
+          }
+          // P2a — agent-activity feed: forward each step to onProgress so the
+          // orchestrator emits it as a research_section_events row. The
+          // frontend (audit-state route + ZoneActivity component) reads these
+          // and renders a Claude.ai-style live activity feed under each
+          // section while the run is in flight.
+          const message =
+            toolNames.length > 0
+              ? `Step ${stepCount}: ${toolNames.join(', ')}`
+              : `Step ${stepCount}`;
+          await emitRunnerProgress(onProgress, 'runner', message, {
+            stepNumber: stepCount,
+            toolNames,
+            textPreview:
+              typeof step.text === 'string'
+                ? step.text.trim().slice(0, 280)
+                : undefined,
+            executionMode,
+          });
+        },
+      });
+    }
 
     if (spec.section === 'positioningMarketCategory') {
-      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      throwIfAborted(externalAbortSignal);
+      const transcript =
+        executionMode === 'draft'
+          ? buildDraftTranscript(refinedContext)
+          : buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamMarketCategoryArtifact({
-        model: SUBAGENT_MODEL,
+        model: sectionModel,
         transcript,
         businessContext: refinedContext,
         onProgress,
-        abortSignal: composedSignal,
+        abortSignal: externalAbortSignal,
       });
 
+      throwIfAborted(externalAbortSignal);
       await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateMarketCategoryMinimums(artifact);
 
@@ -2219,13 +2267,14 @@ ${refinedContext}`;
 
         await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamMarketCategoryArtifact({
-          model: SUBAGENT_MODEL,
+          model: sectionModel,
           transcript,
           businessContext: refinedContext,
           feedback: validation.errors,
           onProgress,
-          abortSignal: composedSignal,
+          abortSignal: externalAbortSignal,
         });
+        throwIfAborted(externalAbortSignal);
         await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateMarketCategoryMinimums(artifact);
       }
@@ -2250,16 +2299,21 @@ ${refinedContext}`;
     }
 
     if (spec.section === 'positioningBuyerICP') {
-      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      throwIfAborted(externalAbortSignal);
+      const transcript =
+        executionMode === 'draft'
+          ? buildDraftTranscript(refinedContext)
+          : buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamBuyerIcpArtifact({
-        model: SUBAGENT_MODEL,
+        model: sectionModel,
         transcript,
         businessContext: refinedContext,
         onProgress,
-        abortSignal: composedSignal,
+        abortSignal: externalAbortSignal,
       });
 
+      throwIfAborted(externalAbortSignal);
       await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateBuyerICPMinimums(artifact);
 
@@ -2277,13 +2331,14 @@ ${refinedContext}`;
 
         await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamBuyerIcpArtifact({
-          model: SUBAGENT_MODEL,
+          model: sectionModel,
           transcript,
           businessContext: refinedContext,
           feedback: validation.errors,
           onProgress,
-          abortSignal: composedSignal,
+          abortSignal: externalAbortSignal,
         });
+        throwIfAborted(externalAbortSignal);
         await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateBuyerICPMinimums(artifact);
       }
@@ -2305,16 +2360,21 @@ ${refinedContext}`;
     }
 
     if (spec.section === 'positioningCompetitorLandscape') {
-      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      throwIfAborted(externalAbortSignal);
+      const transcript =
+        executionMode === 'draft'
+          ? buildDraftTranscript(refinedContext)
+          : buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamCompetitorLandscapeArtifact({
-        model: SUBAGENT_MODEL,
+        model: sectionModel,
         transcript,
         businessContext: refinedContext,
         onProgress,
-        abortSignal: composedSignal,
+        abortSignal: externalAbortSignal,
       });
 
+      throwIfAborted(externalAbortSignal);
       await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateCompetitorLandscapeMinimums(artifact);
 
@@ -2332,13 +2392,14 @@ ${refinedContext}`;
 
         await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamCompetitorLandscapeArtifact({
-          model: SUBAGENT_MODEL,
+          model: sectionModel,
           transcript,
           businessContext: refinedContext,
           feedback: validation.errors,
           onProgress,
-          abortSignal: composedSignal,
+          abortSignal: externalAbortSignal,
         });
+        throwIfAborted(externalAbortSignal);
         await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateCompetitorLandscapeMinimums(artifact);
       }
@@ -2363,16 +2424,21 @@ ${refinedContext}`;
     }
 
     if (spec.section === 'positioningVoiceOfCustomer') {
-      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      throwIfAborted(externalAbortSignal);
+      const transcript =
+        executionMode === 'draft'
+          ? buildDraftTranscript(refinedContext)
+          : buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamVoiceOfCustomerArtifact({
-        model: SUBAGENT_MODEL,
+        model: sectionModel,
         transcript,
         businessContext: refinedContext,
         onProgress,
-        abortSignal: composedSignal,
+        abortSignal: externalAbortSignal,
       });
 
+      throwIfAborted(externalAbortSignal);
       await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateVoiceOfCustomerMinimums(artifact);
 
@@ -2390,13 +2456,14 @@ ${refinedContext}`;
 
         await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamVoiceOfCustomerArtifact({
-          model: SUBAGENT_MODEL,
+          model: sectionModel,
           transcript,
           businessContext: refinedContext,
           feedback: validation.errors,
           onProgress,
-          abortSignal: composedSignal,
+          abortSignal: externalAbortSignal,
         });
+        throwIfAborted(externalAbortSignal);
         await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateVoiceOfCustomerMinimums(artifact);
       }
@@ -2421,16 +2488,21 @@ ${refinedContext}`;
     }
 
     if (spec.section === 'positioningDemandIntent') {
-      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      throwIfAborted(externalAbortSignal);
+      const transcript =
+        executionMode === 'draft'
+          ? buildDraftTranscript(refinedContext)
+          : buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamDemandIntentArtifact({
-        model: SUBAGENT_MODEL,
+        model: sectionModel,
         transcript,
         businessContext: refinedContext,
         onProgress,
-        abortSignal: composedSignal,
+        abortSignal: externalAbortSignal,
       });
 
+      throwIfAborted(externalAbortSignal);
       await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateDemandIntentMinimums(artifact);
 
@@ -2448,13 +2520,14 @@ ${refinedContext}`;
 
         await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamDemandIntentArtifact({
-          model: SUBAGENT_MODEL,
+          model: sectionModel,
           transcript,
           businessContext: refinedContext,
           feedback: validation.errors,
           onProgress,
-          abortSignal: composedSignal,
+          abortSignal: externalAbortSignal,
         });
+        throwIfAborted(externalAbortSignal);
         await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateDemandIntentMinimums(artifact);
       }
@@ -2479,16 +2552,21 @@ ${refinedContext}`;
     }
 
     if (spec.section === 'positioningOfferDiagnostic') {
-      const transcript = buildTranscriptFromSteps(stepSnapshots);
+      throwIfAborted(externalAbortSignal);
+      const transcript =
+        executionMode === 'draft'
+          ? buildDraftTranscript(refinedContext)
+          : buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamOfferPerformanceArtifact({
-        model: SUBAGENT_MODEL,
+        model: sectionModel,
         transcript,
         businessContext: refinedContext,
         onProgress,
-        abortSignal: composedSignal,
+        abortSignal: externalAbortSignal,
       });
 
+      throwIfAborted(externalAbortSignal);
       await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
       let validation = validateOfferPerformanceMinimums(artifact);
 
@@ -2506,13 +2584,14 @@ ${refinedContext}`;
 
         await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
         artifact = await streamOfferPerformanceArtifact({
-          model: SUBAGENT_MODEL,
+          model: sectionModel,
           transcript,
           businessContext: refinedContext,
           feedback: validation.errors,
           onProgress,
-          abortSignal: composedSignal,
+          abortSignal: externalAbortSignal,
         });
+        throwIfAborted(externalAbortSignal);
         await emitSectionRunnerPhase(onProgress, spec.section, 'validating');
         validation = validateOfferPerformanceMinimums(artifact);
       }
@@ -2538,9 +2617,11 @@ ${refinedContext}`;
 
     return assertUnhandledPositioningSection(spec.section);
   } catch (err) {
-    clearTimeout(timeoutHandle);
     const message = err instanceof Error ? err.message : String(err);
-    const capturedTranscript = buildTranscriptFromSteps(stepSnapshots);
+    const capturedTranscript =
+      executionMode === 'draft'
+        ? buildDraftTranscript(refinedContext)
+        : buildTranscriptFromSteps(stepSnapshots);
 
     if (spec.section === 'positioningMarketCategory') {
       const partialAt =

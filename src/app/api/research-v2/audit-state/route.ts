@@ -25,7 +25,7 @@ export type AuditSectionPhase =
   | 'Reading sources'
   | 'Drafting'
   | 'Validating'
-  | 'Complete'
+  | 'Committed'
   | 'Needs review';
 
 export interface SectionEvent {
@@ -56,6 +56,7 @@ export interface AuditStateResponse {
     concurrency: number | null;
     elapsedMs: number | null;
     capabilityGaps: Array<Record<string, unknown>>;
+    executionMode: 'draft' | 'deep' | null;
   }>;
   sectionsByZone: Record<
     string,
@@ -77,7 +78,7 @@ const PHASES: ReadonlySet<string> = new Set([
   'Reading sources',
   'Drafting',
   'Validating',
-  'Complete',
+  'Committed',
   'Needs review',
 ]);
 
@@ -107,7 +108,7 @@ function pickNumber(value: unknown): number | null {
 }
 
 function defaultPhaseForStatus(status: WorkerStatus): AuditSectionPhase {
-  if (status === 'complete') return 'Complete';
+  if (status === 'complete') return 'Committed';
   if (status === 'error' || status === 'aborted') return 'Needs review';
   if (status === 'running') return 'Reading sources';
   return 'Queued';
@@ -141,6 +142,11 @@ interface WorkerStateReadModel {
   concurrency: number | null;
   elapsedMs: number | null;
   capabilityGaps: Array<Record<string, unknown>>;
+  executionMode: 'draft' | 'deep' | null;
+}
+
+function normalizeExecutionMode(value: unknown): 'draft' | 'deep' | null {
+  return value === 'draft' || value === 'deep' ? value : null;
 }
 
 function buildWorkerStateReadModel(row: {
@@ -165,6 +171,7 @@ function buildWorkerStateReadModel(row: {
     concurrency: pickNumber(telemetry.concurrency),
     elapsedMs: pickNumber(telemetry.elapsedMs),
     capabilityGaps: normalizeCapabilityGaps(telemetry.capabilityGaps),
+    executionMode: normalizeExecutionMode(telemetry.executionMode),
   };
 }
 
@@ -219,12 +226,12 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const [runsResp, sectionsResp, eventsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
-      .select('zone, status, started_at, telemetry')
+      .select('id, zone, status, started_at, telemetry')
       .eq('artifact_id', parentId)
-      .order('started_at', { ascending: true }),
+      .order('started_at', { ascending: false }),
     supabase
       .from('research_artifact_sections')
-      .select('zone, status, title, markdown, data')
+      .select('zone, section_run_id, status, title, markdown, data')
       .eq('artifact_id', parentId),
     // P2a — last 60 events across all zones for this parent run (cap so a
     // single request never balloons; the 6 zones × ~10 events each fit
@@ -249,24 +256,41 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
   }
 
-  // Pick the most recent non-terminal run per zone for the chip; fall back
-  // to the latest row if all are terminal.
-  const byZone = new Map<string, WorkerStateReadModel>();
-  for (const row of runsResp.data ?? []) {
+  const committedSectionRunByZone = new Map<string, string>();
+  for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
-    const model = buildWorkerStateReadModel({
-      status: row.status,
-      telemetry: row.telemetry,
-    });
-    const current = byZone.get(zone);
-    if (!current) {
-      byZone.set(zone, model);
-      continue;
-    }
-    // Prefer non-terminal; otherwise keep first.
-    if (TERMINAL.has(current.status) && !TERMINAL.has(model.status)) {
-      byZone.set(zone, model);
-    }
+    const sectionRunId =
+      typeof row.section_run_id === 'string' ? row.section_run_id : null;
+    if (sectionRunId) committedSectionRunByZone.set(zone, sectionRunId);
+  }
+
+  const runRows = (runsResp.data ?? []).map((row) => ({
+    id: row.id as string,
+    zone: row.zone as string,
+    status: row.status,
+    telemetry: row.telemetry,
+  }));
+
+  // Pick an active run first. If all runs are terminal, prefer the run that
+  // the committed artifact section currently references instead of an older
+  // terminal row.
+  const byZone = new Map<string, WorkerStateReadModel>();
+  for (const sectionId of POSITIONING_SECTION_IDS) {
+    const rowsForZone = runRows.filter((row) => row.zone === sectionId);
+    const active = rowsForZone.find((row) => !TERMINAL.has(normalizeStatus(row.status)));
+    const committedRunId = committedSectionRunByZone.get(sectionId);
+    const committed = committedRunId
+      ? rowsForZone.find((row) => row.id === committedRunId)
+      : null;
+    const selected = active ?? committed ?? rowsForZone[0] ?? null;
+    if (!selected) continue;
+    byZone.set(
+      sectionId,
+      buildWorkerStateReadModel({
+        status: selected.status,
+        telemetry: selected.telemetry,
+      }),
+    );
   }
 
   const sectionsByZone: AuditStateResponse['sectionsByZone'] = {};
