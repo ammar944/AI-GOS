@@ -299,6 +299,10 @@ describe('AgentArtifactSurface', () => {
           phase: 'Committed',
           phaseLabel: 'Committed',
           executionMode: 'draft',
+          runtimeTimings: {
+            sectionStartedAt: '2026-05-15T12:00:00.000Z',
+            firstPartialAt: '2026-05-15T12:00:08.000Z',
+          },
         },
         { section_id: 'positioningBuyerICP', status: 'queued' },
         { section_id: 'positioningCompetitorLandscape', status: 'queued' },
@@ -310,12 +314,24 @@ describe('AgentArtifactSurface', () => {
         positioningMarketCategory: {
           title: marketCategoryArtifactFixture.sectionTitle,
           markdown: 'draft markdown',
-          data: marketCategoryArtifactFixture,
+          data: {
+            ...marketCategoryArtifactFixture,
+            artifactLayer: 'draft',
+            evidenceGaps: [
+              {
+                gap: 'Missing market size',
+                impact: 'Deep mode should fill it.',
+              },
+            ],
+          },
         },
       },
     });
 
     render(<AgentArtifactSurface runId="run-abc" />);
+    expect(screen.getAllByText('draft').length).toBeGreaterThan(0);
+    expect(screen.getByText('First partial 8s')).toBeInTheDocument();
+    expect(screen.getByText('1 evidence gaps')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Deepen' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));

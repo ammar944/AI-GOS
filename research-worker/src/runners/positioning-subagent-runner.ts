@@ -61,6 +61,13 @@ import {
   buildContextWithRefinement,
   type JourneySectionSpec,
 } from './journey-section-synthesis';
+import {
+  annotateDraftWithValidationGaps,
+  createPositioningSectionDraftFallback,
+  formatPositioningSectionDraftMarkdown,
+  streamPositioningSectionDraftArtifact,
+  validatePositioningSectionDraft,
+} from './positioning-draft-artifact';
 
 export interface PositioningRunnerOptions {
   executionMode?: PositioningExecutionMode;
@@ -113,7 +120,7 @@ function firstEvidenceGapId(context: string): string | undefined {
 }
 
 function getModelForExecutionMode(mode: PositioningExecutionMode): LanguageModel {
-  return anthropic(mode === 'draft' ? MODELS.STANDARD : MODELS.STRONG);
+  return anthropic(mode === 'draft' ? MODELS.DRAFT : MODELS.STRONG);
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -2129,12 +2136,13 @@ export async function runJourneySectionViaSubagent(
     };
   }
 
+  const positioningSection = spec.section;
   const executionMode = options.executionMode ?? 'deep';
   const sectionModel = getModelForExecutionMode(executionMode);
   const deepSubagent =
     executionMode === 'deep'
       ? createPositioningSubagent({
-          section: spec.section,
+          section: positioningSection,
           model: sectionModel,
           toolBudget: options.toolBudget,
           unresolvedEvidenceGapId: firstEvidenceGapId(context),
@@ -2172,6 +2180,40 @@ ${refinedContext}`;
   const MAX_EXPECTED_STEPS = 6;
 
   try {
+    if (executionMode === 'draft') {
+      throwIfAborted(externalAbortSignal);
+      await emitSectionRunnerPhase(onProgress, positioningSection, 'drafting');
+      let draft = await streamPositioningSectionDraftArtifact({
+        model: sectionModel,
+        spec,
+        businessContext: refinedContext,
+        onProgress,
+        abortSignal: externalAbortSignal,
+      });
+
+      throwIfAborted(externalAbortSignal);
+      await emitSectionRunnerPhase(onProgress, positioningSection, 'validating');
+      const validation = validatePositioningSectionDraft(draft, positioningSection);
+      if (!validation.ok) {
+        draft = annotateDraftWithValidationGaps(draft, validation.errors);
+      }
+
+      const markdown = formatPositioningSectionDraftMarkdown(draft);
+      await emitRunnerProgress(onProgress, 'output', `${draft.sectionTitle} draft committed`, {
+        section: positioningSection,
+        artifactLayer: 'draft',
+        status: 'complete',
+      });
+
+      return {
+        status: 'complete',
+        section: positioningSection,
+        data: draft,
+        artifact: { title: draft.sectionTitle || spec.title, markdown },
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     if (executionMode === 'deep' && agent) {
       await agent.generate({
         prompt,
@@ -2236,10 +2278,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningMarketCategory') {
       throwIfAborted(externalAbortSignal);
-      const transcript =
-        executionMode === 'draft'
-          ? buildDraftTranscript(refinedContext)
-          : buildTranscriptFromSteps(stepSnapshots);
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamMarketCategoryArtifact({
         model: sectionModel,
@@ -2300,10 +2339,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningBuyerICP') {
       throwIfAborted(externalAbortSignal);
-      const transcript =
-        executionMode === 'draft'
-          ? buildDraftTranscript(refinedContext)
-          : buildTranscriptFromSteps(stepSnapshots);
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamBuyerIcpArtifact({
         model: sectionModel,
@@ -2361,10 +2397,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningCompetitorLandscape') {
       throwIfAborted(externalAbortSignal);
-      const transcript =
-        executionMode === 'draft'
-          ? buildDraftTranscript(refinedContext)
-          : buildTranscriptFromSteps(stepSnapshots);
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamCompetitorLandscapeArtifact({
         model: sectionModel,
@@ -2425,10 +2458,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningVoiceOfCustomer') {
       throwIfAborted(externalAbortSignal);
-      const transcript =
-        executionMode === 'draft'
-          ? buildDraftTranscript(refinedContext)
-          : buildTranscriptFromSteps(stepSnapshots);
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamVoiceOfCustomerArtifact({
         model: sectionModel,
@@ -2489,10 +2519,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningDemandIntent') {
       throwIfAborted(externalAbortSignal);
-      const transcript =
-        executionMode === 'draft'
-          ? buildDraftTranscript(refinedContext)
-          : buildTranscriptFromSteps(stepSnapshots);
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamDemandIntentArtifact({
         model: sectionModel,
@@ -2553,10 +2580,7 @@ ${refinedContext}`;
 
     if (spec.section === 'positioningOfferDiagnostic') {
       throwIfAborted(externalAbortSignal);
-      const transcript =
-        executionMode === 'draft'
-          ? buildDraftTranscript(refinedContext)
-          : buildTranscriptFromSteps(stepSnapshots);
+      const transcript = buildTranscriptFromSteps(stepSnapshots);
       await emitSectionRunnerPhase(onProgress, spec.section, 'drafting');
       let artifact = await streamOfferPerformanceArtifact({
         model: sectionModel,
@@ -2622,6 +2646,39 @@ ${refinedContext}`;
       executionMode === 'draft'
         ? buildDraftTranscript(refinedContext)
         : buildTranscriptFromSteps(stepSnapshots);
+
+    if (executionMode === 'draft') {
+      const fallbackDraft = createPositioningSectionDraftFallback({
+        spec,
+        errorMessage: message,
+        context: capturedTranscript,
+      });
+      const fallbackMarkdown = formatPositioningSectionDraftMarkdown(fallbackDraft);
+
+      await emitRunnerProgress(
+        onProgress,
+        'error',
+        `${message} (draft fallback preserved)`,
+        {
+          section: positioningSection,
+          artifactLayer: 'draft',
+          status: 'error',
+        },
+      );
+
+      return {
+        status: 'error',
+        section: positioningSection,
+        error: message,
+        data: fallbackDraft,
+        artifact: {
+          title: fallbackDraft.sectionTitle || spec.title,
+          markdown: fallbackMarkdown,
+        },
+        partialMeta: { partial: true, partialAt: 25 },
+        durationMs: Date.now() - startTime,
+      };
+    }
 
     if (spec.section === 'positioningMarketCategory') {
       const partialAt =

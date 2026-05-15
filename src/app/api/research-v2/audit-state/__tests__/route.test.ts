@@ -120,6 +120,11 @@ describe('GET /api/research-v2/audit-state', () => {
             elapsedMs: 1200,
             capabilityGaps: [{ tool: 'firecrawl', reason: 'missing' }],
             executionMode: 'draft',
+            runtimeTimings: {
+              sectionStartedAt: '2026-05-15T12:00:00.000Z',
+              firstPartialAt: '2026-05-15T12:00:04.000Z',
+              timeoutFiredAt: null,
+            },
           },
         },
       ],
@@ -145,6 +150,10 @@ describe('GET /api/research-v2/audit-state', () => {
       elapsedMs: 1200,
       capabilityGaps: [{ tool: 'firecrawl', reason: 'missing' }],
       executionMode: 'draft',
+      runtimeTimings: {
+        sectionStartedAt: '2026-05-15T12:00:00.000Z',
+        firstPartialAt: '2026-05-15T12:00:04.000Z',
+      },
     });
   });
 
@@ -159,6 +168,7 @@ describe('GET /api/research-v2/audit-state', () => {
       phase: 'Queued',
       phaseLabel: 'Queued',
       executionMode: null,
+      runtimeTimings: {},
     });
   });
 

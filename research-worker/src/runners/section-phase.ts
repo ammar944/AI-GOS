@@ -13,6 +13,18 @@ export const SECTION_PHASES = [
 
 export type SectionPhase = (typeof SECTION_PHASES)[number];
 
+export interface SectionRuntimeTimings {
+  sectionStartedAt?: string;
+  firstPartialAt?: string;
+  finalObjectAt?: string;
+  validationCompleteAt?: string;
+  timeoutFiredAt?: string;
+  abortSignalObservedAt?: string;
+  commitStartedAt?: string;
+  commitCompleteAt?: string;
+  terminalStatusWrittenAt?: string;
+}
+
 export interface SectionPhaseUpdate {
   phase: SectionPhase;
   phaseStartedAt?: string;
@@ -26,4 +38,5 @@ export interface SectionPhaseUpdate {
   elapsedMs?: number | null;
   capabilityGaps?: SectionCapabilityGap[];
   executionMode?: PositioningExecutionMode;
+  runtimeTimings?: SectionRuntimeTimings;
 }

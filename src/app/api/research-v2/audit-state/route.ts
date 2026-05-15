@@ -36,6 +36,18 @@ export interface SectionEvent {
   created_at: string;
 }
 
+export interface SectionRuntimeTimings {
+  sectionStartedAt?: string;
+  firstPartialAt?: string;
+  finalObjectAt?: string;
+  validationCompleteAt?: string;
+  timeoutFiredAt?: string;
+  abortSignalObservedAt?: string;
+  commitStartedAt?: string;
+  commitCompleteAt?: string;
+  terminalStatusWrittenAt?: string;
+}
+
 export interface AuditStateResponse {
   parent_audit_run_id: string | null;
   parent_status: string | null;
@@ -57,6 +69,7 @@ export interface AuditStateResponse {
     elapsedMs: number | null;
     capabilityGaps: Array<Record<string, unknown>>;
     executionMode: 'draft' | 'deep' | null;
+    runtimeTimings: SectionRuntimeTimings;
   }>;
   sectionsByZone: Record<
     string,
@@ -143,10 +156,33 @@ interface WorkerStateReadModel {
   elapsedMs: number | null;
   capabilityGaps: Array<Record<string, unknown>>;
   executionMode: 'draft' | 'deep' | null;
+  runtimeTimings: SectionRuntimeTimings;
 }
 
 function normalizeExecutionMode(value: unknown): 'draft' | 'deep' | null {
   return value === 'draft' || value === 'deep' ? value : null;
+}
+
+function normalizeRuntimeTimings(value: unknown): SectionRuntimeTimings {
+  const raw = asRecord(value);
+  if (!raw) return {};
+  const out: SectionRuntimeTimings = {};
+  const keys = [
+    'sectionStartedAt',
+    'firstPartialAt',
+    'finalObjectAt',
+    'validationCompleteAt',
+    'timeoutFiredAt',
+    'abortSignalObservedAt',
+    'commitStartedAt',
+    'commitCompleteAt',
+    'terminalStatusWrittenAt',
+  ] as const;
+  for (const key of keys) {
+    const timestamp = pickString(raw[key]);
+    if (timestamp) out[key] = timestamp;
+  }
+  return out;
 }
 
 function buildWorkerStateReadModel(row: {
@@ -172,6 +208,7 @@ function buildWorkerStateReadModel(row: {
     elapsedMs: pickNumber(telemetry.elapsedMs),
     capabilityGaps: normalizeCapabilityGaps(telemetry.capabilityGaps),
     executionMode: normalizeExecutionMode(telemetry.executionMode),
+    runtimeTimings: normalizeRuntimeTimings(telemetry.runtimeTimings),
   };
 }
 

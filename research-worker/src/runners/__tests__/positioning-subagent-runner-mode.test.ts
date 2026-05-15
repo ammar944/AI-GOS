@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { POSITIONING_SECTION_SPECS } from '../positioning';
+import { PositioningSectionDraftSchema } from '../positioning-draft-artifact';
 import { runJourneySectionViaSubagent } from '../positioning-subagent-runner';
 
 const mocks = vi.hoisted(() => ({
@@ -146,17 +147,54 @@ const marketCategoryArtifact = {
   },
 };
 
+const marketCategoryDraft = {
+  schemaVersion: 1,
+  artifactLayer: 'draft',
+  sectionId: 'positioningMarketCategory',
+  sectionTitle: 'Market & Category Intelligence',
+  verdict: 'Category evidence is directionally useful with gaps.',
+  statusSummary: 'The draft uses the Section Context Pack directly and keeps missing evidence visible.',
+  coreThesis: 'Pipeline management is the likely category, but public demand evidence needs deep validation.',
+  findings: [
+    {
+      finding: 'The pack points to pipeline management.',
+      evidence: 'The source excerpts emphasize meeting follow-up and revenue workflow activation.',
+      sourceUrl: 'https://example.com/1',
+    },
+    {
+      finding: 'Category adjacency remains unresolved.',
+      evidence: 'The pack names CRM and meeting notes as adjacent categories.',
+    },
+  ],
+  evidenceGaps: [
+    {
+      gap: 'Market sizing was not available in the pack.',
+      impact: 'Deep mode should validate category scale before final positioning.',
+    },
+  ],
+  sources: [
+    { title: 'Source 1', url: 'https://example.com/1' },
+  ],
+  confidence: 6,
+  recommendedDeepFillTargets: ['Validate market trajectory', 'Deepen adjacent category evidence'],
+};
+
 async function* partialObjectStream(): AsyncGenerator<typeof marketCategoryArtifact> {
   yield marketCategoryArtifact;
 }
 
+async function* draftPartialObjectStream(): AsyncGenerator<typeof marketCategoryDraft> {
+  yield marketCategoryDraft;
+}
+
 describe('runJourneySectionViaSubagent execution modes', () => {
-  it('draft mode skips agent.generate and streams the typed artifact with the standard model', async () => {
+  it('draft mode skips agent.generate and streams the thin draft schema with the draft model', async () => {
     mocks.generate.mockReset();
     mocks.streamObject.mockReset();
+    mocks.modelIds.length = 0;
     mocks.streamObject.mockReturnValue({
-      partialObjectStream: partialObjectStream(),
-      object: Promise.resolve(marketCategoryArtifact),
+      partialObjectStream: draftPartialObjectStream(),
+      object: Promise.resolve(marketCategoryDraft),
     });
 
     const result = await runJourneySectionViaSubagent(
@@ -172,10 +210,50 @@ describe('runJourneySectionViaSubagent execution modes', () => {
     );
 
     expect(result.status).toBe('complete');
+    expect(result.data).toMatchObject({
+      artifactLayer: 'draft',
+      sectionId: 'positioningMarketCategory',
+    });
     expect(mocks.generate).not.toHaveBeenCalled();
     expect(mocks.streamObject).toHaveBeenCalledTimes(1);
     expect(mocks.streamObject.mock.calls[0]?.[0]).toMatchObject({
       model: { modelId: 'claude-sonnet-4-6' },
+      schema: PositioningSectionDraftSchema,
+    });
+    expect(result.artifact?.markdown).toContain('## Evidence Gaps');
+    expect(result.artifact?.markdown).toContain('## Recommended Deep Fill Targets');
+  });
+
+  it('deep mode keeps the subagent evidence loop and full section schema path', async () => {
+    mocks.generate.mockReset();
+    mocks.streamObject.mockReset();
+    mocks.modelIds.length = 0;
+    mocks.generate.mockResolvedValue({});
+    mocks.streamObject.mockReturnValue({
+      partialObjectStream: partialObjectStream(),
+      object: Promise.resolve(marketCategoryArtifact),
+    });
+
+    const result = await runJourneySectionViaSubagent(
+      POSITIONING_SECTION_SPECS.positioningMarketCategory,
+      'SECTION CONTEXT PACK\nmaxExternalLookups: 2\nEvidence gaps\n- gap-001: verify category',
+      undefined,
+      undefined,
+      undefined,
+      {
+        executionMode: 'deep',
+        toolBudget: { maxExternalLookups: 2, allowedTools: ['web_search'] },
+      },
+    );
+
+    expect(result.status).toBe('complete');
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.streamObject).toHaveBeenCalledTimes(1);
+    expect(mocks.streamObject.mock.calls[0]?.[0]).not.toMatchObject({
+      schema: PositioningSectionDraftSchema,
+    });
+    expect(mocks.streamObject.mock.calls[0]?.[0]).toMatchObject({
+      model: { modelId: 'claude-opus-4-6' },
     });
   });
 });

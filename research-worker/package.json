@@ -17,7 +17,10 @@
     "eval:pilot:competitor-landscape": "ts-node-dev --transpile-only evals/pilot-competitor-landscape.ts",
     "eval:pilot:voc-objection-evidence": "ts-node-dev --transpile-only evals/pilot-voc-objection-evidence.ts",
     "eval:pilot:demand-intent-signals": "ts-node-dev --transpile-only evals/pilot-demand-intent-signals.ts",
-    "eval:pilot:offer-performance-diagnostic": "ts-node-dev --transpile-only evals/pilot-offer-performance-diagnostic.ts"
+    "eval:pilot:offer-performance-diagnostic": "ts-node-dev --transpile-only evals/pilot-offer-performance-diagnostic.ts",
+    "eval:draft:sla": "ts-node-dev --transpile-only evals/draft-sla.ts",
+    "eval:draft:matrix": "ts-node-dev --transpile-only evals/draft-matrix.ts",
+    "eval:draft:quality": "ts-node-dev --transpile-only evals/draft-quality.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

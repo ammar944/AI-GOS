@@ -34,7 +34,13 @@ interface DepRecorder {
   deps: OrchestratorDeps;
   emitted: Array<{ section_run_id: string; type: string }>;
   contexts: Array<{ section_run_id: string; zone: string; context: string }>;
-  phases: Array<{ section_run_id: string; phase: string }>;
+  phases: Array<{
+    section_run_id: string;
+    phase: string;
+    concurrency?: number | null;
+    totalWaves?: number | null;
+    runtimeTimings?: Record<string, string>;
+  }>;
   childStatus: Map<string, string>;
   parentStatus: { status: string; children_complete: number } | null;
   runningAtCheck: number[];
@@ -94,8 +100,14 @@ function makeRecorder(opts: {
           capabilityGaps: [],
           toolBudget: DEFAULT_TOOL_BUDGET,
         })),
-      updatePhase: async ({ sectionRunId, phase }) => {
-        phases.push({ section_run_id: sectionRunId, phase });
+      updatePhase: async ({ sectionRunId, phase, concurrency, totalWaves, runtimeTimings }) => {
+        phases.push({
+          section_run_id: sectionRunId,
+          phase,
+          concurrency,
+          totalWaves,
+          runtimeTimings: runtimeTimings as Record<string, string> | undefined,
+        });
       },
       markChildRunning: async (id) => {
         childStatus.set(id, 'running');
@@ -374,6 +386,34 @@ describe('runPositioningAuditOrchestrator', () => {
     expect(seenModes).toEqual(['draft']);
   });
 
+  it('defaults draft orchestration to one wave of six sections', async () => {
+    const r = makeRecorder();
+
+    await runPositioningAuditOrchestrator(
+      { parentAuditRunId: 'p1' },
+      r.deps,
+    );
+
+    const queuedPhases = r.phases.filter((entry) => entry.phase === 'Queued');
+    expect(queuedPhases).toHaveLength(6);
+    expect(queuedPhases.every((entry) => entry.concurrency === 6)).toBe(true);
+    expect(queuedPhases.every((entry) => entry.totalWaves === 1)).toBe(true);
+  });
+
+  it('keeps deep orchestration default bounded to three sections', async () => {
+    const r = makeRecorder();
+
+    await runPositioningAuditOrchestrator(
+      { parentAuditRunId: 'p1', executionMode: 'deep' },
+      r.deps,
+    );
+
+    const queuedPhases = r.phases.filter((entry) => entry.phase === 'Queued');
+    expect(queuedPhases).toHaveLength(6);
+    expect(queuedPhases.every((entry) => entry.concurrency === 3)).toBe(true);
+    expect(queuedPhases.every((entry) => entry.totalWaves === 2)).toBe(true);
+  });
+
   it('runs only the requested zone when a zone filter is provided', async () => {
     const r = makeRecorder();
 
@@ -416,5 +456,43 @@ describe('runPositioningAuditOrchestrator', () => {
     expect(result.status).toBe('error');
     expect(r.commits).toBe(0);
     expect(r.phases.at(-1)?.phase).toBe('Needs review');
+    expect(r.phases.at(-1)?.runtimeTimings).toMatchObject({
+      timeoutFiredAt: expect.any(String),
+      abortSignalObservedAt: expect.any(String),
+      terminalStatusWrittenAt: expect.any(String),
+    });
+  });
+
+  it('settles terminal state without waiting for a late runner after timeout', async () => {
+    const r = makeRecorder({
+      children: [
+        { section_run_id: 'run-1', zone: 'positioningMarketCategory', status: 'queued' },
+      ],
+      runSection: async () =>
+        await new Promise<SectionRunResult>(() => {
+          // Intentionally never settles. The orchestrator abort race owns
+          // terminal state and must not wait for this promise.
+        }),
+    });
+    const promise = runPositioningAuditOrchestrator(
+      {
+        parentAuditRunId: 'p1',
+        concurrency: 1,
+        sectionTimeoutMs: 5,
+      },
+      r.deps,
+    );
+
+    await vi.advanceTimersByTimeAsync(50);
+    const result = await promise;
+
+    expect(result.status).toBe('error');
+    expect(r.commits).toBe(0);
+    expect(r.childStatus.get('run-1')).toBe('error');
+    expect(r.phases.at(-1)?.runtimeTimings).toMatchObject({
+      timeoutFiredAt: expect.any(String),
+      abortSignalObservedAt: expect.any(String),
+      terminalStatusWrittenAt: expect.any(String),
+    });
   });
 });

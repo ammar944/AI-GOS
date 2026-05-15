@@ -18,7 +18,11 @@ import {
   DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE,
   type PositioningExecutionMode,
 } from './positioning-execution-mode';
-import type { SectionPhase, SectionPhaseUpdate } from './section-phase';
+import type {
+  SectionPhase,
+  SectionPhaseUpdate,
+  SectionRuntimeTimings,
+} from './section-phase';
 
 /** Terminal status values for a section child run. */
 export type ChildTerminalStatus = 'complete' | 'error' | 'aborted';
@@ -150,8 +154,10 @@ const TERMINAL_STATES: ReadonlySet<string> = new Set([
   'aborted',
 ]);
 
-const POSITIONING_DRAFT_TIMEOUT_MS = 90_000;
+const POSITIONING_DRAFT_TIMEOUT_MS = 180_000;
 const POSITIONING_DEEP_TIMEOUT_MS = 240_000;
+const POSITIONING_DRAFT_CONCURRENCY = 6;
+const POSITIONING_DEEP_CONCURRENCY = 3;
 
 function getWave(index: number, concurrency: number): number {
   return Math.floor(index / concurrency) + 1;
@@ -173,6 +179,10 @@ function getSectionTimeoutMs(mode: PositioningExecutionMode): number {
     : parseTimeoutMs(process.env.POSITIONING_DEEP_TIMEOUT_MS, POSITIONING_DEEP_TIMEOUT_MS);
 }
 
+function getDefaultConcurrency(mode: PositioningExecutionMode): number {
+  return mode === 'draft' ? POSITIONING_DRAFT_CONCURRENCY : POSITIONING_DEEP_CONCURRENCY;
+}
+
 function throwIfAborted(signal: AbortSignal, phase: SectionPhase): void {
   if (!signal.aborted) return;
   const reason = signal.reason;
@@ -183,6 +193,41 @@ function throwIfAborted(signal: AbortSignal, phase: SectionPhase): void {
         ? reason
         : `Section aborted during ${phase}`;
   throw new Error(message);
+}
+
+function abortError(signal: AbortSignal, phase: SectionPhase): Error {
+  const reason = signal.reason;
+  if (reason instanceof Error) return reason;
+  return new Error(
+    typeof reason === 'string' ? reason : `Section aborted during ${phase}`,
+  );
+}
+
+async function raceWithAbort<T>(
+  work: Promise<T>,
+  signal: AbortSignal,
+  phase: SectionPhase,
+): Promise<T> {
+  if (signal.aborted) throw abortError(signal, phase);
+
+  return await new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(abortError(signal, phase));
+    };
+    const cleanup = () => signal.removeEventListener('abort', onAbort);
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error: unknown) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 function nestedRecord(
@@ -231,6 +276,12 @@ function latestActivityFromProgressPayload(payload: Record<string, unknown> | un
   );
 }
 
+function statusFromProgressPayload(payload: Record<string, unknown> | undefined): string | null {
+  const wrapper = nestedRecord(payload, 'event');
+  const meta = nestedRecord(wrapper ?? payload, 'meta');
+  return pickString(meta?.status);
+}
+
 function rollupStatus(
   parentAborted: boolean,
   terminals: ChildTerminalStatus[],
@@ -249,9 +300,12 @@ export async function runPositioningAuditOrchestrator(
   options: OrchestratorOptions,
   deps: OrchestratorDeps,
 ): Promise<OrchestratorResult> {
-  const concurrency = Math.max(1, options.concurrency ?? 3);
   const executionMode =
     options.executionMode ?? DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE;
+  const concurrency = Math.max(
+    1,
+    options.concurrency ?? getDefaultConcurrency(executionMode),
+  );
   const sectionTimeoutMs =
     options.sectionTimeoutMs ?? getSectionTimeoutMs(executionMode);
   const requestedZones = options.zones ? new Set(options.zones) : null;
@@ -311,19 +365,28 @@ export async function runPositioningAuditOrchestrator(
 
     const parentAbortController = new AbortController();
     const timeoutController = new AbortController();
-    const timeoutHandle = setTimeout(
-      () =>
-        timeoutController.abort(
-          new Error(
-            `Section timed out after ${sectionTimeoutMs}ms in ${executionMode} mode`,
-          ),
+    const runtimeTimings: SectionRuntimeTimings = {};
+    const stampRuntimeTiming = (key: keyof SectionRuntimeTimings): void => {
+      if (!runtimeTimings[key]) runtimeTimings[key] = new Date().toISOString();
+    };
+    const runtimeTimingSnapshot = (): SectionRuntimeTimings => ({
+      ...runtimeTimings,
+    });
+    const timeoutHandle = setTimeout(() => {
+      stampRuntimeTiming('timeoutFiredAt');
+      timeoutController.abort(
+        new Error(
+          `Section timed out after ${sectionTimeoutMs}ms in ${executionMode} mode`,
         ),
-      sectionTimeoutMs,
-    );
+      );
+    }, sectionTimeoutMs);
     const childSignal = composeAbortSignals([
       parentAbortController.signal,
       timeoutController.signal,
     ]);
+    const onChildAbort = () => stampRuntimeTiming('abortSignalObservedAt');
+    if (childSignal.aborted) onChildAbort();
+    else childSignal.addEventListener('abort', onChildAbort, { once: true });
     const onParentAbort = () => parentAbortController.abort();
     if (options.parentAbortSignal) {
       if (options.parentAbortSignal.aborted) parentAbortController.abort();
@@ -349,6 +412,7 @@ export async function runPositioningAuditOrchestrator(
       }
 
       await deps.markChildRunning(child.section_run_id);
+      stampRuntimeTiming('sectionStartedAt');
       await deps.emitEvent({
         parentAuditRunId: options.parentAuditRunId,
         sectionRunId: child.section_run_id,
@@ -367,70 +431,148 @@ export async function runPositioningAuditOrchestrator(
         totalWaves,
         concurrency,
         executionMode,
+        runtimeTimings: runtimeTimingSnapshot(),
       });
       lastCompletedPhase = 'Compiling context';
 
-      const sectionContext = await deps.buildSectionContext({
-        parentAuditRunId: options.parentAuditRunId,
-        sectionRunId: child.section_run_id,
-        zone: child.zone,
-        wave,
-        concurrency,
-        executionMode,
-      });
-      throwIfAborted(childSignal, lastCompletedPhase);
-
+      let sectionContext: {
+        context: string;
+        capabilityGaps: SectionCapabilityGap[];
+        toolBudget: SectionToolBudget;
+      };
       try {
-        const result = await deps.runSection({
-          parentAuditRunId: options.parentAuditRunId,
-          sectionRunId: child.section_run_id,
-          zone: child.zone,
-          context: sectionContext.context,
-          executionMode,
-          toolBudget: sectionContext.toolBudget,
-          signal: childSignal,
-          onProgress: async (type, payload) => {
-            const phase = phaseFromProgressPayload(payload);
-            await deps.updatePhase({
-              parentAuditRunId: options.parentAuditRunId,
-              sectionRunId: child.section_run_id,
-              zone: child.zone,
-              phase,
-              latestTool: latestToolFromProgressPayload(payload),
-              latestActivity: latestActivityFromProgressPayload(payload),
-              nextStep:
-                phase === 'Drafting'
-                  ? 'Validate typed Artifact'
-                  : phase === 'Validating'
-                    ? 'Commit section Artifact'
-                    : 'Draft typed Artifact',
-              wave,
-              totalWaves,
-              concurrency,
-              capabilityGaps: sectionContext.capabilityGaps,
-              executionMode,
-            });
-            lastCompletedPhase = phase;
-            await deps.emitEvent({
-              parentAuditRunId: options.parentAuditRunId,
-              sectionRunId: child.section_run_id,
-              zone: child.zone,
-              type,
-              payload,
-            });
-          },
-        });
-
-        if (result.status === 'complete') {
-          throwIfAborted(childSignal, lastCompletedPhase);
-          await deps.commitSection({
+        sectionContext = await raceWithAbort(
+          deps.buildSectionContext({
             parentAuditRunId: options.parentAuditRunId,
             sectionRunId: child.section_run_id,
             zone: child.zone,
-            result,
+            wave,
+            concurrency,
             executionMode,
+          }),
+          childSignal,
+          lastCompletedPhase,
+        );
+        throwIfAborted(childSignal, lastCompletedPhase);
+      } catch (err) {
+        const aborted = childSignal.aborted;
+        const timedOut = timeoutController.signal.aborted;
+        const message = err instanceof Error ? err.message : 'unknown error';
+        await deps.emitEvent({
+          parentAuditRunId: options.parentAuditRunId,
+          sectionRunId: child.section_run_id,
+          zone: child.zone,
+          type: aborted ? 'aborted' : 'error',
+          payload: {
+            message,
+            timeout: timedOut,
+            lastCompletedPhase,
+            executionMode,
+            runtimeTimings: runtimeTimingSnapshot(),
+          },
+        });
+        await deps.markChildTerminal(
+          child.section_run_id,
+          aborted && !timedOut ? 'aborted' : 'error',
+          aborted && !timedOut
+            ? null
+            : {
+                code: timedOut ? 'section_timeout' : undefined,
+                message,
+              },
+        );
+        stampRuntimeTiming('terminalStatusWrittenAt');
+        await deps.updatePhase({
+          parentAuditRunId: options.parentAuditRunId,
+          sectionRunId: child.section_run_id,
+          zone: child.zone,
+          phase: 'Needs review',
+          latestActivity: timedOut
+            ? `Timed out after ${sectionTimeoutMs}ms; last phase: ${lastCompletedPhase}`
+            : message,
+          nextStep: 'Review error and retry section',
+          wave,
+          totalWaves,
+          concurrency,
+          capabilityGaps: [],
+          executionMode,
+          runtimeTimings: runtimeTimingSnapshot(),
+        });
+        childTerminalStatusBySectionRunId.set(
+          child.section_run_id,
+          aborted && !timedOut ? 'aborted' : 'error',
+        );
+        return;
+      }
+
+      try {
+        const result = await raceWithAbort(
+          deps.runSection({
+            parentAuditRunId: options.parentAuditRunId,
+            sectionRunId: child.section_run_id,
+            zone: child.zone,
+            context: sectionContext.context,
+            executionMode,
+            toolBudget: sectionContext.toolBudget,
             signal: childSignal,
-          });
+            onProgress: async (type, payload) => {
+              if (childSignal.aborted) return;
+              const phase = phaseFromProgressPayload(payload);
+              const progressStatus = statusFromProgressPayload(payload);
+              if (phase === 'Drafting') stampRuntimeTiming('firstPartialAt');
+              if (progressStatus === 'complete') stampRuntimeTiming('finalObjectAt');
+              await deps.updatePhase({
+                parentAuditRunId: options.parentAuditRunId,
+                sectionRunId: child.section_run_id,
+                zone: child.zone,
+                phase,
+                latestTool: latestToolFromProgressPayload(payload),
+                latestActivity: latestActivityFromProgressPayload(payload),
+                nextStep:
+                  phase === 'Drafting'
+                    ? 'Validate typed Artifact'
+                    : phase === 'Validating'
+                      ? 'Commit section Artifact'
+                      : 'Draft typed Artifact',
+                wave,
+                totalWaves,
+                concurrency,
+                capabilityGaps: sectionContext.capabilityGaps,
+                executionMode,
+                runtimeTimings: runtimeTimingSnapshot(),
+              });
+              lastCompletedPhase = phase;
+              await deps.emitEvent({
+                parentAuditRunId: options.parentAuditRunId,
+                sectionRunId: child.section_run_id,
+                zone: child.zone,
+                type,
+                payload,
+              });
+            },
+          }),
+          childSignal,
+          lastCompletedPhase,
+        );
+
+        if (result.status === 'complete') {
+          stampRuntimeTiming('finalObjectAt');
+          stampRuntimeTiming('validationCompleteAt');
+          throwIfAborted(childSignal, lastCompletedPhase);
+          stampRuntimeTiming('commitStartedAt');
+          await raceWithAbort(
+            deps.commitSection({
+              parentAuditRunId: options.parentAuditRunId,
+              sectionRunId: child.section_run_id,
+              zone: child.zone,
+              result,
+              executionMode,
+              signal: childSignal,
+            }),
+            childSignal,
+            'Committed',
+          );
+          stampRuntimeTiming('commitCompleteAt');
           throwIfAborted(childSignal, 'Committed');
           await deps.emitEvent({
             parentAuditRunId: options.parentAuditRunId,
@@ -438,6 +580,8 @@ export async function runPositioningAuditOrchestrator(
             zone: child.zone,
             type: 'complete',
           });
+          await deps.markChildTerminal(child.section_run_id, 'complete');
+          stampRuntimeTiming('terminalStatusWrittenAt');
           await deps.updatePhase({
             parentAuditRunId: options.parentAuditRunId,
             sectionRunId: child.section_run_id,
@@ -456,8 +600,8 @@ export async function runPositioningAuditOrchestrator(
             concurrency,
             capabilityGaps: sectionContext.capabilityGaps,
             executionMode,
+            runtimeTimings: runtimeTimingSnapshot(),
           });
-          await deps.markChildTerminal(child.section_run_id, 'complete');
           childTerminalStatusBySectionRunId.set(child.section_run_id, 'complete');
         } else {
           await deps.emitEvent({
@@ -474,6 +618,7 @@ export async function runPositioningAuditOrchestrator(
             'error',
             result.error ?? null,
           );
+          stampRuntimeTiming('terminalStatusWrittenAt');
           await deps.updatePhase({
             parentAuditRunId: options.parentAuditRunId,
             sectionRunId: child.section_run_id,
@@ -486,6 +631,7 @@ export async function runPositioningAuditOrchestrator(
             concurrency,
             capabilityGaps: sectionContext.capabilityGaps,
             executionMode,
+            runtimeTimings: runtimeTimingSnapshot(),
           });
           childTerminalStatusBySectionRunId.set(child.section_run_id, 'error');
         }
@@ -504,6 +650,7 @@ export async function runPositioningAuditOrchestrator(
             timeout: timedOut,
             lastCompletedPhase,
             executionMode,
+            runtimeTimings: runtimeTimingSnapshot(),
           },
         });
         await deps.markChildTerminal(
@@ -516,6 +663,7 @@ export async function runPositioningAuditOrchestrator(
                 message,
               },
         );
+        stampRuntimeTiming('terminalStatusWrittenAt');
         await deps.updatePhase({
           parentAuditRunId: options.parentAuditRunId,
           sectionRunId: child.section_run_id,
@@ -530,6 +678,7 @@ export async function runPositioningAuditOrchestrator(
           concurrency,
           capabilityGaps: sectionContext.capabilityGaps,
           executionMode,
+          runtimeTimings: runtimeTimingSnapshot(),
         });
         childTerminalStatusBySectionRunId.set(
           child.section_run_id,
@@ -540,6 +689,7 @@ export async function runPositioningAuditOrchestrator(
       if (options.parentAbortSignal) {
         options.parentAbortSignal.removeEventListener('abort', onParentAbort);
       }
+      childSignal.removeEventListener('abort', onChildAbort);
       clearTimeout(timeoutHandle);
       runningCount -= 1;
       release();

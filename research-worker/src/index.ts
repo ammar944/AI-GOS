@@ -714,13 +714,14 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
     console.warn('[orchestrator] initial rollup running failed:', err);
   });
 
-  const concurrency = Math.max(
-    1,
-    Number(process.env.ORCHESTRATOR_CONCURRENCY ?? 3),
-  );
   const executionMode = normalizePositioningExecutionMode(
     rawExecutionMode,
     DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE,
+  );
+  const concurrencyDefault = executionMode === 'draft' ? 6 : 3;
+  const concurrency = Math.max(
+    1,
+    Number(process.env.ORCHESTRATOR_CONCURRENCY ?? concurrencyDefault),
   );
   const zones =
     Array.isArray(rawZones)

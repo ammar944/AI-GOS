@@ -219,9 +219,16 @@ export async function updateSectionRunPhase(
       ? Date.parse(data.started_at)
       : now.getTime();
   const currentTelemetry = asRecord(data?.telemetry) ?? {};
+  const currentRuntimeTimings = asRecord(currentTelemetry.runtimeTimings) ?? {};
   const nextTelemetry: Record<string, unknown> = {
     ...currentTelemetry,
     ...update,
+    runtimeTimings: update.runtimeTimings
+      ? {
+          ...currentRuntimeTimings,
+          ...update.runtimeTimings,
+        }
+      : currentRuntimeTimings,
     phaseStartedAt: update.phaseStartedAt ?? now.toISOString(),
     elapsedMs: update.elapsedMs ?? Math.max(0, now.getTime() - startedAt),
   };

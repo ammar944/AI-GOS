@@ -45,6 +45,18 @@ import { TypedArtifactRenderer } from './typed-artifact-renderer';
 
 export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted';
 
+export interface SectionRuntimeTimings {
+  sectionStartedAt?: string;
+  firstPartialAt?: string;
+  finalObjectAt?: string;
+  validationCompleteAt?: string;
+  timeoutFiredAt?: string;
+  abortSignalObservedAt?: string;
+  commitStartedAt?: string;
+  commitCompleteAt?: string;
+  terminalStatusWrittenAt?: string;
+}
+
 export interface WorkerChipState {
   section_id: PositioningSectionId;
   status: WorkerChipStatus;
@@ -61,6 +73,7 @@ export interface WorkerChipState {
   elapsedMs?: number | null;
   capabilityGaps?: Array<Record<string, unknown>>;
   executionMode?: 'draft' | 'deep' | null;
+  runtimeTimings?: SectionRuntimeTimings;
 }
 
 export interface AgentArtifactSurfaceProps {
@@ -204,6 +217,47 @@ function formatElapsed(elapsedMs: number | null | undefined): string | null {
   if (typeof elapsedMs !== 'number' || !Number.isFinite(elapsedMs)) return null;
   if (elapsedMs < 60_000) return `${Math.max(1, Math.round(elapsedMs / 1000))}s`;
   return `${Math.round(elapsedMs / 60_000)}m`;
+}
+
+function msBetween(start: string | undefined, end: string | undefined): number | null {
+  if (!start || !end) return null;
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return Math.max(0, endMs - startMs);
+}
+
+function formatRuntimeTiming(state: WorkerChipState | undefined): string | null {
+  const timings = state?.runtimeTimings;
+  if (!timings) return formatElapsed(state?.elapsedMs);
+  const firstPartialMs = msBetween(timings.sectionStartedAt, timings.firstPartialAt);
+  if (firstPartialMs !== null) return `First partial ${formatElapsed(firstPartialMs)}`;
+  const finalObjectMs = msBetween(timings.sectionStartedAt, timings.finalObjectAt);
+  if (finalObjectMs !== null) return `Draft ${formatElapsed(finalObjectMs)}`;
+  return formatElapsed(state?.elapsedMs);
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function draftArtifactMeta(body: SectionArtifactBody | undefined): {
+  artifactLayer: 'draft' | 'deep' | null;
+  confidence: number | null;
+  evidenceGapCount: number;
+} {
+  const data = asObject(body?.data);
+  const artifactLayer = data?.artifactLayer === 'draft' ? 'draft' : null;
+  const confidence =
+    typeof data?.confidence === 'number' && Number.isFinite(data.confidence)
+      ? data.confidence
+      : null;
+  const evidenceGapCount = Array.isArray(data?.evidenceGaps)
+    ? data.evidenceGaps.length
+    : 0;
+  return { artifactLayer, confidence, evidenceGapCount };
 }
 
 function displayHost(url: string): string {
@@ -933,6 +987,8 @@ function SectionContentList({
         const state = stateByZone[zone];
         const canDeepen = state?.executionMode === 'draft';
         const isDeepening = deepeningZones.has(zone);
+        const meta = draftArtifactMeta(body);
+        const runtimeTiming = formatRuntimeTiming(state);
         const isComplete = Boolean(
           body && (body.markdown || body.title || body.data || typedArtifact),
         );
@@ -956,6 +1012,17 @@ function SectionContentList({
                   <h2 className="mt-1 text-[18px] font-semibold tracking-[0] text-[color:var(--text-primary)]">
                     {typedArtifact?.sectionTitle ?? body?.title ?? POSITIONING_SECTION_LABELS[zone]}
                   </h2>
+                  <div className="mt-2 flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+                    {state?.executionMode ? <span>{state.executionMode}</span> : null}
+                    {meta.artifactLayer ? <span>{meta.artifactLayer}</span> : null}
+                    {meta.artifactLayer === 'draft' && meta.confidence !== null ? (
+                      <span>Confidence {meta.confidence}/10</span>
+                    ) : null}
+                    {runtimeTiming ? <span>{runtimeTiming}</span> : null}
+                    {meta.evidenceGapCount > 0 ? (
+                      <span>{meta.evidenceGapCount} evidence gaps</span>
+                    ) : null}
+                  </div>
                 </div>
                 <StatusPill
                   status="complete"
