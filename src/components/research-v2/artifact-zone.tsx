@@ -29,8 +29,10 @@ import { Shimmer } from '@/components/ai/shimmer';
 import { cn } from '@/lib/utils';
 import type { ResearchJobUpdate } from '@/lib/journey/research-job-activity';
 import type { ArtifactZone as ArtifactZoneData } from '@/lib/research-v2/audit-artifact-schema';
-import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
+import { isBuyerICPArtifact } from '@/lib/research-v2/audit-artifact-view';
+import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
 import { BuyerICPArtifactRenderer } from './buyer-icp';
+import { TypedArtifactRenderer } from './typed-artifact-renderer';
 import { ZoneActivity } from './zone-activity';
 import { ZoneErrorCard } from './zone-error-card';
 
@@ -48,10 +50,6 @@ interface ArtifactZoneProps {
   onCancel?: ZoneCancelHandler;
   isRetrying?: boolean;
 }
-
-type BuyerICPTypedArtifactZone = ArtifactZoneData & {
-  buyerIcpArtifact?: BuyerICPArtifact;
-};
 
 function StatusBadge({ status }: { status: ArtifactZoneData['status'] }) {
   if (status === 'running') {
@@ -103,10 +101,11 @@ export function ArtifactZone({
   const isRunning = zone.status === 'running';
   const isComplete = zone.status === 'complete';
   const hasNarrative = zone.narrative.trim().length > 0;
+  const typedArtifact = pickPositioningTypedArtifact(zone, zone.zone);
   const buyerIcpArtifact =
-    zone.zone === 'positioningBuyerICP'
-      ? (zone as BuyerICPTypedArtifactZone).buyerIcpArtifact
-      : undefined;
+    zone.zone === 'positioningBuyerICP' && isBuyerICPArtifact(typedArtifact)
+      ? typedArtifact
+      : null;
 
   return (
     <Card
@@ -171,6 +170,8 @@ export function ArtifactZone({
 
         {buyerIcpArtifact ? (
           <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
+        ) : typedArtifact ? (
+          <TypedArtifactRenderer artifact={typedArtifact} zoneId={zone.zone} />
         ) : hasNarrative ? (
           <Collapsible open={narrativeOpen} onOpenChange={setNarrativeOpen}>
             <CollapsibleTrigger className="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
@@ -224,7 +225,7 @@ export function ArtifactZone({
           </Collapsible>
         ) : null}
 
-        {!buyerIcpArtifact && zone.sources.length > 0 ? (
+        {!typedArtifact && zone.sources.length > 0 ? (
           <div className="text-[10px] text-muted-foreground">
             {zone.sources.length} source{zone.sources.length === 1 ? '' : 's'} cited
           </div>

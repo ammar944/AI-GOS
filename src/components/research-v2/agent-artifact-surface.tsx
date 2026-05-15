@@ -18,7 +18,9 @@ import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { isBuyerICPArtifact } from '@/lib/research-v2/audit-artifact-view';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
+import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
 import { BuyerICPArtifactRenderer } from './buyer-icp';
+import { TypedArtifactRenderer } from './typed-artifact-renderer';
 
 export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted';
 
@@ -366,8 +368,16 @@ function WorkerChipsRow({ states }: { states: WorkerChipState[] }) {
 
 interface SectionContentListProps {
   statusByZone: Record<string, WorkerChipStatus>;
-  sectionsByZone: Record<string, { markdown?: string; title?: string; data?: unknown }>;
+  sectionsByZone: Record<string, SectionArtifactBody>;
   eventsByZone: Record<string, SectionActivityEvent[]>;
+}
+
+interface SectionArtifactBody {
+  markdown?: string | null;
+  title?: string | null;
+  data?: unknown;
+  typedArtifact?: unknown;
+  artifact?: unknown;
 }
 
 export interface SectionActivityEvent {
@@ -446,7 +456,7 @@ function ZoneActivity({ events }: { events: SectionActivityEvent[] }) {
 
 function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: SectionContentListProps) {
   const anyComplete = Object.values(sectionsByZone).some(
-    (s) => s && (s.markdown || s.title || s.data),
+    (s) => s && (s.markdown || s.title || s.data || pickPositioningTypedArtifact(s)),
   );
 
   if (!anyComplete) {
@@ -493,10 +503,15 @@ function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: Sect
       {POSITIONING_SECTION_IDS.map((zone) => {
         const status = statusByZone[zone] ?? 'queued';
         const body = sectionsByZone[zone];
-        const isComplete = Boolean(body && (body.markdown || body.title || body.data));
+        const typedArtifact = body
+          ? pickPositioningTypedArtifact(body, zone)
+          : null;
+        const isComplete = Boolean(
+          body && (body.markdown || body.title || body.data || typedArtifact),
+        );
         const buyerIcpArtifact =
-          zone === 'positioningBuyerICP' && isBuyerICPArtifact(body?.data)
-            ? body.data
+          zone === 'positioningBuyerICP' && isBuyerICPArtifact(typedArtifact)
+            ? typedArtifact
             : null;
         if (isComplete) {
           return (
@@ -508,7 +523,7 @@ function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: Sect
             >
               <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
                 <h2 className="text-[16px] font-medium tracking-[-0.005em] text-[color:var(--text-1)]">
-                  {body?.title ?? POSITIONING_SECTION_LABELS[zone]}
+                  {typedArtifact?.sectionTitle ?? body?.title ?? POSITIONING_SECTION_LABELS[zone]}
                 </h2>
                 <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--green)]">
                   complete
@@ -516,6 +531,12 @@ function SectionContentList({ statusByZone, sectionsByZone, eventsByZone }: Sect
               </header>
               {buyerIcpArtifact ? (
                 <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
+              ) : typedArtifact ? (
+                <TypedArtifactRenderer
+                  artifact={typedArtifact}
+                  zoneId={zone}
+                  showSectionTitle={false}
+                />
               ) : (
                 <div
                   className="whitespace-pre-wrap text-[14px] leading-[1.6] text-[color:var(--text-2)]"

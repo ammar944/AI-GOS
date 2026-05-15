@@ -27,6 +27,10 @@ import {
   type ZoneStatus,
 } from '@/lib/research-v2/audit-artifact-schema';
 import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
+import {
+  pickPositioningTypedArtifact,
+  type PositioningTypedArtifact,
+} from '@/types/positioning-artifact';
 
 type ResearchJobActivityState = {
   status?: 'running' | 'complete' | 'error' | 'idle' | string;
@@ -131,8 +135,8 @@ function projectNarrative(row: RawSectionRow | null | undefined): string {
   return '';
 }
 
-type BuyerICPTypedZone = ArtifactZone & {
-  buyerIcpArtifact?: BuyerICPArtifact;
+type TypedArtifactZone = ArtifactZone & {
+  typedArtifact?: PositioningTypedArtifact;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -259,49 +263,26 @@ export function isBuyerICPArtifact(value: unknown): value is BuyerICPArtifact {
   );
 }
 
-function unwrapBuyerICPArtifact(value: unknown): BuyerICPArtifact | null {
-  if (isBuyerICPArtifact(value)) return value;
-  if (!isRecord(value)) return null;
-
-  const candidates = [
-    value.data,
-    value.artifact,
-    value.typedArtifact,
-    value.buyerIcpArtifact,
-  ];
-
-  for (const candidate of candidates) {
-    if (isBuyerICPArtifact(candidate)) return candidate;
-    if (isRecord(candidate)) {
-      const nested = unwrapBuyerICPArtifact(candidate);
-      if (nested) return nested;
-    }
-  }
-
-  return null;
-}
-
-function projectBuyerICPArtifact(
+function projectTypedArtifact(
   zoneId: string,
   ...candidates: readonly unknown[]
-): BuyerICPArtifact | null {
-  if (zoneId !== 'positioningBuyerICP') return null;
+): PositioningTypedArtifact | null {
   for (const candidate of candidates) {
-    const artifact = unwrapBuyerICPArtifact(candidate);
+    const artifact = pickPositioningTypedArtifact(candidate, zoneId);
     if (artifact) return artifact;
   }
   return null;
 }
 
-function withBuyerICPArtifact(
+function withTypedArtifact(
   zone: ArtifactZone,
-  artifact: BuyerICPArtifact | null,
+  artifact: PositioningTypedArtifact | null,
 ): ArtifactZone {
   if (!artifact) return zone;
   return {
     ...zone,
-    buyerIcpArtifact: artifact,
-  } as BuyerICPTypedZone;
+    typedArtifact: artifact,
+  } as TypedArtifactZone;
 }
 
 function isKeyFinding(value: unknown): value is SectionKeyFinding {
@@ -460,6 +441,21 @@ function projectSources(
   return Array.from(dedup.values());
 }
 
+function projectTypedArtifactSources(
+  zoneId: string,
+  artifact: PositioningTypedArtifact | null,
+): ArtifactSource[] {
+  if (!artifact) return [];
+  return artifact.sources.map((source) => ({
+    id: normalizeSourceId(source.url),
+    url: source.url,
+    title: source.title,
+    fetchedAt: source.accessedAt ?? null,
+    snippet: source.whyItMatters ?? null,
+    zoneId,
+  }));
+}
+
 function projectThesis(
   researchResults: Record<string, unknown> | null | undefined,
 ): ArtifactThesis {
@@ -570,14 +566,18 @@ function projectZoneFromNormalized(
   normalized: ArtifactSectionRow,
   job: ResearchJobActivityState | undefined,
   legacyError: string | null,
-  buyerIcpArtifact: BuyerICPArtifact | null,
+  typedArtifact: PositioningTypedArtifact | null,
 ): ArtifactZone {
   const claims = Array.isArray(normalized.claims)
     ? (normalized.claims as ArtifactClaim[])
     : [];
-  const sources = Array.isArray(normalized.sources)
+  const normalizedSources = Array.isArray(normalized.sources)
     ? (normalized.sources as ArtifactSource[])
     : [];
+  const sources =
+    normalizedSources.length > 0
+      ? normalizedSources
+      : projectTypedArtifactSources(zoneId, typedArtifact);
   const activity = projectActivity(job?.updates);
 
   const errorPayload =
@@ -604,7 +604,7 @@ function projectZoneFromNormalized(
       ? normalized.markdown
       : null;
 
-  return withBuyerICPArtifact({
+  return withTypedArtifact({
     zone: zoneId,
     sectionRunId: normalized.section_run_id ?? job?.jobId ?? null,
     revision: typeof normalized.revision === 'number' ? normalized.revision : 0,
@@ -621,7 +621,7 @@ function projectZoneFromNormalized(
     partialAt,
     errorPartial,
     partialNarrative,
-  }, buyerIcpArtifact);
+  }, typedArtifact);
 }
 
 export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
@@ -635,7 +635,7 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
       const legacyRow = (input.researchResults?.[zoneId] ?? null) as
         | RawSectionRow
         | null;
-      const buyerIcpArtifact = projectBuyerICPArtifact(
+      const typedArtifact = projectTypedArtifact(
         zoneId,
         normalized,
         legacyRow,
@@ -645,7 +645,7 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
         normalized,
         job,
         legacyRow?.error ?? null,
-        buyerIcpArtifact,
+        typedArtifact,
       );
       continue;
     }
@@ -666,7 +666,9 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
     const claims = projectClaims(row);
     const sources = projectSources(zoneId, row);
 
-    zones[zoneId] = withBuyerICPArtifact({
+    const typedArtifact = projectTypedArtifact(zoneId, row);
+
+    zones[zoneId] = withTypedArtifact({
       zone: zoneId,
       sectionRunId: job?.jobId ?? null,
       revision: 0,
@@ -680,7 +682,7 @@ export function projectAuditArtifact(input: AuditArtifactInput): AuditArtifact {
       partialAt: null,
       errorPartial: false,
       partialNarrative: null,
-    }, projectBuyerICPArtifact(zoneId, row));
+    }, typedArtifact);
   }
 
   return {

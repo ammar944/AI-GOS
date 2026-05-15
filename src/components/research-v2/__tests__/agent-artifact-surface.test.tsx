@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentArtifactSurface } from '../agent-artifact-surface';
 import { buyerIcpArtifactFixture } from '../buyer-icp/__tests__/test-fixtures';
+import type { PositioningTypedArtifact } from '@/types/positioning-artifact';
 
 const useAuditStateMock = vi.hoisted(() => vi.fn());
 
@@ -26,6 +27,32 @@ const EMPTY_AUDIT_STATE = {
   sectionsByZone: {},
   eventsByZone: {},
 };
+
+const marketCategoryArtifactFixture = {
+  sectionTitle: 'Market & Category Intelligence',
+  verdict: 'The market exists, but category language is still split.',
+  statusSummary: 'The typed artifact should render before markdown fallback.',
+  confidence: 7,
+  sources: [
+    {
+      title: 'Market source',
+      url: 'https://example.com/market',
+      whyItMatters: 'Supports the market category read.',
+    },
+  ],
+  categoryDefinition: {
+    prose: 'Pipeline management category prose from typed data.',
+    adjacentCategories: [
+      {
+        name: 'Legacy CRM',
+        whyBuyersConfuseIt: 'Confused because buyer teams compare it to pipeline tools.',
+        disambiguatingSignal: 'Automation-first follow-up separates the category.',
+        sourceTitle: 'CRM comparison',
+        sourceUrl: 'https://example.com/crm',
+      },
+    ],
+  },
+} satisfies PositioningTypedArtifact;
 
 describe('AgentArtifactSurface', () => {
   beforeEach(() => {
@@ -119,6 +146,43 @@ describe('AgentArtifactSurface', () => {
 
     expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
     expect(screen.getByText('Confidence 8/10')).toBeInTheDocument();
+    expect(screen.queryByText('markdown fallback should not render')).toBeNull();
+  });
+
+  it('renders typed non-BuyerICP cards from audit-state instead of the markdown fallback', () => {
+    useAuditStateMock.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: 'parent-run',
+      workerStates: [
+        { section_id: 'positioningMarketCategory', status: 'complete' },
+        { section_id: 'positioningBuyerICP', status: 'queued' },
+        { section_id: 'positioningCompetitorLandscape', status: 'queued' },
+        { section_id: 'positioningVoiceOfCustomer', status: 'queued' },
+        { section_id: 'positioningDemandIntent', status: 'queued' },
+        { section_id: 'positioningOfferDiagnostic', status: 'queued' },
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          title: marketCategoryArtifactFixture.sectionTitle,
+          markdown: 'markdown fallback should not render',
+          data: marketCategoryArtifactFixture,
+        },
+      },
+    });
+
+    render(<AgentArtifactSurface runId="run-abc" />);
+
+    expect(
+      screen.getByTestId('typed-artifact-renderer-positioningMarketCategory'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Confidence 7/10')).toBeInTheDocument();
+    expect(screen.getByText('Pipeline management category prose from typed data.')).toBeInTheDocument();
+    expect(screen.getByText('Legacy CRM')).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'typed-card-group-positioningMarketCategory-categoryDefinition-adjacentCategories',
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText('markdown fallback should not render')).toBeNull();
   });
 });
