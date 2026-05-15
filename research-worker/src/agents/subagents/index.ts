@@ -12,7 +12,7 @@
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
-import { Output, stepCountIs, ToolLoopAgent } from 'ai';
+import { ToolLoopAgent } from 'ai';
 
 import {
   POSITIONING_TOOL_MAPS,
@@ -26,29 +26,8 @@ import {
   OFFER_DIAGNOSTIC_INSTRUCTIONS,
   VOICE_OF_CUSTOMER_INSTRUCTIONS,
 } from './_skill-loader';
-import { PositioningEnvelopeSchema } from './envelope-schema';
 
 const SUBAGENT_MODEL = anthropic('claude-opus-4-6');
-// 13 = 12 prompt-instructed tool calls + 1 final structured-output step.
-// AI SDK v6 `Output.object()` consumes an additional step for the schema
-// emission; sizing the cap at 12 truncates the loop one step before the
-// schema can land. See AI SDK docs structured-output troubleshooting +
-// codex review feedback 2026-05-13.
-const SUBAGENT_STEP_CAP = stepCountIs(13);
-
-// Schema-enforced final answer for all 6 positioning subagents. Replaces
-// the manual `extractJson(rawText)` parse-and-pray pipeline that produced
-// the ~50% JSON-failure rate on positioningOfferDiagnostic.
-//
-// Each subagent's tool loop runs as before; only the FINAL response is
-// constrained to PositioningEnvelopeSchema. Result is read from
-// `result.output` (typed) in positioning-subagent-runner.ts.
-const SUBAGENT_OUTPUT = Output.object({
-  schema: PositioningEnvelopeSchema,
-  name: 'positioningEnvelope',
-  description:
-    'Final structured envelope for the positioning section. Populate every field; cite sourceUrl wherever possible.',
-});
 
 /**
  * Market Category gathers evidence only. ADR-0002 moves the typed Artifact
@@ -74,7 +53,6 @@ export const buyerIcpAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: BUYER_ICP_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningBuyerICP,
-  stopWhen: SUBAGENT_STEP_CAP,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningBuyerICP',
@@ -85,8 +63,6 @@ export const competitorAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: COMPETITOR_LANDSCAPE_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningCompetitorLandscape,
-  stopWhen: SUBAGENT_STEP_CAP,
-  output: SUBAGENT_OUTPUT,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningCompetitorLandscape',
@@ -97,8 +73,6 @@ export const vocAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: VOICE_OF_CUSTOMER_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningVoiceOfCustomer,
-  stopWhen: SUBAGENT_STEP_CAP,
-  output: SUBAGENT_OUTPUT,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningVoiceOfCustomer',
@@ -109,8 +83,6 @@ export const demandAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: DEMAND_INTENT_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningDemandIntent,
-  stopWhen: SUBAGENT_STEP_CAP,
-  output: SUBAGENT_OUTPUT,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningDemandIntent',
@@ -121,8 +93,6 @@ export const offerAgent = new ToolLoopAgent({
   model: SUBAGENT_MODEL,
   instructions: OFFER_DIAGNOSTIC_INSTRUCTIONS,
   tools: POSITIONING_TOOL_MAPS.positioningOfferDiagnostic,
-  stopWhen: SUBAGENT_STEP_CAP,
-  output: SUBAGENT_OUTPUT,
   experimental_telemetry: {
     isEnabled: true,
     functionId: 'positioningOfferDiagnostic',

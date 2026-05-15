@@ -9,11 +9,10 @@
  * | positioningCompetitorLandscape | web_search, spyfu, adlibrary, meta-ads, google-ads, firecrawl |
  * | positioningVoiceOfCustomer     | web_search, reviews, firecrawl                            |
  * | positioningDemandIntent        | web_search, keyword-ad-probe, firecrawl                   |
- * | positioningOfferDiagnostic     | web_search, ga4, pagespeed, reviews, firecrawl, Anthropic code tool |
+ * | positioningOfferDiagnostic     | web_search, ga4, pagespeed, reviews, firecrawl |
  */
 
 export { adLibraryAgentTool } from './adlibrary';
-export { codeExecutionAgentTool } from './code-execution';
 export { firecrawlAgentTool } from './firecrawl';
 export { ga4AgentTool } from './ga4';
 export { googleAdsAgentTool } from './google-ads';
@@ -47,14 +46,13 @@ import { ga4AgentTool } from './ga4';
 
 /**
  * Anthropic provider-native tools. The SDK injects them at the model call
- * level so Claude executes web search + code execution server-side. Phase
- * 3a's webSearchAgentTool + codeExecutionAgentTool shims existed because
- * the spike couldn't verify these factories were exported from
- * @ai-sdk/anthropic; Phase 3b's Codex QA caught that those shims returned
- * not_implemented gaps and broke every subagent's web search.
+ * level so Claude executes web search server-side. Phase 3a's
+ * webSearchAgentTool shim existed because the spike couldn't verify this
+ * factory was exported from @ai-sdk/anthropic; Phase 3b's Codex QA caught
+ * that the shim returned not_implemented gaps and broke every subagent's
+ * web search.
  */
 const anthropicWebSearch = anthropic.tools.webSearch_20250305({});
-const anthropicCodeExecution = anthropic.tools.codeExecution_20250825({});
 
 // Provider tools + user-defined tool() wrappers have incompatible
 // Schema<never> vs Schema<input> generics in the AI SDK v6 type. The
@@ -112,7 +110,5 @@ export const POSITIONING_TOOL_MAPS: {
     pagespeed: pagespeedAgentTool,
     reviews: reviewsAgentTool,
     firecrawl: firecrawlAgentTool,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    code_execution: anthropicCodeExecution as any,
   },
 };

@@ -13,7 +13,7 @@ Full details in `docs/architecture/2026-05-14-positioning-audit-stack.md`. One-p
 **Current implementation status (2026-05-15):**
 - Section 01, **Market & Category Intelligence**, is ported to `MarketCategoryArtifactSchema`, `streamObject`, runner-side minimum validation, and a rewritten local Skill.
 - Section 02, **Buyer & ICP Validation**, is ported to `BuyerICPArtifactSchema`, `streamObject`, runner-side minimum validation, and a rewritten local Skill.
-- Sections 03-06 still use the transitional `PositioningEnvelopeSchema` / `Output.object` path and several legacy Skills still mention `plan.json` / `scripts/validate.py`. Do not copy that pattern into new work.
+- Sections 03-06, **Competitor Landscape & Positioning**, **Voice of Customer & Objection Evidence**, **Demand & Intent Signals**, and **Offer & Performance Diagnostic**, are ported to bespoke Artifact schemas, `streamObject`, runner-side minimum validation, and rewritten local Skills.
 - The active Workspace currently polls `/api/research-v2/audit-state` and renders committed Section `title` / `markdown` from `research_artifact_sections`. Typed Card rendering is the target, not yet the live renderer for all Sections.
 
 **Load-bearing pieces:**
@@ -21,7 +21,7 @@ Full details in `docs/architecture/2026-05-14-positioning-audit-stack.md`. One-p
 - AI SDK v6 `streamObject(schema)` — typed Artifact output for ported Sections; Zod schemas in `research-worker/src/agents/subagents/schemas/`
 - Local SKILL.md harness — `research-worker/platform-skills/<skill>/SKILL.md`, loaded by `_skill-loader.ts`
 - Runner-side post-validate — enforces cardinality minimums (Anthropic rejects `.min()/.max()` on structured-output schemas); one retry with feedback on failure, then emit-with-gaps
-- Per-Section bespoke schemas driven by `docs/research-sections.md` — no new generic envelope work; `PositioningEnvelopeSchema` is transitional legacy for unported Sections only
+- Per-Section bespoke schemas driven by `docs/research-sections.md` — no new generic envelope work
 - Supabase persistence: `research_artifacts`, `research_section_runs`, `research_artifact_sections`, `research_section_events`
 - Workspace UI: `AgentArtifactSurface` polls `/api/research-v2/audit-state`
 
@@ -33,7 +33,7 @@ Full details in `docs/architecture/2026-05-14-positioning-audit-stack.md`. One-p
 - ❌ No discriminated unions of Card types in arrays — each sub-section's array is homogeneous
 - ❌ No Anthropic-specific patterns at the framework layer — AI SDK v6 abstractions throughout
 
-Known drift: Offer Diagnostic still has a `code_execution` tool in its map, and Sections 03-06 still have legacy Skill language around `validate.py`. Treat those as cleanup targets during each Section port, not as current architecture.
+Known drift: the Workspace still renders committed Section markdown for the full Audit. Typed Card rendering exists for selected paths and remains the next UI layer after the backend Artifact migration.
 
 ## Language
 
@@ -82,7 +82,7 @@ Briefly proposed in ADR-0001 (one tool per UI brick), superseded by ADR-0002 (on
 _Avoid_: Use **Artifact** + **Sub-section** + **Card** instead.
 
 **Envelope** _(deprecated)_:
-Legacy generic `{verdict, statusSummary, findings, quotes, risks, moves, sources}` shape used as an `Output.object` final-output contract before the per-Section Artifact port. It forced every Section into the same flow regardless of its canonical structure. Sections 03-06 still use this as migration state until they are ported.
+Legacy generic `{verdict, statusSummary, findings, quotes, risks, moves, sources}` shape used as an `Output.object` final-output contract before the per-Section Artifact port. It forced every Section into the same flow regardless of its canonical structure. All six positioning Sections now target typed Artifacts; any remaining Envelope code is compatibility/cleanup residue, not a current runtime pattern for positioning output.
 _Avoid_: Use Artifact + Sub-section instead.
 
 ## Relationships
@@ -96,7 +96,7 @@ _Avoid_: Use Artifact + Sub-section instead.
 - Each **Card** lives in exactly one sub-section's card array
 - Ported Sections emit the Artifact via one runner-owned `streamObject(schema)` call after the evidence loop; structure comes from the schema, not from individual tool calls
 - The **Workspace** renders one Audit at a time, with one Artifact pane per Section
-- Legacy Sections 03-06 still emit `PositioningEnvelopeSchema` until ported; this is migration state, not target architecture
+- Any remaining `PositioningEnvelopeSchema` references are cleanup residue after the six-Section Artifact port; new positioning work should use Section-specific Artifact schemas
 
 ## Example dialogue
 

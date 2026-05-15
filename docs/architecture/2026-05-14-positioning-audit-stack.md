@@ -38,18 +38,23 @@ No new `code_execution` tool. No `validate.py` in-loop. No per-brick artifact-bu
 
 ## Current implementation status (2026-05-15)
 
-The architecture is mid-port, not fully landed across all 6 Sections.
+The six-Section backend Artifact migration is landed. Each positioning
+Subagent now gathers evidence through its research tool map; the runner then
+emits one typed Artifact through `streamObject(SectionArtifactSchema)` and
+post-validates cardinality/coverage minimums.
 
 | Section | Runtime status | Schema / Skill status |
 |---|---|---|
 | 01. Market & Category Intelligence | Ported evidence loop -> `streamObject(MarketCategoryArtifactSchema)` | `market-category.ts`, rewritten local Skill, `eval:pilot:market-category` |
 | 02. Buyer & ICP Validation | Ported evidence loop -> `streamObject(BuyerICPArtifactSchema)` | `buyer-icp.ts`, rewritten local Skill, `eval:pilot:buyer-icp` |
-| 03. Competitor Landscape & Positioning | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py` |
-| 04. Voice of Customer & Objection Evidence | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py` |
-| 05. Demand & Intent Signals | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py` |
-| 06. Offer & Performance Diagnostic | Transitional legacy `Output.object(PositioningEnvelopeSchema)` | legacy Skill still references `plan.json` / `scripts/validate.py`; tool map still contains `code_execution` |
+| 03. Competitor Landscape & Positioning | Ported evidence loop -> `streamObject(CompetitorLandscapeArtifactSchema)` | `competitor-landscape.ts`, rewritten local Skill, `eval:pilot:competitor-landscape` |
+| 04. Voice of Customer & Objection Evidence | Ported evidence loop -> `streamObject(VoiceOfCustomerArtifactSchema)` | `voc-objection-evidence.ts`, rewritten local Skill, `eval:pilot:voc-objection-evidence` |
+| 05. Demand & Intent Signals | Ported evidence loop -> `streamObject(DemandIntentArtifactSchema)` | `demand-intent-signals.ts`, rewritten local Skill, `eval:pilot:demand-intent-signals` |
+| 06. Offer & Performance Diagnostic | Ported evidence loop -> `streamObject(OfferPerformanceArtifactSchema)` | `offer-performance-diagnostic.ts`, rewritten local Skill, `eval:pilot:offer-performance-diagnostic`; `code_execution` removed from the positioning tool map |
 
-Do not treat the legacy Envelope path as the architecture. It is migration state while each remaining Section is ported to its own Artifact schema and rewritten Skill.
+Do not treat the legacy Envelope path as the architecture. All positioning
+Sections now use bespoke Artifacts. Any remaining Envelope code is
+compatibility/cleanup residue, not a pattern for new work.
 
 ---
 
@@ -93,7 +98,9 @@ Artifact carried one duplicate-force validation gap inline rather than hiding it
 | `buyingContext` | `TriggerSchema[]` | "Buying context — observable triggers" |
 | `clusters` | `ClusterVenueSchema[]` | "Where they actually cluster" |
 
-Remaining Section ports should follow the same pattern — sub-sections per their canonical bullets, each with its own homogeneous Card type unless the Section schema explicitly owns a single-object field like `categoryMaturity.classification`.
+All Section ports follow the same pattern — sub-sections per their canonical
+bullets, each with its own homogeneous Card type unless the Section schema
+explicitly owns a single-object field like `categoryMaturity.classification`.
 
 ---
 
@@ -146,7 +153,7 @@ Our extension beyond the public state of the art: typed Card schemas + Zod-enfor
 
 - ❌ **Anthropic Platform Skills `.zip` uploads** — ADR-0003. The `platform-skills/*.zip` files are dead artifacts.
 - ❌ **`code_execution` tool / `validate.py` in-loop** — ADR-0002. Replaced by runner-side post-validate in ported Sections.
-- ❌ **New `Output.object` work with generic envelope** (`verdict + findings + quotes + risks + moves`) — ADR-0002. Existing unported Sections still use this temporarily.
+- ❌ **New `Output.object` work with generic envelope** (`verdict + findings + quotes + risks + moves`) — ADR-0002.
 - ❌ **Per-brick artifact-builder tools** (`add_persona`, `set_verdict`, etc.) — ADR-0002.
 - ❌ **Discriminated unions of Card types in arrays** — ADR-0002 consequence. Each sub-section's Card array is homogeneous.
 - ❌ **`Output.object` reach-around via `code_execution` stdout parsing** — ADR-0002. Runner reads Subagent output via `streamObject`, period.
@@ -157,11 +164,9 @@ Our extension beyond the public state of the art: typed Card schemas + Zod-enfor
 
 ## Execution-ready next moves
 
-1. Port Section 03, Competitor Landscape & Positioning, to a bespoke Artifact schema and rewritten Skill.
-2. Remove `plan.json` / `scripts/validate.py` language from each Section as it is ported.
-3. Remove Offer Diagnostic's `code_execution` tool when Section 06 is ported.
-4. Keep `PositioningEnvelopeSchema` only as a temporary Adapter for unported Sections.
-5. After all six Sections are ported, delete the legacy Envelope path and update the Workspace projection to render typed sub-sections and Cards directly.
+1. Delete the now-unreachable legacy Envelope path and `PositioningEnvelopeSchema` adapter once no non-positioning caller depends on it.
+2. Update the Workspace projection to render typed sub-sections and Cards directly across all six Sections.
+3. Keep per-Section pilots as regression checks before future schema/Skill changes.
 
 ---
 
