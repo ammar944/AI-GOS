@@ -47,6 +47,16 @@ const MATURITY_SIGNAL_TYPES = [
   'platform-bundling',
 ] as const;
 
+const METHODOLOGIES = ['top-down', 'bottom-up'] as const;
+
+const STRUCTURAL_FORCE_IMPACTS = ['high', 'medium', 'low'] as const;
+
+const STRUCTURAL_FORCE_DIRECTIONS = [
+  'accelerating',
+  'decelerating',
+  'neutral',
+] as const;
+
 const VALID_URL_PATTERN = /^https?:\/\/\S+\.\S+/;
 
 export const AdjacentCategorySchema = z
@@ -81,6 +91,11 @@ export const MarketSizeSignalSchema = z
     trajectory: z
       .enum(TRAJECTORIES)
       .describe('Directional read implied by this signal.'),
+    methodology: z
+      .enum(METHODOLOGIES)
+      .describe(
+        'Analytical posture: top-down (pre-aggregated views like analyst reports or public market data) or bottom-up (raw activity signals like hiring velocity, search trends, or funding flows). At least one of each is required for triangulation.',
+      ),
     sourceTitle: z.string().describe('Named source for this signal.'),
     sourceUrl: z.string().describe('Public URL supporting this signal.'),
     dateObserved: z
@@ -99,6 +114,16 @@ export const StructuralForceSchema = z
     implication: z
       .string()
       .describe('Strategic implication for positioning or GTM execution.'),
+    impact: z
+      .enum(STRUCTURAL_FORCE_IMPACTS)
+      .describe(
+        'Strength of impact on the market: high, medium, or low. High means the force materially reshapes positioning or GTM choices in the next 4 quarters.',
+      ),
+    direction: z
+      .enum(STRUCTURAL_FORCE_DIRECTIONS)
+      .describe(
+        'Whether the force is accelerating category growth, decelerating it, or neutral. Decelerating forces still belong in the analysis — they shape the category as much as growth forces.',
+      ),
     sourceTitle: z
       .string()
       .optional()
@@ -396,6 +421,17 @@ export function validateMarketCategoryMinimums(
   );
   for (const duplicate of findDuplicates(marketSignalTypes)) {
     errors.push(`marketSize.signals: duplicate signalType ${duplicate}.`);
+  }
+
+  const methodologies = artifact.marketSize.signals.map(
+    (signal) => signal.methodology,
+  );
+  const hasTopDown = methodologies.includes('top-down');
+  const hasBottomUp = methodologies.includes('bottom-up');
+  if (!hasTopDown || !hasBottomUp) {
+    errors.push(
+      `marketSize.signals: triangulation required — need at least one top-down and one bottom-up methodology signal (have top-down=${hasTopDown}, bottom-up=${hasBottomUp}).`,
+    );
   }
 
   const forceCount = artifact.structuralForces.forces.length;

@@ -64,6 +64,7 @@ const MARKET_CATEGORY_FIXTURE: MarketCategoryArtifact = {
         evidence:
           'Public review sites maintain a dedicated meeting management category with multiple vendors and buyer comparisons.',
         trajectory: 'expanding',
+        methodology: 'top-down',
         sourceTitle: 'G2 meeting management category',
         sourceUrl: 'https://www.g2.com/categories/meeting-management',
         dateObserved: '2026-05-15',
@@ -74,6 +75,7 @@ const MARKET_CATEGORY_FIXTURE: MarketCategoryArtifact = {
         evidence:
           'Funding and launch activity around collaboration and AI meeting tooling suggests the budget is still attracting new entrants.',
         trajectory: 'expanding',
+        methodology: 'top-down',
         sourceTitle: 'Crunchbase collaboration software search',
         sourceUrl: 'https://www.crunchbase.com',
         dateObserved: '2026-05-15',
@@ -84,6 +86,7 @@ const MARKET_CATEGORY_FIXTURE: MarketCategoryArtifact = {
         evidence:
           'Job postings for revenue operations and workplace collaboration roles mention meeting cadence, CRM hygiene, and operating rhythms.',
         trajectory: 'stable',
+        methodology: 'bottom-up',
         sourceTitle: 'LinkedIn Jobs',
         sourceUrl: 'https://www.linkedin.com/jobs',
         dateObserved: '2026-05-15',
@@ -101,6 +104,8 @@ const MARKET_CATEGORY_FIXTURE: MarketCategoryArtifact = {
           'Companies increasingly need retention, permissioning, and auditability around meeting notes and action records.',
         implication:
           'Positioning should avoid casual note-taking language when enterprise buyers need governed workflow records.',
+        impact: 'medium',
+        direction: 'neutral',
         sourceTitle: 'Zoom security and compliance',
         sourceUrl: 'https://www.zoom.com/en/trust/',
       },
@@ -111,6 +116,8 @@ const MARKET_CATEGORY_FIXTURE: MarketCategoryArtifact = {
           'Major collaboration platforms now bundle AI summaries, transcripts, and follow-up suggestions into meetings.',
         implication:
           'A standalone entrant needs to differentiate on workflow depth, cross-tool rituals, or vertical operating context.',
+        impact: 'high',
+        direction: 'decelerating',
         sourceTitle: 'Microsoft Teams AI features',
         sourceUrl: 'https://www.microsoft.com/en-us/microsoft-teams',
       },
@@ -121,6 +128,8 @@ const MARKET_CATEGORY_FIXTURE: MarketCategoryArtifact = {
           'Revenue and operations leaders increasingly want fewer disconnected tools and more repeatable operating cadences.',
         implication:
           'Messaging should focus on the repeated team ritual and downstream accountability, not generic productivity.',
+        impact: 'high',
+        direction: 'accelerating',
         sourceTitle: 'Fellow use cases',
         sourceUrl: 'https://fellow.app/use-cases/',
       },
@@ -235,5 +244,71 @@ describe('MarketCategoryArtifactSchema', () => {
     const result = validateMarketCategoryMinimums(artifact);
     expect(result.ok).toBe(false);
     expect(result.errors).toContain('confidence: expected 0-10, got 12.');
+  });
+
+  it('fails validateMarketCategoryMinimums when only top-down market signals are present', () => {
+    const artifact: MarketCategoryArtifact = {
+      ...MARKET_CATEGORY_FIXTURE,
+      marketSize: {
+        ...MARKET_CATEGORY_FIXTURE.marketSize,
+        signals: MARKET_CATEGORY_FIXTURE.marketSize.signals.map((signal) => ({
+          ...signal,
+          methodology: 'top-down' as const,
+        })),
+      },
+    };
+
+    const result = validateMarketCategoryMinimums(artifact);
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith('marketSize.signals: triangulation required'),
+      ),
+    ).toBe(true);
+  });
+
+  it('fails validateMarketCategoryMinimums when only bottom-up market signals are present', () => {
+    const artifact: MarketCategoryArtifact = {
+      ...MARKET_CATEGORY_FIXTURE,
+      marketSize: {
+        ...MARKET_CATEGORY_FIXTURE.marketSize,
+        signals: MARKET_CATEGORY_FIXTURE.marketSize.signals.map((signal) => ({
+          ...signal,
+          methodology: 'bottom-up' as const,
+        })),
+      },
+    };
+
+    const result = validateMarketCategoryMinimums(artifact);
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith('marketSize.signals: triangulation required'),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects out-of-enum impact on a structural force', () => {
+    const [first, ...rest] = MARKET_CATEGORY_FIXTURE.structuralForces.forces;
+    const result = MarketCategoryArtifactSchema.safeParse({
+      ...MARKET_CATEGORY_FIXTURE,
+      structuralForces: {
+        ...MARKET_CATEGORY_FIXTURE.structuralForces,
+        forces: [{ ...first, impact: 'massive' }, ...rest],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects out-of-enum direction on a structural force', () => {
+    const [first, ...rest] = MARKET_CATEGORY_FIXTURE.structuralForces.forces;
+    const result = MarketCategoryArtifactSchema.safeParse({
+      ...MARKET_CATEGORY_FIXTURE,
+      structuralForces: {
+        ...MARKET_CATEGORY_FIXTURE.structuralForces,
+        forces: [{ ...first, direction: 'upward' }, ...rest],
+      },
+    });
+    expect(result.success).toBe(false);
   });
 });

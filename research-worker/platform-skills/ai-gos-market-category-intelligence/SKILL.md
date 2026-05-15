@@ -56,6 +56,8 @@ IRON LAW: Adjacent categories must explain both the confusion and the disambigua
 
 IRON LAW: Market size is directional unless a credible source gives a precise number. Label proxies as proxies.
 
+IRON LAW: Market size requires triangulation — at least one top-down methodology signal (analyst report, public market data) AND at least one bottom-up methodology signal (hiring velocity, search trend, funding flow). A single methodology produces directional reads, not triangulated ones.
+
 IRON LAW: Structural forces must cover regulation, platform shifts, and buyer-behavior shifts when evidence exists.
 
 IRON LAW: Category maturity is exactly one classification object: emerging, growing, consolidating, or commoditizing. Do not emit an array of maturity cards.
@@ -92,7 +94,7 @@ Only these research tools are available for this Section. Shape enforcement and 
    **Validation:** each adjacent category has `name`, `whyBuyersConfuseIt`, and `disambiguatingSignal`.
 
 3. Gather market size and trajectory signals across public data, funding flows, hiring velocity, search trend direction, and analyst/report evidence.
-   **Validation:** at least 3 signals have `signalType`, `name`, `evidence`, `trajectory`, `sourceTitle`, `sourceUrl`, and `dateObserved`.
+   **Validation:** at least 3 signals have `signalType`, `name`, `evidence`, `trajectory`, `methodology`, `sourceTitle`, `sourceUrl`, and `dateObserved`. Triangulation requires at least one top-down methodology signal AND at least one bottom-up methodology signal.
 
 4. Gather structural forces moving the market.
    **Validation:** regulation, platform-shift, and buyer-behavior forces are each represented when evidence exists.
@@ -144,6 +146,7 @@ Four sub-sections:
 | `name` | string | Short signal name. |
 | `evidence` | string | Public evidence behind the market-size or trajectory signal. |
 | `trajectory` | enum | One of `expanding`, `stable`, `contracting`, `unclear`. |
+| `methodology` | enum | One of `top-down` (pre-aggregated views like analyst reports, public market data) or `bottom-up` (raw activity signals like hiring velocity, search trends, funding flows). The runner enforces ≥1 top-down + ≥1 bottom-up across the signals array. |
 | `sourceTitle` | string | Named source for the signal. |
 | `sourceUrl` | string | Public URL supporting the signal. |
 | `dateObserved` | string | YYYY-MM-DD date when the data was observed. |
@@ -156,6 +159,8 @@ Four sub-sections:
 | `name` | string | Named market force. |
 | `evidence` | string | Evidence that this force is active. |
 | `implication` | string | Strategic implication for positioning or GTM execution. |
+| `impact` | enum | One of `high`, `medium`, `low`. High means the force materially reshapes positioning or GTM choices in the next 4 quarters. |
+| `direction` | enum | One of `accelerating` (force pushes category growth), `decelerating` (force suppresses category growth), or `neutral` (directionally ambiguous). Decelerating forces still belong in the analysis. |
 | `sourceTitle` | string optional | Named source supporting the force. |
 | `sourceUrl` | string optional | Public URL supporting the force. |
 
@@ -229,9 +234,12 @@ Correct:
 - name: RevOps and collaboration operations hiring
 - evidence: 🟡 medium: Job postings mention meeting cadence, CRM hygiene, and operating rhythms.
 - trajectory: stable
+- methodology: bottom-up
 - sourceTitle: LinkedIn Jobs
 - sourceUrl: https://www.linkedin.com/jobs
 - dateObserved: 2026-05-15
+
+(Pair with at least one top-down signal — e.g. an analyst report or a public category page — to satisfy the triangulation rule.)
 ```
 
 ### Structural Forces
@@ -247,6 +255,8 @@ Correct:
 - name: AI-native collaboration assistants
 - evidence: 🟢 verified: Major collaboration platforms bundle AI summaries and follow-up suggestions into meetings.
 - implication: A standalone entrant needs to differentiate on workflow depth, cross-tool rituals, or vertical operating context.
+- impact: high
+- direction: decelerating
 - sourceTitle: Microsoft Teams AI features
 - sourceUrl: https://www.microsoft.com/en-us/microsoft-teams
 ```
