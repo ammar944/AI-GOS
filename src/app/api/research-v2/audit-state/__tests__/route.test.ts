@@ -219,8 +219,130 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(body.workerStates[0]).toMatchObject({
       section_id: 'positioningMarketCategory',
       status: 'complete',
-      phase: 'Committed',
+      phase: 'Draft ready',
+      phaseLabel: 'Draft ready',
       executionMode: 'draft',
+    });
+  });
+
+  it('returns Draft ready for a complete draft worker state even when telemetry says Committed', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-complete-draft',
+          zone: 'positioningMarketCategory',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+            executionMode: 'draft',
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'complete',
+      phase: 'Draft ready',
+      phaseLabel: 'Draft ready',
+      executionMode: 'draft',
+    });
+  });
+
+  it('keeps Committed for complete deep and unknown execution modes', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-complete-deep',
+          zone: 'positioningMarketCategory',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+            executionMode: 'deep',
+          },
+        },
+        {
+          id: 'run-complete-unknown',
+          zone: 'positioningBuyerICP',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'complete',
+      phase: 'Committed',
+      phaseLabel: 'Committed',
+      executionMode: 'deep',
+    });
+    expect(body.workerStates[1]).toMatchObject({
+      section_id: 'positioningBuyerICP',
+      status: 'complete',
+      phase: 'Committed',
+      phaseLabel: 'Committed',
+      executionMode: null,
+    });
+  });
+
+  it('returns Needs review for error and aborted section states', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-error',
+          zone: 'positioningMarketCategory',
+          status: 'error',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+            executionMode: 'draft',
+          },
+        },
+        {
+          id: 'run-aborted',
+          zone: 'positioningBuyerICP',
+          status: 'aborted',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Draft ready',
+            executionMode: 'draft',
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'error',
+      phase: 'Needs review',
+      phaseLabel: 'Needs review',
+    });
+    expect(body.workerStates[1]).toMatchObject({
+      section_id: 'positioningBuyerICP',
+      status: 'aborted',
+      phase: 'Needs review',
+      phaseLabel: 'Needs review',
     });
   });
 });

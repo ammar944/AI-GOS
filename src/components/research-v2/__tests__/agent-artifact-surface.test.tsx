@@ -286,7 +286,7 @@ describe('AgentArtifactSurface', () => {
     expect(screen.queryByText('markdown fallback should not render')).toBeNull();
   });
 
-  it('shows Deepen on committed draft sections and posts a deep rerun', async () => {
+  it('shows Draft ready and Deepen on committed draft sections, then posts a deep rerun', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     useAuditStateMock.mockReturnValue({
@@ -296,8 +296,8 @@ describe('AgentArtifactSurface', () => {
         {
           section_id: 'positioningMarketCategory',
           status: 'complete',
-          phase: 'Committed',
-          phaseLabel: 'Committed',
+          phase: 'Draft ready',
+          phaseLabel: 'Draft ready',
           executionMode: 'draft',
           runtimeTimings: {
             sectionStartedAt: '2026-05-15T12:00:00.000Z',
@@ -329,6 +329,12 @@ describe('AgentArtifactSurface', () => {
     });
 
     render(<AgentArtifactSurface runId="run-abc" />);
+    expect(
+      within(screen.getByTestId('worker-chip-positioningMarketCategory')).getByText('Draft ready'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('artifact-section-positioningMarketCategory')).getByText('Draft ready'),
+    ).toBeInTheDocument();
     expect(screen.getAllByText('draft').length).toBeGreaterThan(0);
     expect(screen.getByText('First partial 8s')).toBeInTheDocument();
     expect(screen.getByText('1 evidence gaps')).toBeInTheDocument();

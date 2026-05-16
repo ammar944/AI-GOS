@@ -25,6 +25,7 @@ export type AuditSectionPhase =
   | 'Reading sources'
   | 'Drafting'
   | 'Validating'
+  | 'Draft ready'
   | 'Committed'
   | 'Needs review';
 
@@ -91,6 +92,7 @@ const PHASES: ReadonlySet<string> = new Set([
   'Reading sources',
   'Drafting',
   'Validating',
+  'Draft ready',
   'Committed',
   'Needs review',
 ]);
@@ -120,7 +122,11 @@ function pickNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-function defaultPhaseForStatus(status: WorkerStatus): AuditSectionPhase {
+function defaultPhaseForStatus(
+  status: WorkerStatus,
+  executionMode: 'draft' | 'deep' | null,
+): AuditSectionPhase {
+  if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
   if (status === 'complete') return 'Committed';
   if (status === 'error' || status === 'aborted') return 'Needs review';
   if (status === 'running') return 'Reading sources';
@@ -130,10 +136,13 @@ function defaultPhaseForStatus(status: WorkerStatus): AuditSectionPhase {
 function normalizePhase(
   raw: unknown,
   status: WorkerStatus,
+  executionMode: 'draft' | 'deep' | null,
 ): AuditSectionPhase {
+  if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
+  if (status === 'error' || status === 'aborted') return 'Needs review';
   const phase = pickString(raw);
   if (phase && PHASES.has(phase)) return phase as AuditSectionPhase;
-  return defaultPhaseForStatus(status);
+  return defaultPhaseForStatus(status, executionMode);
 }
 
 function normalizeCapabilityGaps(value: unknown): Array<Record<string, unknown>> {
@@ -191,7 +200,8 @@ function buildWorkerStateReadModel(row: {
 }): WorkerStateReadModel {
   const status = normalizeStatus(row.status);
   const telemetry = asRecord(row.telemetry) ?? {};
-  const phase = normalizePhase(telemetry.phase, status);
+  const executionMode = normalizeExecutionMode(telemetry.executionMode);
+  const phase = normalizePhase(telemetry.phase, status, executionMode);
 
   return {
     status,
@@ -207,7 +217,7 @@ function buildWorkerStateReadModel(row: {
     concurrency: pickNumber(telemetry.concurrency),
     elapsedMs: pickNumber(telemetry.elapsedMs),
     capabilityGaps: normalizeCapabilityGaps(telemetry.capabilityGaps),
-    executionMode: normalizeExecutionMode(telemetry.executionMode),
+    executionMode,
     runtimeTimings: normalizeRuntimeTimings(telemetry.runtimeTimings),
   };
 }

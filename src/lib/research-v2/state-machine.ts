@@ -50,6 +50,7 @@ export type ResearchV2Action =
   // Corpus → Onboarding: worker completed, prefill available
   | {
       type: 'CORPUS_COMPLETE';
+      runId?: string;
       prefill: Partial<OnboardingV2Data>;
       prefillMetadata?: OnboardingPrefillMetadata;
     }
@@ -92,6 +93,7 @@ export function researchV2Reducer(
 
     case 'CORPUS_COMPLETE':
       if (state.kind !== 'corpus') return state;
+      if (action.runId && action.runId !== state.runId) return state;
       return {
         kind: 'onboarding',
         runId: state.runId,
