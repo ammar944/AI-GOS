@@ -6,6 +6,7 @@ import {
   normalizeSearchApiToCreatives,
   resolveBestCandidate,
 } from '../tools/adlibrary';
+import { buildManagedAgentsAdEvidenceFromRaw } from '../tools/managed-agents-ad-evidence';
 
 describe('isAdvertiserMatch', () => {
   it('matches exact company name', () => {
@@ -242,6 +243,83 @@ describe('buildAdInsight', () => {
     );
 
     expect(insight.summary.sourceConfidence).toBe('high');
+  });
+});
+
+describe('buildManagedAgentsAdEvidenceFromRaw', () => {
+  it('preserves raw Google rows separately from displayable creatives', () => {
+    const evidence = buildManagedAgentsAdEvidenceFromRaw({
+      advertiserName: 'ClickUp',
+      domain: 'clickup.com',
+      requestedPlatform: 'all',
+      region: 'US',
+      limit: 12,
+      googleAds: [
+        {
+          ad_id: 'google-1',
+          advertiser_name: 'ClickUp',
+          details_url: 'https://adstransparency.google.com/advertiser/AR1',
+        },
+      ],
+      linkedInAds: [
+        {
+          ad_id: 'linkedin-1',
+          advertiser_name: 'ClickUp',
+          headline: 'One app for work',
+          image_url: 'https://cdn.example.com/clickup.jpg',
+          platform: 'linkedin',
+        },
+      ],
+      metaAds: [
+        {
+          ad_archive_id: 'meta-1',
+          page_name: 'ClickUp',
+          snapshot: {
+            body: { text: 'Get more done with fewer tools.' },
+            videos: [{ video_hd_url: 'https://cdn.example.com/clickup.mp4' }],
+          },
+        },
+      ],
+    });
+
+    expect(evidence.raw_counts).toEqual({ google: 1, linkedin: 1, meta: 1 });
+    expect(evidence.displayable_counts).toEqual({ google: 0, linkedin: 1, meta: 1 });
+    expect(evidence.displayable_total).toBe(2);
+    expect(evidence.adCreatives).toHaveLength(2);
+    expect(evidence.data_gaps).toContain(
+      'google returned 1 raw row, but no row had enough copy or media to count as a displayable creative.',
+    );
+    expect(evidence.raw_source_samples[0]).toMatchObject({
+      platform: 'google',
+      id: 'google-1',
+      dataGap: 'Raw library row has no headline, body, image, or video fields.',
+    });
+  });
+
+  it('limits returned creatives without losing displayable totals', () => {
+    const evidence = buildManagedAgentsAdEvidenceFromRaw({
+      advertiserName: 'Smartsheet',
+      domain: 'smartsheet.com',
+      requestedPlatform: 'linkedin',
+      region: 'US',
+      limit: 2,
+      googleAds: [],
+      linkedInAds: [
+        { ad_id: 'li-1', advertiser_name: 'Smartsheet', headline: 'Ad one', platform: 'linkedin' },
+        { ad_id: 'li-2', advertiser_name: 'Smartsheet', headline: 'Ad two', platform: 'linkedin' },
+        { ad_id: 'li-3', advertiser_name: 'Smartsheet', headline: 'Ad three', platform: 'linkedin' },
+      ],
+      metaAds: [],
+    });
+
+    expect(evidence.raw_counts.linkedin).toBe(3);
+    expect(evidence.displayable_counts.linkedin).toBe(3);
+    expect(evidence.displayable_total).toBe(3);
+    expect(evidence.returned_creative_count).toBe(2);
+    expect(evidence.adCreatives.map((creative) => creative.id)).toEqual(['li-1', 'li-2']);
+    expect(evidence.data_gaps).toContain(
+      'Returned 2 of 3 displayable creatives to keep the Managed Agents transcript bounded.',
+    );
   });
 });
 

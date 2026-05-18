@@ -164,3 +164,94 @@ The app adapter gate should require:
 - final `CompetitorLandscapeArtifactSchema.safeParse` success,
 - `validateCompetitorLandscapeMinimums` success,
 - accepted artifact JSON written under `tmp/`.
+
+## Frontend Replay
+
+A local inspection route now renders the successful saved session at:
+
+- `src/app/research-v2/managed-agents-prototype/page.tsx`
+- `http://localhost:3002/research-v2/managed-agents-prototype` when the current AI-GOS dev server is running on port 3002
+
+This route is a replay/debug surface only. It reads the saved transcript and accepted artifact from `tmp/`, shows the Managed Agents event stream, tool-call counts, Google Ads Transparency rows, validation status, and the typed Section 03 artifact. It does not start a new Managed Agents session and is not part of the production `/research-v2` workflow.
+
+Skill wiring status: the AI-GOS platform skill exists at `research-worker/platform-skills/ai-gos-competitive-positioning/SKILL.md`, but the passing Managed Agents canary did not attach that skill bundle to the Managed Agent. It used a hardcoded Section 03 prompt, explicit artifact skeleton, local custom tools, and real worker-side schema/minimum validation. Skill attachment remains a P2 integration gap before production adoption.
+
+## P2 Multi-Platform Ad Evidence Proof
+
+Date: 2026-05-19.
+Status: passed as a local canary/prototype proof; not production-integrated.
+
+Command:
+
+```bash
+npm run managed-agents:competitor-canary -- --company "monday.com" --domain monday.com --limit 12 --model claude-sonnet-4-6 --ad-platform all --ad-competitor-count 3
+```
+
+The local SSE connection again terminated after ad evidence collection while the Managed Agents session kept running, so the same session was reattached with:
+
+```bash
+npm run managed-agents:competitor-canary -- --company "monday.com" --domain monday.com --limit 12 --model claude-sonnet-4-6 --ad-platform all --ad-competitor-count 3 --reuse-environment-id env_017LKZVLLvLnANvBJTCQzEjk --reuse-agent-id agent_015zwaNpUXqxkU63t8NanZsM --reuse-session-id sesn_01Fjrz7FW76tBdGEhGWxCb6L
+```
+
+Resources:
+
+- Environment: `env_017LKZVLLvLnANvBJTCQzEjk`
+- Agent: `agent_015zwaNpUXqxkU63t8NanZsM`
+- Session: `sesn_01Fjrz7FW76tBdGEhGWxCb6L`
+- Transcript: `tmp/managed-agents-competitor-section-canary-1779137764782.json`
+- Accepted artifact: `tmp/managed-agents-competitor-section-canary-1779137764782-artifact.json`
+- Ad evidence sidecar: `tmp/managed-agents-competitor-section-canary-1779137764782-ad-evidence.json`
+
+Observed tool calls:
+
+| Tool | Count |
+|---|---:|
+| `fetch_competitor_ads` | 4 |
+| `fetch_homepage_positioning` | 6 |
+| `fetch_pricing_evidence` | 5 |
+| `fetch_review_evidence` | 3 |
+| `fetch_share_of_voice` | 3 |
+| `save_competitor_landscape_artifact` | 2 |
+
+Ad evidence results:
+
+| Competitor | Raw Google | Raw LinkedIn | Raw Meta | Displayable creatives | Notes |
+|---|---:|---:|---:|---:|---|
+| `monday.com` | 40 | 24 | 30 | 2 | Displayable LinkedIn creatives only; Google and Meta rows were preserved as sparse raw evidence. |
+| `Asana` | 0 | 24 | 0 | 24 | LinkedIn creatives returned; Google and Meta returned no raw rows for this advertiser. |
+| `ClickUp` | 0 | 24 | 30 | 27 | LinkedIn and Meta creatives returned; sidecar stores 12 transcript-bounded creatives. |
+| `Smartsheet` | 40 | 24 | 30 | 30 | LinkedIn and Meta creatives returned; Google raw rows preserved but not counted as displayable. |
+
+Platforms proven:
+
+- `fetch_competitor_ads` now accepts `all`, `google`, `linkedin`, and `meta`.
+- The accepted run used `platform: "all"` for the audited company plus three direct competitors.
+- Sidecar output preserves `raw_counts`, `displayable_counts`, `displayable_total`, bounded `adCreatives[]`, `libraryLinks`, `raw_source_samples`, `data_gaps`, and `source_errors`.
+- Google transparency rows with IDs/detail links but no useful copy/media are recorded as raw source samples and sparse-field notes, not displayable creatives.
+
+Skill wiring status:
+
+- The canary attempted to attach `skill_012yUuFMRGtjKTeNXNxhPAvh` from the AI-GOS competitive-positioning platform skill.
+- Initial session creation failed until the Managed Agent included the read-capable `agent_toolset_20260401`; the API error was: `Missing required tool: skills require the read tool to be usable (enabled and not always_deny) on the session's agent_toolset`.
+- After enabling read, `GET /v1/agents/agent_015zwaNpUXqxkU63t8NanZsM` returned the custom skill attachment and read-only agent toolset config. The P2 sidecar records this as `skillWiring.status: "attached"`.
+
+UI route evidence:
+
+- Route: `http://localhost:3002/research-v2/managed-agents-prototype`
+- Curl smoke: `200 text/html; charset=utf-8`
+- DOM evidence contained `Multi-Platform Ad Evidence`, `monday.com`, `Asana`, `ClickUp`, `Smartsheet`, `LinkedIn`, `Meta`, `Google`, `returned creatives`, `Google raw transparency samples`, and `View ad`.
+- Screenshot: `/tmp/managed-agents-prototype-p2-tall.png`
+
+Verification notes:
+
+- Root targeted Vitest passed for `src/lib/ad-library/__tests__/false-positive-prevention.test.ts` and `src/components/research/__tests__/competitor-ad-evidence.test.tsx`.
+- Worker targeted Vitest passed for `research-worker/src/__tests__/adlibrary.test.ts`.
+- Targeted lint passed for root-owned files; ESLint reported ignored-file warnings for `research-worker/` because the root lint config ignores that subtree.
+- `npm run build` compiled and type-checked, then failed while prerendering `/_not-found` because Clerk publishable key was missing in the production build environment. This is an environment/config blocker outside the P2 ad-evidence changes.
+
+Remaining production integration work:
+
+1. Move the thin Managed Agents ad-evidence adapter behind an explicit production feature flag before wiring it into `/research-v2`.
+2. Decide where raw ad evidence and sparse platform samples should persist instead of reading replay sidecars from `tmp/`.
+3. Integrate the renderer into the production artifact surface only after persistence and redaction rules are settled.
+4. Keep monitoring Managed Agents skill API behavior; the P2 canary proves skill attachment for this agent, but production code still needs a stable create/reuse policy for custom skill IDs and read-tool requirements.

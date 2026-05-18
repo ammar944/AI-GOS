@@ -30,6 +30,7 @@ const FIXTURE: CompetitorAdEvidenceProps = {
       headline: 'Scale B2B SaaS pipeline',
       format: 'video',
       isActive: true,
+      videoUrl: 'https://cdn.example.com/ad.mp4',
       detailsUrl: 'https://www.linkedin.com/ad-library/detail/1',
     },
   ],
@@ -75,6 +76,13 @@ describe('CompetitorAdEvidence', () => {
       'href',
       expect.stringContaining('linkedin.com/ad-library'),
     );
+  });
+
+  it('renders video creatives with a play affordance and detail link', () => {
+    render(<CompetitorAdEvidence {...FIXTURE} />);
+
+    expect(screen.getByLabelText('Play video')).toBeInTheDocument();
+    expect(screen.getAllByText('View ad')).toHaveLength(2);
   });
 
   it('renders Google Ads link', () => {

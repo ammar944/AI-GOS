@@ -9,17 +9,23 @@ const requireFromRoot = createRequire(resolve('package.json'));
 const ANTHROPIC_API_BASE_URL = 'https://api.anthropic.com/v1';
 const ANTHROPIC_VERSION = '2023-06-01';
 const MANAGED_AGENTS_BETA = 'managed-agents-2026-04-01';
+const SKILLS_BETA = 'skills-2025-10-02';
+const ANTHROPIC_BETA_HEADER = `${MANAGED_AGENTS_BETA},${SKILLS_BETA}`;
 const SEARCHAPI_BASE_URL = 'https://www.searchapi.io/api/v1/search';
 const DEFAULT_COMPANY = 'monday.com';
 const DEFAULT_DOMAIN = 'monday.com';
 const DEFAULT_REGION = 'US';
 const DEFAULT_LIMIT = 5;
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_AD_PLATFORM = 'all';
+const DEFAULT_AD_COMPETITOR_COUNT = 3;
+const DEFAULT_COMPETITIVE_POSITIONING_SKILL_ID = 'skill_012yUuFMRGtjKTeNXNxhPAvh';
 const REQUEST_TIMEOUT_MS = 60_000;
 const SEARCH_TIMEOUT_MS = 20_000;
 const PAGE_TIMEOUT_MS = 12_000;
 const STREAM_TIMEOUT_MS = 12 * 60_000;
 const MAX_PAGE_TEXT_CHARS = 4_000;
+const AD_PLATFORMS = new Set(['google', 'linkedin', 'meta', 'all']);
 
 const SOURCE_JSON_SCHEMA = {
   type: 'object',
@@ -347,6 +353,14 @@ function parseArgs(argv) {
     region: process.env.MANAGED_AGENTS_COMPETITOR_REGION ?? DEFAULT_REGION,
     limit: Number(process.env.MANAGED_AGENTS_COMPETITOR_LIMIT ?? DEFAULT_LIMIT),
     model: process.env.MANAGED_AGENTS_COMPETITOR_MODEL ?? DEFAULT_MODEL,
+    adPlatform: process.env.MANAGED_AGENTS_COMPETITOR_AD_PLATFORM ?? DEFAULT_AD_PLATFORM,
+    adCompetitorCount: Number(
+      process.env.MANAGED_AGENTS_COMPETITOR_AD_COMPETITOR_COUNT ?? DEFAULT_AD_COMPETITOR_COUNT,
+    ),
+    platformSkillId:
+      process.env.MANAGED_AGENTS_COMPETITIVE_POSITIONING_SKILL_ID ??
+      DEFAULT_COMPETITIVE_POSITIONING_SKILL_ID,
+    attachPlatformSkill: process.env.MANAGED_AGENTS_COMPETITOR_DISABLE_PLATFORM_SKILL !== 'true',
     environmentId: process.env.MANAGED_AGENTS_COMPETITOR_ENVIRONMENT_ID ?? '',
     agentId: process.env.MANAGED_AGENTS_COMPETITOR_AGENT_ID ?? '',
     sessionId: process.env.MANAGED_AGENTS_COMPETITOR_SESSION_ID ?? '',
@@ -371,6 +385,17 @@ function parseArgs(argv) {
     } else if (token === '--model' && next) {
       args.model = next;
       index += 1;
+    } else if (token === '--ad-platform' && next) {
+      args.adPlatform = next;
+      index += 1;
+    } else if (token === '--ad-competitor-count' && next) {
+      args.adCompetitorCount = Number(next);
+      index += 1;
+    } else if (token === '--platform-skill-id' && next) {
+      args.platformSkillId = next;
+      index += 1;
+    } else if (token === '--no-platform-skill') {
+      args.attachPlatformSkill = false;
     } else if (token === '--reuse-environment-id' && next) {
       args.environmentId = next;
       index += 1;
@@ -393,6 +418,15 @@ function parseArgs(argv) {
   if (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 25) {
     throw new Error('--limit must be an integer between 1 and 25');
   }
+  if (!AD_PLATFORMS.has(args.adPlatform)) {
+    throw new Error('--ad-platform must be one of all, google, linkedin, meta');
+  }
+  if (!Number.isInteger(args.adCompetitorCount) || args.adCompetitorCount < 0 || args.adCompetitorCount > 10) {
+    throw new Error('--ad-competitor-count must be an integer between 0 and 10');
+  }
+  if (args.attachPlatformSkill && !args.platformSkillId.trim()) {
+    throw new Error('--platform-skill-id is required unless --no-platform-skill is used');
+  }
 
   return args;
 }
@@ -400,7 +434,7 @@ function parseArgs(argv) {
 function printHelpAndExit() {
   console.log(`Usage: node scripts/managed-agents-competitor-section-canary.mjs [options]
 
-Runs the P1 Managed Agents canary for Section 03:
+Runs the P2 Managed Agents canary for Section 03:
   1. create/reuse one Managed Agents environment
   2. create/reuse one Competitor Landscape agent
   3. start a session and stream events over SSE
@@ -412,8 +446,12 @@ Options:
   --company <name>                Audited company. Default: ${DEFAULT_COMPANY}
   --domain <domain>               Known company domain. Default: ${DEFAULT_DOMAIN}
   --region <region>               Region hint. Default: ${DEFAULT_REGION}
-  --limit <n>                     Evidence result cap, 1-25. Default: ${DEFAULT_LIMIT}
+  --limit <n>                     Evidence result cap per call, 1-25. Default: ${DEFAULT_LIMIT}
   --model <model>                 Managed Agent model. Default: ${DEFAULT_MODEL}
+  --ad-platform <platform>        Ad platform for mandatory ad calls: all, google, linkedin, meta. Default: ${DEFAULT_AD_PLATFORM}
+  --ad-competitor-count <n>       Minimum direct competitors requiring ad evidence. Default: ${DEFAULT_AD_COMPETITOR_COUNT}
+  --platform-skill-id <skill_id>  AI-GOS competitive-positioning skill ID. Default: ${DEFAULT_COMPETITIVE_POSITIONING_SKILL_ID}
+  --no-platform-skill             Do not attach the AI-GOS competitive-positioning platform skill.
   --reuse-environment-id <env>    Reuse an existing environment.
   --reuse-agent-id <agent>        Reuse an existing agent.
   --reuse-session-id <session>    Reconnect to an existing session without sending a new user message.
@@ -477,18 +515,6 @@ function toUrlFromDomain(domain) {
   return normalized ? `https://${normalized}` : '';
 }
 
-function chooseAdvertiser(candidates, advertiserName) {
-  const normalized = normalizeName(advertiserName);
-  const exact = candidates.find((candidate) => normalizeName(candidate.name ?? '') === normalized);
-  if (exact) return exact;
-
-  const contains = candidates.find((candidate) => {
-    const name = normalizeName(candidate.name ?? '');
-    return name.includes(normalized) || normalized.includes(name);
-  });
-  return contains ?? candidates[0] ?? null;
-}
-
 async function fetchJson(url, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
@@ -519,7 +545,23 @@ async function anthropicRequest(path, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-beta': MANAGED_AGENTS_BETA,
+      'anthropic-beta': ANTHROPIC_BETA_HEADER,
+      'X-Api-Key': apiKey,
+    },
+  });
+}
+
+async function anthropicSkillsRequest(path, options = {}) {
+  const apiKey = requireEnv('ANTHROPIC_API_KEY');
+  return await fetchJson(`${ANTHROPIC_API_BASE_URL}${path}`, {
+    method: options.method ?? 'GET',
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    label: `Anthropic ${options.method ?? 'GET'} ${path}`,
+    timeoutMs: options.timeoutMs,
+    headers: {
+      'Content-Type': 'application/json',
+      'anthropic-version': ANTHROPIC_VERSION,
+      'anthropic-beta': SKILLS_BETA,
       'X-Api-Key': apiKey,
     },
   });
@@ -531,13 +573,13 @@ async function createEnvironment(args) {
     return { id: args.environmentId, reused: true };
   }
 
-  const name = `aigos-p1-competitor-section-${Date.now()}`;
+  const name = `aigos-p2-competitor-section-${Date.now()}`;
   const environment = await anthropicRequest('/environments', {
     method: 'POST',
     body: {
       name,
-      description: 'AI-GOS P1 Managed Agents Competitor Landscape canary environment.',
-      metadata: { project: 'AI-GOS', phase: 'managed-agents-p1', section: 'positioningCompetitorLandscape' },
+      description: 'AI-GOS P2 Managed Agents Competitor Landscape canary environment.',
+      metadata: { project: 'AI-GOS', phase: 'managed-agents-p2', section: 'positioningCompetitorLandscape' },
       config: {
         type: 'cloud',
         networking: { type: 'unrestricted' },
@@ -553,12 +595,13 @@ function buildFetchCompetitorAdsTool() {
     type: 'custom',
     name: 'fetch_competitor_ads',
     description:
-      'Fetch bounded Google Ads Transparency Center evidence for one advertiser. AI-GOS executes SearchAPI locally and returns normalized creative metadata. Do not invent missing ad copy; report sparse Google transparency rows as a data gap.',
+      'Fetch bounded multi-platform public ad evidence for one advertiser across Google Ads Transparency, LinkedIn Ad Library, Meta Ad Library, or all platforms. AI-GOS executes SearchAPI locally and returns raw counts separately from displayable creative cards. Do not invent missing ad copy; report sparse platform rows as data gaps.',
     input_schema: {
       type: 'object',
       properties: {
         advertiser_name: { type: 'string' },
-        platform: { type: 'string', enum: ['google'] },
+        domain: { type: ['string', 'null'] },
+        platform: { type: 'string', enum: ['all', 'google', 'linkedin', 'meta'] },
         region: { type: 'string', enum: ['US', 'CA', 'UK', 'AU', 'ALL'] },
         limit: { type: 'integer' },
       },
@@ -673,12 +716,15 @@ function buildSaveTool() {
   };
 }
 
-function buildSystemPrompt() {
+function buildSystemPrompt(args) {
   return [
-    'You are the AI-GOS Managed Agents P1 canary for Section 03: Competitor Landscape & Positioning.',
+    'You are the AI-GOS Managed Agents canary for Section 03: Competitor Landscape & Positioning.',
     'Your objective is to produce exactly one CompetitorLandscapeArtifact for the audited company and submit it through save_competitor_landscape_artifact.',
     'Use only evidence returned by AI-GOS custom tools. Do not invent market data, pricing, competitor claims, ad copy, review quotes, URLs, or source titles.',
-    'If Google Ads Transparency rows lack headline/body/landing URL fields, report that as a source gap rather than filling copy.',
+    'Ad evidence is mandatory for this P2 run. Use fetch_competitor_ads with platform "all" for the audited company and at least the first direct competitors you discover.',
+    `Minimum direct competitors requiring ad evidence: ${args.adCompetitorCount}. Preferred ad platform request: ${args.adPlatform}.`,
+    'Report raw ad-library source counts separately from displayable creative counts. Raw Google transparency rows are source evidence, not creative proof, when they lack useful copy, image, video, or detail-link evidence.',
+    'If Google Ads Transparency, LinkedIn, or Meta rows lack headline/body/media fields, report that as a source gap rather than filling copy.',
     'The final artifact must include top-level fields sectionTitle, verdict, statusSummary, confidence, sources, competitorSet, positioningTaxonomy, pricingReality, shareOfVoice, publicWeaknesses, and narrativeArcs.',
     'Use this exact nested shape. Do not rename keys to type, summary, positioning, pricing, quote, evidence, or weaknesses:',
     JSON.stringify(COMPETITOR_LANDSCAPE_ARTIFACT_SKELETON, null, 2),
@@ -692,30 +738,117 @@ function buildSystemPrompt() {
 async function createAgent(args) {
   if (args.agentId.trim()) {
     console.log(`[managed-agents] reusing agent ${args.agentId}`);
-    return { id: args.agentId, reused: true };
+    try {
+      const agent = await anthropicRequest(`/agents/${args.agentId}`, { method: 'GET' });
+      const skills = Array.isArray(agent.skills) ? agent.skills : [];
+      const hasPlatformSkill = skills.some((skill) => (
+        skill?.type === 'custom' && skill?.skill_id === args.platformSkillId
+      ));
+      return {
+        id: args.agentId,
+        version: agent.version,
+        reused: true,
+        raw: agent,
+        skillWiring: hasPlatformSkill
+          ? {
+              status: 'attached',
+              skill: skills.find((skill) => skill?.skill_id === args.platformSkillId),
+              evidence: 'GET /v1/agents/{agent_id} returned the AI-GOS competitive-positioning skill on the reused Managed Agent.',
+            }
+          : {
+              status: 'not_attached',
+              reason: 'GET /v1/agents/{agent_id} did not return the AI-GOS competitive-positioning skill on the reused Managed Agent.',
+            },
+      };
+    } catch (error) {
+      return {
+        id: args.agentId,
+        reused: true,
+        skillWiring: {
+          status: 'unknown_reused_agent',
+          error: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
   }
 
-  const agent = await anthropicRequest('/agents', {
-    method: 'POST',
-    body: {
-      name: `AI-GOS Competitor Landscape P1 ${Date.now()}`,
-      description: 'Internal AI-GOS Managed Agents P1 canary for one Section 03 artifact.',
-      metadata: { project: 'AI-GOS', phase: 'managed-agents-p1', section: 'positioningCompetitorLandscape' },
-      model: args.model,
-      system: buildSystemPrompt(),
-      tools: [
-        { type: 'agent_toolset_20260401', default_config: { enabled: false } },
-        buildFetchCompetitorAdsTool(),
-        buildHomepageTool(),
-        buildPricingTool(),
-        buildReviewTool(),
-        buildShareOfVoiceTool(),
-        buildSaveTool(),
-      ],
-    },
-  });
-  console.log(`[managed-agents] created agent ${agent.id} version ${agent.version}`);
-  return { id: agent.id, version: agent.version, reused: false, raw: agent };
+  const baseBody = {
+    name: `AI-GOS Competitor Landscape P2 ${Date.now()}`,
+    description: 'Internal AI-GOS Managed Agents P2 canary for one Section 03 artifact with multi-platform ad evidence.',
+    metadata: { project: 'AI-GOS', phase: 'managed-agents-p2', section: 'positioningCompetitorLandscape' },
+    model: args.model,
+    system: buildSystemPrompt(args),
+    tools: [
+      {
+        type: 'agent_toolset_20260401',
+        default_config: { enabled: false },
+        configs: [{ name: 'read', enabled: true }],
+      },
+      buildFetchCompetitorAdsTool(),
+      buildHomepageTool(),
+      buildPricingTool(),
+      buildReviewTool(),
+      buildShareOfVoiceTool(),
+      buildSaveTool(),
+    ],
+  };
+  const skillRef = {
+    type: 'custom',
+    skill_id: args.platformSkillId,
+    version: 'latest',
+  };
+  const bodyWithSkill = args.attachPlatformSkill
+    ? { ...baseBody, skills: [skillRef] }
+    : baseBody;
+
+  try {
+    const agent = await anthropicRequest('/agents', {
+      method: 'POST',
+      body: bodyWithSkill,
+    });
+    console.log(`[managed-agents] created agent ${agent.id} version ${agent.version}`);
+    return {
+      id: agent.id,
+      version: agent.version,
+      reused: false,
+      raw: agent,
+      skillWiring: args.attachPlatformSkill
+        ? {
+            status: 'attached',
+            skill: skillRef,
+            evidence: 'POST /v1/agents accepted the top-level skills field for the AI-GOS competitive-positioning custom skill.',
+          }
+        : {
+            status: 'not_requested',
+            reason: '--no-platform-skill was used.',
+          },
+    };
+  } catch (error) {
+    if (!args.attachPlatformSkill) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[managed-agents] platform skill attachment blocked: ${message}`);
+    console.log('[managed-agents] retrying agent creation without platform skill');
+    const agent = await anthropicRequest('/agents', {
+      method: 'POST',
+      body: baseBody,
+    });
+    console.log(`[managed-agents] created fallback agent ${agent.id} version ${agent.version}`);
+    return {
+      id: agent.id,
+      version: agent.version,
+      reused: false,
+      raw: agent,
+      skillWiring: {
+        status: 'blocked',
+        skill: skillRef,
+        error: message,
+        fallback: 'Created the Managed Agent without skills and relied on the hardcoded Section 03 prompt plus local custom tools.',
+      },
+    };
+  }
 }
 
 async function createSession(agentId, environmentId, args) {
@@ -726,7 +859,7 @@ async function createSession(agentId, environmentId, args) {
       environment_id: environmentId,
       metadata: {
         project: 'AI-GOS',
-        phase: 'managed-agents-p1',
+        phase: 'managed-agents-p2',
         section: 'positioningCompetitorLandscape',
         company: args.company,
         domain: args.domain,
@@ -846,114 +979,35 @@ async function fetchPageSummary(url) {
   return { ok: true, ...extractPageSummary(result.text, url) };
 }
 
-function normalizeGoogleAd(record, index, advertiserName) {
-  const regionStats = Array.isArray(record.regionStats)
-    ? record.regionStats[0]
-    : Array.isArray(record.region_stats)
-      ? record.region_stats[0]
-      : null;
-  const advertiser = record.advertiser && typeof record.advertiser === 'object'
-    ? record.advertiser
-    : null;
-  const image = record.image && typeof record.image === 'object' ? record.image : null;
-  const previewUrls = Array.isArray(record.previewUrls)
-    ? record.previewUrls
-    : Array.isArray(record.preview_urls)
-      ? record.preview_urls
-      : [];
-
-  return {
-    platform: 'google',
-    source_platform: 'google_ads_transparency_center',
-    id: firstString([record.creativeId, record.creative_id, record.id]) ?? `google-${index}`,
-    advertiser: firstString([record.advertiserName, record.advertiser_name, advertiser?.name]) ?? advertiserName,
-    headline: firstString([record.headline, record.title]),
-    body: firstString([record.description, record.body, record.text]),
-    landing_url: firstString([record.landing_url, record.destination_url, record.click_url]),
-    creative_url: firstString([record.creative_url, image?.link, ...previewUrls]),
-    details_url: firstString([
-      record.details_link,
-      record.details_url,
-      record.adTransparencyUrl,
-      record.ad_transparency_url,
-    ]),
-    first_seen: firstString([
-      regionStats?.firstShown,
-      regionStats?.first_shown,
-      record.first_shown_datetime,
-      record.first_shown,
-    ]),
-    last_seen: firstString([
-      regionStats?.lastShown,
-      regionStats?.last_shown,
-      record.last_shown_datetime,
-      record.last_shown,
-    ]),
-    total_days_shown: Number.isFinite(record.total_days_shown) ? record.total_days_shown : null,
-    format: firstString([record.format, record.creative_format]) ?? 'unknown',
-    region: firstString([regionStats?.regionName, regionStats?.region_name]),
-  };
+function loadManagedAgentsAdEvidenceAdapter() {
+  registerTypeScriptRequireHook();
+  return requireFromRoot('./research-worker/src/tools/managed-agents-ad-evidence.ts');
 }
 
 async function fetchCompetitorAds(input, args) {
   const data = assertRecord(input, 'fetch_competitor_ads input');
   const advertiserName = typeof data.advertiser_name === 'string' ? data.advertiser_name.trim() : '';
-  const platform = data.platform ?? 'google';
+  const platform = typeof data.platform === 'string' ? data.platform : args.adPlatform;
   const limit = clampLimit(data.limit, args.limit, 25);
   const region = typeof data.region === 'string' ? data.region : args.region;
+  const domain =
+    typeof data.domain === 'string' && data.domain.trim().length > 0
+      ? normalizeDomain(data.domain)
+      : null;
 
   if (!advertiserName) return { ok: false, error: 'advertiser_name is required' };
-  if (platform !== 'google') return { ok: false, error: 'P1 canary supports platform="google" only' };
-
-  const advertiserPayload = await searchApi({
-    engine: 'google_ads_transparency_center_advertiser_search',
-    q: advertiserName,
-  });
-  const advertisers = Array.isArray(advertiserPayload.advertisers) ? advertiserPayload.advertisers : [];
-  const selected = chooseAdvertiser(advertisers, advertiserName);
-  if (!selected?.id) {
-    return {
-      ok: true,
-      advertiser_name: advertiserName,
-      platform: 'google',
-      region,
-      total_available: 0,
-      returned: 0,
-      ads: [],
-      source: {
-        engine: 'google_ads_transparency_center_advertiser_search',
-        candidate_count: advertisers.length,
-      },
-      warning: 'No matching Google Ads Transparency advertiser ID was found.',
-    };
+  if (!AD_PLATFORMS.has(platform)) {
+    return { ok: false, error: `Unsupported ad platform: ${platform}` };
   }
 
-  const adsPayload = await searchApi({
-    engine: 'google_ads_transparency_center',
-    advertiser_id: String(selected.id),
-  });
-  const rawAds = Array.isArray(adsPayload.ad_creatives) ? adsPayload.ad_creatives : [];
-  const ads = rawAds
-    .filter((ad) => ad && typeof ad === 'object' && !Array.isArray(ad))
-    .slice(0, limit)
-    .map((ad, index) => normalizeGoogleAd(ad, index, selected.name ?? advertiserName));
-
-  return {
-    ok: true,
-    advertiser_name: selected.name ?? advertiserName,
-    requested_advertiser_name: advertiserName,
-    advertiser_id: String(selected.id),
-    platform: 'google',
+  const { fetchManagedAgentsAdEvidence } = loadManagedAgentsAdEvidenceAdapter();
+  return await fetchManagedAgentsAdEvidence({
+    advertiser_name: advertiserName,
+    domain,
+    platform,
     region,
-    total_available: rawAds.length,
-    returned: ads.length,
-    ads,
-    source: {
-      search_engine: 'google_ads_transparency_center_advertiser_search',
-      ads_engine: 'google_ads_transparency_center',
-      selected_advertiser: selected,
-    },
-  };
+    limit,
+  });
 }
 
 async function fetchHomepagePositioning(input, args) {
@@ -1126,6 +1180,7 @@ function validateCompetitorArtifact(artifact) {
 
 function createToolExecutor(args) {
   const validationAttempts = [];
+  const adEvidenceResults = [];
   let acceptedArtifact = null;
 
   async function saveCompetitorLandscapeArtifact(input) {
@@ -1167,7 +1222,13 @@ function createToolExecutor(args) {
   }
 
   async function execute(toolEvent) {
-    if (toolEvent.name === 'fetch_competitor_ads') return await fetchCompetitorAds(toolEvent.input, args);
+    if (toolEvent.name === 'fetch_competitor_ads') {
+      const result = await fetchCompetitorAds(toolEvent.input, args);
+      if (result?.ok === true) {
+        adEvidenceResults.push(result);
+      }
+      return result;
+    }
     if (toolEvent.name === 'fetch_homepage_positioning') return await fetchHomepagePositioning(toolEvent.input, args);
     if (toolEvent.name === 'fetch_pricing_evidence') return await fetchPricingEvidence(toolEvent.input, args);
     if (toolEvent.name === 'fetch_review_evidence') return await fetchReviewEvidence(toolEvent.input, args);
@@ -1181,6 +1242,7 @@ function createToolExecutor(args) {
   return {
     execute,
     getValidationAttempts: () => validationAttempts,
+    getAdEvidenceResults: () => adEvidenceResults,
     getAcceptedArtifact: () => acceptedArtifact,
   };
 }
@@ -1210,10 +1272,117 @@ function extractTextContent(event) {
     .join('\n');
 }
 
+function parseCustomToolResult(event) {
+  if (event?.type !== 'user.custom_tool_result') return null;
+  const text = extractTextContent(event);
+  if (!text.trim()) return null;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isAdEvidenceResult(value) {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      value.ok === true &&
+      typeof value.advertiser_name === 'string' &&
+      value.raw_counts &&
+      value.displayable_counts &&
+      Array.isArray(value.adCreatives) &&
+      value.libraryLinks,
+  );
+}
+
+function getAdEvidenceResultsFromEvents(events) {
+  return events
+    .map(parseCustomToolResult)
+    .filter(isAdEvidenceResult);
+}
+
+function getAcceptedArtifactFromEvents(events) {
+  const acceptedResultEvent = events.find((event) => {
+    const result = parseCustomToolResult(event);
+    return result?.accepted === true;
+  });
+  const toolUseId = acceptedResultEvent?.custom_tool_use_id;
+  if (!toolUseId) return null;
+
+  const toolUse = events.find((event) => event.id === toolUseId && event.type === 'agent.custom_tool_use');
+  const artifact = toolUse?.input?.artifact;
+  return artifact && typeof artifact === 'object' && !Array.isArray(artifact) ? artifact : null;
+}
+
+function getValidationAttemptsFromEvents(events) {
+  return events
+    .map(parseCustomToolResult)
+    .filter((result) => (
+      result &&
+      typeof result === 'object' &&
+      result.section_type === 'positioningCompetitorLandscape' &&
+      typeof result.attempt === 'number'
+    ))
+    .map((result) => ({
+      attempt: result.attempt,
+      ok: result.ok === true,
+      schema_ok: result.schema_ok === true,
+      minimums_ok: result.minimums_ok === true,
+      errors: Array.isArray(result.errors) ? result.errors : [],
+    }));
+}
+
+function mergeAdEvidenceResults(primary, secondary) {
+  const keyed = new Map();
+  for (const result of [...primary, ...secondary]) {
+    const key = [
+      normalizeName(result.advertiser_name),
+      result.requested_platform,
+      result.observed_at,
+    ].join('|');
+    keyed.set(key, result);
+  }
+  return [...keyed.values()];
+}
+
 async function listEvents(sessionId) {
-  return await anthropicRequest(`/sessions/${sessionId}/events?order=asc&limit=100`, {
+  return await anthropicRequest(`/sessions/${sessionId}/events?order=asc&limit=200`, {
     method: 'GET',
   });
+}
+
+async function getSessionEvents(sessionId) {
+  const listed = await listEvents(sessionId);
+  return Array.isArray(listed.data) ? listed.data : [];
+}
+
+function countToolCallsFromEvents(events) {
+  return events
+    .filter((event) => event.type === 'agent.custom_tool_use')
+    .reduce((counts, event) => ({
+      ...counts,
+      [event.name ?? 'unknown']: (counts[event.name ?? 'unknown'] ?? 0) + 1,
+    }), {});
+}
+
+function getFinalMessagesFromEvents(events) {
+  return events
+    .filter((event) => event.type === 'agent.message')
+    .map(extractTextContent)
+    .filter(Boolean);
+}
+
+function isSessionEndTurn(events) {
+  const lastStatus = [...events]
+    .reverse()
+    .find((event) => (
+      event.type === 'session.status_idle' ||
+      event.type === 'session.status_idled' ||
+      event.type === 'session.thread_status_idle'
+    ));
+  return lastStatus?.stop_reason?.type === 'end_turn';
 }
 
 function incrementToolCount(toolCallCounts, toolName) {
@@ -1227,7 +1396,7 @@ async function streamSession(sessionId, executor) {
   const response = await fetch(`${ANTHROPIC_API_BASE_URL}/sessions/${sessionId}/events/stream`, {
     headers: {
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-beta': MANAGED_AGENTS_BETA,
+      'anthropic-beta': ANTHROPIC_BETA_HEADER,
       'X-Api-Key': apiKey,
     },
     signal: controller.signal,
@@ -1371,10 +1540,11 @@ function buildUserMessage(args) {
     '2. Choose at least five competitive alternatives spanning direct, indirect, status-quo, and diy.',
     '3. Use homepage and pricing tools for the audited company and selected alternatives.',
     '4. Use review evidence for at least two competitors to populate publicWeaknesses.',
-    '5. Use fetch_competitor_ads for the audited company or one direct competitor only if ad evidence helps; report sparse fields honestly.',
-    '6. Build the artifact with the exact schema skeleton below, filling every nested string/array with evidence-backed content.',
+    `5. Mandatory ad evidence: call fetch_competitor_ads with platform "${args.adPlatform}" for the audited company and at least ${args.adCompetitorCount} direct competitors you discovered. Use domain when known, region "${args.region}", and limit ${args.limit}.`,
+    '6. In your synthesis, report raw ad-library counts separately from displayable creative counts. Cite sparse or missing Google/LinkedIn/Meta fields honestly and do not invent ad copy.',
+    '7. Build the artifact with the exact schema skeleton below, filling every nested string/array with evidence-backed content.',
     JSON.stringify(COMPETITOR_LANDSCAPE_ARTIFACT_SKELETON, null, 2),
-    '7. Call save_competitor_landscape_artifact with the complete artifact. If it returns ok:false, repair and retry once.',
+    '8. Call save_competitor_landscape_artifact only after the mandatory ad evidence calls are complete or explicitly returned empty. If it returns ok:false, repair and retry once.',
   ].join('\n\n');
 }
 
@@ -1391,7 +1561,26 @@ function writeOutputs(payload) {
     writeFileSync(artifactPath, `${JSON.stringify(payload.acceptedArtifact, null, 2)}\n`);
   }
 
-  return { transcriptPath, artifactPath };
+  let adEvidencePath = null;
+  if (Array.isArray(payload.adEvidenceResults) && payload.adEvidenceResults.length > 0) {
+    adEvidencePath = resolve(tmpDir, `managed-agents-competitor-section-canary-${stamp}-ad-evidence.json`);
+    writeFileSync(adEvidencePath, `${JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      sessionId: payload.session?.id,
+      args: payload.args,
+      environment: payload.environment,
+      agent: {
+        id: payload.agent?.id,
+        version: payload.agent?.version,
+        reused: payload.agent?.reused,
+      },
+      skillProbe: payload.skillProbe,
+      skillWiring: payload.agent?.skillWiring,
+      adEvidenceResults: payload.adEvidenceResults,
+    }, null, 2)}\n`);
+  }
+
+  return { transcriptPath, artifactPath, adEvidencePath };
 }
 
 function assertCanaryPassed(args, validationAttempts, acceptedArtifact) {
@@ -1415,6 +1604,77 @@ function assertCanaryPassed(args, validationAttempts, acceptedArtifact) {
   }
 }
 
+async function verifyPlatformSkill(args) {
+  if (!args.attachPlatformSkill) {
+    return {
+      status: 'not_requested',
+      reason: '--no-platform-skill was used.',
+    };
+  }
+
+  try {
+    const skill = await anthropicSkillsRequest(`/skills/${args.platformSkillId}`, {
+      method: 'GET',
+    });
+    return {
+      status: 'available',
+      skill: {
+        id: skill.id,
+        display_title: skill.display_title,
+        source: skill.source,
+        latest_version: skill.latest_version,
+      },
+    };
+  } catch (error) {
+    return {
+      status: 'blocked',
+      skill: { id: args.platformSkillId },
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function assertAdEvidencePassed(args, adEvidenceResults) {
+  const minimumAdvertisers = args.adCompetitorCount + 1;
+  const advertiserNames = [
+    ...new Set(
+      adEvidenceResults
+        .map((result) => result.advertiser_name)
+        .filter((name) => typeof name === 'string' && name.trim().length > 0)
+        .map((name) => normalizeName(name)),
+    ),
+  ];
+  const allPlatformCalls = adEvidenceResults.filter((result) => result.requested_platform === 'all');
+  const nonGoogleDisplayable = adEvidenceResults.some((result) => (
+    (result.displayable_counts?.linkedin ?? 0) > 0 ||
+    (result.displayable_counts?.meta ?? 0) > 0
+  ));
+  const nonGoogleRaw = adEvidenceResults.some((result) => (
+    (result.raw_counts?.linkedin ?? 0) > 0 ||
+    (result.raw_counts?.meta ?? 0) > 0
+  ));
+
+  if (adEvidenceResults.length < minimumAdvertisers) {
+    throw new Error(
+      `Expected ad evidence for audited company plus ${args.adCompetitorCount} direct competitors, observed ${adEvidenceResults.length} successful ad evidence result(s)`,
+    );
+  }
+  if (advertiserNames.length < minimumAdvertisers) {
+    throw new Error(
+      `Expected ad evidence for at least ${minimumAdvertisers} distinct advertisers, observed ${advertiserNames.length}: ${advertiserNames.join(', ')}`,
+    );
+  }
+  if (allPlatformCalls.length === 0) {
+    throw new Error('Expected at least one fetch_competitor_ads result with requested_platform="all"');
+  }
+  if (!nonGoogleRaw) {
+    throw new Error('Expected at least one LinkedIn or Meta raw ad result; source APIs returned no non-Google rows');
+  }
+  if (!nonGoogleDisplayable) {
+    throw new Error('Expected at least one LinkedIn or Meta displayable creative; source APIs returned no displayable non-Google creatives');
+  }
+}
+
 async function main() {
   loadEnvFile(resolve('.env.local'));
   loadEnvFile(resolve('research-worker/.env'));
@@ -1423,14 +1683,19 @@ async function main() {
   requireEnv('ANTHROPIC_API_KEY');
   requireEnv('SEARCHAPI_KEY');
 
-  console.log('[managed-agents] starting P1 competitor section canary');
+  console.log('[managed-agents] starting P2 competitor section canary');
   console.log(
     `[managed-agents] company=${args.company} domain=${args.domain || 'n/a'} region=${args.region} limit=${args.limit} model=${args.model}`,
+  );
+  console.log(
+    `[managed-agents] ad_platform=${args.adPlatform} ad_competitor_count=${args.adCompetitorCount} platform_skill=${args.attachPlatformSkill ? args.platformSkillId : 'disabled'}`,
   );
   console.log(
     `[managed-agents] deliberate_invalid_first_save=${args.deliberateInvalidFirstSave ? 'true' : 'false'}`,
   );
 
+  const skillProbe = await verifyPlatformSkill(args);
+  console.log(`[managed-agents] skill probe: ${JSON.stringify(skillProbe)}`);
   const environment = await createEnvironment(args);
   const agent = await createAgent(args);
   const session = args.sessionId.trim()
@@ -1446,33 +1711,63 @@ async function main() {
     ]);
   }
 
-  const streamResult = await streamSession(session.id, executor);
-  const validationAttempts = executor.getValidationAttempts();
-  const acceptedArtifact = executor.getAcceptedArtifact();
+  const preStreamEvents = args.sessionId.trim() ? await getSessionEvents(session.id) : [];
+  const streamResult = isSessionEndTurn(preStreamEvents)
+    ? {
+        transcript: preStreamEvents,
+        finalMessages: getFinalMessagesFromEvents(preStreamEvents),
+        handledToolUseCount: 0,
+        toolCallCounts: countToolCallsFromEvents(preStreamEvents),
+      }
+    : await streamSession(session.id, executor);
+  const postStreamEvents = await getSessionEvents(session.id);
+  const transcriptEvents = postStreamEvents.length >= streamResult.transcript.length
+    ? postStreamEvents
+    : streamResult.transcript;
+  const fullStreamResult = {
+    ...streamResult,
+    transcript: transcriptEvents,
+    finalMessages: getFinalMessagesFromEvents(transcriptEvents),
+    toolCallCounts: countToolCallsFromEvents(transcriptEvents),
+  };
+  const validationAttempts = executor.getValidationAttempts().length > 0
+    ? executor.getValidationAttempts()
+    : getValidationAttemptsFromEvents(transcriptEvents);
+  const adEvidenceResults = mergeAdEvidenceResults(
+    executor.getAdEvidenceResults(),
+    getAdEvidenceResultsFromEvents(transcriptEvents),
+  );
+  const acceptedArtifact = executor.getAcceptedArtifact() ?? getAcceptedArtifactFromEvents(transcriptEvents);
   const outputPayload = {
     args,
+    skillProbe,
     environment,
     agent,
     session: { id: session.id, status: session.status },
     validationAttempts,
+    adEvidenceResults,
     acceptedArtifact,
-    ...streamResult,
+    ...fullStreamResult,
   };
   const outputPaths = writeOutputs(outputPayload);
 
   try {
     assertCanaryPassed(args, validationAttempts, acceptedArtifact);
+    assertAdEvidencePassed(args, adEvidenceResults);
   } catch (error) {
     console.log(`[managed-agents] transcript: ${outputPaths.transcriptPath}`);
     if (outputPaths.artifactPath) console.log(`[managed-agents] artifact: ${outputPaths.artifactPath}`);
+    if (outputPaths.adEvidencePath) console.log(`[managed-agents] ad evidence: ${outputPaths.adEvidencePath}`);
     throw error;
   }
 
-  console.log(`[managed-agents] handled custom tool calls: ${streamResult.handledToolUseCount}`);
-  console.log(`[managed-agents] tool calls: ${JSON.stringify(streamResult.toolCallCounts)}`);
+  console.log(`[managed-agents] handled custom tool calls: ${fullStreamResult.handledToolUseCount}`);
+  console.log(`[managed-agents] tool calls: ${JSON.stringify(fullStreamResult.toolCallCounts)}`);
   console.log(`[managed-agents] validation attempts: ${JSON.stringify(validationAttempts)}`);
+  console.log(`[managed-agents] ad evidence results: ${adEvidenceResults.length}`);
   console.log(`[managed-agents] transcript: ${outputPaths.transcriptPath}`);
   if (outputPaths.artifactPath) console.log(`[managed-agents] artifact: ${outputPaths.artifactPath}`);
+  if (outputPaths.adEvidencePath) console.log(`[managed-agents] ad evidence: ${outputPaths.adEvidencePath}`);
 }
 
 main().catch((error) => {
