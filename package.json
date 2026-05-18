@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "managed-agents:ad-canary": "node scripts/managed-agents-ad-canary.mjs",
+    "managed-agents:competitor-canary": "node scripts/managed-agents-competitor-section-canary.mjs",
     "test": "vitest",
     "test:run": "NODE_ENV=test vitest run",
     "test:coverage": "vitest run --coverage"
