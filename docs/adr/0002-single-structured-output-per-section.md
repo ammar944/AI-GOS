@@ -30,3 +30,44 @@ Each positioning **Subagent** produces its **Section's** **Artifact** as a singl
 - Blockers B/C/D (validator-skipping, inner-monologue leaks into fields, capitalized threats) are prompt-engineering concerns and are addressed by SKILL.md rewrites per-Section, not by the architecture. Each Skill must be rewritten to (1) remove plan-validate-emit-envelope language, (2) describe the Artifact's sub-sections and what each one analyzes per `docs/research-sections.md`, (3) describe each Card type used and when to emit it, (4) drop capitalized threats per ADR-0001's prompt-writing rule.
 - The "artifact-builder tool" term is deprecated. The "UI brick" term is renamed to **Card**. **Sub-section** is introduced as a named field on an Artifact that groups one piece of canonical analysis. CONTEXT.md updated in the same change as this ADR.
 - Implementation order: BuyerICP spike first (one `BuyerICPArtifactSchema` with 5 named sub-sections matching the canonical bullets in Section 02 of `docs/research-sections.md`, one Subagent rewrite, one renderer that walks the 5 sub-sections, one post-validate). Replicate to the other 5 Sections one at a time, each driven by its own canonical sub-section list. Only `SourceSchema` and the top-level `{title, verdict, confidence, sources}` shape are factored as shared primitives at port #1.
+
+## 2026-05-16 Runtime Refinement
+
+This ADR remains accepted for deep/final Section Artifacts, but the latest
+Research V2 E2E changes how draft mode should apply it.
+
+Observed failure:
+
+- Draft mode skipped the broad evidence loop but still emitted the full typed
+  Section Artifact schema.
+- Raising draft timeout to 180 seconds did not make that path reliable.
+- All six draft sections timed out in the orchestration test and no draft
+  artifact committed.
+
+Refined decision:
+
+- Deep mode keeps this ADR exactly: one full `streamObject(SectionArtifactSchema)` per Section after evidence gathering.
+- Draft mode is allowed, and now expected, to use a thinner structured output:
+  `streamObject(PositioningSectionDraftSchema)` or thin per-section draft schemas.
+- The draft object is still structured and Zod-validated, but it is not the full
+  canonical Section Artifact. It should contain a compact thesis, 3-5 findings,
+  source refs or source gaps, capability/evidence gaps, confidence, and deep-fill
+  targets.
+- Deep enrichment later supersedes the draft through revisioned persistence and
+  produces the full Section Artifact described by this ADR.
+
+Rationale:
+
+- The product needs first useful committed output before full deep synthesis.
+- A full typed Artifact with every sub-section is too large for the first-pass
+  runtime contract.
+- This is not a reversal to free-form markdown or artifact-builder tools. It is
+  a mode split between thin structured draft and full structured deep output.
+
+External references reviewed for the refinement:
+
+- AI Hero Vercel AI SDK Tutorial: https://www.aihero.dev/vercel-ai-sdk-tutorial
+- AI Hero Streaming Objects: https://www.aihero.dev/streaming-objects-with-vercel-ai-sdk
+- AI Hero Agents With Vercel AI SDK: https://www.aihero.dev/agents-with-vercel-ai-sdk
+- AI Hero Evals: https://www.aihero.dev/what-are-evals
+- AI Hero Choosing an LLM: https://www.aihero.dev/how-to-choose-an-llm

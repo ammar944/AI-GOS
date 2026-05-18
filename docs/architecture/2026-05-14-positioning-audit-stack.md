@@ -12,8 +12,8 @@ This doc is read first before code changes touching subagents, schemas, skills, 
 |---|---|---|
 | Workspace UI | Next.js 16 + shadcn/ui (new-york) + Tailwind CSS v4 | `src/app/research-v2/`, `src/components/research-v2/` |
 | Agent loop | **AI SDK v6 — `ToolLoopAgent`** | `research-worker/src/agents/subagents/index.ts` |
-| Structured output | **AI SDK v6 — `streamObject(schema)`** with Zod schemas | invoked from runner for ported Sections |
-| Provider | Anthropic Claude (`claude-opus-4-6` currently); **swappable** via provider config | `src/lib/ai/providers.ts`, `research-worker/src/agents/subagents/index.ts` |
+| Structured output | **AI SDK v6 — `streamObject(schema)`** with Zod schemas | thin draft schemas for first-pass output; full Section schemas for deep mode |
+| Provider | Anthropic Claude through centralized model pins; **swappable** via provider config | `src/lib/ai/providers.ts`, `research-worker/src/models.ts`, `research-worker/src/agents/subagents/index.ts` |
 | Skill harness | **Local `SKILL.md` files**, loaded into Subagent system instructions at worker boot | `research-worker/platform-skills/<skill>/SKILL.md`, loaded by `_skill-loader.ts` |
 | Research tools | `web_search`, `firecrawl`, `reviews` (per-Section tool map) | `research-worker/src/agents/subagents/index.ts` |
 | Streaming to UI | activity events plus committed Section projection | runner -> Supabase -> `/api/research-v2/audit-state` -> client poll |
@@ -55,6 +55,69 @@ post-validates cardinality/coverage minimums.
 Do not treat the legacy Envelope path as the architecture. All positioning
 Sections now use bespoke Artifacts. Any remaining Envelope code is
 compatibility/cleanup residue, not a pattern for new work.
+
+---
+
+## Runtime learning update (2026-05-16)
+
+The latest draft/deep E2E proved that the backend is not yet ready for UI polish.
+The UI can show phase progress and honest `Needs review` states, but the draft
+path still failed to commit first-pass artifacts.
+
+Observed follow-up run:
+
+- Run id: `c5b40850-7de5-4b98-abe1-612c967ac179`
+- Corpus failed first because Anthropic returned `Failed to set up code execution container`.
+- The run was seeded past corpus/onboarding to test section orchestration.
+- Six draft sections started in one wave.
+- 90-second and 180-second draft timeouts both failed to produce any committed draft artifact.
+- Terminal durations still ranged roughly 189-299 seconds, so abort propagation and terminal write timing need measurement.
+
+Corrected architecture interpretation:
+
+- The full `ToolLoopAgent -> streamObject(SectionArtifactSchema)` pattern remains the deep-mode architecture.
+- Draft mode must not reuse the full Section Artifact schema. It should emit a thin draft schema first, commit it, and allow deep mode to supersede it with the full typed schema by revision.
+- Increasing timeout alone is not enough because the work unit is too large.
+- Product polish should wait until thin drafts commit reliably in the real worker path.
+
+Required next runtime contract:
+
+```text
+draft mode:
+  SectionContextPack
+  -> streamObject(PositioningSectionDraftSchema or thin per-section draft schema)
+  -> validate draft
+  -> commit draft revision
+
+deep mode:
+  SectionContextPack gaps
+  -> ToolLoopAgent evidence loop with filtered budgeted tools
+  -> streamObject(Full SectionArtifactSchema)
+  -> validate full artifact
+  -> compare-and-swap revisioned commit
+```
+
+Runtime evals should gate this contract before visual polish:
+
+- first partial latency
+- draft object completion latency
+- validation latency
+- commit latency
+- timeout fired time
+- abort signal observed time
+- terminal DB write time
+- all-six-section wall time
+- Haiku-vs-Sonnet draft model comparison
+
+External practice references used for this update:
+
+- AI Hero Vercel AI SDK Tutorial: https://www.aihero.dev/vercel-ai-sdk-tutorial
+- AI Hero Streaming Objects: https://www.aihero.dev/streaming-objects-with-vercel-ai-sdk
+- AI Hero Agents With Vercel AI SDK: https://www.aihero.dev/agents-with-vercel-ai-sdk
+- AI Hero AI Engineer Roadmap: https://www.aihero.dev/ai-engineer-roadmap
+- AI Hero Evals: https://www.aihero.dev/what-are-evals
+- AI Hero Choosing an LLM: https://www.aihero.dev/how-to-choose-an-llm
+- AI Hero LLM App Improvement Techniques: https://www.aihero.dev/how-to-improve-your-llm-powered-app
 
 ---
 
