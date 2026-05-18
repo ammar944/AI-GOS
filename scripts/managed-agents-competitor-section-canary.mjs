@@ -21,6 +21,307 @@ const PAGE_TIMEOUT_MS = 12_000;
 const STREAM_TIMEOUT_MS = 12 * 60_000;
 const MAX_PAGE_TEXT_CHARS = 4_000;
 
+const SOURCE_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    title: { type: 'string' },
+    url: { type: 'string' },
+    whyItMatters: { type: 'string' },
+  },
+  required: ['title', 'url'],
+};
+
+const COMPETITOR_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    name: { type: 'string' },
+    url: { type: 'string' },
+    competitorType: { type: 'string', enum: ['direct', 'indirect', 'status-quo', 'diy'] },
+    oneLinePositioning: { type: 'string' },
+    verbatimHeroCopy: { type: 'string' },
+    pricingPosition: { type: 'string' },
+    sourceUrl: { type: 'string' },
+  },
+  required: [
+    'name',
+    'url',
+    'competitorType',
+    'oneLinePositioning',
+    'verbatimHeroCopy',
+    'pricingPosition',
+    'sourceUrl',
+  ],
+};
+
+const COMPETITOR_POSITION_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    competitor: { type: 'string' },
+    position: { type: 'string' },
+  },
+  required: ['competitor', 'position'],
+};
+
+const POSITIONING_AXIS_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    axisName: { type: 'string' },
+    ourPosition: { type: 'string' },
+    competitorPositions: {
+      type: 'array',
+      items: COMPETITOR_POSITION_JSON_SCHEMA,
+    },
+    evidenceUrl: { type: 'string' },
+  },
+  required: ['axisName', 'ourPosition', 'competitorPositions', 'evidenceUrl'],
+};
+
+const PRICING_DATA_POINT_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    competitor: { type: 'string' },
+    tierName: { type: 'string' },
+    monthlyPrice: { type: 'string' },
+    packagingPattern: { type: 'string' },
+    gatedSignals: { type: 'string' },
+    sourceUrl: { type: 'string' },
+  },
+  required: [
+    'competitor',
+    'tierName',
+    'monthlyPrice',
+    'packagingPattern',
+    'gatedSignals',
+    'sourceUrl',
+  ],
+};
+
+const SHARE_OF_VOICE_SLICE_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    surface: { type: 'string' },
+    winner: { type: 'string' },
+    evidence: { type: 'string' },
+    sourceUrl: { type: 'string' },
+  },
+  required: ['surface', 'winner', 'evidence', 'sourceUrl'],
+};
+
+const COMPETITOR_WEAKNESS_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    competitor: { type: 'string' },
+    verbatimQuote: { type: 'string' },
+    source: { type: 'string' },
+    sourceUrl: { type: 'string' },
+    whyItMatters: { type: 'string' },
+  },
+  required: ['competitor', 'verbatimQuote', 'source', 'sourceUrl', 'whyItMatters'],
+};
+
+const NARRATIVE_ARC_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    competitor: { type: 'string' },
+    villain: { type: 'string' },
+    hero: { type: 'string' },
+    transformationClaim: { type: 'string' },
+    sourceUrl: { type: 'string' },
+  },
+  required: ['competitor', 'villain', 'hero', 'transformationClaim', 'sourceUrl'],
+};
+
+const COMPETITOR_LANDSCAPE_ARTIFACT_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    sectionTitle: { type: 'string' },
+    verdict: { type: 'string' },
+    statusSummary: { type: 'string' },
+    confidence: { type: 'number' },
+    sources: {
+      type: 'array',
+      items: SOURCE_JSON_SCHEMA,
+    },
+    competitorSet: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        prose: { type: 'string' },
+        competitors: {
+          type: 'array',
+          items: COMPETITOR_JSON_SCHEMA,
+        },
+      },
+      required: ['prose', 'competitors'],
+    },
+    positioningTaxonomy: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        prose: { type: 'string' },
+        axes: {
+          type: 'array',
+          items: POSITIONING_AXIS_JSON_SCHEMA,
+        },
+      },
+      required: ['prose', 'axes'],
+    },
+    pricingReality: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        prose: { type: 'string' },
+        dataPoints: {
+          type: 'array',
+          items: PRICING_DATA_POINT_JSON_SCHEMA,
+        },
+      },
+      required: ['prose', 'dataPoints'],
+    },
+    shareOfVoice: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        prose: { type: 'string' },
+        slices: {
+          type: 'array',
+          items: SHARE_OF_VOICE_SLICE_JSON_SCHEMA,
+        },
+      },
+      required: ['prose', 'slices'],
+    },
+    publicWeaknesses: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        prose: { type: 'string' },
+        items: {
+          type: 'array',
+          items: COMPETITOR_WEAKNESS_JSON_SCHEMA,
+        },
+      },
+      required: ['prose', 'items'],
+    },
+    narrativeArcs: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        prose: { type: 'string' },
+        arcs: {
+          type: 'array',
+          items: NARRATIVE_ARC_JSON_SCHEMA,
+        },
+      },
+      required: ['prose', 'arcs'],
+    },
+  },
+  required: [
+    'sectionTitle',
+    'verdict',
+    'statusSummary',
+    'confidence',
+    'sources',
+    'competitorSet',
+    'positioningTaxonomy',
+    'pricingReality',
+    'shareOfVoice',
+    'publicWeaknesses',
+    'narrativeArcs',
+  ],
+};
+
+const COMPETITOR_LANDSCAPE_ARTIFACT_SKELETON = {
+  sectionTitle: 'Competitor Landscape & Positioning',
+  verdict: 'One sentence judgment.',
+  statusSummary: 'Two to four sentences summarizing the competitive reality.',
+  confidence: 0,
+  sources: [
+    { title: 'Source title', url: 'https://example.com', whyItMatters: 'Why this source supports the section.' },
+  ],
+  competitorSet: {
+    prose: 'Narrative full competitor set across direct, indirect, status-quo, and DIY.',
+    competitors: [
+      {
+        name: 'Competitor name',
+        url: 'https://example.com',
+        competitorType: 'direct',
+        oneLinePositioning: 'One-line positioning summary.',
+        verbatimHeroCopy: 'Observed homepage or campaign copy.',
+        pricingPosition: 'Observed pricing posture.',
+        sourceUrl: 'https://example.com/source',
+      },
+    ],
+  },
+  positioningTaxonomy: {
+    prose: 'Narrative positioning taxonomy.',
+    axes: [
+      {
+        axisName: 'Axis name',
+        ourPosition: 'How the audited company is positioned on this axis.',
+        competitorPositions: [{ competitor: 'Competitor name', position: 'Competitor position.' }],
+        evidenceUrl: 'https://example.com/source',
+      },
+    ],
+  },
+  pricingReality: {
+    prose: 'Narrative pricing reality.',
+    dataPoints: [
+      {
+        competitor: 'Competitor name',
+        tierName: 'Tier or pricing label.',
+        monthlyPrice: 'Observed price text, gated, or not disclosed.',
+        packagingPattern: 'Packaging pattern.',
+        gatedSignals: 'Gated or enterprise signals.',
+        sourceUrl: 'https://example.com/pricing',
+      },
+    ],
+  },
+  shareOfVoice: {
+    prose: 'Narrative share-of-voice map.',
+    slices: [
+      {
+        surface: 'Search term, category, community, review, or ad surface.',
+        winner: 'Visible owner of this surface.',
+        evidence: 'Concrete evidence for the winner.',
+        sourceUrl: 'https://example.com/source',
+      },
+    ],
+  },
+  publicWeaknesses: {
+    prose: 'Narrative public weaknesses.',
+    items: [
+      {
+        competitor: 'Competitor name',
+        verbatimQuote: 'Observed review/search/page excerpt text.',
+        source: 'Source name',
+        sourceUrl: 'https://example.com/reviews',
+        whyItMatters: 'Why this changes positioning.',
+      },
+    ],
+  },
+  narrativeArcs: {
+    prose: 'Narrative competitor arcs.',
+    arcs: [
+      {
+        competitor: 'Competitor name',
+        villain: 'Problem or old way named by the competitor.',
+        hero: 'Hero mechanism or new way claimed by the competitor.',
+        transformationClaim: 'After-state promised by the competitor.',
+        sourceUrl: 'https://example.com/source',
+      },
+    ],
+  },
+};
+
 function loadEnvFile(filePath) {
   try {
     const text = readFileSync(filePath, 'utf8');
@@ -48,6 +349,7 @@ function parseArgs(argv) {
     model: process.env.MANAGED_AGENTS_COMPETITOR_MODEL ?? DEFAULT_MODEL,
     environmentId: process.env.MANAGED_AGENTS_COMPETITOR_ENVIRONMENT_ID ?? '',
     agentId: process.env.MANAGED_AGENTS_COMPETITOR_AGENT_ID ?? '',
+    sessionId: process.env.MANAGED_AGENTS_COMPETITOR_SESSION_ID ?? '',
     deliberateInvalidFirstSave: process.env.MANAGED_AGENTS_COMPETITOR_SKIP_INVALID_FIRST_SAVE !== 'true',
   };
 
@@ -74,6 +376,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (token === '--reuse-agent-id' && next) {
       args.agentId = next;
+      index += 1;
+    } else if (token === '--reuse-session-id' && next) {
+      args.sessionId = next;
       index += 1;
     } else if (token === '--no-deliberate-invalid-save') {
       args.deliberateInvalidFirstSave = false;
@@ -111,11 +416,13 @@ Options:
   --model <model>                 Managed Agent model. Default: ${DEFAULT_MODEL}
   --reuse-environment-id <env>    Reuse an existing environment.
   --reuse-agent-id <agent>        Reuse an existing agent.
+  --reuse-session-id <session>    Reconnect to an existing session without sending a new user message.
   --no-deliberate-invalid-save    Skip the intentional first invalid save probe.
 
 Optional reuse env:
   MANAGED_AGENTS_COMPETITOR_ENVIRONMENT_ID=env_...
   MANAGED_AGENTS_COMPETITOR_AGENT_ID=agent_...
+  MANAGED_AGENTS_COMPETITOR_SESSION_ID=sesn_...
 `);
   process.exit(0);
 }
@@ -330,19 +637,36 @@ function buildShareOfVoiceTool() {
   };
 }
 
+function stripUnsupportedToolSchemaKeywords(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUnsupportedToolSchemaKeywords(item));
+  }
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== 'additionalProperties')
+      .map(([key, child]) => [key, stripUnsupportedToolSchemaKeywords(child)]),
+  );
+}
+
 function buildSaveTool() {
   return {
     type: 'custom',
     name: 'save_competitor_landscape_artifact',
     description:
-      'Validate the completed Section 03 Competitor Landscape Artifact. Returns ok:true only when CompetitorLandscapeArtifactSchema.safeParse and validateCompetitorLandscapeMinimums pass. Returns ok:false with repair_feedback for business validation failures; revise and retry.',
+      [
+        'Validate the completed Section 03 Competitor Landscape Artifact.',
+        'Use this only after building the complete artifact with the exact nested key names in the schema.',
+        'Every competitor requires name, url, competitorType, oneLinePositioning, verbatimHeroCopy, pricingPosition, and sourceUrl.',
+        'Every sub-section requires prose plus its typed array: competitorSet.competitors, positioningTaxonomy.axes, pricingReality.dataPoints, shareOfVoice.slices, publicWeaknesses.items, narrativeArcs.arcs.',
+        'Returns ok:true only when CompetitorLandscapeArtifactSchema.safeParse and validateCompetitorLandscapeMinimums pass.',
+        'Returns ok:false with repair_feedback for business validation failures; revise the same artifact shape and retry.',
+      ].join(' '),
     input_schema: {
       type: 'object',
       properties: {
-        artifact: {
-          type: 'object',
-          additionalProperties: true,
-        },
+        artifact: stripUnsupportedToolSchemaKeywords(COMPETITOR_LANDSCAPE_ARTIFACT_JSON_SCHEMA),
       },
       required: ['artifact'],
     },
@@ -356,6 +680,8 @@ function buildSystemPrompt() {
     'Use only evidence returned by AI-GOS custom tools. Do not invent market data, pricing, competitor claims, ad copy, review quotes, URLs, or source titles.',
     'If Google Ads Transparency rows lack headline/body/landing URL fields, report that as a source gap rather than filling copy.',
     'The final artifact must include top-level fields sectionTitle, verdict, statusSummary, confidence, sources, competitorSet, positioningTaxonomy, pricingReality, shareOfVoice, publicWeaknesses, and narrativeArcs.',
+    'Use this exact nested shape. Do not rename keys to type, summary, positioning, pricing, quote, evidence, or weaknesses:',
+    JSON.stringify(COMPETITOR_LANDSCAPE_ARTIFACT_SKELETON, null, 2),
     'Minimums: sources >=5; competitors >=5 and include direct, indirect, status-quo, diy; positioningTaxonomy.axes >=3; pricingReality.dataPoints >=3 across >=3 competitors; shareOfVoice.slices >=3; publicWeaknesses.items >=4 across >=2 competitors; narrativeArcs.arcs >=3; confidence 0-10.',
     'Use publicWeaknesses.items.verbatimQuote only for text observed in review/search snippets or page excerpts. If the source is a snippet, keep it short and attribute the source URL.',
     'When save_competitor_landscape_artifact returns ok:false, treat repair_feedback as normal validation feedback and call the save tool again after revising. Do not stop after a failed save.',
@@ -757,23 +1083,33 @@ function validateCompetitorArtifact(artifact) {
   const parsed = CompetitorLandscapeArtifactSchema.safeParse(artifact);
   if (!parsed.success) {
     const errors = formatZodIssues(parsed.error);
+    const repairFeedback = [
+      'Schema validation failed. Keep the exact CompetitorLandscapeArtifact shape and patch these paths:',
+      ...errors,
+      'Canonical skeleton:',
+      JSON.stringify(COMPETITOR_LANDSCAPE_ARTIFACT_SKELETON),
+    ].join('\n');
     return {
       ok: false,
       schema_ok: false,
       minimums_ok: false,
       errors,
-      repair_feedback: errors.join('; '),
+      repair_feedback: repairFeedback,
     };
   }
 
   const minimums = validateCompetitorLandscapeMinimums(parsed.data);
   if (!minimums.ok) {
+    const repairFeedback = [
+      'Business minimum validation failed. Keep the schema-valid shape and add evidence to satisfy these minimums:',
+      ...minimums.errors,
+    ].join('\n');
     return {
       ok: false,
       schema_ok: true,
       minimums_ok: false,
       errors: minimums.errors,
-      repair_feedback: minimums.errors.join('; '),
+      repair_feedback: repairFeedback,
       artifact: parsed.data,
     };
   }
@@ -1036,7 +1372,9 @@ function buildUserMessage(args) {
     '3. Use homepage and pricing tools for the audited company and selected alternatives.',
     '4. Use review evidence for at least two competitors to populate publicWeaknesses.',
     '5. Use fetch_competitor_ads for the audited company or one direct competitor only if ad evidence helps; report sparse fields honestly.',
-    '6. Call save_competitor_landscape_artifact with the complete artifact. If it returns ok:false, repair and retry once.',
+    '6. Build the artifact with the exact schema skeleton below, filling every nested string/array with evidence-backed content.',
+    JSON.stringify(COMPETITOR_LANDSCAPE_ARTIFACT_SKELETON, null, 2),
+    '7. Call save_competitor_landscape_artifact with the complete artifact. If it returns ok:false, repair and retry once.',
   ].join('\n\n');
 }
 
@@ -1061,7 +1399,7 @@ function assertCanaryPassed(args, validationAttempts, acceptedArtifact) {
     throw new Error('Canary did not produce an accepted CompetitorLandscapeArtifact');
   }
 
-  if (args.deliberateInvalidFirstSave) {
+  if (args.deliberateInvalidFirstSave && !args.sessionId.trim()) {
     if (validationAttempts.length < 2) {
       throw new Error(`Expected at least two save attempts, observed ${validationAttempts.length}`);
     }
@@ -1095,12 +1433,18 @@ async function main() {
 
   const environment = await createEnvironment(args);
   const agent = await createAgent(args);
-  const session = await createSession(agent.id, environment.id, args);
+  const session = args.sessionId.trim()
+    ? { id: args.sessionId.trim(), status: 'reused' }
+    : await createSession(agent.id, environment.id, args);
   const executor = createToolExecutor(args);
 
-  await sendEvents(session.id, [
-    { type: 'user.message', content: [{ type: 'text', text: buildUserMessage(args) }] },
-  ]);
+  if (args.sessionId.trim()) {
+    console.log(`[managed-agents] reusing session ${session.id}`);
+  } else {
+    await sendEvents(session.id, [
+      { type: 'user.message', content: [{ type: 'text', text: buildUserMessage(args) }] },
+    ]);
+  }
 
   const streamResult = await streamSession(session.id, executor);
   const validationAttempts = executor.getValidationAttempts();
