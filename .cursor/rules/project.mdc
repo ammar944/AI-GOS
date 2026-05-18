@@ -14,17 +14,17 @@ The journey is FORM-DRIVEN, not chat-driven. No AI asks questions. No chat-based
 
 User flow:
 1. Enter URL -> auto-prefill fields
-2. Review/edit in form (UnifiedFieldReview)
+2. Review/edit in GTM Brief Review form
 3. Submit -> dispatches deepResearchProgram (corpus + onboarding fields)
-4. Corpus completes -> workspace opens with the Run section operator control
-5. User clicks Run section -> next pending positioning section dispatches
-6. Section completes -> Run section control rotates to the next pending section, ready for the next click
-7. User clicks through the pipeline section by section (positioningMarketCategory, positioningBuyerICP, positioningCompetitorLandscape, positioningVoiceOfCustomer, positioningDemandIntent, positioningOfferDiagnostic)
+4. Corpus completes -> GTM Brief Review form for user to confirm/edit
+5. User submits brief -> POST /api/research-v2/orchestrate fans out all six positioning sections
+6. Sections commit as drafts in parallel (bounded by ORCHESTRATOR_CONCURRENCY, default 3 -> two waves of three; ~13 min total)
+7. Audit Reader renders typed cards per section as each commits
 8. All results saved to profile
 
-Progression contract: every report section requires an operator click. The only auto-dispatch is the URL-form deepResearchProgram (step 3). This is the supervised progression locked in the research-v2 positioning audit plan.
+Fan-out is the canonical flow. The old per-section "Run section" operator click was replaced when /api/research-v2/orchestrate landed. Do not reintroduce sequential single-section dispatch unless explicitly asked.
 
-Research dispatch: Button clicks -> POST /api/research-v2/dispatch -> Railway worker -> Supabase -> realtime to frontend.
+Research dispatch: Form submit -> POST /api/research-v2/orchestrate (multi-section fan-out) OR POST /api/research-v2/dispatch (single-section, used for corpus + /api/research-v2/rerun-section) -> Railway worker -> Supabase -> realtime to frontend.
 Chat sidebar: Post-research editing only (editCard, updateField). Does NOT trigger research.
 
 Pipeline: deepResearchProgram -> positioningMarketCategory -> positioningBuyerICP -> positioningCompetitorLandscape -> positioningVoiceOfCustomer -> positioningDemandIntent -> positioningOfferDiagnostic

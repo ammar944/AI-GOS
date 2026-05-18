@@ -70,13 +70,15 @@ The flow is **form-driven, not chat-driven**. URL entry → deepResearchProgram 
 **User flow:**
 1. Enter company URL or approved business link on `/research-v2`.
 2. deepResearchProgram dispatches automatically (corpus + onboarding fields).
-3. Corpus completes → workspace opens with the Run section operator control.
-4. User clicks Run section → next pending positioning section dispatches.
-5. Section completes → Run section control rotates to the next pending section.
-6. User clicks through all positioning sections one by one.
+3. Corpus completes → GTM Brief Review form opens for the user to confirm/edit auto-prefilled fields.
+4. User submits the brief → orchestrator fans out all six positioning sections via `POST /api/research-v2/orchestrate`.
+5. Sections commit as drafts in parallel (bounded by `ORCHESTRATOR_CONCURRENCY`, default 3 → two waves of three).
+6. Audit Reader renders typed cards per section as each commits; live "Wave X of Y / N running / N queued" telemetry.
 7. All results saved to profile.
 
-**Research dispatch**: Button clicks → `POST /api/research-v2/dispatch` (accepts `deepResearchProgram` + all `POSITIONING_SECTION_IDS`) → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.
+Fan-out is the canonical flow. The old per-section "Run section" operator click was replaced when `/api/research-v2/orchestrate` landed; do not reintroduce sequential single-section dispatch unless explicitly asked.
+
+**Research dispatch**: Form submit → `POST /api/research-v2/orchestrate` (multi-section fan-out) OR `POST /api/research-v2/dispatch` (single-section, used by `/api/research-v2/rerun-section` and corpus) → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.
 
 **Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/journey/stream` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Chat sidebar is post-research editing only — does NOT trigger research.
 

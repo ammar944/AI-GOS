@@ -510,7 +510,7 @@ export function AgentArtifactSurface({
                 </div>
 
                 <AuditProgressSummary stats={auditStats} waveSummary={getWaveSummary(states)} />
-                <WorkerChipsRow states={states} />
+                <WorkerChipsRow states={states} sectionsByZone={live.sectionsByZone} />
               </div>
             </header>
 
@@ -728,40 +728,69 @@ function ToolbarButton({
   );
 }
 
-function WorkerChipsRow({ states }: { states: WorkerChipState[] }): ReactElement {
+function WorkerChipsRow({
+  states,
+  sectionsByZone,
+}: {
+  states: WorkerChipState[];
+  sectionsByZone?: Record<string, { markdown?: string; title?: string; data?: unknown } | undefined>;
+}): ReactElement {
   return (
     <div
       data-testid="worker-chips"
       className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
     >
-      {states.map((state) => (
-        <a
-          key={state.section_id}
-          href={`#section-${state.section_id}`}
-          data-testid={`worker-chip-${state.section_id}`}
-          data-status={state.status}
-          className={cn(
-            'group flex min-h-12 items-center gap-2 rounded-md border bg-[var(--bg-card)] px-2.5 py-2 text-left transition-colors hover:border-[var(--border-hover)]',
-            STATUS_CLASS[state.status],
-          )}
-        >
-          <span
+      {states.map((state) => {
+        const body = sectionsByZone?.[state.section_id];
+        const typed = body ? pickPositioningTypedArtifact(body, state.section_id) : null;
+        const fullVerdict = typeof typed?.verdict === 'string' && typed.verdict.trim().length > 0
+          ? typed.verdict.trim()
+          : null;
+        const verdictSnippet = fullVerdict
+          ? fullVerdict.length > 64
+            ? `${fullVerdict.slice(0, 63).trimEnd()}…`
+            : fullVerdict
+          : null;
+        const statusText = state.phaseLabel ?? state.phase ?? state.status;
+        return (
+          <a
+            key={state.section_id}
+            href={`#section-${state.section_id}`}
+            data-testid={`worker-chip-${state.section_id}`}
+            data-status={state.status}
+            title={fullVerdict ?? undefined}
             className={cn(
-              'size-2 shrink-0 rounded-full',
-              STATUS_DOT_CLASS[state.status],
+              'group flex min-h-12 items-start gap-2 rounded-md border bg-[var(--bg-card)] px-2.5 py-2 text-left transition-colors hover:border-[var(--border-hover)]',
+              STATUS_CLASS[state.status],
             )}
-            aria-hidden="true"
-          />
-          <span className="min-w-0">
-            <span className="block truncate text-[12px] font-medium normal-case tracking-[0] text-[color:var(--text-primary)]">
-              {SECTION_SHORT_LABELS[state.section_id]}
+          >
+            <span
+              className={cn(
+                'mt-1 size-2 shrink-0 rounded-full',
+                STATUS_DOT_CLASS[state.status],
+              )}
+              aria-hidden="true"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-[12px] font-medium normal-case tracking-[0] text-[color:var(--text-primary)]">
+                {SECTION_SHORT_LABELS[state.section_id]}
+              </span>
+              {verdictSnippet ? (
+                <span
+                  data-testid={`worker-chip-verdict-${state.section_id}`}
+                  className="mt-0.5 block text-[10px] leading-snug text-[color:var(--text-secondary)] line-clamp-2"
+                >
+                  {verdictSnippet}
+                </span>
+              ) : (
+                <span className="mt-0.5 block font-mono text-[9px] uppercase tracking-[0.06em]">
+                  {statusText}
+                </span>
+              )}
             </span>
-            <span className="block font-mono text-[9px] uppercase tracking-[0.06em]">
-              {state.phaseLabel ?? state.phase ?? state.status}
-            </span>
-          </span>
-        </a>
-      ))}
+          </a>
+        );
+      })}
     </div>
   );
 }

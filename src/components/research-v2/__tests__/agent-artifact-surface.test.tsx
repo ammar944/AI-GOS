@@ -329,8 +329,10 @@ describe('AgentArtifactSurface', () => {
     });
 
     render(<AgentArtifactSurface runId="run-abc" />);
+    // Chip shows the verdict snippet once a typed artifact has committed (R2).
+    // "Draft ready" still appears in the section header via StatusPill.
     expect(
-      within(screen.getByTestId('worker-chip-positioningMarketCategory')).getByText('Draft ready'),
+      screen.getByTestId('worker-chip-verdict-positioningMarketCategory'),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('artifact-section-positioningMarketCategory')).getByText('Draft ready'),
