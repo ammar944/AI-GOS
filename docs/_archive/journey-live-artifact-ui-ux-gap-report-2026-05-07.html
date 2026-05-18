@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI-GOS /journey — Live Artifact UX Gap Report</title>
+  <style>
+    :root {
+      --bg: #090a0d;
+      --panel: #101217;
+      --panel-2: #151923;
+      --panel-3: #1b2130;
+      --ink: #f5f7fb;
+      --muted: #a9b1c3;
+      --dim: #6f788d;
+      --line: rgba(255,255,255,.11);
+      --line-strong: rgba(255,255,255,.18);
+      --red: #ff5f5f;
+      --amber: #f5b14c;
+      --green: #5ee6a8;
+      --blue: #69a8ff;
+      --violet: #b58cff;
+      --cyan: #67e8f9;
+      --shadow: 0 24px 80px rgba(0,0,0,.45);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 14% 0%, rgba(105,168,255,.22), transparent 34%),
+        radial-gradient(circle at 88% 8%, rgba(181,140,255,.16), transparent 30%),
+        linear-gradient(180deg, #090a0d 0%, #0d1017 46%, #090a0d 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.5;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 36px 24px 70px; }
+    .hero {
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(21,25,35,.96), rgba(9,10,13,.9));
+      border-radius: var(--radius-xl);
+      padding: 34px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -120px -180px auto;
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(103,232,249,.18), transparent 68%);
+      pointer-events: none;
+    }
+    .eyebrow { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+    .pill {
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.045);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing:.02em;
+    }
+    .pill.red { color:#ffd4d4; border-color: rgba(255,95,95,.35); background: rgba(255,95,95,.1); }
+    .pill.amber { color:#ffe2b3; border-color: rgba(245,177,76,.35); background: rgba(245,177,76,.1); }
+    .pill.green { color:#cbffe8; border-color: rgba(94,230,168,.35); background: rgba(94,230,168,.1); }
+    h1 { font-size: clamp(36px, 6vw, 74px); line-height:.94; letter-spacing:-.065em; margin:0 0 18px; max-width:1000px; }
+    h2 { font-size: clamp(25px, 3vw, 40px); line-height:1.02; letter-spacing:-.04em; margin:0 0 12px; }
+    h3 { font-size: 19px; letter-spacing:-.02em; margin:0 0 10px; }
+    p { margin:0; color: var(--muted); }
+    .lead { font-size: 19px; max-width: 920px; color: #d7ddea; }
+    .grid { display:grid; gap:18px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .section { margin-top: 24px; }
+    .card {
+      border: 1px solid var(--line);
+      background: rgba(16,18,23,.82);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: 0 16px 50px rgba(0,0,0,.22);
+    }
+    .card.soft { background: rgba(255,255,255,.035); }
+    .card.bad { border-color: rgba(255,95,95,.32); background: linear-gradient(180deg, rgba(255,95,95,.075), rgba(16,18,23,.82)); }
+    .card.good { border-color: rgba(94,230,168,.3); background: linear-gradient(180deg, rgba(94,230,168,.075), rgba(16,18,23,.82)); }
+    .card.warn { border-color: rgba(245,177,76,.35); background: linear-gradient(180deg, rgba(245,177,76,.085), rgba(16,18,23,.82)); }
+    .caption { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.12em; font-weight:750; margin-bottom:10px; }
+    .big-stat { font-size: 44px; line-height:1; letter-spacing:-.05em; font-weight:800; }
+    .red { color: var(--red); } .green { color: var(--green); } .amber { color: var(--amber); } .blue { color: var(--blue); } .violet { color: var(--violet); }
+    .divider { height:1px; background: var(--line); margin:18px 0; }
+    .mini { font-size: 13px; color: var(--dim); }
+    .mono { font-family: var(--mono); }
+    .stack { display:flex; flex-direction:column; gap:12px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .tag { font-family:var(--mono); font-size:12px; color:#cad2e4; background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:999px; padding:5px 8px; }
+
+    .screenshot-frame {
+      border:1px solid var(--line-strong);
+      border-radius:24px;
+      overflow:hidden;
+      background:#f7f8fb;
+      color:#1c2433;
+      box-shadow: var(--shadow);
+    }
+    .fake-app { display:grid; grid-template-columns: 150px 1fr; min-height:620px; }
+    .fake-rail { background:#f4f5f7; border-right:1px solid #dde2ea; padding:22px 16px; }
+    .fake-nav { display:flex; flex-direction:column; gap:14px; font-size:14px; color:#697386; }
+    .fake-main { padding:22px 28px; background:#fbfcfe; }
+    .fake-top { display:flex; justify-content:space-between; align-items:start; border-bottom:1px solid #e4e8ef; padding-bottom:18px; margin-bottom:20px; }
+    .fake-title { font-weight:800; font-size:24px; color:#121722; }
+    .fake-sub { color:#697386; font-size:13px; margin-top:2px; }
+    .fake-msg { max-width:850px; margin-bottom:16px; }
+    .fake-user { background:#eef2ff; border:1px solid #dce4ff; color:#1d2a44; border-radius:16px; padding:13px 15px; display:inline-block; }
+    .fake-agent { border:1px solid #e1e6ef; background:#fff; border-radius:18px; padding:16px; margin-top:12px; }
+    .fake-agent h4 { margin:0 0 8px; color:#111827; font-size:15px; }
+    .fake-artifact { border:1px solid #dbe3ef; background:#fff; border-radius:18px; padding:16px; margin: 16px 0; box-shadow:0 8px 20px rgba(20,30,50,.05); }
+    .fake-artifact .head { display:flex; justify-content:space-between; color:#697386; font-size:12px; margin-bottom:10px; }
+    .fake-artifact .md { color:#1f2937; font-family: Georgia, 'Times New Roman', serif; font-size:14px; line-height:1.55; }
+    .fake-log { border:1px solid #e5e7eb; background:#f8fafc; border-radius:14px; padding:11px 13px; font-family: var(--mono); color:#4b5563; font-size:12px; margin:8px 0; }
+    .callout-pin { position:relative; border:1px solid rgba(255,95,95,.35); background:rgba(255,95,95,.08); border-radius:16px; padding:14px; color:#ffd7d7; }
+    .callout-pin strong { color:#fff; }
+
+    .ideal-ui {
+      border:1px solid rgba(94,230,168,.22);
+      border-radius:26px;
+      overflow:hidden;
+      background:#0e1117;
+      box-shadow: var(--shadow);
+    }
+    .ideal-top { padding:15px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; background:#111620; }
+    .ideal-body { display:grid; grid-template-columns: 1fr 330px; min-height:560px; }
+    .artifact-surface { padding:26px 30px; background:linear-gradient(180deg,#11151d,#0c0f14); }
+    .artifact-doc { background:#fbfbf8; color:#161a22; border-radius:22px; padding:30px 34px; min-height:500px; box-shadow:0 24px 70px rgba(0,0,0,.35); }
+    .artifact-doc h4 { margin:0 0 18px; font-size:27px; letter-spacing:-.035em; }
+    .artifact-doc h5 { margin:22px 0 8px; font-size:16px; color:#111827; }
+    .artifact-doc p { color:#374151; font-size:15px; }
+    .writing-line { height:10px; background:linear-gradient(90deg,#d9e6ff,#f0f5ff,#d9e6ff); border-radius:999px; margin:9px 0; animation:pulse 1.6s infinite; }
+    .writing-line.short { width:55%; } .writing-line.mid { width:76%; } .writing-line.long { width:94%; }
+    @keyframes pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+    .activity-rail { border-left:1px solid var(--line); padding:22px; background:#0b0e13; }
+    .activity-item { border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px; background:rgba(255,255,255,.035); }
+    .activity-item .label { color:#d8deea; font-size:13px; font-weight:750; }
+    .activity-item .meta { color:var(--dim); font-size:12px; margin-top:3px; }
+
+    .flow { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:10px; }
+    .flow-step { border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(255,255,255,.035); min-height:120px; }
+    .flow-step.active { border-color:rgba(94,230,168,.4); background:rgba(94,230,168,.08); }
+    .flow-step.bad { border-color:rgba(255,95,95,.4); background:rgba(255,95,95,.08); }
+    .num { width:26px; height:26px; display:grid; place-items:center; border-radius:999px; background:rgba(255,255,255,.08); font-size:12px; font-weight:800; margin-bottom:10px; }
+
+    table { width:100%; border-collapse: collapse; overflow:hidden; border-radius:18px; border:1px solid var(--line); }
+    th, td { text-align:left; padding:14px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:#dfe6f4; font-size:13px; background:rgba(255,255,255,.05); }
+    td { color:var(--muted); font-size:14px; }
+    tr:last-child td { border-bottom:0; }
+    code, pre { font-family:var(--mono); }
+    pre { white-space:pre-wrap; background:#05070a; border:1px solid var(--line); color:#dbeafe; padding:18px; border-radius:18px; overflow:auto; }
+    .footer { color:var(--dim); margin-top:30px; font-size:13px; }
+    @media (max-width: 980px) {
+      .grid.two, .grid.three, .ideal-body, .flow { grid-template-columns:1fr; }
+      .fake-app { grid-template-columns:1fr; }
+      .fake-rail { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="eyebrow">
+        <span class="pill red">Verdict: still not Manus-grade</span>
+        <span class="pill amber">Problem: artifact surface exists, but feels raw + slow</span>
+        <span class="pill green">Direction: OpenUI-style generative components + live artifact stream</span>
+        <span class="pill">Updated: 2026-05-07 22:09 PKT</span>
+      </div>
+      <h1>/journey is writing now — but it still looks like a log viewer, not an agent product.</h1>
+      <p class="lead">The live QA confirms progress: Deep Research produced text and the artifact appeared. But the experience still fails the desired bar because the report is visually ugly, duplicated, slow-feeling, and not choreographed like Manus / ChatGPT Deep Research / Claude Artifacts / Cursor.</p>
+    </header>
+
+    <section class="section grid three">
+      <div class="card bad">
+        <div class="caption">What the user sees</div>
+        <div class="big-stat red">logs first</div>
+        <p>Deep Research runs, but the primary impression is a stack of activity rows and raw markdown. The artifact does not feel like the main deliverable.</p>
+      </div>
+      <div class="card warn">
+        <div class="caption">What should happen</div>
+        <div class="big-stat amber">artifact first</div>
+        <p>The report should appear immediately as a premium writing surface, with logs collapsed/secondary and sources attached as citations.</p>
+      </div>
+      <div class="card good">
+        <div class="caption">Best next direction</div>
+        <div class="big-stat green">OpenUI layer</div>
+        <p>Use generative UI components for sections, evidence, sources, tables, and recommendations — not raw markdown dumped into a card.</p>
+      </div>
+    </section>
+
+    <section class="section card">
+      <h2>Current live QA snapshot — what is wrong visually</h2>
+      <p>The current state proves the backend can produce content, but the front-end presentation is still below the product bar.</p>
+      <div class="divider"></div>
+      <div class="screenshot-frame">
+        <div class="fake-app">
+          <aside class="fake-rail">
+            <div class="fake-nav">
+              <strong>Home</strong>
+              <strong>Journey</strong>
+              <span>Research</span>
+              <span>Profiles</span>
+            </div>
+          </aside>
+          <main class="fake-main">
+            <div class="fake-top">
+              <div>
+                <div class="fake-title">Airtable Journey</div>
+                <div class="fake-sub">Anthropic GTM agents · chat mode</div>
+              </div>
+              <div class="fake-sub mono">run b72b85</div>
+            </div>
+            <div class="fake-msg"><span class="fake-user">research airtable.com</span></div>
+            <div class="fake-agent">
+              <h4>Deep Research Agent</h4>
+              <p>Deep Research Agent starting. I’m checking source-backed company context before writing the first GTM section.</p>
+              <div class="fake-log">Company research corpus saved for section synthesis</div>
+            </div>
+            <div class="fake-artifact">
+              <div class="head"><strong>Live GTM Research Artifact</strong><span>streaming</span></div>
+              <div class="md">
+                <strong>Airtable GTM Research</strong><br/>
+                <span style="color:#64748b">ready</span><br/><br/>
+                # https://airtable.com GTM Research<br/><br/>
+                ## Deep Research<br/><br/>
+                Deep Research Agent is building the source-backed corpus...<br/><br/>
+                ## Deep Research<br/><br/>
+                Airtable is a San Francisco-based B2B SaaS platform founded in 2012...
+              </div>
+            </div>
+            <div class="fake-agent">
+              <h4>Market Category Specialist <span style="color:#64748b">streaming</span></h4>
+              <div class="fake-log">Market Category Specialist is writing this section from the source-backed corpus...</div>
+            </div>
+          </main>
+        </div>
+      </div>
+      <div class="section grid three">
+        <div class="callout-pin"><strong>Duplicate headings.</strong><br/>The artifact says Airtable GTM Research twice and Deep Research twice. It feels generated/sloppy.</div>
+        <div class="callout-pin"><strong>Raw markdown texture.</strong><br/>The report reads like pasted Markdown, not a designed artifact with sections, evidence cards, citations, and hierarchy.</div>
+        <div class="callout-pin"><strong>Next section interrupts.</strong><br/>Market Category starts while Deep Research still does not feel completed/presented as a finished first chapter.</div>
+      </div>
+    </section>
+
+    <section class="section grid two">
+      <div class="card bad">
+        <h2>UI/UX flaws</h2>
+        <div class="stack">
+          <div><span class="tag">1</span> <strong>Artifact lacks visual authority.</strong><p>It is labeled as an artifact but visually behaves like a white markdown box inside a log feed.</p></div>
+          <div><span class="tag">2</span> <strong>Logs compete with the output.</strong><p>Activity rows are not clearly subordinate. The page still reads as workflow telemetry.</p></div>
+          <div><span class="tag">3</span> <strong>No authored progression.</strong><p>The user cannot feel the report being thoughtfully built: plan → source review → synthesis → cited section.</p></div>
+          <div><span class="tag">4</span> <strong>Bad density and typography.</strong><p>Huge prose blocks, weak hierarchy, duplicated headings, no source footnote rhythm, no section cards.</p></div>
+          <div><span class="tag">5</span> <strong>Section sequencing is not dramaturgic.</strong><p>Specialists start like jobs, not like chapters in a single guided research narrative.</p></div>
+          <div><span class="tag">6</span> <strong>Slow-feeling feedback.</strong><p>Even when work is happening, the UI does not provide high-frequency meaningful changes in the primary artifact.</p></div>
+        </div>
+      </div>
+      <div class="card good">
+        <h2>Ideal interaction feel</h2>
+        <div class="stack">
+          <div><span class="tag">A</span> <strong>Agent opens with intent.</strong><p>“I’m building a source-backed GTM report. First I’ll map company context and evidence.”</p></div>
+          <div><span class="tag">B</span> <strong>Artifact shell appears instantly.</strong><p>Title, outline, active section, cursor/writing state, source rail placeholder.</p></div>
+          <div><span class="tag">C</span> <strong>Report grows in components.</strong><p>Summary cards, evidence cards, competitor table, recommendations, citations — not raw Markdown only.</p></div>
+          <div><span class="tag">D</span> <strong>Logs are trust layer.</strong><p>Collapsed “Activity” shows searches/tools/sources; it does not dominate the page.</p></div>
+          <div><span class="tag">E</span> <strong>Sequential chapters.</strong><p>Deep Research completes visibly, then Market Category continues the same artifact, then ICP, etc.</p></div>
+          <div><span class="tag">F</span> <strong>User can steer.</strong><p>“Sharpen ICP,” “compare vs Notion,” “turn this into outbound angles” edits the live artifact.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section card good">
+      <h2>Ideal Manus-grade `/journey` surface</h2>
+      <p>Artifact is primary, logs secondary, sources attached, sections sequential. This is the actual product shape we want.</p>
+      <div class="divider"></div>
+      <div class="ideal-ui">
+        <div class="ideal-top">
+          <div class="row"><strong>Deep Research Agent</strong><span class="pill green">writing artifact</span><span class="pill">Airtable</span></div>
+          <div class="mini mono">run b72b85</div>
+        </div>
+        <div class="ideal-body">
+          <div class="artifact-surface">
+            <div class="artifact-doc">
+              <div class="row" style="justify-content:space-between; margin-bottom:14px;">
+                <span class="tag">Live GTM Artifact</span>
+                <span class="tag" style="color:#0f766e;background:#ccfbf1;border-color:#99f6e4;">streaming</span>
+              </div>
+              <h4>Airtable GTM Research</h4>
+              <h5>Deep Research Summary</h5>
+              <p>Airtable is being repositioned from a collaborative database into an AI-native app platform for enterprise workflow automation.</p>
+              <div class="writing-line long"></div>
+              <div class="writing-line mid"></div>
+              <div class="writing-line short"></div>
+              <h5>Evidence Highlights</h5>
+              <p><strong>1.</strong> 500,000+ organizations served, including Fortune 100 accounts. <span style="color:#2563eb">[source]</span></p>
+              <p><strong>2.</strong> 2025 refounding centers the product around Omni, Field Agents, HyperDB, and Superagent. <span style="color:#2563eb">[source]</span></p>
+              <h5>Next section queued</h5>
+              <p>Market Category will start after this Deep Research chapter is complete.</p>
+            </div>
+          </div>
+          <aside class="activity-rail">
+            <div class="caption">Secondary activity</div>
+            <div class="activity-item"><div class="label">Searching web</div><div class="meta">Airtable pricing, newsroom, TechCrunch, Sacra</div></div>
+            <div class="activity-item"><div class="label">Reading source</div><div class="meta">TechCrunch Superagent interview</div></div>
+            <div class="activity-item"><div class="label">Extracting evidence</div><div class="meta">ARR, valuation, product launches, buyer claims</div></div>
+            <div class="activity-item"><div class="label">Writing artifact</div><div class="meta">Appending Deep Research summary</div></div>
+            <div class="activity-item" style="opacity:.55"><div class="label">Market Category</div><div class="meta">Queued behind Deep Research</div></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section card">
+      <h2>Where OpenUI fits</h2>
+      <p>OpenUI’s value is not “make it prettier.” Its value is that the model can stream structured UI components instead of plain Markdown. That is exactly the missing layer.</p>
+      <div class="divider"></div>
+      <div class="grid two">
+        <div>
+          <h3>OpenUI concept from docs</h3>
+          <p>OpenUI is a streaming-first generative UI framework where you define a component library, the LLM emits compact OpenUI Lang, and the renderer maps it to your React components in real time. The docs specifically position it as an alternative to plain Markdown/JSON for AI apps that need richer interactive output.</p>
+          <div class="row" style="margin-top:14px;">
+            <span class="pill">component library</span>
+            <span class="pill">system prompt</span>
+            <span class="pill">LLM emits OpenUI Lang</span>
+            <span class="pill">renderer streams UI</span>
+          </div>
+        </div>
+        <div>
+          <h3>AI-GOS application</h3>
+          <p>Instead of the agent emitting only report Markdown, it can emit safe, allowed GTM components: ExecutiveSummary, EvidenceCard, SourceList, CompetitorMatrix, ICPBlock, OfferDiagnosis, RecommendationStack. The renderer streams those into the artifact as native UI.</p>
+          <div class="row" style="margin-top:14px;">
+            <span class="pill green">EvidenceCard</span>
+            <span class="pill green">SourceRail</span>
+            <span class="pill green">CompetitorTable</span>
+            <span class="pill green">GTMRecommendation</span>
+          </div>
+        </div>
+      </div>
+      <pre>Ideal OpenUI-style artifact event:
+
+artifact.component.delta = {
+  section: "deepResearchProgram",
+  component: "EvidenceCard",
+  props: {
+    title: "Airtable's AI-native pivot",
+    claim: "Airtable is repositioning from collaborative database to AI-native app platform.",
+    sources: ["Airtable newsroom", "TechCrunch"]
+  }
+}</pre>
+    </section>
+
+    <section class="section card warn">
+      <h2>Current bottleneck map</h2>
+      <div class="flow">
+        <div class="flow-step bad"><div class="num">1</div><strong>Worker emits logs</strong><p class="mini">Good for transparency, bad as primary output.</p></div>
+        <div class="flow-step bad"><div class="num">2</div><strong>Artifact inferred from logs</strong><p class="mini">Brittle. If no typed draft event, no good artifact.</p></div>
+        <div class="flow-step bad"><div class="num">3</div><strong>Markdown dumped</strong><p class="mini">Long prose, duplicate headings, weak hierarchy.</p></div>
+        <div class="flow-step bad"><div class="num">4</div><strong>Next job starts</strong><p class="mini">Feels like backend workflow, not a guided agent.</p></div>
+        <div class="flow-step active"><div class="num">5</div><strong>Needed: UI stream</strong><p class="mini">Typed artifact + component deltas rendered live.</p></div>
+      </div>
+    </section>
+
+    <section class="section card">
+      <h2>Design requirements for the next build</h2>
+      <table>
+        <thead><tr><th>Area</th><th>Current flaw</th><th>Required correction</th></tr></thead>
+        <tbody>
+          <tr><td>Artifact surface</td><td>Raw markdown box buried among activity.</td><td>Dedicated premium writing surface with title, active chapter, structured blocks, citations, and streaming cursor.</td></tr>
+          <tr><td>Deep Research chapter</td><td>Does not feel like a full first report chapter before next specialist starts.</td><td>Must write a meaningful first chapter: research plan, company context, evidence highlights, sources, open questions.</td></tr>
+          <tr><td>Section sequencing</td><td>Market Category starts immediately in a way that visually interrupts.</td><td>Backend may run, but foreground says “queued behind Deep Research” until current chapter is visibly complete.</td></tr>
+          <tr><td>Typography</td><td>Duplicated headings and dense paragraphs look like generated sludge.</td><td>Use editorial hierarchy: section deck, summary cards, bullets, evidence callouts, tables, source footnotes.</td></tr>
+          <tr><td>Activity logs</td><td>Compete with the artifact.</td><td>Compact/collapsible trace: search, read, extract, write. Logs prove work but do not own the screen.</td></tr>
+          <tr><td>OpenUI</td><td>Not integrated; output is plain text/Markdown.</td><td>Define a GTM component library and let agent stream safe component instructions or typed component events.</td></tr>
+          <tr><td>Speed perception</td><td>Feels slower than Manus because the primary surface changes rarely.</td><td>High-frequency meaningful updates: outline immediately, skeletons, deltas, source badges, section progress.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section grid two">
+      <div class="card">
+        <h2>What the artifact should be made of</h2>
+        <pre>GTMArtifact
+├─ ArtifactHeader
+│  ├─ company
+│  ├─ activeAgent
+│  └─ streamingStatus
+├─ ResearchPlanBlock
+├─ ExecutiveSummaryBlock
+├─ EvidenceHighlights
+│  └─ EvidenceCard[]
+├─ SourceRail
+│  └─ SourceCard[]
+├─ SectionStack
+│  ├─ DeepResearchSection
+│  ├─ MarketCategorySection
+│  ├─ ICPSection
+│  ├─ CompetitorSection
+│  └─ OfferSection
+└─ FollowUpComposer</pre>
+      </div>
+      <div class="card">
+        <h2>Events the backend should emit</h2>
+        <pre>artifact.start
+artifact.outline.delta
+artifact.section.start
+artifact.section.delta
+artifact.component.delta
+source.found
+source.read
+source.attached
+log.event
+section.complete
+section.queued
+artifact.complete</pre>
+      </div>
+    </section>
+
+    <section class="section card bad">
+      <h2>Blunt verdict</h2>
+      <p>The current version is no longer completely broken — it can write. But it still feels like a slop Manus clone because the UI is not designed around the artifact. It is designed around job status. To reach the intended grade, AI-GOS needs a first-class live artifact surface plus an OpenUI-style component renderer so the GTM report is composed as rich UI, not streamed as raw markdown text.</p>
+      <div class="divider"></div>
+      <div class="grid three">
+        <div><div class="caption">Keep</div><p>Deep Research first, source-backed corpus, specialist agents, sequential canonical sections.</p></div>
+        <div><div class="caption">Replace</div><p>Raw markdown card, duplicate headings, log-dominant layout, backend-first sequencing.</p></div>
+        <div><div class="caption">Add</div><p>OpenUI-inspired component library, typed artifact/component events, premium live writing surface.</p></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Created for AI-GOS `/journey` QA after live run `b72b85`. References checked: OpenUI homepage/docs, Vercel AI SDK/OpenUI streaming concepts, current Journey behavior supplied by user.
+    </footer>
+  </div>
+</body>
+</html>

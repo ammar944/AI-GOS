@@ -54,6 +54,9 @@ export function isPositioningArtifactSource(
 export function isPositioningTypedArtifact(
   value: unknown,
 ): value is PositioningTypedArtifact {
+  // Sources are validated and filtered downstream in pickPositioningTypedArtifact.
+  // Keeping this guard tolerant of partial sources prevents the whole artifact from
+  // falling back to markdown when a single source entry is missing a field.
   return (
     isRecord(value) &&
     isNonEmptyString(value.sectionTitle) &&
@@ -61,8 +64,7 @@ export function isPositioningTypedArtifact(
     isNonEmptyString(value.statusSummary) &&
     typeof value.confidence === 'number' &&
     Number.isFinite(value.confidence) &&
-    Array.isArray(value.sources) &&
-    value.sources.every(isPositioningArtifactSource)
+    Array.isArray(value.sources)
   );
 }
 
@@ -111,10 +113,15 @@ export function pickPositioningTypedArtifact(
   value: unknown,
   zoneId?: string | null,
 ): PositioningTypedArtifact | null {
-  return pickNestedPositioningTypedArtifact(
+  const found = pickNestedPositioningTypedArtifact(
     value,
     zoneId,
     new WeakSet<object>(),
     0,
   );
+  if (!found) return null;
+  const validSources = found.sources.filter(isPositioningArtifactSource);
+  return validSources.length === found.sources.length
+    ? found
+    : { ...found, sources: validSources };
 }

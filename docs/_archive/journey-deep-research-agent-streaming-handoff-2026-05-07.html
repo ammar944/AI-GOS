@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI-GOS /journey — Deep Research Agent Streaming Handoff</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09090b;
+      --panel: #101014;
+      --panel-2: #15151b;
+      --panel-3: #1d1d24;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --dim: #71717a;
+      --line: rgba(255,255,255,.10);
+      --line-strong: rgba(255,255,255,.18);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue: #60a5fa;
+      --purple: #a78bfa;
+      --cyan: #22d3ee;
+      --radius: 18px;
+      --shadow: 0 24px 80px rgba(0,0,0,.48);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 14% -10%, rgba(96,165,250,.18), transparent 34rem),
+        radial-gradient(circle at 92% 4%, rgba(167,139,250,.16), transparent 34rem),
+        linear-gradient(180deg, #09090b 0%, #0c0c10 45%, #09090b 100%);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: var(--mono); }
+    code {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 7px;
+      padding: .12rem .35rem;
+      font-size: .92em;
+    }
+    pre {
+      overflow: auto;
+      background: #050507;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1rem;
+      color: #e5e7eb;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(24,24,29,.92), rgba(13,13,16,.92));
+      border-radius: 28px;
+      padding: 34px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -170px auto;
+      width: 420px;
+      height: 420px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(34,197,94,.16), transparent 70%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #bbf7d0;
+      background: rgba(34,197,94,.10);
+      border: 1px solid rgba(34,197,94,.26);
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      margin: 18px 0 14px;
+      font-size: clamp(36px, 6vw, 78px);
+      line-height: .95;
+      letter-spacing: -.055em;
+      max-width: 980px;
+    }
+    .hero p.lead {
+      margin: 0;
+      max-width: 850px;
+      color: #d4d4d8;
+      font-size: clamp(18px, 2.1vw, 24px);
+      letter-spacing: -.015em;
+    }
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: #d4d4d8;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: rgba(16,16,20,.86);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: 0 12px 50px rgba(0,0,0,.24);
+    }
+    .card h2, .card h3 { margin-top: 0; letter-spacing: -.025em; }
+    .card h2 { font-size: 28px; line-height: 1.1; }
+    .card h3 { font-size: 20px; }
+    .muted { color: var(--muted); }
+    .dim { color: var(--dim); }
+    .red { color: #fca5a5; }
+    .green { color: #86efac; }
+    .amber { color: #fcd34d; }
+    .blue { color: #93c5fd; }
+    .purple { color: #c4b5fd; }
+
+    .verdict {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 18px;
+    }
+    @media (max-width: 900px) { .verdict { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .verdict { grid-template-columns: 1fr; } }
+    .metric {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 126px;
+    }
+    .metric b { display: block; font-size: 34px; line-height: 1; letter-spacing: -.05em; }
+    .metric span { display: block; margin-top: 8px; color: var(--muted); font-size: 13px; }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+      margin: 16px 0 0;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 14px;
+      align-items: start;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.035);
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .num {
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      background: rgba(96,165,250,.13);
+      border: 1px solid rgba(96,165,250,.25);
+      color: #bfdbfe;
+    }
+    .step h4 { margin: 0 0 4px; }
+    .step p { margin: 0; color: var(--muted); }
+
+    .compare {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      font-size: 14px;
+    }
+    .compare th, .compare td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .compare tr:last-child td { border-bottom: 0; }
+    .compare th {
+      background: rgba(255,255,255,.06);
+      color: #fafafa;
+      text-align: left;
+    }
+    .compare td { color: #d4d4d8; }
+
+    .chat-demo {
+      background: #0b0b0f;
+      border: 1px solid var(--line-strong);
+      border-radius: 24px;
+      overflow: hidden;
+    }
+    .chat-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .chat-body { padding: 18px; display: grid; gap: 14px; }
+    .bubble {
+      max-width: 88%;
+      border-radius: 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.045);
+    }
+    .bubble.user { margin-left: auto; background: rgba(96,165,250,.11); border-color: rgba(96,165,250,.28); }
+    .agent-card {
+      border: 1px solid rgba(34,197,94,.26);
+      background: linear-gradient(180deg, rgba(34,197,94,.08), rgba(255,255,255,.025));
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .agent-title { display: flex; gap: 10px; align-items: center; font-weight: 800; }
+    .dot {
+      width: 9px; height: 9px; border-radius: 999px; background: var(--green);
+      box-shadow: 0 0 0 6px rgba(34,197,94,.11);
+    }
+    .stream-line {
+      margin-top: 12px;
+      padding-left: 18px;
+      border-left: 1px solid rgba(34,197,94,.28);
+      color: #d4d4d8;
+    }
+    .caret::after {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 1.1em;
+      margin-left: 3px;
+      vertical-align: -.18em;
+      background: #e5e7eb;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .source-list { display: grid; gap: 10px; padding: 0; list-style: none; }
+    .source-list li {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.035);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .source-list b { display: block; }
+    .source-list small { color: var(--dim); }
+
+    .callout {
+      border: 1px solid rgba(245,158,11,.25);
+      background: rgba(245,158,11,.08);
+      border-radius: 18px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .callout strong { color: #fcd34d; }
+
+    .acceptance li { margin-bottom: 8px; }
+    .footer {
+      color: var(--dim);
+      font-size: 13px;
+      margin-top: 24px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="eyebrow">Grounded handoff · not vibes</div>
+      <h1>/journey Deep Research Agent streaming slice</h1>
+      <p class="lead">What we need to build, where the current implementation is lying to the user, and how to hand it to Codex/subagents so they execute a real ChatGPT/Claude/Cursor-style research artifact stream instead of another status-dashboard patch.</p>
+      <div class="meta-row">
+        <span class="pill">Repo: <code>/Users/ammar/Dev-Projects/AI-GOS</code></span>
+        <span class="pill">Branch context: <code>rescue/deep-research-six-cards</code></span>
+        <span class="pill">Generated: 2026-05-07 18:16 PKT</span>
+        <span class="pill">Updated: 2026-05-07 19:02 PKT · post-Codex verification</span>
+        <span class="pill">Scope: discovery + implementation handoff + verification addendum</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Executive verdict</h2>
+        <p class="muted">We are close on research capability, but not close enough on visible product experience. The backend already has research workers, Anthropic-powered synthesis, persisted results, and Vercel AI SDK chat infrastructure. The gap is that the user does not see the agent think/work/write in the central chat. The post-Codex commit improved command parsing and sequential UI state, but independent verification says it is still not a GREEN slice.</p>
+        <div class="verdict">
+          <div class="metric"><b class="green">70%</b><span>Backend capability already exists: dispatch, worker, Supabase persistence, section runners.</span></div>
+          <div class="metric"><b class="red">30%</b><span>Visible streaming UX exists: current UI mostly polls status and shows static rows.</span></div>
+          <div class="metric"><b class="amber">1</b><span>Vertical slice to prove: Deep Research first → live draft block → next section reveal.</span></div>
+          <div class="metric"><b class="blue">5</b><span>Subagent workstreams recommended: UI state, stream protocol, worker deltas, artifact renderer, tests/review.</span></div>
+        </div>
+        <div class="callout"><strong>Non-negotiable:</strong> the first visible assistant turn after <code>research airtable.com</code> must be <b>Deep Research Agent</b>. Do not render all specialists upfront. Do not expose “23 profile fields extracted” as the main success state.</div>
+      </article>
+
+      <article class="card">
+        <h2>Target interaction</h2>
+        <div class="chat-demo" aria-label="Desired streamed chat demo">
+          <div class="chat-top"><span>AI-GOS Journey</span><span>research run · live</span></div>
+          <div class="chat-body">
+            <div class="bubble user">research airtable.com</div>
+            <div class="agent-card">
+              <div class="agent-title"><span class="dot"></span>Deep Research Agent</div>
+              <div class="stream-line">Starting source-backed company research for Airtable. I’m checking product pages, docs, pricing, positioning, and market context before writing the first GTM section.</div>
+              <div class="stream-line caret"><b>Writing artifact:</b> Airtable is positioned as an app platform for teams that need relational data, workflows, interfaces, and AI-assisted operations in one system...</div>
+            </div>
+            <div class="agent-card" style="border-color: rgba(96,165,250,.22); background: rgba(96,165,250,.055);">
+              <div class="agent-title"><span class="dot" style="background: var(--blue); box-shadow: 0 0 0 6px rgba(96,165,250,.11);"></span>Market Category Agent <span class="dim">· revealed only after Deep Research has enough grounded corpus</span></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <h2>Grounded research: actual docs/playbooks we should copy from in principle</h2>
+      <p class="muted">These are not invented patterns. They come from the platform docs and local source references inspected for this handoff.</p>
+      <table class="compare">
+        <thead><tr><th>Reference</th><th>What it says</th><th>What AI-GOS should copy/adapt</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Vercel AI SDK v6 — Stream Protocols</b><br><a href="https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol">ai-sdk.dev/docs/ai-sdk-ui/stream-protocol</a></td>
+            <td>AI SDK UI supports <code>useChat</code>; text streams append chunks into a response; UI message streams use SSE parts including <code>text-start</code>, <code>text-delta</code>, <code>text-end</code>, <code>source-url</code>, <code>data-*</code>, tool input/output, step start/finish, and <code>finish</code>. Backend can return <code>result.toUIMessageStreamResponse()</code>.</td>
+            <td>Stop treating worker output as only final results. Convert research events into UI-message-compatible stream parts: visible assistant text deltas for draft writing, source parts for citations, and custom <code>data-journey-agent</code>/<code>data-journey-section</code> parts for UI state.</td>
+          </tr>
+          <tr>
+            <td><b>Vercel AI SDK v6 — Agents overview</b><br><a href="https://ai-sdk.dev/docs/agents/overview">ai-sdk.dev/docs/agents/overview</a></td>
+            <td>Agents are LLMs using tools in a loop. <code>ToolLoopAgent</code> handles loop, context management, stopping conditions, and reusable tool configuration. Docs also say use structured workflows when repeatable outcomes need explicit control flow.</td>
+            <td>Use a visible tool loop for the chat-facing agent, but do not make reveal order nondeterministic. Use structured workflow gates for the sequence: Deep Research → Market → ICP → Competitors → Offer → Synthesis. The agent can reason, but the UI reveal contract is deterministic.</td>
+          </tr>
+          <tr>
+            <td><b>Cursor Agent overview</b><br><a href="https://cursor.com/docs/agent/overview">cursor.com/docs/agent/overview</a></td>
+            <td>Cursor describes Agent as instructions + tools + model. Tools include codebase/web search, file edits, terminal, browser. Cursor also has checkpoints, queued messages, and immediate messages to redirect active work.</td>
+            <td>Make the user feel in control while the agent runs: visible timeline, editable artifact, interrupt/redirect path, and safe rollback/refresh-resume state. Do not hide work behind “processing.”</td>
+          </tr>
+          <tr>
+            <td><b>Cursor Plan Mode</b><br><a href="https://cursor.com/docs/agent/plan-mode">cursor.com/docs/agent/plan-mode</a></td>
+            <td>Plan Mode researches the codebase, asks clarifying questions, creates a reviewable plan, and lets the user edit the plan before building. For larger changes, precise scoping matters more than follow-up patching.</td>
+            <td>For this slice, Codex should receive a locked plan and acceptance tests before implementation. No broad “make it better” prompt. Each worker gets one responsibility and explicit non-goals.</td>
+          </tr>
+          <tr>
+            <td><b>Cursor Subagents</b><br><a href="https://cursor.com/docs/subagents">cursor.com/docs/subagents</a></td>
+            <td>Subagents are isolated contexts for long research, parallel work, specialized prompts, and independent verification. Built-in examples include Explore, Bash, Browser. Best practices: focused subagents, good descriptions, version controlled agents, independent verifier.</td>
+            <td>Use five focused Codex/subagent tracks, not one mega prompt. Keep main session as orchestrator. Require each subagent to return files changed, commands run, exit codes, and PASS/FAIL evidence.</td>
+          </tr>
+          <tr>
+            <td><b>Claude Artifacts</b><br><a href="https://support.claude.com/en/articles/9487310-what-are-artifacts-and-how-do-i-use-them">Claude Help Center</a></td>
+            <td>Artifacts are significant, self-contained content likely to be edited, iterated on, reused, and shown in a dedicated window beside chat. Users can ask Claude to modify the artifact; changes appear directly in the artifact window; multiple versions are supported.</td>
+            <td>The GTM report is an artifact, not a hidden card dump. It should be born in the chat stream, render as a growing report block, then become a persistent editable artifact with chat-driven edits and versions.</td>
+          </tr>
+          <tr>
+            <td><b>AionUi local README</b><br><code>/Users/ammar/hermes-workspace/AionUi/readme.md</code></td>
+            <td>AionUi says users “see everything the agent does,” supports multiple AI agents in one interface, parallel sessions with independent context, and Team Mode where a leader delegates to teammates and aggregates results.</td>
+            <td>Adopt the Cowork feeling: visible agent work and clear user control. Parallelism can exist backstage, but the foreground narrative should be one coherent leader/agent stream.</td>
+          </tr>
+          <tr>
+            <td><b>AI coding agents playbook</b><br><code>~/.hermes/skills/software-development/ai-coding-agents-playbook/SKILL.md</code></td>
+            <td>Human owns architecture and measurement; draw before prompting; write locked intent docs; use TDD; use parallel agents only for independent work; keep review gates; verify with tests/browser QA.</td>
+            <td>Create a checked-in handoff and tests before Codex writes. Use RED/GREEN acceptance gates and a skeptical review agent. This is exactly the kind of feature that fails if assigned as a vague UI polish task.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Current AI-GOS gap map</h2>
+        <div class="timeline">
+          <div class="step"><div class="num">1</div><div><h4>Input is still URL-first</h4><p><code>src/app/journey/page.tsx</code> normalizes arbitrary input as a URL, so <code>research airtable.com</code> is not treated as a natural chat command. <code>journey-agent-chat.tsx</code> uses URL-specific labels/placeholders and direct submit behavior.</p></div></div>
+          <div class="step"><div class="num">2</div><div><h4>All specialists show too early</h4><p><code>SPECIALIST_ORDER</code> and the current assistant card render the full specialist list upfront. The desired UX is Deep Research Agent first, then one section at a time.</p></div></div>
+          <div class="step"><div class="num">3</div><div><h4>Status rows replace streamed writing</h4><p>Current UI polls snapshots/activity and shows short updates. It does not render an assistant-written artifact growing in the central chat.</p></div></div>
+          <div class="step"><div class="num">4</div><div><h4>Worker deltas are ignored</h4><p>The worker observes Anthropic streaming text events, but text deltas are not persisted as draft chunks. Final results are written later, which kills the ChatGPT/Claude-style experience.</p></div></div>
+          <div class="step"><div class="num">5</div><div><h4>Implementation detail leaks</h4><p>The UI exposes profile extraction counts like “23 profile fields extracted.” Users need to see research evidence and report sections, not internal field counts.</p></div></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Architecture target</h2>
+        <pre>research airtable.com
+  │
+  ▼
+Journey chat command parser
+  │ append user message immediately
+  │
+  ▼
+Deep Research Agent visible run
+  │ stream: text-delta + source-url + data-journey-agent
+  │ persist: draft chunks + cumulative artifact + sources
+  │
+  ▼
+Sequential reveal controller
+  │ backend jobs may finish out of order
+  │ UI reveals only current section
+  │
+  ▼
+GTM report artifact
+  │ section draft grows in chat
+  │ final artifact card persists
+  │ chat edits mutate selected section
+  │
+  ▼
+Review/verification gates
+  no fake counts · no unsourced claims · refresh resumes</pre>
+        <p class="muted">Important: this does <b>not</b> require throwing out the current worker or Supabase setup. It requires adding a visible stream contract and UI reveal contract on top of what exists.</p>
+      </article>
+    </section>
+
+    <section class="card" style="margin-top:18px; border-color: rgba(245,158,11,.32); background: linear-gradient(180deg, rgba(245,158,11,.08), rgba(16,16,20,.92));">
+      <h2>Post-Codex verification addendum — commit <code>f1d6c387</code></h2>
+      <p class="muted">Codex reported “done” for <code>Implement journey deep research stream slice</code>. Independent review found real progress, but the slice should be treated as <b>YELLOW / not accepted</b> until the gaps below are fixed and verified.</p>
+      <div class="verdict">
+        <div class="metric"><b class="green">REAL</b><span>Commit exists at HEAD on <code>rescue/deep-research-six-cards</code>; tracked work is clean after commit.</span></div>
+        <div class="metric"><b class="green">PASS*</b><span>Focused Journey suite passes only when forced with <code>NODE_ENV=test</code>: <code>20 passed | 11 skipped</code>.</span></div>
+        <div class="metric"><b class="amber">YELLOW</b><span>Command parsing and first Deep Research state are improved, but product-level proof is weak.</span></div>
+        <div class="metric"><b class="red">FAIL</b><span>Artifact orchestration tests remain skipped and true live artifact streaming is not proven end-to-end.</span></div>
+      </div>
+
+      <h3>Evidence from independent verification</h3>
+      <table class="compare">
+        <thead><tr><th>Area</th><th>Evidence</th><th>Required follow-up</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Skipped tests</b></td>
+            <td><code>src/app/journey/__tests__/page.test.tsx:805-816</code> still has <code>describe.skip('JourneyPage artifact orchestration', ...)</code>. Focused run showed <code>20 passed | 11 skipped</code>.</td>
+            <td>Replace or unskip with current UX tests for artifact orchestration, sequential reveal, refresh reconstruction, and no specialist dump.</td>
+          </tr>
+          <tr>
+            <td><b>Environment brittleness</b></td>
+            <td>Current shell had <code>NODE_ENV=production</code>. Plain test runs can hit <code>React.act is not a function</code>; forced <code>NODE_ENV=test</code> passes.</td>
+            <td>Normalize test scripts/env so <code>npm run test:run</code> is reliable, or document and encode <code>NODE_ENV=test</code> in project scripts.</td>
+          </tr>
+          <tr>
+            <td><b>First visible assistant output</b></td>
+            <td>Tests mostly assert that <code>Deep Research Agent</code> exists somewhere, not that it is the first assistant-visible block or that other specialists are absent before reveal.</td>
+            <td>Add product-level DOM tests: user command bubble → first assistant card is Deep Research Agent → no Market/ICP/Competitor/Offer visible until gates open.</td>
+          </tr>
+          <tr>
+            <td><b>Artifact streaming</b></td>
+            <td>Current draft growth depends on persisted/polled activity updates whose message starts with <code>draft </code>. This is a useful scaffold, but not true AI SDK token/delta streaming and not proven against real worker output.</td>
+            <td>Prove the real worker emits draft chunks that become visible report prose; later milestone should capture Anthropic deltas and bridge them into UI-message-compatible stream parts.</td>
+          </tr>
+          <tr>
+            <td><b>Refresh reconstruction</b></td>
+            <td>Helper state is tested, but page-level refresh coverage only proves a narrow running Deep Research case; not active + partial + completed + buffered reconstruction.</td>
+            <td>Add end-to-end-ish page tests with mocked persisted session/activity snapshots covering partial/completed/buffered sections after reload.</td>
+          </tr>
+          <tr>
+            <td><b>Profile-field abstraction leakage</b></td>
+            <td>Main chat no longer says “profile fields extracted,” but <code>src/components/journey/prefill-stream-view.tsx</code> still contains <code>source-backed profile fields</code> and <code>Deep research profile fields</code>.</td>
+            <td>Remove or quarantine remaining user-facing field-count copy from any Journey kickoff/stream path. Users should see research evidence/report sections, not implementation counts.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Updated acceptance gate for next Codex pass</h3>
+      <ul class="acceptance">
+        <li><b>Do not call the slice complete while artifact orchestration tests are skipped.</b></li>
+        <li><b>Do not accept existence-only assertions.</b> Tests must prove ordering and absence of unrevealed specialists.</li>
+        <li><b>Do not accept mocked draft growth alone.</b> Add realistic worker/activity fixtures showing report text grows in the central chat.</li>
+        <li><b>Do not leave test env fragile.</b> The verification command in this doc must pass from a normal terminal session.</li>
+        <li><b>Do not expose field-count language anywhere the Journey user can see it.</b></li>
+      </ul>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <h2>Codex / five-subagent handoff</h2>
+      <p class="muted">Use this as the final-slice execution plan. Each worker should be isolated, narrow, and forced to prove its work. After commit <code>f1d6c387</code>, this is now a fix/review pass, not a rebuild from scratch.</p>
+      <table class="compare">
+        <thead><tr><th>Worker</th><th>Mission</th><th>Must return</th><th>Non-goals</th></tr></thead>
+        <tbody>
+          <tr><td><b>1. Product/UI state worker</b></td><td>Implement command-style input and first assistant turn. Parse <code>research airtable.com</code>; render Deep Research Agent first; hide all inactive specialists.</td><td>Changed files, screenshots or DOM evidence, tests proving first visible agent is Deep Research.</td><td>No worker streaming changes. No broad redesign.</td></tr>
+          <tr><td><b>2. Stream contract worker</b></td><td>Design/implement typed journey stream events compatible with AI SDK UI message stream concepts: text deltas, source refs, agent/section state.</td><td>Types, adapters, unit tests for event ordering and reconnect/resume behavior.</td><td>No visual polish. No new external APIs.</td></tr>
+          <tr><td><b>3. Research worker delta worker</b></td><td>Capture Anthropic streaming text deltas in <code>research-worker/src/runner.ts</code>; persist draft chunks/cumulative drafts safely.</td><td>Worker build result, tests/mocks showing deltas persist and final result remains unchanged.</td><td>No prompt rewrite unless required for emitted text quality.</td></tr>
+          <tr><td><b>4. Artifact renderer worker</b></td><td>Render a growing report artifact in central chat; then convert completed draft into persistent section/card. Support one section visible at a time and buffered out-of-order completions.</td><td>Component tests and a mocked run proving sequential reveal.</td><td>No dashboard/canvas/workspace expansion.</td></tr>
+          <tr><td><b>5. Skeptical verifier</b></td><td>Read the diff after workers finish. Try to break it. Verify refresh resume, no field-count leakage, no all-specialist upfront list, no hallucinated source claims.</td><td>PASS/FAIL report with commands, exit codes, screenshots, and exact blockers.</td><td>No implementation unless fixing tiny test harness issues.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Locked acceptance criteria</h3>
+      <ul class="acceptance">
+        <li><b>First-visible-agent test:</b> after submitting <code>research airtable.com</code>, the first assistant-visible card/text is <b>Deep Research Agent</b>.</li>
+        <li><b>No upfront specialist dump:</b> Market/ICP/Competitor/Offer/etc. are not rendered as idle rows before their reveal gate.</li>
+        <li><b>Live writing test:</b> while research is running, a report/artifact block visibly grows from streamed text/draft chunks.</li>
+        <li><b>Sequential reveal test:</b> if backend completions arrive out of order, UI buffers them and reveals canonical order only.</li>
+        <li><b>No profile-count leakage:</b> user-facing copy must not say “23 profile fields extracted” or equivalent implementation detail.</li>
+        <li><b>Source grounding:</b> visible claims in the final artifact either include source metadata or are explicitly marked as inference/draft.</li>
+        <li><b>Refresh resume:</b> reloading during a run reconstructs active agent, partial draft, completed sections, and buffered sections from persisted state.</li>
+      </ul>
+
+      <h3>Starter Codex prompt — post-<code>f1d6c387</code> fix/review pass</h3>
+      <pre>You are Codex working in /Users/ammar/Dev-Projects/AI-GOS on branch rescue/deep-research-six-cards.
+Read AGENTS.md, CLAUDE.md if present, and docs/journey-deep-research-agent-streaming-handoff-2026-05-07.html before editing.
+
+Context: commit f1d6c387 already landed a partial /journey Deep Research Agent streaming slice. Do NOT rebuild it from scratch. Treat it as YELLOW / not accepted until the verification gaps in the HTML handoff are fixed.
+
+Mission: make the existing /journey Deep Research Agent streaming vertical slice acceptance-proof.
+Non-goals: do not turn /journey into a dashboard/canvas/workspace; do not remove Vercel AI SDK user-facing chat; do not add external research APIs; do not expose profile field counts; do not do broad visual redesign.
+
+Required fixes / acceptance gates:
+1. Remove or replace the skipped Journey artifact orchestration suite. No `describe.skip('JourneyPage artifact orchestration', ...)` can remain before GREEN.
+2. Add product-level tests proving that after `research airtable.com`, the first assistant-visible output is Deep Research Agent starting — not merely that the text exists somewhere.
+3. Add tests proving inactive specialists are hidden until sequential reveal. Market/ICP/Competitor/Offer must not appear as idle rows up front.
+4. Add tests proving out-of-order backend completions are buffered and revealed in canonical order in the actual rendered UI, not only in helper internals.
+5. Add realistic worker/activity fixtures proving a central chat artifact/report block visibly grows from draft chunks.
+6. Add page-level refresh reconstruction coverage for active, partial, completed, and buffered run state.
+7. Remove or quarantine user-facing profile-field/count language from Journey kickoff/stream paths, including `src/components/journey/prefill-stream-view.tsx` if reachable.
+8. Fix test env brittleness so the documented verification command works from a normal terminal. At minimum, encode `NODE_ENV=test` in the relevant test script or document the exact command.
+
+Verification commands that must be run and reported with exit codes:
+- `NODE_ENV=test npm run test:run -- --run src/app/journey/__tests__/page.test.tsx src/components/journey/__tests__/journey-manus-welcome.test.tsx src/lib/journey/__tests__/research-command.test.ts src/lib/journey/__tests__/research-stream-buffer.test.ts src/components/workspace/__tests__/manus-workspace-shell.test.tsx`
+- `! grep -R "describe.skip('JourneyPage artifact orchestration'" -n src/app/journey/__tests__/page.test.tsx`
+- `! grep -R "profile fields\|fieldCount\|fields extracted" -n src/components/journey src/app/journey`
+- `npm run lint`
+- `npm run build` with required dummy/public env if Clerk blocks prerender; report exact env placeholders used and do not reveal secrets.
+
+Workflow:
+- First inspect the changed files from f1d6c387 and the HTML handoff.
+- Write a short fix plan before editing.
+- Make the smallest focused patch that turns YELLOW into GREEN.
+- Return changed files, commands run, exit codes, remaining risks, and whether this is PASS or FAIL by the handoff criteria.
+</pre>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <h2>Suggested verification commands</h2>
+      <pre>cd /Users/ammar/Dev-Projects/AI-GOS
+
+# Sanity: do not inherit production env into Vitest.
+printf 'NODE_ENV=%s\n' "$NODE_ENV"
+
+NODE_ENV=test npm run test:run -- --run \
+  src/app/journey/__tests__/page.test.tsx \
+  src/components/journey/__tests__/journey-manus-welcome.test.tsx \
+  src/lib/journey/__tests__/research-command.test.ts \
+  src/lib/journey/__tests__/research-stream-buffer.test.ts \
+  src/components/workspace/__tests__/manus-workspace-shell.test.tsx
+
+# Must return no skipped artifact orchestration suite before GREEN.
+! grep -R "describe.skip('JourneyPage artifact orchestration'" -n src/app/journey/__tests__/page.test.tsx
+
+# Must not expose field-count/profile-field copy in Journey UI paths.
+! grep -R "profile fields\|fieldCount\|fields extracted" -n src/components/journey src/app/journey
+
+npm run lint
+npm run build
+
+cd research-worker
+npm run build</pre>
+      <p class="muted">Post-Codex note: the focused suite passing with <code>NODE_ENV=test</code> is not enough if it still reports skipped artifact orchestration tests or relies on existence-only assertions. GREEN requires product-behavior tests plus browser/DOM evidence.</p>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <h2>Source notes captured for future agents</h2>
+      <ul class="source-list">
+        <li><b>AI SDK Stream Protocols</b><small>Retrieved via browser on 2026-05-07. Key facts: <code>useChat</code>, text streams, SSE UI message stream, <code>text-delta</code>, <code>source-url</code>, <code>data-*</code>, tool parts, <code>toUIMessageStreamResponse()</code>.</small></li>
+        <li><b>AI SDK Agents Overview</b><small>Retrieved via browser on 2026-05-07. Key facts: agents = LLM + tools + loop; <code>ToolLoopAgent</code> handles loop/context/stopping; use structured workflows for reliable repeatable outcomes.</small></li>
+        <li><b>Cursor Agent Overview</b><small>Retrieved via browser on 2026-05-07. Key facts: Agent can independently complete complex coding tasks, run terminal commands, edit code; agent = instructions + tools + model; tools include search/web/read/edit/terminal/browser; checkpoints and queued/immediate messages support control.</small></li>
+        <li><b>Cursor Plan Mode</b><small>Retrieved via browser on 2026-05-07. Key facts: Plan Mode researches, asks clarifying questions, creates reviewable/editable plans, then builds; larger changes need precise scoping.</small></li>
+        <li><b>Cursor Subagents</b><small>Retrieved via browser on 2026-05-07. Key facts: isolated contexts, parallel execution, focused prompts/tool access, automatic/manual delegation, verifier pattern, anti-patterns against generic subagents.</small></li>
+        <li><b>Claude Artifacts Help Center</b><small>Retrieved via browser on 2026-05-07. Key facts: substantial standalone content appears in dedicated artifact window; user can ask Claude to modify; changes appear directly; versions/multiple artifacts supported.</small></li>
+        <li><b>AionUi README</b><small>Read locally from <code>/Users/ammar/hermes-workspace/AionUi/readme.md</code>. Key facts: Cowork platform where users see everything the agent does; supports unified multi-agent interface, parallel sessions, Team Mode leader/teammate delegation.</small></li>
+      </ul>
+    </section>
+
+    <p class="footer">This file is a handoff artifact. It intentionally separates source-grounded product direction from implementation. Do not treat any unsourced market claim as valid; the final research product must preserve source metadata.</p>
+  </div>
+</body>
+</html>

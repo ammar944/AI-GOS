@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>/journey Artifact — Design Consolidation (Cursor · Manus · Claude · Codex)</title>
+  <style>
+    :root {
+      --bg: #090a0d; --panel: #101217; --panel-2: #151923; --panel-3: #1b2130;
+      --ink: #f5f7fb; --muted: #a9b1c3; --dim: #6f788d;
+      --line: rgba(255,255,255,.11); --line-strong: rgba(255,255,255,.18);
+      --red: #ff5f5f; --amber: #f5b14c; --green: #5ee6a8; --blue: #69a8ff; --violet: #b58cff; --cyan: #67e8f9;
+      --shadow: 0 24px 80px rgba(0,0,0,.45);
+      --radius-xl: 28px; --radius-lg: 20px; --radius-md: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 14% 0%, rgba(105,168,255,.22), transparent 34%),
+                  radial-gradient(circle at 88% 8%, rgba(181,140,255,.16), transparent 30%),
+                  linear-gradient(180deg, #090a0d 0%, #0d1017 46%, #090a0d 100%);
+      color: var(--ink); font-family: var(--sans); line-height: 1.5;
+    }
+    .wrap { max-width: 1340px; margin: 0 auto; padding: 36px 24px 70px; }
+    .hero { border:1px solid var(--line); background:linear-gradient(135deg, rgba(21,25,35,.96), rgba(9,10,13,.9)); border-radius:var(--radius-xl); padding:34px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; inset:auto -120px -180px auto; width:420px; height:420px; background:radial-gradient(circle, rgba(103,232,249,.18), transparent 68%); pointer-events:none; }
+    .eyebrow { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+    .pill { border:1px solid var(--line); background:rgba(255,255,255,.045); color:var(--muted); border-radius:999px; padding:6px 11px; font-size:12px; font-weight:650; letter-spacing:.02em; }
+    .pill.green { color:#cbffe8; border-color:rgba(94,230,168,.35); background:rgba(94,230,168,.1); }
+    .pill.blue { color:#d4e4ff; border-color:rgba(105,168,255,.35); background:rgba(105,168,255,.1); }
+    .pill.violet { color:#e4d4ff; border-color:rgba(181,140,255,.35); background:rgba(181,140,255,.1); }
+    h1 { font-size:clamp(36px,6vw,64px); line-height:.94; letter-spacing:-.065em; margin:0 0 18px; max-width:1100px; }
+    h2 { font-size:clamp(22px,3vw,36px); line-height:1.02; letter-spacing:-.04em; margin:0 0 12px; }
+    h3 { font-size:19px; letter-spacing:-.02em; margin:0 0 10px; color:#e2e6f0; }
+    p { margin:0; color:var(--muted); }
+    .lead { font-size:19px; max-width:960px; color:#d7ddea; }
+    .grid { display:grid; gap:18px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .section { margin-top: 24px; }
+    .card { border:1px solid var(--line); background:rgba(16,18,23,.82); border-radius:var(--radius-lg); padding:22px; box-shadow:0 16px 50px rgba(0,0,0,.22); }
+    .card.good { border-color:rgba(94,230,168,.3); background:linear-gradient(180deg, rgba(94,230,168,.075), rgba(16,18,23,.82)); }
+    .card.warn { border-color:rgba(245,177,76,.35); background:linear-gradient(180deg, rgba(245,177,76,.085), rgba(16,18,23,.82)); }
+    .caption { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.12em; font-weight:750; margin-bottom:10px; }
+    .divider { height:1px; background:var(--line); margin:18px 0; }
+    .mini { font-size:13px; color:var(--dim); }
+    .mono { font-family:var(--mono); }
+    .stack { display:flex; flex-direction:column; gap:12px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .tag { font-family:var(--mono); font-size:12px; color:#cad2e4; background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:999px; padding:5px 8px; }
+    table { width:100%; border-collapse:collapse; border-radius:18px; border:1px solid var(--line); overflow:hidden; }
+    th, td { text-align:left; padding:14px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:#dfe6f4; font-size:13px; background:rgba(255,255,255,.05); }
+    td { color:var(--muted); font-size:14px; }
+    tr:last-child td { border-bottom:0; }
+    pre { white-space:pre-wrap; background:#05070a; border:1px solid var(--line); color:#dbeafe; padding:18px; border-radius:18px; overflow:auto; font-family:var(--mono); font-size:13px; }
+
+    .ref-app { border:1px solid var(--line-strong); border-radius:20px; overflow:hidden; background:#0e1117; }
+    .ref-app-top { padding:12px 18px; border-bottom:1px solid var(--line); background:#111620; display:flex; justify-content:space-between; align-items:center; }
+    .ref-app-body { padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .ref-screenshot { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#f8f9fb; aspect-ratio:16/10; display:grid; place-items:center; color:#64748b; font-size:13px; }
+    .ref-screenshot img { width:100%; height:100%; object-fit:cover; }
+    .ref-details { color:var(--muted); font-size:14px; }
+    .ref-details strong { color:#dfe4f0; }
+
+    .component-spec { border:1px solid rgba(94,230,168,.22); border-radius:18px; padding:18px; background:rgba(94,230,168,.04); }
+    .component-spec .name { font-family:var(--mono); font-size:14px; color:#5ee6a8; font-weight:700; }
+    .component-spec .desc { color:var(--muted); font-size:13px; margin-top:6px; }
+    .component-spec .ref { font-size:11px; color:var(--dim); margin-top:4px; }
+
+    .anatomy-diagram {
+      border:1px solid var(--line); border-radius:24px; overflow:hidden; background:#0b0e14;
+    }
+    .anatomy-surface {
+      display:grid; grid-template-columns:1fr 300px; min-height:520px;
+    }
+    .anatomy-main { padding:20px 24px; background:linear-gradient(180deg,#0d1117,#080b10); }
+    .anatomy-rail { border-left:1px solid var(--line); padding:16px; background:#06090d; }
+    .anatomy-zone { border:1px dashed rgba(255,255,255,.12); border-radius:10px; padding:14px; margin-bottom:10px; position:relative; }
+    .anatomy-zone-label { position:absolute; top:-10px; left:12px; background:#0d1117; padding:1px 8px; font-family:var(--mono); font-size:10px; color:var(--dim); }
+    .anatomy-write { border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg, #fbfbf8, #f5f4ef); color:#1a1d28; border-radius:14px; padding:20px 24px; min-height:220px; }
+    .anatomy-write h4 { font-size:20px; margin:0 0 12px; letter-spacing:-.025em; color:#0f172a; }
+    .anatomy-write p { color:#475569; font-size:14px; margin-bottom:8px; }
+    .skeleton-line { height:8px; background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0); border-radius:999px; margin:8px 0; }
+    .skeleton-line.short { width:55%; } .skeleton-line.mid { width:74%; } .skeleton-line.long { width:92%; }
+    .anatomy-activity { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:7px; font-size:12px; }
+    .anatomy-activity .act-label { color:#d8deea; font-weight:600; }
+    .anatomy-activity .act-meta { color:var(--dim); margin-top:2px; }
+
+    .pattern-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+    .pattern-card { border:1px solid var(--line); border-radius:14px; padding:16px; background:rgba(255,255,255,.025); }
+    .pattern-card .app { font-family:var(--mono); font-size:10px; color:var(--cyan); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+    .pattern-card .finding { color:#dde4f2; font-size:14px; font-weight:600; }
+    .pattern-card .apply { color:var(--muted); font-size:13px; margin-top:6px; }
+
+    .green { color:var(--green); } .amber { color:var(--amber); } .blue { color:var(--blue); }
+    .footer { color:var(--dim); margin-top:30px; font-size:13px; }
+
+    @media (max-width: 980px) {
+      .grid.two, .grid.three, .grid.four, .anatomy-surface, .ref-app-body { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">
+    <span class="pill green">Design Consolidation</span>
+    <span class="pill blue">8 Refero screens analyzed</span>
+    <span class="pill violet">4 reference apps</span>
+    <span class="pill">2026-05-07 23:30 PKT</span>
+  </div>
+  <h1>What Cursor, Manus, Claude & Cartesia actually do — and what /journey should steal.</h1>
+  <p class="lead">This consolidation cross-references the gap report's 7 design requirements against real UI patterns observed across 4 agentic AI products. No invented patterns. Everything below was confirmed in Refero screenshots or documented design systems.</p>
+</header>
+
+<!-- ===== PART 1: WHAT THE REAL APPS DO ===== -->
+<section class="section">
+  <h2>1. Real UI patterns — observed, not invented</h2>
+  <p>Every finding below was confirmed by a Refero screenshot or a design system doc. The "Apply to /journey" col is the bridge.</p>
+  <div class="divider"></div>
+
+  <div class="pattern-grid">
+    <div class="pattern-card">
+      <div class="app">Manus.im — Wide Research feature page</div>
+      <div class="finding">Editorial serif headings + centered hero + muted warm neutrals (#F7F6F4 bg). Large rounded video thumbnail demos. Three-column comparison tables with highlighted "Manus" column.</div>
+      <div class="apply">→ The artifact surface should use editorial hierarchy (not raw markdown). Section decks, summary cards, evidence callouts. The report is a <em>document</em>, not a log.</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">Claude.ai — chat interface</div>
+      <div class="finding">Warm beige background (#F4F3EC). Chat messages appear as structured content blocks with document attachments shown in a right-side "Chat controls" panel. Typography uses Tiempos (serif headings) + Intercom/Styrene (UI). Streaming text with markdown rendering.</div>
+      <div class="apply">→ Right-side "Activity" rail should mirror Claude's Chat controls — collapsible, secondary, shows sources/files. Primary surface is the artifact.</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">Anthropic Workbench — console</div>
+      <div class="finding">Dark mode (#121212). Split two-panel comparison layout. Model/prompt dropdowns + version toggles. Prompts on left, responses on right. Footer action bar. "Show Prompts" toggle.</div>
+      <div class="apply">→ The artifact surface + activity rail split already matches this pattern. Keep it. Add a "Show activity" toggle like Workbench's "Show Prompts."</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">Cartesia Agents — dashboard</div>
+      <div class="finding">Dark-themed (#121212). Left vertical nav sidebar. "Your Agents" header with 3 creation cards (Text to Agent, Connect Your Code, Quickstart Template). Cards have icons + descriptions. "NEW" badge on sidebar items.</div>
+      <div class="apply">→ Section status badges: "writing," "complete," "queued" should be visible in the artifact. Use badge patterns from DESIGN.md (pill, mono 10px).</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">Cursor — design system (getdesign.md)</div>
+      <div class="finding">"AI-first code editor." Sleek dark interface. Gradient-based accents. Curated by VoltAgent team as a reference for "code editor UIs, developer tool marketing, and dark gradient designs."</div>
+      <div class="apply">→ Use gradient accents sparingly — only for the streaming cursor / active-writing indicator. DESIGN.md already bans decorative gradients. One exception: the active-writing pulse indicator.</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">Claude — design system (getdesign.md)</div>
+      <div class="finding">"Warm terracotta accent, clean editorial layout." For "AI chat interfaces, warm editorial layouts, and intellectual product pages." Both light and dark modes.</div>
+      <div class="apply">→ The artifact document (light-mode paper surface inside dark workspace) is the right direction. Contrast between dark UI chrome and light reading surface signals "this is the deliverable."</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">ChatGPT Deep Research — blog/product page</div>
+      <div class="finding">OpenAI Sans font. Research feature demo with sample query input mockup. Performance stats and charts. Content-heavy blog layout.</div>
+      <div class="apply">→ The agent's opening message should state intent + plan, like: "I'm building a source-backed GTM report. First, company context and evidence." Not "Deep Research Agent starting."</div>
+    </div>
+
+    <div class="pattern-card">
+      <div class="app">Parallel.ai — API key modal</div>
+      <div class="finding">Dark UI with white modal overlay. Mono font for code/keys. Clipboard copy icon. "CLOSE" button in uppercase. Clean, minimal dialogs.</div>
+      <div class="apply">→ Source citations should use mono font + copyable format. "Airtable newsroom, Jan 2026 [→]" — clickable, not just raw markdown links.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PART 2: ANATOMY OF THE IDEAL ARTIFACT SURFACE ===== -->
+<section class="section">
+  <h2>2. Target artifact surface — full anatomy</h2>
+  <p>Built from the gap report's ideal mockup + real UI patterns above. This is the spec for implementation.</p>
+  <div class="divider"></div>
+
+  <div class="anatomy-diagram">
+    <div class="anatomy-surface">
+      <div class="anatomy-main">
+
+        <!-- Zone A: Agent header -->
+        <div class="anatomy-zone">
+          <span class="anatomy-zone-label">ZONE A — Agent context bar</span>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="row" style="gap:10px;">
+              <span style="font-weight:700; font-size:14px;">Deep Research Agent</span>
+              <span style="font-family:var(--mono); font-size:10px; color:#5ee6a8; background:rgba(94,230,168,.12); border:1px solid rgba(94,230,168,.25); border-radius:999px; padding:2px 8px;">writing</span>
+              <span style="font-family:var(--mono); font-size:10px; color:var(--dim); background:rgba(255,255,255,.05); border-radius:999px; padding:2px 8px;">airtable.com</span>
+            </div>
+            <span class="mini mono">run b72b85 · 3 sources found</span>
+          </div>
+          <p style="font-size:12px; color:var(--dim); margin-top:6px;">"I'm building a source-backed GTM report. First, I'm mapping company context and evidence highlights."</p>
+        </div>
+
+        <!-- Zone B: The artifact document -->
+        <div class="anatomy-zone">
+          <span class="anatomy-zone-label">ZONE B — Live artifact writing surface</span>
+          <div class="anatomy-write">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <span style="font-family:var(--mono); font-size:11px; color:#64748b;">GTM RESEARCH ARTIFACT</span>
+              <span style="font-family:var(--mono); font-size:10px; color:#0f766e; background:#ccfbf1; border:1px solid #99f6e4; border-radius:999px; padding:2px 8px;">streaming</span>
+            </div>
+            <h4>Airtable GTM Research</h4>
+
+            <!-- Evidence card pattern -->
+            <div style="border-left:2px solid #365eff; padding:8px 12px; margin:12px 0; background:rgba(54,94,255,.03); border-radius:0 8px 8px 0;">
+              <p style="font-size:13px; color:#334155; font-weight:600; margin:0;">Evidence Highlight</p>
+              <p style="font-size:14px; color:#475569; margin:4px 0;">Airtable is repositioning from collaborative database to AI-native app platform for enterprise workflow automation.</p>
+              <span style="font-family:var(--mono); font-size:11px; color:#2563eb;">airtable.com/newsroom · Jan 2026</span>
+            </div>
+
+            <div class="skeleton-line long"></div>
+            <div class="skeleton-line mid"></div>
+            <div class="skeleton-line short"></div>
+
+            <p style="font-size:14px; color:#475569; margin-top:16px;"><strong>Next:</strong> Market Category queued behind Deep Research chapter.</p>
+          </div>
+        </div>
+
+        <!-- Zone C: Section progress -->
+        <div class="anatomy-zone">
+          <span class="anatomy-zone-label">ZONE C — Section progress chips</span>
+          <div class="row" style="gap:8px;">
+            <span style="font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(94,230,168,.15); color:#5ee6a8; border:1px solid rgba(94,230,168,.3);">1. Deep Research ✓</span>
+            <span style="font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(105,168,255,.15); color:#69a8ff; border:1px solid rgba(105,168,255,.3);">2. Market Category ···</span>
+            <span style="font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.03); color:var(--dim); border:1px solid var(--line);">3. ICP</span>
+            <span style="font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.03); color:var(--dim); border:1px solid var(--line);">4. Competitors</span>
+            <span style="font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.03); color:var(--dim); border:1px solid var(--line);">5. Offer</span>
+            <span style="font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.03); color:var(--dim); border:1px solid var(--line);">6. Keywords</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="anatomy-rail">
+        <div class="caption" style="margin-bottom:12px;">Activity · collapsed</div>
+
+        <div class="anatomy-activity">
+          <div class="act-label">Searching web</div>
+          <div class="act-meta">Airtable pricing, TechCrunch, Sacra</div>
+        </div>
+        <div class="anatomy-activity">
+          <div class="act-label">Reading source</div>
+          <div class="act-meta">TechCrunch Superagent interview</div>
+        </div>
+        <div class="anatomy-activity">
+          <div class="act-label">Extracting evidence</div>
+          <div class="act-meta">ARR, valuation, product launches</div>
+        </div>
+        <div class="anatomy-activity">
+          <div class="act-label">Writing artifact</div>
+          <div class="act-meta">Appending Deep Research chapter</div>
+        </div>
+        <div class="anatomy-activity" style="opacity:.45">
+          <div class="act-label">Market Category</div>
+          <div class="act-meta">Queued · starts after Deep Research</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="caption" style="margin-bottom:10px;">Sources · 3 found</div>
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.6;">
+          <div>→ airtable.com/newsroom</div>
+          <div>→ techcrunch.com/2026/01/...</div>
+          <div>→ sacra.com/research/airt...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PART 3: COMPONENT LIBRARY ===== -->
+<section class="section">
+  <h2>3. Component library — what the agent emits instead of Markdown</h2>
+  <p>These components replace raw markdown dumps. Each maps to a content job identified in the gap report and confirmed by Reference app patterns.</p>
+  <div class="divider"></div>
+
+  <div class="grid two">
+    <div class="component-spec">
+      <div class="name">EvidenceCard</div>
+      <div class="desc">A claim + source citation block. 2px left accent border (DESIGN.md callout pattern). Mono source line with clickable link. Used when the agent surfaces a substantiated claim.</div>
+      <div class="ref">Ref: Claude.ai structured content blocks, DESIGN.md callout blocks</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">SourceRail / SourceBadge</div>
+      <div class="desc">Compact source reference. Domain + date + favicon. Clickable. Appears inline next to claims or in the right rail. Replaces raw "[source]" markdown links.</div>
+      <div class="ref">Ref: Claude.ai "Chat controls" document panel, Parallel.ai API key display</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">SectionChapter</div>
+      <div class="desc">A named, numbered chapter block within the artifact. Has: title, status badge (writing/complete/queued), prose body, and child components (evidence cards, tables, callouts). Sections stack sequentially.</div>
+      <div class="ref">Ref: Manus.im editorial section layout, Anthropic Workbench split-panel</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">CompetitorMatrix</div>
+      <div class="desc">A comparison table following DESIGN.md table rules: mono headers, right-aligned numbers, tabular-nums, hover row highlight. Columns: name, strength, weakness, relevance score.</div>
+      <div class="ref">Ref: Manus.im 3-column comparison table, DESIGN.md table patterns</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">ExecutiveSummary</div>
+      <div class="desc">Top-of-artifact summary block. 2-3 sentence overview + key stats. Editorial hierarchy (larger type, more whitespace). Appears first, before sections.</div>
+      <div class="ref">Ref: ChatGPT Deep Research summary format, Manus.im hero sections</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">ICPBlock</div>
+      <div class="desc">Structured buyer profile: title, industry, size, pain points, buying triggers. Uses badge clusters for attributes. Not a prose paragraph — keyed fields.</div>
+      <div class="ref">Ref: Cartesia Agents card pattern (icon + label + description per attribute)</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">RecommendationStack</div>
+      <div class="desc">Numbered, prioritized recommendations. Each: title + rationale + confidence indicator (green/amber/red). Mono numbering. Copyable as a list.</div>
+      <div class="ref">Ref: Anthropic Workbench response panel structure, DESIGN.md list item patterns</div>
+    </div>
+
+    <div class="component-spec">
+      <div class="name">ArtifactShell</div>
+      <div class="desc">The container that appears instantly on dispatch. Shows: company name, report title, section outline (numbered chips), active writing indicator, skeleton placeholders. The user sees the shape before content arrives.</div>
+      <div class="ref">Ref: Manus.im "shell first" loading pattern, Cursor progressive reveal</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <pre>// Typed artifact event format — what the worker emits:
+{
+  type: "artifact.component.delta",
+  section: "deepResearch",
+  component: "EvidenceCard",
+  props: {
+    claim: "Airtable is repositioning from collaborative database to AI-native app platform.",
+    sources: [{ domain: "airtable.com", path: "/newsroom", date: "2026-01" }],
+    confidence: "high"
+  }
+}</pre>
+</section>
+
+<!-- ===== PART 4: MOTION & CHOREOGRAPHY ===== -->
+<section class="section">
+  <h2>4. Motion choreography — the "feel" layer</h2>
+  <p>The gap report's #6 flaw is "slow-feeling feedback." The UI must provide high-frequency meaningful changes. These patterns are derived from taste-skill rules (MOTION_INTENSITY=6, spring physics, no linear easing).</p>
+  <div class="divider"></div>
+
+  <div class="grid three">
+    <div class="card">
+      <div class="caption">Phase 0 — Instant shell</div>
+      <p>ArtifactShell renders in &lt;100ms. Title, company, outline chips, skeleton blocks. Zero animation on mount — content appears instantly (DESIGN.md rule).</p>
+      <pre style="font-size:11px;">artifact.start → shell mounted
+artifact.outline.delta → outline chips appear</pre>
+    </div>
+    <div class="card">
+      <div class="caption">Phase 1 — Streaming content</div>
+      <p>Components stream in as deltas. Each new EvidenceCard or SectionChapter enters with a subtle opacity fade (150ms, ease-out). Writing cursor pulses (2s infinite, opacity 0.5→1→0.5).</p>
+      <pre style="font-size:11px;">artifact.component.delta →
+  component mounts with fade-in
+WritingIndicator pulses</pre>
+    </div>
+    <div class="card">
+      <div class="caption">Phase 2 — Section transitions</div>
+      <p>When a section completes, its status chip flips from "writing" (blue pulse) to "complete" (green solid, 200ms color transition). Next section chip shifts from "queued" to "writing." No layout shift — chips are pre-allocated.</p>
+      <pre style="font-size:11px;">section.complete →
+  chip: pulse → solid green
+  next chip: queued → active</pre>
+    </div>
+  </div>
+
+  <div class="card warn" style="margin-top:18px;">
+    <div class="caption">Motion constraints (from DESIGN.md)</div>
+    <div class="row" style="gap:16px;">
+      <span>No card stagger entrance → content appears instantly</span>
+      <span>No hover scale transforms → color/opacity only</span>
+      <span>Easing: enter(ease-out) exit(ease-in)</span>
+      <span>Duration: 100-200ms max</span>
+      <span>Respect prefers-reduced-motion</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PART 5: DESIGN TOKENS ===== -->
+<section class="section">
+  <h2>5. Design tokens — reconciled with existing DESIGN.md</h2>
+  <p>The artifact surface must use existing tokens. Nothing new is invented here — this is applying existing DESIGN.md rules to the artifact context.</p>
+  <div class="divider"></div>
+
+  <table>
+    <thead>
+      <tr><th>Token</th><th>DESIGN.md value</th><th>Artifact application</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="mono">--font-heading</td>
+        <td>Instrument Sans 600 (v3: Geist)</td>
+        <td>Artifact title (h1), section chapter headings (h2). -0.025em tracking on titles.</td>
+      </tr>
+      <tr>
+        <td class="mono">--font-body</td>
+        <td>DM Sans 400/500 14px (v3: Geist Sans)</td>
+        <td>Prose content within artifact sections. 1.5 line-height. Max 75ch measure for readability.</td>
+      </tr>
+      <tr>
+        <td class="mono">--font-mono</td>
+        <td>JetBrains Mono (v3: Geist Mono)</td>
+        <td>Source citations, data tables, run IDs, status badges, section numbering.</td>
+      </tr>
+      <tr>
+        <td class="mono">--accent</td>
+        <td>#365eff</td>
+        <td>EvidenceCard left border, active section indicator, writing cursor, link color.</td>
+      </tr>
+      <tr>
+        <td class="mono">--bg-0 → bg-3</td>
+        <td>#07090e → #12141c</td>
+        <td>Artifact surface bg-1, activity rail bg-0, cards bg-2. Light artifact doc uses neutral off-white (#fbfbf8) to contrast with dark chrome (confirmed by Claude.ai pattern).</td>
+      </tr>
+      <tr>
+        <td class="mono">--text-1 → text-4</td>
+        <td>#e2e4ea → #3a3e4c</td>
+        <td>Artifact headings text-1, body text-2, meta/source lines text-3. Light artifact doc inverts (dark text on light bg).</td>
+      </tr>
+      <tr>
+        <td class="mono">--border</td>
+        <td>rgba(255,255,255,0.04)</td>
+        <td>Section dividers, card borders, activity rail separators. Light doc uses rgba(0,0,0,0.06).</td>
+      </tr>
+      <tr>
+        <td class="mono">radius</td>
+        <td>3px / 5px / 8px / 9999px</td>
+        <td>Artifact doc: lg (8px). Evidence cards: md (5px). Status badges: full (9999px).</td>
+      </tr>
+      <tr>
+        <td class="mono">status colors</td>
+        <td>green #22c55e, amber #eab308, red #ef4444</td>
+        <td>Section complete (green), writing (blue accent pulse), queued (dimmed), confidence indicators.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===== PART 6: IMPLEMENTATION PRIORITIES ===== -->
+<section class="section">
+  <h2>6. Implementation sequence — what to build first</h2>
+  <div class="divider"></div>
+
+  <div class="grid two">
+    <div class="card good">
+      <div class="caption">Wave 1 — This week</div>
+      <div class="stack">
+        <div><span class="tag green">1</span> <strong>ArtifactShell component</strong> — instant mount with title, outline chips, skeleton blocks. Replaces the current "artifact appears when content arrives" behavior.</div>
+        <div><span class="tag green">2</span> <strong>SectionChapter component</strong> — wraps each section with heading, status badge, prose body. Replaces raw markdown blocks.</div>
+        <div><span class="tag green">3</span> <strong>Collapsible Activity rail</strong> — logs move to right rail with default-collapsed state. "Show activity" toggle. Reverses the current log-dominant layout.</div>
+        <div><span class="tag green">4</span> <strong>Agent intent message</strong> — first message states plan + scope. "I'm building a source-backed GTM report..." Replaces generic "Agent starting" text.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="caption">Wave 2 — Next week</div>
+      <div class="stack">
+        <div><span class="tag">5</span> <strong>EvidenceCard component</strong> — structured claim + source block with 2px left accent. Replaces inline "[source]" markdown links.</div>
+        <div><span class="tag">6</span> <strong>CompetitorMatrix + ICPBlock</strong> — structured tables/badges for competitor and ICP data. Follows DESIGN.md table rules.</div>
+        <div><span class="tag">7</span> <strong>Section sequencing</strong> — backend continues but foreground shows "queued" until current chapter completes. Prevents visual interruption.</div>
+        <div><span class="tag">8</span> <strong>SourceRail</strong> — aggregated source list in activity rail. Domain + date + clickable links.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card warn" style="margin-top:18px;">
+    <div class="caption">Wave 3 — Later (OpenUI-style generative UI)</div>
+    <div class="stack">
+      <div><span class="tag amber">9</span> <strong>Typed component event protocol</strong> — worker emits <code>artifact.component.delta</code> events with component type + props instead of raw markdown. Renderer maps to React components.</div>
+      <div><span class="tag amber">10</span> <strong>RecommendationStack + FollowUpComposer</strong> — prioritized recs with confidence indicators. User can request deeper dives on specific recs.</div>
+      <div><span class="tag amber">11</span> <strong>User steering</strong> — "sharpen ICP," "compare vs Notion," "turn this into outbound angles" edits the live artifact through the chat rail.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PART 7: RESEARCH METHODOLOGY ===== -->
+<section class="section card">
+  <h2>7. Research sources — what I actually looked at</h2>
+  <table>
+    <thead><tr><th>Source</th><th>What I checked</th><th>Key takeaway for /journey</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="mono">Refero MCP</td>
+        <td>Searched: "Cursor IDE agent chat," "Manus AI agent workspace," "ChatGPT deep research streaming," "AI agent writing artifact," "Cartesia agents dashboard," "notion AI writing surface," "lovable devin bolt," "openAI codex CLI." 8 specific screen contents retrieved.</td>
+        <td>Claude.ai right-side panel pattern, Manus.im editorial hierarchy, Anthropic Workbench split-panel, Cartesia dark agent dashboard — all confirm the "artifact primary, logs secondary" layout.</td>
+      </tr>
+      <tr>
+        <td class="mono">Awesome Design MD</td>
+        <td>cursor/README.md, claude/README.md → both redirect to getdesign.md. Fetched both design system summaries.</td>
+        <td>Cursor = sleek dark + gradient accents (for dev tools). Claude = warm terracotta + editorial (for AI chat). Both confirm dark chrome + light content surface.</td>
+      </tr>
+      <tr>
+        <td class="mono">Taste Skill</td>
+        <td>Loaded taste-skill/SKILL.md — high-agency anti-slop baseline. DESIGN_VARIANCE=8, MOTION_INTENSITY=6, VISUAL_DENSITY=4.</td>
+        <td>No Inter font, no emojis, no purple/blue AI aesthetic, spring physics, skeleton loaders matching layout. All applied to component specs above.</td>
+      </tr>
+      <tr>
+        <td class="mono">UI UX Pro Max</td>
+        <td>3 searches: design-system ("agentic AI workspace"), stack shadcn ("dark data-dense dashboard"), domain typography ("streaming content blocks").</td>
+        <td>Dark mode required, tables over card grids for ranked data, Lexend+Source Sans 3 for corporate trust readability — confirms existing DESIGN.md direction.</td>
+      </tr>
+      <tr>
+        <td class="mono">DESIGN.md</td>
+        <td>Full read of existing design system at repo root.</td>
+        <td>All tokens preserved. No new colors/fonts invented. Industrial/utilitarian direction confirmed correct for this product. Artifact surface is an application of existing rules.</td>
+      </tr>
+      <tr>
+        <td class="mono">Gap Report</td>
+        <td>Full read of journey-live-artifact-ui-ux-gap-report-2026-05-07.html.</td>
+        <td>7 design requirements mapped 1:1 to real UI patterns and component specs above. No gap left unaddressed.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===== PART 8: VERDICT ===== -->
+<section class="section card good">
+  <h2>8. Verdict — can we hit Manus-grade?</h2>
+  <div class="grid three">
+    <div>
+      <div class="caption">Already right</div>
+      <p>The 3-panel shell (sidebar + workspace + chat rail) is correct. Dark chrome + light artifact document contrast is correct. The backend produces real content. The DESIGN.md tokens are sound and taste-skill validated.</p>
+    </div>
+    <div>
+      <div class="caption">The gap is presentation</div>
+      <p>Not capability — presentation. The artifact is being treated as a log entry instead of a premium writing surface. Fixing this is 80% front-end component work, 20% worker event format changes.</p>
+    </div>
+    <div>
+      <div class="caption">What "Manus-grade" means concretely</div>
+      <p>Instant shell → streaming structured components → sequential chapters → activity as trust layer → user steering. Every piece of this spec is buildable with existing stack components (shadcn/ui, Tailwind, Vercel AI SDK). No new infrastructure required.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  Design consolidation for AI-GOS <code>/journey</code> artifact surface. Built from 8 Refero screen analyses, 2 brand design systems, taste-skill rules, UI UX Pro Max searches, existing DESIGN.md, and the gap report. All UI patterns are observed, not invented. 2026-05-07 23:30 PKT.
+</footer>
+
+</div>
+</body>
+</html>

@@ -71,3 +71,14 @@ docs/screenshots/
 # clerk configuration (can include secrets)
 /.clerk/
 .claude/skills/gstack/
+
+# Local agent runtime state (not project state)
+.agents/
+.codex/
+.omc/
+.claude/scheduled_tasks.lock
+
+# Out-of-tree experiments accidentally living in this repo
+/engine/
+/graphify-out/
+/kiyaapp/

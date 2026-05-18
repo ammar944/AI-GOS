@@ -6,12 +6,18 @@
  */
 const REQUIRED_ENV_VARS = {
   // Server-only variables (not prefixed with NEXT_PUBLIC_)
-  server: ["ANTHROPIC_API_KEY", "SEARCHAPI_KEY"] as const,
+  server: [
+    "ANTHROPIC_API_KEY",
+    "SEARCHAPI_KEY",
+    "CLERK_SECRET_KEY",
+    "CLERK_WEBHOOK_SECRET",
+  ] as const,
 
   // Public variables (accessible in browser)
   public: [
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   ] as const,
 } as const;
 

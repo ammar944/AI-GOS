@@ -217,7 +217,8 @@ export default function ResearchV2Page() {
     setIsCorpusStarting(true);
 
     try {
-      // Create a new session row
+      // Create a new session row. The server is the source of truth for runId
+      // so the worker's isActiveJourneyRun check can match the row that exists.
       const sessionRes = await fetch('/api/journey/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -225,15 +226,32 @@ export default function ResearchV2Page() {
         body: JSON.stringify({}),
       });
 
-      let runId: string = crypto.randomUUID();
-      if (sessionRes.ok) {
-        const sessionData = (await sessionRes.json()) as {
-          runId?: string | null;
+      if (!sessionRes.ok) {
+        const errBody = (await sessionRes.json().catch(() => ({}))) as {
+          error?: string;
         };
-        if (sessionData.runId) {
-          runId = sessionData.runId;
-        }
+        dispatch({
+          type: 'ERROR',
+          from: 'corpus',
+          message:
+            errBody.error ??
+            `Failed to create journey session (HTTP ${sessionRes.status})`,
+        });
+        return;
       }
+
+      const sessionData = (await sessionRes.json()) as {
+        runId?: string | null;
+      };
+      if (!sessionData.runId) {
+        dispatch({
+          type: 'ERROR',
+          from: 'corpus',
+          message: 'Journey session response missing runId',
+        });
+        return;
+      }
+      const runId: string = sessionData.runId;
 
       // Transition state to corpus
       dispatch({ type: 'CORPUS_START', runId });

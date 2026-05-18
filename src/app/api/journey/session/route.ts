@@ -364,6 +364,56 @@ export async function GET(request: Request) {
   );
 }
 
+export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let providedRunId: string | undefined;
+  try {
+    const raw = await request.text();
+    if (raw.trim().length > 0) {
+      const body = JSON.parse(raw) as { runId?: unknown };
+      if (typeof body.runId === 'string' && body.runId.trim().length > 0) {
+        providedRunId = body.runId.trim();
+      }
+    }
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+  }
+
+  const runId = providedRunId ?? crypto.randomUUID();
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .insert({
+      user_id: userId,
+      run_id: runId,
+      metadata: { activeJourneyRunId: runId },
+      research_results: null,
+      job_status: null,
+      updated_at: new Date().toISOString(),
+    })
+    .select('id, run_id')
+    .single();
+
+  if (error) {
+    return jsonResponse(
+      { error: `Failed to create journey session: ${error.message}` },
+      500,
+    );
+  }
+
+  return jsonResponse(
+    { runId: data?.run_id ?? runId, sessionId: data?.id ?? null },
+    201,
+  );
+}
+
 export async function PATCH(request: Request) {
   const { userId } = await auth();
   if (!userId) {
