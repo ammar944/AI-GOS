@@ -24,10 +24,30 @@ export const OrchestrateResponseSchema = z.object({
 export type OrchestrateResponse = z.infer<typeof OrchestrateResponseSchema>;
 
 export const OrchestrateRequestSchema = z.object({
-  journey_session_id: z.string().uuid(),
+  journey_session_id: z.string().uuid().optional(),
   run_id: z.string().uuid(),
+  executionMode: z.enum(['draft', 'deep', 'managed']).optional(),
 });
 export type OrchestrateRequest = z.infer<typeof OrchestrateRequestSchema>;
+
+/**
+ * Reads the public managed-agents opt-in flag for the browser side.
+ * The server-side gate is MANAGED_AGENTS_POSITIONING_ENABLED; this
+ * NEXT_PUBLIC_ variant exists only so the frontend knows whether to
+ * request executionMode='managed' from the orchestrate route. Both
+ * flags must be 'true' for the managed path to actually run.
+ */
+export function isManagedAgentsEnabledOnClient(): boolean {
+  if (typeof process === 'undefined') return false;
+  return process.env.NEXT_PUBLIC_MANAGED_AGENTS_ENABLED === 'true';
+}
+
+/** Convenience — what the 3 kickoff sites should send today. */
+export function defaultOrchestrateExecutionMode():
+  | 'managed'
+  | undefined {
+  return isManagedAgentsEnabledOnClient() ? 'managed' : undefined;
+}
 
 export interface PostOrchestrateOptions {
   signal?: AbortSignal;

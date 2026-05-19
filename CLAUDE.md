@@ -43,10 +43,25 @@ CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
 
 Managed Agents (Phase 1 migration):
-- `MANAGED_AGENTS_WEBHOOK_SECRET` — HMAC secret for `/api/webhooks/managed-agents` (R6 mitigation). Required when `MANAGED_AGENTS_POSITIONING_ENABLED=true`.
-- `MANAGED_AGENTS_POSITIONING_ENABLED` — feature flag. Default `false`. Set `true` to allow `POST /api/research-v2/orchestrate` with `executionMode: 'managed'`.
+- `MANAGED_AGENTS_WEBHOOK_SECRET` — HMAC secret for `/api/webhooks/managed-agents` (R6 mitigation). Comes from the Claude Console when you register the webhook (signing secret prefixed `whsec_`). Required when `MANAGED_AGENTS_POSITIONING_ENABLED=true`.
+- `MANAGED_AGENTS_POSITIONING_ENABLED` — server-side feature flag. Default `false`. Set `true` to allow `POST /api/research-v2/orchestrate` with `executionMode: 'managed'`.
+- `NEXT_PUBLIC_MANAGED_AGENTS_ENABLED` — browser-side flag (must mirror the server flag for the frontend to actually request the managed path). When `true`, the three kickoff sites (`/research-v2` page onboarding submit, audit-surface auto-kickoff, and manual Dispatch button) include `executionMode: 'managed'` in the POST body.
 - `MANAGED_AGENTS_MAX_CUSTOM_TOOL_RETRIES` — override the R5 repair retry ceiling (default `3`).
 - `APP_DOMAIN` — production app domain for webhook callbacks; used in Phase 2 networking allowlist.
+
+### Managed Agents — first-run setup (local dev)
+
+To see a Managed Agents audit fire from onboarding end-to-end:
+1. Apply the migration `supabase/migrations/20260519_managed_agents_webhook_events.sql` (run via Supabase Dashboard SQL editor or `supabase db push`).
+2. Start a tunnel pointed at your dev port: `ngrok http 3000` (or `cloudflared tunnel`). Capture the HTTPS forwarding URL.
+3. Register the webhook in the **Claude Console** (https://console.anthropic.com → Managed Agents → Webhooks): set the URL to `<tunnel>/api/webhooks/managed-agents`, subscribe to `session.status_idled` and `agent.custom_tool_use` events, copy the signing secret prefixed `whsec_`.
+4. Set in `.env.local`:
+   ```
+   MANAGED_AGENTS_POSITIONING_ENABLED=true
+   MANAGED_AGENTS_WEBHOOK_SECRET=whsec_...   # from step 3
+   NEXT_PUBLIC_MANAGED_AGENTS_ENABLED=true
+   ```
+5. Restart `npm run dev` so Next.js picks up the new env. Run onboarding from `/research-v2`. Audit kicks off through `startManagedAudit`; six specialist artifacts commit via the webhook handler as Anthropic delivers events.
 
 ## research-v2 feature flags + capabilities
 
