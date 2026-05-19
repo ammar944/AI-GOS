@@ -1,27 +1,18 @@
-import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import {
   BarBreakdown,
   DataTable,
-  NarrativeBlock,
   PositioningAxisStack,
   QuoteCallout,
   type DataTableColumn,
   type PositioningAxisItem,
 } from '../primitives';
+import { SourceLink, SubsectionBlock, hostnameOf } from './shared';
 
 export interface CompetitorLandscapeRendererProps {
   artifact: CompetitorLandscapeArtifact;
   className?: string;
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
 }
 
 const COMPETITOR_TYPE_LABEL: Record<string, string> = {
@@ -36,37 +27,6 @@ function CompetitorTypeLabel({ value }: { value: string }): React.ReactElement {
     <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
       {COMPETITOR_TYPE_LABEL[value] ?? value}
     </span>
-  );
-}
-
-function SourceLink({ url }: { url: string }): React.ReactElement | null {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)] no-underline hover:text-[color:var(--accent-blue)] hover:underline"
-    >
-      {hostnameOf(url)} →
-    </a>
-  );
-}
-
-function SubsectionBlock({
-  title,
-  prose,
-  children,
-}: {
-  title: string;
-  prose: string;
-  children?: ReactNode;
-}): React.ReactElement {
-  return (
-    <section className="flex flex-col gap-7 border-t border-[var(--border-subtle)] pt-12 first:border-t-0 first:pt-0">
-      <NarrativeBlock title={title} prose={prose} />
-      {children ? <div className="flex flex-col gap-5">{children}</div> : null}
-    </section>
   );
 }
 

@@ -26,12 +26,35 @@ import {
   type AuditArtifact,
   type ZoneStatus,
 } from '@/lib/research-v2/audit-artifact-schema';
-import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
-import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
+import {
+  BuyerICPArtifactSchema,
+  type BuyerICPArtifact,
+} from '@/lib/managed-agents/schemas/buyer-icp';
+import {
+  CompetitorLandscapeArtifactSchema,
+  type CompetitorLandscapeArtifact,
+} from '@/lib/managed-agents/schemas/competitor-landscape';
+import {
+  DemandIntentArtifactSchema,
+  type DemandIntentArtifact,
+} from '@/lib/managed-agents/schemas/demand-intent-signals';
+import {
+  MarketCategoryArtifactSchema,
+  type MarketCategoryArtifact,
+} from '@/lib/managed-agents/schemas/market-category';
+import {
+  OfferPerformanceArtifactSchema,
+  type OfferPerformanceArtifact,
+} from '@/lib/managed-agents/schemas/offer-performance-diagnostic';
+import {
+  VoiceOfCustomerArtifactSchema,
+  type VoiceOfCustomerArtifact,
+} from '@/lib/managed-agents/schemas/voc-objection-evidence';
 import {
   pickPositioningTypedArtifact,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
+import type { z } from 'zod';
 
 type ResearchJobActivityState = {
   status?: 'running' | 'complete' | 'error' | 'idle' | string;
@@ -140,243 +163,42 @@ type TypedArtifactZone = ArtifactZone & {
   typedArtifact?: PositioningTypedArtifact;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
+function matchesSchema<T>(schema: z.ZodType<T>, value: unknown): value is T {
+  return schema.safeParse(value).success;
 }
 
-function isString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isOptionalString(value: unknown): boolean {
-  return value === undefined || isString(value);
-}
-
-function isSource(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.title) &&
-    isString(value.url) &&
-    isOptionalString(value.whyItMatters) &&
-    isOptionalString(value.accessedAt)
-  );
-}
-
-function isFirmographicCut(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.cutType) &&
-    isString(value.value) &&
-    isOptionalString(value.accountCount) &&
-    isString(value.source) &&
-    isString(value.sourceUrl) &&
-    isString(value.dateObserved)
-  );
-}
-
-function isPersona(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.name) &&
-    isString(value.title) &&
-    isString(value.company) &&
-    isString(value.sourceUrl) &&
-    isString(value.role) &&
-    isString(value.seniority) &&
-    isOptionalString(value.teamSize) &&
-    isString(value.evidence)
-  );
-}
-
-function isAwarenessLevel(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.level) &&
-    isString(value.share) &&
-    isString(value.evidence) &&
-    isOptionalString(value.sampleQuery)
-  );
-}
-
-function isTrigger(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.name) &&
-    isString(value.detectionSignal) &&
-    isString(value.window) &&
-    isString(value.evidence) &&
-    isOptionalString(value.sourceUrl)
-  );
-}
-
-function isClusterVenue(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.bucketType) &&
-    isString(value.name) &&
-    isString(value.audienceSize) &&
-    isString(value.sourceUrl) &&
-    isString(value.whyItMatters)
-  );
-}
-
-function isArrayOf(
+export function isMarketCategoryArtifact(
   value: unknown,
-  predicate: (item: unknown) => boolean,
-): boolean {
-  return Array.isArray(value) && value.every(predicate);
-}
-
-function isCompetitor(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.name) &&
-    isString(value.url) &&
-    isString(value.competitorType) &&
-    isString(value.oneLinePositioning) &&
-    isString(value.verbatimHeroCopy) &&
-    isString(value.pricingPosition) &&
-    isString(value.sourceUrl)
-  );
-}
-
-function isCompetitorPosition(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return isString(value.competitor) && isString(value.position);
-}
-
-function isPositioningAxis(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.axisName) &&
-    isString(value.ourPosition) &&
-    isArrayOf(value.competitorPositions, isCompetitorPosition) &&
-    isString(value.evidenceUrl)
-  );
-}
-
-function isPricingDataPoint(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.competitor) &&
-    isString(value.tierName) &&
-    isString(value.monthlyPrice) &&
-    isString(value.packagingPattern) &&
-    isString(value.gatedSignals) &&
-    isString(value.sourceUrl)
-  );
-}
-
-function isShareOfVoiceSlice(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.surface) &&
-    isString(value.winner) &&
-    isString(value.evidence) &&
-    isString(value.sourceUrl)
-  );
-}
-
-function isCompetitorWeakness(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.competitor) &&
-    isString(value.verbatimQuote) &&
-    isString(value.source) &&
-    isString(value.sourceUrl) &&
-    isString(value.whyItMatters)
-  );
-}
-
-function isNarrativeArc(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isString(value.competitor) &&
-    isString(value.villain) &&
-    isString(value.hero) &&
-    isString(value.transformationClaim) &&
-    isString(value.sourceUrl)
-  );
+): value is MarketCategoryArtifact {
+  return matchesSchema(MarketCategoryArtifactSchema, value);
 }
 
 export function isCompetitorLandscapeArtifact(
   value: unknown,
 ): value is CompetitorLandscapeArtifact {
-  if (!isRecord(value)) return false;
-  if (
-    !isString(value.sectionTitle) ||
-    !isString(value.verdict) ||
-    !isString(value.statusSummary) ||
-    typeof value.confidence !== 'number' ||
-    !isArrayOf(value.sources, isSource)
-  ) {
-    return false;
-  }
-  const {
-    competitorSet,
-    positioningTaxonomy,
-    pricingReality,
-    shareOfVoice,
-    publicWeaknesses,
-    narrativeArcs,
-  } = value;
-  return (
-    isRecord(competitorSet) &&
-    isString(competitorSet.prose) &&
-    isArrayOf(competitorSet.competitors, isCompetitor) &&
-    isRecord(positioningTaxonomy) &&
-    isString(positioningTaxonomy.prose) &&
-    isArrayOf(positioningTaxonomy.axes, isPositioningAxis) &&
-    isRecord(pricingReality) &&
-    isString(pricingReality.prose) &&
-    isArrayOf(pricingReality.dataPoints, isPricingDataPoint) &&
-    isRecord(shareOfVoice) &&
-    isString(shareOfVoice.prose) &&
-    isArrayOf(shareOfVoice.slices, isShareOfVoiceSlice) &&
-    isRecord(publicWeaknesses) &&
-    isString(publicWeaknesses.prose) &&
-    isArrayOf(publicWeaknesses.items, isCompetitorWeakness) &&
-    isRecord(narrativeArcs) &&
-    isString(narrativeArcs.prose) &&
-    isArrayOf(narrativeArcs.arcs, isNarrativeArc)
-  );
+  return matchesSchema(CompetitorLandscapeArtifactSchema, value);
 }
 
 export function isBuyerICPArtifact(value: unknown): value is BuyerICPArtifact {
-  if (!isRecord(value)) return false;
-  if (
-    !isString(value.sectionTitle) ||
-    !isString(value.verdict) ||
-    !isString(value.statusSummary) ||
-    typeof value.confidence !== 'number' ||
-    !isArrayOf(value.sources, isSource)
-  ) {
-    return false;
-  }
+  return matchesSchema(BuyerICPArtifactSchema, value);
+}
 
-  const icpExistenceCheck = value.icpExistenceCheck;
-  const personaReality = value.personaReality;
-  const awarenessDistribution = value.awarenessDistribution;
-  const buyingContext = value.buyingContext;
-  const clusters = value.clusters;
+export function isVoiceOfCustomerArtifact(
+  value: unknown,
+): value is VoiceOfCustomerArtifact {
+  return matchesSchema(VoiceOfCustomerArtifactSchema, value);
+}
 
-  return (
-    isRecord(icpExistenceCheck) &&
-    isString(icpExistenceCheck.prose) &&
-    isArrayOf(icpExistenceCheck.firmographicCuts, isFirmographicCut) &&
-    isRecord(personaReality) &&
-    isString(personaReality.prose) &&
-    isArrayOf(personaReality.personas, isPersona) &&
-    isRecord(awarenessDistribution) &&
-    isString(awarenessDistribution.prose) &&
-    isArrayOf(awarenessDistribution.levels, isAwarenessLevel) &&
-    isRecord(buyingContext) &&
-    isString(buyingContext.prose) &&
-    isArrayOf(buyingContext.triggers, isTrigger) &&
-    isRecord(clusters) &&
-    isString(clusters.prose) &&
-    isArrayOf(clusters.venues, isClusterVenue)
-  );
+export function isDemandIntentArtifact(
+  value: unknown,
+): value is DemandIntentArtifact {
+  return matchesSchema(DemandIntentArtifactSchema, value);
+}
+
+export function isOfferPerformanceArtifact(
+  value: unknown,
+): value is OfferPerformanceArtifact {
+  return matchesSchema(OfferPerformanceArtifactSchema, value);
 }
 
 function projectTypedArtifact(

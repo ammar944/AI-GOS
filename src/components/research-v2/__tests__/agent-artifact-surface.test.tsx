@@ -3,7 +3,14 @@ import { render, fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentArtifactSurface } from '../agent-artifact-surface';
-import { buyerIcpArtifactFixture } from '../buyer-icp/__tests__/test-fixtures';
+import {
+  buyerIcpArtifactFixture,
+  competitorLandscapeArtifactFixture,
+  demandIntentArtifactFixture,
+  marketCategoryArtifactFixture as fullMarketCategoryArtifactFixture,
+  offerPerformanceArtifactFixture,
+  voiceOfCustomerArtifactFixture,
+} from '../section-renderers/fixtures';
 import type { PositioningTypedArtifact } from '@/types/positioning-artifact';
 
 const useAuditStateMock = vi.hoisted(() => vi.fn());
@@ -57,6 +64,7 @@ const marketCategoryArtifactFixture = {
 describe('AgentArtifactSurface', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     useAuditStateMock.mockReturnValue(EMPTY_AUDIT_STATE);
   });
 
@@ -227,6 +235,7 @@ describe('AgentArtifactSurface', () => {
   });
 
   it('renders typed BuyerICP cards from audit-state instead of the markdown fallback', () => {
+    vi.stubEnv('NEXT_PUBLIC_ARTIFACT_UI_V2', 'true');
     useAuditStateMock.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: 'parent-run',
@@ -250,8 +259,61 @@ describe('AgentArtifactSurface', () => {
     render(<AgentArtifactSurface runId="run-abc" />);
 
     expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
-    expect(screen.getByText('Confidence 8/10')).toBeInTheDocument();
+    expect(screen.getByText('Named ICP evidence')).toBeInTheDocument();
     expect(screen.queryByText('markdown fallback should not render')).toBeNull();
+  });
+
+  it('routes all six section artifacts to dedicated typed renderers when artifact UI v2 is enabled', () => {
+    vi.stubEnv('NEXT_PUBLIC_ARTIFACT_UI_V2', 'true');
+    useAuditStateMock.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: 'parent-run',
+      workerStates: [
+        { section_id: 'positioningMarketCategory', status: 'complete' },
+        { section_id: 'positioningBuyerICP', status: 'complete' },
+        { section_id: 'positioningCompetitorLandscape', status: 'complete' },
+        { section_id: 'positioningVoiceOfCustomer', status: 'complete' },
+        { section_id: 'positioningDemandIntent', status: 'complete' },
+        { section_id: 'positioningOfferDiagnostic', status: 'complete' },
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          title: fullMarketCategoryArtifactFixture.sectionTitle,
+          markdown: 'market markdown fallback should not render',
+          data: fullMarketCategoryArtifactFixture,
+        },
+        positioningBuyerICP: {
+          title: buyerIcpArtifactFixture.sectionTitle,
+          data: buyerIcpArtifactFixture,
+        },
+        positioningCompetitorLandscape: {
+          title: competitorLandscapeArtifactFixture.sectionTitle,
+          data: competitorLandscapeArtifactFixture,
+        },
+        positioningVoiceOfCustomer: {
+          title: voiceOfCustomerArtifactFixture.sectionTitle,
+          data: voiceOfCustomerArtifactFixture,
+        },
+        positioningDemandIntent: {
+          title: demandIntentArtifactFixture.sectionTitle,
+          data: demandIntentArtifactFixture,
+        },
+        positioningOfferDiagnostic: {
+          title: offerPerformanceArtifactFixture.sectionTitle,
+          data: offerPerformanceArtifactFixture,
+        },
+      },
+    });
+
+    render(<AgentArtifactSurface runId="run-abc" />);
+
+    expect(screen.getByText('Category definition')).toBeInTheDocument();
+    expect(screen.getByText('Named ICP evidence')).toBeInTheDocument();
+    expect(screen.getByText('Competitor set')).toBeInTheDocument();
+    expect(screen.getByText('Pain language')).toBeInTheDocument();
+    expect(screen.getByText('Keyword demand')).toBeInTheDocument();
+    expect(screen.getByText('Offer-market fit')).toBeInTheDocument();
+    expect(screen.queryByText('market markdown fallback should not render')).toBeNull();
   });
 
   it('renders typed non-BuyerICP sections through the narrative renderer instead of markdown', () => {

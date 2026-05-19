@@ -35,8 +35,19 @@ import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import {
   isBuyerICPArtifact,
   isCompetitorLandscapeArtifact,
+  isDemandIntentArtifact,
+  isMarketCategoryArtifact,
+  isOfferPerformanceArtifact,
+  isVoiceOfCustomerArtifact,
 } from '@/lib/research-v2/audit-artifact-view';
-import { CompetitorLandscapeRenderer } from './section-renderers';
+import {
+  BuyerICPRenderer,
+  CompetitorLandscapeRenderer,
+  DemandIntentSignalsRenderer,
+  MarketCategoryRenderer,
+  OfferPerformanceDiagnosticRenderer,
+  VoiceOfCustomerRenderer,
+} from './section-renderers';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
 import {
@@ -45,7 +56,6 @@ import {
   type PositioningArtifactSource,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
-import { BuyerICPArtifactRenderer } from './buyer-icp';
 import { SectionNarrativeRenderer } from './section-narrative-renderer';
 
 export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted';
@@ -122,8 +132,9 @@ async function defaultChatSubmit(
   }
 }
 
-const ARTIFACT_UI_V2 =
-  process.env.NEXT_PUBLIC_ARTIFACT_UI_V2 === 'true';
+function artifactUiV2Enabled(): boolean {
+  return process.env.NEXT_PUBLIC_ARTIFACT_UI_V2 === 'true';
+}
 
 const STATUS_CLASS: Record<WorkerChipStatus, string> = {
   queued: 'border-[var(--border-subtle)] text-[color:var(--text-tertiary)]',
@@ -1043,14 +1054,41 @@ function SectionContentList({
         const isComplete = Boolean(
           body && (body.markdown || body.title || body.data || typedArtifact),
         );
+        const typedRenderersEnabled = artifactUiV2Enabled();
+        const marketCategoryArtifact =
+          typedRenderersEnabled &&
+          zone === 'positioningMarketCategory' &&
+          isMarketCategoryArtifact(typedArtifact)
+            ? typedArtifact
+            : null;
         const buyerIcpArtifact =
-          zone === 'positioningBuyerICP' && isBuyerICPArtifact(typedArtifact)
+          typedRenderersEnabled &&
+          zone === 'positioningBuyerICP' &&
+          isBuyerICPArtifact(typedArtifact)
             ? typedArtifact
             : null;
         const competitorLandscapeArtifact =
-          ARTIFACT_UI_V2 &&
+          typedRenderersEnabled &&
           zone === 'positioningCompetitorLandscape' &&
           isCompetitorLandscapeArtifact(typedArtifact)
+            ? typedArtifact
+            : null;
+        const voiceOfCustomerArtifact =
+          typedRenderersEnabled &&
+          zone === 'positioningVoiceOfCustomer' &&
+          isVoiceOfCustomerArtifact(typedArtifact)
+            ? typedArtifact
+            : null;
+        const demandIntentArtifact =
+          typedRenderersEnabled &&
+          zone === 'positioningDemandIntent' &&
+          isDemandIntentArtifact(typedArtifact)
+            ? typedArtifact
+            : null;
+        const offerPerformanceArtifact =
+          typedRenderersEnabled &&
+          zone === 'positioningOfferDiagnostic' &&
+          isOfferPerformanceArtifact(typedArtifact)
             ? typedArtifact
             : null;
         if (isComplete) {
@@ -1086,10 +1124,18 @@ function SectionContentList({
                   label={state?.phaseLabel ?? state?.phase ?? 'Committed'}
                 />
               </header>
-              {buyerIcpArtifact ? (
-                <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
+              {marketCategoryArtifact ? (
+                <MarketCategoryRenderer artifact={marketCategoryArtifact} />
+              ) : buyerIcpArtifact ? (
+                <BuyerICPRenderer artifact={buyerIcpArtifact} />
               ) : competitorLandscapeArtifact ? (
                 <CompetitorLandscapeRenderer artifact={competitorLandscapeArtifact} />
+              ) : voiceOfCustomerArtifact ? (
+                <VoiceOfCustomerRenderer artifact={voiceOfCustomerArtifact} />
+              ) : demandIntentArtifact ? (
+                <DemandIntentSignalsRenderer artifact={demandIntentArtifact} />
+              ) : offerPerformanceArtifact ? (
+                <OfferPerformanceDiagnosticRenderer artifact={offerPerformanceArtifact} />
               ) : typedArtifact ? (
                 <SectionNarrativeRenderer
                   artifact={typedArtifact}

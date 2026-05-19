@@ -209,7 +209,7 @@ describe('POST /api/research-v2/orchestrate', () => {
     );
   });
 
-  it('kicks the worker with draft execution mode by default', async () => {
+  it('kicks the worker with deep execution mode by default', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession({ ownerId: 'user_1' });
     process.env.RAILWAY_WORKER_URL = 'https://worker.example';
@@ -230,7 +230,7 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(url).toBe('https://worker.example/orchestrate');
     expect(JSON.parse(String(init.body))).toMatchObject({
       parent_audit_run_id: PARENT_ID,
-      executionMode: 'draft',
+      executionMode: 'deep',
     });
   });
 

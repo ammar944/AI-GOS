@@ -31,7 +31,7 @@ import type { ResearchJobUpdate } from '@/lib/journey/research-job-activity';
 import type { ArtifactZone as ArtifactZoneData } from '@/lib/research-v2/audit-artifact-schema';
 import { isBuyerICPArtifact } from '@/lib/research-v2/audit-artifact-view';
 import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
-import { BuyerICPArtifactRenderer } from './buyer-icp';
+import { BuyerICPRenderer } from './section-renderers';
 import { TypedArtifactRenderer } from './typed-artifact-renderer';
 import { ZoneActivity } from './zone-activity';
 import { ZoneErrorCard } from './zone-error-card';
@@ -169,7 +169,7 @@ export function ArtifactZone({
         ) : null}
 
         {buyerIcpArtifact ? (
-          <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
+          <BuyerICPRenderer artifact={buyerIcpArtifact} />
         ) : typedArtifact ? (
           <TypedArtifactRenderer artifact={typedArtifact} zoneId={zone.zone} />
         ) : hasNarrative ? (
