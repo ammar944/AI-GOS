@@ -11,11 +11,15 @@ import { useUser } from '@clerk/nextjs';
 import {
   researchV2Reducer,
   INITIAL_STATE,
-  type ResearchV2State,
 } from '@/lib/research-v2/state-machine';
-import type { OnboardingV2Data } from '@/lib/research-v2/onboarding-v2-types';
-import { prefillFromCorpus } from '@/lib/research-v2/prefill-from-corpus';
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import type {
+  OnboardingReviewMetadata,
+  OnboardingV2Data,
+} from '@/lib/research-v2/onboarding-v2-types';
+import {
+  inferPersistedResearchV2State,
+  type PersistedResearchV2Session,
+} from '@/lib/research-v2/session-state';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
@@ -31,79 +35,29 @@ function buildCorpusContext(websiteUrl: string): string {
   return `websiteUrl: ${websiteUrl}\nWebsite: ${websiteUrl}`;
 }
 
-const dispatchAllPositioningSections = async (runId: string): Promise<void> => {
-  await Promise.allSettled(
-    POSITIONING_SECTION_IDS.map((sectionId) =>
-      fetch('/api/research-v2/dispatch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ sectionId, runId }),
-      }),
-    ),
-  );
-};
+interface JourneySessionResponse {
+  runId?: string | null;
+  researchResults?: Record<string, unknown> | null;
+  jobStatus?: Record<string, unknown> | null;
+  onboardingData?: Record<string, unknown> | null;
+  updatedAt?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
 
-/**
- * Infer which research-v2 stage the session is in based on persisted data.
- * Returns null when there is no in-flight session to resume.
- *
- * Routing priority:
- *   1. Any positioning section row in research_results / job_status → 'sections' (audit live)
- *   2. onboarding_data populated → 'sections' (onboarding done, no positioning runs yet)
- *   3. corpus complete                       → 'onboarding'
- *   4. corpus pending / streaming            → 'corpus'
- *   5. no corpus at all                      → 'welcome' (caller treats null as welcome)
- */
-function inferResumeState(
+function buildPersistedSession(
   runId: string,
-  researchResults: Record<string, unknown> | null,
-  onboardingData: Record<string, unknown> | null,
-  jobStatus: Record<string, unknown> | null,
-): ResearchV2State | null {
-  if (!runId) return null;
+  data: JourneySessionResponse,
+): PersistedResearchV2Session {
+  return {
+    runId,
+    researchResults: data.researchResults ?? null,
+    onboardingData: data.onboardingData ?? null,
+    jobStatus: data.jobStatus ?? null,
+  };
+}
 
-  const hasPositioningResult = researchResults
-    ? Object.keys(researchResults).some((key) => key.startsWith('positioning'))
-    : false;
-  const hasPositioningJob = jobStatus
-    ? Object.keys(jobStatus).some((key) => key.startsWith('positioning'))
-    : false;
-
-  // 1. Audit is live — sections in progress or done
-  if (hasPositioningResult || hasPositioningJob) {
-    return { kind: 'sections', runId, currentSection: null };
-  }
-
-  // 2. Onboarding completed but no positioning runs yet — land on section picker
-  if (onboardingData && Object.keys(onboardingData).length > 0) {
-    return { kind: 'sections', runId, currentSection: null };
-  }
-
-  const corpus = researchResults?.deepResearchProgram as
-    | { status?: string; data?: unknown }
-    | undefined;
-
-  // 4. No corpus result yet — corpus is still streaming
-  if (!corpus) {
-    return { kind: 'corpus', runId, phase: 'streaming' };
-  }
-
-  if (corpus.status !== 'complete') {
-    return { kind: 'corpus', runId, phase: 'streaming' };
-  }
-
-  // 3. Corpus complete, no onboarding yet — map corpus onboardingFields to V2 prefill
-  const corpusData = corpus.data as Record<string, unknown> | undefined;
-  const onboardingFields = corpusData?.onboardingFields as
-    | Record<string, { value?: unknown }>
-    | undefined;
-
-  const prefill: Partial<OnboardingV2Data> = onboardingFields
-    ? prefillFromCorpus(onboardingFields)
-    : {};
-
-  return { kind: 'onboarding', runId, prefill };
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 // ---------------------------------------------------------------------------
@@ -128,15 +82,15 @@ export default function ResearchV2Page() {
 
   const runIdFromUrl = searchParams.get('runId');
 
-  function setRunIdInUrl(runId: string) {
+  const setRunIdInUrl = useCallback((runId: string): void => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('runId', runId);
     router.replace(`/research-v2?${params.toString()}`, { scroll: false });
-  }
+  }, [router, searchParams]);
 
-  function clearRunIdInUrl() {
+  const clearRunIdInUrl = useCallback((): void => {
     router.replace('/research-v2', { scroll: false });
-  }
+  }, [router]);
 
   // -----------------------------------------------------------------------
   // Resume-on-revisit: on mount, check for an in-flight session
@@ -148,6 +102,42 @@ export default function ResearchV2Page() {
     runId: string;
   } | null>(null);
   const hasAttemptedResume = useRef(false);
+  const activeCorpusRunIdRef = useRef<string | null>(null);
+  const corpusTransitionedRunIdsRef = useRef<Set<string>>(new Set());
+  const corpusCompletionFetchesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    activeCorpusRunIdRef.current = state.kind === 'corpus' ? state.runId : null;
+  }, [state]);
+
+  const hydrateFromRunId = useCallback(async (runId: string): Promise<void> => {
+    try {
+      const res = await fetch(`/api/journey/session?runId=${runId}`, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) {
+        console.warn('[research-v2] session hydrate failed', {
+          runId,
+          status: res.status,
+        });
+        return;
+      }
+      const data = (await res.json()) as JourneySessionResponse;
+      const resumed = inferPersistedResearchV2State(
+        buildPersistedSession(runId, data),
+      );
+      if (resumed) {
+        dispatch({ type: 'RESUME', state: resumed });
+        setRunIdInUrl(runId);
+      }
+    } catch (error) {
+      console.warn('[research-v2] session hydrate failed', {
+        runId,
+        error: describeError(error),
+      });
+    }
+  }, [setRunIdInUrl]);
 
   useEffect(() => {
     if (!isUserLoaded || !user) return;
@@ -167,16 +157,14 @@ export default function ResearchV2Page() {
           cache: 'no-store',
           credentials: 'same-origin',
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn('[research-v2] latest session lookup failed', {
+            status: res.status,
+          });
+          return;
+        }
 
-        const data = (await res.json()) as {
-          runId?: string | null;
-          researchResults?: Record<string, unknown> | null;
-          jobStatus?: Record<string, unknown> | null;
-          onboardingData?: Record<string, unknown> | null;
-          updatedAt?: string | null;
-          metadata?: Record<string, unknown> | null;
-        };
+        const data = (await res.json()) as JourneySessionResponse;
 
         if (!data.runId) return;
 
@@ -192,11 +180,8 @@ export default function ResearchV2Page() {
           // keep raw
         }
 
-        const resumed = inferResumeState(
-          data.runId,
-          data.researchResults ?? null,
-          data.onboardingData ?? null,
-          data.jobStatus ?? null,
+        const resumed = inferPersistedResearchV2State(
+          buildPersistedSession(data.runId, data),
         );
         if (!resumed) return;
 
@@ -205,38 +190,13 @@ export default function ResearchV2Page() {
           updatedAt: data.updatedAt ?? new Date().toISOString(),
           runId: data.runId,
         });
-      } catch {
-        // Silently ignore — resume is best-effort
+      } catch (error) {
+        console.warn('[research-v2] latest session lookup failed', {
+          error: describeError(error),
+        });
       }
     })();
-  }, [isUserLoaded, user, runIdFromUrl]);
-
-  async function hydrateFromRunId(runId: string) {
-    try {
-      const res = await fetch(`/api/journey/session?runId=${runId}`, {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as {
-        researchResults?: Record<string, unknown> | null;
-        jobStatus?: Record<string, unknown> | null;
-        onboardingData?: Record<string, unknown> | null;
-      };
-      const resumed = inferResumeState(
-        runId,
-        data.researchResults ?? null,
-        data.onboardingData ?? null,
-        data.jobStatus ?? null,
-      );
-      if (resumed) {
-        dispatch({ type: 'RESUME', state: resumed });
-        setRunIdInUrl(runId);
-      }
-    } catch {
-      // Silently ignore
-    }
-  }
+  }, [hydrateFromRunId, isUserLoaded, runIdFromUrl, user]);
 
   function handleConfirmResume() {
     if (!resumeBanner) return;
@@ -257,7 +217,8 @@ export default function ResearchV2Page() {
     setIsCorpusStarting(true);
 
     try {
-      // Create a new session row
+      // Create a new session row. The server is the source of truth for runId
+      // so the worker's isActiveJourneyRun check can match the row that exists.
       const sessionRes = await fetch('/api/journey/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -265,15 +226,32 @@ export default function ResearchV2Page() {
         body: JSON.stringify({}),
       });
 
-      let runId: string = crypto.randomUUID();
-      if (sessionRes.ok) {
-        const sessionData = (await sessionRes.json()) as {
-          runId?: string | null;
+      if (!sessionRes.ok) {
+        const errBody = (await sessionRes.json().catch(() => ({}))) as {
+          error?: string;
         };
-        if (sessionData.runId) {
-          runId = sessionData.runId;
-        }
+        dispatch({
+          type: 'ERROR',
+          from: 'corpus',
+          message:
+            errBody.error ??
+            `Failed to create journey session (HTTP ${sessionRes.status})`,
+        });
+        return;
       }
+
+      const sessionData = (await sessionRes.json()) as {
+        runId?: string | null;
+      };
+      if (!sessionData.runId) {
+        dispatch({
+          type: 'ERROR',
+          from: 'corpus',
+          message: 'Journey session response missing runId',
+        });
+        return;
+      }
+      const runId: string = sessionData.runId;
 
       // Transition state to corpus
       dispatch({ type: 'CORPUS_START', runId });
@@ -315,42 +293,85 @@ export default function ResearchV2Page() {
     } finally {
       setIsCorpusStarting(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setRunIdInUrl]);
 
   // -----------------------------------------------------------------------
-  // Corpus complete callback
+  // Authoritative corpus completion polling
   // -----------------------------------------------------------------------
 
-  const handleCorpusComplete = useCallback(() => {
-    if (state.kind !== 'corpus') return;
-    dispatch({ type: 'CORPUS_FINALIZING' });
+  const attemptCorpusCompletionTransition = useCallback(
+    async (runId: string, source: 'activity' | 'poll'): Promise<void> => {
+      if (corpusTransitionedRunIdsRef.current.has(runId)) return;
+      if (corpusCompletionFetchesRef.current.has(runId)) return;
 
-    // Fetch corpus results and build prefill, then advance to onboarding
-    const runId = state.runId;
-    void (async () => {
+      corpusCompletionFetchesRef.current.add(runId);
       try {
         const res = await fetch(`/api/journey/session?runId=${runId}`, {
           cache: 'no-store',
           credentials: 'same-origin',
         });
-        if (res.ok) {
-          const data = (await res.json()) as {
-            researchResults?: Record<string, unknown> | null;
-          };
-          const corpus = data.researchResults?.deepResearchProgram as
-            | { data?: { onboardingFields?: Record<string, { value?: unknown }> } }
-            | undefined;
-          const onboardingFields = corpus?.data?.onboardingFields ?? {};
-          const prefill: Partial<OnboardingV2Data> = prefillFromCorpus(onboardingFields);
-          dispatch({ type: 'CORPUS_COMPLETE', prefill });
-        } else {
-          dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
+        if (!res.ok) {
+          console.warn('[research-v2] corpus completion session fetch failed', {
+            runId,
+            source,
+            status: res.status,
+          });
+          return;
         }
-      } catch {
-        dispatch({ type: 'CORPUS_COMPLETE', prefill: {} });
+
+        const data = (await res.json()) as JourneySessionResponse;
+        const inferred = inferPersistedResearchV2State(
+          buildPersistedSession(runId, data),
+        );
+
+        if (activeCorpusRunIdRef.current !== runId) return;
+
+        if (inferred?.kind === 'onboarding') {
+          corpusTransitionedRunIdsRef.current.add(runId);
+          dispatch({
+            type: 'CORPUS_COMPLETE',
+            runId,
+            prefill: inferred.prefill,
+            prefillMetadata: inferred.prefillMetadata,
+          });
+          return;
+        }
+
+        if (inferred?.kind === 'sections') {
+          corpusTransitionedRunIdsRef.current.add(runId);
+          dispatch({ type: 'RESUME', state: inferred });
+        }
+      } catch (error) {
+        console.warn('[research-v2] corpus completion session fetch failed', {
+          runId,
+          source,
+          error: describeError(error),
+        });
+      } finally {
+        corpusCompletionFetchesRef.current.delete(runId);
       }
-    })();
-  }, [state]);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (state.kind !== 'corpus') return;
+
+    const runId = state.runId;
+    void attemptCorpusCompletionTransition(runId, 'poll');
+
+    const intervalId = window.setInterval(() => {
+      void attemptCorpusCompletionTransition(runId, 'poll');
+    }, 2_500);
+
+    return () => window.clearInterval(intervalId);
+  }, [attemptCorpusCompletionTransition, state]);
+
+  const handleCorpusComplete = useCallback(() => {
+    if (state.kind !== 'corpus') return;
+    dispatch({ type: 'CORPUS_FINALIZING' });
+    void attemptCorpusCompletionTransition(state.runId, 'activity');
+  }, [attemptCorpusCompletionTransition, state]);
 
   // -----------------------------------------------------------------------
   // Onboarding complete callback (Phase 3 mount)
@@ -358,7 +379,7 @@ export default function ResearchV2Page() {
   // -----------------------------------------------------------------------
 
   const handleOnboardingComplete = useCallback(
-    async (data: OnboardingV2Data) => {
+    async (data: OnboardingV2Data, reviewMetadata: OnboardingReviewMetadata) => {
       if (state.kind !== 'onboarding') return;
       const runId = state.runId;
 
@@ -367,7 +388,7 @@ export default function ResearchV2Page() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ runId, data }),
+          body: JSON.stringify({ runId, data, reviewMetadata }),
         });
 
         if (!res.ok) {
@@ -449,7 +470,7 @@ export default function ResearchV2Page() {
     clearRunIdInUrl();
     setResumeBanner(null);
     dispatch({ type: 'RESET_TO_WELCOME' });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clearRunIdInUrl]);
 
   // -----------------------------------------------------------------------
   // Render
@@ -505,6 +526,7 @@ export default function ResearchV2Page() {
       {state.kind === 'onboarding' && (
         <OnboardingWizardV2
           initialData={state.prefill}
+          initialPrefillMetadata={state.prefillMetadata}
           onComplete={handleOnboardingComplete}
         />
       )}

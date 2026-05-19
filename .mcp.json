@@ -3,6 +3,17 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
+    },
+    "shadcnio": {
+      "type": "http",
+      "url": "https://www.shadcn.io/api/mcp?token=9e99026230d964635e40505aac3f6b2b05396d0e452fad860dc6a8671bb4f288"
     }
   }
 }

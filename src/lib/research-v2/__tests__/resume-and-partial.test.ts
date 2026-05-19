@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  inferPersistedResearchV2State,
+  type PersistedResearchV2Session,
+} from '@/lib/research-v2/session-state';
+import {
+  researchV2Reducer,
+  type ResearchV2State,
+} from '@/lib/research-v2/state-machine';
 import { __testing__ } from '../../../../research-worker/src/runners/positioning-audit-orchestrator';
 
 /**
@@ -55,42 +63,20 @@ describe('Phase 6 rollup contract', () => {
   });
 });
 
-/**
- * Resume reducer parity test: codifies the same state-inference table used
- * by src/app/research-v2/page.tsx::inferResumeState so a future refactor
- * can't silently regress the resume contract.
- */
-type ResumeState =
-  | { kind: 'sections' }
-  | { kind: 'onboarding' }
-  | { kind: 'corpus' };
+const RUN_ID = 'run-session-state';
 
-function inferResumeForTest(input: {
-  researchResults: Record<string, unknown> | null;
-  onboardingData: Record<string, unknown> | null;
-  jobStatus: Record<string, unknown> | null;
-}): ResumeState | null {
-  const { researchResults, onboardingData, jobStatus } = input;
-  const hasPositioningResult = researchResults
-    ? Object.keys(researchResults).some((k) => k.startsWith('positioning'))
-    : false;
-  const hasPositioningJob = jobStatus
-    ? Object.keys(jobStatus).some((k) => k.startsWith('positioning'))
-    : false;
-  if (hasPositioningResult || hasPositioningJob) return { kind: 'sections' };
-  if (onboardingData && Object.keys(onboardingData).length > 0) {
-    return { kind: 'sections' };
-  }
-  const corpus = (researchResults?.deepResearchProgram as
-    | { status?: string }
-    | undefined);
-  if (!corpus || corpus.status !== 'complete') return { kind: 'corpus' };
-  return { kind: 'onboarding' };
+function inferSession(
+  input: Omit<PersistedResearchV2Session, 'runId'>,
+): ResearchV2State | null {
+  return inferPersistedResearchV2State({
+    runId: RUN_ID,
+    ...input,
+  });
 }
 
 describe('Phase 6 resume reducer contract', () => {
   it('resumes to sections when at least one positioning result exists', () => {
-    const state = inferResumeForTest({
+    const state = inferSession({
       researchResults: {
         positioningMarketCategory: { status: 'complete' },
       },
@@ -101,7 +87,7 @@ describe('Phase 6 resume reducer contract', () => {
   });
 
   it('resumes to sections when a positioning job is queued/running (no result yet)', () => {
-    const state = inferResumeForTest({
+    const state = inferSession({
       researchResults: null,
       onboardingData: null,
       jobStatus: { positioningBuyerICP: { status: 'running' } },
@@ -109,19 +95,62 @@ describe('Phase 6 resume reducer contract', () => {
     expect(state?.kind).toBe('sections');
   });
 
-  it('resumes to onboarding when corpus is complete but no positioning work has started', () => {
-    const state = inferResumeForTest({
+  it('resumes to onboarding with corpus prefill when corpus is complete but no positioning work has started', () => {
+    const state = inferSession({
       researchResults: {
-        deepResearchProgram: { status: 'complete' },
+        deepResearchProgram: {
+          status: 'complete',
+          data: {
+            onboardingFields: {
+              companyName: {
+                value: 'Clay',
+                confidence: 0.91,
+                sourceUrl: 'https://www.clay.com',
+                reasoning: 'Homepage identity.',
+              },
+            },
+          },
+        },
       },
       onboardingData: null,
       jobStatus: null,
     });
-    expect(state?.kind).toBe('onboarding');
+    expect(state).toMatchObject({
+      kind: 'onboarding',
+      runId: RUN_ID,
+      prefill: { companyName: 'Clay' },
+      prefillMetadata: {
+        companyName: {
+          value: 'Clay',
+          confidence: 0.91,
+          sourceUrl: 'https://www.clay.com',
+          reasoning: 'Homepage identity.',
+        },
+      },
+    });
+  });
+
+  it('resumes to onboarding with empty prefill only when a persisted corpus is complete without onboarding fields', () => {
+    const state = inferSession({
+      researchResults: {
+        deepResearchProgram: {
+          status: 'complete',
+          data: {},
+        },
+      },
+      onboardingData: null,
+      jobStatus: null,
+    });
+    expect(state).toMatchObject({
+      kind: 'onboarding',
+      runId: RUN_ID,
+      prefill: {},
+      prefillMetadata: {},
+    });
   });
 
   it('resumes to corpus when corpus is mid-stream', () => {
-    const state = inferResumeForTest({
+    const state = inferSession({
       researchResults: {
         deepResearchProgram: { status: 'running' },
       },
@@ -131,12 +160,57 @@ describe('Phase 6 resume reducer contract', () => {
     expect(state?.kind).toBe('corpus');
   });
 
+  it('resumes to corpus when no persisted corpus exists yet', () => {
+    const state = inferSession({
+      researchResults: null,
+      onboardingData: null,
+      jobStatus: null,
+    });
+    expect(state).toMatchObject({
+      kind: 'corpus',
+      runId: RUN_ID,
+      phase: 'streaming',
+    });
+  });
+
+  it('ignores duplicate and stale corpus completion actions after the first transition', () => {
+    const first = researchV2Reducer(
+      { kind: 'corpus', runId: RUN_ID, phase: 'streaming' },
+      {
+        type: 'CORPUS_COMPLETE',
+        runId: RUN_ID,
+        prefill: { companyName: 'Clay' },
+        prefillMetadata: {},
+      },
+    );
+
+    const duplicate = researchV2Reducer(first, {
+      type: 'CORPUS_COMPLETE',
+      runId: RUN_ID,
+      prefill: { companyName: 'Should not replace state' },
+      prefillMetadata: {},
+    });
+
+    const stale = researchV2Reducer(
+      { kind: 'corpus', runId: 'new-run', phase: 'streaming' },
+      {
+        type: 'CORPUS_COMPLETE',
+        runId: RUN_ID,
+        prefill: { companyName: 'Old run' },
+        prefillMetadata: {},
+      },
+    );
+
+    expect(duplicate).toBe(first);
+    expect(stale).toEqual({ kind: 'corpus', runId: 'new-run', phase: 'streaming' });
+  });
+
   it('reload during a partial parent run reconstructs to "sections" — completed children remain visible', () => {
     // Simulates the reload-during-run path: three positioning sections have
     // committed via commit_artifact_section, three are still queued. The
     // resume reducer sees the three complete ones in research_results and
     // lands on 'sections', so the worker chips show their statuses.
-    const state = inferResumeForTest({
+    const state = inferSession({
       researchResults: {
         deepResearchProgram: { status: 'complete' },
         positioningMarketCategory: { status: 'complete' },

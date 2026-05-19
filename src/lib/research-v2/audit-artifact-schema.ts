@@ -76,6 +76,7 @@ export const ArtifactZoneSchema = z.object({
   status: ZoneStatusSchema,
   title: z.string(),
   narrative: z.string(),
+  typedArtifact: z.unknown().optional(),
   claims: z.array(ArtifactClaimSchema),
   sources: z.array(ArtifactSourceSchema),
   activity: z.array(ArtifactActivityEventSchema),

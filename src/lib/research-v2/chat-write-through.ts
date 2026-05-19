@@ -40,7 +40,7 @@ interface SupabaseRpcLike {
   rpc(
     fn: string,
     args: Record<string, unknown>,
-  ): Promise<{ data: unknown; error: { message: string } | null }>;
+  ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -56,6 +56,40 @@ function readArray(record: Record<string, unknown>, key: string): unknown[] | un
   return Array.isArray(v) ? v : undefined;
 }
 
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function looksLikeTypedArtifact(record: Record<string, unknown>): boolean {
+  return (
+    typeof record.sectionTitle === 'string' &&
+    typeof record.statusSummary === 'string'
+  );
+}
+
+function readTypedArtifactData(
+  section: Record<string, unknown>,
+): unknown | undefined {
+  if (hasOwn(section, 'data')) {
+    return section.data;
+  }
+  if (hasOwn(section, 'typedArtifact')) {
+    return section.typedArtifact;
+  }
+  if (isRecord(section.artifact)) {
+    if (hasOwn(section.artifact, 'data')) {
+      return section.artifact.data;
+    }
+    if (hasOwn(section.artifact, 'typedArtifact')) {
+      return section.artifact.typedArtifact;
+    }
+  }
+  if (looksLikeTypedArtifact(section)) {
+    return section;
+  }
+  return undefined;
+}
+
 /**
  * Pulls the renderable fields out of a wrapper-or-inner section payload so
  * commit_artifact_section receives a clean patch shape regardless of which
@@ -63,7 +97,13 @@ function readArray(record: Record<string, unknown>, key: string): unknown[] | un
  */
 export function extractNormalizedPatch(
   section: Record<string, unknown>,
-): { markdown?: string; title?: string; claims: unknown[]; sources: unknown[] } {
+): {
+  markdown?: string;
+  title?: string;
+  data?: unknown;
+  claims: unknown[];
+  sources: unknown[];
+} {
   const inner = isRecord(section.artifact)
     ? section.artifact
     : isRecord(section.data)
@@ -78,8 +118,15 @@ export function extractNormalizedPatch(
     readArray(inner, 'claims') ?? readArray(section, 'claims') ?? [];
   const sources =
     readArray(inner, 'sources') ?? readArray(section, 'sources') ?? [];
+  const data = readTypedArtifactData(section);
 
-  return { markdown, title, claims, sources };
+  return {
+    markdown,
+    title,
+    ...(data !== undefined ? { data } : {}),
+    claims,
+    sources,
+  };
 }
 
 export async function commitChatPatch(
@@ -105,6 +152,9 @@ export async function commitChatPatch(
       status: 'complete',
       title: normalizedPatch.title,
       markdown: normalizedPatch.markdown,
+      ...(normalizedPatch.data !== undefined
+        ? { data: normalizedPatch.data }
+        : {}),
       claims: normalizedPatch.claims,
       sources: normalizedPatch.sources,
       error: null,

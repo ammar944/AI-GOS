@@ -1,0 +1,187 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const RUN_ID = '00000000-0000-4000-8000-0000000000aa';
+const PARENT_ID = '11111111-1111-4111-8111-111111111111';
+const SECTION_RUN_ID = '22222222-2222-4222-8222-000000000004';
+
+const routeMocks = vi.hoisted(() => {
+  const auth = vi.fn();
+  const seedOrchestration = vi.fn();
+  const artifactQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  artifactQuery.select.mockReturnValue(artifactQuery);
+  artifactQuery.eq.mockReturnValue(artifactQuery);
+
+  const sectionQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  sectionQuery.select.mockReturnValue(sectionQuery);
+  sectionQuery.eq.mockReturnValue(sectionQuery);
+
+  const from = vi.fn((table: string) => {
+    if (table === 'research_artifacts') return artifactQuery;
+    if (table === 'research_artifact_sections') return sectionQuery;
+    throw new Error(`Unexpected table ${table}`);
+  });
+  const createAdminClient = vi.fn(() => ({ from }));
+
+  return {
+    auth,
+    seedOrchestration,
+    artifactQuery,
+    sectionQuery,
+    createAdminClient,
+  };
+});
+
+vi.mock('@clerk/nextjs/server', () => ({
+  auth: () => routeMocks.auth(),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createAdminClient: routeMocks.createAdminClient,
+}));
+
+vi.mock('@/lib/research-v2/orchestrate-db', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/research-v2/orchestrate-db')>(
+      '@/lib/research-v2/orchestrate-db',
+    );
+  return {
+    ...actual,
+    seedOrchestration: (...args: unknown[]) =>
+      routeMocks.seedOrchestration(...args),
+  };
+});
+
+const { POST } = await import('../route');
+
+function makeRequest(body: unknown): Request {
+  return new Request('http://localhost/api/research-v2/rerun-section', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+function mockSeeded(): void {
+  routeMocks.seedOrchestration.mockResolvedValue({
+    parent_audit_run_id: PARENT_ID,
+    section_run_ids: [
+      {
+        section_id: 'positioningVoiceOfCustomer',
+        section_run_id: SECTION_RUN_ID,
+        ordinal: 4,
+        reused: false,
+      },
+    ],
+  });
+}
+
+describe('POST /api/research-v2/rerun-section', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    process.env.RAILWAY_WORKER_URL = 'https://worker.example';
+    process.env.RAILWAY_API_KEY = 'worker-key';
+    routeMocks.artifactQuery.select.mockReturnValue(routeMocks.artifactQuery);
+    routeMocks.artifactQuery.eq.mockReturnValue(routeMocks.artifactQuery);
+    routeMocks.artifactQuery.maybeSingle.mockResolvedValue({
+      data: { id: PARENT_ID },
+      error: null,
+    });
+    routeMocks.sectionQuery.select.mockReturnValue(routeMocks.sectionQuery);
+    routeMocks.sectionQuery.eq.mockReturnValue(routeMocks.sectionQuery);
+    routeMocks.sectionQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    mockSeeded();
+  });
+
+  it('returns 401 when there is no Clerk user', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: null });
+    const response = await POST(
+      makeRequest({ runId: RUN_ID, zone: 'positioningVoiceOfCustomer' }),
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects non-positioning zones', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const response = await POST(
+      makeRequest({ runId: RUN_ID, zone: 'deepResearchProgram' }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it('seeds one zone and kicks the worker in deep mode by default', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({ runId: RUN_ID, zone: 'positioningVoiceOfCustomer' }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.executionMode).toBe('deep');
+    expect(routeMocks.seedOrchestration).toHaveBeenCalledWith({
+      userId: 'user_1',
+      runId: RUN_ID,
+      zones: ['positioningVoiceOfCustomer'],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      parent_audit_run_id: PARENT_ID,
+      zones: ['positioningVoiceOfCustomer'],
+      executionMode: 'deep',
+    });
+  });
+
+  it('aborts an active section and forwards partial context into the deep rerun', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sectionQuery.maybeSingle.mockResolvedValue({
+      data: {
+        section_run_id: SECTION_RUN_ID,
+        markdown: 'partial artifact body',
+        status: 'running',
+        error: { partial: true },
+      },
+      error: null,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: 'positioningVoiceOfCustomer',
+        usePartialContext: true,
+        refinement: 'tighten verbatim buyer language',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [abortUrl, abortInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(abortUrl).toBe('https://worker.example/abort');
+    expect(JSON.parse(String(abortInit.body))).toEqual({
+      sectionRunId: SECTION_RUN_ID,
+    });
+    const [, orchestrateInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    const workerBody = JSON.parse(String(orchestrateInit.body)) as {
+      refinement: string;
+    };
+    expect(workerBody.refinement).toContain('tighten verbatim buyer language');
+    expect(workerBody.refinement).toContain('<previous_attempt_partial>');
+    expect(workerBody.refinement).toContain('partial artifact body');
+  });
+});

@@ -1,4 +1,20 @@
-import type { OnboardingV2Data } from './onboarding-v2-types';
+import type {
+  OnboardingFieldPrefillMetadata,
+  OnboardingPrefillMetadata,
+  OnboardingV2Data,
+} from './onboarding-v2-types';
+
+export interface CorpusOnboardingField {
+  value?: unknown;
+  confidence?: unknown;
+  sourceUrl?: unknown;
+  reasoning?: unknown;
+}
+
+export interface PrefillFromCorpusResult {
+  data: Partial<OnboardingV2Data>;
+  metadata: OnboardingPrefillMetadata;
+}
 
 /**
  * Maps the flat corpus-emitted onboardingFields dictionary to OnboardingV2Data.
@@ -15,8 +31,33 @@ import type { OnboardingV2Data } from './onboarding-v2-types';
  * Fields with no corpus equivalent are left undefined so the user fills them.
  */
 export function prefillFromCorpus(
-  onboardingFields: Record<string, { value?: unknown }>,
+  onboardingFields: Record<string, CorpusOnboardingField>,
 ): Partial<OnboardingV2Data> {
+  return prefillFromCorpusWithMetadata(onboardingFields).data;
+}
+
+function fieldMetadata(
+  field: CorpusOnboardingField | undefined,
+  value: string,
+): OnboardingFieldPrefillMetadata {
+  const confidence =
+    typeof field?.confidence === 'number' && Number.isFinite(field.confidence)
+      ? field.confidence
+      : null;
+  const sourceUrl =
+    typeof field?.sourceUrl === 'string' && field.sourceUrl.trim().length > 0
+      ? field.sourceUrl.trim()
+      : null;
+  const reasoning =
+    typeof field?.reasoning === 'string' && field.reasoning.trim().length > 0
+      ? field.reasoning.trim()
+      : null;
+  return { value, confidence, sourceUrl, reasoning };
+}
+
+export function prefillFromCorpusWithMetadata(
+  onboardingFields: Record<string, CorpusOnboardingField>,
+): PrefillFromCorpusResult {
   function str(key: string): string | undefined {
     const val = onboardingFields[key]?.value;
     if (typeof val === 'string' && val.trim().length > 0) return val.trim();
@@ -24,13 +65,21 @@ export function prefillFromCorpus(
   }
 
   const result: Partial<OnboardingV2Data> = {};
+  const metadata: OnboardingPrefillMetadata = {};
+
+  function setField<K extends keyof OnboardingV2Data>(
+    key: K,
+    corpusKey: string,
+    value: string | undefined,
+  ): void {
+    if (value === undefined) return;
+    result[key] = value as OnboardingV2Data[K];
+    metadata[key] = fieldMetadata(onboardingFields[corpusKey], value);
+  }
 
   // Section 1: Product & Revenue Model
-  const companyName = str('companyName');
-  if (companyName !== undefined) result.companyName = companyName;
-
-  const productDescription = str('productDescription');
-  if (productDescription !== undefined) result.productDescription = productDescription;
+  setField('companyName', 'companyName', str('companyName'));
+  setField('productDescription', 'productDescription', str('productDescription'));
 
   // builtFor — no direct corpus key; skip
 
@@ -39,64 +88,45 @@ export function prefillFromCorpus(
   // pricingModel, conversionPath, acv — radios, corpus doesn't emit these; skip
 
   // Section 2: ICP + Pain
-  const primaryIcpDescription = str('primaryIcpDescription');
-  if (primaryIcpDescription !== undefined) result.idealCustomer = primaryIcpDescription;
-
-  const industryVertical = str('industryVertical');
-  if (industryVertical !== undefined) result.industry = industryVertical;
-
-  const jobTitles = str('jobTitles');
-  if (jobTitles !== undefined) result.jobTitles = jobTitles;
-
-  const companySize = str('companySize');
-  if (companySize !== undefined) result.companySize = companySize;
-
-  const geography = str('geography');
-  if (geography !== undefined) result.geographicFocus = geography;
+  setField('idealCustomer', 'primaryIcpDescription', str('primaryIcpDescription'));
+  setField('industry', 'industryVertical', str('industryVertical'));
+  setField('jobTitles', 'jobTitles', str('jobTitles'));
+  setField('companySize', 'companySize', str('companySize'));
+  setField('geographicFocus', 'geography', str('geography'));
 
   // triggers — no direct corpus key (situationBeforeBuying is closest)
-  const situationBeforeBuying = str('situationBeforeBuying');
-  if (situationBeforeBuying !== undefined) result.triggers = situationBeforeBuying;
+  setField('triggers', 'situationBeforeBuying', str('situationBeforeBuying'));
 
   // currentAlternative — no direct corpus key; skip
 
   // awarenessLevel — radio, corpus doesn't emit; skip
 
   // Section 3: Offer & Product Experience
-  const coreDeliverables = str('coreDeliverables');
-  if (coreDeliverables !== undefined) result.coreFeatures = coreDeliverables;
+  setField('coreFeatures', 'coreDeliverables', str('coreDeliverables'));
 
   // firstValueMoment, activationEvent, retentionDrivers — no corpus keys; skip
 
   // Section 4: Pricing & Economics
-  const pricingTiers = str('pricingTiers');
-  if (pricingTiers !== undefined) result.pricingTiers = pricingTiers;
+  setField('pricingTiers', 'pricingTiers', str('pricingTiers'));
 
   // targetPlan, ltv, targetCac, monthlyAdBudget — no corpus keys; skip
 
   // Section 5: Competition & Positioning
-  const topCompetitors = str('topCompetitors');
-  if (topCompetitors !== undefined) result.topCompetitors = topCompetitors;
-
-  const uniqueEdge = str('uniqueEdge');
-  if (uniqueEdge !== undefined) result.whyCustomersChooseYou = uniqueEdge;
+  setField('topCompetitors', 'topCompetitors', str('topCompetitors'));
+  setField('whyCustomersChooseYou', 'uniqueEdge', str('uniqueEdge'));
 
   // lossReasons, competitorAdvantages — no corpus keys; skip
 
   // Section 6: Goals & Strategy
-  const commonObjections = str('commonObjections');
-  if (commonObjections !== undefined) result.commonObjections = commonObjections;
-
-  const brandPositioning = str('brandPositioning');
-  if (brandPositioning !== undefined) result.brandPositioning = brandPositioning;
+  setField('commonObjections', 'commonObjections', str('commonObjections'));
+  setField('brandPositioning', 'brandPositioning', str('brandPositioning'));
 
   // valueProp → keyPromises (closest semantic match)
-  const valueProp = str('valueProp');
-  if (valueProp !== undefined) result.keyPromises = valueProp;
+  setField('keyPromises', 'valueProp', str('valueProp'));
 
   // primaryGoal90Days, monthlyPipelineTarget, goalTargetCac — no corpus keys; skip
 
   // Section 7: Current Marketing & Performance — no corpus keys; skip all
 
-  return result;
+  return { data: result, metadata };
 }

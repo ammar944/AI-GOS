@@ -9,6 +9,8 @@ const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
   const seedOrchestration = vi.fn();
+  const freezeReviewedBriefSnapshot = vi.fn();
+  const buildJourneyResearchDispatchContext = vi.fn();
   const sessionQuery = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -19,7 +21,15 @@ const routeMocks = vi.hoisted(() => {
   const from = vi.fn(() => sessionQuery);
   const createAdminClient = vi.fn(() => ({ from }));
 
-  return { auth, seedOrchestration, sessionQuery, from, createAdminClient };
+  return {
+    auth,
+    seedOrchestration,
+    freezeReviewedBriefSnapshot,
+    buildJourneyResearchDispatchContext,
+    sessionQuery,
+    from,
+    createAdminClient,
+  };
 });
 
 vi.mock('@clerk/nextjs/server', () => ({
@@ -39,11 +49,14 @@ vi.mock('@/lib/research-v2/orchestrate-db', async () => {
     ...actual,
     seedOrchestration: (...args: unknown[]) =>
       routeMocks.seedOrchestration(...args),
+    freezeReviewedBriefSnapshot: (...args: unknown[]) =>
+      routeMocks.freezeReviewedBriefSnapshot(...args),
   };
 });
 
 vi.mock('@/lib/journey/server/dispatch-research', () => ({
-  buildJourneyResearchDispatchContext: vi.fn().mockResolvedValue(''),
+  buildJourneyResearchDispatchContext: (...args: unknown[]) =>
+    routeMocks.buildJourneyResearchDispatchContext(...args),
 }));
 
 const { POST } = await import('../route');
@@ -73,6 +86,13 @@ function mockOwnedSession({
       research_results: corpusStatus
         ? { deepResearchProgram: { status: corpusStatus } }
         : null,
+      onboarding_data: { companyName: 'Fellow' },
+      metadata: {
+        researchV2OnboardingReview: {
+          source: 'onboarding_v2_review',
+          fieldCount: 47,
+        },
+      },
     },
     error: null,
   });
@@ -93,9 +113,14 @@ function defaultSeededRows() {
 describe('POST /api/research-v2/orchestrate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    delete process.env.RAILWAY_WORKER_URL;
+    delete process.env.RAILWAY_API_KEY;
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
+    routeMocks.freezeReviewedBriefSnapshot.mockResolvedValue('frozen');
+    routeMocks.buildJourneyResearchDispatchContext.mockResolvedValue('');
   });
 
   it('returns 401 when there is no Clerk user', async () => {
@@ -184,6 +209,31 @@ describe('POST /api/research-v2/orchestrate', () => {
     );
   });
 
+  it('kicks the worker with draft execution mode by default', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+    process.env.RAILWAY_WORKER_URL = 'https://worker.example';
+    process.env.RAILWAY_API_KEY = 'worker-key';
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://worker.example/orchestrate');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      parent_audit_run_id: PARENT_ID,
+      executionMode: 'draft',
+    });
+  });
+
   it('passes the canonical six POSITIONING_SECTION_IDS to seed_orchestration', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession({ ownerId: 'user_1' });
@@ -200,6 +250,27 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect((arg as { zones: readonly string[] }).zones).toEqual(
       POSITIONING_SECTION_IDS,
     );
+  });
+
+  it('freezes the reviewed GTM Brief snapshot and does not build shared context', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+    await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+      }),
+    );
+
+    expect(routeMocks.freezeReviewedBriefSnapshot).toHaveBeenCalledWith({
+      parentAuditRunId: PARENT_ID,
+      gtmBriefSnapshot: { companyName: 'Fellow' },
+      gtmBriefReview: {
+        source: 'onboarding_v2_review',
+        fieldCount: 47,
+      },
+    });
+    expect(routeMocks.buildJourneyResearchDispatchContext).not.toHaveBeenCalled();
   });
 
   it('is idempotent: a second call with the same body returns the same ids', async () => {

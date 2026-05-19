@@ -19,12 +19,34 @@ export type WorkerStatus =
   | 'error'
   | 'aborted';
 
+export type AuditSectionPhase =
+  | 'Queued'
+  | 'Compiling context'
+  | 'Reading sources'
+  | 'Drafting'
+  | 'Validating'
+  | 'Draft ready'
+  | 'Committed'
+  | 'Needs review';
+
 export interface SectionEvent {
   id: string;
   event_type: string;
   message: string | null;
   payload: Record<string, unknown> | null;
   created_at: string;
+}
+
+export interface SectionRuntimeTimings {
+  sectionStartedAt?: string;
+  firstPartialAt?: string;
+  finalObjectAt?: string;
+  validationCompleteAt?: string;
+  timeoutFiredAt?: string;
+  abortSignalObservedAt?: string;
+  commitStartedAt?: string;
+  commitCompleteAt?: string;
+  terminalStatusWrittenAt?: string;
 }
 
 export interface AuditStateResponse {
@@ -35,8 +57,25 @@ export interface AuditStateResponse {
   workerStates: Array<{
     section_id: PositioningSectionId;
     status: WorkerStatus;
+    phase: AuditSectionPhase;
+    phaseLabel: AuditSectionPhase;
+    phaseStartedAt: string | null;
+    latestTool: string | null;
+    latestSource: string | null;
+    latestActivity: string | null;
+    nextStep: string | null;
+    wave: number | null;
+    totalWaves: number | null;
+    concurrency: number | null;
+    elapsedMs: number | null;
+    capabilityGaps: Array<Record<string, unknown>>;
+    executionMode: 'draft' | 'deep' | null;
+    runtimeTimings: SectionRuntimeTimings;
   }>;
-  sectionsByZone: Record<string, { markdown?: string; title?: string }>;
+  sectionsByZone: Record<
+    string,
+    { markdown?: string; title?: string; data?: unknown }
+  >;
   /**
    * P2a — live agent-activity feed per zone. Up to the 12 most recent
    * events per zone, ordered ascending so a render-time `.slice(-N)` is
@@ -47,6 +86,16 @@ export interface AuditStateResponse {
 }
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
+const PHASES: ReadonlySet<string> = new Set([
+  'Queued',
+  'Compiling context',
+  'Reading sources',
+  'Drafting',
+  'Validating',
+  'Draft ready',
+  'Committed',
+  'Needs review',
+]);
 
 function normalizeStatus(raw: unknown): WorkerStatus {
   if (typeof raw !== 'string') return 'queued';
@@ -54,6 +103,127 @@ function normalizeStatus(raw: unknown): WorkerStatus {
     return raw;
   }
   return 'queued';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+function pickString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function pickNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function defaultPhaseForStatus(
+  status: WorkerStatus,
+  executionMode: 'draft' | 'deep' | null,
+): AuditSectionPhase {
+  if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
+  if (status === 'complete') return 'Committed';
+  if (status === 'error' || status === 'aborted') return 'Needs review';
+  if (status === 'running') return 'Reading sources';
+  return 'Queued';
+}
+
+function normalizePhase(
+  raw: unknown,
+  status: WorkerStatus,
+  executionMode: 'draft' | 'deep' | null,
+): AuditSectionPhase {
+  if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
+  if (status === 'error' || status === 'aborted') return 'Needs review';
+  const phase = pickString(raw);
+  if (phase && PHASES.has(phase)) return phase as AuditSectionPhase;
+  return defaultPhaseForStatus(status, executionMode);
+}
+
+function normalizeCapabilityGaps(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<string, unknown> => Boolean(asRecord(item)));
+}
+
+interface WorkerStateReadModel {
+  status: WorkerStatus;
+  phase: AuditSectionPhase;
+  phaseLabel: AuditSectionPhase;
+  phaseStartedAt: string | null;
+  latestTool: string | null;
+  latestSource: string | null;
+  latestActivity: string | null;
+  nextStep: string | null;
+  wave: number | null;
+  totalWaves: number | null;
+  concurrency: number | null;
+  elapsedMs: number | null;
+  capabilityGaps: Array<Record<string, unknown>>;
+  executionMode: 'draft' | 'deep' | null;
+  runtimeTimings: SectionRuntimeTimings;
+}
+
+function normalizeExecutionMode(value: unknown): 'draft' | 'deep' | null {
+  return value === 'draft' || value === 'deep' ? value : null;
+}
+
+function normalizeRuntimeTimings(value: unknown): SectionRuntimeTimings {
+  const raw = asRecord(value);
+  if (!raw) return {};
+  const out: SectionRuntimeTimings = {};
+  const keys = [
+    'sectionStartedAt',
+    'firstPartialAt',
+    'finalObjectAt',
+    'validationCompleteAt',
+    'timeoutFiredAt',
+    'abortSignalObservedAt',
+    'commitStartedAt',
+    'commitCompleteAt',
+    'terminalStatusWrittenAt',
+  ] as const;
+  for (const key of keys) {
+    const timestamp = pickString(raw[key]);
+    if (timestamp) out[key] = timestamp;
+  }
+  return out;
+}
+
+function buildWorkerStateReadModel(row: {
+  status?: unknown;
+  telemetry?: unknown;
+}): WorkerStateReadModel {
+  const status = normalizeStatus(row.status);
+  const telemetry = asRecord(row.telemetry) ?? {};
+  const executionMode = normalizeExecutionMode(telemetry.executionMode);
+  const phase = normalizePhase(telemetry.phase, status, executionMode);
+
+  return {
+    status,
+    phase,
+    phaseLabel: phase,
+    phaseStartedAt: pickString(telemetry.phaseStartedAt),
+    latestTool: pickString(telemetry.latestTool),
+    latestSource: pickString(telemetry.latestSource),
+    latestActivity: pickString(telemetry.latestActivity),
+    nextStep: pickString(telemetry.nextStep),
+    wave: pickNumber(telemetry.wave),
+    totalWaves: pickNumber(telemetry.totalWaves),
+    concurrency: pickNumber(telemetry.concurrency),
+    elapsedMs: pickNumber(telemetry.elapsedMs),
+    capabilityGaps: normalizeCapabilityGaps(telemetry.capabilityGaps),
+    executionMode,
+    runtimeTimings: normalizeRuntimeTimings(telemetry.runtimeTimings),
+  };
+}
+
+function queuedWorkerState(): WorkerStateReadModel {
+  return buildWorkerStateReadModel({ status: 'queued', telemetry: null });
 }
 
 export async function GET(req: Request): Promise<NextResponse<AuditStateResponse | { error: string }>> {
@@ -89,7 +259,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
         children_total: 0,
         workerStates: POSITIONING_SECTION_IDS.map((section_id) => ({
           section_id,
-          status: 'queued' as WorkerStatus,
+          ...queuedWorkerState(),
         })),
         sectionsByZone: {},
         eventsByZone: {},
@@ -103,12 +273,12 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const [runsResp, sectionsResp, eventsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
-      .select('zone, status, started_at')
+      .select('id, zone, status, started_at, telemetry')
       .eq('artifact_id', parentId)
-      .order('started_at', { ascending: true }),
+      .order('started_at', { ascending: false }),
     supabase
       .from('research_artifact_sections')
-      .select('zone, status, title, markdown')
+      .select('zone, section_run_id, status, title, markdown, data')
       .eq('artifact_id', parentId),
     // P2a — last 60 events across all zones for this parent run (cap so a
     // single request never balloons; the 6 zones × ~10 events each fit
@@ -133,40 +303,63 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
   }
 
-  // Pick the most recent non-terminal run per zone for the chip; fall back
-  // to the latest row if all are terminal.
-  const byZone = new Map<string, WorkerStatus>();
-  for (const row of runsResp.data ?? []) {
+  const committedSectionRunByZone = new Map<string, string>();
+  for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
-    const status = normalizeStatus(row.status);
-    const current = byZone.get(zone);
-    if (!current) {
-      byZone.set(zone, status);
-      continue;
-    }
-    // Prefer non-terminal; otherwise keep first.
-    if (TERMINAL.has(current) && !TERMINAL.has(status)) {
-      byZone.set(zone, status);
-    }
+    const sectionRunId =
+      typeof row.section_run_id === 'string' ? row.section_run_id : null;
+    if (sectionRunId) committedSectionRunByZone.set(zone, sectionRunId);
   }
 
-  const sectionsByZone: Record<string, { markdown?: string; title?: string }> = {};
+  const runRows = (runsResp.data ?? []).map((row) => ({
+    id: row.id as string,
+    zone: row.zone as string,
+    status: row.status,
+    telemetry: row.telemetry,
+  }));
+
+  // Pick an active run first. If all runs are terminal, prefer the run that
+  // the committed artifact section currently references instead of an older
+  // terminal row.
+  const byZone = new Map<string, WorkerStateReadModel>();
+  for (const sectionId of POSITIONING_SECTION_IDS) {
+    const rowsForZone = runRows.filter((row) => row.zone === sectionId);
+    const active = rowsForZone.find((row) => !TERMINAL.has(normalizeStatus(row.status)));
+    const committedRunId = committedSectionRunByZone.get(sectionId);
+    const committed = committedRunId
+      ? rowsForZone.find((row) => row.id === committedRunId)
+      : null;
+    const selected = active ?? committed ?? rowsForZone[0] ?? null;
+    if (!selected) continue;
+    byZone.set(
+      sectionId,
+      buildWorkerStateReadModel({
+        status: selected.status,
+        telemetry: selected.telemetry,
+      }),
+    );
+  }
+
+  const sectionsByZone: AuditStateResponse['sectionsByZone'] = {};
   for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
     const status = row.status as string | null;
     const title = row.title as string | null | undefined;
     const markdown = row.markdown as string | null | undefined;
-    if (status === 'complete' && (markdown || title)) {
+    const typedData = row.data as unknown;
+    const hasTypedData = typedData !== null && typedData !== undefined;
+    if (status === 'complete' && (markdown || title || hasTypedData)) {
       sectionsByZone[zone] = {
         ...(title ? { title } : {}),
         ...(markdown ? { markdown } : {}),
+        ...(hasTypedData ? { data: typedData } : {}),
       };
     }
   }
 
   const workerStates = POSITIONING_SECTION_IDS.map((section_id) => ({
     section_id,
-    status: byZone.get(section_id) ?? ('queued' as WorkerStatus),
+    ...(byZone.get(section_id) ?? queuedWorkerState()),
   }));
 
   // P2a — group events by zone, cap at 12 newest per zone (events came
