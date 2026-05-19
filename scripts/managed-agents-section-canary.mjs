@@ -100,6 +100,249 @@ const SECTION_TO_VALIDATOR = {
   ],
 };
 
+const SHARED_FIELDS_HEADER = `All sections share these required top-level fields:
+  - sectionTitle: string
+  - verdict: string (one-paragraph judgment)
+  - statusSummary: string (status sentence)
+  - confidence: number in [0, 10]
+  - sources: Array<{ title: string, url: string (HTTPS), whyItMatters?: string }>
+
+Every url, sourceUrl, evidenceUrl field must be a valid HTTPS URL (regex: ^https?:\\/\\/\\S+\\.\\S+).`;
+
+const SECTION_TO_GUIDE = {
+  positioningMarketCategory: `Section 01 — positioningMarketCategory (Market & Category Intelligence).
+
+${SHARED_FIELDS_HEADER}
+
+Section-specific shape:
+  sources: >= 3 distinct.
+
+  categoryDefinition: {
+    prose: string,
+    adjacentCategories: Array of >= 2 of { name, whyBuyersConfuseIt, disambiguatingSignal, sourceTitle?, sourceUrl? }
+  }
+
+  marketSize: {
+    prose: string,
+    signals: Array of >= 3 of { signalType, name, evidence, trajectory, methodology, sourceTitle, sourceUrl, dateObserved }
+      signalType ∈ {public-data, funding-flow, hiring-velocity, search-trend, analyst-report} — UNIQUE per signal (no duplicate signalTypes)
+      trajectory ∈ {expanding, stable, contracting, unclear}
+      methodology ∈ {top-down, bottom-up} — TRIANGULATION REQUIRED: include >= 1 top-down AND >= 1 bottom-up
+  }
+
+  structuralForces: {
+    prose: string,
+    forces: Array of >= 3 of { forceType, name, evidence, implication, impact, direction, sourceTitle?, sourceUrl? }
+      forceType ∈ {regulation, platform-shift, buyer-behavior} — MUST cover ALL THREE, one per type (no duplicates)
+      impact ∈ {high, medium, low}
+      direction ∈ {accelerating, decelerating, neutral}
+  }
+
+  categoryMaturity: {
+    prose: string,
+    classification: {
+      stage ∈ {emerging, growing, consolidating, commoditizing},
+      evidenceSummary: string,
+      supportingSignals: Array of >= 2 of { signalType, evidence, implication, sourceUrl? }
+        signalType ∈ {player-count, buyer-education, feature-parity, price-pressure, platform-bundling}
+    }
+  }`,
+
+  positioningBuyerICP: `Section 02 — positioningBuyerICP (Buyer & ICP Validation).
+
+${SHARED_FIELDS_HEADER}
+
+Section-specific shape:
+  icpExistenceCheck: {
+    prose: string,
+    firmographicCuts: Array of >= 3 of { cutType, value, accountCount?, source, sourceUrl, dateObserved }
+      cutType ∈ {industry, employeeBands, revenueBands, geography, techStack} — UNIQUE per cut (one per dimension, no duplicates)
+  }
+
+  personaReality: {
+    prose: string,
+    personas: Array of >= 5 of { name, title, company, sourceUrl, role, seniority, teamSize?, evidence }
+      role ∈ {champion, economic-buyer, decision-maker, influencer, end-user, gatekeeper}
+      personas MUST be named real persons at named real ICP companies, with sourceUrl evidence
+  }
+
+  awarenessDistribution: {
+    prose: string,
+    levels: Array of EXACTLY 5 of { level, share, evidence, sampleQuery? }
+      level MUST cover all 5 Schwartz levels: {unaware, problem-aware, solution-aware, product-aware, most-aware} (one per level, no duplicates)
+  }
+
+  buyingContext: {
+    prose: string,
+    triggers: Array of >= 3 of { name, detectionSignal, window, evidence, sourceUrl? }
+      window ∈ {immediate, weeks, quarters}
+  }
+
+  clusters: {
+    prose: string,
+    venues: Array of { bucketType, name, audienceSize, sourceUrl, whyItMatters }
+      bucketType ∈ {community, newsletter, conference, podcast, slack-group, event}
+      REQUIRED: >= 2 venues with bucketType=community AND >= 2 venues with bucketType=newsletter
+  }`,
+
+  positioningCompetitorLandscape: `Section 03 — positioningCompetitorLandscape (Competitor Landscape & Positioning).
+
+${SHARED_FIELDS_HEADER}
+
+Section-specific shape:
+  sources: >= 5 distinct.
+
+  competitorSet: {
+    prose: string,
+    competitors: Array of >= 5 of { name, url, competitorType, oneLinePositioning, verbatimHeroCopy, pricingPosition, sourceUrl }
+      competitorType ∈ {direct, indirect, status-quo, diy} — MUST cover ALL FOUR types
+  }
+
+  positioningTaxonomy: {
+    prose: string,
+    axes: Array of >= 3 of { axisName, ourPosition, competitorPositions: [{competitor, position}, ...], evidenceUrl }
+  }
+
+  pricingReality: {
+    prose: string,
+    dataPoints: Array of >= 3 of { competitor, tierName, monthlyPrice, packagingPattern, gatedSignals, sourceUrl }
+      MUST cover >= 3 distinct competitors
+  }
+
+  shareOfVoice: {
+    prose: string,
+    slices: Array of >= 3 of { surface, winner, evidence, sourceUrl }
+  }
+
+  publicWeaknesses: {
+    prose: string,
+    items: Array of >= 4 of { competitor, verbatimQuote, source, sourceUrl, whyItMatters }
+      MUST cover >= 2 distinct competitors
+  }
+
+  narrativeArcs: {
+    prose: string,
+    arcs: Array of >= 3 of { competitor, villain, hero, transformationClaim, sourceUrl }
+  }`,
+
+  positioningVoiceOfCustomer: `Section 04 — positioningVoiceOfCustomer (Voice of Customer & Objection Evidence).
+
+${SHARED_FIELDS_HEADER}
+
+Section-specific shape:
+  sources: >= 5 distinct.
+
+  painLanguage: {
+    prose: string,
+    quotes: Array of >= 10 of { verbatimText, source, sourceUrl, painTheme, painIntensity }
+      source ∈ {g2, reddit, hackernews, sales-call, support-thread, twitter, other}
+      painIntensity ∈ {high, medium, low}
+      REQUIRED: >= 3 distinct source hosts (use real domains, not the same site repeatedly)
+  }
+
+  objections: {
+    prose: string,
+    items: Array of >= 5 of { objectionText, category, frequency, howToHandle, sourceUrl }
+      category ∈ {price, feature, trust, switching-cost, timing, stakeholder, other}
+      frequency ∈ {recurring, occasional, one-off}
+      REQUIRED: >= 3 distinct categories
+  }
+
+  switchingStories: {
+    prose: string,
+    stories: Array of >= 3 of { priorSolution, reasonToLeave, decisionPath, exampleCompany?, sourceUrl }
+      REQUIRED: >= 2 distinct priorSolutions
+  }
+
+  decisionCriteria: {
+    prose: string,
+    criteria: Array of >= 5 of { criterion, statedBy, evidenceQuote, sourceUrl }
+      statedBy ∈ {buyer, champion, influencer, blocker}
+  }
+
+  successLanguage: {
+    prose: string,
+    quotes: Array of >= 5 of { verbatimText, source, sourceUrl, afterStatePattern }
+      source ∈ {g2, reddit, hackernews, sales-call, support-thread, twitter, other}
+  }`,
+
+  positioningDemandIntent: `Section 05 — positioningDemandIntent (Demand & Intent Signals).
+
+${SHARED_FIELDS_HEADER}
+
+Section-specific shape:
+  sources: >= 5 distinct.
+
+  keywordDemand: {
+    prose: string,
+    keywords: Array of >= 10 of { keyword, monthlyVolume, intentType, top3RankingDomains: [string,...], sourceTitle, sourceUrl, dateObserved }
+      intentType ∈ {informational, commercial, transactional, navigational}
+      top3RankingDomains MUST be a non-empty array of domain strings
+  }
+
+  questionMining: {
+    prose: string,
+    questions: Array of >= 10 of { question, surface, sourceUrl, frequency }
+      surface ∈ {paa, reddit, quora, community, forum, support-thread} — REQUIRED: >= 2 distinct surfaces
+      frequency ∈ {recurring, occasional}
+  }
+
+  contentGaps: {
+    prose: string,
+    gaps: Array of >= 3 of { topic, evidenceOfDemand, weakCompetitorAnswerEvidence, opportunity }
+  }
+
+  intentSignals: {
+    prose: string,
+    items: Array of >= 5 of { signalType, description, sourceUrl, exampleCompany? }
+      signalType ∈ {job-posting, rfp, news-trigger, funding, leadership-change} — REQUIRED: >= 2 distinct signalTypes
+  }
+
+  venueMap: {
+    prose: string,
+    venues: Array of >= 4 of { name, venueType, audienceSize, sourceUrl }
+      venueType ∈ {event, community, newsletter, podcast, slack} — REQUIRED: >= 2 distinct venueTypes
+  }`,
+
+  positioningOfferDiagnostic: `Section 06 — positioningOfferDiagnostic (Offer & Performance Diagnostic).
+
+${SHARED_FIELDS_HEADER}
+
+Section-specific shape:
+  sources: >= 5 distinct.
+
+  offerMarketFit: {
+    prose: string,
+    proofPoints: Array of >= 3 of { metric, value, reportedBy, confidence, sourceUrl }
+      reportedBy ∈ {company-own, external-source}
+      confidence ∈ {high, medium, low}
+  }
+
+  funnelDiagnosis: {
+    prose: string,
+    breaks: Array of >= 2 of { stageName, metric, magnitude, hypothesis, sourceUrl }
+  }
+
+  channelTruth: {
+    prose: string,
+    channels: Array of >= 3 of { channelName, hasWorked, quantifiedEvidence, sourceUrl }
+      hasWorked ∈ {yes, partial, no, unknown}
+      REQUIRED: >= 3 distinct channelNames
+  }
+
+  retentionHealth: {
+    prose: string,
+    signals: Array of >= 3 of { signalType, metric, value, sourceUrl }
+      signalType ∈ {activation, retention, first-value-moment} — REQUIRED: >= 2 distinct signalTypes
+  }
+
+  redFlags: {
+    prose: string,
+    items: Array of >= 3 of { claimedMotion, actualEvidence, contradiction, severity }
+      severity ∈ {high, medium, low}
+  }`,
+};
+
 function loadEnvFile(filePath) {
   try {
     const text = readFileSync(filePath, 'utf8');
@@ -248,20 +491,30 @@ function loadValidator(section) {
 
 function validateArtifact(section, artifact) {
   const { Schema, validate } = loadValidator(section);
+  const guide = SECTION_TO_GUIDE[section] ?? '';
   const parsed = Schema.safeParse(artifact);
   if (!parsed.success) {
+    const issues = parsed.error.issues.slice(0, 80);
+    const errorList = issues
+      .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
+      .join('\n');
     return {
       ok: false,
       schema_ok: false,
       minimums_ok: false,
-      errors: parsed.error.issues.slice(0, 24).map((issue) => ({
+      errors: issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       })),
-      repair_feedback: parsed.error.issues
-        .slice(0, 24)
-        .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
-        .join('\n'),
+      repair_feedback: [
+        'Schema validation failed. Fix EVERY error below in your next attempt — not just the first block.',
+        '',
+        'SCHEMA ERRORS:',
+        errorList,
+        '',
+        'REMINDER OF REQUIRED SHAPE:',
+        guide,
+      ].join('\n'),
     };
   }
   const minimums = validate(parsed.data);
@@ -271,7 +524,15 @@ function validateArtifact(section, artifact) {
       schema_ok: true,
       minimums_ok: false,
       errors: minimums.errors,
-      repair_feedback: minimums.errors.join('\n'),
+      repair_feedback: [
+        'Schema is valid but section minimums failed. Fix EVERY minimum below in your next attempt.',
+        '',
+        'MINIMUM VIOLATIONS:',
+        minimums.errors.join('\n'),
+        '',
+        'REMINDER OF REQUIRED SHAPE:',
+        guide,
+      ].join('\n'),
       artifact: parsed.data,
     };
   }
@@ -298,11 +559,20 @@ function buildSaveTool(section) {
 function buildSystemPrompt(section, args) {
   return [
     `You are the AI-GOS Managed Agents canary specialist for ${section}.`,
-    `Produce exactly one ${section} artifact and submit via ${SECTION_TO_TOOL[section]}.`,
     `Audited company: ${args.advertiser}. Domain: ${args.domain}.`,
-    `Stamp section_run_id="${args.sectionRunId}" in every save_* call so AI-GOS can route the commit.`,
-    'When the save tool returns ok:false, treat repair_feedback as actionable feedback. Revise and retry.',
-    'Use only what the tools return — never invent data.',
+    '',
+    'PROCESS:',
+    '1. Use the read tool to gather public evidence covering EVERY required field in the schema below.',
+    `2. Submit ONE complete artifact via ${SECTION_TO_TOOL[section]} — every required field present, every minimum array count met, every enum value exact.`,
+    '3. If the save tool returns ok:false, ALL errors are in repair_feedback. Fix EVERY listed error in your next attempt — never just the first block.',
+    '',
+    'CRITICAL:',
+    '- The save tool rejects partial artifacts. Do NOT submit until you have all top-level fields, all minimum counts, and all required enum values.',
+    `- Stamp section_run_id="${args.sectionRunId}" in every save_* call.`,
+    '- Every url/sourceUrl/evidenceUrl must be a valid HTTPS URL.',
+    '- Use only what the read tool returns — never invent data or sources.',
+    '',
+    SECTION_TO_GUIDE[section] ?? '',
   ].join('\n');
 }
 
