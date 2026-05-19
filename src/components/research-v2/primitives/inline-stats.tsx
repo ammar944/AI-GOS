@@ -30,17 +30,17 @@ export function InlineStats({
   return (
     <dl
       className={cn(
-        'grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4',
+        'flex flex-wrap gap-x-10 gap-y-5',
         className,
       )}
     >
       {items.map((item, idx) => (
-        <div key={`${item.label}-${idx}`} className="flex flex-col gap-1">
-          <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+        <div key={`${item.label}-${idx}`} className="min-w-[7rem] flex flex-col gap-1">
+          <dt className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
             {item.label}
           </dt>
           <dd className="flex items-baseline gap-1">
-            <span className="font-mono text-[22px] font-semibold leading-none tabular-nums text-[color:var(--text-primary)]">
+            <span className="font-mono text-[18px] font-semibold leading-none tabular-nums text-[color:var(--text-primary)]">
               {item.value}
             </span>
             {item.unit ? (

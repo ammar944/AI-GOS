@@ -15,7 +15,7 @@ export interface BarBreakdownProps {
   formatPercent?: (n: number) => string;
 }
 
-const OPACITY_LADDER = [0.34, 0.24, 0.16, 0.1, 0.06];
+const OPACITY_LADDER = [0.32, 0.22, 0.14, 0.09, 0.06];
 
 function defaultPercent(n: number): string {
   if (!Number.isFinite(n)) return '—';
@@ -32,11 +32,11 @@ export function BarBreakdown({
   const sum =
     segments.reduce((acc, seg) => acc + (Number.isFinite(seg.value) ? seg.value : 0), 0) || 1;
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
+    <div className={cn('flex flex-col gap-4', className)}>
       {(caption || total) && (
         <div className="flex items-baseline justify-between gap-3">
           {caption ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
               {caption}
             </span>
           ) : (
@@ -49,7 +49,7 @@ export function BarBreakdown({
           ) : null}
         </div>
       )}
-      <div className="flex h-2 w-full overflow-hidden rounded-[3px] bg-[var(--bg-hover)]">
+      <div className="flex h-1 w-full overflow-hidden rounded-[3px] bg-[var(--bg-hover)]">
         {segments.map((seg, idx) => {
           const pct = (seg.value / sum) * 100;
           const isAccent = seg.isAccent ?? idx === 0;
@@ -66,7 +66,7 @@ export function BarBreakdown({
           );
         })}
       </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2">
+      <ul className="flex flex-wrap gap-x-5 gap-y-2">
         {segments.map((seg, idx) => {
           const pct = (seg.value / sum) * 100;
           const isAccent = seg.isAccent ?? idx === 0;
@@ -76,11 +76,11 @@ export function BarBreakdown({
           return (
             <li
               key={`${seg.label}-${idx}`}
-              className="flex items-baseline gap-2 text-[13px] leading-[1.4] text-[color:var(--text-secondary)]"
+              className="flex items-baseline gap-2 text-[13px] leading-[1.5] text-[color:var(--text-secondary)]"
             >
               <span
                 aria-hidden="true"
-                className="inline-block h-2 w-2 rounded-sm"
+                className="inline-block h-1.5 w-1.5 rounded-sm"
                 style={{ background: swatch }}
               />
               <span>{seg.label}</span>

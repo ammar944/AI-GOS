@@ -35,18 +35,18 @@ export function DataTable<T>({
   return (
     <div className={cn('w-full overflow-x-auto', className)}>
       {caption ? (
-        <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+        <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
           {caption}
         </div>
       ) : null}
       <table className="w-full border-collapse text-left">
         <thead>
           <tr>
-            {columns.map(col => (
+            {columns.map((col) => (
               <th
                 key={col.key}
                 className={cn(
-                  'border-b border-[var(--border-subtle)] px-3 py-2 align-bottom font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[color:var(--text-quaternary)]',
+                  'border-b border-[var(--border-subtle)] px-0 py-3 pr-6 align-bottom font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-quaternary)] last:pr-0',
                   col.numeric && 'text-right',
                   col.headerClassName,
                 )}
@@ -62,7 +62,7 @@ export function DataTable<T>({
             <tr>
               <td
                 colSpan={columns.length}
-                className="px-3 py-6 text-center font-mono text-[11px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]"
+                className="py-8 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]"
               >
                 {emptyLabel}
               </td>
@@ -73,7 +73,7 @@ export function DataTable<T>({
                 key={keyFn(row, rowIndex)}
                 className="border-b border-transparent transition-colors hover:bg-[var(--bg-hover)]"
               >
-                {columns.map(col => {
+                {columns.map((col) => {
                   const rendered = col.render
                     ? col.render(row, rowIndex)
                     : ((row as Record<string, unknown>)[col.key] as ReactNode);
@@ -81,7 +81,7 @@ export function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'px-3 py-2.5 align-top text-[13px] leading-[1.5] text-[color:var(--text-secondary)]',
+                        'px-0 py-4 pr-6 align-top text-[13px] leading-[1.6] text-[color:var(--text-secondary)] last:pr-0',
                         col.numeric &&
                           'text-right font-mono tabular-nums text-[color:var(--text-primary)]',
                         col.className,

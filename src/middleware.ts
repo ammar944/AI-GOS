@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/journey", // Public intake shell; route handlers still enforce auth for user data and research writes
   "/shared/(.*)",
   "/test/(.*)", // Test pages for development
+  "/dev/(.*)", // Dev-only preview routes for typed-artifact UI fixtures (no auth)
   "/research-v2/managed-agents-prototype", // Local Managed Agents replay; page returns 404 in production
   "/blueprint-preview(.*)", // Design preview page
   "/api/journey/(.*)", // Route handlers do their own auth; avoid Clerk HTML rewrites on stream/prefill failures

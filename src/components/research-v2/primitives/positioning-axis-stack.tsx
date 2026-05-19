@@ -17,6 +17,10 @@ export interface PositioningAxisStackProps {
   className?: string;
 }
 
+function axisGridTemplate(count: number): string {
+  return `repeat(${Math.max(count, 1)}, minmax(9rem, 1fr))`;
+}
+
 function hostnameOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -30,11 +34,11 @@ export function PositioningAxisStack({
   className,
 }: PositioningAxisStackProps): React.ReactElement {
   return (
-    <div className={cn('flex flex-col gap-7', className)}>
+    <div className={cn('flex flex-col gap-10', className)}>
       {axes.map((axis, axisIndex) => (
-        <div key={`${axis.axisName}-${axisIndex}`} className="flex flex-col gap-3">
+        <div key={`${axis.axisName}-${axisIndex}`} className="flex flex-col gap-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h4 className="text-[14px] font-semibold leading-[1.4] tracking-[-0.005em] text-[color:var(--text-primary)]">
+            <h4 className="text-[15px] font-semibold leading-[1.45] tracking-[0] text-[color:var(--text-primary)]">
               {axis.axisName}
             </h4>
             {axis.evidenceUrl ? (
@@ -42,39 +46,50 @@ export function PositioningAxisStack({
                 href={axis.evidenceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--accent-blue)] no-underline hover:underline"
+                className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)] no-underline hover:text-[color:var(--accent-blue)] hover:underline"
               >
                 {hostnameOf(axis.evidenceUrl)} →
               </a>
             ) : null}
           </div>
-          <div className="relative pt-1">
-            <div
-              aria-hidden="true"
-              className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-[var(--border-subtle)]"
-            />
-            <ol className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="overflow-x-auto pb-1">
+            <ol
+              className="relative grid min-w-[640px] pt-5"
+              style={{ gridTemplateColumns: axisGridTemplate(axis.positions.length) }}
+            >
+              <span
+                aria-hidden="true"
+                className="absolute left-2 right-2 top-[24px] h-px bg-[var(--border-subtle)]"
+              />
               {axis.positions.map((p, idx) => (
                 <li
                   key={`${p.label}-${idx}`}
                   className={cn(
-                    'relative flex flex-col gap-1 rounded-md border px-3 py-2 transition-colors',
-                    p.isUs
-                      ? 'border-[color:var(--accent-blue)] bg-[color:var(--accent-blue-subtle)]'
-                      : 'border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-[var(--border-hover)]',
+                    'relative flex min-w-0 flex-col gap-2 px-2',
+                    idx === 0 && 'pl-0',
+                    idx === axis.positions.length - 1 && 'pr-0',
                   )}
                 >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'relative z-10 h-[9px] w-[9px] rounded-full border ring-4 ring-[var(--bg-base)]',
+                      p.isUs
+                        ? 'border-[color:var(--accent-blue)] bg-[color:var(--accent-blue)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-base)]',
+                    )}
+                  />
                   <div
                     className={cn(
-                      'font-mono text-[10px] uppercase tracking-[0.06em]',
+                      'font-mono text-[10px] uppercase tracking-[0.08em]',
                       p.isUs
                         ? 'text-[color:var(--accent-blue)]'
                         : 'text-[color:var(--text-tertiary)]',
                     )}
                   >
-                    {p.isUs ? `you · ${p.label}` : p.label}
+                    {p.isUs ? `you / ${p.label}` : p.label}
                   </div>
-                  <div className="text-[13px] leading-[1.5] text-[color:var(--text-primary)]">
+                  <div className="max-w-[20ch] text-[13px] leading-[1.55] text-[color:var(--text-primary)]">
                     {p.position}
                   </div>
                 </li>

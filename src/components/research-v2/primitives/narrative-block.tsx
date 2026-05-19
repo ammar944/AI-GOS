@@ -11,8 +11,8 @@ export interface NarrativeBlockProps {
 function paragraphsFromProse(prose: string): string[] {
   return prose
     .split(/\n{2,}/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
 }
 
 export function NarrativeBlock({
@@ -23,15 +23,15 @@ export function NarrativeBlock({
 }: NarrativeBlockProps): React.ReactElement {
   const paragraphs = paragraphsFromProse(prose);
   return (
-    <div className={cn('flex flex-col gap-4', className)}>
+    <div className={cn('flex flex-col gap-5', className)}>
       {title ? (
-        <h4 className="text-[15px] font-semibold leading-[1.4] tracking-[-0.005em] text-[color:var(--text-primary)]">
+        <h3 className="font-serif text-[24px] font-normal leading-[1.22] tracking-[0] text-[color:var(--text-primary)]">
           {title}
-        </h4>
+        </h3>
       ) : null}
-      <div className="flex max-w-[66ch] flex-col gap-3 text-[14px] leading-[1.65] text-[color:var(--text-secondary)]">
-        {paragraphs.map((p, i) => (
-          <p key={i}>{p}</p>
+      <div className="flex max-w-[70ch] flex-col gap-4 text-[15px] leading-[1.8] text-[color:var(--text-secondary)]">
+        {paragraphs.map((paragraph, index) => (
+          <p key={index}>{paragraph}</p>
         ))}
       </div>
       {children}

@@ -31,9 +31,9 @@ const COMPETITOR_TYPE_LABEL: Record<string, string> = {
   diy: 'DIY',
 };
 
-function CompetitorTypePill({ value }: { value: string }): React.ReactElement {
+function CompetitorTypeLabel({ value }: { value: string }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
       {COMPETITOR_TYPE_LABEL[value] ?? value}
     </span>
   );
@@ -46,7 +46,7 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)] no-underline hover:text-[color:var(--accent-blue)] hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -54,23 +54,18 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
 }
 
 function SubsectionBlock({
-  label,
   title,
   prose,
   children,
 }: {
-  label: string;
-  title?: string;
+  title: string;
   prose: string;
-  children: ReactNode;
+  children?: ReactNode;
 }): React.ReactElement {
   return (
-    <section className="flex flex-col gap-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-quaternary)]">
-        {label}
-      </div>
+    <section className="flex flex-col gap-7 border-t border-[var(--border-subtle)] pt-12 first:border-t-0 first:pt-0">
       <NarrativeBlock title={title} prose={prose} />
-      {children}
+      {children ? <div className="flex flex-col gap-5">{children}</div> : null}
     </section>
   );
 }
@@ -88,7 +83,6 @@ export function CompetitorLandscapeRenderer({
     narrativeArcs,
   } = artifact;
 
-  /* ───────── 1. Competitor set table ───────── */
   const competitorColumns: ReadonlyArray<
     DataTableColumn<(typeof competitorSet.competitors)[number]>
   > = [
@@ -99,7 +93,7 @@ export function CompetitorLandscapeRenderer({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
-            <CompetitorTypePill value={row.competitorType} />
+            <CompetitorTypeLabel value={row.competitorType} />
           </div>
           <a
             href={row.url}
@@ -121,7 +115,6 @@ export function CompetitorLandscapeRenderer({
     },
   ];
 
-  /* ───────── 2. Positioning axes ───────── */
   const axesForStack: PositioningAxisItem[] = positioningTaxonomy.axes.map(axis => ({
     axisName: axis.axisName,
     evidenceUrl: axis.evidenceUrl,
@@ -134,7 +127,6 @@ export function CompetitorLandscapeRenderer({
     ],
   }));
 
-  /* ───────── 3. Pricing reality table ───────── */
   const pricingColumns: ReadonlyArray<
     DataTableColumn<(typeof pricingReality.dataPoints)[number]>
   > = [
@@ -156,7 +148,6 @@ export function CompetitorLandscapeRenderer({
     },
   ];
 
-  /* ───────── 4. Share of voice ───────── */
   const shareOfVoiceColumns: ReadonlyArray<
     DataTableColumn<(typeof shareOfVoice.slices)[number]>
   > = [
@@ -176,7 +167,6 @@ export function CompetitorLandscapeRenderer({
     },
   ];
 
-  // Derive a winner-frequency breakdown bar from the slices (optional secondary view).
   const winnerCounts = new Map<string, number>();
   shareOfVoice.slices.forEach(slice => {
     if (slice.winner) {
@@ -187,64 +177,48 @@ export function CompetitorLandscapeRenderer({
     .sort(([, a], [, b]) => b - a)
     .map(([label, value]) => ({ label, value }));
 
-  /* ───────── 6. Narrative arcs table ───────── */
-  const narrativeColumns: ReadonlyArray<
-    DataTableColumn<(typeof narrativeArcs.arcs)[number]>
-  > = [
-    {
-      key: 'competitor',
-      header: 'Competitor',
-      render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.competitor}</span>
-      ),
-    },
-    { key: 'villain', header: 'Villain' },
-    { key: 'hero', header: 'Hero' },
-    { key: 'transformationClaim', header: 'Transformation' },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      render: row => <SourceLink url={row.sourceUrl} />,
-    },
-  ];
-
   return (
-    <div className={cn('flex flex-col gap-12', className)}>
-      <SubsectionBlock label="1 · Competitor Set" prose={competitorSet.prose}>
-        <DataTable columns={competitorColumns} rows={competitorSet.competitors} rowKey={r => r.url || r.name} />
+    <div className={cn('mx-auto flex w-full max-w-[920px] flex-col gap-16', className)}>
+      <SubsectionBlock title="Competitor set" prose={competitorSet.prose}>
+        <DataTable
+          caption="Competitor evidence"
+          columns={competitorColumns}
+          rows={competitorSet.competitors}
+          rowKey={r => r.url || r.name}
+        />
       </SubsectionBlock>
 
-      <SubsectionBlock label="2 · Positioning Taxonomy" prose={positioningTaxonomy.prose}>
+      <SubsectionBlock title="Positioning taxonomy" prose={positioningTaxonomy.prose}>
         <PositioningAxisStack axes={axesForStack} />
       </SubsectionBlock>
 
-      <SubsectionBlock label="3 · Pricing Reality" prose={pricingReality.prose}>
+      <SubsectionBlock title="Pricing reality" prose={pricingReality.prose}>
         <DataTable
+          caption="Pricing evidence"
           columns={pricingColumns}
           rows={pricingReality.dataPoints}
           rowKey={r => `${r.competitor}-${r.tierName}`}
         />
       </SubsectionBlock>
 
-      <SubsectionBlock label="4 · Share of Voice" prose={shareOfVoice.prose}>
+      <SubsectionBlock title="Share of voice" prose={shareOfVoice.prose}>
         <DataTable
+          caption="Observed surfaces"
           columns={shareOfVoiceColumns}
           rows={shareOfVoice.slices}
           rowKey={r => `${r.surface}-${r.winner}`}
         />
         {winnerSegments.length > 1 ? (
-          <div className="mt-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-            <BarBreakdown
-              caption="Winner frequency across surfaces"
-              total={`${shareOfVoice.slices.length} surfaces`}
-              segments={winnerSegments}
-            />
-          </div>
+          <BarBreakdown
+            caption="Winner frequency across surfaces"
+            total={`${shareOfVoice.slices.length} surfaces`}
+            segments={winnerSegments}
+          />
         ) : null}
       </SubsectionBlock>
 
-      <SubsectionBlock label="5 · Public Weaknesses" prose={publicWeaknesses.prose}>
-        <div className="flex flex-col gap-6">
+      <SubsectionBlock title="Public weaknesses" prose={publicWeaknesses.prose}>
+        <div className="flex flex-col gap-8">
           {publicWeaknesses.items.map((item, idx) => (
             <QuoteCallout
               key={`${item.competitor}-${idx}`}
@@ -271,12 +245,27 @@ export function CompetitorLandscapeRenderer({
         </div>
       </SubsectionBlock>
 
-      <SubsectionBlock label="6 · Narrative Arcs" prose={narrativeArcs.prose}>
-        <DataTable
-          columns={narrativeColumns}
-          rows={narrativeArcs.arcs}
-          rowKey={r => `${r.competitor}-${r.hero}`}
-        />
+      <SubsectionBlock title="Narrative arcs" prose={narrativeArcs.prose}>
+        <div className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)]">
+          {narrativeArcs.arcs.map((arc) => (
+            <div
+              key={`${arc.competitor}-${arc.hero}`}
+              className="grid gap-3 py-5 md:grid-cols-[9rem_1fr]"
+            >
+              <div className="flex flex-col gap-1">
+                <span className="font-medium text-[13px] text-[color:var(--text-primary)]">
+                  {arc.competitor}
+                </span>
+                <SourceLink url={arc.sourceUrl} />
+              </div>
+              <p className="max-w-[68ch] text-[13px] leading-[1.65] text-[color:var(--text-secondary)]">
+                The villain is <span className="text-[color:var(--text-primary)]">{arc.villain}</span>.
+                The hero is <span className="text-[color:var(--text-primary)]">{arc.hero}</span>.
+                The promised shift: {arc.transformationClaim}.
+              </p>
+            </div>
+          ))}
+        </div>
       </SubsectionBlock>
     </div>
   );
