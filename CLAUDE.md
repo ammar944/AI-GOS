@@ -42,6 +42,12 @@ CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ```
 Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
 
+Managed Agents (Phase 1 migration):
+- `MANAGED_AGENTS_WEBHOOK_SECRET` — HMAC secret for `/api/webhooks/managed-agents` (R6 mitigation). Required when `MANAGED_AGENTS_POSITIONING_ENABLED=true`.
+- `MANAGED_AGENTS_POSITIONING_ENABLED` — feature flag. Default `false`. Set `true` to allow `POST /api/research-v2/orchestrate` with `executionMode: 'managed'`.
+- `MANAGED_AGENTS_MAX_CUSTOM_TOOL_RETRIES` — override the R5 repair retry ceiling (default `3`).
+- `APP_DOMAIN` — production app domain for webhook callbacks; used in Phase 2 networking allowlist.
+
 ## research-v2 feature flags + capabilities
 
 Four flags drive the orchestrator + artifact UI rollout (see `docs/research-v2/feature-flags.md` and `docs/2026-05-13-orchestrator-and-artifact-ui-goal.md`). All default to **false**:
