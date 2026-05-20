@@ -112,6 +112,36 @@ function countAuditSources(
   return seen.size;
 }
 
+interface CollatedSource {
+  title: string;
+  url: string;
+}
+
+function collateAuditSources(
+  sectionsByZone: Record<
+    string,
+    { markdown?: string; title?: string; data?: unknown } | undefined
+  >,
+): CollatedSource[] {
+  // Deduped by URL across all zones; preserves first-seen title for each URL.
+  const byUrl = new Map<string, CollatedSource>();
+  for (const zoneId of POSITIONING_SECTION_IDS) {
+    const body = sectionsByZone[zoneId];
+    if (!body) continue;
+    const artifact = pickPositioningTypedArtifact(body, zoneId);
+    if (!artifact) continue;
+    for (const source of artifact.sources as PositioningArtifactSource[]) {
+      if (source.url && !byUrl.has(source.url)) {
+        byUrl.set(source.url, {
+          title: source.title || source.url,
+          url: source.url,
+        });
+      }
+    }
+  }
+  return Array.from(byUrl.values());
+}
+
 // ---------------------------------------------------------------------------
 // Audit metadata (company name + URL come from /api/journey/session).
 // useAuditState only carries section/chip data, not company identity.
@@ -226,6 +256,10 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
   );
   const sourcesCount = useMemo(
     () => countAuditSources(live.sectionsByZone),
+    [live.sectionsByZone],
+  );
+  const auditSources = useMemo(
+    () => collateAuditSources(live.sectionsByZone),
     [live.sectionsByZone],
   );
 
@@ -350,6 +384,28 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
           data-testid="audit-reader-footer"
           className="mt-24 border-t border-[color:var(--border-subtle)] pt-8"
         >
+          {auditSources.length > 0 && (
+            <ol
+              data-testid="audit-reader-sources"
+              className="mb-7 list-none space-y-1 p-0 font-mono text-[11px] leading-[1.9] text-[color:var(--text-tertiary)]"
+            >
+              {auditSources.map((source, i) => (
+                <li key={source.url} data-testid="source-item">
+                  <span className="mr-2.5 text-[color:var(--accent-blue)]">
+                    [{i + 1}]
+                  </span>
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:text-[color:var(--text-primary)]"
+                  >
+                    {source.title}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          )}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] tracking-[0.04em] text-[color:var(--text-tertiary)]">
             <button
               type="button"
