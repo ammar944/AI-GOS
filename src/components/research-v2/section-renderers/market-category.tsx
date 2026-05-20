@@ -205,21 +205,10 @@ export function MarketCategoryRenderer({
       <SubsectionBlock label="1 · Category Definition" prose={categoryDefinition.prose}>
         <DataTable
           columns={adjacentColumns}
-          rows={categoryDefinition.adjacentCategories.map(item => ({
-            ...item,
-            // shallow-clone so DataTable's tr wrapping picks up our row-level testid via render
-          }))}
+          rows={categoryDefinition.adjacentCategories}
           rowKey={r => r.name}
+          rowTestId={() => 'adjacent-item'}
         />
-        {/* Hidden row markers (DataTable renders <tr> internally; emit testid sentinels here
-            so tests can count rows without forking DataTable's contract). */}
-        <ul className="sr-only" aria-hidden="true">
-          {categoryDefinition.adjacentCategories.map(item => (
-            <li key={item.name} data-testid="adjacent-item">
-              {item.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="2 · Market Size" prose={marketSize.prose}>
@@ -227,14 +216,8 @@ export function MarketCategoryRenderer({
           columns={signalColumns}
           rows={marketSize.signals}
           rowKey={r => `${r.signalType}-${r.name}`}
+          rowTestId={() => 'signal-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {marketSize.signals.map(item => (
-            <li key={`${item.signalType}-${item.name}`} data-testid="signal-item">
-              {item.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="3 · Structural Forces" prose={structuralForces.prose}>
@@ -242,14 +225,8 @@ export function MarketCategoryRenderer({
           columns={forceColumns}
           rows={structuralForces.forces}
           rowKey={r => `${r.forceType}-${r.name}`}
+          rowTestId={() => 'force-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {structuralForces.forces.map(item => (
-            <li key={`${item.forceType}-${item.name}`} data-testid="force-item">
-              {item.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="4 · Category Maturity" prose={categoryMaturity.prose}>

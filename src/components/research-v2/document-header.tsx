@@ -24,6 +24,10 @@ export function DocumentHeader({
   className,
 }: DocumentHeaderProps): React.ReactElement {
   const generated = generatedAt.toISOString().slice(0, 10);
+  const sectionsLabel =
+    sectionsComplete === sectionsTotal
+      ? `${sectionsTotal} sections`
+      : `${sectionsComplete}/${sectionsTotal} sections`;
   return (
     <header className={cn('mb-[72px]', className)}>
       <div className="mb-5 font-mono text-[10px] uppercase tracking-[0.12em] text-[color:var(--text-tertiary)]">
@@ -40,9 +44,7 @@ export function DocumentHeader({
         <span className="text-[color:var(--text-quaternary)]">·</span>
         <span>generated {generated}</span>
         <span className="text-[color:var(--text-quaternary)]">·</span>
-        <span>
-          {sectionsTotal} sections · {sourcesCount} sources
-        </span>
+        <span>{sectionsLabel} · {sourcesCount} sources</span>
         <span className="text-[color:var(--text-quaternary)]">·</span>
         <span>{modelLabel}</span>
       </div>

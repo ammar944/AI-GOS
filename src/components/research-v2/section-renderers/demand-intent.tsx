@@ -260,15 +260,8 @@ export function DemandIntentRenderer({
           columns={keywordColumns}
           rows={keywordDemand.keywords}
           rowKey={r => r.keyword}
+          rowTestId={() => 'keyword-item'}
         />
-        {/* Hidden row markers — see market-category renderer for rationale. */}
-        <ul className="sr-only" aria-hidden="true">
-          {keywordDemand.keywords.map(item => (
-            <li key={item.keyword} data-testid="keyword-item">
-              {item.keyword}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="2 · Question Mining" prose={questionMining.prose}>
@@ -276,14 +269,8 @@ export function DemandIntentRenderer({
           columns={questionColumns}
           rows={questionMining.questions}
           rowKey={(r, idx) => `${r.surface}-${idx}`}
+          rowTestId={() => 'question-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {questionMining.questions.map((item, idx) => (
-            <li key={`${item.surface}-${idx}`} data-testid="question-item">
-              {item.question}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="3 · Content Gaps" prose={contentGaps.prose}>
@@ -291,14 +278,8 @@ export function DemandIntentRenderer({
           columns={gapColumns}
           rows={contentGaps.gaps}
           rowKey={r => r.topic}
+          rowTestId={() => 'gap-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {contentGaps.gaps.map(item => (
-            <li key={item.topic} data-testid="gap-item">
-              {item.topic}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="4 · Intent Signals" prose={intentSignals.prose}>
@@ -306,14 +287,8 @@ export function DemandIntentRenderer({
           columns={intentColumns}
           rows={intentSignals.items}
           rowKey={(r, idx) => `${r.signalType}-${idx}`}
+          rowTestId={() => 'intent-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {intentSignals.items.map((item, idx) => (
-            <li key={`${item.signalType}-${idx}`} data-testid="intent-item">
-              {item.description}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="5 · Venue Map" prose={venueMap.prose}>
@@ -321,14 +296,8 @@ export function DemandIntentRenderer({
           columns={venueColumns}
           rows={venueMap.venues}
           rowKey={r => r.name}
+          rowTestId={() => 'venue-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {venueMap.venues.map(item => (
-            <li key={item.name} data-testid="venue-item">
-              {item.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
     </div>
   );

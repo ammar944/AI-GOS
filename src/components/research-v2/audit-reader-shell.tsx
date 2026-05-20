@@ -60,6 +60,7 @@ const CHAPTER_FALLBACK_TITLES: Record<PositioningSectionId, string> =
 
 const ITEM_SOURCE_URL_KEYS = ['sourceUrl', 'url', 'evidenceUrl'] as const;
 const ITEM_SOURCE_TITLE_KEYS = ['sourceTitle', 'source'] as const;
+const ITEM_SOURCE_REASON_KEYS = ['whyItMatters', 'evidence'] as const;
 
 function readNonEmptyString(
   obj: Record<string, unknown>,
@@ -76,7 +77,7 @@ function readNonEmptyString(
 
 function walkArtifactItemSources(
   value: unknown,
-  visit: (url: string) => void,
+  visit: (entry: { url: string; title: string; whyItMatters?: string }) => void,
 ): void {
   if (Array.isArray(value)) {
     for (const item of value) walkArtifactItemSources(item, visit);
@@ -84,7 +85,13 @@ function walkArtifactItemSources(
   }
   if (!isRecord(value)) return;
   const url = readNonEmptyString(value, ITEM_SOURCE_URL_KEYS);
-  if (url && /^https?:\/\/\S+\.\S+/.test(url)) visit(url);
+  if (url && /^https?:\/\/\S+\.\S+/.test(url)) {
+    const title =
+      readNonEmptyString(value, ITEM_SOURCE_TITLE_KEYS) ?? hostnameOf(url);
+    const whyItMatters =
+      readNonEmptyString(value, ITEM_SOURCE_REASON_KEYS) ?? undefined;
+    visit({ url, title, whyItMatters });
+  }
   for (const inner of Object.values(value)) {
     if (Array.isArray(inner) || isRecord(inner)) {
       walkArtifactItemSources(inner, visit);
@@ -92,29 +99,10 @@ function walkArtifactItemSources(
   }
 }
 
-function countAuditSources(
-  sectionsByZone: Record<
-    string,
-    { markdown?: string; title?: string; data?: unknown } | undefined
-  >,
-): number {
-  const seen = new Set<string>();
-  for (const zoneId of POSITIONING_SECTION_IDS) {
-    const body = sectionsByZone[zoneId];
-    if (!body) continue;
-    const artifact = pickPositioningTypedArtifact(body, zoneId);
-    if (!artifact) continue;
-    for (const source of artifact.sources as PositioningArtifactSource[]) {
-      seen.add(`${zoneId}:${source.url}`);
-    }
-    walkArtifactItemSources(artifact, (url) => seen.add(`${zoneId}:${url}`));
-  }
-  return seen.size;
-}
-
 interface CollatedSource {
   title: string;
   url: string;
+  whyItMatters?: string;
 }
 
 function collateAuditSources(
@@ -135,9 +123,14 @@ function collateAuditSources(
         byUrl.set(source.url, {
           title: source.title || source.url,
           url: source.url,
+          whyItMatters: source.whyItMatters,
         });
       }
     }
+    walkArtifactItemSources(artifact, (entry) => {
+      if (byUrl.has(entry.url)) return;
+      byUrl.set(entry.url, entry);
+    });
   }
   return Array.from(byUrl.values());
 }
@@ -176,6 +169,24 @@ function hostnameOf(url: string | undefined): string {
   }
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function readResponseError(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as {
+    error?: unknown;
+    message?: unknown;
+  } | null;
+  if (typeof body?.error === 'string' && body.error.trim()) {
+    return body.error.trim();
+  }
+  if (typeof body?.message === 'string' && body.message.trim()) {
+    return body.message.trim();
+  }
+  return res.statusText || 'Request failed';
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -188,6 +199,7 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
   const live = useAuditState(runId);
   const [meta, setMeta] = useState<JourneyMetadata>({});
   const [dispatchPending, setDispatchPending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const kickoffFired = useRef(false);
 
   // ---- Hydrate company identity from the journey session ---------------
@@ -199,7 +211,13 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
           cache: 'no-store',
           credentials: 'same-origin',
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn('[audit-reader-shell] session metadata fetch failed', {
+            runId,
+            status: res.status,
+          });
+          return;
+        }
         const data = (await res.json()) as {
           metadata?: Record<string, unknown> | null;
           updatedAt?: string | null;
@@ -216,8 +234,11 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
           }
         }
         setMeta(m);
-      } catch {
-        // Silent — header has sensible fallbacks.
+      } catch (error) {
+        console.warn('[audit-reader-shell] session metadata fetch failed', {
+          runId,
+          error: describeError(error),
+        });
       }
     })();
     return () => {
@@ -231,14 +252,30 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
     if (live.parent_audit_run_id !== null) return;
     if (live.workerStates.length === 0) return;
     kickoffFired.current = true;
-    void fetch('/api/research-v2/orchestrate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ run_id: runId }),
-    }).catch(() => {
-      kickoffFired.current = false;
-    });
+    void (async () => {
+      try {
+        const res = await fetch('/api/research-v2/orchestrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ run_id: runId }),
+        });
+        if (!res.ok) {
+          kickoffFired.current = false;
+          console.warn('[audit-reader-shell] auto-kickoff failed', {
+            runId,
+            status: res.status,
+            error: await readResponseError(res),
+          });
+        }
+      } catch (error) {
+        kickoffFired.current = false;
+        console.warn('[audit-reader-shell] auto-kickoff failed', {
+          runId,
+          error: describeError(error),
+        });
+      }
+    })();
   }, [live.parent_audit_run_id, live.workerStates.length, runId]);
 
   // ---- Derived state ----------------------------------------------------
@@ -254,14 +291,11 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
       live.workerStates.filter((state) => state.status === 'complete').length,
     [live.workerStates],
   );
-  const sourcesCount = useMemo(
-    () => countAuditSources(live.sectionsByZone),
-    [live.sectionsByZone],
-  );
   const auditSources = useMemo(
     () => collateAuditSources(live.sectionsByZone),
     [live.sectionsByZone],
   );
+  const sourcesCount = auditSources.length;
 
   const overallStatus: 'complete' | 'in-flight' =
     completedCount === totalSections && live.workerStates.length > 0
@@ -280,39 +314,83 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
 
   // ---- Dispatch + rerun actions ----------------------------------------
   const handleDispatchAll = useCallback(async () => {
+    setActionError(null);
     setDispatchPending(true);
     try {
-      await fetch('/api/research-v2/orchestrate', {
+      const res = await fetch('/api/research-v2/orchestrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({ run_id: runId }),
       });
-    } catch {
-      // Swallow — UI returns to idle on next click.
+      if (!res.ok) {
+        const message = await readResponseError(res);
+        setActionError(`Dispatch failed (${res.status}): ${message}`);
+        console.warn('[audit-reader-shell] manual dispatch failed', {
+          runId,
+          status: res.status,
+          error: message,
+        });
+      }
+    } catch (error) {
+      const message = describeError(error);
+      setActionError(`Dispatch failed: ${message}`);
+      console.warn('[audit-reader-shell] manual dispatch failed', {
+        runId,
+        error: message,
+      });
     } finally {
       setDispatchPending(false);
     }
   }, [runId]);
 
   const handleRerunBlocked = useCallback(async () => {
+    setActionError(null);
     const blocked = live.workerStates.filter(
       (w) => w.status === 'error' || w.status === 'aborted',
     );
     setDispatchPending(true);
     try {
-      await Promise.all(
-        blocked.map((w) =>
-          fetch('/api/research-v2/rerun-section', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ runId, sectionId: w.section_id }),
+      const failures = (
+        await Promise.all(
+          blocked.map(async (w) => {
+            const res = await fetch('/api/research-v2/rerun-section', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ runId, sectionId: w.section_id }),
+            });
+            if (res.ok) return null;
+            return {
+              sectionId: w.section_id,
+              status: res.status,
+              error: await readResponseError(res),
+            };
           }),
-        ),
+        )
+      ).filter(
+        (
+          failure,
+        ): failure is { sectionId: PositioningSectionId; status: number; error: string } =>
+          failure !== null,
       );
-    } catch {
-      // Swallow
+      if (failures.length > 0) {
+        const summary = failures
+          .map((failure) => `${failure.sectionId} (${failure.status})`)
+          .join(', ');
+        setActionError(`Rerun failed for ${summary}`);
+        console.warn('[audit-reader-shell] rerun blocked sections failed', {
+          runId,
+          failures,
+        });
+      }
+    } catch (error) {
+      const message = describeError(error);
+      setActionError(`Rerun failed: ${message}`);
+      console.warn('[audit-reader-shell] rerun blocked sections failed', {
+        runId,
+        error: message,
+      });
     } finally {
       setDispatchPending(false);
     }
@@ -433,6 +511,14 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
             <span className="text-[color:var(--text-quaternary)]">·</span>
             <span>run {runId.slice(0, 8)}</span>
           </div>
+          {actionError ? (
+            <p
+              role="status"
+              className="mt-3 font-mono text-[11px] leading-[1.5] text-[color:var(--accent-red)]"
+            >
+              {actionError}
+            </p>
+          ) : null}
         </footer>
       </div>
     </div>

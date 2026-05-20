@@ -240,4 +240,86 @@ describe('ResearchV2Page — one-pager shell', () => {
       within(footer).getByRole('button', { name: /rerun blocked/i }),
     ).toBeInTheDocument();
   });
+
+  it('dedupes the numbered footer by URL and includes nested evidence sources', async () => {
+    const sharedSourceUrl = 'https://example.com/shared-source';
+    useAuditStateMock.mockReturnValue({
+      parent_audit_run_id: 'parent-run',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: makeWorkerStates('complete'),
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: {
+            sectionTitle: 'Market Category',
+            verdict: 'Market verdict.',
+            statusSummary: 'Market status.',
+            confidence: 8,
+            sources: [
+              {
+                title: 'Shared market source',
+                url: sharedSourceUrl,
+                whyItMatters: 'Top-level source.',
+              },
+            ],
+            marketSize: {
+              signals: [
+                {
+                  name: 'Nested signal',
+                  sourceTitle: 'Nested signal source',
+                  sourceUrl: 'https://example.com/nested-signal',
+                },
+              ],
+            },
+          },
+        },
+        positioningBuyerICP: {
+          data: {
+            sectionTitle: 'Buyer ICP',
+            verdict: 'Buyer verdict.',
+            statusSummary: 'Buyer status.',
+            confidence: 7,
+            sources: [
+              {
+                title: 'Duplicate shared source',
+                url: sharedSourceUrl,
+                whyItMatters: 'Duplicate URL should collapse.',
+              },
+              {
+                title: 'Buyer source',
+                url: 'https://example.com/buyer-source',
+                whyItMatters: 'Unique top-level source.',
+              },
+            ],
+          },
+        },
+      },
+      eventsByZone: {},
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(buildSessionPayload()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<ResearchV2Page />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByText(/6 sections · 3 sources/i)).toBeInTheDocument();
+    const sources = screen.getAllByTestId('source-item');
+    expect(sources).toHaveLength(3);
+    expect(within(sources[0]).getByRole('link')).toHaveAttribute('href', sharedSourceUrl);
+    expect(within(sources[1]).getByRole('link')).toHaveAttribute(
+      'href',
+      'https://example.com/nested-signal',
+    );
+    expect(within(sources[1]).getByRole('link')).toHaveTextContent('Nested signal source');
+    expect(within(sources[2]).getByRole('link')).toHaveAttribute(
+      'href',
+      'https://example.com/buyer-source',
+    );
+  });
 });

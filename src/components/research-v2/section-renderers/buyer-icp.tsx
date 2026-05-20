@@ -259,15 +259,8 @@ export function BuyerICPRenderer({
           columns={cutColumns}
           rows={icpExistenceCheck.firmographicCuts}
           rowKey={r => `${r.cutType}-${r.value}`}
+          rowTestId={() => 'firmographic-item'}
         />
-        {/* Sentinel list for test counting — DataTable doesn't expose row-level testids. */}
-        <ul className="sr-only" aria-hidden="true">
-          {icpExistenceCheck.firmographicCuts.map(cut => (
-            <li key={`${cut.cutType}-${cut.value}`} data-testid="firmographic-item">
-              {cut.value}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="2 · Persona Reality" prose={personaReality.prose}>
@@ -275,17 +268,8 @@ export function BuyerICPRenderer({
           columns={personaColumns}
           rows={personaReality.personas}
           rowKey={r => `${r.name}-${r.company}`}
+          rowTestId={() => 'persona-card'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {personaReality.personas.map(persona => (
-            <li
-              key={`${persona.name}-${persona.company}`}
-              data-testid="persona-card"
-            >
-              {persona.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock
@@ -331,17 +315,8 @@ export function BuyerICPRenderer({
           columns={triggerColumns}
           rows={buyingContext.triggers}
           rowKey={r => `${r.name}-${r.window}`}
+          rowTestId={() => 'trigger-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {buyingContext.triggers.map(trigger => (
-            <li
-              key={`${trigger.name}-${trigger.window}`}
-              data-testid="trigger-item"
-            >
-              {trigger.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
 
       <SubsectionBlock label="5 · Clusters & Venues" prose={clusters.prose}>
@@ -349,14 +324,8 @@ export function BuyerICPRenderer({
           columns={venueColumns}
           rows={clusters.venues}
           rowKey={r => `${r.bucketType}-${r.name}`}
+          rowTestId={() => 'cluster-item'}
         />
-        <ul className="sr-only" aria-hidden="true">
-          {clusters.venues.map(venue => (
-            <li key={`${venue.bucketType}-${venue.name}`} data-testid="cluster-item">
-              {venue.name}
-            </li>
-          ))}
-        </ul>
       </SubsectionBlock>
     </div>
   );

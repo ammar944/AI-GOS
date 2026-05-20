@@ -17,6 +17,7 @@ export interface DataTableProps<T> {
   caption?: string;
   className?: string;
   rowKey?: (row: T, rowIndex: number) => string;
+  rowTestId?: (row: T, rowIndex: number) => string | undefined;
 }
 
 function defaultRowKey<T>(_row: T, rowIndex: number): string {
@@ -30,6 +31,7 @@ export function DataTable<T>({
   caption,
   className,
   rowKey,
+  rowTestId,
 }: DataTableProps<T>): React.ReactElement {
   const keyFn = rowKey ?? defaultRowKey;
   return (
@@ -71,6 +73,7 @@ export function DataTable<T>({
             rows.map((row, rowIndex) => (
               <tr
                 key={keyFn(row, rowIndex)}
+                data-testid={rowTestId?.(row, rowIndex)}
                 className="border-b border-transparent transition-colors hover:bg-[var(--bg-hover)]"
               >
                 {columns.map(col => {

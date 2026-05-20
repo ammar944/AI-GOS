@@ -5,6 +5,16 @@ describe("env.ts", () => {
   // Store original env to restore after tests
   const originalEnv = process.env;
 
+  function setRequiredEnv(): void {
+    process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
+    process.env.SEARCHAPI_KEY = "test-searchapi-key";
+    process.env.CLERK_SECRET_KEY = "test-clerk-secret";
+    process.env.CLERK_WEBHOOK_SECRET = "test-clerk-webhook-secret";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "test-clerk-publishable";
+  }
+
   beforeEach(() => {
     // Reset process.env to a clean state before each test
     vi.resetModules();
@@ -19,10 +29,7 @@ describe("env.ts", () => {
   describe("validateEnv", () => {
     it("returns valid: true when all required vars are present", () => {
       // Arrange: Set all required environment variables
-      process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
-      process.env.SEARCHAPI_KEY = "test-searchapi-key";
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+      setRequiredEnv();
       process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000"; // optional but set
 
       // Act
@@ -83,10 +90,7 @@ describe("env.ts", () => {
 
     it("includes warnings for missing optional vars", () => {
       // Arrange: All required present, optional missing
-      process.env.ANTHROPIC_API_KEY = "test-key";
-      process.env.SEARCHAPI_KEY = "test-key";
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+      setRequiredEnv();
       delete process.env.NEXT_PUBLIC_APP_URL;
 
       // Act
