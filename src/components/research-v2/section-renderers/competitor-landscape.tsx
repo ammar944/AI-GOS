@@ -1,12 +1,11 @@
-import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import {
   BarBreakdown,
   DataTable,
-  NarrativeBlock,
   PositioningAxisStack,
   QuoteCallout,
+  SubsectionBlock,
   type DataTableColumn,
   type PositioningAxisItem,
 } from '../primitives';
@@ -50,28 +49,6 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
     >
       {hostnameOf(url)} →
     </a>
-  );
-}
-
-function SubsectionBlock({
-  label,
-  title,
-  prose,
-  children,
-}: {
-  label: string;
-  title?: string;
-  prose: string;
-  children: ReactNode;
-}): React.ReactElement {
-  return (
-    <section className="flex flex-col gap-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-quaternary)]">
-        {label}
-      </div>
-      <NarrativeBlock title={title} prose={prose} />
-      {children}
-    </section>
   );
 }
 

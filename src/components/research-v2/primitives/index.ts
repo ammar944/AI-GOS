@@ -23,3 +23,4 @@ export {
   type InlineStatTone,
 } from './inline-stats';
 export { NarrativeBlock, type NarrativeBlockProps } from './narrative-block';
+export { SubsectionBlock, type SubsectionBlockProps } from './subsection-block';
