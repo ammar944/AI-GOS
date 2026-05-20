@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { render, fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentArtifactSurface } from '../agent-artifact-surface';
@@ -121,7 +121,12 @@ describe('AgentArtifactSurface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
     const drawer = screen.getByTestId('sources-drawer');
     expect(within(drawer).getByText('Market source')).toBeInTheDocument();
-    expect(within(drawer).getByText('Market & Category Intelligence')).toBeInTheDocument();
+    // Section-level "Market source" + item-level "CRM comparison" both group
+    // under the Market & Category Intelligence zone, so the label appears
+    // per-source.
+    expect(
+      within(drawer).getAllByText('Market & Category Intelligence').length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('calls onSubmit with the trimmed composer text', () => {
@@ -249,7 +254,7 @@ describe('AgentArtifactSurface', () => {
     expect(screen.queryByText('markdown fallback should not render')).toBeNull();
   });
 
-  it('renders typed non-BuyerICP cards from audit-state instead of the markdown fallback', () => {
+  it('renders typed non-BuyerICP sections through the narrative renderer instead of markdown', () => {
     useAuditStateMock.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: 'parent-run',
@@ -272,38 +277,31 @@ describe('AgentArtifactSurface', () => {
 
     render(<AgentArtifactSurface runId="run-abc" />);
 
+    const narrative = screen.getByTestId(
+      'narrative-renderer-positioningMarketCategory',
+    );
+    expect(narrative).toBeInTheDocument();
+    expect(within(narrative).getByText('Confidence 7/10')).toBeInTheDocument();
     expect(
-      screen.getByTestId('typed-artifact-renderer-positioningMarketCategory'),
+      within(narrative).getByText(
+        'Pipeline management category prose from typed data.',
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Confidence 7/10')).toBeInTheDocument();
-    expect(screen.getByText('Pipeline management category prose from typed data.')).toBeInTheDocument();
-    expect(screen.getByText('Legacy CRM')).toBeInTheDocument();
+    expect(within(narrative).getByText('Legacy CRM')).toBeInTheDocument();
     expect(
       screen.getByTestId(
-        'typed-card-group-positioningMarketCategory-categoryDefinition-adjacentCategories',
+        'narrative-subsection-positioningMarketCategory-categoryDefinition',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('markdown fallback should not render')).toBeNull();
   });
 
-  it('shows Draft ready and Deepen on committed draft sections, then posts a deep rerun', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+  it('opens the sources drawer and highlights the cited source when a footnote ref is clicked', async () => {
     useAuditStateMock.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: 'parent-run',
       workerStates: [
-        {
-          section_id: 'positioningMarketCategory',
-          status: 'complete',
-          phase: 'Draft ready',
-          phaseLabel: 'Draft ready',
-          executionMode: 'draft',
-          runtimeTimings: {
-            sectionStartedAt: '2026-05-15T12:00:00.000Z',
-            firstPartialAt: '2026-05-15T12:00:08.000Z',
-          },
-        },
+        { section_id: 'positioningMarketCategory', status: 'complete' },
         { section_id: 'positioningBuyerICP', status: 'queued' },
         { section_id: 'positioningCompetitorLandscape', status: 'queued' },
         { section_id: 'positioningVoiceOfCustomer', status: 'queued' },
@@ -313,42 +311,21 @@ describe('AgentArtifactSurface', () => {
       sectionsByZone: {
         positioningMarketCategory: {
           title: marketCategoryArtifactFixture.sectionTitle,
-          markdown: 'draft markdown',
-          data: {
-            ...marketCategoryArtifactFixture,
-            artifactLayer: 'draft',
-            evidenceGaps: [
-              {
-                gap: 'Missing market size',
-                impact: 'Deep mode should fill it.',
-              },
-            ],
-          },
+          data: marketCategoryArtifactFixture,
         },
       },
     });
 
     render(<AgentArtifactSurface runId="run-abc" />);
-    // Chip shows the verdict snippet once a typed artifact has committed (R2).
-    // "Draft ready" still appears in the section header via StatusPill.
-    expect(
-      screen.getByTestId('worker-chip-verdict-positioningMarketCategory'),
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId('artifact-section-positioningMarketCategory')).getByText('Draft ready'),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText('draft').length).toBeGreaterThan(0);
-    expect(screen.getByText('First partial 8s')).toBeInTheDocument();
-    expect(screen.getByText('1 evidence gaps')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Deepen' }));
+    expect(screen.queryByTestId('sources-drawer')).toBeNull();
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({
-      runId: 'run-abc',
-      zone: 'positioningMarketCategory',
-      executionMode: 'deep',
-      usePartialContext: false,
-    });
+    // Section-level source is footnote 1 (Market source). Item-level
+    // sourceUrl on Legacy CRM is footnote 2 — the lead's inline cite.
+    const cite = screen.getByTestId('narrative-cite-positioningMarketCategory-2');
+    fireEvent.click(cite);
+
+    const drawer = await screen.findByTestId('sources-drawer');
+    const highlighted = within(drawer).getByText('CRM comparison').closest('li');
+    expect(highlighted?.getAttribute('data-highlighted')).toBe('true');
   });
 });

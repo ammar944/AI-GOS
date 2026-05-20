@@ -27,6 +27,7 @@ import {
   type ZoneStatus,
 } from '@/lib/research-v2/audit-artifact-schema';
 import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
+import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import {
   pickPositioningTypedArtifact,
   type PositioningTypedArtifact,
@@ -224,6 +225,121 @@ function isArrayOf(
   predicate: (item: unknown) => boolean,
 ): boolean {
   return Array.isArray(value) && value.every(predicate);
+}
+
+function isCompetitor(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.name) &&
+    isString(value.url) &&
+    isString(value.competitorType) &&
+    isString(value.oneLinePositioning) &&
+    isString(value.verbatimHeroCopy) &&
+    isString(value.pricingPosition) &&
+    isString(value.sourceUrl)
+  );
+}
+
+function isCompetitorPosition(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return isString(value.competitor) && isString(value.position);
+}
+
+function isPositioningAxis(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.axisName) &&
+    isString(value.ourPosition) &&
+    isArrayOf(value.competitorPositions, isCompetitorPosition) &&
+    isString(value.evidenceUrl)
+  );
+}
+
+function isPricingDataPoint(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.competitor) &&
+    isString(value.tierName) &&
+    isString(value.monthlyPrice) &&
+    isString(value.packagingPattern) &&
+    isString(value.gatedSignals) &&
+    isString(value.sourceUrl)
+  );
+}
+
+function isShareOfVoiceSlice(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.surface) &&
+    isString(value.winner) &&
+    isString(value.evidence) &&
+    isString(value.sourceUrl)
+  );
+}
+
+function isCompetitorWeakness(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.competitor) &&
+    isString(value.verbatimQuote) &&
+    isString(value.source) &&
+    isString(value.sourceUrl) &&
+    isString(value.whyItMatters)
+  );
+}
+
+function isNarrativeArc(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isString(value.competitor) &&
+    isString(value.villain) &&
+    isString(value.hero) &&
+    isString(value.transformationClaim) &&
+    isString(value.sourceUrl)
+  );
+}
+
+export function isCompetitorLandscapeArtifact(
+  value: unknown,
+): value is CompetitorLandscapeArtifact {
+  if (!isRecord(value)) return false;
+  if (
+    !isString(value.sectionTitle) ||
+    !isString(value.verdict) ||
+    !isString(value.statusSummary) ||
+    typeof value.confidence !== 'number' ||
+    !isArrayOf(value.sources, isSource)
+  ) {
+    return false;
+  }
+  const {
+    competitorSet,
+    positioningTaxonomy,
+    pricingReality,
+    shareOfVoice,
+    publicWeaknesses,
+    narrativeArcs,
+  } = value;
+  return (
+    isRecord(competitorSet) &&
+    isString(competitorSet.prose) &&
+    isArrayOf(competitorSet.competitors, isCompetitor) &&
+    isRecord(positioningTaxonomy) &&
+    isString(positioningTaxonomy.prose) &&
+    isArrayOf(positioningTaxonomy.axes, isPositioningAxis) &&
+    isRecord(pricingReality) &&
+    isString(pricingReality.prose) &&
+    isArrayOf(pricingReality.dataPoints, isPricingDataPoint) &&
+    isRecord(shareOfVoice) &&
+    isString(shareOfVoice.prose) &&
+    isArrayOf(shareOfVoice.slices, isShareOfVoiceSlice) &&
+    isRecord(publicWeaknesses) &&
+    isString(publicWeaknesses.prose) &&
+    isArrayOf(publicWeaknesses.items, isCompetitorWeakness) &&
+    isRecord(narrativeArcs) &&
+    isString(narrativeArcs.prose) &&
+    isArrayOf(narrativeArcs.arcs, isNarrativeArc)
+  );
 }
 
 export function isBuyerICPArtifact(value: unknown): value is BuyerICPArtifact {

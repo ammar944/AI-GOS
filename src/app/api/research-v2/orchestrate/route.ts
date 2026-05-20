@@ -141,11 +141,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    // Managed Agents path (Phase 1): gated behind the feature flag AND
-    // explicit executionMode opt-in. seedOrchestration is still the source
-    // of truth for parent + 6 section run ids — startManagedAudit calls it
-    // internally.
-    if (body.executionMode === 'managed') {
+    // Managed Agents is the default path when the feature flag is on.
+    // Frontend dispatch sites send only { run_id }, so the default fires
+    // there. Explicit body.executionMode ('draft' | 'deep' | 'managed')
+    // still wins — used by tests and the rerun-section flow.
+    const effectiveExecutionMode =
+      body.executionMode
+      ?? (managedAgentsPositioningEnabled() ? 'managed' : 'draft');
+
+    if (effectiveExecutionMode === 'managed') {
       if (!managedAgentsPositioningEnabled()) {
         return NextResponse.json(
           {
@@ -204,8 +208,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     const workerExecutionMode: 'draft' | 'deep' =
-      body.executionMode === 'draft' || body.executionMode === 'deep'
-        ? body.executionMode
+      effectiveExecutionMode === 'draft' || effectiveExecutionMode === 'deep'
+        ? effectiveExecutionMode
         : 'deep';
     void kickoffWorker({
       parentAuditRunId: seeded.parent_audit_run_id,

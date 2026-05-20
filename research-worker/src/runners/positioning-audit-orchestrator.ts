@@ -155,7 +155,10 @@ const TERMINAL_STATES: ReadonlySet<string> = new Set([
 ]);
 
 const POSITIONING_DRAFT_TIMEOUT_MS = 180_000;
-const POSITIONING_DEEP_TIMEOUT_MS = 240_000;
+// Deep mode runs MODELS.STRONG (Opus). Brief target is 6.5 min/section;
+// 10 min ceiling gives the validation retry headroom without leaving a
+// stuck section running indefinitely.
+const POSITIONING_DEEP_TIMEOUT_MS = 600_000;
 const POSITIONING_DRAFT_CONCURRENCY = 6;
 const POSITIONING_DEEP_CONCURRENCY = 3;
 

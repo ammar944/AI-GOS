@@ -32,16 +32,21 @@ import {
 
 import { POSITIONING_SECTION_IDS, POSITIONING_SECTION_LABELS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
-import { isBuyerICPArtifact } from '@/lib/research-v2/audit-artifact-view';
+import {
+  isBuyerICPArtifact,
+  isCompetitorLandscapeArtifact,
+} from '@/lib/research-v2/audit-artifact-view';
+import { CompetitorLandscapeRenderer } from './section-renderers';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
 import {
+  isRecord,
   pickPositioningTypedArtifact,
   type PositioningArtifactSource,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
 import { BuyerICPArtifactRenderer } from './buyer-icp';
-import { TypedArtifactRenderer } from './typed-artifact-renderer';
+import { SectionNarrativeRenderer } from './section-narrative-renderer';
 
 export type WorkerChipStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted';
 
@@ -117,6 +122,9 @@ async function defaultChatSubmit(
   }
 }
 
+const ARTIFACT_UI_V2 =
+  process.env.NEXT_PUBLIC_ARTIFACT_UI_V2 === 'true';
+
 const STATUS_CLASS: Record<WorkerChipStatus, string> = {
   queued: 'border-[var(--border-subtle)] text-[color:var(--text-tertiary)]',
   running: 'border-[var(--accent-blue)] text-[color:var(--accent-blue)]',
@@ -170,6 +178,47 @@ function getTypedArtifactForZone(
   return body ? pickPositioningTypedArtifact(body, zoneId) : null;
 }
 
+const ITEM_SOURCE_URL_KEYS = ['sourceUrl', 'url', 'evidenceUrl'] as const;
+const ITEM_SOURCE_TITLE_KEYS = ['sourceTitle', 'source'] as const;
+const ITEM_SOURCE_REASON_KEYS = ['whyItMatters', 'evidence'] as const;
+
+function readNonEmptyString(
+  obj: Record<string, unknown>,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function walkArtifactItemSources(
+  value: unknown,
+  visit: (entry: { url: string; title: string; whyItMatters?: string }) => void,
+): void {
+  if (Array.isArray(value)) {
+    for (const item of value) walkArtifactItemSources(item, visit);
+    return;
+  }
+  if (!isRecord(value)) return;
+  const url = readNonEmptyString(value, ITEM_SOURCE_URL_KEYS);
+  if (url && /^https?:\/\/\S+\.\S+/.test(url)) {
+    const title =
+      readNonEmptyString(value, ITEM_SOURCE_TITLE_KEYS) ?? hostnameOf(url);
+    const whyItMatters =
+      readNonEmptyString(value, ITEM_SOURCE_REASON_KEYS) ?? undefined;
+    visit({ url, title, whyItMatters });
+  }
+  for (const inner of Object.values(value)) {
+    if (Array.isArray(inner) || isRecord(inner)) {
+      walkArtifactItemSources(inner, visit);
+    }
+  }
+}
+
 function collectAuditSources(
   sectionsByZone: Record<string, SectionArtifactBody>,
 ): AuditSourceItem[] {
@@ -190,6 +239,19 @@ function collectAuditSources(
         sectionTitle: POSITIONING_SECTION_LABELS[zoneId],
       });
     }
+
+    walkArtifactItemSources(artifact, (entry) => {
+      const key = `${zoneId}:${entry.url}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      sources.push({
+        title: entry.title,
+        url: entry.url,
+        whyItMatters: entry.whyItMatters,
+        zoneId,
+        sectionTitle: POSITIONING_SECTION_LABELS[zoneId],
+      });
+    });
   }
 
   return sources;
@@ -330,9 +392,7 @@ export function AgentArtifactSurface({
   }, [states, auditSources.length]);
   const [draft, setDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [deepeningZones, setDeepeningZones] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [highlightSourceUrl, setHighlightSourceUrl] = useState<string | null>(null);
   // P2b — track which section is in the viewport so chat commands like
   // "tighten this claim" can resolve "this" without forcing the user to
   // name the zone explicitly. Updated by IntersectionObserver below.
@@ -438,44 +498,6 @@ export function AgentArtifactSurface({
     }
   };
 
-  const handleDeepenSection = async (zone: PositioningSectionId): Promise<void> => {
-    setDeepeningZones((prev) => {
-      const next = new Set(prev);
-      next.add(zone);
-      return next;
-    });
-    try {
-      const response = await fetch('/api/research-v2/rerun-section', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          runId,
-          zone,
-          executionMode: 'deep',
-          usePartialContext: false,
-        }),
-      });
-      if (!response.ok) {
-        const detail = await response.text().catch(() => '');
-        console.warn(
-          `[artifact-surface] deepen failed for ${zone}: ${response.status} ${detail.slice(0, 200)}`,
-        );
-      }
-    } catch (err) {
-      console.warn(
-        `[artifact-surface] deepen threw for ${zone}:`,
-        err instanceof Error ? err.message : String(err),
-      );
-    } finally {
-      setDeepeningZones((prev) => {
-        const next = new Set(prev);
-        next.delete(zone);
-        return next;
-      });
-    }
-  };
-
   return (
     <div
       data-testid="agent-artifact-surface"
@@ -535,9 +557,9 @@ export function AgentArtifactSurface({
                 stateByZone={stateByZone}
                 sectionsByZone={live.sectionsByZone}
                 eventsByZone={live.eventsByZone}
-                deepeningZones={deepeningZones}
-                onDeepenSection={(zone) => {
-                  void handleDeepenSection(zone);
+                onCiteClick={(url) => {
+                  setSourcesOpen(true);
+                  setHighlightSourceUrl(url);
                 }}
               />
             </main>
@@ -581,7 +603,11 @@ export function AgentArtifactSurface({
       <SourcesDrawer
         open={sourcesOpen}
         sources={auditSources}
-        onClose={() => setSourcesOpen(false)}
+        highlightUrl={highlightSourceUrl}
+        onClose={() => {
+          setSourcesOpen(false);
+          setHighlightSourceUrl(null);
+        }}
       />
     </div>
   );
@@ -800,8 +826,7 @@ interface SectionContentListProps {
   stateByZone: Partial<Record<PositioningSectionId, WorkerChipState>>;
   sectionsByZone: Record<string, SectionArtifactBody>;
   eventsByZone: Record<string, SectionActivityEvent[]>;
-  deepeningZones: Set<string>;
-  onDeepenSection: (zone: PositioningSectionId) => void;
+  onCiteClick?: (url: string) => void;
 }
 
 interface SectionArtifactBody {
@@ -963,8 +988,7 @@ function SectionContentList({
   stateByZone,
   sectionsByZone,
   eventsByZone,
-  deepeningZones,
-  onDeepenSection,
+  onCiteClick,
 }: SectionContentListProps): ReactElement {
   const anyComplete = Object.values(sectionsByZone).some(
     (s) => s && (s.markdown || s.title || s.data || pickPositioningTypedArtifact(s)),
@@ -1014,8 +1038,6 @@ function SectionContentList({
           ? pickPositioningTypedArtifact(body, zone)
           : null;
         const state = stateByZone[zone];
-        const canDeepen = state?.executionMode === 'draft';
-        const isDeepening = deepeningZones.has(zone);
         const meta = draftArtifactMeta(body);
         const runtimeTiming = formatRuntimeTiming(state);
         const isComplete = Boolean(
@@ -1023,6 +1045,12 @@ function SectionContentList({
         );
         const buyerIcpArtifact =
           zone === 'positioningBuyerICP' && isBuyerICPArtifact(typedArtifact)
+            ? typedArtifact
+            : null;
+        const competitorLandscapeArtifact =
+          ARTIFACT_UI_V2 &&
+          zone === 'positioningCompetitorLandscape' &&
+          isCompetitorLandscapeArtifact(typedArtifact)
             ? typedArtifact
             : null;
         if (isComplete) {
@@ -1058,29 +1086,15 @@ function SectionContentList({
                   label={state?.phaseLabel ?? state?.phase ?? 'Committed'}
                 />
               </header>
-              {canDeepen ? (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => onDeepenSection(zone)}
-                    disabled={isDeepening}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--accent-blue)] px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <RefreshCw
-                      className={cn('size-3', isDeepening && 'animate-spin')}
-                      aria-hidden="true"
-                    />
-                    {isDeepening ? 'Deepening' : 'Deepen'}
-                  </button>
-                </div>
-              ) : null}
               {buyerIcpArtifact ? (
                 <BuyerICPArtifactRenderer artifact={buyerIcpArtifact} />
+              ) : competitorLandscapeArtifact ? (
+                <CompetitorLandscapeRenderer artifact={competitorLandscapeArtifact} />
               ) : typedArtifact ? (
-                <TypedArtifactRenderer
+                <SectionNarrativeRenderer
                   artifact={typedArtifact}
                   zoneId={zone}
-                  showSectionTitle={false}
+                  onCiteClick={onCiteClick}
                 />
               ) : (
                 <div
@@ -1127,12 +1141,24 @@ function SectionContentList({
 function SourcesDrawer({
   open,
   sources,
+  highlightUrl,
   onClose,
 }: {
   open: boolean;
   sources: AuditSourceItem[];
+  highlightUrl?: string | null;
   onClose: () => void;
 }): ReactElement | null {
+  useEffect(() => {
+    if (!open || !highlightUrl) return;
+    const target = document.querySelector<HTMLElement>(
+      `[data-source-url="${CSS.escape(highlightUrl)}"]`,
+    );
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [open, highlightUrl]);
+
   if (!open) return null;
   return (
     <div
@@ -1161,33 +1187,43 @@ function SourcesDrawer({
         </p>
       ) : (
         <ol className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
-          {sources.map((source) => (
-            <li
-              key={`${source.zoneId}-${source.url}`}
-              className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3"
-            >
-              <div className="font-mono text-[9px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
-                {source.sectionTitle}
-              </div>
-              <a
-                href={source.url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-flex max-w-full items-start gap-1.5 break-words text-[13px] font-medium leading-snug text-[color:var(--text-primary)] hover:text-[color:var(--accent-blue)]"
+          {sources.map((source) => {
+            const isHighlighted = highlightUrl === source.url;
+            return (
+              <li
+                key={`${source.zoneId}-${source.url}`}
+                data-source-url={source.url}
+                data-highlighted={isHighlighted ? 'true' : undefined}
+                className={cn(
+                  'scroll-mt-4 rounded-md border bg-[var(--bg-surface)] p-3 transition-colors',
+                  isHighlighted
+                    ? 'border-[var(--accent-blue)] ring-1 ring-[var(--accent-blue)]'
+                    : 'border-[var(--border-subtle)]',
+                )}
               >
-                <span>{source.title}</span>
-                <ExternalLink className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-              </a>
-              <div className="mt-1 break-all font-mono text-[10px] text-[color:var(--text-tertiary)]">
-                {hostnameOf(source.url)}
-              </div>
-              {source.whyItMatters ? (
-                <p className="mt-2 text-[12px] leading-[1.5] text-[color:var(--text-secondary)]">
-                  {source.whyItMatters}
-                </p>
-              ) : null}
-            </li>
-          ))}
+                <div className="font-mono text-[9px] uppercase tracking-[0.08em] text-[color:var(--text-tertiary)]">
+                  {source.sectionTitle}
+                </div>
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex max-w-full items-start gap-1.5 break-words text-[13px] font-medium leading-snug text-[color:var(--text-primary)] hover:text-[color:var(--accent-blue)]"
+                >
+                  <span>{source.title}</span>
+                  <ExternalLink className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                </a>
+                <div className="mt-1 break-all font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                  {hostnameOf(source.url)}
+                </div>
+                {source.whyItMatters ? (
+                  <p className="mt-2 text-[12px] leading-[1.5] text-[color:var(--text-secondary)]">
+                    {source.whyItMatters}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
       )}
     </div>
