@@ -16,6 +16,20 @@ import {
   isRecord,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
+import {
+  BuyerICPRenderer,
+  CompetitorLandscapeRenderer,
+  DemandIntentRenderer,
+  MarketCategoryRenderer,
+  OfferDiagnosticRenderer,
+  VoiceOfCustomerRenderer,
+} from './section-renderers';
+import type { BuyerICPArtifact } from '@/lib/managed-agents/schemas/buyer-icp';
+import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
+import type { DemandIntentArtifact } from '@/lib/managed-agents/schemas/demand-intent-signals';
+import type { MarketCategoryArtifact } from '@/lib/managed-agents/schemas/market-category';
+import type { OfferPerformanceArtifact } from '@/lib/managed-agents/schemas/offer-performance-diagnostic';
+import type { VoiceOfCustomerArtifact } from '@/lib/managed-agents/schemas/voc-objection-evidence';
 
 export interface TypedArtifactRendererProps {
   artifact: PositioningTypedArtifact;
@@ -393,6 +407,23 @@ export function TypedArtifactRenderer({
   zoneId,
   showSectionTitle = true,
 }: TypedArtifactRendererProps): React.ReactElement {
+  // Schema-aware dispatch: route to typed renderer when zoneId matches.
+  // Falls through to the generic reflection-based renderer below otherwise.
+  switch (zoneId) {
+    case 'positioningMarketCategory':
+      return <MarketCategoryRenderer artifact={artifact as unknown as MarketCategoryArtifact} />;
+    case 'positioningBuyerICP':
+      return <BuyerICPRenderer artifact={artifact as unknown as BuyerICPArtifact} />;
+    case 'positioningCompetitorLandscape':
+      return <CompetitorLandscapeRenderer artifact={artifact as unknown as CompetitorLandscapeArtifact} />;
+    case 'positioningVoiceOfCustomer':
+      return <VoiceOfCustomerRenderer artifact={artifact as unknown as VoiceOfCustomerArtifact} />;
+    case 'positioningDemandIntent':
+      return <DemandIntentRenderer artifact={artifact as unknown as DemandIntentArtifact} />;
+    case 'positioningOfferDiagnostic':
+      return <OfferDiagnosticRenderer artifact={artifact as unknown as OfferPerformanceArtifact} />;
+  }
+
   const subSections = getSubSections(artifact);
 
   return (
