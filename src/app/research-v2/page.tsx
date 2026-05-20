@@ -24,7 +24,7 @@ import {
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
-import { AgentArtifactSurface } from '@/components/research-v2/agent-artifact-surface';
+import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
 import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
 
 // ---------------------------------------------------------------------------
@@ -412,9 +412,9 @@ export default function ResearchV2Page() {
       dispatch({ type: 'ONBOARDING_COMPLETE' });
 
       // Phase 7.5 kickoff: seed the parent + six queued children and
-      // fire-and-forget the worker /orchestrate route. The page-level
-      // AgentArtifactSurface polls /api/research-v2/audit-state for live
-      // chip + section state once it mounts.
+      // fire-and-forget the worker /orchestrate route. AuditReaderShell
+      // polls /api/research-v2/audit-state for live section state once
+      // it mounts.
       void fetch('/api/research-v2/orchestrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -532,7 +532,7 @@ export default function ResearchV2Page() {
       )}
 
       {state.kind === 'sections' && (
-        <AgentArtifactSurface runId={state.runId} />
+        <AuditReaderShell runId={state.runId} />
       )}
 
       {state.kind === 'error' && (
