@@ -269,13 +269,31 @@
   .closer p { margin: 0 auto; max-width: 56ch; font-family: 'Fraunces', serif; font-size: clamp(20px, 3vw, 27px); font-weight: 500; line-height: 1.4; }
   .closer .sig { margin-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: .1em; }
 
+  /* ---------- live status log ---------- */
+  .livelog { border: 1px solid var(--line-2); border-left: 4px solid var(--green); border-radius: 6px; background: linear-gradient(90deg, rgba(46,125,82,.05), transparent); padding: 26px 28px; margin: 44px 0 8px; }
+  .livelog .lt { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--green); font-weight: 700; display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
+  .livelog .lt .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(46,125,82,.45);} 70% { box-shadow: 0 0 0 7px rgba(46,125,82,0);} 100% { box-shadow: 0 0 0 0 rgba(46,125,82,0);} }
+  .tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .trk { background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 16px 18px; }
+  .trk .th { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-d); font-weight: 700; letter-spacing: .03em; }
+  .trk h4 { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 600; margin: 4px 0 6px; }
+  .trk p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 6px; }
+  .trk .br { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+  .learn { list-style: none; display: grid; gap: 8px; margin: 4px 0 16px; }
+  .learn li { font-size: 14px; color: var(--ink-soft); padding-left: 22px; position: relative; max-width: 90ch; }
+  .learn li::before { content: "→"; position: absolute; left: 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+  .learn li b { color: var(--ink); }
+  .slog { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; color: var(--muted); border-top: 1px dashed var(--line-2); padding-top: 14px; }
+  .slog b { color: var(--ink); }
+
   /* ---------- reveal ---------- */
   .js .reveal { opacity: 0; transform: translateY(18px); }
   .js .reveal.in { opacity: 1; transform: none; transition: opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); }
 
   @media (max-width: 720px) {
     body { font-size: 16px; }
-    .grid6, .vs, .notin ul, .locked { grid-template-columns: 1fr; }
+    .grid6, .vs, .notin ul, .locked, .tracks { grid-template-columns: 1fr; }
     .row { grid-template-columns: 1fr; gap: 8px; }
     .task { grid-template-columns: 1fr; gap: 8px; }
     .task .col1 { flex-direction: row; align-items: center; }
@@ -291,7 +309,7 @@
 
 <header class="hero">
   <div class="wrap">
-    <div class="eyebrow">Ground Truth · Plan &amp; Task Board · 2026-05-25</div>
+    <div class="eyebrow">Ground Truth · LIVE Execution Log · 2026-05-25</div>
     <h1>AI-GOS: where we are, and <em>where we're going</em>.</h1>
     <p class="lede">The single source of truth for this build — what the app does, the verified state of the shipped wire, and the task board that carries us from here to DeepSeek.</p>
     <div class="hero-meta">
@@ -307,6 +325,34 @@
 </header>
 
 <main class="wrap">
+
+  <div class="livelog reveal">
+    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-25</div>
+    <p style="font-size:14.5px;color:var(--ink-soft);margin:-4px 0 18px;max-width:66ch">Running log — updated each session so we resume aligned. Execution is now <strong>two parallel Codex tracks</strong>, merged later. The numbered plan below is the stable reference.</p>
+    <div class="tracks">
+      <div class="trk">
+        <div class="th">TRACK A · Codex #1 · via bus goal</div>
+        <h4>Stabilize + Harden (P0–P2)</h4>
+        <p>P0 ✓ (report committed, goal seeded) · P1–P2 in progress.</p>
+        <div class="br">feat/v2-lab-section-wire</div>
+      </div>
+      <div class="trk">
+        <div class="th">TRACK B · Codex #2 · via handoff doc</div>
+        <h4>DeepSeek (P3) — in parallel</h4>
+        <p>Worktree + deps + key wired · runs from docs/2026-05-25-p3-deepseek-handoff.md.</p>
+        <div class="br">feat/v2-deepseek</div>
+      </div>
+    </div>
+    <ul class="learn">
+      <li><b>Locked:</b> the lab engine IS the AI-GOS backend. The wire is shipped + audited real (<span class="mono" style="font-size:12px">ccdc4235</span>) — zero wire type-errors, corpus-only enforced; the 72 tsc errors are pre-existing test rot, not the wire.</li>
+      <li><b>Backend standard:</b> grounded on the AIHero AI SDK v6 course — bounded lifecycle (the anti-hang rule), decoupled execution, observability, evals. Not a new queue engine.</li>
+      <li><b>Bus = one shared goal:</b> only Track A uses it; Track B (P3) is doc-driven — that's why P3 runs from a handoff doc, not the bus goal.</li>
+      <li><b>DeepSeek:</b> <span class="mono" style="font-size:12px">@ai-sdk/deepseek</span> 2.x is v6-compatible; model <span class="mono" style="font-size:12px">deepseek-v4-flash</span>; ~$2–4 total. The OpenRouter #411 "tool-args-as-text" trap is avoided by our tool-output design — NEVER layer <span class="mono" style="font-size:12px">Output.object</span> on the answer tool. Two transports: Ollama (free, local validation) / direct DeepSeek (prod, key wired). Corpus-only needs NO web-search rebuild.</li>
+      <li><b>Budget:</b> $15 hard cap on Anthropic; Ollama free; direct DeepSeek tiny. T1.1 is the only paid step.</li>
+      <li><b>Merge:</b> Tracks A &amp; B overlap mainly in <span class="mono" style="font-size:12px">section-agent.ts</span> (P2 hardening vs P3 Anthropic-decoupling) — resolved at integration. The front-door flip (onboarding → lab) is LAST.</li>
+    </ul>
+    <div class="slog"><b>Session log</b> — 2026-05-25: planned the full arc; committed this ground truth (4d3fc7a9); seeded the P0–P2 bus goal + 6 Codex tasks (Track A); set up the P3 parallel worktree + handoff + DeepSeek key (Track B). Both tracks running.<br><b>Worktrees</b> — A: <span style="color:var(--ink)">AI-GOS-worktrees/v2-lab-section-wire</span> (canonical report home, served at localhost:8753) · B: <span style="color:var(--ink)">AI-GOS-worktrees/v2-deepseek</span>.</div>
+  </div>
 
   <!-- 01 -->
   <section>
