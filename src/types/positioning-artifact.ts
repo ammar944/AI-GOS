@@ -33,6 +33,14 @@ const COMMON_TYPED_ARTIFACT_KEYS = [
   'positioningArtifact',
 ] as const;
 
+const LAB_ENVELOPE_ONLY_KEYS: ReadonlySet<string> = new Set([
+  'id',
+  'runId',
+  'createdAt',
+  'sectionId',
+  'body',
+]);
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -109,6 +117,35 @@ function pickNestedPositioningTypedArtifact(
   return null;
 }
 
+function dropEnvelopeOnlyKeys(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => !LAB_ENVELOPE_ONLY_KEYS.has(key)),
+  );
+}
+
+function normalizePickedArtifact(
+  found: PositioningTypedArtifact,
+): PositioningTypedArtifact {
+  const validSources = found.sources.filter(isPositioningArtifactSource);
+  const body = found.body;
+  if (!isRecord(body)) {
+    return validSources.length === found.sources.length
+      ? found
+      : { ...found, sources: validSources };
+  }
+
+  return {
+    ...dropEnvelopeOnlyKeys(body),
+    sectionTitle: found.sectionTitle,
+    verdict: found.verdict,
+    statusSummary: found.statusSummary,
+    confidence: found.confidence,
+    sources: validSources,
+  };
+}
+
 export function pickPositioningTypedArtifact(
   value: unknown,
   zoneId?: string | null,
@@ -120,8 +157,5 @@ export function pickPositioningTypedArtifact(
     0,
   );
   if (!found) return null;
-  const validSources = found.sources.filter(isPositioningArtifactSource);
-  return validSources.length === found.sources.length
-    ? found
-    : { ...found, sources: validSources };
+  return normalizePickedArtifact(found);
 }
