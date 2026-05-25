@@ -7,6 +7,9 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   serverExternalPackages: ['pdf-parse', 'mammoth'],
   outputFileTracingRoot: projectRoot,
+  outputFileTracingIncludes: {
+    '/api/research-v2/orchestrate': ['./src/lib/lab-engine/skills/**/*'],
+  },
   turbopack: {
     root: projectRoot,
   },

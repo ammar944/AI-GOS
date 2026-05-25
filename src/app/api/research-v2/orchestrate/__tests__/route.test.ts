@@ -11,6 +11,20 @@ const routeMocks = vi.hoisted(() => {
   const seedOrchestration = vi.fn();
   const freezeReviewedBriefSnapshot = vi.fn();
   const buildJourneyResearchDispatchContext = vi.fn();
+  const corpusToResearchInput = vi.fn();
+  const runSection = vi.fn();
+  const store = {
+    createRun: vi.fn(),
+    readRun: vi.fn(),
+    appendEvent: vi.fn(),
+    saveArtifact: vi.fn(),
+    markSectionRunning: vi.fn(),
+    markSectionFailed: vi.fn(),
+  };
+  const createSupabaseRunStore = vi.fn((input: unknown) => {
+    void input;
+    return store;
+  });
   const sessionQuery = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -26,6 +40,10 @@ const routeMocks = vi.hoisted(() => {
     seedOrchestration,
     freezeReviewedBriefSnapshot,
     buildJourneyResearchDispatchContext,
+    corpusToResearchInput,
+    runSection,
+    store,
+    createSupabaseRunStore,
     sessionQuery,
     from,
     createAdminClient,
@@ -59,6 +77,20 @@ vi.mock('@/lib/journey/server/dispatch-research', () => ({
     routeMocks.buildJourneyResearchDispatchContext(...args),
 }));
 
+vi.mock('@/lib/research-v2/corpus-to-research-input', () => ({
+  corpusToResearchInput: (...args: unknown[]) =>
+    routeMocks.corpusToResearchInput(...args),
+}));
+
+vi.mock('@/lib/research-v2/supabase-run-store', () => ({
+  createSupabaseRunStore: (input: unknown) =>
+    routeMocks.createSupabaseRunStore(input),
+}));
+
+vi.mock('@/lib/lab-engine/agents/run-section', () => ({
+  runSection: (...args: unknown[]) => routeMocks.runSection(...args),
+}));
+
 const { POST } = await import('../route');
 
 function makeRequest(body: unknown): Request {
@@ -73,10 +105,12 @@ function mockOwnedSession({
   ownerId,
   runId = VALID_RUN_ID,
   corpusStatus = 'complete',
+  deepResearchProgramData = { corpus: { researchSummary: 'summary' } },
 }: {
   ownerId: string;
   runId?: string;
   corpusStatus?: string | null;
+  deepResearchProgramData?: Record<string, unknown>;
 }) {
   routeMocks.sessionQuery.maybeSingle.mockResolvedValue({
     data: {
@@ -84,7 +118,12 @@ function mockOwnedSession({
       user_id: ownerId,
       run_id: runId,
       research_results: corpusStatus
-        ? { deepResearchProgram: { status: corpusStatus } }
+        ? {
+            deepResearchProgram: {
+              status: corpusStatus,
+              data: deepResearchProgramData,
+            },
+          }
         : null,
       onboarding_data: { companyName: 'Fellow' },
       metadata: {
@@ -116,11 +155,23 @@ describe('POST /api/research-v2/orchestrate', () => {
     vi.unstubAllGlobals();
     delete process.env.RAILWAY_WORKER_URL;
     delete process.env.RAILWAY_API_KEY;
+    delete process.env.LAB_ENGINE_LIVE_TOOLS;
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
     routeMocks.freezeReviewedBriefSnapshot.mockResolvedValue('frozen');
     routeMocks.buildJourneyResearchDispatchContext.mockResolvedValue('');
+    routeMocks.corpusToResearchInput.mockReturnValue({
+      runId: VALID_RUN_ID,
+      fixtureId: 'brand_fellow',
+    });
+    routeMocks.store.createRun.mockResolvedValue({});
+    routeMocks.store.readRun.mockResolvedValue({});
+    routeMocks.store.appendEvent.mockResolvedValue({});
+    routeMocks.store.saveArtifact.mockResolvedValue({});
+    routeMocks.store.markSectionRunning.mockResolvedValue({});
+    routeMocks.store.markSectionFailed.mockResolvedValue({});
+    routeMocks.runSection.mockResolvedValue({});
   });
 
   it('returns 401 when there is no Clerk user', async () => {
@@ -296,6 +347,81 @@ describe('POST /api/research-v2/orchestrate', () => {
     const b1 = await r1.json();
     const b2 = await r2.json();
     expect(b1).toEqual(b2);
+  });
+
+  it('runs the lab engine explicitly without kicking the worker', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const deepResearchProgramData = {
+      corpus: {
+        researchSummary: 'Fellow automates meeting workflows.',
+      },
+    };
+    mockOwnedSession({ ownerId: 'user_1', deepResearchProgramData });
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+        executionMode: 'lab',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(routeMocks.corpusToResearchInput).toHaveBeenCalledWith({
+      runId: VALID_RUN_ID,
+      deepResearchProgramData,
+      onboardingData: { companyName: 'Fellow' },
+    });
+    expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentAuditRunId: PARENT_ID,
+        sectionRunIdByZone: Object.fromEntries(
+          defaultSeededRows().section_run_ids.map((row) => [
+            row.section_id,
+            row.section_run_id,
+          ]),
+        ),
+      }),
+    );
+    expect(routeMocks.store.createRun).toHaveBeenCalledTimes(1);
+    expect(routeMocks.runSection).toHaveBeenCalledTimes(6);
+    expect(
+      routeMocks.runSection.mock.calls.map((call) => {
+        const [input] = call as [{ sectionId: string }];
+        return input.sectionId;
+      }),
+    ).toEqual([...POSITIONING_SECTION_IDS]);
+    expect(
+      routeMocks.runSection.mock.calls.every((call) => {
+        const [, deps] = call as [unknown, { allowedTools?: readonly unknown[] }];
+        return Array.isArray(deps.allowedTools) && deps.allowedTools.length === 0;
+      }),
+    ).toBe(true);
+  });
+
+  it('lets LAB_ENGINE_LIVE_TOOLS re-enable the lab engine tools', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    process.env.LAB_ENGINE_LIVE_TOOLS = 'true';
+    mockOwnedSession({ ownerId: 'user_1' });
+
+    const response = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+        executionMode: 'lab',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      routeMocks.runSection.mock.calls.every((call) => {
+        const [, deps] = call as [unknown, { allowedTools?: readonly unknown[] }];
+        return deps.allowedTools === undefined;
+      }),
+    ).toBe(true);
   });
 
 });

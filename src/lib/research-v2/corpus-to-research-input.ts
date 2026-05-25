@@ -1,0 +1,570 @@
+import {
+  researchInputSchema,
+  type CompetitorAd,
+  type CorpusExcerpt,
+  type ResearchInput,
+  type SourceRef,
+} from "../lab-engine/artifacts/artifact-envelope";
+
+export interface CorpusToResearchInputParams {
+  runId: string;
+  deepResearchProgramData: unknown;
+  onboardingData?: unknown;
+  now?: () => Date;
+}
+
+const minimumExcerptLength = 80;
+const defaultCompanyStage = "growth";
+const defaultDistributionChannel = "paid-search";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function asString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const stringValue = asString(value);
+
+    if (stringValue !== null) {
+      return stringValue;
+    }
+  }
+
+  return null;
+}
+
+function splitStringList(value: string): string[] {
+  return value
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function stringArrayFromUnknown(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      const stringItem = asString(item);
+      return stringItem === null ? [] : [stringItem];
+    });
+  }
+
+  const stringValue = asString(value);
+  return stringValue === null ? [] : splitStringList(stringValue);
+}
+
+function firstStringArray(...values: unknown[]): string[] {
+  for (const value of values) {
+    const arrayValue = stringArrayFromUnknown(value);
+
+    if (arrayValue.length > 0) {
+      return arrayValue;
+    }
+  }
+
+  return [];
+}
+
+function getValue(record: Record<string, unknown>, key: string): unknown {
+  return record[key];
+}
+
+function getFieldValue(
+  onboardingFields: Record<string, unknown>,
+  key: string,
+): unknown {
+  const field = asRecord(onboardingFields[key]);
+  return field.value;
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64);
+
+  return slug.length === 0 ? "unknown" : slug;
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function getValidUrl(value: unknown): string | null {
+  const candidate = asString(value);
+
+  if (candidate === null) {
+    return null;
+  }
+
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return null;
+  }
+}
+
+function logSafeDefault(field: string, reason: string): void {
+  console.warn("[corpus-to-research-input] safe default applied", {
+    field,
+    reason,
+  });
+}
+
+function resolveUrl({
+  fallbackUrl,
+  field,
+  slug,
+  value,
+}: {
+  field: string;
+  value: unknown;
+  fallbackUrl?: string | null;
+  slug: string;
+}): string {
+  const validUrl = getValidUrl(value);
+
+  if (validUrl !== null) {
+    return validUrl;
+  }
+
+  if (fallbackUrl !== undefined && fallbackUrl !== null) {
+    logSafeDefault(field, "using first valid corpus source URL");
+    return fallbackUrl;
+  }
+
+  logSafeDefault(field, "using schema-safe synthetic URL");
+  return `https://example.com/${slug}`;
+}
+
+function buildResearchSummary({
+  corpus,
+  data,
+  productDescription,
+}: {
+  corpus: Record<string, unknown>;
+  data: Record<string, unknown>;
+  productDescription: string;
+}): string {
+  return (
+    firstString(corpus.researchSummary, data.researchSummary) ??
+    productDescription
+  );
+}
+
+function buildSources({
+  companyName,
+  observedAt,
+  sourceRecords,
+  websiteUrl,
+}: {
+  companyName: string;
+  observedAt: string;
+  sourceRecords: Record<string, unknown>[];
+  websiteUrl: string;
+}): SourceRef[] {
+  const sources = sourceRecords.flatMap((source, index): SourceRef[] => {
+    const url = getValidUrl(firstString(source.url, source.sourceUrl));
+
+    if (url === null) {
+      return [];
+    }
+
+    const title = firstString(source.title, source.source, source.name) ?? url;
+    const publisher = firstString(source.publisher);
+
+    return [
+      {
+        id: firstString(source.id) ?? `source_${slugify(title)}_${index + 1}`,
+        title,
+        url,
+        ...(publisher === null ? {} : { publisher }),
+        observedAt,
+      },
+    ];
+  });
+
+  if (sources.length > 0) {
+    return sources;
+  }
+
+  logSafeDefault("sources", "using company website as the source list");
+  return [
+    {
+      id: `source_${slugify(companyName)}_website`,
+      title: `${companyName} website`,
+      url: websiteUrl,
+      observedAt,
+    },
+  ];
+}
+
+function findSourceForEvidence({
+  evidence,
+  sources,
+}: {
+  evidence: Record<string, unknown>;
+  sources: SourceRef[];
+}): SourceRef {
+  const evidenceUrl = getValidUrl(firstString(evidence.url, evidence.sourceUrl));
+  const evidenceTitle = firstString(evidence.source, evidence.title);
+  const matchingUrlSource = sources.find((source) => source.url === evidenceUrl);
+
+  if (matchingUrlSource !== undefined) {
+    return matchingUrlSource;
+  }
+
+  const matchingTitleSource = sources.find(
+    (source) => evidenceTitle !== null && source.title === evidenceTitle,
+  );
+
+  return matchingTitleSource ?? sources[0]!;
+}
+
+function ensureExcerptTextLength(text: string, supplement: string): string {
+  const normalizedText = normalizeWhitespace(text);
+
+  if (normalizedText.length >= minimumExcerptLength) {
+    return normalizedText;
+  }
+
+  const normalizedSupplement = normalizeWhitespace(supplement);
+  const combined = normalizeWhitespace(`${normalizedText} — ${normalizedSupplement}`);
+
+  if (combined.length >= minimumExcerptLength) {
+    return combined;
+  }
+
+  return normalizeWhitespace(
+    `${combined} This corpus-only supplement preserves the lab schema minimum without adding live-tool evidence.`,
+  );
+}
+
+function buildEvidenceExcerpt({
+  evidence,
+  index,
+  observedAt,
+  researchSummary,
+  sources,
+}: {
+  evidence: Record<string, unknown>;
+  index: number;
+  observedAt: string;
+  researchSummary: string;
+  sources: SourceRef[];
+}): CorpusExcerpt | null {
+  const claim = firstString(evidence.claim, evidence.summary, evidence.text);
+  const quote = firstString(evidence.quote, evidence.evidence, evidence.snippet);
+
+  if (claim === null && quote === null) {
+    return null;
+  }
+
+  const source = findSourceForEvidence({ evidence, sources });
+  const title = firstString(evidence.title, evidence.source) ?? source.title;
+  const text = ensureExcerptTextLength(
+    [claim, quote].filter((part): part is string => part !== null).join(" — "),
+    researchSummary,
+  );
+
+  return {
+    id: firstString(evidence.id) ?? `excerpt_evidence_${index + 1}`,
+    sourceId: source.id,
+    sourceUrl: source.url,
+    title,
+    text,
+    observedAt,
+  };
+}
+
+function buildSourceSupplementExcerpt({
+  index,
+  observedAt,
+  researchSummary,
+  source,
+}: {
+  index: number;
+  observedAt: string;
+  researchSummary: string;
+  source: SourceRef;
+}): CorpusExcerpt {
+  return {
+    id: `excerpt_supplement_${index + 1}`,
+    sourceId: source.id,
+    sourceUrl: source.url,
+    title: source.title,
+    text: ensureExcerptTextLength(
+      `${source.title}: ${researchSummary}`,
+      "Supplemented from corpus.sources and corpus.researchSummary for the lab ResearchInput minimum.",
+    ),
+    observedAt,
+  };
+}
+
+function buildCorpusExcerpts({
+  evidenceRecords,
+  observedAt,
+  researchSummary,
+  sources,
+}: {
+  evidenceRecords: Record<string, unknown>[];
+  observedAt: string;
+  researchSummary: string;
+  sources: SourceRef[];
+}): CorpusExcerpt[] {
+  const evidenceExcerpts = evidenceRecords.flatMap((evidence, index) => {
+    const excerpt = buildEvidenceExcerpt({
+      evidence,
+      index,
+      observedAt,
+      researchSummary,
+      sources,
+    });
+
+    return excerpt === null ? [] : [excerpt];
+  });
+
+  if (evidenceExcerpts.length >= 3) {
+    return evidenceExcerpts;
+  }
+
+  const supplementedExcerpts = [...evidenceExcerpts];
+
+  while (supplementedExcerpts.length < 3) {
+    const source = sources[supplementedExcerpts.length % sources.length]!;
+    supplementedExcerpts.push(
+      buildSourceSupplementExcerpt({
+        index: supplementedExcerpts.length,
+        observedAt,
+        researchSummary,
+        source,
+      }),
+    );
+  }
+
+  return supplementedExcerpts;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const uniqueValues: string[] = [];
+
+  for (const value of values) {
+    const key = value.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    uniqueValues.push(value);
+  }
+
+  return uniqueValues;
+}
+
+function withFallback(values: string[], fallback: string): string[] {
+  return values.length > 0 ? values : [fallback];
+}
+
+function ensureCompetitorSeeds({
+  category,
+  companyName,
+  topCompetitors,
+}: {
+  category: string;
+  companyName: string;
+  topCompetitors: string[];
+}): string[] {
+  const fallbackSeeds = [
+    `${category} status quo`,
+    "Manual workflow alternative",
+    `${companyName} spreadsheet alternative`,
+  ];
+
+  return uniqueStrings([...topCompetitors, ...fallbackSeeds]).slice(0, 5);
+}
+
+function buildSyntheticCompetitorAds({
+  category,
+  companyName,
+  observedAt,
+  sourceUrl,
+  topCompetitors,
+}: {
+  category: string;
+  companyName: string;
+  observedAt: string;
+  sourceUrl: string;
+  topCompetitors: string[];
+}): CompetitorAd[] {
+  return ensureCompetitorSeeds({
+    category,
+    companyName,
+    topCompetitors,
+  })
+    .slice(0, 3)
+    .map((competitorName, index): CompetitorAd => ({
+      id: `synthetic_google_ad_${slugify(competitorName)}_${index + 1}`,
+      competitorName,
+      platform: "google",
+      headline: `Synthetic: ${competitorName} positioning angle`,
+      body:
+        `Synthetic v1 competitor ad generated from onboarding competitor seed "${competitorName}" ` +
+        "for corpus-only lab validation; not live ad evidence.",
+      landingUrl: null,
+      firstSeen: null,
+      lastSeen: null,
+      creativeUrl: null,
+      sourceUrl,
+      angle:
+        `Synthetic v1 angle derived from ${companyName} onboarding competitors ` +
+        `and ${category} category context at ${observedAt}.`,
+    }));
+}
+
+export function corpusToResearchInput(
+  params: CorpusToResearchInputParams,
+): ResearchInput {
+  const observedAt = (params.now ?? (() => new Date()))().toISOString();
+  const data = asRecord(params.deepResearchProgramData);
+  const corpus = asRecord(data.corpus);
+  const onboardingFields = asRecord(data.onboardingFields);
+  const onboardingData = asRecord(params.onboardingData);
+  const companyName =
+    firstString(
+      getFieldValue(onboardingFields, "companyName"),
+      getValue(onboardingData, "companyName"),
+      getValue(onboardingData, "company_name"),
+    ) ?? "Unknown company";
+  const companySlug = slugify(companyName);
+  const category =
+    firstString(
+      getFieldValue(onboardingFields, "industryVertical"),
+      getValue(onboardingData, "industryVertical"),
+      getValue(onboardingData, "industry_vertical"),
+    ) ?? "Unknown category";
+  const productDescription =
+    firstString(
+      getFieldValue(onboardingFields, "productDescription"),
+      getValue(onboardingData, "productDescription"),
+      getValue(onboardingData, "product_description"),
+    ) ?? "No product description was provided in the corpus.";
+  const targetCustomer =
+    firstString(
+      getFieldValue(onboardingFields, "primaryIcpDescription"),
+      getValue(onboardingData, "primaryIcpDescription"),
+      getValue(onboardingData, "primary_icp_description"),
+    ) ?? "No target customer was provided in the corpus.";
+  const researchSummary = buildResearchSummary({
+    corpus,
+    data,
+    productDescription,
+  });
+  const sourceRecords = asRecordArray(corpus.sources);
+  const firstCorpusSourceUrl = sourceRecords
+    .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
+    .find((url): url is string => url !== null);
+  const websiteUrl = resolveUrl({
+    field: "company.websiteUrl",
+    value: firstString(
+      getValue(onboardingData, "websiteUrl"),
+      getValue(onboardingData, "website_url"),
+      getFieldValue(onboardingFields, "websiteUrl"),
+    ),
+    fallbackUrl: firstCorpusSourceUrl,
+    slug: companySlug,
+  });
+  const sources = buildSources({
+    companyName,
+    observedAt,
+    sourceRecords,
+    websiteUrl,
+  });
+  const topCompetitors = firstStringArray(
+    getFieldValue(onboardingFields, "topCompetitors"),
+    getValue(onboardingData, "topCompetitors"),
+    getValue(onboardingData, "top_competitors"),
+  );
+
+  return researchInputSchema.parse({
+    runId: params.runId,
+    fixtureId: `brand_${companySlug}`,
+    company: {
+      id: `company_${companySlug}`,
+      name: companyName,
+      websiteUrl,
+      category,
+      description: productDescription,
+      stage: defaultCompanyStage,
+      targetCustomer,
+    },
+    onboarding: {
+      primaryGoal:
+        firstString(
+          getValue(onboardingData, "primaryGoal"),
+          getValue(onboardingData, "primary_goal"),
+        ) ?? researchSummary,
+      targetSegments: withFallback(
+        firstStringArray(
+          getValue(onboardingData, "targetSegments"),
+          getValue(onboardingData, "target_segments"),
+          getFieldValue(onboardingFields, "primaryIcpDescription"),
+        ),
+        targetCustomer,
+      ),
+      keyOffers: firstStringArray(
+        getFieldValue(onboardingFields, "coreDeliverables"),
+        getValue(onboardingData, "coreDeliverables"),
+        getValue(onboardingData, "core_deliverables"),
+        productDescription,
+      ),
+      distributionChannels: withFallback(
+        firstStringArray(
+          getValue(onboardingData, "distributionChannels"),
+          getValue(onboardingData, "distribution_channels"),
+        ),
+        defaultDistributionChannel,
+      ),
+      constraints: firstStringArray(
+        getValue(onboardingData, "constraints"),
+        getFieldValue(onboardingFields, "constraints"),
+      ),
+      notes: researchSummary,
+    },
+    corpus: {
+      excerpts: buildCorpusExcerpts({
+        evidenceRecords: asRecordArray(corpus.evidence),
+        observedAt,
+        researchSummary,
+        sources,
+      }),
+    },
+    sources,
+    competitorAds: buildSyntheticCompetitorAds({
+      category,
+      companyName,
+      observedAt,
+      sourceUrl: sources[0]!.url,
+      topCompetitors,
+    }),
+  });
+}
