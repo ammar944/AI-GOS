@@ -465,7 +465,7 @@
         <span class="label">New — v2 wire</span>
         <ul>
           <li>Lab <b>answer-tool engine</b>, run inside AI-GOS's own API routes</li>
-          <li><b>Fast</b> — synthesizes from the corpus that's already built</li>
+          <li><b>Fast — measured:</b> 6 sections in <b>214s on direct DeepSeek</b> (~36s/section), corpus-only</li>
           <li>Watchdog fix: a stalled step is abandoned and retried, not awaited forever</li>
           <li><b>Live tools OFF in v1</b> — corpus only (the "no 540s" win)</li>
           <li>A new 3-panel "battleship" shell at <b>/research-v3</b></li>
@@ -513,17 +513,17 @@
         </div>
       </div>
       <div class="row">
-        <span class="pill risk">! risk</span>
+        <span class="pill warn">◐ partly proven</span>
         <div>
-          <h4>Not yet proven on real data</h4>
-          <p>No live run has happened (it costs money), so "corpus-only sections pass their <span class="mono" style="font-size:12px">validateMinimums</span> on <strong>real</strong> corpus" is proven on fixtures only. This is the #1 thing to retire — one cheap Anthropic run does it (T1.1).</p>
+          <h4>Speed proven; conformance is corpus-bound</h4>
+          <p>Direct-DeepSeek corpus-only run: <strong>6/6 sections produced schema-valid output in 214s</strong> (~36s each). But only <strong>2/6 passed <span class="mono" style="font-size:12px">validateMinimums</span></strong> — because the test corpus had just 3 sources vs a 5-source minimum (corpus poverty, not an engine fault). Rerun on the source-rich Notion corpus (8 sources) is pending; T1.1 Sonnet proof still gated.</p>
         </div>
       </div>
       <div class="row">
-        <span class="pill todo">○ greenfield</span>
+        <span class="pill done">✓ wired</span>
         <div>
-          <h4>DeepSeek isn't wired</h4>
-          <p>Clean slate — no DeepSeek/OpenRouter/Ollama in the code yet. Model today is <span class="mono" style="font-size:12px">claude-sonnet-4-5</span>. <span class="mono" style="font-size:12px">@ai-sdk/gateway</span> is already installed.</p>
+          <h4>DeepSeek is wired behind a provider-switch</h4>
+          <p><span class="mono" style="font-size:12px">@ai-sdk/deepseek</span> + a reversible switch (<span class="mono" style="font-size:12px">anthropic</span> default · <span class="mono" style="font-size:12px">deepseek-direct</span> · <span class="mono" style="font-size:12px">deepseek-ollama</span>); Anthropic-only options guarded so non-Anthropic runs; answer-tool schema selected per provider. Speed-proven on <span class="mono" style="font-size:12px">deepseek-direct</span>; default stays <span class="mono" style="font-size:12px">claude-sonnet-4-5</span>. Remaining P3: T3.5 conformance, T3.6 preview deploy, T3.7 front-door flip.</p>
         </div>
       </div>
     </div>
