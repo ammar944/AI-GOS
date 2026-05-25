@@ -48,6 +48,15 @@ interface CanarySectionDefinition {
   ) => CanaryValidationResult;
 }
 
+interface CanarySectionResult {
+  sectionId: SupportedSectionId;
+  ok: boolean;
+  wallClockSeconds: string;
+  schema: "pass" | "fail";
+  validateMinimums: "pass" | "fail" | "not-run";
+  error?: string;
+}
+
 function getTrimmedEnvValue(key: string): string | undefined {
   const value = process.env[key]?.trim();
   return value === undefined || value.length === 0 ? undefined : value;
@@ -231,6 +240,33 @@ function formatSeconds(startMs: number, endMs: number): string {
   return ((endMs - startMs) / 1000).toFixed(1);
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function classifySectionFailure(errorMessage: string): Pick<
+  CanarySectionResult,
+  "schema" | "validateMinimums"
+> {
+  const minimumFailureNeedles = [
+    "failed validateMinimums",
+    "need >=",
+    "need at least",
+    "must include",
+    "have ",
+  ];
+
+  if (minimumFailureNeedles.some((needle) => errorMessage.includes(needle))) {
+    return { schema: "pass", validateMinimums: "fail" };
+  }
+
+  return { schema: "fail", validateMinimums: "not-run" };
+}
+
 describe.skipIf(!runOllamaCanary)("DeepSeek corpus canary", (): void => {
   it(
     "validates all six corpus-only sections through the answer-tool path",
@@ -248,6 +284,7 @@ describe.skipIf(!runOllamaCanary)("DeepSeek corpus canary", (): void => {
       });
 
       await store.createRun(researchInput);
+      const sectionResults: CanarySectionResult[] = [];
 
       for (const sectionId of ollamaCanarySectionIds) {
         const definition = getCanarySectionDefinition(sectionId);
@@ -257,39 +294,67 @@ describe.skipIf(!runOllamaCanary)("DeepSeek corpus canary", (): void => {
         );
 
         const sectionStartedMs = performance.now();
-        const result = await runSection(
-          {
-            runId: researchInput.runId,
-            sectionId,
-          },
-          {
-            allowedTools: [],
-            loadSkill: async (slug): Promise<string> =>
-              readFile(
-                join(
-                  process.cwd(),
-                  "src/lib/lab-engine/skills",
-                  slug,
-                  "SKILL.md",
+        try {
+          const result = await runSection(
+            {
+              runId: researchInput.runId,
+              sectionId,
+            },
+            {
+              allowedTools: [],
+              loadSkill: async (slug): Promise<string> =>
+                readFile(
+                  join(
+                    process.cwd(),
+                    "src/lib/lab-engine/skills",
+                    slug,
+                    "SKILL.md",
+                  ),
+                  "utf8",
                 ),
-                "utf8",
-              ),
-            now: () => new Date("2026-05-25T12:00:00.000Z"),
-            store,
-          },
-        );
+              now: () => new Date("2026-05-25T12:00:00.000Z"),
+              store,
+            },
+          );
 
-        assertValidatedArtifact({ artifact: result.artifact, sectionId });
+          assertValidatedArtifact({ artifact: result.artifact, sectionId });
 
-        const record = await store.readRun(researchInput.runId);
-        assertFirstTryConformance({ record, sectionId });
+          const record = await store.readRun(researchInput.runId);
+          assertFirstTryConformance({ record, sectionId });
 
-        console.info(
-          `[ollama-corpus] completed ${sectionId} wallClockSeconds=${formatSeconds(
+          const wallClockSeconds = formatSeconds(
             sectionStartedMs,
             performance.now(),
-          )} schema=pass validateMinimums=pass provider=${provider}`,
-        );
+          );
+          sectionResults.push({
+            ok: true,
+            schema: "pass",
+            sectionId,
+            validateMinimums: "pass",
+            wallClockSeconds,
+          });
+          console.info(
+            `[ollama-corpus] completed ${sectionId} wallClockSeconds=${wallClockSeconds} schema=pass validateMinimums=pass provider=${provider}`,
+          );
+        } catch (error) {
+          const wallClockSeconds = formatSeconds(
+            sectionStartedMs,
+            performance.now(),
+          );
+          const errorMessage = oneLine(getErrorMessage(error));
+          const validation = classifySectionFailure(errorMessage);
+          sectionResults.push({
+            error: errorMessage,
+            ok: false,
+            schema: validation.schema,
+            sectionId,
+            validateMinimums: validation.validateMinimums,
+            wallClockSeconds,
+          });
+          console.info(
+            `[ollama-corpus] failed ${sectionId} wallClockSeconds=${wallClockSeconds} schema=${validation.schema} validateMinimums=${validation.validateMinimums} provider=${provider} error=${errorMessage}`,
+          );
+        }
       }
 
       const completedRecord = await store.readRun(researchInput.runId);
@@ -297,15 +362,25 @@ describe.skipIf(!runOllamaCanary)("DeepSeek corpus canary", (): void => {
         (sectionId) => completedRecord.sections[sectionId]?.status === "completed",
       );
 
-      expect(completedSections).toEqual([...ollamaCanarySectionIds]);
       console.info(
-        `[ollama-corpus] 6/6 complete for runId=${
+        `[ollama-corpus] ${completedSections.length}/6 complete for runId=${
           researchInput.runId
         } model=${selectedSectionModelMetadata.modelId} provider=${provider} totalWallClockSeconds=${formatSeconds(
           runStartedMs,
           performance.now(),
         )}`,
       );
+      const failedSections = sectionResults.filter((result) => !result.ok);
+
+      if (failedSections.length > 0) {
+        throw new Error(
+          `[ollama-corpus] ${failedSections.length}/6 failed: ${failedSections
+            .map((result) => `${result.sectionId}: ${result.error}`)
+            .join(" | ")}`,
+        );
+      }
+
+      expect(completedSections).toEqual([...ollamaCanarySectionIds]);
     },
     4_800_000,
   );
