@@ -47,7 +47,11 @@ function managedAgentsPositioningEnabled(): boolean {
   return process.env.MANAGED_AGENTS_POSITIONING_ENABLED === 'true';
 }
 
-const LAB_SECTION_KICKOFF_TIMEOUT_MS = 5000;
+// run-lab-section now ACKs 202 in milliseconds (it defers the long job to
+// after()), so a kickoff fetch only has to deliver the request + read the ACK.
+// Keep a generous ceiling for serverless cold starts; the work itself runs in
+// the sub-invocation, not here.
+const LAB_SECTION_KICKOFF_TIMEOUT_MS = 30_000;
 
 interface DispatchLabSectionJobsInput {
   request: Request;
@@ -85,18 +89,27 @@ function getLabSectionUrl(request: Request): string {
   return new URL('/api/research-v2/run-lab-section', request.url).toString();
 }
 
-function dispatchLabSectionJobs(input: DispatchLabSectionJobsInput): void {
+async function dispatchLabSectionJobs(
+  input: DispatchLabSectionJobsInput,
+): Promise<void> {
   const url = getLabSectionUrl(input.request);
   const headers = buildForwardedLabSectionHeaders(input.request);
 
-  for (const sectionId of POSITIONING_SECTION_IDS) {
-    void kickoffLabSectionJob({
-      headers,
-      runId: input.runId,
-      sectionId,
-      url,
-    });
-  }
+  // Await every kickoff. Awaiting is what keeps THIS invocation alive long
+  // enough to actually send all six requests — returning before they're sent
+  // lets Vercel freeze the function and drop the un-sent fetches, leaving every
+  // section stuck at queued. kickoffLabSectionJob never rejects (it logs and
+  // resolves), so allSettled simply guarantees all six are delivered.
+  await Promise.allSettled(
+    POSITIONING_SECTION_IDS.map((sectionId) =>
+      kickoffLabSectionJob({
+        headers,
+        runId: input.runId,
+        sectionId,
+        url,
+      }),
+    ),
+  );
 }
 
 async function kickoffLabSectionJob(
@@ -181,10 +194,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     runId: body.run_id,
   });
   if (!session) {
-    return NextResponse.json(
-      { error: 'session_not_found' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
   }
 
   if (!corpusReady(session)) {
@@ -203,8 +213,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     // there. Explicit body.executionMode ('draft' | 'deep' | 'managed' | 'lab')
     // still wins — used by tests and the rerun-section flow.
     const effectiveExecutionMode =
-      body.executionMode
-      ?? (managedAgentsPositioningEnabled() ? 'managed' : 'draft');
+      body.executionMode ??
+      (managedAgentsPositioningEnabled() ? 'managed' : 'draft');
 
     if (effectiveExecutionMode === 'managed') {
       if (!managedAgentsPositioningEnabled()) {
@@ -265,7 +275,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     if (effectiveExecutionMode === 'lab') {
-      dispatchLabSectionJobs({
+      await dispatchLabSectionJobs({
         request,
         runId: body.run_id,
       });
@@ -285,7 +295,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(seeded, { status: 200 });
   } catch (err) {
     if (err instanceof OrchestrateRpcError) {
-      console.error('[orchestrate] seed_orchestration RPC failed:', err.message);
+      console.error(
+        '[orchestrate] seed_orchestration RPC failed:',
+        err.message,
+      );
       return NextResponse.json(
         { error: 'seed_failed', message: err.message },
         { status: 500 },

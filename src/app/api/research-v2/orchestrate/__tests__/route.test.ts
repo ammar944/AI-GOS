@@ -59,10 +59,9 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/research-v2/orchestrate-db', async () => {
-  const actual =
-    await vi.importActual<typeof import('@/lib/research-v2/orchestrate-db')>(
-      '@/lib/research-v2/orchestrate-db',
-    );
+  const actual = await vi.importActual<
+    typeof import('@/lib/research-v2/orchestrate-db')
+  >('@/lib/research-v2/orchestrate-db');
   return {
     ...actual,
     seedOrchestration: (...args: unknown[]) =>
@@ -258,9 +257,9 @@ describe('POST /api/research-v2/orchestrate', () => {
     const body = await response.json();
     expect(body.parent_audit_run_id).toBe(PARENT_ID);
     expect(body.section_run_ids).toHaveLength(6);
-    expect(body.section_run_ids.map((r: { section_id: string }) => r.section_id)).toEqual(
-      [...POSITIONING_SECTION_IDS],
-    );
+    expect(
+      body.section_run_ids.map((r: { section_id: string }) => r.section_id),
+    ).toEqual([...POSITIONING_SECTION_IDS]);
   });
 
   it('kicks the worker with draft execution mode by default', async () => {
@@ -268,7 +267,9 @@ describe('POST /api/research-v2/orchestrate', () => {
     mockOwnedSession({ ownerId: 'user_1' });
     process.env.RAILWAY_WORKER_URL = 'https://worker.example';
     process.env.RAILWAY_API_KEY = 'worker-key';
-    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 202 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await POST(
@@ -324,7 +325,9 @@ describe('POST /api/research-v2/orchestrate', () => {
         fieldCount: 47,
       },
     });
-    expect(routeMocks.buildJourneyResearchDispatchContext).not.toHaveBeenCalled();
+    expect(
+      routeMocks.buildJourneyResearchDispatchContext,
+    ).not.toHaveBeenCalled();
   });
 
   it('is idempotent: a second call with the same body returns the same ids', async () => {
@@ -360,7 +363,9 @@ describe('POST /api/research-v2/orchestrate', () => {
       },
     };
     mockOwnedSession({ ownerId: 'user_1', deepResearchProgramData });
-    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 202 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await POST(
@@ -389,7 +394,9 @@ describe('POST /api/research-v2/orchestrate', () => {
     );
     expect(
       fetchCalls.map(([, init]) => {
-        const parsedBody = JSON.parse(String(init.body)) as { section_id: string };
+        const parsedBody = JSON.parse(String(init.body)) as {
+          section_id: string;
+        };
         return parsedBody.section_id;
       }),
     ).toEqual([...POSITIONING_SECTION_IDS]);
@@ -403,4 +410,45 @@ describe('POST /api/research-v2/orchestrate', () => {
     }
   });
 
+  it('awaits all six lab kickoffs before responding (survives the serverless freeze)', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+
+    // Deferred fetch: each kickoff hangs until released. Proves orchestrate
+    // keeps the invocation alive until the kickoffs are delivered, instead of
+    // fire-and-forgetting them (which dies when Vercel freezes the function
+    // after the response, leaving every section stuck at queued).
+    const releases: Array<() => void> = [];
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          releases.push(() => resolve(new Response('', { status: 202 })));
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const postPromise = POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+        executionMode: 'lab',
+      }),
+    );
+    let responded = false;
+    void postPromise.then(() => {
+      responded = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // All six dispatched, but the handler is still awaiting them.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(responded).toBe(false);
+
+    releases.forEach((release) => release());
+    const response = await postPromise;
+
+    expect(responded).toBe(true);
+    expect(response.status).toBe(200);
+  });
 });

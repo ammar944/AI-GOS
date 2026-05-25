@@ -1,5 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
@@ -27,39 +27,6 @@ const RequestSchema = z.object({
   run_id: z.string().uuid(),
   section_id: z.enum(POSITIONING_SECTION_IDS),
 });
-
-interface RouteAbortSignal {
-  cleanup: () => void;
-  signal: AbortSignal;
-}
-
-function createRouteAbortSignal(request: Request): RouteAbortSignal {
-  const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort(
-      new Error(
-        `lab section route timed out after ${LAB_SECTION_ROUTE_TIMEOUT_MS}ms`,
-      ),
-    );
-  }, LAB_SECTION_ROUTE_TIMEOUT_MS);
-  const abortFromRequest = (): void => {
-    controller.abort(request.signal.reason);
-  };
-
-  if (request.signal.aborted) {
-    abortFromRequest();
-  } else {
-    request.signal.addEventListener('abort', abortFromRequest, { once: true });
-  }
-
-  return {
-    cleanup: (): void => {
-      clearTimeout(timer);
-      request.signal.removeEventListener('abort', abortFromRequest);
-    },
-    signal: controller.signal,
-  };
-}
 
 export async function POST(request: Request): Promise<NextResponse> {
   let userId: string | null;
@@ -102,17 +69,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     runId: body.run_id,
   });
   if (!session) {
-    return NextResponse.json(
-      { error: 'session_not_found' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
   }
 
   if (!corpusReady(session)) {
     return NextResponse.json(
       {
         error: 'corpus_not_ready',
-        message: 'deepResearchProgram corpus must finish before running a section',
+        message:
+          'deepResearchProgram corpus must finish before running a section',
       },
       { status: 409 },
     );
@@ -147,18 +112,35 @@ export async function POST(request: Request): Promise<NextResponse> {
       researchInput,
     });
 
-    const routeAbortSignal = createRouteAbortSignal(request);
     await store.createRun(researchInput);
-    try {
-      await runLabSectionJob({
-        runId: body.run_id,
-        sectionId: body.section_id,
-        signal: routeAbortSignal.signal,
-        store,
-      });
-    } finally {
-      routeAbortSignal.cleanup();
-    }
+
+    // Hand the long-running section work to after() so it survives the 202
+    // ACK. On Vercel after() is backed by waitUntil, which keeps the function
+    // alive until the promise settles, bounded by maxDuration (300s). The job
+    // is deliberately decoupled from request.signal: the caller is a
+    // fire-and-forget kickoff (orchestrate, or the manual console loop) whose
+    // connection drops the moment it gets this ACK — wiring request.signal in
+    // would abort the downstream work. A standalone timeout is the only bound.
+    after(async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        controller.abort(
+          new Error(
+            `lab section job timed out after ${LAB_SECTION_ROUTE_TIMEOUT_MS}ms`,
+          ),
+        );
+      }, LAB_SECTION_ROUTE_TIMEOUT_MS);
+      try {
+        await runLabSectionJob({
+          runId: body.run_id,
+          sectionId: body.section_id,
+          signal: controller.signal,
+          store,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    });
 
     return NextResponse.json(
       {

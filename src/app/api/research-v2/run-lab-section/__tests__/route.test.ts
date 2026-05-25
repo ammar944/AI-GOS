@@ -23,6 +23,12 @@ const routeMocks = vi.hoisted(() => {
   const seedOrchestration = vi.fn();
   const corpusToResearchInput = vi.fn();
   const runLabSectionJob = vi.fn();
+  // `after()` callbacks scheduled by the route — captured so tests can prove
+  // the job is deferred until *after* the 202 ACK (and drain them explicitly).
+  const afterCallbacks: Array<() => unknown> = [];
+  const after = vi.fn((cb: () => unknown) => {
+    afterCallbacks.push(cb);
+  });
   const store = {
     createRun: vi.fn(),
     readRun: vi.fn(),
@@ -50,6 +56,8 @@ const routeMocks = vi.hoisted(() => {
     seedOrchestration,
     corpusToResearchInput,
     runLabSectionJob,
+    after,
+    afterCallbacks,
     store,
     createSupabaseRunStore,
     sessionQuery,
@@ -62,15 +70,23 @@ vi.mock('@clerk/nextjs/server', () => ({
   auth: () => routeMocks.auth(),
 }));
 
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+  return {
+    ...actual,
+    after: (cb: () => unknown) => routeMocks.after(cb),
+  };
+});
+
 vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: routeMocks.createAdminClient,
 }));
 
 vi.mock('@/lib/research-v2/orchestrate-db', async () => {
-  const actual =
-    await vi.importActual<typeof import('@/lib/research-v2/orchestrate-db')>(
-      '@/lib/research-v2/orchestrate-db',
-    );
+  const actual = await vi.importActual<
+    typeof import('@/lib/research-v2/orchestrate-db')
+  >('@/lib/research-v2/orchestrate-db');
   return {
     ...actual,
     seedOrchestration: (...args: unknown[]) =>
@@ -92,12 +108,15 @@ vi.mock('@/lib/research-v2/lab-section-job', () => ({
   runLabSectionJob: (input: unknown) => routeMocks.runLabSectionJob(input),
 }));
 
-const {
-  LAB_SECTION_ROUTE_TIMEOUT_MS,
-  POST,
-  maxDuration,
-  runtime,
-} = await import('../route');
+const { LAB_SECTION_ROUTE_TIMEOUT_MS, POST, maxDuration, runtime } =
+  await import('../route');
+
+async function drainAfter(): Promise<void> {
+  const callbacks = routeMocks.afterCallbacks.splice(0);
+  for (const cb of callbacks) {
+    await cb();
+  }
+}
 
 function makeRequest(body: unknown): Request {
   return new Request('http://localhost/api/research-v2/run-lab-section', {
@@ -150,6 +169,7 @@ function mockOwnedSession(): void {
 describe('POST /api/research-v2/run-lab-section', () => {
   beforeEach((): void => {
     vi.clearAllMocks();
+    routeMocks.afterCallbacks.length = 0;
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
@@ -161,7 +181,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     routeMocks.runLabSectionJob.mockResolvedValue(undefined);
   });
 
-  it('runs exactly one requested lab section with an owned complete corpus', async (): Promise<void> => {
+  it('ACKs 202 and seeds synchronously, then runs the section job in after()', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession();
 
@@ -178,6 +198,8 @@ describe('POST /api/research-v2/run-lab-section', () => {
       run_id: VALID_RUN_ID,
       section_id: 'positioningBuyerICP',
     });
+
+    // Setup that makes the 202 meaningful happens synchronously, before the ACK.
     expect(routeMocks.seedOrchestration).toHaveBeenCalledWith({
       userId: 'user_1',
       runId: VALID_RUN_ID,
@@ -209,6 +231,13 @@ describe('POST /api/research-v2/run-lab-section', () => {
       runId: VALID_RUN_ID,
       fixtureId: 'brand_fellow',
     });
+
+    // The heavy job is DEFERRED to after() — not awaited before the ACK.
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
+
+    await drainAfter();
+
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
       runId: VALID_RUN_ID,
       sectionId: 'positioningBuyerICP',
@@ -223,7 +252,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(LAB_SECTION_ROUTE_TIMEOUT_MS).toBeGreaterThan(120_000);
   });
 
-  it('propagates client disconnects into the section job abort signal', async (): Promise<void> => {
+  it('runs the deferred job decoupled from the kickoff connection (no abort when the kickoff drops)', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession();
     const controller = new AbortController();
@@ -231,7 +260,6 @@ describe('POST /api/research-v2/run-lab-section', () => {
     routeMocks.runLabSectionJob.mockImplementation(
       async (input: { signal?: AbortSignal }): Promise<void> => {
         observedSignal = input.signal;
-        controller.abort(new Error('client disconnected'));
       },
     );
 
@@ -246,8 +274,18 @@ describe('POST /api/research-v2/run-lab-section', () => {
     );
 
     expect(response.status).toBe(202);
-    expect(observedSignal?.aborted).toBe(true);
-    expect(observedSignal?.reason).toBeInstanceOf(Error);
+
+    // The kickoff connection drops right after the ACK — orchestrate's kickoff
+    // fetch times out, or the manual console-loop tab closes. The deferred job
+    // MUST survive this and run to completion on its own timeout.
+    controller.abort(new Error('kickoff disconnected'));
+
+    await drainAfter();
+
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
+    expect(observedSignal).toBeInstanceOf(AbortSignal);
+    expect(observedSignal).not.toBe(controller.signal);
+    expect(observedSignal?.aborted).toBe(false);
   });
 
   it('returns 400 for an unsupported lab section id', async (): Promise<void> => {
