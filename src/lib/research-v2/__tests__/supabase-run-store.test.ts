@@ -144,4 +144,42 @@ describe('createSupabaseRunStore', (): void => {
       }),
     );
   });
+
+  it('marks only the failed section run as errored in Supabase and the local record', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    const failed = await store.markSectionFailed(
+      saaslaunchResearchInput.runId,
+      'positioningBuyerICP',
+      'forced Buyer ICP failure',
+    );
+
+    expect(fakeSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'error',
+        error: {
+          message: 'forced Buyer ICP failure',
+          source: 'lab_engine',
+          sectionId: 'positioningBuyerICP',
+        },
+        completed_at: expect.any(String),
+      }),
+    );
+    expect(fakeSupabase.updateEq).toHaveBeenCalledWith(
+      'id',
+      sectionRunIdByZone.positioningBuyerICP,
+    );
+    expect(failed.sections.positioningBuyerICP?.status).toBe('failed');
+    expect(failed.sections.positioningBuyerICP?.error).toBe(
+      'forced Buyer ICP failure',
+    );
+    expect(failed.sections.positioningMarketCategory?.status).toBe('idle');
+  });
 });

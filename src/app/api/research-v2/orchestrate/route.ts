@@ -13,31 +13,22 @@
 // the same parent_audit_run_id and the same six section_run_ids — guaranteed
 // by the seed_orchestration Postgres RPC.
 
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
-import { runSection } from '@/lib/lab-engine/agents/run-section';
-import type { RunStore } from '@/lib/lab-engine/runs/run-store';
-import {
-  isSupportedSectionId,
-  type SupportedSectionId,
-} from '@/lib/lab-engine/sections/section-registry';
 import { startManagedAudit } from '@/lib/managed-agents/start-audit';
-import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
+import {
+  corpusReady,
+  getOnboardingReviewMetadata,
+  loadOwnedResearchSession,
+} from '@/lib/research-v2/orchestration-session';
 import {
   freezeReviewedBriefSnapshot,
   OrchestrateRpcError,
-  type SeedOrchestrationResult,
   seedOrchestration,
 } from '@/lib/research-v2/orchestrate-db';
-import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
-import { createAdminClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -56,187 +47,98 @@ function managedAgentsPositioningEnabled(): boolean {
   return process.env.MANAGED_AGENTS_POSITIONING_ENABLED === 'true';
 }
 
-interface JourneySessionRow {
-  id: string;
-  user_id: string;
-  run_id: string | null;
-  research_results: Record<string, unknown> | null;
-  onboarding_data: Record<string, unknown> | null;
-  metadata: Record<string, unknown> | null;
+const LAB_SECTION_KICKOFF_TIMEOUT_MS = 5000;
+
+interface DispatchLabSectionJobsInput {
+  request: Request;
+  runId: string;
 }
 
-async function loadOwnedSession(
-  userId: string,
-  runId: string,
-): Promise<JourneySessionRow | null> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from('journey_sessions')
-    .select('id,user_id,run_id,research_results,onboarding_data,metadata')
-    .eq('user_id', userId)
-    .eq('run_id', runId)
-    .maybeSingle();
+interface KickoffLabSectionJobInput {
+  headers: Record<string, string>;
+  runId: string;
+  sectionId: (typeof POSITIONING_SECTION_IDS)[number];
+  url: string;
+}
 
-  if (error) {
-    console.warn('[orchestrate] journey_sessions read failed:', error.message);
-    return null;
+function buildForwardedLabSectionHeaders(
+  request: Request,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  const cookie = request.headers.get('cookie');
+  const authorization = request.headers.get('authorization');
+
+  if (cookie) {
+    headers.Cookie = cookie;
   }
-  return (data as JourneySessionRow | null) ?? null;
-}
 
-function corpusReady(session: JourneySessionRow): boolean {
-  const results = session.research_results ?? {};
-  const corpus = asRecord(results['deepResearchProgram']);
-  return corpus?.status === 'complete';
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
+  if (authorization) {
+    headers.Authorization = authorization;
   }
-  return null;
+
+  return headers;
 }
 
-function getOnboardingReviewMetadata(
-  metadata: Record<string, unknown> | null,
-): Record<string, unknown> | null {
-  return asRecord(metadata?.researchV2OnboardingReview);
+function getLabSectionUrl(request: Request): string {
+  return new URL('/api/research-v2/run-lab-section', request.url).toString();
 }
 
-function getDeepResearchProgramData(session: JourneySessionRow): unknown | null {
-  const result = asRecord(session.research_results?.deepResearchProgram);
-  return result?.data ?? null;
-}
-
-function buildSectionRunIdByZone(
-  seeded: SeedOrchestrationResult,
-): Record<PositioningSectionId, string> {
-  const sectionRunIdByZone: Partial<Record<PositioningSectionId, string>> = {};
-
-  for (const row of seeded.section_run_ids) {
-    sectionRunIdByZone[row.section_id] = row.section_run_id;
-  }
+function dispatchLabSectionJobs(input: DispatchLabSectionJobsInput): void {
+  const url = getLabSectionUrl(input.request);
+  const headers = buildForwardedLabSectionHeaders(input.request);
 
   for (const sectionId of POSITIONING_SECTION_IDS) {
-    if (!sectionRunIdByZone[sectionId]) {
-      throw new Error(`seed_orchestration did not return ${sectionId}`);
-    }
-  }
-
-  return sectionRunIdByZone as Record<PositioningSectionId, string>;
-}
-
-function toSupportedSectionId(sectionId: PositioningSectionId): SupportedSectionId {
-  if (!isSupportedSectionId(sectionId)) {
-    throw new Error(`Unsupported lab section id ${sectionId}`);
-  }
-
-  return sectionId;
-}
-
-function getLabEngineAllowedTools(): readonly [] | undefined {
-  return process.env.LAB_ENGINE_LIVE_TOOLS === 'true' ? undefined : [];
-}
-
-async function loadLabSkill(slug: string): Promise<string> {
-  if (!/^[a-z0-9-]+$/.test(slug)) {
-    throw new Error(`Invalid lab skill slug ${slug}`);
-  }
-
-  const skillPath = join(
-    process.cwd(),
-    'src',
-    'lib',
-    'lab-engine',
-    'skills',
-    slug,
-    'SKILL.md',
-  );
-
-  return readFile(skillPath, 'utf8');
-}
-
-async function runWithConcurrency<T>(
-  items: readonly T[],
-  concurrency: number,
-  task: (item: T) => Promise<void>,
-): Promise<void> {
-  const executing = new Set<Promise<void>>();
-
-  for (const item of items) {
-    const currentTask = task(item).finally(() => {
-      executing.delete(currentTask);
-    });
-    executing.add(currentTask);
-
-    if (executing.size >= concurrency) {
-      await Promise.race(executing);
-    }
-  }
-
-  await Promise.all(executing);
-}
-
-async function runLabSection(input: {
-  runId: string;
-  sectionId: PositioningSectionId;
-  store: RunStore;
-}): Promise<void> {
-  const sectionId = toSupportedSectionId(input.sectionId);
-
-  try {
-    await runSection(
-      { runId: input.runId, sectionId },
-      {
-        store: input.store,
-        loadSkill: loadLabSkill,
-        allowedTools: getLabEngineAllowedTools(),
-      },
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[orchestrate:lab] section failed', {
-      runId: input.runId,
-      sectionId: input.sectionId,
-      message,
-    });
-    await input.store.markSectionFailed(input.runId, sectionId, message);
-  }
-}
-
-async function runLabOrchestration(input: {
-  runId: string;
-  seeded: SeedOrchestrationResult;
-  session: JourneySessionRow;
-}): Promise<void> {
-  const deepResearchProgramData = getDeepResearchProgramData(input.session);
-
-  if (deepResearchProgramData === null) {
-    throw new Error(
-      `deepResearchProgram status is complete for run ${input.runId}, but data is missing`,
-    );
-  }
-
-  const researchInput = corpusToResearchInput({
-    runId: input.runId,
-    deepResearchProgramData,
-    onboardingData: input.session.onboarding_data ?? {},
-  });
-  const store = createSupabaseRunStore({
-    supabase: createAdminClient(),
-    parentAuditRunId: input.seeded.parent_audit_run_id,
-    sectionRunIdByZone: buildSectionRunIdByZone(input.seeded),
-    researchInput,
-  });
-  await store.createRun(researchInput);
-
-  await runWithConcurrency(POSITIONING_SECTION_IDS, 3, (sectionId) =>
-    runLabSection({
+    void kickoffLabSectionJob({
+      headers,
       runId: input.runId,
       sectionId,
-      store,
-    }),
+      url,
+    });
+  }
+}
+
+async function kickoffLabSectionJob(
+  input: KickoffLabSectionJobInput,
+): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    LAB_SECTION_KICKOFF_TIMEOUT_MS,
   );
+
+  try {
+    const res = await fetch(input.url, {
+      method: 'POST',
+      headers: input.headers,
+      body: JSON.stringify({
+        run_id: input.runId,
+        section_id: input.sectionId,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch((): string => '');
+      console.warn('[orchestrate:lab] section kickoff returned non-2xx', {
+        runId: input.runId,
+        sectionId: input.sectionId,
+        status: res.status,
+        body: body.slice(0, 200),
+      });
+    }
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === 'AbortError';
+    console.warn('[orchestrate:lab] section kickoff failed', {
+      runId: input.runId,
+      sectionId: input.sectionId,
+      reason: isAbort ? 'timeout' : 'error',
+      message: err instanceof Error ? err.message : String(err),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -274,7 +176,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     throw err;
   }
 
-  const session = await loadOwnedSession(userId, body.run_id);
+  const session = await loadOwnedResearchSession({
+    userId,
+    runId: body.run_id,
+  });
   if (!session) {
     return NextResponse.json(
       { error: 'session_not_found' },
@@ -360,10 +265,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     if (effectiveExecutionMode === 'lab') {
-      await runLabOrchestration({
+      dispatchLabSectionJobs({
+        request,
         runId: body.run_id,
-        seeded,
-        session,
       });
       return NextResponse.json(seeded, { status: 200 });
     }

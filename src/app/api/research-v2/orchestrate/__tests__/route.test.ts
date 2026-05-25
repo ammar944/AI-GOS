@@ -93,10 +93,13 @@ vi.mock('@/lib/lab-engine/agents/run-section', () => ({
 
 const { POST } = await import('../route');
 
-function makeRequest(body: unknown): Request {
+function makeRequest(
+  body: unknown,
+  headers: Record<string, string> = {},
+): Request {
   return new Request('http://localhost/api/research-v2/orchestrate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
@@ -349,7 +352,7 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(b1).toEqual(b2);
   });
 
-  it('runs the lab engine explicitly without kicking the worker', async () => {
+  it('dispatches each lab section through the internal route without running sections inline', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const deepResearchProgramData = {
       corpus: {
@@ -361,67 +364,43 @@ describe('POST /api/research-v2/orchestrate', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await POST(
-      makeRequest({
-        journey_session_id: VALID_SESSION_ID,
-        run_id: VALID_RUN_ID,
-        executionMode: 'lab',
-      }),
+      makeRequest(
+        {
+          journey_session_id: VALID_SESSION_ID,
+          run_id: VALID_RUN_ID,
+          executionMode: 'lab',
+        },
+        { Cookie: '__session=abc' },
+      ),
     );
 
     expect(response.status).toBe(200);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(routeMocks.corpusToResearchInput).toHaveBeenCalledWith({
-      runId: VALID_RUN_ID,
-      deepResearchProgramData,
-      onboardingData: { companyName: 'Fellow' },
-    });
-    expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
-      expect.objectContaining({
-        parentAuditRunId: PARENT_ID,
-        sectionRunIdByZone: Object.fromEntries(
-          defaultSeededRows().section_run_ids.map((row) => [
-            row.section_id,
-            row.section_run_id,
-          ]),
-        ),
-      }),
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(routeMocks.corpusToResearchInput).not.toHaveBeenCalled();
+    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
+    expect(routeMocks.store.createRun).not.toHaveBeenCalled();
+    expect(routeMocks.runSection).not.toHaveBeenCalled();
+
+    const fetchCalls = fetchMock.mock.calls as [string, RequestInit][];
+    expect(fetchCalls.map(([url]) => url)).toEqual(
+      POSITIONING_SECTION_IDS.map(
+        () => 'http://localhost/api/research-v2/run-lab-section',
+      ),
     );
-    expect(routeMocks.store.createRun).toHaveBeenCalledTimes(1);
-    expect(routeMocks.runSection).toHaveBeenCalledTimes(6);
     expect(
-      routeMocks.runSection.mock.calls.map((call) => {
-        const [input] = call as [{ sectionId: string }];
-        return input.sectionId;
+      fetchCalls.map(([, init]) => {
+        const parsedBody = JSON.parse(String(init.body)) as { section_id: string };
+        return parsedBody.section_id;
       }),
     ).toEqual([...POSITIONING_SECTION_IDS]);
-    expect(
-      routeMocks.runSection.mock.calls.every((call) => {
-        const [, deps] = call as [unknown, { allowedTools?: readonly unknown[] }];
-        return Array.isArray(deps.allowedTools) && deps.allowedTools.length === 0;
-      }),
-    ).toBe(true);
-  });
-
-  it('lets LAB_ENGINE_LIVE_TOOLS re-enable the lab engine tools', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    process.env.LAB_ENGINE_LIVE_TOOLS = 'true';
-    mockOwnedSession({ ownerId: 'user_1' });
-
-    const response = await POST(
-      makeRequest({
-        journey_session_id: VALID_SESSION_ID,
-        run_id: VALID_RUN_ID,
-        executionMode: 'lab',
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(
-      routeMocks.runSection.mock.calls.every((call) => {
-        const [, deps] = call as [unknown, { allowedTools?: readonly unknown[] }];
-        return deps.allowedTools === undefined;
-      }),
-    ).toBe(true);
+    for (const [, init] of fetchCalls) {
+      const parsedBody = JSON.parse(String(init.body)) as { run_id: string };
+      expect(parsedBody.run_id).toBe(VALID_RUN_ID);
+      expect(init.headers).toMatchObject({
+        'Content-Type': 'application/json',
+        Cookie: '__session=abc',
+      });
+    }
   });
 
 });
