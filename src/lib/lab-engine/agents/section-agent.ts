@@ -1,5 +1,4 @@
 import {
-  anthropic,
   forwardAnthropicContainerIdFromLastStep,
   type AnthropicProviderOptions,
 } from "@ai-sdk/anthropic";
@@ -15,6 +14,8 @@ import {
   ToolLoopAgent,
 } from "ai";
 import { z } from "zod";
+
+import type { SectionLanguageModel } from "../ai/models";
 
 type AgentToolResultType = "tool-result" | "tool-error";
 
@@ -32,7 +33,7 @@ export interface AgentStep {
 }
 
 export interface EvidencePassParams {
-  model: ReturnType<typeof anthropic>;
+  model: SectionLanguageModel;
   instructions: string;
   prompt: string;
   tools: Record<string, unknown>;
@@ -55,7 +56,7 @@ export type EvidencePassRunner = (
 export type EvidenceStreamRunner = EvidencePassRunner;
 
 export interface AnswerToolParams {
-  model: ReturnType<typeof anthropic>;
+  model: SectionLanguageModel;
   instructions: string;
   prompt: string;
   externalTools: Record<string, unknown>;
@@ -368,7 +369,7 @@ export const defaultAnswerToolRunner: AnswerToolRunner = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
-    prepareStep: forwardAnthropicContainerIdFromLastStep,
+    prepareStep: getAnthropicPrepareStep(params.model),
   });
   const result = await agent.generate({
     prompt: params.prompt,
@@ -403,7 +404,7 @@ export const defaultAnswerToolStreamer: AnswerToolStreamer = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
-    prepareStep: forwardAnthropicContainerIdFromLastStep,
+    prepareStep: getAnthropicPrepareStep(params.model),
   });
   const result = await agent.stream({
     prompt: params.prompt,
@@ -428,7 +429,7 @@ export const defaultAnswerToolStreamer: AnswerToolStreamer = async (
 };
 
 export interface StructuredCallParams<TOutput> {
-  model: ReturnType<typeof anthropic>;
+  model: SectionLanguageModel;
   schema: z.ZodType<TOutput>;
   schemaName: string;
   schemaDescription: string;
@@ -451,6 +452,38 @@ export type StructuredStreamer = (
 ) => StructuredStreamResult;
 
 type AnthropicStructuredOutputMode = "jsonTool" | "outputFormat";
+
+function isAnthropicModel(model: SectionLanguageModel): boolean {
+  return model.provider.startsWith("anthropic.");
+}
+
+function getAnthropicPrepareStep(
+  model: SectionLanguageModel,
+): typeof forwardAnthropicContainerIdFromLastStep | undefined {
+  if (!isAnthropicModel(model)) {
+    return undefined;
+  }
+
+  return forwardAnthropicContainerIdFromLastStep;
+}
+
+function getStructuredProviderOptions({
+  model,
+  structuredOutputMode,
+}: {
+  model: SectionLanguageModel;
+  structuredOutputMode: AnthropicStructuredOutputMode;
+}): { anthropic: AnthropicProviderOptions } | undefined {
+  if (!isAnthropicModel(model)) {
+    return undefined;
+  }
+
+  return {
+    anthropic: {
+      structuredOutputMode,
+    } satisfies AnthropicProviderOptions,
+  };
+}
 
 const shallowSubsectionSchema = <TArrayKey extends string>(
   arrayKey: TArrayKey,
@@ -1036,11 +1069,10 @@ async function generateStructuredResult({
     maxOutputTokens: params.maxOutputTokens,
     prompt: params.prompt,
     abortSignal: params.signal,
-    providerOptions: {
-      anthropic: {
-        structuredOutputMode,
-      } satisfies AnthropicProviderOptions,
-    },
+    providerOptions: getStructuredProviderOptions({
+      model: params.model,
+      structuredOutputMode,
+    }),
   });
 }
 
@@ -1079,11 +1111,10 @@ function streamStructuredResult({
       totalMs: STRUCTURED_STREAM_TOTAL_MS,
       chunkMs: STRUCTURED_STREAM_CHUNK_MS,
     },
-    providerOptions: {
-      anthropic: {
-        structuredOutputMode,
-      } satisfies AnthropicProviderOptions,
-    },
+    providerOptions: getStructuredProviderOptions({
+      model: params.model,
+      structuredOutputMode,
+    }),
   });
 }
 
