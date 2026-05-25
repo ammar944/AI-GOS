@@ -19,10 +19,9 @@ import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const LAB_SECTION_ROUTE_TIMEOUT_MS = 270_000;
-const LAB_SECTION_ROUTE_MAX_DURATION_SECONDS = 300;
 
 export const runtime = 'nodejs';
-export const maxDuration = LAB_SECTION_ROUTE_MAX_DURATION_SECONDS;
+export const maxDuration = 300;
 
 const RequestSchema = z.object({
   run_id: z.string().uuid(),
