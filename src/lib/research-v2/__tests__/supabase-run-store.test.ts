@@ -102,10 +102,21 @@ describe('createSupabaseRunStore', (): void => {
       'positioningMarketCategory',
     );
     expect(running.sections.positioningMarketCategory?.status).toBe('running');
-    expect(fakeSupabase.update).toHaveBeenCalledWith({
-      status: 'running',
-      started_at: '2026-05-25T12:00:00.000Z',
-    });
+    expect(fakeSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'running',
+        started_at: '2026-05-25T12:00:00.000Z',
+        telemetry: expect.objectContaining({
+          executionMode: 'lab',
+          phase: 'Reading sources',
+          provider: expect.any(String),
+          model: expect.any(String),
+          runtimeTimings: {
+            sectionStartedAt: '2026-05-25T12:00:00.000Z',
+          },
+        }),
+      }),
+    );
 
     const event = activityEventSchema.parse({
       id: 'evt_1',
@@ -141,6 +152,20 @@ describe('createSupabaseRunStore', (): void => {
           data: marketCategoryFixtureArtifact,
           claims: [],
           sources: marketCategoryFixtureArtifact.sources,
+        }),
+      }),
+    );
+    expect(fakeSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        telemetry: expect.objectContaining({
+          executionMode: 'lab',
+          phase: 'Committed',
+          latestActivity: 'Market & Category Intelligence committed',
+          runtimeTimings: expect.objectContaining({
+            sectionStartedAt: '2026-05-25T12:00:00.000Z',
+            commitCompleteAt: '2026-05-25T12:00:00.000Z',
+            terminalStatusWrittenAt: '2026-05-25T12:00:00.000Z',
+          }),
         }),
       }),
     );

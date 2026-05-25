@@ -12,6 +12,7 @@ import {
   type RunRecord,
   type SectionRunRecord,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import { selectedSectionModelMetadata } from '@/lib/lab-engine/ai/models';
 import {
   activityEventSchema,
   sectionIds,
@@ -38,6 +39,37 @@ export class SupabaseRunStoreError extends Error {
 
 function isoNow(now: () => Date): string {
   return now().toISOString();
+}
+
+function elapsedMs(startedAt: string | null, endedAt: string): number | null {
+  if (!startedAt) return null;
+  const started = Date.parse(startedAt);
+  const ended = Date.parse(endedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(ended)) return null;
+  return Math.max(0, ended - started);
+}
+
+function buildLabSectionTelemetry(input: {
+  elapsedMs?: number | null;
+  latestActivity: string;
+  phase: 'Reading sources' | 'Committed' | 'Needs review';
+  phaseStartedAt: string;
+  runtimeTimings: Record<string, string>;
+}): Record<string, unknown> {
+  return {
+    executionMode: 'lab',
+    phase: input.phase,
+    phaseStartedAt: input.phaseStartedAt,
+    latestActivity: input.latestActivity,
+    provider: selectedSectionModelMetadata.provider,
+    model: selectedSectionModelMetadata.modelId,
+    modelId: selectedSectionModelMetadata.modelId,
+    transport: selectedSectionModelMetadata.transport,
+    runtimeTimings: input.runtimeTimings,
+    ...(input.elapsedMs === null || input.elapsedMs === undefined
+      ? {}
+      : { elapsedMs: input.elapsedMs }),
+  };
 }
 
 function createInitialSections(): Record<SectionId, SectionRunRecord> {
@@ -242,6 +274,30 @@ export function createSupabaseRunStore(
 
       const completedAt = isoNow(now);
       const existingSection = record.sections[parsedArtifact.sectionId];
+      const startedAt = existingSection?.startedAt ?? completedAt;
+      const { error: telemetryError } = await options.supabase
+        .from('research_section_runs')
+        .update({
+          telemetry: buildLabSectionTelemetry({
+            elapsedMs: elapsedMs(startedAt, completedAt),
+            latestActivity: `${parsedArtifact.sectionTitle} committed`,
+            phase: 'Committed',
+            phaseStartedAt: completedAt,
+            runtimeTimings: {
+              sectionStartedAt: startedAt,
+              commitCompleteAt: completedAt,
+              terminalStatusWrittenAt: completedAt,
+            },
+          }),
+        })
+        .eq('id', sectionRunId);
+
+      if (telemetryError) {
+        throw new SupabaseRunStoreError(
+          `research_section_runs telemetry update failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
+        );
+      }
+
       record = mergeSection(
         record,
         parsedArtifact.sectionId,
@@ -249,7 +305,7 @@ export function createSupabaseRunStore(
           sectionId: parsedArtifact.sectionId,
           status: 'completed',
           artifact: parsedArtifact,
-          startedAt: existingSection?.startedAt ?? null,
+          startedAt,
           completedAt,
           error: null,
         },
@@ -267,7 +323,16 @@ export function createSupabaseRunStore(
       const startedAt = record.sections[sectionId]?.startedAt ?? isoNow(now);
       const { error } = await options.supabase
         .from('research_section_runs')
-        .update({ status: 'running', started_at: startedAt })
+        .update({
+          status: 'running',
+          started_at: startedAt,
+          telemetry: buildLabSectionTelemetry({
+            latestActivity: `${sectionId} running`,
+            phase: 'Reading sources',
+            phaseStartedAt: startedAt,
+            runtimeTimings: { sectionStartedAt: startedAt },
+          }),
+        })
         .eq('id', sectionRunId);
 
       if (error) {
@@ -315,6 +380,29 @@ export function createSupabaseRunStore(
       }
 
       const failedAt = isoNow(now);
+      const startedAt = record.sections[sectionId]?.startedAt ?? failedAt;
+      const { error: telemetryError } = await options.supabase
+        .from('research_section_runs')
+        .update({
+          telemetry: buildLabSectionTelemetry({
+            elapsedMs: elapsedMs(startedAt, failedAt),
+            latestActivity: `${sectionId} failed`,
+            phase: 'Needs review',
+            phaseStartedAt: failedAt,
+            runtimeTimings: {
+              sectionStartedAt: startedAt,
+              terminalStatusWrittenAt: failedAt,
+            },
+          }),
+        })
+        .eq('id', sectionRunId);
+
+      if (telemetryError) {
+        throw new SupabaseRunStoreError(
+          `research_section_runs telemetry update failed for ${sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
+        );
+      }
+
       record = mergeSection(
         record,
         sectionId,
@@ -322,7 +410,7 @@ export function createSupabaseRunStore(
           sectionId,
           status: 'failed',
           artifact: record.sections[sectionId]?.artifact ?? null,
-          startedAt: record.sections[sectionId]?.startedAt ?? failedAt,
+          startedAt,
           completedAt: failedAt,
           error: errorMessage,
         },

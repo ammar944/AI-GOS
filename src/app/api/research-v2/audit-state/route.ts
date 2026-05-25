@@ -69,7 +69,7 @@ export interface AuditStateResponse {
     concurrency: number | null;
     elapsedMs: number | null;
     capabilityGaps: Array<Record<string, unknown>>;
-    executionMode: 'draft' | 'deep' | null;
+    executionMode: 'draft' | 'deep' | 'lab' | null;
     runtimeTimings: SectionRuntimeTimings;
   }>;
   sectionsByZone: Record<
@@ -124,7 +124,7 @@ function pickNumber(value: unknown): number | null {
 
 function defaultPhaseForStatus(
   status: WorkerStatus,
-  executionMode: 'draft' | 'deep' | null,
+  executionMode: 'draft' | 'deep' | 'lab' | null,
 ): AuditSectionPhase {
   if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
   if (status === 'complete') return 'Committed';
@@ -136,7 +136,7 @@ function defaultPhaseForStatus(
 function normalizePhase(
   raw: unknown,
   status: WorkerStatus,
-  executionMode: 'draft' | 'deep' | null,
+  executionMode: 'draft' | 'deep' | 'lab' | null,
 ): AuditSectionPhase {
   if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
   if (status === 'error' || status === 'aborted') return 'Needs review';
@@ -164,12 +164,14 @@ interface WorkerStateReadModel {
   concurrency: number | null;
   elapsedMs: number | null;
   capabilityGaps: Array<Record<string, unknown>>;
-  executionMode: 'draft' | 'deep' | null;
+  executionMode: 'draft' | 'deep' | 'lab' | null;
   runtimeTimings: SectionRuntimeTimings;
 }
 
-function normalizeExecutionMode(value: unknown): 'draft' | 'deep' | null {
-  return value === 'draft' || value === 'deep' ? value : null;
+function normalizeExecutionMode(value: unknown): 'draft' | 'deep' | 'lab' | null {
+  return value === 'draft' || value === 'deep' || value === 'lab'
+    ? value
+    : null;
 }
 
 function normalizeRuntimeTimings(value: unknown): SectionRuntimeTimings {
@@ -224,6 +226,20 @@ function buildWorkerStateReadModel(row: {
 
 function queuedWorkerState(): WorkerStateReadModel {
   return buildWorkerStateReadModel({ status: 'queued', telemetry: null });
+}
+
+function deriveParentStatus(
+  parentStatus: string | null,
+  workerStates: AuditStateResponse['workerStates'],
+): string | null {
+  if (
+    workerStates.length > 0 &&
+    workerStates.every((worker) => worker.status === 'complete')
+  ) {
+    return 'complete';
+  }
+
+  return parentStatus;
 }
 
 export async function GET(req: Request): Promise<NextResponse<AuditStateResponse | { error: string }>> {
@@ -303,12 +319,15 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
   }
 
-  const committedSectionRunByZone = new Map<string, string>();
+  const committedCompleteSectionRunByZone = new Map<string, string>();
   for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
+    const status = row.status as string | null;
     const sectionRunId =
       typeof row.section_run_id === 'string' ? row.section_run_id : null;
-    if (sectionRunId) committedSectionRunByZone.set(zone, sectionRunId);
+    if (sectionRunId && status === 'complete') {
+      committedCompleteSectionRunByZone.set(zone, sectionRunId);
+    }
   }
 
   const runRows = (runsResp.data ?? []).map((row) => ({
@@ -324,12 +343,12 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const byZone = new Map<string, WorkerStateReadModel>();
   for (const sectionId of POSITIONING_SECTION_IDS) {
     const rowsForZone = runRows.filter((row) => row.zone === sectionId);
-    const active = rowsForZone.find((row) => !TERMINAL.has(normalizeStatus(row.status)));
-    const committedRunId = committedSectionRunByZone.get(sectionId);
+    const committedRunId = committedCompleteSectionRunByZone.get(sectionId);
     const committed = committedRunId
       ? rowsForZone.find((row) => row.id === committedRunId)
       : null;
-    const selected = active ?? committed ?? rowsForZone[0] ?? null;
+    const active = rowsForZone.find((row) => !TERMINAL.has(normalizeStatus(row.status)));
+    const selected = committed ?? active ?? rowsForZone[0] ?? null;
     if (!selected) continue;
     byZone.set(
       sectionId,
@@ -361,6 +380,19 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     section_id,
     ...(byZone.get(section_id) ?? queuedWorkerState()),
   }));
+  const derivedChildrenComplete = workerStates.filter(
+    (worker) => worker.status === 'complete',
+  ).length;
+  const childrenComplete = Math.max(
+    (parent.children_complete as number | null) ?? 0,
+    derivedChildrenComplete,
+  );
+  const childrenTotal =
+    (parent.children_total as number | null) ?? POSITIONING_SECTION_IDS.length;
+  const parentStatus = deriveParentStatus(
+    (parent.status as string | null) ?? null,
+    workerStates,
+  );
 
   // P2a — group events by zone, cap at 12 newest per zone (events came
   // back ordered desc by created_at — we re-sort ascending so the UI
@@ -385,9 +417,9 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   return NextResponse.json(
     {
       parent_audit_run_id: parentId,
-      parent_status: (parent.status as string | null) ?? null,
-      children_complete: (parent.children_complete as number | null) ?? 0,
-      children_total: (parent.children_total as number | null) ?? 0,
+      parent_status: parentStatus,
+      children_complete: childrenComplete,
+      children_total: childrenTotal,
       workerStates,
       sectionsByZone,
       eventsByZone,

@@ -77,7 +77,7 @@ export interface WorkerChipState {
   concurrency?: number | null;
   elapsedMs?: number | null;
   capabilityGaps?: Array<Record<string, unknown>>;
-  executionMode?: 'draft' | 'deep' | null;
+  executionMode?: 'draft' | 'deep' | 'lab' | null;
   runtimeTimings?: SectionRuntimeTimings;
 }
 

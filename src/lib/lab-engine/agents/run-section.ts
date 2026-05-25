@@ -1672,7 +1672,6 @@ async function runSectionViaAnswerTool(
   });
   toolEvents.push(...adEvidence.events);
   const runAnswerTool = deps.runAnswerTool ?? defaultAnswerToolRunner;
-  let answerResult: Awaited<ReturnType<AnswerToolRunner>>;
   let appendedEventCount = 0;
   const flushBufferedEvents = async (): Promise<void> => {
     while (appendedEventCount < toolEvents.length) {
@@ -1680,36 +1679,43 @@ async function runSectionViaAnswerTool(
       appendedEventCount += 1;
     }
   };
-
-  try {
-    answerResult = await runAnswerToolWithStallGuard({
+  const answerToolInstructions = [
+    buildAnswerToolInstructions(
+      definition,
+      researchInput,
+      adEvidence.normalizedAdEvidenceGroups,
+      {
+        externalToolNames,
+        inputSchemaMode: getAnswerToolInputSchemaMode(sectionRunnerModel),
+      },
+    ),
+    "",
+    "Skill analyst guidance:",
+    skillMd,
+  ].join("\n");
+  const answerTool = createAnswerTool(definition.sectionOutputSchema, {
+    model: sectionRunnerModel,
+  });
+  const runAnswerToolAttempt = async ({
+    attempt,
+    prompt,
+  }: {
+    attempt: number;
+    prompt: string;
+  }): Promise<Awaited<ReturnType<AnswerToolRunner>>> =>
+    runAnswerToolWithStallGuard({
       runAnswerTool,
       parentSignal: input.signal,
       params: {
         model: sectionRunnerModel,
-        instructions: [
-          buildAnswerToolInstructions(
-            definition,
-            researchInput,
-            adEvidence.normalizedAdEvidenceGroups,
-            {
-              externalToolNames,
-              inputSchemaMode:
-                getAnswerToolInputSchemaMode(sectionRunnerModel),
-            },
-          ),
-          "",
-          "Skill analyst guidance:",
-          skillMd,
-        ].join("\n"),
-        prompt: buildAnswerToolPrompt({ externalToolNames, input }),
+        instructions: answerToolInstructions,
+        prompt,
         externalTools,
-        answerTool: createAnswerTool(definition.sectionOutputSchema, {
-          model: sectionRunnerModel,
-        }),
+        answerTool,
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
         telemetry: createLabSectionTelemetry({
+          attempt,
           operation: "answer-tool",
           runId: input.runId,
           sectionId: input.sectionId,
@@ -1744,6 +1750,13 @@ async function runSectionViaAnswerTool(
         await flushBufferedEvents();
       },
     });
+
+  let answerResult: Awaited<ReturnType<AnswerToolRunner>>;
+  try {
+    answerResult = await runAnswerToolAttempt({
+      attempt: 1,
+      prompt: buildAnswerToolPrompt({ externalToolNames, input }),
+    });
   } catch (error) {
     await recordSectionFailure({
       definition,
@@ -1756,7 +1769,7 @@ async function runSectionViaAnswerTool(
 
   await flushBufferedEvents();
 
-  const attempt = buildAnswerToolAttempt({
+  let attempt = buildAnswerToolAttempt({
     answerInput: answerResult.answerInput,
     definition,
     deps,
@@ -1777,18 +1790,70 @@ async function runSectionViaAnswerTool(
         metadata: { attempt: 1, issues: attempt.errors },
       }),
     );
-    await recordSectionFailure({
+
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "repair-started",
+        message: "Answer tool repair started",
+        metadata: {
+          reason: attempt.errors.join("; ").slice(0, 200),
+        },
+      }),
+    );
+
+    const repairResult = await runAnswerToolAttempt({
+      attempt: 2,
+      prompt: buildRepairPrompt({
+        definition,
+        evidenceTranscript: "",
+        issues: attempt.errors,
+        normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
+        previousOutput: attempt.output,
+        researchInput,
+        skillMd,
+      }),
+    });
+    await flushBufferedEvents();
+
+    attempt = buildAnswerToolAttempt({
+      answerInput: repairResult.answerInput,
       definition,
       deps,
-      errorMessage: attempt.errors.join("; "),
       input,
+      normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
     });
 
-    throw new SectionRunnerError({
-      runId: input.runId,
-      sectionId: input.sectionId,
-      errors: attempt.errors,
-    });
+    if (attempt.artifact === null) {
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Answer tool repair output failed validation",
+          metadata: { attempt: 2, issues: attempt.errors },
+        }),
+      );
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: attempt.errors.join("; "),
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: attempt.errors,
+      });
+    }
   }
 
   await deps.store.saveArtifact(input.runId, attempt.artifact);

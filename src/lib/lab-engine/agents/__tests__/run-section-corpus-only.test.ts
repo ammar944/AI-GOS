@@ -27,6 +27,21 @@ function buildMarketCategoryOutput() {
   };
 }
 
+function buildInvalidMarketCategoryOutput() {
+  const output = buildMarketCategoryOutput();
+
+  return {
+    ...output,
+    body: {
+      ...output.body,
+      marketSize: {
+        ...output.body.marketSize,
+        signals: output.body.marketSize.signals.slice(1),
+      },
+    },
+  };
+}
+
 function buildCompetitorLandscapeOutput() {
   return {
     sectionTitle: competitorLandscapeFixtureArtifact.sectionTitle,
@@ -102,6 +117,62 @@ describe('runSection corpus-only mode', (): void => {
     expect(result.artifact.sectionId).toBe('positioningMarketCategory');
     expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('repairs answer-tool outputs that miss section minimums', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    let calls = 0;
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      calls += 1;
+
+      if (calls === 2) {
+        expect(params.prompt).toContain('The previous output failed validation');
+        expect(params.prompt).toContain('body.marketSize.signals');
+        expect(params.prompt).toContain('Previous output JSON');
+      }
+
+      return {
+        steps: [],
+        text: '',
+        answerInput:
+          calls === 1
+            ? buildInvalidMarketCategoryOutput()
+            : buildMarketCategoryOutput(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+
+    expect(result.artifact.sectionId).toBe('positioningMarketCategory');
+    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(runAnswerTool).toHaveBeenCalledTimes(2);
+    expect(eventTypes).toContain('validation-failed');
+    expect(eventTypes).toContain('repair-started');
+    expect(record.sections.positioningMarketCategory?.status).toBe(
+      'completed',
+    );
   });
 
   it('skips competitor ad preprobes when external tools are disabled', async (): Promise<void> => {

@@ -225,6 +225,66 @@ describe('GET /api/research-v2/audit-state', () => {
     });
   });
 
+  it('prefers a committed complete artifact over newer queued seed rows for unrelated sections', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-newer-queued',
+          zone: 'positioningBuyerICP',
+          status: 'queued',
+          started_at: '2026-05-15T12:05:00.000Z',
+          telemetry: null,
+        },
+        {
+          id: 'run-committed-complete',
+          zone: 'positioningBuyerICP',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+            executionMode: 'deep',
+          },
+        },
+      ],
+      error: null,
+    });
+    routeMocks.sectionsQuery.eq.mockResolvedValue({
+      data: [
+        {
+          zone: 'positioningBuyerICP',
+          section_run_id: 'run-committed-complete',
+          status: 'complete',
+          title: 'Buyer & ICP Validation',
+          markdown: null,
+          data: {
+            sectionTitle: 'Buyer & ICP Validation',
+            verdict: 'Complete',
+            statusSummary: 'Complete section.',
+            confidence: 0.8,
+            sources: [],
+            body: {},
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[1]).toMatchObject({
+      section_id: 'positioningBuyerICP',
+      status: 'complete',
+      phase: 'Committed',
+      phaseLabel: 'Committed',
+      executionMode: 'deep',
+    });
+    expect(body.sectionsByZone.positioningBuyerICP).toMatchObject({
+      title: 'Buyer & ICP Validation',
+    });
+  });
+
   it('returns Draft ready for a complete draft worker state even when telemetry says Committed', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.runsQuery.order.mockResolvedValue({
@@ -298,6 +358,64 @@ describe('GET /api/research-v2/audit-state', () => {
       phase: 'Committed',
       phaseLabel: 'Committed',
       executionMode: null,
+    });
+  });
+
+  it('projects lab telemetry and derives complete rollup when the parent row is stale', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.parentQuery.maybeSingle.mockResolvedValue({
+      data: {
+        id: PARENT_ID,
+        status: 'queued',
+        children_total: 6,
+        children_complete: 0,
+      },
+      error: null,
+    });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        'positioningMarketCategory',
+        'positioningBuyerICP',
+        'positioningCompetitorLandscape',
+        'positioningVoiceOfCustomer',
+        'positioningDemandIntent',
+        'positioningOfferDiagnostic',
+      ].map((zone) => ({
+        id: `run-${zone}`,
+        zone,
+        status: 'complete',
+        started_at: '2026-05-15T12:00:00.000Z',
+        telemetry: {
+          executionMode: 'lab',
+          phase: 'Committed',
+          latestActivity: `${zone} committed`,
+          provider: 'deepseek-direct',
+          model: 'deepseek-v4-flash',
+          runtimeTimings: {
+            sectionStartedAt: '2026-05-15T12:00:00.000Z',
+            terminalStatusWrittenAt: '2026-05-15T12:01:00.000Z',
+          },
+        },
+      })),
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.parent_status).toBe('complete');
+    expect(body.children_complete).toBe(6);
+    expect(body.children_total).toBe(6);
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'complete',
+      phase: 'Committed',
+      executionMode: 'lab',
+      latestActivity: 'positioningMarketCategory committed',
+      runtimeTimings: {
+        sectionStartedAt: '2026-05-15T12:00:00.000Z',
+        terminalStatusWrittenAt: '2026-05-15T12:01:00.000Z',
+      },
     });
   });
 
