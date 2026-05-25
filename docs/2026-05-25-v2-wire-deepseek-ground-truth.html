@@ -327,14 +327,14 @@
 <main class="wrap">
 
   <div class="livelog reveal">
-    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-25 (session 2 · manager review)</div>
+    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-25 (session 3 · manager review)</div>
     <p style="font-size:14.5px;color:var(--ink-soft);margin:-4px 0 18px;max-width:66ch">Running log — updated each session so we resume aligned. Execution is now <strong>two parallel Codex tracks</strong>, merged later. The numbered plan below is the stable reference.</p>
     <div class="tracks">
       <div class="trk">
         <div class="th">TRACK A · Codex #1 · via bus goal</div>
         <h4>Stabilize + Harden (P0–P2)</h4>
-        <p>T1.2 ✓ tsc green (72→0) · T2.1 ✓ decoupled+isolated · T2.2 ✓ bounded lifecycle · T2.3 🔄 observability (uncommitted WIP) · T2.4 queued · T1.1 gated.</p>
-        <div class="br">feat/v2-lab-section-wire · HEAD d84fcc9f</div>
+        <p><b>P2 COMPLETE.</b> T1.2 ✓ tsc 72→0 · T2.1 ✓ decoupled+isolated · T2.2 ✓ bounded lifecycle · T2.3 ✓ telemetry+local DevTools · T2.4 ✓ persistence-gate + VoC/Competitor evals. <b>T1.1 gated</b> = the only open item.</p>
+        <div class="br">feat/v2-lab-section-wire · HEAD bfaab3ba (ahead 11)</div>
       </div>
       <div class="trk">
         <div class="th">TRACK B · Codex #2 · via handoff doc</div>
@@ -350,9 +350,10 @@
       <li><b>DeepSeek:</b> <span class="mono" style="font-size:12px">@ai-sdk/deepseek</span> 2.x is v6-compatible; model <span class="mono" style="font-size:12px">deepseek-v4-flash</span>; ~$2–4 total. The OpenRouter #411 "tool-args-as-text" trap is avoided by our tool-output design — NEVER layer <span class="mono" style="font-size:12px">Output.object</span> on the answer tool. Two transports: Ollama (free, local validation) / direct DeepSeek (prod, key wired). Corpus-only needs NO web-search rebuild.</li>
       <li><b>Budget:</b> $15 hard cap on Anthropic; Ollama free; direct DeepSeek tiny. T1.1 is the only paid step.</li>
       <li><b>Merge:</b> Tracks A &amp; B overlap mainly in <span class="mono" style="font-size:12px">section-agent.ts</span> (P2 hardening vs P3 Anthropic-decoupling) — resolved at integration. The front-door flip (onboarding → lab) is LAST. <b>Now also overlaps</b> <span class="mono" style="font-size:12px">models.ts</span> (B: provider-switch) — A doesn't touch it, so that side is clean.</li>
-      <li><b>Manager-verified (session 2):</b> reviewed all 5 new Codex commits against done-conditions with real builds. Track A HEAD <span class="mono" style="font-size:12px">tsc --noEmit</span> = <b>0 errors</b> (T1.2 real: the named 72 rot files fixed, test-only); T2.1 isolation test (<i>one section fails → other 5 complete, no 500</i>) + T2.2 abort/bounded tests = <b>21/21 green</b>. Track B = <b>0 new tsc errors</b> (72 = inherited rot, clears on T1.2 merge); <span class="mono" style="font-size:12px">models.test</span> 6/6 green, default-Anthropic asserted. No fake-done found.</li>
+      <li><b>Manager-verified (session 3):</b> Track A P2 closed out — HEAD <span class="mono" style="font-size:12px">bfaab3ba</span> <span class="mono" style="font-size:12px">tsc --noEmit</span> = <b>0 errors</b>; scoped <span class="mono" style="font-size:12px">vitest</span> = <b>15 files / 92 tests green</b>. T2.4 gate verified by inspection: a sub-minimum artifact (<i>empty marketSize.signals</i>) is <b>rejected before persistence</b> and the stored run is left unchanged; a <span class="mono" style="font-size:12px">persistenceGateEvalCases</span> dataset covers VoC + Competitor Landscape. T2.3 telemetry metadata + local DevTools landed — <b>caveat:</b> a full live OTel/Langfuse trace is only provable during the T1.1 run. No fake-done found.</li>
+      <li><b>Manager-verified (session 2):</b> reviewed the first 5 Codex commits with real builds. Track A T1.2 fixed the named 72 rot files (test-only); T2.1 isolation (<i>one section fails → other 5 complete, no 500</i>) + T2.2 abort/bounded = 21/21 green. Track B = 0 new tsc errors; <span class="mono" style="font-size:12px">models.test</span> 6/6, default-Anthropic asserted.</li>
     </ul>
-    <div class="slog"><b>Session log</b><br>· <b>2026-05-25 (s1):</b> planned the full arc; committed this ground truth (4d3fc7a9); seeded the P0–P2 bus goal + 6 Codex tasks (Track A); set up the P3 parallel worktree + handoff + DeepSeek key (Track B).<br>· <b>2026-05-25 (s2, manager):</b> Track A landed T1.2 (6b689679), T2.1 (66387281), T2.2 (d84fcc9f) — all verified green; T2.3 observability in progress (uncommitted <span class="mono" style="font-size:11px">telemetry.ts</span> + wiring, 1 expected WIP type-error). Track B landed T3.1 (86efeccc), T3.2 (de8be285) — verified. <b>Anthropic spend: $0</b> (T1.1 still gated — needs a run_id + cost OK).<br><b>Worktrees</b> — A: <span style="color:var(--ink)">AI-GOS-worktrees/v2-lab-section-wire</span> (canonical report home, served at localhost:8753) · B: <span style="color:var(--ink)">AI-GOS-worktrees/v2-deepseek</span>.</div>
+    <div class="slog"><b>Session log</b><br>· <b>2026-05-25 (s1):</b> planned the full arc; committed this ground truth (4d3fc7a9); seeded the P0–P2 bus goal + 6 Codex tasks (Track A); set up the P3 parallel worktree + handoff + DeepSeek key (Track B).<br>· <b>2026-05-25 (s2, manager):</b> Track A landed T1.2 (6b689679), T2.1 (66387281), T2.2 (d84fcc9f) — verified green; T2.3 then in flight. Track B landed T3.1 (86efeccc), T3.2 (de8be285) — verified.<br>· <b>2026-05-25 (s3, manager):</b> Codex #1 closed Track A P2 — T2.3 telemetry+DevTools (8742dd53, 2b91b062), T2.4 persistence-gate+evals (d590cedc, bfaab3ba), static route duration (b9e92631). Verified: tsc 0, 92 scoped tests green, rejection gate proven. Codex #1 marked the bus goal <b>blocked</b> on T1.1 — correct. Track B Codex #2 now running T3.3→T3.7. <b>Anthropic spend: $0</b> (T1.1 still gated — needs run_id + cost OK).<br><b>Worktrees</b> — A: <span style="color:var(--ink)">AI-GOS-worktrees/v2-lab-section-wire</span> (canonical report home, served at localhost:8753) · B: <span style="color:var(--ink)">AI-GOS-worktrees/v2-deepseek</span>.</div>
   </div>
 
   <!-- 01 -->
@@ -630,7 +631,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill now">◐ doing</span><span class="tid">T2.3</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T2.3</span></div>
         <div>
           <h5>Observability — Langfuse/OTel + DevTools</h5>
           <p>Trace each section run: prompt, model, usage, status, failure — linked across the 6.</p>
@@ -639,7 +640,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.4</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T2.4</span></div>
         <div>
           <h5>Evals as gates</h5>
           <p>Deterministic schema + <span class="mono" style="font-size:12px">validateMinimums</span> before persistence; a small dataset for VoC + Competitor Landscape.</p>
