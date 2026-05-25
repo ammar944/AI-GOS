@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI-GOS — Ground Truth: V2 Wire → DeepSeek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper:    #F4EFE6;
+    --paper-2:  #ECE4D5;
+    --surface:  #FBF8F1;
+    --ink:      #1B1712;
+    --ink-soft: #4C443A;
+    --muted:    #8C8274;
+    --line:     #DAD1C0;
+    --line-2:   #C8BDA8;
+    --accent:   #D8452A;
+    --accent-d: #AE3217;
+    --blue:     #2C4AA6;
+    --green:    #2E7D52;
+    --amber:    #B57A12;
+    --gray:     #9A9186;
+    --shadow:   0 1px 2px rgba(27,23,18,.04), 0 12px 32px -18px rgba(27,23,18,.28);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(circle at 18% -10%, rgba(216,69,42,.06), transparent 45%),
+      radial-gradient(circle at 100% 0%, rgba(44,74,166,.05), transparent 40%);
+    color: var(--ink);
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- type ---------- */
+  h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; line-height: 1.08; letter-spacing: -.01em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  a { color: var(--accent-d); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    padding: 96px 0 56px;
+    overflow: hidden;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(44,74,166,.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(44,74,166,.07) 1px, transparent 1px);
+    background-size: 30px 30px;
+    -webkit-mask-image: radial-gradient(circle at 70% 30%, #000, transparent 72%);
+            mask-image: radial-gradient(circle at 70% 30%, #000, transparent 72%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent-d); font-weight: 500;
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-bottom: 26px;
+  }
+  .eyebrow::before { content: ""; width: 30px; height: 2px; background: var(--accent); display: inline-block; }
+  .hero h1 {
+    font-size: clamp(42px, 7.5vw, 78px);
+    font-weight: 600;
+    font-optical-sizing: auto;
+    max-width: 16ch;
+    margin-bottom: 26px;
+  }
+  .hero h1 em { font-style: italic; color: var(--accent-d); font-weight: 500; }
+  .lede {
+    font-size: clamp(18px, 2.3vw, 22px);
+    color: var(--ink-soft); max-width: 62ch; line-height: 1.55;
+  }
+  .hero-meta {
+    margin-top: 38px; display: flex; flex-wrap: wrap; gap: 10px 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted);
+  }
+  .hero-meta span { padding: 5px 11px; border: 1px solid var(--line-2); border-radius: 100px; background: rgba(251,248,241,.6); }
+  .hero-meta b { color: var(--ink); font-weight: 500; }
+
+  .readfirst {
+    margin-top: 34px; padding: 18px 22px; max-width: 66ch;
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(90deg, rgba(216,69,42,.06), transparent);
+    font-size: 15.5px; color: var(--ink-soft);
+  }
+  .readfirst b { color: var(--ink); }
+
+  /* ---------- section scaffolding ---------- */
+  section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+  .sec-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 30px; }
+  .sec-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+    color: var(--accent); letter-spacing: .05em; padding-top: 6px;
+  }
+  .sec-head h2 { font-size: clamp(28px, 4.4vw, 40px); }
+  .sec-sub { color: var(--muted); font-size: 15px; margin-top: 6px; max-width: 60ch; }
+  p { margin-bottom: 16px; max-width: 66ch; }
+  p.tight { margin-bottom: 0; }
+  strong { font-weight: 700; }
+  .accent-word { color: var(--accent-d); font-weight: 700; }
+
+  /* ---------- the gist callout ---------- */
+  .gist {
+    background: var(--ink); color: #F4EFE6; border-radius: 6px;
+    padding: 34px 36px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .gist::after {
+    content: "TL;DR"; position: absolute; top: 18px; right: 22px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .2em;
+    color: rgba(244,239,230,.4);
+  }
+  .gist p { font-family: 'Fraunces', serif; font-size: clamp(19px, 2.6vw, 25px); line-height: 1.45; max-width: 64ch; margin: 0; color: #F1ECE2; font-weight: 400; }
+  .gist p + p { margin-top: 18px; }
+  .gist .hl { color: #FFB59E; font-style: italic; }
+
+  /* ---------- journey pipeline ---------- */
+  .pipe { list-style: none; position: relative; margin-left: 6px; }
+  .pipe::before { content: ""; position: absolute; left: 17px; top: 14px; bottom: 14px; width: 2px; background: repeating-linear-gradient(to bottom, var(--line-2) 0 6px, transparent 6px 12px); }
+  .pipe li { position: relative; padding: 0 0 26px 56px; }
+  .pipe li:last-child { padding-bottom: 0; }
+  .pipe .dot {
+    position: absolute; left: 0; top: 0; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--ink); color: var(--ink);
+    display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px;
+    z-index: 1;
+  }
+  .pipe h4 { font-family: 'Hanken Grotesk', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+  .pipe p { color: var(--ink-soft); font-size: 15px; margin: 0; }
+  .pipe .tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  /* ---------- six sections grid ---------- */
+  .grid6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 26px; }
+  .scard { background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 18px 20px; transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+  .scard:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--ink); }
+  .scard .id { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--blue); letter-spacing: .02em; }
+  .scard h4 { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; margin: 6px 0 6px; }
+  .scard p { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+
+  /* ---------- old vs new ---------- */
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+  .col { border-radius: 6px; padding: 24px; border: 1px solid var(--line-2); background: var(--surface); }
+  .col.old { background: #F0E7DA; }
+  .col.new { border-color: var(--ink); box-shadow: var(--shadow); }
+  .col .label { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+  .col.old .label { color: var(--gray); }
+  .col.new .label { color: var(--accent-d); }
+  .col ul { list-style: none; }
+  .col li { font-size: 14.5px; padding: 9px 0 9px 24px; position: relative; border-top: 1px dashed var(--line-2); color: var(--ink-soft); }
+  .col li:first-child { border-top: none; }
+  .col li::before { position: absolute; left: 0; top: 9px; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+  .col.old li::before { content: "×"; color: var(--gray); font-size: 16px; }
+  .col.new li::before { content: "→"; color: var(--accent); }
+  .col li b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- status board ---------- */
+  .board { border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; background: var(--surface); margin-top: 10px; }
+  .row { display: grid; grid-template-columns: 130px 1fr; gap: 18px; padding: 18px 22px; border-top: 1px solid var(--line); align-items: start; }
+  .row:first-child { border-top: none; }
+  .row:hover { background: #FCFAF4; }
+  .pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    padding: 5px 10px; border-radius: 5px; text-transform: uppercase; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center;
+  }
+  .pill.done { background: rgba(46,125,82,.14); color: var(--green); }
+  .pill.todo { background: rgba(44,74,166,.12); color: var(--blue); }
+  .pill.warn { background: rgba(181,122,18,.16); color: var(--amber); }
+  .pill.queued { background: rgba(154,145,134,.16); color: var(--gray); }
+  .pill.now { background: rgba(181,122,18,.18); color: var(--amber); }
+  .pill.risk { background: rgba(216,69,42,.13); color: var(--accent-d); }
+  .row h4 { font-family: 'Hanken Grotesk', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+  .row p { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+  .row .path { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+
+  /* ---------- goal + non-goals ---------- */
+  .goal {
+    border: 2px solid var(--ink); border-radius: 6px; padding: 28px 30px; background: var(--surface);
+    position: relative; box-shadow: var(--shadow);
+  }
+  .goal .flag { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .16em; color: var(--accent-d); text-transform: uppercase; }
+  .goal .line { font-family: 'Fraunces', serif; font-size: clamp(18px, 2.4vw, 23px); line-height: 1.5; margin: 12px 0 0; font-weight: 500; }
+  .goal .line code { font-family: 'JetBrains Mono', monospace; font-size: .82em; background: var(--paper-2); padding: 2px 7px; border-radius: 4px; }
+  .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .chain span { background: var(--ink); color: var(--paper); padding: 6px 11px; border-radius: 5px; }
+  .chain .arr { color: var(--accent); font-weight: 700; }
+
+  .notin { margin-top: 22px; }
+  .notin .tt { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gray); margin-bottom: 12px; }
+  .notin ul { list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; }
+  .notin li { font-size: 14.5px; color: var(--ink-soft); padding-left: 24px; position: relative; }
+  .notin li::before { content: "later"; position: absolute; left: 0; top: 3px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--gray); border: 1px solid var(--line-2); border-radius: 3px; padding: 0 3px; }
+
+  /* ---------- roadmap ---------- */
+  .road { list-style: none; counter-reset: r; position: relative; margin-top: 16px; }
+  .road::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(to bottom, var(--accent), var(--blue)); opacity: .35; }
+  .road li { position: relative; padding: 0 0 24px 52px; }
+  .road li:last-child { padding-bottom: 0; }
+  .road li::before {
+    counter-increment: r; content: counter(r);
+    position: absolute; left: 0; top: -2px; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--paper); border: 2px solid var(--blue); color: var(--blue);
+    display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px;
+  }
+  .road h4 { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; margin-bottom: 3px; }
+  .road p { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+  .road .when { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent-d); letter-spacing: .08em; text-transform: uppercase; }
+
+  /* ---------- plan phases + task board ---------- */
+  .phase { border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface); margin-top: 14px; overflow: hidden; }
+  .phase-head { display: flex; align-items: baseline; gap: 12px; padding: 15px 20px; background: var(--paper-2); border-bottom: 1px solid var(--line-2); flex-wrap: wrap; }
+  .phase-head .pid { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-d); font-size: 13px; letter-spacing: .05em; }
+  .phase-head h4 { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; }
+  .phase-head .pgoal { color: var(--muted); font-size: 12px; margin-left: auto; font-family: 'JetBrains Mono', monospace; }
+  .task { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px 20px; border-top: 1px solid var(--line); align-items: start; }
+  .task:first-child { border-top: none; }
+  .task:hover { background: #FCFAF4; }
+  .task .col1 { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .task .tid { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .task h5 { font-family: 'Hanken Grotesk', sans-serif; font-size: 15.5px; font-weight: 700; margin-bottom: 2px; }
+  .task p { font-size: 14px; color: var(--ink-soft); margin: 0; max-width: none; }
+  .task .verify { color: var(--green); font-weight: 600; font-size: 13px; margin-top: 3px; }
+  .task .tags { display: inline-flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .task .t { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--line-2); color: var(--muted); letter-spacing: .03em; }
+  .task .t.paid { color: var(--accent-d); border-color: var(--accent); }
+  .task .t.claude { color: var(--blue); border-color: rgba(44,74,166,.4); }
+
+  /* ---------- locked decisions ---------- */
+  .locked { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 18px; }
+  .dcard { background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 16px 18px; }
+  .dcard .q { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .dcard .a { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 600; color: var(--ink); margin-top: 5px; line-height: 1.25; }
+  .dcard .a span { color: var(--accent-d); }
+
+  /* ---------- alignment check ---------- */
+  .check-intro { margin-bottom: 22px; }
+  .checks { list-style: none; display: grid; gap: 10px; }
+  .checks li {
+    display: flex; gap: 14px; align-items: flex-start; background: var(--surface);
+    border: 1px solid var(--line-2); border-radius: 6px; padding: 16px 18px; cursor: pointer;
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .checks li:hover { border-color: var(--ink); }
+  .checks input { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; border: 2px solid var(--line-2); border-radius: 5px; flex: 0 0 auto; margin-top: 2px; cursor: pointer; transition: all .15s ease; position: relative; }
+  .checks input:checked { background: var(--green); border-color: var(--green); }
+  .checks input:checked::after { content: "✓"; color: #fff; font-size: 14px; font-weight: 700; position: absolute; inset: 0; display: grid; place-items: center; }
+  .checks li:has(input:checked) { background: rgba(46,125,82,.07); border-color: var(--green); }
+  .checks .txt { font-size: 15.5px; color: var(--ink); }
+  .checks .txt small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .closer { padding: 56px 0 80px; text-align: center; }
+  .closer p { margin: 0 auto; max-width: 56ch; font-family: 'Fraunces', serif; font-size: clamp(20px, 3vw, 27px); font-weight: 500; line-height: 1.4; }
+  .closer .sig { margin-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+
+  /* ---------- reveal ---------- */
+  .js .reveal { opacity: 0; transform: translateY(18px); }
+  .js .reveal.in { opacity: 1; transform: none; transition: opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); }
+
+  @media (max-width: 720px) {
+    body { font-size: 16px; }
+    .grid6, .vs, .notin ul, .locked { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 1fr; gap: 8px; }
+    .task { grid-template-columns: 1fr; gap: 8px; }
+    .task .col1 { flex-direction: row; align-items: center; }
+    .hero { padding: 64px 0 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal { opacity: 1; transform: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Ground Truth · Plan &amp; Task Board · 2026-05-25</div>
+    <h1>AI-GOS: where we are, and <em>where we're going</em>.</h1>
+    <p class="lede">The single source of truth for this build — what the app does, the verified state of the shipped wire, and the task board that carries us from here to DeepSeek.</p>
+    <div class="hero-meta">
+      <span><b>App</b> · Strategic Marketing Blueprint Generator</span>
+      <span><b>Scope</b> · stabilize → harden → DeepSeek</span>
+      <span><b>Branch</b> · feat/v2-lab-section-wire</span>
+      <span><b>Wire</b> · shipped (ccdc4235)</span>
+    </div>
+    <div class="readfirst">
+      <b>This is the file the agent team works from.</b> The vision and decisions below are locked; the <b>task board</b> (§07) is the living part — statuses update as the build proceeds, and the agent-bus goal mirrors it. If anything is off, we fix it here first.
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 01 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">01</span>
+      <div><h2>The gist</h2></div>
+    </div>
+    <div class="gist reveal">
+      <p>AI-GOS takes a company's <span class="hl">website URL</span> and turns it into a full strategic marketing blueprint — six expert reports on the market, the buyer, the competition, what customers actually say, demand, and how strong the offer is.</p>
+      <p>The big move we locked: the fast, reliable section engine we perfected in a separate <span class="hl">"lab" project</span> becomes the real engine inside AI-GOS — <span class="hl">replacing the old one</span> that was slow and kept stalling. It's now <span class="hl">wired and deployed to a preview</span>. The work ahead: prove it on real data, harden the backend to our course's standard, and swap the model to <span class="hl">DeepSeek</span> to cut cost ~10×.</p>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>What the app does</h2>
+        <p class="sec-sub">It's form-driven, not a chatbot — no AI asks you questions. You hand it a URL; research fills in the rest.</p>
+      </div>
+    </div>
+
+    <ol class="pipe reveal">
+      <li>
+        <span class="dot">1</span>
+        <h4>Paste a website URL</h4>
+        <p>The one input that starts everything.</p>
+      </li>
+      <li>
+        <span class="dot">2</span>
+        <h4>Prefill research runs — URL → onboarding</h4>
+        <p>It reads the actual website (scrapes the real pages) and searches the web, then extracts <strong>verified facts</strong> to fill the onboarding fields and write the descriptions — product, ICP, value prop, competitors, and the rest. Every value carries a source; anything it can't verify is left blank, never guessed. <span class="tag">/api/onboarding/research · scrape + web research</span></p>
+      </li>
+      <li>
+        <span class="dot">3</span>
+        <h4>Review &amp; edit the brief</h4>
+        <p>You confirm or correct the auto-filled fields. <span class="tag">the "GTM Brief"</span></p>
+      </li>
+      <li>
+        <span class="dot">4</span>
+        <h4>Submit → deep research builds the "corpus"</h4>
+        <p>A heavier pass that gathers evidence and facts into one pile — the raw material every section reads. <span class="tag">deepResearchProgram = corpus + onboarding fields</span></p>
+      </li>
+      <li>
+        <span class="dot">5</span>
+        <h4>Confirm the brief once more</h4>
+        <p>Now the corpus is in — a last check before the heavy work starts.</p>
+      </li>
+      <li>
+        <span class="dot">6</span>
+        <h4>Six sections fan out in parallel</h4>
+        <p>The engine writes all six positioning reports at once (a few at a time).</p>
+      </li>
+      <li>
+        <span class="dot">7</span>
+        <h4>Cards render live → saved to profile</h4>
+        <p>Each report appears as soon as it finishes.</p>
+      </li>
+    </ol>
+
+    <p style="margin-top:34px" class="reveal"><strong>The six reports it produces:</strong></p>
+    <div class="grid6 reveal">
+      <div class="scard"><div class="id">positioningMarketCategory</div><h4>Market &amp; Category</h4><p>What market you're really competing in.</p></div>
+      <div class="scard"><div class="id">positioningBuyerICP</div><h4>Buyer / ICP</h4><p>Who buys, and what they care about.</p></div>
+      <div class="scard"><div class="id">positioningCompetitorLandscape</div><h4>Competitor Landscape</h4><p>Who you're up against and how they position.</p></div>
+      <div class="scard"><div class="id">positioningVoiceOfCustomer</div><h4>Voice of Customer</h4><p>What real customers say — in their words.</p></div>
+      <div class="scard"><div class="id">positioningDemandIntent</div><h4>Demand &amp; Intent</h4><p>What buyers are searching for and asking.</p></div>
+      <div class="scard"><div class="id">positioningOfferDiagnostic</div><h4>Offer Diagnostic</h4><p>How strong the offer is, and where it breaks.</p></div>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>The decision we locked</h2>
+        <p class="sec-sub">There are two codebases. This is about which one's engine wins.</p>
+      </div>
+    </div>
+    <p class="reveal"><strong>AI-GOS is home.</strong> It owns the parts that work well: onboarding, the deep research that builds the corpus, the database, login, and hosting. None of that changes.</p>
+    <p class="reveal"><strong>The "lab"</strong> (<span class="mono" style="font-size:14px">ai-gos-ai-sdk-lab</span>) is where we built and hardened a better section-writing engine — the <span class="accent-word">answer-tool engine</span>.</p>
+    <p class="reveal">The old thinking was that the lab is just a sandbox to copy ideas back from. <strong>The locked decision flips that:</strong> the lab's engine <em>is</em> the backend. We wired it straight into AI-GOS and rip out the old section execution — the slow, unreliable path that took roughly <strong>540 seconds (about 9 minutes) per section</strong> and sometimes just froze. The new path reads the corpus we already built, so it's fast and there's no waiting on live web crawling.</p>
+  </section>
+
+  <!-- 04 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">04</span>
+      <div><h2>Old way vs. new way</h2></div>
+    </div>
+    <div class="vs reveal">
+      <div class="col old">
+        <span class="label">Old — being replaced</span>
+        <ul>
+          <li>Ran on <b>Managed Agents + a Railway worker</b></li>
+          <li><b>~540s per section</b>, two waves, ~13 min total</li>
+          <li>Stalled — froze mid-run with no progress</li>
+          <li>Did live web research on <b>every</b> run</li>
+          <li>The old audit-reader UI</li>
+        </ul>
+      </div>
+      <div class="col new">
+        <span class="label">New — v2 wire</span>
+        <ul>
+          <li>Lab <b>answer-tool engine</b>, run inside AI-GOS's own API routes</li>
+          <li><b>Fast</b> — synthesizes from the corpus that's already built</li>
+          <li>Watchdog fix: a stalled step is abandoned and retried, not awaited forever</li>
+          <li><b>Live tools OFF in v1</b> — corpus only (the "no 540s" win)</li>
+          <li>A new 3-panel "battleship" shell at <b>/research-v3</b></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">05</span>
+      <div>
+        <h2>Where we are right now</h2>
+        <p class="sec-sub">Codex shipped the wire — and a read-only audit confirms it's real and honestly reported. Two caveats and one risk to retire.</p>
+      </div>
+    </div>
+    <div class="board reveal">
+      <div class="row">
+        <span class="pill done">✓ shipped</span>
+        <div>
+          <h4>The wire is real — and audited</h4>
+          <p>Commit <span class="path">ccdc4235</span> (67 files, +15,375, pushed to origin). Compiles clean, <strong>zero type errors from the wire</strong>, 16/16 focused tests pass, lint clean. The engine port, corpus→input mapper, SupabaseRunStore, the <span class="mono" style="font-size:12px">'lab'</span> route, and the <span class="mono" style="font-size:12px">/research-v3</span> shell all landed. Deployed to a Vercel preview.</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill done">✓ proven</span>
+        <div>
+          <h4>Corpus-only / tools-OFF is enforced</h4>
+          <p>The lab path runs sections from the corpus with <strong>all live tools off</strong> — <span class="mono" style="font-size:12px">web_search</span> is never even created. A test asserts it. (So a DeepSeek swap here needs no web-search rebuild.)</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill warn">! caveat</span>
+        <div>
+          <h4>The front door isn't wired yet</h4>
+          <p>Onboarding still routes to the <em>old</em> <span class="mono" style="font-size:12px">/research-v2</span>. The new lab flow only runs if you manually open <span class="mono" style="font-size:12px">/research-v3</span>. Backend path is wired; the user-facing entry isn't (we flip it after DeepSeek — T3.7).</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill warn">! caveat</span>
+        <div>
+          <h4>Full typecheck is red — but not from the wire</h4>
+          <p><span class="mono" style="font-size:12px">tsc</span> shows 72 errors, <strong>100% pre-existing test-file rot</strong> (chat-tools, managed-agents, storage, journey-schema tests). None were touched by the wire. We clear them to get a trustworthy gate (T1.2).</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill risk">! risk</span>
+        <div>
+          <h4>Not yet proven on real data</h4>
+          <p>No live run has happened (it costs money), so "corpus-only sections pass their <span class="mono" style="font-size:12px">validateMinimums</span> on <strong>real</strong> corpus" is proven on fixtures only. This is the #1 thing to retire — one cheap Anthropic run does it (T1.1).</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill todo">○ greenfield</span>
+        <div>
+          <h4>DeepSeek isn't wired</h4>
+          <p>Clean slate — no DeepSeek/OpenRouter/Ollama in the code yet. Model today is <span class="mono" style="font-size:12px">claude-sonnet-4-5</span>. <span class="mono" style="font-size:12px">@ai-sdk/gateway</span> is already installed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">06</span>
+      <div>
+        <h2>Proper backend, grounded in the course</h2>
+        <p class="sec-sub">What "no app hanging off a thread" means here — the AIHero AI SDK v6 course's discipline, not a new queue engine. These principles govern P2.</p>
+      </div>
+    </div>
+    <div class="grid6 reveal">
+      <div class="scard"><div class="id">the anti-hang rule</div><h4>Bounded lifecycle</h4><p>Every run is bounded: watchdog &lt; route maxDuration. Client-disconnect &amp; server-abort are <em>terminal states</em>, not background mysteries. "Done" = output validated + minimums pass + persisted.</p></div>
+      <div class="scard"><div class="id">no single thread</div><h4>Decoupled execution</h4><p>Fan out per-section so no one serverless invocation owns the whole 6-section run. Each section independently bounded and retryable.</p></div>
+      <div class="scard"><div class="id">ToolLoopAgent</div><h4>Explicit stopWhen</h4><p>A reusable, typed agent with explicit stop conditions — never the default loop length.</p></div>
+      <div class="scard"><div class="id">Output.object</div><h4>v6 structured output</h4><p><span class="mono" style="font-size:11px">streamText</span> + <span class="mono" style="font-size:11px">Output.object</span> + <span class="mono" style="font-size:11px">partialOutputStream</span>; Zod + minimums before persist. Never layer <span class="mono" style="font-size:11px">Output.object</span> on the answer tool (the #411 trap).</p></div>
+      <div class="scard"><div class="id">data-* events</div><h4>Typed events</h4><p>Structured progress / validation / final events. v1 maps these to Supabase events; per-token streaming stays deferred.</p></div>
+      <div class="scard"><div class="id">ArtifactEnvelope</div><h4>Persistence boundary</h4><p>Persist the artifact only after it validates; serialize same-run writes (compare-and-swap on revision).</p></div>
+      <div class="scard"><div class="id">Langfuse / OTel</div><h4>Observability, not optional</h4><p>Trace live runs — prompt, model, usage, status, failure — plus AI SDK DevTools locally.</p></div>
+      <div class="scard"><div class="id">deterministic first</div><h4>Evals as gates</h4><p>Schema + minimum checks gate before persistence; datasets for the historically flaky sections (Voice of Customer, Competitor Landscape).</p></div>
+    </div>
+  </section>
+
+  <!-- 07 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">07</span>
+      <div>
+        <h2>The plan &amp; task board</h2>
+        <p class="sec-sub">The full arc, as tasks. This is what the agent-bus goal tracks — each task carries its verification gate; 💲 marks the one paid step. Statuses go live once the goal is seeded.</p>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">P0</span><h4>Ground truth</h4><span class="pgoal">no code</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T0.1</span></div>
+        <div>
+          <h5>Publish this report as the repo's ground truth</h5>
+          <p>Commit this HTML into the repo the agents read, so every agent works from one file.</p>
+          <p class="verify">verify: committed; opens cleanly</p>
+          <div class="tags"><span class="t claude">claude</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T0.2</span></div>
+        <div>
+          <h5>Seed the agent-bus goal from this board</h5>
+          <p>Create the goal and post T1.1–T3.7 as tasks; this board becomes the live mirror.</p>
+          <p class="verify">verify: bus task list matches the board</p>
+          <div class="tags"><span class="t claude">claude</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">P1</span><h4>Stabilize &amp; prove</h4><span class="pgoal">prove it's really done</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T1.1</span></div>
+        <div>
+          <h5>Live corpus-only Anthropic E2E run</h5>
+          <p>One real run against a complete corpus — retires the #1 risk: 6 sections commit renderable data and pass <span class="mono" style="font-size:12px">validateMinimums</span> on real data.</p>
+          <p class="verify">verify: 6 complete rows render in /research-v3</p>
+          <div class="tags"><span class="t paid">💲 anthropic ~$1–2</span><span class="t claude">claude</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T1.2</span></div>
+        <div>
+          <h5>Fix the 72 pre-existing tsc errors → green</h5>
+          <p>Clear the unrelated test-file rot so <span class="mono" style="font-size:12px">tsc</span> is a trustworthy regression gate. Touch only the failing tests; no runtime change.</p>
+          <p class="verify">verify: tsc --noEmit exit 0</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T1.3</span></div>
+        <div>
+          <h5>Keep the front door behind /research-v3</h5>
+          <p>No onboarding change yet — the lab path stays opt-in until DeepSeek is proven.</p>
+          <p class="verify">verify: onboarding still → /research-v2</p>
+          <div class="tags"><span class="t claude">claude</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">P2</span><h4>Harden the backend</h4><span class="pgoal">course-grounded · §06</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.1</span></div>
+        <div>
+          <h5>Decouple execution + isolate failures</h5>
+          <p>Fan the 6 sections out per-section so no single invocation holds the whole run; one section failing → <span class="mono" style="font-size:12px">markSectionFailed</span>, not a whole-run 500.</p>
+          <p class="verify">verify: force 1 section to fail → other 5 complete</p>
+          <div class="tags"><span class="t">codex</span><span class="t claude">claude review</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.2</span></div>
+        <div>
+          <h5>Bounded lifecycle (the anti-hang rule)</h5>
+          <p>Node runtime, route <span class="mono" style="font-size:12px">maxDuration</span> &gt; watchdog; a disconnect/abort produces a terminal error event, never a silent hang.</p>
+          <p class="verify">verify: simulated abort → terminal error, no hang</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.3</span></div>
+        <div>
+          <h5>Observability — Langfuse/OTel + DevTools</h5>
+          <p>Trace each section run: prompt, model, usage, status, failure — linked across the 6.</p>
+          <p class="verify">verify: a local run produces a linked trace</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.4</span></div>
+        <div>
+          <h5>Evals as gates</h5>
+          <p>Deterministic schema + <span class="mono" style="font-size:12px">validateMinimums</span> before persistence; a small dataset for VoC + Competitor Landscape.</p>
+          <p class="verify">verify: a deliberately-short output is rejected</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">P3</span><h4>DeepSeek integration</h4><span class="pgoal">provider-switch · two-transport</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.1</span></div>
+        <div>
+          <h5>Add <span class="mono" style="font-size:13px">@ai-sdk/deepseek</span></h5>
+          <p>The official v6-compatible provider (its 2.x line). Model <span class="mono" style="font-size:12px">deepseek-v4-flash</span>.</p>
+          <p class="verify">verify: installs; typechecks</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.2</span></div>
+        <div>
+          <h5>Provider-switch in models.ts</h5>
+          <p>Select by env/flag: <span class="mono" style="font-size:12px">anthropic</span> (default) · <span class="mono" style="font-size:12px">deepseek-direct</span> · <span class="mono" style="font-size:12px">deepseek-ollama</span>. Expose the selected-model metadata.</p>
+          <p class="verify">verify: flag test; default stays Anthropic</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.3</span></div>
+        <div>
+          <h5>Decouple the Anthropic-only coupling</h5>
+          <p>Guard/remove the 2× <span class="mono" style="font-size:12px">prepareStep</span> (container-id forwarding) and 2× <span class="mono" style="font-size:12px">providerOptions.anthropic</span> blocks in section-agent.ts so non-Anthropic providers run.</p>
+          <p class="verify">verify: Sonnet regression green; DeepSeek runs</p>
+          <div class="tags"><span class="t">codex</span><span class="t claude">claude review</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.4</span></div>
+        <div>
+          <h5>Model-dependent answer-tool schema</h5>
+          <p>Full strict section schema as <span class="mono" style="font-size:12px">inputSchema</span> for DeepSeek; keep the loose passthrough for Anthropic; keep execute-side validation for both. Start non-strict.</p>
+          <p class="verify">verify: Sonnet green; DeepSeek conforms first-try</p>
+          <div class="tags"><span class="t">codex</span><span class="t claude">claude review</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.5</span></div>
+        <div>
+          <h5>Validate corpus-only on Ollama (free)</h5>
+          <p>Run all 6 sections via <span class="mono" style="font-size:12px">deepseek-v4-flash</span> through Ollama locally — unlimited, no Anthropic spend.</p>
+          <p class="verify">verify: 6/6 conform offline</p>
+          <div class="tags"><span class="t claude">claude</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.6</span></div>
+        <div>
+          <h5>Deploy preview with direct DeepSeek</h5>
+          <p>Set <span class="mono" style="font-size:12px">DEEPSEEK_API_KEY</span> (Preview, server-only), select <span class="mono" style="font-size:12px">deepseek-direct</span>, Node runtime, maxDuration ≥ watchdog.</p>
+          <p class="verify">verify: preview run completes 6 sections (~$0.10)</p>
+          <div class="tags"><span class="t claude">claude</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.7</span></div>
+        <div>
+          <h5>Flip the front door → lab</h5>
+          <p>Point onboarding completion at the lab path — only after T3.6 passes.</p>
+          <p class="verify">verify: a fresh onboarding lands in /research-v3 on the lab path</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">08</span>
+      <div><h2>Budget &amp; locked decisions</h2></div>
+    </div>
+    <div class="goal reveal">
+      <span class="flag">▸ Budget guardrails</span>
+      <p class="line"><strong>$15 hard cap on Anthropic</strong> spend (the only metered model). <strong>DeepSeek-via-Ollama is free</strong> and unlimited for dev — our primary validation transport. Direct DeepSeek (prod) is tracked but tiny (<code>~$2–4</code> total).</p>
+      <div class="chain">
+        <span>Anthropic ≤ $15 (gated)</span><span class="arr">·</span>
+        <span>Ollama = free</span><span class="arr">·</span>
+        <span>DeepSeek prod ≈ $0.10/run</span>
+      </div>
+    </div>
+    <div class="locked reveal">
+      <div class="dcard"><div class="q">Scope</div><div class="a">Full arc — stabilize → harden → <span>DeepSeek</span>. No fake-done.</div></div>
+      <div class="dcard"><div class="q">DeepSeek rollout</div><div class="a"><span>Provider-switch</span> — reversible, default stays Anthropic.</div></div>
+      <div class="dcard"><div class="q">Transport</div><div class="a"><span>Direct DeepSeek key</span> for prod · Ollama for local.</div></div>
+      <div class="dcard"><div class="q">Typecheck</div><div class="a">Fix all 72 → <span>fully green</span> gate.</div></div>
+      <div class="dcard"><div class="q">Front door</div><div class="a">Flip to lab <span>after DeepSeek</span> is validated.</div></div>
+      <div class="dcard"><div class="q">Execution</div><div class="a">Repo task board + <span>agent-bus goal</span>; I drive the team.</div></div>
+    </div>
+  </section>
+
+  <!-- 09 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">09</span>
+      <div>
+        <h2>After this — the road to v3</h2>
+        <p class="sec-sub">Deferred on purpose; sequenced after the DeepSeek preview holds up.</p>
+      </div>
+    </div>
+    <ol class="road reveal">
+      <li>
+        <span class="when">v3</span>
+        <h4>Live tools + the full research-agent workflow</h4>
+        <p>Turn live tools back on and add the course's advanced pattern — query-generation → search → synthesis as visible steps. Fixes the v1 weak spot (synthetic competitor ads).</p>
+      </li>
+      <li>
+        <span class="when">the 7th section</span>
+        <h4>Paid Media Plan</h4>
+        <p>A terminal section that does no fresh research — it synthesizes all 6 reports + a briefing into a client-ready paid-media plan. Replaces the old templated 7-slide deck.</p>
+      </li>
+      <li>
+        <span class="when">polish</span>
+        <h4>Per-token streaming</h4>
+        <p>Make sections type out live instead of popping in whole.</p>
+      </li>
+      <li>
+        <span class="when">ship</span>
+        <h4>Promote preview → production</h4>
+        <p>Once the DeepSeek preview holds up under real use, make it the real thing.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 10 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">10</span>
+      <div><h2>Are we aligned?</h2></div>
+    </div>
+    <p class="check-intro reveal">The plan, boiled down to claims. Tick the ones that match your head; tell me the ones that don't.</p>
+    <ul class="checks reveal">
+      <li><input type="checkbox" /><span class="txt"><strong>Full arc</strong> — stabilize + prove the wire, harden it, then DeepSeek. Done means a green typecheck and a real end-to-end run, not just "shipped."</span></li>
+      <li><input type="checkbox" /><span class="txt">The backend is <strong>grounded on the AI SDK v6 course</strong> — bounded lifecycle, decoupled execution, observability, evals. <small>Not a new queue engine; the course's runtime discipline.</small></span></li>
+      <li><input type="checkbox" /><span class="txt"><strong>$15 hard cap on Anthropic</strong>; DeepSeek validated free via Ollama; a direct DeepSeek key for the prod preview.</span></li>
+      <li><input type="checkbox" /><span class="txt">DeepSeek lands behind a <strong>provider-switch</strong> (reversible) — the default stays Anthropic until DeepSeek proves out.</span></li>
+      <li><input type="checkbox" /><span class="txt">We <strong>fix all 72 pre-existing tsc errors</strong> to get a trustworthy green gate for the team.</span></li>
+      <li><input type="checkbox" /><span class="txt">The <strong>front door flips to the lab path only after</strong> DeepSeek is validated end-to-end.</span></li>
+      <li><input type="checkbox" /><span class="txt">The full <strong>live research-agent workflow is deferred to v3</strong> — v1/v2 stay corpus-only.</span></li>
+    </ul>
+  </section>
+
+</main>
+
+<div class="closer wrap reveal">
+  <p>If these boxes match, we're aligned. Approve and I'll commit this report as the ground truth, seed the agent-bus goal from the board, and start P0.</p>
+  <div class="sig">AI-GOS · v2 wire → DeepSeek · ground truth · 2026-05-25</div>
+</div>
+
+<script>
+  document.documentElement.classList.add('js');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+</script>
+
+</body>
+</html>
