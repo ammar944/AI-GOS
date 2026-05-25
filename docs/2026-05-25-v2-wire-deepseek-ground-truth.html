@@ -327,20 +327,20 @@
 <main class="wrap">
 
   <div class="livelog reveal">
-    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-25</div>
+    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-25 (session 2 · manager review)</div>
     <p style="font-size:14.5px;color:var(--ink-soft);margin:-4px 0 18px;max-width:66ch">Running log — updated each session so we resume aligned. Execution is now <strong>two parallel Codex tracks</strong>, merged later. The numbered plan below is the stable reference.</p>
     <div class="tracks">
       <div class="trk">
         <div class="th">TRACK A · Codex #1 · via bus goal</div>
         <h4>Stabilize + Harden (P0–P2)</h4>
-        <p>P0 ✓ (report committed, goal seeded) · P1–P2 in progress.</p>
-        <div class="br">feat/v2-lab-section-wire</div>
+        <p>T1.2 ✓ tsc green (72→0) · T2.1 ✓ decoupled+isolated · T2.2 ✓ bounded lifecycle · T2.3 🔄 observability (uncommitted WIP) · T2.4 queued · T1.1 gated.</p>
+        <div class="br">feat/v2-lab-section-wire · HEAD d84fcc9f</div>
       </div>
       <div class="trk">
         <div class="th">TRACK B · Codex #2 · via handoff doc</div>
         <h4>DeepSeek (P3) — in parallel</h4>
-        <p>Worktree + deps + key wired · runs from docs/2026-05-25-p3-deepseek-handoff.md.</p>
-        <div class="br">feat/v2-deepseek</div>
+        <p>T3.1 ✓ @ai-sdk/deepseek dep · T3.2 ✓ provider-switch (default stays Anthropic — verified) · T3.3–T3.7 queued.</p>
+        <div class="br">feat/v2-deepseek · HEAD de8be285</div>
       </div>
     </div>
     <ul class="learn">
@@ -349,9 +349,10 @@
       <li><b>Bus = one shared goal:</b> only Track A uses it; Track B (P3) is doc-driven — that's why P3 runs from a handoff doc, not the bus goal.</li>
       <li><b>DeepSeek:</b> <span class="mono" style="font-size:12px">@ai-sdk/deepseek</span> 2.x is v6-compatible; model <span class="mono" style="font-size:12px">deepseek-v4-flash</span>; ~$2–4 total. The OpenRouter #411 "tool-args-as-text" trap is avoided by our tool-output design — NEVER layer <span class="mono" style="font-size:12px">Output.object</span> on the answer tool. Two transports: Ollama (free, local validation) / direct DeepSeek (prod, key wired). Corpus-only needs NO web-search rebuild.</li>
       <li><b>Budget:</b> $15 hard cap on Anthropic; Ollama free; direct DeepSeek tiny. T1.1 is the only paid step.</li>
-      <li><b>Merge:</b> Tracks A &amp; B overlap mainly in <span class="mono" style="font-size:12px">section-agent.ts</span> (P2 hardening vs P3 Anthropic-decoupling) — resolved at integration. The front-door flip (onboarding → lab) is LAST.</li>
+      <li><b>Merge:</b> Tracks A &amp; B overlap mainly in <span class="mono" style="font-size:12px">section-agent.ts</span> (P2 hardening vs P3 Anthropic-decoupling) — resolved at integration. The front-door flip (onboarding → lab) is LAST. <b>Now also overlaps</b> <span class="mono" style="font-size:12px">models.ts</span> (B: provider-switch) — A doesn't touch it, so that side is clean.</li>
+      <li><b>Manager-verified (session 2):</b> reviewed all 5 new Codex commits against done-conditions with real builds. Track A HEAD <span class="mono" style="font-size:12px">tsc --noEmit</span> = <b>0 errors</b> (T1.2 real: the named 72 rot files fixed, test-only); T2.1 isolation test (<i>one section fails → other 5 complete, no 500</i>) + T2.2 abort/bounded tests = <b>21/21 green</b>. Track B = <b>0 new tsc errors</b> (72 = inherited rot, clears on T1.2 merge); <span class="mono" style="font-size:12px">models.test</span> 6/6 green, default-Anthropic asserted. No fake-done found.</li>
     </ul>
-    <div class="slog"><b>Session log</b> — 2026-05-25: planned the full arc; committed this ground truth (4d3fc7a9); seeded the P0–P2 bus goal + 6 Codex tasks (Track A); set up the P3 parallel worktree + handoff + DeepSeek key (Track B). Both tracks running.<br><b>Worktrees</b> — A: <span style="color:var(--ink)">AI-GOS-worktrees/v2-lab-section-wire</span> (canonical report home, served at localhost:8753) · B: <span style="color:var(--ink)">AI-GOS-worktrees/v2-deepseek</span>.</div>
+    <div class="slog"><b>Session log</b><br>· <b>2026-05-25 (s1):</b> planned the full arc; committed this ground truth (4d3fc7a9); seeded the P0–P2 bus goal + 6 Codex tasks (Track A); set up the P3 parallel worktree + handoff + DeepSeek key (Track B).<br>· <b>2026-05-25 (s2, manager):</b> Track A landed T1.2 (6b689679), T2.1 (66387281), T2.2 (d84fcc9f) — all verified green; T2.3 observability in progress (uncommitted <span class="mono" style="font-size:11px">telemetry.ts</span> + wiring, 1 expected WIP type-error). Track B landed T3.1 (86efeccc), T3.2 (de8be285) — verified. <b>Anthropic spend: $0</b> (T1.1 still gated — needs a run_id + cost OK).<br><b>Worktrees</b> — A: <span style="color:var(--ink)">AI-GOS-worktrees/v2-lab-section-wire</span> (canonical report home, served at localhost:8753) · B: <span style="color:var(--ink)">AI-GOS-worktrees/v2-deepseek</span>.</div>
   </div>
 
   <!-- 01 -->
@@ -558,7 +559,7 @@
     <div class="phase reveal">
       <div class="phase-head"><span class="pid">P0</span><h4>Ground truth</h4><span class="pgoal">no code</span></div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T0.1</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T0.1</span></div>
         <div>
           <h5>Publish this report as the repo's ground truth</h5>
           <p>Commit this HTML into the repo the agents read, so every agent works from one file.</p>
@@ -567,7 +568,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T0.2</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T0.2</span></div>
         <div>
           <h5>Seed the agent-bus goal from this board</h5>
           <p>Create the goal and post T1.1–T3.7 as tasks; this board becomes the live mirror.</p>
@@ -580,7 +581,7 @@
     <div class="phase reveal">
       <div class="phase-head"><span class="pid">P1</span><h4>Stabilize &amp; prove</h4><span class="pgoal">prove it's really done</span></div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T1.1</span></div>
+        <div class="col1"><span class="pill warn">⏸ gated</span><span class="tid">T1.1</span></div>
         <div>
           <h5>Live corpus-only Anthropic E2E run</h5>
           <p>One real run against a complete corpus — retires the #1 risk: 6 sections commit renderable data and pass <span class="mono" style="font-size:12px">validateMinimums</span> on real data.</p>
@@ -589,7 +590,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T1.2</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T1.2</span></div>
         <div>
           <h5>Fix the 72 pre-existing tsc errors → green</h5>
           <p>Clear the unrelated test-file rot so <span class="mono" style="font-size:12px">tsc</span> is a trustworthy regression gate. Touch only the failing tests; no runtime change.</p>
@@ -598,7 +599,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T1.3</span></div>
+        <div class="col1"><span class="pill done">✓ holds</span><span class="tid">T1.3</span></div>
         <div>
           <h5>Keep the front door behind /research-v3</h5>
           <p>No onboarding change yet — the lab path stays opt-in until DeepSeek is proven.</p>
@@ -611,7 +612,7 @@
     <div class="phase reveal">
       <div class="phase-head"><span class="pid">P2</span><h4>Harden the backend</h4><span class="pgoal">course-grounded · §06</span></div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.1</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T2.1</span></div>
         <div>
           <h5>Decouple execution + isolate failures</h5>
           <p>Fan the 6 sections out per-section so no single invocation holds the whole run; one section failing → <span class="mono" style="font-size:12px">markSectionFailed</span>, not a whole-run 500.</p>
@@ -620,7 +621,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.2</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T2.2</span></div>
         <div>
           <h5>Bounded lifecycle (the anti-hang rule)</h5>
           <p>Node runtime, route <span class="mono" style="font-size:12px">maxDuration</span> &gt; watchdog; a disconnect/abort produces a terminal error event, never a silent hang.</p>
@@ -629,7 +630,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T2.3</span></div>
+        <div class="col1"><span class="pill now">◐ doing</span><span class="tid">T2.3</span></div>
         <div>
           <h5>Observability — Langfuse/OTel + DevTools</h5>
           <p>Trace each section run: prompt, model, usage, status, failure — linked across the 6.</p>
@@ -651,7 +652,7 @@
     <div class="phase reveal">
       <div class="phase-head"><span class="pid">P3</span><h4>DeepSeek integration</h4><span class="pgoal">provider-switch · two-transport</span></div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.1</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T3.1</span></div>
         <div>
           <h5>Add <span class="mono" style="font-size:13px">@ai-sdk/deepseek</span></h5>
           <p>The official v6-compatible provider (its 2.x line). Model <span class="mono" style="font-size:12px">deepseek-v4-flash</span>.</p>
@@ -660,7 +661,7 @@
         </div>
       </div>
       <div class="task">
-        <div class="col1"><span class="pill queued">queued</span><span class="tid">T3.2</span></div>
+        <div class="col1"><span class="pill done">✓ done</span><span class="tid">T3.2</span></div>
         <div>
           <h5>Provider-switch in models.ts</h5>
           <p>Select by env/flag: <span class="mono" style="font-size:12px">anthropic</span> (default) · <span class="mono" style="font-size:12px">deepseek-direct</span> · <span class="mono" style="font-size:12px">deepseek-ollama</span>. Expose the selected-model metadata.</p>
