@@ -1,118 +1,105 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from "vitest";
 
-interface MockLanguageModel {
-  modelId: string;
-  wrapped?: boolean;
+import {
+  createSectionModelSelection,
+  DEEPSEEK_SECTION_MODEL_ID,
+  resolveSectionModelProvider,
+  SONNET_SECTION_MODEL_ID,
+} from "../models";
+
+function buildEnv(
+  overrides: Record<string, string | undefined> = {},
+): NodeJS.ProcessEnv {
+  return { NODE_ENV: "test", ...overrides };
 }
 
-interface MockMiddleware {
-  name: string;
-}
+describe("resolveSectionModelProvider", (): void => {
+  it("defaults to anthropic when LAB_ENGINE_PROVIDER is unset", (): void => {
+    expect(resolveSectionModelProvider(buildEnv())).toBe("anthropic");
+  });
 
-interface ModelModuleMocks {
-  anthropicModel: (modelId: string) => MockLanguageModel;
-  createAnthropic: () => (modelId: string) => MockLanguageModel;
-  devToolsMiddleware: () => MockMiddleware;
-  wrapLanguageModel: (input: {
-    model: MockLanguageModel;
-    middleware: MockMiddleware;
-  }) => MockLanguageModel;
-}
+  it("accepts the direct DeepSeek provider flag", (): void => {
+    expect(
+      resolveSectionModelProvider(
+        buildEnv({ LAB_ENGINE_PROVIDER: "deepseek-direct" }),
+      ),
+    ).toBe("deepseek-direct");
+  });
 
-const modelMocks = vi.hoisted((): ModelModuleMocks => {
-  const anthropicModel = vi.fn((modelId: string): MockLanguageModel => ({
-    modelId,
-  }));
-  const devToolsMiddleware = vi.fn(
-    (): MockMiddleware => ({ name: 'devtools' }),
-  );
-  const wrapLanguageModel = vi.fn(
-    (input: {
-      model: MockLanguageModel;
-      middleware: MockMiddleware;
-    }): MockLanguageModel => ({
-      ...input.model,
-      wrapped: true,
-    }),
-  );
-
-  return {
-    anthropicModel,
-    createAnthropic: vi.fn((): ((modelId: string) => MockLanguageModel) => anthropicModel),
-    devToolsMiddleware,
-    wrapLanguageModel,
-  };
+  it("rejects unknown provider flags", (): void => {
+    expect(() =>
+      resolveSectionModelProvider(
+        buildEnv({ LAB_ENGINE_PROVIDER: "openrouter" }),
+      ),
+    ).toThrow(
+      'Invalid LAB_ENGINE_PROVIDER="openrouter". Expected one of: anthropic, deepseek-direct, deepseek-ollama.',
+    );
+  });
 });
 
-vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: modelMocks.createAnthropic,
-}));
+describe("createSectionModelSelection", (): void => {
+  it("selects Anthropic Sonnet by default", (): void => {
+    const selection = createSectionModelSelection(buildEnv());
 
-vi.mock('@ai-sdk/devtools', () => ({
-  devToolsMiddleware: modelMocks.devToolsMiddleware,
-}));
-
-vi.mock('ai', async () => {
-  const actual = await vi.importActual<typeof import('ai')>('ai');
-
-  return {
-    ...actual,
-    wrapLanguageModel: modelMocks.wrapLanguageModel,
-  };
-});
-
-async function importModels(): Promise<typeof import('../models')> {
-  return import('../models');
-}
-
-describe('lab engine AI models', (): void => {
-  afterEach((): void => {
-    vi.resetModules();
-    vi.unstubAllEnvs();
-    vi.clearAllMocks();
+    expect(selection.metadata).toEqual({
+      provider: "anthropic",
+      modelId: SONNET_SECTION_MODEL_ID,
+      repairModelId: SONNET_SECTION_MODEL_ID,
+      transport: "anthropic",
+    });
+    expect(selection.sectionRunnerModel.provider).toBe("anthropic.messages");
+    expect(selection.sectionRunnerModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
   });
 
-  it('keeps AI SDK DevTools disabled by default', async (): Promise<void> => {
-    vi.stubEnv('NODE_ENV', 'test');
+  it("selects direct DeepSeek v4 flash", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        DEEPSEEK_API_KEY: "test-deepseek-key",
+        LAB_ENGINE_PROVIDER: "deepseek-direct",
+      }),
+    );
 
-    const models = await importModels();
-
-    expect(models.isAiSdkDevToolsEnabled()).toBe(false);
-    expect(models.sectionRunnerModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
+    expect(selection.metadata).toEqual({
+      provider: "deepseek-direct",
+      modelId: DEEPSEEK_SECTION_MODEL_ID,
+      repairModelId: DEEPSEEK_SECTION_MODEL_ID,
+      transport: "deepseek-direct",
     });
-    expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();
+    expect(selection.sectionRunnerModel.provider).toBe("deepseek.chat");
+    expect(selection.sectionRunnerModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
   });
 
-  it('wraps lab models with AI SDK DevTools only when explicitly enabled locally', async (): Promise<void> => {
-    vi.stubEnv('AI_SDK_DEVTOOLS', 'true');
-    vi.stubEnv('NODE_ENV', 'development');
+  it("selects DeepSeek v4 flash through the local Ollama transport", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        DEEPSEEK_OLLAMA_BASE_URL: "http://127.0.0.1:11434/v1",
+        LAB_ENGINE_PROVIDER: "deepseek-ollama",
+      }),
+    );
 
-    const models = await importModels();
-
-    expect(models.isAiSdkDevToolsEnabled()).toBe(true);
-    expect(models.sectionRunnerModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
-      wrapped: true,
+    expect(selection.metadata).toEqual({
+      baseURL: "http://127.0.0.1:11434/v1",
+      provider: "deepseek-ollama",
+      modelId: DEEPSEEK_SECTION_MODEL_ID,
+      repairModelId: DEEPSEEK_SECTION_MODEL_ID,
+      transport: "ollama-openai-compatible",
     });
-    expect(models.repairModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
-      wrapped: true,
-    });
-    expect(modelMocks.devToolsMiddleware).toHaveBeenCalledTimes(2);
-    expect(modelMocks.wrapLanguageModel).toHaveBeenCalledTimes(2);
+    expect(selection.sectionRunnerModel.provider).toBe("ollama.chat");
+    expect(selection.sectionRunnerModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
   });
 
-  it('does not enable AI SDK DevTools in production', async (): Promise<void> => {
-    vi.stubEnv('AI_SDK_DEVTOOLS', 'true');
-    vi.stubEnv('NODE_ENV', 'production');
+  it("allows Ollama to use the locally installed tagged model id", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        DEEPSEEK_OLLAMA_MODEL_ID: "deepseek-v4-flash:cloud",
+        LAB_ENGINE_PROVIDER: "deepseek-ollama",
+      }),
+    );
 
-    const models = await importModels();
-
-    expect(models.isAiSdkDevToolsEnabled()).toBe(false);
-    expect(models.sectionRunnerModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
-    });
-    expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();
+    expect(selection.metadata.modelId).toBe("deepseek-v4-flash:cloud");
+    expect(selection.metadata.repairModelId).toBe("deepseek-v4-flash:cloud");
+    expect(selection.sectionRunnerModel.modelId).toBe(
+      "deepseek-v4-flash:cloud",
+    );
   });
 });

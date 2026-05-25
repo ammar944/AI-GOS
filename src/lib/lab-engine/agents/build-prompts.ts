@@ -2,6 +2,7 @@ import type { ResearchInput } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { ToolGapSchema } from "./tools/_shared";
 import type { AgentStep } from "./section-agent";
+import type { AnswerToolInputSchemaMode } from "./answer-tool";
 
 export interface PromptSectionDefinition {
   title: string;
@@ -9,6 +10,11 @@ export interface PromptSectionDefinition {
   outputEmphasis: readonly string[];
   bodySchema?: unknown;
   sectionOutputSchemaName?: string;
+}
+
+export interface AnswerToolInstructionOptions {
+  externalToolNames?: readonly string[];
+  inputSchemaMode?: AnswerToolInputSchemaMode;
 }
 
 interface CompetitorSeedHint {
@@ -60,6 +66,32 @@ function buildRootShapeGuidance(): string {
     '{ "sectionTitle": "...", "verdict": "...", "statusSummary": "...", "confidence": 0.6, "sources": [...], "body": { ...section keys only... } }',
     "Do not output `$schema`.",
   ].join("\n");
+}
+
+function buildCorpusOnlyBoundary(
+  externalToolNames: readonly string[] | undefined,
+): string[] {
+  if (externalToolNames === undefined || externalToolNames.length > 0) {
+    return [];
+  }
+
+  return [
+    "Corpus-only mode:",
+    "No external research tools are available in this run. Use only the ResearchInput JSON, pre-normalized evidence blocks, skill guidance, and the answer tool.",
+    "Do not call web_search, firecrawl, pagespeed, reviews, keyword_ad_probe, ga4, spyfu, adlibrary, google_ads, or meta_ads.",
+    "Ignore any skill text that lists research tools; those tools are not available for this corpus-only validation run.",
+    "",
+  ];
+}
+
+function buildAnswerToolCompletionInstruction(
+  externalToolNames: readonly string[] | undefined,
+): string {
+  if (externalToolNames !== undefined && externalToolNames.length === 0) {
+    return "You MUST call the `answer` tool with the COMPLETE structured section output — every required field (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`, `body`) must be present and non-empty. If a required field is not directly evidenced by ResearchInput, write an explicit evidence gap inside the relevant field while still satisfying the schema. Do not call unavailable research tools. Do not respond with text after a successful `answer` call.";
+  }
+
+  return "You MUST call the `answer` tool with the COMPLETE structured section output — every required field (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`, `body`) must be present and non-empty. If any required field is unknown, KEEP RESEARCHING with the available tools. The `answer` tool will reject incomplete input and feed the error back to you; if that happens, fix the missing fields and call it again. Do not respond with text after a successful `answer` call.";
 }
 
 export function shortenForEvent(value: unknown, maxChars = 180): string {
@@ -197,8 +229,12 @@ function buildSectionMinimumGuidance(
 ): string[] {
   if (definition.sectionOutputSchemaName === "MarketCategorySectionOutput") {
     return [
+      "- MarketCategorySectionOutput minimums: top-level `sources` must include at least three Section-level sources.",
+      "- MarketCategorySectionOutput minimums: `body.categoryDefinition.adjacentCategories` must include at least two categories buyers confuse this with.",
+      "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least three public trajectory signals with unique `signalType` values.",
       "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least one `top-down` and one `bottom-up` methodology.",
       "- MarketCategorySectionOutput minimums: `body.structuralForces.forces` must include exactly one `regulation`, one `platform-shift`, and one `buyer-behavior` forceType.",
+      "- MarketCategorySectionOutput minimums: `body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals.",
     ];
   }
 
@@ -320,7 +356,10 @@ export function buildAnswerToolInstructions(
   definition: PromptSectionDefinition,
   researchInput: ResearchInput,
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[],
+  options: AnswerToolInstructionOptions = {},
 ): string {
+  const inputSchemaMode = options.inputSchemaMode ?? "loose-passthrough";
+
   return [
     `You are the AI-GOS section analyst for ${definition.title}.`,
     `Mission: ${definition.mission}`,
@@ -344,7 +383,16 @@ export function buildAnswerToolInstructions(
     "",
     buildRootShapeGuidance(),
     "",
-    "You MUST call the `answer` tool with the COMPLETE structured section output — every required field (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`, `body`) must be present and non-empty. If any required field is unknown, KEEP RESEARCHING with the available tools. The `answer` tool will reject incomplete input and feed the error back to you; if that happens, fix the missing fields and call it again. Do not respond with text after a successful `answer` call.",
+    ...(inputSchemaMode === "section-schema"
+      ? [
+          "Answer tool schema mode:",
+          "The answer tool input schema is bound to the full section schema for this model.",
+          "Call `answer` only when the complete object satisfies every required field and section-specific body key.",
+          "",
+        ]
+      : []),
+    ...buildCorpusOnlyBoundary(options.externalToolNames),
+    buildAnswerToolCompletionInstruction(options.externalToolNames),
   ].join("\n");
 }
 

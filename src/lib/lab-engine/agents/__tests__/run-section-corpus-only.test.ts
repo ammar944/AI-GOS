@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
@@ -23,6 +24,21 @@ function buildMarketCategoryOutput() {
       ...(source.publisher ? { publisher: source.publisher } : {}),
     })),
     body: marketCategoryFixtureArtifact.body,
+  };
+}
+
+function buildCompetitorLandscapeOutput() {
+  return {
+    sectionTitle: competitorLandscapeFixtureArtifact.sectionTitle,
+    verdict: competitorLandscapeFixtureArtifact.verdict,
+    statusSummary: competitorLandscapeFixtureArtifact.statusSummary,
+    confidence: competitorLandscapeFixtureArtifact.confidence,
+    sources: competitorLandscapeFixtureArtifact.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      ...(source.publisher ? { publisher: source.publisher } : {}),
+    })),
+    body: competitorLandscapeFixtureArtifact.body,
   };
 }
 
@@ -54,6 +70,14 @@ describe('runSection corpus-only mode', (): void => {
           }),
         }),
       );
+      expect(params.instructions).toContain("Corpus-only mode:");
+      expect(params.instructions).toContain(
+        "Do not call web_search, firecrawl, pagespeed, reviews, keyword_ad_probe, ga4, spyfu, adlibrary, google_ads, or meta_ads.",
+      );
+      expect(params.prompt).toContain(
+        "No external research tools are available.",
+      );
+
       return {
         steps: [],
         text: '',
@@ -77,6 +101,50 @@ describe('runSection corpus-only mode', (): void => {
 
     expect(result.artifact.sectionId).toBe('positioningMarketCategory');
     expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips competitor ad preprobes when external tools are disabled', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningCompetitorLandscape'],
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const output = buildCompetitorLandscapeOutput();
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      expect(Object.keys(params.externalTools)).toEqual([]);
+
+      return {
+        steps: [],
+        text: '',
+        answerInput: output,
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningCompetitorLandscape',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      },
+    );
+
+    expect(result.artifact.sectionId).toBe('positioningCompetitorLandscape');
+    expect(result.artifact.body).toMatchObject({
+      competitorSet: competitorLandscapeFixtureArtifact.body.competitorSet,
+    });
+    expect(result.artifact.body.adEvidence).toMatchObject({
+      advertiserGroups: [],
+    });
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
   });
 });

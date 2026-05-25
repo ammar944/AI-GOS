@@ -30,6 +30,10 @@ import {
   shortenForEvent,
 } from "./build-prompts";
 import {
+  createAnswerTool,
+  getAnswerToolInputSchemaMode,
+} from "./answer-tool";
+import {
   defaultAnswerToolRunner,
   defaultAnswerToolStreamer,
   defaultEvidencePassRunner,
@@ -45,7 +49,6 @@ import {
   type StructuredStreamer,
 } from "./section-agent";
 import { createLabSectionTelemetry } from "./telemetry";
-import { createAnswerTool } from "./answer-tool";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
 import { ToolBudget } from "./budget";
@@ -472,6 +475,31 @@ function buildRequiredToolSequence(
   return toolSequence;
 }
 
+function getExternalToolNames(
+  externalTools: Record<string, unknown>,
+): readonly string[] {
+  return Object.keys(externalTools).sort();
+}
+
+function buildAnswerToolPrompt({
+  externalToolNames,
+  input,
+}: {
+  input: RunSectionInput;
+  externalToolNames: readonly string[];
+}): string {
+  const evidenceInstruction =
+    externalToolNames.length === 0
+      ? "No external research tools are available. Use the ResearchInput JSON and skill guidance only, then call answer with the complete section output."
+      : "Use the available tools for evidence gathering, then call answer with the complete section output.";
+
+  return [
+    `RunId: ${input.runId}.`,
+    `SectionId: ${input.sectionId}.`,
+    evidenceInstruction,
+  ].join(" ");
+}
+
 async function recordSectionFailure({
   definition,
   deps,
@@ -520,7 +548,7 @@ const answerToolTimeoutMs = 540_000;
 // The first agent step (a model response or tool call) must arrive within this
 // window. A stalled provider transport produces zero steps, so we abandon the
 // attempt here instead of waiting out the full answer-tool budget.
-const answerToolFirstStepTimeoutMs = 120_000;
+const defaultAnswerToolFirstStepTimeoutMs = 120_000;
 // One retry on a zero-step stall: the stall is a transient transport fault, so a
 // fresh attempt usually proceeds. A second stall fails the section terminally.
 const answerToolMaxAttempts = 2;
@@ -541,6 +569,29 @@ const answerToolSectionIds: ReadonlySet<SectionId> = new Set([
 ]);
 const missingAnswerToolMessage =
   "Agent did not call answer tool within maxSteps";
+
+function getPositiveIntegerEnvValue(key: string): number | undefined {
+  const rawValue = process.env[key]?.trim();
+
+  if (rawValue === undefined || rawValue.length === 0) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${key} must be a positive integer number of milliseconds.`);
+  }
+
+  return value;
+}
+
+function getAnswerToolFirstStepTimeoutMs(): number {
+  return (
+    getPositiveIntegerEnvValue("LAB_ENGINE_ANSWER_TOOL_FIRST_STEP_TIMEOUT_MS") ??
+    defaultAnswerToolFirstStepTimeoutMs
+  );
+}
 
 function getStructuredOutputMaxTokens(
   definition: RuntimeSectionDefinition,
@@ -1113,7 +1164,7 @@ async function runAnswerToolWithStallGuard({
       timeoutMs: remainingMs,
     });
     const firstStepDeadlineMs = Math.min(
-      answerToolFirstStepTimeoutMs,
+      getAnswerToolFirstStepTimeoutMs(),
       remainingMs,
     );
     let firstStepSeen = false;
@@ -1168,9 +1219,17 @@ async function runAnswerToolWithStallGuard({
     lastError ??
     new AnswerToolStalledError(
       answerToolMaxAttempts,
-      answerToolFirstStepTimeoutMs,
+      getAnswerToolFirstStepTimeoutMs(),
     )
   );
+}
+
+function hasExecutableTool(
+  tools: Record<string, unknown>,
+  toolName: string,
+): boolean {
+  const tool = tools[toolName] as Tool<unknown, unknown> | undefined;
+  return tool?.execute !== undefined;
 }
 
 function getExecutableTool<TInput>(
@@ -1196,6 +1255,14 @@ async function runCompetitorAdProbeSteps({
   signal?: AbortSignal;
 }): Promise<AgentStep[]> {
   const advertisers = getCompetitorAdProbeAdvertisers(researchInput);
+
+  if (
+    !hasExecutableTool(researchTools, "google_ads") ||
+    !hasExecutableTool(researchTools, "meta_ads")
+  ) {
+    return [];
+  }
+
   const googleAdsTool = getExecutableTool<{
     advertiser: string;
     max_results: number;
@@ -1596,6 +1663,7 @@ async function runSectionViaAnswerTool(
     budget: toolBudget,
     webSearchMaxUses: definition.maxExternalLookups,
   });
+  const externalToolNames = getExternalToolNames(externalTools);
   const adEvidence = await buildAnswerToolAdEvidence({
     deps,
     input,
@@ -1624,18 +1692,21 @@ async function runSectionViaAnswerTool(
             definition,
             researchInput,
             adEvidence.normalizedAdEvidenceGroups,
+            {
+              externalToolNames,
+              inputSchemaMode:
+                getAnswerToolInputSchemaMode(sectionRunnerModel),
+            },
           ),
           "",
           "Skill analyst guidance:",
           skillMd,
         ].join("\n"),
-        prompt: [
-          `RunId: ${input.runId}.`,
-          `SectionId: ${input.sectionId}.`,
-          "Use the available tools for evidence gathering, then call answer with the complete section output.",
-        ].join(" "),
+        prompt: buildAnswerToolPrompt({ externalToolNames, input }),
         externalTools,
-        answerTool: createAnswerTool(definition.sectionOutputSchema),
+        answerTool: createAnswerTool(definition.sectionOutputSchema, {
+          model: sectionRunnerModel,
+        }),
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
         telemetry: createLabSectionTelemetry({
@@ -1813,6 +1884,7 @@ async function streamSectionViaAnswerTool(
     budget: toolBudget,
     webSearchMaxUses: definition.maxExternalLookups,
   });
+  const externalToolNames = getExternalToolNames(externalTools);
   const adEvidence = await buildAnswerToolAdEvidence({
     deps,
     input,
@@ -1843,18 +1915,21 @@ async function streamSectionViaAnswerTool(
             definition,
             researchInput,
             adEvidence.normalizedAdEvidenceGroups,
+            {
+              externalToolNames,
+              inputSchemaMode:
+                getAnswerToolInputSchemaMode(sectionRunnerModel),
+            },
           ),
           "",
           "Skill analyst guidance:",
           skillMd,
         ].join("\n"),
-        prompt: [
-          `RunId: ${input.runId}.`,
-          `SectionId: ${input.sectionId}.`,
-          "Use the available tools for evidence gathering, then call answer with the complete section output.",
-        ].join(" "),
+        prompt: buildAnswerToolPrompt({ externalToolNames, input }),
         externalTools,
-        answerTool: createAnswerTool(definition.sectionOutputSchema),
+        answerTool: createAnswerTool(definition.sectionOutputSchema, {
+          model: sectionRunnerModel,
+        }),
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
         telemetry: createLabSectionTelemetry({
