@@ -1,6 +1,7 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -41,6 +42,8 @@ interface CanaryValidationResult {
   errors: string[];
 }
 
+type CanaryProvider = "deepseek-direct" | "deepseek-ollama";
+
 interface CanarySectionDefinition {
   title: string;
   sectionOutputSchema: z.ZodType<SectionOutput<Record<string, unknown>>>;
@@ -62,6 +65,18 @@ function getCanarySectionDefinition(
   sectionId: SupportedSectionId,
 ): CanarySectionDefinition {
   return SECTION_REGISTRY[sectionId] as unknown as CanarySectionDefinition;
+}
+
+function assertCanaryProvider(): CanaryProvider {
+  const provider = selectedSectionModelMetadata.provider;
+
+  if (provider === "deepseek-direct" || provider === "deepseek-ollama") {
+    return provider;
+  }
+
+  throw new Error(
+    `RUN_OLLAMA_CORPUS_CANARY requires LAB_ENGINE_PROVIDER=deepseek-direct or deepseek-ollama; received ${provider}.`,
+  );
 }
 
 function formatZodIssues(error: z.ZodError): string {
@@ -207,15 +222,28 @@ async function assertOllamaModelAvailable(): Promise<void> {
   expect(modelIds).toContain(selectedSectionModelMetadata.modelId);
 }
 
+async function assertSelectedModelAvailable(
+  provider: CanaryProvider,
+): Promise<void> {
+  if (provider === "deepseek-ollama") {
+    await assertOllamaModelAvailable();
+  }
+}
+
+function formatSeconds(startMs: number, endMs: number): string {
+  return ((endMs - startMs) / 1000).toFixed(1);
+}
+
 describeOllamaCanary("DeepSeek Ollama corpus canary", (): void => {
   it(
     "validates all six corpus-only sections through the answer-tool path",
     async (): Promise<void> => {
-      expect(selectedSectionModelMetadata.provider).toBe("deepseek-ollama");
-      await assertOllamaModelAvailable();
+      const provider = assertCanaryProvider();
+      await assertSelectedModelAvailable(provider);
 
       const researchInput = await readCanaryResearchInput();
       const rootDir = await mkdtemp(join(tmpdir(), "aigos-ollama-corpus-"));
+      const runStartedMs = performance.now();
       const store = createRunStore({
         rootDir,
         defaultSectionIds: [...ollamaCanarySectionIds],
@@ -231,6 +259,7 @@ describeOllamaCanary("DeepSeek Ollama corpus canary", (): void => {
           `[ollama-corpus] starting ${sectionId} (${definition.title})`,
         );
 
+        const sectionStartedMs = performance.now();
         const result = await runSection(
           {
             runId: researchInput.runId,
@@ -258,7 +287,12 @@ describeOllamaCanary("DeepSeek Ollama corpus canary", (): void => {
         const record = await store.readRun(researchInput.runId);
         assertFirstTryConformance({ record, sectionId });
 
-        console.info(`[ollama-corpus] completed ${sectionId}`);
+        console.info(
+          `[ollama-corpus] completed ${sectionId} wallClockSeconds=${formatSeconds(
+            sectionStartedMs,
+            performance.now(),
+          )} schema=pass validateMinimums=pass provider=${provider}`,
+        );
       }
 
       const completedRecord = await store.readRun(researchInput.runId);
@@ -268,7 +302,12 @@ describeOllamaCanary("DeepSeek Ollama corpus canary", (): void => {
 
       expect(completedSections).toEqual([...ollamaCanarySectionIds]);
       console.info(
-        `[ollama-corpus] 6/6 complete for runId=${researchInput.runId} model=${selectedSectionModelMetadata.modelId}`,
+        `[ollama-corpus] 6/6 complete for runId=${
+          researchInput.runId
+        } model=${selectedSectionModelMetadata.modelId} provider=${provider} totalWallClockSeconds=${formatSeconds(
+          runStartedMs,
+          performance.now(),
+        )}`,
       );
     },
     4_800_000,
