@@ -1,7 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type { RunRecord } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import {
+  activityEventSchema,
+  type ActivityEvent,
+} from '@/lib/lab-engine/events/activity-event';
 import {
   runSection,
   type RunSectionDeps,
@@ -22,8 +28,11 @@ export type LabRunSection = (
 export interface RunLabSectionJobInput {
   runId: string;
   sectionId: PositioningSectionId;
+  signal?: AbortSignal;
   store: RunStore;
   runSectionImpl?: LabRunSection;
+  now?: () => Date;
+  newId?: () => string;
 }
 
 export async function runLabSectionJob(
@@ -32,14 +41,27 @@ export async function runLabSectionJob(
   const sectionId = toSupportedSectionId(input.sectionId);
   const runSectionImpl = input.runSectionImpl ?? runSection;
 
+  if (input.signal?.aborted === true) {
+    await recordJobFailure({
+      input,
+      message: getAbortReasonMessage(input.signal),
+      sectionId,
+    });
+    return;
+  }
+
   try {
-    await runSectionImpl(
-      { runId: input.runId, sectionId },
+    const sectionPromise = runSectionImpl(
+      { runId: input.runId, sectionId, signal: input.signal },
       {
         store: input.store,
         loadSkill: loadLabSkill,
         allowedTools: getLabEngineAllowedTools(),
       },
+    );
+    await withAbortSignal(
+      sectionPromise,
+      input.signal,
     );
   } catch (err) {
     const message = getErrorMessage(err);
@@ -48,7 +70,11 @@ export async function runLabSectionJob(
       sectionId,
       message,
     });
-    await input.store.markSectionFailed(input.runId, sectionId, message);
+    await recordJobFailure({
+      input,
+      message,
+      sectionId,
+    });
   }
 }
 
@@ -88,4 +114,121 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+async function withAbortSignal<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  if (signal === undefined) {
+    return promise;
+  }
+
+  let abortListener: (() => void) | undefined;
+  const abortPromise = new Promise<never>((_, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
+    abortListener = (): void => {
+      reject(signal.reason);
+    };
+    signal.addEventListener('abort', abortListener, { once: true });
+  });
+
+  abortPromise.catch((): void => undefined);
+
+  try {
+    return await Promise.race([promise, abortPromise]);
+  } catch (err) {
+    if (signal.aborted) {
+      void promise.catch((): void => undefined);
+    }
+    throw err;
+  } finally {
+    if (abortListener !== undefined) {
+      signal.removeEventListener('abort', abortListener);
+    }
+  }
+}
+
+function getAbortReasonMessage(signal: AbortSignal): string {
+  if (signal.reason !== undefined) {
+    return getErrorMessage(signal.reason);
+  }
+
+  return 'section signal aborted';
+}
+
+function createSectionFailedEvent({
+  input,
+  message,
+  sectionId,
+}: {
+  input: RunLabSectionJobInput;
+  message: string;
+  sectionId: SupportedSectionId;
+}): ActivityEvent {
+  return activityEventSchema.parse({
+    id: (input.newId ?? randomUUID)(),
+    runId: input.runId,
+    sectionId,
+    type: 'section-failed',
+    message: `Lab section ${sectionId} failed`,
+    createdAt: (input.now ?? (() => new Date()))().toISOString(),
+    metadata: { error: message },
+  });
+}
+
+async function recordJobFailure({
+  input,
+  message,
+  sectionId,
+}: {
+  input: RunLabSectionJobInput;
+  message: string;
+  sectionId: SupportedSectionId;
+}): Promise<void> {
+  const existingRecord = await readRunForFailureState({
+    input,
+    sectionId,
+  });
+  const failureEventExists =
+    existingRecord?.events.some(
+      (event): boolean =>
+        event.type === 'section-failed' && event.sectionId === sectionId,
+    ) ?? false;
+  const sectionAlreadyFailed =
+    existingRecord?.sections[sectionId]?.status === 'failed';
+
+  if (!failureEventExists) {
+    await input.store.appendEvent(
+      input.runId,
+      createSectionFailedEvent({ input, message, sectionId }),
+    );
+  }
+
+  if (!sectionAlreadyFailed) {
+    await input.store.markSectionFailed(input.runId, sectionId, message);
+  }
+}
+
+async function readRunForFailureState({
+  input,
+  sectionId,
+}: {
+  input: RunLabSectionJobInput;
+  sectionId: SupportedSectionId;
+}): Promise<RunRecord | null> {
+  try {
+    return await input.store.readRun(input.runId);
+  } catch (err) {
+    console.warn('[lab-section-job] run read failed before terminal failure write', {
+      runId: input.runId,
+      sectionId,
+      message: getErrorMessage(err),
+    });
+    return null;
+  }
 }

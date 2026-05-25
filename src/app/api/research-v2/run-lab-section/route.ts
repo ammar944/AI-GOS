@@ -18,13 +18,49 @@ import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-inpu
 import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
 import { createAdminClient } from '@/lib/supabase/server';
 
+export const LAB_SECTION_ROUTE_TIMEOUT_MS = 270_000;
+const LAB_SECTION_ROUTE_MAX_DURATION_SECONDS = 300;
+
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+export const maxDuration = LAB_SECTION_ROUTE_MAX_DURATION_SECONDS;
 
 const RequestSchema = z.object({
   run_id: z.string().uuid(),
   section_id: z.enum(POSITIONING_SECTION_IDS),
 });
+
+interface RouteAbortSignal {
+  cleanup: () => void;
+  signal: AbortSignal;
+}
+
+function createRouteAbortSignal(request: Request): RouteAbortSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort(
+      new Error(
+        `lab section route timed out after ${LAB_SECTION_ROUTE_TIMEOUT_MS}ms`,
+      ),
+    );
+  }, LAB_SECTION_ROUTE_TIMEOUT_MS);
+  const abortFromRequest = (): void => {
+    controller.abort(request.signal.reason);
+  };
+
+  if (request.signal.aborted) {
+    abortFromRequest();
+  } else {
+    request.signal.addEventListener('abort', abortFromRequest, { once: true });
+  }
+
+  return {
+    cleanup: (): void => {
+      clearTimeout(timer);
+      request.signal.removeEventListener('abort', abortFromRequest);
+    },
+    signal: controller.signal,
+  };
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   let userId: string | null;
@@ -112,12 +148,18 @@ export async function POST(request: Request): Promise<NextResponse> {
       researchInput,
     });
 
+    const routeAbortSignal = createRouteAbortSignal(request);
     await store.createRun(researchInput);
-    await runLabSectionJob({
-      runId: body.run_id,
-      sectionId: body.section_id,
-      store,
-    });
+    try {
+      await runLabSectionJob({
+        runId: body.run_id,
+        sectionId: body.section_id,
+        signal: routeAbortSignal.signal,
+        store,
+      });
+    } finally {
+      routeAbortSignal.cleanup();
+    }
 
     return NextResponse.json(
       {

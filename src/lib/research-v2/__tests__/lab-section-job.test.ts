@@ -57,23 +57,25 @@ function createTestRunRecord(): RunRecord {
 }
 
 function createMockRunStore(): {
+  appendEvent: ReturnType<typeof vi.fn>;
   markSectionFailed: ReturnType<typeof vi.fn>;
   store: RunStore;
 } {
   const record = createTestRunRecord();
+  const appendEvent = vi.fn(async (): Promise<RunRecord> => record);
   const markSectionFailed = vi.fn(
     async (): Promise<RunRecord> => record,
   );
   const store: RunStore = {
     createRun: async (): Promise<RunRecord> => record,
     readRun: async (): Promise<RunRecord> => record,
-    appendEvent: async (): Promise<RunRecord> => record,
+    appendEvent,
     saveArtifact: async (): Promise<RunRecord> => record,
     markSectionRunning: async (): Promise<RunRecord> => record,
     markSectionFailed,
   };
 
-  return { markSectionFailed, store };
+  return { appendEvent, markSectionFailed, store };
 }
 
 function createRunSectionResult(input: RunSectionInput): RunSectionResult {
@@ -151,6 +153,67 @@ describe('runLabSectionJob', (): void => {
     );
   });
 
+  it('turns an aborted or disconnected section into a terminal event and failed state within the bound', async (): Promise<void> => {
+    const { appendEvent, markSectionFailed, store } = createMockRunStore();
+    const controller = new AbortController();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation((): void => {});
+    const runSectionImpl = vi.fn(
+      async (): Promise<RunSectionResult> =>
+        new Promise<RunSectionResult>((): void => undefined),
+    );
+
+    const jobPromise = runLabSectionJob({
+      runId,
+      sectionId: 'positioningBuyerICP',
+      store,
+      runSectionImpl,
+      signal: controller.signal,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+      newId: () => 'evt_abort',
+    });
+    controller.abort(new Error('client disconnected'));
+
+    await expect(
+      Promise.race([
+        jobPromise.then((): 'resolved' => 'resolved'),
+        new Promise<'timeout'>((resolve) => {
+          setTimeout((): void => resolve('timeout'), 25);
+        }),
+      ]),
+    ).resolves.toBe('resolved');
+    expect(runSectionImpl).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal }),
+      expect.any(Object),
+    );
+    expect(appendEvent).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        id: 'evt_abort',
+        runId,
+        sectionId: 'positioningBuyerICP',
+        type: 'section-failed',
+        message: 'Lab section positioningBuyerICP failed',
+        createdAt: '2026-05-25T12:00:00.000Z',
+        metadata: { error: 'client disconnected' },
+      }),
+    );
+    expect(markSectionFailed).toHaveBeenCalledWith(
+      runId,
+      'positioningBuyerICP',
+      'client disconnected',
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      '[lab-section-job] section failed',
+      expect.objectContaining({
+        runId,
+        sectionId: 'positioningBuyerICP',
+        message: 'client disconnected',
+      }),
+    );
+  });
+
   it('passes through live tools only when LAB_ENGINE_LIVE_TOOLS is explicitly enabled', async (): Promise<void> => {
     const { store } = createMockRunStore();
     const observedDeps: RunSectionDeps[] = [];
@@ -180,5 +243,55 @@ describe('runLabSectionJob', (): void => {
 
     expect(observedDeps[0]?.allowedTools).toEqual([]);
     expect(observedDeps[1]?.allowedTools).toBeUndefined();
+  });
+
+  it('marks a pre-aborted section signal failed without invoking the runner', async (): Promise<void> => {
+    const { markSectionFailed, store } = createMockRunStore();
+    const controller = new AbortController();
+    const runSectionImpl = vi.fn(
+      async (input: RunSectionInput): Promise<RunSectionResult> =>
+        createRunSectionResult(input),
+    );
+
+    controller.abort(new Error('client disconnected'));
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      signal: controller.signal,
+      store,
+      runSectionImpl,
+      newId: () => 'evt_abort',
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    expect(runSectionImpl).not.toHaveBeenCalled();
+    expect(markSectionFailed).toHaveBeenCalledWith(
+      runId,
+      'positioningMarketCategory',
+      'client disconnected',
+    );
+  });
+
+  it('passes the section abort signal into the runner', async (): Promise<void> => {
+    const { store } = createMockRunStore();
+    const controller = new AbortController();
+    const observedSignals: Array<AbortSignal | undefined> = [];
+    const runSectionImpl = vi.fn(
+      async (input: RunSectionInput): Promise<RunSectionResult> => {
+        observedSignals.push(input.signal);
+        return createRunSectionResult(input);
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      signal: controller.signal,
+      store,
+      runSectionImpl,
+    });
+
+    expect(observedSignals).toEqual([controller.signal]);
   });
 });

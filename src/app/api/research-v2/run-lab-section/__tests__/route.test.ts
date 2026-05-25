@@ -92,13 +92,27 @@ vi.mock('@/lib/research-v2/lab-section-job', () => ({
   runLabSectionJob: (input: unknown) => routeMocks.runLabSectionJob(input),
 }));
 
-const { POST } = await import('../route');
+const {
+  LAB_SECTION_ROUTE_TIMEOUT_MS,
+  POST,
+  maxDuration,
+  runtime,
+} = await import('../route');
 
 function makeRequest(body: unknown): Request {
   return new Request('http://localhost/api/research-v2/run-lab-section', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? body : JSON.stringify(body),
+  });
+}
+
+function makeAbortableRequest(body: unknown, signal: AbortSignal): Request {
+  return new Request('http://localhost/api/research-v2/run-lab-section', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+    signal,
   });
 }
 
@@ -198,8 +212,42 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
       runId: VALID_RUN_ID,
       sectionId: 'positioningBuyerICP',
+      signal: expect.any(AbortSignal),
       store: routeMocks.store,
     });
+  });
+
+  it('uses a bounded Node route lifecycle longer than the first-step watchdog', (): void => {
+    expect(runtime).toBe('nodejs');
+    expect(maxDuration * 1000).toBeGreaterThan(LAB_SECTION_ROUTE_TIMEOUT_MS);
+    expect(LAB_SECTION_ROUTE_TIMEOUT_MS).toBeGreaterThan(120_000);
+  });
+
+  it('propagates client disconnects into the section job abort signal', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    const controller = new AbortController();
+    let observedSignal: AbortSignal | undefined;
+    routeMocks.runLabSectionJob.mockImplementation(
+      async (input: { signal?: AbortSignal }): Promise<void> => {
+        observedSignal = input.signal;
+        controller.abort(new Error('client disconnected'));
+      },
+    );
+
+    const response = await POST(
+      makeAbortableRequest(
+        {
+          run_id: VALID_RUN_ID,
+          section_id: 'positioningBuyerICP',
+        },
+        controller.signal,
+      ),
+    );
+
+    expect(response.status).toBe(202);
+    expect(observedSignal?.aborted).toBe(true);
+    expect(observedSignal?.reason).toBeInstanceOf(Error);
   });
 
   it('returns 400 for an unsupported lab section id', async (): Promise<void> => {
