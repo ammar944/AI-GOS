@@ -30,6 +30,10 @@ import {
   shortenForEvent,
 } from "./build-prompts";
 import {
+  createAnswerTool,
+  getAnswerToolInputSchemaMode,
+} from "./answer-tool";
+import {
   defaultAnswerToolRunner,
   defaultAnswerToolStreamer,
   defaultEvidencePassRunner,
@@ -44,7 +48,6 @@ import {
   type StructuredCaller,
   type StructuredStreamer,
 } from "./section-agent";
-import { createAnswerTool } from "./answer-tool";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
 import { ToolBudget } from "./budget";
@@ -1610,6 +1613,10 @@ async function runSectionViaAnswerTool(
             definition,
             researchInput,
             adEvidence.normalizedAdEvidenceGroups,
+            {
+              inputSchemaMode:
+                getAnswerToolInputSchemaMode(sectionRunnerModel),
+            },
           ),
           "",
           "Skill analyst guidance:",
@@ -1621,7 +1628,9 @@ async function runSectionViaAnswerTool(
           "Use the available tools for evidence gathering, then call answer with the complete section output.",
         ].join(" "),
         externalTools,
-        answerTool: createAnswerTool(definition.sectionOutputSchema),
+        answerTool: createAnswerTool(definition.sectionOutputSchema, {
+          model: sectionRunnerModel,
+        }),
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
       },
@@ -1824,6 +1833,10 @@ async function streamSectionViaAnswerTool(
             definition,
             researchInput,
             adEvidence.normalizedAdEvidenceGroups,
+            {
+              inputSchemaMode:
+                getAnswerToolInputSchemaMode(sectionRunnerModel),
+            },
           ),
           "",
           "Skill analyst guidance:",
@@ -1835,7 +1848,9 @@ async function streamSectionViaAnswerTool(
           "Use the available tools for evidence gathering, then call answer with the complete section output.",
         ].join(" "),
         externalTools,
-        answerTool: createAnswerTool(definition.sectionOutputSchema),
+        answerTool: createAnswerTool(definition.sectionOutputSchema, {
+          model: sectionRunnerModel,
+        }),
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
       },

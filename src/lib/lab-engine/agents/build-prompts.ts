@@ -2,6 +2,7 @@ import type { ResearchInput } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { ToolGapSchema } from "./tools/_shared";
 import type { AgentStep } from "./section-agent";
+import type { AnswerToolInputSchemaMode } from "./answer-tool";
 
 export interface PromptSectionDefinition {
   title: string;
@@ -9,6 +10,10 @@ export interface PromptSectionDefinition {
   outputEmphasis: readonly string[];
   bodySchema?: unknown;
   sectionOutputSchemaName?: string;
+}
+
+export interface AnswerToolInstructionOptions {
+  inputSchemaMode?: AnswerToolInputSchemaMode;
 }
 
 interface CompetitorSeedHint {
@@ -320,7 +325,10 @@ export function buildAnswerToolInstructions(
   definition: PromptSectionDefinition,
   researchInput: ResearchInput,
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[],
+  options: AnswerToolInstructionOptions = {},
 ): string {
+  const inputSchemaMode = options.inputSchemaMode ?? "loose-passthrough";
+
   return [
     `You are the AI-GOS section analyst for ${definition.title}.`,
     `Mission: ${definition.mission}`,
@@ -344,6 +352,14 @@ export function buildAnswerToolInstructions(
     "",
     buildRootShapeGuidance(),
     "",
+    ...(inputSchemaMode === "section-schema"
+      ? [
+          "Answer tool schema mode:",
+          "The answer tool input schema is bound to the full section schema for this model.",
+          "Call `answer` only when the complete object satisfies every required field and section-specific body key.",
+          "",
+        ]
+      : []),
     "You MUST call the `answer` tool with the COMPLETE structured section output — every required field (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`, `body`) must be present and non-empty. If any required field is unknown, KEEP RESEARCHING with the available tools. The `answer` tool will reject incomplete input and feed the error back to you; if that happens, fix the missing fields and call it again. Do not respond with text after a successful `answer` call.",
   ].join("\n");
 }
