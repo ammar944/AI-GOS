@@ -75,12 +75,12 @@ describe('trimResearchForScripts', () => {
 
   it('limits competitors to top 3', () => {
     const result = trimResearchForScripts(fullResearch);
-    expect(result.competitors.competitors).toHaveLength(3);
+    expect(result.competitors?.competitors).toHaveLength(3);
   });
 
   it('limits keywords to top 10', () => {
     const result = trimResearchForScripts(fullResearch);
-    expect(result.keywordIntel.keywords).toHaveLength(10);
+    expect(result.keywordIntel?.keywords).toHaveLength(10);
   });
 
   it('extracts targetAudience from ICP persona', () => {

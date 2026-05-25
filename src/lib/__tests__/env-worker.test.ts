@@ -9,6 +9,7 @@ describe('validateWorkerUrl', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     process.env = originalEnv;
   });
 
@@ -27,7 +28,7 @@ describe('validateWorkerUrl', () => {
   });
 
   it('returns configured: false and a helpful message when RAILWAY_WORKER_URL is missing in production', async () => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     delete process.env.RAILWAY_WORKER_URL;
     const { validateWorkerUrl } = await import('../env');
     const result = validateWorkerUrl();
@@ -44,7 +45,7 @@ describe('validateWorkerUrl', () => {
   });
 
   it('returns configured: false when RAILWAY_WORKER_URL is whitespace only in production', async () => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     process.env.RAILWAY_WORKER_URL = '   ';
     const { validateWorkerUrl } = await import('../env');
     const result = validateWorkerUrl();

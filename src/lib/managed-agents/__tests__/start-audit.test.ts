@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import { startManagedAudit } from '../start-audit';
+import { startManagedAudit, type StartManagedAuditInput } from '../start-audit';
+
+type ManagedAuditFactories = NonNullable<StartManagedAuditInput['factories']>;
+type SpecialistOptions = Parameters<ManagedAuditFactories['createOrReuseSpecialistAgent']>[0];
+type CoordinatorOptions = Parameters<ManagedAuditFactories['createOrReuseCoordinatorAgent']>[0];
+type SessionOptions = Parameters<ManagedAuditFactories['createSession']>[0];
 
 const SIX_SECTION_RUN_IDS = POSITIONING_SECTION_IDS.map((sectionId, index) => ({
   section_id: sectionId,
@@ -24,19 +29,31 @@ function makeFactories() {
   return {
     createOrReuseEnvironment: vi.fn(async () => ({ id: 'env-1', reused: false })),
     createOrReuseSpecialistAgent: vi.fn(
-      async ({ sectionId }: { sectionId: string }) => ({
+      async ({ sectionId }: SpecialistOptions) => ({
         id: `spec-${sectionId}`,
         reused: false,
         sectionId,
       }),
     ),
-    createOrReuseCoordinatorAgent: vi.fn(async () => ({
+    createOrReuseCoordinatorAgent: vi.fn(async (options: CoordinatorOptions) => ({
       id: 'coord-1',
       reused: false,
-      sectionId: 'positioningMarketCategory',
+      sectionId: options.specialists[0]?.sectionId ?? 'positioningMarketCategory',
     })),
-    createSession: vi.fn(async () => ({ id: 'sesn-1' })),
+    createSession: vi.fn(async (options: SessionOptions) => ({
+      id: 'sesn-1',
+      agent: options.agentId,
+      environment_id: options.environmentId,
+    })),
   };
+}
+
+function getCoordinatorOptions(factories: ReturnType<typeof makeFactories>): CoordinatorOptions {
+  const call = factories.createOrReuseCoordinatorAgent.mock.calls[0];
+  if (!call) {
+    throw new Error('createOrReuseCoordinatorAgent was not called');
+  }
+  return call[0];
 }
 
 function makeSeedImpl(sectionRunIds = SIX_SECTION_RUN_IDS) {
@@ -68,13 +85,12 @@ describe('startManagedAudit', () => {
 
     expect(factories.createOrReuseSpecialistAgent).toHaveBeenCalledTimes(6);
     const specialistSectionIds = factories.createOrReuseSpecialistAgent.mock.calls
-      .map((call) => (call[0] as { sectionId: string }).sectionId)
+      .map((call) => call[0].sectionId)
       .sort();
     expect(specialistSectionIds).toEqual([...POSITIONING_SECTION_IDS].sort());
 
     expect(factories.createOrReuseCoordinatorAgent).toHaveBeenCalledTimes(1);
-    const coordinatorArgs = factories.createOrReuseCoordinatorAgent.mock
-      .calls[0][0] as { specialists: Array<{ sectionId: string }> };
+    const coordinatorArgs = getCoordinatorOptions(factories);
     expect(coordinatorArgs.specialists).toHaveLength(6);
     expect(coordinatorArgs.specialists.map((s) => s.sectionId).sort()).toEqual(
       [...POSITIONING_SECTION_IDS].sort(),
@@ -126,11 +142,10 @@ describe('startManagedAudit', () => {
     });
 
     expect(result.sectionRunIds).toHaveLength(1);
-    expect(result.sectionRunIds[0].sectionId).toBe('positioningBuyerICP');
+    expect(result.sectionRunIds[0]?.sectionId).toBe('positioningBuyerICP');
     expect(factories.createOrReuseSpecialistAgent).toHaveBeenCalledTimes(1);
-    const coordinatorArgs = factories.createOrReuseCoordinatorAgent.mock
-      .calls[0][0] as { specialists: Array<{ sectionId: string }> };
+    const coordinatorArgs = getCoordinatorOptions(factories);
     expect(coordinatorArgs.specialists).toHaveLength(1);
-    expect(coordinatorArgs.specialists[0].sectionId).toBe('positioningBuyerICP');
+    expect(coordinatorArgs.specialists[0]?.sectionId).toBe('positioningBuyerICP');
   });
 });

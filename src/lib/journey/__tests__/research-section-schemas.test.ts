@@ -39,6 +39,15 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         messagingOpportunities: {
           summaryRecommendations: ['Lead with revenue visibility and signal quality'],
         },
+        marketOpportunities: [
+          {
+            opportunity: 'Own fast implementation proof for growth-stage SaaS',
+            size: 'medium',
+            timing: 'now',
+            difficulty: 'medium',
+            evidence: 'Competitor reviews repeatedly mention slow onboarding.',
+          },
+        ],
       } satisfies JourneySectionDataMap['industryResearch'],
     ],
     [
@@ -51,6 +60,13 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
             positioning: 'Fast attribution for growth-stage SaaS teams',
             price: '$499/mo',
             pricingConfidence: 'high',
+            pricingTiers: [
+              {
+                name: 'Growth',
+                price: '$499/mo',
+                description: 'Core attribution workflow for growth-stage SaaS teams.',
+              },
+            ],
             strengths: ['Strong category awareness'],
             weaknesses: ['Weak onboarding depth'],
             opportunities: ['Win on implementation speed'],
@@ -107,6 +123,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
             recommendedAction: 'Lead with launch speed in paid creative and landing page proof.',
           },
         ],
+        positioningMoves: [],
         overallLandscape:
           'Crowded market with strong demand but weak differentiation on onboarding speed.',
       } satisfies JourneySectionDataMap['competitorIntel'],
@@ -123,6 +140,15 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         audienceSize: 'Medium',
         confidenceScore: 82,
         decisionProcess: 'Marketing leader shortlists, founder approves',
+        audienceRefinements: [
+          {
+            refinement: 'Prioritize teams with recent board reporting pressure.',
+            segment: 'Growth-stage SaaS marketing leaders',
+            expectedLift: 'moderate',
+            testMethod: 'Split LinkedIn audiences by recent funding and headcount growth.',
+            risk: 'Audience may be too narrow without enough spend.',
+          },
+        ],
       } satisfies JourneySectionDataMap['icpValidation'],
     ],
     [
@@ -159,6 +185,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         ],
         pricingAnalysis: {
           currentPricing: '$3,000/month',
+          pricingSource: 'Client onboarding input and competitor benchmark range.',
           marketBenchmark: '$2,000-$4,500/month',
           pricingPosition: 'mid-market',
           coldTrafficViability:
@@ -169,6 +196,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         messagingRecommendations: [
           'Lead with the measurable revenue outcome before listing deliverables.',
         ],
+        generatedOfferStatements: [],
       } satisfies JourneySectionDataMap['offerAnalysis'],
     ],
     [

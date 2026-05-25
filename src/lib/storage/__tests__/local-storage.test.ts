@@ -25,7 +25,6 @@ import {
   clearAllSavedData,
   clearMediaPlan,
   clearBlueprintAndPlan,
-  type GenerationState,
 } from "../local-storage";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
@@ -114,7 +113,6 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         objections: [{ objection: "Price", howToAddress: "ROI focus" }],
       },
       messagingOpportunities: {
-        opportunities: ["Efficiency gains"],
         summaryRecommendations: ["Focus on ROI"],
       },
     },
@@ -144,16 +142,92 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         tamAlignedWithCac: true,
         notes: "Feasible",
       },
-      riskAssessment: {
-        reachability: "low",
-        budget: "low",
-        painStrength: "low",
-        competitiveness: "medium",
-      },
+      riskScores: [
+        {
+          risk: "Paid audience may be narrower than expected",
+          category: "audience_reachability",
+          probability: 2,
+          impact: 3,
+          mitigation: "Validate audience size before campaign launch",
+        },
+      ],
       finalVerdict: {
         status: "validated",
         reasoning: "ICP is validated",
         recommendations: ["Proceed"],
+      },
+      customerPsychographics: {
+        goalsAndDreams: ["Scale without adding headcount"],
+        fearsAndInsecurities: ["Falling behind competitors"],
+        embarrassingSituations: ["Explaining missed targets"],
+        perceivedEnemy: "Manual reporting work",
+        failedSolutions: ["Spreadsheet dashboards"],
+        dayInTheLife: "I spend too much time reconciling reports instead of improving pipeline.",
+      },
+      triggerEvents: [
+        {
+          event: "Quarterly board review",
+          annualFrequencyEstimate: "4 times per year",
+          urgencyLevel: "near-term",
+          detectionMethod: "Target teams hiring revenue operations roles",
+          recommendedHook: "Board-ready reporting before the next quarter closes",
+        },
+      ],
+      segmentSizing: [
+        {
+          totalAddressableAccounts: 1200,
+          totalAddressableContacts: 3600,
+          segmentSharePercent: 35,
+          priorityTier: 1,
+          recommendedBudgetWeight: 60,
+          priorityFactors: {
+            painSeverity: 8,
+            budgetAuthority: 7,
+            reachability: 8,
+            triggerFrequency: 6,
+          },
+        },
+      ],
+      samEstimate: {
+        totalMatchingCompanies: 1200,
+        filteringFunnel: [
+          {
+            stage: "Growth-stage SaaS",
+            count: 1200,
+            dropOffReason: "Outside target firmographics",
+          },
+        ],
+        estimatedSAMCompanies: 420,
+        estimatedAnnualContractValue: 3000000,
+        confidence: "medium",
+        dataSources: ["Mock fixture"],
+      },
+      sensitivityAnalysis: {
+        bestCase: {
+          assumedCPL: 80,
+          assumedLeadToSqlRate: 25,
+          assumedSqlToCustomerRate: 20,
+          conditions: "Strong creative-market fit",
+        },
+        baseCase: {
+          assumedCPL: 120,
+          assumedLeadToSqlRate: 18,
+          assumedSqlToCustomerRate: 12,
+          conditions: "Expected launch performance",
+          confidencePercent: 70,
+        },
+        worstCase: {
+          assumedCPL: 180,
+          assumedLeadToSqlRate: 10,
+          assumedSqlToCustomerRate: 8,
+          conditions: "Weak audience match",
+        },
+        breakEven: {
+          maxCPLFor3xLTV: 150,
+          maxCAC: 2500,
+          minLeadToSqlRate: 12,
+          budgetFloorForTesting: 3000,
+        },
       },
     },
     offerAnalysisViability: {
@@ -201,7 +275,6 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         },
       ],
       creativeLibrary: {
-        adHooks: ["Save time"],
         creativeFormats: {
           ugc: true,
           carousels: true,
@@ -220,6 +293,16 @@ function createMockBlueprint(): StrategicBlueprintOutput {
       },
       marketStrengths: ["Established brands"],
       marketWeaknesses: ["Slow innovation"],
+      whiteSpaceGaps: [
+        {
+          gap: "Speed-focused implementation proof",
+          type: "messaging",
+          evidence: "Competitors emphasize enterprise breadth over fast launch.",
+          exploitability: 8,
+          impact: 7,
+          recommendedAction: "Lead paid creative with time-to-value proof.",
+        },
+      ],
       gapsAndOpportunities: {
         messagingOpportunities: ["Speed"],
         creativeOpportunities: ["UGC"],
@@ -236,7 +319,6 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         },
       ],
       recommendedPositioning: "Agile solution for growing businesses",
-      primaryMessagingAngles: ["Speed", "ROI"],
       recommendedPlatforms: [
         {
           platform: "Meta",

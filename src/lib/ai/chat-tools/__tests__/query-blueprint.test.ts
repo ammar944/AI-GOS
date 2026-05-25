@@ -1,7 +1,71 @@
 import { describe, it, expect } from 'vitest';
 import { createQueryBlueprintTool } from '../query-blueprint';
 
-const fullBlueprint = {
+type QueryBlueprintSection =
+  | 'industryMarketOverview'
+  | 'icpAnalysisValidation'
+  | 'offerAnalysisViability'
+  | 'competitorAnalysis'
+  | 'crossAnalysisSynthesis';
+
+interface QueryBlueprintInput {
+  section: QueryBlueprintSection;
+  aspect?: string;
+}
+
+type QueryBlueprintResult =
+  | {
+      section: QueryBlueprintSection;
+      label: string;
+      status: 'empty';
+      summary: null;
+      error: string;
+    }
+  | {
+      section: QueryBlueprintSection;
+      label: string;
+      status: 'loaded';
+      aspect: string;
+      summary: Record<string, unknown>;
+      tokenEstimate: number;
+      note: string;
+    };
+
+type QueryBlueprintExecute = (
+  input: QueryBlueprintInput,
+  options: never,
+) => QueryBlueprintResult | PromiseLike<QueryBlueprintResult>;
+
+function expectLoaded(
+  result: QueryBlueprintResult,
+): asserts result is Extract<QueryBlueprintResult, { status: 'loaded' }> {
+  expect(result.status).toBe('loaded');
+  if (result.status !== 'loaded') {
+    throw new Error(`Expected loaded query-blueprint result, received ${result.status}`);
+  }
+}
+
+function expectEmpty(
+  result: QueryBlueprintResult,
+): asserts result is Extract<QueryBlueprintResult, { status: 'empty' }> {
+  expect(result.status).toBe('empty');
+  if (result.status !== 'empty') {
+    throw new Error(`Expected empty query-blueprint result, received ${result.status}`);
+  }
+}
+
+async function executeQueryBlueprint(
+  blueprintInput: Record<string, unknown>,
+  input: QueryBlueprintInput,
+): Promise<QueryBlueprintResult> {
+  const execute = createQueryBlueprintTool(blueprintInput).execute;
+  if (!execute) {
+    throw new Error('createQueryBlueprintTool returned a tool without execute');
+  }
+  return (execute as unknown as QueryBlueprintExecute)(input, {} as never);
+}
+
+const fullBlueprint: Record<string, unknown> = {
   industryMarketOverview: {
     categorySnapshot: { category: 'AI Software', marketSize: '$5B' },
     painPoints: {
@@ -45,18 +109,16 @@ const fullBlueprint = {
 
 describe('createQueryBlueprintTool', () => {
   it('returns condensed industry market section', async () => {
-    const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute({ section: 'industryMarketOverview' }, {} as never);
-    expect(result.status).toBe('loaded');
+    const result = await executeQueryBlueprint(fullBlueprint, { section: 'industryMarketOverview' });
+    expectLoaded(result);
     expect(result.summary).toBeDefined();
     expect((result.summary as Record<string, unknown>).primaryPainPoints).toHaveLength(5);
     expect((result.summary as Record<string, unknown>).messagingOpportunities).toHaveLength(5);
   });
 
   it('returns condensed offer section with all 6 dimension scores', async () => {
-    const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute({ section: 'offerAnalysisViability' }, {} as never);
-    expect(result.status).toBe('loaded');
+    const result = await executeQueryBlueprint(fullBlueprint, { section: 'offerAnalysisViability' });
+    expectLoaded(result);
     const summary = result.summary as Record<string, unknown>;
     expect(summary.overallScore).toBe(8.5);
     expect(summary.dimensionScores).toBeDefined();
@@ -65,9 +127,8 @@ describe('createQueryBlueprintTool', () => {
   });
 
   it('returns condensed competitor analysis', async () => {
-    const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute({ section: 'competitorAnalysis' }, {} as never);
-    expect(result.status).toBe('loaded');
+    const result = await executeQueryBlueprint(fullBlueprint, { section: 'competitorAnalysis' });
+    expectLoaded(result);
     const summary = result.summary as Record<string, unknown>;
     const competitors = summary.competitors as Array<Record<string, unknown>>;
     expect(competitors).toHaveLength(1);
@@ -77,32 +138,29 @@ describe('createQueryBlueprintTool', () => {
   });
 
   it('returns error for missing section', async () => {
-    const queryBlueprint = createQueryBlueprintTool({});
-    const result = await queryBlueprint.execute(
+    const result = await executeQueryBlueprint(
+      {},
       { section: 'industryMarketOverview' },
-      {} as never
     );
-    expect(result.status).toBe('empty');
+    expectEmpty(result);
     expect(result.error).toBeDefined();
     expect(result.summary).toBeNull();
   });
 
   it('output stays under 6000 chars (1500 tokens)', async () => {
-    const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute(
+    const result = await executeQueryBlueprint(
+      fullBlueprint,
       { section: 'competitorAnalysis' },
-      {} as never
     );
     expect(JSON.stringify(result).length).toBeLessThan(6000);
   });
 
   it('accepts optional aspect parameter without error', async () => {
-    const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute(
+    const result = await executeQueryBlueprint(
+      fullBlueprint,
       { section: 'industryMarketOverview', aspect: 'pain points' },
-      {} as never
     );
-    expect(result.status).toBe('loaded');
+    expectLoaded(result);
     expect(result.aspect).toBe('pain points');
   });
 });
