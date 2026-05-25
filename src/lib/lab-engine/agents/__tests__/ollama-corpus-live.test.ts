@@ -24,10 +24,6 @@ import {
 import { runSection } from "../run-section";
 
 const runOllamaCanary = process.env.RUN_OLLAMA_CORPUS_CANARY === "true";
-const describeOllamaCanary: typeof describe = runOllamaCanary
-  ? describe
-  : describe.skip;
-
 const ollamaCanarySectionIds = [
   "positioningMarketCategory",
   "positioningBuyerICP",
@@ -160,16 +156,17 @@ function assertFirstTryConformance({
     );
   }
 
-  const nonAnswerTools = sectionEvents.filter(
-    (event) =>
-      event.type === "tool-started" && event.metadata.toolName !== "answer",
+  const nonAnswerToolNames = sectionEvents.flatMap((event) =>
+    event.type === "tool-started" && event.metadata.toolName !== "answer"
+      ? [event.metadata.toolName]
+      : [],
   );
 
-  if (nonAnswerTools.length > 0) {
+  if (nonAnswerToolNames.length > 0) {
     throw new Error(
-      `${sectionId} used non-corpus tool calls: ${nonAnswerTools
-        .map((event) => event.metadata.toolName)
-        .join(", ")}`,
+      `${sectionId} used non-corpus tool calls: ${nonAnswerToolNames.join(
+        ", ",
+      )}`,
     );
   }
 }
@@ -234,7 +231,7 @@ function formatSeconds(startMs: number, endMs: number): string {
   return ((endMs - startMs) / 1000).toFixed(1);
 }
 
-describeOllamaCanary("DeepSeek Ollama corpus canary", (): void => {
+describe.skipIf(!runOllamaCanary)("DeepSeek corpus canary", (): void => {
   it(
     "validates all six corpus-only sections through the answer-tool path",
     async (): Promise<void> => {
