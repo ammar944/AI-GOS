@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
+import { persistenceGateEvalCases } from '@/lib/lab-engine/fixtures/persistence-gate-evals';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
@@ -212,4 +213,24 @@ describe('createSupabaseRunStore', (): void => {
       expect.anything(),
     );
   });
+
+  for (const evalCase of persistenceGateEvalCases) {
+    it(`${evalCase.name} before committing to Supabase`, async (): Promise<void> => {
+      const fakeSupabase = createFakeSupabase();
+      const store = createSupabaseRunStore({
+        supabase: fakeSupabase.supabase,
+        parentAuditRunId,
+        sectionRunIdByZone,
+        researchInput: saaslaunchResearchInput,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      });
+
+      await expect(
+        store.saveArtifact(saaslaunchResearchInput.runId, evalCase.artifact),
+      ).rejects.toThrow(evalCase.expectedError);
+
+      expect(fakeSupabase.from).not.toHaveBeenCalled();
+      expect(fakeSupabase.rpc).not.toHaveBeenCalled();
+    });
+  }
 });
