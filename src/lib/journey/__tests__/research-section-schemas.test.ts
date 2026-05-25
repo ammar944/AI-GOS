@@ -39,6 +39,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         messagingOpportunities: {
           summaryRecommendations: ['Lead with revenue visibility and signal quality'],
         },
+        marketOpportunities: [],
       } satisfies JourneySectionDataMap['industryResearch'],
     ],
     [
@@ -51,6 +52,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
             positioning: 'Fast attribution for growth-stage SaaS teams',
             price: '$499/mo',
             pricingConfidence: 'high',
+            pricingTiers: [],
             strengths: ['Strong category awareness'],
             weaknesses: ['Weak onboarding depth'],
             opportunities: ['Win on implementation speed'],
@@ -109,6 +111,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         ],
         overallLandscape:
           'Crowded market with strong demand but weak differentiation on onboarding speed.',
+        positioningMoves: [],
       } satisfies JourneySectionDataMap['competitorIntel'],
     ],
     [
@@ -123,6 +126,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         audienceSize: 'Medium',
         confidenceScore: 82,
         decisionProcess: 'Marketing leader shortlists, founder approves',
+        audienceRefinements: [],
       } satisfies JourneySectionDataMap['icpValidation'],
     ],
     [
@@ -159,6 +163,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         ],
         pricingAnalysis: {
           currentPricing: '$3,000/month',
+          pricingSource: null,
           marketBenchmark: '$2,000-$4,500/month',
           pricingPosition: 'mid-market',
           coldTrafficViability:
@@ -169,6 +174,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         messagingRecommendations: [
           'Lead with the measurable revenue outcome before listing deliverables.',
         ],
+        generatedOfferStatements: [],
       } satisfies JourneySectionDataMap['offerAnalysis'],
     ],
     [

@@ -75,11 +75,17 @@ describe('trimResearchForScripts', () => {
 
   it('limits competitors to top 3', () => {
     const result = trimResearchForScripts(fullResearch);
+    if (result.competitors === undefined) {
+      throw new Error('Expected competitors to be present.');
+    }
     expect(result.competitors.competitors).toHaveLength(3);
   });
 
   it('limits keywords to top 10', () => {
     const result = trimResearchForScripts(fullResearch);
+    if (result.keywordIntel === undefined) {
+      throw new Error('Expected keywordIntel to be present.');
+    }
     expect(result.keywordIntel.keywords).toHaveLength(10);
   });
 

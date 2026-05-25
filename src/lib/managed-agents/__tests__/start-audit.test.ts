@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import {
+  POSITIONING_SECTION_IDS,
+  type PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import { startManagedAudit } from '../start-audit';
 
 const SIX_SECTION_RUN_IDS = POSITIONING_SECTION_IDS.map((sectionId, index) => ({
@@ -24,7 +27,7 @@ function makeFactories() {
   return {
     createOrReuseEnvironment: vi.fn(async () => ({ id: 'env-1', reused: false })),
     createOrReuseSpecialistAgent: vi.fn(
-      async ({ sectionId }: { sectionId: string }) => ({
+      async ({ sectionId }: { sectionId: PositioningSectionId }) => ({
         id: `spec-${sectionId}`,
         reused: false,
         sectionId,
@@ -33,9 +36,13 @@ function makeFactories() {
     createOrReuseCoordinatorAgent: vi.fn(async () => ({
       id: 'coord-1',
       reused: false,
-      sectionId: 'positioningMarketCategory',
+      sectionId: POSITIONING_SECTION_IDS[0],
     })),
-    createSession: vi.fn(async () => ({ id: 'sesn-1' })),
+    createSession: vi.fn(async () => ({
+      id: 'sesn-1',
+      agent: 'coord-1',
+      environment_id: 'env-1',
+    })),
   };
 }
 
@@ -73,8 +80,9 @@ describe('startManagedAudit', () => {
     expect(specialistSectionIds).toEqual([...POSITIONING_SECTION_IDS].sort());
 
     expect(factories.createOrReuseCoordinatorAgent).toHaveBeenCalledTimes(1);
-    const coordinatorArgs = factories.createOrReuseCoordinatorAgent.mock
-      .calls[0][0] as { specialists: Array<{ sectionId: string }> };
+    const coordinatorCalls = factories.createOrReuseCoordinatorAgent.mock
+      .calls as unknown as Array<[{ specialists: Array<{ sectionId: string }> }]>;
+    const coordinatorArgs = coordinatorCalls[0][0];
     expect(coordinatorArgs.specialists).toHaveLength(6);
     expect(coordinatorArgs.specialists.map((s) => s.sectionId).sort()).toEqual(
       [...POSITIONING_SECTION_IDS].sort(),
@@ -128,8 +136,9 @@ describe('startManagedAudit', () => {
     expect(result.sectionRunIds).toHaveLength(1);
     expect(result.sectionRunIds[0].sectionId).toBe('positioningBuyerICP');
     expect(factories.createOrReuseSpecialistAgent).toHaveBeenCalledTimes(1);
-    const coordinatorArgs = factories.createOrReuseCoordinatorAgent.mock
-      .calls[0][0] as { specialists: Array<{ sectionId: string }> };
+    const coordinatorCalls = factories.createOrReuseCoordinatorAgent.mock
+      .calls as unknown as Array<[{ specialists: Array<{ sectionId: string }> }]>;
+    const coordinatorArgs = coordinatorCalls[0][0];
     expect(coordinatorArgs.specialists).toHaveLength(1);
     expect(coordinatorArgs.specialists[0].sectionId).toBe('positioningBuyerICP');
   });

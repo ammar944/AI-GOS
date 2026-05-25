@@ -114,7 +114,6 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         objections: [{ objection: "Price", howToAddress: "ROI focus" }],
       },
       messagingOpportunities: {
-        opportunities: ["Efficiency gains"],
         summaryRecommendations: ["Focus on ROI"],
       },
     },
@@ -144,16 +143,91 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         tamAlignedWithCac: true,
         notes: "Feasible",
       },
-      riskAssessment: {
-        reachability: "low",
-        budget: "low",
-        painStrength: "low",
-        competitiveness: "medium",
-      },
+      riskScores: [
+        {
+          risk: "Paid channel reach may be narrower than expected",
+          category: "audience_reachability",
+          probability: 2,
+          impact: 3,
+        },
+      ],
       finalVerdict: {
         status: "validated",
         reasoning: "ICP is validated",
         recommendations: ["Proceed"],
+      },
+      customerPsychographics: {
+        goalsAndDreams: ["Run a more efficient operation"],
+        fearsAndInsecurities: ["Falling behind competitors"],
+        embarrassingSituations: ["Manual reporting errors in leadership meetings"],
+        perceivedEnemy: "Operational drag",
+        failedSolutions: ["Spreadsheets"],
+        dayInTheLife: "They spend the day reconciling reports manually.",
+      },
+      triggerEvents: [
+        {
+          event: "New growth target",
+          annualFrequencyEstimate: "Quarterly",
+          urgencyLevel: "near-term",
+          detectionMethod: "Hiring and growth announcements",
+          recommendedHook: "Scale without operational drag",
+        },
+      ],
+      segmentSizing: [
+        {
+          totalAddressableAccounts: 1000,
+          totalAddressableContacts: 3000,
+          segmentSharePercent: 25,
+          priorityTier: 1,
+          recommendedBudgetWeight: 60,
+          priorityFactors: {
+            painSeverity: 8,
+            budgetAuthority: 7,
+            reachability: 6,
+            triggerFrequency: 5,
+          },
+        },
+      ],
+      samEstimate: {
+        totalMatchingCompanies: 1000,
+        filteringFunnel: [
+          {
+            stage: "Initial segment",
+            count: 1000,
+            dropOffReason: "Baseline",
+          },
+        ],
+        estimatedSAMCompanies: 500,
+        estimatedAnnualContractValue: 6000,
+        confidence: "medium",
+        dataSources: ["Mock fixture"],
+      },
+      sensitivityAnalysis: {
+        bestCase: {
+          assumedCPL: 100,
+          assumedLeadToSqlRate: 20,
+          assumedSqlToCustomerRate: 10,
+          conditions: "Strong creative-market fit",
+        },
+        baseCase: {
+          assumedCPL: 150,
+          assumedLeadToSqlRate: 15,
+          assumedSqlToCustomerRate: 8,
+          conditions: "Expected launch performance",
+          confidencePercent: 70,
+        },
+        worstCase: {
+          assumedCPL: 250,
+          assumedLeadToSqlRate: 8,
+          assumedSqlToCustomerRate: 4,
+          conditions: "Weak early signal quality",
+        },
+        breakEven: {
+          maxCPLFor3xLTV: 300,
+          maxCAC: 2000,
+          minLeadToSqlRate: 10,
+          budgetFloorForTesting: 5000,
+        },
       },
     },
     offerAnalysisViability: {
@@ -201,7 +275,6 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         },
       ],
       creativeLibrary: {
-        adHooks: ["Save time"],
         creativeFormats: {
           ugc: true,
           carousels: true,
@@ -220,6 +293,16 @@ function createMockBlueprint(): StrategicBlueprintOutput {
       },
       marketStrengths: ["Established brands"],
       marketWeaknesses: ["Slow innovation"],
+      whiteSpaceGaps: [
+        {
+          gap: "Self-serve launch messaging",
+          type: "messaging",
+          evidence: "Competitors emphasize enterprise demos.",
+          exploitability: 7,
+          impact: 8,
+          recommendedAction: "Lead with launch speed.",
+        },
+      ],
       gapsAndOpportunities: {
         messagingOpportunities: ["Speed"],
         creativeOpportunities: ["UGC"],
@@ -236,7 +319,6 @@ function createMockBlueprint(): StrategicBlueprintOutput {
         },
       ],
       recommendedPositioning: "Agile solution for growing businesses",
-      primaryMessagingAngles: ["Speed", "ROI"],
       recommendedPlatforms: [
         {
           platform: "Meta",

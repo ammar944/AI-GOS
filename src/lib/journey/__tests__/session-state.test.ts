@@ -124,7 +124,7 @@ describe('extractAskUserResults', () => {
         id: 'msg-1',
         role: 'user',
         parts: [{ type: 'text', text: 'Hello' }],
-      } as UIMessage,
+      } as unknown as UIMessage,
     ];
     expect(extractAskUserResults(messages)).toEqual({});
   });
@@ -143,7 +143,7 @@ describe('extractAskUserResults', () => {
             output: { value: 'B2B SaaS', confirmed: true },
           },
         ],
-      } as UIMessage,
+      } as unknown as UIMessage,
     ];
     const result = extractAskUserResults(messages);
     expect(result).toEqual({
@@ -165,7 +165,7 @@ describe('extractAskUserResults', () => {
             output: null,
           },
         ],
-      } as UIMessage,
+      } as unknown as UIMessage,
     ];
     const result = extractAskUserResults(messages);
     expect(result).toEqual({});
@@ -179,7 +179,7 @@ describe('extractResearchOutputs', () => {
         id: 'msg-1',
         role: 'user',
         parts: [{ type: 'text', text: 'Go research.' }],
-      } as UIMessage,
+      } as unknown as UIMessage,
     ];
     expect(extractResearchOutputs(messages)).toEqual({});
   });
@@ -203,7 +203,7 @@ describe('extractResearchOutputs', () => {
             output,
           },
         ],
-      } as UIMessage,
+      } as unknown as UIMessage,
     ];
 
     const result = extractResearchOutputs(messages);
@@ -282,7 +282,7 @@ describe('extractResearchOutputs', () => {
             output: null,
           },
         ],
-      } as UIMessage,
+      } as unknown as UIMessage,
     ];
     expect(extractResearchOutputs(messages)).toEqual({});
   });

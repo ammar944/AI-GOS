@@ -1,6 +1,30 @@
 import { describe, it, expect } from 'vitest';
 import { createQueryBlueprintTool } from '../query-blueprint';
 
+type QueryBlueprintTool = ReturnType<typeof createQueryBlueprintTool>;
+type QueryBlueprintInput = Parameters<
+  NonNullable<QueryBlueprintTool['execute']>
+>[0];
+
+interface QueryBlueprintResult {
+  status: 'loaded' | 'empty';
+  summary: unknown;
+  aspect?: string;
+  error?: string;
+}
+
+async function executeQueryBlueprint(
+  tool: QueryBlueprintTool,
+  input: QueryBlueprintInput,
+): Promise<QueryBlueprintResult> {
+  if (tool.execute === undefined) {
+    throw new Error('Expected query blueprint tool to expose execute.');
+  }
+
+  const result = await tool.execute(input, {} as never);
+  return result as QueryBlueprintResult;
+}
+
 const fullBlueprint = {
   industryMarketOverview: {
     categorySnapshot: { category: 'AI Software', marketSize: '$5B' },
@@ -46,7 +70,7 @@ const fullBlueprint = {
 describe('createQueryBlueprintTool', () => {
   it('returns condensed industry market section', async () => {
     const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute({ section: 'industryMarketOverview' }, {} as never);
+    const result = await executeQueryBlueprint(queryBlueprint, { section: 'industryMarketOverview' });
     expect(result.status).toBe('loaded');
     expect(result.summary).toBeDefined();
     expect((result.summary as Record<string, unknown>).primaryPainPoints).toHaveLength(5);
@@ -55,7 +79,7 @@ describe('createQueryBlueprintTool', () => {
 
   it('returns condensed offer section with all 6 dimension scores', async () => {
     const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute({ section: 'offerAnalysisViability' }, {} as never);
+    const result = await executeQueryBlueprint(queryBlueprint, { section: 'offerAnalysisViability' });
     expect(result.status).toBe('loaded');
     const summary = result.summary as Record<string, unknown>;
     expect(summary.overallScore).toBe(8.5);
@@ -66,7 +90,7 @@ describe('createQueryBlueprintTool', () => {
 
   it('returns condensed competitor analysis', async () => {
     const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute({ section: 'competitorAnalysis' }, {} as never);
+    const result = await executeQueryBlueprint(queryBlueprint, { section: 'competitorAnalysis' });
     expect(result.status).toBe('loaded');
     const summary = result.summary as Record<string, unknown>;
     const competitors = summary.competitors as Array<Record<string, unknown>>;
@@ -78,10 +102,9 @@ describe('createQueryBlueprintTool', () => {
 
   it('returns error for missing section', async () => {
     const queryBlueprint = createQueryBlueprintTool({});
-    const result = await queryBlueprint.execute(
-      { section: 'industryMarketOverview' },
-      {} as never
-    );
+    const result = await executeQueryBlueprint(queryBlueprint, {
+      section: 'industryMarketOverview',
+    });
     expect(result.status).toBe('empty');
     expect(result.error).toBeDefined();
     expect(result.summary).toBeNull();
@@ -89,19 +112,18 @@ describe('createQueryBlueprintTool', () => {
 
   it('output stays under 6000 chars (1500 tokens)', async () => {
     const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute(
-      { section: 'competitorAnalysis' },
-      {} as never
-    );
+    const result = await executeQueryBlueprint(queryBlueprint, {
+      section: 'competitorAnalysis',
+    });
     expect(JSON.stringify(result).length).toBeLessThan(6000);
   });
 
   it('accepts optional aspect parameter without error', async () => {
     const queryBlueprint = createQueryBlueprintTool(fullBlueprint);
-    const result = await queryBlueprint.execute(
-      { section: 'industryMarketOverview', aspect: 'pain points' },
-      {} as never
-    );
+    const result = await executeQueryBlueprint(queryBlueprint, {
+      section: 'industryMarketOverview',
+      aspect: 'pain points',
+    });
     expect(result.status).toBe('loaded');
     expect(result.aspect).toBe('pain points');
   });
