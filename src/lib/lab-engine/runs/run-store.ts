@@ -17,6 +17,7 @@ import {
   type ActivityEvent,
   type SectionId,
 } from "../events/activity-event";
+import { assertSectionArtifactPersistable } from "../sections/section-registry";
 
 const safeRunIdPattern = /^[A-Za-z0-9_-]+$/;
 
@@ -504,6 +505,7 @@ export function createRunStore(
 
       const filePath = getRunFilePath(rootDir, runId);
       const parsedArtifact = artifactEnvelopeSchema.parse(artifact);
+      assertSectionArtifactPersistable(parsedArtifact);
       assertArtifactBelongsToRun({
         action,
         artifact: parsedArtifact,

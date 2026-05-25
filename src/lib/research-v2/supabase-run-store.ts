@@ -19,6 +19,7 @@ import {
   type SectionId,
 } from '@/lib/lab-engine/events/activity-event';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
+import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/section-registry';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
@@ -206,6 +207,7 @@ export function createSupabaseRunStore(
     ): Promise<RunRecord> => {
       assertRunId(input.runId, runId, 'saveArtifact');
       const parsedArtifact = artifactEnvelopeSchema.parse(artifact);
+      assertSectionArtifactPersistable(parsedArtifact);
       const sectionRunId = sectionRunIdFor(
         options.sectionRunIdByZone,
         parsedArtifact.sectionId,

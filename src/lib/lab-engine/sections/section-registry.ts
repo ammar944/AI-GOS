@@ -1,6 +1,9 @@
 import type { z } from "zod";
 
-import type { ArtifactEnvelope } from "../artifacts/artifact-envelope";
+import {
+  artifactEnvelopeSchema,
+  type ArtifactEnvelope,
+} from "../artifacts/artifact-envelope";
 import {
   buyerICPBodySchema,
   buyerICPSectionOutputSchema,
@@ -264,4 +267,88 @@ export function isSupportedSectionId(
     typeof value === "string" &&
     Object.prototype.hasOwnProperty.call(SECTION_REGISTRY, value)
   );
+}
+
+export class SectionArtifactValidationError extends Error {
+  public readonly errors: string[];
+  public readonly sectionId: string;
+
+  public constructor(sectionId: string, errors: readonly string[]) {
+    super(
+      `Artifact for section ${sectionId} failed persistence validation: ${errors.join("; ")}`,
+    );
+    this.name = "SectionArtifactValidationError";
+    this.sectionId = sectionId;
+    this.errors = [...errors];
+  }
+}
+
+interface PersistableSectionDefinition {
+  bodySchema: z.ZodType<Record<string, unknown>>;
+  validateMinimums: (
+    artifact: ArtifactEnvelope & { body: Record<string, unknown> },
+  ) => ValidationResult;
+}
+
+function formatZodIssuePath(path: readonly (string | number | symbol)[]): string {
+  if (path.length === 0) {
+    return "artifact";
+  }
+
+  return path.map((part) => String(part)).join(".");
+}
+
+function getPersistableSectionDefinition(
+  sectionId: SupportedSectionId,
+): PersistableSectionDefinition {
+  return SECTION_REGISTRY[
+    sectionId
+  ] as unknown as PersistableSectionDefinition;
+}
+
+export function assertSectionArtifactPersistable(
+  artifact: ArtifactEnvelope,
+): void {
+  const envelopeResult = artifactEnvelopeSchema.safeParse(artifact);
+
+  if (!envelopeResult.success) {
+    throw new SectionArtifactValidationError(
+      "unknown",
+      envelopeResult.error.issues.map(
+        (issue) => `${formatZodIssuePath(issue.path)}: ${issue.message}`,
+      ),
+    );
+  }
+
+  if (!isSupportedSectionId(envelopeResult.data.sectionId)) {
+    throw new SectionArtifactValidationError(envelopeResult.data.sectionId, [
+      `Unsupported sectionId ${envelopeResult.data.sectionId}`,
+    ]);
+  }
+
+  const definition = getPersistableSectionDefinition(
+    envelopeResult.data.sectionId,
+  );
+  const bodyResult = definition.bodySchema.safeParse(envelopeResult.data.body);
+
+  if (!bodyResult.success) {
+    throw new SectionArtifactValidationError(
+      envelopeResult.data.sectionId,
+      bodyResult.error.issues.map(
+        (issue) => `body.${formatZodIssuePath(issue.path)}: ${issue.message}`,
+      ),
+    );
+  }
+
+  const minimums = definition.validateMinimums({
+    ...envelopeResult.data,
+    body: bodyResult.data,
+  });
+
+  if (!minimums.ok) {
+    throw new SectionArtifactValidationError(
+      envelopeResult.data.sectionId,
+      minimums.errors,
+    );
+  }
 }

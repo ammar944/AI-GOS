@@ -182,4 +182,34 @@ describe('createSupabaseRunStore', (): void => {
     );
     expect(failed.sections.positioningMarketCategory?.status).toBe('idle');
   });
+
+  it('rejects artifacts that fail section minimums before committing to Supabase', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    const shortArtifact = {
+      ...marketCategoryFixtureArtifact,
+      body: {
+        ...marketCategoryFixtureArtifact.body,
+        marketSize: {
+          ...marketCategoryFixtureArtifact.body.marketSize,
+          signals: [],
+        },
+      },
+    };
+
+    await expect(
+      store.saveArtifact(saaslaunchResearchInput.runId, shortArtifact),
+    ).rejects.toThrow(/body\.marketSize\.signals/u);
+
+    expect(fakeSupabase.rpc).not.toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.anything(),
+    );
+  });
 });
