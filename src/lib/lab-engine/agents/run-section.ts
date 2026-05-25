@@ -44,6 +44,7 @@ import {
   type StructuredCaller,
   type StructuredStreamer,
 } from "./section-agent";
+import { createLabSectionTelemetry } from "./telemetry";
 import { createAnswerTool } from "./answer-tool";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
@@ -1274,6 +1275,12 @@ async function callStructuredAttempt({
         prompt,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
         signal: timeoutSignal.signal,
+        telemetry: createLabSectionTelemetry({
+          operation: "structured-output",
+          runId: input.runId,
+          schemaName: definition.sectionOutputSchemaName,
+          sectionId: input.sectionId,
+        }),
       }),
       structuredOutputTimeoutMs,
     );
@@ -1368,6 +1375,13 @@ async function callStructuredStreamAttempt({
         timeoutSignal.signal,
         idleController.signal,
       ]),
+      telemetry: createLabSectionTelemetry({
+        attempt,
+        operation: "structured-output-stream",
+        runId: input.runId,
+        schemaName: definition.sectionOutputSchemaName,
+        sectionId: input.sectionId,
+      }),
     });
 
     await consumePartialsUntilAbort({
@@ -1624,6 +1638,11 @@ async function runSectionViaAnswerTool(
         answerTool: createAnswerTool(definition.sectionOutputSchema),
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
+        telemetry: createLabSectionTelemetry({
+          operation: "answer-tool",
+          runId: input.runId,
+          sectionId: input.sectionId,
+        }),
       },
       onStep: (step) => {
         toolEvents.push(
@@ -1838,6 +1857,11 @@ async function streamSectionViaAnswerTool(
         answerTool: createAnswerTool(definition.sectionOutputSchema),
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
+        telemetry: createLabSectionTelemetry({
+          operation: "answer-tool-stream",
+          runId: input.runId,
+          sectionId: input.sectionId,
+        }),
       },
       onStep: (step) => {
         const events = buildToolEvents({
@@ -2106,6 +2130,11 @@ export async function streamRunSection(
       maxStepCount: 4,
       maxOutputTokens: 2048,
       signal: input.signal,
+      telemetry: createLabSectionTelemetry({
+        operation: "evidence-pass-stream",
+        runId: input.runId,
+        sectionId: input.sectionId,
+      }),
       onStepFinish: (step) => {
         const events = buildToolEvents({
           deps,
@@ -2451,6 +2480,11 @@ export async function runSection(
       maxStepCount: 4,
       maxOutputTokens: 2048,
       signal: input.signal,
+      telemetry: createLabSectionTelemetry({
+        operation: "evidence-pass",
+        runId: input.runId,
+        sectionId: input.sectionId,
+      }),
       onStepFinish: (step) => {
         toolEvents.push(
           ...buildToolEvents({

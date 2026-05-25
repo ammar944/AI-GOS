@@ -39,6 +39,21 @@ describe('runSection corpus-only mode', (): void => {
     const output = buildMarketCategoryOutput();
     const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
       expect(Object.keys(params.externalTools)).toEqual([]);
+      expect(params.telemetry).toEqual(
+        expect.objectContaining({
+          functionId: 'lab-section.answer-tool',
+          isEnabled: true,
+          recordInputs: true,
+          recordOutputs: true,
+          metadata: expect.objectContaining({
+            model: 'claude-sonnet-4-5',
+            operation: 'answer-tool',
+            runId: saaslaunchResearchInput.runId,
+            sectionId: 'positioningMarketCategory',
+            traceId: saaslaunchResearchInput.runId,
+          }),
+        }),
+      );
       return {
         steps: [],
         text: '',

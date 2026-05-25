@@ -10,6 +10,7 @@ import {
   stepCountIs,
   streamText,
   type StepResult,
+  type TelemetrySettings,
   type Tool,
   type ToolSet,
   ToolLoopAgent,
@@ -40,6 +41,7 @@ export interface EvidencePassParams {
   maxStepCount: number;
   maxOutputTokens: number;
   signal?: AbortSignal;
+  telemetry?: TelemetrySettings;
   onStepFinish?: (step: AgentStep) => void;
 }
 
@@ -63,6 +65,7 @@ export interface AnswerToolParams {
   maxStepCount: number;
   maxOutputTokens: number;
   signal?: AbortSignal;
+  telemetry?: TelemetrySettings;
   onStepFinish?: (step: AgentStep) => void;
 }
 
@@ -285,6 +288,7 @@ export const defaultEvidencePassRunner: EvidencePassRunner = async (
     tools: params.tools as never,
     stopWhen: stepCountIs(params.maxStepCount) as never,
     maxOutputTokens: params.maxOutputTokens,
+    experimental_telemetry: params.telemetry,
     prepareStep: ({ stepNumber }) => {
       const requiredTool = params.requiredToolSequence?.[stepNumber];
 
@@ -321,6 +325,7 @@ export const defaultEvidenceStreamRunner: EvidenceStreamRunner = async (
     tools: params.tools as never,
     stopWhen: stepCountIs(params.maxStepCount) as never,
     maxOutputTokens: params.maxOutputTokens,
+    experimental_telemetry: params.telemetry,
     prepareStep: ({ stepNumber }) => {
       const requiredTool = params.requiredToolSequence?.[stepNumber];
 
@@ -368,6 +373,7 @@ export const defaultAnswerToolRunner: AnswerToolRunner = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
+    experimental_telemetry: params.telemetry,
     prepareStep: forwardAnthropicContainerIdFromLastStep,
   });
   const result = await agent.generate({
@@ -403,6 +409,7 @@ export const defaultAnswerToolStreamer: AnswerToolStreamer = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
+    experimental_telemetry: params.telemetry,
     prepareStep: forwardAnthropicContainerIdFromLastStep,
   });
   const result = await agent.stream({
@@ -435,6 +442,7 @@ export interface StructuredCallParams<TOutput> {
   prompt: string;
   maxOutputTokens: number;
   signal?: AbortSignal;
+  telemetry?: TelemetrySettings;
 }
 
 export type StructuredCaller = (
@@ -1036,6 +1044,7 @@ async function generateStructuredResult({
     maxOutputTokens: params.maxOutputTokens,
     prompt: params.prompt,
     abortSignal: params.signal,
+    experimental_telemetry: params.telemetry,
     providerOptions: {
       anthropic: {
         structuredOutputMode,
@@ -1071,6 +1080,7 @@ function streamStructuredResult({
     maxOutputTokens: params.maxOutputTokens,
     prompt: params.prompt,
     abortSignal: params.signal,
+    experimental_telemetry: params.telemetry,
     // AI SDK native timeout — fires inside the iterator if a chunk does not
     // arrive within chunkMs or the call exceeds totalMs. Without this, a
     // parked partialOutputStream would block the for-await consumer in
