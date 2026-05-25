@@ -84,6 +84,10 @@ export interface RequiredToolStep {
   toolChoice: "required" | { type: "tool"; toolName: string };
 }
 
+type AnswerToolPrepareStep =
+  | typeof forwardAnthropicContainerIdFromLastStep
+  | (() => RequiredToolStep);
+
 function getPropertyValue(object: unknown, key: string): unknown {
   if (typeof object !== "object" || object === null || !(key in object)) {
     return undefined;
@@ -369,7 +373,10 @@ export const defaultAnswerToolRunner: AnswerToolRunner = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
-    prepareStep: getAnthropicPrepareStep(params.model),
+    prepareStep: getAnswerToolPrepareStep({
+      externalTools: params.externalTools,
+      model: params.model,
+    }),
   });
   const result = await agent.generate({
     prompt: params.prompt,
@@ -404,7 +411,10 @@ export const defaultAnswerToolStreamer: AnswerToolStreamer = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
-    prepareStep: getAnthropicPrepareStep(params.model),
+    prepareStep: getAnswerToolPrepareStep({
+      externalTools: params.externalTools,
+      model: params.model,
+    }),
   });
   const result = await agent.stream({
     prompt: params.prompt,
@@ -465,6 +475,31 @@ function getAnthropicPrepareStep(
   }
 
   return forwardAnthropicContainerIdFromLastStep;
+}
+
+function hasExternalTools(externalTools: Record<string, unknown>): boolean {
+  return Object.keys(externalTools).length > 0;
+}
+
+function getRequiredAnswerToolPrepareStep(): () => RequiredToolStep {
+  return () => ({
+    activeTools: ["answer"],
+    toolChoice: { type: "tool", toolName: "answer" },
+  });
+}
+
+function getAnswerToolPrepareStep({
+  externalTools,
+  model,
+}: {
+  externalTools: Record<string, unknown>;
+  model: SectionLanguageModel;
+}): AnswerToolPrepareStep | undefined {
+  if (!isAnthropicModel(model) && !hasExternalTools(externalTools)) {
+    return getRequiredAnswerToolPrepareStep();
+  }
+
+  return getAnthropicPrepareStep(model);
 }
 
 function getStructuredProviderOptions({

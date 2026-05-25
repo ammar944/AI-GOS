@@ -26,4 +26,18 @@ describe("buildAnswerToolInstructions", (): void => {
       "The answer tool input schema is bound to the full section schema for this model.",
     );
   });
+
+  it("spells out Market Category validator cardinality minimums", (): void => {
+    const prompt = buildAnswerToolInstructions(
+      definition,
+      saaslaunchResearchInput,
+    );
+
+    expect(prompt).toContain(
+      "`body.marketSize.signals` must include at least three public trajectory signals",
+    );
+    expect(prompt).toContain(
+      "`body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals",
+    );
+  });
 });

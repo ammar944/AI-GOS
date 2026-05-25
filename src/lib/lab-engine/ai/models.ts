@@ -5,6 +5,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 export const SONNET_SECTION_MODEL_ID = "claude-sonnet-4-5";
 export const DEEPSEEK_SECTION_MODEL_ID = "deepseek-v4-flash";
 export const DEFAULT_DEEPSEEK_OLLAMA_BASE_URL = "http://localhost:11434/v1";
+export const DEFAULT_DEEPSEEK_OLLAMA_MODEL_ID = DEEPSEEK_SECTION_MODEL_ID;
 
 export type SectionModelProvider =
   | "anthropic"
@@ -118,19 +119,22 @@ function createDeepSeekOllamaSelection(
   const baseURL =
     getTrimmedEnvValue(env, "DEEPSEEK_OLLAMA_BASE_URL") ??
     DEFAULT_DEEPSEEK_OLLAMA_BASE_URL;
+  const modelId =
+    getTrimmedEnvValue(env, "DEEPSEEK_OLLAMA_MODEL_ID") ??
+    DEFAULT_DEEPSEEK_OLLAMA_MODEL_ID;
   const ollama = createOpenAICompatible({
     apiKey: getTrimmedEnvValue(env, "OLLAMA_API_KEY") ?? "ollama",
     baseURL,
     name: "ollama",
   });
-  const sectionRunnerModel = ollama(DEEPSEEK_SECTION_MODEL_ID);
+  const sectionRunnerModel = ollama(modelId);
 
   return {
     metadata: {
       baseURL,
       provider: "deepseek-ollama",
-      modelId: DEEPSEEK_SECTION_MODEL_ID,
-      repairModelId: DEEPSEEK_SECTION_MODEL_ID,
+      modelId,
+      repairModelId: modelId,
       transport: "ollama-openai-compatible",
     },
     repairModel: sectionRunnerModel,

@@ -87,4 +87,19 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.sectionRunnerModel.provider).toBe("ollama.chat");
     expect(selection.sectionRunnerModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
   });
+
+  it("allows Ollama to use the locally installed tagged model id", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        DEEPSEEK_OLLAMA_MODEL_ID: "deepseek-v4-flash:cloud",
+        LAB_ENGINE_PROVIDER: "deepseek-ollama",
+      }),
+    );
+
+    expect(selection.metadata.modelId).toBe("deepseek-v4-flash:cloud");
+    expect(selection.metadata.repairModelId).toBe("deepseek-v4-flash:cloud");
+    expect(selection.sectionRunnerModel.modelId).toBe(
+      "deepseek-v4-flash:cloud",
+    );
+  });
 });

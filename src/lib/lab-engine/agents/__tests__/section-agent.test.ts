@@ -87,6 +87,22 @@ function getLastRecord(calls: readonly unknown[]): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function getPrepareStep(
+  calls: readonly unknown[],
+): ((params: { stepNumber: number }) => unknown) | undefined {
+  const prepareStep = getLastRecord(calls).prepareStep;
+
+  if (prepareStep === undefined) {
+    return undefined;
+  }
+
+  if (typeof prepareStep !== "function") {
+    throw new Error("Expected prepareStep to be a function.");
+  }
+
+  return prepareStep as (params: { stepNumber: number }) => unknown;
+}
+
 const answerTool = {
   description: "answer",
   inputSchema: z.object({}),
@@ -118,7 +134,7 @@ describe("section-agent provider-specific options", (): void => {
     );
   });
 
-  it("omits Anthropic container forwarding for DeepSeek answer-tool runs", async (): Promise<void> => {
+  it("requires the answer tool for corpus-only DeepSeek answer-tool runs", async (): Promise<void> => {
     await defaultAnswerToolRunner({
       answerTool,
       externalTools: {},
@@ -129,10 +145,27 @@ describe("section-agent provider-specific options", (): void => {
       prompt: "prompt",
     });
 
+    expect(getPrepareStep(aiMocks.toolLoopAgentSettings)?.({ stepNumber: 0 })).toEqual({
+      activeTools: ["answer"],
+      toolChoice: { type: "tool", toolName: "answer" },
+    });
+  });
+
+  it("omits Anthropic container forwarding for DeepSeek answer-tool runs with external tools", async (): Promise<void> => {
+    await defaultAnswerToolRunner({
+      answerTool,
+      externalTools: { web_search: answerTool },
+      instructions: "instructions",
+      maxOutputTokens: 1000,
+      maxStepCount: 2,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+    });
+
     expect(getLastRecord(aiMocks.toolLoopAgentSettings).prepareStep).toBeUndefined();
   });
 
-  it("omits Anthropic container forwarding for DeepSeek answer-tool streams", async (): Promise<void> => {
+  it("requires the answer tool for corpus-only DeepSeek answer-tool streams", async (): Promise<void> => {
     await defaultAnswerToolStreamer({
       answerTool,
       externalTools: {},
@@ -143,7 +176,10 @@ describe("section-agent provider-specific options", (): void => {
       prompt: "prompt",
     });
 
-    expect(getLastRecord(aiMocks.toolLoopAgentSettings).prepareStep).toBeUndefined();
+    expect(getPrepareStep(aiMocks.toolLoopAgentSettings)?.({ stepNumber: 0 })).toEqual({
+      activeTools: ["answer"],
+      toolChoice: { type: "tool", toolName: "answer" },
+    });
   });
 
   it("keeps Anthropic structured provider options for Anthropic structured calls", async (): Promise<void> => {
