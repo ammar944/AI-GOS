@@ -87,6 +87,8 @@ export interface RequiredToolStep {
 type AnswerToolPrepareStep =
   | typeof forwardAnthropicContainerIdFromLastStep
   | (() => RequiredToolStep);
+type ToolLoopAgentSettings = ConstructorParameters<typeof ToolLoopAgent>[0];
+type AnswerToolProviderOptions = ToolLoopAgentSettings["providerOptions"];
 
 function getPropertyValue(object: unknown, key: string): unknown {
   if (typeof object !== "object" || object === null || !(key in object)) {
@@ -373,6 +375,7 @@ export const defaultAnswerToolRunner: AnswerToolRunner = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
+    providerOptions: getAnswerToolProviderOptions(params.model),
     prepareStep: getAnswerToolPrepareStep({
       externalTools: params.externalTools,
       model: params.model,
@@ -411,6 +414,7 @@ export const defaultAnswerToolStreamer: AnswerToolStreamer = async (
       hasSuccessfulAnswerResult,
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
+    providerOptions: getAnswerToolProviderOptions(params.model),
     prepareStep: getAnswerToolPrepareStep({
       externalTools: params.externalTools,
       model: params.model,
@@ -465,6 +469,24 @@ type AnthropicStructuredOutputMode = "jsonTool" | "outputFormat";
 
 function isAnthropicModel(model: SectionLanguageModel): boolean {
   return model.provider.startsWith("anthropic.");
+}
+
+function isDeepSeekModel(model: SectionLanguageModel): boolean {
+  return model.provider.startsWith("deepseek.");
+}
+
+function getAnswerToolProviderOptions(
+  model: SectionLanguageModel,
+): AnswerToolProviderOptions {
+  if (!isDeepSeekModel(model)) {
+    return undefined;
+  }
+
+  return {
+    deepseek: {
+      thinking: { type: "disabled" },
+    },
+  };
 }
 
 function getAnthropicPrepareStep(

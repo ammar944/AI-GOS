@@ -149,6 +149,9 @@ describe("section-agent provider-specific options", (): void => {
       activeTools: ["answer"],
       toolChoice: { type: "tool", toolName: "answer" },
     });
+    expect(getLastRecord(aiMocks.toolLoopAgentSettings).providerOptions).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
   });
 
   it("omits Anthropic container forwarding for DeepSeek answer-tool runs with external tools", async (): Promise<void> => {
@@ -163,6 +166,9 @@ describe("section-agent provider-specific options", (): void => {
     });
 
     expect(getLastRecord(aiMocks.toolLoopAgentSettings).prepareStep).toBeUndefined();
+    expect(getLastRecord(aiMocks.toolLoopAgentSettings).providerOptions).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
   });
 
   it("requires the answer tool for corpus-only DeepSeek answer-tool streams", async (): Promise<void> => {
@@ -180,6 +186,7 @@ describe("section-agent provider-specific options", (): void => {
       activeTools: ["answer"],
       toolChoice: { type: "tool", toolName: "answer" },
     });
+    expect(getLastRecord(aiMocks.toolLoopAgentSettings).providerOptions).toBeUndefined();
   });
 
   it("keeps Anthropic structured provider options for Anthropic structured calls", async (): Promise<void> => {
