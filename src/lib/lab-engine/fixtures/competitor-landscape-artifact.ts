@@ -247,6 +247,36 @@ export const competitorLandscapeFixtureArtifact = artifactEnvelopeSchema
           },
         ],
       },
+      adPresence: {
+        prose:
+          "Fixture ad-presence signals show three competitors actively testing platform-specific GTM messages, with spend left as an explicit evidence-bounded estimate rather than a fabricated budget.",
+        signals: [
+          {
+            competitor: "SignalForge",
+            platforms: ["linkedin"],
+            estSpend: "unknown; one displayable LinkedIn creative observed",
+            evidence:
+              "LinkedIn ad copy centers on account-priority language for revenue teams.",
+            sourceUrl: "https://example.com/fixtures/ad-library/signalforge-linkedin",
+          },
+          {
+            competitor: "PipelinePilot",
+            platforms: ["google"],
+            estSpend: "unknown; one displayable Google search creative observed",
+            evidence:
+              "Google ad copy owns the CRM cleanup before pipeline review angle.",
+            sourceUrl: "https://example.com/fixtures/ad-library/pipelinepilot-google",
+          },
+          {
+            competitor: "RevenueOS Lab",
+            platforms: ["meta"],
+            estSpend: "unknown; one displayable Meta creative observed",
+            evidence:
+              "Meta creative frames the product as a browser-based revenue operator.",
+            sourceUrl: "https://example.com/fixtures/ad-library/revenueos-meta",
+          },
+        ],
+      },
       adEvidence: {
         prose:
           "Fixture ad evidence is artifact-owned and grouped by advertiser so the preview can show counts, source links, and bounded creatives without reading ResearchInput.competitorAds.",

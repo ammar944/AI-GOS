@@ -248,10 +248,30 @@ const COMPETITOR_LANDSCAPE_FIXTURE: CompetitorLandscapeArtifact = {
       },
     ],
   },
+  adPresence: {
+    prose:
+      'Paid-channel signals show active competitor messaging without inventing spend where libraries do not disclose it.',
+    signals: [
+      {
+        competitor: 'Fellow',
+        platforms: ['linkedin'],
+        estSpend: 'unknown; LinkedIn creatives observed',
+        evidence: 'LinkedIn ad library surfaced meeting-management creative themes.',
+        sourceUrl: 'https://example.com/ads/fellow-linkedin',
+      },
+      {
+        competitor: 'Otter.ai',
+        platforms: ['google', 'meta'],
+        estSpend: 'unknown; Google and Meta creatives observed',
+        evidence: 'Ad-library surfaces showed AI meeting-summary messaging.',
+        sourceUrl: 'https://example.com/ads/otter',
+      },
+    ],
+  },
 };
 
 describe('CompetitorLandscapeArtifactSchema', () => {
-  it('accepts a full fixture with the six canonical Section 03 sub-sections populated', () => {
+  it('accepts a full fixture with the seven canonical Section 03 sub-sections populated', () => {
     const result = CompetitorLandscapeArtifactSchema.safeParse(
       COMPETITOR_LANDSCAPE_FIXTURE,
     );

@@ -9,6 +9,7 @@ import type { ValidationResult } from "./market-category";
 const competitorTypes = ["direct", "indirect", "status-quo", "diy"] as const;
 const adPlatforms = ["google", "meta", "linkedin"] as const;
 const validUrlPattern = /^https?:\/\/\S+\.\S+/;
+const adPlatformSchema = z.enum(adPlatforms);
 
 const competitorSchema = z
   .object({
@@ -120,7 +121,22 @@ const narrativeArcsSchema = z
   })
   .strict();
 
-const adPlatformSchema = z.enum(adPlatforms);
+const adPresenceSignalSchema = z
+  .object({
+    competitor: z.string().min(1),
+    platforms: z.array(adPlatformSchema),
+    estSpend: z.string().min(1),
+    evidence: z.string().min(1),
+    sourceUrl: z.string().url(),
+  })
+  .strict();
+
+const adPresenceSchema = z
+  .object({
+    prose: z.string().min(1),
+    signals: z.array(adPresenceSignalSchema),
+  })
+  .strict();
 
 const adPlatformCountsSchema = z
   .object({
@@ -221,6 +237,7 @@ export const competitorLandscapeBodySchema = z
     shareOfVoice: shareOfVoiceSchema,
     publicWeaknesses: publicWeaknessesSchema,
     narrativeArcs: narrativeArcsSchema,
+    adPresence: adPresenceSchema,
     adEvidence: adEvidenceSchema,
   })
   .strict();
@@ -302,6 +319,7 @@ function validateRequiredFields(
     artifact.body.publicWeaknesses.prose,
   );
   pushMissingText(errors, "body.narrativeArcs.prose", artifact.body.narrativeArcs.prose);
+  pushMissingText(errors, "body.adPresence.prose", artifact.body.adPresence.prose);
   pushMissingText(errors, "body.adEvidence.prose", artifact.body.adEvidence.prose);
 
   artifact.sources.forEach((source, index) => {
@@ -403,6 +421,16 @@ function validateRequiredFields(
     pushMissingText(errors, `body.narrativeArcs.arcs[${index}].sourceUrl`, arc.sourceUrl);
     if (hasText(arc.sourceUrl)) {
       validateUrl(errors, `body.narrativeArcs.arcs[${index}].sourceUrl`, arc.sourceUrl);
+    }
+  });
+
+  artifact.body.adPresence.signals.forEach((signal, index) => {
+    pushMissingText(errors, `body.adPresence.signals[${index}].competitor`, signal.competitor);
+    pushMissingText(errors, `body.adPresence.signals[${index}].estSpend`, signal.estSpend);
+    pushMissingText(errors, `body.adPresence.signals[${index}].evidence`, signal.evidence);
+    pushMissingText(errors, `body.adPresence.signals[${index}].sourceUrl`, signal.sourceUrl);
+    if (hasText(signal.sourceUrl)) {
+      validateUrl(errors, `body.adPresence.signals[${index}].sourceUrl`, signal.sourceUrl);
     }
   });
 

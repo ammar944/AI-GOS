@@ -124,10 +124,13 @@ Examples:
 7. Write narrative arcs for the top competitors.
    **Validation:** at least 3 arcs include competitor, villain, hero, transformation claim, and source URL.
 
-8. Place normalized live ad evidence under `body.adEvidence`.
+8. Summarize competitor ad-platform presence under `body.adPresence`.
+   **Validation:** derive each signal from `adlibrary`, `google_ads`, or `meta_ads`; include competitor, observed platforms, evidence-bounded spend text (`unknown` is valid when spend is not disclosed), evidence summary, and source URL.
+
+9. Place normalized live ad evidence under `body.adEvidence`.
    **Validation:** use only the pre-normalized ad evidence from `adlibrary`, `google_ads`, or `meta_ads`; copy counts and source links without changing them; name gaps when a platform returned nothing displayable.
 
-9. Write 1-2 paragraphs of prose for each sub-section, then write a tight statusSummary, verdict, confidence score, and Section-level sources.
+10. Write 1-2 paragraphs of prose for each sub-section, then write a tight statusSummary, verdict, confidence score, and Section-level sources.
    **Validation:** prose explains competitive implications, cards carry evidence, confidence is a decimal in 0..1, and thin evidence is named directly.
 
 ## Output (Artifact shape)
@@ -145,7 +148,7 @@ Top-level output fields. These are the only allowed root keys:
 - `sources`: public sources that support the Section-level judgment.
 - `body`: required object containing all Competitor Landscape sub-sections.
 
-Seven body sub-sections. These keys must be nested under `body`, never at the root:
+Eight body sub-sections. These keys must be nested under `body`, never at the root:
 
 - `body.competitorSet`: `{ prose, competitors }`
 - `body.positioningTaxonomy`: `{ prose, axes }`
@@ -153,6 +156,7 @@ Seven body sub-sections. These keys must be nested under `body`, never at the ro
 - `body.shareOfVoice`: `{ prose, slices }`
 - `body.publicWeaknesses`: `{ prose, items }`
 - `body.narrativeArcs`: `{ prose, arcs }`
+- `body.adPresence`: `{ prose, signals }`
 - `body.adEvidence`: `{ prose, advertiserGroups }`
 
 Each sub-section has prose plus one homogeneous Card array. The prose carries synthesis, caveats, and implications. The cards carry concrete evidence.
@@ -219,6 +223,21 @@ Each sub-section has prose plus one homogeneous Card array. The prose carries sy
 | `hero` | string | Hero mechanism, product, or new way the competitor claims. |
 | `transformationClaim` | string | After-state the competitor promises. |
 | `sourceUrl` | string | Public URL supporting the arc. |
+
+### AdPresence
+
+`body.adPresence` is the media-plan-friendly competitor ad-platform summary.
+It carries the fields v3 needs for competitor marketing insights without
+forcing the media-plan section to interpret raw ad-library rows.
+
+| Field | Type | Description |
+|---|---|---|
+| `prose` | string | 1 paragraph summarizing observed paid-channel presence and gaps. |
+| `signals` | array | Per-competitor ad-platform signals. |
+
+Each signal includes `competitor`, `platforms` (`google`, `meta`, `linkedin`),
+`estSpend` (use `unknown` plus observed-count context when spend is not
+disclosed), `evidence`, and `sourceUrl`.
 
 ### AdEvidence
 

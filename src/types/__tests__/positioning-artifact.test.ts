@@ -105,6 +105,7 @@ const labFixtureCases: readonly LabFixtureCase[] = [
     artifact: competitorLandscapeFixtureArtifact,
     expectedBodyKeys: [
       'adEvidence',
+      'adPresence',
       'competitorSet',
       'narrativeArcs',
       'positioningTaxonomy',

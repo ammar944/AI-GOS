@@ -13,6 +13,7 @@ import { SourceSchema } from './_shared';
  */
 
 const COMPETITOR_TYPES = ['direct', 'indirect', 'status-quo', 'diy'] as const;
+const AD_PLATFORM_VALUES = ['google', 'meta', 'linkedin'] as const;
 
 const VALID_URL_PATTERN = /^https?:\/\/\S+\.\S+/;
 
@@ -190,6 +191,30 @@ export const NarrativeArcsSchema = z
   })
   .describe('Sub-section for competitor narrative arcs.');
 
+export const AdPresenceSignalSchema = z
+  .object({
+    competitor: z.string().describe('Competitor with observed paid-channel presence.'),
+    platforms: z
+      .enum(AD_PLATFORM_VALUES)
+      .array()
+      .describe('Observed ad platforms: google, meta, or linkedin.'),
+    estSpend: z
+      .string()
+      .describe('Evidence-bounded spend signal; use unknown when spend is not disclosed.'),
+    evidence: z.string().describe('Observed ad-presence evidence summary.'),
+    sourceUrl: z.string().describe('Source URL supporting the ad-presence signal.'),
+  })
+  .describe('One competitor ad-platform presence signal.');
+
+export const AdPresenceSchema = z
+  .object({
+    prose: z.string().describe('Narrative competitor ad-platform presence synthesis.'),
+    signals: AdPresenceSignalSchema.array().describe(
+      'Competitor ad-platform presence and spend signals.',
+    ),
+  })
+  .describe('Sub-section for competitor ad presence.');
+
 export const CompetitorLandscapeArtifactSchema = z
   .object({
     sectionTitle: z
@@ -224,6 +249,9 @@ export const CompetitorLandscapeArtifactSchema = z
     ),
     narrativeArcs: NarrativeArcsSchema.describe(
       'Competitor villain, hero, and transformation-claim narratives.',
+    ),
+    adPresence: AdPresenceSchema.describe(
+      'Competitor ad-platform presence and evidence-bounded spend signals.',
     ),
   })
   .describe('Complete Section 03 Competitor Landscape & Positioning Artifact.');
@@ -275,6 +303,7 @@ function validateRequiredFields(
   pushMissingText(errors, 'shareOfVoice.prose', artifact.shareOfVoice.prose);
   pushMissingText(errors, 'publicWeaknesses.prose', artifact.publicWeaknesses.prose);
   pushMissingText(errors, 'narrativeArcs.prose', artifact.narrativeArcs.prose);
+  pushMissingText(errors, 'adPresence.prose', artifact.adPresence.prose);
 
   artifact.sources.forEach((source, index) => {
     pushMissingText(errors, `sources[${index}].title`, source.title);
@@ -409,6 +438,16 @@ function validateRequiredFields(
     pushMissingText(errors, `narrativeArcs.arcs[${index}].sourceUrl`, arc.sourceUrl);
     if (hasText(arc.sourceUrl)) {
       validateUrl(errors, `narrativeArcs.arcs[${index}].sourceUrl`, arc.sourceUrl);
+    }
+  });
+
+  artifact.adPresence.signals.forEach((signal, index) => {
+    pushMissingText(errors, `adPresence.signals[${index}].competitor`, signal.competitor);
+    pushMissingText(errors, `adPresence.signals[${index}].estSpend`, signal.estSpend);
+    pushMissingText(errors, `adPresence.signals[${index}].evidence`, signal.evidence);
+    pushMissingText(errors, `adPresence.signals[${index}].sourceUrl`, signal.sourceUrl);
+    if (hasText(signal.sourceUrl)) {
+      validateUrl(errors, `adPresence.signals[${index}].sourceUrl`, signal.sourceUrl);
     }
   });
 }

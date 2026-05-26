@@ -421,6 +421,25 @@ describe('validateArtifactForSection (Competitor Landscape)', () => {
           sourceUrl: `https://example${i + 1}.com/arc`,
         })),
       },
+      adPresence: {
+        prose: 'Paid-channel signals show where competitors are active without inventing spend.',
+        signals: [
+          {
+            competitor: 'Alpha',
+            platforms: ['meta'],
+            estSpend: 'unknown; active Meta creatives observed',
+            evidence: 'Meta library surfaced active workflow-positioning creatives.',
+            sourceUrl: 'https://alpha.com/ads/meta',
+          },
+          {
+            competitor: 'Beta',
+            platforms: ['google'],
+            estSpend: 'unknown; Google text ads observed',
+            evidence: 'Google transparency surface showed problem-aware search ads.',
+            sourceUrl: 'https://beta.com/ads/google',
+          },
+        ],
+      },
     };
   }
 

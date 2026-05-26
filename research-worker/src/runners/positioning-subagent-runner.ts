@@ -826,7 +826,8 @@ type CompetitorLandscapeSubsectionKey =
   | 'pricingReality'
   | 'shareOfVoice'
   | 'publicWeaknesses'
-  | 'narrativeArcs';
+  | 'narrativeArcs'
+  | 'adPresence';
 
 function routeCompetitorLandscapeValidationError(
   error: string,
@@ -857,6 +858,9 @@ function routeCompetitorLandscapeValidationError(
   if (error.startsWith('publicWeaknesses')) {
     return 'publicWeaknesses';
   }
+  if (error.startsWith('adPresence')) {
+    return 'adPresence';
+  }
   return 'narrativeArcs';
 }
 
@@ -871,6 +875,7 @@ function annotateCompetitorLandscapeArtifactWithGaps(
     shareOfVoice: [],
     publicWeaknesses: [],
     narrativeArcs: [],
+    adPresence: [],
   };
 
   for (const error of errors) {
@@ -915,6 +920,10 @@ function annotateCompetitorLandscapeArtifactWithGaps(
       ...artifact.narrativeArcs,
       prose: appendGapBlock(artifact.narrativeArcs.prose, grouped.narrativeArcs),
     },
+    adPresence: {
+      ...artifact.adPresence,
+      prose: appendGapBlock(artifact.adPresence.prose, grouped.adPresence),
+    },
   };
 }
 
@@ -930,6 +939,7 @@ function getCompetitorLandscapePopulatedSubsectionCount(partial: unknown): numbe
     'shareOfVoice',
     'publicWeaknesses',
     'narrativeArcs',
+    'adPresence',
   ] as const;
 
   return fields.filter((field) => {
@@ -1000,7 +1010,7 @@ async function streamCompetitorLandscapeArtifact(args: {
     await emitRunnerProgress(
       args.onProgress,
       'runner',
-      `[runner] streamObject: subsection ${subsectionCount}/6 partial`,
+      `[runner] streamObject: subsection ${subsectionCount}/7 partial`,
       {
         section: 'positioningCompetitorLandscape',
         status: 'drafting',
@@ -1078,6 +1088,12 @@ function createCompetitorLandscapeFallbackArtifact(args: {
       ]),
       arcs: [],
     },
+    adPresence: {
+      prose: appendGapBlock(gapProse, [
+        'adPresence.signals: no ad-platform presence signals captured.',
+      ]),
+      signals: [],
+    },
   };
 }
 
@@ -1140,6 +1156,13 @@ function formatCompetitorLandscapeArtifactMarkdown(
     ...artifact.narrativeArcs.arcs.map(
       (arc) =>
         `- ${arc.competitor} — villain: ${arc.villain}; hero: ${arc.hero}; claim: ${arc.transformationClaim}`,
+    ),
+    '',
+    '### Ad Presence',
+    artifact.adPresence.prose,
+    ...artifact.adPresence.signals.map(
+      (signal) =>
+        `- ${signal.competitor} — ${signal.platforms.join(', ') || 'no active platform observed'} — ${signal.estSpend} — ${signal.evidence}`,
     ),
     '',
     '### Sources',

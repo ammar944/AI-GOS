@@ -30,6 +30,12 @@ const COMPETITOR_TYPE_LABEL: Record<string, string> = {
   diy: 'DIY',
 };
 
+const AD_PLATFORM_LABEL: Record<string, string> = {
+  google: 'Google',
+  meta: 'Meta',
+  linkedin: 'LinkedIn',
+};
+
 function CompetitorTypePill({ value }: { value: string }): React.ReactElement {
   return (
     <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
@@ -52,6 +58,11 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
   );
 }
 
+function formatPlatforms(platforms: readonly string[]): string {
+  if (platforms.length === 0) return 'No active platform observed';
+  return platforms.map((platform) => AD_PLATFORM_LABEL[platform] ?? platform).join(', ');
+}
+
 export function CompetitorLandscapeRenderer({
   artifact,
   className,
@@ -63,6 +74,7 @@ export function CompetitorLandscapeRenderer({
     shareOfVoice,
     publicWeaknesses,
     narrativeArcs,
+    adPresence,
   } = artifact;
 
   /* ───────── 1. Competitor set table ───────── */
@@ -185,6 +197,31 @@ export function CompetitorLandscapeRenderer({
     },
   ];
 
+  const adPresenceRows = adPresence?.signals ?? [];
+  const adPresenceColumns: ReadonlyArray<
+    DataTableColumn<(typeof adPresenceRows)[number]>
+  > = [
+    {
+      key: 'competitor',
+      header: 'Competitor',
+      render: row => (
+        <span className="font-medium text-[color:var(--text-primary)]">{row.competitor}</span>
+      ),
+    },
+    {
+      key: 'platforms',
+      header: 'Platforms',
+      render: row => formatPlatforms(row.platforms),
+    },
+    { key: 'estSpend', header: 'Spend Signal' },
+    { key: 'evidence', header: 'Evidence' },
+    {
+      key: 'sourceUrl',
+      header: 'Source',
+      render: row => <SourceLink url={row.sourceUrl} />,
+    },
+  ];
+
   return (
     <div className={cn('flex flex-col gap-12', className)}>
       <SubsectionBlock label="1 · Competitor Set" prose={competitorSet.prose}>
@@ -255,6 +292,16 @@ export function CompetitorLandscapeRenderer({
           rowKey={r => `${r.competitor}-${r.hero}`}
         />
       </SubsectionBlock>
+
+      {adPresence ? (
+        <SubsectionBlock label="7 · Ad Presence" prose={adPresence.prose}>
+          <DataTable
+            columns={adPresenceColumns}
+            rows={adPresenceRows}
+            rowKey={r => `${r.competitor}-${r.sourceUrl}`}
+          />
+        </SubsectionBlock>
+      ) : null}
     </div>
   );
 }

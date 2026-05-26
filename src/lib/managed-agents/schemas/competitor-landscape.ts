@@ -16,6 +16,7 @@ import {
  */
 
 const COMPETITOR_TYPES = ['direct', 'indirect', 'status-quo', 'diy'] as const;
+const AD_PLATFORM_VALUES = ['google', 'meta', 'linkedin'] as const;
 
 export const CompetitorSchema = z.object({
   name: z.string(),
@@ -101,6 +102,19 @@ export const NarrativeArcsSchema = z.object({
   arcs: NarrativeArcSchema.array(),
 });
 
+export const AdPresenceSignalSchema = z.object({
+  competitor: z.string(),
+  platforms: z.enum(AD_PLATFORM_VALUES).array(),
+  estSpend: z.string(),
+  evidence: z.string(),
+  sourceUrl: z.string(),
+});
+
+export const AdPresenceSchema = z.object({
+  prose: z.string(),
+  signals: AdPresenceSignalSchema.array(),
+});
+
 export const CompetitorLandscapeArtifactSchema = z
   .object({
     sectionTitle: z.string(),
@@ -114,6 +128,7 @@ export const CompetitorLandscapeArtifactSchema = z
     shareOfVoice: ShareOfVoiceSchema,
     publicWeaknesses: PublicWeaknessesSchema,
     narrativeArcs: NarrativeArcsSchema,
+    adPresence: AdPresenceSchema,
   })
   .describe('Complete Section 03 Competitor Landscape & Positioning Artifact.');
 
@@ -138,6 +153,7 @@ function validateRequiredFields(
   pushMissingText(errors, 'shareOfVoice.prose', artifact.shareOfVoice.prose);
   pushMissingText(errors, 'publicWeaknesses.prose', artifact.publicWeaknesses.prose);
   pushMissingText(errors, 'narrativeArcs.prose', artifact.narrativeArcs.prose);
+  pushMissingText(errors, 'adPresence.prose', artifact.adPresence.prose);
 
   artifact.sources.forEach((source, index) => {
     pushMissingText(errors, `sources[${index}].title`, source.title);
@@ -236,6 +252,16 @@ function validateRequiredFields(
     pushMissingText(errors, `narrativeArcs.arcs[${index}].sourceUrl`, arc.sourceUrl);
     if (hasText(arc.sourceUrl)) {
       validateUrl(errors, `narrativeArcs.arcs[${index}].sourceUrl`, arc.sourceUrl);
+    }
+  });
+
+  artifact.adPresence.signals.forEach((signal, index) => {
+    pushMissingText(errors, `adPresence.signals[${index}].competitor`, signal.competitor);
+    pushMissingText(errors, `adPresence.signals[${index}].estSpend`, signal.estSpend);
+    pushMissingText(errors, `adPresence.signals[${index}].evidence`, signal.evidence);
+    pushMissingText(errors, `adPresence.signals[${index}].sourceUrl`, signal.sourceUrl);
+    if (hasText(signal.sourceUrl)) {
+      validateUrl(errors, `adPresence.signals[${index}].sourceUrl`, signal.sourceUrl);
     }
   });
 }

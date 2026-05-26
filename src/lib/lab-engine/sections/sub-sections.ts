@@ -75,6 +75,10 @@ export const SECTION_SUB_SECTIONS: Record<
       label: "Competitor narrative arc",
     },
     {
+      key: "adPresence",
+      label: "Ad presence",
+    },
+    {
       key: "adEvidence",
       label: "Ad evidence",
     },
