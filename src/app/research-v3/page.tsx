@@ -1,9 +1,9 @@
 'use client';
 
-// /research-v3 — BattleshipShell variant.
+// /research-v3 — light Audit Reader variant.
 // Mirrors /research-v2/page.tsx state machine exactly:
 //   welcome → corpus → onboarding → sections → error
-// Only the sections phase differs: mounts <BattleshipShell> instead of <AuditReaderShell>.
+// Only the sections phase differs: mounts the v3 backend against the light reader shell.
 
 import { useReducer, useEffect, useCallback, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -26,7 +26,7 @@ import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
-import { BattleshipShell } from '@/components/research-v3/battleship-shell';
+import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
 import {
   getReaderSectionFromParam,
   type ReaderSectionId,
@@ -544,7 +544,7 @@ export default function ResearchV3Page() {
       )}
 
       {state.kind === 'sections' && (
-        <BattleshipShell
+        <AuditReaderShell
           runId={state.runId}
           activeSectionId={activeSectionId}
           onSectionChange={(sectionId: ReaderSectionId): void =>

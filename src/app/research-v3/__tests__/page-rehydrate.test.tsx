@@ -149,10 +149,11 @@ describe('ResearchV3Page runId rehydrate', () => {
     render(<ResearchV3Page />);
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('tab', { name: /paid media plan.*done/i }),
-      ).toHaveAttribute('aria-selected', 'true'),
+      expect(screen.getByText('Section 7 of 7')).toBeInTheDocument(),
     );
+    expect(
+      screen.getByRole('button', { name: /paid media plan.*7.2 confidence/i }),
+    ).toBeEnabled();
     expect(screen.queryByTestId('corpus')).toBeNull();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),

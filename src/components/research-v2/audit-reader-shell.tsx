@@ -135,6 +135,11 @@ function extractMetadata(raw: Record<string, unknown> | null): JourneyMetadata {
   return { companyName: name, websiteUrl: url };
 }
 
+function scrollElementToTop(element: HTMLElement | null): void {
+  if (!element || typeof element.scrollTo !== 'function') return;
+  element.scrollTo({ top: 0 });
+}
+
 // ---------------------------------------------------------------------------
 // Status indicator + confidence badge
 // ---------------------------------------------------------------------------
@@ -647,7 +652,7 @@ export function AuditReaderShell({
         setUserActive(id);
       }
       onSectionChange?.(id);
-      mainRef.current?.scrollTo({ top: 0 });
+      scrollElementToTop(mainRef.current);
     },
     [activeSectionId, onSectionChange],
   );
@@ -680,7 +685,7 @@ export function AuditReaderShell({
 
   // Reset scroll when the active section changes (incl. live default moves).
   useEffect(() => {
-    mainRef.current?.scrollTo({ top: 0 });
+    scrollElementToTop(mainRef.current);
   }, [active]);
 
   // ---- Actions ----------------------------------------------------------
