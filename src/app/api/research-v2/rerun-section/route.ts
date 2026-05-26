@@ -15,7 +15,7 @@
 //      mode by default.
 
 import { auth } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
@@ -23,11 +23,21 @@ import {
   OrchestrateRpcError,
   seedOrchestration,
 } from '@/lib/research-v2/orchestrate-db';
+import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
+import { scheduleLabSectionJob } from '@/lib/research-v2/lab-section-dispatch';
+import {
+  corpusReady,
+  getDeepResearchProgramData,
+  loadOwnedResearchSession,
+} from '@/lib/research-v2/orchestration-session';
 import { createAdminClient } from '@/lib/supabase/server';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const ABORT_TIMEOUT_MS = 3_000;
 const WORKER_KICKOFF_TIMEOUT_MS = 5_000;
-type ExecutionMode = 'draft' | 'deep';
+type ExecutionMode = 'draft' | 'deep' | 'lab';
 
 interface RerunSectionRequest {
   runId?: unknown;
@@ -48,7 +58,9 @@ function isPositioningZone(value: string): boolean {
 }
 
 function readExecutionMode(value: unknown): ExecutionMode {
-  return value === 'draft' || value === 'deep' ? value : 'deep';
+  return value === 'draft' || value === 'deep' || value === 'lab'
+    ? value
+    : 'deep';
 }
 
 async function abortIfRunning(opts: {
@@ -152,6 +164,17 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   const positioningZone = zone as PositioningSectionId;
 
+  if (executionMode === 'lab' && (usePartialContext || refinement)) {
+    return NextResponse.json(
+      {
+        error: 'lab_refinement_not_supported',
+        message:
+          'Lab reruns do not support refinement or partial-context replay yet',
+      },
+      { status: 400 },
+    );
+  }
+
   const supabase = createAdminClient();
   const { data: artifact } = await supabase
     .from('research_artifacts')
@@ -223,6 +246,54 @@ export async function POST(req: Request): Promise<NextResponse> {
     refinementParts.length > 0 ? refinementParts.join('\n\n') : undefined;
 
   try {
+    if (executionMode === 'lab') {
+      const session = await loadOwnedResearchSession({ userId, runId });
+      if (!session) {
+        return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
+      }
+      if (!corpusReady(session)) {
+        return NextResponse.json(
+          {
+            error: 'corpus_not_ready',
+            message:
+              'deepResearchProgram corpus must finish before rerunning a lab section',
+          },
+          { status: 409 },
+        );
+      }
+
+      const deepResearchProgramData = getDeepResearchProgramData(session);
+      if (deepResearchProgramData === null) {
+        return NextResponse.json(
+          {
+            error: 'corpus_data_missing',
+            message: `deepResearchProgram status is complete for run ${runId}, but data is missing`,
+          },
+          { status: 500 },
+        );
+      }
+
+      const researchInput = corpusToResearchInput({
+        runId,
+        deepResearchProgramData,
+        onboardingData: session.onboarding_data ?? {},
+      });
+      const seeded = await scheduleLabSectionJob({
+        userId,
+        runId,
+        sectionId: positioningZone,
+        zones: [positioningZone],
+        supabase,
+        researchInput,
+        schedule: after,
+      });
+
+      return NextResponse.json({
+        ...seeded,
+        executionMode,
+      });
+    }
+
     const seeded = await seedOrchestration({
       userId,
       runId,

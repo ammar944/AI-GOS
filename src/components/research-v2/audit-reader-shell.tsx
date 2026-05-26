@@ -58,6 +58,11 @@ import {
   getConfidenceToneClass,
   normalizeConfidenceToTen,
 } from '@/lib/research-v2/confidence-display';
+import {
+  buildSectionActivityFeed,
+  type SectionActivityItem,
+  type SectionActivityTone,
+} from '@/lib/research-v2/section-activity';
 import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
 import {
   pickPositioningTypedArtifact,
@@ -279,6 +284,55 @@ function SourcesList({
 // Reading-column states: running (skeleton + live feed), queued, error
 // ---------------------------------------------------------------------------
 
+const ACTIVITY_TONE_CLASS: Record<SectionActivityTone, string> = {
+  active: 'bg-primary',
+  neutral: 'bg-muted-foreground/50',
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  error: 'bg-rose-500',
+};
+
+function ActivityCountPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}): ReactElement | null {
+  if (value === 0) return null;
+
+  return (
+    <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+      {value} {label}
+    </span>
+  );
+}
+
+function ActivityFeedItem({
+  item,
+}: {
+  item: SectionActivityItem;
+}): ReactElement {
+  return (
+    <li className="relative pb-3 pl-4 last:pb-0">
+      <span
+        className={cn(
+          'absolute left-[-4.5px] top-1.5 size-2 rounded-full ring-4 ring-background',
+          ACTIVITY_TONE_CLASS[item.tone],
+        )}
+      />
+      <div className="text-[13px] font-medium leading-[1.4] text-foreground">
+        {item.title}
+      </div>
+      {item.detail ? (
+        <div className="mt-0.5 text-[12.5px] leading-[1.45] text-muted-foreground">
+          {item.detail}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 function LiveActivity({
   phaseLabel,
   latestActivity,
@@ -288,26 +342,41 @@ function LiveActivity({
   latestActivity: string | null;
   events: SectionEvent[];
 }): ReactElement {
-  // Newest last (events come back chronological). Show a tail of the feed.
-  const feed = events.slice(-8);
+  const activity = buildSectionActivityFeed({
+    events,
+    latestActivity,
+    phaseLabel,
+  });
+
   return (
     <div className="mt-8 space-y-6">
       <div className="flex items-center gap-2.5 text-[13.5px] text-foreground">
         <Loader2 className="size-4 animate-spin text-primary" strokeWidth={2.5} />
-        <span className="font-medium">{latestActivity ?? phaseLabel}</span>
+        <span className="font-medium">{activity.currentLabel}</span>
       </div>
 
-      {feed.length > 0 ? (
-        <ol className="space-y-2.5 border-l border-border pl-4">
-          {feed.map((e) => (
-            <li
-              key={e.id}
-              className="text-[13px] leading-[1.55] text-muted-foreground"
-            >
-              {e.message ?? e.event_type}
-            </li>
-          ))}
-        </ol>
+      {activity.items.length > 0 ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            <ActivityCountPill
+              label="tools"
+              value={activity.counts.toolsFinished}
+            />
+            <ActivityCountPill
+              label="sub-sections"
+              value={activity.counts.subSectionsCommitted}
+            />
+            <ActivityCountPill
+              label="repairs"
+              value={activity.counts.repairsStarted}
+            />
+          </div>
+          <ol className="border-l border-border">
+            {activity.items.map((item) => (
+              <ActivityFeedItem key={item.id} item={item} />
+            ))}
+          </ol>
+        </div>
       ) : null}
 
       {/* skeleton — gives the column body while the section drafts */}

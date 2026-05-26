@@ -7,6 +7,9 @@ const SECTION_RUN_ID = '22222222-2222-4222-8222-000000000004';
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
   const seedOrchestration = vi.fn();
+  const loadOwnedResearchSession = vi.fn();
+  const corpusToResearchInput = vi.fn();
+  const scheduleLabSectionJob = vi.fn();
   const artifactQuery = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -36,6 +39,9 @@ const routeMocks = vi.hoisted(() => {
     artifactQuery,
     sectionQuery,
     createAdminClient,
+    loadOwnedResearchSession,
+    corpusToResearchInput,
+    scheduleLabSectionJob,
   };
 });
 
@@ -45,6 +51,26 @@ vi.mock('@clerk/nextjs/server', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: routeMocks.createAdminClient,
+}));
+
+vi.mock('@/lib/research-v2/orchestration-session', () => ({
+  loadOwnedResearchSession: (...args: unknown[]) =>
+    routeMocks.loadOwnedResearchSession(...args),
+  corpusReady: (session: { corpusReady?: boolean }): boolean =>
+    session.corpusReady === true,
+  getDeepResearchProgramData: (
+    session: { deepResearchProgramData?: unknown },
+  ): unknown | null => session.deepResearchProgramData ?? null,
+}));
+
+vi.mock('@/lib/research-v2/corpus-to-research-input', () => ({
+  corpusToResearchInput: (...args: unknown[]) =>
+    routeMocks.corpusToResearchInput(...args),
+}));
+
+vi.mock('@/lib/research-v2/lab-section-dispatch', () => ({
+  scheduleLabSectionJob: (...args: unknown[]) =>
+    routeMocks.scheduleLabSectionJob(...args),
 }));
 
 vi.mock('@/lib/research-v2/orchestrate-db', async () => {
@@ -102,6 +128,26 @@ describe('POST /api/research-v2/rerun-section', () => {
       error: null,
     });
     mockSeeded();
+    routeMocks.loadOwnedResearchSession.mockResolvedValue({
+      corpusReady: true,
+      deepResearchProgramData: { corpus: { researchSummary: 'Fellow' } },
+      onboarding_data: { companyName: 'Fellow' },
+    });
+    routeMocks.corpusToResearchInput.mockReturnValue({
+      runId: RUN_ID,
+      fixtureId: 'brand_fellow',
+    });
+    routeMocks.scheduleLabSectionJob.mockResolvedValue({
+      parent_audit_run_id: PARENT_ID,
+      section_run_ids: [
+        {
+          section_id: 'positioningVoiceOfCustomer',
+          section_run_id: SECTION_RUN_ID,
+          ordinal: 4,
+          reused: false,
+        },
+      ],
+    });
   });
 
   it('returns 401 when there is no Clerk user', async () => {
@@ -183,5 +229,62 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(workerBody.refinement).toContain('tighten verbatim buyer language');
     expect(workerBody.refinement).toContain('<previous_attempt_partial>');
     expect(workerBody.refinement).toContain('partial artifact body');
+  });
+
+  it('schedules a one-section lab rerun when executionMode is lab', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: 'positioningVoiceOfCustomer',
+        executionMode: 'lab',
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.executionMode).toBe('lab');
+    expect(routeMocks.corpusToResearchInput).toHaveBeenCalledWith({
+      runId: RUN_ID,
+      deepResearchProgramData: { corpus: { researchSummary: 'Fellow' } },
+      onboardingData: { companyName: 'Fellow' },
+    });
+    expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user_1',
+        runId: RUN_ID,
+        sectionId: 'positioningVoiceOfCustomer',
+        zones: ['positioningVoiceOfCustomer'],
+        researchInput: {
+          runId: RUN_ID,
+          fixtureId: 'brand_fellow',
+        },
+      }),
+    );
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+  });
+
+  it('rejects lab refinements before abort or reseed side effects', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: 'positioningVoiceOfCustomer',
+        executionMode: 'lab',
+        refinement: 'tighten the buyer language',
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('lab_refinement_not_supported');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(routeMocks.createAdminClient).not.toHaveBeenCalled();
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 });

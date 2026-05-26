@@ -73,6 +73,10 @@ _Avoid_: UI brick (prior name — do not use in new code), block, widget, compon
 The user-facing UI surface where Audits are produced and viewed (`/research-v2`). Hosts the live Artifact panes per Section, the activity feed, and the Section-by-Section run controls.
 _Avoid_: Dashboard, app, page
 
+**Activity Event**:
+A durable runtime fact emitted while a Subagent works on a Section: section start/completion, Skill load, research tool start/finish, structured output, validation, repair, sub-section commit, Artifact save, or failure. Activity Events live in `research_section_events`; the Workspace adapts them into the visible activity feed. They are operational trace, not Artifact content.
+_Avoid_: Chat message, log line, progress copy, Artifact Card
+
 **Pre-Pitch Positioning Audit**:
 The productized name (per the locked April 29 strategic plan) for the Audit deliverable AI-GOS sells. The Audit IS the Pre-Pitch Positioning Audit; this is just the customer-facing label.
 _Avoid_: Pitch deck, strategy doc
@@ -90,6 +94,7 @@ _Avoid_: Use Artifact + Sub-section instead.
 - One **Audit** contains six **Sections** (fixed set, ordered)
 - Each **Section** is produced by exactly one **Subagent**
 - Each **Subagent** is bound to exactly one **Skill** and one research tool map
+- Each **Subagent** emits **Activity Events** while producing a Section
 - Each ported **Subagent** produces exactly one **Artifact** per run via a section-specific Artifact schema
 - Each **Artifact** contains top-level scalars (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`) and a fixed set of named **sub-sections** matching `docs/research-sections.md`
 - Each **sub-section** has its own `prose` markdown narrative and one or more **homogeneous** typed Card arrays — no global discriminated union of Card types

@@ -13,7 +13,10 @@ import {
   researchInputSchema,
   type ResearchInput,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
-import { runLabSectionJob } from '@/lib/research-v2/lab-section-job';
+import {
+  LAB_SECTION_JOB_TIMEOUT_MS,
+  scheduleLabSectionJob,
+} from '@/lib/research-v2/lab-section-dispatch';
 import {
   corpusReady,
   getDeepResearchProgramData,
@@ -21,14 +24,11 @@ import {
 } from '@/lib/research-v2/orchestration-session';
 import {
   OrchestrateRpcError,
-  seedOrchestration,
 } from '@/lib/research-v2/orchestrate-db';
-import { buildSectionRunIdByZone } from '@/lib/research-v2/section-run-id-map';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
-import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
 import { createAdminClient } from '@/lib/supabase/server';
 
-export const LAB_SECTION_ROUTE_TIMEOUT_MS = 270_000;
+export const LAB_SECTION_ROUTE_TIMEOUT_MS = LAB_SECTION_JOB_TIMEOUT_MS;
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -283,46 +283,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const researchInput = paidMediaResearchInput.researchInput;
-    const seeded = await seedOrchestration({
+    await scheduleLabSectionJob({
       userId,
       runId: body.run_id,
+      sectionId: body.section_id,
       zones,
-    });
-    const store = createSupabaseRunStore({
       supabase,
-      parentAuditRunId: seeded.parent_audit_run_id,
-      sectionRunIdByZone: buildSectionRunIdByZone(seeded, zones),
       researchInput,
-    });
-
-    await store.createRun(researchInput);
-
-    // Hand the long-running section work to after() so it survives the 202
-    // ACK. On Vercel after() is backed by waitUntil, which keeps the function
-    // alive until the promise settles, bounded by maxDuration (300s). The job
-    // is deliberately decoupled from request.signal: the caller is a
-    // fire-and-forget kickoff (orchestrate, or the manual console loop) whose
-    // connection drops the moment it gets this ACK — wiring request.signal in
-    // would abort the downstream work. A standalone timeout is the only bound.
-    after(async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => {
-        controller.abort(
-          new Error(
-            `lab section job timed out after ${LAB_SECTION_ROUTE_TIMEOUT_MS}ms`,
-          ),
-        );
-      }, LAB_SECTION_ROUTE_TIMEOUT_MS);
-      try {
-        await runLabSectionJob({
-          runId: body.run_id,
-          sectionId: body.section_id,
-          signal: controller.signal,
-          store,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
+      schedule: after,
     });
 
     return NextResponse.json(
