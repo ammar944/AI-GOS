@@ -82,6 +82,7 @@ export const researchInputSchema = z
     corpus: corpusSnapshotSchema,
     sources: z.array(sourceRefSchema).min(1),
     competitorAds: z.array(competitorAdSchema).max(5),
+    committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 

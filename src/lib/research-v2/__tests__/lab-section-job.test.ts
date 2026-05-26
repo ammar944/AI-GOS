@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   POSITIONING_SECTION_IDS,
+  isPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
@@ -109,6 +110,10 @@ describe('runLabSectionJob', (): void => {
 
         if (input.sectionId === failedSection) {
           throw new Error('forced section failure');
+        }
+
+        if (!isPositioningSectionId(input.sectionId)) {
+          throw new Error(`Unexpected paid media section ${input.sectionId}`);
         }
 
         completedSections.push(input.sectionId);

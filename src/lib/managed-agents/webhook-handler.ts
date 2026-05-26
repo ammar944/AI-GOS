@@ -28,7 +28,12 @@ import {
   sectionIdForToolName,
   validateArtifactForSection,
 } from './section-artifact-schemas';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  ALL_POSITIONING_SECTION_LABELS,
+  isPositioningSectionId,
+  type AllPositioningSectionId,
+  type PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 
 export const DEFAULT_MAX_CUSTOM_TOOL_RETRIES = 3;
 
@@ -60,7 +65,7 @@ export interface WebhookSupabase {
   /** Look up the (artifact_id, section_type, expectedRevision) for a section_run_id. */
   loadSectionRunContext(sectionRunId: string): Promise<{
     artifactId: string;
-    sectionType: PositioningSectionId;
+    sectionType: AllPositioningSectionId;
     expectedRevision: number;
     error?: string;
   } | null>;
@@ -73,7 +78,7 @@ export interface WebhookSupabase {
 
 export interface CommitArtifactSectionInput {
   artifactId: string;
-  zone: PositioningSectionId;
+  zone: AllPositioningSectionId;
   sectionRunId: string;
   expectedRevision: number;
   patch: {
@@ -93,7 +98,7 @@ export interface WebhookEventRow {
   session_thread_id: string | null;
   artifact_id: string | null;
   section_run_id: string | null;
-  section_type: PositioningSectionId | null;
+  section_type: AllPositioningSectionId | null;
   event_type: string;
   created_at: string;
   verified_at: string;
@@ -520,13 +525,15 @@ async function handleInvalidArtifact(input: {
  * keeps rendering identical content.
  */
 export function buildCommitPatch(
-  sectionId: PositioningSectionId,
+  sectionId: AllPositioningSectionId,
   artifact: unknown,
 ): CommitArtifactSectionInput['patch'] {
   const a = artifact as Record<string, unknown>;
   const title = typeof a.sectionTitle === 'string'
     ? a.sectionTitle
-    : sectionArtifactSchemas[sectionId].label;
+    : isPositioningSectionId(sectionId)
+      ? sectionArtifactSchemas[sectionId].label
+      : ALL_POSITIONING_SECTION_LABELS[sectionId];
   const summary = typeof a.statusSummary === 'string' ? a.statusSummary : null;
   const verdict = typeof a.verdict === 'string' ? a.verdict : null;
   const markdownLines: string[] = [];

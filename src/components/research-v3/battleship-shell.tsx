@@ -8,9 +8,13 @@ import { AppShell } from '@/components/shell/app-shell';
 import { ShellProvider } from '@/components/shell/shell-provider';
 import {
   POSITIONING_SECTION_IDS,
-  type PositioningSectionId,
+  type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { cn } from '@/lib/utils';
+import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
+import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
+import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
+import type { SectionEvent } from '@/app/api/research-v2/audit-state/route';
 
 import { SectionCard } from './section-card';
 import { ActivityFeed } from './activity-feed';
@@ -50,10 +54,17 @@ function getSectionTabStatus(
   sectionId: ReaderSectionId,
   live: ReturnType<typeof useAuditState>,
   workerByZone: Partial<
-    Record<PositioningSectionId, ReturnType<typeof useAuditState>['workerStates'][number]>
+    Record<AllPositioningSectionId, ReturnType<typeof useAuditState>['workerStates'][number]>
   >,
 ): ReaderTabStatus {
   if (sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
+    const worker = workerByZone[sectionId];
+    if (worker?.status === 'complete' || live.sectionsByZone[sectionId]) {
+      return 'Done';
+    }
+    if (worker?.status === 'running') return 'Running';
+    if (worker && TERMINAL_ERROR_STATUSES.has(worker.status)) return 'Error';
+    if (worker?.status === 'queued') return 'Queued';
     return isSixSectionComplete(live) ? 'Ready' : 'Locked';
   }
 
@@ -116,7 +127,7 @@ export function BattleshipShell({
   const workerByZone = Object.fromEntries(
     live.workerStates.map((w) => [w.section_id, w]),
   ) as Partial<
-    Record<PositioningSectionId, (typeof live.workerStates)[number]>
+    Record<AllPositioningSectionId, (typeof live.workerStates)[number]>
   >;
   const selectedIndex = getReaderSectionIndex(selectedSectionId);
   const previousSection = selectedIndex > 0 ? READER_SECTION_IDS[selectedIndex - 1] : null;
@@ -228,7 +239,12 @@ export function BattleshipShell({
               className="min-h-[480px]"
             >
               {selectedSectionId === PAID_MEDIA_PLAN_SECTION_ID ? (
-                <PaidMediaPlanTerminalPanel unlocked={sixSectionsComplete} />
+                <PaidMediaPlanTerminalPanel
+                  body={live.sectionsByZone[PAID_MEDIA_PLAN_SECTION_ID]}
+                  events={live.eventsByZone[PAID_MEDIA_PLAN_SECTION_ID] ?? []}
+                  unlocked={sixSectionsComplete}
+                  workerState={workerByZone[PAID_MEDIA_PLAN_SECTION_ID]}
+                />
               ) : (
                 <SectionCard
                   zoneId={selectedSectionId}
@@ -246,14 +262,33 @@ export function BattleshipShell({
 }
 
 interface PaidMediaPlanTerminalPanelProps {
+  body: { markdown?: string; title?: string; data?: unknown } | undefined;
+  events: readonly SectionEvent[];
   unlocked: boolean;
+  workerState: ReturnType<typeof useAuditState>['workerStates'][number] | undefined;
 }
 
 function PaidMediaPlanTerminalPanel({
+  body,
+  events,
   unlocked,
+  workerState,
 }: PaidMediaPlanTerminalPanelProps): ReactElement {
+  const artifact = body
+    ? pickPositioningTypedArtifact(body, PAID_MEDIA_PLAN_SECTION_ID)
+    : null;
+  const statusText =
+    workerState?.latestActivity ??
+    workerState?.phaseLabel ??
+    (unlocked ? 'Ready after 6/6 sections complete.' : 'Locked · unlocks after 6/6 sections complete.');
+
   return (
-    <div className="rounded-[8px] border border-[color:var(--border)] px-5 py-6">
+    <div className="space-y-4">
+      <PaidMediaPlanSubSectionChecklist
+        committedAll={artifact !== null}
+        events={events}
+      />
+      <div className="rounded-[8px] border border-[color:var(--border)] px-5 py-6">
       <div className="flex items-center gap-3">
         <LockKeyhole
           className="size-4 text-[color:var(--text-3)]"
@@ -264,12 +299,72 @@ function PaidMediaPlanTerminalPanel({
             {getPanelTitle(PAID_MEDIA_PLAN_SECTION_ID)}
           </h2>
           <p className="mt-1 text-sm text-[color:var(--text-2)]">
-            {unlocked
-              ? 'Ready after 6/6 sections complete.'
-              : 'Locked · unlocks after 6/6 sections complete.'}
+            {artifact ? (artifact.statusSummary) : statusText}
           </p>
         </div>
       </div>
+      {artifact ? (
+        <div className="mt-6">
+          <TypedArtifactRenderer
+            artifact={artifact}
+            zoneId={PAID_MEDIA_PLAN_SECTION_ID}
+            showSectionTitle={false}
+          />
+        </div>
+      ) : null}
+      </div>
+    </div>
+  );
+}
+
+interface PaidMediaPlanSubSectionChecklistProps {
+  committedAll: boolean;
+  events: readonly SectionEvent[];
+}
+
+function getCommittedPaidMediaSubSectionKeys(
+  events: readonly SectionEvent[],
+): ReadonlySet<string> {
+  return new Set(
+    events
+      .filter((event) => event.event_type === 'sub-section-committed')
+      .map((event) =>
+        typeof event.payload?.subSectionKey === 'string' &&
+        event.payload.status === 'committed'
+          ? event.payload.subSectionKey
+          : null,
+      )
+      .filter((key): key is string => key !== null),
+  );
+}
+
+function PaidMediaPlanSubSectionChecklist({
+  committedAll,
+  events,
+}: PaidMediaPlanSubSectionChecklistProps): ReactElement {
+  const committedKeys = getCommittedPaidMediaSubSectionKeys(events);
+
+  return (
+    <div className="grid gap-2 rounded-[8px] border border-[color:var(--border)] px-4 py-3">
+      {getSectionSubSections(PAID_MEDIA_PLAN_SECTION_ID).map((subSection) => {
+        const committed = committedAll || committedKeys.has(subSection.key);
+        return (
+          <div
+            key={subSection.key}
+            className="flex items-center justify-between gap-3 text-xs"
+          >
+            <span className="min-w-0 truncate text-[color:var(--text-2)]">
+              {subSection.label}
+            </span>
+            <span
+              data-testid={`sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-${subSection.key}`}
+              className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]"
+            >
+              {committed ? 'Committed' : 'Queued'}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

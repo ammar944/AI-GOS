@@ -28,5 +28,9 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       allowedTools: ["web_search", "firecrawl", "pagespeed"],
       maxExternalLookups: 4,
     });
+    expect(SECTION_REGISTRY.positioningPaidMediaPlan).toMatchObject({
+      allowedTools: ["keyword_ad_probe"],
+      maxExternalLookups: 2,
+    });
   });
 });

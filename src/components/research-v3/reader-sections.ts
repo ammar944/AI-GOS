@@ -1,13 +1,12 @@
 import {
   isPositioningSectionId,
+  PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SECTION_LABELS,
+  ALL_POSITIONING_SECTION_LABELS,
   type PositioningSectionId,
+  type PaidMediaPlanSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
-export const PAID_MEDIA_PLAN_SECTION_ID = 'positioningPaidMediaPlan' as const;
-
-export type PaidMediaPlanSectionId = typeof PAID_MEDIA_PLAN_SECTION_ID;
 export type ReaderSectionId = PositioningSectionId | PaidMediaPlanSectionId;
 
 export const READER_SECTION_IDS = [
@@ -18,8 +17,7 @@ export const READER_SECTION_IDS = [
 export const FIRST_READER_SECTION_ID: ReaderSectionId = POSITIONING_SECTION_IDS[0];
 
 export const READER_SECTION_LABELS: Record<ReaderSectionId, string> = {
-  ...POSITIONING_SECTION_LABELS,
-  [PAID_MEDIA_PLAN_SECTION_ID]: 'Paid Media Plan',
+  ...ALL_POSITIONING_SECTION_LABELS,
 };
 
 export function isReaderSectionId(value: unknown): value is ReaderSectionId {
@@ -35,3 +33,5 @@ export function getReaderSectionIndex(sectionId: ReaderSectionId): number {
 export function getReaderSectionFromParam(value: string | null): ReaderSectionId {
   return isReaderSectionId(value) ? value : FIRST_READER_SECTION_ID;
 }
+
+export { PAID_MEDIA_PLAN_SECTION_ID };

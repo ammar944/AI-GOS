@@ -8,8 +8,15 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SECTION_IDS,
+  isPositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
+import type {
+  AllPositioningSectionId,
+  PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export type WorkerStatus =
@@ -55,7 +62,7 @@ export interface AuditStateResponse {
   children_complete: number;
   children_total: number;
   workerStates: Array<{
-    section_id: PositioningSectionId;
+    section_id: AllPositioningSectionId;
     status: WorkerStatus;
     phase: AuditSectionPhase;
     phaseLabel: AuditSectionPhase;
@@ -232,9 +239,17 @@ function deriveParentStatus(
   parentStatus: string | null,
   workerStates: AuditStateResponse['workerStates'],
 ): string | null {
+  const positioningWorkerStates = workerStates.filter(
+    (
+      worker,
+    ): worker is AuditStateResponse['workerStates'][number] & {
+      section_id: PositioningSectionId;
+    } => isPositioningSectionId(worker.section_id),
+  );
+
   if (
-    workerStates.length > 0 &&
-    workerStates.every((worker) => worker.status === 'complete')
+    positioningWorkerStates.length === POSITIONING_SECTION_IDS.length &&
+    positioningWorkerStates.every((worker) => worker.status === 'complete')
   ) {
     return 'complete';
   }
@@ -341,7 +356,15 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   // the committed artifact section currently references instead of an older
   // terminal row.
   const byZone = new Map<string, WorkerStateReadModel>();
-  for (const sectionId of POSITIONING_SECTION_IDS) {
+  const sectionRows = sectionsResp.data ?? [];
+  const hasPaidMediaPlanRow =
+    runRows.some((row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID) ||
+    sectionRows.some((row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID);
+  const workerSectionIds: readonly AllPositioningSectionId[] = hasPaidMediaPlanRow
+    ? [...POSITIONING_SECTION_IDS, PAID_MEDIA_PLAN_SECTION_ID]
+    : POSITIONING_SECTION_IDS;
+
+  for (const sectionId of workerSectionIds) {
     const rowsForZone = runRows.filter((row) => row.zone === sectionId);
     const committedRunId = committedCompleteSectionRunByZone.get(sectionId);
     const committed = committedRunId
@@ -360,7 +383,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   }
 
   const sectionsByZone: AuditStateResponse['sectionsByZone'] = {};
-  for (const row of sectionsResp.data ?? []) {
+  for (const row of sectionRows) {
     const zone = row.zone as string;
     const status = row.status as string | null;
     const title = row.title as string | null | undefined;
@@ -376,12 +399,13 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     }
   }
 
-  const workerStates = POSITIONING_SECTION_IDS.map((section_id) => ({
+  const workerStates = workerSectionIds.map((section_id) => ({
     section_id,
     ...(byZone.get(section_id) ?? queuedWorkerState()),
   }));
   const derivedChildrenComplete = workerStates.filter(
-    (worker) => worker.status === 'complete',
+    (worker) =>
+      isPositioningSectionId(worker.section_id) && worker.status === 'complete',
   ).length;
   const childrenComplete = Math.max(
     (parent.children_complete as number | null) ?? 0,

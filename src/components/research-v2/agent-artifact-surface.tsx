@@ -30,7 +30,11 @@ import {
   X,
 } from 'lucide-react';
 
-import { POSITIONING_SECTION_IDS, POSITIONING_SECTION_LABELS } from '@/lib/ai/prompts/positioning-skills';
+import {
+  POSITIONING_SECTION_IDS,
+  POSITIONING_SECTION_LABELS,
+  isPositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import {
   isBuyerICPArtifact,
@@ -338,6 +342,18 @@ function getWaveSummary(states: WorkerChipState[]): string | null {
   return `Wave ${active.wave} of ${active.totalWaves} - ${running} running, ${queued} queued`;
 }
 
+type AuditWorkerState = ReturnType<typeof useAuditState>['workerStates'][number];
+
+type PositioningAuditWorkerState = AuditWorkerState & {
+  section_id: PositioningSectionId;
+};
+
+function isPositioningAuditWorkerState(
+  state: AuditWorkerState,
+): state is PositioningAuditWorkerState {
+  return isPositioningSectionId(state.section_id);
+}
+
 export function AgentArtifactSurface({
   runId,
   workerStates,
@@ -348,11 +364,15 @@ export function AgentArtifactSurface({
   // research-v2 page mount), poll the audit-state endpoint so chips reflect
   // live worker progress. Polling auto-stops once every chip is terminal.
   const live = useAuditState(runId);
-  const states = useMemo(
+  const liveWorkerStates = useMemo(
+    () => live.workerStates.filter(isPositioningAuditWorkerState),
+    [live.workerStates],
+  );
+  const states = useMemo<WorkerChipState[]>(
     () =>
       workerStates ??
-      (live.workerStates.length > 0 ? live.workerStates : defaultStates()),
-    [workerStates, live.workerStates],
+      (liveWorkerStates.length > 0 ? liveWorkerStates : defaultStates()),
+    [workerStates, liveWorkerStates],
   );
   const statusByZone = useMemo(() => {
     const out: Record<string, WorkerChipStatus> = {};

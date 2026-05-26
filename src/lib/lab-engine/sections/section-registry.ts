@@ -41,6 +41,13 @@ import {
   type OfferDiagnosticSectionOutput,
 } from "../artifacts/schemas/offer-diagnostic";
 import {
+  paidMediaPlanBodySchema,
+  paidMediaPlanSectionOutputSchema,
+  validatePaidMediaPlanMinimums,
+  type PaidMediaPlanBody,
+  type PaidMediaPlanSectionOutput,
+} from "../artifacts/schemas/paid-media-plan";
+import {
   validateVoiceOfCustomerMinimums,
   voiceOfCustomerBodySchema,
   voiceOfCustomerSectionOutputSchema,
@@ -52,6 +59,7 @@ import { competitorLandscapeFixtureArtifact } from "../fixtures/competitor-lands
 import { demandIntentFixtureArtifact } from "../fixtures/demand-intent-artifact";
 import { marketCategoryFixtureArtifact } from "../fixtures/market-category-artifact";
 import { offerDiagnosticFixtureArtifact } from "../fixtures/offer-diagnostic-artifact";
+import { paidMediaPlanFixtureArtifact } from "../fixtures/paid-media-plan-artifact";
 import { voiceOfCustomerFixtureArtifact } from "../fixtures/voice-of-customer-artifact";
 import {
   sectionIdSchema,
@@ -220,6 +228,29 @@ export const SECTION_REGISTRY = {
     validateMinimums: validateOfferDiagnosticMinimums,
     fixtureArtifact: offerDiagnosticFixtureArtifact,
   },
+  positioningPaidMediaPlan: {
+    id: "positioningPaidMediaPlan",
+    title: "Paid Media Plan",
+    skillSlug: "positioning-paid-media-plan",
+    mission:
+      "Synthesize the six committed positioning artifacts and frozen GTM brief into a paid-media plan with a templated campaign spine, evidence-backed angles, filled creative framework, funnel guidance, sales-process assets, channel suggestions, and KPI plan.",
+    outputEmphasis: [
+      "campaign overview",
+      "audiences and creative strategy",
+      "angles with copy",
+      "competitor review and marketing insights",
+      "funnel and channel suggestions",
+      "KPIs",
+    ],
+    sectionOutputSchemaName: "PaidMediaPlanSectionOutput",
+    structuredOutputMaxTokens: 8192,
+    allowedTools: ["keyword_ad_probe"],
+    maxExternalLookups: 2,
+    bodySchema: paidMediaPlanBodySchema,
+    sectionOutputSchema: paidMediaPlanSectionOutputSchema,
+    validateMinimums: validatePaidMediaPlanMinimums,
+    fixtureArtifact: paidMediaPlanFixtureArtifact,
+  },
 } as const satisfies {
   positioningMarketCategory: SectionDefinition<
     MarketCategoryBody,
@@ -241,6 +272,10 @@ export const SECTION_REGISTRY = {
   positioningOfferDiagnostic: SectionDefinition<
     OfferDiagnosticBody,
     OfferDiagnosticSectionOutput
+  >;
+  positioningPaidMediaPlan: SectionDefinition<
+    PaidMediaPlanBody,
+    PaidMediaPlanSectionOutput
   >;
 };
 

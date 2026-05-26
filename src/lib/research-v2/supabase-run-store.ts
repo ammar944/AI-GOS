@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   POSITIONING_SECTION_IDS,
-  type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { createSupabaseWebhookAdapter } from '@/lib/managed-agents/supabase-adapter';
 import { buildCommitPatch } from '@/lib/managed-agents/webhook-handler';
@@ -28,7 +27,7 @@ import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/sect
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
   parentAuditRunId: string;
-  sectionRunIdByZone: Record<PositioningSectionId, string>;
+  sectionRunIdByZone: Partial<Record<SectionId, string>>;
   researchInput: ResearchInput;
   now?: () => Date;
 }
@@ -91,7 +90,15 @@ function createInitialSections(): Record<SectionId, SectionRunRecord> {
   ) as Record<SectionId, SectionRunRecord>;
 }
 
-function createInitialRunRecord(input: ResearchInput, now: () => Date): RunRecord {
+function createInitialRunRecord({
+  input,
+  now,
+  selectedSectionIds,
+}: {
+  input: ResearchInput;
+  now: () => Date;
+  selectedSectionIds: readonly SectionId[];
+}): RunRecord {
   const createdAt = isoNow(now);
 
   return runRecordSchema.parse({
@@ -99,7 +106,7 @@ function createInitialRunRecord(input: ResearchInput, now: () => Date): RunRecor
     fixtureId: input.fixtureId,
     source: 'live',
     status: 'idle',
-    selectedSectionIds: sectionIds,
+    selectedSectionIds,
     createdAt,
     updatedAt: createdAt,
     input,
@@ -137,7 +144,7 @@ function withUpdatedRecord(record: RunRecord, now: () => Date): RunRecord {
 }
 
 function sectionRunIdFor(
-  sectionRunIdByZone: Record<PositioningSectionId, string>,
+  sectionRunIdByZone: Partial<Record<SectionId, string>>,
   sectionId: SectionId,
 ): string {
   const sectionRunId = sectionRunIdByZone[sectionId];
@@ -236,19 +243,35 @@ function mergeSection(
   );
 }
 
+function getSelectedSectionIds(
+  sectionRunIdByZone: Partial<Record<SectionId, string>>,
+): SectionId[] {
+  const selectedSectionIds = sectionIds.filter((sectionId) => {
+    const sectionRunId = sectionRunIdByZone[sectionId];
+    return typeof sectionRunId === 'string' && sectionRunId.trim().length > 0;
+  });
+
+  return selectedSectionIds.length > 0 ? selectedSectionIds : [...sectionIds];
+}
+
 export function createSupabaseRunStore(
   options: CreateSupabaseRunStoreOptions,
 ): RunStore {
   const now = options.now ?? (() => new Date());
   const input = researchInputSchema.parse(options.researchInput);
+  const selectedSectionIds = getSelectedSectionIds(options.sectionRunIdByZone);
   const adapter = createSupabaseWebhookAdapter(options.supabase);
-  let record = createInitialRunRecord(input, now);
+  let record = createInitialRunRecord({ input, now, selectedSectionIds });
 
   return {
     createRun: async (researchInput: ResearchInput): Promise<RunRecord> => {
       const parsedInput = researchInputSchema.parse(researchInput);
       assertRunId(input.runId, parsedInput.runId, 'createRun');
-      record = createInitialRunRecord(parsedInput, now);
+      record = createInitialRunRecord({
+        input: parsedInput,
+        now,
+        selectedSectionIds,
+      });
       return record;
     },
 

@@ -16,9 +16,9 @@ import {
 } from '@/components/ai-elements/sources';
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
 import {
-  POSITIONING_SECTION_IDS,
-  POSITIONING_SECTION_LABELS,
-  type PositioningSectionId,
+  ALL_POSITIONING_SECTION_IDS,
+  ALL_POSITIONING_SECTION_LABELS,
+  type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
 import { SECTION_ACCENT } from './section-card';
@@ -32,9 +32,9 @@ interface ActivityFeedProps {
 export function ActivityFeed({ live }: ActivityFeedProps) {
   const workerByZone = Object.fromEntries(
     live.workerStates.map((w) => [w.section_id, w]),
-  ) as Partial<Record<PositioningSectionId, AuditStateResponse['workerStates'][number]>>;
+  ) as Partial<Record<AllPositioningSectionId, AuditStateResponse['workerStates'][number]>>;
 
-  const hasAnyActivity = POSITIONING_SECTION_IDS.some(
+  const hasAnyActivity = ALL_POSITIONING_SECTION_IDS.some(
     (zoneId) => (live.eventsByZone[zoneId]?.length ?? 0) > 0,
   );
 
@@ -57,7 +57,7 @@ export function ActivityFeed({ live }: ActivityFeedProps) {
           </p>
         )}
 
-        {POSITIONING_SECTION_IDS.map((zoneId, index) => {
+        {ALL_POSITIONING_SECTION_IDS.map((zoneId, index) => {
           const events = live.eventsByZone[zoneId] ?? [];
           const worker = workerByZone[zoneId];
           const isRunning = worker?.status === 'running';
@@ -85,7 +85,7 @@ export function ActivityFeed({ live }: ActivityFeedProps) {
                   className="text-[10px] font-semibold uppercase tracking-[0.06em] truncate"
                   style={{ color: accentColor }}
                 >
-                  {POSITIONING_SECTION_LABELS[zoneId]}
+                  {ALL_POSITIONING_SECTION_LABELS[zoneId]}
                 </span>
               </div>
 

@@ -13,7 +13,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type {
+  AllPositioningSectionId,
+  PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
@@ -26,13 +29,14 @@ import { ResearchCardShell } from './research-card-shell';
 // Per-section accent colors (from spec + design system)
 // ---------------------------------------------------------------------------
 
-export const SECTION_ACCENT: Record<PositioningSectionId, string> = {
+export const SECTION_ACCENT: Record<AllPositioningSectionId, string> = {
   positioningMarketCategory: '#3b7aff',
   positioningBuyerICP: '#10b981',
   positioningCompetitorLandscape: '#f59e0b',
   positioningVoiceOfCustomer: '#a78bfa',
   positioningDemandIntent: '#f97316',
   positioningOfferDiagnostic: '#10b981',
+  positioningPaidMediaPlan: '#3b7aff',
 };
 
 const SECTION_ICON: Record<PositioningSectionId, LucideIcon> = {

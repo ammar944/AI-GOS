@@ -23,6 +23,7 @@ import {
 import {
   POSITIONING_SECTION_IDS,
   POSITIONING_SECTION_LABELS,
+  isPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
@@ -281,14 +282,22 @@ export function AuditReaderShell({ runId }: AuditReaderShellProps): ReactElement
   // ---- Derived state ----------------------------------------------------
   const statusByZone = useMemo(() => {
     const out: Partial<Record<PositioningSectionId, string>> = {};
-    for (const w of live.workerStates) out[w.section_id] = w.status;
+    for (const w of live.workerStates) {
+      if (isPositioningSectionId(w.section_id)) {
+        out[w.section_id] = w.status;
+      }
+    }
     return out;
   }, [live.workerStates]);
 
   const totalSections = POSITIONING_SECTION_IDS.length;
   const completedCount = useMemo(
     () =>
-      live.workerStates.filter((state) => state.status === 'complete').length,
+      live.workerStates.filter(
+        (state) =>
+          isPositioningSectionId(state.section_id) &&
+          state.status === 'complete',
+      ).length,
     [live.workerStates],
   );
   const auditSources = useMemo(

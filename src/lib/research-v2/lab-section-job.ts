@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import type { RunRecord } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import {
   activityEventSchema,
@@ -27,7 +26,7 @@ export type LabRunSection = (
 
 export interface RunLabSectionJobInput {
   runId: string;
-  sectionId: PositioningSectionId;
+  sectionId: SupportedSectionId;
   signal?: AbortSignal;
   store: RunStore;
   runSectionImpl?: LabRunSection;
@@ -78,7 +77,7 @@ export async function runLabSectionJob(
   }
 }
 
-function toSupportedSectionId(sectionId: PositioningSectionId): SupportedSectionId {
+function toSupportedSectionId(sectionId: SupportedSectionId): SupportedSectionId {
   if (!isSupportedSectionId(sectionId)) {
     throw new Error(`Unsupported lab section id ${sectionId}`);
   }

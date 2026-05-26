@@ -13,7 +13,10 @@
 // a narrower `sections` list to scope a kickoff to a subset.
 
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import {
+  POSITIONING_SECTION_IDS,
+  isPositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import { seedOrchestration } from '@/lib/research-v2/orchestrate-db';
 import { createAdminClient } from '@/lib/supabase/server';
 
@@ -127,8 +130,12 @@ export async function startManagedAudit(
   //    default is all six positioning sections; callers can scope to a
   //    subset by passing input.sections.
   const requestedSections = input.sections ?? DEFAULT_KICKOFF_SECTIONS;
-  const sectionsToRun = seeded.section_run_ids.filter((row) =>
-    requestedSections.includes(row.section_id),
+  const sectionsToRun = seeded.section_run_ids.filter(
+    (
+      row,
+    ): row is typeof row & { section_id: PositioningSectionId } =>
+      isPositioningSectionId(row.section_id) &&
+      requestedSections.includes(row.section_id),
   );
 
   // 3. Create / reuse environment + specialist agents.

@@ -1,4 +1,4 @@
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 export interface PositioningArtifactSource {
   title: string;
@@ -17,13 +17,14 @@ export interface PositioningTypedArtifact {
   [key: string]: unknown;
 }
 
-const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<PositioningSectionId, readonly string[]> = {
+const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly string[]> = {
   positioningMarketCategory: ['marketCategoryArtifact'],
   positioningBuyerICP: ['buyerIcpArtifact'],
   positioningCompetitorLandscape: ['competitorLandscapeArtifact'],
   positioningVoiceOfCustomer: ['voiceOfCustomerArtifact', 'vocArtifact'],
   positioningDemandIntent: ['demandIntentArtifact'],
   positioningOfferDiagnostic: ['offerPerformanceArtifact', 'offerDiagnosticArtifact'],
+  positioningPaidMediaPlan: ['paidMediaPlanArtifact'],
 };
 
 const COMMON_TYPED_ARTIFACT_KEYS = [
@@ -76,7 +77,7 @@ export function isPositioningTypedArtifact(
   );
 }
 
-function isKnownPositioningZone(value: string): value is PositioningSectionId {
+function isKnownPositioningZone(value: string): value is AllPositioningSectionId {
   return Object.prototype.hasOwnProperty.call(TYPED_ARTIFACT_KEYS_BY_ZONE, value);
 }
 

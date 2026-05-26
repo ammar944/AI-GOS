@@ -2,7 +2,17 @@ import { auth } from '@clerk/nextjs/server';
 import { after, NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import {
+  ALL_POSITIONING_SECTION_IDS,
+  PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SECTION_IDS,
+  type AllPositioningSectionId,
+  type PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
+import {
+  researchInputSchema,
+  type ResearchInput,
+} from '@/lib/lab-engine/artifacts/artifact-envelope';
 import { runLabSectionJob } from '@/lib/research-v2/lab-section-job';
 import {
   corpusReady,
@@ -25,8 +35,152 @@ export const maxDuration = 300;
 
 const RequestSchema = z.object({
   run_id: z.string().uuid(),
-  section_id: z.enum(POSITIONING_SECTION_IDS),
+  section_id: z.enum(ALL_POSITIONING_SECTION_IDS),
 });
+
+type RequestBody = z.infer<typeof RequestSchema>;
+
+function getDispatchZones(
+  sectionId: AllPositioningSectionId,
+): readonly AllPositioningSectionId[] {
+  return sectionId === PAID_MEDIA_PLAN_SECTION_ID
+    ? [PAID_MEDIA_PLAN_SECTION_ID]
+    : POSITIONING_SECTION_IDS;
+}
+
+function isCommittedPositioningArtifactRow(
+  row: { zone: string | null; data: unknown },
+): row is { zone: PositioningSectionId; data: unknown } {
+  return (POSITIONING_SECTION_IDS as readonly string[]).includes(row.zone ?? '');
+}
+
+async function buildPaidMediaResearchInput({
+  baseResearchInput,
+  parentAuditRunId,
+  supabase,
+}: {
+  baseResearchInput: ResearchInput;
+  parentAuditRunId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+}): Promise<
+  | { ok: true; researchInput: ResearchInput }
+  | {
+      ok: false;
+      response: NextResponse;
+    }
+> {
+  const { data, error } = await supabase
+    .from('research_artifact_sections')
+    .select('zone, data')
+    .eq('artifact_id', parentAuditRunId)
+    .eq('status', 'complete')
+    .in('zone', [...POSITIONING_SECTION_IDS]);
+
+  if (error) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'committed_artifacts_lookup_failed',
+          message: error.message,
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  const rows = ((data ?? []) as Array<{ zone: string | null; data: unknown }>)
+    .filter(isCommittedPositioningArtifactRow);
+  const committedPositioningArtifacts = Object.fromEntries(
+    rows.map((row) => [row.zone, row.data]),
+  ) as Partial<Record<PositioningSectionId, unknown>>;
+  const missingSections = POSITIONING_SECTION_IDS.filter(
+    (sectionId) => committedPositioningArtifacts[sectionId] === undefined,
+  );
+
+  if (missingSections.length > 0) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'positioning_sections_not_ready',
+          missing_sections: missingSections,
+        },
+        { status: 409 },
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    researchInput: researchInputSchema.parse({
+      ...baseResearchInput,
+      committedPositioningArtifacts,
+    }),
+  };
+}
+
+async function loadParentAuditRunId({
+  runId,
+  supabase,
+  userId,
+}: {
+  runId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+  userId: string;
+}): Promise<
+  | { ok: true; parentAuditRunId: string }
+  | {
+      ok: false;
+      response: NextResponse;
+    }
+> {
+  const { data, error } = await supabase
+    .from('research_artifacts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'parent_audit_lookup_failed',
+          message: error.message,
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  const parentAuditRunId = typeof data?.id === 'string' ? data.id : null;
+  if (!parentAuditRunId) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'positioning_sections_not_ready',
+          missing_parent: true,
+        },
+        { status: 409 },
+      ),
+    };
+  }
+
+  return { ok: true, parentAuditRunId };
+}
+
+function requirePaidMediaParentAuditRunId(
+  result: Awaited<ReturnType<typeof loadParentAuditRunId>> | null,
+): string {
+  if (result?.ok !== true) {
+    throw new Error('Paid media plan dispatch requires a parent audit run id');
+  }
+
+  return result.parentAuditRunId;
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   let userId: string | null;
@@ -51,7 +205,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  let body: z.infer<typeof RequestSchema>;
+  let body: RequestBody;
   try {
     body = RequestSchema.parse(rawBody);
   } catch (err) {
@@ -95,20 +249,49 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const seeded = await seedOrchestration({
-      userId,
-      runId: body.run_id,
-      zones: POSITIONING_SECTION_IDS,
-    });
-    const researchInput = corpusToResearchInput({
+    const zones = getDispatchZones(body.section_id);
+    const baseResearchInput = corpusToResearchInput({
       runId: body.run_id,
       deepResearchProgramData,
       onboardingData: session.onboarding_data ?? {},
     });
+    const supabase = createAdminClient();
+    const paidMediaParent =
+      body.section_id === PAID_MEDIA_PLAN_SECTION_ID
+        ? await loadParentAuditRunId({
+            runId: body.run_id,
+            supabase,
+            userId,
+          })
+        : null;
+
+    if (paidMediaParent?.ok === false) {
+      return paidMediaParent.response;
+    }
+
+    const paidMediaResearchInput =
+      body.section_id === PAID_MEDIA_PLAN_SECTION_ID
+        ? await buildPaidMediaResearchInput({
+            baseResearchInput,
+            parentAuditRunId: requirePaidMediaParentAuditRunId(paidMediaParent),
+            supabase,
+          })
+        : { ok: true as const, researchInput: baseResearchInput };
+
+    if (!paidMediaResearchInput.ok) {
+      return paidMediaResearchInput.response;
+    }
+
+    const researchInput = paidMediaResearchInput.researchInput;
+    const seeded = await seedOrchestration({
+      userId,
+      runId: body.run_id,
+      zones,
+    });
     const store = createSupabaseRunStore({
-      supabase: createAdminClient(),
+      supabase,
       parentAuditRunId: seeded.parent_audit_run_id,
-      sectionRunIdByZone: buildSectionRunIdByZone(seeded),
+      sectionRunIdByZone: buildSectionRunIdByZone(seeded, zones),
       researchInput,
     });
 

@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
+import { PAID_MEDIA_PLAN_SECTION_ID } from '@/lib/ai/prompts/positioning-skills';
+import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 
 const mocks = vi.hoisted(() => ({
   useAuditState: vi.fn(),
@@ -114,6 +116,42 @@ describe('<BattleshipShell>', () => {
       screen.getByRole('tab', { name: /paid media plan.*locked/i }),
     ).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText(/unlocks after 6\/6/i)).toBeInTheDocument();
+  });
+
+  it('renders the paid media plan artifact on the terminal tab after the dependent wave completes', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [completeWorker(PAID_MEDIA_PLAN_SECTION_ID)],
+      sectionsByZone: {
+        [PAID_MEDIA_PLAN_SECTION_ID]: {
+          data: paidMediaPlanFixtureArtifact,
+        },
+      },
+    });
+
+    render(
+      <BattleshipShell
+        runId="run_phase_e"
+        activeSectionId={PAID_MEDIA_PLAN_SECTION_ID}
+        onSectionChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('tab', { name: /paid media plan.*done/i }),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(
+      screen.getByTestId(
+        `typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        `sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-campaignOverview`,
+      ),
+    ).toHaveTextContent('Committed');
   });
 
   it('shows live sub-section checklist ticks from section events', (): void => {

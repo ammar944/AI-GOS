@@ -145,6 +145,20 @@ export const SECTION_SUB_SECTIONS: Record<
       label: "Red flags in own numbers",
     },
   ],
+  positioningPaidMediaPlan: [
+    { key: "campaignOverview", label: "Campaign overview" },
+    { key: "campaignPhases", label: "Campaign phases" },
+    { key: "audienceTypes", label: "Audience types" },
+    { key: "creativeStrategy", label: "Creative strategy" },
+    { key: "anglesToTest", label: "Angles to test" },
+    { key: "creativeFramework", label: "Creative framework" },
+    { key: "competitorReviewInsights", label: "Competitor review insights" },
+    { key: "competitorMarketingInsights", label: "Competitor marketing insights" },
+    { key: "funnelIdeation", label: "Funnel ideation" },
+    { key: "salesProcess", label: "Sales process" },
+    { key: "channelSuggestions", label: "Channel suggestions" },
+    { key: "kpis", label: "KPIs and success metrics" },
+  ],
 };
 
 export function getSectionSubSections(

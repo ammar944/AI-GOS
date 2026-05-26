@@ -3,14 +3,17 @@
 
 import { z } from 'zod';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  ALL_POSITIONING_SECTION_IDS,
+  POSITIONING_SECTION_IDS,
+} from '@/lib/ai/prompts/positioning-skills';
+import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export interface SeedOrchestrationResult {
   parent_audit_run_id: string;
   section_run_ids: Array<{
-    section_id: PositioningSectionId;
+    section_id: AllPositioningSectionId;
     section_run_id: string;
     ordinal: number;
     reused: boolean;
@@ -26,12 +29,12 @@ const RpcRowSchema = z.object({
 });
 const RpcRowsSchema = z.array(RpcRowSchema);
 
-const POSITIONING_ZONE_SET: ReadonlySet<string> = new Set(POSITIONING_SECTION_IDS);
+const POSITIONING_ZONE_SET: ReadonlySet<string> = new Set(ALL_POSITIONING_SECTION_IDS);
 
 export interface SeedOrchestrationInput {
   userId: string;
   runId: string;
-  zones?: readonly PositioningSectionId[];
+  zones?: readonly AllPositioningSectionId[];
 }
 
 export interface FrozenGtmBriefThesisPatchInput {
@@ -175,7 +178,7 @@ export async function seedOrchestration(
         );
       }
       return {
-        section_id: row.zone as PositioningSectionId,
+        section_id: row.zone as AllPositioningSectionId,
         section_run_id: row.section_run_id,
         ordinal: row.ordinal,
         reused: row.reused,

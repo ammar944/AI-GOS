@@ -5,7 +5,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  ALL_POSITIONING_SECTION_IDS,
+  type AllPositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 
 import type {
   CommitArtifactSectionInput,
@@ -13,14 +16,9 @@ import type {
   WebhookSupabase,
 } from './webhook-handler';
 
-const POSITIONING_SECTION_ID_VALUES: ReadonlySet<string> = new Set([
-  'positioningMarketCategory',
-  'positioningBuyerICP',
-  'positioningCompetitorLandscape',
-  'positioningVoiceOfCustomer',
-  'positioningDemandIntent',
-  'positioningOfferDiagnostic',
-]);
+const POSITIONING_SECTION_ID_VALUES: ReadonlySet<string> = new Set(
+  ALL_POSITIONING_SECTION_IDS,
+);
 
 export function createSupabaseWebhookAdapter(
   supabase: SupabaseClient,
@@ -91,7 +89,7 @@ export function createSupabaseWebhookAdapter(
       if (error) {
         return {
           artifactId: '',
-          sectionType: 'positioningMarketCategory' as PositioningSectionId,
+          sectionType: 'positioningMarketCategory',
           expectedRevision: 0,
           error: error.message,
         };
@@ -102,7 +100,7 @@ export function createSupabaseWebhookAdapter(
       if (!POSITIONING_SECTION_ID_VALUES.has(row.zone)) {
         return {
           artifactId: row.artifact_id,
-          sectionType: 'positioningMarketCategory' as PositioningSectionId,
+          sectionType: 'positioningMarketCategory',
           expectedRevision: 0,
           error: `section_run ${sectionRunId} has unsupported zone ${row.zone}`,
         };
@@ -121,7 +119,7 @@ export function createSupabaseWebhookAdapter(
       if (sectionError) {
         return {
           artifactId: row.artifact_id,
-          sectionType: row.zone as PositioningSectionId,
+          sectionType: row.zone as AllPositioningSectionId,
           expectedRevision: 0,
           error: sectionError.message,
         };
@@ -129,7 +127,7 @@ export function createSupabaseWebhookAdapter(
       const expectedRevision = (sectionData as { revision?: number } | null)?.revision ?? 0;
       return {
         artifactId: row.artifact_id,
-        sectionType: row.zone as PositioningSectionId,
+        sectionType: row.zone as AllPositioningSectionId,
         expectedRevision,
       };
     },

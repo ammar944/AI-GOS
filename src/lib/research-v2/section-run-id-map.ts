@@ -1,23 +1,29 @@
 import {
   POSITIONING_SECTION_IDS,
-  type PositioningSectionId,
+  type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import type { SeedOrchestrationResult } from '@/lib/research-v2/orchestrate-db';
 
-export function buildSectionRunIdByZone(
+export function buildSectionRunIdByZone<
+  TSectionId extends AllPositioningSectionId,
+>(
   seeded: SeedOrchestrationResult,
-): Record<PositioningSectionId, string> {
-  const sectionRunIdByZone: Partial<Record<PositioningSectionId, string>> = {};
+  expectedZones: readonly TSectionId[] = POSITIONING_SECTION_IDS as unknown as readonly TSectionId[],
+): Record<TSectionId, string> {
+  const sectionRunIdByZone: Partial<Record<TSectionId, string>> = {};
+  const expectedZoneSet: ReadonlySet<string> = new Set(expectedZones);
 
   for (const row of seeded.section_run_ids) {
-    sectionRunIdByZone[row.section_id] = row.section_run_id;
+    if (expectedZoneSet.has(row.section_id)) {
+      sectionRunIdByZone[row.section_id as TSectionId] = row.section_run_id;
+    }
   }
 
-  for (const sectionId of POSITIONING_SECTION_IDS) {
+  for (const sectionId of expectedZones) {
     if (!sectionRunIdByZone[sectionId]) {
       throw new Error(`seed_orchestration did not return ${sectionId}`);
     }
   }
 
-  return sectionRunIdByZone as Record<PositioningSectionId, string>;
+  return sectionRunIdByZone as Record<TSectionId, string>;
 }

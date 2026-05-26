@@ -35,6 +35,7 @@ export const SECTION_TO_TOOL = {
   positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
   positioningDemandIntent: 'positioningDemandIntent',
   positioningOfferDiagnostic: 'positioningOfferDiagnostic',
+  positioningPaidMediaPlan: 'positioningPaidMediaPlan',
 } as const;
 
 export type JourneyResearchSection = keyof typeof SECTION_TO_TOOL;

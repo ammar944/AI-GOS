@@ -16,6 +16,7 @@ const VALID_SECTION_IDS = new Set([
   'positioningVoiceOfCustomer',
   'positioningDemandIntent',
   'positioningOfferDiagnostic',
+  'positioningPaidMediaPlan',
 ]);
 
 const FALLBACK_INTENT: IntentResult = {
@@ -46,6 +47,7 @@ Allowed target_section values:
 - positioningVoiceOfCustomer
 - positioningDemandIntent
 - positioningOfferDiagnostic
+- positioningPaidMediaPlan
 
 For patch requests, target the most relevant section and provide a precise patch object.
 For rerun requests, target the most relevant section and put the user's requested direction in instruction.

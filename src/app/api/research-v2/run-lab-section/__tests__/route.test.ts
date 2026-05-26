@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SECTION_IDS,
+} from '@/lib/ai/prompts/positioning-skills';
+import type {
+  AllPositioningSectionId,
+  PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 
 const VALID_RUN_ID = '00000000-0000-4000-8000-0000000000aa';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 
 interface SeededSectionRunRow {
-  section_id: PositioningSectionId;
+  section_id: AllPositioningSectionId;
   section_run_id: string;
   ordinal: number;
   reused: boolean;
@@ -48,7 +54,27 @@ const routeMocks = vi.hoisted(() => {
   };
   sessionQuery.select.mockReturnValue(sessionQuery);
   sessionQuery.eq.mockReturnValue(sessionQuery);
-  const from = vi.fn(() => sessionQuery);
+  const committedSectionsQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    in: vi.fn(),
+  };
+  committedSectionsQuery.select.mockReturnValue(committedSectionsQuery);
+  committedSectionsQuery.eq.mockReturnValue(committedSectionsQuery);
+  const parentArtifactQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  parentArtifactQuery.select.mockReturnValue(parentArtifactQuery);
+  parentArtifactQuery.eq.mockReturnValue(parentArtifactQuery);
+  const from = vi.fn((table: string) =>
+    table === 'research_artifact_sections'
+      ? committedSectionsQuery
+      : table === 'research_artifacts'
+        ? parentArtifactQuery
+        : sessionQuery,
+  );
   const createAdminClient = vi.fn(() => ({ from }));
 
   return {
@@ -61,6 +87,8 @@ const routeMocks = vi.hoisted(() => {
     store,
     createSupabaseRunStore,
     sessionQuery,
+    committedSectionsQuery,
+    parentArtifactQuery,
     from,
     createAdminClient,
   };
@@ -147,6 +175,75 @@ function defaultSeededRows(): SeededRows {
   };
 }
 
+function paidMediaSeededRows(): SeededRows {
+  return {
+    parent_audit_run_id: PARENT_ID,
+    section_run_ids: [
+      {
+        section_id: PAID_MEDIA_PLAN_SECTION_ID,
+        section_run_id: '33333333-3333-4333-8333-333333333333',
+        ordinal: 7,
+        reused: false,
+      },
+    ],
+  };
+}
+
+function committedPositioningRows(): Array<{
+  zone: PositioningSectionId;
+  data: { sectionTitle: string };
+}> {
+  return POSITIONING_SECTION_IDS.map((zone) => ({
+    zone,
+    data: { sectionTitle: zone },
+  }));
+}
+
+function validResearchInput(): Record<string, unknown> {
+  return {
+    runId: VALID_RUN_ID,
+    fixtureId: 'brand_fellow',
+    company: {
+      id: 'company_fellow',
+      name: 'Fellow',
+      websiteUrl: 'https://fellow.app',
+      category: 'Meeting automation',
+      description: 'Fellow automates meetings.',
+      stage: 'growth',
+      targetCustomer: 'RevOps teams',
+    },
+    onboarding: {
+      primaryGoal: 'Improve paid media performance',
+      targetSegments: ['RevOps leaders'],
+      keyOffers: ['Meeting automation'],
+      distributionChannels: ['paid-search'],
+      constraints: [],
+      notes: 'Reviewed GTM brief',
+    },
+    corpus: {
+      excerpts: [
+        {
+          id: 'excerpt_1',
+          sourceUrl: 'https://fellow.app',
+          title: 'Fellow',
+          text: 'Fellow automates meeting workflows for revenue teams.',
+          observedAt: '2026-05-26T00:00:00.000Z',
+          sourceId: 'source_1',
+        },
+      ],
+    },
+    sources: [
+      {
+        id: 'source_1',
+        title: 'Fellow',
+        url: 'https://fellow.app',
+        observedAt: '2026-05-26T00:00:00.000Z',
+      },
+    ],
+    competitorAds: [],
+  };
+}
+
 function mockOwnedSession(): void {
   routeMocks.sessionQuery.maybeSingle.mockResolvedValue({
     data: {
@@ -172,11 +269,28 @@ describe('POST /api/research-v2/run-lab-section', () => {
     routeMocks.afterCallbacks.length = 0;
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
-    routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
-    routeMocks.corpusToResearchInput.mockReturnValue({
-      runId: VALID_RUN_ID,
-      fixtureId: 'brand_fellow',
+    routeMocks.committedSectionsQuery.select.mockReturnValue(
+      routeMocks.committedSectionsQuery,
+    );
+    routeMocks.committedSectionsQuery.eq.mockReturnValue(
+      routeMocks.committedSectionsQuery,
+    );
+    routeMocks.committedSectionsQuery.in.mockResolvedValue({
+      data: committedPositioningRows(),
+      error: null,
     });
+    routeMocks.parentArtifactQuery.select.mockReturnValue(
+      routeMocks.parentArtifactQuery,
+    );
+    routeMocks.parentArtifactQuery.eq.mockReturnValue(
+      routeMocks.parentArtifactQuery,
+    );
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: { id: PARENT_ID },
+      error: null,
+    });
+    routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
+    routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
     routeMocks.store.createRun.mockResolvedValue({});
     routeMocks.runLabSectionJob.mockResolvedValue(undefined);
   });
@@ -221,16 +335,16 @@ describe('POST /api/research-v2/run-lab-section', () => {
             row.section_run_id,
           ]),
         ),
-        researchInput: {
+        researchInput: expect.objectContaining({
           runId: VALID_RUN_ID,
           fixtureId: 'brand_fellow',
-        },
+        }),
       }),
     );
-    expect(routeMocks.store.createRun).toHaveBeenCalledWith({
+    expect(routeMocks.store.createRun).toHaveBeenCalledWith(expect.objectContaining({
       runId: VALID_RUN_ID,
       fixtureId: 'brand_fellow',
-    });
+    }));
 
     // The heavy job is DEFERRED to after() — not awaited before the ACK.
     expect(routeMocks.after).toHaveBeenCalledTimes(1);
@@ -300,5 +414,51 @@ describe('POST /api/research-v2/run-lab-section', () => {
 
     expect(response.status).toBe(400);
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+  });
+
+  it('dispatches the paid media plan as a dependent one-section wave with committed artifacts', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
+    mockOwnedSession();
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: PAID_MEDIA_PLAN_SECTION_ID,
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(routeMocks.seedOrchestration).toHaveBeenCalledWith({
+      userId: 'user_1',
+      runId: VALID_RUN_ID,
+      zones: [PAID_MEDIA_PLAN_SECTION_ID],
+    });
+    expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
+      'zone',
+      [...POSITIONING_SECTION_IDS],
+    );
+    expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentAuditRunId: PARENT_ID,
+        sectionRunIdByZone: {
+          [PAID_MEDIA_PLAN_SECTION_ID]: '33333333-3333-4333-8333-333333333333',
+        },
+        researchInput: expect.objectContaining({
+          committedPositioningArtifacts: Object.fromEntries(
+            committedPositioningRows().map((row) => [row.zone, row.data]),
+          ),
+        }),
+      }),
+    );
+
+    await drainAfter();
+
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
+      runId: VALID_RUN_ID,
+      sectionId: PAID_MEDIA_PLAN_SECTION_ID,
+      signal: expect.any(AbortSignal),
+      store: routeMocks.store,
+    });
   });
 });

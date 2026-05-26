@@ -1,13 +1,8 @@
 import { z } from "zod";
 
-export const sectionIds = [
-  "positioningMarketCategory",
-  "positioningBuyerICP",
-  "positioningCompetitorLandscape",
-  "positioningVoiceOfCustomer",
-  "positioningDemandIntent",
-  "positioningOfferDiagnostic",
-] as const;
+import { ALL_POSITIONING_SECTION_IDS } from "@/lib/ai/prompts/positioning-skills";
+
+export const sectionIds = ALL_POSITIONING_SECTION_IDS;
 
 export const activityEventTypes = [
   "run-created",
