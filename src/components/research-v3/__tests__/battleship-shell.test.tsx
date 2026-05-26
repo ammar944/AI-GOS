@@ -161,13 +161,27 @@ describe('<BattleshipShell>', () => {
       eventsByZone: {
         positioningMarketCategory: [
           {
+            id: 'event-0',
+            event_type: 'tool-started',
+            message: 'web_search started',
+            payload: {
+              type: 'tool-started',
+              metadata: {
+                toolName: 'web_search',
+              },
+            },
+            created_at: '2026-05-26T09:59:58.000Z',
+          },
+          {
             id: 'event-1',
             event_type: 'sub-section-committed',
             message: 'Category definition committed',
             payload: {
-              sectionId: 'positioningMarketCategory',
-              subSectionKey: 'categoryDefinition',
-              status: 'committed',
+              type: 'sub-section-committed',
+              metadata: {
+                subSectionKey: 'categoryDefinition',
+                status: 'committed',
+              },
             },
             created_at: '2026-05-26T10:00:00.000Z',
           },
@@ -194,6 +208,8 @@ describe('<BattleshipShell>', () => {
     expect(
       screen.getByTestId('sub-section-status-positioningMarketCategory-marketSize'),
     ).toHaveTextContent('Queued');
+    expect(screen.getByText('Query -> web_search')).toBeInTheDocument();
+    expect(screen.getByText('Committed -> categoryDefinition')).toBeInTheDocument();
   });
 });
 

@@ -29,6 +29,70 @@ interface ActivityFeedProps {
   live: AuditStateResponse;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getEventMetadata(
+  event: AuditStateResponse['eventsByZone'][string][number],
+): Record<string, unknown> {
+  const payload = asRecord(event.payload);
+  return asRecord(payload?.metadata) ?? payload ?? {};
+}
+
+function formatToolName(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : 'tool';
+}
+
+function formatActivityEvent(
+  event: AuditStateResponse['eventsByZone'][string][number],
+): string {
+  const metadata = getEventMetadata(event);
+  const toolName = formatToolName(metadata.toolName);
+
+  if (event.event_type === 'tool-started') {
+    return `Query -> ${toolName}`;
+  }
+
+  if (event.event_type === 'tool-finished') {
+    const gap = asRecord(metadata.gap);
+    const gapMessage =
+      typeof gap?.message === 'string' ? gap.message : undefined;
+    const outputSummary =
+      typeof metadata.outputSummary === 'string'
+        ? metadata.outputSummary
+        : undefined;
+    return `Search -> ${toolName}${gapMessage || outputSummary ? `: ${gapMessage ?? outputSummary}` : ''}`;
+  }
+
+  if (event.event_type === 'structured-output-started') {
+    const schemaName =
+      typeof metadata.schemaName === 'string' ? metadata.schemaName : 'schema';
+    return `Synthesis -> ${schemaName}`;
+  }
+
+  if (event.event_type === 'validation-failed') {
+    const issues = Array.isArray(metadata.issues)
+      ? metadata.issues.filter((issue): issue is string => typeof issue === 'string')
+      : [];
+    return `Validation -> ${issues[0] ?? 'failed'}`;
+  }
+
+  if (event.event_type === 'sub-section-committed') {
+    const subSectionKey =
+      typeof metadata.subSectionKey === 'string'
+        ? metadata.subSectionKey
+        : 'sub-section';
+    return `Committed -> ${subSectionKey}`;
+  }
+
+  return event.message ?? event.event_type;
+}
+
 export function ActivityFeed({ live }: ActivityFeedProps) {
   const workerByZone = Object.fromEntries(
     live.workerStates.map((w) => [w.section_id, w]),
@@ -104,7 +168,7 @@ export function ActivityFeed({ live }: ActivityFeedProps) {
                               second: '2-digit',
                             })}
                           </span>
-                          {event.message ?? event.event_type}
+                          {formatActivityEvent(event)}
                         </TaskItem>
                       ))
                     ) : (

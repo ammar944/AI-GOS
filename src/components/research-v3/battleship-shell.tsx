@@ -328,12 +328,18 @@ function getCommittedPaidMediaSubSectionKeys(
   return new Set(
     events
       .filter((event) => event.event_type === 'sub-section-committed')
-      .map((event) =>
-        typeof event.payload?.subSectionKey === 'string' &&
-        event.payload.status === 'committed'
-          ? event.payload.subSectionKey
-          : null,
-      )
+      .map((event) => {
+        const metadata =
+          event.payload?.metadata &&
+          typeof event.payload.metadata === 'object' &&
+          !Array.isArray(event.payload.metadata)
+            ? (event.payload.metadata as Record<string, unknown>)
+            : event.payload;
+        return typeof metadata?.subSectionKey === 'string' &&
+          metadata.status === 'committed'
+          ? metadata.subSectionKey
+          : null;
+      })
       .filter((key): key is string => key !== null),
   );
 }
