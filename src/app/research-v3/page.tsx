@@ -27,6 +27,10 @@ import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
 import { BattleshipShell } from '@/components/research-v3/battleship-shell';
+import {
+  getReaderSectionFromParam,
+  type ReaderSectionId,
+} from '@/components/research-v3/reader-sections';
 
 // ---------------------------------------------------------------------------
 // Helpers (identical to research-v2/page.tsx)
@@ -81,6 +85,7 @@ export default function ResearchV3Page() {
   // -----------------------------------------------------------------------
 
   const runIdFromUrl = searchParams.get('runId');
+  const activeSectionId = getReaderSectionFromParam(searchParams.get('section'));
 
   const setRunIdInUrl = useCallback(
     (runId: string): void => {
@@ -94,6 +99,16 @@ export default function ResearchV3Page() {
   const clearRunIdInUrl = useCallback((): void => {
     router.replace('/research-v3', { scroll: false });
   }, [router]);
+
+  const setReaderSectionInUrl = useCallback(
+    (runId: string, sectionId: ReaderSectionId): void => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('runId', runId);
+      params.set('section', sectionId);
+      router.replace(`/research-v3?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   // -----------------------------------------------------------------------
   // Resume-on-revisit
@@ -527,7 +542,13 @@ export default function ResearchV3Page() {
       )}
 
       {state.kind === 'sections' && (
-        <BattleshipShell runId={state.runId} />
+        <BattleshipShell
+          runId={state.runId}
+          activeSectionId={activeSectionId}
+          onSectionChange={(sectionId: ReaderSectionId): void =>
+            setReaderSectionInUrl(state.runId, sectionId)
+          }
+        />
       )}
 
       {state.kind === 'error' && (

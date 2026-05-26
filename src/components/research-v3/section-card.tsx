@@ -1,5 +1,6 @@
 'use client';
 
+import { type ReactElement } from 'react';
 import {
   BarChart3,
   Users,
@@ -63,6 +64,13 @@ function toCardStatus(
   }
 }
 
+function getStreamingText(
+  workerState: AuditStateResponse['workerStates'][number] | undefined,
+): string {
+  if (!workerState || workerState.status === 'queued') return 'Queued';
+  return workerState.latestActivity ?? workerState.phaseLabel ?? 'Drafting…';
+}
+
 // ---------------------------------------------------------------------------
 // SectionCard props
 // ---------------------------------------------------------------------------
@@ -73,7 +81,11 @@ interface SectionCardProps {
   workerState: AuditStateResponse['workerStates'][number] | undefined;
 }
 
-export function SectionCard({ zoneId, body, workerState }: SectionCardProps) {
+export function SectionCard({
+  zoneId,
+  body,
+  workerState,
+}: SectionCardProps): ReactElement {
   const status = toCardStatus(workerState?.status);
   const accentColor = SECTION_ACCENT[zoneId];
   const Icon = SECTION_ICON[zoneId];
@@ -93,7 +105,7 @@ export function SectionCard({ zoneId, body, workerState }: SectionCardProps) {
   // Streaming text: latestActivity while running
   const streamingText =
     status === 'streaming'
-      ? (workerState?.latestActivity ?? 'Drafting…')
+      ? getStreamingText(workerState)
       : undefined;
 
   return (
