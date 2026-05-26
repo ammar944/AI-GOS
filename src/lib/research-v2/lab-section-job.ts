@@ -87,7 +87,7 @@ function toSupportedSectionId(sectionId: PositioningSectionId): SupportedSection
 }
 
 function getLabEngineAllowedTools(): RunSectionDeps['allowedTools'] {
-  return process.env.LAB_ENGINE_LIVE_TOOLS === 'true' ? undefined : [];
+  return process.env.LAB_ENGINE_LIVE_TOOLS === 'false' ? [] : undefined;
 }
 
 async function loadLabSkill(slug: string): Promise<string> {

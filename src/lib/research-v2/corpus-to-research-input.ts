@@ -1,6 +1,5 @@
 import {
   researchInputSchema,
-  type CompetitorAd,
   type CorpusExcerpt,
   type ResearchInput,
   type SourceRef,
@@ -13,7 +12,6 @@ export interface CorpusToResearchInputParams {
   now?: () => Date;
 }
 
-const minimumExcerptLength = 80;
 const defaultCompanyStage = "growth";
 const defaultDistributionChannel = "paid-search";
 
@@ -122,13 +120,6 @@ function getValidUrl(value: unknown): string | null {
   }
 }
 
-function logSafeDefault(field: string, reason: string): void {
-  console.warn("[corpus-to-research-input] safe default applied", {
-    field,
-    reason,
-  });
-}
-
 function resolveUrl({
   fallbackUrl,
   field,
@@ -147,12 +138,12 @@ function resolveUrl({
   }
 
   if (fallbackUrl !== undefined && fallbackUrl !== null) {
-    logSafeDefault(field, "using first valid corpus source URL");
     return fallbackUrl;
   }
 
-  logSafeDefault(field, "using schema-safe synthetic URL");
-  return `https://example.com/${slug}`;
+  throw new Error(
+    `Missing valid URL for ${field}; no corpus source URL was available for ${slug}`,
+  );
 }
 
 function buildResearchSummary({
@@ -206,7 +197,6 @@ function buildSources({
     return sources;
   }
 
-  logSafeDefault("sources", "using company website as the source list");
   return [
     {
       id: `source_${slugify(companyName)}_website`,
@@ -239,36 +229,15 @@ function findSourceForEvidence({
   return matchingTitleSource ?? sources[0]!;
 }
 
-function ensureExcerptTextLength(text: string, supplement: string): string {
-  const normalizedText = normalizeWhitespace(text);
-
-  if (normalizedText.length >= minimumExcerptLength) {
-    return normalizedText;
-  }
-
-  const normalizedSupplement = normalizeWhitespace(supplement);
-  const combined = normalizeWhitespace(`${normalizedText} — ${normalizedSupplement}`);
-
-  if (combined.length >= minimumExcerptLength) {
-    return combined;
-  }
-
-  return normalizeWhitespace(
-    `${combined} This corpus-only supplement preserves the lab schema minimum without adding live-tool evidence.`,
-  );
-}
-
 function buildEvidenceExcerpt({
   evidence,
   index,
   observedAt,
-  researchSummary,
   sources,
 }: {
   evidence: Record<string, unknown>;
   index: number;
   observedAt: string;
-  researchSummary: string;
   sources: SourceRef[];
 }): CorpusExcerpt | null {
   const claim = firstString(evidence.claim, evidence.summary, evidence.text);
@@ -280,9 +249,8 @@ function buildEvidenceExcerpt({
 
   const source = findSourceForEvidence({ evidence, sources });
   const title = firstString(evidence.title, evidence.source) ?? source.title;
-  const text = ensureExcerptTextLength(
+  const text = normalizeWhitespace(
     [claim, quote].filter((part): part is string => part !== null).join(" — "),
-    researchSummary,
   );
 
   return {
@@ -295,150 +263,29 @@ function buildEvidenceExcerpt({
   };
 }
 
-function buildSourceSupplementExcerpt({
-  index,
-  observedAt,
-  researchSummary,
-  source,
-}: {
-  index: number;
-  observedAt: string;
-  researchSummary: string;
-  source: SourceRef;
-}): CorpusExcerpt {
-  return {
-    id: `excerpt_supplement_${index + 1}`,
-    sourceId: source.id,
-    sourceUrl: source.url,
-    title: source.title,
-    text: ensureExcerptTextLength(
-      `${source.title}: ${researchSummary}`,
-      "Supplemented from corpus.sources and corpus.researchSummary for the lab ResearchInput minimum.",
-    ),
-    observedAt,
-  };
-}
-
 function buildCorpusExcerpts({
   evidenceRecords,
   observedAt,
-  researchSummary,
   sources,
 }: {
   evidenceRecords: Record<string, unknown>[];
   observedAt: string;
-  researchSummary: string;
   sources: SourceRef[];
 }): CorpusExcerpt[] {
-  const evidenceExcerpts = evidenceRecords.flatMap((evidence, index) => {
+  return evidenceRecords.flatMap((evidence, index) => {
     const excerpt = buildEvidenceExcerpt({
       evidence,
       index,
       observedAt,
-      researchSummary,
       sources,
     });
 
     return excerpt === null ? [] : [excerpt];
   });
-
-  if (evidenceExcerpts.length >= 3) {
-    return evidenceExcerpts;
-  }
-
-  const supplementedExcerpts = [...evidenceExcerpts];
-
-  while (supplementedExcerpts.length < 3) {
-    const source = sources[supplementedExcerpts.length % sources.length]!;
-    supplementedExcerpts.push(
-      buildSourceSupplementExcerpt({
-        index: supplementedExcerpts.length,
-        observedAt,
-        researchSummary,
-        source,
-      }),
-    );
-  }
-
-  return supplementedExcerpts;
-}
-
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const uniqueValues: string[] = [];
-
-  for (const value of values) {
-    const key = value.toLowerCase();
-
-    if (seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    uniqueValues.push(value);
-  }
-
-  return uniqueValues;
 }
 
 function withFallback(values: string[], fallback: string): string[] {
   return values.length > 0 ? values : [fallback];
-}
-
-function ensureCompetitorSeeds({
-  category,
-  companyName,
-  topCompetitors,
-}: {
-  category: string;
-  companyName: string;
-  topCompetitors: string[];
-}): string[] {
-  const fallbackSeeds = [
-    `${category} status quo`,
-    "Manual workflow alternative",
-    `${companyName} spreadsheet alternative`,
-  ];
-
-  return uniqueStrings([...topCompetitors, ...fallbackSeeds]).slice(0, 5);
-}
-
-function buildSyntheticCompetitorAds({
-  category,
-  companyName,
-  observedAt,
-  sourceUrl,
-  topCompetitors,
-}: {
-  category: string;
-  companyName: string;
-  observedAt: string;
-  sourceUrl: string;
-  topCompetitors: string[];
-}): CompetitorAd[] {
-  return ensureCompetitorSeeds({
-    category,
-    companyName,
-    topCompetitors,
-  })
-    .slice(0, 3)
-    .map((competitorName, index): CompetitorAd => ({
-      id: `synthetic_google_ad_${slugify(competitorName)}_${index + 1}`,
-      competitorName,
-      platform: "google",
-      headline: `Synthetic: ${competitorName} positioning angle`,
-      body:
-        `Synthetic v1 competitor ad generated from onboarding competitor seed "${competitorName}" ` +
-        "for corpus-only lab validation; not live ad evidence.",
-      landingUrl: null,
-      firstSeen: null,
-      lastSeen: null,
-      creativeUrl: null,
-      sourceUrl,
-      angle:
-        `Synthetic v1 angle derived from ${companyName} onboarding competitors ` +
-        `and ${category} category context at ${observedAt}.`,
-    }));
 }
 
 export function corpusToResearchInput(
@@ -499,12 +346,6 @@ export function corpusToResearchInput(
     sourceRecords,
     websiteUrl,
   });
-  const topCompetitors = firstStringArray(
-    getFieldValue(onboardingFields, "topCompetitors"),
-    getValue(onboardingData, "topCompetitors"),
-    getValue(onboardingData, "top_competitors"),
-  );
-
   return researchInputSchema.parse({
     runId: params.runId,
     fixtureId: `brand_${companySlug}`,
@@ -554,17 +395,10 @@ export function corpusToResearchInput(
       excerpts: buildCorpusExcerpts({
         evidenceRecords: asRecordArray(corpus.evidence),
         observedAt,
-        researchSummary,
         sources,
       }),
     },
     sources,
-    competitorAds: buildSyntheticCompetitorAds({
-      category,
-      companyName,
-      observedAt,
-      sourceUrl: sources[0]!.url,
-      topCompetitors,
-    }),
+    competitorAds: [],
   });
 }

@@ -61,7 +61,7 @@ export const corpusExcerptSchema = z
     id: z.string().min(1),
     sourceUrl: z.string().url(),
     title: z.string().min(1),
-    text: z.string().min(80),
+    text: z.string().min(1),
     observedAt: isoDateTimeSchema,
     sourceId: z.string().min(1),
   })
@@ -69,7 +69,7 @@ export const corpusExcerptSchema = z
 
 export const corpusSnapshotSchema = z
   .object({
-    excerpts: z.array(corpusExcerptSchema).min(3),
+    excerpts: z.array(corpusExcerptSchema).min(1),
   })
   .strict();
 
@@ -81,7 +81,7 @@ export const researchInputSchema = z
     onboarding: onboardingSnapshotSchema,
     corpus: corpusSnapshotSchema,
     sources: z.array(sourceRefSchema).min(1),
-    competitorAds: z.array(competitorAdSchema).min(3).max(5),
+    competitorAds: z.array(competitorAdSchema).max(5),
   })
   .strict();
 

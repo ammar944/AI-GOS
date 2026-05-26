@@ -75,13 +75,12 @@ describe("corpusToResearchInput", (): void => {
     expect(parsed.runId).toBe("run_airtable_corpus");
     expect(parsed.fixtureId).toBe("brand_airtable");
     expect(parsed.company.stage).toBe("growth");
-    expect(parsed.corpus.excerpts).toHaveLength(3);
-    expect(parsed.corpus.excerpts.every((excerpt) => excerpt.text.length >= 80)).toBe(
+    expect(parsed.corpus.excerpts).toHaveLength(2);
+    expect(parsed.corpus.excerpts.every((excerpt) => excerpt.text.length > 0)).toBe(
       true,
     );
-    expect(parsed.competitorAds).toHaveLength(3);
-    expect(parsed.competitorAds.every((ad) => ad.body.includes("Synthetic v1"))).toBe(
-      true,
-    );
+    expect(parsed.competitorAds).toEqual([]);
+    expect(JSON.stringify(parsed)).not.toContain("Synthetic");
+    expect(JSON.stringify(parsed)).not.toContain("example.com");
   });
 });

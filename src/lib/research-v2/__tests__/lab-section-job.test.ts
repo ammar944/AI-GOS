@@ -138,10 +138,7 @@ describe('runLabSectionJob', (): void => {
       'forced section failure',
     );
     expect(
-      observedDeps.every(
-        (deps) =>
-          Array.isArray(deps.allowedTools) && deps.allowedTools.length === 0,
-      ),
+      observedDeps.every((deps) => deps.allowedTools === undefined),
     ).toBe(true);
     expect(consoleError).toHaveBeenCalledWith(
       '[lab-section-job] section failed',
@@ -214,7 +211,7 @@ describe('runLabSectionJob', (): void => {
     );
   });
 
-  it('passes through live tools only when LAB_ENGINE_LIVE_TOOLS is explicitly enabled', async (): Promise<void> => {
+  it('passes through live tools by default and disables them only when LAB_ENGINE_LIVE_TOOLS is explicitly false', async (): Promise<void> => {
     const { store } = createMockRunStore();
     const observedDeps: RunSectionDeps[] = [];
     const runSectionImpl = vi.fn(
@@ -233,7 +230,7 @@ describe('runLabSectionJob', (): void => {
       store,
       runSectionImpl,
     });
-    process.env.LAB_ENGINE_LIVE_TOOLS = 'true';
+    process.env.LAB_ENGINE_LIVE_TOOLS = 'false';
     await runLabSectionJob({
       runId,
       sectionId: 'positioningBuyerICP',
@@ -241,8 +238,8 @@ describe('runLabSectionJob', (): void => {
       runSectionImpl,
     });
 
-    expect(observedDeps[0]?.allowedTools).toEqual([]);
-    expect(observedDeps[1]?.allowedTools).toBeUndefined();
+    expect(observedDeps[0]?.allowedTools).toBeUndefined();
+    expect(observedDeps[1]?.allowedTools).toEqual([]);
   });
 
   it('marks a pre-aborted section signal failed without invoking the runner', async (): Promise<void> => {
