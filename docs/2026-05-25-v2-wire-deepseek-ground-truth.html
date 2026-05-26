@@ -316,7 +316,7 @@
       <span><b>App</b> · Strategic Marketing Blueprint Generator</span>
       <span><b>Scope</b> · stabilize → harden → DeepSeek → v3 B-G</span>
       <span><b>Branch</b> · feat/v2-lab-section-wire</span>
-      <span><b>Status</b> · T3.7 closed · v3 B-E code landed · corpus→Perplexity Phase 1 landed · ≥3-URL proof gate landed</span>
+      <span><b>Status</b> · T3.7 closed · corpus→Perplexity landed · ≥3-URL proof gate landed · Phase S landed · light UI integrated into v3</span>
     </div>
     <div class="readfirst">
       <b>This is the file the agent team works from.</b> The vision and decisions below are locked; the <b>task board</b> (§07) is the living part — statuses update as the build proceeds, and the agent-bus goal mirrors it. If anything is off, we fix it here first.
@@ -326,8 +326,85 @@
 
 <main class="wrap">
 
+  <!-- DIRECTION — executive summary added s20 -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="sec-num">NOW</span>
+      <div>
+        <h2>Where we stand — and the app we're building</h2>
+        <p class="sec-sub">The single-glance direction across both tracks. Updated 2026-05-26 (s20).</p>
+      </div>
+    </div>
+
+    <div class="gist reveal">
+      <p>AI-GOS is becoming a <span class="hl">professional product</span>, not a pipeline demo — a <span class="hl">Linear-grade app hub</span> where a company URL turns into a complete, audited GTM blueprint: six positioning reports plus a client-ready paid-media plan, every claim sourced, nothing guessed.</p>
+      <p>Two tracks now converge — the <span class="hl">backend engine is built and proven</span>, and the <span class="hl">frontend design direction is locked</span>. What's left is <span class="hl">shipping discipline, not invention</span>.</p>
+    </div>
+
+    <div class="board reveal" style="margin-top:26px">
+      <div class="row">
+        <span class="pill done">done</span>
+        <div>
+          <h4>Backend — the AI engine is built &amp; proven</h4>
+          <p>Perplexity <span class="mono" style="font-size:12px">sonar-pro</span> corpus → DeepSeek six sections → paid-media 7th, real in-section tools, ≥3-cited-URL proof gate — verified on three fresh URLs (Ramp / Vanta / Webflow). Phase S (cold-rehydrate fix + soak harness) landed. Nothing new to invent here.</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill done">integrated</span>
+        <div>
+          <h4>Frontend — light reader integrated into v3</h4>
+          <p>Minimal, light, OpenAI-developer-platform style: left section rail + white reading column, one section at a time, Geist all-sans, monochrome with confidence dots the only accent, shadcn light tokens. <b>Landed on <span class="mono" style="font-size:12px">feat/v2-lab-section-wire</span></b> (cherry-pick of <span class="mono" style="font-size:12px">f9abec6f</span>, commits <span class="mono" style="font-size:12px">b3b06ca9</span>→<span class="mono" style="font-size:12px">74869b0e</span>): confidence routed through <span class="mono" style="font-size:12px">confidence-display.ts</span>, paid-media wired as section 7 (lock-after-6 + auto-dispatch + 12 sub-sections), and <span class="mono" style="font-size:12px">/research-v3</span> now mounts the light shell (BattleshipShell retired). Verified: tsc 0, 1086 pass/1 skip, live run rendered 6/6 + paid-media 12/12 at 0–10 confidence.</p>
+        </div>
+      </div>
+      <div class="row">
+        <span class="pill now">next</span>
+        <div>
+          <h4>One gate stands between here and production</h4>
+          <p>With the light UI integrated, the shipping app is now whole on one branch. <b>The 48h soak is the only remaining gate</b> — run the harness against the integrated app; the s19 proof already cleared the other F/G conditions (3 fresh URLs · paid-media terminal · green baselines).</p>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:26px" class="reveal"><strong>The path to ship — delete + deploy + watch, not build:</strong></p>
+    <div class="chain reveal">
+      <span>UI integration ✓</span><span class="arr">→</span>
+      <span>48h soak</span><span class="arr">→</span>
+      <span>teardown · delete legacy</span><span class="arr">→</span>
+      <span>production promotion</span>
+    </div>
+    <p class="reveal" style="margin-top:14px;font-size:14.5px;color:var(--ink-soft);max-width:72ch">Full spec: <span class="mono" style="font-size:12px">docs/2026-05-26-v3-soak-teardown-promotion-handoff.md</span>. Phase S done; Phase F (teardown) and Phase G (promotion) are gated on a green soak plus the provider "keep-1" call (default: keep Anthropic gated &amp; reversible).</p>
+
+    <p style="margin-top:34px" class="reveal"><strong>Documentation map — canonical sources, rounded up:</strong></p>
+    <div class="board reveal">
+      <div class="row">
+        <span class="pill done">hub</span>
+        <div><h4>This file — ground-truth living log</h4><p class="path">docs/2026-05-25-v2-wire-deepseek-ground-truth.html — status board + session log, updated every session</p></div>
+      </div>
+      <div class="row">
+        <span class="pill done">domain</span>
+        <div><h4>CONTEXT.md + docs/adr/</h4><p class="path">domain glossary · decision register — ADR-0002 single-output, 0003 backend-only, 0007 corpus→Perplexity</p></div>
+      </div>
+      <div class="row">
+        <span class="pill done">done</span>
+        <div><h4>UI integration handoff — executed</h4><p class="path">docs/2026-05-26-v3-ui-integration-handoff.md — light reader landed on v3 (commits b3b06ca9→74869b0e), verified</p></div>
+      </div>
+      <div class="row">
+        <span class="pill now">to do</span>
+        <div><h4>Soak → teardown → promotion handoff</h4><p class="path">docs/2026-05-26-v3-soak-teardown-promotion-handoff.md — the Codex spec for everything after integration</p></div>
+      </div>
+      <div class="row">
+        <span class="pill done">arc</span>
+        <div><h4>v3 scope + execution + media plan</h4><p class="path">v3-scope-and-plan.md · v3-bg-execution-handoff.md · corpus-perplexity-and-proof-gate-handoff.md · media-plan-v3-structure.md</p></div>
+      </div>
+      <div class="row">
+        <span class="pill risk">debt</span>
+        <div><h4>The locked design direction needs a durable home</h4><p>It lives only in <span class="mono" style="font-size:12px">reader-prototype-v2/NOTES.md</span> (one line) + session memory. For a professional doc set it should be promoted to an ADR or a <span class="mono" style="font-size:12px">DESIGN-DIRECTION.md</span>. Flagged, not yet written.</p></div>
+      </div>
+    </div>
+  </section>
+
   <div class="livelog reveal">
-    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-26 (session 19 · ≥3-URL proof gate landed)</div>
+    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-26 (session 22 · light UI integrated into v3 — verified)</div>
     <p style="font-size:14.5px;color:var(--ink-soft);margin:-4px 0 18px;max-width:66ch">Running log — updated each session so we resume aligned. The two parallel Codex tracks (stabilize/harden + DeepSeek) are merged. v3 Phase A is closed. The B-E code path is now landed on <span class="mono" style="font-size:12px">feat/v2-lab-section-wire</span>: seven-tab reader, sub-section events, real in-section tools, zero synthetic backfill, competitor ad presence, paid-media final wave, and G4/G5 brief fields. Session 12 added a real Linear paid-media proof and routed user-facing research entrypoints to <span class="mono" style="font-size:12px">/research-v3</span>. Session 13 traced the 212.9s Competitor run to a repair cycle for the missing <span class="mono" style="font-size:12px">status-quo</span> bucket and tightened first-pass + repair guidance. Session 14 refreshed the reader/browser proof on authenticated <span class="mono" style="font-size:12px">:3100</span> after the Phase B interaction commits. Session 15 fixed the paid-media generic renderer confidence scale leak and refreshed the same browser proof on a rebuilt <span class="mono" style="font-size:12px">:3100</span>. Session 16 hardened that fix into a shared <span class="mono" style="font-size:12px">confidence-display.ts</span> helper. Session 18 landed the corpus→Perplexity worker rewrite and proved Ramp live with 11 cited sources / 10 grounded excerpts plus <span class="mono" style="font-size:12px">researchInputSchema</span> parse. Session 19 closed the authenticated <span class="mono" style="font-size:12px">:3100</span> ≥3-URL proof on Ramp, Vanta, and Webflow: Perplexity corpus, DeepSeek sections, and the paid-media terminal tab all completed with zero synthetic/example hits. The remaining hard gates are the 48h soak, teardown, and production promotion.</p>
     <div class="tracks">
       <div class="trk">
@@ -379,6 +456,9 @@
     <div class="slog"><b>Session 17 addendum</b><br>· <b>2026-05-26 (s17, CORPUS→PERPLEXITY DECISION + PROOF-GATE HANDOFF):</b> Planning/handoff session (no app code, no live run). Grounded the "corpus off Anthropic" decision in the AIHero AI SDK v6 course's research-agent discipline: the corpus (<span class="mono" style="font-size:11px">deepResearchProgram</span>) is Anthropic-architecture-coupled (native <span class="mono" style="font-size:11px">toolRunner</span> + hosted <span class="mono" style="font-size:11px">web_search</span>/<span class="mono" style="font-size:11px">code_execution</span> + skills), so moving it is a rewrite, not a config swap. <b>Decision (ADR-0007):</b> rewrite the corpus engine onto <b>Perplexity sonar</b>, kept on the Railway worker (honors the parent's "keep Railway corpus path"), wrapped in the §06 discipline; the course-purest <b>DeepSeek-unify</b> path (one lab loop for corpus + sections) was deferred to avoid relocating the corpus and reversing the parent lock. Authored the Codex handoff <span class="mono" style="font-size:11px">docs/2026-05-26-v3-corpus-perplexity-and-proof-gate-handoff.md</span> (commit <span class="mono" style="font-size:11px">35de8721</span>): Phase 1 corpus→Perplexity (own gate), Phase 2 ≥3-URL authenticated proof gate on Ramp/Vanta/Webflow (DeepSeek sections + live tools), driven by Codex via Playwright because every dispatch route is Clerk-gated (no headless path; a live browser context is required for Clerk token refresh). Earlier this session also centralized confidence formatting (commit <span class="mono" style="font-size:11px">580248cd</span>, see s16). <b>Status:</b> Codex now executing the handoff; ADR-0007 recorded. <b>Gate caveat:</b> unchanged — the ≥3 fresh-URL gate, 48h soak, teardown, and prod promotion all remain open, with the corpus rewrite + its own gate now sequenced ahead of them.</div>
     <div class="slog"><b>Session 18 addendum</b><br>· <b>2026-05-26 (s18, CORPUS→PERPLEXITY PHASE 1 LANDED):</b> Codex replaced the Anthropic corpus runner with a worker-resident Perplexity sonar path: <span class="mono" style="font-size:11px">generateText</span> + <span class="mono" style="font-size:11px">Output.object</span>, provider-neutral <span class="mono" style="font-size:11px">RESEARCH_DEEP_PROGRAM_MODEL</span> defaulting to <span class="mono" style="font-size:11px">sonar-pro</span>, timeout/abort guard, source expansion when provider citations are thin, and a repair pass constrained to captured Perplexity citations. The deterministic corpus gate rejects fewer than 6 real cited source URLs, fewer than 8 grounded evidence excerpts, ungrounded URLs, <span class="mono" style="font-size:11px">example.com</span>, and <span class="mono" style="font-size:11px">Synthetic:</span> before the worker can return a complete result. Live proof: <span class="mono" style="font-size:11px">https://ramp.com</span> completed in <b>74.7s</b> with <b>11 cited sources</b>, <b>10 grounded excerpts</b>, and <span class="mono" style="font-size:11px">researchInputSchema</span> parsed. Verified after s18: worker focused corpus tests 4/4, worker suite 490/490, frontend <span class="mono" style="font-size:11px">tsc --noEmit</span> 0, full <span class="mono" style="font-size:11px">vitest</span> 1079 pass/1 skip, corpus fixture eval 6/8 pass, live Ramp eval pass, worker build exactly the known 6 baseline errors. <b>Gate caveat:</b> this closes Phase 1 only; the authenticated Ramp/Vanta/Webflow ≥3-URL proof, 48h soak, teardown, and production promotion remain open.</div>
     <div class="slog"><b>Session 19 addendum</b><br>· <b>2026-05-26 (s19, ≥3-URL AUTHENTICATED PROOF GATE LANDED):</b> Codex drove the live authenticated <span class="mono" style="font-size:11px">/research-v3</span> flow in the in-app browser on <span class="mono" style="font-size:11px">:3100</span> for three fresh URLs: Ramp <span class="mono" style="font-size:11px">749f38ff-7e92-4ab6-aef8-5c06d19d48be</span>, Vanta <span class="mono" style="font-size:11px">1a0c4e2b-7f47-4fd2-84f8-c357dd2cdff9</span>, and Webflow <span class="mono" style="font-size:11px">7d2b96e0-33cf-4b22-967b-6b7faff566ee</span>. Corpus rows are complete with Perplexity sonar traces in <span class="mono" style="font-size:11px">journey_sessions</span> and source/evidence counts of Ramp 11/10, Vanta 7/12, Webflow 8/11. DB proof: each parent artifact is <span class="mono" style="font-size:11px">complete</span> with <span class="mono" style="font-size:11px">children_complete=6</span>; all seven section runs per URL are <span class="mono" style="font-size:11px">deepseek-direct</span> / <span class="mono" style="font-size:11px">deepseek-v4-flash</span>; max/p95 latencies were Ramp 118.4s, Vanta 138.9s, Webflow 107.8s; artifact sweeps found 0 <span class="mono" style="font-size:11px">Synthetic:</span>, 0 <span class="mono" style="font-size:11px">example.com</span>, and 0 Anthropic hits. Browser proof opened the paid-media terminal tab for Vanta and Webflow with all 12 sub-sections committed and no error boundary; Ramp completed paid media with 12 committed sub-sections in DB before a hard-refresh exposed the known runId rehydrate limitation. Code fixes added during proof: corpus diagnostic re-repair when the first Perplexity repair still emits non-cited URLs, and a second DeepSeek answer-tool repair attempt for section minimum misses. Verified after s19: focused worker corpus tests, focused corpus-only section repair tests, frontend typecheck, root vitest, Next build, lint, and worker build baseline check. <b>Gate caveat:</b> the ≥3-URL proof gate is closed; the ≥48h soak, teardown, and production promotion remain open.</div>
+    <div class="slog"><b>Session 20 addendum</b><br>· <b>2026-05-26 (s20, PHASE S LANDED + FRONTEND DIRECTION LOCKED):</b> Two parallel tracks advanced. <b>Backend (this track):</b> Codex implemented Phase S of the soak→teardown→promotion handoff (<span class="mono" style="font-size:11px">docs/2026-05-26-v3-soak-teardown-promotion-handoff.md</span>) — the <span class="mono" style="font-size:11px">/research-v3</span> cold-rehydrate bug is fixed so a completed normalized run restores from <span class="mono" style="font-size:11px">artifactSections</span> (mounts the reader + paid-media tab instead of falling back to corpus, <span class="mono" style="font-size:11px">0b7b6180</span>), and a soak-readiness harness landed (<span class="mono" style="font-size:11px">npm run soak:harness</span> / <span class="mono" style="font-size:11px">soak:monitor</span>, <span class="mono" style="font-size:11px">9ba508ba</span>) with cost/run caps, source sweeps, and error/stale detection. Verified: full <span class="mono" style="font-size:11px">vitest</span> 1086 pass/1 skip, <span class="mono" style="font-size:11px">tsc --noEmit</span> 0, <span class="mono" style="font-size:11px">next build</span> exit 0, <span class="mono" style="font-size:11px">eslint</span> 0 errors/65 known warnings, worker build clean (exit 0 — cleaner than the prior 6-error baseline). <b>Frontend (parallel session):</b> the Audit Reader design direction was <b>locked</b> — minimal/light OpenAI-developer-platform style (left section rail + white reading column, one section at a time, Geist all-sans + monochrome, confidence dots the only accent, shadcn light tokens; <b>no serif, no mono, no paper</b>), after rejecting the long-read-report and dark-panel pivots. It lives in <span class="mono" style="font-size:11px">src/app/research-v2/reader-prototype-v2/</span> and folds into <span class="mono" style="font-size:11px">audit-reader-shell.tsx</span>. <b>Gate caveat:</b> unchanged — the ≥48h soak (now runnable via the harness), teardown, and production promotion remain open; F/G are blocked solely on a green soak.</div>
+    <div class="slog"><b>Session 21 addendum</b><br>· <b>2026-05-26 (s21, UI/BACKEND INTEGRATION GAP FOUND + HANDOFF):</b> Realignment surfaced that the approved light Audit Reader UI and the proven v3 backend are on <b>two unmerged branches</b>: the UI is one commit (<span class="mono" style="font-size:11px">f9abec6f</span>) on <span class="mono" style="font-size:11px">codex/claude-managed-agents-work</span>, which forked off the old May-20 base and has none of the 65 v3 backend commits; <span class="mono" style="font-size:11px">feat/v2-lab-section-wire</span> has the proven backend but the old reader UI. A compatibility check (two parallel maps) found it is a tractable <b>re-skin merge</b>, not a rebuild — both branches share the same render architecture, types, and managed-agents schema source; <span class="mono" style="font-size:11px">f9abec6f</span> re-skinned 16 shared files (shell + 8 primitives + 6 section-renderers + typed-artifact-renderer). Three catches: route confidence through <span class="mono" style="font-size:11px">confidence-display.ts</span>, add the paid-media 7th section + auto-dispatch into the light shell, and switch <span class="mono" style="font-size:11px">/research-v3</span> from <span class="mono" style="font-size:11px">BattleshipShell</span> to the light shell. Authored <span class="mono" style="font-size:11px">docs/2026-05-26-v3-ui-integration-handoff.md</span> (cherry-pick <span class="mono" style="font-size:11px">f9abec6f</span>, NOT a branch merge — merging would drag the old backend). <b>Resequenced:</b> UI integration → soak → teardown → promotion (soak the integrated app). No code changed this session; docs only.</div>
+    <div class="slog"><b>Session 22 addendum</b><br>· <b>2026-05-26 (s22, LIGHT UI INTEGRATED INTO v3):</b> Codex executed the UI integration handoff — cherry-picked <span class="mono" style="font-size:11px">f9abec6f</span> onto <span class="mono" style="font-size:11px">feat/v2-lab-section-wire</span> (conflicts in only 2 files: <span class="mono" style="font-size:11px">audit-reader-shell.tsx</span> + <span class="mono" style="font-size:11px">typed-artifact-renderer.tsx</span>, resolved keep-light-styling / keep-v3-data). Commits <span class="mono" style="font-size:11px">b3b06ca9</span> (light render layer), <span class="mono" style="font-size:11px">0114083a</span> (graft light shell onto v3 reader), <span class="mono" style="font-size:11px">77e94998</span> (mount light shell at /research-v3), <span class="mono" style="font-size:11px">74869b0e</span> (shell tests). All three catches resolved: confidence routes through <span class="mono" style="font-size:11px">confidence-display.ts</span> (no inline 0–10), paid-media is section 7 with lock-after-6 + auto-dispatch + 12-subsection render, and <span class="mono" style="font-size:11px">/research-v3</span> mounts the light <span class="mono" style="font-size:11px">AuditReaderShell</span>. <span class="mono" style="font-size:11px">BattleshipShell</span> + <span class="mono" style="font-size:11px">section-card</span> + orphan supporting components/tests removed; <span class="mono" style="font-size:11px">reader-sections.ts</span> kept. <b>Independently verified (HQ):</b> structural checks of all 3 catches + no dangling refs, <span class="mono" style="font-size:11px">tsc --noEmit</span> 0, full <span class="mono" style="font-size:11px">vitest</span> 1086 pass/1 skip; Codex's live proof on fresh run <span class="mono" style="font-size:11px">c14788c4-280a-40c7-9e91-186477f5df7c</span> rendered 6/6 + paid-media 12/12 at 0–10 confidence, rail + keyboard nav, and hard-refresh rehydrate to the paid-media section. <b>Gate caveat:</b> the shipping app is now whole on one branch; the 48h soak (on the integrated app), teardown, and production promotion remain open.</div>
   </div>
 
   <!-- 01 -->
