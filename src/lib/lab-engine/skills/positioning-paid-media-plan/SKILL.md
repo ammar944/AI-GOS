@@ -51,6 +51,25 @@ Return exactly these `body` keys:
 - `channelSuggestions`
 - `kpis`
 
+## Exact Field Contracts
+
+- `sources[]`: only `title`, `url`, optional `publisher`; no `id` or `observedAt`.
+- `sourceSection`: only `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.
+- Numeric fields are only `totalMonths`, `phaseCount`, `staticCount`, `videoCount`, and `totalPerAudience`; emit those as numbers.
+- Array fields must stay arrays. Budget, daily-spend, slot, and descriptive fields must be JSON strings.
+- `campaignOverview`: `prose`, `monthlyBudget`, `totalMonths`, `phaseCount`, `dailySpend`, `primaryKpi`, `platform`.
+- `campaignPhases`: `prose`, `phases[]`; each phase uses `phaseName`, `monthsLabel`, `monthlyBudget`, `bullets`. Do not use `name`, `duration`, `focus`, or `allocation`.
+- `audienceTypes`: `prose`, `audiences[]`; each audience uses `slot`, `archetype`, `dailyBudget`, `detail`, `sourceSection`, `sourceUrl`.
+- `creativeStrategy`: `prose`, `staticCount`, `videoCount`, `totalPerAudience`, `angleTypesInMix`.
+- `anglesToTest`: `prose`, `angles[]`; each angle uses `angleName`, `primaryText`, `supportingLine`, `insight`, `sourceSection`, `sourceUrl`.
+- `creativeFramework`: `prose`, `creatives[]`; each creative uses `creativeType`, `sourceSection`, `sourceUrl`, plus the fields for that creative type. Do not use ad-rendering fields like `headline`, `body`, `cta`, or `landingPageUrl`.
+- `competitorReviewInsights`: `prose`, `insights[]`; each insight uses `competitor`, `verbatimComplaint`, `adLeverage`, `sourceSection`, `sourceUrl`.
+- `competitorMarketingInsights`: `prose`, `competitors[]`; each competitor uses `competitor`, `messaging`, `adPlatforms`, `estSpend`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`. `anglesTested` is one string, never an array.
+- `funnelIdeation`: `prose`, `recommendations[]`; each recommendation uses `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`.
+- `salesProcess`: `prose`, `assets[]`; each asset uses `label`, `url`, `assetType` (`sop-doc` or `loom`). If no asset URL exists, use an empty array and state the gap in prose.
+- `channelSuggestions`: `prose`, `suggestions[]`; each suggestion uses `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`.
+- `kpis`: `prose`, `gtmMotion`, `kpis[]`; `gtmMotion` must be `SLG` or `PLG`; each KPI uses `metric`, `role`, `definition`.
+
 ## Quality Bar
 
 - `anglesToTest.angles`: at least 4 usable ad angles with `primaryText`, `supportingLine`, insight, `sourceSection`, and `sourceUrl`.

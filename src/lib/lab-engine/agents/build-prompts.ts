@@ -245,9 +245,11 @@ function buildSectionMinimumGuidance(
       "- For the SaaSLaunch fixture, use a manual founder-led sales workflow, spreadsheet pipeline review, or founder memory/follow-up process as the `diy` competitor when public sources do not name a productized DIY alternative.",
       "- CompetitorLandscapeSectionOutput minimums: `body.positioningTaxonomy.axes` must include at least three axes.",
       "- CompetitorLandscapeSectionOutput minimums: `body.pricingReality.dataPoints` must cover at least three distinct competitors.",
+      "- CompetitorLandscapeSectionOutput minimums: do not repeat one competitor to satisfy distinct-competitor checks; if pricing is public for Jira, Asana, ClickUp, GitHub Projects, Monday.com, Shortcut, or another named competitor, use those separate competitor names with their own source URLs.",
       "- CompetitorLandscapeSectionOutput minimums: `body.shareOfVoice.slices` must include at least three surfaces.",
       "- CompetitorLandscapeSectionOutput minimums: `body.publicWeaknesses.items` must include at least four verbatim weaknesses.",
       "- CompetitorLandscapeSectionOutput minimums: `body.publicWeaknesses.items` must cover at least two distinct competitors.",
+      "- CompetitorLandscapeSectionOutput minimums: public weaknesses must quote or summarize weakness evidence for at least two different competitor names; do not reuse all weaknesses from a single competitor.",
       "- CompetitorLandscapeSectionOutput minimums: `body.narrativeArcs.arcs` must include at least three arcs.",
     ];
   }
@@ -305,6 +307,28 @@ function buildSectionMinimumGuidance(
       "- `body.retentionHealth.signals[]` keys are `signalType`, `metric`, `value`, `sourceUrl`; include at least three signals across at least two signalTypes.",
       "- `signalType` must be one of `activation`, `retention`, `first-value-moment`.",
       "- `body.redFlags.items[]` keys are `claimedMotion`, `actualEvidence`, `contradiction`, `severity`; `severity` must be `high`, `medium`, or `low`; include at least three red flags.",
+    ];
+  }
+
+  if (definition.sectionOutputSchemaName === "PaidMediaPlanSectionOutput") {
+    return [
+      "- PaidMediaPlanSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
+      "- PaidMediaPlanSectionOutput sourceSection enum values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.",
+      "- `body.campaignOverview` keys are exactly `prose`, `monthlyBudget`, `totalMonths`, `phaseCount`, `dailySpend`, `primaryKpi`, `platform`.",
+      "- PaidMediaPlanSectionOutput numeric fields are only `totalMonths`, `phaseCount`, `staticCount`, `videoCount`, and `totalPerAudience`; emit those as numbers.",
+      "- PaidMediaPlanSectionOutput array fields must stay arrays. Budget, daily-spend, slot, and descriptive fields must be JSON strings.",
+      "- `body.campaignPhases` is an object with `prose` and `phases[]`; each phase has exactly `phaseName`, `monthsLabel`, `monthlyBudget`, `bullets`. Do not use `name`, `duration`, `focus`, or `allocation`.",
+      "- `body.audienceTypes` is an object with `prose` and `audiences[]`; each audience has exactly `slot`, `archetype`, `dailyBudget`, `detail`, `sourceSection`, `sourceUrl`.",
+      "- `body.creativeStrategy` keys are exactly `prose`, `staticCount`, `videoCount`, `totalPerAudience`, `angleTypesInMix`; angle type values are `unique-selling-point`, `problem-solution-transformation`, `objection-handling`, `founder-talking-head`, or `product-demo`.",
+      "- `body.anglesToTest` is an object with `prose` and `angles[]`; each angle has exactly `angleName`, `primaryText`, `supportingLine`, `insight`, `sourceSection`, `sourceUrl`. Do not use `name`.",
+      "- `body.creativeFramework` is an object with `prose` and `creatives[]`; each creative has `creativeType`, `sourceSection`, `sourceUrl`, plus the fields for that creative type. Do not use `headline`, `body`, `cta`, `visualDescription`, or `landingPageUrl`.",
+      "- `body.competitorReviewInsights` is an object with `prose` and `insights[]`; each insight has exactly `competitor`, `verbatimComplaint`, `adLeverage`, `sourceSection`, `sourceUrl`.",
+      "- `body.competitorMarketingInsights` is an object with `prose` and `competitors[]`; each competitor has exactly `competitor`, `messaging`, `adPlatforms`, `estSpend`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`.",
+      "- `body.competitorMarketingInsights.competitors[].anglesTested` is a single string such as `workflow speed; tool consolidation`; never an array.",
+      "- `body.funnelIdeation` is an object with `prose` and `recommendations[]`; each recommendation has exactly `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`. Funnel type values are `direct-to-calendar`, `booking-page`, `free-audit-landing-page`, or `advanced-vsl-website`.",
+      "- `body.salesProcess` is an object with `prose` and `assets[]`; each asset has exactly `label`, `url`, `assetType`, where assetType is `sop-doc` or `loom`. If no asset URL exists, use an empty array and explain the gap in prose.",
+      "- `body.channelSuggestions` is an object with `prose` and `suggestions[]`; each suggestion has exactly `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`, where verdict is `keep`, `fix`, `cut`, or `start`.",
+      "- `body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`; `gtmMotion` must be `SLG` or `PLG`; each KPI has exactly `metric`, `role`, `definition`.",
     ];
   }
 

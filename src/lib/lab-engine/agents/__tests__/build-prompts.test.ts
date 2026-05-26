@@ -21,6 +21,13 @@ const competitorDefinition = {
   sectionOutputSchemaName: "CompetitorLandscapeSectionOutput",
 } satisfies PromptSectionDefinition;
 
+const paidMediaDefinition = {
+  title: "Paid Media Plan",
+  mission: "Synthesize the six positioning artifacts.",
+  outputEmphasis: ["campaign overview"],
+  sectionOutputSchemaName: "PaidMediaPlanSectionOutput",
+} satisfies PromptSectionDefinition;
+
 describe("buildAnswerToolInstructions", (): void => {
   it("adds schema-bound answer-tool guidance for DeepSeek mode", (): void => {
     const prompt = buildAnswerToolInstructions(
@@ -80,6 +87,27 @@ describe("buildAnswerToolInstructions", (): void => {
     );
     expect(prompt).toContain(
       "`body.publicWeaknesses.items` must cover at least two distinct competitors",
+    );
+  });
+
+  it("spells out Paid Media Plan nested field contracts", (): void => {
+    const prompt = buildRepairPrompt({
+      definition: paidMediaDefinition,
+      evidenceTranscript: "source evidence",
+      issues: ["body.campaignPhases.phases.0.phaseName is required"],
+      previousOutput: { body: { campaignPhases: { phases: [] } } },
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use the injected corpus only.",
+    });
+
+    expect(prompt).toContain(
+      "`body.campaignPhases` is an object with `prose` and `phases[]`",
+    );
+    expect(prompt).toContain(
+      "`body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`",
+    );
+    expect(prompt).toContain(
+      "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
     );
   });
 });

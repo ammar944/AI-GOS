@@ -89,9 +89,10 @@ export interface RequiredToolStep {
 
 type AnswerToolPrepareStep =
   | typeof forwardAnthropicContainerIdFromLastStep
-  | (() => RequiredToolStep);
+  | ((params: { stepNumber: number }) => RequiredToolStep | undefined);
 type ToolLoopAgentSettings = ConstructorParameters<typeof ToolLoopAgent>[0];
-type AnswerToolProviderOptions = ToolLoopAgentSettings["providerOptions"];
+type ToolLoopProviderOptions = ToolLoopAgentSettings["providerOptions"];
+type StructuredProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
 
 function getPropertyValue(object: unknown, key: string): unknown {
   if (typeof object !== "object" || object === null || !(key in object)) {
@@ -296,6 +297,7 @@ export const defaultEvidencePassRunner: EvidencePassRunner = async (
     stopWhen: stepCountIs(params.maxStepCount) as never,
     maxOutputTokens: params.maxOutputTokens,
     experimental_telemetry: params.telemetry,
+    providerOptions: getToolLoopProviderOptions(params.model),
     prepareStep: ({ stepNumber }) => {
       const requiredTool = params.requiredToolSequence?.[stepNumber];
 
@@ -333,6 +335,7 @@ export const defaultEvidenceStreamRunner: EvidenceStreamRunner = async (
     stopWhen: stepCountIs(params.maxStepCount) as never,
     maxOutputTokens: params.maxOutputTokens,
     experimental_telemetry: params.telemetry,
+    providerOptions: getToolLoopProviderOptions(params.model),
     prepareStep: ({ stepNumber }) => {
       const requiredTool = params.requiredToolSequence?.[stepNumber];
 
@@ -381,9 +384,10 @@ export const defaultAnswerToolRunner: AnswerToolRunner = async (
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
     experimental_telemetry: params.telemetry,
-    providerOptions: getAnswerToolProviderOptions(params.model),
+    providerOptions: getToolLoopProviderOptions(params.model),
     prepareStep: getAnswerToolPrepareStep({
       externalTools: params.externalTools,
+      maxStepCount: params.maxStepCount,
       model: params.model,
     }),
   });
@@ -421,9 +425,10 @@ export const defaultAnswerToolStreamer: AnswerToolStreamer = async (
     ] as never,
     maxOutputTokens: params.maxOutputTokens,
     experimental_telemetry: params.telemetry,
-    providerOptions: getAnswerToolProviderOptions(params.model),
+    providerOptions: getToolLoopProviderOptions(params.model),
     prepareStep: getAnswerToolPrepareStep({
       externalTools: params.externalTools,
+      maxStepCount: params.maxStepCount,
       model: params.model,
     }),
   });
@@ -483,9 +488,9 @@ function isDeepSeekModel(model: SectionLanguageModel): boolean {
   return model.provider.startsWith("deepseek.");
 }
 
-function getAnswerToolProviderOptions(
+function getToolLoopProviderOptions(
   model: SectionLanguageModel,
-): AnswerToolProviderOptions {
+): ToolLoopProviderOptions {
   if (!isDeepSeekModel(model)) {
     return undefined;
   }
@@ -518,15 +523,40 @@ function getRequiredAnswerToolPrepareStep(): () => RequiredToolStep {
   });
 }
 
+function getFinalStepAnswerToolPrepareStep({
+  maxStepCount,
+}: {
+  maxStepCount: number;
+}): (params: { stepNumber: number }) => RequiredToolStep | undefined {
+  const finalStepIndex = Math.max(0, maxStepCount - 1);
+
+  return ({ stepNumber }) => {
+    if (stepNumber < finalStepIndex) {
+      return undefined;
+    }
+
+    return {
+      activeTools: ["answer"],
+      toolChoice: { type: "tool", toolName: "answer" },
+    };
+  };
+}
+
 function getAnswerToolPrepareStep({
   externalTools,
+  maxStepCount,
   model,
 }: {
   externalTools: Record<string, unknown>;
+  maxStepCount: number;
   model: SectionLanguageModel;
 }): AnswerToolPrepareStep | undefined {
   if (!isAnthropicModel(model) && !hasExternalTools(externalTools)) {
     return getRequiredAnswerToolPrepareStep();
+  }
+
+  if (!isAnthropicModel(model) && hasExternalTools(externalTools)) {
+    return getFinalStepAnswerToolPrepareStep({ maxStepCount });
   }
 
   return getAnthropicPrepareStep(model);
@@ -538,16 +568,24 @@ function getStructuredProviderOptions({
 }: {
   model: SectionLanguageModel;
   structuredOutputMode: AnthropicStructuredOutputMode;
-}): { anthropic: AnthropicProviderOptions } | undefined {
-  if (!isAnthropicModel(model)) {
-    return undefined;
+}): StructuredProviderOptions {
+  if (isDeepSeekModel(model)) {
+    return {
+      deepseek: {
+        thinking: { type: "disabled" },
+      },
+    };
   }
 
-  return {
-    anthropic: {
-      structuredOutputMode,
-    } satisfies AnthropicProviderOptions,
-  };
+  if (isAnthropicModel(model)) {
+    return {
+      anthropic: {
+        structuredOutputMode,
+      } satisfies AnthropicProviderOptions,
+    };
+  }
+
+  return undefined;
 }
 
 const shallowSubsectionSchema = <TArrayKey extends string>(

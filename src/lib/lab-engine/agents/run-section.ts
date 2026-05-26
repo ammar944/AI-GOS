@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { Tool, ToolExecutionOptions } from "ai";
-import type { z } from "zod";
+import { z } from "zod";
 
 import {
   artifactEnvelopeSchema,
@@ -612,6 +612,16 @@ const answerToolSectionIds: ReadonlySet<SectionId> = new Set([
 ]);
 const missingAnswerToolMessage =
   "Agent did not call answer tool within maxSteps";
+const paidMediaPlanGenerationSchema = z
+  .object({
+    body: z.unknown(),
+    confidence: z.unknown(),
+    sectionTitle: z.unknown(),
+    sources: z.unknown(),
+    statusSummary: z.unknown(),
+    verdict: z.unknown(),
+  })
+  .passthrough();
 
 function getPositiveIntegerEnvValue(key: string): number | undefined {
   const rawValue = process.env[key]?.trim();
@@ -642,6 +652,16 @@ function getStructuredOutputMaxTokens(
   return (
     definition.structuredOutputMaxTokens ?? defaultStructuredOutputMaxTokens
   );
+}
+
+function getStructuredGenerationSchema(
+  definition: RuntimeSectionDefinition,
+): z.ZodType<unknown> {
+  if (definition.id === "positioningPaidMediaPlan") {
+    return paidMediaPlanGenerationSchema;
+  }
+
+  return definition.sectionOutputSchema;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -832,6 +852,137 @@ function normalizeArrayRecords({
     const itemRecord = getRecord(item);
 
     return itemRecord === null ? item : normalize(itemRecord);
+  });
+}
+
+function stringifyStructuredScalar(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean"
+          ? String(item)
+          : null,
+      )
+      .filter((item): item is string => item !== null && item.trim().length > 0)
+      .join("; ");
+  }
+
+  return value;
+}
+
+function numberFromStructuredValue(value: unknown): unknown {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const match = value.match(/-?\d+(?:\.\d+)?/);
+  if (match === null) {
+    return value;
+  }
+
+  const parsed = Number(match[0]);
+
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+function stringArrayFromStructuredValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  return value
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function pickAllowedKeys({
+  allowedKeys,
+  record,
+}: {
+  allowedKeys: readonly string[];
+  record: Record<string, unknown>;
+}): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => allowedKeys.includes(key)),
+  );
+}
+
+function normalizeStructuredRecord({
+  allowedKeys,
+  numberKeys = [],
+  record,
+  stringArrayKeys = [],
+  stringKeys = [],
+}: {
+  allowedKeys: readonly string[];
+  numberKeys?: readonly string[];
+  record: Record<string, unknown>;
+  stringArrayKeys?: readonly string[];
+  stringKeys?: readonly string[];
+}): Record<string, unknown> {
+  const picked = pickAllowedKeys({ allowedKeys, record });
+
+  return Object.fromEntries(
+    Object.entries(picked).map(([key, value]) => {
+      if (numberKeys.includes(key)) {
+        return [key, numberFromStructuredValue(value)];
+      }
+
+      if (stringArrayKeys.includes(key)) {
+        return [key, stringArrayFromStructuredValue(value)];
+      }
+
+      if (stringKeys.includes(key)) {
+        return [key, stringifyStructuredScalar(value)];
+      }
+
+      return [key, value];
+    }),
+  );
+}
+
+function normalizeStructuredRecordArray({
+  allowedKeys,
+  numberKeys,
+  stringArrayKeys,
+  stringKeys,
+  value,
+}: {
+  allowedKeys: readonly string[];
+  numberKeys?: readonly string[];
+  stringArrayKeys?: readonly string[];
+  stringKeys?: readonly string[];
+  value: unknown;
+}): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) =>
+      normalizeStructuredRecord({
+        allowedKeys,
+        numberKeys,
+        record,
+        stringArrayKeys,
+        stringKeys,
+      }),
   });
 }
 
@@ -1041,6 +1192,350 @@ function withNormalizedMarketCategoryOutput(rawOutput: unknown): unknown {
   };
 }
 
+function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
+  const outputRecord = getRecord(rawOutput);
+
+  if (outputRecord === null) {
+    return rawOutput;
+  }
+
+  const bodyRecord = getRecord(outputRecord.body);
+
+  if (bodyRecord === null) {
+    return rawOutput;
+  }
+
+  const campaignOverviewRecord = getRecord(bodyRecord.campaignOverview);
+  const campaignPhasesRecord = getRecord(bodyRecord.campaignPhases);
+  const audienceTypesRecord = getRecord(bodyRecord.audienceTypes);
+  const creativeStrategyRecord = getRecord(bodyRecord.creativeStrategy);
+  const anglesToTestRecord = getRecord(bodyRecord.anglesToTest);
+  const creativeFrameworkRecord = getRecord(bodyRecord.creativeFramework);
+  const competitorReviewInsightsRecord = getRecord(
+    bodyRecord.competitorReviewInsights,
+  );
+  const competitorMarketingInsightsRecord = getRecord(
+    bodyRecord.competitorMarketingInsights,
+  );
+  const funnelIdeationRecord = getRecord(bodyRecord.funnelIdeation);
+  const salesProcessRecord = getRecord(bodyRecord.salesProcess);
+  const channelSuggestionsRecord = getRecord(bodyRecord.channelSuggestions);
+  const kpisRecord = getRecord(bodyRecord.kpis);
+
+  return {
+    ...outputRecord,
+    sources: normalizeStructuredRecordArray({
+      allowedKeys: ["title", "url", "publisher"],
+      stringKeys: ["title", "url", "publisher"],
+      value: outputRecord.sources,
+    }),
+    body: {
+      ...bodyRecord,
+      ...(campaignOverviewRecord === null
+        ? {}
+        : {
+            campaignOverview: normalizeStructuredRecord({
+              allowedKeys: [
+                "prose",
+                "monthlyBudget",
+                "totalMonths",
+                "phaseCount",
+                "dailySpend",
+                "primaryKpi",
+                "platform",
+              ],
+              numberKeys: ["totalMonths", "phaseCount"],
+              record: campaignOverviewRecord,
+              stringKeys: ["prose", "monthlyBudget", "dailySpend", "primaryKpi", "platform"],
+            }),
+          }),
+      ...(campaignPhasesRecord === null
+        ? {}
+        : {
+            campaignPhases: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "phases"],
+                record: campaignPhasesRecord,
+                stringKeys: ["prose"],
+              }),
+              phases: normalizeStructuredRecordArray({
+                allowedKeys: ["phaseName", "monthsLabel", "monthlyBudget", "bullets"],
+                stringKeys: ["phaseName", "monthsLabel", "monthlyBudget"],
+                value: campaignPhasesRecord.phases,
+              }),
+            },
+          }),
+      ...(audienceTypesRecord === null
+        ? {}
+        : {
+            audienceTypes: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "audiences"],
+                record: audienceTypesRecord,
+                stringKeys: ["prose"],
+              }),
+              audiences: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "slot",
+                  "archetype",
+                  "dailyBudget",
+                  "detail",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringKeys: [
+                  "slot",
+                  "archetype",
+                  "dailyBudget",
+                  "detail",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: audienceTypesRecord.audiences,
+              }),
+            },
+          }),
+      ...(creativeStrategyRecord === null
+        ? {}
+        : {
+            creativeStrategy: normalizeStructuredRecord({
+              allowedKeys: [
+                "prose",
+                "staticCount",
+                "videoCount",
+                "totalPerAudience",
+                "angleTypesInMix",
+              ],
+              numberKeys: ["staticCount", "videoCount", "totalPerAudience"],
+              record: creativeStrategyRecord,
+              stringArrayKeys: ["angleTypesInMix"],
+              stringKeys: ["prose"],
+            }),
+          }),
+      ...(anglesToTestRecord === null
+        ? {}
+        : {
+            anglesToTest: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "angles"],
+                record: anglesToTestRecord,
+                stringKeys: ["prose"],
+              }),
+              angles: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "angleName",
+                  "primaryText",
+                  "supportingLine",
+                  "insight",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringKeys: [
+                  "angleName",
+                  "primaryText",
+                  "supportingLine",
+                  "insight",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: anglesToTestRecord.angles,
+              }),
+            },
+          }),
+      ...(creativeFrameworkRecord === null
+        ? {}
+        : {
+            creativeFramework: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "creatives"],
+                record: creativeFrameworkRecord,
+                stringKeys: ["prose"],
+              }),
+              creatives: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "creativeType",
+                  "uspSentence",
+                  "problem",
+                  "solution",
+                  "transformation",
+                  "objection",
+                  "objectionAnswer",
+                  "founderScriptBeat",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringKeys: [
+                  "creativeType",
+                  "uspSentence",
+                  "problem",
+                  "solution",
+                  "transformation",
+                  "objection",
+                  "objectionAnswer",
+                  "founderScriptBeat",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: creativeFrameworkRecord.creatives,
+              }),
+            },
+          }),
+      ...(competitorReviewInsightsRecord === null
+        ? {}
+        : {
+            competitorReviewInsights: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "insights"],
+                record: competitorReviewInsightsRecord,
+                stringKeys: ["prose"],
+              }),
+              insights: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "competitor",
+                  "verbatimComplaint",
+                  "adLeverage",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringKeys: [
+                  "competitor",
+                  "verbatimComplaint",
+                  "adLeverage",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: competitorReviewInsightsRecord.insights,
+              }),
+            },
+          }),
+      ...(competitorMarketingInsightsRecord === null
+        ? {}
+        : {
+            competitorMarketingInsights: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "competitors"],
+                record: competitorMarketingInsightsRecord,
+                stringKeys: ["prose"],
+              }),
+              competitors: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "competitor",
+                  "messaging",
+                  "adPlatforms",
+                  "estSpend",
+                  "icpTargeted",
+                  "anglesTested",
+                  "positioningClaim",
+                  "offer",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringArrayKeys: ["adPlatforms"],
+                stringKeys: [
+                  "competitor",
+                  "messaging",
+                  "estSpend",
+                  "icpTargeted",
+                  "anglesTested",
+                  "positioningClaim",
+                  "offer",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: competitorMarketingInsightsRecord.competitors,
+              }),
+            },
+          }),
+      ...(funnelIdeationRecord === null
+        ? {}
+        : {
+            funnelIdeation: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "recommendations"],
+                record: funnelIdeationRecord,
+                stringKeys: ["prose"],
+              }),
+              recommendations: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "funnelType",
+                  "recommendation",
+                  "optInToBookedCall",
+                  "sourceSection",
+                ],
+                stringKeys: [
+                  "funnelType",
+                  "recommendation",
+                  "optInToBookedCall",
+                  "sourceSection",
+                ],
+                value: funnelIdeationRecord.recommendations,
+              }),
+            },
+          }),
+      ...(salesProcessRecord === null
+        ? {}
+        : {
+            salesProcess: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "assets"],
+                record: salesProcessRecord,
+                stringKeys: ["prose"],
+              }),
+              assets: normalizeStructuredRecordArray({
+                allowedKeys: ["label", "url", "assetType"],
+                stringKeys: ["label", "url", "assetType"],
+                value: salesProcessRecord.assets,
+              }),
+            },
+          }),
+      ...(channelSuggestionsRecord === null
+        ? {}
+        : {
+            channelSuggestions: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "suggestions"],
+                record: channelSuggestionsRecord,
+                stringKeys: ["prose"],
+              }),
+              suggestions: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "channel",
+                  "observation",
+                  "recommendation",
+                  "verdict",
+                  "sourceSection",
+                ],
+                stringKeys: [
+                  "channel",
+                  "observation",
+                  "recommendation",
+                  "verdict",
+                  "sourceSection",
+                ],
+                value: channelSuggestionsRecord.suggestions,
+              }),
+            },
+          }),
+      ...(kpisRecord === null
+        ? {}
+        : {
+            kpis: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "gtmMotion", "kpis"],
+                record: kpisRecord,
+                stringKeys: ["prose", "gtmMotion"],
+              }),
+              kpis: normalizeStructuredRecordArray({
+                allowedKeys: ["metric", "role", "definition"],
+                stringKeys: ["metric", "role", "definition"],
+                value: kpisRecord.kpis,
+              }),
+            },
+          }),
+    },
+  };
+}
+
 function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
   rawOutput,
@@ -1065,6 +1560,10 @@ function withNormalizedSectionOutput({
 
   if (sectionId === "positioningVoiceOfCustomer") {
     return withNormalizedVoiceOfCustomerOutput(outputWithAdEvidence);
+  }
+
+  if (sectionId === "positioningPaidMediaPlan") {
+    return withNormalizedPaidMediaPlanOutput(outputWithAdEvidence);
   }
 
   return outputWithAdEvidence;
@@ -1379,7 +1878,7 @@ async function callStructuredAttempt({
     const rawOutput = await withStructuredTimeout(
       callStructured({
         model: sectionRunnerModel,
-        schema: definition.sectionOutputSchema,
+        schema: getStructuredGenerationSchema(definition),
         schemaName: definition.sectionOutputSchemaName,
         schemaDescription: `${definition.title} section output for AI-GOS AI SDK Lab.`,
         prompt,
@@ -1476,7 +1975,7 @@ async function callStructuredStreamAttempt({
   try {
     const structuredStream = streamStructured({
       model: sectionRunnerModel,
-      schema: definition.sectionOutputSchema,
+      schema: getStructuredGenerationSchema(definition),
       schemaName: definition.sectionOutputSchemaName,
       schemaDescription: `${definition.title} section output for AI-GOS AI SDK Lab.`,
       prompt,
@@ -1741,9 +2240,11 @@ async function runSectionViaAnswerTool(
   });
   const runAnswerToolAttempt = async ({
     attempt,
+    externalToolsOverride,
     prompt,
   }: {
     attempt: number;
+    externalToolsOverride?: Record<string, unknown>;
     prompt: string;
   }): Promise<Awaited<ReturnType<AnswerToolRunner>>> =>
     runAnswerToolWithStallGuard({
@@ -1753,7 +2254,7 @@ async function runSectionViaAnswerTool(
         model: sectionRunnerModel,
         instructions: answerToolInstructions,
         prompt,
-        externalTools,
+        externalTools: externalToolsOverride ?? externalTools,
         answerTool,
         maxStepCount: answerToolMaxStepCount,
         maxOutputTokens: getStructuredOutputMaxTokens(definition),
@@ -1821,6 +2322,10 @@ async function runSectionViaAnswerTool(
   });
 
   if (attempt.artifact === null) {
+    const repairEvidenceTranscript = buildEvidenceTranscript(answerResult.steps);
+    const shouldForceAnswerOnlyRepair =
+      attempt.errors.includes(missingAnswerToolMessage);
+
     await appendEvent(
       deps,
       input.runId,
@@ -1851,9 +2356,10 @@ async function runSectionViaAnswerTool(
 
     const repairResult = await runAnswerToolAttempt({
       attempt: 2,
+      ...(shouldForceAnswerOnlyRepair ? { externalToolsOverride: {} } : {}),
       prompt: buildRepairPrompt({
         definition,
-        evidenceTranscript: "",
+        evidenceTranscript: repairEvidenceTranscript,
         issues: attempt.errors,
         normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
         previousOutput: attempt.output,

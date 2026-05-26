@@ -6,11 +6,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
+import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { runSection } from '../run-section';
-import type { AnswerToolRunner } from '../section-agent';
+import type {
+  AnswerToolRunner,
+  EvidencePassRunner,
+  StructuredCaller,
+} from '../section-agent';
 
 function buildMarketCategoryOutput() {
   return {
@@ -55,6 +60,30 @@ function buildCompetitorLandscapeOutput() {
     })),
     body: competitorLandscapeFixtureArtifact.body,
   };
+}
+
+function buildPaidMediaPlanOutput(): Record<string, unknown> {
+  return {
+    sectionTitle: paidMediaPlanFixtureArtifact.sectionTitle,
+    verdict: paidMediaPlanFixtureArtifact.verdict,
+    statusSummary: paidMediaPlanFixtureArtifact.statusSummary,
+    confidence: paidMediaPlanFixtureArtifact.confidence,
+    sources: paidMediaPlanFixtureArtifact.sources.map((source) => ({
+      id: source.id,
+      observedAt: source.observedAt,
+      title: source.title,
+      url: source.url,
+    })),
+    body: structuredClone(paidMediaPlanFixtureArtifact.body),
+  };
+}
+
+function requireRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Expected record.');
+  }
+
+  return value as Record<string, unknown>;
 }
 
 describe('runSection corpus-only mode', (): void => {
@@ -266,5 +295,102 @@ describe('runSection corpus-only mode', (): void => {
       advertiserGroups: [],
     });
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes paid-media structured drift before strict validation', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const driftOutput = buildPaidMediaPlanOutput();
+    const body = requireRecord(driftOutput.body);
+    const campaignOverview = requireRecord(body.campaignOverview);
+    campaignOverview.monthlyBudget = 3000;
+    campaignOverview.dailySpend = 100;
+
+    const creativeFramework = requireRecord(body.creativeFramework);
+    const creatives = creativeFramework.creatives;
+    if (!Array.isArray(creatives)) {
+      throw new Error('Expected creatives array.');
+    }
+    for (const creative of creatives) {
+      const creativeRecord = requireRecord(creative);
+      creativeRecord.headline = 'Extra generated headline';
+      creativeRecord.body = 'Extra generated body';
+      creativeRecord.cta = 'Book a demo';
+      creativeRecord.visualDescription = 'Extra visual direction';
+      creativeRecord.landingPageUrl = 'https://example.com/landing';
+    }
+
+    const competitorMarketingInsights = requireRecord(
+      body.competitorMarketingInsights,
+    );
+    const competitors = competitorMarketingInsights.competitors;
+    if (!Array.isArray(competitors)) {
+      throw new Error('Expected competitors array.');
+    }
+    for (const competitor of competitors) {
+      const competitorRecord = requireRecord(competitor);
+      competitorRecord.anglesTested = ['Speed', 'Simplicity'];
+      competitorRecord.adPlatforms = 'Meta, Google';
+    }
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async (params) => {
+      expect(params.schema.safeParse(driftOutput).success).toBe(true);
+
+      return driftOutput;
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runEvidencePass,
+        callStructured,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      },
+    );
+
+    expect(result.artifact.sectionId).toBe('positioningPaidMediaPlan');
+    const artifactBody = requireRecord(result.artifact.body);
+    const artifactCampaignOverview = requireRecord(
+      artifactBody.campaignOverview,
+    );
+    const artifactCreativeFramework = requireRecord(
+      artifactBody.creativeFramework,
+    );
+    const artifactCreatives = artifactCreativeFramework.creatives;
+    const artifactCompetitorMarketingInsights = requireRecord(
+      artifactBody.competitorMarketingInsights,
+    );
+    const artifactCompetitors =
+      artifactCompetitorMarketingInsights.competitors;
+    if (!Array.isArray(artifactCreatives) || !Array.isArray(artifactCompetitors)) {
+      throw new Error('Expected normalized paid-media arrays.');
+    }
+    expect(artifactCampaignOverview.monthlyBudget).toBe('3000');
+    expect(artifactCampaignOverview.dailySpend).toBe('100');
+    expect(artifactCreatives[0]).not.toHaveProperty('headline');
+    expect(requireRecord(artifactCompetitors[0]).anglesTested).toBe(
+      'Speed; Simplicity',
+    );
+    expect(requireRecord(artifactCompetitors[0]).adPlatforms).toEqual([
+      'Meta',
+      'Google',
+    ]);
+    expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });

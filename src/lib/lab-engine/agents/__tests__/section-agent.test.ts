@@ -5,6 +5,8 @@ import type { SectionLanguageModel } from "@/lib/lab-engine/ai/models";
 import {
   defaultAnswerToolRunner,
   defaultAnswerToolStreamer,
+  defaultEvidencePassRunner,
+  defaultEvidenceStreamRunner,
   defaultStructuredCaller,
   defaultStructuredStreamer,
 } from "../section-agent";
@@ -134,6 +136,36 @@ describe("section-agent provider-specific options", (): void => {
     );
   });
 
+  it("disables thinking for DeepSeek evidence passes", async (): Promise<void> => {
+    await defaultEvidencePassRunner({
+      instructions: "instructions",
+      maxOutputTokens: 1000,
+      maxStepCount: 2,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+      tools: { readResearchInput: answerTool },
+    });
+
+    expect(getLastRecord(aiMocks.toolLoopAgentSettings).providerOptions).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
+  });
+
+  it("disables thinking for DeepSeek evidence streams", async (): Promise<void> => {
+    await defaultEvidenceStreamRunner({
+      instructions: "instructions",
+      maxOutputTokens: 1000,
+      maxStepCount: 2,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+      tools: { readResearchInput: answerTool },
+    });
+
+    expect(getLastRecord(aiMocks.toolLoopAgentSettings).providerOptions).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
+  });
+
   it("requires the answer tool for corpus-only DeepSeek answer-tool runs", async (): Promise<void> => {
     await defaultAnswerToolRunner({
       answerTool,
@@ -154,18 +186,23 @@ describe("section-agent provider-specific options", (): void => {
     });
   });
 
-  it("omits Anthropic container forwarding for DeepSeek answer-tool runs with external tools", async (): Promise<void> => {
+  it("forces the answer tool on the final DeepSeek step when external tools are available", async (): Promise<void> => {
     await defaultAnswerToolRunner({
       answerTool,
       externalTools: { web_search: answerTool },
       instructions: "instructions",
       maxOutputTokens: 1000,
-      maxStepCount: 2,
+      maxStepCount: 3,
       model: createModel("deepseek.chat"),
       prompt: "prompt",
     });
 
-    expect(getLastRecord(aiMocks.toolLoopAgentSettings).prepareStep).toBeUndefined();
+    expect(getPrepareStep(aiMocks.toolLoopAgentSettings)?.({ stepNumber: 0 })).toBeUndefined();
+    expect(getPrepareStep(aiMocks.toolLoopAgentSettings)?.({ stepNumber: 1 })).toBeUndefined();
+    expect(getPrepareStep(aiMocks.toolLoopAgentSettings)?.({ stepNumber: 2 })).toEqual({
+      activeTools: ["answer"],
+      toolChoice: { type: "tool", toolName: "answer" },
+    });
     expect(getLastRecord(aiMocks.toolLoopAgentSettings).providerOptions).toEqual({
       deepseek: { thinking: { type: "disabled" } },
     });
@@ -204,7 +241,7 @@ describe("section-agent provider-specific options", (): void => {
     });
   });
 
-  it("omits Anthropic structured provider options for DeepSeek structured calls", async (): Promise<void> => {
+  it("disables thinking for DeepSeek structured calls", async (): Promise<void> => {
     await defaultStructuredCaller({
       maxOutputTokens: 1000,
       model: createModel("deepseek.chat"),
@@ -214,19 +251,23 @@ describe("section-agent provider-specific options", (): void => {
       schemaName: "TestSchema",
     });
 
-    expect(getLastRecord(aiMocks.generateTextCalls).providerOptions).toBeUndefined();
+    expect(getLastRecord(aiMocks.generateTextCalls).providerOptions).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
   });
 
-  it("omits Anthropic structured provider options for DeepSeek structured streams", (): void => {
+  it("disables thinking for DeepSeek structured streams", (): void => {
     defaultStructuredStreamer({
       maxOutputTokens: 1000,
-      model: createModel("ollama.chat"),
+      model: createModel("deepseek.chat"),
       prompt: "prompt",
       schema: structuredSchema,
       schemaDescription: "schema",
       schemaName: "TestSchema",
     });
 
-    expect(getLastRecord(aiMocks.streamTextCalls).providerOptions).toBeUndefined();
+    expect(getLastRecord(aiMocks.streamTextCalls).providerOptions).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
   });
 });
