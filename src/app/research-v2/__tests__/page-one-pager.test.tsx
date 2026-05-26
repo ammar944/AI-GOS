@@ -2,7 +2,10 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
+import {
+  POSITIONING_SECTION_IDS,
+} from '@/lib/ai/prompts/positioning-skills';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks — mirrors page-corpus-transition.test.tsx setup
@@ -71,11 +74,56 @@ function jsonResponse(body: Record<string, unknown>, status = 200): Response {
 
 function makeWorkerStates(
   status: 'queued' | 'running' | 'complete' = 'complete',
-) {
-  return POSITIONING_SECTION_IDS.map((section_id) => ({
+): AuditStateResponse['workerStates'] {
+  return POSITIONING_SECTION_IDS.map((section_id) => makeWorkerState(section_id, status));
+}
+
+function makeWorkerState(
+  section_id: AuditStateResponse['workerStates'][number]['section_id'],
+  status: AuditStateResponse['workerStates'][number]['status'],
+  latestActivity: string | null = null,
+): AuditStateResponse['workerStates'][number] {
+  const phase = status === 'complete'
+    ? 'Committed'
+    : status === 'running'
+      ? 'Reading sources'
+      : 'Queued';
+  return {
     section_id,
     status,
-  }));
+    phase,
+    phaseLabel: phase,
+    phaseStartedAt: null,
+    latestTool: null,
+    latestSource: null,
+    latestActivity,
+    nextStep: null,
+    wave: null,
+    totalWaves: null,
+    concurrency: null,
+    elapsedMs: null,
+    capabilityGaps: [],
+    executionMode: 'lab',
+    runtimeTimings: {},
+  };
+}
+
+function makeArtifact({
+  confidence = 8,
+  sectionTitle = 'Market & Category Intelligence',
+  sources = [],
+}: {
+  confidence?: number;
+  sectionTitle?: string;
+  sources?: Array<{ title: string; url: string; whyItMatters?: string }>;
+}): Record<string, unknown> {
+  return {
+    sectionTitle,
+    verdict: `${sectionTitle} verdict.`,
+    statusSummary: `${sectionTitle} status.`,
+    confidence,
+    sources,
+  };
 }
 
 function buildSessionPayload(
@@ -109,7 +157,7 @@ function buildSessionPayload(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('ResearchV2Page — one-pager shell', () => {
+describe('ResearchV2Page — light audit reader shell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
@@ -121,12 +169,25 @@ describe('ResearchV2Page — one-pager shell', () => {
       children_complete: 6,
       children_total: 6,
       workerStates: makeWorkerStates('complete'),
-      sectionsByZone: {},
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: makeArtifact({
+            confidence: 8,
+            sources: [
+              {
+                title: 'Market source',
+                url: 'https://example.com/market-source',
+                whyItMatters: 'Market source reason.',
+              },
+            ],
+          }),
+        },
+      },
       eventsByZone: {},
     });
   });
 
-  it('renders DocumentHeader at top with no buttons in the banner region', async () => {
+  it('renders the light top bar, active section controls, and seven-section rail', async () => {
     const fetchMock = vi
       .fn()
       // hydrate via runId (page.tsx initial mount)
@@ -139,17 +200,21 @@ describe('ResearchV2Page — one-pager shell', () => {
       expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
     );
 
-    // DocumentHeader eyebrow
-    expect(
-      screen.getByText(/Pre-Pitch Positioning Audit/i),
-    ).toBeInTheDocument();
-
-    // Header is a <header> banner — no buttons inside it
+    expect(screen.getByText('Positioning Audit')).toBeInTheDocument();
+    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    expect(screen.getByLabelText('Confidence 8/10')).toBeInTheDocument();
     const header = screen.getByRole('banner');
-    expect(header.querySelector('button')).toBeNull();
+    expect(within(header).getByRole('button', { name: /copy/i })).toBeEnabled();
+    expect(within(header).getByRole('button', { name: /rerun/i })).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /market.*category.*8 confidence/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /paid media plan.*ready after 6\/6/i }),
+    ).toBeEnabled();
   });
 
-  it('hides the progress strip when every section is complete', async () => {
+  it('does not render the retired one-pager progress strip or footer', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse(buildSessionPayload()));
@@ -162,19 +227,23 @@ describe('ResearchV2Page — one-pager shell', () => {
     );
 
     expect(screen.queryByTestId('audit-progress-strip')).toBeNull();
-    expect(screen.queryByText(/drafting/i)).toBeNull();
+    expect(screen.queryByTestId('audit-reader-footer')).toBeNull();
+    expect(screen.queryByText(/Pre-Pitch Positioning Audit/i)).toBeNull();
   });
 
-  it('shows the progress strip when at least one section is still running', async () => {
+  it('shows running activity in the reading column and rail', async () => {
     useAuditStateMock.mockReturnValue({
       parent_audit_run_id: 'parent-run',
       parent_status: 'running',
       children_complete: 2,
       children_total: 6,
-      workerStates: POSITIONING_SECTION_IDS.map((section_id, i) => ({
-        section_id,
-        status: i < 2 ? 'complete' : i === 2 ? 'running' : 'queued',
-      })),
+      workerStates: POSITIONING_SECTION_IDS.map((section_id, i) =>
+        makeWorkerState(
+          section_id,
+          i < 2 ? 'complete' : i === 2 ? 'running' : 'queued',
+          i === 2 ? 'Reading competitor evidence' : null,
+        ),
+      ),
       sectionsByZone: {},
       eventsByZone: {},
     });
@@ -189,13 +258,16 @@ describe('ResearchV2Page — one-pager shell', () => {
       expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
     );
 
-    const strip = screen.getByTestId('audit-progress-strip');
-    expect(strip).toBeInTheDocument();
-    expect(within(strip).getByText(/drafting/i)).toBeInTheDocument();
-    expect(within(strip).getByText(/1 running/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      /Competitor/i,
+    );
+    expect(screen.getByText('Reading competitor evidence')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /competitors.*reading sources/i }),
+    ).toBeEnabled();
   });
 
-  it('renders all 6 chapters as h2 headings in pipeline order', async () => {
+  it('renders the seven rail items in pipeline order', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse(buildSessionPayload()));
@@ -207,20 +279,33 @@ describe('ResearchV2Page — one-pager shell', () => {
       expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
     );
 
-    const chapters = screen.getAllByRole('heading', { level: 2 });
-    expect(chapters).toHaveLength(6);
-
-    // Pipeline order — labels come from POSITIONING_SECTION_LABELS fallback
-    const titles = chapters.map((h) => h.textContent ?? '');
-    expect(titles[0]).toMatch(/Market.*Category/i);
-    expect(titles[1]).toMatch(/Buyer.*ICP/i);
-    expect(titles[2]).toMatch(/Competitor/i);
-    expect(titles[3]).toMatch(/Voice of Customer/i);
-    expect(titles[4]).toMatch(/Demand/i);
-    expect(titles[5]).toMatch(/Offer/i);
+    const rail = screen.getByText('Sections').parentElement;
+    if (!rail) throw new Error('Sections rail missing');
+    const items = within(rail).getAllByRole('button');
+    expect(items).toHaveLength(7);
+    expect(items.map((item) => item.textContent ?? '')).toEqual([
+      expect.stringMatching(/Market & Category/i),
+      expect.stringMatching(/Buyer \/ ICP/i),
+      expect.stringMatching(/Competitors/i),
+      expect.stringMatching(/Voice of Customer/i),
+      expect.stringMatching(/Demand \/ Intent/i),
+      expect.stringMatching(/Offer Diagnostic/i),
+      expect.stringMatching(/Paid Media Plan/i),
+    ]);
   });
 
-  it('renders the footer with dispatch + rerun text links instead of buttons in the header', async () => {
+  it('locks the paid media terminal until all six positioning sections complete', async () => {
+    useAuditStateMock.mockReturnValue({
+      parent_audit_run_id: 'parent-run',
+      parent_status: 'running',
+      children_complete: 5,
+      children_total: 6,
+      workerStates: POSITIONING_SECTION_IDS.map((section_id, i) =>
+        makeWorkerState(section_id, i < 5 ? 'complete' : 'running'),
+      ),
+      sectionsByZone: {},
+      eventsByZone: {},
+    });
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse(buildSessionPayload()));
@@ -232,17 +317,13 @@ describe('ResearchV2Page — one-pager shell', () => {
       expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
     );
 
-    const footer = screen.getByTestId('audit-reader-footer');
     expect(
-      within(footer).getByRole('button', { name: /dispatch full audit/i }),
-    ).toBeInTheDocument();
-    expect(
-      within(footer).getByRole('button', { name: /rerun blocked/i }),
+      screen.getByRole('button', { name: /paid media plan.*locked until 6\/6/i }),
     ).toBeInTheDocument();
   });
 
-  it('dedupes the numbered footer by URL and includes nested evidence sources', async () => {
-    const sharedSourceUrl = 'https://example.com/shared-source';
+  it('renders the active section body and source list from the typed artifact', async () => {
+    const sourceUrl = 'https://example.com/market-source';
     useAuditStateMock.mockReturnValue({
       parent_audit_run_id: 'parent-run',
       parent_status: 'complete',
@@ -251,48 +332,17 @@ describe('ResearchV2Page — one-pager shell', () => {
       workerStates: makeWorkerStates('complete'),
       sectionsByZone: {
         positioningMarketCategory: {
-          data: {
+          data: makeArtifact({
             sectionTitle: 'Market Category',
-            verdict: 'Market verdict.',
-            statusSummary: 'Market status.',
             confidence: 8,
             sources: [
               {
-                title: 'Shared market source',
-                url: sharedSourceUrl,
+                title: 'Market source',
+                url: sourceUrl,
                 whyItMatters: 'Top-level source.',
               },
             ],
-            marketSize: {
-              signals: [
-                {
-                  name: 'Nested signal',
-                  sourceTitle: 'Nested signal source',
-                  sourceUrl: 'https://example.com/nested-signal',
-                },
-              ],
-            },
-          },
-        },
-        positioningBuyerICP: {
-          data: {
-            sectionTitle: 'Buyer ICP',
-            verdict: 'Buyer verdict.',
-            statusSummary: 'Buyer status.',
-            confidence: 7,
-            sources: [
-              {
-                title: 'Duplicate shared source',
-                url: sharedSourceUrl,
-                whyItMatters: 'Duplicate URL should collapse.',
-              },
-              {
-                title: 'Buyer source',
-                url: 'https://example.com/buyer-source',
-                whyItMatters: 'Unique top-level source.',
-              },
-            ],
-          },
+          }),
         },
       },
       eventsByZone: {},
@@ -308,18 +358,13 @@ describe('ResearchV2Page — one-pager shell', () => {
       expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
     );
 
-    expect(screen.getByText(/6 sections · 3 sources/i)).toBeInTheDocument();
-    const sources = screen.getAllByTestId('source-item');
-    expect(sources).toHaveLength(3);
-    expect(within(sources[0]).getByRole('link')).toHaveAttribute('href', sharedSourceUrl);
-    expect(within(sources[1]).getByRole('link')).toHaveAttribute(
-      'href',
-      'https://example.com/nested-signal',
+    expect(screen.getByTestId('typed-stub-positioningMarketCategory')).toHaveTextContent(
+      'typed:positioningMarketCategory',
     );
-    expect(within(sources[1]).getByRole('link')).toHaveTextContent('Nested signal source');
-    expect(within(sources[2]).getByRole('link')).toHaveAttribute(
+    expect(screen.getByText('1 sources')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /market source/i })).toHaveAttribute(
       'href',
-      'https://example.com/buyer-source',
+      sourceUrl,
     );
   });
 });

@@ -83,6 +83,7 @@ const SECTION_SHORT_LABEL: Record<ReaderSectionId, string> = {
 };
 
 type ReaderSectionStatus = WorkerStatus | 'locked' | 'ready';
+type AuditWorkerState = AuditStateResponse['workerStates'][number];
 
 const TERMINAL_ERROR_STATUSES: ReadonlySet<WorkerStatus> = new Set([
   'error',
@@ -562,10 +563,7 @@ export function AuditReaderShell({
 
   // ---- Derived state ----------------------------------------------------
   const workerById = useMemo(() => {
-    const m = new Map<
-      AllPositioningSectionId,
-      (typeof live.workerStates)[number]
-    >();
+    const m = new Map<AllPositioningSectionId, AuditWorkerState>();
     for (const w of live.workerStates) m.set(w.section_id, w);
     return m;
   }, [live.workerStates]);
@@ -579,7 +577,7 @@ export function AuditReaderShell({
     return m;
   }, [live.sectionsByZone]);
 
-  const sixSectionsComplete = useMemo(() => isSixSectionComplete(live), [live]);
+  const sixSectionsComplete = isSixSectionComplete(live);
 
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {
