@@ -311,12 +311,12 @@
   <div class="wrap">
     <div class="eyebrow">Ground Truth · LIVE Execution Log · 2026-05-25</div>
     <h1>AI-GOS: where we are, and <em>where we're going</em>.</h1>
-    <p class="lede">The single source of truth for this build — what the app does, the verified state of the shipped wire, and the task board that carries us from here to DeepSeek.</p>
+    <p class="lede">The single source of truth for this build — what the app does, the verified state of the shipped wire, and the task board that carries us from v3 Phase A through B-G.</p>
     <div class="hero-meta">
       <span><b>App</b> · Strategic Marketing Blueprint Generator</span>
-      <span><b>Scope</b> · stabilize → harden → DeepSeek</span>
+      <span><b>Scope</b> · stabilize → harden → DeepSeek → v3 B-G</span>
       <span><b>Branch</b> · feat/v2-lab-section-wire</span>
-      <span><b>Status</b> · T3.7 closed · DeepSeek proven · v3 Phase A complete</span>
+      <span><b>Status</b> · T3.7 closed · v3 B-E code landed · live gates pending</span>
     </div>
     <div class="readfirst">
       <b>This is the file the agent team works from.</b> The vision and decisions below are locked; the <b>task board</b> (§07) is the living part — statuses update as the build proceeds, and the agent-bus goal mirrors it. If anything is off, we fix it here first.
@@ -327,8 +327,8 @@
 <main class="wrap">
 
   <div class="livelog reveal">
-    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-26 (session 10 · v3 Phase A complete)</div>
-    <p style="font-size:14.5px;color:var(--ink-soft);margin:-4px 0 18px;max-width:66ch">Running log — updated each session so we resume aligned. The two parallel Codex tracks (stabilize/harden + DeepSeek) are now <strong>merged and proven</strong>. v3 Phase A is closed: A1 renderer regression coverage is green, A2 proved a fresh authenticated real-URL run at 6/6, and A3 flips onboarding to <span class="mono" style="font-size:12px">/research-v3</span>.</p>
+    <div class="lt"><span class="dot"></span>Live status &amp; learnings · updated 2026-05-26 (session 11 · v3 B-E code landed; proof gates pending)</div>
+    <p style="font-size:14.5px;color:var(--ink-soft);margin:-4px 0 18px;max-width:66ch">Running log — updated each session so we resume aligned. The two parallel Codex tracks (stabilize/harden + DeepSeek) are merged. v3 Phase A is closed. The B-E code path is now landed on <span class="mono" style="font-size:12px">feat/v2-lab-section-wire</span>: seven-tab reader, sub-section events, real in-section tools, zero synthetic backfill, competitor ad presence, paid-media final wave, and G4/G5 brief fields. The remaining hard gate is live proof, soak, teardown, and production promotion.</p>
     <div class="tracks">
       <div class="trk">
         <div class="th">TRACK A · Codex #1 · stabilize + harden</div>
@@ -347,9 +347,11 @@
       <li style="color:var(--green)"><b>✓ SPEED PROVEN (s5):</b> direct DeepSeek (<span class="mono" style="font-size:11px">deepseek-direct</span>, corpus-only, no live tools) ran <b>all 6 sections in 214s</b> (~36s avg; range 17–75s). The ~300–500s pain was <b>100% Ollama-cloud transport latency</b>, NOT the architecture. The fast corpus→section path the report always claimed is now <b>measured and real</b> on a production transport.</li>
       <li style="color:var(--green)"><b>✓ CONFORMANCE PROVEN (s6):</b> rerun on the Notion corpus (8 sources) → <b>6/6 pass</b> (schema + <span class="mono" style="font-size:11px">validateMinimums</span>) in <b>207.7s</b>. The <b>only</b> change from 2/6 was the corpus (3→8 sources) — same engine, model, and prompts — a clean controlled experiment <b>confirming the failures were corpus-bound, not the architecture.</b> VoC quote-diversity passed; no patch needed. The full product thesis (URL → corpus → 6 fast schema-true sections) is now proven on DeepSeek, ~$0.10/run, $0 Anthropic.</li>
       <li style="color:var(--green)"><b>✓ FRONT DOOR PROVEN (s10):</b> fresh authenticated localhost run <span class="mono" style="font-size:11px">45432554-7f7c-4ee6-99c4-a7769905a495</span> on <span class="mono" style="font-size:11px">https://www.notion.com/</span> reached <b>6/6 complete</b> and rendered in <span class="mono" style="font-size:11px">/research-v3</span>; <span class="mono" style="font-size:11px">/onboarding</span> now resolves to <span class="mono" style="font-size:11px">/research-v3</span> in the authenticated browser. The one live miss was Competitor public-weakness coverage; prompt minimums now spell out all Competitor Landscape validator floors and the repaired section run completed.</li>
-      <li><b>Known residual:</b> the fresh A2 run's six section rows and UI state are complete, but the parent artifact rollup still reports <span class="mono" style="font-size:12px">status=queued</span> / <span class="mono" style="font-size:12px">children_complete=0</span>. It is not blocking T3.7 because <span class="mono" style="font-size:12px">audit-state</span> and the renderer derive the correct 6/6 state from worker section rows, but it should be cleaned up in the next backend/reporting pass.</li>
+      <li><b>Known residual closed in code:</b> the parent artifact rollup bug is addressed by <span class="mono" style="font-size:12px">20260526_rollup_parent_on_section_commit.sql</span> and audit-state still derives 6/6 defensively. This needs fresh-run DB proof before it counts for the F/G gate.</li>
+      <li style="color:var(--green)"><b>✓ v3 B-E code path landed (s11):</b> commits <span class="mono" style="font-size:11px">173db672</span>, <span class="mono" style="font-size:11px">e97aaadb</span>, <span class="mono" style="font-size:11px">3271bf64</span>, <span class="mono" style="font-size:11px">576b9daa</span>, <span class="mono" style="font-size:11px">de04688b</span>, <span class="mono" style="font-size:11px">2e502a2f</span>, <span class="mono" style="font-size:11px">cf81830e</span>, and <span class="mono" style="font-size:11px">5bbf85b0</span> close the code-only pieces: bounded live tools, rollup, sub-section progress, paid media plan, schema mirrors, ad presence, brief field sync, and persisted lab activity rendering.</li>
+      <li><b>Current proof boundary:</b> no teardown or prod promotion is claimed. F/G require at least 3 distinct fresh real URLs, <span class="mono" style="font-size:12px">LAB_ENGINE_LIVE_TOOLS=true</span>, no synthetic backfill, 6/6 plus paid-media terminal section, no section &gt;270s, p95 &lt;180s watch-line, and 48h soak.</li>
       <li><b>(s4 history) Forced-answer fix:</b> DeepSeek had burned its step budget emitting text instead of calling <span class="mono" style="font-size:11px">answer</span>; fixed by forcing the answer tool for non-Anthropic corpus-only runs + disabling DeepSeek thinking on answer calls (c5628683, dcba3e0e).</li>
-      <li><b>Locked:</b> the lab engine IS the AI-GOS backend. The wire is shipped + audited real (<span class="mono" style="font-size:12px">ccdc4235</span>) — zero wire type-errors, corpus-only enforced; the 72 tsc errors are pre-existing test rot, not the wire.</li>
+      <li><b>Locked:</b> the lab engine IS the AI-GOS backend. The wire is shipped + audited real (<span class="mono" style="font-size:12px">ccdc4235</span>). The corpus remains the shared base, but the six sections now use bounded real in-section tools; zero synthetic backfill is allowed.</li>
       <li><b>Backend standard:</b> grounded on the AIHero AI SDK v6 course — bounded lifecycle (the anti-hang rule), decoupled execution, observability, evals. Not a new queue engine.</li>
       <li><b>Bus = one shared goal:</b> only Track A uses it; Track B (P3) is doc-driven — that's why P3 runs from a handoff doc, not the bus goal.</li>
       <li><b>DeepSeek:</b> <span class="mono" style="font-size:12px">@ai-sdk/deepseek</span> 2.x is v6-compatible; model <span class="mono" style="font-size:12px">deepseek-v4-flash</span>; ~$2–4 total. The OpenRouter #411 "tool-args-as-text" trap is avoided by our tool-output design — NEVER layer <span class="mono" style="font-size:12px">Output.object</span> on the answer tool. Two transports: Ollama (free, local validation) / direct DeepSeek (prod, key wired). Corpus-only needs NO web-search rebuild.</li>
@@ -360,6 +362,7 @@
     </ul>
     <div class="slog"><b>Session log</b><br>· <b>2026-05-25 (s1):</b> planned the full arc; committed this ground truth (4d3fc7a9); seeded the P0–P2 bus goal + 6 Codex tasks (Track A); set up the P3 parallel worktree + handoff + DeepSeek key (Track B).<br>· <b>2026-05-25 (s2, manager):</b> Track A landed T1.2 (6b689679), T2.1 (66387281), T2.2 (d84fcc9f) — verified green; T2.3 then in flight. Track B landed T3.1 (86efeccc), T3.2 (de8be285) — verified.<br>· <b>2026-05-25 (s3, manager):</b> Codex #1 closed Track A P2 — T2.3 telemetry+DevTools (8742dd53, 2b91b062), T2.4 persistence-gate+evals (d590cedc, bfaab3ba), static route duration (b9e92631). Verified: tsc 0, 92 scoped tests green, rejection gate proven. Codex #1 marked the bus goal <b>blocked</b> on T1.1 — correct. Track B Codex #2 now running T3.3→T3.7. <b>Anthropic spend: $0</b> (T1.1 still gated — needs run_id + cost OK).<br>· <b>2026-05-25 (s3, corpus):</b> authored a real-brand <b>Notion corpus fixture</b> (<span class="mono" style="font-size:11px">fixtures/notion.ts</span>, fe2e5446) — schema-validated, 10 grounded excerpts / 8 sources / 5 competitors, covers all 6 sections — so T3.5 (Ollama, free) and T1.1 can run on real data without the live research+onboarding pipeline. Consumed via <span class="mono" style="font-size:11px">createRunStore().createRun(notionResearchInput)</span>; T1.1's app path additionally needs it seeded as a Supabase run row.<br>· <b>2026-05-25 (s4, realign):</b> Track B Codex #2 got DeepSeek conformant on Ollama (forced-answer-tool fix — Buyer ICP was failing because DeepSeek emitted text instead of calling <span class="mono" style="font-size:11px">answer</span>), but the 6-section Ollama-cloud canary runs ~5min/section and is flaky. <b>Manager call:</b> Ollama-cloud is the wrong validation transport — pivoted to direct DeepSeek. <b>Anthropic spend: $0.</b><br>· <b>2026-05-25 (s5, BREAKTHROUGH):</b> direct-DeepSeek canary (clean tree, forced-answer fix committed c5628683/dcba3e0e) ran <b>6 sections in 214s</b> — speed proven. Conformance 2/6, root-caused to the 3-source Vercel test corpus vs a 5-source minimum (corpus poverty, not architecture). Generated <span class="mono" style="font-size:11px">.data/notion-corpus.json</span> (8 sources/10 excerpts) and dispatched a rerun on it. Per-section: MktCat 54.8s, BuyerICP 22.3s ✓, Competitor 75.0s ✓, VoC 17.1s, Demand 27.5s, Offer 17.5s. <b>Spend: ~$0.10 DeepSeek, $0 Anthropic.</b><br>· <b>2026-05-25 (s6, PROVEN):</b> Notion-corpus rerun (deepseek-direct, runId run_notion_fixture) → <b>6/6 pass, 207.7s</b> (MktCat 46.7 · BuyerICP 30.8 · Competitor 39.8 · VoC 30.6 · Demand 30.1 · Offer 29.7 — all schema + minimums). 3→8 sources flipped 2/6→6/6 with no code change: corpus poverty confirmed as the sole cause. T3.5 satisfied on direct DeepSeek.<br>· <b>2026-05-25 (s7, INTEGRATED):</b> merged Track B (P3 DeepSeek) → Track A (P0–P2 hardened wire) at <span class="mono" style="font-size:11px">0072f1d4</span>. Conflicts (models.ts, section-agent.ts, run-section.ts, the two test files) all resolved keep-both — B's provider-switch + A's DevTools wrapper coexist; A's devtools test split to <span class="mono" style="font-size:11px">models.devtools.test.ts</span> to isolate mocks. <b>Verified on the merged tree: tsc 0, full vitest 1017 pass/1 skip, next build exit 0, Sonnet default path intact.</b> Both tracks now unified on <span class="mono" style="font-size:11px">feat/v2-lab-section-wire</span>. <b>Remaining: T3.6 preview deploy (needs DEEPSEEK_API_KEY in Vercel Preview), T3.7 front-door flip.</b><br>· <b>2026-05-26 (s8, T3.6 BUGS FIXED):</b> the first real deployed run surfaced two bugs; both root-caused + fixed + locally verified. <b>Bug 1 (fan-out never ran):</b> <span class="mono" style="font-size:11px">orchestrate</span> fire-and-forgot the 6 <span class="mono" style="font-size:11px">run-lab-section</span> kickoffs then returned, so Vercel froze the function and dropped the un-sent fetches; and <span class="mono" style="font-size:11px">run-lab-section</span> awaited the full 30–75s job (wired to <span class="mono" style="font-size:11px">request.signal</span>) before its 202, so orchestrate's 5s kickoff-abort would have killed the job regardless. Fix: <span class="mono" style="font-size:11px">run-lab-section</span> now ACKs 202 and runs the job in <span class="mono" style="font-size:11px">after()</span> (Vercel <span class="mono" style="font-size:11px">waitUntil</span>, bounded by maxDuration 300s), decoupled from <span class="mono" style="font-size:11px">request.signal</span>; <span class="mono" style="font-size:11px">orchestrate</span> awaits all 6 kickoffs before responding (kickoff timeout 5s→30s). <b>Bug 2 (research-v3 crash):</b> not the hypothesized undefined-data — <span class="mono" style="font-size:11px">&lt;ShellProvider&gt;</span> is mounted nowhere, so <span class="mono" style="font-size:11px">AppShell→useShell()</span> threw on every sections-phase render (the queued/empty correlation was incidental). Fix: wrap <span class="mono" style="font-size:11px">BattleshipShell</span> in <span class="mono" style="font-size:11px">ShellProvider</span>. <b>Verified: tsc 0, full vitest 1019 pass/1 skip, next build exit 0</b> — incl. 3 new red→green regression tests (after()-deferral + signal-decoupling, kickoff-await survival, provider-mount). DB confirmed the stuck run (parent + 6 section_runs queued, telemetry null). <b>Remaining: the deployed proof itself — branch must deploy + a normal Submit on the SSO preview (only the logged-in user can reach it) → observe 6× queued→running→completed on DeepSeek via telemetry; then T3.7 front-door flip.</b><br>· <b>2026-05-26 (s9, T3.6 CLOSED):</b> Codex finished the render and live-proof gap: lab envelope bodies are flattened for typed renderers, answer-tool minimum failures now get one repair attempt, audit-state ignores unrelated queued seed rows when a complete artifact is committed, and lab section runs persist telemetry (<span class="mono" style="font-size:11px">executionMode: lab</span>, provider/model, timings). Live localhost <span class="mono" style="font-size:11px">run aab09d58-86f6-45e1-9bd6-2534f79a9256</span> re-run through the authenticated <span class="mono" style="font-size:11px">:3100</span> route returned <b>6/6 complete</b>; every committed section run has <span class="mono" style="font-size:11px">provider=deepseek-direct</span> / <span class="mono" style="font-size:11px">model=deepseek-v4-flash</span>; <span class="mono" style="font-size:11px">/research-v3</span> renders all six cards with no error boundary and <span class="mono" style="font-size:11px">6/6 COMPLETE</span>. <b>Remaining: T3.7 front-door flip.</b><br><b>Worktrees</b> — A: <span style="color:var(--ink)">AI-GOS-worktrees/v2-lab-section-wire</span> (canonical report home, served at localhost:8753) · B: <span style="color:var(--ink)">AI-GOS-worktrees/v2-deepseek</span>.</div>
     <div class="slog"><b>Session 10 addendum</b><br>· <b>2026-05-26 (s10, PHASE A CLOSED):</b> authenticated localhost run <span class="mono" style="font-size:11px">45432554-7f7c-4ee6-99c4-a7769905a495</span> on the real Notion URL completed <b>6/6</b> after a Competitor Landscape repair. Root cause: the prompt listed only some Competitor validator floors; it now names sources, competitor types, axes, pricing coverage, share-of-voice surfaces, public weaknesses across at least two competitors, and narrative arcs. A1 renderer regressions pass for all six sections, A2 renders 6/6 in <span class="mono" style="font-size:11px">/research-v3</span>, and A3 flips <span class="mono" style="font-size:11px">src/app/onboarding/page.tsx</span> to <span class="mono" style="font-size:11px">/research-v3</span>. Authenticated browser proof: <span class="mono" style="font-size:11px">/onboarding</span> resolves to <span class="mono" style="font-size:11px">http://localhost:3100/research-v3</span> with no signed-out Clerk path. Verified: <span class="mono" style="font-size:11px">tsc --noEmit</span>, full <span class="mono" style="font-size:11px">vitest</span> 1040 pass/1 skip, <span class="mono" style="font-size:11px">next build</span> exit 0; worker build still has only the known six baseline errors.</div>
+    <div class="slog"><b>Session 11 addendum</b><br>· <b>2026-05-26 (s11, B-E CODE LANDED):</b> Codex executed the amended B-G handoff through the code-only boundary. D3 is closed by <span class="mono" style="font-size:11px">5bbf85b0</span>: persisted lab events now read <span class="mono" style="font-size:11px">payload.metadata</span> correctly and the activity feed renders visible query/search/synthesis/validation/commit steps. E3 brief fields landed in <span class="mono" style="font-size:11px">cf81830e</span>; competitor <span class="mono" style="font-size:11px">adPresence</span> landed in <span class="mono" style="font-size:11px">2e502a2f</span>; paid-media schema/worker mirrors landed in <span class="mono" style="font-size:11px">de04688b</span>. Verified after s11: <span class="mono" style="font-size:11px">tsc --noEmit</span>, full <span class="mono" style="font-size:11px">vitest</span> 1068 pass/1 skip, <span class="mono" style="font-size:11px">next build</span> exit 0, <span class="mono" style="font-size:11px">eslint</span> 0 errors/65 known warnings, worker build exactly the known 6 baseline errors. Browser smoke on fresh <span class="mono" style="font-size:11px">http://localhost:3101/research-v3</span> loads the authenticated v3 welcome screen; no live-run proof was attempted in this pass.</div>
   </div>
 
   <!-- 01 -->
@@ -559,7 +562,7 @@
       <span class="sec-num">07</span>
       <div>
         <h2>The plan &amp; task board</h2>
-        <p class="sec-sub">The full arc, as tasks. This is what the agent-bus goal tracks — each task carries its verification gate; 💲 marks the one paid step. Statuses go live once the goal is seeded.</p>
+        <p class="sec-sub">The original P0-P3 board remains below as history. The current live board is v3 B-G: each task carries its verification gate, and no live/prod claim is made until the proof gate closes.</p>
       </div>
     </div>
 
@@ -722,6 +725,93 @@
         </div>
       </div>
     </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">v3 P0</span><h4>Rollup prerequisite</h4><span class="pgoal">blocks E trigger + gates</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill done">✓ code</span><span class="tid">P0</span></div>
+        <div>
+          <h5>Parent artifact rollup</h5>
+          <p>Commit-time rollup now updates the parent artifact when all six child sections complete. Audit-state still derives 6/6 defensively from child rows.</p>
+          <p class="verify">verify pending: fresh run shows parent status=complete and children_complete=6 in DB</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">Phase B</span><h4>Per-section reader</h4><span class="pgoal">7 tabs</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill done">✓ code</span><span class="tid">B</span></div>
+        <div>
+          <h5>Paginated v3 audit reader</h5>
+          <p>The reader has seven always-clickable tabs, per-tab live status, next/prev navigation, a locked-but-visible paid-media terminal tab, and <span class="mono" style="font-size:12px">?runId=&amp;section=</span> URL sync.</p>
+          <p class="verify">verify: reader tests green; browser smoke loads /research-v3 on :3101; live run tab traversal still pending</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">Phase C</span><h4>Live sub-section reveal</h4><span class="pgoal">checklist ticks</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill done">✓ code</span><span class="tid">C</span></div>
+        <div>
+          <h5>Persist and render sub-section committed events</h5>
+          <p>The lab event union includes <span class="mono" style="font-size:12px">sub-section-committed</span>; section runs emit checklist events before artifact save; reader checklists consume the real persisted <span class="mono" style="font-size:12px">payload.metadata</span> shape.</p>
+          <p class="verify">verify: battleship/section-card/lab run tests green; live checklist ticks still require a fresh run</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">Phase D</span><h4>Real tools + kill fabrication</h4><span class="pgoal">no synthetic backfill</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill done">✓ code</span><span class="tid">D</span></div>
+        <div>
+          <h5>Bounded real in-section tools</h5>
+          <p><span class="mono" style="font-size:12px">LAB_ENGINE_LIVE_TOOLS</span> now defaults to live allowlists unless explicitly set to <span class="mono" style="font-size:12px">false</span>. Per-section budgets are tightened, synthetic competitor/source filler is deleted, <span class="mono" style="font-size:12px">ResearchInput</span> floors are relaxed, competitor <span class="mono" style="font-size:12px">adPresence</span> is typed, and the activity feed shows query → search → synthesis → validation → commit steps.</p>
+          <p class="verify">verify pending: ≥3 fresh real URLs, live tools true, no Synthetic/example.com committed artifacts, no section &gt;270s</p>
+          <div class="tags"><span class="t">codex</span><span class="t paid">live proof pending</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">Phase E</span><h4>Paid Media Plan</h4><span class="pgoal">7th dependent section</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill done">✓ code</span><span class="tid">E</span></div>
+        <div>
+          <h5>New DeepSeek synthesis section</h5>
+          <p><span class="mono" style="font-size:12px">positioningPaidMediaPlan</span> stays outside the six-section fan-out and runs as a dependent final wave after 6/6. Schema mirrors, renderer switch, worker registry awareness, SKILL guidance, and G4/G5 brief fields are synced.</p>
+          <p class="verify">verify pending: fresh run dispatches paid media only after 6/6 and renders the terminal page</p>
+          <div class="tags"><span class="t">codex</span><span class="t paid">live proof pending</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase reveal">
+      <div class="phase-head"><span class="pid">Phase F/G</span><h4>Teardown + production</h4><span class="pgoal">gated</span></div>
+      <div class="task">
+        <div class="col1"><span class="pill warn">⏸ gated</span><span class="tid">F</span></div>
+        <div>
+          <h5>Lean teardown</h5>
+          <p>Delete old <span class="mono" style="font-size:12px">/research-v2</span>, managed-agents runtime, old media-plan pipeline, and dead map entries only after the full teardown gate closes. Keep lab tool adapters, registry allowlists, the live-tools gate, schema mirrors, and the Railway corpus path.</p>
+          <p class="verify">blocked by gate: 3 fresh URLs + paid-media terminal section + green baselines + 48h soak</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="col1"><span class="pill warn">⏸ gated</span><span class="tid">G</span></div>
+        <div>
+          <h5>Promote to production</h5>
+          <p>PR <span class="mono" style="font-size:12px">feat/v2-lab-section-wire</span> to main, confirm prod DeepSeek env/maxDuration, deploy the worker separately, and run an authenticated production proof.</p>
+          <p class="verify">blocked by prod-cutover gate and soak; no production claim yet</p>
+          <div class="tags"><span class="t">codex</span></div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- 08 -->
@@ -762,12 +852,12 @@
       <li>
         <span class="when">Phase A · ships first</span>
         <h4>T3.7 — flip the front door</h4>
-        <p>Onboarding → <span class="mono" style="font-size:12px">/research-v3</span>. The proven corpus-only DeepSeek engine becomes what every new user hits — ~30s/section, ~$0.10/run, no stalls. Gate closed on fresh real-URL run <span class="mono" style="font-size:12px">45432554-7f7c-4ee6-99c4-a7769905a495</span> plus per-section regression tests for all six.</p>
+        <p>Onboarding → <span class="mono" style="font-size:12px">/research-v3</span>. The proven DeepSeek lab engine became what new users hit. Gate closed on fresh real-URL run <span class="mono" style="font-size:12px">45432554-7f7c-4ee6-99c4-a7769905a495</span> plus per-section regression tests for all six.</p>
       </li>
       <li>
         <span class="when">Phase B</span>
         <h4>Per-section paginated reader</h4>
-        <p>Rebuild the audit reader as a section-at-a-time experience — tabs + next/prev across the 6, a competitor tab-bar, clean verdict lines, real typed sub-section renderers. Kept editable for the future unified chat.</p>
+        <p>Rebuild the audit reader as a section-at-a-time experience — seven tabs, next/prev across the six sections plus the paid-media terminal page, live status per tab, and deep-link restore via <span class="mono" style="font-size:12px">runId</span> + <span class="mono" style="font-size:12px">section</span>.</p>
       </li>
       <li>
         <span class="when">Phase C</span>
@@ -777,22 +867,22 @@
       <li>
         <span class="when">Phase D</span>
         <h4>Corpus enrichment</h4>
-        <p>Strengthen the single research pass so 6/6 sections clear <span class="mono" style="font-size:12px">validateMinimums</span> on real URLs, capture competitor ad-presence, and surface the query → search → synthesis steps live.</p>
+        <p>Use bounded real in-section tools on top of the shared corpus base, delete synthetic backfill, relax the old schema floors, capture competitor ad-presence, and surface the query → search → synthesis steps live.</p>
       </li>
       <li>
         <span class="when">Phase E · the 7th section</span>
         <h4>Paid Media Plan</h4>
-        <p>A skill-backed terminal section synthesizing the 6 reports into a client-ready paid media plan (RovR structure) — a templated media-buying core + research-backed angles, a filled creative framework, competitor insights, and funnel ideation. Zero fresh research bar one targeted client-channel step.</p>
+        <p>A skill-backed terminal section synthesizing the six reports into a client-ready paid media plan (RovR structure) — a templated media-buying core + research-backed angles, a filled creative framework, competitor insights, and funnel ideation. It runs only after 6/6; the bounded client-channel research step is sub-section #11.</p>
       </li>
       <li>
         <span class="when">Phase F · cleanup</span>
         <h4>Lean teardown</h4>
-        <p>Rip out the dead legacy paths — old <span class="mono" style="font-size:12px">/research-v2</span>, the draft/deep/managed modes, the old 10-section media-plan pipeline. Keep the Railway worker (it still builds the corpus).</p>
+        <p>Rip out the dead legacy paths only after the teardown gate closes — old <span class="mono" style="font-size:12px">/research-v2</span>, draft/deep/managed modes, managed-agents runtime, and the old media-plan pipeline. Keep the lab tool machinery, schema mirrors, and Railway corpus path.</p>
       </li>
       <li>
         <span class="when">Phase G · ship</span>
         <h4>Promote to production</h4>
-        <p>Promote the DeepSeek build to production (DeepSeek-only). Key rotation tracked as a follow-up.</p>
+        <p>Promote the DeepSeek/live-tools build to production after the prod-cutover gate, with rollback to the previous Vercel deploy. Key rotation remains a follow-up.</p>
       </li>
     </ol>
   </section>
@@ -811,14 +901,14 @@
       <li><input type="checkbox" /><span class="txt">DeepSeek lands behind a <strong>provider-switch</strong> (reversible) — the default stays Anthropic until DeepSeek proves out.</span></li>
       <li><input type="checkbox" /><span class="txt">We <strong>fix all 72 pre-existing tsc errors</strong> to get a trustworthy green gate for the team.</span></li>
       <li><input type="checkbox" /><span class="txt">The <strong>front door flips to the lab path only after</strong> DeepSeek is validated end-to-end.</span></li>
-      <li><input type="checkbox" /><span class="txt">The full <strong>live research-agent workflow is deferred to v3</strong> — v1/v2 stay corpus-only.</span></li>
+      <li><input type="checkbox" /><span class="txt">The v3 engine now uses <strong>bounded real in-section tools</strong> on top of the shared corpus base; corpus-only is historical, not the current Phase D plan.</span></li>
     </ul>
   </section>
 
 </main>
 
 <div class="closer wrap reveal">
-  <p>These boxes still hold — and the arc is essentially done: the wire shipped, the backend is hardened to the course standard, and DeepSeek is proven end-to-end. <strong>One task remains: flip the front door (T3.7).</strong></p>
+  <p>These boxes still hold with the v3 amendments: the wire shipped, the backend is hardened, DeepSeek is proven, Phase A is live, and the B-E code path is landed. <strong>Remaining: live proof, 48h soak, teardown, and production promotion.</strong></p>
   <div class="sig">AI-GOS · v2 wire → DeepSeek · ground truth · 2026-05-25</div>
 </div>
 
