@@ -45,7 +45,7 @@ export default async function DashboardPage() {
           {/* Quick actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
             <Link
-              href="/research-v2"
+              href="/research-v3"
               className="group flex items-center gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)] cursor-pointer"
             >
               <div className="w-10 h-10 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
                 <p className="mt-1 text-xs text-[var(--text-quaternary)] max-w-xs">
                   Start your first journey to generate a strategic research document.
                 </p>
-                <Link href="/research-v2" className="mt-5">
+                <Link href="/research-v3" className="mt-5">
                   <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90">
                     <Plus className="size-3.5" />
                     Start Journey

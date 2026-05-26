@@ -80,7 +80,7 @@ export default function Home() {
 
           {/* CTA */}
           <div className="mt-10 animate-in fade-in slide-in-from-bottom-3 duration-700 delay-300 fill-mode-backwards">
-            <Link href="/research-v2">
+            <Link href="/research-v3">
               <Button
                 size="lg"
                 className="cursor-pointer group h-12 rounded-full bg-foreground text-background font-semibold text-[15px] px-8 shadow-sm transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"

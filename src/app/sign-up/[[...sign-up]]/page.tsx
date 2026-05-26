@@ -25,7 +25,7 @@ export default function SignUpPage() {
       {/* Clerk SignUp */}
       <div className="relative z-10">
         <SignUp
-          forceRedirectUrl="/research-v2"
+          forceRedirectUrl="/research-v3"
           signInUrl="/sign-in"
         />
       </div>

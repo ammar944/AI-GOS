@@ -146,7 +146,7 @@ export default function ProfilesPage() {
                 Complete a research journey and your business profile will be saved automatically.
               </p>
               <Link
-                href="/research-v2"
+                href="/research-v3"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent-green)] text-white text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
               >
                 <Compass className="size-4" />

@@ -128,7 +128,7 @@ export function WelcomeStrip({
         {/* Right: Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {!hasOnboardingData && (
-            <Link href="/research-v2">
+            <Link href="/research-v3">
               <Button variant="default" size="default" className="group">
                 Start Journey
                 <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -137,7 +137,7 @@ export function WelcomeStrip({
           )}
 
           {isOnboardingPartial && (
-            <Link href="/research-v2">
+            <Link href="/research-v3">
               <Button variant="default" size="default" className="group">
                 <Play className="size-3.5" />
                 Continue Journey
@@ -158,7 +158,7 @@ export function WelcomeStrip({
                   Edit Profile
                 </Button>
               </Link>
-              <Link href="/research-v2">
+              <Link href="/research-v3">
                 <Button variant="default" size="default" className="group">
                   <Wand2 className="size-3.5" />
                   New Journey

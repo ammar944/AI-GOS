@@ -41,7 +41,7 @@ export default async function ResearchListPage() {
                 Your completed research sessions
               </p>
             </div>
-            <Link href="/research-v2">
+            <Link href="/research-v3">
               <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90">
                 <Plus className="size-3.5" />
                 New Research
@@ -59,7 +59,7 @@ export default async function ResearchListPage() {
               <p className="mt-1 text-sm text-[var(--text-quaternary)] max-w-xs">
                 Start a journey to generate your first research document.
               </p>
-              <Link href="/research-v2" className="mt-6">
+              <Link href="/research-v3" className="mt-6">
                 <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90">
                   Start Journey
                   <ArrowRight className="size-3.5" />
