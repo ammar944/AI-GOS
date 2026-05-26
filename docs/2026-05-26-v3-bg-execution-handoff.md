@@ -110,9 +110,9 @@ Existing, verified machinery — re-enable, don't rebuild:
 
 ---
 
-## ADRs to write
-- **ADR-0005** — Paid Media Plan = new DeepSeek synthesis section outside the positioning registry, poll-triggered dependent wave; old Perplexity+CAC pipeline deprecated.
-- **ADR-0006** — Sections use real in-section tools (reversal of corpus-only) + managed-agents runtime deletion (reverses the 2026-05-20 default-on); schemas retained.
+## ADRs recorded
+- **`docs/adr/0005-paid-media-plan-synthesis-section.md`** — Paid Media Plan = new DeepSeek synthesis section outside the positioning registry, poll-triggered dependent wave; old Perplexity+CAC pipeline deprecated.
+- **`docs/adr/0006-live-section-tools-and-managed-agents-deprecation.md`** — Sections use real in-section tools (reversal of corpus-only) + managed-agents runtime deletion (reverses the 2026-05-20 default-on); schemas retained.
 
 ## Parallelism
 B / C / D / E run in parallel after A (done). Prod cutover after D. F after the gate. G last.
@@ -121,10 +121,10 @@ B / C / D / E run in parallel after A (done). Prod cutover after D. F after the 
 
 ## Reconciliation with the goal docs (checked 2026-05-26)
 
-This handoff is the current execution spec; `docs/2026-05-26-v3-scope-and-plan.md` + `docs/2026-05-26-v3-codex-goal-handoff.md` stay the per-task narrative. Where they differ, the deltas below + the ADRs govern (amendment banners added to both goal docs):
+This handoff is the current execution spec; `docs/2026-05-26-v3-scope-and-plan.md` + `docs/2026-05-26-v3-codex-goal-handoff.md` stay the per-task narrative. They have been re-synced to this handoff; where future drift appears, the deltas below + the ADRs govern:
 
-- **Corpus-only → live in-section tools** (ADR-0006). The goal docs' decisions #2/#9 + the "Do NOT enable `LAB_ENGINE_LIVE_TOOLS`" anchor are **reversed**. Phase D here = real-tool sections + kill backfill + relax floors, *not* "enrich the corpus pass."
-- **Client-channel research step = sub-section #11, not #7** (media-plan structure doc + ADR-0005; the scope doc's "#7" is stale). #7 is pure synthesis.
+- **Corpus-only → live in-section tools** (ADR-0006). Phase D here = real-tool sections + kill backfill + relax floors, not corpus expansion.
+- **Client-channel research step = sub-section #11, not #7** (media-plan structure doc + ADR-0005). #7 is pure synthesis.
 - **Prod after D + full proof bar + lab-wire→main** supersede the goal docs' "G last," single-URL gate, and unspecified branch plan.
 
 **Carried from the goal docs — do NOT drop (they augment the phases above):**
@@ -133,4 +133,4 @@ This handoff is the current execution spec; `docs/2026-05-26-v3-scope-and-plan.m
 - **E3** — brief field additions (G4/G5): `salesProcessDocs[]` + `salesLoomUrl`, SLG/PLG flag, creative capacity, lead-list availability — 6-place field-sync each (don't exist yet).
 - **B4** — wire typed sub-section renderers per `research-sections.md` (prototype-A primitives → real renderers).
 
-**Open coordination item:** the **agent-bus goal** + the ground-truth HTML `§07` board still reflect the *old corpus-only plan* — re-sync them to this amended spec at Codex kickoff (the goal doc's D9 mirror step).
+**Coordination status:** repo-local goal docs, ADRs, and the ground-truth HTML `§07` board have been re-synced to this amended spec. No separate agent-bus goal file exists in this worktree; if an external bus goal exists, mirror the updated goal statement from `docs/2026-05-26-v3-codex-goal-handoff.md`.

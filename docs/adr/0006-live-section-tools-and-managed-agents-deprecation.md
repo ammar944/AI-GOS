@@ -5,7 +5,7 @@ date: 2026-05-26
 
 # Live in-section tools on the DeepSeek lab path; managed-agents runtime deprecation
 
-Two coupled reversals land together as v3 promotes the corpus-only DeepSeek lab engine to the production front door. Both reverse decisions taken earlier in this arc; recording them so the next executor does not re-derive the old constraints from stale docs.
+Two coupled reversals land together as v3 promotes the previously corpus-only DeepSeek lab engine to the production front door with live in-section tools enabled by default. Both reverse decisions taken earlier in this arc; recording them so the next executor does not re-derive the old constraints from stale docs.
 
 ## Decision 1 — the 6 positioning sections use real in-section tools (reverses the corpus-only lock)
 
@@ -13,11 +13,11 @@ The 6 lab sections now call real research tools during the section run, on DeepS
 
 This is a **surgical flip of existing infrastructure, not new infrastructure**:
 
-- `LAB_ENGINE_LIVE_TOOLS` (`src/lib/research-v2/lab-section-job.ts:89-91`) already exists. `getLabEngineAllowedTools()` returns `[]` when the flag is unset (no tools) and `undefined` when `=== 'true'` (defer to each section's registry allowlist). The flip is the env value.
+- `LAB_ENGINE_LIVE_TOOLS` (`src/lib/research-v2/lab-section-job.ts:88-90`) already exists. `getLabEngineAllowedTools()` returns `[]` only when the flag is explicitly set to `'false'`; otherwise it returns `undefined` and defers to each section's registry allowlist. The flip is preserving the gate while making live allowlists the default.
 - The per-section allowlists already exist and are populated in `src/lib/lab-engine/sections/section-registry.ts` (`allowedTools`): MarketCategory `["web_search","pagespeed"]`; Competitor a multi-tool set incl. the ad adapters; VoC / BuyerICP `["web_search","firecrawl","reviews"]`; DemandIntent `["web_search","firecrawl","keyword_ad_probe"]`; OfferDiagnostic `["web_search","firecrawl","pagespeed","reviews","ga4"]`.
 - The tool adapters already exist in `src/lib/lab-engine/agents/tools/` (11: `adlibrary`, `competitor-ad-adapter`, `firecrawl`, `ga4`, `google-ads`, `keyword-ad-probe`, `meta-ads`, `pagespeed`, `reviews`, `spyfu`, `_shared`/`index`).
 
-These three — the tool adapters, the registry allowlists, and the `LAB_ENGINE_LIVE_TOOLS` gate — were dormant under the corpus-only lock and looked removable in an earlier teardown trace. **They are now LIVE infra and MUST be preserved through the v3 teardown (Phase F).** Deleting them is no longer a cleanup; it would tear out the section research path.
+These three — the tool adapters, the registry allowlists, and the `LAB_ENGINE_LIVE_TOOLS` gate — were dormant under the old corpus-only lock and looked removable in an earlier teardown trace. **They are now LIVE infra and MUST be preserved through the v3 teardown (Phase F).** Deleting them is no longer a cleanup; it would tear out the section research path.
 
 ### Why no model split
 
@@ -29,7 +29,7 @@ Corpus-only sections ran ~17–75s each (s5/s6, fixture corpus). Live tool calls
 
 ### Consequence — synthetic backfill is removed (Phase D, not F)
 
-`src/lib/research-v2/corpus-to-research-input.ts` fabricates data when the corpus is thin (`buildSyntheticCompetitorAds()` emits `Synthetic: <competitor> positioning angle` ads; a "schema-safe synthetic URL" default). With real tools fetching real evidence this backfill is both unnecessary and a fabrication risk (`feedback_no_fabricated_pricing`). **Phase D deletes it in the same arc that flips `LAB_ENGINE_LIVE_TOOLS=true`** — sections must not lose the fallback before they have real data. This is noted here because the teardown gate's "6/6 on ≥3 fresh URLs" condition explicitly means real-tool-fetched data with no synthetic backfill.
+`src/lib/research-v2/corpus-to-research-input.ts` fabricates data when the corpus is thin (`buildSyntheticCompetitorAds()` emits `Synthetic: <competitor> positioning angle` ads; a "schema-safe synthetic URL" default). With real tools fetching real evidence this backfill is both unnecessary and a fabrication risk (`feedback_no_fabricated_pricing`). **Phase D deletes it in the same arc that proves the live-default allowlists** — sections must not lose the fallback before they have real data. This is noted here because the teardown gate's "6/6 on ≥3 fresh URLs" condition explicitly means real-tool-fetched data with no synthetic backfill.
 
 ## Decision 2 — managed-agents runtime is deleted; schemas are retained (reverses the 2026-05-20 default-on)
 
