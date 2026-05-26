@@ -40,6 +40,7 @@ import {
   isBuyerICPArtifact,
   isCompetitorLandscapeArtifact,
 } from '@/lib/research-v2/audit-artifact-view';
+import { formatConfidenceToTen } from '@/lib/research-v2/confidence-display';
 import { CompetitorLandscapeRenderer } from './section-renderers';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { cn } from '@/lib/utils';
@@ -1093,7 +1094,7 @@ function SectionContentList({
                     {state?.executionMode ? <span>{state.executionMode}</span> : null}
                     {meta.artifactLayer ? <span>{meta.artifactLayer}</span> : null}
                     {meta.artifactLayer === 'draft' && meta.confidence !== null ? (
-                      <span>Confidence {meta.confidence}/10</span>
+                      <span>Confidence {formatConfidenceToTen(meta.confidence)}/10</span>
                     ) : null}
                     {runtimeTiming ? <span>{runtimeTiming}</span> : null}
                     {meta.evidenceGapCount > 0 ? (

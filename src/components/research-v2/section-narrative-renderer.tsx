@@ -6,6 +6,10 @@ import { ExternalLink } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  formatConfidenceToTen,
+  getConfidenceToneClass,
+} from '@/lib/research-v2/confidence-display';
 import { cn } from '@/lib/utils';
 import {
   isRecord,
@@ -97,12 +101,6 @@ function humanizeKey(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function getConfidenceClass(confidence: number): string {
-  if (confidence >= 8) return 'border-[color:var(--green)] text-[color:var(--green)]';
-  if (confidence >= 5) return 'border-[color:var(--amber)] text-[color:var(--amber)]';
-  return 'border-[color:var(--red)] text-[color:var(--red)]';
 }
 
 function getNonEmptyString(
@@ -427,9 +425,9 @@ export function SectionNarrativeRenderer({
           </p>
           <Badge
             variant="outline"
-            className={cn('shrink-0 border', getConfidenceClass(artifact.confidence))}
+            className={cn('shrink-0 border', getConfidenceToneClass(artifact.confidence))}
           >
-            Confidence {artifact.confidence}/10
+            Confidence {formatConfidenceToTen(artifact.confidence)}/10
           </Badge>
         </div>
         <p className="text-[15px] leading-[1.7] text-[color:var(--text-secondary)]">

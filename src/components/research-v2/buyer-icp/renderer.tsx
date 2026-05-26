@@ -10,6 +10,10 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
+import {
+  formatConfidenceToTen,
+  getConfidenceToneClass,
+} from '@/lib/research-v2/confidence-display';
 import { cn } from '@/lib/utils';
 import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
 
@@ -22,12 +26,6 @@ import { TriggerCard } from './trigger-card';
 
 export interface BuyerICPArtifactRendererProps {
   artifact: BuyerICPArtifact;
-}
-
-function getConfidenceClass(confidence: number): string {
-  if (confidence >= 8) return 'border-[color:var(--green)] text-[color:var(--green)]';
-  if (confidence >= 5) return 'border-[color:var(--amber)] text-[color:var(--amber)]';
-  return 'border-[color:var(--red)] text-[color:var(--red)]';
 }
 
 export function BuyerICPArtifactRenderer({
@@ -44,9 +42,9 @@ export function BuyerICPArtifactRenderer({
           </h2>
           <Badge
             variant="outline"
-            className={cn('shrink-0 border', getConfidenceClass(artifact.confidence))}
+            className={cn('shrink-0 border', getConfidenceToneClass(artifact.confidence))}
           >
-            Confidence {artifact.confidence}/10
+            Confidence {formatConfidenceToTen(artifact.confidence)}/10
           </Badge>
         </div>
         <p className="text-base leading-relaxed text-[color:var(--text-1)]">

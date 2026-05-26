@@ -25,6 +25,7 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
 import type { AuditStateResponse, SectionEvent } from '@/app/api/research-v2/audit-state/route';
 import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
+import { formatConfidenceToTen } from '@/lib/research-v2/confidence-display';
 
 import { ResearchCardShell } from './research-card-shell';
 
@@ -79,13 +80,6 @@ function getStreamingText(
 ): string {
   if (!workerState || workerState.status === 'queued') return 'Queued';
   return workerState.latestActivity ?? workerState.phaseLabel ?? 'Drafting…';
-}
-
-function formatConfidence(confidence: number): string {
-  const normalized = confidence <= 1 ? confidence * 10 : confidence;
-  const bounded = Math.max(0, Math.min(10, normalized));
-  const rounded = Math.round(bounded * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 function formatSourceCount(count: number): string {
@@ -193,7 +187,7 @@ function SectionVerdictLine({
         {artifact.verdict}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
-        <span>Confidence {formatConfidence(artifact.confidence)}/10</span>
+        <span>Confidence {formatConfidenceToTen(artifact.confidence)}/10</span>
         <span>{formatSourceCount(artifact.sources.length)}</span>
       </div>
     </div>
