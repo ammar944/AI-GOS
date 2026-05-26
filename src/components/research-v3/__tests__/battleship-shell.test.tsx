@@ -148,6 +148,13 @@ describe('<BattleshipShell>', () => {
       ),
     ).toBeInTheDocument();
     expect(
+      within(
+        screen.getByTestId(
+          `typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`,
+        ),
+      ).getByText('Confidence 7.2/10'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByTestId(
         `sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-campaignOverview`,
       ),

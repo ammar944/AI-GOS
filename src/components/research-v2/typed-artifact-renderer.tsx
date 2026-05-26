@@ -77,9 +77,20 @@ const PRIMARY_FIELD_KEYS = [
   'bucketType',
 ] as const;
 
+function normalizeConfidenceToTen(confidence: number): number {
+  return confidence <= 1 ? confidence * 10 : confidence;
+}
+
+function formatConfidence(confidence: number): string {
+  const bounded = Math.max(0, Math.min(10, normalizeConfidenceToTen(confidence)));
+  const rounded = Math.round(bounded * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 function getConfidenceClass(confidence: number): string {
-  if (confidence >= 8) return 'border-[color:var(--green)] text-[color:var(--green)]';
-  if (confidence >= 5) return 'border-[color:var(--amber)] text-[color:var(--amber)]';
+  const normalized = normalizeConfidenceToTen(confidence);
+  if (normalized >= 8) return 'border-[color:var(--green)] text-[color:var(--green)]';
+  if (normalized >= 5) return 'border-[color:var(--amber)] text-[color:var(--amber)]';
   return 'border-[color:var(--red)] text-[color:var(--red)]';
 }
 
@@ -427,7 +438,7 @@ function GenericTypedArtifactRenderer({
             variant="outline"
             className={cn('shrink-0 border', getConfidenceClass(artifact.confidence))}
           >
-            Confidence {artifact.confidence}/10
+            Confidence {formatConfidence(artifact.confidence)}/10
           </Badge>
         </div>
         <p className="text-base leading-relaxed text-[color:var(--text-1)]">
