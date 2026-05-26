@@ -301,4 +301,87 @@ describe('runDeepResearchProgram', () => {
     expect(generateTextMock).toHaveBeenCalledTimes(2);
     expect(result.provenance?.citationCount).toBe(6);
   });
+
+  it('re-repairs a corpus when the first repair still contains non-cited URLs', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const corpusFixture = buildCorpusFixture();
+    const brokenCorpus = buildCorpusFixture();
+    const brokenSources = (brokenCorpus.corpus as {
+      sources: Array<{ title: string; url: string; whyItMatters: string }>;
+    }).sources;
+    brokenSources.splice(4, brokenSources.length - 4);
+    const brokenEvidence = (brokenCorpus.corpus as {
+      evidence: Array<{ claim: string; source: string; url: string; quote: string; confidence: number }>;
+    }).evidence;
+    brokenEvidence.splice(5, brokenEvidence.length - 5);
+    brokenEvidence.push(
+      {
+        claim: 'Ramp has an uncited card page.',
+        source: 'Ramp card',
+        url: 'https://ramp.com/card',
+        quote: 'Ramp card claim that is not in the Perplexity citation set.',
+        confidence: 80,
+      },
+      {
+        claim: 'Ramp has an uncited bill pay page.',
+        source: 'Ramp bill pay',
+        url: 'https://ramp.com/bill-pay',
+        quote: 'Ramp bill pay claim that is not in the Perplexity citation set.',
+        confidence: 80,
+      },
+      {
+        claim: 'Ramp has an uncited customer page.',
+        source: 'Ramp customers',
+        url: 'https://ramp.com/customers',
+        quote: 'Ramp customer claim that is not in the Perplexity citation set.',
+        confidence: 80,
+      },
+    );
+
+    const firstRepair = buildCorpusFixture();
+    (firstRepair.corpus as {
+      sources: Array<{ title: string; url: string; whyItMatters: string }>;
+    }).sources.push({
+      title: 'Ramp card',
+      url: 'https://ramp.com/card',
+      whyItMatters: 'Uncited URL from model repair.',
+    });
+    const firstRepairEvidence = (firstRepair.corpus as {
+      evidence: Array<{ claim: string; source: string; url: string; quote: string; confidence: number }>;
+    }).evidence;
+    firstRepairEvidence.splice(5, firstRepairEvidence.length - 5);
+    firstRepairEvidence.push({
+      claim: 'Ramp has an uncited card page.',
+      source: 'Ramp card',
+      url: 'https://ramp.com/card',
+      quote: 'Ramp card claim that is not in the Perplexity citation set.',
+      confidence: 80,
+    });
+
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock
+      .mockResolvedValueOnce(
+        buildGenerateTextResult(brokenCorpus, citationSources.slice(0, 4)) as Awaited<ReturnType<typeof generateText>>,
+      )
+      .mockResolvedValueOnce(
+        buildGenerateTextResult({ supplemental: true }, citationSources.slice(4)) as Awaited<ReturnType<typeof generateText>>,
+      )
+      .mockResolvedValueOnce(
+        buildGenerateTextResult(firstRepair, []) as Awaited<ReturnType<typeof generateText>>,
+      )
+      .mockResolvedValueOnce(
+        buildGenerateTextResult(corpusFixture, []) as Awaited<ReturnType<typeof generateText>>,
+      );
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+    );
+
+    expect(result.status).toBe('complete');
+    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
+    expect(result.provenance?.citationCount).toBe(6);
+  });
 });

@@ -600,6 +600,7 @@ const structuredChunkIdleTimeoutMs = 60_000;
 const competitorAdProbeAdvertiserLimit = 5;
 const competitorAdProbeMaxResults = 4;
 const answerToolMaxStepCount = 12;
+const answerToolMaxRepairAttempts = 2;
 // Sections routed through the generic answer-tool path instead of the legacy
 // structured-output path.
 const answerToolSectionIds: ReadonlySet<SectionId> = new Set([
@@ -2325,57 +2326,69 @@ async function runSectionViaAnswerTool(
     const repairEvidenceTranscript = buildEvidenceTranscript(answerResult.steps);
     const shouldForceAnswerOnlyRepair =
       attempt.errors.includes(missingAnswerToolMessage);
+    let validationAttempt = 1;
+    let repairAttempt = 0;
 
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
+    while (
+      attempt.artifact === null &&
+      repairAttempt < answerToolMaxRepairAttempts
+    ) {
+      await appendEvent(
         deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "validation-failed",
-        message: "Answer tool output failed validation",
-        metadata: { attempt: 1, issues: attempt.errors },
-      }),
-    );
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message:
+            validationAttempt === 1
+              ? "Answer tool output failed validation"
+              : "Answer tool repair output failed validation",
+          metadata: { attempt: validationAttempt, issues: attempt.errors },
+        }),
+      );
 
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
+      await appendEvent(
         deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "repair-started",
-        message: "Answer tool repair started",
-        metadata: {
-          reason: attempt.errors.join("; ").slice(0, 200),
-        },
-      }),
-    );
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "repair-started",
+          message: "Answer tool repair started",
+          metadata: {
+            reason: attempt.errors.join("; ").slice(0, 200),
+          },
+        }),
+      );
 
-    const repairResult = await runAnswerToolAttempt({
-      attempt: 2,
-      ...(shouldForceAnswerOnlyRepair ? { externalToolsOverride: {} } : {}),
-      prompt: buildRepairPrompt({
+      const repairResult = await runAnswerToolAttempt({
+        attempt: validationAttempt + 1,
+        ...(shouldForceAnswerOnlyRepair ? { externalToolsOverride: {} } : {}),
+        prompt: buildRepairPrompt({
+          definition,
+          evidenceTranscript: repairEvidenceTranscript,
+          issues: attempt.errors,
+          normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
+          previousOutput: attempt.output,
+          researchInput,
+          skillMd,
+        }),
+      });
+      await flushBufferedEvents();
+
+      attempt = buildAnswerToolAttempt({
+        answerInput: repairResult.answerInput,
         definition,
-        evidenceTranscript: repairEvidenceTranscript,
-        issues: attempt.errors,
+        deps,
+        input,
         normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
-        previousOutput: attempt.output,
-        researchInput,
-        skillMd,
-      }),
-    });
-    await flushBufferedEvents();
-
-    attempt = buildAnswerToolAttempt({
-      answerInput: repairResult.answerInput,
-      definition,
-      deps,
-      input,
-      normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
-    });
+      });
+      repairAttempt += 1;
+      validationAttempt += 1;
+    }
 
     if (attempt.artifact === null) {
       await appendEvent(
@@ -2387,7 +2400,7 @@ async function runSectionViaAnswerTool(
           sectionId: input.sectionId,
           type: "validation-failed",
           message: "Answer tool repair output failed validation",
-          metadata: { attempt: 2, issues: attempt.errors },
+          metadata: { attempt: validationAttempt, issues: attempt.errors },
         }),
       );
       await recordSectionFailure({

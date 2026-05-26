@@ -48,43 +48,48 @@
   "data": {
     "corpus": {
       "company": "Ramp",
-      "category": "Corporate spend management and finance automation platform",
-      "researchSummary": "Ramp (Ramp Business Corporation) is a U.S.-based financial technology company that provides an all-in-one spend management platform combining corporate charge cards, expense management, bill payment/accounts payable, travel, and procurement in a single system for businesses.[https://ramp.com][https://en.wikipedia.org/wiki/Ramp_(company)] Ramp issues corporate charge cards and offers software that automates expense reporting, controls employee spending, streamlines accounts payable and bill pay, and integrates with accounting systems to help finance teams save time and reduce costs.[https://ramp.com][https://en.wikipedia.org/wiki/Ramp_(company)][https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview] The company is headquartered in New York City with additional offices in Miami and San Francisco.[https://en.wikipedia.org/wiki/Ramp_(company)] Ramp’s public messaging emphasizes software-driven savings and automation—such as identifying savings opportunities and using controls and analytics—rather than focusing solely on card issuance.[https://ramp.com][https://www.exbogroup.com/article/reviewing-ramp-com-a-smart-way-to-improve-business-finances] Ramp positions itself as a modern financial operations platform serving businesses that want to centralize corporate cards, expenses, accounts payable, and travel to achieve more while spending less.[https://ramp.com][https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview]",
+      "category": "Corporate cards and spend management platform (B2B fintech)",
+      "researchSummary": "Ramp is an American financial technology company that offers corporate charge cards, expense management, and bill-payment software, and positions its product as an all-in-one spend management platform. Its platform combines corporate cards, expense management, accounts payable, travel, procurement, and accounting automation into a single system, with messaging centered on helping businesses spend less and close their books faster. Public sources also describe Ramp as a fintech platform for businesses of all sizes, headquartered in New York City with offices in Miami and San Francisco.",
       "sources": [
         {
-          "title": "Ramp – Spend Management, Corporate Cards & Accounts Payable",
+          "title": "Ramp homepage",
           "url": "https://ramp.com",
-          "whyItMatters": "Primary corporate site describing Ramp’s spend management platform, core products, value propositions, and target business use cases."
+          "whyItMatters": "Primary source for Ramp's product scope, positioning, and spend-management messaging."
         },
         {
-          "title": "Ramp (company) – Wikipedia",
+          "title": "Ramp (company) - Wikipedia",
           "url": "https://en.wikipedia.org/wiki/Ramp_(company)",
-          "whyItMatters": "Independent overview of Ramp’s corporate identity, fintech focus, products, and office locations."
+          "whyItMatters": "Provides company description, headquarters location, and high-level corporate context."
         },
         {
-          "title": "Reviewing Ramp.com: A Smart Way to Improve Business Finances – Exbo Group",
+          "title": "Reviewing Ramp.com: A Smart Way to Improve Business Finances",
           "url": "https://www.exbogroup.com/article/reviewing-ramp-com-a-smart-way-to-improve-business-finances",
-          "whyItMatters": "Third-party review summarizing Ramp’s platform, business finance benefits, and emphasis on automation and savings."
+          "whyItMatters": "Third-party description of Ramp's market positioning and business focus."
         },
         {
-          "title": "Ramp overview – Help Center",
+          "title": "Ramp overview - Help Center",
           "url": "https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview",
-          "whyItMatters": "Official product overview that explains how Ramp works across cards, expense management, bill pay, and accounting integrations."
+          "whyItMatters": "Support documentation that can corroborate how Ramp describes its platform and users."
         },
         {
-          "title": "Ramp – Products",
-          "url": "https://ramp.com/products",
-          "whyItMatters": "Product listing page that clarifies the breadth of Ramp’s offerings across cards, bill pay/AP, travel, and related tools."
+          "title": "Ramp product releases",
+          "url": "https://ramp.com/product-releases",
+          "whyItMatters": "Shows ongoing product expansion and feature areas, useful for understanding product breadth."
         },
         {
-          "title": "Ramp – Startups",
+          "title": "Ramp startup program",
           "url": "https://ramp.com/startups",
-          "whyItMatters": "Segment-focused page that illustrates Ramp’s positioning and use cases for startup and high-growth company customers."
+          "whyItMatters": "Indicates a segment-specific offering for startups and helps infer target customer profile."
         },
         {
-          "title": "Ramp app – App Store",
+          "title": "Ramp iOS app",
           "url": "https://apps.apple.com/us/app/ramp/id1628197245",
-          "whyItMatters": "Mobile app listing that confirms Ramp’s role as a corporate card and spend management platform and indicates target users (business employees and finance teams)."
+          "whyItMatters": "Confirms Ramp has a mobile app and provides additional evidence of a finance workflow product."
+        },
+        {
+          "title": "Ramp support center",
+          "url": "https://support.ramp.com/hc/en-us",
+          "whyItMatters": "Shows the existence of a formal customer support knowledge base and product support infrastructure."
         },
         {
           "title": "https://admin.rampcms.com/",
@@ -92,248 +97,243 @@
           "whyItMatters": "Perplexity sonar citation used to ground the company corpus."
         },
         {
+          "title": "https://ramp.com/products",
+          "url": "https://ramp.com/products",
+          "whyItMatters": "Perplexity sonar citation used to ground the company corpus."
+        },
+        {
           "title": "https://www.youtube.com/watch?v=k8lQER8Pzc4",
           "url": "https://www.youtube.com/watch?v=k8lQER8Pzc4",
-          "whyItMatters": "Perplexity sonar citation used to ground the company corpus."
-        },
-        {
-          "title": "https://support.ramp.com/hc/en-us",
-          "url": "https://support.ramp.com/hc/en-us",
-          "whyItMatters": "Perplexity sonar citation used to ground the company corpus."
-        },
-        {
-          "title": "https://ramp.com/product-releases",
-          "url": "https://ramp.com/product-releases",
           "whyItMatters": "Perplexity sonar citation used to ground the company corpus."
         }
       ],
       "evidence": [
         {
-          "claim": "Ramp is a spend management platform that combines corporate cards, expense management, accounts payable, procurement, and more into one system.",
-          "source": "Ramp – Spend Management, Corporate Cards & Accounts Payable",
-          "url": "https://ramp.com",
-          "quote": "Ramp is a spend management platform that combines corporate cards, expense management, accounts payable, procurement, and more into one system.",
-          "confidence": 95
-        },
-        {
-          "claim": "Ramp Business Corporation is an American financial technology company that offers corporate charge cards, expense management, and bill-payment software.",
-          "source": "Ramp (company) – Wikipedia",
+          "claim": "Ramp is an American financial technology company that offers corporate charge cards, expense management, and bill-payment software.",
+          "source": "Wikipedia - Ramp (company)",
           "url": "https://en.wikipedia.org/wiki/Ramp_(company)",
           "quote": "Ramp Business Corporation is an American multinational financial technology company that offers corporate charge cards, expense management, and bill-payment software.",
-          "confidence": 95
+          "confidence": 98
         },
         {
           "claim": "Ramp is headquartered in New York City with additional offices in Miami and San Francisco.",
-          "source": "Ramp (company) – Wikipedia",
+          "source": "Wikipedia - Ramp (company)",
           "url": "https://en.wikipedia.org/wiki/Ramp_(company)",
           "quote": "The company is headquartered in New York City with additional offices in Miami and San Francisco.",
-          "confidence": 95
+          "confidence": 96
         },
         {
-          "claim": "Ramp.com is a fintech platform specializing in corporate card and spend management for businesses.",
-          "source": "Reviewing Ramp.com: A Smart Way to Improve Business Finances – Exbo Group",
+          "claim": "Ramp positions itself as an all-in-one spend management platform.",
+          "source": "Ramp homepage",
+          "url": "https://ramp.com",
+          "quote": "Ramp is an all-in-one spend management platform",
+          "confidence": 97
+        },
+        {
+          "claim": "Ramp combines corporate cards, expense management, accounts payable, travel, procurement, and accounting automation into a single system.",
+          "source": "Ramp homepage",
+          "url": "https://ramp.com",
+          "quote": "that combines corporate cards, expense management, accounts payable, travel, procurement, and accounting automation into a single system.",
+          "confidence": 97
+        },
+        {
+          "claim": "Ramp's messaging focuses on making expense management easy.",
+          "source": "Ramp homepage",
+          "url": "https://ramp.com",
+          "quote": "Make expense management easy with Ramp's spend management platform.",
+          "confidence": 94
+        },
+        {
+          "claim": "Ramp is described by a third party as a fintech platform specializing in corporate card and spend management for businesses of all sizes.",
+          "source": "EXBO Group review",
           "url": "https://www.exbogroup.com/article/reviewing-ramp-com-a-smart-way-to-improve-business-finances",
           "quote": "Ramp.com is a fintech platform specializing in corporate card and spend management for businesses of all sizes.",
-          "confidence": 90
+          "confidence": 92
         },
         {
-          "claim": "Ramp’s corporate cards are connected to software that controls spend, automates expenses, and gives real-time visibility into company spending.",
-          "source": "Ramp – Spend Management, Corporate Cards & Accounts Payable",
-          "url": "https://ramp.com",
-          "quote": "Ramp corporate cards sync with powerful software to control spend, automate expenses, and give real-time visibility into company spending.",
-          "confidence": 90
+          "claim": "Ramp has a customer support knowledge base, indicating a mature SaaS product with support documentation.",
+          "source": "Ramp support center",
+          "url": "https://support.ramp.com/hc/en-us",
+          "quote": "Support",
+          "confidence": 70
         },
         {
-          "claim": "Ramp Bill Pay lets companies receive, approve, and pay invoices in one place, automating accounts payable from intake to payment.",
-          "source": "Ramp overview – Help Center",
-          "url": "https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview",
-          "quote": "With Ramp Bill Pay you can receive, approve, and pay invoices in one place, automating your accounts payable workflow from intake to payment.",
-          "confidence": 90
+          "claim": "Ramp maintains product release communications, suggesting ongoing product development and feature expansion.",
+          "source": "Ramp product releases",
+          "url": "https://ramp.com/product-releases",
+          "quote": "Product releases",
+          "confidence": 70
         },
         {
-          "claim": "Ramp’s platform supports travel and expense management so teams can book trips and manage expenses in the same system.",
-          "source": "Ramp – Products",
-          "url": "https://ramp.com/products",
-          "quote": "Ramp Travel brings corporate travel and expense together so teams can book trips and manage expenses in the same platform.",
-          "confidence": 90
+          "claim": "Ramp offers a startup-focused program or landing page.",
+          "source": "Ramp startup program",
+          "url": "https://ramp.com/startups",
+          "quote": "Startups",
+          "confidence": 70
         },
         {
-          "claim": "Ramp integrates with leading accounting and ERP systems so finance teams can automatically sync transactions and close their books faster.",
-          "source": "Ramp overview – Help Center",
-          "url": "https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview",
-          "quote": "Ramp integrates with leading accounting systems so you can automatically sync transactions and speed up your monthly close.",
-          "confidence": 90
-        },
-        {
-          "claim": "Ramp positions itself as helping companies save time and money by automating financial tasks and uncovering savings, not just issuing corporate cards.",
-          "source": "Reviewing Ramp.com: A Smart Way to Improve Business Finances – Exbo Group",
-          "url": "https://www.exbogroup.com/article/reviewing-ramp-com-a-smart-way-to-improve-business-finances",
-          "quote": "Ramp focuses on helping companies automate financial tasks and uncover savings, rather than just issuing corporate cards.",
-          "confidence": 85
-        },
-        {
-          "claim": "Ramp describes its platform as making expense management easy by combining global corporate cards, travel, expenses, and accounts payable to automate finance operations.",
-          "source": "Ramp – Spend Management, Corporate Cards & Accounts Payable",
-          "url": "https://ramp.com",
-          "quote": "Make expense management easy with Ramp’s spend management platform. Combine global corporate cards, travel, expenses and accounts payable to automate your finance operations.",
-          "confidence": 95
+          "claim": "Ramp has a mobile app available in the Apple App Store.",
+          "source": "Ramp iOS app",
+          "url": "https://apps.apple.com/us/app/ramp/id1628197245",
+          "quote": "Ramp",
+          "confidence": 70
         }
       ]
     },
     "onboardingFields": {
       "companyName": {
         "value": "Ramp",
-        "confidence": 95,
+        "confidence": 98,
         "sourceUrl": "https://en.wikipedia.org/wiki/Ramp_(company)",
-        "reasoning": "Wikipedia and the corporate site refer to the business as Ramp or Ramp Business Corporation; the primary brand and company name used externally is “Ramp,” not the domain label."
+        "reasoning": "The company is publicly identified as Ramp Business Corporation and branded as Ramp."
       },
       "businessModel": {
-        "value": "B2B financial technology platform providing corporate charge cards and spend management software to businesses.",
-        "confidence": 80,
+        "value": "B2B fintech and SaaS platform for corporate cards and spend management.",
+        "confidence": 93,
         "sourceUrl": "https://en.wikipedia.org/wiki/Ramp_(company)",
-        "reasoning": "Ramp is described as a financial technology company offering corporate charge cards, expense management, and bill-payment software to businesses, which indicates a B2B fintech and software-plus-card model; revenue mechanics like interchange are not detailed publicly."
+        "reasoning": "Public sources describe Ramp as a financial technology company offering corporate charge cards, expense management, and bill-payment software."
       },
       "industryVertical": {
-        "value": "Financial technology (fintech) – corporate spend management and expense automation",
-        "confidence": 95,
+        "value": "Financial technology (spend management / corporate cards)",
+        "confidence": 97,
         "sourceUrl": "https://en.wikipedia.org/wiki/Ramp_(company)",
-        "reasoning": "Ramp is explicitly described as a financial technology company that offers corporate charge cards, expense management, and bill-payment software, placing it in fintech focused on corporate spend management."
+        "reasoning": "Ramp is explicitly described as a financial technology company focused on corporate cards and spend management."
       },
       "primaryIcpDescription": {
-        "value": "Finance and accounting teams at businesses seeking to centralize corporate cards, expense management, and accounts payable in one platform.",
-        "confidence": 80,
-        "sourceUrl": "https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview",
-        "reasoning": "Ramp’s overview describes tools for managing cards, expenses, bill pay, and accounting integrations, which are workflows typically owned by finance and accounting teams at businesses; explicit ICP segmentation by size is not spelled out."
+        "value": "Finance teams and business leaders at companies that want to control spend, automate expenses and accounts payable, and modernize corporate card workflows.",
+        "confidence": 88,
+        "sourceUrl": "https://ramp.com",
+        "reasoning": "Ramp's homepage positions the platform around spend management and automation for business finance workflows."
       },
       "jobTitles": {
-        "value": null,
-        "confidence": 0,
+        "value": "CFO, VP of Finance, Controller, Head of Finance, Finance Manager, Accounts Payable Manager",
+        "confidence": 62,
         "sourceUrl": null,
-        "reasoning": "The captured sources describe finance workflows but do not list specific buyer or user job titles such as CFO or Controller; inferring titles would exceed the available evidence."
+        "reasoning": "Not verified in captured evidence."
       },
       "companySize": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "Sources mention that Ramp serves businesses but do not provide a clear target employee-count range or specific customer size bands; no authoritative company-size targeting details are stated in the captured evidence."
+        "reasoning": "Not verified in captured evidence."
       },
       "geography": {
-        "value": "Primarily United States-based company with the ability to support global corporate card and spend use cases.",
-        "confidence": 70,
+        "value": "Primarily United States",
+        "confidence": 72,
         "sourceUrl": "https://en.wikipedia.org/wiki/Ramp_(company)",
-        "reasoning": "Ramp is an American company headquartered in New York City, and its site references global corporate cards and travel; however, a precise list of supported customer countries is not published in the captured sources."
+        "reasoning": "Ramp is described as an American company headquartered in New York City."
       },
       "headquartersLocation": {
         "value": "New York City, New York, United States",
-        "confidence": 95,
+        "confidence": 98,
         "sourceUrl": "https://en.wikipedia.org/wiki/Ramp_(company)",
-        "reasoning": "Wikipedia states that the company is headquartered in New York City with additional offices in Miami and San Francisco, making New York City the primary headquarters location."
+        "reasoning": "Wikipedia explicitly states the headquarters location."
       },
       "productDescription": {
-        "value": "A unified spend management platform providing corporate charge cards, expense management, accounts payable and bill-pay automation, and travel tools in one system for businesses.",
-        "confidence": 95,
+        "value": "An all-in-one spend management platform that combines corporate cards, expense management, accounts payable, travel, procurement, and accounting automation.",
+        "confidence": 97,
         "sourceUrl": "https://ramp.com",
-        "reasoning": "Ramp’s homepage and support overview describe combining corporate cards, expenses, accounts payable, procurement, and travel into one spend management platform for business customers."
+        "reasoning": "The homepage directly states this product scope."
       },
       "coreDeliverables": {
-        "value": "Corporate charge cards with spend controls and real-time visibility; expense management and automated expense reporting; accounts payable and bill pay automation; travel booking and expense tools; procurement and approvals; integrations with accounting and ERP systems for automated transaction syncing and faster close.",
-        "confidence": 95,
-        "sourceUrl": "https://support.ramp.com/hc/en-us/articles/4417685250195-Ramp-overview",
-        "reasoning": "The corporate site and support overview describe Ramp’s core capabilities across corporate cards, expense management, bill pay/accounts payable, travel, procurement, and accounting integrations as primary deliverables of the platform."
+        "value": "Corporate cards, expense management, accounts payable, travel, procurement, and accounting automation.",
+        "confidence": 97,
+        "sourceUrl": "https://ramp.com",
+        "reasoning": "These are explicitly listed on the homepage."
       },
       "pricingTiers": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "None of the captured pages present a public pricing table or named tiers; pricing details and tier structures, if any, are not available in the evidence set."
+        "reasoning": "Not verified in captured evidence."
       },
       "valueProp": {
-        "value": "Enable businesses to save time and money by unifying corporate cards, expenses, accounts payable, and travel in one platform that automates finance workflows and increases control and visibility over spend.",
-        "confidence": 90,
+        "value": "Help businesses spend less and make expense management easy through a unified spend management platform.",
+        "confidence": 95,
         "sourceUrl": "https://ramp.com",
-        "reasoning": "Ramp’s homepage messaging highlights making expense management easy by combining cards, travel, expenses, and accounts payable to automate finance operations, which collectively frames the main value proposition of time and cost savings with better control."
+        "reasoning": "Ramp's homepage emphasizes making expense management easy and being an all-in-one spend management platform."
       },
       "guarantees": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "The reviewed corporate, product, and support pages do not mention explicit guarantees such as guaranteed savings, SLAs, or minimum rewards; any guarantees would have to be inferred or drawn from non-captured materials."
+        "reasoning": "Not verified in captured evidence."
       },
       "topCompetitors": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "None of the captured sources identify specific competitor companies; listing competitors would require unsourced industry knowledge, which is disallowed for this field."
+        "reasoning": "Not verified in captured evidence."
       },
       "uniqueEdge": {
-        "value": "Software-first spend management that unifies corporate cards, expense automation, bill pay, and travel in one platform with a strong emphasis on automation and uncovering savings rather than just issuing cards.",
-        "confidence": 80,
-        "sourceUrl": "https://www.exbogroup.com/article/reviewing-ramp-com-a-smart-way-to-improve-business-finances",
-        "reasoning": "The third-party review stresses Ramp’s focus on automation and savings beyond card issuance, and Ramp’s own site emphasizes combining multiple finance functions in one system, supporting this differentiation."
+        "value": "Broad all-in-one spend management platform that unifies cards, expenses, AP, travel, procurement, and accounting automation.",
+        "confidence": 91,
+        "sourceUrl": "https://ramp.com",
+        "reasoning": "Ramp differentiates itself through platform breadth and consolidation of multiple finance workflows."
       },
       "marketProblem": {
-        "value": "Businesses face fragmented tools for corporate cards, expenses, and accounts payable, leading to manual work, limited visibility into spend, and difficulty controlling and optimizing costs.",
-        "confidence": 80,
+        "value": "Fragmented finance tools make expense management and spend control harder for businesses.",
+        "confidence": 84,
         "sourceUrl": "https://ramp.com",
-        "reasoning": "Ramp’s positioning around combining cards, travel, expenses, and accounts payable to automate finance operations implicitly targets the pain of disconnected systems and manual processes; while not stated verbatim as a problem statement, it is a grounded synthesis of the platform’s stated purpose."
+        "reasoning": "This is implied by Ramp's framing around making expense management easy and unifying multiple finance functions in one platform."
       },
       "situationBeforeBuying": {
-        "value": null,
-        "confidence": 0,
-        "sourceUrl": null,
-        "reasoning": "The captured sources do not include customer journey narratives or explicit “before Ramp” descriptions detailing prior tools or pain points; any such scenarios would be speculative without additional evidence."
+        "value": "Companies are using separate tools for cards, expenses, accounts payable, and related workflows.",
+        "confidence": 80,
+        "sourceUrl": "https://ramp.com",
+        "reasoning": "Ramp's all-in-one platform description implies a pre-Ramp fragmented tool stack."
       },
       "desiredTransformation": {
-        "value": null,
-        "confidence": 0,
-        "sourceUrl": null,
-        "reasoning": "Although Ramp implies a move to automated, centralized spend management, the sources do not provide a concise, explicit before/after transformation statement that can be directly supported, so this cannot be filled without inference."
+        "value": "Move to a single platform that centralizes spend controls, automates workflows, and simplifies finance operations.",
+        "confidence": 88,
+        "sourceUrl": "https://ramp.com",
+        "reasoning": "This directly follows from Ramp's product positioning."
       },
       "commonObjections": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "Public marketing, product, and support pages do not enumerate common sales objections; such information is typically in internal sales collateral or non-captured FAQ content."
+        "reasoning": "Not verified in captured evidence."
       },
       "brandPositioning": {
-        "value": "A modern, software-driven corporate spend management and finance automation platform for businesses wanting tighter control, visibility, and savings on company spend.",
-        "confidence": 80,
+        "value": "A modern, software-driven spend management platform for businesses that want better control and easier finance operations.",
+        "confidence": 90,
         "sourceUrl": "https://ramp.com",
-        "reasoning": "Ramp consistently presents itself as a spend management platform that automates finance workflows across cards, expenses, and AP while emphasizing savings and control, which together define its brand positioning."
+        "reasoning": "Ramp positions itself around ease, control, and unified finance workflows."
       },
       "testimonialQuote": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "No specific customer testimonial text or quote appears in the captured sources; without an exact, attributable quote, this field cannot be populated."
+        "reasoning": "Not verified in captured evidence."
       },
       "caseStudiesUrl": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "A dedicated case studies or customer stories page is not present in the captured URLs; identifying one would require additional site exploration beyond the provided evidence."
+        "reasoning": "Not verified in captured evidence."
       },
       "testimonialsUrl": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "The provided sources do not include a standalone testimonials or reviews page; any such URL would be conjecture without direct evidence."
+        "reasoning": "Not verified in captured evidence."
       },
       "pricingUrl": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "Among the captured URLs there is no specific pricing page with transparent plans (for example, a /pricing path); Ramp’s pricing approach is therefore not identifiable from this evidence set."
+        "reasoning": "Not verified in captured evidence."
       },
       "demoUrl": {
         "value": null,
         "confidence": 0,
         "sourceUrl": null,
-        "reasoning": "Although the main site likely includes sign-up or contact CTAs, the captured URLs do not include a distinct, consistently referenced demo-booking page, so no reliable demo URL can be cited."
+        "reasoning": "Not verified in captured evidence."
       }
     }
   },
-  "durationMs": 74670,
+  "durationMs": 58587,
   "minimums": {
     "passed": true,
     "sourceCount": 11,
@@ -345,14 +345,14 @@
   },
   "outputPath": "/Users/ammar/Dev-Projects/AI-GOS-worktrees/v2-lab-section-wire/research-worker/evals/out/live-sonar-corpus-ramp-com.json",
   "researchInputParsed": true,
-  "runId": "live_sonar_ramp-com_1779811451387",
+  "runId": "live_sonar_ramp-com_1779812597863",
   "telemetry": {
     "model": "sonar-pro",
     "stopReason": null,
     "usage": {
-      "inputTokens": 4594,
-      "outputTokens": 4026,
-      "totalTokens": 8620
+      "inputTokens": 5759,
+      "outputTokens": 2841,
+      "totalTokens": 8600
     }
   },
   "url": "https://ramp.com"

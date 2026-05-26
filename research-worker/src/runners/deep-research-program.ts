@@ -956,8 +956,13 @@ async function repairDeepResearchJson(input: {
   onProgress?: RunnerProgressReporter;
   previousResult: SonarGenerationResult;
   sources: CapturedDeepResearchSource[];
+  validationErrors?: string[];
 }): Promise<GeneratedSonarCorpus> {
   const perplexity = createPerplexity({ apiKey: input.apiKey });
+  const validationInstructions =
+    input.validationErrors && input.validationErrors.length > 0
+      ? `\n\nFAILED VALIDATION TO FIX\n${input.validationErrors.map((error) => `- ${error}`).join('\n')}\n\nOnly use URLs listed in CAPTURED PERPLEXITY CITATIONS. corpus.sources and every corpus.evidence.url must be one of those captured citation URLs. Produce at least ${MINIMUM_GROUNDED_EVIDENCE} evidence entries from those allowed URLs; multiple distinct claims can cite the same allowed URL when supported.`
+      : '';
   const result = await runWithAbortTimeout(
     'Deep research repair',
     getDeepResearchRepairTimeoutMs(),
@@ -965,7 +970,7 @@ async function repairDeepResearchJson(input: {
       generateText({
         model: perplexity(input.model),
         system: DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT,
-        prompt: `ORIGINAL USER CONTEXT\n${input.context}\n\nCAPTURED PERPLEXITY CITATIONS\n${formatCapturedSources(input.sources)}\n\nINCOMPLETE DRAFT / MODEL OUTPUT\n${input.draftText || 'No draft text was produced.'}\n\nRepair this into the required JSON object now. Use only the captured Perplexity citations and original context.`,
+        prompt: `ORIGINAL USER CONTEXT\n${input.context}\n\nCAPTURED PERPLEXITY CITATIONS\n${formatCapturedSources(input.sources)}${validationInstructions}\n\nINCOMPLETE DRAFT / MODEL OUTPUT\n${input.draftText || 'No draft text was produced.'}\n\nRepair this into the required JSON object now. Use only the captured Perplexity citations and original context.`,
         maxOutputTokens: getDeepResearchRepairMaxTokens(),
         temperature: 0,
         abortSignal: signal,
@@ -1000,6 +1005,52 @@ async function repairDeepResearchJson(input: {
     },
     sources,
   };
+}
+
+async function repairDeepResearchJsonToMinimums(input: {
+  apiKey: string;
+  context: string;
+  draftText: string;
+  model: string;
+  onProgress?: RunnerProgressReporter;
+  previousResult: SonarGenerationResult;
+  sources: CapturedDeepResearchSource[];
+  validationErrors: string[];
+}): Promise<GeneratedSonarCorpus> {
+  const firstRepair = await repairDeepResearchJson(input);
+  const firstRepairMinimums = validateDeepResearchMinimums(
+    firstRepair.parsed as unknown as Record<string, unknown>,
+    firstRepair.sources,
+  );
+
+  if (firstRepairMinimums.passed) {
+    return firstRepair;
+  }
+
+  await emitRunnerProgress(
+    input.onProgress,
+    'analysis',
+    're-repairing corpus against failed citation minimums',
+  );
+
+  const secondRepair = await repairDeepResearchJson({
+    ...input,
+    draftText: firstRepair.rawText || JSON.stringify(firstRepair.parsed),
+    previousResult: firstRepair.result,
+    validationErrors: firstRepairMinimums.errors,
+  });
+  const secondRepairMinimums = validateDeepResearchMinimums(
+    secondRepair.parsed as unknown as Record<string, unknown>,
+    secondRepair.sources,
+  );
+
+  if (secondRepairMinimums.passed) {
+    return secondRepair;
+  }
+
+  throw new Error(
+    `Perplexity corpus repair failed deterministic minimums: ${secondRepairMinimums.errors.join('; ')}`,
+  );
 }
 
 async function generateSonarCorpus(input: {
@@ -1059,7 +1110,7 @@ async function generateSonarCorpus(input: {
         'repairing corpus against captured Perplexity citations',
       );
 
-      return await repairDeepResearchJson({
+      return await repairDeepResearchJsonToMinimums({
         apiKey: input.apiKey,
         context: input.context,
         draftText: generated.rawText || JSON.stringify(generated.parsed),
@@ -1067,6 +1118,7 @@ async function generateSonarCorpus(input: {
         onProgress: input.onProgress,
         previousResult: generated.result,
         sources: generated.sources,
+        validationErrors: minimums.errors,
       });
     } catch (error) {
       lastError = error;

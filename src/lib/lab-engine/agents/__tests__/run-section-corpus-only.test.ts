@@ -253,6 +253,67 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
+  it('runs a second repair when the first answer-tool repair still misses section minimums', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    let calls = 0;
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      calls += 1;
+
+      if (calls >= 2) {
+        expect(params.prompt).toContain('The previous output failed validation');
+        expect(params.prompt).toContain('body.marketSize.signals');
+        expect(params.prompt).toContain('Previous output JSON');
+      }
+
+      return {
+        steps: [],
+        text: '',
+        answerInput:
+          calls < 3
+            ? buildInvalidMarketCategoryOutput()
+            : buildMarketCategoryOutput(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const validationFailures = record.events.filter(
+      (event) => event.type === 'validation-failed',
+    );
+    const repairStarts = record.events.filter(
+      (event) => event.type === 'repair-started',
+    );
+
+    expect(result.artifact.sectionId).toBe('positioningMarketCategory');
+    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(validationFailures).toHaveLength(2);
+    expect(repairStarts).toHaveLength(2);
+    expect(record.sections.positioningMarketCategory?.status).toBe(
+      'completed',
+    );
+  });
+
   it('skips competitor ad preprobes when external tools are disabled', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
