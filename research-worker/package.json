@@ -18,6 +18,8 @@
     "eval:pilot:voc-objection-evidence": "ts-node-dev --transpile-only evals/pilot-voc-objection-evidence.ts",
     "eval:pilot:demand-intent-signals": "ts-node-dev --transpile-only evals/pilot-demand-intent-signals.ts",
     "eval:pilot:offer-performance-diagnostic": "ts-node-dev --transpile-only evals/pilot-offer-performance-diagnostic.ts",
+    "eval:corpus-minimums": "ts-node-dev --transpile-only evals/corpus-minimums.ts",
+    "eval:live-sonar-corpus": "ts-node-dev --transpile-only evals/live-sonar-corpus.ts",
     "eval:draft:sla": "ts-node-dev --transpile-only evals/draft-sla.ts",
     "eval:draft:matrix": "ts-node-dev --transpile-only evals/draft-matrix.ts",
     "eval:draft:quality": "ts-node-dev --transpile-only evals/draft-quality.ts"

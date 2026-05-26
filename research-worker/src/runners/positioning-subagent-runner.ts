@@ -1,8 +1,8 @@
 /**
  * Phase 3b: ToolLoopAgent-backed runner for the 6 positioning sections.
  * Replaces the Platform Skills code path in journey-section-synthesis.ts
- * for positioning runners only — deepResearchProgram stays on Platform
- * Skills per design Open Question 7.
+ * for positioning runners only. deepResearchProgram is now a worker-resident
+ * Perplexity sonar corpus pass per ADR-0007.
  *
  * Signature matches the legacy `runJourneySection` so positioning/index.ts
  * can swap from Platform Skills to subagents with no call-site change.

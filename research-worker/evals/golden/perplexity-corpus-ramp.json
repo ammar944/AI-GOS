@@ -1,0 +1,133 @@
+{
+  "data": {
+    "corpus": {
+      "company": "Ramp",
+      "category": "Spend management",
+      "researchSummary": "Ramp is a spend management platform combining cards, expenses, bill pay, procurement, and finance automation for businesses.",
+      "sources": [
+        {
+          "title": "Ramp homepage",
+          "url": "https://ramp.com/",
+          "whyItMatters": "Perplexity citation supporting the company corpus."
+        },
+        {
+          "title": "Ramp corporate card",
+          "url": "https://ramp.com/corporate-card",
+          "whyItMatters": "Perplexity citation supporting the company corpus."
+        },
+        {
+          "title": "Ramp bill pay",
+          "url": "https://ramp.com/bill-pay",
+          "whyItMatters": "Perplexity citation supporting the company corpus."
+        },
+        {
+          "title": "Ramp expense management",
+          "url": "https://ramp.com/expense-management",
+          "whyItMatters": "Perplexity citation supporting the company corpus."
+        },
+        {
+          "title": "Ramp procurement",
+          "url": "https://ramp.com/procurement",
+          "whyItMatters": "Perplexity citation supporting the company corpus."
+        },
+        {
+          "title": "Ramp pricing",
+          "url": "https://ramp.com/pricing",
+          "whyItMatters": "Perplexity citation supporting the company corpus."
+        }
+      ],
+      "evidence": [
+        {
+          "claim": "Ramp sells spend management software.",
+          "source": "Ramp homepage",
+          "url": "https://ramp.com/",
+          "quote": "Ramp describes its platform as helping businesses control spend.",
+          "confidence": 90
+        },
+        {
+          "claim": "Ramp offers corporate cards.",
+          "source": "Ramp corporate card",
+          "url": "https://ramp.com/corporate-card",
+          "quote": "Ramp markets corporate cards as part of the spend management platform.",
+          "confidence": 88
+        },
+        {
+          "claim": "Ramp supports bill payments.",
+          "source": "Ramp bill pay",
+          "url": "https://ramp.com/bill-pay",
+          "quote": "Ramp bill pay centralizes vendor payments and approvals.",
+          "confidence": 86
+        },
+        {
+          "claim": "Ramp supports expense workflows.",
+          "source": "Ramp expense management",
+          "url": "https://ramp.com/expense-management",
+          "quote": "Ramp expense management helps teams submit, approve, and reconcile expenses.",
+          "confidence": 86
+        },
+        {
+          "claim": "Ramp supports procurement.",
+          "source": "Ramp procurement",
+          "url": "https://ramp.com/procurement",
+          "quote": "Ramp procurement helps companies manage purchase intake and approvals.",
+          "confidence": 84
+        },
+        {
+          "claim": "Ramp publishes pricing information.",
+          "source": "Ramp pricing",
+          "url": "https://ramp.com/pricing",
+          "quote": "Ramp pricing pages describe plan options for the product.",
+          "confidence": 82
+        },
+        {
+          "claim": "Ramp targets finance teams.",
+          "source": "Ramp homepage",
+          "url": "https://ramp.com/",
+          "quote": "Ramp positions finance automation for businesses and their finance teams.",
+          "confidence": 83
+        },
+        {
+          "claim": "Ramp combines multiple finance workflows.",
+          "source": "Ramp homepage",
+          "url": "https://ramp.com/",
+          "quote": "Ramp combines cards, expenses, bill pay, procurement, and reporting workflows.",
+          "confidence": 85
+        }
+      ]
+    },
+    "onboardingFields": {
+      "companyName": {
+        "value": "Ramp",
+        "confidence": 85,
+        "sourceUrl": "https://ramp.com/",
+        "reasoning": "Verified from cited Ramp pages."
+      }
+    }
+  },
+  "sonarSources": [
+    {
+      "title": "Ramp homepage",
+      "url": "https://ramp.com/"
+    },
+    {
+      "title": "Ramp corporate card",
+      "url": "https://ramp.com/corporate-card"
+    },
+    {
+      "title": "Ramp bill pay",
+      "url": "https://ramp.com/bill-pay"
+    },
+    {
+      "title": "Ramp expense management",
+      "url": "https://ramp.com/expense-management"
+    },
+    {
+      "title": "Ramp procurement",
+      "url": "https://ramp.com/procurement"
+    },
+    {
+      "title": "Ramp pricing",
+      "url": "https://ramp.com/pricing"
+    }
+  ]
+}

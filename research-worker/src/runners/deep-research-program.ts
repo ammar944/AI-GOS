@@ -1,28 +1,123 @@
+import { createPerplexity } from '@ai-sdk/perplexity';
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
+
 import {
-  createClient,
-  buildRunnerTelemetry,
   emitArtifactProgress,
   emitRunnerProgress,
   extractJson,
-  runStreamedToolRunner,
   runWithBackoff,
   type RunnerProgressReporter,
 } from '../runner';
 import type { ResearchResult } from '../supabase';
-import { buildDeepResearchContainerParams } from '../anthropic-skills';
-import { MODELS } from '../models';
-import { maybeCachedSystem } from '../utils/prompt-cache';
+import type { RunnerTelemetry } from '../telemetry';
 
-const DEEP_RESEARCH_MODEL = process.env.RESEARCH_DEEP_PROGRAM_MODEL ?? MODELS.STANDARD;
-const DEEP_RESEARCH_MAX_TOKENS = Number(process.env.RESEARCH_DEEP_PROGRAM_MAX_TOKENS ?? 20000);
-const DEEP_RESEARCH_TIMEOUT_MS = Number(process.env.RESEARCH_DEEP_PROGRAM_TIMEOUT_MS ?? 900000);
-const DEEP_RESEARCH_REPAIR_TIMEOUT_MS = Number(process.env.RESEARCH_DEEP_PROGRAM_REPAIR_TIMEOUT_MS ?? 120000);
-const DEEP_RESEARCH_REPAIR_MAX_TOKENS = Number(process.env.RESEARCH_DEEP_PROGRAM_REPAIR_MAX_TOKENS ?? 12000);
+const DEFAULT_DEEP_RESEARCH_MODEL = 'sonar-pro';
+const FALLBACK_DEEP_RESEARCH_MODEL = 'sonar';
+const DEFAULT_DEEP_RESEARCH_MAX_TOKENS = 20000;
+const DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 900000;
+const DEFAULT_DEEP_RESEARCH_REPAIR_TIMEOUT_MS = 120000;
+const DEFAULT_DEEP_RESEARCH_REPAIR_MAX_TOKENS = 12000;
+const MINIMUM_CITED_SOURCES = 6;
+const MINIMUM_GROUNDED_EVIDENCE = 8;
 
 interface CapturedDeepResearchSource {
   title: string;
   url: string;
 }
+
+interface DeepResearchMinimumsReport {
+  passed: boolean;
+  sourceCount: number;
+  evidenceCount: number;
+  fabricatedMatches: string[];
+  ungroundedSourceUrls: string[];
+  ungroundedEvidenceUrls: string[];
+  errors: string[];
+}
+
+interface SonarSourceLike {
+  sourceType?: unknown;
+  title?: unknown;
+  url?: unknown;
+}
+
+interface SonarUsageLike {
+  inputTokens?: unknown;
+  outputTokens?: unknown;
+  totalTokens?: unknown;
+  inputTokenDetails?: {
+    cacheReadTokens?: unknown;
+    cacheWriteTokens?: unknown;
+  };
+}
+
+interface SonarGenerationResult {
+  text: string;
+  output?: unknown;
+  sources?: SonarSourceLike[];
+  finishReason?: unknown;
+  rawFinishReason?: unknown;
+  usage?: SonarUsageLike;
+  totalUsage?: SonarUsageLike;
+  providerMetadata?: unknown;
+}
+
+const onboardingFieldSchema = z.object({
+  value: z.union([z.string(), z.null()]).describe('Verified field value, or null when not found in cited evidence.'),
+  confidence: z.number().describe('Confidence from 0-100. Use 0 when value is null.'),
+  sourceUrl: z.union([z.string(), z.null()]).describe('Cited source URL supporting the field, or null.'),
+  reasoning: z.string().describe('Concise explanation of why the field is supported or unavailable.'),
+});
+
+const deepResearchCorpusSchema = z.object({
+  corpus: z.object({
+    company: z.string().describe('Clean company name.'),
+    category: z.string().describe('Specific product or market category.'),
+    researchSummary: z.string().describe('Evidence-grounded research summary.'),
+    sources: z.array(z.object({
+      title: z.string().describe('Source title.'),
+      url: z.string().describe('Exact cited source URL.'),
+      whyItMatters: z.string().describe('Why this source matters for the corpus.'),
+    })).describe('Cited sources used to build the corpus.'),
+    evidence: z.array(z.object({
+      claim: z.string().describe('Specific supported claim.'),
+      source: z.string().describe('Source title or publisher.'),
+      url: z.string().describe('Exact cited source URL supporting this evidence.'),
+      quote: z.string().describe('Grounded excerpt or concise paraphrase from the cited source.'),
+      confidence: z.number().describe('Confidence from 0-100.'),
+    })).describe('Grounded evidence excerpts from cited sources.'),
+  }),
+  onboardingFields: z.object({
+    companyName: onboardingFieldSchema,
+    businessModel: onboardingFieldSchema,
+    industryVertical: onboardingFieldSchema,
+    primaryIcpDescription: onboardingFieldSchema,
+    jobTitles: onboardingFieldSchema,
+    companySize: onboardingFieldSchema,
+    geography: onboardingFieldSchema,
+    headquartersLocation: onboardingFieldSchema,
+    productDescription: onboardingFieldSchema,
+    coreDeliverables: onboardingFieldSchema,
+    pricingTiers: onboardingFieldSchema,
+    valueProp: onboardingFieldSchema,
+    guarantees: onboardingFieldSchema,
+    topCompetitors: onboardingFieldSchema,
+    uniqueEdge: onboardingFieldSchema,
+    marketProblem: onboardingFieldSchema,
+    situationBeforeBuying: onboardingFieldSchema,
+    desiredTransformation: onboardingFieldSchema,
+    commonObjections: onboardingFieldSchema,
+    brandPositioning: onboardingFieldSchema,
+    testimonialQuote: onboardingFieldSchema,
+    caseStudiesUrl: onboardingFieldSchema,
+    testimonialsUrl: onboardingFieldSchema,
+    pricingUrl: onboardingFieldSchema,
+    demoUrl: onboardingFieldSchema,
+  }),
+});
+
+type DeepResearchCorpusOutput = z.infer<typeof deepResearchCorpusSchema>;
 
 const DEEP_RESEARCH_SYSTEM_PROMPT = `You are AI-GOS's Deep Research Agent for a supervised GTM workspace.
 
@@ -142,10 +237,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function hasAnthropicAuth(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-}
-
 function tryExtractJson(text: string): unknown | null {
   if (text.trim().length === 0) {
     return null;
@@ -156,6 +247,64 @@ function tryExtractJson(text: string): unknown | null {
   } catch {
     return null;
   }
+}
+
+function readEnvNumber(name: string, fallback: number): number {
+  const parsed = Number(process.env[name]);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readEnvString(name: string, fallback: string): string {
+  const value = process.env[name]?.trim();
+
+  return value && value.length > 0 ? value : fallback;
+}
+
+function getPerplexityApiKey(): string | null {
+  const value = process.env.PERPLEXITY_API_KEY?.trim();
+
+  return value && value.length > 0 ? value : null;
+}
+
+function getDeepResearchModel(): string {
+  return readEnvString('RESEARCH_DEEP_PROGRAM_MODEL', DEFAULT_DEEP_RESEARCH_MODEL);
+}
+
+function getDeepResearchModels(): string[] {
+  const configured = getDeepResearchModel();
+
+  return configured === FALLBACK_DEEP_RESEARCH_MODEL
+    ? [configured]
+    : [configured, FALLBACK_DEEP_RESEARCH_MODEL];
+}
+
+function getDeepResearchMaxTokens(): number {
+  return readEnvNumber(
+    'RESEARCH_DEEP_PROGRAM_MAX_TOKENS',
+    DEFAULT_DEEP_RESEARCH_MAX_TOKENS,
+  );
+}
+
+function getDeepResearchTimeoutMs(): number {
+  return readEnvNumber(
+    'RESEARCH_DEEP_PROGRAM_TIMEOUT_MS',
+    DEFAULT_DEEP_RESEARCH_TIMEOUT_MS,
+  );
+}
+
+function getDeepResearchRepairTimeoutMs(): number {
+  return readEnvNumber(
+    'RESEARCH_DEEP_PROGRAM_REPAIR_TIMEOUT_MS',
+    DEFAULT_DEEP_RESEARCH_REPAIR_TIMEOUT_MS,
+  );
+}
+
+function getDeepResearchRepairMaxTokens(): number {
+  return readEnvNumber(
+    'RESEARCH_DEEP_PROGRAM_REPAIR_MAX_TOKENS',
+    DEFAULT_DEEP_RESEARCH_REPAIR_MAX_TOKENS,
+  );
 }
 
 function countUsableOnboardingFields(result: Record<string, unknown>): number {
@@ -254,17 +403,6 @@ function formatEvidenceLine(evidence: unknown): string | null {
   return `- ${claim ?? quote}${source ? ` (${source})` : ''}`;
 }
 
-function addCapturedSource(
-  sources: CapturedDeepResearchSource[],
-  source: CapturedDeepResearchSource,
-): void {
-  if (sources.some((candidate) => candidate.url === source.url)) {
-    return;
-  }
-
-  sources.push(source);
-}
-
 function formatCapturedSources(
   sources: CapturedDeepResearchSource[],
 ): string {
@@ -278,23 +416,338 @@ function formatCapturedSources(
     .join('\n');
 }
 
-function readMessageText(message: { content?: unknown }): string {
-  if (!Array.isArray(message.content)) {
-    return '';
+function normalizeUrl(value: unknown): string | null {
+  const raw = readString(value);
+
+  if (!raw) {
+    return null;
   }
 
-  return message.content
-    .map((block) => {
-      if (!isRecord(block) || block.type !== 'text') {
-        return '';
-      }
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null;
+    }
 
-      return typeof block.text === 'string' ? block.text : '';
-    })
-    .join('\n')
-    .trim();
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
+function getUrlHost(value: string): string | null {
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function isFabricatedUrl(value: string): boolean {
+  const host = getUrlHost(value);
+
+  if (!host) {
+    return false;
+  }
+
+  return (
+    host === 'example.com' ||
+    host.endsWith('.example.com') ||
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.test') ||
+    host.endsWith('.invalid')
+  );
+}
+
+function collectStrings(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap(collectStrings);
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).flatMap(collectStrings);
+  }
+
+  return [];
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function findFabricatedMatches(value: unknown): string[] {
+  return uniqueStrings(
+    collectStrings(value).filter((candidate) => {
+      const normalizedUrl = normalizeUrl(candidate);
+
+      return (
+        candidate.includes('Synthetic:') ||
+        candidate.includes('example.com') ||
+        (normalizedUrl !== null && isFabricatedUrl(normalizedUrl))
+      );
+    }),
+  );
+}
+
+function getCorpusRecord(result: Record<string, unknown>): Record<string, unknown> {
+  const data = isRecord(result.data) ? result.data : result;
+
+  return isRecord(data.corpus) ? data.corpus : {};
+}
+
+function readRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function extractCorpusSources(
+  result: Record<string, unknown>,
+): CapturedDeepResearchSource[] {
+  return readRecordArray(getCorpusRecord(result).sources)
+    .flatMap((source) => {
+      const url = normalizeUrl(source.url);
+
+      if (url === null) {
+        return [];
+      }
+
+      return [{
+        title: readString(source.title) ?? url,
+        url,
+      }];
+    });
+}
+
+function extractGroundedEvidenceUrls(result: Record<string, unknown>): string[] {
+  return readRecordArray(getCorpusRecord(result).evidence)
+    .flatMap((evidence) => {
+      const url = normalizeUrl(evidence.url);
+      const claim = readString(evidence.claim);
+      const quote = readString(evidence.quote);
+
+      if (url === null || claim === null || quote === null) {
+        return [];
+      }
+
+      return [url];
+    });
+}
+
+function normalizeSourceSet(sources: readonly CapturedDeepResearchSource[]): Set<string> {
+  return new Set(
+    sources
+      .map((source) => normalizeUrl(source.url))
+      .filter((url): url is string => url !== null),
+  );
+}
+
+function toUngroundedUrls(
+  urls: string[],
+  citationUrls: Set<string>,
+): string[] {
+  return uniqueStrings(urls.filter((url) => !citationUrls.has(url)));
+}
+
+export function validateDeepResearchMinimums(
+  result: Record<string, unknown>,
+  sonarSources: readonly CapturedDeepResearchSource[],
+): DeepResearchMinimumsReport {
+  const citationUrls = normalizeSourceSet(sonarSources);
+  const sourceUrls = extractCorpusSources(result).map((source) => source.url);
+  const evidenceUrls = extractGroundedEvidenceUrls(result);
+  const groundedSourceUrls = uniqueStrings(
+    sourceUrls.filter((url) => citationUrls.has(url) && !isFabricatedUrl(url)),
+  );
+  const groundedEvidenceUrls = evidenceUrls.filter(
+    (url) => citationUrls.has(url) && !isFabricatedUrl(url),
+  );
+  const fabricatedMatches = findFabricatedMatches(result);
+  const ungroundedSourceUrls = toUngroundedUrls(sourceUrls, citationUrls);
+  const ungroundedEvidenceUrls = toUngroundedUrls(evidenceUrls, citationUrls);
+  const errors = [
+    groundedSourceUrls.length >= MINIMUM_CITED_SOURCES
+      ? null
+      : `corpus.sources has ${groundedSourceUrls.length}/${MINIMUM_CITED_SOURCES} real Perplexity-cited URLs`,
+    groundedEvidenceUrls.length >= MINIMUM_GROUNDED_EVIDENCE
+      ? null
+      : `corpus.evidence has ${groundedEvidenceUrls.length}/${MINIMUM_GROUNDED_EVIDENCE} grounded cited excerpts`,
+    fabricatedMatches.length === 0
+      ? null
+      : `corpus contains fabricated or placeholder data: ${fabricatedMatches.join(', ')}`,
+    ungroundedSourceUrls.length === 0
+      ? null
+      : `corpus.sources includes URLs missing from Perplexity citations: ${ungroundedSourceUrls.join(', ')}`,
+    ungroundedEvidenceUrls.length === 0
+      ? null
+      : `corpus.evidence includes URLs missing from Perplexity citations: ${ungroundedEvidenceUrls.join(', ')}`,
+  ].filter((error): error is string => error !== null);
+
+  return {
+    passed: errors.length === 0,
+    sourceCount: groundedSourceUrls.length,
+    evidenceCount: groundedEvidenceUrls.length,
+    fabricatedMatches,
+    ungroundedSourceUrls,
+    ungroundedEvidenceUrls,
+    errors,
+  };
+}
+
+function sourceFromSonarSource(source: SonarSourceLike): CapturedDeepResearchSource | null {
+  if (source.sourceType !== undefined && source.sourceType !== 'url') {
+    return null;
+  }
+
+  const url = normalizeUrl(source.url);
+
+  if (url === null) {
+    return null;
+  }
+
+  return {
+    title: readString(source.title) ?? url,
+    url,
+  };
+}
+
+function extractSonarSources(result: SonarGenerationResult): CapturedDeepResearchSource[] {
+  const sources = Array.isArray(result.sources) ? result.sources : [];
+  const normalized = sources
+    .map(sourceFromSonarSource)
+    .filter((source): source is CapturedDeepResearchSource => source !== null);
+
+  return dedupeSources(normalized);
+}
+
+function dedupeSources(
+  sources: readonly CapturedDeepResearchSource[],
+): CapturedDeepResearchSource[] {
+  const seen = new Set<string>();
+
+  return sources.filter((source) => {
+    if (seen.has(source.url)) {
+      return false;
+    }
+
+    seen.add(source.url);
+    return true;
+  });
+}
+
+function mergeSources(
+  primary: readonly CapturedDeepResearchSource[],
+  supplemental: readonly CapturedDeepResearchSource[],
+): CapturedDeepResearchSource[] {
+  return dedupeSources([...primary, ...supplemental]);
+}
+
+function mergeProviderSourcesIntoCorpus(
+  parsed: DeepResearchCorpusOutput,
+  sonarSources: readonly CapturedDeepResearchSource[],
+): DeepResearchCorpusOutput {
+  const existingUrls = new Set(
+    parsed.corpus.sources
+      .map((source) => normalizeUrl(source.url))
+      .filter((url): url is string => url !== null),
+  );
+  const providerSourceBackfill = sonarSources
+    .filter((source) => !existingUrls.has(source.url))
+    .map((source) => ({
+      title: source.title,
+      url: source.url,
+      whyItMatters: 'Perplexity sonar citation used to ground the company corpus.',
+    }));
+
+  return {
+    ...parsed,
+    corpus: {
+      ...parsed.corpus,
+      sources: [...parsed.corpus.sources, ...providerSourceBackfill],
+    },
+  };
+}
+
+function buildPerplexityTelemetry(
+  result: SonarGenerationResult,
+  model: string,
+): RunnerTelemetry {
+  const usage = result.totalUsage ?? result.usage;
+  const inputTokens = numberOrUndefined(usage?.inputTokens) ?? 0;
+  const outputTokens = numberOrUndefined(usage?.outputTokens) ?? 0;
+  const totalTokens =
+    numberOrUndefined(usage?.totalTokens) ??
+    inputTokens +
+      outputTokens +
+      (numberOrUndefined(usage?.inputTokenDetails?.cacheReadTokens) ?? 0) +
+      (numberOrUndefined(usage?.inputTokenDetails?.cacheWriteTokens) ?? 0);
+
+  return {
+    model,
+    stopReason:
+      typeof result.rawFinishReason === 'string'
+        ? result.rawFinishReason
+        : typeof result.finishReason === 'string'
+          ? result.finishReason
+          : null,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      cacheCreationInputTokens: numberOrUndefined(
+        usage?.inputTokenDetails?.cacheWriteTokens,
+      ),
+      cacheReadInputTokens: numberOrUndefined(
+        usage?.inputTokenDetails?.cacheReadTokens,
+      ),
+      serverToolUseCount: readPerplexitySearchCount(result.providerMetadata),
+    },
+  };
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function readPerplexitySearchCount(providerMetadata: unknown): number | undefined {
+  if (!isRecord(providerMetadata)) {
+    return undefined;
+  }
+
+  const perplexity = isRecord(providerMetadata.perplexity)
+    ? providerMetadata.perplexity
+    : null;
+  const usage = isRecord(perplexity?.usage) ? perplexity.usage : null;
+
+  return numberOrUndefined(usage?.numSearchQueries);
+}
+
+async function runWithAbortTimeout<T>(
+  label: string,
+  timeoutMs: number,
+  run: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`));
+  }, timeoutMs);
+
+  try {
+    return await run(controller.signal);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 export function formatDeepResearchArtifactMarkdown(
   parsed: Record<string, unknown>,
   context: string,
@@ -326,50 +779,317 @@ export function formatDeepResearchArtifactMarkdown(
   };
 }
 
-async function repairDeepResearchJson(
-  client: ReturnType<typeof createClient>,
-  input: {
-    context: string;
-    draftText: string;
-    sources: CapturedDeepResearchSource[];
-  },
-): Promise<{
-  parsed: Record<string, unknown>;
-  rawText: string;
-  message: Parameters<typeof buildRunnerTelemetry>[0];
-}> {
-  const repairMessage = await Promise.race([
-    client.messages.create({
-      model: DEEP_RESEARCH_MODEL,
-      max_tokens: DEEP_RESEARCH_REPAIR_MAX_TOKENS,
-      temperature: 0,
-      system: maybeCachedSystem(DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT) as Parameters<typeof client.messages.create>[0]['system'],
-      messages: [
-        {
-          role: 'user',
-          content: `ORIGINAL USER CONTEXT\n${input.context}\n\nCAPTURED SOURCES\n${formatCapturedSources(input.sources)}\n\nINCOMPLETE DRAFT / MODEL OUTPUT\n${input.draftText || 'No draft text was produced.'}\n\nRepair this into the required JSON object now.`,
-        },
-      ],
-    }),
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`Deep research repair timed out after ${Math.round(DEEP_RESEARCH_REPAIR_TIMEOUT_MS / 1000)}s`)),
-        DEEP_RESEARCH_REPAIR_TIMEOUT_MS,
-      ),
-    ),
-  ]);
+function buildDeepResearchPrompt(context: string): string {
+  return `Today is ${new Date().toISOString().slice(0, 10)}.
 
-  const rawText = readMessageText(repairMessage);
-  const parsed = tryExtractJson(rawText);
+Use the onboarding/prefill context below as confirmed input. Run focused web research once with Perplexity sonar and build the shared company evidence corpus for onboarding. Do not synthesize GTM report sections in this run.
+
+SOURCE AND EVIDENCE GATE
+- corpus.sources must contain at least ${MINIMUM_CITED_SOURCES} unique real cited URLs from Perplexity sonar citations.
+- corpus.evidence must contain at least ${MINIMUM_GROUNDED_EVIDENCE} excerpts or concise paraphrases, each with a URL from corpus.sources.
+- Never use example.com, placeholder URLs, synthetic evidence, or invented claims.
+- If a field is not publicly discoverable, use null/0/null and explain the evidence gap.
+
+CONFIRMED CONTEXT
+${context}`;
+}
+
+function parseDeepResearchOutput(value: unknown): DeepResearchCorpusOutput {
+  return deepResearchCorpusSchema.parse(value);
+}
+
+async function ensureMinimumSonarSources(input: {
+  apiKey: string;
+  context: string;
+  existingSources: CapturedDeepResearchSource[];
+  model: string;
+  onProgress?: RunnerProgressReporter;
+}): Promise<CapturedDeepResearchSource[]> {
+  if (input.existingSources.length >= MINIMUM_CITED_SOURCES) {
+    return input.existingSources;
+  }
+
+  await emitRunnerProgress(
+    input.onProgress,
+    'analysis',
+    `expanding Perplexity citations (${input.existingSources.length}/${MINIMUM_CITED_SOURCES})`,
+  );
+
+  const perplexity = createPerplexity({ apiKey: input.apiKey });
+  const result = await runWithAbortTimeout(
+    'Deep research source expansion',
+    getDeepResearchRepairTimeoutMs(),
+    (signal) =>
+      generateText({
+        model: perplexity(input.model),
+        prompt: `Find additional real, credible web sources for this company research corpus. Use web search and produce a concise source list. Prefer official product pages, pricing pages, docs, customer proof, and credible third-party profiles. Do not use placeholders.\n\nAlready captured URLs:\n${formatCapturedSources(input.existingSources)}\n\nContext:\n${input.context}`,
+        maxOutputTokens: 1000,
+        temperature: 0.1,
+        abortSignal: signal,
+      }),
+  );
+  const supplementalSources = extractSonarSources(result as SonarGenerationResult);
+
+  return mergeSources(input.existingSources, supplementalSources);
+}
+
+interface GeneratedSonarCorpus {
+  model: string;
+  parsed: DeepResearchCorpusOutput;
+  rawText: string;
+  result: SonarGenerationResult;
+  sources: CapturedDeepResearchSource[];
+}
+
+async function generateStructuredSonarCorpus(input: {
+  apiKey: string;
+  context: string;
+  model: string;
+  onProgress?: RunnerProgressReporter;
+}): Promise<GeneratedSonarCorpus> {
+  const perplexity = createPerplexity({ apiKey: input.apiKey });
+  const result = await runWithAbortTimeout(
+    'Deep research program',
+    getDeepResearchTimeoutMs(),
+    (signal) =>
+      generateText({
+        model: perplexity(input.model),
+        system: DEEP_RESEARCH_SYSTEM_PROMPT,
+        prompt: buildDeepResearchPrompt(input.context),
+        output: Output.object({ schema: deepResearchCorpusSchema }),
+        maxOutputTokens: getDeepResearchMaxTokens(),
+        temperature: 0.1,
+        abortSignal: signal,
+      }),
+  );
+  const sonarResult = result as SonarGenerationResult;
+  const sources = await ensureMinimumSonarSources({
+    apiKey: input.apiKey,
+    context: input.context,
+    existingSources: extractSonarSources(sonarResult),
+    model: input.model,
+    onProgress: input.onProgress,
+  });
+  const parsed = mergeProviderSourcesIntoCorpus(
+    parseDeepResearchOutput(result.output),
+    sources,
+  );
+
+  return {
+    model: input.model,
+    parsed,
+    rawText: result.text || JSON.stringify(parsed),
+    result: sonarResult,
+    sources,
+  };
+}
+
+async function generateDraftSonarCorpus(input: {
+  apiKey: string;
+  context: string;
+  model: string;
+  onProgress?: RunnerProgressReporter;
+}): Promise<GeneratedSonarCorpus> {
+  const perplexity = createPerplexity({ apiKey: input.apiKey });
+  const result = await runWithAbortTimeout(
+    'Deep research program',
+    getDeepResearchTimeoutMs(),
+    (signal) =>
+      generateText({
+        model: perplexity(input.model),
+        system: DEEP_RESEARCH_SYSTEM_PROMPT,
+        prompt: buildDeepResearchPrompt(input.context),
+        maxOutputTokens: getDeepResearchMaxTokens(),
+        temperature: 0.1,
+        abortSignal: signal,
+      }),
+  );
+  const sonarResult = result as SonarGenerationResult;
+  const sources = await ensureMinimumSonarSources({
+    apiKey: input.apiKey,
+    context: input.context,
+    existingSources: extractSonarSources(sonarResult),
+    model: input.model,
+    onProgress: input.onProgress,
+  });
+  const parsed = tryExtractJson(result.text);
+
+  if (!parsed || !isRecord(parsed)) {
+    return repairDeepResearchJson({
+      apiKey: input.apiKey,
+      context: input.context,
+      draftText: result.text,
+      model: input.model,
+      onProgress: input.onProgress,
+      previousResult: sonarResult,
+      sources,
+    });
+  }
+
+  const validated = deepResearchCorpusSchema.safeParse(parsed);
+  if (!validated.success) {
+    return repairDeepResearchJson({
+      apiKey: input.apiKey,
+      context: input.context,
+      draftText: result.text,
+      model: input.model,
+      onProgress: input.onProgress,
+      previousResult: sonarResult,
+      sources,
+    });
+  }
+
+  return {
+    model: input.model,
+    parsed: mergeProviderSourcesIntoCorpus(validated.data, sources),
+    rawText: result.text,
+    result: sonarResult,
+    sources,
+  };
+}
+
+async function repairDeepResearchJson(input: {
+  apiKey: string;
+  context: string;
+  draftText: string;
+  model: string;
+  onProgress?: RunnerProgressReporter;
+  previousResult: SonarGenerationResult;
+  sources: CapturedDeepResearchSource[];
+}): Promise<GeneratedSonarCorpus> {
+  const perplexity = createPerplexity({ apiKey: input.apiKey });
+  const result = await runWithAbortTimeout(
+    'Deep research repair',
+    getDeepResearchRepairTimeoutMs(),
+    (signal) =>
+      generateText({
+        model: perplexity(input.model),
+        system: DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT,
+        prompt: `ORIGINAL USER CONTEXT\n${input.context}\n\nCAPTURED PERPLEXITY CITATIONS\n${formatCapturedSources(input.sources)}\n\nINCOMPLETE DRAFT / MODEL OUTPUT\n${input.draftText || 'No draft text was produced.'}\n\nRepair this into the required JSON object now. Use only the captured Perplexity citations and original context.`,
+        maxOutputTokens: getDeepResearchRepairMaxTokens(),
+        temperature: 0,
+        abortSignal: signal,
+      }),
+  );
+  const parsed = tryExtractJson(result.text);
+
   if (!parsed || !isRecord(parsed)) {
     throw new Error('Deep research repair returned no parseable JSON');
   }
 
+  const validated = parseDeepResearchOutput(parsed);
+  const sonarResult = result as SonarGenerationResult;
+  const sources = await ensureMinimumSonarSources({
+    apiKey: input.apiKey,
+    context: input.context,
+    existingSources: input.sources.length > 0
+      ? input.sources
+      : extractSonarSources(sonarResult),
+    model: input.model,
+    onProgress: input.onProgress,
+  });
+
   return {
-    parsed,
-    rawText,
-    message: repairMessage as Parameters<typeof buildRunnerTelemetry>[0],
+    model: input.model,
+    parsed: mergeProviderSourcesIntoCorpus(validated, sources),
+    rawText: `${input.draftText}\n\n--- repaired JSON ---\n${result.text}`.trim(),
+    result: {
+      ...input.previousResult,
+      ...sonarResult,
+      totalUsage: sonarResult.totalUsage ?? sonarResult.usage ?? input.previousResult.totalUsage,
+    },
+    sources,
   };
+}
+
+async function generateSonarCorpus(input: {
+  apiKey: string;
+  context: string;
+  onProgress?: RunnerProgressReporter;
+}): Promise<GeneratedSonarCorpus> {
+  let lastError: unknown;
+
+  for (const model of getDeepResearchModels()) {
+    try {
+      await emitRunnerProgress(
+        input.onProgress,
+        'runner',
+        `querying Perplexity ${model} for cited company corpus`,
+      );
+
+      const generated = await runWithBackoff(async () => {
+        try {
+          return await generateStructuredSonarCorpus({
+            apiKey: input.apiKey,
+            context: input.context,
+            model,
+            onProgress: input.onProgress,
+          });
+        } catch (error) {
+          console.warn('[deep-research-program] Structured Perplexity corpus generation failed; retrying with draft JSON extraction', {
+            error: error instanceof Error ? error.message : String(error),
+            model,
+          });
+          await emitRunnerProgress(
+            input.onProgress,
+            'analysis',
+            'repairing Perplexity corpus JSON from cited draft',
+          );
+
+          return await generateDraftSonarCorpus({
+            apiKey: input.apiKey,
+            context: input.context,
+            model,
+            onProgress: input.onProgress,
+          });
+        }
+      }, 'deepResearchProgram');
+      const minimums = validateDeepResearchMinimums(
+        generated.parsed as unknown as Record<string, unknown>,
+        generated.sources,
+      );
+
+      if (minimums.passed) {
+        return generated;
+      }
+
+      await emitRunnerProgress(
+        input.onProgress,
+        'analysis',
+        'repairing corpus against captured Perplexity citations',
+      );
+
+      return await repairDeepResearchJson({
+        apiKey: input.apiKey,
+        context: input.context,
+        draftText: generated.rawText || JSON.stringify(generated.parsed),
+        model,
+        onProgress: input.onProgress,
+        previousResult: generated.result,
+        sources: generated.sources,
+      });
+    } catch (error) {
+      lastError = error;
+      console.warn('[deep-research-program] Perplexity corpus model failed', {
+        error: error instanceof Error ? error.message : String(error),
+        model,
+      });
+
+      if (model !== FALLBACK_DEEP_RESEARCH_MODEL) {
+        await emitRunnerProgress(
+          input.onProgress,
+          'analysis',
+          `falling back to Perplexity ${FALLBACK_DEEP_RESEARCH_MODEL}`,
+        );
+      }
+    }
+  }
+
+  throw new Error(
+    `Perplexity corpus generation failed for all configured models. Last error: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
 }
 
 export async function runDeepResearchProgram(
@@ -379,19 +1099,17 @@ export async function runDeepResearchProgram(
   const startTime = Date.now();
 
   try {
-    if (!hasAnthropicAuth()) {
+    const apiKey = getPerplexityApiKey();
+    if (!apiKey) {
       return {
         status: 'error',
         section: 'deepResearchProgram',
         error:
-          'ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN is not configured in the research worker environment. Deep research cannot run without direct Anthropic auth.',
+          'PERPLEXITY_API_KEY is not configured in the research worker environment. Deep research cannot run without Perplexity sonar citations.',
         durationMs: Date.now() - startTime,
       };
     }
 
-    const client = createClient({ enableSkillsBeta: true });
-    const capturedSources: CapturedDeepResearchSource[] = [];
-    let latestTextSnapshot = '';
     const initialArtifactTitle = `${inferCompanyNameFromContext(context) ?? 'Company'} GTM Research`;
     await emitRunnerProgress(onProgress, 'runner', 'starting company research extraction');
     await emitArtifactProgress(onProgress, {
@@ -409,67 +1127,17 @@ export async function runDeepResearchProgram(
       type: 'artifact-delta',
       section: 'deepResearchProgram',
       title: initialArtifactTitle,
-      delta: `# ${initialArtifactTitle}\n\n## Deep Research\n\nDeep Research Agent is building the source-backed corpus...`,
+      delta: `# ${initialArtifactTitle}\n\n## Deep Research\n\nPerplexity sonar is building the cited company corpus...`,
     });
-    const finalMsg = await runWithBackoff(
-      () => {
-        const container = buildDeepResearchContainerParams();
-        const runner = client.beta.messages.toolRunner({
-          model: DEEP_RESEARCH_MODEL,
-          max_tokens: DEEP_RESEARCH_MAX_TOKENS,
-          stream: true,
-          ...(container ? { container } : {}),
-          tools: [
-            { type: 'web_search_20250305' as const, name: 'web_search' },
-            ...(container ? [{ type: 'code_execution_20250825' as const, name: 'code_execution' as const }] : []),
-          ],
-          system: maybeCachedSystem(DEEP_RESEARCH_SYSTEM_PROMPT) as Parameters<typeof client.beta.messages.toolRunner>[0]['system'],
-          messages: [{
-            role: 'user',
-            content: `Use the onboarding/prefill context below as confirmed input. Run focused web research once and build the shared company evidence corpus for onboarding. Do not synthesize GTM report sections in this run.\n\n${context}`,
-          }],
-        });
-        return Promise.race([
-          runStreamedToolRunner(runner, {
-            onProgress,
-            synthesisMessage: 'assembling company corpus for onboarding',
-            maxToolIterations: 20,
-            onTextSnapshot: (snapshot) => {
-              latestTextSnapshot = snapshot;
-            },
-            onWebSearchSource: (source) => {
-              addCapturedSource(capturedSources, source);
-            },
-          }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Deep research program timed out after ${Math.round(DEEP_RESEARCH_TIMEOUT_MS / 1000)}s`)), DEEP_RESEARCH_TIMEOUT_MS)),
-        ]);
-      },
-      'deepResearchProgram',
-    );
 
-    const resultText = readMessageText(finalMsg) || latestTextSnapshot;
-    let parsed: unknown | null = tryExtractJson(resultText);
-    let rawText = resultText;
-    let telemetryMessage: Parameters<typeof buildRunnerTelemetry>[0] = finalMsg;
-
-    if (!parsed || !isRecord(parsed)) {
-      console.error('[deep-research-program] JSON extraction failed:', {
-        assistantTextPreview: resultText.slice(0, 500),
-      });
-      await emitRunnerProgress(onProgress, 'analysis', 'repairing deep research JSON from captured evidence');
-      const repaired = await repairDeepResearchJson(client, {
-        context,
-        draftText: resultText,
-        sources: capturedSources,
-      });
-      parsed = repaired.parsed;
-      rawText = `${resultText}\n\n--- repaired JSON ---\n${repaired.rawText}`.trim();
-      telemetryMessage = repaired.message;
-    }
-    if (!isRecord(parsed)) {
-      throw new Error('Deep research returned no parseable JSON after repair');
-    }
-    const parsedRecord: Record<string, unknown> = parsed;
+    const generated = await generateSonarCorpus({
+      apiKey,
+      context,
+      onProgress,
+    });
+    const parsedRecord = generated.parsed as unknown as Record<string, unknown>;
+    const rawText = generated.rawText;
+    await emitRunnerProgress(onProgress, 'analysis', 'validating cited corpus minimums');
 
     const onboardingFieldCount = countUsableOnboardingFields(parsedRecord);
     if (onboardingFieldCount === 0) {
@@ -489,7 +1157,41 @@ export async function runDeepResearchProgram(
           'Deep research returned no usable onboardingFields. The onboarding review cannot open from shallow prefill data.',
         durationMs: Date.now() - startTime,
         rawText,
-        telemetry: buildRunnerTelemetry(telemetryMessage),
+        telemetry: buildPerplexityTelemetry(generated.result, generated.model),
+      };
+    }
+
+    const minimums = validateDeepResearchMinimums(parsedRecord, generated.sources);
+    if (!minimums.passed) {
+      console.error('[deep-research-program] Perplexity corpus failed minimums:', {
+        errors: minimums.errors,
+        evidenceCount: minimums.evidenceCount,
+        sourceCount: minimums.sourceCount,
+      });
+      await emitArtifactProgress(onProgress, {
+        type: 'artifact-section-state',
+        section: 'deepResearchProgram',
+        status: 'error',
+        title: initialArtifactTitle,
+      });
+      return {
+        status: 'error',
+        section: 'deepResearchProgram',
+        error: `Perplexity corpus failed deterministic minimums: ${minimums.errors.join('; ')}`,
+        durationMs: Date.now() - startTime,
+        rawText,
+        telemetry: buildPerplexityTelemetry(generated.result, generated.model),
+        provenance: {
+          status: 'missing',
+          citationCount: minimums.sourceCount,
+        },
+        validation: {
+          section: 'deepResearchProgram',
+          issues: minimums.errors.map((error) => ({
+            code: 'corpus_minimums_failed',
+            message: error,
+          })),
+        },
       };
     }
 
@@ -519,12 +1221,15 @@ export async function runDeepResearchProgram(
       artifact,
       durationMs: Date.now() - startTime,
       rawText,
-      telemetry: buildRunnerTelemetry(telemetryMessage),
+      citations: generated.sources.map((source, index) => ({
+        number: index + 1,
+        title: source.title,
+        url: source.url,
+      })),
+      telemetry: buildPerplexityTelemetry(generated.result, generated.model),
       provenance: {
         status: 'sourced',
-        citationCount: Array.isArray((parsedRecord.corpus as Record<string, unknown> | undefined)?.sources)
-          ? ((parsedRecord.corpus as Record<string, unknown>).sources as unknown[]).length
-          : 0,
+        citationCount: minimums.sourceCount,
       },
     };
   } catch (error) {
