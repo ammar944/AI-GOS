@@ -6,6 +6,7 @@ import { persistenceGateEvalCases } from '@/lib/lab-engine/fixtures/persistence-
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 import { createSupabaseRunStore } from '../supabase-run-store';
 
@@ -17,14 +18,28 @@ const sectionRunIdByZone = Object.fromEntries(
   ]),
 ) as Record<(typeof POSITIONING_SECTION_IDS)[number], string>;
 
-function createSelectQuery(table: string) {
+interface FakeSupabaseOptions {
+  completeSectionZones?: readonly PositioningSectionId[];
+}
+
+function createSelectQuery(table: string, options: FakeSupabaseOptions) {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
+    in: vi.fn(),
     maybeSingle: vi.fn(),
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.in.mockResolvedValue({
+    data:
+      table === 'research_artifact_sections'
+        ? (options.completeSectionZones ?? ['positioningMarketCategory']).map(
+            (zone) => ({ zone }),
+          )
+        : [],
+    error: null,
+  });
   query.maybeSingle.mockResolvedValue(
     table === 'research_section_runs'
       ? {
@@ -42,16 +57,21 @@ function createSelectQuery(table: string) {
   return query;
 }
 
-function createFakeSupabase() {
+function createFakeSupabase(options: FakeSupabaseOptions = {}) {
+  const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
   const updateEq = vi.fn().mockResolvedValue({ error: null });
-  const update = vi.fn(() => ({ eq: updateEq }));
+  const update = vi.fn();
   const selectQueries: Array<{ table: string; query: ReturnType<typeof createSelectQuery> }> = [];
   const from = vi.fn((table: string) => {
-    const query = createSelectQuery(table);
+    const query = createSelectQuery(table, options);
     selectQueries.push({ table, query });
     return {
       ...query,
-      update,
+      update: (patch: Record<string, unknown>) => {
+        updates.push({ table, patch });
+        update(patch);
+        return { eq: updateEq };
+      },
     };
   });
   const rpc = vi.fn((functionName: string, params: Record<string, unknown>) => {
@@ -79,6 +99,7 @@ function createFakeSupabase() {
     update,
     updateEq,
     selectQueries,
+    updates,
   };
 }
 
@@ -169,6 +190,36 @@ describe('createSupabaseRunStore', (): void => {
         }),
       }),
     );
+  });
+
+  it('rolls the parent artifact complete when the sixth positioning section commits', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      completeSectionZones: POSITIONING_SECTION_IDS,
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+
+    const parentUpdates = fakeSupabase.updates.filter(
+      (updateCall) => updateCall.table === 'research_artifacts',
+    );
+    expect(parentUpdates).toHaveLength(1);
+    expect(parentUpdates[0]?.patch).toEqual({
+      status: 'complete',
+      children_total: 6,
+      children_complete: 6,
+      updated_at: '2026-05-25T12:00:00.000Z',
+    });
+    expect(fakeSupabase.updateEq).toHaveBeenCalledWith('id', parentAuditRunId);
   });
 
   it('marks only the failed section run as errored in Supabase and the local record', async (): Promise<void> => {

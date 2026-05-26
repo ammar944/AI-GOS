@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  POSITIONING_SECTION_IDS,
+  type PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import { createSupabaseWebhookAdapter } from '@/lib/managed-agents/supabase-adapter';
 import { buildCommitPatch } from '@/lib/managed-agents/webhook-handler';
 import {
@@ -146,6 +149,65 @@ function sectionRunIdFor(
   }
 
   return sectionRunId;
+}
+
+const POSITIONING_SECTION_ID_SET: ReadonlySet<string> = new Set(
+  POSITIONING_SECTION_IDS,
+);
+
+function countCompletePositioningZones(data: unknown): number {
+  if (!Array.isArray(data)) return 0;
+
+  const zones = new Set<string>();
+  for (const row of data) {
+    if (!row || typeof row !== 'object') continue;
+    const zone = (row as { zone?: unknown }).zone;
+    if (typeof zone !== 'string') continue;
+    if (!POSITIONING_SECTION_ID_SET.has(zone)) continue;
+    zones.add(zone);
+  }
+
+  return zones.size;
+}
+
+async function markParentCompleteWhenAllSectionsCommit(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+  now: () => Date;
+}): Promise<void> {
+  const { data, error } = await input.supabase
+    .from('research_artifact_sections')
+    .select('zone')
+    .eq('artifact_id', input.parentAuditRunId)
+    .eq('status', 'complete')
+    .in('zone', [...POSITIONING_SECTION_IDS]);
+
+  if (error) {
+    throw new SupabaseRunStoreError(
+      `research_artifact_sections rollup read failed for parent_audit_run_id=${input.parentAuditRunId}: ${error.message}`,
+    );
+  }
+
+  const childrenComplete = countCompletePositioningZones(data);
+  if (childrenComplete < POSITIONING_SECTION_IDS.length) {
+    return;
+  }
+
+  const { error: updateError } = await input.supabase
+    .from('research_artifacts')
+    .update({
+      status: 'complete',
+      children_total: POSITIONING_SECTION_IDS.length,
+      children_complete: childrenComplete,
+      updated_at: isoNow(input.now),
+    })
+    .eq('id', input.parentAuditRunId);
+
+  if (updateError) {
+    throw new SupabaseRunStoreError(
+      `research_artifacts rollup update failed for parent_audit_run_id=${input.parentAuditRunId} children_complete=${childrenComplete}: ${updateError.message}`,
+    );
+  }
 }
 
 function assertRunId(expectedRunId: string, actualRunId: string, action: string): void {
@@ -297,6 +359,12 @@ export function createSupabaseRunStore(
           `research_section_runs telemetry update failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
         );
       }
+
+      await markParentCompleteWhenAllSectionsCommit({
+        supabase: options.supabase,
+        parentAuditRunId: options.parentAuditRunId,
+        now,
+      });
 
       record = mergeSection(
         record,
