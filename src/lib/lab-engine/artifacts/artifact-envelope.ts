@@ -45,6 +45,13 @@ export const companyProfileSchema = z
   })
   .strict();
 
+export const salesProcessDocRefSchema = z
+  .object({
+    label: z.string().min(1),
+    url: z.string().url(),
+  })
+  .strict();
+
 export const onboardingSnapshotSchema = z
   .object({
     primaryGoal: z.string().min(1),
@@ -53,6 +60,11 @@ export const onboardingSnapshotSchema = z
     distributionChannels: z.array(z.string().min(1)).min(1),
     constraints: z.array(z.string().min(1)),
     notes: z.string().min(1),
+    salesProcessDocs: z.array(salesProcessDocRefSchema).max(4).optional(),
+    salesLoomUrl: z.string().url().optional(),
+    gtmMotion: z.enum(["SLG", "PLG"]).optional(),
+    creativeCapacity: z.enum(["lean", "standard", "high"]).optional(),
+    leadListAvailable: z.boolean().optional(),
   })
   .strict();
 

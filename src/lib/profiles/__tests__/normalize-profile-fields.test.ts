@@ -20,6 +20,21 @@ describe('normalizeProfileFields', () => {
     expect(result.topCompetitors).toBe('HubSpot, Marketo, Pardot');
   });
 
+  it('formats media-plan brief booleans and structured sales docs', () => {
+    const result = normalizeProfileFields({
+      leadListAvailable: true,
+      salesProcessDocs: [
+        { label: 'Process overview', url: 'https://docs.example.com/process' },
+        { label: 'SDR SOP', url: 'https://docs.example.com/sdr' },
+      ],
+    });
+
+    expect(result.leadListAvailable).toBe('Yes');
+    expect(result.salesProcessDocs).toBe(
+      'Process overview: https://docs.example.com/process\nSDR SOP: https://docs.example.com/sdr',
+    );
+  });
+
   it('skips objects, nulls, and undefined', () => {
     const result = normalizeProfileFields({
       companyName: 'Acme',

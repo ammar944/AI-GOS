@@ -1,8 +1,13 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
-// Flat data type — all 47 fields
+// Flat data type — all 52 fields
 // ---------------------------------------------------------------------------
+
+export interface SalesProcessDocRef {
+  label: string;
+  url: string;
+}
 
 export interface OnboardingV2Data {
   // Section 1: Product & Revenue Model
@@ -50,6 +55,9 @@ export interface OnboardingV2Data {
   commonObjections: string;
   keyPromises: string;
   brandPositioning: string;
+  salesProcessDocs: SalesProcessDocRef[];
+  salesLoomUrl: string;
+  gtmMotion: 'SLG' | 'PLG' | '';
 
   // Section 7: Current Marketing & Performance
   channels: string[];
@@ -66,6 +74,8 @@ export interface OnboardingV2Data {
   activationToPaid: string;
   demoToClose: string;
   growthTrend: string;
+  creativeCapacity: 'lean' | 'standard' | 'high' | '';
+  leadListAvailable: boolean | null;
 }
 
 export interface OnboardingFieldPrefillMetadata {
@@ -112,6 +122,37 @@ export interface OnboardingReviewMetadata {
 // Zod schema for full form validation
 // ---------------------------------------------------------------------------
 
+export const SalesProcessDocRefSchema = z
+  .object({
+    label: z.string().min(1, 'Doc label is required'),
+    url: z.string().url('Enter a valid doc URL'),
+  })
+  .strict();
+
+export const SalesProcessDocsSchema = z.preprocess((value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return [];
+      }
+
+      const record = item as Record<string, unknown>;
+      const label = typeof record.label === 'string' ? record.label.trim() : '';
+      const url = typeof record.url === 'string' ? record.url.trim() : '';
+
+      if (!label || !url) {
+        return [];
+      }
+
+      return [{ label, url }];
+    })
+    .slice(0, 4);
+}, z.array(SalesProcessDocRefSchema).max(4));
+
 export const OnboardingV2Schema = z.object({
   // Section 1
   companyName: z.string().min(1, 'Company name is required'),
@@ -153,6 +194,9 @@ export const OnboardingV2Schema = z.object({
   commonObjections: z.string().min(1, 'Required'),
   keyPromises: z.string().min(1, 'Required'),
   brandPositioning: z.string().min(1, 'Required'),
+  salesProcessDocs: SalesProcessDocsSchema,
+  salesLoomUrl: z.string().url('Enter a valid Loom URL').or(z.literal('')).optional().default(''),
+  gtmMotion: z.enum(['SLG', 'PLG', '']).optional().default(''),
   // Section 7
   channels: z.array(z.string()).min(1, 'Select at least one channel'),
   budgetSplit: z.string().min(1, 'Required'),
@@ -168,6 +212,8 @@ export const OnboardingV2Schema = z.object({
   activationToPaid: z.string().optional().default(''),
   demoToClose: z.string().optional().default(''),
   growthTrend: z.string().optional().default(''),
+  creativeCapacity: z.enum(['lean', 'standard', 'high', '']).optional().default(''),
+  leadListAvailable: z.boolean().nullable().optional().default(null),
 });
 
 // Per-section schemas for step-by-step validation
@@ -193,10 +239,12 @@ export const SECTION_SCHEMAS: Record<number, z.ZodSchema> = {
   5: OnboardingV2Schema.pick({
     primaryGoal90Days: true, monthlyPipelineTarget: true, goalTargetCac: true,
     commonObjections: true, keyPromises: true, brandPositioning: true,
+    salesProcessDocs: true, salesLoomUrl: true, gtmMotion: true,
   }),
   6: OnboardingV2Schema.pick({
     channels: true, budgetSplit: true, whatsWorking: true, whatsNotWorking: true,
     currentCac: true, avgLtv: true, monthlyRevenue: true,
+    creativeCapacity: true, leadListAvailable: true,
   }),
 };
 
@@ -209,7 +257,7 @@ export type SectionIconName = 'Building2' | 'Users' | 'Package' | 'TrendingUp' |
 export interface SectionField {
   key: keyof OnboardingV2Data;
   label: string;
-  type: 'text' | 'textarea' | 'radio' | 'checkbox';
+  type: 'text' | 'textarea' | 'radio' | 'checkbox' | 'boolean-radio' | 'sales-process-docs';
   required: boolean;
   options?: Array<{ value: string; label: string }>;
   placeholder?: string;
@@ -352,6 +400,29 @@ export const SECTION_META: SectionMeta[] = [
       { key: 'commonObjections', label: 'Common objections from prospects', type: 'textarea', required: true, placeholder: 'e.g. "We already have X", "Not the right time"...' },
       { key: 'keyPromises', label: 'Key promises / outcomes you want to be known for', type: 'textarea', required: true, placeholder: 'e.g. "10x faster reporting"' },
       { key: 'brandPositioning', label: 'Current brand positioning (1–2 sentences)', type: 'textarea', required: true, placeholder: 'e.g. "We help [ICP] achieve [outcome] without [pain]"' },
+      {
+        key: 'gtmMotion', label: 'GTM motion for the media plan', type: 'radio', required: false,
+        options: [
+          { value: 'SLG', label: 'SLG (sales-led)' },
+          { value: 'PLG', label: 'PLG (product-led)' },
+        ],
+        description: 'optional, but used for KPIs',
+      },
+      {
+        key: 'salesProcessDocs',
+        label: 'Sales-process SOP links',
+        type: 'sales-process-docs',
+        required: false,
+        description: 'up to 4 docs',
+      },
+      {
+        key: 'salesLoomUrl',
+        label: 'Sales-process Loom',
+        type: 'text',
+        required: false,
+        placeholder: 'https://www.loom.com/share/...',
+        description: 'optional',
+      },
     ],
   },
   {
@@ -385,6 +456,22 @@ export const SECTION_META: SectionMeta[] = [
       { key: 'activationToPaid', label: 'Activation → paid %', type: 'text', required: false, placeholder: 'e.g. 15%', description: 'optional funnel metric' },
       { key: 'demoToClose', label: 'Demo → close rate', type: 'text', required: false, placeholder: 'e.g. 25%', description: 'if applicable' },
       { key: 'growthTrend', label: 'Last 3–6 months growth trend', type: 'text', required: false, placeholder: 'e.g. +20% MoM, flat, declining', description: 'optional' },
+      {
+        key: 'creativeCapacity', label: 'Creative production capacity', type: 'radio', required: false,
+        options: [
+          { value: 'lean', label: 'Lean (5 static + 3 video)' },
+          { value: 'standard', label: 'Standard (5 static + 5 video)' },
+          { value: 'high', label: 'High-volume testing' },
+        ],
+        description: 'optional',
+      },
+      {
+        key: 'leadListAvailable',
+        label: 'Do you have a 5–10k lead/account list available?',
+        type: 'boolean-radio',
+        required: false,
+        description: 'optional',
+      },
     ],
   },
 ];
@@ -428,6 +515,9 @@ export const EMPTY_ONBOARDING_V2: OnboardingV2Data = {
   commonObjections: '',
   keyPromises: '',
   brandPositioning: '',
+  salesProcessDocs: [],
+  salesLoomUrl: '',
+  gtmMotion: '',
   channels: [],
   budgetSplit: '',
   whatsWorking: '',
@@ -441,4 +531,6 @@ export const EMPTY_ONBOARDING_V2: OnboardingV2Data = {
   activationToPaid: '',
   demoToClose: '',
   growthTrend: '',
+  creativeCapacity: '',
+  leadListAvailable: null,
 };

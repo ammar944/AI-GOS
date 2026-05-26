@@ -115,7 +115,7 @@ describe('POST /api/research-v2/onboarding', () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
 
     const reviewMetadata = {
-      fieldCount: 47,
+      fieldCount: 52,
       lowConfidenceThreshold: 0.7,
       pinnedFieldKeys: ['idealCustomer'],
       counts: {
@@ -152,7 +152,7 @@ describe('POST /api/research-v2/onboarding', () => {
       websiteUrl: 'https://fellow.app',
       researchV2OnboardingReview: {
         source: 'onboarding_v2_review',
-        fieldCount: 47,
+        fieldCount: 52,
         pinnedFieldKeys: ['idealCustomer'],
         fields: {
           companyName: expect.objectContaining({ state: 'User-edited' }),

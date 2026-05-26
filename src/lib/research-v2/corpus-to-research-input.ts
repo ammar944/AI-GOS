@@ -1,6 +1,7 @@
 import {
   researchInputSchema,
   type CorpusExcerpt,
+  type OnboardingSnapshot,
   type ResearchInput,
   type SourceRef,
 } from "../lab-engine/artifacts/artifact-envelope";
@@ -118,6 +119,121 @@ function getValidUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+function parseSalesProcessDocs(value: unknown): NonNullable<
+  OnboardingSnapshot["salesProcessDocs"]
+> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    const label = firstString(record.label, record.name, record.title);
+    const url = getValidUrl(firstString(record.url, record.href, record.sourceUrl));
+
+    if (label === null || url === null) {
+      return [];
+    }
+
+    return [{ label, url }];
+  }).slice(0, 4);
+}
+
+function parseGtmMotion(value: unknown): OnboardingSnapshot["gtmMotion"] {
+  const motion = asString(value)?.toUpperCase();
+
+  if (motion === "SLG" || motion === "PLG") {
+    return motion;
+  }
+
+  if (motion === "SALES_LED" || motion === "SALES-LED") {
+    return "SLG";
+  }
+
+  if (motion === "PRODUCT_LED" || motion === "PRODUCT-LED") {
+    return "PLG";
+  }
+
+  return undefined;
+}
+
+function parseCreativeCapacity(
+  value: unknown,
+): OnboardingSnapshot["creativeCapacity"] {
+  const capacity = asString(value)?.toLowerCase();
+
+  if (
+    capacity === "lean" ||
+    capacity === "standard" ||
+    capacity === "high"
+  ) {
+    return capacity;
+  }
+
+  return undefined;
+}
+
+function parseBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = asString(value)?.toLowerCase();
+
+  if (normalized === "yes" || normalized === "true") {
+    return true;
+  }
+
+  if (normalized === "no" || normalized === "false") {
+    return false;
+  }
+
+  return undefined;
+}
+
+function buildMediaPlanBriefFields(
+  onboardingData: Record<string, unknown>,
+): Partial<
+  Pick<
+    OnboardingSnapshot,
+    | "salesProcessDocs"
+    | "salesLoomUrl"
+    | "gtmMotion"
+    | "creativeCapacity"
+    | "leadListAvailable"
+  >
+> {
+  const salesProcessDocs = parseSalesProcessDocs(
+    getValue(onboardingData, "salesProcessDocs") ??
+      getValue(onboardingData, "sales_process_docs"),
+  );
+  const salesLoomUrl = getValidUrl(
+    firstString(
+      getValue(onboardingData, "salesLoomUrl"),
+      getValue(onboardingData, "sales_loom_url"),
+    ),
+  );
+  const gtmMotion =
+    parseGtmMotion(getValue(onboardingData, "gtmMotion")) ??
+    parseGtmMotion(getValue(onboardingData, "salesMotion"));
+  const creativeCapacity = parseCreativeCapacity(
+    getValue(onboardingData, "creativeCapacity") ??
+      getValue(onboardingData, "creative_capacity"),
+  );
+  const leadListAvailable = parseBoolean(
+    getValue(onboardingData, "leadListAvailable") ??
+      getValue(onboardingData, "lead_list_available"),
+  );
+
+  return {
+    ...(salesProcessDocs.length === 0 ? {} : { salesProcessDocs }),
+    ...(salesLoomUrl === null ? {} : { salesLoomUrl }),
+    ...(gtmMotion === undefined ? {} : { gtmMotion }),
+    ...(creativeCapacity === undefined ? {} : { creativeCapacity }),
+    ...(leadListAvailable === undefined ? {} : { leadListAvailable }),
+  };
 }
 
 function resolveUrl({
@@ -326,6 +442,7 @@ export function corpusToResearchInput(
     data,
     productDescription,
   });
+  const mediaPlanBriefFields = buildMediaPlanBriefFields(onboardingData);
   const sourceRecords = asRecordArray(corpus.sources);
   const firstCorpusSourceUrl = sourceRecords
     .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
@@ -390,6 +507,7 @@ export function corpusToResearchInput(
         getFieldValue(onboardingFields, "constraints"),
       ),
       notes: researchSummary,
+      ...mediaPlanBriefFields,
     },
     corpus: {
       excerpts: buildCorpusExcerpts({

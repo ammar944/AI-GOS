@@ -99,6 +99,58 @@ describe('currentMarketingActivities field', () => {
 
 });
 
+describe('media-plan brief fields', () => {
+  const MEDIA_PLAN_BRIEF_KEYS = [
+    'salesProcessDocs',
+    'salesLoomUrl',
+    'gtmMotion',
+    'creativeCapacity',
+    'leadListAvailable',
+  ] as const;
+
+  it.each(MEDIA_PLAN_BRIEF_KEYS)('defines %s as an optional manual follow-up field', (key) => {
+    const def = getJourneyFieldDefinition(key);
+    expect(def).toBeDefined();
+    expect(def?.category).toBe('section-followup');
+    expect(def?.collectionMode).toBe('manual');
+    expect(def?.prefillVisible).toBeFalsy();
+    expect(JOURNEY_REQUIRED_FIELD_KEYS.has(key)).toBe(false);
+    expect(JOURNEY_PRICING_GROUP_KEYS.has(key)).toBe(false);
+  });
+
+  it('surfaces sales-process assets in Journey and profile strategy groups', () => {
+    const journeyGroup = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'goals-strategy');
+    const profileGroup = PROFILE_FIELD_GROUPS.find((g) => g.id === 'goals-strategy');
+
+    expect(journeyGroup?.fieldKeys).toEqual(
+      expect.arrayContaining(['salesProcessDocs', 'salesLoomUrl']),
+    );
+    expect(profileGroup?.fieldKeys).toEqual(
+      expect.arrayContaining(['salesProcessDocs', 'salesLoomUrl']),
+    );
+    expect(PROFILE_MULTILINE_KEYS.has('salesProcessDocs')).toBe(true);
+  });
+
+  it('surfaces media-plan routing fields in Journey and profile offer groups', () => {
+    const journeyGroup = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'offer-pricing');
+    const profileGroup = PROFILE_FIELD_GROUPS.find((g) => g.id === 'offer-pricing');
+
+    expect(journeyGroup?.fieldKeys).toEqual(
+      expect.arrayContaining(['gtmMotion', 'creativeCapacity', 'leadListAvailable']),
+    );
+    expect(profileGroup?.fieldKeys).toEqual(
+      expect.arrayContaining(['gtmMotion', 'creativeCapacity', 'leadListAvailable']),
+    );
+  });
+
+  it.each(MEDIA_PLAN_BRIEF_KEYS)('provides edit metadata for %s', (key) => {
+    const meta = getManualBlockerMeta(key);
+    expect(meta).toBeDefined();
+    expect(meta?.placeholder).toBeTruthy();
+    expect(meta?.helper).toBeTruthy();
+  });
+});
+
 describe('Current Performance baseline-metric fields', () => {
   const BASELINE_KEYS = ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'] as const;
 

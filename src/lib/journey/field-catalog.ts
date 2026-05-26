@@ -54,6 +54,9 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'pricingTiers', label: 'Pricing Tiers', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'valueProp', label: 'Value Proposition', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'currentFunnelType', label: 'Current Funnel Type', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'gtmMotion', label: 'GTM Motion', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'creativeCapacity', label: 'Creative Capacity', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'leadListAvailable', label: 'Lead List Available', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
   { key: 'guarantees', label: 'Guarantees', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'topCompetitors', label: 'Top Competitors', category: 'required-blocker', section: 'competitors', collectionMode: 'either', prefillVisible: true },
   { key: 'uniqueEdge', label: 'Unique Edge', category: 'required-blocker', section: 'competitors', collectionMode: 'either', prefillVisible: true },
@@ -65,6 +68,8 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'commonObjections', label: 'Common Objections', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'salesCycleLength', label: 'Sales Cycle Length', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'salesProcessOverview', label: 'Sales Process', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'salesProcessDocs', label: 'Sales Process Docs', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'salesLoomUrl', label: 'Sales Process Loom', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'brandPositioning', label: 'Brand Positioning', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'currentMarketingActivities', label: 'Current Marketing Activities', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'monthlyAdBudget', label: 'Monthly Ad Budget', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either' },
@@ -201,6 +206,41 @@ export const JOURNEY_ENRICHMENT_FIELD_METAS: readonly JourneyManualFieldDefiniti
     rows: 4,
   },
   {
+    key: 'gtmMotion',
+    label: 'GTM Motion',
+    placeholder: 'SLG or PLG',
+    helper: 'Explicit motion for media-plan KPI routing. Use SLG for demo-led sales and PLG for self-serve or product-led signup flows.',
+    rows: 1,
+  },
+  {
+    key: 'creativeCapacity',
+    label: 'Creative Capacity',
+    placeholder: 'lean / standard / high',
+    helper: 'How much creative can the team produce per audience during launch.',
+    rows: 1,
+  },
+  {
+    key: 'leadListAvailable',
+    label: 'Lead List Available',
+    placeholder: 'yes / no',
+    helper: 'Whether a 5-10k account or lead list is available for ABM or lookalike audience work.',
+    rows: 1,
+  },
+  {
+    key: 'salesProcessDocs',
+    label: 'Sales Process Docs',
+    placeholder: 'Process overview: https://...\nSDR outreach SOP: https://...\nOpt-in follow-up SOP: https://...\nPersonalization SOP: https://...',
+    helper: 'Structured SOP links for the paid-media sales-process section.',
+    rows: 4,
+  },
+  {
+    key: 'salesLoomUrl',
+    label: 'Sales Process Loom',
+    placeholder: 'https://www.loom.com/share/...',
+    helper: 'Walkthrough video for the current sales process.',
+    rows: 1,
+  },
+  {
     key: 'currentCac',
     label: 'Current CAC',
     placeholder: 'e.g. $450 — what one customer currently costs to acquire',
@@ -317,7 +357,7 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'offer-pricing',
     label: 'Offer & Pricing',
-    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'monthlyRevenueRange', 'payingCustomerCount'],
+    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'monthlyRevenueRange', 'payingCustomerCount', 'gtmMotion', 'creativeCapacity', 'leadListAvailable'],
   },
   {
     id: 'competition',
@@ -327,7 +367,7 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities'],
+    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities', 'salesProcessDocs', 'salesLoomUrl'],
   },
   {
     id: 'current-performance',
@@ -353,7 +393,7 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'offer-pricing',
     label: 'Offer & Pricing',
-    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'currentFunnelType', 'monthlyRevenueRange', 'payingCustomerCount'],
+    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'currentFunnelType', 'gtmMotion', 'creativeCapacity', 'leadListAvailable', 'monthlyRevenueRange', 'payingCustomerCount'],
   },
   {
     id: 'competition',
@@ -363,7 +403,7 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities', 'salesCycleLength', 'salesProcessOverview', 'campaignDuration', 'targetCpl', 'targetCac'],
+    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities', 'salesCycleLength', 'salesProcessOverview', 'salesProcessDocs', 'salesLoomUrl', 'campaignDuration', 'targetCpl', 'targetCac'],
   },
   {
     id: 'current-performance',
@@ -387,6 +427,7 @@ export const PROFILE_MULTILINE_KEYS: ReadonlySet<string> = new Set([
   'desiredTransformation',
   'commonObjections',
   'salesProcessOverview',
+  'salesProcessDocs',
   'brandPositioning',
   'currentMarketingActivities',
 ]);

@@ -60,6 +60,14 @@ const corpusFixture = {
     primaryGoal: "Clarify the strongest paid-media positioning angle.",
     distributionChannels: ["paid search", "paid social"],
     constraints: ["Do not imply fully autonomous workflow ownership."],
+    salesProcessDocs: [
+      { label: "Process overview", url: "https://docs.airtable.com/process" },
+      { label: "SDR outreach SOP", url: "https://docs.airtable.com/sdr" },
+    ],
+    salesLoomUrl: "https://www.loom.com/share/airtable-sales-process",
+    gtmMotion: "SLG",
+    creativeCapacity: "standard",
+    leadListAvailable: true,
   },
 };
 
@@ -80,6 +88,16 @@ describe("corpusToResearchInput", (): void => {
       true,
     );
     expect(parsed.competitorAds).toEqual([]);
+    expect(parsed.onboarding.salesProcessDocs).toEqual([
+      { label: "Process overview", url: "https://docs.airtable.com/process" },
+      { label: "SDR outreach SOP", url: "https://docs.airtable.com/sdr" },
+    ]);
+    expect(parsed.onboarding.salesLoomUrl).toBe(
+      "https://www.loom.com/share/airtable-sales-process",
+    );
+    expect(parsed.onboarding.gtmMotion).toBe("SLG");
+    expect(parsed.onboarding.creativeCapacity).toBe("standard");
+    expect(parsed.onboarding.leadListAvailable).toBe(true);
     expect(JSON.stringify(parsed)).not.toContain("Synthetic");
     expect(JSON.stringify(parsed)).not.toContain("example.com");
   });

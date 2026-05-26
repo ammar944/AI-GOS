@@ -18,15 +18,53 @@ const EMPTY_COUNTS: Record<OnboardingFieldReviewState, number> = {
 };
 
 function isEmptyValue(value: OnboardingV2Data[keyof OnboardingV2Data]): boolean {
-  if (Array.isArray(value)) return value.length === 0;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return true;
+    if (value.every((item): item is string => typeof item === 'string')) {
+      return value.every((item) => item.trim().length === 0);
+    }
+    return value.every(
+      (item) => item.label.trim().length === 0 || item.url.trim().length === 0,
+    );
+  }
+  if (typeof value === 'boolean') return false;
   return String(value ?? '').trim().length === 0;
 }
 
-function normalizeValue(value: string | string[] | null | undefined): string {
+function reviewDisplayValue(
+  value: OnboardingV2Data[keyof OnboardingV2Data],
+): string | string[] {
   if (Array.isArray(value)) {
-    return value.map((item) => item.trim()).filter(Boolean).join('|').toLowerCase();
+    if (value.every((item): item is string => typeof item === 'string')) {
+      return value;
+    }
+
+    return value
+      .filter((item) => item.label.trim().length > 0 && item.url.trim().length > 0)
+      .map((item) => `${item.label}: ${item.url}`)
+      .filter((item) => item.trim().length > 0);
   }
-  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No';
+  }
+
+  return String(value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeValue(
+  value: OnboardingV2Data[keyof OnboardingV2Data] | string | null | undefined,
+): string {
+  const displayValue = reviewDisplayValue(value ?? '');
+  if (Array.isArray(displayValue)) {
+    return displayValue
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join('|')
+      .toLowerCase();
+  }
+
+  return displayValue.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function normalizeConfidence(confidence: number | null): number | null {
@@ -82,7 +120,7 @@ export function buildOnboardingReviewMetadata(
         sectionId: section.id,
         sectionTitle: section.title,
         state,
-        value: Array.isArray(value) ? value : String(value ?? ''),
+        value: reviewDisplayValue(value),
         aiValue: metadata?.value ?? null,
         confidence: normalizeConfidence(metadata?.confidence ?? null),
         sourceUrl: metadata?.sourceUrl ?? null,

@@ -534,9 +534,8 @@ async function injectOnboardingAnswers(
 
     const lines: string[] = [];
     for (const [key, value] of Object.entries(onboardingData)) {
-      if (value === null || value === undefined || value === '') continue;
-      if (Array.isArray(value) && value.length === 0) continue;
-      const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+      const displayValue = formatOnboardingContextValue(value);
+      if (displayValue === null) continue;
       lines.push(`${key}: ${displayValue}`);
     }
 
@@ -550,6 +549,48 @@ async function injectOnboardingAnswers(
     console.warn('[dispatch] Failed to inject onboarding answers:', error);
     return context;
   }
+}
+
+function formatOnboardingContextValue(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'yes' : 'no';
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return null;
+    }
+
+    const formattedValues = value.flatMap((item) => {
+      if (typeof item === 'string') {
+        const trimmed = item.trim();
+        return trimmed.length === 0 ? [] : [trimmed];
+      }
+
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return [];
+      }
+
+      const record = item as Record<string, unknown>;
+      const label = typeof record.label === 'string' ? record.label.trim() : '';
+      const url = typeof record.url === 'string' ? record.url.trim() : '';
+
+      if (!label || !url) {
+        return [];
+      }
+
+      return [`${label}: ${url}`];
+    });
+
+    return formattedValues.length === 0 ? null : formattedValues.join('; ');
+  }
+
+  const displayValue = String(value).trim();
+  return displayValue.length === 0 ? null : displayValue;
 }
 
 export async function buildJourneyResearchDispatchContext(

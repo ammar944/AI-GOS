@@ -20,6 +20,7 @@ import {
   type OnboardingPrefillMetadata,
   type OnboardingReviewMetadata,
   type OnboardingV2Data,
+  type SalesProcessDocRef,
   type SectionField,
 } from '@/lib/research-v2/onboarding-v2-types';
 
@@ -38,6 +39,25 @@ const STATE_CLASS: Record<OnboardingFieldReviewState, string> = {
   Missing: 'border-[var(--accent-red)] text-[color:var(--accent-red)]',
   'Needs review': 'border-[var(--accent-amber)] text-[color:var(--accent-amber)]',
 };
+
+const SALES_PROCESS_DOC_LABELS = [
+  'Process overview',
+  'SDR outreach SOP',
+  'Opt-in follow-up SOP',
+  'Personalization SOP',
+] as const;
+
+function buildSalesProcessDocRows(
+  docs: readonly SalesProcessDocRef[],
+): SalesProcessDocRef[] {
+  return SALES_PROCESS_DOC_LABELS.map((defaultLabel, index) => {
+    const existing = docs[index];
+    return {
+      label: existing?.label ?? defaultLabel,
+      url: existing?.url ?? '',
+    };
+  });
+}
 
 function pinnedLabel(review: OnboardingFieldReview): string {
   if (review.key === 'idealCustomer') return 'Ideal Customer';
@@ -106,6 +126,25 @@ export function OnboardingWizardV2({
       setErrors((prev) => {
         const next = { ...prev };
         delete next.channels;
+        return next;
+      });
+    }
+  }
+
+  function updateSalesProcessDoc(
+    index: number,
+    key: keyof SalesProcessDocRef,
+    value: string,
+  ): void {
+    setData((prev) => {
+      const docs = buildSalesProcessDocRows(prev.salesProcessDocs);
+      docs[index] = { ...docs[index], [key]: value };
+      return { ...prev, salesProcessDocs: docs };
+    });
+    if (errors.salesProcessDocs) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.salesProcessDocs;
         return next;
       });
     }
@@ -222,6 +261,67 @@ export function OnboardingWizardV2({
               >
                 {option.label}
               </Label>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (field.type === 'boolean-radio') {
+      const value = data[field.key];
+      const radioValue =
+        value === null ? '' : value === true ? 'yes' : 'no';
+
+      return (
+        <RadioGroup
+          value={radioValue}
+          onValueChange={(nextValue) =>
+            setField(field.key, (nextValue === 'yes') as never)
+          }
+          className="grid gap-2 pt-1 sm:grid-cols-2"
+        >
+          {[
+            { value: 'yes', label: 'Yes' },
+            { value: 'no', label: 'No' },
+          ].map((option) => (
+            <div key={option.value} className="flex min-h-9 items-center gap-2">
+              <RadioGroupItem value={option.value} id={`${fieldId}-${option.value}`} />
+              <Label
+                htmlFor={`${fieldId}-${option.value}`}
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      );
+    }
+
+    if (field.type === 'sales-process-docs') {
+      const docs = buildSalesProcessDocRows(data.salesProcessDocs);
+
+      return (
+        <div className="grid gap-3">
+          {docs.map((doc, index) => (
+            <div key={SALES_PROCESS_DOC_LABELS[index]} className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <Input
+                aria-label={`${field.label} label ${index + 1}`}
+                value={doc.label}
+                onChange={(event) =>
+                  updateSalesProcessDoc(index, 'label', event.target.value)
+                }
+                placeholder={SALES_PROCESS_DOC_LABELS[index]}
+              />
+              <Input
+                aria-label={`${field.label} URL ${index + 1}`}
+                value={doc.url}
+                onChange={(event) =>
+                  updateSalesProcessDoc(index, 'url', event.target.value)
+                }
+                placeholder="https://docs.google.com/..."
+                className={cn(error && 'border-destructive')}
+              />
             </div>
           ))}
         </div>

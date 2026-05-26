@@ -47,6 +47,12 @@ function makeCompleteData(): OnboardingV2Data {
     commonObjections: 'We already have meeting notes.',
     keyPromises: 'Turn meetings into accountable follow-through.',
     brandPositioning: 'The meeting productivity platform for teams.',
+    salesProcessDocs: [
+      { label: 'Process overview', url: 'https://docs.example.com/process' },
+      { label: 'SDR outreach SOP', url: 'https://docs.example.com/sdr' },
+    ],
+    salesLoomUrl: 'https://www.loom.com/share/fellow-sales-process',
+    gtmMotion: 'SLG',
     channels: ['google', 'linkedin'],
     budgetSplit: 'Google 60%, LinkedIn 40%',
     whatsWorking: 'Search demand around meeting notes.',
@@ -60,6 +66,8 @@ function makeCompleteData(): OnboardingV2Data {
     activationToPaid: '18%',
     demoToClose: '22%',
     growthTrend: '+12% MoM',
+    creativeCapacity: 'standard',
+    leadListAvailable: true,
   };
 }
 
@@ -94,13 +102,15 @@ describe('OnboardingWizardV2 review surface', () => {
       />,
     );
 
-    expect(screen.getAllByTestId(/^onboarding-field-/)).toHaveLength(47);
+    expect(screen.getAllByTestId(/^onboarding-field-/)).toHaveLength(52);
     for (const section of SECTION_META) {
       expect(screen.getByRole('heading', { name: section.title })).toBeInTheDocument();
     }
     expect(screen.getByLabelText('Company Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Activation → paid %')).toBeInTheDocument();
     expect(screen.getByLabelText('Last 3–6 months growth trend')).toBeInTheDocument();
+    expect(screen.getByLabelText('Sales-process Loom')).toBeInTheDocument();
+    expect(screen.getByText('Do you have a 5–10k lead/account list available?')).toBeInTheDocument();
   });
 
   it('pins missing and low-confidence fields without hiding filled group fields', () => {
@@ -169,7 +179,7 @@ describe('OnboardingWizardV2 review surface', () => {
 
     expect(onComplete).toHaveBeenCalledTimes(1);
     const [, review] = onComplete.mock.calls[0] as [OnboardingV2Data, { fieldCount: number; fields: Record<string, { state: string }> }];
-    expect(review.fieldCount).toBe(47);
+    expect(review.fieldCount).toBe(52);
     expect(review.fields.productDescription.state).toBe('AI-filled');
     expect(review.fields.companyName.state).toBe('User-edited');
     expect(review.fields.idealCustomer.state).toBe('Needs review');

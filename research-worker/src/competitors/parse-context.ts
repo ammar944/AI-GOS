@@ -8,6 +8,11 @@ export interface CompetitorEntry {
   inferredDomain: boolean;
 }
 
+export interface SalesProcessDocRef {
+  label: string;
+  url: string;
+}
+
 export interface IdentityCard {
   category: string;
   subcategory: string;
@@ -35,6 +40,11 @@ export interface ParsedCompetitorContext {
   pricingContext: string | null;
   uniqueEdge: string | null;
   goals: string | null;
+  salesProcessDocs: SalesProcessDocRef[];
+  salesLoomUrl: string | null;
+  gtmMotion: 'SLG' | 'PLG' | null;
+  creativeCapacity: string | null;
+  leadListAvailable: boolean | null;
   identityCard: IdentityCard | null;
   rawContext: string;
 }
@@ -58,6 +68,49 @@ function extractField(context: string, ...labels: string[]): string | null {
     }
   }
   return null;
+}
+
+function parseBooleanField(value: string | null): boolean | null {
+  if (value === null) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'yes' || normalized === 'true') return true;
+  if (normalized === 'no' || normalized === 'false') return false;
+
+  return null;
+}
+
+function parseGtmMotion(value: string | null): 'SLG' | 'PLG' | null {
+  if (value === null) {
+    return null;
+  }
+
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'SLG') return 'SLG';
+  if (normalized === 'PLG') return 'PLG';
+
+  return null;
+}
+
+function parseSalesProcessDocs(value: string | null): SalesProcessDocRef[] {
+  if (value === null) {
+    return [];
+  }
+
+  return value
+    .split(/[;\n]+/)
+    .map((part) => part.trim())
+    .flatMap((part) => {
+      const match = part.match(/^(.+?):\s*(https?:\/\/\S+)$/i);
+      if (!match?.[1] || !match[2]) {
+        return [];
+      }
+
+      return [{ label: match[1].trim(), url: match[2].trim() }];
+    })
+    .slice(0, 4);
 }
 
 /**
@@ -156,6 +209,18 @@ export function parseCompetitorContext(context: string): ParsedCompetitorContext
 
   const competitors = competitorsRaw ? parseCompetitorString(competitorsRaw) : [];
   const identityCard = extractIdentityCard(context);
+  const salesProcessDocsRaw = extractField(
+    context,
+    'salesProcessDocs',
+    'Sales Process Docs',
+    'Sales Process Documents',
+  );
+  const gtmMotionRaw = extractField(context, 'gtmMotion', 'GTM Motion');
+  const leadListAvailableRaw = extractField(
+    context,
+    'leadListAvailable',
+    'Lead List Available',
+  );
 
   return {
     competitors,
@@ -186,6 +251,11 @@ export function parseCompetitorContext(context: string): ParsedCompetitorContext
     ),
     uniqueEdge: extractField(context, 'Unique Edge', 'Differentiator', 'Competitive Advantage'),
     goals: extractField(context, 'Goals', 'Objective', 'Target'),
+    salesProcessDocs: parseSalesProcessDocs(salesProcessDocsRaw),
+    salesLoomUrl: extractField(context, 'salesLoomUrl', 'Sales Process Loom'),
+    gtmMotion: parseGtmMotion(gtmMotionRaw),
+    creativeCapacity: extractField(context, 'creativeCapacity', 'Creative Capacity'),
+    leadListAvailable: parseBooleanField(leadListAvailableRaw),
     identityCard,
     rawContext: context,
   };
