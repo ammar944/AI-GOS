@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
@@ -129,5 +129,26 @@ describe('<SectionCard>', () => {
       0,
     );
     expect(screen.getAllByTestId('awareness-row')).toHaveLength(5);
+  });
+
+  it('renders a one-line verdict strip with subtle confidence and source metadata', (): void => {
+    render(
+      <SectionCard
+        zoneId="positioningMarketCategory"
+        body={{
+          title: 'Market & Category Intelligence',
+          data: marketCategoryFixtureArtifact,
+        }}
+        workerState={completeWorkerState('positioningMarketCategory')}
+      />,
+    );
+
+    const verdictLine = screen.getByTestId(
+      'section-verdict-line-positioningMarketCategory',
+    );
+
+    expect(verdictLine).toHaveTextContent(marketCategoryFixtureArtifact.verdict);
+    expect(within(verdictLine).getByText('Confidence 6/10')).toBeInTheDocument();
+    expect(within(verdictLine).getByText('3 sources')).toBeInTheDocument();
   });
 });

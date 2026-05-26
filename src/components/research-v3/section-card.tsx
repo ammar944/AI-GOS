@@ -17,7 +17,10 @@ import type {
   AllPositioningSectionId,
   PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
-import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
+import {
+  pickPositioningTypedArtifact,
+  type PositioningTypedArtifact,
+} from '@/types/positioning-artifact';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
 import type { AuditStateResponse, SectionEvent } from '@/app/api/research-v2/audit-state/route';
@@ -78,6 +81,17 @@ function getStreamingText(
   return workerState.latestActivity ?? workerState.phaseLabel ?? 'Drafting…';
 }
 
+function formatConfidence(confidence: number): string {
+  const normalized = confidence <= 1 ? confidence * 10 : confidence;
+  const bounded = Math.max(0, Math.min(10, normalized));
+  const rounded = Math.round(bounded * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function formatSourceCount(count: number): string {
+  return count === 1 ? '1 source' : `${count} sources`;
+}
+
 // ---------------------------------------------------------------------------
 // SectionCard props
 // ---------------------------------------------------------------------------
@@ -125,6 +139,10 @@ export function SectionCard({
         zoneId={zoneId}
       />
 
+      {artifact ? (
+        <SectionVerdictLine artifact={artifact} zoneId={zoneId} />
+      ) : null}
+
       <ResearchCardShell
         icon={Icon}
         label={label}
@@ -155,6 +173,29 @@ export function SectionCard({
           </Shimmer>
         </div>
       )}
+    </div>
+  );
+}
+
+function SectionVerdictLine({
+  artifact,
+  zoneId,
+}: {
+  artifact: PositioningTypedArtifact;
+  zoneId: PositioningSectionId;
+}): ReactElement {
+  return (
+    <div
+      data-testid={`section-verdict-line-${zoneId}`}
+      className="mb-3 border-l-2 border-[color:var(--accent)] py-1 pl-4"
+    >
+      <p className="text-sm leading-[1.55] text-[color:var(--text-1)]">
+        {artifact.verdict}
+      </p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+        <span>Confidence {formatConfidence(artifact.confidence)}/10</span>
+        <span>{formatSourceCount(artifact.sources.length)}</span>
+      </div>
     </div>
   );
 }

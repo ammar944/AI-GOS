@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
 import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import {
@@ -36,6 +40,26 @@ const AD_PLATFORM_LABEL: Record<string, string> = {
   linkedin: 'LinkedIn',
 };
 
+type CompetitorRow =
+  CompetitorLandscapeArtifact['competitorSet']['competitors'][number];
+type PricingPoint =
+  CompetitorLandscapeArtifact['pricingReality']['dataPoints'][number];
+type ShareOfVoiceSlice =
+  CompetitorLandscapeArtifact['shareOfVoice']['slices'][number];
+type CompetitorWeakness =
+  CompetitorLandscapeArtifact['publicWeaknesses']['items'][number];
+type NarrativeArc =
+  CompetitorLandscapeArtifact['narrativeArcs']['arcs'][number];
+type AdPresenceSignal =
+  CompetitorLandscapeArtifact['adPresence']['signals'][number];
+
+interface AxisPosition {
+  axisName: string;
+  ourPosition: string;
+  position: string;
+  evidenceUrl: string;
+}
+
 function CompetitorTypePill({ value }: { value: string }): React.ReactElement {
   return (
     <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
@@ -61,6 +85,225 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
 function formatPlatforms(platforms: readonly string[]): string {
   if (platforms.length === 0) return 'No active platform observed';
   return platforms.map((platform) => AD_PLATFORM_LABEL[platform] ?? platform).join(', ');
+}
+
+function getUniqueCompetitors(
+  competitors: readonly CompetitorRow[],
+): CompetitorRow[] {
+  const seen = new Set<string>();
+  return competitors.filter((competitor) => {
+    if (seen.has(competitor.name)) return false;
+    seen.add(competitor.name);
+    return true;
+  });
+}
+
+function toDomId(value: string): string {
+  const cleaned = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || 'competitor';
+}
+
+function findByCompetitor<T extends { competitor: string }>(
+  rows: readonly T[],
+  competitorName: string,
+): T | null {
+  return rows.find((row) => row.competitor === competitorName) ?? null;
+}
+
+function getAxisPositions(
+  artifact: CompetitorLandscapeArtifact,
+  competitorName: string,
+): AxisPosition[] {
+  return artifact.positioningTaxonomy.axes.flatMap((axis) =>
+    axis.competitorPositions
+      .filter((position) => position.competitor === competitorName)
+      .map((position) => ({
+        axisName: axis.axisName,
+        ourPosition: axis.ourPosition,
+        position: position.position,
+        evidenceUrl: axis.evidenceUrl,
+      })),
+  );
+}
+
+function CompetitorFact({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="grid gap-1">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+        {label}
+      </dt>
+      <dd className="text-[13px] leading-[1.5] text-[color:var(--text-secondary)]">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+function CompetitorFocusPanel({
+  artifact,
+}: {
+  artifact: CompetitorLandscapeArtifact;
+}): React.ReactElement | null {
+  const competitors = useMemo(
+    () => getUniqueCompetitors(artifact.competitorSet.competitors),
+    [artifact.competitorSet.competitors],
+  );
+  const [selectedName, setSelectedName] = useState(
+    competitors[0]?.name ?? '',
+  );
+
+  useEffect(() => {
+    if (competitors.some((competitor) => competitor.name === selectedName)) {
+      return;
+    }
+    setSelectedName(competitors[0]?.name ?? '');
+  }, [competitors, selectedName]);
+
+  if (competitors.length === 0) return null;
+
+  const selectedCompetitor =
+    competitors.find((competitor) => competitor.name === selectedName) ??
+    competitors[0];
+  const selectedId = toDomId(selectedCompetitor.name);
+  const pricingPoint: PricingPoint | null = findByCompetitor(
+    artifact.pricingReality.dataPoints,
+    selectedCompetitor.name,
+  );
+  const shareOfVoiceSlice: ShareOfVoiceSlice | null =
+    artifact.shareOfVoice.slices.find(
+      (slice) => slice.winner === selectedCompetitor.name,
+    ) ?? null;
+  const weakness: CompetitorWeakness | null = findByCompetitor(
+    artifact.publicWeaknesses.items,
+    selectedCompetitor.name,
+  );
+  const narrativeArc: NarrativeArc | null = findByCompetitor(
+    artifact.narrativeArcs.arcs,
+    selectedCompetitor.name,
+  );
+  const adSignal: AdPresenceSignal | null = artifact.adPresence
+    ? findByCompetitor(artifact.adPresence.signals, selectedCompetitor.name)
+    : null;
+  const axisPositions = getAxisPositions(artifact, selectedCompetitor.name);
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div
+        role="tablist"
+        aria-label="Competitors"
+        className="flex gap-2 overflow-x-auto border-b border-[var(--border-subtle)]"
+      >
+        {competitors.map((competitor) => {
+          const selected = competitor.name === selectedCompetitor.name;
+          const tabId = toDomId(competitor.name);
+          return (
+            <button
+              key={competitor.name}
+              id={`competitor-tab-${tabId}`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`competitor-panel-${tabId}`}
+              onClick={() => setSelectedName(competitor.name)}
+              className={cn(
+                'shrink-0 border-b-2 px-1 pb-2 pt-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] transition-colors',
+                selected
+                  ? 'border-[color:var(--accent-blue)] text-[color:var(--text-primary)]'
+                  : 'border-transparent text-[color:var(--text-tertiary)] hover:text-[color:var(--text-secondary)]',
+              )}
+            >
+              {competitor.name}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        id={`competitor-panel-${selectedId}`}
+        role="tabpanel"
+        aria-labelledby={`competitor-tab-${selectedId}`}
+        data-testid="competitor-focus-panel"
+        className="grid gap-5 border-b border-[var(--border-subtle)] pb-6"
+      >
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-[18px] font-semibold leading-tight tracking-[0] text-[color:var(--text-primary)]">
+              {selectedCompetitor.name}
+            </h3>
+            <CompetitorTypePill value={selectedCompetitor.competitorType} />
+          </div>
+          <p className="max-w-[72ch] text-[14px] leading-[1.65] text-[color:var(--text-secondary)]">
+            {selectedCompetitor.oneLinePositioning}
+          </p>
+          <SourceLink url={selectedCompetitor.sourceUrl} />
+        </div>
+
+        <dl className="grid gap-4 md:grid-cols-2">
+          <CompetitorFact label="Hero copy">
+            {selectedCompetitor.verbatimHeroCopy}
+          </CompetitorFact>
+          <CompetitorFact label="Pricing position">
+            {pricingPoint
+              ? `${pricingPoint.tierName} · ${pricingPoint.monthlyPrice} · ${pricingPoint.packagingPattern}`
+              : selectedCompetitor.pricingPosition}
+          </CompetitorFact>
+          {shareOfVoiceSlice ? (
+            <CompetitorFact label="Share of voice">
+              {shareOfVoiceSlice.surface}: {shareOfVoiceSlice.evidence}
+            </CompetitorFact>
+          ) : null}
+          {adSignal ? (
+            <CompetitorFact label="Ad presence">
+              {formatPlatforms(adSignal.platforms)} · {adSignal.estSpend}
+            </CompetitorFact>
+          ) : null}
+          {narrativeArc ? (
+            <CompetitorFact label="Narrative arc">
+              {narrativeArc.villain} → {narrativeArc.hero}: {narrativeArc.transformationClaim}
+            </CompetitorFact>
+          ) : null}
+          {weakness ? (
+            <CompetitorFact label="Public weakness">
+              {weakness.verbatimQuote} · {weakness.whyItMatters}
+            </CompetitorFact>
+          ) : null}
+        </dl>
+
+        {axisPositions.length > 0 ? (
+          <div className="grid gap-2">
+            <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+              Positioning axes
+            </div>
+            <ul className="grid gap-2">
+              {axisPositions.map((axis) => (
+                <li
+                  key={`${axis.axisName}-${axis.position}`}
+                  className="grid gap-1 text-[13px] leading-[1.5] text-[color:var(--text-secondary)]"
+                >
+                  <span className="font-medium text-[color:var(--text-primary)]">
+                    {axis.axisName}
+                  </span>
+                  <span>{selectedCompetitor.name}: {axis.position}</span>
+                  <span className="text-[color:var(--text-tertiary)]">
+                    Us: {axis.ourPosition}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
 export function CompetitorLandscapeRenderer({
@@ -224,6 +467,8 @@ export function CompetitorLandscapeRenderer({
 
   return (
     <div className={cn('flex flex-col gap-12', className)}>
+      <CompetitorFocusPanel artifact={artifact} />
+
       <SubsectionBlock label="1 · Competitor Set" prose={competitorSet.prose}>
         <DataTable columns={competitorColumns} rows={competitorSet.competitors} rowKey={r => r.url || r.name} />
       </SubsectionBlock>

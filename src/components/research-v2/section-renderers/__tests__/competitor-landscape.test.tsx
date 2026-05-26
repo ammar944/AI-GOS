@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
@@ -30,5 +30,20 @@ describe('CompetitorLandscapeRenderer', () => {
     expect(blocks[6]).toHaveTextContent('SignalForge');
     expect(blocks[6]).toHaveTextContent('LinkedIn');
     expect(blocks[6]).toHaveTextContent('unknown; one displayable LinkedIn creative observed');
+  });
+
+  it('switches the competitor focus panel via competitor tabs', () => {
+    render(<CompetitorLandscapeRenderer artifact={makeManagedArtifact()} />);
+
+    const tablist = screen.getByRole('tablist', { name: 'Competitors' });
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(5);
+
+    fireEvent.click(within(tablist).getByRole('tab', { name: /PipelinePilot/i }));
+
+    const panel = screen.getByTestId('competitor-focus-panel');
+    expect(within(panel).getByRole('heading', { name: 'PipelinePilot' })).toBeInTheDocument();
+    expect(within(panel).getByText('CRM hygiene and stale-deal cleanup before pipeline review.')).toBeInTheDocument();
+    expect(within(panel).getAllByText(/Google/).length).toBeGreaterThan(0);
+    expect(within(panel).getByText(/Stale CRM data/)).toBeInTheDocument();
   });
 });
