@@ -87,6 +87,21 @@ function getPanelTitle(sectionId: ReaderSectionId): string {
   return READER_SECTION_LABELS[sectionId];
 }
 
+function getWaveSummary(
+  workerStates: ReturnType<typeof useAuditState>['workerStates'],
+): string {
+  const running = workerStates.filter((worker) => worker.status === 'running');
+  const queued = workerStates.filter((worker) => worker.status === 'queued');
+  const complete = workerStates.filter((worker) => worker.status === 'complete');
+  const waveSource =
+    running.find((worker) => worker.wave !== null || worker.totalWaves !== null) ??
+    workerStates.find((worker) => worker.wave !== null || worker.totalWaves !== null);
+  const wave = waveSource?.wave ?? 1;
+  const totalWaves = waveSource?.totalWaves ?? 1;
+
+  return `Wave ${wave} of ${totalWaves} · ${running.length} running / ${queued.length} queued / ${complete.length} complete`;
+}
+
 export function BattleshipShell({
   runId,
   activeSectionId = FIRST_READER_SECTION_ID,
@@ -131,6 +146,9 @@ export function BattleshipShell({
             >
               run {runId.slice(0, 8)} · {live.children_complete}/
               {live.children_total || POSITIONING_SECTION_IDS.length} complete
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-3)]">
+              {getWaveSummary(live.workerStates)}
             </p>
 
             <div
@@ -215,6 +233,7 @@ export function BattleshipShell({
                 <SectionCard
                   zoneId={selectedSectionId}
                   body={live.sectionsByZone[selectedSectionId]}
+                  events={live.eventsByZone[selectedSectionId] ?? []}
                   workerState={workerByZone[selectedSectionId]}
                 />
               )}

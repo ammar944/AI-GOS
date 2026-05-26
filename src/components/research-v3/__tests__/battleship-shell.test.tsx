@@ -47,7 +47,11 @@ describe('<BattleshipShell>', () => {
       children_total: 6,
       workerStates: [
         queuedWorker('positioningMarketCategory'),
-        runningWorker('positioningBuyerICP'),
+        {
+          ...runningWorker('positioningBuyerICP'),
+          wave: 1,
+          totalWaves: 2,
+        },
         completeWorker('positioningCompetitorLandscape'),
       ],
     });
@@ -70,6 +74,9 @@ describe('<BattleshipShell>', () => {
     expect(screen.getByRole('tab', { name: /market.*queued/i })).toBeEnabled();
     expect(screen.getByRole('tab', { name: /competitor.*done/i })).toBeEnabled();
     expect(screen.getByRole('tab', { name: /paid media plan.*locked/i })).toBeEnabled();
+    expect(
+      screen.getByText('Wave 1 of 2 · 1 running / 1 queued / 1 complete'),
+    ).toBeInTheDocument();
   });
 
   it('paginates one active section at a time in pipeline order', (): void => {
@@ -107,6 +114,48 @@ describe('<BattleshipShell>', () => {
       screen.getByRole('tab', { name: /paid media plan.*locked/i }),
     ).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText(/unlocks after 6\/6/i)).toBeInTheDocument();
+  });
+
+  it('shows live sub-section checklist ticks from section events', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      workerStates: [runningWorker('positioningMarketCategory')],
+      eventsByZone: {
+        positioningMarketCategory: [
+          {
+            id: 'event-1',
+            event_type: 'sub-section-committed',
+            message: 'Category definition committed',
+            payload: {
+              sectionId: 'positioningMarketCategory',
+              subSectionKey: 'categoryDefinition',
+              status: 'committed',
+            },
+            created_at: '2026-05-26T10:00:00.000Z',
+          },
+        ],
+      },
+    });
+
+    render(
+      <BattleshipShell
+        runId="run_phase_c"
+        activeSectionId="positioningMarketCategory"
+        onSectionChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText('Category definition and adjacent categories'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'sub-section-status-positioningMarketCategory-categoryDefinition',
+      ),
+    ).toHaveTextContent('Committed');
+    expect(
+      screen.getByTestId('sub-section-status-positioningMarketCategory-marketSize'),
+    ).toHaveTextContent('Queued');
   });
 });
 

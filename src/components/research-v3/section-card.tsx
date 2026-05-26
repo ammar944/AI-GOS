@@ -3,6 +3,8 @@
 import { type ReactElement } from 'react';
 import {
   BarChart3,
+  CheckCircle2,
+  Circle,
   Users,
   Swords,
   MessageSquare,
@@ -15,7 +17,8 @@ import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { pickPositioningTypedArtifact } from '@/types/positioning-artifact';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
-import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
+import type { AuditStateResponse, SectionEvent } from '@/app/api/research-v2/audit-state/route';
+import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
 
 import { ResearchCardShell } from './research-card-shell';
 
@@ -78,12 +81,14 @@ function getStreamingText(
 interface SectionCardProps {
   zoneId: PositioningSectionId;
   body: { markdown?: string; title?: string; data?: unknown } | undefined;
+  events?: readonly SectionEvent[];
   workerState: AuditStateResponse['workerStates'][number] | undefined;
 }
 
 export function SectionCard({
   zoneId,
   body,
+  events = [],
   workerState,
 }: SectionCardProps): ReactElement {
   const status = toCardStatus(workerState?.status);
@@ -110,6 +115,12 @@ export function SectionCard({
 
   return (
     <div id={`section-${zoneId}`} className="scroll-mt-16">
+      <SubSectionChecklist
+        committedAll={artifact !== null}
+        events={events}
+        zoneId={zoneId}
+      />
+
       <ResearchCardShell
         icon={Icon}
         label={label}
@@ -140,6 +151,71 @@ export function SectionCard({
           </Shimmer>
         </div>
       )}
+    </div>
+  );
+}
+
+interface SubSectionChecklistProps {
+  zoneId: PositioningSectionId;
+  events: readonly SectionEvent[];
+  committedAll: boolean;
+}
+
+function getCommittedSubSectionKeys(
+  events: readonly SectionEvent[],
+): ReadonlySet<string> {
+  return new Set(
+    events
+      .filter((event) => event.event_type === 'sub-section-committed')
+      .map((event) =>
+        typeof event.payload?.subSectionKey === 'string' &&
+        event.payload.status === 'committed'
+          ? event.payload.subSectionKey
+          : null,
+      )
+      .filter((key): key is string => key !== null),
+  );
+}
+
+function SubSectionChecklist({
+  committedAll,
+  events,
+  zoneId,
+}: SubSectionChecklistProps): ReactElement {
+  const committedKeys = getCommittedSubSectionKeys(events);
+
+  return (
+    <div className="mb-3 grid gap-2 rounded-[8px] border border-[color:var(--border)] px-4 py-3">
+      {getSectionSubSections(zoneId).map((subSection) => {
+        const committed = committedAll || committedKeys.has(subSection.key);
+        return (
+          <div
+            key={subSection.key}
+            className="flex items-center justify-between gap-3 text-xs"
+          >
+            <span className="flex min-w-0 items-center gap-2 text-[color:var(--text-2)]">
+              {committed ? (
+                <CheckCircle2
+                  className="size-3.5 shrink-0 text-[color:var(--green,var(--accent-green))]"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Circle
+                  className="size-3.5 shrink-0 text-[color:var(--text-4)]"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="truncate">{subSection.label}</span>
+            </span>
+            <span
+              data-testid={`sub-section-status-${zoneId}-${subSection.key}`}
+              className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]"
+            >
+              {committed ? 'Committed' : 'Queued'}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

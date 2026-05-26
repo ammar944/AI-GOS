@@ -18,6 +18,7 @@ export const activityEventTypes = [
   "structured-output-started",
   "validation-failed",
   "repair-started",
+  "sub-section-committed",
   "artifact-saved",
   "section-completed",
   "section-failed",
@@ -154,6 +155,19 @@ export const activityEventSchema = z.discriminatedUnion("type", [
       metadata: z
         .object({
           reason: z.string().min(1),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...activityBaseFields,
+      type: z.literal("sub-section-committed"),
+      sectionId: sectionIdSchema,
+      metadata: z
+        .object({
+          subSectionKey: z.string().min(1),
+          status: z.literal("committed"),
         })
         .strict(),
     })

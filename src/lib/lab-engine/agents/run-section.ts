@@ -21,6 +21,7 @@ import {
   type SectionOutput,
   type SupportedSectionId,
 } from "../sections/section-registry";
+import { getSectionSubSections } from "../sections/sub-sections";
 import type { RunStore } from "../runs/run-store";
 import {
   buildAnswerToolInstructions,
@@ -181,6 +182,48 @@ async function appendEvent(
   event: ActivityEvent,
 ): Promise<void> {
   await deps.store.appendEvent(runId, event);
+}
+
+function buildSubSectionCommittedEvents({
+  artifact,
+  deps,
+  input,
+}: {
+  artifact: ArtifactEnvelope;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+}): ActivityEvent[] {
+  const bodyRecord = getRecord(artifact.body) ?? {};
+
+  return getSectionSubSections(input.sectionId)
+    .filter((subSection) => bodyRecord[subSection.key] !== undefined)
+    .map((subSection) =>
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "sub-section-committed",
+        message: `${subSection.label} committed`,
+        metadata: {
+          subSectionKey: subSection.key,
+          status: "committed",
+        },
+      }),
+    );
+}
+
+async function appendSubSectionCommittedEvents({
+  artifact,
+  deps,
+  input,
+}: {
+  artifact: ArtifactEnvelope;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+}): Promise<void> {
+  for (const event of buildSubSectionCommittedEvents({ artifact, deps, input })) {
+    await appendEvent(deps, input.runId, event);
+  }
 }
 
 async function markSectionFailed({
@@ -1856,6 +1899,11 @@ async function runSectionViaAnswerTool(
     }
   }
 
+  await appendSubSectionCommittedEvents({
+    artifact: attempt.artifact,
+    deps,
+    input,
+  });
   await deps.store.saveArtifact(input.runId, attempt.artifact);
   await appendEvent(
     deps,
@@ -2122,6 +2170,11 @@ async function streamSectionViaAnswerTool(
     runId: input.runId,
     sectionId: input.sectionId,
     state: "passed",
+  });
+  await appendSubSectionCommittedEvents({
+    artifact: attempt.artifact,
+    deps,
+    input,
   });
   await deps.store.saveArtifact(input.runId, attempt.artifact);
   await appendEvent(
@@ -2488,6 +2541,11 @@ export async function streamRunSection(
     }
   }
 
+  await appendSubSectionCommittedEvents({
+    artifact,
+    deps,
+    input,
+  });
   await deps.store.saveArtifact(input.runId, artifact);
   await appendEvent(
     deps,
@@ -2802,6 +2860,11 @@ export async function runSection(
     }
   }
 
+  await appendSubSectionCommittedEvents({
+    artifact,
+    deps,
+    input,
+  });
   await deps.store.saveArtifact(input.runId, artifact);
   await appendEvent(
     deps,

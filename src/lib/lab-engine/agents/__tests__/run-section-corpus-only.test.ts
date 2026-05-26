@@ -119,6 +119,55 @@ describe('runSection corpus-only mode', (): void => {
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
   });
 
+  it('emits sub-section commit events before the final artifact save event', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-26T10:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [],
+      text: '',
+      answerInput: buildMarketCategoryOutput(),
+    }));
+
+    await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-26T10:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const subSectionEvents = record.events.filter(
+      (event) => event.type === 'sub-section-committed',
+    );
+
+    expect(subSectionEvents.map((event) => event.metadata.subSectionKey)).toEqual([
+      'categoryDefinition',
+      'marketSize',
+      'structuralForces',
+      'categoryMaturity',
+    ]);
+    expect(subSectionEvents.every((event) => event.metadata.status === 'committed')).toBe(
+      true,
+    );
+    expect(eventTypes.indexOf('sub-section-committed')).toBeLessThan(
+      eventTypes.indexOf('artifact-saved'),
+    );
+  });
+
   it('repairs answer-tool outputs that miss section minimums', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
