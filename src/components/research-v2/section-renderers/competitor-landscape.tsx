@@ -62,7 +62,7 @@ interface AxisPosition {
 
 function CompetitorTypePill({ value }: { value: string }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
       {COMPETITOR_TYPE_LABEL[value] ?? value}
     </span>
   );
@@ -75,7 +75,7 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -330,14 +330,14 @@ export function CompetitorLandscapeRenderer({
       render: row => (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
+            <span className="font-medium text-foreground">{row.name}</span>
             <CompetitorTypePill value={row.competitorType} />
           </div>
           <a
             href={row.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-[10px] text-[color:var(--text-tertiary)] no-underline hover:text-[color:var(--accent-blue)] hover:underline"
+            className="text-[10px] text-muted-foreground no-underline hover:text-primary hover:underline"
           >
             {hostnameOf(row.url)} →
           </a>
@@ -374,7 +374,7 @@ export function CompetitorLandscapeRenderer({
       key: 'competitor',
       header: 'Competitor',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.competitor}</span>
+        <span className="font-medium text-foreground">{row.competitor}</span>
       ),
     },
     { key: 'tierName', header: 'Tier' },
@@ -396,7 +396,7 @@ export function CompetitorLandscapeRenderer({
       key: 'surface',
       header: 'Surface',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.surface}</span>
+        <span className="font-medium text-foreground">{row.surface}</span>
       ),
     },
     { key: 'winner', header: 'Winner' },
@@ -427,7 +427,7 @@ export function CompetitorLandscapeRenderer({
       key: 'competitor',
       header: 'Competitor',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.competitor}</span>
+        <span className="font-medium text-foreground">{row.competitor}</span>
       ),
     },
     { key: 'villain', header: 'Villain' },
@@ -492,7 +492,7 @@ export function CompetitorLandscapeRenderer({
           rowKey={r => `${r.surface}-${r.winner}`}
         />
         {winnerSegments.length > 1 ? (
-          <div className="mt-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+          <div className="mt-2 rounded-md border border-border bg-card p-4">
             <BarBreakdown
               caption="Winner frequency across surfaces"
               total={`${shareOfVoice.slices.length} surfaces`}
@@ -513,7 +513,7 @@ export function CompetitorLandscapeRenderer({
               emphasis={
                 item.whyItMatters ? (
                   <span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                       why it matters ·{' '}
                     </span>
                     {item.whyItMatters}
@@ -523,7 +523,7 @@ export function CompetitorLandscapeRenderer({
             />
           ))}
           {publicWeaknesses.items.length === 0 ? (
-            <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+            <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
               No verbatim weaknesses captured
             </div>
           ) : null}

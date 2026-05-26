@@ -146,7 +146,7 @@ function renderStringValue(value: string): ReactNode {
       href={value}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex max-w-full items-center gap-1 break-all font-medium text-[color:var(--accent)] hover:underline"
+      className="inline-flex max-w-full items-center gap-1 break-all font-medium text-primary hover:underline"
     >
       {value}
       <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
@@ -187,10 +187,10 @@ function FieldList({
         if (!rendered) return null;
         return (
           <div key={key} className="grid gap-1">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+            <dt className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               {humanizeKey(key)}
             </dt>
-            <dd className="text-[12px] leading-[1.5] text-[color:var(--text-2)]">
+            <dd className="text-[12px] leading-[1.5] text-muted-foreground">
               {rendered}
             </dd>
           </div>
@@ -215,7 +215,7 @@ function DataCard({
     return (
       <article
         role="listitem"
-        className="rounded-md border border-[var(--border)] bg-[var(--bg-2)] p-3 text-[13px] leading-[1.5] text-[color:var(--text-2)]"
+        className="rounded-md border border-border bg-muted p-3 text-[13px] leading-[1.5] text-muted-foreground"
       >
         {renderValue(item, depth + 1)}
       </article>
@@ -230,10 +230,10 @@ function DataCard({
   return (
     <article
       role="listitem"
-      className="rounded-md border border-[var(--border)] bg-[var(--bg-2)] p-4"
+      className="rounded-md border border-border bg-muted p-4"
     >
       <div className="space-y-3">
-        <h4 className="text-sm font-semibold leading-snug text-[color:var(--text-1)]">
+        <h4 className="text-sm font-semibold leading-snug text-foreground">
           {primary?.value ?? fallbackTitle}
         </h4>
         {entries.length > 0 ? (
@@ -264,7 +264,7 @@ function renderArrayValue(
         {renderable.map((item, index) => (
           <li
             key={`${String(item)}-${index}`}
-            className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] text-[color:var(--text-2)]"
+            className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground"
           >
             {renderPrimitiveValue(item)}
           </li>
@@ -294,7 +294,7 @@ function renderRecordValue(
   const entries = Object.entries(value).filter(([, item]) => hasRenderableValue(item));
   if (entries.length === 0) return null;
   return (
-    <div className="rounded-md border border-[var(--border)] bg-[var(--bg-2)] p-3">
+    <div className="rounded-md border border-border bg-muted p-3">
       <FieldList entries={entries} depth={depth + 1} />
     </div>
   );
@@ -327,7 +327,7 @@ function FieldGroup({
         className="space-y-2"
         data-testid={`typed-card-group-${zoneId}-${subSectionKey}-${field.key}`}
       >
-        <h4 className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+        <h4 className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
           {field.label}
         </h4>
         {rendered}
@@ -342,7 +342,7 @@ function FieldGroup({
       className="space-y-2"
       data-testid={`typed-card-group-${zoneId}-${subSectionKey}-${field.key}`}
     >
-      <h4 className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-3)]">
+      <h4 className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
         {field.label}
       </h4>
       <div role="list">{card}</div>
@@ -360,7 +360,7 @@ function ArtifactSources({
 
   return (
     <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
-      <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm font-medium text-[color:var(--text-1)] hover:text-[color:var(--accent)]">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm font-medium text-foreground hover:text-primary">
         {sourcesOpen ? (
           <ChevronDown className="size-4" aria-hidden="true" />
         ) : (
@@ -373,22 +373,22 @@ function ArtifactSources({
           {artifact.sources.map((source) => (
             <li
               key={source.url}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg-2)] p-3"
+              className="rounded-md border border-border bg-muted p-3"
             >
               <a
                 href={source.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex w-fit max-w-full items-center gap-1 break-words font-medium text-[color:var(--accent)] hover:underline"
+                className="inline-flex w-fit max-w-full items-center gap-1 break-words font-medium text-primary hover:underline"
               >
                 {source.title}
                 <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
               </a>
-              <span className="mt-1 block break-all text-xs text-[color:var(--text-3)]">
+              <span className="mt-1 block break-all text-xs text-muted-foreground">
                 {source.url}
               </span>
               {source.whyItMatters ? (
-                <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-2)]">
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                   {source.whyItMatters}
                 </p>
               ) : null}
@@ -417,7 +417,7 @@ function GenericTypedArtifactRenderer({
       <header className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           {showSectionTitle ? (
-            <h2 className="text-xl font-semibold leading-tight text-[color:var(--text-1)]">
+            <h2 className="text-xl font-semibold leading-tight text-foreground">
               {artifact.sectionTitle}
             </h2>
           ) : null}
@@ -428,10 +428,10 @@ function GenericTypedArtifactRenderer({
             Confidence {formatConfidenceToTen(artifact.confidence)}/10
           </Badge>
         </div>
-        <p className="text-base leading-relaxed text-[color:var(--text-1)]">
+        <p className="text-base leading-relaxed text-foreground">
           {artifact.verdict}
         </p>
-        <p className="text-sm leading-relaxed text-[color:var(--text-2)]">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {artifact.statusSummary}
         </p>
       </header>
@@ -439,11 +439,11 @@ function GenericTypedArtifactRenderer({
       {subSections.map((subSection) => (
         <section key={subSection.key} className="space-y-4">
           <div className="space-y-2">
-            <h3 className="text-base font-semibold text-[color:var(--text-1)]">
+            <h3 className="text-base font-semibold text-foreground">
               {subSection.title}
             </h3>
             {subSection.prose ? (
-              <div className="prose prose-sm max-w-none text-[color:var(--text-2)] dark:prose-invert">
+              <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
                 <ReactMarkdown>{subSection.prose}</ReactMarkdown>
               </div>
             ) : null}

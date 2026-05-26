@@ -26,7 +26,7 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -42,24 +42,24 @@ const REPORTED_BY_LABEL: Record<string, string> = {
 
 function ReportedByPill({ value }: { value: string }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
       {REPORTED_BY_LABEL[value] ?? value}
     </span>
   );
 }
 
 const CONFIDENCE_PILL_CLASS: Record<string, string> = {
-  high: 'bg-[var(--bg-chip)] text-[color:var(--accent-green)]',
-  medium: 'bg-[var(--bg-chip)] text-[color:var(--accent-amber)]',
-  low: 'bg-[var(--bg-chip)] text-[color:var(--accent-red)]',
+  high: 'bg-emerald-500/10 text-emerald-600',
+  medium: 'bg-amber-500/10 text-amber-600',
+  low: 'bg-rose-500/10 text-rose-600',
 };
 
 function ConfidencePill({ value }: { value: string }): React.ReactElement {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em]',
-        CONFIDENCE_PILL_CLASS[value] ?? 'bg-[var(--bg-chip)] text-[color:var(--text-tertiary)]',
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
+        CONFIDENCE_PILL_CLASS[value] ?? 'bg-secondary text-muted-foreground',
       )}
     >
       {value}
@@ -74,18 +74,18 @@ const CHANNEL_WORKED_LABEL: Record<string, string> = {
   unknown: 'Unknown',
 };
 const CHANNEL_WORKED_CLASS: Record<string, string> = {
-  yes: 'bg-[var(--bg-chip)] text-[color:var(--accent-green)]',
-  partial: 'bg-[var(--bg-chip)] text-[color:var(--accent-amber)]',
-  no: 'bg-[var(--bg-chip)] text-[color:var(--accent-red)]',
-  unknown: 'bg-[var(--bg-chip)] text-[color:var(--text-tertiary)]',
+  yes: 'bg-emerald-500/10 text-emerald-600',
+  partial: 'bg-amber-500/10 text-amber-600',
+  no: 'bg-rose-500/10 text-rose-600',
+  unknown: 'bg-secondary text-muted-foreground',
 };
 
 function HasWorkedPill({ value }: { value: string }): React.ReactElement {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em]',
-        CHANNEL_WORKED_CLASS[value] ?? 'bg-[var(--bg-chip)] text-[color:var(--text-tertiary)]',
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
+        CHANNEL_WORKED_CLASS[value] ?? 'bg-secondary text-muted-foreground',
       )}
     >
       {CHANNEL_WORKED_LABEL[value] ?? value}
@@ -101,24 +101,24 @@ const SIGNAL_TYPE_LABEL: Record<string, string> = {
 
 function SignalTypePill({ value }: { value: string }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
       {SIGNAL_TYPE_LABEL[value] ?? value}
     </span>
   );
 }
 
 const SEVERITY_CLASS: Record<string, string> = {
-  high: 'bg-[var(--bg-chip)] text-[color:var(--accent-red)]',
-  medium: 'bg-[var(--bg-chip)] text-[color:var(--accent-amber)]',
-  low: 'bg-[var(--bg-chip)] text-[color:var(--text-tertiary)]',
+  high: 'bg-rose-500/10 text-rose-600',
+  medium: 'bg-amber-500/10 text-amber-600',
+  low: 'bg-secondary text-muted-foreground',
 };
 
 function SeverityPill({ value }: { value: string }): React.ReactElement {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em]',
-        SEVERITY_CLASS[value] ?? 'bg-[var(--bg-chip)] text-[color:var(--text-tertiary)]',
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
+        SEVERITY_CLASS[value] ?? 'bg-secondary text-muted-foreground',
       )}
     >
       {value}
@@ -148,7 +148,7 @@ export function OfferDiagnosticRenderer({
       render: row => (
         <span
           data-testid="proof-point-item"
-          className="font-medium text-[color:var(--text-primary)]"
+          className="font-medium text-foreground"
         >
           {row.metric}
         </span>
@@ -186,7 +186,7 @@ export function OfferDiagnosticRenderer({
       render: row => (
         <span
           data-testid="funnel-break-item"
-          className="font-medium text-[color:var(--text-primary)]"
+          className="font-medium text-foreground"
         >
           {row.stageName}
         </span>
@@ -216,7 +216,7 @@ export function OfferDiagnosticRenderer({
       render: row => (
         <span
           data-testid="channel-item"
-          className="font-medium text-[color:var(--text-primary)]"
+          className="font-medium text-foreground"
         >
           {row.channelName}
         </span>
@@ -256,7 +256,7 @@ export function OfferDiagnosticRenderer({
       key: 'metric',
       header: 'Metric',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.metric}</span>
+        <span className="font-medium text-foreground">{row.metric}</span>
       ),
     },
     {
@@ -281,7 +281,7 @@ export function OfferDiagnosticRenderer({
       render: row => (
         <span
           data-testid="red-flag-item"
-          className="font-medium text-[color:var(--text-primary)]"
+          className="font-medium text-foreground"
         >
           {row.claimedMotion}
         </span>

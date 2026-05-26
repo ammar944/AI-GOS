@@ -26,9 +26,9 @@ const VOC_SOURCE_LABEL: Record<string, string> = {
 };
 
 const PAIN_INTENSITY_TONE: Record<string, string> = {
-  high: 'bg-[var(--bg-chip)] text-[color:var(--accent-red)]',
-  medium: 'bg-[var(--bg-chip)] text-[color:var(--accent-amber)]',
-  low: 'bg-[var(--bg-chip)] text-[color:var(--text-tertiary)]',
+  high: 'bg-rose-500/10 text-rose-600',
+  medium: 'bg-amber-500/10 text-amber-600',
+  low: 'bg-secondary text-muted-foreground',
 };
 
 const OBJECTION_CATEGORY_LABEL: Record<string, string> = {
@@ -48,10 +48,10 @@ const FREQUENCY_LABEL: Record<string, string> = {
 };
 
 const DECISION_ROLE_TONE: Record<string, string> = {
-  buyer: 'text-[color:var(--text-secondary)]',
-  champion: 'text-[color:var(--accent-green)]',
-  influencer: 'text-[color:var(--text-secondary)]',
-  blocker: 'text-[color:var(--accent-red)]',
+  buyer: 'text-muted-foreground',
+  champion: 'text-emerald-600',
+  influencer: 'text-muted-foreground',
+  blocker: 'text-rose-600',
 };
 
 const DECISION_ROLE_LABEL: Record<string, string> = {
@@ -71,7 +71,7 @@ function Pill({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--text-secondary)]',
+        'inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground',
         className,
       )}
     >
@@ -82,7 +82,7 @@ function Pill({
 
 function MonoLabel({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
-    <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
       {children}
     </span>
   );
@@ -95,7 +95,7 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -103,10 +103,10 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
 }
 
 const HEADER_CLASS =
-  'border-b border-[var(--border-subtle)] px-3 py-2 align-bottom font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[color:var(--text-quaternary)]';
-const ROW_CLASS = 'border-b border-transparent transition-colors hover:bg-[var(--bg-hover)]';
+  'border-b border-border px-3 py-2 align-bottom text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground';
+const ROW_CLASS = 'border-b border-border/60 transition-colors hover:bg-muted/50';
 const CELL_CLASS =
-  'px-3 py-2.5 align-top text-[13px] leading-[1.5] text-[color:var(--text-secondary)]';
+  'px-3 py-2.5 align-top text-[13px] leading-[1.5] text-muted-foreground';
 
 export function VoiceOfCustomerRenderer({
   artifact,
@@ -176,7 +176,7 @@ export function VoiceOfCustomerRenderer({
                   >
                     <td className={CELL_CLASS}>
                       <div className="flex flex-col gap-1">
-                        <span className="text-[color:var(--text-primary)]">{item.objectionText}</span>
+                        <span className="text-foreground">{item.objectionText}</span>
                         <SourceLink url={item.sourceUrl} />
                       </div>
                     </td>
@@ -222,7 +222,7 @@ export function VoiceOfCustomerRenderer({
                     className={ROW_CLASS}
                   >
                     <td className={CELL_CLASS}>
-                      <span className="font-medium text-[color:var(--text-primary)]">
+                      <span className="font-medium text-foreground">
                         {story.priorSolution}
                       </span>
                     </td>
@@ -268,7 +268,7 @@ export function VoiceOfCustomerRenderer({
                     className={ROW_CLASS}
                   >
                     <td className={CELL_CLASS}>
-                      <span className="font-medium text-[color:var(--text-primary)]">
+                      <span className="font-medium text-foreground">
                         {c.criterion}
                       </span>
                     </td>
@@ -279,7 +279,7 @@ export function VoiceOfCustomerRenderer({
                     </td>
                     <td className={CELL_CLASS}>
                       <div className="flex flex-col gap-1">
-                        <span className="italic text-[color:var(--text-secondary)]">
+                        <span className="italic text-muted-foreground">
                           &ldquo;{c.evidenceQuote}&rdquo;
                         </span>
                         <SourceLink url={c.sourceUrl} />

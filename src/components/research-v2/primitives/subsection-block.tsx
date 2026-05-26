@@ -16,7 +16,7 @@ export function SubsectionBlock({
 }: SubsectionBlockProps): React.ReactElement {
   return (
     <section data-testid="subsection" className="flex flex-col gap-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[color:var(--text-quaternary)]">
+      <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </div>
       <div data-testid="subsection-prose">

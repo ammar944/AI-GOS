@@ -17,10 +17,10 @@ export interface InlineStatsProps {
 }
 
 const TONE_CLASS: Record<InlineStatTone, string> = {
-  neutral: 'text-[color:var(--text-tertiary)]',
-  good: 'text-[color:var(--accent-green)]',
-  warn: 'text-[color:var(--accent-amber)]',
-  bad: 'text-[color:var(--accent-red)]',
+  neutral: 'text-muted-foreground',
+  good: 'text-emerald-600',
+  warn: 'text-amber-600',
+  bad: 'text-rose-600',
 };
 
 export function InlineStats({
@@ -36,15 +36,15 @@ export function InlineStats({
     >
       {items.map((item, idx) => (
         <div key={`${item.label}-${idx}`} className="flex flex-col gap-1">
-          <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+          <dt className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
             {item.label}
           </dt>
           <dd className="flex items-baseline gap-1">
-            <span className="font-mono text-[22px] font-semibold leading-none tabular-nums text-[color:var(--text-primary)]">
+            <span className="text-[22px] font-semibold leading-none tabular-nums text-foreground">
               {item.value}
             </span>
             {item.unit ? (
-              <span className="font-mono text-[12px] leading-none text-[color:var(--text-tertiary)]">
+              <span className="text-[12px] leading-none text-muted-foreground">
                 {item.unit}
               </span>
             ) : null}
@@ -52,7 +52,7 @@ export function InlineStats({
           {item.delta ? (
             <span
               className={cn(
-                'font-mono text-[11px] leading-tight',
+                'text-[11px] leading-tight',
                 TONE_CLASS[item.tone ?? 'neutral'],
               )}
             >

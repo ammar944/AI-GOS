@@ -37,7 +37,7 @@ export function DataTable<T>({
   return (
     <div className={cn('w-full overflow-x-auto', className)}>
       {caption ? (
-        <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
           {caption}
         </div>
       ) : null}
@@ -48,7 +48,7 @@ export function DataTable<T>({
               <th
                 key={col.key}
                 className={cn(
-                  'border-b border-[var(--border-subtle)] px-3 py-2 align-bottom font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[color:var(--text-quaternary)]',
+                  'border-b border-border px-3 py-2 align-bottom text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground',
                   col.numeric && 'text-right',
                   col.headerClassName,
                 )}
@@ -64,7 +64,7 @@ export function DataTable<T>({
             <tr>
               <td
                 colSpan={columns.length}
-                className="px-3 py-6 text-center font-mono text-[11px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]"
+                className="px-3 py-6 text-center text-[11px] uppercase tracking-[0.08em] text-muted-foreground"
               >
                 {emptyLabel}
               </td>
@@ -74,7 +74,7 @@ export function DataTable<T>({
               <tr
                 key={keyFn(row, rowIndex)}
                 data-testid={rowTestId?.(row, rowIndex)}
-                className="border-b border-transparent transition-colors hover:bg-[var(--bg-hover)]"
+                className="border-b border-border/60 transition-colors hover:bg-muted/50"
               >
                 {columns.map(col => {
                   const rendered = col.render
@@ -84,9 +84,9 @@ export function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'px-3 py-2.5 align-top text-[13px] leading-[1.5] text-[color:var(--text-secondary)]',
+                        'px-3 py-2.5 align-top text-[13px] leading-[1.5] text-muted-foreground',
                         col.numeric &&
-                          'text-right font-mono tabular-nums text-[color:var(--text-primary)]',
+                          'text-right tabular-nums text-foreground',
                         col.className,
                       )}
                     >

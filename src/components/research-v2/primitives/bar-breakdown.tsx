@@ -15,11 +15,20 @@ export interface BarBreakdownProps {
   formatPercent?: (n: number) => string;
 }
 
-const OPACITY_LADDER = [0.34, 0.24, 0.16, 0.1, 0.06];
+const OPACITY_LADDER = [0.55, 0.4, 0.28, 0.18, 0.1];
 
 function defaultPercent(n: number): string {
   if (!Number.isFinite(n)) return '—';
   return `${(Math.round(n * 10) / 10).toFixed(1)}%`;
+}
+
+// Theme-aware fill: accent uses the primary token; the ladder mixes the
+// foreground token toward transparent so segments read on both light and
+// dark backgrounds (dark bars on white, light bars on dark).
+function segmentBackground(isAccent: boolean, idx: number): string {
+  if (isAccent) return 'var(--primary)';
+  const opacity = OPACITY_LADDER[Math.min(idx, OPACITY_LADDER.length - 1)];
+  return `color-mix(in oklch, var(--foreground) ${Math.round(opacity * 100)}%, transparent)`;
 }
 
 export function BarBreakdown({
@@ -36,31 +45,28 @@ export function BarBreakdown({
       {(caption || total) && (
         <div className="flex items-baseline justify-between gap-3">
           {caption ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               {caption}
             </span>
           ) : (
             <span />
           )}
           {total ? (
-            <span className="font-mono text-[11px] tabular-nums text-[color:var(--text-quaternary)]">
+            <span className="text-[11px] tabular-nums text-muted-foreground/70">
               {total}
             </span>
           ) : null}
         </div>
       )}
-      <div className="flex h-2 w-full overflow-hidden rounded-[3px] bg-[var(--bg-hover)]">
+      <div className="flex h-2 w-full overflow-hidden rounded-[3px] bg-muted">
         {segments.map((seg, idx) => {
           const pct = (seg.value / sum) * 100;
           const isAccent = seg.isAccent ?? idx === 0;
-          const background = isAccent
-            ? 'var(--accent-blue)'
-            : `rgba(255,255,255,${OPACITY_LADDER[Math.min(idx, OPACITY_LADDER.length - 1)]})`;
           return (
             <div
               key={`${seg.label}-${idx}`}
               className="h-full transition-opacity hover:opacity-85"
-              style={{ width: `${pct}%`, background }}
+              style={{ width: `${pct}%`, background: segmentBackground(isAccent, idx) }}
               aria-label={`${seg.label} ${formatPercent(pct)}`}
             />
           );
@@ -70,25 +76,22 @@ export function BarBreakdown({
         {segments.map((seg, idx) => {
           const pct = (seg.value / sum) * 100;
           const isAccent = seg.isAccent ?? idx === 0;
-          const swatch = isAccent
-            ? 'var(--accent-blue)'
-            : `rgba(255,255,255,${OPACITY_LADDER[Math.min(idx, OPACITY_LADDER.length - 1)]})`;
           return (
             <li
               key={`${seg.label}-${idx}`}
-              className="flex items-baseline gap-2 text-[13px] leading-[1.4] text-[color:var(--text-secondary)]"
+              className="flex items-baseline gap-2 text-[13px] leading-[1.4] text-muted-foreground"
             >
               <span
                 aria-hidden="true"
                 className="inline-block h-2 w-2 rounded-sm"
-                style={{ background: swatch }}
+                style={{ background: segmentBackground(isAccent, idx) }}
               />
               <span>{seg.label}</span>
-              <span className="font-mono tabular-nums text-[color:var(--text-primary)]">
+              <span className="tabular-nums font-medium text-foreground">
                 {formatPercent(pct)}
               </span>
               {seg.hint ? (
-                <span className="text-[11px] text-[color:var(--text-tertiary)]">{seg.hint}</span>
+                <span className="text-[11px] text-muted-foreground/70">{seg.hint}</span>
               ) : null}
             </li>
           );

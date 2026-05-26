@@ -21,7 +21,7 @@ export function MilestoneTimeline({
     <ol className={cn('relative pl-6', className)}>
       <span
         aria-hidden="true"
-        className="absolute bottom-2 left-[5px] top-2 w-px bg-[var(--border-subtle)]"
+        className="absolute bottom-2 left-[5px] top-2 w-px bg-border"
       />
       {steps.map((step, idx) => (
         <li
@@ -31,22 +31,20 @@ export function MilestoneTimeline({
           <span
             aria-hidden="true"
             className={cn(
-              'absolute left-[-23px] top-1.5 h-[11px] w-[11px] rounded-full ring-[3px] ring-[var(--bg-base)]',
-              step.accent
-                ? 'bg-[color:var(--accent-blue)]'
-                : 'bg-[color:var(--accent-blue)]',
+              'absolute left-[-23px] top-1.5 h-[11px] w-[11px] rounded-full ring-[3px] ring-background',
+              step.accent ? 'bg-primary' : 'bg-primary',
             )}
           />
           {step.label ? (
-            <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               {step.label}
             </div>
           ) : null}
-          <h4 className="text-[15px] font-semibold leading-[1.35] text-[color:var(--text-primary)]">
+          <h4 className="text-[15px] font-semibold leading-[1.35] text-foreground">
             {step.title}
           </h4>
           {step.body ? (
-            <div className="mt-1 max-w-[60ch] text-[13px] leading-[1.6] text-[color:var(--text-secondary)]">
+            <div className="mt-1 max-w-[60ch] text-[13px] leading-[1.6] text-muted-foreground">
               {step.body}
             </div>
           ) : null}

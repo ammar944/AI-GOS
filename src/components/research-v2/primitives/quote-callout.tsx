@@ -30,21 +30,21 @@ export function QuoteCallout({
   return (
     <div
       className={cn(
-        'border-l-2 border-[color:var(--accent-blue)] py-1 pl-4',
+        'rounded-lg border border-border bg-muted/40 p-4',
         className,
       )}
     >
-      <p className="text-[15px] leading-[1.65] text-[color:var(--text-primary)]">
+      <p className="text-[15px] leading-[1.65] text-foreground">
         {quote}
       </p>
       {emphasis ? (
-        <div className="mt-2 text-[13px] leading-[1.55] text-[color:var(--text-secondary)]">
+        <div className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
           {emphasis}
         </div>
       ) : null}
       {hasMetaLine ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] leading-tight tracking-[0.02em] text-[color:var(--text-tertiary)]">
-          {source ? <span className="text-[color:var(--text-secondary)]">{source}</span> : null}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-tight tracking-[0.02em] text-muted-foreground">
+          {source ? <span className="text-foreground/80">{source}</span> : null}
           {meta ? <span aria-hidden="true">·</span> : null}
           {meta ? <span>{meta}</span> : null}
           {sourceUrl ? <span aria-hidden="true">·</span> : null}
@@ -53,7 +53,7 @@ export function QuoteCallout({
               href={sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[color:var(--accent-blue)] no-underline hover:underline"
+              className="text-primary no-underline hover:underline"
             >
               {hostnameOf(sourceUrl)} →
             </a>

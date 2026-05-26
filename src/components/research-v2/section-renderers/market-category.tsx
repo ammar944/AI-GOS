@@ -26,7 +26,7 @@ function SourceLink({ url }: { url?: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -89,7 +89,7 @@ function MonoPill({
   label?: string;
 }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
       {label ?? value}
     </span>
   );
@@ -109,7 +109,7 @@ export function MarketCategoryRenderer({
       key: 'name',
       header: 'Adjacent',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     { key: 'whyBuyersConfuseIt', header: 'Why buyers confuse' },
@@ -136,7 +136,7 @@ export function MarketCategoryRenderer({
       key: 'name',
       header: 'Name',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     { key: 'evidence', header: 'Evidence' },
@@ -151,7 +151,7 @@ export function MarketCategoryRenderer({
       key: 'methodology',
       header: 'Method',
       render: row => (
-        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-[color:var(--text-tertiary)]">
+        <span className="text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
           {row.methodology}
         </span>
       ),
@@ -178,7 +178,7 @@ export function MarketCategoryRenderer({
       key: 'name',
       header: 'Name',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     { key: 'implication', header: 'Implication' },
@@ -232,22 +232,22 @@ export function MarketCategoryRenderer({
       <SubsectionBlock label="4 · Category Maturity" prose={categoryMaturity.prose}>
         <div className="flex flex-col gap-4">
           <div className="flex items-baseline gap-3">
-            <h4 className="font-serif text-[20px] font-semibold leading-tight text-[color:var(--text-primary)]">
+            <h4 className="text-[20px] font-semibold leading-tight tracking-tight text-foreground">
               {stageLabel}
             </h4>
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               stage classification
             </span>
           </div>
-          <p className="text-[14px] leading-[1.6] text-[color:var(--text-secondary)]">
+          <p className="text-[14px] leading-[1.6] text-muted-foreground">
             {classification.evidenceSummary}
           </p>
           {classification.supportingSignals.length > 0 ? (
-            <ul className="flex flex-col gap-3 border-l border-[var(--border-subtle)] pl-4">
+            <ul className="flex flex-col gap-3 border-l border-border pl-4">
               {classification.supportingSignals.map((signal, idx) => (
                 <li
                   key={`${signal.signalType}-${idx}`}
-                  className="flex flex-col gap-1 text-[13px] leading-[1.5] text-[color:var(--text-secondary)]"
+                  className="flex flex-col gap-1 text-[13px] leading-[1.5] text-muted-foreground"
                 >
                   <div className="flex items-center gap-2">
                     <MonoPill
@@ -257,13 +257,13 @@ export function MarketCategoryRenderer({
                     {signal.sourceUrl ? <SourceLink url={signal.sourceUrl} /> : null}
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                       evidence ·{' '}
                     </span>
                     {signal.evidence}
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                       implication ·{' '}
                     </span>
                     {signal.implication}

@@ -26,7 +26,7 @@ function SourceLink({ url }: { url?: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -78,7 +78,7 @@ function MonoPill({
   label?: string;
 }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
       {label ?? value}
     </span>
   );
@@ -91,7 +91,7 @@ function DomainChips({ domains }: { domains: ReadonlyArray<string> }): React.Rea
       {domains.map(domain => (
         <span
           key={domain}
-          className="rounded bg-[var(--bg-chip)] px-1.5 py-0.5 font-mono text-[10px] text-[color:var(--text-tertiary)]"
+          className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
         >
           {domain}
         </span>
@@ -115,7 +115,7 @@ export function DemandIntentRenderer({
       header: 'Keyword',
       render: row => (
         <div className="flex flex-col gap-1">
-          <span className="font-medium text-[color:var(--text-primary)]">{row.keyword}</span>
+          <span className="font-medium text-foreground">{row.keyword}</span>
           <SourceLink url={row.sourceUrl} />
         </div>
       ),
@@ -149,7 +149,7 @@ export function DemandIntentRenderer({
       header: 'Question',
       render: row => (
         <div className="flex flex-col gap-1">
-          <span className="font-medium text-[color:var(--text-primary)]">{row.question}</span>
+          <span className="font-medium text-foreground">{row.question}</span>
           <SourceLink url={row.sourceUrl} />
         </div>
       ),
@@ -178,7 +178,7 @@ export function DemandIntentRenderer({
       key: 'topic',
       header: 'Topic',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.topic}</span>
+        <span className="font-medium text-foreground">{row.topic}</span>
       ),
     },
     { key: 'evidenceOfDemand', header: 'Evidence of demand' },
@@ -212,7 +212,7 @@ export function DemandIntentRenderer({
       header: 'Example',
       render: row =>
         row.exampleCompany ? (
-          <span className="font-mono text-[11px] text-[color:var(--text-tertiary)]">
+          <span className="text-[11px] text-muted-foreground">
             {row.exampleCompany}
           </span>
         ) : null,
@@ -227,7 +227,7 @@ export function DemandIntentRenderer({
       key: 'name',
       header: 'Venue',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     {
@@ -241,7 +241,7 @@ export function DemandIntentRenderer({
       key: 'audienceSize',
       header: 'Audience',
       render: row => (
-        <span className="font-mono text-[11px] text-[color:var(--text-tertiary)]">
+        <span className="text-[11px] text-muted-foreground">
           {row.audienceSize}
         </span>
       ),

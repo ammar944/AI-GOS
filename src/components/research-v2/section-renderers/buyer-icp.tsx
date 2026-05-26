@@ -27,7 +27,7 @@ function SourceLink({ url }: { url?: string }): React.ReactElement | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[10px] uppercase tracking-[0.04em] text-[color:var(--accent-blue)] no-underline hover:underline"
+      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
     >
       {hostnameOf(url)} →
     </a>
@@ -42,7 +42,7 @@ function MonoPill({
   label?: string;
 }): React.ReactElement {
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--bg-chip)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color:var(--accent-blue)]">
+    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
       {label ?? value}
     </span>
   );
@@ -115,7 +115,7 @@ export function BuyerICPRenderer({
       key: 'value',
       header: 'Value',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.value}</span>
+        <span className="font-medium text-foreground">{row.value}</span>
       ),
     },
     {
@@ -144,8 +144,8 @@ export function BuyerICPRenderer({
       header: 'Persona',
       render: row => (
         <div className="flex flex-col gap-1">
-          <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
-          <span className="text-[12px] text-[color:var(--text-tertiary)]">{row.company}</span>
+          <span className="font-medium text-foreground">{row.name}</span>
+          <span className="text-[12px] text-muted-foreground">{row.company}</span>
         </div>
       ),
     },
@@ -154,7 +154,7 @@ export function BuyerICPRenderer({
       key: 'seniority',
       header: 'Seniority',
       render: row => (
-        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-[color:var(--text-tertiary)]">
+        <span className="text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
           {row.seniority}
         </span>
       ),
@@ -187,7 +187,7 @@ export function BuyerICPRenderer({
       key: 'name',
       header: 'Trigger',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     { key: 'detectionSignal', header: 'Detection signal' },
@@ -224,8 +224,8 @@ export function BuyerICPRenderer({
       header: 'Name',
       render: row => (
         <div className="flex flex-col gap-1">
-          <span className="font-medium text-[color:var(--text-primary)]">{row.name}</span>
-          <span className="text-[12px] text-[color:var(--text-tertiary)]">
+          <span className="font-medium text-foreground">{row.name}</span>
+          <span className="text-[12px] text-muted-foreground">
             {row.audienceSize}
           </span>
         </div>
@@ -235,7 +235,7 @@ export function BuyerICPRenderer({
       key: 'audienceSize',
       header: 'Audience',
       render: row => (
-        <span className="font-mono tabular-nums text-[12px] text-[color:var(--text-tertiary)]">
+        <span className="tabular-nums text-[12px] text-muted-foreground">
           {row.audienceSize}
         </span>
       ),
@@ -279,7 +279,7 @@ export function BuyerICPRenderer({
         <div
           role="list"
           aria-label="Awareness ladder"
-          className="flex flex-col divide-y divide-[var(--border-subtle)] rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)]"
+          className="flex flex-col divide-y divide-border rounded-md border border-border bg-card"
         >
           {awarenessLevels.map(level => (
             <div
@@ -293,14 +293,14 @@ export function BuyerICPRenderer({
                   value={level.level}
                   label={AWARENESS_LABEL[level.level] ?? level.level}
                 />
-                <span className="font-mono tabular-nums text-[12px] font-medium text-[color:var(--text-primary)]">
+                <span className="tabular-nums text-[12px] font-medium text-foreground">
                   {level.share}
                 </span>
               </div>
-              <div className="flex flex-1 flex-col gap-1 text-[13px] leading-[1.55] text-[color:var(--text-secondary)]">
+              <div className="flex flex-1 flex-col gap-1 text-[13px] leading-[1.55] text-muted-foreground">
                 <span>{level.evidence}</span>
                 {level.sampleQuery ? (
-                  <span className="font-mono text-[11px] text-[color:var(--text-tertiary)]">
+                  <span className="text-[11px] text-muted-foreground">
                     sample query: <em>{level.sampleQuery}</em>
                   </span>
                 ) : null}

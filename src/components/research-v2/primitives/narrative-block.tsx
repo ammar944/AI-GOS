@@ -25,11 +25,11 @@ export function NarrativeBlock({
   return (
     <div className={cn('flex flex-col gap-4', className)}>
       {title ? (
-        <h4 className="text-[15px] font-semibold leading-[1.4] tracking-[-0.005em] text-[color:var(--text-primary)]">
+        <h4 className="text-[15px] font-semibold leading-[1.4] tracking-[-0.005em] text-foreground">
           {title}
         </h4>
       ) : null}
-      <div className="flex max-w-[66ch] flex-col gap-3 text-[14px] leading-[1.65] text-[color:var(--text-secondary)]">
+      <div className="flex max-w-[66ch] flex-col gap-3 text-[14px] leading-[1.65] text-muted-foreground">
         {paragraphs.map((p, i) => (
           <p key={i}>{p}</p>
         ))}
