@@ -70,6 +70,20 @@ describe("buildAnswerToolInstructions", (): void => {
     );
   });
 
+  it("spells out Competitor Landscape status-quo bucket guidance", (): void => {
+    const prompt = buildAnswerToolInstructions(
+      competitorDefinition,
+      saaslaunchResearchInput,
+    );
+
+    expect(prompt).toContain(
+      "`status-quo` means the buyer's current non-purchase workflow",
+    );
+    expect(prompt).toContain(
+      "call out any thin evidence in prose instead of dropping the bucket",
+    );
+  });
+
   it("repeats Competitor Landscape weakness coverage minimums in repair prompts", (): void => {
     const prompt = buildRepairPrompt({
       definition: competitorDefinition,
@@ -87,6 +101,26 @@ describe("buildAnswerToolInstructions", (): void => {
     );
     expect(prompt).toContain(
       "`body.publicWeaknesses.items` must cover at least two distinct competitors",
+    );
+  });
+
+  it("repeats Competitor Landscape status-quo bucket guidance in repair prompts", (): void => {
+    const prompt = buildRepairPrompt({
+      definition: competitorDefinition,
+      evidenceTranscript: "source evidence",
+      issues: [
+        "body.competitorSet.competitors: missing competitor types status-quo.",
+      ],
+      previousOutput: { body: { competitorSet: { competitors: [] } } },
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use the injected corpus only.",
+    });
+
+    expect(prompt).toContain(
+      "`status-quo` means the buyer's current non-purchase workflow",
+    );
+    expect(prompt).toContain(
+      "call out any thin evidence in prose instead of dropping the bucket",
     );
   });
 

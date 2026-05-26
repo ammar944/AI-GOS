@@ -108,6 +108,7 @@ Examples:
 
 2. Build the full competitor set.
    **Validation:** at least 5 competitors are represented across direct, indirect, status-quo, and DIY buckets; each card has `name`, `url`, `competitorType`, `oneLinePositioning`, `verbatimHeroCopy`, `pricingPosition`, and `sourceUrl`.
+   **Status-quo guidance:** the status-quo competitor is the buyer's current non-purchase workflow, such as spreadsheet backlog tracking, Slack/email triage, founder memory, or manual process review. Source it to public evidence that names the workflow pain or current process, and call out thin evidence in prose instead of dropping the bucket.
 
 3. Build the positioning taxonomy.
    **Validation:** at least 3 axes explain how competitors frame the problem and solution; each axis has our position, competitor positions, and evidence URL.
