@@ -7,6 +7,7 @@ export interface PersistedResearchV2Session {
   researchResults: Record<string, unknown> | null;
   onboardingData: Record<string, unknown> | null;
   jobStatus: Record<string, unknown> | null;
+  artifactSections?: Record<string, unknown> | null;
 }
 
 function hasPositioningEntry(value: Record<string, unknown> | null): boolean {
@@ -64,10 +65,15 @@ export function inferPersistedResearchV2State({
   researchResults,
   onboardingData,
   jobStatus,
+  artifactSections,
 }: PersistedResearchV2Session): ResearchV2State | null {
   if (runId.trim().length === 0) return null;
 
-  if (hasPositioningEntry(researchResults) || hasPositioningEntry(jobStatus)) {
+  if (
+    hasPositioningEntry(researchResults) ||
+    hasPositioningEntry(jobStatus) ||
+    hasPositioningEntry(artifactSections ?? null)
+  ) {
     return { kind: 'sections', runId, currentSection: null };
   }
 

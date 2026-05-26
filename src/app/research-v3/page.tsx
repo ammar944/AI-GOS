@@ -45,6 +45,7 @@ interface JourneySessionResponse {
   researchResults?: Record<string, unknown> | null;
   jobStatus?: Record<string, unknown> | null;
   onboardingData?: Record<string, unknown> | null;
+  artifactSections?: Record<string, unknown> | null;
   updatedAt?: string | null;
   metadata?: Record<string, unknown> | null;
 }
@@ -58,6 +59,7 @@ function buildPersistedSession(
     researchResults: data.researchResults ?? null,
     onboardingData: data.onboardingData ?? null,
     jobStatus: data.jobStatus ?? null,
+    artifactSections: data.artifactSections ?? null,
   };
 }
 
