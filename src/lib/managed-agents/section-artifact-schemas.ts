@@ -12,7 +12,10 @@
 
 import type { z } from 'zod';
 
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type {
+  AllPositioningSectionId,
+  PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 
 import type { ValidationResult } from './schemas/_shared';
 
@@ -46,6 +49,11 @@ import {
   validateOfferPerformanceMinimums,
   type OfferPerformanceArtifact,
 } from './schemas/offer-performance-diagnostic';
+import {
+  PaidMediaPlanArtifactSchema,
+  validatePaidMediaPlanMinimums,
+  type PaidMediaPlanArtifact,
+} from './schemas/paid-media-plan';
 
 export type SectionArtifact =
   | MarketCategoryArtifact
@@ -53,7 +61,8 @@ export type SectionArtifact =
   | CompetitorLandscapeArtifact
   | VoiceOfCustomerArtifact
   | DemandIntentArtifact
-  | OfferPerformanceArtifact;
+  | OfferPerformanceArtifact
+  | PaidMediaPlanArtifact;
 
 export interface SectionArtifactSchemaEntry {
   /** Display label for diagnostics; matches the SKILL.md heading. */
@@ -119,20 +128,38 @@ export const sectionArtifactSchemas: Readonly<
   Record<PositioningSectionId, SectionArtifactSchemaEntry>
 > = SECTION_ARTIFACT_SCHEMAS;
 
+const ALL_SECTION_ARTIFACT_SCHEMAS: Record<
+  AllPositioningSectionId,
+  SectionArtifactSchemaEntry
+> = {
+  ...SECTION_ARTIFACT_SCHEMAS,
+  positioningPaidMediaPlan: {
+    label: 'Paid Media Plan',
+    toolName: 'save_paid_media_plan_artifact',
+    schema: PaidMediaPlanArtifactSchema,
+    validateMinimums: (artifact) =>
+      validatePaidMediaPlanMinimums(artifact as PaidMediaPlanArtifact),
+  },
+};
+
+export const allSectionArtifactSchemas: Readonly<
+  Record<AllPositioningSectionId, SectionArtifactSchemaEntry>
+> = ALL_SECTION_ARTIFACT_SCHEMAS;
+
 /**
  * Reverse lookup: given a custom-tool name (the one the agent invokes) return
  * the corresponding section ID. Used by the webhook handler to route
  * agent.custom_tool_use events.
  */
-const TOOL_NAME_TO_SECTION_ID: Record<string, PositioningSectionId> = Object.fromEntries(
-  (Object.entries(SECTION_ARTIFACT_SCHEMAS) as ReadonlyArray<
-    [PositioningSectionId, SectionArtifactSchemaEntry]
+const TOOL_NAME_TO_SECTION_ID: Record<string, AllPositioningSectionId> = Object.fromEntries(
+  (Object.entries(ALL_SECTION_ARTIFACT_SCHEMAS) as ReadonlyArray<
+    [AllPositioningSectionId, SectionArtifactSchemaEntry]
   >).map(([sectionId, entry]) => [entry.toolName, sectionId]),
 );
 
 export function sectionIdForToolName(
   toolName: string,
-): PositioningSectionId | null {
+): AllPositioningSectionId | null {
   return TOOL_NAME_TO_SECTION_ID[toolName] ?? null;
 }
 
@@ -158,10 +185,10 @@ export type ArtifactValidation<T = unknown> =
  * (R5 hard-rule semantics).
  */
 export function validateArtifactForSection(
-  sectionId: PositioningSectionId,
+  sectionId: AllPositioningSectionId,
   artifact: unknown,
 ): ArtifactValidation {
-  const entry = sectionArtifactSchemas[sectionId];
+  const entry = allSectionArtifactSchemas[sectionId];
   if (!entry) {
     return {
       ok: false,
@@ -214,4 +241,5 @@ export type {
   VoiceOfCustomerArtifact,
   DemandIntentArtifact,
   OfferPerformanceArtifact,
+  PaidMediaPlanArtifact,
 };

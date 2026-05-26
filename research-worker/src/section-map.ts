@@ -20,6 +20,7 @@ export const TOOL_SECTION_MAP = {
   positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
   positioningDemandIntent: 'positioningDemandIntent',
   positioningOfferDiagnostic: 'positioningOfferDiagnostic',
+  positioningPaidMediaPlan: 'positioningPaidMediaPlan',
 } as const;
 
 const LEGACY_TO_CANONICAL_SECTION_MAP: Record<string, string> = {

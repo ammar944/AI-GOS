@@ -402,28 +402,13 @@ function ArtifactSources({
   );
 }
 
-export function TypedArtifactRenderer({
+function GenericTypedArtifactRenderer({
   artifact,
   zoneId,
-  showSectionTitle = true,
-}: TypedArtifactRendererProps): React.ReactElement {
-  // Schema-aware dispatch: route to typed renderer when zoneId matches.
-  // Falls through to the generic reflection-based renderer below otherwise.
-  switch (zoneId) {
-    case 'positioningMarketCategory':
-      return <MarketCategoryRenderer artifact={artifact as unknown as MarketCategoryArtifact} />;
-    case 'positioningBuyerICP':
-      return <BuyerICPRenderer artifact={artifact as unknown as BuyerICPArtifact} />;
-    case 'positioningCompetitorLandscape':
-      return <CompetitorLandscapeRenderer artifact={artifact as unknown as CompetitorLandscapeArtifact} />;
-    case 'positioningVoiceOfCustomer':
-      return <VoiceOfCustomerRenderer artifact={artifact as unknown as VoiceOfCustomerArtifact} />;
-    case 'positioningDemandIntent':
-      return <DemandIntentRenderer artifact={artifact as unknown as DemandIntentArtifact} />;
-    case 'positioningOfferDiagnostic':
-      return <OfferDiagnosticRenderer artifact={artifact as unknown as OfferPerformanceArtifact} />;
-  }
-
+  showSectionTitle,
+}: TypedArtifactRendererProps & {
+  showSectionTitle: boolean;
+}): React.ReactElement {
   const subSections = getSubSections(artifact);
 
   return (
@@ -483,5 +468,44 @@ export function TypedArtifactRenderer({
       <Separator />
       <ArtifactSources artifact={artifact} />
     </div>
+  );
+}
+
+export function TypedArtifactRenderer({
+  artifact,
+  zoneId,
+  showSectionTitle = true,
+}: TypedArtifactRendererProps): React.ReactElement {
+  // Schema-aware dispatch: route to typed renderer when zoneId matches.
+  // Falls through to the generic reflection-based renderer below otherwise.
+  switch (zoneId) {
+    case 'positioningMarketCategory':
+      return <MarketCategoryRenderer artifact={artifact as unknown as MarketCategoryArtifact} />;
+    case 'positioningBuyerICP':
+      return <BuyerICPRenderer artifact={artifact as unknown as BuyerICPArtifact} />;
+    case 'positioningCompetitorLandscape':
+      return <CompetitorLandscapeRenderer artifact={artifact as unknown as CompetitorLandscapeArtifact} />;
+    case 'positioningVoiceOfCustomer':
+      return <VoiceOfCustomerRenderer artifact={artifact as unknown as VoiceOfCustomerArtifact} />;
+    case 'positioningDemandIntent':
+      return <DemandIntentRenderer artifact={artifact as unknown as DemandIntentArtifact} />;
+    case 'positioningOfferDiagnostic':
+      return <OfferDiagnosticRenderer artifact={artifact as unknown as OfferPerformanceArtifact} />;
+    case 'positioningPaidMediaPlan':
+      return (
+        <GenericTypedArtifactRenderer
+          artifact={artifact}
+          zoneId={zoneId}
+          showSectionTitle={showSectionTitle}
+        />
+      );
+  }
+
+  return (
+    <GenericTypedArtifactRenderer
+      artifact={artifact}
+      zoneId={zoneId}
+      showSectionTitle={showSectionTitle}
+    />
   );
 }

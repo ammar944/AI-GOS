@@ -32,7 +32,6 @@ import {
   ALL_POSITIONING_SECTION_LABELS,
   isPositioningSectionId,
   type AllPositioningSectionId,
-  type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
 export const DEFAULT_MAX_CUSTOM_TOOL_RETRIES = 3;
@@ -438,7 +437,7 @@ async function handleInvalidArtifact(input: {
   sessionThreadId: string | null;
   customToolUseId: string;
   sectionRunId: string;
-  sectionId: PositioningSectionId;
+  sectionId: AllPositioningSectionId;
   repairFeedback: string;
 }): Promise<WebhookHandlerResult> {
   const max =

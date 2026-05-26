@@ -120,7 +120,8 @@ type ToolName =
   | 'positioningCompetitorLandscape'
   | 'positioningVoiceOfCustomer'
   | 'positioningDemandIntent'
-  | 'positioningOfferDiagnostic';
+  | 'positioningOfferDiagnostic'
+  | 'positioningPaidMediaPlan';
 
 import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
 
@@ -153,6 +154,22 @@ interface RunJobRequest {
   chatRefinement?: string;
 }
 
+function runPositioningPaidMediaPlanUnsupported(): Promise<ResearchResult> {
+  const error =
+    'positioningPaidMediaPlan runs through the Next.js lab-engine dependent wave, not the Railway worker.';
+
+  return Promise.resolve({
+    status: 'error',
+    section: 'positioningPaidMediaPlan',
+    artifact: {
+      title: 'Paid Media Plan',
+      markdown: `**Error:** ${error}`,
+    },
+    error,
+    durationMs: 0,
+  });
+}
+
 const TOOL_RUNNERS: Record<
   ToolName,
   (
@@ -172,6 +189,7 @@ const TOOL_RUNNERS: Record<
   positioningVoiceOfCustomer: runPositioningVoiceOfCustomer,
   positioningDemandIntent: runPositioningDemandIntent,
   positioningOfferDiagnostic: runPositioningOfferDiagnostic,
+  positioningPaidMediaPlan: runPositioningPaidMediaPlanUnsupported,
 };
 
 const POSITIONING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
@@ -181,6 +199,7 @@ const POSITIONING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   'positioningVoiceOfCustomer',
   'positioningDemandIntent',
   'positioningOfferDiagnostic',
+  'positioningPaidMediaPlan',
 ]);
 
 const TOOL_TO_ZONE: Partial<Record<ToolName, string>> = {
@@ -190,6 +209,7 @@ const TOOL_TO_ZONE: Partial<Record<ToolName, string>> = {
   positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
   positioningDemandIntent: 'positioningDemandIntent',
   positioningOfferDiagnostic: 'positioningOfferDiagnostic',
+  positioningPaidMediaPlan: 'positioningPaidMediaPlan',
 };
 
 // ---------------------------------------------------------------------------

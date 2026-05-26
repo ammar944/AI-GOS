@@ -1,13 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  allSectionArtifactSchemas,
   sectionArtifactSchemas,
   sectionIdForToolName,
   validateArtifactForSection,
   type MarketCategoryArtifact,
   type BuyerICPArtifact,
   type CompetitorLandscapeArtifact,
+  type PaidMediaPlanArtifact,
 } from '../section-artifact-schemas';
+import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
+
+function makeValidPaidMediaPlanArtifact(): PaidMediaPlanArtifact {
+  return {
+    sectionTitle: paidMediaPlanFixtureArtifact.sectionTitle,
+    verdict: paidMediaPlanFixtureArtifact.verdict,
+    statusSummary: paidMediaPlanFixtureArtifact.statusSummary,
+    confidence: paidMediaPlanFixtureArtifact.confidence * 10,
+    sources: paidMediaPlanFixtureArtifact.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+    })),
+    ...paidMediaPlanFixtureArtifact.body,
+  };
+}
 
 describe('section-artifact-schemas registry', () => {
   it('covers all six positioning section ids', () => {
@@ -23,14 +40,61 @@ describe('section-artifact-schemas registry', () => {
     );
   });
 
+  it('adds paid media only to the all-section schema registry', () => {
+    expect(Object.keys(allSectionArtifactSchemas).sort()).toEqual(
+      [
+        'positioningBuyerICP',
+        'positioningCompetitorLandscape',
+        'positioningDemandIntent',
+        'positioningMarketCategory',
+        'positioningOfferDiagnostic',
+        'positioningPaidMediaPlan',
+        'positioningVoiceOfCustomer',
+      ].sort(),
+    );
+    expect(Object.keys(sectionArtifactSchemas)).not.toContain(
+      'positioningPaidMediaPlan',
+    );
+  });
+
   it('maps each tool name back to its section id', () => {
-    for (const [sectionId, entry] of Object.entries(sectionArtifactSchemas)) {
+    for (const [sectionId, entry] of Object.entries(allSectionArtifactSchemas)) {
       expect(sectionIdForToolName(entry.toolName)).toBe(sectionId);
     }
   });
 
   it('returns null for unknown tool names', () => {
     expect(sectionIdForToolName('save_unknown_thing')).toBe(null);
+  });
+});
+
+describe('validateArtifactForSection (Paid Media Plan)', () => {
+  it('accepts a fully-formed Paid Media Plan artifact', () => {
+    const result = validateArtifactForSection(
+      'positioningPaidMediaPlan',
+      makeValidPaidMediaPlanArtifact(),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('reports minimum errors when grounded synthesis is too thin', () => {
+    const artifact = makeValidPaidMediaPlanArtifact();
+    const result = validateArtifactForSection('positioningPaidMediaPlan', {
+      ...artifact,
+      anglesToTest: {
+        ...artifact.anglesToTest,
+        angles: artifact.anglesToTest.angles.slice(0, 3),
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(
+        result.minimumsErrors.some((error) =>
+          error.includes('anglesToTest.angles'),
+        ),
+      ).toBe(true);
+      expect(result.repairFeedback).toContain('Paid Media Plan');
+    }
   });
 });
 
