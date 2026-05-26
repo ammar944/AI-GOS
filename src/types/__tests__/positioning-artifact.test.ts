@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
+import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
+import { demandIntentFixtureArtifact } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
+import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
+import { offerDiagnosticFixtureArtifact } from '@/lib/lab-engine/fixtures/offer-diagnostic-artifact';
+import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
 import {
   pickPositioningTypedArtifact,
   type PositioningTypedArtifact,
@@ -65,6 +72,93 @@ const labEnvelope: PositioningTypedArtifact = {
   body: buyerIcpBody,
 };
 
+interface LabFixtureCase {
+  zoneId: PositioningSectionId;
+  artifact: PositioningTypedArtifact;
+  expectedBodyKeys: readonly string[];
+}
+
+const labFixtureCases: readonly LabFixtureCase[] = [
+  {
+    zoneId: 'positioningMarketCategory',
+    artifact: marketCategoryFixtureArtifact,
+    expectedBodyKeys: [
+      'categoryDefinition',
+      'categoryMaturity',
+      'marketSize',
+      'structuralForces',
+    ],
+  },
+  {
+    zoneId: 'positioningBuyerICP',
+    artifact: buyerICPFixtureArtifact,
+    expectedBodyKeys: [
+      'awarenessDistribution',
+      'buyingContext',
+      'clusters',
+      'icpExistenceCheck',
+      'personaReality',
+    ],
+  },
+  {
+    zoneId: 'positioningCompetitorLandscape',
+    artifact: competitorLandscapeFixtureArtifact,
+    expectedBodyKeys: [
+      'adEvidence',
+      'competitorSet',
+      'narrativeArcs',
+      'positioningTaxonomy',
+      'pricingReality',
+      'publicWeaknesses',
+      'shareOfVoice',
+    ],
+  },
+  {
+    zoneId: 'positioningVoiceOfCustomer',
+    artifact: voiceOfCustomerFixtureArtifact,
+    expectedBodyKeys: [
+      'decisionCriteria',
+      'objections',
+      'painLanguage',
+      'successLanguage',
+      'switchingStories',
+    ],
+  },
+  {
+    zoneId: 'positioningDemandIntent',
+    artifact: demandIntentFixtureArtifact,
+    expectedBodyKeys: [
+      'contentGaps',
+      'intentSignals',
+      'keywordDemand',
+      'questionMining',
+      'venueMap',
+    ],
+  },
+  {
+    zoneId: 'positioningOfferDiagnostic',
+    artifact: offerDiagnosticFixtureArtifact,
+    expectedBodyKeys: [
+      'channelTruth',
+      'funnelDiagnosis',
+      'offerMarketFit',
+      'redFlags',
+      'retentionHealth',
+    ],
+  },
+];
+
+function bodyRecordOf(
+  artifact: PositioningTypedArtifact,
+): Record<string, unknown> {
+  const { body } = artifact;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('Expected lab fixture artifact body to be an object');
+  }
+
+  return body as Record<string, unknown>;
+}
+
 describe('pickPositioningTypedArtifact', () => {
   it('flattens lab envelope body fields for typed section renderers', (): void => {
     const picked = pickPositioningTypedArtifact(
@@ -103,4 +197,28 @@ describe('pickPositioningTypedArtifact', () => {
 
     expect(picked).toBe(flatArtifact);
   });
+
+  it.each(labFixtureCases)(
+    'flattens the $zoneId lab fixture with the persisted body keys',
+    ({ zoneId, artifact, expectedBodyKeys }): void => {
+      const picked = pickPositioningTypedArtifact({ data: artifact }, zoneId);
+
+      if (!picked) {
+        throw new Error(`Expected ${zoneId} lab fixture to be picked`);
+      }
+
+      const body = bodyRecordOf(artifact);
+      expect(Object.keys(body).sort()).toEqual([...expectedBodyKeys].sort());
+
+      for (const key of expectedBodyKeys) {
+        expect(picked[key]).toBe(body[key]);
+      }
+
+      expect(Object.hasOwn(picked, 'body')).toBe(false);
+      expect(Object.hasOwn(picked, 'id')).toBe(false);
+      expect(Object.hasOwn(picked, 'runId')).toBe(false);
+      expect(Object.hasOwn(picked, 'sectionId')).toBe(false);
+      expect(Object.hasOwn(picked, 'createdAt')).toBe(false);
+    },
+  );
 });

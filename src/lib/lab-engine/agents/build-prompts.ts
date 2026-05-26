@@ -240,9 +240,15 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "CompetitorLandscapeSectionOutput") {
     return [
+      "- CompetitorLandscapeSectionOutput minimums: top-level `sources` must include at least five Section-level sources.",
       "- CompetitorLandscapeSectionOutput minimums: `body.competitorSet.competitors` must include at least one competitor for each `competitorType`: `direct`, `indirect`, `status-quo`, and `diy`.",
       "- For the SaaSLaunch fixture, use a manual founder-led sales workflow, spreadsheet pipeline review, or founder memory/follow-up process as the `diy` competitor when public sources do not name a productized DIY alternative.",
+      "- CompetitorLandscapeSectionOutput minimums: `body.positioningTaxonomy.axes` must include at least three axes.",
       "- CompetitorLandscapeSectionOutput minimums: `body.pricingReality.dataPoints` must cover at least three distinct competitors.",
+      "- CompetitorLandscapeSectionOutput minimums: `body.shareOfVoice.slices` must include at least three surfaces.",
+      "- CompetitorLandscapeSectionOutput minimums: `body.publicWeaknesses.items` must include at least four verbatim weaknesses.",
+      "- CompetitorLandscapeSectionOutput minimums: `body.publicWeaknesses.items` must cover at least two distinct competitors.",
+      "- CompetitorLandscapeSectionOutput minimums: `body.narrativeArcs.arcs` must include at least three arcs.",
     ];
   }
 

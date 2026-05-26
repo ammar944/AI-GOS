@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
  * Onboarding entry point - redirects based on user's onboarding status
  * - Not authenticated → /sign-in
  * - Onboarding complete → /dashboard
- * - Onboarding incomplete → /journey
+ * - Onboarding incomplete → /research-v3
  */
 export default async function OnboardingPage() {
   const { userId } = await auth();
@@ -34,5 +34,5 @@ export default async function OnboardingPage() {
   }
 
   // Not completed - go to journey entry point
-  redirect("/research-v2");
+  redirect("/research-v3");
 }

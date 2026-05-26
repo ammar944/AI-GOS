@@ -3,63 +3,125 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
-import { buyerIcpArtifact } from '@/components/research-v2/section-renderers/__tests__/fixtures';
+import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
+import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
+import { demandIntentFixtureArtifact } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
+import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
+import { offerDiagnosticFixtureArtifact } from '@/lib/lab-engine/fixtures/offer-diagnostic-artifact';
+import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
+import type { PositioningTypedArtifact } from '@/types/positioning-artifact';
 
 import { SectionCard } from '../section-card';
 
-const completeWorkerState: AuditStateResponse['workerStates'][number] = {
-  section_id: 'positioningBuyerICP',
-  status: 'complete',
-  phase: 'Committed',
-  phaseLabel: 'Committed',
-  phaseStartedAt: null,
-  latestTool: null,
-  latestSource: null,
-  latestActivity: null,
-  nextStep: null,
-  wave: null,
-  totalWaves: null,
-  concurrency: null,
-  elapsedMs: null,
-  capabilityGaps: [],
-  executionMode: null,
-  runtimeTimings: {},
-};
+interface SectionCardCase {
+  zoneId: PositioningSectionId;
+  title: string;
+  artifact: PositioningTypedArtifact;
+  expectedText: string;
+  expectedTestId?: string;
+}
 
-const {
-  sectionTitle,
-  verdict,
-  statusSummary,
-  confidence,
-  sources,
-  ...buyerIcpBody
-} = buyerIcpArtifact;
+const sectionCardCases: readonly SectionCardCase[] = [
+  {
+    zoneId: 'positioningMarketCategory',
+    title: 'Market & Category Intelligence',
+    artifact: marketCategoryFixtureArtifact,
+    expectedText: 'CRM cleanup tools',
+    expectedTestId: 'adjacent-item',
+  },
+  {
+    zoneId: 'positioningBuyerICP',
+    title: 'Buyer & ICP Validation',
+    artifact: buyerICPFixtureArtifact,
+    expectedText: 'Founder Community Signal',
+    expectedTestId: 'firmographic-item',
+  },
+  {
+    zoneId: 'positioningCompetitorLandscape',
+    title: 'Competitor Landscape & Positioning',
+    artifact: competitorLandscapeFixtureArtifact,
+    expectedText: 'SignalForge',
+  },
+  {
+    zoneId: 'positioningVoiceOfCustomer',
+    title: 'Voice of Customer & Objection Evidence',
+    artifact: voiceOfCustomerFixtureArtifact,
+    expectedText: 'We keep losing track of the next best account action 1.',
+    expectedTestId: 'voc-quote',
+  },
+  {
+    zoneId: 'positioningDemandIntent',
+    title: 'Demand & Intent Signals',
+    artifact: demandIntentFixtureArtifact,
+    expectedText: 'founder sales workflow 1',
+    expectedTestId: 'keyword-item',
+  },
+  {
+    zoneId: 'positioningOfferDiagnostic',
+    title: 'Offer & Performance Diagnostic',
+    artifact: offerDiagnosticFixtureArtifact,
+    expectedText: 'Proof metric 1',
+    expectedTestId: 'proof-point-item',
+  },
+];
 
-const buyerIcpLabEnvelope = {
-  id: 'section-row-1',
-  runId: 'aab09d58-86f6-45e1-9bd6-2534f79a9256',
-  sectionId: 'positioningBuyerICP',
-  createdAt: '2026-05-26T00:00:00.000Z',
-  sectionTitle,
-  verdict,
-  statusSummary,
-  confidence,
-  sources,
-  body: buyerIcpBody,
-};
+function completeWorkerState(
+  sectionId: PositioningSectionId,
+): AuditStateResponse['workerStates'][number] {
+  return {
+    section_id: sectionId,
+    status: 'complete',
+    phase: 'Committed',
+    phaseLabel: 'Committed',
+    phaseStartedAt: null,
+    latestTool: null,
+    latestSource: null,
+    latestActivity: null,
+    nextStep: null,
+    wave: null,
+    totalWaves: null,
+    concurrency: null,
+    elapsedMs: null,
+    capabilityGaps: [],
+    executionMode: null,
+    runtimeTimings: {},
+  };
+}
 
 describe('<SectionCard>', () => {
   afterEach((): void => cleanup());
 
-  it('renders completed lab-envelope Buyer ICP artifacts without crashing', (): void => {
+  it.each(sectionCardCases)(
+    'renders completed lab-envelope $zoneId artifacts without crashing',
+    ({ zoneId, title, artifact, expectedText, expectedTestId }): void => {
+      render(
+        <SectionCard
+          zoneId={zoneId}
+          body={{
+            title,
+            data: artifact,
+          }}
+          workerState={completeWorkerState(zoneId)}
+        />,
+      );
+
+      expect(screen.getAllByText(expectedText).length).toBeGreaterThan(0);
+      if (expectedTestId) {
+        expect(screen.getAllByTestId(expectedTestId).length).toBeGreaterThan(0);
+      }
+    },
+  );
+
+  it('renders completed lab-envelope Buyer ICP awareness rows from body fields', (): void => {
     render(
       <SectionCard
         zoneId="positioningBuyerICP"
         body={{
           title: 'Buyer & ICP Validation',
-          data: buyerIcpLabEnvelope,
+          data: buyerICPFixtureArtifact,
         }}
-        workerState={completeWorkerState}
+        workerState={completeWorkerState('positioningBuyerICP')}
       />,
     );
 
