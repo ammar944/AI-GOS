@@ -983,7 +983,62 @@ function normalizeStructuredRecordArray({
         record,
         stringArrayKeys,
         stringKeys,
-      }),
+    }),
+  });
+}
+
+type PaidMediaPlanGroundedSourceSection =
+  | "positioningCompetitorLandscape"
+  | "positioningDemandIntent"
+  | "positioningOfferDiagnostic"
+  | "positioningVoiceOfCustomer";
+
+function normalizePaidMediaGroundedSourceSections({
+  fallbackSourceSection,
+  value,
+}: {
+  fallbackSourceSection: PaidMediaPlanGroundedSourceSection;
+  value: unknown;
+}): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) => {
+      if (getStringProperty(record, "sourceSection") !== "gtmBrief") {
+        return record;
+      }
+
+      return {
+        ...record,
+        sourceSection: fallbackSourceSection,
+      };
+    },
+  });
+}
+
+function normalizePaidMediaGroundedRecordArray({
+  allowedKeys,
+  fallbackSourceSection,
+  numberKeys,
+  stringArrayKeys,
+  stringKeys,
+  value,
+}: {
+  allowedKeys: readonly string[];
+  fallbackSourceSection: PaidMediaPlanGroundedSourceSection;
+  numberKeys?: readonly string[];
+  stringArrayKeys?: readonly string[];
+  stringKeys?: readonly string[];
+  value: unknown;
+}): unknown {
+  return normalizePaidMediaGroundedSourceSections({
+    fallbackSourceSection,
+    value: normalizeStructuredRecordArray({
+      allowedKeys,
+      numberKeys,
+      stringArrayKeys,
+      stringKeys,
+      value,
+    }),
   });
 }
 
@@ -1322,7 +1377,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: anglesToTestRecord,
                 stringKeys: ["prose"],
               }),
-              angles: normalizeStructuredRecordArray({
+              angles: normalizePaidMediaGroundedRecordArray({
                 allowedKeys: [
                   "angleName",
                   "primaryText",
@@ -1331,6 +1386,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "sourceSection",
                   "sourceUrl",
                 ],
+                fallbackSourceSection: "positioningVoiceOfCustomer",
                 stringKeys: [
                   "angleName",
                   "primaryText",
@@ -1352,7 +1408,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: creativeFrameworkRecord,
                 stringKeys: ["prose"],
               }),
-              creatives: normalizeStructuredRecordArray({
+              creatives: normalizePaidMediaGroundedRecordArray({
                 allowedKeys: [
                   "creativeType",
                   "uspSentence",
@@ -1365,6 +1421,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "sourceSection",
                   "sourceUrl",
                 ],
+                fallbackSourceSection: "positioningOfferDiagnostic",
                 stringKeys: [
                   "creativeType",
                   "uspSentence",
@@ -1390,7 +1447,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: competitorReviewInsightsRecord,
                 stringKeys: ["prose"],
               }),
-              insights: normalizeStructuredRecordArray({
+              insights: normalizePaidMediaGroundedRecordArray({
                 allowedKeys: [
                   "competitor",
                   "verbatimComplaint",
@@ -1398,6 +1455,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "sourceSection",
                   "sourceUrl",
                 ],
+                fallbackSourceSection: "positioningCompetitorLandscape",
                 stringKeys: [
                   "competitor",
                   "verbatimComplaint",
@@ -1418,7 +1476,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: competitorMarketingInsightsRecord,
                 stringKeys: ["prose"],
               }),
-              competitors: normalizeStructuredRecordArray({
+              competitors: normalizePaidMediaGroundedRecordArray({
                 allowedKeys: [
                   "competitor",
                   "messaging",
@@ -1431,6 +1489,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "sourceSection",
                   "sourceUrl",
                 ],
+                fallbackSourceSection: "positioningCompetitorLandscape",
                 stringArrayKeys: ["adPlatforms"],
                 stringKeys: [
                   "competitor",
@@ -1456,13 +1515,14 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: funnelIdeationRecord,
                 stringKeys: ["prose"],
               }),
-              recommendations: normalizeStructuredRecordArray({
+              recommendations: normalizePaidMediaGroundedRecordArray({
                 allowedKeys: [
                   "funnelType",
                   "recommendation",
                   "optInToBookedCall",
                   "sourceSection",
                 ],
+                fallbackSourceSection: "positioningOfferDiagnostic",
                 stringKeys: [
                   "funnelType",
                   "recommendation",
@@ -1498,7 +1558,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: channelSuggestionsRecord,
                 stringKeys: ["prose"],
               }),
-              suggestions: normalizeStructuredRecordArray({
+              suggestions: normalizePaidMediaGroundedRecordArray({
                 allowedKeys: [
                   "channel",
                   "observation",
@@ -1506,6 +1566,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "verdict",
                   "sourceSection",
                 ],
+                fallbackSourceSection: "positioningDemandIntent",
                 stringKeys: [
                   "channel",
                   "observation",

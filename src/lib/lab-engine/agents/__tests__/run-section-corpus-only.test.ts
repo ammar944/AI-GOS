@@ -78,6 +78,32 @@ function buildPaidMediaPlanOutput(): Record<string, unknown> {
   };
 }
 
+function forceSynthesizedPaidMediaItemsToGtmBrief(
+  output: Record<string, unknown>,
+): void {
+  const body = requireRecord(output.body);
+  const containerKeys = [
+    ['anglesToTest', 'angles'],
+    ['creativeFramework', 'creatives'],
+    ['competitorReviewInsights', 'insights'],
+    ['competitorMarketingInsights', 'competitors'],
+    ['funnelIdeation', 'recommendations'],
+    ['channelSuggestions', 'suggestions'],
+  ] as const;
+
+  for (const [containerKey, arrayKey] of containerKeys) {
+    const container = requireRecord(body[containerKey]);
+    const items = container[arrayKey];
+    if (!Array.isArray(items)) {
+      throw new Error(`Expected ${containerKey}.${arrayKey} array.`);
+    }
+
+    for (const item of items) {
+      requireRecord(item).sourceSection = 'gtmBrief';
+    }
+  }
+}
+
 function requireRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('Expected record.');
@@ -452,6 +478,88 @@ describe('runSection corpus-only mode', (): void => {
       'Meta',
       'Google',
     ]);
+    expect(callStructured).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes paid-media synthesized item grounding away from the GTM brief', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-05-27T04:22:16.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const driftOutput = buildPaidMediaPlanOutput();
+    forceSynthesizedPaidMediaItemsToGtmBrief(driftOutput);
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async () => driftOutput);
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runEvidencePass,
+        callStructured,
+        now: () => new Date('2026-05-27T04:22:16.000Z'),
+      },
+    );
+
+    const artifactBody = requireRecord(result.artifact.body);
+    const anglesToTest = requireRecord(artifactBody.anglesToTest);
+    const creativeFramework = requireRecord(artifactBody.creativeFramework);
+    const competitorReviewInsights = requireRecord(
+      artifactBody.competitorReviewInsights,
+    );
+    const competitorMarketingInsights = requireRecord(
+      artifactBody.competitorMarketingInsights,
+    );
+    const funnelIdeation = requireRecord(artifactBody.funnelIdeation);
+    const channelSuggestions = requireRecord(artifactBody.channelSuggestions);
+
+    expect(
+      (anglesToTest.angles as Record<string, unknown>[]).map(
+        (item) => item.sourceSection,
+      ),
+    ).toEqual(Array.from({ length: 4 }, () => 'positioningVoiceOfCustomer'));
+    expect(
+      (creativeFramework.creatives as Record<string, unknown>[]).map(
+        (item) => item.sourceSection,
+      ),
+    ).toEqual(Array.from({ length: 3 }, () => 'positioningOfferDiagnostic'));
+    expect(
+      (competitorReviewInsights.insights as Record<string, unknown>[]).map(
+        (item) => item.sourceSection,
+      ),
+    ).toEqual(
+      Array.from({ length: 2 }, () => 'positioningCompetitorLandscape'),
+    );
+    expect(
+      (competitorMarketingInsights.competitors as Record<string, unknown>[]).map(
+        (item) => item.sourceSection,
+      ),
+    ).toEqual(
+      Array.from({ length: 2 }, () => 'positioningCompetitorLandscape'),
+    );
+    expect(
+      (funnelIdeation.recommendations as Record<string, unknown>[]).map(
+        (item) => item.sourceSection,
+      ),
+    ).toEqual(['positioningOfferDiagnostic']);
+    expect(
+      (channelSuggestions.suggestions as Record<string, unknown>[]).map(
+        (item) => item.sourceSection,
+      ),
+    ).toEqual(Array.from({ length: 2 }, () => 'positioningDemandIntent'));
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });
