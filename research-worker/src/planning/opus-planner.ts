@@ -1,5 +1,5 @@
 // Planning pass: one Opus call to produce a strategic brief that guides
-// downstream Sonnet-based generateObject() runners (media plan, ad scripts).
+// downstream Sonnet-based generateObject() runners (media plan).
 // Gated by ENABLE_OPUS_PLANNING env — returns '' when disabled.
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -23,35 +23,21 @@ Focus on:
 Be opinionated. Don't hedge. This plan guides a detailed media plan generator.
 Use ONLY the provided research data. Never fabricate metrics or pricing.`;
 
-const AD_SCRIPTS_ADVISOR_SYSTEM = `You are a senior direct-response copywriter and creative director. Given research context and media plan for a company, produce a creative strategy brief in under 500 words.
-
-Focus on:
-1. The 5 strongest angles to distribute across awareness levels (most-aware to unaware)
-2. Hook patterns that match this specific audience's triggers and objections
-3. Proof point distribution — which evidence is most compelling at each awareness level
-4. Platform-specific format guidance (what works on Meta vs Google vs LinkedIn)
-5. Tone calibration — how formal/casual, how aggressive/educational
-
-Be opinionated. Don't hedge. This brief guides an automated script generator.
-Use ONLY the provided research data. Never fabricate claims or statistics.`;
-
 export async function getStrategicPlan(
   context: string,
-  planType: 'media-plan' | 'ad-scripts',
+  planType: 'media-plan',
   onProgress?: RunnerProgressReporter,
 ): Promise<string> {
   if (process.env.ENABLE_OPUS_PLANNING !== 'true') {
     return '';
   }
 
-  const label = planType === 'media-plan' ? 'channel strategy' : 'creative strategy';
+  const label = 'channel strategy';
   console.log(`[opus-planner] Starting ${planType} planning pass (Opus ${OPUS_MODEL})`);
   await emitRunnerProgress(onProgress, 'analysis', `planning ${label} with strategic advisor`);
 
   const client = new Anthropic({ maxRetries: 0 });
-  const systemPrompt = planType === 'media-plan'
-    ? MEDIA_PLAN_ADVISOR_SYSTEM
-    : AD_SCRIPTS_ADVISOR_SYSTEM;
+  const systemPrompt = MEDIA_PLAN_ADVISOR_SYSTEM;
 
   try {
     const response = await Promise.race([

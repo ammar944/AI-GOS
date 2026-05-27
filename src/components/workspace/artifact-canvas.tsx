@@ -35,7 +35,6 @@ const SECTION_LABELS: Record<string, string> = {
   keywordIntel: 'Keywords',
   crossAnalysis: 'Strategic Synthesis',
   mediaPlan: 'Media Plan',
-  scripts: 'Scripts',
 };
 
 const PHASE_LABELS: Record<string, string> = {
@@ -52,11 +51,9 @@ interface ArtifactCanvasProps {
   onGenerateMediaPlan?: () => void;
   mediaPlanGenerating?: boolean;
   onRetrySection?: (section: SectionKey) => void;
-  onNavigateToScripts?: () => void;
-  onNavigateToAssets?: () => void;
 }
 
-export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection, onNavigateToScripts, onNavigateToAssets }: ArtifactCanvasProps) {
+export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection }: ArtifactCanvasProps) {
   const { state, approveSection } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
@@ -118,13 +115,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   // streaming, review, approved, error) means generation was triggered.
   const mediaPlanActive = state.sectionStates.mediaPlan !== 'queued';
 
-  // mediaPlan is done — show scripts CTA
-  const mediaPlanComplete = state.sectionStates.mediaPlan === 'review' || state.sectionStates.mediaPlan === 'approved';
-
-  // scripts is "active" once it leaves 'queued'
-  const scriptsActive = state.sectionStates.scripts !== 'queued';
-
-  // Only gates research + media plan completion. Scripts phase is managed separately.
+  // Only gates research + media plan completion.
   const researchAndPlanDone = useMemo(
     () => SECTION_PIPELINE.every((key) => state.sectionStates[key] === 'approved'),
     [state.sectionStates],
@@ -297,40 +288,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 );
               })()}
 
-              {/* Scripts CTA — shown on any tab when media plan is complete and scripts not yet started */}
-              {mediaPlanComplete && !scriptsActive && state.currentSection !== 'scripts' && (
-                <div className={cn(
-                  'rounded-[6px] border border-[var(--border-default)]',
-                  'border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5',
-                )}>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)] font-mono mb-1">Next Phase</div>
-                      <div className="text-sm font-medium text-[var(--text-primary)]">Enhance & generate your ad scripts</div>
-                      <div className="text-xs text-[var(--text-secondary)] mt-1">Add reference ads, proof points, and voice guidelines — or skip straight to generation.</div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0 ml-4">
-                      {onNavigateToAssets && (
-                        <button
-                          onClick={onNavigateToAssets}
-                          className="cursor-pointer px-4 py-2 rounded-[6px] text-sm font-medium bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green)]/90 transition-colors"
-                        >
-                          Add Assets
-                        </button>
-                      )}
-                      {onNavigateToScripts && (
-                        <button
-                          onClick={onNavigateToScripts}
-                          className="px-4 py-2 rounded-md text-sm text-[var(--text-muted)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] transition-colors"
-                        >
-                          Skip to Scripts
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && state.currentSection === 'competitors' && (
                 <CompetitorTabs cards={sectionCards} mode="workspace" />
@@ -412,7 +369,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Save & finish" />
       )}
 
-      {/* Research + media plan approved — completion footer (scripts phase is separate) */}
+      {/* Research + media plan approved — completion footer */}
       {researchAndPlanDone && (
         <ArtifactFooter
           variant="complete"

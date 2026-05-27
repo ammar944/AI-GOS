@@ -12,22 +12,19 @@ import {
   TrendingUp,
   Target,
   Lightbulb,
-  Sparkles,
   Palette,
 } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { PROFILE_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile, ProfileSession } from '@/lib/profiles/business-profiles';
-import { ScriptWorkbench } from '@/components/scripts/script-workbench';
-import { StyleRefsTab } from '@/components/scripts/style-refs-tab';
+import { StyleRefsTab } from '@/components/assets/style-refs-tab';
 
-type TabId = 'overview' | 'research' | 'scripts' | 'style-refs';
+type TabId = 'overview' | 'research' | 'assets';
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'OVERVIEW', icon: FileText },
   { id: 'research', label: 'RESEARCH', icon: FlaskConical },
-  { id: 'scripts', label: 'SCRIPTS', icon: Sparkles },
-  { id: 'style-refs', label: 'ASSETS', icon: Palette },
+  { id: 'assets', label: 'ASSETS', icon: Palette },
 ];
 
 function formatDate(dateString: string): string {
@@ -179,13 +176,8 @@ export default function ProfileDetailPage() {
           </div>
         </div>
 
-        {/* Tab content — scripts gets full width, others stay centered */}
-        {activeTab === 'scripts' ? (
-          <div className="px-6 py-6">
-            <ScriptWorkbench profileId={profile.id} />
-          </div>
-        ) : (
-          <div className="mx-auto max-w-4xl w-full px-8 py-8">
+        {/* Tab content */}
+        <div className="mx-auto max-w-4xl w-full px-8 py-8">
             {activeTab === 'overview' && <OverviewTab profile={profile} />}
 
             {activeTab === 'research' && (
@@ -196,7 +188,7 @@ export default function ProfileDetailPage() {
               />
             )}
 
-            {activeTab === 'style-refs' && (
+            {activeTab === 'assets' && (
               <StyleRefsTab
                 profileId={profile.id}
                 initialRefs={profile.styleReferences}
@@ -204,8 +196,7 @@ export default function ProfileDetailPage() {
                 initialBrandVoice={profile.brandVoiceNotes}
               />
             )}
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );

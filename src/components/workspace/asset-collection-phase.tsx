@@ -38,7 +38,7 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
   const latestRef = useRef({ styleRefs, proofPoints, brandVoice });
   latestRef.current = { styleRefs, proofPoints, brandVoice };
 
-  // Fetch profile data on mount — same pattern as ScriptsPhaseContent
+  // Fetch profile data on mount
   useEffect(() => {
     if (!runId || fetchedRef.current) return;
     fetchedRef.current = true;

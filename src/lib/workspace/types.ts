@@ -6,8 +6,7 @@ export type SectionKey =
   | 'offerAnalysis'
   | 'keywordIntel'
   | 'crossAnalysis'
-  | 'mediaPlan'
-  | 'scripts';
+  | 'mediaPlan';
 
 export type SectionPhase =
   | 'queued'
