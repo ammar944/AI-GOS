@@ -1,748 +1,869 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { motion } from "framer-motion";
 import {
   Building2,
-  Users,
+  Check,
   Package,
-  TrendingUp,
   Route,
   Sparkles,
-  FileCheck,
   Target,
-  Shield,
-  Check,
+  TrendingUp,
+  UploadCloud,
+  Users,
 } from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { fadeUp, easings } from "@/lib/motion";
+import { buildOnboardingReviewMetadata } from "@/lib/research-v2/onboarding-review";
+import {
+  EMPTY_ONBOARDING_V2,
+  OnboardingV2Schema,
+  SECTION_META,
+  SECTION_SCHEMAS,
+  type OnboardingFieldReview,
+  type OnboardingFieldReviewState,
+  type OnboardingPrefillMetadata,
+  type OnboardingReviewMetadata,
+  type OnboardingV2Data,
+  type SalesProcessDocRef,
+  type SectionField,
+  type SectionIconName,
+} from "@/lib/research-v2/onboarding-v2-types";
 import { cn } from "@/lib/utils";
 
-import { StepBusinessBasics } from "./step-business-basics";
-import { StepICP } from "./step-icp";
-import { StepProductOffer } from "./step-product-offer";
-import { StepMarketCompetition } from "./step-market-competition";
-import { StepCustomerJourney } from "./step-customer-journey";
-import { StepBrandPositioning } from "./step-brand-positioning";
-import { StepAssetsProof } from "./step-assets-proof";
-import { StepBudgetTargets } from "./step-budget-targets";
-import { StepCompliance } from "./step-compliance";
-
-import type {
-  OnboardingFormData,
-  OnboardingStep,
-  BusinessBasicsData,
-  ICPData,
-  ProductOfferData,
-  MarketCompetitionData,
-  CustomerJourneyData,
-  BrandPositioningData,
-  AssetsProofData,
-  BudgetTargetsData,
-  ComplianceData,
-} from "@/lib/onboarding/types";
-import { DEFAULT_ONBOARDING_DATA } from "@/lib/onboarding/types";
-
-// Step configuration with icons
-const STEPS: {
-  id: OnboardingStep;
-  title: string;
-  shortTitle: string;
-  icon: React.ReactNode;
-}[] = [
-  {
-    id: "business_basics",
-    title: "Business Basics",
-    shortTitle: "Business",
-    icon: <Building2 className="h-4 w-4" />,
-  },
-  {
-    id: "icp",
-    title: "Ideal Customer",
-    shortTitle: "ICP",
-    icon: <Users className="h-4 w-4" />,
-  },
-  {
-    id: "product_offer",
-    title: "Product & Offer",
-    shortTitle: "Product",
-    icon: <Package className="h-4 w-4" />,
-  },
-  {
-    id: "market_competition",
-    title: "Market & Competition",
-    shortTitle: "Market",
-    icon: <TrendingUp className="h-4 w-4" />,
-  },
-  {
-    id: "customer_journey",
-    title: "Customer Journey",
-    shortTitle: "Journey",
-    icon: <Route className="h-4 w-4" />,
-  },
-  {
-    id: "brand_positioning",
-    title: "Brand & Positioning",
-    shortTitle: "Brand",
-    icon: <Sparkles className="h-4 w-4" />,
-  },
-  {
-    id: "assets_proof",
-    title: "Assets & Proof",
-    shortTitle: "Assets",
-    icon: <FileCheck className="h-4 w-4" />,
-  },
-  {
-    id: "budget_targets",
-    title: "Budget & Targets",
-    shortTitle: "Budget",
-    icon: <Target className="h-4 w-4" />,
-  },
-  {
-    id: "compliance",
-    title: "Compliance",
-    shortTitle: "Compliance",
-    icon: <Shield className="h-4 w-4" />,
-  },
-];
+import { AutoFillPanel } from "./auto-fill-panel";
+import { DocumentUploadPanel } from "./document-upload-panel";
 
 interface OnboardingWizardProps {
-  initialData?: Partial<OnboardingFormData>;
+  initialData?: Partial<OnboardingV2Data>;
+  initialPrefillMetadata?: OnboardingPrefillMetadata;
   initialStep?: number;
-  onComplete: (data: OnboardingFormData) => void;
-  onStepChange?: (step: number, data: Partial<OnboardingFormData>) => void;
+  onComplete: (
+    data: OnboardingV2Data,
+    reviewMetadata: OnboardingReviewMetadata,
+  ) => void;
+  onStepChange?: (step: number, data: Partial<OnboardingV2Data>) => void;
+}
+
+const STATE_CLASS: Record<OnboardingFieldReviewState, string> = {
+  "AI-filled": "border-[var(--accent-green)] text-[color:var(--accent-green)]",
+  "User-edited": "border-[var(--accent-blue)] text-[color:var(--accent-blue)]",
+  Missing: "border-[var(--accent-red)] text-[color:var(--accent-red)]",
+  "Needs review": "border-[var(--accent-amber)] text-[color:var(--accent-amber)]",
+};
+
+const ICONS: Record<SectionIconName, ReactNode> = {
+  Building2: <Building2 className="h-4 w-4" />,
+  Users: <Users className="h-4 w-4" />,
+  Package: <Package className="h-4 w-4" />,
+  TrendingUp: <TrendingUp className="h-4 w-4" />,
+  Sparkles: <Sparkles className="h-4 w-4" />,
+  Target: <Target className="h-4 w-4" />,
+  Route: <Route className="h-4 w-4" />,
+  UploadCloud: <UploadCloud className="h-4 w-4" />,
+};
+
+const SALES_PROCESS_DOC_LABELS = [
+  "Process overview",
+  "SDR outreach SOP",
+  "Opt-in follow-up SOP",
+  "Personalization SOP",
+] as const;
+
+function buildSalesProcessDocRows(
+  docs: readonly SalesProcessDocRef[],
+): SalesProcessDocRef[] {
+  return SALES_PROCESS_DOC_LABELS.map((defaultLabel, index) => {
+    const existing = docs[index];
+    return {
+      label: existing?.label ?? defaultLabel,
+      url: existing?.url ?? "",
+    };
+  });
+}
+
+function pinnedLabel(review: OnboardingFieldReview): string {
+  if (review.key === "idealCustomer") return "Ideal Customer";
+  return review.label;
+}
+
+function deriveGtmMotion(
+  salesMotion: OnboardingV2Data["salesMotion"],
+): OnboardingV2Data["gtmMotion"] {
+  if (salesMotion === "product_led") return "PLG";
+  if (salesMotion === "sales_led" || salesMotion === "hybrid") return "SLG";
+  return "";
+}
+
+function hasPrefillValue(value: OnboardingV2Data[keyof OnboardingV2Data]): boolean {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === "boolean") {
+    return true;
+  }
+  if (value === null) {
+    return false;
+  }
+  return String(value).trim().length > 0;
+}
+
+function mergePrefillData(
+  data: OnboardingV2Data,
+  prefilled: Partial<OnboardingV2Data>,
+): OnboardingV2Data {
+  const next: OnboardingV2Data = { ...data };
+
+  for (const key of Object.keys(prefilled) as Array<keyof OnboardingV2Data>) {
+    const value = prefilled[key];
+    if (value === undefined || !hasPrefillValue(value)) {
+      continue;
+    }
+    next[key] = value as never;
+  }
+
+  return next;
+}
+
+function issuesToErrors(
+  issues: Array<{ path: PropertyKey[]; message: string }>,
+): Record<string, string> {
+  const nextErrors: Record<string, string> = {};
+  for (const issue of issues) {
+    const key = issue.path[0];
+    if (typeof key === "string" && !nextErrors[key]) {
+      nextErrors[key] = issue.message;
+    }
+  }
+  return nextErrors;
+}
+
+function FieldStateBadge({
+  state,
+}: {
+  state: OnboardingFieldReviewState;
+}): ReactElement {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center rounded-full border px-2 font-mono text-[10px] uppercase tracking-[0.06em]",
+        STATE_CLASS[state],
+      )}
+    >
+      {state}
+    </span>
+  );
 }
 
 export function OnboardingWizard({
   initialData,
+  initialPrefillMetadata = {},
   initialStep,
   onComplete,
   onStepChange,
-}: OnboardingWizardProps) {
+}: OnboardingWizardProps): ReactElement {
   const startStep = initialStep ?? 0;
   const [currentStep, setCurrentStep] = useState(startStep);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
-    // Pre-mark steps 0 through initialStep - 1 as completed
-    const set = new Set<number>();
-    for (let i = 0; i < startStep; i++) set.add(i);
-    return set;
+    const steps = new Set<number>();
+    for (let index = 0; index < startStep; index += 1) {
+      steps.add(index);
+    }
+    return steps;
   });
-  // Track the highest step reached to allow forward navigation to visited steps
   const [highestStepReached, setHighestStepReached] = useState(startStep);
-  const [formData, setFormData] = useState<OnboardingFormData>({
-    ...DEFAULT_ONBOARDING_DATA,
+  const [data, setData] = useState<OnboardingV2Data>({
+    ...EMPTY_ONBOARDING_V2,
     ...initialData,
   });
-
-  // Track if form data was updated by user action (not initialization)
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const isUserAction = useRef(false);
-  const pendingStepChange = useRef<{ step: number; data: OnboardingFormData } | null>(null);
+  const pendingStepChange = useRef<{
+    step: number;
+    data: OnboardingV2Data;
+  } | null>(null);
 
-  const progress = ((currentStep + 1) / STEPS.length) * 100;
+  const progress = ((currentStep + 1) / SECTION_META.length) * 100;
 
-  // Call onStepChange after state updates (outside of render)
+  const review = useMemo(
+    () => buildOnboardingReviewMetadata(data, initialPrefillMetadata),
+    [data, initialPrefillMetadata],
+  );
+
+  const pinnedReviews = review.pinnedFieldKeys
+    .map((key) => review.fields[key])
+    .filter((field): field is OnboardingFieldReview => Boolean(field));
+
   useEffect(() => {
     if (pendingStepChange.current && isUserAction.current) {
-      const { step, data } = pendingStepChange.current;
-      onStepChange?.(step, data);
+      const pending = pendingStepChange.current;
+      onStepChange?.(pending.step, pending.data);
       pendingStepChange.current = null;
     }
-  }, [formData, onStepChange]);
+  }, [data, onStepChange]);
 
-  const goToNextStep = useCallback(() => {
-    if (currentStep < STEPS.length - 1) {
-      // Mark the current step as completed before advancing
+  function updateData(nextData: OnboardingV2Data): void {
+    isUserAction.current = true;
+    pendingStepChange.current = { step: currentStep, data: nextData };
+    setData(nextData);
+  }
+
+  function setField<K extends keyof OnboardingV2Data>(
+    key: K,
+    value: OnboardingV2Data[K],
+  ): void {
+    setData((prev) => {
+      const next = { ...prev, [key]: value };
+      isUserAction.current = true;
+      pendingStepChange.current = { step: currentStep, data: next };
+      return next;
+    });
+    if (errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  }
+
+  function applyPrefill(prefilled: Partial<OnboardingV2Data>): void {
+    setData((prev) => {
+      const next = mergePrefillData(prev, prefilled);
+      isUserAction.current = true;
+      pendingStepChange.current = { step: currentStep, data: next };
+      return next;
+    });
+  }
+
+  function clearAllFields(): void {
+    const next = { ...EMPTY_ONBOARDING_V2 };
+    setCompletedSteps(new Set());
+    setHighestStepReached(0);
+    setCurrentStep(0);
+    updateData(next);
+    setErrors({});
+  }
+
+  function validateStep(stepIndex: number): boolean {
+    const schema = SECTION_SCHEMAS[stepIndex];
+    if (!schema) return true;
+
+    const parsed = schema.safeParse(data);
+    if (!parsed.success) {
+      setErrors(issuesToErrors(parsed.error.issues));
+      return false;
+    }
+
+    setErrors({});
+    return true;
+  }
+
+  function goToNextStep(): void {
+    if (!validateStep(currentStep)) return;
+
+    if (currentStep < SECTION_META.length - 1) {
       setCompletedSteps((prev) => new Set(prev).add(currentStep));
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
-      // Update highest step reached if we're going further than before
       setHighestStepReached((prev) => Math.max(prev, nextStep));
       window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
-  }, [currentStep]);
 
-  const goToPreviousStep = useCallback(() => {
+    handleSubmit();
+  }
+
+  function goToPreviousStep(): void {
     if (currentStep > 0) {
       setCurrentStep((prev) => prev - 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [currentStep]);
+  }
 
-  // Navigate to a specific step (any step up to highestStepReached)
-  const goToStep = useCallback((stepIndex: number) => {
-    // Allow navigation to any step up to the highest step reached
-    // This enables going back AND forward to previously visited steps
+  function goToStep(stepIndex: number): void {
     if (stepIndex <= highestStepReached) {
       setCurrentStep(stepIndex);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [highestStepReached]);
-
-  const updateFormData = useCallback(
-    <K extends keyof OnboardingFormData>(
-      section: K,
-      data: OnboardingFormData[K]
-    ) => {
-      isUserAction.current = true;
-      setFormData((prev) => {
-        const updated = { ...prev, [section]: data };
-        // Queue the step change to be called in useEffect (after render)
-        pendingStepChange.current = { step: currentStep, data: updated };
-        return updated;
-      });
-    },
-    [currentStep]
-  );
-
-  /**
-   * Bulk update form data from AI prefill
-   * Deep merges prefilled data into existing formData (only non-empty values)
-   */
-  const bulkUpdateFormData = useCallback(
-    (prefilled: Partial<OnboardingFormData>) => {
-      isUserAction.current = true;
-      setFormData((prev) => {
-        const updated = { ...prev };
-
-        // Deep merge each section, only updating non-empty values
-        (Object.keys(prefilled) as Array<keyof OnboardingFormData>).forEach((section) => {
-          const prefilledSection = prefilled[section];
-          if (!prefilledSection) return;
-
-          const currentSection = updated[section] as Record<string, unknown>;
-          const mergedSection = { ...currentSection };
-
-          Object.entries(prefilledSection).forEach(([key, value]) => {
-            // Only update if value is non-empty
-            if (value !== undefined && value !== null && value !== "") {
-              // For arrays, only update if array has items
-              if (Array.isArray(value) && value.length === 0) return;
-              // For numbers, 0 is valid
-              if (typeof value === "number" || value) {
-                mergedSection[key] = value;
-              }
-            }
-          });
-
-          (updated[section] as Record<string, unknown>) = mergedSection;
-        });
-
-        pendingStepChange.current = { step: currentStep, data: updated };
-        return updated;
-      });
-    },
-    [currentStep]
-  );
-
-  // Clear all fields back to defaults
-  const clearAllFields = useCallback(() => {
-    isUserAction.current = true;
-    setFormData({ ...DEFAULT_ONBOARDING_DATA });
-    setCompletedSteps(new Set());
-    setHighestStepReached(0);
-    setCurrentStep(0);
-    pendingStepChange.current = { step: 0, data: { ...DEFAULT_ONBOARDING_DATA } };
-  }, []);
-
-  // Step handlers
-  const handleBusinessBasics = (data: BusinessBasicsData) => {
-    updateFormData("businessBasics", data);
-    goToNextStep();
-  };
-
-  const handleICP = (data: ICPData) => {
-    updateFormData("icp", data);
-    goToNextStep();
-  };
-
-  const handleProductOffer = (data: ProductOfferData) => {
-    updateFormData("productOffer", data);
-    goToNextStep();
-  };
-
-  const handleMarketCompetition = (data: MarketCompetitionData) => {
-    updateFormData("marketCompetition", data);
-    goToNextStep();
-  };
-
-  const handleCustomerJourney = (data: CustomerJourneyData) => {
-    updateFormData("customerJourney", data);
-    goToNextStep();
-  };
-
-  const handleBrandPositioning = (data: BrandPositioningData) => {
-    updateFormData("brandPositioning", data);
-    goToNextStep();
-  };
-
-  const handleAssetsProof = (data: AssetsProofData) => {
-    updateFormData("assetsProof", data);
-    goToNextStep();
-  };
-
-  const handleBudgetTargets = (data: BudgetTargetsData) => {
-    updateFormData("budgetTargets", data);
-    goToNextStep();
-  };
-
-  const handleCompliance = (data: ComplianceData) => {
-    const finalData = { ...formData, compliance: data };
-    setFormData(finalData);
-    onComplete(finalData);
-  };
-
-  // Render current step content
-  function renderStepContent() {
-    switch (STEPS[currentStep].id) {
-      case "business_basics":
-        return (
-          <StepBusinessBasics
-            initialData={formData.businessBasics}
-            onSubmit={handleBusinessBasics}
-            onPrefillAll={bulkUpdateFormData}
-            onClearAll={clearAllFields}
-          />
-        );
-      case "icp":
-        return (
-          <StepICP
-            initialData={formData.icp}
-            onSubmit={handleICP}
-            onBack={goToPreviousStep}
-            wizardFormData={formData}
-          />
-        );
-      case "product_offer":
-        return (
-          <StepProductOffer
-            initialData={formData.productOffer}
-            onSubmit={handleProductOffer}
-            onBack={goToPreviousStep}
-            wizardFormData={formData}
-          />
-        );
-      case "market_competition":
-        return (
-          <StepMarketCompetition
-            initialData={formData.marketCompetition}
-            onSubmit={handleMarketCompetition}
-            onBack={goToPreviousStep}
-            wizardFormData={formData}
-          />
-        );
-      case "customer_journey":
-        return (
-          <StepCustomerJourney
-            initialData={formData.customerJourney}
-            onSubmit={handleCustomerJourney}
-            onBack={goToPreviousStep}
-            wizardFormData={formData}
-          />
-        );
-      case "brand_positioning":
-        return (
-          <StepBrandPositioning
-            initialData={formData.brandPositioning}
-            onSubmit={handleBrandPositioning}
-            onBack={goToPreviousStep}
-            wizardFormData={formData}
-          />
-        );
-      case "assets_proof":
-        return (
-          <StepAssetsProof
-            initialData={formData.assetsProof}
-            onSubmit={handleAssetsProof}
-            onBack={goToPreviousStep}
-          />
-        );
-      case "budget_targets":
-        return (
-          <StepBudgetTargets
-            initialData={formData.budgetTargets}
-            onSubmit={handleBudgetTargets}
-            onBack={goToPreviousStep}
-          />
-        );
-      case "compliance":
-        return (
-          <StepCompliance
-            initialData={formData.compliance}
-            onSubmit={handleCompliance}
-            onBack={goToPreviousStep}
-          />
-        );
-      default:
-        return null;
-    }
   }
 
-  return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
-      {/* Progress Header */}
-      <div className="space-y-4">
-        {/* Step Counter & Progress Bar - SaaSLaunch Style */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-[14px]">
-            <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-              Step {currentStep + 1} of {STEPS.length}
-            </span>
-            <span style={{ color: "rgb(100, 105, 115)" }}>
-              {Math.round(progress)}% complete
-            </span>
+  function toggleChannel(value: string): void {
+    const channels = data.channels.includes(value)
+      ? data.channels.filter((channel) => channel !== value)
+      : [...data.channels, value];
+    setField("channels", channels);
+  }
+
+  function updateSalesProcessDoc(
+    index: number,
+    key: keyof SalesProcessDocRef,
+    value: string,
+  ): void {
+    const docs = buildSalesProcessDocRows(data.salesProcessDocs);
+    docs[index] = { ...docs[index], [key]: value };
+    setField("salesProcessDocs", docs);
+  }
+
+  function dataForSubmit(): OnboardingV2Data {
+    return {
+      ...data,
+      gtmMotion: deriveGtmMotion(data.salesMotion),
+    };
+  }
+
+  function handleSubmit(): void {
+    const nextData = dataForSubmit();
+    const parsed = OnboardingV2Schema.safeParse(nextData);
+    if (!parsed.success) {
+      setErrors(issuesToErrors(parsed.error.issues));
+      return;
+    }
+
+    setErrors({});
+    onComplete(
+      parsed.data,
+      buildOnboardingReviewMetadata(parsed.data, initialPrefillMetadata),
+    );
+  }
+
+  function renderField(field: SectionField): ReactElement {
+    const reviewField = review.fields[field.key];
+    const state = reviewField?.state ?? "Missing";
+    const error = errors[field.key as string];
+    const fieldId = field.key as string;
+
+    return (
+      <div
+        id={fieldId}
+        key={fieldId}
+        data-testid={`onboarding-field-${fieldId}`}
+        className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4"
+      >
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <Label htmlFor={fieldId} className="text-sm font-medium leading-snug">
+              {field.label}
+              {field.required ? (
+                <span className="ml-0.5 text-destructive">*</span>
+              ) : (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  {field.description ?? "(optional)"}
+                </span>
+              )}
+            </Label>
+            <FieldStateBadge state={state} />
           </div>
-          {/* Animated Progress Bar - SaaSLaunch primary blue */}
-          <div
-            className="h-1.5 rounded-full overflow-hidden"
-            style={{ background: "var(--bg-hover)" }}
-          >
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: "linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%)" }}
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease: easings.out }}
-            />
-          </div>
+          {renderFieldControl(field)}
+          {reviewField?.sourceUrl ? (
+            <div className="break-all font-mono text-[10px] text-[color:var(--text-tertiary)]">
+              Source: {reviewField.sourceUrl}
+            </div>
+          ) : null}
+          {reviewField?.reasoning ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {reviewField.reasoning}
+            </p>
+          ) : null}
+          {error ? (
+            <Alert variant="destructive" className="px-3 py-2">
+              <AlertDescription className="text-xs">{error}</AlertDescription>
+            </Alert>
+          ) : null}
         </div>
+      </div>
+    );
+  }
 
-        {/* Step Indicators */}
-        <div className="hidden md:block">
-          <div className="flex justify-between">
-            {STEPS.map((step, index) => {
-              const isCurrent = index === currentStep;
-              // A step is clickable if it's within the highest step reached
-              const isClickable = index <= highestStepReached;
-              const isFuture = !isClickable;
-              // Completed = user pressed Continue on this step
-              const isCompleted = completedSteps.has(index);
-              // Current and making progress (first time at this step) = WHITE glow
-              const isCurrentNew = isCurrent && currentStep === highestStepReached;
-              // Current but revisiting (went back) = BLUE hue
-              const isCurrentRevisiting = isCurrent && currentStep < highestStepReached;
-              // Completed and not current = show checkmark
-              const showCheckmark = isCompleted && !isCurrent;
-              // Visited but ahead of current position (not current)
-              const isVisitedAhead = !isCurrent && index > currentStep && index <= highestStepReached;
-              // Completed and behind current (not current)
-              const isCompletedBehind = isCompleted && !isCurrent && index < currentStep;
+  function renderFieldControl(field: SectionField): ReactElement {
+    const fieldId = field.key as string;
+    const error = errors[fieldId];
 
-              return (
-                <div
-                  key={step.id}
-                  className={cn(
-                    "flex flex-col items-center gap-2",
-                    index !== 0 && "flex-1"
-                  )}
-                >
-                  {/* Connector Line - SaaSLaunch blue for completed */}
-                  {index !== 0 && (
-                    <div className="absolute left-0 right-0 top-4 -z-10 hidden md:block">
-                      <div
-                        className="h-0.5 w-full transition-colors duration-300"
-                        style={{
-                          background: isCompletedBehind || isVisitedAhead || isCompleted
-                            ? "rgb(54, 94, 255)"
-                            : "rgb(31, 31, 31)",
-                        }}
-                      />
-                    </div>
-                  )}
+    if (field.type === "radio") {
+      return (
+        <RadioGroup
+          value={(data[field.key] as string) ?? ""}
+          onValueChange={(value) => setField(field.key, value as never)}
+          className="grid gap-2 pt-1 sm:grid-cols-2"
+        >
+          {field.options?.map((option) => (
+            <div key={option.value} className="flex min-h-9 items-center gap-2">
+              <RadioGroupItem value={option.value} id={`${fieldId}-${option.value}`} />
+              <Label
+                htmlFor={`${fieldId}-${option.value}`}
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      );
+    }
 
-                  {/* Step Circle - SaaSLaunch styling */}
-                  <motion.button
-                    type="button"
-                    onClick={() => isClickable && goToStep(index)}
-                    disabled={!isClickable}
-                    aria-label={
-                      isCurrentNew
-                        ? `Current step: ${step.title}`
-                        : isCurrentRevisiting
-                          ? `Reviewing: ${step.title}`
-                        : showCheckmark
-                          ? `Go to ${step.title} (completed)`
-                          : isVisitedAhead
-                            ? `Go to ${step.title} (visited)`
-                            : `${step.title} (not yet available)`
-                    }
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={cn(
-                      "relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2",
-                      "transition-all duration-200",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]",
-                      isClickable && "cursor-pointer hover:opacity-80 transition-opacity",
-                      isFuture && "cursor-not-allowed"
-                    )}
-                    style={{
-                      // Priority: isCurrentNew (white) > isCurrentRevisiting (blue) > showCheckmark > isVisitedAhead > future
-                      borderColor: isCurrentNew
-                        ? "rgb(205, 208, 213)"
-                        : isCurrentRevisiting
-                          ? "rgb(54, 94, 255)"
-                        : showCheckmark
-                          ? "rgb(54, 94, 255)"
-                          : isVisitedAhead
-                            ? "rgb(54, 94, 255)"
-                            : "rgb(31, 31, 31)",
-                      background: isCurrentNew
-                        ? "rgb(205, 208, 213)"
-                        : isCurrentRevisiting
-                          ? "rgba(54, 94, 255, 0.15)"
-                        : showCheckmark
-                          ? "rgb(54, 94, 255)"
-                          : isVisitedAhead
-                            ? "rgba(54, 94, 255, 0.15)"
-                            : "rgb(20, 23, 30)",
-                      color: isCurrentNew
-                        ? "rgb(20, 23, 30)"
-                        : isCurrentRevisiting
-                          ? "rgb(54, 94, 255)"
-                        : showCheckmark
-                          ? "#ffffff"
-                          : isVisitedAhead
-                            ? "rgb(54, 94, 255)"
-                            : "rgb(100, 105, 115)",
-                      boxShadow: isCurrentNew
-                        ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
-                        : (isCurrentRevisiting || isVisitedAhead)
-                          ? "0 0 8px rgba(54, 94, 255, 0.4)"
-                          : undefined,
-                    }}
-                    animate={
-                      isCurrent
-                        ? { scale: [1, 1.05, 1] }
-                        : { scale: 1 }
-                    }
-                    transition={
-                      isCurrent
-                        ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                        : { duration: 0.3 }
-                    }
-                    whileHover={isClickable ? { scale: 1.1 } : undefined}
-                    whileTap={isClickable ? { scale: 0.95 } : undefined}
-                  >
-                    {/* Show checkmark only for completed steps that are NOT current */}
-                    {showCheckmark ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      step.icon
-                    )}
-                  </motion.button>
-
-                  {/* Step Label - SaaSLaunch styling */}
-                  <span
-                    onClick={() => isClickable && goToStep(index)}
-                    role={isClickable ? "button" : undefined}
-                    tabIndex={isClickable ? 0 : undefined}
-                    aria-label={isClickable ? `Go to ${step.title}` : undefined}
-                    onKeyDown={(e) => {
-                      if (isClickable && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        goToStep(index);
-                      }
-                    }}
-                    className={cn(
-                      "text-xs transition-all duration-200",
-                      isCurrent ? "font-bold" : "font-medium",
-                      isClickable && "cursor-pointer hover:text-[rgb(252,252,250)]",
-                      isFuture && "cursor-not-allowed",
-                      "focus-visible:outline-none focus-visible:underline focus-visible:underline-offset-2"
-                    )}
-                    style={{
-                      // Priority: isCurrentNew (white) > isCurrentRevisiting (blue) > showCheckmark > isVisitedAhead > future
-                      color: isCurrentNew
-                        ? "rgb(252, 252, 250)"
-                        : isCurrentRevisiting
-                          ? "rgb(54, 94, 255)"
-                        : showCheckmark
-                          ? "rgb(205, 208, 213)"
-                          : isVisitedAhead
-                            ? "rgb(54, 94, 255)"
-                            : "rgb(100, 105, 115)",
-                      textShadow: isCurrentNew
-                        ? "0 0 8px rgba(205, 208, 213, 0.5)"
-                        : undefined,
-                    }}
-                  >
-                    {step.shortTitle}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+    if (field.type === "checkbox") {
+      return (
+        <div className="grid gap-2 pt-1 sm:grid-cols-2">
+          {field.options?.map((option) => (
+            <div key={option.value} className="flex min-h-9 items-center gap-2">
+              <Checkbox
+                id={`${fieldId}-${option.value}`}
+                checked={data.channels.includes(option.value)}
+                onCheckedChange={() => toggleChannel(option.value)}
+              />
+              <Label
+                htmlFor={`${fieldId}-${option.value}`}
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                {option.label}
+              </Label>
+            </div>
+          ))}
         </div>
+      );
+    }
 
-        {/* Mobile Step Indicator with Navigation - SaaSLaunch Style */}
-        <div className="space-y-3 md:hidden">
-          {/* Current Step Info */}
-          {(() => {
-            const isRevisiting = currentStep < highestStepReached;
-            return (
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full border-2"
-                  style={{
-                    background: isRevisiting ? "rgba(54, 94, 255, 0.15)" : "rgb(205, 208, 213)",
-                    borderColor: isRevisiting ? "rgb(54, 94, 255)" : "rgb(205, 208, 213)",
-                    color: isRevisiting ? "rgb(54, 94, 255)" : "rgb(20, 23, 30)",
-                    boxShadow: isRevisiting
-                      ? "0 0 8px rgba(54, 94, 255, 0.4)"
-                      : "0 0 0 3px rgba(205, 208, 213, 0.2)",
-                  }}
-                >
-                  {STEPS[currentStep].icon}
-                </div>
-                <div>
-                  <p
-                    className="text-[16px] font-bold"
-                    style={{ color: isRevisiting ? "rgb(54, 94, 255)" : "rgb(252, 252, 250)" }}
-                  >
-                    {STEPS[currentStep].title}
-                  </p>
-                  <p className="text-[14px]" style={{ color: "rgb(100, 105, 115)" }}>
-                    {isRevisiting ? "Reviewing • " : ""}Step {currentStep + 1} of {STEPS.length}
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
+    if (field.type === "boolean-radio") {
+      const value = data[field.key];
+      const radioValue = value === null ? "" : value === true ? "yes" : "no";
 
-          {/* Horizontal Scrollable Step Pills */}
-          <div className="relative -mx-4 px-4">
+      return (
+        <RadioGroup
+          value={radioValue}
+          onValueChange={(nextValue) =>
+            setField(field.key, (nextValue === "yes") as never)
+          }
+          className="grid gap-2 pt-1 sm:grid-cols-2"
+        >
+          {[
+            { value: "yes", label: "Yes" },
+            { value: "no", label: "No" },
+          ].map((option) => (
+            <div key={option.value} className="flex min-h-9 items-center gap-2">
+              <RadioGroupItem value={option.value} id={`${fieldId}-${option.value}`} />
+              <Label
+                htmlFor={`${fieldId}-${option.value}`}
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      );
+    }
+
+    if (field.type === "sales-process-docs") {
+      const docs = buildSalesProcessDocRows(data.salesProcessDocs);
+
+      return (
+        <div className="grid gap-3">
+          {docs.map((doc, index) => (
             <div
-              className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
+              key={SALES_PROCESS_DOC_LABELS[index]}
+              className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
             >
-              {STEPS.map((step, index) => {
+              <Input
+                aria-label={`${field.label} label ${index + 1}`}
+                value={doc.label}
+                onChange={(event) =>
+                  updateSalesProcessDoc(index, "label", event.target.value)
+                }
+                placeholder={SALES_PROCESS_DOC_LABELS[index]}
+              />
+              <Input
+                aria-label={`${field.label} URL ${index + 1}`}
+                value={doc.url}
+                onChange={(event) =>
+                  updateSalesProcessDoc(index, "url", event.target.value)
+                }
+                placeholder="https://docs.google.com/..."
+                className={cn(error && "border-destructive")}
+              />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (field.type === "textarea") {
+      return (
+        <Textarea
+          id={fieldId}
+          aria-label={field.label}
+          value={(data[field.key] as string) ?? ""}
+          onChange={(event) => setField(field.key, event.target.value as never)}
+          placeholder={field.placeholder}
+          rows={3}
+          className={cn(error && "border-destructive")}
+        />
+      );
+    }
+
+    return (
+      <Input
+        id={fieldId}
+        aria-label={field.label}
+        value={(data[field.key] as string) ?? ""}
+        onChange={(event) => setField(field.key, event.target.value as never)}
+        placeholder={field.placeholder}
+        className={cn(error && "border-destructive")}
+      />
+    );
+  }
+
+  const currentSection = SECTION_META[currentStep]!;
+  const isLastStep = currentStep === SECTION_META.length - 1;
+
+  return (
+    <div className="min-h-screen bg-background px-4 py-8 text-foreground">
+      <div className="mx-auto w-full max-w-4xl space-y-8">
+        <header className="space-y-3 border-b border-[var(--border-subtle)] pb-5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            GTM Brief Review
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-[0]">Confirm every field</h1>
+              <p className="mt-2 max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
+                Review the corpus-filled GTM Brief before the audit is frozen and
+                handed to the six positioning Sections.
+              </p>
+            </div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+              {review.fieldCount} fields
+            </div>
+          </div>
+        </header>
+
+        <section
+          data-testid="onboarding-review-pinned"
+          className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4"
+        >
+          <div className="flex flex-col gap-1">
+            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              Review first
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Missing and low-confidence fields are pinned here; every field
+              remains editable in its section.
+            </p>
+          </div>
+          {pinnedReviews.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No missing or low-confidence fields.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {pinnedReviews.map((field) => (
+                <a
+                  key={field.key}
+                  href={`#${field.key}`}
+                  className="flex min-h-16 items-start justify-between gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-left hover:border-[var(--border-hover)]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {pinnedLabel(field)}
+                    </span>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                      {field.sectionTitle}
+                    </span>
+                  </span>
+                  <FieldStateBadge state={field.state} />
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[14px]">
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                Step {currentStep + 1} of {SECTION_META.length}
+              </span>
+              <span style={{ color: "rgb(100, 105, 115)" }}>
+                {Math.round(progress)}% complete
+              </span>
+            </div>
+            <div
+              className="h-1.5 overflow-hidden rounded-full"
+              style={{ background: "var(--bg-hover)" }}
+            >
+              <motion.div
+                className="h-full rounded-full"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%)",
+                }}
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.5, ease: easings.out }}
+              />
+            </div>
+          </div>
+
+          <div className="hidden md:block">
+            <div className="flex justify-between">
+              {SECTION_META.map((step, index) => {
                 const isCurrent = index === currentStep;
-                // A step is clickable if it's within the highest step reached
                 const isClickable = index <= highestStepReached;
                 const isFuture = !isClickable;
-                // Completed = user pressed Continue on this step
                 const isCompleted = completedSteps.has(index);
-                // Current and making progress (first time at this step) = WHITE glow
                 const isCurrentNew = isCurrent && currentStep === highestStepReached;
-                // Current but revisiting (went back) = BLUE hue
                 const isCurrentRevisiting = isCurrent && currentStep < highestStepReached;
-                // Completed and not current = show checkmark
                 const showCheckmark = isCompleted && !isCurrent;
-                // Visited but ahead of current position (not current)
-                const isVisitedAhead = !isCurrent && index > currentStep && index <= highestStepReached;
+                const isVisitedAhead =
+                  !isCurrent && index > currentStep && index <= highestStepReached;
+                const isCompletedBehind = isCompleted && !isCurrent && index < currentStep;
 
                 return (
-                  <motion.button
+                  <div
                     key={step.id}
-                    type="button"
-                    onClick={() => isClickable && goToStep(index)}
-                    disabled={!isClickable}
-                    aria-label={
-                      isCurrentNew
-                        ? `Current step: ${step.title}`
-                        : isCurrentRevisiting
-                          ? `Reviewing: ${step.title}`
-                        : showCheckmark
-                          ? `Go to ${step.title} (completed)`
-                          : isVisitedAhead
-                            ? `Go to ${step.title} (visited)`
-                            : `${step.title} (not yet available)`
-                    }
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs whitespace-nowrap min-h-[36px]",
-                      "border-2 transition-all duration-200 flex-shrink-0",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-                      isClickable && "cursor-pointer active:scale-95",
-                      isFuture && "cursor-not-allowed opacity-50",
-                      isCurrent ? "font-bold" : "font-medium"
-                    )}
-                    style={{
-                      // Priority: isCurrentNew (white) > isCurrentRevisiting (blue) > showCheckmark > isVisitedAhead > future
-                      borderColor: isCurrentNew
-                        ? "rgb(205, 208, 213)"
-                        : isCurrentRevisiting
-                          ? "rgb(54, 94, 255)"
-                        : showCheckmark
-                          ? "rgb(54, 94, 255)"
-                          : isVisitedAhead
-                            ? "rgb(54, 94, 255)"
-                            : "var(--border-default)",
-                      background: isCurrentNew
-                        ? "rgb(205, 208, 213)"
-                        : isCurrentRevisiting
-                          ? "rgba(54, 94, 255, 0.15)"
-                        : showCheckmark
-                          ? "rgba(54, 94, 255, 0.15)"
-                          : isVisitedAhead
-                            ? "rgba(54, 94, 255, 0.15)"
-                            : "var(--bg-hover)",
-                      color: isCurrentNew
-                        ? "rgb(20, 23, 30)"
-                        : isCurrentRevisiting
-                          ? "rgb(54, 94, 255)"
-                        : showCheckmark
-                          ? "rgb(54, 94, 255)"
-                          : isVisitedAhead
-                            ? "rgb(54, 94, 255)"
-                            : "var(--text-tertiary)",
-                      boxShadow: isCurrentNew
-                        ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
-                        : (isCurrentRevisiting || isVisitedAhead)
-                          ? "0 0 8px rgba(54, 94, 255, 0.4)"
-                          : undefined,
-                    }}
-                    whileTap={isClickable ? { scale: 0.95 } : undefined}
-                    animate={
-                      isCurrent
-                        ? { scale: [1, 1.02, 1] }
-                        : { scale: 1 }
-                    }
-                    transition={
-                      isCurrent
-                        ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                        : { duration: 0.3 }
-                    }
+                    className={cn("flex flex-col items-center gap-2", index !== 0 && "flex-1")}
                   >
-                    {/* Show checkmark only for completed steps that are NOT current */}
-                    {showCheckmark ? (
-                      <Check className="h-3 w-3" />
-                    ) : (
-                      <span className="h-3 w-3 flex items-center justify-center">
-                        {index + 1}
-                      </span>
-                    )}
-                    <span>{step.shortTitle}</span>
-                  </motion.button>
+                    {index !== 0 ? (
+                      <div className="absolute left-0 right-0 top-4 -z-10 hidden md:block">
+                        <div
+                          className="h-0.5 w-full transition-colors duration-300"
+                          style={{
+                            background:
+                              isCompletedBehind || isVisitedAhead || isCompleted
+                                ? "rgb(54, 94, 255)"
+                                : "rgb(31, 31, 31)",
+                          }}
+                        />
+                      </div>
+                    ) : null}
+
+                    <motion.button
+                      type="button"
+                      onClick={() => {
+                        if (isClickable) goToStep(index);
+                      }}
+                      disabled={!isClickable}
+                      aria-label={isCurrent ? `Current step: ${step.title}` : `Go to ${step.title}`}
+                      aria-current={isCurrent ? "step" : undefined}
+                      className={cn(
+                        "relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2",
+                        "transition-all duration-200",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]",
+                        isClickable && "cursor-pointer hover:opacity-80",
+                        isFuture && "cursor-not-allowed",
+                      )}
+                      style={{
+                        borderColor: isCurrentNew
+                          ? "rgb(205, 208, 213)"
+                          : isCurrentRevisiting || showCheckmark || isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : "rgb(31, 31, 31)",
+                        background: isCurrentNew
+                          ? "rgb(205, 208, 213)"
+                          : showCheckmark
+                            ? "rgb(54, 94, 255)"
+                            : isCurrentRevisiting || isVisitedAhead
+                              ? "rgba(54, 94, 255, 0.15)"
+                              : "rgb(20, 23, 30)",
+                        color: isCurrentNew
+                          ? "rgb(20, 23, 30)"
+                          : isCurrentRevisiting || isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : showCheckmark
+                              ? "#ffffff"
+                              : "rgb(100, 105, 115)",
+                      }}
+                      animate={isCurrent ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+                      transition={
+                        isCurrent
+                          ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                          : { duration: 0.3 }
+                      }
+                      whileTap={isClickable ? { scale: 0.95 } : undefined}
+                    >
+                      {showCheckmark ? <Check className="h-4 w-4" /> : ICONS[step.icon]}
+                    </motion.button>
+
+                    <span
+                      className={cn(
+                        "text-xs transition-all duration-200",
+                        isCurrent ? "font-bold" : "font-medium",
+                        isClickable && "cursor-pointer hover:text-[rgb(252,252,250)]",
+                        isFuture && "cursor-not-allowed",
+                      )}
+                      style={{
+                        color: isCurrentNew
+                          ? "rgb(252, 252, 250)"
+                          : isCurrentRevisiting || isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : showCheckmark
+                              ? "rgb(205, 208, 213)"
+                              : "rgb(100, 105, 115)",
+                      }}
+                    >
+                      {step.shortTitle ?? step.title}
+                    </span>
+                  </div>
                 );
               })}
             </div>
-            {/* Fade gradient on right edge to indicate scrollability */}
-            <div
-              className="absolute right-4 top-0 bottom-2 w-8 pointer-events-none"
-              style={{
-                background: "linear-gradient(to right, transparent, var(--bg-elevated))",
-              }}
-            />
+          </div>
+
+          <div className="space-y-3 md:hidden">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full border-2"
+                style={{
+                  background: "rgb(205, 208, 213)",
+                  borderColor: "rgb(205, 208, 213)",
+                  color: "rgb(20, 23, 30)",
+                }}
+              >
+                {ICONS[currentSection.icon]}
+              </div>
+              <div>
+                <p className="text-[16px] font-bold" style={{ color: "rgb(252, 252, 250)" }}>
+                  {currentSection.title}
+                </p>
+                <p className="text-[14px]" style={{ color: "rgb(100, 105, 115)" }}>
+                  Step {currentStep + 1} of {SECTION_META.length}
+                </p>
+              </div>
+            </div>
+
+            <div className="relative -mx-4 px-4">
+              <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+                {SECTION_META.map((step, index) => {
+                  const isCurrent = index === currentStep;
+                  const isClickable = index <= highestStepReached;
+                  const isCompleted = completedSteps.has(index);
+
+                  return (
+                    <motion.button
+                      key={step.id}
+                      type="button"
+                      onClick={() => {
+                        if (isClickable) goToStep(index);
+                      }}
+                      disabled={!isClickable}
+                      aria-current={isCurrent ? "step" : undefined}
+                      className={cn(
+                        "flex min-h-[36px] flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-3 py-2 text-xs",
+                        "transition-all duration-200",
+                        isCurrent ? "font-bold" : "font-medium",
+                        !isClickable && "cursor-not-allowed opacity-50",
+                      )}
+                      style={{
+                        borderColor: isCurrent || isCompleted
+                          ? "rgb(54, 94, 255)"
+                          : "var(--border-default)",
+                        background: isCurrent || isCompleted
+                          ? "rgba(54, 94, 255, 0.15)"
+                          : "var(--bg-hover)",
+                        color: isCurrent || isCompleted
+                          ? "rgb(54, 94, 255)"
+                          : "var(--text-tertiary)",
+                      }}
+                      whileTap={isClickable ? { scale: 0.95 } : undefined}
+                    >
+                      {isCompleted && !isCurrent ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <span className="flex h-3 w-3 items-center justify-center">
+                          {index + 1}
+                        </span>
+                      )}
+                      <span>{step.shortTitle ?? step.title}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Form Card */}
-      <Card className="overflow-hidden">
-        <motion.div
-          key={currentStep}
-          className="p-6 md:p-8"
-          style={{ background: "var(--bg-elevated)" }}
-          variants={fadeUp}
-          initial="initial"
-          animate="animate"
-          transition={{ duration: 0.6, ease: easings.out }}
-        >
-          {renderStepContent()}
-        </motion.div>
-      </Card>
+        <Card className="overflow-hidden">
+          <motion.div
+            key={currentSection.id}
+            className="p-6 md:p-8"
+            style={{ background: "var(--bg-elevated)" }}
+            variants={fadeUp}
+            initial="initial"
+            animate="animate"
+            transition={{ duration: 0.6, ease: easings.out }}
+          >
+            <section
+              data-testid={`onboarding-section-${currentSection.id}`}
+              className="space-y-5"
+            >
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                  {currentSection.shortTitle ?? currentSection.title}
+                </div>
+                <h2 className="mt-2 text-xl font-semibold tracking-[0]">
+                  {currentSection.title}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {currentSection.description}
+                </p>
+              </div>
+
+              {currentStep === 0 ? (
+                <div className="grid gap-3">
+                  <AutoFillPanel onPrefillComplete={applyPrefill} />
+                  <DocumentUploadPanel onPrefillComplete={applyPrefill} />
+                </div>
+              ) : null}
+
+              <div className="grid gap-3">
+                {currentSection.fields.map((field) => renderField(field))}
+              </div>
+
+              {Object.keys(errors).length > 0 ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Fix the highlighted fields before continuing.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-subtle)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={goToPreviousStep}
+                  disabled={currentStep === 0}
+                >
+                  Back
+                </Button>
+                <div className="flex items-center justify-end gap-3">
+                  <Button type="button" variant="ghost" onClick={clearAllFields}>
+                    Clear
+                  </Button>
+                  <Button type="button" onClick={goToNextStep}>
+                    {isLastStep ? "Run audit" : "Continue"}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          </motion.div>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -163,24 +163,3 @@ export function loadRunnerPrompt(name: string): string {
   return content;
 }
 
-// Lazy cache for Haynes frameworks (outside standard cache dirs)
-let haynesFrameworksCache: string | null = null;
-
-/**
- * Returns the Jeremy Haynes direct response frameworks. These live in
- * scripts/refs/ for the ad scripts pipeline. Cached at first call since
- * the worker is a long-running process.
- */
-export function loadHaynesFrameworks(): string {
-  if (haynesFrameworksCache !== null) return haynesFrameworksCache;
-  try {
-    haynesFrameworksCache = readFileSync(
-      join(__dirname, '..', 'scripts', 'refs', 'haynes-frameworks.md'),
-      'utf-8',
-    );
-  } catch {
-    console.warn('[loader] Failed to load haynes-frameworks.md');
-    haynesFrameworksCache = '';
-  }
-  return haynesFrameworksCache;
-}

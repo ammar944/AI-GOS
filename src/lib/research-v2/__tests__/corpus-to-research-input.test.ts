@@ -101,4 +101,43 @@ describe("corpusToResearchInput", (): void => {
     expect(JSON.stringify(parsed)).not.toContain("Synthetic");
     expect(JSON.stringify(parsed)).not.toContain("example.com");
   });
+
+  it("injects uploaded documents into lab corpus excerpts without section tag filtering", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      uploadedDocuments: [
+        {
+          id: "doc_123",
+          fileName: "enterprise-buyers.md",
+          docKind: "client_briefing",
+          sectionTags: ["positioningBuyerICP"],
+          tokenCount: 180,
+          parsedMarkdown:
+            "Enterprise buyers care about governance, approval workflows, and implementation speed when replacing spreadsheet-heavy operating processes.",
+        },
+      ],
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "source_uploaded_enterprise-buyers-md_1",
+          title: "Uploaded document: enterprise-buyers.md",
+          url: "https://app.ai-gos.local/uploaded-documents/doc_123",
+        }),
+      ]),
+    );
+    expect(parsed.corpus.excerpts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "excerpt_uploaded_enterprise-buyers-md_1",
+          sourceId: "source_uploaded_enterprise-buyers-md_1",
+          text: expect.stringContaining("Enterprise buyers care about governance"),
+        }),
+      ]),
+    );
+  });
 });

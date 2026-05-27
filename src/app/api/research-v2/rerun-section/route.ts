@@ -30,6 +30,7 @@ import {
   getDeepResearchProgramData,
   loadOwnedResearchSession,
 } from '@/lib/research-v2/orchestration-session';
+import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/uploaded-document-context.server';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -273,10 +274,16 @@ export async function POST(req: Request): Promise<NextResponse> {
         );
       }
 
+      const uploadedDocuments = await loadUploadedDocumentContextsForSession({
+        metadata: session.metadata,
+        supabase,
+        userId,
+      });
       const researchInput = corpusToResearchInput({
         runId,
         deepResearchProgramData,
         onboardingData: session.onboarding_data ?? {},
+        ...(uploadedDocuments.length > 0 ? { uploadedDocuments } : {}),
       });
       const seeded = await scheduleLabSectionJob({
         userId,

@@ -13,7 +13,6 @@ import { CompetitorTabs } from '@/components/workspace/competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
 import { MediaPlanButton } from '@/components/research/media-plan-button';
-import { ScriptsPhaseContent } from '@/components/workspace/scripts-phase';
 import { ReportSources } from '@/components/workspace/report-sources';
 import { extractReportSources } from '@/lib/workspace/extract-card-sources';
 import { useSessionShare } from '@/hooks/use-session-share';
@@ -41,7 +40,6 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
   const [currentSection, setCurrentSection] = useState<SectionKey>(
     availableSections[0] ?? 'industryMarket',
   );
-  const [scriptsTabActive, setScriptsTabActive] = useState(false);
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
   const [mediaPlanCards, setMediaPlanCards] = useState<CardState[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -97,11 +95,8 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
     if ((mediaPlanGenerating || mediaPlanCards.length > 0) && !sections.includes('mediaPlan')) {
       sections.push('mediaPlan');
     }
-    if (scriptsTabActive && !sections.includes('scripts')) {
-      sections.push('scripts');
-    }
     return sections;
-  }, [availableSections, mediaPlanGenerating, mediaPlanCards, scriptsTabActive]);
+  }, [availableSections, mediaPlanGenerating, mediaPlanCards]);
 
   const sectionCards = useMemo(
     () => allCards[currentSection] ?? [],
@@ -243,18 +238,6 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
                     setCurrentSection('mediaPlan');
                   }}
                 />
-                {(hasMediaPlan || mediaPlanCards.length > 0) && runId && !scriptsTabActive && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScriptsTabActive(true);
-                      setCurrentSection('scripts');
-                    }}
-                    className="cursor-pointer inline-flex items-center gap-2 rounded-full text-[13px] font-semibold px-5 h-9 transition-all bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/90 text-white hover:opacity-90"
-                  >
-                    Generate Scripts
-                  </button>
-                )}
               </div>
             )}
             <div className="h-px bg-[var(--border-subtle)] mt-4" />
@@ -262,9 +245,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
 
           {/* Interactive section content (screen only) */}
           <div className="no-print">
-            {currentSection === 'scripts' && runId ? (
-              <ScriptsPhaseContent activeRunId={runId} autoGenerate />
-            ) : currentSection === 'mediaPlan' && mediaPlanGenerating && sectionCards.length === 0 ? (
+            {currentSection === 'mediaPlan' && mediaPlanGenerating && sectionCards.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
                 <Loader2 className="h-6 w-6 animate-spin text-[var(--text-secondary)]" />
                 <p className="text-sm text-[var(--text-tertiary)] font-mono">

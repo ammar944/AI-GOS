@@ -88,7 +88,7 @@ export function WelcomeStrip({
                 </>
               )}
               <Link
-                href="/onboarding/edit"
+                href="/research-v3"
                 className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors ml-1 opacity-0 group-hover/welcome:opacity-100"
               >
                 <Pencil className="size-3" />
@@ -148,14 +148,14 @@ export function WelcomeStrip({
 
           {isOnboardingComplete && (
             <>
-              <Link href="/onboarding/edit">
+              <Link href="/research-v3">
                 <Button
                   variant="outline"
                   size="default"
                   className="text-[var(--text-secondary)] border-[var(--border-default)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]"
                 >
                   <Pencil className="size-3.5" />
-                  Edit Profile
+                  Open Journey
                 </Button>
               </Link>
               <Link href="/research-v3">

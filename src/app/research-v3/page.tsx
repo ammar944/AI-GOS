@@ -21,11 +21,16 @@ import {
   inferPersistedResearchV2State,
   type PersistedResearchV2Session,
 } from '@/lib/research-v2/session-state';
+import { buildCorpusContext } from '@/lib/research-v2/corpus-context';
+import {
+  buildUploadedDocumentMetadata,
+  type UploadedDocumentContext,
+} from '@/lib/research-v2/uploaded-document-context';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
-import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
+import { OnboardingWizard } from '@/components/onboarding';
 import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
 import {
   getReaderSectionFromParam,
@@ -35,10 +40,6 @@ import {
 // ---------------------------------------------------------------------------
 // Helpers (identical to research-v2/page.tsx)
 // ---------------------------------------------------------------------------
-
-function buildCorpusContext(websiteUrl: string): string {
-  return `websiteUrl: ${websiteUrl}\nWebsite: ${websiteUrl}`;
-}
 
 interface JourneySessionResponse {
   runId?: string | null;
@@ -81,6 +82,7 @@ export default function ResearchV3Page() {
   const [isRetrying, setIsRetrying] = useState(false);
 
   const lastUrlRef = useRef<string>('');
+  const lastUploadedDocumentsRef = useRef<UploadedDocumentContext[]>([]);
 
   // -----------------------------------------------------------------------
   // URL search param sync
@@ -227,16 +229,24 @@ export default function ResearchV3Page() {
   // -----------------------------------------------------------------------
 
   const startCorpus = useCallback(
-    async (websiteUrl: string) => {
+    async (
+      websiteUrl: string,
+      uploadedDocuments: UploadedDocumentContext[] = [],
+    ) => {
       lastUrlRef.current = websiteUrl;
+      lastUploadedDocumentsRef.current = uploadedDocuments;
       setIsCorpusStarting(true);
 
       try {
+        const metadata = {
+          websiteUrl,
+          ...buildUploadedDocumentMetadata(uploadedDocuments),
+        };
         const sessionRes = await fetch('/api/journey/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({}),
+          body: JSON.stringify({ metadata }),
         });
 
         if (!sessionRes.ok) {
@@ -269,7 +279,10 @@ export default function ResearchV3Page() {
         dispatch({ type: 'CORPUS_START', runId });
         setRunIdInUrl(runId);
 
-        const context = buildCorpusContext(websiteUrl);
+        const context = buildCorpusContext({
+          websiteUrl,
+          uploadedDocuments,
+        });
         const dispatchRes = await fetch('/api/research-v2/dispatch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -454,7 +467,10 @@ export default function ResearchV3Page() {
     try {
       if (state.from === 'corpus') {
         dispatch({ type: 'CORPUS_START', runId: state.runId });
-        const context = buildCorpusContext(lastUrlRef.current);
+        const context = buildCorpusContext({
+          websiteUrl: lastUrlRef.current,
+          uploadedDocuments: lastUploadedDocumentsRef.current,
+        });
         const res = await fetch('/api/research-v2/dispatch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -536,7 +552,7 @@ export default function ResearchV3Page() {
       )}
 
       {state.kind === 'onboarding' && (
-        <OnboardingWizardV2
+        <OnboardingWizard
           initialData={state.prefill}
           initialPrefillMetadata={state.prefillMetadata}
           onComplete={handleOnboardingComplete}

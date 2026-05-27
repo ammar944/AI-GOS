@@ -41,7 +41,6 @@ const LABEL_BY_SECTION: Record<SectionKey, string> = {
   keywordIntel: 'Keywords',
   crossAnalysis: 'Strategy',
   mediaPlan: 'Media plan',
-  scripts: 'Scripts',
 };
 
 export function ApprovalGate({

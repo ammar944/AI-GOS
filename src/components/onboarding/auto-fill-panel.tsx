@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { PrefillSummary } from "./prefill-summary";
 import { useCompanyResearch } from "@/hooks/use-company-research";
 import type { CompanyResearchOutput } from "@/lib/company-intel";
-import type { OnboardingFormData, CompanySize } from "@/lib/onboarding/types";
+import type { OnboardingV2Data } from "@/lib/research-v2/onboarding-v2-types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,7 +26,7 @@ import type { OnboardingFormData, CompanySize } from "@/lib/onboarding/types";
 type PanelState = "collapsed" | "expanded" | "streaming" | "success" | "error";
 
 interface AutoFillPanelProps {
-  onPrefillComplete: (data: Partial<OnboardingFormData>) => void;
+  onPrefillComplete: (data: Partial<OnboardingV2Data>) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,94 +228,30 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
 
       const isSelected = (key: string) => selectedFields.has(key);
 
-      const parseSize = (sizeStr: string): CompanySize => {
-        if (!sizeStr) return "11-50";
-        const lower = sizeStr.toLowerCase().replace(/,/g, "");
-        const numbers = lower.match(/\d+/g)?.map(Number) || [];
-        const maxNum = Math.max(...numbers, 0);
-        if (lower.includes("solo") || lower.includes("freelance") || maxNum === 1) return "solo";
-        if (maxNum <= 10) return "1-10";
-        if (maxNum <= 50) return "11-50";
-        if (maxNum <= 200) return "51-200";
-        if (maxNum <= 1000) return "201-1000";
-        if (maxNum > 1000 || lower.includes("1000+") || lower.includes("enterprise")) return "1000+";
-        return "11-50";
-      };
+      const formData: Partial<OnboardingV2Data> = {};
 
-      const formData: Partial<OnboardingFormData> = {};
-
-      // Business Basics
       if (isSelected("companyName")) {
-        formData.businessBasics = { businessName: v("companyName"), websiteUrl: "" };
+        formData.companyName = v("companyName");
       }
 
-      // ICP
-      const icpKeys = ["industry", "targetCustomers", "targetJobTitles", "companySize", "headquartersLocation"];
-      if (icpKeys.some(isSelected)) {
-        formData.icp = {
-          primaryIcpDescription: isSelected("targetCustomers") ? v("targetCustomers") : "",
-          industryVertical: isSelected("industry") ? v("industry") : "",
-          jobTitles: isSelected("targetJobTitles") ? v("targetJobTitles") : "",
-          companySize: isSelected("companySize") ? (() => { const p = parseSize(v("companySize")); return [p]; })() : [],
-          geography: isSelected("headquartersLocation") ? v("headquartersLocation") : "",
-          easiestToClose: "",
-          buyingTriggers: "",
-          bestClientSources: [],
-        };
+      if (isSelected("productDescription")) formData.productDescription = v("productDescription");
+      if (isSelected("targetCustomers")) formData.idealCustomer = v("targetCustomers");
+      if (isSelected("industry")) formData.industry = v("industry");
+      if (isSelected("targetJobTitles")) formData.jobTitles = v("targetJobTitles");
+      if (isSelected("companySize")) formData.companySize = v("companySize");
+      if (isSelected("headquartersLocation")) formData.geographicFocus = v("headquartersLocation");
+      if (isSelected("coreFeatures")) formData.coreFeatures = v("coreFeatures");
+      if (isSelected("pricing")) formData.pricingTiers = v("pricing");
+      if (isSelected("competitors")) formData.topCompetitors = v("competitors");
+      if (isSelected("uniqueDifferentiator")) formData.whyCustomersChooseYou = v("uniqueDifferentiator");
+      if (isSelected("marketProblem")) {
+        formData.triggers = v("marketProblem");
+        formData.competitorAdvantages = v("marketProblem");
       }
-
-      // Product & Offer
-      const productKeys = ["productDescription", "coreFeatures", "valueProposition", "pricing"];
-      if (productKeys.some(isSelected)) {
-        formData.productOffer = {
-          productDescription: isSelected("productDescription") ? v("productDescription") : "",
-          coreDeliverables: isSelected("coreFeatures") ? v("coreFeatures") : "",
-          offerPrice: 0,
-          pricingModel: [],
-          valueProp: isSelected("valueProposition") ? v("valueProposition") : "",
-          currentFunnelType: [],
-        };
-      }
-
-      // Market & Competition
-      const marketKeys = ["competitors", "uniqueDifferentiator", "marketProblem"];
-      if (marketKeys.some(isSelected)) {
-        formData.marketCompetition = {
-          topCompetitors: isSelected("competitors") ? v("competitors") : "",
-          uniqueEdge: isSelected("uniqueDifferentiator") ? v("uniqueDifferentiator") : "",
-          marketBottlenecks: isSelected("marketProblem") ? v("marketProblem") : "",
-        };
-      }
-
-      // Customer Journey
-      const journeyKeys = ["customerTransformation", "commonObjections"];
-      if (journeyKeys.some(isSelected)) {
-        formData.customerJourney = {
-          situationBeforeBuying: isSelected("marketProblem") ? v("marketProblem") : "",
-          desiredTransformation: isSelected("customerTransformation") ? v("customerTransformation") : "",
-          commonObjections: isSelected("commonObjections") ? v("commonObjections") : "",
-          salesCycleLength: "14_to_30_days",
-        };
-      }
-
-      // Brand & Positioning
-      const brandKeys = ["brandPositioning", "testimonialQuote"];
-      if (brandKeys.some(isSelected)) {
-        formData.brandPositioning = {
-          brandPositioning: isSelected("brandPositioning") ? v("brandPositioning") : "",
-          customerVoice: isSelected("testimonialQuote") ? v("testimonialQuote") : "",
-        };
-      }
-
-      // Assets & Proof
-      const assetKeys = ["caseStudiesUrl", "testimonialsUrl", "pricingUrl", "demoUrl"];
-      if (assetKeys.some(isSelected)) {
-        formData.assetsProof = {
-          caseStudiesUrl: isSelected("caseStudiesUrl") ? v("caseStudiesUrl") : "",
-          testimonialsUrl: isSelected("testimonialsUrl") ? v("testimonialsUrl") : "",
-          landingPageUrl: isSelected("demoUrl") ? v("demoUrl") : "",
-        };
-      }
+      if (isSelected("customerTransformation")) formData.firstValueMoment = v("customerTransformation");
+      if (isSelected("commonObjections")) formData.commonObjections = v("commonObjections");
+      if (isSelected("brandPositioning")) formData.brandPositioning = v("brandPositioning");
+      if (isSelected("valueProposition")) formData.keyPromises = v("valueProposition");
 
       onPrefillComplete(formData);
       setCompletedResult(null);

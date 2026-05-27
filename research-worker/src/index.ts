@@ -15,7 +15,6 @@ import {
 import {
   writeResearchResult,
   writeJobStatus,
-  writeScriptPackUpdate,
   getClient,
   ensureArtifact,
   startSectionRun,
@@ -23,7 +22,6 @@ import {
   type ResearchResult,
 } from './supabase';
 import { createEmitProgress } from './emit-progress';
-import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
 import { writeDeadLetter } from './dead-letter';
 import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
@@ -940,62 +938,6 @@ app.post('/orchestrate', requireApiKey, async (req: express.Request, res: expres
     .finally(() => {
       parentOrchestrationAbort.delete(parent_audit_run_id);
     });
-});
-
-// -- Ad Scripts ---------------------------------------------------------------
-app.post('/api/scripts', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { packId, profileId, sessionId, userId, companyName, researchContext, styleReferences, proofPoints, brandVoiceNotes } = req.body;
-
-  if (!packId || !profileId || !userId || !researchContext) {
-    res.status(400).json({ error: 'Missing required fields' });
-    return;
-  }
-
-  res.status(202).json({ status: 'accepted', packId });
-
-  void (async () => {
-    try {
-      console.log(`[ad-scripts] Starting ICM pipeline for pack ${packId}`);
-      const pipelineInput: PipelineInput = {
-        companyName: companyName ?? 'Unknown Company',
-        researchContext,
-        styleReferences: styleReferences ?? [],
-        targetAudience: researchContext.targetAudience ?? 'target audience',
-        proofPoints: proofPoints ?? [],
-        brandVoiceNotes: brandVoiceNotes ?? null,
-      };
-
-      const result = await runScriptPipeline(
-        pipelineInput,
-        async (update) => {
-          console.log(`[ad-scripts] ${update.phase}: ${update.message}`);
-        },
-        async (scripts, completedLevels) => {
-          const status = completedLevels >= 5 ? 'complete' : 'partial';
-          await writeScriptPackUpdate(packId, {
-            scripts: JSON.stringify(scripts),
-            status,
-            script_count: scripts.length,
-          });
-        },
-      );
-
-      await writeScriptPackUpdate(packId, {
-        scripts: JSON.stringify(result.assembledScripts),
-        status: 'complete',
-        script_count: result.assembledScripts.length,
-        diversity_score: 10, // Diversity guaranteed by construction
-        diversity_flags: JSON.stringify(result.metadata.matrixViolations),
-      });
-      console.log(`[ad-scripts] Completed: ${result.assembledScripts.length} scripts, ${result.hookVariants.length} hook variants, ${result.metadata.totalClaims} claims for pack ${packId}`);
-    } catch (err) {
-      console.error(`[ad-scripts] Failed for pack ${packId}:`, err);
-      await writeScriptPackUpdate(packId, {
-        status: 'error',
-        error_message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  })();
 });
 
 // -- Stale-run reaper on boot -------------------------------------------------

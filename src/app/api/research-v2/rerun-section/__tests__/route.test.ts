@@ -73,6 +73,10 @@ vi.mock('@/lib/research-v2/lab-section-dispatch', () => ({
     routeMocks.scheduleLabSectionJob(...args),
 }));
 
+vi.mock('@/lib/research-v2/uploaded-document-context.server', () => ({
+  loadUploadedDocumentContextsForSession: () => [],
+}));
+
 vi.mock('@/lib/research-v2/orchestrate-db', async () => {
   const actual =
     await vi.importActual<typeof import('@/lib/research-v2/orchestrate-db')>(

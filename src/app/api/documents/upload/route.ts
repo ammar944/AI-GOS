@@ -34,6 +34,8 @@ interface StoredDocument {
   docKind: string;
   sectionTags: string[];
   tokenCount: number;
+  parsedMarkdown: string;
+  uploadedDocPath?: string;
 }
 
 export async function POST(request: Request) {
@@ -191,6 +193,8 @@ export async function POST(request: Request) {
         docKind,
         sectionTags,
         tokenCount,
+        parsedMarkdown: parsed.text,
+        ...(storagePath ? { uploadedDocPath: storagePath } : {}),
       });
     } catch (err) {
       console.error(`[documents/upload] Unexpected error for ${fileName}:`, err);

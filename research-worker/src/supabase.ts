@@ -702,21 +702,6 @@ export async function writeJobStatus(
   );
 }
 
-/** Write progressive script pack updates to the script_packs table. */
-export async function writeScriptPackUpdate(
-  packId: string,
-  update: { scripts?: unknown; status?: string; error_message?: string; diversity_score?: number; diversity_flags?: string; script_count?: number },
-): Promise<void> {
-  await withSupabaseRetry(async () => {
-    const client = getClient();
-    const { error } = await client
-      .from('script_packs')
-      .update(update)
-      .eq('id', packId);
-    if (error) throw error;
-  }, `writeScriptPackUpdate(${packId})`);
-}
-
 // ---------------------------------------------------------------------------
 // Shadow mode writers (Phase 0.2)
 //

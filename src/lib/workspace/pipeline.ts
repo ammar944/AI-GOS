@@ -23,22 +23,19 @@ export const SECTION_PIPELINE_LABELS: Record<SectionKey, string> = {
   keywordIntel: 'Demand & Intent',
   offerAnalysis: 'Offer Diagnostic',
   mediaPlan: 'Media Plan',
-  scripts: 'Scripts',
 };
 
 /**
- * All workspace sections including scripts phase.
- * Used for tab visibility — scripts sits after mediaPlan.
- * Scripts are NOT part of the research pipeline (different API + data model).
+ * All workspace sections. Currently identical to SECTION_PIPELINE
+ * (the ad-scripts phase was removed — ADR-0009).
  */
 export const WORKSPACE_SECTIONS: SectionKey[] = [
   ...SECTION_PIPELINE,
-  'scripts',
 ];
 
 /**
  * Mapping from canonical research section IDs (used by the journey chat tools)
- * to boundary/pipeline IDs (used by the workspace + scripts pipeline).
+ * to boundary/pipeline IDs (used by the workspace).
  * Some sections store results under canonical names, so we check both.
  */
 const CANONICAL_ALIASES: Record<string, string[]> = {
@@ -63,7 +60,7 @@ function isComplete(entry: unknown): boolean {
  * True when every SECTION_PIPELINE key in research_results is complete with data.
  * Checks both boundary IDs (industryMarket) and canonical IDs (industryResearch)
  * because the journey flow may store results under either naming convention.
- * Used to gate script generation and session pickers.
+ * Used to gate session pickers.
  */
 export function getResearchPipelineReadiness(rawResults: Record<string, unknown> | null | undefined): {
   ready: boolean;

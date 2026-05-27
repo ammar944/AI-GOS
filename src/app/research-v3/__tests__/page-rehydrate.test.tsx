@@ -43,8 +43,8 @@ vi.mock('@/components/research-v2/error-recovery', () => ({
   ErrorRecovery: () => <div data-testid="error" />,
 }));
 
-vi.mock('@/components/research-v2/onboarding-wizard-v2', () => ({
-  OnboardingWizardV2: () => <div data-testid="onboarding" />,
+vi.mock('@/components/onboarding', () => ({
+  OnboardingWizard: () => <div data-testid="onboarding" />,
 }));
 
 vi.mock('@/lib/research-v2/use-audit-state', () => ({

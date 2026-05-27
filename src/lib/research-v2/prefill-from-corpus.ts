@@ -55,6 +55,37 @@ function fieldMetadata(
   return { value, confidence, sourceUrl, reasoning };
 }
 
+function salesMotionFromBusinessModel(
+  value: string | undefined,
+): OnboardingV2Data['salesMotion'] | undefined {
+  if (!value) return undefined;
+
+  const normalized = value.toLowerCase();
+  if (
+    normalized.includes('product-led') ||
+    normalized.includes('product led') ||
+    normalized.includes('plg') ||
+    normalized.includes('self-serve') ||
+    normalized.includes('self serve')
+  ) {
+    return 'product_led';
+  }
+  if (
+    normalized.includes('sales-led') ||
+    normalized.includes('sales led') ||
+    normalized.includes('slg') ||
+    normalized.includes('demo') ||
+    normalized.includes('enterprise')
+  ) {
+    return 'sales_led';
+  }
+  if (normalized.includes('hybrid')) {
+    return 'hybrid';
+  }
+
+  return undefined;
+}
+
 export function prefillFromCorpusWithMetadata(
   onboardingFields: Record<string, CorpusOnboardingField>,
 ): PrefillFromCorpusResult {
@@ -83,7 +114,7 @@ export function prefillFromCorpusWithMetadata(
 
   // builtFor — no direct corpus key; skip
 
-  // salesMotion — no direct corpus key; skip (businessModel is too generic)
+  setField('salesMotion', 'businessModel', salesMotionFromBusinessModel(str('businessModel')));
 
   // pricingModel, conversionPath, acv — radios, corpus doesn't emit these; skip
 
@@ -109,7 +140,7 @@ export function prefillFromCorpusWithMetadata(
   // Section 4: Pricing & Economics
   setField('pricingTiers', 'pricingTiers', str('pricingTiers'));
 
-  // targetPlan, ltv, targetCac, monthlyAdBudget — no corpus keys; skip
+  // targetPlan, avgLtv, targetCac, monthlyAdBudget — no corpus keys; skip
 
   // Section 5: Competition & Positioning
   setField('topCompetitors', 'topCompetitors', str('topCompetitors'));
@@ -124,7 +155,7 @@ export function prefillFromCorpusWithMetadata(
   // valueProp → keyPromises (closest semantic match)
   setField('keyPromises', 'valueProp', str('valueProp'));
 
-  // primaryGoal90Days, monthlyPipelineTarget, goalTargetCac — no corpus keys; skip
+  // primaryGoal90Days, monthlyPipelineTarget — no corpus keys; skip
 
   // Section 7: Current Marketing & Performance — no corpus keys; skip all
 

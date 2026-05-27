@@ -13,7 +13,6 @@ const sectionStates: Record<SectionKey, SectionPhase> = {
   keywordIntel: 'queued',
   crossAnalysis: 'queued',
   mediaPlan: 'queued',
-  scripts: 'queued',
 };
 
 const workspaceState: Pick<WorkspaceState, 'currentSection' | 'sectionStates'> = {

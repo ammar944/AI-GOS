@@ -20,20 +20,21 @@ import {
   inferPersistedResearchV2State,
   type PersistedResearchV2Session,
 } from '@/lib/research-v2/session-state';
+import { buildCorpusContext } from '@/lib/research-v2/corpus-context';
+import {
+  buildUploadedDocumentMetadata,
+  type UploadedDocumentContext,
+} from '@/lib/research-v2/uploaded-document-context';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
-import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
+import { OnboardingWizard } from '@/components/onboarding';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function buildCorpusContext(websiteUrl: string): string {
-  return `websiteUrl: ${websiteUrl}\nWebsite: ${websiteUrl}`;
-}
 
 interface JourneySessionResponse {
   runId?: string | null;
@@ -75,6 +76,7 @@ export default function ResearchV2Page() {
 
   // Track last submitted URL so Retry can re-dispatch
   const lastUrlRef = useRef<string>('');
+  const lastUploadedDocumentsRef = useRef<UploadedDocumentContext[]>([]);
 
   // -----------------------------------------------------------------------
   // URL search param sync — persist runId across reloads
@@ -212,18 +214,26 @@ export default function ResearchV2Page() {
   // Corpus dispatch
   // -----------------------------------------------------------------------
 
-  const startCorpus = useCallback(async (websiteUrl: string) => {
+  const startCorpus = useCallback(async (
+    websiteUrl: string,
+    uploadedDocuments: UploadedDocumentContext[] = [],
+  ) => {
     lastUrlRef.current = websiteUrl;
+    lastUploadedDocumentsRef.current = uploadedDocuments;
     setIsCorpusStarting(true);
 
     try {
+      const metadata = {
+        websiteUrl,
+        ...buildUploadedDocumentMetadata(uploadedDocuments),
+      };
       // Create a new session row. The server is the source of truth for runId
       // so the worker's isActiveJourneyRun check can match the row that exists.
       const sessionRes = await fetch('/api/journey/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ metadata }),
       });
 
       if (!sessionRes.ok) {
@@ -258,7 +268,10 @@ export default function ResearchV2Page() {
       setRunIdInUrl(runId);
 
       // Dispatch corpus runner
-      const context = buildCorpusContext(websiteUrl);
+      const context = buildCorpusContext({
+        websiteUrl,
+        uploadedDocuments,
+      });
       const dispatchRes = await fetch('/api/research-v2/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -438,7 +451,10 @@ export default function ResearchV2Page() {
     try {
       if (state.from === 'corpus') {
         dispatch({ type: 'CORPUS_START', runId: state.runId });
-        const context = buildCorpusContext(lastUrlRef.current);
+        const context = buildCorpusContext({
+          websiteUrl: lastUrlRef.current,
+          uploadedDocuments: lastUploadedDocumentsRef.current,
+        });
         const res = await fetch('/api/research-v2/dispatch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -524,7 +540,7 @@ export default function ResearchV2Page() {
       )}
 
       {state.kind === 'onboarding' && (
-        <OnboardingWizardV2
+        <OnboardingWizard
           initialData={state.prefill}
           initialPrefillMetadata={state.prefillMetadata}
           onComplete={handleOnboardingComplete}

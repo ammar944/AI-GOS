@@ -5,11 +5,17 @@ import {
   type ResearchInput,
   type SourceRef,
 } from "../lab-engine/artifacts/artifact-envelope";
+import {
+  buildUploadedDocumentSourceUrl,
+  trimUploadedDocumentExcerpt,
+  type UploadedDocumentContext,
+} from "./uploaded-document-context";
 
 export interface CorpusToResearchInputParams {
   runId: string;
   deepResearchProgramData: unknown;
   onboardingData?: unknown;
+  uploadedDocuments?: readonly UploadedDocumentContext[];
   now?: () => Date;
 }
 
@@ -281,11 +287,13 @@ function buildSources({
   companyName,
   observedAt,
   sourceRecords,
+  uploadedDocuments,
   websiteUrl,
 }: {
   companyName: string;
   observedAt: string;
   sourceRecords: Record<string, unknown>[];
+  uploadedDocuments: readonly UploadedDocumentContext[];
   websiteUrl: string;
 }): SourceRef[] {
   const sources = sourceRecords.flatMap((source, index): SourceRef[] => {
@@ -309,18 +317,27 @@ function buildSources({
     ];
   });
 
-  if (sources.length > 0) {
-    return sources;
-  }
+  const uploadedDocumentSources = uploadedDocuments.map((document, index) => ({
+    id: `source_uploaded_${slugify(document.fileName)}_${index + 1}`,
+    title: `Uploaded document: ${document.fileName}`,
+    url: buildUploadedDocumentSourceUrl(document.id),
+    publisher: "User upload",
+    observedAt,
+  }));
 
-  return [
-    {
-      id: `source_${slugify(companyName)}_website`,
-      title: `${companyName} website`,
-      url: websiteUrl,
-      observedAt,
-    },
-  ];
+  const baseSources =
+    sources.length > 0
+      ? sources
+      : [
+          {
+            id: `source_${slugify(companyName)}_website`,
+            title: `${companyName} website`,
+            url: websiteUrl,
+            observedAt,
+          },
+        ];
+
+  return [...baseSources, ...uploadedDocumentSources];
 }
 
 function findSourceForEvidence({
@@ -383,12 +400,14 @@ function buildCorpusExcerpts({
   evidenceRecords,
   observedAt,
   sources,
+  uploadedDocuments,
 }: {
   evidenceRecords: Record<string, unknown>[];
   observedAt: string;
   sources: SourceRef[];
+  uploadedDocuments: readonly UploadedDocumentContext[];
 }): CorpusExcerpt[] {
-  return evidenceRecords.flatMap((evidence, index) => {
+  const evidenceExcerpts = evidenceRecords.flatMap((evidence, index) => {
     const excerpt = buildEvidenceExcerpt({
       evidence,
       index,
@@ -398,6 +417,21 @@ function buildCorpusExcerpts({
 
     return excerpt === null ? [] : [excerpt];
   });
+  const uploadedDocumentExcerpts = uploadedDocuments.map((document, index) => {
+    const sourceId = `source_uploaded_${slugify(document.fileName)}_${index + 1}`;
+    const sourceUrl = buildUploadedDocumentSourceUrl(document.id);
+
+    return {
+      id: `excerpt_uploaded_${slugify(document.fileName)}_${index + 1}`,
+      sourceId,
+      sourceUrl,
+      title: `Uploaded document: ${document.fileName}`,
+      text: trimUploadedDocumentExcerpt(document.parsedMarkdown),
+      observedAt,
+    };
+  });
+
+  return [...evidenceExcerpts, ...uploadedDocumentExcerpts];
 }
 
 function withFallback(values: string[], fallback: string): string[] {
@@ -421,6 +455,7 @@ export function corpusToResearchInput(
   const companySlug = slugify(companyName);
   const category =
     firstString(
+      getValue(onboardingData, "industry"),
       getFieldValue(onboardingFields, "industryVertical"),
       getValue(onboardingData, "industryVertical"),
       getValue(onboardingData, "industry_vertical"),
@@ -433,6 +468,7 @@ export function corpusToResearchInput(
     ) ?? "No product description was provided in the corpus.";
   const targetCustomer =
     firstString(
+      getValue(onboardingData, "idealCustomer"),
       getFieldValue(onboardingFields, "primaryIcpDescription"),
       getValue(onboardingData, "primaryIcpDescription"),
       getValue(onboardingData, "primary_icp_description"),
@@ -444,6 +480,7 @@ export function corpusToResearchInput(
   });
   const mediaPlanBriefFields = buildMediaPlanBriefFields(onboardingData);
   const sourceRecords = asRecordArray(corpus.sources);
+  const uploadedDocuments = params.uploadedDocuments ?? [];
   const firstCorpusSourceUrl = sourceRecords
     .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
     .find((url): url is string => url !== null);
@@ -461,6 +498,7 @@ export function corpusToResearchInput(
     companyName,
     observedAt,
     sourceRecords,
+    uploadedDocuments,
     websiteUrl,
   });
   return researchInputSchema.parse({
@@ -478,6 +516,7 @@ export function corpusToResearchInput(
     onboarding: {
       primaryGoal:
         firstString(
+          getValue(onboardingData, "primaryGoal90Days"),
           getValue(onboardingData, "primaryGoal"),
           getValue(onboardingData, "primary_goal"),
         ) ?? researchSummary,
@@ -490,6 +529,7 @@ export function corpusToResearchInput(
         targetCustomer,
       ),
       keyOffers: firstStringArray(
+        getValue(onboardingData, "coreFeatures"),
         getFieldValue(onboardingFields, "coreDeliverables"),
         getValue(onboardingData, "coreDeliverables"),
         getValue(onboardingData, "core_deliverables"),
@@ -514,6 +554,7 @@ export function corpusToResearchInput(
         evidenceRecords: asRecordArray(corpus.evidence),
         observedAt,
         sources,
+        uploadedDocuments,
       }),
     },
     sources,

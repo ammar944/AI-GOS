@@ -68,12 +68,21 @@ const routeMocks = vi.hoisted(() => {
   };
   parentArtifactQuery.select.mockReturnValue(parentArtifactQuery);
   parentArtifactQuery.eq.mockReturnValue(parentArtifactQuery);
+  const documentsQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    in: vi.fn(),
+  };
+  documentsQuery.select.mockReturnValue(documentsQuery);
+  documentsQuery.eq.mockReturnValue(documentsQuery);
   const from = vi.fn((table: string) =>
     table === 'research_artifact_sections'
       ? committedSectionsQuery
       : table === 'research_artifacts'
         ? parentArtifactQuery
-        : sessionQuery,
+        : table === 'business_profile_documents'
+          ? documentsQuery
+          : sessionQuery,
   );
   const createAdminClient = vi.fn(() => ({ from }));
 
@@ -89,6 +98,7 @@ const routeMocks = vi.hoisted(() => {
     sessionQuery,
     committedSectionsQuery,
     parentArtifactQuery,
+    documentsQuery,
     from,
     createAdminClient,
   };
@@ -289,6 +299,12 @@ describe('POST /api/research-v2/run-lab-section', () => {
       data: { id: PARENT_ID },
       error: null,
     });
+    routeMocks.documentsQuery.select.mockReturnValue(routeMocks.documentsQuery);
+    routeMocks.documentsQuery.eq.mockReturnValue(routeMocks.documentsQuery);
+    routeMocks.documentsQuery.in.mockResolvedValue({
+      data: [],
+      error: null,
+    });
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
     routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
     routeMocks.store.createRun.mockResolvedValue({});
@@ -357,6 +373,68 @@ describe('POST /api/research-v2/run-lab-section', () => {
       sectionId: 'positioningBuyerICP',
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
+    });
+  });
+
+  it('loads uploaded document text and passes it into lab research input', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sessionQuery.maybeSingle.mockResolvedValue({
+      data: {
+        id: '00000000-0000-4000-8000-000000000001',
+        user_id: 'user_1',
+        run_id: VALID_RUN_ID,
+        research_results: {
+          deepResearchProgram: {
+            status: 'complete',
+            data: { corpus: { researchSummary: 'Fellow automates meetings.' } },
+          },
+        },
+        onboarding_data: { companyName: 'Fellow' },
+        metadata: {
+          uploadedDocIds: ['doc_1'],
+        },
+      },
+      error: null,
+    });
+    routeMocks.documentsQuery.in.mockResolvedValue({
+      data: [
+        {
+          id: 'doc_1',
+          file_name: 'sales-call.transcript.txt',
+          doc_kind: 'client_briefing',
+          section_tags: ['positioningBuyerICP'],
+          token_count: 120,
+          parsed_markdown: 'Sales call transcript with buyer objections.',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(routeMocks.documentsQuery.in).toHaveBeenCalledWith('id', ['doc_1']);
+    expect(routeMocks.corpusToResearchInput).toHaveBeenCalledWith({
+      runId: VALID_RUN_ID,
+      deepResearchProgramData: {
+        corpus: { researchSummary: 'Fellow automates meetings.' },
+      },
+      onboardingData: { companyName: 'Fellow' },
+      uploadedDocuments: [
+        {
+          id: 'doc_1',
+          fileName: 'sales-call.transcript.txt',
+          docKind: 'client_briefing',
+          sectionTags: ['positioningBuyerICP'],
+          tokenCount: 120,
+          parsedMarkdown: 'Sales call transcript with buyer objections.',
+        },
+      ],
     });
   });
 
