@@ -421,6 +421,7 @@ export function corpusToResearchInput(
   const companySlug = slugify(companyName);
   const category =
     firstString(
+      getValue(onboardingData, "industry"),
       getFieldValue(onboardingFields, "industryVertical"),
       getValue(onboardingData, "industryVertical"),
       getValue(onboardingData, "industry_vertical"),
@@ -433,6 +434,7 @@ export function corpusToResearchInput(
     ) ?? "No product description was provided in the corpus.";
   const targetCustomer =
     firstString(
+      getValue(onboardingData, "idealCustomer"),
       getFieldValue(onboardingFields, "primaryIcpDescription"),
       getValue(onboardingData, "primaryIcpDescription"),
       getValue(onboardingData, "primary_icp_description"),
@@ -478,6 +480,7 @@ export function corpusToResearchInput(
     onboarding: {
       primaryGoal:
         firstString(
+          getValue(onboardingData, "primaryGoal90Days"),
           getValue(onboardingData, "primaryGoal"),
           getValue(onboardingData, "primary_goal"),
         ) ?? researchSummary,
@@ -490,6 +493,7 @@ export function corpusToResearchInput(
         targetCustomer,
       ),
       keyOffers: firstStringArray(
+        getValue(onboardingData, "coreFeatures"),
         getFieldValue(onboardingFields, "coreDeliverables"),
         getValue(onboardingData, "coreDeliverables"),
         getValue(onboardingData, "core_deliverables"),
