@@ -561,16 +561,16 @@ export function AuditReaderShell({
   activeSectionId,
   onSectionChange,
 }: AuditReaderShellProps): ReactElement {
-  const live = useAuditState(runId);
   const mainRef = useRef<HTMLElement>(null);
   const [meta, setMeta] = useState<JourneyMetadata>({});
   const [userActive, setUserActive] = useState<ReaderSectionId | null>(null);
   const [rerunPending, setRerunPending] = useState<ReaderSectionId | null>(
     null,
   );
+  const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const [copied, setCopied] = useState(false);
   const kickoffFired = useRef(false);
-
+  const live = useAuditState(runId, pollRefreshKey);
   // ---- Hydrate company identity from the journey session ---------------
   useEffect(() => {
     let cancelled = false;
@@ -651,12 +651,12 @@ export function AuditReaderShell({
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {
       const worker = workerById.get(id);
-      if (worker?.status === 'complete' || live.sectionsByZone[id]) {
-        return 'complete';
-      }
       if (worker?.status === 'running') return 'running';
       if (worker && TERMINAL_ERROR_STATUSES.has(worker.status)) return worker.status;
       if (worker?.status === 'queued') return 'queued';
+      if (worker?.status === 'complete' || live.sectionsByZone[id]) {
+        return 'complete';
+      }
       if (id === PAID_MEDIA_PLAN_SECTION_ID) {
         return sixSectionsComplete ? 'ready' : 'locked';
       }
@@ -783,6 +783,8 @@ export function AuditReaderShell({
             status: res.status,
             error: await readResponseError(res),
           });
+        } else {
+          setPollRefreshKey((key) => key + 1);
         }
       } catch (error) {
         console.warn('[audit-reader-shell] rerun-section failed', {

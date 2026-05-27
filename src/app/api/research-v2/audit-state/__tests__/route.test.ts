@@ -225,6 +225,64 @@ describe('GET /api/research-v2/audit-state', () => {
     });
   });
 
+  it('prefers an active running rerun over a stale committed artifact row', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-active-rerun',
+          zone: 'positioningMarketCategory',
+          status: 'running',
+          started_at: '2026-05-15T12:05:00.000Z',
+          telemetry: {
+            phase: 'Reading sources',
+            latestActivity: 'Reading category evidence',
+            executionMode: 'lab',
+          },
+        },
+        {
+          id: 'run-committed-complete',
+          zone: 'positioningMarketCategory',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Committed',
+            executionMode: 'lab',
+          },
+        },
+      ],
+      error: null,
+    });
+    routeMocks.sectionsQuery.eq.mockResolvedValue({
+      data: [
+        {
+          zone: 'positioningMarketCategory',
+          section_run_id: 'run-committed-complete',
+          status: 'complete',
+          title: 'Market & Category Intelligence',
+          markdown: 'stale markdown',
+          data: null,
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'running',
+      phase: 'Reading sources',
+      phaseLabel: 'Reading sources',
+      latestActivity: 'Reading category evidence',
+      executionMode: 'lab',
+    });
+    expect(body.sectionsByZone.positioningMarketCategory).toMatchObject({
+      title: 'Market & Category Intelligence',
+    });
+  });
+
   it('prefers a committed complete artifact over newer queued seed rows for unrelated sections', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.runsQuery.order.mockResolvedValue({

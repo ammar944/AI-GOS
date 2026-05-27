@@ -252,6 +252,47 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByText('Search started')).toBeInTheDocument();
   });
 
+  it('renders running activity over stale complete section data during a rerun', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'running',
+      children_complete: 5,
+      children_total: 6,
+      workerStates: [
+        buildWorker(
+          'positioningMarketCategory',
+          'running',
+          'Reading category evidence',
+        ),
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: marketCategoryFixtureArtifact,
+        },
+      },
+      eventsByZone: {
+        positioningMarketCategory: [
+          {
+            id: 'evt-1',
+            event_type: 'section-started',
+            message: 'Started rerun',
+            payload: null,
+            created_at: '2026-05-26T12:00:00.000Z',
+          },
+        ],
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByText('Reading category evidence')).toBeInTheDocument();
+    expect(screen.getByText('Started rerun')).toBeInTheDocument();
+    expect(
+      screen.queryByText(marketCategoryFixtureArtifact.verdict),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders an error state for failed active sections', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,

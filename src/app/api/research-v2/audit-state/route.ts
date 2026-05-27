@@ -371,7 +371,10 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       ? rowsForZone.find((row) => row.id === committedRunId)
       : null;
     const active = rowsForZone.find((row) => !TERMINAL.has(normalizeStatus(row.status)));
-    const selected = committed ?? active ?? rowsForZone[0] ?? null;
+    const selected =
+      active && normalizeStatus(active.status) === 'running'
+        ? active
+        : committed ?? active ?? rowsForZone[0] ?? null;
     if (!selected) continue;
     byZone.set(
       sectionId,

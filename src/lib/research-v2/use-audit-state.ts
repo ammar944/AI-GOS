@@ -78,7 +78,10 @@ async function dispatchPaidMediaPlan(runId: string): Promise<void> {
   }
 }
 
-export function useAuditState(runId: string): AuditStateResponse {
+export function useAuditState(
+  runId: string,
+  refreshKey = 0,
+): AuditStateResponse {
   const [state, setState] = useState<AuditStateResponse>(EMPTY);
   const cancelled = useRef(false);
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
@@ -143,7 +146,7 @@ export function useAuditState(runId: string): AuditStateResponse {
       cancelled.current = true;
       if (timer) clearTimeout(timer);
     };
-  }, [runId]);
+  }, [refreshKey, runId]);
 
   return state;
 }
