@@ -1,4 +1,5 @@
 import { adLibraryAgentTool } from "./adlibrary";
+import { braveSearchAgentTool } from "./brave-search";
 import { firecrawlAgentTool } from "./firecrawl";
 import { ga4AgentTool } from "./ga4";
 import { googleAdsAgentTool } from "./google-ads";
@@ -9,6 +10,7 @@ import { reviewsAgentTool } from "./reviews";
 import { spyfuAgentTool } from "./spyfu";
 
 export const TOOL_CATALOG = {
+  web_search: braveSearchAgentTool,
   firecrawl: firecrawlAgentTool,
   adlibrary: adLibraryAgentTool,
   google_ads: googleAdsAgentTool,
@@ -20,4 +22,4 @@ export const TOOL_CATALOG = {
   ga4: ga4AgentTool,
 } as const;
 
-export type ToolName = keyof typeof TOOL_CATALOG | "web_search";
+export type ToolName = keyof typeof TOOL_CATALOG;

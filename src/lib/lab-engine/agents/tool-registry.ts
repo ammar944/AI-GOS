@@ -1,6 +1,5 @@
 import type { Tool, ToolExecutionOptions } from "ai";
 
-import { createWebSearchProviderTool } from "../ai/web-search-provider-tool";
 import type { ToolBudget } from "./budget";
 import { TOOL_CATALOG, type ToolName } from "./tools/index";
 
@@ -16,13 +15,6 @@ export function buildToolMap(
   const tools: Record<string, Tool> = {};
 
   for (const name of allowedTools) {
-    if (name === "web_search") {
-      tools.web_search = createWebSearchProviderTool({
-        maxUses: deps.webSearchMaxUses,
-      });
-      continue;
-    }
-
     const baseTool = TOOL_CATALOG[name] as unknown as Tool<unknown, unknown>;
     tools[name] = wrapWithBudget(baseTool, deps.budget);
   }

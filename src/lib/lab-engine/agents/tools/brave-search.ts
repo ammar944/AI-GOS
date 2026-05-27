@@ -1,0 +1,142 @@
+import { tool } from "ai";
+import { z } from "zod";
+
+import {
+  ToolGapSchema,
+  apiErrorGap,
+  credentialGap,
+  errorToGap,
+  timedFetch,
+  type ToolGap,
+} from "./_shared";
+
+const braveSearchUrl = "https://api.search.brave.com/res/v1/web/search";
+
+const BraveSearchResultSchema = z
+  .object({
+    title: z.string(),
+    url: z.string().url(),
+    description: z.string().optional(),
+    extra_snippets: z.array(z.string()),
+  })
+  .strict();
+
+export const BraveSearchOutputSchema = z.union([
+  z
+    .object({
+      type: z.literal("result"),
+      query: z.string(),
+      results: z.array(BraveSearchResultSchema),
+    })
+    .strict(),
+  ToolGapSchema,
+]);
+
+interface BraveSearchApiResult {
+  title?: string;
+  url?: string;
+  description?: string;
+}
+
+interface BraveSearchApiResponse {
+  web?: {
+    results?: BraveSearchApiResult[];
+  };
+}
+
+function clampResultCount(count: number | undefined): number {
+  const candidate = count ?? 10;
+  return Math.min(20, Math.max(1, candidate));
+}
+
+function isValidUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function toBraveSearchResult(
+  result: BraveSearchApiResult,
+): z.infer<typeof BraveSearchResultSchema> | null {
+  if (
+    result.title === undefined ||
+    result.title.length === 0 ||
+    result.url === undefined ||
+    !isValidUrl(result.url)
+  ) {
+    return null;
+  }
+
+  return {
+    title: result.title,
+    url: result.url,
+    description: result.description,
+    extra_snippets: [],
+  };
+}
+
+export const braveSearchAgentTool = tool({
+  description:
+    "Search the public web with Brave Search and return cited organic result snippets.",
+  inputSchema: z
+    .object({
+      q: z.string().min(1).describe("Search query"),
+      count: z.number().int().default(10).describe("1-20, default 10"),
+      freshness: z.enum(["pd", "pw", "pm", "py"]).optional(),
+      country: z.string().length(2).default("US"),
+    })
+    .strict(),
+  outputSchema: BraveSearchOutputSchema,
+  execute: async ({ q, count, freshness, country }, { abortSignal }) => {
+    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+
+    if (apiKey === undefined || apiKey.trim() === "") {
+      return credentialGap("BRAVE_SEARCH_API_KEY") as ToolGap;
+    }
+
+    const url = new URL(braveSearchUrl);
+    url.searchParams.set("q", q);
+    url.searchParams.set("count", String(clampResultCount(count)));
+    url.searchParams.set("country", country);
+
+    if (freshness !== undefined) {
+      url.searchParams.set("freshness", freshness);
+    }
+
+    try {
+      const response = await timedFetch(url.toString(), {
+        method: "GET",
+        headers: {
+          "X-Subscription-Token": apiKey,
+          Accept: "application/json",
+        },
+        abortSignal,
+        timeoutMs: 15_000,
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        return apiErrorGap(
+          `Brave Search ${response.status}: ${body.slice(0, 200)}`,
+        ) as ToolGap;
+      }
+
+      const data = (await response.json()) as BraveSearchApiResponse;
+      const results = (data.web?.results ?? []).flatMap((result) => {
+        const parsedResult = toBraveSearchResult(result);
+        return parsedResult === null ? [] : [parsedResult];
+      });
+
+      return {
+        type: "result" as const,
+        query: q,
+        results,
+      };
+    } catch (error) {
+      return errorToGap(error, "Brave Search request failed");
+    }
+  },
+});
