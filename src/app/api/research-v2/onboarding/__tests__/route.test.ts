@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getOnboardingFieldCount } from '@/lib/research-v2/onboarding-review';
 import { EMPTY_ONBOARDING_V2, type OnboardingV2Data } from '@/lib/research-v2/onboarding-v2-types';
 
 const VALID_RUN_ID = '00000000-0000-4000-8000-0000000000aa';
@@ -70,6 +71,7 @@ function makeCompleteData(): OnboardingV2Data {
     retentionDrivers: 'Weekly rituals',
     pricingTiers: 'Free, Pro',
     targetPlan: 'Business',
+    targetCac: '$700',
     monthlyAdBudget: '$20K',
     topCompetitors: 'Otter, Fireflies, Avoma',
     whyCustomersChooseYou: 'Better workflows',
@@ -77,7 +79,6 @@ function makeCompleteData(): OnboardingV2Data {
     competitorAdvantages: 'Brand awareness',
     primaryGoal90Days: 'More demos',
     monthlyPipelineTarget: '$250K',
-    goalTargetCac: '$700',
     commonObjections: 'Already have notes',
     keyPromises: 'Better follow-through',
     brandPositioning: 'Meeting productivity platform',
@@ -115,7 +116,7 @@ describe('POST /api/research-v2/onboarding', () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
 
     const reviewMetadata = {
-      fieldCount: 52,
+      fieldCount: getOnboardingFieldCount(),
       lowConfidenceThreshold: 0.7,
       pinnedFieldKeys: ['idealCustomer'],
       counts: {
@@ -152,7 +153,7 @@ describe('POST /api/research-v2/onboarding', () => {
       websiteUrl: 'https://fellow.app',
       researchV2OnboardingReview: {
         source: 'onboarding_v2_review',
-        fieldCount: 52,
+        fieldCount: getOnboardingFieldCount(),
         pinnedFieldKeys: ['idealCustomer'],
         fields: {
           companyName: expect.objectContaining({ state: 'User-edited' }),

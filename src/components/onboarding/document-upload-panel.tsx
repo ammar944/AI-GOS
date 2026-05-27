@@ -23,6 +23,7 @@ import {
 } from "@/lib/company-intel/document-types";
 import type { DocumentExtractionOutput } from "@/lib/company-intel/document-extraction-schema";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
+import type { OnboardingV2Data } from "@/lib/research-v2/onboarding-v2-types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,7 +32,7 @@ import type { OnboardingFormData } from "@/lib/onboarding/types";
 type PanelState = "collapsed" | "expanded" | "extracting" | "success" | "error";
 
 interface DocumentUploadPanelProps {
-  onPrefillComplete: (data: Partial<OnboardingFormData>) => void;
+  onPrefillComplete: (data: Partial<OnboardingV2Data>) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +177,66 @@ function inferMimeType(file: File): string {
   if (ext && map[ext]) return map[ext];
   if (file.type && file.type !== 'application/octet-stream') return file.type;
   return map[ext ?? ''] ?? 'application/octet-stream';
+}
+
+function legacyPrefillToV2(
+  formData: Partial<OnboardingFormData>,
+): Partial<OnboardingV2Data> {
+  return {
+    ...(formData.businessBasics?.businessName
+      ? { companyName: formData.businessBasics.businessName }
+      : {}),
+    ...(formData.productOffer?.productDescription
+      ? { productDescription: formData.productOffer.productDescription }
+      : {}),
+    ...(formData.icp?.primaryIcpDescription
+      ? { idealCustomer: formData.icp.primaryIcpDescription }
+      : {}),
+    ...(formData.icp?.industryVertical ? { industry: formData.icp.industryVertical } : {}),
+    ...(formData.icp?.jobTitles ? { jobTitles: formData.icp.jobTitles } : {}),
+    ...(formData.icp?.companySize && formData.icp.companySize.length > 0
+      ? { companySize: formData.icp.companySize.join(", ") }
+      : {}),
+    ...(formData.icp?.geography ? { geographicFocus: formData.icp.geography } : {}),
+    ...(formData.icp?.buyingTriggers ? { triggers: formData.icp.buyingTriggers } : {}),
+    ...(formData.productOffer?.coreDeliverables
+      ? { coreFeatures: formData.productOffer.coreDeliverables }
+      : {}),
+    ...(formData.productOffer?.pricingTiers && formData.productOffer.pricingTiers.length > 0
+      ? {
+          pricingTiers: formData.productOffer.pricingTiers
+            .map((tier) => `${tier.name}: ${tier.price} ${tier.billingCycle}`)
+            .join("\n"),
+        }
+      : {}),
+    ...(formData.marketCompetition?.topCompetitors
+      ? { topCompetitors: formData.marketCompetition.topCompetitors }
+      : {}),
+    ...(formData.marketCompetition?.uniqueEdge
+      ? { whyCustomersChooseYou: formData.marketCompetition.uniqueEdge }
+      : {}),
+    ...(formData.marketCompetition?.competitorFrustrations
+      ? { lossReasons: formData.marketCompetition.competitorFrustrations }
+      : {}),
+    ...(formData.marketCompetition?.marketBottlenecks
+      ? { competitorAdvantages: formData.marketCompetition.marketBottlenecks }
+      : {}),
+    ...(formData.customerJourney?.situationBeforeBuying
+      ? { triggers: formData.customerJourney.situationBeforeBuying }
+      : {}),
+    ...(formData.customerJourney?.commonObjections
+      ? { commonObjections: formData.customerJourney.commonObjections }
+      : {}),
+    ...(formData.brandPositioning?.brandPositioning
+      ? { brandPositioning: formData.brandPositioning.brandPositioning }
+      : {}),
+    ...(formData.budgetTargets?.monthlyAdBudget
+      ? { monthlyAdBudget: String(formData.budgetTargets.monthlyAdBudget) }
+      : {}),
+    ...(formData.budgetTargets?.targetCac
+      ? { targetCac: String(formData.budgetTargets.targetCac) }
+      : {}),
+  };
 }
 
 // With flat schema, partial result values are strings or undefined (during streaming)
@@ -700,7 +761,7 @@ export function DocumentUploadPanel({ onPrefillComplete }: DocumentUploadPanelPr
       const formData = mapToFormData(selectedFields);
       if (!formData) return;
 
-      onPrefillComplete(formData);
+      onPrefillComplete(legacyPrefillToV2(formData));
       setCompletedResult(null);
       setSelectedFile(null);
       setActiveDocType(null);

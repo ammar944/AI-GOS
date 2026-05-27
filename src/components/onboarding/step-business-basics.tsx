@@ -9,6 +9,7 @@ import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import { AutoFillPanel } from "./auto-fill-panel";
 import { DocumentUploadPanel } from "./document-upload-panel";
 import type { BusinessBasicsData, OnboardingFormData } from "@/lib/onboarding/types";
+import type { OnboardingV2Data } from "@/lib/research-v2/onboarding-v2-types";
 
 interface StepBusinessBasicsProps {
   initialData?: Partial<BusinessBasicsData>;
@@ -106,18 +107,23 @@ export function StepBusinessBasics({
   /**
    * Handle prefill data from AI research
    */
-  function handlePrefillComplete(prefilled: Partial<OnboardingFormData>) {
+  function handlePrefillComplete(prefilled: Partial<OnboardingV2Data>) {
     // Update local form state with business basics if found
-    if (prefilled.businessBasics) {
+    if (prefilled.companyName) {
       setFormData((prev) => ({
-        businessName: prefilled.businessBasics?.businessName || prev.businessName,
-        websiteUrl: prefilled.businessBasics?.websiteUrl || prev.websiteUrl,
+        businessName: prefilled.companyName || prev.businessName,
+        websiteUrl: prev.websiteUrl,
       }));
     }
 
     // Propagate all prefilled data to parent wizard
     if (onPrefillAll) {
-      onPrefillAll(prefilled);
+      onPrefillAll({
+        businessBasics: {
+          businessName: prefilled.companyName ?? formData.businessName,
+          websiteUrl: formData.websiteUrl,
+        },
+      });
     }
   }
 

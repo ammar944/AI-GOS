@@ -25,7 +25,7 @@ import {
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
 import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
-import { OnboardingWizardV2 } from '@/components/research-v2/onboarding-wizard-v2';
+import { OnboardingWizard } from '@/components/onboarding';
 import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
 import {
   getReaderSectionFromParam,
@@ -536,7 +536,7 @@ export default function ResearchV3Page() {
       )}
 
       {state.kind === 'onboarding' && (
-        <OnboardingWizardV2
+        <OnboardingWizard
           initialData={state.prefill}
           initialPrefillMetadata={state.prefillMetadata}
           onComplete={handleOnboardingComplete}

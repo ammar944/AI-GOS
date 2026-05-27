@@ -1,7 +1,7 @@
 // Research-v2 onboarding persist route.
 //
 // Body: { runId: string, data: OnboardingV2Data, reviewMetadata: OnboardingReviewMetadata }
-// Writes the 52-field form submission to journey_sessions.onboarding_data
+// Writes the reviewed form submission to journey_sessions.onboarding_data
 // and stores field review state under journey_sessions.metadata.
 //
 // Called by page.tsx handleOnboardingComplete BEFORE the ONBOARDING_COMPLETE

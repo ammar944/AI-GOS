@@ -2,7 +2,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { OnboardingWizardV2 } from '../onboarding-wizard-v2';
+import { OnboardingWizard } from '../onboarding-wizard';
+import { getOnboardingFieldCount } from '@/lib/research-v2/onboarding-review';
 import {
   EMPTY_ONBOARDING_V2,
   SECTION_META,
@@ -34,7 +35,7 @@ function makeCompleteData(): OnboardingV2Data {
     retentionDrivers: 'Team rituals, recurring templates, CRM handoff.',
     pricingTiers: 'Free, Pro, Business, Enterprise.',
     targetPlan: 'Business',
-    ltv: '$4,000',
+    avgLtv: '$4,000',
     targetCac: '$600',
     monthlyAdBudget: '$20,000',
     topCompetitors: 'Otter, Fireflies, Avoma',
@@ -43,7 +44,6 @@ function makeCompleteData(): OnboardingV2Data {
     competitorAdvantages: 'Broader transcription brand awareness.',
     primaryGoal90Days: 'Increase qualified demos from team leads.',
     monthlyPipelineTarget: '$250,000',
-    goalTargetCac: '$700',
     commonObjections: 'We already have meeting notes.',
     keyPromises: 'Turn meetings into accountable follow-through.',
     brandPositioning: 'The meeting productivity platform for teams.',
@@ -58,7 +58,6 @@ function makeCompleteData(): OnboardingV2Data {
     whatsWorking: 'Search demand around meeting notes.',
     whatsNotWorking: 'Generic productivity messaging.',
     currentCac: '$850',
-    avgLtv: '$4,000',
     monthlyRevenue: '$500K MRR',
     avgSalesCycle: '30 days',
     visitorToSignup: '4%',
@@ -92,35 +91,33 @@ const prefillMetadata: OnboardingPrefillMetadata = {
   },
 };
 
-describe('OnboardingWizardV2 review surface', () => {
-  it('renders every onboarding field grouped under the existing sections', () => {
+describe('OnboardingWizard review surface', () => {
+  it('renders the rich step shell with the canonical first section', () => {
     render(
-      <OnboardingWizardV2
+      <OnboardingWizard
         initialData={makeCompleteData()}
         initialPrefillMetadata={prefillMetadata}
         onComplete={vi.fn()}
       />,
     );
 
-    expect(screen.getAllByTestId(/^onboarding-field-/)).toHaveLength(52);
+    expect(screen.getByText(`${getOnboardingFieldCount()} fields`)).toBeInTheDocument();
     for (const section of SECTION_META) {
-      expect(screen.getByRole('heading', { name: section.title })).toBeInTheDocument();
+      expect(screen.getAllByText(section.shortTitle ?? section.title).length).toBeGreaterThan(0);
     }
+    expect(screen.getByRole('heading', { name: 'Product & Revenue Model' })).toBeInTheDocument();
     expect(screen.getByLabelText('Company Name')).toBeInTheDocument();
-    expect(screen.getByLabelText('Activation → paid %')).toBeInTheDocument();
-    expect(screen.getByLabelText('Last 3–6 months growth trend')).toBeInTheDocument();
-    expect(screen.getByLabelText('Sales-process Loom')).toBeInTheDocument();
-    expect(screen.getByText('Do you have a 5–10k lead/account list available?')).toBeInTheDocument();
+    expect(screen.queryByLabelText('GTM motion for the media plan')).not.toBeInTheDocument();
   });
 
-  it('pins missing and low-confidence fields without hiding filled group fields', () => {
+  it('pins missing and low-confidence fields without requiring their section to be open', () => {
     const data = {
       ...makeCompleteData(),
       activationToPaid: '',
     };
 
     render(
-      <OnboardingWizardV2
+      <OnboardingWizard
         initialData={data}
         initialPrefillMetadata={prefillMetadata}
         onComplete={vi.fn()}
@@ -131,19 +128,16 @@ describe('OnboardingWizardV2 review surface', () => {
     expect(within(pinned).getByText('ICP + Pain')).toBeInTheDocument();
     expect(within(pinned).getByText('Ideal Customer')).toBeInTheDocument();
     expect(within(pinned).getByText('Activation → paid %')).toBeInTheDocument();
-
-    const groupedMarketing = screen.getByTestId('onboarding-section-current-marketing');
-    expect(within(groupedMarketing).getByLabelText('Activation → paid %')).toBeInTheDocument();
   });
 
-  it('shows AI-filled, User-edited, Missing, and Needs review field states', () => {
+  it('shows AI-filled, User-edited, Missing, and Needs review states', () => {
     const data = {
       ...makeCompleteData(),
       activationToPaid: '',
     };
 
     render(
-      <OnboardingWizardV2
+      <OnboardingWizard
         initialData={data}
         initialPrefillMetadata={prefillMetadata}
         onComplete={vi.fn()}
@@ -156,30 +150,33 @@ describe('OnboardingWizardV2 review surface', () => {
     expect(
       within(screen.getByTestId('onboarding-field-companyName')).getByText('User-edited'),
     ).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId('onboarding-field-activationToPaid')).getByText('Missing'),
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId('onboarding-field-idealCustomer')).getByText('Needs review'),
-    ).toBeInTheDocument();
+    expect(within(screen.getByTestId('onboarding-review-pinned')).getByText('Missing')).toBeInTheDocument();
+    expect(within(screen.getByTestId('onboarding-review-pinned')).getByText('Needs review')).toBeInTheDocument();
   });
 
-  it('submits reviewed data with persisted field-state metadata', () => {
+  it('submits reviewed data with metadata and derives GTM motion from sales motion', () => {
     const onComplete = vi.fn();
 
     render(
-      <OnboardingWizardV2
-        initialData={makeCompleteData()}
+      <OnboardingWizard
+        initialData={{ ...makeCompleteData(), gtmMotion: '' }}
         initialPrefillMetadata={prefillMetadata}
         onComplete={onComplete}
       />,
     );
 
+    for (let index = 0; index < SECTION_META.length - 1; index += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
 
     expect(onComplete).toHaveBeenCalledTimes(1);
-    const [, review] = onComplete.mock.calls[0] as [OnboardingV2Data, { fieldCount: number; fields: Record<string, { state: string }> }];
-    expect(review.fieldCount).toBe(52);
+    const [data, review] = onComplete.mock.calls[0] as [
+      OnboardingV2Data,
+      { fieldCount: number; fields: Record<string, { state: string }> },
+    ];
+    expect(data.gtmMotion).toBe('SLG');
+    expect(review.fieldCount).toBe(getOnboardingFieldCount());
     expect(review.fields.productDescription.state).toBe('AI-filled');
     expect(review.fields.companyName.state).toBe('User-edited');
     expect(review.fields.idealCustomer.state).toBe('Needs review');

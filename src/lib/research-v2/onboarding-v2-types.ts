@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
-// Flat data type — all 52 fields
+// Flat data type — canonical GTM brief plus media plan setup
 // ---------------------------------------------------------------------------
 
 export interface SalesProcessDocRef {
@@ -38,7 +38,7 @@ export interface OnboardingV2Data {
   // Section 4: Pricing & Economics
   pricingTiers: string;
   targetPlan: string;
-  ltv: string;
+  avgLtv: string;
   targetCac: string;
   monthlyAdBudget: string;
 
@@ -51,13 +51,16 @@ export interface OnboardingV2Data {
   // Section 6: Goals & Strategy
   primaryGoal90Days: string;
   monthlyPipelineTarget: string;
-  goalTargetCac: string;
   commonObjections: string;
   keyPromises: string;
   brandPositioning: string;
+  gtmMotion: 'SLG' | 'PLG' | '';
+
+  // Media Plan Setup
   salesProcessDocs: SalesProcessDocRef[];
   salesLoomUrl: string;
-  gtmMotion: 'SLG' | 'PLG' | '';
+  creativeCapacity: 'lean' | 'standard' | 'high' | '';
+  leadListAvailable: boolean | null;
 
   // Section 7: Current Marketing & Performance
   channels: string[];
@@ -65,7 +68,6 @@ export interface OnboardingV2Data {
   whatsWorking: string;
   whatsNotWorking: string;
   currentCac: string;
-  avgLtv: string;
   monthlyRevenue: string;
   avgSalesCycle: string;
   // Optional funnel metrics
@@ -74,8 +76,6 @@ export interface OnboardingV2Data {
   activationToPaid: string;
   demoToClose: string;
   growthTrend: string;
-  creativeCapacity: 'lean' | 'standard' | 'high' | '';
-  leadListAvailable: boolean | null;
 }
 
 export interface OnboardingFieldPrefillMetadata {
@@ -179,8 +179,8 @@ export const OnboardingV2Schema = z.object({
   // Section 4
   pricingTiers: z.string().min(1, 'Required'),
   targetPlan: z.string().min(1, 'Required'),
-  ltv: z.string().optional().default(''),
-  targetCac: z.string().optional().default(''),
+  avgLtv: z.string().min(1, 'Required'),
+  targetCac: z.string().min(1, 'Required'),
   monthlyAdBudget: z.string().min(1, 'Required'),
   // Section 5
   topCompetitors: z.string().min(1, 'Required'),
@@ -190,20 +190,21 @@ export const OnboardingV2Schema = z.object({
   // Section 6
   primaryGoal90Days: z.string().min(1, 'Required'),
   monthlyPipelineTarget: z.string().min(1, 'Required'),
-  goalTargetCac: z.string().min(1, 'Required'),
   commonObjections: z.string().min(1, 'Required'),
   keyPromises: z.string().min(1, 'Required'),
   brandPositioning: z.string().min(1, 'Required'),
+  gtmMotion: z.enum(['SLG', 'PLG', '']).optional().default(''),
+  // Media Plan Setup
   salesProcessDocs: SalesProcessDocsSchema,
   salesLoomUrl: z.string().url('Enter a valid Loom URL').or(z.literal('')).optional().default(''),
-  gtmMotion: z.enum(['SLG', 'PLG', '']).optional().default(''),
+  creativeCapacity: z.enum(['lean', 'standard', 'high', '']).optional().default(''),
+  leadListAvailable: z.boolean().nullable().optional().default(null),
   // Section 7
   channels: z.array(z.string()).min(1, 'Select at least one channel'),
   budgetSplit: z.string().min(1, 'Required'),
   whatsWorking: z.string().min(1, 'Required'),
   whatsNotWorking: z.string().min(1, 'Required'),
   currentCac: z.string().min(1, 'Required'),
-  avgLtv: z.string().min(1, 'Required'),
   monthlyRevenue: z.string().min(1, 'Required'),
   avgSalesCycle: z.string().optional().default(''),
   // Optional funnel metrics
@@ -212,8 +213,6 @@ export const OnboardingV2Schema = z.object({
   activationToPaid: z.string().optional().default(''),
   demoToClose: z.string().optional().default(''),
   growthTrend: z.string().optional().default(''),
-  creativeCapacity: z.enum(['lean', 'standard', 'high', '']).optional().default(''),
-  leadListAvailable: z.boolean().nullable().optional().default(null),
 });
 
 // Per-section schemas for step-by-step validation
@@ -231,20 +230,23 @@ export const SECTION_SCHEMAS: Record<number, z.ZodSchema> = {
     coreFeatures: true, firstValueMoment: true, activationEvent: true, retentionDrivers: true,
   }),
   3: OnboardingV2Schema.pick({
-    pricingTiers: true, targetPlan: true, monthlyAdBudget: true,
+    pricingTiers: true, targetPlan: true, avgLtv: true, targetCac: true, monthlyAdBudget: true,
   }),
   4: OnboardingV2Schema.pick({
     topCompetitors: true, whyCustomersChooseYou: true, lossReasons: true, competitorAdvantages: true,
   }),
   5: OnboardingV2Schema.pick({
-    primaryGoal90Days: true, monthlyPipelineTarget: true, goalTargetCac: true,
+    primaryGoal90Days: true, monthlyPipelineTarget: true,
     commonObjections: true, keyPromises: true, brandPositioning: true,
-    salesProcessDocs: true, salesLoomUrl: true, gtmMotion: true,
   }),
   6: OnboardingV2Schema.pick({
     channels: true, budgetSplit: true, whatsWorking: true, whatsNotWorking: true,
-    currentCac: true, avgLtv: true, monthlyRevenue: true,
+    currentCac: true, monthlyRevenue: true, avgSalesCycle: true, growthTrend: true,
+    visitorToSignup: true, signupToActivation: true, activationToPaid: true, demoToClose: true,
+  }),
+  7: OnboardingV2Schema.pick({
     creativeCapacity: true, leadListAvailable: true,
+    salesProcessDocs: true, salesLoomUrl: true,
   }),
 };
 
@@ -252,7 +254,7 @@ export const SECTION_SCHEMAS: Record<number, z.ZodSchema> = {
 // Section metadata
 // ---------------------------------------------------------------------------
 
-export type SectionIconName = 'Building2' | 'Users' | 'Package' | 'TrendingUp' | 'Sparkles' | 'Target' | 'Route';
+export type SectionIconName = 'Building2' | 'Users' | 'Package' | 'TrendingUp' | 'Sparkles' | 'Target' | 'Route' | 'UploadCloud';
 
 export interface SectionField {
   key: keyof OnboardingV2Data;
@@ -369,8 +371,8 @@ export const SECTION_META: SectionMeta[] = [
     fields: [
       { key: 'pricingTiers', label: 'List your pricing tiers', type: 'textarea', required: true, placeholder: 'e.g. Starter $49/mo, Growth $199/mo, Enterprise custom' },
       { key: 'targetPlan', label: "What is your target customer's typical plan?", type: 'text', required: true, placeholder: 'e.g. Growth plan' },
-      { key: 'ltv', label: 'Average LTV', type: 'text', required: false, placeholder: 'e.g. $2,400', description: 'if known' },
-      { key: 'targetCac', label: 'Target CAC', type: 'text', required: false, placeholder: 'e.g. $400', description: 'if known' },
+      { key: 'avgLtv', label: 'Average LTV', type: 'text', required: true, placeholder: 'e.g. $2,400' },
+      { key: 'targetCac', label: 'Target CAC', type: 'text', required: true, placeholder: 'e.g. $400' },
       { key: 'monthlyAdBudget', label: 'Monthly ad budget (or planned budget)', type: 'text', required: true, placeholder: 'e.g. $10,000/mo' },
     ],
   },
@@ -396,33 +398,9 @@ export const SECTION_META: SectionMeta[] = [
     fields: [
       { key: 'primaryGoal90Days', label: 'What is your primary goal in the next 90 days?', type: 'textarea', required: true, placeholder: 'e.g. 50 qualified demos, $500K new ARR...' },
       { key: 'monthlyPipelineTarget', label: 'Monthly pipeline target ($ or # of demos)', type: 'text', required: true, placeholder: 'e.g. $200K pipeline or 40 demos/mo' },
-      { key: 'goalTargetCac', label: 'Target CAC', type: 'text', required: true, placeholder: 'e.g. $500' },
       { key: 'commonObjections', label: 'Common objections from prospects', type: 'textarea', required: true, placeholder: 'e.g. "We already have X", "Not the right time"...' },
       { key: 'keyPromises', label: 'Key promises / outcomes you want to be known for', type: 'textarea', required: true, placeholder: 'e.g. "10x faster reporting"' },
       { key: 'brandPositioning', label: 'Current brand positioning (1–2 sentences)', type: 'textarea', required: true, placeholder: 'e.g. "We help [ICP] achieve [outcome] without [pain]"' },
-      {
-        key: 'gtmMotion', label: 'GTM motion for the media plan', type: 'radio', required: false,
-        options: [
-          { value: 'SLG', label: 'SLG (sales-led)' },
-          { value: 'PLG', label: 'PLG (product-led)' },
-        ],
-        description: 'optional, but used for KPIs',
-      },
-      {
-        key: 'salesProcessDocs',
-        label: 'Sales-process SOP links',
-        type: 'sales-process-docs',
-        required: false,
-        description: 'up to 4 docs',
-      },
-      {
-        key: 'salesLoomUrl',
-        label: 'Sales-process Loom',
-        type: 'text',
-        required: false,
-        placeholder: 'https://www.loom.com/share/...',
-        description: 'optional',
-      },
     ],
   },
   {
@@ -448,7 +426,6 @@ export const SECTION_META: SectionMeta[] = [
       { key: 'whatsWorking', label: "What's working right now?", type: 'textarea', required: true, placeholder: 'Channels, campaigns, offers that are performing' },
       { key: 'whatsNotWorking', label: "What's not working?", type: 'textarea', required: true, placeholder: 'Channels or tactics that are underperforming' },
       { key: 'currentCac', label: 'Current CAC', type: 'text', required: true, placeholder: 'e.g. $600' },
-      { key: 'avgLtv', label: 'Avg Customer LTV', type: 'text', required: true, placeholder: 'e.g. $2,400' },
       { key: 'monthlyRevenue', label: 'Monthly revenue (MRR or ARR)', type: 'text', required: true, placeholder: 'e.g. $50K MRR' },
       { key: 'avgSalesCycle', label: 'Average sales cycle length', type: 'text', required: false, placeholder: 'e.g. 30 days', description: 'if sales-led' },
       { key: 'visitorToSignup', label: 'Website visitor → signup %', type: 'text', required: false, placeholder: 'e.g. 3%', description: 'optional funnel metric' },
@@ -456,6 +433,30 @@ export const SECTION_META: SectionMeta[] = [
       { key: 'activationToPaid', label: 'Activation → paid %', type: 'text', required: false, placeholder: 'e.g. 15%', description: 'optional funnel metric' },
       { key: 'demoToClose', label: 'Demo → close rate', type: 'text', required: false, placeholder: 'e.g. 25%', description: 'if applicable' },
       { key: 'growthTrend', label: 'Last 3–6 months growth trend', type: 'text', required: false, placeholder: 'e.g. +20% MoM, flat, declining', description: 'optional' },
+    ],
+  },
+  {
+    id: 'media-plan-setup',
+    title: 'Media Plan Setup',
+    shortTitle: 'Media',
+    description: 'Provide the sales-process inputs the paid media plan needs',
+    icon: 'UploadCloud',
+    fields: [
+      {
+        key: 'salesProcessDocs',
+        label: 'Sales-process SOP links',
+        type: 'sales-process-docs',
+        required: false,
+        description: 'up to 4 docs',
+      },
+      {
+        key: 'salesLoomUrl',
+        label: 'Sales-process Loom',
+        type: 'text',
+        required: false,
+        placeholder: 'https://www.loom.com/share/...',
+        description: 'optional',
+      },
       {
         key: 'creativeCapacity', label: 'Creative production capacity', type: 'radio', required: false,
         options: [
@@ -502,7 +503,7 @@ export const EMPTY_ONBOARDING_V2: OnboardingV2Data = {
   retentionDrivers: '',
   pricingTiers: '',
   targetPlan: '',
-  ltv: '',
+  avgLtv: '',
   targetCac: '',
   monthlyAdBudget: '',
   topCompetitors: '',
@@ -511,19 +512,19 @@ export const EMPTY_ONBOARDING_V2: OnboardingV2Data = {
   competitorAdvantages: '',
   primaryGoal90Days: '',
   monthlyPipelineTarget: '',
-  goalTargetCac: '',
   commonObjections: '',
   keyPromises: '',
   brandPositioning: '',
+  gtmMotion: '',
   salesProcessDocs: [],
   salesLoomUrl: '',
-  gtmMotion: '',
+  creativeCapacity: '',
+  leadListAvailable: null,
   channels: [],
   budgetSplit: '',
   whatsWorking: '',
   whatsNotWorking: '',
   currentCac: '',
-  avgLtv: '',
   monthlyRevenue: '',
   avgSalesCycle: '',
   visitorToSignup: '',
@@ -531,6 +532,4 @@ export const EMPTY_ONBOARDING_V2: OnboardingV2Data = {
   activationToPaid: '',
   demoToClose: '',
   growthTrend: '',
-  creativeCapacity: '',
-  leadListAvailable: null,
 };
