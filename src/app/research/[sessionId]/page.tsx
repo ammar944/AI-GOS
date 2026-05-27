@@ -1,5 +1,6 @@
-import { auth } from '@clerk/nextjs/server';
 import { notFound, redirect } from 'next/navigation';
+
+import { requireActiveAccount } from '@/lib/auth/app-access';
 import { createAdminClient } from '@/lib/supabase/server';
 import { parseResearchToCards, resetCardIdCounter } from '@/lib/workspace/card-taxonomy';
 import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
@@ -14,8 +15,8 @@ interface PageProps {
 
 export default async function ResearchPage({ params }: PageProps) {
   const { sessionId } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const access = await requireActiveAccount();
+  const userId = access.actorUserId;
 
   const supabase = createAdminClient();
   // sessionId may be the DB primary key (from dashboard list) or run_id (from workspace "View Document")

@@ -8,6 +8,7 @@ const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
+  const requireApiUser = vi.fn();
   const seedOrchestration = vi.fn();
   const freezeReviewedBriefSnapshot = vi.fn();
   const buildJourneyResearchDispatchContext = vi.fn();
@@ -37,6 +38,7 @@ const routeMocks = vi.hoisted(() => {
 
   return {
     auth,
+    requireApiUser,
     seedOrchestration,
     freezeReviewedBriefSnapshot,
     buildJourneyResearchDispatchContext,
@@ -56,6 +58,12 @@ vi.mock('@clerk/nextjs/server', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: routeMocks.createAdminClient,
+}));
+
+vi.mock('@/lib/auth/app-access', () => ({
+  requireApiUser: () => routeMocks.requireApiUser(),
+  jsonError: (message: string, status: number) =>
+    Response.json({ error: message }, { status }),
 }));
 
 vi.mock('@/lib/research-v2/orchestrate-db', async () => {
@@ -151,6 +159,19 @@ function defaultSeededRows() {
   };
 }
 
+function mockApiUser(actorUserId = 'user_1') {
+  return {
+    actorUserId,
+    role: 'internal',
+    accountStatus: 'active',
+    effectiveUserId: actorUserId,
+    effectiveProfileId: null,
+    primaryProfileId: null,
+    clientLockedAt: null,
+    impersonation: null,
+  };
+}
+
 describe('POST /api/research-v2/orchestrate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -158,6 +179,7 @@ describe('POST /api/research-v2/orchestrate', () => {
     delete process.env.RAILWAY_WORKER_URL;
     delete process.env.RAILWAY_API_KEY;
     delete process.env.LAB_ENGINE_LIVE_TOOLS;
+    routeMocks.requireApiUser.mockResolvedValue(mockApiUser());
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());

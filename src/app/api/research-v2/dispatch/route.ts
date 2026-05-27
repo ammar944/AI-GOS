@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server';
 import {
   POSITIONING_SECTION_IDS,
 } from '@/lib/ai/prompts/positioning-skills';
+import { jsonError, requireApiUser } from '@/lib/auth/app-access';
 import {
   dispatchJourneyResearchForUser,
   SECTION_TO_TOOL,
@@ -198,10 +199,16 @@ async function findActiveJobForSection(
   return null;
 }
 
-export async function POST(req: Request): Promise<NextResponse> {
+export async function POST(req: Request): Promise<Response> {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const apiUser = await requireApiUser();
+  if (apiUser instanceof Response) return apiUser;
+  if (apiUser.actorUserId !== userId) {
+    return jsonError('Unauthorized', 401);
   }
 
   const body = (await req.json()) as ResearchV2DispatchRequest;

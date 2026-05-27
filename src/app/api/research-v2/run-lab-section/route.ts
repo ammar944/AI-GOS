@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { after, NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
+import { jsonError, requireApiUser } from '@/lib/auth/app-access';
 import {
   ALL_POSITIONING_SECTION_IDS,
   PAID_MEDIA_PLAN_SECTION_ID,
@@ -183,7 +184,7 @@ function requirePaidMediaParentAuditRunId(
   return result.parentAuditRunId;
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: Request): Promise<Response> {
   let userId: string | null;
   try {
     const result = await auth();
@@ -194,6 +195,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (!userId) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const apiUser = await requireApiUser();
+  if (apiUser instanceof Response) return apiUser;
+  if (apiUser.actorUserId !== userId) {
+    return jsonError('Unauthorized', 401);
   }
 
   let rawBody: unknown;

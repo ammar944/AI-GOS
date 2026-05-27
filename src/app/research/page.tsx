@@ -1,8 +1,8 @@
-import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { FileText, ArrowRight, Plus } from 'lucide-react';
+
 import { AppSidebar } from '@/components/shell/app-sidebar';
+import { requireActiveAccount } from '@/lib/auth/app-access';
 import { getCompletedJourneySessions } from '@/lib/actions/journey-sessions';
 import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import { DeleteSessionButton } from '@/components/research/delete-session-button';
@@ -20,8 +20,7 @@ function formatDate(dateString: string): string {
 }
 
 export default async function ResearchListPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  await requireActiveAccount();
 
   const { data: sessions } = await getCompletedJourneySessions();
 

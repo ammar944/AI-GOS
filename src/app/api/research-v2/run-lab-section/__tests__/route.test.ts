@@ -26,6 +26,7 @@ interface SeededRows {
 
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
+  const requireApiUser = vi.fn();
   const seedOrchestration = vi.fn();
   const corpusToResearchInput = vi.fn();
   const runLabSectionJob = vi.fn();
@@ -88,6 +89,7 @@ const routeMocks = vi.hoisted(() => {
 
   return {
     auth,
+    requireApiUser,
     seedOrchestration,
     corpusToResearchInput,
     runLabSectionJob,
@@ -119,6 +121,12 @@ vi.mock('next/server', async () => {
 
 vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: routeMocks.createAdminClient,
+}));
+
+vi.mock('@/lib/auth/app-access', () => ({
+  requireApiUser: () => routeMocks.requireApiUser(),
+  jsonError: (message: string, status: number) =>
+    Response.json({ error: message }, { status }),
 }));
 
 vi.mock('@/lib/research-v2/orchestrate-db', async () => {
@@ -254,6 +262,19 @@ function validResearchInput(): Record<string, unknown> {
   };
 }
 
+function mockApiUser(actorUserId = 'user_1') {
+  return {
+    actorUserId,
+    role: 'internal',
+    accountStatus: 'active',
+    effectiveUserId: actorUserId,
+    effectiveProfileId: null,
+    primaryProfileId: null,
+    clientLockedAt: null,
+    impersonation: null,
+  };
+}
+
 function mockOwnedSession(): void {
   routeMocks.sessionQuery.maybeSingle.mockResolvedValue({
     data: {
@@ -277,6 +298,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
   beforeEach((): void => {
     vi.clearAllMocks();
     routeMocks.afterCallbacks.length = 0;
+    routeMocks.requireApiUser.mockResolvedValue(mockApiUser());
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.committedSectionsQuery.select.mockReturnValue(

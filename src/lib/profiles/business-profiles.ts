@@ -434,7 +434,7 @@ function mapSessionRow(row: Record<string, unknown>): ProfileSession {
 }
 
 // Map Supabase snake_case row to camelCase interface
-function mapRow(row: Record<string, unknown>): BusinessProfile {
+export function mapRow(row: Record<string, unknown>): BusinessProfile {
   return {
     id: row.id as string,
     userId: row.user_id as string,
