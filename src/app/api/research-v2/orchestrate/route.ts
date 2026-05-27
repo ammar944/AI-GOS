@@ -215,10 +215,9 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    // Managed Agents is the default path when the feature flag is on.
-    // Frontend dispatch sites send only { run_id }, so the default fires
-    // there. Explicit body.executionMode ('draft' | 'deep' | 'managed' | 'lab')
-    // still wins — used by tests and the rerun-section flow.
+    // Managed Agents is the fallback path when the feature flag is on.
+    // Explicit body.executionMode ('draft' | 'deep' | 'managed' | 'lab')
+    // still wins — used by frontend kickoffs, tests, and rerun-section.
     const effectiveExecutionMode =
       body.executionMode ??
       (managedAgentsPositioningEnabled() ? 'managed' : 'draft');

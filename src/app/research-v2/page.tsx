@@ -432,7 +432,7 @@ export default function ResearchV2Page() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ run_id: runId }),
+        body: JSON.stringify({ run_id: runId, executionMode: 'lab' }),
       }).catch((err) => {
         console.warn('[research-v2] orchestrate kickoff failed:', err);
       });

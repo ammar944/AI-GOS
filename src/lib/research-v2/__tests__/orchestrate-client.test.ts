@@ -98,6 +98,7 @@ describe('orchestrate-client', () => {
       expect(body).toEqual({
         journey_session_id: VALID_SESSION_ID,
         run_id: VALID_RUN_ID,
+        executionMode: 'lab',
       });
     });
 

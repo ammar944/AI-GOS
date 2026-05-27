@@ -57,7 +57,7 @@ export async function postOrchestrate(
   const response = await fetcher(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(parsedBody),
+    body: JSON.stringify({ ...parsedBody, executionMode: 'lab' }),
     signal: options.signal,
   });
 
