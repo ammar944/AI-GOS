@@ -423,6 +423,7 @@ function ErrorState({
         rest of the audit.
       </p>
       <Button
+        type="button"
         variant="outline"
         size="sm"
         onClick={onRerun}
@@ -830,6 +831,7 @@ export function AuditReaderShell({
         </div>
         <div className="flex items-center gap-1">
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={copyActive}
@@ -841,6 +843,7 @@ export function AuditReaderShell({
             {copied ? 'Copied' : 'Copy'}
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={() => rerunSection(active)}

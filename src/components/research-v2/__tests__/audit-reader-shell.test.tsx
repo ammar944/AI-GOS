@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { FormEvent } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
@@ -367,6 +368,9 @@ describe('<AuditReaderShell>', () => {
 
   it('reruns paid media through the one-section lab route', async (): Promise<void> => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    const submitMock = vi.fn((event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+    });
     vi.stubGlobal('fetch', fetchMock);
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -386,13 +390,16 @@ describe('<AuditReaderShell>', () => {
     });
 
     render(
-      <AuditReaderShell
-        runId="00000000-0000-4000-8000-0000000000aa"
-        activeSectionId={PAID_MEDIA_PLAN_SECTION_ID}
-      />,
+      <form onSubmit={submitMock}>
+        <AuditReaderShell
+          runId="00000000-0000-4000-8000-0000000000aa"
+          activeSectionId={PAID_MEDIA_PLAN_SECTION_ID}
+        />
+      </form>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /^rerun$/i }));
+    expect(submitMock).not.toHaveBeenCalled();
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
