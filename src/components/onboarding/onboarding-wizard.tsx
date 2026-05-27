@@ -23,8 +23,8 @@ import {
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GradientBorder } from "@/components/ui/gradient-border";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -354,7 +354,7 @@ export function OnboardingWizard({
         id={fieldId}
         key={fieldId}
         data-testid={`onboarding-field-${fieldId}`}
-        className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4"
+        className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4"
       >
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -532,21 +532,29 @@ export function OnboardingWizard({
   const isLastStep = currentStep === SECTION_META.length - 1;
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 text-foreground">
-      <div className="mx-auto w-full max-w-4xl space-y-8">
-        <header className="space-y-3 border-b border-[var(--border-subtle)] pb-5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+    <div className="mx-auto w-full max-w-4xl space-y-8">
+      <div className="space-y-8">
+        <header className="space-y-3">
+          <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
             GTM Brief Review
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-[0]">Confirm every field</h1>
-              <p className="mt-2 max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
+              <h1
+                className="text-[24px] font-bold tracking-tight"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Confirm every field
+              </h1>
+              <p
+                className="mt-2 max-w-[70ch] leading-relaxed"
+                style={{ color: "var(--text-secondary)", fontSize: "15px" }}
+              >
                 Review the corpus-filled GTM Brief before the audit is frozen and
                 handed to the six positioning Sections.
               </p>
             </div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
               {review.fieldCount} fields
             </div>
           </div>
@@ -554,19 +562,19 @@ export function OnboardingWizard({
 
         <section
           data-testid="onboarding-review-pinned"
-          className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4"
+          className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4"
         >
           <div className="flex flex-col gap-1">
-            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
               Review first
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               Missing and low-confidence fields are pinned here; every field
               remains editable in its section.
             </p>
           </div>
           {pinnedReviews.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
               No missing or low-confidence fields.
             </p>
           ) : (
@@ -575,13 +583,13 @@ export function OnboardingWizard({
                 <a
                   key={field.key}
                   href={`#${field.key}`}
-                  className="flex min-h-16 items-start justify-between gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-left hover:border-[var(--border-hover)]"
+                  className="flex min-h-16 items-start justify-between gap-3 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-left transition-colors hover:border-[var(--border-hover)]"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">
                       {pinnedLabel(field)}
                     </span>
-                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
                       {field.sectionTitle}
                     </span>
                   </span>
@@ -687,6 +695,11 @@ export function OnboardingWizard({
                             : showCheckmark
                               ? "#ffffff"
                               : "rgb(100, 105, 115)",
+                        boxShadow: isCurrentNew
+                          ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
+                          : isCurrentRevisiting || isVisitedAhead
+                            ? "0 0 8px rgba(54, 94, 255, 0.4)"
+                            : undefined,
                       }}
                       animate={isCurrent ? { scale: [1, 1.05, 1] } : { scale: 1 }}
                       transition={
@@ -694,6 +707,7 @@ export function OnboardingWizard({
                           ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
                           : { duration: 0.3 }
                       }
+                      whileHover={isClickable ? { scale: 1.1 } : undefined}
                       whileTap={isClickable ? { scale: 0.95 } : undefined}
                     >
                       {showCheckmark ? <Check className="h-4 w-4" /> : ICONS[step.icon]}
@@ -714,6 +728,9 @@ export function OnboardingWizard({
                             : showCheckmark
                               ? "rgb(205, 208, 213)"
                               : "rgb(100, 105, 115)",
+                        textShadow: isCurrentNew
+                          ? "0 0 8px rgba(205, 208, 213, 0.5)"
+                          : undefined,
                       }}
                     >
                       {step.shortTitle ?? step.title}
@@ -747,7 +764,7 @@ export function OnboardingWizard({
             </div>
 
             <div className="relative -mx-4 px-4">
-              <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+              <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {SECTION_META.map((step, index) => {
                   const isCurrent = index === currentStep;
                   const isClickable = index <= highestStepReached;
@@ -793,11 +810,18 @@ export function OnboardingWizard({
                   );
                 })}
               </div>
+              <div
+                className="pointer-events-none absolute bottom-2 right-4 top-0 w-8"
+                style={{
+                  background:
+                    "linear-gradient(to right, transparent, var(--bg-elevated))",
+                }}
+              />
             </div>
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <GradientBorder className="overflow-hidden">
           <motion.div
             key={currentSection.id}
             className="p-6 md:p-8"
@@ -848,21 +872,35 @@ export function OnboardingWizard({
                   variant="outline"
                   onClick={goToPreviousStep}
                   disabled={currentStep === 0}
+                  className="h-10 rounded-md px-4 py-2 text-sm font-medium"
                 >
                   Back
                 </Button>
                 <div className="flex items-center justify-end gap-3">
-                  <Button type="button" variant="ghost" onClick={clearAllFields}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={clearAllFields}
+                    className="h-10 rounded-md px-4 py-2 text-sm font-medium"
+                  >
                     Clear
                   </Button>
-                  <Button type="button" onClick={goToNextStep}>
+                  <Button
+                    type="button"
+                    onClick={goToNextStep}
+                    className="h-10 rounded-md px-4 py-2 text-sm font-semibold text-white"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%)",
+                    }}
+                  >
                     {isLastStep ? "Run audit" : "Continue"}
                   </Button>
                 </div>
               </div>
             </section>
           </motion.div>
-        </Card>
+        </GradientBorder>
       </div>
     </div>
   );
