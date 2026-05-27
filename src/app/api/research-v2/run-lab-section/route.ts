@@ -26,6 +26,7 @@ import {
   OrchestrateRpcError,
 } from '@/lib/research-v2/orchestrate-db';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
+import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/uploaded-document-context.server';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const LAB_SECTION_ROUTE_TIMEOUT_MS = LAB_SECTION_JOB_TIMEOUT_MS;
@@ -250,12 +251,18 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const zones = getDispatchZones(body.section_id);
+    const supabase = createAdminClient();
+    const uploadedDocuments = await loadUploadedDocumentContextsForSession({
+      metadata: session.metadata,
+      supabase,
+      userId,
+    });
     const baseResearchInput = corpusToResearchInput({
       runId: body.run_id,
       deepResearchProgramData,
       onboardingData: session.onboarding_data ?? {},
+      ...(uploadedDocuments.length > 0 ? { uploadedDocuments } : {}),
     });
-    const supabase = createAdminClient();
     const paidMediaParent =
       body.section_id === PAID_MEDIA_PLAN_SECTION_ID
         ? await loadParentAuditRunId({

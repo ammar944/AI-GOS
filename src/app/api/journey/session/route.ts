@@ -80,6 +80,11 @@ interface WorkspaceMessagesPatchRequest {
   messages?: unknown;
 }
 
+interface JourneySessionPostRequest {
+  runId?: unknown;
+  metadata?: unknown;
+}
+
 function extractPersistableFields(
   value: unknown,
 ): Record<string, unknown> | null {
@@ -374,12 +379,23 @@ export async function POST(request: Request) {
   }
 
   let providedRunId: string | undefined;
+  let providedMetadata: Record<string, unknown> = {};
   try {
     const raw = await request.text();
     if (raw.trim().length > 0) {
-      const body = JSON.parse(raw) as { runId?: unknown };
+      const body = JSON.parse(raw) as JourneySessionPostRequest;
       if (typeof body.runId === 'string' && body.runId.trim().length > 0) {
         providedRunId = body.runId.trim();
+      }
+      if (body.metadata !== undefined) {
+        const metadata = extractPersistableFields(body.metadata);
+        if (!metadata) {
+          return jsonResponse(
+            { error: 'metadata must be an object with at least one field when provided' },
+            400,
+          );
+        }
+        providedMetadata = metadata;
       }
     }
   } catch {
@@ -393,7 +409,7 @@ export async function POST(request: Request) {
     .insert({
       user_id: userId,
       run_id: runId,
-      metadata: { activeJourneyRunId: runId },
+      metadata: { ...providedMetadata, activeJourneyRunId: runId },
       research_results: null,
       job_status: null,
       updated_at: new Date().toISOString(),
