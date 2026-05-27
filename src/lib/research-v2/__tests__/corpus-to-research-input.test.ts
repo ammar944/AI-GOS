@@ -140,4 +140,79 @@ describe("corpusToResearchInput", (): void => {
       ]),
     );
   });
+
+  it("attributes evidence excerpts to evidence URLs missing from corpus sources", (): void => {
+    const evidenceUrl =
+      "https://www.airtable.com/blog/connected-apps-operations-report";
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        corpus: {
+          ...corpusFixture.deepResearchProgramData.corpus,
+          sources: corpusFixture.deepResearchProgramData.corpus.sources.slice(0, 1),
+          evidence: [
+            {
+              claim:
+                "Operations teams use Airtable connected apps to coordinate cross-functional work.",
+              quote:
+                "Connected apps keep teams aligned around shared operational workflows.",
+              source: "Airtable connected apps report",
+              url: evidenceUrl,
+            },
+          ],
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+    const excerpt = parsed.corpus.excerpts[0];
+
+    expect(parsed.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Airtable connected apps report",
+          url: evidenceUrl,
+        }),
+      ]),
+    );
+    expect(excerpt.sourceUrl).toBe(evidenceUrl);
+    expect(excerpt.sourceUrl).not.toBe(parsed.sources[0].url);
+  });
+
+  it("does not fabricate source-zero attribution for unmatched evidence without a URL", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        corpus: {
+          ...corpusFixture.deepResearchProgramData.corpus,
+          evidence: [
+            ...corpusFixture.deepResearchProgramData.corpus.evidence,
+            {
+              claim: "Unmatched no-url evidence should not borrow another source.",
+              quote: "This quote intentionally has no usable URL.",
+              source: "Unlisted research note",
+            },
+          ],
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+    const noUrlExcerpt = parsed.corpus.excerpts.find((excerpt) =>
+      excerpt.text.includes("Unmatched no-url evidence"),
+    );
+
+    expect(noUrlExcerpt).toBeUndefined();
+    expect(parsed.sources).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Unlisted research note",
+        }),
+      ]),
+    );
+  });
 });

@@ -285,24 +285,28 @@ function buildResearchSummary({
 
 function buildSources({
   companyName,
+  evidenceRecords,
   observedAt,
   sourceRecords,
   uploadedDocuments,
   websiteUrl,
 }: {
   companyName: string;
+  evidenceRecords: Record<string, unknown>[];
   observedAt: string;
   sourceRecords: Record<string, unknown>[];
   uploadedDocuments: readonly UploadedDocumentContext[];
   websiteUrl: string;
 }): SourceRef[] {
-  const sources = sourceRecords.flatMap((source, index): SourceRef[] => {
+  const sourceUrls = new Set<string>();
+  const corpusSources = sourceRecords.flatMap((source, index): SourceRef[] => {
     const url = getValidUrl(firstString(source.url, source.sourceUrl));
 
     if (url === null) {
       return [];
     }
 
+    sourceUrls.add(url);
     const title = firstString(source.title, source.source, source.name) ?? url;
     const publisher = firstString(source.publisher);
 
@@ -316,6 +320,26 @@ function buildSources({
       },
     ];
   });
+  const evidenceSources = evidenceRecords.flatMap((evidence, index): SourceRef[] => {
+    const url = getValidUrl(firstString(evidence.url, evidence.sourceUrl));
+
+    if (url === null || sourceUrls.has(url)) {
+      return [];
+    }
+
+    sourceUrls.add(url);
+    const title = firstString(evidence.source, evidence.title) ?? url;
+
+    return [
+      {
+        id: `source_${slugify(title)}_evidence_${index + 1}`,
+        title,
+        url,
+        observedAt,
+      },
+    ];
+  });
+  const sources = [...corpusSources, ...evidenceSources];
 
   const uploadedDocumentSources = uploadedDocuments.map((document, index) => ({
     id: `source_uploaded_${slugify(document.fileName)}_${index + 1}`,
@@ -342,11 +366,15 @@ function buildSources({
 
 function findSourceForEvidence({
   evidence,
+  index,
+  observedAt,
   sources,
 }: {
   evidence: Record<string, unknown>;
+  index: number;
+  observedAt: string;
   sources: SourceRef[];
-}): SourceRef {
+}): SourceRef | null {
   const evidenceUrl = getValidUrl(firstString(evidence.url, evidence.sourceUrl));
   const evidenceTitle = firstString(evidence.source, evidence.title);
   const matchingUrlSource = sources.find((source) => source.url === evidenceUrl);
@@ -359,7 +387,22 @@ function findSourceForEvidence({
     (source) => evidenceTitle !== null && source.title === evidenceTitle,
   );
 
-  return matchingTitleSource ?? sources[0]!;
+  if (matchingTitleSource !== undefined) {
+    return matchingTitleSource;
+  }
+
+  if (evidenceUrl !== null) {
+    const title = evidenceTitle ?? evidenceUrl;
+
+    return {
+      id: `source_${slugify(title)}_evidence_${index + 1}`,
+      title,
+      url: evidenceUrl,
+      observedAt,
+    };
+  }
+
+  return null;
 }
 
 function buildEvidenceExcerpt({
@@ -380,7 +423,17 @@ function buildEvidenceExcerpt({
     return null;
   }
 
-  const source = findSourceForEvidence({ evidence, sources });
+  const source = findSourceForEvidence({
+    evidence,
+    index,
+    observedAt,
+    sources,
+  });
+
+  if (source === null) {
+    return null;
+  }
+
   const title = firstString(evidence.title, evidence.source) ?? source.title;
   const text = normalizeWhitespace(
     [claim, quote].filter((part): part is string => part !== null).join(" — "),
@@ -480,6 +533,7 @@ export function corpusToResearchInput(
   });
   const mediaPlanBriefFields = buildMediaPlanBriefFields(onboardingData);
   const sourceRecords = asRecordArray(corpus.sources);
+  const evidenceRecords = asRecordArray(corpus.evidence);
   const uploadedDocuments = params.uploadedDocuments ?? [];
   const firstCorpusSourceUrl = sourceRecords
     .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
@@ -496,6 +550,7 @@ export function corpusToResearchInput(
   });
   const sources = buildSources({
     companyName,
+    evidenceRecords,
     observedAt,
     sourceRecords,
     uploadedDocuments,
@@ -551,7 +606,7 @@ export function corpusToResearchInput(
     },
     corpus: {
       excerpts: buildCorpusExcerpts({
-        evidenceRecords: asRecordArray(corpus.evidence),
+        evidenceRecords,
         observedAt,
         sources,
         uploadedDocuments,
