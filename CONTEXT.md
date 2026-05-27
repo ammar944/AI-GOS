@@ -81,6 +81,22 @@ _Avoid_: Chat message, log line, progress copy, Artifact Card
 The productized name (per the locked April 29 strategic plan) for the Audit deliverable AI-GOS sells. The Audit IS the Pre-Pitch Positioning Audit; this is just the customer-facing label.
 _Avoid_: Pitch deck, strategy doc
 
+**Corpus**:
+The shared research base produced by the `deepResearchProgram` pass on the Railway worker (Perplexity sonar, ADR-0007) before the six Sections fan out. Holds company facts, category, a research summary, cited sources, and evidence excerpts, plus the auto-prefilled onboarding fields. The Corpus is the common ground every Subagent starts from; the deep, section-specific evidence is gathered live in-section (ADR-0006), not in the Corpus.
+_Avoid_: Deep research, pre-research, context dump
+
+**GTM Brief**:
+The user-confirmed `OnboardingV2Data` — the canonical answer set (7 GTM question sections, ADR-0008) that the user reviews and edits after the Corpus auto-prefills it, then submits to launch the Audit fan-out. Frozen at submit as `gtmBriefReview` / `researchV2OnboardingReview` and passed to every Subagent.
+_Avoid_: Onboarding data (the Brief is the confirmed result), form, questionnaire
+
+**Onboarding**:
+The single corpus-fed front door of an Audit (ADR-0008): the rich multi-step wizard shell rendering `OnboardingV2Data`, asking exactly the canonical GTM questions, with file/transcript upload at entry. There is one Onboarding — the prior split between the rich `OnboardingFormData` wizard and `OnboardingWizardV2` is collapsed. Produces the GTM Brief.
+_Avoid_: Wizard (one UI of it), sign-up, account onboarding
+
+**Media Plan Setup**:
+A dedicated Onboarding step, separate from the 7 GTM question sections, that collects the paid-media inputs — `salesProcessDocs`, `salesLoomUrl`, `creativeCapacity`, `leadListAvailable` — that feed the 7th `positioningPaidMediaPlan` synthesis Section (ADR-0005), not the 6 positioning Sections.
+_Avoid_: Media plan (that is the output Section), ad setup
+
 **Artifact-builder tool** _(deprecated)_:
 Briefly proposed in ADR-0001 (one tool per UI brick), superseded by ADR-0002 (one `streamObject` call per Section). Each Section's Artifact is produced as a single structured output, not via per-brick tool calls. The Subagent's tool map contains only research tools (`web_search`, `firecrawl`, etc.); structure comes from the Artifact schema, not from tools.
 _Avoid_: Use **Artifact** + **Sub-section** + **Card** instead.
