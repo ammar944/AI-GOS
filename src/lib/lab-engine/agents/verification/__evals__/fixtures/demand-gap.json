@@ -1,0 +1,23 @@
+{
+  "name": "demand intent signal gap pass",
+  "sectionId": "positioningDemandIntent",
+  "requiredEvidenceClasses": ["demand_signal_or_gap"],
+  "body": {
+    "keywordDemand": {
+      "keywords": []
+    },
+    "dataGaps": [
+      {
+        "class": "demand_signal_or_gap",
+        "reason": "Search demand source was unavailable."
+      }
+    ]
+  },
+  "toolResults": [],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 0,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

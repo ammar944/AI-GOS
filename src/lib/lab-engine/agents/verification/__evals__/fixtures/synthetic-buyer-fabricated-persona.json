@@ -1,0 +1,32 @@
+{
+  "name": "synthetic buyer icp fabricated persona",
+  "sectionId": "positioningBuyerICP",
+  "requiredEvidenceClasses": ["icp_persona", "icp_quote_or_gap"],
+  "body": {
+    "personaReality": {
+      "personas": [
+        {
+          "name": "Ops Wizard",
+          "company": "Acme",
+          "sourceUrl": "https://example.com/buyer",
+          "evidence": "The persona is asserted without support."
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "firecrawl",
+      "output": {
+        "sourceUrl": "https://example.com/buyer",
+        "markdown": "The page describes operations teams generally."
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 1,
+    "unsupportedCount": 2,
+    "requiredClassesSatisfied": true
+  }
+}

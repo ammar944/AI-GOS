@@ -1,0 +1,50 @@
+{
+  "name": "ramp competitor landscape clean ad evidence",
+  "sectionId": "positioningCompetitorLandscape",
+  "requiredEvidenceClasses": ["competitor", "adEvidence_or_gap"],
+  "body": {
+    "competitorSet": {
+      "competitors": [
+        {
+          "name": "Clari",
+          "url": "https://clari.com",
+          "sourceUrl": "https://clari.com"
+        }
+      ]
+    },
+    "adEvidence": {
+      "advertiserGroups": [
+        {
+          "advertiserName": "Clari",
+          "displayableTotal": 1,
+          "returnedCreativeCount": 1,
+          "creatives": [
+            {
+              "advertiserName": "Clari",
+              "sourceUrl": "https://adstransparency.google.com/clari"
+            }
+          ],
+          "rawSourceSamples": [],
+          "dataGaps": [],
+          "sourceErrors": []
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "google_ads",
+      "output": {
+        "text": "Clari active ad evidence.",
+        "url": "https://clari.com",
+        "detailsUrl": "https://adstransparency.google.com/clari"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 3,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "synthetic fabricated voc quote",
+  "sectionId": "positioningVoiceOfCustomer",
+  "requiredEvidenceClasses": ["voc_quote_or_gap"],
+  "body": {
+    "painLanguage": {
+      "quotes": [
+        {
+          "verbatimText": "\"buyers recover budget before the first renewal cycle\"",
+          "sourceUrl": "https://example.com/reviews"
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "reviews",
+      "output": {
+        "text": "Reviews discuss renewal planning.",
+        "url": "https://example.com/reviews"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 1,
+    "unsupportedCount": 1,
+    "requiredClassesSatisfied": true
+  }
+}

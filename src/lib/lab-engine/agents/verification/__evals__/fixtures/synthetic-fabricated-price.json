@@ -1,0 +1,31 @@
+{
+  "name": "synthetic fabricated offer price",
+  "sectionId": "positioningOfferDiagnostic",
+  "requiredEvidenceClasses": ["offer_axis"],
+  "body": {
+    "offerMarketFit": {
+      "proofPoints": [
+        {
+          "metric": "Payback",
+          "value": "$99/mo",
+          "sourceUrl": "https://example.com/pricing"
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "firecrawl",
+      "output": {
+        "markdown": "Pricing starts at $49/mo.",
+        "sourceUrl": "https://example.com/pricing"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 1,
+    "unsupportedCount": 1,
+    "requiredClassesSatisfied": true
+  }
+}

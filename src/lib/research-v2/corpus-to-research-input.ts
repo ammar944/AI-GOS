@@ -487,6 +487,34 @@ function buildCorpusExcerpts({
   return [...evidenceExcerpts, ...uploadedDocumentExcerpts];
 }
 
+function countDroppedEvidenceExcerpts({
+  evidenceRecords,
+  observedAt,
+  sources,
+}: {
+  evidenceRecords: Record<string, unknown>[];
+  observedAt: string;
+  sources: SourceRef[];
+}): number {
+  return evidenceRecords.filter((evidence, index) => {
+    const claim = firstString(evidence.claim, evidence.summary, evidence.text);
+    const quote = firstString(evidence.quote, evidence.evidence, evidence.snippet);
+
+    if (claim === null && quote === null) {
+      return false;
+    }
+
+    return (
+      findSourceForEvidence({
+        evidence,
+        index,
+        observedAt,
+        sources,
+      }) === null
+    );
+  }).length;
+}
+
 function withFallback(values: string[], fallback: string): string[] {
   return values.length > 0 ? values : [fallback];
 }
@@ -556,6 +584,11 @@ export function corpusToResearchInput(
     uploadedDocuments,
     websiteUrl,
   });
+  const droppedEvidenceExcerptCount = countDroppedEvidenceExcerpts({
+    evidenceRecords,
+    observedAt,
+    sources,
+  });
   return researchInputSchema.parse({
     runId: params.runId,
     fixtureId: `brand_${companySlug}`,
@@ -614,5 +647,18 @@ export function corpusToResearchInput(
     },
     sources,
     competitorAds: [],
+    ...(droppedEvidenceExcerptCount === 0
+      ? {}
+      : {
+          _capabilities: {
+            capabilityGaps: [
+              {
+                class: "evidence_excerpt_dropped",
+                reason: "no_source_url",
+                count: droppedEvidenceExcerptCount,
+              },
+            ],
+          },
+        }),
   });
 }

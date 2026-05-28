@@ -1,0 +1,30 @@
+{
+  "name": "notion voice of customer clean quote",
+  "sectionId": "positioningVoiceOfCustomer",
+  "requiredEvidenceClasses": ["voc_quote_or_gap"],
+  "body": {
+    "painLanguage": {
+      "quotes": [
+        {
+          "verbatimText": "\"teams lose context when docs and tasks split apart\"",
+          "sourceUrl": "https://www.g2.com/products/notion/reviews"
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "reviews",
+      "output": {
+        "text": "A reviewer said teams lose context when docs and tasks split apart.",
+        "url": "https://www.g2.com/products/notion/reviews"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 2,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "voice of customer quote gap pass",
+  "sectionId": "positioningVoiceOfCustomer",
+  "requiredEvidenceClasses": ["voc_quote_or_gap"],
+  "body": {
+    "painLanguage": {
+      "quotes": []
+    },
+    "dataGaps": [
+      {
+        "class": "voc_quote_or_gap",
+        "reason": "No verbatim quote found."
+      }
+    ]
+  },
+  "toolResults": [],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 0,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

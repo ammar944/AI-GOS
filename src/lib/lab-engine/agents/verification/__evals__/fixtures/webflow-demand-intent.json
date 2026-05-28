@@ -1,0 +1,31 @@
+{
+  "name": "webflow demand intent clean signal",
+  "sectionId": "positioningDemandIntent",
+  "requiredEvidenceClasses": ["demand_signal_or_gap"],
+  "body": {
+    "keywordDemand": {
+      "keywords": [
+        {
+          "keyword": "crm cleanup software",
+          "monthlyVolume": "Demand is 32% higher in Q4.",
+          "sourceUrl": "https://search.example.com/crm-cleanup"
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "keyword_ad_probe",
+      "output": {
+        "text": "Demand is 32% higher in Q4.",
+        "url": "https://search.example.com/crm-cleanup"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 2,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

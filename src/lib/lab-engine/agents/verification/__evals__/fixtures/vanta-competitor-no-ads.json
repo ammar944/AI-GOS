@@ -1,0 +1,46 @@
+{
+  "name": "vanta competitor no ads gap pass",
+  "sectionId": "positioningCompetitorLandscape",
+  "requiredEvidenceClasses": ["competitor", "adEvidence_or_gap"],
+  "body": {
+    "competitorSet": {
+      "competitors": [
+        {
+          "name": "Gong",
+          "url": "https://gong.io",
+          "sourceUrl": "https://gong.io"
+        }
+      ]
+    },
+    "adEvidence": {
+      "advertiserGroups": [
+        {
+          "advertiserName": "Gong",
+          "displayableTotal": 0,
+          "returnedCreativeCount": 0,
+          "creatives": [],
+          "rawSourceSamples": [],
+          "dataGaps": [
+            {
+              "platform": "google",
+              "reason": "No active creatives returned."
+            }
+          ],
+          "sourceErrors": []
+        }
+      ]
+    }
+  },
+  "toolResults": [],
+  "corpusExcerpts": [
+    {
+      "text": "Gong appears in the competitor set.",
+      "sourceUrl": "https://gong.io"
+    }
+  ],
+  "expected_verdict": {
+    "verifiedCount": 2,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

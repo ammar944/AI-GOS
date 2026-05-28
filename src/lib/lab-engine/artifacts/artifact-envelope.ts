@@ -169,6 +169,20 @@ export const researchInputSchema = z
     sources: z.array(sourceRefSchema).min(1),
     competitorAds: z.array(competitorAdSchema).max(5),
     committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
+    _capabilities: z
+      .object({
+        capabilityGaps: z.array(
+          z
+            .object({
+              class: z.literal("evidence_excerpt_dropped"),
+              reason: z.literal("no_source_url"),
+              count: z.number().int().positive(),
+            })
+            .strict(),
+        ),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

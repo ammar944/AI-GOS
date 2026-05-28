@@ -1,0 +1,20 @@
+{
+  "name": "synthetic missing competitor required class",
+  "sectionId": "positioningCompetitorLandscape",
+  "requiredEvidenceClasses": ["competitor", "adEvidence_or_gap"],
+  "body": {
+    "competitorSet": {
+      "competitors": []
+    },
+    "adEvidence": {
+      "advertiserGroups": []
+    }
+  },
+  "toolResults": [],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 0,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": false
+  }
+}

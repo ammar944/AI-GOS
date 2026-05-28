@@ -1,0 +1,31 @@
+{
+  "name": "vanta market category numeric normalization",
+  "sectionId": "positioningMarketCategory",
+  "requiredEvidenceClasses": ["marketCategory_name"],
+  "body": {
+    "categoryDefinition": {
+      "prose": "Vanta sits in a trust automation category with 200M records indexed.",
+      "adjacentCategories": [
+        {
+          "name": "Trust automation",
+          "sourceUrl": "https://vanta.com/trust"
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "firecrawl",
+      "output": {
+        "markdown": "Trust automation vendors reference 200 million records indexed.",
+        "sourceUrl": "https://vanta.com/trust"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 3,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

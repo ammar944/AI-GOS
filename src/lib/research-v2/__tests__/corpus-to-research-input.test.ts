@@ -207,6 +207,13 @@ describe("corpusToResearchInput", (): void => {
     );
 
     expect(noUrlExcerpt).toBeUndefined();
+    expect(parsed._capabilities?.capabilityGaps).toEqual([
+      {
+        class: "evidence_excerpt_dropped",
+        reason: "no_source_url",
+        count: 1,
+      },
+    ]);
     expect(parsed.sources).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({

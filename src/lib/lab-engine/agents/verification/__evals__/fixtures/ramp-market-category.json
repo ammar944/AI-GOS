@@ -1,0 +1,28 @@
+{
+  "name": "ramp market category clean pass",
+  "sectionId": "positioningMarketCategory",
+  "requiredEvidenceClasses": ["marketCategory_name"],
+  "body": {
+    "categoryDefinition": {
+      "prose": "Ramp anchors the spend management category.",
+      "adjacentCategories": [
+        {
+          "name": "Spend management",
+          "sourceUrl": "https://ramp.com/category"
+        }
+      ]
+    }
+  },
+  "toolResults": [],
+  "corpusExcerpts": [
+    {
+      "text": "Spend management is the category Ramp uses for finance teams.",
+      "sourceUrl": "https://ramp.com/category"
+    }
+  ],
+  "expected_verdict": {
+    "verifiedCount": 2,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

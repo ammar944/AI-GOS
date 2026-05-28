@@ -1,0 +1,35 @@
+{
+  "name": "vanta buyer icp gap pass",
+  "sectionId": "positioningBuyerICP",
+  "requiredEvidenceClasses": ["icp_persona", "icp_quote_or_gap"],
+  "body": {
+    "personaReality": {
+      "personas": [
+        {
+          "name": "Finance Lead",
+          "company": "Vanta",
+          "sourceUrl": "https://vanta.com/customers/finance",
+          "evidence": ""
+        }
+      ]
+    },
+    "dataGaps": [
+      {
+        "class": "icp_quote_or_gap",
+        "reason": "No direct buyer quote was present in corpus."
+      }
+    ]
+  },
+  "toolResults": [],
+  "corpusExcerpts": [
+    {
+      "text": "Vanta references Finance Lead workflows.",
+      "sourceUrl": "https://vanta.com/customers/finance"
+    }
+  ],
+  "expected_verdict": {
+    "verifiedCount": 3,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

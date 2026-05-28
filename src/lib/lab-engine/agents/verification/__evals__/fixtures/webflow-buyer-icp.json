@@ -1,0 +1,32 @@
+{
+  "name": "webflow buyer icp clean pass",
+  "sectionId": "positioningBuyerICP",
+  "requiredEvidenceClasses": ["icp_persona", "icp_quote_or_gap"],
+  "body": {
+    "personaReality": {
+      "personas": [
+        {
+          "name": "RevOps Manager",
+          "company": "Webflow",
+          "sourceUrl": "https://webflow.com/customers/revops",
+          "evidence": "RevOps leaders own funnel instrumentation."
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "web_search",
+      "output": {
+        "text": "Webflow customer stories mention RevOps Manager buyers.",
+        "url": "https://webflow.com/customers/revops"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 3,
+    "unsupportedCount": 0,
+    "requiredClassesSatisfied": true
+  }
+}

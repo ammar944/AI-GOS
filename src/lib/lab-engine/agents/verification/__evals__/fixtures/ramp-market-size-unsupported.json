@@ -1,0 +1,38 @@
+{
+  "name": "ramp market category unsupported fabricated size",
+  "sectionId": "positioningMarketCategory",
+  "requiredEvidenceClasses": ["marketCategory_name"],
+  "body": {
+    "categoryDefinition": {
+      "prose": "The category is still forming.",
+      "adjacentCategories": [
+        {
+          "name": "AI workspace",
+          "sourceUrl": "https://ramp.com/ai"
+        }
+      ]
+    },
+    "marketSize": {
+      "signals": [
+        {
+          "evidence": "The category is expanding at 44% annually."
+        }
+      ]
+    }
+  },
+  "toolResults": [
+    {
+      "toolName": "web_search",
+      "output": {
+        "text": "AI workspace is described on Ramp pages.",
+        "url": "https://ramp.com/ai"
+      }
+    }
+  ],
+  "corpusExcerpts": [],
+  "expected_verdict": {
+    "verifiedCount": 2,
+    "unsupportedCount": 1,
+    "requiredClassesSatisfied": true
+  }
+}
