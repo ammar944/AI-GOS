@@ -9,6 +9,11 @@ import {
   timedFetch,
   type ToolGap,
 } from "./_shared";
+import {
+  isAdvertiserMatch,
+  normalizeDomain,
+  resolveBestCandidate,
+} from "./advertiser-match";
 
 const adLibraryPlatformSchema = z.enum(["meta", "google"]);
 
@@ -75,6 +80,31 @@ class SearchApiHttpError extends Error {
     super(`SearchAPI ${status}`);
     this.name = "SearchApiHttpError";
     this.status = status;
+  }
+}
+
+class NoMatchedAdvertiserError extends Error {
+  readonly advertiserName: string;
+  readonly domain: string | undefined;
+  readonly platform: AdLibraryPlatform;
+
+  constructor({
+    advertiserName,
+    domain,
+    platform,
+  }: {
+    advertiserName: string;
+    domain?: string;
+    platform: AdLibraryPlatform;
+  }) {
+    const domainClause = domain === undefined ? "" : ` for domain "${domain}"`;
+    super(
+      `No ${platform} advertiser matched "${advertiserName}"${domainClause} with sufficient confidence.`,
+    );
+    this.name = "NoMatchedAdvertiserError";
+    this.advertiserName = advertiserName;
+    this.domain = domain;
+    this.platform = platform;
   }
 }
 
@@ -150,57 +180,6 @@ function firstUrl(values: readonly unknown[]): string | undefined {
   }
 
   return undefined;
-}
-
-function normalizeName(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function scoreCandidateName(candidateName: string, advertiserName: string): number {
-  const candidate = normalizeName(candidateName);
-  const advertiser = normalizeName(advertiserName);
-
-  if (candidate.length === 0 || advertiser.length === 0) {
-    return 0;
-  }
-
-  if (candidate === advertiser) {
-    return 1;
-  }
-
-  if (candidate.includes(advertiser) || advertiser.includes(candidate)) {
-    return 0.85;
-  }
-
-  const candidateTokens = new Set(candidate.split(" "));
-  const advertiserTokens = advertiser.split(" ");
-  const overlap = advertiserTokens.filter((token) => candidateTokens.has(token)).length;
-
-  return overlap / Math.max(advertiserTokens.length, 1);
-}
-
-function chooseBestCandidate(
-  candidates: readonly Candidate[],
-  advertiserName: string,
-): Candidate | null {
-  const [best] = [...candidates]
-    .map((candidate) => ({
-      candidate,
-      score: scoreCandidateName(candidate.name, advertiserName),
-    }))
-    .sort((left, right) => right.score - left.score);
-
-  if (best === undefined || best.score < 0.5) {
-    return null;
-  }
-
-  return best.candidate;
 }
 
 function readCandidates(
@@ -445,11 +424,13 @@ function normalizeSearchApiRecord({
 
 function normalizeSearchApiRecords({
   advertiserName,
+  domain,
   maxResults,
   platform,
   records,
 }: {
   advertiserName: string;
+  domain?: string;
   maxResults: number;
   platform: AdLibraryPlatform;
   records: readonly SearchApiRecord[];
@@ -459,6 +440,14 @@ function normalizeSearchApiRecords({
     .map((record, index) =>
       normalizeSearchApiRecord({ advertiserName, index, platform, record }),
     )
+    .filter((ad) =>
+      isAdvertiserMatch(
+        ad.advertiserName,
+        advertiserName,
+        domain,
+        ad.detailsUrl ?? ad.landingUrl ?? ad.url,
+      ),
+    )
     .filter((ad) => hasUsableCreativeText(ad));
 }
 
@@ -466,11 +455,13 @@ async function searchGoogleAds({
   abortSignal,
   advertiserName,
   apiKey,
+  domain,
   maxResults,
 }: {
   abortSignal?: AbortSignal;
   advertiserName: string;
   apiKey: string;
+  domain?: string;
   maxResults: number;
 }): Promise<NormalizedAd[]> {
   const advertiserPayload = await fetchSearchApiJson({
@@ -485,10 +476,20 @@ async function searchGoogleAds({
     "id",
     "advertiser_id",
   ]);
-  const candidate = chooseBestCandidate(candidates, advertiserName);
+  const candidateResult = resolveBestCandidate(
+    candidates,
+    advertiserName,
+    domain,
+    domain !== undefined,
+  );
+  const candidate = candidateResult.candidate;
 
-  if (candidate === null) {
-    return [];
+  if (candidateResult.verdict === "rejected" || candidate === undefined) {
+    throw new NoMatchedAdvertiserError({
+      advertiserName,
+      domain,
+      platform: "google",
+    });
   }
 
   const adsPayload = await fetchSearchApiJson({
@@ -502,6 +503,7 @@ async function searchGoogleAds({
 
   return normalizeSearchApiRecords({
     advertiserName,
+    domain,
     maxResults,
     platform: "google",
     records: getRecordArray(adsPayload, "ad_creatives"),
@@ -512,11 +514,13 @@ async function searchMetaAds({
   abortSignal,
   advertiserName,
   apiKey,
+  domain,
   maxResults,
 }: {
   abortSignal?: AbortSignal;
   advertiserName: string;
   apiKey: string;
+  domain?: string;
   maxResults: number;
 }): Promise<NormalizedAd[]> {
   const pagePayload = await fetchSearchApiJson({
@@ -528,10 +532,20 @@ async function searchMetaAds({
     },
   });
   const candidates = readCandidates(pagePayload, "page_results", ["page_id", "id"]);
-  const candidate = chooseBestCandidate(candidates, advertiserName);
+  const candidateResult = resolveBestCandidate(
+    candidates,
+    advertiserName,
+    domain,
+    domain !== undefined,
+  );
+  const candidate = candidateResult.candidate;
 
-  if (candidate === null) {
-    return [];
+  if (candidateResult.verdict === "rejected" || candidate === undefined) {
+    throw new NoMatchedAdvertiserError({
+      advertiserName,
+      domain,
+      platform: "meta",
+    });
   }
 
   const adsPayload = await fetchSearchApiJson({
@@ -546,6 +560,7 @@ async function searchMetaAds({
 
   return normalizeSearchApiRecords({
     advertiserName,
+    domain,
     maxResults,
     platform: "meta",
     records: getRecordArray(adsPayload, "ads"),
@@ -556,23 +571,45 @@ async function fetchNativeAds({
   abortSignal,
   advertiserName,
   apiKey,
+  domain,
   maxResults,
   platform,
 }: {
   abortSignal?: AbortSignal;
   advertiserName: string;
   apiKey: string;
+  domain?: string;
   maxResults: number;
   platform: AdLibraryPlatform;
 }): Promise<NormalizedAd[]> {
   if (platform === "google") {
-    return searchGoogleAds({ abortSignal, advertiserName, apiKey, maxResults });
+    return searchGoogleAds({
+      abortSignal,
+      advertiserName,
+      apiKey,
+      domain,
+      maxResults,
+    });
   }
 
-  return searchMetaAds({ abortSignal, advertiserName, apiKey, maxResults });
+  return searchMetaAds({
+    abortSignal,
+    advertiserName,
+    apiKey,
+    domain,
+    maxResults,
+  });
 }
 
 function toApiErrorGap(error: unknown): ToolGap {
+  if (error instanceof NoMatchedAdvertiserError) {
+    return {
+      type: "gap",
+      reason: "not_implemented",
+      message: error.message,
+    };
+  }
+
   if (error instanceof SearchApiHttpError) {
     return apiErrorGap(error.message);
   }
@@ -588,11 +625,12 @@ export const adLibraryAgentTool = tool({
       advertiser: z.string().min(1),
       platform: adLibraryPlatformSchema.default("meta"),
       max_results: z.number().int().positive().default(8),
+      domain: z.string().min(1).optional(),
     })
     .strict(),
   outputSchema: AdLibraryOutputSchema,
   execute: async (
-    { advertiser, platform, max_results },
+    { advertiser, platform, max_results, domain },
     { abortSignal },
   ): Promise<AdLibraryOutput> => {
     const apiKey = process.env.SEARCHAPI_KEY;
@@ -606,6 +644,7 @@ export const adLibraryAgentTool = tool({
         abortSignal,
         advertiserName: advertiser,
         apiKey,
+        domain: domain === undefined ? undefined : normalizeDomain(domain),
         maxResults: max_results,
         platform,
       });
