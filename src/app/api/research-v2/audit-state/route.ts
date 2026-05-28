@@ -93,6 +93,7 @@ export interface AuditStateResponse {
 }
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
+const DEFAULT_STALE_RUN_THRESHOLD_MIN = 15;
 const PHASES: ReadonlySet<string> = new Set([
   'Queued',
   'Compiling context',
@@ -207,6 +208,38 @@ function normalizeRuntimeTimings(value: unknown): SectionRuntimeTimings {
     if (timestamp) out[key] = timestamp;
   }
   return out;
+}
+
+function getStaleRunThresholdMinutes(): number {
+  const parsed = Number(process.env.WORKER_STALE_RUN_THRESHOLD_MIN);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_STALE_RUN_THRESHOLD_MIN;
+}
+
+function hasStaleRunningSectionRun({
+  nowMs,
+  rows,
+  thresholdMinutes,
+}: {
+  nowMs: number;
+  rows: readonly unknown[];
+  thresholdMinutes: number;
+}): boolean {
+  const thresholdMs = thresholdMinutes * 60 * 1000;
+
+  return rows.some((row) => {
+    const record = asRecord(row);
+    if (!record || normalizeStatus(record.status) !== 'running') {
+      return false;
+    }
+    const startedAt = pickString(record.started_at);
+    if (!startedAt) {
+      return false;
+    }
+    const startedAtMs = Date.parse(startedAt);
+    return Number.isFinite(startedAtMs) && nowMs - startedAtMs > thresholdMs;
+  });
 }
 
 function getEventMetadata(
@@ -394,7 +427,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   const parentId = parent.id as string;
 
-  const [runsResp, sectionsResp] = await Promise.all([
+  let [runsResp, sectionsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
       .select('id, zone, status, started_at, telemetry')
@@ -414,6 +447,42 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     return NextResponse.json({ error: 'lookup_failed' }, { status: 500 });
   }
 
+  const staleRunThresholdMinutes = getStaleRunThresholdMinutes();
+  if (
+    hasStaleRunningSectionRun({
+      nowMs: Date.now(),
+      rows: runsResp.data ?? [],
+      thresholdMinutes: staleRunThresholdMinutes,
+    })
+  ) {
+    const { error: reaperErr } = await supabase.rpc('reap_orphaned_section_runs', {
+      p_threshold_minutes: staleRunThresholdMinutes,
+    });
+    if (reaperErr) {
+      console.warn('[audit-state] orphaned section reaper failed:', reaperErr.message);
+    } else {
+      [runsResp, sectionsResp] = await Promise.all([
+        supabase
+          .from('research_section_runs')
+          .select('id, zone, status, started_at, telemetry')
+          .eq('artifact_id', parentId)
+          .order('started_at', { ascending: false }),
+        supabase
+          .from('research_artifact_sections')
+          .select('zone, section_run_id, status, title, markdown, data')
+          .eq('artifact_id', parentId),
+      ]);
+
+      if (runsResp.error || sectionsResp.error) {
+        console.warn(
+          '[audit-state] children refresh after reaper failed:',
+          runsResp.error?.message ?? sectionsResp.error?.message,
+        );
+        return NextResponse.json({ error: 'lookup_failed' }, { status: 500 });
+      }
+    }
+  }
+
   const committedCompleteSectionRunByZone = new Map<string, string>();
   for (const row of sectionsResp.data ?? []) {
     const zone = row.zone as string;
@@ -429,6 +498,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     id: row.id as string,
     zone: row.zone as string,
     status: row.status,
+    started_at: row.started_at,
     telemetry: row.telemetry,
   }));
 

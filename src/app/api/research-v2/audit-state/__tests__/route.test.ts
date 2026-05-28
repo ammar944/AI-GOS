@@ -55,7 +55,8 @@ const routeMocks = vi.hoisted(() => {
     if (table === 'research_section_events') return eventsQuery;
     throw new Error(`Unexpected table ${table}`);
   });
-  const createAdminClient = vi.fn(() => ({ from }));
+  const rpc = vi.fn();
+  const createAdminClient = vi.fn(() => ({ from, rpc }));
 
   return {
     auth,
@@ -64,6 +65,7 @@ const routeMocks = vi.hoisted(() => {
     runsQuery,
     sectionsQuery,
     eventsQuery,
+    rpc,
   };
 });
 
@@ -84,6 +86,11 @@ function makeRequest(): Request {
 describe('GET /api/research-v2/audit-state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routeMocks.parentQuery.maybeSingle.mockReset();
+    routeMocks.runsQuery.order.mockReset();
+    routeMocks.sectionsQuery.eq.mockReset();
+    routeMocks.eventsQuery.limit.mockReset();
+    routeMocks.rpc.mockReset();
     routeMocks.parentQuery.select.mockReturnValue(routeMocks.parentQuery);
     routeMocks.parentQuery.eq.mockReturnValue(routeMocks.parentQuery);
     routeMocks.parentQuery.maybeSingle.mockResolvedValue({
@@ -104,6 +111,7 @@ describe('GET /api/research-v2/audit-state', () => {
     routeMocks.eventsQuery.eq.mockReturnValue(routeMocks.eventsQuery);
     routeMocks.eventsQuery.order.mockReturnValue(routeMocks.eventsQuery);
     routeMocks.eventsQuery.limit.mockResolvedValue({ data: [], error: null });
+    routeMocks.rpc.mockResolvedValue({ data: 0, error: null });
   });
 
   it('projects durable section phase telemetry into workerStates', async () => {
@@ -284,6 +292,88 @@ describe('GET /api/research-v2/audit-state', () => {
         Array.from({ length: 12 }, (_, index) => `${zone}-event-${index + 2}`),
       );
     }
+  });
+
+  it('reaps stale running lab sections on read and returns the refreshed terminal row', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const staleStartedAt = new Date(Date.now() - 16 * 60 * 1000).toISOString();
+    routeMocks.runsQuery.order
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'run-stale-market',
+            zone: 'positioningMarketCategory',
+            status: 'running',
+            started_at: staleStartedAt,
+            telemetry: {
+              executionMode: 'lab',
+            },
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'run-stale-market',
+            zone: 'positioningMarketCategory',
+            status: 'error',
+            started_at: staleStartedAt,
+            telemetry: {
+              executionMode: 'lab',
+            },
+          },
+        ],
+        error: null,
+      });
+    routeMocks.sectionsQuery.eq
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+    routeMocks.rpc.mockResolvedValue({ data: 1, error: null });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(routeMocks.rpc).toHaveBeenCalledWith('reap_orphaned_section_runs', {
+      p_threshold_minutes: 15,
+    });
+    expect(routeMocks.runsQuery.order).toHaveBeenCalledTimes(2);
+    expect(routeMocks.sectionsQuery.eq).toHaveBeenCalledTimes(2);
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'error',
+      phase: 'Needs review',
+    });
+  });
+
+  it('does not reap fresh running lab sections', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-fresh-market',
+          zone: 'positioningMarketCategory',
+          status: 'running',
+          started_at: new Date(Date.now() - 60 * 1000).toISOString(),
+          telemetry: {
+            executionMode: 'lab',
+            phase: 'Reading sources',
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(routeMocks.rpc).not.toHaveBeenCalled();
+    expect(routeMocks.runsQuery.order).toHaveBeenCalledTimes(1);
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'running',
+      phase: 'Reading sources',
+    });
   });
 
   it('defaults missing phase telemetry to queued labels', async () => {
