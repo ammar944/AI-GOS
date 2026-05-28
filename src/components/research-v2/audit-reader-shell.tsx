@@ -317,7 +317,7 @@ function SectionStatusIcon({
   }
   if (status === 'error' || status === 'aborted') {
     return (
-      <span className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full bg-rose-500/12 text-rose-600">
+      <span className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         {status === 'error' ? (
           <AlertTriangle className="size-3" strokeWidth={2.75} />
         ) : (
@@ -454,9 +454,9 @@ function SourcesList({
 const ACTIVITY_TONE_CLASS: Record<SectionActivityTone, string> = {
   active: 'bg-primary',
   neutral: 'bg-muted-foreground/50',
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  error: 'bg-rose-500',
+  success: 'bg-primary',
+  warning: 'bg-muted-foreground',
+  error: 'bg-destructive',
 };
 
 function ActivityCountPill({
@@ -580,8 +580,8 @@ function ErrorState({
   pending: boolean;
 }): ReactElement {
   return (
-    <div className="mt-10 rounded-xl border border-rose-500/30 bg-rose-500/5 px-6 py-8">
-      <div className="mb-2 flex items-center gap-2 text-[13.5px] font-medium text-rose-600">
+    <div className="mt-10 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8">
+      <div className="mb-2 flex items-center gap-2 text-[13.5px] font-medium text-destructive">
         <AlertTriangle className="size-4" />
         {status === 'aborted' ? 'Section aborted' : 'Section needs review'}
       </div>

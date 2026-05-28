@@ -26,8 +26,8 @@ const VOC_SOURCE_LABEL: Record<string, string> = {
 };
 
 const PAIN_INTENSITY_TONE: Record<string, string> = {
-  high: 'bg-rose-500/10 text-rose-600',
-  medium: 'bg-amber-500/10 text-amber-600',
+  high: 'bg-destructive/10 text-destructive',
+  medium: 'bg-secondary text-secondary-foreground',
   low: 'bg-secondary text-muted-foreground',
 };
 
@@ -49,9 +49,9 @@ const FREQUENCY_LABEL: Record<string, string> = {
 
 const DECISION_ROLE_TONE: Record<string, string> = {
   buyer: 'text-muted-foreground',
-  champion: 'text-emerald-600',
+  champion: 'text-primary',
   influencer: 'text-muted-foreground',
-  blocker: 'text-rose-600',
+  blocker: 'text-destructive',
 };
 
 const DECISION_ROLE_LABEL: Record<string, string> = {

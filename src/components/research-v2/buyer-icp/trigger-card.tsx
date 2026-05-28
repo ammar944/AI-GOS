@@ -13,17 +13,17 @@ export function TriggerCard({ trigger }: TriggerCardProps): React.ReactElement {
     <Card role="listitem" className="h-full rounded-md">
       <CardContent className="flex h-full flex-col gap-4 p-4">
         <div className="flex items-start justify-between gap-3">
-          <h4 className="text-sm font-semibold leading-snug text-[color:var(--text-1)]">
+          <h4 className="text-sm font-semibold leading-snug text-foreground">
             {trigger.name}
           </h4>
           <Badge variant="secondary" className="shrink-0">
             {trigger.window}
           </Badge>
         </div>
-        <p className="text-sm leading-relaxed text-[color:var(--text-2)]">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {trigger.detectionSignal}
         </p>
-        <p className="text-xs leading-relaxed text-[color:var(--text-3)]">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           {trigger.evidence}
         </p>
         {trigger.sourceUrl ? (
@@ -32,7 +32,7 @@ export function TriggerCard({ trigger }: TriggerCardProps): React.ReactElement {
             target="_blank"
             rel="noreferrer"
             aria-label={`Open source for ${trigger.name}`}
-            className="mt-auto inline-flex w-fit items-center gap-1 text-xs font-medium text-[color:var(--accent)] hover:underline"
+            className="mt-auto inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
             Example source <ExternalLink className="size-3" aria-hidden="true" />
           </a>

@@ -17,10 +17,10 @@ export function BuyerICPSubSection({
   return (
     <section className="space-y-4">
       <div className="space-y-2">
-        <h3 className="text-base font-semibold text-[color:var(--text-1)]">
+        <h3 className="text-base font-semibold text-foreground">
           {title}
         </h3>
-        <div className="prose prose-sm max-w-none text-[color:var(--text-2)] dark:prose-invert">
+        <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
           <ReactMarkdown>{prose}</ReactMarkdown>
         </div>
       </div>

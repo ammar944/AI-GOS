@@ -49,9 +49,9 @@ function ReportedByPill({ value }: { value: string }): React.ReactElement {
 }
 
 const CONFIDENCE_PILL_CLASS: Record<string, string> = {
-  high: 'bg-emerald-500/10 text-emerald-600',
-  medium: 'bg-amber-500/10 text-amber-600',
-  low: 'bg-rose-500/10 text-rose-600',
+  high: 'bg-primary/10 text-primary',
+  medium: 'bg-secondary text-secondary-foreground',
+  low: 'bg-destructive/10 text-destructive',
 };
 
 function ConfidencePill({ value }: { value: string }): React.ReactElement {
@@ -74,9 +74,9 @@ const CHANNEL_WORKED_LABEL: Record<string, string> = {
   unknown: 'Unknown',
 };
 const CHANNEL_WORKED_CLASS: Record<string, string> = {
-  yes: 'bg-emerald-500/10 text-emerald-600',
-  partial: 'bg-amber-500/10 text-amber-600',
-  no: 'bg-rose-500/10 text-rose-600',
+  yes: 'bg-primary/10 text-primary',
+  partial: 'bg-secondary text-secondary-foreground',
+  no: 'bg-destructive/10 text-destructive',
   unknown: 'bg-secondary text-muted-foreground',
 };
 
@@ -108,8 +108,8 @@ function SignalTypePill({ value }: { value: string }): React.ReactElement {
 }
 
 const SEVERITY_CLASS: Record<string, string> = {
-  high: 'bg-rose-500/10 text-rose-600',
-  medium: 'bg-amber-500/10 text-amber-600',
+  high: 'bg-destructive/10 text-destructive',
+  medium: 'bg-secondary text-secondary-foreground',
   low: 'bg-secondary text-muted-foreground',
 };
 

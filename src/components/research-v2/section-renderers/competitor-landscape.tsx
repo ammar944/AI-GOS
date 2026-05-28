@@ -281,10 +281,10 @@ function CompetitorFact({
 }): React.ReactElement {
   return (
     <div className="grid gap-1">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </dt>
-      <dd className="text-[13px] leading-[1.5] text-[color:var(--text-secondary)]">
+      <dd className="text-[13px] leading-[1.5] text-muted-foreground">
         {children}
       </dd>
     </div>
@@ -343,7 +343,7 @@ function CompetitorFocusPanel({
       <div
         role="tablist"
         aria-label="Competitors"
-        className="flex gap-2 overflow-x-auto border-b border-[var(--border-subtle)]"
+        className="flex gap-2 overflow-x-auto border-b border-border"
       >
         {competitors.map((competitor) => {
           const selected = competitor.name === selectedCompetitor.name;
@@ -360,8 +360,8 @@ function CompetitorFocusPanel({
               className={cn(
                 'shrink-0 border-b-2 px-1 pb-2 pt-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] transition-colors',
                 selected
-                  ? 'border-[color:var(--accent-blue)] text-[color:var(--text-primary)]'
-                  : 'border-transparent text-[color:var(--text-tertiary)] hover:text-[color:var(--text-secondary)]',
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-muted-foreground',
               )}
             >
               {competitor.name}
@@ -375,16 +375,16 @@ function CompetitorFocusPanel({
         role="tabpanel"
         aria-labelledby={`competitor-tab-${selectedId}`}
         data-testid="competitor-focus-panel"
-        className="grid gap-5 border-b border-[var(--border-subtle)] pb-6"
+        className="grid gap-5 border-b border-border pb-6"
       >
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[18px] font-semibold leading-tight tracking-[0] text-[color:var(--text-primary)]">
+            <h3 className="text-[18px] font-semibold leading-tight tracking-[0] text-foreground">
               {selectedCompetitor.name}
             </h3>
             <CompetitorTypePill value={selectedCompetitor.competitorType} />
           </div>
-          <p className="max-w-[72ch] text-[14px] leading-[1.65] text-[color:var(--text-secondary)]">
+          <p className="max-w-[72ch] text-[14px] leading-[1.65] text-muted-foreground">
             {selectedCompetitor.oneLinePositioning}
           </p>
           <SourceLink url={selectedCompetitor.sourceUrl} />
@@ -423,20 +423,20 @@ function CompetitorFocusPanel({
 
         {axisPositions.length > 0 ? (
           <div className="grid gap-2">
-            <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-tertiary)]">
+            <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
               Positioning axes
             </div>
             <ul className="grid gap-2">
               {axisPositions.map((axis) => (
                 <li
                   key={`${axis.axisName}-${axis.position}`}
-                  className="grid gap-1 text-[13px] leading-[1.5] text-[color:var(--text-secondary)]"
+                  className="grid gap-1 text-[13px] leading-[1.5] text-muted-foreground"
                 >
-                  <span className="font-medium text-[color:var(--text-primary)]">
+                  <span className="font-medium text-foreground">
                     {axis.axisName}
                   </span>
                   <span>{selectedCompetitor.name}: {axis.position}</span>
-                  <span className="text-[color:var(--text-tertiary)]">
+                  <span className="text-muted-foreground">
                     Us: {axis.ourPosition}
                   </span>
                 </li>
@@ -592,7 +592,7 @@ export function CompetitorLandscapeRenderer({
       key: 'competitor',
       header: 'Competitor',
       render: row => (
-        <span className="font-medium text-[color:var(--text-primary)]">{row.competitor}</span>
+        <span className="font-medium text-foreground">{row.competitor}</span>
       ),
     },
     {

@@ -15,24 +15,24 @@ export function FirmographicCutCard({
   return (
     <Card role="listitem" className="h-full rounded-md">
       <CardContent className="flex h-full flex-col gap-4 p-4">
-        <Badge variant="outline" className="w-fit border-[var(--border)]">
+        <Badge variant="outline" className="w-fit border-border">
           {cut.cutType}
         </Badge>
         <div className="space-y-2">
-          <h4 className="text-sm font-semibold leading-snug text-[color:var(--text-1)]">
+          <h4 className="text-sm font-semibold leading-snug text-foreground">
             {cut.value}
           </h4>
           {cut.accountCount ? (
-            <div className="rounded-md border border-[var(--border)] bg-[var(--bg-2)] p-3">
-              <div className="text-xs text-[color:var(--text-3)]">Account count</div>
-              <div className="text-lg font-semibold text-[color:var(--text-1)]">
+            <div className="rounded-md border border-border bg-muted p-3">
+              <div className="text-xs text-muted-foreground">Account count</div>
+              <div className="text-lg font-semibold text-foreground">
                 {cut.accountCount}
               </div>
             </div>
           ) : null}
         </div>
         <Separator className="mt-auto" />
-        <div className="flex flex-col gap-2 text-xs text-[color:var(--text-3)]">
+        <div className="flex flex-col gap-2 text-xs text-muted-foreground">
           <span>{cut.source}</span>
           <span>{cut.dateObserved}</span>
           <a
@@ -40,7 +40,7 @@ export function FirmographicCutCard({
             target="_blank"
             rel="noreferrer"
             aria-label={`Open source for ${cut.value}`}
-            className="inline-flex w-fit items-center gap-1 font-medium text-[color:var(--accent)] hover:underline"
+            className="inline-flex w-fit items-center gap-1 font-medium text-primary hover:underline"
           >
             Source <ExternalLink className="size-3" aria-hidden="true" />
           </a>

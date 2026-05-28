@@ -37,7 +37,7 @@ export function BuyerICPArtifactRenderer({
     <div className="space-y-8">
       <header className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 className="text-xl font-semibold leading-tight text-[color:var(--text-1)]">
+          <h2 className="text-xl font-semibold leading-tight text-foreground">
             {artifact.sectionTitle}
           </h2>
           <Badge
@@ -47,10 +47,10 @@ export function BuyerICPArtifactRenderer({
             Confidence {formatConfidenceToTen(artifact.confidence)}/10
           </Badge>
         </div>
-        <p className="text-base leading-relaxed text-[color:var(--text-1)]">
+        <p className="text-base leading-relaxed text-foreground">
           {artifact.verdict}
         </p>
-        <p className="text-sm leading-relaxed text-[color:var(--text-2)]">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {artifact.statusSummary}
         </p>
       </header>
@@ -114,7 +114,7 @@ export function BuyerICPArtifactRenderer({
       <Separator />
 
       <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm font-medium text-[color:var(--text-1)] hover:text-[color:var(--accent)]">
+        <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm font-medium text-foreground hover:text-primary">
           {sourcesOpen ? (
             <ChevronDown className="size-4" aria-hidden="true" />
           ) : (
@@ -131,7 +131,7 @@ export function BuyerICPArtifactRenderer({
             {artifact.sources.map((source) => (
               <li
                 key={source.url}
-                className="rounded-md border border-[var(--border)] bg-[var(--bg-2)] p-3"
+                className="rounded-md border border-border bg-muted p-3"
               >
                 <div className="flex flex-col gap-2">
                   <a
@@ -139,21 +139,21 @@ export function BuyerICPArtifactRenderer({
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Open source: ${source.title}`}
-                    className="inline-flex w-fit items-center gap-1 font-medium text-[color:var(--accent)] hover:underline"
+                    className="inline-flex w-fit items-center gap-1 font-medium text-primary hover:underline"
                   >
                     {source.title}
                     <ExternalLink className="size-3" aria-hidden="true" />
                   </a>
-                  <span className="break-all text-xs text-[color:var(--text-3)]">
+                  <span className="break-all text-xs text-muted-foreground">
                     {source.url}
                   </span>
                   {source.accessedAt ? (
-                    <span className="text-xs text-[color:var(--text-3)]">
+                    <span className="text-xs text-muted-foreground">
                       {source.accessedAt}
                     </span>
                   ) : null}
                   {source.whyItMatters ? (
-                    <p className="text-xs leading-relaxed text-[color:var(--text-2)]">
+                    <p className="text-xs leading-relaxed text-muted-foreground">
                       {source.whyItMatters}
                     </p>
                   ) : null}

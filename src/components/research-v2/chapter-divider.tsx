@@ -17,15 +17,15 @@ export function ChapterDivider({
   return (
     <div className={cn('mt-24', className)}>
       <div className="mb-7 flex items-baseline gap-4">
-        <span className="flex-shrink-0 font-mono text-[11px] tracking-[0.12em] text-[color:var(--text-quaternary)]">
+        <span className="flex-shrink-0 font-mono text-[11px] tracking-[0.12em] text-muted-foreground/70">
           {num}
         </span>
-        <span className="h-px flex-1 bg-[color:var(--border-subtle)]" />
+        <span className="h-px flex-1 bg-border" />
       </div>
-      <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[color:var(--text-tertiary)]">
+      <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         {eyebrow}
       </div>
-      <h2 className="mb-7 font-serif text-[32px] font-normal leading-[1.2] tracking-[-0.005em] text-[color:var(--text-primary)]">
+      <h2 className="mb-7 font-serif text-[32px] font-normal leading-[1.2] tracking-[-0.005em] text-foreground">
         {title}
       </h2>
     </div>

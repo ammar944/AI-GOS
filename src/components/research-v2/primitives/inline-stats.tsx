@@ -18,9 +18,9 @@ export interface InlineStatsProps {
 
 const TONE_CLASS: Record<InlineStatTone, string> = {
   neutral: 'text-muted-foreground',
-  good: 'text-emerald-600',
-  warn: 'text-amber-600',
-  bad: 'text-rose-600',
+  good: 'text-primary',
+  warn: 'text-foreground',
+  bad: 'text-destructive',
 };
 
 export function InlineStats({
