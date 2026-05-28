@@ -8,6 +8,7 @@ import {
   type ArtifactEnvelope,
   type CompetitorAd,
   type ResearchInput,
+  type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { sectionRunnerModel } from "../ai/models";
@@ -22,6 +23,11 @@ import {
   type SectionOutput,
   type SupportedSectionId,
 } from "../sections/section-registry";
+import {
+  checkRequiredEvidenceClasses,
+  RequiredEvidenceMissingError,
+  type RequiredEvidenceClass,
+} from "../sections/required-evidence";
 import { getSectionSubSections } from "../sections/sub-sections";
 import type { RunStore } from "../runs/run-store";
 import {
@@ -62,6 +68,7 @@ import {
 } from "./tools/competitor-ad-adapter";
 import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
+import { structuralVerifier } from "./verification/structural-verifier";
 
 export interface RunSectionInput {
   runId: string;
@@ -127,6 +134,7 @@ interface RuntimeSectionDefinition {
   structuredOutputMaxTokens?: number;
   allowedTools: readonly ToolName[];
   maxExternalLookups: number;
+  requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   bodySchema: z.ZodType<Record<string, unknown>>;
   sectionOutputSchema: z.ZodType<SectionOutput<Record<string, unknown>>>;
   validateMinimums: (
@@ -275,11 +283,13 @@ function buildEnvelope({
   deps,
   input,
   output,
+  verification,
 }: {
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
   output: SectionOutput<Record<string, unknown>>;
+  verification?: VerificationReportEnvelope;
 }): ArtifactEnvelope {
   const observedAt = getNow(deps).toISOString();
 
@@ -301,6 +311,7 @@ function buildEnvelope({
         observedAt,
       })),
       body: output.body,
+      ...(verification === undefined ? {} : { verification }),
       createdAt: observedAt,
     });
 }
@@ -558,12 +569,14 @@ async function recordSectionFailure({
   definition,
   deps,
   errorMessage,
+  failure,
   input,
 }: {
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
   errorMessage: string;
+  failure?: RequiredEvidenceMissingError;
 }): Promise<void> {
   await appendEvent(
     deps,
@@ -574,7 +587,17 @@ async function recordSectionFailure({
       sectionId: input.sectionId,
       type: "section-failed",
       message: `${definition.title} failed`,
-      metadata: { error: errorMessage },
+      metadata: {
+        error: errorMessage,
+        ...(failure === undefined
+          ? {}
+          : {
+              reason: "required_evidence_missing" as const,
+              missingClass: failure.missingClass,
+              unsupportedCount: failure.unsupportedCount,
+              verifiedCount: failure.verifiedCount,
+            }),
+      },
     }),
   );
   await markSectionFailed({
@@ -589,6 +612,7 @@ interface AttemptResult {
   output: SectionOutput<Record<string, unknown>> | null;
   artifact: ArtifactEnvelope | null;
   errors: string[];
+  requiredEvidenceMissing?: RequiredEvidenceMissingError;
 }
 
 const defaultStructuredOutputMaxTokens = 8192;
@@ -2496,13 +2520,17 @@ function buildAnswerToolAttempt({
   definition,
   deps,
   input,
+  modelSteps,
   normalizedAdEvidenceGroups,
+  researchInput,
 }: {
   answerInput: unknown | undefined;
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
+  modelSteps: readonly AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  researchInput: ResearchInput;
 }): AttemptResult {
   if (answerInput === undefined) {
     return {
@@ -2520,16 +2548,44 @@ function buildAnswerToolAttempt({
         normalizedAdEvidenceGroups,
       }),
     );
+    const verification = structuralVerifier({
+      body: output.body,
+      toolResults: modelSteps.flatMap((step) => step.toolResults),
+      corpusExcerpts: researchInput.corpus.excerpts,
+    });
     const artifact = buildEnvelope({
       definition,
       deps,
       input,
       output,
+      verification,
     });
     const minimums = definition.validateMinimums(artifact);
 
     if (!minimums.ok) {
       return { output, artifact: null, errors: minimums.errors };
+    }
+
+    const missingClass = checkRequiredEvidenceClasses({
+      body: artifact.body,
+      requiredEvidenceClasses: definition.requiredEvidenceClasses,
+      sectionId: input.sectionId,
+    });
+
+    if (missingClass !== null) {
+      const failure = new RequiredEvidenceMissingError({
+        missingClass,
+        sectionId: input.sectionId,
+        unsupportedCount: verification.unsupportedCount,
+        verifiedCount: verification.verifiedCount,
+      });
+
+      return {
+        output,
+        artifact: null,
+        errors: [failure.message],
+        requiredEvidenceMissing: failure,
+      };
     }
 
     return { output, artifact, errors: [] };
@@ -2701,7 +2757,9 @@ async function runSectionViaAnswerTool(
     definition,
     deps,
     input,
+    modelSteps: answerResult.steps,
     normalizedAdEvidenceGroups,
+    researchInput,
   });
 
   if (attempt.artifact === null) {
@@ -2772,7 +2830,9 @@ async function runSectionViaAnswerTool(
         definition,
         deps,
         input,
+        modelSteps: repairResult.steps,
         normalizedAdEvidenceGroups,
+        researchInput,
       });
       repairAttempt += 1;
       validationAttempt += 1;
@@ -2795,8 +2855,13 @@ async function runSectionViaAnswerTool(
         definition,
         deps,
         errorMessage: attempt.errors.join("; "),
+        failure: attempt.requiredEvidenceMissing,
         input,
       });
+
+      if (attempt.requiredEvidenceMissing !== undefined) {
+        throw attempt.requiredEvidenceMissing;
+      }
 
       throw new SectionRunnerError({
         runId: input.runId,
@@ -3031,7 +3096,9 @@ async function streamSectionViaAnswerTool(
     definition,
     deps,
     input,
+    modelSteps: answerResult.steps,
     normalizedAdEvidenceGroups,
+    researchInput,
   });
 
   if (attempt.artifact === null) {
@@ -3066,8 +3133,13 @@ async function streamSectionViaAnswerTool(
       definition,
       deps,
       errorMessage: attempt.errors.join("; "),
+      failure: attempt.requiredEvidenceMissing,
       input,
     });
+
+    if (attempt.requiredEvidenceMissing !== undefined) {
+      throw attempt.requiredEvidenceMissing;
+    }
 
     throw new SectionRunnerError({
       runId: input.runId,

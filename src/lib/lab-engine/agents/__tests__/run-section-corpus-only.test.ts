@@ -172,6 +172,13 @@ describe('runSection corpus-only mode', (): void => {
 
     expect(result.artifact.sectionId).toBe('positioningMarketCategory');
     expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.verification).toEqual(
+      expect.objectContaining({
+        claims: expect.any(Array),
+        unsupportedCount: expect.any(Number),
+        verifiedCount: expect.any(Number),
+      }),
+    );
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
   });
 

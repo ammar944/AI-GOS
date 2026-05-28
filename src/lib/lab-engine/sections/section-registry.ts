@@ -66,6 +66,7 @@ import {
   type SectionId,
 } from "../events/activity-event";
 import type { ToolName } from "../agents/tools/index";
+import type { RequiredEvidenceClass } from "./required-evidence";
 
 export interface SectionModelSource {
   title: string;
@@ -92,6 +93,7 @@ export interface SectionDefinition<TBody, TOutput extends SectionOutput<TBody>> 
   structuredOutputMaxTokens?: number;
   allowedTools: readonly ToolName[];
   maxExternalLookups: number;
+  requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   bodySchema: z.ZodType<TBody>;
   sectionOutputSchema: z.ZodType<TOutput>;
   validateMinimums: (
@@ -117,6 +119,7 @@ export const SECTION_REGISTRY = {
     sectionOutputSchemaName: "MarketCategorySectionOutput",
     allowedTools: ["web_search", "firecrawl"],
     maxExternalLookups: 4,
+    requiredEvidenceClasses: ["marketCategory_name"],
     bodySchema: marketCategoryBodySchema,
     sectionOutputSchema: marketCategorySectionOutputSchema,
     validateMinimums: validateMarketCategoryMinimums,
@@ -146,6 +149,7 @@ export const SECTION_REGISTRY = {
       "reviews",
     ],
     maxExternalLookups: 6,
+    requiredEvidenceClasses: ["competitor", "adEvidence_or_gap"],
     bodySchema: competitorLandscapeBodySchema,
     sectionOutputSchema: competitorLandscapeSectionOutputSchema,
     validateMinimums: validateCompetitorLandscapeMinimums,
@@ -167,6 +171,7 @@ export const SECTION_REGISTRY = {
     sectionOutputSchemaName: "BuyerICPSectionOutput",
     allowedTools: ["web_search", "firecrawl"],
     maxExternalLookups: 4,
+    requiredEvidenceClasses: ["icp_persona", "icp_quote_or_gap"],
     bodySchema: buyerICPBodySchema,
     sectionOutputSchema: buyerICPSectionOutputSchema,
     validateMinimums: validateBuyerICPMinimums,
@@ -188,6 +193,7 @@ export const SECTION_REGISTRY = {
     sectionOutputSchemaName: "VoiceOfCustomerSectionOutput",
     allowedTools: ["web_search", "reviews", "firecrawl"],
     maxExternalLookups: 5,
+    requiredEvidenceClasses: ["voc_quote_or_gap"],
     bodySchema: voiceOfCustomerBodySchema,
     sectionOutputSchema: voiceOfCustomerSectionOutputSchema,
     validateMinimums: validateVoiceOfCustomerMinimums,
@@ -209,6 +215,7 @@ export const SECTION_REGISTRY = {
     sectionOutputSchemaName: "DemandIntentSectionOutput",
     allowedTools: ["web_search", "keyword_ad_probe", "firecrawl"],
     maxExternalLookups: 5,
+    requiredEvidenceClasses: ["demand_signal_or_gap"],
     bodySchema: demandIntentBodySchema,
     sectionOutputSchema: demandIntentSectionOutputSchema,
     validateMinimums: validateDemandIntentMinimums,
@@ -230,6 +237,7 @@ export const SECTION_REGISTRY = {
     sectionOutputSchemaName: "OfferDiagnosticSectionOutput",
     allowedTools: ["web_search", "firecrawl", "pagespeed"],
     maxExternalLookups: 4,
+    requiredEvidenceClasses: ["offer_axis"],
     bodySchema: offerDiagnosticBodySchema,
     sectionOutputSchema: offerDiagnosticSectionOutputSchema,
     validateMinimums: validateOfferDiagnosticMinimums,
@@ -253,6 +261,7 @@ export const SECTION_REGISTRY = {
     structuredOutputMaxTokens: 8192,
     allowedTools: ["keyword_ad_probe"],
     maxExternalLookups: 2,
+    requiredEvidenceClasses: [],
     bodySchema: paidMediaPlanBodySchema,
     sectionOutputSchema: paidMediaPlanSectionOutputSchema,
     validateMinimums: validatePaidMediaPlanMinimums,

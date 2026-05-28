@@ -226,6 +226,22 @@ function ConfidenceBadge({ score }: { score: number }): ReactElement {
   );
 }
 
+function VerificationBadge({
+  verification,
+}: {
+  verification: PositioningTypedArtifact['verification'];
+}): ReactElement | null {
+  if (verification === undefined) {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-1 text-[12px] font-medium text-muted-foreground">
+      Verified {verification.verifiedCount} / Unsupported {verification.unsupportedCount}
+    </span>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Verdict + sources (shell-owned)
 // ---------------------------------------------------------------------------
@@ -866,7 +882,10 @@ export function AuditReaderShell({
                 Section {activeIndex + 1} of {READER_SECTION_IDS.length}
               </span>
               {activeStatus === 'complete' && activeTyped ? (
-                <ConfidenceBadge score={activeTyped.confidence} />
+                <span className="flex items-center gap-2">
+                  <VerificationBadge verification={activeTyped.verification} />
+                  <ConfidenceBadge score={activeTyped.confidence} />
+                </span>
               ) : null}
             </div>
 

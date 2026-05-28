@@ -1,4 +1,5 @@
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type { VerificationReportEnvelope } from '@/lib/lab-engine/artifacts/artifact-envelope';
 
 export interface PositioningArtifactSource {
   title: string;
@@ -14,6 +15,7 @@ export interface PositioningTypedArtifact {
   statusSummary: string;
   confidence: number;
   sources: PositioningArtifactSource[];
+  verification?: VerificationReportEnvelope;
   [key: string]: unknown;
 }
 
@@ -144,6 +146,7 @@ function normalizePickedArtifact(
     statusSummary: found.statusSummary,
     confidence: found.confidence,
     sources: validSources,
+    ...(found.verification === undefined ? {} : { verification: found.verification }),
   };
 }
 

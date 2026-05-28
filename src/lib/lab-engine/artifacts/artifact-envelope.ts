@@ -85,6 +85,80 @@ export const corpusSnapshotSchema = z
   })
   .strict();
 
+const verificationClaimSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("numeric"),
+      value: z.string().min(1),
+      raw: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("quote"),
+      value: z.string().min(1),
+      raw: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("url"),
+      value: z.string().min(1),
+      raw: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("entityName"),
+      value: z.string().min(1),
+      raw: z.string().min(1),
+    })
+    .strict(),
+]);
+
+const verificationSourceRefSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("toolResult"),
+      toolName: z.string().min(1),
+      stepIndex: z.number().int().nonnegative(),
+      field: z.string().min(1).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("corpusExcerpt"),
+      excerptIndex: z.number().int().nonnegative(),
+      sourceUrl: z.string().url(),
+    })
+    .strict(),
+]);
+
+const verificationClaimVerdictSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      status: z.literal("verified"),
+      claim: verificationClaimSchema,
+      matchedSourceRef: verificationSourceRefSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.literal("unsupported"),
+      claim: verificationClaimSchema,
+      reason: z.enum(["no_match", "partial_match"]),
+    })
+    .strict(),
+]);
+
+export const verificationReportSchema = z
+  .object({
+    verifiedCount: z.number().int().nonnegative(),
+    unsupportedCount: z.number().int().nonnegative(),
+    claims: z.array(verificationClaimVerdictSchema),
+  })
+  .strict();
+
 export const researchInputSchema = z
   .object({
     runId: z.string().min(1),
@@ -111,6 +185,7 @@ export const artifactEnvelopeSchema = z
     body: z
       .record(z.string(), z.unknown())
       .refine((body) => Object.keys(body).length > 0, "Body cannot be empty"),
+    verification: verificationReportSchema.optional(),
     createdAt: isoDateTimeSchema,
   })
   .strict();
@@ -200,6 +275,7 @@ export type OnboardingSnapshot = z.infer<typeof onboardingSnapshotSchema>;
 export type CorpusExcerpt = z.infer<typeof corpusExcerptSchema>;
 export type CorpusSnapshot = z.infer<typeof corpusSnapshotSchema>;
 export type ResearchInput = z.infer<typeof researchInputSchema>;
+export type VerificationReportEnvelope = z.infer<typeof verificationReportSchema>;
 export type ArtifactEnvelope = z.infer<typeof artifactEnvelopeSchema>;
 export type SectionRunRecord = z.infer<typeof sectionRunRecordSchema>;
 export type RunRecordStatus = z.infer<typeof runRecordStatusSchema>;

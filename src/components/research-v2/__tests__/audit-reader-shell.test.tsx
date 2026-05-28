@@ -69,6 +69,33 @@ describe('<AuditReaderShell>', () => {
     expect(screen.queryByText('0.6 confidence')).not.toBeInTheDocument();
   });
 
+  it('shows verified and unsupported claim counts for completed sections', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: {
+            ...marketCategoryFixtureArtifact,
+            verification: {
+              verifiedCount: 12,
+              unsupportedCount: 2,
+              claims: [],
+            },
+          },
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByText('Verified 12 / Unsupported 2')).toBeInTheDocument();
+  });
+
   it('renders the paid media terminal with all twelve sub-sections as the seventh rail item', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,

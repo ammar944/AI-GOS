@@ -199,6 +199,10 @@ export const activityEventSchema = z.discriminatedUnion("type", [
       metadata: z
         .object({
           error: z.string().min(1),
+          reason: z.literal("required_evidence_missing").optional(),
+          missingClass: z.string().min(1).optional(),
+          unsupportedCount: z.number().int().nonnegative().optional(),
+          verifiedCount: z.number().int().nonnegative().optional(),
         })
         .strict(),
     })
