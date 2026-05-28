@@ -3,8 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   POSITIONING_SECTION_IDS,
 } from '@/lib/ai/prompts/positioning-skills';
-import { createSupabaseWebhookAdapter } from '@/lib/managed-agents/supabase-adapter';
-import { buildCommitPatch } from '@/lib/managed-agents/webhook-handler';
 import {
   artifactEnvelopeSchema,
   researchInputSchema,
@@ -23,6 +21,8 @@ import {
 } from '@/lib/lab-engine/events/activity-event';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/section-registry';
+import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
+import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;

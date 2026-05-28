@@ -1,7 +1,4 @@
 // Concrete Supabase-backed implementation of the WebhookSupabase contract.
-//
-// Lives outside webhook-handler.ts so the handler can be tested with an
-// in-memory fake (see __tests__/webhook-handler.test.ts).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -9,16 +6,53 @@ import {
   ALL_POSITIONING_SECTION_IDS,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
-
-import type {
-  CommitArtifactSectionInput,
-  WebhookEventRow,
-  WebhookSupabase,
-} from './webhook-handler';
+import type { CommitArtifactSectionInput } from '@/lib/research-v2/commit-patch';
 
 const POSITIONING_SECTION_ID_VALUES: ReadonlySet<string> = new Set(
   ALL_POSITIONING_SECTION_IDS,
 );
+
+export interface WebhookSupabase {
+  /** Insert (with conflict-do-nothing) a row into managed_agents_webhook_events. */
+  insertWebhookEvent(row: WebhookEventRow): Promise<{ inserted: boolean; error?: string }>;
+  /** Count rows matching (section_run_id, event_type). */
+  countWebhookEvents(input: {
+    sectionRunId: string;
+    eventType: string;
+  }): Promise<{ count: number; error?: string }>;
+  /** Call commit_artifact_section RPC. */
+  commitArtifactSection(input: CommitArtifactSectionInput): Promise<{
+    ok: boolean;
+    conflict: boolean;
+    revision: number;
+    error?: string;
+  }>;
+  /** Look up the (artifact_id, section_type, expectedRevision) for a section_run_id. */
+  loadSectionRunContext(sectionRunId: string): Promise<{
+    artifactId: string;
+    sectionType: AllPositioningSectionId;
+    expectedRevision: number;
+    error?: string;
+  } | null>;
+  /** Update research_section_runs.status when we force-error a section. */
+  markSectionError(input: {
+    sectionRunId: string;
+    error: Record<string, unknown>;
+  }): Promise<{ ok: boolean; error?: string }>;
+}
+
+export interface WebhookEventRow {
+  event_id: string;
+  session_id: string;
+  session_thread_id: string | null;
+  artifact_id: string | null;
+  section_run_id: string | null;
+  section_type: AllPositioningSectionId | null;
+  event_type: string;
+  created_at: string;
+  verified_at: string;
+  payload: Record<string, unknown>;
+}
 
 export function createSupabaseWebhookAdapter(
   supabase: SupabaseClient,
