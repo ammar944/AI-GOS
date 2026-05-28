@@ -338,6 +338,73 @@ describe('<AuditReaderShell>', () => {
     );
   });
 
+  it('does not auto-kick lab orchestration again when worker state length changes', async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => Response.json({}));
+    const runId = '00000000-0000-4000-8000-0000000000bb';
+    const orchestrateCallCount = (): number =>
+      fetchMock.mock.calls.filter(([url]) => url === '/api/research-v2/orchestrate')
+        .length;
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: null,
+      workerStates: [buildWorker('positioningMarketCategory', 'queued')],
+    });
+
+    const { rerender } = render(<AuditReaderShell runId={runId} />);
+
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: null,
+      workerStates: [
+        buildWorker('positioningMarketCategory', 'queued'),
+        buildWorker('positioningBuyerICP', 'queued'),
+      ],
+    });
+    rerender(<AuditReaderShell runId={runId} />);
+
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+  });
+
+  it('does not auto-kick lab orchestration again after a non-ok response', async (): Promise<void> => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) =>
+      url === '/api/research-v2/orchestrate'
+        ? new Response('temporary failure', { status: 503 })
+        : Response.json({}),
+    );
+    const runId = '00000000-0000-4000-8000-0000000000cc';
+    const orchestrateCallCount = (): number =>
+      fetchMock.mock.calls.filter(([url]) => url === '/api/research-v2/orchestrate')
+        .length;
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: null,
+      workerStates: [buildWorker('positioningMarketCategory', 'queued')],
+    });
+
+    const { rerender } = render(<AuditReaderShell runId={runId} />);
+
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: null,
+      workerStates: [
+        buildWorker('positioningMarketCategory', 'queued'),
+        buildWorker('positioningBuyerICP', 'queued'),
+      ],
+    });
+    rerender(<AuditReaderShell runId={runId} />);
+
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+  });
+
   it('reruns positioning sections through the rerun-section route in lab mode', async (): Promise<void> => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal('fetch', fetchMock);

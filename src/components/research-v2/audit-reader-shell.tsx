@@ -94,6 +94,7 @@ const TERMINAL_ERROR_STATUSES: ReadonlySet<WorkerStatus> = new Set([
   'error',
   'aborted',
 ]);
+const kickedOffRunIds = new Set<string>();
 
 function cleanTitle(sectionTitle: string): string {
   return sectionTitle.split('—')[0].split(' - ')[0].trim();
@@ -570,7 +571,6 @@ export function AuditReaderShell({
   );
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const [copied, setCopied] = useState(false);
-  const kickoffFired = useRef(false);
   const live = useAuditState(runId, pollRefreshKey);
   // ---- Hydrate company identity from the journey session ---------------
   useEffect(() => {
@@ -601,10 +601,10 @@ export function AuditReaderShell({
 
   // ---- Auto-kickoff fan-out if state shows no parent yet ---------------
   useEffect(() => {
-    if (kickoffFired.current) return;
+    if (kickedOffRunIds.has(runId)) return;
     if (live.parent_audit_run_id !== null) return;
     if (live.workerStates.length === 0) return;
-    kickoffFired.current = true;
+    kickedOffRunIds.add(runId);
     void (async () => {
       try {
         const res = await fetch('/api/research-v2/orchestrate', {
@@ -614,7 +614,6 @@ export function AuditReaderShell({
           body: JSON.stringify({ run_id: runId, executionMode: 'lab' }),
         });
         if (!res.ok) {
-          kickoffFired.current = false;
           console.warn('[audit-reader-shell] auto-kickoff failed', {
             runId,
             status: res.status,
@@ -622,7 +621,6 @@ export function AuditReaderShell({
           });
         }
       } catch (error) {
-        kickoffFired.current = false;
         console.warn('[audit-reader-shell] auto-kickoff failed', {
           runId,
           error: describeError(error),
