@@ -170,80 +170,13 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(response.status).toBe(400);
   });
 
-  it('seeds one zone and kicks the worker in deep mode by default', async () => {
+  it('schedules a one-section lab rerun by default', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await POST(
       makeRequest({ runId: RUN_ID, zone: 'positioningVoiceOfCustomer' }),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.executionMode).toBe('deep');
-    expect(routeMocks.seedOrchestration).toHaveBeenCalledWith({
-      userId: 'user_1',
-      runId: RUN_ID,
-      zones: ['positioningVoiceOfCustomer'],
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toMatchObject({
-      parent_audit_run_id: PARENT_ID,
-      zones: ['positioningVoiceOfCustomer'],
-      executionMode: 'deep',
-    });
-  });
-
-  it('aborts an active section and forwards partial context into the deep rerun', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    routeMocks.sectionQuery.maybeSingle.mockResolvedValue({
-      data: {
-        section_run_id: SECTION_RUN_ID,
-        markdown: 'partial artifact body',
-        status: 'running',
-        error: { partial: true },
-      },
-      error: null,
-    });
-    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const response = await POST(
-      makeRequest({
-        runId: RUN_ID,
-        zone: 'positioningVoiceOfCustomer',
-        usePartialContext: true,
-        refinement: 'tighten verbatim buyer language',
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [abortUrl, abortInit] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(abortUrl).toBe('https://worker.example/abort');
-    expect(JSON.parse(String(abortInit.body))).toEqual({
-      sectionRunId: SECTION_RUN_ID,
-    });
-    const [, orchestrateInit] = fetchMock.mock.calls[1] as [string, RequestInit];
-    const workerBody = JSON.parse(String(orchestrateInit.body)) as {
-      refinement: string;
-    };
-    expect(workerBody.refinement).toContain('tighten verbatim buyer language');
-    expect(workerBody.refinement).toContain('<previous_attempt_partial>');
-    expect(workerBody.refinement).toContain('partial artifact body');
-  });
-
-  it('schedules a one-section lab rerun when executionMode is lab', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-
-    const response = await POST(
-      makeRequest({
-        runId: RUN_ID,
-        zone: 'positioningVoiceOfCustomer',
-        executionMode: 'lab',
-      }),
     );
     const body = await response.json();
 
@@ -267,6 +200,69 @@ describe('POST /api/research-v2/rerun-section', () => {
       }),
     );
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('aborts an active section before scheduling the lab rerun', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sectionQuery.maybeSingle.mockResolvedValue({
+      data: {
+        section_run_id: SECTION_RUN_ID,
+        status: 'running',
+      },
+      error: null,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: 'positioningVoiceOfCustomer',
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.executionMode).toBe('lab');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [abortUrl, abortInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(abortUrl).toBe('https://worker.example/abort');
+    expect(JSON.parse(String(abortInit.body))).toEqual({
+      sectionRunId: SECTION_RUN_ID,
+    });
+    expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user_1',
+        runId: RUN_ID,
+        sectionId: 'positioningVoiceOfCustomer',
+        zones: ['positioningVoiceOfCustomer'],
+        researchInput: {
+          runId: RUN_ID,
+          fixtureId: 'brand_fellow',
+        },
+      }),
+    );
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+  });
+
+  it('rejects legacy worker execution modes', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: 'positioningVoiceOfCustomer',
+        executionMode: 'deep',
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('unsupported_execution_mode');
+    expect(routeMocks.createAdminClient).not.toHaveBeenCalled();
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
   it('rejects lab refinements before abort or reseed side effects', async () => {
@@ -278,7 +274,6 @@ describe('POST /api/research-v2/rerun-section', () => {
       makeRequest({
         runId: RUN_ID,
         zone: 'positioningVoiceOfCustomer',
-        executionMode: 'lab',
         refinement: 'tighten the buyer language',
       }),
     );

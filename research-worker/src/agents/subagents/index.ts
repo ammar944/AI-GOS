@@ -25,7 +25,6 @@ import {
   POSITIONING_TOOL_MAPS,
 } from '../../agent-tools';
 import { MODELS } from '../../models';
-import type { SectionToolBudget } from '../../runners/section-context-pack';
 
 import {
   BUYER_ICP_INSTRUCTIONS,
@@ -37,6 +36,11 @@ import {
 } from './_skill-loader';
 
 const STRONG_SUBAGENT_MODEL = anthropic(MODELS.STRONG);
+
+export interface SectionToolBudget {
+  maxExternalLookups: number;
+  allowedTools: string[];
+}
 
 export interface ToolBudgetExhaustedResult {
   ok: false;
@@ -226,9 +230,8 @@ export function createPositioningSubagent(
 }
 
 /**
- * Market Category gathers evidence only. ADR-0002 moves the typed Artifact
- * emission to positioning-subagent-runner.ts via
- * streamObject(MarketCategoryArtifactSchema) after this tool loop completes.
+ * Retired positioning subagent prototype kept only for historical schema/tool
+ * experiments. Production section runs use the Next.js lab engine.
  */
 export const marketCategoryAgent = new ToolLoopAgent({
   model: STRONG_SUBAGENT_MODEL,
@@ -241,9 +244,8 @@ export const marketCategoryAgent = new ToolLoopAgent({
 });
 
 /**
- * BuyerICP gathers evidence only. ADR-0002 moves the typed Artifact emission
- * to positioning-subagent-runner.ts via streamObject(BuyerICPArtifactSchema)
- * after this tool loop completes.
+ * Retired positioning subagent prototype kept only for historical schema/tool
+ * experiments. Production section runs use the Next.js lab engine.
  */
 export const buyerIcpAgent = new ToolLoopAgent({
   model: STRONG_SUBAGENT_MODEL,

@@ -19,7 +19,6 @@ import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import { jsonError, requireApiUser } from '@/lib/auth/app-access';
-import { startManagedAudit } from '@/lib/managed-agents/start-audit';
 import {
   corpusReady,
   getOnboardingReviewMetadata,
@@ -38,15 +37,9 @@ const RequestSchema = z
   .object({
     run_id: z.string().uuid(),
     journey_session_id: z.string().uuid().optional(),
-    // 'managed' is gated behind MANAGED_AGENTS_POSITIONING_ENABLED; Phase 3
-    // will flip the default away from 'deep'.
-    executionMode: z.enum(['draft', 'deep', 'managed', 'lab']).optional(),
+    executionMode: z.literal('lab').optional(),
   })
   .passthrough();
-
-function managedAgentsPositioningEnabled(): boolean {
-  return process.env.MANAGED_AGENTS_POSITIONING_ENABLED === 'true';
-}
 
 // run-lab-section now ACKs 202 in milliseconds (it defers the long job to
 // after()), so a kickoff fetch only has to deliver the request + read the ACK.
@@ -209,59 +202,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    // Managed Agents is the fallback path when the feature flag is on.
-    // Explicit body.executionMode ('draft' | 'deep' | 'managed' | 'lab')
-    // still wins — used by frontend kickoffs, tests, and rerun-section.
-    const effectiveExecutionMode =
-      body.executionMode ??
-      (managedAgentsPositioningEnabled() ? 'managed' : 'draft');
-
-    if (effectiveExecutionMode === 'managed') {
-      if (!managedAgentsPositioningEnabled()) {
-        return NextResponse.json(
-          {
-            error: 'managed_agents_disabled',
-            message:
-              'executionMode=managed requires MANAGED_AGENTS_POSITIONING_ENABLED=true',
-          },
-          { status: 403 },
-        );
-      }
-      const managed = await startManagedAudit({
-        userId,
-        runId: body.run_id,
-        gtmBrief: session.onboarding_data ?? {},
-        corpusExcerpt:
-          (session.research_results?.['deepResearchProgram'] as Record<
-            string,
-            unknown
-          > | null) ?? null,
-      });
-      await freezeReviewedBriefSnapshot({
-        parentAuditRunId: managed.parentAuditRunId,
-        gtmBriefSnapshot: session.onboarding_data ?? {},
-        gtmBriefReview: getOnboardingReviewMetadata(session.metadata),
-      });
-      return NextResponse.json(
-        {
-          parent_audit_run_id: managed.parentAuditRunId,
-          section_run_ids: managed.sectionRunIds.map((row) => ({
-            section_id: row.sectionId,
-            section_run_id: row.sectionRunId,
-            ordinal: row.ordinal,
-            reused: row.reused,
-          })),
-          managed_agents: {
-            session_id: managed.sessionId,
-            coordinator_agent_id: managed.coordinatorAgentId,
-            environment_id: managed.environmentId,
-            specialist_agent_ids: managed.specialistAgentIds,
-          },
-        },
-        { status: 200 },
-      );
-    }
-
     const seeded = await seedOrchestration({
       userId,
       runId: body.run_id,
@@ -274,22 +214,9 @@ export async function POST(request: Request): Promise<Response> {
       gtmBriefReview: getOnboardingReviewMetadata(session.metadata),
     });
 
-    if (effectiveExecutionMode === 'lab') {
-      await dispatchLabSectionJobs({
-        request,
-        runId: body.run_id,
-      });
-      return NextResponse.json(seeded, { status: 200 });
-    }
-
-    const workerExecutionMode: 'draft' | 'deep' =
-      effectiveExecutionMode === 'draft' || effectiveExecutionMode === 'deep'
-        ? effectiveExecutionMode
-        : 'deep';
-    void kickoffWorker({
-      parentAuditRunId: seeded.parent_audit_run_id,
+    await dispatchLabSectionJobs({
+      request,
       runId: body.run_id,
-      executionMode: workerExecutionMode,
     });
 
     return NextResponse.json(seeded, { status: 200 });
@@ -305,53 +232,5 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
     throw err;
-  }
-}
-
-const WORKER_KICKOFF_TIMEOUT_MS = 5000;
-
-async function kickoffWorker(input: {
-  parentAuditRunId: string;
-  runId: string;
-  executionMode: 'draft' | 'deep';
-}): Promise<void> {
-  const workerUrl = process.env.RAILWAY_WORKER_URL?.trim();
-  const workerKey = process.env.RAILWAY_API_KEY?.trim();
-  if (!workerUrl || !workerKey) {
-    console.warn(
-      '[orchestrate] worker kickoff skipped — RAILWAY_WORKER_URL/RAILWAY_API_KEY missing',
-    );
-    return;
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), WORKER_KICKOFF_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${workerUrl}/orchestrate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${workerKey}`,
-      },
-      body: JSON.stringify({
-        parent_audit_run_id: input.parentAuditRunId,
-        executionMode: input.executionMode,
-      }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      console.warn(
-        `[orchestrate] worker kickoff returned ${res.status} for run ${input.runId}: ${body.slice(0, 200)}`,
-      );
-    }
-  } catch (err) {
-    const isAbort = err instanceof Error && err.name === 'AbortError';
-    console.warn(
-      `[orchestrate] worker kickoff ${isAbort ? 'timed out' : 'failed'} for run ${input.runId}:`,
-      err instanceof Error ? err.message : String(err),
-    );
-  } finally {
-    clearTimeout(timer);
   }
 }

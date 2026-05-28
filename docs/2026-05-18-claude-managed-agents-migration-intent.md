@@ -1,6 +1,6 @@
 # Claude Managed Agents — Migration Intent (Internal AI-GOS)
 
-> **Status:** exploration / intent doc. Not a commitment, not an ADR yet.
+> **Status:** superseded / historical intent. The legacy Railway positioning path was retired on 2026-05-28; `deepResearchProgram` corpus generation remains on the worker.
 > **Author:** Ammar
 > **Date:** 2026-05-18
 > **Related:** `docs/architecture/2026-05-14-positioning-audit-stack.md` (current locked stack), `docs/adr/0002-single-structured-output-per-section.md`, `docs/adr/0003-backend-only-deployment.md`
@@ -59,7 +59,7 @@ inside a self-hosted runner loop.
 
 ```
 Form submit → POST /api/research-v2/orchestrate
-            → Railway worker /orchestrate
+            → Railway worker /orchestrate  (retired 2026-05-28)
               ├── positioningSubagentRunner × 6  (waves of 3)
               │     primary → repair → rescue
               ├── Zod SectionArtifactSchema validation
@@ -235,7 +235,7 @@ came from a Managed Agent run, not from `research-worker/`. End-to-end one round
 | **P1 — One section end-to-end** | Add `save_section_artifact` for `positioningMarketCategory` only. Zod + minimums validated through webhook. Repair loop confirmed working. | Single-section audit produces the same artifact shape as today's worker output, byte-comparable |
 | **P2 — Hardening** | `networking: limited` with allowlist. Webhook signature verification. Session retry semantics mapped to current runner retry behavior. Telemetry surface for "Wave X of Y / N running" mapped to SSE events. | One section's worker code can be deleted with no regression |
 | **P3 — Full fan-out** | Remaining 5 sections. Sub-agent pattern (Anthropic-native) for parallel section runners inside one parent session. | All 6 sections produced by Managed Agents in parallel waves |
-| **P4 — Decommission** | Delete `research-worker/positioning-audit-orchestrator.ts`, retire Railway worker for positioning. (deepResearchProgram corpus generation stays unchanged — that's a separate concern.) | Railway worker no longer in the positioning path |
+| **P4 — Decommission** | Delete `research-worker/positioning-audit-orchestrator.ts`, retire Railway worker for positioning. (deepResearchProgram corpus generation stays unchanged — that's a separate concern.) | Done 2026-05-28: Railway worker no longer in the positioning path |
 
 Each phase is sized to fit one focused session with a QA gate after, per the project's
 phase-based execution model in MEMORY.md.

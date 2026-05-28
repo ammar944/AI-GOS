@@ -263,7 +263,7 @@ describe('ResearchV2Page — light audit reader shell', () => {
     );
     expect(screen.getByText('Reading competitor evidence')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /competitors.*reading sources/i }),
+      screen.getByRole('button', { name: /competitors.*running/i }),
     ).toBeEnabled();
   });
 
@@ -279,11 +279,10 @@ describe('ResearchV2Page — light audit reader shell', () => {
       expect(screen.getByTestId('audit-reader-shell')).toBeInTheDocument(),
     );
 
-    const rail = screen.getByText('Sections').parentElement;
-    if (!rail) throw new Error('Sections rail missing');
+    const rail = screen.getByRole('navigation', { name: 'Sections' });
     const items = within(rail).getAllByRole('button');
     expect(items).toHaveLength(7);
-    expect(items.map((item) => item.textContent ?? '')).toEqual([
+    expect(items.map((item) => item.getAttribute('aria-label') ?? '')).toEqual([
       expect.stringMatching(/Market & Category/i),
       expect.stringMatching(/Buyer \/ ICP/i),
       expect.stringMatching(/Competitors/i),

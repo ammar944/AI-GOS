@@ -151,9 +151,8 @@ describe('ResearchV3Page runId rehydrate', () => {
     await waitFor(() =>
       expect(screen.getByText('Section 7 of 7')).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole('button', { name: /paid media plan.*7.2 confidence/i }),
-    ).toBeEnabled();
+    expect(screen.queryByTestId('section-progress-strip')).toBeNull();
+    expect(screen.getByLabelText('Confidence 7.2/10')).toBeInTheDocument();
     expect(screen.queryByTestId('corpus')).toBeNull();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),

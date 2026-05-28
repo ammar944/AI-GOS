@@ -1,7 +1,7 @@
-// Research-v2 dispatch route — Pre-Pitch Positioning Audit (6 sections).
+// Research-v2 dispatch route — shared company corpus only.
 //
 // Body: { runId, sectionId, context? }
-// - sectionId: one of POSITIONING_SECTION_IDS.
+// - sectionId: deepResearchProgram.
 // - context: optional. When omitted, the dispatch service still injects
 //   prior research, reference docs, meeting intel, and identity classifications
 //   from the existing buildJourneyResearchDispatchContext path.
@@ -12,13 +12,11 @@
 // → 409. Already-complete → 200 with the existing payload status. Otherwise
 // proceed via the existing dispatchJourneyResearchForUser pipeline (which
 // also stamps activeJourneyRunId, prevents stale writes, and forwards to the
-// Railway worker /run endpoint).
+// Railway worker /run endpoint). Section artifacts run through the lab engine,
+// not this worker dispatch route.
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import {
-  POSITIONING_SECTION_IDS,
-} from '@/lib/ai/prompts/positioning-skills';
 import { jsonError, requireApiUser } from '@/lib/auth/app-access';
 import {
   dispatchJourneyResearchForUser,
@@ -28,7 +26,6 @@ import { createAdminClient } from '@/lib/supabase/server';
 
 const ACCEPTED_DISPATCH_SECTIONS = [
   'deepResearchProgram',
-  ...POSITIONING_SECTION_IDS,
 ] as const;
 type AcceptedDispatchSection = (typeof ACCEPTED_DISPATCH_SECTIONS)[number];
 

@@ -4,22 +4,11 @@ import {
   resolveProductIdentity,
   runMeetingExtraction,
   runDeepResearchProgram,
-  runPositioningMarketCategory,
-  runPositioningBuyerICP,
-  runPositioningCompetitorLandscape,
-  runPositioningVoiceOfCustomer,
-  runPositioningDemandIntent,
-  runPositioningOfferDiagnostic,
-  isPositioningSectionId,
 } from './runners';
 import {
   writeResearchResult,
   writeJobStatus,
   getClient,
-  ensureArtifact,
-  startSectionRun,
-  readCurrentArtifactSection,
-  type ResearchResult,
 } from './supabase';
 import { createEmitProgress } from './emit-progress';
 import { writeDeadLetter } from './dead-letter';
@@ -33,34 +22,8 @@ import { emitTelemetry } from './telemetry';
 import { getAnthropicSkillsRuntimeStatus } from './anthropic-skills';
 import { createSemaphore } from './utils/semaphore';
 import { buildCapabilitiesPayload } from './capabilities';
-import { runPositioningAuditOrchestrator } from './runners/positioning-audit-orchestrator';
-import type {
-  OrchestratorDeps,
-  SectionRunResult,
-} from './runners/positioning-audit-orchestrator';
-import {
-  isParentAuditAborted,
-  loadChildrenForParent,
-  loadParentRun,
-  loadSectionContextPackInputs,
-  markSectionRunStatus,
-  rollupParentStatus,
-  updateSectionRunPhase,
-} from './db/artifact-runs';
-import {
-  buildSectionContextPack,
-  serializeSectionContextPack,
-} from './runners/section-context-pack';
-import type { PositioningRunnerOptions } from './runners/positioning-subagent-runner';
-import {
-  DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE,
-  normalizePositioningExecutionMode,
-  type PositioningExecutionMode,
-} from './runners/positioning-execution-mode';
-import {
-  appendSectionEvent,
-  commitArtifactSection,
-} from './supabase';
+import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
+import type { ResearchResult } from './supabase';
 import pkg from '../package.json';
 
 const WORKER_VERSION: string =
@@ -70,10 +33,8 @@ const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
 // -- Concurrency cap ----------------------------------------------------------
-// When the frontend fires the 6 positioning sections in parallel, this cap
-// keeps concurrent /run executions bounded so we don't thunder the Anthropic
-// API. Default 6 matches the positioning section count; overridable via
-// WORKER_RUN_CONCURRENCY env var.
+// Keep concurrent /run executions bounded so worker jobs don't thunder external
+// APIs. Overridable via WORKER_RUN_CONCURRENCY.
 const WORKER_RUN_CONCURRENCY = Number(process.env.WORKER_RUN_CONCURRENCY ?? 6);
 const runSemaphore = createSemaphore(WORKER_RUN_CONCURRENCY);
 
@@ -112,16 +73,7 @@ function requireApiKey(
 type ToolName =
   | 'runDeepResearchProgram'
   | 'resolveIdentity'
-  | 'extractMeetingTranscript'
-  | 'positioningMarketCategory'
-  | 'positioningBuyerICP'
-  | 'positioningCompetitorLandscape'
-  | 'positioningVoiceOfCustomer'
-  | 'positioningDemandIntent'
-  | 'positioningOfferDiagnostic'
-  | 'positioningPaidMediaPlan';
-
-import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
+  | 'extractMeetingTranscript';
 
 interface RunJobRequest {
   tool: ToolName;
@@ -143,29 +95,7 @@ interface RunJobRequest {
    * business_profile_documents and the meeting status is updated.
    */
   documentId?: string;
-  /**
-   * Optional refinement string supplied by the research-v2 chat surface when
-   * the intent classifier returns kind='rerun'. The runner appends this as a
-   * USER REFINEMENT block to the section context so the model focuses the
-   * rerun on the user's stated direction (e.g. "focus on Cartesia").
-   */
   chatRefinement?: string;
-}
-
-function runPositioningPaidMediaPlanUnsupported(): Promise<ResearchResult> {
-  const error =
-    'positioningPaidMediaPlan runs through the Next.js lab-engine dependent wave, not the Railway worker.';
-
-  return Promise.resolve({
-    status: 'error',
-    section: 'positioningPaidMediaPlan',
-    artifact: {
-      title: 'Paid Media Plan',
-      markdown: `**Error:** ${error}`,
-    },
-    error,
-    durationMs: 0,
-  });
 }
 
 const TOOL_RUNNERS: Record<
@@ -175,53 +105,17 @@ const TOOL_RUNNERS: Record<
     onProgress?: RunnerProgressReporter,
     chatRefinement?: string,
     abortSignal?: AbortSignal,
-    options?: PositioningRunnerOptions,
   ) => Promise<ResearchResult>
 > = {
   runDeepResearchProgram,
   resolveIdentity: resolveProductIdentity,
   extractMeetingTranscript: runMeetingExtraction,
-  positioningMarketCategory: runPositioningMarketCategory,
-  positioningBuyerICP: runPositioningBuyerICP,
-  positioningCompetitorLandscape: runPositioningCompetitorLandscape,
-  positioningVoiceOfCustomer: runPositioningVoiceOfCustomer,
-  positioningDemandIntent: runPositioningDemandIntent,
-  positioningOfferDiagnostic: runPositioningOfferDiagnostic,
-  positioningPaidMediaPlan: runPositioningPaidMediaPlanUnsupported,
-};
-
-const POSITIONING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
-  'positioningMarketCategory',
-  'positioningBuyerICP',
-  'positioningCompetitorLandscape',
-  'positioningVoiceOfCustomer',
-  'positioningDemandIntent',
-  'positioningOfferDiagnostic',
-  'positioningPaidMediaPlan',
-]);
-
-const TOOL_TO_ZONE: Partial<Record<ToolName, string>> = {
-  positioningMarketCategory: 'positioningMarketCategory',
-  positioningBuyerICP: 'positioningBuyerICP',
-  positioningCompetitorLandscape: 'positioningCompetitorLandscape',
-  positioningVoiceOfCustomer: 'positioningVoiceOfCustomer',
-  positioningDemandIntent: 'positioningDemandIntent',
-  positioningOfferDiagnostic: 'positioningOfferDiagnostic',
-  positioningPaidMediaPlan: 'positioningPaidMediaPlan',
 };
 
 // ---------------------------------------------------------------------------
-// Phase 5 — abort infrastructure.
-//
-// Each running positioning section is registered in `abortControllers` keyed
-// by its section_run_id. The `/abort` route can then look up the controller
-// and call .abort() to interrupt an in-flight tool-loop.
-//
-// `sectionRunIdByJob` is a reverse lookup that lets the per-job heartbeat
-// query research_section_runs.aborted_at for the right section_run_id.
+// Abort infrastructure.
 // ---------------------------------------------------------------------------
 const abortControllers = new Map<string, AbortController>();
-const sectionRunIdByJob = new Map<string, string>();
 
 // -- Health -------------------------------------------------------------------
 app.get('/health', (_req, res) => {
@@ -237,7 +131,7 @@ app.get('/capabilities', (_req, res) => {
     buildCapabilitiesPayload({
       env: process.env,
       workerVersion: WORKER_VERSION,
-      orchestrateSupported: true,
+      orchestrateSupported: false,
     }),
   );
 });
@@ -361,52 +255,11 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       startedAt: new Date(startMs).toISOString(),
     });
 
-    // Phase 5 — abort infrastructure registration.
-    //
-    // For positioning sections we mint a section_run_id up front so the
-    // /abort route can target this specific run, and so the heartbeat can
-    // poll research_section_runs.aborted_at as the self-termination signal.
-    // Non-positioning tools (deepResearchProgram, resolveIdentity,
-    // extractMeetingTranscript) skip this — they still get an AbortController
-    // keyed by jobId for /abort, but no aborted_at polling.
     const abortController = new AbortController();
-    let sectionRunId: string | null = null;
-    const isPositioning = POSITIONING_TOOL_NAMES.has(tool);
-    if (isPositioning && runId) {
-      try {
-        const artifactId = await ensureArtifact(userId, runId);
-        if (artifactId) {
-          const zone = TOOL_TO_ZONE[tool] ?? tool;
-          sectionRunId = await startSectionRun(
-            artifactId,
-            zone,
-            userId,
-            chatRefinement ?? null,
-          );
-        }
-      } catch (preflightErr) {
-        // Non-fatal — proceed without abort tracking. The run still
-        // completes via the legacy dual-write path.
-        console.warn(
-          `[worker] start_section_run preflight failed for ${tool}:`,
-          preflightErr,
-        );
-      }
-    }
-
-    if (sectionRunId) {
-      abortControllers.set(sectionRunId, abortController);
-      sectionRunIdByJob.set(jobId, sectionRunId);
-    }
-    // Also register by jobId so the legacy abort-by-jobId path (and the
-    // detached-async finalizer below) can release reliably.
     abortControllers.set(jobId, abortController);
 
     // Heartbeat: write 'running' status every 30s so the poller knows we're alive.
     // Includes an updates[] entry so the frontend activity log shows activity.
-    // For positioning runs with a section_run_id, also poll
-    // research_section_runs.aborted_at — if non-null, self-terminate the
-    // in-flight tool loop via abortController.abort().
     const heartbeatInterval = setInterval(async () => {
       if (jobFinalized) {
         return;
@@ -427,26 +280,6 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           },
         ],
       });
-
-      if (sectionRunId && !abortController.signal.aborted) {
-        try {
-          const supabase = getClient();
-          const { data } = await supabase
-            .from('research_section_runs')
-            .select('aborted_at')
-            .eq('id', sectionRunId)
-            .maybeSingle();
-          if (data && data.aborted_at) {
-            console.warn(
-              `[abort] Heartbeat detected aborted_at on section_run ${sectionRunId} — self-terminating job ${jobId}`,
-            );
-            abortController.abort(new Error('aborted via heartbeat'));
-          }
-        } catch (pollErr) {
-          // Best-effort — log but don't crash the heartbeat.
-          console.warn('[abort] heartbeat aborted_at poll failed:', pollErr);
-        }
-      }
     }, 30_000);
 
     try {
@@ -627,13 +460,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     } finally {
       clearInterval(heartbeatInterval);
       activeJobs.delete(jobId);
-      // Phase 5 — release abort registrations. Repeated deletes are
-      // idempotent so an out-of-band /abort call cannot race with this.
       abortControllers.delete(jobId);
-      if (sectionRunId) {
-        abortControllers.delete(sectionRunId);
-        sectionRunIdByJob.delete(jobId);
-      }
     }
   })().finally(releaseSlot);
 });
@@ -669,11 +496,7 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
     }
   }
 
-  // Stamp aborted_at so heartbeat self-termination and out-of-process
-  // observers can see the request. If the caller didn't pass sectionRunId,
-  // derive it from the jobId → sectionRunId map.
-  const targetSectionRunId =
-    sectionRunId ?? (jobId ? sectionRunIdByJob.get(jobId) ?? null : null);
+  const targetSectionRunId = sectionRunId ?? null;
 
   if (targetSectionRunId) {
     try {
@@ -696,248 +519,6 @@ app.post('/abort', requireApiKey, async (req: express.Request, res: express.Resp
     aborted: Boolean(controllerKey),
     sectionRunId: targetSectionRunId,
   });
-});
-
-// -- Orchestrator (Phase 2) ---------------------------------------------------
-//
-// POST /orchestrate accepts { parent_audit_run_id }. Returns 202
-// with the parent id immediately, then drives the six positioning subagents
-// under that parent via runPositioningAuditOrchestrator with bounded
-// concurrency. Events stream into research_section_events and the parent
-// row rolls up to complete | partial | error | aborted.
-
-const parentOrchestrationAbort = new Map<string, AbortController>();
-
-app.post('/orchestrate', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { parent_audit_run_id, executionMode: rawExecutionMode, zones: rawZones, refinement } = req.body as {
-    parent_audit_run_id?: string;
-    executionMode?: unknown;
-    zones?: unknown;
-    refinement?: unknown;
-  };
-
-  if (!parent_audit_run_id) {
-    res.status(400).json({ error: 'parent_audit_run_id is required' });
-    return;
-  }
-
-  const parent = await loadParentRun(parent_audit_run_id);
-  if (!parent) {
-    res.status(404).json({ error: 'parent_audit_run_id not found' });
-    return;
-  }
-
-  // Mark parent as running before returning 202.
-  await rollupParentStatus(parent_audit_run_id, 'running', 0).catch((err) => {
-    console.warn('[orchestrator] initial rollup running failed:', err);
-  });
-
-  const executionMode = normalizePositioningExecutionMode(
-    rawExecutionMode,
-    DEFAULT_INITIAL_POSITIONING_EXECUTION_MODE,
-  );
-  const concurrencyDefault = executionMode === 'draft' ? 6 : 3;
-  const concurrency = Math.max(
-    1,
-    Number(process.env.ORCHESTRATOR_CONCURRENCY ?? concurrencyDefault),
-  );
-  const zones =
-    Array.isArray(rawZones)
-      ? rawZones.filter((zone): zone is string => typeof zone === 'string')
-      : undefined;
-  if (zones?.some((zone) => !isPositioningSectionId(zone))) {
-    res.status(400).json({ error: 'zones must contain only positioning section ids' });
-    return;
-  }
-  const chatRefinement =
-    typeof refinement === 'string' && refinement.trim().length > 0
-      ? refinement.trim()
-      : undefined;
-
-  res.status(202).json({
-    parent_audit_run_id,
-    job_id: parent_audit_run_id,
-    concurrency,
-    executionMode,
-    zones: zones ?? null,
-  });
-
-  const parentAbortController = new AbortController();
-  parentOrchestrationAbort.set(parent_audit_run_id, parentAbortController);
-
-  const packInputsPromise = loadSectionContextPackInputs(parent_audit_run_id);
-  const workerCapabilities = buildCapabilitiesPayload({
-    workerVersion: WORKER_VERSION,
-    orchestrateSupported: true,
-  }).tools;
-
-  const deps: OrchestratorDeps = {
-    loadChildren: (id) => loadChildrenForParent(id),
-    buildSectionContext: async ({ zone }) => {
-      if (!isPositioningSectionId(zone)) {
-        throw new Error(`[orchestrator] unknown positioning zone ${zone}`);
-      }
-      const packInputs = await packInputsPromise;
-      const pack = buildSectionContextPack({
-        sectionId: zone,
-        gtmBriefSnapshot: packInputs.gtmBriefSnapshot,
-        gtmBriefReview: packInputs.gtmBriefReview,
-        corpus: packInputs.corpus,
-        capabilities: workerCapabilities,
-      });
-      return {
-        context: serializeSectionContextPack(pack),
-        capabilityGaps: pack.capabilityGaps,
-        toolBudget: pack.toolBudget,
-      };
-    },
-    updatePhase: ({ sectionRunId, phase, phaseStartedAt, latestTool, latestSource, latestActivity, nextStep, wave, totalWaves, concurrency, elapsedMs, capabilityGaps, executionMode: phaseExecutionMode }) =>
-      updateSectionRunPhase(sectionRunId, {
-        phase,
-        phaseStartedAt,
-        latestTool,
-        latestSource,
-        latestActivity,
-        nextStep,
-        wave,
-        totalWaves,
-        concurrency,
-        elapsedMs,
-        capabilityGaps,
-        executionMode: phaseExecutionMode,
-      }),
-    markChildRunning: (sectionRunId) =>
-      markSectionRunStatus(sectionRunId, 'running'),
-    markChildTerminal: (sectionRunId, status, error) =>
-      markSectionRunStatus(sectionRunId, status, { error: error ?? null }),
-    runSection: async ({ zone, context: sectionContext, executionMode: sectionExecutionMode, toolBudget, signal, onProgress }) => {
-      const runner = TOOL_RUNNERS[zone as ToolName];
-      if (!runner) {
-        return {
-          status: 'error',
-          error: { code: 'unknown_zone', message: `no runner for zone ${zone}` },
-        } satisfies SectionRunResult;
-      }
-      try {
-        const result = (await runner(
-          sectionContext,
-          async (event) => {
-            // Forward runner progress events to the orchestrator event stream.
-            await onProgress('searching', { event });
-          },
-          chatRefinement,
-          signal,
-          {
-            executionMode: sectionExecutionMode,
-            toolBudget,
-          },
-        )) as unknown as Record<string, unknown>;
-        // Runners return { status, artifact: { title, markdown }, data, ... }.
-        // The orchestrator expects flat { markdown, title } on SectionRunResult.
-        const artifact =
-          result.artifact && typeof result.artifact === 'object'
-            ? (result.artifact as { title?: unknown; markdown?: unknown })
-            : null;
-        const markdown =
-          typeof artifact?.markdown === 'string' ? artifact.markdown : undefined;
-        const title =
-          typeof artifact?.title === 'string' ? artifact.title : undefined;
-        const claims = Array.isArray(result.claims)
-          ? (result.claims as unknown[])
-          : undefined;
-        const sources = Array.isArray(result.sources)
-          ? (result.sources as unknown[])
-          : undefined;
-        const status = result.status === 'complete' ? 'complete' : 'error';
-        return {
-          status,
-          markdown,
-          title,
-          data: result.data,
-          claims,
-          sources,
-          error:
-            status === 'error'
-              ? {
-                  code: 'runner_failed',
-                  message:
-                    typeof result.error === 'string'
-                      ? result.error
-                      : 'section runner returned an error',
-                }
-              : null,
-        } satisfies SectionRunResult;
-      } catch (err) {
-        const aborted = signal.aborted;
-        const message = err instanceof Error ? err.message : 'unknown error';
-        if (aborted) throw err;
-        return {
-          status: 'error',
-          error: { code: 'runner_failed', message },
-        } satisfies SectionRunResult;
-      }
-    },
-    commitSection: async ({ parentAuditRunId, sectionRunId, zone, result, executionMode: sectionExecutionMode, signal }) => {
-      if (signal.aborted) {
-        throw new Error('section aborted before commit');
-      }
-      const expectedRevision =
-        sectionExecutionMode === 'deep'
-          ? ((await readCurrentArtifactSection(parentAuditRunId, zone))?.revision ?? 0)
-          : 0;
-      if (signal.aborted) {
-        throw new Error('section aborted before commit');
-      }
-      const commit = await commitArtifactSection(
-        parentAuditRunId,
-        zone,
-        sectionRunId,
-        expectedRevision,
-        {
-          status: 'complete',
-          title: result.title,
-          markdown: result.markdown,
-          data: result.data,
-          claims: result.claims ?? [],
-          sources: result.sources ?? [],
-          error: null,
-        },
-      );
-      if (!commit) {
-        throw new Error(`commit_artifact_section returned no result for ${zone}`);
-      }
-      if (commit.conflict || !commit.ok) {
-        throw new Error(
-          `commit_artifact_section conflict for ${zone} at revision ${commit.revision}`,
-        );
-      }
-    },
-    emitEvent: async ({ sectionRunId, type, payload }) => {
-      await appendSectionEvent(sectionRunId, type, null, payload ?? null);
-    },
-    rollupParent: ({ parentAuditRunId, status, children_complete }) =>
-      rollupParentStatus(parentAuditRunId, status, children_complete),
-    isParentAborted: (id) => isParentAuditAborted(id),
-  };
-
-  // Detached run — the 202 has already been sent. Errors are surfaced via
-  // the parent rollup status + event stream rather than the HTTP response.
-  runPositioningAuditOrchestrator(
-    {
-      parentAuditRunId: parent_audit_run_id,
-      concurrency,
-      parentAbortSignal: parentAbortController.signal,
-      executionMode,
-      zones,
-    },
-    deps,
-  )
-    .catch((err) => {
-      console.error(`[orchestrator] parent ${parent_audit_run_id} crashed:`, err);
-    })
-    .finally(() => {
-      parentOrchestrationAbort.delete(parent_audit_run_id);
-    });
 });
 
 // -- Stale-run reaper on boot -------------------------------------------------

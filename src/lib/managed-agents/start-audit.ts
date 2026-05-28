@@ -1,9 +1,7 @@
 // Session-kickoff helper for the Managed Agents positioning audit path.
 //
-// Used by:
-//   - src/app/api/research-v2/orchestrate/route.ts (when executionMode is
-//     'managed' and MANAGED_AGENTS_POSITIONING_ENABLED is on)
-//   - scripts/managed-agents-section-canary.mjs
+// Used by historical managed-agents canary scripts. The production
+// /research-v2 orchestration path now schedules lab-engine section jobs.
 //
 // Returns the Anthropic session_id + session_thread_id and the existing
 // parent_audit_run_id / section_run_ids from seed_orchestration. The

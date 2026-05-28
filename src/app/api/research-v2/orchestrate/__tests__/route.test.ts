@@ -179,6 +179,10 @@ describe('POST /api/research-v2/orchestrate', () => {
     delete process.env.RAILWAY_WORKER_URL;
     delete process.env.RAILWAY_API_KEY;
     delete process.env.LAB_ENGINE_LIVE_TOOLS;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('', { status: 202 })),
+    );
     routeMocks.requireApiUser.mockResolvedValue(mockApiUser());
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
     routeMocks.sessionQuery.eq.mockReturnValue(routeMocks.sessionQuery);
@@ -236,6 +240,21 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toBe('invalid_body');
+  });
+
+  it('rejects legacy worker execution modes', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const response = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+        executionMode: 'deep',
+      }),
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('invalid_body');
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the session does not belong to the user', async () => {
@@ -297,11 +316,9 @@ describe('POST /api/research-v2/orchestrate', () => {
     ).toEqual([...POSITIONING_SECTION_IDS]);
   });
 
-  it('kicks the worker with draft execution mode by default', async () => {
+  it('dispatches lab section jobs by default', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession({ ownerId: 'user_1' });
-    process.env.RAILWAY_WORKER_URL = 'https://worker.example';
-    process.env.RAILWAY_API_KEY = 'worker-key';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response('', { status: 202 }));
@@ -315,13 +332,21 @@ describe('POST /api/research-v2/orchestrate', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://worker.example/orchestrate');
-    expect(JSON.parse(String(init.body))).toMatchObject({
-      parent_audit_run_id: PARENT_ID,
-      executionMode: 'draft',
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    const fetchCalls = fetchMock.mock.calls as [string, RequestInit][];
+    expect(fetchCalls.map(([url]) => url)).toEqual(
+      POSITIONING_SECTION_IDS.map(
+        () => 'http://localhost/api/research-v2/run-lab-section',
+      ),
+    );
+    expect(
+      fetchCalls.map(([, init]) => {
+        const parsedBody = JSON.parse(String(init.body)) as {
+          section_id: string;
+        };
+        return parsedBody.section_id;
+      }),
+    ).toEqual([...POSITIONING_SECTION_IDS]);
   });
 
   it('passes the canonical six POSITIONING_SECTION_IDS to seed_orchestration', async () => {

@@ -8,60 +8,14 @@ import {
   researchV2Reducer,
   type ResearchV2State,
 } from '@/lib/research-v2/state-machine';
-import { __testing__ } from '../../../../research-worker/src/runners/positioning-audit-orchestrator';
 
 /**
  * Phase 6: resume / partial / abort robustness.
  *
  * The contract is: any /research-v2 run can be reconstructed purely from
- * server tables, retries of an errored parent reopen the same parent
- * (idempotent), and a worker crash leaves the parent in 'partial' with
- * the completed children intact.
- *
- * These tests pin the rollup table that drives the parent status after
- * each child terminal event. The browser-side resume reducer
- * (src/app/research-v2/page.tsx::inferResumeState) is already covered
- * by integration through agent-artifact-surface tests and the existing
- * orchestrate-client tests; this file owns the rollup boundary the
- * worker reaper depends on.
+ * server tables, retries reopen the same parent through idempotent seeding,
+ * and a reload during partial progress keeps completed children visible.
  */
-const { rollupStatus } = __testing__;
-
-describe('Phase 6 rollup contract', () => {
-  it('complete when every child finished cleanly', () => {
-    expect(rollupStatus(false, ['complete', 'complete', 'complete', 'complete', 'complete', 'complete'])).toBe('complete');
-  });
-
-  it('error when every child errored', () => {
-    expect(rollupStatus(false, ['error', 'error', 'error', 'error', 'error', 'error'])).toBe('error');
-  });
-
-  it('partial after a worker crash — some complete, some error', () => {
-    expect(
-      rollupStatus(false, ['complete', 'complete', 'error', 'complete', 'complete', 'error']),
-    ).toBe('partial');
-  });
-
-  it('partial when one child crashed and the others completed (1 of 6 fail)', () => {
-    expect(rollupStatus(false, ['complete', 'complete', 'complete', 'complete', 'complete', 'error'])).toBe('partial');
-  });
-
-  it('aborted when the parent abort flag is set even if all children completed', () => {
-    expect(rollupStatus(true, ['complete', 'complete'])).toBe('aborted');
-  });
-
-  it('aborted when no completes/errors and only aborts (e.g. parent killed before any child started)', () => {
-    expect(rollupStatus(false, ['aborted', 'aborted', 'aborted', 'aborted', 'aborted', 'aborted'])).toBe('aborted');
-  });
-
-  it('partial when retry-after-error refills the failed slots — only 4 of 6 finished before reload', () => {
-    // Simulates a retry mid-flight where the orchestrator rolls up before
-    // the resumed children settle: 4 completes, 2 still queued ⇒ orchestrator
-    // skips queued children in rollupStatus (terminals only). Caller passes
-    // only the terminals.
-    expect(rollupStatus(false, ['complete', 'complete', 'complete', 'complete'])).toBe('complete');
-  });
-});
 
 const RUN_ID = 'run-session-state';
 

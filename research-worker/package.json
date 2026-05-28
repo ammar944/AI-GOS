@@ -1,7 +1,7 @@
 {
   "name": "aigos-research-worker",
   "version": "1.0.0",
-  "description": "Background research worker for AIGOS — runs Anthropic sub-agents async",
+  "description": "Background research worker for AIGOS corpus and extraction jobs",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -12,17 +12,8 @@
     "eval:snapshot": "ts-node-dev --transpile-only evals/snapshot.ts",
     "eval:research": "ts-node-dev --transpile-only evals/run-eval.ts",
     "eval:baseline": "ts-node-dev --transpile-only evals/baseline-run.ts",
-    "eval:pilot:buyer-icp": "ts-node-dev --transpile-only evals/pilot-buyer-icp.ts",
-    "eval:pilot:market-category": "ts-node-dev --transpile-only evals/pilot-market-category.ts",
-    "eval:pilot:competitor-landscape": "ts-node-dev --transpile-only evals/pilot-competitor-landscape.ts",
-    "eval:pilot:voc-objection-evidence": "ts-node-dev --transpile-only evals/pilot-voc-objection-evidence.ts",
-    "eval:pilot:demand-intent-signals": "ts-node-dev --transpile-only evals/pilot-demand-intent-signals.ts",
-    "eval:pilot:offer-performance-diagnostic": "ts-node-dev --transpile-only evals/pilot-offer-performance-diagnostic.ts",
     "eval:corpus-minimums": "ts-node-dev --transpile-only evals/corpus-minimums.ts",
-    "eval:live-sonar-corpus": "ts-node-dev --transpile-only evals/live-sonar-corpus.ts",
-    "eval:draft:sla": "ts-node-dev --transpile-only evals/draft-sla.ts",
-    "eval:draft:matrix": "ts-node-dev --transpile-only evals/draft-matrix.ts",
-    "eval:draft:quality": "ts-node-dev --transpile-only evals/draft-quality.ts"
+    "eval:live-sonar-corpus": "ts-node-dev --transpile-only evals/live-sonar-corpus.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
