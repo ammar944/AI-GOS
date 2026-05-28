@@ -325,6 +325,46 @@ describe('<AuditReaderShell>', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('keeps the first automatic section selection stable across poll updates', async (): Promise<void> => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'running',
+      children_complete: 0,
+      children_total: 6,
+      workerStates: [buildWorker('positioningMarketCategory', 'running')],
+      sectionsByZone: {},
+    });
+
+    const { rerender } = render(
+      <AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />,
+    );
+
+    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Section 1 of 7')).toBeInTheDocument());
+
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'running',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [
+        completeWorker('positioningMarketCategory'),
+        buildWorker('positioningBuyerICP', 'running'),
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: marketCategoryFixtureArtifact,
+        },
+      },
+    });
+    rerender(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    expect(vi.mocked(HTMLElement.prototype.scrollTo)).not.toHaveBeenCalled();
+  });
+
   it('renders an error state for failed active sections', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -513,7 +553,7 @@ describe('<AuditReaderShell>', () => {
     );
   });
 
-  it('copies the active section title, verdict, and status summary', async (): Promise<void> => {
+  it('copies the full active typed artifact as markdown', async (): Promise<void> => {
     const writeText = vi.fn(async (text: string): Promise<void> => {
       void text;
     });
@@ -546,6 +586,42 @@ describe('<AuditReaderShell>', () => {
     );
     const copiedText = writeText.mock.calls[0]?.[0];
     expect(copiedText).toContain(marketCategoryFixtureArtifact.verdict);
+    expect(copiedText).toContain('## Category Definition');
+    expect(copiedText).toContain(
+      marketCategoryFixtureArtifact.body.categoryDefinition.prose,
+    );
+    expect(copiedText).toContain('## Sources');
+  });
+
+  it('surfaces clipboard failures on the copy button', async (): Promise<void> => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const writeText = vi.fn(async (): Promise<void> => {
+      throw new Error('clipboard blocked');
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: marketCategoryFixtureArtifact,
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /copy/i }));
+
+    await waitFor(() => expect(screen.getByText('Copy failed')).toBeInTheDocument());
+    warnSpy.mockRestore();
   });
 });
 

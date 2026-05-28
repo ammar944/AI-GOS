@@ -66,6 +66,7 @@ import {
 import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
 import {
   pickPositioningTypedArtifact,
+  isRecord,
   type PositioningArtifactSource,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
@@ -98,6 +99,14 @@ const TERMINAL_READER_STATUSES: ReadonlySet<ReaderSectionStatus> = new Set([
   'complete',
   'error',
   'aborted',
+]);
+const COPY_META_KEYS: ReadonlySet<string> = new Set([
+  'sectionTitle',
+  'verdict',
+  'statusSummary',
+  'confidence',
+  'sources',
+  'verification',
 ]);
 const kickedOffRunIds = new Set<string>();
 
@@ -150,6 +159,142 @@ function extractMetadata(raw: Record<string, unknown> | null): JourneyMetadata {
 function scrollElementToTop(element: HTMLElement | null): void {
   if (!element || typeof element.scrollTo !== 'function') return;
   element.scrollTo({ top: 0 });
+}
+
+function humanizeCopyKey(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function hasCopyValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number' || typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.some(hasCopyValue);
+  if (isRecord(value)) return Object.values(value).some(hasCopyValue);
+  return false;
+}
+
+function primitiveCopyValue(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return null;
+}
+
+function recordTitle(value: Record<string, unknown>): string | null {
+  for (const key of ['name', 'title', 'label', 'metric', 'competitor', 'phaseName']) {
+    const candidate = value[key];
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function appendMarkdownValue(
+  lines: string[],
+  value: unknown,
+  depth: number,
+): void {
+  const primitive = primitiveCopyValue(value);
+  if (primitive !== null) {
+    lines.push(primitive);
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value.filter(hasCopyValue)) {
+      const itemPrimitive = primitiveCopyValue(item);
+      if (itemPrimitive !== null) {
+        lines.push(`- ${itemPrimitive}`);
+        continue;
+      }
+
+      if (!isRecord(item)) {
+        continue;
+      }
+
+      const title = recordTitle(item);
+      lines.push(title === null ? '-' : `- ${title}`);
+      for (const [key, itemValue] of Object.entries(item)) {
+        if (!hasCopyValue(itemValue) || itemValue === title) continue;
+        const nestedPrimitive = primitiveCopyValue(itemValue);
+        if (nestedPrimitive !== null) {
+          lines.push(`  - ${humanizeCopyKey(key)}: ${nestedPrimitive}`);
+        } else {
+          lines.push(`  - ${humanizeCopyKey(key)}:`);
+          appendMarkdownValue(lines, itemValue, depth + 1);
+        }
+      }
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const prose = value.prose;
+  if (typeof prose === 'string' && prose.trim().length > 0) {
+    lines.push(prose);
+    lines.push('');
+  }
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (key === 'prose' || !hasCopyValue(nestedValue)) continue;
+    const headingLevel = depth >= 1 ? '###' : '##';
+    lines.push(`${headingLevel} ${humanizeCopyKey(key)}`);
+    appendMarkdownValue(lines, nestedValue, depth + 1);
+    lines.push('');
+  }
+}
+
+function artifactToMarkdown(artifact: PositioningTypedArtifact): string {
+  const lines: string[] = [
+    `# ${cleanTitle(artifact.sectionTitle)}`,
+    '',
+    '## Verdict',
+    artifact.verdict,
+    '',
+    '## Status',
+    artifact.statusSummary,
+    '',
+    `Confidence: ${formatConfidenceToTen(artifact.confidence)}/10`,
+    '',
+  ];
+  const bodyEntries = Object.entries(artifact).filter(
+    ([key, value]) => !COPY_META_KEYS.has(key) && hasCopyValue(value),
+  );
+
+  for (const [key, value] of bodyEntries) {
+    lines.push(`## ${humanizeCopyKey(key)}`);
+    appendMarkdownValue(lines, value, 0);
+    lines.push('');
+  }
+
+  if (artifact.sources.length > 0) {
+    lines.push('## Sources');
+    for (const source of artifact.sources) {
+      lines.push(`- [${source.title}](${source.url})`);
+    }
+    lines.push('');
+  }
+
+  if (artifact.verification !== undefined) {
+    lines.push('## Verification');
+    lines.push(`Verified: ${artifact.verification.verifiedCount}`);
+    lines.push(`Unsupported: ${artifact.verification.unsupportedCount}`);
+    lines.push('');
+  }
+
+  return `${lines.join('\n').trim()}\n`;
 }
 
 // ---------------------------------------------------------------------------
@@ -667,12 +812,19 @@ export function AuditReaderShell({
   const mainRef = useRef<HTMLElement>(null);
   const [meta, setMeta] = useState<JourneyMetadata>({});
   const [userActive, setUserActive] = useState<ReaderSectionId | null>(null);
+  const [autoActive, setAutoActive] = useState<ReaderSectionId | null>(null);
   const [rerunPending, setRerunPending] = useState<ReaderSectionId | null>(
     null,
   );
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const live = useAuditState(runId, pollRefreshKey);
+
+  useEffect(() => {
+    setUserActive(null);
+    setAutoActive(null);
+  }, [runId]);
   // ---- Hydrate company identity from the journey session ---------------
   useEffect(() => {
     let cancelled = false;
@@ -786,7 +938,19 @@ export function AuditReaderShell({
     return firstRunning ?? firstComplete ?? READER_SECTION_IDS[0];
   }, [statusOf]);
 
-  const active = activeSectionId ?? userActive ?? computedDefault;
+  useEffect(() => {
+    if (
+      activeSectionId !== undefined ||
+      userActive !== null ||
+      autoActive !== null
+    ) {
+      return;
+    }
+
+    setAutoActive(computedDefault);
+  }, [activeSectionId, autoActive, computedDefault, userActive]);
+
+  const active = activeSectionId ?? userActive ?? autoActive ?? computedDefault;
   const activeIndex = READER_SECTION_IDS.indexOf(active);
   const activeTyped = typedByZone.get(active) ?? null;
   const activeStatus = statusOf(active);
@@ -853,11 +1017,6 @@ export function AuditReaderShell({
     return () => window.removeEventListener('keydown', onKey);
   }, [activeIndex, select]);
 
-  // Reset scroll when the active section changes (incl. live default moves).
-  useEffect(() => {
-    scrollElementToTop(mainRef.current);
-  }, [active]);
-
   // ---- Actions ----------------------------------------------------------
   const rerunSection = useCallback(
     async (sectionId: ReaderSectionId) => {
@@ -904,15 +1063,21 @@ export function AuditReaderShell({
 
   const copyActive = useCallback(async () => {
     if (!activeTyped) return;
-    const text = `${cleanTitle(activeTyped.sectionTitle)}\n\n${activeTyped.verdict}\n\n${activeTyped.statusSummary}`;
+    const text = artifactToMarkdown(activeTyped);
+    setCopyError(false);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard blocked — no-op
+    } catch (error) {
+      console.warn('[audit-reader-shell] copy failed', {
+        sectionId: active,
+        error: describeError(error),
+      });
+      setCopyError(true);
+      window.setTimeout(() => setCopyError(false), 2000);
     }
-  }, [activeTyped]);
+  }, [active, activeTyped]);
 
   // ---- Render -----------------------------------------------------------
   return (
@@ -942,7 +1107,7 @@ export function AuditReaderShell({
             title="Copy section"
           >
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-            {copied ? 'Copied' : 'Copy'}
+            {copyError ? 'Copy failed' : copied ? 'Copied' : 'Copy'}
           </Button>
           <Button
             type="button"
