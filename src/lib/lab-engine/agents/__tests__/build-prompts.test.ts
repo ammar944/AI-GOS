@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { ResearchInput } from "@/lib/lab-engine/artifacts/artifact-envelope";
 import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
 import {
   buildAnswerToolInstructions,
@@ -28,6 +29,41 @@ const paidMediaDefinition = {
   sectionOutputSchemaName: "PaidMediaPlanSectionOutput",
 } satisfies PromptSectionDefinition;
 
+function buildScopedResearchInput(): ResearchInput {
+  const marketExcerpt = {
+    id: "excerpt_market",
+    sourceId: "source_market",
+    sourceUrl: "https://example.com/market",
+    title: "Market excerpt",
+    text: "Market-only category evidence for the current section.",
+    observedAt: "2026-05-25T12:00:00.000Z",
+  };
+  const buyerExcerpt = {
+    id: "excerpt_buyer",
+    sourceId: "source_buyer",
+    sourceUrl: "https://example.com/buyer",
+    title: "Buyer excerpt",
+    text: "Buyer-only persona evidence that should not enter the market prompt.",
+    observedAt: "2026-05-25T12:00:00.000Z",
+  };
+
+  return {
+    ...saaslaunchResearchInput,
+    corpus: {
+      excerpts: [marketExcerpt, buyerExcerpt],
+      sectionExcerpts: {
+        positioningMarketCategory: [marketExcerpt],
+        positioningBuyerICP: [buyerExcerpt],
+        positioningCompetitorLandscape: [],
+        positioningVoiceOfCustomer: [],
+        positioningDemandIntent: [],
+        positioningOfferDiagnostic: [],
+        positioningPaidMediaPlan: [],
+      },
+    },
+  };
+}
+
 describe("buildAnswerToolInstructions", (): void => {
   it("adds schema-bound answer-tool guidance for DeepSeek mode", (): void => {
     const prompt = buildAnswerToolInstructions(
@@ -54,6 +90,17 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "`body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals",
     );
+  });
+
+  it("injects only the section-scoped corpus excerpts into the prompt", (): void => {
+    const prompt = buildAnswerToolInstructions(
+      definition,
+      buildScopedResearchInput(),
+    );
+
+    expect(prompt).toContain("Market-only category evidence");
+    expect(prompt).not.toContain("Buyer-only persona evidence");
+    expect(prompt).not.toContain("sectionExcerpts");
   });
 
   it("spells out Competitor Landscape weakness coverage minimums", (): void => {

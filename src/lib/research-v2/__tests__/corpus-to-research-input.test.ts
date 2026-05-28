@@ -222,4 +222,80 @@ describe("corpusToResearchInput", (): void => {
       ]),
     );
   });
+
+  it("builds keyword-scoped corpus excerpt pools for each lab section", (): void => {
+    const sharedClaim = "Implementation timing depends on the customer's internal rollout sequence.";
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        corpus: {
+          ...corpusFixture.deepResearchProgramData.corpus,
+          sources: [
+            {
+              title: "Airtable category report",
+              url: "https://www.airtable.com/category-report",
+            },
+            {
+              title: "Airtable buyer guide",
+              url: "https://www.airtable.com/buyer-guide",
+            },
+            {
+              title: "Airtable rollout guide",
+              url: "https://www.airtable.com/rollout-guide",
+            },
+          ],
+          evidence: [
+            {
+              claim:
+                "Collaborative work management is the category and market Airtable competes in.",
+              quote:
+                "The category report describes market maturity and adjacent categories.",
+              source: "Airtable category report",
+              url: "https://www.airtable.com/category-report",
+            },
+            {
+              claim:
+                "Operations leaders are the buyer persona for Airtable's governance motion.",
+              quote:
+                "The buyer guide names operations leaders as the persona with approval pain.",
+              source: "Airtable buyer guide",
+              url: "https://www.airtable.com/buyer-guide",
+            },
+            {
+              claim: sharedClaim,
+              quote: "The rollout guide focuses on implementation timing.",
+              source: "Airtable rollout guide",
+              url: "https://www.airtable.com/rollout-guide",
+            },
+          ],
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+    const marketExcerpts =
+      parsed.corpus.sectionExcerpts?.positioningMarketCategory ?? [];
+    const buyerExcerpts = parsed.corpus.sectionExcerpts?.positioningBuyerICP ?? [];
+
+    expect(marketExcerpts.map((excerpt) => excerpt.text)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("category and market"),
+        expect.stringContaining(sharedClaim),
+      ]),
+    );
+    expect(marketExcerpts.map((excerpt) => excerpt.text)).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("buyer persona")]),
+    );
+    expect(buyerExcerpts.map((excerpt) => excerpt.text)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("buyer persona"),
+        expect.stringContaining(sharedClaim),
+      ]),
+    );
+    expect(buyerExcerpts.map((excerpt) => excerpt.text)).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("category and market")]),
+    );
+  });
 });

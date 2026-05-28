@@ -82,6 +82,9 @@ export const corpusExcerptSchema = z
 export const corpusSnapshotSchema = z
   .object({
     excerpts: z.array(corpusExcerptSchema).min(1),
+    sectionExcerpts: z
+      .record(sectionIdSchema, z.array(corpusExcerptSchema))
+      .optional(),
   })
   .strict();
 

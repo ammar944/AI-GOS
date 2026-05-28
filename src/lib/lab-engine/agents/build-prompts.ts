@@ -1,10 +1,12 @@
 import type { ResearchInput } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
+import type { SectionId } from "../events/activity-event";
 import { ToolGapSchema } from "./tools/_shared";
 import type { AgentStep } from "./section-agent";
 import type { AnswerToolInputSchemaMode } from "./answer-tool";
 
 export interface PromptSectionDefinition {
+  id?: SectionId;
   title: string;
   mission: string;
   outputEmphasis: readonly string[];
@@ -23,6 +25,16 @@ interface CompetitorSeedHint {
   name: string;
   sourceUrl: string;
 }
+
+const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
+  MarketCategorySectionOutput: "positioningMarketCategory",
+  BuyerICPSectionOutput: "positioningBuyerICP",
+  CompetitorLandscapeSectionOutput: "positioningCompetitorLandscape",
+  VoiceOfCustomerSectionOutput: "positioningVoiceOfCustomer",
+  DemandIntentSectionOutput: "positioningDemandIntent",
+  OfferDiagnosticSectionOutput: "positioningOfferDiagnostic",
+  PaidMediaPlanSectionOutput: "positioningPaidMediaPlan",
+};
 
 interface CompactAdEvidenceCreative {
   body: string | null;
@@ -173,15 +185,59 @@ function buildResearchInputForPrompt({
   definition: PromptSectionDefinition;
   researchInput: ResearchInput;
 }): unknown {
+  const scopedResearchInput = buildSectionScopedResearchInputForPrompt({
+    definition,
+    researchInput,
+  });
+
   if (!isCompetitorLandscapeDefinition(definition)) {
-    return researchInput;
+    return scopedResearchInput;
   }
 
   return {
-    ...researchInput,
+    ...scopedResearchInput,
     competitorSeedHints: buildCompetitorSeedHints(researchInput),
     competitorAds:
       "ResearchInput.competitorAds is fixture-preview context only. It is omitted from live ad evidence and must not be copied into body.adEvidence. Use competitorSeedHints as the named competitor starting set, not as live ad creative evidence.",
+  };
+}
+
+function resolvePromptSectionId(
+  definition: PromptSectionDefinition,
+): SectionId | null {
+  if (definition.id !== undefined) {
+    return definition.id;
+  }
+
+  if (definition.sectionOutputSchemaName === undefined) {
+    return null;
+  }
+
+  return (
+    sectionIdByOutputSchemaName[definition.sectionOutputSchemaName] ?? null
+  );
+}
+
+function buildSectionScopedResearchInputForPrompt({
+  definition,
+  researchInput,
+}: {
+  definition: PromptSectionDefinition;
+  researchInput: ResearchInput;
+}): Omit<ResearchInput, "corpus"> & {
+  corpus: { excerpts: ResearchInput["corpus"]["excerpts"] };
+} {
+  const sectionId = resolvePromptSectionId(definition);
+  const sectionExcerpts =
+    sectionId === null
+      ? undefined
+      : researchInput.corpus.sectionExcerpts?.[sectionId];
+
+  return {
+    ...researchInput,
+    corpus: {
+      excerpts: sectionExcerpts ?? researchInput.corpus.excerpts,
+    },
   };
 }
 

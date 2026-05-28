@@ -5,6 +5,7 @@ import {
   type ResearchInput,
   type SourceRef,
 } from "../lab-engine/artifacts/artifact-envelope";
+import { sectionIds, type SectionId } from "../lab-engine/events/activity-event";
 import {
   buildUploadedDocumentSourceUrl,
   trimUploadedDocumentExcerpt,
@@ -21,6 +22,69 @@ export interface CorpusToResearchInputParams {
 
 const defaultCompanyStage = "growth";
 const defaultDistributionChannel = "paid-search";
+const sectionScopeKeywords = {
+  positioningMarketCategory: [
+    "category",
+    "market",
+    "segment",
+    "industry",
+    "tam",
+    "sam",
+  ],
+  positioningBuyerICP: [
+    "icp",
+    "persona",
+    "buyer",
+    "role",
+    "title",
+    "jtbd",
+    "pain",
+    "use case",
+  ],
+  positioningCompetitorLandscape: [
+    "competitor",
+    "alternative",
+    "vs",
+    "comparison",
+    "pricing",
+    "feature",
+  ],
+  positioningVoiceOfCustomer: [
+    "quote",
+    "review",
+    "testimonial",
+    "feedback",
+    "complaint",
+    "g2",
+    "trustpilot",
+  ],
+  positioningDemandIntent: [
+    "search",
+    "keyword",
+    "serp",
+    "demand",
+    "volume",
+    "intent",
+  ],
+  positioningOfferDiagnostic: [
+    "offer",
+    "price",
+    "plan",
+    "tier",
+    "trial",
+    "pricing",
+    "guarantee",
+  ],
+  positioningPaidMediaPlan: [
+    "campaign",
+    "paid",
+    "channel",
+    "creative",
+    "kpi",
+    "funnel",
+    "audience",
+  ],
+} as const satisfies Record<SectionId, readonly string[]>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -487,6 +551,58 @@ function buildCorpusExcerpts({
   return [...evidenceExcerpts, ...uploadedDocumentExcerpts];
 }
 
+function excerptMatchesKeywords(
+  excerpt: CorpusExcerpt,
+  keywords: readonly string[],
+): boolean {
+  const haystack = `${excerpt.title} ${excerpt.text}`.toLowerCase();
+
+  return keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+}
+
+function excerptMatchesAnySection(excerpt: CorpusExcerpt): boolean {
+  return sectionIds.some((sectionId) =>
+    excerptMatchesKeywords(excerpt, sectionScopeKeywords[sectionId]),
+  );
+}
+
+function dedupeCorpusExcerpts(
+  excerpts: readonly CorpusExcerpt[],
+): CorpusExcerpt[] {
+  const seenIds = new Set<string>();
+
+  return excerpts.filter((excerpt) => {
+    if (seenIds.has(excerpt.id)) {
+      return false;
+    }
+
+    seenIds.add(excerpt.id);
+    return true;
+  });
+}
+
+function buildSectionScopedCorpusExcerpts(
+  excerpts: readonly CorpusExcerpt[],
+): Record<SectionId, CorpusExcerpt[]> {
+  const sharedExcerpts = excerpts.filter(
+    (excerpt) => !excerptMatchesAnySection(excerpt),
+  );
+  const scopedEntries = sectionIds.map(
+    (sectionId): [SectionId, CorpusExcerpt[]] => {
+      const sectionExcerpts = excerpts.filter((excerpt) =>
+        excerptMatchesKeywords(excerpt, sectionScopeKeywords[sectionId]),
+      );
+
+      return [
+        sectionId,
+        dedupeCorpusExcerpts([...sectionExcerpts, ...sharedExcerpts]),
+      ];
+    },
+  );
+
+  return Object.fromEntries(scopedEntries) as Record<SectionId, CorpusExcerpt[]>;
+}
+
 function countDroppedEvidenceExcerpts({
   evidenceRecords,
   observedAt,
@@ -589,6 +705,12 @@ export function corpusToResearchInput(
     observedAt,
     sources,
   });
+  const corpusExcerpts = buildCorpusExcerpts({
+    evidenceRecords,
+    observedAt,
+    sources,
+    uploadedDocuments,
+  });
   return researchInputSchema.parse({
     runId: params.runId,
     fixtureId: `brand_${companySlug}`,
@@ -638,12 +760,8 @@ export function corpusToResearchInput(
       ...mediaPlanBriefFields,
     },
     corpus: {
-      excerpts: buildCorpusExcerpts({
-        evidenceRecords,
-        observedAt,
-        sources,
-        uploadedDocuments,
-      }),
+      excerpts: corpusExcerpts,
+      sectionExcerpts: buildSectionScopedCorpusExcerpts(corpusExcerpts),
     },
     sources,
     competitorAds: [],
