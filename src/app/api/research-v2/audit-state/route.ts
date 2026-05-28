@@ -394,7 +394,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
 
   const parentId = parent.id as string;
 
-  const [runsResp, sectionsResp, eventsResp] = await Promise.all([
+  const [runsResp, sectionsResp] = await Promise.all([
     supabase
       .from('research_section_runs')
       .select('id, zone, status, started_at, telemetry')
@@ -404,15 +404,6 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .from('research_artifact_sections')
       .select('zone, section_run_id, status, title, markdown, data')
       .eq('artifact_id', parentId),
-    // P2a — last 60 events across all zones for this parent run (cap so a
-    // single request never balloons; the 6 zones × ~10 events each fit
-    // comfortably). Ordered ascending so the UI can render chronologically.
-    supabase
-      .from('research_section_events')
-      .select('id, zone, event_type, message, payload, created_at')
-      .eq('artifact_id', parentId)
-      .order('created_at', { ascending: false })
-      .limit(60),
   ]);
 
   if (runsResp.error || sectionsResp.error) {
@@ -421,10 +412,6 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       runsResp.error?.message ?? sectionsResp.error?.message,
     );
     return NextResponse.json({ error: 'lookup_failed' }, { status: 500 });
-  }
-  if (eventsResp.error) {
-    // Events are best-effort — log and continue with empty events.
-    console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
   }
 
   const committedCompleteSectionRunByZone = new Map<string, string>();
@@ -456,6 +443,17 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const workerSectionIds: readonly AllPositioningSectionId[] = hasPaidMediaPlanRow
     ? [...POSITIONING_SECTION_IDS, PAID_MEDIA_PLAN_SECTION_ID]
     : POSITIONING_SECTION_IDS;
+  const eventLimit = 12 * workerSectionIds.length;
+  const eventsResp = await supabase
+    .from('research_section_events')
+    .select('id, zone, event_type, message, payload, created_at')
+    .eq('artifact_id', parentId)
+    .order('created_at', { ascending: false })
+    .limit(eventLimit);
+  if (eventsResp.error) {
+    // Events are best-effort — log and continue with empty events.
+    console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
+  }
   const eventsByZone = buildEventsByZone(eventsResp.data ?? []);
   const eventSignalsByZone = buildEventSignalsByZone(eventsByZone);
 

@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 const RUN_ID = '00000000-0000-4000-8000-0000000000aa';
+const POSITIONING_ZONES = [
+  'positioningMarketCategory',
+  'positioningBuyerICP',
+  'positioningCompetitorLandscape',
+  'positioningVoiceOfCustomer',
+  'positioningDemandIntent',
+  'positioningOfferDiagnostic',
+] as const;
 
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
@@ -234,6 +242,48 @@ describe('GET /api/research-v2/audit-state', () => {
         },
       ],
     });
+  });
+
+  it('queries enough events for each worker zone to keep its newest activity', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+
+    const makeRows = (
+      zones: readonly (typeof POSITIONING_ZONES)[number][],
+    ): Array<Record<string, unknown>> =>
+      zones.flatMap((zone) =>
+        Array.from({ length: 13 }, (_, index) => {
+          const sequence = 13 - index;
+          return {
+            id: `${zone}-event-${sequence}`,
+            zone,
+            event_type: 'tool-started',
+            message: `event ${sequence}`,
+            payload: {
+              toolName: 'web_search',
+              query: `${zone} query ${sequence}`,
+            },
+            created_at: `2026-05-15T12:${String(sequence).padStart(2, '0')}:00.000Z`,
+          };
+        }),
+      );
+    const completeRows = makeRows(POSITIONING_ZONES);
+    const starvedRows = makeRows(POSITIONING_ZONES.slice(0, 5));
+    routeMocks.eventsQuery.limit.mockImplementation(
+      async (limit: number): Promise<{ data: Array<Record<string, unknown>>; error: null }> => ({
+        data: limit >= 12 * POSITIONING_ZONES.length ? completeRows : starvedRows,
+        error: null,
+      }),
+    );
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(routeMocks.eventsQuery.limit).toHaveBeenCalledWith(72);
+    for (const zone of POSITIONING_ZONES) {
+      expect(body.eventsByZone[zone].map((event: { id: string }) => event.id)).toEqual(
+        Array.from({ length: 12 }, (_, index) => `${zone}-event-${index + 2}`),
+      );
+    }
   });
 
   it('defaults missing phase telemetry to queued labels', async () => {
