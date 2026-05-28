@@ -385,7 +385,7 @@ describe('<AuditReaderShell>', () => {
   });
 
   it('auto-kicks lab orchestration when a seeded run has no parent id yet', async (): Promise<void> => {
-    const fetchMock = vi.fn(async () => Response.json({}));
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({}));
     vi.stubGlobal('fetch', fetchMock);
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -410,7 +410,7 @@ describe('<AuditReaderShell>', () => {
   });
 
   it('does not auto-kick lab orchestration again when worker state length changes', async (): Promise<void> => {
-    const fetchMock = vi.fn(async () => Response.json({}));
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({}));
     const runId = '00000000-0000-4000-8000-0000000000bb';
     const orchestrateCallCount = (): number =>
       fetchMock.mock.calls.filter(([url]) => url === '/api/research-v2/orchestrate')

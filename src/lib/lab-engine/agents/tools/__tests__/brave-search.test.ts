@@ -42,7 +42,7 @@ describe("braveSearchAgentTool", (): void => {
   });
 
   it("parses web results from Brave Search", async (): Promise<void> => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({
         web: {
           results: [
@@ -80,10 +80,16 @@ describe("braveSearchAgentTool", (): void => {
       ],
     });
 
-    const [requestUrl, requestInit] = fetchMock.mock.calls[0] as [
-      string,
-      RequestInit,
-    ];
+    const firstCall = fetchMock.mock.calls[0];
+    if (firstCall === undefined) {
+      throw new Error("Expected Brave Search to call fetch.");
+    }
+
+    const [requestUrl, requestInit] = firstCall;
+    if (typeof requestUrl !== "string" || requestInit === undefined) {
+      throw new Error("Expected Brave Search fetch call to include url and init.");
+    }
+
     const url = new URL(requestUrl);
 
     expect(url.origin + url.pathname).toBe(

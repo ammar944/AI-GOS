@@ -4,6 +4,10 @@ import { tmpdir } from 'node:os';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import {
+  competitorLandscapeBodySchema,
+  type CompetitorLandscapeBody,
+} from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
@@ -111,6 +115,12 @@ function requireRecord(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function assertCompetitorLandscapeBody(
+  body: unknown,
+): asserts body is CompetitorLandscapeBody {
+  competitorLandscapeBodySchema.parse(body);
 }
 
 describe('runSection corpus-only mode', (): void => {
@@ -386,6 +396,7 @@ describe('runSection corpus-only mode', (): void => {
     expect(result.artifact.body).toMatchObject({
       competitorSet: competitorLandscapeFixtureArtifact.body.competitorSet,
     });
+    assertCompetitorLandscapeBody(result.artifact.body);
     expect(result.artifact.body.adEvidence.advertiserGroups[0]).toMatchObject({
       advertiserName: 'Kalungi',
       domain: 'kalungi.com',
@@ -463,7 +474,7 @@ describe('runSection corpus-only mode', (): void => {
       expect(Object.keys(params.externalTools)).toEqual(
         expect.arrayContaining(['google_ads', 'meta_ads']),
       );
-      params.onStepFinish(toolStep);
+      params.onStepFinish?.(toolStep);
 
       return {
         steps: [toolStep],
@@ -485,6 +496,7 @@ describe('runSection corpus-only mode', (): void => {
       },
     );
 
+    assertCompetitorLandscapeBody(result.artifact.body);
     expect(result.artifact.body.adEvidence.advertiserGroups).toEqual([
       expect.objectContaining({
         advertiserName: 'Gong',

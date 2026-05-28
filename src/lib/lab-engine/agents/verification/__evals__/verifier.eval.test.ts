@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import { describe, expect, it } from "vitest";
 
 import { checkRequiredEvidenceClasses } from "../../../sections/required-evidence";
@@ -31,7 +33,7 @@ const fixtureModules = import.meta.glob<VerifierFixture>("./fixtures/*.json", {
   import: "default",
 });
 
-const fixtures = Object.values(fixtureModules);
+const fixtures: VerifierFixture[] = Object.values(fixtureModules);
 
 describe("structural verifier fixture eval gate", (): void => {
   it("loads the deterministic fixture set", (): void => {
