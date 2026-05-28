@@ -1,6 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildFrozenGtmBriefThesisPatch } from '../orchestrate-db';
+const dbMocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
+  rpc: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createAdminClient: dbMocks.createAdminClient,
+}));
+
+import {
+  buildFrozenGtmBriefThesisPatch,
+  freezeReviewedBriefSnapshot,
+} from '../orchestrate-db';
+
+beforeEach((): void => {
+  dbMocks.rpc.mockReset();
+  dbMocks.createAdminClient.mockReset();
+  dbMocks.createAdminClient.mockReturnValue({
+    rpc: dbMocks.rpc,
+  });
+});
 
 describe('buildFrozenGtmBriefThesisPatch', () => {
   it('adds the reviewed GTM Brief snapshot to an unfrozen thesis', () => {
@@ -38,5 +58,27 @@ describe('buildFrozenGtmBriefThesisPatch', () => {
 
     expect(result.shouldUpdate).toBe(false);
     expect(result.thesis).toBe(existingThesis);
+  });
+});
+
+describe('freezeReviewedBriefSnapshot', () => {
+  it('delegates the freeze write to the atomic security-definer RPC', async () => {
+    dbMocks.rpc.mockResolvedValue({ data: 'frozen', error: null });
+
+    await expect(
+      freezeReviewedBriefSnapshot({
+        parentAuditRunId: '11111111-1111-4111-8111-111111111111',
+        gtmBriefSnapshot: { companyName: 'Fellow' },
+        gtmBriefReview: { fieldCount: 47 },
+        frozenAt: '2026-05-15T12:00:00.000Z',
+      }),
+    ).resolves.toBe('frozen');
+
+    expect(dbMocks.rpc).toHaveBeenCalledWith('freeze_reviewed_brief_snapshot', {
+      p_parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      p_gtm_brief_snapshot: { companyName: 'Fellow' },
+      p_gtm_brief_review: { fieldCount: 47 },
+      p_frozen_at: '2026-05-15T12:00:00.000Z',
+    });
   });
 });

@@ -28,6 +28,10 @@ const RpcRowSchema = z.object({
   reused: z.boolean(),
 });
 const RpcRowsSchema = z.array(RpcRowSchema);
+const FreezeReviewedBriefSnapshotResultSchema = z.enum([
+  'frozen',
+  'already_frozen',
+]);
 
 const POSITIONING_ZONE_SET: ReadonlySet<string> = new Set(ALL_POSITIONING_SECTION_IDS);
 
@@ -86,46 +90,22 @@ export async function freezeReviewedBriefSnapshot(input: {
   frozenAt?: string;
 }): Promise<'frozen' | 'already_frozen'> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from('research_artifacts')
-    .select('thesis')
-    .eq('id', input.parentAuditRunId)
-    .maybeSingle();
+  const frozenAt = input.frozenAt ?? new Date().toISOString();
+  const { data, error } = await supabase.rpc('freeze_reviewed_brief_snapshot', {
+    p_parent_audit_run_id: input.parentAuditRunId,
+    p_gtm_brief_snapshot: input.gtmBriefSnapshot,
+    p_gtm_brief_review: input.gtmBriefReview,
+    p_frozen_at: frozenAt,
+  });
 
   if (error) {
     throw new OrchestrateRpcError(
-      `research_artifacts thesis read failed: ${error.message}`,
+      `freeze_reviewed_brief_snapshot RPC failed: ${error.message}`,
       error,
     );
   }
 
-  const patch = buildFrozenGtmBriefThesisPatch({
-    existingThesis: asRecord((data as { thesis?: unknown } | null)?.thesis),
-    gtmBriefSnapshot: input.gtmBriefSnapshot,
-    gtmBriefReview: input.gtmBriefReview,
-    frozenAt: input.frozenAt ?? new Date().toISOString(),
-  });
-
-  if (!patch.shouldUpdate) {
-    return 'already_frozen';
-  }
-
-  const { error: updateError } = await supabase
-    .from('research_artifacts')
-    .update({
-      thesis: patch.thesis,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', input.parentAuditRunId);
-
-  if (updateError) {
-    throw new OrchestrateRpcError(
-      `research_artifacts thesis update failed: ${updateError.message}`,
-      updateError,
-    );
-  }
-
-  return 'frozen';
+  return FreezeReviewedBriefSnapshotResultSchema.parse(data);
 }
 
 export async function seedOrchestration(
