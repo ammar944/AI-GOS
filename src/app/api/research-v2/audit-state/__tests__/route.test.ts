@@ -157,6 +157,85 @@ describe('GET /api/research-v2/audit-state', () => {
     });
   });
 
+  it('derives live tool, source, and capability gaps from persisted section events', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'section-run-market',
+          zone: 'positioningMarketCategory',
+          status: 'running',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            latestTool: 'stale_tool',
+            latestSource: 'https://stale.example.com',
+            capabilityGaps: [{ reason: 'missing_credential' }],
+            executionMode: 'lab',
+          },
+        },
+      ],
+      error: null,
+    });
+    routeMocks.eventsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          id: 'event-3',
+          zone: 'positioningMarketCategory',
+          event_type: 'tool-finished',
+          message: 'firecrawl finished',
+          payload: {
+            toolName: 'firecrawl',
+            sourceUrl: 'https://www.gong.io/',
+            gap: {
+              reason: 'api_error',
+              message: 'Firecrawl returned 502',
+            },
+          },
+          created_at: '2026-05-15T12:00:03.000Z',
+        },
+        {
+          id: 'event-2',
+          zone: 'positioningMarketCategory',
+          event_type: 'tool-started',
+          message: 'firecrawl started',
+          payload: {
+            toolName: 'firecrawl',
+            sourceUrl: 'https://www.gong.io/',
+          },
+          created_at: '2026-05-15T12:00:02.000Z',
+        },
+        {
+          id: 'event-1',
+          zone: 'positioningMarketCategory',
+          event_type: 'tool-started',
+          message: 'web_search started',
+          payload: {
+            toolName: 'web_search',
+            query: 'Gong alternatives',
+          },
+          created_at: '2026-05-15T12:00:01.000Z',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[0]).toMatchObject({
+      section_id: 'positioningMarketCategory',
+      status: 'running',
+      latestTool: 'firecrawl',
+      latestSource: 'https://www.gong.io/',
+      capabilityGaps: [
+        {
+          reason: 'api_error',
+          message: 'Firecrawl returned 502',
+        },
+      ],
+    });
+  });
+
   it('defaults missing phase telemetry to queued labels', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const response = await GET(makeRequest());

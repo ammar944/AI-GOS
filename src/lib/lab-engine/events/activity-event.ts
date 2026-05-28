@@ -47,6 +47,8 @@ const sectionMetadataSchema = z
 const toolMetadataSchema = z
   .object({
     toolName: z.string().min(1),
+    query: z.string().min(1).optional(),
+    sourceUrl: z.string().url().optional(),
   })
   .strict();
 

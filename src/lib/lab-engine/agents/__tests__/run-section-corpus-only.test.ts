@@ -12,6 +12,7 @@ import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { runSection } from '../run-section';
 import type {
+  AgentStep,
   AnswerToolRunner,
   EvidencePassRunner,
   StructuredCaller,
@@ -410,49 +411,55 @@ describe('runSection corpus-only mode', (): void => {
     await store.createRun(researchInput);
 
     const output = buildCompetitorLandscapeOutput();
+    const toolStep: AgentStep = {
+      stepNumber: 0,
+      finishReason: 'tool-calls',
+      text: '',
+      toolCalls: [
+        {
+          toolName: 'google_ads',
+          input: {
+            advertiser: 'Gong',
+            domain: 'gong.io',
+            max_results: 4,
+          },
+        },
+      ],
+      toolResults: [
+        {
+          toolName: 'google_ads',
+          input: {
+            advertiser: 'Gong',
+            domain: 'gong.io',
+            max_results: 4,
+          },
+          output: {
+            type: 'result',
+            advertiser: 'Gong',
+            platform: 'google',
+            ads: [
+              {
+                url: 'https://adstransparency.google.com/advertiser/gong',
+                id: 'gong-ad-1',
+                advertiserName: 'Gong',
+                title: 'Improve forecast accuracy',
+                detailsUrl:
+                  'https://adstransparency.google.com/advertiser/gong',
+              },
+            ],
+          },
+          type: 'tool-result',
+        },
+      ],
+    };
     const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
       expect(Object.keys(params.externalTools)).toEqual(
         expect.arrayContaining(['google_ads', 'meta_ads']),
       );
+      params.onStepFinish(toolStep);
 
       return {
-        steps: [
-          {
-            stepNumber: 0,
-            finishReason: 'tool-calls',
-            text: '',
-            toolCalls: [
-              {
-                toolName: 'google_ads',
-                input: {
-                  advertiser: 'Gong',
-                  domain: 'gong.io',
-                  max_results: 4,
-                },
-              },
-            ],
-            toolResults: [
-              {
-                toolName: 'google_ads',
-                output: {
-                  type: 'result',
-                  advertiser: 'Gong',
-                  platform: 'google',
-                  ads: [
-                    {
-                      url: 'https://adstransparency.google.com/advertiser/gong',
-                      id: 'gong-ad-1',
-                      advertiserName: 'Gong',
-                      title: 'Improve forecast accuracy',
-                      detailsUrl:
-                        'https://adstransparency.google.com/advertiser/gong',
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
+        steps: [toolStep],
         text: '',
         answerInput: output,
       };
@@ -485,6 +492,16 @@ describe('runSection corpus-only mode', (): void => {
         ],
       }),
     ]);
+
+    const record = await store.readRun(researchInput.runId);
+    expect(
+      record.events
+        .filter((event) => event.type === 'tool-started')
+        .map((event) => event.metadata),
+    ).toContainEqual({
+      toolName: 'google_ads',
+      query: 'Gong (gong.io)',
+    });
   });
 
   it('normalizes paid-media structured drift before strict validation', async (): Promise<void> => {

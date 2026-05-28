@@ -319,6 +319,10 @@ function buildToolEvents({
   const events: ActivityEvent[] = [];
 
   for (const toolCall of step.toolCalls) {
+    const signalMetadata = buildToolSignalMetadata({
+      input: toolCall.input,
+      toolName: toolCall.toolName,
+    });
     events.push(
       createEvent({
         deps,
@@ -326,21 +330,27 @@ function buildToolEvents({
         sectionId,
         type: "tool-started",
         message: `${toolCall.toolName} started`,
-        metadata: { toolName: toolCall.toolName },
+        metadata: { toolName: toolCall.toolName, ...signalMetadata },
       }),
     );
   }
 
   for (const toolResult of step.toolResults) {
     const gap = parseToolGap(toolResult.output);
+    const signalMetadata = buildToolSignalMetadata({
+      input: toolResult.input,
+      toolName: toolResult.toolName,
+    });
     const metadata =
       gap === null
         ? {
             toolName: toolResult.toolName,
+            ...signalMetadata,
             outputSummary: shortenForEvent(toolResult.output),
           }
         : {
             toolName: toolResult.toolName,
+            ...signalMetadata,
             gap: buildGapMetadata(gap),
           };
 
@@ -684,6 +694,59 @@ function getStringProperty(
 
   const trimmedValue = propertyValue.trim();
   return trimmedValue.length === 0 ? null : trimmedValue;
+}
+
+function getUrlProperty(
+  value: Record<string, unknown> | null,
+  key: string,
+): string | null {
+  const candidate = getStringProperty(value, key);
+  if (candidate === null) {
+    return null;
+  }
+
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildToolSignalMetadata({
+  input,
+  toolName,
+}: {
+  input: unknown;
+  toolName: string;
+}): { query?: string; sourceUrl?: string } {
+  const inputRecord = getRecord(input);
+
+  if (toolName === "web_search") {
+    const query = getStringProperty(inputRecord, "q");
+    return query === null ? {} : { query };
+  }
+
+  if (toolName === "firecrawl") {
+    const sourceUrl = getUrlProperty(inputRecord, "url");
+    return sourceUrl === null ? {} : { sourceUrl };
+  }
+
+  if (
+    toolName === "google_ads" ||
+    toolName === "meta_ads" ||
+    toolName === "adlibrary"
+  ) {
+    const advertiser = getStringProperty(inputRecord, "advertiser");
+    const domain = getStringProperty(inputRecord, "domain");
+    if (advertiser === null) {
+      return {};
+    }
+    return domain === null
+      ? { query: advertiser }
+      : { query: `${advertiser} (${domain})` };
+  }
+
+  return {};
 }
 
 function withNormalizedCompetitorAdEvidence({

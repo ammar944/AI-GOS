@@ -175,6 +175,12 @@ interface WorkerStateReadModel {
   runtimeTimings: SectionRuntimeTimings;
 }
 
+interface EventDerivedWorkerSignal {
+  latestTool: string | null;
+  latestSource: string | null;
+  capabilityGaps: Array<Record<string, unknown>>;
+}
+
 function normalizeExecutionMode(value: unknown): 'draft' | 'deep' | 'lab' | null {
   return value === 'draft' || value === 'deep' || value === 'lab'
     ? value
@@ -203,10 +209,91 @@ function normalizeRuntimeTimings(value: unknown): SectionRuntimeTimings {
   return out;
 }
 
-function buildWorkerStateReadModel(row: {
-  status?: unknown;
-  telemetry?: unknown;
-}): WorkerStateReadModel {
+function getEventMetadata(
+  payload: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!payload) return null;
+  return asRecord(payload.metadata) ?? payload;
+}
+
+function buildEventsByZone(rows: readonly unknown[]): Record<string, SectionEvent[]> {
+  const eventsByZone: Record<string, SectionEvent[]> = {};
+  for (const row of rows) {
+    const record = asRecord(row);
+    if (!record) continue;
+    const zone = pickString(record.zone);
+    const id = pickString(record.id);
+    const eventType = pickString(record.event_type);
+    const createdAt = pickString(record.created_at);
+    if (!zone || !id || !eventType || !createdAt) continue;
+    const event: SectionEvent = {
+      id,
+      event_type: eventType,
+      message: pickString(record.message),
+      payload: asRecord(record.payload),
+      created_at: createdAt,
+    };
+    if (!eventsByZone[zone]) eventsByZone[zone] = [];
+    if (eventsByZone[zone].length < 12) eventsByZone[zone].push(event);
+  }
+  for (const zone of Object.keys(eventsByZone)) {
+    eventsByZone[zone].reverse();
+  }
+  return eventsByZone;
+}
+
+function buildEventSignalsByZone(
+  eventsByZone: Record<string, SectionEvent[]>,
+): Map<string, EventDerivedWorkerSignal> {
+  const signalsByZone = new Map<string, EventDerivedWorkerSignal>();
+
+  for (const [zone, events] of Object.entries(eventsByZone)) {
+    let latestTool: string | null = null;
+    let latestSource: string | null = null;
+    const capabilityGaps: Array<Record<string, unknown>> = [];
+    let hasToolEvent = false;
+
+    for (const event of events) {
+      if (
+        event.event_type !== 'tool-started' &&
+        event.event_type !== 'tool-finished'
+      ) {
+        continue;
+      }
+      const metadata = getEventMetadata(event.payload);
+      if (!metadata) continue;
+      const toolName = pickString(metadata.toolName);
+      const source = pickString(metadata.sourceUrl) ?? pickString(metadata.query);
+      if (toolName || source) {
+        hasToolEvent = true;
+        latestTool = toolName ?? latestTool;
+        latestSource = source ?? latestSource;
+      }
+      if (event.event_type === 'tool-finished') {
+        const gap = asRecord(metadata.gap);
+        if (gap) capabilityGaps.push(gap);
+      }
+    }
+
+    if (hasToolEvent || capabilityGaps.length > 0) {
+      signalsByZone.set(zone, {
+        latestTool,
+        latestSource,
+        capabilityGaps,
+      });
+    }
+  }
+
+  return signalsByZone;
+}
+
+function buildWorkerStateReadModel(
+  row: {
+    status?: unknown;
+    telemetry?: unknown;
+  },
+  eventSignal?: EventDerivedWorkerSignal,
+): WorkerStateReadModel {
   const status = normalizeStatus(row.status);
   const telemetry = asRecord(row.telemetry) ?? {};
   const executionMode = normalizeExecutionMode(telemetry.executionMode);
@@ -217,15 +304,21 @@ function buildWorkerStateReadModel(row: {
     phase,
     phaseLabel: phase,
     phaseStartedAt: pickString(telemetry.phaseStartedAt),
-    latestTool: pickString(telemetry.latestTool),
-    latestSource: pickString(telemetry.latestSource),
+    latestTool: eventSignal
+      ? eventSignal.latestTool
+      : pickString(telemetry.latestTool),
+    latestSource: eventSignal
+      ? eventSignal.latestSource
+      : pickString(telemetry.latestSource),
     latestActivity: pickString(telemetry.latestActivity),
     nextStep: pickString(telemetry.nextStep),
     wave: pickNumber(telemetry.wave),
     totalWaves: pickNumber(telemetry.totalWaves),
     concurrency: pickNumber(telemetry.concurrency),
     elapsedMs: pickNumber(telemetry.elapsedMs),
-    capabilityGaps: normalizeCapabilityGaps(telemetry.capabilityGaps),
+    capabilityGaps: eventSignal
+      ? eventSignal.capabilityGaps
+      : normalizeCapabilityGaps(telemetry.capabilityGaps),
     executionMode,
     runtimeTimings: normalizeRuntimeTimings(telemetry.runtimeTimings),
   };
@@ -363,6 +456,8 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const workerSectionIds: readonly AllPositioningSectionId[] = hasPaidMediaPlanRow
     ? [...POSITIONING_SECTION_IDS, PAID_MEDIA_PLAN_SECTION_ID]
     : POSITIONING_SECTION_IDS;
+  const eventsByZone = buildEventsByZone(eventsResp.data ?? []);
+  const eventSignalsByZone = buildEventSignalsByZone(eventsByZone);
 
   for (const sectionId of workerSectionIds) {
     const rowsForZone = runRows.filter((row) => row.zone === sectionId);
@@ -378,10 +473,13 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     if (!selected) continue;
     byZone.set(
       sectionId,
-      buildWorkerStateReadModel({
-        status: selected.status,
-        telemetry: selected.telemetry,
-      }),
+      buildWorkerStateReadModel(
+        {
+          status: selected.status,
+          telemetry: selected.telemetry,
+        },
+        eventSignalsByZone.get(sectionId),
+      ),
     );
   }
 
@@ -420,26 +518,6 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     (parent.status as string | null) ?? null,
     workerStates,
   );
-
-  // P2a — group events by zone, cap at 12 newest per zone (events came
-  // back ordered desc by created_at — we re-sort ascending so the UI
-  // shows chronological flow).
-  const eventsByZone: Record<string, SectionEvent[]> = {};
-  for (const row of eventsResp.data ?? []) {
-    const zone = row.zone as string;
-    const event: SectionEvent = {
-      id: row.id as string,
-      event_type: row.event_type as string,
-      message: (row.message as string | null) ?? null,
-      payload: (row.payload as Record<string, unknown> | null) ?? null,
-      created_at: row.created_at as string,
-    };
-    if (!eventsByZone[zone]) eventsByZone[zone] = [];
-    if (eventsByZone[zone].length < 12) eventsByZone[zone].push(event);
-  }
-  for (const zone of Object.keys(eventsByZone)) {
-    eventsByZone[zone].reverse();
-  }
 
   return NextResponse.json(
     {
