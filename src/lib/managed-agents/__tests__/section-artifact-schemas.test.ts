@@ -440,6 +440,60 @@ describe('validateArtifactForSection (Competitor Landscape)', () => {
           },
         ],
       },
+      adEvidence: {
+        prose: 'Live ad-library evidence is grouped by advertiser and surfaces displayable counts honestly.',
+        advertiserGroups: [
+          {
+            advertiserName: 'Alpha',
+            domain: 'alpha.com',
+            platforms: ['meta'],
+            rawCounts: { google: 0, meta: 1, linkedin: 0 },
+            displayableCounts: { google: 0, meta: 1, linkedin: 0 },
+            displayableTotal: 1,
+            returnedCreativeCount: 1,
+            creatives: [
+              {
+                id: 'alpha-meta-1',
+                platform: 'meta',
+                advertiserName: 'Alpha',
+                headline: 'Fix meeting chaos',
+                body: 'Workflow automation for faster decisions.',
+                landingUrl: 'https://alpha.com/demo',
+                creativeUrl: null,
+                imageUrl: null,
+                videoUrl: null,
+                detailsUrl: 'https://facebook.com/ads/library/?id=alpha-meta-1',
+                sourceUrl: 'https://facebook.com/ads/library/?id=alpha-meta-1',
+                firstSeen: '2026-05-01',
+                lastSeen: '2026-05-20',
+                format: 'text',
+                isActive: true,
+              },
+            ],
+            libraryLinks: {
+              meta: 'https://www.facebook.com/ads/library/?q=Alpha',
+            },
+            rawSourceSamples: [
+              {
+                id: 'raw-alpha-meta-1',
+                platform: 'meta',
+                advertiserName: 'Alpha',
+                headline: 'Fix meeting chaos',
+                body: 'Workflow automation for faster decisions.',
+                imageUrl: null,
+                videoUrl: null,
+                detailsUrl: 'https://facebook.com/ads/library/?id=alpha-meta-1',
+                sourceUrl: 'https://facebook.com/ads/library/?id=alpha-meta-1',
+                format: 'text',
+                dataGap: null,
+              },
+            ],
+            dataGaps: [],
+            sourceErrors: [],
+            observedAt: '2026-05-28T00:00:00.000Z',
+          },
+        ],
+      },
     };
   }
 

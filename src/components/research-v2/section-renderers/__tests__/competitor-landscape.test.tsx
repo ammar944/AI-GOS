@@ -25,11 +25,38 @@ describe('CompetitorLandscapeRenderer', () => {
     render(<CompetitorLandscapeRenderer artifact={makeManagedArtifact()} />);
 
     const blocks = screen.getAllByTestId('subsection');
-    expect(blocks).toHaveLength(7);
+    expect(blocks).toHaveLength(8);
     expect(blocks[6]).toHaveTextContent('7 · Ad Presence');
     expect(blocks[6]).toHaveTextContent('SignalForge');
     expect(blocks[6]).toHaveTextContent('LinkedIn');
     expect(blocks[6]).toHaveTextContent('unknown; one displayable LinkedIn creative observed');
+  });
+
+  it('renders adEvidence creatives and library links', () => {
+    render(<CompetitorLandscapeRenderer artifact={makeManagedArtifact()} />);
+
+    const blocks = screen.getAllByTestId('subsection');
+    expect(blocks[7]).toHaveTextContent('8 · Ad Evidence');
+    expect(blocks[7]).toHaveTextContent('SignalForge');
+    expect(blocks[7]).toHaveTextContent('raw 1 / displayable 1');
+    expect(blocks[7]).toHaveTextContent('Turn scattered GTM signals into account priorities');
+    expect(within(blocks[7]).getByTestId('library-link-linkedin-ads')).toBeInTheDocument();
+  });
+
+  it('renders an honest empty state when adEvidence has no advertiser groups', () => {
+    const artifact = {
+      ...makeManagedArtifact(),
+      adEvidence: {
+        prose: 'Ad library lookup completed with no displayable live creatives.',
+        advertiserGroups: [],
+      },
+    };
+
+    render(<CompetitorLandscapeRenderer artifact={artifact} />);
+
+    const blocks = screen.getAllByTestId('subsection');
+    expect(blocks[7]).toHaveTextContent('8 · Ad Evidence');
+    expect(blocks[7]).toHaveTextContent('No live ad creatives captured for this audit.');
   });
 
   it('switches the competitor focus panel via competitor tabs', () => {

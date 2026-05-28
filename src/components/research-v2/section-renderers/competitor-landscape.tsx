@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import {
+  CompetitorAdEvidence,
+  type CompetitorAdEvidenceProps,
+} from '@/components/research/competitor-ad-evidence';
 import { cn } from '@/lib/utils';
 import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import {
@@ -52,6 +56,20 @@ type NarrativeArc =
   CompetitorLandscapeArtifact['narrativeArcs']['arcs'][number];
 type AdPresenceSignal =
   CompetitorLandscapeArtifact['adPresence']['signals'][number];
+type AdEvidenceGroup =
+  CompetitorLandscapeArtifact['adEvidence']['advertiserGroups'][number];
+type AdEvidenceCreative =
+  NonNullable<CompetitorAdEvidenceProps['adCreatives']>[number];
+type AdEvidenceCreativeFormat = AdEvidenceCreative['format'];
+
+const AD_CREATIVE_FORMATS: readonly AdEvidenceCreativeFormat[] = [
+  'video',
+  'image',
+  'carousel',
+  'text',
+  'message',
+  'unknown',
+];
 
 interface AxisPosition {
   axisName: string;
@@ -85,6 +103,131 @@ function SourceLink({ url }: { url: string }): React.ReactElement | null {
 function formatPlatforms(platforms: readonly string[]): string {
   if (platforms.length === 0) return 'No active platform observed';
   return platforms.map((platform) => AD_PLATFORM_LABEL[platform] ?? platform).join(', ');
+}
+
+function countTotal(counts: AdEvidenceGroup['rawCounts']): number {
+  return counts.google + counts.meta + counts.linkedin;
+}
+
+function optionalText(value: string | null): string | undefined {
+  return value === null ? undefined : value;
+}
+
+function normalizeAdCreativeFormat(format: string): AdEvidenceCreativeFormat {
+  return AD_CREATIVE_FORMATS.includes(format as AdEvidenceCreativeFormat)
+    ? (format as AdEvidenceCreativeFormat)
+    : 'unknown';
+}
+
+function mapAdCreative(
+  creative: AdEvidenceGroup['creatives'][number],
+): AdEvidenceCreative {
+  return {
+    platform: creative.platform,
+    id: creative.id,
+    advertiser: creative.advertiserName,
+    headline: optionalText(creative.headline),
+    body: optionalText(creative.body),
+    imageUrl: optionalText(creative.imageUrl),
+    videoUrl: optionalText(creative.videoUrl),
+    format: normalizeAdCreativeFormat(creative.format),
+    isActive: creative.isActive,
+    detailsUrl: optionalText(creative.detailsUrl),
+    firstSeen: optionalText(creative.firstSeen),
+    lastSeen: optionalText(creative.lastSeen),
+  };
+}
+
+function AdEvidenceNotes({
+  group,
+}: {
+  group: AdEvidenceGroup;
+}): React.ReactElement | null {
+  const notes = [
+    ...group.dataGaps.map((gap) => ({
+      key: `gap-${gap.platform ?? 'all'}-${gap.reason}`,
+      text: `${gap.platform ? `${AD_PLATFORM_LABEL[gap.platform]}: ` : ''}${gap.reason}`,
+    })),
+    ...group.sourceErrors.map((error) => ({
+      key: `error-${error.platform}-${error.message}`,
+      text: `${AD_PLATFORM_LABEL[error.platform]}: ${error.message}`,
+    })),
+  ];
+
+  if (notes.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul className="grid gap-1 text-[12px] leading-[1.5] text-muted-foreground">
+      {notes.map((note) => (
+        <li key={note.key}>{note.text}</li>
+      ))}
+    </ul>
+  );
+}
+
+function AdEvidenceGroupBlock({
+  group,
+}: {
+  group: AdEvidenceGroup;
+}): React.ReactElement {
+  const rawTotal = countTotal(group.rawCounts);
+  const libraryLinks = {
+    metaLibraryUrl: group.libraryLinks.meta,
+    linkedInLibraryUrl: group.libraryLinks.linkedin,
+    googleAdvertiserUrl: group.libraryLinks.google,
+  };
+
+  return (
+    <section className="grid gap-3 border-b border-border pb-5 last:border-b-0 last:pb-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="grid gap-1">
+          <h3 className="text-[15px] font-semibold leading-tight tracking-[0] text-foreground">
+            {group.advertiserName}
+          </h3>
+          <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+            raw {rawTotal} / displayable {group.displayableTotal}
+          </div>
+        </div>
+        {group.domain ? (
+          <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+            {group.domain}
+          </div>
+        ) : null}
+      </div>
+      <CompetitorAdEvidence
+        adCreatives={group.creatives.map(mapAdCreative)}
+        libraryLinks={libraryLinks}
+      />
+      <AdEvidenceNotes group={group} />
+    </section>
+  );
+}
+
+function AdEvidenceSection({
+  adEvidence,
+}: {
+  adEvidence: CompetitorLandscapeArtifact['adEvidence'];
+}): React.ReactElement {
+  if (adEvidence.advertiserGroups.length === 0) {
+    return (
+      <div className="grid gap-2 text-[13px] leading-[1.6] text-muted-foreground">
+        <p>No live ad creatives captured for this audit.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5">
+      {adEvidence.advertiserGroups.map((group) => (
+        <AdEvidenceGroupBlock
+          key={`${group.advertiserName}-${group.observedAt}`}
+          group={group}
+        />
+      ))}
+    </div>
+  );
 }
 
 function getUniqueCompetitors(
@@ -318,6 +461,7 @@ export function CompetitorLandscapeRenderer({
     publicWeaknesses,
     narrativeArcs,
     adPresence,
+    adEvidence,
   } = artifact;
 
   /* ───────── 1. Competitor set table ───────── */
@@ -547,6 +691,10 @@ export function CompetitorLandscapeRenderer({
           />
         </SubsectionBlock>
       ) : null}
+
+      <SubsectionBlock label="8 · Ad Evidence" prose={adEvidence.prose}>
+        <AdEvidenceSection adEvidence={adEvidence} />
+      </SubsectionBlock>
     </div>
   );
 }

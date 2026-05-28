@@ -115,6 +115,81 @@ export const AdPresenceSchema = z.object({
   signals: AdPresenceSignalSchema.array(),
 });
 
+export const AdEvidencePlatformCountsSchema = z.object({
+  google: z.number(),
+  meta: z.number(),
+  linkedin: z.number(),
+});
+
+export const AdEvidenceCreativeSchema = z.object({
+  id: z.string(),
+  platform: z.enum(AD_PLATFORM_VALUES),
+  advertiserName: z.string(),
+  headline: z.string().nullable(),
+  body: z.string().nullable(),
+  landingUrl: z.string().nullable(),
+  creativeUrl: z.string().nullable(),
+  imageUrl: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  detailsUrl: z.string().nullable(),
+  sourceUrl: z.string(),
+  firstSeen: z.string().nullable(),
+  lastSeen: z.string().nullable(),
+  format: z.string(),
+  isActive: z.boolean(),
+});
+
+export const AdEvidenceLibraryLinksSchema = z.object({
+  google: z.string().optional(),
+  meta: z.string().optional(),
+  linkedin: z.string().optional(),
+});
+
+export const AdEvidenceRawSourceSampleSchema = z.object({
+  id: z.string(),
+  platform: z.enum(AD_PLATFORM_VALUES),
+  advertiserName: z.string().nullable(),
+  headline: z.string().nullable(),
+  body: z.string().nullable(),
+  imageUrl: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  detailsUrl: z.string().nullable(),
+  sourceUrl: z.string(),
+  format: z.string().nullable(),
+  dataGap: z.string().nullable(),
+});
+
+export const AdEvidenceDataGapSchema = z.object({
+  platform: z.enum(AD_PLATFORM_VALUES).optional(),
+  reason: z.string(),
+});
+
+export const AdEvidenceSourceErrorSchema = z.object({
+  platform: z.enum(AD_PLATFORM_VALUES),
+  message: z.string(),
+});
+
+export const AdEvidenceGroupSchema = z.object({
+  advertiserName: z.string(),
+  domain: z.string().nullable(),
+  platforms: z.enum(AD_PLATFORM_VALUES).array(),
+  rawCounts: AdEvidencePlatformCountsSchema,
+  displayableCounts: AdEvidencePlatformCountsSchema,
+  displayableTotal: z.number(),
+  returnedCreativeCount: z.number(),
+  creatives: AdEvidenceCreativeSchema.array(),
+  libraryLinks: AdEvidenceLibraryLinksSchema,
+  rawSourceSamples: AdEvidenceRawSourceSampleSchema.array(),
+  dataGaps: AdEvidenceDataGapSchema.array(),
+  sourceErrors: AdEvidenceSourceErrorSchema.array(),
+  observedAt: z.string(),
+});
+
+export const AdEvidenceSchema = z.object({
+  prose: z.string(),
+  advertiserGroups: AdEvidenceGroupSchema.array(),
+});
+
 export const CompetitorLandscapeArtifactSchema = z
   .object({
     sectionTitle: z.string(),
@@ -129,6 +204,7 @@ export const CompetitorLandscapeArtifactSchema = z
     publicWeaknesses: PublicWeaknessesSchema,
     narrativeArcs: NarrativeArcsSchema,
     adPresence: AdPresenceSchema,
+    adEvidence: AdEvidenceSchema,
   })
   .describe('Complete Section 03 Competitor Landscape & Positioning Artifact.');
 
