@@ -8,6 +8,7 @@ import {
   competitorLandscapeBodySchema,
   type CompetitorLandscapeBody,
 } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
@@ -22,7 +23,7 @@ import type {
   StructuredCaller,
 } from '../section-agent';
 
-function buildMarketCategoryOutput() {
+function buildMarketCategoryOutput(): MarketCategorySectionOutput {
   return {
     sectionTitle: marketCategoryFixtureArtifact.sectionTitle,
     verdict: marketCategoryFixtureArtifact.verdict,
@@ -37,7 +38,7 @@ function buildMarketCategoryOutput() {
   };
 }
 
-function buildInvalidMarketCategoryOutput() {
+function buildInvalidMarketCategoryOutput(): MarketCategorySectionOutput {
   const output = buildMarketCategoryOutput();
 
   return {
@@ -49,6 +50,98 @@ function buildInvalidMarketCategoryOutput() {
         signals: output.body.marketSize.signals.slice(1),
       },
     },
+  };
+}
+
+function buildMarketCategoryOutputWithUnsupportedRates(
+  rates: readonly string[],
+): MarketCategorySectionOutput {
+  const output = structuredClone(buildMarketCategoryOutput());
+  const body = requireRecord(output.body);
+  const marketSize = requireRecord(body.marketSize);
+  const signals = marketSize.signals;
+
+  if (!Array.isArray(signals)) {
+    throw new Error('Expected marketSize.signals array.');
+  }
+
+  rates.forEach((rate, index) => {
+    const signal = requireRecord(signals[index]);
+    signal.evidence = `The category is expanding at ${rate} annually.`;
+  });
+
+  return output;
+}
+
+function buildMarketCategorySupportStep(): AgentStep {
+  return {
+    stepNumber: 0,
+    finishReason: 'stop',
+    text: '',
+    toolCalls: [],
+    toolResults: [
+      {
+        toolName: 'fixture_support',
+        output: {
+          text:
+            'Fixture ad sources: https://example.com/fixtures/ad-library/pipelinepilot-google and https://example.com/fixtures/ad-library/signalforge-linkedin.',
+        },
+      },
+    ],
+  };
+}
+
+function buildNumericSupportStep(value: string): AgentStep {
+  return {
+    stepNumber: 1,
+    finishReason: 'tool-calls',
+    text: '',
+    toolCalls: [],
+    toolResults: [
+      {
+        toolName: 'web_search',
+        output: {
+          text: `A fetched source says the category is expanding at ${value} annually.`,
+        },
+      },
+    ],
+  };
+}
+
+function buildCompetitorLandscapeSupportStep(): AgentStep {
+  return {
+    stepNumber: 0,
+    finishReason: 'stop',
+    text: '',
+    toolCalls: [],
+    toolResults: [
+      {
+        toolName: 'fixture_support',
+        output: {
+          text: [
+            'https://example.com/signalforge',
+            'https://example.com/pipelinepilot',
+            'https://example.com/revenueos-lab',
+            'https://example.com/growthops-studio',
+            'https://example.com/diy-spreadsheet',
+            'https://example.com/saaslaunch/positioning-notes',
+            'https://example.com/fixtures/ad-library/signalforge-linkedin',
+            'https://example.com/fixtures/ad-library/pipelinepilot-google',
+            'https://example.com/fixtures/ad-library/revenueos-meta',
+            'https://example.com/fixtures/ad-library/growthops-linkedin',
+            'https://example.com/signalforge/pipeline-priority',
+            'https://example.com/pipelinepilot/crm-cleanup',
+            'https://example.com/revenueos-lab/operator',
+            'https://example.com/fixtures/creative/revenueos-operator.png',
+            'https://www.linkedin.com/ad-library/search?company=SignalForge',
+            'https://adstransparency.google.com/?region=US&query=PipelinePilot',
+            'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=RevenueOS%20Lab',
+            'https://adstransparency.google.com/?region=US&query=Kalungi',
+            'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=Kalungi',
+          ].join(' '),
+        },
+      },
+    ],
   };
 }
 
@@ -160,7 +253,7 @@ describe('runSection corpus-only mode', (): void => {
       );
 
       return {
-        steps: [],
+        steps: [buildMarketCategorySupportStep()],
         text: '',
         answerInput: output,
       };
@@ -202,7 +295,7 @@ describe('runSection corpus-only mode', (): void => {
     await store.createRun(saaslaunchResearchInput);
 
     const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
-      steps: [],
+      steps: [buildMarketCategorySupportStep()],
       text: '',
       answerInput: buildMarketCategoryOutput(),
     }));
@@ -261,7 +354,7 @@ describe('runSection corpus-only mode', (): void => {
       }
 
       return {
-        steps: [],
+        steps: [buildMarketCategorySupportStep()],
         text: '',
         answerInput:
           calls === 1
@@ -317,7 +410,7 @@ describe('runSection corpus-only mode', (): void => {
       }
 
       return {
-        steps: [],
+        steps: [buildMarketCategorySupportStep()],
         text: '',
         answerInput:
           calls < 3
@@ -358,6 +451,143 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
+  it('repairs unsupported load-bearing numeric claims and commits the grounded repair', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-29T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    let calls = 0;
+    const unsupportedOutput =
+      buildMarketCategoryOutputWithUnsupportedRates(['44%']);
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      calls += 1;
+
+      if (calls === 2) {
+        expect(params.prompt).toContain('numeric claim "44%"');
+        expect(params.prompt).toContain('cite a real source');
+      }
+
+      return {
+        steps:
+          calls === 1
+            ? [buildMarketCategorySupportStep()]
+            : [
+                buildMarketCategorySupportStep(),
+                buildNumericSupportStep('44%'),
+              ],
+        text: '',
+        answerInput: unsupportedOutput,
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-29T12:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const validationFailure = record.events.find(
+      (event) => event.type === 'validation-failed',
+    );
+    const groundingRepair = record.events.find(
+      (event) =>
+        event.type === 'repair-started' &&
+        event.metadata.reason === 'grounding 1 unsupported claim(s)',
+    );
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(2);
+    expect(validationFailure?.metadata.issues).toContain(
+      'numeric claim "44%" is not supported by any fetched source or corpus excerpt - cite a real source for it or remove it / restate it as a data gap.',
+    );
+    expect(groundingRepair).toBeDefined();
+    expect(result.artifact.verification?.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'verified',
+          claim: expect.objectContaining({ kind: 'numeric', value: '44%' }),
+        }),
+      ]),
+    );
+    expect(record.sections.positioningMarketCategory?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits with the honest badge when unsupported load-bearing claims survive repairs', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-29T12:30:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const unsupportedOutput =
+      buildMarketCategoryOutputWithUnsupportedRates(['44%']);
+    let calls = 0;
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      calls += 1;
+
+      if (calls > 1) {
+        expect(params.prompt).toContain('numeric claim "44%"');
+      }
+
+      return {
+        steps: [buildMarketCategorySupportStep()],
+        text: '',
+        answerInput: unsupportedOutput,
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-29T12:30:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const unsupportedNumericClaims =
+      result.artifact.verification?.claims.filter(
+        (claim) =>
+          claim.status === 'unsupported' &&
+          claim.claim.kind === 'numeric' &&
+          claim.claim.value === '44%',
+      ) ?? [];
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(unsupportedNumericClaims).toHaveLength(1);
+    expect(result.artifact.verification?.unsupportedCount).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(record.sections.positioningMarketCategory?.status).toBe(
+      'completed',
+    );
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
+    );
+  });
+
   it('records an honest competitor ad gap when ad tools are disabled', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
@@ -372,7 +602,7 @@ describe('runSection corpus-only mode', (): void => {
       expect(Object.keys(params.externalTools)).toEqual([]);
 
       return {
-        steps: [],
+        steps: [buildCompetitorLandscapeSupportStep()],
         text: '',
         answerInput: output,
       };
@@ -477,7 +707,7 @@ describe('runSection corpus-only mode', (): void => {
       params.onStepFinish?.(toolStep);
 
       return {
-        steps: [toolStep],
+        steps: [toolStep, buildCompetitorLandscapeSupportStep()],
         text: '',
         answerInput: output,
       };

@@ -68,6 +68,10 @@ import {
 } from "./tools/competitor-ad-adapter";
 import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
+import {
+  evaluateEvidenceSupport,
+  type EvidenceSupportShortfall,
+} from "./verification/evidence-support";
 import { structuralVerifier } from "./verification/structural-verifier";
 
 export interface RunSectionInput {
@@ -609,6 +613,46 @@ interface AttemptResult {
   artifact: ArtifactEnvelope | null;
   errors: string[];
   requiredEvidenceMissing?: RequiredEvidenceMissingError;
+  evidenceSupportShortfall?: EvidenceSupportShortfall;
+}
+
+function getAttemptRepairIssues(attempt: AttemptResult): string[] {
+  return [
+    ...attempt.errors,
+    ...(attempt.evidenceSupportShortfall?.issues ?? []),
+  ];
+}
+
+function getUnsupportedLoadBearingCount(attempt: AttemptResult): number {
+  return attempt.evidenceSupportShortfall?.unsupportedLoadBearing.length ?? 0;
+}
+
+function getRepairReason(attempt: AttemptResult): string {
+  const unsupportedLoadBearingCount = getUnsupportedLoadBearingCount(attempt);
+
+  if (unsupportedLoadBearingCount > 0) {
+    return `grounding ${unsupportedLoadBearingCount} unsupported claim(s)`;
+  }
+
+  return getAttemptRepairIssues(attempt).join("; ").slice(0, 200);
+}
+
+function getBestCommittableAttempt(
+  current: AttemptResult | null,
+  candidate: AttemptResult,
+): AttemptResult | null {
+  if (candidate.artifact === null) {
+    return current;
+  }
+
+  if (current === null || current.artifact === null) {
+    return candidate;
+  }
+
+  return getUnsupportedLoadBearingCount(candidate) <
+    getUnsupportedLoadBearingCount(current)
+    ? candidate
+    : current;
 }
 
 const defaultStructuredOutputMaxTokens = 8192;
@@ -2657,6 +2701,17 @@ function buildAnswerToolAttempt({
       };
     }
 
+    const evidenceSupportShortfall = evaluateEvidenceSupport({ verification });
+
+    if (evidenceSupportShortfall.unsupportedLoadBearing.length > 0) {
+      return {
+        output,
+        artifact,
+        errors: [],
+        evidenceSupportShortfall,
+      };
+    }
+
     return { output, artifact, errors: [] };
   } catch (error) {
     return { output: null, artifact: null, errors: getErrorIssues(error) };
@@ -2831,7 +2886,12 @@ async function runSectionViaAnswerTool(
     researchInput,
   });
 
-  if (attempt.artifact === null) {
+  let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
+
+  if (
+    attempt.artifact === null ||
+    attempt.evidenceSupportShortfall !== undefined
+  ) {
     const repairEvidenceTranscript = buildEvidenceTranscript(answerResult.steps);
     const shouldForceAnswerOnlyRepair =
       attempt.errors.includes(missingAnswerToolMessage);
@@ -2839,9 +2899,12 @@ async function runSectionViaAnswerTool(
     let repairAttempt = 0;
 
     while (
-      attempt.artifact === null &&
+      (attempt.artifact === null ||
+        attempt.evidenceSupportShortfall !== undefined) &&
       repairAttempt < answerToolMaxRepairAttempts
     ) {
+      const repairIssues = getAttemptRepairIssues(attempt);
+
       await appendEvent(
         deps,
         input.runId,
@@ -2854,7 +2917,7 @@ async function runSectionViaAnswerTool(
             validationAttempt === 1
               ? "Answer tool output failed validation"
               : "Answer tool repair output failed validation",
-          metadata: { attempt: validationAttempt, issues: attempt.errors },
+          metadata: { attempt: validationAttempt, issues: repairIssues },
         }),
       );
 
@@ -2868,7 +2931,7 @@ async function runSectionViaAnswerTool(
           type: "repair-started",
           message: "Answer tool repair started",
           metadata: {
-            reason: attempt.errors.join("; ").slice(0, 200),
+            reason: getRepairReason(attempt),
           },
         }),
       );
@@ -2879,7 +2942,7 @@ async function runSectionViaAnswerTool(
         prompt: buildRepairPrompt({
           definition,
           evidenceTranscript: repairEvidenceTranscript,
-          issues: attempt.errors,
+          issues: repairIssues,
           normalizedAdEvidenceGroups,
           previousOutput: attempt.output,
           researchInput,
@@ -2903,11 +2966,21 @@ async function runSectionViaAnswerTool(
         normalizedAdEvidenceGroups,
         researchInput,
       });
+      bestCommittableAttempt = getBestCommittableAttempt(
+        bestCommittableAttempt,
+        attempt,
+      );
       repairAttempt += 1;
       validationAttempt += 1;
     }
 
+    if (bestCommittableAttempt !== null) {
+      attempt = bestCommittableAttempt;
+    }
+
     if (attempt.artifact === null) {
+      const repairIssues = getAttemptRepairIssues(attempt);
+
       await appendEvent(
         deps,
         input.runId,
@@ -2917,13 +2990,13 @@ async function runSectionViaAnswerTool(
           sectionId: input.sectionId,
           type: "validation-failed",
           message: "Answer tool repair output failed validation",
-          metadata: { attempt: validationAttempt, issues: attempt.errors },
+          metadata: { attempt: validationAttempt, issues: repairIssues },
         }),
       );
       await recordSectionFailure({
         definition,
         deps,
-        errorMessage: attempt.errors.join("; "),
+        errorMessage: repairIssues.join("; "),
         failure: attempt.requiredEvidenceMissing,
         input,
       });
@@ -2935,7 +3008,7 @@ async function runSectionViaAnswerTool(
       throw new SectionRunnerError({
         runId: input.runId,
         sectionId: input.sectionId,
-        errors: attempt.errors,
+        errors: repairIssues,
       });
     }
   }

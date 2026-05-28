@@ -171,6 +171,21 @@ describe("buildAnswerToolInstructions", (): void => {
     );
   });
 
+  it("renders unsupported load-bearing claim issues in repair prompts", (): void => {
+    const issue =
+      'numeric claim "$99/mo" is not supported by any fetched source or corpus excerpt - cite a real source for it or remove it / restate it as a data gap.';
+    const prompt = buildRepairPrompt({
+      definition,
+      evidenceTranscript: "source evidence",
+      issues: [issue],
+      previousOutput: { body: { marketSize: { signals: [] } } },
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use the injected corpus only.",
+    });
+
+    expect(prompt).toContain(issue);
+  });
+
   it("spells out Paid Media Plan nested field contracts", (): void => {
     const prompt = buildRepairPrompt({
       definition: paidMediaDefinition,
