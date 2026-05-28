@@ -412,7 +412,7 @@ Status-quo alternatives:
 
 - The buyer's current manual process, internal workflow, spreadsheet, agency, or existing stack.
 - These matter when the buyer can choose to do nothing or stay with an existing process.
-- They still need evidence from corpus, reviews, community threads, or public buyer language.
+- They still need evidence from corpus, SearchAPI review-domain snippets, community threads, or public buyer language.
 
 DIY alternatives:
 

@@ -23,7 +23,7 @@ Quotes must stay verbatim. Do not paraphrase quote cards or invent review excerp
 |---|---|
 | `web_search` | Find public forums, review pages, comparison pages, and switching stories. |
 | `firecrawl` | Read pages deeply for exact language. |
-| `reviews` | Pull G2, Capterra, Trustpilot, and similar review snippets. |
+| `reviews` | Pull SearchAPI Google SERP snippets from G2, Capterra, Trustpilot, and similar review domains; this is not direct review-platform API data. |
 
 ## Capability Gaps
 

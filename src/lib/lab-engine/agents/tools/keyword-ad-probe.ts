@@ -33,7 +33,7 @@ export const KeywordAdProbeOutputSchema = z.union([
 
 export const keywordAdProbeAgentTool = tool({
   description:
-    "Run a Google keyword search through SearchAPI and report organic count, ad count, and top organic URLs.",
+    "SearchAPI Google SERP organic and ad result counts with top organic URLs; not search-volume or ad-spend metrics.",
   inputSchema: z
     .object({
       keyword: z.string().min(1),

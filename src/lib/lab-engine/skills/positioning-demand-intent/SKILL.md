@@ -23,7 +23,7 @@ Do not fabricate search volume. If SearchAPI or public sources do not disclose v
 |---|---|
 | `web_search` | Find problem-aware queries, comparison patterns, and demand venues. |
 | `firecrawl` | Read pages deeply for content-gap evidence. |
-| `keyword_ad_probe` | Confirm organic result count, ad presence, and top organic URLs. |
+| `keyword_ad_probe` | Confirm SearchAPI Google SERP organic/ad result counts and top organic URLs; do not treat it as search-volume or ad-spend data. |
 
 ## Capability Gaps
 

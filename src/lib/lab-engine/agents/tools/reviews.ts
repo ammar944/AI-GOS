@@ -47,7 +47,7 @@ function deriveReviewSource(url: string): string {
 
 export const reviewsAgentTool = tool({
   description:
-    "Find customer reviews for a brand across G2, Capterra, and Trustpilot via SearchAPI.",
+    "SearchAPI Google SERP snippets from G2, Capterra, and Trustpilot domains; not direct G2, Capterra, or Trustpilot APIs.",
   inputSchema: z
     .object({
       brand: z.string().min(1),
