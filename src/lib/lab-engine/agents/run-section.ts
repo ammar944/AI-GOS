@@ -529,10 +529,6 @@ function buildRequiredToolSequence(
 ): readonly string[] {
   const toolSequence = ["readResearchInput"];
 
-  if (allowedTools.includes("spyfu")) {
-    toolSequence.push("spyfu");
-  }
-
   if (allowedTools.includes("web_search")) {
     toolSequence.push("web_search");
   }
