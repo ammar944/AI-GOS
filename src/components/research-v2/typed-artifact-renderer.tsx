@@ -26,8 +26,10 @@ import {
   DemandIntentRenderer,
   MarketCategoryRenderer,
   OfferDiagnosticRenderer,
+  PaidMediaPlanRenderer,
   VoiceOfCustomerRenderer,
 } from './section-renderers';
+import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
 import type { BuyerICPArtifact } from '@/lib/managed-agents/schemas/buyer-icp';
 import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import type { DemandIntentArtifact } from '@/lib/managed-agents/schemas/demand-intent-signals';
@@ -490,13 +492,7 @@ export function TypedArtifactRenderer({
     case 'positioningOfferDiagnostic':
       return <OfferDiagnosticRenderer artifact={artifact as unknown as OfferPerformanceArtifact} />;
     case 'positioningPaidMediaPlan':
-      return (
-        <GenericTypedArtifactRenderer
-          artifact={artifact}
-          zoneId={zoneId}
-          showSectionTitle={showSectionTitle}
-        />
-      );
+      return <PaidMediaPlanRenderer artifact={artifact as unknown as PaidMediaPlanArtifact} />;
   }
 
   return (

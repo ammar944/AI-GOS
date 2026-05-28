@@ -27,3 +27,8 @@ export {
   OfferDiagnosticRenderer,
   type OfferDiagnosticRendererProps,
 } from './offer-diagnostic';
+
+export {
+  PaidMediaPlanRenderer,
+  type PaidMediaPlanRendererProps,
+} from './paid-media-plan';

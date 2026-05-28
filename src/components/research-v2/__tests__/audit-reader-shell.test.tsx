@@ -131,7 +131,7 @@ describe('<AuditReaderShell>', () => {
     expect(
       within(
         screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
-      ).getByText('Confidence 7.2/10'),
+      ).getByTestId('paid-media-plan-renderer'),
     ).toBeInTheDocument();
     expect(
       screen.getAllByTestId(
