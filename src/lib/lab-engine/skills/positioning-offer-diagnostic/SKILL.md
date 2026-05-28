@@ -24,8 +24,6 @@ Never invent CAC, conversion, retention, activation, LTV, or ROI values. Use `no
 | `web_search` | Find offer claims, public performance evidence, and proof assets. |
 | `firecrawl` | Read landing pages and proof pages deeply. |
 | `pagespeed` | Check landing-page performance friction. |
-| `reviews` | Find objections and proof gaps from review snippets. |
-| `ga4` | Use only when the lab has linked GA4; V1 normally returns a gap. |
 
 ## Capability Gaps
 

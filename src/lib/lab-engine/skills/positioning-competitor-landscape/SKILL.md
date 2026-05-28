@@ -78,7 +78,6 @@ IRON LAW: Every strategic conclusion must point back to a source URL or a named 
 | Tool | Use | Output to extract |
 |---|---|---|
 | `web_search` | Discover competitor categories, alternatives, pricing pages, review pages, comparison pages, publications, and community discussions. | URLs, source titles, competitor names, copy, pricing status, search surfaces. |
-| `spyfu` | Inspect paid/search competitive surfaces when available. | Keyword overlaps, paid competitors, ranking surfaces, positioning terms. |
 | `adlibrary` | Find public ad/message surfaces. | Ad copy, landing-page promises, offer language, dated creative signals. |
 | `meta_ads` | Inspect Meta ad library evidence. | Active ad themes, hooks, audience-facing claims, landing URLs. |
 | `google_ads` | Inspect search ad evidence. | Keyword themes, paid positioning, competitor ad copy. |
@@ -96,7 +95,6 @@ Budget note: `web_search` and SDK tools have independent per-channel caps in V1.
 
 Examples:
 
-- If `spyfu` returns `{ type: "gap", reason: "missing_credential", envVar: "SPYFU_API_KEY", message: "..." }`, write that paid-search overlap is unavailable because of an evidence gap; do not invent keyword overlap.
 - If `firecrawl` returns `{ type: "gap", reason: "api_error", message: "..." }`, use search snippets and fixture corpus only for that page, and name the crawl gap.
 - If a section budget returns `{ type: "gap", reason: "rate_limited", message: "..." }`, stop expanding the research surface and finish with the best triangulated evidence.
 - If `adlibrary`, `google_ads`, or `meta_ads` returns a gap, empty rows, or raw rows without displayable copy, name that gap in `body.adEvidence.prose`.

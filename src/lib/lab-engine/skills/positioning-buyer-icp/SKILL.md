@@ -23,7 +23,6 @@ Never invent named people, companies, account counts, community size, or buyer t
 |---|---|
 | `web_search` | Public proof for named personas, companies, communities, newsletters, and triggers. |
 | `firecrawl` | Read source pages deeply when snippets are too thin. |
-| `reviews` | Pull buyer-language and review surfaces for pains and objections. |
 
 ## Capability Gaps
 

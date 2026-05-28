@@ -81,7 +81,6 @@ IRON LAW: If evidence is thin, state the gap in the relevant prose. Do not pad c
 |---|---|---|
 | `web_search` | Category pages, market reports, funding mentions, hiring signals, trend language, platform announcements, regulatory context. | URLs, source titles, market claims, directional signals, named categories. |
 | `firecrawl` | Reading company, category, report, product, and platform pages surfaced by search. | Page text, category phrasing, evidence snippets, dates, source URLs. |
-| `pagespeed` | Inspecting the company site when technical or page evidence affects the category read. | Public page URL, performance or page-access caveats if they affect source reliability. |
 
 Only these research tools are available for this section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
 
@@ -94,7 +93,6 @@ Budget note: `web_search` and SDK tools have independent per-channel caps in V1.
 Examples:
 
 - If `firecrawl` returns `{ type: "gap", reason: "missing_credential", envVar: "FIRECRAWL_API_KEY", message: "..." }`, use source URLs and snippets from `web_search` or ResearchInput, and name the crawl gap.
-- If `pagespeed` returns `{ type: "gap", reason: "api_error", message: "..." }`, do not invent technical page evidence; name the page-inspection gap only where it affects source reliability.
 - If a section budget returns `{ type: "gap", reason: "rate_limited", message: "..." }`, stop expanding the market surface and finish with the best triangulated evidence.
 
 ## Workflow
