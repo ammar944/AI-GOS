@@ -47,7 +47,7 @@ describe('<AuditReaderShell>', () => {
     vi.unstubAllGlobals();
   });
 
-  it('normalizes 0..1 lab confidence values in the header and rail', (): void => {
+  it('normalizes 0..1 lab confidence values in the header and progress strip', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -65,7 +65,9 @@ describe('<AuditReaderShell>', () => {
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
     expect(screen.getByLabelText('Confidence 6/10')).toBeInTheDocument();
-    expect(screen.getByText('6 confidence')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /market & category.*6 confidence/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('0.6 confidence')).not.toBeInTheDocument();
   });
 
@@ -96,7 +98,7 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByText('Verified 12 / Unsupported 2')).toBeInTheDocument();
   });
 
-  it('renders the paid media terminal with all twelve sub-sections as the seventh rail item', (): void => {
+  it('renders the paid media terminal and hides the progress strip when every section is terminal', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -122,7 +124,7 @@ describe('<AuditReaderShell>', () => {
     );
 
     expect(screen.getByText('Section 7 of 7')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /paid media plan.*7.2 confidence/i })).toBeEnabled();
+    expect(screen.queryByTestId('section-progress-strip')).not.toBeInTheDocument();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
     ).toBeInTheDocument();
@@ -221,6 +223,7 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
+    expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /paid media plan.*locked until 6\/6/i }),
     ).toBeEnabled();
@@ -241,6 +244,7 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
+    expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /paid media plan.*ready after 6\/6/i }),
     ).toBeEnabled();

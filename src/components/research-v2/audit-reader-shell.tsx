@@ -94,6 +94,11 @@ const TERMINAL_ERROR_STATUSES: ReadonlySet<WorkerStatus> = new Set([
   'error',
   'aborted',
 ]);
+const TERMINAL_READER_STATUSES: ReadonlySet<ReaderSectionStatus> = new Set([
+  'complete',
+  'error',
+  'aborted',
+]);
 const kickedOffRunIds = new Set<string>();
 
 function cleanTitle(sectionTitle: string): string {
@@ -564,6 +569,86 @@ function PaidMediaPlanTerminalPanel({
   );
 }
 
+interface SectionProgressStripProps {
+  active: ReaderSectionId;
+  avgConfidence: number | null;
+  completedCount: number;
+  confidenceOf: (id: ReaderSectionId) => number | null;
+  onSelect: (id: ReaderSectionId) => void;
+  statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
+}
+
+function SectionProgressStrip({
+  active,
+  avgConfidence,
+  completedCount,
+  confidenceOf,
+  onSelect,
+  statusOf,
+}: SectionProgressStripProps): ReactElement {
+  const completionPercent = Math.round(
+    (completedCount / READER_SECTION_IDS.length) * 100,
+  );
+
+  return (
+    <aside
+      data-testid="section-progress-strip"
+      className="w-14 shrink-0 border-r border-border bg-background"
+    >
+      <div className="sticky top-0 flex h-full min-h-0 flex-col items-center gap-3 py-3">
+        <div className="text-[10px] font-medium tabular-nums text-muted-foreground">
+          {completionPercent}%
+        </div>
+        <nav aria-label="Sections" className="flex flex-col gap-1.5">
+          {READER_SECTION_IDS.map((id) => {
+            const status = statusOf(id);
+            const confidence = confidenceOf(id);
+            const subLine =
+              status === 'complete' && confidence !== null
+                ? `${formatConfidenceToTen(confidence)} confidence`
+                : status === 'error'
+                  ? 'Needs review'
+                  : status === 'aborted'
+                    ? 'Aborted'
+                    : status === 'ready'
+                      ? 'Ready after 6/6'
+                      : status === 'locked'
+                        ? 'Locked until 6/6'
+                        : status;
+            const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-label={label}
+                title={label}
+                onClick={() => onSelect(id)}
+                className={cn(
+                  'flex size-9 items-center justify-center rounded-md transition-colors',
+                  id === active ? 'bg-secondary' : 'hover:bg-secondary/50',
+                )}
+              >
+                <SectionStatusIcon status={status} confidence={confidence} />
+              </button>
+            );
+          })}
+        </nav>
+        <div className="mt-auto pb-1 text-center text-[10px] leading-tight text-muted-foreground">
+          <div className="tabular-nums">
+            {completedCount}/{READER_SECTION_IDS.length}
+          </div>
+          {avgConfidence !== null ? (
+            <div className="mt-1 tabular-nums">
+              {formatConfidenceToTen(avgConfidence)}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -720,10 +805,13 @@ export function AuditReaderShell({
     return scores.reduce((sum, score) => sum + normalizeConfidenceToTen(score), 0) / scores.length;
   }, [confidenceOf]);
 
-  const waveLabel =
-    activeWorker?.wave && activeWorker?.totalWaves
-      ? `Wave ${activeWorker.wave} of ${activeWorker.totalWaves}`
-      : null;
+  const allSectionsTerminal = useMemo(
+    () =>
+      READER_SECTION_IDS.every((id) =>
+        TERMINAL_READER_STATUSES.has(statusOf(id)),
+      ),
+    [statusOf],
+  );
 
   const company = meta.companyName || hostnameOf(meta.websiteUrl) || 'Audit';
 
@@ -874,9 +962,25 @@ export function AuditReaderShell({
       </header>
 
       <div className="flex min-h-0 flex-1">
+        {!allSectionsTerminal ? (
+          <SectionProgressStrip
+            active={active}
+            avgConfidence={avgConfidence}
+            completedCount={completedCount}
+            confidenceOf={confidenceOf}
+            onSelect={select}
+            statusOf={statusOf}
+          />
+        ) : null}
+
         {/* reading column */}
         <main ref={mainRef} className="flex-1 overflow-y-auto bg-card">
-          <article className="mx-auto max-w-[760px] px-6 py-12 sm:px-10">
+          <article
+            className={cn(
+              'mx-auto px-6 py-12 sm:px-10',
+              allSectionsTerminal ? 'max-w-[1080px]' : 'max-w-[820px]',
+            )}
+          >
             <div className="flex items-center justify-between gap-4">
               <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 Section {activeIndex + 1} of {READER_SECTION_IDS.length}
@@ -952,74 +1056,6 @@ export function AuditReaderShell({
             )}
           </article>
         </main>
-
-        {/* right section panel — Codex-style progress checklist */}
-        <aside className="w-[320px] shrink-0 overflow-y-auto border-l border-border bg-background p-3.5">
-          <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm">
-            <div className="mb-2.5 px-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Sections
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {READER_SECTION_IDS.map((id) => {
-                const isActive = id === active;
-                const status = statusOf(id);
-                const confidence = confidenceOf(id);
-                const worker = workerById.get(id);
-                const subLine =
-                  status === 'complete' && confidence !== null
-                    ? `${formatConfidenceToTen(confidence)} confidence`
-                    : status === 'error'
-                      ? 'Needs review'
-                      : status === 'aborted'
-                        ? 'Aborted'
-                        : status === 'ready'
-                          ? 'Ready after 6/6'
-                          : status === 'locked'
-                            ? 'Locked until 6/6'
-                            : (worker?.phaseLabel ?? 'Queued');
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => select(id)}
-                    className={cn(
-                      'flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition-colors',
-                      isActive ? 'bg-secondary' : 'hover:bg-secondary/50',
-                    )}
-                  >
-                    <SectionStatusIcon status={status} confidence={confidence} />
-                    <span className="flex min-w-0 flex-col">
-                      <span
-                        className={cn(
-                          'text-[13px] leading-snug',
-                          isActive
-                            ? 'font-medium text-foreground'
-                            : 'text-foreground/80',
-                        )}
-                      >
-                        {SECTION_SHORT_LABEL[id]}
-                      </span>
-                      <span className="mt-0.5 text-[11.5px] tabular-nums text-muted-foreground">
-                        {subLine}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-3 flex items-center justify-between border-t border-border px-1.5 pt-3 text-[11.5px] text-muted-foreground">
-              <span>
-                {completedCount} of {READER_SECTION_IDS.length}
-                {waveLabel ? ` · ${waveLabel}` : ''}
-              </span>
-              {avgConfidence !== null ? (
-                <span className="tabular-nums">
-                  avg {formatConfidenceToTen(avgConfidence)}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
   );
