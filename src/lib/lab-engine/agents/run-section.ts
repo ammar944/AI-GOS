@@ -2230,15 +2230,19 @@ async function callStructuredAttempt({
   definition,
   deps,
   input,
+  modelSteps,
   normalizedAdEvidenceGroups,
   prompt,
+  researchInput,
   signal,
 }: {
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
+  modelSteps: readonly AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   prompt: string;
+  researchInput: ResearchInput;
   signal?: AbortSignal;
 }): Promise<AttemptResult> {
   const callStructured = deps.callStructured ?? defaultStructuredCaller;
@@ -2273,16 +2277,44 @@ async function callStructuredAttempt({
         sectionId: input.sectionId,
       }),
     );
+    const verification = structuralVerifier({
+      body: output.body,
+      toolResults: modelSteps.flatMap((step) => step.toolResults),
+      corpusExcerpts: researchInput.corpus.excerpts,
+    });
     const artifact = buildEnvelope({
       definition,
       deps,
       input,
       output,
+      verification,
     });
     const minimums = definition.validateMinimums(artifact);
 
     if (!minimums.ok) {
       return { output, artifact: null, errors: minimums.errors };
+    }
+
+    const missingClass = checkRequiredEvidenceClasses({
+      body: artifact.body,
+      requiredEvidenceClasses: definition.requiredEvidenceClasses,
+      sectionId: input.sectionId,
+    });
+
+    if (missingClass !== null) {
+      const failure = new RequiredEvidenceMissingError({
+        missingClass,
+        sectionId: input.sectionId,
+        unsupportedCount: verification.unsupportedCount,
+        verifiedCount: verification.verifiedCount,
+      });
+
+      return {
+        output,
+        artifact: null,
+        errors: [failure.message],
+        requiredEvidenceMissing: failure,
+      };
     }
 
     return { output, artifact, errors: [] };
@@ -2298,16 +2330,20 @@ async function callStructuredStreamAttempt({
   definition,
   deps,
   input,
+  modelSteps,
   normalizedAdEvidenceGroups,
   prompt,
+  researchInput,
   signal,
 }: {
   attempt: number;
   definition: RuntimeSectionDefinition;
   deps: StreamRunSectionDeps;
   input: RunSectionInput;
+  modelSteps: readonly AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   prompt: string;
+  researchInput: ResearchInput;
   signal?: AbortSignal;
 }): Promise<AttemptResult> {
   const streamStructured = deps.streamStructured ?? defaultStructuredStreamer;
@@ -2400,11 +2436,17 @@ async function callStructuredStreamAttempt({
         sectionId: input.sectionId,
       }),
     );
+    const verification = structuralVerifier({
+      body: output.body,
+      toolResults: modelSteps.flatMap((step) => step.toolResults),
+      corpusExcerpts: researchInput.corpus.excerpts,
+    });
     const artifact = buildEnvelope({
       definition,
       deps,
       input,
       output,
+      verification,
     });
     const minimums = definition.validateMinimums(artifact);
 
@@ -2419,6 +2461,37 @@ async function callStructuredStreamAttempt({
       });
 
       return { output, artifact: null, errors: minimums.errors };
+    }
+
+    const missingClass = checkRequiredEvidenceClasses({
+      body: artifact.body,
+      requiredEvidenceClasses: definition.requiredEvidenceClasses,
+      sectionId: input.sectionId,
+    });
+
+    if (missingClass !== null) {
+      const failure = new RequiredEvidenceMissingError({
+        missingClass,
+        sectionId: input.sectionId,
+        unsupportedCount: verification.unsupportedCount,
+        verifiedCount: verification.verifiedCount,
+      });
+
+      writeValidationEvent({
+        attempt,
+        deps,
+        issues: [failure.message],
+        runId: input.runId,
+        sectionId: input.sectionId,
+        state: "failed",
+      });
+
+      return {
+        output,
+        artifact: null,
+        errors: [failure.message],
+        requiredEvidenceMissing: failure,
+      };
     }
 
     writeValidationEvent({
@@ -3403,8 +3476,10 @@ export async function streamRunSection(
     definition,
     deps,
     input,
+    modelSteps: evidenceSteps,
     normalizedAdEvidenceGroups,
     prompt: structuredPrompt,
+    researchInput,
     signal: input.signal,
   });
   let artifact = firstAttempt.artifact;
@@ -3484,6 +3559,7 @@ export async function streamRunSection(
       definition,
       deps,
       input,
+      modelSteps: evidenceSteps,
       normalizedAdEvidenceGroups,
       prompt: buildRepairPrompt({
         definition,
@@ -3494,6 +3570,7 @@ export async function streamRunSection(
         researchInput,
         skillMd,
       }),
+      researchInput,
       signal: input.signal,
     });
 
@@ -3743,8 +3820,10 @@ export async function runSection(
     definition,
     deps,
     input,
+    modelSteps: evidenceSteps,
     normalizedAdEvidenceGroups,
     prompt: structuredPrompt,
+    researchInput,
     signal: input.signal,
   });
 
@@ -3810,6 +3889,7 @@ export async function runSection(
       definition,
       deps,
       input,
+      modelSteps: evidenceSteps,
       normalizedAdEvidenceGroups,
       prompt: buildRepairPrompt({
         definition,
@@ -3820,6 +3900,7 @@ export async function runSection(
         researchInput,
         skillMd,
       }),
+      researchInput,
       signal: input.signal,
     });
 

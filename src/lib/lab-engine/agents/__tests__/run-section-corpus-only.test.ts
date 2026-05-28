@@ -579,6 +579,13 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     expect(result.artifact.sectionId).toBe('positioningPaidMediaPlan');
+    expect(result.artifact.verification).toEqual(
+      expect.objectContaining({
+        claims: expect.any(Array),
+        unsupportedCount: expect.any(Number),
+        verifiedCount: expect.any(Number),
+      }),
+    );
     const artifactBody = requireRecord(result.artifact.body);
     const artifactCampaignOverview = requireRecord(
       artifactBody.campaignOverview,
