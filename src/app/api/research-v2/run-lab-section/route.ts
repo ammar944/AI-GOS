@@ -185,13 +185,7 @@ function requirePaidMediaParentAuditRunId(
 }
 
 export async function POST(request: Request): Promise<Response> {
-  let userId: string | null;
-  try {
-    const result = await auth();
-    userId = result.userId ?? null;
-  } catch {
-    userId = null;
-  }
+  const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

@@ -398,6 +398,19 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
   });
 
+  it('does not mask Clerk auth failures as 401 responses', async (): Promise<void> => {
+    routeMocks.auth.mockRejectedValue(new Error('Clerk session store failed'));
+
+    await expect(
+      POST(
+        makeRequest({
+          run_id: VALID_RUN_ID,
+          section_id: 'positioningBuyerICP',
+        }),
+      ),
+    ).rejects.toThrow('Clerk session store failed');
+  });
+
   it('loads uploaded document text and passes it into lab research input', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.sessionQuery.maybeSingle.mockResolvedValue({

@@ -209,6 +209,19 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(response.status).toBe(401);
   });
 
+  it('does not mask Clerk auth failures as 401 responses', async () => {
+    routeMocks.auth.mockRejectedValue(new Error('Clerk session store failed'));
+
+    await expect(
+      POST(
+        makeRequest({
+          journey_session_id: VALID_SESSION_ID,
+          run_id: VALID_RUN_ID,
+        }),
+      ),
+    ).rejects.toThrow('Clerk session store failed');
+  });
+
   it('returns 400 for malformed JSON', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const response = await POST(makeRequest('not-json'));
