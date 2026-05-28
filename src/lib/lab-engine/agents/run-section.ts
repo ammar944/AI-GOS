@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
+  type CompetitorAd,
   type ResearchInput,
 } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
@@ -718,6 +719,144 @@ function withNormalizedCompetitorAdEvidence({
       },
     },
   };
+}
+
+type AdEvidenceCounts = CompetitorAdEvidenceGroup["rawCounts"];
+type AdEvidenceCreative = CompetitorAdEvidenceGroup["creatives"][number];
+type AdEvidenceRawSourceSample =
+  CompetitorAdEvidenceGroup["rawSourceSamples"][number];
+type AdEvidenceDataGap = CompetitorAdEvidenceGroup["dataGaps"][number];
+type AdEvidenceSourceError =
+  CompetitorAdEvidenceGroup["sourceErrors"][number];
+
+function mergeCounts(
+  base: AdEvidenceCounts,
+  next: AdEvidenceCounts,
+): AdEvidenceCounts {
+  return {
+    google: Math.max(base.google, next.google),
+    meta: Math.max(base.meta, next.meta),
+    linkedin: Math.max(base.linkedin, next.linkedin),
+  };
+}
+
+function uniqueByKey<TItem>(
+  items: readonly TItem[],
+  getKey: (item: TItem) => string,
+): TItem[] {
+  const seen = new Set<string>();
+  const uniqueItems: TItem[] = [];
+
+  for (const item of items) {
+    const key = getKey(item);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    uniqueItems.push(item);
+  }
+
+  return uniqueItems;
+}
+
+function getCreativeKey(creative: AdEvidenceCreative): string {
+  return [
+    creative.platform,
+    creative.id,
+    creative.sourceUrl,
+    creative.detailsUrl ?? "",
+  ].join(":");
+}
+
+function getRawSourceSampleKey(sample: AdEvidenceRawSourceSample): string {
+  return [sample.platform, sample.id, sample.sourceUrl].join(":");
+}
+
+function getDataGapKey(gap: AdEvidenceDataGap): string {
+  return `${gap.platform ?? "all"}:${gap.reason}`;
+}
+
+function getSourceErrorKey(sourceError: AdEvidenceSourceError): string {
+  return `${sourceError.platform}:${sourceError.message}`;
+}
+
+function mergeAdEvidenceGroup(
+  base: CompetitorAdEvidenceGroup,
+  next: CompetitorAdEvidenceGroup,
+): CompetitorAdEvidenceGroup {
+  const platforms = uniqueByKey(
+    [...base.platforms, ...next.platforms],
+    (platform) => platform,
+  );
+  const creatives = uniqueByKey(
+    [...next.creatives, ...base.creatives],
+    getCreativeKey,
+  );
+  const rawSourceSamples = uniqueByKey(
+    [...next.rawSourceSamples, ...base.rawSourceSamples],
+    getRawSourceSampleKey,
+  );
+  const dataGaps = uniqueByKey(
+    [...next.dataGaps, ...base.dataGaps],
+    getDataGapKey,
+  );
+  const sourceErrors = uniqueByKey(
+    [...next.sourceErrors, ...base.sourceErrors],
+    getSourceErrorKey,
+  );
+  const displayableCounts = mergeCounts(
+    base.displayableCounts,
+    next.displayableCounts,
+  );
+
+  return {
+    advertiserName: next.advertiserName,
+    domain: next.domain ?? base.domain,
+    platforms,
+    rawCounts: mergeCounts(base.rawCounts, next.rawCounts),
+    displayableCounts,
+    displayableTotal:
+      displayableCounts.google +
+      displayableCounts.meta +
+      displayableCounts.linkedin,
+    returnedCreativeCount: creatives.length,
+    creatives,
+    libraryLinks: {
+      ...base.libraryLinks,
+      ...next.libraryLinks,
+    },
+    rawSourceSamples,
+    dataGaps,
+    sourceErrors,
+    observedAt: next.observedAt,
+  };
+}
+
+function mergeAdEvidenceGroups(
+  baseGroups: readonly CompetitorAdEvidenceGroup[],
+  nextGroups: readonly CompetitorAdEvidenceGroup[],
+): CompetitorAdEvidenceGroup[] {
+  const groupsByAdvertiser = new Map<string, CompetitorAdEvidenceGroup>();
+
+  for (const group of baseGroups) {
+    groupsByAdvertiser.set(group.advertiserName.toLowerCase(), group);
+  }
+
+  for (const group of nextGroups) {
+    const key = group.advertiserName.toLowerCase();
+    const existingGroup = groupsByAdvertiser.get(key);
+
+    groupsByAdvertiser.set(
+      key,
+      existingGroup === undefined
+        ? group
+        : mergeAdEvidenceGroup(existingGroup, group),
+    );
+  }
+
+  return Array.from(groupsByAdvertiser.values());
 }
 
 function dedupeRecordArrayByStringKey({
@@ -1631,18 +1770,64 @@ function withNormalizedSectionOutput({
   return outputWithAdEvidence;
 }
 
-function uniqueStrings(values: readonly string[]): string[] {
-  return Array.from(new Set(values));
+interface CompetitorAdProbeAdvertiser {
+  advertiser: string;
+  domain?: string;
+}
+
+function deriveDomainFromUrl(value: string | null): string | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
+function deriveCompetitorAdDomain(ad: CompetitorAd): string | undefined {
+  return (
+    deriveDomainFromUrl(ad.landingUrl) ??
+    deriveDomainFromUrl(ad.sourceUrl) ??
+    deriveDomainFromUrl(ad.creativeUrl)
+  );
 }
 
 function getCompetitorAdProbeAdvertisers(
   researchInput: ResearchInput,
-): readonly string[] {
-  return uniqueStrings(
-    researchInput.competitorAds.map((ad) => ad.competitorName.trim()),
-  )
-    .filter((name) => name.length > 0)
-    .slice(0, competitorAdProbeAdvertiserLimit);
+): readonly CompetitorAdProbeAdvertiser[] {
+  const advertisers = new Map<string, CompetitorAdProbeAdvertiser>();
+
+  for (const ad of researchInput.competitorAds) {
+    const advertiser = ad.competitorName.trim();
+
+    if (advertiser.length === 0) {
+      continue;
+    }
+
+    const key = advertiser.toLowerCase();
+    const existingAdvertiser = advertisers.get(key);
+    const domain = deriveCompetitorAdDomain(ad);
+
+    if (existingAdvertiser === undefined) {
+      advertisers.set(key, {
+        advertiser,
+        ...(domain === undefined ? {} : { domain }),
+      });
+      continue;
+    }
+
+    if (existingAdvertiser.domain === undefined && domain !== undefined) {
+      existingAdvertiser.domain = domain;
+    }
+  }
+
+  return Array.from(advertisers.values()).slice(
+    0,
+    competitorAdProbeAdvertiserLimit,
+  );
 }
 
 function createToolExecutionOptions({
@@ -1859,32 +2044,75 @@ async function runCompetitorAdProbeSteps({
   signal?: AbortSignal;
 }): Promise<AgentStep[]> {
   const advertisers = getCompetitorAdProbeAdvertisers(researchInput);
+  const hasGoogleAdsTool = hasExecutableTool(researchTools, "google_ads");
+  const hasMetaAdsTool = hasExecutableTool(researchTools, "meta_ads");
 
-  if (
-    !hasExecutableTool(researchTools, "google_ads") ||
-    !hasExecutableTool(researchTools, "meta_ads")
-  ) {
-    return [];
+  if (!hasGoogleAdsTool || !hasMetaAdsTool) {
+    const [firstAdvertiser] = advertisers;
+    const advertiser = firstAdvertiser?.advertiser ?? "competitor ad evidence";
+    const baseInput = {
+      advertiser,
+      max_results: competitorAdProbeMaxResults,
+      ...(firstAdvertiser?.domain === undefined
+        ? {}
+        : { domain: firstAdvertiser.domain }),
+    };
+    const missingToolNames = [
+      ...(hasGoogleAdsTool ? [] : (["google_ads"] as const)),
+      ...(hasMetaAdsTool ? [] : (["meta_ads"] as const)),
+    ];
+
+    if (missingToolNames.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        stepNumber: 0,
+        finishReason: "tool-calls",
+        text: "Competitor ad evidence probe could not run because required ad tools are unavailable.",
+        toolCalls: missingToolNames.map((toolName) => ({
+          toolName,
+          input: baseInput,
+        })),
+        toolResults: missingToolNames.map((toolName) => ({
+          toolName,
+          output: {
+            type: "gap",
+            reason: "not_implemented",
+            message: `${toolName} tool is unavailable; live competitor ad evidence could not be collected for "${advertiser}".`,
+          },
+        })),
+      },
+    ];
   }
 
   const googleAdsTool = getExecutableTool<{
     advertiser: string;
+    domain?: string;
     max_results: number;
   }>(researchTools, "google_ads");
   const metaAdsTool = getExecutableTool<{
     advertiser: string;
+    domain?: string;
     max_results: number;
   }>(researchTools, "meta_ads");
   const steps: AgentStep[] = [];
 
-  for (const [index, advertiser] of advertisers.entries()) {
+  for (const [index, advertiserRecord] of advertisers.entries()) {
     const googleInput = {
-      advertiser,
       max_results: competitorAdProbeMaxResults,
+      advertiser: advertiserRecord.advertiser,
+      ...(advertiserRecord.domain === undefined
+        ? {}
+        : { domain: advertiserRecord.domain }),
     };
     const metaInput = {
-      advertiser,
       max_results: competitorAdProbeMaxResults,
+      advertiser: advertiserRecord.advertiser,
+      ...(advertiserRecord.domain === undefined
+        ? {}
+        : { domain: advertiserRecord.domain }),
     };
     const [googleOutput, metaOutput] = await Promise.all([
       googleAdsTool.execute?.(
@@ -1900,7 +2128,7 @@ async function runCompetitorAdProbeSteps({
     steps.push({
       stepNumber: index,
       finishReason: "tool-calls",
-      text: `Deterministic competitor ad evidence probe for ${advertiser}.`,
+      text: `Deterministic competitor ad evidence probe for ${advertiserRecord.advertiser}.`,
       toolCalls: [
         { toolName: "google_ads", input: googleInput },
         { toolName: "meta_ads", input: metaInput },
@@ -2177,6 +2405,29 @@ async function buildAnswerToolAdEvidence({
   return { events, normalizedAdEvidenceGroups };
 }
 
+function buildMergedAnswerToolAdEvidenceGroups({
+  deps,
+  input,
+  modelSteps,
+  prepassGroups,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  modelSteps: readonly AgentStep[];
+  prepassGroups?: readonly CompetitorAdEvidenceGroup[];
+}): readonly CompetitorAdEvidenceGroup[] | undefined {
+  if (input.sectionId !== "positioningCompetitorLandscape") {
+    return prepassGroups;
+  }
+
+  const modelGroups = buildCompetitorAdEvidenceGroups({
+    steps: modelSteps,
+    observedAt: getNow(deps).toISOString(),
+  });
+
+  return mergeAdEvidenceGroups(prepassGroups ?? [], modelGroups);
+}
+
 function buildAnswerToolAttempt({
   answerInput,
   definition,
@@ -2375,12 +2626,19 @@ async function runSectionViaAnswerTool(
 
   await flushBufferedEvents();
 
+  let normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
+    deps,
+    input,
+    modelSteps: answerResult.steps,
+    prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+  });
+
   let attempt = buildAnswerToolAttempt({
     answerInput: answerResult.answerInput,
     definition,
     deps,
     input,
-    normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
+    normalizedAdEvidenceGroups,
   });
 
   if (attempt.artifact === null) {
@@ -2432,20 +2690,26 @@ async function runSectionViaAnswerTool(
           definition,
           evidenceTranscript: repairEvidenceTranscript,
           issues: attempt.errors,
-          normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
+          normalizedAdEvidenceGroups,
           previousOutput: attempt.output,
           researchInput,
           skillMd,
         }),
       });
       await flushBufferedEvents();
+      normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
+        deps,
+        input,
+        modelSteps: repairResult.steps,
+        prepassGroups: normalizedAdEvidenceGroups,
+      });
 
       attempt = buildAnswerToolAttempt({
         answerInput: repairResult.answerInput,
         definition,
         deps,
         input,
-        normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
+        normalizedAdEvidenceGroups,
       });
       repairAttempt += 1;
       validationAttempt += 1;
@@ -2676,6 +2940,12 @@ async function streamSectionViaAnswerTool(
   }
 
   await flushBufferedEvents();
+  const normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
+    deps,
+    input,
+    modelSteps: answerResult.steps,
+    prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+  });
 
   writeSectionStatus({
     deps,
@@ -2698,7 +2968,7 @@ async function streamSectionViaAnswerTool(
     definition,
     deps,
     input,
-    normalizedAdEvidenceGroups: adEvidence.normalizedAdEvidenceGroups,
+    normalizedAdEvidenceGroups,
   });
 
   if (attempt.artifact === null) {

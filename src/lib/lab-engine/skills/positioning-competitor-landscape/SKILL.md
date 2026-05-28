@@ -86,6 +86,8 @@ IRON LAW: Every strategic conclusion must point back to a source URL or a named 
 
 Only these research tools are available for this Section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
 
+When calling `google_ads` or `meta_ads`, pass the competitor's root `domain` (for example, `gong.io`) alongside `advertiser` so the relevance filter can disambiguate same-named companies.
+
 ## Capability Gaps
 
 If a tool call returns `{ type: "gap", reason: "...", message: "..." }`, treat it as a capability gap. Do not retry the same tool with different inputs unless the gap reason is `rate_limited`. Name the gap explicitly in section prose using the format `evidence gap: <human-readable reason>`. Continue producing the best honest artifact from the evidence that remains.

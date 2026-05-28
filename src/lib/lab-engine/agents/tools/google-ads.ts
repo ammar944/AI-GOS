@@ -14,12 +14,13 @@ export const googleAdsAgentTool = tool({
   inputSchema: z
     .object({
       advertiser: z.string().min(1),
+      domain: z.string().min(1).optional(),
       max_results: z.number().int().positive().default(8),
     })
     .strict(),
   outputSchema: AdLibraryOutputSchema,
   execute: async (
-    { advertiser, max_results },
+    { advertiser, domain, max_results },
     options,
   ): Promise<AdLibraryOutput | ToolGap> => {
     if (adLibraryAgentTool.execute === undefined) {
@@ -31,7 +32,7 @@ export const googleAdsAgentTool = tool({
     }
 
     const output = await adLibraryAgentTool.execute(
-      { advertiser, platform: "google", max_results },
+      { advertiser, domain, platform: "google", max_results },
       options,
     );
     return AdLibraryOutputSchema.parse(output);

@@ -13,7 +13,14 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       maxExternalLookups: 4,
     });
     expect(SECTION_REGISTRY.positioningCompetitorLandscape).toMatchObject({
-      allowedTools: ["web_search", "firecrawl", "adlibrary", "reviews"],
+      allowedTools: [
+        "web_search",
+        "firecrawl",
+        "adlibrary",
+        "google_ads",
+        "meta_ads",
+        "reviews",
+      ],
       maxExternalLookups: 6,
     });
     expect(SECTION_REGISTRY.positioningVoiceOfCustomer).toMatchObject({

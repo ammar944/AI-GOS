@@ -340,7 +340,7 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
-  it('skips competitor ad preprobes when external tools are disabled', async (): Promise<void> => {
+  it('records an honest competitor ad gap when ad tools are disabled', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
       rootDir,
@@ -378,10 +378,113 @@ describe('runSection corpus-only mode', (): void => {
     expect(result.artifact.body).toMatchObject({
       competitorSet: competitorLandscapeFixtureArtifact.body.competitorSet,
     });
-    expect(result.artifact.body.adEvidence).toMatchObject({
-      advertiserGroups: [],
+    expect(result.artifact.body.adEvidence.advertiserGroups[0]).toMatchObject({
+      advertiserName: 'Kalungi',
+      domain: 'kalungi.com',
+      sourceErrors: [
+        {
+          platform: 'google',
+          message: expect.stringContaining('google_ads tool is unavailable'),
+        },
+        {
+          platform: 'meta',
+          message: expect.stringContaining('meta_ads tool is unavailable'),
+        },
+      ],
     });
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('harvests model ad-tool calls from answer steps into competitor adEvidence', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningCompetitorLandscape'],
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    const researchInput = {
+      ...saaslaunchResearchInput,
+      runId: 'run-model-ad-tools',
+      competitorAds: [],
+    };
+    await store.createRun(researchInput);
+
+    const output = buildCompetitorLandscapeOutput();
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      expect(Object.keys(params.externalTools)).toEqual(
+        expect.arrayContaining(['google_ads', 'meta_ads']),
+      );
+
+      return {
+        steps: [
+          {
+            stepNumber: 0,
+            finishReason: 'tool-calls',
+            text: '',
+            toolCalls: [
+              {
+                toolName: 'google_ads',
+                input: {
+                  advertiser: 'Gong',
+                  domain: 'gong.io',
+                  max_results: 4,
+                },
+              },
+            ],
+            toolResults: [
+              {
+                toolName: 'google_ads',
+                output: {
+                  type: 'result',
+                  advertiser: 'Gong',
+                  platform: 'google',
+                  ads: [
+                    {
+                      url: 'https://adstransparency.google.com/advertiser/gong',
+                      id: 'gong-ad-1',
+                      advertiserName: 'Gong',
+                      title: 'Improve forecast accuracy',
+                      detailsUrl:
+                        'https://adstransparency.google.com/advertiser/gong',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        text: '',
+        answerInput: output,
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningCompetitorLandscape',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use model-selected ad tools.',
+        runAnswerTool,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      },
+    );
+
+    expect(result.artifact.body.adEvidence.advertiserGroups).toEqual([
+      expect.objectContaining({
+        advertiserName: 'Gong',
+        domain: 'gong.io',
+        returnedCreativeCount: 1,
+        creatives: [
+          expect.objectContaining({
+            advertiserName: 'Gong',
+            id: 'gong-ad-1',
+            platform: 'google',
+          }),
+        ],
+      }),
+    ]);
   });
 
   it('normalizes paid-media structured drift before strict validation', async (): Promise<void> => {

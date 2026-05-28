@@ -143,10 +143,12 @@ function buildLibraryLink(
 }
 
 function ensureGroup({
+  domain,
   groups,
   advertiserName,
   observedAt,
 }: {
+  domain: string | null;
   groups: Map<string, MutableAdEvidenceGroup>;
   advertiserName: string;
   observedAt: string;
@@ -155,12 +157,16 @@ function ensureGroup({
   const existingGroup = groups.get(key);
 
   if (existingGroup !== undefined) {
+    if (existingGroup.domain === null && domain !== null) {
+      existingGroup.domain = domain;
+    }
+
     return existingGroup;
   }
 
   const group: MutableAdEvidenceGroup = {
     advertiserName,
-    domain: null,
+    domain,
     platforms: new Set<AdEvidencePlatform>(),
     rawCounts: emptyCounts(),
     displayableCounts: emptyCounts(),
@@ -372,6 +378,10 @@ function readAdvertiserName({
   return inputAdvertiser ?? fallback ?? "unknown advertiser";
 }
 
+function readAdvertiserDomain(input: unknown): string | null {
+  return readString(asRecord(input), "domain");
+}
+
 function getDisplayableTotal(counts: PlatformCounts): number {
   return counts.google + counts.meta + counts.linkedin;
 }
@@ -495,7 +505,12 @@ export function buildCompetitorAdEvidenceGroups({
         const advertiserName = readAdvertiserName({
           input: matchingToolCall?.input,
         });
-        const group = ensureGroup({ groups, advertiserName, observedAt });
+        const group = ensureGroup({
+          domain: readAdvertiserDomain(matchingToolCall?.input),
+          groups,
+          advertiserName,
+          observedAt,
+        });
         addSourceError({
           advertiserName,
           group,
@@ -509,7 +524,12 @@ export function buildCompetitorAdEvidenceGroups({
         input: matchingToolCall?.input,
         fallback: parsedOutput.data.advertiser,
       });
-      const group = ensureGroup({ groups, advertiserName, observedAt });
+      const group = ensureGroup({
+        domain: readAdvertiserDomain(matchingToolCall?.input),
+        groups,
+        advertiserName,
+        observedAt,
+      });
       addRawAdResult({
         advertiserName,
         group,

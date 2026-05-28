@@ -14,12 +14,13 @@ export const metaAdsAgentTool = tool({
   inputSchema: z
     .object({
       advertiser: z.string().min(1),
+      domain: z.string().min(1).optional(),
       max_results: z.number().int().positive().default(8),
     })
     .strict(),
   outputSchema: AdLibraryOutputSchema,
   execute: async (
-    { advertiser, max_results },
+    { advertiser, domain, max_results },
     options,
   ): Promise<AdLibraryOutput | ToolGap> => {
     if (adLibraryAgentTool.execute === undefined) {
@@ -31,7 +32,7 @@ export const metaAdsAgentTool = tool({
     }
 
     const output = await adLibraryAgentTool.execute(
-      { advertiser, platform: "meta", max_results },
+      { advertiser, domain, platform: "meta", max_results },
       options,
     );
     return AdLibraryOutputSchema.parse(output);
