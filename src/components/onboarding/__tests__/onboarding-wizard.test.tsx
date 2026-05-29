@@ -91,8 +91,8 @@ const prefillMetadata: OnboardingPrefillMetadata = {
   },
 };
 
-describe('OnboardingWizard (flat collapsed surface)', () => {
-  it('renders all sections as a single flat scroll', () => {
+describe('OnboardingWizard (multi-step surface)', () => {
+  it('mounts only the current step and shows the step counter / progress', () => {
     render(
       <OnboardingWizard
         initialData={makeCompleteData()}
@@ -101,55 +101,25 @@ describe('OnboardingWizard (flat collapsed surface)', () => {
       />,
     );
 
-    // Field-count header survives the collapse.
-    expect(screen.getByText(`${getOnboardingFieldCount()} fields`)).toBeInTheDocument();
-
-    // Every section header is present, exactly once (no rail duplicates).
-    for (const section of SECTION_META) {
-      expect(
-        screen.getByRole('heading', { name: section.title }),
-      ).toBeInTheDocument();
-    }
-
-    // Fields from MULTIPLE sections are mounted simultaneously with NO
-    // navigation: section 1 (Product) and section 7 (Current Marketing).
-    expect(screen.getByLabelText('Company Name*')).toBeInTheDocument();
+    // Step counter is present (rendered in both the desktop progress block and
+    // the mobile section header — jsdom mounts both responsive variants).
+    expect(screen.getAllByText('Step 1 of 8').length).toBeGreaterThan(0);
+    // Field-count header survives.
     expect(
-      screen.getByRole('group', {
+      screen.getByText(`${getOnboardingFieldCount()} fields`),
+    ).toBeInTheDocument();
+
+    // Step 1 (Product) fields are mounted.
+    expect(screen.getByLabelText('Company Name*')).toBeInTheDocument();
+    // Step 7 (Current Marketing) channels group is NOT mounted yet.
+    expect(
+      screen.queryByRole('group', {
         name: 'What channels are you currently running?',
       }),
-    ).toBeInTheDocument();
+    ).toBeNull();
   });
 
-  it('submit fires onComplete once with full payload + review metadata', () => {
-    const onComplete = vi.fn();
-
-    render(
-      <OnboardingWizard
-        initialData={{ ...makeCompleteData(), gtmMotion: '' }}
-        initialPrefillMetadata={prefillMetadata}
-        onComplete={onComplete}
-      />,
-    );
-
-    // Single click on the one primary button — no Continue navigation.
-    fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
-
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    const [data, review] = onComplete.mock.calls[0] as [
-      OnboardingV2Data,
-      { fieldCount: number; fields: Record<string, { state: string }> },
-    ];
-    // Derive preserved.
-    expect(data.gtmMotion).toBe('SLG');
-    // Review-metadata shape preserved (load-bearing for the server route).
-    expect(review.fieldCount).toBe(getOnboardingFieldCount());
-    expect(review.fields.productDescription.state).toBe('AI-filled');
-    expect(review.fields.companyName.state).toBe('User-edited');
-    expect(review.fields.idealCustomer.state).toBe('Needs review');
-  });
-
-  it('removes all step/review chrome', () => {
+  it('renders clean fields — no per-field badges, source, or reasoning chrome', () => {
     render(
       <OnboardingWizard
         initialData={makeCompleteData()}
@@ -158,19 +128,139 @@ describe('OnboardingWizard (flat collapsed surface)', () => {
       />,
     );
 
-    // No step counter.
-    expect(screen.queryByText(/Step \d+ of/)).toBeNull();
-    // No pinned / optional review rails.
-    expect(screen.queryByText('Review first')).toBeNull();
-    expect(screen.queryByText('Improve output')).toBeNull();
-    // No inline per-field state badges.
+    // No inline state badges on step 1 (companyName is User-edited here).
     expect(screen.queryByText('AI-filled')).toBeNull();
     expect(screen.queryByText('User-edited')).toBeNull();
     expect(screen.queryByText('Needs review')).toBeNull();
     // No source chip text.
     expect(screen.queryByText(/^Source:/)).toBeNull();
-    // No multi-step navigation button.
-    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    // No top pinned/optional review rails.
+    expect(screen.queryByText('Review first')).toBeNull();
+    expect(screen.queryByText('Improve output')).toBeNull();
+  });
+
+  it('Continue advances to the next step; Back returns', () => {
+    render(
+      <OnboardingWizard
+        initialData={makeCompleteData()}
+        initialPrefillMetadata={prefillMetadata}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getAllByText('Step 2 of 8').length).toBeGreaterThan(0);
+    // Step 2 (ICP) field is mounted.
+    expect(
+      screen.getByLabelText('What industry do they operate in?*'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getAllByText('Step 1 of 8').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Company Name*')).toBeInTheDocument();
+  });
+
+  it('per-step validation blocks Continue when a required field is empty', () => {
+    render(
+      <OnboardingWizard
+        initialData={{ ...makeCompleteData(), companyName: '' }}
+        initialPrefillMetadata={prefillMetadata}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    // Stayed on step 1.
+    expect(screen.getAllByText('Step 1 of 8').length).toBeGreaterThan(0);
+    expect(screen.getByText('Company name is required')).toBeInTheDocument();
+
+    // Fill it; Continue now advances.
+    fireEvent.change(screen.getByLabelText('Company Name*'), {
+      target: { value: 'Fellow' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getAllByText('Step 2 of 8').length).toBeGreaterThan(0);
+  });
+
+  it('"Go to next field" jumps to the right step and focuses the field', () => {
+    // Everything complete EXCEPT `targetCac` (step 4, Pricing & Economics),
+    // which is forward of the starting step and not yet visited — proving the
+    // jump bypasses the `<= highestStepReached` guard.
+    const data = { ...makeCompleteData(), targetCac: '' };
+    const pricingStepIndex = SECTION_META.findIndex((section) =>
+      section.fields.some((field) => field.key === 'targetCac'),
+    );
+
+    render(
+      <OnboardingWizard
+        initialData={data}
+        initialPrefillMetadata={{}}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    // The still-required panel surfaces exactly one blocker with its label.
+    expect(screen.getByText('1 field still need input')).toBeInTheDocument();
+    expect(screen.getByText('Next: “Target CAC”')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Go to next field/ }));
+
+    // Jumped to the pricing step (step 4) without visiting steps 2-3.
+    expect(
+      screen.getAllByText(`Step ${pricingStepIndex + 1} of 8`).length,
+    ).toBeGreaterThan(0);
+
+    const control = document.getElementById('targetCac-control');
+    expect(control).not.toBeNull();
+    expect(document.activeElement).toBe(control);
+  });
+
+  it('shows the complete state when no required fields remain', () => {
+    render(
+      <OnboardingWizard
+        initialData={makeCompleteData()}
+        initialPrefillMetadata={{}}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('All required fields complete')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Go to next field/ }),
+    ).toBeNull();
+  });
+
+  it('Run audit on the last step fires onComplete once with full payload + review metadata', () => {
+    const onComplete = vi.fn();
+    const lastStep = SECTION_META.length - 1;
+
+    render(
+      <OnboardingWizard
+        initialData={{ ...makeCompleteData(), gtmMotion: '' }}
+        initialPrefillMetadata={prefillMetadata}
+        initialStep={lastStep}
+        onComplete={onComplete}
+      />,
+    );
+
+    expect(
+      screen.getAllByText(`Step ${lastStep + 1} of 8`).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    const [completedData, review] = onComplete.mock.calls[0] as [
+      OnboardingV2Data,
+      { fieldCount: number; fields: Record<string, { state: string }> },
+    ];
+    // gtmMotion derived from salesMotion ('hybrid' -> 'SLG').
+    expect(completedData.gtmMotion).toBe('SLG');
+    // Review-metadata shape preserved (load-bearing for the server route).
+    expect(review.fieldCount).toBe(getOnboardingFieldCount());
+    expect(review.fields.productDescription.state).toBe('AI-filled');
+    expect(review.fields.companyName.state).toBe('User-edited');
+    expect(review.fields.idealCustomer.state).toBe('Needs review');
   });
 
   it('associates labels with controls and exposes stable id + name (a11y)', () => {
@@ -182,30 +272,21 @@ describe('OnboardingWizard (flat collapsed surface)', () => {
       />,
     );
 
-    // A single text control: visible <label htmlFor> resolves to the input,
-    // not the wrapper div, and the input carries a stable id + name.
     const companyInput = screen.getByLabelText('Company Name*') as HTMLInputElement;
     expect(companyInput.tagName).toBe('INPUT');
     expect(companyInput.id).toBe('companyName-control');
     expect(companyInput.getAttribute('name')).toBe('companyName');
     expect(companyInput.getAttribute('aria-required')).toBe('true');
 
-    // The wrapper anchor keeps the bare field key as its id and must NOT
-    // collide with the control id.
+    // Wrapper anchor keeps the bare field key and must not collide with control.
     const anchor = document.getElementById('companyName');
     expect(anchor).not.toBeNull();
     expect(anchor).not.toBe(companyInput);
     expect(document.querySelectorAll('#companyName')).toHaveLength(1);
 
-    // Both a radio group (section 1) and the channels checkbox group
-    // (section 7) resolve in the same flat render — no initialStep needed.
+    // The radio group on step 1 resolves.
     expect(
       screen.getByRole('radiogroup', { name: 'How do customers buy?' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('group', {
-        name: 'What channels are you currently running?',
-      }),
     ).toBeInTheDocument();
   });
 });
