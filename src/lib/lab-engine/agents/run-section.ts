@@ -70,6 +70,7 @@ import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
 import {
   evaluateEvidenceSupport,
+  getMaxUnsupportedAllowed,
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import { structuralVerifier } from "./verification/structural-verifier";
@@ -84,6 +85,7 @@ export interface RunSectionDeps {
   store: RunStore;
   loadSkill: (slug: string) => Promise<string>;
   allowedTools?: readonly ToolName[];
+  env?: Record<string, string | undefined>;
   runAnswerTool?: AnswerToolRunner;
   runEvidencePass?: EvidencePassRunner;
   callStructured?: StructuredCaller;
@@ -625,6 +627,19 @@ function getAttemptRepairIssues(attempt: AttemptResult): string[] {
 
 function getUnsupportedLoadBearingCount(attempt: AttemptResult): number {
   return attempt.evidenceSupportShortfall?.unsupportedLoadBearing.length ?? 0;
+}
+
+function getEvidenceGateFailureReason(
+  attempt: AttemptResult,
+  maxUnsupportedAllowed: number,
+): string | null {
+  const unsupportedLoadBearingCount = getUnsupportedLoadBearingCount(attempt);
+
+  if (unsupportedLoadBearingCount <= maxUnsupportedAllowed) {
+    return null;
+  }
+
+  return `evidence-gate: ${unsupportedLoadBearingCount} unsupported load-bearing claims exceed max ${maxUnsupportedAllowed}`;
 }
 
 function getRepairReason(attempt: AttemptResult): string {
@@ -2726,6 +2741,9 @@ async function runSectionViaAnswerTool(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
+  const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
+    deps.env ?? process.env,
+  );
 
   await appendEvent(
     deps,
@@ -2887,6 +2905,7 @@ async function runSectionViaAnswerTool(
   });
 
   let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
+  let validationAttempt = 1;
 
   if (
     attempt.artifact === null ||
@@ -2895,7 +2914,6 @@ async function runSectionViaAnswerTool(
     const repairEvidenceTranscript = buildEvidenceTranscript(answerResult.steps);
     const shouldForceAnswerOnlyRepair =
       attempt.errors.includes(missingAnswerToolMessage);
-    let validationAttempt = 1;
     let repairAttempt = 0;
 
     while (
@@ -3011,6 +3029,41 @@ async function runSectionViaAnswerTool(
         errors: repairIssues,
       });
     }
+  }
+
+  const evidenceGateFailureReason = getEvidenceGateFailureReason(
+    attempt,
+    maxUnsupportedAllowed,
+  );
+
+  if (evidenceGateFailureReason !== null) {
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "validation-failed",
+        message: "Answer tool repair output failed validation",
+        metadata: {
+          attempt: validationAttempt,
+          issues: [evidenceGateFailureReason],
+        },
+      }),
+    );
+    await recordSectionFailure({
+      definition,
+      deps,
+      errorMessage: evidenceGateFailureReason,
+      input,
+    });
+
+    throw new SectionRunnerError({
+      runId: input.runId,
+      sectionId: input.sectionId,
+      errors: [evidenceGateFailureReason],
+    });
   }
 
   await appendSubSectionCommittedEvents({

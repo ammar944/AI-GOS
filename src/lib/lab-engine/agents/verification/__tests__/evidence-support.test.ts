@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import cleanMarketCategoryFixture from "../__evals__/fixtures/ramp-market-category.json";
 import fabricatedPriceFixture from "../__evals__/fixtures/synthetic-fabricated-price.json";
 import fabricatedQuoteFixture from "../__evals__/fixtures/synthetic-fabricated-quote.json";
-import { evaluateEvidenceSupport } from "../evidence-support";
+import {
+  evaluateEvidenceSupport,
+  getMaxUnsupportedAllowed,
+} from "../evidence-support";
 import { structuralVerifier } from "../structural-verifier";
 import type { VerificationReport } from "../types";
 
@@ -88,5 +91,26 @@ describe("evaluateEvidenceSupport", (): void => {
 
     expect(shortfall.unsupportedLoadBearing).toHaveLength(0);
     expect(shortfall.issues).toEqual([]);
+  });
+});
+
+describe("getMaxUnsupportedAllowed", (): void => {
+  it("returns Infinity when the verifier threshold is unset, empty, or invalid", (): void => {
+    expect(getMaxUnsupportedAllowed({})).toBe(Infinity);
+    expect(
+      getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "" }),
+    ).toBe(Infinity);
+    expect(
+      getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "not-a-number" }),
+    ).toBe(Infinity);
+  });
+
+  it("returns the configured integer verifier threshold", (): void => {
+    expect(
+      getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "0" }),
+    ).toBe(0);
+    expect(
+      getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "2" }),
+    ).toBe(2);
   });
 });

@@ -588,6 +588,164 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
+  it('leaves the verifier threshold disabled when the env is unset', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-29T12:35:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const unsupportedOutput =
+      buildMarketCategoryOutputWithUnsupportedRates(['44%']);
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildMarketCategorySupportStep()],
+      text: '',
+      answerInput: unsupportedOutput,
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: {},
+        runAnswerTool,
+        now: () => new Date('2026-05-29T12:35:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const unsupportedNumericClaims =
+      result.artifact.verification?.claims.filter(
+        (claim) =>
+          claim.status === 'unsupported' &&
+          claim.claim.kind === 'numeric' &&
+          claim.claim.value === '44%',
+      ) ?? [];
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(unsupportedNumericClaims).toHaveLength(1);
+    expect(record.sections.positioningMarketCategory?.status).toBe(
+      'completed',
+    );
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
+    );
+  });
+
+  it('fails the section when residual unsupported claims exceed the verifier threshold', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-29T12:40:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const unsupportedOutput =
+      buildMarketCategoryOutputWithUnsupportedRates(['44%']);
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildMarketCategorySupportStep()],
+      text: '',
+      answerInput: unsupportedOutput,
+    }));
+    const expectedReason =
+      'evidence-gate: 1 unsupported load-bearing claims exceed max 0';
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningMarketCategory',
+        },
+        {
+          store,
+          loadSkill: async () => 'Use the injected corpus only.',
+          allowedTools: [],
+          env: { LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
+          runAnswerTool,
+          now: () => new Date('2026-05-29T12:40:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow(expectedReason);
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const validationFailures = record.events.filter(
+      (event) => event.type === 'validation-failed',
+    );
+    const sectionFailed = record.events.find(
+      (event) => event.type === 'section-failed',
+    );
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(validationFailures.at(-1)?.metadata.issues).toEqual([
+      expectedReason,
+    ]);
+    expect(sectionFailed?.metadata.error).toBe(expectedReason);
+    expect(record.sections.positioningMarketCategory?.status).toBe('failed');
+    expect(record.sections.positioningMarketCategory?.artifact).toBeNull();
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'artifact-saved',
+    );
+  });
+
+  it('commits when residual unsupported claims are within the verifier threshold', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningMarketCategory'],
+      now: () => new Date('2026-05-29T12:45:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const unsupportedOutput =
+      buildMarketCategoryOutputWithUnsupportedRates(['44%']);
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildMarketCategorySupportStep()],
+      text: '',
+      answerInput: unsupportedOutput,
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
+        runAnswerTool,
+        now: () => new Date('2026-05-29T12:45:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const unsupportedNumericClaims =
+      result.artifact.verification?.claims.filter(
+        (claim) =>
+          claim.status === 'unsupported' &&
+          claim.claim.kind === 'numeric' &&
+          claim.claim.value === '44%',
+      ) ?? [];
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(unsupportedNumericClaims).toHaveLength(1);
+    expect(record.sections.positioningMarketCategory?.status).toBe(
+      'completed',
+    );
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
+    );
+  });
+
   it('records an honest competitor ad gap when ad tools are disabled', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({

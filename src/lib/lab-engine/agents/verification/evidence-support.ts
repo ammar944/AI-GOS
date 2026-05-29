@@ -20,6 +20,7 @@ export interface EvaluateEvidenceSupportInput {
 }
 
 const defaultLoadBearingKinds = ["numeric", "url"] as const;
+const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
 
 function isUnsupportedLoadBearingClaim(
   verdict: ClaimVerdict,
@@ -50,4 +51,22 @@ export function evaluateEvidenceSupport({
     unsupportedLoadBearing,
     issues: unsupportedLoadBearing.map(formatUnsupportedClaimIssue),
   };
+}
+
+export function getMaxUnsupportedAllowed(
+  env: Record<string, string | undefined> = {},
+): number {
+  const rawValue = env[verifierMaxUnsupportedEnvKey]?.trim();
+
+  if (rawValue === undefined || rawValue.length === 0) {
+    return Infinity;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value < 0) {
+    return Infinity;
+  }
+
+  return value;
 }
