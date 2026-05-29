@@ -33,4 +33,19 @@ Dead architecture deleted (worker + frontend managed-agents) · verifier teeth w
 
 ## Running log
 - `T0` Baseline `25618cf8`, gates trusted-green (re-verified by audit QA agent). codex 0.130.0 authed. lab-wire deps + .env.local present.
-- `T1` Task 1 dispatched: dead worker tree staged for deletion, worker build gating in background.
+- `T1` Task 1 ✅ COMMITTED `41a5abd6` — worker dead tree deleted (−7003 LOC; worker build clean, 324 tests pass). Pushed.
+- `T2` Task 2 (FE-1) ✅ COMMITTED `1e98f5cf` — managed-agents runtime + live HMAC webhook removed; 2 live helpers extracted to research-v2/; schemas/ kept. tsc 0, lint 0, 1087 tests pass (−3179 LOC, −30 dead tests). Pushed.
+- `T3` Task 3 (verifier teeth) 🔄 DISPATCHED to Codex (in-process repair-loop wiring of unsupported numeric+url claims; non-terminal commit-with-badge).
+- `T4` Task 4 (FE-2 schema rehome) ⏸️ DEFERRED to supervised pass — the managed-agents vs lab-engine schemas are structurally divergent (different filenames/shapes); consolidation has blast radius on the typed renderers (product's visible output). Runtime+webhook already gone, so leftover `schemas/` is harmless type-only code. Spec ready: `docs/2026-05-29-fe2-schema-rehome-codex-handoff.md`.
+- `T5` Task 5 (phase honesty) — spec ready (`docs/2026-05-29-task5-phase-honesty-codex-handoff.md`). Scoped to read-time phase derivation from the existing event stream (no streaming infra). Full partial-token streaming deferred (needs the SSE-over-13min-fan-out decision + live verification — not safe unattended).
+- `T6` Task 6 (doc alignment) — spec ready (`docs/2026-05-29-task6-doc-alignment-codex-handoff.md`). Runs last.
+
+**Landed overnight (committed + pushed to `feat/v2-lab-section-wire`):**
+- `41a5abd6` worker deslop · `1e98f5cf` FE-1 managed-agents runtime+webhook kill · `8d547baf` verifier teeth.
+- `8d547baf` verifier teeth: independent gate tsc 0 / lint 0 / **1094 tests pass**; 2 integration tests prove repair-fires + commit-with-honest-badge on residual.
+- Net: **~-10,200 LOC** dead/duplicate code removed; ~820 LOC new feature code+tests.
+
+**SESSION COMPLETE @ overnight 2026-05-29.** 6 commits on `feat/v2-lab-section-wire` (base `25618cf8` → head `eb27640a`), all pushed to origin:
+`41a5abd6` worker deslop · `1e98f5cf` FE-1 managed-agents kill · `8d547baf` verifier teeth · `a25109bd` phase honesty · `eb27640a` doc alignment · `bce5dbe0` docs.
+**Final gate green (all 5):** FE tsc 0 / lint 0 / 1108 tests · worker build 0 / 324 tests.
+**Deferred (specs ready, supervised):** FE-2 schema consolidation; full token streaming; verifier hard-fail threshold. See `docs/2026-05-29-overnight-session-report.md` for the full wrap-up + your next steps (fast-forward main, provider env check, live QA).
