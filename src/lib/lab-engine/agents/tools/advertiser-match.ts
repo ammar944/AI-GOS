@@ -440,8 +440,17 @@ export function isAdvertiserMatch(
         ) {
           return true;
         }
-      } else if (advNorm.startsWith(domainBase)) {
-        return true;
+      } else {
+        // Long names: accept when the advertiser starts with the domain base OR
+        // contains it as a whole word (symmetric to the domainMatch check in
+        // resolveBestCandidate). Catches "Acme Mixpanel Inc" for mixpanel.com.
+        const escapedBase = domainBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (
+          advNorm.startsWith(domainBase) ||
+          new RegExp(`\\b${escapedBase}\\b`).test(advNorm)
+        ) {
+          return true;
+        }
       }
     }
   }
@@ -620,6 +629,24 @@ export function resolveBestCandidate(
       reason: `Domain corroboration: "${top.name}" matches verified domain "${domain}"`,
       candidates: candidateLog,
     };
+  }
+
+  // Not-top-but-domain-matched (long names): the verified domain corroborates a
+  // candidate that did NOT rank first — e.g. a higher-scoring but wrong-entity
+  // name sits on top. Prefer the domain-matched candidate rather than accepting
+  // the wrong top or discarding the real one. Short names retain their dedicated
+  // corroboration handling above (no fall-through to here).
+  if (!isShortName && isDomainVerified === true) {
+    const domainMatchedCandidate = scored.find((score) => score.domainMatch);
+
+    if (domainMatchedCandidate !== undefined) {
+      return {
+        verdict: "accepted",
+        candidate: domainMatchedCandidate.candidate,
+        reason: `Domain corroboration preferred: "${domainMatchedCandidate.name}" matches verified domain "${domain}" over higher-ranked "${top.name}"`,
+        candidates: candidateLog,
+      };
+    }
   }
 
   const margin = runnerUp !== undefined ? top.score - runnerUp.score : 1;

@@ -20,6 +20,17 @@ describe("advertiser match relevance engine", (): void => {
       expect(isAdvertiserMatch("Direct Metals", "Directive")).toBe(false);
     });
 
+    it("accepts a long name that contains the domain base as a whole word", (): void => {
+      // "Acme Mixpanel Inc" does not start with "mixpanel" but contains it.
+      expect(
+        isAdvertiserMatch("Acme Mixpanel Inc", "Mixpanel", "mixpanel.com"),
+      ).toBe(true);
+    });
+
+    it("still rejects unrelated short names (Brex is not Ramp)", (): void => {
+      expect(isAdvertiserMatch("Brex", "Ramp")).toBe(false);
+    });
+
     it("uses the short-name URL guard when a verified domain is available", (): void => {
       expect(
         isAdvertiserMatch(
@@ -73,6 +84,25 @@ describe("advertiser match relevance engine", (): void => {
       ).toMatchObject({
         verdict: "ambiguous",
         candidate: { id: "atlas", name: "Atlas" },
+      });
+    });
+
+    it("prefers a not-top candidate that corroborates the verified domain", (): void => {
+      // "Facebook Marketplace" scores highest against "Facebook" but is the wrong
+      // entity; "Meta Platforms" carries the verified domain base "meta".
+      const result = resolveBestCandidate(
+        [
+          { id: "fb-wrong", name: "Facebook Marketplace" },
+          { id: "meta-right", name: "Meta Platforms" },
+        ],
+        "Facebook",
+        "meta.com",
+        true,
+      );
+
+      expect(result).toMatchObject({
+        verdict: "accepted",
+        candidate: { id: "meta-right", name: "Meta Platforms" },
       });
     });
 

@@ -6,7 +6,7 @@ import {
   apiErrorGap,
   credentialGap,
   errorToGap,
-  timedFetch,
+  fetchWithRetry,
   type ToolGap,
 } from "./_shared";
 import {
@@ -216,12 +216,13 @@ async function fetchSearchApiJson({
   apiKey: string;
   params: Record<string, string>;
 }): Promise<SearchApiRecord> {
-  const response = await timedFetch(buildSearchApiUrl(apiKey, params), {
+  const response = await fetchWithRetry(buildSearchApiUrl(apiKey, params), {
     abortSignal,
     timeoutMs: searchApiTimeoutMs,
   });
 
   if (!response.ok) {
+    // A status that survived the retry budget (e.g. a persistent 429) is terminal.
     throw new SearchApiHttpError(response.status);
   }
 
@@ -441,6 +442,10 @@ function normalizeSearchApiRecords({
       normalizeSearchApiRecord({ advertiserName, index, platform, record }),
     )
     .filter((ad) =>
+      // Per-ad guard stays on: it catches genuine cross-advertiser leakage (e.g.
+      // a different company's ad sharing a name prefix, caught by the short-name
+      // URL guard). Over-dropping of valid long-name creatives is addressed by the
+      // looser whole-word domain fallback in isAdvertiserMatch, not by skipping.
       isAdvertiserMatch(
         ad.advertiserName,
         advertiserName,

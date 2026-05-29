@@ -96,6 +96,65 @@ export async function timedFetch(
   });
 }
 
+function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted === true) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/**
+ * timedFetch with bounded retry on transient SearchApi failures (429 / 5xx).
+ * Backoff is capped (400ms, 800ms) and abort-aware: once the caller's signal
+ * aborts, no further fetch or sleep happens. A non-retryable status (e.g. 404)
+ * or an exhausted retry budget returns the last response for the caller to
+ * handle (adlibrary maps a terminal 429 to apiErrorGap).
+ */
+export async function fetchWithRetry(
+  url: string,
+  options: FetchOptions = {},
+  retryConfig: {
+    retries?: number;
+    retryOnStatus?: (status: number) => boolean;
+  } = {},
+): Promise<Response> {
+  const { retries = 2, retryOnStatus } = retryConfig;
+  const shouldRetry =
+    retryOnStatus ?? ((status: number) => status === 429 || status >= 500);
+  const backoffMs = [400, 800];
+
+  let response = await timedFetch(url, options);
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    if (response.ok || !shouldRetry(response.status)) {
+      return response;
+    }
+    if (options.abortSignal?.aborted === true) {
+      return response;
+    }
+    try {
+      await sleepWithAbort(backoffMs[attempt] ?? 800, options.abortSignal);
+    } catch {
+      // Aborted during backoff — return the last response without re-fetching.
+      return response;
+    }
+    response = await timedFetch(url, options);
+  }
+
+  return response;
+}
+
 export function isAbortError(err: unknown): boolean {
   if (typeof err !== "object" || err === null) {
     return false;
