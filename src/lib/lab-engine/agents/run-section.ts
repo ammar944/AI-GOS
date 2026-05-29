@@ -1959,6 +1959,31 @@ function getCompetitorAdProbeAdvertisers(
 ): readonly CompetitorAdProbeAdvertiser[] {
   const advertisers = new Map<string, CompetitorAdProbeAdvertiser>();
 
+  // Brief-derived competitor seeds take priority (inserted first, so they win
+  // the advertiser-limit slice). competitorAds is fixture/preview context.
+  for (const seed of researchInput.competitorSeeds ?? []) {
+    const advertiser = seed.name.trim();
+
+    if (advertiser.length === 0) {
+      continue;
+    }
+
+    const key = advertiser.toLowerCase();
+    const existingAdvertiser = advertisers.get(key);
+
+    if (existingAdvertiser === undefined) {
+      advertisers.set(key, {
+        advertiser,
+        ...(seed.domain === undefined ? {} : { domain: seed.domain }),
+      });
+      continue;
+    }
+
+    if (existingAdvertiser.domain === undefined && seed.domain !== undefined) {
+      existingAdvertiser.domain = seed.domain;
+    }
+  }
+
   for (const ad of researchInput.competitorAds) {
     const advertiser = ad.competitorName.trim();
 

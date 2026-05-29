@@ -120,4 +120,37 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
       outputs.every((output) => (output as GapRow).reason === 'rate_limited'),
     ).toBe(true);
   });
+
+  it('seeds the probe advertiser list from competitorSeeds when competitorAds is empty', async (): Promise<void> => {
+    // Production condition: corpus builder leaves competitorAds empty and feeds
+    // competitorSeeds (parsed from the onboarding topCompetitors brief field).
+    const budget = new SectionToolBudget(6, 2);
+    const observe = { concurrent: 0, maxConcurrent: 0 };
+    const researchTools: Record<string, unknown> = {
+      google_ads: budgetWrappedAdTool('google_ads', budget, observe),
+      meta_ads: budgetWrappedAdTool('meta_ads', budget, observe),
+    };
+
+    const steps = await runCompetitorAdProbeSteps({
+      maxAdvertisers: 1,
+      researchInput: {
+        ...saaslaunchResearchInput,
+        competitorAds: [],
+        competitorSeeds: [
+          { name: 'SeededRival', domain: 'seededrival.com' },
+          { name: 'SecondRival' },
+        ],
+      },
+      researchTools,
+    });
+
+    expect(steps).toHaveLength(1);
+    const outputs = steps[0]?.toolResults.map((result) => result.output) ?? [];
+    expect(outputs).toHaveLength(2);
+    // Both ad tools fetched real rows for the FIRST seed (seeds win the slice).
+    expect(outputs.every(isAdRow)).toBe(true);
+    expect(
+      (outputs as AdRow[]).every((row) => row.advertiser === 'SeededRival'),
+    ).toBe(true);
+  });
 });

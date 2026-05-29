@@ -171,6 +171,20 @@ export const researchInputSchema = z
     corpus: corpusSnapshotSchema,
     sources: z.array(sourceRefSchema).min(1),
     competitorAds: z.array(competitorAdSchema).max(5),
+    // Competitor names (from the onboarding brief, optionally enriched with a
+    // corpus-derived domain) used to seed the deterministic competitor ad probe.
+    // Distinct from competitorAds, which carries already-fetched ad creatives
+    // (fixture/preview context). The live probe reads BOTH.
+    competitorSeeds: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            domain: z.string().min(1).optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
     _capabilities: z
       .object({

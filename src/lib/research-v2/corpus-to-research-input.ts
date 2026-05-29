@@ -635,6 +635,71 @@ function withFallback(values: string[], fallback: string): string[] {
   return values.length > 0 ? values : [fallback];
 }
 
+/**
+ * Parse the onboarding `topCompetitors` free-text field (comma/newline/semicolon
+ * separated, possibly numbered or bulleted) into competitor seeds for the
+ * deterministic ad probe. Domain enrichment is CONSERVATIVE: a corpus source
+ * domain is attached only when its base token exactly equals the competitor's
+ * first significant word, because attaching a WRONG domain makes the
+ * advertiser-match short-name guard reject otherwise-valid ad creatives.
+ */
+function buildCompetitorSeeds(
+  rawTopCompetitors: string | undefined,
+  sourceRecords: readonly Record<string, unknown>[],
+): { name: string; domain?: string }[] {
+  if (rawTopCompetitors === undefined || rawTopCompetitors.trim() === "") {
+    return [];
+  }
+
+  const corpusDomains = sourceRecords
+    .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
+    .filter((url): url is string => url !== null)
+    .map((url) => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        return null;
+      }
+    })
+    .filter((domain): domain is string => domain !== null);
+
+  const seen = new Set<string>();
+  const seeds: { name: string; domain?: string }[] = [];
+
+  for (const rawName of rawTopCompetitors.split(/[,\n;]+/)) {
+    const name = rawName
+      .trim()
+      .replace(/^[•\-*\d.)\s]+/, "")
+      .trim();
+
+    if (name.length === 0) {
+      continue;
+    }
+
+    const key = name.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+
+    const firstWord = key.split(/\s+/)[0]?.replace(/[^a-z0-9]/g, "") ?? "";
+    const domain =
+      firstWord.length >= 3
+        ? corpusDomains.find((d) => (d.split(".")[0] ?? "") === firstWord)
+        : undefined;
+
+    seeds.push({ name, ...(domain === undefined ? {} : { domain }) });
+
+    if (seeds.length >= 5) {
+      break;
+    }
+  }
+
+  return seeds;
+}
+
 export function corpusToResearchInput(
   params: CorpusToResearchInputParams,
 ): ResearchInput {
@@ -765,6 +830,14 @@ export function corpusToResearchInput(
     },
     sources,
     competitorAds: [],
+    competitorSeeds: buildCompetitorSeeds(
+      firstString(
+        getFieldValue(onboardingFields, "topCompetitors"),
+        getValue(onboardingData, "topCompetitors"),
+        getValue(onboardingData, "top_competitors"),
+      ) ?? undefined,
+      sourceRecords,
+    ),
     ...(droppedEvidenceExcerptCount === 0
       ? {}
       : {

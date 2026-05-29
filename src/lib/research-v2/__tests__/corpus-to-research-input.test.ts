@@ -298,4 +298,46 @@ describe("corpusToResearchInput", (): void => {
       expect.arrayContaining([expect.stringContaining("category and market")]),
     );
   });
+
+  it("seeds competitorSeeds from the onboarding topCompetitors field", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    // The corpus sources are airtable.com only, so neither competitor gets a
+    // domain (conservative enrichment avoids mis-attribution).
+    expect(parsed.competitorSeeds).toEqual([
+      { name: "Notion" },
+      { name: "Monday.com" },
+    ]);
+  });
+
+  it("parses numbered/bulleted topCompetitors, dedupes, and caps at 5", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        onboardingFields: {
+          ...corpusFixture.deepResearchProgramData.onboardingFields,
+          topCompetitors: {
+            value: "1. Asana\n2. Asana\n- Smartsheet; Wrike, ClickUp, Trello, Basecamp",
+          },
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.competitorSeeds?.map((seed) => seed.name)).toEqual([
+      "Asana",
+      "Smartsheet",
+      "Wrike",
+      "ClickUp",
+      "Trello",
+    ]);
+  });
 });
