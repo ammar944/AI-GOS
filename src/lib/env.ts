@@ -9,6 +9,10 @@ const REQUIRED_ENV_VARS = {
   server: [
     "ANTHROPIC_API_KEY",
     "SEARCHAPI_KEY",
+    // Credential behind web_search (every lab section's primary search tool).
+    // REQUIRED so a missing key surfaces as a hard /api/health 503 instead of
+    // silently gapping every section. Must be set in Vercel (Production + Preview).
+    "BRAVE_SEARCH_API_KEY",
     "CLERK_SECRET_KEY",
     "CLERK_WEBHOOK_SECRET",
   ] as const,

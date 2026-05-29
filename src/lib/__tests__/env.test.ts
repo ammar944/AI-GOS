@@ -8,6 +8,7 @@ describe("env.ts", () => {
   function setRequiredEnv(): void {
     process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     process.env.SEARCHAPI_KEY = "test-searchapi-key";
+    process.env.BRAVE_SEARCH_API_KEY = "test-brave-key";
     process.env.CLERK_SECRET_KEY = "test-clerk-secret";
     process.env.CLERK_WEBHOOK_SECRET = "test-clerk-webhook-secret";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
@@ -54,6 +55,19 @@ describe("env.ts", () => {
       expect(result.valid).toBe(false);
       expect(result.missing).toContain("ANTHROPIC_API_KEY");
       expect(result.missing).toContain("SEARCHAPI_KEY");
+    });
+
+    it("returns valid: false when BRAVE_SEARCH_API_KEY is missing (web_search SPOF)", () => {
+      // Arrange: every required var present except the Brave key
+      setRequiredEnv();
+      delete process.env.BRAVE_SEARCH_API_KEY;
+
+      // Act
+      const result = validateEnv();
+
+      // Assert
+      expect(result.valid).toBe(false);
+      expect(result.missing).toContain("BRAVE_SEARCH_API_KEY");
     });
 
     it("returns valid: false with missing public vars listed", () => {
