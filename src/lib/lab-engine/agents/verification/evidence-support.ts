@@ -74,3 +74,22 @@ export function getMaxUnsupportedAllowed(
 
   return value;
 }
+
+/**
+ * Evidence-grounded confidence: verifiedCount / (verifiedCount + unsupportedCount).
+ * Replaces the model's self-reported confidence (which is uncorrelated with
+ * grounding). Falls back to 0.0 when the verifier extracted zero claims — i.e.
+ * nothing could be grounded, so confidence is not earned.
+ */
+export function deriveGroundedConfidence(report: {
+  verifiedCount: number;
+  unsupportedCount: number;
+}): number {
+  const total = report.verifiedCount + report.unsupportedCount;
+
+  if (total === 0) {
+    return 0;
+  }
+
+  return report.verifiedCount / total;
+}

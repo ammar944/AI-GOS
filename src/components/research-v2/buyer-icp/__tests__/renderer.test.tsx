@@ -71,7 +71,9 @@ describe('BuyerICPArtifactRenderer', () => {
     expect(
       screen.getByText('The ICP exists and is reachable through public RevOps channels.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Confidence 8/10')).toBeInTheDocument();
+    // Section-level model confidence is no longer displayed (it was uncorrelated
+    // with grounding); the header shows only the title, verdict, and summary.
+    expect(screen.queryByText(/Confidence \d/)).not.toBeInTheDocument();
     expect(
       screen.getByText(
         'Named operators, firmographic cuts, and cluster venues all point to a reachable ICP.',

@@ -1,8 +1,6 @@
 // Pure function: converts a positioning section JSON envelope into markdown.
 // No side effects.
 
-import { formatConfidenceToTen } from '@/lib/research-v2/confidence-display';
-
 export interface SectionKeyFinding {
   title: string;
   detail: string;
@@ -44,7 +42,6 @@ export function sectionEnvelopeToMarkdown(
   lines.push(`# ${envelope.sectionTitle}`);
   lines.push('');
   lines.push(`> **Verdict:** ${envelope.verdict}`);
-  lines.push(`> **Confidence:** ${formatConfidenceToTen(envelope.confidence)}/10`);
   lines.push(`> ${envelope.statusSummary}`);
 
   if (envelope.keyFindings && envelope.keyFindings.length > 0) {

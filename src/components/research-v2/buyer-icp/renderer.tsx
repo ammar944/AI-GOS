@@ -3,18 +3,12 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import {
-  formatConfidenceToTen,
-  getConfidenceToneClass,
-} from '@/lib/research-v2/confidence-display';
-import { cn } from '@/lib/utils';
 import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
 
 import { AwarenessLevelCard } from './awareness-level-card';
@@ -40,12 +34,6 @@ export function BuyerICPArtifactRenderer({
           <h2 className="text-xl font-semibold leading-tight text-foreground">
             {artifact.sectionTitle}
           </h2>
-          <Badge
-            variant="outline"
-            className={cn('shrink-0 border', getConfidenceToneClass(artifact.confidence))}
-          >
-            Confidence {formatConfidenceToTen(artifact.confidence)}/10
-          </Badge>
         </div>
         <p className="text-base leading-relaxed text-foreground">
           {artifact.verdict}

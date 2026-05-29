@@ -69,6 +69,7 @@ import {
 import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
 import {
+  deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
   paidMediaLoadBearingKinds,
@@ -310,7 +311,13 @@ function buildEnvelope({
       sectionTitle: output.sectionTitle,
       verdict: output.verdict,
       statusSummary: output.statusSummary,
-      confidence: output.confidence,
+      // Evidence-grounded confidence replaces the model's self-report (which is
+      // uncorrelated with grounding). Falls back to the model value only when no
+      // verification report is available (e.g. corpus-only paths).
+      confidence:
+        verification === undefined
+          ? output.confidence
+          : deriveGroundedConfidence(verification),
       sources: output.sources.map((source, index) => ({
         id: deriveSourceId(source.url, index),
         title: source.title,

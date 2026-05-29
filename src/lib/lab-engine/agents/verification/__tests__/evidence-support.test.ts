@@ -4,6 +4,7 @@ import cleanMarketCategoryFixture from "../__evals__/fixtures/ramp-market-catego
 import fabricatedPriceFixture from "../__evals__/fixtures/synthetic-fabricated-price.json";
 import fabricatedQuoteFixture from "../__evals__/fixtures/synthetic-fabricated-quote.json";
 import {
+  deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
 } from "../evidence-support";
@@ -124,6 +125,32 @@ describe("evaluateEvidenceSupport", (): void => {
         (verdict) => verdict.claim.kind === "url",
       ),
     ).toBe(true);
+  });
+});
+
+describe("deriveGroundedConfidence", (): void => {
+  it("returns 0 when nothing is grounded (0 verified / 18 unsupported)", (): void => {
+    expect(
+      deriveGroundedConfidence({ verifiedCount: 0, unsupportedCount: 18 }),
+    ).toBe(0);
+  });
+
+  it("returns 1 when every load-bearing claim is verified", (): void => {
+    expect(
+      deriveGroundedConfidence({ verifiedCount: 7, unsupportedCount: 0 }),
+    ).toBe(1);
+  });
+
+  it("returns the verified ratio for a mixed report", (): void => {
+    expect(
+      deriveGroundedConfidence({ verifiedCount: 3, unsupportedCount: 1 }),
+    ).toBe(0.75);
+  });
+
+  it("falls back to 0 when the verifier extracted zero claims", (): void => {
+    expect(
+      deriveGroundedConfidence({ verifiedCount: 0, unsupportedCount: 0 }),
+    ).toBe(0);
   });
 });
 
