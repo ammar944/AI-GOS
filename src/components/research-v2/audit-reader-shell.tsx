@@ -118,6 +118,14 @@ const COPY_META_KEYS: ReadonlySet<string> = new Set([
 ]);
 const kickedOffRunIds = new Set<string>();
 
+// The auto-kickoff exists only for the legitimate reload-mid-flow case (the
+// page's own kickoff finished but no parent landed). It must NOT race the
+// page's in-flight fire-and-forget orchestrate POST. We require the parentless
+// state to persist for at least one full audit-state poll cycle before firing,
+// giving an in-flight page kickoff time to seed the parent. useAuditState polls
+// every 2500ms; one full cycle is the floor.
+const AUTO_KICKOFF_MIN_PARENTLESS_AGE_MS = 3000;
+
 function cleanTitle(sectionTitle: string): string {
   return sectionTitle.split('—')[0].split(' - ')[0].trim();
 }
@@ -820,18 +828,17 @@ function SectionProgressStrip({
   onSelect,
   statusOf,
 }: SectionProgressStripProps): ReactElement {
-  const completionPercent = Math.round(
-    (completedCount / READER_SECTION_IDS.length) * 100,
-  );
-
   return (
     <aside
       data-testid="section-progress-strip"
       className="w-14 shrink-0 border-r border-border bg-background"
     >
       <div className="sticky top-0 flex h-full min-h-0 flex-col items-center gap-3 py-3">
-        <div className="text-[10px] font-medium tabular-nums text-muted-foreground">
-          {completionPercent}%
+        <div
+          className="text-[10px] font-medium tabular-nums text-muted-foreground"
+          title={`${completedCount} of ${READER_SECTION_IDS.length} sections complete`}
+        >
+          {completedCount}/{READER_SECTION_IDS.length}
         </div>
         <nav aria-label="Sections" className="flex flex-col gap-1.5">
           {READER_SECTION_IDS.map((id) => {
@@ -1054,6 +1061,7 @@ export function AuditReaderShell({
   onSectionChange,
 }: AuditReaderShellProps): ReactElement {
   const mainRef = useRef<HTMLElement>(null);
+  const parentlessSinceRef = useRef<number | null>(null);
   const [meta, setMeta] = useState<JourneyMetadata>({});
   const [userActive, setUserActive] = useState<ReaderSectionId | null>(null);
   const [autoActive, setAutoActive] = useState<ReaderSectionId | null>(null);
@@ -1097,33 +1105,65 @@ export function AuditReaderShell({
   }, [runId]);
 
   // ---- Auto-kickoff fan-out if state shows no parent yet ---------------
+  // Belt to the layer-1 (dispatch gating) + layer-2 (non-fatal CAS) suspenders.
+  // Only fires for the legitimate reload-mid-flow case, and only once the
+  // parentless state has persisted for a full poll cycle so it cannot race the
+  // page's own in-flight orchestrate POST while the seed is still committing.
   useEffect(() => {
+    const parentless =
+      live.parent_audit_run_id === null && live.workerStates.length > 0;
+
+    if (!parentless) {
+      parentlessSinceRef.current = null;
+      return;
+    }
     if (kickedOffRunIds.has(runId)) return;
-    if (live.parent_audit_run_id !== null) return;
-    if (live.workerStates.length === 0) return;
-    kickedOffRunIds.add(runId);
-    void (async () => {
-      try {
-        const res = await fetch('/api/research-v2/orchestrate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ run_id: runId, executionMode: 'lab' }),
-        });
-        if (!res.ok) {
+
+    const now = Date.now();
+    if (parentlessSinceRef.current === null) {
+      parentlessSinceRef.current = now;
+    }
+
+    const fireKickoff = (): void => {
+      if (kickedOffRunIds.has(runId)) return;
+      kickedOffRunIds.add(runId);
+      void (async () => {
+        try {
+          const res = await fetch('/api/research-v2/orchestrate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ run_id: runId, executionMode: 'lab' }),
+          });
+          if (!res.ok) {
+            console.warn('[audit-reader-shell] auto-kickoff failed', {
+              runId,
+              status: res.status,
+              error: await readResponseError(res),
+            });
+          }
+        } catch (error) {
           console.warn('[audit-reader-shell] auto-kickoff failed', {
             runId,
-            status: res.status,
-            error: await readResponseError(res),
+            error: describeError(error),
           });
         }
-      } catch (error) {
-        console.warn('[audit-reader-shell] auto-kickoff failed', {
-          runId,
-          error: describeError(error),
-        });
-      }
-    })();
+      })();
+    };
+
+    const elapsed = now - parentlessSinceRef.current;
+    if (elapsed >= AUTO_KICKOFF_MIN_PARENTLESS_AGE_MS) {
+      fireKickoff();
+      return;
+    }
+
+    // Not aged in yet. Re-check after the remaining gate window in case polling
+    // delivers no further state change (e.g. the run is genuinely orphaned).
+    const timer = window.setTimeout(
+      fireKickoff,
+      AUTO_KICKOFF_MIN_PARENTLESS_AGE_MS - elapsed,
+    );
+    return () => window.clearTimeout(timer);
   }, [live.parent_audit_run_id, live.workerStates.length, runId]);
 
   // ---- Derived state ----------------------------------------------------

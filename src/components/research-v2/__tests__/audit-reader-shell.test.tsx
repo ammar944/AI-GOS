@@ -286,6 +286,12 @@ describe('<AuditReaderShell>', () => {
     // event surfaces as the translated phase title.
     expect(screen.getByText('Searching source evidence')).toBeInTheDocument();
     expect(screen.queryByText('Search started')).not.toBeInTheDocument();
+
+    // Progress strip reads honest completion ("0/7" across the 7 reader
+    // sections), never a per-section percent like "0%" for active work.
+    const strip = screen.getByTestId('section-progress-strip');
+    expect(strip.textContent).toContain('0/7');
+    expect(strip.textContent).not.toContain('%');
   });
 
   it('renders running activity over stale complete section data during a rerun', (): void => {
@@ -402,18 +408,48 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/research-v2/orchestrate',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            run_id: '00000000-0000-4000-8000-0000000000aa',
-            executionMode: 'lab',
+    // The auto-kickoff is age-gated: it only fires once the parentless state has
+    // persisted for a full poll cycle, so it cannot race the page's own kickoff.
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/research-v2/orchestrate',
+          expect.objectContaining({
+            method: 'POST',
+            body: JSON.stringify({
+              run_id: '00000000-0000-4000-8000-0000000000aa',
+              executionMode: 'lab',
+            }),
           }),
-        }),
-      ),
+        ),
+      { timeout: 4000 },
     );
+  });
+
+  it('does not fire the auto-kickoff immediately on mount (age-gate suppresses the page-kickoff race)', async (): Promise<void> => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({}));
+    const runId = '00000000-0000-4000-8000-0000000000dd';
+    const orchestrateCallCount = (): number =>
+      fetchMock.mock.calls.filter(([url]) => url === '/api/research-v2/orchestrate')
+        .length;
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: null,
+      workerStates: [buildWorker('positioningMarketCategory', 'queued')],
+    });
+
+    render(<AuditReaderShell runId={runId} />);
+
+    // Within the gate window the kickoff must NOT have fired yet — this is the
+    // belt that stops the shell racing the page's in-flight orchestrate POST.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 200);
+    });
+    expect(orchestrateCallCount()).toBe(0);
+
+    // After the full gate it fires once (legitimate reload-mid-flow bootstrap).
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1), { timeout: 4000 });
   });
 
   it('does not auto-kick lab orchestration again when worker state length changes', async (): Promise<void> => {
@@ -431,7 +467,7 @@ describe('<AuditReaderShell>', () => {
 
     const { rerender } = render(<AuditReaderShell runId={runId} />);
 
-    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1), { timeout: 4000 });
 
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -443,7 +479,7 @@ describe('<AuditReaderShell>', () => {
     });
     rerender(<AuditReaderShell runId={runId} />);
 
-    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1), { timeout: 4000 });
   });
 
   it('does not auto-kick lab orchestration again after a non-ok response', async (): Promise<void> => {
@@ -465,7 +501,7 @@ describe('<AuditReaderShell>', () => {
 
     const { rerender } = render(<AuditReaderShell runId={runId} />);
 
-    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1), { timeout: 4000 });
     await new Promise((resolve) => {
       setTimeout(resolve, 0);
     });
@@ -480,7 +516,7 @@ describe('<AuditReaderShell>', () => {
     });
     rerender(<AuditReaderShell runId={runId} />);
 
-    await waitFor(() => expect(orchestrateCallCount()).toBe(1));
+    await waitFor(() => expect(orchestrateCallCount()).toBe(1), { timeout: 4000 });
   });
 
   it('reruns positioning sections through the rerun-section route in lab mode', async (): Promise<void> => {
