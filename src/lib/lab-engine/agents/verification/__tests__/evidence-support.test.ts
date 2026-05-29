@@ -92,6 +92,39 @@ describe("evaluateEvidenceSupport", (): void => {
     expect(shortfall.unsupportedLoadBearing).toHaveLength(0);
     expect(shortfall.issues).toEqual([]);
   });
+
+  it("scopes the paid-media gate to url claims, ignoring unsupported numbers", (): void => {
+    const report = structuralVerifier({
+      body: {
+        plan: {
+          budget: "$99/mo",
+          sourceUrl: "https://fabricated.example/plan",
+        },
+      },
+      toolResults: [],
+      corpusExcerpts: [],
+    });
+
+    const defaultShortfall = evaluateEvidenceSupport({ verification: report });
+    const urlOnlyShortfall = evaluateEvidenceSupport({
+      verification: report,
+      loadBearingKinds: ["url"],
+    });
+
+    // Default scope (numeric + url) flags the fabricated $99/mo number.
+    expect(
+      defaultShortfall.unsupportedLoadBearing.some(
+        (verdict) => verdict.claim.kind === "numeric",
+      ),
+    ).toBe(true);
+    // url-only scope drops the numeric and keeps only the fabricated url.
+    expect(urlOnlyShortfall.unsupportedLoadBearing.length).toBeGreaterThan(0);
+    expect(
+      urlOnlyShortfall.unsupportedLoadBearing.every(
+        (verdict) => verdict.claim.kind === "url",
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("getMaxUnsupportedAllowed", (): void => {

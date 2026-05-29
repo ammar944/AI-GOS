@@ -71,6 +71,7 @@ import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message
 import {
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
+  paidMediaLoadBearingKinds,
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import { structuralVerifier } from "./verification/structural-verifier";
@@ -2410,6 +2411,12 @@ async function callStructuredAttempt({
       toolResults: modelSteps.flatMap((step) => step.toolResults),
       corpusExcerpts: researchInput.corpus.excerpts,
     });
+    const evidenceSupportShortfall = evaluateEvidenceSupport({
+      verification,
+      ...(input.sectionId === "positioningPaidMediaPlan"
+        ? { loadBearingKinds: paidMediaLoadBearingKinds }
+        : {}),
+    });
     const artifact = buildEnvelope({
       definition,
       deps,
@@ -2445,7 +2452,7 @@ async function callStructuredAttempt({
       };
     }
 
-    return { output, artifact, errors: [] };
+    return { output, artifact, errors: [], evidenceSupportShortfall };
   } catch (error) {
     return { output: null, artifact: null, errors: getErrorIssues(error) };
   } finally {
@@ -3930,6 +3937,11 @@ export async function runSection(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
+  // Gate is armed but default-OFF: Infinity unless LAB_VERIFIER_MAX_UNSUPPORTED
+  // is set (calibrated post-live-run). Mirrors the answer-tool path.
+  const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
+    deps.env ?? process.env,
+  );
 
   await appendEvent(
     deps,
@@ -4088,6 +4100,7 @@ export async function runSection(
     signal: input.signal,
   });
 
+  let committedAttempt: AttemptResult = firstAttempt;
   let artifact = firstAttempt.artifact;
 
   if (artifact === null) {
@@ -4165,6 +4178,7 @@ export async function runSection(
       signal: input.signal,
     });
 
+    committedAttempt = repairAttempt;
     artifact = repairAttempt.artifact;
 
     if (artifact === null) {
@@ -4181,6 +4195,44 @@ export async function runSection(
         errors: repairAttempt.errors,
       });
     }
+  }
+
+  // Evidence gate (armed but default-OFF). The structured path has no grounding
+  // repair loop, so this is fail-and-degrade: when the env threshold is exceeded
+  // the section fails instead of committing an ungrounded artifact.
+  const evidenceGateFailureReason = getEvidenceGateFailureReason(
+    committedAttempt,
+    maxUnsupportedAllowed,
+  );
+
+  if (evidenceGateFailureReason !== null) {
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "validation-failed",
+        message: "Structured output failed the evidence gate",
+        metadata: {
+          attempt: committedAttempt === firstAttempt ? 1 : 2,
+          issues: [evidenceGateFailureReason],
+        },
+      }),
+    );
+    await recordSectionFailure({
+      definition,
+      deps,
+      errorMessage: evidenceGateFailureReason,
+      input,
+    });
+
+    throw new SectionRunnerError({
+      runId: input.runId,
+      sectionId: input.sectionId,
+      errors: [evidenceGateFailureReason],
+    });
   }
 
   await appendSubSectionCommittedEvents({

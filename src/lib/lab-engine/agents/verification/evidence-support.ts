@@ -20,6 +20,10 @@ export interface EvaluateEvidenceSupportInput {
 }
 
 const defaultLoadBearingKinds = ["numeric", "url"] as const;
+// Paid-media plans legitimately project many model-derived numbers; gating them
+// on numeric claims would false-fail. Scope the plan's load-bearing set to URLs
+// so an unsourced citation fails the gate but plan numbers do not.
+export const paidMediaLoadBearingKinds = ["url"] as const;
 const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
 
 function isUnsupportedLoadBearingClaim(
