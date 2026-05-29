@@ -647,8 +647,6 @@ function buildWorker(
     latestSource: null,
     latestActivity,
     nextStep: null,
-    wave: null,
-    totalWaves: null,
     concurrency: null,
     elapsedMs: null,
     capabilityGaps: [],

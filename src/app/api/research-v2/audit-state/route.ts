@@ -73,8 +73,6 @@ export interface AuditStateResponse {
     latestSource: string | null;
     latestActivity: string | null;
     nextStep: string | null;
-    wave: number | null;
-    totalWaves: number | null;
     concurrency: number | null;
     elapsedMs: number | null;
     capabilityGaps: Array<Record<string, unknown>>;
@@ -136,8 +134,6 @@ interface WorkerStateReadModel {
   latestSource: string | null;
   latestActivity: string | null;
   nextStep: string | null;
-  wave: number | null;
-  totalWaves: number | null;
   concurrency: number | null;
   elapsedMs: number | null;
   capabilityGaps: Array<Record<string, unknown>>;
@@ -348,8 +344,6 @@ function buildWorkerStateReadModel(
       : pickString(telemetry.latestSource),
     latestActivity: pickString(telemetry.latestActivity),
     nextStep: pickString(telemetry.nextStep),
-    wave: pickNumber(telemetry.wave),
-    totalWaves: pickNumber(telemetry.totalWaves),
     concurrency: pickNumber(telemetry.concurrency),
     elapsedMs: pickNumber(telemetry.elapsedMs),
     capabilityGaps:
