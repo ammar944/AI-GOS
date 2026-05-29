@@ -9,6 +9,7 @@ export interface DeriveSectionPhaseInput {
 const PHASE_BY_EVENT_TYPE: Partial<Record<ActivityEventType, AuditSectionPhase>> = {
   'section-started': 'Compiling context',
   'skill-loaded': 'Compiling context',
+  'reading-sources-started': 'Reading sources',
   'tool-started': 'Reading sources',
   'tool-finished': 'Reading sources',
   'structured-output-started': 'Drafting',

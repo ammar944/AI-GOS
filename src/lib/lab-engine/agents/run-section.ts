@@ -59,7 +59,7 @@ import {
 import { createLabSectionTelemetry } from "./telemetry";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
-import { ToolBudget } from "./budget";
+import { SectionToolBudget, ToolBudget } from "./budget";
 import { buildToolMap } from "./tool-registry";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
 import {
@@ -140,6 +140,7 @@ interface RuntimeSectionDefinition {
   structuredOutputMaxTokens?: number;
   allowedTools: readonly ToolName[];
   maxExternalLookups: number;
+  adReservedLookups?: number;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   bodySchema: z.ZodType<Record<string, unknown>>;
   sectionOutputSchema: z.ZodType<SectionOutput<Record<string, unknown>>>;
@@ -675,9 +676,17 @@ const defaultStructuredOutputMaxTokens = 8192;
 // server records a terminal failure before the verifier's fetch dies and
 // abandons the run record in `running` state.
 const structuredOutputTimeoutMs = 240_000;
-// Must fire well under the /start route's maxDuration so the server appends a
-// terminal failure event before the platform kills the request.
-const answerToolTimeoutMs = 540_000;
+// Inner backstop in the timeout hierarchy (Cluster A target, Option A):
+// answer-tool 255s < job timeout (LAB_SECTION_JOB_TIMEOUT_MS = 270s) <
+// route maxDuration (300s). The answer-tool timeout trips first as an inner
+// guard; the 270s job-timeout AbortController is the canonical controlled
+// failure emitter, firing ~15s later and ~30s before the platform cap so the
+// app records a terminal section-failed event instead of orphaning a 'running'
+// row. The previous 540s value was longer than both the job and route ceilings,
+// so the answer tool could never self-abort before the platform killed it.
+// Exported so the cross-cluster timeout-hierarchy contract test can assert
+// answerToolTimeoutMs < LAB_SECTION_JOB_TIMEOUT_MS < route maxDuration.
+export const answerToolTimeoutMs = 255_000;
 // The first agent step (a model response or tool call) must arrive within this
 // window. A stalled provider transport produces zero steps, so we abandon the
 // attempt here instead of waiting out the full answer-tool budget.
@@ -689,6 +698,14 @@ const structuredFirstChunkTimeoutMs = 60_000;
 const structuredChunkIdleTimeoutMs = 60_000;
 const competitorAdProbeAdvertiserLimit = 5;
 const competitorAdProbeMaxResults = 4;
+// Each probed advertiser draws two ad lookups (google_ads + meta_ads), so the
+// reserved ad pool caps how many advertisers the live probe can cover without
+// borrowing generic budget. Bounding the probe to this many advertisers keeps
+// added wall-clock to a single parallel google+meta round-trip.
+const competitorAdProbeAdLookupsPerAdvertiser = 2;
+// Hard ceiling on the live competitor ad probe so a slow ad API cannot push
+// CompetitorLandscape past the answer-tool timeout (255s). Worst-case +30s.
+const competitorAdProbeDeadlineMs = 30_000;
 const answerToolMaxStepCount = 12;
 const answerToolMaxRepairAttempts = 2;
 // Sections routed through the generic answer-tool path instead of the legacy
@@ -2176,16 +2193,25 @@ function getExecutableTool<TInput>(
   return tool;
 }
 
-async function runCompetitorAdProbeSteps({
+export async function runCompetitorAdProbeSteps({
+  maxAdvertisers,
   researchInput,
   researchTools,
   signal,
 }: {
+  // When set, caps how many advertisers the probe covers. The reserved ad
+  // budget is the binding constraint, so the caller passes the number of
+  // advertisers the reserve can fully fund (google + meta each).
+  maxAdvertisers?: number;
   researchInput: ResearchInput;
   researchTools: Record<string, unknown>;
   signal?: AbortSignal;
 }): Promise<AgentStep[]> {
-  const advertisers = getCompetitorAdProbeAdvertisers(researchInput);
+  const allAdvertisers = getCompetitorAdProbeAdvertisers(researchInput);
+  const advertisers =
+    maxAdvertisers === undefined
+      ? allAdvertisers
+      : allAdvertisers.slice(0, Math.max(0, maxAdvertisers));
   const hasGoogleAdsTool = hasExecutableTool(researchTools, "google_ads");
   const hasMetaAdsTool = hasExecutableTool(researchTools, "meta_ads");
 
@@ -2241,45 +2267,63 @@ async function runCompetitorAdProbeSteps({
   }>(researchTools, "meta_ads");
   const steps: AgentStep[] = [];
 
-  for (const [index, advertiserRecord] of advertisers.entries()) {
-    const googleInput = {
-      max_results: competitorAdProbeMaxResults,
-      advertiser: advertiserRecord.advertiser,
-      ...(advertiserRecord.domain === undefined
-        ? {}
-        : { domain: advertiserRecord.domain }),
-    };
-    const metaInput = {
-      max_results: competitorAdProbeMaxResults,
-      advertiser: advertiserRecord.advertiser,
-      ...(advertiserRecord.domain === undefined
-        ? {}
-        : { domain: advertiserRecord.domain }),
-    };
-    const [googleOutput, metaOutput] = await Promise.all([
-      googleAdsTool.execute?.(
-        googleInput,
-        createToolExecutionOptions({ signal, toolName: "google_ads" }),
-      ),
-      metaAdsTool.execute?.(
-        metaInput,
-        createToolExecutionOptions({ signal, toolName: "meta_ads" }),
-      ),
-    ]);
+  // Hard deadline so a slow ad API cannot drag the probe past the answer-tool
+  // timeout. Combined with the parent signal; cleaned up in finally.
+  const probeDeadline = createTimeoutSignal({
+    parentSignal: signal,
+    reasonLabel: "Competitor ad probe",
+    timeoutMs: competitorAdProbeDeadlineMs,
+  });
 
-    steps.push({
-      stepNumber: index,
-      finishReason: "tool-calls",
-      text: `Deterministic competitor ad evidence probe for ${advertiserRecord.advertiser}.`,
-      toolCalls: [
-        { toolName: "google_ads", input: googleInput },
-        { toolName: "meta_ads", input: metaInput },
-      ],
-      toolResults: [
-        { toolName: "google_ads", output: googleOutput },
-        { toolName: "meta_ads", output: metaOutput },
-      ],
-    });
+  try {
+    for (const [index, advertiserRecord] of advertisers.entries()) {
+      const googleInput = {
+        max_results: competitorAdProbeMaxResults,
+        advertiser: advertiserRecord.advertiser,
+        ...(advertiserRecord.domain === undefined
+          ? {}
+          : { domain: advertiserRecord.domain }),
+      };
+      const metaInput = {
+        max_results: competitorAdProbeMaxResults,
+        advertiser: advertiserRecord.advertiser,
+        ...(advertiserRecord.domain === undefined
+          ? {}
+          : { domain: advertiserRecord.domain }),
+      };
+      const [googleOutput, metaOutput] = await Promise.all([
+        googleAdsTool.execute?.(
+          googleInput,
+          createToolExecutionOptions({
+            signal: probeDeadline.signal,
+            toolName: "google_ads",
+          }),
+        ),
+        metaAdsTool.execute?.(
+          metaInput,
+          createToolExecutionOptions({
+            signal: probeDeadline.signal,
+            toolName: "meta_ads",
+          }),
+        ),
+      ]);
+
+      steps.push({
+        stepNumber: index,
+        finishReason: "tool-calls",
+        text: `Deterministic competitor ad evidence probe for ${advertiserRecord.advertiser}.`,
+        toolCalls: [
+          { toolName: "google_ads", input: googleInput },
+          { toolName: "meta_ads", input: metaInput },
+        ],
+        toolResults: [
+          { toolName: "google_ads", output: googleOutput },
+          { toolName: "meta_ads", output: metaOutput },
+        ],
+      });
+    }
+  } finally {
+    probeDeadline.cleanup();
   }
 
   return steps;
@@ -2584,11 +2628,13 @@ async function callStructuredStreamAttempt({
 async function buildAnswerToolAdEvidence({
   deps,
   input,
+  maxAdvertisers,
   researchInput,
   researchTools,
 }: {
   deps: RunSectionDeps;
   input: RunSectionInput;
+  maxAdvertisers?: number;
   researchInput: ResearchInput;
   researchTools: Record<string, unknown>;
 }): Promise<{
@@ -2600,6 +2646,7 @@ async function buildAnswerToolAdEvidence({
   }
 
   const adProbeSteps = await runCompetitorAdProbeSteps({
+    maxAdvertisers,
     researchInput,
     researchTools,
     signal: input.signal,
@@ -2773,27 +2820,81 @@ async function runSectionViaAnswerTool(
     }),
   );
 
+  // Append the reading-sources heartbeat before the prepass ad probe and the
+  // first model attempt so deriveSectionPhase advances past "Compiling context"
+  // immediately, instead of waiting ~60-70s for the first real tool event to be
+  // persisted at attempt-end. Emitted once per section run.
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "reading-sources-started",
+      message: `${definition.title} gathering sources`,
+      metadata: { sectionTitle: definition.title },
+    }),
+  );
+
   const toolEvents: ActivityEvent[] = [];
-  const toolBudget = new ToolBudget(definition.maxExternalLookups);
+  const toolBudget = new SectionToolBudget(
+    definition.maxExternalLookups,
+    definition.adReservedLookups ?? 0,
+  );
   const externalTools = buildToolMap(getAllowedTools(definition, deps), {
     budget: toolBudget,
     webSearchMaxUses: definition.maxExternalLookups,
   });
   const externalToolNames = getExternalToolNames(externalTools);
+  // Bound the live ad probe to the advertisers the reserved pool can fully fund
+  // (google + meta each). With adReservedLookups=2 this is one advertiser, so
+  // the probe always lands the top advertiser's ad evidence without borrowing
+  // generic budget and without adding more than one parallel round-trip.
+  const adProbeMaxAdvertisers =
+    definition.adReservedLookups !== undefined &&
+    definition.adReservedLookups > 0
+      ? Math.max(
+          1,
+          Math.floor(
+            definition.adReservedLookups /
+              competitorAdProbeAdLookupsPerAdvertiser,
+          ),
+        )
+      : undefined;
   const adEvidence = await buildAnswerToolAdEvidence({
     deps,
     input,
+    maxAdvertisers: adProbeMaxAdvertisers,
     researchInput,
     researchTools: externalTools,
   });
   toolEvents.push(...adEvidence.events);
   const runAnswerTool = deps.runAnswerTool ?? defaultAnswerToolRunner;
   let appendedEventCount = 0;
+  // Hardened flush: a single failing appendEvent must not abort the section nor
+  // desync the cursor. On failure we log and BREAK without advancing the cursor,
+  // so the failed event is retried on the next flush rather than skipped.
   const flushBufferedEvents = async (): Promise<void> => {
     while (appendedEventCount < toolEvents.length) {
-      await appendEvent(deps, input.runId, toolEvents[appendedEventCount]);
+      try {
+        await appendEvent(deps, input.runId, toolEvents[appendedEventCount]);
+      } catch (error) {
+        console.error(
+          `[lab-section] failed to persist activity event for run ${input.runId} section ${input.sectionId}; will retry on next flush`,
+          error,
+        );
+        break;
+      }
       appendedEventCount += 1;
     }
+  };
+  // Serialize every flush through a single promise chain so re-entrant onStep
+  // callbacks cannot interleave appendEvent calls and corrupt appendedEventCount.
+  let flushChain: Promise<void> = Promise.resolve();
+  const scheduleFlush = (): Promise<void> => {
+    flushChain = flushChain.then(() => flushBufferedEvents());
+    return flushChain;
   };
   const answerToolInstructions = [
     buildAnswerToolInstructions(
@@ -2848,11 +2949,16 @@ async function runSectionViaAnswerTool(
             step,
           }),
         );
+        // Persist each tool event immediately (serialized via the flush chain)
+        // so the reader sees live progress instead of a frozen phase until the
+        // whole attempt resolves. A telemetry write must never abort the
+        // section, so swallow flush rejections here.
+        void scheduleFlush().catch(() => undefined);
       },
       onStall: async ({ attempt, timeoutMs }) => {
         // Persist progress immediately so the run record never sits frozen at
         // skill-loaded while a stalled attempt is being abandoned and retried.
-        await flushBufferedEvents();
+        await scheduleFlush();
         toolEvents.push(
           createEvent({
             deps,
@@ -2865,7 +2971,7 @@ async function runSectionViaAnswerTool(
             },
           }),
         );
-        await flushBufferedEvents();
+        await scheduleFlush();
       },
     });
 
@@ -2885,7 +2991,7 @@ async function runSectionViaAnswerTool(
     throw error;
   }
 
-  await flushBufferedEvents();
+  await scheduleFlush();
 
   let normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
     deps,
@@ -2967,7 +3073,7 @@ async function runSectionViaAnswerTool(
           skillMd,
         }),
       });
-      await flushBufferedEvents();
+      await scheduleFlush();
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
         deps,
         input,
@@ -3107,6 +3213,8 @@ async function runSectionViaAnswerTool(
   };
 }
 
+// UNUSED-in-production: dead partial-streaming path. Sections commit atomically via the
+// answer-tool path (runSection); do not revive without deliberately rewiring the dispatch.
 async function streamSectionViaAnswerTool(
   input: RunSectionInput,
   deps: StreamRunSectionDeps,
@@ -3405,6 +3513,8 @@ async function streamSectionViaAnswerTool(
   };
 }
 
+// UNUSED-in-production: dead partial-streaming entrypoint. Sections commit atomically via the
+// answer-tool path (runSection); do not revive without deliberately rewiring the dispatch.
 export async function streamRunSection(
   input: RunSectionInput,
   deps: StreamRunSectionDeps,

@@ -1,10 +1,15 @@
 import type { Tool, ToolExecutionOptions } from "ai";
 
-import type { ToolBudget } from "./budget";
+import type { SectionToolBudget, ToolBudget } from "./budget";
 import { TOOL_CATALOG, type ToolName } from "./tools/index";
 
+// Either budget shape works: a plain ToolBudget or a two-pool SectionToolBudget.
+// The wrapper passes the tool name through so a SectionToolBudget can route
+// ad-tool draws to its reserved pool.
+type ToolBudgetLike = ToolBudget | SectionToolBudget;
+
 export interface BuildToolMapDeps {
-  budget: ToolBudget;
+  budget: ToolBudgetLike;
   webSearchMaxUses: number;
 }
 
@@ -16,7 +21,7 @@ export function buildToolMap(
 
   for (const name of allowedTools) {
     const baseTool = TOOL_CATALOG[name] as unknown as Tool<unknown, unknown>;
-    tools[name] = wrapWithBudget(baseTool, deps.budget);
+    tools[name] = wrapWithBudget(baseTool, deps.budget, name);
   }
 
   return tools;
@@ -24,7 +29,8 @@ export function buildToolMap(
 
 function wrapWithBudget<TInput, TOutput>(
   baseTool: Tool<TInput, TOutput>,
-  budget: ToolBudget,
+  budget: ToolBudgetLike,
+  toolName: string,
 ): Tool<TInput, TOutput> {
   const wrappedTool = {
     ...baseTool,
@@ -32,7 +38,7 @@ function wrapWithBudget<TInput, TOutput>(
       input: TInput,
       context: ToolExecutionOptions,
     ): Promise<TOutput> => {
-      if (!budget.consume()) {
+      if (!budget.consume(toolName)) {
         return {
           type: "gap",
           reason: "rate_limited",

@@ -93,6 +93,10 @@ export interface SectionDefinition<TBody, TOutput extends SectionOutput<TBody>> 
   structuredOutputMaxTokens?: number;
   allowedTools: readonly ToolName[];
   maxExternalLookups: number;
+  // Dedicated ad-tool lookup slots carved into a separate budget pool so the
+  // deterministic competitor ad probe is never starved by generic web/firecrawl
+  // calls. Defaults to 0 (no reserve) for sections that do not set it.
+  adReservedLookups?: number;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   bodySchema: z.ZodType<TBody>;
   sectionOutputSchema: z.ZodType<TOutput>;
@@ -149,6 +153,7 @@ export const SECTION_REGISTRY = {
       "reviews",
     ],
     maxExternalLookups: 6,
+    adReservedLookups: 2,
     requiredEvidenceClasses: ["competitor", "adEvidence_or_gap"],
     bodySchema: competitorLandscapeBodySchema,
     sectionOutputSchema: competitorLandscapeSectionOutputSchema,

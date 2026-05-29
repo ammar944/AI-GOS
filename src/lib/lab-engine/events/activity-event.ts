@@ -8,6 +8,7 @@ export const activityEventTypes = [
   "run-created",
   "section-started",
   "skill-loaded",
+  "reading-sources-started",
   "tool-started",
   "tool-finished",
   "structured-output-started",
@@ -97,6 +98,14 @@ export const activityEventSchema = z.discriminatedUnion("type", [
           skillSlug: z.string().min(1),
         })
         .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...activityBaseFields,
+      type: z.literal("reading-sources-started"),
+      sectionId: sectionIdSchema,
+      metadata: sectionMetadataSchema,
     })
     .strict(),
   z

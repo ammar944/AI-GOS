@@ -121,6 +121,7 @@ function subSectionKey(event: SectionEvent): string | null {
 const EVENT_PHASE: Record<string, ProductPhase> = {
   'section-started': 'preparing',
   'skill-loaded': 'preparing',
+  'reading-sources-started': 'searching',
   'tool-started': 'searching',
   'tool-finished': 'searching',
   'structured-output-started': 'drafting',
@@ -225,6 +226,14 @@ function buildActivityItem(event: SectionEvent): SectionActivityItem | null {
         detail: null,
         kind: 'skill',
         tone: 'neutral',
+      };
+    case 'reading-sources-started':
+      return {
+        ...base,
+        title: 'Searching source evidence',
+        detail: null,
+        kind: 'tool',
+        tone: 'active',
       };
     case 'tool-started':
       return {
