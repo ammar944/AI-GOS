@@ -147,14 +147,18 @@ function mockOwnedSession({
   });
 }
 
-function defaultSeededRows() {
+function defaultSeededRows(
+  status: 'queued' | 'running' | 'complete' = 'queued',
+  reused = false,
+) {
   return {
     parent_audit_run_id: PARENT_ID,
     section_run_ids: POSITIONING_SECTION_IDS.map((zone, i) => ({
       section_id: zone,
       section_run_id: `22222222-2222-4222-8222-${(i + 1).toString().padStart(12, '0')}`,
       ordinal: i + 1,
-      reused: false,
+      reused,
+      status,
     })),
   };
 }
@@ -510,5 +514,101 @@ describe('POST /api/research-v2/orchestrate', () => {
 
     expect(responded).toBe(true);
     expect(response.status).toBe(200);
+  });
+
+  it('does not re-dispatch already-running/complete sections (layer-1 dispatch gating)', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+
+    // First POST: all six queued → six kickoffs.
+    routeMocks.seedOrchestration.mockResolvedValueOnce(
+      defaultSeededRows('queued', false),
+    );
+    // Second POST: the seed reuses the same rows but they are now running.
+    routeMocks.seedOrchestration.mockResolvedValueOnce(
+      defaultSeededRows('running', true),
+    );
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const r1 = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+      }),
+    );
+    expect(r1.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+
+    fetchMock.mockClear();
+
+    const r2 = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+      }),
+    );
+    // Idempotent: same parent + section ids, but zero re-dispatch.
+    expect(r2.status).toBe(200);
+    const b2 = await r2.json();
+    expect(b2.parent_audit_run_id).toBe(PARENT_ID);
+    expect(b2.section_run_ids).toHaveLength(6);
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
+
+  it('fires exactly one kickoff per zone across two racing POSTs (race regression)', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+
+    // Shared in-memory fake of seed_orchestration: returns the SAME six section
+    // run ids on every call and flips queued→running after the first dispatch.
+    let seedCallCount = 0;
+    routeMocks.seedOrchestration.mockImplementation(async () => {
+      seedCallCount += 1;
+      // First seed: queued. Every subsequent seed: running (already dispatched).
+      return seedCallCount === 1
+        ? defaultSeededRows('queued', false)
+        : defaultSeededRows('running', true);
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Two competing orchestrate POSTs for the same run.
+    const [r1, r2] = await Promise.all([
+      POST(
+        makeRequest({
+          journey_session_id: VALID_SESSION_ID,
+          run_id: VALID_RUN_ID,
+        }),
+      ),
+      POST(
+        makeRequest({
+          journey_session_id: VALID_SESSION_ID,
+          run_id: VALID_RUN_ID,
+        }),
+      ),
+    ]);
+
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+
+    // Exactly six run-lab-section kickoffs across both POSTs — not twelve.
+    const kickoffCalls = (fetchMock.mock.calls as [string, RequestInit][]).filter(
+      ([url]) => url === 'http://localhost/api/research-v2/run-lab-section',
+    );
+    expect(kickoffCalls).toHaveLength(6);
+    const dispatchedSectionIds = kickoffCalls.map(([, init]) => {
+      const parsedBody = JSON.parse(String(init.body)) as { section_id: string };
+      return parsedBody.section_id;
+    });
+    expect([...dispatchedSectionIds].sort()).toEqual(
+      [...POSITIONING_SECTION_IDS].sort(),
+    );
   });
 });

@@ -21,6 +21,10 @@ import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { runLabSectionJob } from '../lab-section-job';
+import {
+  SupabaseRunStoreCommitConflictError,
+  SupabaseRunStoreError,
+} from '../supabase-run-store';
 
 const runId = saaslaunchResearchInput.runId;
 
@@ -295,5 +299,99 @@ describe('runLabSectionJob', (): void => {
     });
 
     expect(observedSignals).toEqual([controller.signal]);
+  });
+
+  it('treats a lost CAS on an already-committed section as non-fatal', async (): Promise<void> => {
+    const { appendEvent, markSectionFailed, store } = createMockRunStore();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation((): void => {});
+    const consoleInfo = vi
+      .spyOn(console, 'info')
+      .mockImplementation((): void => {});
+    const runSectionImpl = vi.fn(
+      async (): Promise<RunSectionResult> => {
+        throw new SupabaseRunStoreCommitConflictError(
+          'commit_artifact_section conflict',
+          { conflict: true, committedRevision: 1 },
+        );
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningBuyerICP',
+      store,
+      runSectionImpl,
+    });
+
+    expect(markSectionFailed).not.toHaveBeenCalled();
+    expect(appendEvent).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenCalledWith(
+      '[lab-section-job] lost CAS to sibling, section already committed',
+      expect.objectContaining({
+        runId,
+        sectionId: 'positioningBuyerICP',
+        committedRevision: 1,
+      }),
+    );
+  });
+
+  it('still records a failure for a genuine store error (negative control)', async (): Promise<void> => {
+    const { appendEvent, markSectionFailed, store } = createMockRunStore();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation((): void => {});
+    const runSectionImpl = vi.fn(
+      async (): Promise<RunSectionResult> => {
+        throw new SupabaseRunStoreError('commit_artifact_section failed: rpc boom');
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningBuyerICP',
+      store,
+      runSectionImpl,
+    });
+
+    expect(markSectionFailed).toHaveBeenCalledTimes(1);
+    expect(markSectionFailed).toHaveBeenCalledWith(
+      runId,
+      'positioningBuyerICP',
+      'commit_artifact_section failed: rpc boom',
+    );
+    expect(appendEvent).toHaveBeenCalledTimes(1);
+    expect(appendEvent).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        sectionId: 'positioningBuyerICP',
+        type: 'section-failed',
+      }),
+    );
+    expect(consoleError).toHaveBeenCalled();
+  });
+
+  it('treats an aborted/locked conflict (committedRevision = -1) as fatal', async (): Promise<void> => {
+    const { markSectionFailed, store } = createMockRunStore();
+    vi.spyOn(console, 'error').mockImplementation((): void => {});
+    const runSectionImpl = vi.fn(
+      async (): Promise<RunSectionResult> => {
+        throw new SupabaseRunStoreCommitConflictError(
+          'commit_artifact_section conflict (aborted)',
+          { conflict: true, committedRevision: -1 },
+        );
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningBuyerICP',
+      store,
+      runSectionImpl,
+    });
+
+    expect(markSectionFailed).toHaveBeenCalledTimes(1);
   });
 });

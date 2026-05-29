@@ -10,6 +10,8 @@ import {
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { createAdminClient } from '@/lib/supabase/server';
 
+export type SectionSeedStatus = 'queued' | 'running' | 'complete';
+
 export interface SeedOrchestrationResult {
   parent_audit_run_id: string;
   section_run_ids: Array<{
@@ -17,6 +19,7 @@ export interface SeedOrchestrationResult {
     section_run_id: string;
     ordinal: number;
     reused: boolean;
+    status: SectionSeedStatus;
   }>;
 }
 
@@ -26,6 +29,7 @@ const RpcRowSchema = z.object({
   section_run_id: z.string().uuid(),
   ordinal: z.number().int().min(1),
   reused: z.boolean(),
+  status: z.enum(['queued', 'running', 'complete']),
 });
 const RpcRowsSchema = z.array(RpcRowSchema);
 const FreezeReviewedBriefSnapshotResultSchema = z.enum([
@@ -162,6 +166,7 @@ export async function seedOrchestration(
         section_run_id: row.section_run_id,
         ordinal: row.ordinal,
         reused: row.reused,
+        status: row.status,
       };
     });
 

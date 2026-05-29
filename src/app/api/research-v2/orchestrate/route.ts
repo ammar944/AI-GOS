@@ -28,6 +28,7 @@ import {
   freezeReviewedBriefSnapshot,
   OrchestrateRpcError,
   seedOrchestration,
+  type SeedOrchestrationResult,
 } from '@/lib/research-v2/orchestrate-db';
 
 export const runtime = 'nodejs';
@@ -50,6 +51,7 @@ const LAB_SECTION_KICKOFF_TIMEOUT_MS = 30_000;
 interface DispatchLabSectionJobsInput {
   request: Request;
   runId: string;
+  seeded: SeedOrchestrationResult;
 }
 
 interface KickoffLabSectionJobInput {
@@ -89,13 +91,26 @@ async function dispatchLabSectionJobs(
   const url = getLabSectionUrl(input.request);
   const headers = buildForwardedLabSectionHeaders(input.request);
 
+  // Dispatch gating (layer 1): only kick off zones the seed reports as still
+  // 'queued'. A repeated orchestrate POST whose sections are already running or
+  // complete becomes a no-op kickoff, so two competing POSTs cannot double the
+  // run-lab-section invocations per zone (the dispatch race that produced false
+  // section-failed via lost CAS). The seeded result is still returned to the
+  // caller unchanged, so idempotency is preserved.
+  const queuedSectionIds = input.seeded.section_run_ids
+    .filter((row) => row.status === 'queued')
+    .map((row) => row.section_id)
+    .filter((sectionId): sectionId is (typeof POSITIONING_SECTION_IDS)[number] =>
+      (POSITIONING_SECTION_IDS as readonly string[]).includes(sectionId),
+    );
+
   // Await every kickoff. Awaiting is what keeps THIS invocation alive long
-  // enough to actually send all six requests — returning before they're sent
+  // enough to actually send all the requests — returning before they're sent
   // lets Vercel freeze the function and drop the un-sent fetches, leaving every
   // section stuck at queued. kickoffLabSectionJob never rejects (it logs and
-  // resolves), so allSettled simply guarantees all six are delivered.
+  // resolves), so allSettled simply guarantees they're all delivered.
   await Promise.allSettled(
-    POSITIONING_SECTION_IDS.map((sectionId) =>
+    queuedSectionIds.map((sectionId) =>
       kickoffLabSectionJob({
         headers,
         runId: input.runId,
@@ -217,6 +232,7 @@ export async function POST(request: Request): Promise<Response> {
     await dispatchLabSectionJobs({
       request,
       runId: body.run_id,
+      seeded,
     });
 
     return NextResponse.json(seeded, { status: 200 });

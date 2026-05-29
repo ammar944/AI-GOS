@@ -8,7 +8,11 @@ import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
-import { createSupabaseRunStore } from '../supabase-run-store';
+import {
+  createSupabaseRunStore,
+  SupabaseRunStoreCommitConflictError,
+  SupabaseRunStoreError,
+} from '../supabase-run-store';
 
 const parentAuditRunId = '11111111-1111-4111-8111-111111111111';
 const sectionRunIdByZone = Object.fromEntries(
@@ -20,6 +24,12 @@ const sectionRunIdByZone = Object.fromEntries(
 
 interface FakeSupabaseOptions {
   completeSectionZones?: readonly PositioningSectionId[];
+  commitResult?: {
+    ok: boolean;
+    conflict: boolean;
+    revision: number;
+  };
+  commitError?: string;
 }
 
 function createSelectQuery(table: string, options: FakeSupabaseOptions) {
@@ -76,8 +86,14 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   });
   const rpc = vi.fn((functionName: string, params: Record<string, unknown>) => {
     if (functionName === 'commit_artifact_section') {
+      if (options.commitError !== undefined) {
+        return Promise.resolve({
+          data: null,
+          error: { message: options.commitError },
+        });
+      }
       return Promise.resolve({
-        data: { ok: true, conflict: false, revision: 1 },
+        data: options.commitResult ?? { ok: true, conflict: false, revision: 1 },
         error: null,
       });
     }
@@ -258,6 +274,53 @@ describe('createSupabaseRunStore', (): void => {
       'forced Buyer ICP failure',
     );
     expect(failed.sections.positioningMarketCategory?.status).toBe('idle');
+  });
+
+  it('throws a typed commit-conflict error carrying the committed revision when a sibling already advanced the revision', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      commitResult: { ok: false, conflict: true, revision: 1 },
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    const error = await store
+      .saveArtifact(saaslaunchResearchInput.runId, marketCategoryFixtureArtifact)
+      .then(
+        () => null,
+        (err: unknown) => err,
+      );
+
+    expect(error).toBeInstanceOf(SupabaseRunStoreCommitConflictError);
+    const conflictError = error as SupabaseRunStoreCommitConflictError;
+    expect(conflictError.conflict).toBe(true);
+    expect(conflictError.committedRevision).toBe(1);
+  });
+
+  it('throws the generic store error (not the conflict subclass) on a real RPC failure', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({ commitError: 'rpc boom' });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    const error = await store
+      .saveArtifact(saaslaunchResearchInput.runId, marketCategoryFixtureArtifact)
+      .then(
+        () => null,
+        (err: unknown) => err,
+      );
+
+    expect(error).toBeInstanceOf(SupabaseRunStoreError);
+    expect(error).not.toBeInstanceOf(SupabaseRunStoreCommitConflictError);
+    expect((error as SupabaseRunStoreError).message).toMatch(/rpc boom/u);
   });
 
   it('rejects artifacts that fail section minimums before committing to Supabase', async (): Promise<void> => {

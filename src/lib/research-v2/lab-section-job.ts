@@ -18,6 +18,7 @@ import {
   isSupportedSectionId,
   type SupportedSectionId,
 } from '@/lib/lab-engine/sections/section-registry';
+import { SupabaseRunStoreCommitConflictError } from '@/lib/research-v2/supabase-run-store';
 
 export type LabRunSection = (
   input: RunSectionInput,
@@ -63,6 +64,27 @@ export async function runLabSectionJob(
       input.signal,
     );
   } catch (err) {
+    // Non-fatal CAS loss (layer 2): a duplicate dispatch can produce a second
+    // runLabSectionJob for the same section_run_id. The loser of the
+    // compare-and-swap throws a commit conflict AFTER a sibling already
+    // committed the artifact (revision advanced past 0). That is a benign
+    // sibling-win, not a section failure — swallow it so it never surfaces as a
+    // false section-failed. An aborted/locked conflict reports committedRevision
+    // = -1 and stays fatal (a deliberate rerun aborts the prior run first, so
+    // its conflict must remain terminal and re-runnable).
+    if (
+      err instanceof SupabaseRunStoreCommitConflictError &&
+      err.conflict &&
+      err.committedRevision > 0
+    ) {
+      console.info('[lab-section-job] lost CAS to sibling, section already committed', {
+        runId: input.runId,
+        sectionId,
+        committedRevision: err.committedRevision,
+      });
+      return;
+    }
+
     const message = getErrorMessage(err);
     console.error('[lab-section-job] section failed', {
       runId: input.runId,

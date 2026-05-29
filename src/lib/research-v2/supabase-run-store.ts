@@ -39,6 +39,30 @@ export class SupabaseRunStoreError extends Error {
   }
 }
 
+/**
+ * Thrown when commit_artifact_section returns conflict=true (a compare-and-swap
+ * loss). `committedRevision` is the revision currently on the section row as
+ * reported by the RPC: > 0 means a sibling writer already advanced the revision
+ * (e.g. a duplicate dispatch committed the same section), while -1 means the
+ * commit was rejected before any revision could be read (an aborted run, or a
+ * row lock that was not available). The job layer treats a sibling-win
+ * (committedRevision > 0) as non-fatal and an aborted/locked conflict as fatal.
+ */
+export class SupabaseRunStoreCommitConflictError extends SupabaseRunStoreError {
+  public readonly conflict: boolean;
+  public readonly committedRevision: number;
+
+  public constructor(
+    message: string,
+    options: { conflict: boolean; committedRevision: number },
+  ) {
+    super(message);
+    this.name = 'SupabaseRunStoreCommitConflictError';
+    this.conflict = options.conflict;
+    this.committedRevision = options.committedRevision;
+  }
+}
+
 function isoNow(now: () => Date): string {
   return now().toISOString();
 }
@@ -352,6 +376,17 @@ export function createSupabaseRunStore(
       });
 
       if (!committed.ok) {
+        // A conflict (no RPC error) is a compare-and-swap loss, not a genuine
+        // failure. Surface it as a typed error carrying the committed revision
+        // so the job layer can classify a sibling-win (revision already
+        // advanced past expected) as non-fatal. Genuine RPC errors stay generic
+        // and still surface as a real section failure.
+        if (committed.error === undefined && committed.conflict) {
+          throw new SupabaseRunStoreCommitConflictError(
+            `commit_artifact_section conflict for ${parsedArtifact.sectionId} section_run_id=${sectionRunId} expectedRevision=${context.expectedRevision} committedRevision=${committed.revision}`,
+            { conflict: true, committedRevision: committed.revision },
+          );
+        }
         throw new SupabaseRunStoreError(
           `commit_artifact_section failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId} revision=${context.expectedRevision}: ${committed.error ?? 'conflict=' + String(committed.conflict)}`,
         );
