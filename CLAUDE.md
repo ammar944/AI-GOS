@@ -42,16 +42,25 @@ CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ```
 Also used by adjacent worker/tools paths: `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
 
-## research-v2 legacy flags + capabilities
+## research-v2 env knobs + capabilities
 
-The old research-v2 rollout flags are legacy. Verified 2026-05-29: these have zero live `process.env` reads in `src/` or `research-worker/src/`:
+The lab engine reads exactly **three** behavior knobs. Verified against code 2026-05-29:
 
-- `ENABLE_POSITIONING_ORCHESTRATOR` (legacy — no longer read)
-- `NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS` (legacy — no longer read)
-- `NEXT_PUBLIC_ARTIFACT_UI_V2` (legacy — no longer read)
-- `ORCHESTRATOR_CONCURRENCY` (legacy — no longer read)
+- `LAB_ENGINE_PROVIDER` — section model provider (`src/lib/lab-engine/ai/models.ts`). Default `anthropic` when unset; live runs set `deepseek-direct`.
+- `LAB_VERIFIER_MAX_UNSUPPORTED` — verifier hard-fail ceiling for unsupported load-bearing claims (`src/lib/lab-engine/agents/verification/evidence-support.ts`, `getMaxUnsupportedAllowed`). Default `Infinity` (unset/empty/invalid) = commit-with-honest-badge, never hard-fail. Set a non-negative integer to fail the section above that many unsupported claims.
+- `LAB_ENGINE_LIVE_TOOLS` — live research tools toggle (`src/lib/research-v2/lab-section-job.ts`). Default tools-on; only the literal string `'false'` disables them.
 
-Current live knobs for the v3 path are `LAB_ENGINE_PROVIDER`, `LAB_ENGINE_LIVE_TOOLS`, `DEEPSEEK_API_KEY`, `BRAVE_SEARCH_API_KEY`, `SEARCHAPI_KEY`, `PERPLEXITY_API_KEY`, `RESEARCH_DEEP_PROGRAM_MODEL`, `RAILWAY_WORKER_URL`, and `RAILWAY_API_KEY`.
+The six positioning sections run **in-process** in `src/lib/lab-engine/` (DeepSeek section agents + live research tools). The `research-worker/src/positioning/` and `research-worker/src/competitors/` directories are **dead copies** — do not touch them.
+
+These rollout flags are **legacy** — zero live `process.env` reads in `src/` or `research-worker/src/`, safe to ignore:
+
+- `ENABLE_POSITIONING_ORCHESTRATOR`
+- `NEXT_PUBLIC_ARTIFACT_UI_V2`
+- `NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS`
+- `ORCHESTRATOR_CONCURRENCY`
+- `MANAGED_AGENTS_*` (webhook secret, positioning-enabled flag, custom-tool retry ceiling, app domain)
+
+API keys / endpoints still read by the v3 path and adjacent tools: `DEEPSEEK_API_KEY`, `BRAVE_SEARCH_API_KEY`, `SEARCHAPI_KEY`, `PERPLEXITY_API_KEY`, `RESEARCH_DEEP_PROGRAM_MODEL`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`.
 
 Diff frontend vs worker reality with one grep:
 - `GET /api/research-v2/_capabilities` — Next.js mirror, fetches worker `/capabilities` (1.5s timeout)
