@@ -23,7 +23,7 @@ npm run test:run     # Vitest single run
 npm run test:run -- src/lib/ai/__tests__/research.test.ts  # Single file
 ```
 
-## Research Worker (required for research to work)
+## Research Worker (required for corpus, identity, and meeting extraction)
 ```bash
 # Terminal 1: Next.js app
 npm run dev
@@ -31,76 +31,80 @@ npm run dev
 cd research-worker && npm run dev  # starts on :3001
 ```
 Add to `.env.local`: `RAILWAY_WORKER_URL=http://localhost:3001` and `RAILWAY_API_KEY=dev-secret`.
-Without RAILWAY_WORKER_URL, all research dispatches silently fail.
+The six positioning sections run in-process through `src/lib/lab-engine/`. Without `RAILWAY_WORKER_URL`, worker-backed corpus, identity, and meeting dispatches fail.
 
 ## Environment Variables
-Required in `.env.local`:
+Expected for the current v3 audit path with live lab tools:
 ```
-ANTHROPIC_API_KEY, GROQ_API_KEY, SEARCHAPI_KEY,
+DEEPSEEK_API_KEY, PERPLEXITY_API_KEY, BRAVE_SEARCH_API_KEY, SEARCHAPI_KEY,
 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
 CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ```
-Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
+Also used by adjacent worker/tools paths: `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
 
-Managed Agents (Phase 1 migration):
-- `MANAGED_AGENTS_WEBHOOK_SECRET` — HMAC secret for `/api/webhooks/managed-agents` (R6 mitigation). Required when `MANAGED_AGENTS_POSITIONING_ENABLED=true`.
-- `MANAGED_AGENTS_POSITIONING_ENABLED` — feature flag. Default `false`. Set `true` to allow `POST /api/research-v2/orchestrate` with `executionMode: 'managed'`.
-- `MANAGED_AGENTS_MAX_CUSTOM_TOOL_RETRIES` — override the R5 repair retry ceiling (default `3`).
-- `APP_DOMAIN` — production app domain for webhook callbacks; used in Phase 2 networking allowlist.
+## research-v2 legacy flags + capabilities
 
-## research-v2 feature flags + capabilities
+The old research-v2 rollout flags are legacy. Verified 2026-05-29: these have zero live `process.env` reads in `src/` or `research-worker/src/`:
 
-Four flags drive the orchestrator + artifact UI rollout (see `docs/research-v2/feature-flags.md` and `docs/2026-05-13-orchestrator-and-artifact-ui-goal.md`). All default to **false**:
+- `ENABLE_POSITIONING_ORCHESTRATOR` (legacy — no longer read)
+- `NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS` (legacy — no longer read)
+- `NEXT_PUBLIC_ARTIFACT_UI_V2` (legacy — no longer read)
+- `ORCHESTRATOR_CONCURRENCY` (legacy — no longer read)
 
-- `ENABLE_POSITIONING_ORCHESTRATOR` — chat ToolLoopAgent orchestrator (flips on at Phase 5)
-- `NEXT_PUBLIC_ENABLE_PARALLEL_SECTIONS` — legacy browser fan-out (removed at Phase 7)
-- `NEXT_PUBLIC_ARTIFACT_UI_V2` — centered `AgentArtifactSurface` UI (flips on at Phase 4)
-- (worker-only) `ORCHESTRATOR_CONCURRENCY` — bounded section concurrency, default 3 (Phase 2+)
+Current live knobs for the v3 path are `LAB_ENGINE_PROVIDER`, `LAB_ENGINE_LIVE_TOOLS`, `DEEPSEEK_API_KEY`, `BRAVE_SEARCH_API_KEY`, `SEARCHAPI_KEY`, `PERPLEXITY_API_KEY`, `RESEARCH_DEEP_PROGRAM_MODEL`, `RAILWAY_WORKER_URL`, and `RAILWAY_API_KEY`.
 
 Diff frontend vs worker reality with one grep:
 - `GET /api/research-v2/_capabilities` — Next.js mirror, fetches worker `/capabilities` (1.5s timeout)
-- `GET /capabilities` on the Railway worker — own env + package version, `orchestrate_supported` flips to `true` at Phase 2
+- `GET /capabilities` on the Railway worker — own env + package version for worker-backed corpus/identity/meeting health
 
 ## Architecture
 
-AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-extracted fields, then step through a research pipeline that produces: 6 research sections, a media plan, and ad scripts.
+AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-extracted fields, then step through a research pipeline that produces: 6 positioning sections and a media plan.
 
-**Stack**: Next.js 16, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
+**Stack**: Next.js 16, Vercel AI SDK v6, Anthropic Claude / DeepSeek (provider-agnostic via AI SDK v6; positioning sections run DeepSeek by default), Supabase (DB + realtime), Clerk auth, in-process lab engine for sections, Railway worker for corpus/identity/meeting.
 
-### Research-v2 Flow (IMPORTANT — read carefully)
+### Research-v3 / research-v2 Flow (IMPORTANT — read carefully)
 
-`/research-v2` is the canonical user-facing surface. The `/journey` page route has been deleted.
+`/research-v3` is the current user-facing Audit Reader/front door. `/research-v2` remains the older route shell plus the shared API namespace. The `/journey` page route has been deleted.
 
 The flow is **form-driven, not chat-driven**. URL entry → deepResearchProgram corpus → operator-clicked positioning sections → results saved to profile.
 
 **User flow:**
-1. Enter company URL or approved business link on `/research-v2`.
+1. Enter company URL or approved business link on `/research-v3`.
 2. deepResearchProgram dispatches automatically (corpus + onboarding fields).
 3. Corpus completes → GTM Brief Review form opens for the user to confirm/edit auto-prefilled fields.
 4. User submits the brief → orchestrator fans out all six positioning sections via `POST /api/research-v2/orchestrate`.
-5. Sections commit as drafts in parallel (bounded by `ORCHESTRATOR_CONCURRENCY`, default 3 → two waves of three).
-6. Audit Reader renders typed cards per section as each commits; live "Wave X of Y / N running / N queued" telemetry.
+5. Sections fan out and commit as drafts in parallel (`Promise.allSettled` over all six).
+6. Audit Reader renders typed cards per section as each commits; live per-section phase (Compiling context → Reading sources → Drafting → Validating → Committed) + tool/source activity.
 7. All results saved to profile.
 
 Fan-out is the canonical flow. The old per-section "Run section" operator click was replaced when `/api/research-v2/orchestrate` landed; do not reintroduce sequential single-section dispatch unless explicitly asked.
 
-**Research dispatch**: Form submit → `POST /api/research-v2/orchestrate` (multi-section fan-out) OR `POST /api/research-v2/dispatch` (single-section, used by `/api/research-v2/rerun-section` and corpus) → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.
+**Research dispatch**: Form submit → `POST /api/research-v2/orchestrate` (multi-section fan-out) OR `POST /api/research-v2/dispatch` (single-section, used by `/api/research-v2/rerun-section` and corpus) → in-process lab engine (DeepSeek section agents + Brave `web_search`) for sections; Railway worker for corpus/identity/meeting → writes results to Supabase → realtime/polling pushes to frontend.
 
 **Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/journey/stream` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Chat sidebar is post-research editing only — does NOT trigger research.
 
-**Prompt enforcement phase**: Do not hard schema-force the deep research section cards yet. Validate API inputs, run IDs, dispatch envelopes, persistence shape, and parsable JSON. Prompt-enforce the shared corpus, evidence standards, source coverage, section quality, confidence notes, and source gaps until the prompts stabilize.
+**Verifier/repair phase**: Lab sections use structured schemas, minimum validators, the structural verifier, required-evidence gates, and evidence-support repair. Validate API inputs, run IDs, dispatch envelopes, persistence shape, and parsable JSON; do not accept unsupported load-bearing claims as clean output.
 
-**Pipeline order**: `deepResearchProgram → positioningMarketCategory → positioningBuyerICP → positioningCompetitorLandscape → positioningVoiceOfCustomer → positioningDemandIntent → positioningOfferDiagnostic`
+**Pipeline order**: `deepResearchProgram → positioningMarketCategory → positioningBuyerICP → positioningCompetitorLandscape → positioningVoiceOfCustomer → positioningDemandIntent → positioningOfferDiagnostic → positioningPaidMediaPlan`
 
-**Runners** (in `research-worker/src/runners/`): `runDeepResearchProgram` + 6 positioning runners (`positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`). Each runner: primary phase → repair phase → rescue phase with fallback models.
+**Lab section agents** (in `src/lib/lab-engine/agents/run-section.ts`): six positioning sections plus `positioningPaidMediaPlan`, using the answer-tool path, structural verifier, required-evidence gates, and evidence-support repair.
+
+**Worker runners** (in `research-worker/src/runners/`): `runDeepResearchProgram`, product identity resolution, and meeting extraction. The worker no longer owns positioning section execution.
 
 ### Key Files
 | What | Where |
 |------|-------|
-| Research-v2 page | `src/app/research-v2/page.tsx` |
+| Research-v3 page | `src/app/research-v3/page.tsx` |
+| Research-v2 legacy shell | `src/app/research-v2/page.tsx` |
 | Workspace chat/edit stream | `src/app/api/journey/stream/route.ts` |
 | Research dispatch route | `src/app/api/research-v2/dispatch/route.ts` |
+| Orchestrate route | `src/app/api/research-v2/orchestrate/route.ts` |
+| Lab section route | `src/app/api/research-v2/run-lab-section/route.ts` |
 | Dispatch helper | `src/lib/journey/server/dispatch-research.ts` |
+| Lab section agents | `src/lib/lab-engine/agents/` |
+| Lab artifact schemas | `src/lib/lab-engine/artifacts/schemas/` |
+| Lab research tools | `src/lib/lab-engine/agents/tools/` |
 | Research realtime | `src/lib/journey/research-realtime.ts` |
 | Card taxonomy | `src/lib/workspace/card-taxonomy.ts` |
 | Field catalog | `src/lib/journey/field-catalog.ts` |
@@ -110,14 +114,14 @@ Fan-out is the canonical flow. The old per-section "Run section" operator click 
 | Meeting intel | `src/lib/meeting-intel/` |
 
 ### Profiles & Scripts
-- Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Scripts, Assets.
-- Scripts generated via `research-worker/src/runners/ad-scripts.ts` (2-pass: draft → humanize with 43-point audit). Currently accessed only through profile Scripts tab.
+- Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Assets.
+- Ad scripts were removed per ADR-0009. The current Audit deliverable is six positioning sections plus `positioningPaidMediaPlan`; there is no live `/api/scripts` path or profile Scripts tab.
 - Profile AI insights compile intelligence from each research section.
 
 ## AI SDK Patterns (Vercel AI SDK v6)
 
 IMPORTANT — these cause silent bugs if wrong:
-- ALL AI calls use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly. Never OpenRouter.
+- Use first-party AI SDK provider packages already in the repo (`@ai-sdk/anthropic`, `@ai-sdk/deepseek`, `@ai-sdk/perplexity`, and `@ai-sdk/openai-compatible` for Ollama-compatible DeepSeek). Never OpenRouter.
 - `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatch = silent failure.
 - Tool definitions use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`).
 - `convertToModelMessages()` throws `MissingToolResultsError` — sanitize incomplete tool parts first.
@@ -136,7 +140,7 @@ IMPORTANT — these cause silent bugs if wrong:
 ## Critical Gotchas
 - **id vs run_id**: Frontend passes `run_id`. Query `.eq('run_id', id)`, use `session.id` for FKs.
 - **Field sync**: New onboarding fields must sync across 6 places: field-catalog.ts, JOURNEY_FIELD_GROUPS, PROFILE_FIELD_GROUPS, Supabase migration, worker parse-context.ts, identity card JSONB.
-- **Railway worker boundary**: Cannot import from `src/lib/`. Schemas/types must exist in both places.
+- **Railway worker boundary**: Cannot import from `src/lib/`. Worker-backed corpus/identity/meeting code stays in `research-worker/`; current section schemas live in `src/lib/lab-engine/artifacts/schemas/`, with `src/lib/managed-agents/schemas/` retained only as the temporary renderer mirror pending FE-2.
 - **Pre-existing TS errors**: openrouter tests and chat blueprint tests have known errors — ignore them.
 - **Deploy**: Vercel. Long routes need `export const maxDuration = 300` (Pro tier). Worker deploys separately via `cd research-worker && railway up`.
 

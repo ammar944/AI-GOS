@@ -1,29 +1,34 @@
 # AI-GOS Domain Context
 
-AI-GOS is a Manus-for-GTM-SaaS product: a user submits a company URL and receives a deeply researched **Pre-Pitch Positioning Audit** — six positioning **Sections** produced by autonomous **Subagents** and presented in the **Workspace** as a readable **Audit**.
+AI-GOS is a Manus-for-GTM-SaaS product: a user submits a company URL and receives a deeply researched **Pre-Pitch Positioning Audit** — six positioning **Sections** plus a terminal paid-media plan Section, produced by autonomous **Subagents** and presented in the **Workspace** as a readable **Audit**.
 
 This document is the project glossary. It defines the domain terms that load-bear the codebase. Implementation details belong in `docs/architecture/`; design decisions belong in `docs/adr/`. The canonical sub-section structure for each Section lives in `docs/research-sections.md` and overrides any conflicting interpretation here.
 
 ## Technical approach (summary)
 
-Full details in `docs/architecture/2026-05-14-positioning-audit-stack.md`. One-paragraph summary so this file is the single entry point.
+> Current as of 2026-05-29: the runtime is the in-process lab engine in `src/lib/lab-engine/`. The 2026-05-14 worker-subagent / `streamObject` target described in `docs/architecture/2026-05-14-positioning-audit-stack.md` is superseded for the v3 path.
 
-**Stack:** Next.js 16 (Workspace UI) -> Railway research-worker (Subagents) -> Anthropic API via **AI SDK v6**. The Workspace polls Supabase tables for live state. Skills are local `SKILL.md` files loaded into Subagent system instructions at worker boot via `_skill-loader.ts`. The accepted target is one structured **Artifact** per Section via **`streamObject(SectionArtifactSchema)`**, schema-enforced at the provider boundary and post-validated for cardinality minimums by the runner. The agent loop is **AI SDK v6's `ToolLoopAgent`** — provider-agnostic. Model swap should be a config change, not a skill rewrite (ADR-0003).
+**Stack:** Next.js 16 (Workspace UI) -> in-process lab engine (`src/lib/lab-engine/`) for the six positioning Sections plus `positioningPaidMediaPlan` -> Supabase. The Railway research-worker remains for the shared `deepResearchProgram` corpus (Perplexity sonar, ADR-0007), product identity resolution, and meeting extraction. The Workspace polls Supabase tables and `/api/research-v2/audit-state` for live state.
 
-**Current implementation status (2026-05-15):**
-- Section 01, **Market & Category Intelligence**, is ported to `MarketCategoryArtifactSchema`, `streamObject`, runner-side minimum validation, and a rewritten local Skill.
-- Section 02, **Buyer & ICP Validation**, is ported to `BuyerICPArtifactSchema`, `streamObject`, runner-side minimum validation, and a rewritten local Skill.
-- Sections 03-06, **Competitor Landscape & Positioning**, **Voice of Customer & Objection Evidence**, **Demand & Intent Signals**, and **Offer & Performance Diagnostic**, are ported to bespoke Artifact schemas, `streamObject`, runner-side minimum validation, and rewritten local Skills.
-- The active Workspace currently polls `/api/research-v2/audit-state` and renders committed Section `title` / `markdown` from `research_artifact_sections`. Typed Card rendering is the target, not yet the live renderer for all Sections.
+**Section runtime:** Sections enter through `src/app/api/research-v2/orchestrate/route.ts`, fan out with `Promise.allSettled` over all six positioning IDs, then call `src/app/api/research-v2/run-lab-section/route.ts`. The section runner is `src/lib/lab-engine/agents/run-section.ts` -> `runSectionViaAnswerTool`, with provider-agnostic AI SDK v6 model selection (`LAB_ENGINE_PROVIDER`; current runtime selects DeepSeek), local Skills from `src/lib/lab-engine/skills/`, Brave-backed `web_search`, section allowlisted tools, structural verification, required-evidence gates, and evidence-support repair.
+
+**Current implementation status (2026-05-29):**
+- Sections 01-06 and the terminal `positioningPaidMediaPlan` use lab-engine Artifact schemas under `src/lib/lab-engine/artifacts/schemas/`.
+- The active reader is `/research-v3` / `AuditReaderShell`, backed by `research_artifacts`, `research_section_runs`, `research_artifact_sections`, and `research_section_events`.
+- New audit kickoffs send `executionMode: 'lab'`; `/api/research-v2/orchestrate` only accepts optional `executionMode: 'lab'`.
+- There are no waves in the current fan-out. Every positioning Section is kicked off in parallel and reports per-section phase/tool/source activity.
+- Managed Agents runtime and webhook code were deleted on 2026-05-29. Only `src/lib/managed-agents/schemas/` remains as a temporary renderer mirror pending FE-2.
 
 **Load-bearing pieces:**
-- AI SDK v6 `ToolLoopAgent` — agent loop (`research-worker/src/agents/subagents/index.ts`)
-- AI SDK v6 `streamObject(schema)` — typed Artifact output for ported Sections; Zod schemas in `research-worker/src/agents/subagents/schemas/`
-- Local SKILL.md harness — `research-worker/platform-skills/<skill>/SKILL.md`, loaded by `_skill-loader.ts`
-- Runner-side post-validate — enforces cardinality minimums (Anthropic rejects `.min()/.max()` on structured-output schemas); one retry with feedback on failure, then emit-with-gaps
-- Per-Section bespoke schemas driven by `docs/research-sections.md` — no new generic envelope work
+- Lab answer-tool path — `src/lib/lab-engine/agents/run-section.ts` -> `runSectionViaAnswerTool`
+- Provider selection — `src/lib/lab-engine/ai/models.ts` (`anthropic`, `deepseek-direct`, `deepseek-ollama`)
+- Lab Skills — `src/lib/lab-engine/skills/<skill>/SKILL.md`
+- Lab Artifact schemas — `src/lib/lab-engine/artifacts/schemas/`
+- Lab verification — `src/lib/lab-engine/agents/verification/structural-verifier.ts` and `evidence-support.ts`
+- Lab tools — `src/lib/lab-engine/agents/tools/`, including Brave `web_search`
+- Worker corpus — `research-worker/src/runners/deep-research-program.ts` on Perplexity sonar
 - Supabase persistence: `research_artifacts`, `research_section_runs`, `research_artifact_sections`, `research_section_events`
-- Workspace UI: `AgentArtifactSurface` polls `/api/research-v2/audit-state`
+- Workspace UI: `AuditReaderShell` polls `/api/research-v2/audit-state`
 
 **Anti-stack — accepted target for new work and completed ports:**
 - ❌ No Anthropic Platform Skills `.zip` uploads (ADR-0003)
@@ -32,13 +37,15 @@ Full details in `docs/architecture/2026-05-14-positioning-audit-stack.md`. One-p
 - ❌ No per-brick artifact-builder tools (`add_persona`, `set_verdict`) (ADR-0002, supersedes ADR-0001)
 - ❌ No discriminated unions of Card types in arrays — each sub-section's array is homogeneous
 - ❌ No Anthropic-specific patterns at the framework layer — AI SDK v6 abstractions throughout
-
-Known drift: the Workspace still renders committed Section markdown for the full Audit. Typed Card rendering exists for selected paths and remains the next UI layer after the backend Artifact migration.
+- ❌ No worker-owned positioning Subagent runtime on the v3 path — section execution is in-process lab engine
+- ❌ No managed-agents runtime or webhook route — only schemas remain pending FE-2
+- ❌ No wave scheduler or wave telemetry — use per-section phase/tool/source activity
+- ❌ No ad-scripts product path — ADR-0009 removed scripts from the Audit scope
 
 ## Language
 
 **Audit**:
-The full user-facing deliverable for one company URL — six Sections combined into one workspace surface. The thing AI-GOS produces and (eventually) charges for.
+The full user-facing deliverable for one company URL — six positioning Sections plus the paid-media plan combined into one reader surface. The thing AI-GOS produces and (eventually) charges for.
 _Avoid_: Report, research output, GTM doc
 
 **Section**:
@@ -46,15 +53,15 @@ One of the six positioning research units that compose an Audit. The fixed set i
 _Avoid_: Card (a Card is a typed entry inside a sub-section), report, chunk, module
 
 **Subagent**:
-A `ToolLoopAgent` instance (AI SDK v6) that runs one Section. Each Subagent is bound to one Skill and a tool map of research tools. Ported Subagents also bind to one section-specific Artifact schema through the runner's `streamObject` step. Lives in `research-worker/src/agents/subagents/`.
+A lab-engine section agent that runs one Section through the answer-tool path. Each Subagent is bound to one Skill, one section definition, one Artifact schema, and an allowlisted tool map. Current Subagents live in `src/lib/lab-engine/agents/`; the section-specific schemas live in `src/lib/lab-engine/artifacts/schemas/`.
 _Avoid_: Agent (too generic — also describes the orchestrator), worker, runner
 
 **Skill**:
-A `SKILL.md` file under `research-worker/platform-skills/` that defines a Section's role, operating principles, workflow, anti-slop rules, and the Artifact schema the Subagent emits. The Skill is the spec; the Subagent is the runtime. Skills are loaded into Subagent instructions at worker boot via `_skill-loader.ts`.
+A `SKILL.md` file under `src/lib/lab-engine/skills/` that defines a Section's role, operating principles, workflow, anti-slop rules, and the Artifact schema the Subagent emits. The Skill is the spec; the Subagent is the runtime. Skills are loaded by the lab engine when a section run starts.
 _Avoid_: Prompt (skill is broader — includes workflow + schema), system message
 
 **Artifact**:
-The structured deliverable a ported Section produces — one typed object containing top-level scalars (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`) and a set of named **sub-sections** matching the Section's canonical structure (per `docs/research-sections.md`). Each sub-section has its own `prose` markdown narrative and one or more homogeneous typed Card arrays, except explicit schema-owned single-object fields such as Market Category's `categoryMaturity.classification`. The Artifact IS the Section's target output. There is no new "report" or "envelope" contract.
+The structured deliverable a Section produces — one typed object containing top-level scalars (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`) and a set of named **sub-sections** matching the Section's canonical structure (per `docs/research-sections.md`). Each sub-section has its own `prose` markdown narrative and one or more homogeneous typed Card arrays, except explicit schema-owned single-object fields such as Market Category's `categoryMaturity.classification`. The Artifact IS the Section's target output. There is no new "report" or "envelope" contract.
 _Avoid_: Report, card collection, markdown blob, envelope
 
 **Sub-section**:
@@ -66,11 +73,11 @@ The free-form markdown narrative inside one sub-section of an Artifact. The Suba
 _Avoid_: Body, text, content (too generic)
 
 **Card**:
-One typed entry inside a sub-section's typed card array (e.g., `personaReality.personas`, `clusters.venues`). Each sub-section's card array is **homogeneous** — one Card type per array, no discriminated union of card types. Each Card has a typed shape defined by the Section's Artifact schema (e.g., `PersonaSchema`, `FirmographicCutSchema`). Card-level rendering in the Workspace is the target UI shape; the live Workspace still renders committed Section markdown for some flows.
+One typed entry inside a sub-section's typed card array (e.g., `personaReality.personas`, `clusters.venues`). Each sub-section's card array is **homogeneous** — one Card type per array, no discriminated union of card types. Each Card has a typed shape defined by the Section's Artifact schema (e.g., `PersonaSchema`, `FirmographicCutSchema`). Card-level rendering in the reader is the current UI shape for lab Artifacts.
 _Avoid_: UI brick (prior name — do not use in new code), block, widget, component (too generic)
 
 **Workspace**:
-The user-facing UI surface where Audits are produced and viewed (`/research-v2`). Hosts the live Artifact panes per Section, the activity feed, and the Section-by-Section run controls.
+The user-facing UI surface where Audits are produced and viewed (`/research-v3`, with shared APIs under `/api/research-v2`). Hosts the live Artifact panes per Section, the activity feed, rerun controls, and paid-media terminal section.
 _Avoid_: Dashboard, app, page
 
 **Activity Event**:
@@ -82,7 +89,7 @@ The productized name (per the locked April 29 strategic plan) for the Audit deli
 _Avoid_: Pitch deck, strategy doc
 
 **Corpus**:
-The shared research base produced by the `deepResearchProgram` pass on the Railway worker (Perplexity sonar, ADR-0007) before the six Sections fan out. Holds company facts, category, a research summary, cited sources, and evidence excerpts, plus the auto-prefilled onboarding fields. The Corpus is the common ground every Subagent starts from; the deep, section-specific evidence is gathered live in-section (ADR-0006), not in the Corpus.
+The shared research base produced by the `deepResearchProgram` pass on the Railway worker (Perplexity sonar, ADR-0007) before the six positioning Sections fan out through the lab engine. Holds company facts, category, a research summary, cited sources, and evidence excerpts, plus the auto-prefilled onboarding fields. The Corpus is the common ground every Subagent starts from; the deep, section-specific evidence is gathered live in-section (ADR-0006), not in the Corpus.
 _Avoid_: Deep research, pre-research, context dump
 
 **GTM Brief**:
@@ -98,7 +105,7 @@ A dedicated Onboarding step, separate from the 7 GTM question sections, that col
 _Avoid_: Media plan (that is the output Section), ad setup
 
 **Artifact-builder tool** _(deprecated)_:
-Briefly proposed in ADR-0001 (one tool per UI brick), superseded by ADR-0002 (one `streamObject` call per Section). Each Section's Artifact is produced as a single structured output, not via per-brick tool calls. The Subagent's tool map contains only research tools (`web_search`, `firecrawl`, etc.); structure comes from the Artifact schema, not from tools.
+Briefly proposed in ADR-0001 (one tool per UI brick), superseded by ADR-0002 and then by the current answer-tool lab path. Each Section's Artifact is produced as a single structured output, not via per-brick tool calls. The Subagent's tool map contains only research tools (`web_search`, `firecrawl`, etc.); structure comes from the Artifact schema, not from tools.
 _Avoid_: Use **Artifact** + **Sub-section** + **Card** instead.
 
 **Envelope** _(deprecated)_:
@@ -107,15 +114,15 @@ _Avoid_: Use Artifact + Sub-section instead.
 
 ## Relationships
 
-- One **Audit** contains six **Sections** (fixed set, ordered)
+- One **Audit** contains six positioning **Sections** plus the terminal `positioningPaidMediaPlan` Section
 - Each **Section** is produced by exactly one **Subagent**
 - Each **Subagent** is bound to exactly one **Skill** and one research tool map
 - Each **Subagent** emits **Activity Events** while producing a Section
-- Each ported **Subagent** produces exactly one **Artifact** per run via a section-specific Artifact schema
+- Each **Subagent** produces exactly one **Artifact** per run via a section-specific Artifact schema
 - Each **Artifact** contains top-level scalars (`sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`) and a fixed set of named **sub-sections** matching `docs/research-sections.md`
 - Each **sub-section** has its own `prose` markdown narrative and one or more **homogeneous** typed Card arrays — no global discriminated union of Card types
 - Each **Card** lives in exactly one sub-section's card array
-- Ported Sections emit the Artifact via one runner-owned `streamObject(schema)` call after the evidence loop; structure comes from the schema, not from individual tool calls
+- Sections emit the Artifact via the lab answer-tool path after the evidence loop; structure comes from the schema, not from individual tool calls
 - The **Workspace** renders one Audit at a time, with one Artifact pane per Section
 - Any remaining `PositioningEnvelopeSchema` references are cleanup residue after the six-Section Artifact port; new positioning work should use Section-specific Artifact schemas
 
@@ -135,7 +142,7 @@ _Avoid_: Use Artifact + Sub-section instead.
 >
 > **Dev:** "And the live activity feed — is that a separate stream?"
 >
-> **Domain expert:** "Different stream, different view. The activity feed shows research tool calls (`web_search`, `firecrawl`) the Subagent makes while gathering evidence. For ported Sections, the runner then converts the evidence transcript into one typed Artifact with `streamObject`. The current Workspace commits and renders Section markdown; the typed Card renderer is the target next layer."
+> **Domain expert:** "Different stream, different view. The activity feed shows research tool calls (`web_search`, `firecrawl`) the Subagent makes while gathering evidence. The lab runner then converts the evidence transcript into one typed Artifact through the answer-tool path and verifier/repair loop. The current reader renders typed Cards from committed Artifacts."
 
 ## Flagged ambiguities
 
@@ -143,7 +150,7 @@ _Avoid_: Use Artifact + Sub-section instead.
 - **"UI brick"** was the prior name for Card (ADR-0001). **Resolved:** Use **Card**. Do not use "UI brick" in new code.
 - **"report"** historically meant a Section's markdown output. **Resolved:** Deprecated alongside Envelope. Sections produce **Artifacts**, not reports.
 - **"agent"** historically meant both Subagents and the parent orchestrator. **Resolved:** **Subagent** for the section-runners. **Orchestrator** for the parent that dispatches and aggregates.
-- **"skill"** historically meant Anthropic Platform Skills (uploaded `.zip` packages) AND the local `SKILL.md` files. **Resolved:** **Skill** in this codebase means the local `SKILL.md` file consumed by a Subagent inside the research-worker. Per ADR-0003, Anthropic Platform Skills are NOT a current distribution channel — the `.zip` files under `platform-skills/*.zip` are dead artifacts.
+- **"skill"** historically meant Anthropic Platform Skills (uploaded `.zip` packages) AND the local `SKILL.md` files. **Resolved:** **Skill** in this codebase means the local `SKILL.md` file consumed by a lab-engine Subagent. Per ADR-0003, Anthropic Platform Skills are NOT a current distribution channel — the `.zip` files under `platform-skills/*.zip` are dead artifacts.
 - **"artifact-builder tool"** was a briefly-lived term from ADR-0001. **Resolved:** Deprecated. Use **Artifact** + **Sub-section** + **Card** instead.
 - **"envelope"** is deprecated terminology — use **Artifact**. Envelope is documented above only because legacy code still references it during migration.
 - **"findings / quotes / risks / moves"** were generic cross-cutting arrays in the old envelope. **Resolved:** Deprecated. Each Section's content is shaped by its canonical sub-sections in `docs/research-sections.md` — generic cross-cutting arrays are no longer used.
