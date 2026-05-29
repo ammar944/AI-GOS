@@ -47,7 +47,7 @@ describe('<AuditReaderShell>', () => {
     vi.unstubAllGlobals();
   });
 
-  it('normalizes 0..1 lab confidence values in the header and progress strip', (): void => {
+  it('does not surface section confidence in the header or progress strip', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -64,11 +64,13 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByLabelText('Confidence 6/10')).toBeInTheDocument();
+    // Confidence display was removed from the reader; the completed rail item
+    // reports status ("Complete"), never a confidence score.
+    expect(screen.queryByLabelText('Confidence 6/10')).not.toBeInTheDocument();
+    expect(screen.queryByText('6 confidence')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /market & category.*6 confidence/i }),
+      screen.getByRole('button', { name: /market & category.*complete/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('0.6 confidence')).not.toBeInTheDocument();
   });
 
   it('shows verified and unsupported claim counts for completed sections', (): void => {

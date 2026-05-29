@@ -4,17 +4,12 @@ import { useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import {
-  formatConfidenceToTen,
-  getConfidenceToneClass,
-} from '@/lib/research-v2/confidence-display';
 import { cn } from '@/lib/utils';
 import {
   isRecord,
@@ -417,19 +412,11 @@ function GenericTypedArtifactRenderer({
       className="space-y-6"
     >
       <header className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          {showSectionTitle ? (
-            <h2 className="text-xl font-semibold leading-tight text-foreground">
-              {artifact.sectionTitle}
-            </h2>
-          ) : null}
-          <Badge
-            variant="outline"
-            className={cn('shrink-0 border', getConfidenceToneClass(artifact.confidence))}
-          >
-            Confidence {formatConfidenceToTen(artifact.confidence)}/10
-          </Badge>
-        </div>
+        {showSectionTitle ? (
+          <h2 className="text-xl font-semibold leading-tight text-foreground">
+            {artifact.sectionTitle}
+          </h2>
+        ) : null}
         <p className="text-base leading-relaxed text-foreground">
           {artifact.verdict}
         </p>

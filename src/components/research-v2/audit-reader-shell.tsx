@@ -61,11 +61,6 @@ import {
   type ReaderSectionId,
 } from '@/components/research-v3/reader-sections';
 import {
-  formatConfidenceToTen,
-  getConfidenceToneClass,
-  normalizeConfidenceToTen,
-} from '@/lib/research-v2/confidence-display';
-import {
   buildSectionActivityFeed,
   type CollapsedSectionActivityItem,
   type ProductPhase,
@@ -282,8 +277,6 @@ function artifactToMarkdown(artifact: PositioningTypedArtifact): string {
     '## Status',
     artifact.statusSummary,
     '',
-    `Confidence: ${formatConfidenceToTen(artifact.confidence)}/10`,
-    '',
   ];
   const bodyEntries = Object.entries(artifact).filter(
     ([key, value]) => !COPY_META_KEYS.has(key) && hasCopyValue(value),
@@ -314,15 +307,13 @@ function artifactToMarkdown(artifact: PositioningTypedArtifact): string {
 }
 
 // ---------------------------------------------------------------------------
-// Status indicator + confidence badge
+// Status indicator
 // ---------------------------------------------------------------------------
 
 function SectionStatusIcon({
   status,
-  confidence,
 }: {
   status: ReaderSectionStatus;
-  confidence: number | null;
 }): ReactElement {
   if (status === 'running') {
     return (
@@ -344,12 +335,7 @@ function SectionStatusIcon({
   }
   if (status === 'complete') {
     return (
-      <span
-        className={cn(
-          'mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full border',
-          getConfidenceToneClass(confidence ?? 0),
-        )}
-      >
+      <span className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full border border-border text-foreground">
         <Check className="size-3" strokeWidth={3} />
       </span>
     );
@@ -371,24 +357,6 @@ function SectionStatusIcon({
   // queued — empty ring
   return (
     <span className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full border border-border" />
-  );
-}
-
-function ConfidenceBadge({ score }: { score: number }): ReactElement {
-  const formatted = formatConfidenceToTen(score);
-  return (
-    <span
-      aria-label={`Confidence ${formatted}/10`}
-      className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground"
-    >
-      <span
-        className={cn('size-1.5 rounded-full border', getConfidenceToneClass(score))}
-      />
-      <span className="font-medium tabular-nums text-foreground">
-        {formatted}
-      </span>
-      <span>confidence</span>
-    </span>
   );
 }
 
@@ -813,18 +781,14 @@ function PaidMediaPlanTerminalPanel({
 
 interface SectionProgressStripProps {
   active: ReaderSectionId;
-  avgConfidence: number | null;
   completedCount: number;
-  confidenceOf: (id: ReaderSectionId) => number | null;
   onSelect: (id: ReaderSectionId) => void;
   statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
 }
 
 function SectionProgressStrip({
   active,
-  avgConfidence,
   completedCount,
-  confidenceOf,
   onSelect,
   statusOf,
 }: SectionProgressStripProps): ReactElement {
@@ -843,10 +807,9 @@ function SectionProgressStrip({
         <nav aria-label="Sections" className="flex flex-col gap-1.5">
           {READER_SECTION_IDS.map((id) => {
             const status = statusOf(id);
-            const confidence = confidenceOf(id);
             const subLine =
-              status === 'complete' && confidence !== null
-                ? `${formatConfidenceToTen(confidence)} confidence`
+              status === 'complete'
+                ? 'Complete'
                 : status === 'error'
                   ? 'Needs review'
                   : status === 'aborted'
@@ -870,7 +833,7 @@ function SectionProgressStrip({
                   id === active ? 'bg-secondary' : 'hover:bg-secondary/50',
                 )}
               >
-                <SectionStatusIcon status={status} confidence={confidence} />
+                <SectionStatusIcon status={status} />
               </button>
             );
           })}
@@ -879,11 +842,6 @@ function SectionProgressStrip({
           <div className="tabular-nums">
             {completedCount}/{READER_SECTION_IDS.length}
           </div>
-          {avgConfidence !== null ? (
-            <div className="mt-1 tabular-nums">
-              {formatConfidenceToTen(avgConfidence)}
-            </div>
-          ) : null}
         </div>
       </div>
     </aside>
@@ -1201,15 +1159,6 @@ export function AuditReaderShell({
     [live.sectionsByZone, sixSectionsComplete, workerById],
   );
 
-  const confidenceOf = useCallback(
-    (id: ReaderSectionId): number | null => {
-      const typed = typedByZone.get(id);
-      return typed && typeof typed.confidence === 'number'
-        ? typed.confidence
-        : null;
-    },
-    [typedByZone],
-  );
 
   // Default selection: first running, else first complete, else first.
   const computedDefault = useMemo<ReaderSectionId>(() => {
@@ -1254,13 +1203,6 @@ export function AuditReaderShell({
     [statusOf],
   );
 
-  const avgConfidence = useMemo(() => {
-    const scores = READER_SECTION_IDS.map(confidenceOf).filter(
-      (n): n is number => n !== null,
-    );
-    if (scores.length === 0) return null;
-    return scores.reduce((sum, score) => sum + normalizeConfidenceToTen(score), 0) / scores.length;
-  }, [confidenceOf]);
 
   const allSectionsTerminal = useMemo(
     () =>
@@ -1505,9 +1447,7 @@ export function AuditReaderShell({
         {!allSectionsTerminal ? (
           <SectionProgressStrip
             active={active}
-            avgConfidence={avgConfidence}
             completedCount={completedCount}
-            confidenceOf={confidenceOf}
             onSelect={select}
             statusOf={statusOf}
           />
@@ -1534,7 +1474,6 @@ export function AuditReaderShell({
               {activeStatus === 'complete' && activeTyped ? (
                 <span className="flex items-center gap-2">
                   <VerificationBadge verification={activeTyped.verification} />
-                  <ConfidenceBadge score={activeTyped.confidence} />
                 </span>
               ) : null}
             </div>

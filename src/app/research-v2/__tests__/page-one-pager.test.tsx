@@ -200,12 +200,11 @@ describe('ResearchV2Page — light audit reader shell', () => {
 
     expect(screen.getByText('Positioning Audit')).toBeInTheDocument();
     expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
-    expect(screen.getByLabelText('Confidence 8/10')).toBeInTheDocument();
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('button', { name: /copy/i })).toBeEnabled();
     expect(within(header).getByRole('button', { name: /rerun/i })).toBeEnabled();
     expect(
-      screen.getByRole('button', { name: /market.*category.*8 confidence/i }),
+      screen.getByRole('button', { name: /market.*category.*complete/i }),
     ).toBeEnabled();
     expect(
       screen.getByRole('button', { name: /paid media plan.*ready after 6\/6/i }),

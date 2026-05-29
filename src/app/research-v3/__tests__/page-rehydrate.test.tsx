@@ -150,7 +150,6 @@ describe('ResearchV3Page runId rehydrate', () => {
       expect(screen.getByText('Section 7 of 7')).toBeInTheDocument(),
     );
     expect(screen.queryByTestId('section-progress-strip')).toBeNull();
-    expect(screen.getByLabelText('Confidence 7.2/10')).toBeInTheDocument();
     expect(screen.queryByTestId('corpus')).toBeNull();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
