@@ -114,7 +114,7 @@ describe('GET /api/research-v2/audit-state', () => {
     routeMocks.rpc.mockResolvedValue({ data: 0, error: null });
   });
 
-  it('projects durable section phase telemetry into workerStates', async () => {
+  it('projects durable telemetry but derives phase from the latest section event', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.runsQuery.order.mockResolvedValue({
       data: [
@@ -146,6 +146,22 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
+    routeMocks.eventsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          id: 'event-drafting',
+          zone: 'positioningMarketCategory',
+          event_type: 'structured-output-started',
+          message: 'Drafting structured output',
+          payload: {
+            schemaName: 'MarketCategoryArtifact',
+            attempt: 1,
+          },
+          created_at: '2026-05-15T12:00:05.000Z',
+        },
+      ],
+      error: null,
+    });
 
     const response = await GET(makeRequest());
 
@@ -154,8 +170,9 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(body.workerStates[0]).toMatchObject({
       section_id: 'positioningMarketCategory',
       status: 'running',
-      phase: 'Compiling context',
-      phaseLabel: 'Compiling context',
+      phase: 'Drafting',
+      phaseLabel: 'Drafting',
+      phaseStartedAt: '2026-05-15T12:00:05.000Z',
       latestTool: 'web_search',
       latestSource: 'https://example.com/category',
       latestActivity: 'Building Section Context Pack',
@@ -372,7 +389,7 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(body.workerStates[0]).toMatchObject({
       section_id: 'positioningMarketCategory',
       status: 'running',
-      phase: 'Reading sources',
+      phase: 'Queued',
     });
   });
 
@@ -438,8 +455,8 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(body.workerStates[0]).toMatchObject({
       section_id: 'positioningMarketCategory',
       status: 'complete',
-      phase: 'Draft ready',
-      phaseLabel: 'Draft ready',
+      phase: 'Committed',
+      phaseLabel: 'Committed',
       executionMode: 'draft',
     });
   });
@@ -481,6 +498,22 @@ describe('GET /api/research-v2/audit-state', () => {
           title: 'Market & Category Intelligence',
           markdown: 'stale markdown',
           data: null,
+        },
+      ],
+      error: null,
+    });
+    routeMocks.eventsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          id: 'event-rerun-tool-started',
+          zone: 'positioningMarketCategory',
+          event_type: 'tool-started',
+          message: 'web_search started',
+          payload: {
+            toolName: 'web_search',
+            query: 'Gong alternatives',
+          },
+          created_at: '2026-05-15T12:05:02.000Z',
         },
       ],
       error: null,
@@ -562,7 +595,7 @@ describe('GET /api/research-v2/audit-state', () => {
     });
   });
 
-  it('returns Draft ready for a complete draft worker state even when telemetry says Committed', async () => {
+  it('returns Committed for a complete draft worker state even when telemetry was draft-era', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.runsQuery.order.mockResolvedValue({
       data: [
@@ -586,8 +619,8 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(body.workerStates[0]).toMatchObject({
       section_id: 'positioningMarketCategory',
       status: 'complete',
-      phase: 'Draft ready',
-      phaseLabel: 'Draft ready',
+      phase: 'Committed',
+      phaseLabel: 'Committed',
       executionMode: 'draft',
     });
   });

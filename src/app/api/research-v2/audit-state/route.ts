@@ -19,6 +19,8 @@ import type {
 } from '@/lib/ai/prompts/positioning-skills';
 import { createAdminClient } from '@/lib/supabase/server';
 
+import { deriveSectionPhase } from './derive-section-phase';
+
 export type WorkerStatus =
   | 'queued'
   | 'running'
@@ -94,16 +96,6 @@ export interface AuditStateResponse {
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
 const DEFAULT_STALE_RUN_THRESHOLD_MIN = 15;
-const PHASES: ReadonlySet<string> = new Set([
-  'Queued',
-  'Compiling context',
-  'Reading sources',
-  'Drafting',
-  'Validating',
-  'Draft ready',
-  'Committed',
-  'Needs review',
-]);
 
 function normalizeStatus(raw: unknown): WorkerStatus {
   if (typeof raw !== 'string') return 'queued';
@@ -130,29 +122,6 @@ function pickNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-function defaultPhaseForStatus(
-  status: WorkerStatus,
-  executionMode: 'draft' | 'deep' | 'lab' | null,
-): AuditSectionPhase {
-  if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
-  if (status === 'complete') return 'Committed';
-  if (status === 'error' || status === 'aborted') return 'Needs review';
-  if (status === 'running') return 'Reading sources';
-  return 'Queued';
-}
-
-function normalizePhase(
-  raw: unknown,
-  status: WorkerStatus,
-  executionMode: 'draft' | 'deep' | 'lab' | null,
-): AuditSectionPhase {
-  if (status === 'complete' && executionMode === 'draft') return 'Draft ready';
-  if (status === 'error' || status === 'aborted') return 'Needs review';
-  const phase = pickString(raw);
-  if (phase && PHASES.has(phase)) return phase as AuditSectionPhase;
-  return defaultPhaseForStatus(status, executionMode);
-}
-
 function normalizeCapabilityGaps(value: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is Record<string, unknown> => Boolean(asRecord(item)));
@@ -177,6 +146,9 @@ interface WorkerStateReadModel {
 }
 
 interface EventDerivedWorkerSignal {
+  latestEventType: string | null;
+  latestEventCreatedAt: string | null;
+  hasToolEvent: boolean;
   latestTool: string | null;
   latestSource: string | null;
   capabilityGaps: Array<Record<string, unknown>>;
@@ -281,6 +253,7 @@ function buildEventSignalsByZone(
   const signalsByZone = new Map<string, EventDerivedWorkerSignal>();
 
   for (const [zone, events] of Object.entries(eventsByZone)) {
+    const latestEvent = events.at(-1) ?? null;
     let latestTool: string | null = null;
     let latestSource: string | null = null;
     const capabilityGaps: Array<Record<string, unknown>> = [];
@@ -308,16 +281,35 @@ function buildEventSignalsByZone(
       }
     }
 
-    if (hasToolEvent || capabilityGaps.length > 0) {
-      signalsByZone.set(zone, {
-        latestTool,
-        latestSource,
-        capabilityGaps,
-      });
-    }
+    signalsByZone.set(zone, {
+      latestEventType: latestEvent?.event_type ?? null,
+      latestEventCreatedAt: latestEvent?.created_at ?? null,
+      hasToolEvent,
+      latestTool: hasToolEvent ? latestTool : null,
+      latestSource: hasToolEvent ? latestSource : null,
+      capabilityGaps,
+    });
   }
 
   return signalsByZone;
+}
+
+function derivePhaseStartedAt({
+  phase,
+  latestEventType,
+  latestEventCreatedAt,
+}: {
+  phase: AuditSectionPhase;
+  latestEventType: string | null;
+  latestEventCreatedAt: string | null;
+}): string | null {
+  if (!latestEventType || !latestEventCreatedAt) return null;
+  const eventPhase = deriveSectionPhase({
+    status: 'running',
+    latestEventType,
+  });
+  if (eventPhase === 'Queued') return null;
+  return eventPhase === phase ? latestEventCreatedAt : null;
 }
 
 function buildWorkerStateReadModel(
@@ -330,17 +322,28 @@ function buildWorkerStateReadModel(
   const status = normalizeStatus(row.status);
   const telemetry = asRecord(row.telemetry) ?? {};
   const executionMode = normalizeExecutionMode(telemetry.executionMode);
-  const phase = normalizePhase(telemetry.phase, status, executionMode);
+  const phase = deriveSectionPhase({
+    status,
+    latestEventType: eventSignal?.latestEventType ?? null,
+  });
+  const hasEventCapabilityGaps = Boolean(
+    eventSignal &&
+      (eventSignal.hasToolEvent || eventSignal.capabilityGaps.length > 0),
+  );
 
   return {
     status,
     phase,
     phaseLabel: phase,
-    phaseStartedAt: pickString(telemetry.phaseStartedAt),
-    latestTool: eventSignal
+    phaseStartedAt: derivePhaseStartedAt({
+      phase,
+      latestEventType: eventSignal?.latestEventType ?? null,
+      latestEventCreatedAt: eventSignal?.latestEventCreatedAt ?? null,
+    }),
+    latestTool: eventSignal?.hasToolEvent
       ? eventSignal.latestTool
       : pickString(telemetry.latestTool),
-    latestSource: eventSignal
+    latestSource: eventSignal?.hasToolEvent
       ? eventSignal.latestSource
       : pickString(telemetry.latestSource),
     latestActivity: pickString(telemetry.latestActivity),
@@ -349,9 +352,10 @@ function buildWorkerStateReadModel(
     totalWaves: pickNumber(telemetry.totalWaves),
     concurrency: pickNumber(telemetry.concurrency),
     elapsedMs: pickNumber(telemetry.elapsedMs),
-    capabilityGaps: eventSignal
-      ? eventSignal.capabilityGaps
-      : normalizeCapabilityGaps(telemetry.capabilityGaps),
+    capabilityGaps:
+      hasEventCapabilityGaps && eventSignal
+        ? eventSignal.capabilityGaps
+        : normalizeCapabilityGaps(telemetry.capabilityGaps),
     executionMode,
     runtimeTimings: normalizeRuntimeTimings(telemetry.runtimeTimings),
   };
