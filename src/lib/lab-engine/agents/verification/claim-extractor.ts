@@ -17,6 +17,23 @@ const magnitudePattern =
   /\b\d+(?:\.\d+)?\s?(?:k|m|b|thousand|million|billion)\b(?:\s+[A-Za-z][A-Za-z-]*)?/gi;
 const quotePattern = /"([^"]+)"/g;
 const urlPattern = /https?:\/\/[^\s)"'>\]}]+/gi;
+// A single numeric range endpoint: optional currency, digits (with thousands
+// commas / decimals), optional magnitude suffix, optional percent.
+const rangeTokenSource =
+  "[$£€]?\\s?\\d[\\d,]*(?:\\.\\d+)?(?:k|m|b|thousand|million|billion)?%?";
+// A symbolic-separator range ("$1M–$5M ARR", "$49–$99/mo", "10,000–50,000 users").
+// Separator class is en/em/hyphen only — the `/` unit separator ("$99/mo") is
+// intentionally excluded. An optional trailing unit (/mo or one word) is kept.
+const rangePattern = new RegExp(
+  `(?<![\\w$£€])(?:${rangeTokenSource})\\s*[–—-]\\s*(?:${rangeTokenSource})` +
+    `(?:\\s?\\/\\s?(?:mo|month|yr|year)|\\s+[A-Za-z][A-Za-z-]*)?`,
+  "gi",
+);
+// A matched range only counts if it carries a currency symbol, percent,
+// magnitude suffix, or thousands comma — this excludes dates ("2024-2025")
+// and phone numbers ("555-1234").
+const rangeQualifierPattern =
+  /[$£€%]|,|\d\s?(?:k|m|b|thousand|million|billion)\b/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -102,7 +119,30 @@ function extractStringClaims({
     });
   }
 
-  for (const match of value.matchAll(currencyPattern)) {
+  // Range pass — runs BEFORE the single-value numeric loops. A symbolic-separator
+  // range like "$1M–$5M ARR" becomes ONE claim instead of four substring-matchable
+  // fragments ($1 / $5 / 1M / 5M). Matched spans are masked so the loops below
+  // cannot re-emit the endpoints. Unqualified spans (dates, phone numbers) are left
+  // intact but carry no currency/percent/magnitude, so the loops ignore them anyway.
+  let scanValue = value;
+  const rangeMatches = [...value.matchAll(rangePattern)];
+  if (rangeMatches.length > 0) {
+    const chars = value.split("");
+    for (const match of rangeMatches) {
+      const full = match[0];
+      if (!rangeQualifierPattern.test(full)) {
+        continue;
+      }
+      pushClaim({ claims, kind: "numeric", raw: value, seen, value: full });
+      const start = match.index ?? 0;
+      for (let i = start; i < start + full.length && i < chars.length; i += 1) {
+        chars[i] = " ";
+      }
+    }
+    scanValue = chars.join("");
+  }
+
+  for (const match of scanValue.matchAll(currencyPattern)) {
     pushClaim({
       claims,
       kind: "numeric",
@@ -112,7 +152,7 @@ function extractStringClaims({
     });
   }
 
-  for (const match of value.matchAll(percentPattern)) {
+  for (const match of scanValue.matchAll(percentPattern)) {
     pushClaim({
       claims,
       kind: "numeric",
@@ -122,7 +162,7 @@ function extractStringClaims({
     });
   }
 
-  for (const match of value.matchAll(magnitudePattern)) {
+  for (const match of scanValue.matchAll(magnitudePattern)) {
     pushClaim({
       claims,
       kind: "numeric",
