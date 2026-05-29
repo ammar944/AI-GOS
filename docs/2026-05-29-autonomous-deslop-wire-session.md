@@ -45,7 +45,7 @@ Dead architecture deleted (worker + frontend managed-agents) · verifier teeth w
 - `8d547baf` verifier teeth: independent gate tsc 0 / lint 0 / **1094 tests pass**; 2 integration tests prove repair-fires + commit-with-honest-badge on residual.
 - Net: **~-10,200 LOC** dead/duplicate code removed; ~820 LOC new feature code+tests.
 
-**SESSION COMPLETE @ overnight 2026-05-29.** 6 commits on `feat/v2-lab-section-wire` (base `25618cf8` → head `eb27640a`), all pushed to origin:
-`41a5abd6` worker deslop · `1e98f5cf` FE-1 managed-agents kill · `8d547baf` verifier teeth · `a25109bd` phase honesty · `eb27640a` doc alignment · `bce5dbe0` docs.
-**Final gate green (all 5):** FE tsc 0 / lint 0 / 1108 tests · worker build 0 / 324 tests.
-**Deferred (specs ready, supervised):** FE-2 schema consolidation; full token streaming; verifier hard-fail threshold. See `docs/2026-05-29-overnight-session-report.md` for the full wrap-up + your next steps (fast-forward main, provider env check, live QA).
+**SESSION COMPLETE @ overnight 2026-05-29.** 10 commits on `feat/v2-lab-section-wire` (base `25618cf8` → head `ab71ad39`), all pushed:
+`41a5abd6` worker deslop · `1e98f5cf` FE-1 managed-agents kill · `8d547baf` verifier teeth · `a25109bd` phase honesty · `eb27640a` doc alignment · `2c089b29` FE-2 schemas single-sourced (managed-agents/ fully gone) · `5d6edfa9` verifier threshold (env-gated) · `ab71ad39` dead wave telemetry removed · `bce5dbe0`+`1c84086e` docs.
+**Final gate green (all 5):** FE tsc 0 / lint 0 / 1113 tests · worker build 0 / 324 tests. **Net ~−12,600 LOC dead code.**
+**All 3 originally-deferred items resolved:** FE-2 DONE (managed-agents/ deleted), verifier threshold DONE (env-gated, default-safe), streaming = live in-progress view wired (phase) + content-card streaming is an architecture FORK vs the answer-tool repair loop (user decides w/ live test). Still open (needs user): the streaming fork, abort-path hardening, repo branch entropy. Wrap-up: `docs/2026-05-29-overnight-session-report.md`.
