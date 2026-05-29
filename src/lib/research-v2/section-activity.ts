@@ -16,14 +16,30 @@ export type SectionActivityKind =
   | 'tool'
   | 'validation';
 
+export type ProductPhase =
+  | 'preparing'
+  | 'searching'
+  | 'drafting'
+  | 'checking'
+  | 'refining'
+  | 'committing'
+  | 'done';
+
 export interface SectionActivityItem {
   id: string;
   eventType: string;
+  phase: ProductPhase;
   title: string;
   detail: string | null;
+  chip: string | null;
   createdAt: string;
   kind: SectionActivityKind;
   tone: SectionActivityTone;
+}
+
+export interface CollapsedSectionActivityItem extends SectionActivityItem {
+  count: number;
+  chips: string[];
 }
 
 export interface SectionActivityCounts {
@@ -36,7 +52,7 @@ export interface SectionActivityCounts {
 
 export interface SectionActivityFeed {
   currentLabel: string;
-  items: SectionActivityItem[];
+  items: CollapsedSectionActivityItem[];
   counts: SectionActivityCounts;
 }
 
@@ -48,6 +64,11 @@ export interface BuildSectionActivityFeedInput {
 }
 
 const DEFAULT_MAX_ITEMS = 8;
+
+// Any field that looks like raw structured-output payload (Zod issue arrays,
+// schema paths, JSON blobs) is rejected before it can reach a customer-facing
+// field. Mirrors the JSON_HINT guard from the proven prototype.
+const JSON_HINT = /[{}\[\]]|"code"|body\./;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -76,15 +97,6 @@ function readStringField(
   return readString(record[key]);
 }
 
-function readNumberField(
-  record: Record<string, unknown> | null,
-  key: string,
-): number | null {
-  if (!record) return null;
-  const value = record[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function eventPayload(event: SectionEvent): Record<string, unknown> | null {
   return isRecord(event.payload) ? event.payload : null;
 }
@@ -99,193 +111,235 @@ function eventMessage(event: SectionEvent): string | null {
   );
 }
 
-function toolName(event: SectionEvent): string | null {
-  return readStringField(eventMetadata(event), 'toolName');
-}
-
-function skillSlug(event: SectionEvent): string | null {
-  return readStringField(eventMetadata(event), 'skillSlug');
-}
-
 function subSectionKey(event: SectionEvent): string | null {
   return readStringField(eventMetadata(event), 'subSectionKey');
 }
 
-function schemaName(event: SectionEvent): string | null {
-  return readStringField(eventMetadata(event), 'schemaName');
+// Allowlist: only these event types are ever shown in the customer feed. Each
+// maps to a product phase that drives icon + grouping. Anything not listed is
+// dropped (see buildActivityItem returning null).
+const EVENT_PHASE: Record<string, ProductPhase> = {
+  'section-started': 'preparing',
+  'skill-loaded': 'preparing',
+  'tool-started': 'searching',
+  'tool-finished': 'searching',
+  'structured-output-started': 'drafting',
+  'validation-failed': 'checking',
+  'repair-started': 'refining',
+  'sub-section-committed': 'committing',
+  'artifact-saved': 'committing',
+  'section-completed': 'done',
+  'section-failed': 'done',
+};
+
+export function phaseForEvent(eventType: string): ProductPhase | null {
+  return EVENT_PHASE[eventType] ?? null;
 }
 
-function attemptLabel(event: SectionEvent): string | null {
-  const attempt = readNumberField(eventMetadata(event), 'attempt');
-  return attempt === null ? null : `attempt ${attempt}`;
+// Translate an internal repair/validation reason into a calm, customer-safe
+// line. Only the two reason shapes the engine emits that are genuinely
+// customer-meaningful (grounding coverage, source coverage) are surfaced;
+// everything else collapses to a generic phrase. The engine also emits short,
+// non-JSON jargon reasons ("No answer-tool step within 90000ms on attempt 2",
+// "Agent did not call answer tool within maxSteps") that would slip past a
+// length/JSON guard, so there is NO verbatim passthrough — any unmatched reason
+// returns the calm fallback. Originally ported from phase-narration.ts; the
+// verbatim branch was dropped to close the jargon leak.
+export function translateReason(reason: unknown): string | undefined {
+  if (typeof reason !== 'string' || !reason.trim()) return undefined;
+  const grounding = reason.match(/grounding (\d+) unsupported claim/i);
+  if (grounding) {
+    return `Strengthening ${grounding[1]} claim${
+      grounding[1] === '1' ? '' : 's'
+    } with sources`;
+  }
+  const sources = reason.match(/sources:\s*have (\d+),\s*need >?=?\s*(\d+)/i);
+  if (sources) return `Gathering more sources (${sources[1]} of ${sources[2]})`;
+  return 'Refining section structure';
 }
 
-function outputSummary(event: SectionEvent): string | null {
-  return readStringField(eventMetadata(event), 'outputSummary');
+// A web_search query is safe to show as a chip (Perplexity-style). Drop
+// anything suspiciously long or JSON-shaped. Ported from phase-narration.ts.
+export function searchChip(event: SectionEvent): string | null {
+  const query = eventMetadata(event)?.query;
+  if (
+    typeof query === 'string' &&
+    query.trim().length > 0 &&
+    query.length <= 96 &&
+    !JSON_HINT.test(query)
+  ) {
+    return query.trim();
+  }
+  return null;
 }
 
-function gapMessage(event: SectionEvent): string | null {
-  const gap = readRecordField(eventMetadata(event), 'gap');
-  const reason = readStringField(gap, 'reason');
-  const message = readStringField(gap, 'message');
-  return [reason, message].filter(Boolean).join(': ') || null;
+// Humanize a camelCase subSectionKey ("personaReality" -> "Persona reality")
+// as a last-resort detail when no clean message is present.
+function humanizeSubSectionKey(key: string | null): string | null {
+  if (!key) return null;
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  if (!spaced) return null;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-function validationIssueSummary(event: SectionEvent): string | null {
-  const issues = eventMetadata(event)?.issues;
-  if (!Array.isArray(issues)) return null;
-
-  const readableIssues = issues
-    .map((issue) => readString(issue))
-    .filter((issue): issue is string => Boolean(issue));
-  if (readableIssues.length === 0) return null;
-  if (readableIssues.length === 1) return readableIssues[0];
-  return `${readableIssues[0]} (+${readableIssues.length - 1} more)`;
-}
-
-function durationDetail(event: SectionEvent): string | null {
-  const durationMs = readNumberField(eventMetadata(event), 'durationMs');
-  if (durationMs === null) return null;
-  const seconds = Math.round(durationMs / 100) / 10;
-  return `${seconds}s`;
-}
-
-function artifactId(event: SectionEvent): string | null {
-  return readStringField(eventMetadata(event), 'artifactId');
-}
-
-function buildActivityItem(event: SectionEvent): SectionActivityItem {
+// A clean engine `message` is safe to show, but never if it carries a JSON hint
+// (defense-in-depth: an upstream message should never embed a Zod blob).
+function safeMessage(event: SectionEvent): string | null {
   const message = eventMessage(event);
+  if (!message) return null;
+  if (JSON_HINT.test(message)) return null;
+  return message;
+}
+
+// Map a raw lab event to a customer-safe activity item, or null to drop it from
+// the feed. NO raw payload (outputSummary, raw Zod issues, raw repair reason,
+// schemaName, raw error) ever reaches title / detail / chip.
+function buildActivityItem(event: SectionEvent): SectionActivityItem | null {
+  const phase = EVENT_PHASE[event.event_type];
+  if (!phase) return null;
+
+  const base = {
+    id: event.id,
+    eventType: event.event_type,
+    phase,
+    createdAt: event.created_at,
+    chip: null as string | null,
+  };
 
   switch (event.event_type) {
     case 'section-started':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Section started',
-        detail: message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Preparing context',
+        detail: null,
         kind: 'section',
-        tone: 'active',
+        tone: 'neutral',
       };
     case 'skill-loaded':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Skill loaded',
-        detail: skillSlug(event) ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Preparing context',
+        detail: null,
         kind: 'skill',
         tone: 'neutral',
       };
-    case 'tool-started': {
-      const name = toolName(event);
+    case 'tool-started':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: name ? `Using ${name}` : 'Tool started',
-        detail: message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Searching source evidence',
+        detail: null,
         kind: 'tool',
         tone: 'active',
       };
-    }
-    case 'tool-finished': {
-      const name = toolName(event);
-      const gap = gapMessage(event);
+    case 'tool-finished':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: name ? `${name} finished` : 'Tool finished',
-        detail: outputSummary(event) ?? gap ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Searching source evidence',
+        detail: null,
+        chip: searchChip(event),
         kind: 'tool',
-        tone: gap ? 'warning' : 'success',
+        tone: 'active',
       };
-    }
     case 'structured-output-started':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Structuring Artifact',
-        detail:
-          [schemaName(event), attemptLabel(event)].filter(Boolean).join(' - ') ||
-          message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Drafting section',
+        detail: null,
         kind: 'output',
         tone: 'active',
       };
     case 'validation-failed':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Validation failed',
-        detail: validationIssueSummary(event) ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Checking source support',
+        detail: 'Verifying claims against sources',
         kind: 'validation',
-        tone: 'warning',
+        tone: 'active',
       };
     case 'repair-started':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Repairing Artifact',
-        detail: readStringField(eventMetadata(event), 'reason') ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Refining unsupported claims',
+        detail: translateReason(eventMetadata(event)?.reason) ?? null,
         kind: 'repair',
         tone: 'warning',
       };
     case 'sub-section-committed':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Sub-section committed',
-        detail: subSectionKey(event) ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Sub-section ready',
+        detail: safeMessage(event) ?? humanizeSubSectionKey(subSectionKey(event)),
         kind: 'artifact',
         tone: 'success',
       };
     case 'artifact-saved':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Artifact saved',
-        detail: artifactId(event) ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Section verified & committed',
+        detail: null,
         kind: 'artifact',
         tone: 'success',
       };
     case 'section-completed':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Section completed',
-        detail: durationDetail(event) ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Section verified & committed',
+        detail: durationDetail(event),
         kind: 'section',
         tone: 'success',
       };
     case 'section-failed':
       return {
-        id: event.id,
-        eventType: event.event_type,
-        title: 'Section failed',
-        detail: readStringField(eventMetadata(event), 'error') ?? message,
-        createdAt: event.created_at,
+        ...base,
+        title: 'Section needs review',
+        detail: 'This section needs another pass',
         kind: 'section',
         tone: 'error',
       };
     default:
-      return {
-        id: event.id,
-        eventType: event.event_type,
-        title: message ?? event.event_type,
-        detail: message === null ? null : event.event_type,
-        createdAt: event.created_at,
-        kind: 'section',
-        tone: 'neutral',
-      };
+      return null;
   }
+}
+
+// Optional duration on section-completed ("1m 7s"). Derived purely from a
+// numeric durationMs — no raw payload text.
+function durationDetail(event: SectionEvent): string | null {
+  const durationMs = eventMetadata(event)?.durationMs;
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs)) {
+    return null;
+  }
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+// Collapse consecutive same-phase items into one row with a count and
+// accumulated query chips. Keeps the FIRST item's identity/title; folds detail
+// and chips forward. Ported from collapseNarration (single-section: no zone).
+function collapseActivity(
+  items: SectionActivityItem[],
+): CollapsedSectionActivityItem[] {
+  const out: CollapsedSectionActivityItem[] = [];
+  for (const item of items) {
+    const last = out.at(-1);
+    if (last && last.phase === item.phase) {
+      last.count += 1;
+      last.createdAt = item.createdAt;
+      if (item.chip) last.chips.push(item.chip);
+      if (item.detail) last.detail = item.detail;
+      continue;
+    }
+    out.push({
+      ...item,
+      count: 1,
+      chips: item.chip ? [item.chip] : [],
+    });
+  }
+  return out;
 }
 
 function emptyCounts(): SectionActivityCounts {
@@ -325,7 +379,7 @@ function countEvents(events: SectionEvent[]): SectionActivityCounts {
 function currentLabelFor(input: {
   latestActivity: string | null;
   phaseLabel: string;
-  items: SectionActivityItem[];
+  items: CollapsedSectionActivityItem[];
 }): string {
   const latestActivity = readString(input.latestActivity);
   if (latestActivity) return latestActivity;
@@ -340,8 +394,13 @@ export function buildSectionActivityFeed(
   input: BuildSectionActivityFeedInput,
 ): SectionActivityFeed {
   const maxItems = input.maxItems ?? DEFAULT_MAX_ITEMS;
-  const orderedItems = input.events.map(buildActivityItem);
-  const items = maxItems > 0 ? orderedItems.slice(-maxItems) : [];
+
+  const safeItems = input.events
+    .map(buildActivityItem)
+    .filter((item): item is SectionActivityItem => item !== null);
+
+  const collapsed = collapseActivity(safeItems);
+  const items = maxItems > 0 ? collapsed.slice(-maxItems) : [];
 
   return {
     currentLabel: currentLabelFor({

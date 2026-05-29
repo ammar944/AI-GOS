@@ -203,7 +203,8 @@ describe('<AuditReaderShell>', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /buyer \/ icp/i }));
+    const rail = screen.getByRole('navigation', { name: 'Sections' });
+    fireEvent.click(within(rail).getByRole('button', { name: /buyer \/ icp/i }));
 
     expect(onSectionChange).toHaveBeenCalledWith('positioningBuyerICP');
   });
@@ -281,7 +282,10 @@ describe('<AuditReaderShell>', () => {
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
     expect(screen.getByText('Reading category evidence')).toBeInTheDocument();
-    expect(screen.getByText('Search started')).toBeInTheDocument();
+    // Customer-safe feed: the raw tool message is dropped; the tool-started
+    // event surfaces as the translated phase title.
+    expect(screen.getByText('Searching source evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Search started')).not.toBeInTheDocument();
   });
 
   it('renders running activity over stale complete section data during a rerun', (): void => {
@@ -319,7 +323,10 @@ describe('<AuditReaderShell>', () => {
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
     expect(screen.getByText('Reading category evidence')).toBeInTheDocument();
-    expect(screen.getByText('Started rerun')).toBeInTheDocument();
+    // Customer-safe feed: raw rerun message is dropped; the section-started
+    // event surfaces as the translated phase title.
+    expect(screen.getByText('Preparing context')).toBeInTheDocument();
+    expect(screen.queryByText('Started rerun')).not.toBeInTheDocument();
     expect(
       screen.queryByText(marketCategoryFixtureArtifact.verdict),
     ).not.toBeInTheDocument();

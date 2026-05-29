@@ -29,11 +29,18 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Check,
+  CheckCircle2,
+  CircleDot,
   Copy,
+  FileText,
   LockKeyhole,
   Loader2,
   RefreshCw,
+  Search,
+  ShieldCheck,
+  Sparkles,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -60,7 +67,8 @@ import {
 } from '@/lib/research-v2/confidence-display';
 import {
   buildSectionActivityFeed,
-  type SectionActivityItem,
+  type CollapsedSectionActivityItem,
+  type ProductPhase,
   type SectionActivityTone,
 } from '@/lib/research-v2/section-activity';
 import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
@@ -451,12 +459,26 @@ function SourcesList({
 // Reading-column states: running (skeleton + live feed), queued, error
 // ---------------------------------------------------------------------------
 
-const ACTIVITY_TONE_CLASS: Record<SectionActivityTone, string> = {
-  active: 'bg-primary',
-  neutral: 'bg-muted-foreground/50',
-  success: 'bg-primary',
-  warning: 'bg-muted-foreground',
-  error: 'bg-destructive',
+// Phase → lucide icon (customer-safe narration). Mirrors the proven
+// prototype phase vocabulary.
+const PHASE_ICON: Record<ProductPhase, LucideIcon> = {
+  preparing: CircleDot,
+  searching: Search,
+  drafting: FileText,
+  checking: ShieldCheck,
+  refining: Sparkles,
+  committing: CheckCircle2,
+  done: CheckCircle2,
+};
+
+// tone → icon/text token. active/success read as primary; warning gets a
+// restrained amber; error is destructive.
+const ACTIVITY_TONE_ICON_CLASS: Record<SectionActivityTone, string> = {
+  active: 'text-primary',
+  success: 'text-primary',
+  neutral: 'text-muted-foreground',
+  warning: 'text-amber-500 dark:text-amber-400',
+  error: 'text-destructive',
 };
 
 function ActivityCountPill({
@@ -475,27 +497,84 @@ function ActivityCountPill({
   );
 }
 
+function SearchQueryChips({ chips }: { chips: string[] }): ReactElement | null {
+  if (chips.length === 0) return null;
+  const shown = chips.slice(0, 8);
+  const overflow = chips.length - shown.length;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {shown.map((chip, i) => (
+        <span
+          key={`${chip}-${i}`}
+          title={chip}
+          className="inline-flex max-w-[260px] items-center gap-1.5 truncate rounded-md border border-border bg-muted px-2 py-1 text-[11.5px] text-muted-foreground"
+        >
+          <Search className="size-3 shrink-0 text-muted-foreground/70" strokeWidth={2} />
+          <span className="truncate">{chip}</span>
+        </span>
+      ))}
+      {overflow > 0 ? (
+        <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-[11px] tabular-nums text-muted-foreground/70">
+          +{overflow}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function ActivityFeedItem({
   item,
+  live,
 }: {
-  item: SectionActivityItem;
+  item: CollapsedSectionActivityItem;
+  live: boolean;
 }): ReactElement {
+  const Icon = PHASE_ICON[item.phase] ?? CircleDot;
+
   return (
-    <li className="relative pb-3 pl-4 last:pb-0">
+    <li className="relative pb-3 pl-7 last:pb-0">
       <span
-        className={cn(
-          'absolute left-[-4.5px] top-1.5 size-2 rounded-full ring-4 ring-background',
-          ACTIVITY_TONE_CLASS[item.tone],
-        )}
-      />
-      <div className="text-[13px] font-medium leading-[1.4] text-foreground">
-        {item.title}
+        className="absolute left-[1px] top-0.5 flex size-4 items-center justify-center"
+        aria-hidden="true"
+      >
+        <Icon
+          className={cn(
+            'size-[14px]',
+            ACTIVITY_TONE_ICON_CLASS[item.tone],
+            live && 'animate-pulse motion-reduce:animate-none',
+          )}
+          strokeWidth={2.25}
+        />
+      </span>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span
+          className={cn(
+            'text-[13px] leading-[1.4]',
+            live ? 'font-medium text-foreground' : 'text-foreground',
+          )}
+        >
+          {item.title}
+        </span>
+        {item.count > 1 ? (
+          <span className="text-[11px] tabular-nums text-muted-foreground/70">
+            ×{item.count}
+          </span>
+        ) : null}
       </div>
       {item.detail ? (
-        <div className="mt-0.5 text-[12.5px] leading-[1.45] text-muted-foreground">
+        <div
+          className={cn(
+            'mt-0.5 text-[12.5px] leading-[1.45]',
+            item.tone === 'warning'
+              ? 'text-amber-500 dark:text-amber-400'
+              : 'text-muted-foreground',
+          )}
+        >
           {item.detail}
         </div>
       ) : null}
+      <SearchQueryChips chips={item.chips} />
     </li>
   );
 }
@@ -515,10 +594,15 @@ function LiveActivity({
     phaseLabel,
   });
 
+  const lastItemId = activity.items.at(-1)?.id ?? null;
+
   return (
     <div className="mt-8 space-y-6">
       <div className="flex items-center gap-2.5 text-[13.5px] text-foreground">
-        <Loader2 className="size-4 animate-spin text-primary" strokeWidth={2.5} />
+        <Loader2
+          className="size-4 animate-spin text-primary motion-reduce:animate-none"
+          strokeWidth={2.5}
+        />
         <span className="font-medium">{activity.currentLabel}</span>
       </div>
 
@@ -538,9 +622,14 @@ function LiveActivity({
               value={activity.counts.repairsStarted}
             />
           </div>
-          <ol className="border-l border-border">
+          {/* internal scroll — a long run must not grow the page (variant-D) */}
+          <ol className="max-h-[340px] overflow-y-auto pr-1">
             {activity.items.map((item) => (
-              <ActivityFeedItem key={item.id} item={item} />
+              <ActivityFeedItem
+                key={item.id}
+                item={item}
+                live={item.id === lastItemId}
+              />
             ))}
           </ol>
         </div>
@@ -551,7 +640,7 @@ function LiveActivity({
         {[92, 78, 85, 64].map((w, i) => (
           <div
             key={i}
-            className="h-3 animate-pulse rounded bg-muted"
+            className="h-3 animate-pulse rounded bg-muted motion-reduce:animate-none"
             style={{ width: `${w}%` }}
           />
         ))}
@@ -795,6 +884,161 @@ function SectionProgressStrip({
 }
 
 // ---------------------------------------------------------------------------
+// Run-status bar (W3) + mobile section switcher (W4)
+// ---------------------------------------------------------------------------
+
+function formatElapsedClock(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+// DESIGN label idiom: 11px mono uppercase 0.06em tracking.
+function RunStat({
+  label,
+  children,
+  tone,
+}: {
+  label: string;
+  children: ReactElement | string;
+  tone?: 'default' | 'warning';
+}): ReactElement {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      {label ? (
+        <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70">
+          {label}
+        </span>
+      ) : null}
+      <span
+        className={cn(
+          'font-mono text-[12px] font-medium tabular-nums',
+          tone === 'warning'
+            ? 'text-amber-500 dark:text-amber-400'
+            : 'text-foreground',
+        )}
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
+
+// Compact top-right run bar shown while the run is non-terminal. Reads like
+// the "small top-right streaming bar," not a dashboard. Always shows a
+// first-5s receipt so the initial state is never empty.
+function RunStatusBar({
+  completedCount,
+  activePhaseLabel,
+  verified,
+  flagged,
+  elapsedMs,
+}: {
+  completedCount: number;
+  activePhaseLabel: string | null;
+  verified: number;
+  flagged: number;
+  elapsedMs: number | null;
+}): ReactElement {
+  return (
+    <div
+      data-testid="run-status-bar"
+      className="hidden items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-1.5 sm:flex"
+    >
+      <Loader2
+        className="size-3.5 animate-spin text-primary motion-reduce:animate-none"
+        strokeWidth={2.5}
+        aria-hidden="true"
+      />
+      <RunStat label="Sections">
+        {`${completedCount}/${READER_SECTION_IDS.length - 1}`}
+      </RunStat>
+      <span className="h-3 w-px bg-border" aria-hidden="true" />
+      <span className="max-w-[180px] truncate text-[12px] text-muted-foreground">
+        {activePhaseLabel ?? 'researching live sources'}
+      </span>
+      {verified > 0 || flagged > 0 ? (
+        <>
+          <span className="h-3 w-px bg-border" aria-hidden="true" />
+          <span className="inline-flex items-center gap-2">
+            <RunStat label="">
+              <span className="inline-flex items-center gap-1 text-primary">
+                <Check className="size-3" strokeWidth={3} />
+                {String(verified)}
+              </span>
+            </RunStat>
+            <RunStat label="" tone={flagged > 0 ? 'warning' : 'default'}>
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="size-3" strokeWidth={2.5} />
+                {String(flagged)}
+              </span>
+            </RunStat>
+          </span>
+        </>
+      ) : null}
+      {elapsedMs !== null ? (
+        <>
+          <span className="h-3 w-px bg-border" aria-hidden="true" />
+          <RunStat label="">{formatElapsedClock(elapsedMs)}</RunStat>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+// Horizontal section switcher for small screens (DESIGN Section Tabs idiom:
+// no background, active = foreground text + 1.5px primary bottom border).
+function MobileSectionSwitcher({
+  active,
+  onSelect,
+  statusOf,
+}: {
+  active: ReaderSectionId;
+  onSelect: (id: ReaderSectionId) => void;
+  statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
+}): ReactElement {
+  return (
+    <nav
+      aria-label="Sections (mobile)"
+      data-testid="mobile-section-switcher"
+      className="-mx-6 mb-6 flex gap-4 overflow-x-auto border-b border-border px-6 pb-px sm:hidden"
+    >
+      {READER_SECTION_IDS.map((id) => {
+        const status = statusOf(id);
+        const isActive = id === active;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-current={isActive ? 'page' : undefined}
+            onClick={() => onSelect(id)}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-[1.5px] pb-2 text-[12px] font-medium transition-colors',
+              isActive
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {status === 'running' ? (
+              <Loader2
+                className="size-3 animate-spin text-primary motion-reduce:animate-none"
+                strokeWidth={2.5}
+              />
+            ) : status === 'complete' ? (
+              <Check className="size-3 text-primary" strokeWidth={3} />
+            ) : status === 'error' || status === 'aborted' ? (
+              <AlertTriangle className="size-3 text-destructive" strokeWidth={2.5} />
+            ) : null}
+            {SECTION_SHORT_LABEL[id]}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -961,6 +1205,15 @@ export function AuditReaderShell({
     [statusOf],
   );
 
+  // Positioning-only completed count for the run bar (its denominator excludes
+  // the terminal paid-media section, so the numerator must too — avoids "7/6"
+  // when paid-media commits while a positioning section is still non-terminal).
+  const positioningCompletedCount = useMemo(
+    () =>
+      POSITIONING_SECTION_IDS.filter((id) => statusOf(id) === 'complete').length,
+    [statusOf],
+  );
+
   const avgConfidence = useMemo(() => {
     const scores = READER_SECTION_IDS.map(confidenceOf).filter(
       (n): n is number => n !== null,
@@ -976,6 +1229,73 @@ export function AuditReaderShell({
       ),
     [statusOf],
   );
+
+  // ---- Run-status rollups (W3) -----------------------------------------
+  // Verified / flagged claims summed across committed sections.
+  const verificationRollup = useMemo(() => {
+    let verified = 0;
+    let flagged = 0;
+    for (const id of READER_SECTION_IDS) {
+      const v = typedByZone.get(id)?.verification;
+      if (!v) continue;
+      verified += v.verifiedCount;
+      flagged += v.unsupportedCount;
+    }
+    return { verified, flagged };
+  }, [typedByZone]);
+
+  // Active phase label = the running worker's human-readable phase (already
+  // customer-safe, e.g. "Reading sources"). Null when nothing is running.
+  const activePhaseLabel = useMemo(() => {
+    for (const id of READER_SECTION_IDS) {
+      if (statusOf(id) !== 'running') continue;
+      const worker = workerById.get(id);
+      const label = worker?.phaseLabel;
+      if (label && label !== 'Queued') return label;
+    }
+    return null;
+  }, [statusOf, workerById]);
+
+  // Earliest worker start; anchors the elapsed clock. Falls back to the first
+  // client observation so the clock is robust even without server timings.
+  const runObservedAtRef = useRef<number | null>(null);
+  const earliestStartMs = useMemo(() => {
+    let earliest: number | null = null;
+    for (const worker of live.workerStates) {
+      const started = worker.runtimeTimings.sectionStartedAt;
+      if (!started) continue;
+      const parsed = Date.parse(started);
+      if (Number.isNaN(parsed)) continue;
+      if (earliest === null || parsed < earliest) earliest = parsed;
+    }
+    return earliest;
+  }, [live.workerStates]);
+
+  // The run is "dispatched" once a parent exists or any worker row is present.
+  const runDispatched =
+    live.parent_audit_run_id !== null || live.workerStates.length > 0;
+
+  useEffect(() => {
+    if (!runDispatched) return;
+    if (runObservedAtRef.current === null) {
+      runObservedAtRef.current = Date.now();
+    }
+  }, [runDispatched]);
+
+  // 1s ticker — only while the run is live, so a finished run stops counting.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (allSectionsTerminal || !runDispatched) return;
+    setNowMs(Date.now());
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [allSectionsTerminal, runDispatched]);
+
+  const elapsedMs = useMemo(() => {
+    const start = earliestStartMs ?? runObservedAtRef.current;
+    if (start === null) return null;
+    return Math.max(0, nowMs - start);
+  }, [earliestStartMs, nowMs]);
 
   const company = meta.companyName || hostnameOf(meta.websiteUrl) || 'Audit';
 
@@ -1096,7 +1416,17 @@ export function AuditReaderShell({
             {company}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3">
+          {!allSectionsTerminal && runDispatched ? (
+            <RunStatusBar
+              completedCount={positioningCompletedCount}
+              activePhaseLabel={activePhaseLabel}
+              verified={verificationRollup.verified}
+              flagged={verificationRollup.flagged}
+              elapsedMs={elapsedMs}
+            />
+          ) : null}
+          <div className="flex items-center gap-1">
           <Button
             type="button"
             variant="ghost"
@@ -1127,6 +1457,7 @@ export function AuditReaderShell({
             />
             Rerun
           </Button>
+          </div>
         </div>
       </header>
 
@@ -1150,6 +1481,12 @@ export function AuditReaderShell({
               allSectionsTerminal ? 'max-w-[1080px]' : 'max-w-[820px]',
             )}
           >
+            <MobileSectionSwitcher
+              active={active}
+              onSelect={select}
+              statusOf={statusOf}
+            />
+
             <div className="flex items-center justify-between gap-4">
               <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 Section {activeIndex + 1} of {READER_SECTION_IDS.length}
