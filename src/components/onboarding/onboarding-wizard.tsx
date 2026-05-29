@@ -66,6 +66,8 @@ const STATE_CLASS: Record<OnboardingFieldReviewState, string> = {
   "User-edited": "border-[var(--accent-blue)] text-[color:var(--accent-blue)]",
   Missing: "border-[var(--accent-red)] text-[color:var(--accent-red)]",
   "Needs review": "border-[var(--accent-amber)] text-[color:var(--accent-amber)]",
+  // Blank optional field — calm/neutral, never red.
+  Optional: "border-[var(--border-default)] text-[color:var(--text-tertiary)]",
 };
 
 const ICONS: Record<SectionIconName, ReactNode> = {
@@ -210,6 +212,10 @@ export function OnboardingWizard({
     .map((key) => review.fields[key])
     .filter((field): field is OnboardingFieldReview => Boolean(field));
 
+  const optionalReviews = review.optionalIncomplete
+    .map((key) => review.fields[key])
+    .filter((field): field is OnboardingFieldReview => Boolean(field));
+
   useEffect(() => {
     if (pendingStepChange.current && isUserAction.current) {
       const pending = pendingStepChange.current;
@@ -348,6 +354,18 @@ export function OnboardingWizard({
     const state = reviewField?.state ?? "Missing";
     const error = errors[field.key as string];
     const fieldId = field.key as string;
+    // The wrapper keeps `id={fieldId}` as the rail scroll anchor (rail links to
+    // `#${field.key}`). The control gets a distinct id so a single <label
+    // htmlFor> resolves to the control, not the wrapper div. Group fields
+    // (radio/checkbox) use the label as an `aria-labelledby` caption instead,
+    // since a <label> cannot label a multi-control group.
+    const labelId = `${fieldId}-label`;
+    const controlId = `${fieldId}-control`;
+    const isGroupField =
+      field.type === "radio" ||
+      field.type === "checkbox" ||
+      field.type === "boolean-radio" ||
+      field.type === "sales-process-docs";
 
     return (
       <div
@@ -358,10 +376,16 @@ export function OnboardingWizard({
       >
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Label htmlFor={fieldId} className="text-sm font-medium leading-snug">
+            <Label
+              id={labelId}
+              htmlFor={isGroupField ? undefined : controlId}
+              className="text-sm font-medium leading-snug"
+            >
               {field.label}
               {field.required ? (
-                <span className="ml-0.5 text-destructive">*</span>
+                <span aria-hidden="true" className="ml-0.5 text-destructive">
+                  *
+                </span>
               ) : (
                 <span className="ml-1 text-xs font-normal text-muted-foreground">
                   {field.description ?? "(optional)"}
@@ -370,7 +394,7 @@ export function OnboardingWizard({
             </Label>
             <FieldStateBadge state={state} />
           </div>
-          {renderFieldControl(field)}
+          {renderFieldControl(field, { controlId, labelId })}
           {reviewField?.sourceUrl ? (
             <div className="break-all font-mono text-[10px] text-[color:var(--text-tertiary)]">
               Source: {reviewField.sourceUrl}
@@ -391,13 +415,21 @@ export function OnboardingWizard({
     );
   }
 
-  function renderFieldControl(field: SectionField): ReactElement {
+  function renderFieldControl(
+    field: SectionField,
+    ids: { controlId: string; labelId: string },
+  ): ReactElement {
     const fieldId = field.key as string;
+    const { controlId, labelId } = ids;
     const error = errors[fieldId];
+    const requiredProps = field.required ? { "aria-required": true } : {};
 
     if (field.type === "radio") {
       return (
         <RadioGroup
+          name={fieldId}
+          aria-labelledby={labelId}
+          {...requiredProps}
           value={(data[field.key] as string) ?? ""}
           onValueChange={(value) => setField(field.key, value as never)}
           className="grid gap-2 pt-1 sm:grid-cols-2"
@@ -419,11 +451,18 @@ export function OnboardingWizard({
 
     if (field.type === "checkbox") {
       return (
-        <div className="grid gap-2 pt-1 sm:grid-cols-2">
+        <div
+          role="group"
+          aria-labelledby={labelId}
+          {...requiredProps}
+          className="grid gap-2 pt-1 sm:grid-cols-2"
+        >
           {field.options?.map((option) => (
             <div key={option.value} className="flex min-h-9 items-center gap-2">
               <Checkbox
                 id={`${fieldId}-${option.value}`}
+                name={fieldId}
+                value={option.value}
                 checked={data.channels.includes(option.value)}
                 onCheckedChange={() => toggleChannel(option.value)}
               />
@@ -445,6 +484,8 @@ export function OnboardingWizard({
 
       return (
         <RadioGroup
+          name={fieldId}
+          aria-labelledby={labelId}
           value={radioValue}
           onValueChange={(nextValue) =>
             setField(field.key, (nextValue === "yes") as never)
@@ -473,13 +514,15 @@ export function OnboardingWizard({
       const docs = buildSalesProcessDocRows(data.salesProcessDocs);
 
       return (
-        <div className="grid gap-3">
+        <div role="group" aria-labelledby={labelId} className="grid gap-3">
           {docs.map((doc, index) => (
             <div
               key={SALES_PROCESS_DOC_LABELS[index]}
               className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
             >
               <Input
+                id={`${fieldId}-${index}-label`}
+                name={`${fieldId}-${index}-label`}
                 aria-label={`${field.label} label ${index + 1}`}
                 value={doc.label}
                 onChange={(event) =>
@@ -488,6 +531,8 @@ export function OnboardingWizard({
                 placeholder={SALES_PROCESS_DOC_LABELS[index]}
               />
               <Input
+                id={`${fieldId}-${index}-url`}
+                name={`${fieldId}-${index}-url`}
                 aria-label={`${field.label} URL ${index + 1}`}
                 value={doc.url}
                 onChange={(event) =>
@@ -505,8 +550,10 @@ export function OnboardingWizard({
     if (field.type === "textarea") {
       return (
         <Textarea
-          id={fieldId}
-          aria-label={field.label}
+          id={controlId}
+          name={fieldId}
+          {...requiredProps}
+          aria-invalid={error ? true : undefined}
           value={(data[field.key] as string) ?? ""}
           onChange={(event) => setField(field.key, event.target.value as never)}
           placeholder={field.placeholder}
@@ -518,8 +565,10 @@ export function OnboardingWizard({
 
     return (
       <Input
-        id={fieldId}
-        aria-label={field.label}
+        id={controlId}
+        name={fieldId}
+        {...requiredProps}
+        aria-invalid={error ? true : undefined}
         value={(data[field.key] as string) ?? ""}
         onChange={(event) => setField(field.key, event.target.value as never)}
         placeholder={field.placeholder}
@@ -569,13 +618,13 @@ export function OnboardingWizard({
               Review first
             </div>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Missing and low-confidence fields are pinned here; every field
-              remains editable in its section.
+              Required fields that are blank or low-confidence are pinned here;
+              every field remains editable in its section.
             </p>
           </div>
           {pinnedReviews.length === 0 ? (
             <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
-              No missing or low-confidence fields.
+              No required fields need attention.
             </p>
           ) : (
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -599,6 +648,41 @@ export function OnboardingWizard({
             </div>
           )}
         </section>
+
+        {optionalReviews.length > 0 ? (
+          <section
+            data-testid="onboarding-review-optional"
+            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4"
+          >
+            <div className="flex flex-col gap-1">
+              <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
+                Improve output
+              </div>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Optional fields sharpen the audit but are not required to run it.
+              </p>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {optionalReviews.map((field) => (
+                <a
+                  key={field.key}
+                  href={`#${field.key}`}
+                  className="flex min-h-16 items-start justify-between gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-left transition-colors hover:border-[var(--border-hover)]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {pinnedLabel(field)}
+                    </span>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+                      {field.sectionTitle}
+                    </span>
+                  </span>
+                  <FieldStateBadge state={field.state} />
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <div className="space-y-4">
           <div className="space-y-2">

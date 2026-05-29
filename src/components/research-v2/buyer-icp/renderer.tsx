@@ -60,9 +60,9 @@ export function BuyerICPArtifactRenderer({
         prose={artifact.icpExistenceCheck.prose}
         gridLabel="ICP existence check cards"
       >
-        {artifact.icpExistenceCheck.firmographicCuts.map((cut) => (
+        {artifact.icpExistenceCheck.firmographicCuts.map((cut, index) => (
           <FirmographicCutCard
-            key={`${cut.cutType}-${cut.value}-${cut.sourceUrl}`}
+            key={`firmographic-${index}-${cut.cutType}-${cut.value}-${cut.sourceUrl}`}
             cut={cut}
           />
         ))}
@@ -73,9 +73,9 @@ export function BuyerICPArtifactRenderer({
         prose={artifact.personaReality.prose}
         gridLabel="Persona reality cards"
       >
-        {artifact.personaReality.personas.map((persona) => (
+        {artifact.personaReality.personas.map((persona, index) => (
           <PersonaCard
-            key={`${persona.name}-${persona.company}-${persona.sourceUrl}`}
+            key={`persona-${index}-${persona.name}-${persona.company}-${persona.sourceUrl}`}
             persona={persona}
           />
         ))}
@@ -86,8 +86,8 @@ export function BuyerICPArtifactRenderer({
         prose={artifact.awarenessDistribution.prose}
         gridLabel="Awareness distribution cards"
       >
-        {artifact.awarenessDistribution.levels.map((level) => (
-          <AwarenessLevelCard key={level.level} level={level} />
+        {artifact.awarenessDistribution.levels.map((level, index) => (
+          <AwarenessLevelCard key={`awareness-${index}-${level.level}`} level={level} />
         ))}
       </BuyerICPSubSection>
 
@@ -96,8 +96,11 @@ export function BuyerICPArtifactRenderer({
         prose={artifact.buyingContext.prose}
         gridLabel="Buying context cards"
       >
-        {artifact.buyingContext.triggers.map((trigger) => (
-          <TriggerCard key={`${trigger.name}-${trigger.window}`} trigger={trigger} />
+        {artifact.buyingContext.triggers.map((trigger, index) => (
+          <TriggerCard
+            key={`trigger-${index}-${trigger.name}-${trigger.window}`}
+            trigger={trigger}
+          />
         ))}
       </BuyerICPSubSection>
 
@@ -106,8 +109,11 @@ export function BuyerICPArtifactRenderer({
         prose={artifact.clusters.prose}
         gridLabel="Cluster venue cards"
       >
-        {artifact.clusters.venues.map((venue) => (
-          <ClusterVenueCard key={`${venue.bucketType}-${venue.name}`} venue={venue} />
+        {artifact.clusters.venues.map((venue, index) => (
+          <ClusterVenueCard
+            key={`cluster-${index}-${venue.bucketType}-${venue.name}`}
+            venue={venue}
+          />
         ))}
       </BuyerICPSubSection>
 
@@ -128,9 +134,9 @@ export function BuyerICPArtifactRenderer({
             aria-label="Buyer ICP sources"
             className="space-y-3 text-sm"
           >
-            {artifact.sources.map((source) => (
+            {artifact.sources.map((source, index) => (
               <li
-                key={source.url}
+                key={`source-${index}-${source.url}`}
                 className="rounded-md border border-border bg-muted p-3"
               >
                 <div className="flex flex-col gap-2">

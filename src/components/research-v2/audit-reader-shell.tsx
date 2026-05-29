@@ -1114,9 +1114,13 @@ export function AuditReaderShell({
             variant="ghost"
             size="sm"
             onClick={() => rerunSection(active)}
-            disabled={rerunPending !== null}
+            disabled={rerunPending !== null || !TERMINAL_READER_STATUSES.has(activeStatus)}
             className="h-8 gap-1.5 px-2.5 text-[12.5px] text-muted-foreground hover:text-foreground"
-            title="Re-run this section"
+            title={
+              TERMINAL_READER_STATUSES.has(activeStatus)
+                ? 'Re-run this section'
+                : 'Rerun available once this section finishes'
+            }
           >
             <RefreshCw
               className={cn('size-3.5', rerunPending === active && 'animate-spin')}

@@ -15,6 +15,7 @@ const EMPTY_COUNTS: Record<OnboardingFieldReviewState, number> = {
   'User-edited': 0,
   Missing: 0,
   'Needs review': 0,
+  Optional: 0,
 };
 
 function isEmptyValue(value: OnboardingV2Data[keyof OnboardingV2Data]): boolean {
@@ -76,8 +77,11 @@ function normalizeConfidence(confidence: number | null): number | null {
 function fieldStateForValue(
   value: OnboardingV2Data[keyof OnboardingV2Data],
   metadata: OnboardingFieldPrefillMetadata | undefined,
+  required: boolean,
 ): OnboardingFieldReviewState {
-  if (isEmptyValue(value)) return 'Missing';
+  // A blank field splits on the existing `required` flag (no reclassification):
+  // hard-required blanks are blockers ('Missing'); optional blanks are calm ('Optional').
+  if (isEmptyValue(value)) return required ? 'Missing' : 'Optional';
   if (!metadata) return 'User-edited';
   if (normalizeValue(value) !== normalizeValue(metadata.value)) return 'User-edited';
 
@@ -104,15 +108,20 @@ export function buildOnboardingReviewMetadata(
   const fields: Partial<Record<keyof OnboardingV2Data, OnboardingFieldReview>> = {};
   const counts: Record<OnboardingFieldReviewState, number> = { ...EMPTY_COUNTS };
   const pinnedFieldKeys: Array<keyof OnboardingV2Data> = [];
+  const optionalIncomplete: Array<keyof OnboardingV2Data> = [];
 
   for (const section of SECTION_META) {
     for (const field of section.fields) {
       const value = data[field.key];
       const metadata = prefillMetadata[field.key];
-      const state = fieldStateForValue(value, metadata);
+      const state = fieldStateForValue(value, metadata, field.required);
       counts[state] += 1;
-      if (state === 'Missing' || state === 'Needs review') {
+      // Only hard-required gaps are blockers. 'Missing' is now exclusively a
+      // required blank; 'Needs review' pins only when the field is required.
+      if (state === 'Missing' || (state === 'Needs review' && field.required)) {
         pinnedFieldKeys.push(field.key);
+      } else if (state === 'Optional') {
+        optionalIncomplete.push(field.key);
       }
       fields[field.key] = {
         key: field.key,
@@ -134,6 +143,7 @@ export function buildOnboardingReviewMetadata(
     fieldCount: getOnboardingFieldCount(),
     lowConfidenceThreshold: LOW_CONFIDENCE_THRESHOLD,
     pinnedFieldKeys,
+    optionalIncomplete,
     counts,
     fields,
   };

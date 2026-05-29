@@ -93,7 +93,10 @@ export type OnboardingFieldReviewState =
   | 'AI-filled'
   | 'User-edited'
   | 'Missing'
-  | 'Needs review';
+  | 'Needs review'
+  // Blank OPTIONAL field. Distinct from 'Missing' (hard-required blank) so it
+  // never renders red and never blocks the run.
+  | 'Optional';
 
 export interface OnboardingFieldReview {
   key: keyof OnboardingV2Data;
@@ -112,7 +115,10 @@ export interface OnboardingReviewMetadata {
   source: 'onboarding_v2_review';
   fieldCount: number;
   lowConfidenceThreshold: number;
+  /** Hard-required blanks + low-confidence required fills. The only run-audit blockers. */
   pinnedFieldKeys: Array<keyof OnboardingV2Data>;
+  /** Blank optional fields. Never blocks the run; surfaced as a calm "improve output" nudge. */
+  optionalIncomplete: Array<keyof OnboardingV2Data>;
   counts: Record<OnboardingFieldReviewState, number>;
   fields: Partial<Record<keyof OnboardingV2Data, OnboardingFieldReview>>;
   savedAt?: string;

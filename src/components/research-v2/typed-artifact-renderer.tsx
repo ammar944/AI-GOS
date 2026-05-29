@@ -372,9 +372,9 @@ function ArtifactSources({
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">
         <ul role="list" className="space-y-3 text-sm">
-          {artifact.sources.map((source) => (
+          {artifact.sources.map((source, index) => (
             <li
-              key={source.url}
+              key={`source-${index}-${source.url}`}
               className="rounded-md border border-border bg-muted p-3"
             >
               <a

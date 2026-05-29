@@ -105,10 +105,6 @@ function formatPlatforms(platforms: readonly string[]): string {
   return platforms.map((platform) => AD_PLATFORM_LABEL[platform] ?? platform).join(', ');
 }
 
-function countTotal(counts: AdEvidenceGroup['rawCounts']): number {
-  return counts.google + counts.meta + counts.linkedin;
-}
-
 function optionalText(value: string | null): string | undefined {
   return value === null ? undefined : value;
 }
@@ -122,6 +118,10 @@ function normalizeAdCreativeFormat(format: string): AdEvidenceCreativeFormat {
 function mapAdCreative(
   creative: AdEvidenceGroup['creatives'][number],
 ): AdEvidenceCreative {
+  // sourceUrl is schema-guaranteed; fall back to landingUrl/sourceUrl so the
+  // card always has a working click-through even when detailsUrl is null.
+  const sourceLink =
+    creative.detailsUrl ?? creative.landingUrl ?? creative.sourceUrl;
   return {
     platform: creative.platform,
     id: creative.id,
@@ -132,7 +132,7 @@ function mapAdCreative(
     videoUrl: optionalText(creative.videoUrl),
     format: normalizeAdCreativeFormat(creative.format),
     isActive: creative.isActive,
-    detailsUrl: optionalText(creative.detailsUrl),
+    detailsUrl: optionalText(sourceLink),
     firstSeen: optionalText(creative.firstSeen),
     lastSeen: optionalText(creative.lastSeen),
   };
@@ -167,39 +167,161 @@ function AdEvidenceNotes({
   );
 }
 
+type AdEvidenceState =
+  | 'ads-found'
+  | 'no-active-ads'
+  | 'lookup-capped'
+  | 'not-checked';
+
+// A lookup is "capped" when no creatives came back AND a gap/error blames a
+// budget / rate-limit / exhaustion ceiling (e.g. the live string
+// "google lookup failed: section budget exhausted after N lookups").
+const LOOKUP_CAPPED_PATTERN = /\b(budget|rate[- ]?limit|rate limited|exhaust)/i;
+
+function isLookupCappedReason(reason: string): boolean {
+  return LOOKUP_CAPPED_PATTERN.test(reason);
+}
+
+function classifyAdEvidenceState(group: AdEvidenceGroup): AdEvidenceState {
+  if (group.creatives.length > 0) {
+    return 'ads-found';
+  }
+  if (group.platforms.length === 0) {
+    return 'not-checked';
+  }
+  const capped =
+    group.dataGaps.some((gap) => isLookupCappedReason(gap.reason)) ||
+    group.sourceErrors.some((error) => isLookupCappedReason(error.message));
+  return capped ? 'lookup-capped' : 'no-active-ads';
+}
+
+function toLibraryLinkProps(group: AdEvidenceGroup): CompetitorAdEvidenceProps['libraryLinks'] {
+  return {
+    metaLibraryUrl: group.libraryLinks.meta,
+    linkedInLibraryUrl: group.libraryLinks.linkedin,
+    googleAdvertiserUrl: group.libraryLinks.google,
+  };
+}
+
+function TransparencyLinks({
+  group,
+}: {
+  group: AdEvidenceGroup;
+}): React.ReactElement | null {
+  const links = [
+    { key: 'google', label: 'Google Ads Transparency', url: group.libraryLinks.google },
+    { key: 'meta', label: 'Meta Ad Library', url: group.libraryLinks.meta },
+    { key: 'linkedin', label: 'LinkedIn Ad Library', url: group.libraryLinks.linkedin },
+  ].filter((link): link is { key: string; label: string; url: string } =>
+    Boolean(link.url),
+  );
+
+  if (links.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {links.map((link) => (
+        <a
+          key={link.key}
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid={`transparency-link-${link.key}`}
+          className="inline-flex items-center rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground no-underline transition-colors hover:border-primary hover:text-primary"
+        >
+          {link.label} →
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function observedAtLabel(observedAt: string): string {
+  const parsed = new Date(observedAt);
+  if (Number.isNaN(parsed.getTime())) return observedAt;
+  return parsed.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function AdEvidenceStateBody({
+  group,
+  state,
+}: {
+  group: AdEvidenceGroup;
+  state: AdEvidenceState;
+}): React.ReactElement {
+  if (state === 'ads-found') {
+    return (
+      <CompetitorAdEvidence
+        adCreatives={group.creatives.map(mapAdCreative)}
+        libraryLinks={toLibraryLinkProps(group)}
+      />
+    );
+  }
+
+  if (state === 'lookup-capped') {
+    return (
+      <div data-testid="ad-evidence-state-lookup-capped" className="grid gap-2">
+        <p className="text-[13px] leading-[1.6] text-muted-foreground">
+          Lookup capped — the ad-library scan stopped before this advertiser was
+          fully checked on {formatPlatforms(group.platforms)}. Open the ad
+          transparency libraries to see live creatives directly.
+        </p>
+        <TransparencyLinks group={group} />
+      </div>
+    );
+  }
+
+  if (state === 'not-checked') {
+    return (
+      <p
+        data-testid="ad-evidence-state-not-checked"
+        className="text-[13px] leading-[1.6] text-muted-foreground"
+      >
+        Not yet checked — no ad platform was queried for this advertiser.
+      </p>
+    );
+  }
+
+  // no-active-ads
+  return (
+    <p
+      data-testid="ad-evidence-state-no-active-ads"
+      className="text-[13px] leading-[1.6] text-muted-foreground"
+    >
+      No active ads found on {formatPlatforms(group.platforms)} as of{' '}
+      {observedAtLabel(group.observedAt)}.
+    </p>
+  );
+}
+
 function AdEvidenceGroupBlock({
   group,
 }: {
   group: AdEvidenceGroup;
 }): React.ReactElement {
-  const rawTotal = countTotal(group.rawCounts);
-  const libraryLinks = {
-    metaLibraryUrl: group.libraryLinks.meta,
-    linkedInLibraryUrl: group.libraryLinks.linkedin,
-    googleAdvertiserUrl: group.libraryLinks.google,
-  };
+  const state = classifyAdEvidenceState(group);
 
   return (
-    <section className="grid gap-3 border-b border-border pb-5 last:border-b-0 last:pb-0">
+    <section
+      data-testid="ad-evidence-group"
+      data-state={state}
+      className="grid gap-3 border-b border-border pb-5 last:border-b-0 last:pb-0"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="grid gap-1">
-          <h3 className="text-[15px] font-semibold leading-tight tracking-[0] text-foreground">
-            {group.advertiserName}
-          </h3>
-          <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-            raw {rawTotal} / displayable {group.displayableTotal}
-          </div>
-        </div>
+        <h3 className="text-[15px] font-semibold leading-tight tracking-[0] text-foreground">
+          {group.advertiserName}
+        </h3>
         {group.domain ? (
           <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
             {group.domain}
           </div>
         ) : null}
       </div>
-      <CompetitorAdEvidence
-        adCreatives={group.creatives.map(mapAdCreative)}
-        libraryLinks={libraryLinks}
-      />
+      <AdEvidenceStateBody group={group} state={state} />
       <AdEvidenceNotes group={group} />
     </section>
   );

@@ -479,11 +479,22 @@ describe('<AuditReaderShell>', () => {
   it('reruns positioning sections through the rerun-section route in lab mode', async (): Promise<void> => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: { data: marketCategoryFixtureArtifact },
+      },
+    });
 
     render(
       <AuditReaderShell
         runId="00000000-0000-4000-8000-0000000000aa"
-        activeSectionId="positioningVoiceOfCustomer"
+        activeSectionId="positioningMarketCategory"
       />,
     );
 
@@ -496,12 +507,56 @@ describe('<AuditReaderShell>', () => {
           method: 'POST',
           body: JSON.stringify({
             runId: '00000000-0000-4000-8000-0000000000aa',
-            zone: 'positioningVoiceOfCustomer',
+            zone: 'positioningMarketCategory',
             executionMode: 'lab',
           }),
         }),
       ),
     );
+  });
+
+  it('disables the top-level rerun while the active section is non-terminal', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'running',
+      children_complete: 0,
+      children_total: 6,
+      workerStates: [buildWorker('positioningMarketCategory', 'running')],
+      sectionsByZone: {},
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId="positioningMarketCategory"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^rerun$/i })).toBeDisabled();
+  });
+
+  it('enables the top-level rerun once the active section is terminal', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: { data: marketCategoryFixtureArtifact },
+      },
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId="positioningMarketCategory"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^rerun$/i })).toBeEnabled();
   });
 
   it('reruns paid media through the one-section lab route', async (): Promise<void> => {

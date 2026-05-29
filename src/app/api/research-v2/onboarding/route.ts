@@ -19,6 +19,7 @@ const FieldReviewStateSchema = z.enum([
   'User-edited',
   'Missing',
   'Needs review',
+  'Optional',
 ]);
 
 const FieldReviewSchema = z.object({
@@ -39,7 +40,10 @@ const OnboardingReviewMetadataSchema = z.object({
   fieldCount: z.number().int().positive(),
   lowConfidenceThreshold: z.number(),
   pinnedFieldKeys: z.array(z.string()),
-  counts: z.record(FieldReviewStateSchema, z.number().int().nonnegative()),
+  optionalIncomplete: z.array(z.string()).optional().default([]),
+  // partialRecord (not record): tolerate both legacy 4-state and new 5-state
+  // counts so persisted payloads from before the 'Optional' state still validate.
+  counts: z.partialRecord(FieldReviewStateSchema, z.number().int().nonnegative()),
   fields: z.record(z.string(), FieldReviewSchema),
 });
 
