@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OnboardingWizard } from '../onboarding-wizard';
@@ -91,8 +91,8 @@ const prefillMetadata: OnboardingPrefillMetadata = {
   },
 };
 
-describe('OnboardingWizard review surface', () => {
-  it('renders the rich step shell with the canonical first section', () => {
+describe('OnboardingWizard (flat collapsed surface)', () => {
+  it('renders all sections as a single flat scroll', () => {
     render(
       <OnboardingWizard
         initialData={makeCompleteData()}
@@ -101,82 +101,76 @@ describe('OnboardingWizard review surface', () => {
       />,
     );
 
+    // Field-count header survives the collapse.
     expect(screen.getByText(`${getOnboardingFieldCount()} fields`)).toBeInTheDocument();
+
+    // Every section header is present, exactly once (no rail duplicates).
     for (const section of SECTION_META) {
-      expect(screen.getAllByText(section.shortTitle ?? section.title).length).toBeGreaterThan(0);
+      expect(
+        screen.getByRole('heading', { name: section.title }),
+      ).toBeInTheDocument();
     }
-    expect(screen.getByRole('heading', { name: 'Product & Revenue Model' })).toBeInTheDocument();
-    // Required marker (*) is part of the label text content; the control is
-    // correctly associated via htmlFor → control id.
+
+    // Fields from MULTIPLE sections are mounted simultaneously with NO
+    // navigation: section 1 (Product) and section 7 (Current Marketing).
     expect(screen.getByLabelText('Company Name*')).toBeInTheDocument();
-    expect(screen.queryByLabelText('GTM motion for the media plan')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('group', {
+        name: 'What channels are you currently running?',
+      }),
+    ).toBeInTheDocument();
   });
 
-  it('pins required low-confidence fields and routes optional blanks to the improve-output rail', () => {
-    const data = {
-      ...makeCompleteData(),
-      // Required blank → blocker rail.
-      currentCac: '',
-      // Optional blank → improve-output rail, never the blocker rail.
-      activationToPaid: '',
-    };
+  it('submit fires onComplete once with full payload + review metadata', () => {
+    const onComplete = vi.fn();
 
     render(
       <OnboardingWizard
-        initialData={data}
+        initialData={{ ...makeCompleteData(), gtmMotion: '' }}
+        initialPrefillMetadata={prefillMetadata}
+        onComplete={onComplete}
+      />,
+    );
+
+    // Single click on the one primary button — no Continue navigation.
+    fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    const [data, review] = onComplete.mock.calls[0] as [
+      OnboardingV2Data,
+      { fieldCount: number; fields: Record<string, { state: string }> },
+    ];
+    // Derive preserved.
+    expect(data.gtmMotion).toBe('SLG');
+    // Review-metadata shape preserved (load-bearing for the server route).
+    expect(review.fieldCount).toBe(getOnboardingFieldCount());
+    expect(review.fields.productDescription.state).toBe('AI-filled');
+    expect(review.fields.companyName.state).toBe('User-edited');
+    expect(review.fields.idealCustomer.state).toBe('Needs review');
+  });
+
+  it('removes all step/review chrome', () => {
+    render(
+      <OnboardingWizard
+        initialData={makeCompleteData()}
         initialPrefillMetadata={prefillMetadata}
         onComplete={vi.fn()}
       />,
     );
 
-    const pinned = screen.getByTestId('onboarding-review-pinned');
-    // Required low-confidence AI fill (idealCustomer) stays pinned.
-    expect(within(pinned).getByText('ICP + Pain')).toBeInTheDocument();
-    expect(within(pinned).getByText('Ideal Customer')).toBeInTheDocument();
-    // Required blank is a blocker.
-    expect(within(pinned).getByText('Current CAC')).toBeInTheDocument();
-    // Optional blank must NOT appear in the blocker rail.
-    expect(within(pinned).queryByText('Activation → paid %')).not.toBeInTheDocument();
-
-    // Optional blank surfaces in the calm improve-output rail instead.
-    const optional = screen.getByTestId('onboarding-review-optional');
-    expect(within(optional).getByText('Activation → paid %')).toBeInTheDocument();
-  });
-
-  it('shows AI-filled, User-edited, Missing, Needs review, and Optional states', () => {
-    const data = {
-      ...makeCompleteData(),
-      // Required blank renders the red Missing badge.
-      currentCac: '',
-      // Optional blank renders the calm Optional badge.
-      activationToPaid: '',
-    };
-
-    render(
-      <OnboardingWizard
-        initialData={data}
-        initialPrefillMetadata={prefillMetadata}
-        onComplete={vi.fn()}
-      />,
-    );
-
-    expect(
-      within(screen.getByTestId('onboarding-field-productDescription')).getByText('AI-filled'),
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId('onboarding-field-companyName')).getByText('User-edited'),
-    ).toBeInTheDocument();
-    expect(within(screen.getByTestId('onboarding-review-pinned')).getByText('Missing')).toBeInTheDocument();
-    expect(within(screen.getByTestId('onboarding-review-pinned')).getByText('Needs review')).toBeInTheDocument();
-    // The Optional badge renders in the always-visible improve-output rail
-    // (the owning section is not the open step in this default-step render).
-    expect(
-      within(screen.getByTestId('onboarding-review-optional')).getByText('Optional'),
-    ).toBeInTheDocument();
-    // The red Missing badge must never leak into the calm optional rail.
-    expect(
-      within(screen.getByTestId('onboarding-review-optional')).queryByText('Missing'),
-    ).not.toBeInTheDocument();
+    // No step counter.
+    expect(screen.queryByText(/Step \d+ of/)).toBeNull();
+    // No pinned / optional review rails.
+    expect(screen.queryByText('Review first')).toBeNull();
+    expect(screen.queryByText('Improve output')).toBeNull();
+    // No inline per-field state badges.
+    expect(screen.queryByText('AI-filled')).toBeNull();
+    expect(screen.queryByText('User-edited')).toBeNull();
+    expect(screen.queryByText('Needs review')).toBeNull();
+    // No source chip text.
+    expect(screen.queryByText(/^Source:/)).toBeNull();
+    // No multi-step navigation button.
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
   });
 
   it('associates labels with controls and exposes stable id + name (a11y)', () => {
@@ -196,72 +190,22 @@ describe('OnboardingWizard review surface', () => {
     expect(companyInput.getAttribute('name')).toBe('companyName');
     expect(companyInput.getAttribute('aria-required')).toBe('true');
 
-    // The wrapper scroll anchor keeps the bare field key as its id (rail target)
-    // and must NOT collide with the control id.
+    // The wrapper anchor keeps the bare field key as its id and must NOT
+    // collide with the control id.
     const anchor = document.getElementById('companyName');
     expect(anchor).not.toBeNull();
     expect(anchor).not.toBe(companyInput);
-    // Exactly one element owns the `companyName` id (no duplicate-id a11y error).
     expect(document.querySelectorAll('#companyName')).toHaveLength(1);
 
-    // A radio group exposes an accessible name via aria-labelledby. The
-    // required marker is aria-hidden, so it is excluded from the a11y name.
+    // Both a radio group (section 1) and the channels checkbox group
+    // (section 7) resolve in the same flat render — no initialStep needed.
     expect(
       screen.getByRole('radiogroup', { name: 'How do customers buy?' }),
     ).toBeInTheDocument();
-
-    const textareaField = screen.getByLabelText(
-      'What does your product/SaaS do?*',
-    ) as HTMLTextAreaElement;
-    expect(textareaField.tagName).toBe('TEXTAREA');
-    expect(textareaField.id).toBe('productDescription-control');
-    expect(textareaField.getAttribute('name')).toBe('productDescription');
-  });
-
-  it('exposes the channels checkbox group with an accessible group name (a11y)', () => {
-    render(
-      <OnboardingWizard
-        initialData={makeCompleteData()}
-        initialStep={6}
-        initialPrefillMetadata={prefillMetadata}
-        onComplete={vi.fn()}
-      />,
-    );
-
-    // Checkbox grouping uses role="group" + aria-labelledby pointing at the
-    // label. The required marker is aria-hidden, so it is excluded from the name.
     expect(
       screen.getByRole('group', {
         name: 'What channels are you currently running?',
       }),
     ).toBeInTheDocument();
-  });
-
-  it('submits reviewed data with metadata and derives GTM motion from sales motion', () => {
-    const onComplete = vi.fn();
-
-    render(
-      <OnboardingWizard
-        initialData={{ ...makeCompleteData(), gtmMotion: '' }}
-        initialPrefillMetadata={prefillMetadata}
-        onComplete={onComplete}
-      />,
-    );
-
-    for (let index = 0; index < SECTION_META.length - 1; index += 1) {
-      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    }
-    fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
-
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    const [data, review] = onComplete.mock.calls[0] as [
-      OnboardingV2Data,
-      { fieldCount: number; fields: Record<string, { state: string }> },
-    ];
-    expect(data.gtmMotion).toBe('SLG');
-    expect(review.fieldCount).toBe(getOnboardingFieldCount());
-    expect(review.fields.productDescription.state).toBe('AI-filled');
-    expect(review.fields.companyName.state).toBe('User-edited');
-    expect(review.fields.idealCustomer.state).toBe('Needs review');
   });
 });
