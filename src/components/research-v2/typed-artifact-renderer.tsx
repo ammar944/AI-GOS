@@ -18,7 +18,14 @@ import {
 import { cn } from '@/lib/utils';
 import {
   isRecord,
+  type BuyerICPArtifact,
+  type CompetitorLandscapeArtifact,
+  type DemandIntentArtifact,
+  type MarketCategoryArtifact,
+  type OfferPerformanceArtifact,
+  type PaidMediaPlanArtifact,
   type PositioningTypedArtifact,
+  type VoiceOfCustomerArtifact,
 } from '@/types/positioning-artifact';
 import {
   BuyerICPRenderer,
@@ -29,13 +36,6 @@ import {
   PaidMediaPlanRenderer,
   VoiceOfCustomerRenderer,
 } from './section-renderers';
-import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
-import type { BuyerICPArtifact } from '@/lib/managed-agents/schemas/buyer-icp';
-import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
-import type { DemandIntentArtifact } from '@/lib/managed-agents/schemas/demand-intent-signals';
-import type { MarketCategoryArtifact } from '@/lib/managed-agents/schemas/market-category';
-import type { OfferPerformanceArtifact } from '@/lib/managed-agents/schemas/offer-performance-diagnostic';
-import type { VoiceOfCustomerArtifact } from '@/lib/managed-agents/schemas/voc-objection-evidence';
 
 export interface TypedArtifactRendererProps {
   artifact: PositioningTypedArtifact;

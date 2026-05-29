@@ -7,7 +7,7 @@ import {
   type CompetitorAdEvidenceProps,
 } from '@/components/research/competitor-ad-evidence';
 import { cn } from '@/lib/utils';
-import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
+import type { CompetitorLandscapeArtifact } from '@/types/positioning-artifact';
 import {
   BarBreakdown,
   DataTable,

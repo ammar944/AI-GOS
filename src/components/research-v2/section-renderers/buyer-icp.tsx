@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { BuyerICPArtifact } from '@/lib/managed-agents/schemas/buyer-icp';
+import type { BuyerICPArtifact } from '@/types/positioning-artifact';
 
 import {
   DataTable,

@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { VoiceOfCustomerRenderer } from '../voice-of-customer';
-import type { VoiceOfCustomerArtifact } from '@/lib/managed-agents/schemas/voc-objection-evidence';
+import type { VoiceOfCustomerArtifact } from '@/types/positioning-artifact';
 
 const fixture: VoiceOfCustomerArtifact = {
   sectionTitle: 'Voice of Customer — TestCo',

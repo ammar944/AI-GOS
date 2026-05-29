@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
-import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
+import type { CompetitorLandscapeArtifact } from '@/types/positioning-artifact';
 import { CompetitorLandscapeRenderer } from '../competitor-landscape';
 
 function makeManagedArtifact(): CompetitorLandscapeArtifact {

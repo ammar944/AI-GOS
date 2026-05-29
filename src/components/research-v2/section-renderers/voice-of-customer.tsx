@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { VoiceOfCustomerArtifact } from '@/lib/managed-agents/schemas/voc-objection-evidence';
+import type { VoiceOfCustomerArtifact } from '@/types/positioning-artifact';
 import { QuoteCallout, SubsectionBlock } from '../primitives';
 
 export interface VoiceOfCustomerRendererProps {

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
 import { OfferDiagnosticRenderer } from '../offer-diagnostic';
-import type { OfferPerformanceArtifact } from '@/lib/managed-agents/schemas/offer-performance-diagnostic';
+import type { OfferPerformanceArtifact } from '@/types/positioning-artifact';
 
 const fixture: OfferPerformanceArtifact = {
   sectionTitle: 'Offer & Performance Diagnostic — monday.com',

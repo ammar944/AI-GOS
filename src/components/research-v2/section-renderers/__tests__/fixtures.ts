@@ -1,6 +1,8 @@
-import type { BuyerICPArtifact } from '@/lib/managed-agents/schemas/buyer-icp';
-import type { DemandIntentArtifact } from '@/lib/managed-agents/schemas/demand-intent-signals';
-import type { MarketCategoryArtifact } from '@/lib/managed-agents/schemas/market-category';
+import type {
+  BuyerICPArtifact,
+  DemandIntentArtifact,
+  MarketCategoryArtifact,
+} from '@/types/positioning-artifact';
 
 export const marketCategoryArtifact = {
   sectionTitle: 'Market & Category Intelligence - TestCo',

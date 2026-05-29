@@ -27,9 +27,9 @@ import {
   type ZoneStatus,
 } from '@/lib/research-v2/audit-artifact-schema';
 import type { BuyerICPArtifact } from '@/types/buyer-icp-artifact';
-import type { CompetitorLandscapeArtifact } from '@/lib/managed-agents/schemas/competitor-landscape';
 import {
   pickPositioningTypedArtifact,
+  type CompetitorLandscapeArtifact,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
 

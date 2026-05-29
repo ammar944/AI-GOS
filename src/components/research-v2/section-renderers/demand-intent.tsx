@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { DemandIntentArtifact } from '@/lib/managed-agents/schemas/demand-intent-signals';
+import type { DemandIntentArtifact } from '@/types/positioning-artifact';
 import {
   DataTable,
   SubsectionBlock,

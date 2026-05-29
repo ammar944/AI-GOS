@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { MarketCategoryArtifact } from '@/lib/managed-agents/schemas/market-category';
+import type { MarketCategoryArtifact } from '@/types/positioning-artifact';
 import {
   DataTable,
   SubsectionBlock,

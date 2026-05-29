@@ -1,5 +1,12 @@
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type { BuyerICPBody } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
+import type { CompetitorLandscapeBody } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import type { DemandIntentBody } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type { VerificationReportEnvelope } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import type { MarketCategoryBody } from '@/lib/lab-engine/artifacts/schemas/market-category';
+import type { OfferDiagnosticBody } from '@/lib/lab-engine/artifacts/schemas/offer-diagnostic';
+import type { PaidMediaPlanBody } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
+import type { VoiceOfCustomerBody } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
 
 export interface PositioningArtifactSource {
   title: string;
@@ -18,6 +25,17 @@ export interface PositioningTypedArtifact {
   verification?: VerificationReportEnvelope;
   [key: string]: unknown;
 }
+
+export type MarketCategoryArtifact = PositioningTypedArtifact & MarketCategoryBody;
+export type BuyerICPArtifact = PositioningTypedArtifact & BuyerICPBody;
+export type CompetitorLandscapeArtifact = PositioningTypedArtifact &
+  CompetitorLandscapeBody;
+export type VoiceOfCustomerArtifact = PositioningTypedArtifact &
+  VoiceOfCustomerBody;
+export type DemandIntentArtifact = PositioningTypedArtifact & DemandIntentBody;
+export type OfferPerformanceArtifact = PositioningTypedArtifact &
+  OfferDiagnosticBody;
+export type PaidMediaPlanArtifact = PositioningTypedArtifact & PaidMediaPlanBody;
 
 const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly string[]> = {
   positioningMarketCategory: ['marketCategoryArtifact'],

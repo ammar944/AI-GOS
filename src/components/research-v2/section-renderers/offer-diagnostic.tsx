@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { OfferPerformanceArtifact } from '@/lib/managed-agents/schemas/offer-performance-diagnostic';
+import type { OfferPerformanceArtifact } from '@/types/positioning-artifact';
 import {
   DataTable,
   SubsectionBlock,
