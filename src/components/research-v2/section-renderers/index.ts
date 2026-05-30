@@ -32,3 +32,8 @@ export {
   PaidMediaPlanRenderer,
   type PaidMediaPlanRendererProps,
 } from './paid-media-plan';
+
+export {
+  PositioningSynthesisRenderer,
+  type PositioningSynthesisRendererProps,
+} from './positioning-synthesis';

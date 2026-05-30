@@ -87,6 +87,37 @@ export function buildFrozenGtmBriefThesisPatch(
   };
 }
 
+export interface SynthesizedThesisPatchInput {
+  existingThesis: Record<string, unknown> | null;
+  headlineWedge: string;
+  recommendedAngle: string;
+  rationale: string;
+  optionCount: number;
+  updatedAt: string;
+}
+
+// Merge the synthesized positioning wedge into research_artifacts.thesis as a
+// sibling key, preserving the frozen onboarding bookkeeping
+// (gtmBriefSnapshot/gtmBriefReview/source). Pure — the caller persists it.
+export function buildSynthesizedThesisPatch(
+  input: SynthesizedThesisPatchInput,
+): { thesis: Record<string, unknown> } {
+  const existingThesis = input.existingThesis ?? {};
+
+  return {
+    thesis: {
+      ...existingThesis,
+      positioningSynthesis: {
+        headlineWedge: input.headlineWedge,
+        recommendedAngle: input.recommendedAngle,
+        rationale: input.rationale,
+        optionCount: input.optionCount,
+        updatedAt: input.updatedAt,
+      },
+    },
+  };
+}
+
 export async function freezeReviewedBriefSnapshot(input: {
   parentAuditRunId: string;
   gtmBriefSnapshot: Record<string, unknown>;

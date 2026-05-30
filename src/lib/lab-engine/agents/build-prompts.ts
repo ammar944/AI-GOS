@@ -33,6 +33,7 @@ const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
   VoiceOfCustomerSectionOutput: "positioningVoiceOfCustomer",
   DemandIntentSectionOutput: "positioningDemandIntent",
   OfferDiagnosticSectionOutput: "positioningOfferDiagnostic",
+  PositioningSynthesisSectionOutput: "positioningSynthesis",
   PaidMediaPlanSectionOutput: "positioningPaidMediaPlan",
 };
 
@@ -386,6 +387,19 @@ function buildSectionMinimumGuidance(
       "- `body.salesProcess` is an object with `prose` and `assets[]`; each asset has exactly `label`, `url`, `assetType`, where assetType is `sop-doc` or `loom`. If no asset URL exists, use an empty array and explain the gap in prose.",
       "- `body.channelSuggestions` is an object with `prose` and `suggestions[]`; each suggestion has exactly `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`, where verdict is `keep`, `fix`, `cut`, or `start`.",
       "- `body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`; `gtmMotion` must be `SLG` or `PLG`; each KPI has exactly `metric`, `role`, `definition`.",
+    ];
+  }
+
+  if (definition.sectionOutputSchemaName === "PositioningSynthesisSectionOutput") {
+    return [
+      "- PositioningSynthesisSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
+      "- PositioningSynthesisSectionOutput sourceSection enum values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.",
+      "- `body` keys are exactly `situationThesis`, `positioningOptions`, `recommendedMove`, `messagingDirections`. Do not emit other keys.",
+      "- `body.situationThesis` is an object with exactly `prose`.",
+      "- `body.positioningOptions` is an object with `prose` and `options[]`; provide exactly 2 or 3 divergent options. Each option has exactly `optionName`, `angle`, `rationale`, `sourceSection`, `sourceUrl`.",
+      "- `body.recommendedMove` is an object with exactly `optionAngle`, `rationale`, `nextSteps`. `optionAngle` must be verbatim one of `body.positioningOptions.options[].angle`.",
+      "- `body.messagingDirections` is an object with `prose` and `directions[]`; provide at least two. Each direction has exactly `direction`, `copyPoint`, `sourceSection`, `sourceUrl`.",
+      "- At least two synthesized items across options and directions must cite a non-`gtmBrief` `sourceSection`. Do not narrate a confidence figure in any prose field.",
     ];
   }
 

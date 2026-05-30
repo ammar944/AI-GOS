@@ -56,6 +56,7 @@ import type {
 } from '@/app/api/research-v2/audit-state/route';
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SYNTHESIS_SECTION_ID,
   READER_SECTION_IDS,
   READER_SECTION_LABELS,
   type ReaderSectionId,
@@ -88,6 +89,7 @@ const SECTION_SHORT_LABEL: Record<ReaderSectionId, string> = {
   positioningVoiceOfCustomer: 'Voice of Customer',
   positioningDemandIntent: 'Demand / Intent',
   positioningOfferDiagnostic: 'Offer Diagnostic',
+  positioningSynthesis: 'Synthesis',
   positioningPaidMediaPlan: 'Paid Media Plan',
 };
 
@@ -917,7 +919,10 @@ function RunStatusBar({
         aria-hidden="true"
       />
       <RunStat label="Sections">
-        {`${completedCount}/${READER_SECTION_IDS.length - 1}`}
+        {/* Denominator is the six positioning sections — the run bar tracks the
+            main wave, not the synthesis/paid-media capstones (numerator is
+            positioningCompletedCount). */}
+        {`${completedCount}/${POSITIONING_SECTION_IDS.length}`}
       </RunStat>
       <span className="h-3 w-px bg-border" aria-hidden="true" />
       <span className="max-w-[180px] truncate text-[12px] text-muted-foreground">
@@ -1151,7 +1156,11 @@ export function AuditReaderShell({
       if (worker?.status === 'complete' || live.sectionsByZone[id]) {
         return 'complete';
       }
-      if (id === PAID_MEDIA_PLAN_SECTION_ID) {
+      // Both capstones unlock only after 6/6 positioning sections commit.
+      if (
+        id === PAID_MEDIA_PLAN_SECTION_ID ||
+        id === POSITIONING_SYNTHESIS_SECTION_ID
+      ) {
         return sixSectionsComplete ? 'ready' : 'locked';
       }
       return 'queued';
@@ -1324,9 +1333,15 @@ export function AuditReaderShell({
     async (sectionId: ReaderSectionId) => {
       setRerunPending(sectionId);
       try {
-        const isPaidMediaPlan = sectionId === PAID_MEDIA_PLAN_SECTION_ID;
+        // The capstones (paid-media plan + synthesis) read the committed
+        // positioning artifacts and dispatch via run-lab-section. The
+        // rerun-section endpoint only accepts the six POSITIONING_SECTION_IDS,
+        // so routing a capstone there 400s.
+        const isCapstoneSection =
+          sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
+          sectionId === POSITIONING_SYNTHESIS_SECTION_ID;
         const res = await fetch(
-          isPaidMediaPlan
+          isCapstoneSection
             ? '/api/research-v2/run-lab-section'
             : '/api/research-v2/rerun-section',
           {
@@ -1334,7 +1349,7 @@ export function AuditReaderShell({
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify(
-              isPaidMediaPlan
+              isCapstoneSection
                 ? { run_id: runId, section_id: sectionId }
                 : { runId, zone: sectionId, executionMode: 'lab' },
             ),

@@ -185,7 +185,7 @@ describe('ResearchV2Page — light audit reader shell', () => {
     });
   });
 
-  it('renders the light top bar, active section controls, and seven-section rail', async () => {
+  it('renders the light top bar, active section controls, and eight-section rail', async () => {
     const fetchMock = vi
       .fn()
       // hydrate via runId (page.tsx initial mount)
@@ -199,7 +199,7 @@ describe('ResearchV2Page — light audit reader shell', () => {
     );
 
     expect(screen.getByText('Positioning Audit')).toBeInTheDocument();
-    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Section 1 of 8')).toBeInTheDocument();
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('button', { name: /copy/i })).toBeEnabled();
     expect(within(header).getByRole('button', { name: /rerun/i })).toBeEnabled();
@@ -264,7 +264,7 @@ describe('ResearchV2Page — light audit reader shell', () => {
     ).toBeEnabled();
   });
 
-  it('renders the seven rail items in pipeline order', async () => {
+  it('renders the eight rail items in pipeline order', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse(buildSessionPayload()));
@@ -278,7 +278,7 @@ describe('ResearchV2Page — light audit reader shell', () => {
 
     const rail = screen.getByRole('navigation', { name: 'Sections' });
     const items = within(rail).getAllByRole('button');
-    expect(items).toHaveLength(7);
+    expect(items).toHaveLength(8);
     expect(items.map((item) => item.getAttribute('aria-label') ?? '')).toEqual([
       expect.stringMatching(/Market & Category/i),
       expect.stringMatching(/Buyer \/ ICP/i),
@@ -286,6 +286,7 @@ describe('ResearchV2Page — light audit reader shell', () => {
       expect.stringMatching(/Voice of Customer/i),
       expect.stringMatching(/Demand \/ Intent/i),
       expect.stringMatching(/Offer Diagnostic/i),
+      expect.stringMatching(/Synthesis/i),
       expect.stringMatching(/Paid Media Plan/i),
     ]);
   });

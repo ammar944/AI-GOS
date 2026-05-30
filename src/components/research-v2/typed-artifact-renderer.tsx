@@ -19,6 +19,7 @@ import {
   type MarketCategoryArtifact,
   type OfferPerformanceArtifact,
   type PaidMediaPlanArtifact,
+  type PositioningSynthesisArtifact,
   type PositioningTypedArtifact,
   type VoiceOfCustomerArtifact,
 } from '@/types/positioning-artifact';
@@ -29,6 +30,7 @@ import {
   MarketCategoryRenderer,
   OfferDiagnosticRenderer,
   PaidMediaPlanRenderer,
+  PositioningSynthesisRenderer,
   VoiceOfCustomerRenderer,
 } from './section-renderers';
 
@@ -480,6 +482,8 @@ export function TypedArtifactRenderer({
       return <OfferDiagnosticRenderer artifact={artifact as unknown as OfferPerformanceArtifact} />;
     case 'positioningPaidMediaPlan':
       return <PaidMediaPlanRenderer artifact={artifact as unknown as PaidMediaPlanArtifact} />;
+    case 'positioningSynthesis':
+      return <PositioningSynthesisRenderer artifact={artifact as unknown as PositioningSynthesisArtifact} />;
   }
 
   return (

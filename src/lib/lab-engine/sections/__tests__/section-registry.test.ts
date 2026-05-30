@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  ALL_POSITIONING_SECTION_IDS,
+  POSITIONING_SECTION_IDS,
+  isPositioningSectionId,
+} from "@/lib/ai/prompts/positioning-skills";
 import { SECTION_REGISTRY } from "../section-registry";
 
 describe("SECTION_REGISTRY live-tool budgets", (): void => {
@@ -45,5 +50,33 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       allowedTools: ["keyword_ad_probe"],
       maxExternalLookups: 2,
     });
+    expect(SECTION_REGISTRY.positioningSynthesis).toMatchObject({
+      skillSlug: "positioning-synthesis",
+      allowedTools: [],
+      maxExternalLookups: 0,
+      requiredEvidenceClasses: [],
+    });
+  });
+});
+
+describe("positioningSynthesis registration", (): void => {
+  it("registers exactly eight sections including the synthesis capstone", (): void => {
+    const ids = Object.keys(SECTION_REGISTRY);
+    expect(ids).toHaveLength(8);
+    expect(ids).toContain("positioningSynthesis");
+  });
+
+  // The parent rollup keys on POSITIONING_SECTION_IDS.length (6) and
+  // derivedChildrenComplete filters by isPositioningSectionId. Synthesis must
+  // stay OUT of the six so it can never bump children_total / block completion.
+  it("keeps synthesis out of the six-section parent rollup", (): void => {
+    expect(POSITIONING_SECTION_IDS).toHaveLength(6);
+    expect(POSITIONING_SECTION_IDS as readonly string[]).not.toContain(
+      "positioningSynthesis",
+    );
+    expect(isPositioningSectionId("positioningSynthesis")).toBe(false);
+    expect(ALL_POSITIONING_SECTION_IDS as readonly string[]).toContain(
+      "positioningSynthesis",
+    );
   });
 });

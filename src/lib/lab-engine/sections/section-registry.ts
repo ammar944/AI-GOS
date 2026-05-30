@@ -48,6 +48,13 @@ import {
   type PaidMediaPlanSectionOutput,
 } from "../artifacts/schemas/paid-media-plan";
 import {
+  positioningSynthesisBodySchema,
+  positioningSynthesisSectionOutputSchema,
+  validatePositioningSynthesisMinimums,
+  type PositioningSynthesisBody,
+  type PositioningSynthesisSectionOutput,
+} from "../artifacts/schemas/positioning-synthesis";
+import {
   validateVoiceOfCustomerMinimums,
   voiceOfCustomerBodySchema,
   voiceOfCustomerSectionOutputSchema,
@@ -60,6 +67,7 @@ import { demandIntentFixtureArtifact } from "../fixtures/demand-intent-artifact"
 import { marketCategoryFixtureArtifact } from "../fixtures/market-category-artifact";
 import { offerDiagnosticFixtureArtifact } from "../fixtures/offer-diagnostic-artifact";
 import { paidMediaPlanFixtureArtifact } from "../fixtures/paid-media-plan-artifact";
+import { positioningSynthesisFixtureArtifact } from "../fixtures/positioning-synthesis-artifact";
 import { voiceOfCustomerFixtureArtifact } from "../fixtures/voice-of-customer-artifact";
 import {
   sectionIdSchema,
@@ -253,6 +261,28 @@ export const SECTION_REGISTRY = {
     validateMinimums: validateOfferDiagnosticMinimums,
     fixtureArtifact: offerDiagnosticFixtureArtifact,
   },
+  positioningSynthesis: {
+    id: "positioningSynthesis",
+    title: "Positioning Synthesis",
+    skillSlug: "positioning-synthesis",
+    mission:
+      "Synthesize the six committed positioning artifacts into one recommended positioning wedge and 2-3 divergent candidate angles, each option and messaging direction traced to section evidence.",
+    outputEmphasis: [
+      "situation thesis",
+      "divergent positioning options",
+      "recommended move with rationale",
+      "cross-section messaging directions",
+    ],
+    sectionOutputSchemaName: "PositioningSynthesisSectionOutput",
+    structuredOutputMaxTokens: 8192,
+    allowedTools: [],
+    maxExternalLookups: 0,
+    requiredEvidenceClasses: [],
+    bodySchema: positioningSynthesisBodySchema,
+    sectionOutputSchema: positioningSynthesisSectionOutputSchema,
+    validateMinimums: validatePositioningSynthesisMinimums,
+    fixtureArtifact: positioningSynthesisFixtureArtifact,
+  },
   positioningPaidMediaPlan: {
     id: "positioningPaidMediaPlan",
     title: "Paid Media Plan",
@@ -298,6 +328,10 @@ export const SECTION_REGISTRY = {
   positioningOfferDiagnostic: SectionDefinition<
     OfferDiagnosticBody,
     OfferDiagnosticSectionOutput
+  >;
+  positioningSynthesis: SectionDefinition<
+    PositioningSynthesisBody,
+    PositioningSynthesisSectionOutput
   >;
   positioningPaidMediaPlan: SectionDefinition<
     PaidMediaPlanBody,

@@ -6,6 +6,7 @@ import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 
@@ -83,7 +84,11 @@ function buildCompleteWorker(
 
 function buildArtifactSections(): Record<string, Record<string, unknown>> {
   return Object.fromEntries(
-    [...POSITIONING_SECTION_IDS, PAID_MEDIA_PLAN_SECTION_ID].map((zone) => [
+    [
+      ...POSITIONING_SECTION_IDS,
+      POSITIONING_SYNTHESIS_SECTION_ID,
+      PAID_MEDIA_PLAN_SECTION_ID,
+    ].map((zone) => [
       zone,
       {
         zone,
@@ -117,9 +122,13 @@ describe('ResearchV3Page runId rehydrate', () => {
       children_total: 6,
       workerStates: [
         ...POSITIONING_SECTION_IDS.map((sectionId) => buildCompleteWorker(sectionId)),
+        buildCompleteWorker(POSITIONING_SYNTHESIS_SECTION_ID),
         buildCompleteWorker(PAID_MEDIA_PLAN_SECTION_ID),
       ],
       sectionsByZone: {
+        [POSITIONING_SYNTHESIS_SECTION_ID]: {
+          data: {},
+        },
         [PAID_MEDIA_PLAN_SECTION_ID]: {
           data: paidMediaPlanFixtureArtifact,
         },
@@ -147,7 +156,7 @@ describe('ResearchV3Page runId rehydrate', () => {
     render(<ResearchV3Page />);
 
     await waitFor(() =>
-      expect(screen.getByText('Section 7 of 7')).toBeInTheDocument(),
+      expect(screen.getByText('Section 8 of 8')).toBeInTheDocument(),
     );
     expect(screen.queryByTestId('section-progress-strip')).toBeNull();
     expect(screen.queryByTestId('corpus')).toBeNull();

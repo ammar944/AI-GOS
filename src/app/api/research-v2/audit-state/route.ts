@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
   isPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import type {
@@ -508,9 +509,18 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const hasPaidMediaPlanRow =
     runRows.some((row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID) ||
     sectionRows.some((row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID);
-  const workerSectionIds: readonly AllPositioningSectionId[] = hasPaidMediaPlanRow
-    ? [...POSITIONING_SECTION_IDS, PAID_MEDIA_PLAN_SECTION_ID]
-    : POSITIONING_SECTION_IDS;
+  const hasSynthesisRow =
+    runRows.some((row) => row.zone === POSITIONING_SYNTHESIS_SECTION_ID) ||
+    sectionRows.some((row) => row.zone === POSITIONING_SYNTHESIS_SECTION_ID);
+  // workerSectionIds only governs which zones surface telemetry/events; the
+  // synthesis + paid-media capstones are additive here and never bump the parent
+  // rollup. children_total stays POSITIONING_SECTION_IDS.length (6) below, and
+  // derivedChildrenComplete filters to isPositioningSectionId (the 6).
+  const workerSectionIds: readonly AllPositioningSectionId[] = [
+    ...POSITIONING_SECTION_IDS,
+    ...(hasSynthesisRow ? [POSITIONING_SYNTHESIS_SECTION_ID] : []),
+    ...(hasPaidMediaPlanRow ? [PAID_MEDIA_PLAN_SECTION_ID] : []),
+  ];
   const eventLimit = 12 * workerSectionIds.length;
   const eventsResp = await supabase
     .from('research_section_events')

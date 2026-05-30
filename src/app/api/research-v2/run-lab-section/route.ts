@@ -7,6 +7,7 @@ import {
   ALL_POSITIONING_SECTION_IDS,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
@@ -42,12 +43,27 @@ const RequestSchema = z.object({
 
 type RequestBody = z.infer<typeof RequestSchema>;
 
+// The paid-media plan and the synthesis capstone both read the six committed
+// positioning artifacts (and need the parent audit run id to load them).
+function requiresCommittedPositioningArtifacts(
+  sectionId: AllPositioningSectionId,
+): boolean {
+  return (
+    sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
+    sectionId === POSITIONING_SYNTHESIS_SECTION_ID
+  );
+}
+
 function getDispatchZones(
   sectionId: AllPositioningSectionId,
 ): readonly AllPositioningSectionId[] {
-  return sectionId === PAID_MEDIA_PLAN_SECTION_ID
-    ? [PAID_MEDIA_PLAN_SECTION_ID]
-    : POSITIONING_SECTION_IDS;
+  if (sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
+    return [PAID_MEDIA_PLAN_SECTION_ID];
+  }
+  if (sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
+    return [POSITIONING_SYNTHESIS_SECTION_ID];
+  }
+  return POSITIONING_SECTION_IDS;
 }
 
 function isCommittedPositioningArtifactRow(
@@ -56,7 +72,7 @@ function isCommittedPositioningArtifactRow(
   return (POSITIONING_SECTION_IDS as readonly string[]).includes(row.zone ?? '');
 }
 
-async function buildPaidMediaResearchInput({
+async function buildCommittedArtifactsResearchInput({
   baseResearchInput,
   parentAuditRunId,
   supabase,
@@ -174,11 +190,11 @@ async function loadParentAuditRunId({
   return { ok: true, parentAuditRunId };
 }
 
-function requirePaidMediaParentAuditRunId(
+function requireParentAuditRunId(
   result: Awaited<ReturnType<typeof loadParentAuditRunId>> | null,
 ): string {
   if (result?.ok !== true) {
-    throw new Error('Paid media plan dispatch requires a parent audit run id');
+    throw new Error('Capstone section dispatch requires a parent audit run id');
   }
 
   return result.parentAuditRunId;
@@ -264,33 +280,34 @@ export async function POST(request: Request): Promise<Response> {
       onboardingData: session.onboarding_data ?? {},
       ...(uploadedDocuments.length > 0 ? { uploadedDocuments } : {}),
     });
-    const paidMediaParent =
-      body.section_id === PAID_MEDIA_PLAN_SECTION_ID
-        ? await loadParentAuditRunId({
-            runId: body.run_id,
-            supabase,
-            userId,
-          })
-        : null;
+    const needsCommittedArtifacts = requiresCommittedPositioningArtifacts(
+      body.section_id,
+    );
+    const capstoneParent = needsCommittedArtifacts
+      ? await loadParentAuditRunId({
+          runId: body.run_id,
+          supabase,
+          userId,
+        })
+      : null;
 
-    if (paidMediaParent?.ok === false) {
-      return paidMediaParent.response;
+    if (capstoneParent?.ok === false) {
+      return capstoneParent.response;
     }
 
-    const paidMediaResearchInput =
-      body.section_id === PAID_MEDIA_PLAN_SECTION_ID
-        ? await buildPaidMediaResearchInput({
-            baseResearchInput,
-            parentAuditRunId: requirePaidMediaParentAuditRunId(paidMediaParent),
-            supabase,
-          })
-        : { ok: true as const, researchInput: baseResearchInput };
+    const capstoneResearchInput = needsCommittedArtifacts
+      ? await buildCommittedArtifactsResearchInput({
+          baseResearchInput,
+          parentAuditRunId: requireParentAuditRunId(capstoneParent),
+          supabase,
+        })
+      : { ok: true as const, researchInput: baseResearchInput };
 
-    if (!paidMediaResearchInput.ok) {
-      return paidMediaResearchInput.response;
+    if (!capstoneResearchInput.ok) {
+      return capstoneResearchInput.response;
     }
 
-    const researchInput = paidMediaResearchInput.researchInput;
+    const researchInput = capstoneResearchInput.researchInput;
     await scheduleLabSectionJob({
       userId,
       runId: body.run_id,

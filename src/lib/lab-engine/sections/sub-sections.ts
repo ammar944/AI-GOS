@@ -149,6 +149,12 @@ export const SECTION_SUB_SECTIONS: Record<
       label: "Red flags in own numbers",
     },
   ],
+  positioningSynthesis: [
+    { key: "situationThesis", label: "Situation thesis" },
+    { key: "positioningOptions", label: "Positioning options" },
+    { key: "recommendedMove", label: "Recommended move" },
+    { key: "messagingDirections", label: "Messaging directions" },
+  ],
   positioningPaidMediaPlan: [
     { key: "campaignOverview", label: "Campaign overview" },
     { key: "campaignPhases", label: "Campaign phases" },

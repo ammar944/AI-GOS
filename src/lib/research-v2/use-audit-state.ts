@@ -10,6 +10,7 @@ import type { AuditStateResponse, WorkerStatus } from '@/app/api/research-v2/aud
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 
 const POLL_MS = 2500;
@@ -78,6 +79,43 @@ async function dispatchPaidMediaPlan(runId: string): Promise<void> {
   }
 }
 
+function hasPositioningSynthesisStarted(state: AuditStateResponse): boolean {
+  return (
+    state.sectionsByZone[POSITIONING_SYNTHESIS_SECTION_ID] !== undefined ||
+    state.workerStates.some(
+      (workerState) => workerState.section_id === POSITIONING_SYNTHESIS_SECTION_ID,
+    )
+  );
+}
+
+function isPositioningSynthesisTerminal(state: AuditStateResponse): boolean {
+  const synthesisWorker = state.workerStates.find(
+    (workerState) => workerState.section_id === POSITIONING_SYNTHESIS_SECTION_ID,
+  );
+
+  return (
+    state.sectionsByZone[POSITIONING_SYNTHESIS_SECTION_ID] !== undefined ||
+    (synthesisWorker !== undefined && TERMINAL.has(synthesisWorker.status))
+  );
+}
+
+async function dispatchPositioningSynthesis(runId: string): Promise<void> {
+  const response = await fetch('/api/research-v2/run-lab-section', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      run_id: runId,
+      section_id: POSITIONING_SYNTHESIS_SECTION_ID,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Positioning synthesis dispatch failed for runId=${runId} status=${response.status}`,
+    );
+  }
+}
+
 export function useAuditState(
   runId: string,
   refreshKey = 0,
@@ -85,6 +123,7 @@ export function useAuditState(
   const [state, setState] = useState<AuditStateResponse>(EMPTY);
   const cancelled = useRef(false);
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
+  const dispatchedSynthesisRunIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     cancelled.current = false;
@@ -104,8 +143,13 @@ export function useAuditState(
         if (cancelled.current) return;
         setState(next);
 
+        const sixComplete = hasSixPositioningSectionsComplete(next);
+
+        // The paid-media plan and the synthesis capstone both gate on 6/6 and
+        // dispatch in parallel — they are independent reads of the committed
+        // positioning artifacts.
         const shouldDispatchPaidMediaPlan =
-          hasSixPositioningSectionsComplete(next) &&
+          sixComplete &&
           !hasPaidMediaPlanStarted(next) &&
           !dispatchedMediaPlanRunIds.current.has(runId);
         if (shouldDispatchPaidMediaPlan) {
@@ -119,6 +163,26 @@ export function useAuditState(
               message: error instanceof Error ? error.message : String(error),
             });
           }
+        }
+
+        const shouldDispatchSynthesis =
+          sixComplete &&
+          !hasPositioningSynthesisStarted(next) &&
+          !dispatchedSynthesisRunIds.current.has(runId);
+        if (shouldDispatchSynthesis) {
+          dispatchedSynthesisRunIds.current.add(runId);
+          try {
+            await dispatchPositioningSynthesis(runId);
+          } catch (error) {
+            dispatchedSynthesisRunIds.current.delete(runId);
+            console.error('[use-audit-state] positioning synthesis dispatch failed', {
+              runId,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
+        if (shouldDispatchPaidMediaPlan || shouldDispatchSynthesis) {
           schedule();
           return;
         }
@@ -126,10 +190,11 @@ export function useAuditState(
         const allTerminal =
           next.workerStates.length > 0 &&
           next.workerStates.every((w) => TERMINAL.has(w.status));
-        const waitingForPaidMediaPlan =
-          hasSixPositioningSectionsComplete(next) &&
-          !isPaidMediaPlanTerminal(next);
-        if (!allTerminal || waitingForPaidMediaPlan) schedule();
+        const waitingForCapstones =
+          sixComplete &&
+          (!isPaidMediaPlanTerminal(next) ||
+            !isPositioningSynthesisTerminal(next));
+        if (!allTerminal || waitingForCapstones) schedule();
       } catch {
         schedule();
       }

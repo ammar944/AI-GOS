@@ -6,6 +6,7 @@ import type { VerificationReportEnvelope } from '@/lib/lab-engine/artifacts/arti
 import type { MarketCategoryBody } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import type { OfferDiagnosticBody } from '@/lib/lab-engine/artifacts/schemas/offer-diagnostic';
 import type { PaidMediaPlanBody } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
+import type { PositioningSynthesisBody } from '@/lib/lab-engine/artifacts/schemas/positioning-synthesis';
 import type { VoiceOfCustomerBody } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
 
 export interface PositioningArtifactSource {
@@ -36,6 +37,8 @@ export type DemandIntentArtifact = PositioningTypedArtifact & DemandIntentBody;
 export type OfferPerformanceArtifact = PositioningTypedArtifact &
   OfferDiagnosticBody;
 export type PaidMediaPlanArtifact = PositioningTypedArtifact & PaidMediaPlanBody;
+export type PositioningSynthesisArtifact = PositioningTypedArtifact &
+  PositioningSynthesisBody;
 
 const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly string[]> = {
   positioningMarketCategory: ['marketCategoryArtifact'],
@@ -44,6 +47,7 @@ const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly stri
   positioningVoiceOfCustomer: ['voiceOfCustomerArtifact', 'vocArtifact'],
   positioningDemandIntent: ['demandIntentArtifact'],
   positioningOfferDiagnostic: ['offerPerformanceArtifact', 'offerDiagnosticArtifact'],
+  positioningSynthesis: ['positioningSynthesisArtifact'],
   positioningPaidMediaPlan: ['paidMediaPlanArtifact'],
 };
 

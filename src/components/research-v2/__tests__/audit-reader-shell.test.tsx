@@ -6,10 +6,12 @@ import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
+import { positioningSynthesisFixtureArtifact } from '@/lib/lab-engine/fixtures/positioning-synthesis-artifact';
 
 const mocks = vi.hoisted(() => ({
   useAuditState: vi.fn(),
@@ -109,6 +111,7 @@ describe('<AuditReaderShell>', () => {
       children_total: 6,
       workerStates: [
         ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(POSITIONING_SYNTHESIS_SECTION_ID),
         completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
       ],
       sectionsByZone: {
@@ -125,7 +128,7 @@ describe('<AuditReaderShell>', () => {
       />,
     );
 
-    expect(screen.getByText('Section 7 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Section 8 of 8')).toBeInTheDocument();
     expect(screen.queryByTestId('section-progress-strip')).not.toBeInTheDocument();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
@@ -289,10 +292,10 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByText('Searching source evidence')).toBeInTheDocument();
     expect(screen.queryByText('Search started')).not.toBeInTheDocument();
 
-    // Progress strip reads honest completion ("0/7" across the 7 reader
+    // Progress strip reads honest completion ("0/8" across the 8 reader
     // sections), never a per-section percent like "0%" for active work.
     const strip = screen.getByTestId('section-progress-strip');
-    expect(strip.textContent).toContain('0/7');
+    expect(strip.textContent).toContain('0/8');
     expect(strip.textContent).not.toContain('%');
   });
 
@@ -355,8 +358,8 @@ describe('<AuditReaderShell>', () => {
       <AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />,
     );
 
-    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Section 1 of 7')).toBeInTheDocument());
+    expect(screen.getByText('Section 1 of 8')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Section 1 of 8')).toBeInTheDocument());
 
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -376,7 +379,7 @@ describe('<AuditReaderShell>', () => {
     });
     rerender(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Section 1 of 8')).toBeInTheDocument();
     expect(vi.mocked(HTMLElement.prototype.scrollTo)).not.toHaveBeenCalled();
   });
 
@@ -647,6 +650,55 @@ describe('<AuditReaderShell>', () => {
           body: JSON.stringify({
             run_id: '00000000-0000-4000-8000-0000000000aa',
             section_id: PAID_MEDIA_PLAN_SECTION_ID,
+          }),
+        }),
+      ),
+    );
+  });
+
+  it('reruns synthesis through the one-section lab route, not rerun-section', async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    const submitMock = vi.fn((event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(POSITIONING_SYNTHESIS_SECTION_ID),
+      ],
+      sectionsByZone: {
+        [POSITIONING_SYNTHESIS_SECTION_ID]: {
+          data: positioningSynthesisFixtureArtifact,
+        },
+      },
+    });
+
+    render(
+      <form onSubmit={submitMock}>
+        <AuditReaderShell
+          runId="00000000-0000-4000-8000-0000000000aa"
+          activeSectionId={POSITIONING_SYNTHESIS_SECTION_ID}
+        />
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^rerun$/i }));
+    expect(submitMock).not.toHaveBeenCalled();
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/research-v2/run-lab-section',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            run_id: '00000000-0000-4000-8000-0000000000aa',
+            section_id: POSITIONING_SYNTHESIS_SECTION_ID,
           }),
         }),
       ),

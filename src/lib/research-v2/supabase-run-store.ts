@@ -22,6 +22,7 @@ import {
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/section-registry';
 import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
+import { buildSynthesizedThesisPatch } from '@/lib/research-v2/orchestrate-db';
 import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
 
 export interface CreateSupabaseRunStoreOptions {
@@ -199,6 +200,84 @@ function countCompletePositioningZones(data: unknown): number {
   }
 
   return zones.size;
+}
+
+function asRecordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readStringValue(
+  record: Record<string, unknown> | null,
+  key: string,
+): string {
+  const value = record?.[key];
+  return typeof value === 'string' ? value : '';
+}
+
+// Best-effort: merge the synthesized positioning wedge into the parent's
+// research_artifacts.thesis as a sibling key. Never throws — the section
+// artifact is already committed; the thesis is bookkeeping for profile insights,
+// so a failure here must not fail the commit.
+async function mergeSynthesizedThesisBestEffort(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+  artifact: ArtifactEnvelope;
+  updatedAt: string;
+}): Promise<void> {
+  try {
+    const artifactRecord = input.artifact as unknown as Record<string, unknown>;
+    const body = asRecordValue(artifactRecord.body);
+    const recommendedMove = asRecordValue(body?.recommendedMove);
+    const positioningOptions = asRecordValue(body?.positioningOptions);
+    const options = Array.isArray(positioningOptions?.options)
+      ? positioningOptions.options
+      : [];
+
+    const { data, error } = await input.supabase
+      .from('research_artifacts')
+      .select('thesis')
+      .eq('id', input.parentAuditRunId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(
+        '[supabase-run-store] synthesis thesis read failed:',
+        error.message,
+      );
+      return;
+    }
+
+    const existingThesis = asRecordValue(
+      (data as { thesis?: unknown } | null)?.thesis,
+    );
+    const { thesis } = buildSynthesizedThesisPatch({
+      existingThesis,
+      headlineWedge: input.artifact.verdict,
+      recommendedAngle: readStringValue(recommendedMove, 'optionAngle'),
+      rationale: readStringValue(recommendedMove, 'rationale'),
+      optionCount: options.length,
+      updatedAt: input.updatedAt,
+    });
+
+    const { error: updateError } = await input.supabase
+      .from('research_artifacts')
+      .update({ thesis })
+      .eq('id', input.parentAuditRunId);
+
+    if (updateError) {
+      console.warn(
+        '[supabase-run-store] synthesis thesis update failed:',
+        updateError.message,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      '[supabase-run-store] synthesis thesis merge errored:',
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 }
 
 async function markParentCompleteWhenAllSectionsCommit(input: {
@@ -423,6 +502,15 @@ export function createSupabaseRunStore(
         parentAuditRunId: options.parentAuditRunId,
         now,
       });
+
+      if (parsedArtifact.sectionId === 'positioningSynthesis') {
+        await mergeSynthesizedThesisBestEffort({
+          supabase: options.supabase,
+          parentAuditRunId: options.parentAuditRunId,
+          artifact: parsedArtifact,
+          updatedAt: completedAt,
+        });
+      }
 
       record = mergeSection(
         record,

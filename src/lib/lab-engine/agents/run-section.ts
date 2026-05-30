@@ -738,6 +738,19 @@ const paidMediaPlanGenerationSchema = z
     verdict: z.unknown(),
   })
   .passthrough();
+// Synthesis mirrors the paid-media structured path: a permissive generation
+// schema lets the model emit freely, then the normalizer + strict parse clean
+// it up. Sending the strict nested schema to the model over-constrains it.
+const positioningSynthesisGenerationSchema = z
+  .object({
+    body: z.unknown(),
+    confidence: z.unknown(),
+    sectionTitle: z.unknown(),
+    sources: z.unknown(),
+    statusSummary: z.unknown(),
+    verdict: z.unknown(),
+  })
+  .passthrough();
 
 function getPositiveIntegerEnvValue(key: string): number | undefined {
   const rawValue = process.env[key]?.trim();
@@ -773,6 +786,10 @@ function getStructuredOutputMaxTokens(
 function getStructuredGenerationSchema(
   definition: RuntimeSectionDefinition,
 ): z.ZodType<unknown> {
+  if (definition.id === "positioningSynthesis") {
+    return positioningSynthesisGenerationSchema;
+  }
+
   if (definition.id === "positioningPaidMediaPlan") {
     return paidMediaPlanGenerationSchema;
   }
@@ -1904,6 +1921,114 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
   };
 }
 
+function withNormalizedPositioningSynthesisOutput(rawOutput: unknown): unknown {
+  const outputRecord = getRecord(rawOutput);
+
+  if (outputRecord === null) {
+    return rawOutput;
+  }
+
+  const bodyRecord = getRecord(outputRecord.body);
+
+  if (bodyRecord === null) {
+    return rawOutput;
+  }
+
+  const situationThesisRecord = getRecord(bodyRecord.situationThesis);
+  const positioningOptionsRecord = getRecord(bodyRecord.positioningOptions);
+  const recommendedMoveRecord = getRecord(bodyRecord.recommendedMove);
+  const messagingDirectionsRecord = getRecord(bodyRecord.messagingDirections);
+
+  return {
+    ...outputRecord,
+    sources: normalizeStructuredRecordArray({
+      allowedKeys: ["title", "url", "publisher"],
+      stringKeys: ["title", "url", "publisher"],
+      value: outputRecord.sources,
+    }),
+    body: {
+      ...bodyRecord,
+      ...(situationThesisRecord === null
+        ? {}
+        : {
+            situationThesis: normalizeStructuredRecord({
+              allowedKeys: ["prose"],
+              record: situationThesisRecord,
+              stringKeys: ["prose"],
+            }),
+          }),
+      ...(positioningOptionsRecord === null
+        ? {}
+        : {
+            positioningOptions: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "options"],
+                record: positioningOptionsRecord,
+                stringKeys: ["prose"],
+              }),
+              // Synthesis is the honest-provenance capstone: unlike the
+              // paid-media grounded normalizer, do NOT launder a 'gtmBrief'
+              // sourceSection into a positioning section. Keep what the model
+              // claimed so the validator's non-gtmBrief floor can actually bite
+              // (a missing sourceSection still fails the strict parse -> repair).
+              options: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "optionName",
+                  "angle",
+                  "rationale",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringKeys: [
+                  "optionName",
+                  "angle",
+                  "rationale",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: positioningOptionsRecord.options,
+              }),
+            },
+          }),
+      ...(recommendedMoveRecord === null
+        ? {}
+        : {
+            recommendedMove: normalizeStructuredRecord({
+              allowedKeys: ["optionAngle", "rationale", "nextSteps"],
+              record: recommendedMoveRecord,
+              stringKeys: ["optionAngle", "rationale", "nextSteps"],
+            }),
+          }),
+      ...(messagingDirectionsRecord === null
+        ? {}
+        : {
+            messagingDirections: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "directions"],
+                record: messagingDirectionsRecord,
+                stringKeys: ["prose"],
+              }),
+              directions: normalizeStructuredRecordArray({
+                allowedKeys: [
+                  "direction",
+                  "copyPoint",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                stringKeys: [
+                  "direction",
+                  "copyPoint",
+                  "sourceSection",
+                  "sourceUrl",
+                ],
+                value: messagingDirectionsRecord.directions,
+              }),
+            },
+          }),
+    },
+  };
+}
+
 function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
   rawOutput,
@@ -1932,6 +2057,10 @@ function withNormalizedSectionOutput({
 
   if (sectionId === "positioningPaidMediaPlan") {
     return withNormalizedPaidMediaPlanOutput(outputWithAdEvidence);
+  }
+
+  if (sectionId === "positioningSynthesis") {
+    return withNormalizedPositioningSynthesisOutput(outputWithAdEvidence);
   }
 
   return outputWithAdEvidence;

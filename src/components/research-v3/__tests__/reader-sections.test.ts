@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   FIRST_READER_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SYNTHESIS_SECTION_ID,
   READER_SECTION_IDS,
   getReaderSectionFromParam,
 } from '../reader-sections';
 
 describe('reader section helpers', () => {
-  it('keeps the media-plan terminal page outside the six-section wave', (): void => {
-    expect(READER_SECTION_IDS).toHaveLength(7);
+  it('orders the capstones after the six-section wave: synthesis then media plan', (): void => {
+    expect(READER_SECTION_IDS).toHaveLength(8);
+    // Synthesis caps the six research sections; the media plan reads last.
+    expect(READER_SECTION_IDS.at(-2)).toBe(POSITIONING_SYNTHESIS_SECTION_ID);
     expect(READER_SECTION_IDS.at(-1)).toBe(PAID_MEDIA_PLAN_SECTION_ID);
   });
 
@@ -19,6 +22,9 @@ describe('reader section helpers', () => {
     );
     expect(getReaderSectionFromParam(PAID_MEDIA_PLAN_SECTION_ID)).toBe(
       PAID_MEDIA_PLAN_SECTION_ID,
+    );
+    expect(getReaderSectionFromParam(POSITIONING_SYNTHESIS_SECTION_ID)).toBe(
+      POSITIONING_SYNTHESIS_SECTION_ID,
     );
     expect(getReaderSectionFromParam('unknown-section')).toBe(
       FIRST_READER_SECTION_ID,

@@ -58,6 +58,7 @@ function buildScopedResearchInput(): ResearchInput {
         positioningVoiceOfCustomer: [],
         positioningDemandIntent: [],
         positioningOfferDiagnostic: [],
+        positioningSynthesis: [],
         positioningPaidMediaPlan: [],
       },
     },

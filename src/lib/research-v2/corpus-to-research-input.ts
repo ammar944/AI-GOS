@@ -75,6 +75,14 @@ const sectionScopeKeywords = {
     "pricing",
     "guarantee",
   ],
+  positioningSynthesis: [
+    "positioning",
+    "wedge",
+    "angle",
+    "messaging",
+    "strategy",
+    "recommendation",
+  ],
   positioningPaidMediaPlan: [
     "campaign",
     "paid",
