@@ -109,6 +109,11 @@ class NoMatchedAdvertiserError extends Error {
 }
 
 const searchApiBaseUrl = "https://www.searchapi.io/api/v1/search";
+// Google Ads Transparency Center is global by default, which surfaces foreign
+// entities that coincidentally share a short name (e.g. JP "株式会社RAMP" for
+// "ramp.com"). Default the region so the probe stays anchored to the company's
+// market. US-default fits the (US SaaS) user base; thread per-company later.
+const defaultGoogleAdRegion = "US";
 const searchApiTimeoutMs = 15_000;
 
 function asRecord(value: unknown): SearchApiRecord | null {
@@ -475,6 +480,7 @@ async function searchGoogleAds({
     params: {
       engine: "google_ads_transparency_center_advertiser_search",
       q: advertiserName,
+      region: defaultGoogleAdRegion,
     },
   });
   const candidates = readCandidates(advertiserPayload, "advertisers", [
@@ -503,6 +509,7 @@ async function searchGoogleAds({
     params: {
       engine: "google_ads_transparency_center",
       advertiser_id: candidate.id,
+      region: defaultGoogleAdRegion,
     },
   });
 

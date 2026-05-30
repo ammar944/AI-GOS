@@ -515,7 +515,21 @@ export function resolveBestCandidate(
           );
 
           if (qualifiers.length === 0) {
-            domainMatch = true;
+            // Company name is exactly the domain base (e.g. "Ramp" / ramp.com).
+            // Require the candidate to BE that base plus only corporate suffixes
+            // ("Brex Inc"), not merely contain it as one word among others
+            // ("The Ramp", "Todd Rampe"). A bare-substring hit on a short common
+            // word is almost always a different entity, and the Google ad payload
+            // carries no destination domain to disprove it.
+            const candidateBaseWords = candidateNorm
+              .replace(/[^\w\s]/g, " ")
+              .split(/\s+/)
+              .filter((word) => word.length > 0);
+            domainMatch =
+              candidateBaseWords.includes(base) &&
+              candidateBaseWords.every(
+                (word) => word === base || corporateSuffixes.has(word),
+              );
           } else {
             domainMatch =
               qualifiers.some((qualifier) =>

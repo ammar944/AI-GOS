@@ -106,6 +106,36 @@ describe("advertiser match relevance engine", (): void => {
       });
     });
 
+    it("does not confidently corroborate a short brand from a bare name-substring", (): void => {
+      // None of these IS "ramp" — they merely contain it. With a verified domain
+      // we must not accept a coincidental match (would serve a wrong company's ads).
+      const result = resolveBestCandidate(
+        [
+          { id: "fr", name: "The Ramp" },
+          { id: "us", name: "RAMPD LLC" },
+        ],
+        "Ramp",
+        "ramp.com",
+        true,
+      );
+
+      expect(result.verdict).not.toBe("accepted");
+    });
+
+    it("still corroborates a short brand whose candidate adds only a corporate suffix", (): void => {
+      const result = resolveBestCandidate(
+        [{ id: "brex", name: "Brex Inc." }],
+        "Brex",
+        "brex.com",
+        true,
+      );
+
+      expect(result).toMatchObject({
+        verdict: "accepted",
+        candidate: { id: "brex", name: "Brex Inc." },
+      });
+    });
+
     it("rejects candidates below the 0.8 threshold", (): void => {
       expect(
         resolveBestCandidate([{ id: "wrong", name: "Northwind Traders" }], "Directive"),
