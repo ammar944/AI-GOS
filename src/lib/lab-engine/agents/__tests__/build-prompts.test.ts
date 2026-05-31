@@ -5,6 +5,7 @@ import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
 import {
   buildAnswerToolInstructions,
   buildRepairPrompt,
+  buildSectionObjectiveRecap,
   type PromptSectionDefinition,
 } from "../build-prompts";
 
@@ -206,5 +207,16 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
     );
+  });
+});
+
+describe("buildSectionObjectiveRecap", (): void => {
+  it("recites the section objective and grounding rule for the recent-attention tail", (): void => {
+    const recap = buildSectionObjectiveRecap(definition, saaslaunchResearchInput);
+
+    expect(recap).toContain("re-anchor before you answer");
+    expect(recap).toContain(definition.title);
+    expect(recap).toContain(definition.mission);
+    expect(recap).toContain("Ground every card in fetched tool evidence");
   });
 });

@@ -504,6 +504,24 @@ export function buildAnswerToolInstructions(
   ].join("\n");
 }
 
+// Goal recitation (Manus context-engineering): restate the section's objective
+// at the prompt TAIL — after the long skill body — so the goal sits in the
+// model's recent-attention window and fights lost-in-the-middle drift on the
+// longer single-section loops. Cheap, and it reinforces the evidence-grounding
+// rule right before the model answers.
+export function buildSectionObjectiveRecap(
+  definition: PromptSectionDefinition,
+  researchInput: ResearchInput,
+): string {
+  return [
+    "",
+    "Section objective (re-anchor before you answer):",
+    `- Deliver ${definition.title}: ${definition.mission}`,
+    `- Subject company: ${researchInput.company.websiteUrl}`,
+    "- Ground every card in fetched tool evidence or the ResearchInput above; where evidence is thin, name the gap — do not invent or pad.",
+  ].join("\n");
+}
+
 export function buildRepairPrompt({
   definition,
   evidenceTranscript,

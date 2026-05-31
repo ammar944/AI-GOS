@@ -33,6 +33,7 @@ import { getSectionSubSections } from "../sections/sub-sections";
 import type { RunStore } from "../runs/run-store";
 import {
   buildAnswerToolInstructions,
+  buildSectionObjectiveRecap,
   buildEvidenceTranscript,
   buildRepairPrompt,
   buildStructuredPrompt,
@@ -3095,6 +3096,7 @@ async function runSectionViaAnswerTool(
     "",
     "Skill analyst guidance:",
     skillMd,
+    buildSectionObjectiveRecap(definition, researchInput),
   ].join("\n");
   const answerTool = createAnswerTool(definition.sectionOutputSchema, {
     model: sectionRunnerModel,
@@ -3498,6 +3500,7 @@ async function streamSectionViaAnswerTool(
           "",
           "Skill analyst guidance:",
           skillMd,
+          buildSectionObjectiveRecap(definition, researchInput),
         ].join("\n"),
         prompt: buildAnswerToolPrompt({ externalToolNames, input }),
         externalTools,
