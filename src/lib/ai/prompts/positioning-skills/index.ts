@@ -5,13 +5,9 @@
 //   - src/app/api/research-v2/dispatch/route.ts (validation)
 //   - src/lib/research-v2/state-machine.ts (state machine)
 //   - research-worker positioning runners
-
-export { MARKET_CATEGORY_INTELLIGENCE_SKILL } from './01-market-category-intelligence';
-export { BUYER_ICP_VALIDATION_SKILL } from './02-buyer-icp-validation';
-export { COMPETITOR_LANDSCAPE_SKILL } from './03-competitor-landscape';
-export { VOICE_OF_CUSTOMER_SKILL } from './04-voice-of-customer';
-export { DEMAND_INTENT_SKILL } from './05-demand-intent';
-export { OFFER_DIAGNOSTIC_SKILL } from './06-offer-diagnostic';
+//
+// The legacy 0N-*.ts skill-string modules were deleted (P1.2); the lab-engine
+// loads section instructions from src/lib/lab-engine/skills/<slug>/SKILL.md.
 
 export const POSITIONING_SECTION_IDS = [
   'positioningMarketCategory',
