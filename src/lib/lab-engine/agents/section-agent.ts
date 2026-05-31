@@ -722,6 +722,8 @@ const painQuoteProviderSchema = z
     sourceUrl: z.string(),
     painTheme: z.string(),
     painIntensity: z.enum(["high", "medium", "low"]),
+    role: z.string().optional(),
+    date: z.string().optional(),
   })
   .passthrough();
 

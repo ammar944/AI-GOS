@@ -1,6 +1,9 @@
 import type { Claim, ClaimVerdict, VerificationReport } from "./types";
 
-export type LoadBearingClaimKind = Extract<Claim["kind"], "numeric" | "url">;
+export type LoadBearingClaimKind = Extract<
+  Claim["kind"],
+  "numeric" | "url" | "quote"
+>;
 
 export type UnsupportedLoadBearingClaim = Extract<
   ClaimVerdict,
@@ -24,6 +27,13 @@ const defaultLoadBearingKinds = ["numeric", "url"] as const;
 // on numeric claims would false-fail. Scope the plan's load-bearing set to URLs
 // so an unsourced citation fails the gate but plan numbers do not.
 export const paidMediaLoadBearingKinds = ["url"] as const;
+// Voice-of-Customer is quote-first: a fabricated or self-sourced verbatim is the
+// section's defining failure mode, so quotes join numerics and URLs as load-bearing.
+export const voiceOfCustomerLoadBearingKinds = [
+  "numeric",
+  "url",
+  "quote",
+] as const;
 const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
 
 function isUnsupportedLoadBearingClaim(

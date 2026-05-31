@@ -7,6 +7,7 @@ import {
   deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
+  voiceOfCustomerLoadBearingKinds,
 } from "../evidence-support";
 import { structuralVerifier } from "../structural-verifier";
 import type { VerificationReport } from "../types";
@@ -83,6 +84,25 @@ describe("evaluateEvidenceSupport", (): void => {
 
     expect(shortfall.unsupportedLoadBearing).toHaveLength(0);
     expect(shortfall.issues).toEqual([]);
+  });
+
+  it("gates unsupported quote claims under the VoC load-bearing scope", (): void => {
+    const report = buildFixtureReport(fabricatedQuoteFixture);
+    const defaultShortfall = evaluateEvidenceSupport({ verification: report });
+    const vocShortfall = evaluateEvidenceSupport({
+      verification: report,
+      loadBearingKinds: voiceOfCustomerLoadBearingKinds,
+    });
+
+    // Default scope (numeric + url) leaves the unsupported quote ungated...
+    expect(defaultShortfall.unsupportedLoadBearing).toHaveLength(0);
+    // ...but the VoC scope (numeric + url + quote) gates it.
+    expect(vocShortfall.unsupportedLoadBearing.length).toBeGreaterThan(0);
+    expect(
+      vocShortfall.unsupportedLoadBearing.some(
+        (verdict) => verdict.claim.kind === "quote",
+      ),
+    ).toBe(true);
   });
 
   it("returns no issues for a clean fixture", (): void => {

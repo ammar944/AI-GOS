@@ -35,6 +35,18 @@ const painQuoteSchema = z
     sourceUrl: z.string().min(1),
     painTheme: z.string().min(1),
     painIntensity: z.enum(painIntensities),
+    role: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Reviewer/poster role or handle, where the source discloses it.",
+      ),
+    date: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Date the quote was posted/observed, where disclosed."),
   })
   .strict();
 
@@ -208,6 +220,88 @@ export function validateVoiceOfCustomerMinimums(
     errors.push(
       `body.successLanguage.quotes: have ${successCount}, need >=5.`,
     );
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+// Registrable domain = the last two labels of the host (e.g. blog.acme.co.uk
+// -> co.uk is a known limitation; the common SaaS case acme.com / blog.acme.com
+// collapses to acme.com). Used to compare a quote's source against the subject
+// company so subdomain variants cannot evade the self-sourcing ban.
+function getRegistrableDomain(input: string): string | null {
+  let host = input.trim();
+
+  try {
+    host = new URL(input).hostname;
+  } catch {
+    host = host.replace(/^[a-z]+:\/\//i, "").split("/")[0] ?? "";
+  }
+
+  host = host.replace(/^www\./i, "").toLowerCase();
+  const labels = host.split(".").filter((label) => label.length > 0);
+
+  if (labels.length === 0) {
+    return null;
+  }
+
+  if (labels.length === 1) {
+    return labels[0];
+  }
+
+  return labels.slice(-2).join(".");
+}
+
+/**
+ * VoC-specific provenance gate (returned as a ValidationResult so the runner's
+ * repair loop retries on failure). Two rules:
+ *   1. No pain quote may be sourced from the subject company's own registrable
+ *      domain — the subject's homepage/marketing is not buyer pain language.
+ *   2. No single source may supply a majority (> floor(n/2)) of the pain quotes.
+ */
+export function checkVoiceOfCustomerSelfSourcing({
+  artifact,
+  subjectDomain,
+}: {
+  artifact: ArtifactEnvelope;
+  subjectDomain: string;
+}): ValidationResult {
+  const parsed = artifactEnvelopeSchema
+    .extend({ body: voiceOfCustomerBodySchema })
+    .parse(artifact);
+  const errors: string[] = [];
+  const quotes = parsed.body.painLanguage.quotes;
+  const subjectRegistrable = getRegistrableDomain(subjectDomain);
+
+  if (subjectRegistrable !== null) {
+    quotes.forEach((quote, index) => {
+      const quoteRegistrable = getRegistrableDomain(quote.sourceUrl);
+
+      if (quoteRegistrable !== null && quoteRegistrable === subjectRegistrable) {
+        errors.push(
+          `body.painLanguage.quotes[${index}]: sourced from the subject company's own domain (${subjectRegistrable}); pain language must come from independent sources, not the audited company's site.`,
+        );
+      }
+    });
+  }
+
+  if (quotes.length > 0) {
+    const counts = new Map<string, number>();
+
+    for (const quote of quotes) {
+      const key = getRegistrableDomain(quote.sourceUrl) ?? quote.sourceUrl;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const majorityThreshold = Math.floor(quotes.length / 2);
+
+    for (const [host, count] of counts) {
+      if (count > majorityThreshold) {
+        errors.push(
+          `body.painLanguage.quotes: source ${host} supplies ${count} of ${quotes.length} pain quotes (a single-source majority); draw pain language from multiple independent sources.`,
+        );
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors };

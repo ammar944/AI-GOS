@@ -11,6 +11,7 @@ import {
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
+import { checkVoiceOfCustomerSelfSourcing } from "../artifacts/schemas/voice-of-customer";
 import { sectionRunnerModel } from "../ai/models";
 import {
   activityEventSchema,
@@ -73,6 +74,7 @@ import {
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
   paidMediaLoadBearingKinds,
+  voiceOfCustomerLoadBearingKinds,
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import { structuralVerifier } from "./verification/structural-verifier";
@@ -2931,7 +2933,23 @@ function buildAnswerToolAttempt({
       };
     }
 
-    const evidenceSupportShortfall = evaluateEvidenceSupport({ verification });
+    if (input.sectionId === "positioningVoiceOfCustomer") {
+      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+        artifact,
+        subjectDomain: researchInput.company.websiteUrl,
+      });
+
+      if (!selfSourcing.ok) {
+        return { output, artifact: null, errors: selfSourcing.errors };
+      }
+    }
+
+    const evidenceSupportShortfall = evaluateEvidenceSupport({
+      verification,
+      ...(input.sectionId === "positioningVoiceOfCustomer"
+        ? { loadBearingKinds: voiceOfCustomerLoadBearingKinds }
+        : {}),
+    });
 
     if (evidenceSupportShortfall.unsupportedLoadBearing.length > 0) {
       return {
