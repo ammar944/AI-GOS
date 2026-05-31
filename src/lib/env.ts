@@ -46,6 +46,7 @@ const OPTIONAL_ENV_VARS = {
     "FOREPLAY_API_KEY",     // Foreplay API key for creative intelligence
     "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
     "FIRECRAWL_API_KEY",    // Firecrawl API key for pricing page scraping
+    "SPYFU_API_KEY",        // SpyFu keyword volume/CPC for Demand Intent (keyword_volume tool)
     "GROQ_API_KEY",         // Groq API key for Whisper voice transcription
     // Phase 2: Google Ads API (OAuth2 service account flow)
     "GOOGLE_ADS_DEVELOPER_TOKEN",   // Required by every Google Ads API request

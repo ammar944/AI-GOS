@@ -46,7 +46,7 @@ Before any tool calls, read the supplied `businessContext` and shared corpus for
 
 ## IRON LAW
 
-IRON LAW: Do not fabricate search volume. If SearchAPI or public sources do not disclose volume, write `not disclosed`.
+IRON LAW: Put a real, falsifiable signal on every keyword. Use the `keyword_volume` tool (SpyFu) to populate `monthlyVolume` with a SpyFu-estimated number, plus CPC and difficulty. Never write `not disclosed` in `monthlyVolume` — estimates are allowed (label them SpyFu-estimated), refusals are not. Do not fabricate a number the tool did not return.
 
 IRON LAW: Every keyword row carries `intentType`, `top3RankingDomains`, a `sourceTitle`, a `sourceUrl`, and the `dateObserved`. Volumes and CPCs are estimates — label them and cite the export date.
 
@@ -73,6 +73,7 @@ IRON LAW: Intent signals must be publicly observable (job postings, RFPs, fundin
 |---|---|---|
 | `web_search` | Find problem-aware queries, comparison patterns, People-Also-Ask, community questions, and demand venues. | URLs, query phrasings, ranking domains, venue names. |
 | `keyword_ad_probe` | Confirm SearchAPI Google SERP organic/ad result counts and top organic URLs; do not treat it as search-volume or ad-spend data. | Organic/ad result counts, top organic URLs, content-only-SERP signal. |
+| `keyword_volume` | Get SpyFu-estimated monthly search volume, top-of-page CPC, and ranking difficulty for a bulk list of keywords (up to 100 in one call). Use it to put a real number on every keyword row. | Per-keyword `searchVolume`, `cpc`, `difficulty` (SpyFu estimates). |
 | `firecrawl` | Read pages deeply for content-gap evidence — what the top-ranking answer actually covers and misses. | Page text, answer depth, recency, missing buyer concerns. |
 
 Only these research tools are available for this section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
@@ -89,7 +90,7 @@ Budget note: `web_search` and SDK tools have independent per-channel caps in V1.
    Validation: company URL, category, competitor names, and any existing demand evidence are in hand.
 
 2. Map keyword demand and flag paid-wedge candidates.
-   Validation: `keywordDemand.keywords` has at least 10 keywords, each with `intentType`, `top3RankingDomains`, `monthlyVolume` (or `not disclosed`), `sourceTitle`, `sourceUrl`, `dateObserved`. Flag content-only-top-3 keywords as paid-wedge candidates in the prose.
+   Validation: `keywordDemand.keywords` has at least 10 keywords, each with `intentType`, `top3RankingDomains`, a SpyFu-estimated `monthlyVolume` (from `keyword_volume`), `sourceTitle`, `sourceUrl`, `dateObserved`. Flag content-only-top-3 keywords as paid-wedge candidates in the prose.
 
 3. Mine buyer questions across surfaces.
    Validation: `questionMining.questions` has at least 10 verbatim questions across at least 2 distinct `surface` types, each with a `sourceUrl`.
@@ -104,7 +105,7 @@ Budget note: `web_search` and SDK tools have independent per-channel caps in V1.
    Validation: `venueMap.venues` has at least 4 venues across at least 2 `venueType` values, each with `audienceSize` and `sourceUrl`.
 
 7. Write 1-2 paragraphs of prose per sub-section, then a tight `statusSummary`, `verdict`, `confidence`, and section-level `sources` (at least 5).
-   Validation: prose explains the demand pattern, cards carry dated evidence, confidence is 0..1, and undisclosed volumes are named, not invented.
+   Validation: prose explains the demand pattern, cards carry dated evidence, confidence is 0..1, and every keyword's `monthlyVolume` is a SpyFu-estimated number (never `not disclosed`, never invented).
 
 ## Output (Artifact shape)
 
@@ -136,7 +137,7 @@ Five body sub-sections, each `{ prose, <cards> }`:
 | Field | Type | Description |
 |---|---|---|
 | `keyword` | string | The category-relevant keyword. |
-| `monthlyVolume` | string | Monthly search volume, or `not disclosed` when no source discloses it. |
+| `monthlyVolume` | string | SpyFu-estimated monthly search volume from the `keyword_volume` tool (label it SpyFu-estimated). Never `not disclosed`. |
 | `intentType` | enum | One of `informational`, `commercial`, `transactional`, `navigational`. |
 | `top3RankingDomains` | string[] | The top 3 currently-ranking domains. |
 | `sourceTitle` | string | Named source for the signal. |
@@ -202,11 +203,11 @@ Incorrect:
 Correct:
 
 - keyword: a specific category keyword
-- monthlyVolume: not disclosed
+- monthlyVolume: 2,400 (SpyFu-estimated)
 - intentType: commercial
 - top3RankingDomains: the three real domains ranking today
-- sourceTitle: SearchAPI Google SERP
-- sourceUrl: the probe/source URL
+- sourceTitle: SpyFu keyword_volume
+- sourceUrl: the source URL
 - dateObserved: 2026-05-30
 - Prose note: top-3 are content-only — paid-wedge candidate.
 
@@ -230,7 +231,7 @@ Correct:
 - A content gap without a named weak page is an assertion, not evidence.
 - Search-trend direction without volume is directional, not quantitative.
 - "Hiring is up" without a search query + result count is not an intent signal.
-- Undisclosed volume is a content gap to name, not a number to invent.
+- `monthlyVolume` comes from the `keyword_volume` tool (SpyFu-estimated) — never `not disclosed`, never invented. If SpyFu returns nothing for a keyword, drop that keyword rather than guessing a number.
 
 ## Anti-Slop Rules
 

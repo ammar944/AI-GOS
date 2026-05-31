@@ -231,7 +231,7 @@ export const SECTION_REGISTRY = {
       "content gaps",
     ],
     sectionOutputSchemaName: "DemandIntentSectionOutput",
-    allowedTools: ["web_search", "keyword_ad_probe", "firecrawl"],
+    allowedTools: ["web_search", "keyword_ad_probe", "keyword_volume", "firecrawl"],
     maxExternalLookups: 5,
     requiredEvidenceClasses: ["demand_signal_or_gap"],
     bodySchema: demandIntentBodySchema,

@@ -146,6 +146,18 @@ export function validateDemandIntentMinimums(
     errors.push(`body.keywordDemand.keywords: have ${keywordCount}, need >=10.`);
   }
 
+  // Every keyword row must carry a falsifiable signal. Scoped to monthlyVolume
+  // ONLY (not the whole body) so a legitimately-undisclosed non-signal field
+  // elsewhere does not false-fail. The keyword_volume tool (SpyFu) supplies a
+  // real number; "not disclosed" here is a refusal, not a signal.
+  parsedArtifact.body.keywordDemand.keywords.forEach((keyword, index) => {
+    if (/not disclosed/i.test(keyword.monthlyVolume)) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}].monthlyVolume: "not disclosed" is not an acceptable signal — use the keyword_volume tool for a SpyFu-estimated number.`,
+      );
+    }
+  });
+
   const questions = parsedArtifact.body.questionMining.questions;
   if (questions.length < 10) {
     errors.push(`body.questionMining.questions: have ${questions.length}, need >=10.`);

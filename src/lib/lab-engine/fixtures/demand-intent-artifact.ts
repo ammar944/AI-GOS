@@ -36,7 +36,7 @@ export const demandIntentFixtureArtifact = artifactEnvelopeSchema
           "Keyword demand is strongest around workflow, review, CRM cleanup, account focus, and founder-led sales operations.",
         keywords: Array.from({ length: 10 }, (_, index) => ({
           keyword: `founder sales workflow ${index + 1}`,
-          monthlyVolume: "not disclosed",
+          monthlyVolume: `${(index + 1) * 320} (SpyFu-estimated)`,
           intentType:
             index % 4 === 0
               ? "informational"
@@ -93,7 +93,7 @@ export const demandIntentFixtureArtifact = artifactEnvelopeSchema
         venues: Array.from({ length: 4 }, (_, index) => ({
           name: `Demand Venue ${index + 1}`,
           venueType: venueTypes[index % venueTypes.length],
-          audienceSize: "not disclosed",
+          audienceSize: "unverified — no public sizing",
           sourceUrl: `https://example.com/demand/venue-${index + 1}`,
         })),
       },

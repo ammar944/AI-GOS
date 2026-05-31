@@ -7,4 +7,8 @@ describe("TOOL_CATALOG", (): void => {
     expect(TOOL_CATALOG).not.toHaveProperty("ga4");
     expect(TOOL_CATALOG).not.toHaveProperty("spyfu");
   });
+
+  it("registers keyword_volume (SpyFu volume signal for Demand Intent)", (): void => {
+    expect(TOOL_CATALOG).toHaveProperty("keyword_volume");
+  });
 });

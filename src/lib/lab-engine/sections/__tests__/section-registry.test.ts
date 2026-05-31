@@ -37,7 +37,12 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       requiredEvidenceClasses: ["voc_quote_or_gap"],
     });
     expect(SECTION_REGISTRY.positioningDemandIntent).toMatchObject({
-      allowedTools: ["web_search", "keyword_ad_probe", "firecrawl"],
+      allowedTools: [
+        "web_search",
+        "keyword_ad_probe",
+        "keyword_volume",
+        "firecrawl",
+      ],
       maxExternalLookups: 5,
       requiredEvidenceClasses: ["demand_signal_or_gap"],
     });

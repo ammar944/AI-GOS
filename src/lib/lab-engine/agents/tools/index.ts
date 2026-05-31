@@ -3,6 +3,7 @@ import { braveSearchAgentTool } from "./brave-search";
 import { firecrawlAgentTool } from "./firecrawl";
 import { googleAdsAgentTool } from "./google-ads";
 import { keywordAdProbeAgentTool } from "./keyword-ad-probe";
+import { keywordVolumeAgentTool } from "./keyword-volume";
 import { metaAdsAgentTool } from "./meta-ads";
 import { pagespeedAgentTool } from "./pagespeed";
 import { reviewsAgentTool } from "./reviews";
@@ -15,6 +16,7 @@ export const TOOL_CATALOG = {
   meta_ads: metaAdsAgentTool,
   pagespeed: pagespeedAgentTool,
   keyword_ad_probe: keywordAdProbeAgentTool,
+  keyword_volume: keywordVolumeAgentTool,
   reviews: reviewsAgentTool,
 } as const;
 
