@@ -19,6 +19,8 @@
 ## Testing
 - Pre-existing TS errors in openrouter tests and chat blueprint tests are expected — don't try to fix them
 - When Vitest tests fail with import errors, check `vitest.config.ts` path aliases match `tsconfig.json`
+- When changing a section's `allowedTools` in `section-registry.ts`, `section-registry.test.ts` ("Phase D bounded in-section tool contract") pins each section's EXACT allowedTools array (order-sensitive via `toMatchObject`) — update it in the same change, and include `section-registry.test.ts` in your targeted test run (the parity + skill-resolution tests do NOT catch an allowedTools change; only the contract test does). (P1.3, 2026-05-31)
+- For a credential-gated feature whose validator hard-rejects a fallback (e.g. demand-intent rejecting "not disclosed"), VERIFY the credential is funded with ONE probe call BEFORE wiring the hard-reject — a present-but-unfunded key would make the section hard-fail. Scrub the key from all probe output (monkeypatch console). (P1.3, 2026-05-31)
 
 ## Handoff hygiene
 - When writing a handoff that touches `research-worker/`, run `cd research-worker && npm run build` and capture ITS baseline BEFORE writing the doc — the worker has its own pre-existing errors (express/apify missing `@types/*` as of 2026-05-11) that don't show in the frontend `npx tsc` count. Inheriting the frontend baseline as the worker gate produces false "build clean" reports.
