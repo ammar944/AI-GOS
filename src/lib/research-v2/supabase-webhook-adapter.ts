@@ -34,7 +34,13 @@ export interface WebhookSupabase {
     expectedRevision: number;
     error?: string;
   } | null>;
-  /** Update research_section_runs.status when we force-error a section. */
+  /**
+   * Force-error a section terminally. Writes BOTH research_section_runs
+   * (status='error') and the research_artifact_sections projector row the
+   * reader renders, mirroring commit_artifact_section's dual-write so a
+   * failed/timed-out section never leaves a frozen 'running' card. Both writes
+   * are guarded so a CAS-losing late failure cannot clobber a committed section.
+   */
   markSectionError(input: {
     sectionRunId: string;
     error: Record<string, unknown>;
@@ -173,19 +179,49 @@ export function createSupabaseWebhookAdapter(
       // complete the WHERE matches zero rows and Supabase returns error:null.
       // Return `changed` so callers do not write failure telemetry after a
       // guarded no-op.
+      const completedAt = new Date().toISOString();
       const { data, error } = await supabase
         .from('research_section_runs')
         .update({
           status: 'error',
           error: input.error,
-          completed_at: new Date().toISOString(),
+          completed_at: completedAt,
         })
         .eq('id', input.sectionRunId)
         .neq('status', 'complete')
         .select('id')
         .maybeSingle();
       if (error) return { ok: false, changed: false, error: error.message };
-      return { ok: true, changed: data !== null };
+
+      const changed = data !== null;
+
+      // Cascade the terminal error to the projector row the reader renders, but
+      // ONLY when this call actually transitioned the run row. If the guard
+      // no-opped (the run was already 'complete'), the artifact row is committed
+      // too and must not be touched. commit_artifact_section dual-writes BOTH
+      // research_section_runs and research_artifact_sections on success; the
+      // failure path must mirror that, or a timed-out/failed section leaves its
+      // artifact row frozen at status='running', error=null (sourceCount=0)
+      // forever — the stale-card bug. Scoped by section_run_id so we only touch
+      // THIS run's projector row, and guarded with .neq('status','complete') so
+      // a CAS-losing late failure cannot downgrade a committed sibling.
+      // Best-effort: the run row already recorded the terminal error, so an
+      // artifact-write hiccup is surfaced as a non-fatal error string, not thrown.
+      if (changed) {
+        const { error: artifactError } = await supabase
+          .from('research_artifact_sections')
+          .update({
+            status: 'error',
+            error: input.error,
+            updated_at: completedAt,
+          })
+          .eq('section_run_id', input.sectionRunId)
+          .neq('status', 'complete');
+        if (artifactError) {
+          return { ok: true, changed, error: artifactError.message };
+        }
+      }
+      return { ok: true, changed };
     },
   };
 }

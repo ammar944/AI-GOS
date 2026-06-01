@@ -77,9 +77,12 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const updateSelect = vi.fn().mockReturnValue({
     maybeSingle: updateSelectMaybeSingle,
   });
-  const updateNeq = vi.fn().mockReturnValue({
-    select: updateSelect,
-  });
+  // .neq(...) must be BOTH awaitable (markSectionError's research_artifact_sections
+  // cascade ends at .neq and is awaited directly) AND chainable to .select (the
+  // research_section_runs guard adds .select('id').maybeSingle()).
+  const updateNeq = vi.fn().mockReturnValue(
+    Object.assign(Promise.resolve({ error: null }), { select: updateSelect }),
+  );
   // .eq(...) must be BOTH awaitable (markSectionRunning, telemetry, parent
   // rollup call .eq without .neq) AND expose a chainable .neq (markSectionError
   // adds the `.neq('status', 'complete')` guard).
@@ -260,7 +263,7 @@ describe('createSupabaseRunStore', (): void => {
     expect(fakeSupabase.updateEq).toHaveBeenCalledWith('id', parentAuditRunId);
   });
 
-  it('marks only the failed section run as errored in Supabase and the local record', async (): Promise<void> => {
+  it('marks the failed section run and its projector row as errored, leaving sibling sections untouched', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
@@ -289,6 +292,20 @@ describe('createSupabaseRunStore', (): void => {
     );
     expect(fakeSupabase.updateEq).toHaveBeenCalledWith(
       'id',
+      sectionRunIdByZone.positioningBuyerICP,
+    );
+    // Dual-write: the projector row (research_artifact_sections) is also moved
+    // to a terminal error, scoped to this run's section_run_id, so the reader
+    // renders a clean failed card instead of a frozen 'running' one.
+    expect(
+      fakeSupabase.updates.some(
+        (entry) =>
+          entry.table === 'research_artifact_sections' &&
+          entry.patch.status === 'error',
+      ),
+    ).toBe(true);
+    expect(fakeSupabase.updateEq).toHaveBeenCalledWith(
+      'section_run_id',
       sectionRunIdByZone.positioningBuyerICP,
     );
     expect(failed.sections.positioningBuyerICP?.status).toBe('failed');
@@ -361,6 +378,15 @@ describe('createSupabaseRunStore', (): void => {
     expect(fakeSupabase.updateSelect).toHaveBeenCalledWith('id');
     expect(afterLateFailure.sections.positioningMarketCategory?.status).toBe('completed');
     expect(afterLateFailure.sections.positioningMarketCategory?.error).toBeNull();
+    // The complete-row guard no-opped the run-row update (changed=false), so the
+    // committed projector row must NOT be downgraded to error by a late failure.
+    expect(
+      fakeSupabase.updates.some(
+        (entry) =>
+          entry.table === 'research_artifact_sections' &&
+          entry.patch.status === 'error',
+      ),
+    ).toBe(false);
     expect(
       fakeSupabase.updates.filter((update) => {
         const telemetry = update.patch.telemetry as { phase?: unknown } | undefined;
