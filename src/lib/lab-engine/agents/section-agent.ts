@@ -93,6 +93,7 @@ type AnswerToolPrepareStep =
 type ToolLoopAgentSettings = ConstructorParameters<typeof ToolLoopAgent>[0];
 type ToolLoopProviderOptions = ToolLoopAgentSettings["providerOptions"];
 type StructuredProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
+type StructuredOutputDefinition = ReturnType<typeof Output.object>;
 
 function getPropertyValue(object: unknown, key: string): unknown {
   if (typeof object !== "object" || object === null || !(key in object)) {
@@ -459,10 +460,14 @@ export interface StructuredCallParams<TOutput> {
   schema: z.ZodType<TOutput>;
   schemaName: string;
   schemaDescription: string;
+  instructions?: string;
   prompt: string;
+  tools?: Record<string, unknown>;
+  maxStepCount?: number;
   maxOutputTokens: number;
   signal?: AbortSignal;
   telemetry?: TelemetrySettings;
+  onStepFinish?: (step: AgentStep) => void;
 }
 
 export type StructuredCaller = (
@@ -470,6 +475,7 @@ export type StructuredCaller = (
 ) => Promise<unknown>;
 
 export interface StructuredStreamResult {
+  consumeStream?: () => PromiseLike<void>;
   output: PromiseLike<unknown>;
   partialOutputStream: AsyncIterable<unknown>;
 }
@@ -1158,8 +1164,9 @@ async function generateStructuredResult({
   params: StructuredCallParams<unknown>;
   structuredOutputMode: AnthropicStructuredOutputMode;
 }): Promise<Awaited<ReturnType<typeof generateText>>> {
-  return generateText({
+  return generateText<ToolSet, StructuredOutputDefinition>({
     model: params.model,
+    tools: params.tools as ToolSet | undefined,
     output: Output.object({
       schema:
         structuredOutputMode === "outputFormat"
@@ -1171,11 +1178,15 @@ async function generateStructuredResult({
       name: params.schemaName,
       description: params.schemaDescription,
     }),
-    stopWhen: stepCountIs(1),
+    stopWhen: stepCountIs(params.maxStepCount ?? 1) as never,
     maxOutputTokens: params.maxOutputTokens,
+    system: params.instructions,
     prompt: params.prompt,
     abortSignal: params.signal,
     experimental_telemetry: params.telemetry,
+    onStepFinish: (step) => {
+      params.onStepFinish?.(summarizeStep(step));
+    },
     providerOptions: getStructuredProviderOptions({
       model: params.model,
       structuredOutputMode,
@@ -1193,8 +1204,9 @@ function streamStructuredResult({
   params: StructuredCallParams<unknown>;
   structuredOutputMode: AnthropicStructuredOutputMode;
 }): ReturnType<typeof streamText> {
-  return streamText({
+  return streamText<ToolSet, StructuredOutputDefinition>({
     model: params.model,
+    tools: params.tools as ToolSet | undefined,
     output: Output.object({
       schema:
         structuredOutputMode === "outputFormat"
@@ -1206,11 +1218,15 @@ function streamStructuredResult({
       name: params.schemaName,
       description: params.schemaDescription,
     }),
-    stopWhen: stepCountIs(1),
+    stopWhen: stepCountIs(params.maxStepCount ?? 1) as never,
     maxOutputTokens: params.maxOutputTokens,
+    system: params.instructions,
     prompt: params.prompt,
     abortSignal: params.signal,
     experimental_telemetry: params.telemetry,
+    onStepFinish: (step) => {
+      params.onStepFinish?.(summarizeStep(step));
+    },
     // AI SDK native timeout — fires inside the iterator if a chunk does not
     // arrive within chunkMs or the call exceeds totalMs. Without this, a
     // parked partialOutputStream would block the for-await consumer in
@@ -1358,6 +1374,7 @@ export const defaultStructuredStreamer: StructuredStreamer = (
   });
 
   return {
+    consumeStream: () => result.consumeStream(),
     output: parseStreamedStructuredOutput({
       output: result.output,
       params,

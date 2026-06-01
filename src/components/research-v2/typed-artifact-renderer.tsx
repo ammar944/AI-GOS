@@ -10,7 +10,6 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
 import {
   isRecord,
   type BuyerICPArtifact,
@@ -399,7 +398,7 @@ function ArtifactSources({
   );
 }
 
-function GenericTypedArtifactRenderer({
+export function GenericTypedArtifactRenderer({
   artifact,
   zoneId,
   showSectionTitle,

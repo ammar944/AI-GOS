@@ -15,6 +15,7 @@ import { positioningSynthesisFixtureArtifact } from '@/lib/lab-engine/fixtures/p
 
 const mocks = vi.hoisted(() => ({
   useAuditState: vi.fn(),
+  useSectionPartials: vi.fn(),
 }));
 
 const EMPTY_AUDIT_STATE: AuditStateResponse = {
@@ -31,11 +32,16 @@ vi.mock('@/lib/research-v2/use-audit-state', () => ({
   useAuditState: mocks.useAuditState,
 }));
 
+vi.mock('@/lib/research-v2/use-section-partials', () => ({
+  useSectionPartials: mocks.useSectionPartials,
+}));
+
 const { AuditReaderShell } = await import('../audit-reader-shell');
 
 describe('<AuditReaderShell>', () => {
   beforeEach((): void => {
     mocks.useAuditState.mockReturnValue(EMPTY_AUDIT_STATE);
+    mocks.useSectionPartials.mockReturnValue({});
     vi.stubGlobal(
       'fetch',
       vi.fn(() => new Promise<Response>(() => {})),
@@ -297,6 +303,48 @@ describe('<AuditReaderShell>', () => {
     const strip = screen.getByTestId('section-progress-strip');
     expect(strip.textContent).toContain('0/8');
     expect(strip.textContent).not.toContain('%');
+  });
+
+  it('renders streamed partials through the generic drafting renderer without committed state', (): void => {
+    mocks.useSectionPartials.mockReturnValue({
+      positioningMarketCategory: {
+        zone: 'positioningMarketCategory',
+        sectionId: 'positioningMarketCategory',
+        seq: 3,
+        snapshot: {
+          categoryDefinition: {
+            prose: 'Draft category definition is arriving progressively.',
+          },
+        },
+      },
+    });
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'running',
+      children_complete: 0,
+      children_total: 6,
+      workerStates: [
+        buildWorker(
+          'positioningMarketCategory',
+          'running',
+          'Drafting section',
+        ),
+      ],
+      sectionsByZone: {},
+      eventsByZone: {},
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByText('Drafting...')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('typed-artifact-renderer-positioningMarketCategory'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Draft category definition is arriving progressively.'),
+    ).toBeInTheDocument();
+    expect(mocks.useAuditState.mock.results[0]?.value.sectionsByZone).toEqual({});
   });
 
   it('renders running activity over stale complete section data during a rerun', (): void => {
@@ -774,6 +822,34 @@ describe('<AuditReaderShell>', () => {
 
     await waitFor(() => expect(screen.getByText('Copy failed')).toBeInTheDocument());
     warnSpy.mockRestore();
+  });
+
+  it('contains malformed committed bodies with an error boundary', (): void => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: {
+            sectionTitle: 'Market & Category Intelligence',
+            verdict: 'Malformed body should not white-screen.',
+            statusSummary: 'Renderer crash is contained.',
+            confidence: 0,
+            sources: [{ title: 'Source', url: 'https://example.com' }],
+          },
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByText('Section body could not render.')).toBeInTheDocument();
+    errorSpy.mockRestore();
   });
 });
 

@@ -17,12 +17,15 @@
 'use client';
 
 import {
+  Component,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ErrorInfo,
   type ReactElement,
+  type ReactNode,
 } from 'react';
 
 import {
@@ -49,6 +52,7 @@ import {
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
+import { useSectionPartials } from '@/lib/research-v2/use-section-partials';
 import type {
   AuditStateResponse,
   SectionEvent,
@@ -76,7 +80,10 @@ import {
 } from '@/types/positioning-artifact';
 import { cn } from '@/lib/utils';
 
-import { TypedArtifactRenderer } from './typed-artifact-renderer';
+import {
+  GenericTypedArtifactRenderer,
+  TypedArtifactRenderer,
+} from './typed-artifact-renderer';
 
 // ---------------------------------------------------------------------------
 // Labels + small helpers
@@ -676,6 +683,89 @@ function ErrorState({
   );
 }
 
+interface TypedArtifactErrorBoundaryProps {
+  children: ReactNode;
+  sectionId: ReaderSectionId;
+}
+
+interface TypedArtifactErrorBoundaryState {
+  failed: boolean;
+}
+
+class TypedArtifactErrorBoundary extends Component<
+  TypedArtifactErrorBoundaryProps,
+  TypedArtifactErrorBoundaryState
+> {
+  public state: TypedArtifactErrorBoundaryState = { failed: false };
+
+  public static getDerivedStateFromError(): TypedArtifactErrorBoundaryState {
+    return { failed: true };
+  }
+
+  public componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn('[audit-reader-shell] typed artifact render failed', {
+      error: describeError(error),
+      componentStack: info.componentStack,
+      sectionId: this.props.sectionId,
+    });
+  }
+
+  public render(): ReactNode {
+    if (this.state.failed) {
+      return (
+        <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+          Section body could not render.
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function buildDraftArtifact({
+  active,
+  snapshot,
+}: {
+  active: ReaderSectionId;
+  snapshot: Record<string, unknown>;
+}): PositioningTypedArtifact {
+  return {
+    sectionTitle: READER_SECTION_LABELS[active],
+    verdict: 'Partial draft',
+    statusSummary: 'Streaming section body...',
+    confidence: 0,
+    sources: [],
+    ...snapshot,
+  } as PositioningTypedArtifact;
+}
+
+function DraftingArtifactView({
+  artifact,
+  zoneId,
+}: {
+  artifact: PositioningTypedArtifact;
+  zoneId: ReaderSectionId;
+}): ReactElement {
+  return (
+    <div className="mt-8 space-y-6">
+      <div className="flex items-center gap-2.5 text-[13.5px] text-foreground">
+        <Loader2
+          className="size-4 animate-spin text-primary motion-reduce:animate-none"
+          strokeWidth={2.5}
+          aria-hidden="true"
+        />
+        <span className="font-medium">Drafting...</span>
+      </div>
+      <GenericTypedArtifactRenderer
+        artifact={artifact}
+        zoneId={zoneId}
+        showSectionTitle={false}
+      />
+    </div>
+  );
+}
+
 function isSixSectionComplete(live: AuditStateResponse): boolean {
   if (live.children_complete >= POSITIONING_SECTION_IDS.length) return true;
   return POSITIONING_SECTION_IDS.every((sectionId) => {
@@ -774,11 +864,13 @@ function PaidMediaPlanTerminalPanel({
         </div>
         {artifact ? (
           <div className="mt-6">
-            <TypedArtifactRenderer
-              artifact={artifact}
-              zoneId={PAID_MEDIA_PLAN_SECTION_ID}
-              showSectionTitle={false}
-            />
+            <TypedArtifactErrorBoundary sectionId={PAID_MEDIA_PLAN_SECTION_ID}>
+              <TypedArtifactRenderer
+                artifact={artifact}
+                zoneId={PAID_MEDIA_PLAN_SECTION_ID}
+                showSectionTitle={false}
+              />
+            </TypedArtifactErrorBoundary>
           </div>
         ) : null}
       </div>
@@ -1040,6 +1132,7 @@ export function AuditReaderShell({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const live = useAuditState(runId, pollRefreshKey);
+  const sectionPartials = useSectionPartials(runId);
 
   useEffect(() => {
     setUserActive(null);
@@ -1202,6 +1295,18 @@ export function AuditReaderShell({
   const activeTyped = typedByZone.get(active) ?? null;
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
+  const activeDraftArtifact = useMemo(() => {
+    const partial = sectionPartials[active];
+
+    if (activeStatus !== 'running' || partial === undefined) {
+      return null;
+    }
+
+    return buildDraftArtifact({
+      active,
+      snapshot: partial.snapshot,
+    });
+  }, [active, activeStatus, sectionPartials]);
 
   const completedCount = useMemo(
     () => READER_SECTION_IDS.filter((id) => statusOf(id) === 'complete').length,
@@ -1518,17 +1623,22 @@ export function AuditReaderShell({
 
                 <div className="mt-12">
                   {active === PAID_MEDIA_PLAN_SECTION_ID ? (
-                    <PaidMediaPlanTerminalPanel
-                      artifact={activeTyped}
-                      events={live.eventsByZone[PAID_MEDIA_PLAN_SECTION_ID] ?? []}
-                      statusText="Paid media plan committed."
-                    />
+                  <PaidMediaPlanTerminalPanel
+                    artifact={activeTyped}
+                    events={live.eventsByZone[PAID_MEDIA_PLAN_SECTION_ID] ?? []}
+                    statusText="Paid media plan committed."
+                  />
                   ) : (
-                    <TypedArtifactRenderer
-                      artifact={activeTyped}
-                      zoneId={active}
-                      showSectionTitle={false}
-                    />
+                    <TypedArtifactErrorBoundary
+                      key={active}
+                      sectionId={active}
+                    >
+                      <TypedArtifactRenderer
+                        artifact={activeTyped}
+                        zoneId={active}
+                        showSectionTitle={false}
+                      />
+                    </TypedArtifactErrorBoundary>
                   )}
                 </div>
 
@@ -1541,11 +1651,18 @@ export function AuditReaderShell({
                 pending={rerunPending === active}
               />
             ) : activeStatus === 'running' ? (
-              <LiveActivity
-                phaseLabel={activeWorker?.phaseLabel ?? 'Working'}
-                latestActivity={activeWorker?.latestActivity ?? null}
-                events={live.eventsByZone[active] ?? []}
-              />
+              activeDraftArtifact ? (
+                <DraftingArtifactView
+                  artifact={activeDraftArtifact}
+                  zoneId={active}
+                />
+              ) : (
+                <LiveActivity
+                  phaseLabel={activeWorker?.phaseLabel ?? 'Working'}
+                  latestActivity={activeWorker?.latestActivity ?? null}
+                  events={live.eventsByZone[active] ?? []}
+                />
+              )
             ) : active === PAID_MEDIA_PLAN_SECTION_ID ? (
               <PaidMediaPlanTerminalPanel
                 artifact={activeTyped}

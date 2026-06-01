@@ -81,6 +81,19 @@ function buildRootShapeGuidance(): string {
   ].join("\n");
 }
 
+function buildBodyOnlyShapeGuidance(): string {
+  return [
+    "Required JSON root shape:",
+    "{",
+    '  "...section body keys only...": {}',
+    "}",
+    "",
+    "Return ONLY the section body object.",
+    "Do not include `sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`, `body`, or `$schema` at the root.",
+    "Every evidence-backed row that has a public source must carry its own `sourceUrl` field so the runner can derive envelope sources after validation.",
+  ].join("\n");
+}
+
 function buildCorpusOnlyBoundary(
   externalToolNames: readonly string[] | undefined,
 ): string[] {
@@ -516,6 +529,56 @@ export function buildStructuredPrompt({
   ].join("\n");
 }
 
+export function buildStructuredBodyPrompt({
+  definition,
+  externalToolNames,
+  normalizedAdEvidenceGroups,
+  researchInput,
+  skillMd,
+}: {
+  definition: PromptSectionDefinition;
+  normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  researchInput: ResearchInput;
+  skillMd: string;
+  externalToolNames?: readonly string[];
+}): string {
+  const evidenceInstruction =
+    externalToolNames !== undefined && externalToolNames.length === 0
+      ? "No external research tools are available. Use the ResearchInput JSON, pre-normalized evidence blocks, and skill guidance only."
+      : "Use the available tools for evidence gathering before finalizing the structured body.";
+
+  return [
+    `Section ${definition.title}.`,
+    `Mission: ${definition.mission}`,
+    evidenceInstruction,
+    "",
+    ...buildCapabilityGapGuidance(definition, externalToolNames),
+    "Skill analyst guidance:",
+    skillMd,
+    "",
+    ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
+    "ResearchInput JSON:",
+    JSON.stringify(
+      buildResearchInputForPrompt({ definition, researchInput }),
+      null,
+      2,
+    ),
+    "",
+    "Output emphasis:",
+    definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
+    "",
+    "Validator checklist:",
+    "- Satisfy the section-specific body schema and minimum validator.",
+    "- Use real source URLs from tool evidence and ResearchInput.",
+    "- For Competitor Landscape ad evidence, use pre-normalized live ad evidence only.",
+    ...buildSectionMinimumGuidance(definition),
+    "- Do not state a confidence figure in any body prose.",
+    "",
+    buildBodyOnlyShapeGuidance(),
+    buildSectionObjectiveRecap(definition, researchInput),
+  ].join("\n");
+}
+
 export function buildAnswerToolInstructions(
   definition: PromptSectionDefinition,
   researchInput: ResearchInput,
@@ -616,6 +679,47 @@ export function buildRepairPrompt({
     issues.map((issue) => `- ${issue}`).join("\n"),
     "",
     "Previous output JSON:",
+    JSON.stringify(previousOutput),
+  ].join("\n");
+}
+
+export function buildStructuredBodyRepairPrompt({
+  definition,
+  evidenceTranscript,
+  externalToolNames,
+  issues,
+  normalizedAdEvidenceGroups,
+  previousOutput,
+  researchInput,
+  skillMd,
+}: {
+  definition: PromptSectionDefinition;
+  evidenceTranscript: string;
+  issues: string[];
+  normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  previousOutput: unknown;
+  researchInput: ResearchInput;
+  skillMd: string;
+  externalToolNames?: readonly string[];
+}): string {
+  return [
+    buildStructuredBodyPrompt({
+      definition,
+      externalToolNames,
+      normalizedAdEvidenceGroups,
+      researchInput,
+      skillMd,
+    }),
+    "",
+    "Evidence from the previous streamed attempt:",
+    evidenceTranscript,
+    "",
+    "The previous output failed validation. Return a corrected section body object.",
+    "If envelope fields were included, remove them and keep only section body keys.",
+    "Validation issues:",
+    issues.map((issue) => `- ${issue}`).join("\n"),
+    "",
+    "Previous body JSON:",
     JSON.stringify(previousOutput),
   ].join("\n");
 }

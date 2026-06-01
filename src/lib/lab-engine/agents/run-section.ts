@@ -41,6 +41,8 @@ import {
   buildSectionObjectiveRecap,
   buildEvidenceTranscript,
   buildRepairPrompt,
+  buildStructuredBodyPrompt,
+  buildStructuredBodyRepairPrompt,
   buildStructuredPrompt,
   shortenForEvent,
 } from "./build-prompts";
@@ -84,6 +86,10 @@ import {
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import { structuralVerifier } from "./verification/structural-verifier";
+import {
+  createThrottledSectionPartialBroadcaster,
+  type SectionPartialPublishFn,
+} from "@/lib/research-v2/section-partial-broadcaster";
 
 export interface RunSectionInput {
   runId: string;
@@ -99,6 +105,8 @@ export interface RunSectionDeps {
   runAnswerTool?: AnswerToolRunner;
   runEvidencePass?: EvidencePassRunner;
   callStructured?: StructuredCaller;
+  streamStructured?: StructuredStreamer;
+  broadcastPartial?: SectionPartialPublishFn;
   now?: () => Date;
   newId?: () => string;
 }
@@ -112,7 +120,6 @@ export interface RunSectionResult {
 export interface StreamRunSectionDeps extends RunSectionDeps {
   streamAnswerTool?: AnswerToolStreamer;
   streamEvidencePass?: EvidenceStreamRunner;
-  streamStructured?: StructuredStreamer;
   writer: RunSectionStreamWriter;
 }
 
@@ -272,6 +279,14 @@ function getErrorIssues(error: unknown): string[] {
   }
 
   return [String(error)];
+}
+
+function describeErrorForLog(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isAbortOrTimeoutMessage(error: unknown): boolean {
+  return describeErrorForLog(error).toLowerCase().includes("abort");
 }
 
 function hasTerminalStructuredError(errors: readonly string[]): boolean {
@@ -1128,6 +1143,79 @@ function collectStringValuesByKey(value: unknown, key: string): string[] {
   );
 
   return currentValue === null ? childValues : [currentValue, ...childValues];
+}
+
+interface ModelSourceInput {
+  title: string;
+  url: string;
+  publisher?: string;
+}
+
+function collectModelSourcesFromBody(value: unknown): ModelSourceInput[] {
+  const sourcesByUrl = new Map<string, ModelSourceInput>();
+
+  const visit = (current: unknown): void => {
+    if (Array.isArray(current)) {
+      for (const item of current) {
+        visit(item);
+      }
+      return;
+    }
+
+    const record = getRecord(current);
+
+    if (record === null) {
+      return;
+    }
+
+    const sourceUrl = getValidHttpUrl(getStringProperty(record, "sourceUrl"));
+
+    if (sourceUrl !== null && !sourcesByUrl.has(sourceUrl)) {
+      const sourceTitle =
+        getStringProperty(record, "sourceTitle") ??
+        getStringProperty(record, "source") ??
+        getStringProperty(record, "title") ??
+        getSourceTitleFromUrl(sourceUrl);
+      const publisher = getStringProperty(record, "publisher");
+
+      sourcesByUrl.set(sourceUrl, {
+        title: sourceTitle,
+        url: sourceUrl,
+        ...(publisher === null ? {} : { publisher }),
+      });
+    }
+
+    for (const childValue of Object.values(record)) {
+      visit(childValue);
+    }
+  };
+
+  visit(value);
+
+  return Array.from(sourcesByUrl.values());
+}
+
+function buildSyntheticSectionOutput({
+  body,
+  definition,
+}: {
+  body: Record<string, unknown>;
+  definition: RuntimeSectionDefinition;
+}): SectionOutput<Record<string, unknown>> {
+  const firstProse = collectStringValuesByKey(body, "prose")[0];
+  const summary =
+    firstProse === undefined
+      ? `${definition.title} drafted from available evidence.`
+      : firstProse;
+
+  return {
+    sectionTitle: definition.title,
+    verdict: summary.slice(0, 500),
+    statusSummary: summary.slice(0, 500),
+    confidence: 0.5,
+    sources: collectModelSourcesFromBody(body),
+    body,
+  };
 }
 
 function removeEmptyStringProperty(
@@ -2988,6 +3076,102 @@ export function keywordVolumeSucceeded(modelSteps: readonly AgentStep[]): boolea
   );
 }
 
+function buildVerifiedAttemptFromOutput({
+  definition,
+  deps,
+  input,
+  modelSteps,
+  output,
+  researchInput,
+}: {
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  modelSteps: readonly AgentStep[];
+  output: SectionOutput<Record<string, unknown>>;
+  researchInput: ResearchInput;
+}): AttemptResult {
+  const verification = structuralVerifier({
+    body: output.body,
+    toolResults: modelSteps.flatMap((step) => step.toolResults),
+    corpusExcerpts: researchInput.corpus.excerpts,
+  });
+  const artifact = buildEnvelope({
+    definition,
+    deps,
+    input,
+    output,
+    verification,
+  });
+  const minimums = definition.validateMinimums(artifact);
+
+  if (!minimums.ok) {
+    return { output, artifact: null, errors: minimums.errors };
+  }
+
+  const missingClass = checkRequiredEvidenceClasses({
+    body: artifact.body,
+    requiredEvidenceClasses: definition.requiredEvidenceClasses,
+    sectionId: input.sectionId,
+  });
+
+  if (missingClass !== null) {
+    const failure = new RequiredEvidenceMissingError({
+      missingClass,
+      sectionId: input.sectionId,
+      unsupportedCount: verification.unsupportedCount,
+      verifiedCount: verification.verifiedCount,
+    });
+
+    return {
+      output,
+      artifact: null,
+      errors: [failure.message],
+      requiredEvidenceMissing: failure,
+    };
+  }
+
+  if (input.sectionId === "positioningVoiceOfCustomer") {
+    const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+      artifact,
+      subjectDomain: researchInput.company.websiteUrl,
+    });
+
+    if (!selfSourcing.ok) {
+      return { output, artifact: null, errors: selfSourcing.errors };
+    }
+  }
+
+  if (input.sectionId === "positioningDemandIntent") {
+    const provenance = checkDemandIntentKeywordProvenance({
+      artifact,
+      keywordVolumeSucceeded: keywordVolumeSucceeded(modelSteps),
+    });
+
+    if (!provenance.ok) {
+      return { output, artifact: null, errors: provenance.errors };
+    }
+  }
+
+  const evidenceSupportShortfall = evaluateEvidenceSupport({
+    verification,
+    ...(input.sectionId === "positioningVoiceOfCustomer"
+      ? { loadBearingKinds: voiceOfCustomerLoadBearingKinds }
+      : {}),
+  });
+
+  if (evidenceSupportShortfall.unsupportedLoadBearing.length > 0) {
+    return {
+      output,
+      artifact,
+      errors: [],
+      evidenceSupportShortfall,
+    };
+  }
+
+  return { output, artifact, errors: [] };
+}
+
 function buildAnswerToolAttempt({
   answerInput,
   definition,
@@ -3021,87 +3205,253 @@ function buildAnswerToolAttempt({
         normalizedAdEvidenceGroups,
       }),
     );
-    const verification = structuralVerifier({
-      body: output.body,
-      toolResults: modelSteps.flatMap((step) => step.toolResults),
-      corpusExcerpts: researchInput.corpus.excerpts,
-    });
-    const artifact = buildEnvelope({
+    return buildVerifiedAttemptFromOutput({
       definition,
       deps,
       input,
+      modelSteps,
       output,
-      verification,
+      researchInput,
     });
-    const minimums = definition.validateMinimums(artifact);
-
-    if (!minimums.ok) {
-      return { output, artifact: null, errors: minimums.errors };
-    }
-
-    const missingClass = checkRequiredEvidenceClasses({
-      body: artifact.body,
-      requiredEvidenceClasses: definition.requiredEvidenceClasses,
-      sectionId: input.sectionId,
-    });
-
-    if (missingClass !== null) {
-      const failure = new RequiredEvidenceMissingError({
-        missingClass,
-        sectionId: input.sectionId,
-        unsupportedCount: verification.unsupportedCount,
-        verifiedCount: verification.verifiedCount,
-      });
-
-      return {
-        output,
-        artifact: null,
-        errors: [failure.message],
-        requiredEvidenceMissing: failure,
-      };
-    }
-
-    if (input.sectionId === "positioningVoiceOfCustomer") {
-      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
-        artifact,
-        subjectDomain: researchInput.company.websiteUrl,
-      });
-
-      if (!selfSourcing.ok) {
-        return { output, artifact: null, errors: selfSourcing.errors };
-      }
-    }
-
-    if (input.sectionId === "positioningDemandIntent") {
-      const provenance = checkDemandIntentKeywordProvenance({
-        artifact,
-        keywordVolumeSucceeded: keywordVolumeSucceeded(modelSteps),
-      });
-
-      if (!provenance.ok) {
-        return { output, artifact: null, errors: provenance.errors };
-      }
-    }
-
-    const evidenceSupportShortfall = evaluateEvidenceSupport({
-      verification,
-      ...(input.sectionId === "positioningVoiceOfCustomer"
-        ? { loadBearingKinds: voiceOfCustomerLoadBearingKinds }
-        : {}),
-    });
-
-    if (evidenceSupportShortfall.unsupportedLoadBearing.length > 0) {
-      return {
-        output,
-        artifact,
-        errors: [],
-        evidenceSupportShortfall,
-      };
-    }
-
-    return { output, artifact, errors: [] };
   } catch (error) {
     return { output: null, artifact: null, errors: getErrorIssues(error) };
+  }
+}
+
+function normalizeModelSource(value: unknown): ModelSourceInput | null {
+  const record = getRecord(value);
+
+  if (record === null) {
+    return null;
+  }
+
+  const url = getValidHttpUrl(getStringProperty(record, "url"));
+
+  if (url === null) {
+    return null;
+  }
+
+  const title =
+    getStringProperty(record, "title") ?? getSourceTitleFromUrl(url);
+  const publisher = getStringProperty(record, "publisher");
+
+  return {
+    title,
+    url,
+    ...(publisher === null ? {} : { publisher }),
+  };
+}
+
+function mergeModelSources(
+  sources: readonly ModelSourceInput[],
+): ModelSourceInput[] {
+  const sourcesByUrl = new Map<string, ModelSourceInput>();
+
+  for (const source of sources) {
+    if (sourcesByUrl.has(source.url)) {
+      continue;
+    }
+    sourcesByUrl.set(source.url, source);
+  }
+
+  return Array.from(sourcesByUrl.values());
+}
+
+function buildOutputFromStructuredBody({
+  body,
+  definition,
+  input,
+  normalizedAdEvidenceGroups,
+}: {
+  body: unknown;
+  definition: RuntimeSectionDefinition;
+  input: RunSectionInput;
+  normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+}): SectionOutput<Record<string, unknown>> {
+  const parsedBody = definition.bodySchema.parse(body);
+  const syntheticOutput = buildSyntheticSectionOutput({
+    body: parsedBody,
+    definition,
+  });
+  const normalizedOutput = withNormalizedSectionOutput({
+    rawOutput: syntheticOutput,
+    normalizedAdEvidenceGroups,
+    sectionId: input.sectionId,
+  });
+  const normalizedOutputRecord = getRecord(normalizedOutput);
+  const normalizedBody =
+    normalizedOutputRecord === null
+      ? parsedBody
+      : definition.bodySchema.parse(normalizedOutputRecord.body);
+  const existingSources = Array.isArray(normalizedOutputRecord?.sources)
+    ? normalizedOutputRecord.sources
+        .map((source) => normalizeModelSource(source))
+        .filter((source): source is ModelSourceInput => source !== null)
+    : [];
+
+  return definition.sectionOutputSchema.parse({
+    ...syntheticOutput,
+    ...(normalizedOutputRecord ?? {}),
+    body: normalizedBody,
+    sources: mergeModelSources([
+      ...existingSources,
+      ...collectModelSourcesFromBody(normalizedBody),
+    ]),
+  });
+}
+
+async function buildStructuredBodyAttempt({
+  attempt,
+  definition,
+  deps,
+  externalTools,
+  input,
+  modelSteps,
+  normalizedAdEvidenceGroups,
+  prompt,
+  researchInput,
+  scheduleFlush,
+  toolEvents,
+}: {
+  attempt: number;
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  externalTools: Record<string, unknown>;
+  input: RunSectionInput;
+  modelSteps: AgentStep[];
+  normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  prompt: string;
+  researchInput: ResearchInput;
+  scheduleFlush: () => Promise<void>;
+  toolEvents: ActivityEvent[];
+}): Promise<AttemptResult> {
+  const streamStructured = deps.streamStructured ?? defaultStructuredStreamer;
+  const timeoutSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    timeoutMs: structuredOutputTimeoutMs,
+  });
+  const idleController = new AbortController();
+  const partialBroadcaster = createThrottledSectionPartialBroadcaster({
+    publish: deps.broadcastPartial,
+    runId: input.runId,
+    sectionId: input.sectionId,
+    zone: input.sectionId,
+    onError: (error) => {
+      console.warn("[lab-section] failed to broadcast artifact partial", {
+        error: describeErrorForLog(error),
+        runId: input.runId,
+        sectionId: input.sectionId,
+      });
+    },
+  });
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const refreshIdleTimer = (ms: number, reasonText: string): void => {
+    if (idleTimer !== undefined) {
+      clearTimeout(idleTimer);
+    }
+    idleTimer = setTimeout(() => {
+      idleController.abort(new Error(reasonText));
+    }, ms);
+  };
+  const clearIdleTimer = (): void => {
+    if (idleTimer !== undefined) {
+      clearTimeout(idleTimer);
+      idleTimer = undefined;
+    }
+  };
+
+  refreshIdleTimer(
+    structuredFirstChunkTimeoutMs,
+    `Structured output first chunk not received within ${structuredFirstChunkTimeoutMs}ms.`,
+  );
+
+  try {
+    const structuredStream = streamStructured({
+      model: sectionRunnerModel,
+      schema: definition.bodySchema,
+      schemaName: `${definition.sectionOutputSchemaName}Body`,
+      schemaDescription: `${definition.title} section body for AI-GOS AI SDK Lab.`,
+      prompt,
+      tools: externalTools,
+      maxStepCount: answerToolMaxStepCount,
+      maxOutputTokens: getStructuredOutputMaxTokens(definition),
+      signal: AbortSignal.any([timeoutSignal.signal, idleController.signal]),
+      telemetry: createLabSectionTelemetry({
+        attempt,
+        operation: "structured-output-stream",
+        runId: input.runId,
+        schemaName: `${definition.sectionOutputSchemaName}Body`,
+        sectionId: input.sectionId,
+      }),
+      onStepFinish: (step) => {
+        modelSteps.push(step);
+        toolEvents.push(
+          ...buildToolEvents({
+            deps,
+            runId: input.runId,
+            sectionId: input.sectionId,
+            step,
+          }),
+        );
+        void scheduleFlush().catch(() => undefined);
+      },
+    });
+
+    void structuredStream.consumeStream?.().then(undefined, (error: unknown) => {
+      if (isAbortOrTimeoutMessage(error)) {
+        return;
+      }
+      console.warn("[lab-section] structured stream consume failed", {
+        error: describeErrorForLog(error),
+        runId: input.runId,
+        sectionId: input.sectionId,
+      });
+    });
+
+    await consumePartialsUntilAbort({
+      abortSignal: idleController.signal,
+      iterable: structuredStream.partialOutputStream,
+      onFirstChunk: () =>
+        refreshIdleTimer(
+          structuredChunkIdleTimeoutMs,
+          `Structured output stream idle for ${structuredChunkIdleTimeoutMs}ms.`,
+        ),
+      onPartial: (partial) => {
+        refreshIdleTimer(
+          structuredChunkIdleTimeoutMs,
+          `Structured output stream idle for ${structuredChunkIdleTimeoutMs}ms.`,
+        );
+        partialBroadcaster.enqueue(partial);
+      },
+    });
+    clearIdleTimer();
+    await partialBroadcaster.flush();
+
+    const body = await withStructuredTimeout(
+      Promise.resolve(structuredStream.output),
+      structuredOutputTimeoutMs,
+    );
+    const output = buildOutputFromStructuredBody({
+      body,
+      definition,
+      input,
+      normalizedAdEvidenceGroups,
+    });
+
+    return buildVerifiedAttemptFromOutput({
+      definition,
+      deps,
+      input,
+      modelSteps,
+      output,
+      researchInput,
+    });
+  } catch (error) {
+    partialBroadcaster.cancel();
+    return { output: null, artifact: null, errors: getErrorIssues(error) };
+  } finally {
+    clearIdleTimer();
+    timeoutSignal.cleanup();
   }
 }
 
@@ -3490,6 +3840,391 @@ async function runSectionViaAnswerTool(
         sectionId: input.sectionId,
         type: "validation-failed",
         message: "Answer tool repair output failed validation",
+        metadata: {
+          attempt: validationAttempt,
+          issues: [evidenceGateFailureReason],
+        },
+      }),
+    );
+    await recordSectionFailure({
+      definition,
+      deps,
+      errorMessage: evidenceGateFailureReason,
+      input,
+    });
+
+    throw new SectionRunnerError({
+      runId: input.runId,
+      sectionId: input.sectionId,
+      errors: [evidenceGateFailureReason],
+    });
+  }
+
+  await appendSubSectionCommittedEvents({
+    artifact: attempt.artifact,
+    deps,
+    input,
+  });
+  await deps.store.saveArtifact(input.runId, attempt.artifact);
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "artifact-saved",
+      message: `${definition.title} artifact saved`,
+      metadata: { artifactId: attempt.artifact.id },
+    }),
+  );
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "section-completed",
+      message: `${definition.title} completed`,
+      metadata: {
+        sectionTitle: definition.title,
+        durationMs: Math.max(0, getNow(deps).getTime() - startedAt),
+      },
+    }),
+  );
+
+  return {
+    runId: input.runId,
+    sectionId: input.sectionId,
+    artifact: attempt.artifact,
+  };
+}
+
+async function runSectionViaStructuredBodyStream(
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): Promise<RunSectionResult> {
+  const definition = getRuntimeSectionDefinition(input.sectionId);
+  const startedAt = getNow(deps).getTime();
+  const record = await deps.store.readRun(input.runId);
+  const researchInput: ResearchInput = record.input;
+  const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
+    deps.env ?? process.env,
+  );
+
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "section-started",
+      message: `${definition.title} started`,
+      metadata: { sectionTitle: definition.title },
+    }),
+  );
+  await deps.store.markSectionRunning(input.runId, input.sectionId);
+
+  const toolEvents: ActivityEvent[] = [];
+  const toolBudget = new SectionToolBudget(
+    definition.maxExternalLookups,
+    definition.adReservedLookups ?? 0,
+  );
+  const externalTools = buildToolMap(getAllowedTools(definition, deps), {
+    budget: toolBudget,
+    webSearchMaxUses: definition.maxExternalLookups,
+  });
+  const externalToolNames = getExternalToolNames(externalTools);
+  const adProbeMaxAdvertisers =
+    definition.adReservedLookups !== undefined &&
+    definition.adReservedLookups > 0
+      ? Math.max(
+          1,
+          Math.floor(
+            definition.adReservedLookups /
+              competitorAdProbeAdLookupsPerAdvertiser,
+          ),
+        )
+      : undefined;
+  const adPrepassSignal = createForwardedAbortSignal(input.signal);
+  const adEvidencePromise = buildAnswerToolAdEvidence({
+    deps,
+    input: { ...input, signal: adPrepassSignal.signal },
+    maxAdvertisers: adProbeMaxAdvertisers,
+    researchInput,
+    researchTools: externalTools,
+  });
+
+  let skillMd: string;
+  let adEvidence: Awaited<ReturnType<typeof buildAnswerToolAdEvidence>>;
+  try {
+    skillMd = await deps.loadSkill(definition.skillSlug);
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "skill-loaded",
+        message: `Loaded ${definition.skillSlug}`,
+        metadata: { skillSlug: definition.skillSlug },
+      }),
+    );
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "reading-sources-started",
+        message: `${definition.title} gathering sources`,
+        metadata: { sectionTitle: definition.title },
+      }),
+    );
+    adEvidence = await adEvidencePromise;
+  } catch (error) {
+    adPrepassSignal.abort(error);
+    await adEvidencePromise.catch(() => undefined);
+    throw error;
+  } finally {
+    adPrepassSignal.cleanup();
+  }
+
+  toolEvents.push(...adEvidence.events);
+
+  let appendedEventCount = 0;
+  const flushBufferedEvents = async (): Promise<void> => {
+    while (appendedEventCount < toolEvents.length) {
+      try {
+        await appendEvent(deps, input.runId, toolEvents[appendedEventCount]);
+      } catch (error) {
+        console.error(
+          `[lab-section] failed to persist activity event for run ${input.runId} section ${input.sectionId}; will retry on next flush`,
+          error,
+        );
+        break;
+      }
+      appendedEventCount += 1;
+    }
+  };
+  let flushChain: Promise<void> = Promise.resolve();
+  const scheduleFlush = (): Promise<void> => {
+    flushChain = flushChain.then(() => flushBufferedEvents());
+    return flushChain;
+  };
+
+  await scheduleFlush();
+
+  const modelSteps: AgentStep[] = [];
+  let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
+  let validationAttempt = 1;
+
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "structured-output-started",
+      message: "Structured body stream started",
+      metadata: {
+        schemaName: `${definition.sectionOutputSchemaName}Body`,
+        attempt: validationAttempt,
+      },
+    }),
+  );
+
+  let attempt = await buildStructuredBodyAttempt({
+    attempt: validationAttempt,
+    definition,
+    deps,
+    externalTools,
+    input,
+    modelSteps,
+    normalizedAdEvidenceGroups,
+    prompt: buildStructuredBodyPrompt({
+      definition,
+      externalToolNames,
+      normalizedAdEvidenceGroups,
+      researchInput,
+      skillMd,
+    }),
+    researchInput,
+    scheduleFlush,
+    toolEvents,
+  });
+  await scheduleFlush();
+  normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
+    deps,
+    input,
+    modelSteps,
+    prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+  });
+  let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
+
+  if (
+    attempt.artifact === null ||
+    attempt.evidenceSupportShortfall !== undefined
+  ) {
+    let repairAttempt = 0;
+
+    while (
+      (attempt.artifact === null ||
+        attempt.evidenceSupportShortfall !== undefined) &&
+      repairAttempt < answerToolMaxRepairAttempts
+    ) {
+      const repairIssues = getAttemptRepairIssues(attempt);
+
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message:
+            validationAttempt === 1
+              ? "Structured body output failed validation"
+              : "Structured body repair output failed validation",
+          metadata: { attempt: validationAttempt, issues: repairIssues },
+        }),
+      );
+
+      if (hasTerminalStructuredError(repairIssues)) {
+        break;
+      }
+
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "repair-started",
+          message: "Structured body repair started",
+          metadata: {
+            reason: getRepairReason(attempt),
+          },
+        }),
+      );
+
+      validationAttempt += 1;
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "structured-output-started",
+          message: "Structured body repair stream started",
+          metadata: {
+            schemaName: `${definition.sectionOutputSchemaName}Body`,
+            attempt: validationAttempt,
+          },
+        }),
+      );
+
+      attempt = await buildStructuredBodyAttempt({
+        attempt: validationAttempt,
+        definition,
+        deps,
+        externalTools,
+        input,
+        modelSteps,
+        normalizedAdEvidenceGroups,
+        prompt: buildStructuredBodyRepairPrompt({
+          definition,
+          evidenceTranscript: buildEvidenceTranscript(modelSteps),
+          externalToolNames,
+          issues: repairIssues,
+          normalizedAdEvidenceGroups,
+          previousOutput: attempt.output,
+          researchInput,
+          skillMd,
+        }),
+        researchInput,
+        scheduleFlush,
+        toolEvents,
+      });
+      await scheduleFlush();
+      normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
+        deps,
+        input,
+        modelSteps,
+        prepassGroups: normalizedAdEvidenceGroups,
+      });
+      bestCommittableAttempt = getBestCommittableAttempt(
+        bestCommittableAttempt,
+        attempt,
+      );
+      repairAttempt += 1;
+    }
+
+    if (bestCommittableAttempt !== null) {
+      attempt = bestCommittableAttempt;
+    }
+
+    if (attempt.artifact === null) {
+      const repairIssues = getAttemptRepairIssues(attempt);
+
+      if (!hasTerminalStructuredError(repairIssues)) {
+        await appendEvent(
+          deps,
+          input.runId,
+          createEvent({
+            deps,
+            runId: input.runId,
+            sectionId: input.sectionId,
+            type: "validation-failed",
+            message: "Structured body repair output failed validation",
+            metadata: { attempt: validationAttempt, issues: repairIssues },
+          }),
+        );
+      }
+
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: repairIssues.join("; "),
+        failure: attempt.requiredEvidenceMissing,
+        input,
+      });
+
+      if (attempt.requiredEvidenceMissing !== undefined) {
+        throw attempt.requiredEvidenceMissing;
+      }
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: repairIssues,
+      });
+    }
+  }
+
+  const evidenceGateFailureReason = getEvidenceGateFailureReason(
+    attempt,
+    maxUnsupportedAllowed,
+  );
+
+  if (evidenceGateFailureReason !== null) {
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "validation-failed",
+        message: "Structured body repair output failed validation",
         metadata: {
           attempt: validationAttempt,
           issues: [evidenceGateFailureReason],
@@ -4237,7 +4972,11 @@ export async function runSection(
   }
 
   if (answerToolSectionIds.has(input.sectionId)) {
-    return runSectionViaAnswerTool(input, deps);
+    if (deps.runAnswerTool !== undefined) {
+      return runSectionViaAnswerTool(input, deps);
+    }
+
+    return runSectionViaStructuredBodyStream(input, deps);
   }
 
   const definition = getRuntimeSectionDefinition(input.sectionId);
