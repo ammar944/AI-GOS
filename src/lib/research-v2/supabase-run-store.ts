@@ -592,6 +592,9 @@ export function createSupabaseRunStore(
           `research_section_runs error update failed for ${sectionId} section_run_id=${sectionRunId}: ${marked.error ?? 'unknown error'}`,
         );
       }
+      if (!marked.changed) {
+        return record;
+      }
 
       const failedAt = isoNow(now);
       const startedAt = record.sections[sectionId]?.startedAt ?? failedAt;

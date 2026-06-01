@@ -719,6 +719,7 @@ const competitorAdProbeMaxResults = 4;
 // borrowing generic budget. Bounding the probe to this many advertisers keeps
 // added wall-clock to a single parallel google+meta round-trip.
 const competitorAdProbeAdLookupsPerAdvertiser = 2;
+const competitorAdProbeAdvertiserConcurrency = 3;
 // Hard ceiling on the live competitor ad probe so a slow ad API cannot push
 // CompetitorLandscape past the answer-tool timeout (255s). Worst-case +30s.
 const competitorAdProbeDeadlineMs = 30_000;
@@ -2235,6 +2236,31 @@ function createTimeoutSignal({
   };
 }
 
+function createForwardedAbortSignal(
+  parentSignal?: AbortSignal,
+): { abort: (reason?: unknown) => void; cleanup: () => void; signal: AbortSignal } {
+  const controller = new AbortController();
+  const abortFromParent = (): void => {
+    controller.abort(parentSignal?.reason);
+  };
+
+  if (parentSignal?.aborted === true) {
+    abortFromParent();
+  } else {
+    parentSignal?.addEventListener("abort", abortFromParent, { once: true });
+  }
+
+  return {
+    abort: (reason?: unknown): void => {
+      controller.abort(reason);
+    },
+    cleanup: () => {
+      parentSignal?.removeEventListener("abort", abortFromParent);
+    },
+    signal: controller.signal,
+  };
+}
+
 async function withStructuredTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -2390,6 +2416,95 @@ function getExecutableTool<TInput>(
   return tool;
 }
 
+async function mapWithBoundedConcurrency<TItem, TResult>({
+  concurrency,
+  items,
+  mapper,
+}: {
+  concurrency: number;
+  items: readonly TItem[];
+  mapper: (item: TItem, index: number) => Promise<TResult>;
+}): Promise<TResult[]> {
+  const boundedConcurrency = Math.max(1, Math.floor(concurrency));
+  const batches: TResult[][] = [];
+
+  for (let start = 0; start < items.length; start += boundedConcurrency) {
+    const batch = items.slice(start, start + boundedConcurrency);
+    batches.push(
+      await Promise.all(
+        batch.map((item, offset) => mapper(item, start + offset)),
+      ),
+    );
+  }
+
+  return batches.flat();
+}
+
+interface CompetitorAdProbeToolInput {
+  advertiser: string;
+  domain?: string;
+  max_results: number;
+}
+
+async function runCompetitorAdProbeAdvertiserStep({
+  advertiserRecord,
+  googleAdsTool,
+  index,
+  metaAdsTool,
+  signal,
+}: {
+  advertiserRecord: CompetitorAdProbeAdvertiser;
+  googleAdsTool: Tool<CompetitorAdProbeToolInput, unknown>;
+  index: number;
+  metaAdsTool: Tool<CompetitorAdProbeToolInput, unknown>;
+  signal: AbortSignal;
+}): Promise<AgentStep> {
+  const googleInput = {
+    max_results: competitorAdProbeMaxResults,
+    advertiser: advertiserRecord.advertiser,
+    ...(advertiserRecord.domain === undefined
+      ? {}
+      : { domain: advertiserRecord.domain }),
+  };
+  const metaInput = {
+    max_results: competitorAdProbeMaxResults,
+    advertiser: advertiserRecord.advertiser,
+    ...(advertiserRecord.domain === undefined
+      ? {}
+      : { domain: advertiserRecord.domain }),
+  };
+  const [googleOutput, metaOutput] = await Promise.all([
+    googleAdsTool.execute?.(
+      googleInput,
+      createToolExecutionOptions({
+        signal,
+        toolName: "google_ads",
+      }),
+    ),
+    metaAdsTool.execute?.(
+      metaInput,
+      createToolExecutionOptions({
+        signal,
+        toolName: "meta_ads",
+      }),
+    ),
+  ]);
+
+  return {
+    stepNumber: index,
+    finishReason: "tool-calls",
+    text: `Deterministic competitor ad evidence probe for ${advertiserRecord.advertiser}.`,
+    toolCalls: [
+      { toolName: "google_ads", input: googleInput },
+      { toolName: "meta_ads", input: metaInput },
+    ],
+    toolResults: [
+      { toolName: "google_ads", output: googleOutput },
+      { toolName: "meta_ads", output: metaOutput },
+    ],
+  };
+}
+
 export async function runCompetitorAdProbeSteps({
   maxAdvertisers,
   researchInput,
@@ -2452,17 +2567,14 @@ export async function runCompetitorAdProbeSteps({
     ];
   }
 
-  const googleAdsTool = getExecutableTool<{
-    advertiser: string;
-    domain?: string;
-    max_results: number;
-  }>(researchTools, "google_ads");
-  const metaAdsTool = getExecutableTool<{
-    advertiser: string;
-    domain?: string;
-    max_results: number;
-  }>(researchTools, "meta_ads");
-  const steps: AgentStep[] = [];
+  const googleAdsTool = getExecutableTool<CompetitorAdProbeToolInput>(
+    researchTools,
+    "google_ads",
+  );
+  const metaAdsTool = getExecutableTool<CompetitorAdProbeToolInput>(
+    researchTools,
+    "meta_ads",
+  );
 
   // Hard deadline so a slow ad API cannot drag the probe past the answer-tool
   // timeout. Combined with the parent signal; cleaned up in finally.
@@ -2473,57 +2585,21 @@ export async function runCompetitorAdProbeSteps({
   });
 
   try {
-    for (const [index, advertiserRecord] of advertisers.entries()) {
-      const googleInput = {
-        max_results: competitorAdProbeMaxResults,
-        advertiser: advertiserRecord.advertiser,
-        ...(advertiserRecord.domain === undefined
-          ? {}
-          : { domain: advertiserRecord.domain }),
-      };
-      const metaInput = {
-        max_results: competitorAdProbeMaxResults,
-        advertiser: advertiserRecord.advertiser,
-        ...(advertiserRecord.domain === undefined
-          ? {}
-          : { domain: advertiserRecord.domain }),
-      };
-      const [googleOutput, metaOutput] = await Promise.all([
-        googleAdsTool.execute?.(
-          googleInput,
-          createToolExecutionOptions({
-            signal: probeDeadline.signal,
-            toolName: "google_ads",
-          }),
-        ),
-        metaAdsTool.execute?.(
-          metaInput,
-          createToolExecutionOptions({
-            signal: probeDeadline.signal,
-            toolName: "meta_ads",
-          }),
-        ),
-      ]);
-
-      steps.push({
-        stepNumber: index,
-        finishReason: "tool-calls",
-        text: `Deterministic competitor ad evidence probe for ${advertiserRecord.advertiser}.`,
-        toolCalls: [
-          { toolName: "google_ads", input: googleInput },
-          { toolName: "meta_ads", input: metaInput },
-        ],
-        toolResults: [
-          { toolName: "google_ads", output: googleOutput },
-          { toolName: "meta_ads", output: metaOutput },
-        ],
-      });
-    }
+    return await mapWithBoundedConcurrency({
+      concurrency: competitorAdProbeAdvertiserConcurrency,
+      items: advertisers,
+      mapper: (advertiserRecord, index) =>
+        runCompetitorAdProbeAdvertiserStep({
+          advertiserRecord,
+          googleAdsTool,
+          index,
+          metaAdsTool,
+          signal: probeDeadline.signal,
+        }),
+    });
   } finally {
     probeDeadline.cleanup();
   }
-
-  return steps;
 }
 
 async function callStructuredAttempt({
@@ -3055,37 +3131,6 @@ async function runSectionViaAnswerTool(
   );
   await deps.store.markSectionRunning(input.runId, input.sectionId);
 
-  const skillMd = await deps.loadSkill(definition.skillSlug);
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "skill-loaded",
-      message: `Loaded ${definition.skillSlug}`,
-      metadata: { skillSlug: definition.skillSlug },
-    }),
-  );
-
-  // Append the reading-sources heartbeat before the prepass ad probe and the
-  // first model attempt so deriveSectionPhase advances past "Compiling context"
-  // immediately, instead of waiting ~60-70s for the first real tool event to be
-  // persisted at attempt-end. Emitted once per section run.
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "reading-sources-started",
-      message: `${definition.title} gathering sources`,
-      metadata: { sectionTitle: definition.title },
-    }),
-  );
-
   const toolEvents: ActivityEvent[] = [];
   const toolBudget = new SectionToolBudget(
     definition.maxExternalLookups,
@@ -3097,9 +3142,8 @@ async function runSectionViaAnswerTool(
   });
   const externalToolNames = getExternalToolNames(externalTools);
   // Bound the live ad probe to the advertisers the reserved pool can fully fund
-  // (google + meta each). With adReservedLookups=2 this is one advertiser, so
-  // the probe always lands the top advertiser's ad evidence without borrowing
-  // generic budget and without adding more than one parallel round-trip.
+  // (google + meta each). With adReservedLookups=6 this covers three advertisers
+  // without borrowing generic budget.
   const adProbeMaxAdvertisers =
     definition.adReservedLookups !== undefined &&
     definition.adReservedLookups > 0
@@ -3111,13 +3155,56 @@ async function runSectionViaAnswerTool(
           ),
         )
       : undefined;
-  const adEvidence = await buildAnswerToolAdEvidence({
+  const adPrepassSignal = createForwardedAbortSignal(input.signal);
+  const adEvidencePromise = buildAnswerToolAdEvidence({
     deps,
-    input,
+    input: { ...input, signal: adPrepassSignal.signal },
     maxAdvertisers: adProbeMaxAdvertisers,
     researchInput,
     researchTools: externalTools,
   });
+
+  let skillMd: string;
+  let adEvidence: Awaited<ReturnType<typeof buildAnswerToolAdEvidence>>;
+  try {
+    skillMd = await deps.loadSkill(definition.skillSlug);
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "skill-loaded",
+        message: `Loaded ${definition.skillSlug}`,
+        metadata: { skillSlug: definition.skillSlug },
+      }),
+    );
+
+    // Append the reading-sources heartbeat before the first model attempt so
+    // deriveSectionPhase advances past "Compiling context" immediately, instead
+    // of waiting ~60-70s for the first real tool event to be persisted.
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "reading-sources-started",
+        message: `${definition.title} gathering sources`,
+        metadata: { sectionTitle: definition.title },
+      }),
+    );
+    adEvidence = await adEvidencePromise;
+  } catch (error) {
+    adPrepassSignal.abort(error);
+    await adEvidencePromise.catch(() => undefined);
+    throw error;
+  } finally {
+    adPrepassSignal.cleanup();
+  }
+
   toolEvents.push(...adEvidence.events);
   const runAnswerTool = deps.runAnswerTool ?? defaultAnswerToolRunner;
   let appendedEventCount = 0;

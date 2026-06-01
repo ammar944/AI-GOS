@@ -38,7 +38,7 @@ export interface WebhookSupabase {
   markSectionError(input: {
     sectionRunId: string;
     error: Record<string, unknown>;
-  }): Promise<{ ok: boolean; error?: string }>;
+  }): Promise<{ ok: boolean; changed: boolean; error?: string }>;
 }
 
 export interface WebhookEventRow {
@@ -170,9 +170,10 @@ export function createSupabaseWebhookAdapter(
       // Guard: never downgrade a row commit_artifact_section already set to
       // 'complete'. A late/duplicate runner failure that loses the CAS race
       // must not clobber the committed section. When the row is already
-      // complete the WHERE matches zero rows and Supabase returns error:null,
-      // so we still return { ok: true } and the caller does not throw.
-      const { error } = await supabase
+      // complete the WHERE matches zero rows and Supabase returns error:null.
+      // Return `changed` so callers do not write failure telemetry after a
+      // guarded no-op.
+      const { data, error } = await supabase
         .from('research_section_runs')
         .update({
           status: 'error',
@@ -180,9 +181,11 @@ export function createSupabaseWebhookAdapter(
           completed_at: new Date().toISOString(),
         })
         .eq('id', input.sectionRunId)
-        .neq('status', 'complete');
-      if (error) return { ok: false, error: error.message };
-      return { ok: true };
+        .neq('status', 'complete')
+        .select('id')
+        .maybeSingle();
+      if (error) return { ok: false, changed: false, error: error.message };
+      return { ok: true, changed: data !== null };
     },
   };
 }

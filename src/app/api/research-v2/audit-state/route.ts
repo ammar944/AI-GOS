@@ -521,18 +521,28 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     ...(hasSynthesisRow ? [POSITIONING_SYNTHESIS_SECTION_ID] : []),
     ...(hasPaidMediaPlanRow ? [PAID_MEDIA_PLAN_SECTION_ID] : []),
   ];
-  const eventLimit = 12 * workerSectionIds.length;
-  const eventsResp = await supabase
-    .from('research_section_events')
-    .select('id, zone, event_type, message, payload, created_at')
-    .eq('artifact_id', parentId)
-    .order('created_at', { ascending: false })
-    .limit(eventLimit);
-  if (eventsResp.error) {
-    // Events are best-effort — log and continue with empty events.
-    console.warn('[audit-state] events lookup failed:', eventsResp.error.message);
-  }
-  const eventsByZone = buildEventsByZone(eventsResp.data ?? []);
+  const eventRowsByZone = await Promise.all(
+    workerSectionIds.map(async (zone) => {
+      const eventsResp = await supabase
+        .from('research_section_events')
+        .select('id, zone, event_type, message, payload, created_at')
+        .eq('artifact_id', parentId)
+        .eq('zone', zone)
+        .order('created_at', { ascending: false })
+        .limit(12);
+      if (eventsResp.error) {
+        // Events are best-effort — log and continue with empty events for this zone.
+        console.warn(
+          '[audit-state] events lookup failed:',
+          zone,
+          eventsResp.error.message,
+        );
+        return [];
+      }
+      return eventsResp.data ?? [];
+    }),
+  );
+  const eventsByZone = buildEventsByZone(eventRowsByZone.flat());
   const eventSignalsByZone = buildEventSignalsByZone(eventsByZone);
 
   for (const sectionId of workerSectionIds) {

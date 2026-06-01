@@ -164,6 +164,49 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     }
   });
 
+  it('runs three advertiser probes concurrently without exceeding the reserved budget', async (): Promise<void> => {
+    const budget = new SectionToolBudget(0, 6);
+    const observe = { concurrent: 0, maxConcurrent: 0 };
+    const researchTools: Record<string, unknown> = {
+      google_ads: budgetWrappedAdTool('google_ads', budget, observe),
+      meta_ads: budgetWrappedAdTool('meta_ads', budget, observe),
+    };
+
+    const steps = await runCompetitorAdProbeSteps({
+      maxAdvertisers: 3,
+      researchInput: {
+        ...saaslaunchResearchInput,
+        competitorAds: [],
+        competitorSeeds: [
+          { name: 'FirstRival', domain: 'first.example' },
+          { name: 'SecondRival', domain: 'second.example' },
+          { name: 'ThirdRival', domain: 'third.example' },
+          { name: 'FourthRival', domain: 'fourth.example' },
+        ],
+      },
+      researchTools,
+    });
+
+    expect(steps.map((step) => step.stepNumber)).toEqual([0, 1, 2]);
+    expect(
+      steps.map((step) => {
+        const firstCall = step.toolCalls[0];
+        const input = firstCall?.input as { advertiser?: unknown } | undefined;
+        return input?.advertiser;
+      }),
+    ).toEqual(['FirstRival', 'SecondRival', 'ThirdRival']);
+    expect(
+      steps.flatMap((step) => step.toolResults.map((result) => result.output)),
+    ).toHaveLength(6);
+    expect(
+      steps
+        .flatMap((step) => step.toolResults.map((result) => result.output))
+        .every(isAdRow),
+    ).toBe(true);
+    expect(observe.maxConcurrent).toBe(6);
+    expect(budget.remaining()).toBe(0);
+  });
+
   it('seeds the probe advertiser list from competitorSeeds when competitorAds is empty', async (): Promise<void> => {
     // Production condition: corpus builder leaves competitorAds empty and feeds
     // competitorSeeds (parsed from the onboarding topCompetitors brief field).

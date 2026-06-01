@@ -83,6 +83,32 @@ function makeRequest(): Request {
   return new Request(`http://localhost/api/research-v2/audit-state?run_id=${RUN_ID}`);
 }
 
+function mockEventRows(rows: Array<Record<string, unknown>>): void {
+  const rowsByZone = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of rows) {
+    if (typeof row.zone !== 'string') continue;
+    rowsByZone.set(row.zone, [...(rowsByZone.get(row.zone) ?? []), row]);
+  }
+
+  let requestedZone: string | null = null;
+  routeMocks.eventsQuery.eq.mockImplementation(
+    (column: string, value: string): typeof routeMocks.eventsQuery => {
+      if (column === 'zone') {
+        requestedZone = value;
+      }
+      return routeMocks.eventsQuery;
+    },
+  );
+  routeMocks.eventsQuery.limit.mockImplementation(
+    async (
+      limit: number,
+    ): Promise<{ data: Array<Record<string, unknown>>; error: null }> => ({
+      data: requestedZone ? (rowsByZone.get(requestedZone) ?? []).slice(0, limit) : [],
+      error: null,
+    }),
+  );
+}
+
 describe('GET /api/research-v2/audit-state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -144,22 +170,19 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.eventsQuery.limit.mockResolvedValue({
-      data: [
-        {
-          id: 'event-drafting',
-          zone: 'positioningMarketCategory',
-          event_type: 'structured-output-started',
-          message: 'Drafting structured output',
-          payload: {
-            schemaName: 'MarketCategoryArtifact',
-            attempt: 1,
-          },
-          created_at: '2026-05-15T12:00:05.000Z',
+    mockEventRows([
+      {
+        id: 'event-drafting',
+        zone: 'positioningMarketCategory',
+        event_type: 'structured-output-started',
+        message: 'Drafting structured output',
+        payload: {
+          schemaName: 'MarketCategoryArtifact',
+          attempt: 1,
         },
-      ],
-      error: null,
-    });
+        created_at: '2026-05-15T12:00:05.000Z',
+      },
+    ]);
 
     const response = await GET(makeRequest());
 
@@ -205,48 +228,45 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.eventsQuery.limit.mockResolvedValue({
-      data: [
-        {
-          id: 'event-3',
-          zone: 'positioningMarketCategory',
-          event_type: 'tool-finished',
-          message: 'firecrawl finished',
-          payload: {
-            toolName: 'firecrawl',
-            sourceUrl: 'https://www.gong.io/',
-            gap: {
-              reason: 'api_error',
-              message: 'Firecrawl returned 502',
-            },
+    mockEventRows([
+      {
+        id: 'event-3',
+        zone: 'positioningMarketCategory',
+        event_type: 'tool-finished',
+        message: 'firecrawl finished',
+        payload: {
+          toolName: 'firecrawl',
+          sourceUrl: 'https://www.gong.io/',
+          gap: {
+            reason: 'api_error',
+            message: 'Firecrawl returned 502',
           },
-          created_at: '2026-05-15T12:00:03.000Z',
         },
-        {
-          id: 'event-2',
-          zone: 'positioningMarketCategory',
-          event_type: 'tool-started',
-          message: 'firecrawl started',
-          payload: {
-            toolName: 'firecrawl',
-            sourceUrl: 'https://www.gong.io/',
-          },
-          created_at: '2026-05-15T12:00:02.000Z',
+        created_at: '2026-05-15T12:00:03.000Z',
+      },
+      {
+        id: 'event-2',
+        zone: 'positioningMarketCategory',
+        event_type: 'tool-started',
+        message: 'firecrawl started',
+        payload: {
+          toolName: 'firecrawl',
+          sourceUrl: 'https://www.gong.io/',
         },
-        {
-          id: 'event-1',
-          zone: 'positioningMarketCategory',
-          event_type: 'tool-started',
-          message: 'web_search started',
-          payload: {
-            toolName: 'web_search',
-            query: 'Gong alternatives',
-          },
-          created_at: '2026-05-15T12:00:01.000Z',
+        created_at: '2026-05-15T12:00:02.000Z',
+      },
+      {
+        id: 'event-1',
+        zone: 'positioningMarketCategory',
+        event_type: 'tool-started',
+        message: 'web_search started',
+        payload: {
+          toolName: 'web_search',
+          query: 'Gong alternatives',
         },
-      ],
-      error: null,
-    });
+        created_at: '2026-05-15T12:00:01.000Z',
+      },
+    ]);
 
     const response = await GET(makeRequest());
     const body = await response.json();
@@ -265,46 +285,104 @@ describe('GET /api/research-v2/audit-state', () => {
     });
   });
 
-  it('queries enough events for each worker zone to keep its newest activity', async () => {
+  it('queries each worker zone independently so noisy zones cannot starve quiet feeds', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
 
     const makeRows = (
-      zones: readonly (typeof POSITIONING_ZONES)[number][],
+      zone: (typeof POSITIONING_ZONES)[number],
+      count: number,
     ): Array<Record<string, unknown>> =>
-      zones.flatMap((zone) =>
-        Array.from({ length: 13 }, (_, index) => {
-          const sequence = 13 - index;
-          return {
-            id: `${zone}-event-${sequence}`,
-            zone,
-            event_type: 'tool-started',
-            message: `event ${sequence}`,
-            payload: {
-              toolName: 'web_search',
-              query: `${zone} query ${sequence}`,
-            },
-            created_at: `2026-05-15T12:${String(sequence).padStart(2, '0')}:00.000Z`,
-          };
-        }),
-      );
-    const completeRows = makeRows(POSITIONING_ZONES);
-    const starvedRows = makeRows(POSITIONING_ZONES.slice(0, 5));
+      Array.from({ length: count }, (_, index) => {
+        const sequence = count - index;
+        return {
+          id: `${zone}-event-${sequence}`,
+          zone,
+          event_type: 'tool-started',
+          message: `event ${sequence}`,
+          payload: {
+            toolName: 'web_search',
+            query: `${zone} query ${sequence}`,
+          },
+          created_at: `2026-05-15T12:${String(sequence).padStart(2, '0')}:00.000Z`,
+        };
+      });
+    const rowsByZone = new Map<string, Array<Record<string, unknown>>>(
+      POSITIONING_ZONES.map((zone, index) => [
+        zone,
+        makeRows(zone, index === 0 ? 120 : 12),
+      ]),
+    );
+    const requestedZones: string[] = [];
+    routeMocks.eventsQuery.eq.mockImplementation(
+      (column: string, value: string): typeof routeMocks.eventsQuery => {
+        if (column === 'zone') {
+          requestedZones.push(value);
+        }
+        return routeMocks.eventsQuery;
+      },
+    );
     routeMocks.eventsQuery.limit.mockImplementation(
-      async (limit: number): Promise<{ data: Array<Record<string, unknown>>; error: null }> => ({
-        data: limit >= 12 * POSITIONING_ZONES.length ? completeRows : starvedRows,
-        error: null,
-      }),
+      async (
+        limit: number,
+      ): Promise<{ data: Array<Record<string, unknown>>; error: null }> => {
+        const zone = requestedZones.at(-1);
+        if (!zone) {
+          throw new Error('Expected zone filter before event limit');
+        }
+        return {
+          data: (rowsByZone.get(zone) ?? []).slice(0, limit),
+          error: null,
+        };
+      },
     );
 
     const response = await GET(makeRequest());
     const body = await response.json();
 
-    expect(routeMocks.eventsQuery.limit).toHaveBeenCalledWith(72);
+    expect(requestedZones).toEqual([...POSITIONING_ZONES]);
+    expect(routeMocks.eventsQuery.limit).toHaveBeenCalledTimes(POSITIONING_ZONES.length);
     for (const zone of POSITIONING_ZONES) {
+      const expectedCount = zone === POSITIONING_ZONES[0] ? 120 : 12;
       expect(body.eventsByZone[zone].map((event: { id: string }) => event.id)).toEqual(
-        Array.from({ length: 12 }, (_, index) => `${zone}-event-${index + 2}`),
+        Array.from({ length: 12 }, (_, index) => {
+          const sequence = expectedCount - 11 + index;
+          return `${zone}-event-${sequence}`;
+        }),
       );
     }
+  });
+
+  it('limits each worker zone event query to 12 rows', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.eventsQuery.limit.mockImplementation(
+      async (
+        limit: number,
+      ): Promise<{ data: Array<Record<string, unknown>>; error: null }> => {
+        expect(limit).toBe(12);
+        return {
+          data: Array.from({ length: limit }, (_, index) => {
+            const sequence = limit - index;
+            return {
+              id: `event-${sequence}`,
+              zone: 'positioningMarketCategory',
+              event_type: 'tool-started',
+              message: `event ${sequence}`,
+              payload: {
+                toolName: 'web_search',
+                query: `query ${sequence}`,
+              },
+              created_at: `2026-05-15T12:${String(sequence).padStart(2, '0')}:00.000Z`,
+            };
+          }),
+          error: null,
+        };
+      },
+    );
+
+    const response = await GET(makeRequest());
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.eventsQuery.limit).toHaveBeenCalledTimes(POSITIONING_ZONES.length);
   });
 
   it('reaps stale running lab sections on read and returns the refreshed terminal row', async () => {
@@ -500,22 +578,19 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.eventsQuery.limit.mockResolvedValue({
-      data: [
-        {
-          id: 'event-rerun-tool-started',
-          zone: 'positioningMarketCategory',
-          event_type: 'tool-started',
-          message: 'web_search started',
-          payload: {
-            toolName: 'web_search',
-            query: 'Gong alternatives',
-          },
-          created_at: '2026-05-15T12:05:02.000Z',
+    mockEventRows([
+      {
+        id: 'event-rerun-tool-started',
+        zone: 'positioningMarketCategory',
+        event_type: 'tool-started',
+        message: 'web_search started',
+        payload: {
+          toolName: 'web_search',
+          query: 'Gong alternatives',
         },
-      ],
-      error: null,
-    });
+        created_at: '2026-05-15T12:05:02.000Z',
+      },
+    ]);
 
     const response = await GET(makeRequest());
     const body = await response.json();
@@ -620,6 +695,61 @@ describe('GET /api/research-v2/audit-state', () => {
       phase: 'Committed',
       phaseLabel: 'Committed',
       executionMode: 'draft',
+    });
+  });
+
+  it('keeps complete Voice of Customer committed despite stale failure telemetry and events', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.runsQuery.order.mockResolvedValue({
+      data: [
+        {
+          id: 'run-complete-voc',
+          zone: 'positioningVoiceOfCustomer',
+          status: 'complete',
+          started_at: '2026-05-15T12:00:00.000Z',
+          telemetry: {
+            phase: 'Needs review',
+            latestActivity: 'positioningVoiceOfCustomer failed',
+            executionMode: 'lab',
+          },
+        },
+      ],
+      error: null,
+    });
+    routeMocks.sectionsQuery.eq.mockResolvedValue({
+      data: [
+        {
+          zone: 'positioningVoiceOfCustomer',
+          section_run_id: 'run-complete-voc',
+          status: 'complete',
+          title: 'Voice of Customer',
+          markdown: 'committed VoC markdown',
+          data: null,
+        },
+      ],
+      error: null,
+    });
+    mockEventRows([
+      {
+        id: 'voc-failed-event',
+        zone: 'positioningVoiceOfCustomer',
+        event_type: 'section-failed',
+        message: 'Lab section positioningVoiceOfCustomer failed',
+        payload: {
+          sectionId: 'positioningVoiceOfCustomer',
+        },
+        created_at: '2026-05-15T12:05:00.000Z',
+      },
+    ]);
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.workerStates[3]).toMatchObject({
+      section_id: 'positioningVoiceOfCustomer',
+      status: 'complete',
+      phase: 'Committed',
+      phaseLabel: 'Committed',
     });
   });
 
