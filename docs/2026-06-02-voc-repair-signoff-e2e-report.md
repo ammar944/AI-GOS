@@ -4,7 +4,9 @@
 
 Result: **STOPPED BEFORE PAID RUN**.
 
-The `ramp.com` browser audit was not started. Fresh preflight gates all passed at HEAD `451062d8`, but the Codex in-app browser could not establish Clerk local-development access. Both `/research-v2` and `/sign-in` returned Clerk's `dev-browser-missing` 404 refresh shell, so the run stopped before entering `ramp.com`.
+The `ramp.com` browser audit was not started. Fresh preflight gates all passed at HEAD `451062d8`. The first attempt stopped because the stale `:3000` dev server returned Clerk's `dev-browser-missing` 404 refresh shell for both `/research-v2` and `/sign-in`.
+
+On retry, the stale `:3000` process was restarted and the Codex in-app browser rendered the real `/research-v2` form at `http://localhost:3000/research-v2`. The paid run still stopped before entering `ramp.com` because the required preflight capabilities gate failed: `/api/research-v2/_capabilities` returned the app 404 page from the browser, and the local worker `/capabilities` payload reported `orchestrate_supported: false`.
 
 No source edits, migrations, deploys, retries, or paid audit attempts were made.
 
@@ -14,7 +16,8 @@ No source edits, migrations, deploys, retries, or paid audit attempts were made.
 - HEAD under test: `451062d8`
 - Dirty proof target: yes
 - Route intended by the handoff: `http://localhost:3000/research-v2`
-- App process: `http://localhost:3000`, PID `3307`
+- Original app process: `http://localhost:3000`, PID `3307`
+- Restarted app process for retry: `http://localhost:3000`, PID `60423`
 - PID cwd proof: `tmp/voc-repair-signoff-2026-06-02/app-pid-cwd.txt`
 - Local worker process: `http://localhost:3001`, PID `88063`
 
@@ -82,13 +85,49 @@ Evidence:
 - `tmp/voc-repair-signoff-2026-06-02/root-response.txt`
 - `tmp/voc-repair-signoff-2026-06-02/root-response-127.txt`
 
+Retry evidence after restarting `:3000`:
+
+- `tmp/voc-repair-signoff-2026-06-02/dev-server-3000-restarted.log`
+- `tmp/voc-repair-signoff-2026-06-02/root-response-3000-restarted.headers`
+- `tmp/voc-repair-signoff-2026-06-02/research-v2-3000-restarted-visible.json`
+- `tmp/voc-repair-signoff-2026-06-02/01-ready-to-start-3000-restarted.png`
+
+Visible browser state after restart:
+
+```text
+http://localhost:3000/research-v2
+Resuming research on ramp.com — last updated 6/1/2026, 5:26:47 PM
+Resume
+·
+Start fresh
+Pre-Pitch Positioning Audit
+```
+
+Required capabilities gate after restart:
+
+```text
+GET http://localhost:3000/api/research-v2/_capabilities
+contentType: text/html
+body: Lost in space?
+```
+
+Local worker capabilities retry:
+
+```json
+{
+  "status": "ok",
+  "worker_version": "1.0.0",
+  "orchestrate_supported": false
+}
+```
+
 ## Run Details
 
 - Paid browser run: **not started**
 - `run_id`: none
 - DB evidence: not applicable because no new run was created
-- Authenticated `_capabilities`: not reached because Clerk dev-browser access failed before sign-in
-- Reason: auth/browser access blocker before the paid boundary
+- Authenticated `_capabilities`: attempted after `:3000` restart; returned the app 404 page instead of JSON
+- Reason: capabilities preflight blocker before the paid boundary
 
 ## Pass/Fail Table
 
@@ -116,15 +155,15 @@ Not captured:
 
 ## Failure Dossier
 
-The blocking failure is browser/auth access in the allowed browser surface, not the application gates.
+The first blocking failure was browser/auth access in the allowed browser surface. The second retry cleared the stale `:3000` UI blocker but exposed a hard preflight capabilities blocker.
 
-Fresh gates passed. The in-app browser could not obtain Clerk's local-development dev-browser token (`__clerk_db_jwt` / `Clerk-Db-Jwt`), and Clerk returned `x-clerk-auth-reason: dev-browser-missing`. Because the handoff requires Clerk login before the paid run and forbids retry loops, route edits, or bypassing auth, execution stopped before submitting `ramp.com`.
+Fresh gates passed. Initially, the in-app browser could not obtain Clerk's local-development dev-browser token (`__clerk_db_jwt` / `Clerk-Db-Jwt`), and Clerk returned `x-clerk-auth-reason: dev-browser-missing`. After restarting `:3000`, the visible `/research-v2` form loaded, but `/api/research-v2/_capabilities` still returned the app 404 page, and the local worker's `/capabilities` response reported `orchestrate_supported: false`. Because the written plan requires this gate before the paid run, execution stopped before submitting `ramp.com`.
 
 Recovery options for the next attempt:
 
-1. Provide a working Clerk dev-browser session/token for the Codex in-app browser.
-2. Explicitly allow use of the user's authenticated Chrome profile for the browser portion.
-3. Adjust the local auth setup outside this signoff run, then rerun the same preflight gates before a paid attempt.
+1. Fix or intentionally waive the `_capabilities` preflight gate before the paid run.
+2. Decide whether `orchestrate_supported: false` is expected for the current in-process lab-engine architecture or should be repaired in the worker capability payload.
+3. Clear the stale `ramp.com` resume prompt with `Start fresh` before any approved paid rerun.
 
 ## Evidence Index
 
@@ -142,6 +181,12 @@ Recovery options for the next attempt:
 - `tmp/voc-repair-signoff-2026-06-02/root-response-127.txt`
 - `tmp/voc-repair-signoff-2026-06-02/auth-blocker-refresh-shell.png`
 - `tmp/voc-repair-signoff-2026-06-02/auth-blocker-dom.txt`
+- `tmp/voc-repair-signoff-2026-06-02/dev-server-3000-restarted.log`
+- `tmp/voc-repair-signoff-2026-06-02/root-response-3000-restarted.headers`
+- `tmp/voc-repair-signoff-2026-06-02/research-v2-3000-restarted-visible.json`
+- `tmp/voc-repair-signoff-2026-06-02/01-ready-to-start-3000-restarted.png`
+- `tmp/voc-repair-signoff-2026-06-02/capabilities-browser-3000-restarted.json`
+- `tmp/voc-repair-signoff-2026-06-02/worker-capabilities-3001-current.json`
 - `tmp/voc-repair-signoff-2026-06-02/gate-tsc.log`
 - `tmp/voc-repair-signoff-2026-06-02/gate-lint.log`
 - `tmp/voc-repair-signoff-2026-06-02/gate-test-run.log`
@@ -150,7 +195,7 @@ Recovery options for the next attempt:
 
 ## Limitations
 
-- No authenticated browser checks were possible in the Codex in-app browser.
+- Authenticated browser UI checks were possible only after restarting `:3000`; the protected capabilities endpoint still returned the app 404 page.
 - No Supabase DB evidence was collected because no new run was created.
 - No `run_id` exists for this attempt.
 - This report proves the code gates are green at HEAD `451062d8`; it does not prove the VoC repair behavior live.

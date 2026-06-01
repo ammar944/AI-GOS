@@ -1,0 +1,7 @@
+APP_URL=http://localhost:3000
+APP_PID=60423
+  PID  PPID ELAPSED COMMAND
+60423 60422   01:52 next-server (v16.0.10) 
+p60423
+fcwd
+n/Users/ammar/Dev-Projects/AI-GOS-worktrees/v2-lab-section-wire
