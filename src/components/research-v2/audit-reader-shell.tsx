@@ -613,16 +613,20 @@ function LiveActivity({
         </div>
       ) : null}
 
-      {/* skeleton — gives the column body while the section drafts */}
-      <div className="space-y-3 pt-2" aria-hidden="true">
-        {[92, 78, 85, 64].map((w, i) => (
-          <div
-            key={i}
-            className="h-3 animate-pulse rounded bg-muted motion-reduce:animate-none"
-            style={{ width: `${w}%` }}
-          />
-        ))}
-      </div>
+      {/* skeleton — only as the initial loading body BEFORE real activity rows
+          arrive. Rendering it alongside live rows produced the "weird lines under
+          the searching" noise the user flagged (2026-06-01 live audit). */}
+      {activity.items.length === 0 ? (
+        <div className="space-y-3 pt-2" aria-hidden="true">
+          {[92, 78, 85, 64].map((w, i) => (
+            <div
+              key={i}
+              className="h-3 animate-pulse rounded bg-muted motion-reduce:animate-none"
+              style={{ width: `${w}%` }}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -631,7 +635,8 @@ function QueuedPlaceholder(): ReactElement {
   return (
     <div className="mt-10 rounded-xl border border-dashed border-border bg-muted/30 px-6 py-10 text-center">
       <p className="text-[13px] text-muted-foreground">
-        Queued — this section will begin once a worker is free.
+        Queued — your audit is already running; this section starts as soon as a
+        lane frees up.
       </p>
     </div>
   );

@@ -385,7 +385,9 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(body.workerStates[0]).toMatchObject({
       section_id: 'positioningMarketCategory',
       status: 'running',
-      phase: 'Queued',
+      // A fresh running section with no events yet is starting up, not idle in a
+      // queue — it must not read "Queued" (2026-06-01 live audit relabel).
+      phase: 'Compiling context',
     });
   });
 

@@ -37,6 +37,16 @@ export function deriveSectionPhase(
 ): AuditSectionPhase {
   const terminalPhase = terminalPhaseForStatus(input.status);
   if (terminalPhase) return terminalPhase;
-  if (!input.latestEventType) return 'Queued';
-  return PHASE_BY_EVENT_TYPE[input.latestEventType as ActivityEventType] ?? 'Queued';
+  // A genuinely 'queued' worker already returned 'Queued' above. Past this point
+  // the worker is in-flight ('running'), so a section that has not emitted its
+  // first event yet is starting up — not idle in a queue. Labelling it 'Queued'
+  // made an actively-running section read as waiting (2026-06-01 live audit).
+  // Only a section with no worker status at all is still queued.
+  if (!input.latestEventType) {
+    return input.status ? 'Compiling context' : 'Queued';
+  }
+  return (
+    PHASE_BY_EVENT_TYPE[input.latestEventType as ActivityEventType] ??
+    'Compiling context'
+  );
 }

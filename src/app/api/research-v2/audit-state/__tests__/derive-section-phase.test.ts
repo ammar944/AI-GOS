@@ -39,10 +39,21 @@ describe('deriveSectionPhase', (): void => {
     ).toBe('Queued');
   });
 
-  it('returns Queued when no activity event exists', (): void => {
+  it('returns Compiling context for a running section before its first event', (): void => {
+    // A running worker with no events yet is starting up, not idle in a queue
+    // (2026-06-01 live audit: active sections wrongly read "Queued").
     expect(
       deriveSectionPhase({
         status: 'running',
+        latestEventType: null,
+      }),
+    ).toBe('Compiling context');
+  });
+
+  it('returns Queued only when there is no worker status yet', (): void => {
+    expect(
+      deriveSectionPhase({
+        status: null,
         latestEventType: null,
       }),
     ).toBe('Queued');
