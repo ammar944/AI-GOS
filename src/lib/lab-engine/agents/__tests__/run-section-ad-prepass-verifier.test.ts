@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import type { Tool, ToolExecutionOptions } from 'ai';
+import type { Tool } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -13,7 +13,6 @@ import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/co
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
-import type { SectionToolBudget, ToolBudget } from '../budget';
 import type { RunSectionInput, RunSectionResult } from '../run-section';
 import type { AgentStep, AnswerToolRunner } from '../section-agent';
 import type { ToolName } from '../tools';
@@ -22,13 +21,6 @@ type RunSectionFn = (
   input: RunSectionInput,
   deps: Parameters<typeof import('../run-section').runSection>[1],
 ) => Promise<RunSectionResult>;
-
-type ToolBudgetLike = ToolBudget | SectionToolBudget;
-
-interface BuildToolMapDeps {
-  budget: ToolBudgetLike;
-  webSearchMaxUses: number;
-}
 
 const prepassCreativeUrl =
   'https://cdn.example.com/prepass/gong-creative.png';
@@ -94,10 +86,7 @@ function createAdTool(
   platform: 'google' | 'meta',
 ): Tool<Record<string, unknown>, unknown> {
   return {
-    execute: async (
-      input: Record<string, unknown>,
-      _context: ToolExecutionOptions,
-    ): Promise<unknown> => {
+    execute: async (input: Record<string, unknown>): Promise<unknown> => {
       const advertiser =
         typeof input.advertiser === 'string' ? input.advertiser : 'Gong';
 
@@ -130,7 +119,7 @@ function createAdTool(
         ],
       };
     },
-  } as Tool<Record<string, unknown>, unknown>;
+  } as unknown as Tool<Record<string, unknown>, unknown>;
 }
 
 function createGapTool(toolName: ToolName): Tool<unknown, unknown> {
@@ -148,7 +137,6 @@ async function importRunSectionWithMockedAdTools(): Promise<RunSectionFn> {
   vi.doMock('../tool-registry', () => ({
     buildToolMap: (
       allowedTools: readonly ToolName[],
-      _deps: BuildToolMapDeps,
     ): Record<string, Tool<unknown, unknown>> => {
       const tools: Record<string, Tool<unknown, unknown>> = {};
 
