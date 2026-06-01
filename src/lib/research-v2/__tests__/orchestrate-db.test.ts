@@ -12,6 +12,7 @@ vi.mock('@/lib/supabase/server', () => ({
 import {
   buildFrozenGtmBriefThesisPatch,
   freezeReviewedBriefSnapshot,
+  seedOrchestration,
 } from '../orchestrate-db';
 
 beforeEach((): void => {
@@ -79,6 +80,43 @@ describe('freezeReviewedBriefSnapshot', () => {
       p_gtm_brief_snapshot: { companyName: 'Fellow' },
       p_gtm_brief_review: { fieldCount: 47 },
       p_frozen_at: '2026-05-15T12:00:00.000Z',
+    });
+  });
+});
+
+describe('seedOrchestration', () => {
+  it('preserves existing error rows instead of forcing them back to queued', async () => {
+    dbMocks.rpc.mockResolvedValue({
+      data: [
+        {
+          parent_id: '11111111-1111-4111-8111-111111111111',
+          zone: 'positioningBuyerICP',
+          section_run_id: '22222222-2222-4222-8222-000000000002',
+          ordinal: 2,
+          reused: true,
+          status: 'error',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      seedOrchestration({
+        userId: 'user_1',
+        runId: '00000000-0000-4000-8000-0000000000aa',
+        zones: ['positioningBuyerICP'],
+      }),
+    ).resolves.toEqual({
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      section_run_ids: [
+        {
+          section_id: 'positioningBuyerICP',
+          section_run_id: '22222222-2222-4222-8222-000000000002',
+          ordinal: 2,
+          reused: true,
+          status: 'error',
+        },
+      ],
     });
   });
 });

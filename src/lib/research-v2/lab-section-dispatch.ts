@@ -48,14 +48,6 @@ export async function scheduleLabSectionJob(
     runId: input.runId,
     zones: input.zones,
   });
-  const store = createSupabaseRunStore({
-    supabase: input.supabase,
-    parentAuditRunId: seeded.parent_audit_run_id,
-    sectionRunIdByZone: buildSectionRunIdByZone(seeded, input.zones),
-    researchInput: input.researchInput,
-  });
-
-  await store.createRun(input.researchInput);
 
   const claim = await claimSectionRun({
     supabase: input.supabase,
@@ -79,6 +71,25 @@ export async function scheduleLabSectionJob(
     });
     return { ...seeded, claim };
   }
+
+  if (!claim.sectionRunId) {
+    throw new LabSectionDispatchError(
+      `claim_section_run returned claimed without sectionRunId for runId=${input.runId} sectionId=${input.sectionId}`,
+    );
+  }
+
+  const sectionRunIdByZone = {
+    ...buildSectionRunIdByZone(seeded, input.zones),
+    [input.sectionId]: claim.sectionRunId,
+  };
+  const store = createSupabaseRunStore({
+    supabase: input.supabase,
+    parentAuditRunId: seeded.parent_audit_run_id,
+    sectionRunIdByZone,
+    researchInput: input.researchInput,
+  });
+
+  await store.createRun(input.researchInput);
 
   input.schedule(async (): Promise<void> => {
     const controller = new AbortController();

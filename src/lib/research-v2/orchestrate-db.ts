@@ -11,7 +11,7 @@ import {
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { createAdminClient } from '@/lib/supabase/server';
 
-export type SectionSeedStatus = 'queued' | 'running' | 'complete';
+export type SectionSeedStatus = 'queued' | 'running' | 'complete' | 'error';
 
 export interface SeedOrchestrationResult {
   parent_audit_run_id: string;
@@ -30,7 +30,7 @@ const RpcRowSchema = z.object({
   section_run_id: z.string().uuid(),
   ordinal: z.number().int().min(1),
   reused: z.boolean(),
-  status: z.enum(['queued', 'running', 'complete']),
+  status: z.enum(['queued', 'running', 'complete', 'error']),
 });
 const RpcRowsSchema = z.array(RpcRowSchema);
 const FreezeReviewedBriefSnapshotResultSchema = z.enum([

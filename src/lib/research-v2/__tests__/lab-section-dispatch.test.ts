@@ -16,6 +16,9 @@ const USER_ID = 'user_1';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 const SECTION_ID = 'positioningBuyerICP' satisfies SupportedSectionId;
 const SECTION_RUN_ID = '22222222-2222-4222-8222-000000000002';
+const CLAIMED_SECTION_RUN_ID = '33333333-3333-4333-8333-000000000002';
+
+type SeededStatus = 'queued' | 'running' | 'complete' | 'error';
 
 const dispatchMocks = vi.hoisted(() => {
   const seedOrchestration = vi.fn();
@@ -76,13 +79,16 @@ vi.mock('@/lib/research-v2/supabase-run-store', () => ({
 
 const { scheduleLabSectionJob } = await import('../lab-section-dispatch');
 
-function seededRows(status: 'queued' | 'running' | 'complete' = 'queued'): SeedOrchestrationResult {
+function seededRows(
+  status: SeededStatus = 'queued',
+  sectionRunId = SECTION_RUN_ID,
+): SeedOrchestrationResult {
   return {
     parent_audit_run_id: PARENT_ID,
     section_run_ids: [
       {
         section_id: SECTION_ID as AllPositioningSectionId,
-        section_run_id: SECTION_RUN_ID,
+        section_run_id: sectionRunId,
         ordinal: 2,
         reused: status !== 'queued',
         status,
@@ -136,7 +142,10 @@ function validResearchInput(): ResearchInput {
   });
 }
 
-function claimResult(status: SectionRunClaimStatus): SectionRunClaimResult {
+function claimResult(
+  status: SectionRunClaimStatus,
+  sectionRunId = SECTION_RUN_ID,
+): SectionRunClaimResult {
   if (status === 'not_found') {
     return {
       status,
@@ -159,7 +168,7 @@ function claimResult(status: SectionRunClaimStatus): SectionRunClaimResult {
     status,
     runId: RUN_ID,
     sectionId: SECTION_ID,
-    sectionRunId: SECTION_RUN_ID,
+    sectionRunId,
     previousStatus: previousStatusByStatus[status],
   };
 }
@@ -216,7 +225,12 @@ describe('scheduleLabSectionJob', () => {
     expect(
       dispatchMocks.claimSectionRun.mock.invocationCallOrder[0],
     ).toBeGreaterThan(
-      dispatchMocks.store.createRun.mock.invocationCallOrder[0] ?? 0,
+      dispatchMocks.seedOrchestration.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(
+      dispatchMocks.createSupabaseRunStore.mock.invocationCallOrder[0],
+    ).toBeGreaterThan(
+      dispatchMocks.claimSectionRun.mock.invocationCallOrder[0] ?? 0,
     );
     expect(schedule).toHaveBeenCalledTimes(1);
     expect(dispatchMocks.runLabSectionJob).not.toHaveBeenCalled();
@@ -230,6 +244,38 @@ describe('scheduleLabSectionJob', () => {
       signal: expect.any(AbortSignal),
       store: dispatchMocks.store,
     });
+  });
+
+  it('binds the run store to the claimed section_run_id when seed data is stale', async () => {
+    const callbacks: Array<() => Promise<void>> = [];
+    const schedule = vi.fn((task: () => Promise<void>) => {
+      callbacks.push(task);
+    });
+    dispatchMocks.claimSectionRun.mockResolvedValue(
+      claimResult('claimed', CLAIMED_SECTION_RUN_ID),
+    );
+
+    await scheduleLabSectionJob({
+      userId: USER_ID,
+      runId: RUN_ID,
+      sectionId: SECTION_ID,
+      zones: [SECTION_ID],
+      researchInput: validResearchInput(),
+      supabase: supabaseClient(),
+      schedule,
+    });
+
+    expect(dispatchMocks.createSupabaseRunStore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionRunIdByZone: {
+          [SECTION_ID]: CLAIMED_SECTION_RUN_ID,
+        },
+      }),
+    );
+
+    await runScheduled(callbacks);
+
+    expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
   });
 
   it.each<SectionRunClaimStatus>([
@@ -256,6 +302,30 @@ describe('scheduleLabSectionJob', () => {
     expect(result.claim.status).toBe(status);
     expect(schedule).not.toHaveBeenCalled();
     expect(callbacks).toHaveLength(0);
+    expect(dispatchMocks.createSupabaseRunStore).not.toHaveBeenCalled();
+    expect(dispatchMocks.store.createRun).not.toHaveBeenCalled();
+    expect(dispatchMocks.runLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('does not create a replacement job for an ordinary errored section row', async () => {
+    const schedule = vi.fn();
+    dispatchMocks.seedOrchestration.mockResolvedValue(seededRows('error'));
+    dispatchMocks.claimSectionRun.mockResolvedValue(claimResult('already_error'));
+
+    const result = await scheduleLabSectionJob({
+      userId: USER_ID,
+      runId: RUN_ID,
+      sectionId: SECTION_ID,
+      zones: [SECTION_ID],
+      researchInput: validResearchInput(),
+      supabase: supabaseClient(),
+      schedule,
+    });
+
+    expect(result.section_run_ids[0]?.status).toBe('error');
+    expect(result.claim.status).toBe('already_error');
+    expect(schedule).not.toHaveBeenCalled();
+    expect(dispatchMocks.createSupabaseRunStore).not.toHaveBeenCalled();
     expect(dispatchMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 
@@ -278,6 +348,7 @@ describe('scheduleLabSectionJob', () => {
     );
 
     expect(schedule).not.toHaveBeenCalled();
+    expect(dispatchMocks.createSupabaseRunStore).not.toHaveBeenCalled();
     expect(dispatchMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 });
