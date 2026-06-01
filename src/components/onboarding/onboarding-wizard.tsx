@@ -5,31 +5,16 @@ import {
   useMemo,
   useState,
   type ReactElement,
-  type ReactNode,
 } from "react";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Building2,
-  Check,
-  Package,
-  Route,
-  Sparkles,
-  Target,
-  TrendingUp,
-  UploadCloud,
-  Users,
-} from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { GradientBorder } from "@/components/ui/gradient-border";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { fadeUp, easings } from "@/lib/motion";
 import { buildOnboardingReviewMetadata } from "@/lib/research-v2/onboarding-review";
 import {
   EMPTY_ONBOARDING_V2,
@@ -41,12 +26,8 @@ import {
   type OnboardingV2Data,
   type SalesProcessDocRef,
   type SectionField,
-  type SectionIconName,
 } from "@/lib/research-v2/onboarding-v2-types";
 import { cn } from "@/lib/utils";
-
-import { AutoFillPanel } from "./auto-fill-panel";
-import { DocumentUploadPanel } from "./document-upload-panel";
 
 interface OnboardingWizardProps {
   initialData?: Partial<OnboardingV2Data>;
@@ -62,16 +43,8 @@ interface OnboardingWizardProps {
   ) => void;
 }
 
-const ICONS: Record<SectionIconName, ReactNode> = {
-  Building2: <Building2 className="h-4 w-4" />,
-  Users: <Users className="h-4 w-4" />,
-  Package: <Package className="h-4 w-4" />,
-  TrendingUp: <TrendingUp className="h-4 w-4" />,
-  Sparkles: <Sparkles className="h-4 w-4" />,
-  Target: <Target className="h-4 w-4" />,
-  Route: <Route className="h-4 w-4" />,
-  UploadCloud: <UploadCloud className="h-4 w-4" />,
-};
+// Single accent (DESIGN.md: one accent blue, no decorative gradients).
+const ACCENT = "rgb(54, 94, 255)";
 
 const SALES_PROCESS_DOC_LABELS = [
   "Process overview",
@@ -98,36 +71,6 @@ function deriveGtmMotion(
   if (salesMotion === "product_led") return "PLG";
   if (salesMotion === "sales_led" || salesMotion === "hybrid") return "SLG";
   return "";
-}
-
-function hasPrefillValue(value: OnboardingV2Data[keyof OnboardingV2Data]): boolean {
-  if (Array.isArray(value)) {
-    return value.length > 0;
-  }
-  if (typeof value === "boolean") {
-    return true;
-  }
-  if (value === null) {
-    return false;
-  }
-  return String(value).trim().length > 0;
-}
-
-function mergePrefillData(
-  data: OnboardingV2Data,
-  prefilled: Partial<OnboardingV2Data>,
-): OnboardingV2Data {
-  const next: OnboardingV2Data = { ...data };
-
-  for (const key of Object.keys(prefilled) as Array<keyof OnboardingV2Data>) {
-    const value = prefilled[key];
-    if (value === undefined || !hasPrefillValue(value)) {
-      continue;
-    }
-    next[key] = value as never;
-  }
-
-  return next;
 }
 
 function issuesToErrors(
@@ -217,10 +160,6 @@ export function OnboardingWizard({
         return next;
       });
     }
-  }
-
-  function applyPrefill(prefilled: Partial<OnboardingV2Data>): void {
-    setData((prev) => mergePrefillData(prev, prefilled));
   }
 
   function clearAllFields(): void {
@@ -546,347 +485,236 @@ export function OnboardingWizard({
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
-      <header className="space-y-3">
-        <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-          GTM Brief Review
+    <div className="mx-auto w-full max-w-3xl space-y-5">
+      <header className="flex items-end justify-between gap-4">
+        <div className="space-y-1">
+          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+            GTM Brief Review
+          </div>
+          <h1
+            className="text-[19px] font-semibold tracking-tight"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Confirm every field
+          </h1>
+          <p
+            className="text-[13px] leading-relaxed"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Review the corpus-filled brief before the audit is frozen and handed
+            to the six positioning Sections.
+          </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1
-              className="text-[24px] font-bold tracking-tight"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Confirm every field
-            </h1>
-            <p
-              className="mt-2 max-w-[70ch] leading-relaxed"
-              style={{ color: "var(--text-secondary)", fontSize: "15px" }}
-            >
-              Review the corpus-filled GTM Brief before the audit is frozen and
-              handed to the six positioning Sections.
-            </p>
-          </div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-            {review.fieldCount} fields
-          </div>
+        <div className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+          {review.fieldCount} fields
         </div>
       </header>
 
-      {/* Prefill panels live above the stepper so auto-fill works on any step. */}
-      <div className="grid gap-3">
-        <AutoFillPanel onPrefillComplete={applyPrefill} />
-        <DocumentUploadPanel onPrefillComplete={applyPrefill} />
-      </div>
-
-      {/* Progress + stepper */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-[14px]">
-            <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-              Step {currentStep + 1} of {SECTION_META.length}
-            </span>
-            <span style={{ color: "var(--text-tertiary)" }}>
-              {Math.round(progress)}% complete
-            </span>
-          </div>
-          <div
-            className="h-1.5 overflow-hidden rounded-full"
-            style={{ background: "var(--bg-hover)" }}
+      {/* Progress + step rail */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+            Step {currentStep + 1} of {SECTION_META.length}
+          </span>
+          <span
+            className="font-mono tabular-nums"
+            style={{ color: "var(--text-tertiary)" }}
           >
-            <motion.div
-              className="h-full rounded-full"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%)",
-              }}
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease: easings.out }}
-            />
-          </div>
+            {Math.round(progress)}%
+          </span>
+        </div>
+        <div
+          className="h-[3px] overflow-hidden rounded-full"
+          style={{ background: "var(--bg-hover)" }}
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-300 ease-out"
+            style={{ width: `${progress}%`, background: ACCENT }}
+          />
         </div>
 
-        {/* Desktop horizontal stepper */}
-        <div className="hidden md:block">
-          <div className="flex justify-between">
+        {/* Single step rail — sits flush on desktop, scrolls on narrow screens. */}
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            className="flex min-w-max items-stretch gap-0.5 border-b"
+            style={{ borderColor: "var(--border-subtle)" }}
+          >
             {SECTION_META.map((step, index) => {
               const isCurrent = index === currentStep;
               const isClickable = index <= highestStepReached;
-              const isFuture = !isClickable;
               const isCompleted = completedSteps.has(index);
-              const showCheckmark = isCompleted && !isCurrent;
               const isActiveTone = isCurrent || isCompleted;
+              const showCheckmark = isCompleted && !isCurrent;
 
               return (
-                <div
+                <button
                   key={step.id}
+                  type="button"
+                  onClick={() => {
+                    if (isClickable) goToStep(index);
+                  }}
+                  disabled={!isClickable}
+                  aria-current={isCurrent ? "step" : undefined}
+                  aria-label={
+                    isCurrent
+                      ? `Current step: ${step.title}`
+                      : `Go to ${step.title}`
+                  }
                   className={cn(
-                    "flex flex-col items-center gap-2",
-                    index !== 0 && "flex-1",
+                    "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-[1.5px] px-2.5 py-2 text-[12px]",
+                    "transition-colors duration-150",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--bg-base)]",
+                    isClickable ? "cursor-pointer" : "cursor-not-allowed",
+                    isCurrent ? "font-semibold" : "font-medium",
                   )}
+                  style={{
+                    borderColor: isCurrent ? ACCENT : "transparent",
+                    color: isCurrent
+                      ? "var(--text-primary)"
+                      : isActiveTone
+                        ? "var(--text-secondary)"
+                        : "var(--text-tertiary)",
+                  }}
                 >
-                  <motion.button
-                    type="button"
-                    onClick={() => {
-                      if (isClickable) goToStep(index);
-                    }}
-                    disabled={!isClickable}
-                    aria-label={
-                      isCurrent
-                        ? `Current step: ${step.title}`
-                        : `Go to ${step.title}`
-                    }
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={cn(
-                      "relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2",
-                      "transition-colors duration-200",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]",
-                      isClickable && "cursor-pointer hover:opacity-80",
-                      isFuture && "cursor-not-allowed",
-                    )}
+                  <span
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full font-mono text-[9px] tabular-nums"
                     style={{
-                      borderColor: isActiveTone
-                        ? "rgb(54, 94, 255)"
-                        : "var(--border-default)",
-                      background: showCheckmark
-                        ? "rgb(54, 94, 255)"
-                        : isCurrent
-                          ? "rgba(54, 94, 255, 0.15)"
-                          : "var(--bg-surface)",
+                      background: showCheckmark ? ACCENT : "transparent",
+                      border: showCheckmark
+                        ? "none"
+                        : `1px solid ${isCurrent ? ACCENT : "var(--border-default)"}`,
                       color: showCheckmark
                         ? "#ffffff"
                         : isCurrent
-                          ? "rgb(54, 94, 255)"
+                          ? ACCENT
                           : "var(--text-tertiary)",
                     }}
-                    whileTap={isClickable ? { scale: 0.95 } : undefined}
                   >
-                    {showCheckmark ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      ICONS[step.icon]
-                    )}
-                  </motion.button>
-                  <span
-                    className={cn(
-                      "text-xs transition-colors duration-200",
-                      isCurrent ? "font-semibold" : "font-medium",
-                      isClickable && "cursor-pointer",
-                      isFuture && "cursor-not-allowed",
-                    )}
-                    style={{
-                      color: isActiveTone
-                        ? "var(--text-primary)"
-                        : "var(--text-tertiary)",
-                    }}
-                  >
-                    {step.shortTitle ?? step.title}
+                    {showCheckmark ? <Check className="h-2.5 w-2.5" /> : index + 1}
                   </span>
-                </div>
+                  {step.shortTitle ?? step.title}
+                </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Mobile horizontal-scroll chip rail */}
-        <div className="space-y-3 md:hidden">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full border-2"
-              style={{
-                background: "rgba(54, 94, 255, 0.15)",
-                borderColor: "rgb(54, 94, 255)",
-                color: "rgb(54, 94, 255)",
-              }}
-            >
-              {ICONS[currentSection.icon]}
-            </div>
-            <div>
-              <p
-                className="text-[16px] font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {currentSection.title}
-              </p>
-              <p className="text-[14px]" style={{ color: "var(--text-tertiary)" }}>
-                Step {currentStep + 1} of {SECTION_META.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="relative -mx-4 px-4">
-            <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {SECTION_META.map((step, index) => {
-                const isCurrent = index === currentStep;
-                const isClickable = index <= highestStepReached;
-                const isCompleted = completedSteps.has(index);
-                const isActiveTone = isCurrent || isCompleted;
-
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    onClick={() => {
-                      if (isClickable) goToStep(index);
-                    }}
-                    disabled={!isClickable}
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={cn(
-                      "flex min-h-[36px] flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-xs",
-                      "transition-colors duration-200",
-                      isCurrent ? "font-semibold" : "font-medium",
-                      !isClickable && "cursor-not-allowed opacity-50",
-                    )}
-                    style={{
-                      borderColor: isActiveTone
-                        ? "rgb(54, 94, 255)"
-                        : "var(--border-default)",
-                      background: isActiveTone
-                        ? "rgba(54, 94, 255, 0.15)"
-                        : "var(--bg-hover)",
-                      color: isActiveTone
-                        ? "rgb(54, 94, 255)"
-                        : "var(--text-tertiary)",
-                    }}
-                  >
-                    {isCompleted && !isCurrent ? (
-                      <Check className="h-3 w-3" />
-                    ) : (
-                      <span className="flex h-3 w-3 items-center justify-center">
-                        {index + 1}
-                      </span>
-                    )}
-                    <span>{step.shortTitle ?? step.title}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div
-              className="pointer-events-none absolute bottom-2 right-4 top-0 w-8"
-              style={{
-                background:
-                  "linear-gradient(to right, transparent, var(--bg-base))",
-              }}
-            />
           </div>
         </div>
       </div>
 
       {/* Current step */}
-      <GradientBorder className="overflow-hidden">
-        <motion.div
+      <div
+        className="overflow-hidden rounded-[8px] border"
+        style={{
+          borderColor: "var(--border-default)",
+          background: "var(--bg-elevated)",
+        }}
+      >
+        <section
           key={currentSection.id}
-          className="p-6 md:p-8"
-          style={{ background: "var(--bg-elevated)" }}
-          variants={fadeUp}
-          initial="initial"
-          animate="animate"
-          transition={{ duration: 0.4, ease: easings.out }}
+          data-testid={`onboarding-section-${currentSection.id}`}
+          className="space-y-5 p-5 md:p-6"
         >
-          <section
-            data-testid={`onboarding-section-${currentSection.id}`}
-            className="space-y-5"
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              {currentSection.shortTitle ?? currentSection.title}
+            </div>
+            <h2 className="mt-1.5 text-[16px] font-semibold tracking-tight">
+              {currentSection.title}
+            </h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {currentSection.description}
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {currentSection.fields.map((field) => renderField(field))}
+          </div>
+
+          {Object.keys(errors).length > 0 ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Fix the highlighted fields before continuing.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {/* Still-required panel: jump to the first incomplete required field. */}
+          <div
+            data-testid="onboarding-still-required"
+            className="flex flex-col gap-3 rounded-[6px] border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            style={{
+              borderColor: "var(--border-subtle)",
+              background: "var(--bg-surface)",
+            }}
           >
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                {currentSection.shortTitle ?? currentSection.title}
-              </div>
-              <h2 className="mt-2 text-xl font-semibold tracking-[0]">
-                {currentSection.title}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {currentSection.description}
-              </p>
-            </div>
-
-            <div className="grid gap-4">
-              {currentSection.fields.map((field) => renderField(field))}
-            </div>
-
-            {Object.keys(errors).length > 0 ? (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  Fix the highlighted fields before continuing.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            {/* Still-required panel: jump to the first incomplete required field. */}
-            <div
-              data-testid="onboarding-still-required"
-              className="flex flex-col gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              {pinnedCount > 0 ? (
-                <>
-                  <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    {pinnedCount} {pinnedCount === 1 ? "field" : "fields"} still
-                    need input
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (nextRequiredKey) jumpToField(nextRequiredKey);
-                    }}
-                    className="h-9 shrink-0 rounded-md px-3 text-sm font-medium"
-                  >
-                    Go to next field
-                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                    {nextRequiredLabel ? (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        Next: &ldquo;{nextRequiredLabel}&rdquo;
-                      </span>
-                    ) : null}
-                  </Button>
-                </>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1.5 text-sm"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  <Check className="h-3.5 w-3.5 text-[color:var(--accent-green)]" />
-                  All required fields complete
+            {pinnedCount > 0 ? (
+              <>
+                <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                  {pinnedCount} {pinnedCount === 1 ? "field" : "fields"} still
+                  need input
                 </span>
-              )}
-            </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (nextRequiredKey) jumpToField(nextRequiredKey);
+                  }}
+                  className="h-8 shrink-0 rounded-[5px] px-3 text-[13px] font-medium"
+                >
+                  Go to next field
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {nextRequiredLabel ? (
+                    <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">
+                      Next: &ldquo;{nextRequiredLabel}&rdquo;
+                    </span>
+                  ) : null}
+                </Button>
+              </>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 text-[13px]"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                <Check className="h-3.5 w-3.5 text-[color:var(--accent-green)]" />
+                All required fields complete
+              </span>
+            )}
+          </div>
 
-            {/* Footer: Back / Clear / Continue */}
-            <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-subtle)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+          {/* Footer: Back / Clear / Continue */}
+          <div
+            className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"
+            style={{ borderColor: "var(--border-subtle)" }}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              onClick={goToPreviousStep}
+              disabled={currentStep === 0}
+              className="h-9 rounded-[5px] px-4 text-[13px] font-medium"
+            >
+              Back
+            </Button>
+            <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
-                variant="outline"
-                onClick={goToPreviousStep}
-                disabled={currentStep === 0}
-                className="h-10 rounded-md px-4 py-2 text-sm font-medium"
+                variant="ghost"
+                onClick={clearAllFields}
+                className="h-9 rounded-[5px] px-3 text-[13px] font-medium"
               >
-                Back
+                Clear
               </Button>
-              <div className="flex items-center justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={clearAllFields}
-                  className="h-10 rounded-md px-4 py-2 text-sm font-medium"
-                >
-                  Clear
-                </Button>
-                <Button
-                  type="button"
-                  onClick={goToNextStep}
-                  className="h-10 rounded-md px-4 py-2 text-sm font-semibold text-white"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%)",
-                  }}
-                >
-                  {isLastStep ? "Run audit" : "Continue"}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                onClick={goToNextStep}
+                className="h-9 rounded-[5px] px-4 text-[13px] font-semibold text-white transition-colors hover:opacity-90"
+                style={{ background: ACCENT }}
+              >
+                {isLastStep ? "Run audit" : "Continue"}
+              </Button>
             </div>
-          </section>
-        </motion.div>
-      </GradientBorder>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
