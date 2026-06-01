@@ -89,7 +89,7 @@ describe('createVoiceOfCustomerCandidate', (): void => {
       expect.objectContaining({
         domain: 'g2.com',
         evidenceKind: 'review',
-        url: 'https://www.g2.com/products/ramp/reviews',
+        url: 'https://g2.com/products/ramp/reviews',
       }),
     );
   });
@@ -148,6 +148,54 @@ describe('selectVoiceOfCustomerCandidates', (): void => {
     expect(
       new Set(result.pack.candidates.map((candidate) => candidate.url)).size,
     ).toBe(result.pack.candidates.length);
+  });
+
+  it('deduplicates equivalent www and non-www URLs before selecting the pack', (): void => {
+    const duplicateNonWww = createVoiceOfCustomerCandidate({
+      auditedCompanyDomain: 'https://ramp.com',
+      snippet:
+        'Finance teams say monthly close pain comes from manual exception chasing.',
+      source: 'web_search',
+      title: 'Ramp reviews',
+      url: 'https://g2.com/products/ramp/reviews',
+    });
+    const duplicateWww = createVoiceOfCustomerCandidate({
+      auditedCompanyDomain: 'https://ramp.com',
+      snippet:
+        'Operators say card-policy cleanup still takes too much manual work.',
+      source: 'reviews',
+      title: 'Ramp reviews with www',
+      url: 'https://www.g2.com/products/ramp/reviews',
+    });
+
+    if (duplicateNonWww === null || duplicateWww === null) {
+      throw new Error('Expected duplicate G2 candidates');
+    }
+
+    const result = selectVoiceOfCustomerCandidates([
+      duplicateNonWww,
+      duplicateWww,
+      makeCandidate(10, 'g2.com', 'review'),
+      makeCandidate(11, 'reddit.com', 'forum'),
+      makeCandidate(12, 'reddit.com', 'forum'),
+      makeCandidate(13, 'capterra.com', 'review'),
+      makeCandidate(14, 'trustpilot.com', 'review'),
+      makeCandidate(15, 'getapp.com', 'review'),
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected candidate pack');
+    }
+
+    const duplicateUrls = result.pack.candidates.filter((candidate) =>
+      candidate.url.endsWith('/products/ramp/reviews'),
+    );
+
+    expect(duplicateUrls).toHaveLength(1);
+    expect(duplicateUrls[0]?.url).toBe(
+      'https://g2.com/products/ramp/reviews',
+    );
   });
 
   it('returns typed gaps for missing review/forum surfaces, domains, and candidate count', (): void => {

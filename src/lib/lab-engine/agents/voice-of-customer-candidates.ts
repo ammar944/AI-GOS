@@ -145,7 +145,7 @@ function normalizeCandidateUrl(input: string): string | null {
     return null;
   }
 
-  parsedUrl.hostname = parsedUrl.hostname.toLowerCase();
+  parsedUrl.hostname = hostname;
   return parsedUrl.toString();
 }
 

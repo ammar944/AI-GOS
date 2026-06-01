@@ -3301,6 +3301,12 @@ function buildVoiceOfCustomerSearchQuery(
   return `${brand} customer reviews complaints pain points reddit forum G2 Capterra Trustpilot${domainExclusion}`;
 }
 
+function hasExtractableVoiceOfCustomerQuoteText(
+  candidate: VoiceOfCustomerCandidate,
+): boolean {
+  return candidate.snippet.trim().length > 0;
+}
+
 function getFirecrawlRecoveryCandidate(
   result: VoiceOfCustomerCandidateResult,
 ): VoiceOfCustomerCandidate | null {
@@ -3310,7 +3316,9 @@ function getFirecrawlRecoveryCandidate(
 
   return (
     result.pack.candidates.find(
-      (candidate) => candidate.evidenceKind !== "article",
+      (candidate) =>
+        candidate.evidenceKind !== "article" &&
+        !hasExtractableVoiceOfCustomerQuoteText(candidate),
     ) ?? null
   );
 }

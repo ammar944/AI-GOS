@@ -264,10 +264,12 @@ describe('runSection VoC candidate prepass', (): void => {
       if (!checkedFirstDraft) {
         checkedFirstDraft = true;
         fetchCallsBeforeStructured = requestedUrls.length;
-        expect(fetchCallsBeforeStructured).toBeGreaterThanOrEqual(2);
-        expect(fetchCallsBeforeStructured).toBeLessThanOrEqual(3);
+        expect(fetchCallsBeforeStructured).toBe(2);
         expect(requestedUrls[0]).toContain('searchapi.io');
         expect(requestedUrls[1]).toContain('api.search.brave.com');
+        expect(
+          requestedUrls.some((url) => url.includes('api.firecrawl.dev')),
+        ).toBe(false);
 
         const webSearchTool = requireExecutableTool(
           params.tools?.web_search,
@@ -331,7 +333,10 @@ describe('runSection VoC candidate prepass', (): void => {
     );
 
     expect(streamStructured).toHaveBeenCalled();
-    expect(fetchCallsBeforeStructured).toBeLessThanOrEqual(3);
+    expect(fetchCallsBeforeStructured).toBe(2);
+    expect(requestedUrls.some((url) => url.includes('api.firecrawl.dev'))).toBe(
+      false,
+    );
     expect(budgetProbeTypes.slice(0, 2)).toEqual(['result', 'result']);
     expect(budgetProbeTypes).toContain('gap');
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
