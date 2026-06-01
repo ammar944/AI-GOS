@@ -3064,11 +3064,12 @@ async function buildAnswerToolAdEvidence({
   researchInput: ResearchInput;
   researchTools: Record<string, unknown>;
 }): Promise<{
+  adProbeSteps: readonly AgentStep[];
   events: ActivityEvent[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
 }> {
   if (input.sectionId !== "positioningCompetitorLandscape") {
-    return { events: [] };
+    return { adProbeSteps: [], events: [] };
   }
 
   const adProbeSteps = await runCompetitorAdProbeSteps({
@@ -3090,7 +3091,7 @@ async function buildAnswerToolAdEvidence({
     observedAt: getNow(deps).toISOString(),
   });
 
-  return { events, normalizedAdEvidenceGroups };
+  return { adProbeSteps, events, normalizedAdEvidenceGroups };
 }
 
 interface VoiceOfCustomerCandidatePrepass {
@@ -3465,6 +3466,26 @@ function buildMergedAnswerToolAdEvidenceGroups({
   return mergeAdEvidenceGroups(prepassGroups ?? [], modelGroups);
 }
 
+function buildVerifierEvidenceSteps({
+  adProbeSteps,
+  input,
+  modelSteps,
+}: {
+  adProbeSteps?: readonly AgentStep[];
+  input: RunSectionInput;
+  modelSteps: readonly AgentStep[];
+}): readonly AgentStep[] {
+  if (
+    input.sectionId !== "positioningCompetitorLandscape" ||
+    adProbeSteps === undefined ||
+    adProbeSteps.length === 0
+  ) {
+    return modelSteps;
+  }
+
+  return [...modelSteps, ...adProbeSteps];
+}
+
 /**
  * True iff some model step's toolResults includes a SUCCESSFUL keyword_volume
  * call (SpyFu). The tool returns a discriminated union: success is
@@ -3491,6 +3512,7 @@ function buildVerifiedAttemptFromOutput({
   modelSteps,
   output,
   researchInput,
+  verifierSteps,
 }: {
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
@@ -3498,10 +3520,12 @@ function buildVerifiedAttemptFromOutput({
   modelSteps: readonly AgentStep[];
   output: SectionOutput<Record<string, unknown>>;
   researchInput: ResearchInput;
+  verifierSteps?: readonly AgentStep[];
 }): AttemptResult {
+  const evidenceSteps = verifierSteps ?? modelSteps;
   const verification = structuralVerifier({
     body: output.body,
-    toolResults: modelSteps.flatMap((step) => step.toolResults),
+    toolResults: evidenceSteps.flatMap((step) => step.toolResults),
     corpusExcerpts: researchInput.corpus.excerpts,
   });
   const artifact = buildEnvelope({
@@ -3581,6 +3605,7 @@ function buildVerifiedAttemptFromOutput({
 }
 
 function buildAnswerToolAttempt({
+  adProbeSteps,
   answerInput,
   definition,
   deps,
@@ -3589,6 +3614,7 @@ function buildAnswerToolAttempt({
   normalizedAdEvidenceGroups,
   researchInput,
 }: {
+  adProbeSteps?: readonly AgentStep[];
   answerInput: unknown | undefined;
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
@@ -3620,6 +3646,11 @@ function buildAnswerToolAttempt({
       modelSteps,
       output,
       researchInput,
+      verifierSteps: buildVerifierEvidenceSteps({
+        adProbeSteps,
+        input,
+        modelSteps,
+      }),
     });
   } catch (error) {
     return { output: null, artifact: null, errors: getErrorIssues(error) };
@@ -3728,6 +3759,7 @@ function buildOutputFromStructuredBody({
 }
 
 async function buildStructuredBodyAttempt({
+  adProbeSteps,
   attempt,
   definition,
   deps,
@@ -3741,6 +3773,7 @@ async function buildStructuredBodyAttempt({
   scheduleFlush,
   toolEvents,
 }: {
+  adProbeSteps?: readonly AgentStep[];
   attempt: number;
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
@@ -3876,6 +3909,11 @@ async function buildStructuredBodyAttempt({
       modelSteps,
       output,
       researchInput,
+      verifierSteps: buildVerifierEvidenceSteps({
+        adProbeSteps,
+        input,
+        modelSteps,
+      }),
     });
   } catch (error) {
     partialBroadcaster.cancel();
@@ -4178,6 +4216,7 @@ async function runSectionViaAnswerTool(
   });
 
   let attempt = buildAnswerToolAttempt({
+    adProbeSteps: adEvidence.adProbeSteps,
     answerInput: answerResult.answerInput,
     definition,
     deps,
@@ -4264,6 +4303,7 @@ async function runSectionViaAnswerTool(
       });
 
       attempt = buildAnswerToolAttempt({
+        adProbeSteps: adEvidence.adProbeSteps,
         answerInput: repairResult.answerInput,
         definition,
         deps,
@@ -4583,6 +4623,7 @@ async function runSectionViaStructuredBodyStream(
   );
 
   let attempt = await buildStructuredBodyAttempt({
+    adProbeSteps: adEvidence.adProbeSteps,
     attempt: validationAttempt,
     definition,
     deps,
@@ -4679,6 +4720,7 @@ async function runSectionViaStructuredBodyStream(
       );
 
       attempt = await buildStructuredBodyAttempt({
+        adProbeSteps: adEvidence.adProbeSteps,
         attempt: validationAttempt,
         definition,
         deps,
@@ -5018,6 +5060,7 @@ async function streamSectionViaAnswerTool(
   });
 
   const attempt = buildAnswerToolAttempt({
+    adProbeSteps: adEvidence.adProbeSteps,
     answerInput: answerResult.answerInput,
     definition,
     deps,
