@@ -52,12 +52,19 @@ describe("extractClaims", (): void => {
           kind: "url",
           value: "https://www.gong.io/pricing",
         }),
-        expect.objectContaining({
-          kind: "url",
-          value: "https://adstransparency.google.com/?region=US&query=Clari",
-        }),
       ]),
     );
+
+    // Constructed ad-library search deep-links are UI affordances, not citations;
+    // the verifier must not treat them as URL claims, else every empty-ad run
+    // triggers a needless repair loop (2026-06-01 live audit: 4 repairs / 186s).
+    expect(
+      claims.some(
+        (claim) =>
+          claim.kind === "url" &&
+          claim.value.includes("adstransparency.google.com"),
+      ),
+    ).toBe(false);
   });
 
   it("emits one whole-span claim for a symbolic numeric range, not its fragments", (): void => {

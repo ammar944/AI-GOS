@@ -41,6 +41,28 @@ function normalizeCompanyName(name: string): string {
 }
 
 /**
+ * Reduce a competitor seed string to the clean brand token used as the ad-library
+ * search query. Real competitor inputs (from the corpus or the brief) arrive
+ * decorated, e.g. "Confluence (Atlassian) - enterprise wiki/docs". SearchAPI
+ * advertiser search matches nothing on that literal string, so the live probe
+ * returned 0 creatives (2026-06-01 audit). Strip the descriptor suffix after a
+ * spaced separator (" - "/" — "/" : "/" | ") and any parenthetical, then collapse
+ * whitespace. "Confluence (Atlassian) - enterprise wiki/docs" -> "Confluence";
+ * "Microsoft Loop" -> "Microsoft Loop"; "Coda" -> "Coda". Falls back to the
+ * trimmed original if cleaning empties the string.
+ */
+export function cleanAdvertiserQuery(name: string): string {
+  const original = name.trim();
+  const withoutDescriptor = original.split(/\s+[-–—:|]\s+/)[0] ?? original;
+  const cleaned = withoutDescriptor
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned.length > 0 ? cleaned : original;
+}
+
+/**
  * Calculate what fraction of the longer string's words overlap with the shorter string.
  */
 function calculateWordOverlapRatio(shorter: string, longer: string): number {

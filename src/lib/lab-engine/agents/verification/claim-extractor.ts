@@ -17,6 +17,18 @@ const magnitudePattern =
   /\b\d+(?:\.\d+)?\s?(?:k|m|b|thousand|million|billion)\b(?:\s+[A-Za-z][A-Za-z-]*)?/gi;
 const quotePattern = /"([^"]+)"/g;
 const urlPattern = /https?:\/\/[^\s)"'>\]}]+/gi;
+// Deterministic ad-library *search* deep-links are constructed by the ad adapter
+// (buildLibraryLink) as UI affordances ("go search this advertiser"), not factual
+// citations. They are never returned by a fetched source, so the structural
+// verifier flags them as unsupported URL claims and triggers a needless repair
+// loop — the dominant cause of CompetitorLandscape's 186s / 4-repair latency
+// (2026-06-01 live audit). Exclude ONLY the search forms (?query= / ?q= /
+// /search?company=). Real ad-*detail* URLs (adstransparency.google.com/<id>,
+// facebook.com/ads/library/?id=) stay checked, so a fabricated detail URL is
+// still caught and a sourced one still verifies. Genuine citations on real
+// source domains are untouched.
+const constructedAdLibraryLinkPattern =
+  /^https?:\/\/(?:adstransparency\.google\.com\/\?[^\s"']*query=|(?:www\.)?facebook\.com\/ads\/library\/?\?[^\s"']*\bq=|(?:www\.)?linkedin\.com\/ad-library\/search\b)/i;
 // A single numeric range endpoint: optional currency, digits (with thousands
 // commas / decimals), optional magnitude suffix, optional percent.
 const rangeTokenSource =
@@ -110,12 +122,18 @@ function extractStringClaims({
   }
 
   for (const match of value.matchAll(urlPattern)) {
+    const url = cleanUrl(match[0]);
+
+    if (constructedAdLibraryLinkPattern.test(url)) {
+      continue;
+    }
+
     pushClaim({
       claims,
       kind: "url",
       raw: value,
       seen,
-      value: cleanUrl(match[0]),
+      value: url,
     });
   }
 

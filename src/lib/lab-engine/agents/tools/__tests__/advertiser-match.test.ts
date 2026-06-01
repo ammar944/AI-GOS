@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateSimilarity,
+  cleanAdvertiserQuery,
   extractCompanyFromDomain,
   isAdvertiserMatch,
   normalizeDomain,
@@ -167,6 +168,29 @@ describe("advertiser match relevance engine", (): void => {
     it("extracts and normalizes domains", (): void => {
       expect(extractCompanyFromDomain("https://www.amazon.com/path")).toBe("amazon");
       expect(normalizeDomain("https://www.Gong.io/demo")).toBe("gong.io");
+    });
+  });
+
+  describe("cleanAdvertiserQuery", (): void => {
+    it("strips descriptor suffixes and parentheticals to the brand token", (): void => {
+      // Live 2026-06-01 audit: the probe queried this literal and matched nothing.
+      expect(
+        cleanAdvertiserQuery("Confluence (Atlassian) - enterprise wiki/docs"),
+      ).toBe("Confluence");
+      expect(cleanAdvertiserQuery("Notion (Notion Labs, Inc.)")).toBe("Notion");
+      expect(cleanAdvertiserQuery("Asana — work management")).toBe("Asana");
+    });
+
+    it("leaves clean multi-word brands and bare names untouched", (): void => {
+      expect(cleanAdvertiserQuery("Microsoft Loop")).toBe("Microsoft Loop");
+      expect(cleanAdvertiserQuery("Coda")).toBe("Coda");
+      expect(cleanAdvertiserQuery("Monday.com")).toBe("Monday.com");
+    });
+
+    it("falls back to the trimmed original when cleaning empties it", (): void => {
+      expect(cleanAdvertiserQuery("  (parenthetical only)  ")).toBe(
+        "(parenthetical only)",
+      );
     });
   });
 });

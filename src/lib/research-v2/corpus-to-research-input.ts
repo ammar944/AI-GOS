@@ -6,6 +6,7 @@ import {
   type SourceRef,
 } from "../lab-engine/artifacts/artifact-envelope";
 import { sectionIds, type SectionId } from "../lab-engine/events/activity-event";
+import { cleanAdvertiserQuery } from "../lab-engine/agents/tools/advertiser-match";
 import {
   buildUploadedDocumentSourceUrl,
   trimUploadedDocumentExcerpt,
@@ -675,10 +676,19 @@ function buildCompetitorSeeds(
   const seeds: { name: string; domain?: string }[] = [];
 
   for (const rawName of rawTopCompetitors.split(/[,\n;]+/)) {
-    const name = rawName
+    const stripped = rawName
       .trim()
       .replace(/^[•\-*\d.)\s]+/, "")
       .trim();
+
+    if (stripped.length === 0) {
+      continue;
+    }
+
+    // Reduce to the clean brand token before it becomes the ad-library search
+    // query — "Confluence (Atlassian) - enterprise wiki/docs" -> "Confluence".
+    // The live probe matched nothing on the decorated literal (2026-06-01 audit).
+    const name = cleanAdvertiserQuery(stripped);
 
     if (name.length === 0) {
       continue;
