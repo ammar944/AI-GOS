@@ -16,13 +16,81 @@ const sourceSectionValues = [
   "gtmBrief",
 ] as const;
 
-const creativeTypeValues = [
+export const creativeTypeValues = [
   "unique-selling-point",
   "problem-solution-transformation",
   "objection-handling",
   "founder-talking-head",
   "product-demo",
 ] as const;
+
+function slugifyCreativeType(value: unknown): string {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-")
+    .replace(/[^a-z-]/g, "");
+}
+
+/**
+ * Snap an arbitrary (possibly out-of-enum) creative-type value onto a valid
+ * `creativeTypeValues` member. Tiered: exact membership → slug-normalized match
+ * → keyword heuristic → `product-demo` fallback. Always returns a valid member.
+ */
+export function snapCreativeType(
+  value: unknown,
+): (typeof creativeTypeValues)[number] {
+  if (
+    typeof value === "string" &&
+    (creativeTypeValues as readonly string[]).includes(value)
+  ) {
+    return value as (typeof creativeTypeValues)[number];
+  }
+
+  const slug = slugifyCreativeType(value);
+
+  const slugMatch = creativeTypeValues.find(
+    (enumValue) => slugifyCreativeType(enumValue) === slug,
+  );
+  if (slugMatch) {
+    return slugMatch;
+  }
+
+  if (slug.includes("usp") || slug.includes("selling")) {
+    return "unique-selling-point";
+  }
+  if (
+    slug.includes("problem") ||
+    slug.includes("transformation") ||
+    slug.includes("pas")
+  ) {
+    return "problem-solution-transformation";
+  }
+  if (slug.includes("objection")) {
+    return "objection-handling";
+  }
+  if (slug.includes("founder") || slug.includes("talking")) {
+    return "founder-talking-head";
+  }
+  if (slug.includes("demo") || slug.includes("product")) {
+    return "product-demo";
+  }
+
+  return "product-demo";
+}
+
+/**
+ * Snap each entry of an `angleTypesInMix` array onto a valid creative-type
+ * member. Non-array input is returned unchanged so downstream validation still
+ * sees (and rejects) a malformed shape.
+ */
+export function snapAngleTypesInMix(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return value as string[];
+  }
+
+  return value.map((entry) => snapCreativeType(entry));
+}
 
 const funnelTypeValues = [
   "direct-to-calendar",

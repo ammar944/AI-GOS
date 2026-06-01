@@ -11,6 +11,10 @@ import {
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
+import {
+  snapAngleTypesInMix,
+  snapCreativeType,
+} from "../artifacts/schemas/paid-media-plan";
 import { checkVoiceOfCustomerSelfSourcing } from "../artifacts/schemas/voice-of-customer";
 import { sectionRunnerModel } from "../ai/models";
 import {
@@ -1680,19 +1684,28 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
       ...(creativeStrategyRecord === null
         ? {}
         : {
-            creativeStrategy: normalizeStructuredRecord({
-              allowedKeys: [
-                "prose",
-                "staticCount",
-                "videoCount",
-                "totalPerAudience",
-                "angleTypesInMix",
-              ],
-              numberKeys: ["staticCount", "videoCount", "totalPerAudience"],
-              record: creativeStrategyRecord,
-              stringArrayKeys: ["angleTypesInMix"],
-              stringKeys: ["prose"],
-            }),
+            creativeStrategy: (() => {
+              const normalized = normalizeStructuredRecord({
+                allowedKeys: [
+                  "prose",
+                  "staticCount",
+                  "videoCount",
+                  "totalPerAudience",
+                  "angleTypesInMix",
+                ],
+                numberKeys: ["staticCount", "videoCount", "totalPerAudience"],
+                record: creativeStrategyRecord,
+                stringArrayKeys: ["angleTypesInMix"],
+                stringKeys: ["prose"],
+              });
+
+              return {
+                ...normalized,
+                angleTypesInMix: snapAngleTypesInMix(
+                  normalized.angleTypesInMix,
+                ),
+              };
+            })(),
           }),
       ...(anglesToTestRecord === null
         ? {}
@@ -1734,34 +1747,52 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: creativeFrameworkRecord,
                 stringKeys: ["prose"],
               }),
-              creatives: normalizePaidMediaGroundedRecordArray({
-                allowedKeys: [
-                  "creativeType",
-                  "uspSentence",
-                  "problem",
-                  "solution",
-                  "transformation",
-                  "objection",
-                  "objectionAnswer",
-                  "founderScriptBeat",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                fallbackSourceSection: "positioningOfferDiagnostic",
-                stringKeys: [
-                  "creativeType",
-                  "uspSentence",
-                  "problem",
-                  "solution",
-                  "transformation",
-                  "objection",
-                  "objectionAnswer",
-                  "founderScriptBeat",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: creativeFrameworkRecord.creatives,
-              }),
+              creatives: (() => {
+                const normalized = normalizePaidMediaGroundedRecordArray({
+                  allowedKeys: [
+                    "creativeType",
+                    "uspSentence",
+                    "problem",
+                    "solution",
+                    "transformation",
+                    "objection",
+                    "objectionAnswer",
+                    "founderScriptBeat",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  fallbackSourceSection: "positioningOfferDiagnostic",
+                  stringKeys: [
+                    "creativeType",
+                    "uspSentence",
+                    "problem",
+                    "solution",
+                    "transformation",
+                    "objection",
+                    "objectionAnswer",
+                    "founderScriptBeat",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  value: creativeFrameworkRecord.creatives,
+                });
+
+                if (!Array.isArray(normalized)) {
+                  return normalized;
+                }
+
+                return normalized.map((creative) => {
+                  const creativeRecord = getRecord(creative);
+                  return creativeRecord === null
+                    ? creative
+                    : {
+                        ...creativeRecord,
+                        creativeType: snapCreativeType(
+                          creativeRecord.creativeType,
+                        ),
+                      };
+                });
+              })(),
             },
           }),
       ...(competitorReviewInsightsRecord === null
