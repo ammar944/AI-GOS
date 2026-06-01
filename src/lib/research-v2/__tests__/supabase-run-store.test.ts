@@ -69,7 +69,15 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
 
 function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
-  const updateEq = vi.fn().mockResolvedValue({ error: null });
+  const updateNeq = vi.fn().mockResolvedValue({ error: null });
+  // .eq(...) must be BOTH awaitable (markSectionRunning, telemetry, parent
+  // rollup call .eq without .neq) AND expose a chainable .neq (markSectionError
+  // adds the `.neq('status', 'complete')` guard).
+  const updateEq = vi
+    .fn()
+    .mockReturnValue(
+      Object.assign(Promise.resolve({ error: null }), { neq: updateNeq }),
+    );
   const update = vi.fn();
   const selectQueries: Array<{ table: string; query: ReturnType<typeof createSelectQuery> }> = [];
   const from = vi.fn((table: string) => {
@@ -114,6 +122,7 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
     rpc,
     update,
     updateEq,
+    updateNeq,
     selectQueries,
     updates,
   };
@@ -274,6 +283,33 @@ describe('createSupabaseRunStore', (): void => {
       'forced Buyer ICP failure',
     );
     expect(failed.sections.positioningMarketCategory?.status).toBe('idle');
+  });
+
+  it('guards markSectionError with .neq(status, complete) so a late failure cannot clobber an already-committed section', async (): Promise<void> => {
+    // Invariant: marking an already-complete section's run as error must leave
+    // it complete. The `.neq('status', 'complete')` guard means the WHERE
+    // matches zero rows for a committed section; Supabase returns error:null,
+    // so the store does NOT throw and the section stays committed.
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    const failed = await store.markSectionFailed(
+      saaslaunchResearchInput.runId,
+      'positioningBuyerICP',
+      'late duplicate runner failure',
+    );
+
+    // The complete-status guard is applied (zero-row no-op for a committed row).
+    expect(fakeSupabase.updateNeq).toHaveBeenCalledWith('status', 'complete');
+    // Zero matched rows return error:null, so markSectionError resolves ok and
+    // markSectionFailed does not throw.
+    expect(failed.sections.positioningBuyerICP?.status).toBe('failed');
   });
 
   it('throws a typed commit-conflict error carrying the committed revision when a sibling already advanced the revision', async (): Promise<void> => {

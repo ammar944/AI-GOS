@@ -167,6 +167,11 @@ export function createSupabaseWebhookAdapter(
     },
 
     async markSectionError(input) {
+      // Guard: never downgrade a row commit_artifact_section already set to
+      // 'complete'. A late/duplicate runner failure that loses the CAS race
+      // must not clobber the committed section. When the row is already
+      // complete the WHERE matches zero rows and Supabase returns error:null,
+      // so we still return { ok: true } and the caller does not throw.
       const { error } = await supabase
         .from('research_section_runs')
         .update({
@@ -174,7 +179,8 @@ export function createSupabaseWebhookAdapter(
           error: input.error,
           completed_at: new Date().toISOString(),
         })
-        .eq('id', input.sectionRunId);
+        .eq('id', input.sectionRunId)
+        .neq('status', 'complete');
       if (error) return { ok: false, error: error.message };
       return { ok: true };
     },
