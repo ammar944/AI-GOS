@@ -239,6 +239,101 @@ function installSuccessfulToolFetches(): {
   return { fetchMock, requestedUrls };
 }
 
+const recoveryTargetUrl =
+  'https://revopsforum.com/t/saaslaunch-handoff-breakdowns';
+
+function installRecoveryToolFetches({
+  firecrawlMarkdown,
+  firecrawlSourceUrl = recoveryTargetUrl,
+}: {
+  firecrawlMarkdown: string;
+  firecrawlSourceUrl?: string;
+}): {
+  fetchMock: ReturnType<typeof vi.fn>;
+  requestedUrls: string[];
+} {
+  const requestedUrls: string[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL): Promise<Response> => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      requestedUrls.push(url);
+
+      if (url.includes('searchapi.io')) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: 'https://www.g2.com/products/saaslaunch/reviews',
+              snippet:
+                'Users say follow-up still falls through the cracks without a weekly operating loop.',
+            },
+            {
+              link: 'https://www.capterra.com/p/saaslaunch/reviews',
+              snippet:
+                'Teams complain that account research and next steps stay scattered across notes.',
+            },
+            {
+              link: 'https://www.trustpilot.com/review/saaslaunch.example',
+              snippet:
+                'Reviewers mention manual CRM cleanup and missed handoffs as recurring pain.',
+            },
+          ],
+        });
+      }
+
+      if (url.includes('api.search.brave.com')) {
+        return jsonResponse({
+          web: {
+            results: [
+              {
+                description:
+                  'Operators discuss support-thread complaints about handoffs after founder-led sales calls.',
+                title: 'Support thread on handoff misses',
+                url: 'https://community.revops.example/t/founder-sales-handoff',
+              },
+              {
+                description:
+                  'A forum thread describes account context getting lost between research and outreach.',
+                title: 'Account research gets lost',
+                url: 'https://news.ycombinator.com/item?id=42601',
+              },
+              {
+                title: 'SaaSLaunch handoff breakdowns',
+                url: recoveryTargetUrl,
+              },
+            ],
+          },
+        });
+      }
+
+      if (url.includes('api.firecrawl.dev')) {
+        return jsonResponse({
+          data: {
+            markdown: firecrawlMarkdown,
+            metadata: {
+              sourceURL: firecrawlSourceUrl,
+              title: 'Recovered SaaSLaunch forum thread',
+            },
+          },
+        });
+      }
+
+      return jsonResponse({});
+    },
+  );
+
+  vi.stubGlobal('fetch', fetchMock);
+  vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi');
+  vi.stubEnv('BRAVE_SEARCH_API_KEY', 'test-brave');
+  vi.stubEnv('FIRECRAWL_API_KEY', 'test-firecrawl');
+
+  return { fetchMock, requestedUrls };
+}
+
 describe('runSection VoC candidate prepass', (): void => {
   afterEach((): void => {
     vi.unstubAllEnvs();
@@ -343,6 +438,93 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
+  });
+
+  it('recovers one independent URL-only surface with Firecrawl before drafting', async (): Promise<void> => {
+    const store = await makeStore();
+    const { requestedUrls } = installRecoveryToolFetches({
+      firecrawlMarkdown:
+        'Recovered third-party quote: "Our founder-led follow-up dies when notes and account context split across tools."',
+    });
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(requestedUrls).toHaveLength(3);
+      expect(requestedUrls[2]).toContain('api.firecrawl.dev');
+      expect(params.prompt).toContain('revopsforum.com');
+      expect(params.prompt).toContain('Recovered SaaSLaunch forum thread');
+      expect(params.prompt).toContain('Recovered third-party quote');
+
+      emitVoiceOfCustomerEvidenceStep(params);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+
+    expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(requestedUrls.some((url) => url.includes('api.firecrawl.dev'))).toBe(
+      true,
+    );
+    expect(JSON.stringify(record.events)).toContain('"toolName":"firecrawl"');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('keeps the VoC gap when Firecrawl cannot recover a strict candidate', async (): Promise<void> => {
+    const store = await makeStore();
+    const { requestedUrls } = installRecoveryToolFetches({
+      firecrawlMarkdown: '',
+    });
+    const streamStructured = vi.fn<StructuredStreamer>(() => {
+      throw new Error('Structured draft should not run after recovery gap.');
+    });
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningVoiceOfCustomer',
+        },
+        {
+          allowedTools: ['reviews', 'web_search', 'firecrawl'],
+          loadSkill: async () => 'Use deterministic VoC candidates.',
+          now: () => new Date('2026-06-01T00:00:00.000Z'),
+          store,
+          streamStructured,
+        },
+      ),
+    ).rejects.toThrow(SectionRunnerError);
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const validationEvent = record.events.find(
+      (event) => event.type === 'validation-failed',
+    );
+
+    expect(streamStructured).not.toHaveBeenCalled();
+    expect(requestedUrls.some((url) => url.includes('api.firecrawl.dev'))).toBe(
+      true,
+    );
+    expect(validationEvent?.metadata.issues.join('\n')).toContain(
+      'reason=insufficient_candidates',
+    );
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe('failed');
   });
 
   it('emits validation-failed and skips the full structured draft when the prepass has a gap', async (): Promise<void> => {

@@ -27,6 +27,8 @@ const prepassCreativeUrl =
 const prepassDetailsUrl =
   'https://adstransparency.google.com/advertiser/gong/ad/prepass-1';
 const prepassLandingUrl = 'https://www.gong.io/prepass-demo';
+const unsupportedNonAdUrl =
+  'https://unsupported.example.com/not-from-ad-prepass';
 
 function buildCompetitorLandscapeSupportStep(): AgentStep {
   return {
@@ -79,6 +81,27 @@ function buildCompetitorLandscapeOutput(): {
       ...(source.publisher ? { publisher: source.publisher } : {}),
     })),
     body: competitorLandscapeFixtureArtifact.body,
+  };
+}
+
+function buildOutputWithUnsupportedNonAdUrl(): ReturnType<
+  typeof buildCompetitorLandscapeOutput
+> {
+  const output = buildCompetitorLandscapeOutput();
+
+  return {
+    ...output,
+    body: {
+      ...output.body,
+      adPresence: {
+        ...output.body.adPresence,
+        signals: output.body.adPresence.signals.map((signal, index) =>
+          index === 0
+            ? { ...signal, sourceUrl: unsupportedNonAdUrl }
+            : signal,
+        ),
+      },
+    },
   };
 }
 
@@ -212,29 +235,92 @@ describe('runSection ad-prepass verifier provenance', (): void => {
 
     assertCompetitorLandscapeBody(result.artifact.body);
     expect(
-      result.artifact.body.adEvidence.advertiserGroups[0]?.creatives[0]
-        ?.creativeUrl,
-    ).toBe(prepassCreativeUrl);
-    expect(result.artifact.verification?.claims).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          status: 'verified',
-          claim: expect.objectContaining({
-            kind: 'url',
-            value: prepassCreativeUrl,
-          }),
-          matchedSourceRef: expect.objectContaining({
-            kind: 'toolResult',
-            toolName: 'google_ads',
-          }),
-        }),
-      ]),
+      result.artifact.body.adEvidence.advertiserGroups[0]?.creatives[0],
+    ).toEqual(
+      expect.objectContaining({
+        creativeUrl: prepassCreativeUrl,
+        detailsUrl: prepassDetailsUrl,
+        landingUrl: prepassLandingUrl,
+        sourceUrl: prepassDetailsUrl,
+      }),
     );
+
+    for (const value of [
+      prepassCreativeUrl,
+      prepassDetailsUrl,
+      prepassLandingUrl,
+    ]) {
+      expect(result.artifact.verification?.claims).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: 'verified',
+            claim: expect.objectContaining({
+              kind: 'url',
+              value,
+            }),
+            matchedSourceRef: expect.objectContaining({
+              kind: 'toolResult',
+              toolName: 'google_ads',
+            }),
+          }),
+        ]),
+      );
+    }
 
     const record = await store.readRun(researchInput.runId);
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
     expect(record.events.map((event) => event.type)).not.toContain(
       'validation-failed',
+    );
+  });
+
+  it('does not treat unrelated non-ad URLs as verifier-supported by ad prepass evidence', async (): Promise<void> => {
+    const runSection = await importRunSectionWithMockedAdTools();
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-ad-prepass-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningCompetitorLandscape'],
+      now: () => new Date('2026-06-01T12:00:00.000Z'),
+    });
+    const researchInput = {
+      ...saaslaunchResearchInput,
+      runId: 'run-ad-prepass-verifier-negative',
+      competitorAds: [],
+      competitorSeeds: [{ name: 'Gong', domain: 'gong.io' }],
+    };
+    await store.createRun(researchInput);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildCompetitorLandscapeSupportStep()],
+      text: '',
+      answerInput: buildOutputWithUnsupportedNonAdUrl(),
+    }));
+
+    await expect(
+      runSection(
+        {
+          runId: researchInput.runId,
+          sectionId: 'positioningCompetitorLandscape',
+        },
+        {
+          store,
+          loadSkill: async () => 'Use deterministic ad prepass evidence.',
+          env: {
+            LAB_SECTION_STREAMING: 'false',
+            LAB_VERIFIER_MAX_UNSUPPORTED: '0',
+          },
+          runAnswerTool,
+          now: () => new Date('2026-06-01T12:00:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow('evidence-gate');
+
+    const record = await store.readRun(researchInput.runId);
+    const eventJson = JSON.stringify(record.events);
+
+    expect(eventJson).toContain(unsupportedNonAdUrl);
+    expect(eventJson).not.toContain(
+      `url claim "${prepassCreativeUrl}" is not supported`,
     );
   });
 });

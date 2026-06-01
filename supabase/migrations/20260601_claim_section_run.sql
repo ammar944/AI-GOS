@@ -4,7 +4,10 @@
 -- created or reused section rows. Only the caller that transitions the active
 -- research_section_runs row from queued -> running owns scheduling the lab job.
 
+drop function if exists public.claim_section_run(uuid, text);
+
 create or replace function public.claim_section_run(
+  p_user_id text,
   p_run_id uuid,
   p_section_id text
 ) returns table (
@@ -55,17 +58,18 @@ begin
         from public.research_artifacts a
         join public.research_artifact_sections s
           on s.artifact_id = a.id
-         and s.zone = $2
-       where a.run_id = $1::text
+         and s.zone = $3
+       where a.user_id = $1
+         and a.run_id = $2::text
          and r.id = s.section_run_id
          and r.artifact_id = a.id
-         and r.zone = $2
+         and r.zone = $3
          and r.status = 'queued'
        returning r.id
     $sql$,
     v_set_clause
   )
-  using p_run_id, p_section_id
+  using p_user_id, p_run_id, p_section_id
   into v_section_run_id;
 
   if v_section_run_id is not null then
@@ -88,7 +92,8 @@ begin
       on r.id = s.section_run_id
      and r.artifact_id = a.id
      and r.zone = p_section_id
-   where a.run_id = p_run_id::text
+   where a.user_id = p_user_id
+     and a.run_id = p_run_id::text
    limit 1;
 
   run_id := p_run_id;
@@ -219,12 +224,12 @@ begin
   return;
 end $function$;
 
-revoke execute on function public.claim_section_run(uuid, text)
+revoke execute on function public.claim_section_run(text, uuid, text)
   from public, anon, authenticated;
 revoke execute on function public.reset_section_run_for_rerun(text, text, text)
   from public, anon, authenticated;
 
-grant execute on function public.claim_section_run(uuid, text) to service_role;
+grant execute on function public.claim_section_run(text, uuid, text) to service_role;
 grant execute on function public.reset_section_run_for_rerun(text, text, text)
   to service_role;
 

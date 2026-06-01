@@ -219,6 +219,7 @@ describe('scheduleLabSectionJob', () => {
     expect(dispatchMocks.store.createRun).toHaveBeenCalledTimes(1);
     expect(dispatchMocks.claimSectionRun).toHaveBeenCalledWith({
       supabase: expect.any(Object),
+      userId: USER_ID,
       runId: RUN_ID,
       sectionId: SECTION_ID,
     });
@@ -344,7 +345,7 @@ describe('scheduleLabSectionJob', () => {
         schedule,
       }),
     ).rejects.toThrow(
-      `claim_section_run returned not_found for runId=${RUN_ID} sectionId=${SECTION_ID}`,
+      `claim_section_run returned not_found for userId=${USER_ID} runId=${RUN_ID} sectionId=${SECTION_ID}`,
     );
 
     expect(schedule).not.toHaveBeenCalled();

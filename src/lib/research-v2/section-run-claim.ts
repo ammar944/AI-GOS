@@ -20,6 +20,7 @@ export interface SectionRunClaimResult {
 
 export interface ClaimSectionRunInput {
   supabase: SupabaseClient;
+  userId: string;
   runId: string;
   sectionId: string;
 }
@@ -88,13 +89,14 @@ export async function claimSectionRun(
   input: ClaimSectionRunInput,
 ): Promise<SectionRunClaimResult> {
   const { data, error } = await input.supabase.rpc('claim_section_run', {
+    p_user_id: input.userId,
     p_run_id: input.runId,
     p_section_id: input.sectionId,
   });
 
   if (error) {
     throw new SectionRunClaimError(
-      `claim_section_run RPC failed for runId=${input.runId} sectionId=${input.sectionId}: ${error.message}`,
+      `claim_section_run RPC failed for userId=${input.userId} runId=${input.runId} sectionId=${input.sectionId}: ${error.message}`,
       error,
     );
   }
@@ -102,7 +104,7 @@ export async function claimSectionRun(
   const result = parseSectionRunClaimResult(data);
   if (result.runId !== input.runId || result.sectionId !== input.sectionId) {
     throw new SectionRunClaimError(
-      `claim_section_run returned mismatched row for runId=${input.runId} sectionId=${input.sectionId}`,
+      `claim_section_run returned mismatched row for userId=${input.userId} runId=${input.runId} sectionId=${input.sectionId}`,
       result,
     );
   }

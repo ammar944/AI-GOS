@@ -51,13 +51,14 @@ export async function scheduleLabSectionJob(
 
   const claim = await claimSectionRun({
     supabase: input.supabase,
+    userId: input.userId,
     runId: input.runId,
     sectionId: input.sectionId,
   });
 
   if (claim.status === 'not_found') {
     throw new LabSectionDispatchError(
-      `claim_section_run returned not_found for runId=${input.runId} sectionId=${input.sectionId}`,
+      `claim_section_run returned not_found for userId=${input.userId} runId=${input.runId} sectionId=${input.sectionId}`,
     );
   }
 
@@ -74,7 +75,7 @@ export async function scheduleLabSectionJob(
 
   if (!claim.sectionRunId) {
     throw new LabSectionDispatchError(
-      `claim_section_run returned claimed without sectionRunId for runId=${input.runId} sectionId=${input.sectionId}`,
+      `claim_section_run returned claimed without sectionRunId for userId=${input.userId} runId=${input.runId} sectionId=${input.sectionId}`,
     );
   }
 
