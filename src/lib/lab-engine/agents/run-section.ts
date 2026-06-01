@@ -70,6 +70,17 @@ import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
 import { SectionToolBudget, ToolBudget } from "./budget";
 import { buildToolMap } from "./tool-registry";
+import {
+  VOC_CANDIDATE_PACK_MAX_SIZE,
+  VOC_PREPASS_MAX_LOOKUPS,
+  createVoiceOfCustomerCandidate,
+  formatVoiceOfCustomerCandidateBlock,
+  getRegistrableDomain,
+  selectVoiceOfCustomerCandidates,
+  type VoiceOfCustomerCandidate,
+  type VoiceOfCustomerCandidateResult,
+  type VoiceOfCustomerEvidenceKind,
+} from "./voice-of-customer-candidates";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
 import {
   buildCompetitorAdEvidenceGroups,
@@ -3082,6 +3093,347 @@ async function buildAnswerToolAdEvidence({
   return { events, normalizedAdEvidenceGroups };
 }
 
+interface VoiceOfCustomerCandidatePrepass {
+  candidateBlock: string;
+  events: ActivityEvent[];
+  result: VoiceOfCustomerCandidateResult;
+  steps: AgentStep[];
+  subjectDomain: string | null;
+}
+
+interface VoiceOfCustomerToolCallResult {
+  output: unknown;
+  step: AgentStep;
+}
+
+function buildResearchInputVoiceOfCustomerCandidates(
+  researchInput: ResearchInput,
+): VoiceOfCustomerCandidate[] {
+  const excerpts =
+    researchInput.corpus.sectionExcerpts?.positioningVoiceOfCustomer ??
+    researchInput.corpus.excerpts;
+
+  return excerpts.flatMap((excerpt) => {
+    const candidate = createVoiceOfCustomerCandidate({
+      auditedCompanyDomain: researchInput.company.websiteUrl,
+      source: "researchInput",
+      title: excerpt.title,
+      url: excerpt.sourceUrl,
+      snippet: excerpt.text,
+    });
+
+    return candidate === null ? [] : [candidate];
+  });
+}
+
+function buildReviewVoiceOfCustomerCandidates({
+  output,
+  researchInput,
+}: {
+  output: unknown;
+  researchInput: ResearchInput;
+}): VoiceOfCustomerCandidate[] {
+  const outputRecord = getRecord(output);
+
+  if (outputRecord?.type !== "result" || !Array.isArray(outputRecord.excerpts)) {
+    return [];
+  }
+
+  return outputRecord.excerpts.flatMap((item) => {
+    const itemRecord = getRecord(item);
+    const url = getStringProperty(itemRecord, "url");
+    const snippet = getStringProperty(itemRecord, "snippet");
+    const title = getStringProperty(itemRecord, "source") ?? "Review excerpt";
+
+    if (url === null || snippet === null) {
+      return [];
+    }
+
+    const candidate = createVoiceOfCustomerCandidate({
+      auditedCompanyDomain: researchInput.company.websiteUrl,
+      evidenceKind: "review",
+      source: "reviews",
+      title,
+      url,
+      snippet,
+    });
+
+    return candidate === null ? [] : [candidate];
+  });
+}
+
+function buildWebSearchVoiceOfCustomerCandidates({
+  output,
+  researchInput,
+}: {
+  output: unknown;
+  researchInput: ResearchInput;
+}): VoiceOfCustomerCandidate[] {
+  const outputRecord = getRecord(output);
+
+  if (outputRecord?.type !== "result" || !Array.isArray(outputRecord.results)) {
+    return [];
+  }
+
+  return outputRecord.results.flatMap((item) => {
+    const itemRecord = getRecord(item);
+    const url = getStringProperty(itemRecord, "url");
+    const title = getStringProperty(itemRecord, "title") ?? "Search result";
+    const description = getStringProperty(itemRecord, "description");
+    const extraSnippets = Array.isArray(itemRecord?.extra_snippets)
+      ? itemRecord.extra_snippets.filter(
+          (snippet): snippet is string =>
+            typeof snippet === "string" && snippet.trim().length > 0,
+        )
+      : [];
+    const snippet = description ?? extraSnippets.join(" ");
+
+    if (url === null || snippet.length === 0) {
+      return [];
+    }
+
+    const candidate = createVoiceOfCustomerCandidate({
+      auditedCompanyDomain: researchInput.company.websiteUrl,
+      source: "web_search",
+      title,
+      url,
+      snippet,
+    });
+
+    return candidate === null ? [] : [candidate];
+  });
+}
+
+function buildFirecrawlVoiceOfCustomerCandidate({
+  evidenceKind,
+  output,
+  researchInput,
+}: {
+  evidenceKind: VoiceOfCustomerEvidenceKind;
+  output: unknown;
+  researchInput: ResearchInput;
+}): VoiceOfCustomerCandidate | null {
+  const outputRecord = getRecord(output);
+
+  if (outputRecord?.type !== "result") {
+    return null;
+  }
+
+  const markdown = getStringProperty(outputRecord, "markdown");
+  const sourceUrl =
+    getStringProperty(outputRecord, "sourceUrl") ??
+    getStringProperty(outputRecord, "url");
+  const title = getStringProperty(outputRecord, "title") ?? "Recovered quote";
+
+  if (markdown === null || sourceUrl === null) {
+    return null;
+  }
+
+  return createVoiceOfCustomerCandidate({
+    auditedCompanyDomain: researchInput.company.websiteUrl,
+    evidenceKind,
+    source: "firecrawl",
+    title,
+    url: sourceUrl,
+    snippet: markdown,
+  });
+}
+
+function getPrepassExecutableTool(
+  researchTools: Record<string, unknown>,
+  toolName: ToolName,
+): Tool<unknown, unknown> | null {
+  const tool = researchTools[toolName] as Tool<unknown, unknown> | undefined;
+
+  return typeof tool?.execute === "function" ? tool : null;
+}
+
+async function executeVoiceOfCustomerPrepassTool({
+  input,
+  researchTools,
+  stepNumber,
+  toolInput,
+  toolName,
+}: {
+  input: RunSectionInput;
+  researchTools: Record<string, unknown>;
+  stepNumber: number;
+  toolInput: unknown;
+  toolName: ToolName;
+}): Promise<VoiceOfCustomerToolCallResult | null> {
+  const tool = getPrepassExecutableTool(researchTools, toolName);
+
+  if (tool === null || tool.execute === undefined) {
+    return null;
+  }
+
+  const output = await tool.execute(toolInput, {
+    abortSignal: input.signal,
+  } as ToolExecutionOptions);
+
+  return {
+    output,
+    step: {
+      stepNumber,
+      finishReason: "tool-calls",
+      text: `Voice of Customer candidate prepass used ${toolName}.`,
+      toolCalls: [{ toolName, input: toolInput }],
+      toolResults: [
+        {
+          toolName,
+          input: toolInput,
+          output,
+          type: "tool-result",
+        },
+      ],
+    },
+  };
+}
+
+function buildVoiceOfCustomerSearchQuery(
+  researchInput: ResearchInput,
+  subjectDomain: string | null,
+): string {
+  const brand = researchInput.company.name.trim();
+  const domainExclusion =
+    subjectDomain === null ? "" : ` -site:${subjectDomain}`;
+
+  return `${brand} customer reviews complaints pain points reddit forum G2 Capterra Trustpilot${domainExclusion}`;
+}
+
+function getFirecrawlRecoveryCandidate(
+  result: VoiceOfCustomerCandidateResult,
+): VoiceOfCustomerCandidate | null {
+  if (!result.ok) {
+    return null;
+  }
+
+  return (
+    result.pack.candidates.find(
+      (candidate) => candidate.evidenceKind !== "article",
+    ) ?? null
+  );
+}
+
+async function buildVoiceOfCustomerCandidatePrepass({
+  deps,
+  input,
+  researchInput,
+  researchTools,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  researchTools: Record<string, unknown>;
+}): Promise<VoiceOfCustomerCandidatePrepass> {
+  const subjectDomain = getRegistrableDomain(researchInput.company.websiteUrl);
+  const candidates = buildResearchInputVoiceOfCustomerCandidates(researchInput);
+  const steps: AgentStep[] = [];
+  const tryTool = async (
+    toolName: ToolName,
+    toolInput: unknown,
+  ): Promise<unknown | null> => {
+    if (steps.length >= VOC_PREPASS_MAX_LOOKUPS) {
+      return null;
+    }
+
+    const toolResult = await executeVoiceOfCustomerPrepassTool({
+      input,
+      researchTools,
+      stepNumber: steps.length + 1,
+      toolInput,
+      toolName,
+    });
+
+    if (toolResult === null) {
+      return null;
+    }
+
+    steps.push(toolResult.step);
+    return toolResult.output;
+  };
+
+  const reviewOutput = await tryTool("reviews", {
+    brand: researchInput.company.name,
+    max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
+  });
+  candidates.push(
+    ...buildReviewVoiceOfCustomerCandidates({
+      output: reviewOutput,
+      researchInput,
+    }),
+  );
+
+  const webSearchOutput = await tryTool("web_search", {
+    q: buildVoiceOfCustomerSearchQuery(researchInput, subjectDomain),
+    count: VOC_CANDIDATE_PACK_MAX_SIZE,
+    country: "US",
+  });
+  candidates.push(
+    ...buildWebSearchVoiceOfCustomerCandidates({
+      output: webSearchOutput,
+      researchInput,
+    }),
+  );
+
+  let result = selectVoiceOfCustomerCandidates(candidates);
+  const recoveryCandidate = getFirecrawlRecoveryCandidate(result);
+
+  if (recoveryCandidate !== null && steps.length < VOC_PREPASS_MAX_LOOKUPS) {
+    const firecrawlOutput = await tryTool("firecrawl", {
+      url: recoveryCandidate.url,
+      onlyMainContent: true,
+    });
+    const recoveredCandidate = buildFirecrawlVoiceOfCustomerCandidate({
+      evidenceKind: recoveryCandidate.evidenceKind,
+      output: firecrawlOutput,
+      researchInput,
+    });
+
+    if (recoveredCandidate !== null) {
+      candidates.push(recoveredCandidate);
+      result = selectVoiceOfCustomerCandidates(candidates);
+    }
+  }
+
+  const events = steps.flatMap((step) =>
+    buildToolEvents({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      step,
+    }),
+  );
+
+  return {
+    candidateBlock: formatVoiceOfCustomerCandidateBlock(result),
+    events,
+    result,
+    steps,
+    subjectDomain,
+  };
+}
+
+function formatVoiceOfCustomerCandidateGapIssue({
+  gap,
+  input,
+  subjectDomain,
+}: {
+  gap: Exclude<VoiceOfCustomerCandidateResult, { ok: true }>["gap"];
+  input: RunSectionInput;
+  subjectDomain: string | null;
+}): string {
+  return [
+    `VoC candidate prepass gap: reason=${gap.reason}`,
+    `message=${gap.message}`,
+    `observedDomains=${gap.domains.join(",") || "none"}`,
+    `candidateCount=${gap.candidateCount}`,
+    `runId=${input.runId}`,
+    `sectionId=${input.sectionId}`,
+    `subjectDomain=${subjectDomain ?? "unknown"}`,
+  ].join("; ");
+}
+
 function buildMergedAnswerToolAdEvidenceGroups({
   deps,
   input,
@@ -3655,6 +4007,56 @@ async function runSectionViaAnswerTool(
     flushChain = flushChain.then(() => flushBufferedEvents());
     return flushChain;
   };
+
+  const voiceOfCustomerPrepass =
+    input.sectionId === "positioningVoiceOfCustomer"
+      ? await buildVoiceOfCustomerCandidatePrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+
+  if (voiceOfCustomerPrepass !== undefined) {
+    toolEvents.push(...voiceOfCustomerPrepass.events);
+    await scheduleFlush();
+
+    if (!voiceOfCustomerPrepass.result.ok) {
+      const issue = formatVoiceOfCustomerCandidateGapIssue({
+        gap: voiceOfCustomerPrepass.result.gap,
+        input,
+        subjectDomain: voiceOfCustomerPrepass.subjectDomain,
+      });
+
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Voice of Customer candidate prepass failed validation",
+          metadata: { attempt: 1, issues: [issue] },
+        }),
+      );
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: issue,
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: [issue],
+      });
+    }
+  }
+
+  const voiceOfCustomerPrepassSteps = voiceOfCustomerPrepass?.steps ?? [];
   const answerToolInstructions = [
     buildAnswerToolInstructions(
       definition,
@@ -3665,6 +4067,9 @@ async function runSectionViaAnswerTool(
         inputSchemaMode: getAnswerToolInputSchemaMode(sectionRunnerModel),
       },
     ),
+    ...(voiceOfCustomerPrepass === undefined
+      ? []
+      : ["", voiceOfCustomerPrepass.candidateBlock]),
     "",
     "Skill analyst guidance:",
     skillMd,
@@ -3753,10 +4158,14 @@ async function runSectionViaAnswerTool(
 
   await scheduleFlush();
 
+  const answerResultSteps = [
+    ...voiceOfCustomerPrepassSteps,
+    ...answerResult.steps,
+  ];
   let normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
     deps,
     input,
-    modelSteps: answerResult.steps,
+    modelSteps: answerResultSteps,
     prepassGroups: adEvidence.normalizedAdEvidenceGroups,
   });
 
@@ -3765,7 +4174,7 @@ async function runSectionViaAnswerTool(
     definition,
     deps,
     input,
-    modelSteps: answerResult.steps,
+    modelSteps: answerResultSteps,
     normalizedAdEvidenceGroups,
     researchInput,
   });
@@ -3777,7 +4186,7 @@ async function runSectionViaAnswerTool(
     attempt.artifact === null ||
     attempt.evidenceSupportShortfall !== undefined
   ) {
-    const repairEvidenceTranscript = buildEvidenceTranscript(answerResult.steps);
+    const repairEvidenceTranscript = buildEvidenceTranscript(answerResultSteps);
     const shouldForceAnswerOnlyRepair =
       attempt.errors.includes(missingAnswerToolMessage);
     let repairAttempt = 0;
@@ -3835,10 +4244,14 @@ async function runSectionViaAnswerTool(
         }),
       });
       await scheduleFlush();
+      const repairResultSteps = [
+        ...voiceOfCustomerPrepassSteps,
+        ...repairResult.steps,
+      ];
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
         deps,
         input,
-        modelSteps: repairResult.steps,
+        modelSteps: repairResultSteps,
         prepassGroups: normalizedAdEvidenceGroups,
       });
 
@@ -3847,7 +4260,7 @@ async function runSectionViaAnswerTool(
         definition,
         deps,
         input,
-        modelSteps: repairResult.steps,
+        modelSteps: repairResultSteps,
         normalizedAdEvidenceGroups,
         researchInput,
       });
@@ -4092,7 +4505,55 @@ async function runSectionViaStructuredBodyStream(
 
   await scheduleFlush();
 
-  const modelSteps: AgentStep[] = [];
+  const voiceOfCustomerPrepass =
+    input.sectionId === "positioningVoiceOfCustomer"
+      ? await buildVoiceOfCustomerCandidatePrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+
+  if (voiceOfCustomerPrepass !== undefined) {
+    toolEvents.push(...voiceOfCustomerPrepass.events);
+    await scheduleFlush();
+
+    if (!voiceOfCustomerPrepass.result.ok) {
+      const issue = formatVoiceOfCustomerCandidateGapIssue({
+        gap: voiceOfCustomerPrepass.result.gap,
+        input,
+        subjectDomain: voiceOfCustomerPrepass.subjectDomain,
+      });
+
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Voice of Customer candidate prepass failed validation",
+          metadata: { attempt: 1, issues: [issue] },
+        }),
+      );
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: issue,
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: [issue],
+      });
+    }
+  }
+
+  const modelSteps: AgentStep[] = [...(voiceOfCustomerPrepass?.steps ?? [])];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
   const partialSeqRef: SectionPartialSeqRef = { current: 0 };
@@ -4128,6 +4589,8 @@ async function runSectionViaStructuredBodyStream(
       normalizedAdEvidenceGroups,
       researchInput,
       skillMd,
+      voiceOfCustomerCandidateBlock:
+        voiceOfCustomerPrepass?.candidateBlock,
     }),
     researchInput,
     scheduleFlush,
@@ -4225,6 +4688,8 @@ async function runSectionViaStructuredBodyStream(
           previousOutput: attempt.output,
           researchInput,
           skillMd,
+          voiceOfCustomerCandidateBlock:
+            voiceOfCustomerPrepass?.candidateBlock,
         }),
         researchInput,
         scheduleFlush,

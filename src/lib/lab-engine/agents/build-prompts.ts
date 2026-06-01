@@ -545,12 +545,14 @@ export function buildStructuredBodyPrompt({
   normalizedAdEvidenceGroups,
   researchInput,
   skillMd,
+  voiceOfCustomerCandidateBlock,
 }: {
   definition: PromptSectionDefinition;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
   skillMd: string;
   externalToolNames?: readonly string[];
+  voiceOfCustomerCandidateBlock?: string;
 }): string {
   const evidenceInstruction =
     externalToolNames !== undefined && externalToolNames.length === 0
@@ -567,6 +569,9 @@ export function buildStructuredBodyPrompt({
     skillMd,
     "",
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
+    ...(voiceOfCustomerCandidateBlock === undefined
+      ? []
+      : [voiceOfCustomerCandidateBlock, ""]),
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -703,6 +708,7 @@ export function buildStructuredBodyRepairPrompt({
   previousOutput,
   researchInput,
   skillMd,
+  voiceOfCustomerCandidateBlock,
 }: {
   definition: PromptSectionDefinition;
   evidenceTranscript: string;
@@ -712,6 +718,7 @@ export function buildStructuredBodyRepairPrompt({
   researchInput: ResearchInput;
   skillMd: string;
   externalToolNames?: readonly string[];
+  voiceOfCustomerCandidateBlock?: string;
 }): string {
   return [
     buildStructuredBodyPrompt({
@@ -720,6 +727,7 @@ export function buildStructuredBodyRepairPrompt({
       normalizedAdEvidenceGroups,
       researchInput,
       skillMd,
+      voiceOfCustomerCandidateBlock,
     }),
     "",
     "Evidence from the previous streamed attempt:",

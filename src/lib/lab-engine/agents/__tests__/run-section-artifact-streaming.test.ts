@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import type { ResearchInput } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import type { VoiceOfCustomerSectionOutput } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
 import type { SectionId } from '@/lib/lab-engine/events/activity-event';
@@ -22,6 +23,7 @@ import type { AnswerToolRunner, StructuredStreamer } from '../section-agent';
 
 async function makeStore(
   defaultSectionIds: SectionId[] = ['positioningMarketCategory'],
+  researchInput: ResearchInput = saaslaunchResearchInput,
 ): Promise<ReturnType<typeof createRunStore>> {
   const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-streaming-'));
   const store = createRunStore({
@@ -29,7 +31,7 @@ async function makeStore(
     defaultSectionIds,
     now: () => new Date('2026-06-01T00:00:00.000Z'),
   });
-  await store.createRun(saaslaunchResearchInput);
+  await store.createRun(researchInput);
   return store;
 }
 
@@ -197,6 +199,45 @@ function buildVoiceOfCustomerDraftWithCollapsedBodySources(): VoiceOfCustomerDra
   };
 }
 
+function buildSaaslaunchInputWithVoiceOfCustomerCandidates(): ResearchInput {
+  const observedAt = '2026-06-01T00:00:00.000Z';
+  const vocExcerpts = [
+    ['g2-one', 'https://www.g2.com/products/saaslaunch/reviews/one'],
+    ['g2-two', 'https://www.g2.com/products/saaslaunch/reviews/two'],
+    ['reddit-one', 'https://www.reddit.com/r/sales/comments/saaslaunch-one'],
+    ['reddit-two', 'https://www.reddit.com/r/sales/comments/saaslaunch-two'],
+    ['capterra-one', 'https://www.capterra.com/p/saaslaunch/reviews/one'],
+    ['community-one', 'https://community.revops.example/t/saaslaunch-handoff'],
+  ].map(([id, sourceUrl], index) => ({
+    id: `voc_candidate_${id}`,
+    observedAt,
+    sourceId: `source_voc_candidate_${index + 1}`,
+    sourceUrl,
+    text: `Independent buyer-language candidate ${
+      index + 1
+    }: account context and founder-led follow-up work still fall through the cracks.`,
+    title: `VoC Candidate ${index + 1}`,
+  }));
+
+  return {
+    ...saaslaunchResearchInput,
+    runId: 'run_saaslaunch_voc_candidates',
+    corpus: {
+      ...saaslaunchResearchInput.corpus,
+      sectionExcerpts: {
+        positioningMarketCategory: [],
+        positioningBuyerICP: [],
+        positioningCompetitorLandscape: [],
+        positioningVoiceOfCustomer: vocExcerpts,
+        positioningDemandIntent: [],
+        positioningOfferDiagnostic: [],
+        positioningSynthesis: [],
+        positioningPaidMediaPlan: [],
+      },
+    },
+  };
+}
+
 describe('runSection artifact streaming path', (): void => {
   it('streams partial bodies but gates only the final validated output', async (): Promise<void> => {
     const store = await makeStore();
@@ -296,7 +337,8 @@ describe('runSection artifact streaming path', (): void => {
   });
 
   it('counts authored VoC draft sources before body-harvested source URLs', async (): Promise<void> => {
-    const store = await makeStore(['positioningVoiceOfCustomer']);
+    const researchInput = buildSaaslaunchInputWithVoiceOfCustomerCandidates();
+    const store = await makeStore(['positioningVoiceOfCustomer'], researchInput);
     const finalDraft = buildVoiceOfCustomerDraftWithCollapsedBodySources();
     const bodySourceUrlCount = new Set(collectFixtureSourceUrls(finalDraft.body)).size;
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
@@ -314,7 +356,7 @@ describe('runSection artifact streaming path', (): void => {
 
     const result = await runSection(
       {
-        runId: saaslaunchResearchInput.runId,
+        runId: researchInput.runId,
         sectionId: 'positioningVoiceOfCustomer',
       },
       {
@@ -326,7 +368,7 @@ describe('runSection artifact streaming path', (): void => {
       },
     );
 
-    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const record = await store.readRun(researchInput.runId);
     const validationIssues = record.events.flatMap((event) => {
       if (typeof event.metadata !== 'object' || event.metadata === null) {
         return [];
