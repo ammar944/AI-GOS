@@ -170,8 +170,8 @@ async function importRunSectionWithMockedAdTools(): Promise<RunSectionFn> {
     },
   }));
 
-  const module = await import('../run-section');
-  return module.runSection;
+  const runSectionModule = await import('../run-section');
+  return runSectionModule.runSection;
 }
 
 function assertCompetitorLandscapeBody(
