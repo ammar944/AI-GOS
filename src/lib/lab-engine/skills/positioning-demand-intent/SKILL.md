@@ -78,12 +78,6 @@ IRON LAW: Intent signals must be publicly observable (job postings, RFPs, fundin
 
 Only these research tools are available for this section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
 
-## Capability Gaps
-
-If a tool call returns `{ type: "gap", reason: "...", message: "..." }`, treat it as a capability gap. Do not retry the same tool with different inputs unless the gap reason is `rate_limited`. Name the gap explicitly in section prose using the format `evidence gap: <human-readable reason>`. Continue producing the best honest artifact from the evidence that remains.
-
-Budget note: `web_search` and SDK tools have independent per-channel caps in V1. A section may spend up to `maxExternalLookups` web searches plus `maxExternalLookups` SDK-tool calls. When either channel is exhausted, treat the returned `rate_limited` gap as evidence that the surface was capped, not as demand volume.
-
 ## Workflow
 
 1. Read inputs and pre-flight the shared corpus.

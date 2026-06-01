@@ -87,13 +87,7 @@ Only these research tools are available for this Section. Shape enforcement and 
 
 When calling `google_ads` or `meta_ads`, pass the competitor's root `domain` (for example, `gong.io`) alongside `advertiser` so the relevance filter can disambiguate same-named companies.
 
-## Capability Gaps
-
-If a tool call returns `{ type: "gap", reason: "...", message: "..." }`, treat it as a capability gap. Do not retry the same tool with different inputs unless the gap reason is `rate_limited`. Name the gap explicitly in section prose using the format `evidence gap: <human-readable reason>`. Continue producing the best honest artifact from the evidence that remains.
-
-Budget note: `web_search` and SDK tools have independent per-channel caps in V1. A section may spend up to `maxExternalLookups` web searches plus `maxExternalLookups` SDK-tool calls. When either channel is exhausted, treat the returned `rate_limited` gap as evidence that the surface was capped, not as a competitive signal.
-
-Examples:
+## Tool-Specific Gap Rules
 
 - If `firecrawl` returns `{ type: "gap", reason: "api_error", message: "..." }`, use search snippets and fixture corpus only for that page, and name the crawl gap.
 - If a section budget returns `{ type: "gap", reason: "rate_limited", message: "..." }`, stop expanding the research surface and finish with the best triangulated evidence.

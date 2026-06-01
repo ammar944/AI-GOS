@@ -3254,6 +3254,7 @@ async function runSectionViaAnswerTool(
         prompt: buildRepairPrompt({
           definition,
           evidenceTranscript: repairEvidenceTranscript,
+          externalToolNames,
           issues: repairIssues,
           normalizedAdEvidenceGroups,
           previousOutput: attempt.output,

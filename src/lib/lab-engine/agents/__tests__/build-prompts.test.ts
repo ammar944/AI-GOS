@@ -6,6 +6,7 @@ import {
   buildAnswerToolInstructions,
   buildRepairPrompt,
   buildSectionObjectiveRecap,
+  buildStructuredPrompt,
   type PromptSectionDefinition,
 } from "../build-prompts";
 
@@ -28,6 +29,13 @@ const paidMediaDefinition = {
   mission: "Synthesize the six positioning artifacts.",
   outputEmphasis: ["campaign overview"],
   sectionOutputSchemaName: "PaidMediaPlanSectionOutput",
+} satisfies PromptSectionDefinition;
+
+const synthesisDefinition = {
+  title: "Positioning Synthesis",
+  mission: "Synthesize the committed positioning artifacts.",
+  outputEmphasis: ["recommended move"],
+  sectionOutputSchemaName: "PositioningSynthesisSectionOutput",
 } satisfies PromptSectionDefinition;
 
 function buildScopedResearchInput(): ResearchInput {
@@ -103,6 +111,27 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain("Market-only category evidence");
     expect(prompt).not.toContain("Buyer-only persona evidence");
     expect(prompt).not.toContain("sectionExcerpts");
+  });
+
+  it("adds shared capability-gap guidance only when tools are available", (): void => {
+    const toolPrompt = buildAnswerToolInstructions(
+      definition,
+      saaslaunchResearchInput,
+      undefined,
+      { externalToolNames: ["firecrawl", "web_search"] },
+    );
+    const noToolPrompt = buildAnswerToolInstructions(
+      synthesisDefinition,
+      saaslaunchResearchInput,
+      undefined,
+      { externalToolNames: [] },
+    );
+
+    expect(toolPrompt).toContain("Capability gaps:");
+    expect(toolPrompt).toContain("section may spend up to `maxExternalLookups`");
+    expect(toolPrompt).toContain("rate_limited");
+    expect(noToolPrompt).not.toContain("Capability gaps:");
+    expect(noToolPrompt).not.toContain("section may spend up to `maxExternalLookups`");
   });
 
   it("spells out Competitor Landscape weakness coverage minimums", (): void => {
@@ -207,6 +236,31 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
     );
+  });
+});
+
+describe("buildStructuredPrompt", (): void => {
+  it("adds shared capability-gap guidance only when tools are available", (): void => {
+    const toolPrompt = buildStructuredPrompt({
+      definition,
+      evidenceTranscript: "source evidence",
+      externalToolNames: ["firecrawl", "web_search"],
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use section-specific market guidance.",
+    });
+    const noToolPrompt = buildStructuredPrompt({
+      definition: synthesisDefinition,
+      evidenceTranscript: "source evidence",
+      externalToolNames: [],
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use committed artifacts only.",
+    });
+
+    expect(toolPrompt).toContain("Capability gaps:");
+    expect(toolPrompt).toContain("section may spend up to `maxExternalLookups`");
+    expect(toolPrompt).toContain("rate_limited");
+    expect(noToolPrompt).not.toContain("Capability gaps:");
+    expect(noToolPrompt).not.toContain("section may spend up to `maxExternalLookups`");
   });
 });
 

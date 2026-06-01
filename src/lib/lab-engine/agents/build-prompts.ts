@@ -97,6 +97,60 @@ function buildCorpusOnlyBoundary(
   ];
 }
 
+function getCapabilityGapSignalLabel(definition: PromptSectionDefinition): string {
+  switch (definition.sectionOutputSchemaName) {
+    case "MarketCategorySectionOutput":
+      return "a market signal";
+    case "BuyerICPSectionOutput":
+      return "an ICP signal";
+    case "CompetitorLandscapeSectionOutput":
+      return "a competitive signal";
+    case "VoiceOfCustomerSectionOutput":
+      return "buyer language";
+    case "DemandIntentSectionOutput":
+      return "demand volume";
+    case "OfferDiagnosticSectionOutput":
+      return "offer or funnel evidence";
+    default:
+      return "substantive evidence for the section";
+  }
+}
+
+function buildCapabilityGapToolHints(
+  definition: PromptSectionDefinition,
+): string[] {
+  if (definition.sectionOutputSchemaName !== "VoiceOfCustomerSectionOutput") {
+    return [];
+  }
+
+  return [
+    "When `reviews` snippets are thin, chain `firecrawl` on the source URL to recover the full verbatim quote rather than truncating it.",
+  ];
+}
+
+function buildCapabilityGapGuidance(
+  definition: PromptSectionDefinition,
+  externalToolNames: readonly string[] | undefined,
+): string[] {
+  if (externalToolNames === undefined || externalToolNames.length === 0) {
+    return [];
+  }
+
+  return [
+    "Capability gaps:",
+    'If a tool call returns `{ type: "gap", reason: "...", message: "..." }`, treat it as a capability gap.',
+    "Do not retry the same tool with different inputs unless the gap reason is `rate_limited`.",
+    "Name the gap explicitly in section prose using the format `evidence gap: <human-readable reason>`.",
+    "Continue producing the best honest artifact from the evidence that remains.",
+    ...buildCapabilityGapToolHints(definition),
+    "",
+    "Budget note:",
+    "`web_search` and SDK tools have independent per-channel caps in V1. A section may spend up to `maxExternalLookups` web searches plus `maxExternalLookups` SDK-tool calls.",
+    `When either channel is exhausted, treat the returned \`rate_limited\` gap as evidence that the surface was capped, not as ${getCapabilityGapSignalLabel(definition)}.`,
+    "",
+  ];
+}
+
 function buildAnswerToolCompletionInstruction(
   externalToolNames: readonly string[] | undefined,
 ): string {
@@ -414,6 +468,7 @@ function buildSectionMinimumGuidance(
 export function buildStructuredPrompt({
   definition,
   evidenceTranscript,
+  externalToolNames,
   normalizedAdEvidenceGroups,
   researchInput,
   skillMd,
@@ -423,11 +478,13 @@ export function buildStructuredPrompt({
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
   skillMd: string;
+  externalToolNames?: readonly string[];
 }): string {
   return [
     `Section ${definition.title}.`,
     `Mission: ${definition.mission}`,
     "",
+    ...buildCapabilityGapGuidance(definition, externalToolNames),
     "Skill analyst guidance:",
     skillMd,
     "",
@@ -479,6 +536,7 @@ export function buildAnswerToolInstructions(
     ),
     "",
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
+    ...buildCapabilityGapGuidance(definition, options.externalToolNames),
     "Output emphasis:",
     definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
     "",
@@ -530,6 +588,7 @@ export function buildRepairPrompt({
   previousOutput,
   researchInput,
   skillMd,
+  externalToolNames,
 }: {
   definition: PromptSectionDefinition;
   evidenceTranscript: string;
@@ -538,11 +597,13 @@ export function buildRepairPrompt({
   previousOutput: unknown;
   researchInput: ResearchInput;
   skillMd: string;
+  externalToolNames?: readonly string[];
 }): string {
   return [
     buildStructuredPrompt({
       definition,
       evidenceTranscript,
+      externalToolNames,
       normalizedAdEvidenceGroups,
       researchInput,
       skillMd,
