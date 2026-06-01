@@ -4,6 +4,8 @@
 **Branch:** `feat/v2-lab-section-wire` · **Worktree:** `/Users/ammar/Dev-Projects/AI-GOS-worktrees/v2-lab-section-wire`
 **Base tested in the failing run:** `8243ac52` (run `210ee90b`). This handoff is for the run that proves the new fixes on top of it.
 
+> **⚠️ SUPERSEDED 2026-06-02 →** read `docs/2026-06-02-voc-repair-signoff-e2e-codex-handoff.md` instead. The `_capabilities`/`orchestrate_supported` preflight that blocked the 2026-06-02 attempt is a **phantom gate** (auth-gated diagnostic endpoint + the worker deliberately hardcodes `orchestrate_supported:false` because the 6 sections run in-process). Waive it. The consolidated handoff carries the corrected preconditions and run sequence; the fixes/gates/criteria below are unchanged.
+
 ## What changed (the fixes under test)
 Root-caused by a 14-agent diagnostic workflow + adversarial verification (all 4 load-bearing claims CONFIRMED). One spine (a wasted-repair storm) fed the VoC timeout and B4 latency; one independent state bug froze the card on failure.
 
