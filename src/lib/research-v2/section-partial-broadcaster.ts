@@ -80,12 +80,13 @@ export function createThrottledSectionPartialBroadcaster({
         snapshot,
       }),
     };
-    const publishPromise = publish(payload);
-    publishChain = publishChain
-      .then(() => publishPromise)
-      .catch((error: unknown) => {
+    publishChain = publishChain.then(async (): Promise<void> => {
+      try {
+        await publish(payload);
+      } catch (error: unknown) {
         onError?.(error);
-      });
+      }
+    });
   };
 
   const clearTimer = (): void => {
