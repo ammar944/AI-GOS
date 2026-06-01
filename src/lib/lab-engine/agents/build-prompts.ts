@@ -81,16 +81,22 @@ function buildRootShapeGuidance(): string {
   ].join("\n");
 }
 
-function buildBodyOnlyShapeGuidance(): string {
+function buildStructuredDraftShapeGuidance(): string {
   return [
     "Required JSON root shape:",
     "{",
-    '  "...section body keys only...": {}',
+    '  "verdict": "...",',
+    '  "statusSummary": "...",',
+    '  "body": {',
+    '    "...section body keys only...": {}',
+    "  }",
     "}",
     "",
-    "Return ONLY the section body object.",
-    "Do not include `sectionTitle`, `verdict`, `statusSummary`, `confidence`, `sources`, `body`, or `$schema` at the root.",
-    "Every evidence-backed row that has a public source must carry its own `sourceUrl` field so the runner can derive envelope sources after validation.",
+    "Return ONLY this structured draft object.",
+    "Author `verdict` and `statusSummary` as distinct reader-facing fields; do not copy the same body prose block into both.",
+    "Only these root keys are allowed: `verdict`, `statusSummary`, and `body`.",
+    "Do not include `sectionTitle`, `confidence`, `sources`, or `$schema` at the root.",
+    "Every evidence-backed row that has a public source must carry its own `sourceUrl` field inside `body` so the runner can derive envelope sources after validation.",
   ].join("\n");
 }
 
@@ -545,7 +551,7 @@ export function buildStructuredBodyPrompt({
   const evidenceInstruction =
     externalToolNames !== undefined && externalToolNames.length === 0
       ? "No external research tools are available. Use the ResearchInput JSON, pre-normalized evidence blocks, and skill guidance only."
-      : "Use the available tools for evidence gathering before finalizing the structured body.";
+      : "Use the available tools for evidence gathering before finalizing the structured draft.";
 
   return [
     `Section ${definition.title}.`,
@@ -569,12 +575,13 @@ export function buildStructuredBodyPrompt({
     "",
     "Validator checklist:",
     "- Satisfy the section-specific body schema and minimum validator.",
+    "- Author verdict and statusSummary as distinct, purpose-built reader copy.",
     "- Use real source URLs from tool evidence and ResearchInput.",
     "- For Competitor Landscape ad evidence, use pre-normalized live ad evidence only.",
     ...buildSectionMinimumGuidance(definition),
-    "- Do not state a confidence figure in any body prose.",
+    "- Do not state a confidence figure in verdict, statusSummary, or any body prose.",
     "",
-    buildBodyOnlyShapeGuidance(),
+    buildStructuredDraftShapeGuidance(),
     buildSectionObjectiveRecap(definition, researchInput),
   ].join("\n");
 }
@@ -714,12 +721,12 @@ export function buildStructuredBodyRepairPrompt({
     "Evidence from the previous streamed attempt:",
     evidenceTranscript,
     "",
-    "The previous output failed validation. Return a corrected section body object.",
-    "If envelope fields were included, remove them and keep only section body keys.",
+    "The previous output failed validation. Return a corrected structured draft object with verdict, statusSummary, and body.",
+    "If full-envelope fields were included, remove sectionTitle, confidence, and sources while preserving verdict, statusSummary, and section body keys inside body.",
     "Validation issues:",
     issues.map((issue) => `- ${issue}`).join("\n"),
     "",
-    "Previous body JSON:",
+    "Previous draft JSON:",
     JSON.stringify(previousOutput),
   ].join("\n");
 }

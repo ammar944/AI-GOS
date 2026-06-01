@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createThrottledSectionPartialBroadcaster,
   makeSectionPartialPayload,
+  type SectionPartialPublishFn,
 } from '../section-partial-broadcaster';
 import { broadcastSectionPartial } from '../realtime-broadcast';
 
@@ -11,8 +12,13 @@ describe('section partial broadcaster', (): void => {
     vi.useFakeTimers();
   });
 
+  afterEach((): void => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
   it('coalesces frequent partials behind the throttle window', async (): Promise<void> => {
-    const publish = vi.fn(async () => undefined);
+    const publish = vi.fn<SectionPartialPublishFn>(async () => undefined);
     const broadcaster = createThrottledSectionPartialBroadcaster({
       intervalMs: 600,
       publish,
@@ -43,6 +49,53 @@ describe('section partial broadcaster', (): void => {
         seq: 2,
         snapshot: { categoryDefinition: { prose: 'third' } },
       }),
+    );
+  });
+
+  it('continues sequence numbers from a shared repair-loop ref', async (): Promise<void> => {
+    const publish = vi.fn<SectionPartialPublishFn>(async () => undefined);
+    const seqRef = { current: 0 };
+    const firstAttempt = createThrottledSectionPartialBroadcaster({
+      intervalMs: 600,
+      publish,
+      runId: 'run-1',
+      sectionId: 'positioningMarketCategory',
+      seqRef,
+      zone: 'positioningMarketCategory',
+    });
+    const secondAttempt = createThrottledSectionPartialBroadcaster({
+      intervalMs: 600,
+      publish,
+      runId: 'run-1',
+      sectionId: 'positioningMarketCategory',
+      seqRef,
+      zone: 'positioningMarketCategory',
+    });
+
+    firstAttempt.enqueue({ verdict: 'initial partial' });
+    await firstAttempt.flush();
+    secondAttempt.enqueue({ verdict: 'repair partial' });
+    await secondAttempt.flush();
+
+    expect(publish.mock.calls.map(([payload]) => payload.seq)).toEqual([1, 2]);
+  });
+
+  it('honors startSeq when no shared ref is supplied', async (): Promise<void> => {
+    const publish = vi.fn<SectionPartialPublishFn>(async () => undefined);
+    const broadcaster = createThrottledSectionPartialBroadcaster({
+      intervalMs: 600,
+      publish,
+      runId: 'run-1',
+      sectionId: 'positioningMarketCategory',
+      startSeq: 7,
+      zone: 'positioningMarketCategory',
+    });
+
+    broadcaster.enqueue({ verdict: 'repair partial' });
+    await broadcaster.flush();
+
+    expect(publish).toHaveBeenLastCalledWith(
+      expect.objectContaining({ seq: 8 }),
     );
   });
 

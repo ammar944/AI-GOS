@@ -9,9 +9,13 @@ import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 import type { SectionPartialPublishFn } from '@/lib/research-v2/section-partial-broadcaster';
+import {
+  applySectionPartialPayload,
+  type SectionPartialsByZone,
+} from '@/lib/research-v2/use-section-partials';
 
 import { runSection } from '../run-section';
-import type { StructuredStreamer } from '../section-agent';
+import type { AnswerToolRunner, StructuredStreamer } from '../section-agent';
 
 async function makeStore(): Promise<ReturnType<typeof createRunStore>> {
   const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-streaming-'));
@@ -44,6 +48,26 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
       ...(source.publisher ? { publisher: source.publisher } : {}),
     })),
     body: marketCategoryFixtureArtifact.body,
+  };
+}
+
+interface MarketCategoryDraft {
+  verdict: string;
+  statusSummary: string;
+  body: Record<string, unknown>;
+}
+
+function buildMarketCategoryDraft({
+  body = marketCategoryFixtureArtifact.body as Record<string, unknown>,
+  statusSummary =
+    'Authored status: evidence points to an emerging category with clear maturity signals.',
+  verdict =
+    'Authored verdict: lead with lifecycle orchestration, not generic project management.',
+}: Partial<MarketCategoryDraft> = {}): MarketCategoryDraft {
+  return {
+    body,
+    statusSummary,
+    verdict,
   };
 }
 
@@ -102,8 +126,11 @@ describe('runSection artifact streaming path', (): void => {
     const consumeStream = vi.fn(() => Promise.resolve());
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
       emitFixtureEvidenceStep(params);
+      const finalDraft = buildMarketCategoryDraft();
+
+      expect(params.schema.safeParse(finalDraft).success).toBe(true);
       expect(params.schema.safeParse(marketCategoryFixtureArtifact.body).success).toBe(
-        true,
+        false,
       );
       expect(params.schema.safeParse(buildMarketCategoryOutput()).success).toBe(
         false,
@@ -111,11 +138,15 @@ describe('runSection artifact streaming path', (): void => {
 
       return {
         consumeStream,
-        output: Promise.resolve(marketCategoryFixtureArtifact.body),
+        output: Promise.resolve(finalDraft),
         partialOutputStream: partials([
           {
-            categoryDefinition: {
-              prose: 'drafting only; this partial is intentionally incomplete',
+            verdict: 'Draft verdict while sources are still streaming.',
+            statusSummary: 'Draft status while the body is incomplete.',
+            body: {
+              categoryDefinition: {
+                prose: 'drafting only; this partial is intentionally incomplete',
+              },
             },
           },
         ]),
@@ -124,6 +155,9 @@ describe('runSection artifact streaming path', (): void => {
     const broadcastPartial = vi.fn<SectionPartialPublishFn>(
       async () => undefined,
     );
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => {
+      throw new Error('Answer-tool fallback should require LAB_SECTION_STREAMING=false.');
+    });
 
     const result = await runSection(
       {
@@ -136,6 +170,7 @@ describe('runSection artifact streaming path', (): void => {
         allowedTools: [],
         streamStructured,
         broadcastPartial,
+        runAnswerTool,
         now: () => new Date('2026-06-01T00:00:00.000Z'),
       },
     );
@@ -143,6 +178,7 @@ describe('runSection artifact streaming path', (): void => {
     const record = await store.readRun(saaslaunchResearchInput.runId);
 
     expect(consumeStream).toHaveBeenCalledTimes(1);
+    expect(runAnswerTool).not.toHaveBeenCalled();
     expect(streamStructured).toHaveBeenCalledTimes(1);
     expect(broadcastPartial).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -151,11 +187,22 @@ describe('runSection artifact streaming path', (): void => {
         zone: 'positioningMarketCategory',
         seq: 1,
         snapshot: expect.objectContaining({
-          categoryDefinition: expect.any(Object),
+          body: expect.objectContaining({
+            categoryDefinition: expect.any(Object),
+          }),
+          statusSummary: expect.any(String),
+          verdict: expect.any(String),
         }),
       }),
     );
     expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.verdict).toBe(
+      'Authored verdict: lead with lifecycle orchestration, not generic project management.',
+    );
+    expect(result.artifact.statusSummary).toBe(
+      'Authored status: evidence points to an emerging category with clear maturity signals.',
+    );
+    expect(result.artifact.verdict).not.toBe(result.artifact.statusSummary);
     expect(result.artifact.verification).toEqual(
       expect.objectContaining({
         claims: expect.any(Array),
@@ -187,12 +234,34 @@ describe('runSection artifact streaming path', (): void => {
         consumeStream: () => Promise.resolve(),
         output: Promise.resolve(
           calls === 1
-            ? buildInvalidMarketCategoryBody()
-            : marketCategoryFixtureArtifact.body,
+            ? buildMarketCategoryDraft({
+                body: buildInvalidMarketCategoryBody(),
+                statusSummary: 'Initial status that still misses minimums.',
+                verdict: 'Initial verdict that still misses minimums.',
+              })
+            : buildMarketCategoryDraft({
+                statusSummary: 'Repair status that now satisfies minimums.',
+                verdict: 'Repair verdict that now satisfies minimums.',
+              }),
         ),
-        partialOutputStream: partials([]),
+        partialOutputStream: partials([
+          {
+            body: {
+              marketSize: {
+                prose: calls === 1 ? 'initial partial' : 'repair partial',
+              },
+            },
+            statusSummary:
+              calls === 1 ? 'Initial partial status' : 'Repair partial status',
+            verdict:
+              calls === 1 ? 'Initial partial verdict' : 'Repair partial verdict',
+          },
+        ]),
       };
     });
+    const broadcastPartial = vi.fn<SectionPartialPublishFn>(
+      async () => undefined,
+    );
 
     const result = await runSection(
       {
@@ -204,7 +273,7 @@ describe('runSection artifact streaming path', (): void => {
         loadSkill: async () => 'Repair streamed structured body output.',
         allowedTools: [],
         streamStructured,
-        broadcastPartial: async () => undefined,
+        broadcastPartial,
         now: () => new Date('2026-06-01T00:05:00.000Z'),
       },
     );
@@ -213,6 +282,28 @@ describe('runSection artifact streaming path', (): void => {
     const eventTypes = record.events.map((event) => event.type);
 
     expect(streamStructured).toHaveBeenCalledTimes(2);
+    const publishedPayloads = broadcastPartial.mock.calls.map(
+      ([payload]) => payload,
+    );
+    expect(publishedPayloads.map((payload) => payload.seq)).toEqual([1, 2]);
+
+    let partialState: SectionPartialsByZone = {};
+    for (const payload of publishedPayloads) {
+      partialState = applySectionPartialPayload(partialState, {
+        sectionId: payload.sectionId,
+        seq: payload.seq,
+        snapshot: payload.snapshot,
+        zone: payload.zone,
+      });
+    }
+    expect(partialState.positioningMarketCategory).toEqual(
+      expect.objectContaining({
+        seq: 2,
+        snapshot: expect.objectContaining({
+          statusSummary: 'Repair partial status',
+        }),
+      }),
+    );
     expect(eventTypes).toContain('validation-failed');
     expect(eventTypes).toContain('repair-started');
     expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);

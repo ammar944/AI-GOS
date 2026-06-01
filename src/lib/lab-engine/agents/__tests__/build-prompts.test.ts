@@ -6,6 +6,7 @@ import {
   buildAnswerToolInstructions,
   buildRepairPrompt,
   buildSectionObjectiveRecap,
+  buildStructuredBodyPrompt,
   buildStructuredPrompt,
   type PromptSectionDefinition,
 } from "../build-prompts";
@@ -236,6 +237,26 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
     );
+  });
+});
+
+describe("buildStructuredBodyPrompt", (): void => {
+  it("requires authored verdict and statusSummary alongside body", (): void => {
+    const prompt = buildStructuredBodyPrompt({
+      definition,
+      externalToolNames: [],
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use section-specific market guidance.",
+    });
+
+    expect(prompt).toContain('"verdict": "..."');
+    expect(prompt).toContain('"statusSummary": "..."');
+    expect(prompt).toContain('"body": {');
+    expect(prompt).toContain(
+      "Author `verdict` and `statusSummary` as distinct reader-facing fields",
+    );
+    expect(prompt).not.toContain("Return ONLY the section body object.");
+    expect(prompt).not.toContain("Do not include `sectionTitle`, `verdict`, `statusSummary`");
   });
 });
 

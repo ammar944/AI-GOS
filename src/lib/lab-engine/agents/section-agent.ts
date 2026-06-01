@@ -1347,6 +1347,10 @@ function isAbortOrTimeoutError(error: unknown): boolean {
   return message.includes("abort") || message.includes("timed out");
 }
 
+function describeStructuredOutputError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function parseStreamedStructuredOutput({
   output,
   params,
@@ -1360,6 +1364,14 @@ async function parseStreamedStructuredOutput({
     if (isAbortOrTimeoutError(error)) {
       throw error;
     }
+
+    console.warn(
+      "[lab-section] structured stream parse failed; falling back to non-streaming structured call",
+      {
+        error: describeStructuredOutputError(error),
+        schemaName: params.schemaName,
+      },
+    );
 
     return defaultStructuredCaller(params);
   }

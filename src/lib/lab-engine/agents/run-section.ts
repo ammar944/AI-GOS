@@ -89,6 +89,7 @@ import { structuralVerifier } from "./verification/structural-verifier";
 import {
   createThrottledSectionPartialBroadcaster,
   type SectionPartialPublishFn,
+  type SectionPartialSeqRef,
 } from "@/lib/research-v2/section-partial-broadcaster";
 
 export interface RunSectionInput {
@@ -752,6 +753,39 @@ const answerToolSectionIds: ReadonlySet<SectionId> = new Set([
 ]);
 const missingAnswerToolMessage =
   "Agent did not call answer tool within maxSteps";
+const labSectionStreamingEnvKey = "LAB_SECTION_STREAMING";
+
+interface StructuredSectionDraftOutput {
+  verdict: string;
+  statusSummary: string;
+  body: Record<string, unknown>;
+}
+
+function isLabSectionStreamingEnabled(
+  env: Record<string, string | undefined>,
+): boolean {
+  return env[labSectionStreamingEnvKey]?.trim().toLowerCase() !== "false";
+}
+
+function buildStructuredSectionDraftSchema(
+  definition: RuntimeSectionDefinition,
+): z.ZodType<StructuredSectionDraftOutput> {
+  return z
+    .object({
+      verdict: z
+        .string()
+        .describe(
+          "Authored reader verdict for the committed section; distinct from statusSummary and body prose.",
+        ),
+      statusSummary: z
+        .string()
+        .describe(
+          "Authored one-to-two sentence reader status summary; distinct from verdict and body prose.",
+        ),
+      body: definition.bodySchema,
+    })
+    .strict();
+}
 const paidMediaPlanGenerationSchema = z
   .object({
     body: z.unknown(),
@@ -3268,13 +3302,23 @@ function buildOutputFromStructuredBody({
   input: RunSectionInput;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
 }): SectionOutput<Record<string, unknown>> {
-  const parsedBody = definition.bodySchema.parse(body);
+  const structuredRecord = getRecord(body);
+  const parsedBody = definition.bodySchema.parse(
+    structuredRecord?.body ?? body,
+  );
   const syntheticOutput = buildSyntheticSectionOutput({
     body: parsedBody,
     definition,
   });
+  const authoredOutput = {
+    ...syntheticOutput,
+    verdict: getStringProperty(structuredRecord, "verdict") ?? syntheticOutput.verdict,
+    statusSummary:
+      getStringProperty(structuredRecord, "statusSummary") ??
+      syntheticOutput.statusSummary,
+  };
   const normalizedOutput = withNormalizedSectionOutput({
-    rawOutput: syntheticOutput,
+    rawOutput: authoredOutput,
     normalizedAdEvidenceGroups,
     sectionId: input.sectionId,
   });
@@ -3290,7 +3334,7 @@ function buildOutputFromStructuredBody({
     : [];
 
   return definition.sectionOutputSchema.parse({
-    ...syntheticOutput,
+    ...authoredOutput,
     ...(normalizedOutputRecord ?? {}),
     body: normalizedBody,
     sources: mergeModelSources([
@@ -3308,6 +3352,7 @@ async function buildStructuredBodyAttempt({
   input,
   modelSteps,
   normalizedAdEvidenceGroups,
+  partialSeqRef,
   prompt,
   researchInput,
   scheduleFlush,
@@ -3320,6 +3365,7 @@ async function buildStructuredBodyAttempt({
   input: RunSectionInput;
   modelSteps: AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  partialSeqRef: SectionPartialSeqRef;
   prompt: string;
   researchInput: ResearchInput;
   scheduleFlush: () => Promise<void>;
@@ -3331,10 +3377,12 @@ async function buildStructuredBodyAttempt({
     timeoutMs: structuredOutputTimeoutMs,
   });
   const idleController = new AbortController();
+  const structuredDraftSchema = buildStructuredSectionDraftSchema(definition);
   const partialBroadcaster = createThrottledSectionPartialBroadcaster({
     publish: deps.broadcastPartial,
     runId: input.runId,
     sectionId: input.sectionId,
+    seqRef: partialSeqRef,
     zone: input.sectionId,
     onError: (error) => {
       console.warn("[lab-section] failed to broadcast artifact partial", {
@@ -3368,7 +3416,7 @@ async function buildStructuredBodyAttempt({
   try {
     const structuredStream = streamStructured({
       model: sectionRunnerModel,
-      schema: definition.bodySchema,
+      schema: structuredDraftSchema,
       schemaName: `${definition.sectionOutputSchemaName}Body`,
       schemaDescription: `${definition.title} section body for AI-GOS AI SDK Lab.`,
       prompt,
@@ -3455,6 +3503,8 @@ async function buildStructuredBodyAttempt({
   }
 }
 
+// Explicit fallback kept for B2 streaming sign-off rollback via
+// LAB_SECTION_STREAMING=false. Do not remove until streaming is signed off.
 async function runSectionViaAnswerTool(
   input: RunSectionInput,
   deps: RunSectionDeps,
@@ -4022,6 +4072,7 @@ async function runSectionViaStructuredBodyStream(
   const modelSteps: AgentStep[] = [];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
+  const partialSeqRef: SectionPartialSeqRef = { current: 0 };
 
   await appendEvent(
     deps,
@@ -4047,6 +4098,7 @@ async function runSectionViaStructuredBodyStream(
     input,
     modelSteps,
     normalizedAdEvidenceGroups,
+    partialSeqRef,
     prompt: buildStructuredBodyPrompt({
       definition,
       externalToolNames,
@@ -4140,6 +4192,7 @@ async function runSectionViaStructuredBodyStream(
         input,
         modelSteps,
         normalizedAdEvidenceGroups,
+        partialSeqRef,
         prompt: buildStructuredBodyRepairPrompt({
           definition,
           evidenceTranscript: buildEvidenceTranscript(modelSteps),
@@ -4972,11 +5025,11 @@ export async function runSection(
   }
 
   if (answerToolSectionIds.has(input.sectionId)) {
-    if (deps.runAnswerTool !== undefined) {
-      return runSectionViaAnswerTool(input, deps);
+    if (isLabSectionStreamingEnabled(deps.env ?? process.env)) {
+      return runSectionViaStructuredBodyStream(input, deps);
     }
 
-    return runSectionViaStructuredBodyStream(input, deps);
+    return runSectionViaAnswerTool(input, deps);
   }
 
   const definition = getRuntimeSectionDefinition(input.sectionId);

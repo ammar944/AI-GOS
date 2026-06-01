@@ -23,12 +23,18 @@ export interface SectionPartialBroadcaster {
   flush: () => Promise<void>;
 }
 
+export interface SectionPartialSeqRef {
+  current: number;
+}
+
 interface ThrottledSectionPartialBroadcasterParams {
   intervalMs?: number;
   onError?: (error: unknown) => void;
   publish?: SectionPartialPublishFn;
   runId: string;
   sectionId: string;
+  seqRef?: SectionPartialSeqRef;
+  startSeq?: number;
   zone: string;
 }
 
@@ -49,12 +55,14 @@ export function createThrottledSectionPartialBroadcaster({
   publish = broadcastSectionPartial,
   runId,
   sectionId,
+  seqRef,
+  startSeq = 0,
   zone,
 }: ThrottledSectionPartialBroadcasterParams): SectionPartialBroadcaster {
   let lastSentAt = 0;
   let pendingSnapshot: SectionPartialSnapshot | null = null;
   let publishChain: Promise<void> = Promise.resolve();
-  let seq = 0;
+  const sequence = seqRef ?? { current: startSeq };
   let timer: ReturnType<typeof setTimeout> | null = null;
   let hasSent = false;
   const seenTopLevelKeys = new Set<string>();
@@ -62,10 +70,15 @@ export function createThrottledSectionPartialBroadcaster({
   const publishSnapshot = (snapshot: SectionPartialSnapshot): void => {
     hasSent = true;
     lastSentAt = Date.now();
-    seq += 1;
+    sequence.current += 1;
     const payload = {
       runId,
-      ...makeSectionPartialPayload({ zone, sectionId, seq, snapshot }),
+      ...makeSectionPartialPayload({
+        zone,
+        sectionId,
+        seq: sequence.current,
+        snapshot,
+      }),
     };
     const publishPromise = publish(payload);
     publishChain = publishChain

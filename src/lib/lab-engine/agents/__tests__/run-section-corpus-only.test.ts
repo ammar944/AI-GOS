@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   competitorLandscapeBodySchema,
@@ -217,6 +217,14 @@ function assertCompetitorLandscapeBody(
 }
 
 describe('runSection corpus-only mode', (): void => {
+  beforeEach((): void => {
+    vi.stubEnv('LAB_SECTION_STREAMING', 'false');
+  });
+
+  afterEach((): void => {
+    vi.unstubAllEnvs();
+  });
+
   it('passes an empty external tool map and still validates a section output', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
@@ -614,7 +622,7 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: {},
+        env: { LAB_SECTION_STREAMING: 'false' },
         runAnswerTool,
         now: () => new Date('2026-05-29T12:35:00.000Z'),
       },
@@ -668,7 +676,7 @@ describe('runSection corpus-only mode', (): void => {
           store,
           loadSkill: async () => 'Use the injected corpus only.',
           allowedTools: [],
-          env: { LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
+          env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
           runAnswerTool,
           now: () => new Date('2026-05-29T12:40:00.000Z'),
         },
@@ -721,7 +729,7 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
         runAnswerTool,
         now: () => new Date('2026-05-29T12:45:00.000Z'),
       },

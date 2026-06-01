@@ -757,11 +757,13 @@ function DraftingArtifactView({
         />
         <span className="font-medium">Drafting...</span>
       </div>
-      <GenericTypedArtifactRenderer
-        artifact={artifact}
-        zoneId={zoneId}
-        showSectionTitle={false}
-      />
+      <TypedArtifactErrorBoundary sectionId={zoneId}>
+        <GenericTypedArtifactRenderer
+          artifact={artifact}
+          zoneId={zoneId}
+          showSectionTitle={false}
+        />
+      </TypedArtifactErrorBoundary>
     </div>
   );
 }

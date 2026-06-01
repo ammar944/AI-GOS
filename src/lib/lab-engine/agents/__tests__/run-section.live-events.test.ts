@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
@@ -96,6 +96,14 @@ async function makeStore(): Promise<RunStore> {
 }
 
 describe('runSection live event persistence', (): void => {
+  beforeEach((): void => {
+    vi.stubEnv('LAB_SECTION_STREAMING', 'false');
+  });
+
+  afterEach((): void => {
+    vi.unstubAllEnvs();
+  });
+
   it('persists tool events while the answer-tool attempt is still pending', async (): Promise<void> => {
     const recording = wrapStore(await makeStore());
 
