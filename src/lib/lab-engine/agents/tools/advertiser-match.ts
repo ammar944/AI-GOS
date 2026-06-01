@@ -48,18 +48,62 @@ function normalizeCompanyName(name: string): string {
  * returned 0 creatives (2026-06-01 audit). Strip the descriptor suffix after a
  * spaced separator (" - "/" — "/" : "/" | ") and any parenthetical, then collapse
  * whitespace. "Confluence (Atlassian) - enterprise wiki/docs" -> "Confluence";
- * "Microsoft Loop" -> "Microsoft Loop"; "Coda" -> "Coda". Falls back to the
- * trimmed original if cleaning empties the string.
+ * "Microsoft Loop" -> "Microsoft Loop"; "Coda" -> "Coda". Returns an empty
+ * string for deal/date fragments that are not plausible brand queries.
  */
+const nonBrandLeadTokens = new Set([
+  "acquired",
+  "closed",
+  "deal",
+  "founded",
+  "raised",
+  "valuation",
+]);
+
+function isPlausibleAdvertiserQuery(value: string): boolean {
+  const trimmed = value.trim();
+
+  // Currency- or dash-led strings are price/deal fragments, never brand queries.
+  if (/^[$€£¥₹—–-]/u.test(trimmed)) {
+    return false;
+  }
+
+  // A digit-led FIRST token is a fragment ("2026 — $5.15B deal", "4,200+ switches")
+  // ONLY when it carries no letters. Alphanumeric brands ("3M", "23andMe",
+  // "7-Eleven", "1Password") keep a letter in the first token and stay valid.
+  const firstWhitespaceToken = trimmed.split(/\s+/u)[0] ?? "";
+  if (
+    /^\d/u.test(firstWhitespaceToken) &&
+    !/[A-Za-z]/u.test(firstWhitespaceToken)
+  ) {
+    return false;
+  }
+
+  const firstToken =
+    trimmed
+      .split(/\s+/u)[0]
+      ?.toLowerCase()
+      .replace(/[^a-z]/gu, "") ?? "";
+
+  return !nonBrandLeadTokens.has(firstToken);
+}
+
 export function cleanAdvertiserQuery(name: string): string {
   const original = name.trim();
-  const withoutDescriptor = original.split(/\s+[-–—:|]\s+/)[0] ?? original;
-  const cleaned = withoutDescriptor
-    .replace(/\s*\([^)]*\)/g, "")
-    .replace(/\s+/g, " ")
+  const withoutLeadingEnumerator = original
+    .replace(/^\d+[.)]\s+/u, "")
+    .replace(/^[•*\-]\s+/u, "")
     .trim();
+  const withoutDescriptor =
+    withoutLeadingEnumerator.split(/\s+[-–—:|]\s+/u)[0] ?? withoutLeadingEnumerator;
+  const cleaned = withoutDescriptor
+    .replace(/\s*\([^)]*\)/gu, "")
+    .replace(/\s*\([^)]*$/u, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+  const candidate = cleaned.length > 0 ? cleaned : original;
 
-  return cleaned.length > 0 ? cleaned : original;
+  return isPlausibleAdvertiserQuery(candidate) ? candidate : "";
 }
 
 /**

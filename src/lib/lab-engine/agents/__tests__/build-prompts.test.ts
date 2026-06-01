@@ -163,6 +163,20 @@ describe("buildAnswerToolInstructions", (): void => {
     );
   });
 
+  it("tells Competitor Landscape to avoid unfetched URLs and numerics", (): void => {
+    const prompt = buildStructuredBodyPrompt({
+      definition: competitorDefinition,
+      externalToolNames: ["web_search", "firecrawl"],
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use live competitor evidence.",
+    });
+
+    expect(prompt).toContain(
+      "cite only competitor URLs and numeric pricing/deal values that appear in fetched tool evidence",
+    );
+    expect(prompt).toContain("mark it as an evidence gap");
+  });
+
   it("repeats Competitor Landscape weakness coverage minimums in repair prompts", (): void => {
     const prompt = buildRepairPrompt({
       definition: competitorDefinition,
@@ -251,9 +265,13 @@ describe("buildStructuredBodyPrompt", (): void => {
 
     expect(prompt).toContain('"verdict": "..."');
     expect(prompt).toContain('"statusSummary": "..."');
+    expect(prompt).toContain('"sources": [{ "title": "...", "url": "https://...", "publisher": "..." }]');
     expect(prompt).toContain('"body": {');
     expect(prompt).toContain(
       "Author `verdict` and `statusSummary` as distinct reader-facing fields",
+    );
+    expect(prompt).toContain(
+      "Author top-level `sources` with distinct cited public URLs",
     );
     expect(prompt).not.toContain("Return ONLY the section body object.");
     expect(prompt).not.toContain("Do not include `sectionTitle`, `verdict`, `statusSummary`");

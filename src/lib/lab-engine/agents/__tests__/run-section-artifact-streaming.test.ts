@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
+import type { VoiceOfCustomerSectionOutput } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
+import type { SectionId } from '@/lib/lab-engine/events/activity-event';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
+import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 import type { SectionPartialPublishFn } from '@/lib/research-v2/section-partial-broadcaster';
@@ -17,11 +20,13 @@ import {
 import { runSection } from '../run-section';
 import type { AnswerToolRunner, StructuredStreamer } from '../section-agent';
 
-async function makeStore(): Promise<ReturnType<typeof createRunStore>> {
+async function makeStore(
+  defaultSectionIds: SectionId[] = ['positioningMarketCategory'],
+): Promise<ReturnType<typeof createRunStore>> {
   const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-streaming-'));
   const store = createRunStore({
     rootDir,
-    defaultSectionIds: ['positioningMarketCategory'],
+    defaultSectionIds,
     now: () => new Date('2026-06-01T00:00:00.000Z'),
   });
   await store.createRun(saaslaunchResearchInput);
@@ -51,14 +56,26 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
   };
 }
 
+interface ModelSourceDraft {
+  title: string;
+  url: string;
+  publisher?: string;
+}
+
 interface MarketCategoryDraft {
   verdict: string;
   statusSummary: string;
+  sources: ModelSourceDraft[];
   body: Record<string, unknown>;
 }
 
 function buildMarketCategoryDraft({
   body = marketCategoryFixtureArtifact.body as Record<string, unknown>,
+  sources = marketCategoryFixtureArtifact.sources.map((source) => ({
+    title: source.title,
+    url: source.url,
+    ...(source.publisher ? { publisher: source.publisher } : {}),
+  })),
   statusSummary =
     'Authored status: evidence points to an emerging category with clear maturity signals.',
   verdict =
@@ -66,6 +83,7 @@ function buildMarketCategoryDraft({
 }: Partial<MarketCategoryDraft> = {}): MarketCategoryDraft {
   return {
     body,
+    sources,
     statusSummary,
     verdict,
   };
@@ -102,22 +120,81 @@ function collectFixtureSourceUrls(value: unknown): string[] {
   ];
 }
 
-function emitFixtureEvidenceStep(params: Parameters<StructuredStreamer>[0]): void {
+function emitFixtureEvidenceStep(
+  params: Parameters<StructuredStreamer>[0],
+  body: unknown = marketCategoryFixtureArtifact.body,
+): void {
   params.onStepFinish?.({
     stepNumber: 1,
     finishReason: 'stop',
     text: 'Fixture evidence supplied for structured body verification.',
     toolCalls: [],
-    toolResults: Array.from(
-      new Set(collectFixtureSourceUrls(marketCategoryFixtureArtifact.body)),
-    ).map((sourceUrl) => ({
-      toolName: 'fixture_evidence',
-      output: {
-        sourceUrl,
-        text: `Fixture source evidence for ${sourceUrl}`,
-      },
-    })),
+    toolResults: Array.from(new Set(collectFixtureSourceUrls(body))).map(
+      (sourceUrl) => ({
+        toolName: 'fixture_evidence',
+        output: {
+          sourceUrl,
+          text: `Fixture source evidence for ${sourceUrl}`,
+        },
+      }),
+    ),
   });
+}
+
+
+function collapseSourceUrls(
+  value: Record<string, unknown>,
+  urls: readonly string[],
+): Record<string, unknown> {
+  const cloned = structuredClone(value) as Record<string, unknown>;
+  let index = 0;
+
+  const visit = (current: unknown): void => {
+    if (Array.isArray(current)) {
+      current.forEach((item) => visit(item));
+      return;
+    }
+
+    if (typeof current !== 'object' || current === null) {
+      return;
+    }
+
+    const record = current as Record<string, unknown>;
+    if (typeof record.sourceUrl === 'string') {
+      record.sourceUrl = urls[index % urls.length] ?? record.sourceUrl;
+      index += 1;
+    }
+
+    Object.values(record).forEach((child) => visit(child));
+  };
+
+  visit(cloned);
+
+  return cloned;
+}
+
+type VoiceOfCustomerDraft = Omit<
+  VoiceOfCustomerSectionOutput,
+  'sectionTitle' | 'confidence'
+>;
+
+function buildVoiceOfCustomerDraftWithCollapsedBodySources(): VoiceOfCustomerDraft {
+  const collapsedBody = collapseSourceUrls(voiceOfCustomerFixtureArtifact.body, [
+    'https://independent-voc-one.example/pain',
+    'https://independent-voc-two.example/pain',
+    'https://independent-voc-three.example/pain',
+  ]);
+
+  return {
+    verdict: voiceOfCustomerFixtureArtifact.verdict,
+    statusSummary: voiceOfCustomerFixtureArtifact.statusSummary,
+    sources: voiceOfCustomerFixtureArtifact.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      ...(source.publisher ? { publisher: source.publisher } : {}),
+    })),
+    body: collapsedBody as VoiceOfCustomerSectionOutput['body'],
+  };
 }
 
 describe('runSection artifact streaming path', (): void => {
@@ -216,6 +293,56 @@ describe('runSection artifact streaming path', (): void => {
     expect(record.events.map((event) => event.type)).not.toContain(
       'artifact-partial' as never,
     );
+  });
+
+  it('counts authored VoC draft sources before body-harvested source URLs', async (): Promise<void> => {
+    const store = await makeStore(['positioningVoiceOfCustomer']);
+    const finalDraft = buildVoiceOfCustomerDraftWithCollapsedBodySources();
+    const bodySourceUrlCount = new Set(collectFixtureSourceUrls(finalDraft.body)).size;
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitFixtureEvidenceStep(params, finalDraft.body);
+
+      expect(params.schema.safeParse(finalDraft).success).toBe(true);
+      expect(bodySourceUrlCount).toBeLessThan(5);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(finalDraft),
+        partialOutputStream: partials([]),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use streamed structured VoC output.',
+        allowedTools: [],
+        streamStructured,
+        now: () => new Date('2026-06-01T00:10:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const validationIssues = record.events.flatMap((event) => {
+      if (typeof event.metadata !== 'object' || event.metadata === null) {
+        return [];
+      }
+
+      const issues = (event.metadata as { issues?: unknown }).issues;
+      return Array.isArray(issues) ? issues : [];
+    });
+
+    expect(streamStructured).toHaveBeenCalled();
+    expect(result.artifact.sources.map((source) => source.url).slice(0, 5)).toEqual(
+      voiceOfCustomerFixtureArtifact.sources.map((source) => source.url),
+    );
+    expect(result.artifact.sources).toHaveLength(8);
+    expect(validationIssues).not.toContain('sources: have 3, need >=5.');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe('completed');
   });
 
   it('repairs streamed final outputs that miss section minimums', async (): Promise<void> => {

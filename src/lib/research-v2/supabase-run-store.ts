@@ -477,6 +477,7 @@ export function createSupabaseRunStore(
       const { error: telemetryError } = await options.supabase
         .from('research_section_runs')
         .update({
+          error: null,
           telemetry: buildLabSectionTelemetry({
             elapsedMs: elapsedMs(startedAt, completedAt),
             latestActivity: `${parsedArtifact.sectionTitle} committed`,

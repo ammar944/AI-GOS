@@ -730,8 +730,9 @@ export function buildDraftArtifact({
   active: ReaderSectionId;
   snapshot: Record<string, unknown>;
 }): PositioningTypedArtifact {
-  // The streamed partial snapshot is shaped { verdict, statusSummary, body }
-  // (buildStructuredSectionDraftSchema). The committed artifact renders the body's
+  // The streamed partial snapshot is shaped { verdict, statusSummary, sources, body }
+  // (buildStructuredSectionDraftSchema). We only read body here (top-level verdict/
+  // statusSummary/sources are ignored on the draft view). The committed artifact renders the body's
   // sub-section keys at the top level, so unwrap body here too — otherwise
   // GenericTypedArtifactRenderer collapses every sub-section under one "Body" group.
   // Fall back to the raw snapshot for the legacy bare-body shape / pre-body partials.

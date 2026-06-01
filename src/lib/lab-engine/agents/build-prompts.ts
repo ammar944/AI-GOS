@@ -87,6 +87,7 @@ function buildStructuredDraftShapeGuidance(): string {
     "{",
     '  "verdict": "...",',
     '  "statusSummary": "...",',
+    '  "sources": [{ "title": "...", "url": "https://...", "publisher": "..." }],',
     '  "body": {',
     '    "...section body keys only...": {}',
     "  }",
@@ -94,9 +95,10 @@ function buildStructuredDraftShapeGuidance(): string {
     "",
     "Return ONLY this structured draft object.",
     "Author `verdict` and `statusSummary` as distinct reader-facing fields; do not copy the same body prose block into both.",
-    "Only these root keys are allowed: `verdict`, `statusSummary`, and `body`.",
-    "Do not include `sectionTitle`, `confidence`, `sources`, or `$schema` at the root.",
-    "Every evidence-backed row that has a public source must carry its own `sourceUrl` field inside `body` so the runner can derive envelope sources after validation.",
+    "Author top-level `sources` with distinct cited public URLs. Include at least five distinct URLs whenever the section minimum validator requires >=5 sources.",
+    "Only these root keys are allowed: `verdict`, `statusSummary`, `sources`, and `body`.",
+    "Do not include `sectionTitle`, `confidence`, or `$schema` at the root.",
+    "Every evidence-backed row that has a public source must carry its own `sourceUrl` field inside `body` so the runner can merge row-level sources with the top-level `sources` channel after validation.",
   ].join("\n");
 }
 
@@ -370,7 +372,8 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "CompetitorLandscapeSectionOutput") {
     return [
-      "- CompetitorLandscapeSectionOutput minimums: top-level `sources` must include at least five Section-level sources.",
+      "- CompetitorLandscapeSectionOutput minimums: top-level `sources` must include at least five distinct cited Section-level source URLs.",
+      "- CompetitorLandscapeSectionOutput grounding: cite only competitor URLs and numeric pricing/deal values that appear in fetched tool evidence, the evidence transcript, pre-normalized live ad evidence, or ResearchInput/corpus; if the source was not fetched, mark it as an evidence gap instead of asserting the URL or number.",
       "- CompetitorLandscapeSectionOutput minimums: `body.competitorSet.competitors` must include at least one competitor for each `competitorType`: `direct`, `indirect`, `status-quo`, and `diy`.",
       "- CompetitorLandscapeSectionOutput minimums: `status-quo` means the buyer's current non-purchase workflow, such as spreadsheet backlog tracking, Slack/email triage, founder memory, or manual process review. Source it to public evidence that names the workflow pain or current process, and call out any thin evidence in prose instead of dropping the bucket.",
       "- For the SaaSLaunch fixture, use a manual founder-led sales workflow, spreadsheet pipeline review, or founder memory/follow-up process as the `diy` competitor when public sources do not name a productized DIY alternative.",
@@ -406,6 +409,7 @@ function buildSectionMinimumGuidance(
     return [
       "- VoiceOfCustomerSectionOutput exact item contracts: `body.painLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `painTheme`, `painIntensity`, plus optional `role` (reviewer role/handle) and `date` (when the source discloses it).",
       "- `source` must be one of `g2`, `reddit`, `hackernews`, `sales-call`, `support-thread`, `twitter`, `other`; `painIntensity` must be `high`, `medium`, or `low`.",
+      "- VoiceOfCustomerSectionOutput minimums: top-level `sources` must include at least five distinct cited source URLs across independent domains; do not use the audited company's own domain as a VoC source.",
       "- VoiceOfCustomerSectionOutput minimums: include at least ten pain quotes from at least three distinct sources.",
       "- Pain quotes are LOAD-BEARING: every `verbatimText` must trace to a fetched source or corpus excerpt. NEVER present the subject company's own homepage, marketing, or testimonial copy as buyer pain — pain quotes come only from independent sources (review sites, forums, support threads), never the audited company's own domain.",
       "- No single source may supply a majority of the pain quotes; spread them across independent domains.",

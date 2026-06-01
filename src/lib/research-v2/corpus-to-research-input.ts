@@ -644,13 +644,46 @@ function withFallback(values: string[], fallback: string): string[] {
   return values.length > 0 ? values : [fallback];
 }
 
+const competitorListEnumeratorPattern =
+  /(?:^|\s)\d+[.)]\s+|(?:^|\n)\s*[•*\-]\s+/u;
+const competitorListDelimiterPattern =
+  /(?:^|\s)\d+[.)]\s+|(?:^|\n)\s*[•*\-]\s+|\n+/u;
+
+function splitCompetitorSeedCandidates(rawTopCompetitors: string): string[] {
+  const normalized = rawTopCompetitors.replace(/\r\n?/gu, "\n").trim();
+
+  if (normalized.length === 0) {
+    return [];
+  }
+
+  if (competitorListEnumeratorPattern.test(normalized)) {
+    return normalized.split(competitorListDelimiterPattern);
+  }
+
+  return normalized.split(/[\n,]+/u);
+}
+
+function stripCompetitorListMarker(value: string): string {
+  return value
+    .trim()
+    .replace(/^\d+[.)]\s+/u, "")
+    .replace(/^[•*\-]\s+/u, "")
+    .trim();
+}
+
+function stripCompetitorDescriptor(value: string): string {
+  return (value.split("(")[0] ?? value).replace(/[;,.]+$/u, "").trim();
+}
+
 /**
- * Parse the onboarding `topCompetitors` free-text field (comma/newline/semicolon
- * separated, possibly numbered or bulleted) into competitor seeds for the
- * deterministic ad probe. Domain enrichment is CONSERVATIVE: a corpus source
- * domain is attached only when its base token exactly equals the competitor's
- * first significant word, because attaching a WRONG domain makes the
- * advertiser-match short-name guard reject otherwise-valid ad creatives.
+ * Parse the onboarding `topCompetitors` free-text field into competitor seeds for
+ * the deterministic ad probe. Numbered/bulleted lists are split only on list
+ * markers and newlines so commas/semicolons inside parenthetical descriptions do
+ * not become bogus advertiser names. Legacy unnumbered strings fall back to comma
+ * splitting. Domain enrichment is CONSERVATIVE: a corpus source domain is
+ * attached only when its base token exactly equals the competitor's first
+ * significant word, because attaching a WRONG domain makes the advertiser-match
+ * short-name guard reject otherwise-valid ad creatives.
  */
 function buildCompetitorSeeds(
   rawTopCompetitors: string | undefined,
@@ -675,11 +708,10 @@ function buildCompetitorSeeds(
   const seen = new Set<string>();
   const seeds: { name: string; domain?: string }[] = [];
 
-  for (const rawName of rawTopCompetitors.split(/[,\n;]+/)) {
-    const stripped = rawName
-      .trim()
-      .replace(/^[•\-*\d.)\s]+/, "")
-      .trim();
+  for (const rawName of splitCompetitorSeedCandidates(rawTopCompetitors)) {
+    const stripped = stripCompetitorDescriptor(
+      stripCompetitorListMarker(rawName),
+    );
 
     if (stripped.length === 0) {
       continue;

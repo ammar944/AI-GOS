@@ -758,6 +758,7 @@ const labSectionStreamingEnvKey = "LAB_SECTION_STREAMING";
 interface StructuredSectionDraftOutput {
   verdict: string;
   statusSummary: string;
+  sources: ModelSourceInput[];
   body: Record<string, unknown>;
 }
 
@@ -772,6 +773,10 @@ function isLabSectionStreamingEnabled(
 function buildStructuredSectionDraftSchema(
   definition: RuntimeSectionDefinition,
 ): z.ZodType<StructuredSectionDraftOutput> {
+  const sectionOutputSchema = definition.sectionOutputSchema as unknown as z.ZodObject<{
+    sources: z.ZodType<ModelSourceInput[]>;
+  }>;
+
   return z
     .object({
       verdict: z
@@ -784,10 +789,13 @@ function buildStructuredSectionDraftSchema(
         .describe(
           "Authored one-to-two sentence reader status summary; distinct from verdict and body prose.",
         ),
+      sources: sectionOutputSchema.shape.sources.describe(
+        "Top-level model-authored section sources with distinct cited URLs. Author at least five distinct URLs when the section validator requires >=5 sources.",
+      ),
       body: definition.bodySchema,
     })
     // .strict() is load-bearing: the draft schema must REJECT a full SectionOutput
-    // (extra sectionTitle/confidence/sources keys) so the draft shape stays distinct
+    // (extra sectionTitle/confidence keys) so the draft shape stays distinct
     // from the committed envelope. The repair prompt already tells the model to drop
     // stray envelope fields. (run-section-artifact-streaming.test.ts:135 asserts this.)
     .strict();
@@ -3316,12 +3324,21 @@ function buildOutputFromStructuredBody({
     body: parsedBody,
     definition,
   });
+  const authoredSources = Array.isArray(structuredRecord?.sources)
+    ? structuredRecord.sources
+        .map((source) => normalizeModelSource(source))
+        .filter((source): source is ModelSourceInput => source !== null)
+    : [];
   const authoredOutput = {
     ...syntheticOutput,
     verdict: getStringProperty(structuredRecord, "verdict") ?? syntheticOutput.verdict,
     statusSummary:
       getStringProperty(structuredRecord, "statusSummary") ??
       syntheticOutput.statusSummary,
+    sources: mergeModelSources([
+      ...authoredSources,
+      ...syntheticOutput.sources,
+    ]),
   };
   const normalizedOutput = withNormalizedSectionOutput({
     rawOutput: authoredOutput,

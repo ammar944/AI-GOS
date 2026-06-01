@@ -215,6 +215,7 @@ describe('createSupabaseRunStore', (): void => {
     );
     expect(fakeSupabase.update).toHaveBeenCalledWith(
       expect.objectContaining({
+        error: null,
         telemetry: expect.objectContaining({
           executionMode: 'lab',
           phase: 'Committed',
@@ -295,6 +296,43 @@ describe('createSupabaseRunStore', (): void => {
       'forced Buyer ICP failure',
     );
     expect(failed.sections.positioningMarketCategory?.status).toBe('idle');
+  });
+
+  it('clears a stale section error on a later successful artifact commit', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    const failed = await store.markSectionFailed(
+      saaslaunchResearchInput.runId,
+      'positioningMarketCategory',
+      'sources: have 3, need >=5.',
+    );
+    expect(failed.sections.positioningMarketCategory?.error).toBe(
+      'sources: have 3, need >=5.',
+    );
+
+    const saved = await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+    const committedRunUpdate = fakeSupabase.updates.find((update) => {
+      const telemetry = update.patch.telemetry as { phase?: unknown } | undefined;
+      return (
+        update.table === 'research_section_runs' && telemetry?.phase === 'Committed'
+      );
+    });
+
+    expect(saved.sections.positioningMarketCategory?.status).toBe('completed');
+    expect(saved.sections.positioningMarketCategory?.error).toBeNull();
+    expect(committedRunUpdate?.patch).toEqual(
+      expect.objectContaining({ error: null }),
+    );
   });
 
   it('does not write failure telemetry or local failed state when the complete-row guard no-ops', async (): Promise<void> => {

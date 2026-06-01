@@ -179,6 +179,27 @@ describe("advertiser match relevance engine", (): void => {
       ).toBe("Confluence");
       expect(cleanAdvertiserQuery("Notion (Notion Labs, Inc.)")).toBe("Notion");
       expect(cleanAdvertiserQuery("Asana — work management")).toBe("Asana");
+      expect(
+        cleanAdvertiserQuery("1. Brex (acquired by Capital One, closed Apr 7"),
+      ).toBe("Brex");
+    });
+
+    it("rejects Brex fixture fragments that are not plausible brand queries", (): void => {
+      expect(cleanAdvertiserQuery("closed Apr 7")).toBe("");
+      expect(cleanAdvertiserQuery("2026 — $5.15B deal")).toBe("");
+      expect(cleanAdvertiserQuery("— $5.15B deal")).toBe("");
+      expect(cleanAdvertiserQuery("$5.15B deal")).toBe("");
+    });
+
+    it("keeps alphanumeric brands whose first token starts with a digit", (): void => {
+      // FIX2-1: a blanket leading-digit reject dropped real brands (-> 0 creatives).
+      // The reject must fire only for letter-free fragments ("2026", "4,200+"), not brands.
+      expect(cleanAdvertiserQuery("3M")).toBe("3M");
+      expect(cleanAdvertiserQuery("23andMe")).toBe("23andMe");
+      expect(cleanAdvertiserQuery("7-Eleven")).toBe("7-Eleven");
+      expect(cleanAdvertiserQuery("1Password")).toBe("1Password");
+      // ...while still rejecting letter-free numeric fragments:
+      expect(cleanAdvertiserQuery("4,200+ switches to Ramp")).toBe("");
     });
 
     it("leaves clean multi-word brands and bare names untouched", (): void => {

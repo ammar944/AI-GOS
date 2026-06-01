@@ -323,7 +323,7 @@ describe("corpusToResearchInput", (): void => {
         onboardingFields: {
           ...corpusFixture.deepResearchProgramData.onboardingFields,
           topCompetitors: {
-            value: "1. Asana\n2. Asana\n- Smartsheet; Wrike, ClickUp, Trello, Basecamp",
+            value: "1. Asana\n2. Asana\n- Smartsheet\n- Wrike\n- ClickUp\n- Trello\n- Basecamp",
           },
         },
       },
@@ -340,4 +340,29 @@ describe("corpusToResearchInput", (): void => {
       "Trello",
     ]);
   });
+  it("keeps Brex-style numbered competitors intact while stripping parenthetical deal descriptions", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        onboardingFields: {
+          ...corpusFixture.deepResearchProgramData.onboardingFields,
+          topCompetitors: {
+            value:
+              "1. Brex (acquired by Capital One, closed Apr 7, 2026 — $5.15B deal; expense platform); 2. BILL (AP automation, payments); 3. American Express (corporate cards)",
+          },
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.competitorSeeds?.map((seed) => seed.name)).toEqual([
+      "Brex",
+      "BILL",
+      "American Express",
+    ]);
+  });
+
 });
