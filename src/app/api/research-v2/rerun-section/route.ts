@@ -12,7 +12,10 @@ import { after, NextResponse } from 'next/server';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
-import { OrchestrateRpcError } from '@/lib/research-v2/orchestrate-db';
+import {
+  OrchestrateRpcError,
+  resetSectionRunForRerun,
+} from '@/lib/research-v2/orchestrate-db';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
 import { scheduleLabSectionJob } from '@/lib/research-v2/lab-section-dispatch';
 import {
@@ -205,6 +208,12 @@ export async function POST(req: Request): Promise<NextResponse> {
       onboardingData: session.onboarding_data ?? {},
       ...(uploadedDocuments.length > 0 ? { uploadedDocuments } : {}),
     });
+    await resetSectionRunForRerun({
+      supabase,
+      userId,
+      runId,
+      sectionId: positioningZone,
+    });
     const seeded = await scheduleLabSectionJob({
       userId,
       runId,
@@ -221,7 +230,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     });
   } catch (err) {
     if (err instanceof OrchestrateRpcError) {
-      console.error('[rerun-section] seed_orchestration RPC failed:', err.message);
+      console.error('[rerun-section] orchestration RPC failed:', err.message);
       return NextResponse.json(
         { error: 'seed_failed', message: err.message },
         { status: 500 },

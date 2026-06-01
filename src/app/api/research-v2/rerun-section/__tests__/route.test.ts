@@ -7,6 +7,7 @@ const SECTION_RUN_ID = '22222222-2222-4222-8222-000000000004';
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
   const seedOrchestration = vi.fn();
+  const resetSectionRunForRerun = vi.fn();
   const loadOwnedResearchSession = vi.fn();
   const corpusToResearchInput = vi.fn();
   const scheduleLabSectionJob = vi.fn();
@@ -36,6 +37,7 @@ const routeMocks = vi.hoisted(() => {
   return {
     auth,
     seedOrchestration,
+    resetSectionRunForRerun,
     artifactQuery,
     sectionQuery,
     createAdminClient,
@@ -86,6 +88,8 @@ vi.mock('@/lib/research-v2/orchestrate-db', async () => {
     ...actual,
     seedOrchestration: (...args: unknown[]) =>
       routeMocks.seedOrchestration(...args),
+    resetSectionRunForRerun: (...args: unknown[]) =>
+      routeMocks.resetSectionRunForRerun(...args),
   };
 });
 
@@ -108,6 +112,7 @@ function mockSeeded(): void {
         section_run_id: SECTION_RUN_ID,
         ordinal: 4,
         reused: false,
+        status: 'queued',
       },
     ],
   });
@@ -132,6 +137,11 @@ describe('POST /api/research-v2/rerun-section', () => {
       error: null,
     });
     mockSeeded();
+    routeMocks.resetSectionRunForRerun.mockResolvedValue({
+      sectionRunId: SECTION_RUN_ID,
+      previousSectionRunId: null,
+      previousStatus: null,
+    });
     routeMocks.loadOwnedResearchSession.mockResolvedValue({
       corpusReady: true,
       deepResearchProgramData: { corpus: { researchSummary: 'Fellow' } },
@@ -149,8 +159,16 @@ describe('POST /api/research-v2/rerun-section', () => {
           section_run_id: SECTION_RUN_ID,
           ordinal: 4,
           reused: false,
+          status: 'queued',
         },
       ],
+      claim: {
+        status: 'claimed',
+        runId: RUN_ID,
+        sectionId: 'positioningVoiceOfCustomer',
+        sectionRunId: SECTION_RUN_ID,
+        previousStatus: 'queued',
+      },
     });
   });
 
@@ -170,7 +188,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(response.status).toBe(400);
   });
 
-  it('schedules a one-section lab rerun by default', async () => {
+  it('resets the section row before scheduling a one-section lab rerun', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -187,6 +205,12 @@ describe('POST /api/research-v2/rerun-section', () => {
       deepResearchProgramData: { corpus: { researchSummary: 'Fellow' } },
       onboardingData: { companyName: 'Fellow' },
     });
+    expect(routeMocks.resetSectionRunForRerun).toHaveBeenCalledWith({
+      supabase: expect.any(Object),
+      userId: 'user_1',
+      runId: RUN_ID,
+      sectionId: 'positioningVoiceOfCustomer',
+    });
     expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user_1',
@@ -198,6 +222,11 @@ describe('POST /api/research-v2/rerun-section', () => {
           fixtureId: 'brand_fellow',
         },
       }),
+    );
+    expect(
+      routeMocks.scheduleLabSectionJob.mock.invocationCallOrder[0],
+    ).toBeGreaterThan(
+      routeMocks.resetSectionRunForRerun.mock.invocationCallOrder[0] ?? 0,
     );
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -230,6 +259,12 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(abortUrl).toBe('https://worker.example/abort');
     expect(JSON.parse(String(abortInit.body))).toEqual({
       sectionRunId: SECTION_RUN_ID,
+    });
+    expect(routeMocks.resetSectionRunForRerun).toHaveBeenCalledWith({
+      supabase: expect.any(Object),
+      userId: 'user_1',
+      runId: RUN_ID,
+      sectionId: 'positioningVoiceOfCustomer',
     });
     expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -1,6 +1,7 @@
 // Phase 1 of the orchestrator + artifact UI cycle.
 // Server-only helpers that wrap the seed_orchestration RPC.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import {
@@ -36,6 +37,16 @@ const FreezeReviewedBriefSnapshotResultSchema = z.enum([
   'frozen',
   'already_frozen',
 ]);
+const ResetSectionRunForRerunRowSchema = z
+  .object({
+    section_run_id: z.string().uuid(),
+    previous_section_run_id: z.string().uuid().nullable().optional(),
+    previous_status: z.string().nullable().optional(),
+  })
+  .strict();
+const ResetSectionRunForRerunRowsSchema = z.array(
+  ResetSectionRunForRerunRowSchema,
+);
 
 const POSITIONING_ZONE_SET: ReadonlySet<string> = new Set(ALL_POSITIONING_SECTION_IDS);
 
@@ -43,6 +54,19 @@ export interface SeedOrchestrationInput {
   userId: string;
   runId: string;
   zones?: readonly AllPositioningSectionId[];
+}
+
+export interface ResetSectionRunForRerunInput {
+  supabase: SupabaseClient;
+  userId: string;
+  runId: string;
+  sectionId: string;
+}
+
+export interface ResetSectionRunForRerunResult {
+  sectionRunId: string;
+  previousSectionRunId?: string;
+  previousStatus?: string;
 }
 
 export interface FrozenGtmBriefThesisPatchInput {
@@ -202,6 +226,49 @@ export async function seedOrchestration(
     });
 
   return { parent_audit_run_id, section_run_ids };
+}
+
+export async function resetSectionRunForRerun(
+  input: ResetSectionRunForRerunInput,
+): Promise<ResetSectionRunForRerunResult> {
+  const { data, error } = await input.supabase.rpc('reset_section_run_for_rerun', {
+    p_user_id: input.userId,
+    p_run_id: input.runId,
+    p_section_id: input.sectionId,
+  });
+
+  if (error) {
+    throw new OrchestrateRpcError(
+      `reset_section_run_for_rerun RPC failed for runId=${input.runId} sectionId=${input.sectionId}: ${error.message}`,
+      error,
+    );
+  }
+
+  let rows: z.infer<typeof ResetSectionRunForRerunRowsSchema>;
+  try {
+    rows = ResetSectionRunForRerunRowsSchema.parse(data ?? []);
+  } catch (err) {
+    throw new OrchestrateRpcError(
+      `reset_section_run_for_rerun returned malformed rows for runId=${input.runId} sectionId=${input.sectionId}`,
+      err,
+    );
+  }
+
+  if (rows.length !== 1) {
+    throw new OrchestrateRpcError(
+      `reset_section_run_for_rerun returned ${rows.length} rows; expected 1 for runId=${input.runId} sectionId=${input.sectionId}`,
+      null,
+    );
+  }
+
+  const [row] = rows;
+  return {
+    sectionRunId: row.section_run_id,
+    ...(row.previous_section_run_id
+      ? { previousSectionRunId: row.previous_section_run_id }
+      : {}),
+    ...(row.previous_status ? { previousStatus: row.previous_status } : {}),
+  };
 }
 
 export class OrchestrateRpcError extends Error {

@@ -308,7 +308,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const researchInput = capstoneResearchInput.researchInput;
-    await scheduleLabSectionJob({
+    const scheduled = await scheduleLabSectionJob({
       userId,
       runId: body.run_id,
       sectionId: body.section_id,
@@ -323,6 +323,10 @@ export async function POST(request: Request): Promise<Response> {
         ok: true,
         run_id: body.run_id,
         section_id: body.section_id,
+        claim_status: scheduled.claim.status,
+        ...(scheduled.claim.sectionRunId
+          ? { section_run_id: scheduled.claim.sectionRunId }
+          : {}),
       },
       { status: 202 },
     );

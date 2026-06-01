@@ -8,6 +8,10 @@ import {
   seedOrchestration,
   type SeedOrchestrationResult,
 } from '@/lib/research-v2/orchestrate-db';
+import {
+  claimSectionRun,
+  type SectionRunClaimResult,
+} from '@/lib/research-v2/section-run-claim';
 import { buildSectionRunIdByZone } from '@/lib/research-v2/section-run-id-map';
 import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
 
@@ -25,9 +29,20 @@ export interface ScheduleLabSectionJobInput {
   schedule: ScheduleLabSectionTask;
 }
 
+export interface ScheduleLabSectionJobResult extends SeedOrchestrationResult {
+  claim: SectionRunClaimResult;
+}
+
+export class LabSectionDispatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LabSectionDispatchError';
+  }
+}
+
 export async function scheduleLabSectionJob(
   input: ScheduleLabSectionJobInput,
-): Promise<SeedOrchestrationResult> {
+): Promise<ScheduleLabSectionJobResult> {
   const seeded = await seedOrchestration({
     userId: input.userId,
     runId: input.runId,
@@ -41,6 +56,29 @@ export async function scheduleLabSectionJob(
   });
 
   await store.createRun(input.researchInput);
+
+  const claim = await claimSectionRun({
+    supabase: input.supabase,
+    runId: input.runId,
+    sectionId: input.sectionId,
+  });
+
+  if (claim.status === 'not_found') {
+    throw new LabSectionDispatchError(
+      `claim_section_run returned not_found for runId=${input.runId} sectionId=${input.sectionId}`,
+    );
+  }
+
+  if (claim.status !== 'claimed') {
+    console.info('[lab-section-dispatch] skipped lab section job after claim', {
+      runId: input.runId,
+      sectionId: input.sectionId,
+      status: claim.status,
+      previousStatus: claim.previousStatus,
+      sectionRunId: claim.sectionRunId,
+    });
+    return { ...seeded, claim };
+  }
 
   input.schedule(async (): Promise<void> => {
     const controller = new AbortController();
@@ -63,5 +101,5 @@ export async function scheduleLabSectionJob(
     }
   });
 
-  return seeded;
+  return { ...seeded, claim };
 }

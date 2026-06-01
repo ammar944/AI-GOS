@@ -8,6 +8,7 @@ import type {
   AllPositioningSectionId,
   PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+import type { SectionRunClaimResult } from '@/lib/research-v2/section-run-claim';
 
 const VALID_RUN_ID = '00000000-0000-4000-8000-0000000000aa';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -17,6 +18,7 @@ interface SeededSectionRunRow {
   section_run_id: string;
   ordinal: number;
   reused: boolean;
+  status: 'queued' | 'running' | 'complete';
 }
 
 interface SeededRows {
@@ -28,6 +30,7 @@ const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
   const requireApiUser = vi.fn();
   const seedOrchestration = vi.fn();
+  const claimSectionRun = vi.fn();
   const corpusToResearchInput = vi.fn();
   const runLabSectionJob = vi.fn();
   // `after()` callbacks scheduled by the route — captured so tests can prove
@@ -91,6 +94,7 @@ const routeMocks = vi.hoisted(() => {
     auth,
     requireApiUser,
     seedOrchestration,
+    claimSectionRun,
     corpusToResearchInput,
     runLabSectionJob,
     after,
@@ -137,6 +141,17 @@ vi.mock('@/lib/research-v2/orchestrate-db', async () => {
     ...actual,
     seedOrchestration: (...args: unknown[]) =>
       routeMocks.seedOrchestration(...args),
+  };
+});
+
+vi.mock('@/lib/research-v2/section-run-claim', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/research-v2/section-run-claim')
+  >('@/lib/research-v2/section-run-claim');
+  return {
+    ...actual,
+    claimSectionRun: (...args: unknown[]) =>
+      routeMocks.claimSectionRun(...args),
   };
 });
 
@@ -189,6 +204,7 @@ function defaultSeededRows(): SeededRows {
       section_run_id: `22222222-2222-4222-8222-${(i + 1).toString().padStart(12, '0')}`,
       ordinal: i + 1,
       reused: false,
+      status: 'queued',
     })),
   };
 }
@@ -202,8 +218,23 @@ function paidMediaSeededRows(): SeededRows {
         section_run_id: '33333333-3333-4333-8333-333333333333',
         ordinal: 7,
         reused: false,
+        status: 'queued',
       },
     ],
+  };
+}
+
+function claimResult(
+  status: 'claimed' | 'already_running',
+  sectionRunId = '22222222-2222-4222-8222-000000000002',
+  sectionId: AllPositioningSectionId = 'positioningBuyerICP',
+): SectionRunClaimResult {
+  return {
+    status,
+    runId: VALID_RUN_ID,
+    sectionId,
+    sectionRunId,
+    previousStatus: status === 'claimed' ? 'queued' : 'running',
   };
 }
 
@@ -328,6 +359,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
       error: null,
     });
     routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
+    routeMocks.claimSectionRun.mockResolvedValue(claimResult('claimed'));
     routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
     routeMocks.store.createRun.mockResolvedValue({});
     routeMocks.runLabSectionJob.mockResolvedValue(undefined);
@@ -349,6 +381,8 @@ describe('POST /api/research-v2/run-lab-section', () => {
       ok: true,
       run_id: VALID_RUN_ID,
       section_id: 'positioningBuyerICP',
+      claim_status: 'claimed',
+      section_run_id: '22222222-2222-4222-8222-000000000002',
     });
 
     // Setup that makes the 202 meaningful happens synchronously, before the ACK.
@@ -396,6 +430,44 @@ describe('POST /api/research-v2/run-lab-section', () => {
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
     });
+  });
+
+  it('keeps repeated kickoff attempts idempotent and schedules only the claimed owner', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.claimSectionRun
+      .mockResolvedValueOnce(claimResult('claimed'))
+      .mockResolvedValueOnce(claimResult('already_running'));
+
+    const first = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+    const second = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(first.status).toBe(202);
+    expect(second.status).toBe(202);
+    await expect(first.json()).resolves.toMatchObject({
+      ok: true,
+      claim_status: 'claimed',
+    });
+    await expect(second.json()).resolves.toMatchObject({
+      ok: true,
+      claim_status: 'already_running',
+    });
+    expect(routeMocks.claimSectionRun).toHaveBeenCalledTimes(2);
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+
+    await drainAfter();
+
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
   });
 
   it('does not mask Clerk auth failures as 401 responses', async (): Promise<void> => {
@@ -532,6 +604,13 @@ describe('POST /api/research-v2/run-lab-section', () => {
   it('dispatches the paid media plan as a dependent one-section wave with committed artifacts', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '33333333-3333-4333-8333-333333333333',
+        PAID_MEDIA_PLAN_SECTION_ID,
+      ),
+    );
     mockOwnedSession();
 
     const response = await POST(
