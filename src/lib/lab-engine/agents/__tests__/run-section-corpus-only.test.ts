@@ -501,6 +501,10 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
+        // Finite gate so the single unsupported claim exceeds the threshold and
+        // triggers the bounded grounding repair (the behavior under test). With
+        // the default Infinity gate the repair is correctly a no-op.
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
         runAnswerTool,
         now: () => new Date('2026-05-29T12:00:00.000Z'),
       },
@@ -534,7 +538,7 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
-  it('commits with the honest badge when unsupported load-bearing claims survive repairs', async (): Promise<void> => {
+  it('commits with the honest badge for unsupported load-bearing claims when the verifier gate is disabled', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
       rootDir,
@@ -583,7 +587,10 @@ describe('runSection corpus-only mode', (): void => {
           claim.claim.value === '44%',
       ) ?? [];
 
-    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    // Default (Infinity) gate: the unsupported claim never exceeds the
+    // threshold, so no wasted repair fires — the artifact commits on the first
+    // attempt and still surfaces the honest unsupported badge.
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
     expect(unsupportedNumericClaims).toHaveLength(1);
     expect(result.artifact.verification?.unsupportedCount).toBeGreaterThanOrEqual(
       1,
@@ -637,7 +644,8 @@ describe('runSection corpus-only mode', (): void => {
           claim.claim.value === '44%',
       ) ?? [];
 
-    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    // Threshold disabled (env unset) ⇒ no repair fires; commit on the first attempt.
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
     expect(unsupportedNumericClaims).toHaveLength(1);
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
@@ -744,7 +752,9 @@ describe('runSection corpus-only mode', (): void => {
           claim.claim.value === '44%',
       ) ?? [];
 
-    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    // 1 unsupported claim is within the threshold of 2 ⇒ no repair fires; commit
+    // on the first attempt rather than burning wasted grounding re-runs.
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
     expect(unsupportedNumericClaims).toHaveLength(1);
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',

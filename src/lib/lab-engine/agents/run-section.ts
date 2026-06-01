@@ -697,6 +697,31 @@ function getRepairReason(attempt: AttemptResult): string {
   return getAttemptRepairIssues(attempt).join("; ").slice(0, 200);
 }
 
+// Repair only when it can change the committed outcome: a genuine schema/parse
+// failure (no committable artifact) OR an unsupported-load-bearing count that
+// actually exceeds the evidence gate (getEvidenceGateFailureReason !== null).
+//
+// This is deliberately tied to maxUnsupportedAllowed (getMaxUnsupportedAllowed;
+// Infinity unless LAB_VERIFIER_MAX_UNSUPPORTED is finite). The trigger used to
+// fire on the mere PRESENCE of any shortfall (evidenceSupportShortfall !==
+// undefined), decoupled from the gate — so every section burned up to
+// answerToolMaxRepairAttempts full agentic re-runs grounding claims it would
+// accept regardless (the repair storm, and the latency multiplier behind the
+// VoC 270s timeout and CompetitorLandscape's slow runs). Gating on the count
+// makes unsupported-claim repairs a no-op under the default (Infinity) gate —
+// provably no-worse, since those artifacts already commit today after the
+// wasted repairs — while preserving bounded grounding repairs when the gate is
+// set finite.
+function shouldRepairAttempt(
+  attempt: AttemptResult,
+  maxUnsupportedAllowed: number,
+): boolean {
+  return (
+    attempt.artifact === null ||
+    getEvidenceGateFailureReason(attempt, maxUnsupportedAllowed) !== null
+  );
+}
+
 function getBestCommittableAttempt(
   current: AttemptResult | null,
   candidate: AttemptResult,
@@ -730,6 +755,16 @@ const structuredOutputTimeoutMs = 240_000;
 // so the answer tool could never self-abort before the platform killed it.
 // Exported so the cross-cluster timeout-hierarchy contract test can assert
 // answerToolTimeoutMs < LAB_SECTION_JOB_TIMEOUT_MS < route maxDuration.
+//
+// CAVEAT: this 255s budget is PER answer-tool invocation (overallDeadline is
+// recomputed `Date.now() + answerToolTimeoutMs` in runAnswerToolWithStallGuard),
+// NOT a cumulative section budget, and any VoC prepass time runs before it. So
+// across multiple repairs the inner 255s guard does NOT bound total section
+// wall-clock — the 270s job AbortController is the real ceiling under repairs.
+// The repair loops therefore yield to input.signal?.aborted (see the while
+// guards) so an aborted section commits its best attempt or fails cleanly
+// rather than racing the controller into an orphaned 'running' row. A true
+// cumulative section budget is a follow-up best calibrated with live latency.
 export const answerToolTimeoutMs = 255_000;
 // The first agent step (a model response or tool call) must arrive within this
 // window. A stalled provider transport produces zero steps, so we abandon the
@@ -751,6 +786,12 @@ const competitorAdProbeAdvertiserConcurrency = 3;
 // Hard ceiling on the live competitor ad probe so a slow ad API cannot push
 // CompetitorLandscape past the answer-tool timeout (255s). Worst-case +30s.
 const competitorAdProbeDeadlineMs = 30_000;
+// Hard ceiling on the VoC candidate prepass (reviews -> web_search -> firecrawl).
+// Unlike the ad probe, the prepass ran on the critical path with NO deadline,
+// so a slow scrape could eat into the section budget and tip VoC past the 270s
+// job timeout. Bounding it here (and degrading to partial candidates on abort,
+// see executeVoiceOfCustomerPrepassTool) caps the front-loaded prepass wall-clock.
+const voiceOfCustomerPrepassDeadlineMs = 45_000;
 const answerToolMaxStepCount = 12;
 const answerToolMaxRepairAttempts = 2;
 // Sections routed through the generic answer-tool path instead of the legacy
@@ -3405,9 +3446,18 @@ async function executeVoiceOfCustomerPrepassTool({
     return null;
   }
 
-  const output = await tool.execute(toolInput, {
-    abortSignal: input.signal,
-  } as ToolExecutionOptions);
+  let output: unknown;
+  try {
+    output = await tool.execute(toolInput, {
+      abortSignal: input.signal,
+    } as ToolExecutionOptions);
+  } catch {
+    // Best-effort prepass: a tool failure OR a prepass-deadline abort
+    // (voiceOfCustomerPrepassDeadlineMs) must not fail the whole section. Skip
+    // this lookup and let candidate selection proceed with whatever evidence was
+    // already gathered — a fast honest gap beats a 270s orphaned abort.
+    return null;
+  }
 
   return {
     output,
@@ -4208,15 +4258,30 @@ async function runSectionViaAnswerTool(
     return flushChain;
   };
 
-  const voiceOfCustomerPrepass =
-    input.sectionId === "positioningVoiceOfCustomer"
-      ? await buildVoiceOfCustomerCandidatePrepass({
-          deps,
-          input,
-          researchInput,
-          researchTools: externalTools,
-        })
-      : undefined;
+  // Bound the prepass so a slow reviews/web_search/firecrawl chain cannot eat
+  // into the section budget and tip VoC past the 270s job timeout. On abort the
+  // prepass tool degrades to partial candidates (executeVoiceOfCustomerPrepassTool).
+  const voiceOfCustomerPrepassSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "VoC candidate prepass",
+    timeoutMs: voiceOfCustomerPrepassDeadlineMs,
+  });
+  let voiceOfCustomerPrepass:
+    | Awaited<ReturnType<typeof buildVoiceOfCustomerCandidatePrepass>>
+    | undefined;
+  try {
+    voiceOfCustomerPrepass =
+      input.sectionId === "positioningVoiceOfCustomer"
+        ? await buildVoiceOfCustomerCandidatePrepass({
+            deps,
+            input: { ...input, signal: voiceOfCustomerPrepassSignal.signal },
+            researchInput,
+            researchTools: externalTools,
+          })
+        : undefined;
+  } finally {
+    voiceOfCustomerPrepassSignal.cleanup();
+  }
 
   if (voiceOfCustomerPrepass !== undefined) {
     toolEvents.push(...voiceOfCustomerPrepass.events);
@@ -4383,6 +4448,12 @@ async function runSectionViaAnswerTool(
   let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
   let validationAttempt = 1;
 
+  // Coarse pre-filter: enter the repair block when an attempt is incomplete OR
+  // carries any unsupported load-bearing claim. The WHILE below is the real
+  // gate — shouldRepairAttempt() only spends a repair on a null artifact or a
+  // gate-EXCEEDING unsupported count, so a within-gate shortfall enters here but
+  // performs zero wasted re-runs. Keeping the inline `=== null` check also
+  // preserves TS's non-null narrowing of attempt.artifact on the commit path.
   if (
     attempt.artifact === null ||
     attempt.evidenceSupportShortfall !== undefined
@@ -4393,9 +4464,13 @@ async function runSectionViaAnswerTool(
     let repairAttempt = 0;
 
     while (
-      (attempt.artifact === null ||
-        attempt.evidenceSupportShortfall !== undefined) &&
-      repairAttempt < answerToolMaxRepairAttempts
+      shouldRepairAttempt(attempt, maxUnsupportedAllowed) &&
+      repairAttempt < answerToolMaxRepairAttempts &&
+      // Yield to the 270s job AbortController: never START a fresh tool-heavy
+      // repair once the section has been aborted. The post-loop path then
+      // commits the best attempt so far or records a clean terminal failure,
+      // rather than racing the outer controller into an orphaned 'running' row.
+      input.signal?.aborted !== true
     ) {
       const repairIssues = getAttemptRepairIssues(attempt);
 
@@ -4707,15 +4782,30 @@ async function runSectionViaStructuredBodyStream(
 
   await scheduleFlush();
 
-  const voiceOfCustomerPrepass =
-    input.sectionId === "positioningVoiceOfCustomer"
-      ? await buildVoiceOfCustomerCandidatePrepass({
-          deps,
-          input,
-          researchInput,
-          researchTools: externalTools,
-        })
-      : undefined;
+  // Bound the prepass so a slow reviews/web_search/firecrawl chain cannot eat
+  // into the section budget and tip VoC past the 270s job timeout. On abort the
+  // prepass tool degrades to partial candidates (executeVoiceOfCustomerPrepassTool).
+  const voiceOfCustomerPrepassSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "VoC candidate prepass",
+    timeoutMs: voiceOfCustomerPrepassDeadlineMs,
+  });
+  let voiceOfCustomerPrepass:
+    | Awaited<ReturnType<typeof buildVoiceOfCustomerCandidatePrepass>>
+    | undefined;
+  try {
+    voiceOfCustomerPrepass =
+      input.sectionId === "positioningVoiceOfCustomer"
+        ? await buildVoiceOfCustomerCandidatePrepass({
+            deps,
+            input: { ...input, signal: voiceOfCustomerPrepassSignal.signal },
+            researchInput,
+            researchTools: externalTools,
+          })
+        : undefined;
+  } finally {
+    voiceOfCustomerPrepassSignal.cleanup();
+  }
 
   if (voiceOfCustomerPrepass !== undefined) {
     toolEvents.push(...voiceOfCustomerPrepass.events);
@@ -4808,6 +4898,12 @@ async function runSectionViaStructuredBodyStream(
   });
   let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
 
+  // Coarse pre-filter: enter the repair block when an attempt is incomplete OR
+  // carries any unsupported load-bearing claim. The WHILE below is the real
+  // gate — shouldRepairAttempt() only spends a repair on a null artifact or a
+  // gate-EXCEEDING unsupported count, so a within-gate shortfall enters here but
+  // performs zero wasted re-runs. Keeping the inline `=== null` check also
+  // preserves TS's non-null narrowing of attempt.artifact on the commit path.
   if (
     attempt.artifact === null ||
     attempt.evidenceSupportShortfall !== undefined
@@ -4815,9 +4911,13 @@ async function runSectionViaStructuredBodyStream(
     let repairAttempt = 0;
 
     while (
-      (attempt.artifact === null ||
-        attempt.evidenceSupportShortfall !== undefined) &&
-      repairAttempt < answerToolMaxRepairAttempts
+      shouldRepairAttempt(attempt, maxUnsupportedAllowed) &&
+      repairAttempt < answerToolMaxRepairAttempts &&
+      // Yield to the 270s job AbortController: never START a fresh tool-heavy
+      // repair once the section has been aborted. The post-loop path then
+      // commits the best attempt so far or records a clean terminal failure,
+      // rather than racing the outer controller into an orphaned 'running' row.
+      input.signal?.aborted !== true
     ) {
       const repairIssues = getAttemptRepairIssues(attempt);
 
