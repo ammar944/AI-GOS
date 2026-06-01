@@ -4,28 +4,30 @@
 
 Result: **STOPPED BEFORE PAID RUN**.
 
-The `ramp.com` browser audit was not started. The preflight gate `npm run test:run` failed with 8 failed tests across 6 files, so the handoff stop rule applies. No source edits, migrations, deploys, retries, or paid audit attempts were made after the failing gate.
+The `ramp.com` browser audit was not started. Fresh preflight gates all passed at HEAD `451062d8`, but the Codex in-app browser could not establish Clerk local-development access. Both `/research-v2` and `/sign-in` returned Clerk's `dev-browser-missing` 404 refresh shell, so the run stopped before entering `ramp.com`.
+
+No source edits, migrations, deploys, retries, or paid audit attempts were made.
 
 ## Proof Target
 
 - Worktree: `/Users/ammar/Dev-Projects/AI-GOS-worktrees/v2-lab-section-wire`
-- HEAD under test: `2c2f8f35`
+- HEAD under test: `451062d8`
 - Dirty proof target: yes
-- Diff stat captured in `tmp/voc-repair-signoff-2026-06-02/git-diff-stat.txt`
+- Route intended by the handoff: `http://localhost:3000/research-v2`
 - App process: `http://localhost:3000`, PID `3307`
 - PID cwd proof: `tmp/voc-repair-signoff-2026-06-02/app-pid-cwd.txt`
+- Local worker process: `http://localhost:3001`, PID `88063`
 
-Dirty diff under test:
+Dirty tracked diff under test, excluding the current evidence directory:
 
 ```text
-7 files changed, 219 insertions(+), 42 deletions(-)
+ docs/2026-05-25-v2-wire-deepseek-ground-truth.html | 11 ++++++++---
+ package-lock.json                                  |  1 -
+ src/middleware.ts                                  |  1 +
+ 3 files changed, 9 insertions(+), 4 deletions(-)
 ```
 
-The changed files are the dirty working-tree fixes from the handoff area:
-
-- `src/lib/lab-engine/agents/run-section.ts`
-- `src/lib/research-v2/supabase-webhook-adapter.ts`
-- related tests and local package/middleware/doc drift shown in the captured diff stat
+The worktree also contains unrelated untracked docs/prototypes/tmp artifacts recorded in `tmp/voc-repair-signoff-2026-06-02/git-status.txt`.
 
 ## Preflight Gates
 
@@ -33,21 +35,20 @@ The changed files are the dirty working-tree fixes from the handoff area:
 | --- | --- | --- |
 | `npx tsc --noEmit` | PASS | `tmp/voc-repair-signoff-2026-06-02/gate-tsc.log` is empty and command exited 0 |
 | `npm run lint` | PASS with baseline warnings | `tmp/voc-repair-signoff-2026-06-02/gate-lint.log` reports 66 warnings, 0 errors |
-| `npm run test:run` | FAIL | `tmp/voc-repair-signoff-2026-06-02/gate-test-run.log` reports 8 failed tests |
-| `npm run build` | NOT RUN | stopped after failed test gate |
-| `cd research-worker && npm run build` | NOT RUN | stopped after failed test gate |
+| `npm run test:run` | PASS | `tmp/voc-repair-signoff-2026-06-02/gate-test-run.log` reports 1287 passed, 1 skipped |
+| `npm run build` | PASS | `tmp/voc-repair-signoff-2026-06-02/gate-next-build.log` reports compiled successfully |
+| `cd research-worker && npm run build` | PASS | `tmp/voc-repair-signoff-2026-06-02/gate-worker-build.log` exits 0 |
 
-Final Vitest summary:
+Vitest summary:
 
 ```text
-Test Files  6 failed | 159 passed | 1 skipped (166)
-Tests       8 failed | 1279 passed | 1 skipped (1288)
-Duration    204.46s
+Test Files  165 passed | 1 skipped (166)
+Tests       1287 passed | 1 skipped (1288)
 ```
 
 ## Runtime Checks
 
-The app process on `:3000` belongs to this worktree. The raw `lsof -F` output uses `p`, `f`, and `n` field prefixes; the cwd name field resolves to `/Users/ammar/Dev-Projects/AI-GOS-worktrees/v2-lab-section-wire`.
+The app process on `:3000` belongs to this worktree:
 
 ```text
 APP_URL=http://localhost:3000
@@ -66,15 +67,28 @@ x-clerk-auth-reason: protect-rewrite, dev-browser-missing
 x-clerk-auth-status: signed-out
 ```
 
-The app-side `_capabilities` curl could not be trusted because the unauthenticated request was Clerk-rewritten to HTML, not JSON. Local worker `/capabilities` returned `status: ok`, `authConfigured: true`, live tool booleans, and `orchestrate_supported: false`. Because the test gate failed first, authenticated browser capability verification was not attempted.
+The Codex in-app browser showed the same blocker for both `http://localhost:3000/research-v2` and `http://localhost:3000/sign-in?redirect_url=http%3A%2F%2Flocalhost%3A3000%2Fresearch-v2`:
+
+```text
+missing required error components, refreshing...
+```
+
+Evidence:
+
+- `tmp/voc-repair-signoff-2026-06-02/auth-blocker-refresh-shell.png`
+- `tmp/voc-repair-signoff-2026-06-02/auth-blocker-dom.txt`
+- `tmp/voc-repair-signoff-2026-06-02/research-v2-head.txt`
+- `tmp/voc-repair-signoff-2026-06-02/sign-in-response.txt`
+- `tmp/voc-repair-signoff-2026-06-02/root-response.txt`
+- `tmp/voc-repair-signoff-2026-06-02/root-response-127.txt`
 
 ## Run Details
 
 - Paid browser run: **not started**
 - `run_id`: none
-- Screenshots: none
-- DB/audit-state extraction: not applicable
-- Reason: preflight test gate failed before the paid boundary
+- DB evidence: not applicable because no new run was created
+- Authenticated `_capabilities`: not reached because Clerk dev-browser access failed before sign-in
+- Reason: auth/browser access blocker before the paid boundary
 
 ## Pass/Fail Table
 
@@ -88,55 +102,6 @@ The app-side `_capabilities` curl could not be trusted because the unauthenticat
 | B3 ads | NOT RUN | blocked before paid audit |
 | Capstones | NOT RUN | blocked before paid audit |
 
-## Failure Dossier
-
-The blocking failure is the full-suite preflight regression.
-
-Failed tests from `gate-test-run.log`:
-
-1. `src/app/research-v2/__tests__/page-one-pager.test.tsx`
-   - `renders the light top bar, active section controls, and eight-section rail`
-   - Failure: test timed out in 5000ms
-
-2. `src/components/onboarding/__tests__/onboarding-wizard.test.tsx`
-   - `Continue advances to the next step; Back returns`
-   - Failure: test timed out in 5000ms
-
-3. `src/components/research-v2/__tests__/audit-reader-shell.test.tsx`
-   - `does not surface section confidence in the header or progress strip`
-   - Failure: test timed out in 5000ms
-
-4. `src/lib/journey/__tests__/read-research-result.test.ts`
-   - `returns null when no session exists`
-   - Failure: test timed out in 5000ms
-
-5. `src/lib/journey/__tests__/read-research-result.test.ts`
-   - `returns section data when research_results contains the section`
-   - Failure: expected a section object, received `null`
-
-6. `src/lib/journey/__tests__/session-state-server.test.ts`
-   - `returns { ok: true } on successful write`
-   - Failure: test timed out in 5000ms
-
-7. `src/lib/journey/__tests__/session-state-server.test.ts`
-   - `returns { ok: false, error } when Supabase returns a non-retryable error`
-   - Failure: expected mock RPC to be called once, got twice
-
-8. `src/lib/lab-engine/agents/__tests__/run-section-ad-prepass-verifier.test.ts`
-   - `treats deterministic ad-prepass creative URLs as verifier-supported evidence`
-   - Failure: test timed out in 5000ms
-
-Subagent failure classification: 6 of 8 failures are default 5000ms timeouts and 2 are assertions. The failures cluster around UI/rendering, journey/Supabase persistence, and one ad-prepass verifier test. The ad-prepass verifier failure is adjacent to B3 competitor/ad evidence, but it is not a direct VoC repair criterion.
-
-VoC-specific tests in the same full run passed:
-
-- `src/lib/lab-engine/agents/__tests__/run-section-voice-of-customer-candidates.test.ts`, line 138
-- `src/lib/lab-engine/agents/__tests__/voice-of-customer-candidates.test.ts`, line 557
-- `src/lib/lab-engine/artifacts/schemas/__tests__/voice-of-customer.test.ts`, line 601
-- `src/lib/lab-engine/agents/__tests__/build-prompts.test.ts`, line 602
-
-Regardless of direct relation, the handoff requires the full test gate to pass before the paid run.
-
 ## Calibration Data
 
 No live calibration data was produced because the paid audit did not start.
@@ -149,8 +114,21 @@ Not captured:
 - CompetitorLandscape elapsed
 - PaidMedia schema/Zod repair behavior
 
+## Failure Dossier
+
+The blocking failure is browser/auth access in the allowed browser surface, not the application gates.
+
+Fresh gates passed. The in-app browser could not obtain Clerk's local-development dev-browser token (`__clerk_db_jwt` / `Clerk-Db-Jwt`), and Clerk returned `x-clerk-auth-reason: dev-browser-missing`. Because the handoff requires Clerk login before the paid run and forbids retry loops, route edits, or bypassing auth, execution stopped before submitting `ramp.com`.
+
+Recovery options for the next attempt:
+
+1. Provide a working Clerk dev-browser session/token for the Codex in-app browser.
+2. Explicitly allow use of the user's authenticated Chrome profile for the browser portion.
+3. Adjust the local auth setup outside this signoff run, then rerun the same preflight gates before a paid attempt.
+
 ## Evidence Index
 
+- `tmp/voc-repair-signoff-2026-06-02/preflight-notes.md`
 - `tmp/voc-repair-signoff-2026-06-02/git-status.txt`
 - `tmp/voc-repair-signoff-2026-06-02/git-head.txt`
 - `tmp/voc-repair-signoff-2026-06-02/git-diff-stat.txt`
@@ -158,17 +136,21 @@ Not captured:
 - `tmp/voc-repair-signoff-2026-06-02/app-pid-cwd.txt`
 - `tmp/voc-repair-signoff-2026-06-02/port-3000.txt`
 - `tmp/voc-repair-signoff-2026-06-02/port-3001.txt`
-- `tmp/voc-repair-signoff-2026-06-02/preflight-notes.md`
 - `tmp/voc-repair-signoff-2026-06-02/research-v2-head.txt`
-- `tmp/voc-repair-signoff-2026-06-02/capabilities.json`
-- `tmp/voc-repair-signoff-2026-06-02/worker-capabilities.json`
+- `tmp/voc-repair-signoff-2026-06-02/sign-in-response.txt`
+- `tmp/voc-repair-signoff-2026-06-02/root-response.txt`
+- `tmp/voc-repair-signoff-2026-06-02/root-response-127.txt`
+- `tmp/voc-repair-signoff-2026-06-02/auth-blocker-refresh-shell.png`
+- `tmp/voc-repair-signoff-2026-06-02/auth-blocker-dom.txt`
 - `tmp/voc-repair-signoff-2026-06-02/gate-tsc.log`
 - `tmp/voc-repair-signoff-2026-06-02/gate-lint.log`
 - `tmp/voc-repair-signoff-2026-06-02/gate-test-run.log`
+- `tmp/voc-repair-signoff-2026-06-02/gate-next-build.log`
+- `tmp/voc-repair-signoff-2026-06-02/gate-worker-build.log`
 
 ## Limitations
 
-- No authenticated browser checks were performed because the test gate failed first.
+- No authenticated browser checks were possible in the Codex in-app browser.
 - No Supabase DB evidence was collected because no new run was created.
-- App `_capabilities` could not be validated via unauthenticated curl due Clerk middleware rewrite.
-- The live VoC repair signoff remains unproven until the full gate passes and the one-run audit is executed.
+- No `run_id` exists for this attempt.
+- This report proves the code gates are green at HEAD `451062d8`; it does not prove the VoC repair behavior live.

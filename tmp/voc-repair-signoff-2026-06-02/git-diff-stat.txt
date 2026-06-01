@@ -1,8 +1,4 @@
- docs/2026-05-25-v2-wire-deepseek-ground-truth.html |  11 +-
- package-lock.json                                  |   1 -
- .../__tests__/run-section-corpus-only.test.ts      |  18 ++-
- src/lib/lab-engine/agents/run-section.ts           | 154 +++++++++++++++++----
- .../__tests__/supabase-run-store.test.ts           |  34 ++++-
- src/lib/research-v2/supabase-webhook-adapter.ts    |  42 +++++-
- src/middleware.ts                                  |   1 +
- 7 files changed, 219 insertions(+), 42 deletions(-)
+ docs/2026-05-25-v2-wire-deepseek-ground-truth.html | 11 ++++++++---
+ package-lock.json                                  |  1 -
+ src/middleware.ts                                  |  1 +
+ 3 files changed, 9 insertions(+), 4 deletions(-)

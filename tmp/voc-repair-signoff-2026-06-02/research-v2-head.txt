@@ -1,14 +1,14 @@
 HTTP/1.1 404 Not Found
 x-clerk-auth-reason: protect-rewrite, dev-browser-missing
 x-clerk-auth-status: signed-out
-x-middleware-rewrite: /clerk_1780344697636
+x-middleware-rewrite: /clerk_1780347924583
 Cache-Control: no-store, must-revalidate
 X-Powered-By: Next.js
 ETag: "gc11zvi16kcl"
 Content-Type: text/html; charset=utf-8
 Content-Length: 453
 Vary: Accept-Encoding
-Date: Mon, 01 Jun 2026 20:11:38 GMT
+Date: Mon, 01 Jun 2026 21:05:25 GMT
 Connection: keep-alive
 Keep-Alive: timeout=5
 

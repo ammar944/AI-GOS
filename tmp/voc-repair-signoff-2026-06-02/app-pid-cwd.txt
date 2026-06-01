@@ -4,3 +4,5 @@ APP_PID=3307
 p3307
 fcwd
 n/Users/ammar/Dev-Projects/AI-GOS-worktrees/v2-lab-section-wire
+  PID  PPID STARTED                       ELAPSED COMMAND
+ 3307  3306 Mon Jun  1 08:15:37 2026     17:49:37 next-server (v16.0.10) 
