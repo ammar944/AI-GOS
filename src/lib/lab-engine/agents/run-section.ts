@@ -764,6 +764,8 @@ interface StructuredSectionDraftOutput {
 function isLabSectionStreamingEnabled(
   env: Record<string, string | undefined>,
 ): boolean {
+  // Streaming is on by default; only an explicit "false" (case-insensitive) disables
+  // it. Any other value (unset, "true", "1", ...) keeps the structured-stream path.
   return env[labSectionStreamingEnvKey]?.trim().toLowerCase() !== "false";
 }
 
@@ -784,6 +786,10 @@ function buildStructuredSectionDraftSchema(
         ),
       body: definition.bodySchema,
     })
+    // .strict() is load-bearing: the draft schema must REJECT a full SectionOutput
+    // (extra sectionTitle/confidence/sources keys) so the draft shape stays distinct
+    // from the committed envelope. The repair prompt already tells the model to drop
+    // stray envelope fields. (run-section-artifact-streaming.test.ts:135 asserts this.)
     .strict();
 }
 const paidMediaPlanGenerationSchema = z

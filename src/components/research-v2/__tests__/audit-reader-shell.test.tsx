@@ -36,7 +36,45 @@ vi.mock('@/lib/research-v2/use-section-partials', () => ({
   useSectionPartials: mocks.useSectionPartials,
 }));
 
-const { AuditReaderShell } = await import('../audit-reader-shell');
+const { AuditReaderShell, buildDraftArtifact } = await import(
+  '../audit-reader-shell'
+);
+
+describe('buildDraftArtifact', () => {
+  const active = POSITIONING_SECTION_IDS[0] as Parameters<
+    typeof buildDraftArtifact
+  >[0]['active'];
+
+  it('unwraps snapshot.body so sub-sections render at the top level, not under a "Body" group', () => {
+    // The widened streamed schema broadcasts { verdict, statusSummary, body: {...} }.
+    // The drafting view must lift the body sub-sections to the top level (mirroring
+    // the committed artifact) so GenericTypedArtifactRenderer renders them directly.
+    const snapshot = {
+      verdict: 'streamed verdict',
+      statusSummary: 'streamed status',
+      body: { categoryDefinition: { prose: 'partial prose' } },
+    };
+
+    const result = buildDraftArtifact({ active, snapshot }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result.categoryDefinition).toEqual({ prose: 'partial prose' });
+    expect('body' in result).toBe(false);
+  });
+
+  it('falls back to the raw snapshot for the legacy bare-body shape', () => {
+    const snapshot = { categoryDefinition: { prose: 'legacy prose' } };
+
+    const result = buildDraftArtifact({ active, snapshot }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result.categoryDefinition).toEqual({ prose: 'legacy prose' });
+  });
+});
 
 describe('<AuditReaderShell>', () => {
   beforeEach((): void => {

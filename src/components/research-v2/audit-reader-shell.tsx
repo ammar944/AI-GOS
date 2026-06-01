@@ -723,20 +723,30 @@ class TypedArtifactErrorBoundary extends Component<
   }
 }
 
-function buildDraftArtifact({
+export function buildDraftArtifact({
   active,
   snapshot,
 }: {
   active: ReaderSectionId;
   snapshot: Record<string, unknown>;
 }): PositioningTypedArtifact {
+  // The streamed partial snapshot is shaped { verdict, statusSummary, body }
+  // (buildStructuredSectionDraftSchema). The committed artifact renders the body's
+  // sub-section keys at the top level, so unwrap body here too — otherwise
+  // GenericTypedArtifactRenderer collapses every sub-section under one "Body" group.
+  // Fall back to the raw snapshot for the legacy bare-body shape / pre-body partials.
+  const body = snapshot.body;
+  const bodyRecord =
+    typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? (body as Record<string, unknown>)
+      : snapshot;
   return {
     sectionTitle: READER_SECTION_LABELS[active],
     verdict: 'Partial draft',
     statusSummary: 'Streaming section body...',
     confidence: 0,
     sources: [],
-    ...snapshot,
+    ...bodyRecord,
   } as PositioningTypedArtifact;
 }
 
