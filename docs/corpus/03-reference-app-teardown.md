@@ -60,7 +60,7 @@ From the widely-circulated leaked v0 prompt (~15 instructions validated by leake
 
 1. **Stream typed partial section artifacts via Data Parts written-by-ID.** Don't fight the atomic-output model (the verifier teeth couple to final output; switching to `streamObject` token-streaming orphans the fabrication gate). Instead emit a `data-section` part keyed by section id, re-written in place: `skeleton → partial → verified`. This is v0's exact live-preview primitive and sidesteps the architecture fork.
 2. **v0-style suspense/autofix pass before render.** AI-GOS's analog of icon-vector-DB repair: a deterministic post-stream pass (target <250ms) that renders the honest badge inline mid-render rather than only at commit, so the user sees a corrected/badged card on first render.
-3. **Dynamic per-section-intent prompt injection** — v0 injects version-specific docs via embeddings. Adopt the read-only curated-corpus search idea so each positioning runner pulls section-specific evidence standards/examples instead of carrying everything (relevant to the "no cross-section synthesis" gap).
+3. **Dynamic per-section-intent prompt injection** — v0 injects version-specific docs via embeddings. Adopt the read-only curated-corpus search idea so each positioning runner pulls section-specific evidence standards/examples instead of carrying everything. After the synthesis capstone shipped, the remaining gap is not "no synthesis" but making the section summaries and shared corpus more compact, deterministic, and citation-friendly.
 
 NOT adopted: single-file/inline-everything constraint and React-specific rules (AI-GOS artifacts are typed research data, not JSX); full multi-agent coordinator (bounded-concurrency orchestrator is the right altitude).
 
@@ -151,7 +151,7 @@ select action → execute → observe → append both to context → repeat. Typ
 1. **Recite the section goal + brief in the recent-attention slot.** Each runner re-states the GTM brief + that section's specific objective at the *end* of its prompt, not just the top. Highest-leverage, near-zero-cost grounding fix; documented cure for lost-in-the-middle drift.
 2. **Cache-stable, timestamp-free, deterministic shared-corpus prefix.** The 6 runners share a corpus prefix; make it byte-identical and append-only with deterministic JSON. Directly attacks the 100:1 input-bound economics of the multi-section fan-out. Audit `corpus-to-research-input` and the dispatch envelope for per-call timestamps / nondeterministic key ordering.
 3. **Keep failed attempts in context across primary→repair→rescue.** The repair phase should *see* the prior failure + error, not get a clean re-prompt. Verify the runners thread the failed attempt + reason into the repair turn rather than discarding it.
-4. **Mask, don't mutate the tool roster.** SpyFu/Foreplay are orphaned in the audit; keep one stable roster across all section dispatches and gate per-section rather than adding/removing tool defs — protects cache coherence, stops hallucinated calls to absent tools.
+4. **Mask, don't mutate the tool roster.** The direct `spyfu` tool is still absent, but SpyFu itself is funded and exposed through Demand Intent's `keyword_volume` tool; Foreplay remains orphaned. Keep one stable roster across all section dispatches and gate per-section rather than adding/removing tool defs — protects cache coherence, stops hallucinated calls to absent tools.
 
 NOT adopted: filesystem-as-memory (lesson 3) — AI-GOS has no run-time filesystem (see §7). The pass-references-not-inline idea transfers conceptually (store corpus once, pass a slice), but not the literal `cat`/`grep`/`glob` mechanism.
 
@@ -170,7 +170,7 @@ NOT adopted: filesystem-as-memory (lesson 3) — AI-GOS has no run-time filesyst
 | Verification via external signal, required not advisory | ✓ (linter) | ✓ (rebuild/preview) | ✓ (types/tests) | ✓ (ground truth) | **ADOPT** — flip fabrication gate from advisory-OFF to required-or-badge |
 | Tool-result grounding ("cite only fetched sources") | ✓ | ✓ | ✓ | ✓ | **ADOPT** — Cardinal Rule in each SKILL.md; pairs with verifier teeth (fixes VoC homepage-as-pain loss) |
 | Tool batching (parallel independent calls) | — | ✓ | — | — | **ADOPT** — batch independent lookups per step (CompetitorLandscape latency) |
-| Stable/masked tool roster (no mid-task mutation) | — | — | — | ✓ | **ADOPT** — one roster, gate per-section; retire orphaned SpyFu/Foreplay defs |
+| Stable/masked tool roster (no mid-task mutation) | — | — | — | ✓ | **ADOPT** — one roster, gate per-section; keep funded SpyFu behind `keyword_volume`, retire truly orphaned defs such as Foreplay |
 | Cache-stable, timestamp-free deterministic prefix | — | — | — | ✓ | **ADOPT** — byte-identical shared-corpus prefix across 6 runners |
 | Goal recitation in recent-attention slot | — | — | — | ✓ | **ADOPT** — re-state brief + section objective at prompt end |
 | Keep failed attempts/errors in context | — | (analyze first) | (linter errors) | ✓ | **ADOPT** — thread failure into repair turn |

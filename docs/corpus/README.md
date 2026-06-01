@@ -28,4 +28,6 @@ AI-GOS turns a URL into a cited positioning audit through agentic loops — the 
 
 ## How this maps to active work
 
-The corpus roadmap ([04 §5](04-gap-analysis-and-roadmap.md)) and the research-quality Pass-2 plan (`docs/2026-05-29-research-quality-pass2-execution-plan.md`) are reconciled in Phase 1: stub-skill enrichment + dead-code purge (Pass-2 **P1.2**), then the boilerplate→shared-preamble dedup + goal recitation (corpus G1-dedup/G6), then the Demand-Intent signal (**P1.3**) and VoC provenance + verifier teeth (**P1.4**).
+The corpus roadmap ([04 §5](04-gap-analysis-and-roadmap.md)) and the research-quality Pass-2 plan (`docs/2026-05-29-research-quality-pass2-execution-plan.md`) are reconciled against the 2026-06-01 Phase 1 state: **P1.1** synthesis capstone, **P1.2** stub-skill enrichment + dead-code purge, **P1.3** Demand Intent keyword signal, **P1.4** VoC provenance/quote hardening, corpus G1 shared-preamble dedup, and G6 goal recitation have shipped. Next work starts at Phase 2 (`P2.1-JUDGE` and later items).
+
+SpyFu status: the account/key path is funded for Demand Intent through the registered `keyword_volume` tool (`SPYFU_API_KEY`), but the old direct `spyfu` tool remains absent from `TOOL_CATALOG`. Treat "SpyFu dead key" language in older audits as stale; the remaining issue is per-section tool availability and use, not funding.

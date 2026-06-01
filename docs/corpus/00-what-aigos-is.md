@@ -18,7 +18,7 @@
 
 AI-GOS produces a strategic positioning audit for a SaaS/GTM business. The flow is **form-driven, not chat-driven**:
 
-1. User enters a company URL (or an approved business link) on `/research-v2`.
+1. User enters a company URL (or an approved business link) on `/research-v3`; the API namespace remains `/api/research-v2/*`.
 2. `deepResearchProgram` dispatches automatically and builds a shared **research corpus** (web + onboarding fields).
 3. Corpus completes → a **GTM Brief Review** form opens; the user confirms/edits auto-prefilled fields.
 4. Brief submit → `POST /api/research-v2/orchestrate` fans out the six positioning sections in parallel.
@@ -30,16 +30,16 @@ The output is six evidence-backed positioning sections plus the two capstones, a
 
 ## 2. The Eight Sections
 
-The six positioning sections, in pipeline order, are defined by `POSITIONING_SECTION_IDS` (`src/lib/ai/prompts/positioning-skills/index.ts:16-23`):
+The six positioning sections, in pipeline order, are defined by `POSITIONING_SECTION_IDS` (`src/lib/ai/prompts/positioning-skills/index.ts:12-19`):
 
 `positioningMarketCategory → positioningBuyerICP → positioningCompetitorLandscape → positioningVoiceOfCustomer → positioningDemandIntent → positioningOfferDiagnostic`
 
-Two capstones live outside that array because they synthesize the committed six rather than rolling up into the same parent key (`index.ts:28-33`):
+Two capstones live outside that array because they synthesize the committed six rather than rolling up into the same parent key (`index.ts:23-34`; these anchors drifted from the initial survey after synthesis landed):
 
-- **`positioningPaidMediaPlan`** (`PAID_MEDIA_PLAN_SECTION_ID`, `index.ts:28`)
-- **`positioningSynthesis`** — cross-section capstone: "Reads the six committed positioning artifacts and emits one recommended wedge + 2-3 divergent angles" (`index.ts:31-33`).
+- **`positioningPaidMediaPlan`** (`PAID_MEDIA_PLAN_SECTION_ID`, `index.ts:23`)
+- **`positioningSynthesis`** — cross-section capstone: "Reads the six committed positioning artifacts and emits one recommended wedge + 2-3 divergent angles" (`index.ts:27-34`).
 
-Each section has an entry in the section registry (`src/lib/lab-engine/sections/section-registry.ts`) carrying its title, mission, `skillSlug`, `allowedTools`, and external-lookup budget. CompetitorLandscape is the heaviest: it is the only section with ad-library tools (`google_ads`, `meta_ads`) and a reserved ad-lookup budget. Synthesis and Paid Media Plan declare **no external tools** — they read committed artifacts only.
+Each section has an entry in the section registry (`src/lib/lab-engine/sections/section-registry.ts`) carrying its title, mission, `skillSlug`, `allowedTools`, and external-lookup budget. CompetitorLandscape is the heaviest: it has ad-library tools (`adlibrary`, `google_ads`, `meta_ads`) and a reserved ad-lookup budget (`section-registry.ts:155-169`). Demand Intent now includes the SpyFu-backed `keyword_volume` tool (`section-registry.ts:234`). Synthesis declares **no external tools** (`section-registry.ts:278`); Paid Media Plan has only `keyword_ad_probe` with a two-lookup budget (`section-registry.ts:302-303`).
 
 ## 3. Where It Runs: In-Process on Vercel
 
@@ -75,9 +75,9 @@ The timeout hierarchy is explicit and contract-tested: **answer-tool 255s < job 
 
 ## 5. Skill Injection
 
-Each section's `SKILL.md` is loaded from disk and **concatenated into the prompt once per attempt** — there is no progressive disclosure, no on-demand file read (the model has no filesystem tool, §4). The skill body is appended after the programmatic instructions under a `"Skill analyst guidance:"` header (`run-section.ts:3078-3079`, loaded at `:2977` via `deps.loadSkill(definition.skillSlug)`).
+Each section's `SKILL.md` is loaded from disk and **concatenated into the prompt once per attempt** — there is no progressive disclosure, no on-demand file read (the model has no filesystem tool, §4). The skill body is appended after the programmatic instructions under a `"Skill analyst guidance:"` header (`run-section.ts:3097-3099`, loaded at `:2996` via `deps.loadSkill(definition.skillSlug)`).
 
-Prompt assembly order (`src/lib/lab-engine/agents/build-prompts.ts`, `buildAnswerToolInstructions` at `:457`): section title + mission → ResearchInput JSON → normalized ad-evidence block → output emphasis → section-specific minimum-validator guidance → root-shape guidance → corpus-only boundary → answer-tool completion instruction → **then** the SKILL.md body appended in the runner. Boilerplate (capability-gap / anti-slop prose) is not deduplicated at the system level; it appears once per section only if it is in that section's SKILL.md.
+Prompt assembly order (`src/lib/lab-engine/agents/build-prompts.ts`, `buildAnswerToolInstructions` at `:519`): section title + mission → ResearchInput JSON → normalized ad-evidence block → shared capability-gap guidance for tool sections → output emphasis → section-specific minimum-validator guidance → root-shape guidance → corpus-only boundary → answer-tool completion instruction → **then** the SKILL.md body appended in the runner (`run-section.ts:3097-3099`). Shared tool-gap boilerplate is now composed in `build-prompts.ts` instead of repeated in each tool skill; section-specific examples remain in the relevant SKILL.md bodies.
 
 The output contract is enforced in three layers: the **Zod schema** (runtime shape, persisted to Supabase), a **`validateMinimums` function** (business-logic gates — source counts, triangulation, force-type coverage), and the **SKILL.md** (the human-readable evidence/instruction contract the model reads).
 
