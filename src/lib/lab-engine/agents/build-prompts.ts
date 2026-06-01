@@ -403,8 +403,8 @@ function buildSectionMinimumGuidance(
     return [
       "- DemandIntentSectionOutput exact item contracts: `body.keywordDemand.keywords[]` keys are `keyword`, `monthlyVolume`, `intentType`, `top3RankingDomains`, `sourceTitle`, `sourceUrl`, `dateObserved`.",
       "- `intentType` must be one of `informational`, `commercial`, `transactional`, `navigational`; include at least ten keyword rows.",
-      "- Put a falsifiable signal on every keyword row: call the `keyword_volume` tool (SpyFu) with your candidate keywords in ONE bulk call (up to 100) to get monthly search volume + CPC + difficulty, and populate `monthlyVolume` from it.",
-      "- NEVER write `not disclosed` in `monthlyVolume` — it is rejected by the validator. Populate it with the SpyFu-estimated number (label values 'SpyFu-estimated'); estimates are allowed, refusals are not.",
+      "- Put a falsifiable signal on every keyword row: call the `keyword_volume` tool (SpyFu) with your candidate keywords in ONE bulk call (up to 100) to get monthly search volume + CPC + difficulty, and populate `monthlyVolume` (and optional `cpc`) from it.",
+      "- Provenance honesty is enforced: ONLY label `monthlyVolume`/`cpc` values 'SpyFu-estimated' when the `keyword_volume` tool returned data for that keyword. If the tool returns a gap (e.g. rate-limited / unavailable), you MUST NOT claim SpyFu provenance — instead label the value 'model estimate (SpyFu unavailable)' or restate the row as a data gap. Never write `not disclosed` — it is rejected by the validator.",
       "- `body.questionMining.questions[]` keys are `question`, `surface`, `sourceUrl`, `frequency`; include at least ten questions across at least two surface types.",
       "- `surface` must be one of `paa`, `reddit`, `quora`, `community`, `forum`, `support-thread`; `frequency` must be `recurring` or `occasional`.",
       "- `body.contentGaps.gaps[]` keys are `topic`, `evidenceOfDemand`, `weakCompetitorAnswerEvidence`, `opportunity`; include at least three gaps.",

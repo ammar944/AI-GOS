@@ -785,6 +785,7 @@ const keywordSignalProviderSchema = z
   .object({
     keyword: z.string(),
     monthlyVolume: z.string(),
+    cpc: z.string().optional(),
     intentType: z.enum([
       "informational",
       "commercial",

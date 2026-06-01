@@ -267,6 +267,7 @@ export const demandIntentArtifact = {
       {
         keyword: 'workflow automation software',
         monthlyVolume: '12,000',
+        cpc: '$8.40 (SpyFu-estimated)',
         intentType: 'commercial',
         top3RankingDomains: ['zapier.com', 'monday.com', 'asana.com'],
         sourceTitle: 'Keyword sample',

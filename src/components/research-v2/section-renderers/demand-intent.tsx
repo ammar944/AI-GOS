@@ -127,6 +127,12 @@ export function DemandIntentRenderer({
       render: row => <span>{row.monthlyVolume}</span>,
     },
     {
+      key: 'cpc',
+      header: 'CPC',
+      numeric: true,
+      render: row => <span>{row.cpc ?? '—'}</span>,
+    },
+    {
       key: 'intentType',
       header: 'Intent',
       render: row => (

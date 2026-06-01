@@ -30,10 +30,11 @@ const signalTypes = [
 ] as const;
 const venueTypes = ["event", "community", "newsletter", "podcast", "slack"] as const;
 
-const keywordSignalSchema = z
+export const keywordSignalSchema = z
   .object({
     keyword: z.string().min(1),
     monthlyVolume: z.string().min(1),
+    cpc: z.string().min(1).optional(),
     intentType: z.enum(intentTypes),
     top3RankingDomains: z.array(z.string().min(1)),
     sourceTitle: z.string().min(1),
@@ -127,6 +128,54 @@ export type DemandIntentArtifact = ArtifactEnvelope & {
 
 function uniqueCount(values: readonly string[]): number {
   return new Set(values).size;
+}
+
+/**
+ * Section-scoped provenance guard for keyword volume/CPC honesty. The
+ * keyword_volume tool (SpyFu) returns a ToolGap when it is unavailable
+ * (e.g. rate-limited), but the prompt used to instruct the model to label
+ * every volume "SpyFu-estimated" unconditionally — producing a dishonest
+ * provenance claim the verifier could not catch. This guard fails ONLY the
+ * contradiction case: a row affirmatively claims SpyFu provenance (matches
+ * /spyfu[\s-]*estimat/i — i.e. "SpyFu-estimated" / "SpyFu estimate" — in
+ * monthlyVolume or cpc) while the tool did NOT succeed. The pattern is
+ * deliberately narrow so the honest disclaimer "model estimate (SpyFu
+ * unavailable)" — which also contains the word "SpyFu" — passes. Legitimate
+ * SpyFu rows (tool succeeded) also pass. Threaded into the answer-tool repair
+ * loop like checkVoiceOfCustomerSelfSourcing.
+ */
+export function checkDemandIntentKeywordProvenance({
+  artifact,
+  keywordVolumeSucceeded,
+}: {
+  artifact: ArtifactEnvelope;
+  keywordVolumeSucceeded: boolean;
+}): ValidationResult {
+  const errors: string[] = [];
+
+  if (keywordVolumeSucceeded) {
+    return { ok: true, errors };
+  }
+
+  const parsed = artifactEnvelopeSchema
+    .extend({ body: demandIntentBodySchema })
+    .parse(artifact);
+
+  const spyFuClaimPattern = /spyfu[\s-]*estimat/i;
+
+  parsed.body.keywordDemand.keywords.forEach((keyword, index) => {
+    const claimsSpyFu =
+      spyFuClaimPattern.test(keyword.monthlyVolume) ||
+      (keyword.cpc !== undefined && spyFuClaimPattern.test(keyword.cpc));
+
+    if (claimsSpyFu) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}]: claims SpyFu provenance but the keyword_volume tool did not return data — relabel as "model estimate (SpyFu unavailable)" or restate as a data gap; never claim "SpyFu-estimated".`,
+      );
+    }
+  });
+
+  return { ok: errors.length === 0, errors };
 }
 
 export function validateDemandIntentMinimums(

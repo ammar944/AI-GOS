@@ -15,6 +15,7 @@ import {
   snapAngleTypesInMix,
   snapCreativeType,
 } from "../artifacts/schemas/paid-media-plan";
+import { checkDemandIntentKeywordProvenance } from "../artifacts/schemas/demand-intent";
 import { checkVoiceOfCustomerSelfSourcing } from "../artifacts/schemas/voice-of-customer";
 import { sectionRunnerModel } from "../ai/models";
 import {
@@ -2892,6 +2893,25 @@ function buildMergedAnswerToolAdEvidenceGroups({
   return mergeAdEvidenceGroups(prepassGroups ?? [], modelGroups);
 }
 
+/**
+ * True iff some model step's toolResults includes a SUCCESSFUL keyword_volume
+ * call (SpyFu). The tool returns a discriminated union: success is
+ * `{ type: 'result', source: 'SpyFu', ... }`, a gap (e.g. rate-limited) is
+ * `{ type: 'gap', ... }`. Drives checkDemandIntentKeywordProvenance so the
+ * model cannot claim SpyFu provenance when the tool failed.
+ */
+export function keywordVolumeSucceeded(modelSteps: readonly AgentStep[]): boolean {
+  return modelSteps.some((step) =>
+    step.toolResults.some(
+      (toolResult) =>
+        toolResult.toolName === "keyword_volume" &&
+        typeof toolResult.output === "object" &&
+        toolResult.output !== null &&
+        (toolResult.output as { type?: unknown }).type === "result",
+    ),
+  );
+}
+
 function buildAnswerToolAttempt({
   answerInput,
   definition,
@@ -2973,6 +2993,17 @@ function buildAnswerToolAttempt({
 
       if (!selfSourcing.ok) {
         return { output, artifact: null, errors: selfSourcing.errors };
+      }
+    }
+
+    if (input.sectionId === "positioningDemandIntent") {
+      const provenance = checkDemandIntentKeywordProvenance({
+        artifact,
+        keywordVolumeSucceeded: keywordVolumeSucceeded(modelSteps),
+      });
+
+      if (!provenance.ok) {
+        return { output, artifact: null, errors: provenance.errors };
       }
     }
 

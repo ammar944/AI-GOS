@@ -23,6 +23,13 @@ describe('DemandIntentRenderer', () => {
     expect(items.length).toBeGreaterThanOrEqual(3);
   });
 
+  it('renders the CPC value for a keyword row that has cpc, and an em-dash for rows without', () => {
+    render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
+    // Fixture row 0 carries cpc; later rows do not.
+    expect(screen.getByText('$8.40 (SpyFu-estimated)')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+  });
+
   it('renders at least three question rows from the fixture', () => {
     render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
     const items = screen.getAllByTestId('question-item');
