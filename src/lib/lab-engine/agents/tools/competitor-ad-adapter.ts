@@ -453,8 +453,25 @@ function buildDataGaps(group: MutableAdEvidenceGroup): DataGap[] {
           },
         ]
       : [];
+  // LinkedIn is a phantom channel in the schema: the probe only fires google_ads
+  // and meta_ads, and SearchAPI exposes no LinkedIn engine, so linkedin is never
+  // added to group.platforms and its counts are structurally 0. Emit one explicit
+  // gap per group so the artifact self-documents that linkedin=0 is a not-probed
+  // sentinel, not an empty ad-library result.
+  const linkedinNotProbedGaps: DataGap[] = [
+    {
+      platform: "linkedin",
+      reason:
+        "LinkedIn ad library is not queryable via the current SearchAPI integration; LinkedIn counts are structurally 0 and were not probed this run.",
+    },
+  ];
 
-  return uniqueDataGaps([...sourceErrorGaps, ...rawCountGaps, ...truncationGaps]);
+  return uniqueDataGaps([
+    ...sourceErrorGaps,
+    ...rawCountGaps,
+    ...linkedinNotProbedGaps,
+    ...truncationGaps,
+  ]);
 }
 
 function finalizeGroup(

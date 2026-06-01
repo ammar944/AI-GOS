@@ -121,6 +121,49 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     ).toBe(true);
   });
 
+  it('fires exactly two ad tool calls per advertiser (google_ads + meta_ads) and zero linkedin calls', async (): Promise<void> => {
+    // Locks Hypothesis A: LinkedIn is a phantom channel. The probe must only
+    // call google_ads and meta_ads — never a linkedin tool — so reporting
+    // linkedin as a probed-but-empty channel would be dishonest.
+    const budget = new SectionToolBudget(6, 4);
+    const observe = { concurrent: 0, maxConcurrent: 0 };
+    const researchTools: Record<string, unknown> = {
+      google_ads: budgetWrappedAdTool('google_ads', budget, observe),
+      meta_ads: budgetWrappedAdTool('meta_ads', budget, observe),
+    };
+
+    const steps = await runCompetitorAdProbeSteps({
+      maxAdvertisers: 2,
+      researchInput: {
+        ...saaslaunchResearchInput,
+        competitorAds: [],
+        competitorSeeds: [
+          { name: 'FirstRival', domain: 'firstrival.com' },
+          { name: 'SecondRival', domain: 'secondrival.com' },
+        ],
+      },
+      researchTools,
+    });
+
+    expect(steps).toHaveLength(2);
+
+    for (const step of steps) {
+      const calledToolNames = step.toolCalls.map((call) => call.toolName);
+      expect(calledToolNames).toEqual(['google_ads', 'meta_ads']);
+      expect(calledToolNames).not.toContain('linkedin');
+      expect(calledToolNames).not.toContain('linkedin_ads');
+      expect(
+        calledToolNames.some((name) => name.includes('linkedin')),
+      ).toBe(false);
+
+      const resultToolNames = step.toolResults.map((result) => result.toolName);
+      expect(resultToolNames).toEqual(['google_ads', 'meta_ads']);
+      expect(
+        resultToolNames.some((name) => name.includes('linkedin')),
+      ).toBe(false);
+    }
+  });
+
   it('seeds the probe advertiser list from competitorSeeds when competitorAds is empty', async (): Promise<void> => {
     // Production condition: corpus builder leaves competitorAds empty and feeds
     // competitorSeeds (parsed from the onboarding topCompetitors brief field).

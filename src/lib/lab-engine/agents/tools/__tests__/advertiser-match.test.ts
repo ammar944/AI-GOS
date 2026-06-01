@@ -136,6 +136,19 @@ describe("advertiser match relevance engine", (): void => {
       });
     });
 
+    it("keeps a bare short name with an exact-name candidate ambiguous-with-candidate (not rejected)", (): void => {
+      // Hypothesis B refutation: a bare short name like "Ramp" (no domain,
+      // not domain-verified) with an exact-name candidate is NOT rejected. It
+      // resolves to "ambiguous" WITH the candidate attached, so the probe
+      // proceeds rather than dropping the advertiser. The 0-creatives outcome
+      // therefore is NOT explained by short-name rejection.
+      const result = resolveBestCandidate([{ id: "ramp", name: "Ramp" }], "Ramp");
+
+      expect(result.verdict).toBe("ambiguous");
+      expect(result.verdict).not.toBe("rejected");
+      expect(result.candidate).toMatchObject({ id: "ramp", name: "Ramp" });
+    });
+
     it("rejects candidates below the 0.8 threshold", (): void => {
       expect(
         resolveBestCandidate([{ id: "wrong", name: "Northwind Traders" }], "Directive"),
