@@ -75,4 +75,23 @@ describe("detectAdLanguage", () => {
     );
     expect(result.isEnglish).toBe(true);
   });
+
+  it("flags a short German CTA via a single strong marker", () => {
+    // 'Jetzt starten' hits exactly one strong marker — must still be non-English.
+    const result = detectAdLanguage("Jetzt starten");
+    expect(result.isEnglish).toBe(false);
+    expect(result.language).toBe("de");
+  });
+
+  it("flags an unmodeled Latin language (Polish) via diacritic density", () => {
+    const result = detectAdLanguage(
+      "Załóż konto już dziś i oszczędzaj pieniądze za darmo w naszej aplikacji.",
+    );
+    expect(result.isEnglish).toBe(false);
+  });
+
+  it("does not flag an English CTA with no foreign markers", () => {
+    const result = detectAdLanguage("Start your free trial today");
+    expect(result.isEnglish).toBe(true);
+  });
 });

@@ -630,29 +630,27 @@ function finalizeGroup(
   // images) so the high-value creatives are not truncated by mere insertion
   // order (SearchAPI results insert before the Foreplay prepass). Stable for
   // equal scores. displayableCounts above still counts every unique creative.
-  const creatives = [...uniqueCreatives]
-    .sort((a, b) => {
-      // Verified creatives always win cap slots over low-confidence ones, so the
-      // returned set fills the verified wall before anything is quarantined.
-      const verifiedDelta =
-        Number(b.verified === true) - Number(a.verified === true);
-      if (verifiedDelta !== 0) {
-        return verifiedDelta;
-      }
-      return (
-        blendedCreativeScore(b, group.observedAt) -
-        blendedCreativeScore(a, group.observedAt)
-      );
-    })
-    .slice(0, returnedCreativeLimit);
-  const quarantinedCount = creatives.filter(
+  const ranked = [...uniqueCreatives].sort(
+    (a, b) =>
+      blendedCreativeScore(b, group.observedAt) -
+      blendedCreativeScore(a, group.observedAt),
+  );
+  const verifiedRanked = ranked.filter((creative) => creative.verified === true);
+  const quarantinedRanked = ranked.filter(
     (creative) => creative.verified !== true,
-  ).length;
-  const identityConfidence: "verified" | "low" = creatives.some(
-    (creative) => creative.verified === true,
-  )
-    ? "verified"
-    : "low";
+  );
+  // The displayed set carries up to `returnedCreativeLimit` VERIFIED creatives for
+  // the wall PLUS up to the same number of quarantined creatives for the drawer —
+  // low-confidence ads are hidden behind a reveal, never silently dropped by the
+  // cap. quarantinedCount reflects the FULL quarantined set, not just the sample,
+  // so the "N low-confidence hidden" copy is honest even when the sample is capped.
+  const creatives = [
+    ...verifiedRanked.slice(0, returnedCreativeLimit),
+    ...quarantinedRanked.slice(0, returnedCreativeLimit),
+  ];
+  const quarantinedCount = quarantinedRanked.length;
+  const identityConfidence: "verified" | "low" =
+    verifiedRanked.length > 0 ? "verified" : "low";
 
   return {
     advertiserName: group.advertiserName,
