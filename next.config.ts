@@ -8,7 +8,13 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['pdf-parse', 'mammoth'],
   outputFileTracingRoot: projectRoot,
   outputFileTracingIncludes: {
+    // The SKILL.md files are readFile'd by loadLabSkill inside the after()
+    // callbacks of the run-lab-section and rerun-section lambdas, so those
+    // are the bundles that must trace them. (The orchestrate route only
+    // fans out fetches and never reads a skill; its include is harmless.)
     '/api/research-v2/orchestrate': ['./src/lib/lab-engine/skills/**/*'],
+    '/api/research-v2/run-lab-section': ['./src/lib/lab-engine/skills/**/SKILL.md'],
+    '/api/research-v2/rerun-section': ['./src/lib/lab-engine/skills/**/SKILL.md'],
   },
   turbopack: {
     root: projectRoot,
