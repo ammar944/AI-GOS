@@ -35,6 +35,11 @@ const adLibraryAdSchema = z
     source: z.string().optional(),
     transcript: z.string().optional(),
     cta: z.string().optional(),
+    // Advertiser-identity provenance, set from the resolveBestCandidate verdict.
+    // identityVerified=false (ambiguous / unresolved) routes the creative to the
+    // quarantine instead of the verified wall.
+    identityVerified: z.boolean().optional(),
+    identityBasis: z.string().min(1).optional(),
   })
   .strict();
 
@@ -77,6 +82,8 @@ interface NormalizedAd {
   source?: string;
   transcript?: string;
   cta?: string;
+  identityVerified?: boolean;
+  identityBasis?: string;
 }
 
 class SearchApiHttpError extends Error {
@@ -441,18 +448,21 @@ function normalizeSearchApiRecord({
 function normalizeSearchApiRecords({
   advertiserName,
   domain,
+  identityBasis,
+  identityVerified,
   maxResults,
   platform,
   records,
 }: {
   advertiserName: string;
   domain?: string;
+  identityBasis: string;
+  identityVerified: boolean;
   maxResults: number;
   platform: AdLibraryPlatform;
   records: readonly SearchApiRecord[];
 }): NormalizedAd[] {
   return records
-    .slice(0, maxResults)
     .map((record, index) =>
       normalizeSearchApiRecord({ advertiserName, index, platform, record }),
     )
@@ -461,6 +471,8 @@ function normalizeSearchApiRecords({
       // a different company's ad sharing a name prefix, caught by the short-name
       // URL guard). Over-dropping of valid long-name creatives is addressed by the
       // looser whole-word domain fallback in isAdvertiserMatch, not by skipping.
+      // Filter BEFORE the cap so the kept window is provably the advertiser's,
+      // not the first N raw rows (H4 fix).
       isAdvertiserMatch(
         ad.advertiserName,
         advertiserName,
@@ -468,7 +480,28 @@ function normalizeSearchApiRecords({
         ad.detailsUrl ?? ad.landingUrl ?? ad.url,
       ),
     )
-    .filter((ad) => hasUsableCreativeText(ad));
+    .filter((ad) => hasUsableCreativeText(ad))
+    .map((ad) => ({ ...ad, identityVerified, identityBasis }))
+    .slice(0, maxResults);
+}
+
+// Map the advertiser-resolution verdict to per-ad provenance. An "accepted"
+// verdict is the only one that earns the verified wall; "ambiguous" is carried
+// through tagged false so the section can quarantine rather than discard it.
+function identityFromVerdict({
+  verdict,
+  domain,
+}: {
+  verdict: "accepted" | "ambiguous" | "rejected";
+  domain?: string;
+}): { identityVerified: boolean; identityBasis: string } {
+  if (verdict === "accepted") {
+    return {
+      identityVerified: true,
+      identityBasis: domain !== undefined ? "domain" : "name",
+    };
+  }
+  return { identityVerified: false, identityBasis: "ambiguous" };
 }
 
 async function searchGoogleAds({
@@ -526,6 +559,7 @@ async function searchGoogleAds({
   return normalizeSearchApiRecords({
     advertiserName,
     domain,
+    ...identityFromVerdict({ verdict: candidateResult.verdict, domain }),
     maxResults,
     platform: "google",
     records: getRecordArray(adsPayload, "ad_creatives"),
@@ -583,6 +617,7 @@ async function searchMetaAds({
   return normalizeSearchApiRecords({
     advertiserName,
     domain,
+    ...identityFromVerdict({ verdict: candidateResult.verdict, domain }),
     maxResults,
     platform: "meta",
     records: getRecordArray(adsPayload, "ads"),
@@ -716,9 +751,15 @@ async function searchLinkedInAds({
           }),
         );
 
+  // LinkedIn has no advertiser-candidate resolution stage, so identity can only
+  // be trusted when a verified domain drove the link guard above. Without a
+  // domain the result is carried through as low-confidence (quarantined), never
+  // presented as proven.
   return normalizeSearchApiRecords({
     advertiserName,
     domain,
+    identityVerified: domain !== undefined,
+    identityBasis: domain !== undefined ? "domain" : "name_only",
     maxResults,
     platform: "linkedin",
     records: guardedRecords,
