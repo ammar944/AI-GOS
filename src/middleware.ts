@@ -4,10 +4,7 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/journey", // Public intake shell; route handlers still enforce auth for user data and research writes
   "/shared/(.*)",
-  "/test/(.*)", // Test pages for development
-  "/blueprint-preview(.*)", // Design preview page
   "/api/journey/(.*)", // Route handlers do their own auth; avoid Clerk HTML rewrites on stream/prefill failures
   "/api/blueprints/(.*)",
   "/api/webhooks/(.*)", // Clerk webhooks - verified via svix signature

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, FileText, Building2, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Home, Compass, Building2, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/logo';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,6 @@ interface NavEntry {
 const NAV_ITEMS: NavEntry[] = [
   { icon: Home, label: 'Home', href: '/dashboard' },
   { icon: Compass, label: 'Research', href: '/research-v3' },
-  { icon: FileText, label: 'Research', href: '/research' },
   { icon: Building2, label: 'Profiles', href: '/profiles' },
 ];
 

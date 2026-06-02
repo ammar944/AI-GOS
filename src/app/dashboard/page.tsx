@@ -42,7 +42,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Quick actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
+          <div className="grid grid-cols-1 gap-3 mb-10">
             <Link
               href="/research-v3"
               className="group flex items-center gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)] cursor-pointer"
@@ -59,24 +59,6 @@ export default async function DashboardPage() {
                 </p>
               </div>
               <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--text-primary)] transition-colors shrink-0" />
-            </Link>
-
-            <Link
-              href="/research"
-              className="group flex items-center gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center shrink-0">
-                <FileText className="size-5 text-[var(--text-tertiary)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                  View Research
-                </h3>
-                <p className="text-[11px] text-[var(--text-quaternary)] mt-0.5">
-                  Browse completed research documents
-                </p>
-              </div>
-              <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--text-secondary)] transition-colors shrink-0" />
             </Link>
           </div>
 
