@@ -718,12 +718,20 @@ function RunStatusBar({
       {verified > 0 || flagged > 0 ? (
         <>
           <span className="h-3 w-px bg-border" aria-hidden="true" />
-          <span className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-emerald-600">
-            <Check className="size-3" strokeWidth={3} /> {verified}
+          <span
+            className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-emerald-600"
+            title="Claims matched verbatim to a fetched source — advisory, does not block the report."
+            aria-label={`${verified} verified — claims matched verbatim to a fetched source (advisory, does not block the report)`}
+          >
+            <Check className="size-3" strokeWidth={3} aria-hidden="true" /> {verified} verified
           </span>
           {flagged > 0 ? (
-            <span className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-amber-600">
-              <AlertTriangle className="size-3" strokeWidth={2.5} /> {flagged}
+            <span
+              className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-amber-600"
+              title="Claims matched verbatim to a fetched source — advisory, does not block the report."
+              aria-label={`${flagged} unverified — claims not matched verbatim to a fetched source (advisory, does not block the report)`}
+            >
+              <AlertTriangle className="size-3" strokeWidth={2.5} aria-hidden="true" /> {flagged} unverified
             </span>
           ) : null}
         </>
