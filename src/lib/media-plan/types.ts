@@ -493,11 +493,9 @@ export interface MediaPlanStrategicSynthesis {
 export interface MediaPlanOutput {
   /**
    * Page 1: cross-section synthesis (verdict, positioning thesis, narrative, top actions).
-   * Optional during the 2026-05-13 fold-in rollout — the single-phase
-   * generator (src/lib/media-plan/generator.ts) always produces this via
-   * the updated 11-section schema, while the legacy multi-phase pipeline
-   * (src/lib/media-plan/pipeline.ts) will gain a synthesis phase as a
-   * follow-up. Once both paths emit it, flip this to required.
+   * Optional field. The legacy multi-phase media-plan pipeline this was
+   * coupled to was removed 2026-06-02; kept optional for back-compat with
+   * previously stored media plans.
    */
   strategicSynthesis?: MediaPlanStrategicSynthesis;
   /** Executive summary of the media plan */
