@@ -58,48 +58,64 @@ const NON_LATIN_SCRIPTS: readonly ScriptRange[] = [
   { script: "greek", language: "el", pattern: /[Ͱ-Ͽ]/g },
 ];
 
-// Strong, ad-copy-frequent foreign markers chosen to NOT collide with common
-// English words. Each set member must be a poor fit for an English sentence.
-const LATIN_MARKERS: ReadonlyArray<{ language: string; words: ReadonlySet<string> }> = [
+// Two-tier foreign markers. `strong` words essentially never appear in English
+// ad copy, so a SINGLE hit is decisive (catches short CTAs like "Jetzt starten").
+// `weak` words are common in their language but could appear incidentally, so they
+// only count toward the >=2 total-hit threshold — this keeps English copy with a
+// stray loanword ("résumé", "café") from being misflagged.
+const LATIN_MARKERS: ReadonlyArray<{
+  language: string;
+  strong: ReadonlySet<string>;
+  weak: ReadonlySet<string>;
+}> = [
   {
     language: "es",
-    words: new Set([
+    strong: new Set([
       "gratis", "ahora", "descuento", "comprar", "compra", "ahorra", "negocio",
-      "dinero", "oferta", "mejor", "envío", "envio", "obtén", "obten", "solución",
-      "solucion", "más", "tu", "tus", "para",
+      "dinero", "oferta", "mejor", "envío", "envio", "obtén", "obten",
+      "solución", "solucion", "gratuito", "empresa", "ventas",
     ]),
+    weak: new Set(["más", "mas", "tu", "tus", "para", "con"]),
   },
   {
     language: "de",
-    words: new Set([
-      "und", "für", "fur", "kostenlos", "jetzt", "testen", "unternehmen",
-      "umsatz", "steigern", "ihren", "ihr", "besten", "mit", "sie", "mehr",
+    strong: new Set([
+      "kostenlos", "kostenloser", "jetzt", "testen", "unternehmen", "umsatz",
+      "steigern", "ihren", "besten", "für", "fur", "erfahren",
     ]),
+    weak: new Set(["und", "mit", "sie", "ihr", "mehr", "oder"]),
   },
   {
     language: "fr",
-    words: new Set([
-      "gratuit", "achetez", "maintenant", "votre", "vos", "meilleur",
-      "entreprise", "avec", "pour", "vous", "des", "découvrez", "decouvrez",
+    strong: new Set([
+      "gratuit", "gratuitement", "achetez", "maintenant", "meilleur",
+      "entreprise", "découvrez", "decouvrez", "votre", "essai",
     ]),
+    weak: new Set(["vos", "avec", "pour", "vous", "des", "votre"]),
   },
   {
     language: "pt",
-    words: new Set([
-      "grátis", "gratis", "você", "voce", "agora", "compre", "negócio",
-      "negocio", "melhor", "não", "nao", "mais", "sua", "seu", "vendas",
+    strong: new Set([
+      "grátis", "gratuito", "você", "voce", "agora", "compre", "negócio",
+      "negocio", "melhor", "vendas", "empresa", "experimente",
     ]),
+    weak: new Set(["não", "nao", "mais", "sua", "seu", "com"]),
   },
   {
     language: "it",
-    words: new Set([
-      "gratis", "migliore", "azienda", "vendite", "più", "piu", "ora", "tuo",
-      "tua", "acquista", "adesso", "tuoi",
+    strong: new Set([
+      "gratis", "gratuito", "migliore", "azienda", "vendite", "acquista",
+      "adesso", "scopri", "prova",
     ]),
+    weak: new Set(["più", "piu", "ora", "tuo", "tua", "tuoi"]),
   },
 ];
 
 const LATIN_LETTER = /[A-Za-zÀ-ɏ]/g;
+// Latin letters carrying diacritics (Latin-1 Supplement + Extended-A/B + Additional).
+// English almost never uses these, so a high density is a non-English signal even
+// for languages we do not model with markers (Polish, Turkish, Vietnamese, …).
+const DIACRITIC_LETTER = /[À-ɏḀ-ỿ]/g;
 
 function countMatches(text: string, pattern: RegExp): number {
   const matches = text.match(pattern);
@@ -141,31 +157,48 @@ export function detectAdLanguage(rawText: string): AdLanguageResult {
     };
   }
 
-  // Latin-script path: count distinct strong foreign markers per language.
+  // Latin-script path: two-tier markers. A single STRONG marker is decisive; weak
+  // markers only count toward a >=2 total so an English loanword cannot trip it.
   const tokens = text.toLowerCase().match(/[a-zÀ-ɏ]+/g) ?? [];
   const tokenSet = new Set(tokens);
   let bestLang = "";
-  let bestHits = 0;
-  for (const { language, words } of LATIN_MARKERS) {
-    let hits = 0;
-    for (const word of words) {
+  let bestStrong = 0;
+  let bestTotal = 0;
+  for (const { language, strong, weak } of LATIN_MARKERS) {
+    let strongHits = 0;
+    for (const word of strong) {
       if (tokenSet.has(word)) {
-        hits += 1;
+        strongHits += 1;
       }
     }
-    if (hits > bestHits) {
-      bestHits = hits;
+    let total = strongHits;
+    for (const word of weak) {
+      if (tokenSet.has(word)) {
+        total += 1;
+      }
+    }
+    if (strongHits > bestStrong || (strongHits === bestStrong && total > bestTotal)) {
+      bestStrong = strongHits;
+      bestTotal = total;
       bestLang = language;
     }
   }
 
-  if (bestHits >= 2) {
+  if (bestStrong >= 1 || bestTotal >= 2) {
     return {
       language: bestLang,
       isEnglish: false,
       script: "latin",
-      confidence: bestHits >= 3 ? "high" : "low",
+      confidence: bestStrong >= 1 || bestTotal >= 3 ? "high" : "low",
     };
+  }
+
+  // Backstop for unmodeled Latin languages (Polish, Turkish, Vietnamese, …):
+  // English almost never carries diacritics, so a meaningful density flags
+  // non-English even when no markers matched.
+  const diacritics = countMatches(text, DIACRITIC_LETTER);
+  if (latinLetters >= 8 && diacritics / latinLetters >= 0.08) {
+    return { language: "und", isEnglish: false, script: "latin", confidence: "low" };
   }
 
   // Default: English. Confidence scales with how much copy we actually saw.

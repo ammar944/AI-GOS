@@ -437,4 +437,33 @@ describe("competitor ad verification tiering", (): void => {
     });
     expect(group.creatives[0]?.id).toBe("fresh");
   });
+
+  it("keeps a quarantined sample even when verified creatives fill the cap", () => {
+    const verifiedAds = Array.from({ length: 6 }, (_value, index) => ({
+      url: `https://www.facebook.com/ads/library/?id=v${index}`,
+      id: `v${index}`,
+      advertiserName: "Gong",
+      title: `Verified revenue intelligence ad number ${index}`,
+      identityVerified: true,
+      identityBasis: "domain",
+    }));
+    const quarantinedAds = Array.from({ length: 2 }, (_value, index) => ({
+      url: `https://www.facebook.com/ads/library/?id=q${index}`,
+      id: `q${index}`,
+      advertiserName: "Gong",
+      title: `Ambiguous ad number ${index}`,
+      identityVerified: false,
+      identityBasis: "ambiguous",
+    }));
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      returnedCreativeLimit: 6,
+      steps: [baseStep([...verifiedAds, ...quarantinedAds])],
+    });
+    // The full verified cap must NOT slice the quarantined creatives away: the
+    // count is honest and a sample is present for the drawer.
+    expect(group.quarantinedCount).toBe(2);
+    expect(group.creatives.filter((c) => c.verified === false)).toHaveLength(2);
+    expect(group.creatives.filter((c) => c.verified === true)).toHaveLength(6);
+  });
 });

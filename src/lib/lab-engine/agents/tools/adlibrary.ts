@@ -473,11 +473,17 @@ function normalizeSearchApiRecords({
       // looser whole-word domain fallback in isAdvertiserMatch, not by skipping.
       // Filter BEFORE the cap so the kept window is provably the advertiser's,
       // not the first N raw rows (H4 fix).
+      //
+      // Prefer the real clickthrough (landingUrl) over detailsUrl for the identity
+      // check: detailsUrl is usually the ad-library URL itself, which the
+      // short-name domain guard deliberately exempts — so passing it first would
+      // neuter the guard and let a same-name wrong-company ad (e.g. landing on
+      // fathomdem.com while probing fathom.video) reach the verified wall.
       isAdvertiserMatch(
         ad.advertiserName,
         advertiserName,
         domain,
-        ad.detailsUrl ?? ad.landingUrl ?? ad.url,
+        ad.landingUrl ?? ad.detailsUrl ?? ad.url,
       ),
     )
     .filter((ad) => hasUsableCreativeText(ad))
