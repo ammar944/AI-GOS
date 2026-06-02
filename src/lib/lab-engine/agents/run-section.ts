@@ -84,6 +84,7 @@ import {
   type VoiceOfCustomerCandidateSource,
 } from "./voice-of-customer-candidates";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
+import { isAdvertiserMatch } from "./tools/advertiser-match";
 import {
   buildCompetitorAdEvidenceGroups,
   summarizeCompetitorAdEvidenceGroups,
@@ -2796,9 +2797,25 @@ async function runForeplayPrepassForAdvertiser(
         const brands = await service.searchBrands({
           domain: advertiserRecord.domain,
         });
-        const brandId = brands[0]?.id;
+        const brand = brands[0];
+        const brandId = brand?.id;
 
         if (brandId === undefined || brandId.trim().length === 0) {
+          return [] as NormalizedForeplayAd[];
+        }
+
+        // Guard against Foreplay's domain->brand resolution returning the wrong
+        // advertiser (most_ranked can resolve e.g. airtable.com to an unrelated
+        // reseller). Only inject Foreplay ads when the resolved brand actually
+        // matches the competitor we are probing; otherwise we would attribute a
+        // stranger's creatives to it.
+        if (
+          !isAdvertiserMatch(
+            brand.name,
+            advertiserRecord.advertiser,
+            advertiserRecord.domain,
+          )
+        ) {
           return [] as NormalizedForeplayAd[];
         }
 

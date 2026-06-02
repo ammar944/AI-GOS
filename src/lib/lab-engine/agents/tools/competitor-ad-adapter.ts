@@ -67,7 +67,7 @@ const platformOrder: readonly AdEvidencePlatform[] = [
   "meta",
   "linkedin",
 ];
-const defaultReturnedCreativeLimit = 4;
+const defaultReturnedCreativeLimit = 6;
 const rawSourceSampleLimit = 4;
 
 function isAdToolName(value: string): value is AdToolName {
@@ -557,7 +557,14 @@ function finalizeGroup(
   for (const creative of uniqueCreatives) {
     incrementCount(displayableCounts, creative.platform, 1);
   }
-  const creatives = uniqueCreatives.slice(0, returnedCreativeLimit);
+  // Surface the richest creatives within the cap: rank by richness (video and
+  // transcript-bearing Foreplay creatives win slots over thinner SearchAPI
+  // images) so the high-value creatives are not truncated by mere insertion
+  // order (SearchAPI results insert before the Foreplay prepass). Stable for
+  // equal scores. displayableCounts above still counts every unique creative.
+  const creatives = [...uniqueCreatives]
+    .sort((a, b) => creativeRichnessScore(b) - creativeRichnessScore(a))
+    .slice(0, returnedCreativeLimit);
 
   return {
     advertiserName: group.advertiserName,
