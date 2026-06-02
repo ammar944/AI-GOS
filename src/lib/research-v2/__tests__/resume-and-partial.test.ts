@@ -84,6 +84,47 @@ describe('Phase 6 resume reducer contract', () => {
     });
   });
 
+  it('threads corpus.sources into resumed onboarding state (deduped, persistent)', () => {
+    const state = inferSession({
+      researchResults: {
+        deepResearchProgram: {
+          status: 'complete',
+          data: {
+            onboardingFields: {
+              companyName: { value: 'Clay', confidence: 0.9 },
+            },
+            corpus: {
+              sources: [
+                {
+                  title: 'Clay homepage',
+                  url: 'https://www.clay.com',
+                  whyItMatters: 'Primary identity.',
+                },
+                // Duplicate URL is dropped.
+                { title: 'Clay homepage (dup)', url: 'https://www.clay.com' },
+                // Missing URL is dropped.
+                { title: 'No URL', url: '' },
+                { title: 'Clay pricing', url: 'https://www.clay.com/pricing' },
+              ],
+            },
+          },
+        },
+      },
+      onboardingData: null,
+      jobStatus: null,
+    });
+    expect(state?.kind).toBe('onboarding');
+    if (state?.kind !== 'onboarding') throw new Error('expected onboarding');
+    expect(state.corpusSources).toEqual([
+      {
+        title: 'Clay homepage',
+        url: 'https://www.clay.com',
+        whyItMatters: 'Primary identity.',
+      },
+      { title: 'Clay pricing', url: 'https://www.clay.com/pricing' },
+    ]);
+  });
+
   it('resumes to onboarding with empty prefill only when a persisted corpus is complete without onboarding fields', () => {
     const state = inferSession({
       researchResults: {

@@ -6,7 +6,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ExternalLink } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -21,17 +21,25 @@ import {
   OnboardingV2Schema,
   SECTION_META,
   SECTION_SCHEMAS,
+  type OnboardingFieldReview,
   type OnboardingPrefillMetadata,
   type OnboardingReviewMetadata,
   type OnboardingV2Data,
   type SalesProcessDocRef,
   type SectionField,
 } from "@/lib/research-v2/onboarding-v2-types";
+import type { CorpusSourceLink } from "@/lib/research-v2/state-machine";
 import { cn } from "@/lib/utils";
 
 interface OnboardingWizardProps {
   initialData?: Partial<OnboardingV2Data>;
   initialPrefillMetadata?: OnboardingPrefillMetadata;
+  /**
+   * Cited sources captured by the corpus run, surfaced read-only in a
+   * persistent "Researched N sources" disclosure. Optional so the wizard
+   * still mounts when no corpus sources were threaded through.
+   */
+  corpusSources?: CorpusSourceLink[];
   /**
    * Test-only seam: which section index to mount first. Defaults to 0 so
    * production callers never need to pass it.
@@ -73,6 +81,160 @@ function deriveGtmMotion(
   return "";
 }
 
+// Confidence band → DESIGN.md status colors. Mirrors the prefill-summary
+// pattern (high/med/low) but keyed off the 0–1 normalized confidence stored
+// in OnboardingFieldReview.
+function confidenceBand(
+  confidence: number,
+): { label: string; color: string; bg: string } {
+  if (confidence >= 0.9)
+    return { label: "High", color: "rgb(34, 197, 94)", bg: "rgba(34, 197, 94, 0.15)" };
+  if (confidence >= 0.5)
+    return { label: "Medium", color: "rgb(234, 179, 8)", bg: "rgba(234, 179, 8, 0.15)" };
+  return { label: "Low", color: "rgb(239, 68, 68)", bg: "rgba(239, 68, 68, 0.15)" };
+}
+
+function ConfidenceBadge({ confidence }: { confidence: number }): ReactElement {
+  const band = confidenceBand(confidence);
+  return (
+    <span
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+      style={{ background: band.bg, color: band.color }}
+    >
+      <span
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ background: band.color }}
+      />
+      {band.label}
+    </span>
+  );
+}
+
+// Per-field AI-fill provenance: a confidence badge plus a click-through to the
+// cited source URL. Renders nothing for user-typed or unsourced fields.
+function FieldProvenance({
+  review,
+}: {
+  review: OnboardingFieldReview | undefined;
+}): ReactElement | null {
+  if (!review) return null;
+  const hasConfidence = typeof review.confidence === "number";
+  const hasSource = Boolean(review.sourceUrl?.trim());
+  if (!hasConfidence && !hasSource) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {hasConfidence ? (
+        <ConfidenceBadge confidence={review.confidence as number} />
+      ) : null}
+      {hasSource ? (
+        <a
+          href={review.sourceUrl as string}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={review.sourceUrl as string}
+          className="inline-flex items-center gap-1 text-[11px] text-[var(--text-tertiary)] underline-offset-2 transition-colors hover:text-[var(--text-secondary)] hover:underline"
+        >
+          Source
+          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+        </a>
+      ) : null}
+    </span>
+  );
+}
+
+// Persistent "Researched N sources" disclosure. Surfaces the corpus's cited
+// sources read-only so the operator can audit provenance. Mirrors the
+// prefill-summary ExternalLink pattern; honors the industrial DESIGN.md tokens.
+function CorpusSourcesDisclosure({
+  sources,
+}: {
+  sources: CorpusSourceLink[];
+}): ReactElement | null {
+  const [open, setOpen] = useState(false);
+  if (sources.length === 0) return null;
+
+  return (
+    <div
+      data-testid="corpus-sources-disclosure"
+      className="overflow-hidden rounded-[6px] border"
+      style={{
+        borderColor: "var(--border-subtle)",
+        background: "var(--bg-surface)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+      >
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.08em]"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          Researched {sources.length}{" "}
+          {sources.length === 1 ? "source" : "sources"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 transition-transform duration-150",
+            open && "rotate-180",
+          )}
+          style={{ color: "var(--text-tertiary)" }}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <ul
+          className="space-y-0.5 border-t px-2 py-2"
+          style={{ borderColor: "var(--border-subtle)" }}
+        >
+          {sources.map((source, index) => (
+            <li key={`${source.url}-${index}`}>
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={source.url}
+                className="flex items-start gap-2 rounded-[5px] px-2 py-1.5 transition-colors hover:bg-[var(--bg-hover)]"
+              >
+                <span
+                  className="mt-0.5 font-mono text-[10px] tabular-nums"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span
+                    className="block truncate text-[13px]"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {source.title}
+                  </span>
+                  {source.whyItMatters ? (
+                    <span
+                      className="block truncate text-[11px]"
+                      style={{ color: "var(--text-tertiary)" }}
+                    >
+                      {source.whyItMatters}
+                    </span>
+                  ) : null}
+                </span>
+                <ExternalLink
+                  className="mt-0.5 h-3 w-3 shrink-0"
+                  style={{ color: "var(--text-tertiary)" }}
+                  aria-hidden="true"
+                />
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function issuesToErrors(
   issues: Array<{ path: PropertyKey[]; message: string }>,
 ): Record<string, string> {
@@ -102,6 +264,7 @@ function locateField(
 export function OnboardingWizard({
   initialData,
   initialPrefillMetadata = {},
+  corpusSources,
   initialStep,
   onComplete,
 }: OnboardingWizardProps): ReactElement {
@@ -280,6 +443,8 @@ export function OnboardingWizard({
       field.type === "boolean-radio" ||
       field.type === "sales-process-docs";
 
+    const fieldReview = review.fields[field.key];
+
     return (
       <div
         id={fieldId}
@@ -287,22 +452,25 @@ export function OnboardingWizard({
         data-testid={`onboarding-field-${fieldId}`}
         className="space-y-2"
       >
-        <Label
-          id={labelId}
-          htmlFor={isGroupField ? undefined : controlId}
-          className="text-sm font-medium leading-snug"
-        >
-          {field.label}
-          {field.required ? (
-            <span aria-hidden="true" className="ml-0.5 text-destructive">
-              *
-            </span>
-          ) : (
-            <span className="ml-1 text-xs font-normal text-muted-foreground">
-              {field.description ?? "(optional)"}
-            </span>
-          )}
-        </Label>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Label
+            id={labelId}
+            htmlFor={isGroupField ? undefined : controlId}
+            className="text-sm font-medium leading-snug"
+          >
+            {field.label}
+            {field.required ? (
+              <span aria-hidden="true" className="ml-0.5 text-destructive">
+                *
+              </span>
+            ) : (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                {field.description ?? "(optional)"}
+              </span>
+            )}
+          </Label>
+          <FieldProvenance review={fieldReview} />
+        </div>
         {renderFieldControl(field, { controlId, labelId })}
         {error ? (
           <Alert variant="destructive" className="px-3 py-2">
@@ -509,6 +677,10 @@ export function OnboardingWizard({
           {review.fieldCount} fields
         </div>
       </header>
+
+      {corpusSources && corpusSources.length > 0 ? (
+        <CorpusSourcesDisclosure sources={corpusSources} />
+      ) : null}
 
       {/* Progress + step rail */}
       <div className="space-y-2.5">

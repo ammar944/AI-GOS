@@ -119,7 +119,7 @@ describe('OnboardingWizard (multi-step surface)', () => {
     ).toBeNull();
   });
 
-  it('renders clean fields — no per-field badges, source, or reasoning chrome', () => {
+  it('surfaces per-field provenance (confidence badge + cited source link) for AI-prefilled fields', () => {
     render(
       <OnboardingWizard
         initialData={makeCompleteData()}
@@ -128,15 +128,69 @@ describe('OnboardingWizard (multi-step surface)', () => {
       />,
     );
 
-    // No inline state badges on step 1 (companyName is User-edited here).
+    // Raw review-state strings are still NOT rendered as field chrome.
     expect(screen.queryByText('AI-filled')).toBeNull();
     expect(screen.queryByText('User-edited')).toBeNull();
     expect(screen.queryByText('Needs review')).toBeNull();
-    // No source chip text.
-    expect(screen.queryByText(/^Source:/)).toBeNull();
     // No top pinned/optional review rails.
     expect(screen.queryByText('Review first')).toBeNull();
     expect(screen.queryByText('Improve output')).toBeNull();
+
+    // Step 1 fields companyName + productDescription carry prefill metadata
+    // with sourceUrls, so each renders a confidence badge and a click-through
+    // to its cited source.
+    const sourceLinks = screen.getAllByRole('link', { name: /^Source/i });
+    expect(sourceLinks.length).toBeGreaterThan(0);
+    expect(sourceLinks[0]).toHaveAttribute('href', 'https://fellow.app');
+    // High-confidence prefill (0.92 / 0.94) surfaces a "High" confidence badge.
+    expect(screen.getAllByText('High').length).toBeGreaterThan(0);
+  });
+
+  it('renders the persistent "Researched N sources" disclosure when corpus sources are threaded through', () => {
+    render(
+      <OnboardingWizard
+        initialData={makeCompleteData()}
+        initialPrefillMetadata={prefillMetadata}
+        corpusSources={[
+          {
+            title: 'Fellow homepage',
+            url: 'https://fellow.app',
+            whyItMatters: 'Primary product identity.',
+          },
+          { title: 'Fellow pricing', url: 'https://fellow.app/pricing' },
+        ]}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    const toggle = screen.getByRole('button', { name: /Researched 2 sources/i });
+    expect(toggle).toBeInTheDocument();
+
+    // Collapsed by default — the source list links are not yet rendered.
+    expect(
+      screen.queryByRole('link', { name: /Fellow pricing/i }),
+    ).toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(
+      screen.getByRole('link', { name: /Fellow pricing/i }),
+    ).toHaveAttribute('href', 'https://fellow.app/pricing');
+  });
+
+  it('omits the corpus sources disclosure when no sources are present', () => {
+    render(
+      <OnboardingWizard
+        initialData={makeCompleteData()}
+        initialPrefillMetadata={prefillMetadata}
+        corpusSources={[]}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /Researched .* sources?/i }),
+    ).toBeNull();
   });
 
   it('Continue advances to the next step; Back returns', () => {

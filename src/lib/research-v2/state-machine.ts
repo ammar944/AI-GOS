@@ -7,6 +7,14 @@ import type {
 } from './onboarding-v2-types';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
+// A cited source captured by the corpus run, surfaced read-only in the
+// GTM brief review. Mirrors the worker's corpus.sources shape.
+export interface CorpusSourceLink {
+  title: string;
+  url: string;
+  whyItMatters?: string;
+}
+
 // ---------------------------------------------------------------------------
 // State union (Premise 8 from design doc)
 // ---------------------------------------------------------------------------
@@ -23,6 +31,7 @@ export type ResearchV2State =
       runId: string;
       prefill: Partial<OnboardingV2Data>;
       prefillMetadata: OnboardingPrefillMetadata;
+      corpusSources?: CorpusSourceLink[];
     }
   | {
       kind: 'sections';
@@ -53,6 +62,7 @@ export type ResearchV2Action =
       runId?: string;
       prefill: Partial<OnboardingV2Data>;
       prefillMetadata?: OnboardingPrefillMetadata;
+      corpusSources?: CorpusSourceLink[];
     }
   // Onboarding → Sections: user submitted onboarding form
   | { type: 'ONBOARDING_COMPLETE' }
@@ -99,6 +109,7 @@ export function researchV2Reducer(
         runId: state.runId,
         prefill: action.prefill,
         prefillMetadata: action.prefillMetadata ?? {},
+        corpusSources: action.corpusSources,
       };
 
     case 'ONBOARDING_COMPLETE':

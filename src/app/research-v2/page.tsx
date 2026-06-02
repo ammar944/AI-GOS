@@ -346,6 +346,7 @@ export default function ResearchV2Page() {
             runId,
             prefill: inferred.prefill,
             prefillMetadata: inferred.prefillMetadata,
+            corpusSources: inferred.corpusSources,
           });
           return;
         }
@@ -543,6 +544,7 @@ export default function ResearchV2Page() {
         <OnboardingWizard
           initialData={state.prefill}
           initialPrefillMetadata={state.prefillMetadata}
+          corpusSources={state.corpusSources}
           onComplete={handleOnboardingComplete}
         />
       )}
