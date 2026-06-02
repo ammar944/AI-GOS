@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import {
@@ -9,12 +8,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Separator } from '@/components/ui/separator';
 import {
+  BodyProse,
   DataTable,
   Eyebrow,
   formatSourceIndex,
   MonoBadge,
+  SectionTitle,
   SourceLink,
   VerdictCallout,
   type DataTableColumn,
@@ -41,6 +41,7 @@ import {
   PositioningSynthesisRenderer,
   VoiceOfCustomerRenderer,
 } from './section-renderers';
+import { SubsectionBlock } from './primitives';
 
 export interface TypedArtifactRendererProps {
   artifact: PositioningTypedArtifact;
@@ -408,34 +409,24 @@ export function GenericTypedArtifactRenderer({
   return (
     <div
       data-testid={`typed-artifact-renderer-${zoneId}`}
-      className="space-y-6"
+      className="flex flex-col gap-8"
     >
-      <header className="space-y-3">
+      <header className="flex flex-col gap-3">
         {showSectionTitle ? (
-          <h2 className="text-xl font-semibold leading-tight text-foreground">
-            {artifact.sectionTitle}
-          </h2>
+          <SectionTitle as="h2">{artifact.sectionTitle}</SectionTitle>
         ) : null}
         <VerdictCallout verdict={artifact.verdict} />
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {artifact.statusSummary}
-        </p>
+        <BodyProse>{artifact.statusSummary}</BodyProse>
       </header>
 
       {subSections.map((subSection) => (
-        <section key={subSection.key} className="space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-base font-semibold text-foreground">
-              {subSection.title}
-            </h3>
-            {subSection.prose ? (
-              <div className="prose prose-sm max-w-none text-foreground dark:prose-invert">
-                <ReactMarkdown>{subSection.prose}</ReactMarkdown>
-              </div>
-            ) : null}
-          </div>
+        <SubsectionBlock
+          key={subSection.key}
+          label={subSection.title}
+          prose={subSection.prose ?? ''}
+        >
           {subSection.fields.length > 0 ? (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {subSection.fields.map((field) => (
                 <FieldGroup
                   key={field.key}
@@ -446,10 +437,9 @@ export function GenericTypedArtifactRenderer({
               ))}
             </div>
           ) : null}
-        </section>
+        </SubsectionBlock>
       ))}
 
-      <Separator />
       <ArtifactSources artifact={artifact} />
     </div>
   );
