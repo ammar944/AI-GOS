@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Printer, Copy, Check, Share2, Loader2, Link2 } from 'lucide-react';
 import Link from 'next/link';
@@ -12,7 +12,6 @@ import { CardGrid } from '@/components/workspace/card-grid';
 import { CompetitorTabs } from '@/components/workspace/competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
-import { MediaPlanButton } from '@/components/research/media-plan-button';
 import { ReportSources } from '@/components/workspace/report-sources';
 import { extractReportSources } from '@/lib/workspace/extract-card-sources';
 import { useSessionShare } from '@/hooks/use-session-share';
@@ -22,9 +21,7 @@ interface ResearchDocumentProps {
   availableSections: SectionKey[];
   title: string;
   createdAt?: string;
-  sessionId?: string;
   runId?: string;
-  hasMediaPlan?: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -36,67 +33,13 @@ function formatDate(iso: string): string {
   });
 }
 
-export function ResearchDocument({ cardsBySection, availableSections, title, createdAt, sessionId, runId, hasMediaPlan }: ResearchDocumentProps) {
+export function ResearchDocument({ cardsBySection, availableSections, title, createdAt, runId }: ResearchDocumentProps) {
   const [currentSection, setCurrentSection] = useState<SectionKey>(
     availableSections[0] ?? 'industryMarket',
   );
-  const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
-  const [mediaPlanCards, setMediaPlanCards] = useState<CardState[]>([]);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const allCards = cardsBySection;
 
-  // Poll for media plan results after dispatch
-  useEffect(() => {
-    if (!mediaPlanGenerating || !runId) return;
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/journey/session?runId=${runId}`, { credentials: 'same-origin' });
-        if (!res.ok) return;
-        const json = await res.json();
-        const results = json?.researchResults as Record<string, { status?: string; data?: Record<string, unknown> } | undefined> | null;
-        const mp = results?.mediaPlan;
-        if (mp?.status === 'complete' && mp.data) {
-          // Phase 6.3: extract intelligence card synthesizer output once (shared across sections)
-          const intelData = {
-            opportunityIntel:
-              results?.opportunityIntel?.status === 'complete'
-                ? results.opportunityIntel.data
-                : undefined,
-            whiteSpaceGapIntel:
-              results?.whiteSpaceGapIntel?.status === 'complete'
-                ? results.whiteSpaceGapIntel.data
-                : undefined,
-            offerStatementIntel:
-              results?.offerStatementIntel?.status === 'complete'
-                ? results.offerStatementIntel.data
-                : undefined,
-            strategicSynthesisIntel:
-              results?.strategicSynthesisIntel?.status === 'complete'
-                ? results.strategicSynthesisIntel.data
-                : undefined,
-          };
-          const cards = parseResearchToCards('mediaPlan', mp.data, intelData);
-          setMediaPlanCards(cards);
-          setMediaPlanGenerating(false);
-        }
-      } catch { /* retry next interval */ }
-    }, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [mediaPlanGenerating, runId]);
-
-  // Merge dynamic media plan cards into cardsBySection
-  const allCards = useMemo(() => {
-    if (mediaPlanCards.length === 0) return cardsBySection;
-    return { ...cardsBySection, mediaPlan: mediaPlanCards };
-  }, [cardsBySection, mediaPlanCards]);
-
-  // Add dynamic tabs to visible sections
-  const visibleSections = useMemo(() => {
-    const sections = [...availableSections];
-    if ((mediaPlanGenerating || mediaPlanCards.length > 0) && !sections.includes('mediaPlan')) {
-      sections.push('mediaPlan');
-    }
-    return sections;
-  }, [availableSections, mediaPlanGenerating, mediaPlanCards]);
+  const visibleSections = availableSections;
 
   const sectionCards = useMemo(
     () => allCards[currentSection] ?? [],
@@ -228,32 +171,12 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               <span className="text-[var(--text-quaternary)]">&middot;</span>
               <span>{totalCards} insights</span>
             </div>
-            {sessionId && (
-              <div className="mt-4 flex items-center gap-3">
-                <MediaPlanButton
-                  sessionId={sessionId}
-                  hasMediaPlan={hasMediaPlan ?? false}
-                  onDispatched={() => {
-                    setMediaPlanGenerating(true);
-                    setCurrentSection('mediaPlan');
-                  }}
-                />
-              </div>
-            )}
             <div className="h-px bg-[var(--border-subtle)] mt-4" />
           </div>
 
           {/* Interactive section content (screen only) */}
           <div className="no-print">
-            {currentSection === 'mediaPlan' && mediaPlanGenerating && sectionCards.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-[var(--text-secondary)]" />
-                <p className="text-sm text-[var(--text-tertiary)] font-mono">
-                  Generating media plan...
-                </p>
-              </div>
-            ) : (
-              <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
                 <motion.div
                   key={currentSection}
                   initial={{ opacity: 0 }}
@@ -291,7 +214,6 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
                   )}
                 </motion.div>
               </AnimatePresence>
-            )}
           </div>
 
           {/* Print-only: all sections rendered sequentially */}

@@ -93,15 +93,10 @@ export default async function ResearchPage({ params }: PageProps) {
     (meta?.url as string) ??
     'Research Document';
 
-  // Check if media plan already exists (check both naming conventions)
-  const hasMediaPlan =
-    researchResults.mediaPlan?.status === 'complete' ||
-    researchResults.mediaPlan?.status === 'running';
-
-  // Run ID for workspace deep-linking (used by MediaPlanButton)
+  // Run ID for workspace deep-linking (Share button)
   const runId = (meta?.activeJourneyRunId as string) ?? sessionId;
 
-  // Only show media plan button when all 6 research sections are complete
+  // Only show share button when all 6 research sections are complete
   const allResearchComplete = RESEARCH_SECTIONS.every(
     (s) => availableSections.includes(s),
   );
@@ -117,9 +112,7 @@ export default async function ResearchPage({ params }: PageProps) {
           availableSections={availableSections}
           title={title}
           createdAt={data.created_at}
-          sessionId={allResearchComplete ? sessionId : undefined}
           runId={allResearchComplete ? runId : undefined}
-          hasMediaPlan={hasMediaPlan}
         />
       </main>
     </div>
