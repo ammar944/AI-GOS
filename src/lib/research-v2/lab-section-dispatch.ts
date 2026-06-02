@@ -85,6 +85,7 @@ export async function scheduleLabSectionJob(
   };
   const store = createSupabaseRunStore({
     supabase: input.supabase,
+    userId: input.userId,
     parentAuditRunId: seeded.parent_audit_run_id,
     sectionRunIdByZone,
     researchInput: input.researchInput,

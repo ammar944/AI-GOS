@@ -24,9 +24,11 @@ import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/sect
 import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
 import { buildSynthesizedThesisPatch } from '@/lib/research-v2/orchestrate-db';
 import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
+import { persistProfileFromCommittedSectionBestEffort } from '@/lib/profiles/section-profile-persistence';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
+  userId: string;
   parentAuditRunId: string;
   sectionRunIdByZone: Partial<Record<SectionId, string>>;
   researchInput: ResearchInput;
@@ -512,6 +514,15 @@ export function createSupabaseRunStore(
           updatedAt: completedAt,
         });
       }
+
+      void persistProfileFromCommittedSectionBestEffort({
+        supabase: options.supabase,
+        userId: options.userId,
+        runId: input.runId,
+        researchInput: input,
+        sectionId: parsedArtifact.sectionId,
+        artifact: parsedArtifact,
+      });
 
       record = mergeSection(
         record,

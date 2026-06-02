@@ -1,16 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import { Share2, ExternalLink, FileText, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  BodyProse,
+  Eyebrow,
+  SectionTitle,
+  VerdictCallout,
+} from '@/components/research-v2/ui-kit';
+import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
 import { ShaderMeshBackground, BackgroundPattern } from '@/components/ui/sl-background';
 import { CardContentSwitch } from '@/components/research/card-renderer';
 import { SectionHeader } from '@/components/workspace/section-header';
 import { CardGrid } from '@/components/workspace/card-grid';
 import { ReadOnlyCard } from './read-only-card';
+import { READER_SECTION_LABELS } from '@/components/research-v3/reader-sections';
 import { SECTION_META } from '@/lib/journey/section-meta';
+import {
+  isV3ShareResearchSnapshot,
+  type V3ShareResearchSnapshot,
+} from '@/lib/research-v2/share-snapshot';
 import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import { cn } from '@/lib/utils';
+import {
+  pickPositioningTypedArtifact,
+  type PositioningTypedArtifact,
+} from '@/types/positioning-artifact';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 
 type TabKey = 'research' | 'mediaPlan';
@@ -18,8 +34,15 @@ type TabKey = 'research' | 'mediaPlan';
 interface SharedSessionViewProps {
   title: string;
   createdAt: string;
-  researchSnapshot: Record<string, CardState[]> | null;
-  mediaPlanSnapshot: CardState[] | null;
+  researchSnapshot: unknown;
+  mediaPlanSnapshot: unknown;
+}
+
+interface V3SharedSectionViewModel {
+  zone: V3ShareResearchSnapshot['sections'][number]['zone'];
+  title: string;
+  artifact: PositioningTypedArtifact | null;
+  markdown: string | null;
 }
 
 function formatDate(dateString: string): string {
@@ -35,27 +58,222 @@ function formatDate(dateString: string): string {
   }
 }
 
+function isLegacyResearchSnapshot(
+  value: unknown,
+): value is Record<string, CardState[]> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isLegacyMediaPlanSnapshot(value: unknown): value is CardState[] {
+  return Array.isArray(value);
+}
+
+function buildV3ViewSections(
+  snapshot: V3ShareResearchSnapshot,
+): V3SharedSectionViewModel[] {
+  return snapshot.sections.map((section) => ({
+    zone: section.zone,
+    title: section.title || READER_SECTION_LABELS[section.zone],
+    artifact: pickPositioningTypedArtifact(section.data, section.zone),
+    markdown: section.markdown,
+  }));
+}
+
+function V3SharedSessionView({
+  createdAt,
+  snapshot,
+  title,
+}: {
+  createdAt: string;
+  snapshot: V3ShareResearchSnapshot;
+  title: string;
+}): ReactElement {
+  const sections = useMemo(() => buildV3ViewSections(snapshot), [snapshot]);
+  const [activeZone, setActiveZone] = useState(() => sections[0]?.zone ?? null);
+  const activeSection =
+    sections.find((section) => section.zone === activeZone) ?? sections[0] ?? null;
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border bg-card">
+          <div className="mx-auto flex h-12 w-full max-w-6xl items-center justify-between px-4">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Share2 className="size-4 shrink-0 text-muted-foreground" />
+              <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
+                {title}
+              </h1>
+              <span className="hidden text-muted-foreground/40 sm:inline">/</span>
+              <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+                {formatDate(createdAt)}
+              </span>
+            </div>
+            <Badge
+              variant="outline"
+              className="ml-3 flex shrink-0 items-center gap-1 text-[11px]"
+            >
+              <ExternalLink className="size-3" />
+              Read-only
+            </Badge>
+          </div>
+        </div>
+
+        <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1">
+          {sections.length > 1 ? (
+            <nav className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card px-3 py-4 sm:block">
+              <div className="space-y-1">
+                {sections.map((section) => (
+                  <button
+                    key={section.zone}
+                    type="button"
+                    onClick={() => setActiveZone(section.zone)}
+                    className={cn(
+                      'w-full rounded-md px-3 py-2 text-left text-xs transition-colors',
+                      activeSection?.zone === section.zone
+                        ? 'bg-secondary text-foreground'
+                        : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+                    )}
+                  >
+                    {READER_SECTION_LABELS[section.zone]}
+                  </button>
+                ))}
+              </div>
+            </nav>
+          ) : null}
+
+          <div className="min-w-0 flex-1 overflow-y-auto bg-card px-6 py-8 sm:px-10">
+            {sections.length > 1 ? (
+              <nav className="mb-6 flex gap-4 overflow-x-auto border-b border-border pb-px sm:hidden">
+                {sections.map((section) => (
+                  <button
+                    key={section.zone}
+                    type="button"
+                    onClick={() => setActiveZone(section.zone)}
+                    className={cn(
+                      'shrink-0 border-b-[1.5px] pb-2 text-[12px] font-medium transition-colors',
+                      activeSection?.zone === section.zone
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {READER_SECTION_LABELS[section.zone]}
+                  </button>
+                ))}
+              </nav>
+            ) : null}
+
+            {activeSection ? (
+              <article className="mx-auto max-w-[760px]">
+                <Eyebrow>Shared Audit</Eyebrow>
+                <SectionTitle className="mt-2">
+                  {activeSection.artifact?.sectionTitle ?? activeSection.title}
+                </SectionTitle>
+                {activeSection.artifact ? (
+                  <div className="mt-6 space-y-7">
+                    {activeSection.artifact.statusSummary ? (
+                      <BodyProse>{activeSection.artifact.statusSummary}</BodyProse>
+                    ) : null}
+                    <VerdictCallout verdict={activeSection.artifact.verdict} />
+                    <TypedArtifactRenderer
+                      artifact={activeSection.artifact}
+                      zoneId={activeSection.zone}
+                      showSectionTitle={false}
+                    />
+                  </div>
+                ) : activeSection.markdown ? (
+                  <pre className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">
+                    {activeSection.markdown}
+                  </pre>
+                ) : (
+                  <div className="mt-6 border-l-2 border-border pl-4 text-sm text-muted-foreground">
+                    No data available for this section
+                  </div>
+                )}
+              </article>
+            ) : (
+              <div className="flex min-h-[300px] items-center justify-center">
+                <p className="text-sm text-muted-foreground">
+                  No shared sections available
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-border bg-card">
+          <div className="mx-auto flex h-11 max-w-6xl items-center justify-between px-4">
+            <p className="hidden text-xs text-muted-foreground sm:inline">
+              Generated with AIGOS
+            </p>
+            <a
+              href="/research-v3"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Create Your Own
+              <ExternalLink className="size-3" />
+            </a>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export function SharedSessionView({
   title,
   createdAt,
   researchSnapshot,
   mediaPlanSnapshot,
-}: SharedSessionViewProps) {
+}: SharedSessionViewProps): ReactElement {
+  if (isV3ShareResearchSnapshot(researchSnapshot)) {
+    return (
+      <V3SharedSessionView
+        title={title}
+        createdAt={createdAt}
+        snapshot={researchSnapshot}
+      />
+    );
+  }
+
+  return (
+    <LegacySharedSessionView
+      title={title}
+      createdAt={createdAt}
+      researchSnapshot={researchSnapshot}
+      mediaPlanSnapshot={mediaPlanSnapshot}
+    />
+  );
+}
+
+function LegacySharedSessionView({
+  title,
+  createdAt,
+  researchSnapshot,
+  mediaPlanSnapshot,
+}: SharedSessionViewProps): ReactElement {
   const [activeTab, setActiveTab] = useState<TabKey>('research');
   const [activeSection, setActiveSection] = useState<SectionKey>('industryMarket');
+  const legacyResearchSnapshot = isLegacyResearchSnapshot(researchSnapshot)
+    ? researchSnapshot
+    : null;
+  const legacyMediaPlanSnapshot = isLegacyMediaPlanSnapshot(mediaPlanSnapshot)
+    ? mediaPlanSnapshot
+    : null;
 
-  const hasResearch = researchSnapshot && Object.keys(researchSnapshot).length > 0;
-  const hasMediaPlan = mediaPlanSnapshot && mediaPlanSnapshot.length > 0;
+  const hasResearch =
+    legacyResearchSnapshot && Object.keys(legacyResearchSnapshot).length > 0;
+  const hasMediaPlan =
+    legacyMediaPlanSnapshot && legacyMediaPlanSnapshot.length > 0;
 
   // Research section navigation — only sections with cards
   const availableSections = RESEARCH_SECTIONS.filter(
-    (key) => researchSnapshot?.[key]?.length,
+    (key) => legacyResearchSnapshot?.[key]?.length,
   );
 
   const currentCards =
     activeTab === 'research'
-      ? researchSnapshot?.[activeSection] ?? []
-      : mediaPlanSnapshot ?? [];
+      ? legacyResearchSnapshot?.[activeSection] ?? []
+      : legacyMediaPlanSnapshot ?? [];
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[var(--bg-base)]">

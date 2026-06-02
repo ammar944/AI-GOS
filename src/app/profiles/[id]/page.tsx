@@ -403,7 +403,7 @@ function ResearchTab({
       {sessions.map((session) => (
         <Link
           key={session.id}
-          href={`/research/${session.runId}`}
+          href={`/research-v3?runId=${encodeURIComponent(session.runId)}`}
           className="flex items-center justify-between rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-4 transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)]"
         >
           <div className="flex items-center gap-3">

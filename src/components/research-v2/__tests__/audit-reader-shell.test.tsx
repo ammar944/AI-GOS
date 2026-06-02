@@ -862,6 +862,63 @@ describe('<AuditReaderShell>', () => {
     warnSpy.mockRestore();
   });
 
+  it('shares the current v3 run and copies the public link', async (): Promise<void> => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input);
+        if (url.includes('/api/journey/session')) {
+          return Response.json({ metadata: { companyName: 'SaaSLaunch' } });
+        }
+        if (url === '/api/share') {
+          return Response.json({
+            success: true,
+            shareUrl: '/shared/share_token_123',
+            shareToken: 'share_token_123',
+          });
+        }
+        return Response.json({ error: 'unexpected request' }, { status: 500 });
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: marketCategoryFixtureArtifact,
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+    await screen.findByText('SaaSLaunch');
+
+    fireEvent.click(screen.getByRole('button', { name: /share audit/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/share',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId: '00000000-0000-4000-8000-0000000000aa',
+            title: 'SaaSLaunch Positioning Audit',
+          }),
+        }),
+      ),
+    );
+    expect(writeText).toHaveBeenCalledWith('/shared/share_token_123');
+  });
+
   it('contains malformed committed bodies with an error boundary', (): void => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.useAuditState.mockReturnValue({
