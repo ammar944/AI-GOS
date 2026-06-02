@@ -274,3 +274,139 @@ describe("buildCompetitorAdEvidenceGroups", (): void => {
     ).toBe(true);
   });
 });
+
+describe("competitor ad verification tiering", (): void => {
+  const baseStep = (ads: unknown[]) => ({
+    stepNumber: 0,
+    finishReason: "tool-calls" as const,
+    text: "",
+    toolCalls: [
+      {
+        toolName: "meta_ads",
+        input: { advertiser: "Gong", domain: "gong.io", max_results: 8 },
+      },
+    ],
+    toolResults: [
+      {
+        toolName: "meta_ads",
+        output: { type: "result", advertiser: "Gong", platform: "meta", ads },
+      },
+    ],
+  });
+
+  it("marks an identity-verified, English, name-matching creative as verified", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=1",
+            id: "1",
+            advertiserName: "Gong",
+            title: "Win more deals with revenue intelligence",
+            snippet: "See every customer conversation in one place.",
+            identityVerified: true,
+            identityBasis: "domain",
+          },
+        ]),
+      ],
+    });
+    expect(group.creatives[0]?.verified).toBe(true);
+    expect(group.creatives[0]?.isEnglish).toBe(true);
+    expect(group.creatives[0]?.identityBasis).toBe("domain");
+    expect(group.identityConfidence).toBe("verified");
+    expect(group.quarantinedCount).toBe(0);
+  });
+
+  it("quarantines an ambiguous (identityVerified=false) creative", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=2",
+            id: "2",
+            advertiserName: "Gong",
+            title: "Win more deals with revenue intelligence",
+            identityVerified: false,
+            identityBasis: "ambiguous",
+          },
+        ]),
+      ],
+    });
+    expect(group.creatives[0]?.verified).toBe(false);
+    expect(group.identityConfidence).toBe("low");
+    expect(group.quarantinedCount).toBe(1);
+  });
+
+  it("quarantines a non-English creative even when identity is verified", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=3",
+            id: "3",
+            advertiserName: "Gong",
+            title: "Cierra más tratos con la mejor plataforma para tu negocio",
+            snippet: "Compra ahora y obtén un descuento gratis para tu empresa.",
+            identityVerified: true,
+            identityBasis: "domain",
+          },
+        ]),
+      ],
+    });
+    expect(group.creatives[0]?.isEnglish).toBe(false);
+    expect(group.creatives[0]?.verified).toBe(false);
+  });
+
+  it("quarantines a creative whose own advertiserName is a different company", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=4",
+            id: "4",
+            advertiserName: "Some Other Company LLC",
+            title: "Win more deals with revenue intelligence",
+            identityVerified: true,
+            identityBasis: "domain",
+          },
+        ]),
+      ],
+    });
+    expect(group.creatives[0]?.verified).toBe(false);
+  });
+
+  it("ranks a verified creative above an unverified richer one in the cap", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      returnedCreativeLimit: 2,
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=rich",
+            id: "rich",
+            advertiserName: "Gong",
+            title: "Rich unverified ad",
+            snippet: "Body copy here",
+            videoUrl: "https://cdn.example.com/rich.mp4",
+            transcript: "A long spoken transcript that boosts richness score.",
+            identityVerified: false,
+          },
+          {
+            url: "https://www.facebook.com/ads/library/?id=thin",
+            id: "thin",
+            advertiserName: "Gong",
+            title: "Thin verified ad",
+            identityVerified: true,
+          },
+        ]),
+      ],
+    });
+    // The verified (thin) creative must rank first despite lower media richness.
+    expect(group.creatives[0]?.verified).toBe(true);
+    expect(group.creatives[0]?.id).toBe("thin");
+  });
+});

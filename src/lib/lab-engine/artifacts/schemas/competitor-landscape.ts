@@ -166,6 +166,15 @@ const adEvidenceCreativeSchema = z
     source: z.string().min(1).nullable(),
     transcript: z.string().min(1).nullable(),
     cta: z.string().min(1).nullable(),
+    // Quality metadata (optional for backward-compatibility with artifacts
+    // persisted before the ad-engine rebuild). `verified` is the wall/quarantine
+    // discriminator: a creative is verified when its advertiser identity is
+    // corroborated AND its copy is in the target language AND its own
+    // advertiserName reconciles with the group it is filed under.
+    language: z.string().min(1).nullable().optional(),
+    isEnglish: z.boolean().optional(),
+    verified: z.boolean().optional(),
+    identityBasis: z.string().min(1).nullable().optional(),
   })
   .strict();
 
@@ -225,6 +234,12 @@ export const competitorAdEvidenceGroupSchema = z
     dataGaps: z.array(adEvidenceDataGapSchema),
     sourceErrors: z.array(adEvidenceSourceErrorSchema),
     observedAt: z.string().min(1),
+    // Advertiser-resolution confidence for the whole group, derived from the
+    // resolveBestCandidate verdict: "verified" (accepted, identity corroborated)
+    // vs "low" (ambiguous / name-only / unresolved). Drives the verified-wall vs
+    // quarantine split in the UI. Optional for pre-rebuild artifacts.
+    identityConfidence: z.enum(["verified", "low"]).optional(),
+    quarantinedCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 

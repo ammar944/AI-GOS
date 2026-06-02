@@ -3,7 +3,9 @@ import {
   type CompetitorAdEvidenceGroup,
 } from "../../artifacts/schemas/competitor-landscape";
 import type { AgentStep } from "../section-agent";
+import { detectAdLanguage } from "./ad-language";
 import { AdLibraryOutputSchema } from "./adlibrary";
+import { isAdvertiserMatch } from "./advertiser-match";
 
 type AdEvidencePlatform = CompetitorAdEvidenceGroup["platforms"][number];
 type PlatformCounts = CompetitorAdEvidenceGroup["rawCounts"];
@@ -37,6 +39,8 @@ interface RawAd {
   source?: string;
   transcript?: string;
   cta?: string;
+  identityVerified?: boolean;
+  identityBasis?: string;
 }
 
 interface MutableAdEvidenceGroup {
@@ -295,13 +299,32 @@ function buildCreative({
   const imageUrl = readNullableText(rawAd.imageUrl);
   const videoUrl = readNullableText(rawAd.videoUrl);
   const sourceUrl = readNullableText(rawAd.detailsUrl) ?? rawAd.url;
+  const headline = nonEmptyText(rawAd.title);
+  const body = nonEmptyText(rawAd.snippet);
+  const transcript = readNullableText(rawAd.transcript);
+  // Detect language from the CREATIVE COPY only (headline/body/transcript) — never
+  // the advertiserName, which is a brand token that would false-positive.
+  const copy = [headline, body, transcript]
+    .filter((value): value is string => value !== null)
+    .join(" ");
+  const language = detectAdLanguage(copy);
+
+  // A creative earns the verified wall only when ALL THREE hold:
+  //  1. its advertiser identity was corroborated upstream (identityVerified),
+  //  2. its copy is on-language (not a foreign-market creative), and
+  //  3. its OWN advertiserName reconciles with the group it is filed under —
+  //     this is the cross-attribution check the old pipeline never made (H9).
+  const ownAdvertiser = nonEmptyText(rawAd.advertiserName) ?? advertiserName;
+  const reconciles = isAdvertiserMatch(ownAdvertiser, advertiserName);
+  const verified =
+    (rawAd.identityVerified ?? false) && language.isEnglish && reconciles;
 
   return {
     id: rawAd.id ?? `ad_${platform}_${slugify(advertiserName)}_${index}`,
     platform,
-    advertiserName: nonEmptyText(rawAd.advertiserName) ?? advertiserName,
-    headline: nonEmptyText(rawAd.title),
-    body: nonEmptyText(rawAd.snippet),
+    advertiserName: ownAdvertiser,
+    headline,
+    body,
     landingUrl: readNullableText(rawAd.landingUrl),
     creativeUrl: imageUrl ?? videoUrl,
     imageUrl,
@@ -313,8 +336,12 @@ function buildCreative({
     format: inferCreativeFormat(rawAd),
     isActive: rawAd.isActive ?? true,
     source: readNullableText(rawAd.source),
-    transcript: readNullableText(rawAd.transcript),
+    transcript,
     cta: readNullableText(rawAd.cta),
+    language: language.language,
+    isEnglish: language.isEnglish,
+    verified,
+    identityBasis: rawAd.identityBasis ?? null,
   };
 }
 
@@ -563,8 +590,25 @@ function finalizeGroup(
   // order (SearchAPI results insert before the Foreplay prepass). Stable for
   // equal scores. displayableCounts above still counts every unique creative.
   const creatives = [...uniqueCreatives]
-    .sort((a, b) => creativeRichnessScore(b) - creativeRichnessScore(a))
+    .sort((a, b) => {
+      // Verified creatives always win cap slots over low-confidence ones, so the
+      // returned set fills the verified wall before anything is quarantined.
+      const verifiedDelta =
+        Number(b.verified === true) - Number(a.verified === true);
+      if (verifiedDelta !== 0) {
+        return verifiedDelta;
+      }
+      return creativeRichnessScore(b) - creativeRichnessScore(a);
+    })
     .slice(0, returnedCreativeLimit);
+  const quarantinedCount = creatives.filter(
+    (creative) => creative.verified !== true,
+  ).length;
+  const identityConfidence: "verified" | "low" = creatives.some(
+    (creative) => creative.verified === true,
+  )
+    ? "verified"
+    : "low";
 
   return {
     advertiserName: group.advertiserName,
@@ -584,6 +628,8 @@ function finalizeGroup(
     }),
     sourceErrors: group.sourceErrors,
     observedAt: group.observedAt,
+    identityConfidence,
+    quarantinedCount,
   };
 }
 
