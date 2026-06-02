@@ -142,7 +142,9 @@ export function DataTable<T>({
                         ? 'truncate'
                         : col.wrap === 'clamp'
                           ? CLAMP_CLASS[col.clampLines ?? 2]
-                          : undefined;
+                          : col.wrap === 'wrap'
+                            ? 'break-words'
+                            : undefined;
                   const titleAttr =
                     (col.wrap === 'truncate' || col.wrap === 'nowrap') &&
                     rawValue != null

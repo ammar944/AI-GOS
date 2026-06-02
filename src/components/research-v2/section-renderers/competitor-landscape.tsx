@@ -618,20 +618,20 @@ export function CompetitorLandscapeRenderer({
     {
       key: 'competitor',
       header: 'Competitor',
-      width: '150px',
+      width: '100px',
       wrap: 'wrap',
       render: row => (
         <span className="font-medium text-foreground">{row.competitor}</span>
       ),
     },
-    { key: 'tierName', header: 'Tier', width: '130px', wrap: 'wrap' },
-    { key: 'monthlyPrice', header: 'Monthly', numeric: true, width: '110px', wrap: 'nowrap' },
+    { key: 'tierName', header: 'Tier', width: '115px', wrap: 'wrap' },
+    { key: 'monthlyPrice', header: 'Monthly', width: '125px', wrap: 'wrap' },
     { key: 'packagingPattern', header: 'Packaging', grow: true, wrap: 'wrap' },
-    { key: 'gatedSignals', header: 'Gates', width: '170px', wrap: 'wrap' },
+    { key: 'gatedSignals', header: 'Gates', width: '128px', wrap: 'wrap' },
     {
       key: 'sourceUrl',
       header: 'Source',
-      width: '88px',
+      width: '78px',
       wrap: 'nowrap',
       render: row => <SourceLink url={row.sourceUrl} />,
     },
