@@ -577,7 +577,8 @@ export function validateCompetitorLandscapeMinimums(
   const observedTypes = parsedArtifact.body.competitorSet.competitors.map(
     (competitor) => competitor.competitorType,
   );
-  const missingTypes = competitorTypes.filter(
+  const requiredCompetitorTypes = ["direct", "status-quo"] as const;
+  const missingTypes = requiredCompetitorTypes.filter(
     (competitorType) => !observedTypes.includes(competitorType),
   );
   if (missingTypes.length > 0) {
