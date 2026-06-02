@@ -75,7 +75,7 @@ export function DataTable<T>({
           ) : (
             rows.map((row, rowIndex) => (
               <tr
-                key={keyFn(row, rowIndex)}
+                key={`${keyFn(row, rowIndex)}-${rowIndex}`}
                 data-testid={rowTestId?.(row, rowIndex)}
                 className="border-b border-transparent transition-colors hover:bg-muted/40"
               >
