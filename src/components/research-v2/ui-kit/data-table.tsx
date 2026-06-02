@@ -11,6 +11,36 @@ export interface DataTableColumn<T> {
   render?: (row: T, rowIndex: number) => ReactNode;
   className?: string;
   headerClassName?: string;
+  /** Fixed CSS width for the column (e.g. '120px', '20%'). Opts the table into table-fixed + colgroup. */
+  width?: string;
+  /** Min CSS width for the column. Opts the table into table-fixed + colgroup. */
+  minWidth?: string;
+  /** Max CSS width for the column. Opts the table into table-fixed + colgroup. */
+  maxWidth?: string;
+  /** When true, the column absorbs slack (width:auto in colgroup). Opts the table into table-fixed + colgroup. */
+  grow?: boolean;
+  /** Text wrapping behavior for the cell. Opts the table into table-fixed + colgroup. */
+  wrap?: 'wrap' | 'truncate' | 'nowrap' | 'clamp';
+  /** Number of lines for wrap:'clamp' (1-4). Defaults to 2. Opts the table into table-fixed + colgroup. */
+  clampLines?: number;
+}
+
+const CLAMP_CLASS: Record<number, string> = {
+  1: 'line-clamp-1',
+  2: 'line-clamp-2',
+  3: 'line-clamp-3',
+  4: 'line-clamp-4',
+};
+
+function columnOptsIntoSizing<T>(col: DataTableColumn<T>): boolean {
+  return (
+    col.width !== undefined ||
+    col.minWidth !== undefined ||
+    col.maxWidth !== undefined ||
+    col.grow !== undefined ||
+    col.wrap !== undefined ||
+    col.clampLines !== undefined
+  );
 }
 
 export interface DataTableProps<T> {
@@ -40,11 +70,32 @@ export function DataTable<T>({
 }: DataTableProps<T>): React.ReactElement {
   const keyFn = rowKey ?? defaultRowKey;
   const cellPad = density === 'compact' ? 'py-1.5' : 'py-2.5';
+  const sized = columns.some(columnOptsIntoSizing);
 
   return (
     <div className={cn('w-full overflow-x-auto', className)}>
       {caption ? <Eyebrow className="mb-2 block">{caption}</Eyebrow> : null}
-      <table className="w-full border-collapse text-[14px]">
+      <table
+        className={cn(
+          'w-full border-collapse text-[14px]',
+          sized && 'table-fixed',
+        )}
+      >
+        {sized ? (
+          <colgroup>
+            {columns.map((col) => {
+              const style: React.CSSProperties = {};
+              if (col.grow) {
+                style.width = 'auto';
+              } else if (col.width !== undefined) {
+                style.width = col.width;
+              }
+              if (col.minWidth !== undefined) style.minWidth = col.minWidth;
+              if (col.maxWidth !== undefined) style.maxWidth = col.maxWidth;
+              return <col key={col.key} style={style} />;
+            })}
+          </colgroup>
+        ) : null}
         <thead>
           <tr>
             {columns.map((col) => (
@@ -52,7 +103,7 @@ export function DataTable<T>({
                 key={col.key}
                 scope="col"
                 className={cn(
-                  'border-b border-border pb-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground/80',
+                  'border-b border-border pb-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-foreground/70',
                   col.numeric ? 'text-right' : 'text-left',
                   col.headerClassName,
                 )}
@@ -77,20 +128,35 @@ export function DataTable<T>({
               <tr
                 key={`${keyFn(row, rowIndex)}-${rowIndex}`}
                 data-testid={rowTestId?.(row, rowIndex)}
-                className="border-b border-transparent transition-colors hover:bg-muted/40"
+                className="border-b border-border/60 transition-colors hover:bg-muted/40"
               >
                 {columns.map((col) => {
+                  const rawValue = (row as Record<string, unknown>)[col.key];
                   const rendered = col.render
                     ? col.render(row, rowIndex)
-                    : ((row as Record<string, unknown>)[col.key] as ReactNode);
+                    : (rawValue as ReactNode);
+                  const wrapClass =
+                    col.wrap === 'nowrap'
+                      ? 'whitespace-nowrap'
+                      : col.wrap === 'truncate'
+                        ? 'truncate'
+                        : col.wrap === 'clamp'
+                          ? CLAMP_CLASS[col.clampLines ?? 2]
+                          : undefined;
+                  const titleAttr =
+                    col.wrap === 'truncate' && rawValue != null
+                      ? String(rawValue)
+                      : undefined;
                   return (
                     <td
                       key={col.key}
+                      title={titleAttr}
                       className={cn(
                         cellPad,
                         'pr-4 text-foreground/90',
                         col.numeric && 'text-right font-mono tabular-nums',
                         !col.numeric && 'text-left',
+                        wrapClass,
                         col.className,
                       )}
                     >
