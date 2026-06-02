@@ -163,6 +163,9 @@ const adEvidenceCreativeSchema = z
     lastSeen: z.string().min(1).nullable(),
     format: z.string().min(1),
     isActive: z.boolean(),
+    source: z.string().min(1).nullable(),
+    transcript: z.string().min(1).nullable(),
+    cta: z.string().min(1).nullable(),
   })
   .strict();
 
@@ -187,6 +190,9 @@ const adEvidenceRawSourceSampleSchema = z
     sourceUrl: z.string().url(),
     format: z.string().min(1).nullable(),
     dataGap: z.string().min(1).nullable(),
+    source: z.string().min(1).nullable(),
+    transcript: z.string().min(1).nullable(),
+    cta: z.string().min(1).nullable(),
   })
   .strict();
 
@@ -273,6 +279,48 @@ export type CompetitorLandscapeSectionOutput = z.infer<
 export type CompetitorLandscapeArtifact = ArtifactEnvelope & {
   body: CompetitorLandscapeBody;
 };
+
+function canonicalPlatform(platform: string): string {
+  const normalized = platform.toLowerCase().trim();
+  if (normalized === "facebook" || normalized === "instagram") {
+    return "meta";
+  }
+  return normalized;
+}
+
+function normalizeText(value: string | null | undefined, length: number): string {
+  return (value ?? "").trim().toLowerCase().slice(0, length);
+}
+
+export function adCreativeFingerprint(creative: {
+  platform: string;
+  id?: string | null;
+  headline?: string | null;
+  body?: string | null;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+}): string {
+  // TIER 1: a bare numeric id is a canonical shared id (Meta ad_archive_id,
+  // Foreplay ad_library_id). Synthetic ids minted by the adapter (ad_meta_<slug>_0)
+  // and the source (meta-0) are NOT numeric-only, so they fall through to content
+  // keys and never collapse distinct creatives onto one shared id.
+  const id = (creative.id ?? "").trim();
+  if (/^[0-9]+$/.test(id)) {
+    return "id:" + id;
+  }
+
+  // TIER 2: content key from headline + body.
+  const headline = normalizeText(creative.headline, 80);
+  const body = normalizeText(creative.body, 80);
+
+  // MEDIA-ONLY carve-out: no text evidence, key on the media URL.
+  if (headline === "" && body === "") {
+    const media = (creative.videoUrl ?? creative.imageUrl ?? "").trim();
+    return "media:" + canonicalPlatform(creative.platform) + ":" + media;
+  }
+
+  return "c2:" + canonicalPlatform(creative.platform) + ":" + headline + ":" + body;
+}
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;

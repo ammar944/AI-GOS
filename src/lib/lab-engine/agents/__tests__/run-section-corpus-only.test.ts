@@ -254,7 +254,7 @@ describe('runSection corpus-only mode', (): void => {
       );
       expect(params.instructions).toContain("Corpus-only mode:");
       expect(params.instructions).toContain(
-        "Do not call web_search, firecrawl, pagespeed, reviews, keyword_ad_probe, adlibrary, google_ads, or meta_ads.",
+        "Do not call web_search, firecrawl, pagespeed, reviews, keyword_ad_probe, adlibrary, google_ads, meta_ads, or linkedin_ads.",
       );
       expect(params.prompt).toContain(
         "No external research tools are available.",

@@ -15,7 +15,7 @@ import {
   resolveBestCandidate,
 } from "./advertiser-match";
 
-const adLibraryPlatformSchema = z.enum(["meta", "google"]);
+const adLibraryPlatformSchema = z.enum(["meta", "google", "linkedin"]);
 
 const adLibraryAdSchema = z
   .object({
@@ -32,6 +32,9 @@ const adLibraryAdSchema = z
     lastSeen: z.string().min(1).optional(),
     format: z.string().min(1).optional(),
     isActive: z.boolean().optional(),
+    source: z.string().optional(),
+    transcript: z.string().optional(),
+    cta: z.string().optional(),
   })
   .strict();
 
@@ -71,6 +74,9 @@ interface NormalizedAd {
   lastSeen?: string;
   format?: string;
   isActive?: boolean;
+  source?: string;
+  transcript?: string;
+  cta?: string;
 }
 
 class SearchApiHttpError extends Error {
@@ -243,6 +249,10 @@ function buildLibraryLink(
 
   if (platform === "google") {
     return `https://adstransparency.google.com/?region=anywhere&q=${encodedAdvertiser}`;
+  }
+
+  if (platform === "linkedin") {
+    return `https://www.linkedin.com/ad-library/search?company=${encodedAdvertiser}`;
   }
 
   return `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=${encodedAdvertiser}&search_type=keyword_unordered&media_type=all`;
@@ -579,6 +589,142 @@ async function searchMetaAds({
   });
 }
 
+// LinkedIn link-redirect false-positive guard (ported from the worker, Wave 6e
+// Hole 4). LinkedIn omits links on awareness ads and hosts redirect URLs that
+// hide the ultimate destination, so the per-ad domain guard cannot rely on a
+// clickthrough URL the way Google/Meta can. When we have a verified domain
+// (`domain` is set) drop a raw record ONLY when there is strong evidence its
+// destination is a different external domain; keep ambiguous records. Short
+// names (<=6 chars) require positive domain corroboration to avoid wrong-company
+// ads (e.g. fathom.ai vs fathom.com sharing the "Fathom" LinkedIn page name).
+function passesLinkedInLinkGuard({
+  record,
+  normalizedDomain,
+  isShortName,
+}: {
+  record: SearchApiRecord;
+  normalizedDomain: string;
+  isShortName: boolean;
+}): boolean {
+  const domainBase = normalizedDomain.split(".")[0] ?? "";
+  const domainTld = normalizedDomain.split(".").slice(1).join("").toLowerCase();
+  const rawLink = typeof record.link === "string" ? record.link : "";
+  const link = rawLink.toLowerCase();
+
+  let decodedLink: string;
+  try {
+    decodedLink = decodeURIComponent(link);
+  } catch {
+    decodedLink = link;
+  }
+
+  // Link contains our verified domain (raw or URL-decoded inside a redirect).
+  // LinkedIn redirect URLs encode dots as %2E (e.g. gong%2Eio vs gong.io), so
+  // the decoded form must be checked too.
+  if (decodedLink !== "" && decodedLink.includes(normalizedDomain)) {
+    return true;
+  }
+
+  const host = (() => {
+    try {
+      return decodedLink !== "" ? new URL(decodedLink).hostname.toLowerCase() : "";
+    } catch {
+      return "";
+    }
+  })();
+
+  if (host.endsWith("linkedin.com") || host.endsWith("lnkd.in")) {
+    const slugMatch = decodedLink.match(
+      /linkedin\.com\/(?:company|showcase|in)\/([a-z0-9-]+)/i,
+    );
+
+    if (slugMatch) {
+      const slug = slugMatch[1].toLowerCase();
+      // Slug contains base AND TLD -> strong match (fathom.ai -> fathom-ai).
+      if (
+        domainBase !== "" &&
+        slug.includes(domainBase) &&
+        domainTld !== "" &&
+        slug.includes(domainTld)
+      ) {
+        return true;
+      }
+      // Slug equals bare base only -> ambiguous. Short-name: drop.
+      if (
+        slug === domainBase ||
+        slug.startsWith(`${domainBase}-`) ||
+        slug.endsWith(`-${domainBase}`)
+      ) {
+        return !isShortName;
+      }
+      // Slug doesn't corroborate base -> wrong company, drop.
+      return false;
+    }
+
+    // LinkedIn URL with no extractable slug (feed post, search, etc.).
+    // Short-name: drop (can't verify). Long-name: keep.
+    return !isShortName;
+  }
+
+  // Missing link: short-name can't disambiguate -> drop. Long-name -> keep.
+  if (link === "") {
+    return !isShortName;
+  }
+
+  // Link is a clearly different external URL that doesn't contain our verified
+  // domain -> drop.
+  return false;
+}
+
+async function searchLinkedInAds({
+  abortSignal,
+  advertiserName,
+  apiKey,
+  domain,
+  maxResults,
+}: {
+  abortSignal?: AbortSignal;
+  advertiserName: string;
+  apiKey: string;
+  domain?: string;
+  maxResults: number;
+}): Promise<NormalizedAd[]> {
+  // The LinkedIn Ad Library engine takes the brand name on `advertiser=` and
+  // returns ads directly (no advertiser-search step), so there is no candidate
+  // resolution / NoMatchedAdvertiserError stage here. A transport failure throws
+  // SearchApiHttpError, which the tool's execute() maps to a structured api_error
+  // gap; an empty result becomes a zero-row `result` the adapter turns into a
+  // documented data gap. Neither path returns a silent [].
+  const payload = await fetchSearchApiJson({
+    abortSignal,
+    apiKey,
+    params: {
+      engine: "linkedin_ad_library",
+      advertiser: advertiserName,
+    },
+  });
+  const records = getRecordArray(payload, "ads");
+
+  const guardedRecords =
+    domain === undefined
+      ? records
+      : records.filter((record) =>
+          passesLinkedInLinkGuard({
+            record,
+            normalizedDomain: normalizeDomain(domain),
+            isShortName: advertiserName.trim().length <= 6,
+          }),
+        );
+
+  return normalizeSearchApiRecords({
+    advertiserName,
+    domain,
+    maxResults,
+    platform: "linkedin",
+    records: guardedRecords,
+  });
+}
+
 async function fetchNativeAds({
   abortSignal,
   advertiserName,
@@ -596,6 +742,16 @@ async function fetchNativeAds({
 }): Promise<NormalizedAd[]> {
   if (platform === "google") {
     return searchGoogleAds({
+      abortSignal,
+      advertiserName,
+      apiKey,
+      domain,
+      maxResults,
+    });
+  }
+
+  if (platform === "linkedin") {
+    return searchLinkedInAds({
       abortSignal,
       advertiserName,
       apiKey,

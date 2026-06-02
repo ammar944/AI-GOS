@@ -9,7 +9,7 @@ type AdEvidenceCreative = CompetitorAdEvidenceGroup["creatives"][number];
 type RawSourceSample = CompetitorAdEvidenceGroup["rawSourceSamples"][number];
 type DataGap = CompetitorAdEvidenceGroup["dataGaps"][number];
 type SourceError = CompetitorAdEvidenceGroup["sourceErrors"][number];
-type AdToolName = "adlibrary" | "google_ads" | "meta_ads";
+type AdToolName = "adlibrary" | "google_ads" | "meta_ads" | "linkedin_ads";
 
 export interface BuildCompetitorAdEvidenceGroupsArgs {
   steps: readonly AgentStep[];
@@ -31,6 +31,9 @@ interface RawAd {
   lastSeen?: string;
   format?: string;
   isActive?: boolean;
+  source?: string;
+  transcript?: string;
+  cta?: string;
 }
 
 interface MutableAdEvidenceGroup {
@@ -46,7 +49,12 @@ interface MutableAdEvidenceGroup {
   observedAt: string;
 }
 
-const adToolNames = ["adlibrary", "google_ads", "meta_ads"] as const;
+const adToolNames = [
+  "adlibrary",
+  "google_ads",
+  "meta_ads",
+  "linkedin_ads",
+] as const;
 const platformOrder: readonly AdEvidencePlatform[] = [
   "google",
   "meta",
@@ -89,6 +97,10 @@ function normalizePlatform(value: unknown): AdEvidencePlatform | null {
 function platformFromToolName(toolName: AdToolName): AdEvidencePlatform {
   if (toolName === "google_ads") {
     return "google";
+  }
+
+  if (toolName === "linkedin_ads") {
+    return "linkedin";
   }
 
   return "meta";
@@ -239,6 +251,9 @@ function buildRawSourceSample({
       headline === null && body === null && imageUrl === null && videoUrl === null
         ? "Raw library row has no headline, body, image, or video fields."
         : null,
+    source: readNullableText(rawAd.source),
+    transcript: readNullableText(rawAd.transcript),
+    cta: readNullableText(rawAd.cta),
   };
 }
 
@@ -291,6 +306,9 @@ function buildCreative({
     lastSeen: readNullableText(rawAd.lastSeen),
     format: inferCreativeFormat(rawAd),
     isActive: rawAd.isActive ?? true,
+    source: readNullableText(rawAd.source),
+    transcript: readNullableText(rawAd.transcript),
+    cta: readNullableText(rawAd.cta),
   };
 }
 
@@ -453,18 +471,21 @@ function buildDataGaps(group: MutableAdEvidenceGroup): DataGap[] {
           },
         ]
       : [];
-  // LinkedIn is a phantom channel in the schema: the probe only fires google_ads
-  // and meta_ads, and SearchAPI exposes no LinkedIn engine, so linkedin is never
-  // added to group.platforms and its counts are structurally 0. Emit one explicit
-  // gap per group so the artifact self-documents that linkedin=0 is a not-probed
-  // sentinel, not an empty ad-library result.
-  const linkedinNotProbedGaps: DataGap[] = [
-    {
-      platform: "linkedin",
-      reason:
-        "LinkedIn ad library is not queryable via the current SearchAPI integration; LinkedIn counts are structurally 0 and were not probed this run.",
-    },
-  ];
+  // LinkedIn is now a real, agent-callable channel (linkedin_ads -> SearchAPI
+  // linkedin_ad_library). When the agent did probe it, linkedin is in
+  // group.platforms and rawCountGaps above already documents any empty result,
+  // so emitting a "not probed" sentinel would contradict the live data. Only
+  // when linkedin was NOT probed this run do we self-document that linkedin=0 is
+  // a not-probed sentinel rather than an empty ad-library result.
+  const linkedinNotProbedGaps: DataGap[] = group.platforms.has("linkedin")
+    ? []
+    : [
+        {
+          platform: "linkedin",
+          reason:
+            "LinkedIn ad library was not probed this run; LinkedIn counts are structurally 0 and are a not-probed sentinel, not an empty ad-library result.",
+        },
+      ];
 
   return uniqueDataGaps([
     ...sourceErrorGaps,

@@ -158,6 +158,7 @@ export const SECTION_REGISTRY = {
       "adlibrary",
       "google_ads",
       "meta_ads",
+      "linkedin_ads",
       "reviews",
     ],
     maxExternalLookups: 6,

@@ -27,6 +27,7 @@ const AD_TOOL_NAMES: ReadonlySet<string> = new Set([
   "adlibrary",
   "google_ads",
   "meta_ads",
+  "linkedin_ads",
 ]);
 
 // A section budget with two pools: a generic pool every tool can draw from and

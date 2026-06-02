@@ -100,6 +100,9 @@ describe('CompetitorLandscapeRenderer', () => {
             lastSeen: '2026-05-18',
             format: 'text',
             isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
           },
         ],
         libraryLinks: {

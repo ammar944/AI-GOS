@@ -112,7 +112,7 @@ function buildCorpusOnlyBoundary(
   return [
     "Corpus-only mode:",
     "No external research tools are available in this run. Use only the ResearchInput JSON, pre-normalized evidence blocks, skill guidance, and the answer tool.",
-    "Do not call web_search, firecrawl, pagespeed, reviews, keyword_ad_probe, adlibrary, google_ads, or meta_ads.",
+    "Do not call web_search, firecrawl, pagespeed, reviews, keyword_ad_probe, adlibrary, google_ads, meta_ads, or linkedin_ads.",
     "Ignore any skill text that lists research tools; those tools are not available for this corpus-only validation run.",
     "",
   ];

@@ -4,7 +4,7 @@ import { adLibraryAgentTool } from "../adlibrary";
 
 interface AdLibraryInput {
   advertiser: string;
-  platform?: "meta" | "google";
+  platform?: "meta" | "google" | "linkedin";
   max_results?: number;
   domain?: string;
 }
@@ -218,5 +218,135 @@ describe("adLibraryAgentTool relevance filtering", (): void => {
       ads: [{ advertiserName: "AtlasCRM", id: "atlas-ad" }],
     });
     expect(requestedAdvertiserIds).toEqual(["right-atlas"]);
+  });
+});
+
+describe("adLibraryAgentTool LinkedIn channel", (): void => {
+  const originalApiKey = process.env.SEARCHAPI_KEY;
+
+  beforeEach((): void => {
+    process.env.SEARCHAPI_KEY = "test-searchapi-key";
+  });
+
+  afterEach((): void => {
+    if (originalApiKey === undefined) {
+      delete process.env.SEARCHAPI_KEY;
+    } else {
+      process.env.SEARCHAPI_KEY = originalApiKey;
+    }
+
+    vi.unstubAllGlobals();
+  });
+
+  // A live probe confirmed linkedin_ad_library?advertiser=Notion returns HTTP 200
+  // with 24 ads, each carrying nested content + advertiser + a first-party link.
+  function buildLinkedInAds(count: number): unknown[] {
+    return Array.from({ length: count }, (_unused, index) => ({
+      content: {
+        headline: `Notion ad ${index + 1}`,
+        body: "Organize your work in one connected workspace.",
+        image: `https://media.licdn.com/notion-creative-${index + 1}.png`,
+      },
+      advertiser: { name: "Notion" },
+      // Clickthrough resolves to the verified domain, so the link guard keeps it.
+      link: "https://notion.so/product",
+      ad_type: "SPONSORED_UPDATE",
+      position: index + 1,
+    }));
+  }
+
+  it("returns LinkedIn ads for a 200 / 24-ads response (engine + advertiser param)", async (): Promise<void> => {
+    const requestedEngines: string[] = [];
+    const fetchMock = vi.fn(async (requestUrl: string) => {
+      const url = new URL(requestUrl);
+      requestedEngines.push(url.searchParams.get("engine") ?? "");
+      return searchApiResponse({ ads: buildLinkedInAds(24) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await getExecute()(
+      {
+        advertiser: "Notion",
+        platform: "linkedin",
+        domain: "notion.so",
+        max_results: 8,
+      },
+      {},
+    )) as { type: string; platform?: string; ads?: unknown[] };
+
+    expect(result.type).toBe("result");
+    expect(result.platform).toBe("linkedin");
+    // max_results caps the normalized rows; the 24-ad payload is bounded to 8.
+    expect(result.ads).toHaveLength(8);
+    // Single engine hit: linkedin takes the advertiser param directly with no
+    // advertiser-search pre-step (unlike google/meta).
+    expect(requestedEngines).toEqual(["linkedin_ad_library"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a missing_credential gap when SEARCHAPI_KEY is absent", async (): Promise<void> => {
+    delete process.env.SEARCHAPI_KEY;
+    const fetchMock = vi.fn(async () => searchApiResponse({ ads: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        { advertiser: "Notion", platform: "linkedin", max_results: 8 },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "gap",
+      reason: "missing_credential",
+      envVar: "SEARCHAPI_KEY",
+    });
+    // No-key path short-circuits before any network call.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an api_error gap when the LinkedIn engine fails", async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => new Response("rate limited", { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        { advertiser: "Notion", platform: "linkedin", max_results: 8 },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "gap",
+      reason: "api_error",
+    });
+  });
+
+  it("drops wrong-company LinkedIn ads via the short-name link guard (no fabricated match)", async (): Promise<void> => {
+    // Short name (<=6 chars) + verified domain: a LinkedIn page slug that does
+    // not corroborate the domain base must be dropped, yielding an empty (but
+    // structured) result rather than a wrong-company creative.
+    const fetchMock = vi.fn(async () =>
+      searchApiResponse({
+        ads: [
+          {
+            content: { headline: "Fathom Flood Risk", body: "Terrain data" },
+            advertiser: { name: "Fathom" },
+            link: "https://www.linkedin.com/company/fathom-global/",
+            ad_type: "SPONSORED_UPDATE",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await getExecute()(
+      {
+        advertiser: "Fathom",
+        platform: "linkedin",
+        domain: "fathom.video",
+        max_results: 5,
+      },
+      {},
+    )) as { type: string; ads?: unknown[] };
+
+    expect(result.type).toBe("result");
+    expect(result.ads).toEqual([]);
   });
 });

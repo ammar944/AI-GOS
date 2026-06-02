@@ -26,6 +26,7 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
         "adlibrary",
         "google_ads",
         "meta_ads",
+        "linkedin_ads",
         "reviews",
       ],
       maxExternalLookups: 6,
