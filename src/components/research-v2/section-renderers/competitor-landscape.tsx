@@ -615,17 +615,21 @@ export function CompetitorLandscapeRenderer({
     {
       key: 'competitor',
       header: 'Competitor',
+      width: '160px',
+      wrap: 'nowrap',
       render: row => (
         <span className="font-medium text-foreground">{row.competitor}</span>
       ),
     },
-    { key: 'tierName', header: 'Tier' },
-    { key: 'monthlyPrice', header: 'Monthly', numeric: true },
-    { key: 'packagingPattern', header: 'Packaging' },
-    { key: 'gatedSignals', header: 'Gates' },
+    { key: 'tierName', header: 'Tier', width: '120px', wrap: 'nowrap' },
+    { key: 'monthlyPrice', header: 'Monthly', numeric: true, width: '110px', wrap: 'nowrap' },
+    { key: 'packagingPattern', header: 'Packaging', grow: true },
+    { key: 'gatedSignals', header: 'Gates', width: '150px' },
     {
       key: 'sourceUrl',
       header: 'Source',
+      width: '88px',
+      wrap: 'nowrap',
       render: row => <SourceLink url={row.sourceUrl} />,
     },
   ];
@@ -721,6 +725,7 @@ export function CompetitorLandscapeRenderer({
 
       <SubsectionBlock label="3 · Pricing Reality" prose={pricingReality.prose}>
         <DataTable
+          className="max-w-[960px]"
           columns={pricingColumns}
           rows={pricingReality.dataPoints}
           rowKey={r => `${r.competitor}-${r.tierName}`}

@@ -120,6 +120,8 @@ export function PaidMediaPlanRenderer({
     {
       key: 'creativeType',
       header: 'Type',
+      width: '140px',
+      wrap: 'nowrap',
       render: (row) => (
         <span className="font-medium text-foreground">{row.creativeType}</span>
       ),
@@ -127,11 +129,19 @@ export function PaidMediaPlanRenderer({
     {
       key: 'summary',
       header: 'Framework',
-      render: (row) => creativeSummaryLines(row),
+      grow: true,
+      wrap: 'clamp',
+      clampLines: 2,
+      render: (row) => {
+        const summary = creativeSummaryLines(row);
+        return <span title={summary}>{summary}</span>;
+      },
     },
     {
       key: 'sourceUrl',
       header: 'Source',
+      width: '88px',
+      wrap: 'nowrap',
       render: (row) => <SourceLink url={row.sourceUrl} />,
     },
   ];
