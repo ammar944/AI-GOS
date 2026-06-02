@@ -487,7 +487,7 @@ function DraftingArtifactView({
 }): ReactElement {
   return (
     <div className="mt-8 space-y-6">
-      <div className="flex items-center gap-2.5 text-[13.5px] text-foreground">
+      <div className="flex items-center gap-2.5 text-[13px] text-foreground">
         <Loader2
           className="size-4 animate-spin text-primary motion-reduce:animate-none"
           strokeWidth={2.5}
