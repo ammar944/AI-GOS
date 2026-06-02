@@ -793,6 +793,19 @@ export function createForeplayService(apiKey?: string): ForeplayService | null {
  * Check if Foreplay enrichment is enabled via feature flag
  */
 export function isForeplayEnabled(): boolean {
-  const enabled = getEnv('ENABLE_FOREPLAY');
-  return enabled?.toLowerCase() === 'true';
+  const flag = getEnv('ENABLE_FOREPLAY')?.toLowerCase();
+
+  // Explicit override in either direction wins.
+  if (flag === 'false') {
+    return false;
+  }
+  if (flag === 'true') {
+    return true;
+  }
+
+  // Otherwise auto-activate whenever a key is present — Foreplay's video +
+  // transcript creatives are the highest-value evidence, so they should light up
+  // by default. Graceful no-op when the key is absent (createForeplayService
+  // returns null and the prepass yields nothing).
+  return Boolean(getEnv('FOREPLAY_API_KEY'));
 }
