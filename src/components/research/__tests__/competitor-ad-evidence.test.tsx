@@ -202,3 +202,57 @@ describe('CompetitorAdEvidence', () => {
     expect(screen.getByText('via foreplay')).toBeInTheDocument();
   });
 });
+
+describe('CompetitorAdEvidence — verified wall + quarantine', () => {
+  const props: CompetitorAdEvidenceProps = {
+    adCreatives: [
+      {
+        platform: 'meta',
+        id: 'ok',
+        advertiser: 'Gong',
+        headline: 'Win more deals with revenue intelligence',
+        format: 'image',
+        isActive: true,
+        verified: true,
+        identityBasis: 'domain',
+        detailsUrl: 'https://www.facebook.com/ads/library/?id=ok',
+      },
+      {
+        platform: 'meta',
+        id: 'bad',
+        advertiser: 'Gong',
+        headline: 'Cierra mas tratos ahora',
+        format: 'image',
+        isActive: true,
+        verified: false,
+        language: 'es',
+        identityBasis: 'name',
+        detailsUrl: 'https://www.facebook.com/ads/library/?id=bad',
+      },
+    ],
+  };
+
+  it('shows a Verified chip on a verified creative', () => {
+    render(<CompetitorAdEvidence {...props} />);
+    expect(screen.getAllByTestId('creative-verified').length).toBe(1);
+  });
+
+  it('quarantines a verified:false creative behind a reveal with a reason', () => {
+    render(<CompetitorAdEvidence {...props} />);
+    const quarantine = screen.getByTestId('ad-quarantine');
+    expect(quarantine).toBeInTheDocument();
+    expect(quarantine).toHaveTextContent(/low-confidence/i);
+    expect(screen.getByTestId('creative-quarantine-reason')).toHaveTextContent(
+      /non-English/i,
+    );
+  });
+
+  it('keeps the verified creative out of the quarantine subtree', () => {
+    render(<CompetitorAdEvidence {...props} />);
+    const quarantine = screen.getByTestId('ad-quarantine');
+    expect(quarantine).not.toHaveTextContent(
+      'Win more deals with revenue intelligence',
+    );
+    expect(quarantine).toHaveTextContent('Cierra mas tratos ahora');
+  });
+});

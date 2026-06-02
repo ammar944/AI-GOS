@@ -21,6 +21,27 @@ interface AdCreative {
   source?: string;
   transcript?: string;
   cta?: string;
+  // Quality metadata from the rebuilt ad engine. `verified === false` routes a
+  // creative to the quarantine instead of the verified wall; undefined (legacy
+  // data) is treated as wall-eligible for backward-compatibility.
+  verified?: boolean;
+  language?: string;
+  identityBasis?: string;
+}
+
+// Human-readable reason a creative was quarantined (verified === false).
+function quarantineReason(creative: AdCreative): string {
+  if (
+    creative.language &&
+    creative.language !== 'en' &&
+    creative.language !== 'und'
+  ) {
+    return 'non-English';
+  }
+  if (creative.identityBasis === 'ambiguous') {
+    return 'unverified advertiser';
+  }
+  return 'low confidence';
 }
 
 function proxyUrl(url: string): string {
@@ -355,6 +376,26 @@ function AdCreativeCard({ creative }: { creative: AdCreative }) {
           </span>
         )}
 
+        {/* Identity provenance — makes ad quality legible (verified for this
+            competitor, and on what basis). */}
+        {creative.verified === true && (
+          <span
+            data-testid="creative-verified"
+            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-400"
+            title={`Advertiser identity confirmed by ${creative.identityBasis ?? 'match'}`}
+          >
+            ✓ Verified
+          </span>
+        )}
+        {creative.verified === false && (
+          <span
+            data-testid="creative-quarantine-reason"
+            className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-400"
+          >
+            {quarantineReason(creative)}
+          </span>
+        )}
+
         {/* Format badge */}
         {creative.format && creative.format !== 'unknown' && (
           <span
@@ -554,6 +595,16 @@ export function CompetitorAdEvidence({
     return true;
   });
 
+  // Hybrid wall: only verified + on-language creatives go in the main carousel;
+  // low-confidence ones (unverified advertiser / non-target language / advertiser
+  // mismatch) are quarantined behind a reveal so the user is never shown a weird
+  // ad up front, yet nothing is silently dropped. Legacy creatives (verified
+  // undefined) stay wall-eligible.
+  const wallCreatives = filteredCreatives.filter((c) => c.verified !== false);
+  const quarantinedCreatives = filteredCreatives.filter(
+    (c) => c.verified === false,
+  );
+
   if (!hasCreatives && !hasLinks) {
     return null;
   }
@@ -646,8 +697,8 @@ export function CompetitorAdEvidence({
         </div>
       )}
 
-      {/* Horizontal scroll carousel */}
-      {hasCreatives && (
+      {/* Verified wall — horizontal scroll carousel */}
+      {wallCreatives.length > 0 && (
         <div
           className="flex gap-3 overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]"
           style={{
@@ -655,10 +706,36 @@ export function CompetitorAdEvidence({
             scrollPaddingLeft: '0px',
           }}
         >
-          {filteredCreatives.map((creative) => (
+          {wallCreatives.map((creative) => (
             <AdCreativeCard key={creative.id} creative={creative} />
           ))}
         </div>
+      )}
+
+      {/* Quarantine — low-confidence creatives, hidden behind a reveal. */}
+      {quarantinedCreatives.length > 0 && (
+        <details className="group" data-testid="ad-quarantine">
+          <summary
+            className="flex w-fit cursor-pointer items-center gap-1.5 text-[11px]"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-400">
+              {quarantinedCreatives.length} low-confidence
+            </span>
+            <span>
+              ad{quarantinedCreatives.length === 1 ? '' : 's'} hidden — unverified
+              advertiser or non-target language. Show anyway
+            </span>
+          </summary>
+          <div
+            className="mt-3 flex gap-3 overflow-x-auto pb-2 opacity-80 [-webkit-overflow-scrolling:touch]"
+            style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: '0px' }}
+          >
+            {quarantinedCreatives.map((creative) => (
+              <AdCreativeCard key={creative.id} creative={creative} />
+            ))}
+          </div>
+        </details>
       )}
 
       {/* Library links row */}
