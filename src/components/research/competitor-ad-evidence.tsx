@@ -18,6 +18,9 @@ interface AdCreative {
   detailsUrl?: string;
   firstSeen?: string;
   lastSeen?: string;
+  source?: string;
+  transcript?: string;
+  cta?: string;
 }
 
 function proxyUrl(url: string): string {
@@ -25,6 +28,55 @@ function proxyUrl(url: string): string {
     return proxyUrlFn(url);
   }
   return url;
+}
+
+// ─── Creative dedup (keep in sync with competitor-landscape.ts adCreativeFingerprint)
+// This is a client-boundary INLINED copy of the shared fingerprint algorithm
+// (this file cannot import the lab-engine schema without dragging server deps
+// into the client bundle). Same tiers: numeric-id > content > media-only.
+
+function canonicalAdPlatform(platform: string): string {
+  const normalized = platform.toLowerCase().trim();
+  if (normalized === 'facebook' || normalized === 'instagram') {
+    return 'meta';
+  }
+  return normalized;
+}
+
+function normalizeAdText(value: string | undefined, length: number): string {
+  return (value ?? '').trim().toLowerCase().slice(0, length);
+}
+
+function adFingerprint(creative: AdCreative): string {
+  // TIER 1: bare numeric id (Meta ad_archive_id, Foreplay ad_library_id).
+  const id = (creative.id ?? '').trim();
+  if (/^[0-9]+$/.test(id)) {
+    return 'id:' + id;
+  }
+
+  // TIER 2: content key from headline + body.
+  const headline = normalizeAdText(creative.headline, 80);
+  const body = normalizeAdText(creative.body, 80);
+
+  // MEDIA-ONLY carve-out: no text evidence, key on the media URL.
+  if (headline === '' && body === '') {
+    const media = (creative.videoUrl ?? creative.imageUrl ?? '').trim();
+    return 'media:' + canonicalAdPlatform(creative.platform) + ':' + media;
+  }
+
+  return 'c2:' + canonicalAdPlatform(creative.platform) + ':' + headline + ':' + body;
+}
+
+// Richer-wins: a video/transcript variant must beat the bare-image variant of
+// the same ad so dedup keeps the creative worth showing.
+function adRichnessScore(creative: AdCreative): number {
+  return (
+    (creative.videoUrl ? 4 : 0) +
+    (creative.transcript ? 3 : 0) +
+    (creative.body ? 2 : 0) +
+    (creative.detailsUrl ? 1 : 0) +
+    (creative.imageUrl ? 0.5 : 0)
+  );
 }
 
 interface LibraryLinks {
@@ -316,6 +368,22 @@ function AdCreativeCard({ creative }: { creative: AdCreative }) {
             {creative.format}
           </span>
         )}
+
+        {/* Provenance chip — only when the creative came from a non-default
+            provider (e.g. Foreplay), so the user knows where the richer variant
+            originated. */}
+        {creative.source && creative.source.toLowerCase() !== 'searchapi' && (
+          <span
+            className="rounded px-1.5 py-0.5 text-[11px] lowercase"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              color: 'rgba(255,255,255,0.40)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            via {creative.source}
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -336,6 +404,40 @@ function AdCreativeCard({ creative }: { creative: AdCreative }) {
           >
             {creative.body}
           </p>
+        )}
+
+        {/* CTA chip */}
+        {creative.cta && (
+          <span
+            data-testid="creative-cta"
+            className="mt-1 inline-flex w-fit rounded px-1.5 py-0.5 text-[11px] font-medium"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              color: 'var(--text-secondary)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            {creative.cta}
+          </span>
+        )}
+
+        {/* Transcript — collapsed behind a details/summary so the card stays
+            compact but the spoken/long copy is one click away. */}
+        {creative.transcript && (
+          <details className="mt-1" data-testid="creative-transcript">
+            <summary
+              className="cursor-pointer text-[11px]"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Transcript
+            </summary>
+            <p
+              className="mt-1 whitespace-pre-line text-[11px] leading-relaxed"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {creative.transcript}
+            </p>
+          </details>
         )}
 
         {/* Footer: date + view link */}
@@ -409,16 +511,27 @@ export function CompetitorAdEvidence({
   adCreatives,
   libraryLinks,
 }: CompetitorAdEvidenceProps) {
-  // Deduplicate ads by content fingerprint (NOT by id — Meta assigns unique IDs to identical ads)
+  // Deduplicate ads by shared fingerprint (NOT by id alone — Meta assigns unique
+  // IDs to identical ads), richer-wins so a video/transcript variant beats the
+  // bare-image variant of the same ad. Preserves first-seen order of the winners.
   const displayedCreatives = (() => {
     if (!adCreatives) return [];
-    const seen = new Set<string>();
-    return adCreatives.filter((c) => {
-      const key = `${c.platform}|${(c.headline ?? '').slice(0, 80).toLowerCase()}|${(c.body ?? '').slice(0, 50).toLowerCase()}|${c.imageUrl ?? ''}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 20);
+    const byFingerprint = new Map<string, AdCreative>();
+    const order: string[] = [];
+    for (const c of adCreatives) {
+      const key = adFingerprint(c);
+      const existing = byFingerprint.get(key);
+      if (existing === undefined) {
+        order.push(key);
+        byFingerprint.set(key, c);
+      } else if (adRichnessScore(c) > adRichnessScore(existing)) {
+        byFingerprint.set(key, c);
+      }
+    }
+    return order
+      .map((key) => byFingerprint.get(key))
+      .filter((c): c is AdCreative => c !== undefined)
+      .slice(0, 20);
   })();
   const hasCreatives = displayedCreatives.length > 0;
   const hasLinks =

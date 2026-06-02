@@ -1,4 +1,7 @@
-import type { CompetitorAdEvidenceGroup } from "../../artifacts/schemas/competitor-landscape";
+import {
+  adCreativeFingerprint,
+  type CompetitorAdEvidenceGroup,
+} from "../../artifacts/schemas/competitor-landscape";
 import type { AgentStep } from "../section-agent";
 import { AdLibraryOutputSchema } from "./adlibrary";
 
@@ -41,8 +44,12 @@ interface MutableAdEvidenceGroup {
   domain: string | null;
   platforms: Set<AdEvidencePlatform>;
   rawCounts: PlatformCounts;
-  displayableCounts: PlatformCounts;
-  creatives: AdEvidenceCreative[];
+  // Unique displayable creatives keyed by adCreativeFingerprint. Cross-provider
+  // dedup happens here (richer-wins) BEFORE the returnedCreativeLimit cap, so the
+  // cap never locks an image variant and drops the Foreplay video. displayableCounts
+  // / returnedCreativeCount / creatives are all derived from this map at finalize
+  // time, keeping the "X of Y displayable" copy true per-unique creative.
+  creativeByFingerprint: Map<string, AdEvidenceCreative>;
   libraryLinks: LibraryLinks;
   rawSourceSamples: RawSourceSample[];
   sourceErrors: SourceError[];
@@ -181,8 +188,7 @@ function ensureGroup({
     domain,
     platforms: new Set<AdEvidencePlatform>(),
     rawCounts: emptyCounts(),
-    displayableCounts: emptyCounts(),
-    creatives: [],
+    creativeByFingerprint: new Map<string, AdEvidenceCreative>(),
     libraryLinks: {},
     rawSourceSamples: [],
     sourceErrors: [],
@@ -321,18 +327,53 @@ function hasDisplayableCreative(rawAd: RawAd): boolean {
   );
 }
 
+// Richness score for richer-wins dedup. A Foreplay video variant with a
+// transcript must beat the bare-image SearchAPI variant of the same ad so the
+// stored creative is the one worth showing.
+function creativeRichnessScore(creative: AdEvidenceCreative): number {
+  return (
+    (creative.videoUrl !== null ? 4 : 0) +
+    (creative.transcript !== null ? 3 : 0) +
+    (creative.body !== null ? 2 : 0) +
+    (creative.detailsUrl !== null ? 1 : 0) +
+    (creative.imageUrl !== null ? 0.5 : 0)
+  );
+}
+
+// Upsert a unique creative into the per-group fingerprint map with richer-wins:
+// on a fingerprint collision, keep the higher-scoring creative.
+function upsertUniqueCreative(
+  creativeByFingerprint: Map<string, AdEvidenceCreative>,
+  creative: AdEvidenceCreative,
+): void {
+  const fingerprint = adCreativeFingerprint({
+    platform: creative.platform,
+    id: creative.id,
+    headline: creative.headline,
+    body: creative.body,
+    imageUrl: creative.imageUrl,
+    videoUrl: creative.videoUrl,
+  });
+  const existing = creativeByFingerprint.get(fingerprint);
+
+  if (
+    existing === undefined ||
+    creativeRichnessScore(creative) > creativeRichnessScore(existing)
+  ) {
+    creativeByFingerprint.set(fingerprint, creative);
+  }
+}
+
 function addRawAdResult({
   advertiserName,
   group,
   platform,
   rawAds,
-  returnedCreativeLimit,
 }: {
   advertiserName: string;
   group: MutableAdEvidenceGroup;
   platform: AdEvidencePlatform;
   rawAds: readonly RawAd[];
-  returnedCreativeLimit: number;
 }): void {
   group.platforms.add(platform);
   addLibraryLink(group.libraryLinks, platform, advertiserName);
@@ -354,18 +395,19 @@ function addRawAdResult({
       continue;
     }
 
-    incrementCount(group.displayableCounts, platform, 1);
-
-    if (group.creatives.length < returnedCreativeLimit) {
-      group.creatives.push(
-        buildCreative({
-          advertiserName,
-          index,
-          platform,
-          rawAd,
-        }),
-      );
-    }
+    // Cross-provider dedup BEFORE the returnedCreativeLimit cap (applied at
+    // finalize). displayableCounts / returnedCreativeCount are derived per-unique
+    // creative so the "X of Y displayable" copy never double-counts the same ad
+    // that surfaced on two providers.
+    upsertUniqueCreative(
+      group.creativeByFingerprint,
+      buildCreative({
+        advertiserName,
+        index,
+        platform,
+        rawAd,
+      }),
+    );
   }
 }
 
@@ -427,7 +469,15 @@ function uniqueDataGaps(gaps: readonly DataGap[]): DataGap[] {
   return dedupedGaps;
 }
 
-function buildDataGaps(group: MutableAdEvidenceGroup): DataGap[] {
+function buildDataGaps({
+  group,
+  displayableCounts,
+  returnedCreativeCount,
+}: {
+  group: MutableAdEvidenceGroup;
+  displayableCounts: PlatformCounts;
+  returnedCreativeCount: number;
+}): DataGap[] {
   const requestedPlatforms = platformOrder.filter((platform) =>
     group.platforms.has(platform),
   );
@@ -449,25 +499,25 @@ function buildDataGaps(group: MutableAdEvidenceGroup): DataGap[] {
       ];
     }
 
-    if (group.displayableCounts[platform] === 0) {
+    if (displayableCounts[platform] === 0) {
       return [
         {
           platform,
           reason: `${platform} returned ${group.rawCounts[platform]} raw row${
             group.rawCounts[platform] === 1 ? "" : "s"
-          }, but no row had headline, body, image, or video evidence for a displayable creative.`,
+          }, but no row had headline, body, image, or video evidence for a unique displayable creative.`,
         },
       ];
     }
 
     return [];
   });
-  const displayableTotal = getDisplayableTotal(group.displayableCounts);
+  const displayableTotal = getDisplayableTotal(displayableCounts);
   const truncationGaps =
-    displayableTotal > group.creatives.length
+    displayableTotal > returnedCreativeCount
       ? [
           {
-            reason: `Returned ${group.creatives.length} of ${displayableTotal} displayable creatives to keep the structured artifact bounded.`,
+            reason: `Returned ${returnedCreativeCount} of ${displayableTotal} displayable creatives to keep the structured artifact bounded.`,
           },
         ]
       : [];
@@ -497,19 +547,34 @@ function buildDataGaps(group: MutableAdEvidenceGroup): DataGap[] {
 
 function finalizeGroup(
   group: MutableAdEvidenceGroup,
+  returnedCreativeLimit: number,
 ): CompetitorAdEvidenceGroup {
+  // Unique displayable creatives (post richer-wins dedup). displayableCounts is
+  // recomputed per-unique creative from the winning platform; the cap applies to
+  // the unique set so the artifact stays bounded.
+  const uniqueCreatives = Array.from(group.creativeByFingerprint.values());
+  const displayableCounts = emptyCounts();
+  for (const creative of uniqueCreatives) {
+    incrementCount(displayableCounts, creative.platform, 1);
+  }
+  const creatives = uniqueCreatives.slice(0, returnedCreativeLimit);
+
   return {
     advertiserName: group.advertiserName,
     domain: group.domain,
     platforms: platformOrder.filter((platform) => group.platforms.has(platform)),
     rawCounts: group.rawCounts,
-    displayableCounts: group.displayableCounts,
-    displayableTotal: getDisplayableTotal(group.displayableCounts),
-    returnedCreativeCount: group.creatives.length,
-    creatives: group.creatives,
+    displayableCounts,
+    displayableTotal: getDisplayableTotal(displayableCounts),
+    returnedCreativeCount: creatives.length,
+    creatives,
     libraryLinks: group.libraryLinks,
     rawSourceSamples: group.rawSourceSamples,
-    dataGaps: buildDataGaps(group),
+    dataGaps: buildDataGaps({
+      group,
+      displayableCounts,
+      returnedCreativeCount: creatives.length,
+    }),
     sourceErrors: group.sourceErrors,
     observedAt: group.observedAt,
   };
@@ -573,12 +638,13 @@ export function buildCompetitorAdEvidenceGroups({
         group,
         platform: parsedOutput.data.platform,
         rawAds: parsedOutput.data.ads,
-        returnedCreativeLimit,
       });
     });
   }
 
-  return Array.from(groups.values()).map((group) => finalizeGroup(group));
+  return Array.from(groups.values()).map((group) =>
+    finalizeGroup(group, returnedCreativeLimit),
+  );
 }
 
 function sumCounts(

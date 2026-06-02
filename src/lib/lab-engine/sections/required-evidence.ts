@@ -115,13 +115,49 @@ function hasCompetitor(body: Record<string, unknown>): boolean {
   return hasRecordWithText(competitorSet.competitors, "name");
 }
 
+// The "linkedin not probed this run" sentinel is structural (linkedin is always
+// 0 when the agent didn't call linkedin_ads). It documents a non-attempt, not a
+// genuine probe failure, so in strict mode it must NOT rubber-stamp the gate.
+function isNotProbedSentinel(reason: unknown): boolean {
+  return typeof reason === "string" && /not probed this run/i.test(reason);
+}
+
+// A genuine probe-attempt gap is a real provider failure (any sourceError) or a
+// dataGap that is not the not-probed sentinel (e.g. "returned no raw rows",
+// "no displayable creative", "lookup failed", a truncation note).
+function hasGenuineProbeGap(group: Record<string, unknown>): boolean {
+  const sourceErrors = Array.isArray(group.sourceErrors)
+    ? group.sourceErrors
+    : [];
+  if (sourceErrors.length > 0) {
+    return true;
+  }
+
+  const dataGaps = Array.isArray(group.dataGaps) ? group.dataGaps : [];
+  return dataGaps.some((gap) => {
+    if (!isRecord(gap)) {
+      return false;
+    }
+    return hasText(gap.reason) && !isNotProbedSentinel(gap.reason);
+  });
+}
+
 function hasAdEvidenceOrGap(body: Record<string, unknown>): boolean {
   const adEvidence = asRecord(body.adEvidence);
   const advertiserGroups = asRecordArray(adEvidence.advertiserGroups);
+  const strict = process.env.LAB_AD_EVIDENCE_STRICT === "true";
 
   return advertiserGroups.some((group) => {
     const displayableTotal =
       typeof group.displayableTotal === "number" ? group.displayableTotal : 0;
+
+    // STRICT: only real evidence (displayableTotal > 0) or a genuine probe-attempt
+    // failure/empty passes. rawSourceSamples and the linkedin not-probed sentinel
+    // do NOT count — they let an all-empty run rubber-stamp the gate.
+    if (strict) {
+      return displayableTotal > 0 || hasGenuineProbeGap(group);
+    }
+
     const returnedCreativeCount =
       typeof group.returnedCreativeCount === "number"
         ? group.returnedCreativeCount

@@ -137,4 +137,140 @@ describe("buildCompetitorAdEvidenceGroups", (): void => {
       ),
     ).toBe(false);
   });
+
+  it("collapses the same numeric-id creative across providers and keeps the richer (video) variant", () => {
+    const groups = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-05-28T00:00:00.000Z",
+      steps: [
+        {
+          stepNumber: 0,
+          finishReason: "tool-calls",
+          text: "",
+          toolCalls: [
+            {
+              toolName: "meta_ads",
+              input: { advertiser: "Gong", domain: "gong.io", max_results: 4 },
+            },
+            {
+              toolName: "adlibrary",
+              input: { advertiser: "Gong", domain: "gong.io", max_results: 4 },
+            },
+          ],
+          toolResults: [
+            {
+              // SearchAPI: bare image variant of ad 555.
+              toolName: "meta_ads",
+              output: {
+                type: "result",
+                advertiser: "Gong",
+                platform: "meta",
+                ads: [
+                  {
+                    url: "https://www.facebook.com/ads/library/?id=555",
+                    id: "555",
+                    advertiserName: "Gong",
+                    title: "Win more deals",
+                    imageUrl: "https://cdn.example.com/555.jpg",
+                    detailsUrl: "https://www.facebook.com/ads/library/?id=555",
+                  },
+                ],
+              },
+            },
+            {
+              // Foreplay: richer video + transcript variant of the SAME ad 555.
+              toolName: "adlibrary",
+              output: {
+                type: "result",
+                advertiser: "Gong",
+                platform: "meta",
+                ads: [
+                  {
+                    url: "https://foreplay.co/ad/555",
+                    id: "555",
+                    advertiserName: "Gong",
+                    title: "Totally different headline",
+                    videoUrl: "https://cdn.example.com/555.mp4",
+                    transcript: "Spoken script of the winning video ad.",
+                    source: "foreplay",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    const [group] = groups;
+
+    // Two raw rows, ONE unique creative (richer-wins), counted once.
+    expect(group.rawCounts.meta).toBe(2);
+    expect(group.displayableCounts.meta).toBe(1);
+    expect(group.displayableTotal).toBe(1);
+    expect(group.returnedCreativeCount).toBe(1);
+    expect(group.creatives).toHaveLength(1);
+
+    // The richer (video + transcript + foreplay) variant won.
+    expect(group.creatives[0]?.videoUrl).toBe("https://cdn.example.com/555.mp4");
+    expect(group.creatives[0]?.transcript).toBe(
+      "Spoken script of the winning video ad.",
+    );
+    expect(group.creatives[0]?.source).toBe("foreplay");
+
+    // "X of Y displayable" copy stays true — no truncation gap for a single unique.
+    expect(
+      group.dataGaps.some((gap) => /of \d+ displayable creatives/i.test(gap.reason)),
+    ).toBe(false);
+  });
+
+  it("caps returned creatives by returnedCreativeLimit on the UNIQUE set and emits a truthful truncation gap", () => {
+    const ads = Array.from({ length: 5 }, (_value, index) => ({
+      url: `https://www.facebook.com/ads/library/?id=${index}`,
+      id: `meta-uniq-${index}`,
+      advertiserName: "Gong",
+      title: `Headline ${index}`,
+      snippet: `Body copy ${index}`,
+      detailsUrl: `https://www.facebook.com/ads/library/?id=${index}`,
+    }));
+
+    const groups = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-05-28T00:00:00.000Z",
+      returnedCreativeLimit: 3,
+      steps: [
+        {
+          stepNumber: 0,
+          finishReason: "tool-calls",
+          text: "",
+          toolCalls: [
+            {
+              toolName: "meta_ads",
+              input: { advertiser: "Gong", domain: "gong.io", max_results: 5 },
+            },
+          ],
+          toolResults: [
+            {
+              toolName: "meta_ads",
+              output: {
+                type: "result",
+                advertiser: "Gong",
+                platform: "meta",
+                ads,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const [group] = groups;
+    expect(group.displayableTotal).toBe(5);
+    expect(group.returnedCreativeCount).toBe(3);
+    expect(group.creatives).toHaveLength(3);
+    expect(
+      group.dataGaps.some((gap) =>
+        /Returned 3 of 5 displayable creatives/i.test(gap.reason),
+      ),
+    ).toBe(true);
+  });
 });

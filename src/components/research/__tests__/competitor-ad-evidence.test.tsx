@@ -112,4 +112,93 @@ describe('CompetitorAdEvidence', () => {
     expect(screen.getByTestId('library-link-meta-library')).toBeInTheDocument();
     expect(screen.queryAllByTestId('creative-headline')).toHaveLength(0);
   });
+
+  it('renders source provenance, cta, and transcript when present', () => {
+    render(
+      <CompetitorAdEvidence
+        adCreatives={[
+          {
+            platform: 'meta',
+            id: '987654321',
+            advertiser: 'Gong',
+            headline: 'Win more deals',
+            body: 'Forecast accuracy',
+            videoUrl: 'https://cdn.example.com/ad.mp4',
+            format: 'video',
+            isActive: true,
+            detailsUrl: 'https://www.facebook.com/ads/library/?id=987654321',
+            source: 'foreplay',
+            cta: 'Book a demo',
+            transcript: 'Spoken script of the winning video ad.',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('via foreplay')).toBeInTheDocument();
+    expect(screen.getByTestId('creative-cta')).toHaveTextContent('Book a demo');
+    expect(screen.getByTestId('creative-transcript')).toHaveTextContent(
+      'Spoken script of the winning video ad.',
+    );
+  });
+
+  it('does not render the via chip for default-provider (searchapi) creatives', () => {
+    render(
+      <CompetitorAdEvidence
+        adCreatives={[
+          {
+            platform: 'meta',
+            id: '111222333',
+            advertiser: 'Gong',
+            headline: 'Win more deals',
+            format: 'image',
+            isActive: true,
+            imageUrl: 'https://cdn.example.com/i.jpg',
+            source: 'searchapi',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText(/^via /)).not.toBeInTheDocument();
+  });
+
+  it('collapses the same numeric-id ad across providers and keeps the richer video variant', () => {
+    render(
+      <CompetitorAdEvidence
+        adCreatives={[
+          {
+            // SearchAPI: bare image variant of ad 555.
+            platform: 'meta',
+            id: '555',
+            advertiser: 'Gong',
+            headline: 'Win more deals',
+            format: 'image',
+            isActive: true,
+            imageUrl: 'https://cdn.example.com/555.jpg',
+            detailsUrl: 'https://www.facebook.com/ads/library/?id=555',
+          },
+          {
+            // Foreplay: richer video + transcript variant of the SAME ad 555.
+            platform: 'meta',
+            id: '555',
+            advertiser: 'Gong',
+            headline: 'Different headline',
+            body: 'Forecast accuracy',
+            videoUrl: 'https://cdn.example.com/555.mp4',
+            format: 'video',
+            isActive: true,
+            detailsUrl: 'https://www.facebook.com/ads/library/?id=555',
+            source: 'foreplay',
+            transcript: 'Spoken script.',
+          },
+        ]}
+      />,
+    );
+
+    // One unique creative survives, and it is the richer (video) variant.
+    expect(screen.getAllByTestId('creative-headline')).toHaveLength(1);
+    expect(screen.getByLabelText('Play video')).toBeInTheDocument();
+    expect(screen.getByText('via foreplay')).toBeInTheDocument();
+  });
 });

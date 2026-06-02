@@ -111,6 +111,9 @@ function mapAdCreative(
     detailsUrl: optionalText(sourceLink),
     firstSeen: optionalText(creative.firstSeen),
     lastSeen: optionalText(creative.lastSeen),
+    source: optionalText(creative.source),
+    transcript: optionalText(creative.transcript),
+    cta: optionalText(creative.cta),
   };
 }
 
