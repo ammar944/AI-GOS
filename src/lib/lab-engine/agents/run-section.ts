@@ -84,7 +84,10 @@ import {
   type VoiceOfCustomerCandidateSource,
 } from "./voice-of-customer-candidates";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
-import { isAdvertiserMatch } from "./tools/advertiser-match";
+import {
+  extractCompanyFromDomain,
+  isAdvertiserMatch,
+} from "./tools/advertiser-match";
 import {
   buildCompetitorAdEvidenceGroups,
   summarizeCompetitorAdEvidenceGroups,
@@ -2760,8 +2763,14 @@ function buildForeplayToolPairs({
     const toolName: SearchApiAdToolName =
       platform === "linkedin" ? "linkedin_ads" : "meta_ads";
     // Strip the platform discriminator so each row validates against the strict
-    // adLibraryAdSchema the adapter parses with.
-    const rows = ads.map(({ platform: _platform, ...rawAd }) => rawAd);
+    // adLibraryAdSchema the adapter parses with. Foreplay ads reach here only
+    // after the domain-corroborated brand guard, so they are identity-verified
+    // (the adapter still re-checks language + per-ad advertiser reconciliation).
+    const rows = ads.map(({ platform: _platform, ...rawAd }) => ({
+      ...rawAd,
+      identityVerified: true,
+      identityBasis: "domain",
+    }));
 
     return {
       toolCall: { toolName, input },
@@ -2785,6 +2794,7 @@ async function runForeplayPrepassForAdvertiser(
     return [];
   }
 
+  const targetDomain = advertiserRecord.domain;
   const service = createForeplayService();
 
   if (service === null) {
@@ -2806,14 +2816,27 @@ async function runForeplayPrepassForAdvertiser(
 
         // Guard against Foreplay's domain->brand resolution returning the wrong
         // advertiser (most_ranked can resolve e.g. airtable.com to an unrelated
-        // reseller). Only inject Foreplay ads when the resolved brand actually
-        // matches the competitor we are probing; otherwise we would attribute a
-        // stranger's creatives to it.
+        // reseller). Require BOTH a name match AND that the resolved brand's own
+        // domain base corroborates the competitor's domain — the latter closes the
+        // reseller leak universally (the name-only guard's short-name URL check
+        // could not fire here, H5). Only inject when both hold; otherwise we would
+        // attribute a stranger's creatives to the competitor.
+        const brandDomainBase =
+          brand.domain.trim().length > 0
+            ? extractCompanyFromDomain(brand.domain)
+            : undefined;
+        const targetDomainBase = extractCompanyFromDomain(targetDomain);
+        const domainCorroborates =
+          brandDomainBase !== undefined &&
+          targetDomainBase !== undefined &&
+          brandDomainBase === targetDomainBase;
+
         if (
+          !domainCorroborates ||
           !isAdvertiserMatch(
             brand.name,
             advertiserRecord.advertiser,
-            advertiserRecord.domain,
+            targetDomain,
           )
         ) {
           return [] as NormalizedForeplayAd[];
