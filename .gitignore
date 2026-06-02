@@ -85,3 +85,9 @@ docs/screenshots/
 /engine/
 /graphify-out/
 /kiyaapp/
+
+# V2-era root artifacts (removed 2026-06-02)
+*.xlsx
+/output/
+/aigos-design-system-v2.jsx
+/phase[0-9]*-*

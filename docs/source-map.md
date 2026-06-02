@@ -18,7 +18,7 @@ The canonical user surface is **`/research-v3`** (the old `/research-v2` *page* 
 
 3. **GTM Brief review** — corpus completes, `src/components/research-v2/corpus-stream.tsx` shows progress; the onboarding wizard (`src/components/onboarding/`) opens prefilled from corpus via `src/lib/research-v2/prefill-from-corpus.ts` + `corpus-context.ts`. User confirms/edits and submits.
 
-4. **Fan-out — `POST /api/research-v2/orchestrate`** — `src/app/api/research-v2/orchestrate/route.ts` (`runtime='nodejs'`, `maxDuration=300`). It seeds a `seed_orchestration` row (idempotency guard against double-kickoff) and `dispatchLabSectionJobs(...)` kicks off each section by calling the per-section route. Section list = `POSITIONING_SECTION_IDS` from `src/lib/ai/prompts/positioning-skills.ts`.
+4. **Fan-out — `POST /api/research-v2/orchestrate`** — `src/app/api/research-v2/orchestrate/route.ts` (`runtime='nodejs'`, `maxDuration=300`). It seeds a `seed_orchestration` row (idempotency guard against double-kickoff) and `dispatchLabSectionJobs(...)` kicks off each section by calling the per-section route. Section list = `POSITIONING_SECTION_IDS` from `src/lib/ai/prompts/positioning-skills/index.ts`.
 
 5. **Per-section execution — `POST /api/research-v2/run-lab-section`** — `src/app/api/research-v2/run-lab-section/route.ts` (`maxDuration=300`). This runs the **lab engine in-process on Vercel** (NOT the worker). It builds input via `src/lib/research-v2/corpus-to-research-input.ts`, then calls the lab-engine entry `runSection()` in `src/lib/lab-engine/agents/run-section.ts`. (`POST /api/research-v2/dispatch` and `/rerun-section` are the single-section variants; `dispatch` still proxies the *worker*, lab sections do not.)
 
