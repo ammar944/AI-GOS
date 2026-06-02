@@ -42,8 +42,6 @@ export {
   type ReaderSectionStatus,
 } from './status';
 
-export { VerificationBadge } from './verification-badge';
-
 export {
   QueuedState,
   LockedState,
