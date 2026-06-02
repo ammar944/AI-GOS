@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> **Architecture map: read [`docs/source-map.md`](docs/source-map.md) first.** It is the verified, path-accurate map of the whole research pipeline (research-v3 page → worker corpus → in-process lab-engine sections → Audit Reader → profile).
+
 ## Operating Defaults
 
 - **Default model is Opus.** Don't be afraid to spend tokens on judgment, planning, and review. Use Sonnet for medium tasks, Haiku only for genuinely tiny mechanical work (rename, list, format).
@@ -50,7 +52,7 @@ The lab engine reads exactly **three** behavior knobs. Verified against code 202
 - `LAB_VERIFIER_MAX_UNSUPPORTED` — verifier hard-fail ceiling for unsupported load-bearing claims (`src/lib/lab-engine/agents/verification/evidence-support.ts`, `getMaxUnsupportedAllowed`). Default `Infinity` (unset/empty/invalid) = commit-with-honest-badge, never hard-fail. Set a non-negative integer to fail the section above that many unsupported claims.
 - `LAB_ENGINE_LIVE_TOOLS` — live research tools toggle (`src/lib/research-v2/lab-section-job.ts`). Default tools-on; only the literal string `'false'` disables them.
 
-The six positioning sections run **in-process** in `src/lib/lab-engine/` (DeepSeek section agents + live research tools). The `research-worker/src/positioning/` and `research-worker/src/competitors/` directories are **dead copies** — do not touch them.
+The six positioning sections run **in-process** in `src/lib/lab-engine/` (DeepSeek section agents + live research tools). The `research-worker/src/competitors/` directory is a legacy copy — do not touch it.
 
 These rollout flags are **legacy** — zero live `process.env` reads in `src/` or `research-worker/src/`, safe to ignore:
 
@@ -74,7 +76,7 @@ AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-e
 
 ### Research-v3 / research-v2 Flow (IMPORTANT — read carefully)
 
-`/research-v3` is the canonical live front-door runner (Audit Reader). The `/research-v2` page route is orphaned-for-navigation but RETAINED — do NOT delete it — because (a) its `/api/research-v2/*` routes are the shared backend that `/research-v3` calls, and (b) a live test (`src/app/research-v2/__tests__/page-one-pager.test.tsx`) imports the page. The `/journey` page route has been deleted.
+`/research-v3` is the canonical live front-door runner (Audit Reader). The `/research-v2` **page** route has been deleted; only its `/api/research-v2/*` backend routes remain — the shared backend that `/research-v3` calls. The `/journey` page route has also been deleted.
 
 The flow is **form-driven, not chat-driven**. URL entry → deepResearchProgram corpus → operator-clicked positioning sections → results saved to profile.
 
@@ -91,7 +93,7 @@ Fan-out is the canonical flow. The old per-section "Run section" operator click 
 
 **Research dispatch**: Form submit → `POST /api/research-v2/orchestrate` (multi-section fan-out) OR `POST /api/research-v2/dispatch` (single-section, used by `/api/research-v2/rerun-section` and corpus) → in-process lab engine (DeepSeek section agents + Brave `web_search`) for sections; Railway worker for corpus/identity/meeting → writes results to Supabase → realtime/polling pushes to frontend.
 
-**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/journey/stream` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Chat sidebar is post-research editing only — does NOT trigger research.
+**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/research-v2/chat` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Chat sidebar is post-research editing only — does NOT trigger research.
 
 **Verifier/repair phase**: Lab sections use structured schemas, minimum validators, the structural verifier, required-evidence gates, and evidence-support repair. Validate API inputs, run IDs, dispatch envelopes, persistence shape, and parsable JSON; do not accept unsupported load-bearing claims as clean output.
 
@@ -105,8 +107,8 @@ Fan-out is the canonical flow. The old per-section "Run section" operator click 
 | What | Where |
 |------|-------|
 | Research-v3 page | `src/app/research-v3/page.tsx` |
-| Research-v2 legacy shell | `src/app/research-v2/page.tsx` |
-| Workspace chat/edit stream | `src/app/api/journey/stream/route.ts` |
+| Research-v3 page (canonical surface) | `src/app/research-v3/page.tsx` |
+| Workspace chat/edit route | `src/app/api/research-v2/chat/route.ts` |
 | Research dispatch route | `src/app/api/research-v2/dispatch/route.ts` |
 | Orchestrate route | `src/app/api/research-v2/orchestrate/route.ts` |
 | Lab section route | `src/app/api/research-v2/run-lab-section/route.ts` |
@@ -117,7 +119,7 @@ Fan-out is the canonical flow. The old per-section "Run section" operator click 
 | Research realtime | `src/lib/journey/research-realtime.ts` |
 | Card taxonomy | `src/lib/workspace/card-taxonomy.ts` |
 | Field catalog | `src/lib/journey/field-catalog.ts` |
-| Context builder | `src/lib/journey/context-string.ts` |
+| Research input builder | `src/lib/research-v2/corpus-to-research-input.ts` |
 | Worker entry | `research-worker/src/index.ts` |
 | Identity resolver | `research-worker/src/identity/resolve-identity.ts` |
 | Meeting intel | `src/lib/meeting-intel/` |
@@ -149,7 +151,7 @@ IMPORTANT — these cause silent bugs if wrong:
 ## Critical Gotchas
 - **id vs run_id**: Frontend passes `run_id`. Query `.eq('run_id', id)`, use `session.id` for FKs.
 - **Field sync**: New onboarding fields must sync across 6 places: field-catalog.ts, JOURNEY_FIELD_GROUPS, PROFILE_FIELD_GROUPS, Supabase migration, worker parse-context.ts, identity card JSONB.
-- **Railway worker boundary**: Cannot import from `src/lib/`. Worker-backed corpus/identity/meeting code stays in `research-worker/`; current section schemas live in `src/lib/lab-engine/artifacts/schemas/`, with `src/lib/managed-agents/schemas/` retained only as the temporary renderer mirror pending FE-2.
+- **Railway worker boundary**: Cannot import from `src/lib/`. Worker-backed corpus/identity/meeting code stays in `research-worker/`; current section schemas live solely in `src/lib/lab-engine/artifacts/schemas/`.
 - **Pre-existing TS errors**: openrouter tests and chat blueprint tests have known errors — ignore them.
 - **Deploy**: Vercel. Long routes need `export const maxDuration = 300` (Pro tier). Worker deploys separately via `cd research-worker && railway up`.
 

@@ -6,7 +6,7 @@ description: "AIGOS project conventions and architecture"
 
 # AIGOS — Strategic Marketing Blueprint Generator
 
-Stack: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
+Stack: Next.js 16, Vercel AI SDK v6, Anthropic Claude / DeepSeek, Supabase (DB + realtime), Clerk auth, Railway worker.
 
 ## Architecture
 
@@ -18,13 +18,13 @@ User flow:
 3. Submit -> dispatches deepResearchProgram (corpus + onboarding fields)
 4. Corpus completes -> GTM Brief Review form for user to confirm/edit
 5. User submits brief -> POST /api/research-v2/orchestrate fans out all six positioning sections
-6. Sections commit as drafts in parallel (bounded by ORCHESTRATOR_CONCURRENCY, default 3 -> two waves of three; ~13 min total)
+6. Sections fan out and commit as drafts in parallel (Promise.allSettled over all six positioning IDs; no wave scheduler, no concurrency cap)
 7. Audit Reader renders typed cards per section as each commits
 8. All results saved to profile
 
 Fan-out is the canonical flow. The old per-section "Run section" operator click was replaced when /api/research-v2/orchestrate landed. Do not reintroduce sequential single-section dispatch unless explicitly asked.
 
-Research dispatch: Form submit -> POST /api/research-v2/orchestrate (multi-section fan-out) OR POST /api/research-v2/dispatch (single-section, used for corpus + /api/research-v2/rerun-section) -> Railway worker -> Supabase -> realtime to frontend.
+Research dispatch: Form submit -> POST /api/research-v2/orchestrate fans out the six positioning sections, which run IN-PROCESS via the lab engine (src/lib/lab-engine/). POST /api/research-v2/dispatch proxies the Railway worker for the deepResearchProgram corpus (+ identity, meeting extract) only. Both write to Supabase -> realtime to frontend.
 Chat sidebar: Post-research editing only (editCard, updateField). Does NOT trigger research.
 
 Pipeline: deepResearchProgram -> positioningMarketCategory -> positioningBuyerICP -> positioningCompetitorLandscape -> positioningVoiceOfCustomer -> positioningDemandIntent -> positioningOfferDiagnostic

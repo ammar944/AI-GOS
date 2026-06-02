@@ -17,7 +17,7 @@ This document is the project glossary. It defines the domain terms that load-bea
 - The active reader is `/research-v3` / `AuditReaderShell`, backed by `research_artifacts`, `research_section_runs`, `research_artifact_sections`, and `research_section_events`.
 - New audit kickoffs send `executionMode: 'lab'`; `/api/research-v2/orchestrate` only accepts optional `executionMode: 'lab'`.
 - There are no waves in the current fan-out. Every positioning Section is kicked off in parallel and reports per-section phase/tool/source activity.
-- Managed Agents runtime and webhook code were deleted on 2026-05-29. Only `src/lib/managed-agents/schemas/` remains as a temporary renderer mirror pending FE-2.
+- Managed Agents runtime, webhook, AND the schemas mirror were all removed — no `src/lib/managed-agents/` directory remains. Section schemas live in `src/lib/lab-engine/artifacts/schemas/`.
 
 **Load-bearing pieces:**
 - Lab answer-tool path — `src/lib/lab-engine/agents/run-section.ts` -> `runSectionViaAnswerTool`
@@ -38,7 +38,7 @@ This document is the project glossary. It defines the domain terms that load-bea
 - ❌ No discriminated unions of Card types in arrays — each sub-section's array is homogeneous
 - ❌ No Anthropic-specific patterns at the framework layer — AI SDK v6 abstractions throughout
 - ❌ No worker-owned positioning Subagent runtime on the v3 path — section execution is in-process lab engine
-- ❌ No managed-agents runtime or webhook route — only schemas remain pending FE-2
+- ❌ No managed-agents runtime, webhook, or schemas mirror — the entire `src/lib/managed-agents/` tree is gone
 - ❌ No wave scheduler or wave telemetry — use per-section phase/tool/source activity
 - ❌ No ad-scripts product path — ADR-0009 removed scripts from the Audit scope
 
