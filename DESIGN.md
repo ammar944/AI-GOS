@@ -135,10 +135,11 @@ Match structure to content job. Do NOT default to cards for everything.
 ## Component Patterns
 
 ### Tables
-- No visible row borders — use `border-bottom: 1px solid transparent` + hover highlight
-- Column headers: mono uppercase 10px, text-4 color
+- Column headers: mono uppercase 11px, **text-2** color (`--text-2`, `border-border` token's sibling — the Secondary token). The old 10px text-4 spec failed contrast (~1.6:1); text-2 clears 4.5:1. Keep tracking `0.06em`.
+- Row separators: faint hairline — `border-bottom: 1px solid var(--border)` (Tailwind `border-b border-border/60`), NOT transparent. Keep hover highlight.
 - Number columns: right-aligned, tabular-nums
-- Hover: `rgba(255,255,255,0.03)` background
+- Hover: `--bg-hover` background (`rgba(255,255,255,0.03)`, Tailwind `hover:bg-muted/40`)
+- Width: most tables inherit the column max-width, but **table-heavy sections MAY opt the table (only) into a wider measure, up to 960px**, when the data needs the room.
 
 ### Callout Blocks
 - Left border: 2px solid accent
@@ -177,3 +178,4 @@ Match structure to content job. Do NOT default to cards for everything.
 | 2026-03-26 | Kill card stagger animation | Instant content render. Speed = respect for operator's time. |
 | 2026-03-26 | Tables over cards for ranked data | Codex hard-rejected card proliferation. Match structure to content job. |
 | 2026-03-26 | Callout blocks over hero cards | 2px left accent, no background fill. Subtle > loud. |
+| 2026-06-02 | Table header + row restyle (amendment 2.1) | Headers 10px text-4 failed ~1.6:1 contrast → 11px text-2 (clears 4.5:1). Rows get a faint `border-border/60` hairline (was transparent). Table-heavy sections may widen the table up to 960px. |
