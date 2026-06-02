@@ -33,6 +33,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!research-worker/.env.example
 
 # vercel
 .vercel
@@ -76,6 +78,7 @@ docs/screenshots/
 .agents/
 .codex/
 .omc/
+.claude-flow/
 .claude/scheduled_tasks.lock
 
 # Out-of-tree experiments accidentally living in this repo
