@@ -8,6 +8,7 @@ import type { SectionKey, CardState } from '@/lib/workspace/types'
 
 export interface JourneySessionRecord {
   id: string
+  runId: string | null
   title: string
   created_at: string
   completedSections: SectionKey[]
@@ -96,7 +97,7 @@ export async function getCompletedJourneySessions(): Promise<{
 
   const { data, error } = await supabase
     .from('journey_sessions')
-    .select('id, created_at, metadata, research_results')
+    .select('id, run_id, created_at, metadata, research_results')
     .eq('user_id', userId)
     .not('research_results', 'is', null)
     .order('created_at', { ascending: false })
@@ -131,6 +132,7 @@ export async function getCompletedJourneySessions(): Promise<{
 
     return {
       id: row.id,
+      runId: row.run_id ?? null,
       title,
       created_at: row.created_at,
       completedSections,
@@ -161,4 +163,3 @@ export async function deleteJourneySession(
   if (error) return { success: false, error: error.message }
   return { success: true }
 }
-

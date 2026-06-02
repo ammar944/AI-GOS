@@ -28,7 +28,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { AlertTriangle, Check, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, Share2 } from 'lucide-react';
 
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import {
@@ -81,6 +81,7 @@ import {
   isRecord,
   type PositioningTypedArtifact,
 } from '@/types/positioning-artifact';
+import { useSessionShare } from '@/hooks/use-session-share';
 import { cn } from '@/lib/utils';
 
 import {
@@ -843,6 +844,12 @@ export function AuditReaderShell({
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const {
+    copied: shareCopied,
+    error: shareError,
+    handleShare,
+    isSharing,
+  } = useSessionShare();
   const live = useAuditState(runId, pollRefreshKey);
   const sectionPartials = useSectionPartials(runId);
 
@@ -1106,6 +1113,7 @@ export function AuditReaderShell({
   }, [earliestStartMs, nowMs]);
 
   const company = meta.companyName || hostname(meta.websiteUrl) || 'Audit';
+  const shareTitle = `${company} Positioning Audit`;
 
   const activeEvents = useMemo(
     () => live.eventsByZone[active] ?? [],
@@ -1226,6 +1234,10 @@ export function AuditReaderShell({
     }
   }, [active, activeTyped]);
 
+  const shareAudit = useCallback((): void => {
+    void handleShare(runId, shareTitle);
+  }, [handleShare, runId, shareTitle]);
+
   // ---- Render -----------------------------------------------------------
   return (
     <div
@@ -1240,6 +1252,31 @@ export function AuditReaderShell({
           <span className="text-[13px] font-semibold tracking-tight text-foreground">
             {company}
           </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {shareError ? (
+            <span className="hidden text-[12px] text-destructive sm:inline">
+              {shareError}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            aria-label="Share audit"
+            title="Share audit"
+            onClick={shareAudit}
+            disabled={isSharing || !runDispatched}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+          >
+            {isSharing ? (
+              <Loader2
+                className="size-3.5 animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+            ) : (
+              <Share2 className="size-3.5" aria-hidden="true" />
+            )}
+            {isSharing ? 'Sharing' : shareCopied ? 'Copied' : 'Share'}
+          </button>
         </div>
       </header>
 

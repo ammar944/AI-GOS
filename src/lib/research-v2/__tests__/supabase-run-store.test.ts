@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { persistenceGateEvalCases } from '@/lib/lab-engine/fixtures/persistence-gate-evals';
@@ -8,12 +8,22 @@ import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
+const profilePersistenceMocks = vi.hoisted(() => ({
+  persistProfileFromCommittedSectionBestEffort: vi.fn(),
+}));
+
+vi.mock('@/lib/profiles/section-profile-persistence', () => ({
+  persistProfileFromCommittedSectionBestEffort:
+    profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort,
+}));
+
 import {
   createSupabaseRunStore,
   SupabaseRunStoreCommitConflictError,
   SupabaseRunStoreError,
 } from '../supabase-run-store';
 
+const userId = 'user_123';
 const parentAuditRunId = '11111111-1111-4111-8111-111111111111';
 const sectionRunIdByZone = Object.fromEntries(
   POSITIONING_SECTION_IDS.map((sectionId, index) => [
@@ -144,10 +154,16 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 }
 
 describe('createSupabaseRunStore', (): void => {
+  beforeEach((): void => {
+    profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort.mockReset();
+    profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort.mockResolvedValue(undefined);
+  });
+
   it('keeps the lab RunRecord contract while writing events, status, and artifacts to Supabase', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -231,6 +247,16 @@ describe('createSupabaseRunStore', (): void => {
         }),
       }),
     );
+    expect(
+      profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort,
+    ).toHaveBeenCalledWith({
+      supabase: fakeSupabase.supabase,
+      userId,
+      runId: saaslaunchResearchInput.runId,
+      researchInput: saaslaunchResearchInput,
+      sectionId: 'positioningMarketCategory',
+      artifact: marketCategoryFixtureArtifact,
+    });
   });
 
   it('rolls the parent artifact complete when the sixth positioning section commits', async (): Promise<void> => {
@@ -239,6 +265,7 @@ describe('createSupabaseRunStore', (): void => {
     });
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -267,6 +294,7 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -319,6 +347,7 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -356,6 +385,7 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase({ markSectionErrorChanged: false });
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -404,6 +434,7 @@ describe('createSupabaseRunStore', (): void => {
     });
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -427,6 +458,7 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase({ commitError: 'rpc boom' });
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -449,6 +481,7 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
+      userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
@@ -480,6 +513,7 @@ describe('createSupabaseRunStore', (): void => {
       const fakeSupabase = createFakeSupabase();
       const store = createSupabaseRunStore({
         supabase: fakeSupabase.supabase,
+        userId,
         parentAuditRunId,
         sectionRunIdByZone,
         researchInput: saaslaunchResearchInput,

@@ -19,6 +19,12 @@ function formatDate(dateString: string): string {
   }
 }
 
+function researchSessionHref(session: { id: string; runId: string | null }): string {
+  return session.runId
+    ? `/research-v3?runId=${encodeURIComponent(session.runId)}`
+    : `/research/${session.id}`;
+}
+
 export default async function DashboardPage() {
   await requireActiveAccount();
 
@@ -100,6 +106,7 @@ export default async function DashboardPage() {
                   const completedCount = session.completedSections.length;
                   const totalCount = RESEARCH_SECTIONS.length;
                   const isComplete = completedCount >= totalCount;
+                  const href = researchSessionHref(session);
 
                   return (
                     <div
@@ -107,7 +114,7 @@ export default async function DashboardPage() {
                       className="group flex items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 transition-all hover:border-[var(--border-default)] hover:bg-[var(--bg-surface)]"
                     >
                       <Link
-                        href={`/research/${session.id}`}
+                        href={href}
                         className="flex flex-1 items-center gap-3 cursor-pointer"
                       >
                         <div className="w-8 h-8 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center shrink-0">
@@ -133,7 +140,7 @@ export default async function DashboardPage() {
                           {completedCount}/{totalCount}
                         </span>
                         <DeleteSessionButton sessionId={session.id} sessionTitle={session.title} />
-                        <Link href={`/research/${session.id}`}>
+                        <Link href={href}>
                           <ArrowRight className="size-3.5 text-[var(--text-quaternary)] group-hover:text-[var(--text-tertiary)] transition-colors" />
                         </Link>
                       </div>

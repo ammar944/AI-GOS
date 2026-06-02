@@ -19,6 +19,12 @@ function formatDate(dateString: string): string {
   }
 }
 
+function researchSessionHref(session: { id: string; runId: string | null }): string {
+  return session.runId
+    ? `/research-v3?runId=${encodeURIComponent(session.runId)}`
+    : `/research/${session.id}`;
+}
+
 export default async function ResearchListPage() {
   await requireActiveAccount();
 
@@ -71,6 +77,7 @@ export default async function ResearchListPage() {
                 const completedCount = session.completedSections.length;
                 const totalCount = RESEARCH_SECTIONS.length;
                 const isComplete = completedCount >= totalCount;
+                const href = researchSessionHref(session);
 
                 return (
                   <div
@@ -78,7 +85,7 @@ export default async function ResearchListPage() {
                     className="group flex items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[var(--border-default)] hover:bg-[var(--bg-surface)]"
                   >
                     <Link
-                      href={`/research/${session.id}`}
+                      href={href}
                       className="flex flex-1 items-center gap-4 cursor-pointer"
                     >
                       <div className="w-10 h-10 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center shrink-0">
@@ -104,7 +111,7 @@ export default async function ResearchListPage() {
                         {completedCount}/{totalCount} sections
                       </span>
                       <DeleteSessionButton sessionId={session.id} sessionTitle={session.title} />
-                      <Link href={`/research/${session.id}`}>
+                      <Link href={href}>
                         <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--text-secondary)] transition-colors" />
                       </Link>
                     </div>

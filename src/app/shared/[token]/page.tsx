@@ -1,25 +1,19 @@
 import { notFound } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+
 import { SharedSessionView } from '@/components/shared/shared-session-view';
+import { getSharedSessionByToken } from '@/lib/research-v2/shared-session-read';
+import { createAdminClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 
 /**
- * Fetch shared session data using anon client (RLS public SELECT).
+ * Fetch shared session data server-side. Public sharing is token-gated, but the
+ * database read must not depend on anon-key RLS because Stage 1 removes RLS.
  */
 async function getSharedSession(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-
-  const { data, error } = await supabase
-    .from('shared_sessions')
-    .select('id, share_token, title, research_snapshot, media_plan_snapshot, created_at')
-    .eq('share_token', token)
-    .single();
-
-  if (error || !data) return null;
-  return data;
+  return getSharedSessionByToken({
+    supabase: createAdminClient(),
+    token,
+  });
 }
 
 export async function generateMetadata({
