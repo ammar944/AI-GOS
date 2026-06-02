@@ -1,6 +1,7 @@
 /**
  * Domains that require proxying through /api/image-proxy for CORS.
- * Covers Meta (fbcdn.net), LinkedIn (licdn.com), and Google CDN domains.
+ * Covers Meta (fbcdn.net), LinkedIn (licdn.com), Google CDN, and Foreplay
+ * (foreplay.co / r2.foreplay.co) creative-asset domains.
  */
 export const PROXY_DOMAINS = [
   'googlesyndication.com',
@@ -9,6 +10,8 @@ export const PROXY_DOMAINS = [
   'firebasestorage.googleapis.com',
   'fbcdn.net',
   'licdn.com',
+  'foreplay.co',
+  'r2.foreplay.co',
 ];
 
 export function shouldUseProxy(url: string): boolean {

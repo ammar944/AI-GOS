@@ -11,6 +11,7 @@ import {
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
+import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
   snapAngleTypesInMix,
   snapCreativeType,
@@ -87,6 +88,14 @@ import {
   buildCompetitorAdEvidenceGroups,
   summarizeCompetitorAdEvidenceGroups,
 } from "./tools/competitor-ad-adapter";
+import {
+  normalizeForeplayAd,
+  type NormalizedAd as NormalizedForeplayAd,
+} from "./tools/foreplay-normalize";
+import {
+  createForeplayService,
+  isForeplayEnabled,
+} from "@/lib/foreplay/service";
 import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
 import {
@@ -777,15 +786,25 @@ const structuredFirstChunkTimeoutMs = 60_000;
 const structuredChunkIdleTimeoutMs = 60_000;
 const competitorAdProbeAdvertiserLimit = 5;
 const competitorAdProbeMaxResults = 4;
-// Each probed advertiser draws two ad lookups (google_ads + meta_ads), so the
-// reserved ad pool caps how many advertisers the live probe can cover without
-// borrowing generic budget. Bounding the probe to this many advertisers keeps
-// added wall-clock to a single parallel google+meta round-trip.
-const competitorAdProbeAdLookupsPerAdvertiser = 2;
+// Each probed advertiser draws three SearchAPI ad lookups (google_ads + meta_ads
+// + linkedin_ads), so the reserved ad pool caps how many advertisers the live
+// probe can cover without borrowing generic budget. Bounding the probe to this
+// many advertisers keeps added wall-clock to a single parallel
+// google+meta+linkedin round-trip. (The optional Foreplay direct prepass does not
+// draw from this reserved pool — it is a non-budgeted direct API call.)
+const competitorAdProbeAdLookupsPerAdvertiser = 3;
 const competitorAdProbeAdvertiserConcurrency = 3;
 // Hard ceiling on the live competitor ad probe so a slow ad API cannot push
 // CompetitorLandscape past the answer-tool timeout (255s). Worst-case +30s.
 const competitorAdProbeDeadlineMs = 30_000;
+// Per-advertiser ceiling on the optional Foreplay direct prepass (searchBrands ->
+// searchAds). Foreplay runs alongside the SearchAPI probe inside the
+// per-advertiser step; this bound keeps a slow Foreplay round-trip from eating the
+// shared probe deadline.
+const competitorAdProbeForeplayDeadlineMs = 9_000;
+// Cap on Foreplay ads pulled per advertiser. Mirrors the SearchAPI max_results so
+// one channel cannot flood the per-advertiser creative budget.
+const competitorAdProbeForeplayMaxAds = 6;
 // Hard ceiling on the VoC candidate prepass (reviews -> web_search -> firecrawl).
 // Unlike the ad probe, the prepass ran on the critical path with NO deadline,
 // so a slow scrape could eat into the section budget and tip VoC past the 270s
@@ -1071,12 +1090,11 @@ function uniqueByKey<TItem>(
 }
 
 function getCreativeKey(creative: AdEvidenceCreative): string {
-  return [
-    creative.platform,
-    creative.id,
-    creative.sourceUrl,
-    creative.detailsUrl ?? "",
-  ].join(":");
+  // Share the server-merge dedup with the sibling stages via the single-sourced
+  // fingerprint: a bare numeric id (Meta ad_archive_id / Foreplay ad_library_id)
+  // collapses the same creative across SearchAPI + Foreplay; content/media keys
+  // catch the rest. Keep this in lockstep with the artifact-side helper.
+  return adCreativeFingerprint(creative);
 }
 
 function getRawSourceSampleKey(sample: AdEvidenceRawSourceSample): string {
@@ -2635,62 +2653,240 @@ interface CompetitorAdProbeToolInput {
   max_results: number;
 }
 
+type SearchApiAdToolName = "google_ads" | "meta_ads" | "linkedin_ads";
+
+interface ProbeToolPair {
+  toolCall: { toolName: string; input: unknown };
+  toolResult: { toolName: string; output: unknown };
+}
+
+function buildProbeToolInput(
+  advertiserRecord: CompetitorAdProbeAdvertiser,
+): CompetitorAdProbeToolInput {
+  return {
+    max_results: competitorAdProbeMaxResults,
+    advertiser: advertiserRecord.advertiser,
+    ...(advertiserRecord.domain === undefined
+      ? {}
+      : { domain: advertiserRecord.domain }),
+  };
+}
+
+// A settled rejection (transport throw) becomes a structured per-platform gap the
+// adapter ingests as a sourceError, isolating one channel's failure instead of
+// taking down the whole advertiser step.
+function probeRejectionGap(toolName: SearchApiAdToolName, reason: unknown): ToolGap {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  return {
+    type: "gap",
+    reason: "api_error",
+    message: `${toolName} probe threw before returning a structured result: ${message}`,
+  };
+}
+
+async function settleProbeTool({
+  input,
+  signal,
+  tool,
+  toolName,
+}: {
+  input: CompetitorAdProbeToolInput;
+  signal: AbortSignal;
+  tool: Tool<CompetitorAdProbeToolInput, unknown>;
+  toolName: SearchApiAdToolName;
+}): Promise<ProbeToolPair> {
+  const settled = await Promise.allSettled([
+    tool.execute?.(input, createToolExecutionOptions({ signal, toolName })),
+  ]);
+  const [result] = settled;
+  const output =
+    result.status === "fulfilled"
+      ? result.value
+      : probeRejectionGap(toolName, result.reason);
+
+  return {
+    toolCall: { toolName, input },
+    toolResult: { toolName, output },
+  };
+}
+
+// Foreplay direct prepass (NOT a registered tool): pull a brand by domain then its
+// ads, normalize, and inject them as synthetic per-platform toolResults the
+// adapter groups under this advertiser. Bounded by a timeout + try/catch; on any
+// failure it emits a structured gap (never a silent empty) so the section's
+// fabrication gate can see the attempt.
+function withForeplayTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Foreplay prepass timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function buildForeplayToolPairs({
+  advertiserRecord,
+  normalizedAds,
+}: {
+  advertiserRecord: CompetitorAdProbeAdvertiser;
+  normalizedAds: readonly NormalizedForeplayAd[];
+}): ProbeToolPair[] {
+  // Bucket by mapped platform so each synthetic result carries one ad-library
+  // platform (the adapter reads platform off the result, not the toolName).
+  const byPlatform = new Map<"meta" | "linkedin", NormalizedForeplayAd[]>();
+
+  for (const normalized of normalizedAds) {
+    const bucket = byPlatform.get(normalized.platform) ?? [];
+    bucket.push(normalized);
+    byPlatform.set(normalized.platform, bucket);
+  }
+
+  const input = buildProbeToolInput(advertiserRecord);
+
+  return Array.from(byPlatform.entries()).map(([platform, ads]) => {
+    const toolName: SearchApiAdToolName =
+      platform === "linkedin" ? "linkedin_ads" : "meta_ads";
+    // Strip the platform discriminator so each row validates against the strict
+    // adLibraryAdSchema the adapter parses with.
+    const rows = ads.map(({ platform: _platform, ...rawAd }) => rawAd);
+
+    return {
+      toolCall: { toolName, input },
+      toolResult: {
+        toolName,
+        output: {
+          type: "result" as const,
+          advertiser: advertiserRecord.advertiser,
+          platform,
+          ads: rows,
+        },
+      },
+    };
+  });
+}
+
+async function runForeplayPrepassForAdvertiser(
+  advertiserRecord: CompetitorAdProbeAdvertiser,
+): Promise<ProbeToolPair[]> {
+  if (advertiserRecord.domain === undefined) {
+    return [];
+  }
+
+  const service = createForeplayService();
+
+  if (service === null) {
+    return [];
+  }
+
+  try {
+    const ads = await withForeplayTimeout(
+      (async () => {
+        const brands = await service.searchBrands({
+          domain: advertiserRecord.domain,
+        });
+        const brandId = brands[0]?.id;
+
+        if (brandId === undefined || brandId.trim().length === 0) {
+          return [] as NormalizedForeplayAd[];
+        }
+
+        const foreplayAds = await service.searchAds({
+          brand_id: brandId,
+          limit: competitorAdProbeForeplayMaxAds,
+        });
+
+        return foreplayAds.map((ad) => normalizeForeplayAd(ad));
+      })(),
+      competitorAdProbeForeplayDeadlineMs,
+    );
+
+    if (ads.length === 0) {
+      return [];
+    }
+
+    return buildForeplayToolPairs({ advertiserRecord, normalizedAds: ads });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const input = buildProbeToolInput(advertiserRecord);
+    const gap: ToolGap = {
+      type: "gap",
+      reason: "api_error",
+      message: `Foreplay direct prepass failed for "${advertiserRecord.advertiser}": ${message}`,
+    };
+
+    return [
+      {
+        toolCall: { toolName: "meta_ads", input },
+        toolResult: { toolName: "meta_ads", output: gap },
+      },
+    ];
+  }
+}
+
 async function runCompetitorAdProbeAdvertiserStep({
   advertiserRecord,
+  foreplayEnabled,
   googleAdsTool,
   index,
+  linkedinAdsTool,
   metaAdsTool,
   signal,
 }: {
   advertiserRecord: CompetitorAdProbeAdvertiser;
+  foreplayEnabled: boolean;
   googleAdsTool: Tool<CompetitorAdProbeToolInput, unknown>;
   index: number;
+  // LinkedIn is best-effort: when the tool is absent the probe stays google+meta.
+  linkedinAdsTool?: Tool<CompetitorAdProbeToolInput, unknown>;
   metaAdsTool: Tool<CompetitorAdProbeToolInput, unknown>;
   signal: AbortSignal;
 }): Promise<AgentStep> {
-  const googleInput = {
-    max_results: competitorAdProbeMaxResults,
-    advertiser: advertiserRecord.advertiser,
-    ...(advertiserRecord.domain === undefined
-      ? {}
-      : { domain: advertiserRecord.domain }),
-  };
-  const metaInput = {
-    max_results: competitorAdProbeMaxResults,
-    advertiser: advertiserRecord.advertiser,
-    ...(advertiserRecord.domain === undefined
-      ? {}
-      : { domain: advertiserRecord.domain }),
-  };
-  const [googleOutput, metaOutput] = await Promise.all([
-    googleAdsTool.execute?.(
-      googleInput,
-      createToolExecutionOptions({
-        signal,
-        toolName: "google_ads",
-      }),
+  const input = buildProbeToolInput(advertiserRecord);
+
+  const searchApiTools: Array<{
+    tool: Tool<CompetitorAdProbeToolInput, unknown>;
+    toolName: SearchApiAdToolName;
+  }> = [
+    { tool: googleAdsTool, toolName: "google_ads" },
+    { tool: metaAdsTool, toolName: "meta_ads" },
+    ...(linkedinAdsTool === undefined
+      ? []
+      : [{ tool: linkedinAdsTool, toolName: "linkedin_ads" as const }]),
+  ];
+
+  // Per-channel failure isolation: a transport throw on one platform becomes a
+  // structured gap rather than rejecting the whole advertiser step.
+  const [searchApiPairs, foreplayPairs] = await Promise.all([
+    Promise.all(
+      searchApiTools.map(({ tool, toolName }) =>
+        settleProbeTool({ input, signal, tool, toolName }),
+      ),
     ),
-    metaAdsTool.execute?.(
-      metaInput,
-      createToolExecutionOptions({
-        signal,
-        toolName: "meta_ads",
-      }),
-    ),
+    foreplayEnabled
+      ? runForeplayPrepassForAdvertiser(advertiserRecord)
+      : Promise.resolve<ProbeToolPair[]>([]),
   ]);
+
+  const pairs = [...searchApiPairs, ...foreplayPairs];
 
   return {
     stepNumber: index,
     finishReason: "tool-calls",
     text: `Deterministic competitor ad evidence probe for ${advertiserRecord.advertiser}.`,
-    toolCalls: [
-      { toolName: "google_ads", input: googleInput },
-      { toolName: "meta_ads", input: metaInput },
-    ],
-    toolResults: [
-      { toolName: "google_ads", output: googleOutput },
-      { toolName: "meta_ads", output: metaOutput },
-    ],
+    toolCalls: pairs.map((pair) => pair.toolCall),
+    toolResults: pairs.map((pair) => pair.toolResult),
   };
 }
 
@@ -2702,7 +2898,7 @@ export async function runCompetitorAdProbeSteps({
 }: {
   // When set, caps how many advertisers the probe covers. The reserved ad
   // budget is the binding constraint, so the caller passes the number of
-  // advertisers the reserve can fully fund (google + meta each).
+  // advertisers the reserve can fully fund (google + meta + linkedin each).
   maxAdvertisers?: number;
   researchInput: ResearchInput;
   researchTools: Record<string, unknown>;
@@ -2764,6 +2960,17 @@ export async function runCompetitorAdProbeSteps({
     researchTools,
     "meta_ads",
   );
+  // LinkedIn is best-effort: probe it only when the tool is present, and skip it
+  // gracefully otherwise (it stays out of the hard google+meta guard above).
+  const linkedinAdsTool = hasExecutableTool(researchTools, "linkedin_ads")
+    ? getExecutableTool<CompetitorAdProbeToolInput>(
+        researchTools,
+        "linkedin_ads",
+      )
+    : undefined;
+  // Resolve the Foreplay feature flag once for the whole probe; the per-advertiser
+  // prepass additionally checks for a configured service + a usable domain.
+  const foreplayEnabled = isForeplayEnabled();
 
   // Hard deadline so a slow ad API cannot drag the probe past the answer-tool
   // timeout. Combined with the parent signal; cleaned up in finally.
@@ -2780,8 +2987,10 @@ export async function runCompetitorAdProbeSteps({
       mapper: (advertiserRecord, index) =>
         runCompetitorAdProbeAdvertiserStep({
           advertiserRecord,
+          foreplayEnabled,
           googleAdsTool,
           index,
+          linkedinAdsTool,
           metaAdsTool,
           signal: probeDeadline.signal,
         }),
@@ -4167,8 +4376,8 @@ async function runSectionViaAnswerTool(
   });
   const externalToolNames = getExternalToolNames(externalTools);
   // Bound the live ad probe to the advertisers the reserved pool can fully fund
-  // (google + meta each). With adReservedLookups=6 this covers three advertisers
-  // without borrowing generic budget.
+  // (google + meta + linkedin each). With adReservedLookups=9 this covers three
+  // advertisers without borrowing generic budget.
   const adProbeMaxAdvertisers =
     definition.adReservedLookups !== undefined &&
     definition.adReservedLookups > 0

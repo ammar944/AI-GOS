@@ -121,11 +121,56 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     ).toBe(true);
   });
 
-  it('fires exactly two ad tool calls per advertiser (google_ads + meta_ads) and zero linkedin calls', async (): Promise<void> => {
-    // Locks Hypothesis A: LinkedIn is a phantom channel. The probe must only
-    // call google_ads and meta_ads — never a linkedin tool — so reporting
-    // linkedin as a probed-but-empty channel would be dishonest.
-    const budget = new SectionToolBudget(6, 4);
+  it('fires three ad tool calls per advertiser (google_ads + meta_ads + linkedin_ads) when a linkedin tool is present', async (): Promise<void> => {
+    // LinkedIn is now a real, agent-callable channel (linkedin_ads -> SearchAPI
+    // linkedin_ad_library). When the tool is present the probe must fire all
+    // three SearchAPI platforms per advertiser; Foreplay is disabled in tests
+    // (no FOREPLAY_API_KEY), so no synthetic Foreplay rows appear.
+    const budget = new SectionToolBudget(6, 9);
+    const observe = { concurrent: 0, maxConcurrent: 0 };
+    const researchTools: Record<string, unknown> = {
+      google_ads: budgetWrappedAdTool('google_ads', budget, observe),
+      meta_ads: budgetWrappedAdTool('meta_ads', budget, observe),
+      linkedin_ads: budgetWrappedAdTool('linkedin_ads', budget, observe),
+    };
+
+    const steps = await runCompetitorAdProbeSteps({
+      maxAdvertisers: 2,
+      researchInput: {
+        ...saaslaunchResearchInput,
+        competitorAds: [],
+        competitorSeeds: [
+          { name: 'FirstRival', domain: 'firstrival.com' },
+          { name: 'SecondRival', domain: 'secondrival.com' },
+        ],
+      },
+      researchTools,
+    });
+
+    expect(steps).toHaveLength(2);
+
+    for (const step of steps) {
+      const calledToolNames = step.toolCalls.map((call) => call.toolName);
+      expect(calledToolNames).toEqual([
+        'google_ads',
+        'meta_ads',
+        'linkedin_ads',
+      ]);
+
+      const resultToolNames = step.toolResults.map((result) => result.toolName);
+      expect(resultToolNames).toEqual([
+        'google_ads',
+        'meta_ads',
+        'linkedin_ads',
+      ]);
+    }
+  });
+
+  it('stays google_ads + meta_ads only when the linkedin tool is absent', async (): Promise<void> => {
+    // LinkedIn is best-effort: with no linkedin_ads tool the probe must not
+    // fabricate a linkedin call — the adapter documents linkedin=0 as a
+    // not-probed sentinel instead.
+    const budget = new SectionToolBudget(6, 6);
     const observe = { concurrent: 0, maxConcurrent: 0 };
     const researchTools: Record<string, unknown> = {
       google_ads: budgetWrappedAdTool('google_ads', budget, observe),
@@ -150,8 +195,6 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     for (const step of steps) {
       const calledToolNames = step.toolCalls.map((call) => call.toolName);
       expect(calledToolNames).toEqual(['google_ads', 'meta_ads']);
-      expect(calledToolNames).not.toContain('linkedin');
-      expect(calledToolNames).not.toContain('linkedin_ads');
       expect(
         calledToolNames.some((name) => name.includes('linkedin')),
       ).toBe(false);
