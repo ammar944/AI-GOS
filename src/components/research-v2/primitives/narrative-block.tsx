@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { ProseWithCitations } from '@/components/research-v2/reader-sources';
 
 export interface NarrativeBlockProps {
   title?: string;
@@ -31,7 +32,9 @@ export function NarrativeBlock({
       ) : null}
       <div className="flex max-w-[68ch] flex-col gap-3 text-[15px] leading-[1.6] text-foreground">
         {paragraphs.map((p, i) => (
-          <p key={i}>{p}</p>
+          <p key={i}>
+            <ProseWithCitations text={p} />
+          </p>
         ))}
       </div>
       {children}
