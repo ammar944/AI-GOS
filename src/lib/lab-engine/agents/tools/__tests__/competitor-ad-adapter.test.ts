@@ -409,4 +409,32 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.creatives[0]?.verified).toBe(true);
     expect(group.creatives[0]?.id).toBe("thin");
   });
+
+  it("ranks a more recent verified creative above an older verified one", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      returnedCreativeLimit: 2,
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=old",
+            id: "old",
+            advertiserName: "Gong",
+            title: "Older but verified ad",
+            lastSeen: "2024-01-01",
+            identityVerified: true,
+          },
+          {
+            url: "https://www.facebook.com/ads/library/?id=fresh",
+            id: "fresh",
+            advertiserName: "Gong",
+            title: "Recent verified ad",
+            lastSeen: "2026-06-01",
+            identityVerified: true,
+          },
+        ]),
+      ],
+    });
+    expect(group.creatives[0]?.id).toBe("fresh");
+  });
 });

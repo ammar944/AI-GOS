@@ -789,7 +789,11 @@ const answerToolMaxAttempts = 2;
 const structuredFirstChunkTimeoutMs = 60_000;
 const structuredChunkIdleTimeoutMs = 60_000;
 const competitorAdProbeAdvertiserLimit = 5;
-const competitorAdProbeMaxResults = 4;
+// Over-fetch a pool per provider so the adapter's blended ranker (identity +
+// recency + richness) has real choice before capping to the displayed set.
+// adlibrary filters by advertiser identity + usable text BEFORE this cap, so a
+// larger pool buys recall, not noise.
+const competitorAdProbeMaxResults = 15;
 // Each probed advertiser draws three SearchAPI ad lookups (google_ads + meta_ads
 // + linkedin_ads), so the reserved ad pool caps how many advertisers the live
 // probe can cover without borrowing generic budget. Bounding the probe to this
