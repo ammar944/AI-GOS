@@ -114,6 +114,9 @@ function mapAdCreative(
     source: optionalText(creative.source),
     transcript: optionalText(creative.transcript),
     cta: optionalText(creative.cta),
+    verified: creative.verified,
+    language: optionalText(creative.language ?? null),
+    identityBasis: optionalText(creative.identityBasis ?? null),
   };
 }
 
