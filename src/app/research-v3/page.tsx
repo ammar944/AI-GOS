@@ -546,34 +546,39 @@ export default function ResearchV3Page() {
 
   return (
     <>
-      {/* Resume banner */}
-      {resumeBanner && state.kind === 'welcome' && (
-        <div className="fixed top-0 inset-x-0 z-50 flex items-center justify-between gap-4 bg-muted px-4 py-2.5 text-sm border-b">
-          <span>
-            Resuming research on{' '}
-            <strong>{resumeBanner.hostname || 'previous session'}</strong> —{' '}
-            last updated {new Date(resumeBanner.updatedAt).toLocaleString()}
-          </span>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={handleConfirmResume}
-              className="underline underline-offset-2 hover:no-underline"
-            >
-              Resume
-            </button>
-            <span className="text-muted-foreground">·</span>
-            <button
-              onClick={handleDismissResume}
-              className="underline underline-offset-2 hover:no-underline"
-            >
-              Start fresh
-            </button>
+      {state.kind === 'welcome' && (
+        <div className="flex h-full flex-col">
+          {/* Resume notice — subtle, in-flow (no longer a fixed bar over the shell) */}
+          {resumeBanner && (
+            <div className="mx-auto mt-6 flex w-full max-w-lg items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-[13px] shadow-sm">
+              <span className="min-w-0 truncate text-muted-foreground">
+                Continue your audit on{' '}
+                <strong className="font-medium text-foreground">
+                  {resumeBanner.hostname || 'your last session'}
+                </strong>
+              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleConfirmResume}
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  Resume
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismissResume}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="min-h-0 flex-1">
+            <WelcomeForm onSubmit={startCorpus} isLoading={isCorpusStarting} />
           </div>
         </div>
-      )}
-
-      {state.kind === 'welcome' && (
-        <WelcomeForm onSubmit={startCorpus} isLoading={isCorpusStarting} />
       )}
 
       {state.kind === 'corpus' && userId && (
