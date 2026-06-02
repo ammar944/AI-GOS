@@ -51,7 +51,6 @@ nul
 .playwright-cli/
 
 # Claude local state
-.claude-flow/
 .claude/worktrees/
 .worktrees/
 .claude/statusline.*
