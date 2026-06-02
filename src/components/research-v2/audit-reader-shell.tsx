@@ -330,6 +330,8 @@ function sectionStatusSubline(status: ReaderSectionStatus): string {
   if (status === 'aborted') return 'Aborted';
   if (status === 'ready') return 'Ready after 6/6';
   if (status === 'locked') return 'Locked until 6/6';
+  if (status === 'running') return 'Running';
+  if (status === 'queued') return 'Queued';
   return status;
 }
 
