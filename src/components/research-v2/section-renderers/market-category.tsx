@@ -2,35 +2,16 @@ import { cn } from '@/lib/utils';
 import type { MarketCategoryArtifact } from '@/types/positioning-artifact';
 import {
   DataTable,
-  SubsectionBlock,
+  Eyebrow,
+  MonoBadge,
+  SourceLink,
   type DataTableColumn,
-} from '../primitives';
+} from '@/components/research-v2/ui-kit';
+import { SubsectionBlock } from '../primitives';
 
 export interface MarketCategoryRendererProps {
   artifact: MarketCategoryArtifact;
   className?: string;
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function SourceLink({ url }: { url?: string }): React.ReactElement | null {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)} →
-    </a>
-  );
 }
 
 const SIGNAL_TYPE_LABEL: Record<string, string> = {
@@ -81,20 +62,6 @@ const MATURITY_STAGE_LABEL: Record<string, string> = {
   commoditizing: 'Commoditizing',
 };
 
-function MonoPill({
-  value,
-  label,
-}: {
-  value: string;
-  label?: string;
-}): React.ReactElement {
-  return (
-    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {label ?? value}
-    </span>
-  );
-}
-
 export function MarketCategoryRenderer({
   artifact,
   className,
@@ -129,7 +96,7 @@ export function MarketCategoryRenderer({
       key: 'signalType',
       header: 'Signal type',
       render: row => (
-        <MonoPill value={row.signalType} label={SIGNAL_TYPE_LABEL[row.signalType]} />
+        <MonoBadge>{SIGNAL_TYPE_LABEL[row.signalType] ?? row.signalType}</MonoBadge>
       ),
     },
     {
@@ -144,7 +111,7 @@ export function MarketCategoryRenderer({
       key: 'trajectory',
       header: 'Trajectory',
       render: row => (
-        <MonoPill value={row.trajectory} label={TRAJECTORY_LABEL[row.trajectory]} />
+        <MonoBadge>{TRAJECTORY_LABEL[row.trajectory] ?? row.trajectory}</MonoBadge>
       ),
     },
     {
@@ -171,7 +138,7 @@ export function MarketCategoryRenderer({
       key: 'forceType',
       header: 'Force type',
       render: row => (
-        <MonoPill value={row.forceType} label={FORCE_TYPE_LABEL[row.forceType]} />
+        <MonoBadge>{FORCE_TYPE_LABEL[row.forceType] ?? row.forceType}</MonoBadge>
       ),
     },
     {
@@ -185,13 +152,13 @@ export function MarketCategoryRenderer({
     {
       key: 'impact',
       header: 'Impact',
-      render: row => <MonoPill value={row.impact} label={IMPACT_LABEL[row.impact]} />,
+      render: row => <MonoBadge>{IMPACT_LABEL[row.impact] ?? row.impact}</MonoBadge>,
     },
     {
       key: 'direction',
       header: 'Direction',
       render: row => (
-        <MonoPill value={row.direction} label={DIRECTION_LABEL[row.direction]} />
+        <MonoBadge>{DIRECTION_LABEL[row.direction] ?? row.direction}</MonoBadge>
       ),
     },
   ];
@@ -235,9 +202,7 @@ export function MarketCategoryRenderer({
             <h4 className="text-[20px] font-semibold leading-tight tracking-tight text-foreground">
               {stageLabel}
             </h4>
-            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              stage classification
-            </span>
+            <Eyebrow>stage classification</Eyebrow>
           </div>
           <p className="text-[14px] leading-[1.6] text-muted-foreground">
             {classification.evidenceSummary}
@@ -250,22 +215,17 @@ export function MarketCategoryRenderer({
                   className="flex flex-col gap-1 text-[13px] leading-[1.5] text-muted-foreground"
                 >
                   <div className="flex items-center gap-2">
-                    <MonoPill
-                      value={signal.signalType}
-                      label={MATURITY_SIGNAL_LABEL[signal.signalType] ?? signal.signalType}
-                    />
+                    <MonoBadge>
+                      {MATURITY_SIGNAL_LABEL[signal.signalType] ?? signal.signalType}
+                    </MonoBadge>
                     {signal.sourceUrl ? <SourceLink url={signal.sourceUrl} /> : null}
                   </div>
                   <div>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                      evidence ·{' '}
-                    </span>
+                    <Eyebrow className="mr-1 inline">evidence</Eyebrow>
                     {signal.evidence}
                   </div>
                   <div>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                      implication ·{' '}
-                    </span>
+                    <Eyebrow className="mr-1 inline">implication</Eyebrow>
                     {signal.implication}
                   </div>
                 </li>

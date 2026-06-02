@@ -173,7 +173,7 @@ describe('<AuditReaderShell>', () => {
     );
 
     expect(screen.getByText('Section 8 of 8')).toBeInTheDocument();
-    expect(screen.queryByTestId('section-progress-strip')).not.toBeInTheDocument();
+    expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
     ).toBeInTheDocument();

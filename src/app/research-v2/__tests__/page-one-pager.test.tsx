@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
@@ -200,9 +200,9 @@ describe('ResearchV2Page — light audit reader shell', () => {
 
     expect(screen.getByText('Positioning Audit')).toBeInTheDocument();
     expect(screen.getByText('Section 1 of 8')).toBeInTheDocument();
-    const header = screen.getByRole('banner');
-    expect(within(header).getByRole('button', { name: /copy/i })).toBeEnabled();
-    expect(within(header).getByRole('button', { name: /rerun/i })).toBeEnabled();
+    const shell = screen.getByTestId('audit-reader-shell');
+    expect(within(shell).getByRole('button', { name: /^copy$/i })).toBeEnabled();
+    expect(within(shell).getByRole('button', { name: /^rerun$/i })).toBeEnabled();
     expect(
       screen.getByRole('button', { name: /market.*category.*complete/i }),
     ).toBeEnabled();
@@ -359,9 +359,12 @@ describe('ResearchV2Page — light audit reader shell', () => {
       'typed:positioningMarketCategory',
     );
     expect(screen.getByText('1 sources')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /market source/i })).toHaveAttribute(
-      'href',
-      sourceUrl,
+    fireEvent.click(screen.getByRole('button', { name: /^1 sources$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /market source/i })).toHaveAttribute(
+        'href',
+        sourceUrl,
+      ),
     );
   });
 });

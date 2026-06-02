@@ -1,5 +1,3 @@
-import { ExternalLink } from 'lucide-react';
-
 import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
 import {
   isRecord,
@@ -9,9 +7,11 @@ import { cn } from '@/lib/utils';
 import {
   DataTable,
   InlineStats,
-  SubsectionBlock,
+  MonoBadge,
+  SourceLink,
   type DataTableColumn,
-} from '../primitives';
+} from '@/components/research-v2/ui-kit';
+import { SubsectionBlock } from '../primitives';
 
 export interface PaidMediaPlanRendererProps {
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact;
@@ -33,86 +33,6 @@ const PAID_MEDIA_BODY_KEYS = [
   'kpis',
 ] as const satisfies ReadonlyArray<keyof PaidMediaPlanArtifact['body']>;
 
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function SourceLink({ url }: { url?: string }): React.ReactElement | null {
-  if (url === undefined || url.length === 0) {
-    return null;
-  }
-
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)}
-      <ExternalLink className="size-3" aria-hidden="true" />
-    </a>
-  );
-}
-
-function SourceSectionPill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span className="inline-flex w-fit items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {value}
-    </span>
-  );
-}
-
-const CHANNEL_VERDICT_CLASS: Record<string, string> = {
-  keep: 'bg-secondary text-secondary-foreground',
-  fix: 'bg-muted text-foreground',
-  cut: 'bg-destructive/10 text-destructive',
-  start: 'bg-primary/10 text-primary',
-};
-
-function ChannelVerdictPill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span
-      className={cn(
-        'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
-        CHANNEL_VERDICT_CLASS[value] ?? 'bg-secondary text-secondary-foreground',
-      )}
-    >
-      {value}
-    </span>
-  );
-}
-
-function CreativeSummary({
-  creative,
-}: {
-  creative: PaidMediaPlanArtifact['body']['creativeFramework']['creatives'][number];
-}): React.ReactElement {
-  const lines = [
-    creative.uspSentence,
-    creative.problem,
-    creative.solution,
-    creative.transformation,
-    creative.objection,
-    creative.objectionAnswer,
-    creative.founderScriptBeat,
-  ].filter((line): line is string => line !== undefined && line.length > 0);
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="font-medium text-foreground">{creative.creativeType}</span>
-      {lines.map((line) => (
-        <span key={line}>{line}</span>
-      ))}
-      <SourceLink url={creative.sourceUrl} />
-    </div>
-  );
-}
-
 function getPaidMediaPlanBody(
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
 ): PaidMediaPlanArtifact['body'] {
@@ -125,6 +45,22 @@ function getPaidMediaPlanBody(
   return Object.fromEntries(
     PAID_MEDIA_BODY_KEYS.map((key) => [key, record[key]]),
   ) as PaidMediaPlanArtifact['body'];
+}
+
+function creativeSummaryLines(
+  creative: PaidMediaPlanArtifact['body']['creativeFramework']['creatives'][number],
+): string {
+  return [
+    creative.uspSentence,
+    creative.problem,
+    creative.solution,
+    creative.transformation,
+    creative.objection,
+    creative.objectionAnswer,
+    creative.founderScriptBeat,
+  ]
+    .filter((line): line is string => line !== undefined && line.length > 0)
+    .join(' · ');
 }
 
 export function PaidMediaPlanRenderer({
@@ -178,6 +114,27 @@ export function PaidMediaPlanRenderer({
       ),
     },
   ];
+  const creativeColumns: ReadonlyArray<
+    DataTableColumn<(typeof body.creativeFramework.creatives)[number]>
+  > = [
+    {
+      key: 'creativeType',
+      header: 'Type',
+      render: (row) => (
+        <span className="font-medium text-foreground">{row.creativeType}</span>
+      ),
+    },
+    {
+      key: 'summary',
+      header: 'Framework',
+      render: (row) => creativeSummaryLines(row),
+    },
+    {
+      key: 'sourceUrl',
+      header: 'Source',
+      render: (row) => <SourceLink url={row.sourceUrl} />,
+    },
+  ];
   const reviewColumns: ReadonlyArray<
     DataTableColumn<(typeof body.competitorReviewInsights.insights)[number]>
   > = [
@@ -211,7 +168,7 @@ export function PaidMediaPlanRenderer({
     {
       key: 'sourceSection',
       header: 'Source',
-      render: (row) => <SourceSectionPill value={row.sourceSection} />,
+      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
     },
   ];
   const salesColumns: ReadonlyArray<
@@ -234,7 +191,7 @@ export function PaidMediaPlanRenderer({
     {
       key: 'verdict',
       header: 'Verdict',
-      render: (row) => <ChannelVerdictPill value={row.verdict} />,
+      render: (row) => <MonoBadge>{row.verdict}</MonoBadge>,
     },
   ];
   const kpiColumns: ReadonlyArray<DataTableColumn<(typeof body.kpis.kpis)[number]>> = [
@@ -288,16 +245,11 @@ export function PaidMediaPlanRenderer({
         </SubsectionBlock>
 
         <SubsectionBlock label="Creative framework" prose={body.creativeFramework.prose}>
-          <div className="grid gap-3 md:grid-cols-2">
-            {body.creativeFramework.creatives.map((creative) => (
-              <article
-                key={`${creative.creativeType}-${creative.sourceSection}`}
-                className="rounded-md border border-border bg-muted/30 p-4 text-[13px] leading-[1.5] text-muted-foreground"
-              >
-                <CreativeSummary creative={creative} />
-              </article>
-            ))}
-          </div>
+          <DataTable
+            columns={creativeColumns}
+            rows={body.creativeFramework.creatives}
+            rowKey={(row) => `${row.creativeType}-${row.sourceSection}`}
+          />
         </SubsectionBlock>
 
         <SubsectionBlock

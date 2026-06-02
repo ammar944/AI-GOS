@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
+import { Eyebrow } from '@/components/research-v2/ui-kit';
+
 export interface MilestoneItem {
   label?: string;
   title: string;
@@ -32,19 +34,17 @@ export function MilestoneTimeline({
             aria-hidden="true"
             className={cn(
               'absolute left-[-23px] top-1.5 h-[11px] w-[11px] rounded-full ring-[3px] ring-background',
-              step.accent ? 'bg-primary' : 'bg-primary',
+              step.accent ? 'bg-primary' : 'bg-border',
             )}
           />
           {step.label ? (
-            <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              {step.label}
-            </div>
+            <Eyebrow className="mb-1 block">{step.label}</Eyebrow>
           ) : null}
           <h4 className="text-[15px] font-semibold leading-[1.35] text-foreground">
             {step.title}
           </h4>
           {step.body ? (
-            <div className="mt-1 max-w-[60ch] text-[13px] leading-[1.6] text-muted-foreground">
+            <div className="mt-1 max-w-[60ch] text-[15px] leading-[1.6] text-foreground">
               {step.body}
             </div>
           ) : null}

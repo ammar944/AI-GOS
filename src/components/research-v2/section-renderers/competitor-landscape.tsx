@@ -10,25 +10,23 @@ import { cn } from '@/lib/utils';
 import type { CompetitorLandscapeArtifact } from '@/types/positioning-artifact';
 import {
   BarBreakdown,
-  DataTable,
   PositioningAxisStack,
-  QuoteCallout,
   SubsectionBlock,
-  type DataTableColumn,
   type PositioningAxisItem,
 } from '../primitives';
+import {
+  DataTable,
+  Eyebrow,
+  hostname,
+  MonoBadge,
+  QuoteCallout,
+  SourceLink,
+  type DataTableColumn,
+} from '@/components/research-v2/ui-kit';
 
 export interface CompetitorLandscapeRendererProps {
   artifact: CompetitorLandscapeArtifact;
   className?: string;
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
 }
 
 const COMPETITOR_TYPE_LABEL: Record<string, string> = {
@@ -76,28 +74,6 @@ interface AxisPosition {
   ourPosition: string;
   position: string;
   evidenceUrl: string;
-}
-
-function CompetitorTypePill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {COMPETITOR_TYPE_LABEL[value] ?? value}
-    </span>
-  );
-}
-
-function SourceLink({ url }: { url: string }): React.ReactElement | null {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)} →
-    </a>
-  );
 }
 
 function formatPlatforms(platforms: readonly string[]): string {
@@ -504,7 +480,7 @@ function CompetitorFocusPanel({
             <h3 className="text-[18px] font-semibold leading-tight tracking-[0] text-foreground">
               {selectedCompetitor.name}
             </h3>
-            <CompetitorTypePill value={selectedCompetitor.competitorType} />
+            <MonoBadge>{COMPETITOR_TYPE_LABEL[selectedCompetitor.competitorType] ?? selectedCompetitor.competitorType}</MonoBadge>
           </div>
           <p className="max-w-[72ch] text-[14px] leading-[1.65] text-muted-foreground">
             {selectedCompetitor.oneLinePositioning}
@@ -597,7 +573,7 @@ export function CompetitorLandscapeRenderer({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground">{row.name}</span>
-            <CompetitorTypePill value={row.competitorType} />
+            <MonoBadge>{COMPETITOR_TYPE_LABEL[row.competitorType] ?? row.competitorType}</MonoBadge>
           </div>
           <a
             href={row.url}
@@ -605,7 +581,7 @@ export function CompetitorLandscapeRenderer({
             rel="noopener noreferrer"
             className="text-[10px] text-muted-foreground no-underline hover:text-primary hover:underline"
           >
-            {hostnameOf(row.url)} →
+            {hostname(row.url)} →
           </a>
         </div>
       ),
@@ -758,7 +734,7 @@ export function CompetitorLandscapeRenderer({
           rowKey={r => `${r.surface}-${r.winner}`}
         />
         {winnerSegments.length > 1 ? (
-          <div className="mt-2 rounded-md border border-border bg-card p-4">
+          <div className="mt-4">
             <BarBreakdown
               caption="Winner frequency across surfaces"
               total={`${shareOfVoice.slices.length} surfaces`}
@@ -771,27 +747,22 @@ export function CompetitorLandscapeRenderer({
       <SubsectionBlock label="5 · Public Weaknesses" prose={publicWeaknesses.prose}>
         <div className="flex flex-col gap-6">
           {publicWeaknesses.items.map((item, idx) => (
-            <QuoteCallout
-              key={`${item.competitor}-${idx}`}
-              quote={item.verbatimQuote}
-              source={`${item.competitor} · ${item.source}`}
-              sourceUrl={item.sourceUrl}
-              emphasis={
-                item.whyItMatters ? (
-                  <span>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                      why it matters ·{' '}
-                    </span>
-                    {item.whyItMatters}
-                  </span>
-                ) : undefined
-              }
-            />
+            <div key={`${item.competitor}-${idx}`} className="flex flex-col gap-2">
+              <QuoteCallout
+                text={item.verbatimQuote}
+                source={`${item.competitor} · ${item.source}`}
+                url={item.sourceUrl}
+              />
+              {item.whyItMatters ? (
+                <p className="pl-5 text-[15px] leading-[1.6] text-foreground">
+                  <Eyebrow className="mr-1 inline">why it matters</Eyebrow>
+                  {item.whyItMatters}
+                </p>
+              ) : null}
+            </div>
           ))}
           {publicWeaknesses.items.length === 0 ? (
-            <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-              No verbatim weaknesses captured
-            </div>
+            <Eyebrow>No verbatim weaknesses captured</Eyebrow>
           ) : null}
         </div>
       </SubsectionBlock>

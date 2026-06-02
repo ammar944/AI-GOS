@@ -1,5 +1,3 @@
-export { DataTable, type DataTableColumn, type DataTableProps } from './data-table';
-export { QuoteCallout, type QuoteCalloutProps } from './quote-callout';
 export {
   PositioningAxisStack,
   type PositioningAxisItem,
@@ -16,11 +14,5 @@ export {
   type MilestoneItem,
   type MilestoneTimelineProps,
 } from './milestone-timeline';
-export {
-  InlineStats,
-  type InlineStatItem,
-  type InlineStatsProps,
-  type InlineStatTone,
-} from './inline-stats';
 export { NarrativeBlock, type NarrativeBlockProps } from './narrative-block';
 export { SubsectionBlock, type SubsectionBlockProps } from './subsection-block';

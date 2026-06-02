@@ -4,6 +4,7 @@ import type { SectionEvent } from '@/app/api/research-v2/audit-state/route';
 
 import {
   buildSectionActivityFeed,
+  sectionFeedToSteps,
   type CollapsedSectionActivityItem,
 } from '../section-activity';
 
@@ -117,7 +118,7 @@ describe('buildSectionActivityFeed — customer-safe adapter', () => {
       ],
     });
 
-    expect(feed.items[0]?.title).toBe('Refining unsupported claims');
+    expect(feed.items[0]?.title).toBe('Strengthening claims with sources');
     expect(feed.items[0]?.detail).toBe('Strengthening 3 claims with sources');
     feed.items.forEach(assertNoRawLeak);
   });
@@ -383,6 +384,77 @@ describe('buildSectionActivityFeed — customer-safe adapter', () => {
       events: [],
     });
     expect(empty.currentLabel).toBe('Reading sources');
+  });
+});
+
+describe('sectionFeedToSteps', () => {
+  it('drops done-phase items from the rail steps', () => {
+    const feed = buildSectionActivityFeed({
+      phaseLabel: 'Committing',
+      latestActivity: null,
+      events: [
+        event({ id: 'a', eventType: 'section-started' }),
+        event({ id: 'b', eventType: 'section-completed', metadata: { durationMs: 67000 } }),
+      ],
+    });
+
+    const steps = sectionFeedToSteps(feed);
+    expect(steps.at(-1)?.label).toBe('Preparing context');
+  });
+
+  it('maps success tone without marking the last step active', () => {
+    const feed = buildSectionActivityFeed({
+      phaseLabel: 'Committing',
+      latestActivity: null,
+      events: [
+        event({ id: 'a', eventType: 'artifact-saved' }),
+      ],
+    });
+
+    const steps = sectionFeedToSteps(feed);
+    expect(steps[0]?.tone).toBe('success');
+    expect(steps[0]?.status).toBe('complete');
+  });
+
+  it('marks only the last active-toned item as active', () => {
+    const feed = buildSectionActivityFeed({
+      phaseLabel: 'Reading sources',
+      latestActivity: null,
+      events: [
+        event({ id: 'a', eventType: 'tool-started' }),
+        event({
+          id: 'b',
+          eventType: 'tool-finished',
+          metadata: { query: 'pricing pages' },
+        }),
+      ],
+    });
+
+    const steps = sectionFeedToSteps(feed);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.status).toBe('active');
+    expect(steps[0]?.tone).toBe('active');
+    expect(steps[0]?.chips).toEqual(['pricing pages']);
+  });
+
+  it('never surfaces unsupported or repair jargon in step labels', () => {
+    const feed = buildSectionActivityFeed({
+      phaseLabel: 'Repairing',
+      latestActivity: null,
+      events: [
+        event({
+          id: 'a',
+          eventType: 'repair-started',
+          metadata: { reason: 'grounding 2 unsupported claim(s)' },
+        }),
+      ],
+    });
+
+    const steps = sectionFeedToSteps(feed);
+    const serialized = JSON.stringify(steps);
+    expect(steps[0]?.label).toBe('Strengthening claims with sources');
+    expect(serialized).not.toMatch(/\bunsupported\b/i);
+    expect(serialized).not.toMatch(/\brepair\b/i);
   });
 });
 

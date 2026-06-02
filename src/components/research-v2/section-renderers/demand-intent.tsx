@@ -2,35 +2,15 @@ import { cn } from '@/lib/utils';
 import type { DemandIntentArtifact } from '@/types/positioning-artifact';
 import {
   DataTable,
-  SubsectionBlock,
+  MonoBadge,
+  SourceLink,
   type DataTableColumn,
-} from '../primitives';
+} from '@/components/research-v2/ui-kit';
+import { SubsectionBlock } from '../primitives';
 
 export interface DemandIntentRendererProps {
   artifact: DemandIntentArtifact;
   className?: string;
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function SourceLink({ url }: { url?: string }): React.ReactElement | null {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)} →
-    </a>
-  );
 }
 
 const INTENT_TYPE_LABEL: Record<string, string> = {
@@ -69,20 +49,6 @@ const VENUE_TYPE_LABEL: Record<string, string> = {
   podcast: 'Podcast',
   slack: 'Slack',
 };
-
-function MonoPill({
-  value,
-  label,
-}: {
-  value: string;
-  label?: string;
-}): React.ReactElement {
-  return (
-    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {label ?? value}
-    </span>
-  );
-}
 
 function DomainChips({ domains }: { domains: ReadonlyArray<string> }): React.ReactElement | null {
   if (!domains || domains.length === 0) return null;
@@ -136,7 +102,7 @@ export function DemandIntentRenderer({
       key: 'intentType',
       header: 'Intent',
       render: row => (
-        <MonoPill value={row.intentType} label={INTENT_TYPE_LABEL[row.intentType]} />
+        <MonoBadge>{INTENT_TYPE_LABEL[row.intentType] ?? row.intentType}</MonoBadge>
       ),
     },
     {
@@ -164,14 +130,14 @@ export function DemandIntentRenderer({
       key: 'surface',
       header: 'Surface',
       render: row => (
-        <MonoPill value={row.surface} label={QUESTION_SURFACE_LABEL[row.surface]} />
+        <MonoBadge>{QUESTION_SURFACE_LABEL[row.surface] ?? row.surface}</MonoBadge>
       ),
     },
     {
       key: 'frequency',
       header: 'Frequency',
       render: row => (
-        <MonoPill value={row.frequency} label={FREQUENCY_LABEL[row.frequency]} />
+        <MonoBadge>{FREQUENCY_LABEL[row.frequency] ?? row.frequency}</MonoBadge>
       ),
     },
   ];
@@ -200,7 +166,7 @@ export function DemandIntentRenderer({
       key: 'signalType',
       header: 'Signal type',
       render: row => (
-        <MonoPill value={row.signalType} label={SIGNAL_TYPE_LABEL[row.signalType]} />
+        <MonoBadge>{SIGNAL_TYPE_LABEL[row.signalType] ?? row.signalType}</MonoBadge>
       ),
     },
     {
@@ -240,7 +206,7 @@ export function DemandIntentRenderer({
       key: 'venueType',
       header: 'Type',
       render: row => (
-        <MonoPill value={row.venueType} label={VENUE_TYPE_LABEL[row.venueType]} />
+        <MonoBadge>{VENUE_TYPE_LABEL[row.venueType] ?? row.venueType}</MonoBadge>
       ),
     },
     {

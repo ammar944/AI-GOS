@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
+
+import { Eyebrow } from './type';
 
 export interface DataTableColumn<T> {
   key: string;
@@ -16,6 +19,7 @@ export interface DataTableProps<T> {
   emptyLabel?: string;
   caption?: string;
   className?: string;
+  density?: 'comfortable' | 'compact';
   rowKey?: (row: T, rowIndex: number) => string;
   rowTestId?: (row: T, rowIndex: number) => string | undefined;
 }
@@ -30,29 +34,28 @@ export function DataTable<T>({
   emptyLabel = 'No data',
   caption,
   className,
+  density = 'comfortable',
   rowKey,
   rowTestId,
 }: DataTableProps<T>): React.ReactElement {
   const keyFn = rowKey ?? defaultRowKey;
+  const cellPad = density === 'compact' ? 'py-1.5' : 'py-2.5';
+
   return (
     <div className={cn('w-full overflow-x-auto', className)}>
-      {caption ? (
-        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          {caption}
-        </div>
-      ) : null}
-      <table className="w-full border-collapse text-left">
+      {caption ? <Eyebrow className="mb-2 block">{caption}</Eyebrow> : null}
+      <table className="w-full border-collapse text-[14px]">
         <thead>
           <tr>
-            {columns.map(col => (
+            {columns.map((col) => (
               <th
                 key={col.key}
+                scope="col"
                 className={cn(
-                  'border-b border-border px-3 py-2 align-bottom text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground',
-                  col.numeric && 'text-right',
+                  'border-b border-border pb-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground/80',
+                  col.numeric ? 'text-right' : 'text-left',
                   col.headerClassName,
                 )}
-                scope="col"
               >
                 {col.header}
               </th>
@@ -64,7 +67,7 @@ export function DataTable<T>({
             <tr>
               <td
                 colSpan={columns.length}
-                className="px-3 py-6 text-center text-[11px] uppercase tracking-[0.08em] text-muted-foreground"
+                className="px-3 py-6 text-center font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground"
               >
                 {emptyLabel}
               </td>
@@ -74,9 +77,9 @@ export function DataTable<T>({
               <tr
                 key={keyFn(row, rowIndex)}
                 data-testid={rowTestId?.(row, rowIndex)}
-                className="border-b border-border/60 transition-colors hover:bg-muted/50"
+                className="border-b border-transparent transition-colors hover:bg-muted/40"
               >
-                {columns.map(col => {
+                {columns.map((col) => {
                   const rendered = col.render
                     ? col.render(row, rowIndex)
                     : ((row as Record<string, unknown>)[col.key] as ReactNode);
@@ -84,9 +87,10 @@ export function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'px-3 py-2.5 align-top text-[13px] leading-[1.5] text-muted-foreground',
-                        col.numeric &&
-                          'text-right tabular-nums text-foreground',
+                        cellPad,
+                        'pr-4 text-foreground/90',
+                        col.numeric && 'text-right font-mono tabular-nums',
+                        !col.numeric && 'text-left',
                         col.className,
                       )}
                     >

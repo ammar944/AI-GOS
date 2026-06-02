@@ -1,5 +1,3 @@
-import { ExternalLink } from 'lucide-react';
-
 import type { PositioningSynthesisArtifact } from '@/lib/lab-engine/artifacts/schemas/positioning-synthesis';
 import {
   isRecord,
@@ -7,10 +5,14 @@ import {
 } from '@/types/positioning-artifact';
 import { cn } from '@/lib/utils';
 import {
+  Callout,
   DataTable,
-  SubsectionBlock,
+  Eyebrow,
+  MonoBadge,
+  SourceLink,
   type DataTableColumn,
-} from '../primitives';
+} from '@/components/research-v2/ui-kit';
+import { SubsectionBlock } from '../primitives';
 
 export interface PositioningSynthesisRendererProps {
   artifact: PositioningSynthesisArtifact | PositioningTypedArtifact;
@@ -23,40 +25,6 @@ const SYNTHESIS_BODY_KEYS = [
   'recommendedMove',
   'messagingDirections',
 ] as const satisfies ReadonlyArray<keyof PositioningSynthesisArtifact['body']>;
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function SourceLink({ url }: { url?: string }): React.ReactElement | null {
-  if (url === undefined || url.length === 0) {
-    return null;
-  }
-
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)}
-      <ExternalLink className="size-3" aria-hidden="true" />
-    </a>
-  );
-}
-
-function SourceSectionPill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span className="inline-flex w-fit items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {value}
-    </span>
-  );
-}
 
 function getSynthesisBody(
   artifact: PositioningSynthesisArtifact | PositioningTypedArtifact,
@@ -90,7 +58,7 @@ export function PositioningSynthesisRenderer({
         <div className="flex flex-col gap-1">
           <span>{row.rationale}</span>
           <div className="flex items-center gap-2">
-            <SourceSectionPill value={row.sourceSection} />
+            <MonoBadge>{row.sourceSection}</MonoBadge>
             <SourceLink url={row.sourceUrl} />
           </div>
         </div>
@@ -108,7 +76,7 @@ export function PositioningSynthesisRenderer({
       header: 'Source',
       render: (row) => (
         <div className="flex items-center gap-2">
-          <SourceSectionPill value={row.sourceSection} />
+          <MonoBadge>{row.sourceSection}</MonoBadge>
           <SourceLink url={row.sourceUrl} />
         </div>
       ),
@@ -134,22 +102,20 @@ export function PositioningSynthesisRenderer({
           label="Recommended move"
           prose="The single positioning wedge to lead with, and how to put it into market."
         >
-          <article className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-4">
-            <p className="text-sm font-semibold leading-snug text-foreground">
+          <div className="flex flex-col gap-4">
+            <Callout label="Recommended angle" tone="accent">
               {body.recommendedMove.optionAngle}
-            </p>
-            <p className="text-[13px] leading-[1.5] text-muted-foreground">
+            </Callout>
+            <p className="max-w-[68ch] text-[15px] leading-[1.6] text-foreground">
               {body.recommendedMove.rationale}
             </p>
-            <div className="space-y-1">
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                Next steps
-              </span>
-              <p className="text-[13px] leading-[1.5] text-muted-foreground">
+            <div>
+              <Eyebrow className="mb-1 block">Next steps</Eyebrow>
+              <p className="text-[15px] leading-[1.6] text-foreground">
                 {body.recommendedMove.nextSteps}
               </p>
             </div>
-          </article>
+          </div>
         </SubsectionBlock>
 
         <SubsectionBlock

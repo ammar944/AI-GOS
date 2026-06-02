@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+
+import { Eyebrow } from '@/components/research-v2/ui-kit';
+
 import { NarrativeBlock } from './narrative-block';
 
 export interface SubsectionBlockProps {
@@ -16,9 +19,7 @@ export function SubsectionBlock({
 }: SubsectionBlockProps): React.ReactElement {
   return (
     <section data-testid="subsection" className="flex flex-col gap-5">
-      <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </div>
+      <Eyebrow>{label}</Eyebrow>
       <div data-testid="subsection-prose">
         <NarrativeBlock title={title} prose={prose} />
       </div>

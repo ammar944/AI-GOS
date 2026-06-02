@@ -1,4 +1,5 @@
 import type { SectionEvent } from '@/app/api/research-v2/audit-state/route';
+import type { ActivityStep } from '@/components/research-v2/activity-rail';
 
 export type SectionActivityTone =
   | 'active'
@@ -271,7 +272,7 @@ function buildActivityItem(event: SectionEvent): SectionActivityItem | null {
     case 'repair-started':
       return {
         ...base,
-        title: 'Refining unsupported claims',
+        title: 'Strengthening claims with sources',
         detail: translateReason(eventMetadata(event)?.reason) ?? null,
         kind: 'repair',
         tone: 'warning',
@@ -397,6 +398,25 @@ function currentLabelFor(input: {
   if (lastItem) return lastItem.title;
 
   return input.phaseLabel;
+}
+
+export function sectionFeedToSteps(feed: SectionActivityFeed): ActivityStep[] {
+  const visible = feed.items.filter((item) => item.phase !== 'done');
+
+  return visible.map((item, index) => {
+    const isLast = index === visible.length - 1;
+    const status: ActivityStep['status'] =
+      isLast && item.tone === 'active' ? 'active' : 'complete';
+
+    return {
+      phase: item.phase as ActivityStep['phase'],
+      label: item.title,
+      detail: item.detail,
+      status,
+      tone: item.tone,
+      chips: item.chips.length > 0 ? item.chips : undefined,
+    };
+  });
 }
 
 export function buildSectionActivityFeed(

@@ -29,7 +29,7 @@ export function NarrativeBlock({
           {title}
         </h4>
       ) : null}
-      <div className="flex max-w-[66ch] flex-col gap-3 text-[14px] leading-[1.65] text-muted-foreground">
+      <div className="flex max-w-[68ch] flex-col gap-3 text-[15px] leading-[1.6] text-foreground">
         {paragraphs.map((p, i) => (
           <p key={i}>{p}</p>
         ))}

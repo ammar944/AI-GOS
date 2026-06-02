@@ -3,49 +3,15 @@ import type { BuyerICPArtifact } from '@/types/positioning-artifact';
 
 import {
   DataTable,
-  SubsectionBlock,
+  MonoBadge,
+  SourceLink,
   type DataTableColumn,
-} from '../primitives';
+} from '@/components/research-v2/ui-kit';
+import { SubsectionBlock } from '../primitives';
 
 export interface BuyerICPRendererProps {
   artifact: BuyerICPArtifact;
   className?: string;
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function SourceLink({ url }: { url?: string }): React.ReactElement | null {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)} →
-    </a>
-  );
-}
-
-function MonoPill({
-  value,
-  label,
-}: {
-  value: string;
-  label?: string;
-}): React.ReactElement {
-  return (
-    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {label ?? value}
-    </span>
-  );
 }
 
 const CUT_TYPE_LABEL: Record<string, string> = {
@@ -108,7 +74,7 @@ export function BuyerICPRenderer({
       key: 'cutType',
       header: 'Cut',
       render: row => (
-        <MonoPill value={row.cutType} label={CUT_TYPE_LABEL[row.cutType]} />
+        <MonoBadge>{CUT_TYPE_LABEL[row.cutType] ?? row.cutType}</MonoBadge>
       ),
     },
     {
@@ -162,7 +128,7 @@ export function BuyerICPRenderer({
     {
       key: 'role',
       header: 'Role',
-      render: row => <MonoPill value={row.role} label={ROLE_LABEL[row.role]} />,
+      render: row => <MonoBadge>{ROLE_LABEL[row.role] ?? row.role}</MonoBadge>,
     },
     {
       key: 'evidence',
@@ -176,8 +142,38 @@ export function BuyerICPRenderer({
     },
   ];
 
-  /* ───────── 3. Awareness Distribution — fixed 5-rung ladder ───────── */
-  const awarenessLevels = awarenessDistribution.levels;
+  const awarenessColumns: ReadonlyArray<
+    DataTableColumn<(typeof awarenessDistribution.levels)[number]>
+  > = [
+    {
+      key: 'level',
+      header: 'Level',
+      render: row => (
+        <MonoBadge>{AWARENESS_LABEL[row.level] ?? row.level}</MonoBadge>
+      ),
+    },
+    {
+      key: 'share',
+      header: 'Share',
+      render: row => (
+        <span className="font-mono tabular-nums text-foreground">{row.share}</span>
+      ),
+    },
+    {
+      key: 'evidence',
+      header: 'Evidence',
+    },
+    {
+      key: 'sampleQuery',
+      header: 'Sample query',
+      render: row =>
+        row.sampleQuery ? (
+          <span className="italic text-muted-foreground">{row.sampleQuery}</span>
+        ) : (
+          '—'
+        ),
+    },
+  ];
 
   /* ───────── 4. Buying Context ───────── */
   const triggerColumns: ReadonlyArray<
@@ -194,7 +190,7 @@ export function BuyerICPRenderer({
     {
       key: 'window',
       header: 'Window',
-      render: row => <MonoPill value={row.window} label={WINDOW_LABEL[row.window]} />,
+      render: row => <MonoBadge>{WINDOW_LABEL[row.window] ?? row.window}</MonoBadge>,
     },
     {
       key: 'evidence',
@@ -216,7 +212,7 @@ export function BuyerICPRenderer({
       key: 'bucketType',
       header: 'Bucket',
       render: row => (
-        <MonoPill value={row.bucketType} label={BUCKET_LABEL[row.bucketType]} />
+        <MonoBadge>{BUCKET_LABEL[row.bucketType] ?? row.bucketType}</MonoBadge>
       ),
     },
     {
@@ -276,38 +272,12 @@ export function BuyerICPRenderer({
         label="3 · Awareness Distribution"
         prose={awarenessDistribution.prose}
       >
-        <div
-          role="list"
-          aria-label="Awareness ladder"
-          className="flex flex-col divide-y divide-border rounded-md border border-border bg-card"
-        >
-          {awarenessLevels.map(level => (
-            <div
-              key={level.level}
-              data-testid="awareness-row"
-              role="listitem"
-              className="flex flex-col gap-2 p-4 md:flex-row md:items-baseline md:gap-6"
-            >
-              <div className="flex shrink-0 items-baseline gap-3 md:w-56">
-                <MonoPill
-                  value={level.level}
-                  label={AWARENESS_LABEL[level.level] ?? level.level}
-                />
-                <span className="tabular-nums text-[12px] font-medium text-foreground">
-                  {level.share}
-                </span>
-              </div>
-              <div className="flex flex-1 flex-col gap-1 text-[13px] leading-[1.55] text-muted-foreground">
-                <span>{level.evidence}</span>
-                {level.sampleQuery ? (
-                  <span className="text-[11px] text-muted-foreground">
-                    sample query: <em>{level.sampleQuery}</em>
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
+        <DataTable
+          columns={awarenessColumns}
+          rows={awarenessDistribution.levels}
+          rowKey={r => r.level}
+          rowTestId={() => 'awareness-row'}
+        />
       </SubsectionBlock>
 
       <SubsectionBlock label="4 · Buying Context" prose={buyingContext.prose}>

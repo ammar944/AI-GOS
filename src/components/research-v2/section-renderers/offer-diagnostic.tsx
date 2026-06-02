@@ -2,96 +2,21 @@ import { cn } from '@/lib/utils';
 import type { OfferPerformanceArtifact } from '@/types/positioning-artifact';
 import {
   DataTable,
-  SubsectionBlock,
+  MonoBadge,
+  SourceLink,
   type DataTableColumn,
-} from '../primitives';
+} from '@/components/research-v2/ui-kit';
+import { SubsectionBlock } from '../primitives';
 
 export interface OfferDiagnosticRendererProps {
   artifact: OfferPerformanceArtifact;
   className?: string;
 }
 
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function SourceLink({ url }: { url: string }): React.ReactElement | null {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[10px] uppercase tracking-[0.06em] text-primary no-underline hover:underline"
-    >
-      {hostnameOf(url)} →
-    </a>
-  );
-}
-
-/* ───────── Pills ───────── */
-
 const REPORTED_BY_LABEL: Record<string, string> = {
   'company-own': 'Company-own',
   'external-source': 'External',
 };
-
-function ReportedByPill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {REPORTED_BY_LABEL[value] ?? value}
-    </span>
-  );
-}
-
-const CONFIDENCE_PILL_CLASS: Record<string, string> = {
-  high: 'bg-primary/10 text-primary',
-  medium: 'bg-secondary text-secondary-foreground',
-  low: 'bg-destructive/10 text-destructive',
-};
-
-function ConfidencePill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
-        CONFIDENCE_PILL_CLASS[value] ?? 'bg-secondary text-muted-foreground',
-      )}
-    >
-      {value}
-    </span>
-  );
-}
-
-const CHANNEL_WORKED_LABEL: Record<string, string> = {
-  yes: 'Yes',
-  partial: 'Partial',
-  no: 'No',
-  unknown: 'Unknown',
-};
-const CHANNEL_WORKED_CLASS: Record<string, string> = {
-  yes: 'bg-primary/10 text-primary',
-  partial: 'bg-secondary text-secondary-foreground',
-  no: 'bg-destructive/10 text-destructive',
-  unknown: 'bg-secondary text-muted-foreground',
-};
-
-function HasWorkedPill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
-        CHANNEL_WORKED_CLASS[value] ?? 'bg-secondary text-muted-foreground',
-      )}
-    >
-      {CHANNEL_WORKED_LABEL[value] ?? value}
-    </span>
-  );
-}
 
 const SIGNAL_TYPE_LABEL: Record<string, string> = {
   activation: 'Activation',
@@ -99,32 +24,12 @@ const SIGNAL_TYPE_LABEL: Record<string, string> = {
   'first-value-moment': 'First value',
 };
 
-function SignalTypePill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-secondary-foreground">
-      {SIGNAL_TYPE_LABEL[value] ?? value}
-    </span>
-  );
-}
-
-const SEVERITY_CLASS: Record<string, string> = {
-  high: 'bg-destructive/10 text-destructive',
-  medium: 'bg-secondary text-secondary-foreground',
-  low: 'bg-secondary text-muted-foreground',
+const CHANNEL_WORKED_LABEL: Record<string, string> = {
+  yes: 'Yes',
+  partial: 'Partial',
+  no: 'No',
+  unknown: 'Unknown',
 };
-
-function SeverityPill({ value }: { value: string }): React.ReactElement {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]',
-        SEVERITY_CLASS[value] ?? 'bg-secondary text-muted-foreground',
-      )}
-    >
-      {value}
-    </span>
-  );
-}
 
 export function OfferDiagnosticRenderer({
   artifact,
@@ -138,7 +43,6 @@ export function OfferDiagnosticRenderer({
     redFlags,
   } = artifact;
 
-  /* ───────── 1. Offer-Market Fit ───────── */
   const proofPointColumns: ReadonlyArray<
     DataTableColumn<(typeof offerMarketFit.proofPoints)[number]>
   > = [
@@ -167,16 +71,17 @@ export function OfferDiagnosticRenderer({
     {
       key: 'reportedBy',
       header: 'Reported by',
-      render: row => <ReportedByPill value={row.reportedBy} />,
+      render: row => (
+        <MonoBadge>{REPORTED_BY_LABEL[row.reportedBy] ?? row.reportedBy}</MonoBadge>
+      ),
     },
     {
       key: 'confidence',
       header: 'Confidence',
-      render: row => <ConfidencePill value={row.confidence} />,
+      render: row => <MonoBadge>{row.confidence}</MonoBadge>,
     },
   ];
 
-  /* ───────── 2. Funnel Diagnosis ───────── */
   const funnelColumns: ReadonlyArray<
     DataTableColumn<(typeof funnelDiagnosis.breaks)[number]>
   > = [
@@ -206,7 +111,6 @@ export function OfferDiagnosticRenderer({
     },
   ];
 
-  /* ───────── 3. Channel Truth ───────── */
   const channelColumns: ReadonlyArray<
     DataTableColumn<(typeof channelTruth.channels)[number]>
   > = [
@@ -225,7 +129,9 @@ export function OfferDiagnosticRenderer({
     {
       key: 'hasWorked',
       header: 'Has worked',
-      render: row => <HasWorkedPill value={row.hasWorked} />,
+      render: row => (
+        <MonoBadge>{CHANNEL_WORKED_LABEL[row.hasWorked] ?? row.hasWorked}</MonoBadge>
+      ),
     },
     {
       key: 'quantifiedEvidence',
@@ -239,7 +145,6 @@ export function OfferDiagnosticRenderer({
     },
   ];
 
-  /* ───────── 4. Retention Health ───────── */
   const retentionColumns: ReadonlyArray<
     DataTableColumn<(typeof retentionHealth.signals)[number]>
   > = [
@@ -248,7 +153,7 @@ export function OfferDiagnosticRenderer({
       header: 'Signal type',
       render: row => (
         <span data-testid="retention-item">
-          <SignalTypePill value={row.signalType} />
+          <MonoBadge>{SIGNAL_TYPE_LABEL[row.signalType] ?? row.signalType}</MonoBadge>
         </span>
       ),
     },
@@ -271,7 +176,6 @@ export function OfferDiagnosticRenderer({
     },
   ];
 
-  /* ───────── 5. Red Flags ───────── */
   const redFlagColumns: ReadonlyArray<
     DataTableColumn<(typeof redFlags.items)[number]>
   > = [
@@ -292,7 +196,7 @@ export function OfferDiagnosticRenderer({
     {
       key: 'severity',
       header: 'Severity',
-      render: row => <SeverityPill value={row.severity} />,
+      render: row => <MonoBadge>{row.severity}</MonoBadge>,
     },
   ];
 

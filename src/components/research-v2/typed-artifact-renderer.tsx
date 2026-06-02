@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import {
   Collapsible,
@@ -10,6 +10,15 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
+import {
+  DataTable,
+  Eyebrow,
+  formatSourceIndex,
+  MonoBadge,
+  SourceLink,
+  VerdictCallout,
+  type DataTableColumn,
+} from '@/components/research-v2/ui-kit';
 import {
   isRecord,
   type BuyerICPArtifact,
@@ -139,17 +148,7 @@ function isUrl(value: string): boolean {
 
 function renderStringValue(value: string): ReactNode {
   if (!isUrl(value)) return value;
-  return (
-    <a
-      href={value}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex max-w-full items-center gap-1 break-all font-medium text-primary hover:underline"
-    >
-      {value}
-      <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-    </a>
-  );
+  return <SourceLink url={value} />;
 }
 
 function renderPrimitiveValue(value: unknown): ReactNode {
@@ -171,6 +170,18 @@ function getPrimaryField(
   return null;
 }
 
+function recordToTableColumns(
+  sample: Record<string, unknown>,
+): DataTableColumn<Record<string, unknown>>[] {
+  return Object.keys(sample)
+    .filter((key) => hasRenderableValue(sample[key]))
+    .map((key) => ({
+      key,
+      header: humanizeKey(key),
+      render: (row) => renderValue(row[key], 2),
+    }));
+}
+
 function FieldList({
   entries,
   depth,
@@ -179,18 +190,16 @@ function FieldList({
   depth: number;
 }): React.ReactElement {
   return (
-    <dl className="space-y-2">
+    <dl className="divide-y divide-border/60">
       {entries.map(([key, value]) => {
         const rendered = renderValue(value, depth + 1);
         if (!rendered) return null;
         return (
-          <div key={key} className="grid gap-1">
-            <dt className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              {humanizeKey(key)}
+          <div key={key} className="grid gap-1 py-3 first:pt-0 last:pb-0">
+            <dt>
+              <Eyebrow>{humanizeKey(key)}</Eyebrow>
             </dt>
-            <dd className="text-[12px] leading-[1.5] text-muted-foreground">
-              {rendered}
-            </dd>
+            <dd className="text-sm leading-relaxed text-foreground">{rendered}</dd>
           </div>
         );
       })}
@@ -198,7 +207,7 @@ function FieldList({
   );
 }
 
-function DataCard({
+function RecordBlock({
   item,
   fallbackTitle,
   depth = 0,
@@ -211,12 +220,9 @@ function DataCard({
 
   if (!isRecord(item)) {
     return (
-      <article
-        role="listitem"
-        className="rounded-md border border-border bg-muted p-3 text-[13px] leading-[1.5] text-muted-foreground"
-      >
+      <div className="py-2 text-sm leading-relaxed text-foreground">
         {renderValue(item, depth + 1)}
-      </article>
+      </div>
     );
   }
 
@@ -226,18 +232,15 @@ function DataCard({
   );
 
   return (
-    <article
-      role="listitem"
-      className="rounded-md border border-border bg-muted p-4"
-    >
-      <div className="space-y-3">
-        <h4 className="text-sm font-semibold leading-snug text-foreground">
-          {primary?.value ?? fallbackTitle}
-        </h4>
-        {entries.length > 0 ? (
+    <article role="listitem" className="divide-y divide-border/60 py-3">
+      <h4 className="text-sm font-semibold leading-snug text-foreground">
+        {primary?.value ?? fallbackTitle}
+      </h4>
+      {entries.length > 0 ? (
+        <div className="pt-3">
           <FieldList entries={entries} depth={depth + 1} />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -258,23 +261,35 @@ function renderArrayValue(
 
   if (allPrimitive) {
     return (
-      <ul className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {renderable.map((item, index) => (
-          <li
-            key={`${String(item)}-${index}`}
-            className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground"
-          >
+          <MonoBadge key={`${String(item)}-${index}`}>
             {renderPrimitiveValue(item)}
-          </li>
+          </MonoBadge>
         ))}
-      </ul>
+      </div>
     );
   }
 
+  const allRecords = renderable.every(isRecord);
+  if (allRecords && renderable.length > 0) {
+    const rows = renderable as Record<string, unknown>[];
+    const columns = recordToTableColumns(rows[0] ?? {});
+    if (columns.length > 0) {
+      return (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(_, index) => String(index)}
+        />
+      );
+    }
+  }
+
   return (
-    <div role="list" className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div role="list" className="divide-y divide-border/60">
       {renderable.map((item, index) => (
-        <DataCard
+        <RecordBlock
           key={index}
           item={item}
           fallbackTitle={`Item ${index + 1}`}
@@ -291,11 +306,7 @@ function renderRecordValue(
 ): React.ReactElement | null {
   const entries = Object.entries(value).filter(([, item]) => hasRenderableValue(item));
   if (entries.length === 0) return null;
-  return (
-    <div className="rounded-md border border-border bg-muted p-3">
-      <FieldList entries={entries} depth={depth + 1} />
-    </div>
-  );
+  return <FieldList entries={entries} depth={depth + 1} />;
 }
 
 function renderValue(value: unknown, depth: number): ReactNode {
@@ -317,33 +328,16 @@ function FieldGroup({
 }): React.ReactElement | null {
   if (!hasRenderableValue(field.value)) return null;
 
-  if (Array.isArray(field.value)) {
-    const rendered = renderArrayValue(field.value, 0);
-    if (!rendered) return null;
-    return (
-      <div
-        className="space-y-2"
-        data-testid={`typed-card-group-${zoneId}-${subSectionKey}-${field.key}`}
-      >
-        <h4 className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          {field.label}
-        </h4>
-        {rendered}
-      </div>
-    );
-  }
+  const rendered = renderValue(field.value, 0);
+  if (!rendered) return null;
 
-  const card = <DataCard item={field.value} fallbackTitle={field.label} />;
-  if (!card) return null;
   return (
     <div
       className="space-y-2"
       data-testid={`typed-card-group-${zoneId}-${subSectionKey}-${field.key}`}
     >
-      <h4 className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        {field.label}
-      </h4>
-      <div role="list">{card}</div>
+      <Eyebrow>{field.label}</Eyebrow>
+      {rendered}
     </div>
   );
 }
@@ -367,32 +361,36 @@ function ArtifactSources({
         Sources ({artifact.sources.length})
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">
-        <ul role="list" className="space-y-3 text-sm">
+        <ol role="list" className="grid gap-x-10 gap-y-3 sm:grid-cols-2">
           {artifact.sources.map((source, index) => (
             <li
               key={`source-${index}-${source.url}`}
-              className="rounded-md border border-border bg-muted p-3"
+              className="flex gap-2.5 text-sm leading-relaxed"
             >
-              <a
-                href={source.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-fit max-w-full items-center gap-1 break-words font-medium text-primary hover:underline"
-              >
-                {source.title}
-                <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-              </a>
-              <span className="mt-1 block break-all text-xs text-muted-foreground">
-                {source.url}
+              <span className="shrink-0 font-mono tabular-nums text-muted-foreground/70">
+                {formatSourceIndex(index + 1)}
               </span>
-              {source.whyItMatters ? (
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {source.whyItMatters}
-                </p>
-              ) : null}
+              <span className="min-w-0">
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-foreground underline-offset-2 hover:text-primary hover:underline"
+                >
+                  {source.title}
+                </a>
+                <span className="mt-0.5 block break-all text-xs text-muted-foreground">
+                  {source.url}
+                </span>
+                {source.whyItMatters ? (
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {source.whyItMatters}
+                  </p>
+                ) : null}
+              </span>
             </li>
           ))}
-        </ul>
+        </ol>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -418,9 +416,7 @@ export function GenericTypedArtifactRenderer({
             {artifact.sectionTitle}
           </h2>
         ) : null}
-        <p className="text-base leading-relaxed text-foreground">
-          {artifact.verdict}
-        </p>
+        <VerdictCallout verdict={artifact.verdict} />
         <p className="text-sm leading-relaxed text-muted-foreground">
           {artifact.statusSummary}
         </p>
@@ -433,7 +429,7 @@ export function GenericTypedArtifactRenderer({
               {subSection.title}
             </h3>
             {subSection.prose ? (
-              <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
+              <div className="prose prose-sm max-w-none text-foreground dark:prose-invert">
                 <ReactMarkdown>{subSection.prose}</ReactMarkdown>
               </div>
             ) : null}
@@ -464,8 +460,6 @@ export function TypedArtifactRenderer({
   zoneId,
   showSectionTitle = true,
 }: TypedArtifactRendererProps): React.ReactElement {
-  // Schema-aware dispatch: route to typed renderer when zoneId matches.
-  // Falls through to the generic reflection-based renderer below otherwise.
   switch (zoneId) {
     case 'positioningMarketCategory':
       return <MarketCategoryRenderer artifact={artifact as unknown as MarketCategoryArtifact} />;
