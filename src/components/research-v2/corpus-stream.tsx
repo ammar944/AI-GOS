@@ -48,7 +48,7 @@ export function CorpusStream({ userId, runId, onComplete }: CorpusStreamProps) {
   const live = !isComplete && !isError;
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center px-4">
+    <div className="flex h-full flex-col items-center justify-center overflow-y-auto px-4 py-10">
       <div className="w-full max-w-2xl space-y-8">
         <div className="space-y-2">
           <SectionTitle>Researching company…</SectionTitle>

@@ -613,69 +613,8 @@ function PaidMediaPlanTerminalPanel({
   );
 }
 
-interface SectionProgressStripProps {
-  active: ReaderSectionId;
-  completedCount: number;
-  onSelect: (id: ReaderSectionId) => void;
-  statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
-}
-
-function SectionRail({
-  active,
-  completedCount,
-  onSelect,
-  statusOf,
-}: SectionProgressStripProps): ReactElement {
-  return (
-    <nav
-      data-testid="section-progress-strip"
-      className="flex w-[208px] shrink-0 flex-col gap-1 border-r border-border bg-card px-2 py-3"
-      aria-label="Sections"
-    >
-      <div className="mb-2 px-2">
-        <Eyebrow>
-          {completedCount}/{READER_SECTION_IDS.length}
-        </Eyebrow>
-      </div>
-      {READER_SECTION_IDS.map((id) => {
-        const status = statusOf(id);
-        const subLine = sectionStatusSubline(status);
-        const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
-        const isActive = id === active;
-
-        return (
-          <button
-            key={id}
-            type="button"
-            aria-label={label}
-            title={label}
-            onClick={() => onSelect(id)}
-            className={cn(
-              'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors',
-              isActive ? 'bg-secondary' : 'hover:bg-secondary/50',
-            )}
-          >
-            <StatusIcon status={status} className="mt-px size-[18px] shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span
-                className={cn(
-                  'block truncate text-[13px]',
-                  isActive ? 'font-medium text-foreground' : 'text-foreground/80',
-                )}
-              >
-                {SECTION_SHORT_LABEL[id]}
-              </span>
-              <span className="block text-[11px] text-muted-foreground">{subLine}</span>
-            </span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Run-status bar (W3) + mobile section switcher (W4)
+// Run-status card (merged SectionRail + RunStatusBar) + mobile switcher
 // ---------------------------------------------------------------------------
 
 function formatElapsedClock(ms: number): string {
@@ -685,63 +624,142 @@ function formatElapsedClock(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-// Compact top-right run bar shown while the run is non-terminal. Reads like
-// the "small top-right streaming bar," not a dashboard. Always shows a
-// first-5s receipt so the initial state is never empty.
-function RunStatusBar({
-  completedCount,
-  activePhaseLabel,
-  verified,
-  flagged,
-  elapsedMs,
-}: {
-  completedCount: number;
+interface RunStatusCardProps {
+  active: ReaderSectionId;
+  onSelect: (id: ReaderSectionId) => void;
+  statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
+  positioningCompletedCount: number;
   activePhaseLabel: string | null;
   verified: number;
   flagged: number;
   elapsedMs: number | null;
-}): ReactElement {
+  runDispatched: boolean;
+  allSectionsTerminal: boolean;
+}
+
+// Self-contained floating status box docked in the right gutter. Merges the
+// old left SectionRail (section navigator) with the old top-right RunStatusBar
+// (run rollup) into one Codex-style card: rollup header → active-phase shimmer
+// → section list (clickable navigator) → verification foot.
+function RunStatusCard({
+  active,
+  onSelect,
+  statusOf,
+  positioningCompletedCount,
+  activePhaseLabel,
+  verified,
+  flagged,
+  elapsedMs,
+  runDispatched,
+  allSectionsTerminal,
+}: RunStatusCardProps): ReactElement {
+  const running = runDispatched && !allSectionsTerminal;
   const phase = activePhaseLabel ?? 'researching live sources';
 
   return (
-    <div
-      data-testid="run-status-bar"
-      className="hidden items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-1.5 sm:flex"
-    >
-      <span className="font-mono text-[12px] font-medium tabular-nums text-foreground">
-        {completedCount}/{POSITIONING_SECTION_IDS.length}
-      </span>
-      <span className="h-3 w-px bg-border" aria-hidden="true" />
-      <Shimmer className="max-w-[180px] truncate text-[12px]" duration={2.2}>
-        {phase}
-      </Shimmer>
-      {verified > 0 || flagged > 0 ? (
-        <>
-          <span className="h-3 w-px bg-border" aria-hidden="true" />
-          <span
-            className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-emerald-600"
-            title="Claims matched verbatim to a fetched source — advisory, does not block the report."
-            aria-label={`${verified} verified — claims matched verbatim to a fetched source (advisory, does not block the report)`}
-          >
-            <Check className="size-3" strokeWidth={3} aria-hidden="true" /> {verified} verified
-          </span>
-          {flagged > 0 ? (
-            <span
-              className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-amber-600"
-              title="Claims matched verbatim to a fetched source — advisory, does not block the report."
-              aria-label={`${flagged} unverified — claims not matched verbatim to a fetched source (advisory, does not block the report)`}
-            >
-              <AlertTriangle className="size-3" strokeWidth={2.5} aria-hidden="true" /> {flagged} unverified
-            </span>
+    <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+      {/* Header: rollup + elapsed clock + run state */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5">
+          {running ? (
+            <Loader2
+              className="size-3.5 animate-spin text-primary motion-reduce:animate-none"
+              strokeWidth={2.5}
+              aria-hidden="true"
+            />
+          ) : allSectionsTerminal ? (
+            <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden="true" />
           ) : null}
-        </>
-      ) : null}
-      {elapsedMs !== null ? (
-        <>
-          <span className="h-3 w-px bg-border" aria-hidden="true" />
           <span className="font-mono text-[12px] font-medium tabular-nums text-foreground">
+            {positioningCompletedCount}/{POSITIONING_SECTION_IDS.length}
+          </span>
+          {allSectionsTerminal ? (
+            <span className="text-[12px] font-medium text-muted-foreground">Done</span>
+          ) : null}
+        </span>
+        {elapsedMs !== null ? (
+          <span className="font-mono text-[12px] font-medium tabular-nums text-muted-foreground">
             {formatElapsedClock(elapsedMs)}
           </span>
+        ) : null}
+      </div>
+
+      {/* Active phase line — only while the run is live */}
+      {running ? (
+        <Shimmer className="mt-2 block truncate text-[12px]" duration={2.2}>
+          {phase}
+        </Shimmer>
+      ) : null}
+
+      <div className="my-3 h-px bg-border" aria-hidden="true" />
+
+      {/* Section navigator */}
+      <nav
+        data-testid="section-progress-strip"
+        className="flex flex-col gap-0.5"
+        aria-label="Sections"
+      >
+        {READER_SECTION_IDS.map((id) => {
+          const status = statusOf(id);
+          const subLine = sectionStatusSubline(status);
+          const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
+          const isActive = id === active;
+
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-label={label}
+              title={label}
+              onClick={() => onSelect(id)}
+              className={cn(
+                'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors',
+                isActive ? 'bg-secondary' : 'hover:bg-secondary/50',
+              )}
+            >
+              <StatusIcon status={status} className="mt-px size-[18px] shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    'block truncate text-[13px]',
+                    isActive
+                      ? 'font-medium text-foreground'
+                      : 'text-foreground/80',
+                  )}
+                >
+                  {SECTION_SHORT_LABEL[id]}
+                </span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {subLine}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Verification rollup foot — only when claims exist */}
+      {verified > 0 || flagged > 0 ? (
+        <>
+          <div className="my-3 h-px bg-border" aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
+            <span
+              className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-emerald-600"
+              title="Claims matched verbatim to a fetched source — advisory, does not block the report."
+              aria-label={`${verified} verified — claims matched verbatim to a fetched source (advisory, does not block the report)`}
+            >
+              <Check className="size-3" strokeWidth={3} aria-hidden="true" /> {verified} verified
+            </span>
+            {flagged > 0 ? (
+              <span
+                className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-amber-600"
+                title="Claims matched verbatim to a fetched source — advisory, does not block the report."
+                aria-label={`${flagged} unverified — claims not matched verbatim to a fetched source (advisory, does not block the report)`}
+              >
+                <AlertTriangle className="size-3" strokeWidth={2.5} aria-hidden="true" /> {flagged} unverified
+              </span>
+            ) : null}
+          </div>
         </>
       ) : null}
     </div>
@@ -1002,11 +1020,6 @@ export function AuditReaderShell({
     });
   }, [active, activeStatus, sectionPartials]);
 
-  const completedCount = useMemo(
-    () => READER_SECTION_IDS.filter((id) => statusOf(id) === 'complete').length,
-    [statusOf],
-  );
-
   // Positioning-only completed count for the run bar (its denominator excludes
   // the terminal paid-media section, so the numerator must too — avoids "7/6"
   // when paid-media commits while a positioning section is still non-terminal).
@@ -1217,7 +1230,7 @@ export function AuditReaderShell({
   return (
     <div
       data-testid="audit-reader-shell"
-      className="flex h-[calc(100vh-64px)] flex-col bg-background font-sans text-foreground"
+      className="flex h-full flex-col bg-background font-sans text-foreground"
     >
       {/* top bar */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-5">
@@ -1228,25 +1241,9 @@ export function AuditReaderShell({
             {company}
           </span>
         </div>
-        {!allSectionsTerminal && runDispatched ? (
-          <RunStatusBar
-            completedCount={positioningCompletedCount}
-            activePhaseLabel={activePhaseLabel}
-            verified={verificationRollup.verified}
-            flagged={verificationRollup.flagged}
-            elapsedMs={elapsedMs}
-          />
-        ) : null}
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <SectionRail
-          active={active}
-          completedCount={completedCount}
-          onSelect={select}
-          statusOf={statusOf}
-        />
-
         <main ref={mainRef} className="flex-1 overflow-y-auto bg-card">
           <article className="mx-auto max-w-[760px] px-6 py-10 sm:px-10">
             <MobileSectionSwitcher
@@ -1353,6 +1350,25 @@ export function AuditReaderShell({
             </div>
           </article>
         </main>
+
+        {/* Right gutter — compact status card (desktop only; mobile uses the
+            in-article MobileSectionSwitcher). */}
+        <aside className="hidden w-[300px] shrink-0 overflow-y-auto px-4 py-4 lg:block">
+          <div className="sticky top-4">
+            <RunStatusCard
+              active={active}
+              onSelect={select}
+              statusOf={statusOf}
+              positioningCompletedCount={positioningCompletedCount}
+              activePhaseLabel={activePhaseLabel}
+              verified={verificationRollup.verified}
+              flagged={verificationRollup.flagged}
+              elapsedMs={elapsedMs}
+              runDispatched={runDispatched}
+              allSectionsTerminal={allSectionsTerminal}
+            />
+          </div>
+        </aside>
       </div>
     </div>
   );

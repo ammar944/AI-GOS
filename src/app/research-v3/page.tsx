@@ -32,6 +32,7 @@ import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { OnboardingWizard } from '@/components/onboarding';
 import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
+import { useOptionalShell } from '@/components/shell/shell-provider';
 import {
   getReaderSectionFromParam,
   type ReaderSectionId,
@@ -83,6 +84,38 @@ export default function ResearchV3Page() {
 
   const lastUrlRef = useRef<string>('');
   const lastUploadedDocumentsRef = useRef<UploadedDocumentContext[]>([]);
+
+  // -----------------------------------------------------------------------
+  // Collapse the app nav to its icon strip while a run is in flight.
+  // We capture the operator's prior sidebar state on entering the 'sections'
+  // phase and restore it when leaving that phase (or on unmount). We read the
+  // shell optionally so the page still mounts if rendered outside a provider
+  // (e.g. unit tests); collapse is a no-op when no shell is present.
+  // -----------------------------------------------------------------------
+  const shell = useOptionalShell();
+  const setSidebarCollapsed = shell?.setSidebarCollapsed;
+  const sidebarCollapsed = shell?.sidebarCollapsed ?? false;
+  const priorSidebarCollapsedRef = useRef<boolean | null>(null);
+  const liveSidebarCollapsedRef = useRef(sidebarCollapsed);
+  const inSectionsPhase = state.kind === 'sections';
+
+  // Keep a live mirror of the current collapsed value so the collapse effect
+  // can read the operator's most recent choice without re-running on toggle.
+  useEffect(() => {
+    liveSidebarCollapsedRef.current = sidebarCollapsed;
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!inSectionsPhase || !setSidebarCollapsed) return undefined;
+    priorSidebarCollapsedRef.current = liveSidebarCollapsedRef.current;
+    setSidebarCollapsed(true);
+    return () => {
+      if (priorSidebarCollapsedRef.current !== null) {
+        setSidebarCollapsed(priorSidebarCollapsedRef.current);
+        priorSidebarCollapsedRef.current = null;
+      }
+    };
+  }, [inSectionsPhase, setSidebarCollapsed]);
 
   // -----------------------------------------------------------------------
   // URL search param sync
@@ -552,11 +585,13 @@ export default function ResearchV3Page() {
       )}
 
       {state.kind === 'onboarding' && (
-        <OnboardingWizard
-          initialData={state.prefill}
-          initialPrefillMetadata={state.prefillMetadata}
-          onComplete={handleOnboardingComplete}
-        />
+        <div className="h-full overflow-y-auto px-4 py-10">
+          <OnboardingWizard
+            initialData={state.prefill}
+            initialPrefillMetadata={state.prefillMetadata}
+            onComplete={handleOnboardingComplete}
+          />
+        </div>
       )}
 
       {state.kind === 'sections' && (

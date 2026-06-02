@@ -407,7 +407,7 @@ export function WelcomeForm({
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center px-4">
+    <div className="flex h-full flex-col items-center justify-center overflow-y-auto px-4 py-10">
       <div className="w-full max-w-lg space-y-8">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">

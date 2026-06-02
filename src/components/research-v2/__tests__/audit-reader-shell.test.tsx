@@ -336,10 +336,10 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByText('Searching source evidence')).toBeInTheDocument();
     expect(screen.queryByText('Search started')).not.toBeInTheDocument();
 
-    // Progress strip reads honest completion ("0/8" across the 8 reader
-    // sections), never a per-section percent like "0%" for active work.
+    // Run rollup reads honest completion across the 6 positioning sections
+    // ("0/6"), never a per-section percent like "0%" for active work.
+    expect(screen.getByText('0/6')).toBeInTheDocument();
     const strip = screen.getByTestId('section-progress-strip');
-    expect(strip.textContent).toContain('0/8');
     expect(strip.textContent).not.toContain('%');
   });
 

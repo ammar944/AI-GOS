@@ -27,7 +27,7 @@ export function ErrorRecovery({
   isRetrying = false,
 }: ErrorRecoveryProps) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-svh px-4">
+    <div className="flex h-full flex-col items-center justify-center overflow-y-auto px-4 py-10">
       <div className="w-full max-w-lg space-y-6">
         <Alert variant="destructive" className="rounded-lg">
           <AlertTitle className="font-semibold">
