@@ -677,7 +677,7 @@ function RunStatusCard({
             <span className="text-[12px] font-medium text-muted-foreground">Done</span>
           ) : null}
         </span>
-        {elapsedMs !== null ? (
+        {running && elapsedMs !== null ? (
           <span className="font-mono text-[12px] font-medium tabular-nums text-muted-foreground">
             {formatElapsedClock(elapsedMs)}
           </span>
