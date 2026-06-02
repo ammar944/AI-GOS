@@ -103,7 +103,7 @@ export function DataTable<T>({
                 key={col.key}
                 scope="col"
                 className={cn(
-                  'border-b border-border pb-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-foreground/70',
+                  'border-b border-border px-3 pb-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-foreground/70',
                   col.numeric ? 'text-right' : 'text-left',
                   col.headerClassName,
                 )}
@@ -137,14 +137,15 @@ export function DataTable<T>({
                     : (rawValue as ReactNode);
                   const wrapClass =
                     col.wrap === 'nowrap'
-                      ? 'whitespace-nowrap'
+                      ? 'overflow-hidden truncate'
                       : col.wrap === 'truncate'
                         ? 'truncate'
                         : col.wrap === 'clamp'
                           ? CLAMP_CLASS[col.clampLines ?? 2]
                           : undefined;
                   const titleAttr =
-                    col.wrap === 'truncate' && rawValue != null
+                    (col.wrap === 'truncate' || col.wrap === 'nowrap') &&
+                    rawValue != null
                       ? String(rawValue)
                       : undefined;
                   return (
@@ -153,7 +154,7 @@ export function DataTable<T>({
                       title={titleAttr}
                       className={cn(
                         cellPad,
-                        'pr-4 text-foreground/90',
+                        'px-3 text-foreground/90',
                         col.numeric && 'text-right font-mono tabular-nums',
                         !col.numeric && 'text-left',
                         wrapClass,

@@ -62,7 +62,21 @@ function isPaidMediaPlanTerminal(state: AuditStateResponse): boolean {
   );
 }
 
-async function dispatchPaidMediaPlan(runId: string): Promise<void> {
+// Thrown by the dispatch helpers when the worker returns a non-ok status, so
+// the caller can branch on the HTTP code (409 = transient race vs 5xx = real).
+class DispatchHttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'DispatchHttpError';
+    this.status = status;
+  }
+}
+
+async function dispatchPaidMediaPlan(
+  runId: string,
+  signal: AbortSignal,
+): Promise<void> {
   const response = await fetch('/api/research-v2/run-lab-section', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,10 +84,12 @@ async function dispatchPaidMediaPlan(runId: string): Promise<void> {
       run_id: runId,
       section_id: PAID_MEDIA_PLAN_SECTION_ID,
     }),
+    signal,
   });
 
   if (!response.ok) {
-    throw new Error(
+    throw new DispatchHttpError(
+      response.status,
       `Paid media plan dispatch failed for runId=${runId} status=${response.status}`,
     );
   }
@@ -99,7 +115,10 @@ function isPositioningSynthesisTerminal(state: AuditStateResponse): boolean {
   );
 }
 
-async function dispatchPositioningSynthesis(runId: string): Promise<void> {
+async function dispatchPositioningSynthesis(
+  runId: string,
+  signal: AbortSignal,
+): Promise<void> {
   const response = await fetch('/api/research-v2/run-lab-section', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -107,13 +126,42 @@ async function dispatchPositioningSynthesis(runId: string): Promise<void> {
       run_id: runId,
       section_id: POSITIONING_SYNTHESIS_SECTION_ID,
     }),
+    signal,
   });
 
   if (!response.ok) {
-    throw new Error(
+    throw new DispatchHttpError(
+      response.status,
       `Positioning synthesis dispatch failed for runId=${runId} status=${response.status}`,
     );
   }
+}
+
+// Quietly swallow the benign rejections we get when a dispatch fetch is
+// aborted on unmount / runId change / StrictMode double-mount: AbortError, or
+// a TypeError/DOMException with an empty message. 409 = transient
+// corpus/sections-not-ready race → console.debug (self-heals). Anything else
+// stays a real console.error so genuine 5xx failures stay visible.
+function logDispatchError(label: string, runId: string, error: unknown): void {
+  const aborted =
+    (error instanceof Error && error.name === 'AbortError') ||
+    !(error instanceof Error) ||
+    error.message === '';
+  if (aborted) {
+    return;
+  }
+
+  if (error instanceof DispatchHttpError && error.status === 409) {
+    console.debug(`[use-audit-state] ${label} not ready yet (409, retrying)`, {
+      runId,
+    });
+    return;
+  }
+
+  console.error(`[use-audit-state] ${label} dispatch failed`, {
+    runId,
+    message: error.message,
+  });
 }
 
 export function useAuditState(
@@ -128,6 +176,9 @@ export function useAuditState(
   useEffect(() => {
     cancelled.current = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // Aborts any in-flight dispatch fetch on unmount / runId change so it can't
+    // reject with an empty-message DOMException after the effect tears down.
+    const dispatchAbort = new AbortController();
 
     const tick = async () => {
       try {
@@ -155,13 +206,10 @@ export function useAuditState(
         if (shouldDispatchPaidMediaPlan) {
           dispatchedMediaPlanRunIds.current.add(runId);
           try {
-            await dispatchPaidMediaPlan(runId);
+            await dispatchPaidMediaPlan(runId, dispatchAbort.signal);
           } catch (error) {
             dispatchedMediaPlanRunIds.current.delete(runId);
-            console.error('[use-audit-state] paid media plan dispatch failed', {
-              runId,
-              message: error instanceof Error ? error.message : String(error),
-            });
+            logDispatchError('paid media plan', runId, error);
           }
         }
 
@@ -172,13 +220,10 @@ export function useAuditState(
         if (shouldDispatchSynthesis) {
           dispatchedSynthesisRunIds.current.add(runId);
           try {
-            await dispatchPositioningSynthesis(runId);
+            await dispatchPositioningSynthesis(runId, dispatchAbort.signal);
           } catch (error) {
             dispatchedSynthesisRunIds.current.delete(runId);
-            console.error('[use-audit-state] positioning synthesis dispatch failed', {
-              runId,
-              message: error instanceof Error ? error.message : String(error),
-            });
+            logDispatchError('positioning synthesis', runId, error);
           }
         }
 
@@ -210,6 +255,7 @@ export function useAuditState(
     return () => {
       cancelled.current = true;
       if (timer) clearTimeout(timer);
+      dispatchAbort.abort();
     };
   }, [refreshKey, runId]);
 

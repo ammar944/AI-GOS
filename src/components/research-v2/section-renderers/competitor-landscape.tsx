@@ -618,16 +618,16 @@ export function CompetitorLandscapeRenderer({
     {
       key: 'competitor',
       header: 'Competitor',
-      width: '160px',
-      wrap: 'nowrap',
+      width: '150px',
+      wrap: 'wrap',
       render: row => (
         <span className="font-medium text-foreground">{row.competitor}</span>
       ),
     },
-    { key: 'tierName', header: 'Tier', width: '120px', wrap: 'nowrap' },
+    { key: 'tierName', header: 'Tier', width: '130px', wrap: 'wrap' },
     { key: 'monthlyPrice', header: 'Monthly', numeric: true, width: '110px', wrap: 'nowrap' },
-    { key: 'packagingPattern', header: 'Packaging', grow: true },
-    { key: 'gatedSignals', header: 'Gates', width: '150px' },
+    { key: 'packagingPattern', header: 'Packaging', grow: true, wrap: 'wrap' },
+    { key: 'gatedSignals', header: 'Gates', width: '170px', wrap: 'wrap' },
     {
       key: 'sourceUrl',
       header: 'Source',
