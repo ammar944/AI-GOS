@@ -367,6 +367,47 @@ function creativeRichnessScore(creative: AdEvidenceCreative): number {
   );
 }
 
+// Recency bucket relative to the run timestamp. Recent creatives are far more
+// useful as competitive intelligence than long-expired ones, and the old
+// pipeline never ranked on recency at all (H7).
+function recencyBucket(lastSeen: string | null, observedAt: string): number {
+  if (lastSeen === null) {
+    return 0;
+  }
+  const last = Date.parse(lastSeen);
+  const now = Date.parse(observedAt);
+  if (Number.isNaN(last) || Number.isNaN(now)) {
+    return 0;
+  }
+  const days = (now - last) / 86_400_000;
+  if (days <= 30) {
+    return 3;
+  }
+  if (days <= 90) {
+    return 2;
+  }
+  if (days <= 365) {
+    return 1;
+  }
+  return 0;
+}
+
+// Blended ranking score within an identity tier: media richness + recency, with
+// expired creatives pushed down. Identity confidence stays the PRIMARY sort key
+// (verified creatives always win cap slots); this blend orders within it so the
+// surfaced creatives are the richest, most-current ones — not the first N raw
+// rows by media weight alone (H4/H7).
+function blendedCreativeScore(
+  creative: AdEvidenceCreative,
+  observedAt: string,
+): number {
+  return (
+    creativeRichnessScore(creative) +
+    recencyBucket(creative.lastSeen, observedAt) +
+    (creative.isActive === false ? -3 : 0)
+  );
+}
+
 // Upsert a unique creative into the per-group fingerprint map with richer-wins:
 // on a fingerprint collision, keep the higher-scoring creative.
 function upsertUniqueCreative(
@@ -598,7 +639,10 @@ function finalizeGroup(
       if (verifiedDelta !== 0) {
         return verifiedDelta;
       }
-      return creativeRichnessScore(b) - creativeRichnessScore(a);
+      return (
+        blendedCreativeScore(b, group.observedAt) -
+        blendedCreativeScore(a, group.observedAt)
+      );
     })
     .slice(0, returnedCreativeLimit);
   const quarantinedCount = creatives.filter(
