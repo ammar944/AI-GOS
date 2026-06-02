@@ -34,6 +34,80 @@ The canonical user surface is **`/research-v3`** (the old `/research-v2` *page* 
 
 ## 3. Where things live
 
+### 3.0 Folder tree (bird's-eye)
+
+`★` = live/canonical surface. Names like `research-v2` are **not** legacy — only the old `/research-v2` *page* was removed; its libs/components/API routes are the live backend the `v3` page reuses.
+
+```
+AI-GOS/
+├── src/                              ← Next.js 16 app (the product)
+│   ├── middleware.ts                 ← Clerk auth middleware
+│   ├── app/                          ← routes (App Router)
+│   │   ├── research-v3/              ★ canonical live runner (Audit Reader front door)
+│   │   ├── research/[sessionId]/       legacy V1 saved-report viewer (kept; de-listed from nav)
+│   │   ├── onboarding/ dashboard/ profiles/[id]/ shared/[token]/ internal/
+│   │   ├── sign-in/ sign-up/ access-pending/ access-disabled/
+│   │   └── api/
+│   │       ├── research-v2/          ★ live research backend (v3 page calls this)
+│   │       │   ├── orchestrate/        fan-out all 6 sections
+│   │       │   ├── run-lab-section/    in-process lab engine (per section)
+│   │       │   ├── dispatch/ rerun-section/   single-section (dispatch = worker proxy)
+│   │       │   ├── chat/               workspace chat/edit (post-research only)
+│   │       │   └── abort-section/ audit-state/ onboarding/ _capabilities/
+│   │       ├── journey/session/ onboarding/ profiles/ share/[token]/
+│   │       ├── documents/ meetings/ transcribe/ integrations/ webhooks/clerk/
+│   │       └── admin/ auth/me/ health/ image-proxy/
+│   ├── components/
+│   │   ├── research-v3/              ★ v3 reader shell + section config
+│   │   ├── research-v2/              ★ audit reader, typed-artifact-renderer, section-renderers/
+│   │   ├── research/                 legacy V1 viewer components (intel-cards/)
+│   │   ├── shell/                    app sidebar / nav
+│   │   ├── workspace/ onboarding/ chat/ assets/ generate/ pipeline/
+│   │   ├── ui/                       shadcn/ui (new-york)
+│   │   └── ai-elements/ ai/ shared/
+│   ├── lib/                          ← domain logic
+│   │   ├── lab-engine/               ★ in-process section engine (DeepSeek + live tools)
+│   │   │   ├── agents/               run-section.ts, tools/, verification/
+│   │   │   ├── artifacts/schemas/    per-section Zod schemas
+│   │   │   ├── sections/             section-registry
+│   │   │   ├── skills/               8 positioning skills (market-category … paid-media-plan)
+│   │   │   └── ai/ events/ runs/ streaming/ fixtures/
+│   │   ├── research-v2/              ★ orchestration glue (state machine, corpus→input, realtime)
+│   │   ├── research-v3/              v3-specific helpers
+│   │   ├── journey/                  dispatch-research, field-catalog, realtime, server/
+│   │   ├── workspace/                pipeline, card-taxonomy
+│   │   ├── ai/                       providers, prompts/positioning-skills/, tools/research/
+│   │   ├── research/                 pipeline-controller + types
+│   │   ├── media-plan/               media-plan schemas/synthesis (legacy pipeline.ts removed)
+│   │   ├── blueprints/ strategic-blueprint/   (kept; used by share route + others)
+│   │   ├── meeting-intel/ company-intel/ onboarding/ profiles/ pricing/
+│   │   ├── ad-library/ foreplay/ firecrawl/ integrations/
+│   │   └── actions/ auth/ chat/ documents/ storage/ supabase/
+│   └── hooks/   types/   test/(mocks/)
+│
+├── research-worker/                  ← separate Railway process (CANNOT import src/lib)
+│   └── src/
+│       ├── index.ts                  HTTP entry — allows ONLY 3 tools:
+│       │                             runDeepResearchProgram, resolveIdentity, extractMeetingTranscript
+│       ├── runners/                  the 3 runners above
+│       ├── identity/ intelligence/(cards, schemas) planning/ validators/
+│       ├── skills/(methodologies/, refs/, templates/)  prompts/runners/
+│       ├── competitors/              legacy copy — do not touch
+│       └── eval/ tools/ utils/ types/  + runner.ts, supabase.ts, contracts.ts, auth.ts, env.ts
+│
+├── docs/                             ← source-map.md (this file) + adr/ architecture/ corpus/
+│                                       design/ specs/ plans/ handoffs/ qa/ audit/ migrations/ _archive/
+├── supabase/   migrations/ + scripts/
+├── scripts/    public/               repo automation + static assets
+├── Config (root)                     package.json, next.config.ts, tsconfig.json, eslint.config.mjs,
+│                                       vitest.config.ts, components.json, .mcp.json, .env.example
+├── Docs (root)                       README.md, CLAUDE.md, CONTEXT.md, DESIGN.md
+├── Agent personas (root)             AGENTS/PRIMER/SOUL/IDENTITY/HEARTBEAT/TOOLS/USER.md
+└── Tooling (tracked)                 .claude/ .cursor/ .openclaw/
+    (gitignored local-only: .next/ node_modules/ .env.local .agents/ .codex/ .omc/
+     .gstack/ .superpowers/ .playwright-mcp/ .claude-flow/ .vercel/)
+```
+
 ### `src/` (Next.js app — frontend + in-process backend)
 
 | Dir | Owns |
