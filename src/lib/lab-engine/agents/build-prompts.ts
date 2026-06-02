@@ -20,10 +20,10 @@ export interface AnswerToolInstructionOptions {
 }
 
 interface CompetitorSeedHint {
-  angle: string;
+  angle?: string;
   landingUrl: string | null;
   name: string;
-  sourceUrl: string;
+  sourceUrl: string | null;
 }
 
 const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
@@ -243,15 +243,24 @@ function isCompetitorLandscapeDefinition(
   );
 }
 
-function buildCompetitorSeedHints(
+export function buildCompetitorSeedHints(
   researchInput: ResearchInput,
 ): CompetitorSeedHint[] {
-  return researchInput.competitorAds.map((competitorAd) => ({
-    angle: competitorAd.angle,
-    landingUrl: competitorAd.landingUrl,
-    name: competitorAd.competitorName,
-    sourceUrl: competitorAd.sourceUrl,
-  }));
+  // Read competitorSeeds (the populated, cleaned/deduped named set built from
+  // the onboarding brief), not competitorAds — the latter is hardcoded to an
+  // empty array in corpus-to-research-input.ts, so the prompt never saw any
+  // named competitors. Seeds carry only name + optional bare domain; angle and
+  // a real source URL don't exist for them.
+  return (researchInput.competitorSeeds ?? []).map((seed) => {
+    const url =
+      seed.domain === undefined ? null : `https://${seed.domain}`;
+
+    return {
+      landingUrl: url,
+      name: seed.name,
+      sourceUrl: url,
+    };
+  });
 }
 
 function buildResearchInputForPrompt({
