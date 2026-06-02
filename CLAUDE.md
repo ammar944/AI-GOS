@@ -74,7 +74,7 @@ AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-e
 
 ### Research-v3 / research-v2 Flow (IMPORTANT — read carefully)
 
-`/research-v3` is the current user-facing Audit Reader/front door. `/research-v2` remains the older route shell plus the shared API namespace. The `/journey` page route has been deleted.
+`/research-v3` is the canonical live front-door runner (Audit Reader). The `/research-v2` page route is orphaned-for-navigation but RETAINED — do NOT delete it — because (a) its `/api/research-v2/*` routes are the shared backend that `/research-v3` calls, and (b) a live test (`src/app/research-v2/__tests__/page-one-pager.test.tsx`) imports the page. The `/journey` page route has been deleted.
 
 The flow is **form-driven, not chat-driven**. URL entry → deepResearchProgram corpus → operator-clicked positioning sections → results saved to profile.
 
