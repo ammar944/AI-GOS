@@ -138,3 +138,58 @@ unit tests + static review could not surface. Findings: `docs/handoffs/2026-06-0
 
 Added dependency: `franc-min@6` (pure-JS trigram detector, no transitive vuln; `npm audit` deltas
 are pre-existing axios/js-cookie/DOMPurify).
+
+---
+
+## Verified-domain spine — LANDED 2026-06-03 (closes P1.1, commit `6d8d1767`)
+
+The Round-2 E2E was INVALID for signoff (it ran against `v3-profile-save`, not the
+ad-engine head — HEAD had drifted to the other workstream's dirty checkout), but it
+captured the data that unblocked the root fix: Meta `page_search?q=Gong` returns ~15
+same-name pages (the real `gong.io` often absent), and each `page_results` item DOES
+carry a `page_alias` (`gong.hr`, `gong.sup`, …). Foreplay `getBrandsByDomain?domain=gong.io`
+returns the correct brand with `websites:["http://www.gong.io/"]` + `ad_library_id`.
+
+**Root cause of wrong-company:** `resolveBestCandidate` computed `domainMatch` from the
+candidate NAME containing the domain base ("Gong" contains "gong"), so the Croatian page
+(name "Gong") was treated as domain-corroborated and accepted as identity-verified. The
+real `page_alias` was dropped by `readCandidates` before resolution ever saw it.
+
+**Fix (2 prod files, ~surgical):**
+- `readCandidates` preserves each candidate's real domain-shaped fields (Meta `page_alias`
+  + `website`/`domain` — deliberately NOT platform URLs like `page_profile_uri`, which
+  would falsely contradict every candidate).
+- `candidateDomainSignal(candidate, target)` → `match | conflict | none` (full-domain or
+  subdomain equality; `gong.hr` vs `gong.io` = conflict). When ANY candidate carries a real
+  alias, the name-containment heuristic is **suppressed set-wide** and only a real domain
+  match corroborates identity.
+- Final acceptance guard downgrades any accepted candidate whose own alias contradicts the
+  target (closes the non-short exact-name false-positive hole).
+- `normalizeDomain` hardened (`:port` / `?query` / `#frag` / trailing dot).
+
+**Behavior:** `gong.hr` no longer corroborates `gong.io`; uncorroborated same-name pages
+resolve **ambiguous → quarantine** (off the verified wall, still visible in the drawer).
+Foreplay continues to deliver the REAL company's ads by domain, so the Gong wall shows the
+real `gong.io` ads while the Croatian page is quarantined.
+
+**Conservative-by-design trade-off (documented in-code):** the suppression is set-level, so a
+legitimate **alias-free** page sharing a set with a domain-aliased decoy resolves to ambiguous
+rather than verified. Per-candidate suppression would re-open the leak for alias-free same-name
+decoys (indistinguishable from a real alias-free page by name alone). This matters most for
+**Foreplay-excluded domains (e.g. Notion)** that depend solely on the SearchAPI path — the
+Round-3 live E2E measures whether Notion regresses to 0 verified creatives.
+
+**Review:** adversarial Codex (xhigh) + Claude code-reviewer. Both flagged the set-level
+over-quarantine (kept as the correct conservative direction + documented); Codex's false-positive
+vectors (`evilgong.io`, `gong.io.evil.com`) were already rejected by the equal-or-subdomain check;
+the non-short exact-name conflict hole was fixed via the final guard; `normalizeDomain` port/query
+gap fixed. +11 tests (page_alias corroboration unit + meta-tool integration + platform-URL
+regression). 264 lab-engine tests green, tsc 0, lint clean.
+
+**Deferred (not needed for the bug, YAGNI):** injecting Foreplay's `ad_library_id` as the Meta
+`page_id` to ALSO fetch the real page via SearchAPI (coverage, not correctness — Foreplay already
+delivers the real ads); preserving Foreplay `websites[]`/`ad_library_id` to harden the Foreplay
+verified tag (Foreplay already resolves by domain). Revisit only if the Round-3 E2E shows a gap.
+
+**Validation gate:** `docs/handoffs/2026-06-03-ad-engine-e2e-round3-codex.md` (one live pass,
+pinned to the `AI-GOS-spine` worktree to prevent the Round-2 wrong-branch failure).
