@@ -52,9 +52,15 @@ interface JourneySessionResponse {
   metadata?: Record<string, unknown> | null;
 }
 
+interface ProfileOnboardingCache {
+  cachedOnboarding: Record<string, unknown> | null;
+  websiteUrl: string | null;
+}
+
 function buildPersistedSession(
   runId: string,
   data: JourneySessionResponse,
+  cachedOnboardingData?: Record<string, unknown> | null,
 ): PersistedResearchV2Session {
   return {
     runId,
@@ -62,11 +68,81 @@ function buildPersistedSession(
     onboardingData: data.onboardingData ?? null,
     jobStatus: data.jobStatus ?? null,
     artifactSections: data.artifactSections ?? null,
+    cachedOnboardingData: cachedOnboardingData ?? null,
   };
 }
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+async function readErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  try {
+    const payload = await response.json();
+    if (isRecord(payload) && typeof payload.error === 'string') {
+      return payload.error;
+    }
+  } catch {
+    return `${fallback} (HTTP ${response.status})`;
+  }
+
+  return `${fallback} (HTTP ${response.status})`;
+}
+
+function parseProfileOnboardingCache(
+  payload: unknown,
+): ProfileOnboardingCache | null {
+  if (!isRecord(payload)) return null;
+
+  const cachedOnboarding = isRecord(payload.cachedOnboarding)
+    ? payload.cachedOnboarding
+    : null;
+  const websiteUrl =
+    typeof payload.websiteUrl === 'string' && payload.websiteUrl.trim().length > 0
+      ? payload.websiteUrl.trim()
+      : null;
+
+  return { cachedOnboarding, websiteUrl };
+}
+
+function normalizeWebsiteUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+
+  const candidate = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
+  try {
+    new URL(candidate);
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
+function resolveProfileRerunWebsiteUrl(
+  profileCache: ProfileOnboardingCache | null,
+  data?: JourneySessionResponse,
+): string | null {
+  return (
+    normalizeWebsiteUrl(profileCache?.websiteUrl) ??
+    normalizeWebsiteUrl(data?.metadata?.websiteUrl) ??
+    normalizeWebsiteUrl(data?.metadata?.Website) ??
+    null
+  );
+}
+
+function hasCorpusRunStarted(data: JourneySessionResponse): boolean {
+  return Boolean(
+    data.researchResults?.deepResearchProgram ||
+      data.jobStatus?.deepResearchProgram,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +198,7 @@ export default function ResearchV3Page() {
   // -----------------------------------------------------------------------
 
   const runIdFromUrl = searchParams.get('runId');
+  const profileIdFromUrl = searchParams.get('profileId');
   const activeSectionId = getReaderSectionFromParam(searchParams.get('section'));
 
   const setRunIdInUrl = useCallback(
@@ -160,10 +237,158 @@ export default function ResearchV3Page() {
   const activeCorpusRunIdRef = useRef<string | null>(null);
   const corpusTransitionedRunIdsRef = useRef<Set<string>>(new Set());
   const corpusCompletionFetchesRef = useRef<Set<string>>(new Set());
+  const profileCacheRef = useRef<{
+    profileId: string;
+    cache: ProfileOnboardingCache | null;
+  } | null>(null);
 
   useEffect(() => {
     activeCorpusRunIdRef.current = state.kind === 'corpus' ? state.runId : null;
   }, [state]);
+
+  const fetchProfileOnboardingCache = useCallback(
+    async (profileId: string): Promise<ProfileOnboardingCache | null> => {
+      const cached = profileCacheRef.current;
+      if (cached?.profileId === profileId) {
+        return cached.cache;
+      }
+
+      const res = await fetch(
+        `/api/profiles/${encodeURIComponent(profileId)}/cached-onboarding`,
+        {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        },
+      );
+
+      if (!res.ok) {
+        console.warn('[research-v3] profile onboarding cache fetch failed', {
+          profileId,
+          status: res.status,
+        });
+        profileCacheRef.current = { profileId, cache: null };
+        return null;
+      }
+
+      const payload = await res.json().catch((error: unknown) => {
+        console.warn('[research-v3] profile onboarding cache returned invalid JSON', {
+          profileId,
+          error: describeError(error),
+        });
+        return null;
+      });
+      const cache = parseProfileOnboardingCache(payload);
+      profileCacheRef.current = { profileId, cache };
+      return cache;
+    },
+    [],
+  );
+
+  const dispatchCorpusRun = useCallback(
+    async ({
+      runId,
+      websiteUrl,
+      uploadedDocuments = [],
+    }: {
+      runId: string;
+      websiteUrl: string;
+      uploadedDocuments?: UploadedDocumentContext[];
+    }): Promise<void> => {
+      const context = buildCorpusContext({
+        websiteUrl,
+        uploadedDocuments,
+      });
+      const dispatchRes = await fetch('/api/research-v2/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          sectionId: 'deepResearchProgram',
+          runId,
+          context,
+        }),
+      });
+
+      if (!dispatchRes.ok) {
+        throw new Error(
+          await readErrorMessage(
+            dispatchRes,
+            `Corpus dispatch failed for run ${runId}`,
+          ),
+        );
+      }
+    },
+    [],
+  );
+
+  const startProfileRerun = useCallback(
+    async (profileId: string): Promise<void> => {
+      setIsCorpusStarting(true);
+      setResumeBanner(null);
+
+      let runId = '';
+      try {
+        const [profileCache, sessionRes] = await Promise.all([
+          fetchProfileOnboardingCache(profileId),
+          fetch('/api/journey/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ profileId }),
+          }),
+        ]);
+
+        if (!sessionRes.ok) {
+          throw new Error(
+            await readErrorMessage(
+              sessionRes,
+              `Failed to create journey session for profile ${profileId}`,
+            ),
+          );
+        }
+
+        const sessionData = (await sessionRes.json()) as {
+          runId?: string | null;
+        };
+        if (!sessionData.runId) {
+          throw new Error(
+            `Journey session response missing runId for profile ${profileId}`,
+          );
+        }
+        runId = sessionData.runId;
+
+        dispatch({ type: 'CORPUS_START', runId });
+        setRunIdInUrl(runId);
+
+        const websiteUrl = resolveProfileRerunWebsiteUrl(profileCache);
+        if (!websiteUrl) {
+          dispatch({
+            type: 'ERROR',
+            from: 'corpus',
+            message: `Profile ${profileId} is missing a website URL for a fresh audit run`,
+          });
+          return;
+        }
+
+        lastUrlRef.current = websiteUrl;
+        lastUploadedDocumentsRef.current = [];
+        await dispatchCorpusRun({ runId, websiteUrl });
+        dispatch({ type: 'CORPUS_STREAMING' });
+      } catch (error) {
+        if (runId) {
+          dispatch({ type: 'CORPUS_START', runId });
+        }
+        dispatch({
+          type: 'ERROR',
+          from: 'corpus',
+          message: describeError(error),
+        });
+      } finally {
+        setIsCorpusStarting(false);
+      }
+    },
+    [dispatchCorpusRun, fetchProfileOnboardingCache, setRunIdInUrl],
+  );
 
   const hydrateFromRunId = useCallback(
     async (runId: string): Promise<void> => {
@@ -180,10 +405,38 @@ export default function ResearchV3Page() {
           return;
         }
         const data = (await res.json()) as JourneySessionResponse;
+        const profileCache = profileIdFromUrl
+          ? await fetchProfileOnboardingCache(profileIdFromUrl)
+          : null;
         const resumed = inferPersistedResearchV2State(
-          buildPersistedSession(runId, data),
+          buildPersistedSession(runId, data, profileCache?.cachedOnboarding),
         );
         if (resumed) {
+          if (
+            profileIdFromUrl &&
+            resumed.kind === 'corpus' &&
+            !hasCorpusRunStarted(data)
+          ) {
+            dispatch({ type: 'CORPUS_START', runId });
+            setRunIdInUrl(runId);
+
+            const websiteUrl = resolveProfileRerunWebsiteUrl(profileCache, data);
+            if (!websiteUrl) {
+              dispatch({
+                type: 'ERROR',
+                from: 'corpus',
+                message: `Profile ${profileIdFromUrl} is missing a website URL for a fresh audit run`,
+              });
+              return;
+            }
+
+            lastUrlRef.current = websiteUrl;
+            lastUploadedDocumentsRef.current = [];
+            await dispatchCorpusRun({ runId, websiteUrl });
+            dispatch({ type: 'CORPUS_STREAMING' });
+            return;
+          }
+
           dispatch({ type: 'RESUME', state: resumed });
           setRunIdInUrl(runId);
         }
@@ -194,7 +447,12 @@ export default function ResearchV3Page() {
         });
       }
     },
-    [setRunIdInUrl],
+    [
+      dispatchCorpusRun,
+      fetchProfileOnboardingCache,
+      profileIdFromUrl,
+      setRunIdInUrl,
+    ],
   );
 
   useEffect(() => {
@@ -204,6 +462,11 @@ export default function ResearchV3Page() {
 
     if (runIdFromUrl) {
       void hydrateFromRunId(runIdFromUrl);
+      return;
+    }
+
+    if (profileIdFromUrl) {
+      void startProfileRerun(profileIdFromUrl);
       return;
     }
 
@@ -245,7 +508,14 @@ export default function ResearchV3Page() {
         });
       }
     })();
-  }, [hydrateFromRunId, isUserLoaded, runIdFromUrl, user]);
+  }, [
+    hydrateFromRunId,
+    isUserLoaded,
+    profileIdFromUrl,
+    runIdFromUrl,
+    startProfileRerun,
+    user,
+  ]);
 
   function handleConfirmResume() {
     if (!resumeBanner) return;
@@ -312,33 +582,11 @@ export default function ResearchV3Page() {
         dispatch({ type: 'CORPUS_START', runId });
         setRunIdInUrl(runId);
 
-        const context = buildCorpusContext({
+        await dispatchCorpusRun({
+          runId,
           websiteUrl,
           uploadedDocuments,
         });
-        const dispatchRes = await fetch('/api/research-v2/dispatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            sectionId: 'deepResearchProgram',
-            runId,
-            context,
-          }),
-        });
-
-        if (!dispatchRes.ok) {
-          const body = (await dispatchRes.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          dispatch({
-            type: 'ERROR',
-            from: 'corpus',
-            message:
-              body.error ?? `Dispatch failed (HTTP ${dispatchRes.status})`,
-          });
-          return;
-        }
 
         dispatch({ type: 'CORPUS_STREAMING' });
       } catch (err) {
@@ -352,7 +600,7 @@ export default function ResearchV3Page() {
         setIsCorpusStarting(false);
       }
     },
-    [setRunIdInUrl],
+    [dispatchCorpusRun, setRunIdInUrl],
   );
 
   // -----------------------------------------------------------------------
@@ -380,8 +628,11 @@ export default function ResearchV3Page() {
         }
 
         const data = (await res.json()) as JourneySessionResponse;
+        const profileCache = profileIdFromUrl
+          ? await fetchProfileOnboardingCache(profileIdFromUrl)
+          : null;
         const inferred = inferPersistedResearchV2State(
-          buildPersistedSession(runId, data),
+          buildPersistedSession(runId, data, profileCache?.cachedOnboarding),
         );
 
         if (activeCorpusRunIdRef.current !== runId) return;
@@ -393,6 +644,7 @@ export default function ResearchV3Page() {
             runId,
             prefill: inferred.prefill,
             prefillMetadata: inferred.prefillMetadata,
+            corpusSources: inferred.corpusSources,
           });
           return;
         }
@@ -411,7 +663,7 @@ export default function ResearchV3Page() {
         corpusCompletionFetchesRef.current.delete(runId);
       }
     },
-    [],
+    [fetchProfileOnboardingCache, profileIdFromUrl],
   );
 
   useEffect(() => {
@@ -594,6 +846,7 @@ export default function ResearchV3Page() {
           <OnboardingWizard
             initialData={state.prefill}
             initialPrefillMetadata={state.prefillMetadata}
+            corpusSources={state.corpusSources}
             onComplete={handleOnboardingComplete}
           />
         </div>

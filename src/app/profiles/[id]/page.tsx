@@ -9,6 +9,7 @@ import {
   FileText,
   FlaskConical,
   Compass,
+  RefreshCw,
   TrendingUp,
   Target,
   Lightbulb,
@@ -39,6 +40,23 @@ function formatDate(dateString: string): string {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    if (isRecord(payload) && typeof payload.error === 'string') {
+      return payload.error;
+    }
+  } catch {
+    return `${fallback} (HTTP ${response.status})`;
+  }
+
+  return `${fallback} (HTTP ${response.status})`;
+}
+
 export default function ProfileDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -49,6 +67,8 @@ export default function ProfileDetailPage() {
   const [sessions, setSessions] = useState<ProfileSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [isStartingAudit, setIsStartingAudit] = useState(false);
+  const [rerunError, setRerunError] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -106,6 +126,42 @@ export default function ProfileDetailPage() {
     router.push(`/profiles/${id}${qs ? `?${qs}` : ''}`, { scroll: false });
   }
 
+  async function handleRunNewAudit(): Promise<void> {
+    setIsStartingAudit(true);
+    setRerunError(null);
+
+    try {
+      const res = await fetch('/api/journey/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ profileId: id }),
+      });
+
+      if (!res.ok) {
+        throw new Error(
+          await readApiError(
+            res,
+            `Failed to create rerun session for profile ${id}`,
+          ),
+        );
+      }
+
+      const data = (await res.json()) as { runId?: string | null };
+      if (!data.runId) {
+        throw new Error(`Rerun session response missing runId for profile ${id}`);
+      }
+
+      router.push(
+        `/research-v3?runId=${encodeURIComponent(data.runId)}&profileId=${encodeURIComponent(id)}`,
+      );
+    } catch (error) {
+      setRerunError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsStartingAudit(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen" style={{ background: 'var(--bg-base)', color: '#E5E5E5' }}>
@@ -136,21 +192,41 @@ export default function ProfileDetailPage() {
               All Profiles
             </Link>
 
-            <div className="flex items-center gap-3">
-              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] text-xl font-bold shrink-0">
-                {profile.companyName?.[0]?.toUpperCase() ?? 'B'}
-              </span>
-              <div>
-                <h1 className="font-heading text-2xl font-bold tracking-[-0.03em] text-[var(--text-primary)]">
-                  {profile.companyName ?? 'Unnamed Profile'}
-                </h1>
-                {profile.industryVertical && (
-                  <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
-                    {profile.industryVertical}
-                  </p>
-                )}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] text-xl font-bold shrink-0">
+                  {profile.companyName?.[0]?.toUpperCase() ?? 'B'}
+                </span>
+                <div className="min-w-0">
+                  <h1 className="font-heading text-2xl font-bold tracking-[-0.03em] text-[var(--text-primary)]">
+                    {profile.companyName ?? 'Unnamed Profile'}
+                  </h1>
+                  {profile.industryVertical && (
+                    <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
+                      {profile.industryVertical}
+                    </p>
+                  )}
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => void handleRunNewAudit()}
+                disabled={isStartingAudit}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent-green)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isStartingAudit ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-3.5" />
+                )}
+                Run new audit
+              </button>
             </div>
+
+            {rerunError && (
+              <p className="mt-3 text-xs text-red-400">{rerunError}</p>
+            )}
           </div>
 
           {/* Tab bar */}

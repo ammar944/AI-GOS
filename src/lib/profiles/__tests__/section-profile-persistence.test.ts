@@ -10,6 +10,7 @@ import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import {
   buildCommittedSectionProfileInsights,
   persistAuditProfile,
+  persistAuditProfileBestEffort,
 } from '../section-profile-persistence';
 
 const userId = 'user_123';
@@ -149,7 +150,7 @@ describe('section profile persistence', (): void => {
     const saveBusinessProfile = vi.fn().mockResolvedValue({ id: 'profile-123' });
     const saveProfileInsights = vi.fn().mockResolvedValue(true);
 
-    await persistAuditProfile(
+    const profileId = await persistAuditProfile(
       {
         supabase: fakeSupabase.supabase,
         userId,
@@ -163,6 +164,7 @@ describe('section profile persistence', (): void => {
       },
     );
 
+    expect(profileId).toBe('profile-123');
     expect(saveBusinessProfile).toHaveBeenCalledTimes(1);
     expect(saveBusinessProfile).toHaveBeenCalledWith(
       userId,
@@ -172,6 +174,7 @@ describe('section profile persistence', (): void => {
         websiteUrl: 'https://metadata.example',
         monthlyAdBudget: '$25k',
       }),
+      { companyName: 'SaaSLaunch', monthlyAdBudget: '$25k' },
     );
     expect(fakeSupabase.sectionEq).toHaveBeenCalledWith(
       'artifact_id',
@@ -206,5 +209,75 @@ describe('section profile persistence', (): void => {
         }),
       }),
     );
+  });
+
+  it('passes cached onboarding to the profile upsert', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase([
+      createSectionRow({
+        zone: 'positioningMarketCategory',
+        data: marketCategoryFixtureArtifact,
+      }),
+    ]);
+    const saveBusinessProfile = vi.fn().mockResolvedValue({ id: 'profile-123' });
+    const saveProfileInsights = vi.fn().mockResolvedValue(true);
+
+    await persistAuditProfile(
+      {
+        supabase: fakeSupabase.supabase,
+        userId,
+        runId,
+        researchInput: saaslaunchResearchInput,
+        parentAuditRunId,
+      },
+      {
+        saveBusinessProfile,
+        saveProfileInsights,
+      },
+    );
+
+    expect(saveBusinessProfile).toHaveBeenCalledWith(
+      userId,
+      sessionId,
+      expect.any(Object),
+      { companyName: 'SaaSLaunch', monthlyAdBudget: '$25k' },
+    );
+  });
+
+  it('resets the profile persist claim when best-effort persistence fails', async (): Promise<void> => {
+    const resetEq = vi.fn().mockResolvedValue({ error: null });
+    const failingMaybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'session missing' },
+    });
+    const selectQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: failingMaybeSingle,
+    };
+    selectQuery.select.mockReturnValue(selectQuery);
+    selectQuery.eq.mockReturnValue(selectQuery);
+    const from = vi.fn((table: string) => {
+      if (table !== 'journey_sessions' && table !== 'research_artifacts') {
+        throw new Error(`Unexpected table ${table}`);
+      }
+
+      return table === 'journey_sessions'
+        ? selectQuery
+        : {
+            update: vi.fn().mockReturnValue({ eq: resetEq }),
+          };
+    });
+
+    await expect(
+      persistAuditProfileBestEffort({
+        supabase: { from } as unknown as SupabaseClient,
+        userId,
+        runId,
+        researchInput: saaslaunchResearchInput,
+        parentAuditRunId,
+      }),
+    ).resolves.toBeNull();
+
+    expect(resetEq).toHaveBeenCalledWith('id', parentAuditRunId);
   });
 });

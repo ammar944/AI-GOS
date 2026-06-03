@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
@@ -25,7 +24,11 @@ import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/sect
 import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
 import { buildSynthesizedThesisPatch } from '@/lib/research-v2/orchestrate-db';
 import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
-import { persistAuditProfileBestEffort } from '@/lib/profiles/section-profile-persistence';
+import {
+  buildCommittedSectionProfileInsights,
+  persistAuditProfileBestEffort,
+} from '@/lib/profiles/section-profile-persistence';
+import { patchBusinessProfileSynthesis } from '@/lib/profiles/business-profiles';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
@@ -186,25 +189,6 @@ function sectionRunIdFor(
   return sectionRunId;
 }
 
-const POSITIONING_SECTION_ID_SET: ReadonlySet<string> = new Set(
-  POSITIONING_SECTION_IDS,
-);
-
-function countCompletePositioningZones(data: unknown): number {
-  if (!Array.isArray(data)) return 0;
-
-  const zones = new Set<string>();
-  for (const row of data) {
-    if (!row || typeof row !== 'object') continue;
-    const zone = (row as { zone?: unknown }).zone;
-    if (typeof zone !== 'string') continue;
-    if (!POSITIONING_SECTION_ID_SET.has(zone)) continue;
-    zones.add(zone);
-  }
-
-  return zones.size;
-}
-
 function asRecordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -283,48 +267,113 @@ async function mergeSynthesizedThesisBestEffort(input: {
   }
 }
 
-async function markParentCompleteWhenAllSectionsCommit(input: {
+async function patchProfileSynthesisBestEffort(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  runId: string;
+  parentAuditRunId: string;
+  artifact: ArtifactEnvelope;
+}): Promise<void> {
+  try {
+    const { data, error } = await input.supabase
+      .from('journey_sessions')
+      .select('profile_id')
+      .eq('run_id', input.runId)
+      .eq('user_id', input.userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[supabase-run-store] synthesis profile read failed:', {
+        userId: input.userId,
+        runId: input.runId,
+        parentAuditRunId: input.parentAuditRunId,
+        message: error.message,
+      });
+      return;
+    }
+
+    const profileId = (data as { profile_id?: unknown } | null)?.profile_id;
+    if (typeof profileId !== 'string' || profileId.trim().length === 0) {
+      return;
+    }
+
+    const insights = buildCommittedSectionProfileInsights({
+      sectionId: POSITIONING_SYNTHESIS_SECTION_ID,
+      artifact: input.artifact,
+    });
+    const positioningStrategy = asRecordValue(insights.positioningStrategy);
+    if (!positioningStrategy) {
+      console.warn('[supabase-run-store] synthesis profile patch missing strategy', {
+        userId: input.userId,
+        runId: input.runId,
+        parentAuditRunId: input.parentAuditRunId,
+        profileId,
+      });
+      return;
+    }
+
+    await patchBusinessProfileSynthesis({
+      supabase: input.supabase,
+      userId: input.userId,
+      profileId,
+      insights,
+      positioningStrategy,
+    });
+  } catch (err) {
+    console.warn(
+      '[supabase-run-store] synthesis profile patch errored:',
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+async function claimProfilePersist(input: {
   supabase: SupabaseClient;
   parentAuditRunId: string;
-  now: () => Date;
+  persistedAt: string;
 }): Promise<boolean> {
   const { data, error } = await input.supabase
-    .from('research_artifact_sections')
-    .select('zone')
-    .eq('artifact_id', input.parentAuditRunId)
+    .from('research_artifacts')
+    .update({
+      profile_persisted_at: input.persistedAt,
+    })
+    .eq('id', input.parentAuditRunId)
     .eq('status', 'complete')
-    .in('zone', [...POSITIONING_SECTION_IDS]);
+    .is('profile_persisted_at', null)
+    .select('id');
 
   if (error) {
     throw new SupabaseRunStoreError(
-      `research_artifact_sections rollup read failed for parent_audit_run_id=${input.parentAuditRunId}: ${error.message}`,
+      `research_artifacts profile persist claim failed for parent_audit_run_id=${input.parentAuditRunId}: ${error.message}`,
     );
   }
 
-  const childrenComplete = countCompletePositioningZones(data);
-  if (childrenComplete < POSITIONING_SECTION_IDS.length) {
-    return false;
-  }
+  return (data?.length ?? 0) === 1;
+}
 
-  const { data: flipped, error: updateError } = await input.supabase
-    .from('research_artifacts')
-    .update({
-      status: 'complete',
-      children_total: POSITIONING_SECTION_IDS.length,
-      children_complete: childrenComplete,
-      updated_at: isoNow(input.now),
-    })
-    .eq('id', input.parentAuditRunId)
-    .neq('status', 'complete')
-    .select('id');
+async function emitProfilePersistedEvent(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+  runId: string;
+  profileId: string;
+}): Promise<void> {
+  const { error } = await input.supabase.from('research_section_events').insert({
+    section_run_id: null,
+    artifact_id: input.parentAuditRunId,
+    zone: null,
+    event_type: 'profile_persisted',
+    message: 'business profile persisted',
+    payload: {
+      profile_id: input.profileId,
+      run_id: input.runId,
+    },
+  });
 
-  if (updateError) {
+  if (error) {
     throw new SupabaseRunStoreError(
-      `research_artifacts rollup update failed for parent_audit_run_id=${input.parentAuditRunId} children_complete=${childrenComplete}: ${updateError.message}`,
+      `research_section_events profile_persisted insert failed for parent_audit_run_id=${input.parentAuditRunId} profile_id=${input.profileId} run_id=${input.runId}: ${error.message}`,
     );
   }
-
-  return (flipped?.length ?? 0) === 1;
 }
 
 function assertRunId(expectedRunId: string, actualRunId: string, action: string): void {
@@ -505,12 +554,6 @@ export function createSupabaseRunStore(
         );
       }
 
-      const didCompleteAuditNow = await markParentCompleteWhenAllSectionsCommit({
-        supabase: options.supabase,
-        parentAuditRunId: options.parentAuditRunId,
-        now,
-      });
-
       if (parsedArtifact.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
         await mergeSynthesizedThesisBestEffort({
           supabase: options.supabase,
@@ -518,16 +561,38 @@ export function createSupabaseRunStore(
           artifact: parsedArtifact,
           updatedAt: completedAt,
         });
+        await patchProfileSynthesisBestEffort({
+          supabase: options.supabase,
+          userId: options.userId,
+          runId: input.runId,
+          parentAuditRunId: options.parentAuditRunId,
+          artifact: parsedArtifact,
+        });
       }
 
-      if (didCompleteAuditNow) {
-        await persistAuditProfileBestEffort({
+      if (
+        await claimProfilePersist({
+          supabase: options.supabase,
+          parentAuditRunId: options.parentAuditRunId,
+          persistedAt: completedAt,
+        })
+      ) {
+        const profileId = await persistAuditProfileBestEffort({
           supabase: options.supabase,
           userId: options.userId,
           runId: input.runId,
           researchInput: input,
           parentAuditRunId: options.parentAuditRunId,
         });
+
+        if (profileId) {
+          await emitProfilePersistedEvent({
+            supabase: options.supabase,
+            parentAuditRunId: options.parentAuditRunId,
+            runId: input.runId,
+            profileId,
+          });
+        }
       }
 
       record = mergeSection(

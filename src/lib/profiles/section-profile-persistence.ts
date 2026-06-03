@@ -220,7 +220,7 @@ function buildCommittedAuditProfileInsights(input: {
 export async function persistAuditProfile(
   input: PersistAuditProfileInput,
   deps: PersistAuditProfileDeps = defaultDeps,
-): Promise<void> {
+): Promise<string> {
   const { data, error } = await input.supabase
     .from('journey_sessions')
     .select('id, metadata, onboarding_data')
@@ -283,6 +283,7 @@ export async function persistAuditProfile(
     input.userId,
     session.id,
     profileMetadata,
+    asRecord(session.onboarding_data),
   );
 
   if (!profile) {
@@ -313,13 +314,15 @@ export async function persistAuditProfile(
       `saveProfileInsights returned false for userId=${input.userId} runId=${input.runId} companyName=${companyName} insightKeys=${Object.keys(mergedInsights).join(',')}`,
     );
   }
+
+  return profile.id;
 }
 
 export async function persistAuditProfileBestEffort(
   input: PersistAuditProfileInput,
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await persistAuditProfile(input);
+    return await persistAuditProfile(input);
   } catch (error) {
     console.warn('[section-profile-persistence] audit profile persist failed', {
       userId: input.userId,
@@ -327,5 +330,21 @@ export async function persistAuditProfileBestEffort(
       parentAuditRunId: input.parentAuditRunId,
       message: error instanceof Error ? error.message : String(error),
     });
+
+    const { error: resetError } = await input.supabase
+      .from('research_artifacts')
+      .update({ profile_persisted_at: null })
+      .eq('id', input.parentAuditRunId);
+
+    if (resetError) {
+      console.warn('[section-profile-persistence] profile persist claim reset failed', {
+        userId: input.userId,
+        runId: input.runId,
+        parentAuditRunId: input.parentAuditRunId,
+        message: resetError.message,
+      });
+    }
+
+    return null;
   }
 }

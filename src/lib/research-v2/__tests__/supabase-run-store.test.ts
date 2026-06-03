@@ -43,8 +43,7 @@ interface FakeSupabaseOptions {
   };
   commitError?: string;
   markSectionErrorChanged?: boolean;
-  parentRollupFlipped?: boolean;
-  parentRollupFlipResults?: readonly boolean[];
+  profileClaimResults?: readonly boolean[];
 }
 
 function createSelectQuery(table: string, options: FakeSupabaseOptions) {
@@ -84,19 +83,20 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
 
 function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
-  let parentRollupFlipIndex = 0;
-  const readParentRollupFlip = (): boolean => {
+  const inserts: Array<{ table: string; row: Record<string, unknown> }> = [];
+  let profileClaimIndex = 0;
+  const readProfileClaim = (): boolean => {
     const sequenceValue =
-      options.parentRollupFlipResults?.[parentRollupFlipIndex];
-    parentRollupFlipIndex += 1;
-    return sequenceValue ?? options.parentRollupFlipped ?? true;
+      options.profileClaimResults?.[profileClaimIndex];
+    profileClaimIndex += 1;
+    return sequenceValue ?? false;
   };
   const updateSelectMaybeSingle = vi.fn().mockResolvedValue({
     data: options.markSectionErrorChanged === false ? null : { id: 'updated-section-run' },
     error: null,
   });
   const updateSelect = vi.fn(() => ({
-    data: readParentRollupFlip() ? [{ id: parentAuditRunId }] : [],
+    data: readProfileClaim() ? [{ id: parentAuditRunId }] : [],
     error: null,
     maybeSingle: updateSelectMaybeSingle,
   }));
@@ -109,11 +109,16 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   // .eq(...) must be BOTH awaitable (markSectionRunning, telemetry, parent
   // rollup call .eq without .neq) AND expose a chainable .neq (markSectionError
   // adds the `.neq('status', 'complete')` guard).
-  const updateEq = vi
-    .fn()
-    .mockReturnValue(
-      Object.assign(Promise.resolve({ error: null }), { neq: updateNeq }),
-    );
+  const updateIs = vi.fn().mockReturnValue({ select: updateSelect });
+  const updateEq = vi.fn();
+  updateEq.mockReturnValue(
+    Object.assign(Promise.resolve({ error: null }), {
+      eq: updateEq,
+      is: updateIs,
+      neq: updateNeq,
+      select: updateSelect,
+    }),
+  );
   const update = vi.fn();
   const selectQueries: Array<{ table: string; query: ReturnType<typeof createSelectQuery> }> = [];
   const from = vi.fn((table: string) => {
@@ -125,6 +130,10 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
         updates.push({ table, patch });
         update(patch);
         return { eq: updateEq };
+      },
+      insert: (row: Record<string, unknown>) => {
+        inserts.push({ table, row });
+        return Promise.resolve({ data: row, error: null });
       },
     };
   });
@@ -159,17 +168,19 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
     update,
     updateEq,
     updateNeq,
+    updateIs,
     updateSelect,
     updateSelectMaybeSingle,
     selectQueries,
     updates,
+    inserts,
   };
 }
 
 describe('createSupabaseRunStore', (): void => {
   beforeEach((): void => {
     profilePersistenceMocks.persistAuditProfileBestEffort.mockReset();
-    profilePersistenceMocks.persistAuditProfileBestEffort.mockResolvedValue(undefined);
+    profilePersistenceMocks.persistAuditProfileBestEffort.mockResolvedValue('profile-123');
   });
 
   it('keeps the lab RunRecord contract while writing events, status, and artifacts to Supabase', async (): Promise<void> => {
@@ -263,9 +274,9 @@ describe('createSupabaseRunStore', (): void => {
     expect(profilePersistenceMocks.persistAuditProfileBestEffort).not.toHaveBeenCalled();
   });
 
-  it('rolls the parent artifact complete when the sixth positioning section commits', async (): Promise<void> => {
+  it('claims and records profile persistence after the DB rollup completes the parent', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase({
-      completeSectionZones: POSITIONING_SECTION_IDS,
+      profileClaimResults: [true],
     });
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
@@ -286,13 +297,14 @@ describe('createSupabaseRunStore', (): void => {
     );
     expect(parentUpdates).toHaveLength(1);
     expect(parentUpdates[0]?.patch).toEqual({
-      status: 'complete',
-      children_total: 6,
-      children_complete: 6,
-      updated_at: '2026-05-25T12:00:00.000Z',
+      profile_persisted_at: '2026-05-25T12:00:00.000Z',
     });
     expect(fakeSupabase.updateEq).toHaveBeenCalledWith('id', parentAuditRunId);
-    expect(fakeSupabase.updateNeq).toHaveBeenCalledWith('status', 'complete');
+    expect(fakeSupabase.updateEq).toHaveBeenCalledWith('status', 'complete');
+    expect(fakeSupabase.updateIs).toHaveBeenCalledWith(
+      'profile_persisted_at',
+      null,
+    );
     expect(fakeSupabase.updateSelect).toHaveBeenCalledWith('id');
     expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledTimes(1);
     expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledWith({
@@ -302,11 +314,27 @@ describe('createSupabaseRunStore', (): void => {
       researchInput: saaslaunchResearchInput,
       parentAuditRunId,
     });
+    expect(fakeSupabase.inserts).toEqual([
+      {
+        table: 'research_section_events',
+        row: {
+          section_run_id: null,
+          artifact_id: parentAuditRunId,
+          zone: null,
+          event_type: 'profile_persisted',
+          message: 'business profile persisted',
+          payload: {
+            profile_id: 'profile-123',
+            run_id: saaslaunchResearchInput.runId,
+          },
+        },
+      },
+    ]);
   });
 
   it('awaits profile persistence before resolving the completing artifact save', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase({
-      completeSectionZones: POSITIONING_SECTION_IDS,
+      profileClaimResults: [true],
     });
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
@@ -346,10 +374,9 @@ describe('createSupabaseRunStore', (): void => {
     expect(saveSettled).toBe(true);
   });
 
-  it('persists profile only once when concurrent last committers race the parent CAS', async (): Promise<void> => {
+  it('persists profile only once when concurrent committers race the profile claim', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase({
-      completeSectionZones: POSITIONING_SECTION_IDS,
-      parentRollupFlipResults: [true, false],
+      profileClaimResults: [true, false],
     });
     const firstStore = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
@@ -379,7 +406,7 @@ describe('createSupabaseRunStore', (): void => {
       ),
     ]);
 
-    expect(fakeSupabase.updateNeq).toHaveBeenCalledTimes(2);
+    expect(fakeSupabase.updateIs).toHaveBeenCalledTimes(2);
     expect(fakeSupabase.updateSelect).toHaveBeenCalledTimes(2);
     expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledTimes(1);
   });
