@@ -10,10 +10,18 @@ import type { Metadata } from 'next';
  * database read must not depend on anon-key RLS because Stage 1 removes RLS.
  */
 async function getSharedSession(token: string) {
-  return getSharedSessionByToken({
-    supabase: createAdminClient(),
-    token,
-  });
+  // A transient DB read failure must not crash the public page. Treat any read
+  // error as "not available" (→ notFound) rather than propagating to the error
+  // boundary; this mirrors the API route's defensive handling.
+  try {
+    return await getSharedSessionByToken({
+      supabase: createAdminClient(),
+      token,
+    });
+  } catch (error) {
+    console.error(`[shared/${token}] session read failed`, error);
+    return null;
+  }
 }
 
 export async function generateMetadata({
