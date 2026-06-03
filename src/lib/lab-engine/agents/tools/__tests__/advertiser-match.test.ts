@@ -157,6 +157,153 @@ describe("advertiser match relevance engine", (): void => {
         verdict: "rejected",
       });
     });
+
+    describe("page_alias domain corroboration (verified-domain spine)", (): void => {
+      it("does not verify a same-name page whose page_alias contradicts the domain", (): void => {
+        // Live failure: meta page-search for "Gong"/gong.io returned the Croatian
+        // NGO page (name "Gong", page_alias "gong.hr"). The name-containment
+        // heuristic treated it as domain-corroborated and accepted it. With the
+        // real alias present, gong.hr must NOT corroborate gong.io.
+        const result = resolveBestCandidate(
+          [{ id: "hr", name: "Gong", pageAlias: "gong.hr" }],
+          "Gong",
+          "gong.io",
+          true,
+        );
+
+        expect(result.verdict).not.toBe("accepted");
+      });
+
+      it("selects the page whose page_alias matches the verified domain over a same-name decoy", (): void => {
+        const result = resolveBestCandidate(
+          [
+            { id: "hr", name: "Gong", pageAlias: "gong.hr" },
+            { id: "io", name: "Gong", pageAlias: "gong.io" },
+          ],
+          "Gong",
+          "gong.io",
+          true,
+        );
+
+        expect(result).toMatchObject({
+          verdict: "accepted",
+          candidate: { id: "io", name: "Gong" },
+        });
+      });
+
+      it("treats www and subdomain aliases as the same registrable domain", (): void => {
+        expect(
+          resolveBestCandidate(
+            [{ id: "io", name: "Gong", pageAlias: "www.gong.io" }],
+            "Gong",
+            "gong.io",
+            true,
+          ),
+        ).toMatchObject({ verdict: "accepted", candidate: { id: "io" } });
+
+        expect(
+          resolveBestCandidate(
+            [{ id: "io", name: "Gong", pageAlias: "ads.gong.io" }],
+            "Gong",
+            "gong.io",
+            true,
+          ),
+        ).toMatchObject({ verdict: "accepted", candidate: { id: "io" } });
+      });
+
+      it("picks the alias-matched page out of a mixed collision set", (): void => {
+        const result = resolveBestCandidate(
+          [
+            { id: "hr", name: "Gong", pageAlias: "gong.hr" },
+            { id: "band", name: "Gong", pageAlias: "officialgong" },
+            { id: "io", name: "Gong", pageAlias: "gong.io" },
+          ],
+          "Gong",
+          "gong.io",
+          true,
+        );
+
+        expect(result).toMatchObject({
+          verdict: "accepted",
+          candidate: { id: "io" },
+        });
+      });
+
+      it("ignores non-domain-shaped aliases (no over-rejection when there is no real domain signal)", (): void => {
+        // "officialgong" is not domain-shaped, so it carries no corroboration
+        // signal. Resolution must fall back to the existing name-based path,
+        // not hard-reject a legitimate short brand.
+        const result = resolveBestCandidate(
+          [{ id: "band", name: "Gong", pageAlias: "officialgong" }],
+          "Gong",
+          "gong.io",
+          true,
+        );
+
+        expect(result.verdict).toBe("accepted");
+      });
+
+      it("leaves alias-free candidates on the existing name-based path", (): void => {
+        // Backward compatibility: when SearchAPI returns no alias fields the
+        // resolver behaves exactly as before the spine landed.
+        const result = resolveBestCandidate(
+          [{ id: "io", name: "Gong" }],
+          "Gong",
+          "gong.io",
+          true,
+        );
+
+        expect(result).toMatchObject({
+          verdict: "accepted",
+          candidate: { id: "io", name: "Gong" },
+        });
+      });
+
+      it("never verifies a non-short exact-name page whose alias contradicts the domain", (): void => {
+        // "Acmecorp" (>6 chars) is not gated by the short-name corroboration
+        // blocks, so the exact-name branch would accept it. The final guard must
+        // still downgrade it: its own alias says it is a different domain.
+        const result = resolveBestCandidate(
+          [{ id: "de", name: "Acmecorp", pageAlias: "acmecorp.de" }],
+          "Acmecorp",
+          "acmecorp.io",
+          true,
+        );
+
+        expect(result.verdict).not.toBe("accepted");
+      });
+
+      it("stays conservative when a decoy alias poisons a mixed same-name set", (): void => {
+        // Documented trade-off: an alias-free real page sharing the set with a
+        // domain-aliased decoy cannot be positively confirmed, so it resolves to
+        // ambiguous (quarantine) rather than being verified on a bare name match.
+        const result = resolveBestCandidate(
+          [
+            { id: "real", name: "Notion", pageAlias: "notion" },
+            { id: "decoy", name: "Notion", pageAlias: "notion.com" },
+          ],
+          "Notion",
+          "notion.so",
+          true,
+        );
+
+        expect(result.verdict).not.toBe("accepted");
+      });
+
+      it("corroborates through a target domain that carries a port", (): void => {
+        const result = resolveBestCandidate(
+          [{ id: "io", name: "Gong", pageAlias: "gong.io" }],
+          "Gong",
+          "gong.io:443",
+          true,
+        );
+
+        expect(result).toMatchObject({
+          verdict: "accepted",
+          candidate: { id: "io" },
+        });
+      });
+    });
   });
 
   describe("utility helpers", (): void => {
@@ -168,6 +315,9 @@ describe("advertiser match relevance engine", (): void => {
     it("extracts and normalizes domains", (): void => {
       expect(extractCompanyFromDomain("https://www.amazon.com/path")).toBe("amazon");
       expect(normalizeDomain("https://www.Gong.io/demo")).toBe("gong.io");
+      expect(normalizeDomain("gong.io:443")).toBe("gong.io");
+      expect(normalizeDomain("gong.io.")).toBe("gong.io");
+      expect(normalizeDomain("gong.io?ref=x")).toBe("gong.io");
     });
   });
 

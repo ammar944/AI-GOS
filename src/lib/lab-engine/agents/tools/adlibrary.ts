@@ -10,6 +10,7 @@ import {
   type ToolGap,
 } from "./_shared";
 import {
+  type Candidate,
   isAdvertiserMatch,
   normalizeDomain,
   resolveBestCandidate,
@@ -59,11 +60,6 @@ export type AdLibraryOutput = z.infer<typeof AdLibraryOutputSchema>;
 
 type AdLibraryPlatform = z.infer<typeof adLibraryPlatformSchema>;
 type SearchApiRecord = Record<string, unknown>;
-
-interface Candidate {
-  id: string;
-  name: string;
-}
 
 interface NormalizedAd {
   url: string;
@@ -212,8 +208,17 @@ function readCandidates(
       candidate.advertiser_name,
       candidate.page_name,
     ]);
+    // Preserve the domain-shaped provenance the identity resolver needs to tell
+    // same-name pages apart (e.g. Meta page_alias "gong.hr" vs "gong.io").
+    // Only fields that hold the ENTITY's own domain — never platform/profile
+    // URLs like page_profile_uri (facebook.com/...) or url, which would falsely
+    // contradict every candidate's verified domain.
+    const pageAlias = firstString([candidate.page_alias]);
+    const website = firstString([candidate.website, candidate.domain]);
 
-    return id === undefined || name === undefined ? [] : [{ id, name }];
+    return id === undefined || name === undefined
+      ? []
+      : [{ id, name, pageAlias, website }];
   });
 }
 

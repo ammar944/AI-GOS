@@ -343,7 +343,12 @@ export function normalizeDomain(value: string): string {
       .toLowerCase()
       .replace(/^https?:\/\//, "")
       .replace(/^www\./, "")
-      .split("/")[0] ?? value
+      .split("/")[0]
+      ?.split("?")[0]
+      ?.split("#")[0]
+      ?.split(":")[0] // drop :port
+      ?.replace(/\.$/, "") ?? // drop a trailing root dot
+    value
   );
 }
 
@@ -524,9 +529,13 @@ export function isAdvertiserMatch(
   return false;
 }
 
-interface Candidate {
+export interface Candidate {
   id: string;
   name: string;
+  /** Meta page handle (e.g. "gong.hr") — domain-shaped for many pages. */
+  pageAlias?: string;
+  /** Any website/profile-URI field SearchAPI exposes for the candidate. */
+  website?: string;
 }
 
 interface ResolverResult {
@@ -537,6 +546,66 @@ interface ResolverResult {
 }
 
 /**
+ * A candidate's alias/website field is "domain-shaped" when it looks like a
+ * registrable domain (a dotted alphabetic TLD), e.g. "gong.hr" or
+ * "www.gong.io" — but NOT a bare handle like "officialgong". Returns the
+ * normalized domain, or undefined when the value carries no domain signal.
+ */
+function domainShapedValue(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = normalizeDomain(value);
+
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(normalized)) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+/**
+ * Real domain corroboration for a SearchAPI page candidate. Compares the
+ * candidate's own domain-like fields (Meta `page_alias`, website) against the
+ * verified target domain:
+ *   - "match"    -> alias equals the target registrable domain (or a subdomain)
+ *   - "conflict" -> alias is domain-shaped but points at a different domain
+ *   - "none"     -> no domain-shaped field to reason about
+ *
+ * This is the signal the Croatian-"Gong" leak needs: the page name is a
+ * byte-identical "Gong", and only the alias (`gong.hr`) distinguishes it from
+ * the real `gong.io`. Name-containment alone could never tell them apart.
+ */
+function candidateDomainSignal(
+  candidate: Candidate,
+  targetDomain: string | undefined,
+): "match" | "conflict" | "none" {
+  if (targetDomain === undefined) {
+    return "none";
+  }
+
+  const target = domainShapedValue(targetDomain) ?? normalizeDomain(targetDomain);
+  let sawConflict = false;
+
+  for (const field of [candidate.pageAlias, candidate.website]) {
+    const candidateDomain = domainShapedValue(field);
+
+    if (candidateDomain === undefined) {
+      continue;
+    }
+
+    if (candidateDomain === target || candidateDomain.endsWith(`.${target}`)) {
+      return "match";
+    }
+
+    sawConflict = true;
+  }
+
+  return sawConflict ? "conflict" : "none";
+}
+
+/**
  * Resolve the best candidate from a list using identity verification.
  * Returns a verdict (accepted/ambiguous/rejected) with the matched candidate.
  *
@@ -544,7 +613,44 @@ interface ResolverResult {
  * When false (inferred domain like "atlas.com"), triggers exact-match-only mode
  * for short names.
  */
+/**
+ * Public entry point. Resolves the best candidate, then applies a final guard:
+ * a candidate whose OWN domain alias contradicts the verified target domain is
+ * never returned as accepted — even on a byte-identical name — so a same-name
+ * wrong entity (e.g. the Croatian "Gong"/gong.hr page for gong.io) can never
+ * reach the verified wall. Such a match is downgraded to ambiguous, so the ad
+ * still surfaces in quarantine rather than vanishing silently.
+ */
 export function resolveBestCandidate(
+  candidates: Candidate[],
+  companyName: string,
+  domain?: string,
+  isDomainVerified?: boolean,
+): ResolverResult {
+  const result = resolveBestCandidateInner(
+    candidates,
+    companyName,
+    domain,
+    isDomainVerified,
+  );
+
+  if (
+    result.verdict === "accepted" &&
+    result.candidate !== undefined &&
+    candidateDomainSignal(result.candidate, domain) === "conflict"
+  ) {
+    return {
+      verdict: "ambiguous",
+      candidate: result.candidate,
+      reason: `"${result.candidate.name}" matches the name "${companyName}" but its alias points to a different domain than "${domain}"; quarantining instead of verifying.`,
+      candidates: result.candidates,
+    };
+  }
+
+  return result;
+}
+
+function resolveBestCandidateInner(
   candidates: Candidate[],
   companyName: string,
   domain?: string,
@@ -562,7 +668,24 @@ export function resolveBestCandidate(
   const domainBase = domain !== undefined ? extractCompanyFromDomain(domain) : undefined;
   const isShortName = compNorm.replace(/\s+/g, "").length <= 6;
 
-  const scored = candidates.map((candidate) => {
+  // When the candidate set carries real domain aliases (Meta page_alias /
+  // website), they corroborate identity directly. We then trust them
+  // exclusively and suppress the weaker name-containment heuristic, which is
+  // exactly what accepted the Croatian "Gong" (gong.hr) page for gong.io.
+  //
+  // Trade-off (intentional): this suppression is set-level. A legitimate
+  // alias-free candidate that shares the set with a domain-aliased decoy
+  // resolves to ambiguous rather than accepted. Per-candidate suppression would
+  // re-open the leak for alias-free same-name decoys, which cannot be told apart
+  // from a real alias-free page by name alone. Ambiguous keeps the candidate in
+  // quarantine (nothing vanishes); the verified wall simply requires a real
+  // domain match once any alias evidence exists in the set.
+  const domainSignals = candidates.map((candidate) =>
+    candidateDomainSignal(candidate, domain),
+  );
+  const hasRealDomainSignal = domainSignals.some((signal) => signal !== "none");
+
+  const scored = candidates.map((candidate, index) => {
     const score = calculateSimilarity(candidate.name, companyName);
     const exactMatch = score >= 1;
     let domainMatch = false;
@@ -571,7 +694,9 @@ export function resolveBestCandidate(
       const candidateNorm = candidate.name.toLowerCase();
       const base = domainBase.toLowerCase();
 
-      if (isShortName) {
+      if (hasRealDomainSignal) {
+        domainMatch = domainSignals[index] === "match";
+      } else if (isShortName) {
         const hasBase = new RegExp(`\\b${base}\\b`).test(candidateNorm);
 
         if (hasBase) {
