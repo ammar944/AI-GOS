@@ -84,6 +84,53 @@ describe('Phase 6 resume reducer contract', () => {
     });
   });
 
+  it('overlays cached profile onboarding over corpus prefill for saved-profile reruns', () => {
+    const state = inferSession({
+      researchResults: {
+        deepResearchProgram: {
+          status: 'complete',
+          data: {
+            onboardingFields: {
+              companyName: {
+                value: 'Corpus Clay',
+                confidence: 0.91,
+                sourceUrl: 'https://www.clay.com',
+                reasoning: 'Homepage identity.',
+              },
+              productDescription: {
+                value: 'A GTM data platform.',
+                confidence: 0.93,
+                sourceUrl: 'https://www.clay.com',
+                reasoning: 'Homepage description.',
+              },
+            },
+          },
+        },
+      },
+      onboardingData: null,
+      jobStatus: null,
+      cachedOnboardingData: {
+        companyName: 'Human-edited Clay',
+        pricingTiers: 'Enterprise pricing reviewed by the operator.',
+      },
+    });
+
+    expect(state?.kind).toBe('onboarding');
+    if (state?.kind !== 'onboarding') throw new Error('expected onboarding');
+    expect(state.prefill).toMatchObject({
+      companyName: 'Human-edited Clay',
+      productDescription: 'A GTM data platform.',
+      pricingTiers: 'Enterprise pricing reviewed by the operator.',
+    });
+    expect(state.prefillMetadata.companyName).toBeUndefined();
+    expect(state.prefillMetadata.productDescription).toMatchObject({
+      value: 'A GTM data platform.',
+      confidence: 0.93,
+      sourceUrl: 'https://www.clay.com',
+      reasoning: 'Homepage description.',
+    });
+  });
+
   it('threads corpus.sources into resumed onboarding state (deduped, persistent)', () => {
     const state = inferSession({
       researchResults: {

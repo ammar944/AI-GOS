@@ -1,4 +1,8 @@
 import type { CorpusSourceLink, ResearchV2State } from './state-machine';
+import type {
+  OnboardingPrefillMetadata,
+  OnboardingV2Data,
+} from './onboarding-v2-types';
 import type { CorpusOnboardingField } from './prefill-from-corpus';
 import { prefillFromCorpusWithMetadata } from './prefill-from-corpus';
 
@@ -8,6 +12,7 @@ export interface PersistedResearchV2Session {
   onboardingData: Record<string, unknown> | null;
   jobStatus: Record<string, unknown> | null;
   artifactSections?: Record<string, unknown> | null;
+  cachedOnboardingData?: Record<string, unknown> | null;
 }
 
 function hasPositioningEntry(value: Record<string, unknown> | null): boolean {
@@ -49,6 +54,36 @@ function readCorpusOnboardingFields(
   }
 
   return onboardingFields as Record<string, CorpusOnboardingField>;
+}
+
+function mergeCachedOnboardingPrefill({
+  cachedOnboardingData,
+  corpusPrefill,
+  corpusPrefillMetadata,
+}: {
+  cachedOnboardingData: Record<string, unknown> | null | undefined;
+  corpusPrefill: Partial<OnboardingV2Data>;
+  corpusPrefillMetadata: OnboardingPrefillMetadata;
+}): {
+  data: Partial<OnboardingV2Data>;
+  metadata: OnboardingPrefillMetadata;
+} {
+  if (!cachedOnboardingData || Object.keys(cachedOnboardingData).length === 0) {
+    return { data: corpusPrefill, metadata: corpusPrefillMetadata };
+  }
+
+  const metadata = { ...corpusPrefillMetadata };
+  for (const key of Object.keys(cachedOnboardingData)) {
+    delete metadata[key as keyof OnboardingV2Data];
+  }
+
+  return {
+    data: {
+      ...corpusPrefill,
+      ...(cachedOnboardingData as Partial<OnboardingV2Data>),
+    },
+    metadata,
+  };
 }
 
 /**
@@ -108,6 +143,7 @@ export function inferPersistedResearchV2State({
   onboardingData,
   jobStatus,
   artifactSections,
+  cachedOnboardingData,
 }: PersistedResearchV2Session): ResearchV2State | null {
   if (runId.trim().length === 0) return null;
 
@@ -129,9 +165,14 @@ export function inferPersistedResearchV2State({
   }
 
   const onboardingFields = readCorpusOnboardingFields(corpus.data);
-  const prefill = onboardingFields
+  const corpusPrefill = onboardingFields
     ? prefillFromCorpusWithMetadata(onboardingFields)
     : { data: {}, metadata: {} };
+  const prefill = mergeCachedOnboardingPrefill({
+    cachedOnboardingData,
+    corpusPrefill: corpusPrefill.data,
+    corpusPrefillMetadata: corpusPrefill.metadata,
+  });
   const corpusSources = readCorpusSources(corpus.data);
 
   return {

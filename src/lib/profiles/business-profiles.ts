@@ -2,9 +2,10 @@
 // Profiles are injected into the unified chat system prompt so the AI knows
 // who it's talking to (company name, industry, ICP, budget, etc.).
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { createAdminClient } from '@/lib/supabase/server';
 import type { SectionKey } from '@/lib/workspace/types';
-import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { getResearchPipelineReadiness, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 
 function getSupabase() {
@@ -103,6 +104,7 @@ export async function saveBusinessProfile(
   userId: string,
   sessionId: string,
   metadata: Record<string, unknown>,
+  cachedOnboarding?: Record<string, unknown>,
 ): Promise<{ id: string } | null> {
   const companyName =
     typeof metadata.companyName === 'string' ? metadata.companyName.trim() : '';
@@ -133,6 +135,10 @@ export async function saveBusinessProfile(
     all_fields: mergedAllFields,
   };
 
+  if (cachedOnboarding !== undefined) {
+    profileData.cached_onboarding = cachedOnboarding;
+  }
+
   for (const [metaKey, colName] of Object.entries(FIELD_MAP)) {
     const value = metadata[metaKey];
     if (typeof value === 'string' && value.trim()) {
@@ -156,6 +162,56 @@ export async function saveBusinessProfile(
   }
 
   return data;
+}
+
+export async function patchBusinessProfileSynthesis(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  profileId: string;
+  insights: Record<string, unknown>;
+  positioningStrategy: Record<string, unknown>;
+}): Promise<void> {
+  const { data: existing, error: readError } = await input.supabase
+    .from('business_profiles')
+    .select('ai_insights')
+    .eq('id', input.profileId)
+    .eq('user_id', input.userId)
+    .maybeSingle();
+
+  if (readError) {
+    throw new Error(
+      `business_profiles synthesis read failed for userId=${input.userId} profileId=${input.profileId}: ${readError.message}`,
+    );
+  }
+
+  if (!existing) {
+    throw new Error(
+      `business_profiles synthesis read returned no row for userId=${input.userId} profileId=${input.profileId}`,
+    );
+  }
+
+  const existingInsights =
+    ((existing as { ai_insights?: unknown }).ai_insights as Record<
+      string,
+      unknown
+    > | null) ?? {};
+  const mergedInsights = { ...existingInsights, ...input.insights };
+
+  const { error: updateError } = await input.supabase
+    .from('business_profiles')
+    .update({
+      ai_insights: mergedInsights,
+      positioning_strategy: input.positioningStrategy,
+      last_research_at: new Date().toISOString(),
+    })
+    .eq('id', input.profileId)
+    .eq('user_id', input.userId);
+
+  if (updateError) {
+    throw new Error(
+      `business_profiles synthesis update failed for userId=${input.userId} profileId=${input.profileId}: ${updateError.message}`,
+    );
+  }
 }
 
 /**

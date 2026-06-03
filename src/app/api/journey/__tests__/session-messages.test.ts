@@ -14,6 +14,12 @@ const routeMocks = vi.hoisted(() => {
   query.order.mockReturnValue(query);
   query.limit.mockReturnValue(query);
 
+  const insertQuery = {
+    select: vi.fn(),
+    single: vi.fn(),
+  };
+  insertQuery.select.mockReturnValue(insertQuery);
+
   const table = {
     select: query.select,
     eq: query.eq,
@@ -33,6 +39,7 @@ const routeMocks = vi.hoisted(() => {
     createAdminClient,
     from,
     query,
+    insertQuery,
     table,
   };
 });
@@ -45,7 +52,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: routeMocks.createAdminClient,
 }));
 
-const { GET, PATCH } = await import('../session/route');
+const { GET, PATCH, POST } = await import('../session/route');
 
 function makeTextMessage(id: string, text: string): UIMessage {
   return {
@@ -72,6 +79,8 @@ describe('Journey session workspace messages', () => {
     routeMocks.query.order.mockReturnValue(routeMocks.query);
     routeMocks.query.limit.mockReturnValue(routeMocks.query);
     routeMocks.table.upsert.mockResolvedValue({ error: null });
+    routeMocks.table.insert.mockReturnValue(routeMocks.insertQuery);
+    routeMocks.insertQuery.select.mockReturnValue(routeMocks.insertQuery);
   });
 
   it('returns section-scoped workspace messages for a requested run', async () => {
@@ -204,5 +213,73 @@ describe('Journey session workspace messages', () => {
     const json = await response.json();
     expect(json.error).toContain('Invalid workspace message payload');
     expect(routeMocks.table.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('Journey session creation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    routeMocks.auth.mockResolvedValue({ userId: 'user-1' });
+    routeMocks.query.select.mockReturnValue(routeMocks.query);
+    routeMocks.query.eq.mockReturnValue(routeMocks.query);
+    routeMocks.query.maybeSingle.mockReset();
+    routeMocks.table.insert.mockReturnValue(routeMocks.insertQuery);
+    routeMocks.insertQuery.select.mockReturnValue(routeMocks.insertQuery);
+  });
+
+  it('stamps profile_id after validating the profile belongs to the current user', async () => {
+    routeMocks.query.maybeSingle.mockResolvedValueOnce({
+      data: { id: 'profile-1' },
+      error: null,
+    });
+    routeMocks.insertQuery.single.mockResolvedValue({
+      data: { id: 'session-1', run_id: 'run-new' },
+      error: null,
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/journey/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: 'profile-1' }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(routeMocks.from).toHaveBeenCalledWith('business_profiles');
+    expect(routeMocks.query.eq).toHaveBeenCalledWith('id', 'profile-1');
+    expect(routeMocks.query.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(routeMocks.table.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-1',
+        run_id: expect.any(String),
+        profile_id: 'profile-1',
+      }),
+    );
+
+    const json = await response.json();
+    expect(json).toMatchObject({
+      runId: 'run-new',
+      sessionId: 'session-1',
+      profileId: 'profile-1',
+    });
+  });
+
+  it('rejects unowned profiles before creating a session', async () => {
+    routeMocks.query.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/journey/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: 'profile-other' }),
+      }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(routeMocks.table.insert).not.toHaveBeenCalled();
   });
 });

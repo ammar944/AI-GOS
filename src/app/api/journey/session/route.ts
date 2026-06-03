@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { getJourneyRunIdFromMetadata } from '@/lib/journey/journey-run';
 import { buildJourneyRunView } from '@/lib/journey/run-view';
 import { createAdminClient } from '@/lib/supabase/server';
@@ -80,10 +81,15 @@ interface WorkspaceMessagesPatchRequest {
   messages?: unknown;
 }
 
-interface JourneySessionPostRequest {
-  runId?: unknown;
-  metadata?: unknown;
-}
+const JourneySessionPostSchema = z
+  .object({
+    runId: z.string().trim().min(1).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    profileId: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+type JourneySessionPostRequest = z.infer<typeof JourneySessionPostSchema>;
 
 function extractPersistableFields(
   value: unknown,
@@ -211,6 +217,37 @@ async function clearResearchState(userId: string, activeRunId?: string) {
     job_status: null,
     updated_at: new Date().toISOString(),
   });
+}
+
+async function validateOwnedProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  profileId: string,
+): Promise<Response | null> {
+  const { data, error } = await supabase
+    .from('business_profiles')
+    .select('id')
+    .eq('id', profileId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    return jsonResponse(
+      {
+        error: `Failed to validate profile ownership for profile ${profileId}: ${error.message}`,
+      },
+      500,
+    );
+  }
+
+  if (!data?.id) {
+    return jsonResponse(
+      { error: `Profile ${profileId} not found for current user` },
+      404,
+    );
+  }
+
+  return null;
 }
 
 export async function GET(request: Request) {
@@ -380,13 +417,20 @@ export async function POST(request: Request) {
 
   let providedRunId: string | undefined;
   let providedMetadata: Record<string, unknown> = {};
+  let providedProfileId: string | undefined;
   try {
     const raw = await request.text();
     if (raw.trim().length > 0) {
-      const body = JSON.parse(raw) as JourneySessionPostRequest;
-      if (typeof body.runId === 'string' && body.runId.trim().length > 0) {
-        providedRunId = body.runId.trim();
+      const parsed = JourneySessionPostSchema.safeParse(JSON.parse(raw));
+      if (!parsed.success) {
+        return jsonResponse(
+          { error: 'Invalid journey session payload', details: parsed.error.flatten() },
+          400,
+        );
       }
+      const body: JourneySessionPostRequest = parsed.data;
+      providedRunId = body.runId;
+      providedProfileId = body.profileId;
       if (body.metadata !== undefined) {
         const metadata = extractPersistableFields(body.metadata);
         if (!metadata) {
@@ -404,11 +448,21 @@ export async function POST(request: Request) {
 
   const runId = providedRunId ?? crypto.randomUUID();
   const supabase = createAdminClient();
+  if (providedProfileId) {
+    const validationError = await validateOwnedProfile(
+      supabase,
+      userId,
+      providedProfileId,
+    );
+    if (validationError) return validationError;
+  }
+
   const { data, error } = await supabase
     .from('journey_sessions')
     .insert({
       user_id: userId,
       run_id: runId,
+      profile_id: providedProfileId ?? null,
       metadata: { ...providedMetadata, activeJourneyRunId: runId },
       research_results: null,
       job_status: null,
@@ -425,7 +479,11 @@ export async function POST(request: Request) {
   }
 
   return jsonResponse(
-    { runId: data?.run_id ?? runId, sessionId: data?.id ?? null },
+    {
+      runId: data?.run_id ?? runId,
+      sessionId: data?.id ?? null,
+      profileId: providedProfileId ?? null,
+    },
     201,
   );
 }
