@@ -339,6 +339,29 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.quarantinedCount).toBe(1);
   });
 
+  it("quarantines a name-only creative and preserves the identity basis", () => {
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      steps: [
+        baseStep([
+          {
+            url: "https://adstransparency.google.com/advertiser/notion-limited",
+            id: "notion-limited",
+            advertiserName: "Notion Limited",
+            title: "Get the book on management training",
+            identityVerified: false,
+            identityBasis: "name_only",
+          },
+        ]),
+      ],
+    });
+
+    expect(group.creatives[0]?.verified).toBe(false);
+    expect(group.creatives[0]?.identityBasis).toBe("name_only");
+    expect(group.identityConfidence).toBe("low");
+    expect(group.quarantinedCount).toBe(1);
+  });
+
   it("quarantines a non-English creative even when identity is verified", () => {
     const [group] = buildCompetitorAdEvidenceGroups({
       observedAt: "2026-06-03T00:00:00.000Z",

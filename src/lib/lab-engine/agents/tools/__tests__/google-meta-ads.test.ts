@@ -101,6 +101,51 @@ describe("ad tool wrappers", (): void => {
     expect(requestedAdvertiserIds).toEqual(["right-atlas"]);
   });
 
+  it("does not mark alias-less Google corporate-suffix matches as domain verified", async (): Promise<void> => {
+    const fetchMock = vi.fn(async (requestUrl: string) => {
+      const url = new URL(requestUrl);
+      const engine = url.searchParams.get("engine");
+
+      if (engine === "google_ads_transparency_center_advertiser_search") {
+        return searchApiResponse({
+          advertisers: [{ id: "notion-limited", name: "Notion Limited" }],
+        });
+      }
+
+      return searchApiResponse({
+        ad_creatives: [
+          {
+            advertiser_id: "notion-limited",
+            advertiser_name: "Notion Limited",
+            ad_id: "notion-limited-google",
+            headline: "Get the book on management training",
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getGoogleExecute()(
+        {
+          advertiser: "Notion",
+          domain: "notion.so",
+          max_results: 2,
+        },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      ads: [
+        {
+          id: "notion-limited-google",
+          identityVerified: false,
+          identityBasis: "name_only",
+        },
+      ],
+    });
+  });
+
   it("passes domain through meta_ads so short-name candidate resolution can disambiguate", async (): Promise<void> => {
     const requestedPageIds: string[] = [];
     const fetchMock = vi.fn(async (requestUrl: string) => {
@@ -228,10 +273,12 @@ describe("ad tool wrappers", (): void => {
     });
   });
 
-  it("ignores platform profile URLs and resolves a clean single page normally", async (): Promise<void> => {
+  it("does not treat platform profile URLs as domain corroboration", async (): Promise<void> => {
     // Every Meta page carries a facebook.com page_profile_uri; that platform URL
     // must NOT be read as the entity's domain (it would falsely contradict the
-    // verified domain on every candidate and over-quarantine real ads).
+    // verified domain on every candidate and over-quarantine real ads). It also
+    // must not earn domain-verified status, because the platform URL is not the
+    // advertiser's own domain.
     const requestedPageIds: string[] = [];
     const fetchMock = vi.fn(async (requestUrl: string) => {
       const url = new URL(requestUrl);
@@ -269,7 +316,14 @@ describe("ad tool wrappers", (): void => {
       ),
     ).resolves.toMatchObject({
       type: "result",
-      ads: [{ advertiserName: "Ramp", id: "ramp-meta", identityVerified: true }],
+      ads: [
+        {
+          advertiserName: "Ramp",
+          id: "ramp-meta",
+          identityBasis: "name_only",
+          identityVerified: false,
+        },
+      ],
     });
     expect(requestedPageIds).toEqual(["ramp-real"]);
   });

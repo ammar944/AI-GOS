@@ -496,20 +496,27 @@ function normalizeSearchApiRecords({
     .slice(0, maxResults);
 }
 
-// Map the advertiser-resolution verdict to per-ad provenance. An "accepted"
-// verdict is the only one that earns the verified wall; "ambiguous" is carried
-// through tagged false so the section can quarantine rather than discard it.
+// Map the advertiser-resolution verdict to per-ad provenance. A candidate only
+// earns the verified wall when the accepted match was backed by a real domain
+// signal; name-only accepted matches are carried through for quarantine.
 function identityFromVerdict({
+  domainCorroborated,
   verdict,
-  domain,
 }: {
+  domainCorroborated: boolean;
   verdict: "accepted" | "ambiguous" | "rejected";
-  domain?: string;
 }): { identityVerified: boolean; identityBasis: string } {
   if (verdict === "accepted") {
+    if (!domainCorroborated) {
+      return {
+        identityVerified: false,
+        identityBasis: "name_only",
+      };
+    }
+
     return {
       identityVerified: true,
-      identityBasis: domain !== undefined ? "domain" : "name",
+      identityBasis: "domain",
     };
   }
   return { identityVerified: false, identityBasis: "ambiguous" };
@@ -570,7 +577,10 @@ async function searchGoogleAds({
   return normalizeSearchApiRecords({
     advertiserName,
     domain,
-    ...identityFromVerdict({ verdict: candidateResult.verdict, domain }),
+    ...identityFromVerdict({
+      domainCorroborated: candidateResult.domainCorroborated ?? false,
+      verdict: candidateResult.verdict,
+    }),
     maxResults,
     platform: "google",
     records: getRecordArray(adsPayload, "ad_creatives"),
@@ -628,7 +638,10 @@ async function searchMetaAds({
   return normalizeSearchApiRecords({
     advertiserName,
     domain,
-    ...identityFromVerdict({ verdict: candidateResult.verdict, domain }),
+    ...identityFromVerdict({
+      domainCorroborated: candidateResult.domainCorroborated ?? false,
+      verdict: candidateResult.verdict,
+    }),
     maxResults,
     platform: "meta",
     records: getRecordArray(adsPayload, "ads"),
@@ -675,7 +688,10 @@ export async function fetchVerifiedMetaPageAds({
     const ads = normalizeSearchApiRecords({
       advertiserName: advertiser,
       domain,
-      ...identityFromVerdict({ verdict: "accepted", domain }),
+      ...identityFromVerdict({
+        domainCorroborated: true,
+        verdict: "accepted",
+      }),
       maxResults,
       platform: "meta",
       records: getRecordArray(adsPayload, "ads"),

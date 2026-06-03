@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildCompetitorAdEvidenceGroups } from "../competitor-ad-adapter";
 
 // Part B linchpin: the SAME Meta ad arrives twice in one advertiser step — first
-// quarantined from the SearchAPI name-resolution path (identityVerified:false),
+// quarantined from the SearchAPI name-only path (identityVerified:false),
 // then domain-verified from the Foreplay page-id recovery path
 // (identityVerified:true). Because the quarantined copy is inserted first and
 // the two have identical content (= identical richness), the dedup must promote
@@ -31,8 +31,8 @@ function stepWithDuplicateMetaAd() {
           type: "result" as const,
           advertiser: "Ramp",
           platform: "meta" as const,
-          // name-resolution path: quarantined
-          ads: [{ ...sharedAd, identityVerified: false, identityBasis: "ambiguous" }],
+          // name-only SearchAPI path: quarantined
+          ads: [{ ...sharedAd, identityVerified: false, identityBasis: "name_only" }],
         },
       },
       {

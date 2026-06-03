@@ -542,7 +542,13 @@ interface ResolverResult {
   verdict: "accepted" | "ambiguous" | "rejected";
   candidate?: Candidate;
   reason: string;
-  candidates?: Array<{ name: string; score: number; domainMatch: boolean }>;
+  domainCorroborated?: boolean;
+  candidates?: Array<{
+    name: string;
+    score: number;
+    domainMatch: boolean;
+    domainCorroborated: boolean;
+  }>;
 }
 
 /**
@@ -688,6 +694,7 @@ function resolveBestCandidateInner(
   const scored = candidates.map((candidate, index) => {
     const score = calculateSimilarity(candidate.name, companyName);
     const exactMatch = score >= 1;
+    const domainCorroborated = domainSignals[index] === "match";
     let domainMatch = false;
 
     if (domainBase !== undefined && isDomainVerified === true) {
@@ -740,6 +747,7 @@ function resolveBestCandidateInner(
       score,
       exactMatch,
       domainMatch,
+      domainCorroborated,
     };
   });
 
@@ -763,6 +771,7 @@ function resolveBestCandidateInner(
     name: score.name,
     score: score.score,
     domainMatch: score.domainMatch,
+    domainCorroborated: score.domainCorroborated,
   }));
   const top = scored[0];
   const runnerUp = scored[1];
@@ -798,6 +807,7 @@ function resolveBestCandidateInner(
           verdict: "accepted",
           candidate: domainMatchedCandidate.candidate,
           reason: `Short name "${companyName}": domain corroboration preferred over exact name match "${top.name}". Domain match: "${domainMatchedCandidate.name}" (verified domain: "${domain}")`,
+          domainCorroborated: domainMatchedCandidate.domainCorroborated,
           candidates: candidateLog,
         };
       }
@@ -823,6 +833,7 @@ function resolveBestCandidateInner(
       verdict: "accepted",
       candidate: top.candidate,
       reason: `Exact match: "${top.name}"`,
+      domainCorroborated: top.domainCorroborated,
       candidates: candidateLog,
     };
   }
@@ -832,6 +843,7 @@ function resolveBestCandidateInner(
       verdict: "accepted",
       candidate: top.candidate,
       reason: `Domain corroboration: "${top.name}" matches verified domain "${domain}"`,
+      domainCorroborated: top.domainCorroborated,
       candidates: candidateLog,
     };
   }
@@ -849,6 +861,7 @@ function resolveBestCandidateInner(
         verdict: "accepted",
         candidate: domainMatchedCandidate.candidate,
         reason: `Domain corroboration preferred: "${domainMatchedCandidate.name}" matches verified domain "${domain}" over higher-ranked "${top.name}"`,
+        domainCorroborated: domainMatchedCandidate.domainCorroborated,
         candidates: candidateLog,
       };
     }
@@ -861,6 +874,7 @@ function resolveBestCandidateInner(
       verdict: "accepted",
       candidate: top.candidate,
       reason: `Dominant candidate: "${top.name}" (score=${top.score.toFixed(2)}, margin=${margin.toFixed(2)})`,
+      domainCorroborated: top.domainCorroborated,
       candidates: candidateLog,
     };
   }
@@ -901,6 +915,7 @@ function resolveBestCandidateInner(
     verdict: "accepted",
     candidate: top.candidate,
     reason: `Best match: "${top.name}" (score=${top.score.toFixed(2)})`,
+    domainCorroborated: top.domainCorroborated,
     candidates: candidateLog,
   };
 }

@@ -123,7 +123,7 @@ describe("advertiser match relevance engine", (): void => {
       expect(result.verdict).not.toBe("accepted");
     });
 
-    it("still corroborates a short brand whose candidate adds only a corporate suffix", (): void => {
+    it("does not domain-corroborate a short brand whose alias-less candidate adds only a corporate suffix", (): void => {
       const result = resolveBestCandidate(
         [{ id: "brex", name: "Brex Inc." }],
         "Brex",
@@ -135,6 +135,22 @@ describe("advertiser match relevance engine", (): void => {
         verdict: "accepted",
         candidate: { id: "brex", name: "Brex Inc." },
       });
+      expect(result.domainCorroborated).toBe(false);
+    });
+
+    it("keeps alias-less Notion Limited off the domain-corroborated path", (): void => {
+      const result = resolveBestCandidate(
+        [{ id: "notion-limited", name: "Notion Limited" }],
+        "Notion",
+        "notion.so",
+        true,
+      );
+
+      expect(result).toMatchObject({
+        verdict: "accepted",
+        candidate: { id: "notion-limited", name: "Notion Limited" },
+      });
+      expect(result.domainCorroborated).toBe(false);
     });
 
     it("keeps a bare short name with an exact-name candidate ambiguous-with-candidate (not rejected)", (): void => {
