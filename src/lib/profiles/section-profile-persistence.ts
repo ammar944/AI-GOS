@@ -1,25 +1,29 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type {
-  ArtifactEnvelope,
-  ResearchInput,
+import {
+  artifactEnvelopeSchema,
+  type ArtifactEnvelope,
+  type ResearchInput,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
-import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
+  type AllPositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import {
   saveBusinessProfile,
   saveProfileInsights,
 } from '@/lib/profiles/business-profiles';
 
-interface PersistProfileFromCommittedSectionInput {
+interface PersistAuditProfileInput {
   supabase: SupabaseClient;
   userId: string;
   runId: string;
   researchInput: ResearchInput;
-  sectionId: AllPositioningSectionId;
-  artifact: ArtifactEnvelope;
+  parentAuditRunId: string;
 }
 
-interface PersistProfileFromCommittedSectionDeps {
+interface PersistAuditProfileDeps {
   saveBusinessProfile: typeof saveBusinessProfile;
   saveProfileInsights: typeof saveProfileInsights;
 }
@@ -38,7 +42,20 @@ interface SectionInsightSummary {
   sourceCount: number;
 }
 
-const defaultDeps: PersistProfileFromCommittedSectionDeps = {
+interface ResearchArtifactSectionProfileRow {
+  zone: unknown;
+  data: unknown;
+  status: unknown;
+}
+
+const PROFILE_INSIGHT_SECTION_IDS = [
+  ...POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
+] as const;
+
+type ProfileInsightSectionId = (typeof PROFILE_INSIGHT_SECTION_IDS)[number];
+
+const defaultDeps: PersistAuditProfileDeps = {
   saveBusinessProfile,
   saveProfileInsights,
 };
@@ -53,6 +70,15 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
     : null;
+}
+
+function isProfileInsightSectionId(
+  value: unknown,
+): value is ProfileInsightSectionId {
+  return (
+    typeof value === 'string' &&
+    (PROFILE_INSIGHT_SECTION_IDS as readonly string[]).includes(value)
+  );
 }
 
 function buildProfileMetadata(input: {
@@ -123,9 +149,77 @@ export function buildCommittedSectionProfileInsights(input: {
   return insights;
 }
 
-export async function persistProfileFromCommittedSection(
-  input: PersistProfileFromCommittedSectionInput,
-  deps: PersistProfileFromCommittedSectionDeps = defaultDeps,
+function getCompletedSectionRows(input: {
+  rows: unknown;
+  parentAuditRunId: string;
+}): ResearchArtifactSectionProfileRow[] {
+  if (!Array.isArray(input.rows)) {
+    throw new Error(
+      `research_artifact_sections profile lookup returned non-array data for artifactId=${input.parentAuditRunId}`,
+    );
+  }
+
+  return input.rows
+    .map((row): ResearchArtifactSectionProfileRow => {
+      const record = asRecord(row);
+
+      return {
+        zone: record.zone,
+        data: record.data,
+        status: record.status,
+      };
+    })
+    .filter(
+      (row): row is ResearchArtifactSectionProfileRow =>
+        row.status === 'complete' && isProfileInsightSectionId(row.zone),
+    );
+}
+
+function buildCommittedAuditProfileInsights(input: {
+  rows: ResearchArtifactSectionProfileRow[];
+  parentAuditRunId: string;
+}): Record<string, unknown> {
+  let mergedInsights: Record<string, unknown> = {};
+
+  for (const row of input.rows) {
+    if (!isProfileInsightSectionId(row.zone)) {
+      continue;
+    }
+
+    if (!row.data || typeof row.data !== 'object' || Array.isArray(row.data)) {
+      throw new Error(
+        `research_artifact_sections row missing artifact data for artifactId=${input.parentAuditRunId} zone=${row.zone}`,
+      );
+    }
+
+    const parsedArtifact = artifactEnvelopeSchema.safeParse(row.data);
+    if (!parsedArtifact.success) {
+      throw new Error(
+        `research_artifact_sections row has invalid artifact data for artifactId=${input.parentAuditRunId} zone=${row.zone}: ${parsedArtifact.error.message}`,
+      );
+    }
+
+    if (parsedArtifact.data.sectionId !== row.zone) {
+      throw new Error(
+        `research_artifact_sections row zone mismatch for artifactId=${input.parentAuditRunId}: row zone=${row.zone} artifact sectionId=${parsedArtifact.data.sectionId}`,
+      );
+    }
+
+    mergedInsights = {
+      ...mergedInsights,
+      ...buildCommittedSectionProfileInsights({
+        sectionId: row.zone,
+        artifact: parsedArtifact.data,
+      }),
+    };
+  }
+
+  return mergedInsights;
+}
+
+export async function persistAuditProfile(
+  input: PersistAuditProfileInput,
+  deps: PersistAuditProfileDeps = defaultDeps,
 ): Promise<void> {
   const { data, error } = await input.supabase
     .from('journey_sessions')
@@ -143,6 +237,32 @@ export async function persistProfileFromCommittedSection(
   if (!data) {
     throw new Error(
       `journey_sessions profile lookup returned no row for userId=${input.userId} runId=${input.runId}`,
+    );
+  }
+
+  const { data: sectionRows, error: sectionRowsError } = await input.supabase
+    .from('research_artifact_sections')
+    .select('zone, title, markdown, data, status, updated_at')
+    .eq('artifact_id', input.parentAuditRunId);
+
+  if (sectionRowsError) {
+    throw new Error(
+      `research_artifact_sections profile lookup failed for artifactId=${input.parentAuditRunId} userId=${input.userId} runId=${input.runId}: ${sectionRowsError.message}`,
+    );
+  }
+
+  const completedRows = getCompletedSectionRows({
+    rows: sectionRows,
+    parentAuditRunId: input.parentAuditRunId,
+  });
+  const mergedInsights = buildCommittedAuditProfileInsights({
+    rows: completedRows,
+    parentAuditRunId: input.parentAuditRunId,
+  });
+
+  if (Object.keys(mergedInsights).length === 0) {
+    throw new Error(
+      `No completed profile insights found for artifactId=${input.parentAuditRunId} userId=${input.userId} runId=${input.runId}`,
     );
   }
 
@@ -185,29 +305,26 @@ export async function persistProfileFromCommittedSection(
   const savedInsights = await deps.saveProfileInsights(
     input.userId,
     companyName,
-    buildCommittedSectionProfileInsights({
-      sectionId: input.sectionId,
-      artifact: input.artifact,
-    }),
+    mergedInsights,
   );
 
   if (!savedInsights) {
     throw new Error(
-      `saveProfileInsights returned false for userId=${input.userId} runId=${input.runId} companyName=${companyName} sectionId=${input.sectionId}`,
+      `saveProfileInsights returned false for userId=${input.userId} runId=${input.runId} companyName=${companyName} insightKeys=${Object.keys(mergedInsights).join(',')}`,
     );
   }
 }
 
-export async function persistProfileFromCommittedSectionBestEffort(
-  input: PersistProfileFromCommittedSectionInput,
+export async function persistAuditProfileBestEffort(
+  input: PersistAuditProfileInput,
 ): Promise<void> {
   try {
-    await persistProfileFromCommittedSection(input);
+    await persistAuditProfile(input);
   } catch (error) {
-    console.warn('[section-profile-persistence] commit profile persist failed', {
+    console.warn('[section-profile-persistence] audit profile persist failed', {
       userId: input.userId,
       runId: input.runId,
-      sectionId: input.sectionId,
+      parentAuditRunId: input.parentAuditRunId,
       message: error instanceof Error ? error.message : String(error),
     });
   }
