@@ -92,6 +92,7 @@ import {
   buildCompetitorAdEvidenceGroups,
   summarizeCompetitorAdEvidenceGroups,
 } from "./tools/competitor-ad-adapter";
+import { fetchVerifiedMetaPageAds } from "./tools/adlibrary";
 import {
   normalizeForeplayAd,
   type NormalizedAd as NormalizedForeplayAd,
@@ -2791,6 +2792,18 @@ function buildForeplayToolPairs({
   });
 }
 
+// Part B helper: pull the brand's Meta page id from Foreplay's domain-resolved
+// brand record. Foreplay returns `page_id` ("Facebook page ID") and sometimes
+// `ad_library_id`; both should be the long numeric Meta page id. Guard against
+// non-numeric junk so we never feed a bad id to the Meta Ad Library engine.
+export function extractForeplayMetaPageId(brand: {
+  page_id?: string;
+  ad_library_id?: string;
+}): string | undefined {
+  const candidate = (brand.page_id ?? brand.ad_library_id ?? "").trim();
+  return /^\d{6,}$/.test(candidate) ? candidate : undefined;
+}
+
 async function runForeplayPrepassForAdvertiser(
   advertiserRecord: CompetitorAdProbeAdvertiser,
 ): Promise<ProbeToolPair[]> {
@@ -2806,7 +2819,7 @@ async function runForeplayPrepassForAdvertiser(
   }
 
   try {
-    const ads = await withForeplayTimeout(
+    const { foreplay, metaPageOutput } = await withForeplayTimeout(
       (async () => {
         const brands = await service.searchBrands({
           domain: advertiserRecord.domain,
@@ -2815,7 +2828,10 @@ async function runForeplayPrepassForAdvertiser(
         const brandId = brand?.id;
 
         if (brandId === undefined || brandId.trim().length === 0) {
-          return [] as NormalizedForeplayAd[];
+          return {
+            foreplay: [] as NormalizedForeplayAd[],
+            metaPageOutput: null,
+          };
         }
 
         // Guard against Foreplay's domain->brand resolution returning the wrong
@@ -2847,24 +2863,67 @@ async function runForeplayPrepassForAdvertiser(
             targetDomain,
           )
         ) {
-          return [] as NormalizedForeplayAd[];
+          return {
+            foreplay: [] as NormalizedForeplayAd[],
+            metaPageOutput: null,
+          };
         }
 
-        const foreplayAds = await service.searchAds({
-          brand_id: brandId,
-          limit: competitorAdProbeForeplayMaxAds,
-        });
+        // Part B — recover the brand's REAL Meta page ads via Foreplay's
+        // domain-resolved page id, bypassing the conservative name/alias
+        // resolution in the SearchAPI meta path (which quarantines legitimate
+        // non-domain-shaped aliases like `rampcard`). Runs concurrently with the
+        // Foreplay-native pull; both are domain-anchored by the brand guards
+        // above, and the adapter still re-checks per-ad language + advertiser
+        // reconciliation before anything reaches the verified wall.
+        const metaPageId = extractForeplayMetaPageId(brand);
+        const [foreplayAds, metaPageOutput] = await Promise.all([
+          service.searchAds({
+            brand_id: brandId,
+            limit: competitorAdProbeForeplayMaxAds,
+          }),
+          metaPageId === undefined
+            ? Promise.resolve(null)
+            : fetchVerifiedMetaPageAds({
+                advertiser: advertiserRecord.advertiser,
+                domain: targetDomain,
+                maxResults: competitorAdProbeMaxResults,
+                pageId: metaPageId,
+              }),
+        ]);
 
-        return foreplayAds.map((ad) => normalizeForeplayAd(ad));
+        return {
+          foreplay: foreplayAds.map((ad) => normalizeForeplayAd(ad)),
+          metaPageOutput,
+        };
       })(),
       competitorAdProbeForeplayDeadlineMs,
     );
 
-    if (ads.length === 0) {
-      return [];
+    const pairs: ProbeToolPair[] = [];
+
+    if (foreplay.length > 0) {
+      pairs.push(
+        ...buildForeplayToolPairs({ advertiserRecord, normalizedAds: foreplay }),
+      );
     }
 
-    return buildForeplayToolPairs({ advertiserRecord, normalizedAds: ads });
+    // Synthetic meta_ads pair for the domain-verified Meta page ads (Part B).
+    if (
+      metaPageOutput !== null &&
+      metaPageOutput.type === "result" &&
+      metaPageOutput.ads.length > 0
+    ) {
+      pairs.push({
+        toolCall: {
+          toolName: "meta_ads",
+          input: buildProbeToolInput(advertiserRecord),
+        },
+        toolResult: { toolName: "meta_ads", output: metaPageOutput },
+      });
+    }
+
+    return pairs;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const input = buildProbeToolInput(advertiserRecord);

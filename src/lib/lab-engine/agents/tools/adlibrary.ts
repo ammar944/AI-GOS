@@ -635,6 +635,58 @@ async function searchMetaAds({
   });
 }
 
+// Part B — verified-domain recall recovery. When an upstream resolver (the
+// Foreplay domain->brand prepass) has already resolved a competitor's REAL Meta
+// page id BY DOMAIN, fetch that page's ads directly and tag them domain-verified,
+// bypassing the conservative name/alias resolution in searchMetaAds (which
+// quarantines legitimate non-domain-shaped aliases like `rampcard`). Safe because
+// the page id is domain-anchored upstream; the adapter still re-checks per-ad
+// language + advertiser reconciliation before anything reaches the verified wall.
+export async function fetchVerifiedMetaPageAds({
+  abortSignal,
+  advertiser,
+  domain,
+  maxResults,
+  pageId,
+}: {
+  abortSignal?: AbortSignal;
+  advertiser: string;
+  domain: string;
+  maxResults: number;
+  pageId: string;
+}): Promise<AdLibraryOutput | ToolGap> {
+  const apiKey = process.env.SEARCHAPI_KEY;
+
+  if (apiKey === undefined || apiKey.trim() === "") {
+    return credentialGap("SEARCHAPI_KEY") as ToolGap;
+  }
+
+  try {
+    const adsPayload = await fetchSearchApiJson({
+      abortSignal,
+      apiKey,
+      params: {
+        engine: "meta_ad_library",
+        page_id: pageId,
+        active_status: "all",
+      },
+    });
+
+    const ads = normalizeSearchApiRecords({
+      advertiserName: advertiser,
+      domain,
+      ...identityFromVerdict({ verdict: "accepted", domain }),
+      maxResults,
+      platform: "meta",
+      records: getRecordArray(adsPayload, "ads"),
+    });
+
+    return { type: "result", advertiser, platform: "meta", ads };
+  } catch (error) {
+    return toApiErrorGap(error);
+  }
+}
+
 // LinkedIn link-redirect false-positive guard (ported from the worker, Wave 6e
 // Hole 4). LinkedIn omits links on awareness ads and hosts redirect URLs that
 // hide the ultimate destination, so the per-ad domain guard cannot rely on a

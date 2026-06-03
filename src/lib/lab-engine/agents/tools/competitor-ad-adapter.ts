@@ -408,8 +408,13 @@ function blendedCreativeScore(
   );
 }
 
-// Upsert a unique creative into the per-group fingerprint map with richer-wins:
-// on a fingerprint collision, keep the higher-scoring creative.
+// Upsert a unique creative into the per-group fingerprint map. Identity
+// confidence is the PRIMARY key (it decides verified-wall membership): a
+// verified creative must beat an identical-fingerprint UNVERIFIED duplicate
+// regardless of media richness. Otherwise a quarantined name-resolved Meta ad —
+// inserted before the Part B domain-verified copy of the SAME ad — would win the
+// richness tie and keep it off the wall. Within the same identity tier,
+// richer-wins as before so the stored variant is the one worth showing.
 function upsertUniqueCreative(
   creativeByFingerprint: Map<string, AdEvidenceCreative>,
   creative: AdEvidenceCreative,
@@ -424,10 +429,13 @@ function upsertUniqueCreative(
   });
   const existing = creativeByFingerprint.get(fingerprint);
 
-  if (
+  const shouldReplace =
     existing === undefined ||
-    creativeRichnessScore(creative) > creativeRichnessScore(existing)
-  ) {
+    (creative.verified && !existing.verified) ||
+    (creative.verified === existing.verified &&
+      creativeRichnessScore(creative) > creativeRichnessScore(existing));
+
+  if (shouldReplace) {
     creativeByFingerprint.set(fingerprint, creative);
   }
 }
