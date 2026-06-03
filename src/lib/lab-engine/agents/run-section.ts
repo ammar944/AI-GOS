@@ -2820,23 +2820,27 @@ async function runForeplayPrepassForAdvertiser(
 
         // Guard against Foreplay's domain->brand resolution returning the wrong
         // advertiser (most_ranked can resolve e.g. airtable.com to an unrelated
-        // reseller). Require BOTH a name match AND that the resolved brand's own
-        // domain base corroborates the competitor's domain — the latter closes the
-        // reseller leak universally (the name-only guard's short-name URL check
-        // could not fire here, H5). Only inject when both hold; otherwise we would
-        // attribute a stranger's creatives to the competitor.
+        // reseller). The brand was already resolved BY the competitor domain via
+        // searchBrands(domain), so it is domain-anchored at the API level; the name
+        // match catches most reseller drift. The live Foreplay API frequently omits
+        // `brand.domain` (it is not always populated, despite the typed shape), so
+        // we treat a brand domain as a REJECT signal ONLY when it is present AND
+        // conflicts — never hard-require it (doing so both crashed on undefined and
+        // zeroed all Foreplay recall in the 2026-06-03 live run).
+        const brandDomainRaw =
+          typeof brand.domain === "string" ? brand.domain.trim() : "";
         const brandDomainBase =
-          brand.domain.trim().length > 0
-            ? extractCompanyFromDomain(brand.domain)
+          brandDomainRaw.length > 0
+            ? extractCompanyFromDomain(brandDomainRaw)
             : undefined;
         const targetDomainBase = extractCompanyFromDomain(targetDomain);
-        const domainCorroborates =
+        const brandDomainConflicts =
           brandDomainBase !== undefined &&
           targetDomainBase !== undefined &&
-          brandDomainBase === targetDomainBase;
+          brandDomainBase !== targetDomainBase;
 
         if (
-          !domainCorroborates ||
+          brandDomainConflicts ||
           !isAdvertiserMatch(
             brand.name,
             advertiserRecord.advertiser,
