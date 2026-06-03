@@ -369,7 +369,7 @@ describe('createSupabaseRunStore', (): void => {
       throw new Error('persistAuditProfileBestEffort did not expose a resolver');
     }
 
-    releasePersist();
+    (releasePersist as () => void)();
     await savePromise;
     expect(saveSettled).toBe(true);
   });

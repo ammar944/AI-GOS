@@ -100,7 +100,7 @@ begin
       0,
       v_run_id,
       v_status,
-      true,
+      (v_zone <> all (array['positioningSynthesis', 'positioningPaidMediaPlan'])),
       now()
     )
     on conflict (artifact_id, zone) do update
@@ -112,7 +112,7 @@ begin
             when s.status in ('complete', 'error') then s.status
             else excluded.status
           end,
-          counts_toward_rollup = true,
+          counts_toward_rollup = (v_zone <> all (array['positioningSynthesis', 'positioningPaidMediaPlan'])),
           updated_at = now();
 
     parent_id := v_parent_id;
