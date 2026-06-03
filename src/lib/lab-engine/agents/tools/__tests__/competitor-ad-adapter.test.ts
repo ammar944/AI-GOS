@@ -466,4 +466,32 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.creatives.filter((c) => c.verified === false)).toHaveLength(2);
     expect(group.creatives.filter((c) => c.verified === true)).toHaveLength(6);
   });
+
+  it("quarantines a Croatian creative even when identity is verified (live E2E regression)", () => {
+    // Exact failure class from the 2026-06-03 live run: a same-name 'Gong' page
+    // resolved to a Croatian civic org and its Croatian creatives reached the wall
+    // tagged verified/isEnglish:true. With franc the copy is now detected non-English
+    // and the creative is quarantined.
+    const [group] = buildCompetitorAdEvidenceGroups({
+      observedAt: "2026-06-03T00:00:00.000Z",
+      steps: [
+        baseStep([
+          {
+            url: "https://www.facebook.com/ads/library/?id=hr",
+            id: "hr",
+            advertiserName: "Gong",
+            title:
+              "Izađimo da nas čuju: Evo zašto je važno glasati na parlamentarnim izborima!",
+            snippet:
+              "Hrvatska kao najmlađa članica Europske unije. Saznajte više o vladavini prava u Hrvatskoj.",
+            identityVerified: true,
+            identityBasis: "domain",
+          },
+        ]),
+      ],
+    });
+    expect(group.creatives[0]?.isEnglish).toBe(false);
+    expect(group.creatives[0]?.verified).toBe(false);
+    expect(group.identityConfidence).toBe("low");
+  });
 });

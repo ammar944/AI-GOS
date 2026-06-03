@@ -94,4 +94,27 @@ describe("detectAdLanguage", () => {
     const result = detectAdLanguage("Start your free trial today");
     expect(result.isEnglish).toBe(true);
   });
+
+  it("flags Croatian civic ad copy as non-English (live E2E regression)", () => {
+    // The exact failure class from the 2026-06-03 live run: Croatian GONG civic
+    // creatives were classified isEnglish:true and reached the verified wall.
+    const result = detectAdLanguage(
+      "Izađimo da nas čuju: Evo zašto je važno glasati na parlamentarnim izborima! Hrvatska kao najmlađa članica Europske unije.",
+    );
+    expect(result.isEnglish).toBe(false);
+  });
+
+  it("flags Turkish ad copy as non-English", () => {
+    const result = detectAdLanguage(
+      "En iyi platformla işinizi büyütün. Hemen ücretsiz deneyin ve zamandan tasarruf edin bugün.",
+    );
+    expect(result.isEnglish).toBe(false);
+  });
+
+  it("flags Dutch ad copy as non-English", () => {
+    const result = detectAdLanguage(
+      "Laat je bedrijf groeien met het beste platform. Probeer het nu gratis en bespaar tijd vandaag.",
+    );
+    expect(result.isEnglish).toBe(false);
+  });
 });

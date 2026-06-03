@@ -110,3 +110,31 @@ Verification: `npm run build` exit 0 · `npm run test:run` 1347 passed / 1 pre-e
 - **Verified-domain spine** — resolve each competitor's canonical domain in the
   corpus/identity prepass so `domainVerified` becomes a real Sonar-backed signal rather
   than the current verdict-derived confidence. Largest future precision gain.
+
+## Round 2 — live E2E (2026-06-03) findings + fixes
+
+Codex ran a one-shot live probe (Gong/gong.io, Ramp/ramp.com, Notion/notion.so;
+15 SearchAPI + 9 Foreplay fetches). **Verdict: FAIL** — 3 real bugs the clean-fixture
+unit tests + static review could not surface. Findings: `docs/handoffs/2026-06-03-ad-engine-e2e-FINDINGS.md`.
+
+- **P1.2 language (FIXED):** Croatian GONG civic creatives ("Izađimo da nas čuju", `gong.hr`)
+  were classified `isEnglish:true`. The zero-dep heuristic can't model the long tail. Replaced
+  with **`franc-min`** (statistical, 82 languages incl. Croatian/Polish/Turkish/Dutch) as the
+  primary detector; Unicode-script fast-path retained; the marker heuristic demoted to the
+  sub-10-char (`franc → und`) fallback. Croatian/Turkish/Dutch now quarantined; regression tests added.
+- **P1.6 Foreplay (FIXED — self-inflicted):** the Round-1 prepass guard did `brand.domain.trim()`,
+  but the live Foreplay API omits `brand.domain` → crash (`Cannot read 'trim'`) AND, even without
+  the crash, "require domain corroboration" zeroed all Foreplay recall. Now null-safe and treats a
+  brand domain as a REJECT signal only when present AND conflicting; falls back to the name match
+  otherwise (the brand is already resolved BY the competitor domain via `searchBrands`).
+- **P1.1 wrong-company page resolution (PARTIAL — language now catches the observed case; root
+  fix deferred):** Meta `page_search?q=Gong` resolved to the Croatian GONG page (same name), and
+  page candidates carry only `id`+`name` — no website to disambiguate at resolution time. The
+  language gate now quarantines that specific case, but the **real** advertiser's ads are still
+  not fetched (we locked onto the wrong page_id). **Root fix = the verified-domain spine**: resolve
+  the competitor's canonical Meta page/advertiser id from its verified domain so we fetch the RIGHT
+  page. Until then, behavior is precision-first (wrong-company quarantined; real short-name same-name
+  collisions may show 0 verified — surfaced honestly). This is the top remaining priority.
+
+Added dependency: `franc-min@6` (pure-JS trigram detector, no transitive vuln; `npm audit` deltas
+are pre-existing axios/js-cookie/DOMPurify).

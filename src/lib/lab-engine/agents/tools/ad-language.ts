@@ -1,5 +1,7 @@
+import { franc } from "franc-min";
+
 /**
- * Zero-dependency language detection for competitor ad creative copy.
+ * Language detection for competitor ad creative copy.
  *
  * The competitor ad engine must not surface non-English creatives in the
  * verified wall (the "weird non-English ads" symptom). There is no language
@@ -122,6 +124,17 @@ function countMatches(text: string, pattern: RegExp): number {
   return matches === null ? 0 : matches.length;
 }
 
+// franc returns ISO 639-3; map the common ad-market languages to a short label.
+// Only the English/non-English distinction is load-bearing — unmapped codes fall
+// back to the raw ISO 639-3 code, which is still != "en" so it quarantines.
+const ISO3_LABEL: Record<string, string> = {
+  spa: "es", deu: "de", fra: "fr", por: "pt", ita: "it", nld: "nl",
+  pol: "pl", tur: "tr", hrv: "hr", srp: "sr", bos: "bs", slv: "sl",
+  ces: "cs", slk: "sk", swe: "sv", nor: "no", dan: "da", fin: "fi",
+  hun: "hu", ron: "ro", ell: "el", rus: "ru", ukr: "uk", vie: "vi",
+  ind: "id", tgl: "tl", cat: "ca", eus: "eu", glg: "gl",
+};
+
 export function detectAdLanguage(rawText: string): AdLanguageResult {
   const text = (rawText ?? "").trim();
   const latinLetters = countMatches(text, LATIN_LETTER);
@@ -157,8 +170,32 @@ export function detectAdLanguage(rawText: string): AdLanguageResult {
     };
   }
 
-  // Latin-script path: two-tier markers. A single STRONG marker is decisive; weak
-  // markers only count toward a >=2 total so an English loanword cannot trip it.
+  // Primary: a real statistical detector (franc) over the full copy. It needs ~10
+  // characters to classify, so short CTAs fall through to the marker heuristic.
+  // This is what catches the long tail the heuristic cannot model — Croatian,
+  // Polish, Turkish, Dutch, etc. (the live E2E surfaced Croatian civic ads passing
+  // as English).
+  const iso3 = franc(text, { minLength: 10 });
+  if (iso3 === "eng") {
+    return {
+      language: "en",
+      isEnglish: true,
+      script: "latin",
+      confidence: latinLetters >= 12 ? "high" : "low",
+    };
+  }
+  if (iso3 !== "und") {
+    return {
+      language: ISO3_LABEL[iso3] ?? iso3,
+      isEnglish: false,
+      script: "latin",
+      confidence: "high",
+    };
+  }
+
+  // franc undetermined (copy too short to classify statistically): fall back to the
+  // two-tier marker heuristic. A single STRONG marker is decisive; weak markers only
+  // count toward a >=2 total so an English loanword cannot trip it.
   const tokens = text.toLowerCase().match(/[a-zÀ-ɏ]+/g) ?? [];
   const tokenSet = new Set(tokens);
   let bestLang = "";
