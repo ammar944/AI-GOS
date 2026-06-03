@@ -36,6 +36,8 @@ export interface ForeplayBrand {
   category?: string;
   /** Optional: Page ID for Facebook/Meta */
   page_id?: string;
+  /** Optional: Facebook Ad Library identifier (often the Meta page id) */
+  ad_library_id?: string;
 }
 
 /**
