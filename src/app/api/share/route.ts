@@ -47,7 +47,7 @@ function parseRawResults(
     : null;
 }
 
-function buildLegacyResearchSnapshot(
+export function buildLegacyResearchSnapshot(
   researchDocument: unknown,
   rawResults: Record<string, { status?: string; data?: Record<string, unknown> }> | null,
 ): Record<string, CardState[]> | null {
