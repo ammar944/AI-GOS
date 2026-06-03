@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
   artifactEnvelopeSchema,
@@ -24,7 +25,7 @@ import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/sect
 import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
 import { buildSynthesizedThesisPatch } from '@/lib/research-v2/orchestrate-db';
 import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
-import { persistProfileFromCommittedSectionBestEffort } from '@/lib/profiles/section-profile-persistence';
+import { persistAuditProfileBestEffort } from '@/lib/profiles/section-profile-persistence';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
@@ -286,7 +287,7 @@ async function markParentCompleteWhenAllSectionsCommit(input: {
   supabase: SupabaseClient;
   parentAuditRunId: string;
   now: () => Date;
-}): Promise<void> {
+}): Promise<boolean> {
   const { data, error } = await input.supabase
     .from('research_artifact_sections')
     .select('zone')
@@ -302,10 +303,10 @@ async function markParentCompleteWhenAllSectionsCommit(input: {
 
   const childrenComplete = countCompletePositioningZones(data);
   if (childrenComplete < POSITIONING_SECTION_IDS.length) {
-    return;
+    return false;
   }
 
-  const { error: updateError } = await input.supabase
+  const { data: flipped, error: updateError } = await input.supabase
     .from('research_artifacts')
     .update({
       status: 'complete',
@@ -313,13 +314,17 @@ async function markParentCompleteWhenAllSectionsCommit(input: {
       children_complete: childrenComplete,
       updated_at: isoNow(input.now),
     })
-    .eq('id', input.parentAuditRunId);
+    .eq('id', input.parentAuditRunId)
+    .neq('status', 'complete')
+    .select('id');
 
   if (updateError) {
     throw new SupabaseRunStoreError(
       `research_artifacts rollup update failed for parent_audit_run_id=${input.parentAuditRunId} children_complete=${childrenComplete}: ${updateError.message}`,
     );
   }
+
+  return (flipped?.length ?? 0) === 1;
 }
 
 function assertRunId(expectedRunId: string, actualRunId: string, action: string): void {
@@ -500,13 +505,13 @@ export function createSupabaseRunStore(
         );
       }
 
-      await markParentCompleteWhenAllSectionsCommit({
+      const didCompleteAuditNow = await markParentCompleteWhenAllSectionsCommit({
         supabase: options.supabase,
         parentAuditRunId: options.parentAuditRunId,
         now,
       });
 
-      if (parsedArtifact.sectionId === 'positioningSynthesis') {
+      if (parsedArtifact.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
         await mergeSynthesizedThesisBestEffort({
           supabase: options.supabase,
           parentAuditRunId: options.parentAuditRunId,
@@ -515,14 +520,15 @@ export function createSupabaseRunStore(
         });
       }
 
-      void persistProfileFromCommittedSectionBestEffort({
-        supabase: options.supabase,
-        userId: options.userId,
-        runId: input.runId,
-        researchInput: input,
-        sectionId: parsedArtifact.sectionId,
-        artifact: parsedArtifact,
-      });
+      if (didCompleteAuditNow) {
+        await persistAuditProfileBestEffort({
+          supabase: options.supabase,
+          userId: options.userId,
+          runId: input.runId,
+          researchInput: input,
+          parentAuditRunId: options.parentAuditRunId,
+        });
+      }
 
       record = mergeSection(
         record,

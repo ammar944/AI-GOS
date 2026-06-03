@@ -5,16 +5,18 @@ import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-
 import { persistenceGateEvalCases } from '@/lib/lab-engine/fixtures/persistence-gate-evals';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import {
+  POSITIONING_SECTION_IDS,
+} from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 const profilePersistenceMocks = vi.hoisted(() => ({
-  persistProfileFromCommittedSectionBestEffort: vi.fn(),
+  persistAuditProfileBestEffort: vi.fn(),
 }));
 
 vi.mock('@/lib/profiles/section-profile-persistence', () => ({
-  persistProfileFromCommittedSectionBestEffort:
-    profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort,
+  persistAuditProfileBestEffort:
+    profilePersistenceMocks.persistAuditProfileBestEffort,
 }));
 
 import {
@@ -41,6 +43,8 @@ interface FakeSupabaseOptions {
   };
   commitError?: string;
   markSectionErrorChanged?: boolean;
+  parentRollupFlipped?: boolean;
+  parentRollupFlipResults?: readonly boolean[];
 }
 
 function createSelectQuery(table: string, options: FakeSupabaseOptions) {
@@ -80,13 +84,22 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
 
 function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
+  let parentRollupFlipIndex = 0;
+  const readParentRollupFlip = (): boolean => {
+    const sequenceValue =
+      options.parentRollupFlipResults?.[parentRollupFlipIndex];
+    parentRollupFlipIndex += 1;
+    return sequenceValue ?? options.parentRollupFlipped ?? true;
+  };
   const updateSelectMaybeSingle = vi.fn().mockResolvedValue({
     data: options.markSectionErrorChanged === false ? null : { id: 'updated-section-run' },
     error: null,
   });
-  const updateSelect = vi.fn().mockReturnValue({
+  const updateSelect = vi.fn(() => ({
+    data: readParentRollupFlip() ? [{ id: parentAuditRunId }] : [],
+    error: null,
     maybeSingle: updateSelectMaybeSingle,
-  });
+  }));
   // .neq(...) must be BOTH awaitable (markSectionError's research_artifact_sections
   // cascade ends at .neq and is awaited directly) AND chainable to .select (the
   // research_section_runs guard adds .select('id').maybeSingle()).
@@ -155,8 +168,8 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 
 describe('createSupabaseRunStore', (): void => {
   beforeEach((): void => {
-    profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort.mockReset();
-    profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort.mockResolvedValue(undefined);
+    profilePersistenceMocks.persistAuditProfileBestEffort.mockReset();
+    profilePersistenceMocks.persistAuditProfileBestEffort.mockResolvedValue(undefined);
   });
 
   it('keeps the lab RunRecord contract while writing events, status, and artifacts to Supabase', async (): Promise<void> => {
@@ -247,16 +260,7 @@ describe('createSupabaseRunStore', (): void => {
         }),
       }),
     );
-    expect(
-      profilePersistenceMocks.persistProfileFromCommittedSectionBestEffort,
-    ).toHaveBeenCalledWith({
-      supabase: fakeSupabase.supabase,
-      userId,
-      runId: saaslaunchResearchInput.runId,
-      researchInput: saaslaunchResearchInput,
-      sectionId: 'positioningMarketCategory',
-      artifact: marketCategoryFixtureArtifact,
-    });
+    expect(profilePersistenceMocks.persistAuditProfileBestEffort).not.toHaveBeenCalled();
   });
 
   it('rolls the parent artifact complete when the sixth positioning section commits', async (): Promise<void> => {
@@ -288,6 +292,96 @@ describe('createSupabaseRunStore', (): void => {
       updated_at: '2026-05-25T12:00:00.000Z',
     });
     expect(fakeSupabase.updateEq).toHaveBeenCalledWith('id', parentAuditRunId);
+    expect(fakeSupabase.updateNeq).toHaveBeenCalledWith('status', 'complete');
+    expect(fakeSupabase.updateSelect).toHaveBeenCalledWith('id');
+    expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledTimes(1);
+    expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledWith({
+      supabase: fakeSupabase.supabase,
+      userId,
+      runId: saaslaunchResearchInput.runId,
+      researchInput: saaslaunchResearchInput,
+      parentAuditRunId,
+    });
+  });
+
+  it('awaits profile persistence before resolving the completing artifact save', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      completeSectionZones: POSITIONING_SECTION_IDS,
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    let releasePersist: (() => void) | null = null;
+    const persistStarted = new Promise<void>((resolveStarted) => {
+      profilePersistenceMocks.persistAuditProfileBestEffort.mockImplementation(
+        (): Promise<void> =>
+          new Promise<void>((resolvePersist) => {
+            releasePersist = resolvePersist;
+            resolveStarted();
+          }),
+      );
+    });
+    let saveSettled = false;
+
+    const savePromise = store
+      .saveArtifact(saaslaunchResearchInput.runId, marketCategoryFixtureArtifact)
+      .finally((): void => {
+        saveSettled = true;
+      });
+
+    await persistStarted;
+    expect(saveSettled).toBe(false);
+
+    if (releasePersist === null) {
+      throw new Error('persistAuditProfileBestEffort did not expose a resolver');
+    }
+
+    releasePersist();
+    await savePromise;
+    expect(saveSettled).toBe(true);
+  });
+
+  it('persists profile only once when concurrent last committers race the parent CAS', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      completeSectionZones: POSITIONING_SECTION_IDS,
+      parentRollupFlipResults: [true, false],
+    });
+    const firstStore = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    const secondStore = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await Promise.all([
+      firstStore.saveArtifact(
+        saaslaunchResearchInput.runId,
+        marketCategoryFixtureArtifact,
+      ),
+      secondStore.saveArtifact(
+        saaslaunchResearchInput.runId,
+        marketCategoryFixtureArtifact,
+      ),
+    ]);
+
+    expect(fakeSupabase.updateNeq).toHaveBeenCalledTimes(2);
+    expect(fakeSupabase.updateSelect).toHaveBeenCalledTimes(2);
+    expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledTimes(1);
   });
 
   it('marks the failed section run and its projector row as errored, leaving sibling sections untouched', async (): Promise<void> => {
