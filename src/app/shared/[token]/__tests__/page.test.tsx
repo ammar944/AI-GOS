@@ -26,7 +26,7 @@ vi.mock('@/components/shared/shared-session-view', () => ({
   SharedSessionView: (): null => null,
 }));
 
-const { default: SharedSessionPage } = await import('../page');
+const { default: SharedSessionPage, generateMetadata } = await import('../page');
 
 function renderPage(token: string): Promise<unknown> {
   return SharedSessionPage({ params: Promise.resolve({ token }) });
@@ -37,17 +37,26 @@ describe('SharedSessionPage — public read guard', (): void => {
     vi.clearAllMocks();
   });
 
-  it('calls notFound (does not propagate) when the session read throws a transient error', async (): Promise<void> => {
+  it('propagates session read errors to the error boundary', async (): Promise<void> => {
     mocks.getSharedSessionByToken.mockRejectedValue(new Error('connection reset'));
 
-    await expect(renderPage('tok_1')).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(mocks.notFound).toHaveBeenCalledTimes(1);
+    await expect(renderPage('tok_1')).rejects.toThrow('connection reset');
+    expect(mocks.notFound).not.toHaveBeenCalled();
   });
 
   it('calls notFound when no session matches the token', async (): Promise<void> => {
     mocks.getSharedSessionByToken.mockResolvedValue(null);
 
     await expect(renderPage('missing')).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mocks.notFound).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls notFound from generateMetadata when no session matches the token', async (): Promise<void> => {
+    mocks.getSharedSessionByToken.mockResolvedValue(null);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ token: 'missing' }) }),
+    ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(mocks.notFound).toHaveBeenCalledTimes(1);
   });
 
