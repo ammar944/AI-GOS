@@ -59,7 +59,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ☐ Not started |
 | **T11** | Live E2E validation (Ramp + 2nd company) vs rubric | D. Gate | M | all | ☐ Not started |
 | **T12** | *(optional)* Cross-section memory at draft time | C. Insight | M | T1 | ☐ Optional |
-| **T13** | Deepen the initial corpus — the upstream foundation everything flows from | B. Richness / Foundation | M–L | — | ☐ Not started |
+| **T13** | Deepen the initial corpus — the upstream foundation everything flows from | B. Richness / Foundation | M–L | — | ◐ Code gate green; live gate pending |
 
 ---
 
@@ -138,6 +138,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** corpus runner `research-worker/src/runners/` (`runDeepResearchProgram`); `src/lib/research-v2/corpus-to-research-input.ts`; the corpus schema/floor + how sections consume `researchInput.corpus.excerpts`; what a deep multi-pass corpus should contain (company truth, market, competitors, buyers, pricing, recent events) with source lineage per fact.
 **Implement:** replace the single shallow pass with a deeper, multi-query, multi-source fan-out that produces a structured, source-cited intelligence base (more excerpts, deduped, typed by topic) — feeding both the six sections and the T7 thinker. Keep every corpus fact source-lineaged (no fabrication; same honesty discipline). Don't let corpus depth become a paid-API loop without an abort condition.
 **Verify:** a live run shows sections + the thinker drawing on a materially richer, source-cited corpus; section drafts lean less on `[model estimate]`. **Feeds:** every section + T7/T9. Land it early in Wave R so the insight wave reasons over real depth.
+**2026-06-04 Codex evidence:** T13 code gate green. Worker corpus now runs a primary Perplexity corpus pass plus three bounded topic fan-out calls (company/market/buyers, competitors/pricing/offer, VoC/demand/recent events), requires 10 cited sources, 16 grounded evidence items across `corpus.evidence` + `intelligenceTopics[].evidence`, and 6 topic buckets; exact duplicate claim/quote/url triples do not inflate the evidence floor. App adapter flattens topic evidence into global `corpus.excerpts`, routes mapped topics into section-scoped pools, and keeps unmapped topics such as `recent_events` as shared section context. Proof: `pnpm exec tsc --noEmit` 0; `pnpm run test:run` 174 files / 1478 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings; `npm run build` in `research-worker` clean; `pnpm vitest run src/lib/research-v2/__tests__/corpus-to-research-input.test.ts` 10 tests passed; `pnpm exec vitest run --root research-worker src/__tests__/deep-research-program.test.ts --reporter=verbose` 7 tests passed. Worker-local `npm run test:run -- src/__tests__/deep-research-program.test.ts` hung inside the worker-local Vitest CLI and was replaced by the root Vitest runner for this gate. Live corpus-depth gate still pending.
 
 ---
 

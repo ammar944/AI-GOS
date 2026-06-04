@@ -95,6 +95,16 @@ const sectionScopeKeywords = {
   ],
 } as const satisfies Record<SectionId, readonly string[]>;
 
+const topicSectionMap: Partial<Record<string, SectionId>> = {
+  buyer_icp: "positioningBuyerICP",
+  competitors: "positioningCompetitorLandscape",
+  demand_intent: "positioningDemandIntent",
+  market_category: "positioningMarketCategory",
+  offer_diagnostic: "positioningOfferDiagnostic",
+  pricing_packaging: "positioningOfferDiagnostic",
+  voice_of_customer: "positioningVoiceOfCustomer",
+} as const;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -563,6 +573,56 @@ function buildEvidenceExcerpt({
   };
 }
 
+function getTopicSectionId(topic: string | null): SectionId | null {
+  if (topic === null) {
+    return null;
+  }
+
+  return topicSectionMap[topic] ?? null;
+}
+
+function buildTopicEvidenceRecords(
+  topicRecords: readonly Record<string, unknown>[],
+): Record<string, unknown>[] {
+  return topicRecords.flatMap((topicRecord, topicIndex) => {
+    const topic = firstString(topicRecord.topic);
+    const summary = firstString(topicRecord.summary);
+    const sectionId = getTopicSectionId(topic);
+    const recordSlug = slugify(topic ?? `topic-${topicIndex + 1}`);
+    const topicEvidence = asRecordArray(topicRecord.evidence).map(
+      (evidence, evidenceIndex) => ({
+        ...evidence,
+        id:
+          firstString(evidence.id) ??
+          `excerpt_topic_${recordSlug}_${sectionId ?? "shared"}_${evidenceIndex + 1}`,
+        title: firstString(evidence.title) ?? `Corpus topic: ${topic ?? "general"}`,
+        topic,
+        ...(sectionId === null ? {} : { sectionId }),
+      }),
+    );
+
+    const summaryUrl = firstString(topicRecord.url, topicRecord.sourceUrl);
+
+    if (summary === null || summaryUrl === null) {
+      return topicEvidence;
+    }
+
+    return [
+      {
+        claim: `Corpus topic: ${topic ?? `topic ${topicIndex + 1}`}`,
+        id: `excerpt_topic_${recordSlug}_${sectionId ?? "shared"}_summary`,
+        quote: summary,
+        source: `Corpus topic: ${topic ?? "general"}`,
+        title: `Corpus topic: ${topic ?? "general"}`,
+        topic,
+        ...(sectionId === null ? {} : { sectionId }),
+        url: summaryUrl,
+      },
+      ...topicEvidence,
+    ];
+  });
+}
+
 function buildCorpusExcerpts({
   evidenceRecords,
   observedAt,
@@ -610,10 +670,31 @@ function excerptMatchesKeywords(
   return keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
 }
 
-function excerptMatchesAnySection(excerpt: CorpusExcerpt): boolean {
-  return sectionIds.some((sectionId) =>
-    excerptMatchesKeywords(excerpt, sectionScopeKeywords[sectionId]),
+function getExplicitExcerptSectionId(excerpt: CorpusExcerpt): SectionId | null {
+  return (
+    sectionIds.find((sectionId) => excerpt.id.includes(`_${sectionId}_`)) ?? null
   );
+}
+
+function excerptTargetsSection(
+  excerpt: CorpusExcerpt,
+  sectionId: SectionId,
+): boolean {
+  if (excerpt.id.includes("_shared_")) {
+    return false;
+  }
+
+  const explicitSectionId = getExplicitExcerptSectionId(excerpt);
+
+  if (explicitSectionId !== null) {
+    return explicitSectionId === sectionId;
+  }
+
+  return excerptMatchesKeywords(excerpt, sectionScopeKeywords[sectionId]);
+}
+
+function excerptMatchesAnySection(excerpt: CorpusExcerpt): boolean {
+  return sectionIds.some((sectionId) => excerptTargetsSection(excerpt, sectionId));
 }
 
 function dedupeCorpusExcerpts(
@@ -640,7 +721,7 @@ function buildSectionScopedCorpusExcerpts(
   const scopedEntries = sectionIds.map(
     (sectionId): [SectionId, CorpusExcerpt[]] => {
       const sectionExcerpts = excerpts.filter((excerpt) =>
-        excerptMatchesKeywords(excerpt, sectionScopeKeywords[sectionId]),
+        excerptTargetsSection(excerpt, sectionId),
       );
 
       return [
@@ -919,6 +1000,11 @@ export function corpusToResearchInput(
   const economicsBriefFields = buildEconomicsBriefFields(onboardingData);
   const sourceRecords = asRecordArray(corpus.sources);
   const evidenceRecords = asRecordArray(corpus.evidence);
+  const topicRecords = asRecordArray(corpus.intelligenceTopics);
+  const allEvidenceRecords = [
+    ...evidenceRecords,
+    ...buildTopicEvidenceRecords(topicRecords),
+  ];
   const uploadedDocuments = params.uploadedDocuments ?? [];
   const firstCorpusSourceUrl = sourceRecords
     .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
@@ -935,19 +1021,19 @@ export function corpusToResearchInput(
   });
   const sources = buildSources({
     companyName,
-    evidenceRecords,
+    evidenceRecords: allEvidenceRecords,
     observedAt,
     sourceRecords,
     uploadedDocuments,
     websiteUrl,
   });
   const droppedEvidenceExcerptCount = countDroppedEvidenceExcerpts({
-    evidenceRecords,
+    evidenceRecords: allEvidenceRecords,
     observedAt,
     sources,
   });
   const corpusExcerpts = buildCorpusExcerpts({
-    evidenceRecords,
+    evidenceRecords: allEvidenceRecords,
     observedAt,
     sources,
     uploadedDocuments,

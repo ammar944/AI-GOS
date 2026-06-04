@@ -335,6 +335,140 @@ describe("corpusToResearchInput", (): void => {
     );
   });
 
+  it("routes intelligence topic evidence into global and section-scoped corpus excerpts", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        corpus: {
+          ...corpusFixture.deepResearchProgramData.corpus,
+          sources: [
+            {
+              title: "Airtable category memo",
+              url: "https://www.airtable.com/category-memo",
+            },
+            {
+              title: "Airtable buyer memo",
+              url: "https://www.airtable.com/buyer-memo",
+            },
+            {
+              title: "Airtable VoC memo",
+              url: "https://www.airtable.com/voc-memo",
+            },
+            {
+              title: "Airtable event memo",
+              url: "https://www.airtable.com/event-memo",
+            },
+          ],
+          intelligenceTopics: [
+            {
+              topic: "market_category",
+              summary: "Category summary without a source URL should not become a dropped excerpt.",
+              evidence: [
+                {
+                  claim: "Airtable category topic evidence",
+                  quote: "Category-specific topic evidence for market section routing.",
+                  source: "Airtable category memo",
+                  url: "https://www.airtable.com/category-memo",
+                },
+              ],
+            },
+            {
+              topic: "buyer_icp",
+              summary: "Buyer summary without a source URL should not become a dropped excerpt.",
+              evidence: [
+                {
+                  claim: "Airtable buyer topic evidence",
+                  quote: "Buyer-specific topic evidence for ICP section routing.",
+                  source: "Airtable buyer memo",
+                  url: "https://www.airtable.com/buyer-memo",
+                },
+              ],
+            },
+            {
+              topic: "voice_of_customer",
+              summary: "Review summary without a source URL should not become a dropped excerpt.",
+              evidence: [
+                {
+                  claim: "Airtable review topic evidence",
+                  quote: "Review-specific topic evidence for VoC section routing.",
+                  source: "Airtable VoC memo",
+                  url: "https://www.airtable.com/voc-memo",
+                },
+              ],
+            },
+            {
+              topic: "recent_events",
+              summary: "Recent-event summary without a source URL should remain shared context.",
+              evidence: [
+                {
+                  claim: "Airtable buyer event topic evidence",
+                  quote:
+                    "Recent-event evidence mentions a buyer rollout but should still be shared.",
+                  source: "Airtable event memo",
+                  url: "https://www.airtable.com/event-memo",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+    const allExcerptText = parsed.corpus.excerpts.map((excerpt) => excerpt.text);
+    const marketExcerptText = (
+      parsed.corpus.sectionExcerpts?.positioningMarketCategory ?? []
+    ).map((excerpt) => excerpt.text);
+    const buyerExcerptText = (
+      parsed.corpus.sectionExcerpts?.positioningBuyerICP ?? []
+    ).map((excerpt) => excerpt.text);
+    const vocExcerptText = (
+      parsed.corpus.sectionExcerpts?.positioningVoiceOfCustomer ?? []
+    ).map((excerpt) => excerpt.text);
+
+    expect(allExcerptText).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("category topic evidence"),
+        expect.stringContaining("buyer topic evidence"),
+        expect.stringContaining("review topic evidence"),
+        expect.stringContaining("buyer event topic evidence"),
+      ]),
+    );
+    expect(marketExcerptText).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("category topic evidence"),
+        expect.stringContaining("buyer event topic evidence"),
+      ]),
+    );
+    expect(marketExcerptText).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("buyer topic evidence")]),
+    );
+    expect(buyerExcerptText).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("buyer topic evidence"),
+        expect.stringContaining("buyer event topic evidence"),
+      ]),
+    );
+    expect(buyerExcerptText).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("review topic evidence")]),
+    );
+    expect(vocExcerptText).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("review topic evidence"),
+        expect.stringContaining("buyer event topic evidence"),
+      ]),
+    );
+    expect(parsed._capabilities?.capabilityGaps ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          class: "evidence_excerpt_dropped",
+        }),
+      ]),
+    );
+  });
+
   it("seeds competitorSeeds from the onboarding topCompetitors field", (): void => {
     const input = corpusToResearchInput({
       ...corpusFixture,

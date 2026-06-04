@@ -18,8 +18,40 @@ const DEFAULT_DEEP_RESEARCH_MAX_TOKENS = 20000;
 const DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 900000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_TIMEOUT_MS = 120000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_MAX_TOKENS = 12000;
-const MINIMUM_CITED_SOURCES = 6;
-const MINIMUM_GROUNDED_EVIDENCE = 8;
+const MINIMUM_CITED_SOURCES = 10;
+const MINIMUM_GROUNDED_EVIDENCE = 16;
+const MINIMUM_INTELLIGENCE_TOPICS = 6;
+const TOPIC_FANOUT_GROUPS = [
+  {
+    label: 'company-market-buyers',
+    topics: ['company_truth', 'market_category', 'buyer_icp'],
+    focus: 'company truth, category boundaries, buyer segments, ICP details, and public customer proof',
+  },
+  {
+    label: 'competitors-pricing-offer',
+    topics: ['competitors', 'pricing_packaging', 'offer_diagnostic'],
+    focus: 'competitor alternatives, pricing and packaging, differentiators, implementation proof, and offer constraints',
+  },
+  {
+    label: 'voc-demand-events',
+    topics: ['voice_of_customer', 'demand_intent', 'recent_events'],
+    focus: 'review or forum language, demand-intent signals, launch/news/recent events, and external market context',
+  },
+] as const;
+
+const intelligenceTopicValues = [
+  'company_truth',
+  'market_category',
+  'buyer_icp',
+  'competitors',
+  'voice_of_customer',
+  'demand_intent',
+  'offer_diagnostic',
+  'pricing_packaging',
+  'recent_events',
+] as const;
+
+type IntelligenceTopic = (typeof intelligenceTopicValues)[number];
 
 interface CapturedDeepResearchSource {
   title: string;
@@ -27,6 +59,7 @@ interface CapturedDeepResearchSource {
 }
 
 interface DeepResearchMinimumsReport {
+  coveredTopics: string[];
   passed: boolean;
   sourceCount: number;
   evidenceCount: number;
@@ -70,6 +103,20 @@ const onboardingFieldSchema = z.object({
   reasoning: z.string().describe('Concise explanation of why the field is supported or unavailable.'),
 });
 
+const deepResearchEvidenceSchema = z.object({
+  claim: z.string().describe('Specific supported claim.'),
+  source: z.string().describe('Source title or publisher.'),
+  url: z.string().describe('Exact cited source URL supporting this evidence.'),
+  quote: z.string().describe('Grounded excerpt or concise paraphrase from the cited source.'),
+  confidence: z.number().describe('Confidence from 0-100.'),
+});
+
+const intelligenceTopicSchema = z.object({
+  topic: z.enum(intelligenceTopicValues).describe('Topic bucket this evidence should feed downstream.'),
+  summary: z.string().describe('Source-grounded topic summary or an explicit evidence gap.'),
+  evidence: z.array(deepResearchEvidenceSchema).describe('Topic-specific sourced claims.'),
+});
+
 const deepResearchCorpusSchema = z.object({
   corpus: z.object({
     company: z.string().describe('Clean company name.'),
@@ -80,13 +127,8 @@ const deepResearchCorpusSchema = z.object({
       url: z.string().describe('Exact cited source URL.'),
       whyItMatters: z.string().describe('Why this source matters for the corpus.'),
     })).describe('Cited sources used to build the corpus.'),
-    evidence: z.array(z.object({
-      claim: z.string().describe('Specific supported claim.'),
-      source: z.string().describe('Source title or publisher.'),
-      url: z.string().describe('Exact cited source URL supporting this evidence.'),
-      quote: z.string().describe('Grounded excerpt or concise paraphrase from the cited source.'),
-      confidence: z.number().describe('Confidence from 0-100.'),
-    })).describe('Grounded evidence excerpts from cited sources.'),
+    evidence: z.array(deepResearchEvidenceSchema).describe('Grounded evidence excerpts from cited sources.'),
+    intelligenceTopics: z.array(intelligenceTopicSchema).describe('Typed source-lineaged intelligence base for section drafting and cross-section reasoning.'),
   }),
   onboardingFields: z.object({
     companyName: onboardingFieldSchema,
@@ -118,6 +160,15 @@ const deepResearchCorpusSchema = z.object({
 });
 
 type DeepResearchCorpusOutput = z.infer<typeof deepResearchCorpusSchema>;
+type DeepResearchEvidence = DeepResearchCorpusOutput['corpus']['evidence'][number];
+type DeepResearchTopic = DeepResearchCorpusOutput['corpus']['intelligenceTopics'][number];
+
+const deepResearchTopicSupplementSchema = z.object({
+  evidence: z.array(deepResearchEvidenceSchema).describe('High-signal grounded evidence discovered by the topic fan-out.'),
+  intelligenceTopics: z.array(intelligenceTopicSchema).describe('Topic-specific intelligence discovered by the topic fan-out.'),
+});
+
+type DeepResearchTopicSupplementOutput = z.infer<typeof deepResearchTopicSupplementSchema>;
 
 const DEEP_RESEARCH_SYSTEM_PROMPT = `You are AI-GOS's Deep Research Agent for a supervised GTM workspace.
 
@@ -141,7 +192,12 @@ Return ONLY valid JSON. No markdown fences. Shape:
     "category": "string",
     "researchSummary": "string",
     "sources": [{"title":"string","url":"string","whyItMatters":"string"}],
-    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}],
+    "intelligenceTopics": [{
+      "topic": "company_truth | market_category | buyer_icp | competitors | voice_of_customer | demand_intent | offer_diagnostic | pricing_packaging | recent_events",
+      "summary": "source-grounded topic summary or explicit evidence gap",
+      "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+    }]
   },
   "onboardingFields": {
     "companyName": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
@@ -182,6 +238,15 @@ ONBOARDING FIELD RULES
 - For coreDeliverables, list concrete product capabilities/features.
 - For fields that are not publicly discoverable, set value null, confidence 0, sourceUrl null, and explain the gap.
 
+CORPUS DEPTH RULES
+- Build a multi-topic intelligence base, not a single homepage summary.
+- corpus.sources must include at least ${MINIMUM_CITED_SOURCES} unique real cited URLs.
+- corpus.evidence plus intelligenceTopics[].evidence must include at least ${MINIMUM_GROUNDED_EVIDENCE} grounded evidence items.
+- intelligenceTopics must cover at least ${MINIMUM_INTELLIGENCE_TOPICS} distinct topics from: company_truth, market_category, buyer_icp, competitors, voice_of_customer, demand_intent, offer_diagnostic, pricing_packaging, recent_events.
+- Prefer coverage across company truth, market/category, buyers, competitors, pricing/packaging, demand, VoC/reviews/forums, offer/proof, and recent events.
+- If a topic has no public evidence, include the topic with a summary that names the evidence gap and leave its evidence array empty.
+- Every evidence item must cite a URL from captured Perplexity citations. Do not use model estimates as evidence.
+
 CRITICAL RETURN CONTRACT
 - Do not export, attach, or summarize the final JSON as a file.
 - The final assistant response itself must contain the complete JSON object.
@@ -195,6 +260,8 @@ Rules:
 - Use only the supplied original user context, captured sources, and incomplete draft.
 - Do not invent facts. Unsupported onboarding fields must be {"value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not verified in captured evidence."}.
 - Preserve source URLs exactly when used.
+- Preserve or rebuild corpus.intelligenceTopics with at least ${MINIMUM_INTELLIGENCE_TOPICS} distinct topic buckets. Topic evidence must use captured citation URLs only.
+- If a topic is not publicly supported, include the topic with an explicit evidence-gap summary and an empty evidence array.
 - The output shape must match the Deep Research Agent contract:
 {
   "corpus": {
@@ -202,7 +269,12 @@ Rules:
     "category": "string",
     "researchSummary": "string",
     "sources": [{"title":"string","url":"string","whyItMatters":"string"}],
-    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}],
+    "intelligenceTopics": [{
+      "topic": "company_truth | market_category | buyer_icp | competitors | voice_of_customer | demand_intent | offer_diagnostic | pricing_packaging | recent_events",
+      "summary": "source-grounded topic summary or explicit evidence gap",
+      "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+    }]
   },
   "onboardingFields": {
     "companyName": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
@@ -403,8 +475,24 @@ function formatEvidenceLine(evidence: unknown): string | null {
   return `- ${claim ?? quote}${source ? ` (${source})` : ''}`;
 }
 
+function formatTopicLine(topic: unknown): string | null {
+  if (!isRecord(topic)) {
+    return null;
+  }
+
+  const topicName = readString(topic.topic);
+  const summary = readString(topic.summary);
+  const evidenceCount = readRecordArray(topic.evidence).length;
+
+  if (topicName === null || summary === null) {
+    return null;
+  }
+
+  return `- ${topicName}: ${summary}${evidenceCount > 0 ? ` (${evidenceCount} cited evidence item${evidenceCount === 1 ? '' : 's'})` : ''}`;
+}
+
 function formatCapturedSources(
-  sources: CapturedDeepResearchSource[],
+  sources: readonly CapturedDeepResearchSource[],
 ): string {
   if (sources.length === 0) {
     return 'No web sources were captured before repair.';
@@ -524,18 +612,45 @@ function extractCorpusSources(
 }
 
 function extractGroundedEvidenceUrls(result: Record<string, unknown>): string[] {
-  return readRecordArray(getCorpusRecord(result).evidence)
-    .flatMap((evidence) => {
-      const url = normalizeUrl(evidence.url);
-      const claim = readString(evidence.claim);
-      const quote = readString(evidence.quote);
+  const corpus = getCorpusRecord(result);
+  const topLevelEvidence = readRecordArray(corpus.evidence);
+  const topicEvidence = readRecordArray(corpus.intelligenceTopics).flatMap(
+    (topic) => readRecordArray(topic.evidence),
+  );
+  const seenEvidenceItems = new Set<string>();
 
-      if (url === null || claim === null || quote === null) {
-        return [];
-      }
+  return [...topLevelEvidence, ...topicEvidence].flatMap((evidence) => {
+    const url = normalizeUrl(evidence.url);
+    const claim = readString(evidence.claim);
+    const quote = readString(evidence.quote);
 
-      return [url];
-    });
+    if (url === null || claim === null || quote === null) {
+      return [];
+    }
+
+    const evidenceKey = [url, claim.toLowerCase(), quote.toLowerCase()].join('\n');
+
+    if (seenEvidenceItems.has(evidenceKey)) {
+      return [];
+    }
+
+    seenEvidenceItems.add(evidenceKey);
+    return [url];
+  });
+}
+
+function extractCoveredIntelligenceTopics(result: Record<string, unknown>): string[] {
+  return uniqueStrings(
+    readRecordArray(getCorpusRecord(result).intelligenceTopics).flatMap((topic) => {
+      const topicName = readString(topic.topic);
+      const summary = readString(topic.summary);
+      const evidence = readRecordArray(topic.evidence);
+
+      return topicName !== null && (summary !== null || evidence.length > 0)
+        ? [topicName]
+        : [];
+    }),
+  );
 }
 
 function normalizeSourceSet(sources: readonly CapturedDeepResearchSource[]): Set<string> {
@@ -560,6 +675,7 @@ export function validateDeepResearchMinimums(
   const citationUrls = normalizeSourceSet(sonarSources);
   const sourceUrls = extractCorpusSources(result).map((source) => source.url);
   const evidenceUrls = extractGroundedEvidenceUrls(result);
+  const coveredTopics = extractCoveredIntelligenceTopics(result);
   const groundedSourceUrls = uniqueStrings(
     sourceUrls.filter((url) => citationUrls.has(url) && !isFabricatedUrl(url)),
   );
@@ -575,7 +691,10 @@ export function validateDeepResearchMinimums(
       : `corpus.sources has ${groundedSourceUrls.length}/${MINIMUM_CITED_SOURCES} real Perplexity-cited URLs`,
     groundedEvidenceUrls.length >= MINIMUM_GROUNDED_EVIDENCE
       ? null
-      : `corpus.evidence has ${groundedEvidenceUrls.length}/${MINIMUM_GROUNDED_EVIDENCE} grounded cited excerpts`,
+      : `corpus.evidence plus intelligenceTopics[].evidence has ${groundedEvidenceUrls.length}/${MINIMUM_GROUNDED_EVIDENCE} grounded cited excerpts`,
+    coveredTopics.length >= MINIMUM_INTELLIGENCE_TOPICS
+      ? null
+      : `corpus.intelligenceTopics has ${coveredTopics.length}/${MINIMUM_INTELLIGENCE_TOPICS} topic buckets`,
     fabricatedMatches.length === 0
       ? null
       : `corpus contains fabricated or placeholder data: ${fabricatedMatches.join(', ')}`,
@@ -588,6 +707,7 @@ export function validateDeepResearchMinimums(
   ].filter((error): error is string => error !== null);
 
   return {
+    coveredTopics,
     passed: errors.length === 0,
     sourceCount: groundedSourceUrls.length,
     evidenceCount: groundedEvidenceUrls.length,
@@ -760,11 +880,17 @@ export function formatDeepResearchArtifactMarkdown(
   const evidenceLines = Array.isArray(corpus.evidence)
     ? corpus.evidence.map(formatEvidenceLine).filter((line): line is string => Boolean(line))
     : [];
+  const topicLines = Array.isArray(corpus.intelligenceTopics)
+    ? corpus.intelligenceTopics.map(formatTopicLine).filter((line): line is string => Boolean(line))
+    : [];
   const sourceLines = Array.isArray(corpus.sources)
     ? corpus.sources.map(formatSourceLine).filter((line): line is string => Boolean(line))
     : [];
   const sections = [
     `## Deep Research\n\n${summary}`,
+    topicLines.length > 0
+      ? `### Intelligence Topics\n${topicLines.slice(0, 8).join('\n')}`
+      : null,
     evidenceLines.length > 0
       ? `### Evidence Highlights\n${evidenceLines.slice(0, 5).join('\n')}`
       : null,
@@ -782,16 +908,163 @@ export function formatDeepResearchArtifactMarkdown(
 function buildDeepResearchPrompt(context: string): string {
   return `Today is ${new Date().toISOString().slice(0, 10)}.
 
-Use the onboarding/prefill context below as confirmed input. Run focused web research once with Perplexity sonar and build the shared company evidence corpus for onboarding. Do not synthesize GTM report sections in this run.
+Use the onboarding/prefill context below as confirmed input. Run the primary Perplexity sonar research pass and build the shared company evidence corpus for onboarding. Separate bounded topic fan-out calls will deepen specific intelligence buckets after this pass. Do not synthesize GTM report sections in this run.
 
 SOURCE AND EVIDENCE GATE
+- Build a multi-topic, source-lineaged company corpus that downstream sections can draw from.
 - corpus.sources must contain at least ${MINIMUM_CITED_SOURCES} unique real cited URLs from Perplexity sonar citations.
-- corpus.evidence must contain at least ${MINIMUM_GROUNDED_EVIDENCE} excerpts or concise paraphrases, each with a URL from corpus.sources.
+- corpus.evidence plus intelligenceTopics[].evidence must contain at least ${MINIMUM_GROUNDED_EVIDENCE} excerpts or concise paraphrases, each with a URL from corpus.sources.
+- corpus.intelligenceTopics must cover at least ${MINIMUM_INTELLIGENCE_TOPICS} distinct topic buckets from company truth, market/category, buyers, competitors, VoC, demand, offer, pricing, and recent events.
 - Never use example.com, placeholder URLs, synthetic evidence, or invented claims.
 - If a field is not publicly discoverable, use null/0/null and explain the evidence gap.
 
 CONFIRMED CONTEXT
 ${context}`;
+}
+
+function buildTopicFanoutPrompt(input: {
+  context: string;
+  existingSources: readonly CapturedDeepResearchSource[];
+  focus: string;
+  label: string;
+  topics: readonly IntelligenceTopic[];
+}): string {
+  return `Today is ${new Date().toISOString().slice(0, 10)}.
+
+Run one focused supplemental Perplexity sonar search for this company corpus topic group.
+
+TOPIC GROUP
+- Label: ${input.label}
+- Topics: ${input.topics.join(', ')}
+- Research focus: ${input.focus}
+
+RULES
+- Return ONLY source-lineaged facts for the requested topics.
+- Prefer credible new URLs not already captured; reuse existing URLs only when they support new specific evidence.
+- Every evidence item must cite a real Perplexity citation URL from this call or from the already captured URL list.
+- If a requested topic has no public evidence, include the topic with an explicit evidence-gap summary and an empty evidence array.
+- Do not write GTM section cards. Do not invent market size, pricing, review quotes, keyword volume, or competitor claims.
+
+RETURN JSON SHAPE
+{
+  "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}],
+  "intelligenceTopics": [{
+    "topic": "${input.topics.join(' | ')}",
+    "summary": "source-grounded topic summary or explicit evidence gap",
+    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+  }]
+}
+
+ALREADY CAPTURED URLS
+${formatCapturedSources(input.existingSources)}
+
+CONFIRMED CONTEXT
+${input.context}`;
+}
+
+function evidenceIdentity(evidence: DeepResearchEvidence): string {
+  const url = normalizeUrl(evidence.url) ?? evidence.url;
+
+  return [
+    url,
+    evidence.claim.trim().toLowerCase(),
+    evidence.quote.trim().toLowerCase(),
+  ].join('\n');
+}
+
+function dedupeEvidence(
+  evidence: readonly DeepResearchEvidence[],
+): DeepResearchEvidence[] {
+  const seen = new Set<string>();
+
+  return evidence.filter((item) => {
+    const key = evidenceIdentity(item);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function mergeTopicSummary(existing: string, supplemental: string): string {
+  const normalizedExisting = existing.trim();
+  const normalizedSupplemental = supplemental.trim();
+
+  if (normalizedSupplemental.length === 0) {
+    return normalizedExisting;
+  }
+
+  if (
+    normalizedExisting.length === 0 ||
+    normalizedExisting.toLowerCase() === normalizedSupplemental.toLowerCase()
+  ) {
+    return normalizedSupplemental;
+  }
+
+  if (normalizedExisting.toLowerCase().includes(normalizedSupplemental.toLowerCase())) {
+    return normalizedExisting;
+  }
+
+  return `${normalizedExisting} Supplemental fan-out: ${normalizedSupplemental}`;
+}
+
+function mergeIntelligenceTopics(
+  existingTopics: readonly DeepResearchTopic[],
+  supplementalTopics: readonly DeepResearchTopic[],
+): DeepResearchTopic[] {
+  const topicMap = new Map<IntelligenceTopic, DeepResearchTopic>();
+
+  for (const topic of existingTopics) {
+    topicMap.set(topic.topic, {
+      ...topic,
+      evidence: dedupeEvidence(topic.evidence),
+    });
+  }
+
+  for (const topic of supplementalTopics) {
+    const existing = topicMap.get(topic.topic);
+
+    if (existing === undefined) {
+      topicMap.set(topic.topic, {
+        ...topic,
+        evidence: dedupeEvidence(topic.evidence),
+      });
+      continue;
+    }
+
+    topicMap.set(topic.topic, {
+      ...existing,
+      summary: mergeTopicSummary(existing.summary, topic.summary),
+      evidence: dedupeEvidence([...existing.evidence, ...topic.evidence]),
+    });
+  }
+
+  return intelligenceTopicValues
+    .map((topic) => topicMap.get(topic))
+    .filter((topic): topic is DeepResearchTopic => topic !== undefined);
+}
+
+function mergeTopicSupplementIntoCorpus(
+  parsed: DeepResearchCorpusOutput,
+  supplement: DeepResearchTopicSupplementOutput,
+): DeepResearchCorpusOutput {
+  return {
+    ...parsed,
+    corpus: {
+      ...parsed.corpus,
+      evidence: dedupeEvidence([
+        ...parsed.corpus.evidence,
+        ...supplement.evidence,
+      ]),
+      intelligenceTopics: mergeIntelligenceTopics(
+        parsed.corpus.intelligenceTopics,
+        supplement.intelligenceTopics,
+      ),
+    },
+  };
 }
 
 function parseDeepResearchOutput(value: unknown): DeepResearchCorpusOutput {
@@ -833,6 +1106,109 @@ async function ensureMinimumSonarSources(input: {
   return mergeSources(input.existingSources, supplementalSources);
 }
 
+interface TopicSupplementResearch {
+  output: DeepResearchTopicSupplementOutput;
+  rawText: string;
+  result: SonarGenerationResult;
+  sources: CapturedDeepResearchSource[];
+}
+
+async function generateTopicSupplement(input: {
+  apiKey: string;
+  context: string;
+  existingSources: CapturedDeepResearchSource[];
+  focus: string;
+  label: string;
+  model: string;
+  onProgress?: RunnerProgressReporter;
+  topics: readonly IntelligenceTopic[];
+}): Promise<TopicSupplementResearch> {
+  await emitRunnerProgress(
+    input.onProgress,
+    'analysis',
+    `expanding corpus topic evidence: ${input.label}`,
+  );
+
+  const perplexity = createPerplexity({ apiKey: input.apiKey });
+  const result = await runWithAbortTimeout(
+    `Deep research topic fan-out (${input.label})`,
+    getDeepResearchRepairTimeoutMs(),
+    (signal) =>
+      generateText({
+        model: perplexity(input.model),
+        prompt: buildTopicFanoutPrompt({
+          context: input.context,
+          existingSources: input.existingSources,
+          focus: input.focus,
+          label: input.label,
+          topics: input.topics,
+        }),
+        output: Output.object({ schema: deepResearchTopicSupplementSchema }),
+        maxOutputTokens: getDeepResearchRepairMaxTokens(),
+        temperature: 0.1,
+        abortSignal: signal,
+      }),
+  );
+  const sonarResult = result as SonarGenerationResult;
+  const output = deepResearchTopicSupplementSchema.parse(result.output);
+
+  return {
+    output,
+    rawText: result.text || JSON.stringify(output),
+    result: sonarResult,
+    sources: extractSonarSources(sonarResult),
+  };
+}
+
+async function enrichCorpusWithTopicFanout(input: {
+  apiKey: string;
+  context: string;
+  model: string;
+  onProgress?: RunnerProgressReporter;
+  parsed: DeepResearchCorpusOutput;
+  rawText: string;
+  sources: CapturedDeepResearchSource[];
+}): Promise<{
+  parsed: DeepResearchCorpusOutput;
+  rawText: string;
+  sources: CapturedDeepResearchSource[];
+}> {
+  const supplements = await Promise.all(
+    TOPIC_FANOUT_GROUPS.map((group) =>
+      generateTopicSupplement({
+        apiKey: input.apiKey,
+        context: input.context,
+        existingSources: input.sources,
+        focus: group.focus,
+        label: group.label,
+        model: input.model,
+        onProgress: input.onProgress,
+        topics: group.topics,
+      }),
+    ),
+  );
+  const parsed = supplements.reduce(
+    (current, supplement) => mergeTopicSupplementIntoCorpus(current, supplement.output),
+    input.parsed,
+  );
+  const sources = supplements.reduce(
+    (current, supplement) => mergeSources(current, supplement.sources),
+    input.sources,
+  );
+  const supplementalText = supplements
+    .map((supplement) => supplement.rawText)
+    .filter((text) => text.trim().length > 0)
+    .join('\n\n--- topic fan-out ---\n\n');
+
+  return {
+    parsed,
+    rawText: supplementalText.length > 0
+      ? `${input.rawText}\n\n--- topic fan-out ---\n\n${supplementalText}`.trim()
+      : input.rawText,
+    sources,
+  };
+}
+
 interface GeneratedSonarCorpus {
   model: string;
   parsed: DeepResearchCorpusOutput;
@@ -863,22 +1239,29 @@ async function generateStructuredSonarCorpus(input: {
       }),
   );
   const sonarResult = result as SonarGenerationResult;
+  const parsed = parseDeepResearchOutput(result.output);
+  const enriched = await enrichCorpusWithTopicFanout({
+    apiKey: input.apiKey,
+    context: input.context,
+    model: input.model,
+    onProgress: input.onProgress,
+    parsed,
+    rawText: result.text || JSON.stringify(parsed),
+    sources: extractSonarSources(sonarResult),
+  });
   const sources = await ensureMinimumSonarSources({
     apiKey: input.apiKey,
     context: input.context,
-    existingSources: extractSonarSources(sonarResult),
+    existingSources: enriched.sources,
     model: input.model,
     onProgress: input.onProgress,
   });
-  const parsed = mergeProviderSourcesIntoCorpus(
-    parseDeepResearchOutput(result.output),
-    sources,
-  );
+  const merged = mergeProviderSourcesIntoCorpus(enriched.parsed, sources);
 
   return {
     model: input.model,
-    parsed,
-    rawText: result.text || JSON.stringify(parsed),
+    parsed: merged,
+    rawText: enriched.rawText,
     result: sonarResult,
     sources,
   };
@@ -905,13 +1288,7 @@ async function generateDraftSonarCorpus(input: {
       }),
   );
   const sonarResult = result as SonarGenerationResult;
-  const sources = await ensureMinimumSonarSources({
-    apiKey: input.apiKey,
-    context: input.context,
-    existingSources: extractSonarSources(sonarResult),
-    model: input.model,
-    onProgress: input.onProgress,
-  });
+  const sonarSources = extractSonarSources(sonarResult);
   const parsed = tryExtractJson(result.text);
 
   if (!parsed || !isRecord(parsed)) {
@@ -922,7 +1299,7 @@ async function generateDraftSonarCorpus(input: {
       model: input.model,
       onProgress: input.onProgress,
       previousResult: sonarResult,
-      sources,
+      sources: sonarSources,
     });
   }
 
@@ -935,14 +1312,30 @@ async function generateDraftSonarCorpus(input: {
       model: input.model,
       onProgress: input.onProgress,
       previousResult: sonarResult,
-      sources,
+      sources: sonarSources,
     });
   }
+  const enriched = await enrichCorpusWithTopicFanout({
+    apiKey: input.apiKey,
+    context: input.context,
+    model: input.model,
+    onProgress: input.onProgress,
+    parsed: validated.data,
+    rawText: result.text,
+    sources: sonarSources,
+  });
+  const sources = await ensureMinimumSonarSources({
+    apiKey: input.apiKey,
+    context: input.context,
+    existingSources: enriched.sources,
+    model: input.model,
+    onProgress: input.onProgress,
+  });
 
   return {
     model: input.model,
-    parsed: mergeProviderSourcesIntoCorpus(validated.data, sources),
-    rawText: result.text,
+    parsed: mergeProviderSourcesIntoCorpus(enriched.parsed, sources),
+    rawText: enriched.rawText,
     result: sonarResult,
     sources,
   };
@@ -961,7 +1354,7 @@ async function repairDeepResearchJson(input: {
   const perplexity = createPerplexity({ apiKey: input.apiKey });
   const validationInstructions =
     input.validationErrors && input.validationErrors.length > 0
-      ? `\n\nFAILED VALIDATION TO FIX\n${input.validationErrors.map((error) => `- ${error}`).join('\n')}\n\nOnly use URLs listed in CAPTURED PERPLEXITY CITATIONS. corpus.sources and every corpus.evidence.url must be one of those captured citation URLs. Produce at least ${MINIMUM_GROUNDED_EVIDENCE} evidence entries from those allowed URLs; multiple distinct claims can cite the same allowed URL when supported.`
+      ? `\n\nFAILED VALIDATION TO FIX\n${input.validationErrors.map((error) => `- ${error}`).join('\n')}\n\nOnly use URLs listed in CAPTURED PERPLEXITY CITATIONS. corpus.sources, corpus.evidence.url, and every intelligenceTopics[].evidence[].url must be one of those captured citation URLs. Produce at least ${MINIMUM_GROUNDED_EVIDENCE} evidence entries across corpus.evidence plus intelligenceTopics[].evidence from those allowed URLs; multiple distinct claims can cite the same allowed URL when supported. Preserve at least ${MINIMUM_INTELLIGENCE_TOPICS} distinct intelligenceTopics.`
       : '';
   const result = await runWithAbortTimeout(
     'Deep research repair',
@@ -984,20 +1377,30 @@ async function repairDeepResearchJson(input: {
 
   const validated = parseDeepResearchOutput(parsed);
   const sonarResult = result as SonarGenerationResult;
+  const baseSources = input.sources.length > 0
+    ? input.sources
+    : extractSonarSources(sonarResult);
+  const enriched = await enrichCorpusWithTopicFanout({
+    apiKey: input.apiKey,
+    context: input.context,
+    model: input.model,
+    onProgress: input.onProgress,
+    parsed: validated,
+    rawText: `${input.draftText}\n\n--- repaired JSON ---\n${result.text}`.trim(),
+    sources: baseSources,
+  });
   const sources = await ensureMinimumSonarSources({
     apiKey: input.apiKey,
     context: input.context,
-    existingSources: input.sources.length > 0
-      ? input.sources
-      : extractSonarSources(sonarResult),
+    existingSources: enriched.sources,
     model: input.model,
     onProgress: input.onProgress,
   });
 
   return {
     model: input.model,
-    parsed: mergeProviderSourcesIntoCorpus(validated, sources),
-    rawText: `${input.draftText}\n\n--- repaired JSON ---\n${result.text}`.trim(),
+    parsed: mergeProviderSourcesIntoCorpus(enriched.parsed, sources),
+    rawText: enriched.rawText,
     result: {
       ...input.previousResult,
       ...sonarResult,
@@ -1065,7 +1468,7 @@ async function generateSonarCorpus(input: {
       await emitRunnerProgress(
         input.onProgress,
         'runner',
-        `querying Perplexity ${model} for cited company corpus`,
+        `querying Perplexity ${model} for source-lineaged multi-topic corpus`,
       );
 
       const generated = await runWithBackoff(async () => {
@@ -1189,7 +1592,7 @@ export async function runDeepResearchProgram(
     });
     const parsedRecord = generated.parsed as unknown as Record<string, unknown>;
     const rawText = generated.rawText;
-    await emitRunnerProgress(onProgress, 'analysis', 'validating cited corpus minimums');
+    await emitRunnerProgress(onProgress, 'analysis', 'validating cited corpus and topic coverage minimums');
 
     const onboardingFieldCount = countUsableOnboardingFields(parsedRecord);
     if (onboardingFieldCount === 0) {

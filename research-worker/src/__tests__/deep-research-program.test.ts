@@ -33,7 +33,13 @@ const citationSources = [
   { title: 'Ramp expense management', url: 'https://ramp.com/expense-management' },
   { title: 'Ramp procurement', url: 'https://ramp.com/procurement' },
   { title: 'Ramp pricing', url: 'https://ramp.com/pricing' },
+  { title: 'Ramp customers', url: 'https://ramp.com/customers' },
+  { title: 'Ramp integrations', url: 'https://ramp.com/integrations' },
+  { title: 'Ramp finance automation guide', url: 'https://ramp.com/blog/finance-automation' },
+  { title: 'Ramp approvals documentation', url: 'https://ramp.com/docs/approvals' },
 ] as const;
+
+type GenerateTextMock = ReturnType<typeof vi.mocked<typeof generateText>>;
 
 function onboardingField(value: string | null): {
   value: string | null;
@@ -118,6 +124,114 @@ function buildCorpusFixture(): Record<string, unknown> {
           confidence: 85,
         },
       ],
+      intelligenceTopics: [
+        {
+          topic: 'company_truth',
+          summary: 'Ramp combines spend management software with finance automation workflows.',
+          evidence: [
+            {
+              claim: 'Ramp presents itself as a spend management platform.',
+              source: 'Ramp homepage',
+              url: 'https://ramp.com/',
+              quote: 'Ramp describes its platform as helping businesses control spend.',
+              confidence: 90,
+            },
+            {
+              claim: 'Ramp corporate cards are a named product line.',
+              source: 'Ramp corporate card',
+              url: 'https://ramp.com/corporate-card',
+              quote: 'Ramp markets corporate cards as a spend-control product for businesses.',
+              confidence: 86,
+            },
+          ],
+        },
+        {
+          topic: 'market_category',
+          summary: 'Ramp competes in spend management and adjacent finance automation categories.',
+          evidence: [
+            {
+              claim: 'Ramp combines cards, expenses, bill pay, procurement, and reporting workflows.',
+              source: 'Ramp homepage',
+              url: 'https://ramp.com/',
+              quote: 'Ramp combines cards, expenses, bill pay, procurement, and reporting workflows.',
+              confidence: 85,
+            },
+          ],
+        },
+        {
+          topic: 'buyer_icp',
+          summary: 'Ramp is aimed at finance teams that need spend controls and workflow automation.',
+          evidence: [
+            {
+              claim: 'Ramp targets finance teams.',
+              source: 'Ramp homepage',
+              url: 'https://ramp.com/',
+              quote: 'Ramp positions finance automation for businesses and their finance teams.',
+              confidence: 83,
+            },
+            {
+              claim: 'Ramp publishes customer proof for businesses evaluating spend management.',
+              source: 'Ramp customers',
+              url: 'https://ramp.com/customers',
+              quote: 'Ramp customer pages present businesses using Ramp as buyer proof.',
+              confidence: 80,
+            },
+          ],
+        },
+        {
+          topic: 'competitors',
+          summary: 'Ramp positions against finance-stack alternatives through breadth across spend workflows.',
+          evidence: [
+            {
+              claim: 'Ramp includes procurement in the same spend platform.',
+              source: 'Ramp procurement',
+              url: 'https://ramp.com/procurement',
+              quote: 'Ramp procurement helps companies manage purchase intake and approvals.',
+              confidence: 84,
+            },
+          ],
+        },
+        {
+          topic: 'pricing_packaging',
+          summary: 'Ramp has public pricing and packaging information that downstream offer sections can use.',
+          evidence: [
+            {
+              claim: 'Ramp publishes pricing information.',
+              source: 'Ramp pricing',
+              url: 'https://ramp.com/pricing',
+              quote: 'Ramp pricing pages describe plan options for the product.',
+              confidence: 82,
+            },
+            {
+              claim: 'Ramp integrations extend the spend management package into connected finance systems.',
+              source: 'Ramp integrations',
+              url: 'https://ramp.com/integrations',
+              quote: 'Ramp integrations connect the platform to finance and operating systems.',
+              confidence: 78,
+            },
+          ],
+        },
+        {
+          topic: 'demand_intent',
+          summary: 'Ramp demand research can use finance automation and approval workflow topics.',
+          evidence: [
+            {
+              claim: 'Ramp publishes finance automation content.',
+              source: 'Ramp finance automation guide',
+              url: 'https://ramp.com/blog/finance-automation',
+              quote: 'Ramp finance automation content describes automation pains for finance teams.',
+              confidence: 76,
+            },
+            {
+              claim: 'Ramp approval documentation supports approval-workflow demand themes.',
+              source: 'Ramp approvals documentation',
+              url: 'https://ramp.com/docs/approvals',
+              quote: 'Ramp approval documentation describes approval controls for spend workflows.',
+              confidence: 76,
+            },
+          ],
+        },
+      ],
     },
     onboardingFields: {
       companyName: onboardingField('Ramp'),
@@ -147,6 +261,132 @@ function buildCorpusFixture(): Record<string, unknown> {
       demoUrl: onboardingField(null),
     },
   };
+}
+
+function buildTopicSupplementResults(): Array<{
+  output: Record<string, unknown>;
+  sources: ReadonlyArray<{ title: string; url: string }>;
+}> {
+  return [
+    {
+      sources: citationSources.slice(4, 7),
+      output: {
+        evidence: [
+          {
+            claim: 'Supplemental buyer proof names finance teams as the audience.',
+            source: 'Ramp customers',
+            url: 'https://ramp.com/customers',
+            quote: 'Ramp customer proof is aimed at finance teams evaluating spend controls.',
+            confidence: 78,
+          },
+        ],
+        intelligenceTopics: [
+          {
+            topic: 'buyer_icp',
+            summary: 'Supplemental fan-out found buyer proof for finance teams.',
+            evidence: [
+              {
+                claim: 'Supplemental buyer proof names finance teams as the audience.',
+                source: 'Ramp customers',
+                url: 'https://ramp.com/customers',
+                quote: 'Ramp customer proof is aimed at finance teams evaluating spend controls.',
+                confidence: 78,
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      sources: citationSources.slice(7, 8),
+      output: {
+        evidence: [
+          {
+            claim: 'Supplemental offer proof ties integrations to packaging depth.',
+            source: 'Ramp integrations',
+            url: 'https://ramp.com/integrations',
+            quote: 'Ramp integrations connect the platform to finance and operating systems.',
+            confidence: 76,
+          },
+        ],
+        intelligenceTopics: [
+          {
+            topic: 'offer_diagnostic',
+            summary: 'Supplemental fan-out found integration breadth as offer proof.',
+            evidence: [
+              {
+                claim: 'Supplemental offer proof ties integrations to packaging depth.',
+                source: 'Ramp integrations',
+                url: 'https://ramp.com/integrations',
+                quote: 'Ramp integrations connect the platform to finance and operating systems.',
+                confidence: 76,
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      sources: citationSources.slice(8, 10),
+      output: {
+        evidence: [
+          {
+            claim: 'Supplemental demand evidence names finance automation content.',
+            source: 'Ramp finance automation guide',
+            url: 'https://ramp.com/blog/finance-automation',
+            quote: 'Ramp finance automation content describes automation pains for finance teams.',
+            confidence: 76,
+          },
+          {
+            claim: 'Supplemental recent-event evidence names approval workflow documentation.',
+            source: 'Ramp approvals documentation',
+            url: 'https://ramp.com/docs/approvals',
+            quote: 'Ramp approval documentation describes approval controls for spend workflows.',
+            confidence: 76,
+          },
+        ],
+        intelligenceTopics: [
+          {
+            topic: 'demand_intent',
+            summary: 'Supplemental fan-out found finance automation demand evidence.',
+            evidence: [
+              {
+                claim: 'Supplemental demand evidence names finance automation content.',
+                source: 'Ramp finance automation guide',
+                url: 'https://ramp.com/blog/finance-automation',
+                quote: 'Ramp finance automation content describes automation pains for finance teams.',
+                confidence: 76,
+              },
+            ],
+          },
+          {
+            topic: 'recent_events',
+            summary: 'Supplemental fan-out found approval documentation as recent product context.',
+            evidence: [
+              {
+                claim: 'Supplemental recent-event evidence names approval workflow documentation.',
+                source: 'Ramp approvals documentation',
+                url: 'https://ramp.com/docs/approvals',
+                quote: 'Ramp approval documentation describes approval controls for spend workflows.',
+                confidence: 76,
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ];
+}
+
+function queueTopicFanoutResults(generateTextMock: GenerateTextMock): void {
+  for (const supplement of buildTopicSupplementResults()) {
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(
+        supplement.output,
+        supplement.sources,
+      ) as Awaited<ReturnType<typeof generateText>>,
+    );
+  }
 }
 
 function buildGenerateTextResult(
@@ -204,16 +444,24 @@ afterEach(() => {
 });
 
 describe('validateDeepResearchMinimums', () => {
-  it('passes only when the corpus has enough real Perplexity-cited sources and evidence', () => {
+  it('passes only when the corpus has enough real Perplexity-cited sources, evidence, and topic coverage', () => {
     const report = validateDeepResearchMinimums(
       buildCorpusFixture(),
       citationSources,
     );
 
     expect(report).toMatchObject({
-      evidenceCount: 8,
+      coveredTopics: [
+        'company_truth',
+        'market_category',
+        'buyer_icp',
+        'competitors',
+        'pricing_packaging',
+        'demand_intent',
+      ],
+      evidenceCount: 16,
       passed: true,
-      sourceCount: 6,
+      sourceCount: 10,
     });
     expect(report.errors).toEqual([]);
   });
@@ -231,6 +479,35 @@ describe('validateDeepResearchMinimums', () => {
     expect(report.fabricatedMatches).toContain('https://example.com/fake-ramp-report');
     expect(report.errors.some((error) => error.includes('fabricated'))).toBe(true);
   });
+
+  it('rejects shallow topic coverage before the worker can persist the corpus', () => {
+    const fixture = buildCorpusFixture();
+    const corpus = fixture.corpus as {
+      intelligenceTopics: Record<string, unknown>[];
+    };
+    corpus.intelligenceTopics = corpus.intelligenceTopics.slice(0, 1);
+
+    const report = validateDeepResearchMinimums(fixture, citationSources);
+
+    expect(report.passed).toBe(false);
+    expect(report.errors.some((error) => error.includes('corpus.intelligenceTopics'))).toBe(true);
+  });
+
+  it('rejects topic evidence URLs missing from captured Perplexity citations', () => {
+    const fixture = buildCorpusFixture();
+    const corpus = fixture.corpus as {
+      intelligenceTopics: Array<{
+        evidence: Array<{ url: string }>;
+      }>;
+    };
+    corpus.intelligenceTopics[0]!.evidence[0]!.url = 'https://ramp.com/uncited-topic';
+
+    const report = validateDeepResearchMinimums(fixture, citationSources);
+
+    expect(report.passed).toBe(false);
+    expect(report.ungroundedEvidenceUrls).toContain('https://ramp.com/uncited-topic');
+    expect(report.errors.some((error) => error.includes('corpus.evidence includes URLs missing'))).toBe(true);
+  });
 });
 
 describe('runDeepResearchProgram', () => {
@@ -240,9 +517,10 @@ describe('runDeepResearchProgram', () => {
     process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
     const corpusFixture = buildCorpusFixture();
     const generateTextMock = vi.mocked(generateText);
-    generateTextMock.mockResolvedValue(
+    generateTextMock.mockResolvedValueOnce(
       buildGenerateTextResult(corpusFixture) as Awaited<ReturnType<typeof generateText>>,
     );
+    queueTopicFanoutResults(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
     const result = await runDeepResearchProgram(
@@ -254,7 +532,7 @@ describe('runDeepResearchProgram', () => {
 
     expect(result.status).toBe('complete');
     expect(createPerplexity).toHaveBeenCalledWith({ apiKey: 'test-perplexity-key' });
-    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    expect(generateTextMock).toHaveBeenCalledTimes(4);
     const call = generateTextMock.mock.calls[0]?.[0] as {
       model?: { modelId?: string };
       output?: unknown;
@@ -263,8 +541,14 @@ describe('runDeepResearchProgram', () => {
     expect(call.model?.modelId).toBe('sonar-pro');
     expect(call.output).toBeDefined();
     expect(call.prompt).toContain('https://ramp.com');
-    expect(result.provenance?.citationCount).toBe(6);
+    expect(call.prompt).toContain('intelligenceTopics');
+    expect(call.prompt).toContain('multi-topic');
+    expect(generateTextMock.mock.calls[1]?.[0].prompt).toContain('company-market-buyers');
+    expect(generateTextMock.mock.calls[2]?.[0].prompt).toContain('competitors-pricing-offer');
+    expect(generateTextMock.mock.calls[3]?.[0].prompt).toContain('voc-demand-events');
+    expect(result.provenance?.citationCount).toBe(10);
     expect(result.telemetry?.model).toBe('sonar-pro');
+    expect(JSON.stringify(result.data)).toContain('Supplemental offer proof');
     expect(JSON.stringify(result.data)).not.toContain('example.com');
     expect(
       progress.some(
@@ -275,7 +559,7 @@ describe('runDeepResearchProgram', () => {
     ).toBe(true);
   });
 
-  it('runs a bounded supplemental sonar citation pass when the main corpus has fewer than six citations', async () => {
+  it('runs bounded topic fan-out when the main corpus has fewer than ten citations', async () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_AUTH_TOKEN;
     process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
@@ -288,18 +572,16 @@ describe('runDeepResearchProgram', () => {
     generateTextMock
       .mockResolvedValueOnce(
         buildGenerateTextResult(corpusFixture, citationSources.slice(0, 4)) as Awaited<ReturnType<typeof generateText>>,
-      )
-      .mockResolvedValueOnce(
-        buildGenerateTextResult({ supplemental: true }, citationSources.slice(4)) as Awaited<ReturnType<typeof generateText>>,
       );
+    queueTopicFanoutResults(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(2);
-    expect(result.provenance?.citationCount).toBe(6);
+    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(result.provenance?.citationCount).toBe(10);
   });
 
   it('re-repairs a corpus when the first repair still contains non-cited URLs', async () => {
@@ -364,24 +646,26 @@ describe('runDeepResearchProgram', () => {
     generateTextMock
       .mockResolvedValueOnce(
         buildGenerateTextResult(brokenCorpus, citationSources.slice(0, 4)) as Awaited<ReturnType<typeof generateText>>,
-      )
-      .mockResolvedValueOnce(
-        buildGenerateTextResult({ supplemental: true }, citationSources.slice(4)) as Awaited<ReturnType<typeof generateText>>,
-      )
+      );
+    queueTopicFanoutResults(generateTextMock);
+    generateTextMock
       .mockResolvedValueOnce(
         buildGenerateTextResult(firstRepair, []) as Awaited<ReturnType<typeof generateText>>,
-      )
+      );
+    queueTopicFanoutResults(generateTextMock);
+    generateTextMock
       .mockResolvedValueOnce(
         buildGenerateTextResult(corpusFixture, []) as Awaited<ReturnType<typeof generateText>>,
       );
+    queueTopicFanoutResults(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(generateTextMock).toHaveBeenCalledTimes(12);
     expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
-    expect(result.provenance?.citationCount).toBe(6);
+    expect(result.provenance?.citationCount).toBe(10);
   });
 });
