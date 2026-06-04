@@ -13,12 +13,15 @@ import {
 } from "@/lib/lab-engine/artifacts/schemas/cross-section-reasoning";
 import { validateCrossSectionReasoningMinimums } from "@/lib/lab-engine/artifacts/schemas/cross-section-reasoning";
 import type { SectionLanguageModel } from "@/lib/lab-engine/ai/models";
+import {
+  buildStrategicRubricPromptBlock,
+  STRATEGIC_KNEW_THAT_PASS_FLOOR,
+} from "@/lib/lab-engine/artifacts/strategic-rubric";
 
 const DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS = 45_000;
 const MAX_ARTIFACT_JSON_CHARS = 32_000;
 const STRATEGIC_CRITIC_PATTERN =
   /<strategic_critic>([\s\S]*?)<\/strategic_critic>/u;
-const KNEW_THAT_PASS_FLOOR = 0.4;
 
 const strategicCriticResponseSchema = z
   .object({
@@ -237,7 +240,7 @@ function validateKnewThatFloor(critique: StrategicCritique): void {
     (item) => item.verdict === "passes",
   ).length;
   const passShare = passCount / critique.items.length;
-  if (passShare < KNEW_THAT_PASS_FLOOR) {
+  if (passShare < STRATEGIC_KNEW_THAT_PASS_FLOOR) {
     throw new StrategicCriticError(
       `strategic critic knew-that pass share ${passCount}/${critique.items.length} is below 40%.`,
     );
@@ -355,6 +358,8 @@ function buildStrategicCriticPrompt(
     "- Deepen weak claims by making the tension, trade-off, second-order consequence, or inversion more specific.",
     "- Cut weak claims only when they cannot be deepened without new evidence.",
     "- Return a complete replacement `body` with exactly the same body keys.",
+    "",
+    buildStrategicRubricPromptBlock(),
     "",
     "Return only explanatory text if useful, then end with exactly one JSON tail:",
     '<strategic_critic>{"body":{...},"critique":{"summary":"one sentence","items":[{"path":"body.crossSectionThreads[0].claim","text":"final text reviewed","verdict":"passes|knew_that|too_vague|summary|unsupported","action":"kept|deepened|cut","rationale":"one sentence"}]}}</strategic_critic>',

@@ -56,7 +56,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ◐ Code gate green; live gate pending |
 | **T8** | Adversarial "so-what" critic pass | C. Insight | M | T1, T7 | ◐ Code gate green; live gate pending |
 | **T9** | Capstone rebuild — compressor → strategist | C. Insight | L | T6, T7 | ◐ Code gate green; live gate pending |
-| **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ☐ Not started |
+| **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ◐ Code gate green; live gate pending |
 | **T11** | Live E2E validation (Ramp + 2nd company) vs rubric | D. Gate | M | all | ☐ Not started |
 | **T12** | *(optional)* Cross-section memory at draft time | C. Insight | M | T1 | ☐ Optional |
 | **T13** | Deepen the initial corpus — the upstream foundation everything flows from | B. Richness / Foundation | M–L | — | ◐ Code gate green; live gate pending |
@@ -130,6 +130,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Goal:** Make "9/10 strategic" checkable. This gate sits **after** the truthgate — honesty is the price of admission, not the achievement.
 **Implement:** encode the rubric (8 properties: contrarian thesis / cross-section thread [absence caps at 6] / named tension w/ side / second-order / sequenced moves / kill-criteria / ≥40% sentences pass the "knew-that" sweep / conviction-without-false-certainty) as (a) the critic's scoring prompt (T8) and (b) a human/Claude sign-off checklist. Disqualifiers: reads like Wikipedia+brief → ceiling 5; no cross-section insight → ceiling 6; hedges everything → ceiling 6.
 **Verify:** the rubric reliably separates the current 6/10 Ramp specimen from a T6–T9 upgraded run.
+**2026-06-04 Codex evidence:** T10 code gate green. Added a pure strategic rubric module that exports the eight-property 9/10 checklist, disqualifier ceilings, knew-that pass-share scoring, artifact-backed scoring for committed T7/T9 outputs, and markdown/prompt renderers. The existing T8 strategic critic now embeds the same rubric prompt block while preserving fail-open behavior for non-abort critic failures; rubric scores remain advisory for T11 reports and do not block section completion, dispatch, or capstone commit. Proof: `pnpm exec tsc --noEmit` 0; focused T10 Vitest 3 files / 18 tests passed; `pnpm run test:run` 184 files passed / 1 skipped, 1564 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings. Live rubric scoring gate still pending.
 
 ### T11 — Live E2E validation `[D. Gate · M]`
 **Goal:** Prove the delta on real runs. **The live run is the gate, not the test suite.**

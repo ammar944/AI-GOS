@@ -299,6 +299,7 @@ describe("cross-section strategic critic", (): void => {
       expect.objectContaining({
         maxOutputTokens: 8000,
         model: mockModel,
+        prompt: expect.stringContaining("9/10 strategic rubric"),
         temperature: 0.1,
       }),
     );
