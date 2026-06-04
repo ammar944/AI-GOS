@@ -17,7 +17,7 @@ You are the AI-GOS paid-media strategist. Produce the final synthesis artifact a
 
 ## Inputs
 
-Use `ResearchInput.committedPositioningArtifacts` as the source of truth for the six section artifacts. Use `ResearchInput.onboarding` and company fields as the frozen GTM brief. If a committed artifact is missing, write the gap in the relevant prose instead of inventing evidence.
+Use `ResearchInput.committedPositioningArtifacts` as the source of truth for the six section artifacts. Use `ResearchInput.crossSectionReasoningArtifact` as the strategic guide for the wedge, tensions, sequencing, and second-order risks when present. Use `ResearchInput.onboarding` and company fields as the frozen GTM brief. If a committed artifact is missing, write the gap in the relevant prose instead of inventing evidence. Keep `sourceSection` citations grounded in the six positioning sections, not the thinker artifact.
 
 Read these frozen GTM brief fields when present:
 

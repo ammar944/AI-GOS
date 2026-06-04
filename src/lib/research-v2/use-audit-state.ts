@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { AuditStateResponse, WorkerStatus } from '@/app/api/research-v2/audit-state/route';
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
@@ -51,6 +52,37 @@ function hasPaidMediaPlanStarted(state: AuditStateResponse): boolean {
   );
 }
 
+function hasCrossSectionReasoningStarted(state: AuditStateResponse): boolean {
+  return (
+    state.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
+    state.workerStates.some(
+      (workerState) => workerState.section_id === CROSS_SECTION_REASONING_SECTION_ID,
+    )
+  );
+}
+
+function isCrossSectionReasoningComplete(state: AuditStateResponse): boolean {
+  const worker = state.workerStates.find(
+    (workerState) => workerState.section_id === CROSS_SECTION_REASONING_SECTION_ID,
+  );
+
+  return (
+    state.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
+    worker?.status === 'complete'
+  );
+}
+
+function isCrossSectionReasoningTerminal(state: AuditStateResponse): boolean {
+  const worker = state.workerStates.find(
+    (workerState) => workerState.section_id === CROSS_SECTION_REASONING_SECTION_ID,
+  );
+
+  return (
+    state.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
+    (worker !== undefined && TERMINAL.has(worker.status))
+  );
+}
+
 function isPaidMediaPlanTerminal(state: AuditStateResponse): boolean {
   const paidMediaWorker = state.workerStates.find(
     (workerState) => workerState.section_id === PAID_MEDIA_PLAN_SECTION_ID,
@@ -91,6 +123,28 @@ async function dispatchPaidMediaPlan(
     throw new DispatchHttpError(
       response.status,
       `Paid media plan dispatch failed for runId=${runId} status=${response.status}`,
+    );
+  }
+}
+
+async function dispatchCrossSectionReasoning(
+  runId: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/research-v2/run-lab-section', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      run_id: runId,
+      section_id: CROSS_SECTION_REASONING_SECTION_ID,
+    }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new DispatchHttpError(
+      response.status,
+      `Cross-section reasoning dispatch failed for runId=${runId} status=${response.status}`,
     );
   }
 }
@@ -170,6 +224,7 @@ export function useAuditState(
 ): AuditStateResponse {
   const [state, setState] = useState<AuditStateResponse>(EMPTY);
   const cancelled = useRef(false);
+  const dispatchedCrossSectionReasoningRunIds = useRef<Set<string>>(new Set());
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
   const dispatchedSynthesisRunIds = useRef<Set<string>>(new Set());
 
@@ -195,12 +250,28 @@ export function useAuditState(
         setState(next);
 
         const sixComplete = hasSixPositioningSectionsComplete(next);
+        const crossSectionReasoningComplete =
+          isCrossSectionReasoningComplete(next);
 
-        // The paid-media plan and the synthesis capstone both gate on 6/6 and
-        // dispatch in parallel — they are independent reads of the committed
-        // positioning artifacts.
-        const shouldDispatchPaidMediaPlan =
+        const shouldDispatchCrossSectionReasoning =
           sixComplete &&
+          !hasCrossSectionReasoningStarted(next) &&
+          !dispatchedCrossSectionReasoningRunIds.current.has(runId);
+        if (shouldDispatchCrossSectionReasoning) {
+          dispatchedCrossSectionReasoningRunIds.current.add(runId);
+          try {
+            await dispatchCrossSectionReasoning(runId, dispatchAbort.signal);
+          } catch (error) {
+            dispatchedCrossSectionReasoningRunIds.current.delete(runId);
+            logDispatchError('cross-section reasoning', runId, error);
+          }
+        }
+
+        // Synthesis and paid media gate on the thinker stage, not just 6/6.
+        // They still dispatch in parallel once the cross-section reasoning
+        // artifact commits.
+        const shouldDispatchPaidMediaPlan =
+          crossSectionReasoningComplete &&
           !hasPaidMediaPlanStarted(next) &&
           !dispatchedMediaPlanRunIds.current.has(runId);
         if (shouldDispatchPaidMediaPlan) {
@@ -214,7 +285,7 @@ export function useAuditState(
         }
 
         const shouldDispatchSynthesis =
-          sixComplete &&
+          crossSectionReasoningComplete &&
           !hasPositioningSynthesisStarted(next) &&
           !dispatchedSynthesisRunIds.current.has(runId);
         if (shouldDispatchSynthesis) {
@@ -227,7 +298,11 @@ export function useAuditState(
           }
         }
 
-        if (shouldDispatchPaidMediaPlan || shouldDispatchSynthesis) {
+        if (
+          shouldDispatchCrossSectionReasoning ||
+          shouldDispatchPaidMediaPlan ||
+          shouldDispatchSynthesis
+        ) {
           schedule();
           return;
         }
@@ -235,11 +310,13 @@ export function useAuditState(
         const allTerminal =
           next.workerStates.length > 0 &&
           next.workerStates.every((w) => TERMINAL.has(w.status));
-        const waitingForCapstones =
+        const waitingForPostSix =
           sixComplete &&
-          (!isPaidMediaPlanTerminal(next) ||
-            !isPositioningSynthesisTerminal(next));
-        if (!allTerminal || waitingForCapstones) schedule();
+          (!isCrossSectionReasoningTerminal(next) ||
+            (crossSectionReasoningComplete &&
+              (!isPaidMediaPlanTerminal(next) ||
+                !isPositioningSynthesisTerminal(next))));
+        if (!allTerminal || waitingForPostSix) schedule();
       } catch {
         schedule();
       }

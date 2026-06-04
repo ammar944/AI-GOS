@@ -46,6 +46,13 @@ const synthesisDefinition = {
   sectionOutputSchemaName: "PositioningSynthesisSectionOutput",
 } satisfies PromptSectionDefinition;
 
+const crossSectionReasoningDefinition = {
+  title: "Cross-Section Reasoning",
+  mission: "Find non-obvious strategic threads across committed artifacts.",
+  outputEmphasis: ["cross-section threads"],
+  sectionOutputSchemaName: "CrossSectionReasoningSectionOutput",
+} satisfies PromptSectionDefinition;
+
 function buildScopedResearchInput(): ResearchInput {
   const marketExcerpt = {
     id: "excerpt_market",
@@ -83,6 +90,7 @@ function buildScopedResearchInput(): ResearchInput {
         positioningVoiceOfCustomer: [],
         positioningDemandIntent: [],
         positioningOfferDiagnostic: [],
+        positioningCrossSectionReasoning: [],
         positioningSynthesis: [],
         positioningPaidMediaPlan: [],
       },
@@ -384,6 +392,20 @@ describe("buildStructuredPrompt", (): void => {
     expect(noToolPrompt).not.toContain(
       "share the generic `maxExternalLookups` pool",
     );
+  });
+
+  it("adds Cross-Section Reasoning thinker guidance", (): void => {
+    const prompt = buildStructuredPrompt({
+      definition: crossSectionReasoningDefinition,
+      evidenceTranscript: "Committed artifacts are available in ResearchInput.",
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Cross-Section Reasoning",
+    });
+
+    expect(prompt).toContain("CrossSectionReasoningSectionOutput");
+    expect(prompt).toContain("sourceSections[]");
+    expect(prompt).toContain("never use `gtmBrief`");
+    expect(prompt).toContain("cover at least four of the six");
   });
 });
 

@@ -53,7 +53,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T4** | Real VoC review bodies — port the stranded extractor | B. Richness | M | — | ◐ Code gate green; live gate pending |
 | **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ◐ Code gate green; live gate pending |
 | **T6** | Depth-forcing skills (shared strategic preamble + verdict fields) | C. Insight | M | — | ◐ Code gate green; live gate pending |
-| **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ☐ Not started |
+| **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ◐ Code gate green; live gate pending |
 | **T8** | Adversarial "so-what" critic pass | C. Insight | M | T1, T7 | ☐ Not started |
 | **T9** | Capstone rebuild — compressor → strategist | C. Insight | L | T6, T7 | ☐ Not started |
 | **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ☐ Not started |
@@ -110,6 +110,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** `run-section.ts` commit flow + the orchestrate fan-out; `positioning-synthesis` skill + schema (today: forbidden to re-research, counts `sourceSection` citations per-document — structurally optimizes *against* cross-section insight).
 **Implement:** a new reasoning stage with output fields that can't be compressed: `crossSectionThreads[] { claim, sourceSections[≥2], whyNonObvious }`, `clientBlindSpot`, `namedTension { side, costAccepted }`, `secondOrderRisk`, `contrarianInversion`. Validator requires each thread to cite **≥2 distinct sections**. Frontier model (DG-1). Output feeds T9.
 **Verify:** live run produces ≥1 genuine cross-section thread (a claim false/invisible in any single section). **Depends on T1, T2.**
+**2026-06-04 Codex evidence:** T7 code gate green. Added `positioningCrossSectionReasoning` as a post-six thinker stage: six core sections complete first, thinker runs on committed six-section artifacts via `strategyModel`, and synthesis/paid media are blocked until the thinker artifact commits. The schema/validator require cross-section threads with ≥2 distinct committed section refs and overall coverage of ≥4 sections; the reader order is six -> thinker -> synthesis -> paid media; the SQL seed migration keeps the thinker out of the six-section rollup with `counts_toward_rollup=false`. Post-six reruns now use `/api/research-v2/rerun-section`, reset the target row, rebuild committed-artifact input, and schedule instead of no-oping on `already_complete`. Proof: focused rerun fix suite 4 files / 54 tests passed; expanded T7 Vitest 15 files / 114 tests passed; `pnpm exec tsc --noEmit` 0; `pnpm run test:run` 180 files / 1527 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings; QA re-review GO. Live cross-section insight gate still pending.
 
 ### T8 — Adversarial "so-what" critic pass `[C. Insight · M]`
 **Goal:** A frontier-model adversary that attacks every strategic sentence with: *"a senior GTM consultant reads this and says 'so what — I knew that.' True?"* Sentences that fail are killed or sent back to deepen. Same machine as the evidence verifier, pointed at *insight density* instead of grounding.

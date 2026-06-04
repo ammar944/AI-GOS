@@ -64,13 +64,20 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       maxExternalLookups: 0,
       requiredEvidenceClasses: [],
     });
+    expect(SECTION_REGISTRY.positioningCrossSectionReasoning).toMatchObject({
+      skillSlug: "positioning-cross-section-reasoning",
+      allowedTools: [],
+      maxExternalLookups: 0,
+      requiredEvidenceClasses: [],
+    });
   });
 });
 
-describe("positioningSynthesis registration", (): void => {
-  it("registers exactly eight sections including the synthesis capstone", (): void => {
+describe("post-six section registration", (): void => {
+  it("registers exactly nine sections including the thinker and capstones", (): void => {
     const ids = Object.keys(SECTION_REGISTRY);
-    expect(ids).toHaveLength(8);
+    expect(ids).toHaveLength(9);
+    expect(ids).toContain("positioningCrossSectionReasoning");
     expect(ids).toContain("positioningSynthesis");
   });
 
@@ -80,9 +87,16 @@ describe("positioningSynthesis registration", (): void => {
   it("keeps synthesis out of the six-section parent rollup", (): void => {
     expect(POSITIONING_SECTION_IDS).toHaveLength(6);
     expect(POSITIONING_SECTION_IDS as readonly string[]).not.toContain(
+      "positioningCrossSectionReasoning",
+    );
+    expect(POSITIONING_SECTION_IDS as readonly string[]).not.toContain(
       "positioningSynthesis",
     );
+    expect(isPositioningSectionId("positioningCrossSectionReasoning")).toBe(false);
     expect(isPositioningSectionId("positioningSynthesis")).toBe(false);
+    expect(ALL_POSITIONING_SECTION_IDS as readonly string[]).toContain(
+      "positioningCrossSectionReasoning",
+    );
     expect(ALL_POSITIONING_SECTION_IDS as readonly string[]).toContain(
       "positioningSynthesis",
     );

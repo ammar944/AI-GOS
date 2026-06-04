@@ -231,6 +231,7 @@ function buildSaaslaunchInputWithVoiceOfCustomerCandidates(): ResearchInput {
         positioningVoiceOfCustomer: vocExcerpts,
         positioningDemandIntent: [],
         positioningOfferDiagnostic: [],
+        positioningCrossSectionReasoning: [],
         positioningSynthesis: [],
         positioningPaidMediaPlan: [],
       },

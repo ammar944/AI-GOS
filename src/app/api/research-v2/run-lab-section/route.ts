@@ -5,6 +5,7 @@ import { z, ZodError } from 'zod';
 import { jsonError, requireApiUser } from '@/lib/auth/app-access';
 import {
   ALL_POSITIONING_SECTION_IDS,
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
@@ -44,11 +45,14 @@ const RequestSchema = z.object({
 type RequestBody = z.infer<typeof RequestSchema>;
 
 // The paid-media plan and the synthesis capstone both read the six committed
-// positioning artifacts (and need the parent audit run id to load them).
+// positioning artifacts plus the cross-section reasoning artifact (and need the
+// parent audit run id to load them). The thinker reads the six committed
+// positioning artifacts only.
 function requiresCommittedPositioningArtifacts(
   sectionId: AllPositioningSectionId,
 ): boolean {
   return (
+    sectionId === CROSS_SECTION_REASONING_SECTION_ID ||
     sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
     sectionId === POSITIONING_SYNTHESIS_SECTION_ID
   );
@@ -57,6 +61,9 @@ function requiresCommittedPositioningArtifacts(
 function getDispatchZones(
   sectionId: AllPositioningSectionId,
 ): readonly AllPositioningSectionId[] {
+  if (sectionId === CROSS_SECTION_REASONING_SECTION_ID) {
+    return [CROSS_SECTION_REASONING_SECTION_ID];
+  }
   if (sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
     return [PAID_MEDIA_PLAN_SECTION_ID];
   }
@@ -74,10 +81,12 @@ function isCommittedPositioningArtifactRow(
 
 async function buildCommittedArtifactsResearchInput({
   baseResearchInput,
+  includeCrossSectionReasoningArtifact,
   parentAuditRunId,
   supabase,
 }: {
   baseResearchInput: ResearchInput;
+  includeCrossSectionReasoningArtifact: boolean;
   parentAuditRunId: string;
   supabase: ReturnType<typeof createAdminClient>;
 }): Promise<
@@ -92,7 +101,12 @@ async function buildCommittedArtifactsResearchInput({
     .select('zone, data')
     .eq('artifact_id', parentAuditRunId)
     .eq('status', 'complete')
-    .in('zone', [...POSITIONING_SECTION_IDS]);
+    .in('zone', [
+      ...POSITIONING_SECTION_IDS,
+      ...(includeCrossSectionReasoningArtifact
+        ? [CROSS_SECTION_REASONING_SECTION_ID]
+        : []),
+    ]);
 
   if (error) {
     return {
@@ -109,6 +123,11 @@ async function buildCommittedArtifactsResearchInput({
 
   const rows = ((data ?? []) as Array<{ zone: string | null; data: unknown }>)
     .filter(isCommittedPositioningArtifactRow);
+  const crossSectionReasoningArtifact = includeCrossSectionReasoningArtifact
+    ? ((data ?? []) as Array<{ zone: string | null; data: unknown }>).find(
+        (row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID,
+      )?.data
+    : undefined;
   const committedPositioningArtifacts = Object.fromEntries(
     rows.map((row) => [row.zone, row.data]),
   ) as Partial<Record<PositioningSectionId, unknown>>;
@@ -129,11 +148,30 @@ async function buildCommittedArtifactsResearchInput({
     };
   }
 
+  if (
+    includeCrossSectionReasoningArtifact &&
+    crossSectionReasoningArtifact === undefined
+  ) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'cross_section_reasoning_not_ready',
+          missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
+        },
+        { status: 409 },
+      ),
+    };
+  }
+
   return {
     ok: true,
     researchInput: researchInputSchema.parse({
       ...baseResearchInput,
       committedPositioningArtifacts,
+      ...(crossSectionReasoningArtifact === undefined
+        ? {}
+        : { crossSectionReasoningArtifact }),
     }),
   };
 }
@@ -298,6 +336,9 @@ export async function POST(request: Request): Promise<Response> {
     const capstoneResearchInput = needsCommittedArtifacts
       ? await buildCommittedArtifactsResearchInput({
           baseResearchInput,
+          includeCrossSectionReasoningArtifact:
+            body.section_id === PAID_MEDIA_PLAN_SECTION_ID ||
+            body.section_id === POSITIONING_SYNTHESIS_SECTION_ID,
           parentAuditRunId: requireParentAuditRunId(capstoneParent),
           supabase,
         })

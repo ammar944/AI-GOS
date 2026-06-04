@@ -76,6 +76,14 @@ const sectionScopeKeywords = {
     "pricing",
     "guarantee",
   ],
+  positioningCrossSectionReasoning: [
+    "strategy",
+    "tension",
+    "blind spot",
+    "risk",
+    "inversion",
+    "cross-section",
+  ],
   positioningSynthesis: [
     "positioning",
     "wedge",

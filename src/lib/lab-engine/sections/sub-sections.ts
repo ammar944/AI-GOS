@@ -155,6 +155,13 @@ export const SECTION_SUB_SECTIONS: Record<
     { key: "recommendedMove", label: "Recommended move" },
     { key: "messagingDirections", label: "Messaging directions" },
   ],
+  positioningCrossSectionReasoning: [
+    { key: "crossSectionThreads", label: "Cross-section threads" },
+    { key: "clientBlindSpot", label: "Client blind spot" },
+    { key: "namedTension", label: "Named tension" },
+    { key: "secondOrderRisk", label: "Second-order risk" },
+    { key: "contrarianInversion", label: "Contrarian inversion" },
+  ],
   positioningPaidMediaPlan: [
     { key: "campaignOverview", label: "Campaign overview" },
     { key: "campaignPhases", label: "Campaign phases" },

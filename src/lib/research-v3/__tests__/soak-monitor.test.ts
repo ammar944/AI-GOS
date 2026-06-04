@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluateSoakHealth } from '@/lib/research-v3/soak-monitor';
 
 describe('soak monitor health evaluation', () => {
-  it('reports healthy complete when parent, six sections, and paid media are complete', (): void => {
+  it('reports healthy complete when parent, six sections, thinker, and capstones are complete', (): void => {
     const result = evaluateSoakHealth({
       now: '2026-05-26T12:10:00.000Z',
       previousChildrenComplete: 6,
@@ -21,6 +21,8 @@ describe('soak monitor health evaluation', () => {
           'positioningVoiceOfCustomer',
           'positioningDemandIntent',
           'positioningOfferDiagnostic',
+          'positioningCrossSectionReasoning',
+          'positioningSynthesis',
           'positioningPaidMediaPlan',
         ].map((zone) => ({
           zone,

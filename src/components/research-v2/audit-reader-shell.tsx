@@ -70,6 +70,7 @@ import type {
   WorkerStatus,
 } from '@/app/api/research-v2/audit-state/route';
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SYNTHESIS_SECTION_ID,
   READER_SECTION_IDS,
@@ -105,6 +106,7 @@ const SECTION_SHORT_LABEL: Record<ReaderSectionId, string> = {
   positioningVoiceOfCustomer: 'Voice of Customer',
   positioningDemandIntent: 'Demand / Intent',
   positioningOfferDiagnostic: 'Offer Diagnostic',
+  positioningCrossSectionReasoning: 'Thinker',
   positioningSynthesis: 'Synthesis',
   positioningPaidMediaPlan: 'Paid Media Plan',
 };
@@ -388,12 +390,23 @@ function ReviewedSectionMarkdown({
   );
 }
 
-function sectionStatusSubline(status: ReaderSectionStatus): string {
+function sectionStatusSubline(
+  status: ReaderSectionStatus,
+  sectionId: ReaderSectionId,
+): string {
   if (status === 'complete') return 'Complete';
   if (status === 'error') return 'Needs review';
   if (status === 'aborted') return 'Aborted';
-  if (status === 'ready') return 'Ready after 6/6';
-  if (status === 'locked') return 'Locked until 6/6';
+  if (status === 'ready') {
+    return sectionId === CROSS_SECTION_REASONING_SECTION_ID
+      ? 'Ready after 6/6'
+      : 'Ready after thinker';
+  }
+  if (status === 'locked') {
+    return sectionId === CROSS_SECTION_REASONING_SECTION_ID
+      ? 'Locked until 6/6'
+      : 'Locked until thinker';
+  }
   if (status === 'running') return 'Running';
   if (status === 'queued') return 'Queued';
   return status;
@@ -765,7 +778,7 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          const subLine = sectionStatusSubline(status);
+          const subLine = sectionStatusSubline(status, id);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -1026,6 +1039,9 @@ export function AuditReaderShell({
   }, [live.sectionsByZone]);
 
   const sixSectionsComplete = isSixSectionComplete(live);
+  const crossSectionReasoningComplete =
+    live.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
+    workerById.get(CROSS_SECTION_REASONING_SECTION_ID)?.status === 'complete';
 
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {
@@ -1036,16 +1052,23 @@ export function AuditReaderShell({
       if (worker?.status === 'complete' || live.sectionsByZone[id]) {
         return 'complete';
       }
-      // Both capstones unlock only after 6/6 positioning sections commit.
+      if (id === CROSS_SECTION_REASONING_SECTION_ID) {
+        return sixSectionsComplete ? 'ready' : 'locked';
+      }
       if (
         id === PAID_MEDIA_PLAN_SECTION_ID ||
         id === POSITIONING_SYNTHESIS_SECTION_ID
       ) {
-        return sixSectionsComplete ? 'ready' : 'locked';
+        return crossSectionReasoningComplete ? 'ready' : 'locked';
       }
       return 'queued';
     },
-    [live.sectionsByZone, sixSectionsComplete, workerById],
+    [
+      crossSectionReasoningComplete,
+      live.sectionsByZone,
+      sixSectionsComplete,
+      workerById,
+    ],
   );
 
 
@@ -1240,28 +1263,12 @@ export function AuditReaderShell({
     async (sectionId: ReaderSectionId) => {
       setRerunPending(sectionId);
       try {
-        // The capstones (paid-media plan + synthesis) read the committed
-        // positioning artifacts and dispatch via run-lab-section. The
-        // rerun-section endpoint only accepts the six POSITIONING_SECTION_IDS,
-        // so routing a capstone there 400s.
-        const isCapstoneSection =
-          sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
-          sectionId === POSITIONING_SYNTHESIS_SECTION_ID;
-        const res = await fetch(
-          isCapstoneSection
-            ? '/api/research-v2/run-lab-section'
-            : '/api/research-v2/rerun-section',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify(
-              isCapstoneSection
-                ? { run_id: runId, section_id: sectionId }
-                : { runId, zone: sectionId, executionMode: 'lab' },
-            ),
-          },
-        );
+        const res = await fetch('/api/research-v2/rerun-section', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ runId, zone: sectionId, executionMode: 'lab' }),
+        });
         if (!res.ok) {
           console.warn('[audit-reader-shell] rerun-section failed', {
             runId,
@@ -1463,8 +1470,8 @@ export function AuditReaderShell({
                   events={activeEvents}
                   statusText={
                     activeStatus === 'ready'
-                      ? 'Ready after 6/6 sections complete.'
-                      : 'Locked - unlocks after 6/6 sections complete.'
+                      ? 'Ready to run.'
+                      : 'Locked - unlocks after cross-section reasoning completes.'
                   }
                 />
               ) : (

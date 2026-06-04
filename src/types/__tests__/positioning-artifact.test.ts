@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
+import { crossSectionReasoningFixtureArtifact } from '@/lib/lab-engine/fixtures/cross-section-reasoning-artifact';
 import { demandIntentFixtureArtifact } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { offerDiagnosticFixtureArtifact } from '@/lib/lab-engine/fixtures/offer-diagnostic-artifact';
@@ -73,7 +74,7 @@ const labEnvelope: PositioningTypedArtifact = {
 };
 
 interface LabFixtureCase {
-  zoneId: PositioningSectionId;
+  zoneId: AllPositioningSectionId;
   artifact: PositioningTypedArtifact;
   expectedBodyKeys: readonly string[];
 }
@@ -160,6 +161,17 @@ const labFixtureCases: readonly LabFixtureCase[] = [
       'retentionHealth',
       'singleBindingConstraint',
       'strategicInsight',
+    ],
+  },
+  {
+    zoneId: 'positioningCrossSectionReasoning',
+    artifact: crossSectionReasoningFixtureArtifact,
+    expectedBodyKeys: [
+      'clientBlindSpot',
+      'contrarianInversion',
+      'crossSectionThreads',
+      'namedTension',
+      'secondOrderRisk',
     ],
   },
 ];

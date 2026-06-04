@@ -34,6 +34,11 @@ export {
 } from './paid-media-plan';
 
 export {
+  CrossSectionReasoningRenderer,
+  type CrossSectionReasoningRendererProps,
+} from './cross-section-reasoning';
+
+export {
   PositioningSynthesisRenderer,
   type PositioningSynthesisRendererProps,
 } from './positioning-synthesis';

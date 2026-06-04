@@ -1,4 +1,4 @@
-// Phase 5 — retry a single positioning section through the lab engine.
+// Phase 5 — retry a single positioning or post-six section through the lab engine.
 //
 // Body: { runId, zone, executionMode? }
 //
@@ -10,13 +10,27 @@
 import { auth } from '@clerk/nextjs/server';
 import { after, NextResponse } from 'next/server';
 
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  ALL_POSITIONING_SECTION_IDS,
+  CROSS_SECTION_REASONING_SECTION_ID,
+  PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
+} from '@/lib/ai/prompts/positioning-skills';
+import type {
+  AllPositioningSectionId,
+  PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 import {
   OrchestrateRpcError,
   resetSectionRunForRerun,
 } from '@/lib/research-v2/orchestrate-db';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
+import {
+  researchInputSchema,
+  type ResearchInput,
+} from '@/lib/lab-engine/artifacts/artifact-envelope';
+import { isSupportedSectionId } from '@/lib/lab-engine/sections/section-registry';
 import { scheduleLabSectionJob } from '@/lib/research-v2/lab-section-dispatch';
 import {
   corpusReady,
@@ -45,8 +59,33 @@ function readString(value: unknown): string | null {
     : null;
 }
 
-function isPositioningZone(value: string): boolean {
-  return (POSITIONING_SECTION_IDS as readonly string[]).includes(value);
+function isRerunnableZone(value: string): boolean {
+  return (ALL_POSITIONING_SECTION_IDS as readonly string[]).includes(value);
+}
+
+function requiresCommittedPositioningArtifacts(
+  sectionId: AllPositioningSectionId,
+): boolean {
+  return (
+    sectionId === CROSS_SECTION_REASONING_SECTION_ID ||
+    sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
+    sectionId === POSITIONING_SYNTHESIS_SECTION_ID
+  );
+}
+
+function shouldIncludeCrossSectionReasoningArtifact(
+  sectionId: AllPositioningSectionId,
+): boolean {
+  return (
+    sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
+    sectionId === POSITIONING_SYNTHESIS_SECTION_ID
+  );
+}
+
+function isCommittedPositioningArtifactRow(
+  row: { zone: string | null; data: unknown },
+): row is { zone: PositioningSectionId; data: unknown } {
+  return (POSITIONING_SECTION_IDS as readonly string[]).includes(row.zone ?? '');
 }
 
 async function abortIfRunning(opts: {
@@ -74,6 +113,102 @@ async function abortIfRunning(opts: {
   }
 }
 
+async function buildCommittedArtifactsResearchInput({
+  baseResearchInput,
+  includeCrossSectionReasoningArtifact,
+  parentAuditRunId,
+  supabase,
+}: {
+  baseResearchInput: ResearchInput;
+  includeCrossSectionReasoningArtifact: boolean;
+  parentAuditRunId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+}): Promise<
+  | { ok: true; researchInput: ResearchInput }
+  | {
+      ok: false;
+      response: NextResponse;
+    }
+> {
+  const { data, error } = await supabase
+    .from('research_artifact_sections')
+    .select('zone, data')
+    .eq('artifact_id', parentAuditRunId)
+    .eq('status', 'complete')
+    .in('zone', [
+      ...POSITIONING_SECTION_IDS,
+      ...(includeCrossSectionReasoningArtifact
+        ? [CROSS_SECTION_REASONING_SECTION_ID]
+        : []),
+    ]);
+
+  if (error) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'committed_artifacts_lookup_failed',
+          message: error.message,
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  const rawRows = (data ?? []) as Array<{ zone: string | null; data: unknown }>;
+  const rows = rawRows.filter(isCommittedPositioningArtifactRow);
+  const crossSectionReasoningArtifact = includeCrossSectionReasoningArtifact
+    ? rawRows.find((row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID)
+        ?.data
+    : undefined;
+  const committedPositioningArtifacts = Object.fromEntries(
+    rows.map((row) => [row.zone, row.data]),
+  ) as Partial<Record<PositioningSectionId, unknown>>;
+  const missingSections = POSITIONING_SECTION_IDS.filter(
+    (sectionId) => committedPositioningArtifacts[sectionId] === undefined,
+  );
+
+  if (missingSections.length > 0) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'positioning_sections_not_ready',
+          missing_sections: missingSections,
+        },
+        { status: 409 },
+      ),
+    };
+  }
+
+  if (
+    includeCrossSectionReasoningArtifact &&
+    crossSectionReasoningArtifact === undefined
+  ) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'cross_section_reasoning_not_ready',
+          missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
+        },
+        { status: 409 },
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    researchInput: researchInputSchema.parse({
+      ...baseResearchInput,
+      committedPositioningArtifacts,
+      ...(crossSectionReasoningArtifact === undefined
+        ? {}
+        : { crossSectionReasoningArtifact }),
+    }),
+  };
+}
+
 export async function POST(req: Request): Promise<NextResponse> {
   const { userId } = await auth();
   if (!userId) {
@@ -93,13 +228,19 @@ export async function POST(req: Request): Promise<NextResponse> {
       { status: 400 },
     );
   }
-  if (!isPositioningZone(zone)) {
+  if (!isRerunnableZone(zone)) {
     return NextResponse.json(
-      { error: `zone "${zone}" is not a positioning section` },
+      { error: `zone "${zone}" is not a rerunnable positioning section` },
       { status: 400 },
     );
   }
-  const positioningZone = zone as PositioningSectionId;
+  if (!isSupportedSectionId(zone)) {
+    return NextResponse.json(
+      { error: `zone "${zone}" is not supported by the lab engine` },
+      { status: 400 },
+    );
+  }
+  const positioningZone = zone as AllPositioningSectionId;
 
   if (
     body.executionMode !== undefined &&
@@ -133,14 +274,15 @@ export async function POST(req: Request): Promise<NextResponse> {
     .eq('user_id', userId)
     .eq('run_id', runId)
     .maybeSingle();
+  const parentAuditRunId = typeof artifact?.id === 'string' ? artifact.id : null;
 
   let activeSectionRunId: string | null = null;
   let sectionStatus: string | null = null;
-  if (artifact) {
+  if (parentAuditRunId) {
     const { data: section } = await supabase
       .from('research_artifact_sections')
       .select('section_run_id, status')
-      .eq('artifact_id', artifact.id)
+      .eq('artifact_id', parentAuditRunId)
       .eq('zone', zone)
       .maybeSingle();
 
@@ -202,12 +344,44 @@ export async function POST(req: Request): Promise<NextResponse> {
       supabase,
       userId,
     });
-    const researchInput = corpusToResearchInput({
+    const baseResearchInput = corpusToResearchInput({
       runId,
       deepResearchProgramData,
       onboardingData: session.onboarding_data ?? {},
       ...(uploadedDocuments.length > 0 ? { uploadedDocuments } : {}),
     });
+    const needsCommittedArtifacts = requiresCommittedPositioningArtifacts(
+      positioningZone,
+    );
+    let committedResearchInput: Awaited<
+      ReturnType<typeof buildCommittedArtifactsResearchInput>
+    > | { ok: true; researchInput: ResearchInput };
+
+    if (needsCommittedArtifacts) {
+      if (!parentAuditRunId) {
+        return NextResponse.json(
+          {
+            error: 'positioning_sections_not_ready',
+            missing_parent: true,
+          },
+          { status: 409 },
+        );
+      }
+      committedResearchInput = await buildCommittedArtifactsResearchInput({
+          baseResearchInput,
+          includeCrossSectionReasoningArtifact:
+            shouldIncludeCrossSectionReasoningArtifact(positioningZone),
+          parentAuditRunId,
+          supabase,
+        });
+    } else {
+      committedResearchInput = { ok: true, researchInput: baseResearchInput };
+    }
+
+    if (!committedResearchInput.ok) {
+      return committedResearchInput.response;
+    }
+
     await resetSectionRunForRerun({
       supabase,
       userId,
@@ -220,7 +394,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       sectionId: positioningZone,
       zones: [positioningZone],
       supabase,
-      researchInput,
+      researchInput: committedResearchInput.researchInput,
       schedule: after,
     });
 

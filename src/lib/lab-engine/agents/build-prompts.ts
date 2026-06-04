@@ -33,6 +33,7 @@ const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
   VoiceOfCustomerSectionOutput: "positioningVoiceOfCustomer",
   DemandIntentSectionOutput: "positioningDemandIntent",
   OfferDiagnosticSectionOutput: "positioningOfferDiagnostic",
+  CrossSectionReasoningSectionOutput: "positioningCrossSectionReasoning",
   PositioningSynthesisSectionOutput: "positioningSynthesis",
   PaidMediaPlanSectionOutput: "positioningPaidMediaPlan",
 };
@@ -554,6 +555,20 @@ function buildSectionMinimumGuidance(
       "- `body.salesProcess` is an object with `prose` and `assets[]`; each asset has exactly `label`, `url`, `assetType`, where assetType is `sop-doc` or `loom`. If no asset URL exists, use an empty array and explain the gap in prose.",
       "- `body.channelSuggestions` is an object with `prose` and `suggestions[]`; each suggestion has exactly `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`, where verdict is `keep`, `fix`, `cut`, or `start`.",
       "- `body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`; `gtmMotion` must be `SLG` or `PLG`; each KPI has exactly `metric`, `role`, `definition`.",
+    ];
+  }
+
+  if (definition.sectionOutputSchemaName === "CrossSectionReasoningSectionOutput") {
+    return [
+      "- CrossSectionReasoningSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
+      "- CrossSectionReasoningSectionOutput source refs use exactly `sourceSections[]` items with `sectionId`, `sourceUrl`, and optional `sourceTitle`.",
+      "- CrossSectionReasoningSectionOutput sectionId values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, or `positioningOfferDiagnostic`; never use `gtmBrief`.",
+      "- `body` keys are exactly `crossSectionThreads`, `clientBlindSpot`, `namedTension`, `secondOrderRisk`, and `contrarianInversion`. Do not emit other keys.",
+      "- `body.crossSectionThreads[]` items have exactly `claim`, `sourceSections`, and `whyNonObvious`; provide 1-6 focused threads.",
+      "- Every thread and grounded strategic claim must cite at least two distinct committed section IDs through `sourceSections`.",
+      "- `body.clientBlindSpot`, `body.secondOrderRisk`, and `body.contrarianInversion` are objects with exactly `claim`, `sourceSections`, and `whyItMatters`.",
+      "- `body.namedTension` is an object with exactly `tension`, `side`, `costAccepted`, and `sourceSections`; `side` must choose one side and `costAccepted` must name what the client gives up.",
+      "- Across the artifact, cover at least four of the six committed sections. Do not write a single-section insight or a generic summary.",
     ];
   }
 

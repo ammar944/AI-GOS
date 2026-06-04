@@ -24,6 +24,16 @@ export const PAID_MEDIA_PLAN_SECTION_ID = 'positioningPaidMediaPlan' as const;
 
 export type PaidMediaPlanSectionId = typeof PAID_MEDIA_PLAN_SECTION_ID;
 
+// Cross-section reasoning stage. Reads the six committed positioning artifacts
+// and emits the non-obvious threads that later capstones should consume. It is
+// NOT a member of POSITIONING_SECTION_IDS, so it never counts toward the
+// six-section parent rollup.
+export const CROSS_SECTION_REASONING_SECTION_ID =
+  'positioningCrossSectionReasoning' as const;
+
+export type CrossSectionReasoningSectionId =
+  typeof CROSS_SECTION_REASONING_SECTION_ID;
+
 // Cross-section synthesis capstone. Reads the six committed positioning
 // artifacts and emits one recommended wedge + 2-3 divergent angles. It is NOT a
 // member of POSITIONING_SECTION_IDS (the 6-section parent-rollup key) so it
@@ -35,6 +45,7 @@ export type PositioningSynthesisSectionId =
 
 export const ALL_POSITIONING_SECTION_IDS = [
   ...POSITIONING_SECTION_IDS,
+  CROSS_SECTION_REASONING_SECTION_ID,
   POSITIONING_SYNTHESIS_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
 ] as const;
@@ -68,6 +79,7 @@ export const POSITIONING_SECTION_LABELS: Record<PositioningSectionId, string> = 
 
 export const ALL_POSITIONING_SECTION_LABELS: Record<AllPositioningSectionId, string> = {
   ...POSITIONING_SECTION_LABELS,
+  [CROSS_SECTION_REASONING_SECTION_ID]: 'Cross-Section Reasoning',
   [POSITIONING_SYNTHESIS_SECTION_ID]: 'Positioning Synthesis',
   [PAID_MEDIA_PLAN_SECTION_ID]: 'Paid Media Plan',
 };

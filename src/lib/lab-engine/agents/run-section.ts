@@ -23,7 +23,11 @@ import {
   checkVoiceOfCustomerSelfSourcing,
   type VoiceOfCustomerEvidenceGapClassification,
 } from "../artifacts/schemas/voice-of-customer";
-import { sectionRunnerModel } from "../ai/models";
+import {
+  sectionRunnerModel,
+  strategyModel,
+  type SectionLanguageModel,
+} from "../ai/models";
 import {
   activityEventSchema,
   type ActivityEvent,
@@ -1194,6 +1198,16 @@ const positioningSynthesisGenerationSchema = z
     verdict: z.unknown(),
   })
   .passthrough();
+const crossSectionReasoningGenerationSchema = z
+  .object({
+    body: z.unknown(),
+    confidence: z.unknown(),
+    sectionTitle: z.unknown(),
+    sources: z.unknown(),
+    statusSummary: z.unknown(),
+    verdict: z.unknown(),
+  })
+  .passthrough();
 
 function getPositiveIntegerEnvValue(key: string): number | undefined {
   const rawValue = process.env[key]?.trim();
@@ -1229,6 +1243,10 @@ function getStructuredOutputMaxTokens(
 function getStructuredGenerationSchema(
   definition: RuntimeSectionDefinition,
 ): z.ZodType<unknown> {
+  if (definition.id === "positioningCrossSectionReasoning") {
+    return crossSectionReasoningGenerationSchema;
+  }
+
   if (definition.id === "positioningSynthesis") {
     return positioningSynthesisGenerationSchema;
   }
@@ -1238,6 +1256,14 @@ function getStructuredGenerationSchema(
   }
 
   return definition.sectionOutputSchema;
+}
+
+function getGenerationModel(
+  definition: RuntimeSectionDefinition,
+): SectionLanguageModel {
+  return definition.id === "positioningCrossSectionReasoning"
+    ? strategyModel
+    : sectionRunnerModel;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -3538,7 +3564,7 @@ async function callStructuredAttempt({
   try {
     const rawOutput = await withStructuredTimeout(
       callStructured({
-        model: sectionRunnerModel,
+        model: getGenerationModel(definition),
         schema: getStructuredGenerationSchema(definition),
         schemaName: definition.sectionOutputSchemaName,
         schemaDescription: `${definition.title} section output for AI-GOS AI SDK Lab.`,
@@ -6785,7 +6811,7 @@ export async function runSection(
 
   try {
     evidenceResult = await runEvidencePass({
-      model: sectionRunnerModel,
+      model: getGenerationModel(definition),
       instructions: [
         `You are the AI-GOS section analyst for ${definition.title}.`,
         `Mission: ${definition.mission}`,

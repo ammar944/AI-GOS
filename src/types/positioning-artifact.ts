@@ -1,6 +1,7 @@
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import type { BuyerICPBody } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
 import type { CompetitorLandscapeBody } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import type { CrossSectionReasoningBody } from '@/lib/lab-engine/artifacts/schemas/cross-section-reasoning';
 import type { DemandIntentBody } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type {
   SectionReviewResult,
@@ -43,6 +44,8 @@ export type OfferPerformanceArtifact = PositioningTypedArtifact &
 export type PaidMediaPlanArtifact = PositioningTypedArtifact & PaidMediaPlanBody;
 export type PositioningSynthesisArtifact = PositioningTypedArtifact &
   PositioningSynthesisBody;
+export type CrossSectionReasoningArtifact = PositioningTypedArtifact &
+  CrossSectionReasoningBody;
 
 const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly string[]> = {
   positioningMarketCategory: ['marketCategoryArtifact'],
@@ -51,6 +54,7 @@ const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly stri
   positioningVoiceOfCustomer: ['voiceOfCustomerArtifact', 'vocArtifact'],
   positioningDemandIntent: ['demandIntentArtifact'],
   positioningOfferDiagnostic: ['offerPerformanceArtifact', 'offerDiagnosticArtifact'],
+  positioningCrossSectionReasoning: ['crossSectionReasoningArtifact'],
   positioningSynthesis: ['positioningSynthesisArtifact'],
   positioningPaidMediaPlan: ['paidMediaPlanArtifact'],
 };

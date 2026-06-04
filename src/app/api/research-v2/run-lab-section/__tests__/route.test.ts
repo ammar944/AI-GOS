@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import type {
   AllPositioningSectionId,
@@ -224,6 +226,36 @@ function paidMediaSeededRows(): SeededRows {
   };
 }
 
+function synthesisSeededRows(): SeededRows {
+  return {
+    parent_audit_run_id: PARENT_ID,
+    section_run_ids: [
+      {
+        section_id: POSITIONING_SYNTHESIS_SECTION_ID,
+        section_run_id: '55555555-5555-4555-8555-555555555555',
+        ordinal: 8,
+        reused: false,
+        status: 'queued',
+      },
+    ],
+  };
+}
+
+function crossSectionReasoningSeededRows(): SeededRows {
+  return {
+    parent_audit_run_id: PARENT_ID,
+    section_run_ids: [
+      {
+        section_id: CROSS_SECTION_REASONING_SECTION_ID,
+        section_run_id: '44444444-4444-4444-8444-444444444444',
+        ordinal: 7,
+        reused: false,
+        status: 'queued',
+      },
+    ],
+  };
+}
+
 function claimResult(
   status: 'claimed' | 'already_running',
   sectionRunId = '22222222-2222-4222-8222-000000000002',
@@ -249,6 +281,19 @@ function committedPositioningRows(): Array<{
         ? { sectionTitle: zone, body: { evidenceGap: true } }
         : { sectionTitle: zone },
   }));
+}
+
+function committedRowsWithCrossSectionReasoning(): Array<{
+  zone: PositioningSectionId | typeof CROSS_SECTION_REASONING_SECTION_ID;
+  data: { body?: { evidenceGap: true }; sectionTitle: string };
+}> {
+  return [
+    ...committedPositioningRows(),
+    {
+      zone: CROSS_SECTION_REASONING_SECTION_ID,
+      data: { sectionTitle: 'Cross-Section Reasoning' },
+    },
+  ];
 }
 
 function validResearchInput(): Record<string, unknown> {
@@ -604,9 +649,67 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
   });
 
-  it('dispatches the paid media plan as a dependent one-section wave with committed artifacts', async (): Promise<void> => {
+  it('dispatches cross-section reasoning as a dependent one-section wave with committed artifacts', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.seedOrchestration.mockResolvedValue(crossSectionReasoningSeededRows());
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '44444444-4444-4444-8444-444444444444',
+        CROSS_SECTION_REASONING_SECTION_ID,
+      ),
+    );
+    mockOwnedSession();
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: CROSS_SECTION_REASONING_SECTION_ID,
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(routeMocks.seedOrchestration).toHaveBeenCalledWith({
+      userId: 'user_1',
+      runId: VALID_RUN_ID,
+      zones: [CROSS_SECTION_REASONING_SECTION_ID],
+    });
+    expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
+      'zone',
+      [...POSITIONING_SECTION_IDS],
+    );
+    expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentAuditRunId: PARENT_ID,
+        sectionRunIdByZone: {
+          [CROSS_SECTION_REASONING_SECTION_ID]:
+            '44444444-4444-4444-8444-444444444444',
+        },
+        researchInput: expect.objectContaining({
+          committedPositioningArtifacts: Object.fromEntries(
+            committedPositioningRows().map((row) => [row.zone, row.data]),
+          ),
+        }),
+      }),
+    );
+
+    await drainAfter();
+
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
+      runId: VALID_RUN_ID,
+      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+      signal: expect.any(AbortSignal),
+      store: routeMocks.store,
+    });
+  });
+
+  it('dispatches the paid media plan as a dependent one-section wave with committed artifacts and thinker output', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
+    routeMocks.committedSectionsQuery.in.mockResolvedValue({
+      data: committedRowsWithCrossSectionReasoning(),
+      error: null,
+    });
     routeMocks.claimSectionRun.mockResolvedValue(
       claimResult(
         'claimed',
@@ -631,7 +734,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
     expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
       'zone',
-      [...POSITIONING_SECTION_IDS],
+      [...POSITIONING_SECTION_IDS, CROSS_SECTION_REASONING_SECTION_ID],
     );
     expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -643,6 +746,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
           committedPositioningArtifacts: Object.fromEntries(
             committedPositioningRows().map((row) => [row.zone, row.data]),
           ),
+          crossSectionReasoningArtifact: {
+            sectionTitle: 'Cross-Section Reasoning',
+          },
         }),
       }),
     );
@@ -669,5 +775,61 @@ describe('POST /api/research-v2/run-lab-section', () => {
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
     });
+  });
+
+  it('blocks paid media dispatch until cross-section reasoning is committed', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '33333333-3333-4333-8333-333333333333',
+        PAID_MEDIA_PLAN_SECTION_ID,
+      ),
+    );
+    mockOwnedSession();
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: PAID_MEDIA_PLAN_SECTION_ID,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'cross_section_reasoning_not_ready',
+      missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
+    });
+    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
+    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('blocks synthesis dispatch until cross-section reasoning is committed', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.seedOrchestration.mockResolvedValue(synthesisSeededRows());
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '55555555-5555-4555-8555-555555555555',
+        POSITIONING_SYNTHESIS_SECTION_ID,
+      ),
+    );
+    mockOwnedSession();
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: POSITIONING_SYNTHESIS_SECTION_ID,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'cross_section_reasoning_not_ready',
+      missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
+    });
+    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
+    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 });

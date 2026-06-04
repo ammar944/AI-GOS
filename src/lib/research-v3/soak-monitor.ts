@@ -1,6 +1,8 @@
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '../ai/prompts/positioning-skills';
 
 export interface SoakArtifactSnapshot {
@@ -77,6 +79,8 @@ function hasCompleteRun(sectionRuns: SoakSectionRunSnapshot[], zone: string): bo
 function hasAllTerminalSections(sectionRuns: SoakSectionRunSnapshot[]): boolean {
   return (
     POSITIONING_SECTION_IDS.every((zone) => hasCompleteRun(sectionRuns, zone)) &&
+    hasCompleteRun(sectionRuns, CROSS_SECTION_REASONING_SECTION_ID) &&
+    hasCompleteRun(sectionRuns, POSITIONING_SYNTHESIS_SECTION_ID) &&
     hasCompleteRun(sectionRuns, PAID_MEDIA_PLAN_SECTION_ID)
   );
 }

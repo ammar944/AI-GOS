@@ -19,6 +19,13 @@ import {
   type CompetitorLandscapeSectionOutput,
 } from "../artifacts/schemas/competitor-landscape";
 import {
+  crossSectionReasoningBodySchema,
+  crossSectionReasoningSectionOutputSchema,
+  validateCrossSectionReasoningMinimums,
+  type CrossSectionReasoningBody,
+  type CrossSectionReasoningSectionOutput,
+} from "../artifacts/schemas/cross-section-reasoning";
+import {
   demandIntentBodySchema,
   demandIntentSectionOutputSchema,
   validateDemandIntentMinimums,
@@ -63,6 +70,7 @@ import {
 } from "../artifacts/schemas/voice-of-customer";
 import { buyerICPFixtureArtifact } from "../fixtures/buyer-icp-artifact";
 import { competitorLandscapeFixtureArtifact } from "../fixtures/competitor-landscape-artifact";
+import { crossSectionReasoningFixtureArtifact } from "../fixtures/cross-section-reasoning-artifact";
 import { demandIntentFixtureArtifact } from "../fixtures/demand-intent-artifact";
 import { marketCategoryFixtureArtifact } from "../fixtures/market-category-artifact";
 import { offerDiagnosticFixtureArtifact } from "../fixtures/offer-diagnostic-artifact";
@@ -294,6 +302,29 @@ export const SECTION_REGISTRY = {
     validateMinimums: validatePositioningSynthesisMinimums,
     fixtureArtifact: positioningSynthesisFixtureArtifact,
   },
+  positioningCrossSectionReasoning: {
+    id: "positioningCrossSectionReasoning",
+    title: "Cross-Section Reasoning",
+    skillSlug: "positioning-cross-section-reasoning",
+    mission:
+      "Read the six committed positioning artifacts and identify non-obvious strategic threads, client blind spots, named tensions, second-order risks, and contrarian inversions that no single section can see alone.",
+    outputEmphasis: [
+      "cross-section threads",
+      "client blind spot",
+      "named tension",
+      "second-order risk",
+      "contrarian inversion",
+    ],
+    sectionOutputSchemaName: "CrossSectionReasoningSectionOutput",
+    structuredOutputMaxTokens: 8192,
+    allowedTools: [],
+    maxExternalLookups: 0,
+    requiredEvidenceClasses: [],
+    bodySchema: crossSectionReasoningBodySchema,
+    sectionOutputSchema: crossSectionReasoningSectionOutputSchema,
+    validateMinimums: validateCrossSectionReasoningMinimums,
+    fixtureArtifact: crossSectionReasoningFixtureArtifact,
+  },
   positioningPaidMediaPlan: {
     id: "positioningPaidMediaPlan",
     title: "Paid Media Plan",
@@ -343,6 +374,10 @@ export const SECTION_REGISTRY = {
   positioningSynthesis: SectionDefinition<
     PositioningSynthesisBody,
     PositioningSynthesisSectionOutput
+  >;
+  positioningCrossSectionReasoning: SectionDefinition<
+    CrossSectionReasoningBody,
+    CrossSectionReasoningSectionOutput
   >;
   positioningPaidMediaPlan: SectionDefinition<
     PaidMediaPlanBody,

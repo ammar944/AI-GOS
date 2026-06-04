@@ -9,6 +9,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
@@ -522,6 +523,9 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   // terminal row.
   const byZone = new Map<string, WorkerStateReadModel>();
   const sectionRows = sectionsResp.data ?? [];
+  const hasCrossSectionReasoningRow =
+    runRows.some((row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID) ||
+    sectionRows.some((row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID);
   const hasPaidMediaPlanRow =
     runRows.some((row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID) ||
     sectionRows.some((row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID);
@@ -534,6 +538,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   // derivedChildrenComplete filters to isPositioningSectionId (the 6).
   const workerSectionIds: readonly AllPositioningSectionId[] = [
     ...POSITIONING_SECTION_IDS,
+    ...(hasCrossSectionReasoningRow ? [CROSS_SECTION_REASONING_SECTION_ID] : []),
     ...(hasSynthesisRow ? [POSITIONING_SYNTHESIS_SECTION_ID] : []),
     ...(hasPaidMediaPlanRow ? [PAID_MEDIA_PLAN_SECTION_ID] : []),
   ];

@@ -4,11 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+import { crossSectionReasoningFixtureArtifact } from '@/lib/lab-engine/fixtures/cross-section-reasoning-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { positioningSynthesisFixtureArtifact } from '@/lib/lab-engine/fixtures/positioning-synthesis-artifact';
@@ -233,10 +235,14 @@ describe('<AuditReaderShell>', () => {
       children_total: 6,
       workerStates: [
         ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
         completeWorker(POSITIONING_SYNTHESIS_SECTION_ID),
         completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
       ],
       sectionsByZone: {
+        [CROSS_SECTION_REASONING_SECTION_ID]: {
+          data: crossSectionReasoningFixtureArtifact,
+        },
         [PAID_MEDIA_PLAN_SECTION_ID]: {
           data: paidMediaPlanFixtureArtifact,
         },
@@ -250,7 +256,7 @@ describe('<AuditReaderShell>', () => {
       />,
     );
 
-    expect(screen.getByText('Section 8 of 8')).toBeInTheDocument();
+    expect(screen.getByText('Section 9 of 9')).toBeInTheDocument();
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
@@ -336,7 +342,7 @@ describe('<AuditReaderShell>', () => {
     expect(onSectionChange).toHaveBeenCalledWith('positioningBuyerICP');
   });
 
-  it('shows paid media as locked before all six positioning sections complete', (): void => {
+  it('shows the thinker as locked before all six positioning sections complete', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -353,11 +359,11 @@ describe('<AuditReaderShell>', () => {
 
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /paid media plan.*locked until 6\/6/i }),
+      screen.getByRole('button', { name: /thinker.*locked until 6\/6/i }),
     ).toBeEnabled();
   });
 
-  it('shows paid media as ready after six sections complete but before the terminal starts', (): void => {
+  it('shows the thinker as ready after six sections complete but keeps paid media locked', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -374,7 +380,36 @@ describe('<AuditReaderShell>', () => {
 
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /paid media plan.*ready after 6\/6/i }),
+      screen.getByRole('button', { name: /thinker.*ready after 6\/6/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /paid media plan.*locked until thinker/i }),
+    ).toBeEnabled();
+  });
+
+  it('shows paid media as ready after cross-section reasoning completes', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
+      ],
+      sectionsByZone: {
+        [CROSS_SECTION_REASONING_SECTION_ID]: {
+          data: crossSectionReasoningFixtureArtifact,
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /paid media plan.*ready after thinker/i }),
     ).toBeEnabled();
   });
 
@@ -522,8 +557,8 @@ describe('<AuditReaderShell>', () => {
       <AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />,
     );
 
-    expect(screen.getByText('Section 1 of 8')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Section 1 of 8')).toBeInTheDocument());
+    expect(screen.getByText('Section 1 of 9')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Section 1 of 9')).toBeInTheDocument());
 
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -543,7 +578,7 @@ describe('<AuditReaderShell>', () => {
     });
     rerender(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Section 1 of 8')).toBeInTheDocument();
+    expect(screen.getByText('Section 1 of 9')).toBeInTheDocument();
     expect(vi.mocked(HTMLElement.prototype.scrollTo)).not.toHaveBeenCalled();
   });
 
@@ -771,7 +806,7 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByRole('button', { name: /^rerun$/i })).toBeEnabled();
   });
 
-  it('reruns paid media through the one-section lab route', async (): Promise<void> => {
+  it('reruns paid media through the rerun route so completed rows reset before scheduling', async (): Promise<void> => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     const submitMock = vi.fn((event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -808,19 +843,70 @@ describe('<AuditReaderShell>', () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/research-v2/run-lab-section',
+        '/api/research-v2/rerun-section',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
-            run_id: '00000000-0000-4000-8000-0000000000aa',
-            section_id: PAID_MEDIA_PLAN_SECTION_ID,
+            runId: '00000000-0000-4000-8000-0000000000aa',
+            zone: PAID_MEDIA_PLAN_SECTION_ID,
+            executionMode: 'lab',
           }),
         }),
       ),
     );
   });
 
-  it('reruns synthesis through the one-section lab route, not rerun-section', async (): Promise<void> => {
+  it('reruns cross-section reasoning through the rerun route so completed rows reset before scheduling', async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    const submitMock = vi.fn((event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
+      ],
+      sectionsByZone: {
+        [CROSS_SECTION_REASONING_SECTION_ID]: {
+          data: crossSectionReasoningFixtureArtifact,
+        },
+      },
+    });
+
+    render(
+      <form onSubmit={submitMock}>
+        <AuditReaderShell
+          runId="00000000-0000-4000-8000-0000000000aa"
+          activeSectionId={CROSS_SECTION_REASONING_SECTION_ID}
+        />
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^rerun$/i }));
+    expect(submitMock).not.toHaveBeenCalled();
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/research-v2/rerun-section',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            runId: '00000000-0000-4000-8000-0000000000aa',
+            zone: CROSS_SECTION_REASONING_SECTION_ID,
+            executionMode: 'lab',
+          }),
+        }),
+      ),
+    );
+  });
+
+  it('reruns synthesis through the rerun route so completed rows reset before scheduling', async (): Promise<void> => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     const submitMock = vi.fn((event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -857,12 +943,13 @@ describe('<AuditReaderShell>', () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/research-v2/run-lab-section',
+        '/api/research-v2/rerun-section',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
-            run_id: '00000000-0000-4000-8000-0000000000aa',
-            section_id: POSITIONING_SYNTHESIS_SECTION_ID,
+            runId: '00000000-0000-4000-8000-0000000000aa',
+            zone: POSITIONING_SYNTHESIS_SECTION_ID,
+            executionMode: 'lab',
           }),
         }),
       ),

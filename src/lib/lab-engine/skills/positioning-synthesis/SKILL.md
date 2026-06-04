@@ -26,6 +26,10 @@ positioning decision.
 Use `ResearchInput.committedPositioningArtifacts` as the source of truth. These
 six artifacts are already committed and stable — do NOT re-run or re-fetch them,
 and do not call external tools. Synthesis is a pure read of what is already known.
+When `ResearchInput.crossSectionReasoningArtifact` is present, use it as the
+strategic guide for the wedge, tensions, and non-obvious threads. Continue to
+cite the underlying six positioning sections in `sourceSection`; do not cite the
+thinker artifact as a replacement for evidence.
 
 ## Operating Principles
 

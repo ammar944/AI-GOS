@@ -231,6 +231,7 @@ export const researchInputSchema = z
       )
       .optional(),
     committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
+    crossSectionReasoningArtifact: z.unknown().optional(),
     _capabilities: z
       .object({
         capabilityGaps: z.array(
