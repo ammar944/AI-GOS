@@ -82,4 +82,40 @@ describe('activityEventSchema tool metadata', (): void => {
       }),
     ).toThrow();
   });
+
+  it('accepts strategic critic activity metadata', (): void => {
+    expect(
+      activityEventSchema.parse({
+        ...baseEvent,
+        id: 'event-4',
+        message: 'Strategic critic started',
+        sectionId: 'positioningCrossSectionReasoning',
+        type: 'strategic-critic-started',
+        metadata: {
+          target: 'cross_section_reasoning',
+        },
+      }).metadata,
+    ).toEqual({
+      target: 'cross_section_reasoning',
+    });
+
+    expect(
+      activityEventSchema.parse({
+        ...baseEvent,
+        id: 'event-5',
+        message: 'Strategic critic finished',
+        sectionId: 'positioningCrossSectionReasoning',
+        type: 'strategic-critic-finished',
+        metadata: {
+          outcome: 'upgraded',
+          summary: 'The critic deepened the main thread.',
+          target: 'cross_section_reasoning',
+        },
+      }).metadata,
+    ).toEqual({
+      outcome: 'upgraded',
+      summary: 'The critic deepened the main thread.',
+      target: 'cross_section_reasoning',
+    });
+  });
 });

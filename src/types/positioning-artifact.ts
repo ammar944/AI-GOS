@@ -5,6 +5,7 @@ import type { CrossSectionReasoningBody } from '@/lib/lab-engine/artifacts/schem
 import type { DemandIntentBody } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type {
   SectionReviewResult,
+  StrategicCritique,
   VerificationReportEnvelope,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import type { MarketCategoryBody } from '@/lib/lab-engine/artifacts/schemas/market-category';
@@ -29,6 +30,7 @@ export interface PositioningTypedArtifact {
   sources: PositioningArtifactSource[];
   verification?: VerificationReportEnvelope;
   review?: SectionReviewResult;
+  strategicCritique?: StrategicCritique;
   [key: string]: unknown;
 }
 
@@ -178,6 +180,9 @@ function normalizePickedArtifact(
     sources: validSources,
     ...(found.verification === undefined ? {} : { verification: found.verification }),
     ...(found.review === undefined ? {} : { review: found.review }),
+    ...(found.strategicCritique === undefined
+      ? {}
+      : { strategicCritique: found.strategicCritique }),
   };
 }
 

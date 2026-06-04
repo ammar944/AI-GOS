@@ -10,6 +10,10 @@ import {
   type ResearchInput,
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
+import {
+  crossSectionReasoningBodySchema,
+  type CrossSectionReasoningArtifact,
+} from "../artifacts/schemas/cross-section-reasoning";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
@@ -24,6 +28,7 @@ import {
   type VoiceOfCustomerEvidenceGapClassification,
 } from "../artifacts/schemas/voice-of-customer";
 import {
+  STRATEGY_MODEL_ID,
   sectionRunnerModel,
   strategyModel,
   type SectionLanguageModel,
@@ -76,6 +81,9 @@ import {
   type StructuredStreamer,
 } from "./section-agent";
 import { createLabSectionTelemetry } from "./telemetry";
+import {
+  applyCrossSectionStrategicCritic,
+} from "./strategic-critic";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
 import { SectionToolBudget, ToolBudget } from "./budget";
@@ -622,6 +630,87 @@ function verifySectionBody({
     corpusExcerpts: researchInput.corpus.excerpts,
     onboarding: researchInput.onboarding,
   });
+}
+
+async function applyStrategicCriticIfNeeded({
+  artifact,
+  committedAttempt,
+  deps,
+  evidenceSteps,
+  input,
+  researchInput,
+}: {
+  artifact: ArtifactEnvelope;
+  committedAttempt: AttemptResult;
+  deps: RunSectionDeps;
+  evidenceSteps: readonly AgentStep[];
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): Promise<{ artifact: ArtifactEnvelope; committedAttempt: AttemptResult }> {
+  if (input.sectionId !== "positioningCrossSectionReasoning") {
+    return { artifact, committedAttempt };
+  }
+
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "strategic-critic-started",
+      message: "Strategic critic started",
+      metadata: { target: "cross_section_reasoning" },
+    }),
+  );
+
+  const critique = await applyCrossSectionStrategicCritic({
+    artifact: artifact as CrossSectionReasoningArtifact,
+    checkedAt: getNow(deps).toISOString(),
+    model: strategyModel,
+    modelId: STRATEGY_MODEL_ID,
+    signal: input.signal,
+  });
+  let nextArtifact = critique.artifact;
+  let nextAttempt = committedAttempt;
+
+  if (critique.outcome === "upgraded") {
+    const verification = verifySectionBody({
+      body: nextArtifact.body,
+      evidenceSteps,
+      researchInput,
+    });
+    nextArtifact = artifactEnvelopeSchema
+      .extend({ body: crossSectionReasoningBodySchema })
+      .parse({
+        ...nextArtifact,
+        verification,
+      });
+    nextAttempt = {
+      ...committedAttempt,
+      artifact: nextArtifact,
+      evidenceSupportShortfall: evaluateEvidenceSupport({ verification }),
+    };
+  }
+
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "strategic-critic-finished",
+      message: "Strategic critic finished",
+      metadata: {
+        target: "cross_section_reasoning",
+        outcome: critique.outcome,
+        summary: shortenForEvent(critique.summary, 240),
+      },
+    }),
+  );
+
+  return { artifact: nextArtifact, committedAttempt: nextAttempt };
 }
 
 function buildToolEvents({
@@ -7022,6 +7111,17 @@ export async function runSection(
       });
     }
   }
+
+  const strategicCriticResult = await applyStrategicCriticIfNeeded({
+    artifact,
+    committedAttempt,
+    deps,
+    evidenceSteps,
+    input,
+    researchInput,
+  });
+  artifact = strategicCriticResult.artifact;
+  committedAttempt = strategicCriticResult.committedAttempt;
 
   // Evidence gate. The structured path has no grounding repair loop, so this is
   // fail-and-degrade: when the threshold is exceeded the section fails instead

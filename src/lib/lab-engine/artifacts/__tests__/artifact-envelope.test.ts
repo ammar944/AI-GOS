@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { verificationReportSchema } from "../artifact-envelope";
+import { crossSectionReasoningFixtureArtifact } from "../../fixtures/cross-section-reasoning-artifact";
+import { artifactEnvelopeSchema, verificationReportSchema } from "../artifact-envelope";
 
 describe("verificationReportSchema", (): void => {
   it("accepts user-provided sources and entailment verdict metadata", (): void => {
@@ -46,6 +47,34 @@ describe("verificationReportSchema", (): void => {
           entailmentVerdict: "refuted",
         }),
       ]),
+    );
+  });
+});
+
+describe("artifactEnvelopeSchema", (): void => {
+  it("accepts optional strategic critic metadata", (): void => {
+    const artifact = artifactEnvelopeSchema.parse({
+      ...crossSectionReasoningFixtureArtifact,
+      strategicCritique: {
+        target: "cross_section_reasoning",
+        checkedAt: "2026-06-04T13:00:00.000Z",
+        modelId: "claude-opus-4-5",
+        summary: "The critic deepened one thread and kept the tension.",
+        items: [
+          {
+            action: "deepened",
+            path: "body.crossSectionThreads[0].claim",
+            rationale:
+              "The final claim names the trade-off and consequence.",
+            text: "Final cross-section claim.",
+            verdict: "passes",
+          },
+        ],
+      },
+    });
+
+    expect(artifact.strategicCritique?.target).toBe(
+      "cross_section_reasoning",
     );
   });
 });

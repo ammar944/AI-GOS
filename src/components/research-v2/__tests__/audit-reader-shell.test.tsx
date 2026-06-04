@@ -226,6 +226,58 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByText('Structured evidence')).toBeInTheDocument();
   });
 
+  it('renders strategic critic metadata for critiqued cross-section reasoning', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
+      ],
+      sectionsByZone: {
+        [CROSS_SECTION_REASONING_SECTION_ID]: {
+          data: {
+            ...crossSectionReasoningFixtureArtifact,
+            strategicCritique: {
+              checkedAt: '2026-06-04T13:00:00.000Z',
+              items: [
+                {
+                  action: 'deepened',
+                  path: 'body.crossSectionThreads[0].claim',
+                  rationale:
+                    'The critic made the implementation-delay trade-off specific.',
+                  text: 'The upgraded strategic claim.',
+                  verdict: 'passes',
+                },
+              ],
+              modelId: 'claude-opus-4-5',
+              summary: 'The critic deepened the main cross-section thread.',
+              target: 'cross_section_reasoning',
+            },
+          },
+        },
+      },
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId={CROSS_SECTION_REASONING_SECTION_ID}
+      />,
+    );
+
+    expect(screen.getByText('Strategic critic')).toBeInTheDocument();
+    expect(
+      screen.getByText('The critic deepened the main cross-section thread.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/implementation-delay trade-off specific/i),
+    ).toBeInTheDocument();
+  });
+
   it('renders the paid media terminal and hides the progress strip when every section is terminal', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -994,6 +1046,72 @@ describe('<AuditReaderShell>', () => {
       marketCategoryFixtureArtifact.body.categoryDefinition.prose,
     );
     expect(copiedText).toContain('## Sources');
+  });
+
+  it('does not copy strategic critic metadata as artifact body markdown', async (): Promise<void> => {
+    const writeText = vi.fn(async (text: string): Promise<void> => {
+      void text;
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
+      ],
+      sectionsByZone: {
+        [CROSS_SECTION_REASONING_SECTION_ID]: {
+          data: {
+            ...crossSectionReasoningFixtureArtifact,
+            strategicCritique: {
+              checkedAt: '2026-06-04T13:00:00.000Z',
+              items: [
+                {
+                  action: 'deepened',
+                  path: 'body.crossSectionThreads[0].claim',
+                  rationale:
+                    'The critic made the implementation-delay trade-off specific.',
+                  text: 'The upgraded strategic claim.',
+                  verdict: 'passes',
+                },
+              ],
+              modelId: 'claude-opus-4-5',
+              summary: 'The critic deepened the main cross-section thread.',
+              target: 'cross_section_reasoning',
+            },
+          },
+        },
+      },
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId={CROSS_SECTION_REASONING_SECTION_ID}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /copy/i }));
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        expect.stringContaining('Cross-Section Reasoning'),
+      ),
+    );
+    const copiedText = writeText.mock.calls[0]?.[0];
+    expect(copiedText).toContain('## Cross Section Threads');
+    expect(copiedText).not.toContain('Strategic Critique');
+    expect(copiedText).not.toContain(
+      'The critic deepened the main cross-section thread.',
+    );
+    expect(copiedText).not.toContain('body.crossSectionThreads[0].claim');
   });
 
   it('surfaces clipboard failures on the copy button', async (): Promise<void> => {

@@ -249,4 +249,39 @@ describe('pickPositioningTypedArtifact', () => {
       expect(Object.hasOwn(picked, 'createdAt')).toBe(false);
     },
   );
+
+  it('preserves strategic critic metadata while flattening the lab body', (): void => {
+    const picked = pickPositioningTypedArtifact(
+      {
+        data: {
+          ...crossSectionReasoningFixtureArtifact,
+          strategicCritique: {
+            checkedAt: '2026-06-04T13:00:00.000Z',
+            items: [
+              {
+                action: 'deepened',
+                path: 'body.crossSectionThreads[0].claim',
+                rationale: 'The critic made the trade-off more specific.',
+                text: 'The upgraded strategic claim.',
+                verdict: 'passes',
+              },
+            ],
+            modelId: 'claude-opus-4-5',
+            summary: 'The critic deepened one thread.',
+            target: 'cross_section_reasoning',
+          },
+        },
+      },
+      'positioningCrossSectionReasoning',
+    );
+
+    if (!picked) {
+      throw new Error('Expected cross-section reasoning artifact to be picked');
+    }
+
+    expect(picked.strategicCritique?.summary).toBe(
+      'The critic deepened one thread.',
+    );
+    expect(Object.hasOwn(picked, 'body')).toBe(false);
+  });
 });

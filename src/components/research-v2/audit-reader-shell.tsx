@@ -130,6 +130,7 @@ const COPY_META_KEYS: ReadonlySet<string> = new Set([
   'sources',
   'verification',
   'review',
+  'strategicCritique',
 ]);
 const kickedOffRunIds = new Set<string>();
 
@@ -367,6 +368,38 @@ function ReviewMetadataPanel({
           <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
             {review.clientQuestions.map((question) => (
               <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function StrategicCritiquePanel({
+  critique,
+}: {
+  critique: NonNullable<PositioningTypedArtifact['strategicCritique']>;
+}): ReactElement {
+  const changedItems = critique.items.filter((item) => item.action !== 'kept');
+
+  return (
+    <div className="space-y-4 rounded-md border border-border bg-background p-4">
+      <div className="space-y-1">
+        <Eyebrow>Strategic critic</Eyebrow>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {critique.summary}
+        </p>
+      </div>
+      {changedItems.length > 0 ? (
+        <div className="space-y-2">
+          <Eyebrow>Changed ({changedItems.length})</Eyebrow>
+          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+            {changedItems.map((item) => (
+              <li key={`${item.path}-${item.action}`}>
+                <span className="font-medium text-foreground">{item.action}</span>
+                {` ${item.path}: ${item.rationale}`}
+              </li>
             ))}
           </ul>
         </div>
@@ -1099,6 +1132,7 @@ export function AuditReaderShell({
   const activeIndex = READER_SECTION_IDS.indexOf(active);
   const activeTyped = typedByZone.get(active) ?? null;
   const activeReview = activeTyped?.review ?? null;
+  const activeStrategicCritique = activeTyped?.strategicCritique ?? null;
   const activeReviewedMarkdown =
     activeReview?.upgradedMarkdown.trim().length === 0
       ? null
@@ -1421,6 +1455,9 @@ export function AuditReaderShell({
                       <VerdictCallout verdict={activeTyped.verdict} />
                     </>
                   )}
+                  {activeStrategicCritique ? (
+                    <StrategicCritiquePanel critique={activeStrategicCritique} />
+                  ) : null}
                   {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}

@@ -54,7 +54,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ◐ Code gate green; live gate pending |
 | **T6** | Depth-forcing skills (shared strategic preamble + verdict fields) | C. Insight | M | — | ◐ Code gate green; live gate pending |
 | **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ◐ Code gate green; live gate pending |
-| **T8** | Adversarial "so-what" critic pass | C. Insight | M | T1, T7 | ☐ Not started |
+| **T8** | Adversarial "so-what" critic pass | C. Insight | M | T1, T7 | ◐ Code gate green; live gate pending |
 | **T9** | Capstone rebuild — compressor → strategist | C. Insight | L | T6, T7 | ☐ Not started |
 | **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ☐ Not started |
 | **T11** | Live E2E validation (Ramp + 2nd company) vs rubric | D. Gate | M | all | ☐ Not started |
@@ -117,6 +117,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** the existing verifier/repair loop (`shouldRepairAttempt`, repair reasons in `run-section.ts`) — graft a `strategicDeepen` reason.
 **Implement:** a critic agent over the reasoning output (T7) + each section's strategic fields; ≥40% of synthesis sentences must pass the "knew-that" test (T10 rubric) or get deepened/cut.
 **Verify:** before/after — critic measurably raises the insight-density of a live run's synthesis. **Depends on T1, T7.**
+**2026-06-04 Codex evidence:** T8 code gate green. Added a bounded `positioningCrossSectionReasoning` strategic critic pass using `strategyModel` after structured artifact validation/repair and before commit; upgraded artifacts are re-verified, evidence support shortfall is recomputed, and critic lifecycle events are persisted. The critic rejects new or reassigned `sectionId` + `sourceUrl` refs, propagates caller aborts before and during the critic call instead of fallback-committing, requires kept/deepened critique metadata to match final body text, requires at least 40% of critique items to be passing kept/deepened claims, validates cross-section minimums, and falls back to the original thinker artifact on model/parse/validation failure with observable event metadata. Strategic critique metadata now persists through the artifact envelope, typed artifact picker, and Audit Reader UI without entering `body` or copied markdown. Proof: `pnpm exec tsc --noEmit` 0; focused T8 Vitest 6 files / 62 tests passed; expanded T8 Vitest 10 files / 90 tests passed; `pnpm run test:run` 182 files passed / 1 skipped, 1543 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings. Live critic before/after gate still pending.
 
 ### T9 — Capstone rebuild: compressor → strategist `[C. Insight · L]`
 **Goal:** The paid-media/synthesis capstone is the biggest single gap (no framework, just field assembly). Rebuild it to *think*, anchored by T7's threads.
