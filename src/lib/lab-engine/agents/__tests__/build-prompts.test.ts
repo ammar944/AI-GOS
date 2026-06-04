@@ -32,6 +32,13 @@ const paidMediaDefinition = {
   sectionOutputSchemaName: "PaidMediaPlanSectionOutput",
 } satisfies PromptSectionDefinition;
 
+const demandIntentDefinition = {
+  title: "Demand Intent",
+  mission: "Map keyword demand and intent signals.",
+  outputEmphasis: ["keyword demand"],
+  sectionOutputSchemaName: "DemandIntentSectionOutput",
+} satisfies PromptSectionDefinition;
+
 const synthesisDefinition = {
   title: "Positioning Synthesis",
   mission: "Synthesize the committed positioning artifacts.",
@@ -59,6 +66,14 @@ function buildScopedResearchInput(): ResearchInput {
 
   return {
     ...saaslaunchResearchInput,
+    onboarding: {
+      ...saaslaunchResearchInput.onboarding,
+      economics: {
+        targetCac: "$4,500",
+        avgLtv: "$18,000",
+        monthlyAdBudget: "$25,000",
+      },
+    },
     corpus: {
       excerpts: [marketExcerpt, buyerExcerpt],
       sectionExcerpts: {
@@ -110,6 +125,8 @@ describe("buildAnswerToolInstructions", (): void => {
     );
 
     expect(prompt).toContain("Market-only category evidence");
+    expect(prompt).toContain('"economics"');
+    expect(prompt).toContain('"targetCac": "$4,500"');
     expect(prompt).not.toContain("Buyer-only persona evidence");
     expect(prompt).not.toContain("sectionExcerpts");
   });
@@ -232,6 +249,24 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(issue);
   });
 
+  it("spells out Demand Intent keyword numeric sibling contracts", (): void => {
+    const prompt = buildAnswerToolInstructions(
+      demandIntentDefinition,
+      saaslaunchResearchInput,
+    );
+
+    expect(prompt).toContain(
+      "optional machine-sortable numeric siblings `monthlyVolumeValue`, `cpcValue`, and `difficulty`",
+    );
+    expect(prompt).toContain(
+      "when `keyword_volume` returns data for a keyword, set `monthlyVolumeValue` to `searchVolume`, `cpcValue` to `cpc`, and `difficulty` to `difficulty` as nonnegative numbers",
+    );
+    expect(prompt).toContain(
+      "If the tool returns a gap or no row for that keyword, omit the numeric siblings",
+    );
+    expect(prompt).toContain("do not invent sortable numbers");
+  });
+
   it("spells out Paid Media Plan nested field contracts", (): void => {
     const prompt = buildRepairPrompt({
       definition: paidMediaDefinition,
@@ -250,6 +285,33 @@ describe("buildAnswerToolInstructions", (): void => {
     );
     expect(prompt).toContain(
       "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
+    );
+    expect(prompt).toContain(
+      "Paid-media money fields must include provenance labels",
+    );
+    expect(prompt).toContain(
+      "Optional paid-media numeric siblings are machine-sortable numbers",
+    );
+    expect(prompt).toContain(
+      "add numeric siblings only when they come from user-supplied economics, tool-measured data, source-reported data, or explicit scenario assumptions with corresponding provenance",
+    );
+    expect(prompt).toContain(
+      "Omit numeric siblings when the number is unknown or weakly inferred",
+    );
+    expect(prompt).toContain(
+      "Numeric siblings must not duplicate provenance in strings",
+    );
+    expect(prompt).toContain(
+      "`body.campaignOverview` keys are exactly `prose`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `totalMonths`, `phaseCount`, `dailySpend`, optional `dailySpendValue`, `dailySpendProvenance`, `primaryKpi`, `platform`",
+    );
+    expect(prompt).toContain(
+      "`body.campaignPhases` is an object with `prose` and `phases[]`; each phase has exactly `phaseName`, `monthsLabel`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `bullets`",
+    );
+    expect(prompt).toContain(
+      "`body.audienceTypes` is an object with `prose` and `audiences[]`; each audience has exactly `slot`, `archetype`, `dailyBudget`, optional `dailyBudgetValue`, `dailyBudgetProvenance`, `detail`, `sourceSection`, `sourceUrl`",
+    );
+    expect(prompt).toContain(
+      "Competitor `estSpend` remains string-only; never emit `estSpendValue`",
     );
   });
 });

@@ -13,6 +13,7 @@ import {
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
+  paidMediaMoneyProvenanceValues,
   snapAngleTypesInMix,
   snapCreativeType,
 } from "../artifacts/schemas/paid-media-plan";
@@ -715,17 +716,13 @@ function getRepairReason(attempt: AttemptResult): string {
 // failure (no committable artifact) OR an unsupported-load-bearing count that
 // actually exceeds the evidence gate (getEvidenceGateFailureReason !== null).
 //
-// This is deliberately tied to maxUnsupportedAllowed (getMaxUnsupportedAllowed;
-// Infinity unless LAB_VERIFIER_MAX_UNSUPPORTED is finite). The trigger used to
-// fire on the mere PRESENCE of any shortfall (evidenceSupportShortfall !==
-// undefined), decoupled from the gate — so every section burned up to
-// answerToolMaxRepairAttempts full agentic re-runs grounding claims it would
-// accept regardless (the repair storm, and the latency multiplier behind the
-// VoC 270s timeout and CompetitorLandscape's slow runs). Gating on the count
-// makes unsupported-claim repairs a no-op under the default (Infinity) gate —
-// provably no-worse, since those artifacts already commit today after the
-// wasted repairs — while preserving bounded grounding repairs when the gate is
-// set finite.
+// This is deliberately tied to maxUnsupportedAllowed (getMaxUnsupportedAllowed).
+// The trigger used to fire on the mere PRESENCE of any shortfall
+// (evidenceSupportShortfall !== undefined), decoupled from the gate — so every
+// section burned up to answerToolMaxRepairAttempts full agentic re-runs
+// grounding claims it could still accept. Gating on the count preserves bounded
+// grounding repairs while avoiding repairs for unsupported claims that are
+// explicitly within the configured threshold.
 function shouldRepairAttempt(
   attempt: AttemptResult,
   maxUnsupportedAllowed: number,
@@ -1590,6 +1587,43 @@ function normalizePaidMediaGroundedRecordArray({
   });
 }
 
+function normalizePaidMediaMoneyProvenance(value: unknown): string {
+  if (
+    typeof value === "string" &&
+    (paidMediaMoneyProvenanceValues as readonly string[]).includes(value)
+  ) {
+    return value;
+  }
+
+  return "unknown";
+}
+
+function withPaidMediaMoneyProvenanceDefaults(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+): Record<string, unknown> {
+  return {
+    ...record,
+    ...Object.fromEntries(
+      keys.map((key) => [
+        key,
+        normalizePaidMediaMoneyProvenance(record[key]),
+      ]),
+    ),
+  };
+}
+
+function withPaidMediaMoneyProvenanceDefaultsForRecordArray(
+  value: unknown,
+  keys: readonly string[],
+): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) =>
+      withPaidMediaMoneyProvenanceDefaults(record, keys),
+  });
+}
+
 function withSectionSourcesFromBody({
   minimumSources,
   rawOutput,
@@ -1838,20 +1872,40 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
       ...(campaignOverviewRecord === null
         ? {}
         : {
-            campaignOverview: normalizeStructuredRecord({
-              allowedKeys: [
-                "prose",
-                "monthlyBudget",
-                "totalMonths",
-                "phaseCount",
-                "dailySpend",
-                "primaryKpi",
-                "platform",
-              ],
-              numberKeys: ["totalMonths", "phaseCount"],
-              record: campaignOverviewRecord,
-              stringKeys: ["prose", "monthlyBudget", "dailySpend", "primaryKpi", "platform"],
-            }),
+            campaignOverview: withPaidMediaMoneyProvenanceDefaults(
+              normalizeStructuredRecord({
+                allowedKeys: [
+                  "prose",
+                  "monthlyBudget",
+                  "monthlyBudgetValue",
+                  "monthlyBudgetProvenance",
+                  "totalMonths",
+                  "phaseCount",
+                  "dailySpend",
+                  "dailySpendValue",
+                  "dailySpendProvenance",
+                  "primaryKpi",
+                  "platform",
+                ],
+                numberKeys: [
+                  "monthlyBudgetValue",
+                  "totalMonths",
+                  "phaseCount",
+                  "dailySpendValue",
+                ],
+                record: campaignOverviewRecord,
+                stringKeys: [
+                  "prose",
+                  "monthlyBudget",
+                  "monthlyBudgetProvenance",
+                  "dailySpend",
+                  "dailySpendProvenance",
+                  "primaryKpi",
+                  "platform",
+                ],
+              }),
+              ["monthlyBudgetProvenance", "dailySpendProvenance"],
+            ),
           }),
       ...(campaignPhasesRecord === null
         ? {}
@@ -1862,11 +1916,27 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: campaignPhasesRecord,
                 stringKeys: ["prose"],
               }),
-              phases: normalizeStructuredRecordArray({
-                allowedKeys: ["phaseName", "monthsLabel", "monthlyBudget", "bullets"],
-                stringKeys: ["phaseName", "monthsLabel", "monthlyBudget"],
-                value: campaignPhasesRecord.phases,
-              }),
+              phases: withPaidMediaMoneyProvenanceDefaultsForRecordArray(
+                normalizeStructuredRecordArray({
+                  allowedKeys: [
+                    "phaseName",
+                    "monthsLabel",
+                    "monthlyBudget",
+                    "monthlyBudgetValue",
+                    "monthlyBudgetProvenance",
+                    "bullets",
+                  ],
+                  numberKeys: ["monthlyBudgetValue"],
+                  stringKeys: [
+                    "phaseName",
+                    "monthsLabel",
+                    "monthlyBudget",
+                    "monthlyBudgetProvenance",
+                  ],
+                  value: campaignPhasesRecord.phases,
+                }),
+                ["monthlyBudgetProvenance"],
+              ),
             },
           }),
       ...(audienceTypesRecord === null
@@ -1878,25 +1948,36 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: audienceTypesRecord,
                 stringKeys: ["prose"],
               }),
-              audiences: normalizeStructuredRecordArray({
-                allowedKeys: [
-                  "slot",
-                  "archetype",
-                  "dailyBudget",
-                  "detail",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                stringKeys: [
-                  "slot",
-                  "archetype",
-                  "dailyBudget",
-                  "detail",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: audienceTypesRecord.audiences,
-              }),
+              audiences: (() => {
+                const normalized = normalizeStructuredRecordArray({
+                  allowedKeys: [
+                    "slot",
+                    "archetype",
+                    "dailyBudget",
+                    "dailyBudgetValue",
+                    "dailyBudgetProvenance",
+                    "detail",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  numberKeys: ["dailyBudgetValue"],
+                  stringKeys: [
+                    "slot",
+                    "archetype",
+                    "dailyBudget",
+                    "dailyBudgetProvenance",
+                    "detail",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  value: audienceTypesRecord.audiences,
+                });
+
+                return withPaidMediaMoneyProvenanceDefaultsForRecordArray(
+                  normalized,
+                  ["dailyBudgetProvenance"],
+                );
+              })(),
             },
           }),
       ...(creativeStrategyRecord === null
@@ -2051,34 +2132,43 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: competitorMarketingInsightsRecord,
                 stringKeys: ["prose"],
               }),
-              competitors: normalizePaidMediaGroundedRecordArray({
-                allowedKeys: [
-                  "competitor",
-                  "messaging",
-                  "adPlatforms",
-                  "estSpend",
-                  "icpTargeted",
-                  "anglesTested",
-                  "positioningClaim",
-                  "offer",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                fallbackSourceSection: "positioningCompetitorLandscape",
-                stringArrayKeys: ["adPlatforms"],
-                stringKeys: [
-                  "competitor",
-                  "messaging",
-                  "estSpend",
-                  "icpTargeted",
-                  "anglesTested",
-                  "positioningClaim",
-                  "offer",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: competitorMarketingInsightsRecord.competitors,
-              }),
+              competitors: (() => {
+                const normalized = normalizePaidMediaGroundedRecordArray({
+                  allowedKeys: [
+                    "competitor",
+                    "messaging",
+                    "adPlatforms",
+                    "estSpend",
+                    "estSpendProvenance",
+                    "icpTargeted",
+                    "anglesTested",
+                    "positioningClaim",
+                    "offer",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  fallbackSourceSection: "positioningCompetitorLandscape",
+                  stringArrayKeys: ["adPlatforms"],
+                  stringKeys: [
+                    "competitor",
+                    "messaging",
+                    "estSpend",
+                    "estSpendProvenance",
+                    "icpTargeted",
+                    "anglesTested",
+                    "positioningClaim",
+                    "offer",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  value: competitorMarketingInsightsRecord.competitors,
+                });
+
+                return withPaidMediaMoneyProvenanceDefaultsForRecordArray(
+                  normalized,
+                  ["estSpendProvenance"],
+                );
+              })(),
             },
           }),
       ...(funnelIdeationRecord === null
@@ -3620,14 +3710,23 @@ function buildReviewVoiceOfCustomerCandidates({
 
 function getWebSearchSnippet(itemRecord: Record<string, unknown> | null): string {
   const description = getStringProperty(itemRecord, "description");
-  const extraSnippets = Array.isArray(itemRecord?.extra_snippets)
-    ? itemRecord.extra_snippets.filter(
-        (snippet): snippet is string =>
-          typeof snippet === "string" && snippet.trim().length > 0,
-      )
+  const rawExtraSnippets = itemRecord?.extra_snippets;
+  const extraSnippets = Array.isArray(rawExtraSnippets)
+    ? rawExtraSnippets.flatMap((snippet: unknown): string[] => {
+        if (typeof snippet !== "string") {
+          return [];
+        }
+
+        const trimmed = snippet.trim();
+        return trimmed.length === 0 ? [] : [trimmed];
+      })
     : [];
 
-  return description ?? extraSnippets.join(" ");
+  return Array.from(
+    new Set(
+      description === null ? extraSnippets : [description, ...extraSnippets],
+    ),
+  ).join(" ");
 }
 
 function dedupeVoiceOfCustomerRecoveryTargets(
@@ -3839,6 +3938,33 @@ function getFirecrawlRecoveryTarget({
   return targets[0];
 }
 
+function getFirecrawlEnrichmentTarget(
+  result: VoiceOfCustomerCandidateResult,
+): VoiceOfCustomerRecoveryTarget | null {
+  if (!result.ok) {
+    return null;
+  }
+
+  const candidate = result.pack.candidates.find(
+    (item) => item.evidenceKind !== "article" && item.source !== "firecrawl",
+  );
+
+  if (candidate === undefined) {
+    return null;
+  }
+
+  return {
+    source:
+      candidate.source === "reviews" || candidate.source === "web_search"
+        ? candidate.source
+        : "web_search",
+    evidenceKind: candidate.evidenceKind,
+    title: candidate.title,
+    url: candidate.url,
+    domain: candidate.domain,
+  };
+}
+
 async function buildVoiceOfCustomerCandidatePrepass({
   deps,
   input,
@@ -3902,19 +4028,21 @@ async function buildVoiceOfCustomerCandidatePrepass({
   recoveryTargets.push(...webSearchCandidates.recoveryTargets);
 
   let result = selectVoiceOfCustomerCandidates(candidates);
-  const recoveryTarget = getFirecrawlRecoveryTarget({
-    candidates,
-    recoveryTargets,
-    result,
-  });
+  const firecrawlTarget =
+    getFirecrawlEnrichmentTarget(result) ??
+    getFirecrawlRecoveryTarget({
+      candidates,
+      recoveryTargets,
+      result,
+    });
 
-  if (recoveryTarget !== null && steps.length < VOC_PREPASS_MAX_LOOKUPS) {
+  if (firecrawlTarget !== null && steps.length < VOC_PREPASS_MAX_LOOKUPS) {
     const firecrawlOutput = await tryTool("firecrawl", {
-      url: recoveryTarget.url,
+      url: firecrawlTarget.url,
       onlyMainContent: true,
     });
     const recoveredCandidate = buildFirecrawlVoiceOfCustomerCandidate({
-      evidenceKind: recoveryTarget.evidenceKind,
+      evidenceKind: firecrawlTarget.evidenceKind,
       output: firecrawlOutput,
       researchInput,
     });
@@ -6145,8 +6273,8 @@ export async function runSection(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  // Gate is armed but default-OFF: Infinity unless LAB_VERIFIER_MAX_UNSUPPORTED
-  // is set (calibrated post-live-run). Mirrors the answer-tool path.
+  // Gate is armed by default. LAB_VERIFIER_MAX_UNSUPPORTED can raise the
+  // threshold for calibrated sections. Mirrors the answer-tool path.
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -6405,9 +6533,9 @@ export async function runSection(
     }
   }
 
-  // Evidence gate (armed but default-OFF). The structured path has no grounding
-  // repair loop, so this is fail-and-degrade: when the env threshold is exceeded
-  // the section fails instead of committing an ungrounded artifact.
+  // Evidence gate. The structured path has no grounding repair loop, so this is
+  // fail-and-degrade: when the threshold is exceeded the section fails instead
+  // of committing an ungrounded artifact.
   const evidenceGateFailureReason = getEvidenceGateFailureReason(
     committedAttempt,
     maxUnsupportedAllowed,

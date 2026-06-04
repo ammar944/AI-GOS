@@ -315,6 +315,47 @@ function buildMediaPlanBriefFields(
   };
 }
 
+function buildEconomicsBriefFields(
+  onboardingData: Record<string, unknown>,
+): Partial<Pick<OnboardingSnapshot, "economics">> {
+  type EconomicsSnapshot = NonNullable<OnboardingSnapshot["economics"]>;
+  const fieldSpecs = [
+    ["pricingModel", ["pricingModel", "pricing_model"]],
+    ["conversionPath", ["conversionPath", "conversion_path"]],
+    ["acv", ["acv"]],
+    ["pricingTiers", ["pricingTiers", "pricing_tiers"]],
+    ["targetPlan", ["targetPlan", "target_plan"]],
+    ["avgLtv", ["avgLtv", "avg_ltv"]],
+    ["targetCac", ["targetCac", "target_cac"]],
+    ["monthlyAdBudget", ["monthlyAdBudget", "monthly_ad_budget"]],
+    ["budgetSplit", ["budgetSplit", "budget_split"]],
+    ["currentCac", ["currentCac", "current_cac"]],
+    ["monthlyRevenue", ["monthlyRevenue", "monthly_revenue"]],
+    ["avgSalesCycle", ["avgSalesCycle", "avg_sales_cycle"]],
+    ["visitorToSignup", ["visitorToSignup", "visitor_to_signup"]],
+    ["signupToActivation", ["signupToActivation", "signup_to_activation"]],
+    ["activationToPaid", ["activationToPaid", "activation_to_paid"]],
+    ["demoToClose", ["demoToClose", "demo_to_close"]],
+    ["growthTrend", ["growthTrend", "growth_trend"]],
+  ] as const satisfies readonly (readonly [
+    keyof EconomicsSnapshot,
+    readonly string[],
+  ])[];
+  const economics: Partial<EconomicsSnapshot> = {};
+
+  for (const [outputKey, inputKeys] of fieldSpecs) {
+    const value = firstString(
+      ...inputKeys.map((inputKey) => getValue(onboardingData, inputKey)),
+    );
+
+    if (value !== null) {
+      economics[outputKey] = value;
+    }
+  }
+
+  return Object.keys(economics).length === 0 ? {} : { economics };
+}
+
 function resolveUrl({
   fallbackUrl,
   field,
@@ -675,6 +716,76 @@ function stripCompetitorDescriptor(value: string): string {
   return (value.split("(")[0] ?? value).replace(/[;,.]+$/u, "").trim();
 }
 
+function normalizeDomainToken(value: string): string | null {
+  const withoutProtocol = value.replace(/^[a-z][a-z0-9+.-]*:\/\//iu, "");
+  const withoutPath = withoutProtocol.split(/[/?#]/u)[0] ?? "";
+  const domain = withoutPath.toLowerCase().replace(/^www\./u, "");
+
+  if (
+    domain.length === 0 ||
+    !domain.includes(".") ||
+    !domain
+      .split(".")
+      .every((label) => /^[a-z0-9-]+$/u.test(label) && label.length > 0)
+  ) {
+    return null;
+  }
+
+  return domain;
+}
+
+function getExplicitDomainFromText(value: string): string | null {
+  const match = value.match(
+    /\b(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+(?:[/?#][^\s),;]*)?/iu,
+  );
+
+  return match === null ? null : normalizeDomainToken(match[0]);
+}
+
+function getExplicitDomainFromCompetitorItem({
+  name,
+  value,
+}: {
+  name: string;
+  value: string;
+}): string | null {
+  const stripped = stripCompetitorListMarker(value);
+  const lowerStripped = stripped.toLowerCase();
+  const lowerName = name.toLowerCase();
+
+  if (lowerStripped.startsWith(lowerName)) {
+    return getExplicitDomainFromText(stripped.slice(name.length));
+  }
+
+  return getExplicitDomainFromText(stripped);
+}
+
+function normalizeDomainBrandToken(value: string): string {
+  return value
+    .split(".")[0]
+    ?.replace(/[^a-z0-9]/giu, "")
+    .toLowerCase() ?? "";
+}
+
+function explicitDomainSafelyMatchesCompetitor({
+  domain,
+  name,
+}: {
+  domain: string;
+  name: string;
+}): boolean {
+  const cleanNameToken = normalizeDomainBrandToken(
+    cleanAdvertiserQuery(name).split(/\s+/u)[0] ?? "",
+  );
+  const domainToken = normalizeDomainBrandToken(domain);
+
+  return (
+    cleanNameToken.length >= 3 &&
+    domainToken.length >= 3 &&
+    cleanNameToken === domainToken
+  );
+}
+
 /**
  * Parse the onboarding `topCompetitors` free-text field into competitor seeds for
  * the deterministic ad probe. Numbered/bulleted lists are split only on list
@@ -726,6 +837,11 @@ function buildCompetitorSeeds(
       continue;
     }
 
+    const explicitDomain = getExplicitDomainFromCompetitorItem({
+      name,
+      value: rawName,
+    });
+
     const key = name.toLowerCase();
 
     if (seen.has(key)) {
@@ -736,11 +852,20 @@ function buildCompetitorSeeds(
 
     const firstWord = key.split(/\s+/)[0]?.replace(/[^a-z0-9]/g, "") ?? "";
     const domain =
+      explicitDomain !== null &&
+      explicitDomainSafelyMatchesCompetitor({ domain: explicitDomain, name })
+        ? explicitDomain
+        : undefined;
+    const corpusDomain =
       firstWord.length >= 3
         ? corpusDomains.find((d) => (d.split(".")[0] ?? "") === firstWord)
         : undefined;
+    const seedDomain = domain ?? corpusDomain;
 
-    seeds.push({ name, ...(domain === undefined ? {} : { domain }) });
+    seeds.push({
+      name,
+      ...(seedDomain === undefined ? {} : { domain: seedDomain }),
+    });
 
     if (seeds.length >= 5) {
       break;
@@ -791,6 +916,7 @@ export function corpusToResearchInput(
     productDescription,
   });
   const mediaPlanBriefFields = buildMediaPlanBriefFields(onboardingData);
+  const economicsBriefFields = buildEconomicsBriefFields(onboardingData);
   const sourceRecords = asRecordArray(corpus.sources);
   const evidenceRecords = asRecordArray(corpus.evidence);
   const uploadedDocuments = params.uploadedDocuments ?? [];
@@ -873,6 +999,7 @@ export function corpusToResearchInput(
       ),
       notes: researchSummary,
       ...mediaPlanBriefFields,
+      ...economicsBriefFields,
     },
     corpus: {
       excerpts: corpusExcerpts,

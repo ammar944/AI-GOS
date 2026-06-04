@@ -8,8 +8,10 @@ import {
   competitorLandscapeBodySchema,
   type CompetitorLandscapeBody,
 } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import type { DemandIntentSectionOutput } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
+import { demandIntentFixtureSectionOutput } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
@@ -145,6 +147,43 @@ function buildCompetitorLandscapeSupportStep(): AgentStep {
   };
 }
 
+function buildDemandIntentKeywordVolumeStep(): AgentStep {
+  const keywords = demandIntentFixtureSectionOutput.body.keywordDemand.keywords;
+
+  return {
+    stepNumber: 0,
+    finishReason: 'tool-calls',
+    text: '',
+    toolCalls: [
+      {
+        toolName: 'keyword_volume',
+        input: {
+          keywords: keywords.map((keyword) => keyword.keyword),
+        },
+      },
+    ],
+    toolResults: [
+      {
+        toolName: 'keyword_volume',
+        input: {
+          keywords: keywords.map((keyword) => keyword.keyword),
+        },
+        output: {
+          type: 'result',
+          source: 'SpyFu',
+          results: keywords.map((keyword, index) => ({
+            keyword: keyword.keyword,
+            searchVolume: keyword.monthlyVolumeValue,
+            cpc: 4.1 + index / 10,
+            difficulty: keyword.difficulty,
+          })),
+        },
+        type: 'tool-result',
+      },
+    ],
+  };
+}
+
 function buildCompetitorLandscapeOutput() {
   return {
     sectionTitle: competitorLandscapeFixtureArtifact.sectionTitle,
@@ -157,6 +196,28 @@ function buildCompetitorLandscapeOutput() {
       ...(source.publisher ? { publisher: source.publisher } : {}),
     })),
     body: competitorLandscapeFixtureArtifact.body,
+  };
+}
+
+function buildDemandIntentOutputWithNumericSiblings(): DemandIntentSectionOutput {
+  return {
+    ...demandIntentFixtureSectionOutput,
+    sources: demandIntentFixtureSectionOutput.sources.map((source) => ({
+      ...source,
+    })),
+    body: {
+      ...demandIntentFixtureSectionOutput.body,
+      keywordDemand: {
+        ...demandIntentFixtureSectionOutput.body.keywordDemand,
+        keywords: demandIntentFixtureSectionOutput.body.keywordDemand.keywords.map(
+          (keyword, index) => ({
+            ...keyword,
+            cpc: `$${(4.1 + index / 10).toFixed(2)} (SpyFu-estimated)`,
+            cpcValue: 4.1 + index / 10,
+          }),
+        ),
+      },
+    },
   };
 }
 
@@ -501,9 +562,8 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        // Finite gate so the single unsupported claim exceeds the threshold and
-        // triggers the bounded grounding repair (the behavior under test). With
-        // the default Infinity gate the repair is correctly a no-op.
+        // Explicit zero gate so the single unsupported claim exceeds the
+        // threshold and triggers the bounded grounding repair.
         env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
         runAnswerTool,
         now: () => new Date('2026-05-29T12:00:00.000Z'),
@@ -538,7 +598,7 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
-  it('commits with the honest badge for unsupported load-bearing claims when the verifier gate is disabled', async (): Promise<void> => {
+  it('fails residual unsupported load-bearing claims when the verifier gate is set to an explicit zero threshold', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
       rootDir,
@@ -564,46 +624,35 @@ describe('runSection corpus-only mode', (): void => {
       };
     });
 
-    const result = await runSection(
-      {
-        runId: saaslaunchResearchInput.runId,
-        sectionId: 'positioningMarketCategory',
-      },
-      {
-        store,
-        loadSkill: async () => 'Use the injected corpus only.',
-        allowedTools: [],
-        runAnswerTool,
-        now: () => new Date('2026-05-29T12:30:00.000Z'),
-      },
-    );
+    const expectedReason =
+      'evidence-gate: 1 unsupported load-bearing claims exceed max 0';
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningMarketCategory',
+        },
+        {
+          store,
+          loadSkill: async () => 'Use the injected corpus only.',
+          allowedTools: [],
+          env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
+          runAnswerTool,
+          now: () => new Date('2026-05-29T12:30:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow(expectedReason);
 
     const record = await store.readRun(saaslaunchResearchInput.runId);
-    const unsupportedNumericClaims =
-      result.artifact.verification?.claims.filter(
-        (claim) =>
-          claim.status === 'unsupported' &&
-          claim.claim.kind === 'numeric' &&
-          claim.claim.value === '44%',
-      ) ?? [];
 
-    // Default (Infinity) gate: the unsupported claim never exceeds the
-    // threshold, so no wasted repair fires — the artifact commits on the first
-    // attempt and still surfaces the honest unsupported badge.
-    expect(runAnswerTool).toHaveBeenCalledTimes(1);
-    expect(unsupportedNumericClaims).toHaveLength(1);
-    expect(result.artifact.verification?.unsupportedCount).toBeGreaterThanOrEqual(
-      1,
-    );
-    expect(record.sections.positioningMarketCategory?.status).toBe(
-      'completed',
-    );
-    expect(record.events.map((event) => event.type)).not.toContain(
-      'section-failed',
-    );
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(record.sections.positioningMarketCategory?.status).toBe('failed');
+    expect(record.sections.positioningMarketCategory?.artifact).toBeNull();
+    expect(record.events.map((event) => event.type)).toContain('section-failed');
   });
 
-  it('leaves the verifier threshold disabled when the env is unset', async (): Promise<void> => {
+  it('repairs unsupported load-bearing claims when the verifier gate is set to an explicit zero threshold', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
       rootDir,
@@ -614,11 +663,22 @@ describe('runSection corpus-only mode', (): void => {
 
     const unsupportedOutput =
       buildMarketCategoryOutputWithUnsupportedRates(['44%']);
-    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
-      steps: [buildMarketCategorySupportStep()],
-      text: '',
-      answerInput: unsupportedOutput,
-    }));
+    let calls = 0;
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => {
+      calls += 1;
+
+      return {
+        steps:
+          calls === 1
+            ? [buildMarketCategorySupportStep()]
+            : [
+                buildMarketCategorySupportStep(),
+                buildNumericSupportStep('44%'),
+              ],
+        text: '',
+        answerInput: unsupportedOutput,
+      };
+    });
 
     const result = await runSection(
       {
@@ -629,24 +689,23 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '0' },
         runAnswerTool,
         now: () => new Date('2026-05-29T12:35:00.000Z'),
       },
     );
 
     const record = await store.readRun(saaslaunchResearchInput.runId);
-    const unsupportedNumericClaims =
-      result.artifact.verification?.claims.filter(
-        (claim) =>
-          claim.status === 'unsupported' &&
-          claim.claim.kind === 'numeric' &&
-          claim.claim.value === '44%',
-      ) ?? [];
 
-    // Threshold disabled (env unset) ⇒ no repair fires; commit on the first attempt.
-    expect(runAnswerTool).toHaveBeenCalledTimes(1);
-    expect(unsupportedNumericClaims).toHaveLength(1);
+    expect(runAnswerTool).toHaveBeenCalledTimes(2);
+    expect(result.artifact.verification?.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'verified',
+          claim: expect.objectContaining({ kind: 'numeric', value: '44%' }),
+        }),
+      ]),
+    );
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
     );
@@ -929,6 +988,71 @@ describe('runSection corpus-only mode', (): void => {
     });
   });
 
+  it('preserves Demand Intent keyword numeric siblings when committing artifacts', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningDemandIntent'],
+      now: () => new Date('2026-06-04T04:45:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const output = buildDemandIntentOutputWithNumericSiblings();
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      expect(Object.keys(params.externalTools)).toEqual([]);
+
+      return {
+        steps: [buildDemandIntentKeywordVolumeStep()],
+        text: '',
+        answerInput: output,
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningDemandIntent',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '50' },
+        runAnswerTool,
+        now: () => new Date('2026-06-04T04:45:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const resultBody = requireRecord(result.artifact.body);
+    const resultKeywordDemand = requireRecord(resultBody.keywordDemand);
+    const resultKeywords = resultKeywordDemand.keywords;
+    const committedArtifact = record.sections.positioningDemandIntent?.artifact;
+    const committedBody = requireRecord(requireRecord(committedArtifact).body);
+    const committedKeywordDemand = requireRecord(committedBody.keywordDemand);
+    const committedKeywords = committedKeywordDemand.keywords;
+
+    if (!Array.isArray(resultKeywords) || !Array.isArray(committedKeywords)) {
+      throw new Error('Expected Demand Intent keyword arrays.');
+    }
+
+    expect(result.artifact.sectionId).toBe('positioningDemandIntent');
+    expect(requireRecord(resultKeywords[0])).toMatchObject({
+      monthlyVolumeValue: 320,
+      cpc: '$4.10 (SpyFu-estimated)',
+      cpcValue: 4.1,
+      difficulty: 22,
+    });
+    expect(record.sections.positioningDemandIntent?.status).toBe('completed');
+    expect(requireRecord(committedKeywords[0])).toMatchObject({
+      monthlyVolumeValue: 320,
+      cpc: '$4.10 (SpyFu-estimated)',
+      cpcValue: 4.1,
+      difficulty: 22,
+    });
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
+  });
+
   it('normalizes paid-media structured drift before strict validation', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
@@ -943,6 +1067,18 @@ describe('runSection corpus-only mode', (): void => {
     const campaignOverview = requireRecord(body.campaignOverview);
     campaignOverview.monthlyBudget = 3000;
     campaignOverview.dailySpend = 100;
+
+    const campaignPhases = requireRecord(body.campaignPhases);
+    const phases = campaignPhases.phases;
+    if (!Array.isArray(phases)) {
+      throw new Error('Expected phases array.');
+    }
+
+    const audienceTypes = requireRecord(body.audienceTypes);
+    const audiences = audienceTypes.audiences;
+    if (!Array.isArray(audiences)) {
+      throw new Error('Expected audiences array.');
+    }
 
     const creativeFramework = requireRecord(body.creativeFramework);
     const creatives = creativeFramework.creatives;
@@ -969,6 +1105,8 @@ describe('runSection corpus-only mode', (): void => {
       const competitorRecord = requireRecord(competitor);
       competitorRecord.anglesTested = ['Speed', 'Simplicity'];
       competitorRecord.adPlatforms = 'Meta, Google';
+      competitorRecord.estSpendValue = 12345;
+      delete competitorRecord.estSpendProvenance;
     }
 
     const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
@@ -992,6 +1130,7 @@ describe('runSection corpus-only mode', (): void => {
         allowedTools: [],
         runEvidencePass,
         callStructured,
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
         now: () => new Date('2026-05-25T12:00:00.000Z'),
       },
     );
@@ -1008,6 +1147,10 @@ describe('runSection corpus-only mode', (): void => {
     const artifactCampaignOverview = requireRecord(
       artifactBody.campaignOverview,
     );
+    const artifactCampaignPhases = requireRecord(artifactBody.campaignPhases);
+    const artifactPhases = artifactCampaignPhases.phases;
+    const artifactAudienceTypes = requireRecord(artifactBody.audienceTypes);
+    const artifactAudiences = artifactAudienceTypes.audiences;
     const artifactCreativeFramework = requireRecord(
       artifactBody.creativeFramework,
     );
@@ -1017,11 +1160,38 @@ describe('runSection corpus-only mode', (): void => {
     );
     const artifactCompetitors =
       artifactCompetitorMarketingInsights.competitors;
-    if (!Array.isArray(artifactCreatives) || !Array.isArray(artifactCompetitors)) {
+    if (
+      !Array.isArray(artifactPhases) ||
+      !Array.isArray(artifactAudiences) ||
+      !Array.isArray(artifactCreatives) ||
+      !Array.isArray(artifactCompetitors)
+    ) {
       throw new Error('Expected normalized paid-media arrays.');
     }
     expect(artifactCampaignOverview.monthlyBudget).toBe('3000');
     expect(artifactCampaignOverview.dailySpend).toBe('100');
+    expect(artifactCampaignOverview.monthlyBudgetValue).toBe(3000);
+    expect(artifactCampaignOverview.dailySpendValue).toBe(100);
+    expect(artifactCampaignOverview.monthlyBudgetProvenance).toBe(
+      'user-supplied',
+    );
+    expect(artifactCampaignOverview.dailySpendProvenance).toBe(
+      'model-estimated',
+    );
+    expect(requireRecord(artifactPhases[0]).monthlyBudgetValue).toBe(3000);
+    expect(requireRecord(artifactPhases[0]).monthlyBudgetProvenance).toBe(
+      'model-estimated',
+    );
+    expect(requireRecord(artifactAudiences[0]).dailyBudgetValue).toBe(33);
+    expect(requireRecord(artifactAudiences[0]).dailyBudgetProvenance).toBe(
+      'model-estimated',
+    );
+    expect(requireRecord(artifactCompetitors[0]).estSpendProvenance).toBe(
+      'unknown',
+    );
+    expect(requireRecord(artifactCompetitors[0])).not.toHaveProperty(
+      'estSpendValue',
+    );
     expect(artifactCreatives[0]).not.toHaveProperty('headline');
     expect(requireRecord(artifactCompetitors[0]).anglesTested).toBe(
       'Speed; Simplicity',
@@ -1062,6 +1232,7 @@ describe('runSection corpus-only mode', (): void => {
         allowedTools: [],
         runEvidencePass,
         callStructured,
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
         now: () => new Date('2026-05-27T04:22:16.000Z'),
       },
     );

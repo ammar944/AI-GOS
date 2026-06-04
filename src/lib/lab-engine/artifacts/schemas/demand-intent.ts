@@ -34,7 +34,10 @@ export const keywordSignalSchema = z
   .object({
     keyword: z.string().min(1),
     monthlyVolume: z.string().min(1),
+    monthlyVolumeValue: z.number().finite().nonnegative().optional(),
     cpc: z.string().min(1).optional(),
+    cpcValue: z.number().finite().nonnegative().optional(),
+    difficulty: z.number().finite().nonnegative().optional(),
     intentType: z.enum(intentTypes),
     top3RankingDomains: z.array(z.string().min(1)),
     sourceTitle: z.string().min(1),

@@ -183,6 +183,9 @@ describe("getMaxUnsupportedAllowed", (): void => {
     expect(
       getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "not-a-number" }),
     ).toBe(Infinity);
+    expect(
+      getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "-1" }),
+    ).toBe(Infinity);
   });
 
   it("returns the configured integer verifier threshold", (): void => {

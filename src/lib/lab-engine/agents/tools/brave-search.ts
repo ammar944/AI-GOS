@@ -36,6 +36,7 @@ interface BraveSearchApiResult {
   title?: string;
   url?: string;
   description?: string;
+  extra_snippets?: unknown;
 }
 
 interface BraveSearchApiResponse {
@@ -58,6 +59,21 @@ function isValidUrl(value: string): boolean {
   }
 }
 
+function getExtraSnippets(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((snippet) => {
+    if (typeof snippet !== "string") {
+      return [];
+    }
+
+    const trimmed = snippet.trim();
+    return trimmed.length === 0 ? [] : [trimmed];
+  });
+}
+
 function toBraveSearchResult(
   result: BraveSearchApiResult,
 ): z.infer<typeof BraveSearchResultSchema> | null {
@@ -74,7 +90,7 @@ function toBraveSearchResult(
     title: result.title,
     url: result.url,
     description: result.description,
-    extra_snippets: [],
+    extra_snippets: getExtraSnippets(result.extra_snippets),
   };
 }
 

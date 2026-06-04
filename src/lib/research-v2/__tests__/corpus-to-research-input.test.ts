@@ -58,6 +58,23 @@ const corpusFixture = {
   onboardingData: {
     websiteUrl: "https://www.airtable.com/",
     primaryGoal: "Clarify the strongest paid-media positioning angle.",
+    pricingModel: "subscription",
+    conversionPath: "demo_required",
+    acv: "10k_50k",
+    pricingTiers: "Team: $20/seat/mo; Business: $45/seat/mo",
+    targetPlan: "Business",
+    avgLtv: "$18,000",
+    targetCac: "$4,500",
+    monthlyAdBudget: "$25,000",
+    budgetSplit: "60% paid search, 40% paid social",
+    currentCac: "$5,200",
+    monthlyRevenue: "$180,000",
+    avgSalesCycle: "45 days",
+    visitorToSignup: "8%",
+    signupToActivation: "35%",
+    activationToPaid: "12%",
+    demoToClose: "22%",
+    growthTrend: "Revenue is growing 9% month over month.",
     distributionChannels: ["paid search", "paid social"],
     constraints: ["Do not imply fully autonomous workflow ownership."],
     salesProcessDocs: [
@@ -98,6 +115,25 @@ describe("corpusToResearchInput", (): void => {
     expect(parsed.onboarding.gtmMotion).toBe("SLG");
     expect(parsed.onboarding.creativeCapacity).toBe("standard");
     expect(parsed.onboarding.leadListAvailable).toBe(true);
+    expect(parsed.onboarding.economics).toEqual({
+      pricingModel: "subscription",
+      conversionPath: "demo_required",
+      acv: "10k_50k",
+      pricingTiers: "Team: $20/seat/mo; Business: $45/seat/mo",
+      targetPlan: "Business",
+      avgLtv: "$18,000",
+      targetCac: "$4,500",
+      monthlyAdBudget: "$25,000",
+      budgetSplit: "60% paid search, 40% paid social",
+      currentCac: "$5,200",
+      monthlyRevenue: "$180,000",
+      avgSalesCycle: "45 days",
+      visitorToSignup: "8%",
+      signupToActivation: "35%",
+      activationToPaid: "12%",
+      demoToClose: "22%",
+      growthTrend: "Revenue is growing 9% month over month.",
+    });
     expect(JSON.stringify(parsed)).not.toContain("Synthetic");
     expect(JSON.stringify(parsed)).not.toContain("example.com");
   });
@@ -312,6 +348,31 @@ describe("corpusToResearchInput", (): void => {
     expect(parsed.competitorSeeds).toEqual([
       { name: "Notion" },
       { name: "Monday.com" },
+    ]);
+  });
+
+  it("preserves explicit same-item competitor domains when they safely match the cleaned competitor", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        onboardingFields: {
+          ...corpusFixture.deepResearchProgramData.onboardingFields,
+          topCompetitors: {
+            value:
+              "- Notion - https://www.notion.so\n- Monday.com - monday.com\n- Asana - https://monday.com",
+          },
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.competitorSeeds).toEqual([
+      { name: "Notion", domain: "notion.so" },
+      { name: "Monday.com", domain: "monday.com" },
+      { name: "Asana" },
     ]);
   });
 

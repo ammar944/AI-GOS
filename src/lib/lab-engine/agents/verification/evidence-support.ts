@@ -35,6 +35,12 @@ export const voiceOfCustomerLoadBearingKinds = [
   "quote",
 ] as const;
 const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
+// Default OPEN (Infinity): the evidence gate is advisory unless an operator sets
+// LAB_VERIFIER_MAX_UNSUPPORTED to a finite integer. A finite default would hard-fail
+// most sections after repairs (the verifier is substring-match, ~65% verified on real
+// runs) and revive the per-section repair storm. Low-confidence sections are surfaced
+// for review via grounded confidence at commit time, not by deleting the section here.
+const defaultMaxUnsupportedAllowed = Infinity;
 
 function isUnsupportedLoadBearingClaim(
   verdict: ClaimVerdict,
@@ -73,13 +79,13 @@ export function getMaxUnsupportedAllowed(
   const rawValue = env[verifierMaxUnsupportedEnvKey]?.trim();
 
   if (rawValue === undefined || rawValue.length === 0) {
-    return Infinity;
+    return defaultMaxUnsupportedAllowed;
   }
 
   const value = Number(rawValue);
 
   if (!Number.isInteger(value) || value < 0) {
-    return Infinity;
+    return defaultMaxUnsupportedAllowed;
   }
 
   return value;

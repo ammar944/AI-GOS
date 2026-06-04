@@ -127,6 +127,7 @@ describe('runSection live event persistence', (): void => {
       { runId: RUN_ID, sectionId: 'positioningMarketCategory' },
       {
         store: recording,
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: ['web_search'],
         runAnswerTool,
@@ -160,6 +161,7 @@ describe('runSection live event persistence', (): void => {
       { runId: RUN_ID, sectionId: 'positioningMarketCategory' },
       {
         store,
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: ['web_search'],
         runAnswerTool,
@@ -209,6 +211,7 @@ describe('runSection live event persistence', (): void => {
       { runId: RUN_ID, sectionId: 'positioningMarketCategory' },
       {
         store: recording,
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: ['web_search'],
         runAnswerTool,

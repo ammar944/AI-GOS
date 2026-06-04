@@ -37,6 +37,8 @@ export const demandIntentFixtureArtifact = artifactEnvelopeSchema
         keywords: Array.from({ length: 10 }, (_, index) => ({
           keyword: `founder sales workflow ${index + 1}`,
           monthlyVolume: `${(index + 1) * 320} (SpyFu-estimated)`,
+          monthlyVolumeValue: (index + 1) * 320,
+          difficulty: 22 + index,
           intentType:
             index % 4 === 0
               ? "informational"

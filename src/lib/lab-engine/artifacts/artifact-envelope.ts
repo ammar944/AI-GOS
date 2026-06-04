@@ -52,6 +52,28 @@ export const salesProcessDocRefSchema = z
   })
   .strict();
 
+const onboardingEconomicsSchema = z
+  .object({
+    pricingModel: z.string().min(1).optional(),
+    conversionPath: z.string().min(1).optional(),
+    acv: z.string().min(1).optional(),
+    pricingTiers: z.string().min(1).optional(),
+    targetPlan: z.string().min(1).optional(),
+    avgLtv: z.string().min(1).optional(),
+    targetCac: z.string().min(1).optional(),
+    monthlyAdBudget: z.string().min(1).optional(),
+    budgetSplit: z.string().min(1).optional(),
+    currentCac: z.string().min(1).optional(),
+    monthlyRevenue: z.string().min(1).optional(),
+    avgSalesCycle: z.string().min(1).optional(),
+    visitorToSignup: z.string().min(1).optional(),
+    signupToActivation: z.string().min(1).optional(),
+    activationToPaid: z.string().min(1).optional(),
+    demoToClose: z.string().min(1).optional(),
+    growthTrend: z.string().min(1).optional(),
+  })
+  .strict();
+
 export const onboardingSnapshotSchema = z
   .object({
     primaryGoal: z.string().min(1),
@@ -65,6 +87,7 @@ export const onboardingSnapshotSchema = z
     gtmMotion: z.enum(["SLG", "PLG"]).optional(),
     creativeCapacity: z.enum(["lean", "standard", "high"]).optional(),
     leadListAvailable: z.boolean().optional(),
+    economics: onboardingEconomicsSchema.optional(),
   })
   .strict();
 

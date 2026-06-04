@@ -6,6 +6,7 @@ import {
 import { cn } from '@/lib/utils';
 import {
   DataTable,
+  Eyebrow,
   InlineStats,
   MonoBadge,
   SourceLink,
@@ -63,6 +64,51 @@ function creativeSummaryLines(
     .join(' · ');
 }
 
+function provenanceLabel(value: string | undefined): string {
+  if (value === undefined || value.trim().length === 0) {
+    return 'unknown';
+  }
+
+  return value;
+}
+
+function MoneyValue({
+  provenance,
+  value,
+}: {
+  provenance: string | undefined;
+  value: string;
+}): React.ReactElement {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span>{value}</span>
+      <MonoBadge>{provenanceLabel(provenance)}</MonoBadge>
+    </span>
+  );
+}
+
+function MoneyStat({
+  label,
+  provenance,
+  value,
+}: {
+  label: string;
+  provenance: string | undefined;
+  value: string;
+}): React.ReactElement {
+  return (
+    <div>
+      <dt>
+        <Eyebrow>{label}</Eyebrow>
+      </dt>
+      <dd className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[22px] font-semibold tabular-nums text-foreground">
+        <span>{value}</span>
+        <MonoBadge>{provenanceLabel(provenance)}</MonoBadge>
+      </dd>
+    </div>
+  );
+}
+
 export function PaidMediaPlanRenderer({
   artifact,
   className,
@@ -73,7 +119,16 @@ export function PaidMediaPlanRenderer({
   > = [
     { key: 'phaseName', header: 'Phase', className: 'font-medium text-foreground' },
     { key: 'monthsLabel', header: 'Timing' },
-    { key: 'monthlyBudget', header: 'Budget' },
+    {
+      key: 'monthlyBudget',
+      header: 'Budget',
+      render: (row) => (
+        <MoneyValue
+          value={row.monthlyBudget}
+          provenance={row.monthlyBudgetProvenance}
+        />
+      ),
+    },
     {
       key: 'bullets',
       header: 'Focus',
@@ -85,7 +140,16 @@ export function PaidMediaPlanRenderer({
   > = [
     { key: 'slot', header: 'Slot', className: 'font-medium text-foreground' },
     { key: 'archetype', header: 'Archetype' },
-    { key: 'dailyBudget', header: 'Daily budget' },
+    {
+      key: 'dailyBudget',
+      header: 'Daily budget',
+      render: (row) => (
+        <MoneyValue
+          value={row.dailyBudget}
+          provenance={row.dailyBudgetProvenance}
+        />
+      ),
+    },
     {
       key: 'detail',
       header: 'Detail',
@@ -166,6 +230,16 @@ export function PaidMediaPlanRenderer({
   > = [
     { key: 'competitor', header: 'Competitor', className: 'font-medium text-foreground' },
     { key: 'messaging', header: 'Messaging' },
+    {
+      key: 'estSpend',
+      header: 'Spend',
+      render: (row) => (
+        <MoneyValue
+          value={row.estSpend}
+          provenance={row.estSpendProvenance}
+        />
+      ),
+    },
     { key: 'anglesTested', header: 'Angles' },
     { key: 'offer', header: 'Offer' },
   ];
@@ -217,15 +291,27 @@ export function PaidMediaPlanRenderer({
     >
       <div data-testid="paid-media-plan-renderer" className="space-y-10">
         <SubsectionBlock label="Campaign overview" prose={body.campaignOverview.prose}>
-          <InlineStats
-            items={[
-              { label: 'Monthly budget', value: body.campaignOverview.monthlyBudget },
-              { label: 'Daily spend', value: body.campaignOverview.dailySpend },
-              { label: 'Months', value: body.campaignOverview.totalMonths },
-              { label: 'Primary KPI', value: body.campaignOverview.primaryKpi },
-              { label: 'Platform', value: body.campaignOverview.platform },
-            ]}
-          />
+          <div className="space-y-4">
+            <dl className="flex flex-wrap gap-x-10 gap-y-4">
+              <MoneyStat
+                label="Monthly budget"
+                value={body.campaignOverview.monthlyBudget}
+                provenance={body.campaignOverview.monthlyBudgetProvenance}
+              />
+              <MoneyStat
+                label="Daily spend"
+                value={body.campaignOverview.dailySpend}
+                provenance={body.campaignOverview.dailySpendProvenance}
+              />
+            </dl>
+            <InlineStats
+              items={[
+                { label: 'Months', value: body.campaignOverview.totalMonths },
+                { label: 'Primary KPI', value: body.campaignOverview.primaryKpi },
+                { label: 'Platform', value: body.campaignOverview.platform },
+              ]}
+            />
+          </div>
         </SubsectionBlock>
 
         <SubsectionBlock label="Campaign phases" prose={body.campaignPhases.prose}>

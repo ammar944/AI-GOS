@@ -101,6 +101,36 @@ const funnelTypeValues = [
 
 const channelVerdictValues = ["keep", "fix", "cut", "start"] as const;
 
+export const paidMediaMoneyProvenanceValues = [
+  "user-supplied",
+  "tool-measured",
+  "source-reported",
+  "model-estimated",
+  "unknown",
+] as const;
+
+const paidMediaMoneyProvenanceSchema = z.enum(paidMediaMoneyProvenanceValues);
+const paidMediaNumericMoneySchema = z.number().finite().nonnegative().optional();
+type PaidMediaMoneyProvenance =
+  (typeof paidMediaMoneyProvenanceValues)[number];
+
+function rejectUnknownProvenanceNumericMoney(
+  ctx: z.RefinementCtx,
+  value: number | undefined,
+  provenance: PaidMediaMoneyProvenance,
+  path: "monthlyBudgetValue" | "dailySpendValue" | "dailyBudgetValue",
+): void {
+  if (value === undefined || provenance !== "unknown") {
+    return;
+  }
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [path],
+    message: "Numeric money sibling must be omitted when provenance is unknown.",
+  });
+}
+
 const modelSourceSchema = z
   .object({
     title: z.string().min(1),
@@ -120,31 +150,69 @@ const campaignOverviewSchema = z
   .object({
     prose: z.string().min(1),
     monthlyBudget: z.string().min(1),
+    monthlyBudgetValue: paidMediaNumericMoneySchema,
+    monthlyBudgetProvenance: paidMediaMoneyProvenanceSchema,
     totalMonths: z.number(),
     phaseCount: z.number(),
     dailySpend: z.string().min(1),
+    dailySpendValue: paidMediaNumericMoneySchema,
+    dailySpendProvenance: paidMediaMoneyProvenanceSchema,
     primaryKpi: z.string().min(1),
     platform: z.string().min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx): void => {
+    rejectUnknownProvenanceNumericMoney(
+      ctx,
+      value.monthlyBudgetValue,
+      value.monthlyBudgetProvenance,
+      "monthlyBudgetValue",
+    );
+    rejectUnknownProvenanceNumericMoney(
+      ctx,
+      value.dailySpendValue,
+      value.dailySpendProvenance,
+      "dailySpendValue",
+    );
+  });
 
 const campaignPhaseSchema = z
   .object({
     phaseName: z.string().min(1),
     monthsLabel: z.string().min(1),
     monthlyBudget: z.string().min(1),
+    monthlyBudgetValue: paidMediaNumericMoneySchema,
+    monthlyBudgetProvenance: paidMediaMoneyProvenanceSchema,
     bullets: z.array(z.string().min(1)),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx): void => {
+    rejectUnknownProvenanceNumericMoney(
+      ctx,
+      value.monthlyBudgetValue,
+      value.monthlyBudgetProvenance,
+      "monthlyBudgetValue",
+    );
+  });
 
 const audienceSchema = sourcedItemSchema
   .extend({
     slot: z.string().min(1),
     archetype: z.string().min(1),
     dailyBudget: z.string().min(1),
+    dailyBudgetValue: paidMediaNumericMoneySchema,
+    dailyBudgetProvenance: paidMediaMoneyProvenanceSchema,
     detail: z.string().min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx): void => {
+    rejectUnknownProvenanceNumericMoney(
+      ctx,
+      value.dailyBudgetValue,
+      value.dailyBudgetProvenance,
+      "dailyBudgetValue",
+    );
+  });
 
 const creativeStrategySchema = z
   .object({
@@ -192,6 +260,7 @@ const competitorMarketingSchema = sourcedItemSchema
     messaging: z.string().min(1),
     adPlatforms: z.array(z.string().min(1)),
     estSpend: z.string().min(1),
+    estSpendProvenance: paidMediaMoneyProvenanceSchema,
     icpTargeted: z.string().min(1),
     anglesTested: z.string().min(1),
     positioningClaim: z.string().min(1),

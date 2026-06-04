@@ -150,7 +150,14 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
-function installSuccessfulToolFetches(): {
+function installSuccessfulToolFetches({
+  firecrawlMode = 'result',
+  firecrawlMarkdown =
+    'Recovered third-party quote: "Our founder-led follow-up dies when notes and account context split across tools."',
+}: {
+  firecrawlMode?: 'result' | 'api-error';
+  firecrawlMarkdown?: string;
+} = {}): {
   fetchMock: ReturnType<typeof vi.fn>;
   requestedUrls: string[];
 } {
@@ -194,6 +201,13 @@ function installSuccessfulToolFetches(): {
               {
                 description:
                   'Founder asks how to stop sales follow-up from disappearing after every pipeline review.',
+                extra_snippets: [
+                  'Buyers mention missed handoffs after founder-led sales calls.',
+                  '',
+                  42,
+                  '   ',
+                  'Pipeline review snippets describe context loss between notes and CRM.',
+                ],
                 title: 'Weekly founder sales workflow pain',
                 url: 'https://www.reddit.com/r/sales/comments/saaslaunch_followup_loop/',
               },
@@ -215,10 +229,13 @@ function installSuccessfulToolFetches(): {
       }
 
       if (url.includes('api.firecrawl.dev')) {
+        if (firecrawlMode === 'api-error') {
+          return new Response('firecrawl rate limit', { status: 429 });
+        }
+
         return jsonResponse({
           data: {
-            markdown:
-              'Recovered third-party quote: "Our founder-led follow-up dies when notes and account context split across tools."',
+            markdown: firecrawlMarkdown,
             metadata: {
               sourceURL: 'https://www.g2.com/products/saaslaunch/reviews',
               title: 'Recovered SaaSLaunch review',
@@ -346,6 +363,7 @@ describe('runSection VoC candidate prepass', (): void => {
     const { requestedUrls } = installSuccessfulToolFetches();
     let fetchCallsBeforeStructured = 0;
     let checkedFirstDraft = false;
+    let firstDraftPrompt = '';
     const budgetProbeOutputs: unknown[] = [];
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
       expect(params.prompt).toContain('Voice of Customer Candidate Pack');
@@ -358,13 +376,14 @@ describe('runSection VoC candidate prepass', (): void => {
       emitVoiceOfCustomerEvidenceStep(params);
       if (!checkedFirstDraft) {
         checkedFirstDraft = true;
+        firstDraftPrompt = params.prompt;
         fetchCallsBeforeStructured = requestedUrls.length;
-        expect(fetchCallsBeforeStructured).toBe(2);
+        expect(fetchCallsBeforeStructured).toBe(3);
         expect(requestedUrls[0]).toContain('searchapi.io');
         expect(requestedUrls[1]).toContain('api.search.brave.com');
-        expect(
-          requestedUrls.some((url) => url.includes('api.firecrawl.dev')),
-        ).toBe(false);
+        expect(requestedUrls[2]).toContain('api.firecrawl.dev');
+        expect(params.prompt).toContain('Recovered SaaSLaunch review');
+        expect(params.prompt).toContain('Recovered third-party quote');
 
         const webSearchTool = requireExecutableTool(
           params.tools?.web_search,
@@ -413,6 +432,7 @@ describe('runSection VoC candidate prepass', (): void => {
       },
       {
         allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
         loadSkill: async () => 'Use deterministic VoC candidates.',
         now: () => new Date('2026-06-01T00:00:00.000Z'),
         store,
@@ -428,13 +448,105 @@ describe('runSection VoC candidate prepass', (): void => {
     );
 
     expect(streamStructured).toHaveBeenCalled();
-    expect(fetchCallsBeforeStructured).toBe(2);
-    expect(requestedUrls.some((url) => url.includes('api.firecrawl.dev'))).toBe(
-      false,
+    expect(fetchCallsBeforeStructured).toBe(3);
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(1);
+    expect(firstDraftPrompt).toContain(
+      'Founder asks how to stop sales follow-up from disappearing after every pipeline review.',
+    );
+    expect(firstDraftPrompt).toContain(
+      'Buyers mention missed handoffs after founder-led sales calls.',
+    );
+    expect(firstDraftPrompt).toContain(
+      'Pipeline review snippets describe context loss between notes and CRM.',
     );
     expect(budgetProbeTypes.slice(0, 2)).toEqual(['result', 'result']);
     expect(budgetProbeTypes).toContain('gap');
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('continues drafting from snippets when best-effort Firecrawl enrichment is empty', async (): Promise<void> => {
+    const store = await makeStore();
+    const { requestedUrls } = installSuccessfulToolFetches({
+      firecrawlMarkdown: '',
+    });
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(requestedUrls).toHaveLength(3);
+      expect(requestedUrls[2]).toContain('api.firecrawl.dev');
+      expect(params.prompt).toContain('g2.com');
+      expect(params.prompt).toContain('reddit.com');
+      expect(params.prompt).not.toContain('Recovered SaaSLaunch review');
+
+      emitVoiceOfCustomerEvidenceStep(params);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(streamStructured).toHaveBeenCalled();
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(1);
+  });
+
+  it('continues drafting from snippets when best-effort Firecrawl enrichment returns an API gap', async (): Promise<void> => {
+    const store = await makeStore();
+    const { requestedUrls } = installSuccessfulToolFetches({
+      firecrawlMode: 'api-error',
+    });
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(requestedUrls).toHaveLength(3);
+      expect(requestedUrls[2]).toContain('api.firecrawl.dev');
+      expect(params.prompt).toContain('g2.com');
+      expect(params.prompt).toContain('reddit.com');
+      expect(params.prompt).not.toContain('Recovered SaaSLaunch review');
+      expect(params.prompt).not.toContain('Recovered third-party quote');
+
+      emitVoiceOfCustomerEvidenceStep(params);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+
+    expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(streamStructured).toHaveBeenCalled();
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(1);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -468,6 +580,7 @@ describe('runSection VoC candidate prepass', (): void => {
       },
       {
         allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
         loadSkill: async () => 'Use deterministic VoC candidates.',
         now: () => new Date('2026-06-01T00:00:00.000Z'),
         store,

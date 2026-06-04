@@ -175,14 +175,32 @@ describe("keywordSignalSchema — optional cpc", (): void => {
     dateObserved: "2026-05-20",
   };
 
-  it("accepts a row WITH cpc", (): void => {
+  it("accepts a row WITH cpc and numeric siblings", (): void => {
     expect(
-      keywordSignalSchema.safeParse({ ...baseRow, cpc: "$4.10 (SpyFu-estimated)" })
-        .success,
+      keywordSignalSchema.safeParse({
+        ...baseRow,
+        cpc: "$4.10 (SpyFu-estimated)",
+        monthlyVolumeValue: 320,
+        cpcValue: 4.1,
+        difficulty: 22,
+      }).success,
     ).toBe(true);
   });
 
-  it("accepts a row WITHOUT cpc", (): void => {
+  it("accepts a legacy row WITHOUT numeric siblings", (): void => {
     expect(keywordSignalSchema.safeParse(baseRow).success).toBe(true);
+  });
+
+  it.each([
+    ["monthlyVolumeValue", -1],
+    ["cpcValue", -0.01],
+    ["difficulty", -1],
+  ] as const)("rejects negative %s", (field, value): void => {
+    expect(
+      keywordSignalSchema.safeParse({
+        ...baseRow,
+        [field]: value,
+      }).success,
+    ).toBe(false);
   });
 });

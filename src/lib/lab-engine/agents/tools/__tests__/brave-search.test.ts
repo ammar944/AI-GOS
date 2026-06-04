@@ -50,6 +50,13 @@ describe("braveSearchAgentTool", (): void => {
               title: "Fellow meeting automation",
               url: "https://fellow.app/",
               description: "AI meeting notes and action items.",
+              extra_snippets: [
+                "Teams use Fellow to capture meeting action items.",
+                "",
+                42,
+                "   ",
+                "Follow-up snippets mention post-meeting accountability.",
+              ],
             },
           ],
         },
@@ -75,7 +82,10 @@ describe("braveSearchAgentTool", (): void => {
           title: "Fellow meeting automation",
           url: "https://fellow.app/",
           description: "AI meeting notes and action items.",
-          extra_snippets: [],
+          extra_snippets: [
+            "Teams use Fellow to capture meeting action items.",
+            "Follow-up snippets mention post-meeting accountability.",
+          ],
         },
       ],
     });

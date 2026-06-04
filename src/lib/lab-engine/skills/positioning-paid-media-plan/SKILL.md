@@ -21,6 +21,7 @@ Use `ResearchInput.committedPositioningArtifacts` as the source of truth for the
 
 Read these frozen GTM brief fields when present:
 
+- `economics.monthlyAdBudget`, `economics.targetCac`, and `economics.avgLtv` feed budget assumptions. If exact economics are absent, label spend as `model-estimated` only when it is an explicit scenario assumption, otherwise use `unknown`.
 - `salesProcessDocs[]` and `salesLoomUrl` feed `body.salesProcess.assets`.
 - `gtmMotion` feeds `body.kpis.gtmMotion`; if absent, infer cautiously and state the gap in prose.
 - `creativeCapacity` feeds `body.creativeStrategy` counts.
@@ -32,6 +33,11 @@ Read these frozen GTM brief fields when present:
 - Fill in campaign blanks with actual copy, not template labels.
 - Every synthesized item must name a `sourceSection` from one of the six positioning sections and carry a real `sourceUrl` from that artifact.
 - Do not fabricate competitor ad platforms or spend. Use `unknown` when the committed competitor artifact is thin.
+- Every money/spend value must carry a provenance label: `user-supplied`, `tool-measured`, `source-reported`, `model-estimated`, or `unknown`.
+- If budget/funnel economics are missing, do not present the number as launch-ready authority; mark it `model-estimated` for a scenario assumption or `unknown` when no defensible scenario exists.
+- Add optional numeric siblings only when they come from user-supplied economics, tool-measured data, source-reported data, or explicit scenario assumptions with corresponding provenance.
+- Omit numeric siblings when the number is unknown or weakly inferred.
+- Numeric siblings are machine-sortable numbers and must not duplicate provenance in strings.
 - Keep confidence in the 0..1 envelope scale.
 
 ## Required Body Keys
@@ -55,16 +61,17 @@ Return exactly these `body` keys:
 
 - `sources[]`: only `title`, `url`, optional `publisher`; no `id` or `observedAt`.
 - `sourceSection`: only `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.
-- Numeric fields are only `totalMonths`, `phaseCount`, `staticCount`, `videoCount`, and `totalPerAudience`; emit those as numbers.
+- Money provenance values: only `user-supplied`, `tool-measured`, `source-reported`, `model-estimated`, or `unknown`.
+- Numeric fields are `totalMonths`, `phaseCount`, `staticCount`, `videoCount`, `totalPerAudience`, plus optional machine-sortable money siblings `monthlyBudgetValue`, `dailySpendValue`, and `dailyBudgetValue`; emit those as numbers.
 - Array fields must stay arrays. Budget, daily-spend, slot, and descriptive fields must be JSON strings.
-- `campaignOverview`: `prose`, `monthlyBudget`, `totalMonths`, `phaseCount`, `dailySpend`, `primaryKpi`, `platform`.
-- `campaignPhases`: `prose`, `phases[]`; each phase uses `phaseName`, `monthsLabel`, `monthlyBudget`, `bullets`. Do not use `name`, `duration`, `focus`, or `allocation`.
-- `audienceTypes`: `prose`, `audiences[]`; each audience uses `slot`, `archetype`, `dailyBudget`, `detail`, `sourceSection`, `sourceUrl`.
+- `campaignOverview`: `prose`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `totalMonths`, `phaseCount`, `dailySpend`, optional `dailySpendValue`, `dailySpendProvenance`, `primaryKpi`, `platform`.
+- `campaignPhases`: `prose`, `phases[]`; each phase uses `phaseName`, `monthsLabel`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `bullets`. Do not use `name`, `duration`, `focus`, or `allocation`.
+- `audienceTypes`: `prose`, `audiences[]`; each audience uses `slot`, `archetype`, `dailyBudget`, optional `dailyBudgetValue`, `dailyBudgetProvenance`, `detail`, `sourceSection`, `sourceUrl`.
 - `creativeStrategy`: `prose`, `staticCount`, `videoCount`, `totalPerAudience`, `angleTypesInMix`.
 - `anglesToTest`: `prose`, `angles[]`; each angle uses `angleName`, `primaryText`, `supportingLine`, `insight`, `sourceSection`, `sourceUrl`.
 - `creativeFramework`: `prose`, `creatives[]`; each creative uses `creativeType`, `sourceSection`, `sourceUrl`, plus the fields for that creative type. Do not use ad-rendering fields like `headline`, `body`, `cta`, or `landingPageUrl`.
 - `competitorReviewInsights`: `prose`, `insights[]`; each insight uses `competitor`, `verbatimComplaint`, `adLeverage`, `sourceSection`, `sourceUrl`.
-- `competitorMarketingInsights`: `prose`, `competitors[]`; each competitor uses `competitor`, `messaging`, `adPlatforms`, `estSpend`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`. `anglesTested` is one string, never an array.
+- `competitorMarketingInsights`: `prose`, `competitors[]`; each competitor uses `competitor`, `messaging`, `adPlatforms`, `estSpend`, `estSpendProvenance`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`. `estSpend` remains string-only; never emit `estSpendValue`. `anglesTested` is one string, never an array.
 - `funnelIdeation`: `prose`, `recommendations[]`; each recommendation uses `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`.
 - `salesProcess`: `prose`, `assets[]`; each asset uses `label`, `url`, `assetType` (`sop-doc` or `loom`). If no asset URL exists, use an empty array and state the gap in prose.
 - `channelSuggestions`: `prose`, `suggestions[]`; each suggestion uses `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`.

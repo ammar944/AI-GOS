@@ -318,9 +318,25 @@ function VerificationBadge({
     return null;
   }
 
+  const { verifiedCount, unsupportedCount } = verification;
+  const total = verifiedCount + unsupportedCount;
+  // Grounded confidence = verified / (verified + unsupported), mirroring the verifier's
+  // deriveGroundedConfidence. Below 0.6 the section leans on unsupported load-bearing
+  // claims, so surface it as "needs review" instead of letting it read as fully verified.
+  const needsReview = total > 0 && verifiedCount / total < 0.6;
+
+  if (needsReview) {
+    const confidencePct = Math.round((verifiedCount / total) * 100);
+    return (
+      <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[12px] font-medium text-amber-400">
+        Needs review · {unsupportedCount} unsupported · {confidencePct}% verified
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-1 text-[12px] font-medium text-muted-foreground">
-      Verified {verification.verifiedCount} / Unsupported {verification.unsupportedCount}
+      Verified {verifiedCount} / Unsupported {unsupportedCount}
     </span>
   );
 }

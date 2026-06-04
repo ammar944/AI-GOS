@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routeMocks = vi.hoisted(() => {
   const auth = vi.fn();
-  const createAdminClient = vi.fn(() => ({ marker: 'admin-client' }));
+  const createAdminClient = vi.fn<() => unknown>(() => ({ marker: 'admin-client' }));
   const createV3SharedSession = vi.fn();
 
   return {
