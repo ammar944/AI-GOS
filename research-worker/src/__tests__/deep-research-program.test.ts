@@ -668,4 +668,42 @@ describe('runDeepResearchProgram', () => {
     expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
     expect(result.provenance?.citationCount).toBe(10);
   });
+
+  it('accepts structured repair output even when repair text is not parseable JSON', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const brokenCorpus = buildCorpusFixture();
+    const corpus = brokenCorpus.corpus as {
+      sources: Array<{ title: string; url: string; whyItMatters: string }>;
+    };
+    corpus.sources[0] = {
+      title: 'Fabricated source',
+      url: 'https://example.com/fake-ramp-report',
+      whyItMatters: 'This fabricated source forces a minimums repair.',
+    };
+    const repairedCorpus = buildCorpusFixture();
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(brokenCorpus) as Awaited<ReturnType<typeof generateText>>,
+    );
+    queueTopicFanoutResults(generateTextMock);
+    generateTextMock.mockResolvedValueOnce({
+      ...(buildGenerateTextResult(repairedCorpus) as Record<string, unknown>),
+      text: 'I repaired the corpus into the structured output payload.',
+    } as Awaited<ReturnType<typeof generateText>>);
+    queueTopicFanoutResults(generateTextMock);
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+    );
+
+    expect(result.status).toBe('complete');
+    expect(generateTextMock).toHaveBeenCalledTimes(8);
+    expect(JSON.stringify(result.data)).not.toContain('example.com');
+    expect(result.provenance?.citationCount).toBe(10);
+    expect(
+      (generateTextMock.mock.calls[4]?.[0] as { output?: unknown }).output,
+    ).toBeDefined();
+  });
 });

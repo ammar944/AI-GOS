@@ -116,7 +116,13 @@ export class SectionToolBudget {
   }
 
   public remaining(): number {
-    return Math.max(0, this.max - this.genericUsed - this.adReservedUsed);
+    return Math.max(
+      0,
+      this.max -
+        this.genericUsed -
+        this.adReservedUsed -
+        this.scrapeReservedUsed,
+    );
   }
 
   public isExhausted(): boolean {

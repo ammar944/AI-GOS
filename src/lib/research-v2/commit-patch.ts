@@ -118,7 +118,7 @@ export function buildCommitPatch(
     claims: [],
     sources: Array.isArray(a.sources) ? (a.sources as unknown[]) : [],
     error: null,
-    verificationTier: review?.tier ?? verificationFlag?.tier ?? null,
+    verificationTier: verificationFlag?.tier ?? null,
     verificationFlag,
   };
 }

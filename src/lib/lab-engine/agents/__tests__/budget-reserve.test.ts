@@ -53,6 +53,17 @@ describe('SectionToolBudget', (): void => {
     expect(budget.consume('reviews')).toBe(false);
   });
 
+  it('counts used scrape reserve lookups in remaining and exhausted state', (): void => {
+    const budget = new SectionToolBudget(1, 0, 2);
+
+    expect(budget.consume('web_search')).toBe(true);
+    expect(budget.consume('reviews')).toBe(true);
+    expect(budget.consume('firecrawl')).toBe(true);
+
+    expect(budget.remaining()).toBe(0);
+    expect(budget.isExhausted()).toBe(true);
+  });
+
   it('behaves like a plain ToolBudget when the reserve is zero (back-compat)', (): void => {
     const reserved = new SectionToolBudget(4, 0);
     const plain = new ToolBudget(4);

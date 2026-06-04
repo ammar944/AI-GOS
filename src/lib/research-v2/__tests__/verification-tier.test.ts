@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildReviewVerificationFlag,
   deriveVerificationFlag,
   shouldFlagNeedsReview,
 } from '../verification-tier';
@@ -68,6 +69,27 @@ describe('verification tiering', (): void => {
         verifiedCount: 9,
         unsupportedCount: 1,
         evidenceGap: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        tier: 'insufficient',
+        confidence: 0.9,
+        evidenceGap: true,
+      }),
+    );
+  });
+
+  it('does not let review metadata upgrade away a deterministic evidence gap', (): void => {
+    const baseFlag = deriveVerificationFlag({
+      verifiedCount: 9,
+      unsupportedCount: 1,
+      evidenceGap: true,
+    });
+
+    expect(
+      buildReviewVerificationFlag({
+        tier: 'verified',
+        baseFlag,
       }),
     ).toEqual(
       expect.objectContaining({

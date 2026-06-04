@@ -32,6 +32,12 @@ export interface BuildReviewVerificationFlagInput {
 
 export type VerificationTierCounts = Record<VerificationTier, number>;
 
+const VERIFICATION_TIER_SEVERITY: Record<VerificationTier, number> = {
+  verified: 0,
+  needs_review: 1,
+  insufficient: 2,
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -135,16 +141,27 @@ function fallbackCountsForTier(tier: VerificationTier): {
   return { verifiedCount: 0, unsupportedCount: 1 };
 }
 
+function strictestVerificationTier(
+  first: VerificationTier,
+  second: VerificationTier,
+): VerificationTier {
+  return VERIFICATION_TIER_SEVERITY[first] >=
+    VERIFICATION_TIER_SEVERITY[second]
+    ? first
+    : second;
+}
+
 export function buildReviewVerificationFlag(
   input: BuildReviewVerificationFlagInput,
 ): VerificationFlag {
   const fallback = deriveVerificationFlag(fallbackCountsForTier(input.tier));
   const baseFlag = input.baseFlag ?? fallback;
+  const tier = strictestVerificationTier(baseFlag.tier, input.tier);
 
   return {
     ...baseFlag,
-    tier: input.tier,
-    evidenceGap: input.tier === 'insufficient',
+    tier,
+    evidenceGap: baseFlag.evidenceGap || input.tier === 'insufficient',
   };
 }
 

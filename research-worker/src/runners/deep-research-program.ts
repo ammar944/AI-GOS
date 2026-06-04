@@ -1071,6 +1071,20 @@ function parseDeepResearchOutput(value: unknown): DeepResearchCorpusOutput {
   return deepResearchCorpusSchema.parse(value);
 }
 
+function parseRepairDeepResearchOutput(result: SonarGenerationResult): DeepResearchCorpusOutput {
+  const structured = deepResearchCorpusSchema.safeParse(result.output);
+  if (structured.success) {
+    return structured.data;
+  }
+
+  const parsed = tryExtractJson(result.text);
+  if (!parsed || !isRecord(parsed)) {
+    throw new Error('Deep research repair returned no parseable JSON');
+  }
+
+  return parseDeepResearchOutput(parsed);
+}
+
 async function ensureMinimumSonarSources(input: {
   apiKey: string;
   context: string;
@@ -1364,19 +1378,14 @@ async function repairDeepResearchJson(input: {
         model: perplexity(input.model),
         system: DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT,
         prompt: `ORIGINAL USER CONTEXT\n${input.context}\n\nCAPTURED PERPLEXITY CITATIONS\n${formatCapturedSources(input.sources)}${validationInstructions}\n\nINCOMPLETE DRAFT / MODEL OUTPUT\n${input.draftText || 'No draft text was produced.'}\n\nRepair this into the required JSON object now. Use only the captured Perplexity citations and original context.`,
+        output: Output.object({ schema: deepResearchCorpusSchema }),
         maxOutputTokens: getDeepResearchRepairMaxTokens(),
         temperature: 0,
         abortSignal: signal,
       }),
   );
-  const parsed = tryExtractJson(result.text);
-
-  if (!parsed || !isRecord(parsed)) {
-    throw new Error('Deep research repair returned no parseable JSON');
-  }
-
-  const validated = parseDeepResearchOutput(parsed);
   const sonarResult = result as SonarGenerationResult;
+  const validated = parseRepairDeepResearchOutput(sonarResult);
   const baseSources = input.sources.length > 0
     ? input.sources
     : extractSonarSources(sonarResult);
