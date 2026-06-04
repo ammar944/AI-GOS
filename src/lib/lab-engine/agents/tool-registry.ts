@@ -2,6 +2,7 @@ import type { Tool, ToolExecutionOptions } from "ai";
 
 import type { SectionToolBudget, ToolBudget } from "./budget";
 import { TOOL_CATALOG, type ToolName } from "./tools/index";
+import { ToolGapSchema } from "./tools/_shared";
 
 // Either budget shape works: a plain ToolBudget or a two-pool SectionToolBudget.
 // The wrapper passes the tool name through so a SectionToolBudget can route
@@ -38,7 +39,9 @@ function wrapWithBudget<TInput, TOutput>(
       input: TInput,
       context: ToolExecutionOptions,
     ): Promise<TOutput> => {
-      if (!budget.consume(toolName)) {
+      const budgetReceipt = budget.consumeWithReceipt(toolName);
+
+      if (budgetReceipt === null) {
         return {
           type: "gap",
           reason: "rate_limited",
@@ -55,6 +58,15 @@ function wrapWithBudget<TInput, TOutput>(
       }
 
       const output = await baseTool.execute(input, context);
+      const parsedGap = ToolGapSchema.safeParse(output);
+
+      if (
+        parsedGap.success &&
+        parsedGap.data.consumesBudget === false
+      ) {
+        budgetReceipt.refund();
+      }
+
       return output as TOutput;
     },
   };

@@ -362,6 +362,111 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.quarantinedCount).toBe(1);
   });
 
+  it("drops off-topic name-only Airbase music creative from returned creatives", () => {
+    const args = {
+      observedAt: "2026-06-03T00:00:00.000Z",
+      topicContext:
+        "Spend management software for finance teams, expense approvals, procurement workflows, corporate cards, invoices, budgets, and vendor payments.",
+      steps: [
+        {
+          stepNumber: 0,
+          finishReason: "tool-calls" as const,
+          text: "",
+          toolCalls: [
+            {
+              toolName: "meta_ads",
+              input: {
+                advertiser: "Airbase",
+                domain: "airbase.com",
+                max_results: 8,
+              },
+            },
+          ],
+          toolResults: [
+            {
+              toolName: "meta_ads",
+              output: {
+                type: "result" as const,
+                advertiser: "Airbase",
+                platform: "meta" as const,
+                ads: [
+                  {
+                    url: "https://www.facebook.com/ads/library/?id=airbase-trance",
+                    id: "airbase-trance",
+                    advertiserName: "Airbase",
+                    title: "Airbase - Everything Else Could Wait",
+                    snippet:
+                      "NEW TRACK ALERT! Airbase - Everything Else Could Wait. Progressive trance at its finest!",
+                    identityVerified: false,
+                    identityBasis: "name_only",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const [group] = buildCompetitorAdEvidenceGroups(args);
+
+    expect(group.creatives).toHaveLength(0);
+    expect(group.returnedCreativeCount).toBe(0);
+    expect(group.quarantinedCount).toBe(0);
+  });
+
+  it("keeps on-topic name-only spend-management creative quarantined", () => {
+    const args = {
+      observedAt: "2026-06-03T00:00:00.000Z",
+      topicContext:
+        "Spend management software for finance teams, expense approvals, procurement workflows, corporate cards, invoices, budgets, and vendor payments.",
+      steps: [
+        {
+          stepNumber: 0,
+          finishReason: "tool-calls" as const,
+          text: "",
+          toolCalls: [
+            {
+              toolName: "meta_ads",
+              input: {
+                advertiser: "Airbase",
+                domain: "airbase.com",
+                max_results: 8,
+              },
+            },
+          ],
+          toolResults: [
+            {
+              toolName: "meta_ads",
+              output: {
+                type: "result" as const,
+                advertiser: "Airbase",
+                platform: "meta" as const,
+                ads: [
+                  {
+                    url: "https://www.facebook.com/ads/library/?id=airbase-expense",
+                    id: "airbase-expense",
+                    advertiserName: "Airbase",
+                    title: "Control every business expense before employees spend",
+                    snippet:
+                      "Corporate card controls, procurement approvals, and invoice workflows for finance teams.",
+                    identityVerified: false,
+                    identityBasis: "name_only",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const [group] = buildCompetitorAdEvidenceGroups(args);
+
+    expect(group.creatives).toHaveLength(1);
+    expect(group.creatives[0]?.verified).toBe(false);
+    expect(group.creatives[0]?.identityBasis).toBe("name_only");
+    expect(group.quarantinedCount).toBe(1);
+  });
+
   it("quarantines a non-English creative even when identity is verified", () => {
     const [group] = buildCompetitorAdEvidenceGroups({
       observedAt: "2026-06-03T00:00:00.000Z",

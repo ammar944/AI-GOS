@@ -105,6 +105,8 @@ export interface SectionDefinition<TBody, TOutput extends SectionOutput<TBody>> 
   // deterministic competitor ad probe is never starved by generic web/firecrawl
   // calls. Defaults to 0 (no reserve) for sections that do not set it.
   adReservedLookups?: number;
+  // Dedicated review/scrape lookup slots for VoC acquisition. Defaults to 0.
+  scrapeReservedLookups?: number;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   bodySchema: z.ZodType<TBody>;
   sectionOutputSchema: z.ZodType<TOutput>;
@@ -213,6 +215,7 @@ export const SECTION_REGISTRY = {
     sectionOutputSchemaName: "VoiceOfCustomerSectionOutput",
     allowedTools: ["web_search", "reviews", "firecrawl"],
     maxExternalLookups: 5,
+    scrapeReservedLookups: 2,
     requiredEvidenceClasses: ["voc_quote_or_gap"],
     bodySchema: voiceOfCustomerBodySchema,
     sectionOutputSchema: voiceOfCustomerSectionOutputSchema,

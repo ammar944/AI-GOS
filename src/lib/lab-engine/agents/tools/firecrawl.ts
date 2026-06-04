@@ -6,11 +6,31 @@ import {
   apiErrorGap,
   credentialGap,
   errorToGap,
+  nonConsumingContentGap,
   timedFetch,
   type ToolGap,
 } from "./_shared";
 
 const firecrawlScrapeUrl = "https://api.firecrawl.dev/v2/scrape";
+
+function getUnusableMarkdownReason(markdown: string): string | null {
+  const normalized = markdown.trim().toLowerCase();
+
+  if (normalized.length === 0) {
+    return "empty markdown";
+  }
+
+  if (
+    normalized.includes("enable js") ||
+    normalized.includes("enable javascript") ||
+    normalized.includes("disable any ad blocker") ||
+    normalized.includes("ad blocker")
+  ) {
+    return "javascript challenge or ad-blocker wall";
+  }
+
+  return null;
+}
 
 export const FirecrawlOutputSchema = z.union([
   z
@@ -72,10 +92,19 @@ export const firecrawlAgentTool = tool({
         };
       };
 
+      const markdown = data.data?.markdown ?? "";
+      const unusableReason = getUnusableMarkdownReason(markdown);
+
+      if (unusableReason !== null) {
+        return nonConsumingContentGap(
+          `Firecrawl returned ${unusableReason} for ${url}; no usable markdown was available.`,
+        ) as ToolGap;
+      }
+
       return {
         type: "result" as const,
         url,
-        markdown: data.data?.markdown ?? "",
+        markdown,
         title: data.data?.metadata?.title,
         sourceUrl: data.data?.metadata?.sourceURL,
       };

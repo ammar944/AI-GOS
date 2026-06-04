@@ -41,6 +41,18 @@ describe('SectionToolBudget', (): void => {
     expect(budget.consume('web_search')).toBe(false);
   });
 
+  it('reserves reviews and scrape lookups so generic searches cannot starve VoC acquisition', (): void => {
+    const budget = new SectionToolBudget(2, 0, 2);
+
+    expect(budget.consume('web_search')).toBe(true);
+    expect(budget.consume('web_search')).toBe(true);
+
+    expect(budget.consume('web_search')).toBe(false);
+    expect(budget.consume('reviews')).toBe(true);
+    expect(budget.consume('firecrawl')).toBe(true);
+    expect(budget.consume('reviews')).toBe(false);
+  });
+
   it('behaves like a plain ToolBudget when the reserve is zero (back-compat)', (): void => {
     const reserved = new SectionToolBudget(4, 0);
     const plain = new ToolBudget(4);
@@ -60,6 +72,7 @@ describe('SectionToolBudget', (): void => {
 
   it('reports max as the sum of both pools', (): void => {
     expect(new SectionToolBudget(6, 2).max).toBe(8);
+    expect(new SectionToolBudget(5, 0, 2).max).toBe(7);
     expect(new SectionToolBudget(4).max).toBe(4);
   });
 });

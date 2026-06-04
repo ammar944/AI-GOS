@@ -10,6 +10,7 @@ import {
   VerdictCallout,
 } from '@/components/research-v2/ui-kit';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
+import { VerificationTierBadge } from '@/components/research-v2/verification-tier-badge';
 import { ShaderMeshBackground, BackgroundPattern } from '@/components/ui/sl-background';
 import { CardContentSwitch } from '@/components/research/card-renderer';
 import { SectionHeader } from '@/components/workspace/section-header';
@@ -43,6 +44,8 @@ interface V3SharedSectionViewModel {
   title: string;
   artifact: PositioningTypedArtifact | null;
   markdown: string | null;
+  verificationTier: V3ShareResearchSnapshot['sections'][number]['verificationTier'];
+  verificationFlag: V3ShareResearchSnapshot['sections'][number]['verificationFlag'];
 }
 
 function formatDate(dateString: string): string {
@@ -76,6 +79,8 @@ function buildV3ViewSections(
     title: section.title || READER_SECTION_LABELS[section.zone],
     artifact: pickPositioningTypedArtifact(section.data, section.zone),
     markdown: section.markdown,
+    verificationTier: section.verificationTier,
+    verificationFlag: section.verificationFlag,
   }));
 }
 
@@ -168,6 +173,12 @@ function V3SharedSessionView({
                 <SectionTitle className="mt-2">
                   {activeSection.artifact?.sectionTitle ?? activeSection.title}
                 </SectionTitle>
+                <VerificationTierBadge
+                  className="mt-3"
+                  verification={activeSection.artifact?.verification}
+                  verificationTier={activeSection.verificationTier}
+                  verificationFlag={activeSection.verificationFlag}
+                />
                 {activeSection.artifact ? (
                   <div className="mt-6 space-y-7">
                     {activeSection.artifact.statusSummary ? (

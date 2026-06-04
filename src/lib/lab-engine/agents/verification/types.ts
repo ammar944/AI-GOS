@@ -6,18 +6,28 @@ export type Claim =
 
 export type VerificationSourceRef =
   | { kind: "toolResult"; toolName: string; stepIndex: number; field?: string }
-  | { kind: "corpusExcerpt"; excerptIndex: number; sourceUrl: string };
+  | { kind: "corpusExcerpt"; excerptIndex: number; sourceUrl: string }
+  | { kind: "userProvided"; field?: string };
+
+export type EntailmentVerdict = "supported" | "refuted" | "user_asserted";
 
 export type ClaimVerdict =
   | {
       status: "verified";
       claim: Claim;
       matchedSourceRef: VerificationSourceRef;
+      entailmentVerdict?: Extract<
+        EntailmentVerdict,
+        "supported" | "user_asserted"
+      >;
+      entailmentRationale?: string;
     }
   | {
       status: "unsupported";
       claim: Claim;
       reason: "no_match" | "partial_match";
+      entailmentVerdict?: Extract<EntailmentVerdict, "refuted">;
+      entailmentRationale?: string;
     };
 
 export interface VerificationReport {

@@ -61,9 +61,11 @@ const toolFinishedGapMetadataSchema = z
       "rate_limited",
       "not_implemented",
       "aborted",
+      "content_unavailable",
     ]),
     envVar: z.string().min(1).optional(),
     message: z.string().min(1).optional(),
+    consumesBudget: z.literal(false).optional(),
   })
   .strict();
 

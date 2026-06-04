@@ -24,6 +24,8 @@ interface FakeResearchArtifactSectionRow {
   markdown: string;
   data: unknown;
   status: string;
+  verification_tier: string | null;
+  verification_flag: Record<string, unknown> | null;
   updated_at: string;
 }
 
@@ -31,6 +33,8 @@ function createSectionRow(input: {
   zone: string;
   data: unknown;
   status?: string;
+  verificationTier?: string | null;
+  verificationFlag?: Record<string, unknown> | null;
 }): FakeResearchArtifactSectionRow {
   return {
     zone: input.zone,
@@ -38,6 +42,8 @@ function createSectionRow(input: {
     markdown: `# ${input.zone}`,
     data: input.data,
     status: input.status ?? 'complete',
+    verification_tier: input.verificationTier ?? null,
+    verification_flag: input.verificationFlag ?? null,
     updated_at: '2026-06-03T05:00:00.000Z',
   };
 }
@@ -124,10 +130,22 @@ describe('section profile persistence', (): void => {
   });
 
   it('persists an audit profile with one merged insight write for completed sections', async (): Promise<void> => {
+    const needsReviewFlag = {
+      tier: 'needs_review',
+      verifiedCount: 2,
+      unsupportedCount: 1,
+      totalClaims: 3,
+      confidence: 2 / 3,
+      needsReviewThreshold: 0.75,
+      insufficientThreshold: 0.5,
+      evidenceGap: false,
+    };
     const fakeSupabase = createFakeSupabase([
       createSectionRow({
         zone: 'positioningMarketCategory',
         data: marketCategoryFixtureArtifact,
+        verificationTier: 'needs_review',
+        verificationFlag: needsReviewFlag,
       }),
       createSectionRow({
         zone: 'positioningBuyerICP',
@@ -189,6 +207,8 @@ describe('section profile persistence', (): void => {
       expect.objectContaining({
         positioningMarketCategory: expect.objectContaining({
           verdict: marketCategoryFixtureArtifact.verdict,
+          verificationTier: 'needs_review',
+          verificationFlag: needsReviewFlag,
         }),
         positioningBuyerICP: expect.objectContaining({
           verdict: buyerICPFixtureArtifact.verdict,

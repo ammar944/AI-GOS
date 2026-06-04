@@ -183,6 +183,7 @@ function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
   const decisionCriteria = asRecord(body.decisionCriteria);
 
   return (
+    body.evidenceGap === true ||
     hasRecordWithText(painLanguage.quotes, "verbatimText") ||
     hasRecordWithText(successLanguage.quotes, "verbatimText") ||
     hasRecordWithText(decisionCriteria.criteria, "evidenceQuote") ||

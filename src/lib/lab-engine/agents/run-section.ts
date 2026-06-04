@@ -18,7 +18,11 @@ import {
   snapCreativeType,
 } from "../artifacts/schemas/paid-media-plan";
 import { checkDemandIntentKeywordProvenance } from "../artifacts/schemas/demand-intent";
-import { checkVoiceOfCustomerSelfSourcing } from "../artifacts/schemas/voice-of-customer";
+import {
+  classifyVoiceOfCustomerEvidenceGap,
+  checkVoiceOfCustomerSelfSourcing,
+  type VoiceOfCustomerEvidenceGapClassification,
+} from "../artifacts/schemas/voice-of-customer";
 import { sectionRunnerModel } from "../ai/models";
 import {
   activityEventSchema,
@@ -112,7 +116,10 @@ import {
   voiceOfCustomerLoadBearingKinds,
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
-import { structuralVerifier } from "./verification/structural-verifier";
+import {
+  structuralVerifierWithEntailment,
+  type EntailmentJudge,
+} from "./verification/structural-verifier";
 import {
   createThrottledSectionPartialBroadcaster,
   type SectionPartialPublishFn,
@@ -134,6 +141,7 @@ export interface RunSectionDeps {
   runEvidencePass?: EvidencePassRunner;
   callStructured?: StructuredCaller;
   streamStructured?: StructuredStreamer;
+  entailmentJudge?: EntailmentJudge;
   broadcastPartial?: SectionPartialPublishFn;
   now?: () => Date;
   newId?: () => string;
@@ -186,6 +194,7 @@ interface RuntimeSectionDefinition {
   allowedTools: readonly ToolName[];
   maxExternalLookups: number;
   adReservedLookups?: number;
+  scrapeReservedLookups?: number;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   bodySchema: z.ZodType<Record<string, unknown>>;
   sectionOutputSchema: z.ZodType<SectionOutput<Record<string, unknown>>>;
@@ -380,6 +389,217 @@ function buildEnvelope({
       ...(verification === undefined ? {} : { verification }),
       createdAt: observedAt,
     });
+}
+
+type VoiceOfCustomerEvidenceGapFacts = Extract<
+  VoiceOfCustomerEvidenceGapClassification,
+  { ok: true }
+>;
+
+const voiceOfCustomerRequiredPainQuoteCount = 10;
+const voiceOfCustomerRequiredDistinctPainSourceCount = 3;
+
+function buildVoiceOfCustomerEvidenceGapBody({
+  facts,
+  issue,
+  subjectDomain,
+}: {
+  facts: VoiceOfCustomerEvidenceGapFacts;
+  issue: string;
+  subjectDomain: string | null;
+}): Record<string, unknown> {
+  const observedDomains =
+    facts.observedPainSourceDomains.length === 0
+      ? "none"
+      : facts.observedPainSourceDomains.join(", ");
+  const summary = [
+    "Evidence gap: independent Voice of Customer acquisition did not meet the committed evidence bar.",
+    `Found ${facts.foundPainQuoteCount} usable pain-language candidate(s) across ${facts.foundDistinctPainSourceCount} independent source domain(s); required ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} domains.`,
+    `Observed domains: ${observedDomains}.`,
+    issue,
+  ].join(" ");
+
+  return {
+    painLanguage: {
+      prose: summary,
+      quotes: [],
+    },
+    objections: {
+      prose:
+        "Objection language was not promoted because the run lacked enough independent customer-review or forum evidence.",
+      items: [],
+    },
+    switchingStories: {
+      prose:
+        "Switching stories were not promoted because the available independent VoC surfaces were below the sourcing floor.",
+      stories: [],
+    },
+    decisionCriteria: {
+      prose:
+        "Decision criteria were not promoted because the run could not corroborate buyer criteria from enough independent VoC sources.",
+      criteria: [],
+    },
+    successLanguage: {
+      prose:
+        "Success language was not promoted because the run did not acquire enough independent customer after-state quotes.",
+      quotes: [],
+    },
+    evidenceGap: true,
+    evidenceGapReport: {
+      reason: "insufficient_voice_of_customer_sources",
+      summary,
+      foundPainQuoteCount: facts.foundPainQuoteCount,
+      requiredPainQuoteCount: voiceOfCustomerRequiredPainQuoteCount,
+      foundDistinctPainSourceCount: facts.foundDistinctPainSourceCount,
+      requiredDistinctPainSourceCount:
+        voiceOfCustomerRequiredDistinctPainSourceCount,
+      observedPainSourceDomains: facts.observedPainSourceDomains,
+      sourcingPlan: [
+        "Recover full review bodies from approved third-party review surfaces such as G2, Capterra, Trustpilot, Reddit, Hacker News, or support/community threads.",
+        "When a surfaced URL has no snippet, retry with Firecrawl only if the rendered page returns usable markdown; record JS-challenge or empty-body pages as acquisition gaps.",
+        `Exclude the audited company domain (${subjectDomain ?? "unknown"}) and require at least three independent domains before promoting buyer pain language.`,
+      ],
+    },
+  };
+}
+
+function buildVoiceOfCustomerEvidenceGapArtifact({
+  baseArtifact,
+  definition,
+  deps,
+  facts,
+  input,
+  issue,
+  researchInput,
+}: {
+  baseArtifact?: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  facts: VoiceOfCustomerEvidenceGapFacts;
+  input: RunSectionInput;
+  issue: string;
+  researchInput: ResearchInput;
+}): ArtifactEnvelope {
+  const observedAt = getNow(deps).toISOString();
+  const subjectDomain = getRegistrableDomain(researchInput.company.websiteUrl);
+
+  return artifactEnvelopeSchema
+    .extend({ body: definition.bodySchema })
+    .parse({
+      id: getNewId(deps),
+      runId: input.runId,
+      sectionId: input.sectionId,
+      sectionTitle: definition.title,
+      verdict:
+        "Voice of Customer evidence is below the independent-source bar; treat this section as a sourcing gap, not buyer-language truth.",
+      statusSummary:
+        "The section completed with an evidence gap so downstream synthesis can proceed without fabricating customer quotes.",
+      confidence: 0.2,
+      sources: baseArtifact?.sources ?? researchInput.sources,
+      body: buildVoiceOfCustomerEvidenceGapBody({
+        facts,
+        issue,
+        subjectDomain,
+      }),
+      createdAt: observedAt,
+    });
+}
+
+function buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+  artifact,
+  definition,
+  deps,
+  errors,
+  input,
+  researchInput,
+}: {
+  artifact: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  errors: readonly string[];
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): ArtifactEnvelope | undefined {
+  if (input.sectionId !== "positioningVoiceOfCustomer") {
+    return undefined;
+  }
+
+  const classification = classifyVoiceOfCustomerEvidenceGap({
+    artifact,
+    errors,
+    subjectDomain: researchInput.company.websiteUrl,
+  });
+
+  if (!classification.ok) {
+    return undefined;
+  }
+
+  return buildVoiceOfCustomerEvidenceGapArtifact({
+    baseArtifact: artifact,
+    definition,
+    deps,
+    facts: classification,
+    input,
+    issue: errors.join("; "),
+    researchInput,
+  });
+}
+
+function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
+  definition,
+  deps,
+  input,
+  issue,
+  researchInput,
+  result,
+}: {
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  issue: string;
+  researchInput: ResearchInput;
+  result: Exclude<VoiceOfCustomerCandidateResult, { ok: true }>;
+}): ArtifactEnvelope {
+  const facts: VoiceOfCustomerEvidenceGapFacts = {
+    ok: true,
+    foundPainQuoteCount: result.gap.candidateCount,
+    foundDistinctPainSourceCount: result.gap.domains.length,
+    observedPainSourceDomains: result.gap.domains,
+  };
+
+  return buildVoiceOfCustomerEvidenceGapArtifact({
+    definition,
+    deps,
+    facts,
+    input,
+    issue,
+    researchInput,
+  });
+}
+
+async function verifySectionBody({
+  body,
+  deps,
+  evidenceSteps,
+  researchInput,
+  signal,
+}: {
+  body: unknown;
+  deps: RunSectionDeps;
+  evidenceSteps: readonly AgentStep[];
+  researchInput: ResearchInput;
+  signal?: AbortSignal;
+}): Promise<VerificationReportEnvelope> {
+  return structuralVerifierWithEntailment({
+    body,
+    toolResults: evidenceSteps.flatMap((step) => step.toolResults),
+    corpusExcerpts: researchInput.corpus.excerpts,
+    onboarding: researchInput.onboarding,
+    ...(deps.entailmentJudge === undefined
+      ? {}
+      : { judge: deps.entailmentJudge }),
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 function buildToolEvents({
@@ -670,12 +890,67 @@ async function recordSectionFailure({
   });
 }
 
+async function saveCompletedArtifact({
+  artifact,
+  definition,
+  deps,
+  input,
+  startedAt,
+}: {
+  artifact: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  startedAt: number;
+}): Promise<RunSectionResult> {
+  await appendSubSectionCommittedEvents({
+    artifact,
+    deps,
+    input,
+  });
+  await deps.store.saveArtifact(input.runId, artifact);
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "artifact-saved",
+      message: `${definition.title} artifact saved`,
+      metadata: { artifactId: artifact.id },
+    }),
+  );
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "section-completed",
+      message: `${definition.title} completed`,
+      metadata: {
+        sectionTitle: definition.title,
+        durationMs: Math.max(0, getNow(deps).getTime() - startedAt),
+      },
+    }),
+  );
+
+  return {
+    runId: input.runId,
+    sectionId: input.sectionId,
+    artifact,
+  };
+}
+
 interface AttemptResult {
   output: SectionOutput<Record<string, unknown>> | null;
   artifact: ArtifactEnvelope | null;
   errors: string[];
   requiredEvidenceMissing?: RequiredEvidenceMissingError;
   evidenceSupportShortfall?: EvidenceSupportShortfall;
+  voiceOfCustomerEvidenceGapArtifact?: ArtifactEnvelope;
 }
 
 function getAttemptRepairIssues(attempt: AttemptResult): string[] {
@@ -2433,6 +2708,21 @@ function deriveCompetitorAdDomain(ad: CompetitorAd): string | undefined {
   );
 }
 
+function buildCompetitorAdTopicContext(researchInput: ResearchInput): string {
+  return [
+    researchInput.company.category,
+    researchInput.company.description,
+    researchInput.company.targetCustomer,
+    researchInput.onboarding.primaryGoal,
+    ...researchInput.onboarding.targetSegments,
+    ...researchInput.onboarding.keyOffers,
+    ...researchInput.onboarding.distributionChannels,
+  ]
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .join("\n");
+}
+
 function getCompetitorAdProbeAdvertisers(
   researchInput: ResearchInput,
 ): readonly CompetitorAdProbeAdvertiser[] {
@@ -2861,11 +3151,16 @@ function buildForeplayToolPairs({
     // adLibraryAdSchema the adapter parses with. Foreplay ads reach here only
     // after the domain-corroborated brand guard, so they are identity-verified
     // (the adapter still re-checks language + per-ad advertiser reconciliation).
-    const rows = ads.map(({ platform: _platform, ...rawAd }) => ({
-      ...rawAd,
-      identityVerified: true,
-      identityBasis: "domain",
-    }));
+    const rows = ads.map((ad) => {
+      const { platform: rawPlatform, ...rawAd } = ad;
+      void rawPlatform;
+
+      return {
+        ...rawAd,
+        identityVerified: true,
+        identityBasis: "domain",
+      };
+    });
 
     return {
       toolCall: { toolName, input },
@@ -3248,10 +3543,12 @@ async function callStructuredAttempt({
         sectionId: input.sectionId,
       }),
     );
-    const verification = structuralVerifier({
+    const verification = await verifySectionBody({
       body: output.body,
-      toolResults: modelSteps.flatMap((step) => step.toolResults),
-      corpusExcerpts: researchInput.corpus.excerpts,
+      deps,
+      evidenceSteps: modelSteps,
+      researchInput,
+      signal,
     });
     const evidenceSupportShortfall = evaluateEvidenceSupport({
       verification,
@@ -3413,10 +3710,12 @@ async function callStructuredStreamAttempt({
         sectionId: input.sectionId,
       }),
     );
-    const verification = structuralVerifier({
+    const verification = await verifySectionBody({
       body: output.body,
-      toolResults: modelSteps.flatMap((step) => step.toolResults),
-      corpusExcerpts: researchInput.corpus.excerpts,
+      deps,
+      evidenceSteps: modelSteps,
+      researchInput,
+      signal,
     });
     const artifact = buildEnvelope({
       definition,
@@ -3537,6 +3836,7 @@ async function buildAnswerToolAdEvidence({
   const normalizedAdEvidenceGroups = buildCompetitorAdEvidenceGroups({
     steps: adProbeSteps,
     observedAt: getNow(deps).toISOString(),
+    topicContext: buildCompetitorAdTopicContext(researchInput),
   });
 
   return { adProbeSteps, events, normalizedAdEvidenceGroups };
@@ -4096,11 +4396,13 @@ function buildMergedAnswerToolAdEvidenceGroups({
   input,
   modelSteps,
   prepassGroups,
+  researchInput,
 }: {
   deps: RunSectionDeps;
   input: RunSectionInput;
   modelSteps: readonly AgentStep[];
   prepassGroups?: readonly CompetitorAdEvidenceGroup[];
+  researchInput: ResearchInput;
 }): readonly CompetitorAdEvidenceGroup[] | undefined {
   if (input.sectionId !== "positioningCompetitorLandscape") {
     return prepassGroups;
@@ -4109,6 +4411,7 @@ function buildMergedAnswerToolAdEvidenceGroups({
   const modelGroups = buildCompetitorAdEvidenceGroups({
     steps: modelSteps,
     observedAt: getNow(deps).toISOString(),
+    topicContext: buildCompetitorAdTopicContext(researchInput),
   });
 
   return mergeAdEvidenceGroups(prepassGroups ?? [], modelGroups);
@@ -4153,7 +4456,7 @@ export function keywordVolumeSucceeded(modelSteps: readonly AgentStep[]): boolea
   );
 }
 
-function buildVerifiedAttemptFromOutput({
+async function buildVerifiedAttemptFromOutput({
   definition,
   deps,
   input,
@@ -4169,12 +4472,14 @@ function buildVerifiedAttemptFromOutput({
   output: SectionOutput<Record<string, unknown>>;
   researchInput: ResearchInput;
   verifierSteps?: readonly AgentStep[];
-}): AttemptResult {
+}): Promise<AttemptResult> {
   const evidenceSteps = verifierSteps ?? modelSteps;
-  const verification = structuralVerifier({
+  const verification = await verifySectionBody({
     body: output.body,
-    toolResults: evidenceSteps.flatMap((step) => step.toolResults),
-    corpusExcerpts: researchInput.corpus.excerpts,
+    deps,
+    evidenceSteps,
+    researchInput,
+    signal: input.signal,
   });
   const artifact = buildEnvelope({
     definition,
@@ -4186,7 +4491,20 @@ function buildVerifiedAttemptFromOutput({
   const minimums = definition.validateMinimums(artifact);
 
   if (!minimums.ok) {
-    return { output, artifact: null, errors: minimums.errors };
+    return {
+      output,
+      artifact: null,
+      errors: minimums.errors,
+      voiceOfCustomerEvidenceGapArtifact:
+        buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+          artifact,
+          definition,
+          deps,
+          errors: minimums.errors,
+          input,
+          researchInput,
+        }),
+    };
   }
 
   const missingClass = checkRequiredEvidenceClasses({
@@ -4252,7 +4570,7 @@ function buildVerifiedAttemptFromOutput({
   return { output, artifact, errors: [] };
 }
 
-function buildAnswerToolAttempt({
+async function buildAnswerToolAttempt({
   adProbeSteps,
   answerInput,
   definition,
@@ -4270,7 +4588,7 @@ function buildAnswerToolAttempt({
   modelSteps: readonly AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
-}): AttemptResult {
+}): Promise<AttemptResult> {
   if (answerInput === undefined) {
     return {
       output: null,
@@ -4287,7 +4605,7 @@ function buildAnswerToolAttempt({
         normalizedAdEvidenceGroups,
       }),
     );
-    return buildVerifiedAttemptFromOutput({
+    return await buildVerifiedAttemptFromOutput({
       definition,
       deps,
       input,
@@ -4550,7 +4868,7 @@ async function buildStructuredBodyAttempt({
       normalizedAdEvidenceGroups,
     });
 
-    return buildVerifiedAttemptFromOutput({
+    return await buildVerifiedAttemptFromOutput({
       definition,
       deps,
       input,
@@ -4604,6 +4922,7 @@ async function runSectionViaAnswerTool(
   const toolBudget = new SectionToolBudget(
     definition.maxExternalLookups,
     definition.adReservedLookups ?? 0,
+    definition.scrapeReservedLookups ?? 0,
   );
   const externalTools = buildToolMap(getAllowedTools(definition, deps), {
     budget: toolBudget,
@@ -4750,17 +5069,37 @@ async function runSectionViaAnswerTool(
           metadata: { attempt: 1, issues: [issue] },
         }),
       );
-      await recordSectionFailure({
+
+      if (input.signal?.aborted === true) {
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: issue,
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: [issue],
+        });
+      }
+
+      const evidenceGapArtifact = buildVoiceOfCustomerPrepassEvidenceGapArtifact({
         definition,
         deps,
-        errorMessage: issue,
         input,
+        issue,
+        researchInput,
+        result: voiceOfCustomerPrepass.result,
       });
 
-      throw new SectionRunnerError({
-        runId: input.runId,
-        sectionId: input.sectionId,
-        errors: [issue],
+      return saveCompletedArtifact({
+        artifact: evidenceGapArtifact,
+        definition,
+        deps,
+        input,
+        startedAt,
       });
     }
   }
@@ -4876,9 +5215,10 @@ async function runSectionViaAnswerTool(
     input,
     modelSteps: answerResultSteps,
     prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+    researchInput,
   });
 
-  let attempt = buildAnswerToolAttempt({
+  let attempt = await buildAnswerToolAttempt({
     adProbeSteps: adEvidence.adProbeSteps,
     answerInput: answerResult.answerInput,
     definition,
@@ -4973,9 +5313,10 @@ async function runSectionViaAnswerTool(
         input,
         modelSteps: repairResultSteps,
         prepassGroups: normalizedAdEvidenceGroups,
+        researchInput,
       });
 
-      attempt = buildAnswerToolAttempt({
+      attempt = await buildAnswerToolAttempt({
         adProbeSteps: adEvidence.adProbeSteps,
         answerInput: repairResult.answerInput,
         definition,
@@ -4995,6 +5336,18 @@ async function runSectionViaAnswerTool(
 
     if (bestCommittableAttempt !== null) {
       attempt = bestCommittableAttempt;
+    }
+
+    if (
+      attempt.artifact === null &&
+      attempt.voiceOfCustomerEvidenceGapArtifact !== undefined &&
+      input.signal?.aborted !== true
+    ) {
+      attempt = {
+        ...attempt,
+        artifact: attempt.voiceOfCustomerEvidenceGapArtifact,
+        errors: [],
+      };
     }
 
     if (attempt.artifact === null) {
@@ -5067,45 +5420,13 @@ async function runSectionViaAnswerTool(
     });
   }
 
-  await appendSubSectionCommittedEvents({
+  return saveCompletedArtifact({
     artifact: attempt.artifact,
+    definition,
     deps,
     input,
+    startedAt,
   });
-  await deps.store.saveArtifact(input.runId, attempt.artifact);
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "artifact-saved",
-      message: `${definition.title} artifact saved`,
-      metadata: { artifactId: attempt.artifact.id },
-    }),
-  );
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "section-completed",
-      message: `${definition.title} completed`,
-      metadata: {
-        sectionTitle: definition.title,
-        durationMs: Math.max(0, getNow(deps).getTime() - startedAt),
-      },
-    }),
-  );
-
-  return {
-    runId: input.runId,
-    sectionId: input.sectionId,
-    artifact: attempt.artifact,
-  };
 }
 
 async function runSectionViaStructuredBodyStream(
@@ -5138,6 +5459,7 @@ async function runSectionViaStructuredBodyStream(
   const toolBudget = new SectionToolBudget(
     definition.maxExternalLookups,
     definition.adReservedLookups ?? 0,
+    definition.scrapeReservedLookups ?? 0,
   );
   const externalTools = buildToolMap(getAllowedTools(definition, deps), {
     budget: toolBudget,
@@ -5274,17 +5596,37 @@ async function runSectionViaStructuredBodyStream(
           metadata: { attempt: 1, issues: [issue] },
         }),
       );
-      await recordSectionFailure({
+
+      if (input.signal?.aborted === true) {
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: issue,
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: [issue],
+        });
+      }
+
+      const evidenceGapArtifact = buildVoiceOfCustomerPrepassEvidenceGapArtifact({
         definition,
         deps,
-        errorMessage: issue,
         input,
+        issue,
+        researchInput,
+        result: voiceOfCustomerPrepass.result,
       });
 
-      throw new SectionRunnerError({
-        runId: input.runId,
-        sectionId: input.sectionId,
-        errors: [issue],
+      return saveCompletedArtifact({
+        artifact: evidenceGapArtifact,
+        definition,
+        deps,
+        input,
+        startedAt,
       });
     }
   }
@@ -5339,6 +5681,7 @@ async function runSectionViaStructuredBodyStream(
     input,
     modelSteps,
     prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+    researchInput,
   });
   let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
 
@@ -5449,6 +5792,7 @@ async function runSectionViaStructuredBodyStream(
         input,
         modelSteps,
         prepassGroups: normalizedAdEvidenceGroups,
+        researchInput,
       });
       bestCommittableAttempt = getBestCommittableAttempt(
         bestCommittableAttempt,
@@ -5459,6 +5803,18 @@ async function runSectionViaStructuredBodyStream(
 
     if (bestCommittableAttempt !== null) {
       attempt = bestCommittableAttempt;
+    }
+
+    if (
+      attempt.artifact === null &&
+      attempt.voiceOfCustomerEvidenceGapArtifact !== undefined &&
+      input.signal?.aborted !== true
+    ) {
+      attempt = {
+        ...attempt,
+        artifact: attempt.voiceOfCustomerEvidenceGapArtifact,
+        errors: [],
+      };
     }
 
     if (attempt.artifact === null) {
@@ -5534,45 +5890,13 @@ async function runSectionViaStructuredBodyStream(
     });
   }
 
-  await appendSubSectionCommittedEvents({
+  return saveCompletedArtifact({
     artifact: attempt.artifact,
+    definition,
     deps,
     input,
+    startedAt,
   });
-  await deps.store.saveArtifact(input.runId, attempt.artifact);
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "artifact-saved",
-      message: `${definition.title} artifact saved`,
-      metadata: { artifactId: attempt.artifact.id },
-    }),
-  );
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "section-completed",
-      message: `${definition.title} completed`,
-      metadata: {
-        sectionTitle: definition.title,
-        durationMs: Math.max(0, getNow(deps).getTime() - startedAt),
-      },
-    }),
-  );
-
-  return {
-    runId: input.runId,
-    sectionId: input.sectionId,
-    artifact: attempt.artifact,
-  };
 }
 
 // UNUSED-in-production: dead partial-streaming path. Sections commit atomically via the
@@ -5739,6 +6063,7 @@ async function streamSectionViaAnswerTool(
     input,
     modelSteps: answerResult.steps,
     prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+    researchInput,
   });
 
   writeSectionStatus({
@@ -5757,7 +6082,7 @@ async function streamSectionViaAnswerTool(
     state: "started",
   });
 
-  const attempt = buildAnswerToolAttempt({
+  const attempt = await buildAnswerToolAttempt({
     adProbeSteps: adEvidence.adProbeSteps,
     answerInput: answerResult.answerInput,
     definition,
@@ -6041,6 +6366,7 @@ export async function streamRunSection(
       ? buildCompetitorAdEvidenceGroups({
           steps: evidenceSteps,
           observedAt: getNow(deps).toISOString(),
+          topicContext: buildCompetitorAdTopicContext(researchInput),
         })
       : undefined;
   const structuredPrompt = buildStructuredPrompt({
@@ -6402,6 +6728,7 @@ export async function runSection(
       ? buildCompetitorAdEvidenceGroups({
           steps: evidenceSteps,
           observedAt: getNow(deps).toISOString(),
+          topicContext: buildCompetitorAdTopicContext(researchInput),
         })
       : undefined;
   const structuredPrompt = buildStructuredPrompt({

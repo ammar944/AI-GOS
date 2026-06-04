@@ -240,11 +240,14 @@ function claimResult(
 
 function committedPositioningRows(): Array<{
   zone: PositioningSectionId;
-  data: { sectionTitle: string };
+  data: { body?: { evidenceGap: true }; sectionTitle: string };
 }> {
   return POSITIONING_SECTION_IDS.map((zone) => ({
     zone,
-    data: { sectionTitle: zone },
+    data:
+      zone === 'positioningVoiceOfCustomer'
+        ? { sectionTitle: zone, body: { evidenceGap: true } }
+        : { sectionTitle: zone },
   }));
 }
 
@@ -643,6 +646,20 @@ describe('POST /api/research-v2/run-lab-section', () => {
         }),
       }),
     );
+    const createStoreInput = routeMocks.createSupabaseRunStore.mock
+      .calls[0]?.[0] as
+      | {
+          researchInput: {
+            committedPositioningArtifacts?: Record<string, unknown>;
+          };
+        }
+      | undefined;
+    const voiceOfCustomerArtifact =
+      createStoreInput?.researchInput.committedPositioningArtifacts
+        ?.positioningVoiceOfCustomer as
+        | { body?: { evidenceGap?: unknown } }
+        | undefined;
+    expect(voiceOfCustomerArtifact?.body?.evidenceGap).toBe(true);
 
     await drainAfter();
 

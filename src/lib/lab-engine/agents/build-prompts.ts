@@ -166,8 +166,8 @@ function buildCapabilityGapGuidance(
     ...buildCapabilityGapToolHints(definition),
     "",
     "Budget note:",
-    "`web_search` and SDK tools have independent per-channel caps in V1. A section may spend up to `maxExternalLookups` web searches plus `maxExternalLookups` SDK-tool calls.",
-    `When either channel is exhausted, treat the returned \`rate_limited\` gap as evidence that the surface was capped, not as ${getCapabilityGapSignalLabel(definition)}.`,
+    "`web_search` and SDK tools share the generic `maxExternalLookups` pool. Competitor Landscape also receives an additive reserved ad-tool pool for `adlibrary`, `google_ads`, `meta_ads`, and `linkedin_ads`; other sections should assume only the shared generic pool.",
+    `When a tool call is rejected because the applicable pool is exhausted, treat the returned \`rate_limited\` gap as evidence that the surface was capped, not as ${getCapabilityGapSignalLabel(definition)}.`,
     "",
   ];
 }

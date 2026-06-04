@@ -11,7 +11,7 @@ const entityNameFieldNames = new Set([
 ]);
 
 const currencyPattern =
-  /(?:[$£€]\s?\d[\d,]*(?:\.\d{1,2})?(?:\s?\/\s?(?:mo|month|yr|year))?)/gi;
+  /(?:[$£€]\s?\d[\d,]*(?:\.\d{1,2})?(?:\s?(?:[kmb]\b|thousand\b|million\b|billion\b))?(?:\s?\/\s?(?:mo|month|yr|year))?)/gi;
 const percentPattern = /\b\d+(?:\.\d+)?%(?=\s|[.,;:!?)]|$)/g;
 const magnitudePattern =
   /\b\d+(?:\.\d+)?\s?(?:k|m|b|thousand|million|billion)\b(?:\s+[A-Za-z][A-Za-z-]*)?/gi;
@@ -160,6 +160,7 @@ function extractStringClaims({
     scanValue = chars.join("");
   }
 
+  const currencyMaskedChars = scanValue.split("");
   for (const match of scanValue.matchAll(currencyPattern)) {
     pushClaim({
       claims,
@@ -168,7 +169,16 @@ function extractStringClaims({
       seen,
       value: match[0],
     });
+    const start = match.index ?? 0;
+    for (
+      let i = start;
+      i < start + match[0].length && i < currencyMaskedChars.length;
+      i += 1
+    ) {
+      currencyMaskedChars[i] = " ";
+    }
   }
+  scanValue = currencyMaskedChars.join("");
 
   for (const match of scanValue.matchAll(percentPattern)) {
     pushClaim({

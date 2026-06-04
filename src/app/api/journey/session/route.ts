@@ -32,6 +32,8 @@ export interface ArtifactSectionSnapshot {
   claims: unknown;
   sources: unknown;
   error: unknown;
+  verification_tier: string | null;
+  verification_flag: unknown;
   updated_at: string | null;
 }
 
@@ -52,7 +54,7 @@ async function fetchArtifactSections(
     const { data: sections, error } = await supabase
       .from('research_artifact_sections')
       .select(
-        'zone, status, revision, section_run_id, title, markdown, data, claims, sources, error, updated_at',
+        'zone, status, revision, section_run_id, title, markdown, data, claims, sources, error, verification_tier, verification_flag, updated_at',
       )
       .eq('artifact_id', artifact.id);
     if (error || !Array.isArray(sections)) return null;

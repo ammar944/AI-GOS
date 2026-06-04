@@ -20,6 +20,7 @@ export interface BuildCompetitorAdEvidenceGroupsArgs {
   steps: readonly AgentStep[];
   observedAt: string;
   returnedCreativeLimit?: number;
+  topicContext?: string;
 }
 
 interface RawAd {
@@ -73,6 +74,86 @@ const platformOrder: readonly AdEvidencePlatform[] = [
 ];
 const defaultReturnedCreativeLimit = 6;
 const rawSourceSampleLimit = 4;
+const minimumTopicTokenCount = 2;
+const minimumCreativeTokenCount = 4;
+const topicStopwords: ReadonlySet<string> = new Set([
+  "about",
+  "across",
+  "after",
+  "alert",
+  "before",
+  "best",
+  "better",
+  "brand",
+  "business",
+  "company",
+  "could",
+  "customer",
+  "customers",
+  "else",
+  "every",
+  "finest",
+  "from",
+  "help",
+  "helps",
+  "into",
+  "management",
+  "more",
+  "platform",
+  "product",
+  "software",
+  "solution",
+  "team",
+  "teams",
+  "that",
+  "their",
+  "this",
+  "tool",
+  "tools",
+  "with",
+  "workflow",
+  "workflows",
+]);
+const topicExpansionRules: readonly {
+  anchors: readonly string[];
+  tokens: readonly string[];
+}[] = [
+  {
+    anchors: [
+      "accounting",
+      "budget",
+      "card",
+      "expense",
+      "finance",
+      "invoice",
+      "payment",
+      "payable",
+      "procurement",
+      "spend",
+      "vendor",
+    ],
+    tokens: [
+      "accounting",
+      "approval",
+      "budget",
+      "card",
+      "control",
+      "corporate",
+      "employee",
+      "expense",
+      "finance",
+      "invoice",
+      "payable",
+      "payment",
+      "procurement",
+      "purchase",
+      "purchasing",
+      "spend",
+      "supplier",
+      "vendor",
+    ],
+  },
+];
 
 function isAdToolName(value: string): value is AdToolName {
   return adToolNames.includes(value as AdToolName);
@@ -206,6 +287,46 @@ function ensureGroup({
 function nonEmptyText(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed === undefined || trimmed.length === 0 ? null : trimmed;
+}
+
+function normalizeTopicToken(value: string): string {
+  const lower = value.toLowerCase();
+
+  if (lower.length > 4 && lower.endsWith("ies")) {
+    return `${lower.slice(0, -3)}y`;
+  }
+
+  if (lower.length > 4 && lower.endsWith("s") && !lower.endsWith("ss")) {
+    return lower.slice(0, -1);
+  }
+
+  return lower;
+}
+
+function tokenizeTopicText(value: string): string[] {
+  return (value.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+    .map((token) => normalizeTopicToken(token))
+    .filter((token) => token.length >= 3 && !topicStopwords.has(token));
+}
+
+function buildTopicTokenSet(topicContext: string | undefined): ReadonlySet<string> {
+  const topicTokens = new Set(
+    topicContext === undefined ? [] : tokenizeTopicText(topicContext),
+  );
+
+  for (const rule of topicExpansionRules) {
+    if (
+      rule.anchors
+        .map((anchor) => normalizeTopicToken(anchor))
+        .some((anchor) => topicTokens.has(anchor))
+    ) {
+      rule.tokens
+        .map((token) => normalizeTopicToken(token))
+        .forEach((token) => topicTokens.add(token));
+    }
+  }
+
+  return topicTokens;
 }
 
 function readNullableText(value: string | undefined): string | null {
@@ -408,6 +529,58 @@ function blendedCreativeScore(
   );
 }
 
+function hasLowAdvertiserIdentityConfidence(creative: AdEvidenceCreative): boolean {
+  return creative.verified === false && creative.identityBasis !== "domain";
+}
+
+function creativeTopicTokens(creative: AdEvidenceCreative): ReadonlySet<string> {
+  return new Set(
+    [
+      creative.headline,
+      creative.body,
+      creative.transcript,
+      creative.cta,
+    ]
+      .filter((value): value is string => value !== null)
+      .flatMap((value) => tokenizeTopicText(value)),
+  );
+}
+
+function hasAnyTopicOverlap(
+  creativeTokens: ReadonlySet<string>,
+  topicTokens: ReadonlySet<string>,
+): boolean {
+  for (const token of creativeTokens) {
+    if (topicTokens.has(token)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function shouldExcludeLowConfidenceOffTopicCreative({
+  creative,
+  topicTokens,
+}: {
+  creative: AdEvidenceCreative;
+  topicTokens: ReadonlySet<string>;
+}): boolean {
+  if (
+    !hasLowAdvertiserIdentityConfidence(creative) ||
+    topicTokens.size < minimumTopicTokenCount
+  ) {
+    return false;
+  }
+
+  const creativeTokens = creativeTopicTokens(creative);
+
+  return (
+    creativeTokens.size >= minimumCreativeTokenCount &&
+    !hasAnyTopicOverlap(creativeTokens, topicTokens)
+  );
+}
+
 // Upsert a unique creative into the per-group fingerprint map. Identity
 // confidence is the PRIMARY key (it decides verified-wall membership): a
 // verified creative must beat an identical-fingerprint UNVERIFIED duplicate
@@ -549,10 +722,12 @@ function buildDataGaps({
   group,
   displayableCounts,
   returnedCreativeCount,
+  topicExcludedCounts,
 }: {
   group: MutableAdEvidenceGroup;
   displayableCounts: PlatformCounts;
   returnedCreativeCount: number;
+  topicExcludedCounts: PlatformCounts;
 }): DataGap[] {
   const requestedPlatforms = platformOrder.filter((platform) =>
     group.platforms.has(platform),
@@ -575,7 +750,10 @@ function buildDataGaps({
       ];
     }
 
-    if (displayableCounts[platform] === 0) {
+    if (
+      displayableCounts[platform] === 0 &&
+      topicExcludedCounts[platform] === 0
+    ) {
       return [
         {
           platform,
@@ -587,6 +765,22 @@ function buildDataGaps({
     }
 
     return [];
+  });
+  const topicExclusionGaps = platformOrder.flatMap((platform) => {
+    const excludedCount = topicExcludedCounts[platform];
+
+    if (excludedCount === 0) {
+      return [];
+    }
+
+    return [
+      {
+        platform,
+        reason: `${platform} excluded ${excludedCount} low-confidence creative${
+          excludedCount === 1 ? "" : "s"
+        } because the ad copy shared no topic tokens with the category context.`,
+      },
+    ];
   });
   const displayableTotal = getDisplayableTotal(displayableCounts);
   const truncationGaps =
@@ -616,6 +810,7 @@ function buildDataGaps({
   return uniqueDataGaps([
     ...sourceErrorGaps,
     ...rawCountGaps,
+    ...topicExclusionGaps,
     ...linkedinNotProbedGaps,
     ...truncationGaps,
   ]);
@@ -624,11 +819,27 @@ function buildDataGaps({
 function finalizeGroup(
   group: MutableAdEvidenceGroup,
   returnedCreativeLimit: number,
+  topicTokens: ReadonlySet<string>,
 ): CompetitorAdEvidenceGroup {
   // Unique displayable creatives (post richer-wins dedup). displayableCounts is
   // recomputed per-unique creative from the winning platform; the cap applies to
   // the unique set so the artifact stays bounded.
-  const uniqueCreatives = Array.from(group.creativeByFingerprint.values());
+  const topicExcludedCounts = emptyCounts();
+  const uniqueCreatives = Array.from(group.creativeByFingerprint.values()).filter(
+    (creative) => {
+      if (
+        shouldExcludeLowConfidenceOffTopicCreative({
+          creative,
+          topicTokens,
+        })
+      ) {
+        incrementCount(topicExcludedCounts, creative.platform, 1);
+        return false;
+      }
+
+      return true;
+    },
+  );
   const displayableCounts = emptyCounts();
   for (const creative of uniqueCreatives) {
     incrementCount(displayableCounts, creative.platform, 1);
@@ -675,6 +886,7 @@ function finalizeGroup(
       group,
       displayableCounts,
       returnedCreativeCount: creatives.length,
+      topicExcludedCounts,
     }),
     sourceErrors: group.sourceErrors,
     observedAt: group.observedAt,
@@ -687,8 +899,10 @@ export function buildCompetitorAdEvidenceGroups({
   observedAt,
   returnedCreativeLimit = defaultReturnedCreativeLimit,
   steps,
+  topicContext,
 }: BuildCompetitorAdEvidenceGroupsArgs): CompetitorAdEvidenceGroup[] {
   const groups = new Map<string, MutableAdEvidenceGroup>();
+  const topicTokens = buildTopicTokenSet(topicContext);
 
   for (const step of steps) {
     step.toolResults.forEach((toolResult, index) => {
@@ -746,7 +960,7 @@ export function buildCompetitorAdEvidenceGroups({
   }
 
   return Array.from(groups.values()).map((group) =>
-    finalizeGroup(group, returnedCreativeLimit),
+    finalizeGroup(group, returnedCreativeLimit, topicTokens),
   );
 }
 

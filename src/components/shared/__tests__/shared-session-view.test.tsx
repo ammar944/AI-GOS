@@ -21,6 +21,17 @@ function v3Snapshot(data: unknown) {
         markdown: null,
         data,
         status: 'complete',
+        verification_tier: 'needs_review',
+        verification_flag: {
+          tier: 'needs_review',
+          verifiedCount: 2,
+          unsupportedCount: 1,
+          totalClaims: 3,
+          confidence: 2 / 3,
+          needsReviewThreshold: 0.75,
+          insufficientThreshold: 0.5,
+          evidenceGap: false,
+        },
         updated_at: '2026-05-25T12:00:00.000Z',
       },
     ],
@@ -45,6 +56,9 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     // when pickPositioningTypedArtifact resolves the section (not the fallback)
     expect(
       screen.getByText(/founder-led revenue operations/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Needs review · 1 unsupported · 67% grounded'),
     ).toBeInTheDocument();
   });
 

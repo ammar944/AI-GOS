@@ -7,6 +7,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/server';
 import type { SectionKey } from '@/lib/workspace/types';
 import { getResearchPipelineReadiness, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import {
+  createEmptyVerificationTierCounts,
+  readVerificationTier,
+  type VerificationTierCounts,
+} from '@/lib/research-v2/verification-tier';
 
 function getSupabase() {
   return createAdminClient();
@@ -456,7 +461,18 @@ export async function getProfileSessions(
       });
   }
 
-  return filtered.map(mapSessionRow);
+  const verificationTierCountsByRunId = await loadVerificationTierCountsByRunId(
+    supabase,
+    userId,
+    filtered.map((row) => row.run_id as string),
+  );
+
+  return filtered.map((row) =>
+    mapSessionRow(
+      row,
+      verificationTierCountsByRunId.get(row.run_id as string),
+    ),
+  );
 }
 
 export interface ProfileSession {
@@ -468,11 +484,98 @@ export interface ProfileSession {
   ready: boolean;
   missingSections: SectionKey[];
   hasMediaPlan: boolean;
+  verificationTierCounts: VerificationTierCounts;
   createdAt: string;
   updatedAt: string;
 }
 
-function mapSessionRow(row: Record<string, unknown>): ProfileSession {
+interface ResearchArtifactTierRow {
+  id: string;
+  run_id: string;
+}
+
+interface ResearchArtifactSectionTierRow {
+  artifact_id: string;
+  status: string | null;
+  verification_tier: unknown;
+}
+
+async function loadVerificationTierCountsByRunId(
+  supabase: SupabaseClient,
+  userId: string,
+  runIds: string[],
+): Promise<Map<string, VerificationTierCounts>> {
+  const uniqueRunIds = Array.from(new Set(runIds.filter((runId) => runId.length > 0)));
+  if (uniqueRunIds.length === 0) {
+    return new Map<string, VerificationTierCounts>();
+  }
+
+  const { data: artifacts, error: artifactsError } = await supabase
+    .from('research_artifacts')
+    .select('id, run_id')
+    .eq('user_id', userId)
+    .in('run_id', uniqueRunIds);
+
+  if (artifactsError || !Array.isArray(artifacts)) {
+    console.warn('[business-profiles] verification tier artifact lookup failed', {
+      userId,
+      runIds: uniqueRunIds,
+      message: artifactsError?.message ?? 'non-array artifacts response',
+    });
+    return new Map<string, VerificationTierCounts>();
+  }
+
+  const artifactRows = artifacts as ResearchArtifactTierRow[];
+  const artifactIdToRunId = new Map<string, string>();
+  const countsByRunId = new Map<string, VerificationTierCounts>();
+
+  for (const artifact of artifactRows) {
+    artifactIdToRunId.set(artifact.id, artifact.run_id);
+    countsByRunId.set(artifact.run_id, createEmptyVerificationTierCounts());
+  }
+
+  const artifactIds = Array.from(artifactIdToRunId.keys());
+  if (artifactIds.length === 0) {
+    return countsByRunId;
+  }
+
+  const { data: sections, error: sectionsError } = await supabase
+    .from('research_artifact_sections')
+    .select('artifact_id, status, verification_tier')
+    .in('artifact_id', artifactIds);
+
+  if (sectionsError || !Array.isArray(sections)) {
+    console.warn('[business-profiles] verification tier section lookup failed', {
+      userId,
+      artifactIds,
+      message: sectionsError?.message ?? 'non-array sections response',
+    });
+    return countsByRunId;
+  }
+
+  for (const section of sections as ResearchArtifactSectionTierRow[]) {
+    if (section.status !== 'complete') {
+      continue;
+    }
+
+    const runId = artifactIdToRunId.get(section.artifact_id);
+    const tier = readVerificationTier(section.verification_tier);
+    if (!runId || !tier) {
+      continue;
+    }
+
+    const counts = countsByRunId.get(runId) ?? createEmptyVerificationTierCounts();
+    counts[tier] += 1;
+    countsByRunId.set(runId, counts);
+  }
+
+  return countsByRunId;
+}
+
+function mapSessionRow(
+  row: Record<string, unknown>,
+  verificationTierCounts: VerificationTierCounts = createEmptyVerificationTierCounts(),
+): ProfileSession {
   const results = (row.research_results as Record<string, unknown>) ?? {};
   const readiness = getResearchPipelineReadiness(results);
 
@@ -484,6 +587,7 @@ function mapSessionRow(row: Record<string, unknown>): ProfileSession {
     ready: readiness.ready,
     missingSections: readiness.missingSections,
     hasMediaPlan: readiness.completedSectionKeys.includes('mediaPlan'),
+    verificationTierCounts,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

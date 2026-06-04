@@ -146,10 +146,16 @@ describe("buildAnswerToolInstructions", (): void => {
     );
 
     expect(toolPrompt).toContain("Capability gaps:");
-    expect(toolPrompt).toContain("section may spend up to `maxExternalLookups`");
+    expect(toolPrompt).toContain(
+      "share the generic `maxExternalLookups` pool",
+    );
+    expect(toolPrompt).toContain("additive reserved ad-tool pool");
+    expect(toolPrompt).not.toContain("independent per-channel caps");
     expect(toolPrompt).toContain("rate_limited");
     expect(noToolPrompt).not.toContain("Capability gaps:");
-    expect(noToolPrompt).not.toContain("section may spend up to `maxExternalLookups`");
+    expect(noToolPrompt).not.toContain(
+      "share the generic `maxExternalLookups` pool",
+    );
   });
 
   it("spells out Competitor Landscape weakness coverage minimums", (): void => {
@@ -358,10 +364,16 @@ describe("buildStructuredPrompt", (): void => {
     });
 
     expect(toolPrompt).toContain("Capability gaps:");
-    expect(toolPrompt).toContain("section may spend up to `maxExternalLookups`");
+    expect(toolPrompt).toContain(
+      "share the generic `maxExternalLookups` pool",
+    );
+    expect(toolPrompt).toContain("additive reserved ad-tool pool");
+    expect(toolPrompt).not.toContain("independent per-channel caps");
     expect(toolPrompt).toContain("rate_limited");
     expect(noToolPrompt).not.toContain("Capability gaps:");
-    expect(noToolPrompt).not.toContain("section may spend up to `maxExternalLookups`");
+    expect(noToolPrompt).not.toContain(
+      "share the generic `maxExternalLookups` pool",
+    );
   });
 });
 

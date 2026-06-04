@@ -4,6 +4,11 @@ import {
   type AllPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+import {
+  buildVerificationFlag,
+  type VerificationFlag,
+  type VerificationTier,
+} from '@/lib/research-v2/verification-tier';
 
 interface SectionCommitPatchLabelEntry {
   readonly label: string;
@@ -37,6 +42,15 @@ const sectionArtifactSchemas: Readonly<
   Record<PositioningSectionId, SectionCommitPatchLabelEntry>
 > = SECTION_ARTIFACT_SCHEMAS;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readEvidenceGap(artifact: Record<string, unknown>): boolean {
+  const body = artifact.body;
+  return isRecord(body) && body.evidenceGap === true;
+}
+
 export interface CommitArtifactSectionInput {
   artifactId: string;
   zone: AllPositioningSectionId;
@@ -50,6 +64,8 @@ export interface CommitArtifactSectionInput {
     claims?: unknown[];
     sources?: unknown[];
     error?: unknown;
+    verificationTier?: VerificationTier | null;
+    verificationFlag?: VerificationFlag | null;
   };
 }
 
@@ -74,6 +90,10 @@ export function buildCommitPatch(
   if (verdict) markdownLines.push(`**Verdict:** ${verdict}`);
   if (summary) markdownLines.push('', summary);
   const markdown = markdownLines.join('\n');
+  const verificationFlag = buildVerificationFlag({
+    verification: a.verification,
+    evidenceGap: readEvidenceGap(a),
+  });
 
   return {
     status: 'complete',
@@ -83,5 +103,7 @@ export function buildCommitPatch(
     claims: [],
     sources: Array.isArray(a.sources) ? (a.sources as unknown[]) : [],
     error: null,
+    verificationTier: verificationFlag?.tier ?? null,
+    verificationFlag,
   };
 }

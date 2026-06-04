@@ -35,6 +35,7 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
     expect(SECTION_REGISTRY.positioningVoiceOfCustomer).toMatchObject({
       allowedTools: ["web_search", "reviews", "firecrawl"],
       maxExternalLookups: 5,
+      scrapeReservedLookups: 2,
       requiredEvidenceClasses: ["voc_quote_or_gap"],
     });
     expect(SECTION_REGISTRY.positioningDemandIntent).toMatchObject({

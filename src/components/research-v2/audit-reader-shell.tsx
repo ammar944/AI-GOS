@@ -41,6 +41,10 @@ import {
   toReaderSources,
 } from '@/components/research-v2/reader-sources';
 import {
+  VerificationTierBadge,
+  type VerificationTierBadgeProps,
+} from '@/components/research-v2/verification-tier-badge';
+import {
   BodyProse,
   ErrorStateBlock,
   Eyebrow,
@@ -311,33 +315,19 @@ function artifactToMarkdown(artifact: PositioningTypedArtifact): string {
 
 function VerificationBadge({
   verification,
+  verificationTier,
+  verificationFlag,
 }: {
   verification: PositioningTypedArtifact['verification'];
+  verificationTier?: VerificationTierBadgeProps['verificationTier'];
+  verificationFlag?: VerificationTierBadgeProps['verificationFlag'];
 }): ReactElement | null {
-  if (verification === undefined) {
-    return null;
-  }
-
-  const { verifiedCount, unsupportedCount } = verification;
-  const total = verifiedCount + unsupportedCount;
-  // Grounded confidence = verified / (verified + unsupported), mirroring the verifier's
-  // deriveGroundedConfidence. Below 0.6 the section leans on unsupported load-bearing
-  // claims, so surface it as "needs review" instead of letting it read as fully verified.
-  const needsReview = total > 0 && verifiedCount / total < 0.6;
-
-  if (needsReview) {
-    const confidencePct = Math.round((verifiedCount / total) * 100);
-    return (
-      <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[12px] font-medium text-amber-400">
-        Needs review · {unsupportedCount} unsupported · {confidencePct}% verified
-      </span>
-    );
-  }
-
   return (
-    <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-1 text-[12px] font-medium text-muted-foreground">
-      Verified {verifiedCount} / Unsupported {unsupportedCount}
-    </span>
+    <VerificationTierBadge
+      verification={verification}
+      verificationTier={verificationTier}
+      verificationFlag={verificationFlag}
+    />
   );
 }
 
@@ -1028,6 +1018,7 @@ export function AuditReaderShell({
   const active = activeSectionId ?? userActive ?? autoActive ?? computedDefault;
   const activeIndex = READER_SECTION_IDS.indexOf(active);
   const activeTyped = typedByZone.get(active) ?? null;
+  const activeSectionSnapshot = live.sectionsByZone[active];
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
   const activeDraftArtifact = useMemo(() => {
@@ -1311,7 +1302,11 @@ export function AuditReaderShell({
               </Eyebrow>
               <div className="flex items-center gap-3">
                 {activeStatus === 'complete' && activeTyped ? (
-                  <VerificationBadge verification={activeTyped.verification} />
+                  <VerificationBadge
+                    verification={activeTyped.verification}
+                    verificationTier={activeSectionSnapshot?.verificationTier}
+                    verificationFlag={activeSectionSnapshot?.verificationFlag}
+                  />
                 ) : null}
                 <SectionActions
                   onCopy={activeTyped ? copyActive : undefined}

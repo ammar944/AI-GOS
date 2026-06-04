@@ -93,6 +93,7 @@ describe("extractClaims", (): void => {
   it("leaves single values, dates, and phone numbers unchanged by the range pass", (): void => {
     const claims = extractClaims({
       pricing: "Seat price is $49.00/mo.",
+      cac: "Target CAC is $8K.",
       growth: "Saw 32% lift and 200M interactions.",
       window: "Founded 2024-2025; call 555-1234.",
     });
@@ -102,6 +103,7 @@ describe("extractClaims", (): void => {
       .map((claim) => claim.value);
 
     expect(numericValues).toContain("$49.00/mo");
+    expect(numericValues).toContain("$8K");
     expect(numericValues).toContain("32%");
     expect(numericValues).toContain("200M interactions");
     // Dates / phone numbers carry no currency/percent/magnitude/comma → not claims.

@@ -7,12 +7,20 @@ import {
   type ReaderSectionId,
 } from '@/components/research-v3/reader-sections';
 import { generateShareToken } from '@/lib/blueprints/share-token';
+import {
+  readVerificationFlag,
+  readVerificationTier,
+  type VerificationFlag,
+  type VerificationTier,
+} from '@/lib/research-v2/verification-tier';
 
 export interface V3ShareSectionSnapshot {
   zone: ReaderSectionId;
   title: string;
   markdown: string | null;
   data: unknown;
+  verificationTier: VerificationTier | null;
+  verificationFlag: VerificationFlag | null;
   updatedAt: string | null;
 }
 
@@ -29,6 +37,8 @@ export interface ResearchArtifactSectionShareRow {
   markdown: string | null;
   data: unknown;
   status: string | null;
+  verification_tier: unknown;
+  verification_flag: unknown;
   updated_at: string | null;
 }
 
@@ -125,6 +135,8 @@ export function buildV3ShareSnapshot(input: {
         title: pickTitle(row, zone),
         markdown: row.markdown,
         data: row.data,
+        verificationTier: readVerificationTier(row.verification_tier),
+        verificationFlag: readVerificationFlag(row.verification_flag),
         updatedAt: row.updated_at,
       };
     })
@@ -195,7 +207,9 @@ export async function createV3SharedSession(
   const parent = parentData as ParentAuditShareRow;
   const { data: sectionData, error: sectionError } = await input.supabase
     .from('research_artifact_sections')
-    .select('zone, title, markdown, data, status, updated_at')
+    .select(
+      'zone, title, markdown, data, status, verification_tier, verification_flag, updated_at',
+    )
     .eq('artifact_id', parent.id)
     .order('updated_at', { ascending: true });
 

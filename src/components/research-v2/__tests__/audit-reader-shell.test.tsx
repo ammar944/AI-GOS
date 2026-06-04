@@ -119,7 +119,7 @@ describe('<AuditReaderShell>', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows verified and unsupported claim counts for completed sections', (): void => {
+  it('shows graded verification claim counts for completed sections', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -143,7 +143,49 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Verified 12 / Unsupported 2')).toBeInTheDocument();
+    expect(
+      screen.getByText('Verified · 12 supported · 86% grounded'),
+    ).toBeInTheDocument();
+  });
+
+  it('prefers the persisted verification tier over fallback count math', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          verificationTier: 'insufficient',
+          verificationFlag: {
+            tier: 'insufficient',
+            verifiedCount: 9,
+            unsupportedCount: 1,
+            totalClaims: 10,
+            confidence: 0.9,
+            needsReviewThreshold: 0.75,
+            insufficientThreshold: 0.5,
+            evidenceGap: true,
+          },
+          data: {
+            ...marketCategoryFixtureArtifact,
+            verification: {
+              verifiedCount: 9,
+              unsupportedCount: 1,
+              claims: [],
+            },
+          },
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(
+      screen.getByText('Insufficient evidence · 1 unsupported · 90% grounded'),
+    ).toBeInTheDocument();
   });
 
   it('renders the paid media terminal and hides the progress strip when every section is terminal', (): void => {

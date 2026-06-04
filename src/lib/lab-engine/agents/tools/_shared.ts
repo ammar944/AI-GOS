@@ -9,9 +9,11 @@ export const ToolGapSchema = z
       "rate_limited",
       "not_implemented",
       "aborted",
+      "content_unavailable",
     ]),
     envVar: z.string().min(1).optional(),
     message: z.string().min(1),
+    consumesBudget: z.literal(false).optional(),
   })
   .strict();
 
@@ -43,6 +45,15 @@ export function credentialGap(envVar: string): ToolGap {
 
 export function apiErrorGap(message: string): ToolGap {
   return { type: "gap", reason: "api_error", message };
+}
+
+export function nonConsumingContentGap(message: string): ToolGap {
+  return {
+    type: "gap",
+    reason: "content_unavailable",
+    message,
+    consumesBudget: false,
+  };
 }
 
 export function abortedGap(): ToolGap {

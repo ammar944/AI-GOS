@@ -88,6 +88,19 @@ const successQuoteSchema = z
   })
   .strict();
 
+const evidenceGapReportSchema = z
+  .object({
+    reason: z.literal("insufficient_voice_of_customer_sources"),
+    summary: z.string().min(1),
+    foundPainQuoteCount: z.number().int().nonnegative(),
+    requiredPainQuoteCount: z.number().int().positive(),
+    foundDistinctPainSourceCount: z.number().int().nonnegative(),
+    requiredDistinctPainSourceCount: z.number().int().positive(),
+    observedPainSourceDomains: z.array(z.string().min(1)),
+    sourcingPlan: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
 export const voiceOfCustomerBodySchema = z
   .object({
     painLanguage: z
@@ -111,6 +124,8 @@ export const voiceOfCustomerBodySchema = z
     successLanguage: z
       .object({ prose: z.string().min(1), quotes: z.array(successQuoteSchema) })
       .strict(),
+    evidenceGap: z.literal(true).optional(),
+    evidenceGapReport: evidenceGapReportSchema.optional(),
   })
   .strict();
 
@@ -140,6 +155,24 @@ export type VoiceOfCustomerSectionOutput = z.infer<
 export type VoiceOfCustomerArtifact = ArtifactEnvelope & {
   body: VoiceOfCustomerBody;
 };
+export type VoiceOfCustomerEvidenceGapReport = z.infer<
+  typeof evidenceGapReportSchema
+>;
+export type VoiceOfCustomerEvidenceGapClassification =
+  | {
+      ok: true;
+      foundPainQuoteCount: number;
+      foundDistinctPainSourceCount: number;
+      observedPainSourceDomains: string[];
+    }
+  | {
+      ok: false;
+      reason:
+        | "not_acquisition_insufficiency"
+        | "provenance_violation"
+        | "structural_corruption";
+      errors: string[];
+    };
 
 function uniqueCount(values: readonly string[]): number {
   return new Set(values).size;
@@ -151,6 +184,92 @@ function getSourceKey(sourceUrl: string, fallback: string): string {
   } catch {
     return fallback;
   }
+}
+
+function getOrderedUniqueSourceKeys(
+  quotes: readonly { source: string; sourceUrl: string }[],
+): string[] {
+  const seen = new Set<string>();
+  const keys: string[] = [];
+
+  for (const quote of quotes) {
+    const key = getSourceKey(quote.sourceUrl, quote.source);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    keys.push(key);
+  }
+
+  return keys;
+}
+
+function isVoiceOfCustomerAcquisitionError(error: string): boolean {
+  return (
+    /^sources: have \d+, need >=5\.$/.test(error) ||
+    /^body\.painLanguage\.quotes: have \d+, need >=10\.$/.test(error) ||
+    /^body\.painLanguage\.quotes: need >=3 distinct sources, have \d+\.$/.test(
+      error,
+    )
+  );
+}
+
+export function classifyVoiceOfCustomerEvidenceGap({
+  artifact,
+  errors,
+  subjectDomain,
+}: {
+  artifact: unknown;
+  errors: readonly string[];
+  subjectDomain: string;
+}): VoiceOfCustomerEvidenceGapClassification {
+  const parsedArtifact = artifactEnvelopeSchema
+    .extend({ body: voiceOfCustomerBodySchema })
+    .safeParse(artifact);
+
+  if (!parsedArtifact.success) {
+    return {
+      ok: false,
+      reason: "structural_corruption",
+      errors: parsedArtifact.error.issues.map((issue) => issue.message),
+    };
+  }
+
+  if (
+    errors.length === 0 ||
+    !errors.every((error) => isVoiceOfCustomerAcquisitionError(error))
+  ) {
+    return {
+      ok: false,
+      reason: "not_acquisition_insufficiency",
+      errors: [...errors],
+    };
+  }
+
+  const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+    artifact: parsedArtifact.data,
+    subjectDomain,
+  });
+
+  if (!selfSourcing.ok) {
+    return {
+      ok: false,
+      reason: "provenance_violation",
+      errors: selfSourcing.errors,
+    };
+  }
+
+  const painQuotes = parsedArtifact.data.body.painLanguage.quotes;
+  const observedPainSourceDomains = getOrderedUniqueSourceKeys(painQuotes);
+
+  return {
+    ok: true,
+    foundPainQuoteCount: painQuotes.length,
+    foundDistinctPainSourceCount: observedPainSourceDomains.length,
+    observedPainSourceDomains,
+  };
 }
 
 export function validateVoiceOfCustomerMinimums(
@@ -220,6 +339,14 @@ export function validateVoiceOfCustomerMinimums(
     errors.push(
       `body.successLanguage.quotes: have ${successCount}, need >=5.`,
     );
+  }
+
+  if (
+    errors.length > 0 &&
+    parsedArtifact.body.evidenceGap === true &&
+    parsedArtifact.body.evidenceGapReport !== undefined
+  ) {
+    return { ok: true, errors: [] };
   }
 
   return { ok: errors.length === 0, errors };

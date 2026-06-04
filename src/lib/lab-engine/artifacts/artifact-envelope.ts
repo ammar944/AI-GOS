@@ -158,6 +158,12 @@ const verificationSourceRefSchema = z.discriminatedUnion("kind", [
       sourceUrl: z.string().url(),
     })
     .strict(),
+  z
+    .object({
+      kind: z.literal("userProvided"),
+      field: z.string().min(1).optional(),
+    })
+    .strict(),
 ]);
 
 const verificationClaimVerdictSchema = z.discriminatedUnion("status", [
@@ -166,6 +172,10 @@ const verificationClaimVerdictSchema = z.discriminatedUnion("status", [
       status: z.literal("verified"),
       claim: verificationClaimSchema,
       matchedSourceRef: verificationSourceRefSchema,
+      entailmentVerdict: z
+        .enum(["supported", "user_asserted"])
+        .optional(),
+      entailmentRationale: z.string().min(1).optional(),
     })
     .strict(),
   z
@@ -173,6 +183,8 @@ const verificationClaimVerdictSchema = z.discriminatedUnion("status", [
       status: z.literal("unsupported"),
       claim: verificationClaimSchema,
       reason: z.enum(["no_match", "partial_match"]),
+      entailmentVerdict: z.literal("refuted").optional(),
+      entailmentRationale: z.string().min(1).optional(),
     })
     .strict(),
 ]);

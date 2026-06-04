@@ -332,6 +332,50 @@ describe('createSupabaseRunStore', (): void => {
     ]);
   });
 
+  it('persists advisory verification tier metadata while leaving section status complete', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    const needsReviewArtifact = {
+      ...marketCategoryFixtureArtifact,
+      verification: {
+        verifiedCount: 2,
+        unsupportedCount: 1,
+        claims: [],
+      },
+    };
+
+    const saved = await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      needsReviewArtifact,
+    );
+
+    expect(saved.sections.positioningMarketCategory?.status).toBe('completed');
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_patch: expect.objectContaining({
+          status: 'complete',
+          verificationTier: 'needs_review',
+          verificationFlag: expect.objectContaining({
+            tier: 'needs_review',
+            verifiedCount: 2,
+            unsupportedCount: 1,
+            confidence: 2 / 3,
+            needsReviewThreshold: 0.75,
+            insufficientThreshold: 0.5,
+          }),
+        }),
+      }),
+    );
+  });
+
   it('awaits profile persistence before resolving the completing artifact save', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase({
       profileClaimResults: [true],

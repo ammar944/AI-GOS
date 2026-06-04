@@ -18,6 +18,12 @@ import type {
   AllPositioningSectionId,
   PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+import {
+  readVerificationFlag,
+  readVerificationTier,
+  type VerificationFlag,
+  type VerificationTier,
+} from '@/lib/research-v2/verification-tier';
 import { createAdminClient } from '@/lib/supabase/server';
 
 import { deriveSectionPhase } from './derive-section-phase';
@@ -82,7 +88,13 @@ export interface AuditStateResponse {
   }>;
   sectionsByZone: Record<
     string,
-    { markdown?: string; title?: string; data?: unknown }
+    {
+      markdown?: string;
+      title?: string;
+      data?: unknown;
+      verificationTier?: VerificationTier;
+      verificationFlag?: VerificationFlag;
+    }
   >;
   /**
    * P2a — live agent-activity feed per zone. Up to the 12 most recent
@@ -434,7 +446,9 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .order('started_at', { ascending: false }),
     supabase
       .from('research_artifact_sections')
-      .select('zone, section_run_id, status, title, markdown, data')
+      .select(
+        'zone, section_run_id, status, title, markdown, data, verification_tier, verification_flag',
+      )
       .eq('artifact_id', parentId),
   ]);
 
@@ -468,7 +482,9 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
           .order('started_at', { ascending: false }),
         supabase
           .from('research_artifact_sections')
-          .select('zone, section_run_id, status, title, markdown, data')
+          .select(
+            'zone, section_run_id, status, title, markdown, data, verification_tier, verification_flag',
+          )
           .eq('artifact_id', parentId),
       ]);
 
@@ -576,12 +592,16 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     const title = row.title as string | null | undefined;
     const markdown = row.markdown as string | null | undefined;
     const typedData = row.data as unknown;
+    const verificationTier = readVerificationTier(row.verification_tier);
+    const verificationFlag = readVerificationFlag(row.verification_flag);
     const hasTypedData = typedData !== null && typedData !== undefined;
     if (status === 'complete' && (markdown || title || hasTypedData)) {
       sectionsByZone[zone] = {
         ...(title ? { title } : {}),
         ...(markdown ? { markdown } : {}),
         ...(hasTypedData ? { data: typedData } : {}),
+        ...(verificationTier ? { verificationTier } : {}),
+        ...(verificationFlag ? { verificationFlag } : {}),
       };
     }
   }

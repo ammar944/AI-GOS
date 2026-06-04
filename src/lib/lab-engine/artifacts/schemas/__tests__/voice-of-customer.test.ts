@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { voiceOfCustomerFixtureArtifact } from "../../../fixtures/voice-of-customer-artifact";
 import {
+  classifyVoiceOfCustomerEvidenceGap,
   checkVoiceOfCustomerSelfSourcing,
+  validateVoiceOfCustomerMinimums,
   voiceOfCustomerBodySchema,
   type VoiceOfCustomerArtifact,
 } from "../voice-of-customer";
@@ -66,6 +68,123 @@ describe("painQuoteSchema role/date", (): void => {
     };
 
     expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
+  });
+});
+
+describe("Voice of Customer evidence-gap classification", (): void => {
+  it("accepts honest pain-quote/source acquisition insufficiency as degradable", (): void => {
+    const artifact = withPainQuotes([
+      painQuote("https://g2.com/review/1", 1),
+      painQuote("https://g2.com/review/2", 2),
+      painQuote("https://g2.com/review/3", 3),
+      painQuote("https://reddit.com/r/sales/4", 4),
+      painQuote("https://reddit.com/r/sales/5", 5),
+      painQuote("https://reddit.com/r/sales/6", 6),
+    ]);
+    const minimums = validateVoiceOfCustomerMinimums(artifact);
+
+    const result = classifyVoiceOfCustomerEvidenceGap({
+      artifact,
+      errors: minimums.errors,
+      subjectDomain,
+    });
+
+    expect(minimums.ok).toBe(false);
+    expect(result).toMatchObject({
+      ok: true,
+      foundDistinctPainSourceCount: 2,
+      foundPainQuoteCount: 6,
+      observedPainSourceDomains: ["g2.com", "reddit.com"],
+    });
+  });
+
+  it("accepts a typed evidenceGap body with an honest sourcing plan", (): void => {
+    const body = {
+      ...voiceOfCustomerFixtureArtifact.body,
+      evidenceGap: true,
+      evidenceGapReport: {
+        foundDistinctPainSourceCount: 2,
+        foundPainQuoteCount: 6,
+        observedPainSourceDomains: ["g2.com", "reddit.com"],
+        reason: "insufficient_voice_of_customer_sources",
+        requiredDistinctPainSourceCount: 3,
+        requiredPainQuoteCount: 10,
+        sourcingPlan: [
+          "Pull first-party review bodies from G2/Capterra/Trustpilot or an approved review data provider.",
+          "Search independent community/forum threads and recover full quotes with Firecrawl when pages render.",
+        ],
+        summary:
+          "Only two independent pain-language domains were available in the live acquisition budget.",
+      },
+    };
+
+    expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
+  });
+
+  it("does not classify self-sourced pain quotes as an evidence gap", (): void => {
+    const artifact = withPainQuotes([
+      painQuote("https://g2.com/review/1", 1),
+      painQuote("https://reddit.com/r/sales/2", 2),
+      painQuote("https://acme.com/customers", 3),
+    ]);
+    const minimums = validateVoiceOfCustomerMinimums(artifact);
+
+    const result = classifyVoiceOfCustomerEvidenceGap({
+      artifact,
+      errors: minimums.errors,
+      subjectDomain,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "provenance_violation",
+    });
+  });
+
+  it("does not classify a single-source majority as an evidence gap", (): void => {
+    const artifact = withPainQuotes([
+      painQuote("https://g2.com/review/1", 1),
+      painQuote("https://g2.com/review/2", 2),
+      painQuote("https://g2.com/review/3", 3),
+      painQuote("https://g2.com/review/4", 4),
+      painQuote("https://reddit.com/r/sales/5", 5),
+      painQuote("https://trustpilot.com/review/6", 6),
+    ]);
+    const minimums = validateVoiceOfCustomerMinimums(artifact);
+
+    const result = classifyVoiceOfCustomerEvidenceGap({
+      artifact,
+      errors: minimums.errors,
+      subjectDomain,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "provenance_violation",
+    });
+  });
+
+  it("does not classify structural corruption as an evidence gap", (): void => {
+    const artifact = {
+      ...voiceOfCustomerFixtureArtifact,
+      body: {
+        ...voiceOfCustomerFixtureArtifact.body,
+        painLanguage: {
+          prose: "missing quotes array",
+        },
+      },
+    };
+
+    const result = classifyVoiceOfCustomerEvidenceGap({
+      artifact,
+      errors: ["body.painLanguage.quotes: have 0, need >=10."],
+      subjectDomain,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "structural_corruption",
+    });
   });
 });
 

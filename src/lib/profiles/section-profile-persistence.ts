@@ -11,6 +11,13 @@ import {
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
+  buildVerificationFlag,
+  readVerificationFlag,
+  readVerificationTier,
+  type VerificationFlag,
+  type VerificationTier,
+} from '@/lib/research-v2/verification-tier';
+import {
   saveBusinessProfile,
   saveProfileInsights,
 } from '@/lib/profiles/business-profiles';
@@ -40,12 +47,16 @@ interface SectionInsightSummary {
   statusSummary: string;
   confidence: number;
   sourceCount: number;
+  verificationTier?: VerificationTier;
+  verificationFlag?: VerificationFlag;
 }
 
 interface ResearchArtifactSectionProfileRow {
   zone: unknown;
   data: unknown;
   status: unknown;
+  verificationTier: unknown;
+  verificationFlag: unknown;
 }
 
 const PROFILE_INSIGHT_SECTION_IDS = [
@@ -117,13 +128,25 @@ function buildProfileMetadata(input: {
 export function buildCommittedSectionProfileInsights(input: {
   sectionId: AllPositioningSectionId;
   artifact: ArtifactEnvelope;
+  verificationTier?: unknown;
+  verificationFlag?: unknown;
 }): Record<string, unknown> {
+  const persistedFlag = readVerificationFlag(input.verificationFlag);
+  const derivedFlag = buildVerificationFlag({
+    verification: input.artifact.verification,
+    evidenceGap: asRecord(input.artifact.body).evidenceGap,
+  });
+  const verificationFlag = persistedFlag ?? derivedFlag;
+  const verificationTier =
+    readVerificationTier(input.verificationTier) ?? verificationFlag?.tier ?? null;
   const summary: SectionInsightSummary = {
     sectionTitle: input.artifact.sectionTitle,
     verdict: input.artifact.verdict,
     statusSummary: input.artifact.statusSummary,
     confidence: input.artifact.confidence,
     sourceCount: input.artifact.sources.length,
+    ...(verificationTier ? { verificationTier } : {}),
+    ...(verificationFlag ? { verificationFlag } : {}),
   };
 
   const insights: Record<string, unknown> = {
@@ -135,6 +158,8 @@ export function buildCommittedSectionProfileInsights(input: {
       verdict: input.artifact.verdict,
       confidence: input.artifact.confidence,
       body: input.artifact.body,
+      ...(verificationTier ? { verificationTier } : {}),
+      ...(verificationFlag ? { verificationFlag } : {}),
     };
   }
 
@@ -143,6 +168,8 @@ export function buildCommittedSectionProfileInsights(input: {
       verdict: input.artifact.verdict,
       confidence: input.artifact.confidence,
       body: input.artifact.body,
+      ...(verificationTier ? { verificationTier } : {}),
+      ...(verificationFlag ? { verificationFlag } : {}),
     };
   }
 
@@ -167,6 +194,8 @@ function getCompletedSectionRows(input: {
         zone: record.zone,
         data: record.data,
         status: record.status,
+        verificationTier: record.verification_tier,
+        verificationFlag: record.verification_flag,
       };
     })
     .filter(
@@ -210,6 +239,8 @@ function buildCommittedAuditProfileInsights(input: {
       ...buildCommittedSectionProfileInsights({
         sectionId: row.zone,
         artifact: parsedArtifact.data,
+        verificationTier: row.verificationTier,
+        verificationFlag: row.verificationFlag,
       }),
     };
   }
@@ -242,7 +273,9 @@ export async function persistAuditProfile(
 
   const { data: sectionRows, error: sectionRowsError } = await input.supabase
     .from('research_artifact_sections')
-    .select('zone, title, markdown, data, status, updated_at')
+    .select(
+      'zone, title, markdown, data, status, verification_tier, verification_flag, updated_at',
+    )
     .eq('artifact_id', input.parentAuditRunId);
 
   if (sectionRowsError) {
