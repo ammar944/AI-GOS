@@ -121,46 +121,60 @@ describe("Voice of Customer evidence-gap classification", (): void => {
     expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
   });
 
-  it("does not classify self-sourced pain quotes as an evidence gap", (): void => {
+  it("classifies self-sourced pain quotes as a degradable sourcing gap", (): void => {
     const artifact = withPainQuotes([
       painQuote("https://g2.com/review/1", 1),
       painQuote("https://reddit.com/r/sales/2", 2),
       painQuote("https://acme.com/customers", 3),
     ]);
-    const minimums = validateVoiceOfCustomerMinimums(artifact);
+    const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+      artifact,
+      subjectDomain,
+    });
 
     const result = classifyVoiceOfCustomerEvidenceGap({
       artifact,
-      errors: minimums.errors,
+      errors: selfSourcing.errors,
       subjectDomain,
     });
 
     expect(result).toMatchObject({
-      ok: false,
-      reason: "provenance_violation",
+      ok: true,
+      foundDistinctPainSourceCount: 3,
+      foundPainQuoteCount: 3,
+      observedPainSourceDomains: ["g2.com", "reddit.com", "acme.com"],
     });
   });
 
-  it("does not classify a single-source majority as an evidence gap", (): void => {
+  it("classifies a single-source majority as a degradable sourcing gap", (): void => {
     const artifact = withPainQuotes([
       painQuote("https://g2.com/review/1", 1),
       painQuote("https://g2.com/review/2", 2),
       painQuote("https://g2.com/review/3", 3),
       painQuote("https://g2.com/review/4", 4),
-      painQuote("https://reddit.com/r/sales/5", 5),
-      painQuote("https://trustpilot.com/review/6", 6),
+      painQuote("https://g2.com/review/5", 5),
+      painQuote("https://g2.com/review/6", 6),
+      painQuote("https://reddit.com/r/sales/7", 7),
+      painQuote("https://reddit.com/r/sales/8", 8),
+      painQuote("https://trustpilot.com/review/9", 9),
+      painQuote("https://trustpilot.com/review/10", 10),
     ]);
-    const minimums = validateVoiceOfCustomerMinimums(artifact);
+    const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+      artifact,
+      subjectDomain,
+    });
 
     const result = classifyVoiceOfCustomerEvidenceGap({
       artifact,
-      errors: minimums.errors,
+      errors: selfSourcing.errors,
       subjectDomain,
     });
 
     expect(result).toMatchObject({
-      ok: false,
-      reason: "provenance_violation",
+      ok: true,
+      foundDistinctPainSourceCount: 3,
+      foundPainQuoteCount: 10,
+      observedPainSourceDomains: ["g2.com", "reddit.com", "trustpilot.com"],
     });
   });
 

@@ -40,6 +40,7 @@ export interface CreateSupabaseRunStoreOptions {
   parentAuditRunId: string;
   sectionRunIdByZone: Partial<Record<SectionId, string>>;
   researchInput: ResearchInput;
+  env?: Record<string, string | undefined>;
   now?: () => Date;
 }
 
@@ -76,6 +77,29 @@ export class SupabaseRunStoreCommitConflictError extends SupabaseRunStoreError {
 
 function isoNow(now: () => Date): string {
   return now().toISOString();
+}
+
+const labReviewTimeoutEnvKey = 'LAB_REVIEW_TIMEOUT_MS';
+const defaultLabReviewTimeoutMs = 45_000;
+
+function readLabReviewTimeoutMs(
+  env: Record<string, string | undefined>,
+): number {
+  const rawValue = env[labReviewTimeoutEnvKey]?.trim();
+
+  if (rawValue === undefined || rawValue.length === 0) {
+    return defaultLabReviewTimeoutMs;
+  }
+
+  const timeoutMs = Number(rawValue);
+
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new SupabaseRunStoreError(
+      `${labReviewTimeoutEnvKey} must be a positive integer number of milliseconds.`,
+    );
+  }
+
+  return timeoutMs;
 }
 
 function elapsedMs(startedAt: string | null, endedAt: string): number | null {
@@ -210,6 +234,7 @@ function readStringValue(
 async function attachAgenticReview(input: {
   artifact: ArtifactEnvelope;
   researchInput: ResearchInput;
+  timeoutMs: number;
 }): Promise<ArtifactEnvelope> {
   try {
     const review = await reviewAndUpgradeSection({
@@ -217,6 +242,7 @@ async function attachAgenticReview(input: {
       model: reviewModel,
       researchInput: input.researchInput,
       sectionId: input.artifact.sectionId,
+      timeoutMs: input.timeoutMs,
     });
     const reviewedArtifact = artifactEnvelopeSchema.parse({
       ...input.artifact,
@@ -453,6 +479,7 @@ export function createSupabaseRunStore(
   const input = researchInputSchema.parse(options.researchInput);
   const selectedSectionIds = getSelectedSectionIds(options.sectionRunIdByZone);
   const adapter = createSupabaseWebhookAdapter(options.supabase);
+  const reviewTimeoutMs = readLabReviewTimeoutMs(options.env ?? process.env);
   let record = createInitialRunRecord({ input, now, selectedSectionIds });
 
   return {
@@ -538,6 +565,7 @@ export function createSupabaseRunStore(
       const artifactToCommit = await attachAgenticReview({
         artifact: parsedArtifact,
         researchInput: input,
+        timeoutMs: reviewTimeoutMs,
       });
 
       const committed = await adapter.commitArtifactSection({

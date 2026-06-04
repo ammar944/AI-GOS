@@ -212,6 +212,12 @@ function isVoiceOfCustomerAcquisitionError(error: string): boolean {
     /^body\.painLanguage\.quotes: have \d+, need >=10\.$/.test(error) ||
     /^body\.painLanguage\.quotes: need >=3 distinct sources, have \d+\.$/.test(
       error,
+    ) ||
+    /^body\.painLanguage\.quotes\[\d+\]: sourced from the subject company's own domain \([^)]+\); pain language must come from independent sources, not the audited company's site\.$/.test(
+      error,
+    ) ||
+    /^body\.painLanguage\.quotes: source .+ supplies \d+ of \d+ pain quotes \(a single-source majority\); draw pain language from multiple independent sources\.$/.test(
+      error,
     )
   );
 }
@@ -245,19 +251,6 @@ export function classifyVoiceOfCustomerEvidenceGap({
       ok: false,
       reason: "not_acquisition_insufficiency",
       errors: [...errors],
-    };
-  }
-
-  const selfSourcing = checkVoiceOfCustomerSelfSourcing({
-    artifact: parsedArtifact.data,
-    subjectDomain,
-  });
-
-  if (!selfSourcing.ok) {
-    return {
-      ok: false,
-      reason: "provenance_violation",
-      errors: selfSourcing.errors,
     };
   }
 

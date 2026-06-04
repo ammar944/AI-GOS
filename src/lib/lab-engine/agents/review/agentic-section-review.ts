@@ -12,6 +12,7 @@ import type { SectionLanguageModel } from "@/lib/lab-engine/ai/models";
 const MAX_CORPUS_EXCERPTS = 12;
 const MAX_EXCERPT_CHARS = 1_200;
 const MAX_ARTIFACT_JSON_CHARS = 24_000;
+const DEFAULT_REVIEW_TIMEOUT_MS = 45_000;
 const REVIEW_METADATA_PATTERN =
   /<review_metadata>([\s\S]*?)<\/review_metadata>/u;
 
@@ -21,6 +22,7 @@ export interface ReviewAndUpgradeSectionInput {
   sectionId: SectionId;
   model: SectionLanguageModel;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 function truncateText(value: string, maxChars: number): string {
@@ -166,6 +168,29 @@ function buildReviewPrompt(input: {
   ].join("\n");
 }
 
+function createReviewTimeoutSignal(input: {
+  parentSignal?: AbortSignal;
+  timeoutMs: number;
+}): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(
+      new Error(
+        `Agentic section review exceeded ${input.timeoutMs}ms timeout.`,
+      ),
+    );
+  }, input.timeoutMs);
+  const signal =
+    input.parentSignal === undefined
+      ? controller.signal
+      : AbortSignal.any([input.parentSignal, controller.signal]);
+
+  return {
+    cleanup: () => clearTimeout(timeout),
+    signal,
+  };
+}
+
 export async function reviewAndUpgradeSection(
   input: ReviewAndUpgradeSectionInput,
 ): Promise<SectionReviewResult> {
@@ -173,10 +198,14 @@ export async function reviewAndUpgradeSection(
     input.artifact,
     input.sectionId,
   );
+  const timeoutSignal = createReviewTimeoutSignal({
+    parentSignal: input.signal,
+    timeoutMs: input.timeoutMs ?? DEFAULT_REVIEW_TIMEOUT_MS,
+  });
 
   try {
     const result = await generateText({
-      abortSignal: input.signal,
+      abortSignal: timeoutSignal.signal,
       maxOutputTokens: 8_000,
       maxRetries: 1,
       model: input.model,
@@ -199,5 +228,7 @@ export async function reviewAndUpgradeSection(
       error,
       fallbackMarkdown,
     });
+  } finally {
+    timeoutSignal.cleanup();
   }
 }

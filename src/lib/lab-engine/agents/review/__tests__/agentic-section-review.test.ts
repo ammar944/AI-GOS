@@ -57,6 +57,7 @@ describe("parseSectionReviewResponse", (): void => {
 
 describe("reviewAndUpgradeSection", (): void => {
   beforeEach((): void => {
+    vi.useRealTimers();
     aiMocks.generateText.mockReset();
   });
 
@@ -106,5 +107,40 @@ describe("reviewAndUpgradeSection", (): void => {
         "positioningMarketCategory",
       ),
     );
+  });
+
+  it("falls back to the original artifact markdown when the review timeout aborts", async (): Promise<void> => {
+    vi.useFakeTimers();
+    aiMocks.generateText.mockImplementation(
+      ({ abortSignal }: { abortSignal?: AbortSignal }) =>
+        new Promise((_, reject) => {
+          abortSignal?.addEventListener("abort", () => {
+            reject(abortSignal.reason);
+          });
+        }),
+    );
+
+    const pendingReview = reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+      timeoutMs: 5,
+    });
+
+    await vi.advanceTimersByTimeAsync(5);
+    const result = await pendingReview;
+
+    expect(result.tier).toBe("needs_review");
+    expect(result.tierRationale).toContain(
+      "Agentic section review exceeded 5ms timeout",
+    );
+    expect(result.upgradedMarkdown).toBe(
+      buildOriginalArtifactMarkdown(
+        marketCategoryFixtureArtifact,
+        "positioningMarketCategory",
+      ),
+    );
+    vi.useRealTimers();
   });
 });

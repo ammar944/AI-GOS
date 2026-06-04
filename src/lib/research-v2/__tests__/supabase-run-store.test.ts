@@ -454,6 +454,30 @@ describe('createSupabaseRunStore', (): void => {
     warn.mockRestore();
   });
 
+  it('passes the configured agentic review timeout to the review hook', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      env: { LAB_REVIEW_TIMEOUT_MS: '1234' },
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+
+    expect(reviewMocks.reviewAndUpgradeSection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeoutMs: 1234,
+      }),
+    );
+  });
+
   it('awaits profile persistence before resolving the completing artifact save', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase({
       profileClaimResults: [true],

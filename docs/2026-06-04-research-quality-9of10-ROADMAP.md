@@ -48,7 +48,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | ID | Task | Axis | Effort | Depends on | Status |
 |---|---|---|---|---|---|
 | **T1** | Strong-model tiering foundation | Foundation | S | — | ☑ Done |
-| **T2** | Agentic Section Review Pass (trust + unblock run) | A. Trust | L | T1 | ◐ In progress |
+| **T2** | Agentic Section Review Pass (trust + unblock run) | A. Trust | L | T1 | ◐ Code gate green; live gate pending |
 | **T3** | SpyFu keyword economics — fund + harden + trends fallback | B. Richness | S–M | T1 | ☐ Not started |
 | **T4** | Real VoC review bodies — port the stranded extractor | B. Richness | M | — | ☐ Not started |
 | **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ☐ Not started |
@@ -59,6 +59,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ☐ Not started |
 | **T11** | Live E2E validation (Ramp + 2nd company) vs rubric | D. Gate | M | all | ☐ Not started |
 | **T12** | *(optional)* Cross-section memory at draft time | C. Insight | M | T1 | ☐ Optional |
+| **T13** | Deepen the initial corpus — the upstream foundation everything flows from | B. Richness / Foundation | M–L | — | ☐ Not started |
 
 ---
 
@@ -74,6 +75,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Goal:** Replace the brittle entailment-judge machinery with one strong-model read-and-upgrade pass per section: returns upgraded markdown + tiny metadata tail (tier, rationale, removedItems[], clientQuestions[]). Makes VoC author an honest gap (no fabricated quotes) → **unblocks capstones** (the bug that LIVE_FAILed twice). Proven approach: `tmp/2026-06-04-truthgate-e2e-v2/UPGRADED-RAMP-AUDIT.md`.
 **Full spec already written:** `docs/handoffs/2026-06-04-agentic-review-pass-SPEC-codex.md` — execute that. Retires `structuralVerifierWithEntailment`/`defaultEntailmentJudge`; keeps A3 tier persistence (re-sourced from the agent). **No big structured schema** (that's what failed).
 **Verify:** live Ramp run reaches 6/6 + capstones; sections in the `UPGRADED-RAMP-AUDIT.md` quality class. **Decisions:** DG-1, DG-2.
+**2026-06-04 Codex evidence:** Wave 0 code gate green. VoC minimum/self-domain/single-source-majority failures now commit evidence-gap artifacts instead of terminal failures; `run-section.ts` uses deterministic structural verification instead of `structuralVerifierWithEntailment`; agentic review has `LAB_REVIEW_TIMEOUT_MS` commit-path guard. Proof: `pnpm exec tsc --noEmit` 0; `pnpm run test:run` 173 files / 1473 tests passed / 1 skipped; `pnpm run build` clean. Live Ramp gate still pending.
 
 ### T3 — SpyFu keyword economics: fund + harden `[B. Richness · S–M]`
 **Goal:** Kill the "estimated CPC/volume" leak in demand-intent at the source. The tool is **already fully built** (`src/lib/ai/spyfu-client.ts` → `keyword_volume`); the gap is operational.
@@ -129,6 +131,12 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 
 ### T12 — *(optional)* Cross-section memory at draft time `[C. Insight · M]`
 **Goal:** The cheap 20%-buys-60% partial of T7: each section, on commit, writes 2–3 "signals for other sections" into shared state; later sections read prior signals. Gets *some* cross-section awareness at near-zero cost. Does not replace T7. Do only if T7 proves too heavy to land quickly.
+
+### T13 — Deepen the initial corpus (the upstream foundation) `[B. Richness / Foundation · M–L]`
+**Goal:** Everything downstreams from the corpus — it's the shared substrate every section drafts from and the material the cross-section thinker (T7) reasons over. Today it's a single thin ~4K-char `sonar-pro` Perplexity pass (6-source/8-evidence floor, forbidden from section-level proof). A thin seed forces sections to either re-research in isolation or fall back to estimates. Deepen it into a real multi-source intelligence foundation. *(Note: the old "corpus isn't the binding constraint" finding held in the isolated-sections era; with the T7 thinker + the richness layer, corpus depth now compounds across every section.)*
+**Research:** corpus runner `research-worker/src/runners/` (`runDeepResearchProgram`); `src/lib/research-v2/corpus-to-research-input.ts`; the corpus schema/floor + how sections consume `researchInput.corpus.excerpts`; what a deep multi-pass corpus should contain (company truth, market, competitors, buyers, pricing, recent events) with source lineage per fact.
+**Implement:** replace the single shallow pass with a deeper, multi-query, multi-source fan-out that produces a structured, source-cited intelligence base (more excerpts, deduped, typed by topic) — feeding both the six sections and the T7 thinker. Keep every corpus fact source-lineaged (no fabrication; same honesty discipline). Don't let corpus depth become a paid-API loop without an abort condition.
+**Verify:** a live run shows sections + the thinker drawing on a materially richer, source-cited corpus; section drafts lean less on `[model estimate]`. **Feeds:** every section + T7/T9. Land it early in Wave R so the insight wave reasons over real depth.
 
 ---
 

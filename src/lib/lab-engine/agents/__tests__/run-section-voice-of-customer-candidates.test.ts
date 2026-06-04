@@ -150,6 +150,40 @@ function buildThinVoiceOfCustomerDraft(): Omit<
   };
 }
 
+function buildSingleSourceMajorityVoiceOfCustomerDraft(): Omit<
+  VoiceOfCustomerSectionOutput,
+  'confidence' | 'sectionTitle'
+> {
+  const draft = buildVoiceOfCustomerDraft();
+  const quoteUrls = [
+    'https://g2.com/products/saaslaunch/reviews/1',
+    'https://g2.com/products/saaslaunch/reviews/2',
+    'https://g2.com/products/saaslaunch/reviews/3',
+    'https://g2.com/products/saaslaunch/reviews/4',
+    'https://g2.com/products/saaslaunch/reviews/5',
+    'https://g2.com/products/saaslaunch/reviews/6',
+    'https://reddit.com/r/sales/comments/saaslaunch-7',
+    'https://reddit.com/r/sales/comments/saaslaunch-8',
+    'https://trustpilot.com/review/saaslaunch.example/9',
+    'https://trustpilot.com/review/saaslaunch.example/10',
+  ];
+  const quotes = draft.body.painLanguage.quotes.map((quote, index) => ({
+    ...quote,
+    sourceUrl: quoteUrls[index] ?? quote.sourceUrl,
+  }));
+
+  return {
+    ...draft,
+    body: {
+      ...draft.body,
+      painLanguage: {
+        ...draft.body.painLanguage,
+        quotes,
+      },
+    },
+  };
+}
+
 function emitVoiceOfCustomerEvidenceStep(
   params: Parameters<StructuredStreamer>[0],
 ): void {
@@ -777,6 +811,53 @@ describe('runSection VoC candidate prepass', (): void => {
       reason: 'insufficient_voice_of_customer_sources',
       requiredDistinctPainSourceCount: 3,
       requiredPainQuoteCount: 10,
+    });
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits an evidence-gap artifact after repairs when drafted VoC has a single-source majority', async (): Promise<void> => {
+    const store = await makeStore();
+    installSuccessfulToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitVoiceOfCustomerEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildSingleSourceMajorityVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '50' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+
+    expect(streamStructured).toHaveBeenCalledTimes(3);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(result.artifact.body.evidenceGapReport).toMatchObject({
+      foundDistinctPainSourceCount: 3,
+      foundPainQuoteCount: 10,
+      observedPainSourceDomains: ['g2.com', 'reddit.com', 'trustpilot.com'],
+      reason: 'insufficient_voice_of_customer_sources',
     });
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');

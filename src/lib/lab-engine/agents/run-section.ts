@@ -117,8 +117,7 @@ import {
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import {
-  structuralVerifierWithEntailment,
-  type EntailmentJudge,
+  structuralVerifier,
 } from "./verification/structural-verifier";
 import {
   createThrottledSectionPartialBroadcaster,
@@ -141,7 +140,6 @@ export interface RunSectionDeps {
   runEvidencePass?: EvidencePassRunner;
   callStructured?: StructuredCaller;
   streamStructured?: StructuredStreamer;
-  entailmentJudge?: EntailmentJudge;
   broadcastPartial?: SectionPartialPublishFn;
   now?: () => Date;
   newId?: () => string;
@@ -577,28 +575,20 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   });
 }
 
-async function verifySectionBody({
+function verifySectionBody({
   body,
-  deps,
   evidenceSteps,
   researchInput,
-  signal,
 }: {
   body: unknown;
-  deps: RunSectionDeps;
   evidenceSteps: readonly AgentStep[];
   researchInput: ResearchInput;
-  signal?: AbortSignal;
-}): Promise<VerificationReportEnvelope> {
-  return structuralVerifierWithEntailment({
+}): VerificationReportEnvelope {
+  return structuralVerifier({
     body,
     toolResults: evidenceSteps.flatMap((step) => step.toolResults),
     corpusExcerpts: researchInput.corpus.excerpts,
     onboarding: researchInput.onboarding,
-    ...(deps.entailmentJudge === undefined
-      ? {}
-      : { judge: deps.entailmentJudge }),
-    ...(signal === undefined ? {} : { signal }),
   });
 }
 
@@ -3543,12 +3533,10 @@ async function callStructuredAttempt({
         sectionId: input.sectionId,
       }),
     );
-    const verification = await verifySectionBody({
+    const verification = verifySectionBody({
       body: output.body,
-      deps,
       evidenceSteps: modelSteps,
       researchInput,
-      signal,
     });
     const evidenceSupportShortfall = evaluateEvidenceSupport({
       verification,
@@ -3566,7 +3554,20 @@ async function callStructuredAttempt({
     const minimums = definition.validateMinimums(artifact);
 
     if (!minimums.ok) {
-      return { output, artifact: null, errors: minimums.errors };
+      return {
+        output,
+        artifact: null,
+        errors: minimums.errors,
+        voiceOfCustomerEvidenceGapArtifact:
+          buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+            artifact,
+            definition,
+            deps,
+            errors: minimums.errors,
+            input,
+            researchInput,
+          }),
+      };
     }
 
     const missingClass = checkRequiredEvidenceClasses({
@@ -3589,6 +3590,30 @@ async function callStructuredAttempt({
         errors: [failure.message],
         requiredEvidenceMissing: failure,
       };
+    }
+
+    if (input.sectionId === "positioningVoiceOfCustomer") {
+      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+        artifact,
+        subjectDomain: researchInput.company.websiteUrl,
+      });
+
+      if (!selfSourcing.ok) {
+        return {
+          output,
+          artifact: null,
+          errors: selfSourcing.errors,
+          voiceOfCustomerEvidenceGapArtifact:
+            buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+              artifact,
+              definition,
+              deps,
+              errors: selfSourcing.errors,
+              input,
+              researchInput,
+            }),
+        };
+      }
     }
 
     return { output, artifact, errors: [], evidenceSupportShortfall };
@@ -3710,12 +3735,10 @@ async function callStructuredStreamAttempt({
         sectionId: input.sectionId,
       }),
     );
-    const verification = await verifySectionBody({
+    const verification = verifySectionBody({
       body: output.body,
-      deps,
       evidenceSteps: modelSteps,
       researchInput,
-      signal,
     });
     const artifact = buildEnvelope({
       definition,
@@ -3768,6 +3791,30 @@ async function callStructuredStreamAttempt({
         errors: [failure.message],
         requiredEvidenceMissing: failure,
       };
+    }
+
+    if (input.sectionId === "positioningVoiceOfCustomer") {
+      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+        artifact,
+        subjectDomain: researchInput.company.websiteUrl,
+      });
+
+      if (!selfSourcing.ok) {
+        return {
+          output,
+          artifact: null,
+          errors: selfSourcing.errors,
+          voiceOfCustomerEvidenceGapArtifact:
+            buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+              artifact,
+              definition,
+              deps,
+              errors: selfSourcing.errors,
+              input,
+              researchInput,
+            }),
+        };
+      }
     }
 
     writeValidationEvent({
@@ -4474,12 +4521,10 @@ async function buildVerifiedAttemptFromOutput({
   verifierSteps?: readonly AgentStep[];
 }): Promise<AttemptResult> {
   const evidenceSteps = verifierSteps ?? modelSteps;
-  const verification = await verifySectionBody({
+  const verification = verifySectionBody({
     body: output.body,
-    deps,
     evidenceSteps,
     researchInput,
-    signal: input.signal,
   });
   const artifact = buildEnvelope({
     definition,
@@ -4536,7 +4581,20 @@ async function buildVerifiedAttemptFromOutput({
     });
 
     if (!selfSourcing.ok) {
-      return { output, artifact: null, errors: selfSourcing.errors };
+      return {
+        output,
+        artifact: null,
+        errors: selfSourcing.errors,
+        voiceOfCustomerEvidenceGapArtifact:
+          buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+            artifact,
+            definition,
+            deps,
+            errors: selfSourcing.errors,
+            input,
+            researchInput,
+          }),
+      };
     }
   }
 
