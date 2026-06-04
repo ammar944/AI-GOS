@@ -5,6 +5,10 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  strategicInsightSchema,
+  validateStrategicInsightMinimums,
+} from "./strategic-insight";
 
 const personaRoles = [
   "champion",
@@ -94,6 +98,7 @@ const clusterVenueSchema = z
 
 export const buyerICPBodySchema = z
   .object({
+    strategicInsight: strategicInsightSchema,
     icpExistenceCheck: z
       .object({
         prose: z.string().min(1),
@@ -178,6 +183,15 @@ export function validateBuyerICPMinimums(
     .parse(artifact);
   const errors: string[] = [];
   const personas = parsedArtifact.body.personaReality.personas;
+
+  validateStrategicInsightMinimums(
+    errors,
+    "body.strategicInsight",
+    parsedArtifact.body.strategicInsight,
+    {
+      comparisonTexts: [parsedArtifact.verdict, parsedArtifact.statusSummary],
+    },
+  );
 
   if (personas.length < 5) {
     errors.push(`body.personaReality.personas: have ${personas.length}, need >=5.`);

@@ -5,6 +5,16 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  bindingConstraintSchema,
+  orderedStrategicMoveSchema,
+  provesWrongIfSchema,
+  strategicInsightSchema,
+  validateOrderedStrategicMovesMinimums,
+  validateProvesWrongIfMinimums,
+  validateStrategicInsightMinimums,
+  validateStrategicText,
+} from "./strategic-insight";
 
 const reportedByValues = ["company-own", "external-source"] as const;
 const confidenceValues = ["high", "medium", "low"] as const;
@@ -65,6 +75,10 @@ const redFlagSchema = z
 
 export const offerDiagnosticBodySchema = z
   .object({
+    strategicInsight: strategicInsightSchema,
+    orderedMoves: z.array(orderedStrategicMoveSchema),
+    provesWrongIf: provesWrongIfSchema,
+    singleBindingConstraint: bindingConstraintSchema,
     offerMarketFit: z
       .object({
         prose: z.string().min(1),
@@ -124,6 +138,40 @@ export function validateOfferDiagnosticMinimums(
     .extend({ body: offerDiagnosticBodySchema })
     .parse(artifact);
   const errors: string[] = [];
+
+  validateStrategicInsightMinimums(
+    errors,
+    "body.strategicInsight",
+    parsedArtifact.body.strategicInsight,
+    {
+      comparisonTexts: [parsedArtifact.verdict, parsedArtifact.statusSummary],
+    },
+  );
+  validateOrderedStrategicMovesMinimums(
+    errors,
+    "body.orderedMoves",
+    parsedArtifact.body.orderedMoves,
+  );
+  validateProvesWrongIfMinimums(
+    errors,
+    "body.provesWrongIf",
+    parsedArtifact.body.provesWrongIf,
+  );
+  validateStrategicText(
+    errors,
+    "body.singleBindingConstraint.constraint",
+    parsedArtifact.body.singleBindingConstraint.constraint,
+  );
+  validateStrategicText(
+    errors,
+    "body.singleBindingConstraint.whyBinding",
+    parsedArtifact.body.singleBindingConstraint.whyBinding,
+  );
+  validateStrategicText(
+    errors,
+    "body.singleBindingConstraint.unlockCondition",
+    parsedArtifact.body.singleBindingConstraint.unlockCondition,
+  );
 
   if (parsedArtifact.sources.length < 5) {
     errors.push(`sources: have ${parsedArtifact.sources.length}, need >=5.`);

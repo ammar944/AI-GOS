@@ -131,6 +131,9 @@ Top-level output fields:
 
 Five body sub-sections, each `{ prose, <cards> }`:
 
+- `strategicInsight`: `{ strategicVerdict, nonObviousRead, secondOrderImplication, keyTension }`
+- `orderedMoves`: `[{ rank, move, dependsOn, rationale }]` with consecutive ranks and backward-only dependencies.
+- `provesWrongIf`: `{ metric, threshold, window }`
 - `keywordDemand`: `{ prose, keywords }`
 - `questionMining`: `{ prose, questions }`
 - `contentGaps`: `{ prose, gaps }`

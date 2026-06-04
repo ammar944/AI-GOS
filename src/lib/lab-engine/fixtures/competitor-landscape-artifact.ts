@@ -35,6 +35,37 @@ export const competitorLandscapeFixtureArtifact = artifactEnvelopeSchema
       observedAt: "2026-05-20T15:45:00.000Z",
     })),
     body: {
+      strategicInsight: {
+        strategicVerdict:
+          "SaaSLaunch should attack manual and AI-assistant competitors on decision accountability, not feature breadth.",
+        nonObviousRead:
+          "The vulnerable competitor pattern is not weak automation; it is that alternatives hide who owns the weekly revenue decision.",
+        secondOrderImplication:
+          "Competitive copy should concede generic CRM cleanup while proving a more defensible weekly operating loop.",
+        keyTension: {
+          tension:
+            "The market rewards broad automation claims, but founder buyers need a narrower accountable workflow.",
+          side:
+            "Take the accountable-workflow side and refuse to outclaim AI assistants on autonomous activity volume.",
+          costOfPosition:
+            "This concedes some automation comparison traffic while sharpening the message against status-quo rituals.",
+        },
+      },
+      whereToAttackVsConcede: {
+        attack:
+          "Attack spreadsheet rituals and AI assistants where they fail to make weekly pipeline decisions explicit.",
+        concede:
+          "Concede broad CRM hygiene and generic follow-up automation to incumbents with deeper feature surfaces.",
+        rationale:
+          "The fixture evidence shows competitors advertising cleanup and AI operator language, leaving accountability as the open flank.",
+      },
+      incumbentBlindSpot: {
+        incumbent: "CRM cleanup tools and AI sales assistants",
+        blindSpot:
+          "They optimize activity or hygiene while leaving the founder's weekly decision ritual implicit.",
+        whyTheyMissIt:
+          "Their positioning centers tool output, so they under-message the operating cadence buyers must actually change.",
+      },
       competitorSet: {
         prose:
           "The set spans direct GTM workflow tools, indirect CRM cleanup, status-quo agency/operator help, and DIY spreadsheets. SaaSLaunch should position by making the operating rhythm tangible and verifiable.",

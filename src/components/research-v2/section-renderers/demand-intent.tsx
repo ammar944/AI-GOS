@@ -7,6 +7,7 @@ import {
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
 import { SubsectionBlock } from '../primitives';
+import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface DemandIntentRendererProps {
   artifact: DemandIntentArtifact;
@@ -227,6 +228,25 @@ export function DemandIntentRenderer({
 
   return (
     <div className={cn('flex flex-col gap-12', className)}>
+      {artifact.strategicInsight || artifact.orderedMoves || artifact.provesWrongIf ? (
+        <StrategicInsightPanel insight={artifact.strategicInsight}>
+          <StrategicField
+            label="ordered moves"
+            value={artifact.orderedMoves
+              ?.map((move) => `${move.rank}. ${move.move}`)
+              .join(' ')}
+          />
+          <StrategicField
+            label="proves wrong if"
+            value={
+              artifact.provesWrongIf
+                ? `${artifact.provesWrongIf.metric}: ${artifact.provesWrongIf.threshold} in ${artifact.provesWrongIf.window}`
+                : undefined
+            }
+          />
+        </StrategicInsightPanel>
+      ) : null}
+
       <SubsectionBlock label="1 · Keyword Demand" prose={keywordDemand.prose}>
         <DataTable
           columns={keywordColumns}

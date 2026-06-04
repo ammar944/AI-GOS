@@ -113,6 +113,8 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "`body.marketSize.signals` must include at least three public trajectory signals",
     );
+    expect(prompt).toContain("`body.strategicInsight` is required");
+    expect(prompt).toContain("`body.categoryPowerBet { bet, whyNow, riskAccepted }`");
     expect(prompt).toContain("`body.marketSize.bottomUpTam.recipeName`");
     expect(prompt).toContain("keyword-demand-reachable-revenue");
     expect(prompt).toContain(
@@ -275,6 +277,8 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "relative interest 42/100 (SearchAPI Google Trends)",
     );
+    expect(prompt).toContain("`body.orderedMoves[]` requires at least two");
+    expect(prompt).toContain("`body.provesWrongIf { metric, threshold, window }`");
     expect(prompt).toContain("MUST NOT use model-estimated keyword economics");
     expect(prompt).toContain("Do not invent sortable numbers");
   });

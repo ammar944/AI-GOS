@@ -131,6 +131,7 @@ Top-level output fields:
 
 Five body sub-sections, each `{ prose, <cards> }`:
 
+- `strategicInsight`: `{ strategicVerdict, nonObviousRead, secondOrderImplication, keyTension }`
 - `icpExistenceCheck`: `{ prose, firmographicCuts }`
 - `personaReality`: `{ prose, personas }`
 - `awarenessDistribution`: `{ prose, levels }`

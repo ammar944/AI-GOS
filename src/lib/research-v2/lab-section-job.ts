@@ -18,6 +18,7 @@ import {
   isSupportedSectionId,
   type SupportedSectionId,
 } from '@/lib/lab-engine/sections/section-registry';
+import { withGtmStrategicStandardPreamble } from '@/lib/lab-engine/skills/gtm-strategic-standard';
 import { SupabaseRunStoreCommitConflictError } from '@/lib/research-v2/supabase-run-store';
 
 export type LabRunSection = (
@@ -126,7 +127,9 @@ async function loadLabSkill(slug: string): Promise<string> {
     'SKILL.md',
   );
 
-  return readFile(skillPath, 'utf8');
+  const skillMd = await readFile(skillPath, 'utf8');
+
+  return withGtmStrategicStandardPreamble(skillMd);
 }
 
 function getErrorMessage(error: unknown): string {

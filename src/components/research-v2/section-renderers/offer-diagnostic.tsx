@@ -7,6 +7,7 @@ import {
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
 import { SubsectionBlock } from '../primitives';
+import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface OfferDiagnosticRendererProps {
   artifact: OfferPerformanceArtifact;
@@ -202,6 +203,36 @@ export function OfferDiagnosticRenderer({
 
   return (
     <div className={cn('flex flex-col gap-12', className)}>
+      {artifact.strategicInsight ||
+      artifact.singleBindingConstraint ||
+      artifact.orderedMoves ||
+      artifact.provesWrongIf ? (
+        <StrategicInsightPanel insight={artifact.strategicInsight}>
+          <StrategicField
+            label="single binding constraint"
+            value={artifact.singleBindingConstraint?.constraint}
+          />
+          <StrategicField
+            label="unlock condition"
+            value={artifact.singleBindingConstraint?.unlockCondition}
+          />
+          <StrategicField
+            label="ordered moves"
+            value={artifact.orderedMoves
+              ?.map((move) => `${move.rank}. ${move.move}`)
+              .join(' ')}
+          />
+          <StrategicField
+            label="proves wrong if"
+            value={
+              artifact.provesWrongIf
+                ? `${artifact.provesWrongIf.metric}: ${artifact.provesWrongIf.threshold} in ${artifact.provesWrongIf.window}`
+                : undefined
+            }
+          />
+        </StrategicInsightPanel>
+      ) : null}
+
       <SubsectionBlock label="1 · Offer-Market Fit" prose={offerMarketFit.prose}>
         <DataTable
           columns={proofPointColumns}

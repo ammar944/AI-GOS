@@ -5,6 +5,12 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  fourForcesBalanceVerdictSchema,
+  strategicInsightSchema,
+  validateStrategicInsightMinimums,
+  validateStrategicText,
+} from "./strategic-insight";
 
 const vocSourceTypes = [
   "g2",
@@ -103,6 +109,8 @@ const evidenceGapReportSchema = z
 
 export const voiceOfCustomerBodySchema = z
   .object({
+    strategicInsight: strategicInsightSchema,
+    fourForcesBalanceVerdict: fourForcesBalanceVerdictSchema,
     painLanguage: z
       .object({ prose: z.string().min(1), quotes: z.array(painQuoteSchema) })
       .strict(),
@@ -272,6 +280,40 @@ export function validateVoiceOfCustomerMinimums(
     .extend({ body: voiceOfCustomerBodySchema })
     .parse(artifact);
   const errors: string[] = [];
+
+  validateStrategicInsightMinimums(
+    errors,
+    "body.strategicInsight",
+    parsedArtifact.body.strategicInsight,
+    {
+      comparisonTexts: [parsedArtifact.verdict, parsedArtifact.statusSummary],
+    },
+  );
+  validateStrategicText(
+    errors,
+    "body.fourForcesBalanceVerdict.push",
+    parsedArtifact.body.fourForcesBalanceVerdict.push,
+  );
+  validateStrategicText(
+    errors,
+    "body.fourForcesBalanceVerdict.pull",
+    parsedArtifact.body.fourForcesBalanceVerdict.pull,
+  );
+  validateStrategicText(
+    errors,
+    "body.fourForcesBalanceVerdict.anxiety",
+    parsedArtifact.body.fourForcesBalanceVerdict.anxiety,
+  );
+  validateStrategicText(
+    errors,
+    "body.fourForcesBalanceVerdict.habit",
+    parsedArtifact.body.fourForcesBalanceVerdict.habit,
+  );
+  validateStrategicText(
+    errors,
+    "body.fourForcesBalanceVerdict.balanceVerdict",
+    parsedArtifact.body.fourForcesBalanceVerdict.balanceVerdict,
+  );
 
   if (parsedArtifact.sources.length < 5) {
     errors.push(`sources: have ${parsedArtifact.sources.length}, need >=5.`);

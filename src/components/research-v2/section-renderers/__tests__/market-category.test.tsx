@@ -22,6 +22,14 @@ describe('MarketCategoryRenderer', () => {
     expect(items.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('renders the strategic insight panel without changing subsection count', () => {
+    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
+    expect(screen.getByTestId('strategic-insight-panel')).toHaveTextContent(
+      'non-obvious read',
+    );
+    expect(screen.getByText(/category-power bet/i)).toBeInTheDocument();
+  });
+
   it('renders at least three market-size signal rows from the fixture', () => {
     render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
     const items = screen.getAllByTestId('signal-item');

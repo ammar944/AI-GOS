@@ -4,6 +4,12 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from "../artifact-envelope";
+import {
+  categoryPowerBetSchema,
+  strategicInsightSchema,
+  validateStrategicInsightMinimums,
+  validateStrategicText,
+} from "./strategic-insight";
 
 const marketSizeSignalTypes = [
   "public-data",
@@ -158,6 +164,8 @@ export const categoryMaturitySchema = z
 
 export const marketCategoryBodySchema = z
   .object({
+    strategicInsight: strategicInsightSchema,
+    categoryPowerBet: categoryPowerBetSchema,
     categoryDefinition: categoryDefinitionSchema,
     marketSize: marketSizeSchema,
     structuralForces: structuralForcesSchema,
@@ -426,6 +434,29 @@ export function validateMarketCategoryMinimums(
   const errors: string[] = [];
 
   validateRequiredFields(parsedArtifact, errors);
+  validateStrategicInsightMinimums(
+    errors,
+    "body.strategicInsight",
+    parsedArtifact.body.strategicInsight,
+    {
+      comparisonTexts: [parsedArtifact.verdict, parsedArtifact.statusSummary],
+    },
+  );
+  validateStrategicText(
+    errors,
+    "body.categoryPowerBet.bet",
+    parsedArtifact.body.categoryPowerBet.bet,
+  );
+  validateStrategicText(
+    errors,
+    "body.categoryPowerBet.whyNow",
+    parsedArtifact.body.categoryPowerBet.whyNow,
+  );
+  validateStrategicText(
+    errors,
+    "body.categoryPowerBet.riskAccepted",
+    parsedArtifact.body.categoryPowerBet.riskAccepted,
+  );
 
   if (parsedArtifact.sources.length < 3) {
     errors.push(

@@ -9,6 +9,7 @@ import {
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
 import { SubsectionBlock } from '../primitives';
+import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface VoiceOfCustomerRendererProps {
   artifact: VoiceOfCustomerArtifact;
@@ -147,6 +148,22 @@ export function VoiceOfCustomerRenderer({
 
   return (
     <div className={cn('flex flex-col gap-12', className)}>
+      {artifact.strategicInsight || artifact.fourForcesBalanceVerdict ? (
+        <StrategicInsightPanel insight={artifact.strategicInsight}>
+          <StrategicField
+            label="four-forces verdict"
+            value={artifact.fourForcesBalanceVerdict?.balanceVerdict}
+          />
+          <StrategicField label="push" value={artifact.fourForcesBalanceVerdict?.push} />
+          <StrategicField label="pull" value={artifact.fourForcesBalanceVerdict?.pull} />
+          <StrategicField
+            label="anxiety"
+            value={artifact.fourForcesBalanceVerdict?.anxiety}
+          />
+          <StrategicField label="habit" value={artifact.fourForcesBalanceVerdict?.habit} />
+        </StrategicInsightPanel>
+      ) : null}
+
       <SubsectionBlock label="1 · Pain Language" prose={painLanguage.prose}>
         <div className="flex flex-col gap-6">
           {painLanguage.quotes.map((quote, idx) => (

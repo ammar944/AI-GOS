@@ -23,6 +23,7 @@ import {
   SourceLink,
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
+import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface CompetitorLandscapeRendererProps {
   artifact: CompetitorLandscapeArtifact;
@@ -720,6 +721,28 @@ export function CompetitorLandscapeRenderer({
   return (
     <div className={cn('flex flex-col gap-12', className)}>
       <CompetitorFocusPanel artifact={artifact} />
+      {artifact.strategicInsight ||
+      artifact.whereToAttackVsConcede ||
+      artifact.incumbentBlindSpot ? (
+        <StrategicInsightPanel insight={artifact.strategicInsight}>
+          <StrategicField
+            label="attack"
+            value={artifact.whereToAttackVsConcede?.attack}
+          />
+          <StrategicField
+            label="concede"
+            value={artifact.whereToAttackVsConcede?.concede}
+          />
+          <StrategicField
+            label="blind spot"
+            value={artifact.incumbentBlindSpot?.blindSpot}
+          />
+          <StrategicField
+            label="why they miss it"
+            value={artifact.incumbentBlindSpot?.whyTheyMissIt}
+          />
+        </StrategicInsightPanel>
+      ) : null}
 
       <SubsectionBlock label="1 · Competitor Set" prose={competitorSet.prose}>
         <DataTable columns={competitorColumns} rows={competitorSet.competitors} rowKey={r => r.url || r.name} />

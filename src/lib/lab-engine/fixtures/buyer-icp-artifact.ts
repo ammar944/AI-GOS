@@ -43,6 +43,22 @@ export const buyerICPFixtureArtifact = artifactEnvelopeSchema
       observedAt,
     })),
     body: {
+      strategicInsight: {
+        strategicVerdict:
+          "The buyer wedge is founders and revenue operators who need a weekly operating ritual before they can justify RevOps headcount.",
+        nonObviousRead:
+          "The target account is not merely small SaaS; it is a team where founder memory is still the hidden operating system.",
+        secondOrderImplication:
+          "Targeting should find public signals of process strain rather than broad SaaS firmographics alone.",
+        keyTension: {
+          tension:
+            "The ICP wants operational leverage but distrusts tooling that forces a formal RevOps rebuild too early.",
+          side:
+            "Take the lightweight operating-ritual side and avoid selling a full system migration in the first touch.",
+          costOfPosition:
+            "This gives up some larger RevOps-led accounts to win teams still buying from founder pain.",
+        },
+      },
       icpExistenceCheck: {
         prose:
           "The ICP exists as a reachable account pool: early B2B SaaS teams with founder-led sales, small revenue teams, and CRM/process debt.",

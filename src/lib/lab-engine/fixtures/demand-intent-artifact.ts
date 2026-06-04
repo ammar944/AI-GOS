@@ -31,6 +31,46 @@ export const demandIntentFixtureArtifact = artifactEnvelopeSchema
       observedAt,
     })),
     body: {
+      strategicInsight: {
+        strategicVerdict:
+          "Demand should be harvested from problem-aware workflow pain before category-aware AI GTM searches.",
+        nonObviousRead:
+          "The best paid-search wedge is the weekly review failure, because it captures urgency before buyers name a tool category.",
+        secondOrderImplication:
+          "Campaigns should sequence from problem proof to category education instead of leading with AI platform claims.",
+        keyTension: {
+          tension:
+            "Problem-aware queries are messier than category terms, but they carry the sharper buying trigger.",
+          side:
+            "Take the problem-aware side and use content to translate pipeline review pain into the operating-loop category.",
+          costOfPosition:
+            "This gives up some clean category-search efficiency while building a more defensible early-funnel narrative.",
+        },
+      },
+      orderedMoves: [
+        {
+          rank: 1,
+          move:
+            "Launch problem-aware search and content around stale pipeline, missed follow-up, and weekly review chaos.",
+          dependsOn: [],
+          rationale:
+            "The fixture demand clusters show urgency before buyers use category language, so first money should learn from pain terms.",
+        },
+        {
+          rank: 2,
+          move:
+            "Retarget those visitors with category-education proof that reframes the pain as a founder-led GTM operating loop.",
+          dependsOn: [1],
+          rationale:
+            "The second move converts messy problem intent into the category frame once the buyer has recognized the operating failure.",
+        },
+      ],
+      provesWrongIf: {
+        metric: "problem-aware search conversion to qualified demo request",
+        threshold:
+          "fewer than 3 qualified demo requests per 1000 problem-aware paid-search visits",
+        window: "first 30 days after launch",
+      },
       keywordDemand: {
         prose:
           "Keyword demand is strongest around workflow, review, CRM cleanup, account focus, and founder-led sales operations.",

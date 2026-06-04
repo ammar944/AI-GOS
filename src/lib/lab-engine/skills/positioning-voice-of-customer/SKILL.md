@@ -131,6 +131,8 @@ Top-level output fields:
 
 Five body sub-sections, each `{ prose, <cards> }`:
 
+- `strategicInsight`: `{ strategicVerdict, nonObviousRead, secondOrderImplication, keyTension }`
+- `fourForcesBalanceVerdict`: `{ push, pull, anxiety, habit, balanceVerdict }`
 - `painLanguage`: `{ prose, quotes }`
 - `objections`: `{ prose, items }`
 - `switchingStories`: `{ prose, stories }`

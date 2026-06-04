@@ -16,6 +16,34 @@ const fixture: VoiceOfCustomerArtifact = {
     { title: 'Customer stories', url: 'https://testco.com/customers', whyItMatters: 'success' },
     { title: 'HN', url: 'https://news.ycombinator.com/from?site=testco.com', whyItMatters: 'meta' },
   ],
+  strategicInsight: {
+    strategicVerdict:
+      'TestCo should treat price anxiety as the visible objection and switching confidence as the real blocker.',
+    nonObviousRead:
+      'The pricing complaint is a proxy for uncertainty that teams will actually reach the promised after-state.',
+    secondOrderImplication:
+      'VoC-backed copy should prove migration confidence before defending the sticker price.',
+    keyTension: {
+      tension:
+        'Buyers want richer workflow value but fear the implementation cost will erase the gain.',
+      side:
+        'Take the migration-confidence side and make switching proof more prominent than feature breadth.',
+      costOfPosition:
+        'This concedes some premium-positioning swagger to reduce buyer anxiety earlier in the funnel.',
+    },
+  },
+  fourForcesBalanceVerdict: {
+    push:
+      'Push comes from reporting depth, mobile friction, and pricing scaling pain.',
+    pull:
+      'Pull comes from richer success-state language around workflow visibility and coordination.',
+    anxiety:
+      'Anxiety centers on migration effort and total cost exceeding the visible product gain.',
+    habit:
+      'Habit is staying with Jira, Trello, or Asana because retraining looks harder than tolerating gaps.',
+    balanceVerdict:
+      'The balance favors proof-led migration reassurance before aggressive value expansion claims.',
+  },
   painLanguage: {
     prose: 'Buyers complain about per-seat pricing first.\n\nReporting depth is a secondary theme.',
     quotes: [

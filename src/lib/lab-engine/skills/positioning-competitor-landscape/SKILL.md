@@ -157,6 +157,9 @@ Top-level output fields. These are the only allowed root keys:
 
 Eight body sub-sections. These keys must be nested under `body`, never at the root:
 
+- `body.strategicInsight`: `{ strategicVerdict, nonObviousRead, secondOrderImplication, keyTension }`
+- `body.whereToAttackVsConcede`: `{ attack, concede, rationale }`
+- `body.incumbentBlindSpot`: `{ incumbent, blindSpot, whyTheyMissIt }`
 - `body.competitorSet`: `{ prose, competitors }`
 - `body.positioningTaxonomy`: `{ prose, axes }`
 - `body.pricingReality`: `{ prose, dataPoints }`

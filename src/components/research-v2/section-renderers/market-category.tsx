@@ -8,6 +8,7 @@ import {
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
 import { SubsectionBlock } from '../primitives';
+import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface MarketCategoryRendererProps {
   artifact: MarketCategoryArtifact;
@@ -273,6 +274,17 @@ export function MarketCategoryRenderer({
 
   return (
     <div className={cn('flex flex-col gap-12', className)}>
+      {artifact.strategicInsight || artifact.categoryPowerBet ? (
+        <StrategicInsightPanel insight={artifact.strategicInsight}>
+          <StrategicField label="category-power bet" value={artifact.categoryPowerBet?.bet} />
+          <StrategicField label="why now" value={artifact.categoryPowerBet?.whyNow} />
+          <StrategicField
+            label="risk accepted"
+            value={artifact.categoryPowerBet?.riskAccepted}
+          />
+        </StrategicInsightPanel>
+      ) : null}
+
       <SubsectionBlock label="1 · Category Definition" prose={categoryDefinition.prose}>
         <DataTable
           columns={adjacentColumns}

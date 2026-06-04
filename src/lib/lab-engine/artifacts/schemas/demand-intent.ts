@@ -5,6 +5,14 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  orderedStrategicMoveSchema,
+  provesWrongIfSchema,
+  strategicInsightSchema,
+  validateOrderedStrategicMovesMinimums,
+  validateProvesWrongIfMinimums,
+  validateStrategicInsightMinimums,
+} from "./strategic-insight";
 
 const intentTypes = [
   "informational",
@@ -84,6 +92,9 @@ const demandVenueSchema = z
 
 export const demandIntentBodySchema = z
   .object({
+    strategicInsight: strategicInsightSchema,
+    orderedMoves: z.array(orderedStrategicMoveSchema),
+    provesWrongIf: provesWrongIfSchema,
     keywordDemand: z
       .object({ prose: z.string().min(1), keywords: z.array(keywordSignalSchema) })
       .strict(),
@@ -255,6 +266,25 @@ export function validateDemandIntentMinimums(
     .extend({ body: demandIntentBodySchema })
     .parse(artifact);
   const errors: string[] = [];
+
+  validateStrategicInsightMinimums(
+    errors,
+    "body.strategicInsight",
+    parsedArtifact.body.strategicInsight,
+    {
+      comparisonTexts: [parsedArtifact.verdict, parsedArtifact.statusSummary],
+    },
+  );
+  validateOrderedStrategicMovesMinimums(
+    errors,
+    "body.orderedMoves",
+    parsedArtifact.body.orderedMoves,
+  );
+  validateProvesWrongIfMinimums(
+    errors,
+    "body.provesWrongIf",
+    parsedArtifact.body.provesWrongIf,
+  );
 
   if (parsedArtifact.sources.length < 5) {
     errors.push(`sources: have ${parsedArtifact.sources.length}, need >=5.`);

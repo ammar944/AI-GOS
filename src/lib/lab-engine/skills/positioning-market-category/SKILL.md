@@ -145,6 +145,8 @@ Top-level output fields:
 
 Four body sub-sections:
 
+- `strategicInsight`: `{ strategicVerdict, nonObviousRead, secondOrderImplication, keyTension }`
+- `categoryPowerBet`: `{ bet, whyNow, riskAccepted }`
 - `categoryDefinition`: `{ prose, adjacentCategories }`
 - `marketSize`: `{ prose, signals, bottomUpTam }`
 - `structuralForces`: `{ prose, forces }`

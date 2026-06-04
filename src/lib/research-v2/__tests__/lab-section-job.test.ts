@@ -19,6 +19,7 @@ import { sectionIds, type SectionId } from '@/lib/lab-engine/events/activity-eve
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
+import { SECTION_REGISTRY } from '@/lib/lab-engine/sections/section-registry';
 
 import { runLabSectionJob } from '../lab-section-job';
 import {
@@ -249,6 +250,40 @@ describe('runLabSectionJob', (): void => {
 
     expect(observedDeps[0]?.allowedTools).toBeUndefined();
     expect(observedDeps[1]?.allowedTools).toEqual([]);
+  });
+
+  it('prepends the GTM Strategic Standard once before every registered skill', async (): Promise<void> => {
+    const { store } = createMockRunStore();
+    const runSectionImpl = vi.fn(
+      async (
+        input: RunSectionInput,
+        deps: RunSectionDeps,
+      ): Promise<RunSectionResult> => {
+        const skills = await Promise.all(
+          Object.values(SECTION_REGISTRY).map(async (definition) =>
+            deps.loadSkill(definition.skillSlug),
+          ),
+        );
+
+        for (const skill of skills) {
+          const matches = skill.match(/# GTM Strategic Standard/g) ?? [];
+          expect(matches).toHaveLength(1);
+          expect(skill.indexOf('# GTM Strategic Standard')).toBe(0);
+          expect(skill.indexOf('# ', 1)).toBeGreaterThan(0);
+        }
+
+        return createRunSectionResult(input);
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      store,
+      runSectionImpl,
+    });
+
+    expect(runSectionImpl).toHaveBeenCalledTimes(1);
   });
 
   it('marks a pre-aborted section signal failed without invoking the runner', async (): Promise<void> => {

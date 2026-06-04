@@ -365,11 +365,73 @@ function compactAdEvidenceGroups(
   }));
 }
 
+function buildStrategicDepthMinimumGuidance(
+  definition: PromptSectionDefinition,
+): string[] {
+  const coreSections = new Set([
+    "MarketCategorySectionOutput",
+    "CompetitorLandscapeSectionOutput",
+    "BuyerICPSectionOutput",
+    "VoiceOfCustomerSectionOutput",
+    "DemandIntentSectionOutput",
+    "OfferDiagnosticSectionOutput",
+  ]);
+
+  const schemaName = definition.sectionOutputSchemaName;
+
+  if (schemaName === undefined || !coreSections.has(schemaName)) {
+    return [];
+  }
+
+  const common = [
+    "- Strategic depth fields: `body.strategicInsight` is required with `strategicVerdict`, `nonObviousRead`, `secondOrderImplication`, and `keyTension { tension, side, costOfPosition }`.",
+    "- Strategic depth fields must be specific strategic judgments or `evidence gap: <missing signal>`; do not restate verdict/statusSummary or summarize the section.",
+  ];
+
+  if (schemaName === "MarketCategorySectionOutput") {
+    return [
+      ...common,
+      "- MarketCategorySectionOutput strategic field: `body.categoryPowerBet { bet, whyNow, riskAccepted }` must name the category-power bet and the cost accepted.",
+    ];
+  }
+
+  if (schemaName === "CompetitorLandscapeSectionOutput") {
+    return [
+      ...common,
+      "- CompetitorLandscapeSectionOutput strategic fields: `body.whereToAttackVsConcede { attack, concede, rationale }` and `body.incumbentBlindSpot { incumbent, blindSpot, whyTheyMissIt }` are required.",
+    ];
+  }
+
+  if (schemaName === "VoiceOfCustomerSectionOutput") {
+    return [
+      ...common,
+      "- VoiceOfCustomerSectionOutput strategic field: `body.fourForcesBalanceVerdict { push, pull, anxiety, habit, balanceVerdict }` is required and must make the Four-Forces balance explicit.",
+    ];
+  }
+
+  if (schemaName === "DemandIntentSectionOutput") {
+    return [
+      ...common,
+      "- DemandIntentSectionOutput strategic fields: `body.orderedMoves[]` requires at least two sequenced moves with consecutive `rank` values, backward-only `dependsOn` rank references, and `rationale`; `body.provesWrongIf { metric, threshold, window }` is required.",
+    ];
+  }
+
+  if (schemaName === "OfferDiagnosticSectionOutput") {
+    return [
+      ...common,
+      "- OfferDiagnosticSectionOutput strategic fields: `body.singleBindingConstraint { constraint, whyBinding, unlockCondition }`, `body.orderedMoves[]`, and `body.provesWrongIf { metric, threshold, window }` are required.",
+    ];
+  }
+
+  return common;
+}
+
 function buildSectionMinimumGuidance(
   definition: PromptSectionDefinition,
 ): string[] {
   if (definition.sectionOutputSchemaName === "MarketCategorySectionOutput") {
     return [
+      ...buildStrategicDepthMinimumGuidance(definition),
       "- MarketCategorySectionOutput minimums: top-level `sources` must include at least three Section-level sources.",
       "- MarketCategorySectionOutput minimums: `body.categoryDefinition.adjacentCategories` must include at least two categories buyers confuse this with.",
       "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least three public trajectory signals with unique `signalType` values.",
@@ -383,6 +445,7 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "CompetitorLandscapeSectionOutput") {
     return [
+      ...buildStrategicDepthMinimumGuidance(definition),
       "- CompetitorLandscapeSectionOutput minimums: top-level `sources` must include at least five distinct cited Section-level source URLs.",
       "- CompetitorLandscapeSectionOutput grounding: cite only competitor URLs and numeric pricing/deal values that appear in fetched tool evidence, the evidence transcript, pre-normalized live ad evidence, or ResearchInput/corpus; if the source was not fetched, mark it as an evidence gap instead of asserting the URL or number.",
       "- CompetitorLandscapeSectionOutput minimums: `body.competitorSet.competitors` must include at least one `direct` and one `status-quo` competitor. Include `indirect` and `diy` competitors when public evidence names them; if a bucket has no credible evidence, name it as an evidence gap in prose instead of dropping or fabricating it.",
@@ -401,6 +464,7 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "BuyerICPSectionOutput") {
     return [
+      ...buildStrategicDepthMinimumGuidance(definition),
       "- BuyerICPSectionOutput exact item contracts: `body.icpExistenceCheck.firmographicCuts[]` keys are `cutType`, `value`, optional `accountCount`, `source`, `sourceUrl`, `dateObserved`.",
       "- `cutType` must be one of `industry`, `employeeBands`, `revenueBands`, `geography`, `techStack`.",
       "- BuyerICPSectionOutput minimums: include at least three firmographic cuts with at least three distinct `cutType` values.",
@@ -418,6 +482,7 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "VoiceOfCustomerSectionOutput") {
     return [
+      ...buildStrategicDepthMinimumGuidance(definition),
       "- VoiceOfCustomerSectionOutput exact item contracts: `body.painLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `painTheme`, `painIntensity`, plus optional `role` (reviewer role/handle) and `date` (when the source discloses it).",
       "- `source` must be one of `g2`, `reddit`, `hackernews`, `sales-call`, `support-thread`, `twitter`, `other`; `painIntensity` must be `high`, `medium`, or `low`.",
       "- VoiceOfCustomerSectionOutput minimums: top-level `sources` must include at least five distinct cited source URLs across independent domains; do not use the audited company's own domain as a VoC source.",
@@ -435,6 +500,7 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "DemandIntentSectionOutput") {
     return [
+      ...buildStrategicDepthMinimumGuidance(definition),
       "- DemandIntentSectionOutput exact item contracts: `body.keywordDemand.keywords[]` keys are `keyword`, `monthlyVolume`, optional `monthlyVolumeValue`, optional `cpc`, optional `cpcValue`, optional `difficulty`, `intentType`, `top3RankingDomains`, `sourceTitle`, `sourceUrl`, `dateObserved`.",
       "- `intentType` must be one of `informational`, `commercial`, `transactional`, `navigational`; include at least ten keyword rows.",
       "- Put a falsifiable signal on every keyword row: call the `keyword_volume` tool (SpyFu) with your candidate keywords in ONE bulk call (up to 100) to get monthly search volume + CPC + difficulty. If `keyword_volume` returns a gap/rate-limit/no row, call `keyword_trends` (SearchAPI Google Trends) for a real relative-interest fallback.",
@@ -452,6 +518,7 @@ function buildSectionMinimumGuidance(
 
   if (definition.sectionOutputSchemaName === "OfferDiagnosticSectionOutput") {
     return [
+      ...buildStrategicDepthMinimumGuidance(definition),
       "- OfferDiagnosticSectionOutput exact item contracts: `body.offerMarketFit.proofPoints[]` keys are `metric`, `value`, `reportedBy`, `confidence`, `sourceUrl`; include at least three proof points.",
       "- `reportedBy` must be `company-own` or `external-source`; `confidence` must be `high`, `medium`, or `low`.",
       "- `body.funnelDiagnosis.breaks[]` keys are `stageName`, `metric`, `magnitude`, `hypothesis`, `sourceUrl`; include at least two funnel breaks.",

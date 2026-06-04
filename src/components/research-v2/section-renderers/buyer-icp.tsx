@@ -8,6 +8,7 @@ import {
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
 import { SubsectionBlock } from '../primitives';
+import { StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface BuyerICPRendererProps {
   artifact: BuyerICPArtifact;
@@ -250,6 +251,8 @@ export function BuyerICPRenderer({
 
   return (
     <div className={cn('flex flex-col gap-12', className)}>
+      <StrategicInsightPanel insight={artifact.strategicInsight} />
+
       <SubsectionBlock label="1 · ICP Existence Check" prose={icpExistenceCheck.prose}>
         <DataTable
           columns={cutColumns}

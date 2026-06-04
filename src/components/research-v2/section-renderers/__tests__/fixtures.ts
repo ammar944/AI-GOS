@@ -26,6 +26,30 @@ export const marketCategoryArtifact = {
       whyItMatters: 'Maturity signal.',
     },
   ],
+  strategicInsight: {
+    strategicVerdict:
+      'TestCo should claim workflow automation as an operating-control category, not another task tracker.',
+    nonObviousRead:
+      'The category opening is buyer fear of hidden process drift, not generic enthusiasm for automation.',
+    secondOrderImplication:
+      'Messaging should prove governed workflow control before asking buyers to believe broad productivity claims.',
+    keyTension: {
+      tension:
+        'Buyers want automation speed but still need enough control to trust cross-functional handoffs.',
+      side:
+        'Take the controlled-automation side and make auditability part of the category frame.',
+      costOfPosition:
+        'This narrows the story away from generic productivity and toward operational buyers with process risk.',
+    },
+  },
+  categoryPowerBet: {
+    bet:
+      'Own controlled workflow automation for teams that have outgrown task management but distrust opaque AI operators.',
+    whyNow:
+      'Funding, search behavior, and adjacent-category confusion make the operating-control frame available now.',
+    riskAccepted:
+      'The bet concedes some broad task-management language to win a sharper operations category.',
+  },
   categoryDefinition: {
     prose: 'Buyers understand the workflow automation promise but still confuse the category with task management and CRM.',
     adjacentCategories: [
@@ -193,6 +217,22 @@ export const buyerIcpArtifact = {
     { title: 'LinkedIn profile set', url: 'https://example.com/linkedin-profiles', whyItMatters: 'Persona evidence.' },
     { title: 'Community directory', url: 'https://example.com/community-directory', whyItMatters: 'Venue evidence.' },
   ],
+  strategicInsight: {
+    strategicVerdict:
+      'The strongest ICP is operations-led buyers with enough workflow complexity to feel task-tool drift.',
+    nonObviousRead:
+      'The buyer is not the loudest automation enthusiast; it is the operator accountable for handoff failure.',
+    secondOrderImplication:
+      'Targeting should weight operational ownership signals above broad company-size filters.',
+    keyTension: {
+      tension:
+        'The ICP wants faster process execution but fears another tool that adds coordination overhead.',
+      side:
+        'Take the operational-accountability side and sell controlled workflow improvement before automation breadth.',
+      costOfPosition:
+        'This excludes lower-complexity teams that only want lightweight task automation.',
+    },
+  },
   icpExistenceCheck: {
     prose: 'The ICP exists as a repeated pattern across company size, operations function, and workflow tooling.',
     firmographicCuts: [
@@ -306,6 +346,43 @@ export const demandIntentArtifact = {
     { title: 'People also ask export', url: 'https://example.com/paa-export', whyItMatters: 'Question demand.' },
     { title: 'Community thread sample', url: 'https://example.com/community-thread', whyItMatters: 'Venue demand.' },
   ],
+  strategicInsight: {
+    strategicVerdict:
+      'Demand should be sequenced from workflow pain terms into category education instead of starting at tool labels.',
+    nonObviousRead:
+      'The most useful intent signal is the buyer asking about process breakdowns before they name automation software.',
+    secondOrderImplication:
+      'Paid search should learn from problem-language conversion before spending heavily on comparison queries.',
+    keyTension: {
+      tension:
+        'Problem-aware demand is less tidy than category demand but reveals the sharper buying moment.',
+      side:
+        'Take the problem-aware side and use content to translate pain into the workflow automation frame.',
+      costOfPosition:
+        'The campaign accepts noisier early traffic to find higher-urgency buyers.',
+    },
+  },
+  orderedMoves: [
+    {
+      rank: 1,
+      move: 'Test problem-aware workflow breakdown terms before category terms.',
+      dependsOn: [],
+      rationale:
+        'The fixture shows repeated workflow pain before buyers commit to a named automation category.',
+    },
+    {
+      rank: 2,
+      move: 'Retarget engaged problem-aware visitors with controlled automation proof.',
+      dependsOn: [1],
+      rationale:
+        'The second step depends on proving that problem-aware visitors recognize the category frame.',
+    },
+  ],
+  provesWrongIf: {
+    metric: 'problem-aware visit to demo-request conversion',
+    threshold: 'below 2 percent qualified demo-request conversion',
+    window: 'first 30 days of the test',
+  },
   keywordDemand: {
     prose: 'Buyers search for workflow automation, routing, and operations orchestration terms.',
     keywords: [

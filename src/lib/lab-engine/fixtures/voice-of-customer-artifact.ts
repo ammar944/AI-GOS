@@ -29,6 +29,34 @@ export const voiceOfCustomerFixtureArtifact = artifactEnvelopeSchema
     confidence: 0.6,
     sources,
     body: {
+      strategicInsight: {
+        strategicVerdict:
+          "VoC should frame the buyer pain as loss of follow-up control, not dissatisfaction with CRM fields.",
+        nonObviousRead:
+          "The emotional switch trigger is embarrassment over missed next actions, not an abstract desire for automation.",
+        secondOrderImplication:
+          "Proof assets should show the weekly review getting calmer before promising pipeline growth outcomes.",
+        keyTension: {
+          tension:
+            "Buyers want relief from manual follow-up but fear a black-box system will create new trust work.",
+          side:
+            "Take the transparent recommendation side and make every suggested next action traceable to source evidence.",
+          costOfPosition:
+            "This slows the autonomy story but makes the message credible for skeptical founder-led buyers.",
+        },
+      },
+      fourForcesBalanceVerdict: {
+        push:
+          "The push is repeated missed next actions and stale account context during founder-led pipeline reviews.",
+        pull:
+          "The pull is a calmer weekly focus list that tells the founder what to do next and why.",
+        anxiety:
+          "The anxiety is trusting a black-box recommendation that could damage a live customer conversation.",
+        habit:
+          "The habit is returning to spreadsheets, CRM notes, and founder memory because they feel controllable.",
+        balanceVerdict:
+          "The winning message must reduce anxiety before amplifying pull, so source-backed transparency matters more than autonomy.",
+      },
       painLanguage: {
         prose:
           "Pain language is concrete and operational: teams lose momentum because next actions are not explicit.",

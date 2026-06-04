@@ -5,6 +5,13 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  incumbentBlindSpotSchema,
+  strategicInsightSchema,
+  validateStrategicInsightMinimums,
+  validateStrategicText,
+  whereToAttackVsConcedeSchema,
+} from "./strategic-insight";
 
 const competitorTypes = ["direct", "indirect", "status-quo", "diy"] as const;
 const adPlatforms = ["google", "meta", "linkedin"] as const;
@@ -252,6 +259,9 @@ const adEvidenceSchema = z
 
 export const competitorLandscapeBodySchema = z
   .object({
+    strategicInsight: strategicInsightSchema,
+    whereToAttackVsConcede: whereToAttackVsConcedeSchema,
+    incumbentBlindSpot: incumbentBlindSpotSchema,
     competitorSet: competitorSetSchema,
     positioningTaxonomy: positioningTaxonomySchema,
     pricingReality: pricingRealitySchema,
@@ -623,6 +633,44 @@ export function validateCompetitorLandscapeMinimums(
   const errors: string[] = [];
 
   validateRequiredFields(parsedArtifact, errors);
+  validateStrategicInsightMinimums(
+    errors,
+    "body.strategicInsight",
+    parsedArtifact.body.strategicInsight,
+    {
+      comparisonTexts: [parsedArtifact.verdict, parsedArtifact.statusSummary],
+    },
+  );
+  validateStrategicText(
+    errors,
+    "body.whereToAttackVsConcede.attack",
+    parsedArtifact.body.whereToAttackVsConcede.attack,
+  );
+  validateStrategicText(
+    errors,
+    "body.whereToAttackVsConcede.concede",
+    parsedArtifact.body.whereToAttackVsConcede.concede,
+  );
+  validateStrategicText(
+    errors,
+    "body.whereToAttackVsConcede.rationale",
+    parsedArtifact.body.whereToAttackVsConcede.rationale,
+  );
+  validateStrategicText(
+    errors,
+    "body.incumbentBlindSpot.incumbent",
+    parsedArtifact.body.incumbentBlindSpot.incumbent,
+  );
+  validateStrategicText(
+    errors,
+    "body.incumbentBlindSpot.blindSpot",
+    parsedArtifact.body.incumbentBlindSpot.blindSpot,
+  );
+  validateStrategicText(
+    errors,
+    "body.incumbentBlindSpot.whyTheyMissIt",
+    parsedArtifact.body.incumbentBlindSpot.whyTheyMissIt,
+  );
 
   if (parsedArtifact.sources.length < 5) {
     errors.push(

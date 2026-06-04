@@ -418,6 +418,34 @@ function buildVoiceOfCustomerEvidenceGapBody({
   ].join(" ");
 
   return {
+    strategicInsight: {
+      strategicVerdict:
+        "evidence gap: independent Voice of Customer evidence did not clear the sourcing floor.",
+      nonObviousRead:
+        "evidence gap: no non-obvious buyer-language read can be promoted without enough independent sources.",
+      secondOrderImplication:
+        "evidence gap: downstream messaging should treat buyer-language claims as unproven until review/forum acquisition succeeds.",
+      keyTension: {
+        tension:
+          "evidence gap: speed to synthesis conflicts with the independent-source bar for customer quotes.",
+        side:
+          "evidence gap: preserve truthfulness by shipping a sourcing gap instead of fabricated VoC.",
+        costOfPosition:
+          "evidence gap: the report loses buyer-language specificity until more independent sources are acquired.",
+      },
+    },
+    fourForcesBalanceVerdict: {
+      push:
+        "evidence gap: buyer push forces were not sufficiently sourced from independent VoC.",
+      pull:
+        "evidence gap: buyer pull forces were not sufficiently sourced from independent VoC.",
+      anxiety:
+        "evidence gap: buyer anxiety forces were not sufficiently sourced from independent VoC.",
+      habit:
+        "evidence gap: buyer habit forces were not sufficiently sourced from independent VoC.",
+      balanceVerdict:
+        "evidence gap: Four-Forces balance cannot be scored until independent VoC acquisition clears the evidence bar.",
+    },
     painLanguage: {
       prose: summary,
       quotes: [],

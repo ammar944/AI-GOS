@@ -29,6 +29,53 @@ export const offerDiagnosticFixtureArtifact = artifactEnvelopeSchema
       observedAt,
     })),
     body: {
+      strategicInsight: {
+        strategicVerdict:
+          "The offer bottleneck is not demand; it is proving first value quickly enough for skeptical founder buyers.",
+        nonObviousRead:
+          "The offer should sell proof of a calmer weekly review before it sells a larger revenue-operations transformation.",
+        secondOrderImplication:
+          "Paid traffic should be routed to proof-first assets that shorten trust formation rather than broad feature demos.",
+        keyTension: {
+          tension:
+            "The product wants to promise GTM leverage, but the buyer first needs evidence that the workflow will not create more work.",
+          side:
+            "Take the first-value proof side and make the initial offer narrower than the full platform story.",
+          costOfPosition:
+            "This delays the bigger transformation narrative until the pilot proves the weekly operating loop.",
+        },
+      },
+      orderedMoves: [
+        {
+          rank: 1,
+          move:
+            "Ship a proof-first landing path that shows one weekly review moving from stale accounts to sourced next actions.",
+          dependsOn: [],
+          rationale:
+            "The fixture offer has plausible fit but thin proof, so the first move must reduce trust risk before scale.",
+        },
+        {
+          rank: 2,
+          move:
+            "Add a reversible pilot offer that promises a first account-focus list inside one review cycle.",
+          dependsOn: [1],
+          rationale:
+            "The pilot depends on the proof path because founder buyers need to see the workflow before changing ritual.",
+        },
+      ],
+      provesWrongIf: {
+        metric: "proof-first landing path booked-call rate",
+        threshold: "below 2 percent booked-call rate from qualified paid sessions",
+        window: "first 30 days after proof-path launch",
+      },
+      singleBindingConstraint: {
+        constraint:
+          "The binding constraint is trust in first value, not awareness or broad feature completeness.",
+        whyBinding:
+          "Fixture proof assets and funnel metrics are thin, so paid media will amplify skepticism unless proof arrives early.",
+        unlockCondition:
+          "Show a source-backed weekly review transformation and a reversible pilot before asking for platform commitment.",
+      },
       offerMarketFit: {
         prose:
           "Offer proof is strongest around workflow clarity, but public performance proof remains incomplete.",

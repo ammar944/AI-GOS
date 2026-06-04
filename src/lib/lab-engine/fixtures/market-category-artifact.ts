@@ -46,6 +46,30 @@ export const marketCategoryFixtureArtifact = artifactEnvelopeSchema
       },
     ],
     body: {
+      strategicInsight: {
+        strategicVerdict:
+          "SaaSLaunch should claim the founder-led GTM operating loop instead of competing as another CRM automation surface.",
+        nonObviousRead:
+          "The category power comes from making founder decision rhythm explicit, not from promising more autonomous sales activity.",
+        secondOrderImplication:
+          "If this read is right, paid media should sell weekly operating discipline before it sells AI assistant capability.",
+        keyTension: {
+          tension:
+            "Buyers want automation leverage but still need accountable human control over pipeline priorities.",
+          side:
+            "Take the operator-control side and position AI as evidence-backed decision support for weekly reviews.",
+          costOfPosition:
+            "The wedge concedes generic AI assistant breadth to win trust around accountable revenue operations.",
+        },
+      },
+      categoryPowerBet: {
+        bet:
+          "Own founder-led GTM operating discipline as a named category wedge before incumbents package it as CRM hygiene.",
+        whyNow:
+          "Fixture competitors already advertise CRM cleanup and AI operator language, but none owns the weekly decision loop.",
+        riskAccepted:
+          "This bet narrows the category story and gives up broader CRM automation claims until proof assets mature.",
+      },
       categoryDefinition: {
         prose:
           "SaaSLaunch fits best in AI-native GTM operations: tools and workflows that preserve the weekly operating rhythm for founder-led sales teams. The category boundary should emphasize repeatable account focus and evidence-backed next actions rather than generic CRM automation.",

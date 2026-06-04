@@ -17,6 +17,51 @@ const fixture: OfferPerformanceArtifact = {
     { title: 'IR hub', url: 'https://ir.monday.com/quarterly', whyItMatters: 'Cohort retention.' },
     { title: 'G2 reviews', url: 'https://www.g2.com/products/monday-com/reviews', whyItMatters: 'External validation.' },
   ],
+  strategicInsight: {
+    strategicVerdict:
+      'monday.com should diagnose enterprise proof depth as the paid-media constraint, not top-level PMF.',
+    nonObviousRead:
+      'The offer risk is that PLG scale masks a smaller set of buyers ready for multi-team expansion.',
+    secondOrderImplication:
+      'Paid media should separate SMB activation proof from enterprise expansion proof instead of blending both motions.',
+    keyTension: {
+      tension:
+        'The brand has broad PLG credibility but enterprise buyers need a narrower proof path.',
+      side:
+        'Take the enterprise-proof side and stop letting horizontal Work OS language carry every segment.',
+      costOfPosition:
+        'This reduces generalist breadth in exchange for sharper paid-media conversion diagnostics.',
+    },
+  },
+  orderedMoves: [
+    {
+      rank: 1,
+      move: 'Separate SMB trial messaging from enterprise proof messaging in paid tests.',
+      dependsOn: [],
+      rationale:
+        'The fixture shows different funnel constraints for self-serve activation and enterprise upsell.',
+    },
+    {
+      rank: 2,
+      move: 'Route enterprise-intent traffic to proof assets that quantify multi-team adoption.',
+      dependsOn: [1],
+      rationale:
+        'The second move depends on segment separation so proof assets match the actual buyer motion.',
+    },
+  ],
+  provesWrongIf: {
+    metric: 'enterprise-intent traffic to sales-qualified opportunity rate',
+    threshold: 'below 3 percent sales-qualified opportunity rate',
+    window: 'first 45 days of segmented paid tests',
+  },
+  singleBindingConstraint: {
+    constraint:
+      'The binding constraint is enterprise proof specificity, not whether the product has broad market fit.',
+    whyBinding:
+      'The fixture has strong revenue and customer metrics but weaker proof for the SMB to enterprise transition.',
+    unlockCondition:
+      'Publish segmented enterprise adoption proof before scaling enterprise paid-media spend.',
+  },
   offerMarketFit: {
     prose: 'monday.com shows clear PMF: $972M revenue, 225K+ customers, >110% NDR.',
     proofPoints: [

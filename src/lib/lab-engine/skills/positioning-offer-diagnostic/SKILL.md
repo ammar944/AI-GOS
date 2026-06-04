@@ -129,6 +129,10 @@ Top-level output fields:
 
 Five body sub-sections, each `{ prose, <cards> }`:
 
+- `strategicInsight`: `{ strategicVerdict, nonObviousRead, secondOrderImplication, keyTension }`
+- `singleBindingConstraint`: `{ constraint, whyBinding, unlockCondition }`
+- `orderedMoves`: `[{ rank, move, dependsOn, rationale }]` with consecutive ranks and backward-only dependencies.
+- `provesWrongIf`: `{ metric, threshold, window }`
 - `offerMarketFit`: `{ prose, proofPoints }`
 - `funnelDiagnosis`: `{ prose, breaks }`
 - `channelTruth`: `{ prose, channels }`
