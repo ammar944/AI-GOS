@@ -374,6 +374,8 @@ function buildSectionMinimumGuidance(
       "- MarketCategorySectionOutput minimums: `body.categoryDefinition.adjacentCategories` must include at least two categories buyers confuse this with.",
       "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least three public trajectory signals with unique `signalType` values.",
       "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least one `top-down` and one `bottom-up` methodology.",
+      "- MarketCategorySectionOutput exact contract: `body.marketSize.bottomUpTam.recipeName` must be `keyword-demand-reachable-revenue`; `inputs[]` must include exactly one each for `keyword-volume`, `commercial-intent-share`, `conversion-rate`, and `acv`.",
+      "- MarketCategorySectionOutput bottom-up TAM: use `monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV`; sourced inputs require `sourceUrl`, and unavailable inputs must use `status: \"evidence-gap\"` with `value` beginning `evidence gap:`. Do not substitute analyst TAM for the bottom-up recipe.",
       "- MarketCategorySectionOutput minimums: `body.structuralForces.forces` must include exactly one `regulation`, one `platform-shift`, and one `buyer-behavior` forceType.",
       "- MarketCategorySectionOutput minimums: `body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals.",
     ];

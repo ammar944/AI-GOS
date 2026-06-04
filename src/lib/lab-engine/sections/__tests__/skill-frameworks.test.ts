@@ -26,6 +26,8 @@ const frameworkSpecs: readonly SkillFrameworkSpec[] = [
       "compete-vs-create",
       "white-space opening",
       "derivation order",
+      "keyword-demand-reachable-revenue",
+      "commercial-intent-share",
       "categoryDefinition",
       "marketSize",
       "structuralForces",
@@ -34,6 +36,7 @@ const frameworkSpecs: readonly SkillFrameworkSpec[] = [
     schemaPaths: [
       "body.categoryDefinition.prose",
       "body.marketSize.signals",
+      "body.marketSize.bottomUpTam",
       "body.categoryDefinition.adjacentCategories",
       "body.structuralForces.prose",
       "body.categoryMaturity.prose",

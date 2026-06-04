@@ -10,8 +10,8 @@ import { SECTION_REGISTRY } from "../section-registry";
 describe("SECTION_REGISTRY live-tool budgets", (): void => {
   it("matches the Phase D bounded in-section tool contract", (): void => {
     expect(SECTION_REGISTRY.positioningMarketCategory).toMatchObject({
-      allowedTools: ["web_search", "firecrawl"],
-      maxExternalLookups: 4,
+      allowedTools: ["web_search", "firecrawl", "keyword_volume"],
+      maxExternalLookups: 5,
       requiredEvidenceClasses: ["marketCategory_name"],
     });
     expect(SECTION_REGISTRY.positioningBuyerICP).toMatchObject({

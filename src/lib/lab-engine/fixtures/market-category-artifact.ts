@@ -108,6 +108,58 @@ export const marketCategoryFixtureArtifact = artifactEnvelopeSchema
             dateObserved: "2026-05-20",
           },
         ],
+        bottomUpTam: {
+          recipeName: "keyword-demand-reachable-revenue",
+          formula:
+            "monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV",
+          reachableRevenueEstimate:
+            "$1.09M directional reachable revenue = 1,900 monthly searches x 12 x 40% commercial-intent share x 2% conversion x $6,000 ACV.",
+          inputs: [
+            {
+              inputType: "keyword-volume",
+              label: "Founder-led GTM operations keyword volume",
+              value:
+                "1,900 monthly searches across CRM cleanup, sales workflow automation, and pipeline review keywords.",
+              status: "sourced",
+              sourceTitle: "Fixture SpyFu Keyword Volume",
+              sourceUrl: "https://example.com/fixtures/keyword-volume/saaslaunch",
+              dateObserved: "2026-05-20",
+            },
+            {
+              inputType: "commercial-intent-share",
+              label: "Commercial-intent keyword share",
+              value:
+                "40% of sampled demand sits in comparison, pricing, CRM cleanup, and pipeline review terms.",
+              status: "sourced",
+              sourceTitle: "PipelinePilot Fixture Ad",
+              sourceUrl: "https://example.com/fixtures/ad-library/pipelinepilot-google",
+              dateObserved: "2026-05-20",
+            },
+            {
+              inputType: "conversion-rate",
+              label: "Visitor-to-opportunity conversion",
+              value:
+                "2% directional visitor-to-opportunity assumption from the fixture pricing/onboarding path.",
+              status: "sourced",
+              sourceTitle: "SaaSLaunch Pricing Fixture",
+              sourceUrl: "https://example.com/saaslaunch/pricing",
+              dateObserved: "2026-05-20",
+            },
+            {
+              inputType: "acv",
+              label: "Annual contract value",
+              value: "$6,000 ACV from fixture pricing notes.",
+              status: "sourced",
+              sourceTitle: "SaaSLaunch Positioning Notes",
+              sourceUrl: "https://example.com/saaslaunch/positioning-notes",
+              dateObserved: "2026-05-20",
+            },
+          ],
+          caveats: [
+            "Fixture keyword volume is directional and should be replaced by live SpyFu output in production runs.",
+            "Conversion rate and ACV are fixture assumptions, not analyst-market TAM.",
+          ],
+        },
       },
       structuralForces: {
         prose:

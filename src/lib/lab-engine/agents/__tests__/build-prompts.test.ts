@@ -113,6 +113,8 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain(
       "`body.marketSize.signals` must include at least three public trajectory signals",
     );
+    expect(prompt).toContain("`body.marketSize.bottomUpTam.recipeName`");
+    expect(prompt).toContain("keyword-demand-reachable-revenue");
     expect(prompt).toContain(
       "`body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals",
     );

@@ -86,7 +86,7 @@ function buildMarketCategorySupportStep(): AgentStep {
         toolName: 'fixture_support',
         output: {
           text:
-            'Fixture ad sources: https://example.com/fixtures/ad-library/pipelinepilot-google and https://example.com/fixtures/ad-library/signalforge-linkedin.',
+            'Fixture ad sources: https://example.com/fixtures/ad-library/pipelinepilot-google and https://example.com/fixtures/ad-library/signalforge-linkedin. Fixture TAM recipe support: 1,900 monthly searches from https://example.com/fixtures/keyword-volume/saaslaunch; 40% commercial-intent share from https://example.com/fixtures/ad-library/pipelinepilot-google; 2% visitor-to-opportunity conversion from https://example.com/saaslaunch/pricing; $6,000 ACV from https://example.com/saaslaunch/positioning-notes; $1.09M directional reachable revenue.',
         },
       },
     ],

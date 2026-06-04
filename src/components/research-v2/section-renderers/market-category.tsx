@@ -14,6 +14,51 @@ export interface MarketCategoryRendererProps {
   className?: string;
 }
 
+type MarketCategoryBottomUpTam = MarketCategoryArtifact['marketSize']['bottomUpTam'];
+type MarketCategoryBottomUpTamInput = MarketCategoryBottomUpTam['inputs'][number];
+
+const legacyBottomUpTam: MarketCategoryBottomUpTam = {
+  recipeName: 'keyword-demand-reachable-revenue',
+  formula: 'monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV',
+  reachableRevenueEstimate:
+    'evidence gap: this saved Market Category artifact predates bottom-up TAM input capture.',
+  inputs: [
+    {
+      inputType: 'keyword-volume',
+      label: 'Keyword volume',
+      value: 'evidence gap: not captured in this saved artifact.',
+      status: 'evidence-gap',
+      sourceTitle: 'Legacy artifact',
+      dateObserved: 'unknown',
+    },
+    {
+      inputType: 'commercial-intent-share',
+      label: 'Commercial-intent share',
+      value: 'evidence gap: not captured in this saved artifact.',
+      status: 'evidence-gap',
+      sourceTitle: 'Legacy artifact',
+      dateObserved: 'unknown',
+    },
+    {
+      inputType: 'conversion-rate',
+      label: 'Conversion rate',
+      value: 'evidence gap: not captured in this saved artifact.',
+      status: 'evidence-gap',
+      sourceTitle: 'Legacy artifact',
+      dateObserved: 'unknown',
+    },
+    {
+      inputType: 'acv',
+      label: 'Annual contract value',
+      value: 'evidence gap: not captured in this saved artifact.',
+      status: 'evidence-gap',
+      sourceTitle: 'Legacy artifact',
+      dateObserved: 'unknown',
+    },
+  ],
+  caveats: ['Legacy artifacts require a section rerun to compute bottom-up TAM.'],
+};
+
 const SIGNAL_TYPE_LABEL: Record<string, string> = {
   'public-data': 'Public data',
   'funding-flow': 'Funding flow',
@@ -27,6 +72,18 @@ const TRAJECTORY_LABEL: Record<string, string> = {
   stable: 'Stable',
   contracting: 'Contracting',
   unclear: 'Unclear',
+};
+
+const TAM_INPUT_LABEL: Record<string, string> = {
+  'keyword-volume': 'Keyword volume',
+  'commercial-intent-share': 'Commercial intent',
+  'conversion-rate': 'Conversion rate',
+  acv: 'ACV',
+};
+
+const TAM_STATUS_LABEL: Record<string, string> = {
+  sourced: 'Sourced',
+  'evidence-gap': 'Evidence gap',
 };
 
 const FORCE_TYPE_LABEL: Record<string, string> = {
@@ -67,6 +124,7 @@ export function MarketCategoryRenderer({
   className,
 }: MarketCategoryRendererProps): React.ReactElement {
   const { categoryDefinition, marketSize, structuralForces, categoryMaturity } = artifact;
+  const bottomUpTam = marketSize.bottomUpTam ?? legacyBottomUpTam;
 
   /* ───────── 1. Adjacent categories table ───────── */
   const adjacentColumns: ReadonlyArray<
@@ -130,6 +188,52 @@ export function MarketCategoryRenderer({
     },
   ];
 
+  const tamInputColumns: ReadonlyArray<
+    DataTableColumn<MarketCategoryBottomUpTamInput>
+  > = [
+    {
+      key: 'inputType',
+      header: 'Input',
+      render: row => (
+        <div className="flex flex-col gap-1">
+          <MonoBadge>{TAM_INPUT_LABEL[row.inputType] ?? row.inputType}</MonoBadge>
+          <span className="text-[12px] leading-[1.4] text-muted-foreground">
+            {row.label}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      render: row => (
+        <span className="font-medium text-foreground">{row.value}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: row => (
+        <MonoBadge>{TAM_STATUS_LABEL[row.status] ?? row.status}</MonoBadge>
+      ),
+    },
+    {
+      key: 'sourceUrl',
+      header: 'Source',
+      render: row => (
+        <div className="flex flex-col gap-1">
+          <span className="text-[12px] leading-[1.4] text-muted-foreground">
+            {row.sourceTitle}
+          </span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+            {row.dateObserved}
+          </span>
+          {row.sourceUrl ? <SourceLink url={row.sourceUrl} /> : null}
+        </div>
+      ),
+    },
+  ];
+
   /* ───────── 3. Structural forces table ───────── */
   const forceColumns: ReadonlyArray<
     DataTableColumn<(typeof structuralForces.forces)[number]>
@@ -179,12 +283,39 @@ export function MarketCategoryRenderer({
       </SubsectionBlock>
 
       <SubsectionBlock label="2 · Market Size" prose={marketSize.prose}>
-        <DataTable
-          columns={signalColumns}
-          rows={marketSize.signals}
-          rowKey={r => `${r.signalType}-${r.name}`}
-          rowTestId={() => 'signal-item'}
-        />
+        <div className="flex flex-col gap-6">
+          <DataTable
+            columns={signalColumns}
+            rows={marketSize.signals}
+            rowKey={r => `${r.signalType}-${r.name}`}
+            rowTestId={() => 'signal-item'}
+          />
+
+          <div className="flex flex-col gap-3 border-t border-border pt-5">
+            <div className="flex flex-col gap-1">
+              <Eyebrow>bottom-up tam</Eyebrow>
+              <p className="text-[14px] font-medium leading-[1.5] text-foreground">
+                {bottomUpTam.reachableRevenueEstimate}
+              </p>
+              <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                {bottomUpTam.formula}
+              </p>
+            </div>
+            <DataTable
+              columns={tamInputColumns}
+              rows={bottomUpTam.inputs}
+              rowKey={r => r.inputType}
+              rowTestId={() => 'tam-input-item'}
+            />
+            {bottomUpTam.caveats.length > 0 ? (
+              <ul className="flex flex-col gap-1 text-[12px] leading-[1.5] text-muted-foreground">
+                {bottomUpTam.caveats.map((caveat, index) => (
+                  <li key={`${index}-${caveat}`}>{caveat}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
       </SubsectionBlock>
 
       <SubsectionBlock label="3 · Structural Forces" prose={structuralForces.prose}>

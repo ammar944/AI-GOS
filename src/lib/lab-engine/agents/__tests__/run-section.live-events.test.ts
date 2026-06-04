@@ -46,7 +46,8 @@ function buildToolStep(): AgentStep {
         toolName: 'web_search',
         input: { query: 'category size' },
         output: {
-          text: 'A fetched source describes the category and its trajectory.',
+          text:
+            'A fetched source describes the category and its trajectory. Fixture TAM recipe support: monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV. $1.09M directional reachable revenue = 1,900 monthly searches x 12 x 40% commercial-intent share x 2% conversion x $6,000 ACV. 1,900 monthly searches across CRM cleanup, sales workflow automation, and pipeline review keywords. 40% of sampled demand sits in comparison, pricing, CRM cleanup, and pipeline review terms. 2% directional visitor-to-opportunity assumption from the fixture pricing/onboarding path. $6,000 ACV from fixture pricing notes.',
         },
       },
     ],
@@ -127,7 +128,7 @@ describe('runSection live event persistence', (): void => {
       { runId: RUN_ID, sectionId: 'positioningMarketCategory' },
       {
         store: recording,
-        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '10' },
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: ['web_search'],
         runAnswerTool,
@@ -161,7 +162,7 @@ describe('runSection live event persistence', (): void => {
       { runId: RUN_ID, sectionId: 'positioningMarketCategory' },
       {
         store,
-        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '10' },
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: ['web_search'],
         runAnswerTool,
@@ -211,7 +212,7 @@ describe('runSection live event persistence', (): void => {
       { runId: RUN_ID, sectionId: 'positioningMarketCategory' },
       {
         store: recording,
-        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '2' },
+        env: { LAB_SECTION_STREAMING: 'false', LAB_VERIFIER_MAX_UNSUPPORTED: '10' },
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: ['web_search'],
         runAnswerTool,

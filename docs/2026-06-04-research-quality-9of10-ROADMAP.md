@@ -51,7 +51,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T2** | Agentic Section Review Pass (trust + unblock run) | A. Trust | L | T1 | ◐ Code gate green; live gate pending |
 | **T3** | SpyFu keyword economics — fund + harden + trends fallback | B. Richness | S–M | T1 | ◐ Code gate green; live gate pending |
 | **T4** | Real VoC review bodies — port the stranded extractor | B. Richness | M | — | ◐ Code gate green; live gate pending |
-| **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ☐ Not started |
+| **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ◐ Code gate green; live gate pending |
 | **T6** | Depth-forcing skills (shared strategic preamble + verdict fields) | C. Insight | M | — | ☐ Not started |
 | **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ☐ Not started |
 | **T8** | Adversarial "so-what" critic pass | C. Insight | M | T1, T7 | ☐ Not started |
@@ -96,6 +96,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** `positioning-market-category/SKILL.md` (its triangulation IRON LAW already forbids invented TAM but has no tool to satisfy "bottom-up").
 **Implement:** define a named recipe — **(real keyword volume from T3) × (commercial-intent share) × (conversion + ACV from Firecrawl-scraped pricing pages)** → defensible reachable-revenue, each multiplier carrying a `sourceUrl`. Rewrite the SKILL methodology + small schema nudge to force cited multipliers; keep the analyst figure as the *check*, not the basis.
 **Verify:** market-category run emits a TAM/SAM with every input source-cited (or honestly labeled). **Depends on T3.**
+**2026-06-04 Codex evidence:** T5 code gate green. Market Category now requires `body.marketSize.bottomUpTam` using the named `keyword-demand-reachable-revenue` recipe with four required inputs (`keyword-volume`, `commercial-intent-share`, `conversion-rate`, `acv`), sourced input URLs, honest evidence-gap handling, and a guard that prevents numeric reachable-revenue estimates when any recipe input is an evidence gap. The Market Category SKILL and prompt guidance now require keyword-demand math and allow `keyword_volume`; the renderer displays the TAM recipe, source title/date/URL, and legacy evidence-gap fallback rows for saved artifacts that predate the new field. Proof: targeted T5 Vitest 10 files / 69 tests passed; final schema+renderer regression rerun 2 files / 12 tests passed; `pnpm exec tsc --noEmit` 0; `pnpm run test:run` 176 files / 1499 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings; QA re-review GO on the prior legacy-renderer/numeric-gap blockers. Live Market Category gate still pending.
 
 ### T6 — Depth-forcing skills (shared strategic preamble + verdict fields) `[C. Insight · M]`
 **Goal:** The skills are built for honesty, not insight — frameworks "collect the inputs to a judgment, then never require the judgment." Force the judgment. Keep context cost flat by adding ONE shared preamble, not bloating 7 files.

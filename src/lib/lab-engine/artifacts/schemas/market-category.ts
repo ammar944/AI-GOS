@@ -37,6 +37,13 @@ const maturitySignalTypes = [
 ] as const;
 
 const methodologies = ["top-down", "bottom-up"] as const;
+const bottomUpTamInputTypes = [
+  "keyword-volume",
+  "commercial-intent-share",
+  "conversion-rate",
+  "acv",
+] as const;
+const bottomUpTamInputStatuses = ["sourced", "evidence-gap"] as const;
 const structuralForceImpacts = ["high", "medium", "low"] as const;
 const structuralForceDirections = [
   "accelerating",
@@ -65,6 +72,28 @@ export const marketSizeSignalSchema = z
     sourceTitle: z.string().min(1),
     sourceUrl: z.string().min(1),
     dateObserved: z.string().min(1),
+  })
+  .strict();
+
+export const bottomUpTamInputSchema = z
+  .object({
+    inputType: z.enum(bottomUpTamInputTypes),
+    label: z.string().min(1),
+    value: z.string().min(1),
+    status: z.enum(bottomUpTamInputStatuses),
+    sourceTitle: z.string().min(1),
+    sourceUrl: z.string().min(1).optional(),
+    dateObserved: z.string().min(1),
+  })
+  .strict();
+
+export const bottomUpTamSchema = z
+  .object({
+    recipeName: z.literal("keyword-demand-reachable-revenue"),
+    formula: z.string().min(1),
+    reachableRevenueEstimate: z.string().min(1),
+    inputs: z.array(bottomUpTamInputSchema),
+    caveats: z.array(z.string().min(1)),
   })
   .strict();
 
@@ -109,6 +138,7 @@ export const marketSizeSchema = z
   .object({
     prose: z.string().min(1),
     signals: z.array(marketSizeSignalSchema),
+    bottomUpTam: bottomUpTamSchema,
   })
   .strict();
 
@@ -290,6 +320,57 @@ function validateRequiredFields(
     }
   });
 
+  pushMissingText(
+    errors,
+    "body.marketSize.bottomUpTam.formula",
+    artifact.body.marketSize.bottomUpTam.formula,
+  );
+  pushMissingText(
+    errors,
+    "body.marketSize.bottomUpTam.reachableRevenueEstimate",
+    artifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
+  );
+  artifact.body.marketSize.bottomUpTam.inputs.forEach((input, index) => {
+    pushMissingText(
+      errors,
+      `body.marketSize.bottomUpTam.inputs[${index}].label`,
+      input.label,
+    );
+    pushMissingText(
+      errors,
+      `body.marketSize.bottomUpTam.inputs[${index}].value`,
+      input.value,
+    );
+    pushMissingText(
+      errors,
+      `body.marketSize.bottomUpTam.inputs[${index}].sourceTitle`,
+      input.sourceTitle,
+    );
+    pushMissingText(
+      errors,
+      `body.marketSize.bottomUpTam.inputs[${index}].dateObserved`,
+      input.dateObserved,
+    );
+
+    if (input.status === "sourced") {
+      pushMissingText(
+        errors,
+        `body.marketSize.bottomUpTam.inputs[${index}].sourceUrl`,
+        input.sourceUrl,
+      );
+
+      if (input.sourceUrl !== undefined && !validUrlPattern.test(input.sourceUrl)) {
+        errors.push(
+          `body.marketSize.bottomUpTam.inputs[${index}] (${input.label}): sourceUrl is not a valid URL.`,
+        );
+      }
+    } else if (!/evidence\s+gap/i.test(input.value)) {
+      errors.push(
+        `body.marketSize.bottomUpTam.inputs[${index}] (${input.label}): evidence-gap inputs must name the evidence gap in value.`,
+      );
+    }
+  });
+
   artifact.body.structuralForces.forces.forEach((force, index) => {
     pushMissingText(
       errors,
@@ -383,6 +464,38 @@ export function validateMarketCategoryMinimums(
     errors.push(
       `body.marketSize.signals: triangulation required - need at least one top-down and one bottom-up methodology signal (have top-down=${hasTopDown}, bottom-up=${hasBottomUp}).`,
     );
+  }
+
+  const bottomUpInputTypes = parsedArtifact.body.marketSize.bottomUpTam.inputs.map(
+    (input) => input.inputType,
+  );
+  const missingBottomUpInputTypes = bottomUpTamInputTypes.filter(
+    (inputType) => !bottomUpInputTypes.includes(inputType),
+  );
+  if (missingBottomUpInputTypes.length > 0) {
+    errors.push(
+      `body.marketSize.bottomUpTam.inputs: missing input types ${missingBottomUpInputTypes.join(", ")}.`,
+    );
+  }
+  for (const duplicate of findDuplicates(bottomUpInputTypes)) {
+    errors.push(`body.marketSize.bottomUpTam.inputs: duplicate inputType ${duplicate}.`);
+  }
+  const hasBottomUpEvidenceGap =
+    parsedArtifact.body.marketSize.bottomUpTam.inputs.some(
+      (input) => input.status === "evidence-gap",
+    );
+  if (
+    hasBottomUpEvidenceGap &&
+    !/evidence\s+gap/i.test(
+      parsedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
+    )
+  ) {
+    errors.push(
+      "body.marketSize.bottomUpTam.reachableRevenueEstimate: must state an evidence gap when any recipe input is an evidence gap.",
+    );
+  }
+  if (parsedArtifact.body.marketSize.bottomUpTam.caveats.length < 1) {
+    errors.push("body.marketSize.bottomUpTam.caveats: have 0, need >=1 caveat.");
   }
 
   const forceCount = parsedArtifact.body.structuralForces.forces.length;
