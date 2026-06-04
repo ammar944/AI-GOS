@@ -4,9 +4,12 @@ import { keywordAdProbeAgentTool } from "../keyword-ad-probe";
 import { reviewsAgentTool } from "../reviews";
 
 describe("SERP shim tool descriptions", (): void => {
-  it("names reviews as SearchAPI Google SERP snippets, not first-party review APIs", (): void => {
+  it("names reviews as SearchAPI Google SERP plus optional Firecrawl, not first-party review APIs", (): void => {
     expect(reviewsAgentTool.description).toContain(
       "SearchAPI Google SERP snippets",
+    );
+    expect(reviewsAgentTool.description).toContain(
+      "optional Firecrawl review-body scraping",
     );
     expect(reviewsAgentTool.description).toContain(
       "not direct G2, Capterra, or Trustpilot APIs",

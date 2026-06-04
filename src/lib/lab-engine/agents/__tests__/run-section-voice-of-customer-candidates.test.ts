@@ -211,10 +211,46 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
+function getFirecrawlBodyUrl(init: RequestInit | undefined): string | null {
+  if (typeof init?.body !== 'string') {
+    return null;
+  }
+
+  try {
+    const body = JSON.parse(init.body) as { url?: unknown };
+    return typeof body.url === 'string' ? body.url : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildDefaultReviewBodyMarkdown(targetUrl: string | null): string {
+  if (targetUrl?.includes('trustpilot.com')) {
+    return [
+      'Rated 2 out of 5 stars',
+      'Recovered third-party quote: Support is slow and handoffs are missed when account context is scattered across sales tools.',
+      'Date of experience: May 20, 2026',
+    ].join('\n');
+  }
+
+  if (targetUrl?.includes('capterra.com')) {
+    return [
+      '# SaaSLaunch review',
+      '',
+      'Recovered third-party quote: Teams complain that account research and next steps stay scattered across notes, creating missed sales handoffs and manual CRM cleanup.',
+    ].join('\n');
+  }
+
+  return [
+    'What do you dislike about SaaSLaunch?',
+    'Recovered third-party quote: Our founder-led follow-up gets manual and confusing when notes and account context split across tools.',
+    'Review collected by and hosted on G2.com.',
+  ].join('\n');
+}
+
 function installSuccessfulToolFetches({
   firecrawlMode = 'result',
-  firecrawlMarkdown =
-    'Recovered third-party quote: "Our founder-led follow-up dies when notes and account context split across tools."',
+  firecrawlMarkdown,
 }: {
   firecrawlMode?: 'result' | 'api-error';
   firecrawlMarkdown?: string;
@@ -224,7 +260,7 @@ function installSuccessfulToolFetches({
 } {
   const requestedUrls: string[] = [];
   const fetchMock = vi.fn(
-    async (input: RequestInfo | URL): Promise<Response> => {
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const url =
         typeof input === 'string'
           ? input
@@ -294,11 +330,14 @@ function installSuccessfulToolFetches({
           return new Response('firecrawl rate limit', { status: 429 });
         }
 
+        const targetUrl = getFirecrawlBodyUrl(init);
         return jsonResponse({
           data: {
-            markdown: firecrawlMarkdown,
+            markdown:
+              firecrawlMarkdown ?? buildDefaultReviewBodyMarkdown(targetUrl),
             metadata: {
-              sourceURL: 'https://www.g2.com/products/saaslaunch/reviews',
+              sourceURL:
+                targetUrl ?? 'https://www.g2.com/products/saaslaunch/reviews',
               title: 'Recovered SaaSLaunch review',
             },
           },
@@ -439,10 +478,17 @@ describe('runSection VoC candidate prepass', (): void => {
         checkedFirstDraft = true;
         firstDraftPrompt = params.prompt;
         fetchCallsBeforeStructured = requestedUrls.length;
-        expect(fetchCallsBeforeStructured).toBe(3);
+        expect(fetchCallsBeforeStructured).toBe(6);
         expect(requestedUrls[0]).toContain('searchapi.io');
-        expect(requestedUrls[1]).toContain('api.search.brave.com');
-        expect(requestedUrls[2]).toContain('api.firecrawl.dev');
+        expect(requestedUrls.slice(1, 4)).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('api.firecrawl.dev'),
+            expect.stringContaining('api.firecrawl.dev'),
+            expect.stringContaining('api.firecrawl.dev'),
+          ]),
+        );
+        expect(requestedUrls[4]).toContain('api.search.brave.com');
+        expect(requestedUrls[5]).toContain('api.firecrawl.dev');
         expect(params.prompt).toContain('Recovered SaaSLaunch review');
         expect(params.prompt).toContain('Recovered third-party quote');
 
@@ -507,10 +553,13 @@ describe('runSection VoC candidate prepass', (): void => {
         ? (output as { type: unknown }).type
         : 'result',
     );
+    const reviewDiscoveryUrl = decodeURIComponent(requestedUrls[0] ?? '');
 
     expect(streamStructured).toHaveBeenCalled();
-    expect(fetchCallsBeforeStructured).toBe(3);
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(1);
+    expect(fetchCallsBeforeStructured).toBe(6);
+    expect(reviewDiscoveryUrl).toContain('reviews complaints pain points');
+    expect(reviewDiscoveryUrl).toContain('site:reddit.com');
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
     expect(firstDraftPrompt).toContain(
       'Founder asks how to stop sales follow-up from disappearing after every pipeline review.',
     );
@@ -532,24 +581,13 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
-  it('continues drafting from snippets when best-effort Firecrawl enrichment is empty', async (): Promise<void> => {
+  it('commits an evidence-gap artifact when review-body scraping has no usable bodies', async (): Promise<void> => {
     const store = await makeStore();
     const { requestedUrls } = installSuccessfulToolFetches({
       firecrawlMarkdown: '',
     });
-    const streamStructured = vi.fn<StructuredStreamer>((params) => {
-      expect(requestedUrls).toHaveLength(3);
-      expect(requestedUrls[2]).toContain('api.firecrawl.dev');
-      expect(params.prompt).toContain('g2.com');
-      expect(params.prompt).toContain('reddit.com');
-      expect(params.prompt).not.toContain('Recovered SaaSLaunch review');
-
-      emitVoiceOfCustomerEvidenceStep(params);
-      return {
-        consumeStream: () => Promise.resolve(),
-        output: Promise.resolve(buildVoiceOfCustomerDraft()),
-        partialOutputStream: emptyPartials(),
-      };
+    const streamStructured = vi.fn<StructuredStreamer>(() => {
+      throw new Error('Structured draft should not run from body-mode snippets.');
     });
 
     const result = await runSection(
@@ -567,30 +605,24 @@ describe('runSection VoC candidate prepass', (): void => {
       },
     );
 
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
-    expect(streamStructured).toHaveBeenCalled();
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(1);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(streamStructured).not.toHaveBeenCalled();
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(3);
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
   });
 
-  it('continues drafting from snippets when best-effort Firecrawl enrichment returns an API gap', async (): Promise<void> => {
+  it('commits an evidence-gap artifact when review-body scraping returns API gaps', async (): Promise<void> => {
     const store = await makeStore();
     const { requestedUrls } = installSuccessfulToolFetches({
       firecrawlMode: 'api-error',
     });
-    const streamStructured = vi.fn<StructuredStreamer>((params) => {
-      expect(requestedUrls).toHaveLength(3);
-      expect(requestedUrls[2]).toContain('api.firecrawl.dev');
-      expect(params.prompt).toContain('g2.com');
-      expect(params.prompt).toContain('reddit.com');
-      expect(params.prompt).not.toContain('Recovered SaaSLaunch review');
-      expect(params.prompt).not.toContain('Recovered third-party quote');
-
-      emitVoiceOfCustomerEvidenceStep(params);
-      return {
-        consumeStream: () => Promise.resolve(),
-        output: Promise.resolve(buildVoiceOfCustomerDraft()),
-        partialOutputStream: emptyPartials(),
-      };
+    const streamStructured = vi.fn<StructuredStreamer>(() => {
+      throw new Error('Structured draft should not run after body scrape gaps.');
     });
 
     const result = await runSection(
@@ -610,8 +642,9 @@ describe('runSection VoC candidate prepass', (): void => {
     const record = await store.readRun(saaslaunchResearchInput.runId);
 
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
-    expect(streamStructured).toHaveBeenCalled();
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(1);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(streamStructured).not.toHaveBeenCalled();
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(3);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -705,7 +738,7 @@ describe('runSection VoC candidate prepass', (): void => {
       true,
     );
     expect(validationEvent?.metadata.issues.join('\n')).toContain(
-      'reason=insufficient_candidates',
+      'reason=insufficient_independent_domains',
     );
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');

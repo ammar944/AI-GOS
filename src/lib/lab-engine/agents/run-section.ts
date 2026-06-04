@@ -4019,25 +4019,26 @@ function buildReviewVoiceOfCustomerCandidates({
     outputRecord.excerpts.map((item) => {
       const itemRecord = getRecord(item);
       const url = getStringProperty(itemRecord, "url");
-      const snippet = getStringProperty(itemRecord, "snippet");
+      const reviewText = getStringProperty(itemRecord, "reviewText");
       const title = getStringProperty(itemRecord, "source") ?? "Review excerpt";
 
       if (url === null) {
         return emptyVoiceOfCustomerCandidateCollection();
       }
 
-      const hasSnippet = snippet !== null && snippet.trim().length > 0;
-      const candidate = hasSnippet
+      const hasReviewText =
+        reviewText !== null && reviewText.trim().length > 0;
+      const candidate = hasReviewText
         ? createVoiceOfCustomerCandidate({
             auditedCompanyDomain: researchInput.company.websiteUrl,
             evidenceKind: "review",
             source: "reviews",
             title,
             url,
-            snippet,
+            snippet: reviewText,
           })
         : null;
-      const recoveryTarget = hasSnippet
+      const recoveryTarget = hasReviewText
         ? null
         : createVoiceOfCustomerRecoveryTarget({
             auditedCompanyDomain: researchInput.company.websiteUrl,
@@ -4354,6 +4355,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
   const reviewOutput = await tryTool("reviews", {
     brand: researchInput.company.name,
     max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
+    mode: "bodies",
   });
   const reviewCandidates = buildReviewVoiceOfCustomerCandidates({
     output: reviewOutput,

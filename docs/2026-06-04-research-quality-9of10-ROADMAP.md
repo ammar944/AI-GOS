@@ -50,7 +50,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T1** | Strong-model tiering foundation | Foundation | S | — | ☑ Done |
 | **T2** | Agentic Section Review Pass (trust + unblock run) | A. Trust | L | T1 | ◐ Code gate green; live gate pending |
 | **T3** | SpyFu keyword economics — fund + harden + trends fallback | B. Richness | S–M | T1 | ☐ Not started |
-| **T4** | Real VoC review bodies — port the stranded extractor | B. Richness | M | — | ☐ Not started |
+| **T4** | Real VoC review bodies — port the stranded extractor | B. Richness | M | — | ◐ Code gate green; live gate pending |
 | **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ☐ Not started |
 | **T6** | Depth-forcing skills (shared strategic preamble + verdict fields) | C. Insight | M | — | ☐ Not started |
 | **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ☐ Not started |
@@ -88,6 +88,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** live `src/lib/lab-engine/agents/tools/reviews.ts` (snippet-only) vs. worker `research-worker/src/tools/reviews.ts` (real parsers — read its battle-tested comments: Trustpilot scrapes reliably, G2/Capterra bot-wall Firecrawl to ~43-char stubs). Worker can't import from `src/lib/`, so this is a **copy-port**, not a shared module.
 **Implement:** add a `mode:"bodies"` path to the live `reviews` tool: discover review URL via SearchAPI → Firecrawl-scrape (`blockAds:true`) → split into review blocks. Realistic source set: **Trustpilot + Reddit/HN + Firecrawl'd forum/comparison pages** (reliable); G2/Capterra/TrustRadius opportunistic. Keep the VoC `≥3 distinct sources` rule; this feeds it real material.
 **Verify:** VoC run produces verbatim quotes with reviewer role/date/URL across ≥3 domains (or commits an honest gap via T2 if it genuinely can't). **Decision:** DG-3 (G2-reliable would need a paid API — deferred).
+**2026-06-04 Codex evidence:** T4 code gate green. Live `reviews` now has `mode:"bodies"`: SearchAPI discovery → bounded Firecrawl v2 scrape with `blockAds:true` → G2/Trustpilot/generic body extraction; body mode returns a non-consuming content gap instead of promoting SERP snippets when no usable review body is found. VoC prepass calls `reviews` in body mode and only promotes `reviewText` into review candidates, preserving the T2 honest-gap path. Proof: `pnpm exec tsc --noEmit` 0; `pnpm run test:run` 174 files / 1477 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings. Live Ramp gate still pending.
 
 ### T5 — Bottom-up TAM recipe + SKILL rewrite `[B. Richness · S–M]`
 **Goal:** Replace opaque aggregator-cited TAM with a bottom-up figure the pipeline can actually compute and cite. No new tooling.
