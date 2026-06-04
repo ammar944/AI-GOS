@@ -5,6 +5,10 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  validateProvesWrongIfMinimums,
+  validateStrategicText,
+} from "./strategic-insight";
 
 const sourceSectionValues = [
   "positioningMarketCategory",
@@ -143,6 +147,36 @@ const sourcedItemSchema = z
   .object({
     sourceSection: z.enum(sourceSectionValues),
     sourceUrl: z.string().url(),
+  })
+  .strict();
+
+const sourceRefsSchema = z.array(sourcedItemSchema).min(2);
+
+const strategicThesisSchema = z
+  .object({
+    thesis: z.string().min(1),
+    segment: z.string().min(1),
+    awareness: z.string().min(1),
+    force: z.string().min(1),
+    defensibleDifferentiator: z.string().min(1),
+    sourceSections: sourceRefsSchema,
+  })
+  .strict();
+
+const contradictionReconciliationSchema = z
+  .object({
+    contradiction: z.string().min(1),
+    resolution: z.string().min(1),
+    tradeOffAccepted: z.string().min(1),
+    sourceSections: sourceRefsSchema,
+  })
+  .strict();
+
+const provesWrongIfSchema = z
+  .object({
+    metric: z.string().min(1),
+    threshold: z.string().min(1),
+    window: z.string().min(1),
   })
   .strict();
 
@@ -303,8 +337,22 @@ const kpiSchema = z
   })
   .strict();
 
+const orderedMoveSchema = sourcedItemSchema
+  .extend({
+    rank: z.number(),
+    move: z.string().min(1),
+    dependsOn: z.array(z.number()),
+    learningPriority: z.string().min(1),
+    rationale: z.string().min(1),
+    thesisTrace: z.string().min(1),
+    provesWrongIf: provesWrongIfSchema,
+  })
+  .strict();
+
 export const paidMediaPlanBodySchema = z
   .object({
+    strategicThesis: strategicThesisSchema,
+    contradictionReconciliation: contradictionReconciliationSchema,
     campaignOverview: campaignOverviewSchema,
     campaignPhases: z
       .object({ prose: z.string().min(1), phases: z.array(campaignPhaseSchema) })
@@ -341,6 +389,12 @@ export const paidMediaPlanBodySchema = z
         kpis: z.array(kpiSchema),
       })
       .strict(),
+    orderedMoves: z
+      .object({
+        prose: z.string().min(1),
+        moves: z.array(orderedMoveSchema),
+      })
+      .strict(),
   })
   .strict();
 
@@ -369,6 +423,109 @@ function countNonGtmGrounded<T extends { sourceSection: string }>(
   return items.filter((item) => item.sourceSection !== "gtmBrief").length;
 }
 
+function validateSourceRefs(
+  errors: string[],
+  path: string,
+  refs: readonly { sourceSection: string }[],
+): void {
+  const distinctNonGtmSections = new Set(
+    refs
+      .filter((ref) => ref.sourceSection !== "gtmBrief")
+      .map((ref) => ref.sourceSection),
+  );
+  if (distinctNonGtmSections.size < 2) {
+    errors.push(`${path}: need >=2 distinct non-gtmBrief source refs.`);
+  }
+}
+
+function validateThesis(errors: string[], body: PaidMediaPlanBody): void {
+  validateStrategicText(errors, "body.strategicThesis.thesis", body.strategicThesis.thesis);
+  validateStrategicText(errors, "body.strategicThesis.force", body.strategicThesis.force);
+  validateStrategicText(
+    errors,
+    "body.strategicThesis.defensibleDifferentiator",
+    body.strategicThesis.defensibleDifferentiator,
+  );
+  validateSourceRefs(
+    errors,
+    "body.strategicThesis.sourceSections",
+    body.strategicThesis.sourceSections,
+  );
+  validateStrategicText(
+    errors,
+    "body.contradictionReconciliation.contradiction",
+    body.contradictionReconciliation.contradiction,
+  );
+  validateStrategicText(
+    errors,
+    "body.contradictionReconciliation.resolution",
+    body.contradictionReconciliation.resolution,
+  );
+  validateStrategicText(
+    errors,
+    "body.contradictionReconciliation.tradeOffAccepted",
+    body.contradictionReconciliation.tradeOffAccepted,
+  );
+  validateSourceRefs(
+    errors,
+    "body.contradictionReconciliation.sourceSections",
+    body.contradictionReconciliation.sourceSections,
+  );
+}
+
+function validateOrderedMoves(
+  errors: string[],
+  body: PaidMediaPlanBody,
+): void {
+  const moves = body.orderedMoves.moves;
+  if (moves.length < 3) {
+    errors.push("body.orderedMoves.moves: need >=3 sequenced moves.");
+  }
+
+  const ranks = moves.map((move) => move.rank);
+  const uniqueRanks = new Set(ranks);
+  if (uniqueRanks.size !== ranks.length) {
+    errors.push("body.orderedMoves.moves.rank: ranks must be unique.");
+  }
+  const sortedRanks = [...ranks].sort((a, b) => a - b);
+  const ranksAreConsecutive = sortedRanks.every(
+    (rank, index) => rank === index + 1,
+  );
+  if (!ranksAreConsecutive) {
+    errors.push("body.orderedMoves.moves.rank: ranks must be consecutive starting at 1.");
+  }
+
+  for (let index = 0; index < moves.length; index += 1) {
+    const move = moves[index];
+    const path = `body.orderedMoves.moves[${index}]`;
+    const priorRanks = new Set(ranks.filter((rank) => rank < move.rank));
+    if (!Number.isInteger(move.rank) || move.rank < 1) {
+      errors.push(`${path}.rank: must be a positive integer.`);
+    }
+    validateStrategicText(errors, `${path}.move`, move.move);
+    validateStrategicText(errors, `${path}.learningPriority`, move.learningPriority);
+    validateStrategicText(errors, `${path}.rationale`, move.rationale);
+    validateStrategicText(errors, `${path}.thesisTrace`, move.thesisTrace);
+    validateProvesWrongIfMinimums(
+      errors,
+      `${path}.provesWrongIf`,
+      move.provesWrongIf,
+    );
+    const invalidDeps = move.dependsOn.filter(
+      (rank) => !Number.isInteger(rank) || !priorRanks.has(rank),
+    );
+    if (invalidDeps.length > 0) {
+      errors.push(`${path}.dependsOn: dependencies must point to earlier ranks.`);
+    }
+    if (move.rank === 1 && move.dependsOn.length > 0) {
+      errors.push(`${path}.dependsOn: first move must not depend on another move.`);
+    }
+    if (move.rank > 1 && move.dependsOn.length === 0) {
+      errors.push(`${path}.dependsOn: later moves need at least one dependency.`);
+    }
+  }
+}
+
 export function validatePaidMediaPlanMinimums(
   artifact: ArtifactEnvelope & { body: PaidMediaPlanBody },
 ): ValidationResult {
@@ -380,6 +537,9 @@ export function validatePaidMediaPlanMinimums(
   if (parsedArtifact.sources.length < 5) {
     errors.push(`sources: have ${parsedArtifact.sources.length}, need >=5.`);
   }
+  validateThesis(errors, parsedArtifact.body);
+  validateOrderedMoves(errors, parsedArtifact.body);
+
   if (parsedArtifact.body.anglesToTest.angles.length < 4) {
     errors.push("body.anglesToTest.angles: need >=4.");
   }

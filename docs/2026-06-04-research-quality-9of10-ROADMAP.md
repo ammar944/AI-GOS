@@ -55,7 +55,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 | **T6** | Depth-forcing skills (shared strategic preamble + verdict fields) | C. Insight | M | — | ◐ Code gate green; live gate pending |
 | **T7** | Cross-section reasoning agent (the thinker) | C. Insight | L | T1, T2 | ◐ Code gate green; live gate pending |
 | **T8** | Adversarial "so-what" critic pass | C. Insight | M | T1, T7 | ◐ Code gate green; live gate pending |
-| **T9** | Capstone rebuild — compressor → strategist | C. Insight | L | T6, T7 | ☐ Not started |
+| **T9** | Capstone rebuild — compressor → strategist | C. Insight | L | T6, T7 | ◐ Code gate green; live gate pending |
 | **T10** | 9/10 strategic rubric + "knew-that" gate | D. Gate | M | T6–T9 | ☐ Not started |
 | **T11** | Live E2E validation (Ramp + 2nd company) vs rubric | D. Gate | M | all | ☐ Not started |
 | **T12** | *(optional)* Cross-section memory at draft time | C. Insight | M | T1 | ☐ Optional |
@@ -124,6 +124,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** `positioning-paid-media-plan/SKILL.md` + `positioning-synthesis` schema.
 **Implement:** force (a) a single **strategic thesis** the whole plan executes ("this plan bets that [segment] at [awareness] can be moved by [force] with [defensible differentiator] because [cross-section evidence]"); (b) a **contradiction-reconciliation** step (where do the 6 sections disagree — resolve before planning); (c) **sequenced** `orderedMoves[]` with `dependsOn` + learning-priority (first-money = highest-information bet, not strongest-evidence); (d) every money value keeps provenance enums; every bet carries `provesWrongIf`. The plan must trace to the thesis.
 **Verify:** capstone output names a thesis + a reconciled contradiction + sequenced bets with kill-criteria. **Depends on T6, T7.**
+**2026-06-04 Codex evidence:** T9 code gate green. Synthesis and paid-media capstones now require `strategicThesis`, `contradictionReconciliation`, and sequenced `orderedMoves` with dependencies, learning priority, thesis trace, and concrete `provesWrongIf` kill criteria; validators reject placeholder kill criteria via the shared falsifiability guard. Both capstones route through `strategyModel`, normalize the new fields before strict validation, render thesis/contradiction/ordered moves in Audit Reader, and persist the T9 thesis fields into the parent `research_artifacts.thesis.positioningSynthesis` bookkeeping path while full profile insights already receive the artifact body. Proof: `pnpm exec tsc --noEmit` 0; targeted T9 Vitest 9 files / 90 tests passed after QA NO-GO fix; `pnpm run test:run` 183 files passed / 1 skipped, 1557 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings. Live capstone quality gate still pending.
 
 ### T10 — 9/10 strategic rubric + "knew-that" gate `[D. Gate · M]`
 **Goal:** Make "9/10 strategic" checkable. This gate sits **after** the truthgate — honesty is the price of admission, not the achievement.

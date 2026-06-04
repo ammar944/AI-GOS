@@ -93,4 +93,73 @@ describe("validatePositioningSynthesisMinimums", () => {
     expect(result.ok).toBe(false);
     expect(result.errors.some((e) => e.includes("sources"))).toBe(true);
   });
+
+  it("rejects thesis source refs that do not span two distinct sections", () => {
+    const artifact = cloneFixture();
+    artifact.body.strategicThesis.sourceSections = [
+      {
+        sourceSection: "positioningVoiceOfCustomer",
+        sourceUrl: "https://example.com/synthesis/source-1",
+      },
+      {
+        sourceSection: "positioningVoiceOfCustomer",
+        sourceUrl: "https://example.com/synthesis/source-2",
+      },
+    ];
+
+    const result = validatePositioningSynthesisMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.includes("strategicThesis.sourceSections"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects ordered moves with non-consecutive ranks and forward dependencies", () => {
+    const artifact = cloneFixture();
+    artifact.body.orderedMoves.moves[1].rank = 4;
+    artifact.body.orderedMoves.moves[1].dependsOn = [3];
+
+    const result = validatePositioningSynthesisMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.some((error) => error.includes("consecutive starting at 1")),
+    ).toBe(true);
+    expect(
+      result.errors.some((error) =>
+        error.includes("dependencies must point to earlier ranks"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects ordered moves without a specific thesis trace", () => {
+    const artifact = cloneFixture();
+    artifact.body.orderedMoves.moves[0].thesisTrace = "improve messaging";
+
+    const result = validatePositioningSynthesisMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.some((error) => error.includes("thesisTrace")),
+    ).toBe(true);
+  });
+
+  it("rejects placeholder kill criteria on ordered moves", () => {
+    const artifact = cloneFixture();
+    artifact.body.orderedMoves.moves[0].provesWrongIf = {
+      metric: "unknown",
+      threshold: "n/a",
+      window: "none",
+    };
+
+    const result = validatePositioningSynthesisMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.filter((error) => error.includes("provesWrongIf")).length,
+    ).toBeGreaterThanOrEqual(3);
+  });
 });

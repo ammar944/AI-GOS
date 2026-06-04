@@ -535,6 +535,11 @@ function buildSectionMinimumGuidance(
     return [
       "- PaidMediaPlanSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
       "- PaidMediaPlanSectionOutput sourceSection enum values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.",
+      "- `body.strategicThesis` is required and has exactly `thesis`, `segment`, `awareness`, `force`, `defensibleDifferentiator`, and `sourceSections`; `sourceSections[]` items use `sourceSection` and `sourceUrl`, with at least two non-`gtmBrief` section refs.",
+      "- `body.contradictionReconciliation` is required and has exactly `contradiction`, `resolution`, `tradeOffAccepted`, and `sourceSections`; reconcile real tension between sections before planning spend.",
+      "- `body.orderedMoves` is required and has exactly `prose` and `moves[]`; provide at least three moves ordered by learning value, not by polish.",
+      "- Each ordered move has exactly `rank`, `move`, `dependsOn`, `learningPriority`, `rationale`, `thesisTrace`, `provesWrongIf`, `sourceSection`, and `sourceUrl`.",
+      "- Ordered move ranks are positive integers starting at 1; move 1 has empty `dependsOn`, later moves depend on earlier rank numbers. Every move carries `provesWrongIf` with `metric`, `threshold`, and `window`.",
       "- Paid-media money fields must include provenance labels: `user-supplied`, `tool-measured`, `source-reported`, `model-estimated`, or `unknown`. Use `unknown` when the number cannot be tied to user input, tool measurement, source reporting, or an explicit scenario assumption.",
       "- Optional paid-media numeric siblings are machine-sortable numbers: `monthlyBudgetValue`, `dailySpendValue`, and `dailyBudgetValue`; add numeric siblings only when they come from user-supplied economics, tool-measured data, source-reported data, or explicit scenario assumptions with corresponding provenance.",
       "- Keep display strings and provenance fields. Numeric siblings must not duplicate provenance in strings; keep provenance in `monthlyBudgetProvenance`, `dailySpendProvenance`, and `dailyBudgetProvenance`.",
@@ -576,11 +581,17 @@ function buildSectionMinimumGuidance(
     return [
       "- PositioningSynthesisSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
       "- PositioningSynthesisSectionOutput sourceSection enum values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.",
-      "- `body` keys are exactly `situationThesis`, `positioningOptions`, `recommendedMove`, `messagingDirections`. Do not emit other keys.",
+      "- `body` keys are exactly `strategicThesis`, `contradictionReconciliation`, `situationThesis`, `positioningOptions`, `recommendedMove`, `messagingDirections`, and `orderedMoves`. Do not emit other keys.",
+      "- `body.strategicThesis` is an object with exactly `thesis`, `segment`, `awareness`, `force`, `defensibleDifferentiator`, and `sourceSections`; write the thesis as `this plan bets that [segment] at [awareness] can be moved by [force] with [defensible differentiator] because [cross-section evidence]`.",
+      "- `body.strategicThesis.sourceSections[]` items use exactly `sourceSection` and `sourceUrl`; include at least two non-`gtmBrief` refs from the six committed sections.",
+      "- `body.contradictionReconciliation` is an object with exactly `contradiction`, `resolution`, `tradeOffAccepted`, and `sourceSections`; name a real disagreement between sections and resolve it before recommending the wedge.",
       "- `body.situationThesis` is an object with exactly `prose`.",
       "- `body.positioningOptions` is an object with `prose` and `options[]`; provide exactly 2 or 3 divergent options. Each option has exactly `optionName`, `angle`, `rationale`, `sourceSection`, `sourceUrl`.",
       "- `body.recommendedMove` is an object with exactly `optionAngle`, `rationale`, `nextSteps`. `optionAngle` must be verbatim one of `body.positioningOptions.options[].angle`.",
       "- `body.messagingDirections` is an object with `prose` and `directions[]`; provide at least two. Each direction has exactly `direction`, `copyPoint`, `sourceSection`, `sourceUrl`.",
+      "- `body.orderedMoves` is an object with exactly `prose` and `moves[]`; provide at least three sequenced moves with dependencies and kill criteria.",
+      "- Each ordered move has exactly `rank`, `move`, `dependsOn`, `learningPriority`, `rationale`, `thesisTrace`, `provesWrongIf`, `sourceSection`, and `sourceUrl`; `thesisTrace` states how the move advances the strategic thesis, and `provesWrongIf` has exactly `metric`, `threshold`, and `window`.",
+      "- Ordered move ranks are positive integers starting at 1; move 1 has empty `dependsOn`, later moves depend on earlier rank numbers.",
       "- At least two synthesized items across options and directions must cite a non-`gtmBrief` `sourceSection`. Do not narrate a confidence figure in any prose field.",
     ];
   }

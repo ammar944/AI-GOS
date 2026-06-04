@@ -285,12 +285,15 @@ export const SECTION_REGISTRY = {
     title: "Positioning Synthesis",
     skillSlug: "positioning-synthesis",
     mission:
-      "Synthesize the six committed positioning artifacts into one recommended positioning wedge and 2-3 divergent candidate angles, each option and messaging direction traced to section evidence.",
+      "Synthesize the six committed positioning artifacts and thinker output into one strategic thesis, reconciled contradiction, recommended positioning wedge, sequenced ordered moves, and 2-3 divergent candidate angles traced to section evidence.",
     outputEmphasis: [
+      "strategic thesis",
+      "contradiction reconciliation",
       "situation thesis",
       "divergent positioning options",
       "recommended move with rationale",
       "cross-section messaging directions",
+      "sequenced ordered moves with kill criteria",
     ],
     sectionOutputSchemaName: "PositioningSynthesisSectionOutput",
     structuredOutputMaxTokens: 8192,
@@ -330,8 +333,11 @@ export const SECTION_REGISTRY = {
     title: "Paid Media Plan",
     skillSlug: "positioning-paid-media-plan",
     mission:
-      "Synthesize the six committed positioning artifacts and frozen GTM brief into a paid-media plan with a templated campaign spine, evidence-backed angles, filled creative framework, funnel guidance, sales-process assets, channel suggestions, and KPI plan.",
+      "Synthesize the six committed positioning artifacts, thinker output, and frozen GTM brief into a paid-media plan with one strategic thesis, reconciled contradiction, sequenced learning moves, evidence-backed angles, filled creative framework, funnel guidance, channel suggestions, and KPI plan.",
     outputEmphasis: [
+      "strategic thesis",
+      "contradiction reconciliation",
+      "ordered moves with kill criteria",
       "campaign overview",
       "audiences and creative strategy",
       "angles with copy",

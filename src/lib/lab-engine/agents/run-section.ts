@@ -1350,7 +1350,11 @@ function getStructuredGenerationSchema(
 function getGenerationModel(
   definition: RuntimeSectionDefinition,
 ): SectionLanguageModel {
-  return definition.id === "positioningCrossSectionReasoning"
+  return [
+    "positioningCrossSectionReasoning",
+    "positioningSynthesis",
+    "positioningPaidMediaPlan",
+  ].includes(definition.id)
     ? strategyModel
     : sectionRunnerModel;
 }
@@ -1940,6 +1944,61 @@ function normalizeStructuredRecordArray({
   });
 }
 
+function normalizeSourceSectionRefs(value: unknown): unknown {
+  return normalizeStructuredRecordArray({
+    allowedKeys: ["sourceSection", "sourceUrl"],
+    stringKeys: ["sourceSection", "sourceUrl"],
+    value,
+  });
+}
+
+function normalizeProvesWrongIf(value: unknown): unknown {
+  const record = getRecord(value);
+  if (record === null) {
+    return value;
+  }
+
+  return normalizeStructuredRecord({
+    allowedKeys: ["metric", "threshold", "window"],
+    record,
+    stringKeys: ["metric", "threshold", "window"],
+  });
+}
+
+function normalizeOrderedMoves(value: unknown): unknown {
+  const normalized = normalizeStructuredRecordArray({
+    allowedKeys: [
+      "rank",
+      "move",
+      "dependsOn",
+      "learningPriority",
+      "rationale",
+      "thesisTrace",
+      "provesWrongIf",
+      "sourceSection",
+      "sourceUrl",
+    ],
+    numberKeys: ["rank"],
+    stringKeys: [
+      "move",
+      "learningPriority",
+      "rationale",
+      "thesisTrace",
+      "sourceSection",
+      "sourceUrl",
+    ],
+    value,
+  });
+
+  return normalizeArrayRecords({
+    value: normalized,
+    normalize: (record) => ({
+      ...record,
+      provesWrongIf: normalizeProvesWrongIf(record.provesWrongIf),
+    }),
+  });
+}
+
 type PaidMediaPlanGroundedSourceSection =
   | "positioningCompetitorLandscape"
   | "positioningDemandIntent"
@@ -2251,6 +2310,10 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
     return rawOutput;
   }
 
+  const strategicThesisRecord = getRecord(bodyRecord.strategicThesis);
+  const contradictionReconciliationRecord = getRecord(
+    bodyRecord.contradictionReconciliation,
+  );
   const campaignOverviewRecord = getRecord(bodyRecord.campaignOverview);
   const campaignPhasesRecord = getRecord(bodyRecord.campaignPhases);
   const audienceTypesRecord = getRecord(bodyRecord.audienceTypes);
@@ -2267,6 +2330,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
   const salesProcessRecord = getRecord(bodyRecord.salesProcess);
   const channelSuggestionsRecord = getRecord(bodyRecord.channelSuggestions);
   const kpisRecord = getRecord(bodyRecord.kpis);
+  const orderedMovesRecord = getRecord(bodyRecord.orderedMoves);
 
   return {
     ...outputRecord,
@@ -2277,6 +2341,56 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
     }),
     body: {
       ...bodyRecord,
+      ...(strategicThesisRecord === null
+        ? {}
+        : {
+            strategicThesis: {
+              ...normalizeStructuredRecord({
+                allowedKeys: [
+                  "thesis",
+                  "segment",
+                  "awareness",
+                  "force",
+                  "defensibleDifferentiator",
+                  "sourceSections",
+                ],
+                record: strategicThesisRecord,
+                stringKeys: [
+                  "thesis",
+                  "segment",
+                  "awareness",
+                  "force",
+                  "defensibleDifferentiator",
+                ],
+              }),
+              sourceSections: normalizeSourceSectionRefs(
+                strategicThesisRecord.sourceSections,
+              ),
+            },
+          }),
+      ...(contradictionReconciliationRecord === null
+        ? {}
+        : {
+            contradictionReconciliation: {
+              ...normalizeStructuredRecord({
+                allowedKeys: [
+                  "contradiction",
+                  "resolution",
+                  "tradeOffAccepted",
+                  "sourceSections",
+                ],
+                record: contradictionReconciliationRecord,
+                stringKeys: [
+                  "contradiction",
+                  "resolution",
+                  "tradeOffAccepted",
+                ],
+              }),
+              sourceSections: normalizeSourceSectionRefs(
+                contradictionReconciliationRecord.sourceSections,
+              ),
+            },
+          }),
       ...(campaignOverviewRecord === null
         ? {}
         : {
@@ -2667,6 +2781,18 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
               }),
             },
           }),
+      ...(orderedMovesRecord === null
+        ? {}
+        : {
+            orderedMoves: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "moves"],
+                record: orderedMovesRecord,
+                stringKeys: ["prose"],
+              }),
+              moves: normalizeOrderedMoves(orderedMovesRecord.moves),
+            },
+          }),
     },
   };
 }
@@ -2684,10 +2810,15 @@ function withNormalizedPositioningSynthesisOutput(rawOutput: unknown): unknown {
     return rawOutput;
   }
 
+  const strategicThesisRecord = getRecord(bodyRecord.strategicThesis);
+  const contradictionReconciliationRecord = getRecord(
+    bodyRecord.contradictionReconciliation,
+  );
   const situationThesisRecord = getRecord(bodyRecord.situationThesis);
   const positioningOptionsRecord = getRecord(bodyRecord.positioningOptions);
   const recommendedMoveRecord = getRecord(bodyRecord.recommendedMove);
   const messagingDirectionsRecord = getRecord(bodyRecord.messagingDirections);
+  const orderedMovesRecord = getRecord(bodyRecord.orderedMoves);
 
   return {
     ...outputRecord,
@@ -2698,6 +2829,56 @@ function withNormalizedPositioningSynthesisOutput(rawOutput: unknown): unknown {
     }),
     body: {
       ...bodyRecord,
+      ...(strategicThesisRecord === null
+        ? {}
+        : {
+            strategicThesis: {
+              ...normalizeStructuredRecord({
+                allowedKeys: [
+                  "thesis",
+                  "segment",
+                  "awareness",
+                  "force",
+                  "defensibleDifferentiator",
+                  "sourceSections",
+                ],
+                record: strategicThesisRecord,
+                stringKeys: [
+                  "thesis",
+                  "segment",
+                  "awareness",
+                  "force",
+                  "defensibleDifferentiator",
+                ],
+              }),
+              sourceSections: normalizeSourceSectionRefs(
+                strategicThesisRecord.sourceSections,
+              ),
+            },
+          }),
+      ...(contradictionReconciliationRecord === null
+        ? {}
+        : {
+            contradictionReconciliation: {
+              ...normalizeStructuredRecord({
+                allowedKeys: [
+                  "contradiction",
+                  "resolution",
+                  "tradeOffAccepted",
+                  "sourceSections",
+                ],
+                record: contradictionReconciliationRecord,
+                stringKeys: [
+                  "contradiction",
+                  "resolution",
+                  "tradeOffAccepted",
+                ],
+              }),
+              sourceSections: normalizeSourceSectionRefs(
+                contradictionReconciliationRecord.sourceSections,
+              ),
+            },
+          }),
       ...(situationThesisRecord === null
         ? {}
         : {
@@ -2773,6 +2954,18 @@ function withNormalizedPositioningSynthesisOutput(rawOutput: unknown): unknown {
                 ],
                 value: messagingDirectionsRecord.directions,
               }),
+            },
+          }),
+      ...(orderedMovesRecord === null
+        ? {}
+        : {
+            orderedMoves: {
+              ...normalizeStructuredRecord({
+                allowedKeys: ["prose", "moves"],
+                record: orderedMovesRecord,
+                stringKeys: ["prose"],
+              }),
+              moves: normalizeOrderedMoves(orderedMovesRecord.moves),
             },
           }),
     },

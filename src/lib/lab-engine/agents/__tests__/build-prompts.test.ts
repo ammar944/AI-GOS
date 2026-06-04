@@ -407,6 +407,35 @@ describe("buildStructuredPrompt", (): void => {
     expect(prompt).toContain("never use `gtmBrief`");
     expect(prompt).toContain("cover at least four of the six");
   });
+
+  it("adds T9 strategist guidance for synthesis and paid media capstones", (): void => {
+    const synthesisPrompt = buildStructuredPrompt({
+      definition: synthesisDefinition,
+      evidenceTranscript: "Thinker artifact is available in ResearchInput.",
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Positioning Synthesis",
+    });
+    const paidMediaPrompt = buildStructuredPrompt({
+      definition: paidMediaDefinition,
+      evidenceTranscript: "Thinker artifact is available in ResearchInput.",
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Paid Media Plan",
+    });
+
+    for (const prompt of [synthesisPrompt, paidMediaPrompt]) {
+      expect(prompt).toContain("body.strategicThesis");
+      expect(prompt).toContain("body.contradictionReconciliation");
+      expect(prompt).toContain("body.orderedMoves");
+      expect(prompt).toContain("thesisTrace");
+      expect(prompt).toContain("provesWrongIf");
+    }
+    expect(synthesisPrompt).toContain(
+      "this plan bets that [segment] at [awareness]",
+    );
+    expect(paidMediaPrompt).toContain(
+      "Ordered move ranks are positive integers starting at 1",
+    );
+  });
 });
 
 describe("buildSectionObjectiveRecap", (): void => {

@@ -5,6 +5,7 @@ import {
 } from '@/types/positioning-artifact';
 import { cn } from '@/lib/utils';
 import {
+  Callout,
   DataTable,
   Eyebrow,
   InlineStats,
@@ -20,6 +21,8 @@ export interface PaidMediaPlanRendererProps {
 }
 
 const PAID_MEDIA_BODY_KEYS = [
+  'strategicThesis',
+  'contradictionReconciliation',
   'campaignOverview',
   'campaignPhases',
   'audienceTypes',
@@ -32,6 +35,7 @@ const PAID_MEDIA_BODY_KEYS = [
   'salesProcess',
   'channelSuggestions',
   'kpis',
+  'orderedMoves',
 ] as const satisfies ReadonlyArray<keyof PaidMediaPlanArtifact['body']>;
 
 function getPaidMediaPlanBody(
@@ -283,6 +287,61 @@ export function PaidMediaPlanRenderer({
     { key: 'role', header: 'Role' },
     { key: 'definition', header: 'Definition' },
   ];
+  const thesisSourceColumns: ReadonlyArray<
+    DataTableColumn<(typeof body.strategicThesis.sourceSections)[number]>
+  > = [
+    {
+      key: 'sourceSection',
+      header: 'Section',
+      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+    },
+    {
+      key: 'sourceUrl',
+      header: 'Source',
+      render: (row) => <SourceLink url={row.sourceUrl} />,
+    },
+  ];
+  const orderedMoveColumns: ReadonlyArray<
+    DataTableColumn<(typeof body.orderedMoves.moves)[number]>
+  > = [
+    { key: 'rank', header: '#', width: '48px', wrap: 'nowrap' },
+    { key: 'move', header: 'Move', className: 'font-medium text-foreground' },
+    {
+      key: 'learningPriority',
+      header: 'Learning priority',
+      render: (row) => (
+        <div className="flex flex-col gap-1">
+          <span>{row.learningPriority}</span>
+          <span className="text-xs text-muted-foreground">{row.thesisTrace}</span>
+          <span className="text-xs text-muted-foreground">
+            Depends on {row.dependsOn.length === 0 ? 'none' : row.dependsOn.join(', ')}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'provesWrongIf',
+      header: 'Kill criterion',
+      render: (row) => (
+        <div className="flex flex-col gap-1">
+          <span>{row.provesWrongIf.metric}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.provesWrongIf.threshold} / {row.provesWrongIf.window}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'sourceSection',
+      header: 'Source',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <MonoBadge>{row.sourceSection}</MonoBadge>
+          <SourceLink url={row.sourceUrl} />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div
@@ -290,6 +349,51 @@ export function PaidMediaPlanRenderer({
       className={cn('space-y-10', className)}
     >
       <div data-testid="paid-media-plan-renderer" className="space-y-10">
+        {body.strategicThesis ? (
+          <SubsectionBlock label="Strategic thesis" prose={body.strategicThesis.thesis}>
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Callout label="Segment" tone="accent">
+                  {body.strategicThesis.segment}
+                </Callout>
+                <Callout label="Awareness" tone="good">
+                  {body.strategicThesis.awareness}
+                </Callout>
+                <Callout label="Force" tone="warn">
+                  {body.strategicThesis.force}
+                </Callout>
+                <Callout label="Differentiator" tone="good">
+                  {body.strategicThesis.defensibleDifferentiator}
+                </Callout>
+              </div>
+              <DataTable
+                columns={thesisSourceColumns}
+                rows={body.strategicThesis.sourceSections}
+              />
+            </div>
+          </SubsectionBlock>
+        ) : null}
+
+        {body.contradictionReconciliation ? (
+          <SubsectionBlock
+            label="Contradiction reconciliation"
+            prose={body.contradictionReconciliation.contradiction}
+          >
+            <div className="space-y-4">
+              <Callout label="Resolution" tone="accent">
+                {body.contradictionReconciliation.resolution}
+              </Callout>
+              <Callout label="Trade-off accepted" tone="warn">
+                {body.contradictionReconciliation.tradeOffAccepted}
+              </Callout>
+              <DataTable
+                columns={thesisSourceColumns}
+                rows={body.contradictionReconciliation.sourceSections}
+              />
+            </div>
+          </SubsectionBlock>
+        ) : null}
+
         <SubsectionBlock label="Campaign overview" prose={body.campaignOverview.prose}>
           <div className="space-y-4">
             <dl className="flex flex-wrap gap-x-10 gap-y-4">
@@ -392,6 +496,12 @@ export function PaidMediaPlanRenderer({
         <SubsectionBlock label="KPIs" prose={body.kpis.prose}>
           <DataTable columns={kpiColumns} rows={body.kpis.kpis} />
         </SubsectionBlock>
+
+        {body.orderedMoves ? (
+          <SubsectionBlock label="Ordered moves" prose={body.orderedMoves.prose}>
+            <DataTable columns={orderedMoveColumns} rows={body.orderedMoves.moves} />
+          </SubsectionBlock>
+        ) : null}
       </div>
     </div>
   );

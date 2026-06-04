@@ -117,7 +117,23 @@ export interface SynthesizedThesisPatchInput {
   recommendedAngle: string;
   rationale: string;
   optionCount: number;
+  strategicThesis?: string;
+  strategicSegment?: string;
+  strategicAwareness?: string;
+  strategicForce?: string;
+  defensibleDifferentiator?: string;
+  contradiction?: string;
+  resolution?: string;
+  tradeOffAccepted?: string;
+  orderedMoveCount?: number;
   updatedAt: string;
+}
+
+function maybeNonEmptyValue(value: string | undefined): string | undefined {
+  const trimmedValue = value?.trim();
+  return trimmedValue === undefined || trimmedValue.length === 0
+    ? undefined
+    : trimmedValue;
 }
 
 // Merge the synthesized positioning wedge into research_artifacts.thesis as a
@@ -127,6 +143,16 @@ export function buildSynthesizedThesisPatch(
   input: SynthesizedThesisPatchInput,
 ): { thesis: Record<string, unknown> } {
   const existingThesis = input.existingThesis ?? {};
+  const strategicThesis = maybeNonEmptyValue(input.strategicThesis);
+  const strategicSegment = maybeNonEmptyValue(input.strategicSegment);
+  const strategicAwareness = maybeNonEmptyValue(input.strategicAwareness);
+  const strategicForce = maybeNonEmptyValue(input.strategicForce);
+  const defensibleDifferentiator = maybeNonEmptyValue(
+    input.defensibleDifferentiator,
+  );
+  const contradiction = maybeNonEmptyValue(input.contradiction);
+  const resolution = maybeNonEmptyValue(input.resolution);
+  const tradeOffAccepted = maybeNonEmptyValue(input.tradeOffAccepted);
 
   return {
     thesis: {
@@ -136,6 +162,19 @@ export function buildSynthesizedThesisPatch(
         recommendedAngle: input.recommendedAngle,
         rationale: input.rationale,
         optionCount: input.optionCount,
+        ...(strategicThesis === undefined ? {} : { strategicThesis }),
+        ...(strategicSegment === undefined ? {} : { strategicSegment }),
+        ...(strategicAwareness === undefined ? {} : { strategicAwareness }),
+        ...(strategicForce === undefined ? {} : { strategicForce }),
+        ...(defensibleDifferentiator === undefined
+          ? {}
+          : { defensibleDifferentiator }),
+        ...(contradiction === undefined ? {} : { contradiction }),
+        ...(resolution === undefined ? {} : { resolution }),
+        ...(tradeOffAccepted === undefined ? {} : { tradeOffAccepted }),
+        ...(input.orderedMoveCount === undefined
+          ? {}
+          : { orderedMoveCount: input.orderedMoveCount }),
         updatedAt: input.updatedAt,
       },
     },

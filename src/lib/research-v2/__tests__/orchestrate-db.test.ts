@@ -11,6 +11,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import {
   buildFrozenGtmBriefThesisPatch,
+  buildSynthesizedThesisPatch,
   freezeReviewedBriefSnapshot,
   seedOrchestration,
 } from '../orchestrate-db';
@@ -59,6 +60,75 @@ describe('buildFrozenGtmBriefThesisPatch', () => {
 
     expect(result.shouldUpdate).toBe(false);
     expect(result.thesis).toBe(existingThesis);
+  });
+});
+
+describe('buildSynthesizedThesisPatch', () => {
+  it('preserves the legacy wedge and records T9 strategist fields', () => {
+    const result = buildSynthesizedThesisPatch({
+      existingThesis: { source: 'onboarding_v2_review' },
+      headlineWedge: 'Lead with operational speed.',
+      recommendedAngle: 'Research to campaign in days.',
+      rationale: 'Founders buy delay reduction before platform breadth.',
+      optionCount: 2,
+      strategicThesis:
+        'This plan bets that impatient founder-led SaaS teams move on implementation-delay anxiety.',
+      strategicSegment: 'Founder-led SaaS teams',
+      strategicAwareness: 'Problem-aware',
+      strategicForce: 'Operational impatience',
+      defensibleDifferentiator: 'Proof-backed time-to-first-campaign loop',
+      contradiction:
+        'Demand supports immediate testing while proof gaps constrain authority claims.',
+      resolution:
+        'Spend first on the narrow speed-and-proof loop, then expand.',
+      tradeOffAccepted: 'Accept a smaller initial story.',
+      orderedMoveCount: 3,
+      updatedAt: '2026-06-04T12:00:00.000Z',
+    });
+
+    expect(result.thesis).toEqual({
+      source: 'onboarding_v2_review',
+      positioningSynthesis: {
+        headlineWedge: 'Lead with operational speed.',
+        recommendedAngle: 'Research to campaign in days.',
+        rationale: 'Founders buy delay reduction before platform breadth.',
+        optionCount: 2,
+        strategicThesis:
+          'This plan bets that impatient founder-led SaaS teams move on implementation-delay anxiety.',
+        strategicSegment: 'Founder-led SaaS teams',
+        strategicAwareness: 'Problem-aware',
+        strategicForce: 'Operational impatience',
+        defensibleDifferentiator: 'Proof-backed time-to-first-campaign loop',
+        contradiction:
+          'Demand supports immediate testing while proof gaps constrain authority claims.',
+        resolution:
+          'Spend first on the narrow speed-and-proof loop, then expand.',
+        tradeOffAccepted: 'Accept a smaller initial story.',
+        orderedMoveCount: 3,
+        updatedAt: '2026-06-04T12:00:00.000Z',
+      },
+    });
+  });
+
+  it('omits empty optional strategist fields for legacy synthesis artifacts', () => {
+    const result = buildSynthesizedThesisPatch({
+      existingThesis: null,
+      headlineWedge: 'Lead with operational speed.',
+      recommendedAngle: 'Research to campaign in days.',
+      rationale: 'Founders buy delay reduction before platform breadth.',
+      optionCount: 2,
+      strategicThesis: ' ',
+      contradiction: '',
+      updatedAt: '2026-06-04T12:00:00.000Z',
+    });
+
+    expect(result.thesis.positioningSynthesis).toEqual({
+      headlineWedge: 'Lead with operational speed.',
+      recommendedAngle: 'Research to campaign in days.',
+      rationale: 'Founders buy delay reduction before platform breadth.',
+      optionCount: 2,
+      updatedAt: '2026-06-04T12:00:00.000Z',
+    });
   });
 });
 

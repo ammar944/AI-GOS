@@ -20,10 +20,13 @@ export interface PositioningSynthesisRendererProps {
 }
 
 const SYNTHESIS_BODY_KEYS = [
+  'strategicThesis',
+  'contradictionReconciliation',
   'situationThesis',
   'positioningOptions',
   'recommendedMove',
   'messagingDirections',
+  'orderedMoves',
 ] as const satisfies ReadonlyArray<keyof PositioningSynthesisArtifact['body']>;
 
 function getSynthesisBody(
@@ -82,6 +85,61 @@ export function PositioningSynthesisRenderer({
       ),
     },
   ];
+  const thesisSourceColumns: ReadonlyArray<
+    DataTableColumn<(typeof body.strategicThesis.sourceSections)[number]>
+  > = [
+    {
+      key: 'sourceSection',
+      header: 'Section',
+      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+    },
+    {
+      key: 'sourceUrl',
+      header: 'Source',
+      render: (row) => <SourceLink url={row.sourceUrl} />,
+    },
+  ];
+  const orderedMoveColumns: ReadonlyArray<
+    DataTableColumn<(typeof body.orderedMoves.moves)[number]>
+  > = [
+    { key: 'rank', header: '#', width: '48px', wrap: 'nowrap' },
+    { key: 'move', header: 'Move', className: 'font-medium text-foreground' },
+    {
+      key: 'learningPriority',
+      header: 'Learning priority',
+      render: (row) => (
+        <div className="flex flex-col gap-1">
+          <span>{row.learningPriority}</span>
+          <span className="text-xs text-muted-foreground">{row.thesisTrace}</span>
+          <span className="text-xs text-muted-foreground">
+            Depends on {row.dependsOn.length === 0 ? 'none' : row.dependsOn.join(', ')}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'provesWrongIf',
+      header: 'Kill criterion',
+      render: (row) => (
+        <div className="flex flex-col gap-1">
+          <span>{row.provesWrongIf.metric}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.provesWrongIf.threshold} / {row.provesWrongIf.window}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'sourceSection',
+      header: 'Source',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <MonoBadge>{row.sourceSection}</MonoBadge>
+          <SourceLink url={row.sourceUrl} />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div
@@ -89,6 +147,51 @@ export function PositioningSynthesisRenderer({
       className={cn('space-y-10', className)}
     >
       <div data-testid="positioning-synthesis-renderer" className="space-y-10">
+        {body.strategicThesis ? (
+          <SubsectionBlock label="Strategic thesis" prose={body.strategicThesis.thesis}>
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Callout label="Segment" tone="accent">
+                  {body.strategicThesis.segment}
+                </Callout>
+                <Callout label="Awareness" tone="good">
+                  {body.strategicThesis.awareness}
+                </Callout>
+                <Callout label="Force" tone="warn">
+                  {body.strategicThesis.force}
+                </Callout>
+                <Callout label="Differentiator" tone="good">
+                  {body.strategicThesis.defensibleDifferentiator}
+                </Callout>
+              </div>
+              <DataTable
+                columns={thesisSourceColumns}
+                rows={body.strategicThesis.sourceSections}
+              />
+            </div>
+          </SubsectionBlock>
+        ) : null}
+
+        {body.contradictionReconciliation ? (
+          <SubsectionBlock
+            label="Contradiction reconciliation"
+            prose={body.contradictionReconciliation.contradiction}
+          >
+            <div className="space-y-4">
+              <Callout label="Resolution" tone="accent">
+                {body.contradictionReconciliation.resolution}
+              </Callout>
+              <Callout label="Trade-off accepted" tone="warn">
+                {body.contradictionReconciliation.tradeOffAccepted}
+              </Callout>
+              <DataTable
+                columns={thesisSourceColumns}
+                rows={body.contradictionReconciliation.sourceSections}
+              />
+            </div>
+          </SubsectionBlock>
+        ) : null}
+
         <SubsectionBlock label="Situation thesis" prose={body.situationThesis.prose} />
 
         <SubsectionBlock
@@ -127,6 +230,15 @@ export function PositioningSynthesisRenderer({
             rows={body.messagingDirections.directions}
           />
         </SubsectionBlock>
+
+        {body.orderedMoves ? (
+          <SubsectionBlock
+            label="Ordered moves"
+            prose={body.orderedMoves.prose}
+          >
+            <DataTable columns={orderedMoveColumns} rows={body.orderedMoves.moves} />
+          </SubsectionBlock>
+        ) : null}
       </div>
     </div>
   );

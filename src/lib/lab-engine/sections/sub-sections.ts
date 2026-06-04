@@ -150,10 +150,16 @@ export const SECTION_SUB_SECTIONS: Record<
     },
   ],
   positioningSynthesis: [
+    { key: "strategicThesis", label: "Strategic thesis" },
+    {
+      key: "contradictionReconciliation",
+      label: "Contradiction reconciliation",
+    },
     { key: "situationThesis", label: "Situation thesis" },
     { key: "positioningOptions", label: "Positioning options" },
     { key: "recommendedMove", label: "Recommended move" },
     { key: "messagingDirections", label: "Messaging directions" },
+    { key: "orderedMoves", label: "Ordered moves" },
   ],
   positioningCrossSectionReasoning: [
     { key: "crossSectionThreads", label: "Cross-section threads" },
@@ -163,6 +169,11 @@ export const SECTION_SUB_SECTIONS: Record<
     { key: "contrarianInversion", label: "Contrarian inversion" },
   ],
   positioningPaidMediaPlan: [
+    { key: "strategicThesis", label: "Strategic thesis" },
+    {
+      key: "contradictionReconciliation",
+      label: "Contradiction reconciliation",
+    },
     { key: "campaignOverview", label: "Campaign overview" },
     { key: "campaignPhases", label: "Campaign phases" },
     { key: "audienceTypes", label: "Audience types" },
@@ -175,6 +186,7 @@ export const SECTION_SUB_SECTIONS: Record<
     { key: "salesProcess", label: "Sales process" },
     { key: "channelSuggestions", label: "Channel suggestions" },
     { key: "kpis", label: "KPIs and success metrics" },
+    { key: "orderedMoves", label: "Ordered moves" },
   ],
 };
 

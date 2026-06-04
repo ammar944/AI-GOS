@@ -275,10 +275,18 @@ async function mergeSynthesizedThesisBestEffort(input: {
   try {
     const artifactRecord = input.artifact as unknown as Record<string, unknown>;
     const body = asRecordValue(artifactRecord.body);
+    const strategicThesis = asRecordValue(body?.strategicThesis);
+    const contradictionReconciliation = asRecordValue(
+      body?.contradictionReconciliation,
+    );
+    const orderedMoves = asRecordValue(body?.orderedMoves);
     const recommendedMove = asRecordValue(body?.recommendedMove);
     const positioningOptions = asRecordValue(body?.positioningOptions);
     const options = Array.isArray(positioningOptions?.options)
       ? positioningOptions.options
+      : [];
+    const moves = Array.isArray(orderedMoves?.moves)
+      ? orderedMoves.moves
       : [];
 
     const { data, error } = await input.supabase
@@ -304,6 +312,24 @@ async function mergeSynthesizedThesisBestEffort(input: {
       recommendedAngle: readStringValue(recommendedMove, 'optionAngle'),
       rationale: readStringValue(recommendedMove, 'rationale'),
       optionCount: options.length,
+      strategicThesis: readStringValue(strategicThesis, 'thesis'),
+      strategicSegment: readStringValue(strategicThesis, 'segment'),
+      strategicAwareness: readStringValue(strategicThesis, 'awareness'),
+      strategicForce: readStringValue(strategicThesis, 'force'),
+      defensibleDifferentiator: readStringValue(
+        strategicThesis,
+        'defensibleDifferentiator',
+      ),
+      contradiction: readStringValue(
+        contradictionReconciliation,
+        'contradiction',
+      ),
+      resolution: readStringValue(contradictionReconciliation, 'resolution'),
+      tradeOffAccepted: readStringValue(
+        contradictionReconciliation,
+        'tradeOffAccepted',
+      ),
+      ...(orderedMoves === null ? {} : { orderedMoveCount: moves.length }),
       updatedAt: input.updatedAt,
     });
 

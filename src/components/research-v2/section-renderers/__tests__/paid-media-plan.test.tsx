@@ -40,6 +40,16 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     expect(
       within(renderer).getByText('A four-month paid-media plan starts with controlled testing before scale.'),
     ).toBeInTheDocument();
+    expect(within(renderer).getByText('Strategic thesis')).toBeInTheDocument();
+    expect(
+      within(renderer).getByText(/proof-backed time-to-first-campaign wedge/i),
+    ).toBeInTheDocument();
+    expect(
+      within(renderer).getByText('Contradiction reconciliation'),
+    ).toBeInTheDocument();
+    expect(
+      within(renderer).getByText(/Spend first on the narrow speed-and-proof loop/i),
+    ).toBeInTheDocument();
     expect(within(renderer).getByText('Monthly budget')).toBeInTheDocument();
     expect(within(renderer).getAllByText('$3,000').length).toBeGreaterThan(0);
     expect(
@@ -54,6 +64,13 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     ).toBeInTheDocument();
     expect(within(renderer).getAllByText('Free audit').length).toBeGreaterThan(0);
     expect(within(renderer).getAllByText('MQLs').length).toBeGreaterThan(0);
+    expect(within(renderer).getByText('Ordered moves')).toBeInTheDocument();
+    expect(
+      within(renderer).getByText(/Run the time-to-first-campaign free-audit angle/i),
+    ).toBeInTheDocument();
+    expect(
+      within(renderer).getByText(/This tests the thesis force directly/i),
+    ).toBeInTheDocument();
   });
 
   it('renders unknown provenance for legacy artifacts missing provenance fields', (): void => {
