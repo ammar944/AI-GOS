@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-06-04T15:55:31Z-to-2026-06-04T15:59:58Z",
+  "note": "Summary reconstructed from live monitor stdout after the monitor was corrected; not a full audit-state response. Full final API state is in 04-audit-poll-1.json and 10-audit-state-final.json.",
+  "file": "04-audit-poll-5.json",
+  "count": 8,
+  "elapsedMs": 139100,
+  "children_complete": 5,
+  "children_total": 6,
+  "statuses": {
+    "positioningMarketCategory": "complete",
+    "positioningBuyerICP": "complete",
+    "positioningCompetitorLandscape": "complete",
+    "positioningVoiceOfCustomer": "running",
+    "positioningDemandIntent": "complete",
+    "positioningOfferDiagnostic": "complete"
+  }
+}

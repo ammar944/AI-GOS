@@ -1,0 +1,4 @@
+[lab-section] entailment judge failed; using deterministic verifier { claimCount: 47, error: 'No output generated.', sourceCount: 48 }
+[lab-section] entailment judge failed; using deterministic verifier { claimCount: 50, error: 'No output generated.', sourceCount: 45 }
+[lab-section] entailment judge failed; using deterministic verifier { claimCount: 108, error: 'No output generated.', sourceCount: 62 }
+[lab-section] entailment judge failed; using deterministic verifier {

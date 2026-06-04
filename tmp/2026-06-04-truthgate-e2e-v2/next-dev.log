@@ -1,0 +1,331 @@
+
+> aigos@0.1.0 dev
+> next dev -p 3010
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3010
+   - Network:       http://192.168.100.164:3010
+   - Environments: .env.local
+
+ ✓ Starting...
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+ ✓ Ready in 590ms
+ GET /api/research-v2/audit-state?run_id=211bb399-13b6-4e22-8e60-f8315213b34c 200 in 2.8s (compile: 293ms, proxy.ts: 389ms, render: 2.1s)
+ GET / 200 in 1698ms (compile: 1595ms, proxy.ts: 6ms, render: 97ms)
+ POST /api/journey/session 201 in 573ms (compile: 203ms, proxy.ts: 5ms, render: 365ms)
+[dispatch] section=deepResearchProgram contextHash=4c45361318343553 len=54
+ POST /api/research-v2/dispatch 200 in 6.9s (compile: 97ms, proxy.ts: 4ms, render: 6.8s)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 680ms (compile: 4ms, proxy.ts: 7ms, render: 670ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 653ms (compile: 4ms, proxy.ts: 7ms, render: 641ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 707ms (compile: 1127µs, proxy.ts: 7ms, render: 698ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1201ms (compile: 1516µs, proxy.ts: 4ms, render: 1196ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 670ms (compile: 1073µs, proxy.ts: 6ms, render: 664ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 687ms (compile: 3ms, proxy.ts: 6ms, render: 678ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 656ms (compile: 1337µs, proxy.ts: 5ms, render: 650ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 720ms (compile: 3ms, proxy.ts: 24ms, render: 693ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 719ms (compile: 4ms, proxy.ts: 8ms, render: 707ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 688ms (compile: 1013µs, proxy.ts: 8ms, render: 679ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 803ms (compile: 1608µs, proxy.ts: 7ms, render: 794ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 762ms (compile: 1156µs, proxy.ts: 12ms, render: 749ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 635ms (compile: 1127µs, proxy.ts: 4ms, render: 629ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 678ms (compile: 981µs, proxy.ts: 4ms, render: 673ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 686ms (compile: 1102µs, proxy.ts: 3ms, render: 681ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1145ms (compile: 953µs, proxy.ts: 3ms, render: 1141ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 661ms (compile: 1141µs, proxy.ts: 3ms, render: 657ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 705ms (compile: 1557µs, proxy.ts: 8ms, render: 695ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 666ms (compile: 2ms, proxy.ts: 6ms, render: 657ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 885ms (compile: 1610µs, proxy.ts: 8ms, render: 875ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1150ms (compile: 2ms, proxy.ts: 7ms, render: 1141ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 670ms (compile: 1751µs, proxy.ts: 7ms, render: 661ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 367ms (compile: 1987µs, proxy.ts: 7ms, render: 357ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 696ms (compile: 2ms, proxy.ts: 4ms, render: 690ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 856ms (compile: 3ms, proxy.ts: 10ms, render: 843ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1373ms (compile: 1880µs, proxy.ts: 6ms, render: 1364ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 704ms (compile: 1988µs, proxy.ts: 6ms, render: 695ms)
+ GET /api/journey/session?runId=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1480ms (compile: 1646µs, proxy.ts: 90ms, render: 1389ms)
+ POST /api/research-v2/onboarding 200 in 808ms (compile: 156ms, proxy.ts: 5ms, render: 648ms)
+ POST /api/research-v2/run-lab-section 202 in 4.0s (compile: 379ms, proxy.ts: 5ms, render: 3.6s)
+ POST /api/research-v2/run-lab-section 202 in 4.2s (compile: 380ms, proxy.ts: 6ms, render: 3.8s)
+ POST /api/research-v2/run-lab-section 202 in 4.2s (compile: 372ms, proxy.ts: 7ms, render: 3.8s)
+ POST /api/research-v2/run-lab-section 202 in 4.3s (compile: 386ms, proxy.ts: 5ms, render: 3.9s)
+ POST /api/research-v2/run-lab-section 202 in 4.5s (compile: 382ms, proxy.ts: 6ms, render: 4.1s)
+ POST /api/research-v2/run-lab-section 202 in 5.1s (compile: 384ms, proxy.ts: 6ms, render: 4.7s)
+ POST /api/research-v2/orchestrate 200 in 9.4s (compile: 78ms, proxy.ts: 6ms, render: 9.3s)
+[Foreplay] searchBrands called with: { domain: 'brex.com' }
+[Foreplay] Will try domain variants: [
+  'brex.com',
+  'www.brex.com',
+  'https://brex.com',
+  'https://www.brex.com'
+]
+[Foreplay] Trying domain: brex.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=brex.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] searchBrands called with: { domain: 'navan.com' }
+[Foreplay] Will try domain variants: [
+  'navan.com',
+  'www.navan.com',
+  'https://navan.com',
+  'https://www.navan.com'
+]
+[Foreplay] Trying domain: navan.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=navan.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] searchBrands called with: { domain: 'airbase.com' }
+[Foreplay] Will try domain variants: [
+  'airbase.com',
+  'www.airbase.com',
+  'https://airbase.com',
+  'https://www.airbase.com'
+]
+[Foreplay] Trying domain: airbase.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=airbase.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588542010,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] Trying domain: www.brex.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=www.brex.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588542088,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] Trying domain: www.airbase.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=www.airbase.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588542188,"cursor":null,"filters":{},"order":"most_ranked","count":1},"data":[{"id":"ramlViBkHp0AFhhwfxuz","name":"Navan","description":{"text":"The all-in-one corporate travel and expense app.\\n\\nBusiness With Pleasure"},"category":"Travel Company","niches":[],"verification_status":"BLUE_VERIFIED","url":"https://facebook.com/GetNavan","websites":["http://navan.com/"],"avata'
+}
+[Foreplay] Found brands: 1 [ { name: 'Navan', id: 'ramlViBkHp0AFhhwfxuz' } ]
+[Foreplay] searchAds called with: { brand_id: 'ramlViBkHp0AFhhwfxuz', limit: 6 }
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getAdsByBrandId?brand_ids=ramlViBkHp0AFhhwfxuz&limit=6&order=newest (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchAds response: {
+  success: true,
+  error: undefined,
+  rawDataPreview: `{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588542579,"cursor":"eyJ0cyI6IDE3ODAzODM2MDAwMDAsICJpZCI6ICJvVk1scm9WUjJFWmd2ZWhJelVoYyJ9","filters":{},"order":"newest","count":6},"data":[{"id":"aFk6Pmqgmbf6dehAxMX8","ad_id":"1451987789949670","name":"Navan","brand_id":"ramlViBkHp0AFhhwfxuz","description":"Forget the back-and-forth for approvals. Just find the flight or hotel you want to book, and instantly see what's in p`
+}
+[Foreplay] Raw ad keys: [
+  'id',
+  'ad_id',
+  'name',
+  'brand_id',
+  'description',
+  'headline',
+  'cta_title',
+  'categories',
+  'creative_targeting',
+  'languages',
+  'market_target',
+  'niches',
+  'product_category',
+  'timestamped_transcription',
+  'full_transcription',
+  'cards',
+  'avatar',
+  'cta_type',
+  'display_format',
+  'emotional_drivers',
+  'link_url',
+  'live',
+  'persona',
+  'publisher_platform',
+  'started_running',
+  'thumbnail',
+  'time_product_was_mentioned',
+  'type',
+  'video',
+  'image',
+  'content_filter',
+  'running_duration',
+  'video_duration'
+]
+[Foreplay] Raw ad ID fields: {
+  id: 'aFk6Pmqgmbf6dehAxMX8',
+  ad_id: '1451987789949670',
+  ad_library_id: undefined,
+  page_id: undefined,
+  brand_id: 'ramlViBkHp0AFhhwfxuz'
+}
+[Foreplay] Raw ad media fields: {
+  video: 'https://r2.foreplay.co/d6023646527ae7f31b62e4c4bc20ebbb3f6ff98867a02ec1b71b0cd2ffc13e05.mp4',
+  image: null,
+  thumbnail: 'https://r2.foreplay.co/d953a432a6da2c9468ffbc406b3f87dc002cb85b542c551d32fb64a8743fbcdd.jpg'
+}
+[Foreplay] Found ads: 6
+[Foreplay] Sample transformed ad: {
+  "ad_id": "1451987789949670",
+  "ad_library_id": "1451987789949670",
+  "brand": {
+    "id": "ramlViBkHp0AFhhwfxuz",
+    "name": "Navan",
+    "domain": ""
+  },
+  "copy": {
+    "headline": "Same trips, half the hassle ☕️",
+    "body": "Forget the back-and-forth for approvals. Just find the flight or hotel you want to book, and instantly see what's in policy. Simple.",
+    "cta": "",
+    "sponsor_name": "Navan"
+  },
+  "creative": {
+    "type": "video",
+    "url": "https://r2.foreplay.co/d6023646
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588542769,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] Trying domain: https://brex.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=https%3A%2F%2Fbrex.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588542769,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] Trying domain: https://airbase.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=https%3A%2F%2Fairbase.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588543297,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] Trying domain: https://www.airbase.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=https%3A%2F%2Fwww.airbase.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588543299,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] Trying domain: https://www.brex.com
+[Foreplay] GET https://public.api.foreplay.co/api/brand/getBrandsByDomain?domain=https%3A%2F%2Fwww.brex.com&limit=10&order=most_ranked (attempt 1)
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588543678,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] No brands found for any domain variant
+[Foreplay] Response status: 200 OK
+[Foreplay] Response data keys: [ 'metadata', 'data', 'error' ]
+[Foreplay] searchBrands response: {
+  success: true,
+  error: undefined,
+  dataType: 'object',
+  rawData: '{"metadata":{"success":true,"message":"Your request has been processed successfully.","status_code":200,"processed_at":1780588543713,"cursor":null,"filters":{},"order":null,"count":0},"data":[],"error":null}'
+}
+[Foreplay] No brands found for any domain variant
+AI SDK Warning System: To turn off warning logging, set the AI_SDK_LOG_WARNINGS global to false.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1908ms (compile: 2ms, proxy.ts: 5ms, render: 1901ms)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1366ms (compile: 2ms, proxy.ts: 4ms, render: 1360ms)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1046ms (compile: 3ms, proxy.ts: 5ms, render: 1038ms)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 1069ms (compile: 3ms, proxy.ts: 4ms, render: 1062ms)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] entailment judge failed; using deterministic verifier { claimCount: 47, error: 'No output generated.', sourceCount: 48 }
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] entailment judge failed; using deterministic verifier { claimCount: 50, error: 'No output generated.', sourceCount: 45 }
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 2.2s (compile: 2ms, proxy.ts: 8ms, render: 2.2s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] structured stream parse failed; falling back to non-streaming structured call {
+  error: 'No object generated: response did not match schema.',
+  schemaName: 'VoiceOfCustomerSectionOutputBody'
+}
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 4.4s (compile: 2ms, proxy.ts: 5ms, render: 4.4s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] entailment judge failed; using deterministic verifier { claimCount: 108, error: 'No output generated.', sourceCount: 62 }
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 3.9s (compile: 3ms, proxy.ts: 8ms, render: 3.9s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 3.2s (compile: 1564µs, proxy.ts: 3ms, render: 3.2s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] structured stream parse failed; falling back to non-streaming structured call {
+  error: 'No object generated: response did not match schema.',
+  schemaName: 'VoiceOfCustomerSectionOutputBody'
+}
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 4.4s (compile: 4ms, proxy.ts: 7ms, render: 4.3s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 7.2s (compile: 3ms, proxy.ts: 7ms, render: 7.2s)
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 3.5s (compile: 3ms, proxy.ts: 5ms, render: 3.5s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] structured stream parse failed; falling back to non-streaming structured call {
+  error: 'No object generated: response did not match schema.',
+  schemaName: 'VoiceOfCustomerSectionOutputBody'
+}
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 4.8s (compile: 3ms, proxy.ts: 7ms, render: 4.8s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 3.7s (compile: 1907µs, proxy.ts: 6ms, render: 3.7s)
+AI SDK Warning (deepseek.chat / deepseek-v4-flash): The feature "responseFormat JSON schema" is used in a compatibility mode. JSON response schema is injected into the system message.
+[lab-section] entailment judge failed; using deterministic verifier {
+  claimCount: 7,
+  error: 'No object generated: response did not match schema.',
+  sourceCount: 60
+}
+[lab-section-job] section failed {
+  runId: 'cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4',
+  sectionId: 'positioningVoiceOfCustomer',
+  message: 'Section positioningVoiceOfCustomer failed for runId cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4: body.painLanguage.quotes: source g2.com supplies 9 of 10 pain quotes (a single-source majority); draw pain language from multiple independent sources.'
+}
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 3.3s (compile: 1916µs, proxy.ts: 7ms, render: 3.2s)
+ GET /api/research-v2/audit-state?run_id=cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4 200 in 5.2s (compile: 2ms, proxy.ts: 194ms, render: 5.0s)
+ POST /api/share 200 in 5.1s (compile: 118ms, proxy.ts: 12ms, render: 4.9s)
+ POST /shared/BwBQSdTKwYivaktPU0he9 200 in 21ms (compile: 6ms, proxy.ts: 9ms, render: 6ms)
+ GET /shared/BwBQSdTKwYivaktPU0he9 200 in 5.7s (compile: 1477ms, proxy.ts: 12ms, render: 4.2s)
+ POST /shared/BwBQSdTKwYivaktPU0he9 200 in 11ms (compile: 3ms, proxy.ts: 5ms, render: 3ms)
+ GET /shared/BwBQSdTKwYivaktPU0he9 200 in 2.4s (compile: 7ms, proxy.ts: 24ms, render: 2.4s)

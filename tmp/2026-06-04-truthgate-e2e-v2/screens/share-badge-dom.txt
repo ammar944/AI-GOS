@@ -1,0 +1,190 @@
+- main:
+  - heading "Positioning Audit" [level=1]
+  - text: Read-only
+  - navigation:
+    - button "Market & Category Intelligence"
+    - button "Buyer & ICP Validation"
+    - button "Competitor Landscape & Positioning"
+    - button "Demand & Intent Signals"
+    - button "Offer & Performance Diagnostic"
+  - article:
+    - text: Shared Audit
+    - heading "Market & Category Intelligence" [level=1]
+    - generic "Needs review · 15 unsupported · 68% grounded"
+    - paragraph: Spend management platforms combine corporate cards, expense automation, bill pay, and procurement into a single finance automation layer. Ramp's category — integrated spend management — is distinct from standalone expense management (Expensify) and legacy corporate cards (Amex/Chase) by embedding real-time controls and automation at the point of purchase. The global spend management platform market is estimated at $25.8B in 2025 growing to $29.2B in 2026 (13.2% CAGR), while the corporate card market alone is valued at $150B in 2025 projected to reach $280B by 2033. Structural forces include accelerating AI regulation (EU AI Act full enforcement from Aug 2026), platform bundling by ERP vendors, and CFO shift from cost-tracking to proactive spend optimization. The category is in a growing stage with early consolidation signals.
+    - text: Verdict
+    - paragraph: Ramp operates in a rapidly expanding spend management category that is growing at 11-13% CAGR, with strong tailwinds from corporate card digitization and AI adoption, but faces increasing commoditization pressure as platforms like Brex, Navan, and BILL converge on similar feature sets.
+    - generic: 1 · Category Definition
+    - paragraph: "Ramp competes in the integrated spend management category — a platform that combines corporate cards, expense management, bill pay, procurement, and finance automation into a single system. The buyer-understandable category is 'finance automation for company spend,' distinct from standalone corporate cards or basic expense trackers. Buyers' competitive alternatives include manual reimbursement processes, DIY spreadsheets, legacy corporate cards from Amex/Chase, and separate point solutions for expenses and bill pay. Ramp's differentiated category frame is 'all-in-one spend management with real-time controls and automation,' which makes the value obvious: replace multiple tools and enforce policy before the purchase happens, not after."
+    - table:
+      - rowgroup:
+        - row "Adjacent Why buyers confuse Disambiguator Source":
+          - columnheader "Adjacent"
+          - columnheader "Why buyers confuse"
+          - columnheader "Disambiguator"
+          - columnheader "Source"
+      - rowgroup:
+        - row "Traditional corporate cards (Amex, Chase, Citi) Both offer physical and virtual cards for employee spending, with rewards and spend limits. Buyers may assume all corporate cards are alike, especially when solicited by card-issuing banks. Traditional cards are standalone payment products without integrated expense management, receipt matching, policy enforcement, or bill pay automation. Ramp and similar platforms embed card spending within a full finance automation layer. ramp.com":
+          - cell "Traditional corporate cards (Amex, Chase, Citi)"
+          - cell "Both offer physical and virtual cards for employee spending, with rewards and spend limits. Buyers may assume all corporate cards are alike, especially when solicited by card-issuing banks."
+          - cell "Traditional cards are standalone payment products without integrated expense management, receipt matching, policy enforcement, or bill pay automation. Ramp and similar platforms embed card spending within a full finance automation layer."
+          - cell "ramp.com":
+            - link "ramp.com":
+              - /url: https://ramp.com/blog/business-credit-card-statistics-and-metrics
+              - text: ramp.com
+        - 'row "Standalone expense management (Expensify, Concur) Both categories involve tracking employee expenses, receipts, and approvals. Finance teams evaluating spend tools often lump them together. Standalone expense management software is post-spend: it tracks and reports on purchases made elsewhere. Integrated spend management platforms issue the payment instrument and automate controls at the point of purchase, reducing manual reconciliation. mordorintelligence.com"':
+          - cell "Standalone expense management (Expensify, Concur)"
+          - cell "Both categories involve tracking employee expenses, receipts, and approvals. Finance teams evaluating spend tools often lump them together."
+          - 'cell "Standalone expense management software is post-spend: it tracks and reports on purchases made elsewhere. Integrated spend management platforms issue the payment instrument and automate controls at the point of purchase, reducing manual reconciliation."'
+          - cell "mordorintelligence.com":
+            - link "mordorintelligence.com":
+              - /url: https://www.mordorintelligence.com/industry-reports/expense-management-software-market
+              - text: mordorintelligence.com
+        - row "Procurement software (Coupa, Zip) Both manage company purchasing and vendor payments. Procurement software often includes spend analytics and approval workflows overlapping with spend management platforms. Procurement software is designed for structured purchasing workflows (requisition-to-po-to-invoice), while integrated spend management platforms focus on ad-hoc employee spend, card payments, and real-time expense policy enforcement. ziphq.com":
+          - cell "Procurement software (Coupa, Zip)"
+          - cell "Both manage company purchasing and vendor payments. Procurement software often includes spend analytics and approval workflows overlapping with spend management platforms."
+          - cell "Procurement software is designed for structured purchasing workflows (requisition-to-po-to-invoice), while integrated spend management platforms focus on ad-hoc employee spend, card payments, and real-time expense policy enforcement."
+          - cell "ziphq.com":
+            - link "ziphq.com":
+              - /url: https://ziphq.com/blog/corporate-cards
+              - text: ziphq.com
+    - generic: 2 · Market Size
+    - paragraph: "The spend management category is expanding rapidly. Multiple analyst reports triangulate a market size of $23-26B in 2024-2025, growing at 11-13% CAGR. The global spend management platform market was $25.78B in 2025, projected to reach $29.19B in 2026 (Research and Markets). The corporate card segment — a proxy for the card-issuing portion of spend management — was valued at $150B in 2025, growing to $280B by 2033 (8% CAGR). Ramp's own reported annualized revenue reached ~$1.5B in May 2026 with 70K+ customers, up from 50K earlier in the year, reflecting strong adoption within this expanding market. The actionable TAM for a paid-media entrant is narrower: the portion of the $25-29B platform market addressable to U.S. mid-market companies (100-5000 employees) actively evaluating automated spend management, estimated directionally at $4-6B based on the enterprise segmentation in analyst reports."
+    - table:
+      - rowgroup:
+        - row "Signal type Name Evidence Trajectory Method Source":
+          - columnheader "Signal type"
+          - columnheader "Name"
+          - columnheader "Evidence"
+          - columnheader "Trajectory"
+          - columnheader "Method"
+          - columnheader "Source"
+      - rowgroup:
+        - row "Analyst report Global spend management platform market size The global spend management platform market was valued at $25.78 billion in 2025 and is projected to grow to $29.19 billion in 2026, a CAGR of 13.2% [verified] Expanding top-down researchandmarkets.com":
+          - cell "Analyst report":
+            - generic: Analyst report
+          - cell "Global spend management platform market size"
+          - cell "The global spend management platform market was valued at $25.78 billion in 2025 and is projected to grow to $29.19 billion in 2026, a CAGR of 13.2% [verified]"
+          - cell "Expanding":
+            - generic: Expanding
+          - cell "top-down"
+          - cell "researchandmarkets.com":
+            - link "researchandmarkets.com":
+              - /url: https://www.researchandmarkets.com/reports/5983826/spend-management-platform-market-report
+              - text: researchandmarkets.com
+        - row "Public data Corporate card market value The global commercial/corporate card market was estimated at $150 billion in 2025, projected to reach $280 billion by 2033 at 8% CAGR [verified] Expanding top-down datainsightsmarket.com":
+          - cell "Public data":
+            - generic: Public data
+          - cell "Corporate card market value"
+          - cell "The global commercial/corporate card market was estimated at $150 billion in 2025, projected to reach $280 billion by 2033 at 8% CAGR [verified]"
+          - cell "Expanding":
+            - generic: Expanding
+          - cell "top-down"
+          - cell "datainsightsmarket.com":
+            - link "datainsightsmarket.com":
+              - /url: https://www.datainsightsmarket.com/reports/commercialcorporate-card-1397878
+              - text: datainsightsmarket.com
+        - row "Funding flow Ramp's $750M raise at $44B valuation Ramp raised $750M in June 2026 at a $44B post-money valuation, with ICONIQ Capital, GIC, and Ontario Teachers' Pension Plan co-leading. Estimated annualized revenue reached $1.5B in May 2026, up from ~$1.2B at end of 2025 [verified] Expanding bottom-up sacra.com":
+          - cell "Funding flow":
+            - generic: Funding flow
+          - cell "Ramp's $750M raise at $44B valuation"
+          - cell "Ramp raised $750M in June 2026 at a $44B post-money valuation, with ICONIQ Capital, GIC, and Ontario Teachers' Pension Plan co-leading. Estimated annualized revenue reached $1.5B in May 2026, up from ~$1.2B at end of 2025 [verified]"
+          - cell "Expanding":
+            - generic: Expanding
+          - cell "bottom-up"
+          - cell "sacra.com":
+            - link "sacra.com":
+              - /url: https://sacra.com/c/ramp/
+              - text: sacra.com
+        - row "Hiring velocity Finance automation and spend management hiring Job postings for roles in spend management, finance automation, and corporate card product management have grown substantially. Ramp alone has expanded headcount across engineering, sales, and customer success to support 70K+ customers [medium] Expanding bottom-up sacra.com":
+          - cell "Hiring velocity":
+            - generic: Hiring velocity
+          - cell "Finance automation and spend management hiring"
+          - cell "Job postings for roles in spend management, finance automation, and corporate card product management have grown substantially. Ramp alone has expanded headcount across engineering, sales, and customer success to support 70K+ customers [medium]"
+          - cell "Expanding":
+            - generic: Expanding
+          - cell "bottom-up"
+          - cell "sacra.com":
+            - link "sacra.com":
+              - /url: https://sacra.com/c/ramp/
+              - text: sacra.com
+        - row "Search trend Spend management and corporate card search interest Search volume for 'corporate card' and 'spend management software' has grown in line with market expansion. Ramp's own blog traffic and organic presence on 'business credit card statistics' indicates sustained awareness growth [medium] Expanding top-down ramp.com":
+          - cell "Search trend":
+            - generic: Search trend
+          - cell "Spend management and corporate card search interest"
+          - cell "Search volume for 'corporate card' and 'spend management software' has grown in line with market expansion. Ramp's own blog traffic and organic presence on 'business credit card statistics' indicates sustained awareness growth [medium]"
+          - cell "Expanding":
+            - generic: Expanding
+          - cell "top-down"
+          - cell "ramp.com":
+            - link "ramp.com":
+              - /url: https://ramp.com/blog/business-credit-card-statistics-and-metrics
+              - text: ramp.com
+    - generic: 3 · Structural Forces
+    - paragraph: "Three structural forces shape the spend management market. First, regulation: The EU Digital Operational Resilience Act (DORA) fully enforceable from January 2025, the EU AI Act's high-risk provisions effective August 2026, and the U.S. Executive Order on fintech integration (May 2026) create both compliance burdens and barriers to entry for smaller players. Ramp's expansion into EU via BillHop acquisition positions it ahead of these regulatory shifts. Second, platform shift: AI is embedding into every layer of finance — automated receipt matching, real-time policy enforcement, fraud detection, and cash flow forecasting. Platforms that do not natively embed AI risk obsolescence. Third, buyer behavior: CFOs are shifting from reactive cost tracking to proactive spend optimization, demanding integrated platforms over point solutions. This favors all-in-one platforms like Ramp over standalone tools."
+    - table:
+      - rowgroup:
+        - row "Force type Name Implication Impact Direction":
+          - columnheader "Force type"
+          - columnheader "Name"
+          - columnheader "Implication"
+          - columnheader "Impact"
+          - columnheader "Direction"
+      - rowgroup:
+        - row "Regulation Fintech operational resilience and AI regulation Compliance costs act as a moat for established players like Ramp that already have regulatory infrastructure. New entrants face higher barriers, especially for EU market entry. High Accelerating":
+          - cell "Regulation":
+            - generic: Regulation
+          - cell "Fintech operational resilience and AI regulation"
+          - cell "Compliance costs act as a moat for established players like Ramp that already have regulatory infrastructure. New entrants face higher barriers, especially for EU market entry."
+          - cell "High":
+            - generic: High
+          - cell "Accelerating":
+            - generic: Accelerating
+        - row "Platform shift AI-native finance automation Platforms without AI-native capabilities will struggle to compete on automation and efficiency. AI regulation will require transparent model governance, creating both cost and trust advantages for compliant incumbents. High Accelerating":
+          - cell "Platform shift":
+            - generic: Platform shift
+          - cell "AI-native finance automation"
+          - cell "Platforms without AI-native capabilities will struggle to compete on automation and efficiency. AI regulation will require transparent model governance, creating both cost and trust advantages for compliant incumbents."
+          - cell "High":
+            - generic: High
+          - cell "Accelerating":
+            - generic: Accelerating
+        - row "Buyer behavior CFO shift from tracking to optimization Buyers now evaluate platforms on ROI and cash flow impact, not just expense tracking. This favors integrated platforms that combine cards, bill pay, and analytics over standalone expense tools. Medium Accelerating":
+          - cell "Buyer behavior":
+            - generic: Buyer behavior
+          - cell "CFO shift from tracking to optimization"
+          - cell "Buyers now evaluate platforms on ROI and cash flow impact, not just expense tracking. This favors integrated platforms that combine cards, bill pay, and analytics over standalone expense tools."
+          - cell "Medium":
+            - generic: Medium
+          - cell "Accelerating":
+            - generic: Accelerating
+    - generic: 4 · Category Maturity
+    - paragraph: The integrated spend management category is in a growing stage, with early consolidation signals. The market is expanding at 11-13% CAGR (growing), but the number of well-funded competitors (Ramp, Brex, Navan, Airbase, BILL, Expensify, Coupa, Tipalti) indicates increasing player count and feature parity, which are signals of maturation. The category has not yet commoditized because differentiation remains possible through AI automation depth, global coverage, and platform breadth. However, the 2026 acquisition of Brex by Capital One for $5.15B signals that corporate card fintechs are being absorbed by incumbents, a classic consolidation indicator. For a paid-media entrant, the white-space opening is to target mid-market companies that have outgrown basic expense tools but find enterprise platforms (Coupa, SAP Concur) too complex and expensive. The second opening is vertical-specific spend management (e.g., healthcare, construction, nonprofits) where generic platforms lack tailored policy controls and compliance workflows.
+    - heading "Growing" [level=4]
+    - generic: stage classification
+    - paragraph: The spend management platform market is growing at 11-13% CAGR with $25-29B in revenue, multiple well-funded players, increasing feature parity, and initial consolidation via acquisitions. Buyer education is moderate but improving. Price pressure is emerging in the SMB segment but not yet in mid-market. The category is not commoditizing because AI automation and platform breadth still enable meaningful differentiation.
+    - list:
+      - generic: Player count
+      - link "sacra.com":
+        - /url: https://sacra.com/c/ramp/
+        - text: sacra.com
+      - generic: "evidenceAt least 8 well-funded competitors operate in the integrated spend management space: Ramp ($44B valuation), Brex (acquired by Capital One for $5.15B in Jan 2026), Navan, Airbase, BILL, Expensify, Coupa, Tipalti. Multiple analyst reports list 15+ vendors globally [verified]"
+      - generic: implicationHigh player count signals a growing market with room for differentiation, but also increases competitive intensity and customer acquisition costs.
+      - generic: Feature parity
+      - link "ramp.com":
+        - /url: https://ramp.com/
+        - text: ramp.com
+      - generic: evidenceCore features — corporate cards, expense tracking, receipt matching, bill pay, accounting integrations — are now table stakes across Ramp, Brex, Navan, and Airbase. Differentiation has shifted to AI depth, global coverage, and vertical-specific workflows [medium]
+      - generic: implicationFeature parity raises the bar for new entrants; differentiation must come from buyer experience, AI capabilities, or vertical specialization rather than basic functionality.
+      - generic: Price pressure
+      - link "ramp.com":
+        - /url: https://ramp.com/corporate-cards
+        - text: ramp.com
+      - generic: evidenceRamp offers its base card and expense platform with no annual fee, no interest, and no personal guarantee. Competitors like Brex and Expensify have also moved to zero-fee models for core features. Premium features and enterprise tiers carry subscription fees [verified]
+      - generic: implicationPrice pressure exists at the entry-level SMB segment, but mid-market and enterprise customers are willing to pay for advanced automation, compliance, and global capabilities.
+  - link "Create Your Own":
+    - /url: /research-v3
+    - text: Create Your Own
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

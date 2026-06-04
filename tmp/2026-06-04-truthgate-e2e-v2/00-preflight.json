@@ -1,0 +1,90 @@
+{
+  "observedAt": "2026-06-04T15:50:29.744Z",
+  "cwd": "/Users/ammar/Dev-Projects/AI-GOS",
+  "branch": "feat/research-quality-truthgate",
+  "head": "e4b02d9476c497b5992ec4c3ea3b455e99782275",
+  "expectedHeadPrefix": "e4b02d94",
+  "gitStatus": [
+    "M .gitignore",
+    "?? docs/2026-06-03-supabase-to-railway-migration-plan.md"
+  ],
+  "envPresent": {
+    "DEEPSEEK_API_KEY": true,
+    "BRAVE_SEARCH_API_KEY": true,
+    "PERPLEXITY_API_KEY": true,
+    "SEARCHAPI_KEY": true,
+    "RAILWAY_WORKER_URL": true,
+    "RAILWAY_API_KEY": true,
+    "NEXT_PUBLIC_SUPABASE_URL": true,
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": true,
+    "CLERK_SECRET_KEY": true,
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": true,
+    "SUPABASE_SERVICE_ROLE_KEY": true
+  },
+  "labEngineProvider": "deepseek-direct",
+  "labVerifierMaxUnsupportedUnset": true,
+  "auth": {
+    "ownerUserId": "user_38cLJEcQD4FBbI3Rni00d8N3lHD",
+    "sanityAuditStateStatus": 200,
+    "method": "fresh temporary Clerk session bearer token; no token value written",
+    "browserSignedIn": true
+  },
+  "devServer": {
+    "url": "http://127.0.0.1:3010",
+    "listenerPid": "57296",
+    "listenerParentPid": "57271",
+    "rootStatus": 200
+  },
+  "worker": {
+    "healthStatus": 200,
+    "health": {
+      "status": "ok",
+      "uptime": 22872.973576583,
+      "timestamp": "2026-06-04T15:50:28.023Z"
+    },
+    "capabilitiesStatus": 200,
+    "capabilities": {
+      "status": "ok",
+      "anthropic": {
+        "authConfigured": true,
+        "skills": {
+          "enabled": true,
+          "source": "defaults",
+          "skillCount": 7,
+          "skillRefs": [
+            "custom:skill_01...pL2yjB",
+            "custom:skill_01...ZaMtr7",
+            "custom:skill_01...xhPAvh",
+            "custom:skill_01...dVHtYv",
+            "custom:skill_01...xFmMQi",
+            "custom:skill_01...wxs849",
+            "custom:skill_01...pAdC4x"
+          ],
+          "betaHeaders": [
+            "skills-2025-10-02",
+            "code-execution-2025-08-25"
+          ],
+          "codeExecutionToolEnabled": true
+        }
+      },
+      "tools": {
+        "webSearch": true,
+        "spyfu": true,
+        "firecrawl": true,
+        "googleAds": false,
+        "metaAds": false,
+        "ga4": false,
+        "charting": true
+      },
+      "worker_url": "http://localhost:3001",
+      "worker_version": "1.0.0",
+      "orchestrate_supported": false
+    }
+  },
+  "migration": {
+    "columnsSelectableStatus": 200,
+    "columnsSelectable": true,
+    "commitArtifactSectionRpcInOpenApi": true,
+    "verifiedVia": "Supabase REST service-role read/OpenAPI probe; migration not applied in this run"
+  }
+}

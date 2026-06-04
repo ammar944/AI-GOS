@@ -1,0 +1,326 @@
+{
+  "deepResearchProgram": {
+    "Ramp": {
+      "count": 86,
+      "firstIndex": 22
+    },
+    "Brex": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "Navan": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "Airbase": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CFO": {
+      "count": 1,
+      "firstIndex": 4325
+    },
+    "VP Finance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CAC": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$12,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$8,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "trance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "track": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "DJ": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "remix": {
+      "count": 0,
+      "firstIndex": -1
+    }
+  },
+  "positioningBuyerICP": {
+    "Ramp": {
+      "count": 200,
+      "firstIndex": 93
+    },
+    "Brex": {
+      "count": 14,
+      "firstIndex": 9543
+    },
+    "Navan": {
+      "count": 7,
+      "firstIndex": 9549
+    },
+    "Airbase": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CFO": {
+      "count": 62,
+      "firstIndex": 216
+    },
+    "VP Finance": {
+      "count": 6,
+      "firstIndex": 2461
+    },
+    "CAC": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$12,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$8,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "trance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "track": {
+      "count": 7,
+      "firstIndex": 7097
+    },
+    "DJ": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "remix": {
+      "count": 0,
+      "firstIndex": -1
+    }
+  },
+  "positioningCompetitorLandscape": {
+    "Ramp": {
+      "count": 56,
+      "firstIndex": 47465
+    },
+    "Brex": {
+      "count": 126,
+      "firstIndex": 123
+    },
+    "Navan": {
+      "count": 85,
+      "firstIndex": 129
+    },
+    "Airbase": {
+      "count": 68,
+      "firstIndex": 140
+    },
+    "CFO": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "VP Finance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CAC": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$12,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$8,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "trance": {
+      "count": 6,
+      "firstIndex": 36265
+    },
+    "track": {
+      "count": 10,
+      "firstIndex": 36073
+    },
+    "DJ": {
+      "count": 16,
+      "firstIndex": 11363
+    },
+    "remix": {
+      "count": 0,
+      "firstIndex": -1
+    }
+  },
+  "positioningDemandIntent": {
+    "Ramp": {
+      "count": 102,
+      "firstIndex": 351
+    },
+    "Brex": {
+      "count": 62,
+      "firstIndex": 683
+    },
+    "Navan": {
+      "count": 24,
+      "firstIndex": 4269
+    },
+    "Airbase": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CFO": {
+      "count": 20,
+      "firstIndex": 219
+    },
+    "VP Finance": {
+      "count": 2,
+      "firstIndex": 5898
+    },
+    "CAC": {
+      "count": 2,
+      "firstIndex": 28241
+    },
+    "$12,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$8,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "trance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "track": {
+      "count": 3,
+      "firstIndex": 14581
+    },
+    "DJ": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "remix": {
+      "count": 0,
+      "firstIndex": -1
+    }
+  },
+  "positioningOfferDiagnostic": {
+    "Ramp": {
+      "count": 110,
+      "firstIndex": 738
+    },
+    "Brex": {
+      "count": 8,
+      "firstIndex": 6730
+    },
+    "Navan": {
+      "count": 8,
+      "firstIndex": 6735
+    },
+    "Airbase": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CFO": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "VP Finance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CAC": {
+      "count": 63,
+      "firstIndex": 458
+    },
+    "$12,000": {
+      "count": 11,
+      "firstIndex": 1259
+    },
+    "$8,000": {
+      "count": 11,
+      "firstIndex": 1280
+    },
+    "trance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "track": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "DJ": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "remix": {
+      "count": 0,
+      "firstIndex": -1
+    }
+  },
+  "positioningMarketCategory": {
+    "Ramp": {
+      "count": 72,
+      "firstIndex": 505
+    },
+    "Brex": {
+      "count": 8,
+      "firstIndex": 3752
+    },
+    "Navan": {
+      "count": 5,
+      "firstIndex": 3758
+    },
+    "Airbase": {
+      "count": 4,
+      "firstIndex": 3765
+    },
+    "CFO": {
+      "count": 8,
+      "firstIndex": 7441
+    },
+    "VP Finance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "CAC": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$12,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "$8,000": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "trance": {
+      "count": 0,
+      "firstIndex": -1
+    },
+    "track": {
+      "count": 13,
+      "firstIndex": 5668
+    },
+    "DJ": {
+      "count": 1,
+      "firstIndex": 10794
+    },
+    "remix": {
+      "count": 0,
+      "firstIndex": -1
+    }
+  }
+}

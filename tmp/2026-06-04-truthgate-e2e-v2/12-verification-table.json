@@ -1,0 +1,80 @@
+[
+  {
+    "zone": "deepResearchProgram",
+    "title": "Ramp GTM Research",
+    "verdict": null,
+    "confidence": null,
+    "verifiedCount": null,
+    "unsupportedCount": null,
+    "sourceCount": 0,
+    "needsReview": false,
+    "verificationTier": null,
+    "verificationFlagTier": null,
+    "verificationFlagEvidenceGap": null
+  },
+  {
+    "zone": "positioningBuyerICP",
+    "title": "Buyer & ICP Validation",
+    "verdict": "ICP exists and is sizable — 50,000+ businesses, 2,200 enterprise accounts paying $100K+ ARR — but the claimed title set (CFO, VP Finance, Controller) is narrower than the actual buyer set which includes finance managers, directors, and startup founders. Finance leaders are real and reachable, though named-individual evidence for personas is thin beyond a few public case studies.",
+    "confidence": 0.64,
+    "verifiedCount": 32,
+    "unsupportedCount": 18,
+    "sourceCount": 17,
+    "needsReview": false,
+    "verificationTier": "needs_review",
+    "verificationFlagTier": "needs_review",
+    "verificationFlagEvidenceGap": false
+  },
+  {
+    "zone": "positioningCompetitorLandscape",
+    "title": "Competitor Landscape & Positioning",
+    "verdict": "Ramp operates in a crowded card-first spend management market where Brex, BILL, and Expensify offer free tiers, Navan bundles travel uniquely, and Airbase targets mid-market orchestration; the differentiation window is automation breadth and accounting depth, but public weakness evidence is thin for several competitors.",
+    "confidence": 0.8888888888888888,
+    "verifiedCount": 96,
+    "unsupportedCount": 12,
+    "sourceCount": 54,
+    "needsReview": false,
+    "verificationTier": "verified",
+    "verificationFlagTier": "verified",
+    "verificationFlagEvidenceGap": false
+  },
+  {
+    "zone": "positioningDemandIntent",
+    "title": "Demand & Intent Signals",
+    "verdict": "Active demand spans four funnel clusters—problem-aware expense automation, competitive comparison (Ramp vs Brex vs Navan), procurement/AP automation, and travel-and-expense convergence—with strong commercial intent signals and exploitable content gaps in mid-market bill pay and procurement.",
+    "confidence": 0.21052631578947367,
+    "verifiedCount": 12,
+    "unsupportedCount": 45,
+    "sourceCount": 35,
+    "needsReview": false,
+    "verificationTier": "insufficient",
+    "verificationFlagTier": "insufficient",
+    "verificationFlagEvidenceGap": false
+  },
+  {
+    "zone": "positioningMarketCategory",
+    "title": "Market & Category Intelligence",
+    "verdict": "Ramp operates in a rapidly expanding spend management category that is growing at 11-13% CAGR, with strong tailwinds from corporate card digitization and AI adoption, but faces increasing commoditization pressure as platforms like Brex, Navan, and BILL converge on similar feature sets.",
+    "confidence": 0.6808510638297872,
+    "verifiedCount": 32,
+    "unsupportedCount": 15,
+    "sourceCount": 13,
+    "needsReview": false,
+    "verificationTier": "needs_review",
+    "verificationFlagTier": "needs_review",
+    "verificationFlagEvidenceGap": false
+  },
+  {
+    "zone": "positioningOfferDiagnostic",
+    "title": "Offer & Performance Diagnostic",
+    "verdict": "Ramp's offer has strong market fit evidenced by rapid ARR growth and 70K+ customers, but the funnel leaks at demo-to-close (20% conversion, 60-90 day cycle) and channel efficiency is masked by undisclosed CAC per channel; the primary paid-media bottleneck is conversion cost at $12K current CAC vs. $8K target.",
+    "confidence": 0.55,
+    "verifiedCount": 22,
+    "unsupportedCount": 18,
+    "sourceCount": 9,
+    "needsReview": false,
+    "verificationTier": "needs_review",
+    "verificationFlagTier": "needs_review",
+    "verificationFlagEvidenceGap": false
+  }
+]

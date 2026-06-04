@@ -1,0 +1,137 @@
+{
+  "observedAt": "2026-06-04T15:55:41.144Z",
+  "ok": true,
+  "runId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4",
+  "data": {
+    "companyName": "Ramp",
+    "productDescription": "Corporate card, expense management, bill pay, procurement, travel, and accounting automation for finance teams.",
+    "builtFor": "Finance teams at growing companies that need spend controls and faster close.",
+    "salesMotion": "hybrid",
+    "pricingModel": "subscription",
+    "conversionPath": "demo_required",
+    "acv": "gt_50k",
+    "idealCustomer": "CFOs, VP Finance, Controllers, and finance operations leaders at 100-5000 employee companies.",
+    "industry": "B2B fintech / spend management",
+    "jobTitles": "CFO, VP Finance, Controller, Head of Finance, Accounting Manager",
+    "companySize": "100-5000 employees",
+    "geographicFocus": "United States",
+    "triggers": "Rapid hiring, manual expenses, slow month-end close, need tighter spend controls.",
+    "currentAlternative": "Brex, Navan, Airbase, BILL, Expensify, legacy corporate cards, spreadsheets.",
+    "awarenessLevel": "solution_aware",
+    "coreFeatures": "Corporate cards, expenses, bill pay, reimbursements, procurement, accounting integrations, automation.",
+    "firstValueMoment": "Cards issued and spend policies/accounting sync visible to finance.",
+    "activationEvent": "Connect accounting, configure approvals, issue cards.",
+    "retentionDrivers": "Spend visibility, faster close, automated controls, accounting sync.",
+    "pricingTiers": "Use sourced Ramp pricing only; mark undisclosed where unavailable.",
+    "targetPlan": "Ramp Plus / enterprise finance platform",
+    "avgLtv": "$120,000",
+    "targetCac": "$8,000",
+    "monthlyAdBudget": "$75,000",
+    "topCompetitors": "Brex (brex.com), Navan (navan.com), Airbase (airbase.com), BILL (bill.com), Expensify (expensify.com)",
+    "whyCustomersChooseYou": "Consolidated controls, automation, savings, faster close.",
+    "lossReasons": "Existing competitor relationship, travel depth, procurement fit, international support.",
+    "competitorAdvantages": "Brex brand; Navan travel; Airbase procurement/AP; BILL ecosystem; Expensify simplicity.",
+    "primaryGoal90Days": "Increase qualified demos from finance leaders with efficient CAC.",
+    "monthlyPipelineTarget": "$2,000,000 qualified pipeline",
+    "commonObjections": "Switching cost, implementation time, accounting integration confidence, controls migration.",
+    "keyPromises": "Control spend, automate busywork, close books faster, save money.",
+    "brandPositioning": "Ramp helps finance teams control spend and automate finance operations.",
+    "gtmMotion": "SLG",
+    "salesProcessDocs": [],
+    "salesLoomUrl": "",
+    "creativeCapacity": "standard",
+    "leadListAvailable": true,
+    "channels": [
+      "google",
+      "linkedin",
+      "meta",
+      "outbound"
+    ],
+    "budgetSplit": "Google 40%, LinkedIn 35%, Meta 15%, experiments 10%",
+    "whatsWorking": "High-intent search and LinkedIn ABM to finance leaders.",
+    "whatsNotWorking": "Generic finance automation messaging without proof.",
+    "currentCac": "$12,000",
+    "monthlyRevenue": "not disclosed in user brief",
+    "avgSalesCycle": "60-90 days",
+    "visitorToSignup": "not disclosed",
+    "signupToActivation": "not disclosed",
+    "activationToPaid": "not disclosed",
+    "demoToClose": "20%",
+    "growthTrend": "use sourced public/corpus evidence only"
+  },
+  "reviewMetadata": {
+    "source": "onboarding_v2_review",
+    "fieldCount": 49,
+    "lowConfidenceThreshold": 0.7,
+    "pinnedFieldKeys": [],
+    "optionalIncomplete": [],
+    "counts": {
+      "AI-filled": 0,
+      "User-edited": 49,
+      "Missing": 0,
+      "Needs review": 0,
+      "Optional": 0
+    },
+    "fields": {}
+  },
+  "onboarding": {
+    "status": 200,
+    "ok": true,
+    "contentType": "application/json",
+    "body": {
+      "status": "saved"
+    }
+  },
+  "orchestrate": {
+    "status": 200,
+    "ok": true,
+    "contentType": "application/json",
+    "body": {
+      "parent_audit_run_id": "fa6878bc-bd0e-4cb3-bc59-99390dee26bc",
+      "section_run_ids": [
+        {
+          "section_id": "positioningMarketCategory",
+          "section_run_id": "7174116c-1943-4649-8a4c-ce1816f8b685",
+          "ordinal": 1,
+          "reused": false,
+          "status": "queued"
+        },
+        {
+          "section_id": "positioningBuyerICP",
+          "section_run_id": "53c6a3bc-3550-46b2-9d84-f9897f4dcb33",
+          "ordinal": 2,
+          "reused": false,
+          "status": "queued"
+        },
+        {
+          "section_id": "positioningCompetitorLandscape",
+          "section_run_id": "cc2ced28-23af-4bd3-a498-7f457913721c",
+          "ordinal": 3,
+          "reused": false,
+          "status": "queued"
+        },
+        {
+          "section_id": "positioningVoiceOfCustomer",
+          "section_run_id": "95578b57-2d14-4850-bfc8-ec60e0df3cde",
+          "ordinal": 4,
+          "reused": false,
+          "status": "queued"
+        },
+        {
+          "section_id": "positioningDemandIntent",
+          "section_run_id": "f3be1d03-14d7-4e4a-8611-8820555cf752",
+          "ordinal": 5,
+          "reused": false,
+          "status": "queued"
+        },
+        {
+          "section_id": "positioningOfferDiagnostic",
+          "section_run_id": "9c69644c-f364-46a7-a552-f1e0b9300a35",
+          "ordinal": 6,
+          "reused": false,
+          "status": "queued"
+        }
+      ]
+    }
+  }
+}

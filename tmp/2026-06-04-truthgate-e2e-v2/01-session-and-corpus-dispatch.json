@@ -1,0 +1,29 @@
+{
+  "startedAt": "2026-06-04T15:50:29.747Z",
+  "observedAt": "2026-06-04T15:50:37.187Z",
+  "ok": true,
+  "session": {
+    "status": 201,
+    "ok": true,
+    "contentType": "application/json",
+    "body": {
+      "runId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4",
+      "sessionId": "603e0b98-5786-4479-83ba-e2084be71970",
+      "profileId": null
+    }
+  },
+  "corpusDispatch": {
+    "status": 200,
+    "ok": true,
+    "contentType": "application/json",
+    "body": {
+      "status": "queued",
+      "section": "deepResearchProgram",
+      "jobId": "7df1cef4-e680-41bd-83ca-77db258f1483",
+      "userId": "user_38cLJEcQD4FBbI3Rni00d8N3lHD"
+    }
+  },
+  "runId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4",
+  "sessionId": "603e0b98-5786-4479-83ba-e2084be71970",
+  "websiteUrl": "https://ramp.com"
+}

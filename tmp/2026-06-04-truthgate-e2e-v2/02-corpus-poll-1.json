@@ -1,0 +1,990 @@
+{
+  "observedAt": "2026-06-04T15:55:12.382Z",
+  "elapsedMsSinceDispatch": 276853,
+  "status": "running",
+  "response": {
+    "status": 200,
+    "ok": true,
+    "contentType": "application/json",
+    "body": {
+      "metadata": {
+        "websiteUrl": "https://ramp.com",
+        "lastUpdated": "2026-06-04T15:50:33.851Z",
+        "activeJourneyRunId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4"
+      },
+      "researchResults": null,
+      "jobStatus": {
+        "7df1cef4-e680-41bd-83ca-77db258f1483": {
+          "tool": "runDeepResearchProgram",
+          "runId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4",
+          "status": "running",
+          "updates": [
+            {
+              "at": "2026-06-04T15:50:35.530Z",
+              "id": "8b63261b-33d3-49bb-aef2-478b0120aa49",
+              "phase": "runner",
+              "message": "research job started"
+            },
+            {
+              "at": "2026-06-04T15:50:37.210Z",
+              "id": "aa216902-6ede-4f2e-88a3-e0f22acc67be",
+              "phase": "runner",
+              "message": "launching research analysis"
+            },
+            {
+              "at": "2026-06-04T15:50:37.873Z",
+              "id": "db086c16-f52f-436c-9885-e2e77796a344",
+              "phase": "runner",
+              "message": "starting company research extraction"
+            },
+            {
+              "at": "2026-06-04T15:50:38.490Z",
+              "id": "bba68e80-a591-4813-8f02-fb1452c31a7e",
+              "meta": {
+                "title": "https://ramp.com GTM Research",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-clear"
+              },
+              "phase": "artifact",
+              "message": "https://ramp.com GTM Research"
+            },
+            {
+              "at": "2026-06-04T15:50:39.112Z",
+              "id": "bf3bb643-584a-453e-a40d-f33838212e53",
+              "meta": {
+                "title": "https://ramp.com GTM Research",
+                "status": "researching",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-section-state"
+              },
+              "phase": "artifact",
+              "message": "researching"
+            },
+            {
+              "at": "2026-06-04T15:50:39.733Z",
+              "id": "10ebf84c-fca1-47a4-8096-31ec0287f72b",
+              "meta": {
+                "title": "https://ramp.com GTM Research",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-delta"
+              },
+              "phase": "artifact",
+              "message": "# https://ramp.com GTM Research\n\n## Deep Research\n\nPerplexity sonar is building the cited company corpus..."
+            },
+            {
+              "at": "2026-06-04T15:50:40.350Z",
+              "id": "5ae74db0-973d-4a1d-bc5e-dbddaa66d7b6",
+              "phase": "runner",
+              "message": "querying Perplexity sonar-pro for cited company corpus"
+            },
+            {
+              "at": "2026-06-04T15:51:07.212Z",
+              "id": "24dee5a3-7cb5-4b0a-9170-1b229dccbe27",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:51:37.213Z",
+              "id": "d765ba0e-bea8-4c02-b1f5-5c6ee04d1128",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:52:07.214Z",
+              "id": "07e936f6-aabd-4563-b84b-c3f9b5ae712a",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:52:37.215Z",
+              "id": "fd28f67c-a7db-48a8-af50-fa6c6e1ceec9",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:53:07.216Z",
+              "id": "597b5623-de0f-4e9a-abc5-3c1a7f4e54c4",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:53:37.218Z",
+              "id": "854cfe6e-0c4a-4a99-a7b3-3207dfabdc06",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:53:51.240Z",
+              "id": "ff151a60-ac20-462e-b453-9d1d66f1d902",
+              "phase": "analysis",
+              "message": "expanding Perplexity citations (3/6)"
+            },
+            {
+              "at": "2026-06-04T15:54:07.219Z",
+              "id": "e9b06fd8-4a77-4ae2-86e5-7946facbc5b2",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:54:16.649Z",
+              "id": "fff5f7a6-02d5-4252-a187-a3fa5e024030",
+              "phase": "analysis",
+              "message": "repairing Perplexity corpus JSON from cited draft"
+            },
+            {
+              "at": "2026-06-04T15:54:37.218Z",
+              "id": "506f3705-3fc1-4fb1-8bf1-4e62ee7efc94",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            },
+            {
+              "at": "2026-06-04T15:54:55.073Z",
+              "id": "2794a6ab-2074-461e-ac40-ad7cda2b61eb",
+              "phase": "analysis",
+              "message": "expanding Perplexity citations (3/6)"
+            },
+            {
+              "at": "2026-06-04T15:55:05.812Z",
+              "id": "b0bd9e8c-24bd-4710-97fd-f3ca83b4384c",
+              "phase": "analysis",
+              "message": "repairing corpus against captured Perplexity citations"
+            },
+            {
+              "at": "2026-06-04T15:55:07.219Z",
+              "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+              "phase": "heartbeat",
+              "message": "Still running…"
+            }
+          ],
+          "startedAt": "2026-06-04T15:50:35.530Z",
+          "lastHeartbeat": "2026-06-04T15:55:07.219Z"
+        }
+      },
+      "onboardingData": null,
+      "runId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4",
+      "updatedAt": "2026-06-04T15:55:08.021935+00:00",
+      "sessionId": "603e0b98-5786-4479-83ba-e2084be71970",
+      "profileId": null,
+      "view": {
+        "run": {
+          "sessionId": "603e0b98-5786-4479-83ba-e2084be71970",
+          "profileId": null,
+          "runId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4",
+          "companyName": null,
+          "createdAt": "2026-06-04T15:50:30.146171+00:00",
+          "updatedAt": "2026-06-04T15:55:08.021935+00:00",
+          "raw": {
+            "websiteUrl": "https://ramp.com",
+            "lastUpdated": "2026-06-04T15:50:33.851Z",
+            "activeJourneyRunId": "cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4"
+          }
+        },
+        "status": "running",
+        "sections": [
+          {
+            "id": "deepResearchProgram",
+            "label": "Deep Research",
+            "order": 0,
+            "phase": "researching",
+            "status": "running",
+            "result": null,
+            "activity": {
+              "status": "running",
+              "tool": "runDeepResearchProgram",
+              "startedAt": "2026-06-04T15:50:35.530Z",
+              "lastHeartbeat": "2026-06-04T15:55:07.219Z",
+              "updates": [
+                {
+                  "at": "2026-06-04T15:50:35.530Z",
+                  "id": "8b63261b-33d3-49bb-aef2-478b0120aa49",
+                  "message": "research job started",
+                  "phase": "runner"
+                },
+                {
+                  "at": "2026-06-04T15:50:37.210Z",
+                  "id": "aa216902-6ede-4f2e-88a3-e0f22acc67be",
+                  "message": "launching research analysis",
+                  "phase": "runner"
+                },
+                {
+                  "at": "2026-06-04T15:50:37.873Z",
+                  "id": "db086c16-f52f-436c-9885-e2e77796a344",
+                  "message": "starting company research extraction",
+                  "phase": "runner"
+                },
+                {
+                  "at": "2026-06-04T15:50:38.490Z",
+                  "id": "bba68e80-a591-4813-8f02-fb1452c31a7e",
+                  "message": "https://ramp.com GTM Research",
+                  "phase": "artifact",
+                  "meta": {
+                    "title": "https://ramp.com GTM Research",
+                    "section": "deepResearchProgram",
+                    "eventType": "artifact-clear"
+                  }
+                },
+                {
+                  "at": "2026-06-04T15:50:39.112Z",
+                  "id": "bf3bb643-584a-453e-a40d-f33838212e53",
+                  "message": "researching",
+                  "phase": "artifact",
+                  "meta": {
+                    "title": "https://ramp.com GTM Research",
+                    "status": "researching",
+                    "section": "deepResearchProgram",
+                    "eventType": "artifact-section-state"
+                  }
+                },
+                {
+                  "at": "2026-06-04T15:50:39.733Z",
+                  "id": "10ebf84c-fca1-47a4-8096-31ec0287f72b",
+                  "message": "# https://ramp.com GTM Research\n\n## Deep Research\n\nPerplexity sonar is building the cited company corpus...",
+                  "phase": "artifact",
+                  "meta": {
+                    "title": "https://ramp.com GTM Research",
+                    "section": "deepResearchProgram",
+                    "eventType": "artifact-delta"
+                  }
+                },
+                {
+                  "at": "2026-06-04T15:50:40.350Z",
+                  "id": "5ae74db0-973d-4a1d-bc5e-dbddaa66d7b6",
+                  "message": "querying Perplexity sonar-pro for cited company corpus",
+                  "phase": "runner"
+                },
+                {
+                  "at": "2026-06-04T15:51:07.212Z",
+                  "id": "24dee5a3-7cb5-4b0a-9170-1b229dccbe27",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:51:37.213Z",
+                  "id": "d765ba0e-bea8-4c02-b1f5-5c6ee04d1128",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:52:07.214Z",
+                  "id": "07e936f6-aabd-4563-b84b-c3f9b5ae712a",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:52:37.215Z",
+                  "id": "fd28f67c-a7db-48a8-af50-fa6c6e1ceec9",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:53:07.216Z",
+                  "id": "597b5623-de0f-4e9a-abc5-3c1a7f4e54c4",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:53:37.218Z",
+                  "id": "854cfe6e-0c4a-4a99-a7b3-3207dfabdc06",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:53:51.240Z",
+                  "id": "ff151a60-ac20-462e-b453-9d1d66f1d902",
+                  "message": "expanding Perplexity citations (3/6)",
+                  "phase": "analysis"
+                },
+                {
+                  "at": "2026-06-04T15:54:07.219Z",
+                  "id": "e9b06fd8-4a77-4ae2-86e5-7946facbc5b2",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:54:16.649Z",
+                  "id": "fff5f7a6-02d5-4252-a187-a3fa5e024030",
+                  "message": "repairing Perplexity corpus JSON from cited draft",
+                  "phase": "analysis"
+                },
+                {
+                  "at": "2026-06-04T15:54:37.218Z",
+                  "id": "506f3705-3fc1-4fb1-8bf1-4e62ee7efc94",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                },
+                {
+                  "at": "2026-06-04T15:54:55.073Z",
+                  "id": "2794a6ab-2074-461e-ac40-ad7cda2b61eb",
+                  "message": "expanding Perplexity citations (3/6)",
+                  "phase": "analysis"
+                },
+                {
+                  "at": "2026-06-04T15:55:05.812Z",
+                  "id": "b0bd9e8c-24bd-4710-97fd-f3ca83b4384c",
+                  "message": "repairing corpus against captured Perplexity citations",
+                  "phase": "analysis"
+                },
+                {
+                  "at": "2026-06-04T15:55:07.219Z",
+                  "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+                  "message": "Still running…",
+                  "phase": "heartbeat"
+                }
+              ],
+              "jobId": "7df1cef4-e680-41bd-83ca-77db258f1483",
+              "section": "deepResearchProgram"
+            },
+            "cards": [],
+            "latestEvent": {
+              "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:55:07.219Z"
+            },
+            "events": [
+              {
+                "id": "8b63261b-33d3-49bb-aef2-478b0120aa49",
+                "section": "deepResearchProgram",
+                "type": "runner",
+                "message": "research job started",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:35.530Z"
+              },
+              {
+                "id": "aa216902-6ede-4f2e-88a3-e0f22acc67be",
+                "section": "deepResearchProgram",
+                "type": "runner",
+                "message": "launching research analysis",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:37.210Z"
+              },
+              {
+                "id": "db086c16-f52f-436c-9885-e2e77796a344",
+                "section": "deepResearchProgram",
+                "type": "runner",
+                "message": "starting company research extraction",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:37.873Z"
+              },
+              {
+                "id": "bba68e80-a591-4813-8f02-fb1452c31a7e",
+                "section": "deepResearchProgram",
+                "type": "artifact",
+                "message": "https://ramp.com GTM Research",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:38.490Z",
+                "metadata": {
+                  "title": "https://ramp.com GTM Research",
+                  "section": "deepResearchProgram",
+                  "eventType": "artifact-clear"
+                }
+              },
+              {
+                "id": "bf3bb643-584a-453e-a40d-f33838212e53",
+                "section": "deepResearchProgram",
+                "type": "artifact",
+                "message": "researching",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:39.112Z",
+                "metadata": {
+                  "title": "https://ramp.com GTM Research",
+                  "status": "researching",
+                  "section": "deepResearchProgram",
+                  "eventType": "artifact-section-state"
+                }
+              },
+              {
+                "id": "10ebf84c-fca1-47a4-8096-31ec0287f72b",
+                "section": "deepResearchProgram",
+                "type": "artifact",
+                "message": "# https://ramp.com GTM Research\n\n## Deep Research\n\nPerplexity sonar is building the cited company corpus...",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:39.733Z",
+                "metadata": {
+                  "title": "https://ramp.com GTM Research",
+                  "section": "deepResearchProgram",
+                  "eventType": "artifact-delta"
+                }
+              },
+              {
+                "id": "5ae74db0-973d-4a1d-bc5e-dbddaa66d7b6",
+                "section": "deepResearchProgram",
+                "type": "runner",
+                "message": "querying Perplexity sonar-pro for cited company corpus",
+                "status": "running",
+                "createdAt": "2026-06-04T15:50:40.350Z"
+              },
+              {
+                "id": "24dee5a3-7cb5-4b0a-9170-1b229dccbe27",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:51:07.212Z"
+              },
+              {
+                "id": "d765ba0e-bea8-4c02-b1f5-5c6ee04d1128",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:51:37.213Z"
+              },
+              {
+                "id": "07e936f6-aabd-4563-b84b-c3f9b5ae712a",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:52:07.214Z"
+              },
+              {
+                "id": "fd28f67c-a7db-48a8-af50-fa6c6e1ceec9",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:52:37.215Z"
+              },
+              {
+                "id": "597b5623-de0f-4e9a-abc5-3c1a7f4e54c4",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:53:07.216Z"
+              },
+              {
+                "id": "854cfe6e-0c4a-4a99-a7b3-3207dfabdc06",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:53:37.218Z"
+              },
+              {
+                "id": "ff151a60-ac20-462e-b453-9d1d66f1d902",
+                "section": "deepResearchProgram",
+                "type": "analysis",
+                "message": "expanding Perplexity citations (3/6)",
+                "status": "running",
+                "createdAt": "2026-06-04T15:53:51.240Z"
+              },
+              {
+                "id": "e9b06fd8-4a77-4ae2-86e5-7946facbc5b2",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:54:07.219Z"
+              },
+              {
+                "id": "fff5f7a6-02d5-4252-a187-a3fa5e024030",
+                "section": "deepResearchProgram",
+                "type": "analysis",
+                "message": "repairing Perplexity corpus JSON from cited draft",
+                "status": "running",
+                "createdAt": "2026-06-04T15:54:16.649Z"
+              },
+              {
+                "id": "506f3705-3fc1-4fb1-8bf1-4e62ee7efc94",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:54:37.218Z"
+              },
+              {
+                "id": "2794a6ab-2074-461e-ac40-ad7cda2b61eb",
+                "section": "deepResearchProgram",
+                "type": "analysis",
+                "message": "expanding Perplexity citations (3/6)",
+                "status": "running",
+                "createdAt": "2026-06-04T15:54:55.073Z"
+              },
+              {
+                "id": "b0bd9e8c-24bd-4710-97fd-f3ca83b4384c",
+                "section": "deepResearchProgram",
+                "type": "analysis",
+                "message": "repairing corpus against captured Perplexity citations",
+                "status": "running",
+                "createdAt": "2026-06-04T15:55:05.812Z"
+              },
+              {
+                "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+                "section": "deepResearchProgram",
+                "type": "heartbeat",
+                "message": "Still running…",
+                "status": "running",
+                "createdAt": "2026-06-04T15:55:07.219Z"
+              }
+            ],
+            "blocker": null,
+            "pendingDependencyReason": null
+          },
+          {
+            "id": "industryMarket",
+            "label": "Market & Category",
+            "order": 1,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          },
+          {
+            "id": "icpValidation",
+            "label": "Buyer & ICP",
+            "order": 2,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          },
+          {
+            "id": "competitors",
+            "label": "Competitors",
+            "order": 3,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          },
+          {
+            "id": "offerAnalysis",
+            "label": "Offer Diagnostic",
+            "order": 4,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          },
+          {
+            "id": "crossAnalysis",
+            "label": "VOC & Objections",
+            "order": 5,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          },
+          {
+            "id": "keywordIntel",
+            "label": "Demand & Intent",
+            "order": 6,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          },
+          {
+            "id": "mediaPlan",
+            "label": "Media Plan",
+            "order": 7,
+            "phase": "queued",
+            "status": "queued",
+            "result": null,
+            "activity": null,
+            "cards": [],
+            "latestEvent": null,
+            "events": [],
+            "blocker": null,
+            "pendingDependencyReason": "Waiting for Deep Research to finish."
+          }
+        ],
+        "deepResearchActivity": {
+          "status": "running",
+          "tool": "runDeepResearchProgram",
+          "startedAt": "2026-06-04T15:50:35.530Z",
+          "lastHeartbeat": "2026-06-04T15:55:07.219Z",
+          "updates": [
+            {
+              "at": "2026-06-04T15:50:35.530Z",
+              "id": "8b63261b-33d3-49bb-aef2-478b0120aa49",
+              "message": "research job started",
+              "phase": "runner"
+            },
+            {
+              "at": "2026-06-04T15:50:37.210Z",
+              "id": "aa216902-6ede-4f2e-88a3-e0f22acc67be",
+              "message": "launching research analysis",
+              "phase": "runner"
+            },
+            {
+              "at": "2026-06-04T15:50:37.873Z",
+              "id": "db086c16-f52f-436c-9885-e2e77796a344",
+              "message": "starting company research extraction",
+              "phase": "runner"
+            },
+            {
+              "at": "2026-06-04T15:50:38.490Z",
+              "id": "bba68e80-a591-4813-8f02-fb1452c31a7e",
+              "message": "https://ramp.com GTM Research",
+              "phase": "artifact",
+              "meta": {
+                "title": "https://ramp.com GTM Research",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-clear"
+              }
+            },
+            {
+              "at": "2026-06-04T15:50:39.112Z",
+              "id": "bf3bb643-584a-453e-a40d-f33838212e53",
+              "message": "researching",
+              "phase": "artifact",
+              "meta": {
+                "title": "https://ramp.com GTM Research",
+                "status": "researching",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-section-state"
+              }
+            },
+            {
+              "at": "2026-06-04T15:50:39.733Z",
+              "id": "10ebf84c-fca1-47a4-8096-31ec0287f72b",
+              "message": "# https://ramp.com GTM Research\n\n## Deep Research\n\nPerplexity sonar is building the cited company corpus...",
+              "phase": "artifact",
+              "meta": {
+                "title": "https://ramp.com GTM Research",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-delta"
+              }
+            },
+            {
+              "at": "2026-06-04T15:50:40.350Z",
+              "id": "5ae74db0-973d-4a1d-bc5e-dbddaa66d7b6",
+              "message": "querying Perplexity sonar-pro for cited company corpus",
+              "phase": "runner"
+            },
+            {
+              "at": "2026-06-04T15:51:07.212Z",
+              "id": "24dee5a3-7cb5-4b0a-9170-1b229dccbe27",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:51:37.213Z",
+              "id": "d765ba0e-bea8-4c02-b1f5-5c6ee04d1128",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:52:07.214Z",
+              "id": "07e936f6-aabd-4563-b84b-c3f9b5ae712a",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:52:37.215Z",
+              "id": "fd28f67c-a7db-48a8-af50-fa6c6e1ceec9",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:53:07.216Z",
+              "id": "597b5623-de0f-4e9a-abc5-3c1a7f4e54c4",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:53:37.218Z",
+              "id": "854cfe6e-0c4a-4a99-a7b3-3207dfabdc06",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:53:51.240Z",
+              "id": "ff151a60-ac20-462e-b453-9d1d66f1d902",
+              "message": "expanding Perplexity citations (3/6)",
+              "phase": "analysis"
+            },
+            {
+              "at": "2026-06-04T15:54:07.219Z",
+              "id": "e9b06fd8-4a77-4ae2-86e5-7946facbc5b2",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:54:16.649Z",
+              "id": "fff5f7a6-02d5-4252-a187-a3fa5e024030",
+              "message": "repairing Perplexity corpus JSON from cited draft",
+              "phase": "analysis"
+            },
+            {
+              "at": "2026-06-04T15:54:37.218Z",
+              "id": "506f3705-3fc1-4fb1-8bf1-4e62ee7efc94",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            },
+            {
+              "at": "2026-06-04T15:54:55.073Z",
+              "id": "2794a6ab-2074-461e-ac40-ad7cda2b61eb",
+              "message": "expanding Perplexity citations (3/6)",
+              "phase": "analysis"
+            },
+            {
+              "at": "2026-06-04T15:55:05.812Z",
+              "id": "b0bd9e8c-24bd-4710-97fd-f3ca83b4384c",
+              "message": "repairing corpus against captured Perplexity citations",
+              "phase": "analysis"
+            },
+            {
+              "at": "2026-06-04T15:55:07.219Z",
+              "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+              "message": "Still running…",
+              "phase": "heartbeat"
+            }
+          ],
+          "jobId": "7df1cef4-e680-41bd-83ca-77db258f1483",
+          "section": "deepResearchProgram"
+        },
+        "latestEventBySection": {
+          "deepResearchProgram": {
+            "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+            "section": "deepResearchProgram",
+            "type": "heartbeat",
+            "message": "Still running…",
+            "status": "running",
+            "createdAt": "2026-06-04T15:55:07.219Z"
+          }
+        },
+        "eventsBySection": {
+          "deepResearchProgram": [
+            {
+              "id": "8b63261b-33d3-49bb-aef2-478b0120aa49",
+              "section": "deepResearchProgram",
+              "type": "runner",
+              "message": "research job started",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:35.530Z"
+            },
+            {
+              "id": "aa216902-6ede-4f2e-88a3-e0f22acc67be",
+              "section": "deepResearchProgram",
+              "type": "runner",
+              "message": "launching research analysis",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:37.210Z"
+            },
+            {
+              "id": "db086c16-f52f-436c-9885-e2e77796a344",
+              "section": "deepResearchProgram",
+              "type": "runner",
+              "message": "starting company research extraction",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:37.873Z"
+            },
+            {
+              "id": "bba68e80-a591-4813-8f02-fb1452c31a7e",
+              "section": "deepResearchProgram",
+              "type": "artifact",
+              "message": "https://ramp.com GTM Research",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:38.490Z",
+              "metadata": {
+                "title": "https://ramp.com GTM Research",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-clear"
+              }
+            },
+            {
+              "id": "bf3bb643-584a-453e-a40d-f33838212e53",
+              "section": "deepResearchProgram",
+              "type": "artifact",
+              "message": "researching",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:39.112Z",
+              "metadata": {
+                "title": "https://ramp.com GTM Research",
+                "status": "researching",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-section-state"
+              }
+            },
+            {
+              "id": "10ebf84c-fca1-47a4-8096-31ec0287f72b",
+              "section": "deepResearchProgram",
+              "type": "artifact",
+              "message": "# https://ramp.com GTM Research\n\n## Deep Research\n\nPerplexity sonar is building the cited company corpus...",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:39.733Z",
+              "metadata": {
+                "title": "https://ramp.com GTM Research",
+                "section": "deepResearchProgram",
+                "eventType": "artifact-delta"
+              }
+            },
+            {
+              "id": "5ae74db0-973d-4a1d-bc5e-dbddaa66d7b6",
+              "section": "deepResearchProgram",
+              "type": "runner",
+              "message": "querying Perplexity sonar-pro for cited company corpus",
+              "status": "running",
+              "createdAt": "2026-06-04T15:50:40.350Z"
+            },
+            {
+              "id": "24dee5a3-7cb5-4b0a-9170-1b229dccbe27",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:51:07.212Z"
+            },
+            {
+              "id": "d765ba0e-bea8-4c02-b1f5-5c6ee04d1128",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:51:37.213Z"
+            },
+            {
+              "id": "07e936f6-aabd-4563-b84b-c3f9b5ae712a",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:52:07.214Z"
+            },
+            {
+              "id": "fd28f67c-a7db-48a8-af50-fa6c6e1ceec9",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:52:37.215Z"
+            },
+            {
+              "id": "597b5623-de0f-4e9a-abc5-3c1a7f4e54c4",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:53:07.216Z"
+            },
+            {
+              "id": "854cfe6e-0c4a-4a99-a7b3-3207dfabdc06",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:53:37.218Z"
+            },
+            {
+              "id": "ff151a60-ac20-462e-b453-9d1d66f1d902",
+              "section": "deepResearchProgram",
+              "type": "analysis",
+              "message": "expanding Perplexity citations (3/6)",
+              "status": "running",
+              "createdAt": "2026-06-04T15:53:51.240Z"
+            },
+            {
+              "id": "e9b06fd8-4a77-4ae2-86e5-7946facbc5b2",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:54:07.219Z"
+            },
+            {
+              "id": "fff5f7a6-02d5-4252-a187-a3fa5e024030",
+              "section": "deepResearchProgram",
+              "type": "analysis",
+              "message": "repairing Perplexity corpus JSON from cited draft",
+              "status": "running",
+              "createdAt": "2026-06-04T15:54:16.649Z"
+            },
+            {
+              "id": "506f3705-3fc1-4fb1-8bf1-4e62ee7efc94",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:54:37.218Z"
+            },
+            {
+              "id": "2794a6ab-2074-461e-ac40-ad7cda2b61eb",
+              "section": "deepResearchProgram",
+              "type": "analysis",
+              "message": "expanding Perplexity citations (3/6)",
+              "status": "running",
+              "createdAt": "2026-06-04T15:54:55.073Z"
+            },
+            {
+              "id": "b0bd9e8c-24bd-4710-97fd-f3ca83b4384c",
+              "section": "deepResearchProgram",
+              "type": "analysis",
+              "message": "repairing corpus against captured Perplexity citations",
+              "status": "running",
+              "createdAt": "2026-06-04T15:55:05.812Z"
+            },
+            {
+              "id": "d914fc24-985c-48c1-9a02-eb600a75ac93",
+              "section": "deepResearchProgram",
+              "type": "heartbeat",
+              "message": "Still running…",
+              "status": "running",
+              "createdAt": "2026-06-04T15:55:07.219Z"
+            }
+          ],
+          "industryMarket": [],
+          "icpValidation": [],
+          "competitors": [],
+          "offerAnalysis": [],
+          "crossAnalysis": [],
+          "keywordIntel": [],
+          "mediaPlan": []
+        },
+        "artifactsBySection": {},
+        "artifactsByTool": {},
+        "messages": [],
+        "readiness": {
+          "ready": false,
+          "missingSections": [
+            "deepResearchProgram",
+            "industryMarket",
+            "icpValidation",
+            "competitors",
+            "offerAnalysis",
+            "crossAnalysis",
+            "keywordIntel",
+            "mediaPlan"
+          ],
+          "completedSectionKeys": []
+        }
+      },
+      "artifactSections": null
+    }
+  }
+}

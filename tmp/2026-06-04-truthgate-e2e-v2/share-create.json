@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-06-04T16:02:31.000Z",
+  "status": 200,
+  "ok": true,
+  "body": {
+    "success": true,
+    "shareToken": "BwBQSdTKwYivaktPU0he9",
+    "shareUrl": "ai-gos.vercel.app/shared/BwBQSdTKwYivaktPU0he9"
+  }
+}

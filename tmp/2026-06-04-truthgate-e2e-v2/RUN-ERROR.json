@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-06-04T15:59:58.630Z",
+  "name": "Error",
+  "message": "Section positioningVoiceOfCustomer terminal status=error",
+  "stack": [
+    "Error: Section positioningVoiceOfCustomer terminal status=error",
+    "    at main ([stdin]:146:25)",
+    "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+  ]
+}

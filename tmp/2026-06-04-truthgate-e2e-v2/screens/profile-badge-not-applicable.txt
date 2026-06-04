@@ -1,0 +1,1 @@
+No profile screenshot captured: live run failed at VoC before profile_id was created; journey_sessions.profile_id is null for run cdfe8d6e-94b4-4c08-968b-b9aaf67aa8f4.
