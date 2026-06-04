@@ -43,6 +43,7 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
         "web_search",
         "keyword_ad_probe",
         "keyword_volume",
+        "keyword_trends",
         "firecrawl",
       ],
       maxExternalLookups: 5,

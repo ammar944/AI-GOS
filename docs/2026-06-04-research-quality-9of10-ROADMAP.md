@@ -49,7 +49,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 |---|---|---|---|---|---|
 | **T1** | Strong-model tiering foundation | Foundation | S | — | ☑ Done |
 | **T2** | Agentic Section Review Pass (trust + unblock run) | A. Trust | L | T1 | ◐ Code gate green; live gate pending |
-| **T3** | SpyFu keyword economics — fund + harden + trends fallback | B. Richness | S–M | T1 | ☐ Not started |
+| **T3** | SpyFu keyword economics — fund + harden + trends fallback | B. Richness | S–M | T1 | ◐ Code gate green; live gate pending |
 | **T4** | Real VoC review bodies — port the stranded extractor | B. Richness | M | — | ◐ Code gate green; live gate pending |
 | **T5** | Bottom-up TAM recipe + market-category SKILL rewrite | B. Richness | S–M | T3 | ☐ Not started |
 | **T6** | Depth-forcing skills (shared strategic preamble + verdict fields) | C. Insight | M | — | ☐ Not started |
@@ -82,6 +82,7 @@ So the work splits into **three axes**, and the biggest lever is the one we've b
 **Research:** `src/lib/ai/spyfu-client.ts`, `src/lib/lab-engine/agents/tools/keyword-volume.ts`, `src/lib/env.ts` (SPYFU_API_KEY is `optional`), `positioning-demand-intent/SKILL.md` (the "drop the keyword if no SpyFu volume" IRON LAW).
 **Implement:** (a) promote `SPYFU_API_KEY` to **required** in `env.ts` + `/api/health` gate so a missing/unfunded key fails loud, not silently-estimates; (b) verify the key is funded + quota in Vercel prod (one probe call, scrub the key from output); (c) add a **degraded-but-real** `keyword_trends` fallback using SearchAPI's unused `engine=google_trends` (real relative interest) so demand-intent attaches a falsifiable signal instead of dropping every row when SpyFu 429s.
 **Verify:** demand-intent run shows tool-sourced (not model-estimated) keyword rows; trends fallback fires when SpyFu is unavailable. **Decision:** DG-3 (none needed — key on hand).
+**2026-06-04 Codex evidence:** T3 code gate green. `SPYFU_API_KEY` is now required by env validation and `/api/health`; Demand Intent can use `keyword_volume` first and `keyword_trends` (SearchAPI Google Trends relative interest) as the bounded fallback; the provenance guard is row-scoped and rejects unmatched SpyFu/Trends claims, CPC/numeric siblings without matching SpyFu evidence, model-estimated keyword economics, and empty Trends result shells. One scrubbed SpyFu probe returned HTTP 200 with one result and search-volume data for `project management software`, confirming the local key is valid/funded for this endpoint. Proof: `pnpm exec tsc --noEmit` 0; targeted T3 Vitest 9 files / 75 tests passed; `pnpm run test:run` 175 files / 1492 tests passed / 1 skipped; `pnpm run build` clean; `pnpm run lint` 0 errors / 32 existing warnings; QA re-review GO on the prior row-scoping/no-data blockers. Live Demand Intent gate still pending.
 
 ### T4 — Real VoC review bodies: port the stranded extractor `[B. Richness · M]`
 **Goal:** VoC gets **real verbatim reviews across ≥3 independent sources**, not 160-char Google SERP snippets. The live `reviews` tool returns snippets; the **real review-body extractor already exists** at `research-worker/src/tools/reviews.ts` (`extractTrustpilotReviews`, `extractG2Reviews`) but is stranded in the legacy worker path.

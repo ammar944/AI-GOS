@@ -43,6 +43,12 @@ function withVenueAudience(audienceSize: string): DemandIntentArtifact {
   };
 }
 
+function fixtureKeywordNames(): string[] {
+  return demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+    (keyword) => keyword.keyword,
+  );
+}
+
 describe("validateDemandIntentMinimums — monthlyVolume refusal guard", (): void => {
   it("accepts the fixture (real SpyFu-estimated volumes)", (): void => {
     expect(validateDemandIntentMinimums(demandIntentFixtureArtifact).ok).toBe(
@@ -79,7 +85,7 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
     // Fixture rows all carry "(SpyFu-estimated)" monthlyVolume.
     const result = checkDemandIntentKeywordProvenance({
       artifact: demandIntentFixtureArtifact,
-      keywordVolumeSucceeded: true,
+      keywordVolumeKeywords: fixtureKeywordNames(),
     });
 
     expect(result.ok).toBe(true);
@@ -89,7 +95,6 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
   it("rejects SpyFu-estimated rows when keyword_volume did NOT succeed", (): void => {
     const result = checkDemandIntentKeywordProvenance({
       artifact: demandIntentFixtureArtifact,
-      keywordVolumeSucceeded: false,
     });
 
     expect(result.ok).toBe(false);
@@ -100,8 +105,8 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
     );
   });
 
-  it("accepts honest 'model estimate (SpyFu unavailable)' rows when keyword_volume failed", (): void => {
-    const honest = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+  it("rejects model-estimated rows when keyword tools failed", (): void => {
+    const modelEstimated = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
       (keyword) => ({
         ...keyword,
         monthlyVolume: "320 (model estimate (SpyFu unavailable))",
@@ -113,18 +118,154 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
         ...demandIntentFixtureArtifact.body,
         keywordDemand: {
           ...demandIntentFixtureArtifact.body.keywordDemand,
-          keywords: honest,
+          keywords: modelEstimated,
         },
       },
     };
 
     const result = checkDemandIntentKeywordProvenance({
       artifact,
-      keywordVolumeSucceeded: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("model-estimated keyword economics");
+  });
+
+  it("accepts SearchAPI Google Trends rows when keyword_trends succeeded", (): void => {
+    const trendBacked = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+      (keyword) => ({
+        ...keyword,
+        monthlyVolume: "relative interest 42/100 (SearchAPI Google Trends)",
+        cpc: undefined,
+        monthlyVolumeValue: undefined,
+        cpcValue: undefined,
+        difficulty: undefined,
+        sourceTitle: "SearchAPI Google Trends",
+        sourceUrl:
+          "https://trends.google.com/trends/explore?date=today+12-m&geo=US&q=founder+sales",
+      }),
+    );
+    const artifact: DemandIntentArtifact = {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        keywordDemand: {
+          ...demandIntentFixtureArtifact.body.keywordDemand,
+          keywords: trendBacked,
+        },
+      },
+    };
+
+    const result = checkDemandIntentKeywordProvenance({
+      artifact,
+      keywordTrendKeywords: fixtureKeywordNames(),
     });
 
     expect(result.ok).toBe(true);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it("rejects Trends rows for keywords that keyword_trends did not return", (): void => {
+    const trendBacked = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+      (keyword) => ({
+        ...keyword,
+        monthlyVolume: "relative interest 42/100 (SearchAPI Google Trends)",
+        cpc: undefined,
+        monthlyVolumeValue: undefined,
+        cpcValue: undefined,
+        difficulty: undefined,
+        sourceTitle: "SearchAPI Google Trends",
+        sourceUrl:
+          "https://trends.google.com/trends/explore?date=today+12-m&geo=US&q=founder+sales",
+      }),
+    );
+    const artifact: DemandIntentArtifact = {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        keywordDemand: {
+          ...demandIntentFixtureArtifact.body.keywordDemand,
+          keywords: trendBacked,
+        },
+      },
+    };
+
+    const result = checkDemandIntentKeywordProvenance({
+      artifact,
+      keywordTrendKeywords: [fixtureKeywordNames()[0] ?? ""],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "keyword_trends did not return that keyword",
+    );
+  });
+
+  it("rejects model-estimated rows even when keyword_trends returned the keyword", (): void => {
+    const keywords = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+      (keyword) => ({
+        ...keyword,
+        monthlyVolume: "320 (model estimate)",
+        cpc: undefined,
+        monthlyVolumeValue: undefined,
+        cpcValue: undefined,
+        difficulty: undefined,
+      }),
+    );
+    const artifact: DemandIntentArtifact = {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        keywordDemand: {
+          ...demandIntentFixtureArtifact.body.keywordDemand,
+          keywords,
+        },
+      },
+    };
+
+    const result = checkDemandIntentKeywordProvenance({
+      artifact,
+      keywordTrendKeywords: fixtureKeywordNames(),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("model-estimated keyword economics");
+  });
+
+  it("rejects CPC and numeric siblings when only keyword_trends returned the keyword", (): void => {
+    const keywords = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+      (keyword) => ({
+        ...keyword,
+        monthlyVolume: "relative interest 42/100 (SearchAPI Google Trends)",
+        cpc: "$4.10",
+        monthlyVolumeValue: 42,
+        cpcValue: 4.1,
+        difficulty: 22,
+        sourceTitle: "SearchAPI Google Trends",
+        sourceUrl:
+          "https://trends.google.com/trends/explore?date=today+12-m&geo=US&q=founder+sales",
+      }),
+    );
+    const artifact: DemandIntentArtifact = {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        keywordDemand: {
+          ...demandIntentFixtureArtifact.body.keywordDemand,
+          keywords,
+        },
+      },
+    };
+
+    const result = checkDemandIntentKeywordProvenance({
+      artifact,
+      keywordTrendKeywords: fixtureKeywordNames(),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "without matching keyword_volume data",
+    );
   });
 
   it("rejects a SpyFu-claimed cpc when keyword_volume failed", (): void => {
@@ -133,12 +274,12 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
         index === 0
           ? {
               ...keyword,
-              monthlyVolume: "320 (model estimate (SpyFu unavailable))",
+              monthlyVolume: "data gap (SpyFu and SearchAPI Trends unavailable)",
               cpc: "$4.10 (SpyFu-estimated)",
             }
           : {
               ...keyword,
-              monthlyVolume: "320 (model estimate (SpyFu unavailable))",
+              monthlyVolume: "data gap (SpyFu and SearchAPI Trends unavailable)",
             },
     );
     const artifact: DemandIntentArtifact = {
@@ -154,7 +295,6 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
 
     const result = checkDemandIntentKeywordProvenance({
       artifact,
-      keywordVolumeSucceeded: false,
     });
 
     expect(result.ok).toBe(false);

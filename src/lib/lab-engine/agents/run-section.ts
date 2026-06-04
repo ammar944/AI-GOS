@@ -4486,23 +4486,71 @@ function buildVerifierEvidenceSteps({
   return [...modelSteps, ...adProbeSteps];
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractResultKeywordNames(output: unknown): readonly string[] {
+  if (!isObjectRecord(output) || output.type !== "result") {
+    return [];
+  }
+
+  const keywords = output.keywords;
+
+  if (!Array.isArray(keywords)) {
+    return [];
+  }
+
+  return keywords.flatMap((keyword) => {
+    if (
+      isObjectRecord(keyword) &&
+      typeof keyword.keyword === "string" &&
+      keyword.keyword.trim().length > 0
+    ) {
+      return [keyword.keyword];
+    }
+
+    return [];
+  });
+}
+
+function keywordToolResultKeywords({
+  modelSteps,
+  toolName,
+}: {
+  modelSteps: readonly AgentStep[];
+  toolName: "keyword_trends" | "keyword_volume";
+}): readonly string[] {
+  return modelSteps.flatMap((step) =>
+    step.toolResults.flatMap((toolResult) => {
+      if (toolResult.toolName !== toolName) {
+        return [];
+      }
+
+      return extractResultKeywordNames(toolResult.output);
+    }),
+  );
+}
+
+export function keywordVolumeKeywords(modelSteps: readonly AgentStep[]): readonly string[] {
+  return keywordToolResultKeywords({ modelSteps, toolName: "keyword_volume" });
+}
+
+export function keywordTrendKeywords(modelSteps: readonly AgentStep[]): readonly string[] {
+  return keywordToolResultKeywords({ modelSteps, toolName: "keyword_trends" });
+}
+
 /**
- * True iff some model step's toolResults includes a SUCCESSFUL keyword_volume
- * call (SpyFu). The tool returns a discriminated union: success is
- * `{ type: 'result', source: 'SpyFu', ... }`, a gap (e.g. rate-limited) is
- * `{ type: 'gap', ... }`. Drives checkDemandIntentKeywordProvenance so the
- * model cannot claim SpyFu provenance when the tool failed.
+ * True iff at least one keyword_volume result returned a named keyword. Kept
+ * for focused tests and telemetry-style checks; provenance validation uses the
+ * row-scoped keyword list above.
  */
 export function keywordVolumeSucceeded(modelSteps: readonly AgentStep[]): boolean {
-  return modelSteps.some((step) =>
-    step.toolResults.some(
-      (toolResult) =>
-        toolResult.toolName === "keyword_volume" &&
-        typeof toolResult.output === "object" &&
-        toolResult.output !== null &&
-        (toolResult.output as { type?: unknown }).type === "result",
-    ),
-  );
+  return keywordVolumeKeywords(modelSteps).length > 0;
+}
+
+export function keywordTrendsSucceeded(modelSteps: readonly AgentStep[]): boolean {
+  return keywordTrendKeywords(modelSteps).length > 0;
 }
 
 async function buildVerifiedAttemptFromOutput({
@@ -4603,7 +4651,8 @@ async function buildVerifiedAttemptFromOutput({
   if (input.sectionId === "positioningDemandIntent") {
     const provenance = checkDemandIntentKeywordProvenance({
       artifact,
-      keywordVolumeSucceeded: keywordVolumeSucceeded(modelSteps),
+      keywordTrendKeywords: keywordTrendKeywords(modelSteps),
+      keywordVolumeKeywords: keywordVolumeKeywords(modelSteps),
     });
 
     if (!provenance.ok) {

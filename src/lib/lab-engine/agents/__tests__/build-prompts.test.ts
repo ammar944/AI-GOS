@@ -262,15 +262,19 @@ describe("buildAnswerToolInstructions", (): void => {
     );
 
     expect(prompt).toContain(
-      "optional machine-sortable numeric siblings `monthlyVolumeValue`, `cpcValue`, and `difficulty`",
+      "`body.keywordDemand.keywords[]` keys are `keyword`, `monthlyVolume`, optional `monthlyVolumeValue`, optional `cpc`, optional `cpcValue`, optional `difficulty`",
     );
     expect(prompt).toContain(
       "when `keyword_volume` returns data for a keyword, set `monthlyVolumeValue` to `searchVolume`, `cpcValue` to `cpc`, and `difficulty` to `difficulty` as nonnegative numbers",
     );
     expect(prompt).toContain(
-      "If the tool returns a gap or no row for that keyword, omit the numeric siblings",
+      "If `keyword_volume` returns a gap/rate-limit/no row, call `keyword_trends`",
     );
-    expect(prompt).toContain("do not invent sortable numbers");
+    expect(prompt).toContain(
+      "relative interest 42/100 (SearchAPI Google Trends)",
+    );
+    expect(prompt).toContain("MUST NOT use model-estimated keyword economics");
+    expect(prompt).toContain("Do not invent sortable numbers");
   });
 
   it("spells out Paid Media Plan nested field contracts", (): void => {

@@ -63,7 +63,7 @@ describe('GET /api/health', () => {
     it('returns 503 with status "error" when required vars missing', async () => {
       mockValidateEnv.mockReturnValue({
         valid: false,
-        missing: ['ANTHROPIC_API_KEY', 'SEARCHAPI_KEY'],
+        missing: ['ANTHROPIC_API_KEY', 'SEARCHAPI_KEY', 'SPYFU_API_KEY'],
         warnings: [],
       });
 
@@ -75,6 +75,7 @@ describe('GET /api/health', () => {
       expect(json.checks.environment.status).toBe('error');
       expect(json.checks.environment.missing).toContain('ANTHROPIC_API_KEY');
       expect(json.checks.environment.missing).toContain('SEARCHAPI_KEY');
+      expect(json.checks.environment.missing).toContain('SPYFU_API_KEY');
     });
   });
 

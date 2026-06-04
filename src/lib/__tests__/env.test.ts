@@ -9,6 +9,7 @@ describe("env.ts", () => {
     process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     process.env.SEARCHAPI_KEY = "test-searchapi-key";
     process.env.BRAVE_SEARCH_API_KEY = "test-brave-key";
+    process.env.SPYFU_API_KEY = "test-spyfu-key";
     process.env.CLERK_SECRET_KEY = "test-clerk-secret";
     process.env.CLERK_WEBHOOK_SECRET = "test-clerk-webhook-secret";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
@@ -70,10 +71,24 @@ describe("env.ts", () => {
       expect(result.missing).toContain("BRAVE_SEARCH_API_KEY");
     });
 
+    it("returns valid: false when SPYFU_API_KEY is missing (keyword economics SPOF)", () => {
+      // Arrange: every required var present except the SpyFu key
+      setRequiredEnv();
+      delete process.env.SPYFU_API_KEY;
+
+      // Act
+      const result = validateEnv();
+
+      // Assert
+      expect(result.valid).toBe(false);
+      expect(result.missing).toContain("SPYFU_API_KEY");
+    });
+
     it("returns valid: false with missing public vars listed", () => {
       // Arrange: Missing NEXT_PUBLIC_* vars
       process.env.ANTHROPIC_API_KEY = "test-key";
       process.env.SEARCHAPI_KEY = "test-key";
+      process.env.SPYFU_API_KEY = "test-key";
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -90,6 +105,7 @@ describe("env.ts", () => {
       // Arrange: Set vars to empty strings
       process.env.ANTHROPIC_API_KEY = "";
       process.env.SEARCHAPI_KEY = "   "; // whitespace only
+      process.env.SPYFU_API_KEY = "test-key";
       process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
 

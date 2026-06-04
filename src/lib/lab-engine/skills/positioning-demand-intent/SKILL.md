@@ -48,7 +48,7 @@ Use a two-axis demand taxonomy (funnel depth crossed with demand type) plus a ca
 - Demand type axis (category, solution, branded, competitor-alternative): tag the second axis on each cluster; route "vs", alternative, pricing, and review searches into `body.keywordDemand.keywords` and `body.contentGaps.gaps` when the top result exposes a weak answer.
 - Capture-vs-creation verdict: in `body.keywordDemand.prose` and `body.contentGaps.prose`, quantify capturable in-market demand versus flagging a category-creation problem (the 95/5 rule) when category search is thin; never invent vanity volume to fill the table.
 - Transactional intent: mark high-intent buying terms in `body.keywordDemand.keywords` and connect publicly observable buying behavior to `body.intentSignals.items`.
-- Measured-vs-estimated honesty: state for each volume or CPC whether it is tool-measured or model-estimated in `body.intentSignals.items` and `body.venueMap.venues`; relabel as an estimate when keyword tooling was unavailable.
+- Tool-provenance honesty: state for each volume or CPC whether it came from SpyFu or from SearchAPI Google Trends relative interest; when keyword tooling is unavailable, write an explicit data gap instead of relabeling a model estimate.
 
 Map the lens only into keyword demand (`body.keywordDemand`), question mining (`body.questionMining`), content gaps (`body.contentGaps`), intent signals (`body.intentSignals`), and venue map (`body.venueMap.venues`). If the funnel depth axis, demand type axis, capture-vs-creation verdict, transactional intent, or measured-vs-estimated provenance is missing, write `evidence gap: <missing demand signal>` in the relevant prose instead of inventing demand.
 
@@ -58,7 +58,7 @@ Before any tool calls, read the supplied `businessContext` and shared corpus for
 
 ## IRON LAW
 
-IRON LAW: Put a real, falsifiable signal on every keyword. Use the `keyword_volume` tool (SpyFu) to populate `monthlyVolume` with a SpyFu-estimated number, plus CPC and difficulty. Never write `not disclosed` in `monthlyVolume` — estimates are allowed (label them SpyFu-estimated), refusals are not. Do not fabricate a number the tool did not return.
+IRON LAW: Put a real, falsifiable signal on every keyword. Use the `keyword_volume` tool (SpyFu) first to populate `monthlyVolume` with a SpyFu-estimated number, plus CPC and difficulty. If SpyFu returns a gap/rate limit/no row, use `keyword_trends` (SearchAPI Google Trends) for real relative interest. Never write `not disclosed` or model-estimated keyword economics in `monthlyVolume`; use SpyFu, SearchAPI Trends, or an explicit data gap.
 
 IRON LAW: Every keyword row carries `intentType`, `top3RankingDomains`, a `sourceTitle`, a `sourceUrl`, and the `dateObserved`. Volumes and CPCs are estimates — label them and cite the export date.
 
@@ -85,7 +85,8 @@ IRON LAW: Intent signals must be publicly observable (job postings, RFPs, fundin
 |---|---|---|
 | `web_search` | Find problem-aware queries, comparison patterns, People-Also-Ask, community questions, and demand venues. | URLs, query phrasings, ranking domains, venue names. |
 | `keyword_ad_probe` | Confirm SearchAPI Google SERP organic/ad result counts and top organic URLs; do not treat it as search-volume or ad-spend data. | Organic/ad result counts, top organic URLs, content-only-SERP signal. |
-| `keyword_volume` | Get SpyFu-estimated monthly search volume, top-of-page CPC, and ranking difficulty for a bulk list of keywords (up to 100 in one call). Use it to put a real number on every keyword row. | Per-keyword `searchVolume`, `cpc`, `difficulty` (SpyFu estimates). |
+| `keyword_volume` | Get SpyFu-estimated monthly search volume, top-of-page CPC, and ranking difficulty for a bulk list of keywords (up to 100 in one call). Use it first to put a real number on every keyword row. | Per-keyword `searchVolume`, `cpc`, `difficulty` (SpyFu estimates). |
+| `keyword_trends` | SearchAPI Google Trends fallback when SpyFu is unavailable/rate-limited or has no row. It gives relative interest, not volume or CPC. | Per-keyword `averageInterest`, `peakInterest`, `trendDirection`, `sourceUrl`, `dateObserved`. |
 | `firecrawl` | Read pages deeply for content-gap evidence — what the top-ranking answer actually covers and misses. | Page text, answer depth, recency, missing buyer concerns. |
 
 Only these research tools are available for this section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
@@ -96,7 +97,7 @@ Only these research tools are available for this section. Shape enforcement and 
    Validation: company URL, category, competitor names, and any existing demand evidence are in hand.
 
 2. Map keyword demand and flag paid-wedge candidates.
-   Validation: `keywordDemand.keywords` has at least 10 keywords, each with `intentType`, `top3RankingDomains`, a SpyFu-estimated `monthlyVolume` (from `keyword_volume`), `sourceTitle`, `sourceUrl`, `dateObserved`. Flag content-only-top-3 keywords as paid-wedge candidates in the prose.
+   Validation: `keywordDemand.keywords` has at least 10 keywords, each with `intentType`, `top3RankingDomains`, a SpyFu-estimated `monthlyVolume` (from `keyword_volume`) or relative-interest `monthlyVolume` (from `keyword_trends`), `sourceTitle`, `sourceUrl`, `dateObserved`. Flag content-only-top-3 keywords as paid-wedge candidates in the prose.
 
 3. Mine buyer questions across surfaces.
    Validation: `questionMining.questions` has at least 10 verbatim questions across at least 2 distinct `surface` types, each with a `sourceUrl`.
@@ -111,7 +112,7 @@ Only these research tools are available for this section. Shape enforcement and 
    Validation: `venueMap.venues` has at least 4 venues across at least 2 `venueType` values, each with `audienceSize` and `sourceUrl`.
 
 7. Write 1-2 paragraphs of prose per sub-section, then a tight `statusSummary`, `verdict`, `confidence`, and section-level `sources` (at least 5).
-   Validation: prose explains the demand pattern, cards carry dated evidence, confidence is 0..1, and every keyword's `monthlyVolume` is a SpyFu-estimated number (never `not disclosed`, never invented).
+   Validation: prose explains the demand pattern, cards carry dated evidence, confidence is 0..1, and every keyword's `monthlyVolume` is a SpyFu-estimated number, SearchAPI Google Trends relative-interest value, or explicit data gap (never `not disclosed`, never invented).
 
 ## Output (Artifact shape)
 
@@ -143,7 +144,7 @@ Five body sub-sections, each `{ prose, <cards> }`:
 | Field | Type | Description |
 |---|---|---|
 | `keyword` | string | The category-relevant keyword. |
-| `monthlyVolume` | string | SpyFu-estimated monthly search volume from the `keyword_volume` tool (label it SpyFu-estimated). Never `not disclosed`. |
+| `monthlyVolume` | string | SpyFu-estimated monthly search volume from `keyword_volume`, or SearchAPI Google Trends relative interest from `keyword_trends` when SpyFu is unavailable. Never `not disclosed`; never model-estimated. |
 | `intentType` | enum | One of `informational`, `commercial`, `transactional`, `navigational`. |
 | `top3RankingDomains` | string[] | The top 3 currently-ranking domains. |
 | `sourceTitle` | string | Named source for the signal. |
@@ -237,7 +238,7 @@ Correct:
 - A content gap without a named weak page is an assertion, not evidence.
 - Search-trend direction without volume is directional, not quantitative.
 - "Hiring is up" without a search query + result count is not an intent signal.
-- `monthlyVolume` comes from the `keyword_volume` tool (SpyFu-estimated) — never `not disclosed`, never invented. If SpyFu returns nothing for a keyword, drop that keyword rather than guessing a number.
+- `monthlyVolume` comes from the `keyword_volume` tool (SpyFu-estimated) or the `keyword_trends` tool (SearchAPI Google Trends relative interest) — never `not disclosed`, never invented, never model-estimated. If both tools return nothing for a keyword, drop that keyword or write an explicit data gap rather than guessing a number.
 
 ## Anti-Slop Rules
 

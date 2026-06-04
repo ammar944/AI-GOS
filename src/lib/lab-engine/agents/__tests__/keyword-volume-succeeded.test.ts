@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { keywordVolumeSucceeded } from "../run-section";
+import {
+  keywordTrendKeywords,
+  keywordTrendsSucceeded,
+  keywordVolumeKeywords,
+  keywordVolumeSucceeded,
+} from "../run-section";
 import type { AgentStep } from "../section-agent";
 
 function buildStep(toolResults: AgentStep["toolResults"]): AgentStep {
@@ -31,6 +36,25 @@ describe("keywordVolumeSucceeded", (): void => {
     ];
 
     expect(keywordVolumeSucceeded(steps)).toBe(true);
+    expect(keywordVolumeKeywords(steps)).toEqual(["founder sales"]);
+  });
+
+  it("returns false when keyword_volume result has no returned keywords", (): void => {
+    const steps: AgentStep[] = [
+      buildStep([
+        {
+          toolName: "keyword_volume",
+          output: {
+            type: "result",
+            source: "SpyFu",
+            keywords: [],
+          },
+        },
+      ]),
+    ];
+
+    expect(keywordVolumeSucceeded(steps)).toBe(false);
+    expect(keywordVolumeKeywords(steps)).toEqual([]);
   });
 
   it("returns false when keyword_volume returned a gap (rate-limited)", (): void => {
@@ -56,5 +80,67 @@ describe("keywordVolumeSucceeded", (): void => {
     ];
 
     expect(keywordVolumeSucceeded(steps)).toBe(false);
+  });
+});
+
+describe("keywordTrendsSucceeded", (): void => {
+  it("returns true when a keyword_trends result output is present", (): void => {
+    const steps: AgentStep[] = [
+      buildStep([
+        {
+          toolName: "keyword_trends",
+          output: {
+            type: "result",
+            source: "SearchAPI Google Trends",
+            keywords: [
+              {
+                keyword: "founder sales",
+                averageInterest: 42,
+                peakInterest: 80,
+                trendDirection: "rising",
+              },
+            ],
+          },
+        },
+      ]),
+    ];
+
+    expect(keywordTrendsSucceeded(steps)).toBe(true);
+    expect(keywordTrendKeywords(steps)).toEqual(["founder sales"]);
+  });
+
+  it("returns false when keyword_trends returned a gap", (): void => {
+    const steps: AgentStep[] = [
+      buildStep([
+        {
+          toolName: "keyword_trends",
+          output: {
+            type: "gap",
+            reason: "api_error",
+            message: "SearchAPI Google Trends failed: 429",
+          },
+        },
+      ]),
+    ];
+
+    expect(keywordTrendsSucceeded(steps)).toBe(false);
+  });
+
+  it("returns false when keyword_trends result has no returned keywords", (): void => {
+    const steps: AgentStep[] = [
+      buildStep([
+        {
+          toolName: "keyword_trends",
+          output: {
+            type: "result",
+            source: "SearchAPI Google Trends",
+            keywords: [],
+          },
+        },
+      ]),
+    ];
+
+    expect(keywordTrendsSucceeded(steps)).toBe(false);
+    expect(keywordTrendKeywords(steps)).toEqual([]);
   });
 });

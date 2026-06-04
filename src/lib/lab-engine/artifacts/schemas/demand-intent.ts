@@ -133,47 +133,114 @@ function uniqueCount(values: readonly string[]): number {
   return new Set(values).size;
 }
 
+function normalizeKeywordForEvidence(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildKeywordEvidenceSet(values: readonly string[] | undefined): ReadonlySet<string> {
+  return new Set((values ?? []).map(normalizeKeywordForEvidence));
+}
+
+function isExplicitDataGap(value: string | undefined): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  return /(?:data\s+gap|unavailable|no\s+row|no\s+usable|rate[-\s]*limit|returned\s+nothing)/iu.test(
+    value,
+  );
+}
+
 /**
  * Section-scoped provenance guard for keyword volume/CPC honesty. The
  * keyword_volume tool (SpyFu) returns a ToolGap when it is unavailable
- * (e.g. rate-limited), but the prompt used to instruct the model to label
- * every volume "SpyFu-estimated" unconditionally — producing a dishonest
- * provenance claim the verifier could not catch. This guard fails ONLY the
- * contradiction case: a row affirmatively claims SpyFu provenance (matches
- * /spyfu[\s-]*estimat/i — i.e. "SpyFu-estimated" / "SpyFu estimate" — in
- * monthlyVolume or cpc) while the tool did NOT succeed. The pattern is
- * deliberately narrow so the honest disclaimer "model estimate (SpyFu
- * unavailable)" — which also contains the word "SpyFu" — passes. Legitimate
- * SpyFu rows (tool succeeded) also pass. Threaded into the answer-tool repair
- * loop like checkVoiceOfCustomerSelfSourcing.
+ * (e.g. rate-limited), but the model must still avoid fabricated keyword
+ * economics. This guard is row-scoped: a keyword row that claims SpyFu or
+ * SearchAPI Trends provenance must match a keyword returned by that tool.
+ * Numeric volume/CPC/difficulty siblings require SpyFu because Trends only
+ * provides relative interest. Rows with no matching tool data must be explicit
+ * data gaps, not model estimates or unlabeled numbers.
  */
 export function checkDemandIntentKeywordProvenance({
   artifact,
-  keywordVolumeSucceeded,
+  keywordTrendKeywords = [],
+  keywordVolumeKeywords = [],
 }: {
   artifact: ArtifactEnvelope;
-  keywordVolumeSucceeded: boolean;
+  keywordTrendKeywords?: readonly string[];
+  keywordVolumeKeywords?: readonly string[];
 }): ValidationResult {
   const errors: string[] = [];
-
-  if (keywordVolumeSucceeded) {
-    return { ok: true, errors };
-  }
+  const keywordVolumeEvidence = buildKeywordEvidenceSet(keywordVolumeKeywords);
+  const keywordTrendEvidence = buildKeywordEvidenceSet(keywordTrendKeywords);
 
   const parsed = artifactEnvelopeSchema
     .extend({ body: demandIntentBodySchema })
     .parse(artifact);
 
   const spyFuClaimPattern = /spyfu[\s-]*estimat/i;
+  const trendClaimPattern = /(?:searchapi\s+google\s+trends|google\s+trends|relative\s+interest)/i;
+  const modelEstimatePattern = /model\s+estimate/i;
 
   parsed.body.keywordDemand.keywords.forEach((keyword, index) => {
+    const normalizedKeyword = normalizeKeywordForEvidence(keyword.keyword);
+    const hasSpyFuEvidence = keywordVolumeEvidence.has(normalizedKeyword);
+    const hasTrendEvidence = keywordTrendEvidence.has(normalizedKeyword);
     const claimsSpyFu =
       spyFuClaimPattern.test(keyword.monthlyVolume) ||
-      (keyword.cpc !== undefined && spyFuClaimPattern.test(keyword.cpc));
+      (keyword.cpc !== undefined && spyFuClaimPattern.test(keyword.cpc)) ||
+      /spyfu/i.test(keyword.sourceTitle) ||
+      /spyfu/i.test(keyword.sourceUrl);
+    const claimsTrend =
+      trendClaimPattern.test(keyword.monthlyVolume) ||
+      trendClaimPattern.test(keyword.sourceTitle) ||
+      trendClaimPattern.test(keyword.sourceUrl);
+    const claimsModelEstimate =
+      modelEstimatePattern.test(keyword.monthlyVolume) ||
+      (keyword.cpc !== undefined && modelEstimatePattern.test(keyword.cpc));
+    const hasSpyFuOnlyNumericFields =
+      keyword.monthlyVolumeValue !== undefined ||
+      keyword.cpcValue !== undefined ||
+      keyword.difficulty !== undefined;
+    const hasNonGapCpc = keyword.cpc !== undefined && !isExplicitDataGap(keyword.cpc);
 
-    if (claimsSpyFu) {
+    if (claimsSpyFu && !hasSpyFuEvidence) {
       errors.push(
-        `body.keywordDemand.keywords[${index}]: claims SpyFu provenance but the keyword_volume tool did not return data — relabel as "model estimate (SpyFu unavailable)" or restate as a data gap; never claim "SpyFu-estimated".`,
+        `body.keywordDemand.keywords[${index}]: claims SpyFu provenance for "${keyword.keyword}" but keyword_volume did not return that keyword — use keyword_trends for SearchAPI Google Trends fallback or restate as a data gap; never claim "SpyFu-estimated".`,
+      );
+    }
+
+    if (claimsTrend && !hasTrendEvidence) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}]: claims SearchAPI Google Trends provenance for "${keyword.keyword}" but keyword_trends did not return that keyword — restate as a data gap or remove the Trends provenance.`,
+      );
+    }
+
+    if (hasSpyFuOnlyNumericFields && !hasSpyFuEvidence) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}]: includes numeric keyword economics for "${keyword.keyword}" without matching keyword_volume data — omit monthlyVolumeValue/cpcValue/difficulty unless SpyFu returned that keyword.`,
+      );
+    }
+
+    if (hasNonGapCpc && !hasSpyFuEvidence) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}]: includes CPC for "${keyword.keyword}" without matching keyword_volume data — SearchAPI Trends does not provide CPC; omit cpc or restate it as a data gap.`,
+      );
+    }
+
+    if (claimsModelEstimate) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}]: uses model-estimated keyword economics; call keyword_volume or keyword_trends, or restate this row as a data gap.`,
+      );
+    }
+
+    if (
+      !hasSpyFuEvidence &&
+      !hasTrendEvidence &&
+      !isExplicitDataGap(keyword.monthlyVolume)
+    ) {
+      errors.push(
+        `body.keywordDemand.keywords[${index}]: monthlyVolume for "${keyword.keyword}" is not backed by keyword_volume, keyword_trends, or an explicit data gap.`,
       );
     }
   });

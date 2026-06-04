@@ -171,7 +171,7 @@ function buildDemandIntentKeywordVolumeStep(): AgentStep {
         output: {
           type: 'result',
           source: 'SpyFu',
-          results: keywords.map((keyword, index) => ({
+          keywords: keywords.map((keyword, index) => ({
             keyword: keyword.keyword,
             searchVolume: keyword.monthlyVolumeValue,
             cpc: 4.1 + index / 10,
