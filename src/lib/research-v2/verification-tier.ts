@@ -25,6 +25,11 @@ export interface BuildVerificationFlagInput {
   evidenceGap?: unknown;
 }
 
+export interface BuildReviewVerificationFlagInput {
+  tier: VerificationTier;
+  baseFlag?: VerificationFlag | null;
+}
+
 export type VerificationTierCounts = Record<VerificationTier, number>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,6 +118,34 @@ export function buildVerificationFlag(
     unsupportedCount: verification?.unsupportedCount,
     evidenceGap,
   });
+}
+
+function fallbackCountsForTier(tier: VerificationTier): {
+  verifiedCount: number;
+  unsupportedCount: number;
+} {
+  if (tier === 'verified') {
+    return { verifiedCount: 1, unsupportedCount: 0 };
+  }
+
+  if (tier === 'needs_review') {
+    return { verifiedCount: 1, unsupportedCount: 1 };
+  }
+
+  return { verifiedCount: 0, unsupportedCount: 1 };
+}
+
+export function buildReviewVerificationFlag(
+  input: BuildReviewVerificationFlagInput,
+): VerificationFlag {
+  const fallback = deriveVerificationFlag(fallbackCountsForTier(input.tier));
+  const baseFlag = input.baseFlag ?? fallback;
+
+  return {
+    ...baseFlag,
+    tier: input.tier,
+    evidenceGap: input.tier === 'insufficient',
+  };
 }
 
 export function readVerificationFlag(value: unknown): VerificationFlag | null {

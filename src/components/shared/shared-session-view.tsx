@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactElement } from 'react';
 import { Share2, ExternalLink, FileText, BarChart3 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { Badge } from '@/components/ui/badge';
 import {
   BodyProse,
@@ -82,6 +83,57 @@ function buildV3ViewSections(
     verificationTier: section.verificationTier,
     verificationFlag: section.verificationFlag,
   }));
+}
+
+function SharedReviewMarkdown({ markdown }: { markdown: string }): ReactElement {
+  return (
+    <div className="prose prose-zinc max-w-none prose-headings:font-semibold prose-p:text-foreground prose-p:leading-[1.65] prose-li:text-foreground dark:prose-invert">
+      <ReactMarkdown>{markdown}</ReactMarkdown>
+    </div>
+  );
+}
+
+function SharedReviewMetadata({
+  artifact,
+}: {
+  artifact: PositioningTypedArtifact;
+}): ReactElement | null {
+  const review = artifact.review;
+
+  if (!review) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-border bg-background p-4">
+      <div className="space-y-1">
+        <Eyebrow>Review rationale</Eyebrow>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {review.tierRationale}
+        </p>
+      </div>
+      {review.removedItems.length > 0 ? (
+        <div className="space-y-1">
+          <Eyebrow>Removed ({review.removedItems.length})</Eyebrow>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {review.removedItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {review.clientQuestions.length > 0 ? (
+        <div className="space-y-1">
+          <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {review.clientQuestions.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function V3SharedSessionView({
@@ -181,10 +233,24 @@ function V3SharedSessionView({
                 />
                 {activeSection.artifact ? (
                   <div className="mt-6 space-y-7">
-                    {activeSection.artifact.statusSummary ? (
-                      <BodyProse>{activeSection.artifact.statusSummary}</BodyProse>
-                    ) : null}
-                    <VerdictCallout verdict={activeSection.artifact.verdict} />
+                    {activeSection.artifact.review ? (
+                      <>
+                        <SharedReviewMarkdown
+                          markdown={activeSection.artifact.review.upgradedMarkdown}
+                        />
+                        <SharedReviewMetadata artifact={activeSection.artifact} />
+                        <div className="pt-2">
+                          <Eyebrow>Structured evidence</Eyebrow>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {activeSection.artifact.statusSummary ? (
+                          <BodyProse>{activeSection.artifact.statusSummary}</BodyProse>
+                        ) : null}
+                        <VerdictCallout verdict={activeSection.artifact.verdict} />
+                      </>
+                    )}
                     <TypedArtifactRenderer
                       artifact={activeSection.artifact}
                       zoneId={activeSection.zone}

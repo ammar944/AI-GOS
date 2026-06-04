@@ -2,7 +2,10 @@ import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skill
 import type { BuyerICPBody } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
 import type { CompetitorLandscapeBody } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
 import type { DemandIntentBody } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
-import type { VerificationReportEnvelope } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import type {
+  SectionReviewResult,
+  VerificationReportEnvelope,
+} from '@/lib/lab-engine/artifacts/artifact-envelope';
 import type { MarketCategoryBody } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import type { OfferDiagnosticBody } from '@/lib/lab-engine/artifacts/schemas/offer-diagnostic';
 import type { PaidMediaPlanBody } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
@@ -24,6 +27,7 @@ export interface PositioningTypedArtifact {
   confidence: number;
   sources: PositioningArtifactSource[];
   verification?: VerificationReportEnvelope;
+  review?: SectionReviewResult;
   [key: string]: unknown;
 }
 
@@ -169,6 +173,7 @@ function normalizePickedArtifact(
     confidence: found.confidence,
     sources: validSources,
     ...(found.verification === undefined ? {} : { verification: found.verification }),
+    ...(found.review === undefined ? {} : { review: found.review }),
   };
 }
 

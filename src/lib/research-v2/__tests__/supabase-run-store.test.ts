@@ -13,10 +13,17 @@ import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 const profilePersistenceMocks = vi.hoisted(() => ({
   persistAuditProfileBestEffort: vi.fn(),
 }));
+const reviewMocks = vi.hoisted(() => ({
+  reviewAndUpgradeSection: vi.fn(),
+}));
 
 vi.mock('@/lib/profiles/section-profile-persistence', () => ({
   persistAuditProfileBestEffort:
     profilePersistenceMocks.persistAuditProfileBestEffort,
+}));
+
+vi.mock('@/lib/lab-engine/agents/review/agentic-section-review', () => ({
+  reviewAndUpgradeSection: reviewMocks.reviewAndUpgradeSection,
 }));
 
 import {
@@ -181,6 +188,14 @@ describe('createSupabaseRunStore', (): void => {
   beforeEach((): void => {
     profilePersistenceMocks.persistAuditProfileBestEffort.mockReset();
     profilePersistenceMocks.persistAuditProfileBestEffort.mockResolvedValue('profile-123');
+    reviewMocks.reviewAndUpgradeSection.mockReset();
+    reviewMocks.reviewAndUpgradeSection.mockResolvedValue({
+      upgradedMarkdown: 'Reviewed market category markdown.',
+      tier: 'verified',
+      tierRationale: 'Review found support for the client-facing claims.',
+      removedItems: [],
+      clientQuestions: [],
+    });
   });
 
   it('keeps the lab RunRecord contract while writing events, status, and artifacts to Supabase', async (): Promise<void> => {
@@ -250,10 +265,24 @@ describe('createSupabaseRunStore', (): void => {
         p_expected_revision: 0,
         p_patch: expect.objectContaining({
           status: 'complete',
-          data: marketCategoryFixtureArtifact,
+          data: expect.objectContaining({
+            ...marketCategoryFixtureArtifact,
+            review: expect.objectContaining({
+              upgradedMarkdown: 'Reviewed market category markdown.',
+              tier: 'verified',
+            }),
+          }),
+          markdown: 'Reviewed market category markdown.',
           claims: [],
           sources: marketCategoryFixtureArtifact.sources,
         }),
+      }),
+    );
+    expect(reviewMocks.reviewAndUpgradeSection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifact: marketCategoryFixtureArtifact,
+        researchInput: saaslaunchResearchInput,
+        sectionId: 'positioningMarketCategory',
       }),
     );
     expect(fakeSupabase.update).toHaveBeenCalledWith(
@@ -333,6 +362,13 @@ describe('createSupabaseRunStore', (): void => {
   });
 
   it('persists advisory verification tier metadata while leaving section status complete', async (): Promise<void> => {
+    reviewMocks.reviewAndUpgradeSection.mockResolvedValueOnce({
+      upgradedMarkdown: 'Needs review markdown.',
+      tier: 'needs_review',
+      tierRationale: 'Reviewer downgraded one unsupported load-bearing claim.',
+      removedItems: ['Unsupported TAM precision'],
+      clientQuestions: ['Can you provide sourced TAM assumptions?'],
+    });
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
@@ -371,9 +407,51 @@ describe('createSupabaseRunStore', (): void => {
             needsReviewThreshold: 0.75,
             insufficientThreshold: 0.5,
           }),
+          markdown: 'Needs review markdown.',
+          data: expect.objectContaining({
+            review: expect.objectContaining({
+              removedItems: ['Unsupported TAM precision'],
+              clientQuestions: ['Can you provide sourced TAM assumptions?'],
+            }),
+          }),
         }),
       }),
     );
+  });
+
+  it('commits the original artifact when the agentic review hook fails', async (): Promise<void> => {
+    reviewMocks.reviewAndUpgradeSection.mockRejectedValueOnce(
+      new Error('review transport failed'),
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation((): void => {});
+    const fakeSupabase = createFakeSupabase();
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_patch: expect.objectContaining({
+          data: marketCategoryFixtureArtifact,
+        }),
+      }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      '[supabase-run-store] agentic section review failed; committing original artifact:',
+      'review transport failed',
+    );
+    warn.mockRestore();
   });
 
   it('awaits profile persistence before resolving the completing artifact save', async (): Promise<void> => {

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createSectionModelSelection,
   DEEPSEEK_SECTION_MODEL_ID,
+  GATEWAY_GPT_55_REVIEW_MODEL_ID,
+  OPUS_REVIEW_MODEL_ID,
   resolveSectionModelProvider,
   SONNET_SECTION_MODEL_ID,
 } from "../models";
@@ -45,10 +47,22 @@ describe("createSectionModelSelection", (): void => {
       provider: "anthropic",
       modelId: SONNET_SECTION_MODEL_ID,
       repairModelId: SONNET_SECTION_MODEL_ID,
+      reviewModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
+      strategyModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
       transport: "anthropic",
     });
     expect(selection.sectionRunnerModel.provider).toBe("anthropic.messages");
     expect(selection.sectionRunnerModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+    expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
   });
 
   it("selects direct DeepSeek v4 flash", (): void => {
@@ -63,10 +77,22 @@ describe("createSectionModelSelection", (): void => {
       provider: "deepseek-direct",
       modelId: DEEPSEEK_SECTION_MODEL_ID,
       repairModelId: DEEPSEEK_SECTION_MODEL_ID,
+      reviewModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
+      strategyModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
       transport: "deepseek-direct",
     });
     expect(selection.sectionRunnerModel.provider).toBe("deepseek.chat");
     expect(selection.sectionRunnerModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+    expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
   });
 
   it("selects DeepSeek v4 flash through the local Ollama transport", (): void => {
@@ -82,6 +108,16 @@ describe("createSectionModelSelection", (): void => {
       provider: "deepseek-ollama",
       modelId: DEEPSEEK_SECTION_MODEL_ID,
       repairModelId: DEEPSEEK_SECTION_MODEL_ID,
+      reviewModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
+      strategyModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
       transport: "ollama-openai-compatible",
     });
     expect(selection.sectionRunnerModel.provider).toBe("ollama.chat");
@@ -100,6 +136,154 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.metadata.repairModelId).toBe("deepseek-v4-flash:cloud");
     expect(selection.sectionRunnerModel.modelId).toBe(
       "deepseek-v4-flash:cloud",
+    );
+    expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
+  });
+
+  it("treats a blank review model flag as the default Sonnet model", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({ LAB_REVIEW_MODEL: "   " }),
+    );
+
+    expect(selection.metadata.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+  });
+
+  it("allows the review and strategy model to use Anthropic Opus", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({ LAB_REVIEW_MODEL: "opus" }),
+    );
+
+    expect(selection.metadata.reviewModel).toEqual({
+      provider: "anthropic",
+      modelId: OPUS_REVIEW_MODEL_ID,
+      transport: "anthropic",
+    });
+    expect(selection.metadata.strategyModel).toEqual({
+      provider: "anthropic",
+      modelId: OPUS_REVIEW_MODEL_ID,
+      transport: "anthropic",
+    });
+    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+    expect(selection.reviewModel.modelId).toBe(OPUS_REVIEW_MODEL_ID);
+    expect(selection.strategyModel.modelId).toBe(OPUS_REVIEW_MODEL_ID);
+  });
+
+  it("accepts full Anthropic review model ids", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({ LAB_REVIEW_MODEL: SONNET_SECTION_MODEL_ID }),
+    );
+
+    expect(selection.metadata.reviewModel).toEqual({
+      provider: "anthropic",
+      modelId: SONNET_SECTION_MODEL_ID,
+      transport: "anthropic",
+    });
+    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+  });
+
+  it("decouples the review model from the section provider", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        DEEPSEEK_API_KEY: "test-deepseek-key",
+        LAB_ENGINE_PROVIDER: "deepseek-direct",
+        LAB_REVIEW_MODEL: "opus",
+      }),
+    );
+
+    expect(selection.metadata.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
+    expect(selection.sectionRunnerModel.provider).toBe("deepseek.chat");
+    expect(selection.metadata.reviewModel.modelId).toBe(OPUS_REVIEW_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+  });
+
+  it("supports GPT-5.5 through Vercel AI Gateway", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        AI_GATEWAY_API_KEY: "test-gateway-key",
+        LAB_REVIEW_MODEL: "gpt-5.5",
+      }),
+    );
+
+    expect(selection.metadata.reviewModel).toEqual({
+      provider: "gateway",
+      modelId: GATEWAY_GPT_55_REVIEW_MODEL_ID,
+      transport: "gateway",
+    });
+    expect(selection.reviewModel.provider).toBe("gateway");
+    expect(selection.reviewModel.modelId).toBe(GATEWAY_GPT_55_REVIEW_MODEL_ID);
+  });
+
+  it("supports explicit Gateway review model ids", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        AI_GATEWAY_API_KEY: "test-gateway-key",
+        LAB_REVIEW_MODEL: "gateway:anthropic/claude-opus-4.6",
+      }),
+    );
+
+    expect(selection.metadata.reviewModel).toEqual({
+      provider: "gateway",
+      modelId: "anthropic/claude-opus-4.6",
+      transport: "gateway",
+    });
+    expect(selection.reviewModel.provider).toBe("gateway");
+    expect(selection.reviewModel.modelId).toBe("anthropic/claude-opus-4.6");
+  });
+
+  it("allows Gateway review models in Vercel auth context without a local API key", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({
+        LAB_REVIEW_MODEL: GATEWAY_GPT_55_REVIEW_MODEL_ID,
+        VERCEL: "1",
+      }),
+    );
+
+    expect(selection.reviewModel.provider).toBe("gateway");
+    expect(selection.reviewModel.modelId).toBe(GATEWAY_GPT_55_REVIEW_MODEL_ID);
+  });
+
+  it("requires Gateway auth when the review model uses Gateway", (): void => {
+    expect(() =>
+      createSectionModelSelection(
+        buildEnv({ LAB_REVIEW_MODEL: GATEWAY_GPT_55_REVIEW_MODEL_ID }),
+      ),
+    ).toThrow(
+      'LAB_REVIEW_MODEL="openai/gpt-5.5" requires AI_GATEWAY_API_KEY or Vercel Gateway auth context.',
+    );
+  });
+
+  it("does not treat a Vercel OIDC token as local Gateway API-key auth", (): void => {
+    expect(() =>
+      createSectionModelSelection(
+        buildEnv({
+          LAB_REVIEW_MODEL: GATEWAY_GPT_55_REVIEW_MODEL_ID,
+          VERCEL_OIDC_TOKEN: "oidc-token",
+        }),
+      ),
+    ).toThrow(
+      'LAB_REVIEW_MODEL="openai/gpt-5.5" requires AI_GATEWAY_API_KEY or Vercel Gateway auth context.',
+    );
+  });
+
+  it("rejects an empty Gateway review model id", (): void => {
+    expect(() =>
+      createSectionModelSelection(
+        buildEnv({
+          AI_GATEWAY_API_KEY: "test-gateway-key",
+          LAB_REVIEW_MODEL: "gateway:",
+        }),
+      ),
+    ).toThrow(
+      'Invalid LAB_REVIEW_MODEL="gateway:". Expected a Gateway model id after "gateway:".',
+    );
+  });
+
+  it("rejects unknown review model flags", (): void => {
+    expect(() =>
+      createSectionModelSelection(buildEnv({ LAB_REVIEW_MODEL: "cheap" })),
+    ).toThrow(
+      'Invalid LAB_REVIEW_MODEL="cheap". Expected sonnet, opus, gpt-5.5, claude-sonnet-4-5, claude-opus-4-5, openai/gpt-5.5, or gateway:<model-id>.',
     );
   });
 });

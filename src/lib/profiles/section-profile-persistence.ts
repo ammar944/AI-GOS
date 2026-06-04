@@ -147,6 +147,13 @@ export function buildCommittedSectionProfileInsights(input: {
     sourceCount: input.artifact.sources.length,
     ...(verificationTier ? { verificationTier } : {}),
     ...(verificationFlag ? { verificationFlag } : {}),
+    ...(input.artifact.review
+      ? {
+          reviewTierRationale: input.artifact.review.tierRationale,
+          removedItems: input.artifact.review.removedItems,
+          clientQuestions: input.artifact.review.clientQuestions,
+        }
+      : {}),
   };
 
   const insights: Record<string, unknown> = {

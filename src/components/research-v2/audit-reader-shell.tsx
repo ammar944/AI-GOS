@@ -29,6 +29,7 @@ import {
 } from 'react';
 
 import { AlertTriangle, Check, Loader2, Share2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import {
@@ -126,6 +127,7 @@ const COPY_META_KEYS: ReadonlySet<string> = new Set([
   'confidence',
   'sources',
   'verification',
+  'review',
 ]);
 const kickedOffRunIds = new Set<string>();
 
@@ -328,6 +330,61 @@ function VerificationBadge({
       verificationTier={verificationTier}
       verificationFlag={verificationFlag}
     />
+  );
+}
+
+function ReviewMetadataPanel({
+  review,
+}: {
+  review: NonNullable<PositioningTypedArtifact['review']>;
+}): ReactElement {
+  const hasRemovedItems = review.removedItems.length > 0;
+  const hasClientQuestions = review.clientQuestions.length > 0;
+
+  return (
+    <div className="space-y-4 rounded-md border border-border bg-background p-4">
+      <div className="space-y-1">
+        <Eyebrow>Review rationale</Eyebrow>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {review.tierRationale}
+        </p>
+      </div>
+      {hasRemovedItems ? (
+        <div className="space-y-2">
+          <Eyebrow>Removed ({review.removedItems.length})</Eyebrow>
+          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+            {review.removedItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {hasClientQuestions ? (
+        <div className="space-y-2">
+          <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
+          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+            {review.clientQuestions.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ReviewedSectionMarkdown({
+  markdown,
+}: {
+  markdown: string;
+}): ReactElement {
+  return (
+    <div
+      data-testid="reviewed-section-markdown"
+      className="prose prose-zinc max-w-none prose-headings:font-semibold prose-headings:tracking-normal prose-p:text-foreground prose-p:leading-[1.65] prose-li:text-foreground dark:prose-invert"
+    >
+      <ReactMarkdown>{markdown}</ReactMarkdown>
+    </div>
   );
 }
 
@@ -1018,6 +1075,11 @@ export function AuditReaderShell({
   const active = activeSectionId ?? userActive ?? autoActive ?? computedDefault;
   const activeIndex = READER_SECTION_IDS.indexOf(active);
   const activeTyped = typedByZone.get(active) ?? null;
+  const activeReview = activeTyped?.review ?? null;
+  const activeReviewedMarkdown =
+    activeReview?.upgradedMarkdown.trim().length === 0
+      ? null
+      : activeReview?.upgradedMarkdown.trim() ?? null;
   const activeSectionSnapshot = live.sectionsByZone[active];
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
@@ -1225,7 +1287,8 @@ export function AuditReaderShell({
 
   const copyActive = useCallback(async () => {
     if (!activeTyped) return;
-    const text = artifactToMarkdown(activeTyped);
+    const text =
+      activeTyped.review?.upgradedMarkdown.trim() || artifactToMarkdown(activeTyped);
     setCopyError(false);
     try {
       await navigator.clipboard.writeText(text);
@@ -1335,10 +1398,22 @@ export function AuditReaderShell({
                       completedActivitySummary.durationLabel ?? undefined
                     }
                   />
-                  {activeTyped.statusSummary ? (
-                    <BodyProse>{activeTyped.statusSummary}</BodyProse>
-                  ) : null}
-                  <VerdictCallout verdict={activeTyped.verdict} />
+                  {activeReviewedMarkdown && activeReview ? (
+                    <>
+                      <ReviewedSectionMarkdown markdown={activeReviewedMarkdown} />
+                      <ReviewMetadataPanel review={activeReview} />
+                      <div className="pt-2">
+                        <Eyebrow>Structured evidence</Eyebrow>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {activeTyped.statusSummary ? (
+                        <BodyProse>{activeTyped.statusSummary}</BodyProse>
+                      ) : null}
+                      <VerdictCallout verdict={activeTyped.verdict} />
+                    </>
+                  )}
                   {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}

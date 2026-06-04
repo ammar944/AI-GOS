@@ -12,6 +12,7 @@ interface MockMiddleware {
 interface ModelModuleMocks {
   anthropicModel: (modelId: string) => MockLanguageModel;
   createAnthropic: () => (modelId: string) => MockLanguageModel;
+  createGateway: () => (modelId: string) => MockLanguageModel;
   devToolsMiddleware: () => MockMiddleware;
   wrapLanguageModel: (input: {
     model: MockLanguageModel;
@@ -39,6 +40,7 @@ const modelMocks = vi.hoisted((): ModelModuleMocks => {
   return {
     anthropicModel,
     createAnthropic: vi.fn((): ((modelId: string) => MockLanguageModel) => anthropicModel),
+    createGateway: vi.fn((): ((modelId: string) => MockLanguageModel) => anthropicModel),
     devToolsMiddleware,
     wrapLanguageModel,
   };
@@ -46,6 +48,10 @@ const modelMocks = vi.hoisted((): ModelModuleMocks => {
 
 vi.mock('@ai-sdk/anthropic', () => ({
   createAnthropic: modelMocks.createAnthropic,
+}));
+
+vi.mock('@ai-sdk/gateway', () => ({
+  createGateway: modelMocks.createGateway,
 }));
 
 vi.mock('@ai-sdk/devtools', () => ({
@@ -81,6 +87,12 @@ describe('lab engine AI models — local DevTools', (): void => {
     expect(models.sectionRunnerModel).toEqual({
       modelId: 'claude-sonnet-4-5',
     });
+    expect(models.reviewModel).toEqual({
+      modelId: 'claude-sonnet-4-5',
+    });
+    expect(models.strategyModel).toEqual({
+      modelId: 'claude-sonnet-4-5',
+    });
     expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();
   });
 
@@ -99,8 +111,16 @@ describe('lab engine AI models — local DevTools', (): void => {
       modelId: 'claude-sonnet-4-5',
       wrapped: true,
     });
-    expect(modelMocks.devToolsMiddleware).toHaveBeenCalledTimes(2);
-    expect(modelMocks.wrapLanguageModel).toHaveBeenCalledTimes(2);
+    expect(models.reviewModel).toEqual({
+      modelId: 'claude-sonnet-4-5',
+      wrapped: true,
+    });
+    expect(models.strategyModel).toEqual({
+      modelId: 'claude-sonnet-4-5',
+      wrapped: true,
+    });
+    expect(modelMocks.devToolsMiddleware).toHaveBeenCalledTimes(4);
+    expect(modelMocks.wrapLanguageModel).toHaveBeenCalledTimes(4);
   });
 
   it('does not enable AI SDK DevTools in production', async (): Promise<void> => {
@@ -111,6 +131,9 @@ describe('lab engine AI models — local DevTools', (): void => {
 
     expect(models.isAiSdkDevToolsEnabled()).toBe(false);
     expect(models.sectionRunnerModel).toEqual({
+      modelId: 'claude-sonnet-4-5',
+    });
+    expect(models.reviewModel).toEqual({
       modelId: 'claude-sonnet-4-5',
     });
     expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();

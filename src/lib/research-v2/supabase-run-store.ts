@@ -12,7 +12,11 @@ import {
   type RunRecord,
   type SectionRunRecord,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
-import { selectedSectionModelMetadata } from '@/lib/lab-engine/ai/models';
+import {
+  reviewModel,
+  selectedSectionModelMetadata,
+} from '@/lib/lab-engine/ai/models';
+import { reviewAndUpgradeSection } from '@/lib/lab-engine/agents/review/agentic-section-review';
 import {
   activityEventSchema,
   sectionIds,
@@ -201,6 +205,35 @@ function readStringValue(
 ): string {
   const value = record?.[key];
   return typeof value === 'string' ? value : '';
+}
+
+async function attachAgenticReview(input: {
+  artifact: ArtifactEnvelope;
+  researchInput: ResearchInput;
+}): Promise<ArtifactEnvelope> {
+  try {
+    const review = await reviewAndUpgradeSection({
+      artifact: input.artifact,
+      model: reviewModel,
+      researchInput: input.researchInput,
+      sectionId: input.artifact.sectionId,
+    });
+    const reviewedArtifact = artifactEnvelopeSchema.parse({
+      ...input.artifact,
+      review,
+    });
+    assertSectionArtifactPersistable(reviewedArtifact);
+
+    return reviewedArtifact;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      '[supabase-run-store] agentic section review failed; committing original artifact:',
+      message,
+    );
+
+    return input.artifact;
+  }
 }
 
 // Best-effort: merge the synthesized positioning wedge into the parent's
@@ -502,12 +535,17 @@ export function createSupabaseRunStore(
         );
       }
 
+      const artifactToCommit = await attachAgenticReview({
+        artifact: parsedArtifact,
+        researchInput: input,
+      });
+
       const committed = await adapter.commitArtifactSection({
         artifactId: options.parentAuditRunId,
-        zone: parsedArtifact.sectionId,
+        zone: artifactToCommit.sectionId,
         sectionRunId,
         expectedRevision: context.expectedRevision,
-        patch: buildCommitPatch(parsedArtifact.sectionId, parsedArtifact),
+        patch: buildCommitPatch(artifactToCommit.sectionId, artifactToCommit),
       });
 
       if (!committed.ok) {
@@ -518,17 +556,17 @@ export function createSupabaseRunStore(
         // and still surface as a real section failure.
         if (committed.error === undefined && committed.conflict) {
           throw new SupabaseRunStoreCommitConflictError(
-            `commit_artifact_section conflict for ${parsedArtifact.sectionId} section_run_id=${sectionRunId} expectedRevision=${context.expectedRevision} committedRevision=${committed.revision}`,
+            `commit_artifact_section conflict for ${artifactToCommit.sectionId} section_run_id=${sectionRunId} expectedRevision=${context.expectedRevision} committedRevision=${committed.revision}`,
             { conflict: true, committedRevision: committed.revision },
           );
         }
         throw new SupabaseRunStoreError(
-          `commit_artifact_section failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId} revision=${context.expectedRevision}: ${committed.error ?? 'conflict=' + String(committed.conflict)}`,
+          `commit_artifact_section failed for ${artifactToCommit.sectionId} section_run_id=${sectionRunId} revision=${context.expectedRevision}: ${committed.error ?? 'conflict=' + String(committed.conflict)}`,
         );
       }
 
       const completedAt = isoNow(now);
-      const existingSection = record.sections[parsedArtifact.sectionId];
+      const existingSection = record.sections[artifactToCommit.sectionId];
       const startedAt = existingSection?.startedAt ?? completedAt;
       const { error: telemetryError } = await options.supabase
         .from('research_section_runs')
@@ -536,7 +574,7 @@ export function createSupabaseRunStore(
           error: null,
           telemetry: buildLabSectionTelemetry({
             elapsedMs: elapsedMs(startedAt, completedAt),
-            latestActivity: `${parsedArtifact.sectionTitle} committed`,
+            latestActivity: `${artifactToCommit.sectionTitle} committed`,
             phase: 'Committed',
             phaseStartedAt: completedAt,
             runtimeTimings: {
@@ -550,15 +588,15 @@ export function createSupabaseRunStore(
 
       if (telemetryError) {
         throw new SupabaseRunStoreError(
-          `research_section_runs telemetry update failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
+          `research_section_runs telemetry update failed for ${artifactToCommit.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
         );
       }
 
-      if (parsedArtifact.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
+      if (artifactToCommit.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
         await mergeSynthesizedThesisBestEffort({
           supabase: options.supabase,
           parentAuditRunId: options.parentAuditRunId,
-          artifact: parsedArtifact,
+          artifact: artifactToCommit,
           updatedAt: completedAt,
         });
         await patchProfileSynthesisBestEffort({
@@ -566,7 +604,7 @@ export function createSupabaseRunStore(
           userId: options.userId,
           runId: input.runId,
           parentAuditRunId: options.parentAuditRunId,
-          artifact: parsedArtifact,
+          artifact: artifactToCommit,
         });
       }
 
@@ -597,11 +635,11 @@ export function createSupabaseRunStore(
 
       record = mergeSection(
         record,
-        parsedArtifact.sectionId,
+        artifactToCommit.sectionId,
         {
-          sectionId: parsedArtifact.sectionId,
+          sectionId: artifactToCommit.sectionId,
           status: 'completed',
-          artifact: parsedArtifact,
+          artifact: artifactToCommit,
           startedAt,
           completedAt,
           error: null,

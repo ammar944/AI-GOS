@@ -197,6 +197,16 @@ export const verificationReportSchema = z
   })
   .strict();
 
+export const sectionReviewResultSchema = z
+  .object({
+    upgradedMarkdown: z.string().min(1),
+    tier: z.enum(["verified", "needs_review", "insufficient"]),
+    tierRationale: z.string().min(1),
+    removedItems: z.array(z.string().min(1)),
+    clientQuestions: z.array(z.string().min(1)),
+  })
+  .strict();
+
 export const researchInputSchema = z
   .object({
     runId: z.string().min(1),
@@ -252,6 +262,7 @@ export const artifactEnvelopeSchema = z
       .record(z.string(), z.unknown())
       .refine((body) => Object.keys(body).length > 0, "Body cannot be empty"),
     verification: verificationReportSchema.optional(),
+    review: sectionReviewResultSchema.optional(),
     createdAt: isoDateTimeSchema,
   })
   .strict();
@@ -342,6 +353,7 @@ export type CorpusExcerpt = z.infer<typeof corpusExcerptSchema>;
 export type CorpusSnapshot = z.infer<typeof corpusSnapshotSchema>;
 export type ResearchInput = z.infer<typeof researchInputSchema>;
 export type VerificationReportEnvelope = z.infer<typeof verificationReportSchema>;
+export type SectionReviewResult = z.infer<typeof sectionReviewResultSchema>;
 export type ArtifactEnvelope = z.infer<typeof artifactEnvelopeSchema>;
 export type SectionRunRecord = z.infer<typeof sectionRunRecordSchema>;
 export type RunRecordStatus = z.infer<typeof runRecordStatusSchema>;

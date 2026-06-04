@@ -4,7 +4,9 @@ import {
   type AllPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+import { sectionReviewResultSchema } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import {
+  buildReviewVerificationFlag,
   buildVerificationFlag,
   type VerificationFlag,
   type VerificationTier,
@@ -51,6 +53,12 @@ function readEvidenceGap(artifact: Record<string, unknown>): boolean {
   return isRecord(body) && body.evidenceGap === true;
 }
 
+function readSectionReview(artifact: Record<string, unknown>) {
+  const parsed = sectionReviewResultSchema.safeParse(artifact.review);
+
+  return parsed.success ? parsed.data : null;
+}
+
 export interface CommitArtifactSectionInput {
   artifactId: string;
   zone: AllPositioningSectionId;
@@ -86,14 +94,21 @@ export function buildCommitPatch(
       : ALL_POSITIONING_SECTION_LABELS[sectionId];
   const summary = typeof a.statusSummary === 'string' ? a.statusSummary : null;
   const verdict = typeof a.verdict === 'string' ? a.verdict : null;
+  const review = readSectionReview(a);
   const markdownLines: string[] = [];
   if (verdict) markdownLines.push(`**Verdict:** ${verdict}`);
   if (summary) markdownLines.push('', summary);
-  const markdown = markdownLines.join('\n');
-  const verificationFlag = buildVerificationFlag({
+  const markdown = review?.upgradedMarkdown ?? markdownLines.join('\n');
+  const deterministicVerificationFlag = buildVerificationFlag({
     verification: a.verification,
     evidenceGap: readEvidenceGap(a),
   });
+  const verificationFlag = review
+    ? buildReviewVerificationFlag({
+        tier: review.tier,
+        baseFlag: deterministicVerificationFlag,
+      })
+    : deterministicVerificationFlag;
 
   return {
     status: 'complete',
@@ -103,7 +118,7 @@ export function buildCommitPatch(
     claims: [],
     sources: Array.isArray(a.sources) ? (a.sources as unknown[]) : [],
     error: null,
-    verificationTier: verificationFlag?.tier ?? null,
+    verificationTier: review?.tier ?? verificationFlag?.tier ?? null,
     verificationFlag,
   };
 }

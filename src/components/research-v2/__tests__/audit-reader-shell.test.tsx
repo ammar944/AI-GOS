@@ -188,6 +188,42 @@ describe('<AuditReaderShell>', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders reviewed markdown before structured evidence for reviewed sections', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 1,
+      children_total: 6,
+      workerStates: [completeWorker('positioningMarketCategory')],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          verificationTier: 'needs_review',
+          data: {
+            ...marketCategoryFixtureArtifact,
+            review: {
+              upgradedMarkdown:
+                '## Reviewed strategic thesis\n\nThis is the upgraded narrative.',
+              tier: 'needs_review',
+              tierRationale: 'One claim needs stronger sourcing.',
+              removedItems: ['Removed fabricated TAM precision'],
+              clientQuestions: ['Can you provide sourced TAM assumptions?'],
+            },
+          },
+        },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    expect(screen.getByTestId('reviewed-section-markdown')).toHaveTextContent(
+      'Reviewed strategic thesis',
+    );
+    expect(screen.getByText('Review rationale')).toBeInTheDocument();
+    expect(screen.getByText('Removed fabricated TAM precision')).toBeInTheDocument();
+    expect(screen.getByText('Structured evidence')).toBeInTheDocument();
+  });
+
   it('renders the paid media terminal and hides the progress strip when every section is terminal', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
