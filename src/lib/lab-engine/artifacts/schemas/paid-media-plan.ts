@@ -441,7 +441,7 @@ function validateSourceRefs(
   }
 }
 
-function isSpecificCopy(value: string): boolean {
+export function isSpecificCopy(value: string): boolean {
   const trimmed = value.trim();
 
   return (
@@ -484,7 +484,7 @@ function signalTokenCount(value: string): number {
   }, 0);
 }
 
-function hasSpecificSignal(value: string): boolean {
+export function hasSpecificSignal(value: string): boolean {
   return signalTokenCount(value) >= 2;
 }
 

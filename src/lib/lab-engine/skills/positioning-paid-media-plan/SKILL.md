@@ -93,6 +93,8 @@ Return exactly these `body` keys:
 - `anglesToTest`: `prose`, `angles[]`; each angle uses `angleName`, `primaryText`, `supportingLine`, `insight`, `sourceSection`, `sourceUrl`.
 - `creativeFramework`: `prose`, `creatives[]`; each creative uses `creativeType`, `sourceSection`, `sourceUrl`, plus the fields for that creative type. Do not use ad-rendering fields like `headline`, `body`, `cta`, or `landingPageUrl`.
 - For `problem-solution-transformation` creatives, `problem`, `solution`, and `transformation` must each be deployable buyer-facing copy with a concrete workflow, asset, metric, or operational signal. Do not use labels or generic placeholders.
+- For `objection-handling` creatives, both `objection` and `objectionAnswer` must be deployable buyer-facing copy; the answer must name the buyer workflow or proof point that resolves the objection.
+- For `unique-selling-point`, `founder-talking-head`, and `product-demo` creatives, fill the required copy field with a launch-ready sentence or script beat tied to cited evidence; do not emit bare labels.
 - `competitorReviewInsights`: `prose`, `insights[]`; each insight uses `competitor`, `verbatimComplaint`, `adLeverage`, `sourceSection`, `sourceUrl`.
 - `competitorMarketingInsights`: `prose`, `competitors[]`; each competitor uses `competitor`, `messaging`, `adPlatforms`, `estSpend`, `estSpendProvenance`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`. `estSpend` remains string-only; never emit `estSpendValue`. `anglesTested` is one string, never an array.
 - `funnelIdeation`: `prose`, `recommendations[]`; each recommendation uses `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`, `sourceUrl`.
@@ -119,7 +121,7 @@ Use this specificity level, adapted to the actual evidence:
 - `creativeFramework.creatives`: every row must fill the fields required by its `creativeType` with deployable copy, not generic descriptions.
 - Spend math must reconcile when numeric siblings are emitted: `dailySpendValue * 30`, every phase `monthlyBudgetValue`, and the sum of audience `dailyBudgetValue` values times 30 must each match `campaignOverview.monthlyBudgetValue` within $5. Otherwise omit the optional numeric sibling and keep only the display string/provenance.
 - `competitorReviewInsights.insights`: at least 2.
-- `competitorReviewInsights.insights`: each complaint and ad leverage must include a concrete operational signal, number, named feature, quote, or claim from evidence.
+- `competitorReviewInsights.insights`: each complaint and ad leverage must include a concrete operational signal, number, named feature, quote, or claim from evidence. When evidence is weak, say it is an evidence gap and make the validation risk explicit.
 - `competitorMarketingInsights.competitors`: at least 2. If paid platform/spend evidence is unavailable, set `estSpend` to `unknown` and keep platforms evidence-bounded. When ad platforms are unavailable, say that explicitly through the spend/platform gap instead of guessing.
 - `audienceTypes.audiences`: 2 or 3.
 - `funnelIdeation.recommendations`: every recommendation must name the buyer or segment plus the funnel stage or intent state it is meant to move.

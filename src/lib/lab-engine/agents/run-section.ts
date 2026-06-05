@@ -21,6 +21,8 @@ import {
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
+  hasSpecificSignal,
+  isSpecificCopy,
   paidMediaMoneyProvenanceValues,
   paidMediaSpendReconciliationTolerance,
   snapAngleTypesInMix,
@@ -2584,6 +2586,124 @@ function normalizePaidMediaOrderedMovesEnvelope(value: unknown): unknown | null 
   };
 }
 
+function buildPaidMediaCreativeEvidenceGap(fieldLabel: string): string {
+  return `Evidence gap: source-backed ${fieldLabel} copy was not specific enough; do not launch this creative until cited evidence names the buyer workflow, objection, and proof point.`;
+}
+
+function withPaidMediaSpecificCopyFallback({
+  fieldLabel,
+  key,
+  record,
+}: {
+  fieldLabel: string;
+  key: string;
+  record: Record<string, unknown>;
+}): Record<string, unknown> {
+  const value = getStringProperty(record, key);
+  if (value !== null && isSpecificCopy(value)) {
+    return record;
+  }
+
+  return {
+    ...record,
+    [key]: buildPaidMediaCreativeEvidenceGap(fieldLabel),
+  };
+}
+
+function normalizePaidMediaCreativeRecord(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const creativeType = snapCreativeType(record.creativeType);
+  const normalized = {
+    ...record,
+    creativeType,
+  };
+
+  if (creativeType === "unique-selling-point") {
+    return withPaidMediaSpecificCopyFallback({
+      fieldLabel: "unique-selling-point",
+      key: "uspSentence",
+      record: normalized,
+    });
+  }
+
+  if (creativeType === "problem-solution-transformation") {
+    return (["problem", "solution", "transformation"] as const).reduce<
+      Record<string, unknown>
+    >(
+      (current, key) =>
+        withPaidMediaSpecificCopyFallback({
+          fieldLabel: key,
+          key,
+          record: current,
+        }),
+      normalized,
+    );
+  }
+
+  if (creativeType === "objection-handling") {
+    return [
+      ["objection", "objection"],
+      ["objectionAnswer", "objection answer"],
+    ].reduce<Record<string, unknown>>(
+      (current, [key, fieldLabel]) =>
+        withPaidMediaSpecificCopyFallback({
+          fieldLabel,
+          key,
+          record: current,
+        }),
+      normalized,
+    );
+  }
+
+  if (creativeType === "founder-talking-head") {
+    return withPaidMediaSpecificCopyFallback({
+      fieldLabel: "founder talking-head script",
+      key: "founderScriptBeat",
+      record: normalized,
+    });
+  }
+
+  const solution = getStringProperty(normalized, "solution");
+  const transformation = getStringProperty(normalized, "transformation");
+  if (
+    (solution !== null && isSpecificCopy(solution)) ||
+    (transformation !== null && isSpecificCopy(transformation))
+  ) {
+    return normalized;
+  }
+
+  return {
+    ...normalized,
+    transformation: buildPaidMediaCreativeEvidenceGap(
+      "product-demo transformation",
+    ),
+  };
+}
+
+function normalizePaidMediaCompetitorReviewInsights(value: unknown): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) => {
+      const combinedText = `${record.competitor ?? ""} ${
+        record.verbatimComplaint ?? ""
+      } ${record.adLeverage ?? ""}`;
+      if (hasSpecificSignal(combinedText)) {
+        return record;
+      }
+
+      const existingAdLeverage = getStringProperty(record, "adLeverage");
+
+      return {
+        ...record,
+        adLeverage: `${
+          existingAdLeverage ?? "Evidence gap."
+        } Evidence gap: competitor review evidence did not include a specific claim, number, named feature, or operational signal; validate this complaint before launch.`,
+      };
+    },
+  });
+}
+
 type PaidMediaPlanGroundedSourceSection =
   | "positioningCompetitorLandscape"
   | "positioningDemandIntent"
@@ -3350,12 +3470,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   const creativeRecord = getRecord(creative);
                   return creativeRecord === null
                     ? creative
-                    : {
-                        ...creativeRecord,
-                        creativeType: snapCreativeType(
-                          creativeRecord.creativeType,
-                        ),
-                      };
+                    : normalizePaidMediaCreativeRecord(creativeRecord);
                 });
               })(),
             },
@@ -3369,24 +3484,26 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: competitorReviewInsightsRecord,
                 stringKeys: ["prose"],
               }),
-              insights: normalizePaidMediaGroundedRecordArray({
-                allowedKeys: [
-                  "competitor",
-                  "verbatimComplaint",
-                  "adLeverage",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                fallbackSourceSection: "positioningCompetitorLandscape",
-                stringKeys: [
-                  "competitor",
-                  "verbatimComplaint",
-                  "adLeverage",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: competitorReviewInsightsRecord.insights,
-              }),
+              insights: normalizePaidMediaCompetitorReviewInsights(
+                normalizePaidMediaGroundedRecordArray({
+                  allowedKeys: [
+                    "competitor",
+                    "verbatimComplaint",
+                    "adLeverage",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  fallbackSourceSection: "positioningCompetitorLandscape",
+                  stringKeys: [
+                    "competitor",
+                    "verbatimComplaint",
+                    "adLeverage",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  value: competitorReviewInsightsRecord.insights,
+                }),
+              ),
             },
           }),
       ...(competitorMarketingInsightsRecord === null

@@ -525,6 +525,9 @@ describe("buildStructuredPrompt", (): void => {
       "problem-solution-transformation",
     );
     expect(paidMediaPrompt).toContain(
+      "objectionAnswer",
+    );
+    expect(paidMediaPrompt).toContain(
       "Every `competitorReviewInsights.insights[]` item",
     );
     expect(paidMediaPrompt).toContain(

@@ -1284,6 +1284,13 @@ describe('runSection corpus-only mode', (): void => {
       creativeRecord.visualDescription = 'Extra visual direction';
       creativeRecord.landingPageUrl = 'https://example.com/landing';
     }
+    if (creatives.length < 3) {
+      throw new Error('Expected at least three creatives.');
+    }
+    const weakObjectionCreative = requireRecord(creatives[2]);
+    weakObjectionCreative.creativeType = 'objection-handling';
+    weakObjectionCreative.objection = 'Too expensive';
+    weakObjectionCreative.objectionAnswer = 'Trust us';
 
     const orderedMoves = requireRecord(body.orderedMoves);
     const moves = orderedMoves.moves;
@@ -1314,6 +1321,17 @@ describe('runSection corpus-only mode', (): void => {
       competitorRecord.estSpendValue = 12345;
       delete competitorRecord.estSpendProvenance;
     }
+
+    const competitorReviewInsights = requireRecord(
+      body.competitorReviewInsights,
+    );
+    const reviewInsights = competitorReviewInsights.insights;
+    if (!Array.isArray(reviewInsights) || reviewInsights.length < 2) {
+      throw new Error('Expected competitor review insights array.');
+    }
+    const weakReviewInsight = requireRecord(reviewInsights[1]);
+    weakReviewInsight.verbatimComplaint = 'Too generic.';
+    weakReviewInsight.adLeverage = 'Use this in ads.';
 
     const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
       steps: [],
@@ -1369,6 +1387,10 @@ describe('runSection corpus-only mode', (): void => {
       artifactBody.creativeFramework,
     );
     const artifactCreatives = artifactCreativeFramework.creatives;
+    const artifactCompetitorReviewInsights = requireRecord(
+      artifactBody.competitorReviewInsights,
+    );
+    const artifactReviewInsights = artifactCompetitorReviewInsights.insights;
     const artifactCompetitorMarketingInsights = requireRecord(
       artifactBody.competitorMarketingInsights,
     );
@@ -1378,6 +1400,7 @@ describe('runSection corpus-only mode', (): void => {
       !Array.isArray(artifactPhases) ||
       !Array.isArray(artifactAudiences) ||
       !Array.isArray(artifactCreatives) ||
+      !Array.isArray(artifactReviewInsights) ||
       !Array.isArray(artifactCompetitors) ||
       !Array.isArray(artifactStrategicThesis.sourceSections) ||
       !Array.isArray(artifactContradictionReconciliation.sourceSections) ||
@@ -1443,6 +1466,12 @@ describe('runSection corpus-only mode', (): void => {
       'estSpendValue',
     );
     expect(artifactCreatives[0]).not.toHaveProperty('headline');
+    expect(requireRecord(artifactCreatives[2]).objectionAnswer).toContain(
+      'Evidence gap: source-backed objection answer copy',
+    );
+    expect(requireRecord(artifactReviewInsights[1]).adLeverage).toContain(
+      'Evidence gap: competitor review evidence',
+    );
     expect(requireRecord(artifactCompetitors[0]).anglesTested).toBe(
       'Speed; Simplicity',
     );
