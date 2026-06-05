@@ -104,7 +104,7 @@ const funnelTypeValues = [
 ] as const;
 
 const channelVerdictValues = ["keep", "fix", "cut", "start"] as const;
-const spendReconciliationTolerance = 5;
+export const paidMediaSpendReconciliationTolerance = 5;
 
 export const paidMediaMoneyProvenanceValues = [
   "user-supplied",
@@ -516,7 +516,7 @@ function isApproximatelyEqual(
   actual: number,
   expected: number,
 ): boolean {
-  return Math.abs(actual - expected) <= spendReconciliationTolerance;
+  return Math.abs(actual - expected) <= paidMediaSpendReconciliationTolerance;
 }
 
 function validateCreativeFramework(
@@ -578,7 +578,7 @@ function validateSpendMath(errors: string[], body: PaidMediaPlanBody): void {
     const expectedMonthly = dailySpendValue * 30;
     if (!isApproximatelyEqual(expectedMonthly, monthlyBudgetValue)) {
       errors.push(
-        `body.campaignOverview.dailySpendValue: daily spend x 30 must reconcile to monthlyBudgetValue within $${spendReconciliationTolerance}.`,
+        `body.campaignOverview.dailySpendValue: daily spend x 30 must reconcile to monthlyBudgetValue within $${paidMediaSpendReconciliationTolerance}.`,
       );
     }
   }
@@ -597,7 +597,7 @@ function validateSpendMath(errors: string[], body: PaidMediaPlanBody): void {
     ) * 30;
     if (!isApproximatelyEqual(expectedMonthly, monthlyBudgetValue)) {
       errors.push(
-        `body.audienceTypes.audiences: daily budgets x 30 must reconcile to monthlyBudgetValue within $${spendReconciliationTolerance}.`,
+        `body.audienceTypes.audiences: daily budgets x 30 must reconcile to monthlyBudgetValue within $${paidMediaSpendReconciliationTolerance}.`,
       );
     }
   }
@@ -612,7 +612,7 @@ function validateSpendMath(errors: string[], body: PaidMediaPlanBody): void {
     }
     if (!isApproximatelyEqual(phase.monthlyBudgetValue, monthlyBudgetValue)) {
       errors.push(
-        `body.campaignPhases.phases[${index}].monthlyBudgetValue: phase monthly budget must reconcile to campaign monthlyBudgetValue within $${spendReconciliationTolerance}.`,
+        `body.campaignPhases.phases[${index}].monthlyBudgetValue: phase monthly budget must reconcile to campaign monthlyBudgetValue within $${paidMediaSpendReconciliationTolerance}.`,
       );
     }
   });

@@ -1453,6 +1453,102 @@ describe('runSection corpus-only mode', (): void => {
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 
+  it('omits inconsistent paid-media numeric siblings before minimum validation', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-05T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const driftOutput = buildPaidMediaPlanOutput();
+    const body = requireRecord(driftOutput.body);
+    const campaignOverview = requireRecord(body.campaignOverview);
+    campaignOverview.monthlyBudget = '$50,000 (model-estimated)';
+    campaignOverview.monthlyBudgetValue = 50000;
+    campaignOverview.monthlyBudgetProvenance = 'model-estimated';
+    campaignOverview.dailySpend = '~$1,667 (model-estimated)';
+    campaignOverview.dailySpendValue = 1667;
+    campaignOverview.dailySpendProvenance = 'model-estimated';
+
+    const campaignPhases = requireRecord(body.campaignPhases);
+    const phases = campaignPhases.phases;
+    if (!Array.isArray(phases)) {
+      throw new Error('Expected phases array.');
+    }
+    const phaseMonthlyBudgetValues = [15000, 20000, 15000];
+    phases.forEach((phaseValue, index) => {
+      const monthlyBudgetValue =
+        phaseMonthlyBudgetValues[index % phaseMonthlyBudgetValues.length];
+      const phase = requireRecord(phaseValue);
+      phase.monthlyBudget = `$${monthlyBudgetValue.toLocaleString()} (model-estimated)`;
+      phase.monthlyBudgetValue = monthlyBudgetValue;
+      phase.monthlyBudgetProvenance = 'model-estimated';
+    });
+
+    const audienceTypes = requireRecord(body.audienceTypes);
+    const audiences = audienceTypes.audiences;
+    if (!Array.isArray(audiences)) {
+      throw new Error('Expected audiences array.');
+    }
+    audiences.forEach((audience) => {
+      const audienceRecord = requireRecord(audience);
+      audienceRecord.dailyBudget = '$500 (model-estimated)';
+      audienceRecord.dailyBudgetValue = 500;
+      audienceRecord.dailyBudgetProvenance = 'model-estimated';
+    });
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async (params) => {
+      expect(params.model).toBe(strategyModel);
+      expect(params.schema.safeParse(driftOutput).success).toBe(true);
+
+      return driftOutput;
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runEvidencePass,
+        callStructured,
+        env: { LAB_SECTION_STREAMING: 'false' },
+        now: () => new Date('2026-06-05T12:00:00.000Z'),
+      },
+    );
+
+    const artifactBody = requireRecord(result.artifact.body);
+    const artifactCampaignOverview = requireRecord(
+      artifactBody.campaignOverview,
+    );
+    const artifactCampaignPhases = requireRecord(artifactBody.campaignPhases);
+    const artifactPhases = artifactCampaignPhases.phases;
+    const artifactAudienceTypes = requireRecord(artifactBody.audienceTypes);
+    const artifactAudiences = artifactAudienceTypes.audiences;
+    if (!Array.isArray(artifactPhases) || !Array.isArray(artifactAudiences)) {
+      throw new Error('Expected normalized paid-media spend arrays.');
+    }
+
+    expect(artifactCampaignOverview.monthlyBudgetValue).toBe(50000);
+    expect(artifactCampaignOverview).not.toHaveProperty('dailySpendValue');
+    artifactPhases.forEach((phase) => {
+      expect(requireRecord(phase)).not.toHaveProperty('monthlyBudgetValue');
+    });
+    artifactAudiences.forEach((audience) => {
+      expect(requireRecord(audience)).not.toHaveProperty('dailyBudgetValue');
+    });
+    expect(callStructured).toHaveBeenCalledTimes(1);
+  });
+
   it('runs synthesis capstones on the strategy model and preserves strategy fields', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({

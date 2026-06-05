@@ -518,6 +518,18 @@ describe("buildStructuredPrompt", (): void => {
     expect(paidMediaPrompt).toContain(
       "Ordered move ranks are positive integers starting at 1",
     );
+    expect(paidMediaPrompt).toContain(
+      "dailySpendValue * 30",
+    );
+    expect(paidMediaPrompt).toContain(
+      "problem-solution-transformation",
+    );
+    expect(paidMediaPrompt).toContain(
+      "Every `competitorReviewInsights.insights[]` item",
+    );
+    expect(paidMediaPrompt).toContain(
+      "must name the buyer, segment, or company size",
+    );
   });
 });
 

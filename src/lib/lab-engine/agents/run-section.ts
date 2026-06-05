@@ -22,6 +22,7 @@ import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-
 import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
   paidMediaMoneyProvenanceValues,
+  paidMediaSpendReconciliationTolerance,
   snapAngleTypesInMix,
   snapCreativeType,
 } from "../artifacts/schemas/paid-media-plan";
@@ -2688,6 +2689,131 @@ function withPaidMediaMoneyProvenanceDefaultsForRecordArray(
   });
 }
 
+function getFiniteNumberProperty(
+  record: Record<string, unknown> | null,
+  key: string,
+): number | null {
+  const value = record?.[key];
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function paidMediaSpendValuesReconcile(
+  actual: number,
+  expected: number,
+): boolean {
+  return (
+    Math.abs(actual - expected) <= paidMediaSpendReconciliationTolerance
+  );
+}
+
+function omitNumericMoneySibling(
+  record: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  const normalized = { ...record };
+  delete normalized[key];
+
+  return normalized;
+}
+
+function normalizePaidMediaSpendMath(
+  bodyRecord: Record<string, unknown>,
+): Record<string, unknown> {
+  const campaignOverviewRecord = getRecord(bodyRecord.campaignOverview);
+  if (campaignOverviewRecord === null) {
+    return bodyRecord;
+  }
+
+  const monthlyBudgetValue = getFiniteNumberProperty(
+    campaignOverviewRecord,
+    "monthlyBudgetValue",
+  );
+  if (monthlyBudgetValue === null) {
+    return bodyRecord;
+  }
+
+  const dailySpendValue = getFiniteNumberProperty(
+    campaignOverviewRecord,
+    "dailySpendValue",
+  );
+  const normalizedCampaignOverview =
+    dailySpendValue !== null &&
+    !paidMediaSpendValuesReconcile(dailySpendValue * 30, monthlyBudgetValue)
+      ? omitNumericMoneySibling(campaignOverviewRecord, "dailySpendValue")
+      : campaignOverviewRecord;
+
+  const campaignPhasesRecord = getRecord(bodyRecord.campaignPhases);
+  const normalizedCampaignPhases =
+    campaignPhasesRecord === null || !Array.isArray(campaignPhasesRecord.phases)
+      ? campaignPhasesRecord
+      : {
+          ...campaignPhasesRecord,
+          phases: campaignPhasesRecord.phases.map((phase) => {
+            const phaseRecord = getRecord(phase);
+            const phaseMonthlyBudgetValue = getFiniteNumberProperty(
+              phaseRecord,
+              "monthlyBudgetValue",
+            );
+
+            return phaseRecord !== null &&
+              phaseMonthlyBudgetValue !== null &&
+              !paidMediaSpendValuesReconcile(
+                phaseMonthlyBudgetValue,
+                monthlyBudgetValue,
+              )
+              ? omitNumericMoneySibling(phaseRecord, "monthlyBudgetValue")
+              : phase;
+          }),
+        };
+
+  const audienceTypesRecord = getRecord(bodyRecord.audienceTypes);
+  const audienceRecords =
+    audienceTypesRecord !== null && Array.isArray(audienceTypesRecord.audiences)
+      ? audienceTypesRecord.audiences.map((audience) => getRecord(audience))
+      : [];
+  const audienceDailyBudgetValues = audienceRecords.map((audience) =>
+    getFiniteNumberProperty(audience, "dailyBudgetValue"),
+  );
+  const shouldDropAudienceDailyBudgetValues =
+    audienceRecords.length > 0 &&
+    audienceRecords.every((audience) => audience !== null) &&
+    audienceDailyBudgetValues.every((value) => value !== null) &&
+    !paidMediaSpendValuesReconcile(
+      audienceDailyBudgetValues.reduce(
+        (sum, value) => sum + (value ?? 0),
+        0,
+      ) * 30,
+      monthlyBudgetValue,
+    );
+  const normalizedAudienceTypes =
+    audienceTypesRecord === null ||
+    !Array.isArray(audienceTypesRecord.audiences) ||
+    !shouldDropAudienceDailyBudgetValues
+      ? audienceTypesRecord
+      : {
+          ...audienceTypesRecord,
+          audiences: audienceTypesRecord.audiences.map((audience) => {
+            const audienceRecord = getRecord(audience);
+
+            return audienceRecord === null
+              ? audience
+              : omitNumericMoneySibling(audienceRecord, "dailyBudgetValue");
+          }),
+        };
+
+  return {
+    ...bodyRecord,
+    campaignOverview: normalizedCampaignOverview,
+    ...(normalizedCampaignPhases === null
+      ? {}
+      : { campaignPhases: normalizedCampaignPhases }),
+    ...(normalizedAudienceTypes === null
+      ? {}
+      : { audienceTypes: normalizedAudienceTypes }),
+  };
+}
+
 function withSectionSourcesFromBody({
   minimumSources,
   rawOutput,
@@ -2957,7 +3083,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
       stringKeys: ["title", "url", "publisher"],
       value: outputRecord.sources,
     }),
-    body: {
+    body: normalizePaidMediaSpendMath({
       ...bodyRecord,
       ...(strategicThesisRecord === null
         ? {}
@@ -3408,7 +3534,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
         : {
             orderedMoves: orderedMovesEnvelope,
           }),
-    },
+    }),
   };
 }
 
