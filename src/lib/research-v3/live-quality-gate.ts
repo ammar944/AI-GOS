@@ -30,6 +30,7 @@ import {
 import {
   readVerificationFlag,
   readVerificationTier,
+  type ReviewTier,
   type VerificationFlag,
   type VerificationTier,
 } from '@/lib/research-v2/verification-tier';
@@ -39,6 +40,12 @@ export type LiveQualityGateVerdict =
   | 'pipeline_recovered_quality_limited'
   | 'below_9_of_10_gate'
   | 'nine_of_ten_research_achieved';
+
+export type LiveResearchQualityStatus =
+  | 'failed'
+  | 'insufficient'
+  | 'research_grade_with_gaps'
+  | 'verified';
 
 export interface LiveQualityGateArtifactRow {
   id: string;
@@ -123,8 +130,11 @@ export interface LiveQualityGateSectionEvidence {
   schemaErrors: string[];
   verificationTier: VerificationTier | null;
   verificationFlag: VerificationFlag | null;
-  reviewTier: VerificationTier | null;
+  reviewTier: ReviewTier | null;
   evidenceGap: boolean;
+  evidenceGapReasons: string[];
+  qualityStatus: LiveResearchQualityStatus;
+  qualityReasons: string[];
   verifiedCount: number | null;
   unsupportedCount: number | null;
   totalClaims: number | null;
@@ -155,6 +165,8 @@ export interface LiveQualityGateTrustCheck {
 export interface LiveQualityGateResult {
   runId: string;
   verdict: LiveQualityGateVerdict;
+  researchQualityStatus: LiveResearchQualityStatus;
+  researchQualityReasons: string[];
   failures: string[];
   warnings: string[];
   completion: LiveQualityGateCompletionRow[];
@@ -178,6 +190,12 @@ const PROFILE_TRUST_SECTION_IDS = [
 ] as const satisfies readonly ReaderSectionId[];
 
 const CORE_SECTION_SET: ReadonlySet<string> = new Set(POSITIONING_SECTION_IDS);
+const RESEARCH_QUALITY_SEVERITY: Record<LiveResearchQualityStatus, number> = {
+  verified: 0,
+  research_grade_with_gaps: 1,
+  insufficient: 2,
+  failed: 3,
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -343,6 +361,151 @@ function countVerificationClaims(
   };
 }
 
+function readReviewTier(value: unknown): ReviewTier | null {
+  if (value === 'unavailable') return 'unavailable';
+  return readVerificationTier(value);
+}
+
+function strictestResearchQualityStatus(
+  first: LiveResearchQualityStatus,
+  second: LiveResearchQualityStatus,
+): LiveResearchQualityStatus {
+  return RESEARCH_QUALITY_SEVERITY[first] >=
+    RESEARCH_QUALITY_SEVERITY[second]
+    ? first
+    : second;
+}
+
+function hasStructuredEvidenceGapReport(
+  artifact: ArtifactEnvelope | null,
+): boolean {
+  const body = isRecord(artifact?.body) ? artifact.body : {};
+  const report = isRecord(body.evidenceGapReport) ? body.evidenceGapReport : null;
+  if (!report) return false;
+
+  const sourcingPlan = Array.isArray(report.sourcingPlan)
+    ? report.sourcingPlan
+    : [];
+
+  return (
+    asString(report.reason) !== null ||
+    asString(report.summary) !== null ||
+    getEvidenceGapAttempts(report).length > 0 ||
+    sourcingPlan.some((item) => asString(item) !== null)
+  );
+}
+
+function classifySectionResearchQuality(input: {
+  zone: ReaderSectionId;
+  artifact: ArtifactEnvelope | null;
+  schemaValid: boolean;
+  schemaErrors: readonly string[];
+  verificationTier: VerificationTier | null;
+  verificationFlag: VerificationFlag | null;
+  reviewTier: ReviewTier | null;
+  evidenceGap: boolean;
+  evidenceGapReasons: readonly string[];
+  unsupportedCount: number | null;
+}): {
+  qualityStatus: LiveResearchQualityStatus;
+  qualityReasons: string[];
+} {
+  if (!input.artifact) {
+    return {
+      qualityStatus: 'failed',
+      qualityReasons: ['section artifact row is missing'],
+    };
+  }
+
+  if (!input.schemaValid) {
+    return {
+      qualityStatus: 'failed',
+      qualityReasons: [
+        `schema/minimum validation failed: ${input.schemaErrors.join('; ')}`,
+      ],
+    };
+  }
+
+  const reasons: string[] = [];
+  const flagEvidenceGap = input.verificationFlag?.evidenceGap === true;
+  const hasEvidenceGap = input.evidenceGap || flagEvidenceGap;
+  const hasStructuredGapReport = hasStructuredEvidenceGapReport(input.artifact);
+  const verificationTier =
+    input.verificationTier ?? input.verificationFlag?.tier ?? null;
+
+  if (verificationTier === 'insufficient') {
+    reasons.push(`${input.zone} verification_tier is insufficient`);
+  }
+  if (verificationTier === 'needs_review') {
+    reasons.push(`${input.zone} verification_tier is needs_review`);
+  }
+  if (input.reviewTier === 'insufficient') {
+    reasons.push(`${input.zone} review tier is insufficient`);
+  }
+  if (input.reviewTier === 'needs_review') {
+    reasons.push(`${input.zone} review tier is needs_review`);
+  }
+  if (input.reviewTier === 'unavailable') {
+    reasons.push(`${input.zone} review tier is unavailable`);
+  }
+  if (input.evidenceGap) {
+    reasons.push(`${input.zone} body.evidenceGap=true`);
+  }
+  if (flagEvidenceGap) {
+    reasons.push(`${input.zone} verification_flag.evidenceGap=true`);
+  }
+  if (input.evidenceGapReasons.length > 0) {
+    reasons.push(`gap reasons: ${input.evidenceGapReasons.join(', ')}`);
+  }
+  if (hasEvidenceGap && hasStructuredGapReport) {
+    reasons.push('structured evidence-gap report is present');
+  }
+  if (input.unsupportedCount !== null && input.unsupportedCount > 0) {
+    reasons.push(`unsupported claims=${input.unsupportedCount}`);
+  }
+
+  if (
+    verificationTier === 'insufficient' ||
+    input.reviewTier === 'insufficient' ||
+    hasEvidenceGap
+  ) {
+    return {
+      qualityStatus:
+        hasEvidenceGap && hasStructuredGapReport
+          ? 'research_grade_with_gaps'
+          : 'insufficient',
+      qualityReasons: uniqueStrings(
+        reasons.length > 0
+          ? reasons
+          : ['insufficient verification without structured evidence-gap report'],
+      ),
+    };
+  }
+
+  if (
+    verificationTier === 'needs_review' ||
+    input.reviewTier === 'needs_review' ||
+    input.reviewTier === 'unavailable'
+  ) {
+    return {
+      qualityStatus: 'research_grade_with_gaps',
+      qualityReasons: uniqueStrings(reasons),
+    };
+  }
+
+  if (!verificationTier) {
+    return {
+      qualityStatus: 'research_grade_with_gaps',
+      qualityReasons: ['verification_tier is missing'],
+    };
+  }
+
+  return {
+    qualityStatus: 'verified',
+    qualityReasons: [],
+  };
+}
+
 function buildSectionEvidence(
   parsedSections: readonly ParsedSection[],
 ): LiveQualityGateSectionEvidence[] {
@@ -351,18 +514,39 @@ function buildSectionEvidence(
   return READER_SECTION_IDS.map((zone) => {
     const parsed = parsedByZone.get(zone) ?? null;
     const artifact = parsed?.artifact ?? null;
+    const schemaValid = parsed !== null && parsed.schemaErrors.length === 0;
+    const schemaErrors = parsed?.schemaErrors ?? ['missing section artifact row'];
+    const verificationTier = readVerificationTier(parsed?.row.verificationTier);
+    const verificationFlag = readVerificationFlag(parsed?.row.verificationFlag);
+    const reviewTier = readReviewTier(artifact?.review?.tier);
+    const evidenceGap =
+      isRecord(artifact?.body) && artifact.body.evidenceGap === true;
+    const evidenceGapReasons = collectGapReasons(artifact);
     const counts = countVerificationClaims(artifact);
+    const quality = classifySectionResearchQuality({
+      zone,
+      artifact,
+      schemaValid,
+      schemaErrors,
+      verificationTier,
+      verificationFlag,
+      reviewTier,
+      evidenceGap,
+      evidenceGapReasons,
+      unsupportedCount: counts.unsupportedCount,
+    });
 
     return {
       zone,
       artifactPresent: artifact !== null,
-      schemaValid: parsed !== null && parsed.schemaErrors.length === 0,
-      schemaErrors: parsed?.schemaErrors ?? ['missing section artifact row'],
-      verificationTier: readVerificationTier(parsed?.row.verificationTier),
-      verificationFlag: readVerificationFlag(parsed?.row.verificationFlag),
-      reviewTier: readVerificationTier(artifact?.review?.tier),
-      evidenceGap:
-        isRecord(artifact?.body) && artifact.body.evidenceGap === true,
+      schemaValid,
+      schemaErrors,
+      verificationTier,
+      verificationFlag,
+      reviewTier,
+      evidenceGap,
+      evidenceGapReasons,
+      ...quality,
       ...counts,
     };
   });
@@ -705,6 +889,75 @@ function buildWarnings(
     .map((evidence) => `${evidence.zone} verification_tier is needs_review`);
 }
 
+function buildResearchQualitySummary(input: {
+  pipelineFailures: readonly string[];
+  sectionEvidence: readonly LiveQualityGateSectionEvidence[];
+  vocAudit: LiveQualityGateVocAudit;
+  rubricScore: StrategicRubricScore;
+}): {
+  researchQualityStatus: LiveResearchQualityStatus;
+  researchQualityReasons: string[];
+} {
+  let status: LiveResearchQualityStatus =
+    input.pipelineFailures.length > 0 ? 'failed' : 'verified';
+  const reasons: string[] = input.pipelineFailures.map(
+    (failure) => `pipeline: ${failure}`,
+  );
+
+  for (const evidence of input.sectionEvidence) {
+    status = strictestResearchQualityStatus(status, evidence.qualityStatus);
+    if (evidence.qualityStatus === 'verified') continue;
+
+    reasons.push(
+      `${evidence.zone}: ${
+        evidence.qualityReasons.length > 0
+          ? evidence.qualityReasons.join('; ')
+          : evidence.qualityStatus
+      }`,
+    );
+  }
+
+  const vocEvidence = input.sectionEvidence.find(
+    (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+  );
+  const vocFloorFailures = [
+    input.vocAudit.passesQuoteFloor
+      ? null
+      : `quote floor pain=${input.vocAudit.painQuoteCount}, success=${input.vocAudit.successQuoteCount}`,
+    input.vocAudit.passesSourceDiversity
+      ? null
+      : `source-domain floor domains=${input.vocAudit.painSourceDomains.length}`,
+    input.vocAudit.passesSourceUrlFloor
+      ? null
+      : `source URL floor urls=${input.vocAudit.painSourceUrls.length}`,
+    input.vocAudit.passesSubjectDomainExclusion
+      ? null
+      : `self-sourced pain quote URLs=${input.vocAudit.selfSourcedPainQuoteCount}`,
+  ].filter((reason): reason is string => reason !== null);
+
+  if (vocFloorFailures.length > 0) {
+    reasons.push(
+      `positioningVoiceOfCustomer floors: ${vocFloorFailures.join('; ')}`,
+    );
+    if (vocEvidence?.qualityStatus !== 'research_grade_with_gaps') {
+      status = strictestResearchQualityStatus(status, 'insufficient');
+    }
+  }
+
+  if (input.rubricScore.score < 9) {
+    reasons.push(`strategic rubric score=${input.rubricScore.score}/10`);
+    status = strictestResearchQualityStatus(
+      status,
+      'research_grade_with_gaps',
+    );
+  }
+
+  return {
+    researchQualityStatus: status,
+    researchQualityReasons: uniqueStrings(reasons),
+  };
+}
+
 export function evaluateLiveQualityGate(
   input: LiveQualityGateInput,
 ): LiveQualityGateResult {
@@ -743,6 +996,12 @@ export function evaluateLiveQualityGate(
     shareTrust,
   });
   const warnings = buildWarnings(sectionEvidence);
+  const researchQuality = buildResearchQualitySummary({
+    pipelineFailures,
+    sectionEvidence,
+    vocAudit,
+    rubricScore,
+  });
   const failures = [...pipelineFailures, ...qualityFailures];
   const pipelineRecovered =
     pipelineFailures.length === 0 &&
@@ -759,6 +1018,7 @@ export function evaluateLiveQualityGate(
   return {
     runId: input.runId,
     verdict,
+    ...researchQuality,
     failures,
     warnings,
     completion,

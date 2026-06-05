@@ -384,12 +384,15 @@ function renderReport(result: LiveQualityGateResult): string {
   ]);
   const verificationRows = result.sectionEvidence.map((row) => [
     row.zone,
+    row.qualityStatus,
     row.verificationTier ?? 'missing',
     row.reviewTier ?? 'missing',
     boolText(row.evidenceGap),
+    listOrNone(row.evidenceGapReasons),
     row.verifiedCount === null ? 'missing' : String(row.verifiedCount),
     row.unsupportedCount === null ? 'missing' : String(row.unsupportedCount),
     row.schemaValid ? 'valid' : row.schemaErrors.join('; '),
+    listOrNone(row.qualityReasons),
   ]);
   const rubricRows = result.rubricScore.propertyResults.map((property) => [
     property.label,
@@ -402,6 +405,12 @@ function renderReport(result: LiveQualityGateResult): string {
     '',
     `Run id: \`${result.runId}\``,
     `Final verdict: \`${result.verdict}\``,
+    `Research quality: \`${result.researchQualityStatus}\``,
+    '',
+    '## Research Quality Reasons',
+    result.researchQualityReasons.length > 0
+      ? result.researchQualityReasons.map((reason) => `- ${reason}`).join('\n')
+      : 'none',
     '',
     '## Completion',
     markdownTable(
@@ -413,12 +422,15 @@ function renderReport(result: LiveQualityGateResult): string {
     markdownTable(
       [
         'Zone',
+        'Research quality',
         'Persisted tier',
         'Review tier',
         'Evidence gap',
+        'Gap reasons',
         'Verified',
         'Unsupported',
         'Schema/minimums',
+        'Quality reasons',
       ],
       verificationRows,
     ),
@@ -497,6 +509,7 @@ async function main(): Promise<void> {
     JSON.stringify({
       runId: options.runId,
       verdict: result.verdict,
+      researchQualityStatus: result.researchQualityStatus,
       failures: result.failures.length,
       warnings: result.warnings.length,
       out: options.out,

@@ -332,6 +332,17 @@ describe('live quality gate', (): void => {
     expect(result.failures).toContain(
       'positioningVoiceOfCustomer has body.evidenceGap=true',
     );
+    expect(result.researchQualityStatus).toBe('research_grade_with_gaps');
+    expect(
+      result.sectionEvidence.find(
+        (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        evidenceGapReasons: ['insufficient_voice_of_customer_sources'],
+        qualityStatus: 'research_grade_with_gaps',
+      }),
+    );
   });
 
   it('reports VoC evidence-gap acquisition attempts without changing failure semantics', (): void => {
@@ -409,12 +420,42 @@ describe('live quality gate', (): void => {
       'blocked_js_challenge',
       'parser_no_match',
     ]);
+    expect(
+      result.sectionEvidence.find(
+        (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+      )?.qualityReasons,
+    ).toContain('structured evidence-gap report is present');
+  });
+
+  it('keeps unsupported non-gap sections insufficient instead of treating them as research-grade gaps', (): void => {
+    const sections = READER_SECTION_IDS.map((zone) =>
+      createSectionRow({
+        zone,
+        tier:
+          zone === 'positioningMarketCategory' ? 'insufficient' : 'verified',
+      }),
+    );
+
+    const result = evaluateLiveQualityGate(
+      createCompleteInput({ sections, includePassingCritique: true }),
+    );
+
+    expect(result.verdict).toBe('pipeline_recovered_quality_limited');
+    expect(result.researchQualityStatus).toBe('insufficient');
+    const marketEvidence = result.sectionEvidence.find(
+      (evidence) => evidence.zone === 'positioningMarketCategory',
+    );
+    expect(marketEvidence?.qualityStatus).toBe('insufficient');
+    expect(marketEvidence?.qualityReasons).toContain(
+      'positioningMarketCategory verification_tier is insufficient',
+    );
   });
 
   it('returns below_9_of_10_gate when evidence and trust pass but rubric score is below nine', (): void => {
     const result = evaluateLiveQualityGate(createCompleteInput());
 
     expect(result.verdict).toBe('below_9_of_10_gate');
+    expect(result.researchQualityStatus).toBe('research_grade_with_gaps');
     expect(result.rubricScore.score).toBe(8);
     expect(result.failures).toEqual([]);
   });
@@ -450,6 +491,7 @@ describe('live quality gate', (): void => {
     );
 
     expect(result.verdict).toBe('nine_of_ten_research_achieved');
+    expect(result.researchQualityStatus).toBe('verified');
     expect(result.failures).toEqual([]);
     expect(result.profileTrust.matched).toBe(true);
     expect(result.shareTrust.matched).toBe(true);
