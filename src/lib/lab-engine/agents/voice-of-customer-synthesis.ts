@@ -121,9 +121,15 @@ function inferPainTheme(candidate: VoiceOfCustomerCandidate): string {
   return "buyer workflow friction";
 }
 
+const explicitAfterStatePattern =
+  /\b(?:after|finally|now|knows?|clear|fewer|less|restored|rebuilding|matters next|fixed|solved)\b/iu;
+const efficiencyControlAfterStatePattern =
+  /\b(?:takes? (?:literally )?seconds?|instant(?:ly)?|fast approval|easy to use|easier to manage|real-time visibility|under control|surfac(?:e|es|ing) (?:patterns|duplicate|unexpected)|flag(?:s|ging)? duplicate|highlight(?:s|ing)? unexpected|simple to (?:create|revoke|monitor|manage))\b/iu;
+
 function expressesAfterState(candidate: VoiceOfCustomerCandidate): boolean {
-  return /\b(?:after|finally|now|knows?|clear|fewer|less|restored|rebuilding|matters next|fixed|solved)\b/iu.test(
-    candidate.snippet,
+  return (
+    explicitAfterStatePattern.test(candidate.snippet) ||
+    efficiencyControlAfterStatePattern.test(candidate.snippet)
   );
 }
 
