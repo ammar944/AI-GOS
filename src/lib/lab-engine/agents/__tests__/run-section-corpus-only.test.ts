@@ -9,8 +9,10 @@ import {
   type CompetitorLandscapeBody,
   type CompetitorLandscapeSectionOutput,
 } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import type { BuyerICPSectionOutput } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
 import type { DemandIntentSectionOutput } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
+import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
 import { demandIntentFixtureSectionOutput } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
@@ -40,6 +42,38 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
       ...(source.publisher ? { publisher: source.publisher } : {}),
     })),
     body: marketCategoryFixtureArtifact.body,
+  };
+}
+
+function buildBuyerICPOutputWithGenericPersonaNames(): BuyerICPSectionOutput {
+  return {
+    sectionTitle: buyerICPFixtureArtifact.sectionTitle,
+    verdict: buyerICPFixtureArtifact.verdict,
+    statusSummary: buyerICPFixtureArtifact.statusSummary,
+    confidence: buyerICPFixtureArtifact.confidence,
+    sources: buyerICPFixtureArtifact.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      ...(source.publisher ? { publisher: source.publisher } : {}),
+    })),
+    body: {
+      ...buyerICPFixtureArtifact.body,
+      personaReality: {
+        ...buyerICPFixtureArtifact.body.personaReality,
+        personas: buyerICPFixtureArtifact.body.personaReality.personas.map(
+          (persona, index) => ({
+            ...persona,
+            name: [
+              'Economic buyer',
+              'Finance leaders',
+              'Revenue Operator',
+              'Fixture SaaS 4',
+              'Enterprise finance team',
+            ][index] ?? persona.name,
+          }),
+        ),
+      },
+    },
   };
 }
 
@@ -545,6 +579,77 @@ describe('runSection corpus-only mode', (): void => {
     expect(repairStarts).toHaveLength(2);
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
+    );
+  });
+
+  it('commits a BuyerICP persona evidence gap after repairs leave generic persona labels', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningBuyerICP'],
+      now: () => new Date('2026-06-05T04:39:37.613Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    let calls = 0;
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      calls += 1;
+
+      if (calls >= 2) {
+        expect(params.prompt).toContain('BuyerICP persona-name repair');
+        expect(params.prompt).toContain('body.personaReality.personas[4].name');
+      }
+
+      return {
+        steps: [],
+        text: '',
+        answerInput: buildBuyerICPOutputWithGenericPersonaNames(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningBuyerICP',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-06-05T04:39:37.613Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const body = requireRecord(result.artifact.body);
+    const personaReality = requireRecord(body.personaReality);
+    const personas = personaReality.personas;
+    const evidenceGapReport = requireRecord(body.evidenceGapReport);
+    const rejectedPersonaLabels = evidenceGapReport.rejectedPersonaLabels;
+
+    if (!Array.isArray(personas) || !Array.isArray(rejectedPersonaLabels)) {
+      throw new Error('Expected BuyerICP persona evidence-gap arrays.');
+    }
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(body.evidenceGap).toBe(true);
+    expect(evidenceGapReport.reason).toBe('insufficient_named_buyer_personas');
+    expect(evidenceGapReport.foundNamedPersonaCount).toBe(0);
+    expect(personas).toHaveLength(0);
+    expect(rejectedPersonaLabels).toEqual([
+      'Economic buyer',
+      'Finance leaders',
+      'Revenue Operator',
+      'Fixture SaaS 4',
+      'Enterprise finance team',
+    ]);
+    expect(result.artifact.verdict).toContain(
+      'Named BuyerICP persona proof is below the evidence bar',
+    );
+    expect(record.sections.positioningBuyerICP?.status).toBe('completed');
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
     );
   });
 

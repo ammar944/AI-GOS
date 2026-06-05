@@ -14,6 +14,10 @@ import {
   crossSectionReasoningBodySchema,
   type CrossSectionReasoningArtifact,
 } from "../artifacts/schemas/cross-section-reasoning";
+import {
+  isLikelyNamedBuyerIdentity,
+  type BuyerICPBody,
+} from "../artifacts/schemas/buyer-icp";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
@@ -102,6 +106,7 @@ import {
   type VoiceOfCustomerEvidenceKind,
   type VoiceOfCustomerCandidateSource,
 } from "./voice-of-customer-candidates";
+import { synthesizeVoiceOfCustomerFromCandidates } from "./voice-of-customer-synthesis";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
 import {
   extractCompanyFromDomain,
@@ -813,6 +818,190 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
   });
 }
 
+function buildVoiceOfCustomerDeterministicSynthesisArtifact({
+  definition,
+  deps,
+  errors,
+  input,
+  researchInput,
+  voiceOfCustomerPrepass,
+}: {
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  errors: readonly string[];
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  voiceOfCustomerPrepass:
+    | Awaited<ReturnType<typeof buildVoiceOfCustomerCandidatePrepass>>
+    | undefined;
+}): ArtifactEnvelope | undefined {
+  if (
+    voiceOfCustomerPrepass === undefined ||
+    !voiceOfCustomerPrepass.result.ok ||
+    !hasVoiceOfCustomerStructuredSynthesisFailure({
+      errors,
+      input,
+      voiceOfCustomerPrepass,
+    })
+  ) {
+    return undefined;
+  }
+
+  const synthesis = synthesizeVoiceOfCustomerFromCandidates({
+    candidateResult: voiceOfCustomerPrepass.result,
+    now: () => getNow(deps),
+    researchInput,
+  });
+
+  if (!synthesis.ok) {
+    return undefined;
+  }
+
+  const output: SectionOutput<Record<string, unknown>> = {
+    ...synthesis.output,
+    body: synthesis.output.body as Record<string, unknown>,
+  };
+  const verification = verifySectionBody({
+    body: output.body,
+    evidenceSteps: voiceOfCustomerPrepass.steps,
+    researchInput,
+  });
+  const artifact = buildEnvelope({
+    definition,
+    deps,
+    input,
+    output,
+    verification,
+  });
+  const minimums = definition.validateMinimums(artifact);
+
+  if (!minimums.ok) {
+    return undefined;
+  }
+
+  const missingClass = checkRequiredEvidenceClasses({
+    body: artifact.body,
+    requiredEvidenceClasses: definition.requiredEvidenceClasses,
+    sectionId: input.sectionId,
+  });
+
+  if (missingClass !== null) {
+    return undefined;
+  }
+
+  const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+    artifact,
+    subjectDomain: researchInput.company.websiteUrl,
+  });
+
+  return selfSourcing.ok ? artifact : undefined;
+}
+
+const buyerICPPersonaNameErrorPattern =
+  /^body\.personaReality\.personas\[\d+\]\.name: must be a named person, public reviewer handle, or named source identity; generic role\/segment\/company labels do not qualify\.$/;
+const buyerICPPersonaCountErrorPattern =
+  /^body\.personaReality\.personas: have \d+, need >=5\.$/;
+const buyerICPPersonaEvidenceGapReason = "insufficient_named_buyer_personas";
+const buyerICPRequiredNamedPersonaCount = 5;
+
+function isBuyerICPPersonaEvidenceGapError(error: string): boolean {
+  return (
+    buyerICPPersonaNameErrorPattern.test(error) ||
+    buyerICPPersonaCountErrorPattern.test(error)
+  );
+}
+
+function isBuyerICPPersonaEvidenceGapFailure({
+  errors,
+  input,
+}: {
+  errors: readonly string[];
+  input: RunSectionInput;
+}): boolean {
+  return (
+    input.sectionId === "positioningBuyerICP" &&
+    errors.length > 0 &&
+    errors.every(isBuyerICPPersonaEvidenceGapError)
+  );
+}
+
+function isNamedBuyerPersona(
+  persona: BuyerICPBody["personaReality"]["personas"][number],
+): boolean {
+  return isLikelyNamedBuyerIdentity(persona.name, {
+    company: persona.company,
+    role: persona.role,
+    seniority: persona.seniority,
+    title: persona.title,
+  });
+}
+
+function buildBuyerICPPersonaEvidenceGapArtifact({
+  artifact,
+  definition,
+  errors,
+  input,
+}: {
+  artifact: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  errors: readonly string[];
+  input: RunSectionInput;
+}): ArtifactEnvelope | undefined {
+  if (!isBuyerICPPersonaEvidenceGapFailure({ errors, input })) {
+    return undefined;
+  }
+
+  const body = artifact.body as BuyerICPBody;
+  const validPersonas = body.personaReality.personas.filter(isNamedBuyerPersona);
+  const rejectedPersonaLabels = Array.from(
+    new Set(
+      body.personaReality.personas
+        .filter((persona) => !isNamedBuyerPersona(persona))
+        .map((persona) => persona.name.trim())
+        .filter((name) => name.length > 0),
+    ),
+  );
+  const summary = [
+    "Evidence gap: public research did not clear the named BuyerICP persona bar.",
+    `Found ${validPersonas.length} named buyer persona(s); required ${buyerICPRequiredNamedPersonaCount}.`,
+    "Generic role, segment, seniority, and company labels were dropped instead of being promoted as persona proof.",
+  ].join(" ");
+  const candidate = artifactEnvelopeSchema
+    .extend({ body: definition.bodySchema })
+    .parse({
+      ...artifact,
+      verdict:
+        "Named BuyerICP persona proof is below the evidence bar; treat persona-specific targeting as unproven.",
+      statusSummary:
+        "The section completed with an evidence gap so downstream synthesis can proceed without fabricated buyer personas.",
+      confidence: Math.min(artifact.confidence, 0.3),
+      body: {
+        ...body,
+        personaReality: {
+          ...body.personaReality,
+          prose: `${summary} ${body.personaReality.prose}`,
+          personas: validPersonas,
+        },
+        evidenceGap: true,
+        evidenceGapReport: {
+          reason: buyerICPPersonaEvidenceGapReason,
+          summary,
+          foundNamedPersonaCount: validPersonas.length,
+          requiredNamedPersonaCount: buyerICPRequiredNamedPersonaCount,
+          rejectedPersonaLabels,
+          sourcingPlan: [
+            "Recover named buyer identities from public case studies, review bylines, webinar speakers, conference rosters, customer stories, or first-party discovery calls.",
+            "Keep title, company, source URL, role, seniority, and evidence for each promoted persona.",
+            "Do not use role labels, segments, departments, seniority labels, or company names as persona names.",
+          ],
+        },
+      },
+    });
+  const minimums = definition.validateMinimums(candidate);
+
+  return minimums.ok ? candidate : undefined;
+}
+
 function hasVoiceOfCustomerStructuredSynthesisFailure({
   errors,
   input,
@@ -839,6 +1028,7 @@ function hasVoiceOfCustomerStructuredSynthesisFailure({
     const lowerError = error.toLowerCase();
     return (
       lowerError.includes("no object generated") ||
+      lowerError.includes("agent did not call answer tool") ||
       lowerError.includes("could not parse") ||
       lowerError.includes("response did not match schema")
     );
@@ -1288,6 +1478,7 @@ async function saveCompletedArtifact({
 interface AttemptResult {
   output: SectionOutput<Record<string, unknown>> | null;
   artifact: ArtifactEnvelope | null;
+  buyerICPEvidenceGapArtifact?: ArtifactEnvelope;
   competitorStrategicEvidenceGapArtifact?: ArtifactEnvelope;
   errors: string[];
   requiredEvidenceMissing?: RequiredEvidenceMissingError;
@@ -1306,6 +1497,7 @@ function getAttemptEvidenceGapArtifact(
   attempt: AttemptResult,
 ): ArtifactEnvelope | undefined {
   return (
+    attempt.buyerICPEvidenceGapArtifact ??
     attempt.voiceOfCustomerEvidenceGapArtifact ??
     attempt.competitorStrategicEvidenceGapArtifact
   );
@@ -4259,6 +4451,13 @@ async function callStructuredAttempt({
       return {
         output,
         artifact: null,
+        buyerICPEvidenceGapArtifact:
+          buildBuyerICPPersonaEvidenceGapArtifact({
+            artifact,
+            definition,
+            errors: minimums.errors,
+            input,
+          }),
         competitorStrategicEvidenceGapArtifact:
           buildCompetitorStrategicEvidenceGapArtifact({
             artifact,
@@ -4477,6 +4676,13 @@ async function callStructuredStreamAttempt({
       return {
         output,
         artifact: null,
+        buyerICPEvidenceGapArtifact:
+          buildBuyerICPPersonaEvidenceGapArtifact({
+            artifact,
+            definition,
+            errors: minimums.errors,
+            input,
+          }),
         competitorStrategicEvidenceGapArtifact:
           buildCompetitorStrategicEvidenceGapArtifact({
             artifact,
@@ -5402,6 +5608,13 @@ async function buildVerifiedAttemptFromOutput({
     return {
       output,
       artifact: null,
+      buyerICPEvidenceGapArtifact:
+        buildBuyerICPPersonaEvidenceGapArtifact({
+          artifact,
+          definition,
+          errors: minimums.errors,
+          input,
+        }),
       competitorStrategicEvidenceGapArtifact:
         buildCompetitorStrategicEvidenceGapArtifact({
           artifact,
@@ -6282,6 +6495,14 @@ async function runSectionViaAnswerTool(
 
     const evidenceGapArtifact =
       getAttemptEvidenceGapArtifact(attempt) ??
+      buildVoiceOfCustomerDeterministicSynthesisArtifact({
+        definition,
+        deps,
+        errors: getAttemptRepairIssues(attempt),
+        input,
+        researchInput,
+        voiceOfCustomerPrepass,
+      }) ??
       buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
         definition,
         deps,
@@ -6767,6 +6988,14 @@ async function runSectionViaStructuredBodyStream(
 
     const evidenceGapArtifact =
       getAttemptEvidenceGapArtifact(attempt) ??
+      buildVoiceOfCustomerDeterministicSynthesisArtifact({
+        definition,
+        deps,
+        errors: getAttemptRepairIssues(attempt),
+        input,
+        researchInput,
+        voiceOfCustomerPrepass,
+      }) ??
       buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
         definition,
         deps,

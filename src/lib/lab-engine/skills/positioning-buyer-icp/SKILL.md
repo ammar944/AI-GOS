@@ -215,7 +215,7 @@ Incorrect:
 
 Correct:
 
-- name: a real individual found via LinkedIn title-search at a named real ICP company
+- name: <exact person name or public handle copied verbatim from the fetched source; never output this placeholder>
 - title: VP Revenue Operations
 - company: a named real company in the ICP
 - role: economic-buyer

@@ -1,4 +1,8 @@
 import type { SectionId } from "../events/activity-event";
+import {
+  isHttpUrl,
+  isLikelyNamedBuyerIdentity,
+} from "../artifacts/schemas/buyer-icp";
 
 export type RequiredEvidenceClass =
   | "marketCategory_name"
@@ -50,8 +54,22 @@ function asRecordArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
-function hasText(value: unknown): boolean {
+function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasSubstantiveIcpEvidence(value: unknown): boolean {
+  if (!hasText(value)) {
+    return false;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  return !(
+    normalizedValue === "evidence gap" ||
+    normalizedValue.startsWith("evidence gap:") ||
+    normalizedValue === "gap" ||
+    normalizedValue === "unknown"
+  );
 }
 
 function hasRecordWithText(
@@ -95,17 +113,80 @@ function hasMarketCategoryName(body: Record<string, unknown>): boolean {
   );
 }
 
+function hasBuyerICPNamedPersonaEvidenceGap(
+  body: Record<string, unknown>,
+): boolean {
+  const evidenceGapReport = asRecord(body.evidenceGapReport);
+  return (
+    body.evidenceGap === true &&
+    evidenceGapReport.reason === "insufficient_named_buyer_personas"
+  );
+}
+
 function hasIcpPersona(body: Record<string, unknown>): boolean {
+  if (hasBuyerICPNamedPersonaEvidenceGap(body)) {
+    return true;
+  }
+
   const personaReality = asRecord(body.personaReality);
-  return hasRecordWithText(personaReality.personas, "name");
+  return asRecordArray(personaReality.personas).some((persona) => {
+    const name = typeof persona.name === "string" ? persona.name : "";
+    const sourceUrl = typeof persona.sourceUrl === "string" ? persona.sourceUrl : "";
+    const title = typeof persona.title === "string" ? persona.title : undefined;
+    const company =
+      typeof persona.company === "string" ? persona.company : undefined;
+    const role = typeof persona.role === "string" ? persona.role : undefined;
+    const seniority =
+      typeof persona.seniority === "string" ? persona.seniority : undefined;
+
+    return (
+      isHttpUrl(sourceUrl) &&
+      isLikelyNamedBuyerIdentity(name, {
+        company,
+        role,
+        seniority,
+        title,
+      })
+    );
+  });
 }
 
 function hasIcpQuoteOrGap(body: Record<string, unknown>): boolean {
   const personaReality = asRecord(body.personaReality);
   const buyingContext = asRecord(body.buyingContext);
   return (
-    hasRecordWithText(personaReality.personas, "evidence") ||
-    hasRecordWithText(buyingContext.triggers, "evidence") ||
+    asRecordArray(personaReality.personas).some((persona) => {
+      const evidence = persona.evidence;
+      const sourceUrl = typeof persona.sourceUrl === "string" ? persona.sourceUrl : "";
+      const name = typeof persona.name === "string" ? persona.name : "";
+      const title = typeof persona.title === "string" ? persona.title : undefined;
+      const company =
+        typeof persona.company === "string" ? persona.company : undefined;
+      const role = typeof persona.role === "string" ? persona.role : undefined;
+      const seniority =
+        typeof persona.seniority === "string" ? persona.seniority : undefined;
+
+      return (
+        hasSubstantiveIcpEvidence(evidence) &&
+        isHttpUrl(sourceUrl) &&
+        isLikelyNamedBuyerIdentity(name, {
+          company,
+          role,
+          seniority,
+          title,
+        })
+      );
+    }) ||
+    asRecordArray(buyingContext.triggers).some((trigger) => {
+      const evidence = trigger.evidence;
+      const sourceUrl = trigger.sourceUrl;
+
+      return (
+        hasSubstantiveIcpEvidence(evidence) &&
+        typeof sourceUrl === "string" &&
+        isHttpUrl(sourceUrl)
+      );
+    }) ||
     hasNestedGap(body)
   );
 }

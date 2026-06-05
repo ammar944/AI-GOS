@@ -71,6 +71,14 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       requiredEvidenceClasses: [],
     });
   });
+
+  it("keeps BuyerICP on the dedicated grounding gate and current lookup budget", (): void => {
+    expect(SECTION_REGISTRY.positioningBuyerICP.requiredEvidenceClasses).toEqual([
+      "icp_persona",
+      "icp_quote_or_gap",
+    ]);
+    expect(SECTION_REGISTRY.positioningBuyerICP.maxExternalLookups).toBe(4);
+  });
 });
 
 describe("post-six section registration", (): void => {

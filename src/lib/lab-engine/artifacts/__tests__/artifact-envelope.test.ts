@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { crossSectionReasoningFixtureArtifact } from "../../fixtures/cross-section-reasoning-artifact";
-import { artifactEnvelopeSchema, verificationReportSchema } from "../artifact-envelope";
+import {
+  artifactEnvelopeSchema,
+  sectionReviewResultSchema,
+  verificationReportSchema,
+} from "../artifact-envelope";
 
 describe("verificationReportSchema", (): void => {
   it("accepts user-provided sources and entailment verdict metadata", (): void => {
@@ -52,6 +56,35 @@ describe("verificationReportSchema", (): void => {
 });
 
 describe("artifactEnvelopeSchema", (): void => {
+  it("accepts unavailable review metadata with structured diagnostics", (): void => {
+    const review = sectionReviewResultSchema.parse({
+      upgradedMarkdown: "Original markdown.",
+      tier: "unavailable",
+      tierRationale:
+        "Agentic review unavailable: Failed to process successful response",
+      removedItems: [],
+      clientQuestions: [],
+      errorDiagnostics: {
+        cause: "No object generated",
+        message: "Failed to process successful response",
+        name: "AI_NoObjectGeneratedError",
+        responseBody: '{"finishReason":"stop"}',
+        statusCode: 200,
+      },
+    });
+
+    expect(review.tier).toBe("unavailable");
+    expect(review.errorDiagnostics).toEqual(
+      expect.objectContaining({
+        cause: "No object generated",
+        message: "Failed to process successful response",
+        name: "AI_NoObjectGeneratedError",
+        responseBody: '{"finishReason":"stop"}',
+        statusCode: 200,
+      }),
+    );
+  });
+
   it("accepts optional strategic critic metadata", (): void => {
     const artifact = artifactEnvelopeSchema.parse({
       ...crossSectionReasoningFixtureArtifact,

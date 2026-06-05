@@ -41,7 +41,200 @@ const clusterBuckets = [
   "slack-group",
   "event",
 ] as const;
-const validUrlPattern = /^https?:\/\/\S+\.\S+/;
+const modelEstimateLabel = "[model estimate - not tool-measured]";
+const buyerICPEvidenceGapReason = "insufficient_named_buyer_personas";
+const genericIdentityTokens = new Set([
+  "account",
+  "accounts",
+  "buyer",
+  "buyers",
+  "champion",
+  "champions",
+  "company",
+  "companies",
+  "decision",
+  "department",
+  "departments",
+  "director",
+  "directors",
+  "economic",
+  "end",
+  "enterprise",
+  "executive",
+  "executives",
+  "finance",
+  "finops",
+  "founder",
+  "founders",
+  "gatekeeper",
+  "gatekeepers",
+  "growth",
+  "gtm",
+  "head",
+  "heads",
+  "icp",
+  "influencer",
+  "influencers",
+  "leader",
+  "leaders",
+  "manager",
+  "managers",
+  "marketing",
+  "midmarket",
+  "mid-market",
+  "operator",
+  "operators",
+  "ops",
+  "persona",
+  "personas",
+  "president",
+  "problem",
+  "product",
+  "revenue",
+  "revops",
+  "sales",
+  "saas",
+  "segment",
+  "segments",
+  "senior",
+  "seniority",
+  "small",
+  "smb",
+  "solution",
+  "startup",
+  "startups",
+  "team",
+  "teams",
+  "user",
+  "users",
+  "vp",
+]);
+const provenanceSignalPattern =
+  /\b(query|search|source|public|fetched|observed|tool|corpus|review|reddit|forum|community|newsletter|survey|interview|call|profile)\b/i;
+
+function normalizeLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9@._ -]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeTokens(value: string): string[] {
+  return normalizeLabel(value)
+    .split(" ")
+    .map((token) => token.replace(/^[^a-z0-9@]+|[^a-z0-9]+$/g, ""))
+    .filter((token) => token.length > 0);
+}
+
+function singularizeToken(token: string): string {
+  if (token.endsWith("ies") && token.length > 3) {
+    return `${token.slice(0, -3)}y`;
+  }
+
+  if (token.endsWith("s") && !token.endsWith("ss") && token.length > 3) {
+    return token.slice(0, -1);
+  }
+
+  return token;
+}
+
+function isGenericIdentityToken(token: string): boolean {
+  return genericIdentityTokens.has(token) || genericIdentityTokens.has(singularizeToken(token));
+}
+
+function hasAwarenessBasis(
+  evidence: string,
+  sampleQuery: string | undefined,
+  share: string,
+): boolean {
+  if (
+    isModelEstimateLabeled(share) ||
+    isModelEstimateLabeled(evidence) ||
+    (sampleQuery !== undefined && isModelEstimateLabeled(sampleQuery))
+  ) {
+    return true;
+  }
+
+  return (
+    (sampleQuery !== undefined && sampleQuery.trim().length > 0) ||
+    provenanceSignalPattern.test(evidence)
+  );
+}
+
+function looksNumericShare(share: string): boolean {
+  return /[\d%]/.test(share);
+}
+
+export function isHttpUrl(value: string): boolean {
+  if (!URL.canParse(value)) {
+    return false;
+  }
+
+  const url = new URL(value);
+  return url.protocol === "http:" || url.protocol === "https:";
+}
+
+export function isModelEstimateLabeled(value: string): boolean {
+  return value.includes(modelEstimateLabel);
+}
+
+export function isLikelyNamedBuyerIdentity(
+  name: string,
+  context?: {
+    company?: string;
+    role?: string;
+    seniority?: string;
+    title?: string;
+  },
+): boolean {
+  const normalizedName = normalizeLabel(name);
+
+  if (normalizedName.length === 0) {
+    return false;
+  }
+
+  const contextualLabels = [
+    context?.role,
+    context?.title,
+    context?.company,
+    context?.seniority,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .map(normalizeLabel);
+
+  if (contextualLabels.includes(normalizedName)) {
+    return false;
+  }
+
+  const rawName = name.trim();
+  if (
+    /^@?[a-z0-9][a-z0-9_.-]{2,}$/i.test(rawName) &&
+    /[@_.0-9]/.test(rawName)
+  ) {
+    return true;
+  }
+
+  const tokens = normalizeTokens(name);
+  if (tokens.length < 2 || tokens.length > 4) {
+    return false;
+  }
+
+  if (tokens.some((token) => /\d/.test(token))) {
+    return false;
+  }
+
+  if (tokens.every(isGenericIdentityToken)) {
+    return false;
+  }
+
+  return tokens.every(
+    (token) =>
+      /^[a-z][a-z'-]*$/i.test(token) &&
+      token.length >= 2 &&
+      !isGenericIdentityToken(token),
+  );
+}
 
 const firmographicCutSchema = z
   .object({
@@ -96,6 +289,17 @@ const clusterVenueSchema = z
   })
   .strict();
 
+const evidenceGapReportSchema = z
+  .object({
+    reason: z.literal(buyerICPEvidenceGapReason),
+    summary: z.string().min(1),
+    foundNamedPersonaCount: z.number().int().nonnegative(),
+    requiredNamedPersonaCount: z.number().int().positive(),
+    rejectedPersonaLabels: z.array(z.string().min(1)),
+    sourcingPlan: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
 export const buyerICPBodySchema = z
   .object({
     strategicInsight: strategicInsightSchema,
@@ -129,6 +333,8 @@ export const buyerICPBodySchema = z
         venues: z.array(clusterVenueSchema),
       })
       .strict(),
+    evidenceGap: z.literal(true).optional(),
+    evidenceGapReport: evidenceGapReportSchema.optional(),
   })
   .strict();
 
@@ -183,6 +389,9 @@ export function validateBuyerICPMinimums(
     .parse(artifact);
   const errors: string[] = [];
   const personas = parsedArtifact.body.personaReality.personas;
+  const personaEvidenceGap =
+    parsedArtifact.body.evidenceGap === true &&
+    parsedArtifact.body.evidenceGapReport?.reason === buyerICPEvidenceGapReason;
 
   validateStrategicInsightMinimums(
     errors,
@@ -193,12 +402,31 @@ export function validateBuyerICPMinimums(
     },
   );
 
-  if (personas.length < 5) {
+  if (parsedArtifact.body.evidenceGap === true && !personaEvidenceGap) {
+    errors.push(
+      `body.evidenceGapReport: required when body.evidenceGap=true for ${buyerICPEvidenceGapReason}.`,
+    );
+  }
+
+  if (!personaEvidenceGap && personas.length < 5) {
     errors.push(`body.personaReality.personas: have ${personas.length}, need >=5.`);
   }
 
   personas.forEach((persona, index) => {
-    if (!validUrlPattern.test(persona.sourceUrl)) {
+    if (
+      !isLikelyNamedBuyerIdentity(persona.name, {
+        company: persona.company,
+        role: persona.role,
+        seniority: persona.seniority,
+        title: persona.title,
+      })
+    ) {
+      errors.push(
+        `body.personaReality.personas[${index}].name: must be a named person, public reviewer handle, or named source identity; generic role/segment/company labels do not qualify.`,
+      );
+    }
+
+    if (!isHttpUrl(persona.sourceUrl)) {
       errors.push(
         `body.personaReality.personas[${index}].sourceUrl: url is not a valid URL.`,
       );
@@ -225,8 +453,16 @@ export function validateBuyerICPMinimums(
     );
   }
 
-  const observedAwarenessLevels =
-    parsedArtifact.body.awarenessDistribution.levels.map((level) => level.level);
+  firmographicCuts.forEach((cut, index) => {
+    if (!isHttpUrl(cut.sourceUrl)) {
+      errors.push(
+        `body.icpExistenceCheck.firmographicCuts[${index}].sourceUrl: url is not a valid URL.`,
+      );
+    }
+  });
+
+  const awarenessLevelsObserved = parsedArtifact.body.awarenessDistribution.levels;
+  const observedAwarenessLevels = awarenessLevelsObserved.map((level) => level.level);
   const missingAwarenessLevels = awarenessLevels.filter(
     (level) => !observedAwarenessLevels.includes(level),
   );
@@ -241,10 +477,30 @@ export function validateBuyerICPMinimums(
     );
   }
 
-  const triggerCount = parsedArtifact.body.buyingContext.triggers.length;
+  awarenessLevelsObserved.forEach((level, index) => {
+    if (!hasAwarenessBasis(level.evidence, level.sampleQuery, level.share)) {
+      const reason = looksNumericShare(level.share)
+        ? "numeric-looking shares require sampleQuery, provenance-bearing evidence, or the exact [model estimate - not tool-measured] label."
+        : "shares require evidence/sampleQuery basis or the exact [model estimate - not tool-measured] label.";
+      errors.push(
+        `body.awarenessDistribution.levels[${index}].share: ${reason}`,
+      );
+    }
+  });
+
+  const triggers = parsedArtifact.body.buyingContext.triggers;
+  const triggerCount = triggers.length;
   if (triggerCount < 3) {
     errors.push(`body.buyingContext.triggers: have ${triggerCount}, need >=3.`);
   }
+
+  triggers.forEach((trigger, index) => {
+    if (trigger.sourceUrl !== undefined && !isHttpUrl(trigger.sourceUrl)) {
+      errors.push(
+        `body.buyingContext.triggers[${index}].sourceUrl: url is not a valid URL.`,
+      );
+    }
+  });
 
   const venues = parsedArtifact.body.clusters.venues;
   const communityCount = venues.filter(
@@ -264,6 +520,14 @@ export function validateBuyerICPMinimums(
       `body.clusters.venues: have ${newsletterCount} newsletter venues, need >=2.`,
     );
   }
+
+  venues.forEach((venue, index) => {
+    if (!isHttpUrl(venue.sourceUrl)) {
+      errors.push(
+        `body.clusters.venues[${index}].sourceUrl: url is not a valid URL.`,
+      );
+    }
+  });
 
   return { ok: errors.length === 0, errors };
 }

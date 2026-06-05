@@ -20,6 +20,7 @@ import {
 
 const DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS = 45_000;
 const MAX_ARTIFACT_JSON_CHARS = 32_000;
+const MAX_DIAGNOSTIC_CHARS = 1_000;
 const STRATEGIC_CRITIC_PATTERN =
   /<strategic_critic>([\s\S]*?)<\/strategic_critic>/u;
 
@@ -45,8 +46,17 @@ export interface CrossSectionStrategicCriticInput {
 
 export interface CrossSectionStrategicCriticResult {
   artifact: CrossSectionReasoningArtifact;
+  errorDiagnostics?: StrategicCriticErrorDiagnostics;
   outcome: "upgraded" | "fallback";
   summary: string;
+}
+
+export interface StrategicCriticErrorDiagnostics {
+  name?: string;
+  message: string;
+  cause?: string;
+  statusCode?: number;
+  responseBody?: string;
 }
 
 export class StrategicCriticError extends Error {
@@ -66,6 +76,82 @@ function truncateText(value: string, maxChars: number): string {
 
 function formatJson(value: unknown, maxChars: number): string {
   return truncateText(JSON.stringify(value, null, 2), maxChars);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function readProperty(value: unknown, key: string): unknown {
+  return isRecord(value) ? value[key] : undefined;
+}
+
+function formatDiagnosticValue(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return value.length === 0
+      ? undefined
+      : truncateText(value, MAX_DIAGNOSTIC_CHARS);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return truncateText(String(value), MAX_DIAGNOSTIC_CHARS);
+  }
+
+  if (value instanceof Error) {
+    return truncateText(value.message, MAX_DIAGNOSTIC_CHARS);
+  }
+
+  try {
+    return truncateText(JSON.stringify(value), MAX_DIAGNOSTIC_CHARS);
+  } catch {
+    return truncateText(String(value), MAX_DIAGNOSTIC_CHARS);
+  }
+}
+
+function readDiagnosticStatusCode(error: unknown): number | undefined {
+  const value =
+    readProperty(error, "statusCode") ?? readProperty(error, "status");
+
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function readDiagnosticResponseBody(error: unknown): string | undefined {
+  return formatDiagnosticValue(
+    readProperty(error, "responseBody") ?? readProperty(error, "body"),
+  );
+}
+
+function buildStrategicCriticErrorDiagnostics(
+  error: unknown,
+): StrategicCriticErrorDiagnostics {
+  const message =
+    error instanceof Error
+      ? error.message
+      : formatDiagnosticValue(error) ?? "Unknown strategic critic error";
+  const name =
+    error instanceof Error && error.name.length > 0
+      ? truncateText(error.name, MAX_DIAGNOSTIC_CHARS)
+      : undefined;
+  const cause =
+    error instanceof Error
+      ? formatDiagnosticValue(error.cause)
+      : formatDiagnosticValue(readProperty(error, "cause"));
+  const statusCode = readDiagnosticStatusCode(error);
+  const responseBody = readDiagnosticResponseBody(error);
+
+  return {
+    ...(name === undefined ? {} : { name }),
+    message: truncateText(message, MAX_DIAGNOSTIC_CHARS),
+    ...(cause === undefined ? {} : { cause }),
+    ...(statusCode === undefined ? {} : { statusCode }),
+    ...(responseBody === undefined ? {} : { responseBody }),
+  };
 }
 
 interface SourceSectionRef {
@@ -406,14 +492,13 @@ export async function applyCrossSectionStrategicCritic(
     };
   } catch (error) {
     throwIfCallerAborted(input.signal);
+    const errorDiagnostics = buildStrategicCriticErrorDiagnostics(error);
 
     return {
       artifact: input.artifact,
+      errorDiagnostics,
       outcome: "fallback",
-      summary:
-        error instanceof Error
-          ? error.message
-          : `Strategic critic failed: ${String(error)}`,
+      summary: errorDiagnostics.message,
     };
   } finally {
     timeoutSignal.cleanup();

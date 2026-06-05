@@ -30,6 +30,6 @@
   "expected_verdict": {
     "verifiedCount": 3,
     "unsupportedCount": 0,
-    "requiredClassesSatisfied": true
+    "requiredClassesSatisfied": false
   }
 }

@@ -89,8 +89,17 @@ describe("reviewAndUpgradeSection", (): void => {
     );
   });
 
-  it("falls back to the original artifact markdown when the model call fails", async (): Promise<void> => {
-    aiMocks.generateText.mockRejectedValue(new Error("No object generated"));
+  it("marks review unavailable and preserves model diagnostics when a non-null artifact review fails", async (): Promise<void> => {
+    const providerError = Object.assign(
+      new Error("Failed to process successful response"),
+      {
+        cause: new Error("No object generated"),
+        name: "AI_NoObjectGeneratedError",
+        responseBody: '{"finishReason":"stop"}',
+        statusCode: 200,
+      },
+    );
+    aiMocks.generateText.mockRejectedValue(providerError);
 
     const result = await reviewAndUpgradeSection({
       artifact: marketCategoryFixtureArtifact,
@@ -99,8 +108,19 @@ describe("reviewAndUpgradeSection", (): void => {
       sectionId: "positioningMarketCategory",
     });
 
-    expect(result.tier).toBe("needs_review");
-    expect(result.tierRationale).toContain("No object generated");
+    expect(result.tier).toBe("unavailable");
+    expect(result.tierRationale).toContain(
+      "Failed to process successful response",
+    );
+    expect(result.errorDiagnostics).toEqual(
+      expect.objectContaining({
+        cause: "No object generated",
+        message: "Failed to process successful response",
+        name: "AI_NoObjectGeneratedError",
+        responseBody: '{"finishReason":"stop"}',
+        statusCode: 200,
+      }),
+    );
     expect(result.upgradedMarkdown).toBe(
       buildOriginalArtifactMarkdown(
         marketCategoryFixtureArtifact,
@@ -109,7 +129,7 @@ describe("reviewAndUpgradeSection", (): void => {
     );
   });
 
-  it("falls back to the original artifact markdown when the review timeout aborts", async (): Promise<void> => {
+  it("marks review unavailable when a non-null artifact review timeout aborts", async (): Promise<void> => {
     vi.useFakeTimers();
     aiMocks.generateText.mockImplementation(
       ({ abortSignal }: { abortSignal?: AbortSignal }) =>
@@ -131,9 +151,15 @@ describe("reviewAndUpgradeSection", (): void => {
     await vi.advanceTimersByTimeAsync(5);
     const result = await pendingReview;
 
-    expect(result.tier).toBe("needs_review");
+    expect(result.tier).toBe("unavailable");
     expect(result.tierRationale).toContain(
       "Agentic section review exceeded 5ms timeout",
+    );
+    expect(result.errorDiagnostics).toEqual(
+      expect.objectContaining({
+        message: "Agentic section review exceeded 5ms timeout.",
+        name: "Error",
+      }),
     );
     expect(result.upgradedMarkdown).toBe(
       buildOriginalArtifactMarkdown(
@@ -142,5 +168,24 @@ describe("reviewAndUpgradeSection", (): void => {
       ),
     );
     vi.useRealTimers();
+  });
+
+  it("keeps null-artifact review fallback insufficient", async (): Promise<void> => {
+    aiMocks.generateText.mockRejectedValue(new Error("review unavailable"));
+
+    const result = await reviewAndUpgradeSection({
+      artifact: null,
+      model: mockModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+    });
+
+    expect(result.tier).toBe("insufficient");
+    expect(result.errorDiagnostics).toEqual(
+      expect.objectContaining({
+        message: "review unavailable",
+        name: "Error",
+      }),
+    );
   });
 });

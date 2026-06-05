@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { buyerICPFixtureArtifact } from "../../fixtures/buyer-icp-artifact";
 import { competitorLandscapeFixtureArtifact } from "../../fixtures/competitor-landscape-artifact";
 import { marketCategoryFixtureArtifact } from "../../fixtures/market-category-artifact";
 import {
@@ -73,6 +74,97 @@ describe("checkRequiredEvidenceClasses", (): void => {
       unsupportedCount: 2,
       verifiedCount: 8,
     });
+  });
+
+  it("rejects BuyerICP persona rows when every persona name is only a role or segment label", (): void => {
+    const body = structuredClone(buyerICPFixtureArtifact.body);
+    body.personaReality.personas = body.personaReality.personas.map((persona) => ({
+      ...persona,
+      name: persona.role === "economic-buyer" ? "Economic buyer" : "Finance leaders",
+    }));
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body,
+        requiredEvidenceClasses: ["icp_persona"],
+        sectionId: "positioningBuyerICP",
+      }),
+    ).toBe("icp_persona");
+  });
+
+  it("accepts explicit BuyerICP named-persona gaps as the honest alternative to persona proof", (): void => {
+    const body = {
+      ...buyerICPFixtureArtifact.body,
+      personaReality: {
+        ...buyerICPFixtureArtifact.body.personaReality,
+        personas: [],
+      },
+      evidenceGap: true,
+      evidenceGapReport: {
+        reason: "insufficient_named_buyer_personas",
+        summary: "Found 0 named buyer personas; required 5.",
+        foundNamedPersonaCount: 0,
+        requiredNamedPersonaCount: 5,
+        rejectedPersonaLabels: ["Finance leaders"],
+        sourcingPlan: ["Recover named buyer identities from primary discovery."],
+      },
+    };
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body,
+        requiredEvidenceClasses: ["icp_persona"],
+        sectionId: "positioningBuyerICP",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects generic BuyerICP evidence filler when there is no explicit nested gap", (): void => {
+    const body = structuredClone(buyerICPFixtureArtifact.body);
+    body.personaReality.personas = body.personaReality.personas.map((persona) => ({
+      ...persona,
+      evidence: "evidence gap",
+      sourceUrl: "",
+    }));
+    body.buyingContext.triggers = body.buyingContext.triggers.map((trigger) => ({
+      ...trigger,
+      evidence: "evidence gap",
+      sourceUrl: undefined,
+    }));
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body,
+        requiredEvidenceClasses: ["icp_quote_or_gap"],
+        sectionId: "positioningBuyerICP",
+      }),
+    ).toBe("icp_quote_or_gap");
+  });
+
+  it("accepts explicit nested BuyerICP gaps as the honest alternative to named evidence", (): void => {
+    const body = {
+      ...buyerICPFixtureArtifact.body,
+      personaReality: {
+        ...buyerICPFixtureArtifact.body.personaReality,
+        personas: [],
+      },
+      buyingContext: {
+        ...buyerICPFixtureArtifact.body.buyingContext,
+        triggers: [],
+      },
+      clusters: {
+        ...buyerICPFixtureArtifact.body.clusters,
+        dataGaps: ["No named buyer identity found in public evidence."],
+      },
+    };
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body,
+        requiredEvidenceClasses: ["icp_quote_or_gap"],
+        sectionId: "positioningBuyerICP",
+      }),
+    ).toBeNull();
   });
 
   describe("LAB_AD_EVIDENCE_STRICT gate teeth", (): void => {

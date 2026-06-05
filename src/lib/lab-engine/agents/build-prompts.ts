@@ -472,7 +472,10 @@ function buildSectionMinimumGuidance(
       "- BuyerICPSectionOutput minimums: include at least three firmographic cuts with at least three distinct `cutType` values.",
       "- `body.personaReality.personas[]` keys are `name`, `title`, `company`, `sourceUrl`, `role`, `seniority`, optional `teamSize`, `evidence`.",
       "- `role` must be one of `champion`, `economic-buyer`, `decision-maker`, `influencer`, `end-user`, `gatekeeper`; include at least five personas.",
-      "- Do not invent named people. If evidence has only a role or segment, make `name` a role/segment label and put `evidence gap: no named public buyer found` in `evidence`.",
+      "- `body.personaReality.personas[].name` must be a named person, public reviewer handle, or named source identity present in fetched evidence.",
+      "- Each persona row is allowed only when the exact `name` string appears in fetched tool evidence or a corpus excerpt next to its company, title, source URL, or buyer role evidence.",
+      "- Role labels, segments, departments, seniority labels, and company names do not satisfy `body.personaReality.personas[].name`.",
+      "- Do not invent named people. If no named buyer identity exists in the fetched evidence, state an explicit evidence gap instead of padding persona rows.",
       "- `body.awarenessDistribution.levels[]` keys are `level`, `share`, `evidence`, optional `sampleQuery`; `share` must be a string like `20%`, `low`, or `medium`, never a number.",
       "- Include exactly one awareness row each for `unaware`, `problem-aware`, `solution-aware`, `product-aware`, `most-aware`.",
       "- `body.buyingContext.triggers[]` keys are `name`, `detectionSignal`, `window`, `evidence`, optional `sourceUrl`; do not use `event`, `urgency`, or `buyerQuote`.",
@@ -771,6 +774,29 @@ export function buildSectionObjectiveRecap(
   ].join("\n");
 }
 
+function buildIssueSpecificRepairGuidance(
+  definition: PromptSectionDefinition,
+  issues: readonly string[],
+): string[] {
+  const hasBuyerICPPersonaNameIssue =
+    definition.sectionOutputSchemaName === "BuyerICPSectionOutput" &&
+    issues.some((issue) =>
+      /^body\.personaReality\.personas\[\d+\]\.name:/.test(issue),
+    );
+
+  if (!hasBuyerICPPersonaNameIssue) {
+    return [];
+  }
+
+  return [
+    "",
+    "BuyerICP persona-name repair:",
+    "- Replace invalid persona rows only with another exact identity observed in fetched tool evidence or the ResearchInput/corpus.",
+    "- Never repair by copying `title`, `role`, `seniority`, `company`, `targetCustomer`, or `targetSegments` into `name`.",
+    "- If you cannot find enough exact named identities, keep the evidence gap explicit instead of padding with generic persona labels.",
+  ];
+}
+
 export function buildRepairPrompt({
   definition,
   evidenceTranscript,
@@ -805,6 +831,7 @@ export function buildRepairPrompt({
     "Remove `$schema` and any runtime-only fields.",
     "Validation issues:",
     issues.map((issue) => `- ${issue}`).join("\n"),
+    ...buildIssueSpecificRepairGuidance(definition, issues),
     "",
     "Previous output JSON:",
     JSON.stringify(previousOutput),
@@ -849,6 +876,7 @@ export function buildStructuredBodyRepairPrompt({
     "If full-envelope fields were included, remove sectionTitle, confidence, and sources while preserving verdict, statusSummary, and section body keys inside body.",
     "Validation issues:",
     issues.map((issue) => `- ${issue}`).join("\n"),
+    ...buildIssueSpecificRepairGuidance(definition, issues),
     "",
     "Previous draft JSON:",
     JSON.stringify(previousOutput),

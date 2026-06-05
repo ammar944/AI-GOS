@@ -225,8 +225,17 @@ describe("cross-section strategic critic", (): void => {
     ).toThrow(/below 40%/u);
   });
 
-  it("falls back to the original artifact when the critic model fails", async (): Promise<void> => {
-    aiMocks.generateText.mockRejectedValue(new Error("critic unavailable"));
+  it("falls back to the original artifact with diagnostics when the critic model fails", async (): Promise<void> => {
+    const providerError = Object.assign(
+      new Error("Failed to process successful response"),
+      {
+        cause: new Error("No object generated"),
+        name: "AI_NoObjectGeneratedError",
+        responseBody: '{"finishReason":"stop"}',
+        statusCode: 200,
+      },
+    );
+    aiMocks.generateText.mockRejectedValue(providerError);
 
     const result = await applyCrossSectionStrategicCritic({
       artifact: crossSectionReasoningFixtureArtifact,
@@ -236,8 +245,42 @@ describe("cross-section strategic critic", (): void => {
     });
 
     expect(result.outcome).toBe("fallback");
-    expect(result.summary).toContain("critic unavailable");
+    expect(result.summary).toContain("Failed to process successful response");
+    expect(result.errorDiagnostics).toEqual(
+      expect.objectContaining({
+        cause: "No object generated",
+        message: "Failed to process successful response",
+        name: "AI_NoObjectGeneratedError",
+        responseBody: '{"finishReason":"stop"}',
+        statusCode: 200,
+      }),
+    );
     expect(result.artifact).toBe(crossSectionReasoningFixtureArtifact);
+    expect(result.artifact.strategicCritique).toBeUndefined();
+  });
+
+  it("falls back with diagnostics when the critic response is malformed", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: "Strategic critic complete, but no tagged JSON tail.",
+    });
+
+    const result = await applyCrossSectionStrategicCritic({
+      artifact: crossSectionReasoningFixtureArtifact,
+      checkedAt: "2026-06-04T13:00:00.000Z",
+      model: mockModel,
+      modelId: "claude-opus-4-5",
+    });
+
+    expect(result.outcome).toBe("fallback");
+    expect(result.summary).toContain("missing <strategic_critic> tail");
+    expect(result.errorDiagnostics).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining("missing <strategic_critic> tail"),
+        name: "StrategicCriticError",
+      }),
+    );
+    expect(result.artifact).toBe(crossSectionReasoningFixtureArtifact);
+    expect(result.artifact.strategicCritique).toBeUndefined();
   });
 
   it("propagates caller aborts instead of falling back to a commit", async (): Promise<void> => {

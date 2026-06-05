@@ -25,6 +25,13 @@ const competitorDefinition = {
   sectionOutputSchemaName: "CompetitorLandscapeSectionOutput",
 } satisfies PromptSectionDefinition;
 
+const buyerICPDefinition = {
+  title: "Buyer & ICP Validation",
+  mission: "Pin down validated named buyer identities and buying context.",
+  outputEmphasis: ["validated ICP"],
+  sectionOutputSchemaName: "BuyerICPSectionOutput",
+} satisfies PromptSectionDefinition;
+
 const paidMediaDefinition = {
   title: "Paid Media Plan",
   mission: "Synthesize the six positioning artifacts.",
@@ -249,6 +256,56 @@ describe("buildAnswerToolInstructions", (): void => {
     );
     expect(prompt).toContain(
       "call out any thin evidence in prose instead of dropping the bucket",
+    );
+  });
+
+  it("forbids BuyerICP role-label persona padding in prompt guidance", (): void => {
+    const prompt = buildAnswerToolInstructions(
+      buyerICPDefinition,
+      saaslaunchResearchInput,
+    );
+
+    expect(prompt).not.toContain(
+      "If evidence has only a role or segment, make `name` a role/segment label",
+    );
+    expect(prompt).toContain(
+      "`body.personaReality.personas[].name` must be a named person, public reviewer handle, or named source identity present in fetched evidence",
+    );
+    expect(prompt).toContain(
+      "Each persona row is allowed only when the exact `name` string appears in fetched tool evidence or a corpus excerpt",
+    );
+    expect(prompt).toContain(
+      "Role labels, segments, departments, seniority labels, and company names do not satisfy `body.personaReality.personas[].name`",
+    );
+    expect(prompt).toContain(
+      "If no named buyer identity exists in the fetched evidence, state an explicit evidence gap instead of padding persona rows",
+    );
+  });
+
+  it("adds BuyerICP persona-name repair guidance when validation flags placeholder names", (): void => {
+    const prompt = buildRepairPrompt({
+      definition: buyerICPDefinition,
+      evidenceTranscript: "source evidence",
+      issues: [
+        "body.personaReality.personas[4].name: must be a named person, public reviewer handle, or named source identity; generic role/segment/company labels do not qualify.",
+      ],
+      previousOutput: {
+        body: {
+          personaReality: {
+            personas: [{ name: "Finance leaders" }],
+          },
+        },
+      },
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use the injected corpus only.",
+    });
+
+    expect(prompt).toContain("BuyerICP persona-name repair");
+    expect(prompt).toContain(
+      "Replace invalid persona rows only with another exact identity observed",
+    );
+    expect(prompt).toContain(
+      "Never repair by copying `title`, `role`, `seniority`, `company`, `targetCustomer`, or `targetSegments` into `name`",
     );
   });
 

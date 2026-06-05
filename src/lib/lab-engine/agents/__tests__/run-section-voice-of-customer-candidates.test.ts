@@ -5,16 +5,21 @@ import { tmpdir } from 'node:os';
 import type { ToolExecutionOptions } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  VoiceOfCustomerEvidenceGapReport,
-  VoiceOfCustomerSectionOutput,
+import {
+  voiceOfCustomerBodySchema,
+  type VoiceOfCustomerEvidenceGapReport,
+  type VoiceOfCustomerSectionOutput,
 } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
+import {
+  researchInputSchema,
+  type ResearchInput,
+} from '@/lib/lab-engine/artifacts/artifact-envelope';
 import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { runSection } from '../run-section';
-import type { StructuredStreamer } from '../section-agent';
+import type { AnswerToolRunner, StructuredStreamer } from '../section-agent';
 
 interface ExecutableTool {
   execute: (
@@ -23,14 +28,16 @@ interface ExecutableTool {
   ) => Promise<unknown> | unknown;
 }
 
-async function makeStore(): Promise<ReturnType<typeof createRunStore>> {
+async function makeStore(
+  researchInput: ResearchInput = saaslaunchResearchInput,
+): Promise<ReturnType<typeof createRunStore>> {
   const rootDir = await mkdtemp(join(tmpdir(), 'aigos-voc-candidates-'));
   const store = createRunStore({
     rootDir,
     defaultSectionIds: ['positioningVoiceOfCustomer'],
     now: () => new Date('2026-06-01T00:00:00.000Z'),
   });
-  await store.createRun(saaslaunchResearchInput);
+  await store.createRun(researchInput);
   return store;
 }
 
@@ -238,6 +245,62 @@ function buildVoiceOfCustomerDraftWithBlankPainQuoteMetadata(): Omit<
       },
     },
   };
+}
+
+function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
+  const domains = [
+    'g2.com',
+    'g2.com',
+    'g2.com',
+    'g2.com',
+    'reddit.com',
+    'reddit.com',
+    'reddit.com',
+    'capterra.com',
+    'capterra.com',
+    'capterra.com',
+  ];
+  const excerpts = domains.map((domain, index) => ({
+    id: `excerpt_dense_voc_${index + 1}`,
+    observedAt: '2026-06-01T00:00:00.000Z',
+    sourceId: `source_dense_voc_${index + 1}`,
+    sourceUrl: `https://${domain}/voc/dense-${index + 1}`,
+    text: `Dense candidate ${index + 1} says missed handoffs create urgent account-follow-up pain, and after rebuilding the weekly loop the team knows which account action matters next.`,
+    title:
+      domain === 'reddit.com' || domain === 'news.ycombinator.com'
+        ? `Dense forum candidate ${index + 1}`
+        : `Dense review candidate ${index + 1}`,
+  }));
+
+  return researchInputSchema.parse({
+    ...saaslaunchResearchInput,
+    runId: 'run_saaslaunch_dense_voc_fixture',
+    sources: [
+      ...saaslaunchResearchInput.sources,
+      ...excerpts.map((excerpt) => ({
+        id: excerpt.sourceId,
+        observedAt: excerpt.observedAt,
+        title: excerpt.title,
+        url: excerpt.sourceUrl,
+      })),
+    ],
+    corpus: {
+      ...saaslaunchResearchInput.corpus,
+      excerpts: [...saaslaunchResearchInput.corpus.excerpts, ...excerpts],
+      sectionExcerpts: {
+        ...saaslaunchResearchInput.corpus.sectionExcerpts,
+        positioningMarketCategory: [],
+        positioningBuyerICP: [],
+        positioningCompetitorLandscape: [],
+        positioningVoiceOfCustomer: excerpts,
+        positioningDemandIntent: [],
+        positioningOfferDiagnostic: [],
+        positioningCrossSectionReasoning: [],
+        positioningSynthesis: [],
+        positioningPaidMediaPlan: [],
+      },
+    },
+  });
 }
 
 function emitVoiceOfCustomerEvidenceStep(
@@ -987,6 +1050,111 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');
     expect(eventTypes).not.toContain('repair-started');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits deterministic VoC synthesis when parseable-object generation fails after a dense candidate prepass', async (): Promise<void> => {
+    const researchInput = makeDenseVoiceOfCustomerResearchInput();
+    const store = await makeStore(researchInput);
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(params.prompt).toContain('Voice of Customer Candidate Pack');
+      expect(params.prompt).toContain('Dense candidate 1 says missed handoffs');
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.reject(
+          new Error('No object generated: response did not match schema.'),
+        ),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+    const quotes = body.painLanguage.quotes;
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(body.evidenceGap).not.toBe(true);
+    expect(body.evidenceGapReport).toBeUndefined();
+    expect(quotes).toHaveLength(10);
+    expect(quotes[0]?.verbatimText).toContain('Dense candidate 1');
+    expect(result.artifact.sources.map((source) => source.url)).toEqual(
+      expect.arrayContaining(quotes.map((quote) => quote.sourceUrl)),
+    );
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits deterministic VoC synthesis on the answer-tool path when the model never calls answer after a dense candidate prepass', async (): Promise<void> => {
+    const researchInput = makeDenseVoiceOfCustomerResearchInput();
+    const store = await makeStore(researchInput);
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      expect(params.instructions).toContain('Voice of Customer Candidate Pack');
+      expect(params.instructions).toContain('Dense candidate 1 says missed handoffs');
+
+      return {
+        answerInput: undefined,
+        steps: [],
+        text: '',
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '3',
+        },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        runAnswerTool,
+        store,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(body.evidenceGap).not.toBe(true);
+    expect(body.evidenceGapReport).toBeUndefined();
+    expect(body.painLanguage.quotes).toHaveLength(10);
+    expect(
+      new Set(
+        body.painLanguage.quotes.map((quote) => new URL(quote.sourceUrl).hostname),
+      ),
+    ).toEqual(new Set(['g2.com', 'reddit.com', 'capterra.com']));
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
     expect(eventTypes).not.toContain('section-failed');
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',

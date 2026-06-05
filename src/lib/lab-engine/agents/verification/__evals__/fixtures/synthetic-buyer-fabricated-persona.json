@@ -27,6 +27,6 @@
   "expected_verdict": {
     "verifiedCount": 1,
     "unsupportedCount": 2,
-    "requiredClassesSatisfied": true
+    "requiredClassesSatisfied": false
   }
 }

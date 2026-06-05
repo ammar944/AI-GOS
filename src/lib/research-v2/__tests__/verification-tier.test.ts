@@ -99,4 +99,64 @@ describe('verification tiering', (): void => {
       }),
     );
   });
+
+  it('does not let unavailable review metadata downgrade deterministic verified output', (): void => {
+    const baseFlag = deriveVerificationFlag({
+      verifiedCount: 10,
+      unsupportedCount: 0,
+    });
+
+    expect(
+      buildReviewVerificationFlag({
+        tier: 'unavailable',
+        baseFlag,
+      }),
+    ).toEqual(baseFlag);
+  });
+
+  it('preserves deterministic needs_review when review metadata is unavailable', (): void => {
+    const baseFlag = deriveVerificationFlag({
+      verifiedCount: 2,
+      unsupportedCount: 1,
+    });
+
+    expect(
+      buildReviewVerificationFlag({
+        tier: 'unavailable',
+        baseFlag,
+      }),
+    ).toEqual(baseFlag);
+  });
+
+  it('preserves deterministic insufficient when review metadata is unavailable', (): void => {
+    const baseFlag = deriveVerificationFlag({
+      verifiedCount: 0,
+      unsupportedCount: 1,
+    });
+
+    expect(
+      buildReviewVerificationFlag({
+        tier: 'unavailable',
+        baseFlag,
+      }),
+    ).toEqual(baseFlag);
+  });
+
+  it('uses a conservative needs_review flag when review is unavailable without deterministic verification', (): void => {
+    expect(
+      buildReviewVerificationFlag({
+        tier: 'unavailable',
+        baseFlag: null,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        confidence: 0,
+        evidenceGap: false,
+        tier: 'needs_review',
+        totalClaims: 0,
+        unsupportedCount: 0,
+        verifiedCount: 0,
+      }),
+    );
+  });
 });

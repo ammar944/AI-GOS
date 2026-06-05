@@ -2,6 +2,7 @@ export const VERIFIED_MIN_CONFIDENCE = 0.75;
 export const INSUFFICIENT_MAX_CONFIDENCE = 0.5;
 
 export type VerificationTier = 'verified' | 'needs_review' | 'insufficient';
+export type ReviewTier = VerificationTier | 'unavailable';
 
 export interface VerificationFlag {
   tier: VerificationTier;
@@ -26,7 +27,7 @@ export interface BuildVerificationFlagInput {
 }
 
 export interface BuildReviewVerificationFlagInput {
-  tier: VerificationTier;
+  tier: ReviewTier;
   baseFlag?: VerificationFlag | null;
 }
 
@@ -154,6 +155,19 @@ function strictestVerificationTier(
 export function buildReviewVerificationFlag(
   input: BuildReviewVerificationFlagInput,
 ): VerificationFlag {
+  if (input.tier === 'unavailable') {
+    return input.baseFlag ?? {
+      tier: 'needs_review',
+      verifiedCount: 0,
+      unsupportedCount: 0,
+      totalClaims: 0,
+      confidence: 0,
+      needsReviewThreshold: VERIFIED_MIN_CONFIDENCE,
+      insufficientThreshold: INSUFFICIENT_MAX_CONFIDENCE,
+      evidenceGap: false,
+    };
+  }
+
   const fallback = deriveVerificationFlag(fallbackCountsForTier(input.tier));
   const baseFlag = input.baseFlag ?? fallback;
   const tier = strictestVerificationTier(baseFlag.tier, input.tier);

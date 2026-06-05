@@ -12,6 +12,7 @@ import type { SectionLanguageModel } from "@/lib/lab-engine/ai/models";
 const MAX_CORPUS_EXCERPTS = 12;
 const MAX_EXCERPT_CHARS = 1_200;
 const MAX_ARTIFACT_JSON_CHARS = 24_000;
+const MAX_DIAGNOSTIC_CHARS = 1_000;
 const DEFAULT_REVIEW_TIMEOUT_MS = 45_000;
 const REVIEW_METADATA_PATTERN =
   /<review_metadata>([\s\S]*?)<\/review_metadata>/u;
@@ -25,6 +26,14 @@ export interface ReviewAndUpgradeSectionInput {
   timeoutMs?: number;
 }
 
+export interface ModelErrorDiagnostics {
+  name?: string;
+  message: string;
+  cause?: string;
+  statusCode?: number;
+  responseBody?: string;
+}
+
 function truncateText(value: string, maxChars: number): string {
   if (value.length <= maxChars) {
     return value;
@@ -35,6 +44,82 @@ function truncateText(value: string, maxChars: number): string {
 
 function formatJson(value: unknown, maxChars: number): string {
   return truncateText(JSON.stringify(value, null, 2), maxChars);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function readProperty(value: unknown, key: string): unknown {
+  return isRecord(value) ? value[key] : undefined;
+}
+
+function formatDiagnosticValue(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return value.length === 0
+      ? undefined
+      : truncateText(value, MAX_DIAGNOSTIC_CHARS);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return truncateText(String(value), MAX_DIAGNOSTIC_CHARS);
+  }
+
+  if (value instanceof Error) {
+    return truncateText(value.message, MAX_DIAGNOSTIC_CHARS);
+  }
+
+  try {
+    return truncateText(JSON.stringify(value), MAX_DIAGNOSTIC_CHARS);
+  } catch {
+    return truncateText(String(value), MAX_DIAGNOSTIC_CHARS);
+  }
+}
+
+function readDiagnosticStatusCode(error: unknown): number | undefined {
+  const value =
+    readProperty(error, "statusCode") ?? readProperty(error, "status");
+
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function readDiagnosticResponseBody(error: unknown): string | undefined {
+  return formatDiagnosticValue(
+    readProperty(error, "responseBody") ?? readProperty(error, "body"),
+  );
+}
+
+export function buildModelErrorDiagnostics(
+  error: unknown,
+): ModelErrorDiagnostics {
+  const message =
+    error instanceof Error
+      ? error.message
+      : formatDiagnosticValue(error) ?? "Unknown model error";
+  const name =
+    error instanceof Error && error.name.length > 0
+      ? truncateText(error.name, MAX_DIAGNOSTIC_CHARS)
+      : undefined;
+  const cause =
+    error instanceof Error
+      ? formatDiagnosticValue(error.cause)
+      : formatDiagnosticValue(readProperty(error, "cause"));
+  const statusCode = readDiagnosticStatusCode(error);
+  const responseBody = readDiagnosticResponseBody(error);
+
+  return {
+    ...(name === undefined ? {} : { name }),
+    message: truncateText(message, MAX_DIAGNOSTIC_CHARS),
+    ...(cause === undefined ? {} : { cause }),
+    ...(statusCode === undefined ? {} : { statusCode }),
+    ...(responseBody === undefined ? {} : { responseBody }),
+  };
 }
 
 function formatSectionLabel(sectionId: SectionId): string {
@@ -117,18 +202,18 @@ function buildFallbackReview(input: {
   error: unknown;
   fallbackMarkdown: string;
 }): SectionReviewResult {
-  const errorMessage =
-    input.error instanceof Error ? input.error.message : String(input.error);
+  const errorDiagnostics = buildModelErrorDiagnostics(input.error);
 
   return {
     upgradedMarkdown: input.fallbackMarkdown,
-    tier: input.artifact === null ? "insufficient" : "needs_review",
-    tierRationale: `Agentic review unavailable: ${errorMessage}`,
+    tier: input.artifact === null ? "insufficient" : "unavailable",
+    tierRationale: `Agentic review unavailable: ${errorDiagnostics.message}`,
     removedItems: [],
     clientQuestions:
       input.artifact === null
         ? ["Which customer evidence sources should be used to complete this section?"]
         : [],
+    errorDiagnostics,
   };
 }
 

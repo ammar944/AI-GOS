@@ -37,4 +37,46 @@ describe('buildCommitPatch', (): void => {
       }),
     );
   });
+
+  it('does not let unavailable review metadata downgrade deterministic verified output', (): void => {
+    const patch = buildCommitPatch('positioningMarketCategory', {
+      sectionTitle: 'Market & Category Intelligence',
+      verdict: 'The category claims are source-backed.',
+      statusSummary: 'All extracted claims are supported.',
+      body: {
+        categoryDefinition: 'A supported category definition.',
+      },
+      verification: {
+        verifiedCount: 10,
+        unsupportedCount: 0,
+        claims: [],
+      },
+      review: {
+        upgradedMarkdown: 'Original verified markdown.',
+        tier: 'unavailable',
+        tierRationale:
+          'Agentic review unavailable: Failed to process successful response',
+        removedItems: [],
+        clientQuestions: [],
+        errorDiagnostics: {
+          message: 'Failed to process successful response',
+          name: 'AI_NoObjectGeneratedError',
+        },
+      },
+      sources: [],
+    });
+
+    expect(patch.markdown).toBe('Original verified markdown.');
+    expect(patch.verificationTier).toBe('verified');
+    expect(patch.verificationFlag).toEqual(
+      expect.objectContaining({
+        confidence: 1,
+        evidenceGap: false,
+        tier: 'verified',
+        totalClaims: 10,
+        unsupportedCount: 0,
+        verifiedCount: 10,
+      }),
+    );
+  });
 });

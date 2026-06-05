@@ -200,10 +200,20 @@ export const verificationReportSchema = z
 export const sectionReviewResultSchema = z
   .object({
     upgradedMarkdown: z.string().min(1),
-    tier: z.enum(["verified", "needs_review", "insufficient"]),
+    tier: z.enum(["verified", "needs_review", "insufficient", "unavailable"]),
     tierRationale: z.string().min(1),
     removedItems: z.array(z.string().min(1)),
     clientQuestions: z.array(z.string().min(1)),
+    errorDiagnostics: z
+      .object({
+        name: z.string().min(1).optional(),
+        message: z.string().min(1),
+        cause: z.string().min(1).optional(),
+        statusCode: z.number().int().positive().optional(),
+        responseBody: z.string().min(1).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

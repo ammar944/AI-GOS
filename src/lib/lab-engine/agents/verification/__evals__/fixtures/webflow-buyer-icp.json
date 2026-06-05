@@ -6,10 +6,10 @@
     "personaReality": {
       "personas": [
         {
-          "name": "RevOps Manager",
+          "name": "Maya Patel",
           "company": "Webflow",
           "sourceUrl": "https://webflow.com/customers/revops",
-          "evidence": "RevOps leaders own funnel instrumentation."
+          "evidence": "Maya Patel owns RevOps funnel instrumentation."
         }
       ]
     }
@@ -18,7 +18,7 @@
     {
       "toolName": "web_search",
       "output": {
-        "text": "Webflow customer stories mention RevOps Manager buyers.",
+        "text": "Webflow customer stories mention Maya Patel owning RevOps funnel instrumentation.",
         "url": "https://webflow.com/customers/revops"
       }
     }
