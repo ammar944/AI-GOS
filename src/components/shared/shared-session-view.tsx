@@ -149,6 +149,9 @@ function V3SharedSessionView({
   const [activeZone, setActiveZone] = useState(() => sections[0]?.zone ?? null);
   const activeSection =
     sections.find((section) => section.zone === activeZone) ?? sections[0] ?? null;
+  const activeReviewedMarkdown =
+    activeSection?.artifact?.review?.upgradedMarkdown.trim() ?? '';
+  const hasActiveReviewedMarkdown = activeReviewedMarkdown.length > 0;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -233,15 +236,12 @@ function V3SharedSessionView({
                 />
                 {activeSection.artifact ? (
                   <div className="mt-6 space-y-7">
-                    {activeSection.artifact.review ? (
+                    {hasActiveReviewedMarkdown ? (
                       <>
                         <SharedReviewMarkdown
-                          markdown={activeSection.artifact.review.upgradedMarkdown}
+                          markdown={activeReviewedMarkdown}
                         />
                         <SharedReviewMetadata artifact={activeSection.artifact} />
-                        <div className="pt-2">
-                          <Eyebrow>Structured evidence</Eyebrow>
-                        </div>
                       </>
                     ) : (
                       <>
@@ -251,11 +251,13 @@ function V3SharedSessionView({
                         <VerdictCallout verdict={activeSection.artifact.verdict} />
                       </>
                     )}
-                    <TypedArtifactRenderer
-                      artifact={activeSection.artifact}
-                      zoneId={activeSection.zone}
-                      showSectionTitle={false}
-                    />
+                    {hasActiveReviewedMarkdown ? null : (
+                      <TypedArtifactRenderer
+                        artifact={activeSection.artifact}
+                        zoneId={activeSection.zone}
+                        showSectionTitle={false}
+                      />
+                    )}
                   </div>
                 ) : activeSection.markdown ? (
                   <pre className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">

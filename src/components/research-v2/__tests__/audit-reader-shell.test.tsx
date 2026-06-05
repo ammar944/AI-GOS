@@ -190,7 +190,7 @@ describe('<AuditReaderShell>', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders reviewed markdown before structured evidence for reviewed sections', (): void => {
+  it('renders reviewed markdown without exposing structured artifacts for reviewed sections', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -223,7 +223,10 @@ describe('<AuditReaderShell>', () => {
     );
     expect(screen.getByText('Review rationale')).toBeInTheDocument();
     expect(screen.getByText('Removed fabricated TAM precision')).toBeInTheDocument();
-    expect(screen.getByText('Structured evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Structured evidence')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('typed-artifact-renderer-positioningMarketCategory'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders strategic critic metadata for critiqued cross-section reasoning', (): void => {

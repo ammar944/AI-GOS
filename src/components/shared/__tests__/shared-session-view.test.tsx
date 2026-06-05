@@ -79,7 +79,7 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     expect(screen.getByText('Shared Audit')).toBeInTheDocument();
   });
 
-  it('renders reviewed markdown and trust metadata from a shared v3 snapshot', (): void => {
+  it('renders reviewed markdown and hides structured artifacts from a shared v3 snapshot', (): void => {
     const reviewedArtifact = {
       ...marketCategoryFixtureArtifact,
       review: {
@@ -111,6 +111,9 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     ).toBeInTheDocument();
     expect(screen.getByText('Needs review · 1 unsupported · 67% grounded'))
       .toBeInTheDocument();
-    expect(screen.getByText('Structured evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Structured evidence')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('typed-artifact-renderer-positioningMarketCategory'),
+    ).not.toBeInTheDocument();
   });
 });

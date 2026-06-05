@@ -1443,9 +1443,6 @@ export function AuditReaderShell({
                     <>
                       <ReviewedSectionMarkdown markdown={activeReviewedMarkdown} />
                       <ReviewMetadataPanel review={activeReview} />
-                      <div className="pt-2">
-                        <Eyebrow>Structured evidence</Eyebrow>
-                      </div>
                     </>
                   ) : (
                     <>
@@ -1458,7 +1455,7 @@ export function AuditReaderShell({
                   {activeStrategicCritique ? (
                     <StrategicCritiquePanel critique={activeStrategicCritique} />
                   ) : null}
-                  {active === PAID_MEDIA_PLAN_SECTION_ID ? (
+                  {activeReviewedMarkdown ? null : active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
                       events={activeEvents}
@@ -1478,7 +1475,7 @@ export function AuditReaderShell({
                       </TypedArtifactErrorBoundary>
                     </ReaderSourcesProvider>
                   )}
-                  {active !== PAID_MEDIA_PLAN_SECTION_ID ? (
+                  {active !== PAID_MEDIA_PLAN_SECTION_ID || activeReviewedMarkdown ? (
                     <SourcesFooter sources={activeReaderSources} />
                   ) : null}
                 </>
