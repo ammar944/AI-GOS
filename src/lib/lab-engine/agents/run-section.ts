@@ -25,6 +25,7 @@ import {
   snapAngleTypesInMix,
   snapCreativeType,
 } from "../artifacts/schemas/paid-media-plan";
+import { validateStrategicText } from "../artifacts/schemas/strategic-insight";
 import { checkDemandIntentKeywordProvenance } from "../artifacts/schemas/demand-intent";
 import {
   classifyVoiceOfCustomerEvidenceGap,
@@ -2490,6 +2491,41 @@ function normalizeProvesWrongIf(value: unknown): unknown {
   });
 }
 
+function isValidPaidMediaLearningPriority(value: string): boolean {
+  const errors: string[] = [];
+  validateStrategicText(errors, "learningPriority", value);
+
+  return errors.length === 0;
+}
+
+function buildPaidMediaLearningPriorityEvidenceGap(
+  record: Record<string, unknown>,
+): string {
+  const rank =
+    typeof record.rank === "number" && Number.isInteger(record.rank)
+      ? String(record.rank)
+      : "unranked";
+
+  return `Evidence gap: ordered move ${rank} learning priority could not be upgraded into a source-backed strategic judgment from the paid-media evidence; keep this move as a validation target until channel data proves the decisive buyer belief.`;
+}
+
+function normalizePaidMediaOrderedMove(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const learningPriority = getStringProperty(record, "learningPriority");
+  if (
+    learningPriority === null ||
+    isValidPaidMediaLearningPriority(learningPriority)
+  ) {
+    return record;
+  }
+
+  return {
+    ...record,
+    learningPriority: buildPaidMediaLearningPriorityEvidenceGap(record),
+  };
+}
+
 function normalizeOrderedMoves(value: unknown): unknown {
   const normalized = normalizeStructuredRecordArray({
     allowedKeys: [
@@ -2518,7 +2554,7 @@ function normalizeOrderedMoves(value: unknown): unknown {
   return normalizeArrayRecords({
     value: normalized,
     normalize: (record) => ({
-      ...record,
+      ...normalizePaidMediaOrderedMove(record),
       provesWrongIf: normalizeProvesWrongIf(record.provesWrongIf),
     }),
   });

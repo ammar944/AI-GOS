@@ -1282,6 +1282,20 @@ describe('runSection corpus-only mode', (): void => {
       creativeRecord.landingPageUrl = 'https://example.com/landing';
     }
 
+    const orderedMoves = requireRecord(body.orderedMoves);
+    const moves = orderedMoves.moves;
+    if (!Array.isArray(moves)) {
+      throw new Error('Expected ordered moves array.');
+    }
+    const genericLearningPriorities = [
+      'Test message-market fit',
+      'Measure creative performance',
+      'Optimize paid media',
+    ];
+    moves.forEach((move, index) => {
+      requireRecord(move).learningPriority = genericLearningPriorities[index];
+    });
+
     const competitorMarketingInsights = requireRecord(
       body.competitorMarketingInsights,
     );
@@ -1382,6 +1396,15 @@ describe('runSection corpus-only mode', (): void => {
     );
     expect(requireRecord(artifactOrderedMoves.moves[0]).rank).toBe(1);
     expect(requireRecord(artifactOrderedMoves.moves[1]).dependsOn).toEqual([1]);
+    expect(
+      artifactOrderedMoves.moves.map((move) =>
+        requireRecord(move).learningPriority,
+      ),
+    ).toEqual([
+      expect.stringContaining('Evidence gap: ordered move 1'),
+      expect.stringContaining('Evidence gap: ordered move 2'),
+      expect.stringContaining('Evidence gap: ordered move 3'),
+    ]);
     expect(requireRecord(artifactOrderedMoves.moves[1]).thesisTrace).toContain(
       'thesis differentiator',
     );
