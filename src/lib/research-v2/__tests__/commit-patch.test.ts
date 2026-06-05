@@ -66,7 +66,13 @@ describe('buildCommitPatch', (): void => {
       sources: [],
     });
 
-    expect(patch.markdown).toBe('Original verified markdown.');
+    expect(patch.markdown).toBe(
+      [
+        '**Verdict:** The category claims are source-backed.',
+        '',
+        'All extracted claims are supported.',
+      ].join('\n'),
+    );
     expect(patch.verificationTier).toBe('verified');
     expect(patch.verificationFlag).toEqual(
       expect.objectContaining({

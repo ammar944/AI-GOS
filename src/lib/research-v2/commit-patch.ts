@@ -59,6 +59,17 @@ function readSectionReview(artifact: Record<string, unknown>) {
   return parsed.success ? parsed.data : null;
 }
 
+function readDisplayableReviewMarkdown(
+  review: ReturnType<typeof readSectionReview>,
+): string | null {
+  if (!review || review.tier === 'unavailable' || review.errorDiagnostics) {
+    return null;
+  }
+
+  const markdown = review.upgradedMarkdown.trim();
+  return markdown.length > 0 ? markdown : null;
+}
+
 export interface CommitArtifactSectionInput {
   artifactId: string;
   zone: AllPositioningSectionId;
@@ -95,10 +106,11 @@ export function buildCommitPatch(
   const summary = typeof a.statusSummary === 'string' ? a.statusSummary : null;
   const verdict = typeof a.verdict === 'string' ? a.verdict : null;
   const review = readSectionReview(a);
+  const reviewMarkdown = readDisplayableReviewMarkdown(review);
   const markdownLines: string[] = [];
   if (verdict) markdownLines.push(`**Verdict:** ${verdict}`);
   if (summary) markdownLines.push('', summary);
-  const markdown = review?.upgradedMarkdown ?? markdownLines.join('\n');
+  const markdown = reviewMarkdown ?? markdownLines.join('\n');
   const deterministicVerificationFlag = buildVerificationFlag({
     verification: a.verification,
     evidenceGap: readEvidenceGap(a),

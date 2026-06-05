@@ -76,6 +76,25 @@ describe('buildDraftArtifact', () => {
 
     expect(result.categoryDefinition).toEqual({ prose: 'legacy prose' });
   });
+
+  it('strips envelope keys from malformed draft snapshots before rendering', () => {
+    const snapshot = {
+      artifact: { nested: { shouldNotRender: true } },
+      data: { raw: 'json blob' },
+      statusSummary: 'draft summary',
+      categoryDefinition: { prose: 'safe partial prose' },
+    };
+
+    const result = buildDraftArtifact({ active, snapshot }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result.categoryDefinition).toEqual({ prose: 'safe partial prose' });
+    expect('artifact' in result).toBe(false);
+    expect('data' in result).toBe(false);
+    expect(result.statusSummary).toBe('Streaming section body...');
+  });
 });
 
 describe('<AuditReaderShell>', () => {
@@ -190,7 +209,7 @@ describe('<AuditReaderShell>', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders reviewed markdown without exposing structured artifacts for reviewed sections', (): void => {
+  it('renders typed cards and review metadata without exposing reviewed artifact JSON', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -205,7 +224,13 @@ describe('<AuditReaderShell>', () => {
             ...marketCategoryFixtureArtifact,
             review: {
               upgradedMarkdown:
-                '## Reviewed strategic thesis\n\nThis is the upgraded narrative.',
+                [
+                  '## Reviewed strategic thesis',
+                  '',
+                  '```json',
+                  '{"should":"not render"}',
+                  '```',
+                ].join('\n'),
               tier: 'needs_review',
               tierRationale: 'One claim needs stronger sourcing.',
               removedItems: ['Removed fabricated TAM precision'],
@@ -218,15 +243,13 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByTestId('reviewed-section-markdown')).toHaveTextContent(
-      'Reviewed strategic thesis',
-    );
     expect(screen.getByText('Review rationale')).toBeInTheDocument();
     expect(screen.getByText('Removed fabricated TAM precision')).toBeInTheDocument();
-    expect(screen.queryByText('Structured evidence')).not.toBeInTheDocument();
     expect(
-      screen.queryByTestId('typed-artifact-renderer-positioningMarketCategory'),
-    ).not.toBeInTheDocument();
+      screen.getByText('1 · Category Definition'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Reviewed strategic thesis')).not.toBeInTheDocument();
+    expect(screen.queryByText('{"should":"not render"}')).not.toBeInTheDocument();
   });
 
   it('renders strategic critic metadata for critiqued cross-section reasoning', (): void => {

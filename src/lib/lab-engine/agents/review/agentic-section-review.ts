@@ -150,10 +150,8 @@ export function buildOriginalArtifactMarkdown(
     `## Summary`,
     artifact.statusSummary,
     "",
-    `## Structured artifact`,
-    "```json",
-    formatJson(artifact.body, MAX_ARTIFACT_JSON_CHARS),
-    "```",
+    `## Review status`,
+    "The automated review pass was unavailable. The validated typed section artifact remains the source of truth in the reader.",
   ].join("\n");
 }
 

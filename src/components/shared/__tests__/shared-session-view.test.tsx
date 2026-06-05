@@ -79,12 +79,18 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     expect(screen.getByText('Shared Audit')).toBeInTheDocument();
   });
 
-  it('renders reviewed markdown and hides structured artifacts from a shared v3 snapshot', (): void => {
+  it('renders typed cards and review metadata without exposing reviewed artifact JSON', (): void => {
     const reviewedArtifact = {
       ...marketCategoryFixtureArtifact,
       review: {
         upgradedMarkdown:
-          '# Reviewed market category\n\nUse the narrower wedge before scaling.',
+          [
+            '# Reviewed market category',
+            '',
+            '```json',
+            '{"should":"not render"}',
+            '```',
+          ].join('\n'),
         tier: 'needs_review',
         tierRationale: 'One unsupported claim needs client proof.',
         removedItems: ['Unsupported market-size precision'],
@@ -101,19 +107,16 @@ describe('SharedSessionView — v3 share render contract', (): void => {
       />,
     );
 
-    expect(screen.getByText('Reviewed market category')).toBeInTheDocument();
-    expect(
-      screen.getByText('Use the narrower wedge before scaling.'),
-    ).toBeInTheDocument();
     expect(screen.getByText('Review rationale')).toBeInTheDocument();
     expect(
       screen.getByText('One unsupported claim needs client proof.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Needs review · 1 unsupported · 67% grounded'))
       .toBeInTheDocument();
-    expect(screen.queryByText('Structured evidence')).not.toBeInTheDocument();
     expect(
-      screen.queryByTestId('typed-artifact-renderer-positioningMarketCategory'),
-    ).not.toBeInTheDocument();
+      screen.getByText('1 · Category Definition'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Reviewed market category')).not.toBeInTheDocument();
+    expect(screen.queryByText('{"should":"not render"}')).not.toBeInTheDocument();
   });
 });

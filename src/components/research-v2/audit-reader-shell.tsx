@@ -29,7 +29,6 @@ import {
 } from 'react';
 
 import { AlertTriangle, Check, Loader2, Share2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import {
@@ -131,6 +130,18 @@ const COPY_META_KEYS: ReadonlySet<string> = new Set([
   'verification',
   'review',
   'strategicCritique',
+]);
+const DRAFT_META_KEYS: ReadonlySet<string> = new Set([
+  ...COPY_META_KEYS,
+  'id',
+  'runId',
+  'sectionId',
+  'createdAt',
+  'body',
+  'data',
+  'typedArtifact',
+  'artifact',
+  'positioningArtifact',
 ]);
 const kickedOffRunIds = new Set<string>();
 
@@ -408,21 +419,6 @@ function StrategicCritiquePanel({
   );
 }
 
-function ReviewedSectionMarkdown({
-  markdown,
-}: {
-  markdown: string;
-}): ReactElement {
-  return (
-    <div
-      data-testid="reviewed-section-markdown"
-      className="prose prose-zinc max-w-none prose-headings:font-semibold prose-headings:tracking-normal prose-p:text-foreground prose-p:leading-[1.65] prose-li:text-foreground dark:prose-invert"
-    >
-      <ReactMarkdown>{markdown}</ReactMarkdown>
-    </div>
-  );
-}
-
 function sectionStatusSubline(
   status: ReaderSectionStatus,
   sectionId: ReaderSectionId,
@@ -577,7 +573,9 @@ export function buildDraftArtifact({
   const bodyRecord =
     typeof body === 'object' && body !== null && !Array.isArray(body)
       ? (body as Record<string, unknown>)
-      : snapshot;
+      : Object.fromEntries(
+          Object.entries(snapshot).filter(([key]) => !DRAFT_META_KEYS.has(key)),
+        );
   return {
     sectionTitle: READER_SECTION_LABELS[active],
     verdict: 'Partial draft',
@@ -1133,10 +1131,6 @@ export function AuditReaderShell({
   const activeTyped = typedByZone.get(active) ?? null;
   const activeReview = activeTyped?.review ?? null;
   const activeStrategicCritique = activeTyped?.strategicCritique ?? null;
-  const activeReviewedMarkdown =
-    activeReview?.upgradedMarkdown.trim().length === 0
-      ? null
-      : activeReview?.upgradedMarkdown.trim() ?? null;
   const activeSectionSnapshot = live.sectionsByZone[active];
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
@@ -1328,8 +1322,7 @@ export function AuditReaderShell({
 
   const copyActive = useCallback(async () => {
     if (!activeTyped) return;
-    const text =
-      activeTyped.review?.upgradedMarkdown.trim() || artifactToMarkdown(activeTyped);
+    const text = artifactToMarkdown(activeTyped);
     setCopyError(false);
     try {
       await navigator.clipboard.writeText(text);
@@ -1439,23 +1432,14 @@ export function AuditReaderShell({
                       completedActivitySummary.durationLabel ?? undefined
                     }
                   />
-                  {activeReviewedMarkdown && activeReview ? (
-                    <>
-                      <ReviewedSectionMarkdown markdown={activeReviewedMarkdown} />
-                      <ReviewMetadataPanel review={activeReview} />
-                    </>
-                  ) : (
-                    <>
-                      {activeTyped.statusSummary ? (
-                        <BodyProse>{activeTyped.statusSummary}</BodyProse>
-                      ) : null}
-                      <VerdictCallout verdict={activeTyped.verdict} />
-                    </>
-                  )}
+                  {activeTyped.statusSummary ? (
+                    <BodyProse>{activeTyped.statusSummary}</BodyProse>
+                  ) : null}
+                  <VerdictCallout verdict={activeTyped.verdict} />
                   {activeStrategicCritique ? (
                     <StrategicCritiquePanel critique={activeStrategicCritique} />
                   ) : null}
-                  {activeReviewedMarkdown ? null : active === PAID_MEDIA_PLAN_SECTION_ID ? (
+                  {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
                       events={activeEvents}
@@ -1475,7 +1459,8 @@ export function AuditReaderShell({
                       </TypedArtifactErrorBoundary>
                     </ReaderSourcesProvider>
                   )}
-                  {active !== PAID_MEDIA_PLAN_SECTION_ID || activeReviewedMarkdown ? (
+                  {activeReview ? <ReviewMetadataPanel review={activeReview} /> : null}
+                  {active !== PAID_MEDIA_PLAN_SECTION_ID ? (
                     <SourcesFooter sources={activeReaderSources} />
                   ) : null}
                 </>

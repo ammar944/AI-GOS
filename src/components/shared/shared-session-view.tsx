@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type ReactElement } from 'react';
 import { Share2, ExternalLink, FileText, BarChart3 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 import { Badge } from '@/components/ui/badge';
 import {
   BodyProse,
@@ -85,14 +84,6 @@ function buildV3ViewSections(
   }));
 }
 
-function SharedReviewMarkdown({ markdown }: { markdown: string }): ReactElement {
-  return (
-    <div className="prose prose-zinc max-w-none prose-headings:font-semibold prose-p:text-foreground prose-p:leading-[1.65] prose-li:text-foreground dark:prose-invert">
-      <ReactMarkdown>{markdown}</ReactMarkdown>
-    </div>
-  );
-}
-
 function SharedReviewMetadata({
   artifact,
 }: {
@@ -149,9 +140,6 @@ function V3SharedSessionView({
   const [activeZone, setActiveZone] = useState(() => sections[0]?.zone ?? null);
   const activeSection =
     sections.find((section) => section.zone === activeZone) ?? sections[0] ?? null;
-  const activeReviewedMarkdown =
-    activeSection?.artifact?.review?.upgradedMarkdown.trim() ?? '';
-  const hasActiveReviewedMarkdown = activeReviewedMarkdown.length > 0;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -236,28 +224,16 @@ function V3SharedSessionView({
                 />
                 {activeSection.artifact ? (
                   <div className="mt-6 space-y-7">
-                    {hasActiveReviewedMarkdown ? (
-                      <>
-                        <SharedReviewMarkdown
-                          markdown={activeReviewedMarkdown}
-                        />
-                        <SharedReviewMetadata artifact={activeSection.artifact} />
-                      </>
-                    ) : (
-                      <>
-                        {activeSection.artifact.statusSummary ? (
-                          <BodyProse>{activeSection.artifact.statusSummary}</BodyProse>
-                        ) : null}
-                        <VerdictCallout verdict={activeSection.artifact.verdict} />
-                      </>
-                    )}
-                    {hasActiveReviewedMarkdown ? null : (
-                      <TypedArtifactRenderer
-                        artifact={activeSection.artifact}
-                        zoneId={activeSection.zone}
-                        showSectionTitle={false}
-                      />
-                    )}
+                    {activeSection.artifact.statusSummary ? (
+                      <BodyProse>{activeSection.artifact.statusSummary}</BodyProse>
+                    ) : null}
+                    <VerdictCallout verdict={activeSection.artifact.verdict} />
+                    <TypedArtifactRenderer
+                      artifact={activeSection.artifact}
+                      zoneId={activeSection.zone}
+                      showSectionTitle={false}
+                    />
+                    <SharedReviewMetadata artifact={activeSection.artifact} />
                   </div>
                 ) : activeSection.markdown ? (
                   <pre className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">

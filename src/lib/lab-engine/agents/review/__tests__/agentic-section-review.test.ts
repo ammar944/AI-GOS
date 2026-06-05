@@ -127,6 +127,8 @@ describe("reviewAndUpgradeSection", (): void => {
         "positioningMarketCategory",
       ),
     );
+    expect(result.upgradedMarkdown).not.toContain("## Structured artifact");
+    expect(result.upgradedMarkdown).not.toContain("```json");
   });
 
   it("marks review unavailable when a non-null artifact review timeout aborts", async (): Promise<void> => {
@@ -167,6 +169,8 @@ describe("reviewAndUpgradeSection", (): void => {
         "positioningMarketCategory",
       ),
     );
+    expect(result.upgradedMarkdown).not.toContain("## Structured artifact");
+    expect(result.upgradedMarkdown).not.toContain("```json");
     vi.useRealTimers();
   });
 
