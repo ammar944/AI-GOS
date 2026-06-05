@@ -1298,6 +1298,7 @@ describe('runSection corpus-only mode', (): void => {
     moves.forEach((move, index) => {
       requireRecord(move).learningPriority = genericLearningPriorities[index];
     });
+    body.orderedMoves = moves;
 
     const competitorMarketingInsights = requireRecord(
       body.competitorMarketingInsights,
@@ -1398,6 +1399,9 @@ describe('runSection corpus-only mode', (): void => {
       'speed-and-proof loop',
     );
     expect(requireRecord(artifactOrderedMoves.moves[0]).rank).toBe(1);
+    expect(artifactOrderedMoves.prose).toBe(
+      'Ordered paid-media moves ranked by learning value.',
+    );
     expect(requireRecord(artifactOrderedMoves.moves[1]).dependsOn).toEqual([1]);
     expect(
       artifactOrderedMoves.moves.map((move) =>

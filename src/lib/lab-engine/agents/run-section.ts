@@ -2560,6 +2560,29 @@ function normalizeOrderedMoves(value: unknown): unknown {
   });
 }
 
+function normalizePaidMediaOrderedMovesEnvelope(value: unknown): unknown | null {
+  if (Array.isArray(value)) {
+    return {
+      prose: "Ordered paid-media moves ranked by learning value.",
+      moves: normalizeOrderedMoves(value),
+    };
+  }
+
+  const record = getRecord(value);
+  if (record === null) {
+    return null;
+  }
+
+  return {
+    ...normalizeStructuredRecord({
+      allowedKeys: ["prose", "moves"],
+      record,
+      stringKeys: ["prose"],
+    }),
+    moves: normalizeOrderedMoves(record.moves),
+  };
+}
+
 type PaidMediaPlanGroundedSourceSection =
   | "positioningCompetitorLandscape"
   | "positioningDemandIntent"
@@ -2923,7 +2946,9 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
   const salesProcessRecord = getRecord(bodyRecord.salesProcess);
   const channelSuggestionsRecord = getRecord(bodyRecord.channelSuggestions);
   const kpisRecord = getRecord(bodyRecord.kpis);
-  const orderedMovesRecord = getRecord(bodyRecord.orderedMoves);
+  const orderedMovesEnvelope = normalizePaidMediaOrderedMovesEnvelope(
+    bodyRecord.orderedMoves,
+  );
 
   return {
     ...outputRecord,
@@ -3378,17 +3403,10 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
               }),
             },
           }),
-      ...(orderedMovesRecord === null
+      ...(orderedMovesEnvelope === null
         ? {}
         : {
-            orderedMoves: {
-              ...normalizeStructuredRecord({
-                allowedKeys: ["prose", "moves"],
-                record: orderedMovesRecord,
-                stringKeys: ["prose"],
-              }),
-              moves: normalizeOrderedMoves(orderedMovesRecord.moves),
-            },
+            orderedMoves: orderedMovesEnvelope,
           }),
     },
   };
