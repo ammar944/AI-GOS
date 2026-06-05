@@ -21,7 +21,11 @@ import {
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
 import {
+  hasActionVerb,
+  hasBuyerReference,
+  hasFunnelStageReference,
   hasSpecificSignal,
+  hasSpecificAssetOrMetric,
   isSpecificCopy,
   paidMediaMoneyProvenanceValues,
   paidMediaSpendReconciliationTolerance,
@@ -2757,6 +2761,100 @@ function normalizePaidMediaCompetitorReviewInsights(value: unknown): unknown {
   });
 }
 
+function normalizePaidMediaCompetitorMarketingInsights(value: unknown): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) => {
+      const combinedText = [
+        record.competitor,
+        record.messaging,
+        record.icpTargeted,
+        record.anglesTested,
+        record.positioningClaim,
+        record.offer,
+      ]
+        .filter((item): item is string => typeof item === "string")
+        .join(" ");
+
+      if (hasSpecificSignal(combinedText)) {
+        return record;
+      }
+
+      const existingPositioningClaim = getStringProperty(
+        record,
+        "positioningClaim",
+      );
+      const preservedPositioningClaim =
+        existingPositioningClaim?.trim() === ""
+          ? "Evidence gap."
+          : (existingPositioningClaim ?? "Evidence gap.");
+
+      return {
+        ...record,
+        positioningClaim: `${preservedPositioningClaim} Evidence gap: paid-platform rows or competitor marketing signals did not include a specific operational claim; validate competitor creative before launch.`,
+      };
+    },
+  });
+}
+
+function normalizePaidMediaFunnelRecommendations(value: unknown): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) => {
+      const recommendation = getStringProperty(record, "recommendation") ?? "";
+      const optInToBookedCall =
+        getStringProperty(record, "optInToBookedCall") ?? "";
+      const combinedText = `${recommendation} ${optInToBookedCall}`;
+      const needsBuyer = !hasBuyerReference(combinedText);
+      const needsStage = !hasFunnelStageReference(combinedText);
+      const needsConcreteOptIn = !isSpecificCopy(optInToBookedCall);
+
+      if (!needsBuyer && !needsStage && !needsConcreteOptIn) {
+        return record;
+      }
+
+      const recommendationPrefix =
+        "Evidence gap: buyer segment or funnel stage missing; validate the problem-aware buyer before booked-call funnel launch.";
+      const optInPrefix =
+        "Evidence gap: specify the landing-page CTA, calendar handoff, and demo-success metric before launching the booked-call path.";
+
+      return {
+        ...record,
+        recommendation:
+          needsBuyer || needsStage
+            ? `${recommendationPrefix} ${recommendation}`.trim()
+            : recommendation,
+        optInToBookedCall: needsConcreteOptIn
+          ? `${optInPrefix} ${optInToBookedCall}`.trim()
+          : optInToBookedCall,
+      };
+    },
+  });
+}
+
+function normalizePaidMediaChannelSuggestions(value: unknown): unknown {
+  return normalizeArrayRecords({
+    value,
+    normalize: (record) => {
+      const channel = getStringProperty(record, "channel") ?? "";
+      const observation = getStringProperty(record, "observation") ?? "";
+      const recommendation = getStringProperty(record, "recommendation") ?? "";
+      const combinedText = `${channel} ${observation} ${recommendation}`;
+      const needsAssetOrMetric = !hasSpecificAssetOrMetric(combinedText);
+      const needsActionVerb = !hasActionVerb(recommendation);
+
+      if (!needsAssetOrMetric && !needsActionVerb) {
+        return record;
+      }
+
+      return {
+        ...record,
+        recommendation: `Evidence gap: concrete campaign, page, asset, or metric missing; launch only after choosing the asset and measuring demo CVR. ${recommendation}`.trim(),
+      };
+    },
+  });
+}
+
 type PaidMediaPlanGroundedSourceSection =
   | "positioningCompetitorLandscape"
   | "positioningDemandIntent"
@@ -3600,9 +3698,11 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   value: competitorMarketingInsightsRecord.competitors,
                 });
 
-                return withPaidMediaMoneyProvenanceDefaultsForRecordArray(
-                  normalized,
-                  ["estSpendProvenance"],
+                return normalizePaidMediaCompetitorMarketingInsights(
+                  withPaidMediaMoneyProvenanceDefaultsForRecordArray(
+                    normalized,
+                    ["estSpendProvenance"],
+                  ),
                 );
               })(),
             },
@@ -3616,24 +3716,26 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: funnelIdeationRecord,
                 stringKeys: ["prose"],
               }),
-              recommendations: normalizePaidMediaGroundedRecordArray({
-                allowedKeys: [
-                  "funnelType",
-                  "recommendation",
-                  "optInToBookedCall",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                fallbackSourceSection: "positioningOfferDiagnostic",
-                stringKeys: [
-                  "funnelType",
-                  "recommendation",
-                  "optInToBookedCall",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: funnelIdeationRecord.recommendations,
-              }),
+              recommendations: normalizePaidMediaFunnelRecommendations(
+                normalizePaidMediaGroundedRecordArray({
+                  allowedKeys: [
+                    "funnelType",
+                    "recommendation",
+                    "optInToBookedCall",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  fallbackSourceSection: "positioningOfferDiagnostic",
+                  stringKeys: [
+                    "funnelType",
+                    "recommendation",
+                    "optInToBookedCall",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  value: funnelIdeationRecord.recommendations,
+                }),
+              ),
             },
           }),
       ...(salesProcessRecord === null
@@ -3661,26 +3763,28 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                 record: channelSuggestionsRecord,
                 stringKeys: ["prose"],
               }),
-              suggestions: normalizePaidMediaGroundedRecordArray({
-                allowedKeys: [
-                  "channel",
-                  "observation",
-                  "recommendation",
-                  "verdict",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                fallbackSourceSection: "positioningDemandIntent",
-                stringKeys: [
-                  "channel",
-                  "observation",
-                  "recommendation",
-                  "verdict",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: channelSuggestionsRecord.suggestions,
-              }),
+              suggestions: normalizePaidMediaChannelSuggestions(
+                normalizePaidMediaGroundedRecordArray({
+                  allowedKeys: [
+                    "channel",
+                    "observation",
+                    "recommendation",
+                    "verdict",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  fallbackSourceSection: "positioningDemandIntent",
+                  stringKeys: [
+                    "channel",
+                    "observation",
+                    "recommendation",
+                    "verdict",
+                    "sourceSection",
+                    "sourceUrl",
+                  ],
+                  value: channelSuggestionsRecord.suggestions,
+                }),
+              ),
             },
           }),
       ...(kpisRecord === null

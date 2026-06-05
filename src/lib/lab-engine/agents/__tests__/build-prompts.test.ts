@@ -394,6 +394,9 @@ describe("buildAnswerToolInstructions", (): void => {
       "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
     );
     expect(prompt).toContain(
+      "Every `body.competitorMarketingInsights.competitors[]` item",
+    );
+    expect(prompt).toContain(
       "Paid-media money fields must include provenance labels",
     );
     expect(prompt).toContain(
@@ -489,6 +492,7 @@ describe("buildStructuredPrompt", (): void => {
     expect(prompt).toContain("sourceSections[]");
     expect(prompt).toContain("never use `gtmBrief`");
     expect(prompt).toContain("cover at least four of the six");
+    expect(prompt).toContain("causal `because/therefore` shape");
   });
 
   it("adds T9 strategist guidance for synthesis and paid media capstones", (): void => {
@@ -531,8 +535,9 @@ describe("buildStructuredPrompt", (): void => {
       "Every `competitorReviewInsights.insights[]` item",
     );
     expect(paidMediaPrompt).toContain(
-      "must name the buyer, segment, or company size",
+      "must name the buyer, segment, or company-size phrase",
     );
+    expect(paidMediaPrompt).toContain("explicit action verb");
   });
 });
 

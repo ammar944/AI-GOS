@@ -1662,6 +1662,44 @@ describe('runSection corpus-only mode', (): void => {
 
     const driftOutput = buildPaidMediaPlanOutput();
     forceSynthesizedPaidMediaItemsToGtmBrief(driftOutput);
+    const driftBody = requireRecord(driftOutput.body);
+    const driftCompetitorMarketingInsights = requireRecord(
+      driftBody.competitorMarketingInsights,
+    );
+    const driftMarketingRows =
+      driftCompetitorMarketingInsights.competitors;
+    const driftFunnelIdeation = requireRecord(driftBody.funnelIdeation);
+    const driftFunnelRecommendations = driftFunnelIdeation.recommendations;
+    const driftChannelSuggestions = requireRecord(
+      driftBody.channelSuggestions,
+    );
+    const driftChannelRows = driftChannelSuggestions.suggestions;
+
+    if (
+      !Array.isArray(driftMarketingRows) ||
+      !Array.isArray(driftFunnelRecommendations) ||
+      !Array.isArray(driftChannelRows)
+    ) {
+      throw new Error('Expected paid-media drift arrays.');
+    }
+
+    Object.assign(requireRecord(driftMarketingRows[0]), {
+      competitor: 'Vendor',
+      messaging: 'Useful product',
+      adPlatforms: 'unknown',
+      icpTargeted: 'teams',
+      anglesTested: 'awareness',
+      positioningClaim: 'better workflow',
+      offer: 'demo',
+    });
+    Object.assign(requireRecord(driftFunnelRecommendations[0]), {
+      recommendation: 'Use a landing page.',
+      optInToBookedCall: 'Book a call.',
+    });
+    Object.assign(requireRecord(driftChannelRows[0]), {
+      observation: 'The market is attractive.',
+      recommendation: 'Improve performance.',
+    });
 
     const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
       steps: [],
@@ -1722,6 +1760,16 @@ describe('runSection corpus-only mode', (): void => {
       Array.from({ length: 2 }, () => 'positioningCompetitorLandscape'),
     );
     expect(
+      requireRecord(
+        (competitorMarketingInsights.competitors as Record<string, unknown>[])[0],
+      ).positioningClaim,
+    ).toContain('Evidence gap: paid-platform rows');
+    expect(
+      requireRecord(
+        (competitorMarketingInsights.competitors as Record<string, unknown>[])[0],
+      ).positioningClaim,
+    ).not.toContain('Foreplay');
+    expect(
       (funnelIdeation.recommendations as Record<string, unknown>[]).map(
         (item) => item.sourceSection,
       ),
@@ -1731,6 +1779,21 @@ describe('runSection corpus-only mode', (): void => {
         (item) => item.sourceUrl,
       ),
     ).toEqual(['https://example.com/paid-media/source-3']);
+    expect(
+      requireRecord(
+        (funnelIdeation.recommendations as Record<string, unknown>[])[0],
+      ).recommendation,
+    ).toContain('Evidence gap: buyer segment or funnel stage missing');
+    expect(
+      requireRecord(
+        (funnelIdeation.recommendations as Record<string, unknown>[])[0],
+      ).recommendation,
+    ).not.toContain('finance buyers');
+    expect(
+      requireRecord(
+        (funnelIdeation.recommendations as Record<string, unknown>[])[0],
+      ).optInToBookedCall,
+    ).toContain('Evidence gap: specify the landing-page CTA');
     expect(
       (channelSuggestions.suggestions as Record<string, unknown>[]).map(
         (item) => item.sourceSection,
@@ -1743,6 +1806,11 @@ describe('runSection corpus-only mode', (): void => {
     ).toEqual(
       Array.from({ length: 2 }, () => 'https://example.com/paid-media/source-3'),
     );
+    expect(
+      requireRecord(
+        (channelSuggestions.suggestions as Record<string, unknown>[])[0],
+      ).recommendation,
+    ).toContain('Evidence gap: concrete campaign, page, asset, or metric missing');
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });

@@ -123,10 +123,11 @@ Use this specificity level, adapted to the actual evidence:
 - `competitorReviewInsights.insights`: at least 2.
 - `competitorReviewInsights.insights`: each complaint and ad leverage must include a concrete operational signal, number, named feature, quote, or claim from evidence. When evidence is weak, say it is an evidence gap and make the validation risk explicit.
 - `competitorMarketingInsights.competitors`: at least 2. If paid platform/spend evidence is unavailable, set `estSpend` to `unknown` and keep platforms evidence-bounded. When ad platforms are unavailable, say that explicitly through the spend/platform gap instead of guessing.
+- `competitorMarketingInsights.competitors`: every row must include at least one specific claim, number, named feature, or operational signal across `messaging`, `adPlatforms`, `icpTargeted`, `anglesTested`, `positioningClaim`, and `offer`. If ad data is weak, write the exact gap as the operational signal, for example: `ad-platform evidence gap: no Foreplay brand row found for Brex; validate paid creative before launch`.
 - `audienceTypes.audiences`: 2 or 3.
-- `funnelIdeation.recommendations`: every recommendation must name the buyer or segment plus the funnel stage or intent state it is meant to move.
+- `funnelIdeation.recommendations`: every `recommendation` must name the buyer, segment, or company-size phrase plus the funnel stage or buyer intent state it is meant to move, for example: `For problem-aware finance controllers at 50-999 employee companies, launch a pricing-transparency audit page that moves comparison searchers to a booked demo`.
 - `channelSuggestions.suggestions`: at least 2.
-- `channelSuggestions.suggestions`: every recommendation must name a concrete asset, page, campaign, query, or metric and include an explicit action.
+- `channelSuggestions.suggestions`: every `recommendation` must name a concrete asset, page, campaign, query, or metric and include an explicit action verb such as `launch`, `cut`, `split-test`, `route`, `publish`, `pause`, or `measure`.
 - `orderedMoves.moves`: at least 3, with rank 1 depending on nothing and later
   ranks depending on earlier ranks.
 - `sources`: at least 5, carried from the committed positioning artifacts where possible.

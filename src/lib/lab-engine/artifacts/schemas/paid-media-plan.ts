@@ -488,25 +488,25 @@ export function hasSpecificSignal(value: string): boolean {
   return signalTokenCount(value) >= 2;
 }
 
-function hasBuyerReference(value: string): boolean {
+export function hasBuyerReference(value: string): boolean {
   return /\b(?:founder|operator|ops|procurement|finance|controller|cfo|cto|cio|vp|director|manager|smb|mid-market|enterprise|saas|icp|lead|prospect|customer|buyer|user)\b/i.test(
     value,
   );
 }
 
-function hasFunnelStageReference(value: string): boolean {
+export function hasFunnelStageReference(value: string): boolean {
   return /\b(?:problem-aware|solution-aware|comparison|consideration|decision|top|middle|mid|bottom|cold|warm|hot|mql|sql|lead|demo|trial|booked|opt-?in|calendar|call)\b/i.test(
     value,
   );
 }
 
-function hasSpecificAssetOrMetric(value: string): boolean {
+export function hasSpecificAssetOrMetric(value: string): boolean {
   return /(?:\/[a-z0-9-]+|blog|pricing|landing|homepage|site|url|page|campaign|ad\s*group|ad\s*set|keyword|query|funnel|form|button|cta|asset|creative|ctr|cpc|cpa|cvr|cpm|cac|roas|mql|sql|demo|page\s*speed|lcp|cls|fcp)/i.test(
     value,
   );
 }
 
-function hasActionVerb(value: string): boolean {
+export function hasActionVerb(value: string): boolean {
   return /\b(?:add|change|replace|remove|cut|pause|launch|start|stop|test|measure|split|route|rewrite|mirror|move|double|double-down|focus|shift|build|create|instrument|track|retarget|exclude|prioritize)\b/i.test(
     value,
   );

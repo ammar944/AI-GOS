@@ -64,6 +64,10 @@ Return exactly these `body` keys:
 - `namedTension`: `{ tension, side, costAccepted, sourceSections }`.
 - `secondOrderRisk`: `{ claim, sourceSections, whyItMatters }`.
 - `contrarianInversion`: `{ claim, sourceSections, whyItMatters }`.
+- `clientBlindSpot.claim`, `secondOrderRisk.claim`, and
+  `contrarianInversion.claim` must be a specific strategic judgment with a
+  causal "because/therefore" shape, or `evidence gap: <missing signal>`. Do not
+  restate the verdict, summarize the six sections, or rename a theme.
 
 ## Quality Bar
 

@@ -563,12 +563,14 @@ function buildSectionMinimumGuidance(
       "- `body.competitorReviewInsights` is an object with `prose` and `insights[]`; each insight has exactly `competitor`, `verbatimComplaint`, `adLeverage`, `sourceSection`, `sourceUrl`.",
       "- Every `competitorReviewInsights.insights[]` item must include a specific claim, number, named feature, or operational signal across the complaint and ad leverage fields; when evidence is weak, say it is an evidence gap and make the validation risk explicit.",
       "- `body.competitorMarketingInsights` is an object with `prose` and `competitors[]`; each competitor has exactly `competitor`, `messaging`, `adPlatforms`, `estSpend`, `estSpendProvenance`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`.",
+      "- Every `body.competitorMarketingInsights.competitors[]` item must include at least one specific claim, number, named feature, or operational signal across `messaging`, `adPlatforms`, `icpTargeted`, `anglesTested`, `positioningClaim`, and `offer`; if ad data is weak, write the exact evidence gap as the operational signal.",
       "- Competitor `estSpend` remains string-only; never emit `estSpendValue`.",
       "- `body.competitorMarketingInsights.competitors[].anglesTested` is a single string such as `workflow speed; tool consolidation`; never an array.",
       "- `body.funnelIdeation` is an object with `prose` and `recommendations[]`; each recommendation has exactly `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`, and `sourceUrl`. Funnel type values are `direct-to-calendar`, `booking-page`, `free-audit-landing-page`, or `advanced-vsl-website`.",
-      "- Every `body.funnelIdeation.recommendations[]` item must name the buyer, segment, or company size plus the funnel stage or intent state it moves toward a booked call.",
+      "- Every `body.funnelIdeation.recommendations[]` item must name the buyer, segment, or company-size phrase plus the funnel stage or buyer intent state it moves toward a booked call.",
       "- `body.salesProcess` is an object with `prose` and `assets[]`; each asset has exactly `label`, `url`, `assetType`, where assetType is `sop-doc` or `loom`. If no asset URL exists, use an empty array and explain the gap in prose.",
       "- `body.channelSuggestions` is an object with `prose` and `suggestions[]`; each suggestion has exactly `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`, where verdict is `keep`, `fix`, `cut`, or `start`.",
+      "- Every `body.channelSuggestions.suggestions[].recommendation` must name a concrete asset, page, campaign, query, or metric and include an explicit action verb such as `launch`, `cut`, `split-test`, `route`, `publish`, `pause`, or `measure`.",
       "- `body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`; `gtmMotion` must be `SLG` or `PLG`; each KPI has exactly `metric`, `role`, `definition`.",
     ];
   }
@@ -582,6 +584,7 @@ function buildSectionMinimumGuidance(
       "- `body.crossSectionThreads[]` items have exactly `claim`, `sourceSections`, and `whyNonObvious`; provide 1-6 focused threads.",
       "- Every thread and grounded strategic claim must cite at least two distinct committed section IDs through `sourceSections`.",
       "- `body.clientBlindSpot`, `body.secondOrderRisk`, and `body.contrarianInversion` are objects with exactly `claim`, `sourceSections`, and `whyItMatters`.",
+      "- `body.clientBlindSpot.claim`, `body.secondOrderRisk.claim`, and `body.contrarianInversion.claim` must be a specific strategic judgment with a causal `because/therefore` shape, or `evidence gap: <missing signal>`; do not restate the verdict, summarize the six sections, or rename a theme.",
       "- `body.namedTension` is an object with exactly `tension`, `side`, `costAccepted`, and `sourceSections`; `side` must choose one side and `costAccepted` must name what the client gives up.",
       "- Across the artifact, cover at least four of the six committed sections. Do not write a single-section insight or a generic summary.",
     ];
