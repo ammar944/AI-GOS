@@ -578,6 +578,162 @@ function installRecoveryToolFetches({
   return { fetchMock, requestedUrls };
 }
 
+function installCompetitorSeedToolFetches(): {
+  fetchMock: ReturnType<typeof vi.fn>;
+  requestedUrls: string[];
+} {
+  const requestedUrls: string[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      requestedUrls.push(url);
+
+      if (url.includes('searchapi.io')) {
+        const decodedUrl = decodeURIComponent(url);
+
+        if (decodedUrl.includes('SaaSLaunch reviews complaints')) {
+          return jsonResponse({ organic_results: [] });
+        }
+
+        return jsonResponse({
+          organic_results: [
+            {
+              link: 'https://www.g2.com/products/pipelinepilot/reviews',
+              snippet:
+                'Users say handoffs and account follow-up still need manual cleanup.',
+              title: 'PipelinePilot reviews on G2',
+            },
+            {
+              link: 'https://www.capterra.com/p/pipelinepilot/reviews',
+              snippet:
+                'Teams complain that pipeline notes and CRM context are scattered.',
+              title: 'PipelinePilot reviews on Capterra',
+            },
+            {
+              link: 'https://www.trustpilot.com/review/pipelinepilot.example',
+              snippet:
+                'Reviewers mention missed handoffs and slow reporting setup.',
+              title: 'PipelinePilot reviews on Trustpilot',
+            },
+          ],
+        });
+      }
+
+      if (url.includes('api.search.brave.com')) {
+        return jsonResponse({ web: { results: [] } });
+      }
+
+      if (url.includes('api.firecrawl.dev')) {
+        const targetUrl = getFirecrawlBodyUrl(init);
+
+        return jsonResponse({
+          data: {
+            markdown: buildDefaultReviewBodyMarkdown(targetUrl),
+            metadata: {
+              sourceURL:
+                targetUrl ?? 'https://www.g2.com/products/pipelinepilot/reviews',
+              title: 'Recovered PipelinePilot review',
+            },
+          },
+        });
+      }
+
+      return jsonResponse({});
+    },
+  );
+
+  vi.stubGlobal('fetch', fetchMock);
+  vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi');
+  vi.stubEnv('BRAVE_SEARCH_API_KEY', 'test-brave');
+  vi.stubEnv('FIRECRAWL_API_KEY', 'test-firecrawl');
+
+  return { fetchMock, requestedUrls };
+}
+
+function installWebSearchSnippetToolFetches(): {
+  fetchMock: ReturnType<typeof vi.fn>;
+  requestedUrls: string[];
+} {
+  const requestedUrls: string[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL): Promise<Response> => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      requestedUrls.push(url);
+
+      if (url.includes('searchapi.io')) {
+        return jsonResponse({ organic_results: [] });
+      }
+
+      if (url.includes('api.search.brave.com')) {
+        return jsonResponse({
+          web: {
+            results: [
+              {
+                description:
+                  'Users say approvals feel manual and handoffs are missed when finance notes are scattered.',
+                extra_snippets: [
+                  'Reviewers mention slow support and confusing cleanup after card-policy exceptions.',
+                ],
+                title: 'Ramp reviews on G2',
+                url: 'https://www.g2.com/products/ramp/reviews',
+              },
+              {
+                description:
+                  'Teams complain that receipt cleanup is slow and approval context gets scattered.',
+                extra_snippets: [
+                  'Operators report difficult month-end cleanup when spend requests are blocked.',
+                ],
+                title: 'Ramp reviews on Capterra',
+                url: 'https://www.capterra.com/p/ramp/reviews',
+              },
+              {
+                description:
+                  'Customers say support delays make expense approval handoffs hard to trust.',
+                extra_snippets: [
+                  'Finance teams describe manual reconciliation pain after procurement changes.',
+                ],
+                title: 'Ramp discussion thread',
+                url: 'https://www.reddit.com/r/accounting/comments/ramp-expense-review/',
+              },
+            ],
+          },
+        });
+      }
+
+      if (url.includes('api.firecrawl.dev')) {
+        return jsonResponse({
+          data: {
+            markdown: '',
+            metadata: {
+              sourceURL: 'https://www.g2.com/products/ramp/reviews',
+              title: 'Empty enrichment',
+            },
+          },
+        });
+      }
+
+      return jsonResponse({});
+    },
+  );
+
+  vi.stubGlobal('fetch', fetchMock);
+  vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi');
+  vi.stubEnv('BRAVE_SEARCH_API_KEY', 'test-brave');
+  vi.stubEnv('FIRECRAWL_API_KEY', 'test-firecrawl');
+
+  return { fetchMock, requestedUrls };
+}
+
 describe('runSection VoC candidate prepass', (): void => {
   afterEach((): void => {
     vi.unstubAllEnvs();
@@ -832,6 +988,100 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
+  });
+
+  it('falls back to competitor-seed review bodies when audited-brand review discovery is empty', async (): Promise<void> => {
+    const researchInput = researchInputSchema.parse({
+      ...saaslaunchResearchInput,
+      competitorSeeds: [{ name: 'PipelinePilot' }],
+      runId: 'run_saaslaunch_competitor_voc_fixture',
+    });
+    const store = await makeStore(researchInput);
+    const { requestedUrls } = installCompetitorSeedToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      const decodedSearches = requestedUrls
+        .filter((url) => url.includes('searchapi.io'))
+        .map((url) => decodeURIComponent(url));
+
+      expect(decodedSearches).toHaveLength(2);
+      expect(decodedSearches[0]).toContain('SaaSLaunch reviews complaints');
+      expect(decodedSearches[1]).toContain('PipelinePilot reviews complaints');
+      expect(params.prompt).toContain('PipelinePilot');
+      expect(params.prompt).toContain('g2.com');
+      expect(params.prompt).toContain('capterra.com');
+      expect(params.prompt).toContain('trustpilot.com');
+
+      emitVoiceOfCustomerEvidenceStep(params);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(
+      requestedUrls.filter((url) => url.includes('api.firecrawl.dev')),
+    ).toHaveLength(3);
+    expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(result.artifact.body.evidenceGap).not.toBe(true);
+  });
+
+  it('promotes explicit independent buyer-language web snippets into the candidate pack', async (): Promise<void> => {
+    const store = await makeStore();
+    const { requestedUrls } = installWebSearchSnippetToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(params.prompt).toContain('Users say approvals feel manual');
+      expect(params.prompt).toContain('Teams complain that receipt cleanup is slow');
+      expect(params.prompt).toContain('Customers say support delays');
+      expect(params.prompt).toContain('g2.com');
+      expect(params.prompt).toContain('capterra.com');
+      expect(params.prompt).toContain('reddit.com');
+
+      emitVoiceOfCustomerEvidenceStep(params);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(requestedUrls.some((url) => url.includes('api.search.brave.com'))).toBe(
+      true,
+    );
+    expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(result.artifact.body.evidenceGap).not.toBe(true);
   });
 
   it('commits an evidence-gap artifact when Firecrawl cannot recover a strict candidate', async (): Promise<void> => {

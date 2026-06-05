@@ -5323,7 +5323,7 @@ function buildReviewVoiceOfCustomerCandidates({
       const sourceInstanceId = getStringProperty(itemRecord, "sourceInstanceId");
       const title = getStringProperty(itemRecord, "source") ?? "Review excerpt";
 
-      if (url === null) {
+      if (itemRecord === null || url === null) {
         return emptyVoiceOfCustomerCandidateCollection();
       }
 
@@ -5359,6 +5359,125 @@ function buildReviewVoiceOfCustomerCandidates({
       });
     }),
   );
+}
+
+function getStringArrayProperty(
+  value: Record<string, unknown> | null,
+  key: string,
+): string[] {
+  const propertyValue = value?.[key];
+
+  if (!Array.isArray(propertyValue)) {
+    return [];
+  }
+
+  return propertyValue.flatMap((item) => {
+    if (typeof item !== "string") {
+      return [];
+    }
+
+    const trimmed = item.trim();
+    return trimmed.length === 0 ? [] : [trimmed];
+  });
+}
+
+function hasVoiceOfCustomerSpeakerSignal(snippet: string): boolean {
+  return /\b(users|customers|reviewers|teams|operators|finance teams|founders|admins)\s+(say|said|complain|complained|mention|mentioned|report|reported|describe|described|struggle|struggled)\b/i.test(
+    snippet,
+  );
+}
+
+function hasVoiceOfCustomerPainSignal(snippet: string): boolean {
+  return /\b(manual|slow|missed|handoff|handoffs|scattered|confusing|cleanup|approval|approvals|support|expensive|hard to|difficult|pain|complaint|complaints|friction|blocked|delay|delays|trust)\b/i.test(
+    snippet,
+  );
+}
+
+function isPromotableVoiceOfCustomerSearchSnippet(snippet: string): boolean {
+  return (
+    snippet.length >= 40 &&
+    hasVoiceOfCustomerSpeakerSignal(snippet) &&
+    hasVoiceOfCustomerPainSignal(snippet)
+  );
+}
+
+function inferWebSearchVoiceOfCustomerEvidenceKind({
+  domain,
+  snippet,
+  title,
+  url,
+}: {
+  domain: string;
+  snippet: string;
+  title: string;
+  url: string;
+}): VoiceOfCustomerEvidenceKind {
+  const inferred = inferVoiceOfCustomerEvidenceKind({
+    domain,
+    source: "web_search",
+    snippet,
+    title,
+    url,
+  });
+
+  if (inferred !== "article") {
+    return inferred;
+  }
+
+  return /\breviews?\b/i.test(`${title} ${url}`) ? "review" : "article";
+}
+
+function buildWebSearchSnippetVoiceOfCustomerCandidates({
+  itemRecord,
+  researchInput,
+  title,
+  url,
+}: {
+  itemRecord: Record<string, unknown>;
+  researchInput: ResearchInput;
+  title: string;
+  url: string;
+}): VoiceOfCustomerCandidate[] {
+  const domain = getRegistrableDomain(url);
+
+  if (domain === null) {
+    return [];
+  }
+
+  const snippets = [
+    getStringProperty(itemRecord, "description"),
+    ...getStringArrayProperty(itemRecord, "extra_snippets"),
+  ].filter((snippet): snippet is string => snippet !== null);
+
+  return snippets.flatMap((snippet, index) => {
+    if (!isPromotableVoiceOfCustomerSearchSnippet(snippet)) {
+      return [];
+    }
+
+    const evidenceKind = inferWebSearchVoiceOfCustomerEvidenceKind({
+      domain,
+      snippet,
+      title,
+      url,
+    });
+
+    if (evidenceKind === "article") {
+      return [];
+    }
+
+    const candidate = createVoiceOfCustomerCandidate({
+      acquisitionMode: acquisitionModeForEvidenceKind(evidenceKind),
+      auditedCompanyDomain: researchInput.company.websiteUrl,
+      evidenceKind,
+      source: "web_search",
+      sourceInstanceId: `${url}#snippet-${index + 1}`,
+      title,
+      url,
+      snippet,
+    });
+
+    return candidate === null ? [] : [candidate];
+  });
 }
 
 function parseVoiceOfCustomerAcquisitionAttempt(
@@ -5456,10 +5575,16 @@ function buildWebSearchVoiceOfCustomerCandidates({
       const url = getStringProperty(itemRecord, "url");
       const title = getStringProperty(itemRecord, "title") ?? "Search result";
 
-      if (url === null) {
+      if (itemRecord === null || url === null) {
         return emptyVoiceOfCustomerCandidateCollection();
       }
 
+      const candidates = buildWebSearchSnippetVoiceOfCustomerCandidates({
+        itemRecord,
+        researchInput,
+        title,
+        url,
+      });
       const recoveryTarget = createVoiceOfCustomerRecoveryTarget({
         auditedCompanyDomain: researchInput.company.websiteUrl,
         source: "web_search",
@@ -5467,10 +5592,10 @@ function buildWebSearchVoiceOfCustomerCandidates({
         url,
       });
 
-      return oneVoiceOfCustomerCandidateCollection({
-        candidate: null,
-        recoveryTarget,
-      });
+      return {
+        candidates,
+        recoveryTargets: recoveryTarget === null ? [] : [recoveryTarget],
+      };
     }),
   );
 }
@@ -5582,6 +5707,45 @@ function buildVoiceOfCustomerSearchQuery(
   return `${brand} customer reviews complaints pain points reddit forum G2 Capterra Trustpilot${domainExclusion}`;
 }
 
+function normalizeVoiceOfCustomerReviewQuery(value: string): string | null {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  return normalized.length === 0 ||
+    /^unknown\b/i.test(normalized) ||
+    /^no\s+/i.test(normalized)
+    ? null
+    : normalized;
+}
+
+function buildVoiceOfCustomerReviewQueries(
+  researchInput: ResearchInput,
+): string[] {
+  const rawQueries = [
+    researchInput.company.name,
+    ...(researchInput.competitorSeeds ?? []).map((seed) => seed.name),
+  ];
+  const seen = new Set<string>();
+  const queries: string[] = [];
+
+  for (const rawQuery of rawQueries) {
+    const query = normalizeVoiceOfCustomerReviewQuery(rawQuery);
+    const key = query?.toLowerCase();
+
+    if (query === null || key === undefined || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    queries.push(query);
+
+    if (queries.length >= VOC_PREPASS_MAX_LOOKUPS) {
+      break;
+    }
+  }
+
+  return queries;
+}
+
 function getFirecrawlRecoveryTarget({
   candidates,
   recoveryTargets,
@@ -5658,6 +5822,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
   const candidates = buildResearchInputVoiceOfCustomerCandidates(researchInput);
   const recoveryTargets: VoiceOfCustomerRecoveryTarget[] = [];
   const steps: AgentStep[] = [];
+  let result = selectVoiceOfCustomerCandidates(candidates);
   const tryTool = async (
     toolName: ToolName,
     toolInput: unknown,
@@ -5682,19 +5847,28 @@ async function buildVoiceOfCustomerCandidatePrepass({
     return toolResult.output;
   };
 
-  const reviewOutput = await tryTool("reviews", {
-    brand: researchInput.company.name,
-    max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
-    mode: "bodies",
-  });
-  const acquisitionAttempts =
-    extractVoiceOfCustomerAcquisitionAttempts(reviewOutput);
-  const reviewCandidates = buildReviewVoiceOfCustomerCandidates({
-    output: reviewOutput,
-    researchInput,
-  });
-  candidates.push(...reviewCandidates.candidates);
-  recoveryTargets.push(...reviewCandidates.recoveryTargets);
+  const acquisitionAttempts: VoiceOfCustomerAcquisitionAttempt[] = [];
+  for (const reviewQuery of buildVoiceOfCustomerReviewQueries(researchInput)) {
+    const reviewOutput = await tryTool("reviews", {
+      brand: reviewQuery,
+      max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
+      mode: "bodies",
+    });
+    acquisitionAttempts.push(
+      ...extractVoiceOfCustomerAcquisitionAttempts(reviewOutput),
+    );
+    const reviewCandidates = buildReviewVoiceOfCustomerCandidates({
+      output: reviewOutput,
+      researchInput,
+    });
+    candidates.push(...reviewCandidates.candidates);
+    recoveryTargets.push(...reviewCandidates.recoveryTargets);
+    result = selectVoiceOfCustomerCandidates(candidates);
+
+    if (result.ok || steps.length >= VOC_PREPASS_MAX_LOOKUPS - 1) {
+      break;
+    }
+  }
 
   const webSearchOutput = await tryTool("web_search", {
     q: buildVoiceOfCustomerSearchQuery(researchInput, subjectDomain),
@@ -5708,7 +5882,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
   candidates.push(...webSearchCandidates.candidates);
   recoveryTargets.push(...webSearchCandidates.recoveryTargets);
 
-  let result = selectVoiceOfCustomerCandidates(candidates);
+  result = selectVoiceOfCustomerCandidates(candidates);
   const firecrawlTarget =
     getFirecrawlEnrichmentTarget(result) ??
     getFirecrawlRecoveryTarget({

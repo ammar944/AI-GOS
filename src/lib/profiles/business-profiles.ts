@@ -169,12 +169,11 @@ export async function saveBusinessProfile(
   return data;
 }
 
-export async function patchBusinessProfileSynthesis(input: {
+export async function patchBusinessProfileInsights(input: {
   supabase: SupabaseClient;
   userId: string;
   profileId: string;
   insights: Record<string, unknown>;
-  positioningStrategy: Record<string, unknown>;
 }): Promise<void> {
   const { data: existing, error: readError } = await input.supabase
     .from('business_profiles')
@@ -185,13 +184,13 @@ export async function patchBusinessProfileSynthesis(input: {
 
   if (readError) {
     throw new Error(
-      `business_profiles synthesis read failed for userId=${input.userId} profileId=${input.profileId}: ${readError.message}`,
+      `business_profiles insights read failed for userId=${input.userId} profileId=${input.profileId}: ${readError.message}`,
     );
   }
 
   if (!existing) {
     throw new Error(
-      `business_profiles synthesis read returned no row for userId=${input.userId} profileId=${input.profileId}`,
+      `business_profiles insights read returned no row for userId=${input.userId} profileId=${input.profileId}`,
     );
   }
 
@@ -202,21 +201,44 @@ export async function patchBusinessProfileSynthesis(input: {
     > | null) ?? {};
   const mergedInsights = { ...existingInsights, ...input.insights };
 
+  const updateData: Record<string, unknown> = {
+    ai_insights: mergedInsights,
+    last_research_at: new Date().toISOString(),
+  };
+  if (input.insights.offerScore) updateData.offer_score = input.insights.offerScore;
+  if (input.insights.positioningStrategy) {
+    updateData.positioning_strategy = input.insights.positioningStrategy;
+  }
+
   const { error: updateError } = await input.supabase
     .from('business_profiles')
-    .update({
-      ai_insights: mergedInsights,
-      positioning_strategy: input.positioningStrategy,
-      last_research_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', input.profileId)
     .eq('user_id', input.userId);
 
   if (updateError) {
     throw new Error(
-      `business_profiles synthesis update failed for userId=${input.userId} profileId=${input.profileId}: ${updateError.message}`,
+      `business_profiles insights update failed for userId=${input.userId} profileId=${input.profileId}: ${updateError.message}`,
     );
   }
+}
+
+export async function patchBusinessProfileSynthesis(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  profileId: string;
+  insights: Record<string, unknown>;
+  positioningStrategy: Record<string, unknown>;
+}): Promise<void> {
+  await patchBusinessProfileInsights({
+    supabase: input.supabase,
+    userId: input.userId,
+    profileId: input.profileId,
+    insights: {
+      ...input.insights,
+      positioningStrategy: input.positioningStrategy,
+    },
+  });
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
+  POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
@@ -32,7 +33,7 @@ import {
   buildCommittedSectionProfileInsights,
   persistAuditProfileBestEffort,
 } from '@/lib/profiles/section-profile-persistence';
-import { patchBusinessProfileSynthesis } from '@/lib/profiles/business-profiles';
+import { patchBusinessProfileInsights } from '@/lib/profiles/business-profiles';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
@@ -50,6 +51,13 @@ export class SupabaseRunStoreError extends Error {
     this.name = 'SupabaseRunStoreError';
   }
 }
+
+const PROFILE_PATCH_SECTION_IDS = [
+  ...POSITIONING_SECTION_IDS,
+  POSITIONING_SYNTHESIS_SECTION_ID,
+] as const;
+
+type ProfilePatchSectionId = (typeof PROFILE_PATCH_SECTION_IDS)[number];
 
 /**
  * Thrown when commit_artifact_section returns conflict=true (a compare-and-swap
@@ -352,13 +360,21 @@ async function mergeSynthesizedThesisBestEffort(input: {
   }
 }
 
-async function patchProfileSynthesisBestEffort(input: {
+function isProfilePatchSectionId(sectionId: SectionId): sectionId is ProfilePatchSectionId {
+  return (PROFILE_PATCH_SECTION_IDS as readonly string[]).includes(sectionId);
+}
+
+async function patchProfileSectionBestEffort(input: {
   supabase: SupabaseClient;
   userId: string;
   runId: string;
   parentAuditRunId: string;
   artifact: ArtifactEnvelope;
 }): Promise<void> {
+  if (!isProfilePatchSectionId(input.artifact.sectionId)) {
+    return;
+  }
+
   try {
     const { data: sessionData, error: sessionError } = await input.supabase
       .from('journey_sessions')
@@ -368,10 +384,11 @@ async function patchProfileSynthesisBestEffort(input: {
       .maybeSingle();
 
     if (sessionError) {
-      console.warn('[supabase-run-store] synthesis profile read failed:', {
+      console.warn('[supabase-run-store] section profile read failed:', {
         userId: input.userId,
         runId: input.runId,
         parentAuditRunId: input.parentAuditRunId,
+        sectionId: input.artifact.sectionId,
         message: sessionError.message,
       });
       return;
@@ -386,14 +403,15 @@ async function patchProfileSynthesisBestEffort(input: {
       .from('research_artifact_sections')
       .select('verification_tier, verification_flag')
       .eq('artifact_id', input.parentAuditRunId)
-      .eq('zone', POSITIONING_SYNTHESIS_SECTION_ID)
+      .eq('zone', input.artifact.sectionId)
       .maybeSingle();
 
     if (sectionError) {
-      console.warn('[supabase-run-store] synthesis profile tier read failed:', {
+      console.warn('[supabase-run-store] section profile tier read failed:', {
         userId: input.userId,
         runId: input.runId,
         parentAuditRunId: input.parentAuditRunId,
+        sectionId: input.artifact.sectionId,
         message: sectionError.message,
       });
       return;
@@ -404,32 +422,21 @@ async function patchProfileSynthesisBestEffort(input: {
       verification_flag?: unknown;
     } | null;
     const insights = buildCommittedSectionProfileInsights({
-      sectionId: POSITIONING_SYNTHESIS_SECTION_ID,
+      sectionId: input.artifact.sectionId,
       artifact: input.artifact,
       verificationTier: sectionRow?.verification_tier ?? null,
       verificationFlag: sectionRow?.verification_flag ?? null,
     });
-    const positioningStrategy = asRecordValue(insights.positioningStrategy);
-    if (!positioningStrategy) {
-      console.warn('[supabase-run-store] synthesis profile patch missing strategy', {
-        userId: input.userId,
-        runId: input.runId,
-        parentAuditRunId: input.parentAuditRunId,
-        profileId,
-      });
-      return;
-    }
 
-    await patchBusinessProfileSynthesis({
+    await patchBusinessProfileInsights({
       supabase: input.supabase,
       userId: input.userId,
       profileId,
       insights,
-      positioningStrategy,
     });
   } catch (err) {
     console.warn(
-      '[supabase-run-store] synthesis profile patch errored:',
+      '[supabase-run-store] section profile patch errored:',
       err instanceof Error ? err.message : String(err),
     );
   }
@@ -676,22 +683,15 @@ export function createSupabaseRunStore(
           artifact: artifactToCommit,
           updatedAt: completedAt,
         });
-        await patchProfileSynthesisBestEffort({
-          supabase: options.supabase,
-          userId: options.userId,
-          runId: input.runId,
-          parentAuditRunId: options.parentAuditRunId,
-          artifact: artifactToCommit,
-        });
       }
 
-      if (
-        await claimProfilePersist({
-          supabase: options.supabase,
-          parentAuditRunId: options.parentAuditRunId,
-          persistedAt: completedAt,
-        })
-      ) {
+      const profilePersistClaimed = await claimProfilePersist({
+        supabase: options.supabase,
+        parentAuditRunId: options.parentAuditRunId,
+        persistedAt: completedAt,
+      });
+
+      if (profilePersistClaimed) {
         const profileId = await persistAuditProfileBestEffort({
           supabase: options.supabase,
           userId: options.userId,
@@ -708,6 +708,14 @@ export function createSupabaseRunStore(
             profileId,
           });
         }
+      } else {
+        await patchProfileSectionBestEffort({
+          supabase: options.supabase,
+          userId: options.userId,
+          runId: input.runId,
+          parentAuditRunId: options.parentAuditRunId,
+          artifact: artifactToCommit,
+        });
       }
 
       record = mergeSection(

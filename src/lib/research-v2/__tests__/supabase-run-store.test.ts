@@ -670,6 +670,64 @@ describe('createSupabaseRunStore', (): void => {
     expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledTimes(1);
   });
 
+  it('patches a linked profile section insight when the parent was already persisted', async (): Promise<void> => {
+    const needsReviewFlag = {
+      tier: 'needs_review',
+      verifiedCount: 5,
+      unsupportedCount: 2,
+      totalClaims: 7,
+      confidence: 5 / 7,
+      needsReviewThreshold: 0.75,
+      insufficientThreshold: 0.5,
+      evidenceGap: false,
+    };
+    const fakeSupabase = createFakeSupabase({
+      profileClaimResults: [false],
+      profileId: 'profile-123',
+      synthesisSectionRow: {
+        verification_tier: 'needs_review',
+        verification_flag: needsReviewFlag,
+      },
+      existingBusinessProfileInsights: {
+        positioningDemandIntent: { verificationTier: 'insufficient' },
+      },
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+
+    expect(profilePersistenceMocks.persistAuditProfileBestEffort).not.toHaveBeenCalled();
+    const profileUpdates = fakeSupabase.updates.filter(
+      (updateCall) => updateCall.table === 'business_profiles',
+    );
+    expect(profileUpdates).toHaveLength(1);
+    expect(profileUpdates[0]?.patch).toEqual(
+      expect.objectContaining({
+        ai_insights: expect.objectContaining({
+          positioningDemandIntent: { verificationTier: 'insufficient' },
+          positioningMarketCategory: expect.objectContaining({
+            verdict: marketCategoryFixtureArtifact.verdict,
+            verificationTier: 'needs_review',
+            verificationFlag: needsReviewFlag,
+          }),
+        }),
+        last_research_at: expect.any(String),
+      }),
+    );
+    expect(fakeSupabase.updateEq).toHaveBeenCalledWith('id', 'profile-123');
+    expect(fakeSupabase.updateEq).toHaveBeenCalledWith('user_id', userId);
+  });
+
   it('marks the failed section run and its projector row as errored, leaving sibling sections untouched', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase();
     const store = createSupabaseRunStore({
