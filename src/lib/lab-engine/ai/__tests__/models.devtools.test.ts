@@ -96,6 +96,23 @@ describe('lab engine AI models — local DevTools', (): void => {
     expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();
   });
 
+  it('imports without creating the selected provider client before preflight runs', async (): Promise<void> => {
+    vi.stubEnv('LAB_ENGINE_PROVIDER', 'deepseek-direct');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+
+    const models = await importModels();
+
+    expect(models.checkSectionModelDispatchPreflight()).toEqual({
+      ok: false,
+      error: 'deepseek_api_key_missing',
+      message:
+        'LAB_ENGINE_PROVIDER=deepseek-direct requires DEEPSEEK_API_KEY.',
+      missingEnv: ['DEEPSEEK_API_KEY'],
+      provider: 'deepseek-direct',
+    });
+    expect(modelMocks.createAnthropic).not.toHaveBeenCalled();
+  });
+
   it('wraps lab models with AI SDK DevTools only when explicitly enabled locally', async (): Promise<void> => {
     vi.stubEnv('AI_SDK_DEVTOOLS', 'true');
     vi.stubEnv('NODE_ENV', 'development');

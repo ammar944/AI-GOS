@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   competitorLandscapeBodySchema,
   type CompetitorLandscapeBody,
+  type CompetitorLandscapeSectionOutput,
 } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
 import type { DemandIntentSectionOutput } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
@@ -186,7 +187,7 @@ function buildDemandIntentKeywordVolumeStep(): AgentStep {
   };
 }
 
-function buildCompetitorLandscapeOutput() {
+function buildCompetitorLandscapeOutput(): CompetitorLandscapeSectionOutput {
   return {
     sectionTitle: competitorLandscapeFixtureArtifact.sectionTitle,
     verdict: competitorLandscapeFixtureArtifact.verdict,
@@ -199,6 +200,15 @@ function buildCompetitorLandscapeOutput() {
     })),
     body: competitorLandscapeFixtureArtifact.body,
   };
+}
+
+function buildCompetitorLandscapeOutputWithGenericIncumbent(): CompetitorLandscapeSectionOutput {
+  const output = structuredClone(buildCompetitorLandscapeOutput());
+
+  output.body.incumbentBlindSpot.incumbent =
+    'This section summarizes the competitive landscape.';
+
+  return output;
 }
 
 function buildDemandIntentOutputWithNumericSiblings(): DemandIntentSectionOutput {
@@ -895,6 +905,61 @@ describe('runSection corpus-only mode', (): void => {
       ],
     });
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('commits an explicit competitor strategic evidence gap after repairs leave incumbent text generic', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningCompetitorLandscape'],
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    let calls = 0;
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      calls += 1;
+
+      if (calls >= 2) {
+        expect(params.prompt).toContain('body.incumbentBlindSpot.incumbent');
+        expect(params.prompt).toContain('missing incumbent/status-quo signal');
+      }
+
+      return {
+        steps: [buildCompetitorLandscapeSupportStep()],
+        text: '',
+        answerInput: buildCompetitorLandscapeOutputWithGenericIncumbent(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningCompetitorLandscape',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-05-25T12:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+
+    assertCompetitorLandscapeBody(result.artifact.body);
+    expect(result.artifact.body.incumbentBlindSpot.incumbent).toMatch(
+      /^evidence gap:/i,
+    );
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(eventTypes).toContain('validation-failed');
+    expect(eventTypes).toContain('repair-started');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningCompetitorLandscape?.status).toBe(
+      'completed',
+    );
   });
 
   it('harvests model ad-tool calls from answer steps into competitor adEvidence', async (): Promise<void> => {

@@ -1,6 +1,6 @@
 import type { TelemetrySettings } from 'ai';
 
-import { SECTION_RUNNER_MODEL_ID } from '../ai/models';
+import { getSectionRunnerModelId } from '../ai/models';
 import type { SectionId } from '../events/activity-event';
 
 export type LabSectionTelemetryOperation =
@@ -32,7 +32,7 @@ export function createLabSectionTelemetry({
     recordOutputs: true,
     functionId: `lab-section.${operation}`,
     metadata: {
-      model: SECTION_RUNNER_MODEL_ID,
+      model: getSectionRunnerModelId(),
       operation,
       runId,
       schemaName: schemaName ?? '',

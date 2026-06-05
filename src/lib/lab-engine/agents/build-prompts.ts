@@ -400,6 +400,7 @@ function buildStrategicDepthMinimumGuidance(
     return [
       ...common,
       "- CompetitorLandscapeSectionOutput strategic fields: `body.whereToAttackVsConcede { attack, concede, rationale }` and `body.incumbentBlindSpot { incumbent, blindSpot, whyTheyMissIt }` are required.",
+      "- CompetitorLandscapeSectionOutput strategic repair: `body.incumbentBlindSpot.incumbent` must name the incumbent/status-quo and the buyer pain or positioning miss as a full strategic judgment; it must not be only a competitor name, category label, or section summary. If the fetched evidence does not support that judgment, write exactly `evidence gap: <missing incumbent/status-quo signal>`.",
     ];
   }
 

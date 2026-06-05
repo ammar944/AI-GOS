@@ -28,7 +28,7 @@ import {
   type VoiceOfCustomerEvidenceGapClassification,
 } from "../artifacts/schemas/voice-of-customer";
 import {
-  STRATEGY_MODEL_ID,
+  getStrategyModelId,
   sectionRunnerModel,
   strategyModel,
   type SectionLanguageModel,
@@ -583,6 +583,110 @@ function buildVoiceOfCustomerAttemptEvidenceGapArtifact({
   });
 }
 
+const competitorStrategicTextErrorSuffix =
+  ": must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.";
+const competitorStrategicEvidenceGapPaths = new Set([
+  "body.whereToAttackVsConcede.attack",
+  "body.whereToAttackVsConcede.concede",
+  "body.whereToAttackVsConcede.rationale",
+  "body.incumbentBlindSpot.incumbent",
+  "body.incumbentBlindSpot.blindSpot",
+  "body.incumbentBlindSpot.whyTheyMissIt",
+]);
+
+function parseCompetitorStrategicEvidenceGapPath(
+  error: string,
+): string | null {
+  if (!error.endsWith(competitorStrategicTextErrorSuffix)) {
+    return null;
+  }
+
+  const path = error.slice(0, -competitorStrategicTextErrorSuffix.length);
+  return competitorStrategicEvidenceGapPaths.has(path) ? path : null;
+}
+
+function buildCompetitorStrategicEvidenceGapValue(path: string): string {
+  return `evidence gap: ${path.replace(
+    /^body\./,
+    "",
+  )} could not be upgraded into a source-backed strategic judgment from the fetched competitor evidence.`;
+}
+
+function withCompetitorStrategicEvidenceGapField({
+  body,
+  path,
+}: {
+  body: Record<string, unknown>;
+  path: string;
+}): Record<string, unknown> | null {
+  const [, groupKey, fieldKey] = path.split(".");
+  if (groupKey === undefined || fieldKey === undefined) {
+    return null;
+  }
+
+  const group = getRecord(body[groupKey]);
+  if (group === null) {
+    return null;
+  }
+
+  return {
+    ...body,
+    [groupKey]: {
+      ...group,
+      [fieldKey]: buildCompetitorStrategicEvidenceGapValue(path),
+    },
+  };
+}
+
+function buildCompetitorStrategicEvidenceGapArtifact({
+  artifact,
+  definition,
+  errors,
+  input,
+}: {
+  artifact: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  errors: readonly string[];
+  input: RunSectionInput;
+}): ArtifactEnvelope | undefined {
+  if (input.sectionId !== "positioningCompetitorLandscape") {
+    return undefined;
+  }
+
+  const failedPaths = errors.map(parseCompetitorStrategicEvidenceGapPath);
+  if (failedPaths.length === 0 || failedPaths.some((path) => path === null)) {
+    return undefined;
+  }
+
+  const originalBody = getRecord(artifact.body);
+  if (originalBody === null) {
+    return undefined;
+  }
+
+  let body: Record<string, unknown> | null = structuredClone(originalBody);
+  for (const path of failedPaths) {
+    if (path === null || body === null) {
+      return undefined;
+    }
+
+    body = withCompetitorStrategicEvidenceGapField({ body, path });
+  }
+
+  if (body === null) {
+    return undefined;
+  }
+
+  const candidate = artifactEnvelopeSchema
+    .extend({ body: definition.bodySchema })
+    .parse({
+      ...artifact,
+      body,
+    });
+  const minimums = definition.validateMinimums(candidate);
+
+  return minimums.ok ? candidate : undefined;
+}
+
 function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   definition,
   deps,
@@ -598,12 +702,75 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   researchInput: ResearchInput;
   result: Exclude<VoiceOfCustomerCandidateResult, { ok: true }>;
 }): ArtifactEnvelope {
-  const facts: VoiceOfCustomerEvidenceGapFacts = {
+  return buildVoiceOfCustomerEvidenceGapArtifact({
+    definition,
+    deps,
+    facts: getVoiceOfCustomerCandidateEvidenceGapFacts(result),
+    input,
+    issue,
+    researchInput,
+  });
+}
+
+function getVoiceOfCustomerCandidateEvidenceGapFacts(
+  result: VoiceOfCustomerCandidateResult,
+): VoiceOfCustomerEvidenceGapFacts {
+  if (!result.ok) {
+    return {
+      ok: true,
+      foundPainQuoteCount: result.gap.candidateCount,
+      foundDistinctPainSourceCount: result.gap.domains.length,
+      observedPainSourceDomains: result.gap.domains,
+    };
+  }
+
+  return {
     ok: true,
-    foundPainQuoteCount: result.gap.candidateCount,
-    foundDistinctPainSourceCount: result.gap.domains.length,
-    observedPainSourceDomains: result.gap.domains,
+    foundPainQuoteCount: result.pack.candidates.length,
+    foundDistinctPainSourceCount: result.pack.domains.length,
+    observedPainSourceDomains: result.pack.domains,
   };
+}
+
+function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
+  definition,
+  deps,
+  errors,
+  input,
+  researchInput,
+  voiceOfCustomerPrepass,
+}: {
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  errors: readonly string[];
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  voiceOfCustomerPrepass:
+    | Awaited<ReturnType<typeof buildVoiceOfCustomerCandidatePrepass>>
+    | undefined;
+}): ArtifactEnvelope | undefined {
+  const prepass = voiceOfCustomerPrepass;
+  if (
+    prepass === undefined ||
+    !hasVoiceOfCustomerStructuredSynthesisFailure({
+      errors,
+      input,
+      voiceOfCustomerPrepass: prepass,
+    })
+  ) {
+    return undefined;
+  }
+
+  const facts = getVoiceOfCustomerCandidateEvidenceGapFacts(
+    prepass.result,
+  );
+  const isTimeout = hasTerminalStructuredError(errors);
+  const issue = [
+    isTimeout
+      ? "Voice of Customer structured synthesis timed out before a source-backed artifact could be promoted."
+      : "Voice of Customer structured synthesis failed to produce a parseable source-backed artifact before repair could be trusted.",
+    `Structured attempt issues: ${errors.join("; ")}`,
+  ].join(" ");
 
   return buildVoiceOfCustomerEvidenceGapArtifact({
     definition,
@@ -612,6 +779,38 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
     input,
     issue,
     researchInput,
+  });
+}
+
+function hasVoiceOfCustomerStructuredSynthesisFailure({
+  errors,
+  input,
+  voiceOfCustomerPrepass,
+}: {
+  errors: readonly string[];
+  input: RunSectionInput;
+  voiceOfCustomerPrepass:
+    | Awaited<ReturnType<typeof buildVoiceOfCustomerCandidatePrepass>>
+    | undefined;
+}): boolean {
+  if (
+    input.sectionId !== "positioningVoiceOfCustomer" ||
+    voiceOfCustomerPrepass === undefined
+  ) {
+    return false;
+  }
+
+  if (hasTerminalStructuredError(errors)) {
+    return true;
+  }
+
+  return errors.some((error) => {
+    const lowerError = error.toLowerCase();
+    return (
+      lowerError.includes("no object generated") ||
+      lowerError.includes("could not parse") ||
+      lowerError.includes("response did not match schema")
+    );
   });
 }
 
@@ -668,7 +867,7 @@ async function applyStrategicCriticIfNeeded({
     artifact: artifact as CrossSectionReasoningArtifact,
     checkedAt: getNow(deps).toISOString(),
     model: strategyModel,
-    modelId: STRATEGY_MODEL_ID,
+    modelId: getStrategyModelId(),
     signal: input.signal,
   });
   let nextArtifact = critique.artifact;
@@ -1058,6 +1257,7 @@ async function saveCompletedArtifact({
 interface AttemptResult {
   output: SectionOutput<Record<string, unknown>> | null;
   artifact: ArtifactEnvelope | null;
+  competitorStrategicEvidenceGapArtifact?: ArtifactEnvelope;
   errors: string[];
   requiredEvidenceMissing?: RequiredEvidenceMissingError;
   evidenceSupportShortfall?: EvidenceSupportShortfall;
@@ -1069,6 +1269,15 @@ function getAttemptRepairIssues(attempt: AttemptResult): string[] {
     ...attempt.errors,
     ...(attempt.evidenceSupportShortfall?.issues ?? []),
   ];
+}
+
+function getAttemptEvidenceGapArtifact(
+  attempt: AttemptResult,
+): ArtifactEnvelope | undefined {
+  return (
+    attempt.voiceOfCustomerEvidenceGapArtifact ??
+    attempt.competitorStrategicEvidenceGapArtifact
+  );
 }
 
 function getUnsupportedLoadBearingCount(attempt: AttemptResult): number {
@@ -1142,6 +1351,7 @@ const defaultStructuredOutputMaxTokens = 8192;
 // server records a terminal failure before the verifier's fetch dies and
 // abandons the run record in `running` state.
 const structuredOutputTimeoutMs = 240_000;
+const voiceOfCustomerStructuredOutputTimeoutMs = 150_000;
 // Inner backstop in the timeout hierarchy (Cluster A target, Option A):
 // answer-tool 255s < job timeout (LAB_SECTION_JOB_TIMEOUT_MS = 270s) <
 // route maxDuration (300s). The answer-tool timeout trips first as an inner
@@ -1218,6 +1428,12 @@ const answerToolSectionIds: ReadonlySet<SectionId> = new Set([
 const missingAnswerToolMessage =
   "Agent did not call answer tool within maxSteps";
 const labSectionStreamingEnvKey = "LAB_SECTION_STREAMING";
+
+function getStructuredOutputTimeoutMs(sectionId: SectionId): number {
+  return sectionId === "positioningVoiceOfCustomer"
+    ? voiceOfCustomerStructuredOutputTimeoutMs
+    : structuredOutputTimeoutMs;
+}
 
 interface StructuredSectionDraftOutput {
   verdict: string;
@@ -1795,6 +2011,92 @@ function normalizeVerbatimTextRecord(
   };
 }
 
+const voiceOfCustomerQuoteSourceValues = new Set([
+  "g2",
+  "reddit",
+  "hackernews",
+  "sales-call",
+  "support-thread",
+  "twitter",
+  "other",
+]);
+
+function getHostname(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  try {
+    return new URL(value).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeVoiceOfCustomerQuoteSource({
+  source,
+  sourceUrl,
+}: {
+  source: string | null;
+  sourceUrl: string | null;
+}): string | null {
+  const normalizedSource = source?.trim().toLowerCase() ?? null;
+
+  if (
+    normalizedSource !== null &&
+    voiceOfCustomerQuoteSourceValues.has(normalizedSource)
+  ) {
+    return normalizedSource;
+  }
+
+  const hostname = getHostname(sourceUrl);
+  if (hostname?.includes("g2.com") === true) {
+    return "g2";
+  }
+  if (hostname?.includes("reddit.com") === true) {
+    return "reddit";
+  }
+  if (
+    hostname === "news.ycombinator.com" ||
+    hostname?.includes("hackernews") === true
+  ) {
+    return "hackernews";
+  }
+  if (
+    hostname?.includes("twitter.com") === true ||
+    hostname?.includes("x.com") === true
+  ) {
+    return "twitter";
+  }
+
+  if (normalizedSource !== null) {
+    return "other";
+  }
+
+  return null;
+}
+
+function normalizeVoiceOfCustomerQuoteRecord(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const normalizedText = normalizeVerbatimTextRecord(record);
+  const normalizedSource = normalizeVoiceOfCustomerQuoteSource({
+    source: getStringProperty(normalizedText, "source"),
+    sourceUrl: getStringProperty(normalizedText, "sourceUrl"),
+  });
+  const withoutBlankRole = removeEmptyStringProperty(normalizedText, "role");
+  const withoutBlankDate = removeEmptyStringProperty(withoutBlankRole, "date");
+
+  if (normalizedSource === null) {
+    return withoutBlankDate;
+  }
+
+  return {
+    ...withoutBlankDate,
+    source: normalizedSource,
+  };
+}
+
 function normalizeArrayRecords({
   normalize,
   value,
@@ -2211,43 +2513,62 @@ function withNormalizedVoiceOfCustomerOutput(rawOutput: unknown): unknown {
 
   return {
     ...outputRecord,
-    body: {
-      ...bodyRecord,
-      ...(painLanguageRecord === null
-        ? {}
-        : {
-            painLanguage: {
-              ...painLanguageRecord,
-              quotes: normalizeArrayRecords({
-                normalize: normalizeVerbatimTextRecord,
-                value: painLanguageRecord.quotes,
-              }),
-            },
-          }),
-      ...(switchingStoriesRecord === null
-        ? {}
-        : {
-            switchingStories: {
-              ...switchingStoriesRecord,
-              stories: normalizeArrayRecords({
-                normalize: (story) =>
-                  removeEmptyStringProperty(story, "exampleCompany"),
-                value: switchingStoriesRecord.stories,
-              }),
-            },
-          }),
-      ...(successLanguageRecord === null
-        ? {}
-        : {
-            successLanguage: {
-              ...successLanguageRecord,
-              quotes: normalizeArrayRecords({
-                normalize: normalizeVerbatimTextRecord,
-                value: successLanguageRecord.quotes,
-              }),
-            },
-          }),
-    },
+    body: withNormalizedVoiceOfCustomerBody({
+      bodyRecord,
+      painLanguageRecord,
+      successLanguageRecord,
+      switchingStoriesRecord,
+    }),
+  };
+}
+
+function withNormalizedVoiceOfCustomerBody({
+  bodyRecord,
+  painLanguageRecord = getRecord(bodyRecord.painLanguage),
+  successLanguageRecord = getRecord(bodyRecord.successLanguage),
+  switchingStoriesRecord = getRecord(bodyRecord.switchingStories),
+}: {
+  bodyRecord: Record<string, unknown>;
+  painLanguageRecord?: Record<string, unknown> | null;
+  successLanguageRecord?: Record<string, unknown> | null;
+  switchingStoriesRecord?: Record<string, unknown> | null;
+}): Record<string, unknown> {
+  return {
+    ...bodyRecord,
+    ...(painLanguageRecord === null
+      ? {}
+      : {
+          painLanguage: {
+            ...painLanguageRecord,
+            quotes: normalizeArrayRecords({
+              normalize: normalizeVoiceOfCustomerQuoteRecord,
+              value: painLanguageRecord.quotes,
+            }),
+          },
+        }),
+    ...(switchingStoriesRecord === null
+      ? {}
+      : {
+          switchingStories: {
+            ...switchingStoriesRecord,
+            stories: normalizeArrayRecords({
+              normalize: (story) =>
+                removeEmptyStringProperty(story, "exampleCompany"),
+              value: switchingStoriesRecord.stories,
+            }),
+          },
+        }),
+    ...(successLanguageRecord === null
+      ? {}
+      : {
+          successLanguage: {
+            ...successLanguageRecord,
+            quotes: normalizeArrayRecords({
+              normalize: normalizeVoiceOfCustomerQuoteRecord,
+              value: successLanguageRecord.quotes,
+            }),
+          },
+        }),
   };
 }
 
@@ -3203,6 +3524,19 @@ async function withStructuredTimeout<T>(
   }
 }
 
+type CapturedStructuredOutput<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: unknown };
+
+function captureStructuredOutput<T>(
+  promise: PromiseLike<T>,
+): Promise<CapturedStructuredOutput<T>> {
+  return Promise.resolve(promise).then(
+    (value) => ({ ok: true, value }),
+    (error: unknown) => ({ ok: false, error }),
+  );
+}
+
 // Thrown when an answer-tool attempt produces no step before the first-step
 // watchdog fires. Distinct from a generic timeout so the caller can retry a
 // zero-step stall while still failing fast on real, step-producing errors.
@@ -3838,9 +4172,10 @@ async function callStructuredAttempt({
   signal?: AbortSignal;
 }): Promise<AttemptResult> {
   const callStructured = deps.callStructured ?? defaultStructuredCaller;
+  const outputTimeoutMs = getStructuredOutputTimeoutMs(input.sectionId);
   const timeoutSignal = createTimeoutSignal({
     parentSignal: signal,
-    timeoutMs: structuredOutputTimeoutMs,
+    timeoutMs: outputTimeoutMs,
   });
 
   try {
@@ -3860,7 +4195,7 @@ async function callStructuredAttempt({
           sectionId: input.sectionId,
         }),
       }),
-      structuredOutputTimeoutMs,
+      outputTimeoutMs,
     );
     const output = definition.sectionOutputSchema.parse(
       withNormalizedSectionOutput({
@@ -3893,6 +4228,13 @@ async function callStructuredAttempt({
       return {
         output,
         artifact: null,
+        competitorStrategicEvidenceGapArtifact:
+          buildCompetitorStrategicEvidenceGapArtifact({
+            artifact,
+            definition,
+            errors: minimums.errors,
+            input,
+          }),
         errors: minimums.errors,
         voiceOfCustomerEvidenceGapArtifact:
           buildVoiceOfCustomerAttemptEvidenceGapArtifact({
@@ -3982,9 +4324,10 @@ async function callStructuredStreamAttempt({
   signal?: AbortSignal;
 }): Promise<AttemptResult> {
   const streamStructured = deps.streamStructured ?? defaultStructuredStreamer;
+  const outputTimeoutMs = getStructuredOutputTimeoutMs(input.sectionId);
   const timeoutSignal = createTimeoutSignal({
     parentSignal: signal,
-    timeoutMs: structuredOutputTimeoutMs,
+    timeoutMs: outputTimeoutMs,
   });
   const idleController = new AbortController();
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -4036,6 +4379,7 @@ async function callStructuredStreamAttempt({
         sectionId: input.sectionId,
       }),
     });
+    const structuredOutput = captureStructuredOutput(structuredStream.output);
 
     await consumePartialsUntilAbort({
       abortSignal: idleController.signal,
@@ -4060,10 +4404,14 @@ async function callStructuredStreamAttempt({
     });
     clearIdleTimer();
 
-    const rawOutput = await withStructuredTimeout(
-      Promise.resolve(structuredStream.output),
-      structuredOutputTimeoutMs,
+    const rawOutputResult = await withStructuredTimeout(
+      structuredOutput,
+      outputTimeoutMs,
     );
+    if (!rawOutputResult.ok) {
+      throw rawOutputResult.error;
+    }
+    const rawOutput = rawOutputResult.value;
     const output = definition.sectionOutputSchema.parse(
       withNormalizedSectionOutput({
         rawOutput,
@@ -4095,7 +4443,18 @@ async function callStructuredStreamAttempt({
         state: "failed",
       });
 
-      return { output, artifact: null, errors: minimums.errors };
+      return {
+        output,
+        artifact: null,
+        competitorStrategicEvidenceGapArtifact:
+          buildCompetitorStrategicEvidenceGapArtifact({
+            artifact,
+            definition,
+            errors: minimums.errors,
+            input,
+          }),
+        errors: minimums.errors,
+      };
     }
 
     const missingClass = checkRequiredEvidenceClasses({
@@ -4925,6 +5284,13 @@ async function buildVerifiedAttemptFromOutput({
     return {
       output,
       artifact: null,
+      competitorStrategicEvidenceGapArtifact:
+        buildCompetitorStrategicEvidenceGapArtifact({
+          artifact,
+          definition,
+          errors: minimums.errors,
+          input,
+        }),
       errors: minimums.errors,
       voiceOfCustomerEvidenceGapArtifact:
         buildVoiceOfCustomerAttemptEvidenceGapArtifact({
@@ -5119,8 +5485,14 @@ function buildOutputFromStructuredBody({
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
 }): SectionOutput<Record<string, unknown>> {
   const structuredRecord = getRecord(body);
+  const rawBody = structuredRecord?.body ?? body;
+  const rawBodyRecord = getRecord(rawBody);
+  const normalizedRawBody =
+    input.sectionId === "positioningVoiceOfCustomer" && rawBodyRecord !== null
+      ? withNormalizedVoiceOfCustomerBody({ bodyRecord: rawBodyRecord })
+      : rawBody;
   const parsedBody = definition.bodySchema.parse(
-    structuredRecord?.body ?? body,
+    normalizedRawBody,
   );
   const syntheticOutput = buildSyntheticSectionOutput({
     body: parsedBody,
@@ -5199,9 +5571,10 @@ async function buildStructuredBodyAttempt({
   toolEvents: ActivityEvent[];
 }): Promise<AttemptResult> {
   const streamStructured = deps.streamStructured ?? defaultStructuredStreamer;
+  const outputTimeoutMs = getStructuredOutputTimeoutMs(input.sectionId);
   const timeoutSignal = createTimeoutSignal({
     parentSignal: input.signal,
-    timeoutMs: structuredOutputTimeoutMs,
+    timeoutMs: outputTimeoutMs,
   });
   const idleController = new AbortController();
   const structuredDraftSchema = buildStructuredSectionDraftSchema(definition);
@@ -5271,6 +5644,7 @@ async function buildStructuredBodyAttempt({
         void scheduleFlush().catch(() => undefined);
       },
     });
+    const structuredOutput = captureStructuredOutput(structuredStream.output);
 
     void structuredStream.consumeStream?.().then(undefined, (error: unknown) => {
       if (isAbortOrTimeoutMessage(error)) {
@@ -5302,10 +5676,14 @@ async function buildStructuredBodyAttempt({
     clearIdleTimer();
     await partialBroadcaster.flush();
 
-    const body = await withStructuredTimeout(
-      Promise.resolve(structuredStream.output),
-      structuredOutputTimeoutMs,
+    const bodyResult = await withStructuredTimeout(
+      structuredOutput,
+      outputTimeoutMs,
     );
+    if (!bodyResult.ok) {
+      throw bodyResult.error;
+    }
+    const body = bodyResult.value;
     const output = buildOutputFromStructuredBody({
       body,
       definition,
@@ -5783,14 +6161,24 @@ async function runSectionViaAnswerTool(
       attempt = bestCommittableAttempt;
     }
 
+    const evidenceGapArtifact =
+      getAttemptEvidenceGapArtifact(attempt) ??
+      buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
+        definition,
+        deps,
+        errors: getAttemptRepairIssues(attempt),
+        input,
+        researchInput,
+        voiceOfCustomerPrepass,
+      });
     if (
       attempt.artifact === null &&
-      attempt.voiceOfCustomerEvidenceGapArtifact !== undefined &&
+      evidenceGapArtifact !== undefined &&
       input.signal?.aborted !== true
     ) {
       attempt = {
         ...attempt,
-        artifact: attempt.voiceOfCustomerEvidenceGapArtifact,
+        artifact: evidenceGapArtifact,
         errors: [],
       };
     }
@@ -6169,7 +6557,14 @@ async function runSectionViaStructuredBodyStream(
         }),
       );
 
-      if (hasTerminalStructuredError(repairIssues)) {
+      if (
+        hasTerminalStructuredError(repairIssues) ||
+        hasVoiceOfCustomerStructuredSynthesisFailure({
+          errors: repairIssues,
+          input,
+          voiceOfCustomerPrepass,
+        })
+      ) {
         break;
       }
 
@@ -6250,14 +6645,24 @@ async function runSectionViaStructuredBodyStream(
       attempt = bestCommittableAttempt;
     }
 
+    const evidenceGapArtifact =
+      getAttemptEvidenceGapArtifact(attempt) ??
+      buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
+        definition,
+        deps,
+        errors: getAttemptRepairIssues(attempt),
+        input,
+        researchInput,
+        voiceOfCustomerPrepass,
+      });
     if (
       attempt.artifact === null &&
-      attempt.voiceOfCustomerEvidenceGapArtifact !== undefined &&
+      evidenceGapArtifact !== undefined &&
       input.signal?.aborted !== true
     ) {
       attempt = {
         ...attempt,
-        artifact: attempt.voiceOfCustomerEvidenceGapArtifact,
+        artifact: evidenceGapArtifact,
         errors: [],
       };
     }

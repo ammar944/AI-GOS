@@ -16,6 +16,7 @@ import {
   researchInputSchema,
   type ResearchInput,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import { checkSectionModelDispatchPreflight } from '@/lib/lab-engine/ai/models';
 import {
   LAB_SECTION_JOB_TIMEOUT_MS,
   scheduleLabSectionJob,
@@ -71,6 +72,38 @@ function getDispatchZones(
     return [POSITIONING_SYNTHESIS_SECTION_ID];
   }
   return POSITIONING_SECTION_IDS;
+}
+
+function buildLabSectionProviderPreflightResponse({
+  runId,
+  sectionId,
+}: {
+  runId: string;
+  sectionId: AllPositioningSectionId;
+}): NextResponse | null {
+  const preflight = checkSectionModelDispatchPreflight();
+
+  if (preflight.ok) {
+    return null;
+  }
+
+  console.error('[run-lab-section] lab section provider preflight failed', {
+    runId,
+    sectionId,
+    error: preflight.error,
+    missingEnv: preflight.missingEnv,
+    provider: preflight.provider,
+  });
+
+  return NextResponse.json(
+    {
+      error: 'lab_engine_provider_preflight_failed',
+      message: preflight.message,
+      missingEnv: preflight.missingEnv,
+      provider: preflight.provider ?? null,
+    },
+    { status: 500 },
+  );
 }
 
 function isCommittedPositioningArtifactRow(
@@ -302,6 +335,14 @@ export async function POST(request: Request): Promise<Response> {
       },
       { status: 500 },
     );
+  }
+
+  const preflightResponse = buildLabSectionProviderPreflightResponse({
+    runId: body.run_id,
+    sectionId: body.section_id,
+  });
+  if (preflightResponse !== null) {
+    return preflightResponse;
   }
 
   try {

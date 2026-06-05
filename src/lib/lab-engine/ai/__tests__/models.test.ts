@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  checkSectionModelDispatchPreflight,
   createSectionModelSelection,
   DEEPSEEK_SECTION_MODEL_ID,
   GATEWAY_GPT_55_REVIEW_MODEL_ID,
@@ -36,6 +37,85 @@ describe("resolveSectionModelProvider", (): void => {
     ).toThrow(
       'Invalid LAB_ENGINE_PROVIDER="openrouter". Expected one of: anthropic, deepseek-direct, deepseek-ollama.',
     );
+  });
+});
+
+describe("checkSectionModelDispatchPreflight", (): void => {
+  it("requires an explicit provider for local lab section dispatches", (): void => {
+    const result = checkSectionModelDispatchPreflight(buildEnv());
+
+    expect(result).toEqual({
+      ok: false,
+      error: "lab_engine_provider_unset",
+      message:
+        "LAB_ENGINE_PROVIDER is unset for a local lab section dispatch. Set LAB_ENGINE_PROVIDER=deepseek-direct with DEEPSEEK_API_KEY, or explicitly set LAB_ENGINE_PROVIDER=anthropic.",
+      missingEnv: ["LAB_ENGINE_PROVIDER"],
+      provider: "anthropic",
+    });
+  });
+
+  it("allows the production Anthropic default only when Anthropic auth is configured", (): void => {
+    expect(
+      checkSectionModelDispatchPreflight(
+        buildEnv({
+          ANTHROPIC_API_KEY: "test-anthropic-key",
+          NODE_ENV: "production",
+          VERCEL: "1",
+        }),
+      ),
+    ).toEqual({
+      ok: true,
+      modelId: SONNET_SECTION_MODEL_ID,
+      provider: "anthropic",
+    });
+  });
+
+  it("rejects the production Anthropic default when Anthropic auth is missing", (): void => {
+    expect(
+      checkSectionModelDispatchPreflight(
+        buildEnv({
+          NODE_ENV: "production",
+          VERCEL: "1",
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      error: "anthropic_api_key_missing",
+      message:
+        "LAB_ENGINE_PROVIDER resolved to anthropic but ANTHROPIC_API_KEY is missing.",
+      missingEnv: ["ANTHROPIC_API_KEY"],
+      provider: "anthropic",
+    });
+  });
+
+  it("requires DeepSeek auth for direct DeepSeek dispatches", (): void => {
+    expect(
+      checkSectionModelDispatchPreflight(
+        buildEnv({ LAB_ENGINE_PROVIDER: "deepseek-direct" }),
+      ),
+    ).toEqual({
+      ok: false,
+      error: "deepseek_api_key_missing",
+      message:
+        "LAB_ENGINE_PROVIDER=deepseek-direct requires DEEPSEEK_API_KEY.",
+      missingEnv: ["DEEPSEEK_API_KEY"],
+      provider: "deepseek-direct",
+    });
+  });
+
+  it("passes direct DeepSeek dispatches with auth configured", (): void => {
+    expect(
+      checkSectionModelDispatchPreflight(
+        buildEnv({
+          DEEPSEEK_API_KEY: "test-deepseek-key",
+          LAB_ENGINE_PROVIDER: "deepseek-direct",
+        }),
+      ),
+    ).toEqual({
+      ok: true,
+      modelId: DEEPSEEK_SECTION_MODEL_ID,
+      provider: "deepseek-direct",
+    });
   });
 });
 
@@ -78,21 +158,23 @@ describe("createSectionModelSelection", (): void => {
       modelId: DEEPSEEK_SECTION_MODEL_ID,
       repairModelId: DEEPSEEK_SECTION_MODEL_ID,
       reviewModel: {
-        provider: "anthropic",
-        modelId: SONNET_SECTION_MODEL_ID,
-        transport: "anthropic",
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "deepseek-direct",
       },
       strategyModel: {
-        provider: "anthropic",
-        modelId: SONNET_SECTION_MODEL_ID,
-        transport: "anthropic",
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "deepseek-direct",
       },
       transport: "deepseek-direct",
     });
     expect(selection.sectionRunnerModel.provider).toBe("deepseek.chat");
     expect(selection.sectionRunnerModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
-    expect(selection.reviewModel.provider).toBe("anthropic.messages");
-    expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("deepseek.chat");
+    expect(selection.reviewModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
+    expect(selection.strategyModel.provider).toBe("deepseek.chat");
+    expect(selection.strategyModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
   });
 
   it("selects DeepSeek v4 flash through the local Ollama transport", (): void => {
@@ -109,19 +191,21 @@ describe("createSectionModelSelection", (): void => {
       modelId: DEEPSEEK_SECTION_MODEL_ID,
       repairModelId: DEEPSEEK_SECTION_MODEL_ID,
       reviewModel: {
-        provider: "anthropic",
-        modelId: SONNET_SECTION_MODEL_ID,
-        transport: "anthropic",
+        provider: "deepseek-ollama",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "ollama-openai-compatible",
       },
       strategyModel: {
-        provider: "anthropic",
-        modelId: SONNET_SECTION_MODEL_ID,
-        transport: "anthropic",
+        provider: "deepseek-ollama",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "ollama-openai-compatible",
       },
       transport: "ollama-openai-compatible",
     });
     expect(selection.sectionRunnerModel.provider).toBe("ollama.chat");
     expect(selection.sectionRunnerModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("ollama.chat");
+    expect(selection.reviewModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
   });
 
   it("allows Ollama to use the locally installed tagged model id", (): void => {
@@ -137,7 +221,8 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.sectionRunnerModel.modelId).toBe(
       "deepseek-v4-flash:cloud",
     );
-    expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
+    expect(selection.reviewModel.modelId).toBe("deepseek-v4-flash:cloud");
+    expect(selection.strategyModel.modelId).toBe("deepseek-v4-flash:cloud");
   });
 
   it("treats a blank review model flag as the default Sonnet model", (): void => {

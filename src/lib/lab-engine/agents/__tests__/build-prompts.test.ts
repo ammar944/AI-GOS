@@ -252,6 +252,32 @@ describe("buildAnswerToolInstructions", (): void => {
     );
   });
 
+  it("repeats Competitor Landscape incumbent blind-spot strategic repair guidance", (): void => {
+    const prompt = buildRepairPrompt({
+      definition: competitorDefinition,
+      evidenceTranscript: "source evidence",
+      issues: [
+        "body.incumbentBlindSpot.incumbent: must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.",
+      ],
+      previousOutput: {
+        body: {
+          incumbentBlindSpot: {
+            incumbent: "This section summarizes the competitive landscape.",
+            blindSpot: "This section summarizes the competitive landscape.",
+            whyTheyMissIt: "This section summarizes the competitive landscape.",
+          },
+        },
+      },
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use the injected corpus only.",
+    });
+
+    expect(prompt).toContain("`body.incumbentBlindSpot.incumbent`");
+    expect(prompt).toContain("name the incumbent/status-quo");
+    expect(prompt).toContain("buyer pain or positioning miss");
+    expect(prompt).toContain("`evidence gap: <missing incumbent/status-quo signal>`");
+  });
+
   it("renders unsupported load-bearing claim issues in repair prompts", (): void => {
     const issue =
       'numeric claim "$99/mo" is not supported by any fetched source or corpus excerpt - cite a real source for it or remove it / restate it as a data gap.';

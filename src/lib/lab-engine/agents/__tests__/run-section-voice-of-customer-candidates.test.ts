@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import type { ToolExecutionOptions } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { VoiceOfCustomerSectionOutput } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
+import type {
+  VoiceOfCustomerEvidenceGapReport,
+  VoiceOfCustomerSectionOutput,
+} from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
 import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
@@ -171,6 +174,59 @@ function buildSingleSourceMajorityVoiceOfCustomerDraft(): Omit<
     ...quote,
     sourceUrl: quoteUrls[index] ?? quote.sourceUrl,
   }));
+
+  return {
+    ...draft,
+    body: {
+      ...draft.body,
+      painLanguage: {
+        ...draft.body.painLanguage,
+        quotes,
+      },
+    },
+  };
+}
+
+function buildVoiceOfCustomerDraftWithInvalidPainQuoteSource(): Omit<
+  VoiceOfCustomerSectionOutput,
+  'confidence' | 'sectionTitle'
+> {
+  const draft = buildThinVoiceOfCustomerDraft();
+  const quotes = draft.body.painLanguage.quotes.map((quote, index) =>
+    index === 2
+      ? {
+          ...quote,
+          source: 'reviews',
+        }
+      : quote,
+  );
+
+  return {
+    ...draft,
+    body: {
+      ...draft.body,
+      painLanguage: {
+        ...draft.body.painLanguage,
+        quotes,
+      },
+    },
+  } as Omit<VoiceOfCustomerSectionOutput, 'confidence' | 'sectionTitle'>;
+}
+
+function buildVoiceOfCustomerDraftWithBlankPainQuoteMetadata(): Omit<
+  VoiceOfCustomerSectionOutput,
+  'confidence' | 'sectionTitle'
+> {
+  const draft = buildThinVoiceOfCustomerDraft();
+  const quotes = draft.body.painLanguage.quotes.map((quote, index) =>
+    index === 1
+      ? {
+          ...quote,
+          date: '',
+          role: '',
+        }
+      : quote,
+  );
 
   return {
     ...draft,
@@ -804,6 +860,125 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
+  it('commits an evidence-gap artifact when structured synthesis times out after a valid candidate prepass', async (): Promise<void> => {
+    const store = await makeStore();
+    installSuccessfulToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(params.prompt).toContain('Voice of Customer Candidate Pack');
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.reject(
+          new Error('Structured output timed out after 150000ms.'),
+        ),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const validationEvent = record.events.find(
+      (event) => event.type === 'validation-failed',
+    );
+    const evidenceGapReport = result.artifact.body
+      .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(evidenceGapReport).toMatchObject({
+      foundDistinctPainSourceCount: 6,
+      foundPainQuoteCount: 6,
+      observedPainSourceDomains: [
+        'g2.com',
+        'capterra.com',
+        'trustpilot.com',
+        'reddit.com',
+        'ycombinator.com',
+        'revops.example',
+      ],
+      reason: 'insufficient_voice_of_customer_sources',
+    });
+    expect(evidenceGapReport.summary).toContain(
+      'structured synthesis timed out',
+    );
+    expect(validationEvent?.metadata.issues.join('\n')).toContain(
+      'Structured output timed out after 150000ms.',
+    );
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits an evidence-gap artifact when structured synthesis cannot produce a parseable object', async (): Promise<void> => {
+    const store = await makeStore();
+    installSuccessfulToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(params.prompt).toContain('Voice of Customer Candidate Pack');
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.reject(
+          new Error('No object generated: response did not match schema.'),
+        ),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const evidenceGapReport = result.artifact.body
+      .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(evidenceGapReport.summary).toContain(
+      'failed to produce a parseable source-backed artifact',
+    );
+    expect(evidenceGapReport.summary).toContain(
+      'No object generated: response did not match schema.',
+    );
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('repair-started');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
   it('commits an evidence-gap artifact after repairs when drafted VoC remains source-thin', async (): Promise<void> => {
     const store = await makeStore();
     installSuccessfulToolFetches();
@@ -890,6 +1065,100 @@ describe('runSection VoC candidate prepass', (): void => {
       foundDistinctPainSourceCount: 3,
       foundPainQuoteCount: 10,
       observedPainSourceDomains: ['g2.com', 'reddit.com', 'trustpilot.com'],
+      reason: 'insufficient_voice_of_customer_sources',
+    });
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits an evidence-gap artifact after repairs when drafted VoC keeps an invalid quote source enum', async (): Promise<void> => {
+    const store = await makeStore();
+    installSuccessfulToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitVoiceOfCustomerEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(
+          buildVoiceOfCustomerDraftWithInvalidPainQuoteSource(),
+        ),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '50' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+
+    expect(streamStructured).toHaveBeenCalledTimes(3);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(result.artifact.body.evidenceGapReport).toMatchObject({
+      foundPainQuoteCount: 6,
+      reason: 'insufficient_voice_of_customer_sources',
+    });
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits an evidence-gap artifact after repairs when drafted VoC keeps blank quote metadata', async (): Promise<void> => {
+    const store = await makeStore();
+    installSuccessfulToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitVoiceOfCustomerEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(
+          buildVoiceOfCustomerDraftWithBlankPainQuoteMetadata(),
+        ),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '50' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+
+    expect(streamStructured).toHaveBeenCalledTimes(3);
+    expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(result.artifact.body.evidenceGapReport).toMatchObject({
+      foundPainQuoteCount: 6,
       reason: 'insufficient_voice_of_customer_sources',
     });
     expect(eventTypes).toContain('artifact-saved');

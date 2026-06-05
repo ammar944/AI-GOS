@@ -1351,6 +1351,25 @@ function describeStructuredOutputError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function shouldBypassStructuredCallerFallback({
+  error,
+  params,
+}: {
+  error: unknown;
+  params: StructuredCallParams<unknown>;
+}): boolean {
+  if (params.schemaName !== "VoiceOfCustomerSectionOutputBody") {
+    return false;
+  }
+
+  const message = describeStructuredOutputError(error).toLowerCase();
+  return (
+    message.includes("no object generated") ||
+    message.includes("could not parse") ||
+    message.includes("response did not match schema")
+  );
+}
+
 async function parseStreamedStructuredOutput({
   output,
   params,
@@ -1362,6 +1381,10 @@ async function parseStreamedStructuredOutput({
     return params.schema.parse(normalizeSectionEnvelope(await output));
   } catch (error) {
     if (isAbortOrTimeoutError(error)) {
+      throw error;
+    }
+
+    if (shouldBypassStructuredCallerFallback({ error, params })) {
       throw error;
     }
 

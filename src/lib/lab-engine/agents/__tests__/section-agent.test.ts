@@ -14,6 +14,7 @@ import {
 const aiMocks = vi.hoisted(() => ({
   generateTextCalls: [] as unknown[],
   streamTextCalls: [] as unknown[],
+  streamTextOutput: undefined as Promise<unknown> | undefined,
   toolLoopAgentSettings: [] as unknown[],
 }));
 
@@ -49,7 +50,7 @@ vi.mock("ai", () => ({
     aiMocks.streamTextCalls.push(params);
 
     return {
-      output: Promise.resolve({ ok: true }),
+      output: aiMocks.streamTextOutput ?? Promise.resolve({ ok: true }),
       partialOutputStream: createAsyncIterable([{ ok: true }]),
     };
   }),
@@ -117,6 +118,7 @@ describe("section-agent provider-specific options", (): void => {
   beforeEach((): void => {
     aiMocks.generateTextCalls.length = 0;
     aiMocks.streamTextCalls.length = 0;
+    aiMocks.streamTextOutput = undefined;
     aiMocks.toolLoopAgentSettings.length = 0;
   });
 
@@ -269,5 +271,25 @@ describe("section-agent provider-specific options", (): void => {
     expect(getLastRecord(aiMocks.streamTextCalls).providerOptions).toEqual({
       deepseek: { thinking: { type: "disabled" } },
     });
+  });
+
+  it("does not fall back to a second structured call for unparseable VoC streams", async (): Promise<void> => {
+    aiMocks.streamTextOutput = Promise.reject(
+      new Error("No object generated: response did not match schema."),
+    );
+
+    const result = defaultStructuredStreamer({
+      maxOutputTokens: 1000,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+      schema: structuredSchema,
+      schemaDescription: "schema",
+      schemaName: "VoiceOfCustomerSectionOutputBody",
+    });
+
+    await expect(result.output).rejects.toThrow(
+      "No object generated: response did not match schema.",
+    );
+    expect(aiMocks.generateTextCalls).toHaveLength(0);
   });
 });

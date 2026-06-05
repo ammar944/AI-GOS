@@ -376,6 +376,9 @@ function mockOwnedSession(): void {
 describe('POST /api/research-v2/run-lab-section', () => {
   beforeEach((): void => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
+    vi.stubEnv('LAB_ENGINE_PROVIDER', 'deepseek-direct');
     routeMocks.afterCallbacks.length = 0;
     routeMocks.requireApiUser.mockResolvedValue(mockApiUser());
     routeMocks.sessionQuery.select.mockReturnValue(routeMocks.sessionQuery);
@@ -647,6 +650,60 @@ describe('POST /api/research-v2/run-lab-section', () => {
 
     expect(response.status).toBe(400);
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+  });
+
+  it('fails before seeding, claiming, or scheduling when local lab provider preflight fails', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    vi.stubEnv('LAB_ENGINE_PROVIDER', '');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'lab_engine_provider_preflight_failed',
+      message: expect.stringContaining('LAB_ENGINE_PROVIDER is unset'),
+      missingEnv: ['LAB_ENGINE_PROVIDER'],
+      provider: 'anthropic',
+    });
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+    expect(routeMocks.claimSectionRun).not.toHaveBeenCalled();
+    expect(routeMocks.store.createRun).not.toHaveBeenCalled();
+    expect(routeMocks.after).not.toHaveBeenCalled();
+    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 before provider preflight for unknown runs', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sessionQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    vi.stubEnv('LAB_ENGINE_PROVIDER', '');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'session_not_found',
+    });
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+    expect(routeMocks.claimSectionRun).not.toHaveBeenCalled();
+    expect(routeMocks.store.createRun).not.toHaveBeenCalled();
+    expect(routeMocks.after).not.toHaveBeenCalled();
+    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 
   it('dispatches cross-section reasoning as a dependent one-section wave with committed artifacts', async (): Promise<void> => {

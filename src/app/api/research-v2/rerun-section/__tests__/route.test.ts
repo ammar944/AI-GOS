@@ -198,8 +198,11 @@ describe('POST /api/research-v2/rerun-section', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
-    process.env.RAILWAY_WORKER_URL = 'https://worker.example';
-    process.env.RAILWAY_API_KEY = 'worker-key';
+    vi.unstubAllEnvs();
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
+    vi.stubEnv('LAB_ENGINE_PROVIDER', 'deepseek-direct');
+    vi.stubEnv('RAILWAY_WORKER_URL', 'https://worker.example');
+    vi.stubEnv('RAILWAY_API_KEY', 'worker-key');
     routeMocks.artifactQuery.select.mockReturnValue(routeMocks.artifactQuery);
     routeMocks.artifactQuery.eq.mockReturnValue(routeMocks.artifactQuery);
     routeMocks.artifactQuery.maybeSingle.mockResolvedValue({
@@ -359,6 +362,61 @@ describe('POST /api/research-v2/rerun-section', () => {
       }),
     );
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+  });
+
+  it('fails before aborting, resetting, or scheduling when local lab provider preflight fails', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sectionQuery.maybeSingle.mockResolvedValue({
+      data: {
+        section_run_id: SECTION_RUN_ID,
+        status: 'running',
+      },
+      error: null,
+    });
+    vi.stubEnv('LAB_ENGINE_PROVIDER', '');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({ runId: RUN_ID, zone: 'positioningVoiceOfCustomer' }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({
+      error: 'lab_engine_provider_preflight_failed',
+      message: expect.stringContaining('LAB_ENGINE_PROVIDER is unset'),
+      missingEnv: ['LAB_ENGINE_PROVIDER'],
+      provider: 'anthropic',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(routeMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 before provider preflight for unknown runs', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.artifactQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    routeMocks.loadOwnedResearchSession.mockResolvedValue(null);
+    vi.stubEnv('LAB_ENGINE_PROVIDER', '');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({ runId: RUN_ID, zone: 'positioningVoiceOfCustomer' }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'session_not_found' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(routeMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
   it('reruns cross-section reasoning by loading six committed artifacts before reset and schedule', async () => {

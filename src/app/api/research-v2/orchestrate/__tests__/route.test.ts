@@ -180,9 +180,12 @@ describe('POST /api/research-v2/orchestrate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     delete process.env.RAILWAY_WORKER_URL;
     delete process.env.RAILWAY_API_KEY;
     delete process.env.LAB_ENGINE_LIVE_TOOLS;
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
+    vi.stubEnv('LAB_ENGINE_PROVIDER', 'deepseek-direct');
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(new Response('', { status: 202 })),
@@ -300,6 +303,33 @@ describe('POST /api/research-v2/orchestrate', () => {
       }),
     );
     expect(response.status).toBe(409);
+  });
+
+  it('fails before seeding or fan-out when local lab provider preflight fails', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession({ ownerId: 'user_1' });
+    vi.stubEnv('LAB_ENGINE_PROVIDER', '');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        journey_session_id: VALID_SESSION_ID,
+        run_id: VALID_RUN_ID,
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'lab_engine_provider_preflight_failed',
+      message: expect.stringContaining('LAB_ENGINE_PROVIDER is unset'),
+      missingEnv: ['LAB_ENGINE_PROVIDER'],
+      provider: 'anthropic',
+    });
+    expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();
+    expect(routeMocks.freezeReviewedBriefSnapshot).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('returns 200 with parent + 6 section run ids on success', async () => {

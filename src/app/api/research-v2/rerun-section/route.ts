@@ -30,6 +30,7 @@ import {
   researchInputSchema,
   type ResearchInput,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import { checkSectionModelDispatchPreflight } from '@/lib/lab-engine/ai/models';
 import { isSupportedSectionId } from '@/lib/lab-engine/sections/section-registry';
 import { scheduleLabSectionJob } from '@/lib/research-v2/lab-section-dispatch';
 import {
@@ -79,6 +80,38 @@ function shouldIncludeCrossSectionReasoningArtifact(
   return (
     sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
     sectionId === POSITIONING_SYNTHESIS_SECTION_ID
+  );
+}
+
+function buildLabSectionProviderPreflightResponse({
+  runId,
+  sectionId,
+}: {
+  runId: string;
+  sectionId: AllPositioningSectionId;
+}): NextResponse | null {
+  const preflight = checkSectionModelDispatchPreflight();
+
+  if (preflight.ok) {
+    return null;
+  }
+
+  console.error('[rerun-section] lab section provider preflight failed', {
+    runId,
+    sectionId,
+    error: preflight.error,
+    missingEnv: preflight.missingEnv,
+    provider: preflight.provider,
+  });
+
+  return NextResponse.json(
+    {
+      error: 'lab_engine_provider_preflight_failed',
+      message: preflight.message,
+      missingEnv: preflight.missingEnv,
+      provider: preflight.provider ?? null,
+    },
+    { status: 500 },
   );
 }
 
@@ -294,24 +327,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
   }
 
-  // Best-effort abort the prior run, but only if it's still active.
-  // Calling /abort on a terminal run would stamp aborted_at onto a
-  // historical row and confuse the canvas projector.
-  const workerUrl = process.env.RAILWAY_WORKER_URL;
-  const workerKey = process.env.RAILWAY_API_KEY;
-  if (
-    workerUrl &&
-    workerKey &&
-    activeSectionRunId &&
-    sectionStatus === 'running'
-  ) {
-    await abortIfRunning({
-      workerUrl,
-      workerKey,
-      sectionRunId: activeSectionRunId,
-    });
-  }
-
   try {
     const session = await loadOwnedResearchSession({ userId, runId });
     if (!session) {
@@ -337,6 +352,32 @@ export async function POST(req: Request): Promise<NextResponse> {
         },
         { status: 500 },
       );
+    }
+
+    const preflightResponse = buildLabSectionProviderPreflightResponse({
+      runId,
+      sectionId: positioningZone,
+    });
+    if (preflightResponse !== null) {
+      return preflightResponse;
+    }
+
+    // Best-effort abort the prior run, but only if it's still active.
+    // Calling /abort on a terminal run would stamp aborted_at onto a
+    // historical row and confuse the canvas projector.
+    const workerUrl = process.env.RAILWAY_WORKER_URL;
+    const workerKey = process.env.RAILWAY_API_KEY;
+    if (
+      workerUrl &&
+      workerKey &&
+      activeSectionRunId &&
+      sectionStatus === 'running'
+    ) {
+      await abortIfRunning({
+        workerUrl,
+        workerKey,
+        sectionRunId: activeSectionRunId,
+      });
     }
 
     const uploadedDocuments = await loadUploadedDocumentContextsForSession({
