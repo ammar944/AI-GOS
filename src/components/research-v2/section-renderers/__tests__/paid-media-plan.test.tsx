@@ -71,6 +71,14 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     expect(
       within(renderer).getByText(/This tests the thesis force directly/i),
     ).toBeInTheDocument();
+    const offerSourceLinks = within(renderer)
+      .getAllByRole('link', { name: /example\.com/i })
+      .filter(
+        (link) =>
+          link.getAttribute('href') ===
+          'https://example.com/paid-media/source-3',
+      );
+    expect(offerSourceLinks.length).toBeGreaterThanOrEqual(3);
   });
 
   it('renders unknown provenance for legacy artifacts missing provenance fields', (): void => {

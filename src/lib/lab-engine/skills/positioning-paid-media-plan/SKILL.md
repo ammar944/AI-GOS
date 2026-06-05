@@ -94,23 +94,36 @@ Return exactly these `body` keys:
 - `creativeFramework`: `prose`, `creatives[]`; each creative uses `creativeType`, `sourceSection`, `sourceUrl`, plus the fields for that creative type. Do not use ad-rendering fields like `headline`, `body`, `cta`, or `landingPageUrl`.
 - `competitorReviewInsights`: `prose`, `insights[]`; each insight uses `competitor`, `verbatimComplaint`, `adLeverage`, `sourceSection`, `sourceUrl`.
 - `competitorMarketingInsights`: `prose`, `competitors[]`; each competitor uses `competitor`, `messaging`, `adPlatforms`, `estSpend`, `estSpendProvenance`, `icpTargeted`, `anglesTested`, `positioningClaim`, `offer`, `sourceSection`, `sourceUrl`. `estSpend` remains string-only; never emit `estSpendValue`. `anglesTested` is one string, never an array.
-- `funnelIdeation`: `prose`, `recommendations[]`; each recommendation uses `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`.
+- `funnelIdeation`: `prose`, `recommendations[]`; each recommendation uses `funnelType`, `recommendation`, `optInToBookedCall`, `sourceSection`, `sourceUrl`.
 - `salesProcess`: `prose`, `assets[]`; each asset uses `label`, `url`, `assetType` (`sop-doc` or `loom`). If no asset URL exists, use an empty array and state the gap in prose.
-- `channelSuggestions`: `prose`, `suggestions[]`; each suggestion uses `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`.
+- `channelSuggestions`: `prose`, `suggestions[]`; each suggestion uses `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`, `sourceUrl`.
 - `kpis`: `prose`, `gtmMotion`, `kpis[]`; `gtmMotion` must be `SLG` or `PLG`; each KPI uses `metric`, `role`, `definition`.
 - `orderedMoves`: `prose`, `moves[]`; each move uses `rank`, `move`,
   `dependsOn` (earlier rank numbers), `learningPriority`, `rationale`,
   `thesisTrace`, `provesWrongIf { metric, threshold, window }`, `sourceSection`,
   and `sourceUrl`.
 
+## Compact Quality Example
+
+Use this specificity level, adapted to the actual evidence:
+
+- Creative framework, `unique-selling-point`: `uspSentence`: "Turn 6 buyer-evidence sources into a paid-media-ready campaign brief before the next GTM meeting."
+- Funnel recommendation: `funnelType`: `free-audit-landing-page`, `recommendation`: "For problem-aware founder-led SaaS operators, offer a 10-minute GTM evidence audit before the sales call.", `optInToBookedCall`: "Show two campaign-specific gaps after opt-in, then route qualified MQLs to a calendar step.", `sourceSection`: `positioningOfferDiagnostic`, `sourceUrl`: a real source URL from that artifact.
+- Channel suggestion: `channel`: `Google Ads`, `observation`: "Exact-match problem queries can test workflow-cleanup demand before broad category spend.", `recommendation`: "Launch exact-match ad groups around the top two problem-aware queries and track demo-form CVR.", `verdict`: `start`, `sourceSection`: `positioningDemandIntent`, `sourceUrl`: a real source URL from that artifact.
+
 ## Quality Bar
 
 - `anglesToTest.angles`: at least 4 usable ad angles with `primaryText`, `supportingLine`, insight, `sourceSection`, and `sourceUrl`.
 - `creativeFramework.creatives`: at least 3 filled creative frameworks. Do not emit bare labels.
+- `creativeFramework.creatives`: every row must fill the fields required by its `creativeType` with deployable copy, not generic descriptions.
+- Spend math must reconcile: `dailySpendValue * 30` and the sum of audience `dailyBudgetValue` values times 30 should match `campaignOverview.monthlyBudgetValue` within rounding tolerance.
 - `competitorReviewInsights.insights`: at least 2.
-- `competitorMarketingInsights.competitors`: at least 2. If paid platform/spend evidence is unavailable, set `estSpend` to `unknown` and keep platforms evidence-bounded.
+- `competitorReviewInsights.insights`: each complaint and ad leverage must include a concrete operational signal, number, named feature, quote, or claim from evidence.
+- `competitorMarketingInsights.competitors`: at least 2. If paid platform/spend evidence is unavailable, set `estSpend` to `unknown` and keep platforms evidence-bounded. When ad platforms are unavailable, say that explicitly through the spend/platform gap instead of guessing.
 - `audienceTypes.audiences`: 2 or 3.
+- `funnelIdeation.recommendations`: every recommendation must name the buyer or segment plus the funnel stage or intent state it is meant to move.
 - `channelSuggestions.suggestions`: at least 2.
+- `channelSuggestions.suggestions`: every recommendation must name a concrete asset, page, campaign, query, or metric and include an explicit action.
 - `orderedMoves.moves`: at least 3, with rank 1 depending on nothing and later
   ranks depending on earlier ranks.
 - `sources`: at least 5, carried from the committed positioning artifacts where possible.

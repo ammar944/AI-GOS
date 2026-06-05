@@ -1267,6 +1267,9 @@ describe('runSection corpus-only mode', (): void => {
     if (!Array.isArray(audiences)) {
       throw new Error('Expected audiences array.');
     }
+    const firstAudience = requireRecord(audiences[0]);
+    firstAudience.dailyBudgetValue = 33.33;
+    delete firstAudience.dailyBudgetProvenance;
 
     const creativeFramework = requireRecord(body.creativeFramework);
     const creatives = creativeFramework.creatives;
@@ -1422,10 +1425,13 @@ describe('runSection corpus-only mode', (): void => {
     expect(requireRecord(artifactPhases[0]).monthlyBudgetProvenance).toBe(
       'model-estimated',
     );
-    expect(requireRecord(artifactAudiences[0]).dailyBudgetValue).toBe(33);
-    expect(requireRecord(artifactAudiences[0]).dailyBudgetProvenance).toBe(
-      'model-estimated',
+    expect(requireRecord(artifactAudiences[0])).not.toHaveProperty(
+      'dailyBudgetValue',
     );
+    expect(requireRecord(artifactAudiences[0]).dailyBudgetProvenance).toBe(
+      'unknown',
+    );
+    expect(requireRecord(artifactAudiences[1]).dailyBudgetValue).toBe(33.33);
     expect(requireRecord(artifactCompetitors[0]).estSpendProvenance).toBe(
       'unknown',
     );
@@ -1592,10 +1598,22 @@ describe('runSection corpus-only mode', (): void => {
       ),
     ).toEqual(['positioningOfferDiagnostic']);
     expect(
+      (funnelIdeation.recommendations as Record<string, unknown>[]).map(
+        (item) => item.sourceUrl,
+      ),
+    ).toEqual(['https://example.com/paid-media/source-3']);
+    expect(
       (channelSuggestions.suggestions as Record<string, unknown>[]).map(
         (item) => item.sourceSection,
       ),
     ).toEqual(Array.from({ length: 2 }, () => 'positioningDemandIntent'));
+    expect(
+      (channelSuggestions.suggestions as Record<string, unknown>[]).map(
+        (item) => item.sourceUrl,
+      ),
+    ).toEqual(
+      Array.from({ length: 2 }, () => 'https://example.com/paid-media/source-3'),
+    );
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });

@@ -103,8 +103,8 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
         {
           slot: "01 Broad Prospecting",
           archetype: "Interest Stack",
-          dailyBudget: "$33/day",
-          dailyBudgetValue: 33,
+          dailyBudget: "$33.33/day",
+          dailyBudgetValue: 33.33,
           dailyBudgetProvenance: "model-estimated",
           detail: "Operators researching workflow automation and CRM cleanup.",
           ...sourceRef,
@@ -112,8 +112,8 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
         {
           slot: "02 High Intent",
           archetype: "ABM ICP List + Lookalike",
-          dailyBudget: "$33/day",
-          dailyBudgetValue: 33,
+          dailyBudget: "$33.33/day",
+          dailyBudgetValue: 33.33,
           dailyBudgetProvenance: "model-estimated",
           detail: "Founder-led teams with messy sales handoff processes.",
           ...sourceRef,
@@ -121,8 +121,8 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
         {
           slot: "03 AI Optimized",
           archetype: "Advantage+",
-          dailyBudget: "$33/day",
-          dailyBudgetValue: 33,
+          dailyBudget: "$33.33/day",
+          dailyBudgetValue: 33.33,
           dailyBudgetProvenance: "model-estimated",
           detail: "Broad platform-optimized prospecting constrained by offer copy.",
           ...sourceRef,
@@ -177,8 +177,10 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
       prose: "Competitor complaints become leverage for ad positioning.",
       insights: [1, 2].map((index) => ({
         competitor: `Competitor ${index}`,
-        verbatimComplaint: "Setup feels manual and slow.",
-        adLeverage: "Lead with speed-to-launch and less operational drag.",
+        verbatimComplaint:
+          `Competitor ${index} requires 3 manual setup handoffs before launch.`,
+        adLeverage:
+          "Lead with AI-GOS reducing launch prep from weeks to one evidence-backed campaign brief.",
         ...sourceRef,
       })),
     },
@@ -186,13 +188,15 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
       prose: "Competitor marketing gives the campaign contrast points.",
       competitors: [1, 2].map((index) => ({
         competitor: `Competitor ${index}`,
-        messaging: "Workflow automation for revenue teams.",
-        adPlatforms: ["Meta"],
+        messaging:
+          "Workflow automation for revenue teams that need 3-step handoff cleanup.",
+        adPlatforms: ["Meta", "Google"],
         estSpend: "unknown",
         estSpendProvenance: "unknown",
         icpTargeted: "Founder-led B2B teams",
-        anglesTested: "Speed and simplicity",
-        positioningClaim: "Fastest way to clean up GTM workflow",
+        anglesTested: "Speed-to-launch and CRM cleanup proof",
+        positioningClaim:
+          "Fastest 48-hour path to clean up GTM workflow handoffs",
         offer: "Free audit",
         ...sourceRef,
       })),
@@ -202,9 +206,12 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
       recommendations: [
         {
           funnelType: "free-audit-landing-page",
-          recommendation: "Offer a focused GTM evidence audit before the call.",
-          optInToBookedCall: "Show two insights immediately, then route to calendar.",
+          recommendation:
+            "For problem-aware founder-led SaaS operators, offer a focused GTM evidence audit before the sales call.",
+          optInToBookedCall:
+            "Show two campaign-specific insights on opt-in, then route qualified MQLs to a booked calendar call.",
           sourceSection: "positioningOfferDiagnostic",
+          sourceUrl: "https://example.com/paid-media/source-3",
         },
       ],
     },
@@ -223,17 +230,23 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
       suggestions: [
         {
           channel: "Google Ads",
-          observation: "Search can support retargeting once category language is proven.",
-          recommendation: "Start with exact problem-aware terms before broad keywords.",
+          observation:
+            "Google Ads exact-match queries can capture problem-aware workflow-cleanup demand once category language is proven.",
+          recommendation:
+            "Launch exact-match ad groups for problem-aware workflow-cleanup queries before broad keywords.",
           verdict: "start",
           sourceSection: "positioningOfferDiagnostic",
+          sourceUrl: "https://example.com/paid-media/source-3",
         },
         {
           channel: "Website",
-          observation: "The page needs the same buyer-language hooks as the ads.",
-          recommendation: "Mirror the top objection-handling copy above the fold.",
+          observation:
+            "The /pricing page needs the same buyer-language hooks as the paid ads.",
+          recommendation:
+            "Replace above-the-fold CTA copy with the top objection-handling asset and track demo-form CVR.",
           verdict: "fix",
           sourceSection: "positioningOfferDiagnostic",
+          sourceUrl: "https://example.com/paid-media/source-3",
         },
       ],
     },

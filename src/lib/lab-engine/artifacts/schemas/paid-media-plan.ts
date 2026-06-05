@@ -104,6 +104,7 @@ const funnelTypeValues = [
 ] as const;
 
 const channelVerdictValues = ["keep", "fix", "cut", "start"] as const;
+const spendReconciliationTolerance = 5;
 
 export const paidMediaMoneyProvenanceValues = [
   "user-supplied",
@@ -308,6 +309,7 @@ const funnelRecommendationSchema = z
     recommendation: z.string().min(1),
     optInToBookedCall: z.string().min(1),
     sourceSection: z.enum(sourceSectionValues),
+    sourceUrl: z.string().url(),
   })
   .strict();
 
@@ -326,6 +328,7 @@ const channelSuggestionSchema = z
     recommendation: z.string().min(1),
     verdict: z.enum(channelVerdictValues),
     sourceSection: z.enum(sourceSectionValues),
+    sourceUrl: z.string().url(),
   })
   .strict();
 
@@ -438,6 +441,266 @@ function validateSourceRefs(
   }
 }
 
+function isSpecificCopy(value: string): boolean {
+  const trimmed = value.trim();
+
+  return (
+    trimmed.length >= 20 &&
+    !/^(?:unknown|not disclosed|n\/a|none|tbd|todo|placeholder)$/i.test(trimmed) &&
+    !/\b(?:lorem|ipsum|placeholder|todo|tbd|fixme)\b/i.test(trimmed)
+  );
+}
+
+function validateSpecificCopy(
+  errors: string[],
+  path: string,
+  value: string | undefined,
+): void {
+  if (value === undefined || !isSpecificCopy(value)) {
+    errors.push(`${path}: must contain type-specific deployable copy.`);
+  }
+}
+
+function signalTokenCount(value: string): number {
+  const signalPatterns = [
+    { pattern: /\b\d+(?:\.\d+)?%?\b/g },
+    { pattern: /\$[\d,.]+/g },
+    { pattern: /"[^"]{5,80}"/g },
+    {
+      pattern:
+        /\b(?:automate|replace|eliminate|reduce|cut|save|ship|launch|process|approve|match|reconcile|onboard|sync|integrate|track|forecast|close|book|schedule|generate|capture|extract|route|triage|qualify|segment|score|prioritize|deduplicate|clean|verify|validate|audit|monitor|alert)\b/gi,
+    },
+    {
+      pattern:
+        /\b(?:[A-Z]{2,}(?:-[A-Z]{2,})?|[A-Z][a-zA-Z0-9]+(?:[- ][A-Z][a-zA-Z0-9]+)+)\b/g,
+      maxCount: 1,
+    },
+  ];
+
+  return signalPatterns.reduce((count, { maxCount, pattern }) => {
+    const matches = value.match(pattern);
+    const matchCount = new Set(matches ?? []).size;
+    return count + Math.min(matchCount, maxCount ?? matchCount);
+  }, 0);
+}
+
+function hasSpecificSignal(value: string): boolean {
+  return signalTokenCount(value) >= 2;
+}
+
+function hasBuyerReference(value: string): boolean {
+  return /\b(?:founder|operator|ops|procurement|finance|controller|cfo|cto|cio|vp|director|manager|smb|mid-market|enterprise|saas|icp|lead|prospect|customer|buyer|user)\b/i.test(
+    value,
+  );
+}
+
+function hasFunnelStageReference(value: string): boolean {
+  return /\b(?:problem-aware|solution-aware|comparison|consideration|decision|top|middle|mid|bottom|cold|warm|hot|mql|sql|lead|demo|trial|booked|opt-?in|calendar|call)\b/i.test(
+    value,
+  );
+}
+
+function hasSpecificAssetOrMetric(value: string): boolean {
+  return /(?:\/[a-z0-9-]+|blog|pricing|landing|homepage|site|url|page|campaign|ad\s*group|ad\s*set|keyword|query|funnel|form|button|cta|asset|creative|ctr|cpc|cpa|cvr|cpm|cac|roas|mql|sql|demo|page\s*speed|lcp|cls|fcp)/i.test(
+    value,
+  );
+}
+
+function hasActionVerb(value: string): boolean {
+  return /\b(?:add|change|replace|remove|cut|pause|launch|start|stop|test|measure|split|route|rewrite|mirror|move|double|double-down|focus|shift|build|create|instrument|track|retarget|exclude|prioritize)\b/i.test(
+    value,
+  );
+}
+
+function isApproximatelyEqual(
+  actual: number,
+  expected: number,
+): boolean {
+  return Math.abs(actual - expected) <= spendReconciliationTolerance;
+}
+
+function validateCreativeFramework(
+  errors: string[],
+  body: PaidMediaPlanBody,
+): void {
+  body.creativeFramework.creatives.forEach((creative, index) => {
+    const path = `body.creativeFramework.creatives[${index}]`;
+
+    switch (creative.creativeType) {
+      case "unique-selling-point":
+        validateSpecificCopy(errors, `${path}.uspSentence`, creative.uspSentence);
+        break;
+      case "problem-solution-transformation":
+        validateSpecificCopy(errors, `${path}.problem`, creative.problem);
+        validateSpecificCopy(errors, `${path}.solution`, creative.solution);
+        validateSpecificCopy(
+          errors,
+          `${path}.transformation`,
+          creative.transformation,
+        );
+        break;
+      case "objection-handling":
+        validateSpecificCopy(errors, `${path}.objection`, creative.objection);
+        validateSpecificCopy(
+          errors,
+          `${path}.objectionAnswer`,
+          creative.objectionAnswer,
+        );
+        break;
+      case "founder-talking-head":
+        validateSpecificCopy(
+          errors,
+          `${path}.founderScriptBeat`,
+          creative.founderScriptBeat,
+        );
+        break;
+      case "product-demo":
+        if (
+          (creative.solution === undefined ||
+            !isSpecificCopy(creative.solution)) &&
+          (creative.transformation === undefined ||
+            !isSpecificCopy(creative.transformation))
+        ) {
+          errors.push(
+            `${path}: product-demo creative needs deployable solution or transformation copy.`,
+          );
+        }
+        break;
+    }
+  });
+}
+
+function validateSpendMath(errors: string[], body: PaidMediaPlanBody): void {
+  const monthlyBudgetValue = body.campaignOverview.monthlyBudgetValue;
+  const dailySpendValue = body.campaignOverview.dailySpendValue;
+
+  if (monthlyBudgetValue !== undefined && dailySpendValue !== undefined) {
+    const expectedMonthly = dailySpendValue * 30;
+    if (!isApproximatelyEqual(expectedMonthly, monthlyBudgetValue)) {
+      errors.push(
+        `body.campaignOverview.dailySpendValue: daily spend x 30 must reconcile to monthlyBudgetValue within $${spendReconciliationTolerance}.`,
+      );
+    }
+  }
+
+  const audienceValues = body.audienceTypes.audiences.map(
+    (audience) => audience.dailyBudgetValue,
+  );
+  if (
+    monthlyBudgetValue !== undefined &&
+    audienceValues.length > 0 &&
+    audienceValues.every((value): value is number => value !== undefined)
+  ) {
+    const expectedMonthly = audienceValues.reduce(
+      (sum, value) => sum + value,
+      0,
+    ) * 30;
+    if (!isApproximatelyEqual(expectedMonthly, monthlyBudgetValue)) {
+      errors.push(
+        `body.audienceTypes.audiences: daily budgets x 30 must reconcile to monthlyBudgetValue within $${spendReconciliationTolerance}.`,
+      );
+    }
+  }
+
+  if (monthlyBudgetValue === undefined) {
+    return;
+  }
+
+  body.campaignPhases.phases.forEach((phase, index) => {
+    if (phase.monthlyBudgetValue === undefined) {
+      return;
+    }
+    if (!isApproximatelyEqual(phase.monthlyBudgetValue, monthlyBudgetValue)) {
+      errors.push(
+        `body.campaignPhases.phases[${index}].monthlyBudgetValue: phase monthly budget must reconcile to campaign monthlyBudgetValue within $${spendReconciliationTolerance}.`,
+      );
+    }
+  });
+}
+
+function validateCompetitorSignals(
+  errors: string[],
+  body: PaidMediaPlanBody,
+): void {
+  body.competitorReviewInsights.insights.forEach((insight, index) => {
+    const combinedText = `${insight.competitor} ${insight.verbatimComplaint} ${insight.adLeverage}`;
+    if (!hasSpecificSignal(combinedText)) {
+      errors.push(
+        `body.competitorReviewInsights.insights[${index}]: competitor insight must include a specific claim, number, named feature, or operational signal.`,
+      );
+    }
+  });
+
+  body.competitorMarketingInsights.competitors.forEach((competitor, index) => {
+    const combinedText = [
+      competitor.competitor,
+      competitor.messaging,
+      competitor.icpTargeted,
+      competitor.anglesTested,
+      competitor.positioningClaim,
+      competitor.offer,
+    ].join(" ");
+    if (!hasSpecificSignal(combinedText)) {
+      errors.push(
+        `body.competitorMarketingInsights.competitors[${index}]: competitor marketing insight must include a specific claim, number, named feature, or operational signal.`,
+      );
+    }
+    if (
+      competitor.adPlatforms.length === 0 &&
+      !/\b(?:unknown|not disclosed|unavailable|evidence gap|not publicly disclosed)\b/i.test(
+        competitor.estSpend,
+      )
+    ) {
+      errors.push(
+        `body.competitorMarketingInsights.competitors[${index}].adPlatforms: list platforms or state an explicit ad-data gap in estSpend.`,
+      );
+    }
+  });
+}
+
+function validateFunnelRecommendations(
+  errors: string[],
+  body: PaidMediaPlanBody,
+): void {
+  body.funnelIdeation.recommendations.forEach((recommendation, index) => {
+    const combinedText = `${recommendation.recommendation} ${recommendation.optInToBookedCall}`;
+    if (!hasBuyerReference(combinedText)) {
+      errors.push(
+        `body.funnelIdeation.recommendations[${index}].recommendation: must name the buyer, segment, or company size.`,
+      );
+    }
+    if (!hasFunnelStageReference(combinedText)) {
+      errors.push(
+        `body.funnelIdeation.recommendations[${index}].recommendation: must name the funnel stage or buyer intent state.`,
+      );
+    }
+    if (!isSpecificCopy(recommendation.optInToBookedCall)) {
+      errors.push(
+        `body.funnelIdeation.recommendations[${index}].optInToBookedCall: must describe a concrete opt-in to booked-call path.`,
+      );
+    }
+  });
+}
+
+function validateChannelSuggestions(
+  errors: string[],
+  body: PaidMediaPlanBody,
+): void {
+  body.channelSuggestions.suggestions.forEach((suggestion, index) => {
+    const combinedText = `${suggestion.channel} ${suggestion.observation} ${suggestion.recommendation}`;
+    if (!hasSpecificAssetOrMetric(combinedText)) {
+      errors.push(
+        `body.channelSuggestions.suggestions[${index}].recommendation: must name a specific asset, page, campaign, query, or metric.`,
+      );
+    }
+    if (!hasActionVerb(suggestion.recommendation)) {
+      errors.push(
+        `body.channelSuggestions.suggestions[${index}].recommendation: must include a concrete action verb.`,
+      );
+    }
+  });
+}
+
 function validateThesis(errors: string[], body: PaidMediaPlanBody): void {
   validateStrategicText(errors, "body.strategicThesis.thesis", body.strategicThesis.thesis);
   validateStrategicText(errors, "body.strategicThesis.force", body.strategicThesis.force);
@@ -539,6 +802,11 @@ export function validatePaidMediaPlanMinimums(
   }
   validateThesis(errors, parsedArtifact.body);
   validateOrderedMoves(errors, parsedArtifact.body);
+  validateCreativeFramework(errors, parsedArtifact.body);
+  validateSpendMath(errors, parsedArtifact.body);
+  validateCompetitorSignals(errors, parsedArtifact.body);
+  validateFunnelRecommendations(errors, parsedArtifact.body);
+  validateChannelSuggestions(errors, parsedArtifact.body);
 
   if (parsedArtifact.body.anglesToTest.angles.length < 4) {
     errors.push("body.anglesToTest.angles: need >=4.");

@@ -2626,19 +2626,32 @@ function normalizePaidMediaMoneyProvenance(value: unknown): string {
   return "unknown";
 }
 
+const paidMediaMoneyValueKeyByProvenanceKey: Readonly<
+  Record<string, string>
+> = {
+  dailyBudgetProvenance: "dailyBudgetValue",
+  dailySpendProvenance: "dailySpendValue",
+  monthlyBudgetProvenance: "monthlyBudgetValue",
+};
+
 function withPaidMediaMoneyProvenanceDefaults(
   record: Record<string, unknown>,
   keys: readonly string[],
 ): Record<string, unknown> {
-  return {
-    ...record,
-    ...Object.fromEntries(
-      keys.map((key) => [
-        key,
-        normalizePaidMediaMoneyProvenance(record[key]),
-      ]),
-    ),
-  };
+  const normalized: Record<string, unknown> = { ...record };
+
+  for (const key of keys) {
+    const provenance = normalizePaidMediaMoneyProvenance(record[key]);
+    const valueKey = paidMediaMoneyValueKeyByProvenanceKey[key];
+
+    normalized[key] = provenance;
+
+    if (provenance === "unknown" && valueKey !== undefined) {
+      delete normalized[valueKey];
+    }
+  }
+
+  return normalized;
 }
 
 function withPaidMediaMoneyProvenanceDefaultsForRecordArray(
@@ -3288,6 +3301,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "recommendation",
                   "optInToBookedCall",
                   "sourceSection",
+                  "sourceUrl",
                 ],
                 fallbackSourceSection: "positioningOfferDiagnostic",
                 stringKeys: [
@@ -3295,6 +3309,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "recommendation",
                   "optInToBookedCall",
                   "sourceSection",
+                  "sourceUrl",
                 ],
                 value: funnelIdeationRecord.recommendations,
               }),
@@ -3332,6 +3347,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "recommendation",
                   "verdict",
                   "sourceSection",
+                  "sourceUrl",
                 ],
                 fallbackSourceSection: "positioningDemandIntent",
                 stringKeys: [
@@ -3340,6 +3356,7 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
                   "recommendation",
                   "verdict",
                   "sourceSection",
+                  "sourceUrl",
                 ],
                 value: channelSuggestionsRecord.suggestions,
               }),

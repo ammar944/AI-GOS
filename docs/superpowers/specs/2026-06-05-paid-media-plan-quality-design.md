@@ -17,7 +17,10 @@ The PMP validation worktree at `/Users/ammar/Dev-Projects/AI-GOS-pmp-validate` f
 ## Non-Goals
 
 - Do not rebuild the whole paid-media product into the old 10-section `src/lib/media-plan/` pipeline.
-- Do not add fresh web research to the paid-media capstone.
+- Do not add broad fresh web research to the paid-media capstone. Keep the
+  existing bounded `keyword_ad_probe` contract unchanged for this patch; it is
+  a two-call channel-truth probe already declared in the registry, not a new
+  research surface.
 - Do not change the six-section rollup count.
 - Do not touch `research-worker/`; paid media runs in-process through the lab engine.
 - Do not treat the validation rig alone as live proof. Supabase row status and matching section run status are authoritative.

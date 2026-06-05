@@ -256,7 +256,12 @@ export function PaidMediaPlanRenderer({
     {
       key: 'sourceSection',
       header: 'Source',
-      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <MonoBadge>{row.sourceSection}</MonoBadge>
+          <SourceLink url={row.sourceUrl} />
+        </div>
+      ),
     },
   ];
   const salesColumns: ReadonlyArray<
@@ -280,6 +285,16 @@ export function PaidMediaPlanRenderer({
       key: 'verdict',
       header: 'Verdict',
       render: (row) => <MonoBadge>{row.verdict}</MonoBadge>,
+    },
+    {
+      key: 'sourceSection',
+      header: 'Source',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <MonoBadge>{row.sourceSection}</MonoBadge>
+          <SourceLink url={row.sourceUrl} />
+        </div>
+      ),
     },
   ];
   const kpiColumns: ReadonlyArray<DataTableColumn<(typeof body.kpis.kpis)[number]>> = [

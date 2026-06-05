@@ -48,7 +48,7 @@ function withPaidMediaNumericSiblings(output: unknown): unknown {
     phase.monthlyBudgetValue = 3000;
   }
   for (const audience of audiences) {
-    audience.dailyBudgetValue = 33;
+    audience.dailyBudgetValue = 33.33;
   }
 
   return cloned;
@@ -160,6 +160,46 @@ describe("paidMediaPlanSectionOutputSchema", () => {
 
     expect(paidMediaPlanSectionOutputSchema.safeParse(output).success).toBe(
       true,
+    );
+  });
+
+  it("requires source urls on funnel and channel recommendations", () => {
+    const output = structuredClone(buildPaidMediaPlanOutput()) as Record<
+      string,
+      unknown
+    >;
+    const body = output.body as Record<string, unknown>;
+    const funnelIdeation = body.funnelIdeation as Record<string, unknown>;
+    const channelSuggestions = body.channelSuggestions as Record<
+      string,
+      unknown
+    >;
+    const recommendations =
+      funnelIdeation.recommendations as Array<Record<string, unknown>>;
+    const suggestions =
+      channelSuggestions.suggestions as Array<Record<string, unknown>>;
+    const recommendation = recommendations[0];
+    const suggestion = suggestions[0];
+
+    if (recommendation === undefined || suggestion === undefined) {
+      throw new Error("Expected fixture funnel and channel rows.");
+    }
+    delete recommendation.sourceUrl;
+    delete suggestion.sourceUrl;
+
+    const parsed = paidMediaPlanSectionOutputSchema.safeParse(output);
+
+    expect(parsed.success).toBe(false);
+    if (parsed.success) {
+      throw new Error("Expected missing funnel/channel source URLs to fail.");
+    }
+    expect(
+      parsed.error.issues.map((issue) => issue.path.join(".")),
+    ).toEqual(
+      expect.arrayContaining([
+        "body.funnelIdeation.recommendations.0.sourceUrl",
+        "body.channelSuggestions.suggestions.0.sourceUrl",
+      ]),
     );
   });
 
@@ -313,6 +353,129 @@ describe("validatePaidMediaPlanMinimums", () => {
       ok: true,
       errors: [],
     });
+  });
+
+  it("rejects creative framework rows missing type-specific copy", () => {
+    const artifact = cloneFixture();
+    const creative = artifact.body.creativeFramework.creatives[0];
+
+    if (creative === undefined) {
+      throw new Error("Expected fixture creative.");
+    }
+    delete creative.uspSentence;
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "body.creativeFramework.creatives[0].uspSentence",
+        ),
+      ]),
+    );
+  });
+
+  it("rejects unreconciled audience spend math", () => {
+    const artifact = cloneFixture();
+    const audience = artifact.body.audienceTypes.audiences[0];
+
+    if (audience === undefined) {
+      throw new Error("Expected fixture audience.");
+    }
+    audience.dailyBudgetValue = 20;
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("body.audienceTypes.audiences"),
+      ]),
+    );
+  });
+
+  it("rejects brand-only competitor claims without operational signals", () => {
+    const artifact = cloneFixture();
+    const reviewInsight = artifact.body.competitorReviewInsights.insights[0];
+    const marketingInsight =
+      artifact.body.competitorMarketingInsights.competitors[0];
+
+    if (reviewInsight === undefined || marketingInsight === undefined) {
+      throw new Error("Expected fixture competitor insights.");
+    }
+    reviewInsight.competitor = "Acme CRM";
+    reviewInsight.verbatimComplaint = "Acme CRM feels better than others.";
+    reviewInsight.adLeverage = "Make the ad say Acme CRM is easier.";
+    marketingInsight.competitor = "Acme CRM";
+    marketingInsight.messaging = "Acme CRM is easy to use.";
+    marketingInsight.adPlatforms = [];
+    marketingInsight.estSpend = "not publicly disclosed";
+    marketingInsight.icpTargeted = "teams";
+    marketingInsight.anglesTested = "ease";
+    marketingInsight.positioningClaim = "easy software";
+    marketingInsight.offer = "demo";
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "body.competitorReviewInsights.insights[0]",
+        ),
+        expect.stringContaining(
+          "body.competitorMarketingInsights.competitors[0]",
+        ),
+      ]),
+    );
+  });
+
+  it("rejects funnel recommendations without buyer and stage context", () => {
+    const artifact = cloneFixture();
+    const recommendation = artifact.body.funnelIdeation.recommendations[0];
+
+    if (recommendation === undefined) {
+      throw new Error("Expected fixture funnel recommendation.");
+    }
+    recommendation.recommendation = "Use a landing page.";
+    recommendation.optInToBookedCall = "Book a call.";
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "body.funnelIdeation.recommendations[0].recommendation",
+        ),
+        expect.stringContaining(
+          "body.funnelIdeation.recommendations[0].optInToBookedCall",
+        ),
+      ]),
+    );
+  });
+
+  it("rejects channel suggestions without concrete assets or actions", () => {
+    const artifact = cloneFixture();
+    const suggestion = artifact.body.channelSuggestions.suggestions[0];
+
+    if (suggestion === undefined) {
+      throw new Error("Expected fixture channel suggestion.");
+    }
+    suggestion.observation = "The market is attractive.";
+    suggestion.recommendation = "Improve performance.";
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "body.channelSuggestions.suggestions[0].recommendation",
+        ),
+      ]),
+    );
   });
 
   it("rejects thesis source refs that do not span two distinct sections", () => {
