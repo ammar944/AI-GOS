@@ -99,6 +99,7 @@ import { buildToolMap } from "./tool-registry";
 import {
   VOC_CANDIDATE_PACK_MAX_SIZE,
   VOC_PREPASS_MAX_LOOKUPS,
+  VOC_PREPASS_REVIEW_BODY_MAX_PAGES,
   createVoiceOfCustomerCandidate,
   formatVoiceOfCustomerCandidateBlock,
   getRegistrableDomain,
@@ -5938,6 +5939,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
   for (const reviewQuery of buildVoiceOfCustomerReviewQueries(researchInput)) {
     const reviewOutput = await tryTool("reviews", {
       brand: reviewQuery,
+      max_body_pages: VOC_PREPASS_REVIEW_BODY_MAX_PAGES,
       max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
       mode: "bodies",
     });

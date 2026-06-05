@@ -515,6 +515,89 @@ function installSuccessfulToolFetches({
   return { fetchMock, requestedUrls };
 }
 
+function installExpandedReviewBodyFetches(): {
+  firecrawlTargetUrls: string[];
+  fetchMock: ReturnType<typeof vi.fn>;
+  requestedUrls: string[];
+} {
+  const firecrawlTargetUrls: string[] = [];
+  const requestedUrls: string[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      requestedUrls.push(url);
+
+      if (url.includes('searchapi.io')) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: 'https://www.g2.com/products/saaslaunch/reviews',
+              snippet: 'Users mention approval handoff pain.',
+              title: 'SaaSLaunch reviews on G2',
+            },
+            {
+              link: 'https://www.capterra.com/p/saaslaunch/reviews',
+              snippet: 'Teams complain about scattered account notes.',
+              title: 'SaaSLaunch reviews on Capterra',
+            },
+            {
+              link: 'https://www.trustpilot.com/review/saaslaunch.example',
+              snippet: 'Reviewers mention manual CRM cleanup.',
+              title: 'SaaSLaunch reviews on Trustpilot',
+            },
+            {
+              link: 'https://www.getapp.com/sales-software/a/saaslaunch/reviews',
+              snippet: 'Operators report missed sales handoffs.',
+              title: 'SaaSLaunch reviews on GetApp',
+            },
+            {
+              link: 'https://www.softwareadvice.com/crm/saaslaunch-profile/reviews',
+              snippet: 'Buyers describe slow support cleanup.',
+              title: 'SaaSLaunch reviews on Software Advice',
+            },
+          ],
+        });
+      }
+
+      if (url.includes('api.search.brave.com')) {
+        return jsonResponse({ web: { results: [] } });
+      }
+
+      if (url.includes('api.firecrawl.dev')) {
+        const targetUrl = getFirecrawlBodyUrl(init);
+        if (targetUrl !== null) {
+          firecrawlTargetUrls.push(targetUrl);
+        }
+
+        return jsonResponse({
+          data: {
+            markdown: buildDefaultReviewBodyMarkdown(targetUrl),
+            metadata: {
+              sourceURL:
+                targetUrl ?? 'https://www.g2.com/products/saaslaunch/reviews',
+              title: 'Recovered SaaSLaunch review',
+            },
+          },
+        });
+      }
+
+      return jsonResponse({});
+    },
+  );
+
+  vi.stubGlobal('fetch', fetchMock);
+  vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi');
+  vi.stubEnv('BRAVE_SEARCH_API_KEY', 'test-brave');
+  vi.stubEnv('FIRECRAWL_API_KEY', 'test-firecrawl');
+
+  return { firecrawlTargetUrls, fetchMock, requestedUrls };
+}
+
 const recoveryTargetUrl =
   'https://revopsforum.com/t/saaslaunch-handoff-breakdowns';
 
@@ -892,6 +975,49 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
+  });
+
+  it('requests expanded review-body scraping during the candidate prepass', async (): Promise<void> => {
+    const store = await makeStore();
+    const { firecrawlTargetUrls } = installExpandedReviewBodyFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(firecrawlTargetUrls).toEqual(
+        expect.arrayContaining([
+          'https://www.g2.com/products/saaslaunch/reviews',
+          'https://www.capterra.com/p/saaslaunch/reviews',
+          'https://www.trustpilot.com/review/saaslaunch.example',
+          'https://www.getapp.com/sales-software/a/saaslaunch/reviews',
+          'https://www.softwareadvice.com/crm/saaslaunch-profile/reviews',
+        ]),
+      );
+      expect(params.prompt).toContain('getapp.com');
+      expect(params.prompt).toContain('softwareadvice.com');
+      emitVoiceOfCustomerEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
   });
 
   it('commits an evidence-gap artifact when review-body scraping has no usable bodies', async (): Promise<void> => {

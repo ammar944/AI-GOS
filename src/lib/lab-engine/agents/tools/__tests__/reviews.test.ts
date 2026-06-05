@@ -308,6 +308,151 @@ describe("reviewsAgentTool", (): void => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("extracts Capterra review bodies from question-style markdown headings", async (): Promise<void> => {
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl, requestInit) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.capterra.com/p/123/ramp/reviews/",
+              snippet: "Capterra users mention approval and onboarding pain.",
+              title: "Ramp Capterra reviews",
+            },
+          ],
+        });
+      }
+
+      const body = JSON.parse(String(requestInit?.body)) as { url?: unknown };
+      expect(body.url).toBe("https://www.capterra.com/p/123/ramp/reviews/");
+      return jsonResponse({
+        data: {
+          markdown: [
+            "# Ramp Reviews",
+            "",
+            "What did you like least about Ramp?",
+            "Expense approvals are hard to trace and support handoffs are slow when finance teams need month-end cleanup.",
+            "",
+            "Reasons for Switching to Ramp",
+            "The old AP workflow was manual, scattered across email, and created painful vendor onboarding delays.",
+          ].join("\n"),
+          metadata: {
+            sourceURL: "https://www.capterra.com/p/123/ramp/reviews/",
+            title: "Ramp Capterra Reviews",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        {
+          brand: "Ramp",
+          max_body_pages: 1,
+          max_results: 1,
+          mode: "bodies",
+        },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      brand: "Ramp",
+      attempts: [
+        {
+          acquisitionMode: "review_body",
+          domain: "capterra.com",
+          source: "Capterra",
+          status: "succeeded",
+        },
+      ],
+      excerpts: [
+        {
+          acquisitionMode: "review_body",
+          source: "Capterra",
+          title: "Ramp Capterra Reviews",
+          url: "https://www.capterra.com/p/123/ramp/reviews/",
+          reviewText:
+            "Expense approvals are hard to trace and support handoffs are slow when finance teams need month-end cleanup.",
+        },
+        {
+          acquisitionMode: "review_body",
+          source: "Capterra",
+          title: "Ramp Capterra Reviews",
+          url: "https://www.capterra.com/p/123/ramp/reviews/",
+          reviewText:
+            "The old AP workflow was manual, scattered across email, and created painful vendor onboarding delays.",
+        },
+      ],
+    });
+  });
+
+  it("prioritizes review-domain body pages over forum pages when the scrape budget is constrained", async (): Promise<void> => {
+    const scrapedUrls: string[] = [];
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl, requestInit) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.reddit.com/r/accounting/comments/ramp_support",
+              snippet: "Reddit users mention support pain.",
+              title: "Ramp support pain",
+            },
+            {
+              link: "https://www.reddit.com/r/startups/comments/ramp_cards",
+              snippet: "Founders complain about card approval handoffs.",
+              title: "Ramp card handoffs",
+            },
+            {
+              link: "https://www.capterra.com/p/123/ramp/reviews/",
+              snippet: "Capterra users mention manual approval pain.",
+              title: "Ramp Capterra reviews",
+            },
+            {
+              link: "https://www.g2.com/products/ramp/reviews",
+              snippet: "G2 users mention month-end cleanup pain.",
+              title: "Ramp G2 reviews",
+            },
+          ],
+        });
+      }
+
+      const body = JSON.parse(String(requestInit?.body)) as { url?: string };
+      scrapedUrls.push(body.url ?? "");
+      return jsonResponse({
+        data: {
+          markdown: [
+            "What do you dislike about Ramp?",
+            "Finance approvals are still confusing and month-end cleanup is manual for operators.",
+          ].join("\n"),
+          metadata: {
+            sourceURL: body.url,
+            title: "Recovered review",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getExecute()(
+      {
+        brand: "Ramp",
+        max_body_pages: 2,
+        max_results: 4,
+        mode: "bodies",
+      },
+      {},
+    );
+
+    expect(scrapedUrls).toEqual([
+      "https://www.capterra.com/p/123/ramp/reviews/",
+      "https://www.g2.com/products/ramp/reviews",
+    ]);
+  });
+
   it("records blocked JS challenge pages as acquisition attempts", async (): Promise<void> => {
     const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
       const url = requestUrlToString(requestUrl);

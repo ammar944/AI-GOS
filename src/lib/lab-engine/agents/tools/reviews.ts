@@ -125,6 +125,11 @@ interface ScrapeReviewBodiesResult {
   excerpts: ReviewBodyExcerpt[];
 }
 
+interface RankedReviewSearchResult {
+  index: number;
+  result: ReviewSearchResult;
+}
+
 const firecrawlScrapeUrl = "https://api.firecrawl.dev/v2/scrape";
 const reviewBodyScrapeTimeoutMs = 20_000;
 const maxReviewBodiesPerPage = 4;
@@ -144,6 +149,49 @@ function deriveReviewSource(url: string): string {
   }
 
   return "Web";
+}
+
+function getReviewBodyScrapePriority(result: ReviewSearchResult): number {
+  if (
+    result.source === "G2" ||
+    result.source === "Capterra" ||
+    result.source === "Trustpilot"
+  ) {
+    return 0;
+  }
+
+  const acquisitionMode =
+    result.acquisitionMode ?? getAcquisitionModeForUrl(result.url);
+
+  if (acquisitionMode === "review_body") {
+    return 1;
+  }
+
+  if (acquisitionMode === "support_thread") {
+    return 2;
+  }
+
+  return 3;
+}
+
+function rankReviewSearchResultsForBodyScrape(
+  searchResults: readonly ReviewSearchResult[],
+): ReviewSearchResult[] {
+  return searchResults
+    .map(
+      (result, index): RankedReviewSearchResult => ({
+        index,
+        result,
+      }),
+    )
+    .sort((left, right) => {
+      const priorityDelta =
+        getReviewBodyScrapePriority(left.result) -
+        getReviewBodyScrapePriority(right.result);
+
+      return priorityDelta === 0 ? left.index - right.index : priorityDelta;
+    })
+    .map(({ result }) => result);
 }
 
 function getDomain(input: string): string {
@@ -444,30 +492,86 @@ function extractG2ReviewBodies(
   return excerpts;
 }
 
+function normalizeCapterraHeading(input: string): string {
+  return input
+    .replace(/^#{1,6}\s*/, "")
+    .replace(/[*_`>#]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isCapterraNegativeHeading(input: string): boolean {
+  return /^(?:Cons|Overall)\s*:|^What (?:did|do) you (?:like least|dislike)\b|^What could be (?:better|improved)\b|^What problems\b|^Reasons for Switching\b|^Why did you switch\b/i.test(
+    normalizeCapterraHeading(input),
+  );
+}
+
+function isCapterraSectionBoundary(input: string): boolean {
+  const heading = normalizeCapterraHeading(input);
+
+  return (
+    isCapterraNegativeHeading(heading) ||
+    /^(?:Pros)\s*:|^What (?:did|do) you like (?:best|most)\b|^What do you like about\b|^Recommendations?\b|^Review Source\b|^Show More\b|^Read more\b|^Vendor Response\b/i.test(
+      heading,
+    )
+  );
+}
+
+function getCapterraInlineHeadingText(input: string): string | null {
+  const heading = normalizeCapterraHeading(input);
+  const inlineMatch = heading.match(/^(?:Cons|Overall)\s*:\s*(.+)$/i);
+
+  if (inlineMatch?.[1] === undefined) {
+    return null;
+  }
+
+  const inlineText = inlineMatch[1].trim();
+  return inlineText.length === 0 ? null : inlineText;
+}
+
 function extractCapterraReviewBodies(
   markdown: string,
   searchResult: ReviewSearchResult,
 ): ReviewBodyExcerpt[] {
-  const blocks = markdown.split(/(?=^\s*(?:Pros|Cons|Overall):)/im);
+  const lines = markdown.split("\n");
   const excerpts: ReviewBodyExcerpt[] = [];
 
-  for (const block of blocks) {
-    if (!/^\s*(?:Cons|Overall):/i.test(block)) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex] ?? "";
+
+    if (!isCapterraNegativeHeading(line)) {
       continue;
     }
 
-    const text = block
-      .split("\n")
-      .map((line) =>
-        line
-          .replace(/^\s*(?:Pros|Cons|Overall):\s*/i, "")
-          .replace(/^\s*(?:Show More|Read more|Review Source).*$/i, ""),
-      )
-      .join(" ");
+    const textLines: string[] = [];
+    const inlineText = getCapterraInlineHeadingText(line);
+    if (inlineText !== null) {
+      textLines.push(inlineText);
+    }
+
+    for (
+      let bodyLineIndex = lineIndex + 1;
+      bodyLineIndex < lines.length;
+      bodyLineIndex += 1
+    ) {
+      const bodyLine = lines[bodyLineIndex] ?? "";
+      const trimmed = normalizeCapterraHeading(bodyLine);
+
+      if (trimmed.length === 0) {
+        continue;
+      }
+
+      if (isCapterraSectionBoundary(trimmed)) {
+        break;
+      }
+
+      textLines.push(trimmed);
+    }
+
     const excerpt = reviewBodyExcerpt({
       acquisitionMode: "review_body",
       rating: null,
-      reviewText: text,
+      reviewText: textLines.join(" "),
       searchResult,
     });
 
@@ -740,8 +844,11 @@ async function buildBodyExcerpts(input: {
   maxBodyPages: number;
   searchResults: readonly ReviewSearchResult[];
 }): Promise<ScrapeReviewBodiesResult> {
+  const rankedSearchResults = rankReviewSearchResultsForBodyScrape(
+    input.searchResults,
+  );
   const bodyResults = await Promise.allSettled(
-    input.searchResults.slice(0, input.maxBodyPages).map((searchResult) =>
+    rankedSearchResults.slice(0, input.maxBodyPages).map((searchResult) =>
       scrapeReviewBodies({
         abortSignal: input.abortSignal,
         apiKey: input.firecrawlApiKey,

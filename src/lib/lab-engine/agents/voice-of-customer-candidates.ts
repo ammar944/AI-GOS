@@ -50,6 +50,7 @@ export const VOC_CANDIDATE_MIN_DOMAINS = 3;
 export const VOC_CANDIDATE_MIN_COUNT = 6;
 export const VOC_CANDIDATE_PER_DOMAIN_CAP = 4;
 export const VOC_PREPASS_MAX_LOOKUPS = 3;
+export const VOC_PREPASS_REVIEW_BODY_MAX_PAGES = 6;
 
 interface CreateVoiceOfCustomerCandidateInput {
   acquisitionMode?: VoiceOfCustomerAcquisitionMode;
