@@ -377,22 +377,42 @@ function getQuoteRecords(
   return group.quotes.filter(isRecord);
 }
 
+function getEvidenceGapAttempts(
+  report: Record<string, unknown>,
+): Record<string, unknown>[] {
+  return [report.acquisitionAttempts, report.attempts].flatMap((attempts) =>
+    Array.isArray(attempts) ? attempts.filter(isRecord) : [],
+  );
+}
+
 function collectGapReasons(artifact: ArtifactEnvelope | null): string[] {
   const body = isRecord(artifact?.body) ? artifact.body : {};
   const report = isRecord(body.evidenceGapReport) ? body.evidenceGapReport : {};
   const reasons: string[] = [];
 
   if (asString(report.reason)) reasons.push(asString(report.reason) as string);
-  if (Array.isArray(report.attempts)) {
-    for (const attempt of report.attempts) {
-      if (isRecord(attempt)) {
-        const reason = asString(attempt.gapReason) ?? asString(attempt.reason);
-        if (reason) reasons.push(reason);
-      }
-    }
+  for (const attempt of getEvidenceGapAttempts(report)) {
+    const reason = asString(attempt.gapReason) ?? asString(attempt.reason);
+    if (reason) reasons.push(reason);
   }
 
   return uniqueStrings(reasons);
+}
+
+function collectEvidenceGapAcquisitionModes(
+  artifact: ArtifactEnvelope | null,
+): string[] {
+  const body = isRecord(artifact?.body) ? artifact.body : {};
+  const report = isRecord(body.evidenceGapReport) ? body.evidenceGapReport : {};
+
+  return uniqueStrings(
+    getEvidenceGapAttempts(report).map(
+      (attempt) =>
+        asString(attempt.acquisitionMode) ??
+        asString(attempt.mode) ??
+        asString(attempt.type),
+    ),
+  );
 }
 
 function buildVocAudit(input: {
@@ -421,9 +441,12 @@ function buildVocAudit(input: {
     painSourceDomains,
     painSourceUrls,
     acquisitionModes: uniqueStrings(
-      [...painQuotes, ...successQuotes].map((quote) =>
-        asString(quote.acquisitionMode),
-      ),
+      [
+        ...[...painQuotes, ...successQuotes].map((quote) =>
+          asString(quote.acquisitionMode),
+        ),
+        ...collectEvidenceGapAcquisitionModes(input.artifact),
+      ],
     ),
     gapReasons: collectGapReasons(input.artifact),
     subjectDomain,

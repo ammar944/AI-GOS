@@ -771,6 +771,57 @@ function getVoiceOfCustomerCandidateEvidenceGapFacts(
   };
 }
 
+const voiceOfCustomerModelAuthoredEvidenceGapIssue =
+  "Voice of Customer structured synthesis returned a mixed model-authored gap; the runner must promote deterministic candidate synthesis or a runner-owned evidence-gap artifact instead of committing promoted content with body.evidenceGap=true.";
+
+function getArrayLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
+  artifact,
+  input,
+}: {
+  artifact: ArtifactEnvelope;
+  input: RunSectionInput;
+}): string | null {
+  if (input.sectionId !== "positioningVoiceOfCustomer") {
+    return null;
+  }
+
+  const body = getRecord(artifact.body);
+  if (body?.evidenceGap !== true) {
+    return null;
+  }
+
+  const painLanguage = getRecord(body.painLanguage);
+  const successLanguage = getRecord(body.successLanguage);
+  const objections = getRecord(body.objections);
+  const switchingStories = getRecord(body.switchingStories);
+  const decisionCriteria = getRecord(body.decisionCriteria);
+  const painQuoteCount = getArrayLength(painLanguage?.quotes);
+  const successQuoteCount = getArrayLength(successLanguage?.quotes);
+  const promotedContentCount =
+    painQuoteCount +
+    successQuoteCount +
+    getArrayLength(objections?.items) +
+    getArrayLength(switchingStories?.stories) +
+    getArrayLength(decisionCriteria?.criteria);
+
+  if (promotedContentCount === 0) {
+    return null;
+  }
+
+  return [
+    voiceOfCustomerModelAuthoredEvidenceGapIssue,
+    `painQuoteCount=${painQuoteCount}`,
+    `successQuoteCount=${successQuoteCount}`,
+    `promotedContentCount=${promotedContentCount}`,
+    `runId=${input.runId}`,
+    `sectionId=${input.sectionId}`,
+  ].join(" ");
+}
+
 function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
   definition,
   deps,
@@ -1033,6 +1084,7 @@ function hasVoiceOfCustomerStructuredSynthesisFailure({
     return (
       lowerError.includes("no object generated") ||
       lowerError.includes("agent did not call answer tool") ||
+      lowerError.includes("model-authored gap") ||
       lowerError.includes("could not parse") ||
       lowerError.includes("response did not match schema")
     );
@@ -4836,6 +4888,19 @@ async function callStructuredAttempt({
             }),
         };
       }
+
+      const modelAuthoredGapIssue =
+        getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
+          artifact,
+          input,
+        });
+      if (modelAuthoredGapIssue !== null) {
+        return {
+          output,
+          artifact: null,
+          errors: [modelAuthoredGapIssue],
+        };
+      }
     }
 
     return { output, artifact, errors: [], evidenceSupportShortfall };
@@ -5059,6 +5124,28 @@ async function callStructuredStreamAttempt({
               input,
               researchInput,
             }),
+        };
+      }
+
+      const modelAuthoredGapIssue =
+        getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
+          artifact,
+          input,
+        });
+      if (modelAuthoredGapIssue !== null) {
+        writeValidationEvent({
+          attempt,
+          deps,
+          issues: [modelAuthoredGapIssue],
+          runId: input.runId,
+          sectionId: input.sectionId,
+          state: "failed",
+        });
+
+        return {
+          output,
+          artifact: null,
+          errors: [modelAuthoredGapIssue],
         };
       }
     }
@@ -6165,6 +6252,19 @@ async function buildVerifiedAttemptFromOutput({
             input,
             researchInput,
           }),
+      };
+    }
+
+    const modelAuthoredGapIssue =
+      getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
+        artifact,
+        input,
+      });
+    if (modelAuthoredGapIssue !== null) {
+      return {
+        output,
+        artifact: null,
+        errors: [modelAuthoredGapIssue],
       };
     }
   }

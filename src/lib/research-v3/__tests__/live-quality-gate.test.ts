@@ -334,6 +334,83 @@ describe('live quality gate', (): void => {
     );
   });
 
+  it('reports VoC evidence-gap acquisition attempts without changing failure semantics', (): void => {
+    const sections = READER_SECTION_IDS.map((zone) => {
+      if (zone !== 'positioningVoiceOfCustomer') {
+        return createSectionRow({ zone });
+      }
+
+      return createSectionRow({
+        zone,
+        tier: 'insufficient',
+        artifact: {
+          ...artifactForZone(zone),
+          body: {
+            ...defaultArtifactForZone(zone).body,
+            evidenceGap: true,
+            evidenceGapReport: {
+              reason: 'insufficient_voice_of_customer_sources',
+              summary: 'Could not capture enough independent review bodies.',
+              foundPainQuoteCount: 0,
+              requiredPainQuoteCount: 10,
+              foundDistinctPainSourceCount: 0,
+              requiredDistinctPainSourceCount: 3,
+              observedPainSourceDomains: [],
+              acquisitionAttempts: [
+                {
+                  url: 'https://www.g2.com/products/saaslaunch/reviews',
+                  domain: 'g2.com',
+                  source: 'reviews',
+                  acquisitionMode: 'review_body',
+                  status: 'failed',
+                  gapReason: 'blocked_js_challenge',
+                  message: 'Review bodies blocked by source anti-bot controls.',
+                },
+                {
+                  url: 'https://community.example.com/t/saaslaunch-handoffs',
+                  domain: 'community.example.com',
+                  source: 'web_search',
+                  acquisitionMode: 'forum_comment',
+                  status: 'failed',
+                  gapReason: 'parser_no_match',
+                  message:
+                    'Public forum snippets did not expose stable quote URLs.',
+                },
+              ],
+              sourcingPlan: ['Retry body acquisition from approved sources.'],
+            },
+          },
+        },
+      });
+    });
+
+    const result = evaluateLiveQualityGate(
+      createCompleteInput({ sections, includePassingCritique: true }),
+    );
+
+    expect(result.verdict).toBe('pipeline_recovered_quality_limited');
+    expect(result.failures).toContain(
+      'positioningVoiceOfCustomer verification_tier is insufficient',
+    );
+    expect(result.failures).toContain(
+      'positioningVoiceOfCustomer has body.evidenceGap=true',
+    );
+    expect(
+      result.sectionEvidence.find(
+        (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+      )?.schemaValid,
+    ).toBe(true);
+    expect(result.vocAudit.acquisitionModes).toEqual([
+      'review_body',
+      'forum_comment',
+    ]);
+    expect(result.vocAudit.gapReasons).toEqual([
+      'insufficient_voice_of_customer_sources',
+      'blocked_js_challenge',
+      'parser_no_match',
+    ]);
+  });
+
   it('returns below_9_of_10_gate when evidence and trust pass but rubric score is below nine', (): void => {
     const result = evaluateLiveQualityGate(createCompleteInput());
 

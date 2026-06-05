@@ -247,6 +247,38 @@ function buildVoiceOfCustomerDraftWithBlankPainQuoteMetadata(): Omit<
   };
 }
 
+function buildMixedEvidenceGapVoiceOfCustomerDraft(): Omit<
+  VoiceOfCustomerSectionOutput,
+  'confidence' | 'sectionTitle'
+> {
+  const draft = buildVoiceOfCustomerDraft();
+
+  return {
+    ...draft,
+    body: voiceOfCustomerBodySchema.parse({
+      ...draft.body,
+      evidenceGap: true,
+      evidenceGapReport: {
+        foundDistinctPainSourceCount: 3,
+        foundPainQuoteCount: 10,
+        observedPainSourceDomains: [
+          'independent-voc-one.example',
+          'independent-voc-two.example',
+          'independent-voc-three.example',
+        ],
+        reason: 'insufficient_voice_of_customer_sources',
+        requiredDistinctPainSourceCount: 3,
+        requiredPainQuoteCount: 10,
+        sourcingPlan: [
+          'Recover full review bodies from approved third-party review surfaces.',
+        ],
+        summary:
+          'Model-authored evidence gap remained on an otherwise full Voice of Customer draft.',
+      },
+    }),
+  };
+}
+
 function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
   const domains = [
     'g2.com',
@@ -1358,6 +1390,53 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
+  it('commits deterministic VoC synthesis instead of a mixed full-quotes evidence-gap draft after a dense candidate prepass', async (): Promise<void> => {
+    const researchInput = makeDenseVoiceOfCustomerResearchInput();
+    const store = await makeStore(researchInput);
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(params.prompt).toContain('Voice of Customer Candidate Pack');
+      expect(params.prompt).toContain('Dense candidate 1 says missed handoffs');
+      emitVoiceOfCustomerEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildMixedEvidenceGapVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(body.evidenceGap).not.toBe(true);
+    expect(body.evidenceGapReport).toBeUndefined();
+    expect(body.painLanguage.quotes).toHaveLength(10);
+    expect(body.painLanguage.quotes[0]?.sourceUrl).toContain('g2.com');
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
   it('commits deterministic VoC synthesis on the answer-tool path when the model never calls answer after a dense candidate prepass', async (): Promise<void> => {
     const researchInput = makeDenseVoiceOfCustomerResearchInput();
     const store = await makeStore(researchInput);
@@ -1403,6 +1482,59 @@ describe('runSection VoC candidate prepass', (): void => {
         body.painLanguage.quotes.map((quote) => new URL(quote.sourceUrl).hostname),
       ),
     ).toEqual(new Set(['g2.com', 'reddit.com', 'capterra.com']));
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('commits deterministic VoC synthesis on the answer-tool path instead of a mixed full-quotes evidence-gap draft', async (): Promise<void> => {
+    const researchInput = makeDenseVoiceOfCustomerResearchInput();
+    const store = await makeStore(researchInput);
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
+      expect(params.instructions).toContain('Voice of Customer Candidate Pack');
+      expect(params.instructions).toContain('Dense candidate 1 says missed handoffs');
+
+      return {
+        answerInput: {
+          ...buildMixedEvidenceGapVoiceOfCustomerDraft(),
+          confidence: 0.82,
+          sectionTitle: 'Voice of Customer',
+        },
+        steps: [],
+        text: '',
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '3',
+        },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        runAnswerTool,
+        store,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(body.evidenceGap).not.toBe(true);
+    expect(body.evidenceGapReport).toBeUndefined();
+    expect(body.painLanguage.quotes).toHaveLength(10);
+    expect(body.painLanguage.quotes[0]?.sourceUrl).toContain('g2.com');
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');
     expect(eventTypes).not.toContain('section-failed');
