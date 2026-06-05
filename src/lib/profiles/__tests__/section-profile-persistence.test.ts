@@ -129,6 +129,42 @@ describe('section profile persistence', (): void => {
     });
   });
 
+  it('preserves persisted synthesis trust metadata on both profile insight surfaces', (): void => {
+    const needsReviewFlag = {
+      tier: 'needs_review',
+      verifiedCount: 7,
+      unsupportedCount: 2,
+      totalClaims: 9,
+      confidence: 7 / 9,
+      needsReviewThreshold: 0.75,
+      insufficientThreshold: 0.5,
+      evidenceGap: false,
+    };
+
+    const insights = buildCommittedSectionProfileInsights({
+      sectionId: 'positioningSynthesis',
+      artifact: positioningSynthesisFixtureArtifact,
+      verificationTier: 'needs_review',
+      verificationFlag: needsReviewFlag,
+    });
+
+    expect(insights).toEqual(
+      expect.objectContaining({
+        positioningSynthesis: expect.objectContaining({
+          verdict: positioningSynthesisFixtureArtifact.verdict,
+          verificationTier: 'needs_review',
+          verificationFlag: needsReviewFlag,
+        }),
+        positioningStrategy: expect.objectContaining({
+          verdict: positioningSynthesisFixtureArtifact.verdict,
+          body: positioningSynthesisFixtureArtifact.body,
+          verificationTier: 'needs_review',
+          verificationFlag: needsReviewFlag,
+        }),
+      }),
+    );
+  });
+
   it('persists an audit profile with one merged insight write for completed sections', async (): Promise<void> => {
     const needsReviewFlag = {
       tier: 'needs_review',

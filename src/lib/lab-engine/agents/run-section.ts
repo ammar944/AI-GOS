@@ -94,9 +94,11 @@ import {
   createVoiceOfCustomerCandidate,
   formatVoiceOfCustomerCandidateBlock,
   getRegistrableDomain,
+  inferVoiceOfCustomerEvidenceKind,
   selectVoiceOfCustomerCandidates,
   type VoiceOfCustomerCandidate,
   type VoiceOfCustomerCandidateResult,
+  type VoiceOfCustomerAcquisitionMode,
   type VoiceOfCustomerEvidenceKind,
   type VoiceOfCustomerCandidateSource,
 } from "./voice-of-customer-candidates";
@@ -406,14 +408,33 @@ type VoiceOfCustomerEvidenceGapFacts = Extract<
   { ok: true }
 >;
 
+interface VoiceOfCustomerAcquisitionAttempt {
+  acquisitionMode: "review_body" | "forum_comment" | "support_thread";
+  domain: string;
+  gapReason?:
+    | "api_error"
+    | "blocked_js_challenge"
+    | "empty_markdown"
+    | "parser_no_match"
+    | "not_independent"
+    | "not_product_review";
+  message?: string;
+  source: string;
+  status: "succeeded" | "failed";
+  title?: string;
+  url: string;
+}
+
 const voiceOfCustomerRequiredPainQuoteCount = 10;
 const voiceOfCustomerRequiredDistinctPainSourceCount = 3;
 
 function buildVoiceOfCustomerEvidenceGapBody({
+  acquisitionAttempts,
   facts,
   issue,
   subjectDomain,
 }: {
+  acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
   facts: VoiceOfCustomerEvidenceGapFacts;
   issue: string;
   subjectDomain: string | null;
@@ -492,6 +513,9 @@ function buildVoiceOfCustomerEvidenceGapBody({
       requiredDistinctPainSourceCount:
         voiceOfCustomerRequiredDistinctPainSourceCount,
       observedPainSourceDomains: facts.observedPainSourceDomains,
+      ...(!acquisitionAttempts || acquisitionAttempts.length === 0
+        ? {}
+        : { acquisitionAttempts }),
       sourcingPlan: [
         "Recover full review bodies from approved third-party review surfaces such as G2, Capterra, Trustpilot, Reddit, Hacker News, or support/community threads.",
         "When a surfaced URL has no snippet, retry with Firecrawl only if the rendered page returns usable markdown; record JS-challenge or empty-body pages as acquisition gaps.",
@@ -502,6 +526,7 @@ function buildVoiceOfCustomerEvidenceGapBody({
 }
 
 function buildVoiceOfCustomerEvidenceGapArtifact({
+  acquisitionAttempts,
   baseArtifact,
   definition,
   deps,
@@ -510,6 +535,7 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
   issue,
   researchInput,
 }: {
+  acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
   baseArtifact?: ArtifactEnvelope;
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
@@ -535,6 +561,7 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
       confidence: 0.2,
       sources: baseArtifact?.sources ?? researchInput.sources,
       body: buildVoiceOfCustomerEvidenceGapBody({
+        acquisitionAttempts,
         facts,
         issue,
         subjectDomain,
@@ -688,6 +715,7 @@ function buildCompetitorStrategicEvidenceGapArtifact({
 }
 
 function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
+  acquisitionAttempts,
   definition,
   deps,
   input,
@@ -695,6 +723,7 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   researchInput,
   result,
 }: {
+  acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
@@ -703,6 +732,7 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   result: Exclude<VoiceOfCustomerCandidateResult, { ok: true }>;
 }): ArtifactEnvelope {
   return buildVoiceOfCustomerEvidenceGapArtifact({
+    acquisitionAttempts,
     definition,
     deps,
     facts: getVoiceOfCustomerCandidateEvidenceGapFacts(result),
@@ -773,6 +803,7 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
   ].join(" ");
 
   return buildVoiceOfCustomerEvidenceGapArtifact({
+    acquisitionAttempts: prepass.acquisitionAttempts,
     definition,
     deps,
     facts,
@@ -4585,6 +4616,7 @@ async function buildAnswerToolAdEvidence({
 }
 
 interface VoiceOfCustomerCandidatePrepass {
+  acquisitionAttempts: VoiceOfCustomerAcquisitionAttempt[];
   candidateBlock: string;
   events: ActivityEvent[];
   result: VoiceOfCustomerCandidateResult;
@@ -4618,8 +4650,27 @@ function buildResearchInputVoiceOfCustomerCandidates(
     researchInput.corpus.excerpts;
 
   return excerpts.flatMap((excerpt) => {
+    const domain = getRegistrableDomain(excerpt.sourceUrl);
+    if (domain === null) {
+      return [];
+    }
+
+    const evidenceKind = inferVoiceOfCustomerEvidenceKind({
+      domain,
+      source: "researchInput",
+      snippet: excerpt.text,
+      title: excerpt.title,
+      url: excerpt.sourceUrl,
+    });
+
+    if (evidenceKind === "article") {
+      return [];
+    }
+
     const candidate = createVoiceOfCustomerCandidate({
+      acquisitionMode: acquisitionModeForEvidenceKind(evidenceKind),
       auditedCompanyDomain: researchInput.company.websiteUrl,
+      evidenceKind,
       source: "researchInput",
       title: excerpt.title,
       url: excerpt.sourceUrl,
@@ -4628,6 +4679,34 @@ function buildResearchInputVoiceOfCustomerCandidates(
 
     return candidate === null ? [] : [candidate];
   });
+}
+
+function acquisitionModeForEvidenceKind(
+  evidenceKind: VoiceOfCustomerEvidenceKind,
+): VoiceOfCustomerAcquisitionMode {
+  if (evidenceKind === "review") {
+    return "review_body";
+  }
+
+  if (evidenceKind === "forum") {
+    return "forum_comment";
+  }
+
+  return "support_thread";
+}
+
+function readVoiceOfCustomerAcquisitionMode(
+  value: unknown,
+): VoiceOfCustomerAcquisitionMode | null {
+  if (
+    value === "review_body" ||
+    value === "forum_comment" ||
+    value === "support_thread"
+  ) {
+    return value;
+  }
+
+  return null;
 }
 
 function createVoiceOfCustomerRecoveryTarget({
@@ -4644,6 +4723,9 @@ function createVoiceOfCustomerRecoveryTarget({
   url: string;
 }): VoiceOfCustomerRecoveryTarget | null {
   const candidate = createVoiceOfCustomerCandidate({
+    acquisitionMode: acquisitionModeForEvidenceKind(
+      evidenceKind ?? "support-thread",
+    ),
     auditedCompanyDomain,
     evidenceKind,
     source,
@@ -4714,7 +4796,11 @@ function buildReviewVoiceOfCustomerCandidates({
     outputRecord.excerpts.map((item) => {
       const itemRecord = getRecord(item);
       const url = getStringProperty(itemRecord, "url");
+      const acquisitionMode = readVoiceOfCustomerAcquisitionMode(
+        itemRecord?.acquisitionMode,
+      );
       const reviewText = getStringProperty(itemRecord, "reviewText");
+      const sourceInstanceId = getStringProperty(itemRecord, "sourceInstanceId");
       const title = getStringProperty(itemRecord, "source") ?? "Review excerpt";
 
       if (url === null) {
@@ -4722,15 +4808,19 @@ function buildReviewVoiceOfCustomerCandidates({
       }
 
       const hasReviewText =
-        reviewText !== null && reviewText.trim().length > 0;
+        reviewText !== null &&
+        reviewText.trim().length > 0 &&
+        acquisitionMode !== null;
       const candidate = hasReviewText
         ? createVoiceOfCustomerCandidate({
+            acquisitionMode,
             auditedCompanyDomain: researchInput.company.websiteUrl,
             evidenceKind: "review",
             source: "reviews",
             title,
             url,
             snippet: reviewText,
+            ...(sourceInstanceId === null ? {} : { sourceInstanceId }),
           })
         : null;
       const recoveryTarget = hasReviewText
@@ -4751,25 +4841,62 @@ function buildReviewVoiceOfCustomerCandidates({
   );
 }
 
-function getWebSearchSnippet(itemRecord: Record<string, unknown> | null): string {
-  const description = getStringProperty(itemRecord, "description");
-  const rawExtraSnippets = itemRecord?.extra_snippets;
-  const extraSnippets = Array.isArray(rawExtraSnippets)
-    ? rawExtraSnippets.flatMap((snippet: unknown): string[] => {
-        if (typeof snippet !== "string") {
-          return [];
-        }
+function parseVoiceOfCustomerAcquisitionAttempt(
+  value: unknown,
+): VoiceOfCustomerAcquisitionAttempt | null {
+  const record = getRecord(value);
+  const url = getStringProperty(record, "url");
+  const domain = getStringProperty(record, "domain");
+  const source = getStringProperty(record, "source");
+  const acquisitionMode = readVoiceOfCustomerAcquisitionMode(
+    record?.acquisitionMode,
+  );
+  const status = getStringProperty(record, "status");
 
-        const trimmed = snippet.trim();
-        return trimmed.length === 0 ? [] : [trimmed];
-      })
-    : [];
+  if (
+    url === null ||
+    domain === null ||
+    source === null ||
+    acquisitionMode === null ||
+    (status !== "succeeded" && status !== "failed")
+  ) {
+    return null;
+  }
 
-  return Array.from(
-    new Set(
-      description === null ? extraSnippets : [description, ...extraSnippets],
-    ),
-  ).join(" ");
+  const gapReason = getStringProperty(record, "gapReason");
+  const message = getStringProperty(record, "message");
+  const title = getStringProperty(record, "title");
+
+  return {
+    acquisitionMode,
+    domain,
+    ...(gapReason === null
+      ? {}
+      : {
+          gapReason: gapReason as VoiceOfCustomerAcquisitionAttempt["gapReason"],
+        }),
+    ...(message === null ? {} : { message }),
+    source,
+    status,
+    ...(title === null ? {} : { title }),
+    url,
+  };
+}
+
+function extractVoiceOfCustomerAcquisitionAttempts(
+  output: unknown,
+): VoiceOfCustomerAcquisitionAttempt[] {
+  const outputRecord = getRecord(output);
+  if (outputRecord?.type !== "result" || !Array.isArray(outputRecord.attempts)) {
+    return [];
+  }
+
+  return outputRecord.attempts
+    .map(parseVoiceOfCustomerAcquisitionAttempt)
+    .filter(
+      (attempt): attempt is VoiceOfCustomerAcquisitionAttempt =>
+        attempt !== null,
+    );
 }
 
 function dedupeVoiceOfCustomerRecoveryTargets(
@@ -4808,33 +4935,20 @@ function buildWebSearchVoiceOfCustomerCandidates({
       const itemRecord = getRecord(item);
       const url = getStringProperty(itemRecord, "url");
       const title = getStringProperty(itemRecord, "title") ?? "Search result";
-      const snippet = getWebSearchSnippet(itemRecord);
 
       if (url === null) {
         return emptyVoiceOfCustomerCandidateCollection();
       }
 
-      const hasSnippet = snippet.trim().length > 0;
-      const candidate = hasSnippet
-        ? createVoiceOfCustomerCandidate({
-            auditedCompanyDomain: researchInput.company.websiteUrl,
-            source: "web_search",
-            title,
-            url,
-            snippet,
-          })
-        : null;
-      const recoveryTarget = hasSnippet
-        ? null
-        : createVoiceOfCustomerRecoveryTarget({
-            auditedCompanyDomain: researchInput.company.websiteUrl,
-            source: "web_search",
-            title,
-            url,
-          });
+      const recoveryTarget = createVoiceOfCustomerRecoveryTarget({
+        auditedCompanyDomain: researchInput.company.websiteUrl,
+        source: "web_search",
+        title,
+        url,
+      });
 
       return oneVoiceOfCustomerCandidateCollection({
-        candidate,
+        candidate: null,
         recoveryTarget,
       });
     }),
@@ -4867,6 +4981,7 @@ function buildFirecrawlVoiceOfCustomerCandidate({
   }
 
   return createVoiceOfCustomerCandidate({
+    acquisitionMode: acquisitionModeForEvidenceKind(evidenceKind),
     auditedCompanyDomain: researchInput.company.websiteUrl,
     evidenceKind,
     source: "firecrawl",
@@ -5052,6 +5167,8 @@ async function buildVoiceOfCustomerCandidatePrepass({
     max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
     mode: "bodies",
   });
+  const acquisitionAttempts =
+    extractVoiceOfCustomerAcquisitionAttempts(reviewOutput);
   const reviewCandidates = buildReviewVoiceOfCustomerCandidates({
     output: reviewOutput,
     researchInput,
@@ -5107,6 +5224,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
   );
 
   return {
+    acquisitionAttempts,
     candidateBlock: formatVoiceOfCustomerCandidateBlock(result),
     events,
     result,
@@ -5909,6 +6027,7 @@ async function runSectionViaAnswerTool(
       }
 
       const evidenceGapArtifact = buildVoiceOfCustomerPrepassEvidenceGapArtifact({
+        acquisitionAttempts: voiceOfCustomerPrepass.acquisitionAttempts,
         definition,
         deps,
         input,
@@ -6446,6 +6565,7 @@ async function runSectionViaStructuredBodyStream(
       }
 
       const evidenceGapArtifact = buildVoiceOfCustomerPrepassEvidenceGapArtifact({
+        acquisitionAttempts: voiceOfCustomerPrepass.acquisitionAttempts,
         definition,
         deps,
         input,

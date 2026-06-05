@@ -78,4 +78,39 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     // still the v3 view, not a crash or a fall-through to legacy
     expect(screen.getByText('Shared Audit')).toBeInTheDocument();
   });
+
+  it('renders reviewed markdown and trust metadata from a shared v3 snapshot', (): void => {
+    const reviewedArtifact = {
+      ...marketCategoryFixtureArtifact,
+      review: {
+        upgradedMarkdown:
+          '# Reviewed market category\n\nUse the narrower wedge before scaling.',
+        tier: 'needs_review',
+        tierRationale: 'One unsupported claim needs client proof.',
+        removedItems: ['Unsupported market-size precision'],
+        clientQuestions: ['Can you provide sourced segment sizing?'],
+      },
+    };
+
+    render(
+      <SharedSessionView
+        title="Acme Positioning Audit"
+        createdAt="2026-06-01T00:00:00.000Z"
+        researchSnapshot={v3Snapshot(reviewedArtifact)}
+        mediaPlanSnapshot={null}
+      />,
+    );
+
+    expect(screen.getByText('Reviewed market category')).toBeInTheDocument();
+    expect(
+      screen.getByText('Use the narrower wedge before scaling.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Review rationale')).toBeInTheDocument();
+    expect(
+      screen.getByText('One unsupported claim needs client proof.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Needs review · 1 unsupported · 67% grounded'))
+      .toBeInTheDocument();
+    expect(screen.getByText('Structured evidence')).toBeInTheDocument();
+  });
 });

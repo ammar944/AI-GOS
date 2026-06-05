@@ -286,6 +286,9 @@ function buildDefaultReviewBodyMarkdown(targetUrl: string | null): string {
       'Rated 2 out of 5 stars',
       'Recovered third-party quote: Support is slow and handoffs are missed when account context is scattered across sales tools.',
       'Date of experience: May 20, 2026',
+      'Rated 3 out of 5 stars',
+      'Recovered third-party quote: The platform is hard to trust when billing handoffs and CRM cleanup still feel manual.',
+      'Date of experience: May 21, 2026',
     ].join('\n');
   }
 
@@ -293,13 +296,18 @@ function buildDefaultReviewBodyMarkdown(targetUrl: string | null): string {
     return [
       '# SaaSLaunch review',
       '',
-      'Recovered third-party quote: Teams complain that account research and next steps stay scattered across notes, creating missed sales handoffs and manual CRM cleanup.',
+      'Cons: Teams complain that account research and next steps stay scattered across notes, creating missed sales handoffs and manual CRM cleanup.',
+      '',
+      'Cons: Operators say reporting setup is confusing and expensive when pipeline notes need manual cleanup.',
     ].join('\n');
   }
 
   return [
     'What do you dislike about SaaSLaunch?',
     'Recovered third-party quote: Our founder-led follow-up gets manual and confusing when notes and account context split across tools.',
+    'Review collected by and hosted on G2.com.',
+    'What problems are you solving with SaaSLaunch?',
+    'Recovered third-party quote: We still miss handoffs after calls because account notes are scattered and support is slow to clean them up.',
     'Review collected by and hosted on G2.com.',
   ].join('\n');
 }
@@ -527,7 +535,8 @@ describe('runSection VoC candidate prepass', (): void => {
       expect(params.prompt).toContain('Use at least 3 independent domains');
       expect(params.prompt).toContain('Align top-level sources');
       expect(params.prompt).toContain('g2.com');
-      expect(params.prompt).toContain('reddit.com');
+      expect(params.prompt).toContain('capterra.com');
+      expect(params.prompt).toContain('trustpilot.com');
 
       emitVoiceOfCustomerEvidenceStep(params);
       if (!checkedFirstDraft) {
@@ -616,13 +625,10 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(reviewDiscoveryUrl).toContain('reviews complaints pain points');
     expect(reviewDiscoveryUrl).toContain('site:reddit.com');
     expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
-    expect(firstDraftPrompt).toContain(
+    expect(firstDraftPrompt).not.toContain(
       'Founder asks how to stop sales follow-up from disappearing after every pipeline review.',
     );
-    expect(firstDraftPrompt).toContain(
-      'Buyers mention missed handoffs after founder-led sales calls.',
-    );
-    expect(firstDraftPrompt).toContain(
+    expect(firstDraftPrompt).not.toContain(
       'Pipeline review snippets describe context loss between notes and CRM.',
     );
     expect(budgetProbeTypes).toEqual([
@@ -662,11 +668,22 @@ describe('runSection VoC candidate prepass', (): void => {
     );
 
     const record = await store.readRun(saaslaunchResearchInput.runId);
+    const evidenceGapReport = result.artifact.body
+      .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
 
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
     expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(evidenceGapReport.acquisitionAttempts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gapReason: 'empty_markdown',
+          status: 'failed',
+          url: expect.stringContaining('g2.com/products/saaslaunch/reviews'),
+        }),
+      ]),
+    );
     expect(streamStructured).not.toHaveBeenCalled();
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(3);
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -700,7 +717,7 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
     expect(result.artifact.body.evidenceGap).toBe(true);
     expect(streamStructured).not.toHaveBeenCalled();
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(3);
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -794,7 +811,7 @@ describe('runSection VoC candidate prepass', (): void => {
       true,
     );
     expect(validationEvent?.metadata.issues.join('\n')).toContain(
-      'reason=insufficient_independent_domains',
+      'reason=no_review_or_forum_surfaces',
     );
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');
@@ -901,15 +918,12 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(streamStructured).toHaveBeenCalledTimes(1);
     expect(result.artifact.body.evidenceGap).toBe(true);
     expect(evidenceGapReport).toMatchObject({
-      foundDistinctPainSourceCount: 6,
-      foundPainQuoteCount: 6,
+      foundDistinctPainSourceCount: 3,
+      foundPainQuoteCount: 7,
       observedPainSourceDomains: [
         'g2.com',
         'capterra.com',
         'trustpilot.com',
-        'reddit.com',
-        'ycombinator.com',
-        'revops.example',
       ],
       reason: 'insufficient_voice_of_customer_sources',
     });

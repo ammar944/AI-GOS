@@ -360,31 +360,54 @@ async function patchProfileSynthesisBestEffort(input: {
   artifact: ArtifactEnvelope;
 }): Promise<void> {
   try {
-    const { data, error } = await input.supabase
+    const { data: sessionData, error: sessionError } = await input.supabase
       .from('journey_sessions')
       .select('profile_id')
       .eq('run_id', input.runId)
       .eq('user_id', input.userId)
       .maybeSingle();
 
-    if (error) {
+    if (sessionError) {
       console.warn('[supabase-run-store] synthesis profile read failed:', {
         userId: input.userId,
         runId: input.runId,
         parentAuditRunId: input.parentAuditRunId,
-        message: error.message,
+        message: sessionError.message,
       });
       return;
     }
 
-    const profileId = (data as { profile_id?: unknown } | null)?.profile_id;
+    const profileId = (sessionData as { profile_id?: unknown } | null)?.profile_id;
     if (typeof profileId !== 'string' || profileId.trim().length === 0) {
       return;
     }
 
+    const { data: sectionData, error: sectionError } = await input.supabase
+      .from('research_artifact_sections')
+      .select('verification_tier, verification_flag')
+      .eq('artifact_id', input.parentAuditRunId)
+      .eq('zone', POSITIONING_SYNTHESIS_SECTION_ID)
+      .maybeSingle();
+
+    if (sectionError) {
+      console.warn('[supabase-run-store] synthesis profile tier read failed:', {
+        userId: input.userId,
+        runId: input.runId,
+        parentAuditRunId: input.parentAuditRunId,
+        message: sectionError.message,
+      });
+      return;
+    }
+
+    const sectionRow = sectionData as {
+      verification_tier?: unknown;
+      verification_flag?: unknown;
+    } | null;
     const insights = buildCommittedSectionProfileInsights({
       sectionId: POSITIONING_SYNTHESIS_SECTION_ID,
       artifact: input.artifact,
+      verificationTier: sectionRow?.verification_tier ?? null,
+      verificationFlag: sectionRow?.verification_flag ?? null,
     });
     const positioningStrategy = asRecordValue(insights.positioningStrategy);
     if (!positioningStrategy) {

@@ -103,6 +103,17 @@ describe("Voice of Customer evidence-gap classification", (): void => {
       ...voiceOfCustomerFixtureArtifact.body,
       evidenceGap: true,
       evidenceGapReport: {
+        acquisitionAttempts: [
+          {
+            acquisitionMode: "review_body",
+            domain: "g2.com",
+            gapReason: "empty_markdown",
+            source: "G2",
+            status: "failed",
+            title: "Acme G2 reviews",
+            url: "https://g2.com/products/acme/reviews",
+          },
+        ],
         foundDistinctPainSourceCount: 2,
         foundPainQuoteCount: 6,
         observedPainSourceDomains: ["g2.com", "reddit.com"],

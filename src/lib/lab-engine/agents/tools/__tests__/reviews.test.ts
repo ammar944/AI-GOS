@@ -193,7 +193,7 @@ describe("reviewsAgentTool", (): void => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("returns a content gap when body scraping has no usable reviews", async (): Promise<void> => {
+  it("returns per-URL attempts when body scraping has no usable reviews", async (): Promise<void> => {
     const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
       const url = requestUrlToString(requestUrl);
 
@@ -224,13 +224,143 @@ describe("reviewsAgentTool", (): void => {
         {},
       ),
     ).resolves.toMatchObject({
-      type: "gap",
-      reason: "content_unavailable",
-      consumesBudget: false,
-      message:
-        "Reviews body mode found no usable Firecrawl review bodies for brand=Ramp searchResults=1 maxBodyPages=1.",
+      type: "result",
+      brand: "Ramp",
+      excerpts: [],
+      attempts: [
+        {
+          acquisitionMode: "review_body",
+          domain: "capterra.com",
+          gapReason: "empty_markdown",
+          source: "Capterra",
+          status: "failed",
+          url: "https://www.capterra.com/p/123/ramp/reviews/",
+        },
+      ],
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("scrapes URL-only SearchAPI body-mode results before rejecting them", async (): Promise<void> => {
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl, requestInit) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.capterra.com/p/123/ramp/reviews/",
+              title: "Ramp Capterra reviews",
+            },
+          ],
+        });
+      }
+
+      const body = JSON.parse(String(requestInit?.body)) as { url?: unknown };
+      expect(body.url).toBe("https://www.capterra.com/p/123/ramp/reviews/");
+      return jsonResponse({
+        data: {
+          markdown: [
+            "Cons: Reporting setup is confusing and the manual approval workflow still creates month-end finance pain for operators.",
+            "Pros: The card controls are helpful once configured.",
+          ].join("\n\n"),
+          metadata: {
+            sourceURL: "https://www.capterra.com/p/123/ramp/reviews/",
+            title: "Ramp Capterra Reviews",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        {
+          brand: "Ramp",
+          max_body_pages: 1,
+          max_results: 1,
+          mode: "bodies",
+        },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      brand: "Ramp",
+      attempts: [
+        {
+          acquisitionMode: "review_body",
+          domain: "capterra.com",
+          source: "Capterra",
+          status: "succeeded",
+        },
+      ],
+      excerpts: [
+        {
+          acquisitionMode: "review_body",
+          source: "Capterra",
+          title: "Ramp Capterra Reviews",
+          url: "https://www.capterra.com/p/123/ramp/reviews/",
+          reviewText:
+            "Reporting setup is confusing and the manual approval workflow still creates month-end finance pain for operators.",
+        },
+      ],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("records blocked JS challenge pages as acquisition attempts", async (): Promise<void> => {
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.reddit.com/r/finance/comments/ramp",
+              snippet: "Reddit users mention approval pain.",
+              title: "Ramp approval pain",
+            },
+          ],
+        });
+      }
+
+      return jsonResponse({
+        data: {
+          markdown:
+            "Just a moment... Enable JavaScript and cookies to continue.",
+          metadata: {
+            sourceURL: "https://www.reddit.com/r/finance/comments/ramp",
+            title: "Ramp approval pain",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        {
+          brand: "Ramp",
+          max_body_pages: 1,
+          max_results: 1,
+          mode: "bodies",
+        },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      attempts: [
+        {
+          acquisitionMode: "forum_comment",
+          domain: "reddit.com",
+          gapReason: "blocked_js_challenge",
+          source: "Web",
+          status: "failed",
+          url: "https://www.reddit.com/r/finance/comments/ramp",
+        },
+      ],
+      excerpts: [],
+    });
   });
 
   it("returns a Firecrawl credential gap before SearchAPI discovery in bodies mode", async (): Promise<void> => {

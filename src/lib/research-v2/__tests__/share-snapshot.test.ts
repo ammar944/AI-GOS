@@ -176,6 +176,63 @@ describe('v3 share snapshot', (): void => {
     });
   });
 
+  it('preserves reviewed artifact body and committed trust metadata in share sections', (): void => {
+    const reviewedArtifact = {
+      ...marketCategoryFixtureArtifact,
+      review: {
+        upgradedMarkdown: '# Reviewed market category\n\nUse the narrower wedge.',
+        tier: 'needs_review',
+        tierRationale: 'One load-bearing claim needs client proof.',
+        removedItems: ['Unsupported market-size precision'],
+        clientQuestions: ['Can you provide sourced segment sizing?'],
+      },
+    };
+
+    const snapshot = buildV3ShareSnapshot({
+      runId,
+      title: 'SaaSLaunch Positioning Audit',
+      sections: [
+        {
+          zone: 'positioningMarketCategory',
+          title: marketCategoryFixtureArtifact.sectionTitle,
+          markdown: 'Reviewed market category markdown.',
+          data: reviewedArtifact,
+          status: 'complete',
+          verification_tier: 'needs_review',
+          verification_flag: {
+            tier: 'needs_review',
+            verifiedCount: 5,
+            unsupportedCount: 1,
+            totalClaims: 6,
+            confidence: 5 / 6,
+            needsReviewThreshold: 0.75,
+            insufficientThreshold: 0.5,
+            evidenceGap: false,
+          },
+          updated_at: '2026-05-25T12:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(snapshot.sections).toHaveLength(1);
+    expect(snapshot.sections[0]).toEqual(
+      expect.objectContaining({
+        verificationTier: 'needs_review',
+        verificationFlag: expect.objectContaining({
+          tier: 'needs_review',
+        }),
+        data: expect.objectContaining({
+          review: expect.objectContaining({
+            tier: 'needs_review',
+            upgradedMarkdown: expect.stringContaining(
+              'Reviewed market category',
+            ),
+          }),
+        }),
+      }),
+    );
+  });
+
   it('creates a shared session row with a v3 normalized snapshot', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase();
 

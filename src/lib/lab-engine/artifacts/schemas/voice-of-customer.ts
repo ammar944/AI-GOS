@@ -103,6 +103,35 @@ const evidenceGapReportSchema = z
     foundDistinctPainSourceCount: z.number().int().nonnegative(),
     requiredDistinctPainSourceCount: z.number().int().positive(),
     observedPainSourceDomains: z.array(z.string().min(1)),
+    acquisitionAttempts: z
+      .array(
+        z
+          .object({
+            url: z.string().min(1),
+            domain: z.string().min(1),
+            source: z.string().min(1),
+            acquisitionMode: z.enum([
+              "review_body",
+              "forum_comment",
+              "support_thread",
+            ]),
+            status: z.enum(["succeeded", "failed"]),
+            gapReason: z
+              .enum([
+                "api_error",
+                "blocked_js_challenge",
+                "empty_markdown",
+                "parser_no_match",
+                "not_independent",
+                "not_product_review",
+              ])
+              .optional(),
+            message: z.string().min(1).optional(),
+            title: z.string().min(1).optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     sourcingPlan: z.array(z.string().min(1)).min(1),
   })
   .strict();

@@ -7,8 +7,17 @@ import {
   getRegistrableDomain,
   selectVoiceOfCustomerCandidates,
   type VoiceOfCustomerCandidate,
+  type VoiceOfCustomerAcquisitionMode,
   type VoiceOfCustomerEvidenceKind,
 } from '../voice-of-customer-candidates';
+
+function acquisitionModeForKind(
+  evidenceKind: VoiceOfCustomerEvidenceKind,
+): VoiceOfCustomerAcquisitionMode {
+  if (evidenceKind === 'review') return 'review_body';
+  if (evidenceKind === 'forum') return 'forum_comment';
+  return 'support_thread';
+}
 
 function makeCandidate(
   index: number,
@@ -16,6 +25,7 @@ function makeCandidate(
   evidenceKind: VoiceOfCustomerEvidenceKind,
 ): VoiceOfCustomerCandidate {
   const candidate = createVoiceOfCustomerCandidate({
+    acquisitionMode: acquisitionModeForKind(evidenceKind),
     auditedCompanyDomain: 'https://ramp.com',
     evidenceKind,
     snippet: `Candidate ${index} says onboarding and handoff pain is concrete enough to quote.`,
@@ -55,6 +65,7 @@ describe('createVoiceOfCustomerCandidate', (): void => {
   it('rejects audited-company registrable domains and subdomains', (): void => {
     expect(
       createVoiceOfCustomerCandidate({
+        acquisitionMode: 'support_thread',
         auditedCompanyDomain: 'https://ramp.com',
         evidenceKind: 'article',
         snippet: 'A homepage quote should not be accepted as independent VoC.',
@@ -66,6 +77,7 @@ describe('createVoiceOfCustomerCandidate', (): void => {
 
     expect(
       createVoiceOfCustomerCandidate({
+        acquisitionMode: 'support_thread',
         auditedCompanyDomain: 'ramp.com',
         evidenceKind: 'support-thread',
         snippet: 'A subdomain support article is still first-party.',
@@ -78,6 +90,7 @@ describe('createVoiceOfCustomerCandidate', (): void => {
 
   it('keeps third-party review and forum URLs even when the path mentions the audited company', (): void => {
     const candidate = createVoiceOfCustomerCandidate({
+      acquisitionMode: 'review_body',
       auditedCompanyDomain: 'https://ramp.com',
       snippet: 'Users complain that receipt matching and approvals take too long.',
       source: 'reviews',
@@ -88,15 +101,30 @@ describe('createVoiceOfCustomerCandidate', (): void => {
     expect(candidate).toEqual(
       expect.objectContaining({
         domain: 'g2.com',
+        acquisitionMode: 'review_body',
         evidenceKind: 'review',
         url: 'https://g2.com/products/ramp/reviews',
       }),
     );
   });
 
+  it('rejects snippet-only candidates without full-body acquisition provenance', (): void => {
+    expect(
+      createVoiceOfCustomerCandidate({
+        auditedCompanyDomain: 'https://ramp.com',
+        evidenceKind: 'review',
+        snippet: 'A SERP snippet says users complain about receipt matching.',
+        source: 'web_search',
+        title: 'Ramp reviews',
+        url: 'https://g2.com/products/ramp/reviews',
+      }),
+    ).toBeNull();
+  });
+
   it('rejects empty URLs and snippets', (): void => {
     expect(
       createVoiceOfCustomerCandidate({
+        acquisitionMode: 'review_body',
         auditedCompanyDomain: 'ramp.com',
         evidenceKind: 'review',
         snippet: '',
@@ -107,6 +135,7 @@ describe('createVoiceOfCustomerCandidate', (): void => {
     ).toBeNull();
     expect(
       createVoiceOfCustomerCandidate({
+        acquisitionMode: 'review_body',
         auditedCompanyDomain: 'ramp.com',
         evidenceKind: 'review',
         snippet: 'Valid text',
@@ -152,6 +181,7 @@ describe('selectVoiceOfCustomerCandidates', (): void => {
 
   it('deduplicates equivalent www and non-www URLs before selecting the pack', (): void => {
     const duplicateNonWww = createVoiceOfCustomerCandidate({
+      acquisitionMode: 'review_body',
       auditedCompanyDomain: 'https://ramp.com',
       snippet:
         'Finance teams say monthly close pain comes from manual exception chasing.',
@@ -160,6 +190,7 @@ describe('selectVoiceOfCustomerCandidates', (): void => {
       url: 'https://g2.com/products/ramp/reviews',
     });
     const duplicateWww = createVoiceOfCustomerCandidate({
+      acquisitionMode: 'review_body',
       auditedCompanyDomain: 'https://ramp.com',
       snippet:
         'Operators say card-policy cleanup still takes too much manual work.',

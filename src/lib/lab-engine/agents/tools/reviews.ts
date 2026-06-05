@@ -11,6 +11,22 @@ import {
   type ToolGap,
 } from "./_shared";
 
+const reviewAcquisitionModes = [
+  "serp_snippet",
+  "review_body",
+  "forum_comment",
+  "support_thread",
+] as const;
+
+const reviewAcquisitionGapReasons = [
+  "api_error",
+  "blocked_js_challenge",
+  "empty_markdown",
+  "parser_no_match",
+  "not_independent",
+  "not_product_review",
+] as const;
+
 export const ReviewsOutputSchema = z.union([
   z
     .object({
@@ -22,22 +38,49 @@ export const ReviewsOutputSchema = z.union([
             source: z.string().min(1),
             url: z.string().min(1),
             snippet: z.string().min(1),
-            acquisitionMode: z
-              .enum(["serp_snippet", "review_body"])
-              .optional(),
+            acquisitionMode: z.enum(reviewAcquisitionModes).optional(),
             title: z.string().min(1).optional(),
             reviewText: z.string().min(1).optional(),
             rating: z.number().nullable().optional(),
             date: z.string().min(1).optional(),
             reviewer: z.string().min(1).optional(),
             role: z.string().min(1).optional(),
+            sourceInstanceId: z.string().min(1).optional(),
           })
           .strict(),
       ),
+      attempts: z
+        .array(
+          z
+            .object({
+              url: z.string().min(1),
+              domain: z.string().min(1),
+              source: z.string().min(1),
+              acquisitionMode: z.enum(reviewAcquisitionModes),
+              status: z.enum(["succeeded", "failed"]),
+              gapReason: z.enum(reviewAcquisitionGapReasons).optional(),
+              message: z.string().min(1).optional(),
+              title: z.string().min(1).optional(),
+            })
+            .strict(),
+        )
+        .optional(),
     })
     .strict(),
   ToolGapSchema,
 ]);
+
+export const ReviewsInputSchema = z
+  .object({
+    brand: z.string().min(1),
+    max_results: z.number().int().positive().default(8),
+    max_body_pages: z.number().int().positive().default(3),
+    mode: z.enum(["snippets", "bodies"]).default("snippets"),
+  })
+  .strict();
+
+type ReviewsInput = z.infer<typeof ReviewsInputSchema>;
+type ReviewsOutput = z.infer<typeof ReviewsOutputSchema>;
 
 interface SearchApiOrganicResult {
   title?: string;
@@ -45,8 +88,12 @@ interface SearchApiOrganicResult {
   snippet?: string;
 }
 
+type ReviewAcquisitionMode = (typeof reviewAcquisitionModes)[number];
+type ReviewAcquisitionGapReason =
+  (typeof reviewAcquisitionGapReasons)[number];
+
 interface ReviewSearchResult {
-  acquisitionMode?: "serp_snippet" | "review_body";
+  acquisitionMode?: ReviewAcquisitionMode;
   source: string;
   title?: string;
   url: string;
@@ -59,6 +106,23 @@ interface ReviewBodyExcerpt extends ReviewSearchResult {
   date?: string;
   reviewer?: string;
   role?: string;
+  sourceInstanceId?: string;
+}
+
+interface ReviewAcquisitionAttempt {
+  acquisitionMode: ReviewAcquisitionMode;
+  domain: string;
+  gapReason?: ReviewAcquisitionGapReason;
+  message?: string;
+  source: string;
+  status: "succeeded" | "failed";
+  title?: string;
+  url: string;
+}
+
+interface ScrapeReviewBodiesResult {
+  attempts: ReviewAcquisitionAttempt[];
+  excerpts: ReviewBodyExcerpt[];
 }
 
 const firecrawlScrapeUrl = "https://api.firecrawl.dev/v2/scrape";
@@ -82,6 +146,59 @@ function deriveReviewSource(url: string): string {
   return "Web";
 }
 
+function getDomain(input: string): string {
+  try {
+    return new URL(input).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return "unknown";
+  }
+}
+
+function getAcquisitionModeForUrl(url: string): ReviewAcquisitionMode {
+  const domain = getDomain(url);
+
+  if (
+    domain === "reddit.com" ||
+    domain.endsWith(".reddit.com") ||
+    domain === "news.ycombinator.com"
+  ) {
+    return "forum_comment";
+  }
+
+  if (
+    domain.includes("community") ||
+    domain.includes("support") ||
+    domain.includes("help") ||
+    /\/(?:community|forum|support|questions?|threads?)\//i.test(url)
+  ) {
+    return "support_thread";
+  }
+
+  return "review_body";
+}
+
+function createAttempt(input: {
+  gapReason?: ReviewAcquisitionGapReason;
+  message?: string;
+  searchResult: ReviewSearchResult;
+  status: ReviewAcquisitionAttempt["status"];
+}): ReviewAcquisitionAttempt {
+  return {
+    acquisitionMode:
+      input.searchResult.acquisitionMode ??
+      getAcquisitionModeForUrl(input.searchResult.url),
+    domain: getDomain(input.searchResult.url),
+    ...(input.gapReason === undefined ? {} : { gapReason: input.gapReason }),
+    ...(input.message === undefined ? {} : { message: input.message }),
+    source: input.searchResult.source,
+    status: input.status,
+    ...(input.searchResult.title === undefined
+      ? {}
+      : { title: input.searchResult.title }),
+    url: input.searchResult.url,
+  };
+}
+
 function normalizeReviewText(input: string): string {
   return input
     .replace(/\[[^\]]+\]\([^)]+\)/g, "")
@@ -94,6 +211,16 @@ function truncateReviewText(input: string): string {
   const normalized = normalizeReviewText(input);
 
   return normalized.length > 700 ? `${normalized.slice(0, 697)}...` : normalized;
+}
+
+function hashText(input: string): string {
+  let hash = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(36);
 }
 
 function hasPainSignal(input: string): boolean {
@@ -165,6 +292,7 @@ function isProductReviewText(input: string): boolean {
 }
 
 function reviewBodyExcerpt(input: {
+  acquisitionMode: ReviewAcquisitionMode;
   date?: string;
   rating?: number | null;
   reviewText: string;
@@ -181,9 +309,10 @@ function reviewBodyExcerpt(input: {
 
   return {
     ...input.searchResult,
-    acquisitionMode: "review_body",
+    acquisitionMode: input.acquisitionMode,
     snippet: reviewText,
     reviewText,
+    sourceInstanceId: `${getDomain(input.searchResult.url)}:${hashText(reviewText)}`,
     ...(input.rating === undefined ? {} : { rating: input.rating }),
     ...(input.date === undefined || input.date.length === 0
       ? {}
@@ -234,6 +363,7 @@ function extractTrustpilotReviewBodies(
     }
 
     const excerpt = reviewBodyExcerpt({
+      acquisitionMode: getAcquisitionModeForUrl(searchResult.url),
       date,
       rating,
       reviewText: textLines.join(" "),
@@ -294,6 +424,7 @@ function extractG2ReviewBodies(
     }
 
     const excerpt = reviewBodyExcerpt({
+      acquisitionMode: getAcquisitionModeForUrl(searchResult.url),
       rating: null,
       reviewText: textLines
         .join(" ")
@@ -311,6 +442,98 @@ function extractG2ReviewBodies(
   }
 
   return excerpts;
+}
+
+function extractCapterraReviewBodies(
+  markdown: string,
+  searchResult: ReviewSearchResult,
+): ReviewBodyExcerpt[] {
+  const blocks = markdown.split(/(?=^\s*(?:Pros|Cons|Overall):)/im);
+  const excerpts: ReviewBodyExcerpt[] = [];
+
+  for (const block of blocks) {
+    if (!/^\s*(?:Cons|Overall):/i.test(block)) {
+      continue;
+    }
+
+    const text = block
+      .split("\n")
+      .map((line) =>
+        line
+          .replace(/^\s*(?:Pros|Cons|Overall):\s*/i, "")
+          .replace(/^\s*(?:Show More|Read more|Review Source).*$/i, ""),
+      )
+      .join(" ");
+    const excerpt = reviewBodyExcerpt({
+      acquisitionMode: "review_body",
+      rating: null,
+      reviewText: text,
+      searchResult,
+    });
+
+    if (excerpt !== null) {
+      excerpts.push(excerpt);
+    }
+
+    if (excerpts.length >= maxReviewBodiesPerPage) {
+      break;
+    }
+  }
+
+  return excerpts;
+}
+
+function extractForumCommentBodies(
+  markdown: string,
+  searchResult: ReviewSearchResult,
+): ReviewBodyExcerpt[] {
+  const comments = markdown
+    .split(/\n{2,}|(?=^\s*(?:[-*]\s*)?(?:comment|reply|user|points|\d+\s+points)\b)/im)
+    .map((comment) =>
+      normalizeReviewText(
+        comment.replace(/^\s*(?:[-*]\s*)?(?:comment|reply|user|points|\d+\s+points)[:\s-]*/i, ""),
+      ),
+    )
+    .filter(
+      (comment) =>
+        comment.length >= reviewBodyMinChars &&
+        comment.length <= 1_200 &&
+        hasPainSignal(comment),
+    );
+  const seen = new Set<string>();
+  const excerpts: ReviewBodyExcerpt[] = [];
+
+  for (const comment of comments) {
+    const key = comment.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const excerpt = reviewBodyExcerpt({
+      acquisitionMode: "forum_comment",
+      reviewText: comment,
+      searchResult,
+    });
+
+    if (excerpt !== null) {
+      excerpts.push(excerpt);
+    }
+
+    if (excerpts.length >= maxReviewBodiesPerPage) {
+      break;
+    }
+  }
+
+  return excerpts;
+}
+
+function extractSupportThreadBodies(
+  markdown: string,
+  searchResult: ReviewSearchResult,
+): ReviewBodyExcerpt[] {
+  return extractGenericReviewBodies(markdown, {
+    ...searchResult,
+    acquisitionMode: "support_thread",
+  });
 }
 
 function extractGenericReviewBodies(
@@ -338,6 +561,8 @@ function extractGenericReviewBodies(
 
     seen.add(key);
     const excerpt = reviewBodyExcerpt({
+      acquisitionMode:
+        searchResult.acquisitionMode ?? getAcquisitionModeForUrl(searchResult.url),
       reviewText: paragraph,
       searchResult,
     });
@@ -366,14 +591,45 @@ function extractReviewBodies(
     return extractG2ReviewBodies(markdown, searchResult);
   }
 
+  if (searchResult.source === "Capterra") {
+    return extractCapterraReviewBodies(markdown, searchResult);
+  }
+
+  const acquisitionMode =
+    searchResult.acquisitionMode ?? getAcquisitionModeForUrl(searchResult.url);
+  if (acquisitionMode === "forum_comment") {
+    return extractForumCommentBodies(markdown, {
+      ...searchResult,
+      acquisitionMode,
+    });
+  }
+  if (acquisitionMode === "support_thread") {
+    return extractSupportThreadBodies(markdown, {
+      ...searchResult,
+      acquisitionMode,
+    });
+  }
+
   return extractGenericReviewBodies(markdown, searchResult);
+}
+
+function isBlockedPage(markdown: string): boolean {
+  return /(?:captcha|cloudflare|enable javascript|just a moment|verify you are human|access denied|unusual traffic)/i.test(
+    markdown,
+  );
 }
 
 async function scrapeReviewBodies(input: {
   abortSignal?: AbortSignal;
   apiKey: string;
   searchResult: ReviewSearchResult;
-}): Promise<ReviewBodyExcerpt[]> {
+}): Promise<ScrapeReviewBodiesResult> {
+  const baseSearchResult = {
+    ...input.searchResult,
+    acquisitionMode:
+      input.searchResult.acquisitionMode ??
+      getAcquisitionModeForUrl(input.searchResult.url),
+  };
   const response = await timedFetch(firecrawlScrapeUrl, {
     method: "POST",
     headers: {
@@ -383,15 +639,32 @@ async function scrapeReviewBodies(input: {
     body: JSON.stringify({
       blockAds: true,
       formats: ["markdown"],
+      location: {
+        country: "US",
+        languages: ["en-US"],
+      },
       onlyMainContent: true,
+      proxy: "auto",
+      timeout: reviewBodyScrapeTimeoutMs,
       url: input.searchResult.url,
+      waitFor: 1_000,
     }),
     abortSignal: input.abortSignal,
     timeoutMs: reviewBodyScrapeTimeoutMs,
   });
 
   if (!response.ok) {
-    return [];
+    return {
+      attempts: [
+        createAttempt({
+          gapReason: "api_error",
+          message: `Firecrawl scrape status ${response.status}`,
+          searchResult: baseSearchResult,
+          status: "failed",
+        }),
+      ],
+      excerpts: [],
+    };
   }
 
   const data = (await response.json()) as {
@@ -403,18 +676,50 @@ async function scrapeReviewBodies(input: {
   const markdown = data.data?.markdown ?? "";
 
   if (markdown.trim().length < reviewBodyMinChars) {
-    return [];
+    return {
+      attempts: [
+        createAttempt({
+          gapReason: "empty_markdown",
+          searchResult: baseSearchResult,
+          status: "failed",
+        }),
+      ],
+      excerpts: [],
+    };
+  }
+
+  if (isBlockedPage(markdown)) {
+    return {
+      attempts: [
+        createAttempt({
+          gapReason: "blocked_js_challenge",
+          searchResult: baseSearchResult,
+          status: "failed",
+        }),
+      ],
+      excerpts: [],
+    };
   }
 
   const sourceUrl = data.data?.metadata?.sourceURL;
   const sourceTitle = data.data?.metadata?.title;
   const searchResult = {
-    ...input.searchResult,
+    ...baseSearchResult,
     ...(sourceUrl === undefined ? {} : { url: sourceUrl }),
     ...(sourceTitle === undefined ? {} : { title: sourceTitle }),
   };
+  const excerpts = extractReviewBodies(markdown, searchResult);
 
-  return extractReviewBodies(markdown, searchResult);
+  return {
+    attempts: [
+      createAttempt({
+        gapReason: excerpts.length === 0 ? "parser_no_match" : undefined,
+        searchResult,
+        status: excerpts.length === 0 ? "failed" : "succeeded",
+      }),
+    ],
+    excerpts,
+  };
 }
 
 function buildSnippetExcerpts(
@@ -431,11 +736,10 @@ function buildSnippetExcerpts(
 
 async function buildBodyExcerpts(input: {
   abortSignal?: AbortSignal;
-  brand: string;
   firecrawlApiKey: string;
   maxBodyPages: number;
   searchResults: readonly ReviewSearchResult[];
-}): Promise<ReviewBodyExcerpt[] | ToolGap> {
+}): Promise<ScrapeReviewBodiesResult> {
   const bodyResults = await Promise.allSettled(
     input.searchResults.slice(0, input.maxBodyPages).map((searchResult) =>
       scrapeReviewBodies({
@@ -445,35 +749,31 @@ async function buildBodyExcerpts(input: {
       }),
     ),
   );
-  const bodyExcerpts = bodyResults.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : [],
+  const fulfilledResults = bodyResults.flatMap((result) =>
+    result.status === "fulfilled"
+      ? [result.value]
+      : [
+          {
+            attempts: [],
+            excerpts: [],
+          } satisfies ScrapeReviewBodiesResult,
+        ],
   );
+  const bodyExcerpts = fulfilledResults.flatMap((result) => result.excerpts);
+  const attempts = fulfilledResults.flatMap((result) => result.attempts);
 
-  if (bodyExcerpts.length > 0) {
-    return bodyExcerpts;
-  }
-
-  return nonConsumingContentGap(
-    `Reviews body mode found no usable Firecrawl review bodies for brand=${input.brand} searchResults=${input.searchResults.length} maxBodyPages=${input.maxBodyPages}.`,
-  );
+  return { attempts, excerpts: bodyExcerpts };
 }
 
-export const reviewsAgentTool = tool({
+export const reviewsAgentTool = tool<ReviewsInput, ReviewsOutput>({
   description:
     "SearchAPI Google SERP snippets from review/forum domains, with optional Firecrawl review-body scraping; not direct G2, Capterra, or Trustpilot APIs.",
-  inputSchema: z
-    .object({
-      brand: z.string().min(1),
-      max_results: z.number().int().positive().default(8),
-      max_body_pages: z.number().int().positive().default(3),
-      mode: z.enum(["snippets", "bodies"]).default("snippets"),
-    })
-    .strict(),
+  inputSchema: ReviewsInputSchema,
   outputSchema: ReviewsOutputSchema,
   execute: async (
     { brand, max_body_pages = 3, max_results = 8, mode = "snippets" },
     { abortSignal },
-  ) => {
+  ): Promise<ReviewsOutput> => {
     const apiKey = process.env.SEARCHAPI_KEY;
 
     if (apiKey === undefined || apiKey.trim() === "") {
@@ -511,29 +811,38 @@ export const reviewsAgentTool = tool({
           (result) =>
             result.link !== undefined &&
             result.link.length > 0 &&
-            result.snippet !== undefined &&
-            result.snippet.length > 0,
+            (mode === "bodies" ||
+              (result.snippet !== undefined && result.snippet.length > 0)),
         )
         .map((result) => ({
+          acquisitionMode: getAcquisitionModeForUrl(result.link ?? ""),
           source: deriveReviewSource(result.link ?? ""),
           ...(result.title === undefined ? {} : { title: result.title }),
           url: result.link ?? "",
-          snippet: result.snippet ?? "",
+          snippet:
+            result.snippet ??
+            "SearchAPI discovered this URL without a snippet; body acquisition required before quote promotion.",
         }));
       if (mode === "bodies") {
-        const excerpts = await buildBodyExcerpts({
+        const bodyResult = await buildBodyExcerpts({
           abortSignal,
-          brand,
           firecrawlApiKey: firecrawlApiKey ?? "",
           maxBodyPages: Math.min(max_body_pages, max_results),
           searchResults,
         });
 
-        if (!Array.isArray(excerpts)) {
-          return excerpts;
+        if (bodyResult.excerpts.length === 0 && bodyResult.attempts.length === 0) {
+          return nonConsumingContentGap(
+            `Reviews body mode found no usable Firecrawl review bodies for brand=${brand} searchResults=${searchResults.length} maxBodyPages=${max_body_pages}.`,
+          );
         }
 
-        return { type: "result" as const, brand, excerpts };
+        return {
+          type: "result" as const,
+          brand,
+          attempts: bodyResult.attempts,
+          excerpts: bodyResult.excerpts,
+        };
       }
 
       const excerpts = buildSnippetExcerpts(searchResults);

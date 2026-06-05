@@ -10,13 +10,20 @@ export type VoiceOfCustomerEvidenceKind =
   | "support-thread"
   | "article";
 
+export type VoiceOfCustomerAcquisitionMode =
+  | "review_body"
+  | "forum_comment"
+  | "support_thread";
+
 export interface VoiceOfCustomerCandidate {
+  acquisitionMode: VoiceOfCustomerAcquisitionMode;
   source: VoiceOfCustomerCandidateSource;
   evidenceKind: VoiceOfCustomerEvidenceKind;
   title: string;
   url: string;
   domain: string;
   snippet: string;
+  sourceInstanceId?: string;
 }
 
 export interface VoiceOfCustomerCandidatePack {
@@ -45,12 +52,14 @@ export const VOC_CANDIDATE_PER_DOMAIN_CAP = 4;
 export const VOC_PREPASS_MAX_LOOKUPS = 3;
 
 interface CreateVoiceOfCustomerCandidateInput {
+  acquisitionMode?: VoiceOfCustomerAcquisitionMode;
   auditedCompanyDomain: string;
   evidenceKind?: VoiceOfCustomerEvidenceKind;
   source: VoiceOfCustomerCandidateSource;
   title?: string;
   url: string;
   snippet: string;
+  sourceInstanceId?: string;
 }
 
 interface RankedCandidate {
@@ -157,7 +166,7 @@ function includesSignal(
   return signals.some((signal) => haystack.includes(signal));
 }
 
-function inferEvidenceKind({
+export function inferVoiceOfCustomerEvidenceKind({
   domain,
   source,
   snippet,
@@ -303,6 +312,10 @@ export function createVoiceOfCustomerCandidate(
     return null;
   }
 
+  if (input.acquisitionMode === undefined) {
+    return null;
+  }
+
   if (auditedDomain !== null && domain === auditedDomain) {
     return null;
   }
@@ -310,7 +323,7 @@ export function createVoiceOfCustomerCandidate(
   const title = input.title?.trim() ?? domain;
   const evidenceKind =
     input.evidenceKind ??
-    inferEvidenceKind({
+    inferVoiceOfCustomerEvidenceKind({
       domain,
       source: input.source,
       snippet,
@@ -319,12 +332,16 @@ export function createVoiceOfCustomerCandidate(
     });
 
   return {
+    acquisitionMode: input.acquisitionMode,
     source: input.source,
     evidenceKind,
     title: title.length === 0 ? domain : title,
     url: normalizedUrl,
     domain,
     snippet,
+    ...(input.sourceInstanceId === undefined
+      ? {}
+      : { sourceInstanceId: input.sourceInstanceId }),
   };
 }
 
@@ -339,7 +356,9 @@ export function selectVoiceOfCustomerCandidates(
   const selectedCandidates: VoiceOfCustomerCandidate[] = [];
 
   for (const { candidate } of rankedCandidates) {
-    if (seenUrls.has(candidate.url)) {
+    const dedupeKey = candidate.sourceInstanceId ?? candidate.url;
+
+    if (seenUrls.has(dedupeKey)) {
       continue;
     }
 
@@ -348,7 +367,7 @@ export function selectVoiceOfCustomerCandidates(
       continue;
     }
 
-    seenUrls.add(candidate.url);
+    seenUrls.add(dedupeKey);
     domainCounts.set(candidate.domain, domainCount + 1);
     selectedCandidates.push(candidate);
 
@@ -428,6 +447,7 @@ export function formatVoiceOfCustomerCandidateBlock(
       (candidate, index) =>
         `${index + 1}. [${candidate.evidenceKind} via ${
           candidate.source
+        }/${candidate.acquisitionMode
         }] ${candidate.title} (${candidate.domain})\n   URL: ${
           candidate.url
         }\n   Snippet: ${truncateSnippet(candidate.snippet)}`,
