@@ -34,6 +34,7 @@ import {
   persistAuditProfileBestEffort,
 } from '@/lib/profiles/section-profile-persistence';
 import { patchBusinessProfileInsights } from '@/lib/profiles/business-profiles';
+import { refreshV3SharedSessionSnapshotsBestEffort } from '@/lib/research-v2/share-snapshot';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
@@ -466,6 +467,42 @@ async function claimProfilePersist(input: {
   return (data?.length ?? 0) === 1;
 }
 
+async function isParentAuditComplete(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+}): Promise<boolean> {
+  const { data, error } = await input.supabase
+    .from('research_artifacts')
+    .select('status')
+    .eq('id', input.parentAuditRunId)
+    .maybeSingle();
+
+  if (error) {
+    throw new SupabaseRunStoreError(
+      `research_artifacts status lookup failed for parent_audit_run_id=${input.parentAuditRunId}: ${error.message}`,
+    );
+  }
+
+  return (data as { status?: unknown } | null)?.status === 'complete';
+}
+
+async function markProfileSynced(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+  syncedAt: string;
+}): Promise<void> {
+  const { error } = await input.supabase
+    .from('research_artifacts')
+    .update({ profile_persisted_at: input.syncedAt })
+    .eq('id', input.parentAuditRunId);
+
+  if (error) {
+    throw new SupabaseRunStoreError(
+      `research_artifacts profile sync timestamp update failed for parent_audit_run_id=${input.parentAuditRunId}: ${error.message}`,
+    );
+  }
+}
+
 async function emitProfilePersistedEvent(input: {
   supabase: SupabaseClient;
   parentAuditRunId: string;
@@ -690,8 +727,14 @@ export function createSupabaseRunStore(
         parentAuditRunId: options.parentAuditRunId,
         persistedAt: completedAt,
       });
+      const parentAuditComplete =
+        profilePersistClaimed ||
+        (await isParentAuditComplete({
+          supabase: options.supabase,
+          parentAuditRunId: options.parentAuditRunId,
+        }));
 
-      if (profilePersistClaimed) {
+      if (parentAuditComplete) {
         const profileId = await persistAuditProfileBestEffort({
           supabase: options.supabase,
           userId: options.userId,
@@ -701,13 +744,29 @@ export function createSupabaseRunStore(
         });
 
         if (profileId) {
-          await emitProfilePersistedEvent({
-            supabase: options.supabase,
-            parentAuditRunId: options.parentAuditRunId,
-            runId: input.runId,
-            profileId,
-          });
+          if (!profilePersistClaimed) {
+            await markProfileSynced({
+              supabase: options.supabase,
+              parentAuditRunId: options.parentAuditRunId,
+              syncedAt: completedAt,
+            });
+          }
+
+          if (profilePersistClaimed) {
+            await emitProfilePersistedEvent({
+              supabase: options.supabase,
+              parentAuditRunId: options.parentAuditRunId,
+              runId: input.runId,
+              profileId,
+            });
+          }
         }
+
+        await refreshV3SharedSessionSnapshotsBestEffort({
+          supabase: options.supabase,
+          userId: options.userId,
+          runId: input.runId,
+        });
       } else {
         await patchProfileSectionBestEffort({
           supabase: options.supabase,

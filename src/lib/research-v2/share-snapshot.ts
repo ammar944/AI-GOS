@@ -56,6 +56,13 @@ interface CreateV3SharedSessionResult {
   shareUrl: string;
 }
 
+interface RefreshV3SharedSessionSnapshotsInput {
+  supabase: SupabaseClient;
+  userId: string;
+  runId: string;
+  title?: string;
+}
+
 interface JourneySessionShareRow {
   id: string;
   metadata: Record<string, unknown> | null;
@@ -65,12 +72,25 @@ interface ParentAuditShareRow {
   id: string;
 }
 
+interface ExistingSharedSessionRow {
+  share_token: string | null;
+  title: string | null;
+  research_snapshot: unknown;
+}
+
+interface V3ShareSnapshotContext {
+  session: JourneySessionShareRow;
+  sections: ResearchArtifactSectionShareRow[];
+  title: string;
+}
+
 export type ShareSnapshotErrorCode =
   | 'session_not_found'
   | 'v3_artifact_not_found'
   | 'v3_sections_not_found'
   | 'lookup_failed'
-  | 'insert_failed';
+  | 'insert_failed'
+  | 'update_failed';
 
 export class ShareSnapshotError extends Error {
   public readonly code: ShareSnapshotErrorCode;
@@ -158,9 +178,12 @@ export function isV3ShareResearchSnapshot(
   return Array.isArray(value.sections);
 }
 
-export async function createV3SharedSession(
-  input: CreateV3SharedSessionInput,
-): Promise<CreateV3SharedSessionResult> {
+async function loadV3ShareSnapshotContext(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  runId: string;
+  title?: string;
+}): Promise<V3ShareSnapshotContext> {
   const { data: sessionData, error: sessionError } = await input.supabase
     .from('journey_sessions')
     .select('id, metadata')
@@ -221,10 +244,11 @@ export async function createV3SharedSession(
   }
 
   const title = buildDefaultShareTitle({ title: input.title, session });
+  const sections = (sectionData ?? []) as ResearchArtifactSectionShareRow[];
   const snapshot = buildV3ShareSnapshot({
     runId: input.runId,
     title,
-    sections: (sectionData ?? []) as ResearchArtifactSectionShareRow[],
+    sections,
   });
 
   if (snapshot.sections.length === 0) {
@@ -234,10 +258,28 @@ export async function createV3SharedSession(
     );
   }
 
+  return {
+    session,
+    sections,
+    title,
+  };
+}
+
+export async function createV3SharedSession(
+  input: CreateV3SharedSessionInput,
+): Promise<CreateV3SharedSessionResult> {
+  const context = await loadV3ShareSnapshotContext(input);
+  const title = context.title;
+  const snapshot = buildV3ShareSnapshot({
+    runId: input.runId,
+    title,
+    sections: context.sections,
+  });
+
   const shareToken = (input.newShareToken ?? generateShareToken)();
   const { error: insertError } = await input.supabase.from('shared_sessions').insert({
     share_token: shareToken,
-    session_id: session.id,
+    session_id: context.session.id,
     owner_user_id: input.userId,
     title,
     research_snapshot: snapshot,
@@ -255,4 +297,82 @@ export async function createV3SharedSession(
     shareToken,
     shareUrl: `${normalizeAppUrl(input.appUrl)}/shared/${shareToken}`,
   };
+}
+
+export async function refreshV3SharedSessionSnapshots(
+  input: RefreshV3SharedSessionSnapshotsInput,
+): Promise<number> {
+  const context = await loadV3ShareSnapshotContext(input);
+  const { data: sharedRows, error: sharedRowsError } = await input.supabase
+    .from('shared_sessions')
+    .select('share_token, title, research_snapshot')
+    .eq('session_id', context.session.id)
+    .eq('owner_user_id', input.userId);
+
+  if (sharedRowsError) {
+    throw new ShareSnapshotError(
+      `shared_sessions refresh lookup failed for userId=${input.userId} runId=${input.runId} sessionId=${context.session.id}: ${sharedRowsError.message}`,
+      'lookup_failed',
+    );
+  }
+
+  if (!Array.isArray(sharedRows)) {
+    throw new ShareSnapshotError(
+      `shared_sessions refresh lookup returned non-array data for userId=${input.userId} runId=${input.runId} sessionId=${context.session.id}`,
+      'lookup_failed',
+    );
+  }
+
+  let refreshed = 0;
+  for (const row of sharedRows as ExistingSharedSessionRow[]) {
+    if (!isV3ShareResearchSnapshot(row.research_snapshot)) {
+      continue;
+    }
+
+    const shareToken = nonEmptyString(row.share_token);
+    if (shareToken === null) {
+      continue;
+    }
+
+    const title = nonEmptyString(row.title) ?? context.title;
+    const snapshot = buildV3ShareSnapshot({
+      runId: input.runId,
+      title,
+      sections: context.sections,
+    });
+    const { error: updateError } = await input.supabase
+      .from('shared_sessions')
+      .update({
+        title,
+        research_snapshot: snapshot,
+      })
+      .eq('share_token', shareToken)
+      .eq('owner_user_id', input.userId);
+
+    if (updateError) {
+      throw new ShareSnapshotError(
+        `shared_sessions refresh update failed for userId=${input.userId} runId=${input.runId} shareToken=${shareToken}: ${updateError.message}`,
+        'update_failed',
+      );
+    }
+
+    refreshed += 1;
+  }
+
+  return refreshed;
+}
+
+export async function refreshV3SharedSessionSnapshotsBestEffort(
+  input: RefreshV3SharedSessionSnapshotsInput,
+): Promise<number> {
+  try {
+    return await refreshV3SharedSessionSnapshots(input);
+  } catch (error) {
+    console.warn('[share-snapshot] v3 share refresh failed', {
+      userId: input.userId,
+      runId: input.runId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
 }

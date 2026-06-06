@@ -34,6 +34,7 @@ export interface BackfillRunResult {
     pipeline: string;
     researchQuality: string;
     actionability: string;
+    projectionSync: string;
     projectionTrust: string;
     strategyQuality: string;
   };
@@ -146,6 +147,7 @@ function summarizeReport(
       pipeline: report.gates.pipeline.status,
       researchQuality: report.gates.researchQuality.status,
       actionability: report.gates.actionability.status,
+      projectionSync: report.gates.projectionSync.status,
       projectionTrust: report.gates.projectionTrust.status,
       strategyQuality: report.gates.strategyQuality.status,
     },

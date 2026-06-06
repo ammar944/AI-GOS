@@ -38,6 +38,10 @@ import {
   getDeepResearchProgramData,
   loadOwnedResearchSession,
 } from '@/lib/research-v2/orchestration-session';
+import {
+  evaluateResearchEvidenceReadiness,
+  type ResearchEvidenceReadinessRow,
+} from '@/lib/research-v2/research-evidence-readiness';
 import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/uploaded-document-context.server';
 import { createAdminClient } from '@/lib/supabase/server';
 
@@ -116,8 +120,11 @@ function buildLabSectionProviderPreflightResponse({
 }
 
 function isCommittedPositioningArtifactRow(
-  row: { zone: string | null; data: unknown },
-): row is { zone: PositioningSectionId; data: unknown } {
+  row: ResearchEvidenceReadinessRow,
+): row is ResearchEvidenceReadinessRow & {
+  zone: PositioningSectionId;
+  data: unknown;
+} {
   return (POSITIONING_SECTION_IDS as readonly string[]).includes(row.zone ?? '');
 }
 
@@ -165,7 +172,7 @@ async function buildCommittedArtifactsResearchInput({
 > {
   const { data, error } = await supabase
     .from('research_artifact_sections')
-    .select('zone, data')
+    .select('zone, data, verification_tier, verification_flag')
     .eq('artifact_id', parentAuditRunId)
     .eq('status', 'complete')
     .in('zone', [
@@ -188,7 +195,7 @@ async function buildCommittedArtifactsResearchInput({
     };
   }
 
-  const rawRows = (data ?? []) as Array<{ zone: string | null; data: unknown }>;
+  const rawRows = (data ?? []) as ResearchEvidenceReadinessRow[];
   const rows = rawRows.filter(isCommittedPositioningArtifactRow);
   const crossSectionReasoningArtifact = includeCrossSectionReasoningArtifact
     ? rawRows.find((row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID)
@@ -224,6 +231,23 @@ async function buildCommittedArtifactsResearchInput({
         {
           error: 'cross_section_reasoning_not_ready',
           missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
+        },
+        { status: 409 },
+      ),
+    };
+  }
+
+  const readiness = evaluateResearchEvidenceReadiness(rawRows);
+  if (!readiness.ready) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'research_evidence_not_ready',
+          message:
+            'Committed core section artifacts are complete but not research-ready for capstone synthesis',
+          blocked_sections: readiness.blockedSections,
+          reasons: readiness.reasons,
         },
         { status: 409 },
       ),

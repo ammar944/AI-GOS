@@ -397,9 +397,11 @@ describe('live quality gate', (): void => {
       pipeline: { status: 'recovered' },
       researchQuality: { status: 'verified' },
       actionability: { status: 'verified' },
+      projectionSync: { status: 'verified' },
       projectionTrust: { status: 'verified' },
       strategyQuality: { status: 'nine_of_ten' },
     });
+    expect(result.blockedBy).toEqual([]);
   });
 
   it('lets research_grade_with_gaps pass the research-quality headline without becoming verified', (): void => {
@@ -638,6 +640,44 @@ describe('live quality gate', (): void => {
     );
     expect(result.gates.researchQuality.status).toBe('insufficient');
     expect(result.gates.actionability.status).toBe('not_verified');
+    expect(result.blockedBy).toContain('positioningBuyerICP');
+  });
+
+  it('treats unavailable review coverage as a warning instead of downgrading clean deterministic evidence', (): void => {
+    const base = createCompleteInput({ includePassingCritique: true });
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningMarketCategory'
+        ? createSectionRow({
+            zone: 'positioningMarketCategory',
+            tier: 'verified',
+            artifact: {
+              ...defaultArtifactForZone('positioningMarketCategory'),
+              review: {
+                upgradedMarkdown: '# Market category\n\nOriginal artifact retained.',
+                tier: 'unavailable',
+                tierRationale: 'Agentic review unavailable: timeout',
+                removedItems: [],
+                clientQuestions: [],
+                errorDiagnostics: { message: 'timeout' },
+              },
+            },
+          })
+        : section,
+    );
+
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+
+    expect(result.gates.researchQuality.status).toBe('verified');
+    expect(result.gates.actionability.status).toBe('verified');
+    expect(result.warnings).toContain(
+      'positioningMarketCategory review coverage unavailable',
+    );
+    expect(
+      result.gates.researchQuality.reasons.some((reason) =>
+        reason.includes('review tier is unavailable'),
+      ),
+    ).toBe(false);
+    expect(result.blockedBy).toEqual([]);
   });
 
   it('allows BuyerICP two named identities plus a specific gap to be research-grade with caveats', (): void => {
@@ -731,7 +771,9 @@ describe('live quality gate', (): void => {
     });
 
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
+    expect(result.gates.projectionSync.status).toBe('mismatch');
     expect(result.gates.projectionTrust.status).toBe('mismatch');
+    expect(result.blockedBy).toContain('projectionSync');
     expect(result.failures).toContain(
       'profile ai_insights.positioningSynthesis.verificationTier=verified does not match committed needs_review',
     );

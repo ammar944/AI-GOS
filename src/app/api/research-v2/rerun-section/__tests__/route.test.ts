@@ -6,6 +6,7 @@ import {
   POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { SECTION_REGISTRY } from '@/lib/lab-engine/sections/section-registry';
 
 const RUN_ID = '00000000-0000-4000-8000-0000000000aa';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -128,25 +129,58 @@ function mockSeeded(): void {
 
 function committedPositioningRows(): Array<{
   zone: PositioningSectionId;
-  data: { sectionTitle: string };
+  data: unknown;
+  verification_tier: string;
+  verification_flag: Record<string, unknown>;
 }> {
   return POSITIONING_SECTION_IDS.map((zone) => ({
     zone,
-    data: { sectionTitle: zone },
+    data: SECTION_REGISTRY[zone].fixtureArtifact,
+    verification_tier: 'verified',
+    verification_flag: verifiedFlag(),
   }));
 }
 
 function committedRowsWithCrossSectionReasoning(): Array<{
   zone: PositioningSectionId | typeof CROSS_SECTION_REASONING_SECTION_ID;
-  data: { sectionTitle: string };
+  data: unknown;
+  verification_tier: string;
+  verification_flag: Record<string, unknown>;
 }> {
   return [
     ...committedPositioningRows(),
     {
       zone: CROSS_SECTION_REASONING_SECTION_ID,
-      data: { sectionTitle: 'Cross-Section Reasoning' },
+      data: SECTION_REGISTRY[CROSS_SECTION_REASONING_SECTION_ID].fixtureArtifact,
+      verification_tier: 'verified',
+      verification_flag: verifiedFlag(),
     },
   ];
+}
+
+function verifiedFlag(): Record<string, unknown> {
+  return {
+    tier: 'verified',
+    verifiedCount: 8,
+    unsupportedCount: 0,
+    totalClaims: 8,
+    confidence: 1,
+    needsReviewThreshold: 0.75,
+    insufficientThreshold: 0.5,
+    evidenceGap: false,
+  };
+}
+
+function insufficientFlag(): Record<string, unknown> {
+  return {
+    ...verifiedFlag(),
+    tier: 'insufficient',
+    verifiedCount: 0,
+    unsupportedCount: 1,
+    totalClaims: 1,
+    confidence: 0,
+    evidenceGap: true,
+  };
 }
 
 function validResearchInput(): Record<string, unknown> {
@@ -490,6 +524,61 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(body).toMatchObject({
       error: 'cross_section_reasoning_not_ready',
       missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
+    });
+    expect(routeMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('blocks capstone reruns when committed core evidence is insufficient', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
+    routeMocks.sectionQuery.in.mockResolvedValue({
+      data: committedPositioningRows().map((row) =>
+        row.zone === 'positioningBuyerICP'
+          ? {
+              ...row,
+              data: {
+                ...SECTION_REGISTRY.positioningBuyerICP.fixtureArtifact,
+                body: {
+                  ...SECTION_REGISTRY.positioningBuyerICP.fixtureArtifact.body,
+                  evidenceGap: true,
+                  personaReality: {
+                    personas: [
+                      {
+                        name: 'Ava Chen',
+                        title: 'Founder',
+                        company: 'Named Buyer Co',
+                        sourceUrl: 'https://example.com/buyer/ava-chen',
+                        role: 'economic-buyer',
+                        seniority: 'Executive',
+                        evidence: 'Public source matched the buying role.',
+                      },
+                    ],
+                  },
+                },
+              },
+              verification_tier: 'insufficient',
+              verification_flag: insufficientFlag(),
+            }
+          : row,
+      ),
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: CROSS_SECTION_REASONING_SECTION_ID,
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      error: 'research_evidence_not_ready',
+      blocked_sections: [
+        expect.objectContaining({ zone: 'positioningBuyerICP' }),
+      ],
     });
     expect(routeMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
     expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();

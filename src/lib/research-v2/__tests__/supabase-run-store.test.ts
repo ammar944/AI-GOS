@@ -18,6 +18,9 @@ const profilePersistenceMocks = vi.hoisted(() => ({
 const reviewMocks = vi.hoisted(() => ({
   reviewAndUpgradeSection: vi.fn(),
 }));
+const shareSnapshotMocks = vi.hoisted(() => ({
+  refreshV3SharedSessionSnapshotsBestEffort: vi.fn(),
+}));
 
 vi.mock(
   '@/lib/profiles/section-profile-persistence',
@@ -37,6 +40,18 @@ vi.mock(
 vi.mock('@/lib/lab-engine/agents/review/agentic-section-review', () => ({
   reviewAndUpgradeSection: reviewMocks.reviewAndUpgradeSection,
 }));
+
+vi.mock('@/lib/research-v2/share-snapshot', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('@/lib/research-v2/share-snapshot')
+  >();
+
+  return {
+    ...actual,
+    refreshV3SharedSessionSnapshotsBestEffort:
+      shareSnapshotMocks.refreshV3SharedSessionSnapshotsBestEffort,
+  };
+});
 
 import {
   createSupabaseRunStore,
@@ -64,6 +79,7 @@ interface FakeSupabaseOptions {
   markSectionErrorChanged?: boolean;
   profileClaimResults?: readonly boolean[];
   profileId?: string | null;
+  parentStatus?: string | null;
   synthesisSectionRow?: {
     verification_tier: unknown;
     verification_flag: unknown;
@@ -110,6 +126,16 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
   } else if (table === 'business_profiles') {
     query.maybeSingle.mockResolvedValue({
       data: { ai_insights: options.existingBusinessProfileInsights ?? {} },
+      error: null,
+    });
+  } else if (table === 'research_artifacts') {
+    query.maybeSingle.mockResolvedValue({
+      data: {
+        revision: 0,
+        ...(options.parentStatus === undefined
+          ? {}
+          : { status: options.parentStatus }),
+      },
       error: null,
     });
   } else {
@@ -229,6 +255,8 @@ describe('createSupabaseRunStore', (): void => {
       removedItems: [],
       clientQuestions: [],
     });
+    shareSnapshotMocks.refreshV3SharedSessionSnapshotsBestEffort.mockReset();
+    shareSnapshotMocks.refreshV3SharedSessionSnapshotsBestEffort.mockResolvedValue(0);
   });
 
   it('keeps the lab RunRecord contract while writing events, status, and artifacts to Supabase', async (): Promise<void> => {
@@ -726,6 +754,58 @@ describe('createSupabaseRunStore', (): void => {
     );
     expect(fakeSupabase.updateEq).toHaveBeenCalledWith('id', 'profile-123');
     expect(fakeSupabase.updateEq).toHaveBeenCalledWith('user_id', userId);
+  });
+
+  it('rebuilds completed profile and share projections after a rerun commit', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      parentStatus: 'complete',
+      profileClaimResults: [false],
+      profileId: 'profile-123',
+      existingBusinessProfileInsights: {
+        positioningMarketCategory: { verificationTier: 'insufficient' },
+      },
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+
+    expect(profilePersistenceMocks.persistAuditProfileBestEffort).toHaveBeenCalledWith({
+      supabase: fakeSupabase.supabase,
+      userId,
+      runId: saaslaunchResearchInput.runId,
+      researchInput: saaslaunchResearchInput,
+      parentAuditRunId,
+    });
+    expect(shareSnapshotMocks.refreshV3SharedSessionSnapshotsBestEffort).toHaveBeenCalledWith({
+      supabase: fakeSupabase.supabase,
+      userId,
+      runId: saaslaunchResearchInput.runId,
+    });
+    expect(fakeSupabase.updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: 'research_artifacts',
+          patch: { profile_persisted_at: '2026-05-25T12:00:00.000Z' },
+        }),
+      ]),
+    );
+    expect(
+      fakeSupabase.updates.some(
+        (updateCall) =>
+          updateCall.table === 'business_profiles' &&
+          Object.prototype.hasOwnProperty.call(updateCall.patch, 'ai_insights'),
+      ),
+    ).toBe(false);
   });
 
   it('marks the failed section run and its projector row as errored, leaving sibling sections untouched', async (): Promise<void> => {

@@ -73,6 +73,10 @@ function baseResult(
         status: 'verified',
         reasons: [],
       },
+      projectionSync: {
+        status: 'verified',
+        reasons: [],
+      },
       projectionTrust: {
         status: 'verified',
         reasons: [],
@@ -82,6 +86,7 @@ function baseResult(
         reasons: ['strategic rubric score=8/10'],
       },
     },
+    blockedBy: [],
     researchQualityReasons: ['strategic rubric score=8/10'],
     failures: [],
     warnings: [],
@@ -163,8 +168,9 @@ describe('research quality gate report', (): void => {
     expect(markdown).toContain('## Gate readout');
     expect(markdown).toContain('## Research quality reasons');
     expect(markdown).toContain('## Actionability');
-    expect(markdown).toContain('## Projection trust');
+    expect(markdown).toContain('## Projection sync');
     expect(markdown).toContain('## Strategy quality');
+    expect(markdown).toContain('Blocked by: none');
     expect(markdown).toContain('## Section rules table');
     expect(markdown).toContain('## Voice of Customer diagnostics');
     expect(markdown).toContain('## BuyerICP diagnostics');
@@ -296,6 +302,35 @@ describe('research quality gate report', (): void => {
     expect(report.buyerIcpDiagnostics.namedPersonaCount).toBe(2);
     expect(report.buyerIcpDiagnostics.actionability).toBe('usable_with_caveats');
     expect(report.gates.actionability.status).toBe('usable_with_caveats');
+  });
+
+  it('renders review coverage warnings without changing actionability', (): void => {
+    const evaluatorResult = baseResult({
+      warnings: ['positioningMarketCategory review coverage unavailable'],
+      sectionEvidence: [
+        sectionEvidence({
+          zone: 'positioningMarketCategory',
+          reviewTier: 'unavailable',
+        }),
+      ],
+    });
+    const report = buildReportResult({
+      gateInput: baseInput(),
+      result: evaluatorResult,
+    });
+    const markdown = renderReport(report);
+
+    expect(report.gates.researchQuality.status).toBe('verified');
+    expect(report.gates.actionability.status).toBe('verified');
+    expect(report.sectionRules[0]).toEqual(
+      expect.objectContaining({
+        actionability: 'verified',
+        reviewTier: 'unavailable',
+      }),
+    );
+    expect(markdown).toContain(
+      '- positioningMarketCategory review coverage unavailable',
+    );
   });
 });
 

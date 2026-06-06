@@ -79,6 +79,7 @@ export interface LiveQualityGateGates {
   pipeline: LiveQualityGateReadout<LivePipelineGateStatus>;
   researchQuality: LiveQualityGateReadout<LiveResearchQualityStatus>;
   actionability: LiveQualityGateReadout<LiveActionabilityStatus>;
+  projectionSync: LiveQualityGateReadout<LiveProjectionTrustStatus>;
   projectionTrust: LiveQualityGateReadout<LiveProjectionTrustStatus>;
   strategyQuality: LiveQualityGateReadout<LiveStrategyQualityStatus>;
 }
@@ -205,6 +206,7 @@ export interface LiveQualityGateResult {
   verdict: LiveQualityGateVerdict;
   researchQualityStatus: LiveResearchQualityStatus;
   gates: LiveQualityGateGates;
+  blockedBy: string[];
   researchQualityReasons: string[];
   failures: string[];
   warnings: string[];
@@ -531,9 +533,6 @@ function genericResearchGateClassification(input: {
   if (input.reviewTier === 'needs_review') {
     reasons.push(`${input.zone} review tier is needs_review`);
   }
-  if (input.reviewTier === 'unavailable') {
-    reasons.push(`${input.zone} review tier is unavailable`);
-  }
   if (input.evidenceGap) {
     reasons.push(`${input.zone} body.evidenceGap=true`);
   }
@@ -578,8 +577,7 @@ function genericResearchGateClassification(input: {
 
   if (
     verificationTier === 'needs_review' ||
-    input.reviewTier === 'needs_review' ||
-    input.reviewTier === 'unavailable'
+    input.reviewTier === 'needs_review'
   ) {
     const qualityReasons = uniqueStrings(reasons);
 
@@ -1253,9 +1251,55 @@ function collectQualityFailures(input: {
 function buildWarnings(
   sectionEvidence: readonly LiveQualityGateSectionEvidence[],
 ): string[] {
-  return sectionEvidence
-    .filter((evidence) => evidence.verificationTier === 'needs_review')
-    .map((evidence) => `${evidence.zone} verification_tier is needs_review`);
+  return sectionEvidence.flatMap((evidence) => {
+    const warnings: string[] = [];
+
+    if (evidence.verificationTier === 'needs_review') {
+      warnings.push(`${evidence.zone} verification_tier is needs_review`);
+    }
+    if (evidence.reviewTier === 'unavailable') {
+      warnings.push(`${evidence.zone} review coverage unavailable`);
+    }
+
+    return warnings;
+  });
+}
+
+function buildBlockedBy(input: {
+  gates: LiveQualityGateGates;
+  sectionEvidence: readonly LiveQualityGateSectionEvidence[];
+}): string[] {
+  const blockers: string[] = [];
+
+  if (input.gates.pipeline.status !== 'recovered') {
+    blockers.push('pipeline');
+  }
+
+  for (const evidence of input.sectionEvidence) {
+    if (
+      evidence.qualityStatus === 'failed' ||
+      evidence.qualityStatus === 'insufficient' ||
+      evidence.actionabilityStatus === 'not_verified'
+    ) {
+      blockers.push(evidence.zone);
+    }
+  }
+
+  if (
+    input.gates.projectionSync.status === 'mismatch' ||
+    input.gates.projectionSync.status === 'missing'
+  ) {
+    blockers.push('projectionSync');
+  }
+
+  if (
+    input.gates.strategyQuality.status === 'below_bar' ||
+    input.gates.strategyQuality.status === 'failed'
+  ) {
+    blockers.push('strategyQuality');
+  }
+
+  return uniqueStrings(blockers);
 }
 
 function buildResearchQualityGate(input: {
@@ -1473,6 +1517,11 @@ function buildLiveQualityGates(input: {
   shareTrust: LiveQualityGateTrustCheck;
   rubricScore: StrategicRubricScore;
 }): LiveQualityGateGates {
+  const projectionSync = buildProjectionTrustGate({
+    profileTrust: input.profileTrust,
+    shareTrust: input.shareTrust,
+  });
+
   return {
     pipeline: {
       status: input.pipelineRecovered ? 'recovered' : 'not_recovered',
@@ -1485,10 +1534,8 @@ function buildLiveQualityGates(input: {
       vocAudit: input.vocAudit,
     }),
     actionability: buildActionabilityGate(input.sectionEvidence),
-    projectionTrust: buildProjectionTrustGate({
-      profileTrust: input.profileTrust,
-      shareTrust: input.shareTrust,
-    }),
+    projectionSync,
+    projectionTrust: projectionSync,
     strategyQuality: buildStrategyQualityGate({
       rubricScore: input.rubricScore,
       sectionEvidence: input.sectionEvidence,
@@ -1552,6 +1599,10 @@ export function evaluateLiveQualityGate(
     researchQualityGate: gates.researchQuality,
     rubricScore,
   });
+  const blockedBy = buildBlockedBy({
+    gates,
+    sectionEvidence,
+  });
   const verdict: LiveQualityGateVerdict = !pipelineRecovered
     ? 'pipeline_not_recovered'
     : qualityFailures.length > 0
@@ -1565,6 +1616,7 @@ export function evaluateLiveQualityGate(
     verdict,
     ...researchQuality,
     gates,
+    blockedBy,
     failures,
     warnings,
     completion,
