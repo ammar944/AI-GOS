@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
@@ -67,9 +67,18 @@ function dispatchedSectionIds(fetchMock: ReturnType<typeof vi.fn>): string[] {
     .filter((sectionId): sectionId is string => sectionId !== null);
 }
 
+async function flushHookPromises(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe('useAuditState post-six dispatch sequencing', (): void => {
   afterEach((): void => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('dispatches cross-section reasoning first after six sections complete', async (): Promise<void> => {
@@ -129,6 +138,45 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     expect(dispatchedSectionIds(fetchMock)).not.toContain(
       CROSS_SECTION_REASONING_SECTION_ID,
     );
+
+    unmount();
+  });
+
+  it('does not retry post-six dispatch after deterministic evidence block', async (): Promise<void> => {
+    vi.useFakeTimers();
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(responseForJson(sixCompleteState()))
+      .mockResolvedValueOnce(
+        Response.json(
+          { error: 'research_evidence_not_ready' },
+          { status: 409 },
+        ),
+      )
+      .mockResolvedValueOnce(responseForJson(sixCompleteState()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = renderHook(() => useAuditState(RUN_ID));
+
+    await flushHookPromises();
+    expect(dispatchedSectionIds(fetchMock)).toEqual([
+      CROSS_SECTION_REASONING_SECTION_ID,
+    ]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(dispatchedSectionIds(fetchMock)).toEqual([
+      CROSS_SECTION_REASONING_SECTION_ID,
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     unmount();
   });

@@ -270,28 +270,137 @@ function claimResult(
   };
 }
 
+function verifiedFlag(): Record<string, unknown> {
+  return {
+    confidence: 1,
+    evidenceGap: false,
+    insufficientThreshold: 0.5,
+    needsReviewThreshold: 0.75,
+    tier: 'verified',
+    totalClaims: 1,
+    unsupportedCount: 0,
+    verifiedCount: 1,
+  };
+}
+
+function readyVoiceOfCustomerBody(): Record<string, unknown> {
+  return {
+    painLanguage: {
+      quotes: Array.from({ length: 10 }, (_, index) => ({
+        sourceUrl: `https://reviews.example.com/pain-${index + 1}`,
+        verbatimText: `Pain quote ${index + 1}`,
+      })),
+    },
+    successLanguage: {
+      quotes: Array.from({ length: 5 }, (_, index) => ({
+        sourceUrl: `https://reviews.example.com/success-${index + 1}`,
+        verbatimText: `Success quote ${index + 1}`,
+      })),
+    },
+  };
+}
+
+function readyBuyerICPBody(): Record<string, unknown> {
+  return {
+    personaReality: {
+      personas: [
+        {
+          company: 'ExampleCo',
+          name: 'Jane Doe',
+          role: 'economic-buyer',
+          seniority: 'executive',
+          sourceUrl: 'https://example.com/customers/jane-doe',
+          title: 'Chief Financial Officer',
+        },
+        {
+          company: 'ExampleCo',
+          name: 'Mina Patel',
+          role: 'champion',
+          seniority: 'director',
+          sourceUrl: 'https://example.com/customers/mina-patel',
+          title: 'Director of Procurement',
+        },
+      ],
+    },
+  };
+}
+
+function readyCommittedSectionData(
+  zone: PositioningSectionId,
+): { body?: Record<string, unknown>; sectionTitle: string } {
+  if (zone === 'positioningVoiceOfCustomer') {
+    return { sectionTitle: zone, body: readyVoiceOfCustomerBody() };
+  }
+
+  if (zone === 'positioningBuyerICP') {
+    return { sectionTitle: zone, body: readyBuyerICPBody() };
+  }
+
+  return { sectionTitle: zone };
+}
+
 function committedPositioningRows(): Array<{
   zone: PositioningSectionId;
-  data: { body?: { evidenceGap: true }; sectionTitle: string };
+  data: { body?: Record<string, unknown>; sectionTitle: string };
+  verification_tier: string;
+  verification_flag: Record<string, unknown>;
 }> {
   return POSITIONING_SECTION_IDS.map((zone) => ({
     zone,
-    data:
-      zone === 'positioningVoiceOfCustomer'
-        ? { sectionTitle: zone, body: { evidenceGap: true } }
-        : { sectionTitle: zone },
+    data: readyCommittedSectionData(zone),
+    verification_tier: 'verified',
+    verification_flag: verifiedFlag(),
   }));
+}
+
+function committedPositioningRowsWithVoiceOfCustomerGap(): Array<{
+  zone: PositioningSectionId;
+  data: { body?: Record<string, unknown>; sectionTitle: string };
+  verification_tier: string;
+  verification_flag: Record<string, unknown>;
+}> {
+  return committedPositioningRows().map((row) =>
+    row.zone === 'positioningVoiceOfCustomer'
+      ? {
+          ...row,
+          data: {
+            sectionTitle: row.zone,
+            body: {
+              evidenceGap: true,
+              evidenceGapReport: {
+                reason: 'insufficient_voice_of_customer_sources',
+              },
+              painLanguage: { quotes: [] },
+              successLanguage: { quotes: [] },
+            },
+          },
+          verification_tier: 'insufficient',
+          verification_flag: {
+            ...verifiedFlag(),
+            confidence: 0,
+            evidenceGap: true,
+            tier: 'insufficient',
+            unsupportedCount: 1,
+            verifiedCount: 0,
+          },
+        }
+      : row,
+  );
 }
 
 function committedRowsWithCrossSectionReasoning(): Array<{
   zone: PositioningSectionId | typeof CROSS_SECTION_REASONING_SECTION_ID;
-  data: { body?: { evidenceGap: true }; sectionTitle: string };
+  data: { body?: Record<string, unknown>; sectionTitle: string };
+  verification_tier?: string;
+  verification_flag?: Record<string, unknown>;
 }> {
   return [
     ...committedPositioningRows(),
     {
       zone: CROSS_SECTION_REASONING_SECTION_ID,
       data: { sectionTitle: 'Cross-Section Reasoning' },
+      verification_tier: 'verified',
+      verification_flag: verifiedFlag(),
     },
   ];
 }
@@ -820,9 +929,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
     const voiceOfCustomerArtifact =
       createStoreInput?.researchInput.committedPositioningArtifacts
         ?.positioningVoiceOfCustomer as
-        | { body?: { evidenceGap?: unknown } }
+        | { body?: { painLanguage?: { quotes?: unknown[] } } }
         | undefined;
-    expect(voiceOfCustomerArtifact?.body?.evidenceGap).toBe(true);
+    expect(voiceOfCustomerArtifact?.body?.painLanguage?.quotes).toHaveLength(10);
 
     await drainAfter();
 
@@ -832,6 +941,47 @@ describe('POST /api/research-v2/run-lab-section', () => {
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
     });
+  });
+
+  it('blocks capstone dispatch when core section evidence is not research-ready', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.seedOrchestration.mockResolvedValue(crossSectionReasoningSeededRows());
+    routeMocks.committedSectionsQuery.in.mockResolvedValue({
+      data: committedPositioningRowsWithVoiceOfCustomerGap(),
+      error: null,
+    });
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '44444444-4444-4444-8444-444444444444',
+        CROSS_SECTION_REASONING_SECTION_ID,
+      ),
+    );
+    mockOwnedSession();
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: CROSS_SECTION_REASONING_SECTION_ID,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'research_evidence_not_ready',
+      blocked_sections: [
+        expect.objectContaining({
+          zone: 'positioningVoiceOfCustomer',
+          reasons: expect.arrayContaining([
+            'positioningVoiceOfCustomer verification_tier is insufficient',
+            'positioningVoiceOfCustomer body.evidenceGap=true',
+            'positioningVoiceOfCustomer has zero real buyer quotes',
+          ]),
+        }),
+      ],
+    });
+    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
+    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 
   it('blocks paid media dispatch until cross-section reasoning is committed', async (): Promise<void> => {
