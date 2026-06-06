@@ -1090,9 +1090,24 @@ describe('runSection VoC candidate prepass', (): void => {
       },
     );
     const record = await store.readRun(saaslaunchResearchInput.runId);
+    const evidenceGapReport = result.artifact.body
+      .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
 
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
     expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(evidenceGapReport.acquisitionLedger).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          parserStatus: 'not_attempted',
+          promotionStatus: 'not_applicable',
+          query: 'SaaSLaunch',
+          rejectionReason: 'api_error',
+          scrapeStatus: 'failed',
+          sourceUrl: expect.stringContaining('g2.com/products/saaslaunch/reviews'),
+          toolGapReason: 'api_error',
+        }),
+      ]),
+    );
     expect(streamStructured).not.toHaveBeenCalled();
     expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(

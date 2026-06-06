@@ -925,7 +925,11 @@ function getQuoteRecords(
 function getEvidenceGapAttempts(
   report: Record<string, unknown>,
 ): Record<string, unknown>[] {
-  return [report.acquisitionAttempts, report.attempts].flatMap((attempts) =>
+  return [
+    report.acquisitionLedger,
+    report.acquisitionAttempts,
+    report.attempts,
+  ].flatMap((attempts) =>
     Array.isArray(attempts) ? attempts.filter(isRecord) : [],
   );
 }
@@ -937,7 +941,11 @@ function collectGapReasons(artifact: ArtifactEnvelope | null): string[] {
 
   if (asString(report.reason)) reasons.push(asString(report.reason) as string);
   for (const attempt of getEvidenceGapAttempts(report)) {
-    const reason = asString(attempt.gapReason) ?? asString(attempt.reason);
+    const reason =
+      asString(attempt.toolGapReason) ??
+      asString(attempt.gapReason) ??
+      asString(attempt.rejectionReason) ??
+      asString(attempt.reason);
     if (reason) reasons.push(reason);
   }
 

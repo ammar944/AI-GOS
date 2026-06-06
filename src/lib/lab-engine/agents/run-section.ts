@@ -115,6 +115,12 @@ import {
   type VoiceOfCustomerEvidenceKind,
   type VoiceOfCustomerCandidateSource,
 } from "./voice-of-customer-candidates";
+import {
+  buildVoiceOfCustomerAcquisitionLedger,
+  type VoiceOfCustomerAcquisitionAttempt,
+  type VoiceOfCustomerAcquisitionAttemptWithQuery,
+  type VoiceOfCustomerAcquisitionLedgerRow,
+} from "./voice-of-customer-acquisition-ledger";
 import { synthesizeVoiceOfCustomerFromCandidates } from "./voice-of-customer-synthesis";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
 import {
@@ -422,33 +428,18 @@ type VoiceOfCustomerEvidenceGapFacts = Extract<
   { ok: true }
 >;
 
-interface VoiceOfCustomerAcquisitionAttempt {
-  acquisitionMode: "review_body" | "forum_comment" | "support_thread";
-  domain: string;
-  gapReason?:
-    | "api_error"
-    | "blocked_js_challenge"
-    | "empty_markdown"
-    | "parser_no_match"
-    | "not_independent"
-    | "not_product_review";
-  message?: string;
-  source: string;
-  status: "succeeded" | "failed";
-  title?: string;
-  url: string;
-}
-
 const voiceOfCustomerRequiredPainQuoteCount = 10;
 const voiceOfCustomerRequiredDistinctPainSourceCount = 3;
 
 function buildVoiceOfCustomerEvidenceGapBody({
   acquisitionAttempts,
+  acquisitionLedger,
   facts,
   issue,
   subjectDomain,
 }: {
   acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
+  acquisitionLedger?: readonly VoiceOfCustomerAcquisitionLedgerRow[];
   facts: VoiceOfCustomerEvidenceGapFacts;
   issue: string;
   subjectDomain: string | null;
@@ -530,6 +521,9 @@ function buildVoiceOfCustomerEvidenceGapBody({
       ...(!acquisitionAttempts || acquisitionAttempts.length === 0
         ? {}
         : { acquisitionAttempts }),
+      ...(!acquisitionLedger || acquisitionLedger.length === 0
+        ? {}
+        : { acquisitionLedger }),
       sourcingPlan: [
         "Recover full review bodies from approved third-party review surfaces such as G2, Capterra, Trustpilot, Reddit, Hacker News, or support/community threads.",
         "When a surfaced URL has no snippet, retry with Firecrawl only if the rendered page returns usable markdown; record JS-challenge or empty-body pages as acquisition gaps.",
@@ -541,6 +535,7 @@ function buildVoiceOfCustomerEvidenceGapBody({
 
 function buildVoiceOfCustomerEvidenceGapArtifact({
   acquisitionAttempts,
+  acquisitionLedger,
   baseArtifact,
   definition,
   deps,
@@ -550,6 +545,7 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
   researchInput,
 }: {
   acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
+  acquisitionLedger?: readonly VoiceOfCustomerAcquisitionLedgerRow[];
   baseArtifact?: ArtifactEnvelope;
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
@@ -576,6 +572,7 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
       sources: baseArtifact?.sources ?? researchInput.sources,
       body: buildVoiceOfCustomerEvidenceGapBody({
         acquisitionAttempts,
+        acquisitionLedger,
         facts,
         issue,
         subjectDomain,
@@ -730,6 +727,7 @@ function buildCompetitorStrategicEvidenceGapArtifact({
 
 function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   acquisitionAttempts,
+  acquisitionLedger,
   definition,
   deps,
   input,
@@ -738,6 +736,7 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   result,
 }: {
   acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
+  acquisitionLedger?: readonly VoiceOfCustomerAcquisitionLedgerRow[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
@@ -747,6 +746,7 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
 }): ArtifactEnvelope {
   return buildVoiceOfCustomerEvidenceGapArtifact({
     acquisitionAttempts,
+    acquisitionLedger,
     definition,
     deps,
     facts: getVoiceOfCustomerCandidateEvidenceGapFacts(result),
@@ -869,6 +869,7 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
 
   return buildVoiceOfCustomerEvidenceGapArtifact({
     acquisitionAttempts: prepass.acquisitionAttempts,
+    acquisitionLedger: prepass.acquisitionLedger,
     definition,
     deps,
     facts,
@@ -5329,6 +5330,7 @@ async function buildAnswerToolAdEvidence({
 
 interface VoiceOfCustomerCandidatePrepass {
   acquisitionAttempts: VoiceOfCustomerAcquisitionAttempt[];
+  acquisitionLedger: VoiceOfCustomerAcquisitionLedgerRow[];
   candidateBlock: string;
   events: ActivityEvent[];
   result: VoiceOfCustomerCandidateResult;
@@ -6040,6 +6042,8 @@ async function buildVoiceOfCustomerCandidatePrepass({
   };
 
   const acquisitionAttempts: VoiceOfCustomerAcquisitionAttempt[] = [];
+  const acquisitionAttemptsWithQuery: VoiceOfCustomerAcquisitionAttemptWithQuery[] =
+    [];
   for (const reviewQuery of buildVoiceOfCustomerReviewQueries(researchInput)) {
     const reviewOutput = await tryTool("reviews", {
       brand: reviewQuery,
@@ -6047,8 +6051,11 @@ async function buildVoiceOfCustomerCandidatePrepass({
       max_results: VOC_CANDIDATE_PACK_MAX_SIZE,
       mode: "bodies",
     });
-    acquisitionAttempts.push(
-      ...extractVoiceOfCustomerAcquisitionAttempts(reviewOutput),
+    const reviewAttempts =
+      extractVoiceOfCustomerAcquisitionAttempts(reviewOutput);
+    acquisitionAttempts.push(...reviewAttempts);
+    acquisitionAttemptsWithQuery.push(
+      ...reviewAttempts.map((attempt) => ({ attempt, query: reviewQuery })),
     );
     const reviewCandidates = buildReviewVoiceOfCustomerCandidates({
       output: reviewOutput,
@@ -6063,8 +6070,12 @@ async function buildVoiceOfCustomerCandidatePrepass({
     }
   }
 
+  const webSearchQuery = buildVoiceOfCustomerSearchQuery(
+    researchInput,
+    subjectDomain,
+  );
   const webSearchOutput = await tryTool("web_search", {
-    q: buildVoiceOfCustomerSearchQuery(researchInput, subjectDomain),
+    q: webSearchQuery,
     count: VOC_CANDIDATE_PACK_MAX_SIZE,
     country: "US",
   });
@@ -6101,6 +6112,17 @@ async function buildVoiceOfCustomerCandidatePrepass({
     }
   }
 
+  const acquisitionLedger = buildVoiceOfCustomerAcquisitionLedger({
+    attempts: acquisitionAttemptsWithQuery,
+    candidates,
+    observedAt: getNow(deps).toISOString(),
+    result,
+    sourceQueries: {
+      firecrawl: "firecrawl quote recovery",
+      researchInput: "researchInput.sectionExcerpts.positioningVoiceOfCustomer",
+      web_search: webSearchQuery,
+    },
+  });
   const events = steps.flatMap((step) =>
     buildToolEvents({
       deps,
@@ -6112,6 +6134,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
 
   return {
     acquisitionAttempts,
+    acquisitionLedger,
     candidateBlock: formatVoiceOfCustomerCandidateBlock(result),
     events,
     result,
@@ -6935,6 +6958,7 @@ async function runSectionViaAnswerTool(
 
       const evidenceGapArtifact = buildVoiceOfCustomerPrepassEvidenceGapArtifact({
         acquisitionAttempts: voiceOfCustomerPrepass.acquisitionAttempts,
+        acquisitionLedger: voiceOfCustomerPrepass.acquisitionLedger,
         definition,
         deps,
         input,
@@ -7481,6 +7505,7 @@ async function runSectionViaStructuredBodyStream(
 
       const evidenceGapArtifact = buildVoiceOfCustomerPrepassEvidenceGapArtifact({
         acquisitionAttempts: voiceOfCustomerPrepass.acquisitionAttempts,
+        acquisitionLedger: voiceOfCustomerPrepass.acquisitionLedger,
         definition,
         deps,
         input,

@@ -132,6 +132,62 @@ const evidenceGapReportSchema = z
           .strict(),
       )
       .optional(),
+    acquisitionLedger: z
+      .array(
+        z
+          .object({
+            sourceUrl: z.string().min(1),
+            domain: z.string().min(1),
+            query: z.string().min(1),
+            source: z.string().min(1),
+            acquisitionMode: z.enum([
+              "review_body",
+              "forum_comment",
+              "support_thread",
+            ]),
+            evidenceKind: z.enum([
+              "review",
+              "forum",
+              "support-thread",
+              "article",
+            ]),
+            scrapeStatus: z.enum(["succeeded", "failed", "not_attempted"]),
+            parserStatus: z.enum(["succeeded", "failed", "not_attempted"]),
+            candidateText: z.string().min(1).optional(),
+            promotionStatus: z.enum([
+              "promoted",
+              "rejected",
+              "not_applicable",
+            ]),
+            rejectionReason: z
+              .enum([
+                "api_error",
+                "blocked_js_challenge",
+                "empty_markdown",
+                "parser_no_match",
+                "not_independent",
+                "not_product_review",
+                "insufficient_candidates",
+                "insufficient_independent_domains",
+                "no_review_or_forum_surfaces",
+                "not_selected",
+              ])
+              .optional(),
+            toolGapReason: z
+              .enum([
+                "api_error",
+                "blocked_js_challenge",
+                "empty_markdown",
+                "parser_no_match",
+                "not_independent",
+                "not_product_review",
+              ])
+              .optional(),
+            observedAt: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
     sourcingPlan: z.array(z.string().min(1)).min(1),
   })
   .strict();
