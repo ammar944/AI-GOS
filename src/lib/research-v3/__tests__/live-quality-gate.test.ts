@@ -113,6 +113,98 @@ function defaultArtifactForZone(zone: ReaderSectionId): ArtifactEnvelope {
     : artifact;
 }
 
+function withZeroVocQuotes(artifact: ArtifactEnvelope): ArtifactEnvelope {
+  const painLanguage = isRecord(artifact.body.painLanguage)
+    ? artifact.body.painLanguage
+    : {};
+  const successLanguage = isRecord(artifact.body.successLanguage)
+    ? artifact.body.successLanguage
+    : {};
+
+  return {
+    ...artifact,
+    body: {
+      ...artifact.body,
+      painLanguage: {
+        ...painLanguage,
+        quotes: [],
+      },
+      successLanguage: {
+        ...successLanguage,
+        quotes: [],
+      },
+      evidenceGap: true,
+      evidenceGapReport: {
+        reason: 'insufficient_voice_of_customer_sources',
+        summary:
+          'Review and forum acquisition completed without real buyer quote bodies.',
+        foundPainQuoteCount: 0,
+        requiredPainQuoteCount: 10,
+        foundDistinctPainSourceCount: 0,
+        requiredDistinctPainSourceCount: 3,
+        observedPainSourceDomains: [],
+        acquisitionAttempts: [
+          {
+            url: 'https://www.g2.com/products/saaslaunch/reviews',
+            domain: 'g2.com',
+            source: 'reviews',
+            acquisitionMode: 'review_body',
+            status: 'failed',
+            gapReason: 'blocked_js_challenge',
+            message: 'Review bodies were not available to the scraper.',
+          },
+        ],
+        sourcingPlan: ['Retry approved review-body acquisition.'],
+      },
+    },
+  };
+}
+
+function withBuyerPersonas(
+  artifact: ArtifactEnvelope,
+  personas: readonly Record<string, unknown>[],
+): ArtifactEnvelope {
+  const personaReality = isRecord(artifact.body.personaReality)
+    ? artifact.body.personaReality
+    : {};
+
+  return {
+    ...artifact,
+    body: {
+      ...artifact.body,
+      personaReality: {
+        ...personaReality,
+        personas: [...personas],
+      },
+      evidenceGap: true,
+      evidenceGapReport: {
+        reason: 'insufficient_named_buyer_personas',
+        summary:
+          'Named buyer persona evidence is useful but below the verified floor.',
+        foundNamedPersonaCount: personas.length,
+        requiredNamedPersonaCount: 5,
+        rejectedPersonaLabels: [],
+        sourcingPlan: [
+          'Run one more public identity pass against buyer communities.',
+        ],
+      },
+    },
+  };
+}
+
+function namedBuyerPersona(name: string, index: number): Record<string, unknown> {
+  return {
+    name,
+    title: index === 0 ? 'Founder' : 'Head of Revenue',
+    company: `Named Buyer Co ${index + 1}`,
+    sourceUrl: `https://example.com/buyer/named-${index + 1}`,
+    role: index === 0 ? 'economic-buyer' : 'champion',
+    seniority: 'Executive',
+    teamSize: 'small revenue team',
+    evidence: 'Public profile and source context match the buyer ICP.',
+  };
+}
+
 function verifiedFlag(): Record<string, unknown> {
   return {
     tier: 'verified',
@@ -256,6 +348,25 @@ function createCompleteInput(input?: {
   };
 }
 
+function withInputSections(
+  input: LiveQualityGateInput,
+  sections: readonly LiveQualityGateSectionRow[],
+): LiveQualityGateInput {
+  return {
+    ...input,
+    sections: [...sections],
+    sectionRuns: sections.map((section) => ({
+      id: section.sectionRunId ?? `run-${section.zone}`,
+      zone: section.zone,
+      status: 'complete',
+      startedAt: '2026-06-05T12:00:00.000Z',
+      completedAt: '2026-06-05T12:04:00.000Z',
+    })),
+    profile: createProfile(sections),
+    share: createShare(sections),
+  };
+}
+
 describe('live quality gate', (): void => {
   it('returns pipeline_not_recovered before the parent and six core sections complete', (): void => {
     const input = createCompleteInput({ includePassingCritique: true });
@@ -272,6 +383,42 @@ describe('live quality gate', (): void => {
     expect(result.failures).toContain(
       'parent children_complete=4 is below children_total=6',
     );
+    expect(result.gates.pipeline.status).toBe('not_recovered');
+  });
+
+  it('returns the additive gates object beside legacy verdict fields', (): void => {
+    const result = evaluateLiveQualityGate(
+      createCompleteInput({ includePassingCritique: true }),
+    );
+
+    expect(result.verdict).toBe('nine_of_ten_research_achieved');
+    expect(result.researchQualityStatus).toBe('verified');
+    expect(result.gates).toMatchObject({
+      pipeline: { status: 'recovered' },
+      researchQuality: { status: 'verified' },
+      actionability: { status: 'verified' },
+      projectionTrust: { status: 'verified' },
+      strategyQuality: { status: 'nine_of_ten' },
+    });
+  });
+
+  it('lets research_grade_with_gaps pass the research-quality headline without becoming verified', (): void => {
+    const base = createCompleteInput({ includePassingCritique: true });
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningMarketCategory'
+        ? createSectionRow({
+            zone: 'positioningMarketCategory',
+            tier: 'needs_review',
+          })
+        : section,
+    );
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+
+    expect(result.researchQualityStatus).toBe('research_grade_with_gaps');
+    expect(result.gates.researchQuality.status).toBe(
+      'research_grade_with_gaps',
+    );
+    expect(result.gates.researchQuality.status).not.toBe('verified');
   });
 
   it('keeps a recovered six-section pipeline quality-limited when post-six reader artifacts are missing', (): void => {
@@ -427,6 +574,101 @@ describe('live quality gate', (): void => {
     ).toContain('structured evidence-gap report is present');
   });
 
+  it('keeps VoC zero real buyer quotes insufficient and not actionable', (): void => {
+    const base = createCompleteInput({ includePassingCritique: true });
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningVoiceOfCustomer'
+        ? createSectionRow({
+            zone: 'positioningVoiceOfCustomer',
+            tier: 'insufficient',
+            artifact: withZeroVocQuotes(defaultArtifactForZone(section.zone)),
+          })
+        : section,
+    );
+
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+    const vocEvidence = result.sectionEvidence.find(
+      (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+    );
+
+    expect(vocEvidence).toMatchObject({
+      qualityStatus: 'insufficient',
+      actionabilityStatus: 'not_verified',
+    });
+    expect(vocEvidence?.qualityReasons).toContain(
+      'positioningVoiceOfCustomer has zero real buyer quotes',
+    );
+    expect(result.gates.researchQuality.status).toBe('insufficient');
+    expect(result.gates.actionability.status).toBe('not_verified');
+  });
+
+  it('keeps BuyerICP fewer than two named identities insufficient and not actionable', (): void => {
+    const base = createCompleteInput({ includePassingCritique: true });
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningBuyerICP'
+        ? createSectionRow({
+            zone: 'positioningBuyerICP',
+            tier: 'insufficient',
+            artifact: withBuyerPersonas(
+              defaultArtifactForZone('positioningBuyerICP'),
+              [namedBuyerPersona('Ava Chen', 0)],
+            ),
+          })
+        : section,
+    );
+
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+    const buyerEvidence = result.sectionEvidence.find(
+      (evidence) => evidence.zone === 'positioningBuyerICP',
+    );
+
+    expect(buyerEvidence).toMatchObject({
+      qualityStatus: 'insufficient',
+      actionabilityStatus: 'not_verified',
+    });
+    expect(buyerEvidence?.qualityReasons).toContain(
+      'positioningBuyerICP named buyer identities=1; need >=2',
+    );
+    expect(result.gates.researchQuality.status).toBe('insufficient');
+    expect(result.gates.actionability.status).toBe('not_verified');
+  });
+
+  it('allows BuyerICP two named identities plus a specific gap to be research-grade with caveats', (): void => {
+    const base = createCompleteInput({ includePassingCritique: true });
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningBuyerICP'
+        ? createSectionRow({
+            zone: 'positioningBuyerICP',
+            tier: 'insufficient',
+            artifact: withBuyerPersonas(
+              defaultArtifactForZone('positioningBuyerICP'),
+              [
+                namedBuyerPersona('Ava Chen', 0),
+                namedBuyerPersona('Maya Singh', 1),
+              ],
+            ),
+          })
+        : section,
+    );
+
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+    const buyerEvidence = result.sectionEvidence.find(
+      (evidence) => evidence.zone === 'positioningBuyerICP',
+    );
+
+    expect(buyerEvidence).toMatchObject({
+      qualityStatus: 'research_grade_with_gaps',
+      actionabilityStatus: 'usable_with_caveats',
+    });
+    expect(buyerEvidence?.qualityReasons).toContain(
+      'specific insufficient_named_buyer_personas gap report is present',
+    );
+    expect(result.gates.researchQuality.status).toBe(
+      'research_grade_with_gaps',
+    );
+    expect(result.gates.actionability.status).toBe('usable_with_caveats');
+  });
+
   it('keeps unsupported non-gap sections insufficient instead of treating them as research-grade gaps', (): void => {
     const sections = READER_SECTION_IDS.map((zone) =>
       createSectionRow({
@@ -456,6 +698,8 @@ describe('live quality gate', (): void => {
 
     expect(result.verdict).toBe('below_9_of_10_gate');
     expect(result.researchQualityStatus).toBe('research_grade_with_gaps');
+    expect(result.gates.researchQuality.status).toBe('verified');
+    expect(result.gates.strategyQuality.status).toBe('below_bar');
     expect(result.rubricScore.score).toBe(8);
     expect(result.failures).toEqual([]);
   });
@@ -480,6 +724,7 @@ describe('live quality gate', (): void => {
     });
 
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
+    expect(result.gates.projectionTrust.status).toBe('mismatch');
     expect(result.failures).toContain(
       'profile ai_insights.positioningSynthesis.verificationTier=verified does not match committed needs_review',
     );
@@ -492,6 +737,7 @@ describe('live quality gate', (): void => {
 
     expect(result.verdict).toBe('nine_of_ten_research_achieved');
     expect(result.researchQualityStatus).toBe('verified');
+    expect(result.gates.strategyQuality.status).toBe('nine_of_ten');
     expect(result.failures).toEqual([]);
     expect(result.profileTrust.matched).toBe(true);
     expect(result.shareTrust.matched).toBe(true);

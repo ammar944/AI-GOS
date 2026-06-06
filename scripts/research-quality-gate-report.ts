@@ -1,24 +1,80 @@
 #!/usr/bin/env tsx
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { loadEnvConfig } from '@next/env';
 
+import {
+  artifactEnvelopeSchema,
+  type ArtifactEnvelope,
+} from '../src/lib/lab-engine/artifacts/artifact-envelope';
+import {
+  isHttpUrl,
+  isLikelyNamedBuyerIdentity,
+} from '../src/lib/lab-engine/artifacts/schemas/buyer-icp';
 import { createAdminClient } from '../src/lib/supabase/server';
 import {
   evaluateLiveQualityGate,
+  type LiveActionabilityStatus,
   type LiveQualityGateArtifactRow,
+  type LiveQualityGateGates,
   type LiveQualityGateInput,
   type LiveQualityGateJourneySessionSnapshot,
   type LiveQualityGateProfileSnapshot,
+  type LiveQualityGateReadout,
   type LiveQualityGateResult,
   type LiveQualityGateSectionRow,
   type LiveQualityGateSectionRunRow,
   type LiveQualityGateShareSnapshot,
+  type LivePipelineGateStatus,
+  type LiveProjectionTrustStatus,
+  type LiveResearchQualityStatus,
+  type LiveStrategyQualityStatus,
 } from '../src/lib/research-v3/live-quality-gate';
 
 loadEnvConfig(process.cwd());
 
-interface ReportOptions {
+export const RESEARCH_QUALITY_GATE_VERSION = 'research-quality-gates-v1';
+
+export type PipelineGateStatus = LivePipelineGateStatus;
+export type ActionabilityGateStatus = LiveActionabilityStatus;
+export type ProjectionTrustGateStatus = LiveProjectionTrustStatus;
+export type StrategyQualityGateStatus = LiveStrategyQualityStatus;
+export type ResearchQualityGate<TStatus extends string> =
+  LiveQualityGateReadout<TStatus>;
+export type ResearchQualityGates = LiveQualityGateGates;
+
+export interface ResearchQualityGateSectionRuleRow {
+  zone: string;
+  researchQuality: LiveResearchQualityStatus;
+  actionability: ActionabilityGateStatus;
+  verificationTier: string;
+  reviewTier: string;
+  evidenceGap: boolean;
+  rule: string;
+  reasons: string[];
+}
+
+export interface BuyerIcpDiagnostics {
+  artifactPresent: boolean;
+  personaCount: number;
+  namedPersonaCount: number;
+  rejectedPersonaLabels: string[];
+  gapReason: string | null;
+  hasSpecificNamedPersonaGap: boolean;
+  actionability: ActionabilityGateStatus;
+  reasons: string[];
+}
+
+export interface ResearchQualityGateReportResult extends LiveQualityGateResult {
+  artifactId: string | null;
+  gateVersion: string;
+  gates: ResearchQualityGates;
+  sectionRules: ResearchQualityGateSectionRuleRow[];
+  buyerIcpDiagnostics: BuyerIcpDiagnostics;
+}
+
+export interface ReportOptions {
   runId: string;
   out: string | null;
   jsonOut: string | null;
@@ -82,7 +138,7 @@ interface SharedSessionDbRow {
   created_at: string | null;
 }
 
-interface DbSnapshot {
+export interface DbSnapshot {
   artifact: LiveQualityGateArtifactRow | null;
   sections: LiveQualityGateSectionRow[];
   sectionRuns: LiveQualityGateSectionRunRow[];
@@ -121,7 +177,7 @@ function readOptionalStringFlag(args: string[], name: string): string | null {
   return value;
 }
 
-function parseOptions(args: string[]): ReportOptions {
+export function parseOptions(args: string[]): ReportOptions {
   return {
     runId: readStringFlag(args, '--run-id', null),
     out: readOptionalStringFlag(args, '--out'),
@@ -137,6 +193,18 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
     : null;
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(readString)
+    .filter((item): item is string => item !== null);
 }
 
 function normalizeArtifact(
@@ -243,7 +311,7 @@ function getSubjectDomain(
   );
 }
 
-async function readDbSnapshot(runId: string): Promise<DbSnapshot> {
+export async function readDbSnapshot(runId: string): Promise<DbSnapshot> {
   const supabase = createAdminClient();
   const { data: artifactData, error: artifactError } = await supabase
     .from('research_artifacts')
@@ -359,10 +427,13 @@ async function readDbSnapshot(runId: string): Promise<DbSnapshot> {
 }
 
 function markdownTable(headers: readonly string[], rows: readonly string[][]): string {
+  const normalizeCell = (value: string): string =>
+    value.replace(/\|/g, '\\|').replace(/\n/g, '<br>');
+
   return [
     `| ${headers.join(' | ')} |`,
     `| ${headers.map(() => '---').join(' | ')} |`,
-    ...rows.map((row) => `| ${row.join(' | ')} |`),
+    ...rows.map((row) => `| ${row.map(normalizeCell).join(' | ')} |`),
   ].join('\n');
 }
 
@@ -374,7 +445,264 @@ function listOrNone(values: readonly string[]): string {
   return values.length > 0 ? values.join('; ') : 'none';
 }
 
-function renderReport(result: LiveQualityGateResult): string {
+function sectionQualitySeverity(
+  first: LiveResearchQualityStatus,
+  second: LiveResearchQualityStatus,
+): LiveResearchQualityStatus {
+  const severity: Record<LiveResearchQualityStatus, number> = {
+    verified: 0,
+    research_grade_with_gaps: 1,
+    insufficient: 2,
+    failed: 3,
+  };
+
+  return severity[first] >= severity[second] ? first : second;
+}
+
+function sectionActionability(
+  status: LiveResearchQualityStatus,
+): ActionabilityGateStatus {
+  if (status === 'verified') return 'verified';
+  if (status === 'research_grade_with_gaps') return 'usable_with_caveats';
+  return 'not_verified';
+}
+
+function gateReasonsOrPass(
+  reasons: readonly string[],
+  passReason: string,
+): string[] {
+  return reasons.length > 0 ? [...reasons] : [passReason];
+}
+
+function parseArtifactFromSection(
+  section: LiveQualityGateSectionRow | null,
+): ArtifactEnvelope | null {
+  if (!section) return null;
+
+  const parsed = artifactEnvelopeSchema.safeParse(section.data);
+  return parsed.success ? parsed.data : null;
+}
+
+function findSection(
+  input: LiveQualityGateInput,
+  zone: string,
+): LiveQualityGateSectionRow | null {
+  return input.sections.find((section) => section.zone === zone) ?? null;
+}
+
+function buildBuyerIcpDiagnostics(input: LiveQualityGateInput): BuyerIcpDiagnostics {
+  const section = findSection(input, 'positioningBuyerICP');
+  const artifact = parseArtifactFromSection(section);
+  const body = isRecord(artifact?.body) ? artifact.body : {};
+  const personaReality = isRecord(body.personaReality)
+    ? body.personaReality
+    : {};
+  const personas = Array.isArray(personaReality.personas)
+    ? personaReality.personas.filter(isRecord)
+    : [];
+  const namedPersonas = personas.filter((persona) => {
+    const name = readString(persona.name);
+    if (!name) return false;
+    const sourceUrl = readString(persona.sourceUrl);
+    if (!sourceUrl || !isHttpUrl(sourceUrl)) return false;
+
+    return isLikelyNamedBuyerIdentity(name, {
+      company: readString(persona.company) ?? undefined,
+      role: readString(persona.role) ?? undefined,
+      seniority: readString(persona.seniority) ?? undefined,
+      title: readString(persona.title) ?? undefined,
+    });
+  });
+  const evidenceGapReport = isRecord(body.evidenceGapReport)
+    ? body.evidenceGapReport
+    : {};
+  const gapReason = readString(evidenceGapReport.reason);
+  const hasSpecificNamedPersonaGap =
+    body.evidenceGap === true &&
+    gapReason === 'insufficient_named_buyer_personas' &&
+    readString(evidenceGapReport.summary) !== null;
+  const reportedFoundCount = readNumber(evidenceGapReport.foundNamedPersonaCount);
+  const namedPersonaCount = namedPersonas.length;
+  const rejectedPersonaLabels = readStringArray(
+    evidenceGapReport.rejectedPersonaLabels,
+  );
+  const reasons: string[] = [];
+
+  if (!artifact) {
+    reasons.push('BuyerICP artifact is missing or invalid');
+  }
+  if (namedPersonaCount < 2) {
+    reasons.push(
+      `fewer than two real named buyer identities found (${namedPersonaCount})`,
+    );
+  }
+  if (namedPersonaCount >= 2 && namedPersonaCount < 5) {
+    reasons.push(
+      `named buyer identities below verified floor (${namedPersonaCount}/5)`,
+    );
+  }
+  if (hasSpecificNamedPersonaGap) {
+    reasons.push('specific insufficient_named_buyer_personas gap is reported');
+  }
+  if (reportedFoundCount !== null && reportedFoundCount !== namedPersonaCount) {
+    reasons.push(
+      `reported named buyer count ${reportedFoundCount} differs from validated count ${namedPersonaCount}`,
+    );
+  }
+  if (rejectedPersonaLabels.length > 0) {
+    reasons.push(`rejected generic labels: ${rejectedPersonaLabels.join(', ')}`);
+  }
+
+  const actionability: ActionabilityGateStatus =
+    namedPersonaCount < 2
+      ? 'not_verified'
+      : namedPersonaCount < 5
+        ? hasSpecificNamedPersonaGap
+          ? 'usable_with_caveats'
+          : 'not_verified'
+        : 'verified';
+
+  return {
+    artifactPresent: artifact !== null,
+    personaCount: personas.length,
+    namedPersonaCount,
+    rejectedPersonaLabels,
+    gapReason,
+    hasSpecificNamedPersonaGap,
+    actionability,
+    reasons: gateReasonsOrPass(reasons, 'BuyerICP named-identity diagnostics passed'),
+  };
+}
+
+function buildSectionRules(input: {
+  result: LiveQualityGateResult;
+  buyerIcpDiagnostics: BuyerIcpDiagnostics;
+}): ResearchQualityGateSectionRuleRow[] {
+  return input.result.sectionEvidence.map((evidence) => {
+    let researchQuality = evidence.qualityStatus;
+    let actionability = evidence.actionabilityStatus;
+    const reasons = [
+      ...evidence.qualityReasons,
+      ...evidence.actionabilityReasons,
+    ];
+    let rule = 'general evidence and schema rule';
+
+    if (evidence.zone === 'positioningVoiceOfCustomer') {
+      const totalQuotes =
+        input.result.vocAudit.painQuoteCount +
+        input.result.vocAudit.successQuoteCount;
+      rule = 'VoC buyer-language quote, diversity, source URL, and self-domain rule';
+
+      if (totalQuotes === 0) {
+        researchQuality = 'insufficient';
+        actionability = 'not_verified';
+        reasons.push('zero real buyer-language quotes');
+      } else if (
+        !input.result.vocAudit.passesQuoteFloor ||
+        !input.result.vocAudit.passesSourceDiversity ||
+        !input.result.vocAudit.passesSourceUrlFloor ||
+        !input.result.vocAudit.passesSubjectDomainExclusion
+      ) {
+        researchQuality = sectionQualitySeverity(
+          researchQuality,
+          evidence.evidenceGap ? 'research_grade_with_gaps' : 'insufficient',
+        );
+        actionability = sectionActionability(researchQuality);
+        reasons.push('VoC evidence floors did not all pass');
+      }
+    }
+
+    if (evidence.zone === 'positioningBuyerICP') {
+      rule = 'BuyerICP named-identity floor and specific gap rule';
+
+      if (input.buyerIcpDiagnostics.namedPersonaCount < 2) {
+        researchQuality = 'insufficient';
+        actionability = 'not_verified';
+      } else if (input.buyerIcpDiagnostics.actionability === 'usable_with_caveats') {
+        researchQuality = sectionQualitySeverity(
+          researchQuality,
+          'research_grade_with_gaps',
+        );
+        actionability = 'usable_with_caveats';
+      }
+
+      reasons.push(...input.buyerIcpDiagnostics.reasons);
+    }
+
+    if (!evidence.schemaValid) {
+      researchQuality = 'failed';
+      actionability = 'not_verified';
+    }
+
+    return {
+      zone: evidence.zone,
+      researchQuality,
+      actionability,
+      verificationTier: evidence.verificationTier ?? 'missing',
+      reviewTier: evidence.reviewTier ?? 'missing',
+      evidenceGap: evidence.evidenceGap,
+      rule,
+      reasons: gateReasonsOrPass(
+        [...new Set(reasons)],
+        'section satisfies the current deterministic rule',
+      ),
+    };
+  });
+}
+
+export function buildReportResult(input: {
+  gateInput: LiveQualityGateInput;
+  result: LiveQualityGateResult;
+}): ResearchQualityGateReportResult {
+  const buyerIcpDiagnostics = buildBuyerIcpDiagnostics(input.gateInput);
+  const sectionRules = buildSectionRules({
+    result: input.result,
+    buyerIcpDiagnostics,
+  });
+
+  return {
+    ...input.result,
+    artifactId: input.gateInput.artifact?.id ?? null,
+    gateVersion: RESEARCH_QUALITY_GATE_VERSION,
+    gates: input.result.gates,
+    sectionRules,
+    buyerIcpDiagnostics,
+  };
+}
+
+export function buildGateInput(input: {
+  runId: string;
+  snapshot: DbSnapshot;
+}): LiveQualityGateInput {
+  return {
+    runId: input.runId,
+    artifact: input.snapshot.artifact,
+    sections: input.snapshot.sections,
+    sectionRuns: input.snapshot.sectionRuns,
+    journeySession: input.snapshot.journeySession,
+    profile: input.snapshot.profile,
+    share: input.snapshot.share,
+    subjectDomain: input.snapshot.subjectDomain,
+  };
+}
+
+export function evaluateGateInput(
+  gateInput: LiveQualityGateInput,
+): ResearchQualityGateReportResult {
+  return buildReportResult({
+    gateInput,
+    result: evaluateLiveQualityGate(gateInput),
+  });
+}
+
+export async function evaluateRunQualityGate(
+  runId: string,
+): Promise<ResearchQualityGateReportResult> {
+  const snapshot = await readDbSnapshot(runId);
+  return evaluateGateInput(buildGateInput({ runId, snapshot }));
+}
+
+export function renderReport(result: ResearchQualityGateReportResult): string {
   const completionRows = result.completion.map((row) => [
     row.zone,
     row.sectionRunStatus ?? 'missing',
@@ -382,17 +710,42 @@ function renderReport(result: LiveQualityGateResult): string {
     row.countsTowardRollup === null ? 'unknown' : boolText(row.countsTowardRollup),
     row.updatedAt ?? 'missing',
   ]);
-  const verificationRows = result.sectionEvidence.map((row) => [
+  const gateRows = [
+    [
+      'Pipeline',
+      result.gates.pipeline.status,
+      listOrNone(result.gates.pipeline.reasons),
+    ],
+    [
+      'Research quality',
+      result.gates.researchQuality.status,
+      listOrNone(result.gates.researchQuality.reasons),
+    ],
+    [
+      'Actionability',
+      result.gates.actionability.status,
+      listOrNone(result.gates.actionability.reasons),
+    ],
+    [
+      'Projection trust',
+      result.gates.projectionTrust.status,
+      listOrNone(result.gates.projectionTrust.reasons),
+    ],
+    [
+      'Strategy quality',
+      result.gates.strategyQuality.status,
+      listOrNone(result.gates.strategyQuality.reasons),
+    ],
+  ];
+  const sectionRuleRows = result.sectionRules.map((row) => [
     row.zone,
-    row.qualityStatus,
+    row.researchQuality,
+    row.actionability,
     row.verificationTier ?? 'missing',
     row.reviewTier ?? 'missing',
     boolText(row.evidenceGap),
-    listOrNone(row.evidenceGapReasons),
-    row.verifiedCount === null ? 'missing' : String(row.verifiedCount),
-    row.unsupportedCount === null ? 'missing' : String(row.unsupportedCount),
-    row.schemaValid ? 'valid' : row.schemaErrors.join('; '),
-    listOrNone(row.qualityReasons),
+    row.rule,
+    listOrNone(row.reasons),
   ]);
   const rubricRows = result.rubricScore.propertyResults.map((property) => [
     property.label,
@@ -404,47 +757,49 @@ function renderReport(result: LiveQualityGateResult): string {
     `# Research Quality Gate Report`,
     '',
     `Run id: \`${result.runId}\``,
-    `Final verdict: \`${result.verdict}\``,
-    `Research quality: \`${result.researchQualityStatus}\``,
+    `Gate version: \`${result.gateVersion}\``,
     '',
-    '## Research Quality Reasons',
-    result.researchQualityReasons.length > 0
-      ? result.researchQualityReasons.map((reason) => `- ${reason}`).join('\n')
-      : 'none',
+    '## Final verdict',
+    `Legacy verdict: \`${result.verdict}\``,
+    `Research quality gate: \`${result.gates.researchQuality.status}\``,
+    `Actionability gate: \`${result.gates.actionability.status}\``,
+    `Projection trust gate: \`${result.gates.projectionTrust.status}\``,
+    `Strategy quality gate: \`${result.gates.strategyQuality.status}\``,
     '',
-    '## Completion',
+    '## Gate readout',
+    markdownTable(['Gate', 'Status', 'Reasons'], gateRows),
+    '',
+    'Completion detail:',
+    '',
     markdownTable(
       ['Zone', 'Section run', 'Artifact row', 'Counts toward rollup', 'Updated at'],
       completionRows,
     ),
     '',
-    '## Verification',
-    markdownTable(
-      [
-        'Zone',
-        'Research quality',
-        'Persisted tier',
-        'Review tier',
-        'Evidence gap',
-        'Gap reasons',
-        'Verified',
-        'Unsupported',
-        'Schema/minimums',
-        'Quality reasons',
-      ],
-      verificationRows,
-    ),
+    '## Research quality reasons',
+    result.gates.researchQuality.reasons.length > 0
+      ? result.gates.researchQuality.reasons
+          .map((reason) => `- ${reason}`)
+          .join('\n')
+      : 'none',
     '',
-    '## Voice Of Customer',
-    `Pain quotes: ${result.vocAudit.painQuoteCount}`,
-    `Success quotes: ${result.vocAudit.successQuoteCount}`,
-    `Pain domains: ${listOrNone(result.vocAudit.painSourceDomains)}`,
-    `Pain URLs: ${result.vocAudit.painSourceUrls.length}`,
-    `Acquisition modes: ${listOrNone(result.vocAudit.acquisitionModes)}`,
-    `Gap reasons: ${listOrNone(result.vocAudit.gapReasons)}`,
-    `Self-sourced pain quote URLs: ${result.vocAudit.selfSourcedPainQuoteCount}`,
+    '## Actionability',
+    `Status: \`${result.gates.actionability.status}\``,
+    result.gates.actionability.reasons.length > 0
+      ? result.gates.actionability.reasons.map((reason) => `- ${reason}`).join('\n')
+      : 'none',
     '',
-    '## Strategic Rubric',
+    '## Projection trust',
+    `Status: \`${result.gates.projectionTrust.status}\``,
+    `Profile present: ${boolText(result.profileTrust.present)}`,
+    `Profile trust match: ${boolText(result.profileTrust.matched)}`,
+    `Profile failures: ${listOrNone(result.profileTrust.failures)}`,
+    `Share present: ${boolText(result.shareTrust.present)}`,
+    `Share trust match: ${boolText(result.shareTrust.matched)}`,
+    `Share failures: ${listOrNone(result.shareTrust.failures)}`,
+    '',
+    '## Strategy quality',
+    `Status: \`${result.gates.strategyQuality.status}\``,
     `Score: ${result.rubricScore.score}/10`,
     `Gate: ${result.rubricScore.gate}`,
     `Active disqualifiers: ${listOrNone(
@@ -453,13 +808,39 @@ function renderReport(result: LiveQualityGateResult): string {
     '',
     markdownTable(['Property', 'Passed', 'Evidence pointers'], rubricRows),
     '',
-    '## Profile And Share',
-    `Profile present: ${boolText(result.profileTrust.present)}`,
-    `Profile trust match: ${boolText(result.profileTrust.matched)}`,
-    `Profile failures: ${listOrNone(result.profileTrust.failures)}`,
-    `Share present: ${boolText(result.shareTrust.present)}`,
-    `Share trust match: ${boolText(result.shareTrust.matched)}`,
-    `Share failures: ${listOrNone(result.shareTrust.failures)}`,
+    '## Section rules table',
+    markdownTable(
+      [
+        'Zone',
+        'Research quality',
+        'Actionability',
+        'Persisted tier',
+        'Review tier',
+        'Evidence gap',
+        'Rule',
+        'Reasons',
+      ],
+      sectionRuleRows,
+    ),
+    '',
+    '## Voice of Customer diagnostics',
+    `Pain quotes: ${result.vocAudit.painQuoteCount}`,
+    `Success quotes: ${result.vocAudit.successQuoteCount}`,
+    `Pain domains: ${listOrNone(result.vocAudit.painSourceDomains)}`,
+    `Pain URLs: ${result.vocAudit.painSourceUrls.length}`,
+    `Acquisition modes: ${listOrNone(result.vocAudit.acquisitionModes)}`,
+    `Gap reasons: ${listOrNone(result.vocAudit.gapReasons)}`,
+    `Self-sourced pain quote URLs: ${result.vocAudit.selfSourcedPainQuoteCount}`,
+    '',
+    '## BuyerICP diagnostics',
+    `Artifact present: ${boolText(result.buyerIcpDiagnostics.artifactPresent)}`,
+    `Persona rows: ${result.buyerIcpDiagnostics.personaCount}`,
+    `Named buyer identities: ${result.buyerIcpDiagnostics.namedPersonaCount}`,
+    `Specific gap: ${boolText(result.buyerIcpDiagnostics.hasSpecificNamedPersonaGap)}`,
+    `Gap reason: ${result.buyerIcpDiagnostics.gapReason ?? 'none'}`,
+    `Actionability: ${result.buyerIcpDiagnostics.actionability}`,
+    `Rejected labels: ${listOrNone(result.buyerIcpDiagnostics.rejectedPersonaLabels)}`,
+    `Diagnostic reasons: ${listOrNone(result.buyerIcpDiagnostics.reasons)}`,
     '',
     '## Failures',
     result.failures.length > 0
@@ -482,17 +863,11 @@ async function writeOutput(path: string, content: string): Promise<void> {
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const snapshot = await readDbSnapshot(options.runId);
-  const gateInput: LiveQualityGateInput = {
+  const gateInput = buildGateInput({
     runId: options.runId,
-    artifact: snapshot.artifact,
-    sections: snapshot.sections,
-    sectionRuns: snapshot.sectionRuns,
-    journeySession: snapshot.journeySession,
-    profile: snapshot.profile,
-    share: snapshot.share,
-    subjectDomain: snapshot.subjectDomain,
-  };
-  const result = evaluateLiveQualityGate(gateInput);
+    snapshot,
+  });
+  const result = evaluateGateInput(gateInput);
   const markdown = renderReport(result);
 
   if (options.out) {
@@ -510,6 +885,13 @@ async function main(): Promise<void> {
       runId: options.runId,
       verdict: result.verdict,
       researchQualityStatus: result.researchQualityStatus,
+      gates: {
+        pipeline: result.gates.pipeline.status,
+        researchQuality: result.gates.researchQuality.status,
+        actionability: result.gates.actionability.status,
+        projectionTrust: result.gates.projectionTrust.status,
+        strategyQuality: result.gates.strategyQuality.status,
+      },
       failures: result.failures.length,
       warnings: result.warnings.length,
       out: options.out,
@@ -518,7 +900,14 @@ async function main(): Promise<void> {
   );
 }
 
-main().catch((error: unknown): void => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+function isDirectExecution(metaUrl: string, argv: readonly string[]): boolean {
+  const scriptPath = argv[1];
+  return scriptPath ? metaUrl === pathToFileURL(scriptPath).href : false;
+}
+
+if (isDirectExecution(import.meta.url, process.argv)) {
+  main().catch((error: unknown): void => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}
