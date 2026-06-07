@@ -348,7 +348,7 @@ describe("cross-section strategic critic", (): void => {
     );
     expect(aiMocks.generateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        maxOutputTokens: 8000,
+        maxOutputTokens: 12000,
         model: mockModel,
         prompt: expect.stringContaining("9/10 strategic rubric"),
         temperature: 0.1,
@@ -356,7 +356,7 @@ describe("cross-section strategic critic", (): void => {
     );
   });
 
-  it("enables DeepSeek reasoning options only for the direct DeepSeek strategy transport", async (): Promise<void> => {
+  it("sets DeepSeek strategy provider options only for the direct DeepSeek strategy transport", async (): Promise<void> => {
     aiMocks.generateText.mockResolvedValue({
       text: buildCriticResponse(),
     });
@@ -371,11 +371,10 @@ describe("cross-section strategic critic", (): void => {
 
     expect(aiMocks.generateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        maxOutputTokens: 8000,
+        maxOutputTokens: 12000,
         providerOptions: {
           deepseek: {
-            thinking: { type: "enabled" },
-            reasoningEffort: "low",
+            thinking: { type: "disabled" },
           },
         },
       }),

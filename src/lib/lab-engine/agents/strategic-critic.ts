@@ -21,15 +21,17 @@ import {
   STRATEGIC_KNEW_THAT_PASS_FLOOR,
 } from "@/lib/lab-engine/artifacts/strategic-rubric";
 
-const DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS = 180_000;
+const DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS = 240_000;
 const MAX_ARTIFACT_JSON_CHARS = 32_000;
 const MAX_DIAGNOSTIC_CHARS = 1_000;
 const STRATEGIC_CRITIC_PATTERN =
   /<strategic_critic>([\s\S]*?)<\/strategic_critic>/u;
+// deepseek-v4-pro WITH reasoning burns ~7.7k-8.7k output tokens on thinking and
+// runs 170-215s, truncating the structured tail (live-probed 2026-06-07). Thinking
+// DISABLED keeps pro's stronger judgment while emitting a complete tail in ~95s.
 const DEEPSEEK_STRATEGIC_CRITIC_PROVIDER_OPTIONS = {
   deepseek: {
-    thinking: { type: "enabled" },
-    reasoningEffort: "low",
+    thinking: { type: "disabled" },
   },
 } as const;
 
@@ -550,7 +552,7 @@ export async function applyCrossSectionStrategicCritic(
   try {
     const result = await generateText({
       abortSignal: timeoutSignal.signal,
-      maxOutputTokens: 8_000,
+      maxOutputTokens: 12_000,
       maxRetries: 1,
       model: input.model,
       prompt: buildStrategicCriticPrompt(input.artifact),
@@ -570,7 +572,7 @@ export async function applyCrossSectionStrategicCritic(
       try {
         const retry = await generateText({
           abortSignal: timeoutSignal.signal,
-          maxOutputTokens: 8_000,
+          maxOutputTokens: 12_000,
           maxRetries: 1,
           model: input.model,
           prompt: buildStrategicCriticDeepenPrompt(artifact),

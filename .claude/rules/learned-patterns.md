@@ -9,6 +9,10 @@
 - When transport mismatches cause silent failures, check: `toUIMessageStreamResponse()` needs `DefaultChatTransport`, `toTextStreamResponse()` needs `TextStreamChatTransport`
 - When `maxTokens` doesn't work, use `maxOutputTokens` instead — AI SDK v6 renamed this
 
+## DeepSeek (v4-pro)
+- When wiring `deepseek-v4-pro` for an IN-PIPELINE call that must emit structured output (e.g. the `<strategic_critic>` JSON tail), set `providerOptions.deepseek.thinking.type = 'disabled'`. With reasoning ENABLED it burns ~7.7k–8.7k output tokens on thinking and runs 170–215s, truncating the tail (`finishReason: length`, no close tag) → the critic falls back with NO upgrade. Thinking DISABLED keeps pro's stronger judgment and emits a complete tail in ~70–95s. `reasoningEffort: 'low'` does NOT meaningfully reduce the reasoning-token burn. Live-probed 2026-06-07 against the Ramp cross-section artifact. (P2.1)
+- `deepseek-v4-pro` model id is valid+funded on the repo's DeepSeek endpoint but rides the `(string & {})` escape hatch (no TS validation) — live-probe a new id once before trusting. Give it generous `maxOutputTokens` (≥12k) for a full body-replacement tail.
+
 ## Next.js
 - When API routes timeout on Vercel, add `export const maxDuration = 300` (requires Pro tier)
 - When SSE events aren't received by frontend, check event name casing — backend and frontend must match exactly
