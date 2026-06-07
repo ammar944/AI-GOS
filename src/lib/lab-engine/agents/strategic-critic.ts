@@ -316,21 +316,41 @@ function validateCritiqueItemsReferenceBody(input: {
   }
 }
 
-function validateKnewThatFloor(critique: StrategicCritique): void {
+function computeKnewThatPassShare(critique: StrategicCritique): {
+  passCount: number;
+  passShare: number;
+  totalCount: number;
+} {
   const keptOrDeepened = critique.items.filter((item) => item.action !== "cut");
-  if (keptOrDeepened.length === 0) {
-    throw new StrategicCriticError("strategic critic cut every strategic claim.");
-  }
-
   const passCount = keptOrDeepened.filter(
     (item) => item.verdict === "passes",
   ).length;
-  const passShare = passCount / critique.items.length;
-  if (passShare < STRATEGIC_KNEW_THAT_PASS_FLOOR) {
-    throw new StrategicCriticError(
-      `strategic critic knew-that pass share ${passCount}/${critique.items.length} is below 40%.`,
-    );
-  }
+  const totalCount = critique.items.length;
+
+  return {
+    passCount,
+    passShare: totalCount === 0 ? 0 : passCount / totalCount,
+    totalCount,
+  };
+}
+
+function withKnewThatFloorMetadata(input: {
+  body: CrossSectionReasoningBody;
+  critique: StrategicCritique;
+}): { body: CrossSectionReasoningBody; critique: StrategicCritique } {
+  const knewThat = computeKnewThatPassShare(input.critique);
+  const belowFloor = knewThat.passShare < STRATEGIC_KNEW_THAT_PASS_FLOOR;
+  const { belowFloor: _bodyBelowFloor, ...bodyWithoutFloor } = input.body;
+  const { belowFloor: _critiqueBelowFloor, ...critiqueWithoutFloor } =
+    input.critique;
+  const body = belowFloor
+    ? { ...bodyWithoutFloor, belowFloor: true }
+    : bodyWithoutFloor;
+  const critique = belowFloor
+    ? { ...critiqueWithoutFloor, belowFloor: true }
+    : critiqueWithoutFloor;
+
+  return { body, critique };
 }
 
 function parseStrategicCriticJson(text: string): unknown {
@@ -359,23 +379,26 @@ export function parseCrossSectionStrategicCriticResponse(input: {
     modelId: input.modelId,
     ...parsed.critique,
   });
-
-  validateKnewThatFloor(strategicCritique);
-  validateCritiqueItemsReferenceBody({
+  const critiqueWithFloor = withKnewThatFloorMetadata({
     body: parsed.body,
     critique: strategicCritique,
   });
+
+  validateCritiqueItemsReferenceBody({
+    body: critiqueWithFloor.body,
+    critique: critiqueWithFloor.critique,
+  });
   validateNoNewSourceSectionRefs({
     allowedRefs: buildAllowedSourceSectionRefs(input.artifact),
-    body: parsed.body,
+    body: critiqueWithFloor.body,
   });
 
   const candidate = artifactEnvelopeSchema
     .extend({ body: crossSectionReasoningBodySchema })
     .parse({
       ...input.artifact,
-      body: parsed.body,
-      strategicCritique,
+      body: critiqueWithFloor.body,
+      strategicCritique: critiqueWithFloor.critique,
     });
   const minimums = validateCrossSectionReasoningMinimums(candidate);
 
@@ -455,6 +478,44 @@ function buildStrategicCriticPrompt(
   ].join("\n");
 }
 
+function buildStrategicCriticDeepenPrompt(
+  artifact: CrossSectionReasoningArtifact,
+): string {
+  const failingItems =
+    artifact.strategicCritique?.items.filter(
+      (item) => item.verdict !== "passes",
+    ) ?? [];
+
+  return [
+    "Deepen the AI-GOS cross-section reasoning artifact one more time.",
+    "",
+    "The first strategic critic pass ran, but the knew-that pass share was below the required floor. Deepen only the failing items listed below; preserve the rest unless a small wording change is needed for consistency.",
+    "",
+    "Rules:",
+    "- Do not add sources, URLs, source sections, market facts, prices, competitors, quotes, statistics, or dates.",
+    "- Use only existing `sourceSections[].sourceUrl` values already present in the artifact.",
+    "- Return a complete replacement `body` and complete `critique` metadata.",
+    "- A claim passes only if a senior GTM consultant would not dismiss it as obvious, summary, generic, or unsupported.",
+    "",
+    "Failing critique items:",
+    formatJson(failingItems, 8_000),
+    "",
+    buildStrategicRubricPromptBlock(),
+    "",
+    "Return only explanatory text if useful, then end with exactly one JSON tail:",
+    '<strategic_critic>{"body":{...},"critique":{"summary":"one sentence","items":[{"path":"body.crossSectionThreads[0].claim","text":"final text reviewed","verdict":"passes|knew_that|too_vague|summary|unsupported","action":"kept|deepened|cut","rationale":"one sentence"}]}}</strategic_critic>',
+    "",
+    "Current artifact JSON:",
+    formatJson(artifact, MAX_ARTIFACT_JSON_CHARS),
+  ].join("\n");
+}
+
+function isBelowKnewThatFloor(
+  artifact: CrossSectionReasoningArtifact,
+): boolean {
+  return artifact.strategicCritique?.belowFloor === true;
+}
+
 export async function applyCrossSectionStrategicCritic(
   input: CrossSectionStrategicCriticInput,
 ): Promise<CrossSectionStrategicCriticResult> {
@@ -482,6 +543,48 @@ export async function applyCrossSectionStrategicCritic(
       modelId: input.modelId,
       text: result.text,
     });
+
+    if (isBelowKnewThatFloor(artifact)) {
+      try {
+        const retry = await generateText({
+          abortSignal: timeoutSignal.signal,
+          maxOutputTokens: 8_000,
+          maxRetries: 1,
+          model: input.model,
+          prompt: buildStrategicCriticDeepenPrompt(artifact),
+          temperature: 0.1,
+        });
+        throwIfCallerAborted(input.signal);
+
+        const retriedArtifact = parseCrossSectionStrategicCriticResponse({
+          artifact: input.artifact,
+          checkedAt: input.checkedAt,
+          modelId: input.modelId,
+          text: retry.text,
+        });
+
+        return {
+          artifact: retriedArtifact,
+          outcome: "upgraded",
+          summary:
+            retriedArtifact.strategicCritique?.summary ??
+            (isBelowKnewThatFloor(retriedArtifact)
+              ? "Strategic critic completed below the knew-that floor after one deepen retry."
+              : "Strategic critic deepened the cross-section reasoning after one retry."),
+        };
+      } catch (retryError) {
+        throwIfCallerAborted(input.signal);
+        const retryDiagnostics =
+          buildStrategicCriticErrorDiagnostics(retryError);
+
+        return {
+          artifact,
+          errorDiagnostics: retryDiagnostics,
+          outcome: "upgraded",
+          summary: `Strategic critic preserved below-floor critique after deepen retry failed: ${retryDiagnostics.message}`,
+        };
+      }
+    }
 
     return {
       artifact,

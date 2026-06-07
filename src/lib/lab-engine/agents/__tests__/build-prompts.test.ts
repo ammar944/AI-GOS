@@ -4,6 +4,7 @@ import type { ResearchInput } from "@/lib/lab-engine/artifacts/artifact-envelope
 import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
 import {
   buildAnswerToolInstructions,
+  buildOnboardingStrategicFrame,
   buildRepairPrompt,
   buildSectionObjectiveRecap,
   buildStructuredBodyPrompt,
@@ -144,10 +145,25 @@ describe("buildAnswerToolInstructions", (): void => {
     );
 
     expect(prompt).toContain("Market-only category evidence");
-    expect(prompt).toContain('"economics"');
-    expect(prompt).toContain('"targetCac": "$4,500"');
+    expect(prompt).toContain("onboardingStrategicFrame");
+    expect(prompt).toContain("target CAC=$4,500");
+    expect(prompt).toContain("sets the paid-learning efficiency boundary");
+    expect(prompt).not.toContain('"onboarding":');
+    expect(prompt).not.toContain('"economics":');
     expect(prompt).not.toContain("Buyer-only persona evidence");
     expect(prompt).not.toContain("sectionExcerpts");
+  });
+
+  it("builds a bounded strategic frame from onboarding economics", (): void => {
+    const frame = buildOnboardingStrategicFrame(buildScopedResearchInput());
+
+    expect(frame).toContain("Primary objective:");
+    expect(frame).toContain("monthly ad budget=$25,000");
+    expect(frame).toContain("target CAC=$4,500");
+    expect(frame).toContain("(unknown)");
+    expect(frame).toContain("sets the paid-learning efficiency boundary");
+    expect(frame).not.toContain('"economics"');
+    expect(frame).not.toContain("{");
   });
 
   it("adds shared capability-gap guidance only when tools are available", (): void => {

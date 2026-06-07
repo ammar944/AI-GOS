@@ -401,6 +401,7 @@ describe('live quality gate', (): void => {
       projectionTrust: { status: 'verified' },
       strategyQuality: { status: 'nine_of_ten' },
     });
+    expect(result.gates.projectionSync).toBe(result.gates.projectionTrust);
     expect(result.blockedBy).toEqual([]);
   });
 
@@ -773,7 +774,7 @@ describe('live quality gate', (): void => {
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
     expect(result.gates.projectionSync.status).toBe('mismatch');
     expect(result.gates.projectionTrust.status).toBe('mismatch');
-    expect(result.blockedBy).toContain('projectionSync');
+    expect(result.blockedBy).toContain('projectionTrust');
     expect(result.failures).toContain(
       'profile ai_insights.positioningSynthesis.verificationTier=verified does not match committed needs_review',
     );

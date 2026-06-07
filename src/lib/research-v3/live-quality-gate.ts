@@ -45,6 +45,8 @@ export type LiveQualityGateVerdict =
   | 'below_9_of_10_gate'
   | 'nine_of_ten_research_achieved';
 
+export const LIVE_QUALITY_GATE_VERSION = 'research-quality-gates-v1';
+
 export type LiveResearchQualityStatus =
   | 'failed'
   | 'insufficient'
@@ -1286,10 +1288,10 @@ function buildBlockedBy(input: {
   }
 
   if (
-    input.gates.projectionSync.status === 'mismatch' ||
-    input.gates.projectionSync.status === 'missing'
+    input.gates.projectionTrust.status === 'mismatch' ||
+    input.gates.projectionTrust.status === 'missing'
   ) {
-    blockers.push('projectionSync');
+    blockers.push('projectionTrust');
   }
 
   if (
@@ -1517,7 +1519,7 @@ function buildLiveQualityGates(input: {
   shareTrust: LiveQualityGateTrustCheck;
   rubricScore: StrategicRubricScore;
 }): LiveQualityGateGates {
-  const projectionSync = buildProjectionTrustGate({
+  const projectionTrust = buildProjectionTrustGate({
     profileTrust: input.profileTrust,
     shareTrust: input.shareTrust,
   });
@@ -1534,8 +1536,10 @@ function buildLiveQualityGates(input: {
       vocAudit: input.vocAudit,
     }),
     actionability: buildActionabilityGate(input.sectionEvidence),
-    projectionSync,
-    projectionTrust: projectionSync,
+    projectionTrust,
+    // Back-compat alias for older reports/JSON readers. Projection trust is the
+    // single computed signal; projectionSync must never be evaluated separately.
+    projectionSync: projectionTrust,
     strategyQuality: buildStrategyQualityGate({
       rubricScore: input.rubricScore,
       sectionEvidence: input.sectionEvidence,
@@ -1626,4 +1630,48 @@ export function evaluateLiveQualityGate(
     profileTrust,
     shareTrust,
   };
+}
+
+function formatReasons(reasons: readonly string[]): string {
+  return reasons.length === 0 ? 'none' : reasons.join('; ');
+}
+
+function formatGateLine(
+  label: string,
+  gate: LiveQualityGateReadout<string>,
+): string {
+  return `- ${label}: ${gate.status} (${formatReasons(gate.reasons)})`;
+}
+
+export function renderLiveQualityGateReportMarkdown(
+  result: LiveQualityGateResult,
+): string {
+  return [
+    '# Research Quality Gate Report',
+    '',
+    `Run id: \`${result.runId}\``,
+    `Gate version: \`${LIVE_QUALITY_GATE_VERSION}\``,
+    '',
+    '## Final verdict',
+    `Legacy verdict: \`${result.verdict}\``,
+    `Blocked by: ${formatReasons(result.blockedBy)}`,
+    '',
+    '## Gate readout',
+    formatGateLine('Pipeline', result.gates.pipeline),
+    formatGateLine('Research quality', result.gates.researchQuality),
+    formatGateLine('Actionability', result.gates.actionability),
+    formatGateLine('Projection trust', result.gates.projectionTrust),
+    formatGateLine('Strategy quality', result.gates.strategyQuality),
+    '',
+    '## Failures',
+    result.failures.length === 0
+      ? 'none'
+      : result.failures.map((failure) => `- ${failure}`).join('\n'),
+    '',
+    '## Warnings',
+    result.warnings.length === 0
+      ? 'none'
+      : result.warnings.map((warning) => `- ${warning}`).join('\n'),
+    '',
+  ].join('\n');
 }

@@ -52,6 +52,14 @@ export const salesProcessDocRefSchema = z
   })
   .strict();
 
+export const researchProvenanceSchema = z.enum([
+  "user-supplied",
+  "tool-measured",
+  "source-reported",
+  "model-estimated",
+  "unknown",
+]);
+
 const onboardingEconomicsSchema = z
   .object({
     pricingModel: z.string().min(1).optional(),
@@ -71,6 +79,28 @@ const onboardingEconomicsSchema = z
     activationToPaid: z.string().min(1).optional(),
     demoToClose: z.string().min(1).optional(),
     growthTrend: z.string().min(1).optional(),
+    provenance: z
+      .object({
+        pricingModel: researchProvenanceSchema.optional(),
+        conversionPath: researchProvenanceSchema.optional(),
+        acv: researchProvenanceSchema.optional(),
+        pricingTiers: researchProvenanceSchema.optional(),
+        targetPlan: researchProvenanceSchema.optional(),
+        avgLtv: researchProvenanceSchema.optional(),
+        targetCac: researchProvenanceSchema.optional(),
+        monthlyAdBudget: researchProvenanceSchema.optional(),
+        budgetSplit: researchProvenanceSchema.optional(),
+        currentCac: researchProvenanceSchema.optional(),
+        monthlyRevenue: researchProvenanceSchema.optional(),
+        avgSalesCycle: researchProvenanceSchema.optional(),
+        visitorToSignup: researchProvenanceSchema.optional(),
+        signupToActivation: researchProvenanceSchema.optional(),
+        activationToPaid: researchProvenanceSchema.optional(),
+        demoToClose: researchProvenanceSchema.optional(),
+        growthTrend: researchProvenanceSchema.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -240,6 +270,7 @@ export const strategicCritiqueSchema = z
     modelId: z.string().min(1),
     summary: z.string().min(1),
     items: z.array(strategicCritiqueItemSchema).min(1).max(24),
+    belowFloor: z.boolean().optional(),
   })
   .strict();
 
@@ -262,6 +293,7 @@ export const researchInputSchema = z
           .object({
             name: z.string().min(1),
             domain: z.string().min(1).optional(),
+            provenance: researchProvenanceSchema.optional(),
           })
           .strict(),
       )
@@ -389,6 +421,7 @@ export type CompanyProfile = z.infer<typeof companyProfileSchema>;
 export type OnboardingSnapshot = z.infer<typeof onboardingSnapshotSchema>;
 export type CorpusExcerpt = z.infer<typeof corpusExcerptSchema>;
 export type CorpusSnapshot = z.infer<typeof corpusSnapshotSchema>;
+export type ResearchProvenance = z.infer<typeof researchProvenanceSchema>;
 export type ResearchInput = z.infer<typeof researchInputSchema>;
 export type VerificationReportEnvelope = z.infer<typeof verificationReportSchema>;
 export type SectionReviewResult = z.infer<typeof sectionReviewResultSchema>;

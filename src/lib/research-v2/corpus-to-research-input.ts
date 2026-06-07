@@ -2,6 +2,7 @@ import {
   researchInputSchema,
   type CorpusExcerpt,
   type OnboardingSnapshot,
+  type ResearchProvenance,
   type ResearchInput,
   type SourceRef,
 } from "../lab-engine/artifacts/artifact-envelope";
@@ -337,6 +338,7 @@ function buildEconomicsBriefFields(
   onboardingData: Record<string, unknown>,
 ): Partial<Pick<OnboardingSnapshot, "economics">> {
   type EconomicsSnapshot = NonNullable<OnboardingSnapshot["economics"]>;
+  type EconomicsFieldKey = Exclude<keyof EconomicsSnapshot, "provenance">;
   const fieldSpecs = [
     ["pricingModel", ["pricingModel", "pricing_model"]],
     ["conversionPath", ["conversionPath", "conversion_path"]],
@@ -356,10 +358,11 @@ function buildEconomicsBriefFields(
     ["demoToClose", ["demoToClose", "demo_to_close"]],
     ["growthTrend", ["growthTrend", "growth_trend"]],
   ] as const satisfies readonly (readonly [
-    keyof EconomicsSnapshot,
+    EconomicsFieldKey,
     readonly string[],
   ])[];
-  const economics: Partial<EconomicsSnapshot> = {};
+  const economics: Partial<Omit<EconomicsSnapshot, "provenance">> = {};
+  const provenance: Partial<Record<EconomicsFieldKey, ResearchProvenance>> = {};
 
   for (const [outputKey, inputKeys] of fieldSpecs) {
     const value = firstString(
@@ -368,10 +371,18 @@ function buildEconomicsBriefFields(
 
     if (value !== null) {
       economics[outputKey] = value;
+      provenance[outputKey] = "user-supplied";
     }
   }
 
-  return Object.keys(economics).length === 0 ? {} : { economics };
+  return Object.keys(economics).length === 0
+    ? {}
+    : {
+        economics: {
+          ...economics,
+          provenance,
+        },
+      };
 }
 
 function resolveUrl({
@@ -888,7 +899,7 @@ function explicitDomainSafelyMatchesCompetitor({
 function buildCompetitorSeeds(
   rawTopCompetitors: string | undefined,
   sourceRecords: readonly Record<string, unknown>[],
-): { name: string; domain?: string }[] {
+): { name: string; domain?: string; provenance: "user-supplied" }[] {
   if (rawTopCompetitors === undefined || rawTopCompetitors.trim() === "") {
     return [];
   }
@@ -906,7 +917,8 @@ function buildCompetitorSeeds(
     .filter((domain): domain is string => domain !== null);
 
   const seen = new Set<string>();
-  const seeds: { name: string; domain?: string }[] = [];
+  const seeds: { name: string; domain?: string; provenance: "user-supplied" }[] =
+    [];
 
   for (const rawName of splitCompetitorSeedCandidates(rawTopCompetitors)) {
     const stripped = stripCompetitorDescriptor(
@@ -954,6 +966,7 @@ function buildCompetitorSeeds(
     seeds.push({
       name,
       ...(seedDomain === undefined ? {} : { domain: seedDomain }),
+      provenance: "user-supplied",
     });
 
     if (seeds.length >= 5) {

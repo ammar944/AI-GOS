@@ -299,6 +299,10 @@ function buildKnewThatInput(
   };
 }
 
+function formatKnewThatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 export function scoreStrategicRubricArtifacts(
   input: StrategicRubricArtifactInput,
 ): StrategicRubricScore {
@@ -311,6 +315,7 @@ export function scoreStrategicRubricArtifacts(
     hasConcreteKillCriteria(paidMediaMoves);
   const critique = input.strategicCritique ?? input.crossSectionReasoning?.strategicCritique;
   const knewThat = buildKnewThatInput(critique);
+  const knewThatPassShare = computeKnewThatPassShare(knewThat);
 
   return scoreStrategicRubric({
     evidencePointers: {
@@ -339,7 +344,15 @@ export function scoreStrategicRubricArtifacts(
             knew_that_pass_rate:
               "No strategicCritique metadata available; mark the live checklist unknown/fail rather than blocking artifact commit.",
           }
-        : {}),
+        : critique?.belowFloor === true && knewThatPassShare !== null
+          ? {
+              knew_that_pass_rate: `StrategicCritique ran and scored ${formatKnewThatPercent(
+                knewThatPassShare,
+              )}, below the ${formatKnewThatPercent(
+                STRATEGIC_KNEW_THAT_PASS_FLOOR,
+              )} knew-that floor.`,
+            }
+          : {}),
       ...(input.crossSectionReasoning === null ||
       input.crossSectionReasoning === undefined
         ? {

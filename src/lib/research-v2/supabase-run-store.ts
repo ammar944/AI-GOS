@@ -35,6 +35,18 @@ import {
 } from '@/lib/profiles/section-profile-persistence';
 import { patchBusinessProfileInsights } from '@/lib/profiles/business-profiles';
 import { refreshV3SharedSessionSnapshotsBestEffort } from '@/lib/research-v2/share-snapshot';
+import {
+  evaluateLiveQualityGate,
+  LIVE_QUALITY_GATE_VERSION,
+  renderLiveQualityGateReportMarkdown,
+  type LiveQualityGateArtifactRow,
+  type LiveQualityGateInput,
+  type LiveQualityGateJourneySessionSnapshot,
+  type LiveQualityGateProfileSnapshot,
+  type LiveQualityGateSectionRow,
+  type LiveQualityGateSectionRunRow,
+  type LiveQualityGateShareSnapshot,
+} from '@/lib/research-v3/live-quality-gate';
 
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
@@ -59,6 +71,63 @@ const PROFILE_PATCH_SECTION_IDS = [
 ] as const;
 
 type ProfilePatchSectionId = (typeof PROFILE_PATCH_SECTION_IDS)[number];
+
+interface ResearchArtifactDbRow {
+  id: string;
+  run_id: string;
+  status: string | null;
+  children_complete: number | null;
+  children_total: number | null;
+  profile_persisted_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ResearchArtifactSectionDbRow {
+  id: string;
+  zone: string | null;
+  section_run_id: string | null;
+  status: string | null;
+  title: string | null;
+  data: unknown;
+  verification_tier: unknown;
+  verification_flag: unknown;
+  counts_toward_rollup: boolean | null;
+  updated_at: string | null;
+}
+
+interface ResearchSectionRunDbRow {
+  id: string;
+  zone: string | null;
+  status: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  aborted_at: string | null;
+  error: unknown;
+  telemetry: unknown;
+}
+
+interface JourneySessionDbRow {
+  id: string;
+  profile_id: string | null;
+  metadata: Record<string, unknown> | null;
+  onboarding_data: Record<string, unknown> | null;
+  updated_at: string | null;
+}
+
+interface BusinessProfileDbRow {
+  id: string;
+  ai_insights: Record<string, unknown> | null;
+  positioning_strategy: Record<string, unknown> | null;
+  offer_score: Record<string, unknown> | null;
+  updated_at: string | null;
+}
+
+interface SharedSessionDbRow {
+  share_token: string | null;
+  research_snapshot: unknown;
+  created_at: string | null;
+}
 
 /**
  * Thrown when commit_artifact_section returns conflict=true (a compare-and-swap
@@ -238,6 +307,275 @@ function readStringValue(
 ): string {
   const value = record?.[key];
   return typeof value === 'string' ? value : '';
+}
+
+function readOptionalStringValue(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const value = record?.[key];
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function normalizeGateArtifact(
+  row: ResearchArtifactDbRow | null,
+): LiveQualityGateArtifactRow | null {
+  if (row === null) return null;
+
+  return {
+    id: row.id,
+    runId: row.run_id,
+    status: row.status,
+    childrenComplete: row.children_complete ?? 0,
+    childrenTotal: row.children_total ?? 6,
+    profilePersistedAt: row.profile_persisted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeGateSection(
+  row: ResearchArtifactSectionDbRow,
+): LiveQualityGateSectionRow {
+  return {
+    id: row.id,
+    zone: row.zone,
+    sectionRunId: row.section_run_id,
+    status: row.status,
+    title: row.title,
+    data: row.data,
+    verificationTier: row.verification_tier,
+    verificationFlag: row.verification_flag,
+    countsTowardRollup: row.counts_toward_rollup,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeGateSectionRun(
+  row: ResearchSectionRunDbRow,
+): LiveQualityGateSectionRunRow {
+  return {
+    id: row.id,
+    zone: row.zone,
+    status: row.status,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    abortedAt: row.aborted_at,
+    error: row.error,
+    telemetry: row.telemetry,
+  };
+}
+
+function normalizeGateJourneySession(
+  row: JourneySessionDbRow | null,
+): LiveQualityGateJourneySessionSnapshot | null {
+  if (row === null) return null;
+
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    metadata: row.metadata,
+    onboardingData: row.onboarding_data,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeGateProfile(
+  row: BusinessProfileDbRow | null,
+): LiveQualityGateProfileSnapshot | null {
+  if (row === null) return null;
+
+  return {
+    id: row.id,
+    aiInsights: row.ai_insights,
+    positioningStrategy: row.positioning_strategy,
+    offerScore: row.offer_score,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeGateShare(
+  row: SharedSessionDbRow | null,
+): LiveQualityGateShareSnapshot | null {
+  if (row === null) return null;
+
+  return {
+    shareToken: row.share_token,
+    researchSnapshot: row.research_snapshot,
+    createdAt: row.created_at,
+  };
+}
+
+function readGateSubjectDomain(
+  session: LiveQualityGateJourneySessionSnapshot | null,
+): string | null {
+  if (session === null) return null;
+  const metadata = asRecordValue(session.metadata);
+  const onboardingData = asRecordValue(session.onboardingData);
+
+  return (
+    readOptionalStringValue(onboardingData, 'websiteUrl') ??
+    readOptionalStringValue(metadata, 'websiteUrl') ??
+    readOptionalStringValue(metadata, 'companyUrl')
+  );
+}
+
+async function buildLiveQualityGateInputFromDb(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+  runId: string;
+  userId: string;
+}): Promise<LiveQualityGateInput> {
+  const { data: artifactData, error: artifactError } = await input.supabase
+    .from('research_artifacts')
+    .select(
+      'id, run_id, status, children_complete, children_total, profile_persisted_at, created_at, updated_at',
+    )
+    .eq('id', input.parentAuditRunId)
+    .eq('run_id', input.runId)
+    .maybeSingle();
+
+  if (artifactError) {
+    throw new SupabaseRunStoreError(
+      `research_artifacts gate read failed for parent_audit_run_id=${input.parentAuditRunId} run_id=${input.runId}: ${artifactError.message}`,
+    );
+  }
+
+  const artifact = normalizeGateArtifact(
+    (artifactData as ResearchArtifactDbRow | null) ?? null,
+  );
+  if (artifact === null) {
+    throw new SupabaseRunStoreError(
+      `research_artifacts gate read returned no row for parent_audit_run_id=${input.parentAuditRunId} run_id=${input.runId}`,
+    );
+  }
+
+  const [sectionsResponse, runsResponse, sessionResponse] = await Promise.all([
+    input.supabase
+      .from('research_artifact_sections')
+      .select(
+        'id, zone, section_run_id, status, title, data, verification_tier, verification_flag, counts_toward_rollup, updated_at',
+      )
+      .eq('artifact_id', input.parentAuditRunId),
+    input.supabase
+      .from('research_section_runs')
+      .select('id, zone, status, started_at, completed_at, aborted_at, error, telemetry')
+      .eq('artifact_id', input.parentAuditRunId),
+    input.supabase
+      .from('journey_sessions')
+      .select('id, profile_id, metadata, onboarding_data, updated_at')
+      .eq('run_id', input.runId)
+      .eq('user_id', input.userId)
+      .maybeSingle(),
+  ]);
+
+  if (sectionsResponse.error) {
+    throw new SupabaseRunStoreError(
+      `research_artifact_sections gate read failed for parent_audit_run_id=${input.parentAuditRunId}: ${sectionsResponse.error.message}`,
+    );
+  }
+  if (runsResponse.error) {
+    throw new SupabaseRunStoreError(
+      `research_section_runs gate read failed for parent_audit_run_id=${input.parentAuditRunId}: ${runsResponse.error.message}`,
+    );
+  }
+  if (sessionResponse.error) {
+    throw new SupabaseRunStoreError(
+      `journey_sessions gate read failed for run_id=${input.runId}: ${sessionResponse.error.message}`,
+    );
+  }
+
+  const journeySession = normalizeGateJourneySession(
+    (sessionResponse.data as JourneySessionDbRow | null) ?? null,
+  );
+  const [profileResponse, shareResponse] = await Promise.all([
+    journeySession?.profileId
+      ? input.supabase
+          .from('business_profiles')
+          .select('id, ai_insights, positioning_strategy, offer_score, updated_at')
+          .eq('id', journeySession.profileId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    journeySession
+      ? input.supabase
+          .from('shared_sessions')
+          .select('share_token, research_snapshot, created_at')
+          .eq('session_id', journeySession.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  if (profileResponse.error) {
+    throw new SupabaseRunStoreError(
+      `business_profiles gate read failed for profile_id=${journeySession?.profileId ?? 'missing'} run_id=${input.runId}: ${profileResponse.error.message}`,
+    );
+  }
+  if (shareResponse.error) {
+    throw new SupabaseRunStoreError(
+      `shared_sessions gate read failed for session_id=${journeySession?.id ?? 'missing'} run_id=${input.runId}: ${shareResponse.error.message}`,
+    );
+  }
+
+  return {
+    runId: input.runId,
+    artifact,
+    sections: (
+      (sectionsResponse.data as ResearchArtifactSectionDbRow[] | null) ?? []
+    ).map(normalizeGateSection),
+    sectionRuns: (
+      (runsResponse.data as ResearchSectionRunDbRow[] | null) ?? []
+    ).map(normalizeGateSectionRun),
+    journeySession,
+    profile: normalizeGateProfile(
+      (profileResponse.data as BusinessProfileDbRow | null) ?? null,
+    ),
+    share: normalizeGateShare(
+      (shareResponse.data as SharedSessionDbRow | null) ?? null,
+    ),
+    subjectDomain: readGateSubjectDomain(journeySession),
+  };
+}
+
+async function persistLiveQualityGateBestEffort(input: {
+  supabase: SupabaseClient;
+  parentAuditRunId: string;
+  runId: string;
+  userId: string;
+  computedAt: string;
+}): Promise<void> {
+  try {
+    const gateInput = await buildLiveQualityGateInputFromDb(input);
+    const result = evaluateLiveQualityGate(gateInput);
+    const { error } = await input.supabase
+      .from('research_quality_gate_results')
+      .upsert(
+        {
+          run_id: input.runId,
+          artifact_id: input.parentAuditRunId,
+          gate_version: LIVE_QUALITY_GATE_VERSION,
+          result,
+          report_markdown: renderLiveQualityGateReportMarkdown(result),
+          computed_at: input.computedAt,
+        },
+        { onConflict: 'run_id,gate_version' },
+      );
+
+    if (error) {
+      throw new SupabaseRunStoreError(
+        `research_quality_gate_results upsert failed for run_id=${input.runId} gate_version=${LIVE_QUALITY_GATE_VERSION}: ${error.message}`,
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      '[supabase-run-store] live quality gate persistence failed:',
+      message,
+    );
+  }
 }
 
 async function attachAgenticReview(input: {
@@ -766,6 +1104,14 @@ export function createSupabaseRunStore(
           supabase: options.supabase,
           userId: options.userId,
           runId: input.runId,
+        });
+
+        await persistLiveQualityGateBestEffort({
+          supabase: options.supabase,
+          parentAuditRunId: options.parentAuditRunId,
+          runId: input.runId,
+          userId: options.userId,
+          computedAt: completedAt,
         });
       } else {
         await patchProfileSectionBestEffort({

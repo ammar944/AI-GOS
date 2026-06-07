@@ -159,6 +159,60 @@ describe("strategic rubric", (): void => {
     expect(result.gate).toBe("below_9_of_10_gate");
   });
 
+  it("scores a persisted below-floor critique with a real knew-that share", (): void => {
+    const result = scoreStrategicRubricArtifacts({
+      crossSectionReasoning: {
+        ...crossSectionReasoningFixtureArtifact,
+        body: {
+          ...crossSectionReasoningFixtureArtifact.body,
+          belowFloor: true,
+        },
+        strategicCritique: {
+          ...passingCritique,
+          belowFloor: true,
+          items: [
+            {
+              action: "kept",
+              path: "body.crossSectionThreads[0].claim",
+              rationale: "Only one claim passed.",
+              text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[0]
+                .claim,
+              verdict: "passes",
+            },
+            {
+              action: "cut",
+              path: "body.crossSectionThreads[1].claim",
+              rationale: "This read like a summary.",
+              text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[1]
+                .claim,
+              verdict: "summary",
+            },
+            {
+              action: "cut",
+              path: "body.crossSectionThreads[2].claim",
+              rationale: "This remained too obvious.",
+              text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[2]
+                .claim,
+              verdict: "knew_that",
+            },
+          ],
+        },
+      },
+      positioningPaidMediaPlan: paidMediaPlanFixtureArtifact,
+      positioningSynthesis: positioningSynthesisFixtureArtifact,
+    });
+
+    expect(result.knewThatPassShare).toBe(1 / 3);
+    expect(
+      result.propertyResults.find((item) => item.id === "knew_that_pass_rate")
+        ?.passed,
+    ).toBe(false);
+    expect(
+      result.propertyResults.find((item) => item.id === "knew_that_pass_rate")
+        ?.note,
+    ).toContain("StrategicCritique ran and scored");
+  });
+
   it("renders a human checklist and model prompt block from the same rubric", (): void => {
     expect(buildStrategicRubricChecklistMarkdown()).toContain(
       "9/10 Strategic Rubric",

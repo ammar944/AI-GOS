@@ -133,6 +133,25 @@ describe("corpusToResearchInput", (): void => {
       activationToPaid: "12%",
       demoToClose: "22%",
       growthTrend: "Revenue is growing 9% month over month.",
+      provenance: {
+        pricingModel: "user-supplied",
+        conversionPath: "user-supplied",
+        acv: "user-supplied",
+        pricingTiers: "user-supplied",
+        targetPlan: "user-supplied",
+        avgLtv: "user-supplied",
+        targetCac: "user-supplied",
+        monthlyAdBudget: "user-supplied",
+        budgetSplit: "user-supplied",
+        currentCac: "user-supplied",
+        monthlyRevenue: "user-supplied",
+        avgSalesCycle: "user-supplied",
+        visitorToSignup: "user-supplied",
+        signupToActivation: "user-supplied",
+        activationToPaid: "user-supplied",
+        demoToClose: "user-supplied",
+        growthTrend: "user-supplied",
+      },
     });
     expect(JSON.stringify(parsed)).not.toContain("Synthetic");
     expect(JSON.stringify(parsed)).not.toContain("example.com");
@@ -480,8 +499,8 @@ describe("corpusToResearchInput", (): void => {
     // The corpus sources are airtable.com only, so neither competitor gets a
     // domain (conservative enrichment avoids mis-attribution).
     expect(parsed.competitorSeeds).toEqual([
-      { name: "Notion" },
-      { name: "Monday.com" },
+      { name: "Notion", provenance: "user-supplied" },
+      { name: "Monday.com", provenance: "user-supplied" },
     ]);
   });
 
@@ -504,9 +523,9 @@ describe("corpusToResearchInput", (): void => {
     const parsed = researchInputSchema.parse(input);
 
     expect(parsed.competitorSeeds).toEqual([
-      { name: "Notion", domain: "notion.so" },
-      { name: "Monday.com", domain: "monday.com" },
-      { name: "Asana" },
+      { name: "Notion", domain: "notion.so", provenance: "user-supplied" },
+      { name: "Monday.com", domain: "monday.com", provenance: "user-supplied" },
+      { name: "Asana", provenance: "user-supplied" },
     ]);
   });
 

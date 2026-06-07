@@ -68,6 +68,7 @@ export const crossSectionReasoningBodySchema = z
     namedTension: namedTensionSchema,
     secondOrderRisk: groundedStrategicClaimSchema,
     contrarianInversion: groundedStrategicClaimSchema,
+    belowFloor: z.boolean().optional(),
   })
   .strict();
 

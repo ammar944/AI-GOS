@@ -229,6 +229,8 @@ function buildReviewPrompt(input: {
     "Rules:",
     "- Remove fabricated or contaminated facts instead of merely flagging them.",
     "- Credit client-provided onboarding economics as (client brief), not as tool-measured facts.",
+    "- Treat ResearchInput fields marked `provenance: \"user-supplied\"` as grounded client brief; do not remove or flag those numbers as unsupported merely because no public source repeats them.",
+    "- Treat competitor seeds marked `provenance: \"user-supplied\"` as operator-provided starting points, not fetched competitive evidence.",
     "- Label model estimates as [model estimate - not tool-measured].",
     "- Label plausible but unfetched claims as [unverified - confirm before use].",
     "- If evidence is too thin, author an honest evidence-gap section that says what is missing and what to ask next.",

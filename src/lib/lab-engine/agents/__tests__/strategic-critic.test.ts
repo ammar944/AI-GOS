@@ -187,42 +187,50 @@ describe("cross-section strategic critic", (): void => {
     ).toThrow(/metadata does not map to final body/u);
   });
 
-  it("rejects critic responses below the knew-that pass floor", (): void => {
-    expect(() =>
-      parseCrossSectionStrategicCriticResponse({
-        artifact: crossSectionReasoningFixtureArtifact,
-        checkedAt: "2026-06-04T13:00:00.000Z",
-        modelId: "claude-opus-4-5",
-        text: buildCriticResponse({
-          items: [
-            {
-              action: "kept",
-              path: "body.crossSectionThreads[0].claim",
-              rationale: "Only one item passes.",
-              text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[0]
-                .claim,
-              verdict: "passes",
-            },
-            {
-              action: "cut",
-              path: "body.crossSectionThreads[1].claim",
-              rationale: "This reads like a summary.",
-              text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[1]
-                .claim,
-              verdict: "summary",
-            },
-            {
-              action: "cut",
-              path: "body.crossSectionThreads[2].claim",
-              rationale: "This is too obvious.",
-              text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[2]
-                .claim,
-              verdict: "knew_that",
-            },
-          ],
-        }),
+  it("persists critic metadata below the knew-that pass floor", (): void => {
+    const artifact = parseCrossSectionStrategicCriticResponse({
+      artifact: crossSectionReasoningFixtureArtifact,
+      checkedAt: "2026-06-04T13:00:00.000Z",
+      modelId: "claude-opus-4-5",
+      text: buildCriticResponse({
+        items: [
+          {
+            action: "kept",
+            path: "body.crossSectionThreads[0].claim",
+            rationale: "Only one item passes.",
+            text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[0]
+              .claim,
+            verdict: "passes",
+          },
+          {
+            action: "cut",
+            path: "body.crossSectionThreads[1].claim",
+            rationale: "This reads like a summary.",
+            text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[1]
+              .claim,
+            verdict: "summary",
+          },
+          {
+            action: "cut",
+            path: "body.crossSectionThreads[2].claim",
+            rationale: "This is too obvious.",
+            text: crossSectionReasoningFixtureArtifact.body.crossSectionThreads[2]
+              .claim,
+            verdict: "knew_that",
+          },
+        ],
       }),
-    ).toThrow(/below 40%/u);
+    });
+
+    expect(artifact.body.belowFloor).toBe(true);
+    expect(artifact.strategicCritique).toEqual(
+      expect.objectContaining({
+        belowFloor: true,
+        items: expect.arrayContaining([
+          expect.objectContaining({ verdict: "knew_that" }),
+        ]),
+      }),
+    );
   });
 
   it("falls back to the original artifact with diagnostics when the critic model fails", async (): Promise<void> => {
@@ -345,6 +353,62 @@ describe("cross-section strategic critic", (): void => {
         prompt: expect.stringContaining("9/10 strategic rubric"),
         temperature: 0.1,
       }),
+    );
+  });
+
+  it("deepens once after a knew-that floor miss", async (): Promise<void> => {
+    const firstBody = structuredClone(crossSectionReasoningFixtureArtifact.body);
+    const retriedBody = structuredClone(crossSectionReasoningFixtureArtifact.body);
+    retriedBody.crossSectionThreads[0].claim =
+      "Buyer urgency, competitor inertia, and customer anxiety collide around implementation delay, so the defensible wedge is a proof-backed time-to-first-campaign promise rather than a generic speed claim.";
+    aiMocks.generateText
+      .mockResolvedValueOnce({
+        text: buildCriticResponse({
+          body: firstBody,
+          items: [
+            {
+              action: "kept",
+              path: "body.crossSectionThreads[0].claim",
+              rationale: "This remained too obvious.",
+              text: firstBody.crossSectionThreads[0]?.claim ?? "",
+              verdict: "knew_that",
+            },
+            {
+              action: "cut",
+              path: "body.crossSectionThreads[1].claim",
+              rationale: "This read like a summary.",
+              text: firstBody.crossSectionThreads[1]?.claim ?? "",
+              verdict: "summary",
+            },
+            {
+              action: "cut",
+              path: "body.crossSectionThreads[2].claim",
+              rationale: "This was unsupported.",
+              text: firstBody.crossSectionThreads[2]?.claim ?? "",
+              verdict: "unsupported",
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        text: buildCriticResponse({ body: retriedBody }),
+      });
+
+    const result = await applyCrossSectionStrategicCritic({
+      artifact: crossSectionReasoningFixtureArtifact,
+      checkedAt: "2026-06-04T13:00:00.000Z",
+      model: mockModel,
+      modelId: "claude-opus-4-5",
+    });
+
+    expect(result.outcome).toBe("upgraded");
+    expect(result.artifact.body.crossSectionThreads[0]?.claim).toContain(
+      "proof-backed time-to-first-campaign",
+    );
+    expect(result.artifact.strategicCritique?.belowFloor).toBeUndefined();
+    expect(aiMocks.generateText).toHaveBeenCalledTimes(2);
+    expect(aiMocks.generateText.mock.calls[1]?.[0]?.prompt).toContain(
+      "Deepen the AI-GOS cross-section reasoning artifact one more time.",
     );
   });
 });

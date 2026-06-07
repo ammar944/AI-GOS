@@ -168,7 +168,7 @@ describe('research quality gate report', (): void => {
     expect(markdown).toContain('## Gate readout');
     expect(markdown).toContain('## Research quality reasons');
     expect(markdown).toContain('## Actionability');
-    expect(markdown).toContain('## Projection sync');
+    expect(markdown).toContain('## Projection trust');
     expect(markdown).toContain('## Strategy quality');
     expect(markdown).toContain('Blocked by: none');
     expect(markdown).toContain('## Section rules table');

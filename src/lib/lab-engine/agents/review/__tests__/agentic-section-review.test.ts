@@ -89,6 +89,47 @@ describe("reviewAndUpgradeSection", (): void => {
     );
   });
 
+  it("treats user-supplied economics provenance as grounded client brief context", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: [
+        "## Reviewed market category",
+        "",
+        "The client-supplied ACV remains in the economics context.",
+        '<review_metadata>{"tier":"verified","tierRationale":"User-supplied economics are grounded as client brief context.","removedItems":[],"clientQuestions":[]}</review_metadata>',
+      ].join("\n"),
+    });
+
+    await reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockModel,
+      researchInput: {
+        ...saaslaunchResearchInput,
+        onboarding: {
+          ...saaslaunchResearchInput.onboarding,
+          economics: {
+            acv: "$40,000",
+            avgSalesCycle: "90 days",
+            provenance: {
+              acv: "user-supplied",
+              avgSalesCycle: "user-supplied",
+            },
+          },
+        },
+      },
+      sectionId: "positioningMarketCategory",
+    });
+
+    const prompt = aiMocks.generateText.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain(
+      'Treat ResearchInput fields marked `provenance: "user-supplied"` as grounded client brief',
+    );
+    expect(prompt).toContain('"acv": "$40,000"');
+    expect(prompt).toContain('"acv": "user-supplied"');
+    expect(prompt).toContain(
+      "flag those numbers as unsupported merely because no public source repeats them",
+    );
+  });
+
   it("marks review unavailable and preserves model diagnostics when a non-null artifact review fails", async (): Promise<void> => {
     const providerError = Object.assign(
       new Error("Failed to process successful response"),

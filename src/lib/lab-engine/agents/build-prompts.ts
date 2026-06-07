@@ -264,6 +264,198 @@ export function buildCompetitorSeedHints(
   });
 }
 
+function joinList(values: readonly string[] | undefined): string | null {
+  if (values === undefined || values.length === 0) {
+    return null;
+  }
+
+  return values.join(", ");
+}
+
+function readEconomicsProvenance(
+  economics: NonNullable<ResearchInput["onboarding"]["economics"]>,
+  key: Exclude<
+    keyof NonNullable<ResearchInput["onboarding"]["economics"]>,
+    "provenance"
+  >,
+): string {
+  return economics.provenance?.[key] ?? "unknown";
+}
+
+function formatEconomicsField(
+  economics: NonNullable<ResearchInput["onboarding"]["economics"]>,
+  key: Exclude<
+    keyof NonNullable<ResearchInput["onboarding"]["economics"]>,
+    "provenance"
+  >,
+  label: string,
+): string | null {
+  const value = economics[key];
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  return `${label}=${value.trim()} (${readEconomicsProvenance(economics, key)})`;
+}
+
+function buildEconomicsImplications(
+  economics: NonNullable<ResearchInput["onboarding"]["economics"]>,
+): string[] {
+  const implications: string[] = [];
+
+  if (
+    economics.avgSalesCycle !== undefined ||
+    economics.acv !== undefined ||
+    economics.conversionPath !== undefined
+  ) {
+    implications.push(
+      [
+        economics.avgSalesCycle ?? "unknown cycle",
+        economics.acv ?? "unknown ACV",
+        economics.conversionPath ?? "unknown conversion path",
+        "implies the section should treat the purchase as a considered decision and avoid impulse-buy assumptions",
+      ].join(" + "),
+    );
+  }
+
+  if (
+    economics.monthlyAdBudget !== undefined ||
+    economics.targetCac !== undefined ||
+    economics.currentCac !== undefined
+  ) {
+    implications.push(
+      [
+        economics.monthlyAdBudget ?? "unknown media budget",
+        economics.targetCac ?? "unknown target CAC",
+        economics.currentCac ?? "unknown current CAC",
+        "sets the paid-learning efficiency boundary",
+      ].join(" + "),
+    );
+  }
+
+  if (
+    economics.visitorToSignup !== undefined ||
+    economics.signupToActivation !== undefined ||
+    economics.activationToPaid !== undefined ||
+    economics.demoToClose !== undefined
+  ) {
+    implications.push(
+      [
+        "funnel rates",
+        [
+          economics.visitorToSignup,
+          economics.signupToActivation,
+          economics.activationToPaid,
+          economics.demoToClose,
+        ]
+          .filter((value): value is string => value !== undefined)
+          .join(" / "),
+        "identify where messaging and offer proof must reduce friction",
+      ].join(" "),
+    );
+  }
+
+  if (
+    economics.pricingModel !== undefined ||
+    economics.pricingTiers !== undefined ||
+    economics.targetPlan !== undefined
+  ) {
+    implications.push(
+      [
+        economics.pricingModel ?? "unknown pricing model",
+        economics.targetPlan ?? "unknown target plan",
+        "requires section claims to respect packaging and plan-level buying context",
+      ].join(" + "),
+    );
+  }
+
+  if (
+    economics.monthlyRevenue !== undefined ||
+    economics.avgLtv !== undefined ||
+    economics.growthTrend !== undefined
+  ) {
+    implications.push(
+      [
+        economics.monthlyRevenue ?? "unknown revenue",
+        economics.avgLtv ?? "unknown LTV",
+        economics.growthTrend ?? "unknown growth trend",
+        "sets the scale context for risk, urgency, and channel recommendations",
+      ].join(" + "),
+    );
+  }
+
+  return implications;
+}
+
+export function buildOnboardingStrategicFrame(
+  researchInput: ResearchInput,
+): string {
+  const { onboarding } = researchInput;
+  const lines = [
+    `Primary objective: ${onboarding.primaryGoal}.`,
+    `Target segments: ${joinList(onboarding.targetSegments) ?? "unknown"}.`,
+    `Key offers: ${joinList(onboarding.keyOffers) ?? "unknown"}.`,
+    `Distribution channels: ${
+      joinList(onboarding.distributionChannels) ?? "unknown"
+    }.`,
+    onboarding.constraints.length === 0
+      ? null
+      : `Constraints: ${onboarding.constraints.join(", ")}.`,
+    onboarding.gtmMotion === undefined
+      ? null
+      : `GTM motion: ${onboarding.gtmMotion}.`,
+    onboarding.creativeCapacity === undefined
+      ? null
+      : `Creative capacity: ${onboarding.creativeCapacity}.`,
+    onboarding.leadListAvailable === undefined
+      ? null
+      : `Lead list available: ${String(onboarding.leadListAvailable)}.`,
+  ].filter((line): line is string => line !== null);
+  const economics = onboarding.economics;
+
+  if (economics !== undefined) {
+    const economicsFields = [
+      formatEconomicsField(economics, "pricingModel", "pricing model"),
+      formatEconomicsField(economics, "conversionPath", "conversion path"),
+      formatEconomicsField(economics, "acv", "ACV"),
+      formatEconomicsField(economics, "pricingTiers", "pricing tiers"),
+      formatEconomicsField(economics, "targetPlan", "target plan"),
+      formatEconomicsField(economics, "avgLtv", "average LTV"),
+      formatEconomicsField(economics, "targetCac", "target CAC"),
+      formatEconomicsField(economics, "monthlyAdBudget", "monthly ad budget"),
+      formatEconomicsField(economics, "budgetSplit", "budget split"),
+      formatEconomicsField(economics, "currentCac", "current CAC"),
+      formatEconomicsField(economics, "monthlyRevenue", "monthly revenue"),
+      formatEconomicsField(economics, "avgSalesCycle", "sales cycle"),
+      formatEconomicsField(economics, "visitorToSignup", "visitor to signup"),
+      formatEconomicsField(
+        economics,
+        "signupToActivation",
+        "signup to activation",
+      ),
+      formatEconomicsField(
+        economics,
+        "activationToPaid",
+        "activation to paid",
+      ),
+      formatEconomicsField(economics, "demoToClose", "demo to close"),
+      formatEconomicsField(economics, "growthTrend", "growth trend"),
+    ].filter((field): field is string => field !== null);
+
+    if (economicsFields.length > 0) {
+      lines.push(`Economics signals: ${economicsFields.join("; ")}.`);
+    }
+
+    const implications = buildEconomicsImplications(economics);
+    if (implications.length > 0) {
+      lines.push(`Strategic implications: ${implications.join("; ")}.`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function buildResearchInputForPrompt({
   definition,
   researchInput,
@@ -310,7 +502,8 @@ function buildSectionScopedResearchInputForPrompt({
 }: {
   definition: PromptSectionDefinition;
   researchInput: ResearchInput;
-}): Omit<ResearchInput, "corpus"> & {
+}): Omit<ResearchInput, "corpus" | "onboarding"> & {
+  onboardingStrategicFrame: string;
   corpus: { excerpts: ResearchInput["corpus"]["excerpts"] };
 } {
   const sectionId = resolvePromptSectionId(definition);
@@ -318,9 +511,12 @@ function buildSectionScopedResearchInputForPrompt({
     sectionId === null
       ? undefined
       : researchInput.corpus.sectionExcerpts?.[sectionId];
+  const { corpus: _corpus, onboarding: _onboarding, ...promptInput } =
+    researchInput;
 
   return {
-    ...researchInput,
+    ...promptInput,
+    onboardingStrategicFrame: buildOnboardingStrategicFrame(researchInput),
     corpus: {
       excerpts: sectionExcerpts ?? researchInput.corpus.excerpts,
     },

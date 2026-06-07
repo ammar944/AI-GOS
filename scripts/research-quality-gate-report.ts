@@ -14,6 +14,7 @@ import {
 } from '../src/lib/lab-engine/artifacts/schemas/buyer-icp';
 import { createAdminClient } from '../src/lib/supabase/server';
 import {
+  LIVE_QUALITY_GATE_VERSION,
   evaluateLiveQualityGate,
   type LiveActionabilityStatus,
   type LiveQualityGateArtifactRow,
@@ -34,7 +35,7 @@ import {
 
 loadEnvConfig(process.cwd());
 
-export const RESEARCH_QUALITY_GATE_VERSION = 'research-quality-gates-v1';
+export const RESEARCH_QUALITY_GATE_VERSION = LIVE_QUALITY_GATE_VERSION;
 
 export type PipelineGateStatus = LivePipelineGateStatus;
 export type ActionabilityGateStatus = LiveActionabilityStatus;
@@ -727,9 +728,9 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
       listOrNone(result.gates.actionability.reasons),
     ],
     [
-      'Projection sync',
-      result.gates.projectionSync.status,
-      listOrNone(result.gates.projectionSync.reasons),
+      'Projection trust',
+      result.gates.projectionTrust.status,
+      listOrNone(result.gates.projectionTrust.reasons),
     ],
     [
       'Strategy quality',
@@ -764,7 +765,7 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
     `Blocked by: ${listOrNone(result.blockedBy)}`,
     `Research quality gate: \`${result.gates.researchQuality.status}\``,
     `Actionability gate: \`${result.gates.actionability.status}\``,
-    `Projection sync gate: \`${result.gates.projectionSync.status}\``,
+    `Projection trust gate: \`${result.gates.projectionTrust.status}\``,
     `Strategy quality gate: \`${result.gates.strategyQuality.status}\``,
     '',
     '## Gate readout',
@@ -790,8 +791,8 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
       ? result.gates.actionability.reasons.map((reason) => `- ${reason}`).join('\n')
       : 'none',
     '',
-    '## Projection sync',
-    `Status: \`${result.gates.projectionSync.status}\``,
+    '## Projection trust',
+    `Status: \`${result.gates.projectionTrust.status}\``,
     `Profile present: ${boolText(result.profileTrust.present)}`,
     `Profile trust match: ${boolText(result.profileTrust.matched)}`,
     `Profile failures: ${listOrNone(result.profileTrust.failures)}`,

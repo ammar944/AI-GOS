@@ -88,14 +88,66 @@ interface FakeSupabaseOptions {
 }
 
 function createSelectQuery(table: string, options: FakeSupabaseOptions) {
+  const resolveRows = (): { data: unknown; error: null } => {
+    if (table === 'research_artifact_sections') {
+      return {
+        data: (options.completeSectionZones ?? ['positioningMarketCategory']).map(
+          (zone, index) => ({
+            id: `section-${zone}`,
+            zone,
+            section_run_id:
+              sectionRunIdByZone[zone] ?? `section-run-${index + 1}`,
+            status: 'complete',
+            title: zone,
+            data: marketCategoryFixtureArtifact,
+            verification_tier: 'verified',
+            verification_flag: null,
+            counts_toward_rollup: true,
+            updated_at: '2026-05-25T12:00:00.000Z',
+          }),
+        ),
+        error: null,
+      };
+    }
+
+    if (table === 'research_section_runs') {
+      return {
+        data: (options.completeSectionZones ?? ['positioningMarketCategory']).map(
+          (zone, index) => ({
+            id: sectionRunIdByZone[zone] ?? `section-run-${index + 1}`,
+            zone,
+            status: 'complete',
+            started_at: '2026-05-25T11:55:00.000Z',
+            completed_at: '2026-05-25T12:00:00.000Z',
+            aborted_at: null,
+            error: null,
+            telemetry: {},
+          }),
+        ),
+        error: null,
+      };
+    }
+
+    return { data: [], error: null };
+  };
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
     in: vi.fn(),
+    limit: vi.fn(),
     maybeSingle: vi.fn(),
+    order: vi.fn(),
+    then: vi.fn(
+      (
+        resolve: (value: { data: unknown; error: null }) => unknown,
+        reject?: (reason: unknown) => unknown,
+      ) => Promise.resolve(resolveRows()).then(resolve, reject),
+    ),
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.limit.mockReturnValue(query);
+  query.order.mockReturnValue(query);
   query.in.mockResolvedValue({
     data:
       table === 'research_artifact_sections'
@@ -131,9 +183,16 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
   } else if (table === 'research_artifacts') {
     query.maybeSingle.mockResolvedValue({
       data: {
+        id: parentAuditRunId,
+        run_id: saaslaunchResearchInput.runId,
         revision: 0,
+        children_complete: 6,
+        children_total: 6,
+        profile_persisted_at: null,
+        created_at: '2026-05-25T11:55:00.000Z',
+        updated_at: '2026-05-25T12:00:00.000Z',
         ...(options.parentStatus === undefined
-          ? {}
+          ? { status: 'running' }
           : { status: options.parentStatus }),
       },
       error: null,
@@ -150,6 +209,11 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
 function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
   const inserts: Array<{ table: string; row: Record<string, unknown> }> = [];
+  const upserts: Array<{
+    table: string;
+    row: Record<string, unknown>;
+    options?: Record<string, unknown>;
+  }> = [];
   let profileClaimIndex = 0;
   const readProfileClaim = (): boolean => {
     const sequenceValue =
@@ -201,6 +265,13 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
         inserts.push({ table, row });
         return Promise.resolve({ data: row, error: null });
       },
+      upsert: (
+        row: Record<string, unknown>,
+        upsertOptions?: Record<string, unknown>,
+      ) => {
+        upserts.push({ table, row, options: upsertOptions });
+        return Promise.resolve({ data: row, error: null });
+      },
     };
   });
   const rpc = vi.fn((functionName: string, params: Record<string, unknown>) => {
@@ -240,6 +311,7 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
     selectQueries,
     updates,
     inserts,
+    upserts,
   };
 }
 
@@ -418,6 +490,47 @@ describe('createSupabaseRunStore', (): void => {
             run_id: saaslaunchResearchInput.runId,
           },
         },
+      },
+    ]);
+  });
+
+  it('persists the additive live quality gate report after the parent completes', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      completeSectionZones: POSITIONING_SECTION_IDS,
+      profileClaimResults: [true],
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+
+    expect(fakeSupabase.upserts).toEqual([
+      {
+        table: 'research_quality_gate_results',
+        row: expect.objectContaining({
+          run_id: saaslaunchResearchInput.runId,
+          artifact_id: parentAuditRunId,
+          gate_version: 'research-quality-gates-v1',
+          result: expect.objectContaining({
+            runId: saaslaunchResearchInput.runId,
+            gates: expect.objectContaining({
+              projectionTrust: expect.any(Object),
+              projectionSync: expect.any(Object),
+            }),
+          }),
+          report_markdown: expect.stringContaining('Projection trust'),
+          computed_at: '2026-05-25T12:00:00.000Z',
+        }),
+        options: { onConflict: 'run_id,gate_version' },
       },
     ]);
   });

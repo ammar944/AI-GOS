@@ -74,29 +74,38 @@ function buildOutput(
   };
 }
 
+interface CriticResponseItem {
+  action: "kept" | "deepened" | "cut";
+  path: string;
+  rationale: string;
+  text: string;
+  verdict: "passes" | "knew_that" | "too_vague" | "summary" | "unsupported";
+}
+
 function buildCriticResponse(
   body: typeof crossSectionReasoningFixtureArtifact.body,
+  items: CriticResponseItem[] = [
+    {
+      action: "deepened" as const,
+      path: "body.crossSectionThreads[0].claim",
+      rationale:
+        "The final claim names the tension and the consequence.",
+      text: body.crossSectionThreads[0]?.claim ?? "",
+      verdict: "passes" as const,
+    },
+    {
+      action: "kept" as const,
+      path: "body.namedTension.side",
+      rationale: "The final side chooses one position and its cost.",
+      text: body.namedTension.side,
+      verdict: "passes" as const,
+    },
+  ],
 ): string {
   return `<strategic_critic>${JSON.stringify({
     body,
     critique: {
-      items: [
-        {
-          action: "deepened",
-          path: "body.crossSectionThreads[0].claim",
-          rationale:
-            "The final claim names the tension and the consequence.",
-          text: body.crossSectionThreads[0]?.claim ?? "",
-          verdict: "passes",
-        },
-        {
-          action: "kept",
-          path: "body.namedTension.side",
-          rationale: "The final side chooses one position and its cost.",
-          text: body.namedTension.side,
-          verdict: "passes",
-        },
-      ],
+      items,
       summary: "The critic deepened the main cross-section thread.",
     },
   })}</strategic_critic>`;
@@ -175,5 +184,82 @@ describe("runSection strategic critic", (): void => {
     expect(record.sections.positioningCrossSectionReasoning?.artifact?.body).toEqual(
       result.artifact.body,
     );
+  });
+
+  it("saves a below-floor strategic critique instead of dropping it", async (): Promise<void> => {
+    const researchInput: ResearchInput = {
+      ...saaslaunchResearchInput,
+      runId: "run_cross_section_critic_below_floor",
+    };
+    const store = await makeStore(researchInput);
+    const body = structuredClone(crossSectionReasoningFixtureArtifact.body);
+    const belowFloorItems = [
+      {
+        action: "kept" as const,
+        path: "body.crossSectionThreads[0].claim",
+        rationale: "This remained too obvious.",
+        text: body.crossSectionThreads[0]?.claim ?? "",
+        verdict: "knew_that" as const,
+      },
+      {
+        action: "cut" as const,
+        path: "body.crossSectionThreads[1].claim",
+        rationale: "This read like a summary.",
+        text: body.crossSectionThreads[1]?.claim ?? "",
+        verdict: "summary" as const,
+      },
+      {
+        action: "cut" as const,
+        path: "body.crossSectionThreads[2].claim",
+        rationale: "This was unsupported.",
+        text: body.crossSectionThreads[2]?.claim ?? "",
+        verdict: "unsupported" as const,
+      },
+    ];
+    aiMocks.generateText
+      .mockResolvedValueOnce({
+        text: buildCriticResponse(body, belowFloorItems),
+      })
+      .mockResolvedValueOnce({
+        text: buildCriticResponse(body, belowFloorItems),
+      });
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [buildEvidenceStep()],
+      text: "Fixture evidence ready.",
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async () => buildOutput());
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: "positioningCrossSectionReasoning",
+      },
+      {
+        allowedTools: [],
+        callStructured,
+        loadSkill: async () => "Find non-obvious cross-section threads.",
+        now: () => new Date("2026-06-04T13:00:00.000Z"),
+        runEvidencePass,
+        store,
+      },
+    );
+    const record = await store.readRun(researchInput.runId);
+
+    expect(aiMocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result.artifact.body).toEqual(
+      expect.objectContaining({ belowFloor: true }),
+    );
+    expect(result.artifact.strategicCritique).toEqual(
+      expect.objectContaining({
+        belowFloor: true,
+        items: expect.arrayContaining([
+          expect.objectContaining({ verdict: "knew_that" }),
+        ]),
+      }),
+    );
+    expect(
+      record.sections.positioningCrossSectionReasoning?.artifact
+        ?.strategicCritique?.belowFloor,
+    ).toBe(true);
   });
 });
