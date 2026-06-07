@@ -12,17 +12,26 @@ import {
   type CrossSectionReasoningArtifact,
 } from "@/lib/lab-engine/artifacts/schemas/cross-section-reasoning";
 import { validateCrossSectionReasoningMinimums } from "@/lib/lab-engine/artifacts/schemas/cross-section-reasoning";
-import type { SectionLanguageModel } from "@/lib/lab-engine/ai/models";
+import type {
+  ReviewModelMetadata,
+  SectionLanguageModel,
+} from "@/lib/lab-engine/ai/models";
 import {
   buildStrategicRubricPromptBlock,
   STRATEGIC_KNEW_THAT_PASS_FLOOR,
 } from "@/lib/lab-engine/artifacts/strategic-rubric";
 
-const DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS = 45_000;
+const DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS = 180_000;
 const MAX_ARTIFACT_JSON_CHARS = 32_000;
 const MAX_DIAGNOSTIC_CHARS = 1_000;
 const STRATEGIC_CRITIC_PATTERN =
   /<strategic_critic>([\s\S]*?)<\/strategic_critic>/u;
+const DEEPSEEK_STRATEGIC_CRITIC_PROVIDER_OPTIONS = {
+  deepseek: {
+    thinking: { type: "enabled" },
+    reasoningEffort: "low",
+  },
+} as const;
 
 const strategicCriticResponseSchema = z
   .object({
@@ -40,6 +49,7 @@ export interface CrossSectionStrategicCriticInput {
   checkedAt: string;
   model: SectionLanguageModel;
   modelId: string;
+  modelTransport?: ReviewModelMetadata["transport"];
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -516,6 +526,14 @@ function isBelowKnewThatFloor(
   return artifact.strategicCritique?.belowFloor === true;
 }
 
+function getStrategicCriticProviderOptions(
+  transport: ReviewModelMetadata["transport"] | undefined,
+): typeof DEEPSEEK_STRATEGIC_CRITIC_PROVIDER_OPTIONS | undefined {
+  return transport === "deepseek-direct"
+    ? DEEPSEEK_STRATEGIC_CRITIC_PROVIDER_OPTIONS
+    : undefined;
+}
+
 export async function applyCrossSectionStrategicCritic(
   input: CrossSectionStrategicCriticInput,
 ): Promise<CrossSectionStrategicCriticResult> {
@@ -525,6 +543,9 @@ export async function applyCrossSectionStrategicCritic(
     parentSignal: input.signal,
     timeoutMs: input.timeoutMs ?? DEFAULT_STRATEGIC_CRITIC_TIMEOUT_MS,
   });
+  const providerOptions = getStrategicCriticProviderOptions(
+    input.modelTransport,
+  );
 
   try {
     const result = await generateText({
@@ -533,6 +554,7 @@ export async function applyCrossSectionStrategicCritic(
       maxRetries: 1,
       model: input.model,
       prompt: buildStrategicCriticPrompt(input.artifact),
+      ...(providerOptions === undefined ? {} : { providerOptions }),
       temperature: 0.1,
     });
     throwIfCallerAborted(input.signal);
@@ -552,6 +574,7 @@ export async function applyCrossSectionStrategicCritic(
           maxRetries: 1,
           model: input.model,
           prompt: buildStrategicCriticDeepenPrompt(artifact),
+          ...(providerOptions === undefined ? {} : { providerOptions }),
           temperature: 0.1,
         });
         throwIfCallerAborted(input.signal);

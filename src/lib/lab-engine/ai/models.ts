@@ -9,6 +9,7 @@ export const SONNET_SECTION_MODEL_ID = "claude-sonnet-4-5";
 export const OPUS_REVIEW_MODEL_ID = "claude-opus-4-5";
 export const GATEWAY_GPT_55_REVIEW_MODEL_ID = "openai/gpt-5.5";
 export const DEEPSEEK_SECTION_MODEL_ID = "deepseek-v4-flash";
+export const DEEPSEEK_PRO_MODEL_ID = "deepseek-v4-pro";
 export const DEFAULT_DEEPSEEK_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_DEEPSEEK_OLLAMA_MODEL_ID = DEEPSEEK_SECTION_MODEL_ID;
 
@@ -392,8 +393,11 @@ function createDeepSeekDirectSelection(
 
   const deepseek = createDeepSeek({ apiKey });
   const sectionRunnerModel = deepseek(DEEPSEEK_SECTION_MODEL_ID);
+  const strategyModel = deepseek(DEEPSEEK_PRO_MODEL_ID);
+  const hasReviewModelOverride =
+    getTrimmedEnvValue(env, "LAB_REVIEW_MODEL") !== undefined;
   const reviewModelSelection =
-    getTrimmedEnvValue(env, "LAB_REVIEW_MODEL") === undefined
+    !hasReviewModelOverride
       ? createDefaultReviewModelSelection({
           model: sectionRunnerModel,
           modelId: DEEPSEEK_SECTION_MODEL_ID,
@@ -401,6 +405,14 @@ function createDeepSeekDirectSelection(
           transport: "deepseek-direct",
         })
       : createReviewModelSelection(env);
+  const strategyModelSelection = hasReviewModelOverride
+    ? reviewModelSelection
+    : createDefaultReviewModelSelection({
+        model: strategyModel,
+        modelId: DEEPSEEK_PRO_MODEL_ID,
+        provider: "deepseek-direct",
+        transport: "deepseek-direct",
+      });
 
   return {
     metadata: {
@@ -408,13 +420,13 @@ function createDeepSeekDirectSelection(
       modelId: DEEPSEEK_SECTION_MODEL_ID,
       repairModelId: DEEPSEEK_SECTION_MODEL_ID,
       reviewModel: reviewModelSelection.metadata,
-      strategyModel: reviewModelSelection.metadata,
+      strategyModel: strategyModelSelection.metadata,
       transport: "deepseek-direct",
     },
     repairModel: sectionRunnerModel,
     reviewModel: reviewModelSelection.model,
     sectionRunnerModel,
-    strategyModel: reviewModelSelection.model,
+    strategyModel: strategyModelSelection.model,
   };
 }
 
@@ -540,6 +552,10 @@ export function getReviewModelId(): string {
 
 export function getStrategyModelId(): string {
   return getSelectedSectionModelMetadata().strategyModel.modelId;
+}
+
+export function getStrategyModelTransport(): ReviewModelMetadata["transport"] {
+  return getSelectedSectionModelMetadata().strategyModel.transport;
 }
 
 export const selectedSectionModelMetadata = createLazyObject<SectionModelMetadata>(

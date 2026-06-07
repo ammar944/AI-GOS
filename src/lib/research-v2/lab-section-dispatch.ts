@@ -27,10 +27,16 @@ export interface ScheduleLabSectionJobInput {
   researchInput: ResearchInput;
   supabase: SupabaseClient;
   schedule: ScheduleLabSectionTask;
+  onJobComplete?: (context: ScheduleLabSectionJobContext) => Promise<void>;
 }
 
 export interface ScheduleLabSectionJobResult extends SeedOrchestrationResult {
   claim: SectionRunClaimResult;
+}
+
+export interface ScheduleLabSectionJobContext {
+  claim: SectionRunClaimResult;
+  seeded: SeedOrchestrationResult;
 }
 
 export class LabSectionDispatchError extends Error {
@@ -109,6 +115,7 @@ export async function scheduleLabSectionJob(
         signal: controller.signal,
         store,
       });
+      await input.onJobComplete?.({ claim, seeded });
     } finally {
       clearTimeout(timer);
     }

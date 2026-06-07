@@ -41,6 +41,7 @@ import {
 } from "../artifacts/schemas/voice-of-customer";
 import {
   getStrategyModelId,
+  getStrategyModelTransport,
   sectionRunnerModel,
   strategyModel,
   type SectionLanguageModel,
@@ -1151,6 +1152,7 @@ async function applyStrategicCriticIfNeeded({
     checkedAt: getNow(deps).toISOString(),
     model: strategyModel,
     modelId: getStrategyModelId(),
+    modelTransport: getStrategyModelTransport(),
     signal: input.signal,
   });
   let nextArtifact = critique.artifact;

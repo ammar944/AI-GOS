@@ -9,6 +9,7 @@ import {
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
+  isPositioningSectionId,
   type AllPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
@@ -20,6 +21,7 @@ import { checkSectionModelDispatchPreflight } from '@/lib/lab-engine/ai/models';
 import {
   LAB_SECTION_JOB_TIMEOUT_MS,
   scheduleLabSectionJob,
+  type ScheduleLabSectionTask,
 } from '@/lib/research-v2/lab-section-dispatch';
 import {
   corpusReady,
@@ -48,6 +50,12 @@ const RequestSchema = z.object({
 });
 
 type RequestBody = z.infer<typeof RequestSchema>;
+
+interface ParentRollupStatusRow {
+  status?: unknown;
+  children_complete?: unknown;
+  children_total?: unknown;
+}
 
 // The paid-media plan and the synthesis capstone both read the six committed
 // positioning artifacts plus the cross-section reasoning artifact (and need the
@@ -292,6 +300,105 @@ function requireParentAuditRunId(
   return result.parentAuditRunId;
 }
 
+function isSixSectionRollupComplete(row: ParentRollupStatusRow | null): boolean {
+  if (row === null) {
+    return false;
+  }
+
+  const childrenComplete =
+    typeof row.children_complete === 'number' ? row.children_complete : 0;
+  const childrenTotal =
+    typeof row.children_total === 'number'
+      ? row.children_total
+      : POSITIONING_SECTION_IDS.length;
+
+  return (
+    row.status === 'complete' ||
+    (childrenTotal >= POSITIONING_SECTION_IDS.length &&
+      childrenComplete >= childrenTotal)
+  );
+}
+
+async function hasCompleteSixSectionRollup({
+  parentAuditRunId,
+  runId,
+  supabase,
+}: {
+  parentAuditRunId: string;
+  runId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+}): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('research_artifacts')
+    .select('status, children_complete, children_total')
+    .eq('id', parentAuditRunId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `research_artifacts rollup lookup failed for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: ${error.message}`,
+    );
+  }
+
+  return isSixSectionRollupComplete(
+    (data as ParentRollupStatusRow | null) ?? null,
+  );
+}
+
+async function dispatchCrossSectionReasoningIfSixComplete({
+  baseResearchInput,
+  parentAuditRunId,
+  runId,
+  schedule,
+  supabase,
+  userId,
+}: {
+  baseResearchInput: ResearchInput;
+  parentAuditRunId: string;
+  runId: string;
+  schedule: ScheduleLabSectionTask;
+  supabase: ReturnType<typeof createAdminClient>;
+  userId: string;
+}): Promise<void> {
+  const rollupComplete = await hasCompleteSixSectionRollup({
+    parentAuditRunId,
+    runId,
+    supabase,
+  });
+
+  if (!rollupComplete) {
+    return;
+  }
+
+  const capstoneResearchInput = await buildCommittedArtifactsResearchInput({
+    baseResearchInput,
+    includeCrossSectionReasoningArtifact: false,
+    parentAuditRunId,
+    supabase,
+  });
+
+  if (!capstoneResearchInput.ok) {
+    if (capstoneResearchInput.response.status === 409) {
+      return;
+    }
+
+    throw new Error(
+      `cross-section reasoning dispatch failed while preparing committed artifacts for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: response status ${capstoneResearchInput.response.status}`,
+    );
+  }
+
+  await scheduleLabSectionJob({
+    userId,
+    runId,
+    sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+    zones: [CROSS_SECTION_REASONING_SECTION_ID],
+    supabase,
+    researchInput: capstoneResearchInput.researchInput,
+    schedule,
+  });
+}
+
 export async function POST(request: Request): Promise<Response> {
   const { userId } = await auth();
 
@@ -419,6 +526,33 @@ export async function POST(request: Request): Promise<Response> {
       supabase,
       researchInput,
       schedule: after,
+      ...(isPositioningSectionId(body.section_id)
+        ? {
+            onJobComplete: async ({ seeded }): Promise<void> => {
+              try {
+                await dispatchCrossSectionReasoningIfSixComplete({
+                  baseResearchInput,
+                  parentAuditRunId: seeded.parent_audit_run_id,
+                  runId: body.run_id,
+                  schedule: after,
+                  supabase,
+                  userId,
+                });
+              } catch (error) {
+                console.error(
+                  '[run-lab-section] cross-section reasoning auto-dispatch failed',
+                  {
+                    runId: body.run_id,
+                    parentAuditRunId: seeded.parent_audit_run_id,
+                    sectionId: body.section_id,
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                );
+              }
+            },
+          }
+        : {}),
     });
 
     return NextResponse.json(

@@ -356,6 +356,32 @@ describe("cross-section strategic critic", (): void => {
     );
   });
 
+  it("enables DeepSeek reasoning options only for the direct DeepSeek strategy transport", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: buildCriticResponse(),
+    });
+
+    await applyCrossSectionStrategicCritic({
+      artifact: crossSectionReasoningFixtureArtifact,
+      checkedAt: "2026-06-04T13:00:00.000Z",
+      model: mockModel,
+      modelId: "deepseek-v4-pro",
+      modelTransport: "deepseek-direct",
+    });
+
+    expect(aiMocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxOutputTokens: 8000,
+        providerOptions: {
+          deepseek: {
+            thinking: { type: "enabled" },
+            reasoningEffort: "low",
+          },
+        },
+      }),
+    );
+  });
+
   it("deepens once after a knew-that floor miss", async (): Promise<void> => {
     const firstBody = structuredClone(crossSectionReasoningFixtureArtifact.body);
     const retriedBody = structuredClone(crossSectionReasoningFixtureArtifact.body);

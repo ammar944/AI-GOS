@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkSectionModelDispatchPreflight,
   createSectionModelSelection,
+  DEEPSEEK_PRO_MODEL_ID,
   DEEPSEEK_SECTION_MODEL_ID,
   GATEWAY_GPT_55_REVIEW_MODEL_ID,
   OPUS_REVIEW_MODEL_ID,
@@ -145,7 +146,7 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
   });
 
-  it("selects direct DeepSeek v4 flash", (): void => {
+  it("selects direct DeepSeek v4 flash for sections and pro for default strategy", (): void => {
     const selection = createSectionModelSelection(
       buildEnv({
         DEEPSEEK_API_KEY: "test-deepseek-key",
@@ -164,7 +165,7 @@ describe("createSectionModelSelection", (): void => {
       },
       strategyModel: {
         provider: "deepseek-direct",
-        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        modelId: DEEPSEEK_PRO_MODEL_ID,
         transport: "deepseek-direct",
       },
       transport: "deepseek-direct",
@@ -174,7 +175,7 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.reviewModel.provider).toBe("deepseek.chat");
     expect(selection.reviewModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
     expect(selection.strategyModel.provider).toBe("deepseek.chat");
-    expect(selection.strategyModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
+    expect(selection.strategyModel.modelId).toBe(DEEPSEEK_PRO_MODEL_ID);
   });
 
   it("selects DeepSeek v4 flash through the local Ollama transport", (): void => {
@@ -279,7 +280,9 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.metadata.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
     expect(selection.sectionRunnerModel.provider).toBe("deepseek.chat");
     expect(selection.metadata.reviewModel.modelId).toBe(OPUS_REVIEW_MODEL_ID);
+    expect(selection.metadata.strategyModel.modelId).toBe(OPUS_REVIEW_MODEL_ID);
     expect(selection.reviewModel.provider).toBe("anthropic.messages");
+    expect(selection.strategyModel.provider).toBe("anthropic.messages");
   });
 
   it("supports GPT-5.5 through Vercel AI Gateway", (): void => {

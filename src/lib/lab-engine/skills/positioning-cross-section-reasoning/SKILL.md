@@ -21,8 +21,10 @@ when at least two sections are read together.
 ## Inputs
 
 Use `ResearchInput.committedPositioningArtifacts` as the source of truth. These
-six artifacts are already committed and stable. Do not re-run tools, do not
-fetch new sources, and do not invent missing evidence.
+six artifacts are already committed and stable. You may also reason over
+`ResearchInput.corpus.excerpts` when they provide raw cited evidence that
+sharpens a cross-section collision. Do not re-run tools, do not fetch new
+sources, and do not invent missing evidence.
 
 ## Operating Principles
 
@@ -33,7 +35,7 @@ fetch new sources, and do not invent missing evidence.
   `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`,
   `positioningDemandIntent`, `positioningOfferDiagnostic`.
 - Every source ref must carry a real `sourceUrl` from the cited artifact's
-  source list or row-level evidence.
+  source list, row-level evidence, or cited corpus excerpt.
 - No `gtmBrief` citations are allowed. The brief is context; it is not evidence
   for cross-section insight.
 - If a collision cannot be supported from at least two sections, do not promote

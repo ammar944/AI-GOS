@@ -630,6 +630,129 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
   });
 
+  it('server-dispatches cross-section reasoning once after the sixth positioning section commits', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'complete',
+        children_complete: POSITIONING_SECTION_IDS.length,
+        children_total: POSITIONING_SECTION_IDS.length,
+      },
+      error: null,
+    });
+    routeMocks.seedOrchestration
+      .mockResolvedValueOnce(defaultSeededRows())
+      .mockResolvedValueOnce(crossSectionReasoningSeededRows());
+    routeMocks.claimSectionRun
+      .mockResolvedValueOnce(
+        claimResult(
+          'claimed',
+          '22222222-2222-4222-8222-000000000002',
+          'positioningBuyerICP',
+        ),
+      )
+      .mockResolvedValueOnce(
+        claimResult(
+          'claimed',
+          '44444444-4444-4444-8444-444444444444',
+          CROSS_SECTION_REASONING_SECTION_ID,
+        ),
+      );
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+
+    await drainAfter();
+
+    expect(routeMocks.seedOrchestration).toHaveBeenNthCalledWith(2, {
+      userId: 'user_1',
+      runId: VALID_RUN_ID,
+      zones: [CROSS_SECTION_REASONING_SECTION_ID],
+    });
+    expect(routeMocks.claimSectionRun).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        runId: VALID_RUN_ID,
+        sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+        userId: 'user_1',
+      }),
+    );
+    expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
+      'zone',
+      [...POSITIONING_SECTION_IDS],
+    );
+    expect(routeMocks.after).toHaveBeenCalledTimes(2);
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
+
+    await drainAfter();
+
+    expect(routeMocks.runLabSectionJob).toHaveBeenNthCalledWith(2, {
+      runId: VALID_RUN_ID,
+      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+      signal: expect.any(AbortSignal),
+      store: routeMocks.store,
+    });
+  });
+
+  it('does not schedule a duplicate thinker job when the server trigger finds it already dispatched', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'complete',
+        children_complete: POSITIONING_SECTION_IDS.length,
+        children_total: POSITIONING_SECTION_IDS.length,
+      },
+      error: null,
+    });
+    routeMocks.seedOrchestration
+      .mockResolvedValueOnce(defaultSeededRows())
+      .mockResolvedValueOnce(crossSectionReasoningSeededRows());
+    routeMocks.claimSectionRun
+      .mockResolvedValueOnce(
+        claimResult(
+          'claimed',
+          '22222222-2222-4222-8222-000000000002',
+          'positioningBuyerICP',
+        ),
+      )
+      .mockResolvedValueOnce(
+        claimResult(
+          'already_running',
+          '44444444-4444-4444-8444-444444444444',
+          CROSS_SECTION_REASONING_SECTION_ID,
+        ),
+      );
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+
+    await drainAfter();
+
+    expect(routeMocks.seedOrchestration).toHaveBeenNthCalledWith(2, {
+      userId: 'user_1',
+      runId: VALID_RUN_ID,
+      zones: [CROSS_SECTION_REASONING_SECTION_ID],
+    });
+    expect(routeMocks.claimSectionRun).toHaveBeenCalledTimes(2);
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
+  });
+
   it('does not mask Clerk auth failures as 401 responses', async (): Promise<void> => {
     routeMocks.auth.mockRejectedValue(new Error('Clerk session store failed'));
 
