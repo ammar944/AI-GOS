@@ -20,7 +20,7 @@ const modelSourceSchema = z
   .object({
     title: z.string().min(1),
     url: z.string().url(),
-    publisher: z.string().min(1).optional(),
+    publisher: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 

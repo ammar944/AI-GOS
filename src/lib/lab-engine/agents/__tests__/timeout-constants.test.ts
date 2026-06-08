@@ -19,9 +19,12 @@ describe('lab section timeout hierarchy', (): void => {
     expect(LAB_SECTION_JOB_TIMEOUT_MS).toBeLessThan(ROUTE_MAX_DURATION_MS);
   });
 
-  it('pins the Cluster A / Cluster B agreed values (255s < 270s < 300s)', (): void => {
+  it('pins the agreed values (255s < 285s < 300s)', (): void => {
     expect(answerToolTimeoutMs).toBe(255_000);
-    expect(LAB_SECTION_JOB_TIMEOUT_MS).toBe(270_000);
+    // Raised 270s -> 285s (2026-06-08 deploy-blockers E2E #2): the thinker's
+    // critic tail ran past the old 270s wall. 285s keeps the >=15s commit
+    // headroom invariant below (300 - 285 = 15) that the salvage-commit needs.
+    expect(LAB_SECTION_JOB_TIMEOUT_MS).toBe(285_000);
     expect(ROUTE_MAX_DURATION_MS).toBe(300_000);
   });
 

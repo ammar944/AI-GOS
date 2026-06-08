@@ -35,6 +35,41 @@ describe("crossSectionReasoningSectionOutputSchema", (): void => {
 
     expect(result.success).toBe(true);
   });
+
+  it("accepts a source with a null publisher and coerces it to undefined", (): void => {
+    // Live E2E 2026-06-08: the flash model emits `publisher: null` for sources
+    // without a clear publisher. The thinker aggregates sources from all six
+    // sections, so it hit 10 nulls -> attempt-1 validation failed -> repair loop
+    // -> 270s job timeout -> capstone chain never dispatched. `.optional()`
+    // rejected null; the schema must treat null as absent.
+    const {
+      id: _id,
+      runId: _runId,
+      sectionId: _sectionId,
+      createdAt: _createdAt,
+      ...output
+    } = crossSectionReasoningFixtureArtifact;
+    void _id;
+    void _runId;
+    void _sectionId;
+    void _createdAt;
+
+    const result = crossSectionReasoningSectionOutputSchema.safeParse({
+      ...output,
+      sources: output.sources.map((source) => ({
+        title: source.title,
+        url: source.url,
+        publisher: null,
+      })),
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      for (const source of result.data.sources) {
+        expect(source.publisher).toBeUndefined();
+      }
+    }
+  });
 });
 
 describe("validateCrossSectionReasoningMinimums", (): void => {

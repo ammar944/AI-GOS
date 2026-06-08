@@ -1196,54 +1196,85 @@ async function applyStrategicCriticIfNeeded({
     }),
   );
 
-  const critique = await applyCrossSectionStrategicCritic({
-    artifact: artifact as CrossSectionReasoningArtifact,
-    checkedAt: getNow(deps).toISOString(),
-    model: strategyModel,
-    modelId: getStrategyModelId(),
-    modelTransport: getStrategyModelTransport(),
-    signal: input.signal,
-  });
-  let nextArtifact = critique.artifact;
-  let nextAttempt = committedAttempt;
-
-  if (critique.outcome === "upgraded") {
-    const verification = verifySectionBody({
-      body: nextArtifact.body,
-      evidenceSteps,
-      researchInput,
+  // The strategic critic is an UPGRADE pass, not a commit gate. Its failure must
+  // never discard an already-validated body. In particular, when the 270s job
+  // timeout fires mid-critic, applyCrossSectionStrategicCritic re-throws the
+  // caller-abort (throwIfCallerAborted); without this catch that error fails the
+  // whole section, drops a valid body, and the server capstone chain
+  // (onJobComplete -> synthesis + paid-media) never dispatches.
+  try {
+    const critique = await applyCrossSectionStrategicCritic({
+      artifact: artifact as CrossSectionReasoningArtifact,
+      checkedAt: getNow(deps).toISOString(),
+      model: strategyModel,
+      modelId: getStrategyModelId(),
+      modelTransport: getStrategyModelTransport(),
+      signal: input.signal,
     });
-    nextArtifact = artifactEnvelopeSchema
-      .extend({ body: crossSectionReasoningBodySchema })
-      .parse({
-        ...nextArtifact,
-        verification,
+    let nextArtifact = critique.artifact;
+    let nextAttempt = committedAttempt;
+
+    if (critique.outcome === "upgraded") {
+      const verification = verifySectionBody({
+        body: nextArtifact.body,
+        evidenceSteps,
+        researchInput,
       });
-    nextAttempt = {
-      ...committedAttempt,
-      artifact: nextArtifact,
-      evidenceSupportShortfall: evaluateEvidenceSupport({ verification }),
-    };
-  }
+      nextArtifact = artifactEnvelopeSchema
+        .extend({ body: crossSectionReasoningBodySchema })
+        .parse({
+          ...nextArtifact,
+          verification,
+        });
+      nextAttempt = {
+        ...committedAttempt,
+        artifact: nextArtifact,
+        evidenceSupportShortfall: evaluateEvidenceSupport({ verification }),
+      };
+    }
 
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
+    await appendEvent(
       deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "strategic-critic-finished",
-      message: "Strategic critic finished",
-      metadata: {
-        target: "cross_section_reasoning",
-        outcome: critique.outcome,
-        summary: shortenForEvent(critique.summary, 240),
-      },
-    }),
-  );
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "strategic-critic-finished",
+        message: "Strategic critic finished",
+        metadata: {
+          target: "cross_section_reasoning",
+          outcome: critique.outcome,
+          summary: shortenForEvent(critique.summary, 240),
+        },
+      }),
+    );
 
-  return { artifact: nextArtifact, committedAttempt: nextAttempt };
+    return { artifact: nextArtifact, committedAttempt: nextAttempt };
+  } catch (error) {
+    // Commit the pre-critic validated body (no upgrade) so the section completes.
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "strategic-critic-finished",
+        message: "Strategic critic skipped (non-fatal failure)",
+        metadata: {
+          target: "cross_section_reasoning",
+          outcome: "fallback",
+          summary: shortenForEvent(
+            error instanceof Error ? error.message : String(error),
+            240,
+          ),
+        },
+      }),
+    );
+
+    return { artifact, committedAttempt };
+  }
 }
 
 function buildToolEvents({

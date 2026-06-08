@@ -356,7 +356,7 @@ function validateOutput({
         observedAt,
         title: source.title,
         url: source.url,
-        ...(source.publisher === undefined
+        ...(source.publisher === undefined || source.publisher === null
           ? {}
           : { publisher: source.publisher }),
       })),

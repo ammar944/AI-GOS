@@ -15,7 +15,7 @@ import {
 import { buildSectionRunIdByZone } from '@/lib/research-v2/section-run-id-map';
 import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
 
-export const LAB_SECTION_JOB_TIMEOUT_MS = 270_000;
+export const LAB_SECTION_JOB_TIMEOUT_MS = 285_000;
 
 export type ScheduleLabSectionTask = (task: () => Promise<void>) => void;
 
