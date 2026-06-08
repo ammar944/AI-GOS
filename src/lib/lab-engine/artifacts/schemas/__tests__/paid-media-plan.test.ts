@@ -547,3 +547,22 @@ describe("validatePaidMediaPlanMinimums", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("sourceSection enum accepts cross-section-reasoning thinker", () => {
+  it("parses positioningCrossSectionReasoning as a contradictionReconciliation sourceSection", () => {
+    const output = structuredClone(buildPaidMediaPlanOutput()) as {
+      body: {
+        contradictionReconciliation: {
+          sourceSections: Array<{ sourceSection: string; sourceUrl: string }>;
+        };
+      };
+    };
+    // Replace the 3rd ref (index [2]) — the exact path that failed in the live run.
+    output.body.contradictionReconciliation.sourceSections[2] = {
+      sourceSection: "positioningCrossSectionReasoning",
+      sourceUrl: "https://example.com/paid-media/thinker",
+    };
+    const result = paidMediaPlanSectionOutputSchema.safeParse(output);
+    expect(result.success).toBe(true);
+  });
+});

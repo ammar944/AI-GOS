@@ -438,19 +438,44 @@ async function dispatchSynthesisAndPaidMediaAfterThinker({
   supabase: ReturnType<typeof createAdminClient>;
   userId: string;
 }): Promise<void> {
-  const capstoneResearchInput = await buildCommittedArtifactsResearchInput({
+  // Read-after-write race hardening: the thinker artifact is committed in-process
+  // immediately before this fires, but the admin client may briefly not see it,
+  // yielding a 409 (cross_section_reasoning_not_ready). Bounded re-query — 3
+  // attempts, 750ms apart — closes that window. Supabase-only (NO paid-API call),
+  // so it cannot loop a model dispatch.
+  const CAPSTONE_BUILD_MAX_ATTEMPTS = 3;
+  const CAPSTONE_BUILD_RETRY_MS = 750;
+  let capstoneResearchInput = await buildCommittedArtifactsResearchInput({
     baseResearchInput,
     includeCrossSectionReasoningArtifact: true,
     parentAuditRunId,
     supabase,
   });
+  for (
+    let attempt = 1;
+    attempt < CAPSTONE_BUILD_MAX_ATTEMPTS &&
+    !capstoneResearchInput.ok &&
+    capstoneResearchInput.response.status === 409;
+    attempt += 1
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, CAPSTONE_BUILD_RETRY_MS));
+    capstoneResearchInput = await buildCommittedArtifactsResearchInput({
+      baseResearchInput,
+      includeCrossSectionReasoningArtifact: true,
+      parentAuditRunId,
+      supabase,
+    });
+  }
 
   if (!capstoneResearchInput.ok) {
     // 409 = positioning_sections_not_ready / cross_section_reasoning_not_ready:
-    // a transient race (the thinker artifact is committed before onJobComplete
-    // fires, so this should not happen — but if it does, the client dispatch is
-    // still the CAS-guarded fallback). Anything else is a real failure.
+    // still racing after the bounded retry. The client poll is the CAS-guarded
+    // fallback if a tab is open; with no tab this is the last resort, so log it.
     if (capstoneResearchInput.response.status === 409) {
+      console.error(
+        '[run-lab-section] synthesis + paid-media auto-dispatch still 409 after retries',
+        { runId, parentAuditRunId },
+      );
       return;
     }
 
@@ -647,7 +672,41 @@ export async function POST(request: Request): Promise<Response> {
               }
             },
           }
-        : {}),
+        : body.section_id === CROSS_SECTION_REASONING_SECTION_ID
+          ? {
+              // Autonomy hole fix: the thinker can be dispatched by the CLIENT
+              // (useAuditState) as well as the server. The client POST carries
+              // no fan-out hook, so without this the two final capstones only
+              // run when a browser tab is open to poll. Wire the SAME server
+              // fan-out the server thinker path uses (route ~L396) so synthesis
+              // + paid-media dispatch after the thinker job completes, tab or no
+              // tab. Wrapped in try/catch so a fan-out error never fails the
+              // thinker's own commit. claimSectionRun CAS de-dups against the
+              // client fallback, so a double-trigger is safe.
+              onJobComplete: async ({ seeded }): Promise<void> => {
+                try {
+                  await dispatchSynthesisAndPaidMediaAfterThinker({
+                    baseResearchInput,
+                    parentAuditRunId: seeded.parent_audit_run_id,
+                    runId: body.run_id,
+                    schedule: after,
+                    supabase,
+                    userId,
+                  });
+                } catch (error) {
+                  console.error(
+                    '[run-lab-section] synthesis + paid-media auto-dispatch failed (client thinker path)',
+                    {
+                      runId: body.run_id,
+                      parentAuditRunId: seeded.parent_audit_run_id,
+                      message:
+                        error instanceof Error ? error.message : String(error),
+                    },
+                  );
+                }
+              },
+            }
+          : {}),
     });
 
     return NextResponse.json(

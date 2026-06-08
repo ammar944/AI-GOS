@@ -17,6 +17,7 @@ const sourceSectionValues = [
   "positioningVoiceOfCustomer",
   "positioningDemandIntent",
   "positioningOfferDiagnostic",
+  "positioningCrossSectionReasoning",
   "gtmBrief",
 ] as const;
 

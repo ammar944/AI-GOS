@@ -163,3 +163,37 @@ describe("validatePositioningSynthesisMinimums", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("synthesis sourceSection enum accepts cross-section-reasoning thinker", () => {
+  it("parses positioningCrossSectionReasoning as a contradictionReconciliation sourceSection", () => {
+    const {
+      id: _id,
+      runId: _runId,
+      sectionId: _sectionId,
+      createdAt: _createdAt,
+      ...rest
+    } = positioningSynthesisFixtureArtifact;
+    void _id;
+    void _runId;
+    void _sectionId;
+    void _createdAt;
+    const body = structuredClone(rest.body) as {
+      contradictionReconciliation: {
+        sourceSections: Array<{ sourceSection: string; sourceUrl: string }>;
+      };
+    };
+    body.contradictionReconciliation.sourceSections[2] = {
+      sourceSection: "positioningCrossSectionReasoning",
+      sourceUrl: "https://example.com/synthesis/thinker",
+    };
+    const result = positioningSynthesisSectionOutputSchema.safeParse({
+      ...rest,
+      sources: rest.sources.map((source) => ({
+        title: source.title,
+        url: source.url,
+      })),
+      body,
+    });
+    expect(result.success).toBe(true);
+  });
+});

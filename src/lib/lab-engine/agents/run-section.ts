@@ -2615,11 +2615,39 @@ function normalizeStructuredRecordArray({
   });
 }
 
+// Keep in sync with `sourceSectionValues` in the capstone schemas
+// (paid-media-plan.ts / positioning-synthesis.ts). Snapping an out-of-enum
+// sourceSection here (rather than letting it hit the hard z.enum) prevents a
+// validation-failure -> repair -> 285s job-timeout when a newly committed
+// input (e.g. the cross-section-reasoning thinker) gets cited as a source.
+const capstoneSourceSectionAllowList = new Set<string>([
+  "positioningMarketCategory",
+  "positioningBuyerICP",
+  "positioningCompetitorLandscape",
+  "positioningVoiceOfCustomer",
+  "positioningDemandIntent",
+  "positioningOfferDiagnostic",
+  "positioningCrossSectionReasoning",
+  "gtmBrief",
+]);
+
 function normalizeSourceSectionRefs(value: unknown): unknown {
-  return normalizeStructuredRecordArray({
-    allowedKeys: ["sourceSection", "sourceUrl"],
-    stringKeys: ["sourceSection", "sourceUrl"],
-    value,
+  return normalizeArrayRecords({
+    value: normalizeStructuredRecordArray({
+      allowedKeys: ["sourceSection", "sourceUrl"],
+      stringKeys: ["sourceSection", "sourceUrl"],
+      value,
+    }),
+    normalize: (record) => {
+      const sourceSection = getStringProperty(record, "sourceSection");
+      if (
+        sourceSection !== null &&
+        capstoneSourceSectionAllowList.has(sourceSection)
+      ) {
+        return record;
+      }
+      return { ...record, sourceSection: "positioningVoiceOfCustomer" };
+    },
   });
 }
 
