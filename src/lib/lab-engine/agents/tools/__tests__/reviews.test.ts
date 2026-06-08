@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { isProductReviewText } from "../reviews";
+
 import { reviewsAgentTool } from "../reviews";
 
 interface ReviewsInput {
@@ -453,7 +455,9 @@ describe("reviewsAgentTool", (): void => {
     ]);
   });
 
-  it("records blocked JS challenge pages as acquisition attempts", async (): Promise<void> => {
+  it("recovers reddit bodies via the JSON fallback when Firecrawl is blocked", async (): Promise<void> => {
+    const redditComment =
+      "Ramp's approval workflow is painful and their support is slow to respond when something breaks.";
     const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
       const url = requestUrlToString(requestUrl);
 
@@ -469,6 +473,14 @@ describe("reviewsAgentTool", (): void => {
         });
       }
 
+      if (url.includes("reddit.com") && url.includes(".json")) {
+        return jsonResponse([
+          { data: { children: [{ data: { selftext: "" } }] } },
+          { data: { children: [{ data: { body: redditComment } }] } },
+        ]);
+      }
+
+      // Firecrawl scrape returns a JS-challenge / blocked page.
       return jsonResponse({
         data: {
           markdown:
@@ -482,30 +494,65 @@ describe("reviewsAgentTool", (): void => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      getExecute()(
-        {
-          brand: "Ramp",
-          max_body_pages: 1,
-          max_results: 1,
-          mode: "bodies",
-        },
-        {},
-      ),
-    ).resolves.toMatchObject({
-      type: "result",
-      attempts: [
-        {
+    const result = (await getExecute()(
+      { brand: "Ramp", max_body_pages: 1, max_results: 1, mode: "bodies" },
+      {},
+    )) as { type: string; excerpts: Array<Record<string, unknown>> };
+
+    expect(result.type).toBe("result");
+    expect(result.excerpts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           acquisitionMode: "forum_comment",
-          domain: "reddit.com",
-          gapReason: "blocked_js_challenge",
-          source: "Web",
-          status: "failed",
-          url: "https://www.reddit.com/r/finance/comments/ramp",
-        },
-      ],
-      excerpts: [],
+          reviewText: expect.stringContaining("approval workflow is painful"),
+        }),
+      ]),
+    );
+  });
+
+  it("recovers reddit bodies via the JSON fallback when Firecrawl returns 403", async (): Promise<void> => {
+    const redditComment =
+      "We switched off Ramp because the reimbursement flow kept failing and reconciliation was a mess.";
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.reddit.com/r/CFO/comments/ramp",
+              snippet: "CFO thread on Ramp.",
+              title: "Ramp reconciliation pain",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("reddit.com") && url.includes(".json")) {
+        return jsonResponse([
+          { data: { children: [{ data: { selftext: "" } }] } },
+          { data: { children: [{ data: { body: redditComment } }] } },
+        ]);
+      }
+
+      // Firecrawl scrape is 403'd by reddit's anti-bot.
+      return new Response("blocked", { status: 403 });
     });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await getExecute()(
+      { brand: "Ramp", max_body_pages: 1, max_results: 1, mode: "bodies" },
+      {},
+    )) as { type: string; excerpts: Array<Record<string, unknown>> };
+
+    expect(result.excerpts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          acquisitionMode: "forum_comment",
+          reviewText: expect.stringContaining("reimbursement flow kept failing"),
+        }),
+      ]),
+    );
   });
 
   it("returns a Firecrawl credential gap before SearchAPI discovery in bodies mode", async (): Promise<void> => {
@@ -531,5 +578,31 @@ describe("reviewsAgentTool", (): void => {
       envVar: "FIRECRAWL_API_KEY",
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("isProductReviewText", (): void => {
+  it("rejects job postings and ATS copy even when they mention the product", (): void => {
+    expect(
+      isProductReviewText(
+        "We are looking for a senior engineer with 5 years of experience. Responsibilities include owning the billing platform and the API.",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects first-party marketing copy", (): void => {
+    expect(
+      isProductReviewText(
+        "Our platform helps finance teams move faster. Request a demo today and see why teams switch.",
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a genuine negative buyer review", (): void => {
+    expect(
+      isProductReviewText(
+        "The reconciliation feature kept failing and support took weeks to respond, so we churned.",
+      ),
+    ).toBe(true);
   });
 });

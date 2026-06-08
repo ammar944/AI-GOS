@@ -301,7 +301,10 @@ function hasPainSignal(input: string): boolean {
   return painSignals.some((signal) => lower.includes(signal));
 }
 
-function isProductReviewText(input: string): boolean {
+// Buyer-voice gate. Job postings, ATS pages, and first-party marketing copy are
+// NOT buyer pain language even when they mention the product, so they are hard
+// rejects (a product noun no longer rescues employment/marketing text).
+export function isProductReviewText(input: string): boolean {
   const lower = input.toLowerCase();
   const employmentSignals = [
     "applying for a job",
@@ -315,28 +318,32 @@ function isProductReviewText(input: string): boolean {
     "work environment",
     "working there",
   ];
-  const productSignals = [
-    "api",
-    "app",
-    "billing",
-    "dashboard",
-    "feature",
-    "integration",
-    "platform",
-    "pricing",
-    "product",
-    "software",
-    "subscription",
-    "tool",
+  const jobPostingSignals = [
+    "responsibilities",
+    "qualifications",
+    "we are looking for",
+    "we're looking for",
+    "apply now",
+    "years of experience",
+    "equal opportunity employer",
+    "what you'll do",
+    "about the role",
   ];
-  const hasEmploymentSignal = employmentSignals.some((signal) =>
-    lower.includes(signal),
-  );
+  const marketingSignals = [
+    "our platform",
+    "sign up today",
+    "request a demo",
+    "book a demo",
+    "get started for free",
+    "trusted by",
+  ];
+  const nonBuyerVoiceSignals = [
+    ...employmentSignals,
+    ...jobPostingSignals,
+    ...marketingSignals,
+  ];
 
-  return (
-    !hasEmploymentSignal ||
-    productSignals.some((signal) => lower.includes(signal))
-  );
+  return !nonBuyerVoiceSignals.some((signal) => lower.includes(signal));
 }
 
 function reviewBodyExcerpt(input: {
@@ -687,16 +694,42 @@ function extractReviewBodies(
   markdown: string,
   searchResult: ReviewSearchResult,
 ): ReviewBodyExcerpt[] {
+  // Structured selectors are the high-precision first pass. When a review-domain
+  // page scrapes successfully but its layout has drifted (parser_no_match), fall
+  // through to the generic pain-signal paragraph extractor for recall rather
+  // than dropping a perfectly-scraped page. The pain-signal + isProductReviewText
+  // guards keep the fallback from promoting nav/marketing chrome.
   if (searchResult.source === "Trustpilot") {
-    return extractTrustpilotReviewBodies(markdown, searchResult);
+    const structured = extractTrustpilotReviewBodies(markdown, searchResult);
+    if (structured.length > 0) {
+      return structured;
+    }
+    return extractGenericReviewBodies(markdown, {
+      ...searchResult,
+      acquisitionMode: "review_body",
+    });
   }
 
   if (searchResult.source === "G2") {
-    return extractG2ReviewBodies(markdown, searchResult);
+    const structured = extractG2ReviewBodies(markdown, searchResult);
+    if (structured.length > 0) {
+      return structured;
+    }
+    return extractGenericReviewBodies(markdown, {
+      ...searchResult,
+      acquisitionMode: "review_body",
+    });
   }
 
   if (searchResult.source === "Capterra") {
-    return extractCapterraReviewBodies(markdown, searchResult);
+    const structured = extractCapterraReviewBodies(markdown, searchResult);
+    if (structured.length > 0) {
+      return structured;
+    }
+    return extractGenericReviewBodies(markdown, {
+      ...searchResult,
+      acquisitionMode: "review_body",
+    });
   }
 
   const acquisitionMode =
@@ -721,6 +754,168 @@ function isBlockedPage(markdown: string): boolean {
   return /(?:captcha|cloudflare|enable javascript|just a moment|verify you are human|access denied|unusual traffic)/i.test(
     markdown,
   );
+}
+
+function isRedditUrl(url: string): boolean {
+  const domain = getDomain(url);
+  return domain === "reddit.com" || domain.endsWith(".reddit.com");
+}
+
+function buildRedditJsonUrl(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl);
+    const path = url.pathname.endsWith("/")
+      ? url.pathname
+      : `${url.pathname}/`;
+    return `https://www.reddit.com${path}.json?raw_json=1&limit=50`;
+  } catch {
+    return null;
+  }
+}
+
+function readRedditListingChildren(listing: unknown): unknown[] {
+  if (typeof listing !== "object" || listing === null) {
+    return [];
+  }
+  const data = (listing as { data?: unknown }).data;
+  if (typeof data !== "object" || data === null) {
+    return [];
+  }
+  const children = (data as { children?: unknown }).children;
+  return Array.isArray(children) ? children : [];
+}
+
+function readRedditChildText(
+  child: unknown,
+  field: "body" | "selftext",
+): string | null {
+  if (typeof child !== "object" || child === null) {
+    return null;
+  }
+  const data = (child as { data?: unknown }).data;
+  if (typeof data !== "object" || data === null) {
+    return null;
+  }
+  const value = (data as Record<string, unknown>)[field];
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function extractRedditJsonTexts(payload: unknown): string[] {
+  if (!Array.isArray(payload) || payload.length < 2) {
+    return [];
+  }
+  const texts: string[] = [];
+  const postChildren = readRedditListingChildren(payload[0]);
+  const postText =
+    postChildren.length > 0
+      ? readRedditChildText(postChildren[0], "selftext")
+      : null;
+  if (postText !== null) {
+    texts.push(postText);
+  }
+  for (const child of readRedditListingChildren(payload[1])) {
+    const body = readRedditChildText(child, "body");
+    if (body !== null) {
+      texts.push(body);
+    }
+  }
+  return texts;
+}
+
+// Firecrawl is anti-bot blocked / 403'd on reddit.com (INFRA limitation of the
+// Firecrawl plan). The code-fixable recovery is to fetch reddit bodies via
+// Reddit's own public JSON API, which needs no Firecrawl. Reddit 403s a default
+// User-Agent, so a custom one is required.
+async function fetchRedditJsonBodies(input: {
+  abortSignal?: AbortSignal;
+  searchResult: ReviewSearchResult;
+}): Promise<ScrapeReviewBodiesResult> {
+  const baseSearchResult: ReviewSearchResult = {
+    ...input.searchResult,
+    acquisitionMode: "forum_comment",
+  };
+  const jsonUrl = buildRedditJsonUrl(input.searchResult.url);
+  if (jsonUrl === null) {
+    return {
+      attempts: [
+        createAttempt({
+          gapReason: "parser_no_match",
+          searchResult: baseSearchResult,
+          status: "failed",
+        }),
+      ],
+      excerpts: [],
+    };
+  }
+
+  let payload: unknown;
+  try {
+    const response = await timedFetch(jsonUrl, {
+      headers: { "User-Agent": "aigos-research/1.0" },
+      abortSignal: input.abortSignal,
+      timeoutMs: reviewBodyScrapeTimeoutMs,
+    });
+    if (!response.ok) {
+      return {
+        attempts: [
+          createAttempt({
+            gapReason: "api_error",
+            message: `Reddit JSON status ${response.status}`,
+            searchResult: baseSearchResult,
+            status: "failed",
+          }),
+        ],
+        excerpts: [],
+      };
+    }
+    payload = await response.json();
+  } catch (error) {
+    return {
+      attempts: [
+        createAttempt({
+          gapReason: "api_error",
+          message:
+            error instanceof Error ? error.message : "reddit json fetch failed",
+          searchResult: baseSearchResult,
+          status: "failed",
+        }),
+      ],
+      excerpts: [],
+    };
+  }
+
+  const seen = new Set<string>();
+  const excerpts: ReviewBodyExcerpt[] = [];
+  for (const text of extractRedditJsonTexts(payload)) {
+    const excerpt = reviewBodyExcerpt({
+      acquisitionMode: "forum_comment",
+      reviewText: text,
+      searchResult: baseSearchResult,
+    });
+    if (excerpt === null) {
+      continue;
+    }
+    const key = excerpt.sourceInstanceId ?? excerpt.reviewText;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    excerpts.push(excerpt);
+    if (excerpts.length >= maxReviewBodiesPerPage) {
+      break;
+    }
+  }
+
+  return {
+    attempts: [
+      createAttempt({
+        gapReason: excerpts.length === 0 ? "parser_no_match" : undefined,
+        searchResult: baseSearchResult,
+        status: excerpts.length === 0 ? "failed" : "succeeded",
+      }),
+    ],
+    excerpts,
+  };
 }
 
 async function scrapeReviewBodies(input: {
@@ -758,6 +953,12 @@ async function scrapeReviewBodies(input: {
   });
 
   if (!response.ok) {
+    if (isRedditUrl(baseSearchResult.url)) {
+      return fetchRedditJsonBodies({
+        abortSignal: input.abortSignal,
+        searchResult: baseSearchResult,
+      });
+    }
     return {
       attempts: [
         createAttempt({
@@ -780,6 +981,12 @@ async function scrapeReviewBodies(input: {
   const markdown = data.data?.markdown ?? "";
 
   if (markdown.trim().length < reviewBodyMinChars) {
+    if (isRedditUrl(baseSearchResult.url)) {
+      return fetchRedditJsonBodies({
+        abortSignal: input.abortSignal,
+        searchResult: baseSearchResult,
+      });
+    }
     return {
       attempts: [
         createAttempt({
@@ -793,6 +1000,12 @@ async function scrapeReviewBodies(input: {
   }
 
   if (isBlockedPage(markdown)) {
+    if (isRedditUrl(baseSearchResult.url)) {
+      return fetchRedditJsonBodies({
+        abortSignal: input.abortSignal,
+        searchResult: baseSearchResult,
+      });
+    }
     return {
       attempts: [
         createAttempt({
