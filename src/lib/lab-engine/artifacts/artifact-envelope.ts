@@ -300,6 +300,27 @@ export const researchInputSchema = z
       .optional(),
     committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
     crossSectionReasoningArtifact: z.unknown().optional(),
+    // ARI: research-evidence readiness, passed to capstones as a COVERAGE
+    // annotation (never a gate). When ready=false the thinker reasons over the
+    // listed thin sections with caution, and capstone badges are degraded to
+    // needs_review at commit time.
+    evidenceCoverage: z
+      .object({
+        ready: z.boolean(),
+        blockedSections: z
+          .array(
+            z
+              .object({
+                zone: z.string(),
+                reasons: z.array(z.string()),
+              })
+              .strict(),
+          )
+          .default([]),
+        reasons: z.array(z.string()).default([]),
+      })
+      .strict()
+      .optional(),
     _capabilities: z
       .object({
         capabilityGaps: z.array(

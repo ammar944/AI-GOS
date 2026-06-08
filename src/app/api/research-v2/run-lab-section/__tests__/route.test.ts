@@ -1066,7 +1066,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
   });
 
-  it('blocks capstone dispatch when core section evidence is not research-ready', async (): Promise<void> => {
+  it('dispatches the thinker on thin evidence, passing an evidenceCoverage annotation', async (): Promise<void> => {
+    // ARI: readiness is a coverage annotation, not a gate. A 6/6 run with a thin
+    // VoC still dispatches the thinker; the gap rides along in evidenceCoverage.
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.seedOrchestration.mockResolvedValue(crossSectionReasoningSeededRows());
     routeMocks.committedSectionsQuery.in.mockResolvedValue({
@@ -1089,22 +1091,33 @@ describe('POST /api/research-v2/run-lab-section', () => {
       }),
     );
 
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({
-      error: 'research_evidence_not_ready',
-      blocked_sections: [
-        expect.objectContaining({
-          zone: 'positioningVoiceOfCustomer',
-          reasons: expect.arrayContaining([
-            'positioningVoiceOfCustomer verification_tier is insufficient',
-            'positioningVoiceOfCustomer body.evidenceGap=true',
-            'positioningVoiceOfCustomer has zero real buyer quotes',
-          ]),
+    expect(response.status).toBe(202);
+    expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        researchInput: expect.objectContaining({
+          evidenceCoverage: expect.objectContaining({
+            ready: false,
+            blockedSections: expect.arrayContaining([
+              expect.objectContaining({
+                zone: 'positioningVoiceOfCustomer',
+                reasons: expect.arrayContaining([
+                  'positioningVoiceOfCustomer has zero real buyer quotes',
+                ]),
+              }),
+            ]),
+          }),
         }),
-      ],
+      }),
+    );
+
+    await drainAfter();
+
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
+      runId: VALID_RUN_ID,
+      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+      signal: expect.any(AbortSignal),
+      store: routeMocks.store,
     });
-    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
-    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 
   it('blocks paid media dispatch until cross-section reasoning is committed', async (): Promise<void> => {

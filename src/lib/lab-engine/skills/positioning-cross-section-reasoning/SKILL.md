@@ -26,6 +26,13 @@ six artifacts are already committed and stable. You may also reason over
 sharpens a cross-section collision. Do not re-run tools, do not fetch new
 sources, and do not invent missing evidence.
 
+When `ResearchInput.evidenceCoverage.ready` is `false`, the sections listed in
+`evidenceCoverage.blockedSections` are thin or low-confidence. Reason over them
+with appropriate caution: surface the cross-section tensions you can still
+support from stronger sections, and when an inference leans on a thin section,
+flag it as such (or name it an evidence gap) rather than asserting it with false
+confidence. A thin section is a signal to weight, not a reason to stop.
+
 ## Operating Principles
 
 - Reason across sections, not inside one section.

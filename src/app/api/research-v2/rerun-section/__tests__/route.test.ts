@@ -529,9 +529,14 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
-  it('blocks capstone reruns when committed core evidence is insufficient', async () => {
+  it('reruns a capstone on thin evidence, passing an evidenceCoverage annotation', async () => {
+    // ARI: readiness is a coverage annotation, not a gate. A capstone rerun
+    // proceeds even when an upstream section is insufficient; the gap rides
+    // along in evidenceCoverage so the commit can badge it needs_review.
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
     routeMocks.sectionQuery.in.mockResolvedValue({
       data: committedPositioningRows().map((row) =>
         row.zone === 'positioningBuyerICP'
@@ -571,17 +576,22 @@ describe('POST /api/research-v2/rerun-section', () => {
         zone: CROSS_SECTION_REASONING_SECTION_ID,
       }),
     );
-    const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toMatchObject({
-      error: 'research_evidence_not_ready',
-      blocked_sections: [
-        expect.objectContaining({ zone: 'positioningBuyerICP' }),
-      ],
-    });
-    expect(routeMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
-    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(routeMocks.resetSectionRunForRerun).toHaveBeenCalled();
+    expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+        researchInput: expect.objectContaining({
+          evidenceCoverage: expect.objectContaining({
+            ready: false,
+            blockedSections: expect.arrayContaining([
+              expect.objectContaining({ zone: 'positioningBuyerICP' }),
+            ]),
+          }),
+        }),
+      }),
+    );
   });
 
   it('rejects legacy worker execution modes', async () => {

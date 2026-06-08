@@ -232,17 +232,6 @@ function logDispatchError(label: string, runId: string, error: unknown): void {
     return;
   }
 
-  if (
-    error instanceof DispatchHttpError &&
-    error.errorCode === 'research_evidence_not_ready'
-  ) {
-    console.warn(`[use-audit-state] ${label} blocked by evidence readiness`, {
-      runId,
-      status: error.status,
-    });
-    return;
-  }
-
   if (error instanceof DispatchHttpError && error.status === 409) {
     console.debug(`[use-audit-state] ${label} not ready yet (409, retrying)`, {
       runId,
@@ -256,13 +245,6 @@ function logDispatchError(label: string, runId: string, error: unknown): void {
   });
 }
 
-function isResearchEvidenceReadinessBlock(error: unknown): boolean {
-  return (
-    error instanceof DispatchHttpError &&
-    error.errorCode === 'research_evidence_not_ready'
-  );
-}
-
 export function useAuditState(
   runId: string,
   refreshKey = 0,
@@ -272,11 +254,9 @@ export function useAuditState(
   const dispatchedCrossSectionReasoningRunIds = useRef<Set<string>>(new Set());
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
   const dispatchedSynthesisRunIds = useRef<Set<string>>(new Set());
-  const evidenceBlockedPostSixRunIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     cancelled.current = false;
-    evidenceBlockedPostSixRunIds.current.delete(runId);
     let timer: ReturnType<typeof setTimeout> | null = null;
     // Aborts any in-flight dispatch fetch on unmount / runId change so it can't
     // reject with an empty-message DOMException after the effect tears down.
@@ -299,12 +279,9 @@ export function useAuditState(
         const sixComplete = hasSixPositioningSectionsComplete(next);
         const crossSectionReasoningComplete =
           isCrossSectionReasoningComplete(next);
-        const postSixEvidenceBlocked =
-          evidenceBlockedPostSixRunIds.current.has(runId);
 
         const shouldDispatchCrossSectionReasoning =
           sixComplete &&
-          !postSixEvidenceBlocked &&
           !hasCrossSectionReasoningStarted(next) &&
           !dispatchedCrossSectionReasoningRunIds.current.has(runId);
         if (shouldDispatchCrossSectionReasoning) {
@@ -312,11 +289,7 @@ export function useAuditState(
           try {
             await dispatchCrossSectionReasoning(runId, dispatchAbort.signal);
           } catch (error) {
-            if (isResearchEvidenceReadinessBlock(error)) {
-              evidenceBlockedPostSixRunIds.current.add(runId);
-            } else {
-              dispatchedCrossSectionReasoningRunIds.current.delete(runId);
-            }
+            dispatchedCrossSectionReasoningRunIds.current.delete(runId);
             logDispatchError('cross-section reasoning', runId, error);
           }
         }
@@ -326,7 +299,6 @@ export function useAuditState(
         // artifact commits.
         const shouldDispatchPaidMediaPlan =
           crossSectionReasoningComplete &&
-          !postSixEvidenceBlocked &&
           !hasPaidMediaPlanStarted(next) &&
           !dispatchedMediaPlanRunIds.current.has(runId);
         if (shouldDispatchPaidMediaPlan) {
@@ -334,18 +306,13 @@ export function useAuditState(
           try {
             await dispatchPaidMediaPlan(runId, dispatchAbort.signal);
           } catch (error) {
-            if (isResearchEvidenceReadinessBlock(error)) {
-              evidenceBlockedPostSixRunIds.current.add(runId);
-            } else {
-              dispatchedMediaPlanRunIds.current.delete(runId);
-            }
+            dispatchedMediaPlanRunIds.current.delete(runId);
             logDispatchError('paid media plan', runId, error);
           }
         }
 
         const shouldDispatchSynthesis =
           crossSectionReasoningComplete &&
-          !postSixEvidenceBlocked &&
           !hasPositioningSynthesisStarted(next) &&
           !dispatchedSynthesisRunIds.current.has(runId);
         if (shouldDispatchSynthesis) {
@@ -353,11 +320,7 @@ export function useAuditState(
           try {
             await dispatchPositioningSynthesis(runId, dispatchAbort.signal);
           } catch (error) {
-            if (isResearchEvidenceReadinessBlock(error)) {
-              evidenceBlockedPostSixRunIds.current.add(runId);
-            } else {
-              dispatchedSynthesisRunIds.current.delete(runId);
-            }
+            dispatchedSynthesisRunIds.current.delete(runId);
             logDispatchError('positioning synthesis', runId, error);
           }
         }
@@ -376,7 +339,6 @@ export function useAuditState(
           next.workerStates.every((w) => TERMINAL.has(w.status));
         const waitingForPostSix =
           sixComplete &&
-          !evidenceBlockedPostSixRunIds.current.has(runId) &&
           (!isCrossSectionReasoningTerminal(next) ||
             (crossSectionReasoningComplete &&
               (!isPaidMediaPlanTerminal(next) ||

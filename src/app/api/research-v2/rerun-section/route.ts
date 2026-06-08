@@ -237,28 +237,21 @@ async function buildCommittedArtifactsResearchInput({
     };
   }
 
+  // ARI: readiness is computed as a COVERAGE annotation, never a gate. Capstone
+  // reruns proceed regardless of section quality and are badged needs_review at
+  // commit when upstream evidence is thin.
   const readiness = evaluateResearchEvidenceReadiness(rawRows);
-  if (!readiness.ready) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        {
-          error: 'research_evidence_not_ready',
-          message:
-            'Committed core section artifacts are complete but not research-ready for capstone synthesis',
-          blocked_sections: readiness.blockedSections,
-          reasons: readiness.reasons,
-        },
-        { status: 409 },
-      ),
-    };
-  }
 
   return {
     ok: true,
     researchInput: researchInputSchema.parse({
       ...baseResearchInput,
       committedPositioningArtifacts,
+      evidenceCoverage: {
+        ready: readiness.ready,
+        blockedSections: readiness.blockedSections,
+        reasons: readiness.reasons,
+      },
       ...(crossSectionReasoningArtifact === undefined
         ? {}
         : { crossSectionReasoningArtifact }),

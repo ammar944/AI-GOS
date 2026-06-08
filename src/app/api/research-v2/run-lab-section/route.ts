@@ -209,28 +209,21 @@ async function buildCommittedArtifactsResearchInput({
     };
   }
 
+  // ARI: readiness is computed as a COVERAGE annotation, never a gate. Capstones
+  // (thinker/synthesis/paid-media) dispatch on 6/6 regardless of section quality
+  // and reason over thin sections, which are then badged needs_review at commit.
   const readiness = evaluateResearchEvidenceReadiness(artifactRows);
-  if (!readiness.ready) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        {
-          error: 'research_evidence_not_ready',
-          message:
-            'Committed core section artifacts are complete but not research-ready for capstone synthesis',
-          blocked_sections: readiness.blockedSections,
-          reasons: readiness.reasons,
-        },
-        { status: 409 },
-      ),
-    };
-  }
 
   return {
     ok: true,
     researchInput: researchInputSchema.parse({
       ...baseResearchInput,
       committedPositioningArtifacts,
+      evidenceCoverage: {
+        ready: readiness.ready,
+        blockedSections: readiness.blockedSections,
+        reasons: readiness.reasons,
+      },
       ...(crossSectionReasoningArtifact === undefined
         ? {}
         : { crossSectionReasoningArtifact }),

@@ -85,4 +85,63 @@ describe('buildCommitPatch', (): void => {
       }),
     );
   });
+
+  it('degrades a verified capstone to needs_review when inputs were degraded', (): void => {
+    const patch = buildCommitPatch(
+      'positioningCrossSectionReasoning',
+      {
+        sectionTitle: 'Cross-Section Reasoning',
+        statusSummary: 'Cross-section tensions identified.',
+        body: { strategicInsight: 'A supported insight.' },
+        verification: {
+          verifiedCount: 10,
+          unsupportedCount: 0,
+          claims: [],
+        },
+        sources: [],
+      },
+      { degradeToNeedsReview: true },
+    );
+
+    expect(patch.verificationTier).toBe('needs_review');
+    expect(patch.verificationFlag).toEqual(
+      expect.objectContaining({ tier: 'needs_review' }),
+    );
+  });
+
+  it('does not upgrade a genuinely-insufficient capstone when degrading', (): void => {
+    const patch = buildCommitPatch(
+      'positioningCrossSectionReasoning',
+      {
+        sectionTitle: 'Cross-Section Reasoning',
+        statusSummary: 'Evidence gap.',
+        body: { evidenceGap: true },
+        verification: {
+          verifiedCount: 1,
+          unsupportedCount: 9,
+          claims: [],
+        },
+        sources: [],
+      },
+      { degradeToNeedsReview: true },
+    );
+
+    expect(patch.verificationTier).toBe('insufficient');
+  });
+
+  it('leaves a verified capstone verified when not degrading', (): void => {
+    const patch = buildCommitPatch('positioningCrossSectionReasoning', {
+      sectionTitle: 'Cross-Section Reasoning',
+      statusSummary: 'All supported.',
+      body: { strategicInsight: 'A supported insight.' },
+      verification: {
+        verifiedCount: 10,
+        unsupportedCount: 0,
+        claims: [],
+      },
+      sources: [],
+    });
+
+    expect(patch.verificationTier).toBe('verified');
+  });
 });

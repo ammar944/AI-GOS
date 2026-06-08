@@ -142,19 +142,21 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     unmount();
   });
 
-  it('does not retry post-six dispatch after deterministic evidence block', async (): Promise<void> => {
+  it('retries a post-six dispatch after a transient 409 (no permanent latch)', async (): Promise<void> => {
+    // ARI: the client no longer latches post-six dispatch off on a 409. The
+    // server treats readiness as a coverage annotation, so a 409 is only ever a
+    // transient race and must be retried on the next poll.
     vi.useFakeTimers();
 
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(responseForJson(sixCompleteState()))
+      .mockResolvedValueOnce(responseForJson(sixCompleteState())) // poll 1
       .mockResolvedValueOnce(
-        Response.json(
-          { error: 'research_evidence_not_ready' },
-          { status: 409 },
-        ),
-      )
-      .mockResolvedValueOnce(responseForJson(sixCompleteState()));
+        Response.json({ error: 'positioning_sections_not_ready' }, { status: 409 }),
+      ) // thinker dispatch 1 -> transient race
+      .mockResolvedValueOnce(responseForJson(sixCompleteState())) // poll 2
+      .mockResolvedValueOnce(responseForJson({ ok: true })) // thinker dispatch 2 -> success
+      .mockResolvedValue(responseForJson(sixCompleteState())); // subsequent polls
     vi.stubGlobal('fetch', fetchMock);
 
     const { unmount } = renderHook(() => useAuditState(RUN_ID));
@@ -165,18 +167,14 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     ]);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-
-    await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
 
-    expect(dispatchedSectionIds(fetchMock)).toEqual([
-      CROSS_SECTION_REASONING_SECTION_ID,
-    ]);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // The transient 409 did NOT latch dispatch off — the thinker was retried.
+    const thinkerDispatches = dispatchedSectionIds(fetchMock).filter(
+      (id) => id === CROSS_SECTION_REASONING_SECTION_ID,
+    );
+    expect(thinkerDispatches.length).toBeGreaterThanOrEqual(2);
 
     unmount();
   });

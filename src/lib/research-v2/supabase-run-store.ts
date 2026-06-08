@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
+  CROSS_SECTION_REASONING_SECTION_ID,
+  PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
@@ -999,12 +1001,25 @@ export function createSupabaseRunStore(
         timeoutMs: reviewTimeoutMs,
       });
 
+      // ARI: capstones are dispatched best-effort even when upstream evidence
+      // is thin (evidenceCoverage.ready === false). Badge those capstones
+      // needs_review rather than dropping them. Core sections never carry
+      // evidenceCoverage, so they are unaffected.
+      const isCapstoneSection =
+        artifactToCommit.sectionId === CROSS_SECTION_REASONING_SECTION_ID ||
+        artifactToCommit.sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
+        artifactToCommit.sectionId === POSITIONING_SYNTHESIS_SECTION_ID;
+      const degradeToNeedsReview =
+        isCapstoneSection && input.evidenceCoverage?.ready === false;
+
       const committed = await adapter.commitArtifactSection({
         artifactId: options.parentAuditRunId,
         zone: artifactToCommit.sectionId,
         sectionRunId,
         expectedRevision: context.expectedRevision,
-        patch: buildCommitPatch(artifactToCommit.sectionId, artifactToCommit),
+        patch: buildCommitPatch(artifactToCommit.sectionId, artifactToCommit, {
+          degradeToNeedsReview,
+        }),
       });
 
       if (!committed.ok) {

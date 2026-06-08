@@ -96,6 +96,7 @@ export interface CommitArtifactSectionInput {
 export function buildCommitPatch(
   sectionId: AllPositioningSectionId,
   artifact: unknown,
+  opts?: { degradeToNeedsReview?: boolean },
 ): CommitArtifactSectionInput['patch'] {
   const a = artifact as Record<string, unknown>;
   const title = typeof a.sectionTitle === 'string'
@@ -122,6 +123,16 @@ export function buildCommitPatch(
       })
     : deterministicVerificationFlag;
 
+  // ARI: capstones (thinker/synthesis/paid-media) built on degraded upstream
+  // evidence commit best-effort but are badged at least needs_review. Strictest
+  // tier wins, so a genuinely-insufficient capstone stays insufficient.
+  const effectiveFlag = opts?.degradeToNeedsReview
+    ? buildReviewVerificationFlag({
+        tier: 'needs_review',
+        baseFlag: verificationFlag ?? null,
+      })
+    : verificationFlag;
+
   return {
     status: 'complete',
     title,
@@ -130,7 +141,7 @@ export function buildCommitPatch(
     claims: [],
     sources: Array.isArray(a.sources) ? (a.sources as unknown[]) : [],
     error: null,
-    verificationTier: verificationFlag?.tier ?? null,
-    verificationFlag,
+    verificationTier: effectiveFlag?.tier ?? null,
+    verificationFlag: effectiveFlag,
   };
 }
