@@ -1163,7 +1163,12 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
-  it('falls back to competitor-seed review bodies when audited-brand review discovery is empty', async (): Promise<void> => {
+  // T4a / W2.4: VoC must reflect the SUBJECT's buyer voice only. The review
+  // prepass no longer queries competitorSeeds (that pulled competitor reviews —
+  // e.g. Brex/Tipalti reviews polluting Ramp's VoC). When the audited brand has
+  // no review discovery, VoC commits an evidence gap instead of falling back to
+  // competitor reviews.
+  it('does NOT query competitor seeds in the review prepass (de-contamination)', async (): Promise<void> => {
     const researchInput = researchInputSchema.parse({
       ...saaslaunchResearchInput,
       competitorSeeds: [{ name: 'PipelinePilot' }],
@@ -1172,18 +1177,6 @@ describe('runSection VoC candidate prepass', (): void => {
     const store = await makeStore(researchInput);
     const { requestedUrls } = installCompetitorSeedToolFetches();
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
-      const decodedSearches = requestedUrls
-        .filter((url) => url.includes('searchapi.io'))
-        .map((url) => decodeURIComponent(url));
-
-      expect(decodedSearches).toHaveLength(2);
-      expect(decodedSearches[0]).toContain('SaaSLaunch reviews complaints');
-      expect(decodedSearches[1]).toContain('PipelinePilot reviews complaints');
-      expect(params.prompt).toContain('PipelinePilot');
-      expect(params.prompt).toContain('g2.com');
-      expect(params.prompt).toContain('capterra.com');
-      expect(params.prompt).toContain('trustpilot.com');
-
       emitVoiceOfCustomerEvidenceStep(params);
       return {
         consumeStream: () => Promise.resolve(),
@@ -1207,12 +1200,21 @@ describe('runSection VoC candidate prepass', (): void => {
       },
     );
 
-    expect(streamStructured).toHaveBeenCalledTimes(1);
+    const decodedSearches = requestedUrls
+      .filter((url) => url.includes('searchapi.io'))
+      .map((url) => decodeURIComponent(url));
+
+    // Exactly the subject-brand review query — NO PipelinePilot competitor query.
+    expect(decodedSearches).toHaveLength(1);
+    expect(decodedSearches[0]).toContain('SaaSLaunch reviews complaints');
     expect(
-      requestedUrls.filter((url) => url.includes('api.firecrawl.dev')),
-    ).toHaveLength(3);
+      decodedSearches.some((query) => query.includes('PipelinePilot')),
+    ).toBe(false);
+
+    // With no subject reviews and no competitor fallback, VoC commits an
+    // evidence gap rather than promoting competitor voice as the buyer's.
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
-    expect(result.artifact.body.evidenceGap).not.toBe(true);
+    expect(result.artifact.body.evidenceGap).toBe(true);
   });
 
   it('promotes explicit independent buyer-language web snippets into the candidate pack', async (): Promise<void> => {

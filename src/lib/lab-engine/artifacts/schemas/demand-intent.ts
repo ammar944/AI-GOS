@@ -162,6 +162,18 @@ function isExplicitDataGap(value: string | undefined): boolean {
   );
 }
 
+// Explicit data-gap marker used when softening SpyFu-claiming rows under a
+// keyword_volume ToolGap. Matches isExplicitDataGap (so the re-run provenance
+// check is clean) and does NOT match the minimums' "not disclosed" rejection.
+export const DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME =
+  "data gap: keyword_volume (SpyFu) unavailable for this run";
+
+const spyFuClaimPattern = /spyfu[\s-]*estimat/i;
+const spyFuSourcePattern = /spyfu/i;
+const trendClaimPattern =
+  /(?:searchapi\s+google\s+trends|google\s+trends|relative\s+interest)/i;
+const modelEstimatePattern = /model\s+estimate/i;
+
 /**
  * Section-scoped provenance guard for keyword volume/CPC honesty. The
  * keyword_volume tool (SpyFu) returns a ToolGap when it is unavailable
@@ -171,27 +183,33 @@ function isExplicitDataGap(value: string | undefined): boolean {
  * Numeric volume/CPC/difficulty siblings require SpyFu because Trends only
  * provides relative interest. Rows with no matching tool data must be explicit
  * data gaps, not model estimates or unlabeled numbers.
+ *
+ * `spyFuToolGap` flags that keyword_volume itself returned a ToolGap (no
+ * keywords). When true, SpyFu-absence failures are reported as SOFTENABLE
+ * (the row is downgraded to an explicit data gap by
+ * softenDemandIntentForSpyFuToolGap) instead of hard errors — but a genuine
+ * fabrication (model estimate, or a Trends claim with no Trends evidence) stays
+ * a hard error, so we never let invented economics through.
  */
 export function checkDemandIntentKeywordProvenance({
   artifact,
   keywordTrendKeywords = [],
   keywordVolumeKeywords = [],
+  spyFuToolGap = false,
 }: {
   artifact: ArtifactEnvelope;
   keywordTrendKeywords?: readonly string[];
   keywordVolumeKeywords?: readonly string[];
-}): ValidationResult {
+  spyFuToolGap?: boolean;
+}): ValidationResult & { softenableRowIndexes: number[] } {
   const errors: string[] = [];
+  const softenableRowIndexes: number[] = [];
   const keywordVolumeEvidence = buildKeywordEvidenceSet(keywordVolumeKeywords);
   const keywordTrendEvidence = buildKeywordEvidenceSet(keywordTrendKeywords);
 
   const parsed = artifactEnvelopeSchema
     .extend({ body: demandIntentBodySchema })
     .parse(artifact);
-
-  const spyFuClaimPattern = /spyfu[\s-]*estimat/i;
-  const trendClaimPattern = /(?:searchapi\s+google\s+trends|google\s+trends|relative\s+interest)/i;
-  const modelEstimatePattern = /model\s+estimate/i;
 
   parsed.body.keywordDemand.keywords.forEach((keyword, index) => {
     const normalizedKeyword = normalizeKeywordForEvidence(keyword.keyword);
@@ -200,8 +218,8 @@ export function checkDemandIntentKeywordProvenance({
     const claimsSpyFu =
       spyFuClaimPattern.test(keyword.monthlyVolume) ||
       (keyword.cpc !== undefined && spyFuClaimPattern.test(keyword.cpc)) ||
-      /spyfu/i.test(keyword.sourceTitle) ||
-      /spyfu/i.test(keyword.sourceUrl);
+      spyFuSourcePattern.test(keyword.sourceTitle) ||
+      spyFuSourcePattern.test(keyword.sourceUrl);
     const claimsTrend =
       trendClaimPattern.test(keyword.monthlyVolume) ||
       trendClaimPattern.test(keyword.sourceTitle) ||
@@ -215,31 +233,47 @@ export function checkDemandIntentKeywordProvenance({
       keyword.difficulty !== undefined;
     const hasNonGapCpc = keyword.cpc !== undefined && !isExplicitDataGap(keyword.cpc);
 
+    // A failure is SpyFu-absence (softenable under a ToolGap) only when the row
+    // lacks SpyFu evidence AND lacks Trend evidence AND is not a fabrication.
+    let rowHasSpyFuAbsenceFailure = false;
+
     if (claimsSpyFu && !hasSpyFuEvidence) {
-      errors.push(
-        `body.keywordDemand.keywords[${index}]: claims SpyFu provenance for "${keyword.keyword}" but keyword_volume did not return that keyword — use keyword_trends for SearchAPI Google Trends fallback or restate as a data gap; never claim "SpyFu-estimated".`,
-      );
+      rowHasSpyFuAbsenceFailure = true;
+      if (!spyFuToolGap) {
+        errors.push(
+          `body.keywordDemand.keywords[${index}]: claims SpyFu provenance for "${keyword.keyword}" but keyword_volume did not return that keyword — use keyword_trends for SearchAPI Google Trends fallback or restate as a data gap; never claim "SpyFu-estimated".`,
+        );
+      }
     }
 
     if (claimsTrend && !hasTrendEvidence) {
+      // A Trends claim with no Trends evidence is a fabrication, not a SpyFu
+      // ToolGap — keep the hard rejection regardless of spyFuToolGap.
       errors.push(
         `body.keywordDemand.keywords[${index}]: claims SearchAPI Google Trends provenance for "${keyword.keyword}" but keyword_trends did not return that keyword — restate as a data gap or remove the Trends provenance.`,
       );
     }
 
     if (hasSpyFuOnlyNumericFields && !hasSpyFuEvidence) {
-      errors.push(
-        `body.keywordDemand.keywords[${index}]: includes numeric keyword economics for "${keyword.keyword}" without matching keyword_volume data — omit monthlyVolumeValue/cpcValue/difficulty unless SpyFu returned that keyword.`,
-      );
+      rowHasSpyFuAbsenceFailure = true;
+      if (!spyFuToolGap) {
+        errors.push(
+          `body.keywordDemand.keywords[${index}]: includes numeric keyword economics for "${keyword.keyword}" without matching keyword_volume data — omit monthlyVolumeValue/cpcValue/difficulty unless SpyFu returned that keyword.`,
+        );
+      }
     }
 
     if (hasNonGapCpc && !hasSpyFuEvidence) {
-      errors.push(
-        `body.keywordDemand.keywords[${index}]: includes CPC for "${keyword.keyword}" without matching keyword_volume data — SearchAPI Trends does not provide CPC; omit cpc or restate it as a data gap.`,
-      );
+      rowHasSpyFuAbsenceFailure = true;
+      if (!spyFuToolGap) {
+        errors.push(
+          `body.keywordDemand.keywords[${index}]: includes CPC for "${keyword.keyword}" without matching keyword_volume data — SearchAPI Trends does not provide CPC; omit cpc or restate it as a data gap.`,
+        );
+      }
     }
 
     if (claimsModelEstimate) {
+      // Always a fabrication — never softenable.
       errors.push(
         `body.keywordDemand.keywords[${index}]: uses model-estimated keyword economics; call keyword_volume or keyword_trends, or restate this row as a data gap.`,
       );
@@ -250,13 +284,89 @@ export function checkDemandIntentKeywordProvenance({
       !hasTrendEvidence &&
       !isExplicitDataGap(keyword.monthlyVolume)
     ) {
-      errors.push(
-        `body.keywordDemand.keywords[${index}]: monthlyVolume for "${keyword.keyword}" is not backed by keyword_volume, keyword_trends, or an explicit data gap.`,
-      );
+      rowHasSpyFuAbsenceFailure = true;
+      if (!spyFuToolGap) {
+        errors.push(
+          `body.keywordDemand.keywords[${index}]: monthlyVolume for "${keyword.keyword}" is not backed by keyword_volume, keyword_trends, or an explicit data gap.`,
+        );
+      }
+    }
+
+    // Under a ToolGap, mark this row for softening only when its sole defect is
+    // SpyFu-absence (no Trend evidence to keep it, no fabrication forcing a hard
+    // error). Rows already backed by Trends, or already explicit data gaps, are
+    // left untouched.
+    if (
+      spyFuToolGap &&
+      rowHasSpyFuAbsenceFailure &&
+      !hasTrendEvidence &&
+      !claimsModelEstimate &&
+      !(claimsTrend && !hasTrendEvidence)
+    ) {
+      softenableRowIndexes.push(index);
     }
   });
 
-  return { ok: errors.length === 0, errors };
+  return { ok: errors.length === 0, errors, softenableRowIndexes };
+}
+
+/**
+ * Downgrade the SpyFu-claiming keyword rows to explicit data gaps when
+ * keyword_volume returned a ToolGap. Strips SpyFu-only numeric fields and CPC,
+ * relabels monthlyVolume + provenance to an explicit data gap, so the artifact
+ * commits honestly (needs_review) instead of nulling and stalling the run.
+ * Trends-backed and already-data-gap rows are preserved. Returns the patched
+ * artifact body; the caller re-validates provenance + minimums before commit.
+ */
+export function softenDemandIntentForSpyFuToolGap({
+  artifact,
+  softenableRowIndexes,
+}: {
+  artifact: ArtifactEnvelope & { body: DemandIntentBody };
+  softenableRowIndexes: readonly number[];
+}): ArtifactEnvelope & { body: DemandIntentBody } {
+  const parsed = artifactEnvelopeSchema
+    .extend({ body: demandIntentBodySchema })
+    .parse(artifact);
+  const toSoften = new Set(softenableRowIndexes);
+
+  const keywords = parsed.body.keywordDemand.keywords.map((keyword, index) => {
+    if (!toSoften.has(index)) {
+      return keyword;
+    }
+
+    const {
+      monthlyVolumeValue: _monthlyVolumeValue,
+      cpcValue: _cpcValue,
+      difficulty: _difficulty,
+      cpc: _cpc,
+      ...rest
+    } = keyword;
+
+    return {
+      ...rest,
+      monthlyVolume: DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME,
+      // Replacement must NOT contain "spyfu" or the re-run provenance check
+      // would re-flag the row as a SpyFu claim.
+      sourceTitle: spyFuSourcePattern.test(keyword.sourceTitle)
+        ? "keyword_volume tool data gap"
+        : keyword.sourceTitle,
+      sourceUrl: spyFuSourcePattern.test(keyword.sourceUrl)
+        ? "keyword_volume tool data gap"
+        : keyword.sourceUrl,
+    };
+  });
+
+  return {
+    ...parsed,
+    body: {
+      ...parsed.body,
+      keywordDemand: {
+        ...parsed.body.keywordDemand,
+        keywords,
+      },
+    },
+  };
 }
 
 export function validateDemandIntentMinimums(

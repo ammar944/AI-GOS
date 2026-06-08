@@ -255,4 +255,81 @@ describe('CompetitorAdEvidence — verified wall + quarantine', () => {
     );
     expect(quarantine).toHaveTextContent('Cierra mas tratos ahora');
   });
+
+  it('keeps the quarantine drawer closed when a verified wall exists', () => {
+    render(<CompetitorAdEvidence {...props} />);
+    const quarantine = screen.getByTestId('ad-quarantine');
+    // 1 verified vs 1 quarantined → wall is not sparser → stays collapsed,
+    // keeps the "low-confidence" label.
+    expect(quarantine).not.toHaveAttribute('open');
+    expect(quarantine).toHaveTextContent(/low-confidence/i);
+  });
+});
+
+describe('CompetitorAdEvidence — quarantine surfaced when wall is empty/sparse', () => {
+  // The deploy-blocker case: every creative is name-matched only (no verified
+  // wall). The quarantine must be visible (open-by-default) and labeled
+  // "unverified / name-matched" rather than buried behind a closed reveal.
+  const allQuarantinedProps: CompetitorAdEvidenceProps = {
+    adCreatives: [
+      {
+        platform: 'meta',
+        id: 'q1',
+        advertiser: 'Ramp',
+        headline: 'Corporate cards and spend management',
+        format: 'image',
+        isActive: true,
+        verified: false,
+        identityBasis: 'name_only',
+        detailsUrl: 'https://www.facebook.com/ads/library/?id=q1',
+      },
+      {
+        platform: 'meta',
+        id: 'q2',
+        advertiser: 'Ramp',
+        headline: 'Save time on expense reports',
+        format: 'image',
+        isActive: true,
+        verified: false,
+        identityBasis: 'name_only',
+        detailsUrl: 'https://www.facebook.com/ads/library/?id=q2',
+      },
+    ],
+  };
+
+  it('opens the quarantine by default and labels it unverified / name-matched', () => {
+    render(<CompetitorAdEvidence {...allQuarantinedProps} />);
+    const quarantine = screen.getByTestId('ad-quarantine');
+    expect(quarantine).toBeInTheDocument();
+    // <details open> renders the `open` attribute.
+    expect(quarantine).toHaveAttribute('open');
+    expect(quarantine).toHaveTextContent(/unverified \/ name-matched/i);
+    // The quarantined creatives are present (not silently dropped).
+    expect(quarantine).toHaveTextContent('Corporate cards and spend management');
+    expect(quarantine).toHaveTextContent('Save time on expense reports');
+  });
+
+  it('opens the quarantine when the verified wall is sparser than the quarantine', () => {
+    const sparseProps: CompetitorAdEvidenceProps = {
+      adCreatives: [
+        {
+          platform: 'meta',
+          id: 'v1',
+          advertiser: 'Ramp',
+          headline: 'The verified one',
+          format: 'image',
+          isActive: true,
+          verified: true,
+          identityBasis: 'domain',
+          detailsUrl: 'https://www.facebook.com/ads/library/?id=v1',
+        },
+        ...allQuarantinedProps.adCreatives!,
+      ],
+    };
+    render(<CompetitorAdEvidence {...sparseProps} />);
+    const quarantine = screen.getByTestId('ad-quarantine');
+    // 1 verified vs 2 quarantined → wall is sparser → open-by-default.
+    expect(quarantine).toHaveAttribute('open');
+    expect(quarantine).toHaveTextContent(/unverified \/ name-matched/i);
+  });
 });

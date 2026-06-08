@@ -604,6 +604,14 @@ export function CompetitorAdEvidence({
   const quarantinedCreatives = filteredCreatives.filter(
     (c) => c.verified === false,
   );
+  // When the verified wall is empty (or sparser than the quarantine), the user
+  // would otherwise see an empty/thin ad section while real name-matched
+  // creatives sit hidden behind a reveal. In that case open the quarantine
+  // by-default with a clear "unverified / name-matched" label so the evidence
+  // is visible (still collapsible, still labeled, never promoted to verified).
+  const revealQuarantineByDefault =
+    quarantinedCreatives.length > 0 &&
+    wallCreatives.length < quarantinedCreatives.length;
 
   if (!hasCreatives && !hasLinks) {
     return null;
@@ -712,19 +720,36 @@ export function CompetitorAdEvidence({
         </div>
       )}
 
-      {/* Quarantine — low-confidence creatives, hidden behind a reveal. */}
+      {/* Quarantine — low-confidence creatives. Hidden behind a reveal when a
+          verified wall exists; surfaced open-by-default (still labeled
+          "unverified / name-matched") when the wall is empty or sparser than
+          the quarantine, so the evidence is visible rather than buried. */}
       {quarantinedCreatives.length > 0 && (
-        <details className="group" data-testid="ad-quarantine">
+        <details
+          className="group"
+          data-testid="ad-quarantine"
+          open={revealQuarantineByDefault}
+        >
           <summary
             className="flex w-fit cursor-pointer items-center gap-1.5 text-[11px]"
             style={{ color: 'var(--text-tertiary)' }}
           >
             <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-400">
-              {quarantinedCreatives.length} low-confidence
+              {quarantinedCreatives.length}{' '}
+              {revealQuarantineByDefault ? 'unverified / name-matched' : 'low-confidence'}
             </span>
             <span>
-              ad{quarantinedCreatives.length === 1 ? '' : 's'} hidden — unverified
-              advertiser or non-target language. Show anyway
+              {revealQuarantineByDefault ? (
+                <>
+                  ad{quarantinedCreatives.length === 1 ? '' : 's'} — advertiser
+                  matched by name only, not identity-verified. Hide
+                </>
+              ) : (
+                <>
+                  ad{quarantinedCreatives.length === 1 ? '' : 's'} hidden —
+                  unverified advertiser or non-target language. Show anyway
+                </>
+              )}
             </span>
           </summary>
           <div

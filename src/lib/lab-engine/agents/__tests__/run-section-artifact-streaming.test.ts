@@ -10,6 +10,8 @@ import type { VoiceOfCustomerSectionOutput } from '@/lib/lab-engine/artifacts/sc
 import type { SectionId } from '@/lib/lab-engine/events/activity-event';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
+import { demandIntentFixtureArtifact } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
+import { offerDiagnosticFixtureArtifact } from '@/lib/lab-engine/fixtures/offer-diagnostic-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 import type { SectionPartialPublishFn } from '@/lib/research-v2/section-partial-broadcaster';
@@ -480,5 +482,129 @@ describe('runSection artifact streaming path', (): void => {
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
     );
+  });
+
+  // T2a: DemandIntent under a SpyFu (keyword_volume) ToolGap must COMMIT a
+  // softened needs_review artifact (artifact !== null) instead of throwing a
+  // terminal SectionRunnerError that stalls the run < 6/6.
+  it('commits a softened DemandIntent artifact under a SpyFu ToolGap (T2a)', async (): Promise<void> => {
+    const store = await makeStore(['positioningDemandIntent']);
+    const draft = {
+      verdict: demandIntentFixtureArtifact.verdict,
+      statusSummary: demandIntentFixtureArtifact.statusSummary,
+      sources: demandIntentFixtureArtifact.sources.map(({ title, url }) => ({
+        title,
+        url,
+      })),
+      body: demandIntentFixtureArtifact.body as Record<string, unknown>,
+    };
+    // No keyword_volume tool result is emitted -> keywordVolumeKeywords() is
+    // empty -> SpyFu ToolGap. The fixture's SpyFu-claimed rows would otherwise
+    // hard-fail provenance.
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitFixtureEvidenceStep(params, demandIntentFixtureArtifact.body);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(draft),
+        partialOutputStream: partials([]),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningDemandIntent',
+      },
+      {
+        store,
+        loadSkill: async () => 'Demand intent under SpyFu ToolGap.',
+        allowedTools: [],
+        streamStructured,
+        broadcastPartial: vi.fn<SectionPartialPublishFn>(async () => undefined),
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+      },
+    );
+
+    // Committed, not thrown.
+    expect(result.artifact).not.toBeNull();
+    expect(result.artifact.sectionId).toBe('positioningDemandIntent');
+
+    // Every SpyFu-claimed row is relabeled to the explicit data gap, and the
+    // SpyFu-only numeric siblings are dropped.
+    const keywords = (
+      result.artifact.body as typeof demandIntentFixtureArtifact.body
+    ).keywordDemand.keywords;
+    keywords.forEach((keyword) => {
+      expect(/spyfu[\s-]*estimat/i.test(keyword.monthlyVolume)).toBe(false);
+      expect(keyword.monthlyVolumeValue).toBeUndefined();
+      expect(keyword.difficulty).toBeUndefined();
+    });
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    expect(record.sections.positioningDemandIntent?.status).toBe('completed');
+  });
+
+  // T2b: OfferDiagnostic with a restated orderedMoves[i].move survives the
+  // 2-attempt repair, then commits an evidence-gap (needs_review) artifact
+  // (artifact !== null) instead of throwing terminally.
+  it('commits an OfferDiagnostic evidence-gap artifact on a restated move (T2b)', async (): Promise<void> => {
+    const store = await makeStore(['positioningOfferDiagnostic']);
+    const failingBody = {
+      ...offerDiagnosticFixtureArtifact.body,
+      orderedMoves: offerDiagnosticFixtureArtifact.body.orderedMoves.map(
+        (move, index) =>
+          index === 0
+            ? {
+                ...move,
+                // Vacuous restatement -> fails validateStrategicText.
+                move: 'Improve messaging and clarify positioning for the company.',
+              }
+            : move,
+      ),
+    } as Record<string, unknown>;
+    const draft = {
+      verdict: offerDiagnosticFixtureArtifact.verdict,
+      statusSummary: offerDiagnosticFixtureArtifact.statusSummary,
+      sources: offerDiagnosticFixtureArtifact.sources.map(({ title, url }) => ({
+        title,
+        url,
+      })),
+      body: failingBody,
+    };
+    // The model keeps emitting the same failing body across repairs.
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitFixtureEvidenceStep(params, offerDiagnosticFixtureArtifact.body);
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(draft),
+        partialOutputStream: partials([]),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningOfferDiagnostic',
+      },
+      {
+        store,
+        loadSkill: async () => 'Offer diagnostic restated move.',
+        allowedTools: [],
+        streamStructured,
+        broadcastPartial: vi.fn<SectionPartialPublishFn>(async () => undefined),
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+      },
+    );
+
+    // Committed an evidence-gap artifact, not thrown.
+    expect(result.artifact).not.toBeNull();
+    expect(result.artifact.sectionId).toBe('positioningOfferDiagnostic');
+    const move = (
+      result.artifact.body as typeof offerDiagnosticFixtureArtifact.body
+    ).orderedMoves[0].move;
+    expect(move.startsWith('evidence gap:')).toBe(true);
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    expect(record.sections.positioningOfferDiagnostic?.status).toBe('completed');
   });
 });

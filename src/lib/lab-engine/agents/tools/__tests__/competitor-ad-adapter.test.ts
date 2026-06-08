@@ -316,6 +316,7 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.creatives[0]?.identityBasis).toBe("domain");
     expect(group.identityConfidence).toBe("verified");
     expect(group.quarantinedCount).toBe(0);
+    expect(group.verifiedCount).toBe(1);
   });
 
   it("quarantines an ambiguous (identityVerified=false) creative", () => {
@@ -337,6 +338,7 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.creatives[0]?.verified).toBe(false);
     expect(group.identityConfidence).toBe("low");
     expect(group.quarantinedCount).toBe(1);
+    expect(group.verifiedCount).toBe(0);
   });
 
   it("quarantines a name-only creative and preserves the identity basis", () => {

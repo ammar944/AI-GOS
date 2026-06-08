@@ -38,6 +38,7 @@ Read these frozen GTM brief fields when present:
 - Do not fabricate competitor ad platforms or spend. Use `unknown` when the committed competitor artifact is thin.
 - Every money/spend value must carry a provenance label: `user-supplied`, `tool-measured`, `source-reported`, `model-estimated`, or `unknown`.
 - If budget/funnel economics are missing, do not present the number as launch-ready authority; mark it `model-estimated` for a scenario assumption or `unknown` when no defensible scenario exists.
+- When prose derives a money/economics figure from operator-supplied brief/onboarding economics (`economics.monthlyAdBudget`, `economics.targetCac`, `economics.avgLtv`), prefix that claim's prose with the literal lowercase token `operator-supplied` (e.g. "operator-supplied budget of $30K/mo → $1K/day"). This is in addition to the structured `monthlyBudgetProvenance: user-supplied` label, and credits the derived number as operator-told rather than flagging it as an unsupported public fact.
 - Add optional numeric siblings only when they come from user-supplied economics, tool-measured data, source-reported data, or explicit scenario assumptions with corresponding provenance.
 - Omit numeric siblings when the number is unknown or weakly inferred.
 - Numeric siblings are machine-sortable numbers and must not duplicate provenance in strings.

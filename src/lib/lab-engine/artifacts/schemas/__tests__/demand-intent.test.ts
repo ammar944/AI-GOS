@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { demandIntentFixtureArtifact } from "../../../fixtures/demand-intent-artifact";
 import {
+  DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME,
   checkDemandIntentKeywordProvenance,
   keywordSignalSchema,
+  softenDemandIntentForSpyFuToolGap,
   validateDemandIntentMinimums,
   type DemandIntentArtifact,
 } from "../demand-intent";
@@ -301,6 +303,119 @@ describe("checkDemandIntentKeywordProvenance", (): void => {
     expect(result.errors.join(" ")).toContain(
       "body.keywordDemand.keywords[0]",
     );
+  });
+});
+
+describe("checkDemandIntentKeywordProvenance — SpyFu ToolGap soften (T2a)", (): void => {
+  it("does NOT error and marks every SpyFu row softenable under a ToolGap", (): void => {
+    // keyword_volume returned a ToolGap (no keywords). The fixture's 10
+    // SpyFu-estimated rows must soften, not hard-fail.
+    const result = checkDemandIntentKeywordProvenance({
+      artifact: demandIntentFixtureArtifact,
+      spyFuToolGap: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.softenableRowIndexes).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
+  });
+
+  it("still HARD-FAILS a fabrication (model estimate) even under a ToolGap", (): void => {
+    const keywords = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+      (keyword) => ({
+        ...keyword,
+        monthlyVolume: "320 (model estimate)",
+        monthlyVolumeValue: undefined,
+        difficulty: undefined,
+      }),
+    );
+    const artifact: DemandIntentArtifact = {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        keywordDemand: {
+          ...demandIntentFixtureArtifact.body.keywordDemand,
+          keywords,
+        },
+      },
+    };
+
+    const result = checkDemandIntentKeywordProvenance({
+      artifact,
+      spyFuToolGap: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("model-estimated keyword economics");
+  });
+
+  it("the softened artifact re-passes provenance (clean) AND minimums", (): void => {
+    const result = checkDemandIntentKeywordProvenance({
+      artifact: demandIntentFixtureArtifact,
+      spyFuToolGap: true,
+    });
+    const softened = softenDemandIntentForSpyFuToolGap({
+      artifact: demandIntentFixtureArtifact,
+      softenableRowIndexes: result.softenableRowIndexes,
+    });
+
+    // Rows are relabeled to the explicit data-gap marker and numerics dropped.
+    softened.body.keywordDemand.keywords.forEach((keyword) => {
+      expect(keyword.monthlyVolume).toBe(DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME);
+      expect(keyword.monthlyVolumeValue).toBeUndefined();
+      expect(keyword.cpc).toBeUndefined();
+      expect(keyword.cpcValue).toBeUndefined();
+      expect(keyword.difficulty).toBeUndefined();
+    });
+
+    // Re-run provenance with NO tool keywords (the ToolGap persists) — clean.
+    const recheck = checkDemandIntentKeywordProvenance({ artifact: softened });
+    expect(recheck.ok).toBe(true);
+    expect(recheck.errors).toHaveLength(0);
+
+    // And the softened artifact still clears section minimums (10 keywords,
+    // no "not disclosed").
+    expect(validateDemandIntentMinimums(softened).ok).toBe(true);
+  });
+
+  it("neutralizes SpyFu provenance leaked into sourceTitle/sourceUrl", (): void => {
+    const keywords = demandIntentFixtureArtifact.body.keywordDemand.keywords.map(
+      (keyword) => ({
+        ...keyword,
+        sourceTitle: "SpyFu keyword export",
+        sourceUrl: "https://www.spyfu.com/keyword/overview",
+      }),
+    );
+    const artifact: DemandIntentArtifact = {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        keywordDemand: {
+          ...demandIntentFixtureArtifact.body.keywordDemand,
+          keywords,
+        },
+      },
+    };
+
+    const provenance = checkDemandIntentKeywordProvenance({
+      artifact,
+      spyFuToolGap: true,
+    });
+    const softened = softenDemandIntentForSpyFuToolGap({
+      artifact,
+      softenableRowIndexes: provenance.softenableRowIndexes,
+    });
+
+    softened.body.keywordDemand.keywords.forEach((keyword) => {
+      expect(/spyfu/i.test(keyword.sourceTitle)).toBe(false);
+      expect(/spyfu/i.test(keyword.sourceUrl)).toBe(false);
+    });
+    // The relabeled artifact is provenance-clean.
+    expect(
+      checkDemandIntentKeywordProvenance({ artifact: softened }).ok,
+    ).toBe(true);
   });
 });
 

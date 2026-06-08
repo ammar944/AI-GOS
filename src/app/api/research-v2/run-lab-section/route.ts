@@ -389,6 +389,108 @@ async function dispatchCrossSectionReasoningIfSixComplete({
     supabase,
     researchInput: capstoneResearchInput.researchInput,
     schedule,
+    // Close the autonomy hole: once the thinker commits server-side, fan out the
+    // two final capstones (synthesis + paid-media) from the server so they no
+    // longer depend on an open browser tab. Wrapped in try/catch so a dispatch
+    // error never fails the thinker's own commit (mirrors the core-section hook).
+    onJobComplete: async ({ seeded }): Promise<void> => {
+      try {
+        await dispatchSynthesisAndPaidMediaAfterThinker({
+          baseResearchInput,
+          parentAuditRunId: seeded.parent_audit_run_id,
+          runId,
+          schedule,
+          supabase,
+          userId,
+        });
+      } catch (error) {
+        console.error(
+          '[run-lab-section] synthesis + paid-media auto-dispatch failed',
+          {
+            runId,
+            parentAuditRunId: seeded.parent_audit_run_id,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        );
+      }
+    },
+  });
+}
+
+// Server-owned dispatch of the two final capstones once the thinker has
+// committed. Both read the SAME committed-artifacts input (the six positioning
+// sections plus the cross-section reasoning artifact), so build it once and fan
+// out with Promise.allSettled — a failure of one must not block the other.
+// Reuses the existing capstone dispatch path (getDispatchZones + scheduleLabSectionJob),
+// so capstones stay counts_toward_rollup=false (server-owned, not flagged here).
+async function dispatchSynthesisAndPaidMediaAfterThinker({
+  baseResearchInput,
+  parentAuditRunId,
+  runId,
+  schedule,
+  supabase,
+  userId,
+}: {
+  baseResearchInput: ResearchInput;
+  parentAuditRunId: string;
+  runId: string;
+  schedule: ScheduleLabSectionTask;
+  supabase: ReturnType<typeof createAdminClient>;
+  userId: string;
+}): Promise<void> {
+  const capstoneResearchInput = await buildCommittedArtifactsResearchInput({
+    baseResearchInput,
+    includeCrossSectionReasoningArtifact: true,
+    parentAuditRunId,
+    supabase,
+  });
+
+  if (!capstoneResearchInput.ok) {
+    // 409 = positioning_sections_not_ready / cross_section_reasoning_not_ready:
+    // a transient race (the thinker artifact is committed before onJobComplete
+    // fires, so this should not happen — but if it does, the client dispatch is
+    // still the CAS-guarded fallback). Anything else is a real failure.
+    if (capstoneResearchInput.response.status === 409) {
+      return;
+    }
+
+    throw new Error(
+      `synthesis + paid-media dispatch failed while preparing committed artifacts for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: response status ${capstoneResearchInput.response.status}`,
+    );
+  }
+
+  const researchInput = capstoneResearchInput.researchInput;
+  const capstoneSectionIds = [
+    POSITIONING_SYNTHESIS_SECTION_ID,
+    PAID_MEDIA_PLAN_SECTION_ID,
+  ] as const;
+
+  const results = await Promise.allSettled(
+    capstoneSectionIds.map((sectionId) =>
+      scheduleLabSectionJob({
+        userId,
+        runId,
+        sectionId,
+        zones: getDispatchZones(sectionId),
+        supabase,
+        researchInput,
+        schedule,
+      }),
+    ),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error('[run-lab-section] capstone auto-dispatch failed', {
+        runId,
+        parentAuditRunId,
+        sectionId: capstoneSectionIds[index],
+        message:
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+      });
+    }
   });
 }
 

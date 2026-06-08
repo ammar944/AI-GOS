@@ -35,6 +35,35 @@ function completeWorker(
   };
 }
 
+function erroredWorker(
+  sectionId: AllPositioningSectionId,
+): AuditStateResponse['workerStates'][number] {
+  return {
+    ...completeWorker(sectionId),
+    status: 'error',
+    latestActivity: 'Failed',
+  };
+}
+
+// 6/6 + thinker committed, so crossSectionReasoningComplete is true and the
+// capstone (paid-media / synthesis) dispatch gates are open.
+function thinkerCompleteState(
+  capstoneWorkers: AuditStateResponse['workerStates'] = [],
+): AuditStateResponse {
+  return sixCompleteState({
+    workerStates: [
+      ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+      completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
+      ...capstoneWorkers,
+    ],
+    sectionsByZone: {
+      [CROSS_SECTION_REASONING_SECTION_ID]: {
+        data: { sectionTitle: 'Cross-Section Reasoning' },
+      },
+    },
+  });
+}
+
 function sixCompleteState(
   overrides: Partial<AuditStateResponse> = {},
 ): AuditStateResponse {
@@ -175,6 +204,103 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
       (id) => id === CROSS_SECTION_REASONING_SECTION_ID,
     );
     expect(thinkerDispatches.length).toBeGreaterThanOrEqual(2);
+
+    unmount();
+  });
+
+  it('re-dispatches a capstone whose row committed as error, then stops at the cap', async (): Promise<void> => {
+    // T3c: an `error` row used to latch hasPaidMediaPlanStarted=true forever, so
+    // a failed paid-media/synthesis capstone never retried. The bounded retry
+    // re-fires once on the observed error, then stops at the cap so a
+    // deterministic failure never loops a paid-API call.
+    vi.useFakeTimers();
+
+    const erroredCapstones = thinkerCompleteState([
+      erroredWorker(PAID_MEDIA_PLAN_SECTION_ID),
+      erroredWorker(POSITIONING_SYNTHESIS_SECTION_ID),
+    ]);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(responseForJson(erroredCapstones)) // poll 1 -> retry #1
+      .mockResolvedValueOnce(responseForJson({ ok: true })) // paid-media re-dispatch
+      .mockResolvedValueOnce(responseForJson({ ok: true })) // synthesis re-dispatch
+      .mockResolvedValue(responseForJson(erroredCapstones)); // still errored on later polls
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = renderHook(() => useAuditState(RUN_ID));
+
+    await flushHookPromises();
+
+    // Re-dispatched exactly once on the first observed error row.
+    expect(
+      dispatchedSectionIds(fetchMock).filter(
+        (id) => id === PAID_MEDIA_PLAN_SECTION_ID,
+      ),
+    ).toHaveLength(1);
+    expect(
+      dispatchedSectionIds(fetchMock).filter(
+        (id) => id === POSITIONING_SYNTHESIS_SECTION_ID,
+      ),
+    ).toHaveLength(1);
+
+    // Subsequent polls keep returning an error row, but the cap (1) is hit, so
+    // no further re-dispatch fires — the bounded retry does not loop.
+    for (let i = 0; i < 3; i += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+    }
+
+    expect(
+      dispatchedSectionIds(fetchMock).filter(
+        (id) => id === PAID_MEDIA_PLAN_SECTION_ID,
+      ),
+    ).toHaveLength(1);
+    expect(
+      dispatchedSectionIds(fetchMock).filter(
+        (id) => id === POSITIONING_SYNTHESIS_SECTION_ID,
+      ),
+    ).toHaveLength(1);
+
+    unmount();
+  });
+
+  it('does not re-dispatch a capstone that already committed an artifact', async (): Promise<void> => {
+    // Guard: a committed (non-error) capstone with an artifact in sectionsByZone
+    // must never be re-dispatched by the error-retry path.
+    vi.useFakeTimers();
+
+    const committedCapstones = thinkerCompleteState([
+      completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
+      completeWorker(POSITIONING_SYNTHESIS_SECTION_ID),
+    ]);
+    committedCapstones.sectionsByZone = {
+      ...committedCapstones.sectionsByZone,
+      [PAID_MEDIA_PLAN_SECTION_ID]: { data: { sectionTitle: 'Paid Media Plan' } },
+      [POSITIONING_SYNTHESIS_SECTION_ID]: {
+        data: { sectionTitle: 'Positioning Synthesis' },
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(responseForJson(committedCapstones));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = renderHook(() => useAuditState(RUN_ID));
+
+    await flushHookPromises();
+    for (let i = 0; i < 2; i += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+    }
+
+    expect(dispatchedSectionIds(fetchMock)).not.toContain(
+      PAID_MEDIA_PLAN_SECTION_ID,
+    );
+    expect(dispatchedSectionIds(fetchMock)).not.toContain(
+      POSITIONING_SYNTHESIS_SECTION_ID,
+    );
 
     unmount();
   });

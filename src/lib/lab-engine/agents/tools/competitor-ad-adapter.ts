@@ -892,6 +892,7 @@ function finalizeGroup(
     observedAt: group.observedAt,
     identityConfidence,
     quarantinedCount,
+    verifiedCount: verifiedRanked.length,
   };
 }
 

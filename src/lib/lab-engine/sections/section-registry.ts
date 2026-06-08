@@ -346,7 +346,7 @@ export const SECTION_REGISTRY = {
       "KPIs",
     ],
     sectionOutputSchemaName: "PaidMediaPlanSectionOutput",
-    structuredOutputMaxTokens: 8192,
+    structuredOutputMaxTokens: 16384,
     allowedTools: ["keyword_ad_probe"],
     maxExternalLookups: 2,
     requiredEvidenceClasses: [],

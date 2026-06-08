@@ -222,3 +222,157 @@ export function validateOfferDiagnosticMinimums(
 
   return { ok: errors.length === 0, errors };
 }
+
+// T2b: evidence-gap escape hatch for the OfferDiagnostic strategic-text fields.
+// These two suffixes are the ONLY minimums failures we soften — both accept an
+// "evidence gap: ..." string (validateStrategicText / isFalsifiabilityText).
+// Structural failures (bad ranks/dependencies, too-few proof points) are
+// deterministic model bugs a gap string can't fix and are intentionally left to
+// hard-fail.
+const offerStrategicTextErrorSuffix =
+  ": must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.";
+const offerFalsifiabilityErrorPattern =
+  /: must be a concrete falsifiability \w+ or explicit evidence gap\.$/;
+
+// Allowlisted strategic-text paths that validateOfferDiagnosticMinimums checks
+// via validateStrategicText / validateProvesWrongIfMinimums. Array elements
+// (orderedMoves) are matched by a prefix/suffix below.
+const offerStrategicEvidenceGapScalarPaths = new Set([
+  "body.strategicInsight.strategicVerdict",
+  "body.strategicInsight.nonObviousRead",
+  "body.strategicInsight.secondOrderImplication",
+  "body.strategicInsight.keyTension.tension",
+  "body.strategicInsight.keyTension.side",
+  "body.strategicInsight.keyTension.costOfPosition",
+  "body.singleBindingConstraint.constraint",
+  "body.singleBindingConstraint.whyBinding",
+  "body.singleBindingConstraint.unlockCondition",
+  "body.provesWrongIf.metric",
+  "body.provesWrongIf.threshold",
+  "body.provesWrongIf.window",
+]);
+
+const offerOrderedMovePathPattern = /^body\.orderedMoves\[\d+\]\.(?:move|rationale)$/;
+
+function isOfferStrategicEvidenceGapPath(path: string): boolean {
+  return (
+    offerStrategicEvidenceGapScalarPaths.has(path) ||
+    offerOrderedMovePathPattern.test(path)
+  );
+}
+
+/**
+ * Parse a failing offer-diagnostic minimums error into the strategic-text path
+ * it flags, restricted to the allowlist above. Returns null for any error we do
+ * not soften (structural failures, duplicate-field errors, etc.).
+ */
+export function parseOfferDiagnosticStrategicEvidenceGapPath(
+  error: string,
+): string | null {
+  let path: string | null = null;
+
+  if (error.endsWith(offerStrategicTextErrorSuffix)) {
+    path = error.slice(0, -offerStrategicTextErrorSuffix.length);
+  } else if (offerFalsifiabilityErrorPattern.test(error)) {
+    path = error.replace(offerFalsifiabilityErrorPattern, "");
+  }
+
+  if (path === null) {
+    return null;
+  }
+
+  return isOfferStrategicEvidenceGapPath(path) ? path : null;
+}
+
+function offerEvidenceGapValue(path: string): string {
+  return `evidence gap: ${path.replace(
+    /^body\./,
+    "",
+  )} could not be upgraded into a source-backed strategic judgment from the fetched offer evidence.`;
+}
+
+function setOfferBodyPath(
+  body: Record<string, unknown>,
+  path: string,
+  value: string,
+): Record<string, unknown> | null {
+  // Strip the leading "body." and tokenize, splitting array indices into their
+  // own steps: e.g. "orderedMoves[2].move" -> ["orderedMoves", 2, "move"].
+  const segments: (string | number)[] = [];
+  for (const token of path.replace(/^body\./, "").split(".")) {
+    const arrayMatch = /^([^[]+)\[(\d+)\]$/.exec(token);
+    if (arrayMatch) {
+      segments.push(arrayMatch[1], Number(arrayMatch[2]));
+    } else {
+      segments.push(token);
+    }
+  }
+
+  const root = structuredClone(body);
+  let cursor: unknown = root;
+
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const segment = segments[i];
+    if (Array.isArray(cursor) && typeof segment === "number") {
+      cursor = cursor[segment];
+    } else if (
+      cursor !== null &&
+      typeof cursor === "object" &&
+      typeof segment === "string"
+    ) {
+      cursor = (cursor as Record<string, unknown>)[segment];
+    } else {
+      return null;
+    }
+
+    if (cursor === undefined || cursor === null) {
+      return null;
+    }
+  }
+
+  const leaf = segments[segments.length - 1];
+  if (Array.isArray(cursor) && typeof leaf === "number") {
+    cursor[leaf] = value;
+  } else if (
+    cursor !== null &&
+    typeof cursor === "object" &&
+    typeof leaf === "string"
+  ) {
+    (cursor as Record<string, unknown>)[leaf] = value;
+  } else {
+    return null;
+  }
+
+  return root;
+}
+
+/**
+ * Patch the failing OfferDiagnostic strategic-text paths with explicit
+ * evidence-gap strings. Returns null when any flagged error falls outside the
+ * softenable allowlist (so the caller hard-fails rather than committing a body
+ * with un-softened structural defects). The caller re-validates minimums before
+ * committing — this only builds the candidate body.
+ */
+export function buildOfferDiagnosticEvidenceGapBody({
+  body,
+  errors,
+}: {
+  body: Record<string, unknown>;
+  errors: readonly string[];
+}): Record<string, unknown> | null {
+  const paths = errors.map(parseOfferDiagnosticStrategicEvidenceGapPath);
+  if (paths.length === 0 || paths.some((path) => path === null)) {
+    return null;
+  }
+
+  let patched: Record<string, unknown> | null = structuredClone(body);
+  for (const path of paths) {
+    if (path === null || patched === null) {
+      return null;
+    }
+
+    patched = setOfferBodyPath(patched, path, offerEvidenceGapValue(path));
+  }
+
+  return patched;
+}

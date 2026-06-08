@@ -33,7 +33,12 @@ import {
   snapCreativeType,
 } from "../artifacts/schemas/paid-media-plan";
 import { validateStrategicText } from "../artifacts/schemas/strategic-insight";
-import { checkDemandIntentKeywordProvenance } from "../artifacts/schemas/demand-intent";
+import {
+  checkDemandIntentKeywordProvenance,
+  softenDemandIntentForSpyFuToolGap,
+  type DemandIntentBody,
+} from "../artifacts/schemas/demand-intent";
+import { buildOfferDiagnosticEvidenceGapBody } from "../artifacts/schemas/offer-diagnostic";
 import {
   classifyVoiceOfCustomerEvidenceGap,
   checkVoiceOfCustomerSelfSourcing,
@@ -720,6 +725,50 @@ function buildCompetitorStrategicEvidenceGapArtifact({
     .parse({
       ...artifact,
       body,
+    });
+  const minimums = definition.validateMinimums(candidate);
+
+  return minimums.ok ? candidate : undefined;
+}
+
+// T2b: OfferDiagnostic evidence-gap escape hatch. Mirrors the competitor builder
+// — patch the failing strategic-text paths with evidence-gap strings, then
+// re-validate minimums. Scoped to strategic-text/falsifiability paths only;
+// structural failures (proof-point counts, bad move ranks) intentionally fall
+// through to a hard fail because a rerun, not a gap string, is the fix.
+function buildOfferDiagnosticEvidenceGapArtifact({
+  artifact,
+  definition,
+  errors,
+  input,
+}: {
+  artifact: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  errors: readonly string[];
+  input: RunSectionInput;
+}): ArtifactEnvelope | undefined {
+  if (input.sectionId !== "positioningOfferDiagnostic") {
+    return undefined;
+  }
+
+  const originalBody = getRecord(artifact.body);
+  if (originalBody === null) {
+    return undefined;
+  }
+
+  const patchedBody = buildOfferDiagnosticEvidenceGapBody({
+    body: originalBody,
+    errors,
+  });
+  if (patchedBody === null) {
+    return undefined;
+  }
+
+  const candidate = artifactEnvelopeSchema
+    .extend({ body: definition.bodySchema })
+    .parse({
+      ...artifact,
+      body: patchedBody,
     });
   const minimums = definition.validateMinimums(candidate);
 
@@ -1544,6 +1593,7 @@ interface AttemptResult {
   artifact: ArtifactEnvelope | null;
   buyerICPEvidenceGapArtifact?: ArtifactEnvelope;
   competitorStrategicEvidenceGapArtifact?: ArtifactEnvelope;
+  offerDiagnosticEvidenceGapArtifact?: ArtifactEnvelope;
   errors: string[];
   requiredEvidenceMissing?: RequiredEvidenceMissingError;
   evidenceSupportShortfall?: EvidenceSupportShortfall;
@@ -1563,7 +1613,8 @@ function getAttemptEvidenceGapArtifact(
   return (
     attempt.buyerICPEvidenceGapArtifact ??
     attempt.voiceOfCustomerEvidenceGapArtifact ??
-    attempt.competitorStrategicEvidenceGapArtifact
+    attempt.competitorStrategicEvidenceGapArtifact ??
+    attempt.offerDiagnosticEvidenceGapArtifact
   );
 }
 
@@ -5916,10 +5967,10 @@ function normalizeVoiceOfCustomerReviewQuery(value: string): string | null {
 function buildVoiceOfCustomerReviewQueries(
   researchInput: ResearchInput,
 ): string[] {
-  const rawQueries = [
-    researchInput.company.name,
-    ...(researchInput.competitorSeeds ?? []).map((seed) => seed.name),
-  ];
+  // VoC must capture the SUBJECT company's buyer voice only. Including
+  // competitorSeeds polluted Ramp's VoC with Brex/Tipalti reviews (W2.4
+  // de-contamination). Scope the prepass strictly to the company name.
+  const rawQueries = [researchInput.company.name];
   const seen = new Set<string>();
   const queries: string[] = [];
 
@@ -6278,6 +6329,44 @@ export function keywordTrendsSucceeded(modelSteps: readonly AgentStep[]): boolea
   return keywordTrendKeywords(modelSteps).length > 0;
 }
 
+// T2a: under a keyword_volume (SpyFu) ToolGap, downgrade the SpyFu-claiming
+// keyword rows to explicit data gaps and re-validate, mirroring the competitor
+// strategic-text gap builder. The patched artifact MUST re-pass provenance
+// (clean, with spyFuToolGap=false) AND section minimums or we return undefined
+// and the caller nulls the artifact — never commit a still-dirty body.
+function buildDemandIntentSpyFuToolGapArtifact({
+  artifact,
+  definition,
+  modelSteps,
+  softenableRowIndexes,
+}: {
+  artifact: ArtifactEnvelope & { body: DemandIntentBody };
+  definition: RuntimeSectionDefinition;
+  modelSteps: readonly AgentStep[];
+  softenableRowIndexes: readonly number[];
+}): ArtifactEnvelope | undefined {
+  const softened = softenDemandIntentForSpyFuToolGap({
+    artifact,
+    softenableRowIndexes,
+  });
+
+  const candidate = artifactEnvelopeSchema
+    .extend({ body: definition.bodySchema })
+    .parse(softened);
+
+  const recheck = checkDemandIntentKeywordProvenance({
+    artifact: candidate,
+    keywordTrendKeywords: keywordTrendKeywords(modelSteps),
+    keywordVolumeKeywords: keywordVolumeKeywords(modelSteps),
+  });
+  if (!recheck.ok) {
+    return undefined;
+  }
+
+  const minimums = definition.validateMinimums(candidate);
+  return minimums.ok ? candidate : undefined;
+}
+
 async function buildVerifiedAttemptFromOutput({
   definition,
   deps,
@@ -6323,6 +6412,13 @@ async function buildVerifiedAttemptFromOutput({
         }),
       competitorStrategicEvidenceGapArtifact:
         buildCompetitorStrategicEvidenceGapArtifact({
+          artifact,
+          definition,
+          errors: minimums.errors,
+          input,
+        }),
+      offerDiagnosticEvidenceGapArtifact:
+        buildOfferDiagnosticEvidenceGapArtifact({
           artifact,
           definition,
           errors: minimums.errors,
@@ -6400,15 +6496,53 @@ async function buildVerifiedAttemptFromOutput({
     }
   }
 
+  // The committable artifact may be replaced by a softened (needs_review)
+  // variant below (e.g. DemandIntent under a SpyFu ToolGap). Carry it forward to
+  // the evidence-gate evaluation and final return.
+  let committedArtifact = artifact;
+
   if (input.sectionId === "positioningDemandIntent") {
+    // keyword_volume (SpyFu) returned a ToolGap when it surfaced zero keywords.
+    // Under a ToolGap the SpyFu-absence failures are softenable: relabel the
+    // SpyFu-claiming rows as explicit data gaps and commit needs_review, rather
+    // than nulling the artifact and stalling the run < 6/6. A genuine
+    // fabrication (model estimate / Trends claim without Trends evidence) still
+    // hard-fails so we never let invented economics through.
+    const spyFuToolGap = keywordVolumeKeywords(modelSteps).length === 0;
     const provenance = checkDemandIntentKeywordProvenance({
       artifact,
       keywordTrendKeywords: keywordTrendKeywords(modelSteps),
       keywordVolumeKeywords: keywordVolumeKeywords(modelSteps),
+      spyFuToolGap,
     });
 
     if (!provenance.ok) {
       return { output, artifact: null, errors: provenance.errors };
+    }
+
+    if (spyFuToolGap && provenance.softenableRowIndexes.length > 0) {
+      const softened = buildDemandIntentSpyFuToolGapArtifact({
+        artifact: artifact as ArtifactEnvelope & { body: DemandIntentBody },
+        definition,
+        modelSteps,
+        softenableRowIndexes: provenance.softenableRowIndexes,
+      });
+
+      // The softened artifact MUST re-pass provenance (clean) + minimums or we
+      // fall back to nulling — never commit a still-dirty body.
+      if (softened === undefined) {
+        return {
+          output,
+          artifact: null,
+          errors: provenance.errors.length > 0
+            ? provenance.errors
+            : [
+                "DemandIntent SpyFu ToolGap softening did not re-pass validation",
+              ],
+        };
+      }
+
+      committedArtifact = softened;
     }
   }
 
@@ -6422,13 +6556,13 @@ async function buildVerifiedAttemptFromOutput({
   if (evidenceSupportShortfall.unsupportedLoadBearing.length > 0) {
     return {
       output,
-      artifact,
+      artifact: committedArtifact,
       errors: [],
       evidenceSupportShortfall,
     };
   }
 
-  return { output, artifact, errors: [] };
+  return { output, artifact: committedArtifact, errors: [] };
 }
 
 async function buildAnswerToolAttempt({

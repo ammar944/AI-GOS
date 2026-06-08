@@ -247,6 +247,11 @@ export const competitorAdEvidenceGroupSchema = z
     // quarantine split in the UI. Optional for pre-rebuild artifacts.
     identityConfidence: z.enum(["verified", "low"]).optional(),
     quarantinedCount: z.number().int().nonnegative().optional(),
+    // Count of creatives that cleared the verified wall for this group. Paired
+    // with quarantinedCount so a downstream run can measure over-quarantine
+    // (low verifiedCount + high quarantinedCount) directly from the committed
+    // artifact instead of inferring it. Optional for pre-rebuild artifacts.
+    verifiedCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 

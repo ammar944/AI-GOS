@@ -702,6 +702,227 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
   });
 
+  it('server-dispatches synthesis + paid-media once the thinker job completes', async (): Promise<void> => {
+    // T1: when the thinker's onJobComplete fires server-side, both final
+    // capstones must be dispatched from the server (no open tab required).
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'complete',
+        children_complete: POSITIONING_SECTION_IDS.length,
+        children_total: POSITIONING_SECTION_IDS.length,
+      },
+      error: null,
+    });
+    // The synthesis + paid-media build needs the cross-section reasoning
+    // artifact present in the committed rows, or buildCommittedArtifactsResearchInput
+    // returns a 409 and the server dispatch silently no-ops.
+    routeMocks.committedSectionsQuery.in.mockResolvedValue({
+      data: committedRowsWithCrossSectionReasoning(),
+      error: null,
+    });
+    // Seed by zone — the two capstones fan out concurrently (Promise.allSettled),
+    // so key the mock on the requested zone rather than on call order.
+    routeMocks.seedOrchestration.mockImplementation(
+      (input: { zones: readonly AllPositioningSectionId[] }) => {
+        const [zone] = input.zones;
+        if (zone === CROSS_SECTION_REASONING_SECTION_ID) {
+          return Promise.resolve(crossSectionReasoningSeededRows());
+        }
+        if (zone === PAID_MEDIA_PLAN_SECTION_ID) {
+          return Promise.resolve(paidMediaSeededRows());
+        }
+        if (zone === POSITIONING_SYNTHESIS_SECTION_ID) {
+          return Promise.resolve(synthesisSeededRows());
+        }
+        return Promise.resolve(defaultSeededRows());
+      },
+    );
+    routeMocks.claimSectionRun.mockImplementation(
+      (input: { sectionId: AllPositioningSectionId }) => {
+        if (input.sectionId === CROSS_SECTION_REASONING_SECTION_ID) {
+          return Promise.resolve(
+            claimResult(
+              'claimed',
+              '44444444-4444-4444-8444-444444444444',
+              CROSS_SECTION_REASONING_SECTION_ID,
+            ),
+          );
+        }
+        if (input.sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
+          return Promise.resolve(
+            claimResult(
+              'claimed',
+              '33333333-3333-4333-8333-333333333333',
+              PAID_MEDIA_PLAN_SECTION_ID,
+            ),
+          );
+        }
+        if (input.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
+          return Promise.resolve(
+            claimResult(
+              'claimed',
+              '55555555-5555-4555-8555-555555555555',
+              POSITIONING_SYNTHESIS_SECTION_ID,
+            ),
+          );
+        }
+        return Promise.resolve(
+          claimResult(
+            'claimed',
+            '22222222-2222-4222-8222-000000000002',
+            'positioningBuyerICP',
+          ),
+        );
+      },
+    );
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+
+    // Drain 1: 6th positioning section job runs → thinker dispatched.
+    await drainAfter();
+    // Drain 2: thinker job runs → onJobComplete fires → synthesis + paid-media
+    // dispatched server-side.
+    await drainAfter();
+
+    const scheduledZones = routeMocks.seedOrchestration.mock.calls.map(
+      (call) => (call[0] as { zones: readonly AllPositioningSectionId[] }).zones[0],
+    );
+    expect(scheduledZones).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
+    expect(scheduledZones).toContain(PAID_MEDIA_PLAN_SECTION_ID);
+
+    const claimedSectionIds = routeMocks.claimSectionRun.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(claimedSectionIds).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
+    expect(claimedSectionIds).toContain(PAID_MEDIA_PLAN_SECTION_ID);
+
+    // Both capstones read the same committed input — including the cross-section
+    // reasoning artifact (proves includeCrossSectionReasoningArtifact: true).
+    const synthesisStoreCall = routeMocks.createSupabaseRunStore.mock.calls.find(
+      (call) =>
+        (call[0] as { sectionRunIdByZone: Record<string, string> })
+          .sectionRunIdByZone[POSITIONING_SYNTHESIS_SECTION_ID] !== undefined,
+    );
+    const paidMediaStoreCall = routeMocks.createSupabaseRunStore.mock.calls.find(
+      (call) =>
+        (call[0] as { sectionRunIdByZone: Record<string, string> })
+          .sectionRunIdByZone[PAID_MEDIA_PLAN_SECTION_ID] !== undefined,
+    );
+    expect(synthesisStoreCall?.[0]).toMatchObject({
+      researchInput: {
+        crossSectionReasoningArtifact: {
+          sectionTitle: 'Cross-Section Reasoning',
+        },
+      },
+    });
+    expect(paidMediaStoreCall?.[0]).toMatchObject({
+      researchInput: {
+        crossSectionReasoningArtifact: {
+          sectionTitle: 'Cross-Section Reasoning',
+        },
+      },
+    });
+
+    // Drain 3: synthesis + paid-media jobs actually run.
+    await drainAfter();
+
+    const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(ranSectionIds).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
+    expect(ranSectionIds).toContain(PAID_MEDIA_PLAN_SECTION_ID);
+  });
+
+  it('does not fail the thinker commit when the synthesis + paid-media auto-dispatch throws', async (): Promise<void> => {
+    // T1: a dispatch error in onJobComplete must be swallowed/logged, never
+    // bubble up to fail the thinker's own committed job.
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'complete',
+        children_complete: POSITIONING_SECTION_IDS.length,
+        children_total: POSITIONING_SECTION_IDS.length,
+      },
+      error: null,
+    });
+    routeMocks.committedSectionsQuery.in.mockResolvedValue({
+      data: committedRowsWithCrossSectionReasoning(),
+      error: null,
+    });
+    routeMocks.seedOrchestration.mockImplementation(
+      (input: { zones: readonly AllPositioningSectionId[] }) => {
+        const [zone] = input.zones;
+        if (zone === CROSS_SECTION_REASONING_SECTION_ID) {
+          return Promise.resolve(crossSectionReasoningSeededRows());
+        }
+        if (
+          zone === PAID_MEDIA_PLAN_SECTION_ID ||
+          zone === POSITIONING_SYNTHESIS_SECTION_ID
+        ) {
+          // Both capstone seeds blow up — the thinker has already committed.
+          return Promise.reject(new Error('seed boom'));
+        }
+        // The initial six-section dispatch seeds normally.
+        return Promise.resolve(defaultSeededRows());
+      },
+    );
+    routeMocks.claimSectionRun.mockImplementation(
+      (input: { sectionId: AllPositioningSectionId }) => {
+        if (input.sectionId === CROSS_SECTION_REASONING_SECTION_ID) {
+          return Promise.resolve(
+            claimResult(
+              'claimed',
+              '44444444-4444-4444-8444-444444444444',
+              CROSS_SECTION_REASONING_SECTION_ID,
+            ),
+          );
+        }
+        return Promise.resolve(
+          claimResult(
+            'claimed',
+            '22222222-2222-4222-8222-000000000002',
+            'positioningBuyerICP',
+          ),
+        );
+      },
+    );
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+
+    // Draining the chain must not throw even though both capstone seeds reject.
+    await drainAfter();
+    await expect(drainAfter()).resolves.toBeUndefined();
+
+    // The thinker job itself still ran (its commit is unaffected).
+    const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(ranSectionIds).toContain(CROSS_SECTION_REASONING_SECTION_ID);
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it('does not schedule a duplicate thinker job when the server trigger finds it already dispatched', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession();

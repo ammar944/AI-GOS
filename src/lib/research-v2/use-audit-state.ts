@@ -12,10 +12,17 @@ import {
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   POSITIONING_SYNTHESIS_SECTION_ID,
+  type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
 const POLL_MS = 2500;
 const TERMINAL: ReadonlySet<WorkerStatus> = new Set(['complete', 'error', 'aborted']);
+// Bounded client-side retry for a capstone (paid-media / synthesis) row that
+// committed as `error`. Cap is per-runId, per-section: a deterministic failure
+// (e.g. a schema the model can't fill) must stop after this many re-dispatches
+// so we never loop a paid-API call. T1's server chain dispatches once; this
+// only re-fires on an observed `error` row, and claimSectionRun CAS dedups.
+const CAPSTONE_ERROR_RETRY_CAP = 1;
 
 const EMPTY: AuditStateResponse = {
   parent_audit_run_id: null,
@@ -50,6 +57,22 @@ function hasPaidMediaPlanStarted(state: AuditStateResponse): boolean {
       (workerState) => workerState.section_id === PAID_MEDIA_PLAN_SECTION_ID,
     )
   );
+}
+
+// A capstone row that committed as `error` and has no artifact in
+// sectionsByZone is eligible for a bounded re-dispatch: the prior attempt
+// genuinely failed (timeout / decode), so re-firing is not a duplicate.
+function isSectionErrored(
+  state: AuditStateResponse,
+  sectionId: AllPositioningSectionId,
+): boolean {
+  if (state.sectionsByZone[sectionId] !== undefined) {
+    return false;
+  }
+  const worker = state.workerStates.find(
+    (workerState) => workerState.section_id === sectionId,
+  );
+  return worker?.status === 'error';
 }
 
 function hasCrossSectionReasoningStarted(state: AuditStateResponse): boolean {
@@ -254,6 +277,10 @@ export function useAuditState(
   const dispatchedCrossSectionReasoningRunIds = useRef<Set<string>>(new Set());
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
   const dispatchedSynthesisRunIds = useRef<Set<string>>(new Set());
+  // Per-runId count of how many times we've re-dispatched an `error` capstone
+  // row. Bounded by CAPSTONE_ERROR_RETRY_CAP so a deterministic failure stops.
+  const mediaPlanErrorRetryCounts = useRef<Map<string, number>>(new Map());
+  const synthesisErrorRetryCounts = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     cancelled.current = false;
@@ -297,9 +324,26 @@ export function useAuditState(
         // Synthesis and paid media gate on the thinker stage, not just 6/6.
         // They still dispatch in parallel once the cross-section reasoning
         // artifact commits.
+        //
+        // A committed `error` row latches hasPaidMediaPlanStarted=true forever.
+        // Under the cap, treat it as retriable: re-open both guards and bump
+        // the counter so the bounded re-dispatch fires exactly cap more times.
+        const paidMediaRetriableError =
+          crossSectionReasoningComplete &&
+          isSectionErrored(next, PAID_MEDIA_PLAN_SECTION_ID) &&
+          (mediaPlanErrorRetryCounts.current.get(runId) ?? 0) <
+            CAPSTONE_ERROR_RETRY_CAP;
+        if (paidMediaRetriableError) {
+          mediaPlanErrorRetryCounts.current.set(
+            runId,
+            (mediaPlanErrorRetryCounts.current.get(runId) ?? 0) + 1,
+          );
+          dispatchedMediaPlanRunIds.current.delete(runId);
+        }
+
         const shouldDispatchPaidMediaPlan =
           crossSectionReasoningComplete &&
-          !hasPaidMediaPlanStarted(next) &&
+          (paidMediaRetriableError || !hasPaidMediaPlanStarted(next)) &&
           !dispatchedMediaPlanRunIds.current.has(runId);
         if (shouldDispatchPaidMediaPlan) {
           dispatchedMediaPlanRunIds.current.add(runId);
@@ -311,9 +355,22 @@ export function useAuditState(
           }
         }
 
+        const synthesisRetriableError =
+          crossSectionReasoningComplete &&
+          isSectionErrored(next, POSITIONING_SYNTHESIS_SECTION_ID) &&
+          (synthesisErrorRetryCounts.current.get(runId) ?? 0) <
+            CAPSTONE_ERROR_RETRY_CAP;
+        if (synthesisRetriableError) {
+          synthesisErrorRetryCounts.current.set(
+            runId,
+            (synthesisErrorRetryCounts.current.get(runId) ?? 0) + 1,
+          );
+          dispatchedSynthesisRunIds.current.delete(runId);
+        }
+
         const shouldDispatchSynthesis =
           crossSectionReasoningComplete &&
-          !hasPositioningSynthesisStarted(next) &&
+          (synthesisRetriableError || !hasPositioningSynthesisStarted(next)) &&
           !dispatchedSynthesisRunIds.current.has(runId);
         if (shouldDispatchSynthesis) {
           dispatchedSynthesisRunIds.current.add(runId);
