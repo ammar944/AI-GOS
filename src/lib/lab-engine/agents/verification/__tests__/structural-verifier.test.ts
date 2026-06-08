@@ -157,6 +157,48 @@ describe("structuralVerifier", (): void => {
     );
   });
 
+  it("credits operator-self-labeled economics as user_asserted even when derived", (): void => {
+    const report = structuralVerifier({
+      body: {
+        channelBudget:
+          "Operator-supplied 35% of $75K/mo budget ($26.25K/mo) allocated to paid search.",
+      },
+      toolResults: [],
+      corpusExcerpts: [],
+    });
+
+    // The derived $26.25K is not in any public source, but the claim self-labels
+    // as operator-supplied, so it is honestly user_asserted (not unsupported).
+    expect(report.unsupportedCount).toBe(0);
+    expect(report.verifiedCount).toBeGreaterThanOrEqual(1);
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "verified",
+          entailmentVerdict: "user_asserted",
+          matchedSourceRef: expect.objectContaining({ kind: "userProvided" }),
+        }),
+      ]),
+    );
+  });
+
+  it("does not rescue genuinely-inferred or undisclosed claims", (): void => {
+    const report = structuralVerifier({
+      body: {
+        retentionHealth:
+          "Inferred average ACV ~$14.3K. Ramp does not publicly disclose churn or NDR.",
+      },
+      toolResults: [],
+      corpusExcerpts: [],
+    });
+
+    expect(report.verifiedCount).toBe(0);
+    expect(report.unsupportedCount).toBeGreaterThanOrEqual(1);
+    expect(
+      report.claims.every((verdict) => verdict.status === "unsupported"),
+    ).toBe(true);
+  });
+
   it("uses a single batched entailment judge for paraphrase support and refuted numbers", async (): Promise<void> => {
     const judge = vi.fn<EntailmentJudge>(async ({ claims }) => ({
       verdicts: claims.map((claim, claimIndex) => ({

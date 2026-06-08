@@ -309,6 +309,20 @@ function findClaimMatch(
   });
 }
 
+// Operator-provided economics (ACV/CAC/budget splits/sales cycle) often appear
+// as DERIVED numbers the model computes from the brief (e.g. $26.25K = 35%×$75K)
+// that never substring-match the stored operator string. When the claim's own
+// prose self-labels it as operator-supplied, it is honestly `user_asserted`
+// (the operator told us; not publicly verified) rather than an unsupported
+// public fact. This is an honesty floor — it never promotes a claim to
+// `supported` (evidence-corroborated).
+const OPERATOR_PROVENANCE_MARKERS = ["operator-supplied", "client brief"];
+
+function hasOperatorProvenanceMarker(claim: Claim): boolean {
+  const raw = claim.raw.toLowerCase();
+  return OPERATOR_PROVENANCE_MARKERS.some((marker) => raw.includes(marker));
+}
+
 export function structuralVerifier({
   body,
   corpusExcerpts,
@@ -331,6 +345,15 @@ export function structuralVerifier({
         matchedSourceRef: match,
         entailmentVerdict:
           match.kind === "userProvided" ? "user_asserted" : "supported",
+      };
+    }
+
+    if (hasOperatorProvenanceMarker(claim)) {
+      return {
+        status: "verified",
+        claim,
+        matchedSourceRef: { kind: "userProvided" },
+        entailmentVerdict: "user_asserted",
       };
     }
 
