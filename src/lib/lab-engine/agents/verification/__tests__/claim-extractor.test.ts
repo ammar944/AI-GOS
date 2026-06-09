@@ -111,6 +111,72 @@ describe("extractClaims", (): void => {
     expect(numericValues).not.toContain("555-1234");
   });
 
+  it("extracts count-field numeric attribution with the sibling source URL", (): void => {
+    const claims = extractClaims({
+      clusters: {
+        venues: [
+          {
+            name: "Airtable Community",
+            audienceSize: "450,000+ members",
+            sourceUrl: "https://community.airtable.com/t5/forums",
+          },
+        ],
+      },
+    });
+
+    expect(claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          assertedSourceUrl: "https://community.airtable.com/t5/forums",
+          kind: "numericAttribution",
+          value: "450,000+ members",
+        }),
+      ]),
+    );
+  });
+
+  it("does not extract bare comma-integers from non-count prose fields", (): void => {
+    const claims = extractClaims({
+      summary: "The community page mentions 450,000 members in passing.",
+    });
+
+    expect(
+      claims.some(
+        (claim) =>
+          claim.kind === "numeric" &&
+          claim.value === "450,000 members",
+      ),
+    ).toBe(false);
+    expect(
+      claims.some((claim) => claim.kind === "numericAttribution"),
+    ).toBe(false);
+  });
+
+  it("extracts quote attribution from verbatim quote records", (): void => {
+    const claims = extractClaims({
+      publicWeaknesses: {
+        items: [
+          {
+            verbatimQuote: "missing table stakes",
+            source: "G2",
+            sourceUrl: "https://www.g2.com/products/acme/reviews",
+          },
+        ],
+      },
+    });
+
+    expect(claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          assertedSource: "G2",
+          assertedSourceUrl: "https://www.g2.com/products/acme/reviews",
+          kind: "quoteAttribution",
+          value: "missing table stakes",
+        }),
+      ]),
+    );
+  });
+
   it("deduplicates repeated claims while preserving their first raw occurrence", (): void => {
     const claims = extractClaims({
       competitorSet: {

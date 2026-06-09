@@ -9,6 +9,16 @@ const entityNameFieldNames = new Set([
   "name",
   "persona",
 ]);
+const countFieldNames = new Set([
+  "accountCount",
+  "audienceSize",
+  "monthlyVolume",
+]);
+const quoteAttributionFieldNames = [
+  "verbatimQuote",
+  "verbatimText",
+  "quote",
+] as const;
 
 const currencyPattern =
   /(?:[$£€]\s?\d[\d,]*(?:\.\d{1,2})?(?:\s?(?:[kmb]\b|thousand\b|million\b|billion\b))?(?:\s?\/\s?(?:mo|month|yr|year))?)/gi;
@@ -65,37 +75,83 @@ function cleanUrl(value: string): string {
   return value.replace(/[.,;:!?]+$/g, "");
 }
 
-function pushClaim({
-  claims,
-  kind,
-  raw,
-  seen,
-  value,
-}: {
-  claims: Claim[];
-  kind: Claim["kind"];
-  value: string;
-  raw: string;
-  seen: Set<string>;
-}): void {
-  const normalizedValue = normalizeWhitespace(value);
+function normalizeClaim(claim: Claim): Claim | null {
+  const normalizedValue = normalizeWhitespace(claim.value);
 
   if (normalizedValue.length === 0) {
+    return null;
+  }
+
+  const normalizedRaw = normalizeWhitespace(claim.raw);
+
+  if (claim.kind === "numericAttribution") {
+    const assertedSourceUrl =
+      claim.assertedSourceUrl === undefined
+        ? undefined
+        : cleanUrl(normalizeWhitespace(claim.assertedSourceUrl));
+
+    return {
+      kind: claim.kind,
+      value: normalizedValue,
+      raw: normalizedRaw,
+      ...(assertedSourceUrl === undefined || assertedSourceUrl.length === 0
+        ? {}
+        : { assertedSourceUrl }),
+    };
+  }
+
+  if (claim.kind === "quoteAttribution") {
+    const assertedSource = normalizeWhitespace(claim.assertedSource);
+    const assertedSourceUrl =
+      claim.assertedSourceUrl === undefined
+        ? undefined
+        : cleanUrl(normalizeWhitespace(claim.assertedSourceUrl));
+
+    if (assertedSource.length === 0) {
+      return null;
+    }
+
+    return {
+      kind: claim.kind,
+      value: normalizedValue,
+      raw: normalizedRaw,
+      assertedSource,
+      ...(assertedSourceUrl === undefined || assertedSourceUrl.length === 0
+        ? {}
+        : { assertedSourceUrl }),
+    };
+  }
+
+  return {
+    kind: claim.kind,
+    value: normalizedValue,
+    raw: normalizedRaw,
+  };
+}
+
+function pushClaim({
+  claim,
+  claims,
+  seen,
+}: {
+  claim: Claim;
+  claims: Claim[];
+  seen: Set<string>;
+}): void {
+  const normalizedClaim = normalizeClaim(claim);
+
+  if (normalizedClaim === null) {
     return;
   }
 
-  const key = `${kind}:${normalizedValue.toLowerCase()}`;
+  const key = `${normalizedClaim.kind}:${normalizedClaim.value.toLowerCase()}`;
 
   if (seen.has(key)) {
     return;
   }
 
   seen.add(key);
-  claims.push({
-    kind,
-    value: normalizedValue,
-    raw: normalizeWhitespace(raw),
-  } as Claim);
+  claims.push(normalizedClaim);
 }
 
 function extractStringClaims({
@@ -113,11 +169,13 @@ function extractStringClaims({
 
   if (entityNameFieldNames.has(fieldName) && normalized.length >= 3) {
     pushClaim({
+      claim: {
+        kind: "entityName",
+        raw: value,
+        value: normalized,
+      },
       claims,
-      kind: "entityName",
-      raw: value,
       seen,
-      value: normalized,
     });
   }
 
@@ -129,11 +187,13 @@ function extractStringClaims({
     }
 
     pushClaim({
+      claim: {
+        kind: "url",
+        raw: value,
+        value: url,
+      },
       claims,
-      kind: "url",
-      raw: value,
       seen,
-      value: url,
     });
   }
 
@@ -151,7 +211,11 @@ function extractStringClaims({
       if (!rangeQualifierPattern.test(full)) {
         continue;
       }
-      pushClaim({ claims, kind: "numeric", raw: value, seen, value: full });
+      pushClaim({
+        claim: { kind: "numeric", raw: value, value: full },
+        claims,
+        seen,
+      });
       const start = match.index ?? 0;
       for (let i = start; i < start + full.length && i < chars.length; i += 1) {
         chars[i] = " ";
@@ -163,11 +227,13 @@ function extractStringClaims({
   const currencyMaskedChars = scanValue.split("");
   for (const match of scanValue.matchAll(currencyPattern)) {
     pushClaim({
+      claim: {
+        kind: "numeric",
+        raw: value,
+        value: match[0],
+      },
       claims,
-      kind: "numeric",
-      raw: value,
       seen,
-      value: match[0],
     });
     const start = match.index ?? 0;
     for (
@@ -182,21 +248,25 @@ function extractStringClaims({
 
   for (const match of scanValue.matchAll(percentPattern)) {
     pushClaim({
+      claim: {
+        kind: "numeric",
+        raw: value,
+        value: match[0],
+      },
       claims,
-      kind: "numeric",
-      raw: value,
       seen,
-      value: match[0],
     });
   }
 
   for (const match of scanValue.matchAll(magnitudePattern)) {
     pushClaim({
+      claim: {
+        kind: "numeric",
+        raw: value,
+        value: match[0],
+      },
       claims,
-      kind: "numeric",
-      raw: value,
       seen,
-      value: match[0],
     });
   }
 
@@ -208,11 +278,83 @@ function extractStringClaims({
     }
 
     pushClaim({
+      claim: {
+        kind: "quote",
+        raw: value,
+        value: quote,
+      },
       claims,
-      kind: "quote",
-      raw: value,
       seen,
-      value: quote,
+    });
+  }
+}
+
+function stringField(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | undefined {
+  const value = record[fieldName];
+
+  return typeof value === "string" && normalizeWhitespace(value).length > 0
+    ? value
+    : undefined;
+}
+
+function hasDigit(value: string): boolean {
+  return /\d/.test(value);
+}
+
+function extractRecordClaims({
+  claims,
+  record,
+  seen,
+}: {
+  claims: Claim[];
+  record: Record<string, unknown>;
+  seen: Set<string>;
+}): void {
+  const sourceUrl = stringField(record, "sourceUrl");
+
+  for (const [key, childValue] of Object.entries(record)) {
+    if (
+      countFieldNames.has(key) &&
+      typeof childValue === "string" &&
+      hasDigit(childValue)
+    ) {
+      pushClaim({
+        claim: {
+          kind: "numericAttribution",
+          raw: childValue,
+          value: childValue,
+          ...(sourceUrl === undefined ? {} : { assertedSourceUrl: sourceUrl }),
+        },
+        claims,
+        seen,
+      });
+    }
+  }
+
+  const quote = quoteAttributionFieldNames
+    .map((fieldName) => stringField(record, fieldName))
+    .find((value) => value !== undefined);
+  const assertedSource =
+    stringField(record, "source") ?? stringField(record, "platform");
+
+  if (
+    quote !== undefined &&
+    assertedSource !== undefined &&
+    sourceUrl !== undefined
+  ) {
+    pushClaim({
+      claim: {
+        kind: "quoteAttribution",
+        raw: quote,
+        value: quote,
+        assertedSource,
+        assertedSourceUrl: sourceUrl,
+      },
+      claims,
+      seen,
     });
   }
 }
@@ -243,6 +385,8 @@ function walkValue({
   if (!isRecord(value)) {
     return;
   }
+
+  extractRecordClaims({ claims, record: value, seen });
 
   for (const [key, childValue] of Object.entries(value)) {
     walkValue({ claims, fieldName: key, seen, value: childValue });

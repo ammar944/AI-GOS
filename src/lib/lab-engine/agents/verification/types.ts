@@ -1,6 +1,19 @@
 export type Claim =
   | { kind: "numeric"; value: string; raw: string }
+  | {
+      kind: "numericAttribution";
+      value: string;
+      raw: string;
+      assertedSourceUrl?: string;
+    }
   | { kind: "quote"; value: string; raw: string }
+  | {
+      kind: "quoteAttribution";
+      value: string;
+      raw: string;
+      assertedSource: string;
+      assertedSourceUrl?: string;
+    }
   | { kind: "url"; value: string; raw: string }
   | { kind: "entityName"; value: string; raw: string };
 

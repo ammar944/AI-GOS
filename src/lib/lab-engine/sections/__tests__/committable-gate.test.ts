@@ -74,6 +74,25 @@ function unsupportedClaim(
   };
 }
 
+function verifiedQuoteAttributionClaim(): VerificationReport["claims"][number] {
+  return {
+    claim: {
+      assertedSource: "G2",
+      assertedSourceUrl: "https://baserow.io/reviews",
+      kind: "quoteAttribution",
+      raw: "missing table stakes",
+      value: "missing table stakes",
+    },
+    entailmentVerdict: "supported",
+    matchedSourceRef: {
+      excerptIndex: 0,
+      kind: "corpusExcerpt",
+      sourceUrl: "https://baserow.io/reviews",
+    },
+    status: "verified",
+  };
+}
+
 describe("evaluateCommittableAttempt", (): void => {
   it("returns minimumsFailed before required evidence or hooks", (): void => {
     const artifact = buildArtifact();
@@ -306,5 +325,60 @@ describe("evaluateCommittableAttempt", (): void => {
         (claim) => claim.claim.kind,
       ),
     ).toEqual(["quote"]);
+  });
+
+  it("keeps flag-only provenance shortfall on the committable verdict", (): void => {
+    const artifact = buildArtifact({
+      sectionId: "positioningCompetitorLandscape",
+    });
+    const verdict = evaluateCommittableAttempt({
+      artifact,
+      definition: buildDefinition({
+        sectionId: "positioningCompetitorLandscape",
+      }),
+      env: {},
+      verification: buildVerificationReport([verifiedQuoteAttributionClaim()]),
+    });
+
+    expect(verdict.kind).toBe("committable");
+    if (verdict.kind !== "committable") {
+      throw new Error("expected committable verdict");
+    }
+    expect(verdict.shortfall).toEqual(
+      expect.objectContaining({
+        provenanceFlags: [
+          expect.objectContaining({
+            reason: "misattributed",
+            value: "missing table stakes",
+          }),
+        ],
+        unsupportedLoadBearing: [],
+      }),
+    );
+  });
+
+  it("keeps provenance flags advisory when unsupported claims remain within the open gate posture", (): void => {
+    const artifact = buildArtifact();
+    const verdict = evaluateCommittableAttempt({
+      artifact,
+      definition: buildDefinition(),
+      env: {},
+      verification: buildVerificationReport([
+        unsupportedClaim("numeric", "$99/mo"),
+        verifiedQuoteAttributionClaim(),
+      ]),
+    });
+
+    expect(verdict.kind).toBe("evidenceShortfall");
+    if (verdict.kind !== "evidenceShortfall") {
+      throw new Error("expected evidence shortfall");
+    }
+    expect(verdict.shortfall.unsupportedLoadBearing).toHaveLength(1);
+    expect(verdict.shortfall.provenanceFlags).toEqual([
+      expect.objectContaining({
+        reason: "misattributed",
+        value: "missing table stakes",
+      }),
+    ]);
   });
 });

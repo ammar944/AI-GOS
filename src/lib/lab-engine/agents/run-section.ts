@@ -1541,6 +1541,9 @@ function getAttemptRepairIssues(attempt: AttemptResult): string[] {
   return [
     ...attempt.errors,
     ...(attempt.evidenceSupportShortfall?.issues ?? []),
+    ...(attempt.evidenceSupportShortfall?.provenanceFlags.map(
+      (flag) => `provenance ${flag.reason}: ${flag.detail}`,
+    ) ?? []),
   ];
 }
 
@@ -1583,6 +1586,31 @@ function annotatePaidMediaVerifierReview({
     ...artifact,
     ...(result.needsReview ? { needs_review: true } : {}),
     verifierSummary: result.summary,
+  });
+}
+
+function annotateEvidenceSupportReview({
+  artifact,
+  shortfall,
+}: {
+  artifact: ArtifactEnvelope;
+  shortfall: EvidenceSupportShortfall;
+}): ArtifactEnvelope {
+  if (shortfall.provenanceFlags.length === 0) {
+    return artifact;
+  }
+
+  return artifactEnvelopeSchema.parse({
+    ...artifact,
+    confidence:
+      artifact.verification === undefined
+        ? artifact.confidence
+        : deriveGroundedConfidence(artifact.verification, shortfall),
+    needs_review: true,
+    verifierSummary: {
+      ...(artifact.verifierSummary ?? {}),
+      provenanceFlags: shortfall.provenanceFlags,
+    },
   });
 }
 
@@ -3880,13 +3908,29 @@ async function callStructuredAttempt({
     if (verdict.kind === "evidenceShortfall") {
       return {
         output,
-        artifact: verdict.committableArtifact,
+        artifact: annotateEvidenceSupportReview({
+          artifact: verdict.committableArtifact,
+          shortfall: verdict.shortfall,
+        }),
         errors: [],
         evidenceSupportShortfall: verdict.shortfall,
       };
     }
 
-    return { output, artifact: verdict.committableArtifact, errors: [] };
+    return {
+      output,
+      artifact:
+        verdict.shortfall === undefined
+          ? verdict.committableArtifact
+          : annotateEvidenceSupportReview({
+              artifact: verdict.committableArtifact,
+              shortfall: verdict.shortfall,
+            }),
+      errors: [],
+      ...(verdict.shortfall === undefined
+        ? {}
+        : { evidenceSupportShortfall: verdict.shortfall }),
+    };
   } catch (error) {
     return { output: null, artifact: null, errors: getErrorIssues(error) };
   } finally {
@@ -5114,13 +5158,29 @@ async function buildVerifiedAttemptFromOutput({
   if (verdict.kind === "evidenceShortfall") {
     return {
       output,
-      artifact: verdict.committableArtifact,
+      artifact: annotateEvidenceSupportReview({
+        artifact: verdict.committableArtifact,
+        shortfall: verdict.shortfall,
+      }),
       errors: [],
       evidenceSupportShortfall: verdict.shortfall,
     };
   }
 
-  return { output, artifact: verdict.committableArtifact, errors: [] };
+  return {
+    output,
+    artifact:
+      verdict.shortfall === undefined
+        ? verdict.committableArtifact
+        : annotateEvidenceSupportReview({
+            artifact: verdict.committableArtifact,
+            shortfall: verdict.shortfall,
+          }),
+    errors: [],
+    ...(verdict.shortfall === undefined
+      ? {}
+      : { evidenceSupportShortfall: verdict.shortfall }),
+  };
 }
 
 async function buildAnswerToolAttempt({

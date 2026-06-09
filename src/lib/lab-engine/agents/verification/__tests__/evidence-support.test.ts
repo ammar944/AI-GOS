@@ -145,6 +145,221 @@ describe("evaluateEvidenceSupport", (): void => {
       ),
     ).toBe(true);
   });
+
+  it("flags count attribution when digits are absent from its asserted source URL", (): void => {
+    const report = structuralVerifier({
+      body: {
+        clusters: {
+          venues: [
+            {
+              name: "Airtable Community",
+              audienceSize: "450,000+ members",
+              sourceUrl: "https://community.airtable.com/t5/forums",
+            },
+          ],
+        },
+      },
+      corpusExcerpts: [
+        {
+          sourceUrl: "https://community.airtable.com/t5/forums",
+          text: "Airtable community discussions and help topics.",
+        },
+      ],
+      toolResults: [],
+    });
+    const shortfall = evaluateEvidenceSupport({ verification: report });
+
+    expect(shortfall.unsupportedLoadBearing).toHaveLength(0);
+    expect(shortfall.provenanceFlags).toEqual([
+      expect.objectContaining({
+        reason: "no-source",
+        value: "450,000+ members",
+      }),
+    ]);
+  });
+
+  it("does not verify count attribution against an unrelated pooled source", (): void => {
+    const report = structuralVerifier({
+      body: {
+        keywordDemand: {
+          keywords: [
+            {
+              keyword: "open source database",
+              monthlyVolume: "85K searches",
+              sourceUrl: "https://baserow.io/community",
+            },
+          ],
+        },
+      },
+      corpusExcerpts: [
+        {
+          sourceUrl: "https://baserow.io/community",
+          text: "Baserow community forum without public keyword volume.",
+        },
+      ],
+      toolResults: [
+        {
+          toolName: "web_search",
+          output: {
+            text: "An unrelated SaaS category page says 85K subscribers.",
+          },
+        },
+      ],
+    });
+    const shortfall = evaluateEvidenceSupport({ verification: report });
+
+    expect(shortfall.provenanceFlags).toEqual([
+      expect.objectContaining({
+        reason: "no-source",
+        value: "85K searches",
+      }),
+    ]);
+  });
+
+  it("trusts operator-marked economics and tight economics user fields only", (): void => {
+    const operatorReport = structuralVerifier({
+      body: {
+        budget: "The operator-supplied derived budget is $26.25K.",
+      },
+      corpusExcerpts: [],
+      toolResults: [],
+    });
+    const economicsFieldReport: VerificationReport = {
+      claims: [
+        {
+          claim: {
+            kind: "numeric",
+            raw: "Target ACV is $75K.",
+            value: "$75K",
+          },
+          entailmentVerdict: "user_asserted",
+          matchedSourceRef: { kind: "userProvided", field: "economics.acv" },
+          status: "verified",
+        },
+      ],
+      unsupportedCount: 0,
+      verifiedCount: 1,
+    };
+    const phoneFieldReport: VerificationReport = {
+      claims: [
+        {
+          claim: {
+            kind: "numeric",
+            raw: "Community has 82 comments.",
+            value: "82",
+          },
+          entailmentVerdict: "user_asserted",
+          matchedSourceRef: { kind: "userProvided", field: "phone" },
+          status: "verified",
+        },
+      ],
+      unsupportedCount: 0,
+      verifiedCount: 1,
+    };
+
+    expect(
+      evaluateEvidenceSupport({ verification: operatorReport }).provenanceFlags,
+    ).toEqual([]);
+    expect(
+      evaluateEvidenceSupport({ verification: economicsFieldReport })
+        .provenanceFlags,
+    ).toEqual([]);
+    expect(
+      evaluateEvidenceSupport({ verification: phoneFieldReport })
+        .provenanceFlags,
+    ).toEqual([
+      expect.objectContaining({
+        reason: "no-source",
+        value: "82",
+      }),
+    ]);
+  });
+
+  it("flags known-platform quote source URLs with mismatched hosts outside load-bearing scope", (): void => {
+    const report = structuralVerifier({
+      body: {
+        publicWeaknesses: {
+          items: [
+            {
+              verbatimQuote: "missing table stakes",
+              source: "G2",
+              sourceUrl: "https://baserow.io/reviews",
+            },
+          ],
+        },
+      },
+      corpusExcerpts: [
+        {
+          sourceUrl: "https://baserow.io/reviews",
+          text: "A buyer wrote missing table stakes after comparing tools.",
+        },
+      ],
+      toolResults: [],
+    });
+    const shortfall = evaluateEvidenceSupport({
+      verification: report,
+      loadBearingKinds: ["numeric", "url"],
+    });
+
+    expect(shortfall.unsupportedLoadBearing).toHaveLength(0);
+    expect(shortfall.provenanceFlags).toEqual([
+      expect.objectContaining({
+        reason: "misattributed",
+        value: "missing table stakes",
+      }),
+    ]);
+  });
+
+  it("does not flag known-platform quote source URLs with accepted hosts", (): void => {
+    const report = structuralVerifier({
+      body: {
+        publicWeaknesses: {
+          items: [
+            {
+              verbatimQuote: "missing table stakes",
+              source: "G2",
+              sourceUrl: "https://www.g2.com/products/acme/reviews",
+            },
+            {
+              verbatimQuote: "hard to administer",
+              source: "Reddit",
+              sourceUrl: "https://old.reddit.com/r/sales/comments/example",
+            },
+          ],
+        },
+      },
+      corpusExcerpts: [
+        {
+          sourceUrl: "https://www.g2.com/products/acme/reviews",
+          text: "The G2 review says missing table stakes.",
+        },
+        {
+          sourceUrl: "https://old.reddit.com/r/sales/comments/example",
+          text: "The Reddit thread says hard to administer.",
+        },
+      ],
+      toolResults: [],
+    });
+    const shortfall = evaluateEvidenceSupport({ verification: report });
+
+    expect(shortfall.provenanceFlags).toEqual([]);
+  });
+
+  it("keeps empty-body verification as honest insufficient without provenance flags", (): void => {
+    const shortfall = evaluateEvidenceSupport({
+      verification: {
+        claims: [],
+        unsupportedCount: 0,
+        verifiedCount: 0,
+      },
+    });
+
+    expect(shortfall.provenanceFlags).toEqual([]);
+    expect(deriveGroundedConfidence({
+      unsupportedCount: 0,
+      verifiedCount: 0,
+    })).toBe(0);
+  });
 });
 
 describe("deriveGroundedConfidence", (): void => {
@@ -170,6 +385,25 @@ describe("deriveGroundedConfidence", (): void => {
     expect(
       deriveGroundedConfidence({ verifiedCount: 0, unsupportedCount: 0 }),
     ).toBe(0);
+  });
+
+  it("lowers confidence for provenance flags on otherwise verified claims", (): void => {
+    expect(
+      deriveGroundedConfidence(
+        { verifiedCount: 1, unsupportedCount: 0 },
+        {
+          issues: [],
+          provenanceFlags: [
+            {
+              detail: "possible misattribution",
+              reason: "misattributed",
+              value: "missing table stakes",
+            },
+          ],
+          unsupportedLoadBearing: [],
+        },
+      ),
+    ).toBeLessThan(1);
   });
 });
 

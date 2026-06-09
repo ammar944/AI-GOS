@@ -187,6 +187,34 @@ function buildCompetitorLandscapeSupportStep(): AgentStep {
   };
 }
 
+function buildCompetitorLandscapeMisattributionSupportStep(): AgentStep {
+  const supportStep = buildCompetitorLandscapeSupportStep();
+  const toolResult = supportStep.toolResults[0];
+  const output = requireRecord(toolResult?.output);
+  const text = output.text;
+
+  if (typeof text !== 'string') {
+    throw new Error('Expected competitor fixture support text.');
+  }
+
+  return {
+    ...supportStep,
+    toolResults: [
+      {
+        ...toolResult,
+        output: {
+          ...output,
+          text: [
+            text,
+            'Clean up your CRM before pipeline review',
+            'https://baserow.io/reviews',
+          ].join(' '),
+        },
+      },
+    ],
+  };
+}
+
 function buildDemandIntentKeywordVolumeStep(): AgentStep {
   const keywords = demandIntentFixtureSectionOutput.body.keywordDemand.keywords;
 
@@ -237,6 +265,23 @@ function buildCompetitorLandscapeOutput(): CompetitorLandscapeSectionOutput {
     })),
     body: competitorLandscapeFixtureArtifact.body,
   };
+}
+
+function buildCompetitorLandscapeOutputWithMisattributedQuote(): CompetitorLandscapeSectionOutput {
+  const output = structuredClone(buildCompetitorLandscapeOutput());
+  const firstWeakness = output.body.publicWeaknesses.items[0];
+
+  if (firstWeakness === undefined) {
+    throw new Error('Expected public weakness fixture item.');
+  }
+
+  output.body.publicWeaknesses.items[0] = {
+    ...firstWeakness,
+    source: 'G2',
+    sourceUrl: 'https://baserow.io/reviews',
+  };
+
+  return output;
 }
 
 function buildCompetitorLandscapeOutputWithGenericIncumbent(): CompetitorLandscapeSectionOutput {
@@ -959,6 +1004,72 @@ describe('runSection corpus-only mode', (): void => {
     expect(unsupportedNumericClaims).toHaveLength(1);
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
+    );
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
+    );
+  });
+
+  it('commits flag-only quote provenance with needs_review metadata', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningCompetitorLandscape'],
+      now: () => new Date('2026-05-29T12:46:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const output = buildCompetitorLandscapeOutputWithMisattributedQuote();
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildCompetitorLandscapeMisattributionSupportStep()],
+      text: '',
+      answerInput: output,
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningCompetitorLandscape',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runAnswerTool,
+        now: () => new Date('2026-05-29T12:46:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
+    expect(result.artifact.needs_review).toBe(true);
+    expect(result.artifact.verifierSummary).toEqual(
+      expect.objectContaining({
+        provenanceFlags: [
+          expect.objectContaining({
+            reason: 'misattributed',
+            value: 'Clean up your CRM before pipeline review',
+          }),
+        ],
+      }),
+    );
+    expect(result.artifact.confidence).toBeLessThan(1);
+    expect(
+      record.sections.positioningCompetitorLandscape?.artifact,
+    ).toEqual(
+      expect.objectContaining({
+        needs_review: true,
+        verifierSummary: expect.objectContaining({
+          provenanceFlags: [
+            expect.objectContaining({
+              reason: 'misattributed',
+              value: 'Clean up your CRM before pipeline review',
+            }),
+          ],
+        }),
+      }),
     );
     expect(record.events.map((event) => event.type)).not.toContain(
       'section-failed',

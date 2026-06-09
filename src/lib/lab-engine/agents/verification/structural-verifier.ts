@@ -249,6 +249,31 @@ function buildNumericNeedles(value: string): string[] {
   return Array.from(new Set(variants.filter((variant) => variant.length > 0)));
 }
 
+function stripNumericPunctuation(value: string): string {
+  return value.replace(/[,+]/g, "");
+}
+
+function buildNumericAttributionNeedles(value: string): string[] {
+  const numericFragments = Array.from(
+    value.matchAll(
+      /\d[\d,]*(?:\.\d+)?(?:\s?(?:k|m|b|thousand|million|billion)\b)?/gi,
+    ),
+    (match) => match[0],
+  );
+  const variants = [
+    ...buildNumericNeedles(value),
+    ...numericFragments.flatMap((fragment) => buildNumericNeedles(fragment)),
+  ];
+
+  return Array.from(
+    new Set(
+      variants
+        .flatMap((variant) => [variant, stripNumericPunctuation(variant)])
+        .filter((variant) => variant.length > 0),
+    ),
+  );
+}
+
 function findUrlMatch(
   claim: Claim,
   sources: readonly SearchableSource[],
@@ -272,12 +297,29 @@ function findTextMatch({
   sources: readonly SearchableSource[];
 }): VerificationSourceRef | null {
   for (const source of sources) {
-    if (needles.some((needle) => source.text.includes(needle))) {
+    const commaStrippedText = stripNumericPunctuation(source.text);
+
+    if (
+      needles.some(
+        (needle) =>
+          source.text.includes(needle) || commaStrippedText.includes(needle),
+      )
+    ) {
       return source.ref;
     }
   }
 
   return null;
+}
+
+function isSourceAtUrl(source: SearchableSource, sourceUrl: string): boolean {
+  const normalizedSourceUrl = cleanUrl(sourceUrl);
+
+  return (
+    (source.ref.kind === "corpusExcerpt" &&
+      cleanUrl(source.ref.sourceUrl) === normalizedSourceUrl) ||
+    source.urls.has(normalizedSourceUrl)
+  );
 }
 
 function findClaimMatch(
@@ -292,7 +334,27 @@ function findClaimMatch(
     return findTextMatch({ needles: buildNumericNeedles(claim.value), sources });
   }
 
+  if (claim.kind === "numericAttribution") {
+    if (claim.assertedSourceUrl === undefined) {
+      return null;
+    }
+
+    return findTextMatch({
+      needles: buildNumericAttributionNeedles(claim.value),
+      sources: sources.filter((source) =>
+        isSourceAtUrl(source, claim.assertedSourceUrl ?? ""),
+      ),
+    });
+  }
+
   if (claim.kind === "quote") {
+    return findTextMatch({
+      needles: [normalizeSearchText(claim.value)],
+      sources,
+    });
+  }
+
+  if (claim.kind === "quoteAttribution") {
     return findTextMatch({
       needles: [normalizeSearchText(claim.value)],
       sources,

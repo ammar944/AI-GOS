@@ -59,7 +59,11 @@ export type CommittableVerdict =
       committableArtifact: ArtifactEnvelope;
       shortfall: EvidenceSupportShortfall;
     }
-  | { kind: "committable"; committableArtifact: ArtifactEnvelope };
+  | {
+      kind: "committable";
+      committableArtifact: ArtifactEnvelope;
+      shortfall?: EvidenceSupportShortfall;
+    };
 
 export interface EvaluateCommittableAttemptArgs {
   artifact: ArtifactEnvelope;
@@ -159,5 +163,9 @@ export function evaluateCommittableAttempt({
     };
   }
 
-  return { kind: "committable", committableArtifact };
+  return {
+    kind: "committable",
+    committableArtifact,
+    ...(shortfall.provenanceFlags.length > 0 ? { shortfall } : {}),
+  };
 }
