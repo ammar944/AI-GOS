@@ -123,7 +123,9 @@ Reference shape: `scripts/zz-prove-lean-media-plan-v3.ts:52-305` (`leanMediaPlan
 
 ---
 
-## W5 — Renderer 13-slide + needs_review badge (FIFTH; needs W1+W4)
+## W5 — Renderer: 12 content blocks (READABLE DOCUMENT) + needs_review badge (FIFTH; needs W1+W4)
+
+> **RENDER SHAPE (operator-confirmed 2026-06-09):** the paid-media plan renders as the EXISTING readable card/document layout in the Audit Reader — **NOT a slide deck, NOT a carousel/paginated UI.** "13 slides" is the CONTENT spec of the client PPTX (12 rendered blocks + 1 internal driver); the schema carries that content, the UI stays a lean readable document. **No PPTX/deck export is in Stage B scope.**
 
 - All 12 blocks ALREADY render. `PAID_MEDIA_BODY_KEYS` (23-39): drop the 3 doomed keys → 12. Remove the strategicThesis (367-389), contradictionReconciliation (392-408), orderedMoves (515-519) subsections + their column defs (thesisSourceColumns 305-318 only after BOTH removed; orderedMoveColumns 319-358).
 - ADD: `crossSectionInsight` driver strip (6 rich fields — design a real strip, not a one-liner); surface `angleType`/`grounding` on anglesToTest + `executesAngle`/`hook` on creativeFramework (arrive with W1).
