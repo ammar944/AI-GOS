@@ -138,6 +138,7 @@ import {
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
   type EvidenceSupportShortfall,
+  type LoadBearingClaimKind,
 } from "./verification/evidence-support";
 import {
   structuralVerifier,
@@ -225,6 +226,9 @@ interface RuntimeSectionDefinition {
   adReservedLookups?: number;
   scrapeReservedLookups?: number;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
+  loadBearingKinds: readonly LoadBearingClaimKind[];
+  strategicDepthGuidance: readonly string[];
+  promptMinimumGuidance: readonly string[];
   bodySchema: z.ZodType<Record<string, unknown>>;
   sectionOutputSchema: z.ZodType<SectionOutput<Record<string, unknown>>>;
   validateMinimums: (

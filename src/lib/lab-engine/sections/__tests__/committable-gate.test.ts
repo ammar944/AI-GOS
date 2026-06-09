@@ -6,6 +6,7 @@ import {
 } from "../../artifacts/artifact-envelope";
 import type { SectionId } from "../../events/activity-event";
 import { marketCategoryFixtureArtifact } from "../../fixtures/market-category-artifact";
+import type { LoadBearingClaimKind } from "../../agents/verification/evidence-support";
 import type { VerificationReport } from "../../agents/verification/types";
 import {
   evaluateCommittableAttempt,
@@ -29,18 +30,37 @@ function buildArtifact({
   });
 }
 
+// Mirrors the per-section load-bearing kinds the registry now carries (was the
+// gate's getLoadBearingKindsForSection). Keeps every existing call site working
+// while the gate reads definition.loadBearingKinds. The registry values are
+// independently pinned by section-registry.test.ts.
+function defaultLoadBearingKindsFor(
+  sectionId: SectionId,
+): readonly LoadBearingClaimKind[] {
+  if (sectionId === "positioningPaidMediaPlan") {
+    return ["url"];
+  }
+  if (sectionId === "positioningVoiceOfCustomer") {
+    return ["numeric", "url", "quote"];
+  }
+  return ["numeric", "url"];
+}
+
 function buildDefinition({
   errors = [],
   requiredEvidenceClasses = [],
   sectionId = "positioningMarketCategory",
+  loadBearingKinds = defaultLoadBearingKindsFor(sectionId),
 }: {
   errors?: string[];
   requiredEvidenceClasses?: readonly RequiredEvidenceClass[];
   sectionId?: SectionId;
+  loadBearingKinds?: readonly LoadBearingClaimKind[];
 } = {}): CommittableSectionDefinition {
   return {
     id: sectionId,
     requiredEvidenceClasses,
+    loadBearingKinds,
     validateMinimums: (): { ok: boolean; errors: string[] } => ({
       ok: errors.length === 0,
       errors,

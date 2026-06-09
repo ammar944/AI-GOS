@@ -66,7 +66,24 @@ import {
   type SectionId,
 } from "../events/activity-event";
 import type { ToolName } from "../agents/tools/index";
+import type { LoadBearingClaimKind } from "../agents/verification/evidence-support";
 import type { RequiredEvidenceClass } from "./required-evidence";
+import {
+  buyerICPMinimumGuidance,
+  buyerICPStrategicDepthGuidance,
+  competitorLandscapeMinimumGuidance,
+  competitorLandscapeStrategicDepthGuidance,
+  demandIntentMinimumGuidance,
+  demandIntentStrategicDepthGuidance,
+  marketCategoryMinimumGuidance,
+  marketCategoryStrategicDepthGuidance,
+  offerDiagnosticMinimumGuidance,
+  offerDiagnosticStrategicDepthGuidance,
+  paidMediaPlanMinimumGuidance,
+  paidMediaPlanStrategicDepthGuidance,
+  voiceOfCustomerMinimumGuidance,
+  voiceOfCustomerStrategicDepthGuidance,
+} from "./section-prompt-guidance";
 
 export interface SectionModelSource {
   title: string;
@@ -100,6 +117,16 @@ export interface SectionDefinition<TBody, TOutput extends SectionOutput<TBody>> 
   // Dedicated review/scrape lookup slots for VoC acquisition. Defaults to 0.
   scrapeReservedLookups?: number;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
+  // Claim kinds the committable gate treats as load-bearing for this section
+  // (was committable-gate.getLoadBearingKindsForSection). Phase 4.
+  loadBearingKinds: readonly LoadBearingClaimKind[];
+  // Strategic-depth cardinality block prepended to the section minimums for the
+  // 6 core sections; empty for paid-media (was build-prompts strategic-depth
+  // schemaName chain). Phase 4.
+  strategicDepthGuidance: readonly string[];
+  // Section-specific prompt minimums WITHOUT the strategic-depth prefix
+  // (was build-prompts buildSectionMinimumGuidance schemaName chain). Phase 4.
+  promptMinimumGuidance: readonly string[];
   bodySchema: z.ZodType<TBody>;
   sectionOutputSchema: z.ZodType<TOutput>;
   validateMinimums: (
@@ -126,6 +153,9 @@ export const SECTION_REGISTRY = {
     allowedTools: ["web_search", "firecrawl", "keyword_volume"],
     maxExternalLookups: 5,
     requiredEvidenceClasses: ["marketCategory_name"],
+    loadBearingKinds: ["numeric", "url"],
+    strategicDepthGuidance: marketCategoryStrategicDepthGuidance,
+    promptMinimumGuidance: marketCategoryMinimumGuidance,
     bodySchema: marketCategoryBodySchema,
     sectionOutputSchema: marketCategorySectionOutputSchema,
     validateMinimums: validateMarketCategoryMinimums,
@@ -164,6 +194,9 @@ export const SECTION_REGISTRY = {
     // at 5 advertisers + a 30s probe deadline downstream.
     adReservedLookups: 9,
     requiredEvidenceClasses: ["competitor", "adEvidence_or_gap"],
+    loadBearingKinds: ["numeric", "url"],
+    strategicDepthGuidance: competitorLandscapeStrategicDepthGuidance,
+    promptMinimumGuidance: competitorLandscapeMinimumGuidance,
     bodySchema: competitorLandscapeBodySchema,
     sectionOutputSchema: competitorLandscapeSectionOutputSchema,
     validateMinimums: validateCompetitorLandscapeMinimums,
@@ -186,6 +219,9 @@ export const SECTION_REGISTRY = {
     allowedTools: ["web_search", "firecrawl"],
     maxExternalLookups: 4,
     requiredEvidenceClasses: ["icp_persona", "icp_quote_or_gap"],
+    loadBearingKinds: ["numeric", "url"],
+    strategicDepthGuidance: buyerICPStrategicDepthGuidance,
+    promptMinimumGuidance: buyerICPMinimumGuidance,
     bodySchema: buyerICPBodySchema,
     sectionOutputSchema: buyerICPSectionOutputSchema,
     validateMinimums: validateBuyerICPMinimums,
@@ -209,6 +245,9 @@ export const SECTION_REGISTRY = {
     maxExternalLookups: 5,
     scrapeReservedLookups: 2,
     requiredEvidenceClasses: ["voc_quote_or_gap"],
+    loadBearingKinds: ["numeric", "url", "quote"],
+    strategicDepthGuidance: voiceOfCustomerStrategicDepthGuidance,
+    promptMinimumGuidance: voiceOfCustomerMinimumGuidance,
     bodySchema: voiceOfCustomerBodySchema,
     sectionOutputSchema: voiceOfCustomerSectionOutputSchema,
     validateMinimums: validateVoiceOfCustomerMinimums,
@@ -237,6 +276,9 @@ export const SECTION_REGISTRY = {
     ],
     maxExternalLookups: 5,
     requiredEvidenceClasses: ["demand_signal_or_gap"],
+    loadBearingKinds: ["numeric", "url"],
+    strategicDepthGuidance: demandIntentStrategicDepthGuidance,
+    promptMinimumGuidance: demandIntentMinimumGuidance,
     bodySchema: demandIntentBodySchema,
     sectionOutputSchema: demandIntentSectionOutputSchema,
     validateMinimums: validateDemandIntentMinimums,
@@ -259,6 +301,9 @@ export const SECTION_REGISTRY = {
     allowedTools: ["web_search", "firecrawl", "pagespeed"],
     maxExternalLookups: 4,
     requiredEvidenceClasses: ["offer_axis"],
+    loadBearingKinds: ["numeric", "url"],
+    strategicDepthGuidance: offerDiagnosticStrategicDepthGuidance,
+    promptMinimumGuidance: offerDiagnosticMinimumGuidance,
     bodySchema: offerDiagnosticBodySchema,
     sectionOutputSchema: offerDiagnosticSectionOutputSchema,
     validateMinimums: validateOfferDiagnosticMinimums,
@@ -286,6 +331,9 @@ export const SECTION_REGISTRY = {
     allowedTools: ["keyword_ad_probe"],
     maxExternalLookups: 2,
     requiredEvidenceClasses: [],
+    loadBearingKinds: ["url"],
+    strategicDepthGuidance: paidMediaPlanStrategicDepthGuidance,
+    promptMinimumGuidance: paidMediaPlanMinimumGuidance,
     bodySchema: paidMediaPlanBodySchema,
     sectionOutputSchema: paidMediaPlanSectionOutputSchema,
     validateMinimums: validatePaidMediaPlanMinimums,

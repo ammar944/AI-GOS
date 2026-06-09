@@ -19,6 +19,7 @@ interface MinimumValidationResult {
 export interface CommittableSectionDefinition {
   id: SectionId;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
+  loadBearingKinds: readonly LoadBearingClaimKind[];
   validateMinimums: (
     artifact: ArtifactEnvelope & { body: Record<string, unknown> },
   ) => MinimumValidationResult;
@@ -73,24 +74,6 @@ export interface EvaluateCommittableAttemptArgs {
     context: PostRequiredEvidenceHookContext,
   ) => HookOutcome;
   verification: VerificationReport;
-}
-
-const defaultLoadBearingKinds = ["numeric", "url"] as const;
-const paidMediaLoadBearingKinds = ["url"] as const;
-const voiceOfCustomerLoadBearingKinds = ["numeric", "url", "quote"] as const;
-
-function getLoadBearingKindsForSection(
-  sectionId: SectionId,
-): readonly LoadBearingClaimKind[] {
-  if (sectionId === "positioningPaidMediaPlan") {
-    return paidMediaLoadBearingKinds;
-  }
-
-  if (sectionId === "positioningVoiceOfCustomer") {
-    return voiceOfCustomerLoadBearingKinds;
-  }
-
-  return defaultLoadBearingKinds;
 }
 
 export function evaluateCommittableAttempt({
@@ -152,7 +135,7 @@ export function evaluateCommittableAttempt({
 
   const shortfall = evaluateEvidenceSupport({
     verification,
-    loadBearingKinds: getLoadBearingKindsForSection(definition.id),
+    loadBearingKinds: definition.loadBearingKinds,
   });
 
   if (shortfall.unsupportedLoadBearing.length > 0) {

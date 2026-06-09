@@ -66,6 +66,25 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
     ]);
     expect(SECTION_REGISTRY.positioningBuyerICP.maxExternalLookups).toBe(4);
   });
+
+  // P4: the committable gate now reads definition.loadBearingKinds off the
+  // descriptor (was the gate's getLoadBearingKindsForSection ternary). Pin the
+  // per-section values here so a registry edit cannot silently change which
+  // claim kinds the gate treats as load-bearing.
+  it("carries the per-section load-bearing claim kinds on the descriptor", (): void => {
+    expect(SECTION_REGISTRY.positioningVoiceOfCustomer.loadBearingKinds).toEqual([
+      "numeric",
+      "url",
+      "quote",
+    ]);
+    expect(SECTION_REGISTRY.positioningPaidMediaPlan.loadBearingKinds).toEqual([
+      "url",
+    ]);
+    expect(SECTION_REGISTRY.positioningMarketCategory.loadBearingKinds).toEqual([
+      "numeric",
+      "url",
+    ]);
+  });
 });
 
 describe("post-six section registration", (): void => {
