@@ -983,6 +983,41 @@ function formatCounts(counts: PlatformCounts): string {
   return `google ${counts.google}, meta ${counts.meta}, linkedin ${counts.linkedin}`;
 }
 
+// When no competitor advertisers are identified to probe (e.g. an empty/absent
+// competitor seed, or a non-answer seed stripped to null), the normalized wall
+// is []. An empty advertiserGroups array cannot satisfy the adEvidence_or_gap
+// required-evidence gate: hasAdEvidenceOrGap iterates the groups, so with zero
+// groups there is nothing to carry a dataGap and the section hard-fails
+// (required_evidence_missing) — stranding the whole run. Emit one explicit gap
+// group so the section commits with an honest "no ad evidence observed" wall
+// instead of erroring. buildDataGaps always yields >=1 gap for a real probed
+// group, so [] is the only path that reaches the gate empty. (prod run
+// 0eeebd93, 2026-06-09.)
+export function buildEmptyCompetitorAdEvidenceGapGroup(
+  observedAt: string,
+): CompetitorAdEvidenceGroup {
+  return {
+    advertiserName: "Competitor ad libraries",
+    domain: null,
+    platforms: ["google", "meta", "linkedin"],
+    rawCounts: emptyCounts(),
+    displayableCounts: emptyCounts(),
+    displayableTotal: 0,
+    returnedCreativeCount: 0,
+    creatives: [],
+    libraryLinks: {},
+    rawSourceSamples: [],
+    dataGaps: [
+      {
+        reason:
+          "No competitor advertisers were identified to probe, so no ad-library wall was run for this section.",
+      },
+    ],
+    sourceErrors: [],
+    observedAt,
+  };
+}
+
 export function summarizeCompetitorAdEvidenceGroups(
   groups: readonly CompetitorAdEvidenceGroup[],
 ): string {

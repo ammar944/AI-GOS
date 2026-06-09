@@ -115,6 +115,7 @@ import {
 } from "./tools/advertiser-match";
 import {
   buildCompetitorAdEvidenceGroups,
+  buildEmptyCompetitorAdEvidenceGapGroup,
   summarizeCompetitorAdEvidenceGroups,
 } from "./tools/competitor-ad-adapter";
 import { fetchVerifiedMetaPageAds } from "./tools/adlibrary";
@@ -2014,13 +2015,22 @@ export function withNormalizedCompetitorAdEvidence({
       ? modelProse
       : deterministicSummary;
 
+  // Never persist an empty advertiserGroups wall: hasAdEvidenceOrGap iterates
+  // the groups, so [] fails the adEvidence_or_gap gate and hard-errors the whole
+  // section (prod run 0eeebd93). Substitute one explicit gap group so the rich
+  // competitor body commits with an honest "no ad evidence observed" wall.
+  const advertiserGroups =
+    normalizedAdEvidenceGroups.length === 0
+      ? [buildEmptyCompetitorAdEvidenceGapGroup(new Date().toISOString())]
+      : normalizedAdEvidenceGroups;
+
   return {
     ...outputRecord,
     body: {
       ...bodyRecord,
       adEvidence: {
         prose,
-        advertiserGroups: normalizedAdEvidenceGroups,
+        advertiserGroups,
       },
     },
   };
