@@ -7,7 +7,6 @@ import {
   deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
-  voiceOfCustomerLoadBearingKinds,
 } from "../evidence-support";
 import { structuralVerifier } from "../structural-verifier";
 import type { VerificationReport } from "../types";
@@ -86,17 +85,17 @@ describe("evaluateEvidenceSupport", (): void => {
     expect(shortfall.issues).toEqual([]);
   });
 
-  it("gates unsupported quote claims under the VoC load-bearing scope", (): void => {
+  it("gates unsupported quote claims when quotes are explicitly load-bearing", (): void => {
     const report = buildFixtureReport(fabricatedQuoteFixture);
     const defaultShortfall = evaluateEvidenceSupport({ verification: report });
     const vocShortfall = evaluateEvidenceSupport({
       verification: report,
-      loadBearingKinds: voiceOfCustomerLoadBearingKinds,
+      loadBearingKinds: ["numeric", "url", "quote"],
     });
 
     // Default scope (numeric + url) leaves the unsupported quote ungated...
     expect(defaultShortfall.unsupportedLoadBearing).toHaveLength(0);
-    // ...but the VoC scope (numeric + url + quote) gates it.
+    // ...but an explicit numeric + url + quote scope gates it.
     expect(vocShortfall.unsupportedLoadBearing.length).toBeGreaterThan(0);
     expect(
       vocShortfall.unsupportedLoadBearing.some(

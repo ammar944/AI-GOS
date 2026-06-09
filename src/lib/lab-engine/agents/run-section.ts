@@ -136,9 +136,7 @@ import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
 import {
   deriveGroundedConfidence,
-  evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
-  paidMediaLoadBearingKinds,
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import {
@@ -3766,12 +3764,6 @@ async function callStructuredAttempt({
       evidenceSteps: modelSteps,
       researchInput,
     });
-    const evidenceSupportShortfall = evaluateEvidenceSupport({
-      verification,
-      ...(input.sectionId === "positioningPaidMediaPlan"
-        ? { loadBearingKinds: paidMediaLoadBearingKinds }
-        : {}),
-    });
     const artifact = buildEnvelope({
       definition,
       deps,
@@ -3779,9 +3771,54 @@ async function callStructuredAttempt({
       output,
       verification,
     });
-    const minimums = definition.validateMinimums(artifact);
+    const postRequiredEvidenceHook = ({
+      artifact: candidateArtifact,
+    }: PostRequiredEvidenceHookContext): HookOutcome => {
+      if (input.sectionId !== "positioningVoiceOfCustomer") {
+        return { kind: "ok" };
+      }
 
-    if (!minimums.ok) {
+      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+        artifact: candidateArtifact,
+        subjectDomain: researchInput.company.websiteUrl,
+      });
+
+      if (!selfSourcing.ok) {
+        return {
+          kind: "reject",
+          errors: selfSourcing.errors,
+          gapArtifact: buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+            artifact: candidateArtifact,
+            definition,
+            deps,
+            errors: selfSourcing.errors,
+            input,
+            researchInput,
+          }),
+        };
+      }
+
+      const modelAuthoredGapIssue =
+        getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
+          artifact: candidateArtifact,
+          input,
+        });
+      if (modelAuthoredGapIssue !== null) {
+        return { kind: "reject", errors: [modelAuthoredGapIssue] };
+      }
+
+      return { kind: "ok" };
+    };
+
+    const verdict = evaluateCommittableAttempt({
+      artifact,
+      definition,
+      env: deps.env ?? process.env,
+      postRequiredEvidenceHook,
+      verification,
+    });
+
+    if (verdict.kind === "minimumsFailed") {
       return {
         output,
         artifact: null,
@@ -3789,41 +3826,35 @@ async function callStructuredAttempt({
           buildBuyerICPPersonaEvidenceGapArtifact({
             artifact,
             definition,
-            errors: minimums.errors,
+            errors: [...verdict.errors],
             input,
           }),
         competitorStrategicEvidenceGapArtifact:
           buildCompetitorStrategicEvidenceGapArtifact({
             artifact,
             definition,
-            errors: minimums.errors,
+            errors: [...verdict.errors],
             input,
           }),
-        errors: minimums.errors,
+        errors: [...verdict.errors],
         voiceOfCustomerEvidenceGapArtifact:
           buildVoiceOfCustomerAttemptEvidenceGapArtifact({
             artifact,
             definition,
             deps,
-            errors: minimums.errors,
+            errors: [...verdict.errors],
             input,
             researchInput,
           }),
       };
     }
 
-    const missingClass = checkRequiredEvidenceClasses({
-      body: artifact.body,
-      requiredEvidenceClasses: definition.requiredEvidenceClasses,
-      sectionId: input.sectionId,
-    });
-
-    if (missingClass !== null) {
+    if (verdict.kind === "requiredEvidenceMissing") {
       const failure = new RequiredEvidenceMissingError({
-        missingClass,
+        missingClass: verdict.missingClass,
         sectionId: input.sectionId,
-        unsupportedCount: verification.unsupportedCount,
-        verifiedCount: verification.verifiedCount,
+        unsupportedCount: verdict.unsupportedCount,
+        verifiedCount: verdict.verifiedCount,
       });
 
       return {
@@ -3834,44 +3865,28 @@ async function callStructuredAttempt({
       };
     }
 
-    if (input.sectionId === "positioningVoiceOfCustomer") {
-      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
-        artifact,
-        subjectDomain: researchInput.company.websiteUrl,
-      });
-
-      if (!selfSourcing.ok) {
-        return {
-          output,
-          artifact: null,
-          errors: selfSourcing.errors,
-          voiceOfCustomerEvidenceGapArtifact:
-            buildVoiceOfCustomerAttemptEvidenceGapArtifact({
-              artifact,
-              definition,
-              deps,
-              errors: selfSourcing.errors,
-              input,
-              researchInput,
-            }),
-        };
-      }
-
-      const modelAuthoredGapIssue =
-        getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
-          artifact,
-          input,
-        });
-      if (modelAuthoredGapIssue !== null) {
-        return {
-          output,
-          artifact: null,
-          errors: [modelAuthoredGapIssue],
-        };
-      }
+    if (verdict.kind === "hookReject") {
+      return {
+        output,
+        artifact: null,
+        errors: [...verdict.errors],
+        ...(input.sectionId === "positioningVoiceOfCustomer" &&
+        verdict.gapArtifact !== undefined
+          ? { voiceOfCustomerEvidenceGapArtifact: verdict.gapArtifact }
+          : {}),
+      };
     }
 
-    return { output, artifact, errors: [], evidenceSupportShortfall };
+    if (verdict.kind === "evidenceShortfall") {
+      return {
+        output,
+        artifact: verdict.committableArtifact,
+        errors: [],
+        evidenceSupportShortfall: verdict.shortfall,
+      };
+    }
+
+    return { output, artifact: verdict.committableArtifact, errors: [] };
   } catch (error) {
     return { output: null, artifact: null, errors: getErrorIssues(error) };
   } finally {
