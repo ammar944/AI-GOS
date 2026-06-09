@@ -19,13 +19,6 @@ import {
   type CompetitorLandscapeSectionOutput,
 } from "../artifacts/schemas/competitor-landscape";
 import {
-  crossSectionReasoningBodySchema,
-  crossSectionReasoningSectionOutputSchema,
-  validateCrossSectionReasoningMinimums,
-  type CrossSectionReasoningBody,
-  type CrossSectionReasoningSectionOutput,
-} from "../artifacts/schemas/cross-section-reasoning";
-import {
   demandIntentBodySchema,
   demandIntentSectionOutputSchema,
   validateDemandIntentMinimums,
@@ -55,13 +48,6 @@ import {
   type PaidMediaPlanSectionOutput,
 } from "../artifacts/schemas/paid-media-plan";
 import {
-  positioningSynthesisBodySchema,
-  positioningSynthesisSectionOutputSchema,
-  validatePositioningSynthesisMinimums,
-  type PositioningSynthesisBody,
-  type PositioningSynthesisSectionOutput,
-} from "../artifacts/schemas/positioning-synthesis";
-import {
   validateVoiceOfCustomerMinimums,
   voiceOfCustomerBodySchema,
   voiceOfCustomerSectionOutputSchema,
@@ -70,12 +56,10 @@ import {
 } from "../artifacts/schemas/voice-of-customer";
 import { buyerICPFixtureArtifact } from "../fixtures/buyer-icp-artifact";
 import { competitorLandscapeFixtureArtifact } from "../fixtures/competitor-landscape-artifact";
-import { crossSectionReasoningFixtureArtifact } from "../fixtures/cross-section-reasoning-artifact";
 import { demandIntentFixtureArtifact } from "../fixtures/demand-intent-artifact";
 import { marketCategoryFixtureArtifact } from "../fixtures/market-category-artifact";
 import { offerDiagnosticFixtureArtifact } from "../fixtures/offer-diagnostic-artifact";
 import { paidMediaPlanFixtureArtifact } from "../fixtures/paid-media-plan-artifact";
-import { positioningSynthesisFixtureArtifact } from "../fixtures/positioning-synthesis-artifact";
 import { voiceOfCustomerFixtureArtifact } from "../fixtures/voice-of-customer-artifact";
 import {
   sectionIdSchema,
@@ -280,60 +264,12 @@ export const SECTION_REGISTRY = {
     validateMinimums: validateOfferDiagnosticMinimums,
     fixtureArtifact: offerDiagnosticFixtureArtifact,
   },
-  positioningSynthesis: {
-    id: "positioningSynthesis",
-    title: "Positioning Synthesis",
-    skillSlug: "positioning-synthesis",
-    mission:
-      "Synthesize the six committed positioning artifacts and thinker output into one strategic thesis, reconciled contradiction, recommended positioning wedge, sequenced ordered moves, and 2-3 divergent candidate angles traced to section evidence.",
-    outputEmphasis: [
-      "strategic thesis",
-      "contradiction reconciliation",
-      "situation thesis",
-      "divergent positioning options",
-      "recommended move with rationale",
-      "cross-section messaging directions",
-      "sequenced ordered moves with kill criteria",
-    ],
-    sectionOutputSchemaName: "PositioningSynthesisSectionOutput",
-    structuredOutputMaxTokens: 8192,
-    allowedTools: [],
-    maxExternalLookups: 0,
-    requiredEvidenceClasses: [],
-    bodySchema: positioningSynthesisBodySchema,
-    sectionOutputSchema: positioningSynthesisSectionOutputSchema,
-    validateMinimums: validatePositioningSynthesisMinimums,
-    fixtureArtifact: positioningSynthesisFixtureArtifact,
-  },
-  positioningCrossSectionReasoning: {
-    id: "positioningCrossSectionReasoning",
-    title: "Cross-Section Reasoning",
-    skillSlug: "positioning-cross-section-reasoning",
-    mission:
-      "Read the six committed positioning artifacts and identify non-obvious strategic threads, client blind spots, named tensions, second-order risks, and contrarian inversions that no single section can see alone.",
-    outputEmphasis: [
-      "cross-section threads",
-      "client blind spot",
-      "named tension",
-      "second-order risk",
-      "contrarian inversion",
-    ],
-    sectionOutputSchemaName: "CrossSectionReasoningSectionOutput",
-    structuredOutputMaxTokens: 8192,
-    allowedTools: [],
-    maxExternalLookups: 0,
-    requiredEvidenceClasses: [],
-    bodySchema: crossSectionReasoningBodySchema,
-    sectionOutputSchema: crossSectionReasoningSectionOutputSchema,
-    validateMinimums: validateCrossSectionReasoningMinimums,
-    fixtureArtifact: crossSectionReasoningFixtureArtifact,
-  },
   positioningPaidMediaPlan: {
     id: "positioningPaidMediaPlan",
     title: "Paid Media Plan",
     skillSlug: "positioning-paid-media-plan",
     mission:
-      "Synthesize the six committed positioning artifacts, thinker output, and frozen GTM brief into a paid-media plan with one strategic thesis, reconciled contradiction, sequenced learning moves, evidence-backed angles, filled creative framework, funnel guidance, channel suggestions, and KPI plan.",
+      "Synthesize the six committed positioning artifacts and frozen GTM brief into a paid-media plan with one strategic thesis, reconciled contradiction, sequenced learning moves, evidence-backed angles, filled creative framework, funnel guidance, channel suggestions, and KPI plan.",
     outputEmphasis: [
       "strategic thesis",
       "contradiction reconciliation",
@@ -376,14 +312,6 @@ export const SECTION_REGISTRY = {
   positioningOfferDiagnostic: SectionDefinition<
     OfferDiagnosticBody,
     OfferDiagnosticSectionOutput
-  >;
-  positioningSynthesis: SectionDefinition<
-    PositioningSynthesisBody,
-    PositioningSynthesisSectionOutput
-  >;
-  positioningCrossSectionReasoning: SectionDefinition<
-    CrossSectionReasoningBody,
-    CrossSectionReasoningSectionOutput
   >;
   positioningPaidMediaPlan: SectionDefinition<
     PaidMediaPlanBody,

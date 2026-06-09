@@ -327,8 +327,6 @@ function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
         positioningVoiceOfCustomer: excerpts,
         positioningDemandIntent: [],
         positioningOfferDiagnostic: [],
-        positioningCrossSectionReasoning: [],
-        positioningSynthesis: [],
         positioningPaidMediaPlan: [],
       },
     },

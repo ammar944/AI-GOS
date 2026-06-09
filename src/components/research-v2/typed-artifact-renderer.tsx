@@ -23,24 +23,20 @@ import {
   isRecord,
   type BuyerICPArtifact,
   type CompetitorLandscapeArtifact,
-  type CrossSectionReasoningArtifact,
   type DemandIntentArtifact,
   type MarketCategoryArtifact,
   type OfferPerformanceArtifact,
   type PaidMediaPlanArtifact,
-  type PositioningSynthesisArtifact,
   type PositioningTypedArtifact,
   type VoiceOfCustomerArtifact,
 } from '@/types/positioning-artifact';
 import {
   BuyerICPRenderer,
   CompetitorLandscapeRenderer,
-  CrossSectionReasoningRenderer,
   DemandIntentRenderer,
   MarketCategoryRenderer,
   OfferDiagnosticRenderer,
   PaidMediaPlanRenderer,
-  PositioningSynthesisRenderer,
   VoiceOfCustomerRenderer,
 } from './section-renderers';
 import { SubsectionBlock } from './primitives';
@@ -468,10 +464,6 @@ export function TypedArtifactRenderer({
       return <OfferDiagnosticRenderer artifact={artifact as unknown as OfferPerformanceArtifact} />;
     case 'positioningPaidMediaPlan':
       return <PaidMediaPlanRenderer artifact={artifact as unknown as PaidMediaPlanArtifact} />;
-    case 'positioningCrossSectionReasoning':
-      return <CrossSectionReasoningRenderer artifact={artifact as unknown as CrossSectionReasoningArtifact} />;
-    case 'positioningSynthesis':
-      return <PositioningSynthesisRenderer artifact={artifact as unknown as PositioningSynthesisArtifact} />;
   }
 
   return (

@@ -12,8 +12,6 @@ export const activityEventTypes = [
   "tool-started",
   "tool-finished",
   "structured-output-started",
-  "strategic-critic-started",
-  "strategic-critic-finished",
   "validation-failed",
   "repair-started",
   "sub-section-committed",
@@ -140,32 +138,6 @@ export const activityEventSchema = z.discriminatedUnion("type", [
         .object({
           schemaName: z.string().min(1),
           attempt: z.number().int().min(1),
-        })
-        .strict(),
-    })
-    .strict(),
-  z
-    .object({
-      ...activityBaseFields,
-      type: z.literal("strategic-critic-started"),
-      sectionId: sectionIdSchema,
-      metadata: z
-        .object({
-          target: z.literal("cross_section_reasoning"),
-        })
-        .strict(),
-    })
-    .strict(),
-  z
-    .object({
-      ...activityBaseFields,
-      type: z.literal("strategic-critic-finished"),
-      sectionId: sectionIdSchema,
-      metadata: z
-        .object({
-          target: z.literal("cross_section_reasoning"),
-          outcome: z.enum(["upgraded", "fallback"]),
-          summary: z.string().min(1),
         })
         .strict(),
     })

@@ -247,33 +247,6 @@ export const sectionReviewResultSchema = z
   })
   .strict();
 
-export const strategicCritiqueItemSchema = z
-  .object({
-    path: z.string().min(1),
-    text: z.string().min(1),
-    verdict: z.enum([
-      "passes",
-      "knew_that",
-      "too_vague",
-      "summary",
-      "unsupported",
-    ]),
-    action: z.enum(["kept", "deepened", "cut"]),
-    rationale: z.string().min(1),
-  })
-  .strict();
-
-export const strategicCritiqueSchema = z
-  .object({
-    target: z.literal("cross_section_reasoning"),
-    checkedAt: isoDateTimeSchema,
-    modelId: z.string().min(1),
-    summary: z.string().min(1),
-    items: z.array(strategicCritiqueItemSchema).min(1).max(24),
-    belowFloor: z.boolean().optional(),
-  })
-  .strict();
-
 export const researchInputSchema = z
   .object({
     runId: z.string().min(1),
@@ -299,10 +272,9 @@ export const researchInputSchema = z
       )
       .optional(),
     committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
-    crossSectionReasoningArtifact: z.unknown().optional(),
-    // ARI: research-evidence readiness, passed to capstones as a COVERAGE
-    // annotation (never a gate). When ready=false the thinker reasons over the
-    // listed thin sections with caution, and capstone badges are degraded to
+    // ARI: research-evidence readiness, passed to paid-media as a COVERAGE
+    // annotation (never a gate). When ready=false the plan reasons over the
+    // listed thin sections with caution, and the artifact is degraded to
     // needs_review at commit time.
     evidenceCoverage: z
       .object({
@@ -353,7 +325,6 @@ export const artifactEnvelopeSchema = z
       .refine((body) => Object.keys(body).length > 0, "Body cannot be empty"),
     verification: verificationReportSchema.optional(),
     review: sectionReviewResultSchema.optional(),
-    strategicCritique: strategicCritiqueSchema.optional(),
     createdAt: isoDateTimeSchema,
   })
   .strict();
@@ -446,7 +417,6 @@ export type ResearchProvenance = z.infer<typeof researchProvenanceSchema>;
 export type ResearchInput = z.infer<typeof researchInputSchema>;
 export type VerificationReportEnvelope = z.infer<typeof verificationReportSchema>;
 export type SectionReviewResult = z.infer<typeof sectionReviewResultSchema>;
-export type StrategicCritique = z.infer<typeof strategicCritiqueSchema>;
 export type ArtifactEnvelope = z.infer<typeof artifactEnvelopeSchema>;
 export type SectionRunRecord = z.infer<typeof sectionRunRecordSchema>;
 export type RunRecordStatus = z.infer<typeof runRecordStatusSchema>;

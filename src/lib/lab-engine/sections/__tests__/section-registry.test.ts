@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_POSITIONING_SECTION_IDS,
   POSITIONING_SECTION_IDS,
-  isPositioningSectionId,
 } from "@/lib/ai/prompts/positioning-skills";
 import { SECTION_REGISTRY } from "../section-registry";
 
@@ -58,18 +57,6 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       allowedTools: ["keyword_ad_probe"],
       maxExternalLookups: 2,
     });
-    expect(SECTION_REGISTRY.positioningSynthesis).toMatchObject({
-      skillSlug: "positioning-synthesis",
-      allowedTools: [],
-      maxExternalLookups: 0,
-      requiredEvidenceClasses: [],
-    });
-    expect(SECTION_REGISTRY.positioningCrossSectionReasoning).toMatchObject({
-      skillSlug: "positioning-cross-section-reasoning",
-      allowedTools: [],
-      maxExternalLookups: 0,
-      requiredEvidenceClasses: [],
-    });
   });
 
   it("keeps BuyerICP on the dedicated grounding gate and current lookup budget", (): void => {
@@ -82,31 +69,22 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
 });
 
 describe("post-six section registration", (): void => {
-  it("registers exactly nine sections including the thinker and capstones", (): void => {
+  it("registers exactly seven sections including paid-media", (): void => {
     const ids = Object.keys(SECTION_REGISTRY);
-    expect(ids).toHaveLength(9);
-    expect(ids).toContain("positioningCrossSectionReasoning");
-    expect(ids).toContain("positioningSynthesis");
+    expect(ids).toHaveLength(7);
+    expect(ids).toContain("positioningPaidMediaPlan");
   });
 
   // The parent rollup keys on POSITIONING_SECTION_IDS.length (6) and
-  // derivedChildrenComplete filters by isPositioningSectionId. Synthesis must
+  // derivedChildrenComplete filters by isPositioningSectionId. Paid-media must
   // stay OUT of the six so it can never bump children_total / block completion.
-  it("keeps synthesis out of the six-section parent rollup", (): void => {
+  it("keeps paid-media out of the six-section parent rollup", (): void => {
     expect(POSITIONING_SECTION_IDS).toHaveLength(6);
     expect(POSITIONING_SECTION_IDS as readonly string[]).not.toContain(
-      "positioningCrossSectionReasoning",
-    );
-    expect(POSITIONING_SECTION_IDS as readonly string[]).not.toContain(
-      "positioningSynthesis",
-    );
-    expect(isPositioningSectionId("positioningCrossSectionReasoning")).toBe(false);
-    expect(isPositioningSectionId("positioningSynthesis")).toBe(false);
-    expect(ALL_POSITIONING_SECTION_IDS as readonly string[]).toContain(
-      "positioningCrossSectionReasoning",
+      "positioningPaidMediaPlan",
     );
     expect(ALL_POSITIONING_SECTION_IDS as readonly string[]).toContain(
-      "positioningSynthesis",
+      "positioningPaidMediaPlan",
     );
   });
 });

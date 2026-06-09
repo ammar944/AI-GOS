@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
+  PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { SECTION_REGISTRY } from '@/lib/lab-engine/sections/section-registry';
@@ -141,23 +140,6 @@ function committedPositioningRows(): Array<{
   }));
 }
 
-function committedRowsWithCrossSectionReasoning(): Array<{
-  zone: PositioningSectionId | typeof CROSS_SECTION_REASONING_SECTION_ID;
-  data: unknown;
-  verification_tier: string;
-  verification_flag: Record<string, unknown>;
-}> {
-  return [
-    ...committedPositioningRows(),
-    {
-      zone: CROSS_SECTION_REASONING_SECTION_ID,
-      data: SECTION_REGISTRY[CROSS_SECTION_REASONING_SECTION_ID].fixtureArtifact,
-      verification_tier: 'verified',
-      verification_flag: verifiedFlag(),
-    },
-  ];
-}
-
 function verifiedFlag(): Record<string, unknown> {
   return {
     tier: 'verified',
@@ -246,7 +228,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     routeMocks.sectionQuery.select.mockReturnValue(routeMocks.sectionQuery);
     routeMocks.sectionQuery.eq.mockReturnValue(routeMocks.sectionQuery);
     routeMocks.sectionQuery.in.mockResolvedValue({
-      data: committedRowsWithCrossSectionReasoning(),
+      data: committedPositioningRows(),
       error: null,
     });
     routeMocks.sectionQuery.maybeSingle.mockResolvedValue({
@@ -453,7 +435,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
-  it('reruns cross-section reasoning by loading six committed artifacts before reset and schedule', async () => {
+  it('reruns paid-media by loading six committed artifacts before reset and schedule', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
@@ -462,7 +444,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     const response = await POST(
       makeRequest({
         runId: RUN_ID,
-        zone: CROSS_SECTION_REASONING_SECTION_ID,
+        zone: PAID_MEDIA_PLAN_SECTION_ID,
       }),
     );
     const body = await response.json();
@@ -477,25 +459,20 @@ describe('POST /api/research-v2/rerun-section', () => {
       supabase: expect.any(Object),
       userId: 'user_1',
       runId: RUN_ID,
-      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+      sectionId: PAID_MEDIA_PLAN_SECTION_ID,
     });
     expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user_1',
         runId: RUN_ID,
-        sectionId: CROSS_SECTION_REASONING_SECTION_ID,
-        zones: [CROSS_SECTION_REASONING_SECTION_ID],
+        sectionId: PAID_MEDIA_PLAN_SECTION_ID,
+        zones: [PAID_MEDIA_PLAN_SECTION_ID],
         researchInput: expect.objectContaining({
           committedPositioningArtifacts: Object.fromEntries(
             committedPositioningRows().map((row) => [row.zone, row.data]),
           ),
         }),
       }),
-    );
-    const scheduleInput = routeMocks.scheduleLabSectionJob.mock
-      .calls[0]?.[0] as { researchInput?: Record<string, unknown> } | undefined;
-    expect(scheduleInput?.researchInput?.crossSectionReasoningArtifact).toBe(
-      undefined,
     );
     expect(
       routeMocks.scheduleLabSectionJob.mock.invocationCallOrder[0],
@@ -504,32 +481,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     );
   });
 
-  it('blocks synthesis reruns until cross-section reasoning is committed', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
-    routeMocks.sectionQuery.in.mockResolvedValue({
-      data: committedPositioningRows(),
-      error: null,
-    });
-
-    const response = await POST(
-      makeRequest({
-        runId: RUN_ID,
-        zone: POSITIONING_SYNTHESIS_SECTION_ID,
-      }),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(409);
-    expect(body).toMatchObject({
-      error: 'cross_section_reasoning_not_ready',
-      missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
-    });
-    expect(routeMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
-    expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
-  });
-
-  it('reruns a capstone on thin evidence, passing an evidenceCoverage annotation', async () => {
+  it('reruns paid-media on thin evidence, passing an evidenceCoverage annotation', async () => {
     // ARI: readiness is a coverage annotation, not a gate. A capstone rerun
     // proceeds even when an upstream section is insufficient; the gap rides
     // along in evidenceCoverage so the commit can badge it needs_review.
@@ -573,7 +525,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     const response = await POST(
       makeRequest({
         runId: RUN_ID,
-        zone: CROSS_SECTION_REASONING_SECTION_ID,
+        zone: PAID_MEDIA_PLAN_SECTION_ID,
       }),
     );
 
@@ -581,7 +533,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(routeMocks.resetSectionRunForRerun).toHaveBeenCalled();
     expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+        sectionId: PAID_MEDIA_PLAN_SECTION_ID,
         researchInput: expect.objectContaining({
           evidenceCoverage: expect.objectContaining({
             ready: false,

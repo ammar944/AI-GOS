@@ -4,10 +4,7 @@ import {
   READER_SECTION_IDS,
   type ReaderSectionId,
 } from '@/components/research-v3/reader-sections';
-import type {
-  ArtifactEnvelope,
-  StrategicCritique,
-} from '@/lib/lab-engine/artifacts/artifact-envelope';
+import type { ArtifactEnvelope } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import { SECTION_REGISTRY } from '@/lib/lab-engine/sections/section-registry';
 import { buildV3ShareSnapshot } from '@/lib/research-v2/share-snapshot';
 import {
@@ -28,45 +25,7 @@ const profileBackedZones = [
   'positioningVoiceOfCustomer',
   'positioningDemandIntent',
   'positioningOfferDiagnostic',
-  'positioningSynthesis',
 ] as const satisfies readonly ReaderSectionId[];
-
-const passingCritique: StrategicCritique = {
-  checkedAt: '2026-06-05T12:00:00.000Z',
-  items: [
-    {
-      action: 'kept',
-      path: 'body.crossSectionThreads[0].claim',
-      rationale: 'Names a non-obvious cross-section implication.',
-      text: 'The speed wedge beats the broad platform story because buyer anxiety is operational, not categorical.',
-      verdict: 'passes',
-    },
-    {
-      action: 'deepened',
-      path: 'body.namedTension.side',
-      rationale: 'Chooses a side and names the accepted cost.',
-      text: 'Take the narrower proof loop even though it delays platform authority.',
-      verdict: 'passes',
-    },
-    {
-      action: 'kept',
-      path: 'body.secondOrderRisk.claim',
-      rationale: 'Explains what can happen after the first move.',
-      text: 'If the speed wedge works, proof depth becomes the next bottleneck.',
-      verdict: 'passes',
-    },
-    {
-      action: 'cut',
-      path: 'body.crossSectionThreads[1].claim',
-      rationale: 'This line reads like a summary.',
-      text: 'The company should improve marketing with evidence.',
-      verdict: 'summary',
-    },
-  ],
-  modelId: 'claude-opus-4-5',
-  summary: 'Three of four strategic claims passed the knew-that sweep.',
-  target: 'cross_section_reasoning',
-};
 
 function artifactForZone(zone: ReaderSectionId): ArtifactEnvelope {
   return SECTION_REGISTRY[zone].fixtureArtifact;
@@ -235,11 +194,7 @@ function createSectionRow(input: {
       input.tier === 'needs_review'
         ? { ...verifiedFlag(), tier: 'needs_review', unsupportedCount: 1 }
         : verifiedFlag(),
-    countsTowardRollup: ![
-      'positioningCrossSectionReasoning',
-      'positioningSynthesis',
-      'positioningPaidMediaPlan',
-    ].includes(input.zone),
+    countsTowardRollup: input.zone !== 'positioningPaidMediaPlan',
     updatedAt: '2026-06-05T12:00:00.000Z',
   };
 }
@@ -267,10 +222,7 @@ function createProfile(
         sectionsByZone.get('positioningOfferDiagnostic')?.verificationTier ??
         null,
     },
-    positioningStrategy: {
-      verificationTier:
-        sectionsByZone.get('positioningSynthesis')?.verificationTier ?? null,
-    },
+    positioningStrategy: null,
     updatedAt: '2026-06-05T12:05:00.000Z',
   };
 }
@@ -300,22 +252,12 @@ function createShare(
 
 function createCompleteInput(input?: {
   sections?: readonly LiveQualityGateSectionRow[];
-  includePassingCritique?: boolean;
 }): LiveQualityGateInput {
   const sections =
     input?.sections ??
-    READER_SECTION_IDS.map((zone) => {
-      const artifact =
-        zone === 'positioningCrossSectionReasoning' &&
-        input?.includePassingCritique === true
-          ? {
-              ...artifactForZone(zone),
-              strategicCritique: passingCritique,
-            }
-        : defaultArtifactForZone(zone);
-
-      return createSectionRow({ zone, artifact });
-    });
+    READER_SECTION_IDS.map((zone) =>
+      createSectionRow({ zone, artifact: defaultArtifactForZone(zone) }),
+    );
 
   return {
     runId,
@@ -369,7 +311,7 @@ function withInputSections(
 
 describe('live quality gate', (): void => {
   it('returns pipeline_not_recovered before the parent and six core sections complete', (): void => {
-    const input = createCompleteInput({ includePassingCritique: true });
+    const input = createCompleteInput();
     const result = evaluateLiveQualityGate({
       ...input,
       artifact: {
@@ -387,9 +329,7 @@ describe('live quality gate', (): void => {
   });
 
   it('returns the additive gates object beside legacy verdict fields', (): void => {
-    const result = evaluateLiveQualityGate(
-      createCompleteInput({ includePassingCritique: true }),
-    );
+    const result = evaluateLiveQualityGate(createCompleteInput());
 
     expect(result.verdict).toBe('nine_of_ten_research_achieved');
     expect(result.researchQualityStatus).toBe('verified');
@@ -399,14 +339,13 @@ describe('live quality gate', (): void => {
       actionability: { status: 'verified' },
       projectionSync: { status: 'verified' },
       projectionTrust: { status: 'verified' },
-      strategyQuality: { status: 'nine_of_ten' },
     });
     expect(result.gates.projectionSync).toBe(result.gates.projectionTrust);
     expect(result.blockedBy).toEqual([]);
   });
 
   it('lets research_grade_with_gaps pass the research-quality headline without becoming verified', (): void => {
-    const base = createCompleteInput({ includePassingCritique: true });
+    const base = createCompleteInput();
     const sections = base.sections.map((section) =>
       section.zone === 'positioningMarketCategory'
         ? createSectionRow({
@@ -424,14 +363,9 @@ describe('live quality gate', (): void => {
     expect(result.gates.researchQuality.status).not.toBe('verified');
   });
 
-  it('keeps a recovered six-section pipeline quality-limited when post-six reader artifacts are missing', (): void => {
+  it('keeps a recovered six-section pipeline quality-limited when paid-media is missing', (): void => {
     const coreSections = READER_SECTION_IDS.filter((zone) =>
-      zone.startsWith('positioning') &&
-      ![
-        'positioningCrossSectionReasoning',
-        'positioningSynthesis',
-        'positioningPaidMediaPlan',
-      ].includes(zone),
+      zone !== 'positioningPaidMediaPlan',
     ).map((zone) => createSectionRow({ zone }));
     const result = evaluateLiveQualityGate(
       createCompleteInput({ sections: coreSections }),
@@ -439,7 +373,7 @@ describe('live quality gate', (): void => {
 
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
     expect(result.failures).toContain(
-      'positioningCrossSectionReasoning artifact row is missing',
+      'positioningPaidMediaPlan artifact row is missing',
     );
   });
 
@@ -472,7 +406,7 @@ describe('live quality gate', (): void => {
       });
     });
     const result = evaluateLiveQualityGate(
-      createCompleteInput({ sections, includePassingCritique: true }),
+      createCompleteInput({ sections }),
     );
 
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
@@ -553,7 +487,7 @@ describe('live quality gate', (): void => {
     });
 
     const result = evaluateLiveQualityGate(
-      createCompleteInput({ sections, includePassingCritique: true }),
+      createCompleteInput({ sections }),
     );
 
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
@@ -585,7 +519,7 @@ describe('live quality gate', (): void => {
   });
 
   it('keeps VoC zero real buyer quotes insufficient and not actionable', (): void => {
-    const base = createCompleteInput({ includePassingCritique: true });
+    const base = createCompleteInput();
     const sections = base.sections.map((section) =>
       section.zone === 'positioningVoiceOfCustomer'
         ? createSectionRow({
@@ -613,7 +547,7 @@ describe('live quality gate', (): void => {
   });
 
   it('keeps BuyerICP fewer than two named identities insufficient and not actionable', (): void => {
-    const base = createCompleteInput({ includePassingCritique: true });
+    const base = createCompleteInput();
     const sections = base.sections.map((section) =>
       section.zone === 'positioningBuyerICP'
         ? createSectionRow({
@@ -645,7 +579,7 @@ describe('live quality gate', (): void => {
   });
 
   it('treats unavailable review coverage as a warning instead of downgrading clean deterministic evidence', (): void => {
-    const base = createCompleteInput({ includePassingCritique: true });
+    const base = createCompleteInput();
     const sections = base.sections.map((section) =>
       section.zone === 'positioningMarketCategory'
         ? createSectionRow({
@@ -682,7 +616,7 @@ describe('live quality gate', (): void => {
   });
 
   it('allows BuyerICP two named identities plus a specific gap to be research-grade with caveats', (): void => {
-    const base = createCompleteInput({ includePassingCritique: true });
+    const base = createCompleteInput();
     const sections = base.sections.map((section) =>
       section.zone === 'positioningBuyerICP'
         ? createSectionRow({
@@ -727,7 +661,7 @@ describe('live quality gate', (): void => {
     );
 
     const result = evaluateLiveQualityGate(
-      createCompleteInput({ sections, includePassingCritique: true }),
+      createCompleteInput({ sections }),
     );
 
     expect(result.verdict).toBe('pipeline_recovered_quality_limited');
@@ -741,29 +675,18 @@ describe('live quality gate', (): void => {
     );
   });
 
-  it('returns below_9_of_10_gate when evidence and trust pass but rubric score is below nine', (): void => {
-    const result = evaluateLiveQualityGate(createCompleteInput());
-
-    expect(result.verdict).toBe('below_9_of_10_gate');
-    expect(result.researchQualityStatus).toBe('research_grade_with_gaps');
-    expect(result.gates.researchQuality.status).toBe('verified');
-    expect(result.gates.strategyQuality.status).toBe('below_bar');
-    expect(result.rubricScore.score).toBe(8);
-    expect(result.failures).toEqual([]);
-  });
-
   it('returns quality-limited when profile trust tiers diverge from committed section tiers', (): void => {
     const sections = READER_SECTION_IDS.map((zone) =>
       createSectionRow({
         zone,
-        tier: zone === 'positioningSynthesis' ? 'needs_review' : 'verified',
+        tier: zone === 'positioningMarketCategory' ? 'needs_review' : 'verified',
       }),
     );
-    const input = createCompleteInput({ sections, includePassingCritique: true });
+    const input = createCompleteInput({ sections });
     const profile = createProfile(sections);
     profile.aiInsights = {
       ...profile.aiInsights,
-      positioningSynthesis: { verificationTier: 'verified' },
+      positioningMarketCategory: { verificationTier: 'verified' },
     };
 
     const result = evaluateLiveQualityGate({
@@ -776,22 +699,18 @@ describe('live quality gate', (): void => {
     expect(result.gates.projectionTrust.status).toBe('mismatch');
     expect(result.blockedBy).toContain('projectionTrust');
     expect(result.failures).toContain(
-      'profile ai_insights.positioningSynthesis.verificationTier=verified does not match committed needs_review',
+      'profile ai_insights.positioningMarketCategory.verificationTier=verified does not match committed needs_review',
     );
   });
 
-  it('passes only when completion, evidence, rubric, profile, and share gates all pass', (): void => {
-    const result = evaluateLiveQualityGate(
-      createCompleteInput({ includePassingCritique: true }),
-    );
+  it('passes only when completion, evidence, profile, and share gates all pass', (): void => {
+    const result = evaluateLiveQualityGate(createCompleteInput());
 
     expect(result.verdict).toBe('nine_of_ten_research_achieved');
     expect(result.researchQualityStatus).toBe('verified');
-    expect(result.gates.strategyQuality.status).toBe('nine_of_ten');
     expect(result.failures).toEqual([]);
     expect(result.profileTrust.matched).toBe(true);
     expect(result.shareTrust.matched).toBe(true);
     expect(result.vocAudit.passesQuoteFloor).toBe(true);
-    expect(result.rubricScore.score).toBe(10);
   });
 });

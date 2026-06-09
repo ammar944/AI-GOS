@@ -819,7 +819,8 @@ async function judgeCall(
     rawText = result.text ?? "";
     finishReason = result.finishReason ?? "unknown";
     try {
-      outputVerdicts = (result.output?.verdicts ?? null) as typeof outputVerdicts;
+      outputVerdicts = (result.output?.verdicts ??
+        null) as unknown as typeof outputVerdicts;
     } catch {
       outputVerdicts = null; // fall through to raw-text recovery below
     }

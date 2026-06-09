@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import type {
   AllPositioningSectionId,
@@ -646,12 +644,6 @@ describe('POST /api/research-v2/run-lab-section', () => {
       'zone',
       [...POSITIONING_SECTION_IDS],
     );
-    // The thinker + synthesis zones are NEVER seeded or claimed.
-    const scheduledZones = routeMocks.seedOrchestration.mock.calls.map(
-      (call) => (call[0] as { zones: readonly AllPositioningSectionId[] }).zones[0],
-    );
-    expect(scheduledZones).not.toContain(CROSS_SECTION_REASONING_SECTION_ID);
-    expect(scheduledZones).not.toContain(POSITIONING_SYNTHESIS_SECTION_ID);
     expect(routeMocks.after).toHaveBeenCalledTimes(2);
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
 
@@ -1062,19 +1054,14 @@ describe('POST /api/research-v2/run-lab-section', () => {
         }),
       }),
     );
-    // The paid-media research input must NOT carry a cross-section reasoning artifact.
     const createStoreInput = routeMocks.createSupabaseRunStore.mock
       .calls[0]?.[0] as
       | {
           researchInput: {
             committedPositioningArtifacts?: Record<string, unknown>;
-            crossSectionReasoningArtifact?: unknown;
           };
         }
       | undefined;
-    expect(
-      createStoreInput?.researchInput.crossSectionReasoningArtifact,
-    ).toBeUndefined();
     const voiceOfCustomerArtifact =
       createStoreInput?.researchInput.committedPositioningArtifacts
         ?.positioningVoiceOfCustomer as

@@ -33,8 +33,6 @@ const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
   VoiceOfCustomerSectionOutput: "positioningVoiceOfCustomer",
   DemandIntentSectionOutput: "positioningDemandIntent",
   OfferDiagnosticSectionOutput: "positioningOfferDiagnostic",
-  CrossSectionReasoningSectionOutput: "positioningCrossSectionReasoning",
-  PositioningSynthesisSectionOutput: "positioningSynthesis",
   PaidMediaPlanSectionOutput: "positioningPaidMediaPlan",
 };
 
@@ -768,40 +766,6 @@ function buildSectionMinimumGuidance(
       "- `body.channelSuggestions` is an object with `prose` and `suggestions[]`; each suggestion has exactly `channel`, `observation`, `recommendation`, `verdict`, `sourceSection`, where verdict is `keep`, `fix`, `cut`, or `start`.",
       "- Every `body.channelSuggestions.suggestions[].recommendation` must name a concrete asset, page, campaign, query, or metric and include an explicit action verb such as `launch`, `cut`, `split-test`, `route`, `publish`, `pause`, or `measure`.",
       "- `body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`; `gtmMotion` must be `SLG` or `PLG`; each KPI has exactly `metric`, `role`, `definition`.",
-    ];
-  }
-
-  if (definition.sectionOutputSchemaName === "CrossSectionReasoningSectionOutput") {
-    return [
-      "- CrossSectionReasoningSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
-      "- CrossSectionReasoningSectionOutput source refs use exactly `sourceSections[]` items with `sectionId`, `sourceUrl`, and optional `sourceTitle`.",
-      "- CrossSectionReasoningSectionOutput sectionId values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, or `positioningOfferDiagnostic`; never use `gtmBrief`.",
-      "- `body` keys are exactly `crossSectionThreads`, `clientBlindSpot`, `namedTension`, `secondOrderRisk`, and `contrarianInversion`. Do not emit other keys.",
-      "- `body.crossSectionThreads[]` items have exactly `claim`, `sourceSections`, and `whyNonObvious`; provide 1-6 focused threads.",
-      "- Every thread and grounded strategic claim must cite at least two distinct committed section IDs through `sourceSections`.",
-      "- `body.clientBlindSpot`, `body.secondOrderRisk`, and `body.contrarianInversion` are objects with exactly `claim`, `sourceSections`, and `whyItMatters`.",
-      "- `body.clientBlindSpot.claim`, `body.secondOrderRisk.claim`, and `body.contrarianInversion.claim` must be a specific strategic judgment with a causal `because/therefore` shape, or `evidence gap: <missing signal>`; do not restate the verdict, summarize the six sections, or rename a theme.",
-      "- `body.namedTension` is an object with exactly `tension`, `side`, `costAccepted`, and `sourceSections`; `side` must choose one side and `costAccepted` must name what the client gives up.",
-      "- Across the artifact, cover at least four of the six committed sections. Do not write a single-section insight or a generic summary.",
-    ];
-  }
-
-  if (definition.sectionOutputSchemaName === "PositioningSynthesisSectionOutput") {
-    return [
-      "- PositioningSynthesisSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
-      "- PositioningSynthesisSectionOutput sourceSection enum values are exactly `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.",
-      "- `body` keys are exactly `strategicThesis`, `contradictionReconciliation`, `situationThesis`, `positioningOptions`, `recommendedMove`, `messagingDirections`, and `orderedMoves`. Do not emit other keys.",
-      "- `body.strategicThesis` is an object with exactly `thesis`, `segment`, `awareness`, `force`, `defensibleDifferentiator`, and `sourceSections`; write the thesis as `this plan bets that [segment] at [awareness] can be moved by [force] with [defensible differentiator] because [cross-section evidence]`.",
-      "- `body.strategicThesis.sourceSections[]` items use exactly `sourceSection` and `sourceUrl`; include at least two non-`gtmBrief` refs from the six committed sections.",
-      "- `body.contradictionReconciliation` is an object with exactly `contradiction`, `resolution`, `tradeOffAccepted`, and `sourceSections`; name a real disagreement between sections and resolve it before recommending the wedge.",
-      "- `body.situationThesis` is an object with exactly `prose`.",
-      "- `body.positioningOptions` is an object with `prose` and `options[]`; provide exactly 2 or 3 divergent options. Each option has exactly `optionName`, `angle`, `rationale`, `sourceSection`, `sourceUrl`.",
-      "- `body.recommendedMove` is an object with exactly `optionAngle`, `rationale`, `nextSteps`. `optionAngle` must be verbatim one of `body.positioningOptions.options[].angle`.",
-      "- `body.messagingDirections` is an object with `prose` and `directions[]`; provide at least two. Each direction has exactly `direction`, `copyPoint`, `sourceSection`, `sourceUrl`.",
-      "- `body.orderedMoves` is an object with exactly `prose` and `moves[]`; provide at least three sequenced moves with dependencies and kill criteria.",
-      "- Each ordered move has exactly `rank`, `move`, `dependsOn`, `learningPriority`, `rationale`, `thesisTrace`, `provesWrongIf`, `sourceSection`, and `sourceUrl`; `thesisTrace` states how the move advances the strategic thesis, and `provesWrongIf` has exactly `metric`, `threshold`, and `window`.",
-      "- Ordered move ranks are positive integers starting at 1; move 1 has empty `dependsOn`, later moves depend on earlier rank numbers.",
-      "- At least two synthesized items across options and directions must cite a non-`gtmBrief` `sourceSection`. Do not narrate a confidence figure in any prose field.",
     ];
   }
 

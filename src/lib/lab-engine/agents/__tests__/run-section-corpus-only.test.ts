@@ -17,7 +17,6 @@ import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/co
 import { demandIntentFixtureSectionOutput } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
-import { positioningSynthesisFixtureArtifact } from '@/lib/lab-engine/fixtures/positioning-synthesis-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { strategyModel } from '@/lib/lab-engine/ai/models';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
@@ -280,22 +279,6 @@ function buildPaidMediaPlanOutput(): Record<string, unknown> {
       url: source.url,
     })),
     body: structuredClone(paidMediaPlanFixtureArtifact.body),
-  };
-}
-
-function buildPositioningSynthesisOutput(): Record<string, unknown> {
-  return {
-    sectionTitle: positioningSynthesisFixtureArtifact.sectionTitle,
-    verdict: positioningSynthesisFixtureArtifact.verdict,
-    statusSummary: positioningSynthesisFixtureArtifact.statusSummary,
-    confidence: positioningSynthesisFixtureArtifact.confidence,
-    sources: positioningSynthesisFixtureArtifact.sources.map((source) => ({
-      id: source.id,
-      observedAt: source.observedAt,
-      title: source.title,
-      url: source.url,
-    })),
-    body: structuredClone(positioningSynthesisFixtureArtifact.body),
   };
 }
 
@@ -1575,79 +1558,6 @@ describe('runSection corpus-only mode', (): void => {
     artifactAudiences.forEach((audience) => {
       expect(requireRecord(audience)).not.toHaveProperty('dailyBudgetValue');
     });
-    expect(callStructured).toHaveBeenCalledTimes(1);
-  });
-
-  it('runs synthesis capstones on the strategy model and preserves strategy fields', async (): Promise<void> => {
-    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
-    const store = createRunStore({
-      rootDir,
-      defaultSectionIds: ['positioningSynthesis'],
-      now: () => new Date('2026-05-25T12:00:00.000Z'),
-    });
-    await store.createRun(saaslaunchResearchInput);
-
-    const synthesisOutput = buildPositioningSynthesisOutput();
-    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
-      steps: [],
-      text: '',
-    }));
-    const callStructured = vi.fn<StructuredCaller>(async (params) => {
-      expect(params.model).toBe(strategyModel);
-      expect(params.schema.safeParse(synthesisOutput).success).toBe(true);
-
-      return synthesisOutput;
-    });
-
-    const result = await runSection(
-      {
-        runId: saaslaunchResearchInput.runId,
-        sectionId: 'positioningSynthesis',
-      },
-      {
-        store,
-        loadSkill: async () => 'Synthesize the committed positioning corpus.',
-        allowedTools: [],
-        runEvidencePass,
-        callStructured,
-        env: { LAB_SECTION_STREAMING: 'false' },
-        now: () => new Date('2026-05-25T12:00:00.000Z'),
-      },
-    );
-    const record = await store.readRun(saaslaunchResearchInput.runId);
-    const artifactBody = requireRecord(result.artifact.body);
-    const artifactStrategicThesis = requireRecord(
-      artifactBody.strategicThesis,
-    );
-    const artifactContradictionReconciliation = requireRecord(
-      artifactBody.contradictionReconciliation,
-    );
-    const artifactOrderedMoves = requireRecord(artifactBody.orderedMoves);
-
-    if (
-      !Array.isArray(artifactStrategicThesis.sourceSections) ||
-      !Array.isArray(artifactContradictionReconciliation.sourceSections) ||
-      !Array.isArray(artifactOrderedMoves.moves)
-    ) {
-      throw new Error('Expected normalized synthesis strategy arrays.');
-    }
-    expect(result.artifact.sectionId).toBe('positioningSynthesis');
-    expect(artifactStrategicThesis.force).toContain(
-      'Operational impatience',
-    );
-    expect(artifactContradictionReconciliation.tradeOffAccepted).toContain(
-      'smaller initial story',
-    );
-    expect(requireRecord(artifactOrderedMoves.moves[2]).dependsOn).toEqual([
-      1,
-      2,
-    ]);
-    expect(requireRecord(artifactOrderedMoves.moves[2]).thesisTrace).toContain(
-      'thesis expansion step',
-    );
-    expect(record.sections.positioningSynthesis?.artifact?.body).toEqual(
-      result.artifact.body,
-    );
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 

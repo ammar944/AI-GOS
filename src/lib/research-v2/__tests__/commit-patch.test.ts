@@ -86,13 +86,13 @@ describe('buildCommitPatch', (): void => {
     );
   });
 
-  it('degrades a verified capstone to needs_review when inputs were degraded', (): void => {
+  it('degrades verified paid-media to needs_review when inputs were degraded', (): void => {
     const patch = buildCommitPatch(
-      'positioningCrossSectionReasoning',
+      'positioningPaidMediaPlan',
       {
-        sectionTitle: 'Cross-Section Reasoning',
-        statusSummary: 'Cross-section tensions identified.',
-        body: { strategicInsight: 'A supported insight.' },
+        sectionTitle: 'Paid Media Plan',
+        statusSummary: 'Paid-media plan committed.',
+        body: { campaignOverview: { prose: 'A supported overview.' } },
         verification: {
           verifiedCount: 10,
           unsupportedCount: 0,
@@ -109,11 +109,11 @@ describe('buildCommitPatch', (): void => {
     );
   });
 
-  it('does not upgrade a genuinely-insufficient capstone when degrading', (): void => {
+  it('does not upgrade genuinely-insufficient paid-media when degrading', (): void => {
     const patch = buildCommitPatch(
-      'positioningCrossSectionReasoning',
+      'positioningPaidMediaPlan',
       {
-        sectionTitle: 'Cross-Section Reasoning',
+        sectionTitle: 'Paid Media Plan',
         statusSummary: 'Evidence gap.',
         body: { evidenceGap: true },
         verification: {
@@ -129,11 +129,11 @@ describe('buildCommitPatch', (): void => {
     expect(patch.verificationTier).toBe('insufficient');
   });
 
-  it('leaves a verified capstone verified when not degrading', (): void => {
-    const patch = buildCommitPatch('positioningCrossSectionReasoning', {
-      sectionTitle: 'Cross-Section Reasoning',
+  it('leaves verified paid-media verified when not degrading', (): void => {
+    const patch = buildCommitPatch('positioningPaidMediaPlan', {
+      sectionTitle: 'Paid Media Plan',
       statusSummary: 'All supported.',
-      body: { strategicInsight: 'A supported insight.' },
+      body: { campaignOverview: { prose: 'A supported overview.' } },
       verification: {
         verifiedCount: 10,
         unsupportedCount: 0,

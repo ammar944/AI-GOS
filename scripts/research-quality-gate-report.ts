@@ -30,7 +30,6 @@ import {
   type LivePipelineGateStatus,
   type LiveProjectionTrustStatus,
   type LiveResearchQualityStatus,
-  type LiveStrategyQualityStatus,
 } from '../src/lib/research-v3/live-quality-gate';
 
 loadEnvConfig(process.cwd());
@@ -40,7 +39,6 @@ export const RESEARCH_QUALITY_GATE_VERSION = LIVE_QUALITY_GATE_VERSION;
 export type PipelineGateStatus = LivePipelineGateStatus;
 export type ActionabilityGateStatus = LiveActionabilityStatus;
 export type ProjectionTrustGateStatus = LiveProjectionTrustStatus;
-export type StrategyQualityGateStatus = LiveStrategyQualityStatus;
 export type ResearchQualityGate<TStatus extends string> =
   LiveQualityGateReadout<TStatus>;
 export type ResearchQualityGates = LiveQualityGateGates;
@@ -732,11 +730,6 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
       result.gates.projectionTrust.status,
       listOrNone(result.gates.projectionTrust.reasons),
     ],
-    [
-      'Strategy quality',
-      result.gates.strategyQuality.status,
-      listOrNone(result.gates.strategyQuality.reasons),
-    ],
   ];
   const sectionRuleRows = result.sectionRules.map((row) => [
     row.zone,
@@ -748,12 +741,6 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
     row.rule,
     listOrNone(row.reasons),
   ]);
-  const rubricRows = result.rubricScore.propertyResults.map((property) => [
-    property.label,
-    boolText(property.passed),
-    property.evidencePointers.join(', ') || 'none',
-  ]);
-
   return [
     `# Research Quality Gate Report`,
     '',
@@ -766,7 +753,6 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
     `Research quality gate: \`${result.gates.researchQuality.status}\``,
     `Actionability gate: \`${result.gates.actionability.status}\``,
     `Projection trust gate: \`${result.gates.projectionTrust.status}\``,
-    `Strategy quality gate: \`${result.gates.strategyQuality.status}\``,
     '',
     '## Gate readout',
     markdownTable(['Gate', 'Status', 'Reasons'], gateRows),
@@ -799,16 +785,6 @@ export function renderReport(result: ResearchQualityGateReportResult): string {
     `Share present: ${boolText(result.shareTrust.present)}`,
     `Share trust match: ${boolText(result.shareTrust.matched)}`,
     `Share failures: ${listOrNone(result.shareTrust.failures)}`,
-    '',
-    '## Strategy quality',
-    `Status: \`${result.gates.strategyQuality.status}\``,
-    `Score: ${result.rubricScore.score}/10`,
-    `Gate: ${result.rubricScore.gate}`,
-    `Active disqualifiers: ${listOrNone(
-      result.rubricScore.activeDisqualifiers.map((item) => item.label),
-    )}`,
-    '',
-    markdownTable(['Property', 'Passed', 'Evidence pointers'], rubricRows),
     '',
     '## Section rules table',
     markdownTable(
@@ -893,7 +869,6 @@ async function main(): Promise<void> {
         actionability: result.gates.actionability.status,
         projectionSync: result.gates.projectionSync.status,
         projectionTrust: result.gates.projectionTrust.status,
-        strategyQuality: result.gates.strategyQuality.status,
       },
       failures: result.failures.length,
       warnings: result.warnings.length,

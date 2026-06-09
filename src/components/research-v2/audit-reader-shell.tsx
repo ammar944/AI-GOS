@@ -69,9 +69,7 @@ import type {
   WorkerStatus,
 } from '@/app/api/research-v2/audit-state/route';
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
-  POSITIONING_SYNTHESIS_SECTION_ID,
   READER_SECTION_IDS,
   READER_SECTION_LABELS,
   type ReaderSectionId,
@@ -105,8 +103,6 @@ const SECTION_SHORT_LABEL: Record<ReaderSectionId, string> = {
   positioningVoiceOfCustomer: 'Voice of Customer',
   positioningDemandIntent: 'Demand / Intent',
   positioningOfferDiagnostic: 'Offer Diagnostic',
-  positioningCrossSectionReasoning: 'Thinker',
-  positioningSynthesis: 'Synthesis',
   positioningPaidMediaPlan: 'Paid Media Plan',
 };
 
@@ -129,7 +125,6 @@ const COPY_META_KEYS: ReadonlySet<string> = new Set([
   'sources',
   'verification',
   'review',
-  'strategicCritique',
 ]);
 const DRAFT_META_KEYS: ReadonlySet<string> = new Set([
   ...COPY_META_KEYS,
@@ -387,55 +382,14 @@ function ReviewMetadataPanel({
   );
 }
 
-function StrategicCritiquePanel({
-  critique,
-}: {
-  critique: NonNullable<PositioningTypedArtifact['strategicCritique']>;
-}): ReactElement {
-  const changedItems = critique.items.filter((item) => item.action !== 'kept');
-
-  return (
-    <div className="space-y-4 rounded-md border border-border bg-background p-4">
-      <div className="space-y-1">
-        <Eyebrow>Strategic critic</Eyebrow>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {critique.summary}
-        </p>
-      </div>
-      {changedItems.length > 0 ? (
-        <div className="space-y-2">
-          <Eyebrow>Changed ({changedItems.length})</Eyebrow>
-          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
-            {changedItems.map((item) => (
-              <li key={`${item.path}-${item.action}`}>
-                <span className="font-medium text-foreground">{item.action}</span>
-                {` ${item.path}: ${item.rationale}`}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function sectionStatusSubline(
   status: ReaderSectionStatus,
-  sectionId: ReaderSectionId,
 ): string {
   if (status === 'complete') return 'Complete';
   if (status === 'error') return 'Needs review';
   if (status === 'aborted') return 'Aborted';
-  if (status === 'ready') {
-    return sectionId === CROSS_SECTION_REASONING_SECTION_ID
-      ? 'Ready after 6/6'
-      : 'Ready after thinker';
-  }
-  if (status === 'locked') {
-    return sectionId === CROSS_SECTION_REASONING_SECTION_ID
-      ? 'Locked until 6/6'
-      : 'Locked until thinker';
-  }
+  if (status === 'ready') return 'Ready after 6/6';
+  if (status === 'locked') return 'Locked until 6/6';
   if (status === 'running') return 'Running';
   if (status === 'queued') return 'Queued';
   return status;
@@ -809,7 +763,7 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          const subLine = sectionStatusSubline(status, id);
+          const subLine = sectionStatusSubline(status);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -1070,9 +1024,6 @@ export function AuditReaderShell({
   }, [live.sectionsByZone]);
 
   const sixSectionsComplete = isSixSectionComplete(live);
-  const crossSectionReasoningComplete =
-    live.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
-    workerById.get(CROSS_SECTION_REASONING_SECTION_ID)?.status === 'complete';
 
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {
@@ -1083,19 +1034,12 @@ export function AuditReaderShell({
       if (worker?.status === 'complete' || live.sectionsByZone[id]) {
         return 'complete';
       }
-      if (id === CROSS_SECTION_REASONING_SECTION_ID) {
+      if (id === PAID_MEDIA_PLAN_SECTION_ID) {
         return sixSectionsComplete ? 'ready' : 'locked';
-      }
-      if (
-        id === PAID_MEDIA_PLAN_SECTION_ID ||
-        id === POSITIONING_SYNTHESIS_SECTION_ID
-      ) {
-        return crossSectionReasoningComplete ? 'ready' : 'locked';
       }
       return 'queued';
     },
     [
-      crossSectionReasoningComplete,
       live.sectionsByZone,
       sixSectionsComplete,
       workerById,
@@ -1130,7 +1074,6 @@ export function AuditReaderShell({
   const activeIndex = READER_SECTION_IDS.indexOf(active);
   const activeTyped = typedByZone.get(active) ?? null;
   const activeReview = activeTyped?.review ?? null;
-  const activeStrategicCritique = activeTyped?.strategicCritique ?? null;
   const activeSectionSnapshot = live.sectionsByZone[active];
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
@@ -1436,9 +1379,6 @@ export function AuditReaderShell({
                     <BodyProse>{activeTyped.statusSummary}</BodyProse>
                   ) : null}
                   <VerdictCallout verdict={activeTyped.verdict} />
-                  {activeStrategicCritique ? (
-                    <StrategicCritiquePanel critique={activeStrategicCritique} />
-                  ) : null}
                   {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
@@ -1490,7 +1430,7 @@ export function AuditReaderShell({
                   statusText={
                     activeStatus === 'ready'
                       ? 'Ready to run.'
-                      : 'Locked - unlocks after cross-section reasoning completes.'
+                      : 'Locked - unlocks after the six positioning sections complete.'
                   }
                 />
               ) : (

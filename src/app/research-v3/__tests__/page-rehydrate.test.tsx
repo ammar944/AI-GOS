@@ -4,12 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
-import { crossSectionReasoningFixtureArtifact } from '@/lib/lab-engine/fixtures/cross-section-reasoning-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 
 const routerMock = vi.hoisted(() => ({
@@ -88,8 +85,6 @@ function buildArtifactSections(): Record<string, Record<string, unknown>> {
   return Object.fromEntries(
     [
       ...POSITIONING_SECTION_IDS,
-      CROSS_SECTION_REASONING_SECTION_ID,
-      POSITIONING_SYNTHESIS_SECTION_ID,
       PAID_MEDIA_PLAN_SECTION_ID,
     ].map((zone) => [
       zone,
@@ -103,9 +98,7 @@ function buildArtifactSections(): Record<string, Record<string, unknown>> {
         data:
           zone === PAID_MEDIA_PLAN_SECTION_ID
             ? paidMediaPlanFixtureArtifact
-            : zone === CROSS_SECTION_REASONING_SECTION_ID
-              ? crossSectionReasoningFixtureArtifact
-              : {},
+            : {},
         claims: null,
         sources: [],
         error: null,
@@ -130,17 +123,9 @@ describe('ResearchV3Page runId rehydrate', () => {
       children_total: 6,
       workerStates: [
         ...POSITIONING_SECTION_IDS.map((sectionId) => buildCompleteWorker(sectionId)),
-        buildCompleteWorker(CROSS_SECTION_REASONING_SECTION_ID),
-        buildCompleteWorker(POSITIONING_SYNTHESIS_SECTION_ID),
         buildCompleteWorker(PAID_MEDIA_PLAN_SECTION_ID),
       ],
       sectionsByZone: {
-        [CROSS_SECTION_REASONING_SECTION_ID]: {
-          data: crossSectionReasoningFixtureArtifact,
-        },
-        [POSITIONING_SYNTHESIS_SECTION_ID]: {
-          data: {},
-        },
         [PAID_MEDIA_PLAN_SECTION_ID]: {
           data: paidMediaPlanFixtureArtifact,
         },
@@ -168,10 +153,10 @@ describe('ResearchV3Page runId rehydrate', () => {
     render(<ResearchV3Page />);
 
     await waitFor(() =>
-      expect(screen.getByText('Section 9 of 9')).toBeInTheDocument(),
+      expect(screen.getByText('Section 7 of 7')).toBeInTheDocument(),
     );
     // The overhauled reader keeps a persistent SectionRail navigator even when
-    // complete (you navigate the finished 9-section report through it); only the
+    // complete (you navigate the finished 7-section report through it); only the
     // transient RunStatusBar collapses on done. The live corpus stream stays absent.
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(screen.queryByTestId('corpus')).toBeNull();

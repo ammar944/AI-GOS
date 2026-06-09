@@ -36,7 +36,6 @@ export interface BackfillRunResult {
     actionability: string;
     projectionSync: string;
     projectionTrust: string;
-    strategyQuality: string;
   };
   dryRun: boolean;
   upserted: boolean;
@@ -149,7 +148,6 @@ function summarizeReport(
       actionability: report.gates.actionability.status,
       projectionSync: report.gates.projectionSync.status,
       projectionTrust: report.gates.projectionTrust.status,
-      strategyQuality: report.gates.strategyQuality.status,
     },
     dryRun,
     upserted,

@@ -7,7 +7,6 @@ import {
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import {
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
@@ -59,10 +58,7 @@ interface ResearchArtifactSectionProfileRow {
   verificationFlag: unknown;
 }
 
-const PROFILE_INSIGHT_SECTION_IDS = [
-  ...POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
-] as const;
+const PROFILE_INSIGHT_SECTION_IDS = POSITIONING_SECTION_IDS;
 
 type ProfileInsightSectionId = (typeof PROFILE_INSIGHT_SECTION_IDS)[number];
 
@@ -162,16 +158,6 @@ export function buildCommittedSectionProfileInsights(input: {
 
   if (input.sectionId === 'positioningOfferDiagnostic') {
     insights.offerScore = {
-      verdict: input.artifact.verdict,
-      confidence: input.artifact.confidence,
-      body: input.artifact.body,
-      ...(verificationTier ? { verificationTier } : {}),
-      ...(verificationFlag ? { verificationFlag } : {}),
-    };
-  }
-
-  if (input.sectionId === 'positioningSynthesis') {
-    insights.positioningStrategy = {
       verdict: input.artifact.verdict,
       confidence: input.artifact.confidence,
       body: input.artifact.body,

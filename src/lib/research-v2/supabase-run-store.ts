@@ -1,10 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
   artifactEnvelopeSchema,
@@ -29,7 +27,6 @@ import {
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/section-registry';
 import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
-import { buildSynthesizedThesisPatch } from '@/lib/research-v2/orchestrate-db';
 import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
 import {
   buildCommittedSectionProfileInsights,
@@ -67,10 +64,7 @@ export class SupabaseRunStoreError extends Error {
   }
 }
 
-const PROFILE_PATCH_SECTION_IDS = [
-  ...POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
-] as const;
+const PROFILE_PATCH_SECTION_IDS = POSITIONING_SECTION_IDS;
 
 type ProfilePatchSectionId = (typeof PROFILE_PATCH_SECTION_IDS)[number];
 
@@ -301,14 +295,6 @@ function asRecordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
-}
-
-function readStringValue(
-  record: Record<string, unknown> | null,
-  key: string,
-): string {
-  const value = record?.[key];
-  return typeof value === 'string' ? value : '';
 }
 
 function readOptionalStringValue(
@@ -608,96 +594,6 @@ async function attachAgenticReview(input: {
     );
 
     return input.artifact;
-  }
-}
-
-// Best-effort: merge the synthesized positioning wedge into the parent's
-// research_artifacts.thesis as a sibling key. Never throws — the section
-// artifact is already committed; the thesis is bookkeeping for profile insights,
-// so a failure here must not fail the commit.
-async function mergeSynthesizedThesisBestEffort(input: {
-  supabase: SupabaseClient;
-  parentAuditRunId: string;
-  artifact: ArtifactEnvelope;
-  updatedAt: string;
-}): Promise<void> {
-  try {
-    const artifactRecord = input.artifact as unknown as Record<string, unknown>;
-    const body = asRecordValue(artifactRecord.body);
-    const strategicThesis = asRecordValue(body?.strategicThesis);
-    const contradictionReconciliation = asRecordValue(
-      body?.contradictionReconciliation,
-    );
-    const orderedMoves = asRecordValue(body?.orderedMoves);
-    const recommendedMove = asRecordValue(body?.recommendedMove);
-    const positioningOptions = asRecordValue(body?.positioningOptions);
-    const options = Array.isArray(positioningOptions?.options)
-      ? positioningOptions.options
-      : [];
-    const moves = Array.isArray(orderedMoves?.moves)
-      ? orderedMoves.moves
-      : [];
-
-    const { data, error } = await input.supabase
-      .from('research_artifacts')
-      .select('thesis')
-      .eq('id', input.parentAuditRunId)
-      .maybeSingle();
-
-    if (error) {
-      console.warn(
-        '[supabase-run-store] synthesis thesis read failed:',
-        error.message,
-      );
-      return;
-    }
-
-    const existingThesis = asRecordValue(
-      (data as { thesis?: unknown } | null)?.thesis,
-    );
-    const { thesis } = buildSynthesizedThesisPatch({
-      existingThesis,
-      headlineWedge: input.artifact.verdict,
-      recommendedAngle: readStringValue(recommendedMove, 'optionAngle'),
-      rationale: readStringValue(recommendedMove, 'rationale'),
-      optionCount: options.length,
-      strategicThesis: readStringValue(strategicThesis, 'thesis'),
-      strategicSegment: readStringValue(strategicThesis, 'segment'),
-      strategicAwareness: readStringValue(strategicThesis, 'awareness'),
-      strategicForce: readStringValue(strategicThesis, 'force'),
-      defensibleDifferentiator: readStringValue(
-        strategicThesis,
-        'defensibleDifferentiator',
-      ),
-      contradiction: readStringValue(
-        contradictionReconciliation,
-        'contradiction',
-      ),
-      resolution: readStringValue(contradictionReconciliation, 'resolution'),
-      tradeOffAccepted: readStringValue(
-        contradictionReconciliation,
-        'tradeOffAccepted',
-      ),
-      ...(orderedMoves === null ? {} : { orderedMoveCount: moves.length }),
-      updatedAt: input.updatedAt,
-    });
-
-    const { error: updateError } = await input.supabase
-      .from('research_artifacts')
-      .update({ thesis })
-      .eq('id', input.parentAuditRunId);
-
-    if (updateError) {
-      console.warn(
-        '[supabase-run-store] synthesis thesis update failed:',
-        updateError.message,
-      );
-    }
-  } catch (err) {
-    console.warn(
-      '[supabase-run-store] synthesis thesis merge errored:',
-      err instanceof Error ? err.message : String(err),
-    );
   }
 }
 
@@ -1001,14 +897,12 @@ export function createSupabaseRunStore(
         timeoutMs: reviewTimeoutMs,
       });
 
-      // ARI: capstones are dispatched best-effort even when upstream evidence
-      // is thin (evidenceCoverage.ready === false). Badge those capstones
-      // needs_review rather than dropping them. Core sections never carry
+      // ARI: paid-media is dispatched best-effort even when upstream evidence
+      // is thin (evidenceCoverage.ready === false). Badge paid-media
+      // needs_review rather than dropping it. Core sections never carry
       // evidenceCoverage, so they are unaffected.
       const isCapstoneSection =
-        artifactToCommit.sectionId === CROSS_SECTION_REASONING_SECTION_ID ||
-        artifactToCommit.sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
-        artifactToCommit.sectionId === POSITIONING_SYNTHESIS_SECTION_ID;
+        artifactToCommit.sectionId === PAID_MEDIA_PLAN_SECTION_ID;
       const degradeToNeedsReview =
         isCapstoneSection && input.evidenceCoverage?.ready === false;
 
@@ -1064,15 +958,6 @@ export function createSupabaseRunStore(
         throw new SupabaseRunStoreError(
           `research_section_runs telemetry update failed for ${artifactToCommit.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
         );
-      }
-
-      if (artifactToCommit.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
-        await mergeSynthesizedThesisBestEffort({
-          supabase: options.supabase,
-          parentAuditRunId: options.parentAuditRunId,
-          artifact: artifactToCommit,
-          updatedAt: completedAt,
-        });
       }
 
       const profilePersistClaimed = await claimProfilePersist({

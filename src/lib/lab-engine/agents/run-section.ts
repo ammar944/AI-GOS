@@ -11,10 +11,6 @@ import {
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
 import {
-  crossSectionReasoningBodySchema,
-  type CrossSectionReasoningArtifact,
-} from "../artifacts/schemas/cross-section-reasoning";
-import {
   isLikelyNamedBuyerIdentity,
   type BuyerICPBody,
 } from "../artifacts/schemas/buyer-icp";
@@ -99,9 +95,6 @@ import {
   type StructuredStreamer,
 } from "./section-agent";
 import { createLabSectionTelemetry } from "./telemetry";
-import {
-  applyCrossSectionStrategicCritic,
-} from "./strategic-critic";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
 import { SectionToolBudget, ToolBudget } from "./budget";
@@ -1164,119 +1157,6 @@ function verifySectionBody({
   });
 }
 
-async function applyStrategicCriticIfNeeded({
-  artifact,
-  committedAttempt,
-  deps,
-  evidenceSteps,
-  input,
-  researchInput,
-}: {
-  artifact: ArtifactEnvelope;
-  committedAttempt: AttemptResult;
-  deps: RunSectionDeps;
-  evidenceSteps: readonly AgentStep[];
-  input: RunSectionInput;
-  researchInput: ResearchInput;
-}): Promise<{ artifact: ArtifactEnvelope; committedAttempt: AttemptResult }> {
-  if (input.sectionId !== "positioningCrossSectionReasoning") {
-    return { artifact, committedAttempt };
-  }
-
-  await appendEvent(
-    deps,
-    input.runId,
-    createEvent({
-      deps,
-      runId: input.runId,
-      sectionId: input.sectionId,
-      type: "strategic-critic-started",
-      message: "Strategic critic started",
-      metadata: { target: "cross_section_reasoning" },
-    }),
-  );
-
-  // The strategic critic is an UPGRADE pass, not a commit gate. Its failure must
-  // never discard an already-validated body. In particular, when the 270s job
-  // timeout fires mid-critic, applyCrossSectionStrategicCritic re-throws the
-  // caller-abort (throwIfCallerAborted); without this catch that error fails the
-  // whole section, drops a valid body, and the server capstone chain
-  // (onJobComplete -> synthesis + paid-media) never dispatches.
-  try {
-    const critique = await applyCrossSectionStrategicCritic({
-      artifact: artifact as CrossSectionReasoningArtifact,
-      checkedAt: getNow(deps).toISOString(),
-      model: strategyModel,
-      modelId: getStrategyModelId(),
-      modelTransport: getStrategyModelTransport(),
-      signal: input.signal,
-    });
-    let nextArtifact = critique.artifact;
-    let nextAttempt = committedAttempt;
-
-    if (critique.outcome === "upgraded") {
-      const verification = verifySectionBody({
-        body: nextArtifact.body,
-        evidenceSteps,
-        researchInput,
-      });
-      nextArtifact = artifactEnvelopeSchema
-        .extend({ body: crossSectionReasoningBodySchema })
-        .parse({
-          ...nextArtifact,
-          verification,
-        });
-      nextAttempt = {
-        ...committedAttempt,
-        artifact: nextArtifact,
-        evidenceSupportShortfall: evaluateEvidenceSupport({ verification }),
-      };
-    }
-
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
-        deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "strategic-critic-finished",
-        message: "Strategic critic finished",
-        metadata: {
-          target: "cross_section_reasoning",
-          outcome: critique.outcome,
-          summary: shortenForEvent(critique.summary, 240),
-        },
-      }),
-    );
-
-    return { artifact: nextArtifact, committedAttempt: nextAttempt };
-  } catch (error) {
-    // Commit the pre-critic validated body (no upgrade) so the section completes.
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
-        deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "strategic-critic-finished",
-        message: "Strategic critic skipped (non-fatal failure)",
-        metadata: {
-          target: "cross_section_reasoning",
-          outcome: "fallback",
-          summary: shortenForEvent(
-            error instanceof Error ? error.message : String(error),
-            240,
-          ),
-        },
-      }),
-    );
-
-    return { artifact, committedAttempt };
-  }
-}
-
 function buildToolEvents({
   deps,
   runId,
@@ -1859,29 +1739,6 @@ const paidMediaPlanGenerationSchema = z
     verdict: z.unknown(),
   })
   .passthrough();
-// Synthesis mirrors the paid-media structured path: a permissive generation
-// schema lets the model emit freely, then the normalizer + strict parse clean
-// it up. Sending the strict nested schema to the model over-constrains it.
-const positioningSynthesisGenerationSchema = z
-  .object({
-    body: z.unknown(),
-    confidence: z.unknown(),
-    sectionTitle: z.unknown(),
-    sources: z.unknown(),
-    statusSummary: z.unknown(),
-    verdict: z.unknown(),
-  })
-  .passthrough();
-const crossSectionReasoningGenerationSchema = z
-  .object({
-    body: z.unknown(),
-    confidence: z.unknown(),
-    sectionTitle: z.unknown(),
-    sources: z.unknown(),
-    statusSummary: z.unknown(),
-    verdict: z.unknown(),
-  })
-  .passthrough();
 
 function getPositiveIntegerEnvValue(key: string): number | undefined {
   const rawValue = process.env[key]?.trim();
@@ -1917,14 +1774,6 @@ function getStructuredOutputMaxTokens(
 function getStructuredGenerationSchema(
   definition: RuntimeSectionDefinition,
 ): z.ZodType<unknown> {
-  if (definition.id === "positioningCrossSectionReasoning") {
-    return crossSectionReasoningGenerationSchema;
-  }
-
-  if (definition.id === "positioningSynthesis") {
-    return positioningSynthesisGenerationSchema;
-  }
-
   if (definition.id === "positioningPaidMediaPlan") {
     return paidMediaPlanGenerationSchema;
   }
@@ -1935,11 +1784,7 @@ function getStructuredGenerationSchema(
 function getGenerationModel(
   definition: RuntimeSectionDefinition,
 ): SectionLanguageModel {
-  return [
-    "positioningCrossSectionReasoning",
-    "positioningSynthesis",
-    "positioningPaidMediaPlan",
-  ].includes(definition.id)
+  return ["positioningPaidMediaPlan"].includes(definition.id)
     ? strategyModel
     : sectionRunnerModel;
 }
@@ -2615,11 +2460,10 @@ function normalizeStructuredRecordArray({
   });
 }
 
-// Keep in sync with `sourceSectionValues` in the capstone schemas
-// (paid-media-plan.ts / positioning-synthesis.ts). Snapping an out-of-enum
+// Keep in sync with `sourceSectionValues` in the paid-media schema. Snapping an out-of-enum
 // sourceSection here (rather than letting it hit the hard z.enum) prevents a
 // validation-failure -> repair -> 285s job-timeout when a newly committed
-// input (e.g. the cross-section-reasoning thinker) gets cited as a source.
+// input gets cited as a source.
 const capstoneSourceSectionAllowList = new Set<string>([
   "positioningMarketCategory",
   "positioningBuyerICP",
@@ -2627,7 +2471,6 @@ const capstoneSourceSectionAllowList = new Set<string>([
   "positioningVoiceOfCustomer",
   "positioningDemandIntent",
   "positioningOfferDiagnostic",
-  "positioningCrossSectionReasoning",
   "gtmBrief",
 ]);
 
@@ -3925,181 +3768,6 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
   };
 }
 
-function withNormalizedPositioningSynthesisOutput(rawOutput: unknown): unknown {
-  const outputRecord = getRecord(rawOutput);
-
-  if (outputRecord === null) {
-    return rawOutput;
-  }
-
-  const bodyRecord = getRecord(outputRecord.body);
-
-  if (bodyRecord === null) {
-    return rawOutput;
-  }
-
-  const strategicThesisRecord = getRecord(bodyRecord.strategicThesis);
-  const contradictionReconciliationRecord = getRecord(
-    bodyRecord.contradictionReconciliation,
-  );
-  const situationThesisRecord = getRecord(bodyRecord.situationThesis);
-  const positioningOptionsRecord = getRecord(bodyRecord.positioningOptions);
-  const recommendedMoveRecord = getRecord(bodyRecord.recommendedMove);
-  const messagingDirectionsRecord = getRecord(bodyRecord.messagingDirections);
-  const orderedMovesRecord = getRecord(bodyRecord.orderedMoves);
-
-  return {
-    ...outputRecord,
-    sources: normalizeStructuredRecordArray({
-      allowedKeys: ["title", "url", "publisher"],
-      stringKeys: ["title", "url", "publisher"],
-      value: outputRecord.sources,
-    }),
-    body: {
-      ...bodyRecord,
-      ...(strategicThesisRecord === null
-        ? {}
-        : {
-            strategicThesis: {
-              ...normalizeStructuredRecord({
-                allowedKeys: [
-                  "thesis",
-                  "segment",
-                  "awareness",
-                  "force",
-                  "defensibleDifferentiator",
-                  "sourceSections",
-                ],
-                record: strategicThesisRecord,
-                stringKeys: [
-                  "thesis",
-                  "segment",
-                  "awareness",
-                  "force",
-                  "defensibleDifferentiator",
-                ],
-              }),
-              sourceSections: normalizeSourceSectionRefs(
-                strategicThesisRecord.sourceSections,
-              ),
-            },
-          }),
-      ...(contradictionReconciliationRecord === null
-        ? {}
-        : {
-            contradictionReconciliation: {
-              ...normalizeStructuredRecord({
-                allowedKeys: [
-                  "contradiction",
-                  "resolution",
-                  "tradeOffAccepted",
-                  "sourceSections",
-                ],
-                record: contradictionReconciliationRecord,
-                stringKeys: [
-                  "contradiction",
-                  "resolution",
-                  "tradeOffAccepted",
-                ],
-              }),
-              sourceSections: normalizeSourceSectionRefs(
-                contradictionReconciliationRecord.sourceSections,
-              ),
-            },
-          }),
-      ...(situationThesisRecord === null
-        ? {}
-        : {
-            situationThesis: normalizeStructuredRecord({
-              allowedKeys: ["prose"],
-              record: situationThesisRecord,
-              stringKeys: ["prose"],
-            }),
-          }),
-      ...(positioningOptionsRecord === null
-        ? {}
-        : {
-            positioningOptions: {
-              ...normalizeStructuredRecord({
-                allowedKeys: ["prose", "options"],
-                record: positioningOptionsRecord,
-                stringKeys: ["prose"],
-              }),
-              // Synthesis is the honest-provenance capstone: unlike the
-              // paid-media grounded normalizer, do NOT launder a 'gtmBrief'
-              // sourceSection into a positioning section. Keep what the model
-              // claimed so the validator's non-gtmBrief floor can actually bite
-              // (a missing sourceSection still fails the strict parse -> repair).
-              options: normalizeStructuredRecordArray({
-                allowedKeys: [
-                  "optionName",
-                  "angle",
-                  "rationale",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                stringKeys: [
-                  "optionName",
-                  "angle",
-                  "rationale",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: positioningOptionsRecord.options,
-              }),
-            },
-          }),
-      ...(recommendedMoveRecord === null
-        ? {}
-        : {
-            recommendedMove: normalizeStructuredRecord({
-              allowedKeys: ["optionAngle", "rationale", "nextSteps"],
-              record: recommendedMoveRecord,
-              stringKeys: ["optionAngle", "rationale", "nextSteps"],
-            }),
-          }),
-      ...(messagingDirectionsRecord === null
-        ? {}
-        : {
-            messagingDirections: {
-              ...normalizeStructuredRecord({
-                allowedKeys: ["prose", "directions"],
-                record: messagingDirectionsRecord,
-                stringKeys: ["prose"],
-              }),
-              directions: normalizeStructuredRecordArray({
-                allowedKeys: [
-                  "direction",
-                  "copyPoint",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                stringKeys: [
-                  "direction",
-                  "copyPoint",
-                  "sourceSection",
-                  "sourceUrl",
-                ],
-                value: messagingDirectionsRecord.directions,
-              }),
-            },
-          }),
-      ...(orderedMovesRecord === null
-        ? {}
-        : {
-            orderedMoves: {
-              ...normalizeStructuredRecord({
-                allowedKeys: ["prose", "moves"],
-                record: orderedMovesRecord,
-                stringKeys: ["prose"],
-              }),
-              moves: normalizeOrderedMoves(orderedMovesRecord.moves),
-            },
-          }),
-    },
-  };
-}
-
 function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
   rawOutput,
@@ -4128,10 +3796,6 @@ function withNormalizedSectionOutput({
 
   if (sectionId === "positioningPaidMediaPlan") {
     return withNormalizedPaidMediaPlanOutput(outputWithAdEvidence);
-  }
-
-  if (sectionId === "positioningSynthesis") {
-    return withNormalizedPositioningSynthesisOutput(outputWithAdEvidence);
   }
 
   return outputWithAdEvidence;
@@ -8972,17 +8636,6 @@ export async function runSection(
       });
     }
   }
-
-  const strategicCriticResult = await applyStrategicCriticIfNeeded({
-    artifact,
-    committedAttempt,
-    deps,
-    evidenceSteps,
-    input,
-    researchInput,
-  });
-  artifact = strategicCriticResult.artifact;
-  committedAttempt = strategicCriticResult.committedAttempt;
 
   // Evidence gate. The structured path has no grounding repair loop, so this is
   // fail-and-degrade: when the threshold is exceeded the section fails instead

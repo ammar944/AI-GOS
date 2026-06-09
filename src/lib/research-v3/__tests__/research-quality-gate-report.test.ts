@@ -8,7 +8,6 @@ import type {
   LiveQualityGateSectionEvidence,
   LiveQualityGateSectionRow,
 } from '@/lib/research-v3/live-quality-gate';
-import type { StrategicRubricScore } from '@/lib/lab-engine/artifacts/strategic-rubric';
 import {
   buildReportResult,
   renderReport,
@@ -17,24 +16,6 @@ import { parseBackfillOptions } from '../../../../scripts/backfill-research-qual
 
 const runId = '00000000-0000-4000-8000-0000000000bb';
 const artifactId = '11111111-1111-4111-8111-1111111111bb';
-
-const belowBarRubric: StrategicRubricScore = {
-  activeDisqualifiers: [],
-  gate: 'below_9_of_10_gate',
-  knewThatPassShare: null,
-  maxAllowedScore: 10,
-  passedCount: 6,
-  propertyResults: [
-    {
-      id: 'contrarian_thesis',
-      label: 'Contrarian thesis',
-      description: 'Names a thesis that can be argued against.',
-      evidencePointers: ['positioningSynthesis.body.strategicThesis'],
-      passed: true,
-    },
-  ],
-  score: 8,
-};
 
 function baseInput(
   sections: readonly LiveQualityGateSectionRow[] = [],
@@ -58,8 +39,8 @@ function baseResult(
 ): LiveQualityGateResult {
   return {
     runId,
-    verdict: 'below_9_of_10_gate',
-    researchQualityStatus: 'research_grade_with_gaps',
+    verdict: 'nine_of_ten_research_achieved',
+    researchQualityStatus: 'verified',
     gates: {
       pipeline: {
         status: 'recovered',
@@ -81,13 +62,9 @@ function baseResult(
         status: 'verified',
         reasons: [],
       },
-      strategyQuality: {
-        status: 'below_bar',
-        reasons: ['strategic rubric score=8/10'],
-      },
     },
     blockedBy: [],
-    researchQualityReasons: ['strategic rubric score=8/10'],
+    researchQualityReasons: [],
     failures: [],
     warnings: [],
     completion: [],
@@ -112,17 +89,16 @@ function baseResult(
       passesSourceUrlFloor: true,
       passesSubjectDomainExclusion: true,
     },
-    rubricScore: belowBarRubric,
     profileTrust: {
       present: true,
       matched: true,
-      checkedZones: ['positioningSynthesis'] satisfies ReaderSectionId[],
+      checkedZones: ['positioningMarketCategory'] satisfies ReaderSectionId[],
       failures: [],
     },
     shareTrust: {
       present: true,
       matched: true,
-      checkedZones: ['positioningSynthesis'] satisfies ReaderSectionId[],
+      checkedZones: ['positioningMarketCategory'] satisfies ReaderSectionId[],
       failures: [],
     },
     ...overrides,
@@ -155,7 +131,7 @@ function sectionEvidence(
 }
 
 describe('research quality gate report', (): void => {
-  it('renders the additive gate sections and keeps rubric score out of research quality', (): void => {
+  it('renders the additive gate sections and deterministic quality summary', (): void => {
     const report = buildReportResult({
       gateInput: baseInput(),
       result: baseResult(),
@@ -163,13 +139,12 @@ describe('research quality gate report', (): void => {
     const markdown = renderReport(report);
 
     expect(report.gates.researchQuality.status).toBe('verified');
-    expect(report.gates.strategyQuality.status).toBe('below_bar');
     expect(markdown).toContain('## Final verdict');
     expect(markdown).toContain('## Gate readout');
     expect(markdown).toContain('## Research quality reasons');
     expect(markdown).toContain('## Actionability');
     expect(markdown).toContain('## Projection trust');
-    expect(markdown).toContain('## Strategy quality');
+    expect(markdown).not.toContain('## Strategy quality');
     expect(markdown).toContain('Blocked by: none');
     expect(markdown).toContain('## Section rules table');
     expect(markdown).toContain('## Voice of Customer diagnostics');

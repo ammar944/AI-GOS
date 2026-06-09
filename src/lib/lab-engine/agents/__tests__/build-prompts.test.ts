@@ -47,20 +47,6 @@ const demandIntentDefinition = {
   sectionOutputSchemaName: "DemandIntentSectionOutput",
 } satisfies PromptSectionDefinition;
 
-const synthesisDefinition = {
-  title: "Positioning Synthesis",
-  mission: "Synthesize the committed positioning artifacts.",
-  outputEmphasis: ["recommended move"],
-  sectionOutputSchemaName: "PositioningSynthesisSectionOutput",
-} satisfies PromptSectionDefinition;
-
-const crossSectionReasoningDefinition = {
-  title: "Cross-Section Reasoning",
-  mission: "Find non-obvious strategic threads across committed artifacts.",
-  outputEmphasis: ["cross-section threads"],
-  sectionOutputSchemaName: "CrossSectionReasoningSectionOutput",
-} satisfies PromptSectionDefinition;
-
 function buildScopedResearchInput(): ResearchInput {
   const marketExcerpt = {
     id: "excerpt_market",
@@ -98,8 +84,6 @@ function buildScopedResearchInput(): ResearchInput {
         positioningVoiceOfCustomer: [],
         positioningDemandIntent: [],
         positioningOfferDiagnostic: [],
-        positioningCrossSectionReasoning: [],
-        positioningSynthesis: [],
         positioningPaidMediaPlan: [],
       },
     },
@@ -174,7 +158,7 @@ describe("buildAnswerToolInstructions", (): void => {
       { externalToolNames: ["firecrawl", "web_search"] },
     );
     const noToolPrompt = buildAnswerToolInstructions(
-      synthesisDefinition,
+      paidMediaDefinition,
       saaslaunchResearchInput,
       undefined,
       { externalToolNames: [] },
@@ -476,7 +460,7 @@ describe("buildStructuredPrompt", (): void => {
       skillMd: "Use section-specific market guidance.",
     });
     const noToolPrompt = buildStructuredPrompt({
-      definition: synthesisDefinition,
+      definition: paidMediaDefinition,
       evidenceTranscript: "source evidence",
       externalToolNames: [],
       researchInput: saaslaunchResearchInput,
@@ -496,45 +480,19 @@ describe("buildStructuredPrompt", (): void => {
     );
   });
 
-  it("adds Cross-Section Reasoning thinker guidance", (): void => {
-    const prompt = buildStructuredPrompt({
-      definition: crossSectionReasoningDefinition,
-      evidenceTranscript: "Committed artifacts are available in ResearchInput.",
-      researchInput: saaslaunchResearchInput,
-      skillMd: "# Cross-Section Reasoning",
-    });
-
-    expect(prompt).toContain("CrossSectionReasoningSectionOutput");
-    expect(prompt).toContain("sourceSections[]");
-    expect(prompt).toContain("never use `gtmBrief`");
-    expect(prompt).toContain("cover at least four of the six");
-    expect(prompt).toContain("causal `because/therefore` shape");
-  });
-
-  it("adds T9 strategist guidance for synthesis and paid media capstones", (): void => {
-    const synthesisPrompt = buildStructuredPrompt({
-      definition: synthesisDefinition,
-      evidenceTranscript: "Thinker artifact is available in ResearchInput.",
-      researchInput: saaslaunchResearchInput,
-      skillMd: "# Positioning Synthesis",
-    });
+  it("adds T9 strategist guidance for paid media", (): void => {
     const paidMediaPrompt = buildStructuredPrompt({
       definition: paidMediaDefinition,
-      evidenceTranscript: "Thinker artifact is available in ResearchInput.",
+      evidenceTranscript: "Committed artifacts are available in ResearchInput.",
       researchInput: saaslaunchResearchInput,
       skillMd: "# Paid Media Plan",
     });
 
-    for (const prompt of [synthesisPrompt, paidMediaPrompt]) {
-      expect(prompt).toContain("body.strategicThesis");
-      expect(prompt).toContain("body.contradictionReconciliation");
-      expect(prompt).toContain("body.orderedMoves");
-      expect(prompt).toContain("thesisTrace");
-      expect(prompt).toContain("provesWrongIf");
-    }
-    expect(synthesisPrompt).toContain(
-      "this plan bets that [segment] at [awareness]",
-    );
+    expect(paidMediaPrompt).toContain("body.strategicThesis");
+    expect(paidMediaPrompt).toContain("body.contradictionReconciliation");
+    expect(paidMediaPrompt).toContain("body.orderedMoves");
+    expect(paidMediaPrompt).toContain("thesisTrace");
+    expect(paidMediaPrompt).toContain("provesWrongIf");
     expect(paidMediaPrompt).toContain(
       "Ordered move ranks are positive integers starting at 1",
     );

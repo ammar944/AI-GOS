@@ -3,13 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { persistenceGateEvalCases } from '@/lib/lab-engine/fixtures/persistence-gate-evals';
-import { positioningSynthesisFixtureArtifact } from '@/lib/lab-engine/fixtures/positioning-synthesis-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
-import {
-  POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
-} from '@/lib/ai/prompts/positioning-skills';
+import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 const profilePersistenceMocks = vi.hoisted(() => ({
@@ -80,7 +76,7 @@ interface FakeSupabaseOptions {
   profileClaimResults?: readonly boolean[];
   profileId?: string | null;
   parentStatus?: string | null;
-  synthesisSectionRow?: {
+  sectionTierRow?: {
     verification_tier: unknown;
     verification_flag: unknown;
   } | null;
@@ -172,7 +168,7 @@ function createSelectQuery(table: string, options: FakeSupabaseOptions) {
     });
   } else if (table === 'research_artifact_sections') {
     query.maybeSingle.mockResolvedValue({
-      data: options.synthesisSectionRow ?? null,
+      data: options.sectionTierRow ?? null,
       error: null,
     });
   } else if (table === 'business_profiles') {
@@ -593,86 +589,6 @@ describe('createSupabaseRunStore', (): void => {
     );
   });
 
-  it('patches synthesis profile state with the committed section row tier and flag', async (): Promise<void> => {
-    const needsReviewFlag = {
-      tier: 'needs_review',
-      verifiedCount: 7,
-      unsupportedCount: 2,
-      totalClaims: 9,
-      confidence: 7 / 9,
-      needsReviewThreshold: 0.75,
-      insufficientThreshold: 0.5,
-      evidenceGap: false,
-    };
-    const fakeSupabase = createFakeSupabase({
-      profileId: 'profile-123',
-      synthesisSectionRow: {
-        verification_tier: 'needs_review',
-        verification_flag: needsReviewFlag,
-      },
-      existingBusinessProfileInsights: {
-        positioningMarketCategory: { verificationTier: 'verified' },
-      },
-    });
-    const store = createSupabaseRunStore({
-      supabase: fakeSupabase.supabase,
-      userId,
-      parentAuditRunId,
-      sectionRunIdByZone: {
-        ...sectionRunIdByZone,
-        [POSITIONING_SYNTHESIS_SECTION_ID]:
-          '22222222-2222-4222-8222-000000000099',
-      },
-      researchInput: saaslaunchResearchInput,
-      now: () => new Date('2026-05-25T12:00:00.000Z'),
-    });
-
-    await store.saveArtifact(
-      saaslaunchResearchInput.runId,
-      positioningSynthesisFixtureArtifact,
-    );
-
-    const synthesisTierQuery = fakeSupabase.selectQueries.find(
-      (entry) =>
-        entry.table === 'research_artifact_sections' &&
-        entry.query.select.mock.calls.some(
-          (call) => call[0] === 'verification_tier, verification_flag',
-        ),
-    );
-    expect(synthesisTierQuery?.query.select).toHaveBeenCalledWith(
-      'verification_tier, verification_flag',
-    );
-    expect(synthesisTierQuery?.query.eq).toHaveBeenCalledWith(
-      'artifact_id',
-      parentAuditRunId,
-    );
-    expect(synthesisTierQuery?.query.eq).toHaveBeenCalledWith(
-      'zone',
-      POSITIONING_SYNTHESIS_SECTION_ID,
-    );
-
-    const profileUpdate = fakeSupabase.updates.find(
-      (update) =>
-        update.table === 'business_profiles' &&
-        Object.prototype.hasOwnProperty.call(update.patch, 'ai_insights'),
-    );
-    expect(profileUpdate?.patch.ai_insights).toEqual(
-      expect.objectContaining({
-        positioningMarketCategory: { verificationTier: 'verified' },
-        positioningSynthesis: expect.objectContaining({
-          verificationTier: 'needs_review',
-          verificationFlag: needsReviewFlag,
-        }),
-      }),
-    );
-    expect(profileUpdate?.patch.positioning_strategy).toEqual(
-      expect.objectContaining({
-        verificationTier: 'needs_review',
-        verificationFlag: needsReviewFlag,
-      }),
-    );
-  });
-
   it('commits the original artifact when the agentic review hook fails', async (): Promise<void> => {
     reviewMocks.reviewAndUpgradeSection.mockRejectedValueOnce(
       new Error('review transport failed'),
@@ -825,7 +741,7 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase({
       profileClaimResults: [false],
       profileId: 'profile-123',
-      synthesisSectionRow: {
+      sectionTierRow: {
         verification_tier: 'needs_review',
         verification_flag: needsReviewFlag,
       },

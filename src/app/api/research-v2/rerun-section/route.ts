@@ -12,10 +12,8 @@ import { after, NextResponse } from 'next/server';
 
 import {
   ALL_POSITIONING_SECTION_IDS,
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import type {
   AllPositioningSectionId,
@@ -71,20 +69,7 @@ function isRerunnableZone(value: string): boolean {
 function requiresCommittedPositioningArtifacts(
   sectionId: AllPositioningSectionId,
 ): boolean {
-  return (
-    sectionId === CROSS_SECTION_REASONING_SECTION_ID ||
-    sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
-    sectionId === POSITIONING_SYNTHESIS_SECTION_ID
-  );
-}
-
-function shouldIncludeCrossSectionReasoningArtifact(
-  sectionId: AllPositioningSectionId,
-): boolean {
-  // W3-A pure-lean: paid-media no longer reads a thinker artifact. A DIRECT
-  // synthesis rerun still reads the thinker (the synthesis files still exist),
-  // so synthesis keeps requiring it here.
-  return sectionId === POSITIONING_SYNTHESIS_SECTION_ID;
+  return sectionId === PAID_MEDIA_PLAN_SECTION_ID;
 }
 
 function buildLabSectionProviderPreflightResponse({
@@ -155,12 +140,10 @@ async function abortIfRunning(opts: {
 
 async function buildCommittedArtifactsResearchInput({
   baseResearchInput,
-  includeCrossSectionReasoningArtifact,
   parentAuditRunId,
   supabase,
 }: {
   baseResearchInput: ResearchInput;
-  includeCrossSectionReasoningArtifact: boolean;
   parentAuditRunId: string;
   supabase: ReturnType<typeof createAdminClient>;
 }): Promise<
@@ -175,12 +158,7 @@ async function buildCommittedArtifactsResearchInput({
     .select('zone, data, verification_tier, verification_flag')
     .eq('artifact_id', parentAuditRunId)
     .eq('status', 'complete')
-    .in('zone', [
-      ...POSITIONING_SECTION_IDS,
-      ...(includeCrossSectionReasoningArtifact
-        ? [CROSS_SECTION_REASONING_SECTION_ID]
-        : []),
-    ]);
+    .in('zone', POSITIONING_SECTION_IDS);
 
   if (error) {
     return {
@@ -197,10 +175,6 @@ async function buildCommittedArtifactsResearchInput({
 
   const rawRows = (data ?? []) as ResearchEvidenceReadinessRow[];
   const rows = rawRows.filter(isCommittedPositioningArtifactRow);
-  const crossSectionReasoningArtifact = includeCrossSectionReasoningArtifact
-    ? rawRows.find((row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID)
-        ?.data
-    : undefined;
   const committedPositioningArtifacts = Object.fromEntries(
     rows.map((row) => [row.zone, row.data]),
   ) as Partial<Record<PositioningSectionId, unknown>>;
@@ -215,22 +189,6 @@ async function buildCommittedArtifactsResearchInput({
         {
           error: 'positioning_sections_not_ready',
           missing_sections: missingSections,
-        },
-        { status: 409 },
-      ),
-    };
-  }
-
-  if (
-    includeCrossSectionReasoningArtifact &&
-    crossSectionReasoningArtifact === undefined
-  ) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        {
-          error: 'cross_section_reasoning_not_ready',
-          missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
         },
         { status: 409 },
       ),
@@ -252,9 +210,6 @@ async function buildCommittedArtifactsResearchInput({
         blockedSections: readiness.blockedSections,
         reasons: readiness.reasons,
       },
-      ...(crossSectionReasoningArtifact === undefined
-        ? {}
-        : { crossSectionReasoningArtifact }),
     }),
   };
 }
@@ -426,12 +381,10 @@ export async function POST(req: Request): Promise<NextResponse> {
         );
       }
       committedResearchInput = await buildCommittedArtifactsResearchInput({
-          baseResearchInput,
-          includeCrossSectionReasoningArtifact:
-            shouldIncludeCrossSectionReasoningArtifact(positioningZone),
-          parentAuditRunId,
-          supabase,
-        });
+        baseResearchInput,
+        parentAuditRunId,
+        supabase,
+      });
     } else {
       committedResearchInput = { ok: true, researchInput: baseResearchInput };
     }

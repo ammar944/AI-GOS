@@ -5,10 +5,8 @@ import { z, ZodError } from 'zod';
 import { jsonError, requireApiUser } from '@/lib/auth/app-access';
 import {
   ALL_POSITIONING_SECTION_IDS,
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
   isPositioningSectionId,
   type AllPositioningSectionId,
   type PositioningSectionId,
@@ -61,8 +59,7 @@ interface ParentRollupStatusRow {
 // artifacts directly off the 6/6 rollup (and needs the parent audit run id to
 // load them). The thinker + synthesis capstones no longer auto-dispatch through
 // this route, so paid-media is the only section here that requires committed
-// artifacts. (Direct thinker/synthesis reruns are handled by rerun-section, which
-// keeps its own predicate.)
+// artifacts.
 function requiresCommittedPositioningArtifacts(
   sectionId: AllPositioningSectionId,
 ): boolean {
@@ -72,14 +69,8 @@ function requiresCommittedPositioningArtifacts(
 function getDispatchZones(
   sectionId: AllPositioningSectionId,
 ): readonly AllPositioningSectionId[] {
-  if (sectionId === CROSS_SECTION_REASONING_SECTION_ID) {
-    return [CROSS_SECTION_REASONING_SECTION_ID];
-  }
   if (sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
     return [PAID_MEDIA_PLAN_SECTION_ID];
-  }
-  if (sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
-    return [POSITIONING_SYNTHESIS_SECTION_ID];
   }
   return POSITIONING_SECTION_IDS;
 }
@@ -124,12 +115,10 @@ function isCommittedPositioningArtifactRow(
 
 async function buildCommittedArtifactsResearchInput({
   baseResearchInput,
-  includeCrossSectionReasoningArtifact,
   parentAuditRunId,
   supabase,
 }: {
   baseResearchInput: ResearchInput;
-  includeCrossSectionReasoningArtifact: boolean;
   parentAuditRunId: string;
   supabase: ReturnType<typeof createAdminClient>;
 }): Promise<
@@ -144,12 +133,7 @@ async function buildCommittedArtifactsResearchInput({
     .select('zone, data, verification_tier, verification_flag')
     .eq('artifact_id', parentAuditRunId)
     .eq('status', 'complete')
-    .in('zone', [
-      ...POSITIONING_SECTION_IDS,
-      ...(includeCrossSectionReasoningArtifact
-        ? [CROSS_SECTION_REASONING_SECTION_ID]
-        : []),
-    ]);
+    .in('zone', POSITIONING_SECTION_IDS);
 
   if (error) {
     return {
@@ -166,11 +150,6 @@ async function buildCommittedArtifactsResearchInput({
 
   const artifactRows = (data ?? []) as ResearchEvidenceReadinessRow[];
   const rows = artifactRows.filter(isCommittedPositioningArtifactRow);
-  const crossSectionReasoningArtifact = includeCrossSectionReasoningArtifact
-    ? artifactRows.find(
-        (row) => row.zone === CROSS_SECTION_REASONING_SECTION_ID,
-      )?.data
-    : undefined;
   const committedPositioningArtifacts = Object.fromEntries(
     rows.map((row) => [row.zone, row.data]),
   ) as Partial<Record<PositioningSectionId, unknown>>;
@@ -191,10 +170,6 @@ async function buildCommittedArtifactsResearchInput({
     };
   }
 
-  // W3-A pure-lean: paid-media no longer waits for a thinker artifact. The
-  // includeCrossSectionReasoningArtifact path is false for paid-media, so there
-  // is no cross_section_reasoning_not_ready 409 gate here anymore.
-
   // ARI: readiness is computed as a COVERAGE annotation, never a gate. Paid-media
   // dispatches on 6/6 regardless of section quality and reasons over thin
   // sections, which are then badged needs_review at commit.
@@ -210,9 +185,6 @@ async function buildCommittedArtifactsResearchInput({
         blockedSections: readiness.blockedSections,
         reasons: readiness.reasons,
       },
-      ...(crossSectionReasoningArtifact === undefined
-        ? {}
-        : { crossSectionReasoningArtifact }),
     }),
   };
 }
@@ -359,7 +331,6 @@ async function dispatchPaidMediaIfSixComplete({
 
   const paidMediaResearchInput = await buildCommittedArtifactsResearchInput({
     baseResearchInput,
-    includeCrossSectionReasoningArtifact: false,
     parentAuditRunId,
     supabase,
   });
@@ -493,9 +464,6 @@ export async function POST(request: Request): Promise<Response> {
     const capstoneResearchInput = needsCommittedArtifacts
       ? await buildCommittedArtifactsResearchInput({
           baseResearchInput,
-          // W3-A pure-lean: paid-media is the only section that reaches here, and
-          // it no longer reads a thinker artifact.
-          includeCrossSectionReasoningArtifact: false,
           parentAuditRunId: requireParentAuditRunId(capstoneParent),
           supabase,
         })

@@ -4,14 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuditStateResponse } from '@/app/api/research-v2/audit-state/route';
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
-// W3-A note: CROSS_SECTION_REASONING_SECTION_ID + POSITIONING_SYNTHESIS_SECTION_ID
-// are imported only for negative assertions (these capstones must NEVER dispatch).
 import { useAuditState } from '../use-audit-state';
 
 const RUN_ID = '00000000-0000-4000-8000-0000000000aa';
@@ -121,13 +117,7 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
       );
     });
 
-    // The thinker + synthesis capstones must NEVER be dispatched by the client.
-    expect(dispatchedSectionIds(fetchMock)).not.toContain(
-      CROSS_SECTION_REASONING_SECTION_ID,
-    );
-    expect(dispatchedSectionIds(fetchMock)).not.toContain(
-      POSITIONING_SYNTHESIS_SECTION_ID,
-    );
+    expect(dispatchedSectionIds(fetchMock)).toEqual([PAID_MEDIA_PLAN_SECTION_ID]);
 
     unmount();
   });

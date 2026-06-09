@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
 import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
-import { crossSectionReasoningFixtureArtifact } from '@/lib/lab-engine/fixtures/cross-section-reasoning-artifact';
 import { demandIntentFixtureArtifact } from '@/lib/lab-engine/fixtures/demand-intent-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { offerDiagnosticFixtureArtifact } from '@/lib/lab-engine/fixtures/offer-diagnostic-artifact';
+import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
 import {
   pickPositioningTypedArtifact,
@@ -164,14 +164,24 @@ const labFixtureCases: readonly LabFixtureCase[] = [
     ],
   },
   {
-    zoneId: 'positioningCrossSectionReasoning',
-    artifact: crossSectionReasoningFixtureArtifact,
+    zoneId: 'positioningPaidMediaPlan',
+    artifact: paidMediaPlanFixtureArtifact,
     expectedBodyKeys: [
-      'clientBlindSpot',
-      'contrarianInversion',
-      'crossSectionThreads',
-      'namedTension',
-      'secondOrderRisk',
+      'anglesToTest',
+      'audienceTypes',
+      'campaignOverview',
+      'campaignPhases',
+      'channelSuggestions',
+      'competitorMarketingInsights',
+      'competitorReviewInsights',
+      'contradictionReconciliation',
+      'creativeFramework',
+      'creativeStrategy',
+      'funnelIdeation',
+      'kpis',
+      'orderedMoves',
+      'salesProcess',
+      'strategicThesis',
     ],
   },
 ];
@@ -249,39 +259,4 @@ describe('pickPositioningTypedArtifact', () => {
       expect(Object.hasOwn(picked, 'createdAt')).toBe(false);
     },
   );
-
-  it('preserves strategic critic metadata while flattening the lab body', (): void => {
-    const picked = pickPositioningTypedArtifact(
-      {
-        data: {
-          ...crossSectionReasoningFixtureArtifact,
-          strategicCritique: {
-            checkedAt: '2026-06-04T13:00:00.000Z',
-            items: [
-              {
-                action: 'deepened',
-                path: 'body.crossSectionThreads[0].claim',
-                rationale: 'The critic made the trade-off more specific.',
-                text: 'The upgraded strategic claim.',
-                verdict: 'passes',
-              },
-            ],
-            modelId: 'claude-opus-4-5',
-            summary: 'The critic deepened one thread.',
-            target: 'cross_section_reasoning',
-          },
-        },
-      },
-      'positioningCrossSectionReasoning',
-    );
-
-    if (!picked) {
-      throw new Error('Expected cross-section reasoning artifact to be picked');
-    }
-
-    expect(picked.strategicCritique?.summary).toBe(
-      'The critic deepened one thread.',
-    );
-    expect(Object.hasOwn(picked, 'body')).toBe(false);
-  });
 });

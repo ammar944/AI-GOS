@@ -149,25 +149,6 @@ export const SECTION_SUB_SECTIONS: Record<
       label: "Red flags in own numbers",
     },
   ],
-  positioningSynthesis: [
-    { key: "strategicThesis", label: "Strategic thesis" },
-    {
-      key: "contradictionReconciliation",
-      label: "Contradiction reconciliation",
-    },
-    { key: "situationThesis", label: "Situation thesis" },
-    { key: "positioningOptions", label: "Positioning options" },
-    { key: "recommendedMove", label: "Recommended move" },
-    { key: "messagingDirections", label: "Messaging directions" },
-    { key: "orderedMoves", label: "Ordered moves" },
-  ],
-  positioningCrossSectionReasoning: [
-    { key: "crossSectionThreads", label: "Cross-section threads" },
-    { key: "clientBlindSpot", label: "Client blind spot" },
-    { key: "namedTension", label: "Named tension" },
-    { key: "secondOrderRisk", label: "Second-order risk" },
-    { key: "contrarianInversion", label: "Contrarian inversion" },
-  ],
   positioningPaidMediaPlan: [
     { key: "strategicThesis", label: "Strategic thesis" },
     {

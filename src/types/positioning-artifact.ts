@@ -1,17 +1,14 @@
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import type { BuyerICPBody } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
 import type { CompetitorLandscapeBody } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
-import type { CrossSectionReasoningBody } from '@/lib/lab-engine/artifacts/schemas/cross-section-reasoning';
 import type { DemandIntentBody } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
 import type {
   SectionReviewResult,
-  StrategicCritique,
   VerificationReportEnvelope,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import type { MarketCategoryBody } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import type { OfferDiagnosticBody } from '@/lib/lab-engine/artifacts/schemas/offer-diagnostic';
 import type { PaidMediaPlanBody } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
-import type { PositioningSynthesisBody } from '@/lib/lab-engine/artifacts/schemas/positioning-synthesis';
 import type { VoiceOfCustomerBody } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
 
 export interface PositioningArtifactSource {
@@ -30,7 +27,6 @@ export interface PositioningTypedArtifact {
   sources: PositioningArtifactSource[];
   verification?: VerificationReportEnvelope;
   review?: SectionReviewResult;
-  strategicCritique?: StrategicCritique;
   [key: string]: unknown;
 }
 
@@ -44,10 +40,6 @@ export type DemandIntentArtifact = PositioningTypedArtifact & DemandIntentBody;
 export type OfferPerformanceArtifact = PositioningTypedArtifact &
   OfferDiagnosticBody;
 export type PaidMediaPlanArtifact = PositioningTypedArtifact & PaidMediaPlanBody;
-export type PositioningSynthesisArtifact = PositioningTypedArtifact &
-  PositioningSynthesisBody;
-export type CrossSectionReasoningArtifact = PositioningTypedArtifact &
-  CrossSectionReasoningBody;
 
 const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly string[]> = {
   positioningMarketCategory: ['marketCategoryArtifact'],
@@ -56,8 +48,6 @@ const TYPED_ARTIFACT_KEYS_BY_ZONE: Record<AllPositioningSectionId, readonly stri
   positioningVoiceOfCustomer: ['voiceOfCustomerArtifact', 'vocArtifact'],
   positioningDemandIntent: ['demandIntentArtifact'],
   positioningOfferDiagnostic: ['offerPerformanceArtifact', 'offerDiagnosticArtifact'],
-  positioningCrossSectionReasoning: ['crossSectionReasoningArtifact'],
-  positioningSynthesis: ['positioningSynthesisArtifact'],
   positioningPaidMediaPlan: ['paidMediaPlanArtifact'],
 };
 
@@ -180,9 +170,6 @@ function normalizePickedArtifact(
     sources: validSources,
     ...(found.verification === undefined ? {} : { verification: found.verification }),
     ...(found.review === undefined ? {} : { review: found.review }),
-    ...(found.strategicCritique === undefined
-      ? {}
-      : { strategicCritique: found.strategicCritique }),
   };
 }
 

@@ -1,8 +1,6 @@
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
 import {
   READER_SECTION_IDS,
@@ -16,13 +14,6 @@ import {
   isHttpUrl,
   isLikelyNamedBuyerIdentity,
 } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
-import type { CrossSectionReasoningArtifact } from '@/lib/lab-engine/artifacts/schemas/cross-section-reasoning';
-import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
-import type { PositioningSynthesisArtifact } from '@/lib/lab-engine/artifacts/schemas/positioning-synthesis';
-import {
-  scoreStrategicRubricArtifacts,
-  type StrategicRubricScore,
-} from '@/lib/lab-engine/artifacts/strategic-rubric';
 import {
   SectionArtifactValidationError,
   assertSectionArtifactPersistable,
@@ -66,12 +57,6 @@ export type LiveProjectionTrustStatus =
   | 'missing'
   | 'not_checked';
 
-export type LiveStrategyQualityStatus =
-  | 'nine_of_ten'
-  | 'below_bar'
-  | 'not_evaluated'
-  | 'failed';
-
 export interface LiveQualityGateReadout<TStatus extends string> {
   status: TStatus;
   reasons: string[];
@@ -83,7 +68,6 @@ export interface LiveQualityGateGates {
   actionability: LiveQualityGateReadout<LiveActionabilityStatus>;
   projectionSync: LiveQualityGateReadout<LiveProjectionTrustStatus>;
   projectionTrust: LiveQualityGateReadout<LiveProjectionTrustStatus>;
-  strategyQuality: LiveQualityGateReadout<LiveStrategyQualityStatus>;
 }
 
 export interface LiveQualityGateArtifactRow {
@@ -215,7 +199,6 @@ export interface LiveQualityGateResult {
   completion: LiveQualityGateCompletionRow[];
   sectionEvidence: LiveQualityGateSectionEvidence[];
   vocAudit: LiveQualityGateVocAudit;
-  rubricScore: StrategicRubricScore;
   profileTrust: LiveQualityGateTrustCheck;
   shareTrust: LiveQualityGateTrustCheck;
 }
@@ -227,10 +210,8 @@ interface ParsedSection {
   schemaErrors: string[];
 }
 
-const PROFILE_TRUST_SECTION_IDS = [
-  ...POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
-] as const satisfies readonly ReaderSectionId[];
+const PROFILE_TRUST_SECTION_IDS =
+  POSITIONING_SECTION_IDS satisfies readonly ReaderSectionId[];
 
 const CORE_SECTION_SET: ReadonlySet<string> = new Set(POSITIONING_SECTION_IDS);
 const RESEARCH_QUALITY_SEVERITY: Record<LiveResearchQualityStatus, number> = {
@@ -860,10 +841,6 @@ function classifySectionResearchQuality(input: {
     };
   }
 
-  if (input.zone === POSITIONING_SYNTHESIS_SECTION_ID) {
-    return generic;
-  }
-
   return generic;
 }
 
@@ -1018,29 +995,6 @@ function getArtifactByZone(
   return parsedSections.find((section) => section.zone === zone)?.artifact ?? null;
 }
 
-function buildRubricScore(
-  parsedSections: readonly ParsedSection[],
-): StrategicRubricScore {
-  const crossSectionReasoning = getArtifactByZone(
-    parsedSections,
-    CROSS_SECTION_REASONING_SECTION_ID,
-  ) as CrossSectionReasoningArtifact | null;
-  const positioningSynthesis = getArtifactByZone(
-    parsedSections,
-    POSITIONING_SYNTHESIS_SECTION_ID,
-  ) as PositioningSynthesisArtifact | null;
-  const positioningPaidMediaPlan = getArtifactByZone(
-    parsedSections,
-    PAID_MEDIA_PLAN_SECTION_ID,
-  ) as PaidMediaPlanArtifact | null;
-
-  return scoreStrategicRubricArtifacts({
-    crossSectionReasoning,
-    positioningSynthesis,
-    positioningPaidMediaPlan,
-  });
-}
-
 function readNestedTier(
   root: Record<string, unknown> | null | undefined,
   key: string,
@@ -1075,17 +1029,6 @@ function buildProfileTrust(input: {
       failures.push(
         `profile ai_insights.${zone}.verificationTier=${insightTier ?? 'missing'} does not match committed ${evidence.verificationTier}`,
       );
-    }
-
-    if (zone === POSITIONING_SYNTHESIS_SECTION_ID) {
-      const strategyTier = readVerificationTier(
-        input.profile.positioningStrategy?.verificationTier,
-      );
-      if (strategyTier !== evidence.verificationTier) {
-        failures.push(
-          `profile positioning_strategy.verificationTier=${strategyTier ?? 'missing'} does not match committed ${evidence.verificationTier}`,
-        );
-      }
     }
   }
 
@@ -1294,13 +1237,6 @@ function buildBlockedBy(input: {
     blockers.push('projectionTrust');
   }
 
-  if (
-    input.gates.strategyQuality.status === 'below_bar' ||
-    input.gates.strategyQuality.status === 'failed'
-  ) {
-    blockers.push('strategyQuality');
-  }
-
   return uniqueStrings(blockers);
 }
 
@@ -1363,21 +1299,12 @@ function buildResearchQualityGate(input: {
 
 function buildResearchQualitySummary(input: {
   researchQualityGate: LiveQualityGateReadout<LiveResearchQualityStatus>;
-  rubricScore: StrategicRubricScore;
 }): {
   researchQualityStatus: LiveResearchQualityStatus;
   researchQualityReasons: string[];
 } {
-  let status = input.researchQualityGate.status;
+  const status = input.researchQualityGate.status;
   const reasons = [...input.researchQualityGate.reasons];
-
-  if (input.rubricScore.score < 9) {
-    reasons.push(`strategic rubric score=${input.rubricScore.score}/10`);
-    status = strictestResearchQualityStatus(
-      status,
-      'research_grade_with_gaps',
-    );
-  }
 
   return {
     researchQualityStatus: status,
@@ -1453,63 +1380,6 @@ function buildProjectionTrustGate(input: {
   };
 }
 
-function buildStrategyQualityGate(input: {
-  rubricScore: StrategicRubricScore;
-  sectionEvidence: readonly LiveQualityGateSectionEvidence[];
-}): LiveQualityGateReadout<LiveStrategyQualityStatus> {
-  const strategicZones = [
-    CROSS_SECTION_REASONING_SECTION_ID,
-    POSITIONING_SYNTHESIS_SECTION_ID,
-    PAID_MEDIA_PLAN_SECTION_ID,
-  ] as const satisfies readonly ReaderSectionId[];
-  const strategicEvidence = strategicZones.map((zone) =>
-    input.sectionEvidence.find((evidence) => evidence.zone === zone),
-  );
-  const invalidArtifacts = strategicEvidence.filter(
-    (evidence): evidence is LiveQualityGateSectionEvidence =>
-      evidence?.artifactPresent === true && !evidence.schemaValid,
-  );
-  if (invalidArtifacts.length > 0) {
-    return {
-      status: 'failed',
-      reasons: invalidArtifacts.map(
-        (evidence) =>
-          `${evidence.zone} artifact failed schema/minimum validation: ${evidence.schemaErrors.join('; ')}`,
-      ),
-    };
-  }
-
-  const missingArtifacts = strategicEvidence.filter(
-    (evidence) => evidence?.artifactPresent !== true,
-  );
-  if (missingArtifacts.length > 0) {
-    return {
-      status: 'not_evaluated',
-      reasons: strategicZones
-        .filter(
-          (zone) =>
-            !input.sectionEvidence.find(
-              (evidence) =>
-                evidence.zone === zone && evidence.artifactPresent === true,
-            ),
-        )
-        .map((zone) => `${zone} artifact row is missing`),
-    };
-  }
-
-  if (input.rubricScore.score < 9) {
-    return {
-      status: 'below_bar',
-      reasons: [`strategic rubric score=${input.rubricScore.score}/10`],
-    };
-  }
-
-  return {
-    status: 'nine_of_ten',
-    reasons: [],
-  };
-}
-
 function buildLiveQualityGates(input: {
   pipelineRecovered: boolean;
   pipelineFailures: readonly string[];
@@ -1517,7 +1387,6 @@ function buildLiveQualityGates(input: {
   vocAudit: LiveQualityGateVocAudit;
   profileTrust: LiveQualityGateTrustCheck;
   shareTrust: LiveQualityGateTrustCheck;
-  rubricScore: StrategicRubricScore;
 }): LiveQualityGateGates {
   const projectionTrust = buildProjectionTrustGate({
     profileTrust: input.profileTrust,
@@ -1540,10 +1409,6 @@ function buildLiveQualityGates(input: {
     // Back-compat alias for older reports/JSON readers. Projection trust is the
     // single computed signal; projectionSync must never be evaluated separately.
     projectionSync: projectionTrust,
-    strategyQuality: buildStrategyQualityGate({
-      rubricScore: input.rubricScore,
-      sectionEvidence: input.sectionEvidence,
-    }),
   };
 }
 
@@ -1564,7 +1429,6 @@ export function evaluateLiveQualityGate(
     artifact: vocArtifact,
     subjectDomain: input.subjectDomain,
   });
-  const rubricScore = buildRubricScore(parsedSections);
   const profileTrust = buildProfileTrust({
     profile: input.profile,
     sectionEvidence,
@@ -1597,11 +1461,9 @@ export function evaluateLiveQualityGate(
     vocAudit,
     profileTrust,
     shareTrust,
-    rubricScore,
   });
   const researchQuality = buildResearchQualitySummary({
     researchQualityGate: gates.researchQuality,
-    rubricScore,
   });
   const blockedBy = buildBlockedBy({
     gates,
@@ -1611,9 +1473,7 @@ export function evaluateLiveQualityGate(
     ? 'pipeline_not_recovered'
     : qualityFailures.length > 0
       ? 'pipeline_recovered_quality_limited'
-      : rubricScore.score < 9
-        ? 'below_9_of_10_gate'
-        : 'nine_of_ten_research_achieved';
+      : 'nine_of_ten_research_achieved';
 
   return {
     runId: input.runId,
@@ -1626,7 +1486,6 @@ export function evaluateLiveQualityGate(
     completion,
     sectionEvidence,
     vocAudit,
-    rubricScore,
     profileTrust,
     shareTrust,
   };
@@ -1661,7 +1520,6 @@ export function renderLiveQualityGateReportMarkdown(
     formatGateLine('Research quality', result.gates.researchQuality),
     formatGateLine('Actionability', result.gates.actionability),
     formatGateLine('Projection trust', result.gates.projectionTrust),
-    formatGateLine('Strategy quality', result.gates.strategyQuality),
     '',
     '## Failures',
     result.failures.length === 0
