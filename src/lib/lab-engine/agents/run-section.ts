@@ -1978,7 +1978,7 @@ function buildToolSignalMetadata({
   return {};
 }
 
-function withNormalizedCompetitorAdEvidence({
+export function withNormalizedCompetitorAdEvidence({
   normalizedAdEvidenceGroups,
   rawOutput,
 }: {
@@ -1997,9 +1997,22 @@ function withNormalizedCompetitorAdEvidence({
 
   const bodyRecord = getRecord(outputRecord.body) ?? {};
   const adEvidenceRecord = getRecord(bodyRecord.adEvidence);
+  // The model's free-text prose is unverified narration. When the deterministic
+  // ad evidence has zero displayable creatives, prose that claims specific
+  // competitor ad counts cannot be grounded (e.g. a poisoned "idk" advertiser
+  // query that returned nothing) — fall back to the deterministic summary so the
+  // prose and the (empty) advertiserGroups wall agree. (run 73dfbc0d, 2026-06-09.)
+  const deterministicSummary = summarizeCompetitorAdEvidenceGroups(
+    normalizedAdEvidenceGroups,
+  );
+  const modelProse = getStringProperty(adEvidenceRecord, "prose");
+  const hasDisplayableEvidence = normalizedAdEvidenceGroups.some(
+    (group) => group.returnedCreativeCount > 0 || group.displayableTotal > 0,
+  );
   const prose =
-    getStringProperty(adEvidenceRecord, "prose") ??
-    summarizeCompetitorAdEvidenceGroups(normalizedAdEvidenceGroups);
+    hasDisplayableEvidence && modelProse !== null
+      ? modelProse
+      : deterministicSummary;
 
   return {
     ...outputRecord,

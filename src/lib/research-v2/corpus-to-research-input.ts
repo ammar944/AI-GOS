@@ -110,13 +110,76 @@ function asRecordArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
+// Non-answer tokens a user types to fast-track the GTM brief (e.g. "idk" for a
+// field the corpus left blank). Treated as a genuine gap (null) so the
+// corpus-derived value or an honest "not provided" wins, instead of the literal
+// string poisoning downstream consumers — notably the competitor ad-library
+// query (q=idk -> 0 ads) and the media budget ($[Budget] placeholders).
+// (run 73dfbc0d, 2026-06-09.)
+const NON_ANSWER_VALUES = new Set<string>([
+  "idk",
+  "idc",
+  "dunno",
+  "dk",
+  "i dont know",
+  "i don't know",
+  "dont know",
+  "don't know",
+  "no idea",
+  "no clue",
+  "not sure",
+  "unsure",
+  "unknown",
+  "not applicable",
+  "n/a",
+  "na",
+  "nil",
+  "none",
+  "null",
+  "nan",
+  "tbd",
+  "tba",
+  "to be determined",
+  "?",
+  "??",
+  "-",
+  "--",
+  "...",
+]);
+
+function isNonAnswer(trimmed: string): boolean {
+  const normalized = trimmed
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.?!]+$/g, "")
+    .trim();
+
+  if (normalized.length === 0) {
+    return true;
+  }
+
+  if (NON_ANSWER_VALUES.has(normalized)) {
+    return true;
+  }
+
+  // Repeated non-answer tokens such as "idk idk" or "na na".
+  const tokens = normalized.split(" ");
+  return (
+    tokens.length > 1 && tokens.every((token) => NON_ANSWER_VALUES.has(token))
+  );
+}
+
 function asString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
 
   const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
+  if (trimmed.length === 0 || isNonAnswer(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
 }
 
 function firstString(...values: unknown[]): string | null {

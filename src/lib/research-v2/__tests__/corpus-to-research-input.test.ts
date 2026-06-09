@@ -579,4 +579,59 @@ describe("corpusToResearchInput", (): void => {
     ]);
   });
 
+  it("treats an 'idk idk' brief topCompetitors value as a gap (no competitor seeds)", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        onboardingFields: {
+          ...corpusFixture.deepResearchProgramData.onboardingFields,
+          topCompetitors: { value: null },
+        },
+      },
+      onboardingData: {
+        ...corpusFixture.onboardingData,
+        topCompetitors: "idk idk",
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.competitorSeeds ?? []).toEqual([]);
+  });
+
+  it("treats an 'idk' brief monthlyAdBudget as a gap (no economics budget)", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      onboardingData: {
+        ...corpusFixture.onboardingData,
+        monthlyAdBudget: "idk",
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.onboarding.economics?.monthlyAdBudget).toBeUndefined();
+  });
+
+  it("prefers a real corpus competitor over an 'idk' brief value", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      onboardingData: {
+        ...corpusFixture.onboardingData,
+        topCompetitors: "idk",
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.competitorSeeds?.map((seed) => seed.name)).toEqual([
+      "Notion",
+      "Monday.com",
+    ]);
+  });
+
 });
