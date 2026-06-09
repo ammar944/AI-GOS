@@ -150,11 +150,6 @@ export const SECTION_SUB_SECTIONS: Record<
     },
   ],
   positioningPaidMediaPlan: [
-    { key: "strategicThesis", label: "Strategic thesis" },
-    {
-      key: "contradictionReconciliation",
-      label: "Contradiction reconciliation",
-    },
     { key: "campaignOverview", label: "Campaign overview" },
     { key: "campaignPhases", label: "Campaign phases" },
     { key: "audienceTypes", label: "Audience types" },
@@ -167,7 +162,6 @@ export const SECTION_SUB_SECTIONS: Record<
     { key: "salesProcess", label: "Sales process" },
     { key: "channelSuggestions", label: "Channel suggestions" },
     { key: "kpis", label: "KPIs and success metrics" },
-    { key: "orderedMoves", label: "Ordered moves" },
   ],
 };
 

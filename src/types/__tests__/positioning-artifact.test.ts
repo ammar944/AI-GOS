@@ -70,6 +70,11 @@ const labEnvelope: PositioningTypedArtifact = {
   runId: 'run_1',
   sectionId: 'positioningBuyerICP',
   createdAt: '2026-05-26T00:00:00.000Z',
+  needs_review: true,
+  verifierSummary: {
+    totalClaims: 2,
+    needsReviewIds: ['claim-1'],
+  },
   body: buyerIcpBody,
 };
 
@@ -211,6 +216,8 @@ describe('pickPositioningTypedArtifact', () => {
     expect(picked.statusSummary).toBe(labEnvelope.statusSummary);
     expect(picked.confidence).toBe(labEnvelope.confidence);
     expect(picked.sources).toEqual(labEnvelope.sources);
+    expect(picked.needs_review).toBe(true);
+    expect(picked.verifierSummary).toEqual(labEnvelope.verifierSummary);
     expect(picked.icpExistenceCheck).toEqual(buyerIcpBody.icpExistenceCheck);
     expect(picked.personaReality).toEqual(buyerIcpBody.personaReality);
     expect(picked.awarenessDistribution).toEqual(

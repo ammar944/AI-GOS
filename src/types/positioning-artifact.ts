@@ -170,6 +170,10 @@ function normalizePickedArtifact(
     sources: validSources,
     ...(found.verification === undefined ? {} : { verification: found.verification }),
     ...(found.review === undefined ? {} : { review: found.review }),
+    ...(found.needs_review === true ? { needs_review: true } : {}),
+    ...(isRecord(found.verifierSummary)
+      ? { verifierSummary: found.verifierSummary }
+      : {}),
   };
 }
 

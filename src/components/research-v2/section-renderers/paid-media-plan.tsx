@@ -7,7 +7,9 @@ import {
   InlineStats,
   MonoBadge,
   SourceLink,
+  StatusPill,
   type DataTableColumn,
+  type StatusPillTone,
 } from '@/components/research-v2/ui-kit';
 import { SubsectionBlock } from '../primitives';
 
@@ -43,7 +45,6 @@ type CompetitorMarketing = PaidMediaBody['competitorMarketingInsights'][number];
 type CompetitorReview = PaidMediaBody['competitorReviewInsights'][number];
 type ChannelSuggestion = PaidMediaBody['channelSuggestions'][number];
 type Kpi = PaidMediaBody['kpis'][number];
-type CrossSectionInsight = PaidMediaBody['crossSectionInsight'][number];
 
 function getPaidMediaPlanBody(
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
@@ -59,8 +60,34 @@ function getPaidMediaPlanBody(
   ) as PaidMediaBody;
 }
 
+function hasNeedsReviewBadge(
+  artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
+): boolean {
+  const record = artifact as unknown as Record<string, unknown>;
+
+  return record.needs_review === true;
+}
+
 function provenanceLabel(value: string | undefined): string {
   return value === undefined || value.trim().length === 0 ? 'unknown' : value;
+}
+
+function verdictTone(verdict: string): StatusPillTone {
+  switch (verdict.trim().toUpperCase()) {
+    case 'KILL':
+      return 'error';
+    case 'KEEP':
+    case 'SCALE':
+      return 'complete';
+    case 'FIX':
+    case 'REWORK':
+    case 'REVIEW':
+      return 'flagged';
+    case 'ADD':
+      return 'active';
+    default:
+      return 'neutral';
+  }
 }
 
 function MoneyValue({
@@ -105,6 +132,7 @@ export function PaidMediaPlanRenderer({
   className,
 }: PaidMediaPlanRendererProps): React.ReactElement {
   const body = getPaidMediaPlanBody(artifact);
+  const needsReview = hasNeedsReviewBadge(artifact);
   const phaseColumns: ReadonlyArray<DataTableColumn<CampaignPhase>> = [
     { key: 'phaseName', header: 'Phase', className: 'font-medium text-foreground' },
     { key: 'monthsLabel', header: 'Timing' },
@@ -147,6 +175,7 @@ export function PaidMediaPlanRenderer({
     { key: 'angleType', header: 'Type' },
     { key: 'hook', header: 'Hook', grow: true, wrap: 'clamp', clampLines: 2 },
     { key: 'executesAngle', header: 'Angle' },
+    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 2 },
   ];
   const funnelColumns: ReadonlyArray<DataTableColumn<FunnelPath>> = [
     { key: 'rank', header: 'Rank', className: 'font-medium text-foreground' },
@@ -184,7 +213,13 @@ export function PaidMediaPlanRenderer({
   const channelColumns: ReadonlyArray<DataTableColumn<ChannelSuggestion>> = [
     { key: 'channel', header: 'Channel', className: 'font-medium text-foreground' },
     { key: 'recommendation', header: 'Recommendation', wrap: 'clamp', clampLines: 2 },
-    { key: 'verdict', header: 'Verdict', render: (row) => <MonoBadge>{row.verdict}</MonoBadge> },
+    {
+      key: 'verdict',
+      header: 'Verdict',
+      render: (row) => (
+        <StatusPill tone={verdictTone(row.verdict)}>{row.verdict}</StatusPill>
+      ),
+    },
     {
       key: 'sourceSection',
       header: 'Source',
@@ -196,130 +231,162 @@ export function PaidMediaPlanRenderer({
     { key: 'role', header: 'Role' },
     { key: 'definition', header: 'Definition' },
   ];
-  const insightColumns: ReadonlyArray<DataTableColumn<CrossSectionInsight>> = [
-    { key: 'tension', header: 'Tension', wrap: 'clamp', clampLines: 2 },
-    {
-      key: 'sourceSections',
-      header: 'Sections',
-      render: (row) => row.sourceSections.join(', '),
-    },
-    { key: 'implicationForPlan', header: 'Plan implication', wrap: 'clamp', clampLines: 2 },
-    { key: 'contrarianInversion', header: 'Inversion', wrap: 'clamp', clampLines: 2 },
-  ];
-
   return (
     <div
       data-testid="typed-artifact-renderer-positioningPaidMediaPlan"
       className={cn('space-y-10', className)}
     >
       <div data-testid="paid-media-plan-renderer" className="space-y-10">
-        <SubsectionBlock label="Campaign overview" prose={body.campaignOverview.prose}>
-          <div className="space-y-4">
-            <dl className="flex flex-wrap gap-x-10 gap-y-4">
-              <MoneyStat
-                label="Monthly budget"
-                value={body.campaignOverview.monthlyBudget}
-                provenance={body.campaignOverview.monthlyBudgetProvenance}
+        {needsReview ? (
+          <StatusPill tone="flagged" data-testid="paid-media-needs-review-badge">
+            Needs review
+          </StatusPill>
+        ) : null}
+
+        <div
+          data-testid="paid-media-driver-strip"
+          className="grid gap-3 border-l-2 border-primary/30 pl-4 md:grid-cols-3"
+        >
+          {body.crossSectionInsight.map((insight) => (
+            <div key={insight.tension} className="space-y-2">
+              <p className="text-sm font-medium text-foreground">{insight.tension}</p>
+              <p className="text-sm text-muted-foreground">{insight.implicationForPlan}</p>
+              <div className="flex flex-wrap gap-2">
+                {insight.sourceSections.map((section) => (
+                  <MonoBadge key={section}>{section}</MonoBadge>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div data-testid="pmp-block-campaignOverview">
+          <SubsectionBlock label="Campaign overview" prose={body.campaignOverview.prose}>
+            <div className="space-y-4">
+              <dl className="flex flex-wrap gap-x-10 gap-y-4">
+                <MoneyStat
+                  label="Monthly budget"
+                  value={body.campaignOverview.monthlyBudget}
+                  provenance={body.campaignOverview.monthlyBudgetProvenance}
+                />
+                <MoneyStat
+                  label="Daily spend"
+                  value={body.campaignOverview.dailySpend}
+                  provenance={body.campaignOverview.dailySpendProvenance}
+                />
+              </dl>
+              <InlineStats
+                items={[
+                  { label: 'Months', value: body.campaignOverview.totalMonths },
+                  { label: 'Primary KPI', value: body.campaignOverview.primaryKpi },
+                  { label: 'Platform', value: body.campaignOverview.platform },
+                ]}
               />
-              <MoneyStat
-                label="Daily spend"
-                value={body.campaignOverview.dailySpend}
-                provenance={body.campaignOverview.dailySpendProvenance}
-              />
-            </dl>
+            </div>
+          </SubsectionBlock>
+        </div>
+
+        <div data-testid="pmp-block-campaignPhases">
+          <SubsectionBlock
+            label="Campaign phases"
+            prose="Two phases keep the first budget focused on learning before scale."
+          >
+            <DataTable columns={phaseColumns} rows={body.campaignPhases} />
+          </SubsectionBlock>
+        </div>
+
+        <div data-testid="pmp-block-audienceTypes">
+          <SubsectionBlock
+            label="Audience types"
+            prose="Three fixed audience archetypes run in parallel during Phase 1."
+          >
+            <DataTable columns={audienceColumns} rows={body.audienceTypes} />
+          </SubsectionBlock>
+        </div>
+
+        <div data-testid="pmp-block-anglesToTest">
+          <SubsectionBlock
+            label="Angles to test"
+            prose="Four distinct angles translate positioning evidence into creative tests."
+          >
+            <DataTable columns={angleColumns} rows={body.anglesToTest} />
+          </SubsectionBlock>
+        </div>
+
+        <div data-testid="pmp-block-creativeStrategy">
+          <SubsectionBlock label="Creative strategy" prose={body.creativeStrategy.prose}>
             <InlineStats
               items={[
-                { label: 'Months', value: body.campaignOverview.totalMonths },
-                { label: 'Primary KPI', value: body.campaignOverview.primaryKpi },
-                { label: 'Platform', value: body.campaignOverview.platform },
+                { label: 'Static', value: body.creativeStrategy.staticCount },
+                { label: 'Video', value: body.creativeStrategy.videoCount },
+                { label: 'Per audience', value: body.creativeStrategy.totalPerAudience },
               ]}
             />
-          </div>
-        </SubsectionBlock>
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock label="Cross-section insight" prose="Internal driver tensions folded into the plan.">
-          <DataTable columns={insightColumns} rows={body.crossSectionInsight} />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-creativeFramework">
+          <SubsectionBlock
+            label="Creative framework"
+            prose="Eight fixed creative slots execute the selected angles."
+          >
+            <DataTable columns={creativeColumns} rows={body.creativeFramework} />
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock
-          label="Campaign phases"
-          prose="Two phases keep the first budget focused on learning before scale."
-        >
-          <DataTable columns={phaseColumns} rows={body.campaignPhases} />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-funnelIdeation">
+          <SubsectionBlock
+            label="Funnel ideation"
+            prose="Three funnel paths define what each paid click is meant to prove."
+          >
+            <DataTable columns={funnelColumns} rows={body.funnelIdeation} />
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock
-          label="Audience types"
-          prose="Three fixed audience archetypes run in parallel during Phase 1."
-        >
-          <DataTable columns={audienceColumns} rows={body.audienceTypes} />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-salesProcess">
+          <SubsectionBlock
+            label="Sales process"
+            prose="Sales assets are linked when provided and marked as gaps when absent."
+          >
+            <DataTable columns={salesColumns} rows={body.salesProcess} />
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock
-          label="Angles to test"
-          prose="Four distinct angles translate positioning evidence into creative tests."
-        >
-          <DataTable columns={angleColumns} rows={body.anglesToTest} />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-competitorMarketingInsights">
+          <SubsectionBlock
+            label="Competitor marketing insights"
+            prose="Competitor marketing signals define what the plan exploits or avoids."
+          >
+            <DataTable columns={competitorColumns} rows={body.competitorMarketingInsights} />
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock label="Creative strategy" prose={body.creativeStrategy.prose}>
-          <InlineStats
-            items={[
-              { label: 'Static', value: body.creativeStrategy.staticCount },
-              { label: 'Video', value: body.creativeStrategy.videoCount },
-              { label: 'Per audience', value: body.creativeStrategy.totalPerAudience },
-            ]}
-          />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-competitorReviewInsights">
+          <SubsectionBlock
+            label="Competitor review insights"
+            prose="Review complaints become ad and sales leverage only when grounded."
+          >
+            <DataTable columns={reviewColumns} rows={body.competitorReviewInsights} />
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock
-          label="Creative framework"
-          prose="Eight fixed creative slots execute the selected angles."
-        >
-          <DataTable columns={creativeColumns} rows={body.creativeFramework} />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-channelSuggestions">
+          <SubsectionBlock
+            label="Channel suggestions"
+            prose="Current-funnel recommendations use verdict badges for action priority."
+          >
+            <DataTable columns={channelColumns} rows={body.channelSuggestions} />
+          </SubsectionBlock>
+        </div>
 
-        <SubsectionBlock
-          label="Funnel ideation"
-          prose="Three funnel paths define what each paid click is meant to prove."
-        >
-          <DataTable columns={funnelColumns} rows={body.funnelIdeation} />
-        </SubsectionBlock>
-
-        <SubsectionBlock
-          label="Sales process"
-          prose="Sales assets are linked when provided and marked as gaps when absent."
-        >
-          <DataTable columns={salesColumns} rows={body.salesProcess} />
-        </SubsectionBlock>
-
-        <SubsectionBlock
-          label="Competitor marketing insights"
-          prose="Competitor marketing signals define what the plan exploits or avoids."
-        >
-          <DataTable columns={competitorColumns} rows={body.competitorMarketingInsights} />
-        </SubsectionBlock>
-
-        <SubsectionBlock
-          label="Competitor review insights"
-          prose="Review complaints become ad and sales leverage only when grounded."
-        >
-          <DataTable columns={reviewColumns} rows={body.competitorReviewInsights} />
-        </SubsectionBlock>
-
-        <SubsectionBlock
-          label="Channel suggestions"
-          prose="Current-funnel recommendations use verdict badges for action priority."
-        >
-          <DataTable columns={channelColumns} rows={body.channelSuggestions} />
-        </SubsectionBlock>
-
-        <SubsectionBlock
-          label="KPIs"
-          prose="The plan tracks one primary outcome plus creative health and efficiency."
-        >
-          <DataTable columns={kpiColumns} rows={body.kpis} />
-        </SubsectionBlock>
+        <div data-testid="pmp-block-kpis">
+          <SubsectionBlock
+            label="KPIs"
+            prose="The plan tracks one primary outcome plus creative health and efficiency."
+          >
+            <DataTable columns={kpiColumns} rows={body.kpis} />
+          </SubsectionBlock>
+        </div>
 
         <Callout label="Grounding" tone="accent">
           Every launchable row carries a source section and grounding note; `UNVERIFIED`

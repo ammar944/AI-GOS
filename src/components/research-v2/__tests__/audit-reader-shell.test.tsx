@@ -287,7 +287,7 @@ describe('<AuditReaderShell>', () => {
       screen.getAllByTestId(
         new RegExp(`^sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-`),
       ),
-    ).toHaveLength(15);
+    ).toHaveLength(12);
   });
 
   it('uses the controlled section change callback for keyboard navigation', (): void => {

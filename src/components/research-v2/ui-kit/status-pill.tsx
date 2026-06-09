@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -23,17 +23,20 @@ export function toneToClass(tone: StatusPillTone | undefined): string {
   return STATUS_PILL_TONE_CLASS[tone ?? 'neutral'];
 }
 
+type StatusPillProps = Omit<ComponentPropsWithoutRef<typeof Badge>, 'variant'> & {
+  children: ReactNode;
+  tone?: StatusPillTone;
+};
+
 export function StatusPill({
   children,
   tone = 'neutral',
   className,
-}: {
-  children: ReactNode;
-  tone?: StatusPillTone;
-  className?: string;
-}): React.ReactElement {
+  ...props
+}: StatusPillProps): React.ReactElement {
   return (
     <Badge
+      {...props}
       variant={tone === 'neutral' ? 'secondary' : 'outline'}
       className={cn('rounded-md border px-2 py-0.5', toneToClass(tone), className)}
     >
