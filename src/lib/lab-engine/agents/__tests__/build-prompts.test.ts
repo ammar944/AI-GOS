@@ -509,6 +509,34 @@ describe("buildStructuredPrompt", (): void => {
     );
     expect(paidMediaPrompt).toContain("never invent quotes");
   });
+
+  it("carries paid-media budget and platform constraints through the real prompt chain", (): void => {
+    const researchInput: ResearchInput = {
+      ...buildScopedResearchInput(),
+      onboarding: {
+        ...buildScopedResearchInput().onboarding,
+        distributionChannels: ["Meta Ads", "LinkedIn Ads"],
+        gtmMotion: "PLG",
+      },
+    };
+    const paidMediaPrompt = buildStructuredPrompt({
+      definition: paidMediaDefinition,
+      evidenceTranscript: "Committed artifacts are available in ResearchInput.",
+      researchInput,
+      skillMd: "# Paid Media Plan",
+    });
+
+    expect(paidMediaPrompt).toContain("monthly ad budget=$25,000");
+    expect(paidMediaPrompt).toContain(
+      "sets the paid-learning efficiency boundary",
+    );
+    expect(paidMediaPrompt).toContain(
+      "Distribution channels: Meta Ads, LinkedIn Ads.",
+    );
+    expect(paidMediaPrompt).toContain("GTM motion: PLG.");
+    expect(paidMediaPrompt).toContain("body.campaignOverview");
+    expect(paidMediaPrompt).toContain("platform");
+  });
 });
 
 describe("buildSectionObjectiveRecap", (): void => {
