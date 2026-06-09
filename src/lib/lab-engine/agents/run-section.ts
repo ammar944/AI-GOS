@@ -50,6 +50,11 @@ import {
   RequiredEvidenceMissingError,
   type RequiredEvidenceClass,
 } from "../sections/required-evidence";
+import {
+  evaluateCommittableAttempt,
+  type HookOutcome,
+  type PostRequiredEvidenceHookContext,
+} from "../sections/committable-gate";
 import { getSectionSubSections } from "../sections/sub-sections";
 import type { RunStore } from "../runs/run-store";
 import {
@@ -134,7 +139,6 @@ import {
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
   paidMediaLoadBearingKinds,
-  voiceOfCustomerLoadBearingKinds,
   type EvidenceSupportShortfall,
 } from "./verification/evidence-support";
 import {
@@ -4935,9 +4939,98 @@ async function buildVerifiedAttemptFromOutput({
     output,
     verification,
   });
-  const minimums = definition.validateMinimums(artifact);
+  const postRequiredEvidenceHook = ({
+    artifact: candidateArtifact,
+  }: PostRequiredEvidenceHookContext): HookOutcome => {
+    if (input.sectionId === "positioningVoiceOfCustomer") {
+      const selfSourcing = checkVoiceOfCustomerSelfSourcing({
+        artifact: candidateArtifact,
+        subjectDomain: researchInput.company.websiteUrl,
+      });
 
-  if (!minimums.ok) {
+      if (!selfSourcing.ok) {
+        return {
+          kind: "reject",
+          errors: selfSourcing.errors,
+          gapArtifact: buildVoiceOfCustomerAttemptEvidenceGapArtifact({
+            artifact: candidateArtifact,
+            definition,
+            deps,
+            errors: selfSourcing.errors,
+            input,
+            researchInput,
+          }),
+        };
+      }
+
+      const modelAuthoredGapIssue =
+        getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
+          artifact: candidateArtifact,
+          input,
+        });
+      if (modelAuthoredGapIssue !== null) {
+        return { kind: "reject", errors: [modelAuthoredGapIssue] };
+      }
+    }
+
+    if (input.sectionId !== "positioningDemandIntent") {
+      return { kind: "ok" };
+    }
+
+    // keyword_volume (SpyFu) returned a ToolGap when it surfaced zero keywords.
+    // Under a ToolGap the SpyFu-absence failures are softenable: relabel the
+    // SpyFu-claiming rows as explicit data gaps and commit needs_review, rather
+    // than nulling the artifact and stalling the run < 6/6. A genuine
+    // fabrication (model estimate / Trends claim without Trends evidence) still
+    // hard-fails so we never let invented economics through.
+    const spyFuToolGap = keywordVolumeKeywords(modelSteps).length === 0;
+    const provenance = checkDemandIntentKeywordProvenance({
+      artifact: candidateArtifact,
+      keywordTrendKeywords: keywordTrendKeywords(modelSteps),
+      keywordVolumeKeywords: keywordVolumeKeywords(modelSteps),
+      spyFuToolGap,
+    });
+
+    if (!provenance.ok) {
+      return { kind: "reject", errors: provenance.errors };
+    }
+
+    if (!spyFuToolGap || provenance.softenableRowIndexes.length === 0) {
+      return { kind: "ok" };
+    }
+
+    const softened = buildDemandIntentSpyFuToolGapArtifact({
+      artifact: candidateArtifact as ArtifactEnvelope & { body: DemandIntentBody },
+      definition,
+      modelSteps,
+      softenableRowIndexes: provenance.softenableRowIndexes,
+    });
+
+    // The softened artifact MUST re-pass provenance (clean) + minimums or we
+    // fall back to nulling — never commit a still-dirty body.
+    if (softened === undefined) {
+      return {
+        kind: "softenFailed",
+        errors: provenance.errors.length > 0
+          ? provenance.errors
+          : [
+              "DemandIntent SpyFu ToolGap softening did not re-pass validation",
+            ],
+      };
+    }
+
+    return { kind: "soften", artifact: softened };
+  };
+
+  const verdict = evaluateCommittableAttempt({
+    artifact,
+    definition,
+    env: deps.env ?? process.env,
+    postRequiredEvidenceHook,
+    verification,
+  });
+
+  if (verdict.kind === "minimumsFailed") {
     return {
       output,
       artifact: null,
@@ -4945,48 +5038,42 @@ async function buildVerifiedAttemptFromOutput({
         buildBuyerICPPersonaEvidenceGapArtifact({
           artifact,
           definition,
-          errors: minimums.errors,
+          errors: [...verdict.errors],
           input,
         }),
       competitorStrategicEvidenceGapArtifact:
         buildCompetitorStrategicEvidenceGapArtifact({
           artifact,
           definition,
-          errors: minimums.errors,
+          errors: [...verdict.errors],
           input,
         }),
       offerDiagnosticEvidenceGapArtifact:
         buildOfferDiagnosticEvidenceGapArtifact({
           artifact,
           definition,
-          errors: minimums.errors,
+          errors: [...verdict.errors],
           input,
         }),
-      errors: minimums.errors,
+      errors: [...verdict.errors],
       voiceOfCustomerEvidenceGapArtifact:
         buildVoiceOfCustomerAttemptEvidenceGapArtifact({
           artifact,
           definition,
           deps,
-          errors: minimums.errors,
+          errors: [...verdict.errors],
           input,
           researchInput,
         }),
     };
   }
 
-  const missingClass = checkRequiredEvidenceClasses({
-    body: artifact.body,
-    requiredEvidenceClasses: definition.requiredEvidenceClasses,
-    sectionId: input.sectionId,
-  });
-
-  if (missingClass !== null) {
+  if (verdict.kind === "requiredEvidenceMissing") {
     const failure = new RequiredEvidenceMissingError({
-      missingClass,
+      missingClass: verdict.missingClass,
       sectionId: input.sectionId,
-      unsupportedCount: verification.unsupportedCount,
-      verifiedCount: verification.verifiedCount,
+      unsupportedCount: verdict.unsupportedCount,
+      verifiedCount: verdict.verifiedCount,
     });
 
     return {
@@ -4997,110 +5084,28 @@ async function buildVerifiedAttemptFromOutput({
     };
   }
 
-  if (input.sectionId === "positioningVoiceOfCustomer") {
-    const selfSourcing = checkVoiceOfCustomerSelfSourcing({
-      artifact,
-      subjectDomain: researchInput.company.websiteUrl,
-    });
-
-    if (!selfSourcing.ok) {
-      return {
-        output,
-        artifact: null,
-        errors: selfSourcing.errors,
-        voiceOfCustomerEvidenceGapArtifact:
-          buildVoiceOfCustomerAttemptEvidenceGapArtifact({
-            artifact,
-            definition,
-            deps,
-            errors: selfSourcing.errors,
-            input,
-            researchInput,
-          }),
-      };
-    }
-
-    const modelAuthoredGapIssue =
-      getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
-        artifact,
-        input,
-      });
-    if (modelAuthoredGapIssue !== null) {
-      return {
-        output,
-        artifact: null,
-        errors: [modelAuthoredGapIssue],
-      };
-    }
-  }
-
-  // The committable artifact may be replaced by a softened (needs_review)
-  // variant below (e.g. DemandIntent under a SpyFu ToolGap). Carry it forward to
-  // the evidence-gate evaluation and final return.
-  let committedArtifact = artifact;
-
-  if (input.sectionId === "positioningDemandIntent") {
-    // keyword_volume (SpyFu) returned a ToolGap when it surfaced zero keywords.
-    // Under a ToolGap the SpyFu-absence failures are softenable: relabel the
-    // SpyFu-claiming rows as explicit data gaps and commit needs_review, rather
-    // than nulling the artifact and stalling the run < 6/6. A genuine
-    // fabrication (model estimate / Trends claim without Trends evidence) still
-    // hard-fails so we never let invented economics through.
-    const spyFuToolGap = keywordVolumeKeywords(modelSteps).length === 0;
-    const provenance = checkDemandIntentKeywordProvenance({
-      artifact,
-      keywordTrendKeywords: keywordTrendKeywords(modelSteps),
-      keywordVolumeKeywords: keywordVolumeKeywords(modelSteps),
-      spyFuToolGap,
-    });
-
-    if (!provenance.ok) {
-      return { output, artifact: null, errors: provenance.errors };
-    }
-
-    if (spyFuToolGap && provenance.softenableRowIndexes.length > 0) {
-      const softened = buildDemandIntentSpyFuToolGapArtifact({
-        artifact: artifact as ArtifactEnvelope & { body: DemandIntentBody },
-        definition,
-        modelSteps,
-        softenableRowIndexes: provenance.softenableRowIndexes,
-      });
-
-      // The softened artifact MUST re-pass provenance (clean) + minimums or we
-      // fall back to nulling — never commit a still-dirty body.
-      if (softened === undefined) {
-        return {
-          output,
-          artifact: null,
-          errors: provenance.errors.length > 0
-            ? provenance.errors
-            : [
-                "DemandIntent SpyFu ToolGap softening did not re-pass validation",
-              ],
-        };
-      }
-
-      committedArtifact = softened;
-    }
-  }
-
-  const evidenceSupportShortfall = evaluateEvidenceSupport({
-    verification,
-    ...(input.sectionId === "positioningVoiceOfCustomer"
-      ? { loadBearingKinds: voiceOfCustomerLoadBearingKinds }
-      : {}),
-  });
-
-  if (evidenceSupportShortfall.unsupportedLoadBearing.length > 0) {
+  if (verdict.kind === "hookReject") {
     return {
       output,
-      artifact: committedArtifact,
-      errors: [],
-      evidenceSupportShortfall,
+      artifact: null,
+      errors: [...verdict.errors],
+      ...(input.sectionId === "positioningVoiceOfCustomer" &&
+      verdict.gapArtifact !== undefined
+        ? { voiceOfCustomerEvidenceGapArtifact: verdict.gapArtifact }
+        : {}),
     };
   }
 
-  return { output, artifact: committedArtifact, errors: [] };
+  if (verdict.kind === "evidenceShortfall") {
+    return {
+      output,
+      artifact: verdict.committableArtifact,
+      errors: [],
+      evidenceSupportShortfall: verdict.shortfall,
+    };
+  }
+
+  return { output, artifact: verdict.committableArtifact, errors: [] };
 }
 
 async function buildAnswerToolAttempt({
