@@ -161,27 +161,27 @@ export function PaidMediaPlanRenderer({
         />
       ),
     },
-    { key: 'detail', header: 'Detail' },
-    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 2 },
+    { key: 'detail', header: 'Detail', wrap: 'wrap' },
+    { key: 'grounding', header: 'Grounding', wrap: 'wrap' },
   ];
   const angleColumns: ReadonlyArray<DataTableColumn<Angle>> = [
     { key: 'shortName', header: 'Angle', className: 'font-medium text-foreground' },
     { key: 'angleType', header: 'Type' },
-    { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 2 },
-    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 2 },
+    { key: 'description', header: 'Description', wrap: 'wrap' },
+    { key: 'grounding', header: 'Grounding', wrap: 'wrap' },
   ];
   const creativeColumns: ReadonlyArray<DataTableColumn<CreativeSlot>> = [
     { key: 'label', header: 'Slot', className: 'font-medium text-foreground' },
     { key: 'angleType', header: 'Type' },
-    { key: 'hook', header: 'Hook', grow: true, wrap: 'clamp', clampLines: 2 },
+    { key: 'hook', header: 'Hook', grow: true, wrap: 'wrap' },
     { key: 'executesAngle', header: 'Angle' },
-    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 2 },
+    { key: 'grounding', header: 'Grounding', wrap: 'wrap' },
   ];
   const funnelColumns: ReadonlyArray<DataTableColumn<FunnelPath>> = [
     { key: 'rank', header: 'Rank', className: 'font-medium text-foreground' },
     { key: 'name', header: 'Path' },
-    { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 2 },
-    { key: 'whatItProves', header: 'What it proves' },
+    { key: 'description', header: 'Description', wrap: 'wrap' },
+    { key: 'whatItProves', header: 'What it proves', wrap: 'wrap' },
   ];
   const salesColumns: ReadonlyArray<DataTableColumn<SalesAsset>> = [
     { key: 'label', header: 'Asset', className: 'font-medium text-foreground' },
@@ -196,14 +196,14 @@ export function PaidMediaPlanRenderer({
   ];
   const competitorColumns: ReadonlyArray<DataTableColumn<CompetitorMarketing>> = [
     { key: 'competitor', header: 'Competitor', className: 'font-medium text-foreground' },
-    { key: 'messaging', header: 'Messaging', wrap: 'clamp', clampLines: 2 },
-    { key: 'adPlatforms', header: 'Platforms' },
-    { key: 'positioning', header: 'Positioning', wrap: 'clamp', clampLines: 2 },
-    { key: 'offer', header: 'Offer' },
+    { key: 'messaging', header: 'Messaging', wrap: 'wrap' },
+    { key: 'adPlatforms', header: 'Platforms', wrap: 'wrap' },
+    { key: 'positioning', header: 'Positioning', wrap: 'wrap' },
+    { key: 'offer', header: 'Offer', wrap: 'wrap' },
   ];
   const reviewColumns: ReadonlyArray<DataTableColumn<CompetitorReview>> = [
-    { key: 'complaint', header: 'Complaint', wrap: 'clamp', clampLines: 2 },
-    { key: 'howWeLeverage', header: 'Leverage', wrap: 'clamp', clampLines: 2 },
+    { key: 'complaint', header: 'Complaint', wrap: 'wrap' },
+    { key: 'howWeLeverage', header: 'Leverage', wrap: 'wrap' },
     {
       key: 'sourceSection',
       header: 'Source',
@@ -212,7 +212,7 @@ export function PaidMediaPlanRenderer({
   ];
   const channelColumns: ReadonlyArray<DataTableColumn<ChannelSuggestion>> = [
     { key: 'channel', header: 'Channel', className: 'font-medium text-foreground' },
-    { key: 'recommendation', header: 'Recommendation', wrap: 'clamp', clampLines: 2 },
+    { key: 'recommendation', header: 'Recommendation', wrap: 'wrap' },
     {
       key: 'verdict',
       header: 'Verdict',

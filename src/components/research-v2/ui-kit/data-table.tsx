@@ -103,7 +103,7 @@ export function DataTable<T>({
                 key={col.key}
                 scope="col"
                 className={cn(
-                  'border-b border-border px-3 pb-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-foreground/70',
+                  'border-b border-border px-3 pb-2 align-top font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-foreground/70',
                   col.numeric ? 'text-right' : 'text-left',
                   col.headerClassName,
                 )}
@@ -156,7 +156,7 @@ export function DataTable<T>({
                       title={titleAttr}
                       className={cn(
                         cellPad,
-                        'px-3 text-foreground/90',
+                        'px-3 align-top text-foreground/90',
                         col.numeric && 'text-right font-mono tabular-nums',
                         !col.numeric && 'text-left',
                         wrapClass,
