@@ -81,10 +81,10 @@ function requiresCommittedPositioningArtifacts(
 function shouldIncludeCrossSectionReasoningArtifact(
   sectionId: AllPositioningSectionId,
 ): boolean {
-  return (
-    sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
-    sectionId === POSITIONING_SYNTHESIS_SECTION_ID
-  );
+  // W3-A pure-lean: paid-media no longer reads a thinker artifact. A DIRECT
+  // synthesis rerun still reads the thinker (the synthesis files still exist),
+  // so synthesis keeps requiring it here.
+  return sectionId === POSITIONING_SYNTHESIS_SECTION_ID;
 }
 
 function buildLabSectionProviderPreflightResponse({

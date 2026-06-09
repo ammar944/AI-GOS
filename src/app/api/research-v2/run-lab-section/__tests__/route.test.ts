@@ -226,36 +226,6 @@ function paidMediaSeededRows(): SeededRows {
   };
 }
 
-function synthesisSeededRows(): SeededRows {
-  return {
-    parent_audit_run_id: PARENT_ID,
-    section_run_ids: [
-      {
-        section_id: POSITIONING_SYNTHESIS_SECTION_ID,
-        section_run_id: '55555555-5555-4555-8555-555555555555',
-        ordinal: 8,
-        reused: false,
-        status: 'queued',
-      },
-    ],
-  };
-}
-
-function crossSectionReasoningSeededRows(): SeededRows {
-  return {
-    parent_audit_run_id: PARENT_ID,
-    section_run_ids: [
-      {
-        section_id: CROSS_SECTION_REASONING_SECTION_ID,
-        section_run_id: '44444444-4444-4444-8444-444444444444',
-        ordinal: 7,
-        reused: false,
-        status: 'queued',
-      },
-    ],
-  };
-}
-
 function claimResult(
   status: 'claimed' | 'already_running',
   sectionRunId = '22222222-2222-4222-8222-000000000002',
@@ -386,23 +356,6 @@ function committedPositioningRowsWithVoiceOfCustomerGap(): Array<{
         }
       : row,
   );
-}
-
-function committedRowsWithCrossSectionReasoning(): Array<{
-  zone: PositioningSectionId | typeof CROSS_SECTION_REASONING_SECTION_ID;
-  data: { body?: Record<string, unknown>; sectionTitle: string };
-  verification_tier?: string;
-  verification_flag?: Record<string, unknown>;
-}> {
-  return [
-    ...committedPositioningRows(),
-    {
-      zone: CROSS_SECTION_REASONING_SECTION_ID,
-      data: { sectionTitle: 'Cross-Section Reasoning' },
-      verification_tier: 'verified',
-      verification_flag: verifiedFlag(),
-    },
-  ];
 }
 
 function validResearchInput(): Record<string, unknown> {
@@ -630,7 +583,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
   });
 
-  it('server-dispatches cross-section reasoning once after the sixth positioning section commits', async (): Promise<void> => {
+  it('server-dispatches the paid-media plan once after the sixth positioning section commits', async (): Promise<void> => {
+    // W3-A pure-lean: the sixth core-section commit fans out paid-media directly
+    // off the 6/6 rollup from the SERVER (autonomy invariant — survives a closed
+    // tab). The thinker + synthesis capstones are no longer in the chain.
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession();
     routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
@@ -643,7 +599,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
     routeMocks.seedOrchestration
       .mockResolvedValueOnce(defaultSeededRows())
-      .mockResolvedValueOnce(crossSectionReasoningSeededRows());
+      .mockResolvedValueOnce(paidMediaSeededRows());
     routeMocks.claimSectionRun
       .mockResolvedValueOnce(
         claimResult(
@@ -655,8 +611,8 @@ describe('POST /api/research-v2/run-lab-section', () => {
       .mockResolvedValueOnce(
         claimResult(
           'claimed',
-          '44444444-4444-4444-8444-444444444444',
-          CROSS_SECTION_REASONING_SECTION_ID,
+          '33333333-3333-4333-8333-333333333333',
+          PAID_MEDIA_PLAN_SECTION_ID,
         ),
       );
 
@@ -675,20 +631,27 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.seedOrchestration).toHaveBeenNthCalledWith(2, {
       userId: 'user_1',
       runId: VALID_RUN_ID,
-      zones: [CROSS_SECTION_REASONING_SECTION_ID],
+      zones: [PAID_MEDIA_PLAN_SECTION_ID],
     });
     expect(routeMocks.claimSectionRun).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         runId: VALID_RUN_ID,
-        sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+        sectionId: PAID_MEDIA_PLAN_SECTION_ID,
         userId: 'user_1',
       }),
     );
+    // Paid-media reads the six committed positioning artifacts only — NO thinker.
     expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
       'zone',
       [...POSITIONING_SECTION_IDS],
     );
+    // The thinker + synthesis zones are NEVER seeded or claimed.
+    const scheduledZones = routeMocks.seedOrchestration.mock.calls.map(
+      (call) => (call[0] as { zones: readonly AllPositioningSectionId[] }).zones[0],
+    );
+    expect(scheduledZones).not.toContain(CROSS_SECTION_REASONING_SECTION_ID);
+    expect(scheduledZones).not.toContain(POSITIONING_SYNTHESIS_SECTION_ID);
     expect(routeMocks.after).toHaveBeenCalledTimes(2);
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
 
@@ -696,155 +659,15 @@ describe('POST /api/research-v2/run-lab-section', () => {
 
     expect(routeMocks.runLabSectionJob).toHaveBeenNthCalledWith(2, {
       runId: VALID_RUN_ID,
-      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+      sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
     });
   });
 
-  it('server-dispatches synthesis + paid-media once the thinker job completes', async (): Promise<void> => {
-    // T1: when the thinker's onJobComplete fires server-side, both final
-    // capstones must be dispatched from the server (no open tab required).
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    mockOwnedSession();
-    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
-      data: {
-        status: 'complete',
-        children_complete: POSITIONING_SECTION_IDS.length,
-        children_total: POSITIONING_SECTION_IDS.length,
-      },
-      error: null,
-    });
-    // The synthesis + paid-media build needs the cross-section reasoning
-    // artifact present in the committed rows, or buildCommittedArtifactsResearchInput
-    // returns a 409 and the server dispatch silently no-ops.
-    routeMocks.committedSectionsQuery.in.mockResolvedValue({
-      data: committedRowsWithCrossSectionReasoning(),
-      error: null,
-    });
-    // Seed by zone — the two capstones fan out concurrently (Promise.allSettled),
-    // so key the mock on the requested zone rather than on call order.
-    routeMocks.seedOrchestration.mockImplementation(
-      (input: { zones: readonly AllPositioningSectionId[] }) => {
-        const [zone] = input.zones;
-        if (zone === CROSS_SECTION_REASONING_SECTION_ID) {
-          return Promise.resolve(crossSectionReasoningSeededRows());
-        }
-        if (zone === PAID_MEDIA_PLAN_SECTION_ID) {
-          return Promise.resolve(paidMediaSeededRows());
-        }
-        if (zone === POSITIONING_SYNTHESIS_SECTION_ID) {
-          return Promise.resolve(synthesisSeededRows());
-        }
-        return Promise.resolve(defaultSeededRows());
-      },
-    );
-    routeMocks.claimSectionRun.mockImplementation(
-      (input: { sectionId: AllPositioningSectionId }) => {
-        if (input.sectionId === CROSS_SECTION_REASONING_SECTION_ID) {
-          return Promise.resolve(
-            claimResult(
-              'claimed',
-              '44444444-4444-4444-8444-444444444444',
-              CROSS_SECTION_REASONING_SECTION_ID,
-            ),
-          );
-        }
-        if (input.sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
-          return Promise.resolve(
-            claimResult(
-              'claimed',
-              '33333333-3333-4333-8333-333333333333',
-              PAID_MEDIA_PLAN_SECTION_ID,
-            ),
-          );
-        }
-        if (input.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
-          return Promise.resolve(
-            claimResult(
-              'claimed',
-              '55555555-5555-4555-8555-555555555555',
-              POSITIONING_SYNTHESIS_SECTION_ID,
-            ),
-          );
-        }
-        return Promise.resolve(
-          claimResult(
-            'claimed',
-            '22222222-2222-4222-8222-000000000002',
-            'positioningBuyerICP',
-          ),
-        );
-      },
-    );
-
-    const response = await POST(
-      makeRequest({
-        run_id: VALID_RUN_ID,
-        section_id: 'positioningBuyerICP',
-      }),
-    );
-
-    expect(response.status).toBe(202);
-
-    // Drain 1: 6th positioning section job runs → thinker dispatched.
-    await drainAfter();
-    // Drain 2: thinker job runs → onJobComplete fires → synthesis + paid-media
-    // dispatched server-side.
-    await drainAfter();
-
-    const scheduledZones = routeMocks.seedOrchestration.mock.calls.map(
-      (call) => (call[0] as { zones: readonly AllPositioningSectionId[] }).zones[0],
-    );
-    expect(scheduledZones).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
-    expect(scheduledZones).toContain(PAID_MEDIA_PLAN_SECTION_ID);
-
-    const claimedSectionIds = routeMocks.claimSectionRun.mock.calls.map(
-      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
-    );
-    expect(claimedSectionIds).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
-    expect(claimedSectionIds).toContain(PAID_MEDIA_PLAN_SECTION_ID);
-
-    // Both capstones read the same committed input — including the cross-section
-    // reasoning artifact (proves includeCrossSectionReasoningArtifact: true).
-    const synthesisStoreCall = routeMocks.createSupabaseRunStore.mock.calls.find(
-      (call) =>
-        (call[0] as { sectionRunIdByZone: Record<string, string> })
-          .sectionRunIdByZone[POSITIONING_SYNTHESIS_SECTION_ID] !== undefined,
-    );
-    const paidMediaStoreCall = routeMocks.createSupabaseRunStore.mock.calls.find(
-      (call) =>
-        (call[0] as { sectionRunIdByZone: Record<string, string> })
-          .sectionRunIdByZone[PAID_MEDIA_PLAN_SECTION_ID] !== undefined,
-    );
-    expect(synthesisStoreCall?.[0]).toMatchObject({
-      researchInput: {
-        crossSectionReasoningArtifact: {
-          sectionTitle: 'Cross-Section Reasoning',
-        },
-      },
-    });
-    expect(paidMediaStoreCall?.[0]).toMatchObject({
-      researchInput: {
-        crossSectionReasoningArtifact: {
-          sectionTitle: 'Cross-Section Reasoning',
-        },
-      },
-    });
-
-    // Drain 3: synthesis + paid-media jobs actually run.
-    await drainAfter();
-
-    const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
-      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
-    );
-    expect(ranSectionIds).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
-    expect(ranSectionIds).toContain(PAID_MEDIA_PLAN_SECTION_ID);
-  });
-
-  it('does not fail the thinker commit when the synthesis + paid-media auto-dispatch throws', async (): Promise<void> => {
-    // T1: a dispatch error in onJobComplete must be swallowed/logged, never
-    // bubble up to fail the thinker's own committed job.
+  it('does not fail the core-section commit when the paid-media auto-dispatch throws', async (): Promise<void> => {
+    // W3-A: a dispatch error in the sixth section's onJobComplete must be
+    // swallowed/logged, never bubble up to fail the core section's own job.
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -858,46 +681,23 @@ describe('POST /api/research-v2/run-lab-section', () => {
       },
       error: null,
     });
-    routeMocks.committedSectionsQuery.in.mockResolvedValue({
-      data: committedRowsWithCrossSectionReasoning(),
-      error: null,
-    });
     routeMocks.seedOrchestration.mockImplementation(
       (input: { zones: readonly AllPositioningSectionId[] }) => {
         const [zone] = input.zones;
-        if (zone === CROSS_SECTION_REASONING_SECTION_ID) {
-          return Promise.resolve(crossSectionReasoningSeededRows());
-        }
-        if (
-          zone === PAID_MEDIA_PLAN_SECTION_ID ||
-          zone === POSITIONING_SYNTHESIS_SECTION_ID
-        ) {
-          // Both capstone seeds blow up — the thinker has already committed.
+        if (zone === PAID_MEDIA_PLAN_SECTION_ID) {
+          // The paid-media seed blows up — the core section has already committed.
           return Promise.reject(new Error('seed boom'));
         }
         // The initial six-section dispatch seeds normally.
         return Promise.resolve(defaultSeededRows());
       },
     );
-    routeMocks.claimSectionRun.mockImplementation(
-      (input: { sectionId: AllPositioningSectionId }) => {
-        if (input.sectionId === CROSS_SECTION_REASONING_SECTION_ID) {
-          return Promise.resolve(
-            claimResult(
-              'claimed',
-              '44444444-4444-4444-8444-444444444444',
-              CROSS_SECTION_REASONING_SECTION_ID,
-            ),
-          );
-        }
-        return Promise.resolve(
-          claimResult(
-            'claimed',
-            '22222222-2222-4222-8222-000000000002',
-            'positioningBuyerICP',
-          ),
-        );
-      },
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '22222222-2222-4222-8222-000000000002',
+        'positioningBuyerICP',
+      ),
     );
 
     const response = await POST(
@@ -909,123 +709,21 @@ describe('POST /api/research-v2/run-lab-section', () => {
 
     expect(response.status).toBe(202);
 
-    // Draining the chain must not throw even though both capstone seeds reject.
+    // Draining the chain must not throw even though the paid-media seed rejects.
     await drainAfter();
     await expect(drainAfter()).resolves.toBeUndefined();
 
-    // The thinker job itself still ran (its commit is unaffected).
+    // The core section's own job still ran (its commit is unaffected).
     const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
       (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
     );
-    expect(ranSectionIds).toContain(CROSS_SECTION_REASONING_SECTION_ID);
+    expect(ranSectionIds).toContain('positioningBuyerICP');
     expect(consoleErrorSpy).toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
   });
 
-  it('client-dispatched thinker fans out synthesis + paid-media server-side (autonomy hole)', async (): Promise<void> => {
-    // Lane A: the CLIENT (useAuditState) POSTs the thinker directly. Today that
-    // path attaches no onJobComplete, so synthesis + paid-media only run when a
-    // tab reopens. After the fix the thinker's own dispatch must fan them out.
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    mockOwnedSession();
-    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
-      data: { id: PARENT_ID },
-      error: null,
-    });
-    // Capstone build needs the thinker artifact present in committed rows.
-    routeMocks.committedSectionsQuery.in.mockResolvedValue({
-      data: committedRowsWithCrossSectionReasoning(),
-      error: null,
-    });
-    routeMocks.seedOrchestration.mockImplementation(
-      (input: { zones: readonly AllPositioningSectionId[] }) => {
-        const [zone] = input.zones;
-        if (zone === CROSS_SECTION_REASONING_SECTION_ID) {
-          return Promise.resolve(crossSectionReasoningSeededRows());
-        }
-        if (zone === PAID_MEDIA_PLAN_SECTION_ID) {
-          return Promise.resolve(paidMediaSeededRows());
-        }
-        if (zone === POSITIONING_SYNTHESIS_SECTION_ID) {
-          return Promise.resolve(synthesisSeededRows());
-        }
-        return Promise.resolve(defaultSeededRows());
-      },
-    );
-    routeMocks.claimSectionRun.mockImplementation(
-      (input: { sectionId: AllPositioningSectionId }) => {
-        if (input.sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
-          return Promise.resolve(
-            claimResult(
-              'claimed',
-              '33333333-3333-4333-8333-333333333333',
-              PAID_MEDIA_PLAN_SECTION_ID,
-            ),
-          );
-        }
-        if (input.sectionId === POSITIONING_SYNTHESIS_SECTION_ID) {
-          return Promise.resolve(
-            claimResult(
-              'claimed',
-              '55555555-5555-4555-8555-555555555555',
-              POSITIONING_SYNTHESIS_SECTION_ID,
-            ),
-          );
-        }
-        return Promise.resolve(
-          claimResult(
-            'claimed',
-            '44444444-4444-4444-8444-444444444444',
-            CROSS_SECTION_REASONING_SECTION_ID,
-          ),
-        );
-      },
-    );
-
-    const response = await POST(
-      makeRequest({
-        run_id: VALID_RUN_ID,
-        section_id: CROSS_SECTION_REASONING_SECTION_ID,
-      }),
-    );
-    expect(response.status).toBe(202);
-
-    // Drain 1: the client-dispatched thinker job runs → its onJobComplete must
-    // fan out synthesis + paid-media (this is what the fix adds).
-    await drainAfter();
-
-    const claimedSectionIds = routeMocks.claimSectionRun.mock.calls.map(
-      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
-    );
-    expect(claimedSectionIds).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
-    expect(claimedSectionIds).toContain(PAID_MEDIA_PLAN_SECTION_ID);
-
-    // Both capstones must read the cross-section reasoning artifact
-    // (includeCrossSectionReasoningArtifact: true).
-    const paidMediaStoreCall = routeMocks.createSupabaseRunStore.mock.calls.find(
-      (call) =>
-        (call[0] as { sectionRunIdByZone: Record<string, string> })
-          .sectionRunIdByZone[PAID_MEDIA_PLAN_SECTION_ID] !== undefined,
-    );
-    expect(paidMediaStoreCall?.[0]).toMatchObject({
-      researchInput: {
-        crossSectionReasoningArtifact: {
-          sectionTitle: 'Cross-Section Reasoning',
-        },
-      },
-    });
-
-    // Drain 2: synthesis + paid-media jobs actually run.
-    await drainAfter();
-    const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
-      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
-    );
-    expect(ranSectionIds).toContain(POSITIONING_SYNTHESIS_SECTION_ID);
-    expect(ranSectionIds).toContain(PAID_MEDIA_PLAN_SECTION_ID);
-  });
-
-  it('does not schedule a duplicate thinker job when the server trigger finds it already dispatched', async (): Promise<void> => {
+  it('does not schedule a duplicate paid-media job when the server trigger finds it already dispatched', async (): Promise<void> => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession();
     routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
@@ -1038,7 +736,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
     routeMocks.seedOrchestration
       .mockResolvedValueOnce(defaultSeededRows())
-      .mockResolvedValueOnce(crossSectionReasoningSeededRows());
+      .mockResolvedValueOnce(paidMediaSeededRows());
     routeMocks.claimSectionRun
       .mockResolvedValueOnce(
         claimResult(
@@ -1050,8 +748,8 @@ describe('POST /api/research-v2/run-lab-section', () => {
       .mockResolvedValueOnce(
         claimResult(
           'already_running',
-          '44444444-4444-4444-8444-444444444444',
-          CROSS_SECTION_REASONING_SECTION_ID,
+          '33333333-3333-4333-8333-333333333333',
+          PAID_MEDIA_PLAN_SECTION_ID,
         ),
       );
 
@@ -1069,7 +767,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.seedOrchestration).toHaveBeenNthCalledWith(2, {
       userId: 'user_1',
       runId: VALID_RUN_ID,
-      zones: [CROSS_SECTION_REASONING_SECTION_ID],
+      zones: [PAID_MEDIA_PLAN_SECTION_ID],
     });
     expect(routeMocks.claimSectionRun).toHaveBeenCalledTimes(2);
     expect(routeMocks.after).toHaveBeenCalledTimes(1);
@@ -1261,67 +959,11 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 
-  it('dispatches cross-section reasoning as a dependent one-section wave with committed artifacts', async (): Promise<void> => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    routeMocks.seedOrchestration.mockResolvedValue(crossSectionReasoningSeededRows());
-    routeMocks.claimSectionRun.mockResolvedValue(
-      claimResult(
-        'claimed',
-        '44444444-4444-4444-8444-444444444444',
-        CROSS_SECTION_REASONING_SECTION_ID,
-      ),
-    );
-    mockOwnedSession();
-
-    const response = await POST(
-      makeRequest({
-        run_id: VALID_RUN_ID,
-        section_id: CROSS_SECTION_REASONING_SECTION_ID,
-      }),
-    );
-
-    expect(response.status).toBe(202);
-    expect(routeMocks.seedOrchestration).toHaveBeenCalledWith({
-      userId: 'user_1',
-      runId: VALID_RUN_ID,
-      zones: [CROSS_SECTION_REASONING_SECTION_ID],
-    });
-    expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
-      'zone',
-      [...POSITIONING_SECTION_IDS],
-    );
-    expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
-      expect.objectContaining({
-        parentAuditRunId: PARENT_ID,
-        sectionRunIdByZone: {
-          [CROSS_SECTION_REASONING_SECTION_ID]:
-            '44444444-4444-4444-8444-444444444444',
-        },
-        researchInput: expect.objectContaining({
-          committedPositioningArtifacts: Object.fromEntries(
-            committedPositioningRows().map((row) => [row.zone, row.data]),
-          ),
-        }),
-      }),
-    );
-
-    await drainAfter();
-
-    expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
-      runId: VALID_RUN_ID,
-      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
-      signal: expect.any(AbortSignal),
-      store: routeMocks.store,
-    });
-  });
-
-  it('dispatches the paid media plan as a dependent one-section wave with committed artifacts and thinker output', async (): Promise<void> => {
+  it('dispatches the paid media plan as a dependent one-section wave with the six committed positioning artifacts (no thinker)', async (): Promise<void> => {
+    // W3-A pure-lean: paid-media reads the six committed positioning artifacts
+    // directly off the rollup. It no longer waits for or reads a thinker artifact.
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
-    routeMocks.committedSectionsQuery.in.mockResolvedValue({
-      data: committedRowsWithCrossSectionReasoning(),
-      error: null,
-    });
     routeMocks.claimSectionRun.mockResolvedValue(
       claimResult(
         'claimed',
@@ -1344,9 +986,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
       runId: VALID_RUN_ID,
       zones: [PAID_MEDIA_PLAN_SECTION_ID],
     });
+    // Only the six positioning zones are read — NOT the cross-section reasoning zone.
     expect(routeMocks.committedSectionsQuery.in).toHaveBeenCalledWith(
       'zone',
-      [...POSITIONING_SECTION_IDS, CROSS_SECTION_REASONING_SECTION_ID],
+      [...POSITIONING_SECTION_IDS],
     );
     expect(routeMocks.createSupabaseRunStore).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1358,20 +1001,22 @@ describe('POST /api/research-v2/run-lab-section', () => {
           committedPositioningArtifacts: Object.fromEntries(
             committedPositioningRows().map((row) => [row.zone, row.data]),
           ),
-          crossSectionReasoningArtifact: {
-            sectionTitle: 'Cross-Section Reasoning',
-          },
         }),
       }),
     );
+    // The paid-media research input must NOT carry a cross-section reasoning artifact.
     const createStoreInput = routeMocks.createSupabaseRunStore.mock
       .calls[0]?.[0] as
       | {
           researchInput: {
             committedPositioningArtifacts?: Record<string, unknown>;
+            crossSectionReasoningArtifact?: unknown;
           };
         }
       | undefined;
+    expect(
+      createStoreInput?.researchInput.crossSectionReasoningArtifact,
+    ).toBeUndefined();
     const voiceOfCustomerArtifact =
       createStoreInput?.researchInput.committedPositioningArtifacts
         ?.positioningVoiceOfCustomer as
@@ -1389,11 +1034,11 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
   });
 
-  it('dispatches the thinker on thin evidence, passing an evidenceCoverage annotation', async (): Promise<void> => {
+  it('dispatches paid-media on thin evidence, passing an evidenceCoverage annotation', async (): Promise<void> => {
     // ARI: readiness is a coverage annotation, not a gate. A 6/6 run with a thin
-    // VoC still dispatches the thinker; the gap rides along in evidenceCoverage.
+    // VoC still dispatches paid-media; the gap rides along in evidenceCoverage.
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    routeMocks.seedOrchestration.mockResolvedValue(crossSectionReasoningSeededRows());
+    routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
     routeMocks.committedSectionsQuery.in.mockResolvedValue({
       data: committedPositioningRowsWithVoiceOfCustomerGap(),
       error: null,
@@ -1401,8 +1046,8 @@ describe('POST /api/research-v2/run-lab-section', () => {
     routeMocks.claimSectionRun.mockResolvedValue(
       claimResult(
         'claimed',
-        '44444444-4444-4444-8444-444444444444',
-        CROSS_SECTION_REASONING_SECTION_ID,
+        '33333333-3333-4333-8333-333333333333',
+        PAID_MEDIA_PLAN_SECTION_ID,
       ),
     );
     mockOwnedSession();
@@ -1410,7 +1055,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     const response = await POST(
       makeRequest({
         run_id: VALID_RUN_ID,
-        section_id: CROSS_SECTION_REASONING_SECTION_ID,
+        section_id: PAID_MEDIA_PLAN_SECTION_ID,
       }),
     );
 
@@ -1437,65 +1082,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
 
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
       runId: VALID_RUN_ID,
-      sectionId: CROSS_SECTION_REASONING_SECTION_ID,
+      sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
     });
-  });
-
-  it('blocks paid media dispatch until cross-section reasoning is committed', async (): Promise<void> => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    routeMocks.seedOrchestration.mockResolvedValue(paidMediaSeededRows());
-    routeMocks.claimSectionRun.mockResolvedValue(
-      claimResult(
-        'claimed',
-        '33333333-3333-4333-8333-333333333333',
-        PAID_MEDIA_PLAN_SECTION_ID,
-      ),
-    );
-    mockOwnedSession();
-
-    const response = await POST(
-      makeRequest({
-        run_id: VALID_RUN_ID,
-        section_id: PAID_MEDIA_PLAN_SECTION_ID,
-      }),
-    );
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({
-      error: 'cross_section_reasoning_not_ready',
-      missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
-    });
-    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
-    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
-  });
-
-  it('blocks synthesis dispatch until cross-section reasoning is committed', async (): Promise<void> => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    routeMocks.seedOrchestration.mockResolvedValue(synthesisSeededRows());
-    routeMocks.claimSectionRun.mockResolvedValue(
-      claimResult(
-        'claimed',
-        '55555555-5555-4555-8555-555555555555',
-        POSITIONING_SYNTHESIS_SECTION_ID,
-      ),
-    );
-    mockOwnedSession();
-
-    const response = await POST(
-      makeRequest({
-        run_id: VALID_RUN_ID,
-        section_id: POSITIONING_SYNTHESIS_SECTION_ID,
-      }),
-    );
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({
-      error: 'cross_section_reasoning_not_ready',
-      missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
-    });
-    expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
-    expect(routeMocks.runLabSectionJob).not.toHaveBeenCalled();
   });
 });

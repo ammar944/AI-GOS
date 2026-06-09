@@ -10,6 +10,8 @@ import {
   POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+// W3-A note: CROSS_SECTION_REASONING_SECTION_ID + POSITIONING_SYNTHESIS_SECTION_ID
+// are imported only for negative assertions (these capstones must NEVER dispatch).
 import { useAuditState } from '../use-audit-state';
 
 const RUN_ID = '00000000-0000-4000-8000-0000000000aa';
@@ -45,22 +47,16 @@ function erroredWorker(
   };
 }
 
-// 6/6 + thinker committed, so crossSectionReasoningComplete is true and the
-// capstone (paid-media / synthesis) dispatch gates are open.
-function thinkerCompleteState(
+// W3-A pure-lean: 6/6 complete is the paid-media dispatch trigger. This helper
+// builds a 6/6 state with extra capstone (paid-media) workers attached.
+function sixCompleteWithCapstoneState(
   capstoneWorkers: AuditStateResponse['workerStates'] = [],
 ): AuditStateResponse {
   return sixCompleteState({
     workerStates: [
       ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
-      completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
       ...capstoneWorkers,
     ],
-    sectionsByZone: {
-      [CROSS_SECTION_REASONING_SECTION_ID]: {
-        data: { sectionTitle: 'Cross-Section Reasoning' },
-      },
-    },
   });
 }
 
@@ -110,7 +106,7 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     vi.useRealTimers();
   });
 
-  it('dispatches cross-section reasoning first after six sections complete', async (): Promise<void> => {
+  it('dispatches paid-media directly after six sections complete (no thinker, no synthesis)', async (): Promise<void> => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(responseForJson(sixCompleteState()))
@@ -121,12 +117,13 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
 
     await waitFor(() => {
       expect(dispatchedSectionIds(fetchMock)).toContain(
-        CROSS_SECTION_REASONING_SECTION_ID,
+        PAID_MEDIA_PLAN_SECTION_ID,
       );
     });
 
+    // The thinker + synthesis capstones must NEVER be dispatched by the client.
     expect(dispatchedSectionIds(fetchMock)).not.toContain(
-      PAID_MEDIA_PLAN_SECTION_ID,
+      CROSS_SECTION_REASONING_SECTION_ID,
     );
     expect(dispatchedSectionIds(fetchMock)).not.toContain(
       POSITIONING_SYNTHESIS_SECTION_ID,
@@ -135,43 +132,33 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     unmount();
   });
 
-  it('dispatches synthesis and paid media only after the thinker completes', async (): Promise<void> => {
-    const state = sixCompleteState({
-      workerStates: [
-        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
-        completeWorker(CROSS_SECTION_REASONING_SECTION_ID),
-      ],
-      sectionsByZone: {
-        [CROSS_SECTION_REASONING_SECTION_ID]: {
-          data: { sectionTitle: 'Cross-Section Reasoning' },
-        },
-      },
+  it('does not dispatch paid-media before the six sections complete', async (): Promise<void> => {
+    const partial = sixCompleteState({
+      children_complete: 5,
+      children_total: 6,
+      workerStates: POSITIONING_SECTION_IDS.slice(0, 5).map((sectionId) =>
+        completeWorker(sectionId),
+      ),
+      parent_status: 'partial',
     });
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(responseForJson(state))
-      .mockResolvedValue(responseForJson({ ok: true }));
+      .mockResolvedValueOnce(responseForJson(partial))
+      .mockResolvedValue(responseForJson(partial));
     vi.stubGlobal('fetch', fetchMock);
 
     const { unmount } = renderHook(() => useAuditState(RUN_ID));
 
-    await waitFor(() => {
-      expect(dispatchedSectionIds(fetchMock)).toContain(
-        PAID_MEDIA_PLAN_SECTION_ID,
-      );
-      expect(dispatchedSectionIds(fetchMock)).toContain(
-        POSITIONING_SYNTHESIS_SECTION_ID,
-      );
-    });
+    await flushHookPromises();
 
     expect(dispatchedSectionIds(fetchMock)).not.toContain(
-      CROSS_SECTION_REASONING_SECTION_ID,
+      PAID_MEDIA_PLAN_SECTION_ID,
     );
 
     unmount();
   });
 
-  it('retries a post-six dispatch after a transient 409 (no permanent latch)', async (): Promise<void> => {
+  it('retries the paid-media dispatch after a transient 409 (no permanent latch)', async (): Promise<void> => {
     // ARI: the client no longer latches post-six dispatch off on a 409. The
     // server treats readiness as a coverage annotation, so a 409 is only ever a
     // transient race and must be retried on the next poll.
@@ -182,49 +169,45 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
       .mockResolvedValueOnce(responseForJson(sixCompleteState())) // poll 1
       .mockResolvedValueOnce(
         Response.json({ error: 'positioning_sections_not_ready' }, { status: 409 }),
-      ) // thinker dispatch 1 -> transient race
+      ) // paid-media dispatch 1 -> transient race
       .mockResolvedValueOnce(responseForJson(sixCompleteState())) // poll 2
-      .mockResolvedValueOnce(responseForJson({ ok: true })) // thinker dispatch 2 -> success
+      .mockResolvedValueOnce(responseForJson({ ok: true })) // paid-media dispatch 2 -> success
       .mockResolvedValue(responseForJson(sixCompleteState())); // subsequent polls
     vi.stubGlobal('fetch', fetchMock);
 
     const { unmount } = renderHook(() => useAuditState(RUN_ID));
 
     await flushHookPromises();
-    expect(dispatchedSectionIds(fetchMock)).toEqual([
-      CROSS_SECTION_REASONING_SECTION_ID,
-    ]);
+    expect(dispatchedSectionIds(fetchMock)).toEqual([PAID_MEDIA_PLAN_SECTION_ID]);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
 
-    // The transient 409 did NOT latch dispatch off — the thinker was retried.
-    const thinkerDispatches = dispatchedSectionIds(fetchMock).filter(
-      (id) => id === CROSS_SECTION_REASONING_SECTION_ID,
+    // The transient 409 did NOT latch dispatch off — paid-media was retried.
+    const paidMediaDispatches = dispatchedSectionIds(fetchMock).filter(
+      (id) => id === PAID_MEDIA_PLAN_SECTION_ID,
     );
-    expect(thinkerDispatches.length).toBeGreaterThanOrEqual(2);
+    expect(paidMediaDispatches.length).toBeGreaterThanOrEqual(2);
 
     unmount();
   });
 
-  it('re-dispatches a capstone whose row committed as error, then stops at the cap', async (): Promise<void> => {
+  it('re-dispatches a paid-media row that committed as error, then stops at the cap', async (): Promise<void> => {
     // T3c: an `error` row used to latch hasPaidMediaPlanStarted=true forever, so
-    // a failed paid-media/synthesis capstone never retried. The bounded retry
-    // re-fires once on the observed error, then stops at the cap so a
-    // deterministic failure never loops a paid-API call.
+    // a failed paid-media capstone never retried. The bounded retry re-fires once
+    // on the observed error, then stops at the cap so a deterministic failure
+    // never loops a paid-API call.
     vi.useFakeTimers();
 
-    const erroredCapstones = thinkerCompleteState([
+    const erroredCapstone = sixCompleteWithCapstoneState([
       erroredWorker(PAID_MEDIA_PLAN_SECTION_ID),
-      erroredWorker(POSITIONING_SYNTHESIS_SECTION_ID),
     ]);
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(responseForJson(erroredCapstones)) // poll 1 -> retry #1
+      .mockResolvedValueOnce(responseForJson(erroredCapstone)) // poll 1 -> retry #1
       .mockResolvedValueOnce(responseForJson({ ok: true })) // paid-media re-dispatch
-      .mockResolvedValueOnce(responseForJson({ ok: true })) // synthesis re-dispatch
-      .mockResolvedValue(responseForJson(erroredCapstones)); // still errored on later polls
+      .mockResolvedValue(responseForJson(erroredCapstone)); // still errored on later polls
     vi.stubGlobal('fetch', fetchMock);
 
     const { unmount } = renderHook(() => useAuditState(RUN_ID));
@@ -235,11 +218,6 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     expect(
       dispatchedSectionIds(fetchMock).filter(
         (id) => id === PAID_MEDIA_PLAN_SECTION_ID,
-      ),
-    ).toHaveLength(1);
-    expect(
-      dispatchedSectionIds(fetchMock).filter(
-        (id) => id === POSITIONING_SYNTHESIS_SECTION_ID,
       ),
     ).toHaveLength(1);
 
@@ -256,34 +234,25 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
         (id) => id === PAID_MEDIA_PLAN_SECTION_ID,
       ),
     ).toHaveLength(1);
-    expect(
-      dispatchedSectionIds(fetchMock).filter(
-        (id) => id === POSITIONING_SYNTHESIS_SECTION_ID,
-      ),
-    ).toHaveLength(1);
 
     unmount();
   });
 
-  it('does not re-dispatch a capstone that already committed an artifact', async (): Promise<void> => {
-    // Guard: a committed (non-error) capstone with an artifact in sectionsByZone
-    // must never be re-dispatched by the error-retry path.
+  it('does not re-dispatch paid-media once it has committed an artifact', async (): Promise<void> => {
+    // Guard: a committed (non-error) paid-media row with an artifact in
+    // sectionsByZone must never be re-dispatched by the error-retry path.
     vi.useFakeTimers();
 
-    const committedCapstones = thinkerCompleteState([
+    const committedCapstone = sixCompleteWithCapstoneState([
       completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
-      completeWorker(POSITIONING_SYNTHESIS_SECTION_ID),
     ]);
-    committedCapstones.sectionsByZone = {
-      ...committedCapstones.sectionsByZone,
+    committedCapstone.sectionsByZone = {
+      ...committedCapstone.sectionsByZone,
       [PAID_MEDIA_PLAN_SECTION_ID]: { data: { sectionTitle: 'Paid Media Plan' } },
-      [POSITIONING_SYNTHESIS_SECTION_ID]: {
-        data: { sectionTitle: 'Positioning Synthesis' },
-      },
     };
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(responseForJson(committedCapstones));
+      .mockResolvedValue(responseForJson(committedCapstone));
     vi.stubGlobal('fetch', fetchMock);
 
     const { unmount } = renderHook(() => useAuditState(RUN_ID));
@@ -297,9 +266,6 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
 
     expect(dispatchedSectionIds(fetchMock)).not.toContain(
       PAID_MEDIA_PLAN_SECTION_ID,
-    );
-    expect(dispatchedSectionIds(fetchMock)).not.toContain(
-      POSITIONING_SYNTHESIS_SECTION_ID,
     );
 
     unmount();

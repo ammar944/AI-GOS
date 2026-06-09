@@ -57,18 +57,16 @@ interface ParentRollupStatusRow {
   children_total?: unknown;
 }
 
-// The paid-media plan and the synthesis capstone both read the six committed
-// positioning artifacts plus the cross-section reasoning artifact (and need the
-// parent audit run id to load them). The thinker reads the six committed
-// positioning artifacts only.
+// W3-A pure-lean: the paid-media plan reads the six committed positioning
+// artifacts directly off the 6/6 rollup (and needs the parent audit run id to
+// load them). The thinker + synthesis capstones no longer auto-dispatch through
+// this route, so paid-media is the only section here that requires committed
+// artifacts. (Direct thinker/synthesis reruns are handled by rerun-section, which
+// keeps its own predicate.)
 function requiresCommittedPositioningArtifacts(
   sectionId: AllPositioningSectionId,
 ): boolean {
-  return (
-    sectionId === CROSS_SECTION_REASONING_SECTION_ID ||
-    sectionId === PAID_MEDIA_PLAN_SECTION_ID ||
-    sectionId === POSITIONING_SYNTHESIS_SECTION_ID
-  );
+  return sectionId === PAID_MEDIA_PLAN_SECTION_ID;
 }
 
 function getDispatchZones(
@@ -193,25 +191,13 @@ async function buildCommittedArtifactsResearchInput({
     };
   }
 
-  if (
-    includeCrossSectionReasoningArtifact &&
-    crossSectionReasoningArtifact === undefined
-  ) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        {
-          error: 'cross_section_reasoning_not_ready',
-          missing_sections: [CROSS_SECTION_REASONING_SECTION_ID],
-        },
-        { status: 409 },
-      ),
-    };
-  }
+  // W3-A pure-lean: paid-media no longer waits for a thinker artifact. The
+  // includeCrossSectionReasoningArtifact path is false for paid-media, so there
+  // is no cross_section_reasoning_not_ready 409 gate here anymore.
 
-  // ARI: readiness is computed as a COVERAGE annotation, never a gate. Capstones
-  // (thinker/synthesis/paid-media) dispatch on 6/6 regardless of section quality
-  // and reason over thin sections, which are then badged needs_review at commit.
+  // ARI: readiness is computed as a COVERAGE annotation, never a gate. Paid-media
+  // dispatches on 6/6 regardless of section quality and reasons over thin
+  // sections, which are then badged needs_review at commit.
   const readiness = evaluateResearchEvidenceReadiness(artifactRows);
 
   return {
@@ -339,7 +325,14 @@ async function hasCompleteSixSectionRollup({
   );
 }
 
-async function dispatchCrossSectionReasoningIfSixComplete({
+// W3-A pure-lean: once the six positioning sections roll up complete, dispatch
+// the paid-media plan directly off the 6/6 rollup. The thinker + synthesis
+// capstones are no longer in the dispatch chain. This fires from the SERVER-side
+// onJobComplete hook of the sixth core-section commit, so it survives the browser
+// tab closing (autonomy invariant — Jun-8 fix carried forward). The client may
+// also trigger paid-media; claimSectionRun CAS de-dupes the double-trigger.
+// Paid-media is terminal, so its own onJobComplete fans out nothing further.
+async function dispatchPaidMediaIfSixComplete({
   baseResearchInput,
   parentAuditRunId,
   runId,
@@ -364,158 +357,33 @@ async function dispatchCrossSectionReasoningIfSixComplete({
     return;
   }
 
-  const capstoneResearchInput = await buildCommittedArtifactsResearchInput({
+  const paidMediaResearchInput = await buildCommittedArtifactsResearchInput({
     baseResearchInput,
     includeCrossSectionReasoningArtifact: false,
     parentAuditRunId,
     supabase,
   });
 
-  if (!capstoneResearchInput.ok) {
-    if (capstoneResearchInput.response.status === 409) {
+  if (!paidMediaResearchInput.ok) {
+    // 409 = positioning_sections_not_ready: a read-after-write race against the
+    // sixth commit. The client poll is the CAS-guarded fallback if a tab is open.
+    if (paidMediaResearchInput.response.status === 409) {
       return;
     }
 
     throw new Error(
-      `cross-section reasoning dispatch failed while preparing committed artifacts for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: response status ${capstoneResearchInput.response.status}`,
+      `paid-media dispatch failed while preparing committed artifacts for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: response status ${paidMediaResearchInput.response.status}`,
     );
   }
 
   await scheduleLabSectionJob({
     userId,
     runId,
-    sectionId: CROSS_SECTION_REASONING_SECTION_ID,
-    zones: [CROSS_SECTION_REASONING_SECTION_ID],
+    sectionId: PAID_MEDIA_PLAN_SECTION_ID,
+    zones: getDispatchZones(PAID_MEDIA_PLAN_SECTION_ID),
     supabase,
-    researchInput: capstoneResearchInput.researchInput,
+    researchInput: paidMediaResearchInput.researchInput,
     schedule,
-    // Close the autonomy hole: once the thinker commits server-side, fan out the
-    // two final capstones (synthesis + paid-media) from the server so they no
-    // longer depend on an open browser tab. Wrapped in try/catch so a dispatch
-    // error never fails the thinker's own commit (mirrors the core-section hook).
-    onJobComplete: async ({ seeded }): Promise<void> => {
-      try {
-        await dispatchSynthesisAndPaidMediaAfterThinker({
-          baseResearchInput,
-          parentAuditRunId: seeded.parent_audit_run_id,
-          runId,
-          schedule,
-          supabase,
-          userId,
-        });
-      } catch (error) {
-        console.error(
-          '[run-lab-section] synthesis + paid-media auto-dispatch failed',
-          {
-            runId,
-            parentAuditRunId: seeded.parent_audit_run_id,
-            message: error instanceof Error ? error.message : String(error),
-          },
-        );
-      }
-    },
-  });
-}
-
-// Server-owned dispatch of the two final capstones once the thinker has
-// committed. Both read the SAME committed-artifacts input (the six positioning
-// sections plus the cross-section reasoning artifact), so build it once and fan
-// out with Promise.allSettled — a failure of one must not block the other.
-// Reuses the existing capstone dispatch path (getDispatchZones + scheduleLabSectionJob),
-// so capstones stay counts_toward_rollup=false (server-owned, not flagged here).
-async function dispatchSynthesisAndPaidMediaAfterThinker({
-  baseResearchInput,
-  parentAuditRunId,
-  runId,
-  schedule,
-  supabase,
-  userId,
-}: {
-  baseResearchInput: ResearchInput;
-  parentAuditRunId: string;
-  runId: string;
-  schedule: ScheduleLabSectionTask;
-  supabase: ReturnType<typeof createAdminClient>;
-  userId: string;
-}): Promise<void> {
-  // Read-after-write race hardening: the thinker artifact is committed in-process
-  // immediately before this fires, but the admin client may briefly not see it,
-  // yielding a 409 (cross_section_reasoning_not_ready). Bounded re-query — 3
-  // attempts, 750ms apart — closes that window. Supabase-only (NO paid-API call),
-  // so it cannot loop a model dispatch.
-  const CAPSTONE_BUILD_MAX_ATTEMPTS = 3;
-  const CAPSTONE_BUILD_RETRY_MS = 750;
-  let capstoneResearchInput = await buildCommittedArtifactsResearchInput({
-    baseResearchInput,
-    includeCrossSectionReasoningArtifact: true,
-    parentAuditRunId,
-    supabase,
-  });
-  for (
-    let attempt = 1;
-    attempt < CAPSTONE_BUILD_MAX_ATTEMPTS &&
-    !capstoneResearchInput.ok &&
-    capstoneResearchInput.response.status === 409;
-    attempt += 1
-  ) {
-    await new Promise((resolve) => setTimeout(resolve, CAPSTONE_BUILD_RETRY_MS));
-    capstoneResearchInput = await buildCommittedArtifactsResearchInput({
-      baseResearchInput,
-      includeCrossSectionReasoningArtifact: true,
-      parentAuditRunId,
-      supabase,
-    });
-  }
-
-  if (!capstoneResearchInput.ok) {
-    // 409 = positioning_sections_not_ready / cross_section_reasoning_not_ready:
-    // still racing after the bounded retry. The client poll is the CAS-guarded
-    // fallback if a tab is open; with no tab this is the last resort, so log it.
-    if (capstoneResearchInput.response.status === 409) {
-      console.error(
-        '[run-lab-section] synthesis + paid-media auto-dispatch still 409 after retries',
-        { runId, parentAuditRunId },
-      );
-      return;
-    }
-
-    throw new Error(
-      `synthesis + paid-media dispatch failed while preparing committed artifacts for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: response status ${capstoneResearchInput.response.status}`,
-    );
-  }
-
-  const researchInput = capstoneResearchInput.researchInput;
-  const capstoneSectionIds = [
-    POSITIONING_SYNTHESIS_SECTION_ID,
-    PAID_MEDIA_PLAN_SECTION_ID,
-  ] as const;
-
-  const results = await Promise.allSettled(
-    capstoneSectionIds.map((sectionId) =>
-      scheduleLabSectionJob({
-        userId,
-        runId,
-        sectionId,
-        zones: getDispatchZones(sectionId),
-        supabase,
-        researchInput,
-        schedule,
-      }),
-    ),
-  );
-
-  results.forEach((result, index) => {
-    if (result.status === 'rejected') {
-      console.error('[run-lab-section] capstone auto-dispatch failed', {
-        runId,
-        parentAuditRunId,
-        sectionId: capstoneSectionIds[index],
-        message:
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason),
-      });
-    }
   });
 }
 
@@ -625,9 +493,9 @@ export async function POST(request: Request): Promise<Response> {
     const capstoneResearchInput = needsCommittedArtifacts
       ? await buildCommittedArtifactsResearchInput({
           baseResearchInput,
-          includeCrossSectionReasoningArtifact:
-            body.section_id === PAID_MEDIA_PLAN_SECTION_ID ||
-            body.section_id === POSITIONING_SYNTHESIS_SECTION_ID,
+          // W3-A pure-lean: paid-media is the only section that reaches here, and
+          // it no longer reads a thinker artifact.
+          includeCrossSectionReasoningArtifact: false,
           parentAuditRunId: requireParentAuditRunId(capstoneParent),
           supabase,
         })
@@ -648,9 +516,15 @@ export async function POST(request: Request): Promise<Response> {
       schedule: after,
       ...(isPositioningSectionId(body.section_id)
         ? {
+            // W3-A autonomy invariant: when the sixth positioning section commits
+            // server-side, fan out the paid-media plan from the SERVER so it
+            // survives the browser tab closing. The client poll may also trigger
+            // paid-media; claimSectionRun CAS de-dupes the double-trigger.
+            // Wrapped in try/catch so a dispatch error never fails the core
+            // section's own commit.
             onJobComplete: async ({ seeded }): Promise<void> => {
               try {
-                await dispatchCrossSectionReasoningIfSixComplete({
+                await dispatchPaidMediaIfSixComplete({
                   baseResearchInput,
                   parentAuditRunId: seeded.parent_audit_run_id,
                   runId: body.run_id,
@@ -660,7 +534,7 @@ export async function POST(request: Request): Promise<Response> {
                 });
               } catch (error) {
                 console.error(
-                  '[run-lab-section] cross-section reasoning auto-dispatch failed',
+                  '[run-lab-section] paid-media auto-dispatch failed',
                   {
                     runId: body.run_id,
                     parentAuditRunId: seeded.parent_audit_run_id,
@@ -672,41 +546,7 @@ export async function POST(request: Request): Promise<Response> {
               }
             },
           }
-        : body.section_id === CROSS_SECTION_REASONING_SECTION_ID
-          ? {
-              // Autonomy hole fix: the thinker can be dispatched by the CLIENT
-              // (useAuditState) as well as the server. The client POST carries
-              // no fan-out hook, so without this the two final capstones only
-              // run when a browser tab is open to poll. Wire the SAME server
-              // fan-out the server thinker path uses (route ~L396) so synthesis
-              // + paid-media dispatch after the thinker job completes, tab or no
-              // tab. Wrapped in try/catch so a fan-out error never fails the
-              // thinker's own commit. claimSectionRun CAS de-dups against the
-              // client fallback, so a double-trigger is safe.
-              onJobComplete: async ({ seeded }): Promise<void> => {
-                try {
-                  await dispatchSynthesisAndPaidMediaAfterThinker({
-                    baseResearchInput,
-                    parentAuditRunId: seeded.parent_audit_run_id,
-                    runId: body.run_id,
-                    schedule: after,
-                    supabase,
-                    userId,
-                  });
-                } catch (error) {
-                  console.error(
-                    '[run-lab-section] synthesis + paid-media auto-dispatch failed (client thinker path)',
-                    {
-                      runId: body.run_id,
-                      parentAuditRunId: seeded.parent_audit_run_id,
-                      message:
-                        error instanceof Error ? error.message : String(error),
-                    },
-                  );
-                }
-              },
-            }
-          : {}),
+        : {}),
     });
 
     return NextResponse.json(

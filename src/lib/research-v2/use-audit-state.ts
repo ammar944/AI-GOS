@@ -8,10 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { AuditStateResponse, WorkerStatus } from '@/app/api/research-v2/audit-state/route';
 import {
-  CROSS_SECTION_REASONING_SECTION_ID,
   PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
-  POSITIONING_SYNTHESIS_SECTION_ID,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
@@ -73,37 +71,6 @@ function isSectionErrored(
     (workerState) => workerState.section_id === sectionId,
   );
   return worker?.status === 'error';
-}
-
-function hasCrossSectionReasoningStarted(state: AuditStateResponse): boolean {
-  return (
-    state.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
-    state.workerStates.some(
-      (workerState) => workerState.section_id === CROSS_SECTION_REASONING_SECTION_ID,
-    )
-  );
-}
-
-function isCrossSectionReasoningComplete(state: AuditStateResponse): boolean {
-  const worker = state.workerStates.find(
-    (workerState) => workerState.section_id === CROSS_SECTION_REASONING_SECTION_ID,
-  );
-
-  return (
-    state.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
-    worker?.status === 'complete'
-  );
-}
-
-function isCrossSectionReasoningTerminal(state: AuditStateResponse): boolean {
-  const worker = state.workerStates.find(
-    (workerState) => workerState.section_id === CROSS_SECTION_REASONING_SECTION_ID,
-  );
-
-  return (
-    state.sectionsByZone[CROSS_SECTION_REASONING_SECTION_ID] !== undefined ||
-    (worker !== undefined && TERMINAL.has(worker.status))
-  );
 }
 
 function isPaidMediaPlanTerminal(state: AuditStateResponse): boolean {
@@ -183,64 +150,6 @@ async function dispatchPaidMediaPlan(
   await throwIfDispatchFailed({ label: 'Paid media plan', response, runId });
 }
 
-async function dispatchCrossSectionReasoning(
-  runId: string,
-  signal: AbortSignal,
-): Promise<void> {
-  const response = await fetch('/api/research-v2/run-lab-section', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      run_id: runId,
-      section_id: CROSS_SECTION_REASONING_SECTION_ID,
-    }),
-    signal,
-  });
-
-  await throwIfDispatchFailed({
-    label: 'Cross-section reasoning',
-    response,
-    runId,
-  });
-}
-
-function hasPositioningSynthesisStarted(state: AuditStateResponse): boolean {
-  return (
-    state.sectionsByZone[POSITIONING_SYNTHESIS_SECTION_ID] !== undefined ||
-    state.workerStates.some(
-      (workerState) => workerState.section_id === POSITIONING_SYNTHESIS_SECTION_ID,
-    )
-  );
-}
-
-function isPositioningSynthesisTerminal(state: AuditStateResponse): boolean {
-  const synthesisWorker = state.workerStates.find(
-    (workerState) => workerState.section_id === POSITIONING_SYNTHESIS_SECTION_ID,
-  );
-
-  return (
-    state.sectionsByZone[POSITIONING_SYNTHESIS_SECTION_ID] !== undefined ||
-    (synthesisWorker !== undefined && TERMINAL.has(synthesisWorker.status))
-  );
-}
-
-async function dispatchPositioningSynthesis(
-  runId: string,
-  signal: AbortSignal,
-): Promise<void> {
-  const response = await fetch('/api/research-v2/run-lab-section', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      run_id: runId,
-      section_id: POSITIONING_SYNTHESIS_SECTION_ID,
-    }),
-    signal,
-  });
-
-  await throwIfDispatchFailed({ label: 'Positioning synthesis', response, runId });
-}
-
 // Quietly swallow the benign rejections we get when a dispatch fetch is
 // aborted on unmount / runId change / StrictMode double-mount: AbortError, or
 // a TypeError/DOMException with an empty message. 409 = transient
@@ -274,13 +183,10 @@ export function useAuditState(
 ): AuditStateResponse {
   const [state, setState] = useState<AuditStateResponse>(EMPTY);
   const cancelled = useRef(false);
-  const dispatchedCrossSectionReasoningRunIds = useRef<Set<string>>(new Set());
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
-  const dispatchedSynthesisRunIds = useRef<Set<string>>(new Set());
-  // Per-runId count of how many times we've re-dispatched an `error` capstone
+  // Per-runId count of how many times we've re-dispatched an `error` paid-media
   // row. Bounded by CAPSTONE_ERROR_RETRY_CAP so a deterministic failure stops.
   const mediaPlanErrorRetryCounts = useRef<Map<string, number>>(new Map());
-  const synthesisErrorRetryCounts = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     cancelled.current = false;
@@ -304,32 +210,18 @@ export function useAuditState(
         setState(next);
 
         const sixComplete = hasSixPositioningSectionsComplete(next);
-        const crossSectionReasoningComplete =
-          isCrossSectionReasoningComplete(next);
 
-        const shouldDispatchCrossSectionReasoning =
-          sixComplete &&
-          !hasCrossSectionReasoningStarted(next) &&
-          !dispatchedCrossSectionReasoningRunIds.current.has(runId);
-        if (shouldDispatchCrossSectionReasoning) {
-          dispatchedCrossSectionReasoningRunIds.current.add(runId);
-          try {
-            await dispatchCrossSectionReasoning(runId, dispatchAbort.signal);
-          } catch (error) {
-            dispatchedCrossSectionReasoningRunIds.current.delete(runId);
-            logDispatchError('cross-section reasoning', runId, error);
-          }
-        }
-
-        // Synthesis and paid media gate on the thinker stage, not just 6/6.
-        // They still dispatch in parallel once the cross-section reasoning
-        // artifact commits.
+        // W3-A pure-lean: paid-media dispatches directly off the 6/6 rollup.
+        // The server-side onJobComplete on the sixth core-section commit is the
+        // autonomous trigger (survives a closed tab); this client poll is the
+        // CAS-guarded fallback when a tab is open. claimSectionRun de-dupes the
+        // double-trigger.
         //
         // A committed `error` row latches hasPaidMediaPlanStarted=true forever.
-        // Under the cap, treat it as retriable: re-open both guards and bump
-        // the counter so the bounded re-dispatch fires exactly cap more times.
+        // Under the cap, treat it as retriable: re-open the guard and bump the
+        // counter so the bounded re-dispatch fires exactly cap more times.
         const paidMediaRetriableError =
-          crossSectionReasoningComplete &&
+          sixComplete &&
           isSectionErrored(next, PAID_MEDIA_PLAN_SECTION_ID) &&
           (mediaPlanErrorRetryCounts.current.get(runId) ?? 0) <
             CAPSTONE_ERROR_RETRY_CAP;
@@ -342,7 +234,7 @@ export function useAuditState(
         }
 
         const shouldDispatchPaidMediaPlan =
-          crossSectionReasoningComplete &&
+          sixComplete &&
           (paidMediaRetriableError || !hasPaidMediaPlanStarted(next)) &&
           !dispatchedMediaPlanRunIds.current.has(runId);
         if (shouldDispatchPaidMediaPlan) {
@@ -355,38 +247,7 @@ export function useAuditState(
           }
         }
 
-        const synthesisRetriableError =
-          crossSectionReasoningComplete &&
-          isSectionErrored(next, POSITIONING_SYNTHESIS_SECTION_ID) &&
-          (synthesisErrorRetryCounts.current.get(runId) ?? 0) <
-            CAPSTONE_ERROR_RETRY_CAP;
-        if (synthesisRetriableError) {
-          synthesisErrorRetryCounts.current.set(
-            runId,
-            (synthesisErrorRetryCounts.current.get(runId) ?? 0) + 1,
-          );
-          dispatchedSynthesisRunIds.current.delete(runId);
-        }
-
-        const shouldDispatchSynthesis =
-          crossSectionReasoningComplete &&
-          (synthesisRetriableError || !hasPositioningSynthesisStarted(next)) &&
-          !dispatchedSynthesisRunIds.current.has(runId);
-        if (shouldDispatchSynthesis) {
-          dispatchedSynthesisRunIds.current.add(runId);
-          try {
-            await dispatchPositioningSynthesis(runId, dispatchAbort.signal);
-          } catch (error) {
-            dispatchedSynthesisRunIds.current.delete(runId);
-            logDispatchError('positioning synthesis', runId, error);
-          }
-        }
-
-        if (
-          shouldDispatchCrossSectionReasoning ||
-          shouldDispatchPaidMediaPlan ||
-          shouldDispatchSynthesis
-        ) {
+        if (shouldDispatchPaidMediaPlan) {
           schedule();
           return;
         }
@@ -394,12 +255,7 @@ export function useAuditState(
         const allTerminal =
           next.workerStates.length > 0 &&
           next.workerStates.every((w) => TERMINAL.has(w.status));
-        const waitingForPostSix =
-          sixComplete &&
-          (!isCrossSectionReasoningTerminal(next) ||
-            (crossSectionReasoningComplete &&
-              (!isPaidMediaPlanTerminal(next) ||
-                !isPositioningSynthesisTerminal(next))));
+        const waitingForPostSix = sixComplete && !isPaidMediaPlanTerminal(next);
         if (!allTerminal || waitingForPostSix) schedule();
       } catch {
         schedule();
