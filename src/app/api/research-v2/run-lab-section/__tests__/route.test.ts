@@ -665,6 +665,64 @@ describe('POST /api/research-v2/run-lab-section', () => {
     });
   });
 
+  it('does NOT dispatch paid-media when the rollup is only 5/6 complete (autonomy gate)', async (): Promise<void> => {
+    // W3-A autonomy gate: dispatchPaidMediaIfSixComplete must early-return when
+    // the parent rollup is not complete. This proves the server-side tab-closed
+    // trigger does not fire paid-media before all six positioning sections land.
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'partial',
+        children_complete: 5,
+        children_total: 6,
+      },
+      error: null,
+    });
+    routeMocks.seedOrchestration.mockResolvedValue(defaultSeededRows());
+    routeMocks.claimSectionRun.mockResolvedValue(
+      claimResult(
+        'claimed',
+        '22222222-2222-4222-8222-000000000002',
+        'positioningBuyerICP',
+      ),
+    );
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+
+    // Draining the core-section job fires its onJobComplete, which checks the
+    // rollup (5/6) and early-returns without seeding/claiming paid-media.
+    await drainAfter();
+
+    // The core section was seeded + claimed exactly once; paid-media never was.
+    expect(routeMocks.seedOrchestration).toHaveBeenCalledTimes(1);
+    expect(routeMocks.claimSectionRun).toHaveBeenCalledTimes(1);
+    const seededZones = routeMocks.seedOrchestration.mock.calls.map(
+      (call) => (call[0] as { zones: readonly AllPositioningSectionId[] }).zones[0],
+    );
+    expect(seededZones).not.toContain(PAID_MEDIA_PLAN_SECTION_ID);
+    const claimedSectionIds = routeMocks.claimSectionRun.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(claimedSectionIds).not.toContain(PAID_MEDIA_PLAN_SECTION_ID);
+    // No second after() was scheduled (no paid-media job deferred), and only the
+    // core-section job ever ran.
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
+    const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(ranSectionIds).not.toContain(PAID_MEDIA_PLAN_SECTION_ID);
+  });
+
   it('does not fail the core-section commit when the paid-media auto-dispatch throws', async (): Promise<void> => {
     // W3-A: a dispatch error in the sixth section's onJobComplete must be
     // swallowed/logged, never bubble up to fail the core section's own job.

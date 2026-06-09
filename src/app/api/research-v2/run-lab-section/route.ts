@@ -326,8 +326,8 @@ async function hasCompleteSixSectionRollup({
 }
 
 // W3-A pure-lean: once the six positioning sections roll up complete, dispatch
-// the paid-media plan directly off the 6/6 rollup. The thinker + synthesis
-// capstones are no longer in the dispatch chain. This fires from the SERVER-side
+// the paid-media plan directly off the 6/6 rollup. Paid-media is now the only
+// post-six section in the dispatch chain. This fires from the SERVER-side
 // onJobComplete hook of the sixth core-section commit, so it survives the browser
 // tab closing (autonomy invariant — Jun-8 fix carried forward). The client may
 // also trigger paid-media; claimSectionRun CAS de-dupes the double-trigger.

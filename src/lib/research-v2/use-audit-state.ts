@@ -15,11 +15,11 @@ import {
 
 const POLL_MS = 2500;
 const TERMINAL: ReadonlySet<WorkerStatus> = new Set(['complete', 'error', 'aborted']);
-// Bounded client-side retry for a capstone (paid-media / synthesis) row that
-// committed as `error`. Cap is per-runId, per-section: a deterministic failure
-// (e.g. a schema the model can't fill) must stop after this many re-dispatches
-// so we never loop a paid-API call. T1's server chain dispatches once; this
-// only re-fires on an observed `error` row, and claimSectionRun CAS dedups.
+// Bounded client-side retry for a paid-media row that committed as `error`. Cap
+// is per-runId: a deterministic failure (e.g. a schema the model can't fill)
+// must stop after this many re-dispatches so we never loop a paid-API call. The
+// server fans out paid-media off 6/6 once; this only re-fires on an observed
+// `error` row, and claimSectionRun CAS dedups.
 const CAPSTONE_ERROR_RETRY_CAP = 1;
 
 const EMPTY: AuditStateResponse = {
