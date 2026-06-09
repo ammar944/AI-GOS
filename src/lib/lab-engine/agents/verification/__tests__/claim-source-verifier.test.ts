@@ -11,6 +11,7 @@ import { paidMediaPlanFixtureArtifact } from "@/lib/lab-engine/fixtures/paid-med
 import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
 
 import {
+  composeJudgeAbortSignal,
   deterministicPlanPass,
   extractPlanClaims,
   verifyPaidMediaPlan,
@@ -300,7 +301,11 @@ describe("verifyPaidMediaPlan", (): void => {
     expect(judge).toHaveBeenCalledTimes(2);
     expect(judge.mock.calls[0]?.[0].maxOutputTokens).toBe(16_384);
     expect(judge.mock.calls[1]?.[0].maxOutputTokens).toBe(24_576);
-    expect(result.hardFail).toBe(true);
+    // VERIFIER_ERROR (judge truncation/timeout) is NOT a confirmed fabrication —
+    // it commits-with-honest-badge (ARI), it does not hard-fail the section.
+    expect(result.hardFail).toBe(false);
+    expect(result.needsReview).toBe(true);
+    expect(result.summary.verifierErrors).toBeGreaterThan(0);
     expect(result.verdicts[0]).toEqual(
       expect.objectContaining({ flag: "VERIFIER_ERROR", by: "judge" }),
     );
@@ -327,9 +332,73 @@ describe("verifyPaidMediaPlan", (): void => {
       judge,
     });
 
-    expect(result.hardFail).toBe(true);
+    expect(result.hardFail).toBe(false);
+    expect(result.needsReview).toBe(true);
     expect(result.verdicts[0]).toEqual(
       expect.objectContaining({ flag: "VERIFIER_ERROR", by: "judge" }),
     );
+  });
+
+  it("runs judge chunks concurrently rather than sequentially", async (): Promise<void> => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const judge = vi.fn<PlanClaimJudge>(async ({ batch }) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      inFlight -= 1;
+      return {
+        byId: new Map(
+          batch.map((claim: PlanClaim) => [
+            claim.id,
+            { id: claim.id, flag: "PASS", reason: "supported" },
+          ]),
+        ),
+        finishReason: "stop",
+      };
+    });
+
+    // 10 distinct angle claims -> two judge chunks (size 8) that must overlap.
+    const result = await verifyPaidMediaPlan({
+      artifact: buildArtifact({
+        anglesToTest: Array.from({ length: 10 }, (_unused, index) => ({
+          shortName: `Concurrent angle ${index}`,
+          description: `Distinct load-bearing paid-media angle number ${index} about the founder-led category wedge.`,
+          angleType: "operator-proof",
+          sourceSection: "positioningMarketCategory",
+          grounding: "Supported by the market category section evidence.",
+        })),
+      }),
+      researchInput: buildResearchInput(),
+      judge,
+    });
+
+    expect(judge).toHaveBeenCalledTimes(2);
+    expect(maxInFlight).toBeGreaterThanOrEqual(2);
+    expect(result.hardFail).toBe(false);
+  });
+});
+
+describe("composeJudgeAbortSignal", (): void => {
+  it("applies a per-call timeout even when a never-aborting parent signal is provided", (): void => {
+    const parent = new AbortController().signal;
+    const composed = composeJudgeAbortSignal(parent);
+
+    // Must NOT pass the bare unbounded parent through (that was the regression).
+    expect(composed).not.toBe(parent);
+    expect(composed.aborted).toBe(false);
+  });
+
+  it("still aborts immediately when the parent (job) signal is already aborted", (): void => {
+    const composed = composeJudgeAbortSignal(AbortSignal.abort());
+
+    expect(composed.aborted).toBe(true);
+  });
+
+  it("returns a timeout-backed signal when no parent signal is provided", (): void => {
+    const composed = composeJudgeAbortSignal(undefined);
+
+    expect(composed).toBeInstanceOf(AbortSignal);
+    expect(composed.aborted).toBe(false);
   });
 });

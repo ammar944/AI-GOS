@@ -794,6 +794,21 @@ function readErrorFinishReason(error: unknown): string {
   return "error";
 }
 
+/**
+ * Bound every judge call to a real per-call timeout while still honoring the
+ * parent (285s job) signal. Previously `signal ?? AbortSignal.timeout(...)`
+ * meant the per-call timeout was dead code whenever a job signal was threaded
+ * in (always, in production), so a single hung judge call could consume the
+ * entire section budget. AbortSignal.any aborts on whichever fires first.
+ */
+export function composeJudgeAbortSignal(
+  signal: AbortSignal | undefined,
+  timeoutMs: number = JUDGE_TIMEOUT_MS,
+): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 export function createDefaultPlanClaimJudge(
   model: LanguageModel = sectionRunnerModel,
 ): PlanClaimJudge {
@@ -812,7 +827,7 @@ export function createDefaultPlanClaimJudge(
         }),
         temperature: 0,
         maxOutputTokens,
-        abortSignal: signal ?? AbortSignal.timeout(JUDGE_TIMEOUT_MS),
+        abortSignal: composeJudgeAbortSignal(signal),
         system:
           "You are a strict, evidence-first paid-media plan verifier. Do not infer beyond the provided six sections.",
         prompt: buildJudgePrompt({ batch, sections }),
@@ -965,25 +980,33 @@ async function judgePass({
   sections: Readonly<Record<Zone, string>>;
   signal?: AbortSignal;
 }): Promise<{ verdicts: PlanVerdict[]; stats: JudgeCallStat[] }> {
-  const stats: JudgeCallStat[] = [];
-  const verdicts: PlanVerdict[] = [];
-  let chunkIndex = 0;
-
+  const chunks: PlanClaim[][] = [];
   for (let start = 0; start < claims.length; start += JUDGE_CHUNK_SIZE) {
-    chunkIndex += 1;
-    verdicts.push(
-      ...(await judgeChunk({
-        chunk: claims.slice(start, start + JUDGE_CHUNK_SIZE),
-        chunkIndex,
+    chunks.push(claims.slice(start, start + JUDGE_CHUNK_SIZE));
+  }
+
+  // Run chunks concurrently — each is an independent judge call, so wall-clock
+  // is the slowest chunk, not their sum. The previous sequential loop could
+  // stack chunk latencies past the 285s job ceiling and trip the timeout. Each
+  // chunk gets its own stats array so the concurrent pushes never race.
+  const chunkResults = await Promise.all(
+    chunks.map((chunk, index) => {
+      const chunkStats: JudgeCallStat[] = [];
+      return judgeChunk({
+        chunk,
+        chunkIndex: index + 1,
         judge,
         sections,
         signal,
-        stats,
-      })),
-    );
-  }
+        stats: chunkStats,
+      }).then((verdicts) => ({ verdicts, stats: chunkStats }));
+    }),
+  );
 
-  return { verdicts, stats };
+  return {
+    verdicts: chunkResults.flatMap((result) => result.verdicts),
+    stats: chunkResults.flatMap((result) => result.stats),
+  };
 }
 
 function applyJudgeFalseAlarmGuards({
@@ -1058,11 +1081,15 @@ function shouldRunJudge(input: VerifyPaidMediaPlanInput): boolean {
 }
 
 function isHardFailVerdict(verdict: PlanVerdict): boolean {
+  // VERIFIER_ERROR (judge truncation/timeout/unparseable) means "we could not
+  // verify this claim" — NOT a confirmed fabrication. Per ARI it commits with an
+  // honest needs_review badge instead of hard-failing the section (which would
+  // reintroduce the .strict()->repair->timeout regression in a new form). Only
+  // deterministic, evidence-backed fabrications hard-fail.
   return (
     verdict.flag === "FABRICATED_QUOTE" ||
     verdict.flag === "EMPTY_SECTION_CITATION" ||
     verdict.flag === "INVALID_ENUM" ||
-    verdict.flag === "VERIFIER_ERROR" ||
     (verdict.flag === "MIS_ATTRIBUTION" &&
       verdict.by === "deterministic" &&
       verdict.reason.startsWith("count "))
