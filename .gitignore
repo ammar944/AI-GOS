@@ -91,3 +91,11 @@ docs/screenshots/
 /output/
 /aigos-design-system-v2.jsx
 /phase[0-9]*-*
+
+# Local scratch + ephemeral working notes (never committed). Some handoff/findings
+# docs embed share tokens / user IDs / emails — keep them out of git. Files stay on disk.
+/tmp/
+docs/handoffs/
+
+# Local research run data (ephemeral)
+/.data/
