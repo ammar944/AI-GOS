@@ -19,7 +19,7 @@ import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import { jsonError, requireApiUser } from '@/lib/auth/app-access';
-import { checkSectionModelDispatchPreflight } from '@/lib/lab-engine/ai/models';
+import { buildLabSectionProviderPreflightResponse } from '@/lib/research-v2/lab-section-preflight';
 import {
   corpusReady,
   getOnboardingReviewMetadata,
@@ -84,35 +84,6 @@ function buildForwardedLabSectionHeaders(
 
 function getLabSectionUrl(request: Request): string {
   return new URL('/api/research-v2/run-lab-section', request.url).toString();
-}
-
-function buildLabSectionProviderPreflightResponse({
-  runId,
-}: {
-  runId: string;
-}): NextResponse | null {
-  const preflight = checkSectionModelDispatchPreflight();
-
-  if (preflight.ok) {
-    return null;
-  }
-
-  console.error('[orchestrate] lab section provider preflight failed', {
-    runId,
-    error: preflight.error,
-    missingEnv: preflight.missingEnv,
-    provider: preflight.provider,
-  });
-
-  return NextResponse.json(
-    {
-      error: 'lab_engine_provider_preflight_failed',
-      message: preflight.message,
-      missingEnv: preflight.missingEnv,
-      provider: preflight.provider ?? null,
-    },
-    { status: 500 },
-  );
 }
 
 async function dispatchLabSectionJobs(
@@ -248,6 +219,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const preflightResponse = buildLabSectionProviderPreflightResponse({
     runId: body.run_id,
+    logTag: '[orchestrate]',
   });
   if (preflightResponse !== null) {
     return preflightResponse;

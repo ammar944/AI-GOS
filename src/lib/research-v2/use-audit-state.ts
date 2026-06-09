@@ -7,9 +7,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { AuditStateResponse, WorkerStatus } from '@/app/api/research-v2/audit-state/route';
+import { hasSixPositioningSectionsComplete } from '@/lib/research-v2/six-sections-complete';
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
-  POSITIONING_SECTION_IDS,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
@@ -31,22 +31,6 @@ const EMPTY: AuditStateResponse = {
   sectionsByZone: {},
   eventsByZone: {},
 };
-
-function hasSixPositioningSectionsComplete(state: AuditStateResponse): boolean {
-  if (state.children_complete >= POSITIONING_SECTION_IDS.length) {
-    return true;
-  }
-
-  return POSITIONING_SECTION_IDS.every((sectionId) => {
-    const worker = state.workerStates.find(
-      (workerState) => workerState.section_id === sectionId,
-    );
-    return (
-      worker?.status === 'complete' ||
-      state.sectionsByZone[sectionId] !== undefined
-    );
-  });
-}
 
 function hasPaidMediaPlanStarted(state: AuditStateResponse): boolean {
   return (

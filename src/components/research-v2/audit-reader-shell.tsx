@@ -62,6 +62,7 @@ import {
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
+import { hasSixPositioningSectionsComplete } from '@/lib/research-v2/six-sections-complete';
 import { useSectionPartials } from '@/lib/research-v2/use-section-partials';
 import type {
   AuditStateResponse,
@@ -568,16 +569,6 @@ function DraftingArtifactView({
   );
 }
 
-function isSixSectionComplete(live: AuditStateResponse): boolean {
-  if (live.children_complete >= POSITIONING_SECTION_IDS.length) return true;
-  return POSITIONING_SECTION_IDS.every((sectionId) => {
-    const worker = live.workerStates.find((state) => state.section_id === sectionId);
-    return (
-      worker?.status === 'complete' || live.sectionsByZone[sectionId] !== undefined
-    );
-  });
-}
-
 function getCommittedPaidMediaSubSectionKeys(
   events: readonly SectionEvent[],
 ): ReadonlySet<string> {
@@ -1023,7 +1014,7 @@ export function AuditReaderShell({
     return m;
   }, [live.sectionsByZone]);
 
-  const sixSectionsComplete = isSixSectionComplete(live);
+  const sixSectionsComplete = hasSixPositioningSectionsComplete(live);
 
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {

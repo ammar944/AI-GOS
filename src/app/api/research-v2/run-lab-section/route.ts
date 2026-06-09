@@ -9,13 +9,10 @@ import {
   POSITIONING_SECTION_IDS,
   isPositioningSectionId,
   type AllPositioningSectionId,
-  type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
-import {
-  researchInputSchema,
-  type ResearchInput,
-} from '@/lib/lab-engine/artifacts/artifact-envelope';
-import { checkSectionModelDispatchPreflight } from '@/lib/lab-engine/ai/models';
+import type { ResearchInput } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import { buildCommittedArtifactsResearchInput } from '@/lib/research-v2/committed-positioning-artifacts';
+import { buildLabSectionProviderPreflightResponse } from '@/lib/research-v2/lab-section-preflight';
 import {
   LAB_SECTION_JOB_TIMEOUT_MS,
   scheduleLabSectionJob,
@@ -30,10 +27,6 @@ import {
   OrchestrateRpcError,
 } from '@/lib/research-v2/orchestrate-db';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
-import {
-  evaluateResearchEvidenceReadiness,
-  type ResearchEvidenceReadinessRow,
-} from '@/lib/research-v2/research-evidence-readiness';
 import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/uploaded-document-context.server';
 import { createAdminClient } from '@/lib/supabase/server';
 
@@ -73,126 +66,6 @@ function getDispatchZones(
     return [PAID_MEDIA_PLAN_SECTION_ID];
   }
   return POSITIONING_SECTION_IDS;
-}
-
-function buildLabSectionProviderPreflightResponse({
-  runId,
-  sectionId,
-}: {
-  runId: string;
-  sectionId: AllPositioningSectionId;
-}): NextResponse | null {
-  const preflight = checkSectionModelDispatchPreflight();
-
-  if (preflight.ok) {
-    return null;
-  }
-
-  console.error('[run-lab-section] lab section provider preflight failed', {
-    runId,
-    sectionId,
-    error: preflight.error,
-    missingEnv: preflight.missingEnv,
-    provider: preflight.provider,
-  });
-
-  return NextResponse.json(
-    {
-      error: 'lab_engine_provider_preflight_failed',
-      message: preflight.message,
-      missingEnv: preflight.missingEnv,
-      provider: preflight.provider ?? null,
-    },
-    { status: 500 },
-  );
-}
-
-function isCommittedPositioningArtifactRow(
-  row: ResearchEvidenceReadinessRow,
-): row is ResearchEvidenceReadinessRow & { zone: PositioningSectionId } {
-  return (POSITIONING_SECTION_IDS as readonly string[]).includes(row.zone ?? '');
-}
-
-async function buildCommittedArtifactsResearchInput({
-  baseResearchInput,
-  parentAuditRunId,
-  supabase,
-}: {
-  baseResearchInput: ResearchInput;
-  parentAuditRunId: string;
-  supabase: ReturnType<typeof createAdminClient>;
-}): Promise<
-  | { ok: true; researchInput: ResearchInput }
-  | {
-      ok: false;
-      response: NextResponse;
-    }
-> {
-  const { data, error } = await supabase
-    .from('research_artifact_sections')
-    .select('zone, data, markdown, verification_tier, verification_flag')
-    .eq('artifact_id', parentAuditRunId)
-    .eq('status', 'complete')
-    .in('zone', POSITIONING_SECTION_IDS);
-
-  if (error) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        {
-          error: 'committed_artifacts_lookup_failed',
-          message: error.message,
-        },
-        { status: 500 },
-      ),
-    };
-  }
-
-  const artifactRows = (data ?? []) as ResearchEvidenceReadinessRow[];
-  const rows = artifactRows.filter(isCommittedPositioningArtifactRow);
-  const committedPositioningArtifacts = Object.fromEntries(
-    rows.map((row) => [row.zone, row.data]),
-  ) as Partial<Record<PositioningSectionId, unknown>>;
-  const committedPositioningSectionMarkdown = Object.fromEntries(
-    rows
-      .filter((row) => typeof row.markdown === 'string')
-      .map((row) => [row.zone, row.markdown]),
-  ) as Partial<Record<PositioningSectionId, string>>;
-  const missingSections = POSITIONING_SECTION_IDS.filter(
-    (sectionId) => committedPositioningArtifacts[sectionId] === undefined,
-  );
-
-  if (missingSections.length > 0) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        {
-          error: 'positioning_sections_not_ready',
-          missing_sections: missingSections,
-        },
-        { status: 409 },
-      ),
-    };
-  }
-
-  // ARI: readiness is computed as a COVERAGE annotation, never a gate. Paid-media
-  // dispatches on 6/6 regardless of section quality and reasons over thin
-  // sections, which are then badged needs_review at commit.
-  const readiness = evaluateResearchEvidenceReadiness(artifactRows);
-
-  return {
-    ok: true,
-    researchInput: researchInputSchema.parse({
-      ...baseResearchInput,
-      committedPositioningArtifacts,
-      committedPositioningSectionMarkdown,
-      evidenceCoverage: {
-        ready: readiness.ready,
-        blockedSections: readiness.blockedSections,
-        reasons: readiness.reasons,
-      },
-    }),
-  };
 }
 
 async function loadParentAuditRunId({
@@ -433,6 +306,7 @@ export async function POST(request: Request): Promise<Response> {
   const preflightResponse = buildLabSectionProviderPreflightResponse({
     runId: body.run_id,
     sectionId: body.section_id,
+    logTag: '[run-lab-section]',
   });
   if (preflightResponse !== null) {
     return preflightResponse;
