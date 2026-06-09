@@ -2,11 +2,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
+import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { persistenceGateEvalCases } from '@/lib/lab-engine/fixtures/persistence-gate-evals';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { activityEventSchema } from '@/lib/lab-engine/events/activity-event';
-import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
-import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import {
+  ALL_POSITIONING_SECTION_IDS,
+  POSITIONING_SECTION_IDS,
+} from '@/lib/ai/prompts/positioning-skills';
+import type {
+  AllPositioningSectionId,
+  PositioningSectionId,
+} from '@/lib/ai/prompts/positioning-skills';
 
 const profilePersistenceMocks = vi.hoisted(() => ({
   persistAuditProfileBestEffort: vi.fn(),
@@ -58,14 +65,14 @@ import {
 const userId = 'user_123';
 const parentAuditRunId = '11111111-1111-4111-8111-111111111111';
 const sectionRunIdByZone = Object.fromEntries(
-  POSITIONING_SECTION_IDS.map((sectionId, index) => [
+  ALL_POSITIONING_SECTION_IDS.map((sectionId, index) => [
     sectionId,
     `22222222-2222-4222-8222-${(index + 1).toString().padStart(12, '0')}`,
   ]),
-) as Record<(typeof POSITIONING_SECTION_IDS)[number], string>;
+) as Record<AllPositioningSectionId, string>;
 
 interface FakeSupabaseOptions {
-  completeSectionZones?: readonly PositioningSectionId[];
+  completeSectionZones?: readonly AllPositioningSectionId[];
   commitResult?: {
     ok: boolean;
     conflict: boolean;
@@ -582,6 +589,56 @@ describe('createSupabaseRunStore', (): void => {
             review: expect.objectContaining({
               removedItems: ['Unsupported TAM precision'],
               clientQuestions: ['Can you provide sourced TAM assumptions?'],
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('persists paid-media verifier needs_review metadata without overloading verification tier', async (): Promise<void> => {
+    reviewMocks.reviewAndUpgradeSection.mockResolvedValueOnce({
+      upgradedMarkdown: 'Verified paid-media markdown.',
+      tier: 'verified',
+      tierRationale: 'Agentic review found the paid-media section grounded.',
+      removedItems: [],
+      clientQuestions: [],
+    });
+    const fakeSupabase = createFakeSupabase({
+      completeSectionZones: ['positioningPaidMediaPlan'],
+    });
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      now: () => new Date('2026-06-09T12:00:00.000Z'),
+    });
+    const paidMediaNeedsReviewArtifact = {
+      ...paidMediaPlanFixtureArtifact,
+      needs_review: true,
+      verifierSummary: {
+        totalClaims: 8,
+        needsReviewIds: ['anglesToTest[0].Founder proof'],
+        hardFailIds: [],
+      },
+    };
+
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      paidMediaNeedsReviewArtifact,
+    );
+
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_patch: expect.objectContaining({
+          verificationTier: 'verified',
+          data: expect.objectContaining({
+            needs_review: true,
+            verifierSummary: expect.objectContaining({
+              needsReviewIds: ['anglesToTest[0].Founder proof'],
             }),
           }),
         }),

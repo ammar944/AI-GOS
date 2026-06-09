@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  artifactEnvelopeSchema,
   sectionReviewResultSchema,
   verificationReportSchema,
 } from "../artifact-envelope";
@@ -54,6 +55,41 @@ describe("verificationReportSchema", (): void => {
 });
 
 describe("artifactEnvelopeSchema", (): void => {
+  it("accepts paid-media verifier review metadata at the envelope root", (): void => {
+    const artifact = artifactEnvelopeSchema.parse({
+      id: "artifact-paid-media",
+      runId: "run-paid-media",
+      sectionId: "positioningPaidMediaPlan",
+      sectionTitle: "Paid Media Plan",
+      verdict: "Launch with review",
+      statusSummary: "Verifier found a soft provenance issue.",
+      confidence: 0.82,
+      sources: [
+        {
+          id: "source-1",
+          title: "Fixture source",
+          url: "https://example.com/source",
+          observedAt: "2026-06-09T00:00:00.000Z",
+        },
+      ],
+      body: { campaignOverview: { prose: "Use a bounded launch." } },
+      needs_review: true,
+      verifierSummary: {
+        totalClaims: 3,
+        needsReviewIds: ["anglesToTest[0].Founder proof"],
+      },
+      createdAt: "2026-06-09T00:00:00.000Z",
+    });
+
+    expect(artifact.needs_review).toBe(true);
+    expect(artifact.verifierSummary).toEqual(
+      expect.objectContaining({
+        totalClaims: 3,
+        needsReviewIds: ["anglesToTest[0].Founder proof"],
+      }),
+    );
+  });
+
   it("accepts unavailable review metadata with structured diagnostics", (): void => {
     const review = sectionReviewResultSchema.parse({
       upgradedMarkdown: "Original markdown.",

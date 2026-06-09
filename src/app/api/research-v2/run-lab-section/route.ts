@@ -130,7 +130,7 @@ async function buildCommittedArtifactsResearchInput({
 > {
   const { data, error } = await supabase
     .from('research_artifact_sections')
-    .select('zone, data, verification_tier, verification_flag')
+    .select('zone, data, markdown, verification_tier, verification_flag')
     .eq('artifact_id', parentAuditRunId)
     .eq('status', 'complete')
     .in('zone', POSITIONING_SECTION_IDS);
@@ -153,6 +153,11 @@ async function buildCommittedArtifactsResearchInput({
   const committedPositioningArtifacts = Object.fromEntries(
     rows.map((row) => [row.zone, row.data]),
   ) as Partial<Record<PositioningSectionId, unknown>>;
+  const committedPositioningSectionMarkdown = Object.fromEntries(
+    rows
+      .filter((row) => typeof row.markdown === 'string')
+      .map((row) => [row.zone, row.markdown]),
+  ) as Partial<Record<PositioningSectionId, string>>;
   const missingSections = POSITIONING_SECTION_IDS.filter(
     (sectionId) => committedPositioningArtifacts[sectionId] === undefined,
   );
@@ -180,6 +185,7 @@ async function buildCommittedArtifactsResearchInput({
     researchInput: researchInputSchema.parse({
       ...baseResearchInput,
       committedPositioningArtifacts,
+      committedPositioningSectionMarkdown,
       evidenceCoverage: {
         ready: readiness.ready,
         blockedSections: readiness.blockedSections,

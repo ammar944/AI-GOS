@@ -140,6 +140,11 @@ import {
   structuralVerifier,
 } from "./verification/structural-verifier";
 import {
+  verifyPaidMediaPlan,
+  type PaidMediaPlanVerificationResult,
+  type VerifyPaidMediaPlanInput,
+} from "./verification/claim-source-verifier";
+import {
   createThrottledSectionPartialBroadcaster,
   type SectionPartialPublishFn,
   type SectionPartialSeqRef,
@@ -160,6 +165,9 @@ export interface RunSectionDeps {
   runEvidencePass?: EvidencePassRunner;
   callStructured?: StructuredCaller;
   streamStructured?: StructuredStreamer;
+  verifyPaidMediaPlan?: (
+    input: VerifyPaidMediaPlanInput,
+  ) => Promise<PaidMediaPlanVerificationResult>;
   broadcastPartial?: SectionPartialPublishFn;
   now?: () => Date;
   newId?: () => string;
@@ -1559,6 +1567,101 @@ function getEvidenceGateFailureReason(
   }
 
   return `evidence-gate: ${unsupportedLoadBearingCount} unsupported load-bearing claims exceed max ${maxUnsupportedAllowed}`;
+}
+
+function annotatePaidMediaVerifierReview({
+  artifact,
+  result,
+}: {
+  artifact: ArtifactEnvelope;
+  result: PaidMediaPlanVerificationResult;
+}): ArtifactEnvelope {
+  return artifactEnvelopeSchema.parse({
+    ...artifact,
+    ...(result.needsReview ? { needs_review: true } : {}),
+    verifierSummary: result.summary,
+  });
+}
+
+function getPaidMediaVerifierIssues(
+  result: PaidMediaPlanVerificationResult,
+): string[] {
+  if (result.repairIssues.length > 0) {
+    return result.repairIssues;
+  }
+
+  return [
+    `paid-media verifier hard fail: ${result.summary.hardFailIds.join(", ")}`,
+  ];
+}
+
+function buildPaidMediaVerifierErrorResult(
+  error: unknown,
+): PaidMediaPlanVerificationResult {
+  const message = describeErrorForLog(error);
+
+  return {
+    verdicts: [
+      {
+        id: "paid-media-verifier",
+        flag: "VERIFIER_ERROR",
+        reason: message,
+        by: "deterministic",
+      },
+    ],
+    claims: [],
+    summary: {
+      totalClaims: 0,
+      judged: 0,
+      deterministicFlags: 1,
+      judgeFlags: 0,
+      verifierErrors: 1,
+      judgeSkipped: 0,
+      hardFailCount: 1,
+      needsReviewCount: 0,
+      hardFailIds: ["paid-media-verifier"],
+      needsReviewIds: [],
+    },
+    hardFail: true,
+    needsReview: false,
+    repairIssues: [`paid-media verifier VERIFIER_ERROR: ${message}`],
+  };
+}
+
+async function runPaidMediaVerifierGate({
+  artifact,
+  deps,
+  input,
+  researchInput,
+}: {
+  artifact: ArtifactEnvelope;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): Promise<{
+  artifact: ArtifactEnvelope;
+  result: PaidMediaPlanVerificationResult | null;
+}> {
+  if (input.sectionId !== "positioningPaidMediaPlan") {
+    return { artifact, result: null };
+  }
+
+  const verifier = deps.verifyPaidMediaPlan ?? verifyPaidMediaPlan;
+  const result = await verifier({
+    artifact,
+    env: deps.env ?? process.env,
+    researchInput,
+    signal: input.signal,
+  }).catch(buildPaidMediaVerifierErrorResult);
+
+  if (result.hardFail) {
+    return { artifact, result };
+  }
+
+  return {
+    artifact: annotatePaidMediaVerifierReview({ artifact, result }),
+    result,
+  };
 }
 
 function getRepairReason(attempt: AttemptResult): string {
@@ -7846,6 +7949,176 @@ export async function runSection(
       errors: [evidenceGateFailureReason],
     });
   }
+
+  let verifierGate = await runPaidMediaVerifierGate({
+    artifact,
+    deps,
+    input,
+    researchInput,
+  });
+
+  if (verifierGate.result?.hardFail === true) {
+    const verifierIssues = getPaidMediaVerifierIssues(verifierGate.result);
+    const currentAttemptNumber = committedAttempt === firstAttempt ? 1 : 2;
+
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "validation-failed",
+        message: "Structured output failed the paid-media verifier",
+        metadata: {
+          attempt: currentAttemptNumber,
+          issues: verifierIssues,
+        },
+      }),
+    );
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "repair-started",
+        message: "Paid-media verifier repair attempt started",
+        metadata: {
+          reason: verifierIssues.join("; ").slice(0, 200),
+        },
+      }),
+    );
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "structured-output-started",
+        message: "Structured output verifier repair started",
+        metadata: {
+          schemaName: definition.sectionOutputSchemaName,
+          attempt: currentAttemptNumber + 1,
+        },
+      }),
+    );
+
+    const verifierRepairAttempt = await callStructuredAttempt({
+      definition,
+      deps,
+      input,
+      modelSteps: evidenceSteps,
+      normalizedAdEvidenceGroups,
+      prompt: buildRepairPrompt({
+        definition,
+        evidenceTranscript,
+        issues: verifierIssues,
+        normalizedAdEvidenceGroups,
+        previousOutput: committedAttempt.output ?? artifact,
+        researchInput,
+        skillMd,
+      }),
+      researchInput,
+      signal: input.signal,
+    });
+
+    committedAttempt = verifierRepairAttempt;
+    artifact = verifierRepairAttempt.artifact;
+
+    if (artifact === null) {
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: verifierRepairAttempt.errors.join("; "),
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: verifierRepairAttempt.errors,
+      });
+    }
+
+    const verifierRepairEvidenceGateFailureReason =
+      getEvidenceGateFailureReason(committedAttempt, maxUnsupportedAllowed);
+
+    if (verifierRepairEvidenceGateFailureReason !== null) {
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Structured output failed the evidence gate",
+          metadata: {
+            attempt: currentAttemptNumber + 1,
+            issues: [verifierRepairEvidenceGateFailureReason],
+          },
+        }),
+      );
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: verifierRepairEvidenceGateFailureReason,
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: [verifierRepairEvidenceGateFailureReason],
+      });
+    }
+
+    verifierGate = await runPaidMediaVerifierGate({
+      artifact,
+      deps,
+      input,
+      researchInput,
+    });
+
+    if (verifierGate.result?.hardFail === true) {
+      const remainingVerifierIssues = getPaidMediaVerifierIssues(
+        verifierGate.result,
+      );
+
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Paid-media verifier repair failed",
+          metadata: {
+            attempt: currentAttemptNumber + 1,
+            issues: remainingVerifierIssues,
+          },
+        }),
+      );
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: remainingVerifierIssues.join("; "),
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: remainingVerifierIssues,
+      });
+    }
+  }
+
+  artifact = verifierGate.artifact;
 
   await appendSubSectionCommittedEvents({
     artifact,

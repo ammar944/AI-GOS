@@ -23,6 +23,10 @@ import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { runSection } from '../run-section';
 import type {
+  PaidMediaPlanVerificationResult,
+  VerifyPaidMediaPlanInput,
+} from '../verification/claim-source-verifier';
+import type {
   AgentStep,
   AnswerToolRunner,
   EvidencePassRunner,
@@ -280,6 +284,54 @@ function buildPaidMediaPlanOutput(): Record<string, unknown> {
     })),
     body: structuredClone(paidMediaPlanFixtureArtifact.body),
   };
+}
+
+type PaidMediaVerifierResultOverrides = Omit<
+  Partial<PaidMediaPlanVerificationResult>,
+  'summary'
+> & {
+  summary?: Partial<PaidMediaPlanVerificationResult['summary']>;
+};
+
+function buildPaidMediaVerifierResult(
+  overrides: PaidMediaVerifierResultOverrides = {},
+): PaidMediaPlanVerificationResult {
+  const { summary: summaryOverrides, ...resultOverrides } = overrides;
+  const summary: PaidMediaPlanVerificationResult['summary'] = {
+    totalClaims: 0,
+    judged: 0,
+    deterministicFlags: 0,
+    judgeFlags: 0,
+    verifierErrors: 0,
+    judgeSkipped: 0,
+    hardFailCount: 0,
+    needsReviewCount: 0,
+    hardFailIds: [],
+    needsReviewIds: [],
+    ...summaryOverrides,
+  };
+
+  return {
+    verdicts: [],
+    claims: [],
+    summary,
+    hardFail: false,
+    needsReview: false,
+    repairIssues: [],
+    ...resultOverrides,
+  };
+}
+
+function createPaidMediaVerifierMock(
+  results: readonly PaidMediaPlanVerificationResult[] = [
+    buildPaidMediaVerifierResult(),
+  ],
+): (input: VerifyPaidMediaPlanInput) => Promise<PaidMediaPlanVerificationResult> {
+  const queue = [...results];
+
+  return vi.fn(async (): Promise<PaidMediaPlanVerificationResult> => {
+    return queue.shift() ?? buildPaidMediaVerifierResult();
+  });
 }
 
 function requireRecord(value: unknown): Record<string, unknown> {
@@ -1297,6 +1349,7 @@ describe('runSection corpus-only mode', (): void => {
         allowedTools: [],
         runEvidencePass,
         callStructured,
+        verifyPaidMediaPlan: createPaidMediaVerifierMock(),
         env: { LAB_SECTION_STREAMING: 'false' },
         now: () => new Date('2026-05-25T12:00:00.000Z'),
       },
@@ -1456,6 +1509,7 @@ describe('runSection corpus-only mode', (): void => {
         allowedTools: [],
         runEvidencePass,
         callStructured,
+        verifyPaidMediaPlan: createPaidMediaVerifierMock(),
         env: { LAB_SECTION_STREAMING: 'false' },
         now: () => new Date('2026-06-05T12:00:00.000Z'),
       },
@@ -1522,6 +1576,7 @@ describe('runSection corpus-only mode', (): void => {
         env: { LAB_SECTION_STREAMING: 'false' },
         runEvidencePass,
         callStructured,
+        verifyPaidMediaPlan: createPaidMediaVerifierMock(),
         now: () => new Date('2026-06-09T08:00:00.000Z'),
       },
     );
@@ -1577,6 +1632,7 @@ describe('runSection corpus-only mode', (): void => {
           env: { LAB_SECTION_STREAMING: 'false' },
           runEvidencePass,
           callStructured,
+          verifyPaidMediaPlan: createPaidMediaVerifierMock(),
           now: () => new Date('2026-06-09T08:05:00.000Z'),
         },
       ),
@@ -1593,6 +1649,253 @@ describe('runSection corpus-only mode', (): void => {
     expect(record.sections.positioningPaidMediaPlan?.status).toBe('failed');
     expect(record.sections.positioningPaidMediaPlan?.artifact).toBeNull();
     expect(record.events.map((event) => event.type)).toContain('section-failed');
+  });
+
+  it('commits paid-media verifier soft flags with needs_review metadata', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-09T09:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(
+      async () => buildPaidMediaPlanOutput(),
+    );
+    const verifierSummary = {
+      totalClaims: 4,
+      judged: 4,
+      deterministicFlags: 0,
+      judgeFlags: 1,
+      verifierErrors: 0,
+      judgeSkipped: 0,
+      hardFailCount: 0,
+      needsReviewCount: 1,
+      hardFailIds: [],
+      needsReviewIds: ['anglesToTest[0].Founder proof'],
+    };
+    const verifyPaidMediaPlan = createPaidMediaVerifierMock([
+      buildPaidMediaVerifierResult({
+        needsReview: true,
+        summary: verifierSummary,
+        repairIssues: [
+          'paid-media verifier FABRICATION anglesToTest[0].Founder proof: mechanism not grounded',
+        ],
+      }),
+    ]);
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runEvidencePass,
+        callStructured,
+        verifyPaidMediaPlan,
+        now: () => new Date('2026-06-09T09:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+
+    expect(result.artifact.needs_review).toBe(true);
+    expect(result.artifact.verifierSummary).toEqual(verifierSummary);
+    expect(record.sections.positioningPaidMediaPlan?.artifact).toEqual(
+      expect.objectContaining({
+        needs_review: true,
+        verifierSummary,
+      }),
+    );
+    expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(1);
+    expect(callStructured).toHaveBeenCalledTimes(1);
+  });
+
+  it('repairs paid-media once when the verifier hard-fails the first artifact', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-09T09:05:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async (params) => {
+      if (callStructured.mock.calls.length === 2) {
+        expect(params.prompt).toContain('The previous output failed validation');
+        expect(params.prompt).toContain('paid-media verifier FABRICATED_QUOTE');
+      }
+
+      return buildPaidMediaPlanOutput();
+    });
+    const verifyPaidMediaPlan = createPaidMediaVerifierMock([
+      buildPaidMediaVerifierResult({
+        hardFail: true,
+        summary: {
+          hardFailCount: 1,
+          hardFailIds: ['competitorReviewInsights[0]'],
+        },
+        repairIssues: [
+          'paid-media verifier FABRICATED_QUOTE competitorReviewInsights[0]: quoted review text not found',
+        ],
+      }),
+      buildPaidMediaVerifierResult(),
+    ]);
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runEvidencePass,
+        callStructured,
+        verifyPaidMediaPlan,
+        now: () => new Date('2026-06-09T09:05:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+
+    expect(result.artifact.sectionId).toBe('positioningPaidMediaPlan');
+    expect(callStructured).toHaveBeenCalledTimes(2);
+    expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(2);
+    expect(eventTypes).toContain('validation-failed');
+    expect(eventTypes).toContain('repair-started');
+    expect(record.sections.positioningPaidMediaPlan?.status).toBe('completed');
+  });
+
+  it('treats thrown paid-media verifier errors as repairable VERIFIER_ERROR hard fails', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-09T09:07:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(
+      async () => buildPaidMediaPlanOutput(),
+    );
+    const verifyPaidMediaPlan = vi.fn(
+      async (): Promise<PaidMediaPlanVerificationResult> => {
+        if (verifyPaidMediaPlan.mock.calls.length === 1) {
+          throw new Error('verifier transport failed');
+        }
+
+        return buildPaidMediaVerifierResult();
+      },
+    );
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runEvidencePass,
+        callStructured,
+        verifyPaidMediaPlan,
+        now: () => new Date('2026-06-09T09:07:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const validationEvents = record.events.filter(
+      (event) => event.type === 'validation-failed',
+    );
+
+    expect(result.artifact.sectionId).toBe('positioningPaidMediaPlan');
+    expect(callStructured).toHaveBeenCalledTimes(2);
+    expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(2);
+    expect(validationEvents[0]?.metadata.issues).toEqual([
+      'paid-media verifier VERIFIER_ERROR: verifier transport failed',
+    ]);
+    expect(record.sections.positioningPaidMediaPlan?.status).toBe('completed');
+  });
+
+  it('fails paid-media when verifier hard-fails after the single repair', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-09T09:10:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(
+      async () => buildPaidMediaPlanOutput(),
+    );
+    const verifierHardFail = buildPaidMediaVerifierResult({
+      hardFail: true,
+      summary: {
+        hardFailCount: 1,
+        hardFailIds: ['competitorReviewInsights[0]'],
+      },
+      repairIssues: [
+        'paid-media verifier FABRICATED_QUOTE competitorReviewInsights[0]: quoted review text not found',
+      ],
+    });
+    const verifyPaidMediaPlan = createPaidMediaVerifierMock([
+      verifierHardFail,
+      verifierHardFail,
+    ]);
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningPaidMediaPlan',
+        },
+        {
+          store,
+          loadSkill: async () => 'Use the injected corpus only.',
+          allowedTools: [],
+          env: { LAB_SECTION_STREAMING: 'false' },
+          runEvidencePass,
+          callStructured,
+          verifyPaidMediaPlan,
+          now: () => new Date('2026-06-09T09:10:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow('FABRICATED_QUOTE');
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+
+    expect(callStructured).toHaveBeenCalledTimes(2);
+    expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(2);
+    expect(record.sections.positioningPaidMediaPlan?.status).toBe('failed');
+    expect(record.sections.positioningPaidMediaPlan?.artifact).toBeNull();
   });
 
   it('normalizes paid-media wrapped arrays and source-section aliases', async (): Promise<void> => {
@@ -1671,6 +1974,7 @@ describe('runSection corpus-only mode', (): void => {
         allowedTools: [],
         runEvidencePass,
         callStructured,
+        verifyPaidMediaPlan: createPaidMediaVerifierMock(),
         env: { LAB_SECTION_STREAMING: 'false' },
         now: () => new Date('2026-05-27T04:22:16.000Z'),
       },

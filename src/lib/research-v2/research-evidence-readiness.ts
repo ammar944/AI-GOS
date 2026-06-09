@@ -15,6 +15,7 @@ import {
 export interface ResearchEvidenceReadinessRow {
   zone: string | null;
   data: unknown;
+  markdown?: unknown;
   verification_tier?: unknown;
   verification_flag?: unknown;
 }

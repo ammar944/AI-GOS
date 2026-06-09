@@ -272,6 +272,9 @@ export const researchInputSchema = z
       )
       .optional(),
     committedPositioningArtifacts: z.record(z.string(), z.unknown()).optional(),
+    committedPositioningSectionMarkdown: z
+      .record(z.string(), z.string())
+      .optional(),
     // ARI: research-evidence readiness, passed to paid-media as a COVERAGE
     // annotation (never a gate). When ready=false the plan reasons over the
     // listed thin sections with caution, and the artifact is degraded to
@@ -325,6 +328,8 @@ export const artifactEnvelopeSchema = z
       .refine((body) => Object.keys(body).length > 0, "Body cannot be empty"),
     verification: verificationReportSchema.optional(),
     review: sectionReviewResultSchema.optional(),
+    needs_review: z.boolean().optional(),
+    verifierSummary: z.record(z.string(), z.unknown()).optional(),
     createdAt: isoDateTimeSchema,
   })
   .strict();
