@@ -282,32 +282,6 @@ function buildPaidMediaPlanOutput(): Record<string, unknown> {
   };
 }
 
-function forceSynthesizedPaidMediaItemsToGtmBrief(
-  output: Record<string, unknown>,
-): void {
-  const body = requireRecord(output.body);
-  const containerKeys = [
-    ['anglesToTest', 'angles'],
-    ['creativeFramework', 'creatives'],
-    ['competitorReviewInsights', 'insights'],
-    ['competitorMarketingInsights', 'competitors'],
-    ['funnelIdeation', 'recommendations'],
-    ['channelSuggestions', 'suggestions'],
-  ] as const;
-
-  for (const [containerKey, arrayKey] of containerKeys) {
-    const container = requireRecord(body[containerKey]);
-    const items = container[arrayKey];
-    if (!Array.isArray(items)) {
-      throw new Error(`Expected ${containerKey}.${arrayKey} array.`);
-    }
-
-    for (const item of items) {
-      requireRecord(item).sourceSection = 'gtmBrief';
-    }
-  }
-}
-
 function requireRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('Expected record.');
@@ -1239,23 +1213,31 @@ describe('runSection corpus-only mode', (): void => {
     campaignOverview.monthlyBudget = 3000;
     campaignOverview.dailySpend = 100;
 
-    const campaignPhases = requireRecord(body.campaignPhases);
-    const phases = campaignPhases.phases;
-    if (!Array.isArray(phases)) {
-      throw new Error('Expected phases array.');
+    const campaignPhases = body.campaignPhases;
+    if (!Array.isArray(campaignPhases)) {
+      throw new Error('Expected campaign phases array.');
     }
+    campaignPhases.push(structuredClone(campaignPhases[0]));
 
-    const audienceTypes = requireRecord(body.audienceTypes);
-    const audiences = audienceTypes.audiences;
+    const audiences = body.audienceTypes;
     if (!Array.isArray(audiences)) {
       throw new Error('Expected audiences array.');
     }
     const firstAudience = requireRecord(audiences[0]);
     firstAudience.dailyBudgetValue = 33.33;
     delete firstAudience.dailyBudgetProvenance;
+    firstAudience.sourceSection = 'positioningVoC';
+    const secondAudience = requireRecord(audiences[1]);
+    secondAudience.dailyBudgetProvenance = 'customer';
 
-    const creativeFramework = requireRecord(body.creativeFramework);
-    const creatives = creativeFramework.creatives;
+    const anglesToTest = body.anglesToTest;
+    if (!Array.isArray(anglesToTest)) {
+      throw new Error('Expected angles array.');
+    }
+    requireRecord(anglesToTest[0]).sourceSection = 'positioningVoC';
+    anglesToTest.push(structuredClone(anglesToTest[0]));
+
+    const creatives = body.creativeFramework;
     if (!Array.isArray(creatives)) {
       throw new Error('Expected creatives array.');
     }
@@ -1267,53 +1249,31 @@ describe('runSection corpus-only mode', (): void => {
       creativeRecord.visualDescription = 'Extra visual direction';
       creativeRecord.landingPageUrl = 'https://example.com/landing';
     }
-    if (creatives.length < 3) {
-      throw new Error('Expected at least three creatives.');
-    }
-    const weakObjectionCreative = requireRecord(creatives[2]);
-    weakObjectionCreative.creativeType = 'objection-handling';
-    weakObjectionCreative.objection = 'Too expensive';
-    weakObjectionCreative.objectionAnswer = 'Trust us';
-
-    const orderedMoves = requireRecord(body.orderedMoves);
-    const moves = orderedMoves.moves;
-    if (!Array.isArray(moves)) {
-      throw new Error('Expected ordered moves array.');
-    }
-    const genericLearningPriorities = [
-      'Test message-market fit',
-      'Measure creative performance',
-      'Optimize paid media',
-    ];
-    moves.forEach((move, index) => {
-      requireRecord(move).learningPriority = genericLearningPriorities[index];
-    });
-    body.orderedMoves = moves;
-
-    const competitorMarketingInsights = requireRecord(
-      body.competitorMarketingInsights,
-    );
-    const competitors = competitorMarketingInsights.competitors;
+    const competitors = body.competitorMarketingInsights;
     if (!Array.isArray(competitors)) {
       throw new Error('Expected competitors array.');
     }
-    for (const competitor of competitors) {
-      const competitorRecord = requireRecord(competitor);
-      competitorRecord.anglesTested = ['Speed', 'Simplicity'];
-      competitorRecord.adPlatforms = 'Meta, Google';
-      competitorRecord.estSpendValue = 12345;
-      delete competitorRecord.estSpendProvenance;
-    }
+    const firstCompetitor = requireRecord(competitors[0]);
+    firstCompetitor.adPlatforms = ['Meta', 'Google'];
+    firstCompetitor.anglesTested = 'Speed; Simplicity';
+    firstCompetitor.sourceSection = 'competitors';
+    delete firstCompetitor.angles;
 
-    const competitorReviewInsights = requireRecord(
-      body.competitorReviewInsights,
-    );
-    const reviewInsights = competitorReviewInsights.insights;
+    const channelSuggestions = body.channelSuggestions;
+    if (!Array.isArray(channelSuggestions)) {
+      throw new Error('Expected channel suggestions array.');
+    }
+    const firstChannel = requireRecord(channelSuggestions[0]);
+    firstChannel.verdict = 'start';
+    firstChannel.sourceSection = 'offer diagnostic';
+
+    const reviewInsights = body.competitorReviewInsights;
     if (!Array.isArray(reviewInsights) || reviewInsights.length < 2) {
       throw new Error('Expected competitor review insights array.');
     }
     const weakReviewInsight = requireRecord(reviewInsights[1]);
     weakReviewInsight.verbatimComplaint = 'Too generic.';
+    delete weakReviewInsight.howWeLeverage;
     weakReviewInsight.adLeverage = 'Use this in ads.';
 
     const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
@@ -1322,7 +1282,6 @@ describe('runSection corpus-only mode', (): void => {
     }));
     const callStructured = vi.fn<StructuredCaller>(async (params) => {
       expect(params.model).toBe(sectionRunnerModel);
-      expect(params.schema.safeParse(driftOutput).success).toBe(true);
 
       return driftOutput;
     });
@@ -1352,75 +1311,32 @@ describe('runSection corpus-only mode', (): void => {
       }),
     );
     const artifactBody = requireRecord(result.artifact.body);
-    const artifactStrategicThesis = requireRecord(
-      artifactBody.strategicThesis,
-    );
-    const artifactContradictionReconciliation = requireRecord(
-      artifactBody.contradictionReconciliation,
-    );
-    const artifactOrderedMoves = requireRecord(artifactBody.orderedMoves);
     const artifactCampaignOverview = requireRecord(
       artifactBody.campaignOverview,
     );
-    const artifactCampaignPhases = requireRecord(artifactBody.campaignPhases);
-    const artifactPhases = artifactCampaignPhases.phases;
-    const artifactAudienceTypes = requireRecord(artifactBody.audienceTypes);
-    const artifactAudiences = artifactAudienceTypes.audiences;
-    const artifactCreativeFramework = requireRecord(
-      artifactBody.creativeFramework,
-    );
-    const artifactCreatives = artifactCreativeFramework.creatives;
-    const artifactCompetitorReviewInsights = requireRecord(
-      artifactBody.competitorReviewInsights,
-    );
-    const artifactReviewInsights = artifactCompetitorReviewInsights.insights;
-    const artifactCompetitorMarketingInsights = requireRecord(
-      artifactBody.competitorMarketingInsights,
-    );
-    const artifactCompetitors =
-      artifactCompetitorMarketingInsights.competitors;
+    const artifactPhases = artifactBody.campaignPhases;
+    const artifactAudiences = artifactBody.audienceTypes;
+    const artifactAngles = artifactBody.anglesToTest;
+    const artifactCreatives = artifactBody.creativeFramework;
+    const artifactReviewInsights = artifactBody.competitorReviewInsights;
+    const artifactCompetitors = artifactBody.competitorMarketingInsights;
+    const artifactChannels = artifactBody.channelSuggestions;
+    const artifactCrossSectionInsight = artifactBody.crossSectionInsight;
     if (
       !Array.isArray(artifactPhases) ||
       !Array.isArray(artifactAudiences) ||
+      !Array.isArray(artifactAngles) ||
       !Array.isArray(artifactCreatives) ||
       !Array.isArray(artifactReviewInsights) ||
       !Array.isArray(artifactCompetitors) ||
-      !Array.isArray(artifactStrategicThesis.sourceSections) ||
-      !Array.isArray(artifactContradictionReconciliation.sourceSections) ||
-      !Array.isArray(artifactOrderedMoves.moves)
+      !Array.isArray(artifactChannels) ||
+      !Array.isArray(artifactCrossSectionInsight)
     ) {
-      throw new Error('Expected normalized paid-media arrays and strategy fields.');
+      throw new Error('Expected normalized paid-media arrays.');
     }
-    expect(artifactStrategicThesis.thesis).toContain(
-      'proof-backed time-to-first-campaign',
-    );
-    expect(artifactStrategicThesis.sourceSections.map((source) =>
-      requireRecord(source).sourceSection,
-    )).toEqual([
-      'positioningVoiceOfCustomer',
-      'positioningCompetitorLandscape',
-      'positioningOfferDiagnostic',
-    ]);
-    expect(artifactContradictionReconciliation.resolution).toContain(
-      'speed-and-proof loop',
-    );
-    expect(requireRecord(artifactOrderedMoves.moves[0]).rank).toBe(1);
-    expect(artifactOrderedMoves.prose).toBe(
-      'Ordered paid-media moves ranked by learning value.',
-    );
-    expect(requireRecord(artifactOrderedMoves.moves[1]).dependsOn).toEqual([1]);
-    expect(
-      artifactOrderedMoves.moves.map((move) =>
-        requireRecord(move).learningPriority,
-      ),
-    ).toEqual([
-      expect.stringContaining('Evidence gap: ordered move 1'),
-      expect.stringContaining('Evidence gap: ordered move 2'),
-      expect.stringContaining('Evidence gap: ordered move 3'),
-    ]);
-    expect(requireRecord(artifactOrderedMoves.moves[1]).thesisTrace).toContain(
-      'thesis differentiator',
-    );
+    expect(artifactBody).not.toHaveProperty('strategicThesis');
+    expect(artifactBody).not.toHaveProperty('contradictionReconciliation');
+    expect(artifactBody).not.toHaveProperty('orderedMoves');
     expect(artifactCampaignOverview.monthlyBudget).toBe('3000');
     expect(artifactCampaignOverview.dailySpend).toBe('100');
     expect(artifactCampaignOverview.monthlyBudgetValue).toBe(3000);
@@ -1431,6 +1347,12 @@ describe('runSection corpus-only mode', (): void => {
     expect(artifactCampaignOverview.dailySpendProvenance).toBe(
       'model-estimated',
     );
+    expect(artifactPhases).toHaveLength(2);
+    expect(artifactAudiences).toHaveLength(3);
+    expect(artifactAngles).toHaveLength(4);
+    expect(artifactCreatives).toHaveLength(8);
+    expect(artifactChannels).toHaveLength(4);
+    expect(artifactCrossSectionInsight).toHaveLength(1);
     expect(requireRecord(artifactPhases[0]).monthlyBudgetValue).toBe(3000);
     expect(requireRecord(artifactPhases[0]).monthlyBudgetProvenance).toBe(
       'model-estimated',
@@ -1441,27 +1363,31 @@ describe('runSection corpus-only mode', (): void => {
     expect(requireRecord(artifactAudiences[0]).dailyBudgetProvenance).toBe(
       'unknown',
     );
-    expect(requireRecord(artifactAudiences[1]).dailyBudgetValue).toBe(33.33);
-    expect(requireRecord(artifactCompetitors[0]).estSpendProvenance).toBe(
-      'unknown',
+    expect(requireRecord(artifactAudiences[0]).sourceSection).toBe(
+      'positioningVoiceOfCustomer',
     );
-    expect(requireRecord(artifactCompetitors[0])).not.toHaveProperty(
-      'estSpendValue',
+    expect(requireRecord(artifactAudiences[1]).dailyBudgetValue).toBe(33.33);
+    expect(requireRecord(artifactAudiences[1]).dailyBudgetProvenance).toBe(
+      'user-supplied',
+    );
+    expect(requireRecord(artifactAngles[0]).sourceSection).toBe(
+      'positioningVoiceOfCustomer',
     );
     expect(artifactCreatives[0]).not.toHaveProperty('headline');
-    expect(requireRecord(artifactCreatives[2]).objectionAnswer).toContain(
-      'Evidence gap: source-backed objection answer copy',
+    expect(requireRecord(artifactReviewInsights[1]).howWeLeverage).toBe(
+      'Use this in ads.',
     );
-    expect(requireRecord(artifactReviewInsights[1]).adLeverage).toContain(
-      'Evidence gap: competitor review evidence',
-    );
-    expect(requireRecord(artifactCompetitors[0]).anglesTested).toBe(
+    expect(requireRecord(artifactCompetitors[0]).angles).toBe(
       'Speed; Simplicity',
     );
-    expect(requireRecord(artifactCompetitors[0]).adPlatforms).toEqual([
-      'Meta',
-      'Google',
-    ]);
+    expect(requireRecord(artifactCompetitors[0]).adPlatforms).toBe('Meta; Google');
+    expect(requireRecord(artifactCompetitors[0]).sourceSection).toBe(
+      'positioningCompetitorLandscape',
+    );
+    expect(requireRecord(artifactChannels[0]).verdict).toBe('ADD');
+    expect(requireRecord(artifactChannels[0]).sourceSection).toBe(
+      'positioningOfferDiagnostic',
+    );
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 
@@ -1477,15 +1403,14 @@ describe('runSection corpus-only mode', (): void => {
     const driftOutput = buildPaidMediaPlanOutput();
     const body = requireRecord(driftOutput.body);
     const campaignOverview = requireRecord(body.campaignOverview);
-    campaignOverview.monthlyBudget = '$50,000 (model-estimated)';
+    campaignOverview.monthlyBudget = '$50,000 (unknown)';
     campaignOverview.monthlyBudgetValue = 50000;
-    campaignOverview.monthlyBudgetProvenance = 'model-estimated';
-    campaignOverview.dailySpend = '~$1,667 (model-estimated)';
+    campaignOverview.monthlyBudgetProvenance = 'unknown';
+    campaignOverview.dailySpend = '~$1,667 (unknown)';
     campaignOverview.dailySpendValue = 1667;
-    campaignOverview.dailySpendProvenance = 'model-estimated';
+    campaignOverview.dailySpendProvenance = 'unknown';
 
-    const campaignPhases = requireRecord(body.campaignPhases);
-    const phases = campaignPhases.phases;
+    const phases = body.campaignPhases;
     if (!Array.isArray(phases)) {
       throw new Error('Expected phases array.');
     }
@@ -1494,21 +1419,20 @@ describe('runSection corpus-only mode', (): void => {
       const monthlyBudgetValue =
         phaseMonthlyBudgetValues[index % phaseMonthlyBudgetValues.length];
       const phase = requireRecord(phaseValue);
-      phase.monthlyBudget = `$${monthlyBudgetValue.toLocaleString()} (model-estimated)`;
+      phase.monthlyBudget = `$${monthlyBudgetValue.toLocaleString()} (unknown)`;
       phase.monthlyBudgetValue = monthlyBudgetValue;
-      phase.monthlyBudgetProvenance = 'model-estimated';
+      phase.monthlyBudgetProvenance = 'unknown';
     });
 
-    const audienceTypes = requireRecord(body.audienceTypes);
-    const audiences = audienceTypes.audiences;
+    const audiences = body.audienceTypes;
     if (!Array.isArray(audiences)) {
       throw new Error('Expected audiences array.');
     }
     audiences.forEach((audience) => {
       const audienceRecord = requireRecord(audience);
-      audienceRecord.dailyBudget = '$500 (model-estimated)';
+      audienceRecord.dailyBudget = '$500 (unknown)';
       audienceRecord.dailyBudgetValue = 500;
-      audienceRecord.dailyBudgetProvenance = 'model-estimated';
+      audienceRecord.dailyBudgetProvenance = 'unknown';
     });
 
     const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
@@ -1517,7 +1441,6 @@ describe('runSection corpus-only mode', (): void => {
     }));
     const callStructured = vi.fn<StructuredCaller>(async (params) => {
       expect(params.model).toBe(sectionRunnerModel);
-      expect(params.schema.safeParse(driftOutput).success).toBe(true);
 
       return driftOutput;
     });
@@ -1542,15 +1465,13 @@ describe('runSection corpus-only mode', (): void => {
     const artifactCampaignOverview = requireRecord(
       artifactBody.campaignOverview,
     );
-    const artifactCampaignPhases = requireRecord(artifactBody.campaignPhases);
-    const artifactPhases = artifactCampaignPhases.phases;
-    const artifactAudienceTypes = requireRecord(artifactBody.audienceTypes);
-    const artifactAudiences = artifactAudienceTypes.audiences;
+    const artifactPhases = artifactBody.campaignPhases;
+    const artifactAudiences = artifactBody.audienceTypes;
     if (!Array.isArray(artifactPhases) || !Array.isArray(artifactAudiences)) {
       throw new Error('Expected normalized paid-media spend arrays.');
     }
 
-    expect(artifactCampaignOverview.monthlyBudgetValue).toBe(50000);
+    expect(artifactCampaignOverview).not.toHaveProperty('monthlyBudgetValue');
     expect(artifactCampaignOverview).not.toHaveProperty('dailySpendValue');
     artifactPhases.forEach((phase) => {
       expect(requireRecord(phase)).not.toHaveProperty('monthlyBudgetValue');
@@ -1674,7 +1595,7 @@ describe('runSection corpus-only mode', (): void => {
     expect(record.events.map((event) => event.type)).toContain('section-failed');
   });
 
-  it('normalizes paid-media synthesized item grounding away from the GTM brief', async (): Promise<void> => {
+  it('normalizes paid-media wrapped arrays and source-section aliases', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
       rootDir,
@@ -1684,45 +1605,54 @@ describe('runSection corpus-only mode', (): void => {
     await store.createRun(saaslaunchResearchInput);
 
     const driftOutput = buildPaidMediaPlanOutput();
-    forceSynthesizedPaidMediaItemsToGtmBrief(driftOutput);
     const driftBody = requireRecord(driftOutput.body);
-    const driftCompetitorMarketingInsights = requireRecord(
-      driftBody.competitorMarketingInsights,
-    );
-    const driftMarketingRows =
-      driftCompetitorMarketingInsights.competitors;
-    const driftFunnelIdeation = requireRecord(driftBody.funnelIdeation);
-    const driftFunnelRecommendations = driftFunnelIdeation.recommendations;
-    const driftChannelSuggestions = requireRecord(
-      driftBody.channelSuggestions,
-    );
-    const driftChannelRows = driftChannelSuggestions.suggestions;
+    const driftAngles = driftBody.anglesToTest;
+    const driftCreatives = driftBody.creativeFramework;
+    const driftMarketingRows = driftBody.competitorMarketingInsights;
+    const driftReviewRows = driftBody.competitorReviewInsights;
+    const driftFunnelRows = driftBody.funnelIdeation;
+    const driftChannelRows = driftBody.channelSuggestions;
+    const driftInsights = driftBody.crossSectionInsight;
 
     if (
+      !Array.isArray(driftAngles) ||
+      !Array.isArray(driftCreatives) ||
       !Array.isArray(driftMarketingRows) ||
-      !Array.isArray(driftFunnelRecommendations) ||
-      !Array.isArray(driftChannelRows)
+      !Array.isArray(driftReviewRows) ||
+      !Array.isArray(driftFunnelRows) ||
+      !Array.isArray(driftChannelRows) ||
+      !Array.isArray(driftInsights)
     ) {
       throw new Error('Expected paid-media drift arrays.');
     }
 
-    Object.assign(requireRecord(driftMarketingRows[0]), {
-      competitor: 'Vendor',
-      messaging: 'Useful product',
-      adPlatforms: 'unknown',
-      icpTargeted: 'teams',
-      anglesTested: 'awareness',
-      positioningClaim: 'better workflow',
-      offer: 'demo',
+    driftAngles.forEach((angle) => {
+      requireRecord(angle).sourceSection = 'positioningVoC';
     });
-    Object.assign(requireRecord(driftFunnelRecommendations[0]), {
-      recommendation: 'Use a landing page.',
-      optInToBookedCall: 'Book a call.',
+    driftCreatives.forEach((creative) => {
+      requireRecord(creative).sourceSection = 'offer diagnostic';
     });
-    Object.assign(requireRecord(driftChannelRows[0]), {
-      observation: 'The market is attractive.',
-      recommendation: 'Improve performance.',
+    driftReviewRows.forEach((review) => {
+      requireRecord(review).sourceSection = 'competitors';
     });
+    driftMarketingRows.forEach((competitor) => {
+      requireRecord(competitor).sourceSection = 'competitors';
+    });
+    driftChannelRows.forEach((channel) => {
+      requireRecord(channel).sourceSection = 'demand intent';
+    });
+    requireRecord(driftInsights[0]).sourceSections = [
+      'positioningVoC',
+      'offer diagnostic',
+      'gtmBrief',
+    ];
+
+    driftBody.anglesToTest = { angles: driftAngles };
+    driftBody.creativeFramework = { creatives: driftCreatives };
+    driftBody.competitorMarketingInsights = { competitors: driftMarketingRows };
+    driftBody.competitorReviewInsights = { insights: driftReviewRows };
+    driftBody.funnelIdeation = { recommendations: driftFunnelRows };
+    driftBody.channelSuggestions = { suggestions: driftChannelRows };
 
     const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
       steps: [],
@@ -1747,93 +1677,50 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     const artifactBody = requireRecord(result.artifact.body);
-    const anglesToTest = requireRecord(artifactBody.anglesToTest);
-    const creativeFramework = requireRecord(artifactBody.creativeFramework);
-    const competitorReviewInsights = requireRecord(
-      artifactBody.competitorReviewInsights,
-    );
-    const competitorMarketingInsights = requireRecord(
-      artifactBody.competitorMarketingInsights,
-    );
-    const funnelIdeation = requireRecord(artifactBody.funnelIdeation);
-    const channelSuggestions = requireRecord(artifactBody.channelSuggestions);
+    const anglesToTest = artifactBody.anglesToTest;
+    const creativeFramework = artifactBody.creativeFramework;
+    const competitorReviewInsights = artifactBody.competitorReviewInsights;
+    const competitorMarketingInsights = artifactBody.competitorMarketingInsights;
+    const funnelIdeation = artifactBody.funnelIdeation;
+    const channelSuggestions = artifactBody.channelSuggestions;
+    const crossSectionInsight = artifactBody.crossSectionInsight;
+
+    if (
+      !Array.isArray(anglesToTest) ||
+      !Array.isArray(creativeFramework) ||
+      !Array.isArray(competitorReviewInsights) ||
+      !Array.isArray(competitorMarketingInsights) ||
+      !Array.isArray(funnelIdeation) ||
+      !Array.isArray(channelSuggestions) ||
+      !Array.isArray(crossSectionInsight)
+    ) {
+      throw new Error('Expected normalized lean paid-media arrays.');
+    }
 
     expect(
-      (anglesToTest.angles as Record<string, unknown>[]).map(
-        (item) => item.sourceSection,
-      ),
+      anglesToTest.map((item) => requireRecord(item).sourceSection),
     ).toEqual(Array.from({ length: 4 }, () => 'positioningVoiceOfCustomer'));
     expect(
-      (creativeFramework.creatives as Record<string, unknown>[]).map(
-        (item) => item.sourceSection,
-      ),
-    ).toEqual(Array.from({ length: 3 }, () => 'positioningOfferDiagnostic'));
+      creativeFramework.map((item) => requireRecord(item).sourceSection),
+    ).toEqual(Array.from({ length: 8 }, () => 'positioningOfferDiagnostic'));
     expect(
-      (competitorReviewInsights.insights as Record<string, unknown>[]).map(
-        (item) => item.sourceSection,
-      ),
+      competitorReviewInsights.map((item) => requireRecord(item).sourceSection),
+    ).toEqual(
+      Array.from({ length: 3 }, () => 'positioningCompetitorLandscape'),
+    );
+    expect(
+      competitorMarketingInsights.map((item) => requireRecord(item).sourceSection),
     ).toEqual(
       Array.from({ length: 2 }, () => 'positioningCompetitorLandscape'),
     );
+    expect(funnelIdeation).toHaveLength(3);
     expect(
-      (competitorMarketingInsights.competitors as Record<string, unknown>[]).map(
-        (item) => item.sourceSection,
-      ),
-    ).toEqual(
-      Array.from({ length: 2 }, () => 'positioningCompetitorLandscape'),
-    );
-    expect(
-      requireRecord(
-        (competitorMarketingInsights.competitors as Record<string, unknown>[])[0],
-      ).positioningClaim,
-    ).toContain('Evidence gap: paid-platform rows');
-    expect(
-      requireRecord(
-        (competitorMarketingInsights.competitors as Record<string, unknown>[])[0],
-      ).positioningClaim,
-    ).not.toContain('Foreplay');
-    expect(
-      (funnelIdeation.recommendations as Record<string, unknown>[]).map(
-        (item) => item.sourceSection,
-      ),
-    ).toEqual(['positioningOfferDiagnostic']);
-    expect(
-      (funnelIdeation.recommendations as Record<string, unknown>[]).map(
-        (item) => item.sourceUrl,
-      ),
-    ).toEqual(['https://example.com/paid-media/source-3']);
-    expect(
-      requireRecord(
-        (funnelIdeation.recommendations as Record<string, unknown>[])[0],
-      ).recommendation,
-    ).toContain('Evidence gap: buyer segment or funnel stage missing');
-    expect(
-      requireRecord(
-        (funnelIdeation.recommendations as Record<string, unknown>[])[0],
-      ).recommendation,
-    ).not.toContain('finance buyers');
-    expect(
-      requireRecord(
-        (funnelIdeation.recommendations as Record<string, unknown>[])[0],
-      ).optInToBookedCall,
-    ).toContain('Evidence gap: specify the landing-page CTA');
-    expect(
-      (channelSuggestions.suggestions as Record<string, unknown>[]).map(
-        (item) => item.sourceSection,
-      ),
-    ).toEqual(Array.from({ length: 2 }, () => 'positioningDemandIntent'));
-    expect(
-      (channelSuggestions.suggestions as Record<string, unknown>[]).map(
-        (item) => item.sourceUrl,
-      ),
-    ).toEqual(
-      Array.from({ length: 2 }, () => 'https://example.com/paid-media/source-3'),
-    );
-    expect(
-      requireRecord(
-        (channelSuggestions.suggestions as Record<string, unknown>[])[0],
-      ).recommendation,
-    ).toContain('Evidence gap: concrete campaign, page, asset, or metric missing');
+      channelSuggestions.map((item) => requireRecord(item).sourceSection),
+    ).toEqual(Array.from({ length: 4 }, () => 'positioningDemandIntent'));
+    expect(requireRecord(crossSectionInsight[0]).sourceSections).toEqual([
+      'positioningVoiceOfCustomer',
+      'positioningOfferDiagnostic',
+    ]);
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });

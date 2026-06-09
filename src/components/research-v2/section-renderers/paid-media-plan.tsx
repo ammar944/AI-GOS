@@ -1,13 +1,9 @@
 import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
-import {
-  isRecord,
-  type PositioningTypedArtifact,
-} from '@/types/positioning-artifact';
 import { cn } from '@/lib/utils';
+import { isRecord, type PositioningTypedArtifact } from '@/types/positioning-artifact';
 import {
   Callout,
   DataTable,
-  Eyebrow,
   InlineStats,
   MonoBadge,
   SourceLink,
@@ -21,59 +17,50 @@ export interface PaidMediaPlanRendererProps {
 }
 
 const PAID_MEDIA_BODY_KEYS = [
-  'strategicThesis',
-  'contradictionReconciliation',
   'campaignOverview',
   'campaignPhases',
   'audienceTypes',
-  'creativeStrategy',
   'anglesToTest',
+  'creativeStrategy',
   'creativeFramework',
-  'competitorReviewInsights',
-  'competitorMarketingInsights',
   'funnelIdeation',
   'salesProcess',
+  'competitorMarketingInsights',
+  'competitorReviewInsights',
   'channelSuggestions',
   'kpis',
-  'orderedMoves',
+  'crossSectionInsight',
 ] as const satisfies ReadonlyArray<keyof PaidMediaPlanArtifact['body']>;
+
+type PaidMediaBody = PaidMediaPlanArtifact['body'];
+type CampaignPhase = PaidMediaBody['campaignPhases'][number];
+type AudienceType = PaidMediaBody['audienceTypes'][number];
+type Angle = PaidMediaBody['anglesToTest'][number];
+type CreativeSlot = PaidMediaBody['creativeFramework'][number];
+type FunnelPath = PaidMediaBody['funnelIdeation'][number];
+type SalesAsset = PaidMediaBody['salesProcess'][number];
+type CompetitorMarketing = PaidMediaBody['competitorMarketingInsights'][number];
+type CompetitorReview = PaidMediaBody['competitorReviewInsights'][number];
+type ChannelSuggestion = PaidMediaBody['channelSuggestions'][number];
+type Kpi = PaidMediaBody['kpis'][number];
+type CrossSectionInsight = PaidMediaBody['crossSectionInsight'][number];
 
 function getPaidMediaPlanBody(
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
-): PaidMediaPlanArtifact['body'] {
+): PaidMediaBody {
   const record = artifact as unknown as Record<string, unknown>;
 
   if (isRecord(record.body)) {
-    return record.body as PaidMediaPlanArtifact['body'];
+    return record.body as PaidMediaBody;
   }
 
   return Object.fromEntries(
     PAID_MEDIA_BODY_KEYS.map((key) => [key, record[key]]),
-  ) as PaidMediaPlanArtifact['body'];
-}
-
-function creativeSummaryLines(
-  creative: PaidMediaPlanArtifact['body']['creativeFramework']['creatives'][number],
-): string {
-  return [
-    creative.uspSentence,
-    creative.problem,
-    creative.solution,
-    creative.transformation,
-    creative.objection,
-    creative.objectionAnswer,
-    creative.founderScriptBeat,
-  ]
-    .filter((line): line is string => line !== undefined && line.length > 0)
-    .join(' · ');
+  ) as PaidMediaBody;
 }
 
 function provenanceLabel(value: string | undefined): string {
-  if (value === undefined || value.trim().length === 0) {
-    return 'unknown';
-  }
-
-  return value;
+  return value === undefined || value.trim().length === 0 ? 'unknown' : value;
 }
 
 function MoneyValue({
@@ -102,8 +89,8 @@ function MoneyStat({
 }): React.ReactElement {
   return (
     <div>
-      <dt>
-        <Eyebrow>{label}</Eyebrow>
+      <dt className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+        {label}
       </dt>
       <dd className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[22px] font-semibold tabular-nums text-foreground">
         <span>{value}</span>
@@ -118,9 +105,7 @@ export function PaidMediaPlanRenderer({
   className,
 }: PaidMediaPlanRendererProps): React.ReactElement {
   const body = getPaidMediaPlanBody(artifact);
-  const phaseColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.campaignPhases.phases)[number]>
-  > = [
+  const phaseColumns: ReadonlyArray<DataTableColumn<CampaignPhase>> = [
     { key: 'phaseName', header: 'Phase', className: 'font-medium text-foreground' },
     { key: 'monthsLabel', header: 'Timing' },
     {
@@ -133,15 +118,9 @@ export function PaidMediaPlanRenderer({
         />
       ),
     },
-    {
-      key: 'bullets',
-      header: 'Focus',
-      render: (row) => row.bullets.join(', '),
-    },
+    { key: 'bullets', header: 'Focus', render: (row) => row.bullets.join(', ') },
   ];
-  const audienceColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.audienceTypes.audiences)[number]>
-  > = [
+  const audienceColumns: ReadonlyArray<DataTableColumn<AudienceType>> = [
     { key: 'slot', header: 'Slot', className: 'font-medium text-foreground' },
     { key: 'archetype', header: 'Archetype' },
     {
@@ -154,208 +133,78 @@ export function PaidMediaPlanRenderer({
         />
       ),
     },
-    {
-      key: 'detail',
-      header: 'Detail',
-      render: (row) => (
-        <div className="flex flex-col gap-1">
-          <span>{row.detail}</span>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
+    { key: 'detail', header: 'Detail' },
+    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 2 },
   ];
-  const angleColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.anglesToTest.angles)[number]>
-  > = [
-    { key: 'angleName', header: 'Angle', className: 'font-medium text-foreground' },
-    { key: 'primaryText', header: 'Primary text' },
-    { key: 'supportingLine', header: 'Support' },
-    {
-      key: 'insight',
-      header: 'Evidence hook',
-      render: (row) => (
-        <div className="flex flex-col gap-1">
-          <span>{row.insight}</span>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
+  const angleColumns: ReadonlyArray<DataTableColumn<Angle>> = [
+    { key: 'shortName', header: 'Angle', className: 'font-medium text-foreground' },
+    { key: 'angleType', header: 'Type' },
+    { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 2 },
+    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 2 },
   ];
-  const creativeColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.creativeFramework.creatives)[number]>
-  > = [
-    {
-      key: 'creativeType',
-      header: 'Type',
-      width: '140px',
-      wrap: 'nowrap',
-      render: (row) => (
-        <span className="font-medium text-foreground">{row.creativeType}</span>
-      ),
-    },
-    {
-      key: 'summary',
-      header: 'Framework',
-      grow: true,
-      wrap: 'clamp',
-      clampLines: 2,
-      render: (row) => {
-        const summary = creativeSummaryLines(row);
-        return <span title={summary}>{summary}</span>;
-      },
-    },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      width: '88px',
-      wrap: 'nowrap',
-      render: (row) => <SourceLink url={row.sourceUrl} />,
-    },
+  const creativeColumns: ReadonlyArray<DataTableColumn<CreativeSlot>> = [
+    { key: 'label', header: 'Slot', className: 'font-medium text-foreground' },
+    { key: 'angleType', header: 'Type' },
+    { key: 'hook', header: 'Hook', grow: true, wrap: 'clamp', clampLines: 2 },
+    { key: 'executesAngle', header: 'Angle' },
   ];
-  const reviewColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.competitorReviewInsights.insights)[number]>
-  > = [
-    { key: 'competitor', header: 'Competitor', className: 'font-medium text-foreground' },
-    { key: 'verbatimComplaint', header: 'Complaint' },
-    {
-      key: 'adLeverage',
-      header: 'Ad leverage',
-      render: (row) => (
-        <div className="flex flex-col gap-1">
-          <span>{row.adLeverage}</span>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
+  const funnelColumns: ReadonlyArray<DataTableColumn<FunnelPath>> = [
+    { key: 'rank', header: 'Rank', className: 'font-medium text-foreground' },
+    { key: 'name', header: 'Path' },
+    { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 2 },
+    { key: 'whatItProves', header: 'What it proves' },
   ];
-  const competitorColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.competitorMarketingInsights.competitors)[number]>
-  > = [
-    { key: 'competitor', header: 'Competitor', className: 'font-medium text-foreground' },
-    { key: 'messaging', header: 'Messaging' },
-    {
-      key: 'estSpend',
-      header: 'Spend',
-      render: (row) => (
-        <MoneyValue
-          value={row.estSpend}
-          provenance={row.estSpendProvenance}
-        />
-      ),
-    },
-    { key: 'anglesTested', header: 'Angles' },
-    { key: 'offer', header: 'Offer' },
-  ];
-  const funnelColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.funnelIdeation.recommendations)[number]>
-  > = [
-    { key: 'funnelType', header: 'Funnel', className: 'font-medium text-foreground' },
-    { key: 'recommendation', header: 'Recommendation' },
-    { key: 'optInToBookedCall', header: 'Click to call' },
-    {
-      key: 'sourceSection',
-      header: 'Source',
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <MonoBadge>{row.sourceSection}</MonoBadge>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
-  ];
-  const salesColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.salesProcess.assets)[number]>
-  > = [
+  const salesColumns: ReadonlyArray<DataTableColumn<SalesAsset>> = [
     { key: 'label', header: 'Asset', className: 'font-medium text-foreground' },
     { key: 'assetType', header: 'Type' },
+    { key: 'note', header: 'Note' },
     {
       key: 'url',
       header: 'Link',
-      render: (row) => <SourceLink url={row.url} />,
+      render: (row) =>
+        row.url.length > 0 ? <SourceLink url={row.url} /> : <MonoBadge>gap</MonoBadge>,
     },
   ];
-  const channelColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.channelSuggestions.suggestions)[number]>
-  > = [
-    { key: 'channel', header: 'Channel', className: 'font-medium text-foreground' },
-    { key: 'observation', header: 'Observation' },
-    { key: 'recommendation', header: 'Recommendation' },
-    {
-      key: 'verdict',
-      header: 'Verdict',
-      render: (row) => <MonoBadge>{row.verdict}</MonoBadge>,
-    },
+  const competitorColumns: ReadonlyArray<DataTableColumn<CompetitorMarketing>> = [
+    { key: 'competitor', header: 'Competitor', className: 'font-medium text-foreground' },
+    { key: 'messaging', header: 'Messaging', wrap: 'clamp', clampLines: 2 },
+    { key: 'adPlatforms', header: 'Platforms' },
+    { key: 'positioning', header: 'Positioning', wrap: 'clamp', clampLines: 2 },
+    { key: 'offer', header: 'Offer' },
+  ];
+  const reviewColumns: ReadonlyArray<DataTableColumn<CompetitorReview>> = [
+    { key: 'complaint', header: 'Complaint', wrap: 'clamp', clampLines: 2 },
+    { key: 'howWeLeverage', header: 'Leverage', wrap: 'clamp', clampLines: 2 },
     {
       key: 'sourceSection',
       header: 'Source',
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <MonoBadge>{row.sourceSection}</MonoBadge>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
+      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
     },
   ];
-  const kpiColumns: ReadonlyArray<DataTableColumn<(typeof body.kpis.kpis)[number]>> = [
+  const channelColumns: ReadonlyArray<DataTableColumn<ChannelSuggestion>> = [
+    { key: 'channel', header: 'Channel', className: 'font-medium text-foreground' },
+    { key: 'recommendation', header: 'Recommendation', wrap: 'clamp', clampLines: 2 },
+    { key: 'verdict', header: 'Verdict', render: (row) => <MonoBadge>{row.verdict}</MonoBadge> },
+    {
+      key: 'sourceSection',
+      header: 'Source',
+      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+    },
+  ];
+  const kpiColumns: ReadonlyArray<DataTableColumn<Kpi>> = [
     { key: 'metric', header: 'Metric', className: 'font-medium text-foreground' },
     { key: 'role', header: 'Role' },
     { key: 'definition', header: 'Definition' },
   ];
-  const thesisSourceColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.strategicThesis.sourceSections)[number]>
-  > = [
+  const insightColumns: ReadonlyArray<DataTableColumn<CrossSectionInsight>> = [
+    { key: 'tension', header: 'Tension', wrap: 'clamp', clampLines: 2 },
     {
-      key: 'sourceSection',
-      header: 'Section',
-      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+      key: 'sourceSections',
+      header: 'Sections',
+      render: (row) => row.sourceSections.join(', '),
     },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      render: (row) => <SourceLink url={row.sourceUrl} />,
-    },
-  ];
-  const orderedMoveColumns: ReadonlyArray<
-    DataTableColumn<(typeof body.orderedMoves.moves)[number]>
-  > = [
-    { key: 'rank', header: '#', width: '48px', wrap: 'nowrap' },
-    { key: 'move', header: 'Move', className: 'font-medium text-foreground' },
-    {
-      key: 'learningPriority',
-      header: 'Learning priority',
-      render: (row) => (
-        <div className="flex flex-col gap-1">
-          <span>{row.learningPriority}</span>
-          <span className="text-xs text-muted-foreground">{row.thesisTrace}</span>
-          <span className="text-xs text-muted-foreground">
-            Depends on {row.dependsOn.length === 0 ? 'none' : row.dependsOn.join(', ')}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'provesWrongIf',
-      header: 'Kill criterion',
-      render: (row) => (
-        <div className="flex flex-col gap-1">
-          <span>{row.provesWrongIf.metric}</span>
-          <span className="text-xs text-muted-foreground">
-            {row.provesWrongIf.threshold} / {row.provesWrongIf.window}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'sourceSection',
-      header: 'Source',
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <MonoBadge>{row.sourceSection}</MonoBadge>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
+    { key: 'implicationForPlan', header: 'Plan implication', wrap: 'clamp', clampLines: 2 },
+    { key: 'contrarianInversion', header: 'Inversion', wrap: 'clamp', clampLines: 2 },
   ];
 
   return (
@@ -364,51 +213,6 @@ export function PaidMediaPlanRenderer({
       className={cn('space-y-10', className)}
     >
       <div data-testid="paid-media-plan-renderer" className="space-y-10">
-        {body.strategicThesis ? (
-          <SubsectionBlock label="Strategic thesis" prose={body.strategicThesis.thesis}>
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Callout label="Segment" tone="accent">
-                  {body.strategicThesis.segment}
-                </Callout>
-                <Callout label="Awareness" tone="good">
-                  {body.strategicThesis.awareness}
-                </Callout>
-                <Callout label="Force" tone="warn">
-                  {body.strategicThesis.force}
-                </Callout>
-                <Callout label="Differentiator" tone="good">
-                  {body.strategicThesis.defensibleDifferentiator}
-                </Callout>
-              </div>
-              <DataTable
-                columns={thesisSourceColumns}
-                rows={body.strategicThesis.sourceSections}
-              />
-            </div>
-          </SubsectionBlock>
-        ) : null}
-
-        {body.contradictionReconciliation ? (
-          <SubsectionBlock
-            label="Contradiction reconciliation"
-            prose={body.contradictionReconciliation.contradiction}
-          >
-            <div className="space-y-4">
-              <Callout label="Resolution" tone="accent">
-                {body.contradictionReconciliation.resolution}
-              </Callout>
-              <Callout label="Trade-off accepted" tone="warn">
-                {body.contradictionReconciliation.tradeOffAccepted}
-              </Callout>
-              <DataTable
-                columns={thesisSourceColumns}
-                rows={body.contradictionReconciliation.sourceSections}
-              />
-            </div>
-          </SubsectionBlock>
-        ) : null}
-
         <SubsectionBlock label="Campaign overview" prose={body.campaignOverview.prose}>
           <div className="space-y-4">
             <dl className="flex flex-wrap gap-x-10 gap-y-4">
@@ -433,12 +237,29 @@ export function PaidMediaPlanRenderer({
           </div>
         </SubsectionBlock>
 
-        <SubsectionBlock label="Campaign phases" prose={body.campaignPhases.prose}>
-          <DataTable columns={phaseColumns} rows={body.campaignPhases.phases} />
+        <SubsectionBlock label="Cross-section insight" prose="Internal driver tensions folded into the plan.">
+          <DataTable columns={insightColumns} rows={body.crossSectionInsight} />
         </SubsectionBlock>
 
-        <SubsectionBlock label="Audience types" prose={body.audienceTypes.prose}>
-          <DataTable columns={audienceColumns} rows={body.audienceTypes.audiences} />
+        <SubsectionBlock
+          label="Campaign phases"
+          prose="Two phases keep the first budget focused on learning before scale."
+        >
+          <DataTable columns={phaseColumns} rows={body.campaignPhases} />
+        </SubsectionBlock>
+
+        <SubsectionBlock
+          label="Audience types"
+          prose="Three fixed audience archetypes run in parallel during Phase 1."
+        >
+          <DataTable columns={audienceColumns} rows={body.audienceTypes} />
+        </SubsectionBlock>
+
+        <SubsectionBlock
+          label="Angles to test"
+          prose="Four distinct angles translate positioning evidence into creative tests."
+        >
+          <DataTable columns={angleColumns} rows={body.anglesToTest} />
         </SubsectionBlock>
 
         <SubsectionBlock label="Creative strategy" prose={body.creativeStrategy.prose}>
@@ -447,76 +268,63 @@ export function PaidMediaPlanRenderer({
               { label: 'Static', value: body.creativeStrategy.staticCount },
               { label: 'Video', value: body.creativeStrategy.videoCount },
               { label: 'Per audience', value: body.creativeStrategy.totalPerAudience },
-              {
-                label: 'Angle types',
-                value: body.creativeStrategy.angleTypesInMix.length,
-              },
             ]}
           />
         </SubsectionBlock>
 
-        <SubsectionBlock label="Angles to test" prose={body.anglesToTest.prose}>
-          <DataTable columns={angleColumns} rows={body.anglesToTest.angles} />
-        </SubsectionBlock>
-
-        <SubsectionBlock label="Creative framework" prose={body.creativeFramework.prose}>
-          <DataTable
-            columns={creativeColumns}
-            rows={body.creativeFramework.creatives}
-            rowKey={(row) => `${row.creativeType}-${row.sourceSection}`}
-          />
+        <SubsectionBlock
+          label="Creative framework"
+          prose="Eight fixed creative slots execute the selected angles."
+        >
+          <DataTable columns={creativeColumns} rows={body.creativeFramework} />
         </SubsectionBlock>
 
         <SubsectionBlock
-          label="Competitor review insights"
-          prose={body.competitorReviewInsights.prose}
+          label="Funnel ideation"
+          prose="Three funnel paths define what each paid click is meant to prove."
         >
-          <DataTable
-            columns={reviewColumns}
-            rows={body.competitorReviewInsights.insights}
-          />
+          <DataTable columns={funnelColumns} rows={body.funnelIdeation} />
+        </SubsectionBlock>
+
+        <SubsectionBlock
+          label="Sales process"
+          prose="Sales assets are linked when provided and marked as gaps when absent."
+        >
+          <DataTable columns={salesColumns} rows={body.salesProcess} />
         </SubsectionBlock>
 
         <SubsectionBlock
           label="Competitor marketing insights"
-          prose={body.competitorMarketingInsights.prose}
+          prose="Competitor marketing signals define what the plan exploits or avoids."
         >
-          <DataTable
-            columns={competitorColumns}
-            rows={body.competitorMarketingInsights.competitors}
-          />
+          <DataTable columns={competitorColumns} rows={body.competitorMarketingInsights} />
         </SubsectionBlock>
 
-        <SubsectionBlock label="Funnel ideation" prose={body.funnelIdeation.prose}>
-          <DataTable
-            columns={funnelColumns}
-            rows={body.funnelIdeation.recommendations}
-          />
-        </SubsectionBlock>
-
-        <SubsectionBlock label="Sales process" prose={body.salesProcess.prose}>
-          <DataTable columns={salesColumns} rows={body.salesProcess.assets} />
+        <SubsectionBlock
+          label="Competitor review insights"
+          prose="Review complaints become ad and sales leverage only when grounded."
+        >
+          <DataTable columns={reviewColumns} rows={body.competitorReviewInsights} />
         </SubsectionBlock>
 
         <SubsectionBlock
           label="Channel suggestions"
-          prose={body.channelSuggestions.prose}
+          prose="Current-funnel recommendations use verdict badges for action priority."
         >
-          <DataTable
-            columns={channelColumns}
-            rows={body.channelSuggestions.suggestions}
-          />
+          <DataTable columns={channelColumns} rows={body.channelSuggestions} />
         </SubsectionBlock>
 
-        <SubsectionBlock label="KPIs" prose={body.kpis.prose}>
-          <DataTable columns={kpiColumns} rows={body.kpis.kpis} />
+        <SubsectionBlock
+          label="KPIs"
+          prose="The plan tracks one primary outcome plus creative health and efficiency."
+        >
+          <DataTable columns={kpiColumns} rows={body.kpis} />
         </SubsectionBlock>
 
-        {body.orderedMoves ? (
-          <SubsectionBlock label="Ordered moves" prose={body.orderedMoves.prose}>
-            <DataTable columns={orderedMoveColumns} rows={body.orderedMoves.moves} />
-          </SubsectionBlock>
-        ) : null}
+        <Callout label="Grounding" tone="accent">
+          Every launchable row carries a source section and grounding note; `UNVERIFIED`
+          marks an explicit evidence gap.
+        </Callout>
       </div>
     </div>
   );

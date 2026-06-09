@@ -7,318 +7,356 @@ const sources = Array.from({ length: 5 }, (_, index) => ({
   observedAt: "2026-05-25T12:00:00.000Z",
 }));
 
-const sourceRef = {
-  sourceSection: "positioningVoiceOfCustomer" as const,
-  sourceUrl: "https://example.com/paid-media/source-1",
-};
-
-const sourceRefs = {
-  market: {
-    sourceSection: "positioningMarketCategory",
-    sourceUrl: "https://example.com/paid-media/source-5",
-  },
-  competitor: {
-    sourceSection: "positioningCompetitorLandscape",
-    sourceUrl: "https://example.com/paid-media/source-4",
-  },
-  voc: sourceRef,
-  demand: {
-    sourceSection: "positioningDemandIntent",
-    sourceUrl: "https://example.com/paid-media/source-2",
-  },
-  offer: {
-    sourceSection: "positioningOfferDiagnostic",
-    sourceUrl: "https://example.com/paid-media/source-3",
-  },
-} as const;
-
 export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
   id: "artifact_paid_media_plan_fixture",
   runId: "run_saaslaunch_fixture",
   sectionId: "positioningPaidMediaPlan",
   sectionTitle: "Paid Media Plan",
-  verdict: "Run a two-phase Meta-led test that turns positioning evidence into angle, creative, and funnel experiments.",
+  verdict:
+    "Run a two-phase Meta-led test that turns positioning evidence into angle, creative, and funnel experiments.",
   statusSummary: "Ready for campaign buildout after six positioning sections.",
   confidence: 0.72,
+  createdAt: "2026-05-25T12:00:00.000Z",
   sources,
   body: {
-    strategicThesis: {
-      thesis:
-        "This paid plan bets that impatient founder-led SaaS teams can be moved by implementation-delay anxiety with a proof-backed time-to-first-campaign wedge before they trust a full platform story.",
-      segment: "Founder-led SaaS teams with enough research evidence to act but not enough campaign clarity to launch.",
-      awareness:
-        "Problem-aware buyers who recognize manual handoffs and campaign indecision before they are ready for a platform replacement.",
-      force:
-        "The campaign should turn operational impatience into the first buying motion instead of asking cold traffic to believe category authority.",
-      defensibleDifferentiator:
-        "The differentiator is the short proof loop from buyer evidence to launchable ad angle, which incumbents cannot copy with slower implementation promises.",
-      sourceSections: [sourceRefs.voc, sourceRefs.competitor, sourceRefs.offer],
-    },
-    contradictionReconciliation: {
-      contradiction:
-        "The demand evidence supports immediate paid testing, but the offer and VoC evidence warn that broad authority claims will collapse without visible proof.",
-      resolution:
-        "Spend first on the narrow speed-and-proof loop, then use validated audit demand to earn the right to test the broader platform narrative.",
-      tradeOffAccepted:
-        "Accept a constrained first campaign so the budget buys strategic learning instead of prematurely scaling a message buyers cannot yet verify.",
-      sourceSections: [sourceRefs.demand, sourceRefs.voc, sourceRefs.offer],
-    },
     campaignOverview: {
       prose: "A four-month paid-media plan starts with controlled testing before scale.",
+      platform: "Meta Ads",
       monthlyBudget: "$3,000",
       monthlyBudgetValue: 3000,
       monthlyBudgetProvenance: "user-supplied",
-      totalMonths: 4,
-      phaseCount: 2,
       dailySpend: "$100",
       dailySpendValue: 100,
       dailySpendProvenance: "model-estimated",
+      totalMonths: 4,
+      phaseCount: 2,
       primaryKpi: "MQLs",
-      platform: "Meta Ads",
     },
-    campaignPhases: {
-      prose: "Testing precedes optimization so spend follows evidence.",
-      phases: [
-        {
-          phaseName: "Testing",
-          monthsLabel: "Months 1-2",
-          monthlyBudget: "$3,000",
-          monthlyBudgetValue: 3000,
-          monthlyBudgetProvenance: "model-estimated",
-          bullets: ["Test audiences", "Test creative angles"],
-        },
-        {
-          phaseName: "Optimization & Scale",
-          monthsLabel: "Months 3-4",
-          monthlyBudget: "$3,000",
-          monthlyBudgetValue: 3000,
-          monthlyBudgetProvenance: "model-estimated",
-          bullets: ["Scale winners", "Refresh creative"],
-        },
-      ],
-    },
-    audienceTypes: {
-      prose: "Three audiences balance ICP specificity and platform learning.",
-      audiences: [
-        {
-          slot: "01 Broad Prospecting",
-          archetype: "Interest Stack",
-          dailyBudget: "$33.33/day",
-          dailyBudgetValue: 33.33,
-          dailyBudgetProvenance: "model-estimated",
-          detail: "Operators researching workflow automation and CRM cleanup.",
-          ...sourceRef,
-        },
-        {
-          slot: "02 High Intent",
-          archetype: "ABM ICP List + Lookalike",
-          dailyBudget: "$33.33/day",
-          dailyBudgetValue: 33.33,
-          dailyBudgetProvenance: "model-estimated",
-          detail: "Founder-led teams with messy sales handoff processes.",
-          ...sourceRef,
-        },
-        {
-          slot: "03 AI Optimized",
-          archetype: "Advantage+",
-          dailyBudget: "$33.33/day",
-          dailyBudgetValue: 33.33,
-          dailyBudgetProvenance: "model-estimated",
-          detail: "Broad platform-optimized prospecting constrained by offer copy.",
-          ...sourceRef,
-        },
-      ],
-    },
+    campaignPhases: [
+      {
+        phaseName: "Phase 1 - Testing",
+        monthsLabel: "Months 1-2",
+        monthlyBudget: "$3,000",
+        monthlyBudgetValue: 3000,
+        monthlyBudgetProvenance: "model-estimated",
+        bullets: [
+          "Test multiple audience types in parallel.",
+          "Run a full mix of static and UGC creatives.",
+          "Collect data on CPL, CTR, and MQL quality.",
+          "No scaling until Phase 1 data is reviewed.",
+        ],
+      },
+      {
+        phaseName: "Phase 2 - Optimization & Scale",
+        monthsLabel: "Months 3-4",
+        monthlyBudget: "$3,000",
+        monthlyBudgetValue: 3000,
+        monthlyBudgetProvenance: "model-estimated",
+        bullets: [
+          "Turn off underperforming audiences and creatives.",
+          "Scale budget on winning audience and creative combinations.",
+          "Refresh creative and introduce retargeting on Phase 1 signals.",
+          "Continue landing-page iteration around demo-form conversion.",
+        ],
+      },
+    ],
+    audienceTypes: [
+      {
+        slot: "01",
+        archetype: "Broad Prospecting - Interest Stack",
+        dailyBudget: "$33.33/day",
+        dailyBudgetValue: 33.33,
+        dailyBudgetProvenance: "model-estimated",
+        detail: "Operators researching workflow automation and CRM cleanup.",
+        sourceSection: "positioningBuyerICP",
+        grounding: "Buyer ICP names founder-led operators with messy CRM handoffs.",
+      },
+      {
+        slot: "02",
+        archetype: "High Intent - ABM ICP List + 1% Lookalike",
+        dailyBudget: "$33.33/day",
+        dailyBudgetValue: 33.33,
+        dailyBudgetProvenance: "model-estimated",
+        detail: "Founder-led teams with visible sales handoff friction.",
+        sourceSection: "positioningVoiceOfCustomer",
+        grounding: "VoC evidence says slow handoffs block campaign launch.",
+      },
+      {
+        slot: "03",
+        archetype: "AI Optimized - Advantage+",
+        dailyBudget: "$33.33/day",
+        dailyBudgetValue: 33.33,
+        dailyBudgetProvenance: "model-estimated",
+        detail: "Broad platform-optimized prospecting constrained by offer copy.",
+        sourceSection: "positioningOfferDiagnostic",
+        grounding: "Offer Diagnostic recommends proof-backed audit language.",
+      },
+    ],
+    anglesToTest: [
+      {
+        shortName: "Launch Delay Anxiety",
+        description: "Expose the cost of having research but no campaign angle.",
+        angleType: "Problem-Aware",
+        sourceSection: "positioningVoiceOfCustomer",
+        grounding: "Buyers describe the operational cost of slow sales follow-up.",
+      },
+      {
+        shortName: "Proof Before Platform",
+        description: "Use source-backed proof before asking buyers to trust a platform narrative.",
+        angleType: "Proof-Stacked",
+        sourceSection: "positioningOfferDiagnostic",
+        grounding: "Offer evidence warns broad authority claims collapse without visible proof.",
+      },
+      {
+        shortName: "Competitor Drag",
+        description: "Contrast slower implementation promises with fast campaign readiness.",
+        angleType: "Comparison",
+        sourceSection: "positioningCompetitorLandscape",
+        grounding: "Competitor rows show setup-heavy positioning and broad workflow claims.",
+      },
+      {
+        shortName: "Contrarian Narrow Start",
+        description: "Start narrow so the first budget buys learning instead of polish.",
+        angleType: "Contrarian",
+        sourceSection: "positioningDemandIntent",
+        grounding: "Demand evidence supports immediate testing around audit intent.",
+      },
+    ],
     creativeStrategy: {
       prose: "Use static and UGC to test problem, proof, and objection angles.",
       staticCount: 5,
       videoCount: 3,
       totalPerAudience: 8,
-      angleTypesInMix: [
-        "unique-selling-point",
-        "problem-solution-transformation",
-        "objection-handling",
-      ],
     },
-    anglesToTest: {
-      prose: "Each angle maps a positioning insight to usable ad copy.",
-      angles: Array.from({ length: 4 }, (_, index) => ({
-        angleName: `Angle ${index + 1}`,
-        primaryText: `Stop losing qualified pipeline to manual handoffs ${index + 1}.`,
-        supportingLine: "AI-GOS turns buyer evidence into sales-ready campaign direction.",
-        insight: "Buyers describe the operational cost of slow sales follow-up.",
-        ...sourceRef,
-      })),
-    },
-    creativeFramework: {
-      prose: "The framework is filled with copy, not labels.",
-      creatives: [
-        {
-          creativeType: "unique-selling-point",
-          uspSentence: "The fastest path from research evidence to a paid-media-ready GTM plan.",
-          ...sourceRef,
-        },
-        {
-          creativeType: "problem-solution-transformation",
-          problem: "Your team has research but no campaign angle.",
-          solution: "AI-GOS converts the evidence into testable ad copy.",
-          transformation: "Launch with proof-backed messaging instead of guesses.",
-          ...sourceRef,
-        },
-        {
-          creativeType: "objection-handling",
-          objection: "We already know our buyer.",
-          objectionAnswer: "The audit shows the language buyers actually use when switching.",
-          ...sourceRef,
-        },
-      ],
-    },
-    competitorReviewInsights: {
-      prose: "Competitor complaints become leverage for ad positioning.",
-      insights: [1, 2].map((index) => ({
-        competitor: `Competitor ${index}`,
-        verbatimComplaint:
-          `Competitor ${index} requires 3 manual setup handoffs before launch.`,
-        adLeverage:
-          "Lead with AI-GOS reducing launch prep from weeks to one evidence-backed campaign brief.",
-        ...sourceRef,
-      })),
-    },
-    competitorMarketingInsights: {
-      prose: "Competitor marketing gives the campaign contrast points.",
-      competitors: [1, 2].map((index) => ({
-        competitor: `Competitor ${index}`,
-        messaging:
-          "Workflow automation for revenue teams that need 3-step handoff cleanup.",
-        adPlatforms: ["Meta", "Google"],
-        estSpend: "unknown",
+    creativeFramework: [
+      {
+        label: "PST 1",
+        angleType: "Problem-Aware",
+        hook: "You have buyer research, but your first ad angle is still a guess.",
+        executesAngle: "Launch Delay Anxiety",
+        sourceSection: "positioningVoiceOfCustomer",
+        grounding: "VoC evidence names slow campaign handoff as the operational pain.",
+      },
+      {
+        label: "PST 2",
+        angleType: "Problem-Aware",
+        hook: "Stop losing qualified pipeline while campaign decisions sit in docs.",
+        executesAngle: "Launch Delay Anxiety",
+        sourceSection: "positioningDemandIntent",
+        grounding: "Demand signals point to immediate audit and workflow-cleanup interest.",
+      },
+      {
+        label: "PST 3",
+        angleType: "Proof-Stacked",
+        hook: "Turn six positioning sections into a launchable paid-media plan.",
+        executesAngle: "Proof Before Platform",
+        sourceSection: "positioningOfferDiagnostic",
+        grounding: "Offer evidence supports evidence-to-campaign conversion as the wedge.",
+      },
+      {
+        label: "Objection 1",
+        angleType: "Enemy",
+        hook: "Already know your buyer? Then your ad should quote their switching language.",
+        executesAngle: "Proof Before Platform",
+        sourceSection: "positioningVoiceOfCustomer",
+        grounding: "VoC rows preserve buyer switching language for ad copy.",
+      },
+      {
+        label: "Objection 2",
+        angleType: "Comparison",
+        hook: "Campaign teams do not need another generic workflow promise.",
+        executesAngle: "Competitor Drag",
+        sourceSection: "positioningCompetitorLandscape",
+        grounding: "Competitor evidence shows broad workflow automation messaging.",
+      },
+      {
+        label: "USP",
+        angleType: "Mechanism-Led",
+        hook: "AI-GOS compresses research evidence into testable ad angles.",
+        executesAngle: "Proof Before Platform",
+        sourceSection: "positioningOfferDiagnostic",
+        grounding: "Offer diagnostic identifies campaign-readiness as the proof loop.",
+      },
+      {
+        label: "Demo + Objection",
+        angleType: "Comparison",
+        hook: "Watch an evidence-backed angle replace a vague platform claim.",
+        executesAngle: "Competitor Drag",
+        sourceSection: "positioningCompetitorLandscape",
+        grounding: "Competitor landscape records vague platform claims as a gap.",
+      },
+      {
+        label: "Before / After",
+        angleType: "Contrarian",
+        hook: "Before: research parked in docs. After: a paid-media test built around proof.",
+        executesAngle: "Contrarian Narrow Start",
+        sourceSection: "positioningDemandIntent",
+        grounding: "Demand evidence supports immediate narrow testing before scale.",
+      },
+    ],
+    funnelIdeation: [
+      {
+        rank: "1 - PRIMARY",
+        name: "Free GTM Evidence Audit",
+        description:
+          "Problem-aware founder-led SaaS operators see two campaign-specific insights before booking.",
+        whatItProves: "Whether audit demand converts into qualified MQLs.",
+      },
+      {
+        rank: "2 - SECONDARY",
+        name: "Proof-Backed Demo Page",
+        description:
+          "A lower-friction demo page tests whether proof language beats platform language.",
+        whatItProves: "Whether proof-backed copy improves demo-form conversion.",
+      },
+      {
+        rank: "3 - TEST",
+        name: "High-Intent Retargeting",
+        description:
+          "Retarget visitors who engage with audit proof but do not book immediately.",
+        whatItProves: "Whether proof engagement predicts booked-call quality.",
+      },
+    ],
+    salesProcess: [
+      {
+        label: "Sales Process Overview",
+        assetType: "sop-doc",
+        url: "https://example.com/sales-process",
+        note: "End-to-end MQL to closed-won workflow.",
+      },
+      {
+        label: "SDR Opt-In Flow",
+        assetType: "sop-doc",
+        url: "",
+        note: "Evidence gap: SDR opt-in flow was not provided.",
+      },
+      {
+        label: "Personalization Playbook",
+        assetType: "sop-doc",
+        url: "",
+        note: "Evidence gap: personalization playbook was not provided.",
+      },
+      {
+        label: "Loom Walkthrough",
+        assetType: "loom",
+        url: "",
+        note: "Evidence gap: sales-process Loom was not provided.",
+      },
+    ],
+    competitorMarketingInsights: [
+      {
+        competitor: "Competitor 1",
+        messaging: "Workflow automation for revenue teams that need handoff cleanup.",
+        adPlatforms: "Meta; Google",
         estSpendProvenance: "unknown",
-        icpTargeted: "Founder-led B2B teams",
-        anglesTested: "Speed-to-launch and CRM cleanup proof",
-        positioningClaim:
-          "Fastest 48-hour path to clean up GTM workflow handoffs",
+        icp: "Founder-led B2B teams",
+        angles: "Speed-to-launch and CRM cleanup proof",
+        positioning: "Fastest path to clean up GTM workflow handoffs",
         offer: "Free audit",
-        ...sourceRef,
-      })),
-    },
-    funnelIdeation: {
-      prose: "Use a free audit funnel to bridge paid click to booked sales call.",
-      recommendations: [
-        {
-          funnelType: "free-audit-landing-page",
-          recommendation:
-            "For problem-aware founder-led SaaS operators, offer a focused GTM evidence audit before the sales call.",
-          optInToBookedCall:
-            "Show two campaign-specific insights on opt-in, then route qualified MQLs to a booked calendar call.",
-          sourceSection: "positioningOfferDiagnostic",
-          sourceUrl: "https://example.com/paid-media/source-3",
-        },
-      ],
-    },
-    salesProcess: {
-      prose: "Sales assets are linked as operating support, not generated research.",
-      assets: [
-        {
-          label: "Sales Process Overview",
-          url: "https://example.com/sales-process",
-          assetType: "sop-doc",
-        },
-      ],
-    },
-    channelSuggestions: {
-      prose: "Channel suggestions are bounded by the offer and channel-truth evidence.",
-      suggestions: [
-        {
-          channel: "Google Ads",
-          observation:
-            "Google Ads exact-match queries can capture problem-aware workflow-cleanup demand once category language is proven.",
-          recommendation:
-            "Launch exact-match ad groups for problem-aware workflow-cleanup queries before broad keywords.",
-          verdict: "start",
-          sourceSection: "positioningOfferDiagnostic",
-          sourceUrl: "https://example.com/paid-media/source-3",
-        },
-        {
-          channel: "Website",
-          observation:
-            "The /pricing page needs the same buyer-language hooks as the paid ads.",
-          recommendation:
-            "Replace above-the-fold CTA copy with the top objection-handling asset and track demo-form CVR.",
-          verdict: "fix",
-          sourceSection: "positioningOfferDiagnostic",
-          sourceUrl: "https://example.com/paid-media/source-3",
-        },
-      ],
-    },
-    kpis: {
-      prose: "SLG campaigns should optimize for qualified sales conversations.",
-      gtmMotion: "SLG",
-      kpis: [
-        { metric: "MQLs", role: "Primary", definition: "Qualified free-audit leads" },
-        { metric: "CPL", role: "Efficiency", definition: "Cost per qualified lead" },
-        { metric: "CTR", role: "Creative health", definition: "Hook engagement rate" },
-      ],
-    },
-    orderedMoves: {
-      prose:
-        "The plan spends in the order that creates the most information first: validate speed pain, prove the evidence loop, then test authority expansion.",
-      moves: [
-        {
-          rank: 1,
-          move:
-            "Run the time-to-first-campaign free-audit angle before any broader GTM platform message.",
-          dependsOn: [],
-          learningPriority:
-            "Find out whether delay anxiety is strong enough to create qualified audit demand from cold paid traffic.",
-          rationale:
-            "VoC and competitor evidence indicate implementation delay is the concrete switching pain incumbents expose.",
-          thesisTrace:
-            "This tests the thesis force directly by asking whether implementation impatience creates qualified audit demand.",
-          provesWrongIf: {
-            metric: "Qualified audit lead rate",
-            threshold: "Fewer than 12 qualified free-audit leads from the first 1000 landing-page sessions",
-            window: "First 21 days",
-          },
-          ...sourceRefs.voc,
-        },
-        {
-          rank: 2,
-          move:
-            "Shift spend toward proof-backed creative only if the speed wedge creates enough qualified audit demand.",
-          dependsOn: [1],
-          learningPriority:
-            "Determine whether showing buyer evidence becoming campaign direction improves trust and booked-call rate.",
-          rationale:
-            "Offer evidence says buyers need a lower-commitment proof loop before they believe a larger transformation claim.",
-          thesisTrace:
-            "This tests whether the thesis differentiator, a short proof loop from evidence to campaign direction, improves trust.",
-          provesWrongIf: {
-            metric: "Booked-call conversion from proof creative",
-            threshold: "Proof creative fails to beat speed-only creative by at least 20%",
-            window: "First two creative refresh cycles",
-          },
-          ...sourceRefs.offer,
-        },
-        {
-          rank: 3,
-          move:
-            "Test the broader platform-authority story only after speed and proof creatives produce customer-visible evidence.",
-          dependsOn: [1, 2],
-          learningPriority:
-            "Learn whether the larger story can raise conversion without reigniting proof anxiety.",
-          rationale:
-            "Market and proof gaps make authority messaging a later-stage bet rather than the safest first spend.",
-          thesisTrace:
-            "This only expands the thesis after the narrow wedge proves the segment will act on speed and evidence.",
-          provesWrongIf: {
-            metric: "Authority creative cost per qualified lead",
-            threshold: "Authority creative costs more than 1.5x proof creative with no higher booked-call rate",
-            window: "First 30 days after authority test starts",
-          },
-          ...sourceRefs.market,
-        },
-      ],
-    },
+        sourceSection: "positioningCompetitorLandscape",
+        grounding: "Competitor evidence lists speed-to-launch and CRM cleanup claims.",
+      },
+      {
+        competitor: "Competitor 2",
+        messaging: "Broad AI workflow automation for revenue operators.",
+        adPlatforms: "Google",
+        estSpendProvenance: "unknown",
+        icp: "Revenue operators",
+        angles: "Workflow breadth and implementation promises",
+        positioning: "General revenue workflow platform",
+        offer: "Book a demo",
+        sourceSection: "positioningCompetitorLandscape",
+        grounding: "Competitor evidence contrasts broad workflow claims with narrower proof needs.",
+      },
+    ],
+    competitorReviewInsights: [
+      {
+        complaint: "Competitor setup requires manual handoffs before launch.",
+        howWeLeverage:
+          "Lead with campaign-ready evidence instead of another setup-heavy platform promise.",
+        sourceSection: "positioningCompetitorLandscape",
+        grounding: "Competitor review evidence points to implementation drag.",
+      },
+      {
+        complaint: "Customers complain that generic automation claims are hard to trust.",
+        howWeLeverage:
+          "Use proof-backed audit language in ads and sales scripts before platform claims.",
+        sourceSection: "positioningVoiceOfCustomer",
+        grounding: "VoC evidence warns trust drops without visible proof.",
+      },
+      {
+        complaint: "Users need more clarity before they book a call.",
+        howWeLeverage:
+          "Show two concrete GTM evidence findings before routing to calendar.",
+        sourceSection: "positioningOfferDiagnostic",
+        grounding: "Offer diagnostic supports visible proof before sales conversion.",
+      },
+    ],
+    channelSuggestions: [
+      {
+        channel: "Website",
+        recommendation:
+          "Replace above-the-fold CTA copy with the top objection-handling asset and track demo-form CVR.",
+        verdict: "FIX",
+        sourceSection: "positioningOfferDiagnostic",
+      },
+      {
+        channel: "Content / Organic",
+        recommendation:
+          "Rework blog and guide pages around workflow-cleanup proof before scaling paid traffic.",
+        verdict: "REWORK",
+        sourceSection: "positioningDemandIntent",
+      },
+      {
+        channel: "Other Ad Platforms",
+        recommendation:
+          "Review Google exact-match ad groups for problem-aware workflow-cleanup queries.",
+        verdict: "REVIEW",
+        sourceSection: "positioningDemandIntent",
+      },
+      {
+        channel: "Email / Nurture",
+        recommendation:
+          "Add a nurture sequence that sends two audit insights before a booking CTA.",
+        verdict: "ADD",
+        sourceSection: "positioningOfferDiagnostic",
+      },
+    ],
+    kpis: [
+      {
+        metric: "MQLs",
+        role: "Primary outcome",
+        definition: "Qualified free-audit leads that match the ICP.",
+      },
+      {
+        metric: "CTR",
+        role: "Creative health",
+        definition: "Hook and angle engagement rate across static and UGC ads.",
+      },
+      {
+        metric: "CPL",
+        role: "Efficiency",
+        definition: "Cost per qualified lead by audience and creative angle.",
+      },
+    ],
+    crossSectionInsight: [
+      {
+        tension:
+          "Demand evidence supports immediate testing, but offer and VoC evidence warn that broad authority claims collapse without visible proof.",
+        sourceSections: [
+          "positioningDemandIntent",
+          "positioningVoiceOfCustomer",
+          "positioningOfferDiagnostic",
+        ],
+        implicationForPlan:
+          "Spend first on the narrow speed-and-proof loop, then test broader platform language after Phase 1.",
+        clientBlindSpot:
+          "The client may see paid media as a scale lever before proving the first campaign belief.",
+        secondOrderRisk:
+          "A broad first campaign burns budget learning that buyers wanted proof before a platform story.",
+        contrarianInversion:
+          "The fastest route to scale is a constrained first campaign, not a broader launch.",
+      },
+    ],
   },
-  createdAt: "2026-05-25T12:00:00.000Z",
 };

@@ -6,6 +6,7 @@ import {
   type ResearchInput,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import {
+  PAID_MEDIA_PLAN_SECTION_ID,
   POSITIONING_SECTION_IDS,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
@@ -58,7 +59,10 @@ interface ResearchArtifactSectionProfileRow {
   verificationFlag: unknown;
 }
 
-const PROFILE_INSIGHT_SECTION_IDS = POSITIONING_SECTION_IDS;
+const PROFILE_INSIGHT_SECTION_IDS = [
+  ...POSITIONING_SECTION_IDS,
+  PAID_MEDIA_PLAN_SECTION_ID,
+] as const;
 
 type ProfileInsightSectionId = (typeof PROFILE_INSIGHT_SECTION_IDS)[number];
 
@@ -77,6 +81,12 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
     : null;
+}
+
+function nonEmptyStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map(nonEmptyString).filter((item): item is string => item !== null)
+    : [];
 }
 
 function isProfileInsightSectionId(
@@ -118,6 +128,81 @@ function buildProfileMetadata(input: {
       nonEmptyString(onboardingData.primaryIcpDescription) ??
       nonEmptyString(metadata.primaryIcpDescription) ??
       input.researchInput.company.targetCustomer,
+  };
+}
+
+function normalizeCrossSectionInsightItem(
+  value: unknown,
+): Record<string, unknown> | null {
+  const record = asRecord(value);
+  const sourceSections = nonEmptyStringArray(record.sourceSections);
+  const insight: Record<string, unknown> = {};
+  const stringFields = [
+    'tension',
+    'implicationForPlan',
+    'clientBlindSpot',
+    'secondOrderRisk',
+    'contrarianInversion',
+  ] as const;
+
+  for (const field of stringFields) {
+    const text = nonEmptyString(record[field]);
+    if (text) {
+      insight[field] = text;
+    }
+  }
+
+  if (sourceSections.length > 0) {
+    insight.sourceSections = sourceSections;
+  }
+
+  return Object.keys(insight).length > 0 ? insight : null;
+}
+
+function buildPaidMediaPositioningStrategy(
+  artifact: ArtifactEnvelope,
+): Record<string, unknown> | null {
+  const body = asRecord(artifact.body);
+  const crossSectionInsight = Array.isArray(body.crossSectionInsight)
+    ? body.crossSectionInsight
+        .map(normalizeCrossSectionInsightItem)
+        .filter((item): item is Record<string, unknown> => item !== null)
+    : [];
+
+  if (crossSectionInsight.length === 0) {
+    return null;
+  }
+
+  const firstInsight = crossSectionInsight[0] ?? {};
+  const campaignOverview = asRecord(body.campaignOverview);
+  const recommendedAngle =
+    nonEmptyString(firstInsight.implicationForPlan) ??
+    nonEmptyString(firstInsight.tension) ??
+    artifact.verdict;
+  const leadRecommendation =
+    nonEmptyString(campaignOverview.prose) ?? artifact.statusSummary;
+  const planSummary: Record<string, unknown> = {
+    sectionTitle: artifact.sectionTitle,
+    verdict: artifact.verdict,
+    statusSummary: artifact.statusSummary,
+    confidence: artifact.confidence,
+  };
+  const platform = nonEmptyString(campaignOverview.platform);
+  const primaryKpi = nonEmptyString(campaignOverview.primaryKpi);
+
+  if (platform) {
+    planSummary.platform = platform;
+  }
+  if (primaryKpi) {
+    planSummary.primaryKpi = primaryKpi;
+  }
+
+  return {
+    source: PAID_MEDIA_PLAN_SECTION_ID,
+    recommendedAngle,
+    leadRecommendation,
+    crossSectionInsight,
+    paidMediaPlan: planSummary,
   };
 }
 
@@ -164,6 +249,13 @@ export function buildCommittedSectionProfileInsights(input: {
       ...(verificationTier ? { verificationTier } : {}),
       ...(verificationFlag ? { verificationFlag } : {}),
     };
+  }
+
+  if (input.sectionId === PAID_MEDIA_PLAN_SECTION_ID) {
+    const positioningStrategy = buildPaidMediaPositioningStrategy(input.artifact);
+    if (positioningStrategy) {
+      insights.positioningStrategy = positioningStrategy;
+    }
   }
 
   return insights;

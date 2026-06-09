@@ -378,51 +378,46 @@ describe("buildAnswerToolInstructions", (): void => {
     const prompt = buildRepairPrompt({
       definition: paidMediaDefinition,
       evidenceTranscript: "source evidence",
-      issues: ["body.campaignPhases.phases.0.phaseName is required"],
-      previousOutput: { body: { campaignPhases: { phases: [] } } },
+      issues: ["body.campaignPhases.0.phaseName is required"],
+      previousOutput: { body: { campaignPhases: [] } },
       researchInput: saaslaunchResearchInput,
       skillMd: "Use the injected corpus only.",
     });
 
     expect(prompt).toContain(
-      "`body.campaignPhases` is an object with `prose` and `phases[]`",
+      "Emit the lean 12-block body only",
     );
     expect(prompt).toContain(
-      "`body.kpis` keys are exactly `prose`, `gtmMotion`, `kpis`",
+      "Do NOT emit `strategicThesis`, `contradictionReconciliation`, or `orderedMoves`",
     );
     expect(prompt).toContain(
-      "`body.competitorMarketingInsights.competitors[].anglesTested` is a single string",
+      "`body.crossSectionInsight[]` carries 1-3 tensions",
     );
     expect(prompt).toContain(
-      "Every `body.competitorMarketingInsights.competitors[]` item",
+      "`body.campaignPhases[]` has exactly 2 rows",
     );
     expect(prompt).toContain(
-      "Paid-media money fields must include provenance labels",
+      "`body.audienceTypes[]` has exactly 3 rows",
     );
     expect(prompt).toContain(
-      "Optional paid-media numeric siblings are machine-sortable numbers",
+      "`body.creativeFramework[]` has exactly 8 fixed slots",
     );
     expect(prompt).toContain(
-      "add numeric siblings only when they come from user-supplied economics, tool-measured data, source-reported data, or explicit scenario assumptions with corresponding provenance",
+      "`body.channelSuggestions[]` has exactly 4 rows",
+    );
+    expect(prompt).toContain(
+      "verdict is free string but use one of `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, `SCALE`",
+    );
+    expect(prompt).toContain(
+      "Paid-media money provenance fields are free strings; prefer",
     );
     expect(prompt).toContain(
       "Omit numeric siblings when the number is unknown or weakly inferred",
     );
     expect(prompt).toContain(
-      "Numeric siblings must not duplicate provenance in strings",
+      "`body.competitorMarketingInsights[]` has at least 2 rows",
     );
-    expect(prompt).toContain(
-      "`body.campaignOverview` keys are exactly `prose`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `totalMonths`, `phaseCount`, `dailySpend`, optional `dailySpendValue`, `dailySpendProvenance`, `primaryKpi`, `platform`",
-    );
-    expect(prompt).toContain(
-      "`body.campaignPhases` is an object with `prose` and `phases[]`; each phase has exactly `phaseName`, `monthsLabel`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `bullets`",
-    );
-    expect(prompt).toContain(
-      "`body.audienceTypes` is an object with `prose` and `audiences[]`; each audience has exactly `slot`, `archetype`, `dailyBudget`, optional `dailyBudgetValue`, `dailyBudgetProvenance`, `detail`, `sourceSection`, `sourceUrl`",
-    );
-    expect(prompt).toContain(
-      "Competitor `estSpend` remains string-only; never emit `estSpendValue`",
-    );
+    expect(prompt).toContain("never invent spend");
   });
 });
 
@@ -480,7 +475,7 @@ describe("buildStructuredPrompt", (): void => {
     );
   });
 
-  it("adds T9 strategist guidance for paid media", (): void => {
+  it("adds lean strategist guidance for paid media", (): void => {
     const paidMediaPrompt = buildStructuredPrompt({
       definition: paidMediaDefinition,
       evidenceTranscript: "Committed artifacts are available in ResearchInput.",
@@ -488,30 +483,31 @@ describe("buildStructuredPrompt", (): void => {
       skillMd: "# Paid Media Plan",
     });
 
-    expect(paidMediaPrompt).toContain("body.strategicThesis");
-    expect(paidMediaPrompt).toContain("body.contradictionReconciliation");
-    expect(paidMediaPrompt).toContain("body.orderedMoves");
-    expect(paidMediaPrompt).toContain("thesisTrace");
-    expect(paidMediaPrompt).toContain("provesWrongIf");
+    expect(paidMediaPrompt).toContain("Emit the lean 12-block body only");
     expect(paidMediaPrompt).toContain(
-      "Ordered move ranks are positive integers starting at 1",
+      "Do NOT emit `strategicThesis`, `contradictionReconciliation`, or `orderedMoves`",
+    );
+    expect(paidMediaPrompt).toContain("body.crossSectionInsight[]");
+    expect(paidMediaPrompt).toContain("contrarianInversion");
+    expect(paidMediaPrompt).toContain(
+      "`body.anglesToTest[]` has exactly 4 distinct creative angles",
     );
     expect(paidMediaPrompt).toContain(
-      "dailySpendValue * 30",
+      "`body.creativeFramework[]` has exactly 8 fixed slots",
     );
     expect(paidMediaPrompt).toContain(
-      "problem-solution-transformation",
+      "`body.channelSuggestions[]` has exactly 4 rows",
     );
     expect(paidMediaPrompt).toContain(
-      "objectionAnswer",
+      "verdict is free string but use one of `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, `SCALE`",
     );
     expect(paidMediaPrompt).toContain(
-      "Every `competitorReviewInsights.insights[]` item",
+      "Each angle row has `shortName`, `description`, free-string `angleType`, `sourceSection`, and exact `grounding`",
     );
     expect(paidMediaPrompt).toContain(
-      "must name the buyer, segment, or company-size phrase",
+      "each row has `label`, `angleType`, deployable `hook`, `executesAngle`, `sourceSection`, and `grounding`",
     );
-    expect(paidMediaPrompt).toContain("explicit action verb");
+    expect(paidMediaPrompt).toContain("never invent quotes");
   });
 });
 

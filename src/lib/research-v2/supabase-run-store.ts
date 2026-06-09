@@ -64,7 +64,10 @@ export class SupabaseRunStoreError extends Error {
   }
 }
 
-const PROFILE_PATCH_SECTION_IDS = POSITIONING_SECTION_IDS;
+const PROFILE_PATCH_SECTION_IDS = [
+  ...POSITIONING_SECTION_IDS,
+  PAID_MEDIA_PLAN_SECTION_ID,
+] as const;
 
 type ProfilePatchSectionId = (typeof PROFILE_PATCH_SECTION_IDS)[number];
 

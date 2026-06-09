@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { offerDiagnosticFixtureArtifact } from '@/lib/lab-engine/fixtures/offer-diagnostic-artifact';
+import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 
 import {
@@ -128,6 +129,40 @@ describe('section profile persistence', (): void => {
     });
   });
 
+  it('sources positioningStrategy from paid-media cross-section insight', (): void => {
+    const insights = buildCommittedSectionProfileInsights({
+      sectionId: 'positioningPaidMediaPlan',
+      artifact: paidMediaPlanFixtureArtifact,
+    });
+
+    expect(insights).toEqual(
+      expect.objectContaining({
+        positioningPaidMediaPlan: expect.objectContaining({
+          sectionTitle: paidMediaPlanFixtureArtifact.sectionTitle,
+          verdict: paidMediaPlanFixtureArtifact.verdict,
+        }),
+        positioningStrategy: expect.objectContaining({
+          source: 'positioningPaidMediaPlan',
+          recommendedAngle:
+            paidMediaPlanFixtureArtifact.body.crossSectionInsight[0]?.implicationForPlan,
+          leadRecommendation: paidMediaPlanFixtureArtifact.body.campaignOverview.prose,
+          crossSectionInsight: [
+            expect.objectContaining({
+              tension:
+                paidMediaPlanFixtureArtifact.body.crossSectionInsight[0]?.tension,
+              sourceSections:
+                paidMediaPlanFixtureArtifact.body.crossSectionInsight[0]?.sourceSections,
+            }),
+          ],
+          paidMediaPlan: expect.objectContaining({
+            platform: paidMediaPlanFixtureArtifact.body.campaignOverview.platform,
+            primaryKpi: paidMediaPlanFixtureArtifact.body.campaignOverview.primaryKpi,
+          }),
+        }),
+      }),
+    );
+  });
+
   it('persists an audit profile with one merged insight write for completed sections', async (): Promise<void> => {
     const needsReviewFlag = {
       tier: 'needs_review',
@@ -153,6 +188,10 @@ describe('section profile persistence', (): void => {
       createSectionRow({
         zone: 'positioningOfferDiagnostic',
         data: offerDiagnosticFixtureArtifact,
+      }),
+      createSectionRow({
+        zone: 'positioningPaidMediaPlan',
+        data: paidMediaPlanFixtureArtifact,
       }),
       createSectionRow({
         zone: 'positioningVoiceOfCustomer',
@@ -214,6 +253,11 @@ describe('section profile persistence', (): void => {
         offerScore: expect.objectContaining({
           verdict: offerDiagnosticFixtureArtifact.verdict,
           body: offerDiagnosticFixtureArtifact.body,
+        }),
+        positioningStrategy: expect.objectContaining({
+          source: 'positioningPaidMediaPlan',
+          recommendedAngle:
+            paidMediaPlanFixtureArtifact.body.crossSectionInsight[0]?.implicationForPlan,
         }),
       }),
     );
