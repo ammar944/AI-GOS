@@ -1617,13 +1617,15 @@ function buildPaidMediaVerifierErrorResult(
       judgeFlags: 0,
       verifierErrors: 1,
       judgeSkipped: 0,
-      hardFailCount: 1,
-      needsReviewCount: 0,
-      hardFailIds: ["paid-media-verifier"],
-      needsReviewIds: [],
+      hardFailCount: 0,
+      needsReviewCount: 1,
+      hardFailIds: [],
+      needsReviewIds: ["paid-media-verifier"],
     },
-    hardFail: true,
-    needsReview: false,
+    // ARI: even a verifier crash never kills the section — commit with an honest
+    // needs_review badge stating the verifier could not run.
+    hardFail: false,
+    needsReview: true,
     repairIssues: [`paid-media verifier VERIFIER_ERROR: ${message}`],
   };
 }

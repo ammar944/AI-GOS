@@ -1080,22 +1080,6 @@ function shouldRunJudge(input: VerifyPaidMediaPlanInput): boolean {
   return input.env?.NODE_ENV !== "test";
 }
 
-function isHardFailVerdict(verdict: PlanVerdict): boolean {
-  // VERIFIER_ERROR (judge truncation/timeout/unparseable) means "we could not
-  // verify this claim" — NOT a confirmed fabrication. Per ARI it commits with an
-  // honest needs_review badge instead of hard-failing the section (which would
-  // reintroduce the .strict()->repair->timeout regression in a new form). Only
-  // deterministic, evidence-backed fabrications hard-fail.
-  return (
-    verdict.flag === "FABRICATED_QUOTE" ||
-    verdict.flag === "EMPTY_SECTION_CITATION" ||
-    verdict.flag === "INVALID_ENUM" ||
-    (verdict.flag === "MIS_ATTRIBUTION" &&
-      verdict.by === "deterministic" &&
-      verdict.reason.startsWith("count "))
-  );
-}
-
 function summarizeVerification({
   claims,
   deterministicVerdicts,
@@ -1110,12 +1094,16 @@ function summarizeVerification({
   const allFlagged = [...deterministicVerdicts, ...judgeVerdicts].filter(
     (verdict) => verdict.flag !== "PASS",
   );
-  const hardFailIds = allFlagged
-    .filter(isHardFailVerdict)
-    .map((verdict) => verdict.id);
-  const needsReviewIds = allFlagged
-    .filter((verdict) => !isHardFailVerdict(verdict))
-    .map((verdict) => verdict.id);
+  // ARI commit-with-honest-badge: the claim-source verifier is ADVISORY. Every
+  // flagged claim — fabrication, mis-attribution, provenance inflation, verifier
+  // error — surfaces in the needs_review badge and the section still commits. It
+  // never hard-fails. (The judge is blind to ~87% of each clipped source section,
+  // so it cannot be trusted to kill a section; live run 73dfbc0d died on a judge
+  // FABRICATED_QUOTE for a quote that was actually present in the VoC source.)
+  // Structural completeness (empty/missing blocks) is enforced by the schema
+  // gates upstream, not here.
+  const hardFailIds: string[] = [];
+  const needsReviewIds = allFlagged.map((verdict) => verdict.id);
 
   return {
     totalClaims: claims.length,

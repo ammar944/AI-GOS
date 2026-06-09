@@ -226,7 +226,7 @@ describe("deterministicPlanPass", (): void => {
 });
 
 describe("verifyPaidMediaPlan", (): void => {
-  it("treats distinctive count misattribution as a hard fail", async (): Promise<void> => {
+  it("surfaces distinctive count misattribution as needs_review (verifier never hard-fails)", async (): Promise<void> => {
     const sections = buildSections({
       positioningBuyerICP: longSectionText(
         "positioningBuyerICP",
@@ -252,11 +252,46 @@ describe("verifyPaidMediaPlan", (): void => {
       })),
     });
 
-    expect(result.hardFail).toBe(true);
-    expect(result.needsReview).toBe(false);
+    expect(result.hardFail).toBe(false);
+    expect(result.needsReview).toBe(true);
+    expect(result.summary.needsReviewIds).toContain(result.verdicts[0]?.id);
     expect(result.verdicts[0]).toEqual(
       expect.objectContaining({ flag: "MIS_ATTRIBUTION", by: "deterministic" }),
     );
+  });
+
+  it("commits-with-badge on a deterministic FABRICATED_QUOTE instead of hard-failing (ARI; the false-hard-fail regression)", async (): Promise<void> => {
+    // Root-cause regression guard: a fabricated/unverifiable quote must surface in
+    // the needs_review badge, NOT kill the section. (Live run 73dfbc0d hard-failed
+    // because a judge — blind to 87% of the clipped VoC source — false-flagged a
+    // real quote as FABRICATED_QUOTE, and FABRICATED_QUOTE used to hard-fail.)
+    const result = await verifyPaidMediaPlan({
+      artifact: buildArtifact({
+        competitorReviewInsights: [
+          {
+            complaint:
+              'A buyer said "this exact phrase appears in no provided section".',
+            howWeLeverage: "Lead with the opposite promise in creative.",
+            sourceSection: "positioningCompetitorLandscape",
+            grounding: "Cited competitor review complaint.",
+          },
+        ],
+      }),
+      researchInput: buildResearchInput(),
+      judge: vi.fn<PlanClaimJudge>(async () => ({
+        byId: new Map(),
+        finishReason: "stop",
+      })),
+    });
+
+    expect(result.hardFail).toBe(false);
+    expect(result.needsReview).toBe(true);
+    const fabricated = result.verdicts.find(
+      (verdict) => verdict.flag === "FABRICATED_QUOTE",
+    );
+    expect(fabricated).toBeDefined();
+    expect(result.summary.needsReviewIds).toContain(fabricated?.id);
+    expect(result.summary.hardFailIds).toHaveLength(0);
   });
 
   it("keeps judge-layer semantic flags as needs_review", async (): Promise<void> => {

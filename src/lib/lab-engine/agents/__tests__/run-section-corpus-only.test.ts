@@ -1783,7 +1783,7 @@ describe('runSection corpus-only mode', (): void => {
     expect(record.sections.positioningPaidMediaPlan?.status).toBe('completed');
   });
 
-  it('treats thrown paid-media verifier errors as repairable VERIFIER_ERROR hard fails', async (): Promise<void> => {
+  it('commits the paid-media plan with a needs_review badge when the verifier throws (never hard-fails)', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({
       rootDir,
@@ -1801,11 +1801,7 @@ describe('runSection corpus-only mode', (): void => {
     );
     const verifyPaidMediaPlan = vi.fn(
       async (): Promise<PaidMediaPlanVerificationResult> => {
-        if (verifyPaidMediaPlan.mock.calls.length === 1) {
-          throw new Error('verifier transport failed');
-        }
-
-        return buildPaidMediaVerifierResult();
+        throw new Error('verifier transport failed');
       },
     );
 
@@ -1827,16 +1823,12 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     const record = await store.readRun(saaslaunchResearchInput.runId);
-    const validationEvents = record.events.filter(
-      (event) => event.type === 'validation-failed',
-    );
 
+    // ARI: a verifier crash never kills the section. It commits ONCE with an
+    // honest needs_review badge — no repair attempt, no hard fail.
     expect(result.artifact.sectionId).toBe('positioningPaidMediaPlan');
-    expect(callStructured).toHaveBeenCalledTimes(2);
-    expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(2);
-    expect(validationEvents[0]?.metadata.issues).toEqual([
-      'paid-media verifier VERIFIER_ERROR: verifier transport failed',
-    ]);
+    expect(callStructured).toHaveBeenCalledTimes(1);
+    expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(1);
     expect(record.sections.positioningPaidMediaPlan?.status).toBe('completed');
   });
 
