@@ -11,26 +11,6 @@ metadata:
 
 # Paid Media Plan (Section 07)
 
-> **WIRING GATE — read before deploying. This skill targets the LEAN tolerant
-> artifact shape, not the schema the production registry currently binds.**
-> Today `section-registry.ts` binds `positioningPaidMediaPlan` to the legacy
-> `paidMediaPlanBodySchema` (`.strict()`, hard-requires `strategicThesis` /
-> `contradictionReconciliation` / `orderedMoves`, hard `z.enum` for
-> `creativeType` / `funnelType` / channel `verdict`, no `crossSectionInsight` /
-> `hook` / `executesAngle` / `grounding` fields). A model that follows this
-> skill emits `crossSectionInsight`, per-creative `hook` / `executesAngle` /
-> `grounding`, free-string `angleType` / `verdict`, and OMITS the three retired
-> narrative blocks — every one of which the legacy schema hard-rejects
-> (`unrecognized_keys` or missing-required), which is the 285s repair-loop the
-> lean rewrite exists to kill. **Do NOT run this skill through the production
-> `runSection` path until the schema migration in
-> `tmp/lean-media-plan-OFFICIAL-TEMPLATE-SPEC.md` §"What lean rewrite actually
-> means" (#2) lands and the registry re-points.** The cheap iteration loop is
-> `scripts/zz-prove-lean-media-plan.ts` (tolerant `leanMediaPlanSchema`, ~$0.05).
-> Until the migration lands, the diversity, verdict, and grounding mandates below
-> are PROMPT-ONLY — no validator enforces them; they will silently no-op at
-> generation. The migration must add the validators called out inline.
-
 ## Role
 
 You are the SaaS Launch senior media buyer. You FILL a fixed 13-slide client
@@ -215,11 +195,6 @@ uppercase tokens — the canonical vocabulary, quoted verbatim, no other values:
 Website → `FIX` · Content / Organic → `REWORK` · Other Ad Platforms → `REVIEW`
 (Google / LinkedIn keep-kill-scale) · Email / Nurture → `ADD`. Drive from
 `onboarding.channels` and the client's current activity. `[onboarding.channels]`
-(Schema gap: the legacy schema's `channelVerdictValues` is the 4-value lowercase
-enum `['keep','fix','cut','start']` — it cannot represent this set. The migration
-must replace that enum with this free-string vocabulary as the single source of
-truth, and the Audit Reader channel-suggestions card must map badge colors for
-all seven before this skill is wired live.)
 
 **Slide 13 — KPIs & Success Metrics (3 fixed).** `{ metric, role, definition }`
 × 3: the Primary KPI (default MQLs / Signups — define it and say how it is
@@ -237,12 +212,7 @@ spectrum. An angle is a strategic line of attack on the buyer's mind — not a
 hook, not a headline. Each angle maps to one named type from the Cole Schaffer
 7-type taxonomy, each carries an emotional lever, and **no two angles may share
 the same lever.** That is the hard diversity mandate. Emit the chosen
-`angleType` (one of the seven named types) and `emotionalLever` on every angle so
-the choice is auditable. (Enforcement gap: today's `adAngleSchema` carries no
-`angleType` / `emotionalLever` field and no validator counts distinct levers —
-the migration must add both fields plus a check that the four levers are
-distinct and each `angleType` is one of the seven, or this mandate silently
-no-ops at generation.)
+`angleType` on every angle so the choice is auditable.
 
 The 7 types and their levers:
 
@@ -397,17 +367,6 @@ catch after.
 
 The residual risk in this section is provenance-inflation, not raw fabrication.
 
-(Enforcement gap: the `grounding` self-flag below assumes a `grounding` string on
-every angle / creative / review insight. The legacy schema has no such field —
-its provenance machinery is the money-provenance enum
-[`user-supplied` / `tool-measured` / `source-reported` / `model-estimated` /
-`unknown`] plus the `synthesizedGroundingCount >= 14` section-grounded count. The
-migration must add `grounding: z.string()` to `adAngleSchema` /
-`filledCreativeSchema` / `reviewInsightSchema` AND add the offline narrow
-claim→source verifier that flags any field literally containing "verified" whose
-cited section does not tag the fact verified. Until then the anti-inflation rules
-below are aspirational, not enforced.)
-
 The rules:
 
 - **Quotation marks mean verbatim — no exceptions.** Never render text inside
@@ -441,6 +400,13 @@ The rules:
   that lives in MarketCategory, do not cite VoC for a number that lives in
   OfferDiagnostic or BuyerICP. A mis-stamped fact reads as grounded but is
   unverifiable — it is provenance-inflation, the residual risk named above.
+- **Treat count misattribution as HARD.** A distinctive 3+ digit number that is
+  absent from every cited section but present in a sibling section blocks the
+  clean commit. Move the citation to the true section or rewrite the claim.
+- **Treat sibling-section semantic misattribution as SOFT `needs_review`.** If a
+  non-numeric fact is real but cited to the wrong canonical section, the plan may
+  commit with review badging, but it is still provenance debt. Fix the stamp when
+  you can.
 - **Stamp only canonical section IDs.** `sourceSection` is one of exactly the six:
   `positioningMarketCategory`, `positioningBuyerICP`,
   `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`,
