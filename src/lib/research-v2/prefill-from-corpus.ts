@@ -3,6 +3,7 @@ import type {
   OnboardingPrefillMetadata,
   OnboardingV2Data,
 } from './onboarding-v2-types';
+import { isNonAnswer } from './non-answer';
 
 export interface CorpusOnboardingField {
   value?: unknown;
@@ -91,8 +92,12 @@ export function prefillFromCorpusWithMetadata(
 ): PrefillFromCorpusResult {
   function str(key: string): string | undefined {
     const val = onboardingFields[key]?.value;
-    if (typeof val === 'string' && val.trim().length > 0) return val.trim();
-    return undefined;
+    if (typeof val !== 'string') return undefined;
+    const trimmed = val.trim();
+    // Drop corpus non-answers ("idk"/"none"/…) so the brief-review form shows
+    // blank instead of prefilling junk the run path already discards to null.
+    if (trimmed.length === 0 || isNonAnswer(trimmed)) return undefined;
+    return trimmed;
   }
 
   const result: Partial<OnboardingV2Data> = {};
