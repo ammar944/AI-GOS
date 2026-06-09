@@ -41,10 +41,7 @@ import {
   type VoiceOfCustomerEvidenceGapClassification,
 } from "../artifacts/schemas/voice-of-customer";
 import {
-  getStrategyModelId,
-  getStrategyModelTransport,
   sectionRunnerModel,
-  strategyModel,
   type SectionLanguageModel,
 } from "../ai/models";
 import {
@@ -361,8 +358,36 @@ function hasTerminalStructuredError(errors: readonly string[]): boolean {
   return errors.some(
     (error) =>
       error.includes("Structured output timed out") ||
+      error.includes("ended with finishReason=") ||
       error.toLowerCase().includes("abort"),
   );
+}
+
+function hasPaidMediaLengthFinishError(errors: readonly string[]): boolean {
+  return errors.some((error) => error.includes("ended with finishReason=length"));
+}
+
+async function assertPaidMediaStructuredFinishReason({
+  finishReason,
+  input,
+  outputTimeoutMs,
+  schemaName,
+}: {
+  finishReason: PromiseLike<string> | undefined;
+  input: RunSectionInput;
+  outputTimeoutMs: number;
+  schemaName: string;
+}): Promise<void> {
+  if (input.sectionId !== "positioningPaidMediaPlan" || finishReason === undefined) {
+    return;
+  }
+
+  const reason = await withStructuredTimeout(Promise.resolve(finishReason), outputTimeoutMs);
+  if (reason !== "stop") {
+    throw new Error(
+      `Structured output ${schemaName} ended with finishReason=${reason}.`,
+    );
+  }
 }
 
 function slugify(value: string): string {
@@ -1596,6 +1621,7 @@ function getBestCommittableAttempt(
 }
 
 const defaultStructuredOutputMaxTokens = 8192;
+const paidMediaLengthRetryStructuredOutputMaxTokens = 20_480;
 // Must fire well under undici's default headersTimeout (~5 min) so the
 // server records a terminal failure before the verifier's fetch dies and
 // abandons the run record in `running` state.
@@ -1765,10 +1791,9 @@ function getAnswerToolFirstStepTimeoutMs(): number {
 
 function getStructuredOutputMaxTokens(
   definition: RuntimeSectionDefinition,
+  override?: number,
 ): number {
-  return (
-    definition.structuredOutputMaxTokens ?? defaultStructuredOutputMaxTokens
-  );
+  return override ?? definition.structuredOutputMaxTokens ?? defaultStructuredOutputMaxTokens;
 }
 
 function getStructuredGenerationSchema(
@@ -1781,12 +1806,8 @@ function getStructuredGenerationSchema(
   return definition.sectionOutputSchema;
 }
 
-function getGenerationModel(
-  definition: RuntimeSectionDefinition,
-): SectionLanguageModel {
-  return ["positioningPaidMediaPlan"].includes(definition.id)
-    ? strategyModel
-    : sectionRunnerModel;
+function getGenerationModel(): SectionLanguageModel {
+  return sectionRunnerModel;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -4627,6 +4648,7 @@ async function callStructuredAttempt({
   definition,
   deps,
   input,
+  maxOutputTokens,
   modelSteps,
   normalizedAdEvidenceGroups,
   prompt,
@@ -4636,6 +4658,7 @@ async function callStructuredAttempt({
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
+  maxOutputTokens?: number;
   modelSteps: readonly AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   prompt: string;
@@ -4652,12 +4675,12 @@ async function callStructuredAttempt({
   try {
     const rawOutput = await withStructuredTimeout(
       callStructured({
-        model: getGenerationModel(definition),
+        model: getGenerationModel(),
         schema: getStructuredGenerationSchema(definition),
         schemaName: definition.sectionOutputSchemaName,
         schemaDescription: `${definition.title} section output for AI-GOS AI SDK Lab.`,
         prompt,
-        maxOutputTokens: getStructuredOutputMaxTokens(definition),
+        maxOutputTokens: getStructuredOutputMaxTokens(definition, maxOutputTokens),
         signal: timeoutSignal.signal,
         telemetry: createLabSectionTelemetry({
           operation: "structured-output",
@@ -4798,6 +4821,7 @@ async function callStructuredStreamAttempt({
   definition,
   deps,
   input,
+  maxOutputTokens,
   modelSteps,
   normalizedAdEvidenceGroups,
   prompt,
@@ -4808,6 +4832,7 @@ async function callStructuredStreamAttempt({
   definition: RuntimeSectionDefinition;
   deps: StreamRunSectionDeps;
   input: RunSectionInput;
+  maxOutputTokens?: number;
   modelSteps: readonly AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   prompt: string;
@@ -4857,7 +4882,7 @@ async function callStructuredStreamAttempt({
       schemaName: definition.sectionOutputSchemaName,
       schemaDescription: `${definition.title} section output for AI-GOS AI SDK Lab.`,
       prompt,
-      maxOutputTokens: getStructuredOutputMaxTokens(definition),
+      maxOutputTokens: getStructuredOutputMaxTokens(definition, maxOutputTokens),
       signal: AbortSignal.any([
         timeoutSignal.signal,
         idleController.signal,
@@ -4894,6 +4919,13 @@ async function callStructuredStreamAttempt({
       },
     });
     clearIdleTimer();
+
+    await assertPaidMediaStructuredFinishReason({
+      finishReason: structuredStream.finishReason,
+      input,
+      outputTimeoutMs,
+      schemaName: definition.sectionOutputSchemaName,
+    });
 
     const rawOutputResult = await withStructuredTimeout(
       structuredOutput,
@@ -6455,6 +6487,7 @@ async function buildStructuredBodyAttempt({
   deps,
   externalTools,
   input,
+  maxOutputTokens,
   modelSteps,
   normalizedAdEvidenceGroups,
   partialSeqRef,
@@ -6469,6 +6502,7 @@ async function buildStructuredBodyAttempt({
   deps: RunSectionDeps;
   externalTools: Record<string, unknown>;
   input: RunSectionInput;
+  maxOutputTokens?: number;
   modelSteps: AgentStep[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   partialSeqRef: SectionPartialSeqRef;
@@ -6529,7 +6563,7 @@ async function buildStructuredBodyAttempt({
       prompt,
       tools: externalTools,
       maxStepCount: answerToolMaxStepCount,
-      maxOutputTokens: getStructuredOutputMaxTokens(definition),
+      maxOutputTokens: getStructuredOutputMaxTokens(definition, maxOutputTokens),
       signal: AbortSignal.any([timeoutSignal.signal, idleController.signal]),
       telemetry: createLabSectionTelemetry({
         attempt,
@@ -6582,6 +6616,13 @@ async function buildStructuredBodyAttempt({
     });
     clearIdleTimer();
     await partialBroadcaster.flush();
+
+    await assertPaidMediaStructuredFinishReason({
+      finishReason: structuredStream.finishReason,
+      input,
+      outputTimeoutMs,
+      schemaName: `${definition.sectionOutputSchemaName}Body`,
+    });
 
     const bodyResult = await withStructuredTimeout(
       structuredOutput,
@@ -7404,6 +7445,15 @@ async function runSectionViaStructuredBodyStream(
     }),
   );
 
+  const structuredBodyPrompt = buildStructuredBodyPrompt({
+    definition,
+    externalToolNames,
+    normalizedAdEvidenceGroups,
+    researchInput,
+    skillMd,
+    voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
+  });
+
   let attempt = await buildStructuredBodyAttempt({
     adProbeSteps: adEvidence.adProbeSteps,
     attempt: validationAttempt,
@@ -7414,15 +7464,7 @@ async function runSectionViaStructuredBodyStream(
     modelSteps,
     normalizedAdEvidenceGroups,
     partialSeqRef,
-    prompt: buildStructuredBodyPrompt({
-      definition,
-      externalToolNames,
-      normalizedAdEvidenceGroups,
-      researchInput,
-      skillMd,
-      voiceOfCustomerCandidateBlock:
-        voiceOfCustomerPrepass?.candidateBlock,
-    }),
+    prompt: structuredBodyPrompt,
     researchInput,
     scheduleFlush,
     toolEvents,
@@ -7435,6 +7477,87 @@ async function runSectionViaStructuredBodyStream(
     prepassGroups: adEvidence.normalizedAdEvidenceGroups,
     researchInput,
   });
+
+  if (
+    input.sectionId === "positioningPaidMediaPlan" &&
+    attempt.artifact === null &&
+    hasPaidMediaLengthFinishError(getAttemptRepairIssues(attempt))
+  ) {
+    const retryIssues = getAttemptRepairIssues(attempt);
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "validation-failed",
+        message: "Structured body output failed validation",
+        metadata: { attempt: validationAttempt, issues: retryIssues },
+      }),
+    );
+
+    validationAttempt += 1;
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "structured-output-started",
+        message: "Structured body retry stream started",
+        metadata: {
+          attempt: validationAttempt,
+          maxOutputTokens: paidMediaLengthRetryStructuredOutputMaxTokens,
+          schemaName: `${definition.sectionOutputSchemaName}Body`,
+        },
+      }),
+    );
+
+    attempt = await buildStructuredBodyAttempt({
+      adProbeSteps: adEvidence.adProbeSteps,
+      attempt: validationAttempt,
+      definition,
+      deps,
+      externalTools,
+      input,
+      maxOutputTokens: paidMediaLengthRetryStructuredOutputMaxTokens,
+      modelSteps,
+      normalizedAdEvidenceGroups,
+      partialSeqRef,
+      prompt: structuredBodyPrompt,
+      researchInput,
+      scheduleFlush,
+      toolEvents,
+    });
+    await scheduleFlush();
+    normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
+      deps,
+      input,
+      modelSteps,
+      prepassGroups: normalizedAdEvidenceGroups,
+      researchInput,
+    });
+
+    if (attempt.artifact === null) {
+      const finalIssues = getAttemptRepairIssues(attempt);
+      await recordSectionFailure({
+        definition,
+        deps,
+        errorMessage: finalIssues.join("; "),
+        failure: attempt.requiredEvidenceMissing,
+        input,
+      });
+
+      throw new SectionRunnerError({
+        runId: input.runId,
+        sectionId: input.sectionId,
+        errors: finalIssues,
+      });
+    }
+  }
+
   let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
 
   // Coarse pre-filter: enter the repair block when an attempt is incomplete OR
@@ -8201,104 +8324,170 @@ export async function streamRunSection(
       }),
     );
 
-    if (hasTerminalStructuredError(firstAttempt.errors)) {
+    if (
+      input.sectionId === "positioningPaidMediaPlan" &&
+      hasPaidMediaLengthFinishError(firstAttempt.errors)
+    ) {
       writeSectionStatus({
         deps,
-        message: firstAttempt.errors.join("; "),
+        message: "Structured output retry started with expanded token budget",
         runId: input.runId,
         sectionId: input.sectionId,
-        status: "failed",
+        status: "validating",
       });
-      await recordSectionFailure({
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "structured-output-started",
+          message: "Structured output retry started",
+          metadata: {
+            attempt: 2,
+            maxOutputTokens: paidMediaLengthRetryStructuredOutputMaxTokens,
+            schemaName: definition.sectionOutputSchemaName,
+          },
+        }),
+      );
+
+      const retryAttempt = await callStructuredStreamAttempt({
+        attempt: 2,
         definition,
         deps,
-        errorMessage: firstAttempt.errors.join("; "),
         input,
-      });
-
-      throw new SectionRunnerError({
-        runId: input.runId,
-        sectionId: input.sectionId,
-        errors: firstAttempt.errors,
-      });
-    }
-
-    writeSectionStatus({
-      deps,
-      message: "Repair attempt started",
-      runId: input.runId,
-      sectionId: input.sectionId,
-      status: "repairing",
-    });
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
-        deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "repair-started",
-        message: "Repair attempt started",
-        metadata: {
-          reason: firstAttempt.errors.join("; ").slice(0, 200),
-        },
-      }),
-    );
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
-        deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "structured-output-started",
-        message: "Structured output repair started",
-        metadata: { schemaName: definition.sectionOutputSchemaName, attempt: 2 },
-      }),
-    );
-
-    const repairAttempt = await callStructuredStreamAttempt({
-      attempt: 2,
-      definition,
-      deps,
-      input,
-      modelSteps: evidenceSteps,
-      normalizedAdEvidenceGroups,
-      prompt: buildRepairPrompt({
-        definition,
-        evidenceTranscript,
-        issues: firstAttempt.errors,
+        maxOutputTokens: paidMediaLengthRetryStructuredOutputMaxTokens,
+        modelSteps: evidenceSteps,
         normalizedAdEvidenceGroups,
-        previousOutput: firstAttempt.output,
+        prompt: structuredPrompt,
         researchInput,
-        skillMd,
-      }),
-      researchInput,
-      signal: input.signal,
-    });
+        signal: input.signal,
+      });
 
-    artifact = repairAttempt.artifact;
+      artifact = retryAttempt.artifact;
 
-    if (artifact === null) {
+      if (artifact === null) {
+        writeSectionStatus({
+          deps,
+          message: retryAttempt.errors.join("; "),
+          runId: input.runId,
+          sectionId: input.sectionId,
+          status: "failed",
+        });
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: retryAttempt.errors.join("; "),
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: retryAttempt.errors,
+        });
+      }
+    } else {
+      if (hasTerminalStructuredError(firstAttempt.errors)) {
+        writeSectionStatus({
+          deps,
+          message: firstAttempt.errors.join("; "),
+          runId: input.runId,
+          sectionId: input.sectionId,
+          status: "failed",
+        });
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: firstAttempt.errors.join("; "),
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: firstAttempt.errors,
+        });
+      }
+
       writeSectionStatus({
         deps,
-        message: repairAttempt.errors.join("; "),
+        message: "Repair attempt started",
         runId: input.runId,
         sectionId: input.sectionId,
-        status: "failed",
+        status: "repairing",
       });
-      await recordSectionFailure({
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "repair-started",
+          message: "Repair attempt started",
+          metadata: {
+            reason: firstAttempt.errors.join("; ").slice(0, 200),
+          },
+        }),
+      );
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "structured-output-started",
+          message: "Structured output repair started",
+          metadata: { schemaName: definition.sectionOutputSchemaName, attempt: 2 },
+        }),
+      );
+
+      const repairAttempt = await callStructuredStreamAttempt({
+        attempt: 2,
         definition,
         deps,
-        errorMessage: repairAttempt.errors.join("; "),
         input,
+        modelSteps: evidenceSteps,
+        normalizedAdEvidenceGroups,
+        prompt: buildRepairPrompt({
+          definition,
+          evidenceTranscript,
+          issues: firstAttempt.errors,
+          normalizedAdEvidenceGroups,
+          previousOutput: firstAttempt.output,
+          researchInput,
+          skillMd,
+        }),
+        researchInput,
+        signal: input.signal,
       });
 
-      throw new SectionRunnerError({
-        runId: input.runId,
-        sectionId: input.sectionId,
-        errors: repairAttempt.errors,
-      });
+      artifact = repairAttempt.artifact;
+
+      if (artifact === null) {
+        writeSectionStatus({
+          deps,
+          message: repairAttempt.errors.join("; "),
+          runId: input.runId,
+          sectionId: input.sectionId,
+          status: "failed",
+        });
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: repairAttempt.errors.join("; "),
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: repairAttempt.errors,
+        });
+      }
     }
   }
 
@@ -8425,7 +8614,7 @@ export async function runSection(
 
   try {
     evidenceResult = await runEvidencePass({
-      model: getGenerationModel(definition),
+      model: getGenerationModel(),
       instructions: [
         `You are the AI-GOS section analyst for ${definition.title}.`,
         `Mission: ${definition.mission}`,
@@ -8557,83 +8746,135 @@ export async function runSection(
       }),
     );
 
-    if (hasTerminalStructuredError(firstAttempt.errors)) {
-      await recordSectionFailure({
+    if (
+      input.sectionId === "positioningPaidMediaPlan" &&
+      hasPaidMediaLengthFinishError(firstAttempt.errors)
+    ) {
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "structured-output-started",
+          message: "Structured output retry started",
+          metadata: {
+            attempt: 2,
+            maxOutputTokens: paidMediaLengthRetryStructuredOutputMaxTokens,
+            schemaName: definition.sectionOutputSchemaName,
+          },
+        }),
+      );
+
+      const retryAttempt = await callStructuredAttempt({
         definition,
         deps,
-        errorMessage: firstAttempt.errors.join("; "),
         input,
-      });
-
-      throw new SectionRunnerError({
-        runId: input.runId,
-        sectionId: input.sectionId,
-        errors: firstAttempt.errors,
-      });
-    }
-
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
-        deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "repair-started",
-        message: "Repair attempt started",
-        metadata: {
-          reason: firstAttempt.errors.join("; ").slice(0, 200),
-        },
-      }),
-    );
-    await appendEvent(
-      deps,
-      input.runId,
-      createEvent({
-        deps,
-        runId: input.runId,
-        sectionId: input.sectionId,
-        type: "structured-output-started",
-        message: "Structured output repair started",
-        metadata: { schemaName: definition.sectionOutputSchemaName, attempt: 2 },
-      }),
-    );
-
-    const repairAttempt = await callStructuredAttempt({
-      definition,
-      deps,
-      input,
-      modelSteps: evidenceSteps,
-      normalizedAdEvidenceGroups,
-      prompt: buildRepairPrompt({
-        definition,
-        evidenceTranscript,
-        issues: firstAttempt.errors,
+        maxOutputTokens: paidMediaLengthRetryStructuredOutputMaxTokens,
+        modelSteps: evidenceSteps,
         normalizedAdEvidenceGroups,
-        previousOutput: firstAttempt.output,
+        prompt: structuredPrompt,
         researchInput,
-        skillMd,
-      }),
-      researchInput,
-      signal: input.signal,
-    });
+        signal: input.signal,
+      });
 
-    committedAttempt = repairAttempt;
-    artifact = repairAttempt.artifact;
+      committedAttempt = retryAttempt;
+      artifact = retryAttempt.artifact;
 
-    if (artifact === null) {
-      await recordSectionFailure({
+      if (artifact === null) {
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: retryAttempt.errors.join("; "),
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: retryAttempt.errors,
+        });
+      }
+    } else {
+      if (hasTerminalStructuredError(firstAttempt.errors)) {
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: firstAttempt.errors.join("; "),
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: firstAttempt.errors,
+        });
+      }
+
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "repair-started",
+          message: "Repair attempt started",
+          metadata: {
+            reason: firstAttempt.errors.join("; ").slice(0, 200),
+          },
+        }),
+      );
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "structured-output-started",
+          message: "Structured output repair started",
+          metadata: { schemaName: definition.sectionOutputSchemaName, attempt: 2 },
+        }),
+      );
+
+      const repairAttempt = await callStructuredAttempt({
         definition,
         deps,
-        errorMessage: repairAttempt.errors.join("; "),
         input,
+        modelSteps: evidenceSteps,
+        normalizedAdEvidenceGroups,
+        prompt: buildRepairPrompt({
+          definition,
+          evidenceTranscript,
+          issues: firstAttempt.errors,
+          normalizedAdEvidenceGroups,
+          previousOutput: firstAttempt.output,
+          researchInput,
+          skillMd,
+        }),
+        researchInput,
+        signal: input.signal,
       });
 
-      throw new SectionRunnerError({
-        runId: input.runId,
-        sectionId: input.sectionId,
-        errors: repairAttempt.errors,
-      });
+      committedAttempt = repairAttempt;
+      artifact = repairAttempt.artifact;
+
+      if (artifact === null) {
+        await recordSectionFailure({
+          definition,
+          deps,
+          errorMessage: repairAttempt.errors.join("; "),
+          input,
+        });
+
+        throw new SectionRunnerError({
+          runId: input.runId,
+          sectionId: input.sectionId,
+          errors: repairAttempt.errors,
+        });
+      }
     }
   }
 

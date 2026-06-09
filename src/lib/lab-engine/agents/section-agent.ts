@@ -476,6 +476,7 @@ export type StructuredCaller = (
 
 export interface StructuredStreamResult {
   consumeStream?: () => PromiseLike<void>;
+  finishReason?: PromiseLike<string>;
   output: PromiseLike<unknown>;
   partialOutputStream: AsyncIterable<unknown>;
 }
@@ -1249,6 +1250,15 @@ function parseStructuredResult({
   params: StructuredCallParams<unknown>;
   result: Awaited<ReturnType<typeof generateText>>;
 }): unknown {
+  if (
+    params.schemaName === "PaidMediaPlanSectionOutput" &&
+    result.finishReason !== "stop"
+  ) {
+    throw new Error(
+      `Structured output ${params.schemaName} ended with finishReason=${result.finishReason}.`,
+    );
+  }
+
   if (result.text.trim().length > 0) {
     return parseJsonToolText({
       schema: params.schema,
@@ -1410,6 +1420,7 @@ export const defaultStructuredStreamer: StructuredStreamer = (
 
   return {
     consumeStream: () => result.consumeStream(),
+    finishReason: result.finishReason,
     output: parseStreamedStructuredOutput({
       output: result.output,
       params,

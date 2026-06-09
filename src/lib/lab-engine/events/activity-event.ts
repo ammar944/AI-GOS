@@ -138,6 +138,7 @@ export const activityEventSchema = z.discriminatedUnion("type", [
         .object({
           schemaName: z.string().min(1),
           attempt: z.number().int().min(1),
+          maxOutputTokens: z.number().int().positive().optional(),
         })
         .strict(),
     })

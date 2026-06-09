@@ -18,7 +18,7 @@ import { demandIntentFixtureSectionOutput } from '@/lib/lab-engine/fixtures/dema
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
-import { strategyModel } from '@/lib/lab-engine/ai/models';
+import { sectionRunnerModel } from '@/lib/lab-engine/ai/models';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { runSection } from '../run-section';
@@ -1321,7 +1321,7 @@ describe('runSection corpus-only mode', (): void => {
       text: '',
     }));
     const callStructured = vi.fn<StructuredCaller>(async (params) => {
-      expect(params.model).toBe(strategyModel);
+      expect(params.model).toBe(sectionRunnerModel);
       expect(params.schema.safeParse(driftOutput).success).toBe(true);
 
       return driftOutput;
@@ -1516,7 +1516,7 @@ describe('runSection corpus-only mode', (): void => {
       text: '',
     }));
     const callStructured = vi.fn<StructuredCaller>(async (params) => {
-      expect(params.model).toBe(strategyModel);
+      expect(params.model).toBe(sectionRunnerModel);
       expect(params.schema.safeParse(driftOutput).success).toBe(true);
 
       return driftOutput;
@@ -1559,6 +1559,119 @@ describe('runSection corpus-only mode', (): void => {
       expect(requireRecord(audience)).not.toHaveProperty('dailyBudgetValue');
     });
     expect(callStructured).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries paid-media length finishes once with the expanded token budget', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-09T08:00:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const output = buildPaidMediaPlanOutput();
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async (params) => {
+      expect(params.model).toBe(sectionRunnerModel);
+
+      if (callStructured.mock.calls.length === 1) {
+        expect(params.maxOutputTokens).toBe(16_384);
+        throw new Error(
+          'Structured output PaidMediaPlanSectionOutput ended with finishReason=length.',
+        );
+      }
+
+      expect(params.maxOutputTokens).toBe(20_480);
+      return output;
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runEvidencePass,
+        callStructured,
+        now: () => new Date('2026-06-09T08:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const startedEvents = record.events.filter(
+      (event) => event.type === 'structured-output-started',
+    );
+
+    expect(result.artifact.sectionId).toBe('positioningPaidMediaPlan');
+    expect(callStructured).toHaveBeenCalledTimes(2);
+    expect(startedEvents.map((event) => event.metadata.attempt)).toEqual([1, 2]);
+    expect(startedEvents.at(-1)?.metadata.maxOutputTokens).toBe(20_480);
+    expect(record.sections.positioningPaidMediaPlan?.status).toBe('completed');
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
+    );
+  });
+
+  it('fails paid-media length finishes after the single expanded retry', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-09T08:05:00.000Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const lengthError =
+      'Structured output PaidMediaPlanSectionOutput ended with finishReason=length.';
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async (params) => {
+      expect(params.model).toBe(sectionRunnerModel);
+      expect(params.maxOutputTokens).toBe(
+        callStructured.mock.calls.length === 1 ? 16_384 : 20_480,
+      );
+      throw new Error(lengthError);
+    });
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningPaidMediaPlan',
+        },
+        {
+          store,
+          loadSkill: async () => 'Use the injected corpus only.',
+          allowedTools: [],
+          env: { LAB_SECTION_STREAMING: 'false' },
+          runEvidencePass,
+          callStructured,
+          now: () => new Date('2026-06-09T08:05:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow('finishReason=length');
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const startedEvents = record.events.filter(
+      (event) => event.type === 'structured-output-started',
+    );
+
+    expect(callStructured).toHaveBeenCalledTimes(2);
+    expect(startedEvents.map((event) => event.metadata.attempt)).toEqual([1, 2]);
+    expect(startedEvents.at(-1)?.metadata.maxOutputTokens).toBe(20_480);
+    expect(record.sections.positioningPaidMediaPlan?.status).toBe('failed');
+    expect(record.sections.positioningPaidMediaPlan?.artifact).toBeNull();
+    expect(record.events.map((event) => event.type)).toContain('section-failed');
   });
 
   it('normalizes paid-media synthesized item grounding away from the GTM brief', async (): Promise<void> => {
