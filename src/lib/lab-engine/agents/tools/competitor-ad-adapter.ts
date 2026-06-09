@@ -2,6 +2,7 @@ import {
   adCreativeFingerprint,
   type CompetitorAdEvidenceGroup,
 } from "../../artifacts/schemas/competitor-landscape";
+import { NOT_PROBED_THIS_RUN_PHRASE } from "../../sections/sentinels";
 import type { AgentStep } from "../section-agent";
 import { detectAdLanguage } from "./ad-language";
 import { AdLibraryOutputSchema } from "./adlibrary";
@@ -802,8 +803,7 @@ function buildDataGaps({
     : [
         {
           platform: "linkedin",
-          reason:
-            "LinkedIn ad library was not probed this run; LinkedIn counts are structurally 0 and are a not-probed sentinel, not an empty ad-library result.",
+          reason: `LinkedIn ad library was ${NOT_PROBED_THIS_RUN_PHRASE}; LinkedIn counts are structurally 0 and are a not-probed sentinel, not an empty ad-library result.`,
         },
       ];
 

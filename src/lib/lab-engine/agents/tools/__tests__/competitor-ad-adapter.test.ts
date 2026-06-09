@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { NOT_PROBED_THIS_RUN_PHRASE } from "../../../sections/sentinels";
 import { buildCompetitorAdEvidenceGroups } from "../competitor-ad-adapter";
 
 describe("buildCompetitorAdEvidenceGroups", (): void => {
@@ -125,7 +126,7 @@ describe("buildCompetitorAdEvidenceGroups", (): void => {
       (gap) => gap.platform === "linkedin",
     );
     expect(linkedinGaps).toHaveLength(1);
-    expect(linkedinGaps[0]?.reason).toMatch(/not probed this run/i);
+    expect(linkedinGaps[0]?.reason).toContain(NOT_PROBED_THIS_RUN_PHRASE);
     expect(linkedinGaps[0]?.reason).toMatch(/structurally 0/i);
 
     // No bogus linkedin "returned no raw rows" gap leaked through rawCountGaps.

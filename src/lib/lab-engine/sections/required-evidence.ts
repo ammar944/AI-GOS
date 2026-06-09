@@ -3,6 +3,7 @@ import {
   isHttpUrl,
   isLikelyNamedBuyerIdentity,
 } from "../artifacts/schemas/buyer-icp";
+import { isNotProbedSentinel } from "./sentinels";
 
 export type RequiredEvidenceClass =
   | "marketCategory_name"
@@ -196,13 +197,6 @@ function hasCompetitor(body: Record<string, unknown>): boolean {
   return hasRecordWithText(competitorSet.competitors, "name");
 }
 
-// The "linkedin not probed this run" sentinel is structural (linkedin is always
-// 0 when the agent didn't call linkedin_ads). It documents a non-attempt, not a
-// genuine probe failure, so in strict mode it must NOT rubber-stamp the gate.
-function isNotProbedSentinel(reason: unknown): boolean {
-  return typeof reason === "string" && /not probed this run/i.test(reason);
-}
-
 // A genuine probe-attempt gap is a real provider failure (any sourceError) or a
 // dataGap that is not the not-probed sentinel (e.g. "returned no raw rows",
 // "no displayable creative", "lookup failed", a truncation note).
@@ -223,10 +217,13 @@ function hasGenuineProbeGap(group: Record<string, unknown>): boolean {
   });
 }
 
-function hasAdEvidenceOrGap(body: Record<string, unknown>): boolean {
+function hasAdEvidenceOrGap(
+  body: Record<string, unknown>,
+  env: Record<string, string | undefined>,
+): boolean {
   const adEvidence = asRecord(body.adEvidence);
   const advertiserGroups = asRecordArray(adEvidence.advertiserGroups);
-  const strict = process.env.LAB_AD_EVIDENCE_STRICT === "true";
+  const strict = env.LAB_AD_EVIDENCE_STRICT === "true";
 
   return advertiserGroups.some((group) => {
     const displayableTotal =
@@ -300,6 +297,7 @@ function hasOfferAxis(body: Record<string, unknown>): boolean {
 function hasRequiredClass(
   body: Record<string, unknown>,
   requiredClass: RequiredEvidenceClass,
+  env: Record<string, string | undefined>,
 ): boolean {
   switch (requiredClass) {
     case "marketCategory_name":
@@ -311,7 +309,7 @@ function hasRequiredClass(
     case "competitor":
       return hasCompetitor(body);
     case "adEvidence_or_gap":
-      return hasAdEvidenceOrGap(body);
+      return hasAdEvidenceOrGap(body, env);
     case "voc_quote_or_gap":
       return hasVocQuoteOrGap(body);
     case "demand_signal_or_gap":
@@ -323,16 +321,18 @@ function hasRequiredClass(
 
 export function checkRequiredEvidenceClasses({
   body,
+  env = process.env,
   requiredEvidenceClasses,
 }: {
   body: unknown;
+  env?: Record<string, string | undefined>;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   sectionId: SectionId;
 }): RequiredEvidenceClass | null {
   const bodyRecord = asRecord(body);
 
   for (const requiredClass of requiredEvidenceClasses) {
-    if (!hasRequiredClass(bodyRecord, requiredClass)) {
+    if (!hasRequiredClass(bodyRecord, requiredClass, env)) {
       return requiredClass;
     }
   }

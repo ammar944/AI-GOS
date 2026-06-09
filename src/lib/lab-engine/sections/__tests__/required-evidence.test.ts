@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { buyerICPFixtureArtifact } from "../../fixtures/buyer-icp-artifact";
 import { competitorLandscapeFixtureArtifact } from "../../fixtures/competitor-landscape-artifact";
@@ -7,8 +7,23 @@ import {
   checkRequiredEvidenceClasses,
   RequiredEvidenceMissingError,
 } from "../required-evidence";
+import {
+  isNotProbedSentinel,
+  NOT_PROBED_THIS_RUN_PHRASE,
+} from "../sentinels";
 
 describe("checkRequiredEvidenceClasses", (): void => {
+  it("matches the not-probed sentinel as a substring", (): void => {
+    expect(
+      isNotProbedSentinel(
+        `LinkedIn ad library was ${NOT_PROBED_THIS_RUN_PHRASE}; LinkedIn counts are structurally 0.`,
+      ),
+    ).toBe(true);
+    expect(isNotProbedSentinel("LinkedIn returned no raw ad-library rows.")).toBe(
+      false,
+    );
+  });
+
   it("passes when all configured evidence classes are present", (): void => {
     expect(
       checkRequiredEvidenceClasses({
@@ -168,17 +183,6 @@ describe("checkRequiredEvidenceClasses", (): void => {
   });
 
   describe("LAB_AD_EVIDENCE_STRICT gate teeth", (): void => {
-    const STRICT = "LAB_AD_EVIDENCE_STRICT";
-    const previous = process.env[STRICT];
-
-    afterEach((): void => {
-      if (previous === undefined) {
-        delete process.env[STRICT];
-      } else {
-        process.env[STRICT] = previous;
-      }
-    });
-
     // A group with no displayable evidence and ONLY the linkedin not-probed
     // sentinel + raw source samples: default permits it, strict must reject.
     function rubberStampGroup() {
@@ -210,8 +214,7 @@ describe("checkRequiredEvidenceClasses", (): void => {
         dataGaps: [
           {
             platform: "linkedin" as const,
-            reason:
-              "LinkedIn ad library was not probed this run; LinkedIn counts are structurally 0 and are a not-probed sentinel, not an empty ad-library result.",
+            reason: `LinkedIn ad library was ${NOT_PROBED_THIS_RUN_PHRASE}; LinkedIn counts are structurally 0 and are a not-probed sentinel, not an empty ad-library result.`,
           },
         ],
         sourceErrors: [],
@@ -219,13 +222,13 @@ describe("checkRequiredEvidenceClasses", (): void => {
     }
 
     it("default mode keeps the permissive behavior (rawSourceSamples + sentinel pass)", (): void => {
-      delete process.env[STRICT];
       const body = structuredClone(competitorLandscapeFixtureArtifact.body);
       body.adEvidence.advertiserGroups = [rubberStampGroup()];
 
       expect(
         checkRequiredEvidenceClasses({
           body,
+          env: {},
           requiredEvidenceClasses: ["adEvidence_or_gap"],
           sectionId: "positioningCompetitorLandscape",
         }),
@@ -233,13 +236,13 @@ describe("checkRequiredEvidenceClasses", (): void => {
     });
 
     it("strict mode rejects a group with only rawSourceSamples and the not-probed sentinel", (): void => {
-      process.env[STRICT] = "true";
       const body = structuredClone(competitorLandscapeFixtureArtifact.body);
       body.adEvidence.advertiserGroups = [rubberStampGroup()];
 
       expect(
         checkRequiredEvidenceClasses({
           body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
           requiredEvidenceClasses: ["adEvidence_or_gap"],
           sectionId: "positioningCompetitorLandscape",
         }),
@@ -247,7 +250,6 @@ describe("checkRequiredEvidenceClasses", (): void => {
     });
 
     it("strict mode passes a group with a genuine probe-attempt sourceError", (): void => {
-      process.env[STRICT] = "true";
       const body = structuredClone(competitorLandscapeFixtureArtifact.body);
       body.adEvidence.advertiserGroups = [
         {
@@ -261,6 +263,7 @@ describe("checkRequiredEvidenceClasses", (): void => {
       expect(
         checkRequiredEvidenceClasses({
           body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
           requiredEvidenceClasses: ["adEvidence_or_gap"],
           sectionId: "positioningCompetitorLandscape",
         }),
@@ -268,7 +271,6 @@ describe("checkRequiredEvidenceClasses", (): void => {
     });
 
     it("strict mode passes a group with a genuine empty-result dataGap", (): void => {
-      process.env[STRICT] = "true";
       const body = structuredClone(competitorLandscapeFixtureArtifact.body);
       const group = rubberStampGroup();
       body.adEvidence.advertiserGroups = [
@@ -287,6 +289,7 @@ describe("checkRequiredEvidenceClasses", (): void => {
       expect(
         checkRequiredEvidenceClasses({
           body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
           requiredEvidenceClasses: ["adEvidence_or_gap"],
           sectionId: "positioningCompetitorLandscape",
         }),
@@ -294,11 +297,10 @@ describe("checkRequiredEvidenceClasses", (): void => {
     });
 
     it("strict mode passes a group with real displayable creatives", (): void => {
-      process.env[STRICT] = "true";
-
       expect(
         checkRequiredEvidenceClasses({
           body: competitorLandscapeFixtureArtifact.body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
           requiredEvidenceClasses: ["adEvidence_or_gap"],
           sectionId: "positioningCompetitorLandscape",
         }),
