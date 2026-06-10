@@ -1,3 +1,8 @@
+import {
+  VOC_MIN_DOMAINS,
+  VOC_MIN_QUOTES,
+} from "../artifacts/voice-of-customer-floors";
+
 export type VoiceOfCustomerCandidateSource =
   | "reviews"
   | "researchInput"
@@ -46,10 +51,14 @@ export type VoiceOfCustomerCandidateResult =
   | { ok: false; gap: VoiceOfCustomerGap };
 
 export const VOC_CANDIDATE_PACK_MAX_SIZE = 12;
-export const VOC_CANDIDATE_MIN_DOMAINS = 3;
-export const VOC_CANDIDATE_MIN_COUNT = 6;
+// Admission floors are the shared VoC floors (see voice-of-customer-floors.ts):
+// what the prepass admits, synthesis and the schema validator must commit.
+export const VOC_CANDIDATE_MIN_DOMAINS = VOC_MIN_DOMAINS;
+export const VOC_CANDIDATE_MIN_COUNT = VOC_MIN_QUOTES;
 export const VOC_CANDIDATE_PER_DOMAIN_CAP = 4;
-export const VOC_PREPASS_MAX_LOOKUPS = 3;
+// Lookup budget: up to 3 reviews passes (subject name + "reviews" +
+// "complaints" variants) + 1 web_search + 1 firecrawl recovery/enrichment.
+export const VOC_PREPASS_MAX_LOOKUPS = 5;
 export const VOC_PREPASS_REVIEW_BODY_MAX_PAGES = 6;
 
 interface CreateVoiceOfCustomerCandidateInput {

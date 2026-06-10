@@ -160,6 +160,40 @@ function buildThinVoiceOfCustomerDraft(): Omit<
   };
 }
 
+// B1 dead zone (model path): 6 pain quotes across 3 independent domains —
+// at the shared floor (VOC_MIN_QUOTES=6 / VOC_MIN_DOMAINS=3), not below it.
+function buildSixQuoteThreeDomainVoiceOfCustomerDraft(): Omit<
+  VoiceOfCustomerSectionOutput,
+  'confidence' | 'sectionTitle'
+> {
+  const draft = buildVoiceOfCustomerDraft();
+  const quoteUrls = [
+    'https://g2.com/products/saaslaunch/reviews/1',
+    'https://reddit.com/r/sales/comments/saaslaunch-2',
+    'https://trustpilot.com/review/saaslaunch.example/3',
+    'https://g2.com/products/saaslaunch/reviews/4',
+    'https://reddit.com/r/sales/comments/saaslaunch-5',
+    'https://trustpilot.com/review/saaslaunch.example/6',
+  ];
+  const quotes = draft.body.painLanguage.quotes
+    .slice(0, 6)
+    .map((quote, index) => ({
+      ...quote,
+      sourceUrl: quoteUrls[index] ?? quote.sourceUrl,
+    }));
+
+  return {
+    ...draft,
+    body: {
+      ...draft.body,
+      painLanguage: {
+        ...draft.body.painLanguage,
+        quotes,
+      },
+    },
+  };
+}
+
 function buildSingleSourceMajorityVoiceOfCustomerDraft(): Omit<
   VoiceOfCustomerSectionOutput,
   'confidence' | 'sectionTitle'
@@ -279,19 +313,13 @@ function buildMixedEvidenceGapVoiceOfCustomerDraft(): Omit<
   };
 }
 
-function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
-  const domains = [
-    'g2.com',
-    'g2.com',
-    'g2.com',
-    'g2.com',
-    'reddit.com',
-    'reddit.com',
-    'reddit.com',
-    'capterra.com',
-    'capterra.com',
-    'capterra.com',
-  ];
+function makeVoiceOfCustomerCandidateResearchInput({
+  domains,
+  runId,
+}: {
+  domains: readonly string[];
+  runId: string;
+}): ResearchInput {
   const excerpts = domains.map((domain, index) => ({
     id: `excerpt_dense_voc_${index + 1}`,
     observedAt: '2026-06-01T00:00:00.000Z',
@@ -306,7 +334,7 @@ function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
 
   return researchInputSchema.parse({
     ...saaslaunchResearchInput,
-    runId: 'run_saaslaunch_dense_voc_fixture',
+    runId,
     sources: [
       ...saaslaunchResearchInput.sources,
       ...excerpts.map((excerpt) => ({
@@ -330,6 +358,40 @@ function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
         positioningPaidMediaPlan: [],
       },
     },
+  });
+}
+
+function makeDenseVoiceOfCustomerResearchInput(): ResearchInput {
+  return makeVoiceOfCustomerCandidateResearchInput({
+    domains: [
+      'g2.com',
+      'g2.com',
+      'g2.com',
+      'g2.com',
+      'reddit.com',
+      'reddit.com',
+      'reddit.com',
+      'capterra.com',
+      'capterra.com',
+      'capterra.com',
+    ],
+    runId: 'run_saaslaunch_dense_voc_fixture',
+  });
+}
+
+// B1 dead zone: exactly the prepass admission floor — 6 candidates across
+// 3 independent domains (2 per domain, so no single-source majority).
+function makeDeadZoneVoiceOfCustomerResearchInput(): ResearchInput {
+  return makeVoiceOfCustomerCandidateResearchInput({
+    domains: [
+      'g2.com',
+      'g2.com',
+      'reddit.com',
+      'reddit.com',
+      'capterra.com',
+      'capterra.com',
+    ],
+    runId: 'run_saaslaunch_dead_zone_voc_fixture',
   });
 }
 
@@ -709,7 +771,11 @@ function installCompetitorSeedToolFetches(): {
       if (url.includes('searchapi.io')) {
         const decodedUrl = decodeURIComponent(url);
 
-        if (decodedUrl.includes('SaaSLaunch reviews complaints')) {
+        // The subject brand has NO review discovery on ANY of the three
+        // subject-scoped query variants (name / "name reviews" /
+        // "name complaints") [B1]; only a competitor-seeded query would hit
+        // the PipelinePilot results below.
+        if (decodedUrl.includes('SaaSLaunch')) {
           return jsonResponse({ organic_results: [] });
         }
 
@@ -1063,8 +1129,11 @@ describe('runSection VoC candidate prepass', (): void => {
       ]),
     );
     expect(streamStructured).not.toHaveBeenCalled();
-    // +1: web_search probes Firecrawl /v2/search before the Brave fallback [A1].
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(5);
+    // Firecrawl accounting [B1]: when review bodies yield no candidates, the
+    // prepass retries all 3 subject-brand review queries (name / "name
+    // reviews" / "name complaints") at 3 body scrapes each = 9, + 1 web_search
+    // /v2/search probe before the Brave fallback [A1] + 1 URL-only recovery.
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(11);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -1113,8 +1182,11 @@ describe('runSection VoC candidate prepass', (): void => {
       ]),
     );
     expect(streamStructured).not.toHaveBeenCalled();
-    // +1: web_search probes Firecrawl /v2/search before the Brave fallback [A1].
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(5);
+    // Firecrawl accounting [B1]: when review bodies yield no candidates, the
+    // prepass retries all 3 subject-brand review queries (name / "name
+    // reviews" / "name complaints") at 3 body scrapes each = 9, + 1 web_search
+    // /v2/search probe before the Brave fallback [A1] + 1 URL-only recovery.
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(11);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -1209,9 +1281,15 @@ describe('runSection VoC candidate prepass', (): void => {
       .filter((url) => url.includes('searchapi.io'))
       .map((url) => decodeURIComponent(url));
 
-    // Exactly the subject-brand review query — NO PipelinePilot competitor query.
-    expect(decodedSearches).toHaveLength(1);
+    // Only the three subject-brand review query variants [B1] — NO
+    // PipelinePilot competitor query.
+    expect(decodedSearches).toHaveLength(3);
+    decodedSearches.forEach((query) => {
+      expect(query).toContain('SaaSLaunch');
+    });
     expect(decodedSearches[0]).toContain('SaaSLaunch reviews complaints');
+    expect(decodedSearches[1]).toContain('SaaSLaunch reviews');
+    expect(decodedSearches[2]).toContain('SaaSLaunch complaints');
     expect(
       decodedSearches.some((query) => query.includes('PipelinePilot')),
     ).toBe(false);
@@ -1298,7 +1376,7 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(result.artifact.body.evidenceGapReport).toMatchObject({
       reason: 'insufficient_voice_of_customer_sources',
       requiredDistinctPainSourceCount: 3,
-      requiredPainQuoteCount: 10,
+      requiredPainQuoteCount: 6,
     });
     expect(requestedUrls.some((url) => url.includes('api.firecrawl.dev'))).toBe(
       true,
@@ -1538,6 +1616,106 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
+  // B1 dead-zone regression (deterministic path): the prepass admits packs at
+  // >=6 candidates, and synthesis + the schema validator now share that same
+  // floor (VOC_MIN_QUOTES=6). Before the shared floor, a 6-candidate pack
+  // passed the prepass but synthesis (>=10) and the schema (>=10) rejected it,
+  // committing an EMPTY VoC despite real quotes (live run f06333b6).
+  it('commits a NON-EMPTY deterministic VoC section from a 6-candidate 3-domain pack (dead-zone regression)', async (): Promise<void> => {
+    const researchInput = makeDeadZoneVoiceOfCustomerResearchInput();
+    const store = await makeStore(researchInput);
+    const streamStructured = vi.fn<StructuredStreamer>(() => ({
+      consumeStream: () => Promise.resolve(),
+      output: Promise.reject(
+        new Error('No object generated: response did not match schema.'),
+      ),
+      partialOutputStream: emptyPartials(),
+    }));
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+
+    expect(body.evidenceGap).not.toBe(true);
+    expect(body.evidenceGapReport).toBeUndefined();
+    expect(body.painLanguage.quotes).toHaveLength(6);
+    expect(
+      new Set(
+        body.painLanguage.quotes.map(
+          (quote) => new URL(quote.sourceUrl).hostname,
+        ),
+      ),
+    ).toEqual(new Set(['g2.com', 'reddit.com', 'capterra.com']));
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  // B1 dead-zone regression (model path): a model draft with 6 real quotes
+  // across 3 domains must commit as-is instead of degrading to the empty
+  // evidence-gap artifact via the old >=10 schema floor.
+  it('commits a model draft with 6 pain quotes across 3 domains without an evidence gap (dead-zone regression)', async (): Promise<void> => {
+    const store = await makeStore();
+    installSuccessfulToolFetches();
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      emitVoiceOfCustomerEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildSixQuoteThreeDomainVoiceOfCustomerDraft()),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: ['reviews', 'web_search', 'firecrawl'],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '50' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(body.evidenceGap).not.toBe(true);
+    expect(body.evidenceGapReport).toBeUndefined();
+    expect(body.painLanguage.quotes).toHaveLength(6);
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
   it('commits deterministic VoC synthesis instead of a mixed full-quotes evidence-gap draft after a dense candidate prepass', async (): Promise<void> => {
     const researchInput = makeDenseVoiceOfCustomerResearchInput();
     const store = await makeStore(researchInput);
@@ -1730,7 +1908,9 @@ describe('runSection VoC candidate prepass', (): void => {
       observedPainSourceDomains: ['g2.com', 'reddit.com'],
       reason: 'insufficient_voice_of_customer_sources',
       requiredDistinctPainSourceCount: 3,
-      requiredPainQuoteCount: 10,
+      // B1 shared floor: 6 quotes now suffice — this draft still gaps on
+      // domains (2 < VOC_MIN_DOMAINS), not on quote count.
+      requiredPainQuoteCount: 6,
     });
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');

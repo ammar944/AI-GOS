@@ -4,6 +4,12 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from "../artifact-envelope";
+import {
+  VOC_MIN_DOMAINS,
+  VOC_MIN_QUOTES,
+  VOC_MIN_SUCCESS_QUOTES,
+  VOC_MIN_TOP_LEVEL_SOURCES,
+} from "../voice-of-customer-floors";
 import type { ValidationResult } from "./market-category";
 import {
   fourForcesBalanceVerdictSchema,
@@ -300,10 +306,12 @@ function getOrderedUniqueSourceKeys(
 }
 
 function isVoiceOfCustomerAcquisitionError(error: string): boolean {
+  // Floor numbers are matched as \d+ so these patterns track the shared
+  // floors in voice-of-customer-floors.ts without re-pinning the values.
   return (
-    /^sources: have \d+, need >=5\.$/.test(error) ||
-    /^body\.painLanguage\.quotes: have \d+, need >=10\.$/.test(error) ||
-    /^body\.painLanguage\.quotes: need >=3 distinct sources, have \d+\.$/.test(
+    /^sources: have \d+, need >=\d+\.$/.test(error) ||
+    /^body\.painLanguage\.quotes: have \d+, need >=\d+\.$/.test(error) ||
+    /^body\.painLanguage\.quotes: need >=\d+ distinct sources, have \d+\.$/.test(
       error,
     ) ||
     /^body\.painLanguage\.quotes\[\d+\]: sourced from the subject company's own domain \([^)]+\); pain language must come from independent sources, not the audited company's site\.$/.test(
@@ -400,22 +408,24 @@ export function validateVoiceOfCustomerMinimums(
     parsedArtifact.body.fourForcesBalanceVerdict.balanceVerdict,
   );
 
-  if (parsedArtifact.sources.length < 5) {
-    errors.push(`sources: have ${parsedArtifact.sources.length}, need >=5.`);
+  if (parsedArtifact.sources.length < VOC_MIN_TOP_LEVEL_SOURCES) {
+    errors.push(
+      `sources: have ${parsedArtifact.sources.length}, need >=${VOC_MIN_TOP_LEVEL_SOURCES}.`,
+    );
   }
 
   const painQuotes = parsedArtifact.body.painLanguage.quotes;
-  if (painQuotes.length < 10) {
+  if (painQuotes.length < VOC_MIN_QUOTES) {
     errors.push(
-      `body.painLanguage.quotes: have ${painQuotes.length}, need >=10.`,
+      `body.painLanguage.quotes: have ${painQuotes.length}, need >=${VOC_MIN_QUOTES}.`,
     );
   }
   const painSourceCount = uniqueCount(
     painQuotes.map((quote) => getSourceKey(quote.sourceUrl, quote.source)),
   );
-  if (painSourceCount < 3) {
+  if (painSourceCount < VOC_MIN_DOMAINS) {
     errors.push(
-      `body.painLanguage.quotes: need >=3 distinct sources, have ${painSourceCount}.`,
+      `body.painLanguage.quotes: need >=${VOC_MIN_DOMAINS} distinct sources, have ${painSourceCount}.`,
     );
   }
 
@@ -455,9 +465,9 @@ export function validateVoiceOfCustomerMinimums(
   }
 
   const successCount = parsedArtifact.body.successLanguage.quotes.length;
-  if (successCount < 5) {
+  if (successCount < VOC_MIN_SUCCESS_QUOTES) {
     errors.push(
-      `body.successLanguage.quotes: have ${successCount}, need >=5.`,
+      `body.successLanguage.quotes: have ${successCount}, need >=${VOC_MIN_SUCCESS_QUOTES}.`,
     );
   }
 

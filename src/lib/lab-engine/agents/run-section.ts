@@ -113,6 +113,10 @@ import {
   type VoiceOfCustomerAcquisitionLedgerRow,
 } from "./voice-of-customer-acquisition-ledger";
 import { synthesizeVoiceOfCustomerFromCandidates } from "./voice-of-customer-synthesis";
+import {
+  VOC_MIN_DOMAINS,
+  VOC_MIN_QUOTES,
+} from "../artifacts/voice-of-customer-floors";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
 import {
   extractCompanyFromDomain,
@@ -494,8 +498,10 @@ type VoiceOfCustomerEvidenceGapFacts = Extract<
   { ok: true }
 >;
 
-const voiceOfCustomerRequiredPainQuoteCount = 10;
-const voiceOfCustomerRequiredDistinctPainSourceCount = 3;
+// Gap reports must quote the same shared floors the prepass, synthesis, and
+// schema validator enforce (see artifacts/voice-of-customer-floors.ts).
+const voiceOfCustomerRequiredPainQuoteCount = VOC_MIN_QUOTES;
+const voiceOfCustomerRequiredDistinctPainSourceCount = VOC_MIN_DOMAINS;
 
 function buildVoiceOfCustomerEvidenceGapBody({
   acquisitionAttempts,
@@ -4212,8 +4218,16 @@ function buildVoiceOfCustomerReviewQueries(
 ): string[] {
   // VoC must capture the SUBJECT company's buyer voice only. Including
   // competitorSeeds polluted Ramp's VoC with Brex/Tipalti reviews (W2.4
-  // de-contamination). Scope the prepass strictly to the company name.
-  const rawQueries = [researchInput.company.name];
+  // de-contamination). Scope the prepass strictly to subject-brand variants —
+  // never competitorSeeds. The "reviews"/"complaints" variants widen live
+  // retrieval so more candidates clear the shared floor (B1); the loop in
+  // buildVoiceOfCustomerCandidatePrepass stops as soon as the pack is valid.
+  const companyName = researchInput.company.name;
+  const rawQueries = [
+    companyName,
+    `${companyName} reviews`,
+    `${companyName} complaints`,
+  ];
   const seen = new Set<string>();
   const queries: string[] = [];
 

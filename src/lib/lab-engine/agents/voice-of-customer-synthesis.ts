@@ -10,15 +10,16 @@ import {
   type VoiceOfCustomerSectionOutput,
 } from "../artifacts/schemas/voice-of-customer";
 import {
+  VOC_MIN_DOMAINS,
+  VOC_MIN_QUOTES,
+  VOC_MIN_SUCCESS_QUOTES,
+  VOC_MIN_TOP_LEVEL_SOURCES,
+} from "../artifacts/voice-of-customer-floors";
+import {
   getRegistrableDomain,
   type VoiceOfCustomerCandidate,
   type VoiceOfCustomerCandidateResult,
 } from "./voice-of-customer-candidates";
-
-const SYNTHESIS_MIN_PAIN_QUOTES = 10;
-const SYNTHESIS_MIN_SUCCESS_QUOTES = 5;
-const SYNTHESIS_MIN_DOMAINS = 3;
-const SYNTHESIS_MIN_TOP_LEVEL_SOURCES = 5;
 
 export interface VoiceOfCustomerSynthesisGap {
   evidenceGap: true;
@@ -209,10 +210,10 @@ function buildVoiceOfCustomerOutput({
   candidates: readonly VoiceOfCustomerCandidate[];
   domains: readonly string[];
 }): VoiceOfCustomerSectionOutput {
-  const painCandidates = candidates.slice(0, SYNTHESIS_MIN_PAIN_QUOTES);
-  const successCandidates = candidates
-    .filter(expressesAfterState)
-    .slice(0, SYNTHESIS_MIN_SUCCESS_QUOTES);
+  // Promote the WHOLE selected pack (already deduped, ranked, and capped at
+  // VOC_CANDIDATE_PACK_MAX_SIZE) — the shared floors are minimums, not caps.
+  const painCandidates = [...candidates];
+  const successCandidates = candidates.filter(expressesAfterState);
   const objections = painCandidates.slice(0, 5);
   const switchingStories = painCandidates.slice(0, 3);
   const criteria = painCandidates.slice(0, 5);
@@ -394,29 +395,29 @@ export function synthesizeVoiceOfCustomerFromCandidates({
   const candidates = candidateResult.pack.candidates;
   const domains = uniqueDomains(candidates);
 
-  if (candidates.length < SYNTHESIS_MIN_PAIN_QUOTES) {
+  if (candidates.length < VOC_MIN_QUOTES) {
     return buildGap({
       candidateCount: candidates.length,
       domains,
-      message: `Found ${candidates.length} candidate quote(s); deterministic VoC synthesis requires at least ${SYNTHESIS_MIN_PAIN_QUOTES}.`,
+      message: `Found ${candidates.length} candidate quote(s); deterministic VoC synthesis requires at least ${VOC_MIN_QUOTES}.`,
       reason: "insufficient_candidates",
     });
   }
 
-  if (domains.length < SYNTHESIS_MIN_DOMAINS) {
+  if (domains.length < VOC_MIN_DOMAINS) {
     return buildGap({
       candidateCount: candidates.length,
       domains,
-      message: `Found ${domains.length} independent domain(s); deterministic VoC synthesis requires at least ${SYNTHESIS_MIN_DOMAINS}.`,
+      message: `Found ${domains.length} independent domain(s); deterministic VoC synthesis requires at least ${VOC_MIN_DOMAINS}.`,
       reason: "insufficient_independent_domains",
     });
   }
 
-  if (topLevelSources(candidates).length < SYNTHESIS_MIN_TOP_LEVEL_SOURCES) {
+  if (topLevelSources(candidates).length < VOC_MIN_TOP_LEVEL_SOURCES) {
     return buildGap({
       candidateCount: candidates.length,
       domains,
-      message: `Found fewer than ${SYNTHESIS_MIN_TOP_LEVEL_SOURCES} distinct candidate URLs for top-level sources.`,
+      message: `Found fewer than ${VOC_MIN_TOP_LEVEL_SOURCES} distinct candidate URLs for top-level sources.`,
       reason: "insufficient_candidates",
     });
   }
@@ -436,7 +437,9 @@ export function synthesizeVoiceOfCustomerFromCandidates({
     });
   }
 
-  if (hasSingleSourceMajority(candidates.slice(0, SYNTHESIS_MIN_PAIN_QUOTES))) {
+  // Truth guard (volume-independent): check the majority over the full
+  // promoted quote set — buildVoiceOfCustomerOutput promotes all candidates.
+  if (hasSingleSourceMajority(candidates)) {
     return buildGap({
       candidateCount: candidates.length,
       domains,
@@ -446,14 +449,11 @@ export function synthesizeVoiceOfCustomerFromCandidates({
     });
   }
 
-  if (
-    candidates.filter(expressesAfterState).length <
-    SYNTHESIS_MIN_SUCCESS_QUOTES
-  ) {
+  if (candidates.filter(expressesAfterState).length < VOC_MIN_SUCCESS_QUOTES) {
     return buildGap({
       candidateCount: candidates.length,
       domains,
-      message: `Found fewer than ${SYNTHESIS_MIN_SUCCESS_QUOTES} candidate snippets with a clear after-state; deterministic success language cannot be promoted honestly.`,
+      message: `Found fewer than ${VOC_MIN_SUCCESS_QUOTES} candidate snippets with a clear after-state; deterministic success language cannot be promoted honestly.`,
       reason: "insufficient_success_language",
     });
   }
