@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { isNonAnswer } from "@/lib/research-v2/non-answer";
 import { buildOnboardingReviewMetadata } from "@/lib/research-v2/onboarding-review";
 import {
   EMPTY_ONBOARDING_V2,
@@ -235,6 +236,27 @@ function CorpusSourcesDisclosure({
   );
 }
 
+// "$[Budget]"-style template garbage (brackets required so real budgets and
+// honest prose never match). Mirrors the commit-path scrub in
+// src/lib/lab-engine/artifacts/schemas/paid-media-plan.ts.
+const BUDGET_PLACEHOLDER_PATTERN = /\$?\s*[[{]\s*budget\s*[\]}]/i;
+
+// Non-blocking guidance for the monthlyAdBudget field: a non-answer ("idk") or
+// placeholder garbage passes the required-field check but starves the paid
+// media plan's spend math (a live run shipped the literal "$[Budget] / Month").
+// Honest-gap idiom — warn about the consequence, never hard-block submission.
+function budgetGuidance(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null; // blank is the required-field error's job
+  if (!isNonAnswer(trimmed) && !BUDGET_PLACEHOLDER_PATTERN.test(trimmed)) {
+    return null;
+  }
+  return (
+    "The media plan computes daily spend and phase budgets from this number. " +
+    "Without a real monthly budget, the plan ships with “Budget not provided” instead of spend math."
+  );
+}
+
 function issuesToErrors(
   issues: Array<{ path: PropertyKey[]; message: string }>,
 ): Record<string, string> {
@@ -444,6 +466,10 @@ export function OnboardingWizard({
       field.type === "sales-process-docs";
 
     const fieldReview = review.fields[field.key];
+    const guidance =
+      field.key === "monthlyAdBudget"
+        ? budgetGuidance(data.monthlyAdBudget)
+        : null;
 
     return (
       <div
@@ -476,6 +502,15 @@ export function OnboardingWizard({
           <Alert variant="destructive" className="px-3 py-2">
             <AlertDescription className="text-xs">{error}</AlertDescription>
           </Alert>
+        ) : null}
+        {guidance ? (
+          <p
+            data-testid="onboarding-budget-guidance"
+            className="text-xs leading-relaxed"
+            style={{ color: "rgb(234, 179, 8)" }}
+          >
+            {guidance}
+          </p>
         ) : null}
       </div>
     );

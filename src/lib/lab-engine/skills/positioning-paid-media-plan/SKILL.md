@@ -101,16 +101,32 @@ The deck is immutable. Slot counts are fixed: exactly 2 phases, 3 audiences, 4
 angles, 8 creatives, 3 funnel paths, 3 KPIs. Which research section grounds each
 slide is noted in brackets.
 
-**Slide 1 — Title.** `{Company}` · "Paid Media Plan" · subtitle
-`{Platform} · Phase 1 & 2 · $[Budget] / Month` · footer "Prepared by SaaS Launch
-· saaslaunch.net". Platform reads "Meta Advertising" by default (see Platform
-Logic); reflect the primary declared channel otherwise.
+**Slide 1 — Title.** `{Company}` · "Paid Media Plan" · subtitle is
+`{Platform} · Phase 1 & 2 · {the REAL monthlyAdBudget value} / Month` — e.g.
+"Meta Advertising · Phase 1 & 2 · $6,000 / Month". Substitute the operator's
+actual number; a bracketed token (`$[Budget]`, `[Budget]`, or any unsubstituted
+template literal) in the shipped subtitle is an automatic FAIL. When
+`monthlyAdBudget` is missing or a non-answer, the budget segment of the subtitle
+reads exactly `Budget not provided` — never a placeholder, never an invented or
+"typical" number. Footer "Prepared by SaaS Launch · saaslaunch.net". Platform
+reads "Meta Advertising" by default (see Platform Logic); reflect the primary
+declared channel otherwise.
 
 **Slide 2 — Campaign Overview.** Donut (Phase 1 / Phase 2 split) + 4 stat blocks.
-This is the ONLY math: Monthly Budget = `monthlyAdBudget`; Phase 1 (Testing) =
-monthly × 2, Months 1-2; Phase 2 (Optimization) = monthly × 2, Months 3-4; Daily
-Spend = monthly / 30. No CAC model, no LTV:CAC, no multi-channel allocation
-math. `[brief: monthlyAdBudget]`
+This is the ONLY math, and it runs ONLY when `monthlyAdBudget` is present:
+Monthly Budget = `monthlyAdBudget`; Phase 1 (Testing) = monthly × 2, Months 1-2;
+Phase 2 (Optimization) = monthly × 2, Months 3-4; Daily Spend = monthly / 30
+(round to the nearest dollar). You MAY add exactly ONE efficiency line — a
+target CAC or an LTV:CAC ratio — and ONLY when the operator supplied the inputs
+(`targetCac`, or `avgLtv` + `targetCac`); cite it `[brief: targetCac]` /
+`[brief: avgLtv]` with provenance `user-supplied`. No CAC model beyond that one
+line, no LTV:CAC from estimated inputs, no multi-channel allocation math.
+When `monthlyAdBudget` is missing or a non-answer: every budget string reads
+the honest state ("Budget not provided — enter a monthly budget to compute the
+spend plan" for the monthly stat; "Daily spend not provided" for daily), omit
+the numeric budget values, set their provenance to `unknown`, and skip the
+donut/stat math entirely. Never emit `$[Budget]` and never fabricate a number
+to fill the template. `[brief: monthlyAdBudget]`
 
 **Slide 3 — Campaign Phases.** Two cards, fixed test→scale arc, light per-client
 tailoring of bullets. Phase 1 Testing: test audiences in parallel · run the full
@@ -470,7 +486,9 @@ Meta-only hardcoded:
   Halbert test, each grounded or honestly `UNVERIFIED`.
 - Zero banned words or phrases anywhere in the deck.
 - Budget math reconciles: daily × 30 ≈ monthly (within $5) when numeric siblings
-  are emitted; every money figure carries a provenance label.
+  are emitted; every money figure carries a provenance label. No `$[Budget]`-style
+  template literal anywhere in the deck; a missing budget reads the honest
+  "Budget not provided" state, never an invented number.
 - At least 5 sources, carried from the committed positioning artifacts.
 - Every gap stated honestly. Unknown is acceptable; fake precision is not.
 

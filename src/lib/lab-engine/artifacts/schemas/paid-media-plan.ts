@@ -327,8 +327,36 @@ function getRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+// Unsubstituted budget template literals ("$[Budget]", "[Budget]", "{budget}",
+// "$ [ Budget ]") leaked into a live client plan when the brief budget was
+// blank — see B3. Brackets are REQUIRED so honest strings like "Budget not
+// provided" never match. A field carrying template residue is untrustworthy as
+// a whole, so it drops to its honest fallback instead of committing.
+const BUDGET_PLACEHOLDER_PATTERN = /\$?\s*[[{]\s*budget\s*[\]}]/i;
+
+function isBudgetPlaceholder(value: unknown): boolean {
+  return typeof value === "string" && BUDGET_PLACEHOLDER_PATTERN.test(value);
+}
+
+// A money string carrying template residue ("$[Budget] / Month") poisons its
+// whole stat: the claimed provenance and any numeric sibling are fabrications
+// around an unsubstituted token. Snap provenance to "unknown" so
+// normalizeMoneyValue drops the number through the one existing mechanism.
+function snapMoneyProvenanceForLabel(
+  label: unknown,
+  provenance: unknown,
+): string {
+  return isBudgetPlaceholder(label)
+    ? "unknown"
+    : snapMoneyProvenance(provenance);
+}
+
 function getString(value: unknown, fallback: string): string {
-  if (typeof value === "string" && value.trim().length > 0) {
+  if (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    !BUDGET_PLACEHOLDER_PATTERN.test(value)
+  ) {
     return value.trim();
   }
 
@@ -402,10 +430,14 @@ function optionalNumericField<Key extends string>(
 
 function normalizeCampaignOverview(value: unknown): PaidMediaPlanBody["campaignOverview"] {
   const record = getRecord(value);
-  const monthlyBudgetProvenance = snapMoneyProvenance(
+  const monthlyBudgetProvenance = snapMoneyProvenanceForLabel(
+    record.monthlyBudget,
     record.monthlyBudgetProvenance,
   );
-  const dailySpendProvenance = snapMoneyProvenance(record.dailySpendProvenance);
+  const dailySpendProvenance = snapMoneyProvenanceForLabel(
+    record.dailySpend,
+    record.dailySpendProvenance,
+  );
   const monthlyBudgetValue = normalizeMoneyValue({
     provenance: monthlyBudgetProvenance,
     value: record.monthlyBudgetValue,
@@ -418,7 +450,10 @@ function normalizeCampaignOverview(value: unknown): PaidMediaPlanBody["campaignO
   return {
     prose: getString(record.prose, "Paid media plan overview needs review."),
     platform: getString(record.platform, "Meta Ads"),
-    monthlyBudget: getString(record.monthlyBudget, "Budget not provided"),
+    monthlyBudget: getString(
+      record.monthlyBudget,
+      "Budget not provided — enter a monthly budget to compute the spend plan",
+    ),
     ...optionalNumericField("monthlyBudgetValue", monthlyBudgetValue),
     monthlyBudgetProvenance,
     dailySpend: getString(record.dailySpend, "Daily spend not provided"),
@@ -435,7 +470,8 @@ function normalizeCampaignPhase(
   index: number,
 ): PaidMediaPlanBody["campaignPhases"][number] {
   const record = getRecord(value);
-  const monthlyBudgetProvenance = snapMoneyProvenance(
+  const monthlyBudgetProvenance = snapMoneyProvenanceForLabel(
+    record.monthlyBudget,
     record.monthlyBudgetProvenance,
   );
   const monthlyBudgetValue = normalizeMoneyValue({
@@ -471,7 +507,10 @@ function normalizeAudienceType(
   index: number,
 ): PaidMediaPlanBody["audienceTypes"][number] {
   const record = getRecord(value);
-  const dailyBudgetProvenance = snapMoneyProvenance(record.dailyBudgetProvenance);
+  const dailyBudgetProvenance = snapMoneyProvenanceForLabel(
+    record.dailyBudget,
+    record.dailyBudgetProvenance,
+  );
   const dailyBudgetValue = normalizeMoneyValue({
     provenance: dailyBudgetProvenance,
     value: record.dailyBudgetValue,

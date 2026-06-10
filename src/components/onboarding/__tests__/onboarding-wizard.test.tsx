@@ -344,3 +344,69 @@ describe('OnboardingWizard (multi-step surface)', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('budget field guidance (B3: media plan needs a real budget)', () => {
+  // Pricing & Economics is step index 3 (Step 4 of 8) — where monthlyAdBudget lives.
+  const PRICING_STEP = 3;
+
+  it('shows non-blocking guidance for a non-answer budget and still allows Continue', () => {
+    render(
+      <OnboardingWizard
+        initialData={{ ...makeCompleteData(), monthlyAdBudget: 'idk' }}
+        initialStep={PRICING_STEP}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    const guidance = screen.getByTestId('onboarding-budget-guidance');
+    expect(guidance).toHaveTextContent(/media plan/i);
+    expect(guidance).toHaveTextContent(/Budget not provided/);
+
+    // Honest-gap, not hard-block: submission proceeds to the next step.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getAllByText('Step 5 of 8').length).toBeGreaterThan(0);
+  });
+
+  it('shows the guidance for $[Budget]-style placeholder garbage', () => {
+    render(
+      <OnboardingWizard
+        initialData={{ ...makeCompleteData(), monthlyAdBudget: '$[Budget]' }}
+        initialStep={PRICING_STEP}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('onboarding-budget-guidance')).toBeInTheDocument();
+  });
+
+  it('shows no guidance for a real budget', () => {
+    render(
+      <OnboardingWizard
+        initialData={makeCompleteData()}
+        initialStep={PRICING_STEP}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId('onboarding-budget-guidance')).toBeNull();
+  });
+
+  it('updates the guidance live as the operator types a real number', () => {
+    render(
+      <OnboardingWizard
+        initialData={{ ...makeCompleteData(), monthlyAdBudget: 'idk' }}
+        initialStep={PRICING_STEP}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('onboarding-budget-guidance')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByLabelText('Monthly ad budget (or planned budget)*'),
+      { target: { value: '$6,000' } },
+    );
+
+    expect(screen.queryByTestId('onboarding-budget-guidance')).toBeNull();
+  });
+});

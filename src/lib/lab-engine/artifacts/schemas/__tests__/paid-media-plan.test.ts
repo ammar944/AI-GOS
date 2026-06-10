@@ -181,6 +181,111 @@ describe("normalizePaidMediaPlanBody", () => {
   });
 });
 
+describe("budget honesty (B3: no placeholder, no fabrication)", () => {
+  it("makes $[Budget]-style template literals unrepresentable in a committed plan", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$[Budget] / Month";
+    overview.monthlyBudgetProvenance = "unknown";
+    overview.monthlyBudgetValue = 5000; // fabricated sibling must drop
+    overview.dailySpend = "$ [ Budget ] per day";
+    overview.dailySpendProvenance = "unknown";
+    overview.dailySpendValue = 166;
+    const phases = rawBody.campaignPhases as Array<Record<string, unknown>>;
+    phases[0]!.monthlyBudget = "[Budget]";
+    phases[0]!.monthlyBudgetProvenance = "unknown";
+    phases[0]!.monthlyBudgetValue = 5000;
+    phases[1]!.monthlyBudget = "$[budget] / Month";
+    phases[1]!.monthlyBudgetProvenance = "unknown";
+    phases[1]!.monthlyBudgetValue = 5000;
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    audiences[0]!.dailyBudget = "$[Budget] / 3";
+    audiences[0]!.dailyBudgetProvenance = "unknown";
+    audiences[0]!.dailyBudgetValue = 55;
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+    const serialized = JSON.stringify(normalized);
+
+    // The spec's verification regex: the literal must not appear ANYWHERE.
+    expect(serialized).not.toMatch(/\$\s*\[\s*Budget\s*\]/i);
+    expect(serialized).not.toMatch(/\[\s*Budget\s*\]/i);
+
+    // Honest no-budget state, never a fabricated number.
+    expect(normalized.campaignOverview.monthlyBudget).toBe(
+      "Budget not provided — enter a monthly budget to compute the spend plan",
+    );
+    expect(normalized.campaignOverview.dailySpend).toBe(
+      "Daily spend not provided",
+    );
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBeUndefined();
+    expect(normalized.campaignOverview.dailySpendValue).toBeUndefined();
+    expect(normalized.campaignOverview.monthlyBudget).not.toMatch(/\$\s*\d/);
+    expect(normalized.campaignOverview.dailySpend).not.toMatch(/\$\s*\d/);
+
+    for (const phase of normalized.campaignPhases) {
+      expect(phase.monthlyBudget).not.toMatch(/\$\s*\d/);
+      expect(phase.monthlyBudgetValue).toBeUndefined();
+    }
+    expect(normalized.audienceTypes[0]?.dailyBudget).toBe(
+      "Daily budget not provided",
+    );
+    expect(normalized.audienceTypes[0]?.dailyBudgetValue).toBeUndefined();
+  });
+
+  it("scrubs a placeholder that leaks into prose instead of committing template residue", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.prose = "We allocate $[Budget] / Month across Meta placements.";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(JSON.stringify(normalized)).not.toMatch(/\$\s*\[\s*Budget\s*\]/i);
+    expect(normalized.campaignOverview.prose).toBe(
+      "Paid media plan overview needs review.",
+    );
+  });
+
+  it("preserves real user-supplied budget math (monthly 6000 → daily 200, phase split intact)", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$6,000 / Month";
+    overview.monthlyBudgetValue = 6000;
+    overview.monthlyBudgetProvenance = "user-supplied";
+    overview.dailySpend = "$200 / day";
+    overview.dailySpendValue = 200;
+    overview.dailySpendProvenance = "user-supplied";
+    const phases = rawBody.campaignPhases as Array<Record<string, unknown>>;
+    for (const phase of phases) {
+      phase.monthlyBudget = "$6,000 / Month";
+      phase.monthlyBudgetValue = 6000;
+      phase.monthlyBudgetProvenance = "user-supplied";
+    }
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.monthlyBudget).toBe("$6,000 / Month");
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBe(6000);
+    expect(normalized.campaignOverview.dailySpendValue).toBe(200);
+    // daily = monthly / 30 — the only permitted math holds.
+    expect((normalized.campaignOverview.dailySpendValue ?? 0) * 30).toBe(
+      normalized.campaignOverview.monthlyBudgetValue,
+    );
+    for (const phase of normalized.campaignPhases) {
+      expect(phase.monthlyBudgetValue).toBe(6000);
+      expect(phase.monthlyBudget).toBe("$6,000 / Month");
+    }
+  });
+});
+
 describe("validatePaidMediaPlanMinimums", () => {
   it("accepts the normalized fixture without strategic capstone fields", () => {
     const artifact = cloneFixture();
@@ -189,6 +294,159 @@ describe("validatePaidMediaPlanMinimums", () => {
       ok: true,
       errors: [],
     });
+  });
+});
+
+describe("budget honesty ($[Budget] leak regression, B3)", () => {
+  const BUDGET_LEAK_PATTERN = /\$\s*\[\s*Budget\s*\]/i;
+  const TEMPLATE_TOKEN_PATTERN = /[\[{]\s*budget\s*[\]}]/i;
+
+  function getRawBody(): Record<string, unknown> {
+    return structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+  }
+
+  it("scrubs $[Budget]-style placeholders from every money field and drops fabricated numeric siblings", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$[Budget] / Month";
+    overview.monthlyBudgetValue = 6000; // fabricated next to a placeholder — must not survive
+    overview.monthlyBudgetProvenance = "user-supplied";
+    overview.dailySpend = "$ [ Budget ] / 30";
+    overview.dailySpendValue = 200;
+    overview.dailySpendProvenance = "model-estimated";
+
+    for (const phase of rawBody.campaignPhases as Array<
+      Record<string, unknown>
+    >) {
+      phase.monthlyBudget = "[Budget]";
+      phase.monthlyBudgetValue = 6000;
+      phase.monthlyBudgetProvenance = "user-supplied";
+    }
+
+    for (const audience of rawBody.audienceTypes as Array<
+      Record<string, unknown>
+    >) {
+      audience.dailyBudget = "{budget} / 3";
+      audience.dailyBudgetValue = 66;
+      audience.dailyBudgetProvenance = "user-supplied";
+    }
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+    const serialized = JSON.stringify(normalized);
+
+    expect(serialized).not.toMatch(BUDGET_LEAK_PATTERN);
+    expect(serialized).not.toMatch(TEMPLATE_TOKEN_PATTERN);
+    expect(normalized.campaignOverview.monthlyBudget).toBe(
+      "Budget not provided — enter a monthly budget to compute the spend plan",
+    );
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBeUndefined();
+    expect(normalized.campaignOverview.monthlyBudgetProvenance).toBe("unknown");
+    expect(normalized.campaignOverview.dailySpend).toBe(
+      "Daily spend not provided",
+    );
+    expect(normalized.campaignOverview.dailySpendValue).toBeUndefined();
+    expect(normalized.campaignOverview.dailySpendProvenance).toBe("unknown");
+
+    for (const phase of normalized.campaignPhases) {
+      expect(phase.monthlyBudget).toBe("Budget not provided");
+      expect(phase.monthlyBudgetValue).toBeUndefined();
+      expect(phase.monthlyBudgetProvenance).toBe("unknown");
+    }
+
+    for (const audience of normalized.audienceTypes) {
+      expect(audience.dailyBudget).toBe("Daily budget not provided");
+      expect(audience.dailyBudgetValue).toBeUndefined();
+      expect(audience.dailyBudgetProvenance).toBe("unknown");
+    }
+  });
+
+  it("renders the honest no-budget state with zero fabricated dollar numbers when the budget is missing", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "";
+    delete overview.monthlyBudgetValue;
+    overview.monthlyBudgetProvenance = "unknown";
+    overview.dailySpend = "";
+    delete overview.dailySpendValue;
+    overview.dailySpendProvenance = "unknown";
+
+    for (const phase of rawBody.campaignPhases as Array<
+      Record<string, unknown>
+    >) {
+      phase.monthlyBudget = "";
+      delete phase.monthlyBudgetValue;
+      phase.monthlyBudgetProvenance = "unknown";
+    }
+
+    for (const audience of rawBody.audienceTypes as Array<
+      Record<string, unknown>
+    >) {
+      audience.dailyBudget = "";
+      delete audience.dailyBudgetValue;
+      audience.dailyBudgetProvenance = "unknown";
+    }
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+    const serialized = JSON.stringify(normalized);
+
+    expect(serialized).not.toMatch(BUDGET_LEAK_PATTERN);
+    expect(normalized.campaignOverview.monthlyBudget).toBe(
+      "Budget not provided — enter a monthly budget to compute the spend plan",
+    );
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBeUndefined();
+    expect(normalized.campaignOverview.dailySpendValue).toBeUndefined();
+    // No fabricated dollar figure may appear in any budget label.
+    expect(normalized.campaignOverview.monthlyBudget).not.toMatch(/\$\s*\d/);
+    expect(normalized.campaignOverview.dailySpend).not.toMatch(/\$\s*\d/);
+    for (const phase of normalized.campaignPhases) {
+      expect(phase.monthlyBudget).not.toMatch(/\$\s*\d/);
+      expect(phase.monthlyBudgetValue).toBeUndefined();
+    }
+    for (const audience of normalized.audienceTypes) {
+      expect(audience.dailyBudget).not.toMatch(/\$\s*\d/);
+      expect(audience.dailyBudgetValue).toBeUndefined();
+    }
+  });
+
+  it("passes a real budget (6000) through untouched with correct daily math", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$6,000 / month";
+    overview.monthlyBudgetValue = 6000;
+    overview.monthlyBudgetProvenance = "user-supplied";
+    overview.dailySpend = "$200 / day";
+    overview.dailySpendValue = 200;
+    overview.dailySpendProvenance = "model-estimated";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.monthlyBudget).toBe("$6,000 / month");
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBe(6000);
+    expect(normalized.campaignOverview.monthlyBudgetProvenance).toBe(
+      "user-supplied",
+    );
+    expect(normalized.campaignOverview.dailySpend).toBe("$200 / day");
+    expect(normalized.campaignOverview.dailySpendValue).toBe(200);
+    // daily = monthly / 30 holds exactly for the committed numeric siblings.
+    expect(
+      (normalized.campaignOverview.dailySpendValue ?? 0) * 30,
+    ).toBe(normalized.campaignOverview.monthlyBudgetValue);
+  });
+
+  it("keeps snap-to-unknown: numeric siblings drop when provenance snaps to unknown", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$6,000 / month";
+    overview.monthlyBudgetValue = 6000;
+    overview.monthlyBudgetProvenance = "made-up-provenance";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.monthlyBudgetProvenance).toBe("unknown");
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBeUndefined();
   });
 });
 
