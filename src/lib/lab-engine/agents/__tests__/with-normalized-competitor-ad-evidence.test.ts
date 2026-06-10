@@ -5,7 +5,10 @@ import { competitorAdEvidenceGroupSchema } from "@/lib/lab-engine/artifacts/sche
 import type { CompetitorAdEvidenceGroup } from "@/lib/lab-engine/artifacts/schemas/competitor-landscape";
 import { checkRequiredEvidenceClasses } from "@/lib/lab-engine/sections/required-evidence";
 
-import { withNormalizedCompetitorAdEvidence } from "../run-section";
+import {
+  mergeAdEvidenceGroups,
+  withNormalizedCompetitorAdEvidence,
+} from "../run-section";
 
 function adEvidenceGroup(
   overrides: Partial<CompetitorAdEvidenceGroup> = {},
@@ -68,6 +71,32 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
         displayableTotal: 2,
         returnedCreativeCount: 2,
         displayableCounts: { google: 2, meta: 0, linkedin: 0 },
+        verifiedCount: 1,
+        quarantinedCount: 0,
+        creatives: [
+          {
+            id: "notion-verified-1",
+            platform: "google",
+            advertiserName: "Notion",
+            headline: "Run projects and docs in one workspace",
+            body: null,
+            landingUrl: null,
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl: null,
+            sourceUrl: "https://adstransparency.google.com/advertiser/notion",
+            firstSeen: null,
+            lastSeen: null,
+            format: "text",
+            isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
+            verified: true,
+            identityBasis: "domain",
+          },
+        ],
       }),
     ];
 
@@ -79,6 +108,61 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
     });
 
     expect(proseOf(result)).toBe(fabricatedProse);
+  });
+
+  it("replaces model prose when creatives are quarantine-only despite displayable counts", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Notion",
+        displayableTotal: 41,
+        returnedCreativeCount: 2,
+        displayableCounts: { google: 0, meta: 41, linkedin: 0 },
+        verifiedCount: 0,
+        quarantinedCount: 41,
+        creatives: [
+          {
+            id: "notion-quarantine-1",
+            platform: "meta",
+            advertiserName: "Notion",
+            headline: "All-in-one workspace",
+            body: null,
+            landingUrl: null,
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl: null,
+            sourceUrl: "https://www.facebook.com/ads/library/?id=1",
+            firstSeen: null,
+            lastSeen: null,
+            format: "text",
+            isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
+            verified: false,
+            identityBasis: "name_only",
+          },
+        ],
+        dataGaps: [
+          {
+            reason:
+              "Identity-unverified ad signals only: verifiedCount=0; quarantinedCount=41.",
+          },
+        ],
+      }),
+    ];
+
+    const result = withNormalizedCompetitorAdEvidence({
+      rawOutput: {
+        body: { adEvidence: { prose: fabricatedProse, advertiserGroups: [] } },
+      },
+      normalizedAdEvidenceGroups: groups,
+    });
+
+    expect(proseOf(result)).not.toBe(fabricatedProse);
+    expect(proseOf(result)).toContain("Verified competitor ad creatives: 0");
+    expect(proseOf(result)).toContain("identity-unverified");
+    expect(proseOf(result)).toContain("evidence gap");
   });
 
   it("falls back to the deterministic summary when the model omits prose", (): void => {
@@ -126,5 +210,50 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
         sectionId: "positioningCompetitorLandscape",
       }),
     ).toBeNull();
+  });
+
+  it("sums duplicate-group identity counts and recomputes confidence", (): void => {
+    const baseGroup = adEvidenceGroup({
+      advertiserName: "Notion",
+      identityConfidence: "low",
+      verifiedCount: 0,
+      quarantinedCount: 2,
+    });
+    const nextGroup = adEvidenceGroup({
+      advertiserName: "Notion",
+      identityConfidence: "verified",
+      verifiedCount: 1,
+      quarantinedCount: 1,
+      creatives: [
+        {
+          id: "notion-verified-2",
+          platform: "meta",
+          advertiserName: "Notion",
+          headline: "Verified Notion ad",
+          body: null,
+          landingUrl: null,
+          creativeUrl: null,
+          imageUrl: null,
+          videoUrl: null,
+          detailsUrl: null,
+          sourceUrl: "https://www.facebook.com/ads/library/?id=2",
+          firstSeen: null,
+          lastSeen: null,
+          format: "text",
+          isActive: true,
+          source: null,
+          transcript: null,
+          cta: null,
+          verified: true,
+          identityBasis: "domain",
+        },
+      ],
+    });
+
+    const [merged] = mergeAdEvidenceGroups([baseGroup], [nextGroup]);
+
+    expect(merged?.verifiedCount).toBe(1);
+    expect(merged?.quarantinedCount).toBe(3);
+    expect(merged?.identityConfidence).toBe("verified");
   });
 });

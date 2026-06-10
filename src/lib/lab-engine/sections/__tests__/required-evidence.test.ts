@@ -221,6 +221,47 @@ describe("checkRequiredEvidenceClasses", (): void => {
       };
     }
 
+    function quarantineOnlyGroup() {
+      const base = competitorLandscapeFixtureArtifact.body.adEvidence
+        .advertiserGroups[0];
+      return {
+        ...base,
+        displayableTotal: 1,
+        returnedCreativeCount: 1,
+        displayableCounts: { google: 0, meta: 1, linkedin: 0 },
+        verifiedCount: 0,
+        quarantinedCount: 1,
+        identityConfidence: "low" as const,
+        creatives: [
+          {
+            ...base.creatives[0],
+            verified: false,
+            identityBasis: "name_only",
+          },
+        ],
+        rawSourceSamples: [],
+        dataGaps: [],
+        sourceErrors: [],
+      };
+    }
+
+    function verifiedGroup() {
+      const group = quarantineOnlyGroup();
+      return {
+        ...group,
+        verifiedCount: 1,
+        quarantinedCount: 0,
+        identityConfidence: "verified" as const,
+        creatives: [
+          {
+            ...group.creatives[0],
+            verified: true,
+            identityBasis: "domain",
+          },
+        ],
+      };
+    }
+
     it("default mode keeps the permissive behavior (rawSourceSamples + sentinel pass)", (): void => {
       const body = structuredClone(competitorLandscapeFixtureArtifact.body);
       body.adEvidence.advertiserGroups = [rubberStampGroup()];
@@ -296,15 +337,84 @@ describe("checkRequiredEvidenceClasses", (): void => {
       ).toBeNull();
     });
 
-    it("strict mode passes a group with real displayable creatives", (): void => {
+    it("strict mode rejects quarantine-only displayable creatives as evidence", (): void => {
+      const body = structuredClone(competitorLandscapeFixtureArtifact.body);
+      body.adEvidence.advertiserGroups = [quarantineOnlyGroup()];
+
       expect(
         checkRequiredEvidenceClasses({
-          body: competitorLandscapeFixtureArtifact.body,
+          body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
+          requiredEvidenceClasses: ["adEvidence_or_gap"],
+          sectionId: "positioningCompetitorLandscape",
+        }),
+      ).toBe("adEvidence_or_gap");
+    });
+
+    it("strict mode accepts a quarantine-only downgrade only as an explicit gap", (): void => {
+      const body = structuredClone(competitorLandscapeFixtureArtifact.body);
+      body.adEvidence.advertiserGroups = [
+        {
+          ...quarantineOnlyGroup(),
+          dataGaps: [
+            {
+              reason:
+                "Identity-unverified ad signals only: verifiedCount=0; quarantinedCount=1.",
+            },
+          ],
+        },
+      ];
+
+      expect(
+        checkRequiredEvidenceClasses({
+          body,
           env: { LAB_AD_EVIDENCE_STRICT: "true" },
           requiredEvidenceClasses: ["adEvidence_or_gap"],
           sectionId: "positioningCompetitorLandscape",
         }),
       ).toBeNull();
+    });
+
+    it("strict mode passes a group with verified creatives", (): void => {
+      const body = structuredClone(competitorLandscapeFixtureArtifact.body);
+      body.adEvidence.advertiserGroups = [verifiedGroup()];
+
+      expect(
+        checkRequiredEvidenceClasses({
+          body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
+          requiredEvidenceClasses: ["adEvidence_or_gap"],
+          sectionId: "positioningCompetitorLandscape",
+        }),
+      ).toBeNull();
+    });
+
+    it("strict mode rejects legacy creatives with undefined verification metadata", (): void => {
+      const body = structuredClone(competitorLandscapeFixtureArtifact.body);
+      body.adEvidence.advertiserGroups = [
+        {
+          ...quarantineOnlyGroup(),
+          verifiedCount: undefined,
+          quarantinedCount: undefined,
+          identityConfidence: undefined,
+          creatives: [
+            {
+              ...quarantineOnlyGroup().creatives[0],
+              verified: undefined,
+              identityBasis: undefined,
+            },
+          ],
+        },
+      ];
+
+      expect(
+        checkRequiredEvidenceClasses({
+          body,
+          env: { LAB_AD_EVIDENCE_STRICT: "true" },
+          requiredEvidenceClasses: ["adEvidence_or_gap"],
+          sectionId: "positioningCompetitorLandscape",
+        }),
+      ).toBe("adEvidence_or_gap");
     });
   });
 

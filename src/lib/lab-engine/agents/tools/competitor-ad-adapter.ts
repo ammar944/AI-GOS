@@ -17,6 +17,9 @@ type DataGap = CompetitorAdEvidenceGroup["dataGaps"][number];
 type SourceError = CompetitorAdEvidenceGroup["sourceErrors"][number];
 type AdToolName = "adlibrary" | "google_ads" | "meta_ads" | "linkedin_ads";
 
+export const QUARANTINE_ONLY_AD_EVIDENCE_GAP_PREFIX =
+  "Identity-unverified ad signals only";
+
 export interface BuildCompetitorAdEvidenceGroupsArgs {
   steps: readonly AgentStep[];
   observedAt: string;
@@ -852,6 +855,24 @@ function buildDataGaps({
   ]);
 }
 
+function buildQuarantineOnlyDowngradeGaps({
+  quarantinedCount,
+  verifiedCount,
+}: {
+  quarantinedCount: number;
+  verifiedCount: number;
+}): DataGap[] {
+  if (verifiedCount > 0 || quarantinedCount === 0) {
+    return [];
+  }
+
+  return [
+    {
+      reason: `${QUARANTINE_ONLY_AD_EVIDENCE_GAP_PREFIX}: verifiedCount=0; quarantinedCount=${quarantinedCount}; quarantine-tier creatives are identity-unverified signals and must be described as an evidence gap, not confirmed competitor advertising.`,
+    },
+  ];
+}
+
 function finalizeGroup(
   group: MutableAdEvidenceGroup,
   returnedCreativeLimit: number,
@@ -906,6 +927,19 @@ function finalizeGroup(
   const quarantinedCount = quarantinedRanked.length;
   const identityConfidence: "verified" | "low" =
     verifiedRanked.length > 0 ? "verified" : "low";
+  const verifiedCount = verifiedRanked.length;
+  const dataGaps = uniqueDataGaps([
+    ...buildDataGaps({
+      group,
+      displayableCounts,
+      returnedCreativeCount: creatives.length,
+      topicExcludedCounts,
+    }),
+    ...buildQuarantineOnlyDowngradeGaps({
+      quarantinedCount,
+      verifiedCount,
+    }),
+  ]);
 
   return {
     advertiserName: group.advertiserName,
@@ -918,17 +952,12 @@ function finalizeGroup(
     creatives,
     libraryLinks: group.libraryLinks,
     rawSourceSamples: group.rawSourceSamples,
-    dataGaps: buildDataGaps({
-      group,
-      displayableCounts,
-      returnedCreativeCount: creatives.length,
-      topicExcludedCounts,
-    }),
+    dataGaps,
     sourceErrors: group.sourceErrors,
     observedAt: group.observedAt,
     identityConfidence,
     quarantinedCount,
-    verifiedCount: verifiedRanked.length,
+    verifiedCount,
   };
 }
 
@@ -1067,10 +1096,30 @@ export function summarizeCompetitorAdEvidenceGroups(
     (total, group) => total + group.returnedCreativeCount,
     0,
   );
+  const verifiedCount = groups.reduce(
+    (total, group) =>
+      total +
+      (group.verifiedCount ??
+        group.creatives.filter((creative) => creative.verified === true)
+          .length),
+    0,
+  );
+  const quarantinedCount = groups.reduce(
+    (total, group) =>
+      total +
+      (group.quarantinedCount ??
+        group.creatives.filter((creative) => creative.verified === false)
+          .length),
+    0,
+  );
   const gapCount = groups.reduce(
     (total, group) => total + group.dataGaps.length + group.sourceErrors.length,
     0,
   );
+  const identityLine =
+    quarantinedCount > 0 && verifiedCount === 0
+      ? `Verified competitor ad creatives: 0. Quarantine-tier ad signals: ${quarantinedCount}; these are identity-unverified and must be described as an evidence gap, not confirmed competitor advertising.`
+      : `Verified competitor ad creatives: ${verifiedCount}. Identity-unverified quarantine samples: ${quarantinedCount}.`;
 
   return [
     `Live ad-library evidence was normalized for ${groups.length} advertiser group${
@@ -1079,6 +1128,7 @@ export function summarizeCompetitorAdEvidenceGroups(
     `Raw rows by platform: ${formatCounts(rawCounts)}.`,
     `Displayable creatives by platform: ${formatCounts(displayableCounts)}.`,
     `Returned creative count: ${returnedCreativeCount}.`,
+    identityLine,
     gapCount > 0
       ? `Evidence gaps are preserved in advertiserGroups.dataGaps and advertiserGroups.sourceErrors.`
       : "No ad-library data gaps were reported by the normalized tool results.",

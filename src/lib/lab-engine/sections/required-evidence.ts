@@ -217,6 +217,19 @@ function hasGenuineProbeGap(group: Record<string, unknown>): boolean {
   });
 }
 
+function hasVerifiedAdEvidence(group: Record<string, unknown>): boolean {
+  const verifiedCount =
+    typeof group.verifiedCount === "number" ? group.verifiedCount : 0;
+
+  if (verifiedCount > 0) {
+    return true;
+  }
+
+  return asRecordArray(group.creatives).some(
+    (creative) => creative.verified === true,
+  );
+}
+
 function hasAdEvidenceOrGap(
   body: Record<string, unknown>,
   env: Record<string, string | undefined>,
@@ -229,11 +242,11 @@ function hasAdEvidenceOrGap(
     const displayableTotal =
       typeof group.displayableTotal === "number" ? group.displayableTotal : 0;
 
-    // STRICT: only real evidence (displayableTotal > 0) or a genuine probe-attempt
-    // failure/empty passes. rawSourceSamples and the linkedin not-probed sentinel
-    // do NOT count — they let an all-empty run rubber-stamp the gate.
+    // STRICT: only identity-verified ad evidence or a genuine probe-attempt
+    // failure/empty passes. rawSourceSamples, displayableTotal, quarantine
+    // samples, and the linkedin not-probed sentinel do NOT count as evidence.
     if (strict) {
-      return displayableTotal > 0 || hasGenuineProbeGap(group);
+      return hasVerifiedAdEvidence(group) || hasGenuineProbeGap(group);
     }
 
     const returnedCreativeCount =

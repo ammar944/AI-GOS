@@ -133,6 +133,67 @@ describe('CompetitorLandscapeRenderer', () => {
     );
   });
 
+  it('renders quarantine-only ad signals with identity-unverified framing', () => {
+    const artifact = withAdvertiserGroups([
+      makeGroup({
+        advertiserName: 'Notion',
+        platforms: ['meta'],
+        rawCounts: { google: 0, meta: 41, linkedin: 0 },
+        displayableCounts: { google: 0, meta: 41, linkedin: 0 },
+        displayableTotal: 41,
+        returnedCreativeCount: 1,
+        verifiedCount: 0,
+        quarantinedCount: 41,
+        identityConfidence: 'low',
+        creatives: [
+          {
+            id: 'notion-q1',
+            platform: 'meta',
+            advertiserName: 'Notion',
+            headline: 'All-in-one workspace',
+            body: 'Docs, projects, and company knowledge in one place.',
+            landingUrl: null,
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl: 'https://www.facebook.com/ads/library/?id=notion-q1',
+            sourceUrl: 'https://www.facebook.com/ads/library/?id=notion-q1',
+            firstSeen: null,
+            lastSeen: null,
+            format: 'text',
+            isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
+            verified: false,
+            identityBasis: 'name_only',
+          },
+        ],
+        dataGaps: [
+          {
+            reason:
+              'Identity-unverified ad signals only: verifiedCount=0; quarantinedCount=41.',
+          },
+        ],
+      }),
+    ]);
+
+    render(<CompetitorLandscapeRenderer artifact={artifact} />);
+
+    const group = screen.getByTestId('ad-evidence-group');
+    expect(group).toHaveAttribute('data-state', 'quarantine-only');
+    expect(
+      within(group).getByTestId('ad-evidence-state-quarantine-only'),
+    ).toHaveTextContent(/Identity-unverified ad signals/i);
+    expect(group).toHaveTextContent(/Verified competitor ad count is 0/i);
+    expect(within(group).getByTestId('ad-quarantine')).toHaveTextContent(
+      'All-in-one workspace',
+    );
+    expect(
+      screen.getByTestId('ad-evidence-tab-quarantine-only'),
+    ).toHaveTextContent(/unverified/i);
+  });
+
   it('renders the lookup-capped state with a transparency link when a budget gap blocks lookup', () => {
     const artifact = withAdvertiserGroups([
       makeGroup({

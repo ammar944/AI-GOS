@@ -2190,11 +2190,11 @@ export function withNormalizedCompetitorAdEvidence({
     normalizedAdEvidenceGroups,
   );
   const modelProse = getStringProperty(adEvidenceRecord, "prose");
-  const hasDisplayableEvidence = normalizedAdEvidenceGroups.some(
-    (group) => group.returnedCreativeCount > 0 || group.displayableTotal > 0,
+  const hasVerifiedAdEvidence = normalizedAdEvidenceGroups.some(
+    hasVerifiedAdEvidenceGroup,
   );
   const prose =
-    hasDisplayableEvidence && modelProse !== null
+    hasVerifiedAdEvidence && modelProse !== null
       ? modelProse
       : deterministicSummary;
 
@@ -2226,6 +2226,8 @@ type AdEvidenceRawSourceSample =
 type AdEvidenceDataGap = CompetitorAdEvidenceGroup["dataGaps"][number];
 type AdEvidenceSourceError =
   CompetitorAdEvidenceGroup["sourceErrors"][number];
+type AdEvidenceIdentityConfidence =
+  NonNullable<CompetitorAdEvidenceGroup["identityConfidence"]>;
 
 function mergeCounts(
   base: AdEvidenceCounts,
@@ -2279,6 +2281,47 @@ function getSourceErrorKey(sourceError: AdEvidenceSourceError): string {
   return `${sourceError.platform}:${sourceError.message}`;
 }
 
+function countVerifiedAdEvidence(
+  group: CompetitorAdEvidenceGroup,
+): number {
+  return (
+    group.verifiedCount ??
+    group.creatives.filter((creative) => creative.verified === true).length
+  );
+}
+
+function countQuarantinedAdEvidence(
+  group: CompetitorAdEvidenceGroup,
+): number {
+  return (
+    group.quarantinedCount ??
+    group.creatives.filter((creative) => creative.verified === false).length
+  );
+}
+
+function hasVerifiedAdEvidenceGroup(
+  group: CompetitorAdEvidenceGroup,
+): boolean {
+  return (
+    countVerifiedAdEvidence(group) > 0 ||
+    group.creatives.some((creative) => creative.verified === true)
+  );
+}
+
+function mergeIdentityConfidence({
+  next,
+  verifiedCount,
+}: {
+  next: AdEvidenceIdentityConfidence | undefined;
+  verifiedCount: number;
+}): AdEvidenceIdentityConfidence | undefined {
+  if (verifiedCount > 0) {
+    return "verified";
+  }
+
+  return next;
+}
+
 function mergeAdEvidenceGroup(
   base: CompetitorAdEvidenceGroup,
   next: CompetitorAdEvidenceGroup,
@@ -2307,6 +2350,14 @@ function mergeAdEvidenceGroup(
     base.displayableCounts,
     next.displayableCounts,
   );
+  const verifiedCount =
+    countVerifiedAdEvidence(base) + countVerifiedAdEvidence(next);
+  const quarantinedCount =
+    countQuarantinedAdEvidence(base) + countQuarantinedAdEvidence(next);
+  const identityConfidence = mergeIdentityConfidence({
+    next: next.identityConfidence ?? base.identityConfidence,
+    verifiedCount,
+  });
 
   return {
     advertiserName: next.advertiserName,
@@ -2328,10 +2379,13 @@ function mergeAdEvidenceGroup(
     dataGaps,
     sourceErrors,
     observedAt: next.observedAt,
+    identityConfidence,
+    quarantinedCount,
+    verifiedCount,
   };
 }
 
-function mergeAdEvidenceGroups(
+export function mergeAdEvidenceGroups(
   baseGroups: readonly CompetitorAdEvidenceGroup[],
   nextGroups: readonly CompetitorAdEvidenceGroup[],
 ): CompetitorAdEvidenceGroup[] {

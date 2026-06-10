@@ -152,6 +152,7 @@ function AdEvidenceNotes({
 
 type AdEvidenceState =
   | 'ads-found'
+  | 'quarantine-only'
   | 'no-active-ads'
   | 'lookup-capped'
   | 'not-checked';
@@ -165,7 +166,34 @@ function isLookupCappedReason(reason: string): boolean {
   return LOOKUP_CAPPED_PATTERN.test(reason);
 }
 
+function countVerifiedCreatives(group: AdEvidenceGroup): number {
+  return (
+    group.verifiedCount ??
+    group.creatives.filter((creative) => creative.verified === true).length
+  );
+}
+
+function countQuarantinedCreatives(group: AdEvidenceGroup): number {
+  return (
+    group.quarantinedCount ??
+    group.creatives.filter((creative) => creative.verified === false).length
+  );
+}
+
+function hasQuarantineOnlySignals(group: AdEvidenceGroup): boolean {
+  return (
+    countVerifiedCreatives(group) === 0 &&
+    countQuarantinedCreatives(group) > 0
+  );
+}
+
 function classifyAdEvidenceState(group: AdEvidenceGroup): AdEvidenceState {
+  if (countVerifiedCreatives(group) > 0) {
+    return 'ads-found';
+  }
+  if (hasQuarantineOnlySignals(group)) {
+    return 'quarantine-only';
+  }
   if (group.creatives.length > 0) {
     return 'ads-found';
   }
@@ -242,6 +270,25 @@ function AdEvidenceStateBody({
         adCreatives={group.creatives.map(mapAdCreative)}
         libraryLinks={toLibraryLinkProps(group)}
       />
+    );
+  }
+
+  if (state === 'quarantine-only') {
+    return (
+      <div
+        data-testid="ad-evidence-state-quarantine-only"
+        className="grid gap-3"
+      >
+        <p className="text-[13px] leading-[1.6] text-muted-foreground">
+          Identity-unverified ad signals captured for this advertiser. Verified
+          competitor ad count is 0; treat the samples below as quarantine
+          evidence, not confirmed competitor advertising.
+        </p>
+        <CompetitorAdEvidence
+          adCreatives={group.creatives.map(mapAdCreative)}
+          libraryLinks={toLibraryLinkProps(group)}
+        />
+      </div>
     );
   }
 
@@ -350,6 +397,7 @@ function AdEvidenceSection({
           const selected =
             group.advertiserName === selectedGroup.advertiserName;
           const tabId = toDomId(group.advertiserName);
+          const state = classifyAdEvidenceState(group);
           return (
             <button
               key={group.advertiserName}
@@ -367,6 +415,14 @@ function AdEvidenceSection({
               )}
             >
               {group.advertiserName}
+              {state === 'quarantine-only' ? (
+                <span
+                  data-testid="ad-evidence-tab-quarantine-only"
+                  className="ml-1.5 text-[10px] text-muted-foreground/70"
+                >
+                  · unverified
+                </span>
+              ) : null}
               {group.creatives.length === 0 ? (
                 <span
                   data-testid="ad-evidence-tab-no-ads"

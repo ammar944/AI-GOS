@@ -48,20 +48,25 @@ const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
 interface CompactAdEvidenceCreative {
   body: string | null;
   headline: string | null;
+  identityBasis: string | null;
   landingUrl: string | null;
   platform: string;
   sourceUrl: string;
+  verified: boolean | null;
 }
 
 interface CompactAdEvidenceGroup {
   advertiserName: string;
   dataGaps: CompetitorAdEvidenceGroup["dataGaps"];
   displayableCounts: CompetitorAdEvidenceGroup["displayableCounts"];
+  identityConfidence: CompetitorAdEvidenceGroup["identityConfidence"] | null;
   platforms: CompetitorAdEvidenceGroup["platforms"];
+  quarantinedCount: number;
   rawCounts: CompetitorAdEvidenceGroup["rawCounts"];
   returnedCreativeCount: number;
   sampleCreatives: CompactAdEvidenceCreative[];
   sourceErrors: CompetitorAdEvidenceGroup["sourceErrors"];
+  verifiedCount: number;
 }
 
 function buildRootShapeGuidance(): string {
@@ -547,6 +552,7 @@ function buildNormalizedAdEvidenceBlock(
   return [
     "Pre-normalized live ad evidence:",
     "Write `body.adEvidence.prose` from these groups. If groups are empty, say that no live ad-library tool results were available and do not use fixture ads.",
+    "Quarantine-tier creatives are identity-unverified signals; prose must not present them as confirmed competitor advertising, and when `verifiedCount` is 0 prose must say so.",
     "Set `body.adEvidence.advertiserGroups` to [] in your generated JSON. The runner injects these exact normalized groups after structured generation so counts, source links, returnedCreativeCount, dataGaps, and sourceErrors cannot drift.",
     "For Competitor Landscape, reconcile `body.competitorSet.competitors` against ResearchInput.competitorSeedHints and the live evidence transcript before introducing generic alternatives.",
     "Compact ad evidence view for reasoning:",
@@ -562,17 +568,26 @@ function compactAdEvidenceGroups(
     advertiserName: group.advertiserName,
     dataGaps: group.dataGaps,
     displayableCounts: group.displayableCounts,
+    identityConfidence: group.identityConfidence ?? null,
     platforms: group.platforms,
+    quarantinedCount:
+      group.quarantinedCount ??
+      group.creatives.filter((creative) => creative.verified === false).length,
     rawCounts: group.rawCounts,
     returnedCreativeCount: group.returnedCreativeCount,
     sampleCreatives: group.creatives.slice(0, 2).map((creative) => ({
       body: creative.body,
       headline: creative.headline,
+      identityBasis: creative.identityBasis ?? null,
       landingUrl: creative.landingUrl,
       platform: creative.platform,
       sourceUrl: creative.sourceUrl,
+      verified: creative.verified ?? null,
     })),
     sourceErrors: group.sourceErrors,
+    verifiedCount:
+      group.verifiedCount ??
+      group.creatives.filter((creative) => creative.verified === true).length,
   }));
 }
 

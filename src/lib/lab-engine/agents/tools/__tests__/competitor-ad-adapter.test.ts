@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { NOT_PROBED_THIS_RUN_PHRASE } from "../../../sections/sentinels";
-import { buildCompetitorAdEvidenceGroups } from "../competitor-ad-adapter";
+import {
+  buildCompetitorAdEvidenceGroups,
+  QUARANTINE_ONLY_AD_EVIDENCE_GAP_PREFIX,
+} from "../competitor-ad-adapter";
 
 describe("buildCompetitorAdEvidenceGroups", (): void => {
   it("sets the group domain from the matching ad tool input", (): void => {
@@ -340,6 +343,11 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.identityConfidence).toBe("low");
     expect(group.quarantinedCount).toBe(1);
     expect(group.verifiedCount).toBe(0);
+    expect(
+      group.dataGaps.some((gap) =>
+        gap.reason.startsWith(QUARANTINE_ONLY_AD_EVIDENCE_GAP_PREFIX),
+      ),
+    ).toBe(true);
   });
 
   it("quarantines a name-only creative and preserves the identity basis", () => {

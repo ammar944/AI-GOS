@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ResearchInput } from "@/lib/lab-engine/artifacts/artifact-envelope";
+import type { CompetitorAdEvidenceGroup } from "@/lib/lab-engine/artifacts/schemas/competitor-landscape";
 import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
 import { SECTION_REGISTRY } from "@/lib/lab-engine/sections/section-registry";
 import {
@@ -254,6 +255,75 @@ describe("buildAnswerToolInstructions", (): void => {
       "cite only competitor URLs and numeric pricing/deal values that appear in fetched tool evidence",
     );
     expect(prompt).toContain("mark it as an evidence gap");
+  });
+
+  it("carries ad identity metadata in the compact ad evidence prompt", (): void => {
+    const normalizedAdEvidenceGroups: CompetitorAdEvidenceGroup[] = [
+      {
+        advertiserName: "Notion",
+        domain: "notion.so",
+        platforms: ["meta"],
+        rawCounts: { google: 0, meta: 41, linkedin: 0 },
+        displayableCounts: { google: 0, meta: 41, linkedin: 0 },
+        displayableTotal: 41,
+        returnedCreativeCount: 1,
+        verifiedCount: 0,
+        quarantinedCount: 41,
+        identityConfidence: "low",
+        creatives: [
+          {
+            id: "notion-q1",
+            platform: "meta",
+            advertiserName: "Notion",
+            headline: "All-in-one workspace",
+            body: null,
+            landingUrl: null,
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl: null,
+            sourceUrl: "https://www.facebook.com/ads/library/?id=notion-q1",
+            firstSeen: null,
+            lastSeen: null,
+            format: "text",
+            isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
+            verified: false,
+            identityBasis: "name_only",
+          },
+        ],
+        libraryLinks: {
+          meta: "https://www.facebook.com/ads/library/?q=Notion",
+        },
+        rawSourceSamples: [],
+        dataGaps: [
+          {
+            reason:
+              "Identity-unverified ad signals only: verifiedCount=0; quarantinedCount=41.",
+          },
+        ],
+        sourceErrors: [],
+        observedAt: "2026-06-10T00:00:00.000Z",
+      },
+    ];
+    const prompt = buildStructuredBodyPrompt({
+      definition: competitorDefinition,
+      externalToolNames: ["meta_ads"],
+      normalizedAdEvidenceGroups,
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use live competitor evidence.",
+    });
+
+    expect(prompt).toContain(
+      "Quarantine-tier creatives are identity-unverified signals",
+    );
+    expect(prompt).toContain('"identityConfidence": "low"');
+    expect(prompt).toContain('"verifiedCount": 0');
+    expect(prompt).toContain('"quarantinedCount": 41');
+    expect(prompt).toContain('"verified": false');
+    expect(prompt).toContain('"identityBasis": "name_only"');
   });
 
   it("repeats Competitor Landscape weakness coverage minimums in repair prompts", (): void => {
