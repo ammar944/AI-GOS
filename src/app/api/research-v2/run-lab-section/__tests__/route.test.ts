@@ -536,6 +536,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     await drainAfter();
 
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
+      deadlineAt: expect.any(Number),
       runId: VALID_RUN_ID,
       sectionId: 'positioningBuyerICP',
       signal: expect.any(AbortSignal),
@@ -650,6 +651,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     await drainAfter();
 
     expect(routeMocks.runLabSectionJob).toHaveBeenNthCalledWith(2, {
+      deadlineAt: expect.any(Number),
       runId: VALID_RUN_ID,
       sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
@@ -1072,6 +1074,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     await drainAfter();
 
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
+      deadlineAt: expect.any(Number),
       runId: VALID_RUN_ID,
       sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
@@ -1126,6 +1129,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
     await drainAfter();
 
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledWith({
+      deadlineAt: expect.any(Number),
       runId: VALID_RUN_ID,
       sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),

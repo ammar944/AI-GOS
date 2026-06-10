@@ -17,6 +17,8 @@ const DEFAULT_REVIEW_TIMEOUT_MS = 45_000;
 const REVIEW_METADATA_PATTERN =
   /<review_metadata>([\s\S]*?)<\/review_metadata>/u;
 
+type ReviewProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
+
 export interface ReviewAndUpgradeSectionInput {
   artifact: ArtifactEnvelope | null;
   researchInput: ResearchInput;
@@ -253,6 +255,24 @@ function buildReviewPrompt(input: {
   ].join("\n");
 }
 
+function isDeepSeekModel(model: SectionLanguageModel): boolean {
+  return model.provider.startsWith("deepseek.");
+}
+
+function getReviewProviderOptions(
+  model: SectionLanguageModel,
+): ReviewProviderOptions {
+  if (!isDeepSeekModel(model)) {
+    return undefined;
+  }
+
+  return {
+    deepseek: {
+      thinking: { type: "disabled" },
+    },
+  };
+}
+
 function createReviewTimeoutSignal(input: {
   parentSignal?: AbortSignal;
   timeoutMs: number;
@@ -300,6 +320,7 @@ export async function reviewAndUpgradeSection(
         researchInput: input.researchInput,
         sectionId: input.sectionId,
       }),
+      providerOptions: getReviewProviderOptions(input.model),
       temperature: 0.1,
     });
 

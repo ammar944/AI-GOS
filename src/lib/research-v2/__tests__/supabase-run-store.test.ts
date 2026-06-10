@@ -10,10 +10,7 @@ import {
   ALL_POSITIONING_SECTION_IDS,
   POSITIONING_SECTION_IDS,
 } from '@/lib/ai/prompts/positioning-skills';
-import type {
-  AllPositioningSectionId,
-  PositioningSectionId,
-} from '@/lib/ai/prompts/positioning-skills';
+import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
 const profilePersistenceMocks = vi.hoisted(() => ({
   persistAuditProfileBestEffort: vi.fn(),
@@ -318,6 +315,24 @@ function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   };
 }
 
+function createReviewScheduler(): {
+  drain: () => Promise<void>;
+  schedulePostCommitReview: (task: () => Promise<void>) => void;
+} {
+  const tasks: Array<() => Promise<void>> = [];
+
+  return {
+    drain: async (): Promise<void> => {
+      for (const task of tasks.splice(0)) {
+        await task();
+      }
+    },
+    schedulePostCommitReview: (task: () => Promise<void>): void => {
+      tasks.push(task);
+    },
+  };
+}
+
 describe('createSupabaseRunStore', (): void => {
   beforeEach((): void => {
     profilePersistenceMocks.persistAuditProfileBestEffort.mockReset();
@@ -336,12 +351,14 @@ describe('createSupabaseRunStore', (): void => {
 
   it('keeps the lab RunRecord contract while writing events, status, and artifacts to Supabase', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase();
+    const reviewScheduler = createReviewScheduler();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
       userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
       now: () => new Date('2026-05-25T12:00:00.000Z'),
     });
 
@@ -401,6 +418,32 @@ describe('createSupabaseRunStore', (): void => {
         p_expected_revision: 0,
         p_patch: expect.objectContaining({
           status: 'complete',
+          data: marketCategoryFixtureArtifact,
+          markdown: expect.stringContaining(marketCategoryFixtureArtifact.verdict),
+          claims: [],
+          sources: marketCategoryFixtureArtifact.sources,
+        }),
+      }),
+    );
+    expect(reviewMocks.reviewAndUpgradeSection).not.toHaveBeenCalled();
+
+    await reviewScheduler.drain();
+
+    expect(reviewMocks.reviewAndUpgradeSection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifact: marketCategoryFixtureArtifact,
+        researchInput: saaslaunchResearchInput,
+        sectionId: 'positioningMarketCategory',
+      }),
+    );
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_artifact_id: parentAuditRunId,
+        p_zone: 'positioningMarketCategory',
+        p_section_run_id: sectionRunIdByZone.positioningMarketCategory,
+        p_expected_revision: 1,
+        p_patch: expect.objectContaining({
           data: expect.objectContaining({
             ...marketCategoryFixtureArtifact,
             review: expect.objectContaining({
@@ -409,16 +452,8 @@ describe('createSupabaseRunStore', (): void => {
             }),
           }),
           markdown: 'Reviewed market category markdown.',
-          claims: [],
-          sources: marketCategoryFixtureArtifact.sources,
+          verificationTier: 'verified',
         }),
-      }),
-    );
-    expect(reviewMocks.reviewAndUpgradeSection).toHaveBeenCalledWith(
-      expect.objectContaining({
-        artifact: marketCategoryFixtureArtifact,
-        researchInput: saaslaunchResearchInput,
-        sectionId: 'positioningMarketCategory',
       }),
     );
     expect(fakeSupabase.update).toHaveBeenCalledWith(
@@ -547,12 +582,14 @@ describe('createSupabaseRunStore', (): void => {
       clientQuestions: ['Can you provide sourced TAM assumptions?'],
     });
     const fakeSupabase = createFakeSupabase();
+    const reviewScheduler = createReviewScheduler();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
       userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
       now: () => new Date('2026-05-25T12:00:00.000Z'),
     });
     const needsReviewArtifact = {
@@ -584,6 +621,25 @@ describe('createSupabaseRunStore', (): void => {
             needsReviewThreshold: 0.75,
             insufficientThreshold: 0.5,
           }),
+          data: needsReviewArtifact,
+        }),
+      }),
+    );
+    expect(reviewMocks.reviewAndUpgradeSection).not.toHaveBeenCalled();
+
+    await reviewScheduler.drain();
+
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_expected_revision: 1,
+        p_patch: expect.objectContaining({
+          verificationTier: 'needs_review',
+          verificationFlag: expect.objectContaining({
+            tier: 'needs_review',
+            verifiedCount: 2,
+            unsupportedCount: 1,
+          }),
           markdown: 'Needs review markdown.',
           data: expect.objectContaining({
             review: expect.objectContaining({
@@ -607,12 +663,14 @@ describe('createSupabaseRunStore', (): void => {
     const fakeSupabase = createFakeSupabase({
       completeSectionZones: ['positioningPaidMediaPlan'],
     });
+    const reviewScheduler = createReviewScheduler();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
       userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
       now: () => new Date('2026-06-09T12:00:00.000Z'),
     });
     const paidMediaNeedsReviewArtifact = {
@@ -634,11 +692,32 @@ describe('createSupabaseRunStore', (): void => {
       'commit_artifact_section',
       expect.objectContaining({
         p_patch: expect.objectContaining({
+          verificationTier: null,
+          data: expect.objectContaining({
+            needs_review: true,
+            verifierSummary: expect.objectContaining({
+              needsReviewIds: ['anglesToTest[0].Founder proof'],
+            }),
+          }),
+        }),
+      }),
+    );
+
+    await reviewScheduler.drain();
+
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_expected_revision: 1,
+        p_patch: expect.objectContaining({
           verificationTier: 'verified',
           data: expect.objectContaining({
             needs_review: true,
             verifierSummary: expect.objectContaining({
               needsReviewIds: ['anglesToTest[0].Founder proof'],
+            }),
+            review: expect.objectContaining({
+              tier: 'verified',
             }),
           }),
         }),
@@ -652,12 +731,14 @@ describe('createSupabaseRunStore', (): void => {
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation((): void => {});
     const fakeSupabase = createFakeSupabase();
+    const reviewScheduler = createReviewScheduler();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
       userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
       now: () => new Date('2026-05-25T12:00:00.000Z'),
     });
 
@@ -674,8 +755,10 @@ describe('createSupabaseRunStore', (): void => {
         }),
       }),
     );
+    await reviewScheduler.drain();
+
     expect(warn).toHaveBeenCalledWith(
-      '[supabase-run-store] agentic section review failed; committing original artifact:',
+      '[supabase-run-store] agentic section review failed; keeping committed original artifact:',
       'review transport failed',
     );
     warn.mockRestore();
@@ -683,12 +766,14 @@ describe('createSupabaseRunStore', (): void => {
 
   it('passes the configured agentic review timeout to the review hook', async (): Promise<void> => {
     const fakeSupabase = createFakeSupabase();
+    const reviewScheduler = createReviewScheduler();
     const store = createSupabaseRunStore({
       supabase: fakeSupabase.supabase,
       userId,
       parentAuditRunId,
       sectionRunIdByZone,
       researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
       env: { LAB_REVIEW_TIMEOUT_MS: '1234' },
       now: () => new Date('2026-05-25T12:00:00.000Z'),
     });
@@ -697,6 +782,8 @@ describe('createSupabaseRunStore', (): void => {
       saaslaunchResearchInput.runId,
       marketCategoryFixtureArtifact,
     );
+
+    await reviewScheduler.drain();
 
     expect(reviewMocks.reviewAndUpgradeSection).toHaveBeenCalledWith(
       expect.objectContaining({

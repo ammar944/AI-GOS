@@ -257,9 +257,29 @@ function createReviewModelSelection(env: NodeJS.ProcessEnv): {
   const anthropic = createAnthropic({
     apiKey: env.ANTHROPIC_API_KEY,
   });
+  const deepseekApiKey = getTrimmedEnvValue(env, "DEEPSEEK_API_KEY");
   const rawReviewModel = getTrimmedEnvValue(env, "LAB_REVIEW_MODEL");
 
-  if (rawReviewModel === undefined || rawReviewModel === "sonnet") {
+  if (rawReviewModel === undefined) {
+    if (deepseekApiKey === undefined) {
+      throw new Error(
+        "Default LAB_REVIEW_MODEL requires DEEPSEEK_API_KEY. Set DEEPSEEK_API_KEY or explicitly set LAB_REVIEW_MODEL.",
+      );
+    }
+
+    const deepseek = createDeepSeek({ apiKey: deepseekApiKey });
+
+    return {
+      metadata: {
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "deepseek-direct",
+      },
+      model: deepseek(DEEPSEEK_SECTION_MODEL_ID),
+    };
+  }
+
+  if (rawReviewModel === "sonnet") {
     return {
       metadata: {
         provider: "anthropic",

@@ -15,7 +15,7 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
     });
     expect(SECTION_REGISTRY.positioningBuyerICP).toMatchObject({
       allowedTools: ["web_search", "firecrawl"],
-      maxExternalLookups: 4,
+      maxExternalLookups: 6,
       requiredEvidenceClasses: ["icp_persona", "icp_quote_or_gap"],
     });
     expect(SECTION_REGISTRY.positioningCompetitorLandscape).toMatchObject({
@@ -45,7 +45,7 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
         "keyword_trends",
         "firecrawl",
       ],
-      maxExternalLookups: 5,
+      maxExternalLookups: 7,
       requiredEvidenceClasses: ["demand_signal_or_gap"],
     });
     expect(SECTION_REGISTRY.positioningOfferDiagnostic).toMatchObject({
@@ -59,12 +59,14 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
     });
   });
 
-  it("keeps BuyerICP on the dedicated grounding gate and current lookup budget", (): void => {
+  it("keeps W4 lookup headroom selective to BuyerICP and DemandIntent", (): void => {
     expect(SECTION_REGISTRY.positioningBuyerICP.requiredEvidenceClasses).toEqual([
       "icp_persona",
       "icp_quote_or_gap",
     ]);
-    expect(SECTION_REGISTRY.positioningBuyerICP.maxExternalLookups).toBe(4);
+    expect(SECTION_REGISTRY.positioningBuyerICP.maxExternalLookups).toBe(6);
+    expect(SECTION_REGISTRY.positioningDemandIntent.maxExternalLookups).toBe(7);
+    expect(SECTION_REGISTRY.positioningOfferDiagnostic.maxExternalLookups).toBe(4);
   });
 
   // P4: the committable gate now reads definition.loadBearingKinds off the

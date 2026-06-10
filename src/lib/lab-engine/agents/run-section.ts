@@ -199,6 +199,7 @@ export interface RunSectionInput {
   runId: string;
   sectionId: SupportedSectionId;
   signal?: AbortSignal;
+  deadlineAt?: number;
 }
 
 export interface RunSectionDeps {
@@ -292,6 +293,61 @@ function getNow(deps: RunSectionDeps): Date {
 
 function getNewId(deps: RunSectionDeps): string {
   return (deps.newId ?? (() => randomUUID()))();
+}
+
+export const labSectionRepairFloorMs = 75_000;
+export const labSectionEmitFloorMs = 20_000;
+
+function getRemainingDeadlineMs(
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): number | null {
+  if (input.deadlineAt === undefined) {
+    return null;
+  }
+
+  return Math.max(0, input.deadlineAt - getNow(deps).getTime());
+}
+
+function getDeadlineAwareModelTimeoutMs({
+  deps,
+  input,
+  requestedMs,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  requestedMs: number;
+}): number {
+  const remainingMs = getRemainingDeadlineMs(input, deps);
+
+  if (remainingMs === null) {
+    return requestedMs;
+  }
+
+  return Math.max(1, Math.min(requestedMs, remainingMs - labSectionEmitFloorMs));
+}
+
+function canStartDeadlineFundedRepair(
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): boolean {
+  const remainingMs = getRemainingDeadlineMs(input, deps);
+
+  return remainingMs === null || remainingMs >= labSectionRepairFloorMs;
+}
+
+function formatDeadlineRepairSkipIssue(
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): string {
+  const remainingMs = getRemainingDeadlineMs(input, deps);
+
+  return [
+    "deadline-aware salvage: skipped repair because remaining section budget",
+    `${remainingMs ?? "unknown"}ms is below repair floor ${labSectionRepairFloorMs}ms`,
+    `runId=${input.runId}`,
+    `sectionId=${input.sectionId}`,
+  ].join(" ");
 }
 
 function createEvent({
@@ -2597,6 +2653,16 @@ function withSectionSourcesFromBody({
   };
 }
 
+function withoutEvidenceGapKeys(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(record).filter(
+      ([key]) => key !== "evidenceGap" && key !== "evidenceGapReport",
+    ),
+  );
+}
+
 function withNormalizedBuyerICPOutput(rawOutput: unknown): unknown {
   const outputRecord = getRecord(rawOutput);
 
@@ -2612,11 +2678,17 @@ function withNormalizedBuyerICPOutput(rawOutput: unknown): unknown {
 
   const icpExistenceCheckRecord = getRecord(bodyRecord.icpExistenceCheck);
   const awarenessDistributionRecord = getRecord(bodyRecord.awarenessDistribution);
+  const personaRealityRecord = getRecord(bodyRecord.personaReality);
 
   return {
     ...outputRecord,
     body: {
       ...bodyRecord,
+      ...(personaRealityRecord === null
+        ? {}
+        : {
+            personaReality: withoutEvidenceGapKeys(personaRealityRecord),
+          }),
       ...(icpExistenceCheckRecord === null
         ? {}
         : {
@@ -3413,7 +3485,11 @@ async function callStructuredAttempt({
   signal?: AbortSignal;
 }): Promise<AttemptResult> {
   const callStructured = deps.callStructured ?? defaultStructuredCaller;
-  const outputTimeoutMs = getStructuredOutputTimeoutMs(input.sectionId);
+  const outputTimeoutMs = getDeadlineAwareModelTimeoutMs({
+    deps,
+    input,
+    requestedMs: getStructuredOutputTimeoutMs(input.sectionId),
+  });
   const timeoutSignal = createTimeoutSignal({
     parentSignal: signal,
     timeoutMs: outputTimeoutMs,
@@ -5110,7 +5186,11 @@ async function buildStructuredBodyAttempt({
   toolEvents: ActivityEvent[];
 }): Promise<AttemptResult> {
   const streamStructured = deps.streamStructured ?? defaultStructuredStreamer;
-  const outputTimeoutMs = getStructuredOutputTimeoutMs(input.sectionId);
+  const outputTimeoutMs = getDeadlineAwareModelTimeoutMs({
+    deps,
+    input,
+    requestedMs: getStructuredOutputTimeoutMs(input.sectionId),
+  });
   const timeoutSignal = createTimeoutSignal({
     parentSignal: input.signal,
     timeoutMs: outputTimeoutMs,
@@ -5507,7 +5587,11 @@ async function runSectionViaAnswerTool(
     prompt: string;
   }): Promise<Awaited<ReturnType<AnswerToolRunner>>> =>
     runAnswerToolWithStallGuard({
-      overallTimeoutMs: answerToolTimeoutMs,
+      overallTimeoutMs: getDeadlineAwareModelTimeoutMs({
+        deps,
+        input,
+        requestedMs: answerToolTimeoutMs,
+      }),
       runAnswerTool,
       parentSignal: input.signal,
       params: {
@@ -5655,7 +5739,8 @@ async function runSectionViaAnswerTool(
       // repair once the section has been aborted. The post-loop path then
       // commits the best attempt so far or records a clean terminal failure,
       // rather than racing the outer controller into an orphaned 'running' row.
-      input.signal?.aborted !== true
+      input.signal?.aborted !== true &&
+      canStartDeadlineFundedRepair(input, deps)
     ) {
       const repairIssues = getAttemptRepairIssues(attempt);
 
@@ -5733,6 +5818,32 @@ async function runSectionViaAnswerTool(
       );
       repairAttempt += 1;
       validationAttempt += 1;
+    }
+
+    if (
+      shouldRepairAttempt(attempt, maxUnsupportedAllowed) &&
+      repairAttempt < answerToolMaxRepairAttempts &&
+      input.signal?.aborted !== true &&
+      !canStartDeadlineFundedRepair(input, deps)
+    ) {
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Answer tool repair skipped for deadline-aware salvage",
+          metadata: {
+            attempt: validationAttempt,
+            issues: [
+              ...getAttemptRepairIssues(attempt),
+              formatDeadlineRepairSkipIssue(input, deps),
+            ],
+          },
+        }),
+      );
     }
 
     if (bestCommittableAttempt !== null) {
@@ -6254,7 +6365,8 @@ async function runSectionViaStructuredBodyStream(
       // repair once the section has been aborted. The post-loop path then
       // commits the best attempt so far or records a clean terminal failure,
       // rather than racing the outer controller into an orphaned 'running' row.
-      input.signal?.aborted !== true
+      input.signal?.aborted !== true &&
+      canStartDeadlineFundedRepair(input, deps)
     ) {
       const repairIssues = getAttemptRepairIssues(attempt);
 
@@ -6356,6 +6468,32 @@ async function runSectionViaStructuredBodyStream(
         attempt,
       );
       repairAttempt += 1;
+    }
+
+    if (
+      shouldRepairAttempt(attempt, maxUnsupportedAllowed) &&
+      repairAttempt < answerToolMaxRepairAttempts &&
+      input.signal?.aborted !== true &&
+      !canStartDeadlineFundedRepair(input, deps)
+    ) {
+      await appendEvent(
+        deps,
+        input.runId,
+        createEvent({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          type: "validation-failed",
+          message: "Structured body repair skipped for deadline-aware salvage",
+          metadata: {
+            attempt: validationAttempt,
+            issues: [
+              ...getAttemptRepairIssues(attempt),
+              formatDeadlineRepairSkipIssue(input, deps),
+            ],
+          },
+        }),
+      );
     }
 
     if (bestCommittableAttempt !== null) {

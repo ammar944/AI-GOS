@@ -25,7 +25,7 @@ const TIER_STYLES: Record<VerificationTier, string> = {
 };
 
 function pluralizeUnsupported(count: number): string {
-  return count === 1 ? '1 unsupported' : `${count} unsupported`;
+  return count === 1 ? '1 unsupported claim' : `${count} unsupported claims`;
 }
 
 function pluralizeSupported(count: number): string {
@@ -55,6 +55,10 @@ function badgeLabel(input: {
     return `${tierLabel(input.tier)} · ${pluralizeSupported(
       input.flag.verifiedCount,
     )} · ${grounded}`;
+  }
+
+  if (input.flag.evidenceGap) {
+    return `${tierLabel(input.tier)} · Declared evidence gap · ${grounded}`;
   }
 
   return `${tierLabel(input.tier)} · ${pluralizeUnsupported(

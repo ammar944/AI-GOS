@@ -95,12 +95,14 @@ export async function scheduleLabSectionJob(
     parentAuditRunId: seeded.parent_audit_run_id,
     sectionRunIdByZone,
     researchInput: input.researchInput,
+    schedulePostCommitReview: input.schedule,
   });
 
   await store.createRun(input.researchInput);
 
   input.schedule(async (): Promise<void> => {
     const controller = new AbortController();
+    const deadlineAt = Date.now() + LAB_SECTION_JOB_TIMEOUT_MS;
     const timer = setTimeout(() => {
       controller.abort(
         new Error(
@@ -112,6 +114,7 @@ export async function scheduleLabSectionJob(
       await runLabSectionJob({
         runId: input.runId,
         sectionId: input.sectionId,
+        deadlineAt,
         signal: controller.signal,
         store,
       });

@@ -30,6 +30,7 @@ export interface RunLabSectionJobInput {
   runId: string;
   sectionId: SupportedSectionId;
   signal?: AbortSignal;
+  deadlineAt?: number;
   store: RunStore;
   runSectionImpl?: LabRunSection;
   now?: () => Date;
@@ -53,7 +54,12 @@ export async function runLabSectionJob(
 
   try {
     const sectionPromise = runSectionImpl(
-      { runId: input.runId, sectionId, signal: input.signal },
+      {
+        runId: input.runId,
+        sectionId,
+        signal: input.signal,
+        ...(input.deadlineAt === undefined ? {} : { deadlineAt: input.deadlineAt }),
+      },
       {
         store: input.store,
         loadSkill: loadLabSkill,

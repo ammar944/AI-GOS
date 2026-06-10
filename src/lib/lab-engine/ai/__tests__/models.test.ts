@@ -121,29 +121,37 @@ describe("checkSectionModelDispatchPreflight", (): void => {
 });
 
 describe("createSectionModelSelection", (): void => {
-  it("selects Anthropic Sonnet by default", (): void => {
-    const selection = createSectionModelSelection(buildEnv());
+  it("requires DeepSeek auth for the default review model", (): void => {
+    expect(() => createSectionModelSelection(buildEnv())).toThrow(
+      "Default LAB_REVIEW_MODEL requires DEEPSEEK_API_KEY. Set DEEPSEEK_API_KEY or explicitly set LAB_REVIEW_MODEL.",
+    );
+  });
+
+  it("selects Anthropic Sonnet for sections and DeepSeek for default review", (): void => {
+    const selection = createSectionModelSelection(
+      buildEnv({ DEEPSEEK_API_KEY: "test-deepseek-key" }),
+    );
 
     expect(selection.metadata).toEqual({
       provider: "anthropic",
       modelId: SONNET_SECTION_MODEL_ID,
       repairModelId: SONNET_SECTION_MODEL_ID,
       reviewModel: {
-        provider: "anthropic",
-        modelId: SONNET_SECTION_MODEL_ID,
-        transport: "anthropic",
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "deepseek-direct",
       },
       strategyModel: {
-        provider: "anthropic",
-        modelId: SONNET_SECTION_MODEL_ID,
-        transport: "anthropic",
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "deepseek-direct",
       },
       transport: "anthropic",
     });
     expect(selection.sectionRunnerModel.provider).toBe("anthropic.messages");
     expect(selection.sectionRunnerModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
-    expect(selection.reviewModel.provider).toBe("anthropic.messages");
-    expect(selection.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
+    expect(selection.reviewModel.provider).toBe("deepseek.chat");
+    expect(selection.reviewModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
   });
 
   it("selects direct DeepSeek v4 flash for sections and pro for default strategy", (): void => {
@@ -226,13 +234,18 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.strategyModel.modelId).toBe("deepseek-v4-flash:cloud");
   });
 
-  it("treats a blank review model flag as the default Sonnet model", (): void => {
+  it("treats a blank review model flag as the default DeepSeek model", (): void => {
     const selection = createSectionModelSelection(
-      buildEnv({ LAB_REVIEW_MODEL: "   " }),
+      buildEnv({
+        DEEPSEEK_API_KEY: "test-deepseek-key",
+        LAB_REVIEW_MODEL: "   ",
+      }),
     );
 
-    expect(selection.metadata.reviewModel.modelId).toBe(SONNET_SECTION_MODEL_ID);
-    expect(selection.reviewModel.provider).toBe("anthropic.messages");
+    expect(selection.metadata.reviewModel.modelId).toBe(
+      DEEPSEEK_SECTION_MODEL_ID,
+    );
+    expect(selection.reviewModel.provider).toBe("deepseek.chat");
   });
 
   it("allows the review and strategy model to use Anthropic Opus", (): void => {

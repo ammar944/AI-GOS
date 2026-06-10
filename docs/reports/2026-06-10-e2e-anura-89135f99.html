@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E2E Run Report - anura.io - 89135f99 - 2026-06-10</title>
+<style>
+  :root {
+    --bg: #0d1016; --panel: #151922; --panel2: #1c2230; --border: #2b3342;
+    --text: #e8ebf1; --muted: #9aa3b4; --dim: #687183;
+    --green: #40d28f; --amber: #f4b860; --red: #ef7676; --blue: #74a8ff; --violet: #b39cff;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.65 -apple-system, "Segoe UI", Inter, sans-serif; padding: 48px 24px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; }
+  h2 { font-size: 13px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; color: var(--blue); margin: 54px 0 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p { margin: 8px 0; }
+  ul { margin: 8px 0 8px 22px; } li { margin: 5px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  th { text-align: left; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid rgba(43,51,66,.6); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  code { background: var(--panel2); color: var(--violet); padding: 1px 6px; border-radius: 5px; }
+  .muted { color: var(--muted); } .dim { color: var(--dim); }
+  .hero { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 14px; }
+  .verdict { display: inline-block; margin-top: 18px; padding: 8px 14px; border-radius: 8px; font-family: var(--mono); font-size: 13px; font-weight: 650; letter-spacing: .05em; }
+  .pass { background: rgba(64,210,143,.12); color: var(--green); border: 1px solid rgba(64,210,143,.35); }
+  .warn { background: rgba(244,184,96,.12); color: var(--amber); border: 1px solid rgba(244,184,96,.35); }
+  .fail { background: rgba(239,118,118,.12); color: var(--red); border: 1px solid rgba(239,118,118,.35); }
+  .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat .v { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat .l { font-size: 11px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--dim); margin-top: 2px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin: 14px 0; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 99px; font-family: var(--mono); font-size: 11px; font-weight: 650; white-space: nowrap; }
+  .pill.g { background: rgba(64,210,143,.12); color: var(--green); }
+  .pill.a { background: rgba(244,184,96,.12); color: var(--amber); }
+  .pill.r { background: rgba(239,118,118,.12); color: var(--red); }
+  .pill.b { background: rgba(116,168,255,.12); color: var(--blue); }
+  .score { font-family: var(--mono); font-weight: 700; }
+  .good::before { content: "PASS "; color: var(--green); font-family: var(--mono); font-weight: 700; }
+  .caution::before { content: "WARN "; color: var(--amber); font-family: var(--mono); font-weight: 700; }
+  .bad::before { content: "FAIL "; color: var(--red); font-family: var(--mono); font-weight: 700; }
+  .quote { border-left: 3px solid var(--blue); padding: 10px 16px; margin: 12px 0; background: var(--panel2); border-radius: 0 8px 8px 0; font-size: 14px; }
+  img.shot { width: 100%; border: 1px solid var(--border); border-radius: 10px; margin: 12px 0; }
+  .footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--dim); font-size: 12px; font-family: var(--mono); }
+</style>
+</head>
+<body><div class="wrap">
+
+<div class="hero">
+  <div class="mono dim">AI-GOS - LIVE END-TO-END RUN REPORT - 2026-06-10</div>
+  <h1>anura.io - Quality Bottlenecks Fix Pack Gate</h1>
+  <div class="sub">Run <span class="mono">89135f99-7137-4ccd-9b33-e883bb2f9a40</span> - artifact <span class="mono">e1691c04-86f7-43ca-87d8-7f3e9a8b875b</span> - branch <span class="mono">refactor/architecture-deepening</span></div>
+  <div class="verdict pass">OBJECTIVE GATE: PASS - ALL HARD CHECKS GREEN</div>
+  <div class="verdict warn">QUALITY VERDICT: 6.4 / 10 - NOT CLIENT-READY UNEDITED</div>
+  <div class="statgrid">
+    <div class="stat"><div class="v">8/8</div><div class="l">sections committed</div></div>
+    <div class="stat"><div class="v">170</div><div class="l">verified claims</div></div>
+    <div class="stat"><div class="v">100</div><div class="l">unverified claims</div></div>
+    <div class="stat"><div class="v">58</div><div class="l">displayable ads</div></div>
+  </div>
+  <p class="sub">The run proves the pipeline can complete and preserve honest gaps. It does not prove 9/10 strategist quality because the paid-media plan failed the Media-Plan SOP stress test: it produced a Meta-first $3k/mo plan instead of high-ACV LinkedIn + Google.</p>
+</div>
+
+<h2>1 - Execution Truth</h2>
+<div class="card">
+<table>
+<tr><th>Event</th><th>Evidence</th><th>Verdict</th></tr>
+<tr><td>API doctor</td><td>DeepSeek, Perplexity, Firecrawl, Brave, SearchAPI, SpyFu, Foreplay OK. Anthropic returned 401 auth_failed.</td><td><span class="pill a">WARN</span></td></tr>
+<tr><td>Core fanout</td><td>Six positioning sections launched in parallel. Four completed on first attempt; Market and Buyer ICP failed validation.</td><td><span class="pill a">PARTIAL</span></td></tr>
+<tr><td>One post-fanout rerun</td><td>Manual authenticated reruns queued Market and Buyer. Market committed. Buyer exposed a live bug: model-authored nested <code>personaReality.evidenceGap</code> keys failed strict schema parse.</td><td><span class="pill r">BUG FOUND</span></td></tr>
+<tr><td>Surgical fix</td><td>Normalizer now strips illegal nested Buyer ICP evidence-gap keys before schema parse and commits the runner-owned body-level evidence gap. Regression added in <code>run-section-corpus-only.test.ts</code>.</td><td><span class="pill g">FIXED</span></td></tr>
+<tr><td>Post-fix Buyer rerun</td><td><code>dce40c67-01b5-4f55-96d5-610cb20fdadd</code> committed at <code>2026-06-10T05:49:58Z</code>.</td><td><span class="pill g">RECOVERED</span></td></tr>
+<tr><td>Paid Media</td><td>Auto-dispatched after 6/6, committed as <code>needs_review</code> at <code>2026-06-10T05:54:21Z</code>.</td><td><span class="pill g">COMPLETE</span></td></tr>
+</table>
+<p class="caution">This is a green structural E2E after a live surgical fix, not a clean first-pass run. That distinction matters for branch signoff.</p>
+</div>
+
+<h2>2 - Objective Gate</h2>
+<div class="card">
+<table>
+<tr><th>Check class</th><th>Result</th><th>Detail</th></tr>
+<tr><td>Run-level status, rollup, profile persistence</td><td><span class="pill g">PASS</span></td><td>artifact complete, children 6/6, one <code>profile_persisted</code> event.</td></tr>
+<tr><td>Zone completion</td><td><span class="pill g">PASS</span></td><td>corpus + six positioning sections + paid media committed.</td></tr>
+<tr><td>Rollup scoping</td><td><span class="pill g">PASS</span></td><td>six core sections count toward rollup; paid media and corpus do not.</td></tr>
+<tr><td>Source presence</td><td><span class="pill g">PASS</span></td><td>Market 9, Buyer 11, Competitor 41, VoC 21, Demand 18, Offer 8, Paid Media 13.</td></tr>
+<tr><td>Competitor ad wall</td><td><span class="pill g">PASS</span></td><td>No <code>idk</code>, no compound advertiser names, 58 displayable ads across ClickCease, ClickGuard, CHEQ.</td></tr>
+<tr><td>Paid-media placeholders</td><td><span class="pill g">PASS</span></td><td>No <code>$[Budget]</code>, no <code>[brief:</code>, monthly budget resolved as <code>$3,000 / month</code>.</td></tr>
+<tr><td>Advisory badges</td><td><span class="pill a">WARN</span></td><td>Buyer, VoC, Demand are <code>insufficient</code>; Market and Paid Media are <code>needs_review</code>.</td></tr>
+</table>
+<p class="good">Command: <code>node scripts/zz-verify-e2e-run.mjs 89135f99-7137-4ccd-9b33-e883bb2f9a40</code> exited 0.</p>
+</div>
+
+<h2>3 - Quality Scorecard</h2>
+<div class="card">
+<table>
+<tr><th>Section</th><th>Score</th><th>Client-ready?</th><th>Assessment</th></tr>
+<tr><td>Corpus / brief prefill</td><td class="score">7 / 10</td><td>No, but useful</td><td>Correct company, category, value prop, docs, G2, and product surfaces. Public prefill missed pricing, competitors, testimonials, geography, and case studies. The user-supplied Anura brief was needed to restore budget, ACV, CPDemo targets, and ICP.</td></tr>
+<tr><td>Market &amp; Category</td><td class="score">7 / 10</td><td>Skim edit needed</td><td>Strong strategic wedge: enter ad-fraud detection, message false-positive avoidance. Review removed six unsupported estimates, so the committed section is honest but not client-ready without validating market-size and competitor-funding claims.</td></tr>
+<tr><td>Buyer / ICP</td><td class="score">5 / 10</td><td>No</td><td>Honest evidence gap is better than fabricated personas. It found one named buyer persona against a required five and labeled the gap. Useful as a sourcing to-do, not as a final ICP artifact.</td></tr>
+<tr><td>Competitor Landscape</td><td class="score">8 / 10</td><td>Mostly</td><td>Best section. 41 sources, verified badge, ClickCease/ClickGuard/CHEQ ad wall, no wrong-company or compound advertiser failures after the fix. Review unavailable, so a strategist should still skim for unsupported claims.</td></tr>
+<tr><td>Voice of Customer</td><td class="score">4 / 10</td><td>No</td><td>Honest gap state. It did not fabricate quotes, but it does not give a strategist enough buyer language to use. Needs customer interviews, review scraping, call notes, or first-party proof.</td></tr>
+<tr><td>Demand / Intent</td><td class="score">7 / 10</td><td>Skim edit needed</td><td>Useful keyword ceiling and SpyFu estimates: roughly 520 searches/month across sourced ad-fraud terms. Review unavailable and some assumptions remain, but this is usable for direction.</td></tr>
+<tr><td>Offer Diagnostic</td><td class="score">7 / 10</td><td>Skim edit needed</td><td>Correctly identifies proof density and gated trial friction as bottlenecks. Verified badge. Needs a strategist pass to align with Anura's internal claims policy and avoid overusing public conversion-lift claims.</td></tr>
+<tr><td>Paid Media Plan</td><td class="score">4 / 10</td><td>No</td><td>Structurally complete but strategically wrong against the SOP stress test. It chose Meta Advertising at $3k/mo and split into Meta audiences. For high-ACV Anura, the rubric expected LinkedIn + Google and no Meta. This is the biggest quality bottleneck remaining.</td></tr>
+</table>
+</div>
+
+<h2>4 - Paid Media SOP Failure</h2>
+<div class="card">
+<p class="bad"><b>The plan failed the user-confirmed Media-Plan SOP rubric.</b></p>
+<table>
+<tr><th>SOP expectation</th><th>Anura output</th><th>Impact</th></tr>
+<tr><td>High ACV / enterprise motion: LinkedIn + Google; avoid Meta.</td><td><code>campaignOverview.platform = "Meta Advertising"</code></td><td>Wrong channel strategy for the stress test.</td></tr>
+<tr><td>Google minimum: $5k/mo; LinkedIn minimum: $5k/mo; Meta minimum: $3k/mo.</td><td><code>$3,000 / month</code>, <code>$100 / day</code>, Meta Phase 1/2.</td><td>Budget math is internally consistent but follows the wrong platform branch.</td></tr>
+<tr><td>Use Anura's current Google performance and high-ticket economics.</td><td>Channel suggestions say keep Google at current ~$5k/mo, but the campaign plan itself remains Meta-first.</td><td>The recommendation contradicts the generated plan.</td></tr>
+<tr><td>Projected-results table with KPI cost, objective, duration, budget, projected results.</td><td>Slots exist (2 phases, 3 audiences, 4 angles, 8 creatives, 3 funnels, 3 KPIs), but the plan is not a SOP-shaped projected-results table.</td><td>Not handoff-ready for SaaSLaunch media planning.</td></tr>
+</table>
+<div class="quote">Paid media verdict: "Lead with the accuracy wedge (no false positives) on LinkedIn targeted at TAG member companies..." but campaignOverview still says "Meta Advertising" and every audience is a Meta audience.</div>
+<p class="caution">This is not a schema bug; it is an instruction/rubric integration gap. The plan warned that full SOP media-plan schema refit was out of scope, and this run proves why that phase is needed.</p>
+</div>
+
+<h2>5 - Ad Wall Eye Check</h2>
+<div class="card">
+<p class="good">The Competitor section rendered in the browser with <code>Verified - 78 supported - 87% grounded</code>, 41 sources, and competitor tabs for ClickCease, ClickGuard, CHEQ, HUMAN Security, IAS, and status quo. The UI is readable and no longer shows <code>idk</code> or compound advertisers.</p>
+<img class="shot" src="assets/2026-06-10-e2e-anura-89135f99-competitor.png" alt="Anura competitor section screenshot">
+<p class="caution">The first viewport shows competitor positioning and tabs, not individual ad creatives. JSON gate confirms 58 displayable ads. A future UI report should scroll/capture the creative rows directly.</p>
+</div>
+
+<h2>6 - Comparison To Checkle Baseline</h2>
+<div class="card">
+<table>
+<tr><th>Dimension</th><th>Checkle baseline</th><th>Anura run</th></tr>
+<tr><td>Structural E2E</td><td>PASS</td><td>PASS after surgical Buyer ICP fix</td></tr>
+<tr><td>Fabrication behavior</td><td>Improved versus 06-09; still needed caveats</td><td>Better honesty: multiple unsupported items removed or labeled, honest VoC/Buyer gaps preserved</td></tr>
+<tr><td>Ad wall</td><td>Probed-zero and tabbed UI validated</td><td>58 displayable competitor ads; wrong-company/compound-name gate held</td></tr>
+<tr><td>Paid media</td><td>Budget placeholders fixed and structural slots passed</td><td>Placeholders fixed, but SOP channel logic failed on high-ACV Anura</td></tr>
+<tr><td>Client readiness</td><td>Roughly 7/10 with caveats</td><td>6.4/10 because the media plan is not handoff-ready</td></tr>
+</table>
+</div>
+
+<h2>7 - What Changed In Code</h2>
+<div class="card">
+<table>
+<tr><th>Workstream</th><th>Implementation</th></tr>
+<tr><td>W1 API doctor</td><td>Added <code>scripts/zz-api-doctor.mjs</code> and <code>npm run api:doctor</code>; probes provider health and env-name drift with scrubbed secrets.</td></tr>
+<tr><td>W2 deadline lifecycle</td><td>Threaded <code>deadlineAt</code>, per-call timeout caps, repair floors, deadline-aware salvage, and one-post-fanout retry logic.</td></tr>
+<tr><td>W3 review detach</td><td>Agentic review now schedules after commit and cannot block original artifact persistence. Review patch omits terminal status. Default review model moved off Anthropic to DeepSeek with thinking disabled.</td></tr>
+<tr><td>W4 lookup budgets</td><td>Buyer ICP lookup headroom 4 -> 6, Demand Intent 5 -> 7, Offer unchanged.</td></tr>
+<tr><td>W5 Foreplay</td><td>Ported Foreplay as a fourth ad-library provider behind <code>FOREPLAY_API_KEY</code>, with domain-to-brand lookup and graceful degradation.</td></tr>
+<tr><td>W6 badge copy</td><td>Copy now distinguishes unsupported claims from honest evidence gaps/labeled assumptions.</td></tr>
+<tr><td>Live bug fix</td><td>Buyer ICP normalizer strips illegal nested evidence-gap keys before strict schema parse; regression added.</td></tr>
+</table>
+</div>
+
+<h2>8 - Remaining Gates</h2>
+<div class="card">
+<p class="good">Structural gate passed. Full tests passed after the surgical Buyer ICP normalizer and W3 model-default patch: 193 files passed, 1 skipped; 1748 tests passed, 1 skipped. Production build also passed.</p>
+<p class="caution">Full lint still exits 1 on pre-existing debt in <code>scripts/zz-claim-source-verifier.ts</code> and ignored/probe-style <code>tmp/*.ts</code> files. Touched-file lint has zero errors.</p>
+<p class="bad"><b>Do not call this 9/10 yet.</b> The most important user-facing artifact, Paid Media, failed the high-ACV SOP channel branch.</p>
+<ul>
+  <li>Required next fix: encode Media-Plan SOP channel branching into the paid-media generator and/or schema, then rerun Anura.</li>
+  <li>Required proof: a fresh Anura run where Paid Media outputs LinkedIn + Google, not Meta, with projected results tied to CPDemo target.</li>
+  <li>Optional but important: make the post-fanout auto-rerun observable; this run required manual authenticated reruns after the UI remained stale.</li>
+</ul>
+</div>
+
+<div class="footer">
+Generated from persisted dump <code>tmp/e2e-anura-89135f99</code>, objective gate output, DB status snapshots, and browser screenshot <code>docs/reports/assets/2026-06-10-e2e-anura-89135f99-competitor.png</code>.
+</div>
+
+</div></body>
+</html>

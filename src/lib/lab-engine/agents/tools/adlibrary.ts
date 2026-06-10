@@ -11,6 +11,7 @@ import {
 } from "./_shared";
 import {
   type Candidate,
+  extractCompanyFromDomain,
   isAdvertiserMatch,
   normalizeDomain,
   resolveBestCandidate,
@@ -92,6 +93,16 @@ class SearchApiHttpError extends Error {
   }
 }
 
+class ForeplayHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Foreplay ${status}`);
+    this.name = "ForeplayHttpError";
+    this.status = status;
+  }
+}
+
 class NoMatchedAdvertiserError extends Error {
   readonly advertiserName: string;
   readonly domain: string | undefined;
@@ -118,12 +129,14 @@ class NoMatchedAdvertiserError extends Error {
 }
 
 const searchApiBaseUrl = "https://www.searchapi.io/api/v1/search";
+const foreplayBaseUrl = "https://public.api.foreplay.co";
 // Google Ads Transparency Center is global by default, which surfaces foreign
 // entities that coincidentally share a short name (e.g. JP "株式会社RAMP" for
 // "ramp.com"). Default the region so the probe stays anchored to the company's
 // market. US-default fits the (US SaaS) user base; thread per-company later.
 const defaultGoogleAdRegion = "US";
 const searchApiTimeoutMs = 15_000;
+const foreplayTimeoutMs = 8_000;
 
 function asRecord(value: unknown): SearchApiRecord | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -251,6 +264,51 @@ async function fetchSearchApiJson({
 
   const payload = asRecord(await response.json());
   return payload ?? {};
+}
+
+async function fetchForeplayJson({
+  abortSignal,
+  apiKey,
+  endpoint,
+  params,
+}: {
+  abortSignal?: AbortSignal;
+  apiKey: string;
+  endpoint: string;
+  params: Record<string, string>;
+}): Promise<SearchApiRecord> {
+  const urlParams = new URLSearchParams(params);
+  const response = await fetchWithRetry(
+    `${foreplayBaseUrl}${endpoint}?${urlParams.toString()}`,
+    {
+      abortSignal,
+      headers: {
+        Accept: "application/json",
+        Authorization: apiKey,
+      },
+      timeoutMs: foreplayTimeoutMs,
+    },
+  );
+
+  if (!response.ok) {
+    throw new ForeplayHttpError(response.status);
+  }
+
+  const payload = asRecord(await response.json());
+  return payload ?? {};
+}
+
+function readForeplayCollection(payload: SearchApiRecord): SearchApiRecord[] {
+  const dataRecord = asRecord(payload.data);
+
+  if (Array.isArray(payload.data)) {
+    return payload.data.flatMap((item) => {
+      const record = asRecord(item);
+      return record === null ? [] : [record];
+    });
+  }
+
+  return dataRecord === null ? [] : [dataRecord];
 }
 
 function buildLibraryLink(
@@ -493,6 +551,206 @@ function normalizeSearchApiRecords({
     )
     .filter((ad) => hasUsableCreativeText(ad))
     .map((ad) => ({ ...ad, identityVerified, identityBasis }))
+    .slice(0, maxResults);
+}
+
+function mapForeplayPlatform(record: SearchApiRecord): AdLibraryPlatform {
+  const rawPlatform = firstString([record.platform, record.source])?.toLowerCase() ?? "";
+
+  if (rawPlatform.includes("linkedin")) {
+    return "linkedin";
+  }
+
+  return "meta";
+}
+
+function normalizeForeplayRecord({
+  advertiserName,
+  index,
+  record,
+}: {
+  advertiserName: string;
+  index: number;
+  record: SearchApiRecord;
+}): NormalizedAd & { platform: AdLibraryPlatform } {
+  const brand = getRecord(record, "brand");
+  const copy = getRecord(record, "copy");
+  const creative = getRecord(record, "creative");
+  const metadata = getRecord(record, "metadata");
+  const landingPage = getRecord(metadata, "landing_page");
+  const platform = mapForeplayPlatform({
+    ...record,
+    platform: metadata?.platform ?? record.platform,
+  });
+  const title = firstString([
+    record.headline,
+    record.title,
+    copy?.headline,
+  ]);
+  const snippet = firstString([
+    record.description,
+    typeof record.body === "string" ? record.body : undefined,
+    record.primary_text,
+    copy?.body,
+  ]);
+  const landingUrl = firstUrl([
+    record.landing_page_url,
+    landingPage?.url,
+  ]);
+  const creativeUrl = firstUrl([
+    record.video,
+    record.image,
+    record.video_url,
+    record.image_url,
+    record.media_url,
+    record.thumbnail,
+    record.avatar,
+    creative?.url,
+  ]);
+  const imageUrl = firstUrl([
+    record.thumbnail,
+    record.image,
+    record.avatar,
+    record.image_url,
+    creative?.thumbnail_url,
+  ]);
+  const displayFormat = firstString([
+    record.display_format,
+    record.type,
+    creative?.type,
+  ]);
+  const videoUrl =
+    displayFormat?.toLowerCase().includes("video") === true
+      ? creativeUrl
+      : firstUrl([record.video, record.video_url]);
+
+  return {
+    platform,
+    url: landingUrl ?? creativeUrl ?? "https://www.foreplay.co/",
+    id: firstString([
+      record.ad_library_id,
+      record.ad_id,
+      record.id,
+    ]) ?? `foreplay-${index}`,
+    advertiserName: firstString([
+      brand?.name,
+      record.name,
+      record.brand_name,
+      record.page_name,
+      copy?.sponsor_name,
+      advertiserName,
+    ]),
+    title,
+    snippet,
+    landingUrl,
+    imageUrl,
+    videoUrl,
+    detailsUrl: landingUrl,
+    firstSeen: firstString([
+      record.first_seen,
+      record.created_at,
+      record.start_date,
+      metadata?.first_seen,
+    ]),
+    lastSeen: firstString([
+      record.last_seen,
+      record.updated_at,
+      record.end_date,
+      metadata?.last_seen,
+    ]),
+    format: inferFormat({
+      body: snippet,
+      format: displayFormat,
+      headline: title,
+      imageUrl,
+      videoUrl,
+    }),
+    isActive:
+      typeof record.is_active === "boolean"
+        ? record.is_active
+        : typeof metadata?.is_active === "boolean"
+          ? metadata.is_active
+          : true,
+    source: "foreplay",
+    transcript: firstString([
+      record.full_transcription,
+      record.transcript,
+      record.video_transcript,
+      creative?.video_transcript,
+    ]),
+    cta: firstString([record.cta, record.call_to_action, copy?.cta]),
+    identityVerified: true,
+    identityBasis: "domain",
+  };
+}
+
+function foreplayBrandDomainConflicts({
+  brand,
+  targetDomain,
+}: {
+  brand: SearchApiRecord;
+  targetDomain: string;
+}): boolean {
+  const websites = getArray(brand, "websites");
+  const brandDomain = firstString([
+    brand.domain,
+    brand.website,
+    websites[0],
+  ]);
+
+  if (brandDomain === undefined) {
+    return false;
+  }
+
+  const brandDomainBase = extractCompanyFromDomain(brandDomain);
+  const targetDomainBase = extractCompanyFromDomain(targetDomain);
+
+  return (
+    brandDomainBase !== undefined &&
+    targetDomainBase !== undefined &&
+    brandDomainBase !== targetDomainBase
+  );
+}
+
+function extractForeplayMetaPageId(brand: SearchApiRecord): string | undefined {
+  const candidate = firstString([brand.page_id, brand.ad_library_id]);
+  return candidate !== undefined && /^\d{6,}$/.test(candidate)
+    ? candidate
+    : undefined;
+}
+
+function normalizeForeplayRecords({
+  advertiserName,
+  domain,
+  maxResults,
+  platform,
+  records,
+}: {
+  advertiserName: string;
+  domain: string;
+  maxResults: number;
+  platform: AdLibraryPlatform;
+  records: readonly SearchApiRecord[];
+}): NormalizedAd[] {
+  return records
+    .map((record, index) =>
+      normalizeForeplayRecord({ advertiserName, index, record }),
+    )
+    .filter((ad) => ad.platform === platform)
+    .filter((ad) =>
+      isAdvertiserMatch(
+        ad.advertiserName,
+        advertiserName,
+        domain,
+        ad.landingUrl,
+      ),
+    )
+    .filter((ad) => hasUsableCreativeText(ad))
+    .map((ad) => {
+      const { platform: rawPlatform, ...normalized } = ad;
+      void rawPlatform;
+      return normalized;
+    })
     .slice(0, maxResults);
 }
 
@@ -845,6 +1103,103 @@ async function searchLinkedInAds({
   });
 }
 
+async function searchForeplayAds({
+  abortSignal,
+  advertiserName,
+  domain,
+  maxResults,
+  platform,
+  searchApiKey,
+}: {
+  abortSignal?: AbortSignal;
+  advertiserName: string;
+  domain?: string;
+  maxResults: number;
+  platform: AdLibraryPlatform;
+  searchApiKey?: string;
+}): Promise<NormalizedAd[]> {
+  const apiKey = process.env.FOREPLAY_API_KEY;
+
+  if (
+    apiKey === undefined ||
+    apiKey.trim() === "" ||
+    domain === undefined ||
+    platform === "google"
+  ) {
+    return [];
+  }
+
+  const normalizedDomain = normalizeDomain(domain);
+  const brandPayload = await fetchForeplayJson({
+    abortSignal,
+    apiKey,
+    endpoint: "/api/brand/getBrandsByDomain",
+    params: {
+      domain: normalizedDomain,
+      limit: "1",
+      order: "most_ranked",
+    },
+  });
+  const brand = readForeplayCollection(brandPayload).find((candidate) => {
+    const brandId = firstString([candidate.id, candidate.brand_id]);
+    return brandId !== undefined;
+  });
+  const brandId = brand === undefined ? undefined : firstString([brand.id, brand.brand_id]);
+  const brandName = brand === undefined
+    ? undefined
+    : firstString([brand.name, brand.brand_name, advertiserName]);
+
+  if (
+    brand === undefined ||
+    brandId === undefined ||
+    brandName === undefined ||
+    foreplayBrandDomainConflicts({ brand, targetDomain: normalizedDomain }) ||
+    !isAdvertiserMatch(brandName, advertiserName, normalizedDomain)
+  ) {
+    return [];
+  }
+
+  const metaPageId = extractForeplayMetaPageId(brand);
+  const [foreplayPayload, metaPageOutput] = await Promise.all([
+    fetchForeplayJson({
+      abortSignal,
+      apiKey,
+      endpoint: "/api/brand/getAdsByBrandId",
+      params: {
+        brand_ids: brandId,
+        limit: String(maxResults),
+        order: "newest",
+      },
+    }),
+    platform === "meta" &&
+    metaPageId !== undefined &&
+    searchApiKey !== undefined &&
+    searchApiKey.trim() !== ""
+      ? fetchVerifiedMetaPageAds({
+          abortSignal,
+          advertiser: advertiserName,
+          domain: normalizedDomain,
+          maxResults,
+          pageId: metaPageId,
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const foreplayAds = normalizeForeplayRecords({
+    advertiserName,
+    domain: normalizedDomain,
+    maxResults,
+    platform,
+    records: readForeplayCollection(foreplayPayload),
+  });
+  const metaPageAds =
+    metaPageOutput !== null && metaPageOutput.type === "result"
+      ? metaPageOutput.ads
+      : [];
+
+  return [...metaPageAds, ...foreplayAds].slice(0, maxResults);
+}
+
 async function fetchNativeAds({
   abortSignal,
   advertiserName,
@@ -889,6 +1244,52 @@ async function fetchNativeAds({
   });
 }
 
+function adRichnessScore(ad: NormalizedAd): number {
+  return [
+    ad.title,
+    ad.snippet,
+    ad.landingUrl,
+    ad.imageUrl,
+    ad.videoUrl,
+    ad.transcript,
+    ad.cta,
+  ].filter((value) => value !== undefined && value.trim().length > 0).length;
+}
+
+function adDedupeKey(ad: NormalizedAd, platform: AdLibraryPlatform): string {
+  if (ad.id !== undefined && ad.id.trim().length > 0) {
+    return `id:${ad.id.trim()}`;
+  }
+
+  return [
+    platform,
+    ad.advertiserName?.toLowerCase().trim() ?? "",
+    ad.title?.toLowerCase().trim().slice(0, 80) ?? "",
+    ad.snippet?.toLowerCase().trim().slice(0, 80) ?? "",
+    ad.imageUrl ?? "",
+    ad.videoUrl ?? "",
+    ad.landingUrl ?? "",
+  ].join("|");
+}
+
+function dedupeAds(
+  ads: readonly NormalizedAd[],
+  platform: AdLibraryPlatform,
+): NormalizedAd[] {
+  const byKey = new Map<string, NormalizedAd>();
+
+  for (const ad of ads) {
+    const key = adDedupeKey(ad, platform);
+    const existing = byKey.get(key);
+
+    if (existing === undefined || adRichnessScore(ad) > adRichnessScore(existing)) {
+      byKey.set(key, ad);
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
 function toApiErrorGap(error: unknown): ToolGap {
   if (error instanceof NoMatchedAdvertiserError) {
     return {
@@ -921,30 +1322,57 @@ export const adLibraryAgentTool = tool({
     { advertiser, platform, max_results, domain },
     { abortSignal },
   ): Promise<AdLibraryOutput> => {
-    const apiKey = process.env.SEARCHAPI_KEY;
+    const apiKey = process.env.SEARCHAPI_KEY?.trim();
+    const normalizedDomain = domain === undefined ? undefined : normalizeDomain(domain);
+    let nativeGap: ToolGap | undefined;
+    let nativeAds: NormalizedAd[] = [];
 
-    if (apiKey === undefined || apiKey.trim() === "") {
-      return credentialGap("SEARCHAPI_KEY") as ToolGap;
+    if (apiKey === undefined || apiKey === "") {
+      nativeGap = credentialGap("SEARCHAPI_KEY") as ToolGap;
+    } else {
+      try {
+        nativeAds = await fetchNativeAds({
+          abortSignal,
+          advertiserName: advertiser,
+          apiKey,
+          domain: normalizedDomain,
+          maxResults: max_results,
+          platform,
+        });
+      } catch (error) {
+        nativeGap = toApiErrorGap(error);
+      }
     }
+
+    let foreplayAds: NormalizedAd[] = [];
 
     try {
-      const ads = await fetchNativeAds({
+      foreplayAds = await searchForeplayAds({
         abortSignal,
         advertiserName: advertiser,
-        apiKey,
-        domain: domain === undefined ? undefined : normalizeDomain(domain),
+        domain: normalizedDomain,
         maxResults: max_results,
         platform,
+        searchApiKey: apiKey,
       });
-
-      return {
-        type: "result",
-        advertiser,
-        platform,
-        ads,
-      };
-    } catch (error) {
-      return toApiErrorGap(error);
+    } catch {
+      foreplayAds = [];
     }
+
+    const ads = dedupeAds([...nativeAds, ...foreplayAds], platform).slice(
+      0,
+      max_results,
+    );
+
+    if (ads.length === 0 && nativeGap !== undefined) {
+      return nativeGap;
+    }
+
+    return {
+      type: "result",
+      advertiser,
+      platform,
+      ads,
+    };
   },
 });

@@ -76,7 +76,7 @@ export interface CommitArtifactSectionInput {
   sectionRunId: string;
   expectedRevision: number;
   patch: {
-    status: 'complete' | 'error' | 'partial';
+    status?: 'complete' | 'error' | 'partial';
     title?: string | null;
     markdown?: string | null;
     data?: unknown;
@@ -144,4 +144,19 @@ export function buildCommitPatch(
     verificationTier: effectiveFlag?.tier ?? null,
     verificationFlag: effectiveFlag,
   };
+}
+
+export function buildReviewCommitPatch(
+  sectionId: AllPositioningSectionId,
+  artifact: unknown,
+  opts?: { degradeToNeedsReview?: boolean },
+): CommitArtifactSectionInput['patch'] {
+  const { status, ...patch } = buildCommitPatch(
+    sectionId,
+    artifact,
+    opts,
+  );
+  void status;
+
+  return patch;
 }

@@ -10,17 +10,19 @@ import type { AuditStateResponse, WorkerStatus } from '@/app/api/research-v2/aud
 import { hasSixPositioningSectionsComplete } from '@/lib/research-v2/six-sections-complete';
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
+  POSITIONING_SECTION_IDS,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 
 const POLL_MS = 2500;
 const TERMINAL: ReadonlySet<WorkerStatus> = new Set(['complete', 'error', 'aborted']);
-// Bounded client-side retry for a paid-media row that committed as `error`. Cap
-// is per-runId: a deterministic failure (e.g. a schema the model can't fill)
+// Bounded client-side retry for rows that committed as `error`. Cap is per
+// runId:sectionId: a deterministic failure (e.g. a schema the model can't fill)
 // must stop after this many re-dispatches so we never loop a paid-API call. The
-// server fans out paid-media off 6/6 once; this only re-fires on an observed
-// `error` row, and claimSectionRun CAS dedups.
-const CAPSTONE_ERROR_RETRY_CAP = 1;
+// core-section retry waits until the first fan-out wave is terminal; paid-media
+// still uses the normal run-lab-section claim path because it is not reset via
+// /rerun-section.
+const SECTION_ERROR_RETRY_CAP = 1;
 
 const EMPTY: AuditStateResponse = {
   parent_audit_run_id: null,
@@ -55,6 +57,19 @@ function isSectionErrored(
     (workerState) => workerState.section_id === sectionId,
   );
   return worker?.status === 'error';
+}
+
+function isCoreFanoutTerminal(state: AuditStateResponse): boolean {
+  return POSITIONING_SECTION_IDS.every((sectionId) => {
+    if (state.sectionsByZone[sectionId] !== undefined) {
+      return true;
+    }
+
+    const worker = state.workerStates.find(
+      (workerState) => workerState.section_id === sectionId,
+    );
+    return worker !== undefined && TERMINAL.has(worker.status);
+  });
 }
 
 function isPaidMediaPlanTerminal(state: AuditStateResponse): boolean {
@@ -134,6 +149,25 @@ async function dispatchPaidMediaPlan(
   await throwIfDispatchFailed({ label: 'Paid media plan', response, runId });
 }
 
+async function dispatchSectionRerun(
+  runId: string,
+  sectionId: AllPositioningSectionId,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/research-v2/rerun-section', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      runId,
+      zone: sectionId,
+      executionMode: 'lab',
+    }),
+    signal,
+  });
+
+  await throwIfDispatchFailed({ label: `${sectionId} rerun`, response, runId });
+}
+
 // Quietly swallow the benign rejections we get when a dispatch fetch is
 // aborted on unmount / runId change / StrictMode double-mount: AbortError, or
 // a TypeError/DOMException with an empty message. 409 = transient
@@ -168,9 +202,10 @@ export function useAuditState(
   const [state, setState] = useState<AuditStateResponse>(EMPTY);
   const cancelled = useRef(false);
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
-  // Per-runId count of how many times we've re-dispatched an `error` paid-media
-  // row. Bounded by CAPSTONE_ERROR_RETRY_CAP so a deterministic failure stops.
-  const mediaPlanErrorRetryCounts = useRef<Map<string, number>>(new Map());
+  const sectionRerunKeysInFlight = useRef<Set<string>>(new Set());
+  // Per-runId:sectionId count of how many times we've re-dispatched an `error`
+  // row. Bounded by SECTION_ERROR_RETRY_CAP so a deterministic failure stops.
+  const sectionErrorRetryCounts = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     cancelled.current = false;
@@ -194,6 +229,39 @@ export function useAuditState(
         setState(next);
 
         const sixComplete = hasSixPositioningSectionsComplete(next);
+        const coreFanoutTerminal = isCoreFanoutTerminal(next);
+        const retriableCoreSectionIds = coreFanoutTerminal
+          ? POSITIONING_SECTION_IDS.filter((sectionId) => {
+              const retryKey = `${runId}:${sectionId}`;
+              return (
+                isSectionErrored(next, sectionId) &&
+                !sectionRerunKeysInFlight.current.has(retryKey) &&
+                (sectionErrorRetryCounts.current.get(retryKey) ?? 0) <
+                  SECTION_ERROR_RETRY_CAP
+              );
+            })
+          : [];
+
+        if (retriableCoreSectionIds.length > 0) {
+          await Promise.all(
+            retriableCoreSectionIds.map(async (sectionId) => {
+              const retryKey = `${runId}:${sectionId}`;
+              sectionErrorRetryCounts.current.set(
+                retryKey,
+                (sectionErrorRetryCounts.current.get(retryKey) ?? 0) + 1,
+              );
+              sectionRerunKeysInFlight.current.add(retryKey);
+              try {
+                await dispatchSectionRerun(runId, sectionId, dispatchAbort.signal);
+              } catch (error) {
+                sectionRerunKeysInFlight.current.delete(retryKey);
+                logDispatchError(`${sectionId} rerun`, runId, error);
+              }
+            }),
+          );
+          schedule();
+          return;
+        }
 
         // W3-A pure-lean: paid-media dispatches directly off the 6/6 rollup.
         // The server-side onJobComplete on the sixth core-section commit is the
@@ -207,12 +275,14 @@ export function useAuditState(
         const paidMediaRetriableError =
           sixComplete &&
           isSectionErrored(next, PAID_MEDIA_PLAN_SECTION_ID) &&
-          (mediaPlanErrorRetryCounts.current.get(runId) ?? 0) <
-            CAPSTONE_ERROR_RETRY_CAP;
+          (sectionErrorRetryCounts.current.get(
+            `${runId}:${PAID_MEDIA_PLAN_SECTION_ID}`,
+          ) ?? 0) < SECTION_ERROR_RETRY_CAP;
         if (paidMediaRetriableError) {
-          mediaPlanErrorRetryCounts.current.set(
-            runId,
-            (mediaPlanErrorRetryCounts.current.get(runId) ?? 0) + 1,
+          const retryKey = `${runId}:${PAID_MEDIA_PLAN_SECTION_ID}`;
+          sectionErrorRetryCounts.current.set(
+            retryKey,
+            (sectionErrorRetryCounts.current.get(retryKey) ?? 0) + 1,
           );
           dispatchedMediaPlanRunIds.current.delete(runId);
         }

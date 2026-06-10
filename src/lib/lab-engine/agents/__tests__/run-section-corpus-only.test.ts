@@ -21,7 +21,7 @@ import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { sectionRunnerModel } from '@/lib/lab-engine/ai/models';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
-import { runSection } from '../run-section';
+import { labSectionRepairFloorMs, runSection } from '../run-section';
 import type {
   PaidMediaPlanVerificationResult,
   VerifyPaidMediaPlanInput,
@@ -75,6 +75,26 @@ function buildBuyerICPOutputWithGenericPersonaNames(): BuyerICPSectionOutput {
             ][index] ?? persona.name,
           }),
         ),
+      },
+    },
+  };
+}
+
+function buildBuyerICPOutputWithNestedEvidenceGapKeys(): unknown {
+  const output = buildBuyerICPOutputWithGenericPersonaNames();
+
+  return {
+    ...output,
+    body: {
+      ...output.body,
+      personaReality: {
+        ...output.body.personaReality,
+        evidenceGap: true,
+        evidenceGapReport: {
+          reason: 'insufficient_named_buyer_personas',
+          summary:
+            'Model-authored nested evidence gaps must not become artifact shape.',
+        },
       },
     },
   };
@@ -395,6 +415,7 @@ function assertCompetitorLandscapeBody(
 
 describe('runSection corpus-only mode', (): void => {
   beforeEach((): void => {
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
     vi.stubEnv('LAB_SECTION_STREAMING', 'false');
   });
 
@@ -705,6 +726,103 @@ describe('runSection corpus-only mode', (): void => {
     expect(record.events.map((event) => event.type)).not.toContain(
       'section-failed',
     );
+  });
+
+  it('strips model-authored nested BuyerICP evidence-gap keys before committing the runner-owned gap', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningBuyerICP'],
+      now: () => new Date('2026-06-05T04:39:37.613Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [],
+      text: '',
+      answerInput: buildBuyerICPOutputWithNestedEvidenceGapKeys(),
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningBuyerICP',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-06-05T04:39:37.613Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const body = requireRecord(result.artifact.body);
+    const personaReality = requireRecord(body.personaReality);
+    const evidenceGapReport = requireRecord(body.evidenceGapReport);
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
+    expect(body.evidenceGap).toBe(true);
+    expect(evidenceGapReport.reason).toBe('insufficient_named_buyer_personas');
+    expect(personaReality.evidenceGap).toBeUndefined();
+    expect(personaReality.evidenceGapReport).toBeUndefined();
+    expect(record.sections.positioningBuyerICP?.status).toBe('completed');
+    expect(record.events.map((event) => event.type)).not.toContain(
+      'section-failed',
+    );
+  });
+
+  it('skips BuyerICP repair below the deadline floor and commits the evidence gap', async (): Promise<void> => {
+    const nowIso = '2026-06-05T04:39:37.613Z';
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningBuyerICP'],
+      now: () => new Date(nowIso),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [],
+      text: '',
+      answerInput: buildBuyerICPOutputWithGenericPersonaNames(),
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningBuyerICP',
+        deadlineAt: Date.parse(nowIso) + labSectionRepairFloorMs - 1,
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date(nowIso),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const body = requireRecord(result.artifact.body);
+    const eventTypes = record.events.map((event) => event.type);
+    const deadlineSkip = record.events.find(
+      (event) =>
+        event.type === 'validation-failed' &&
+        event.message === 'Answer tool repair skipped for deadline-aware salvage',
+    );
+
+    expect(runAnswerTool).toHaveBeenCalledTimes(1);
+    expect(body.evidenceGap).toBe(true);
+    expect(eventTypes).not.toContain('repair-started');
+    expect(deadlineSkip?.metadata.issues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('deadline-aware salvage: skipped repair'),
+      ]),
+    );
+    expect(record.sections.positioningBuyerICP?.status).toBe('completed');
+    expect(eventTypes).not.toContain('section-failed');
   });
 
   it('repairs unsupported load-bearing numeric claims and commits the grounded repair', async (): Promise<void> => {

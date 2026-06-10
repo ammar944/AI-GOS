@@ -30,9 +30,11 @@ function searchApiResponse(payload: unknown): Response {
 
 describe("adLibraryAgentTool relevance filtering", (): void => {
   const originalApiKey = process.env.SEARCHAPI_KEY;
+  const originalForeplayApiKey = process.env.FOREPLAY_API_KEY;
 
   beforeEach((): void => {
     process.env.SEARCHAPI_KEY = "test-searchapi-key";
+    delete process.env.FOREPLAY_API_KEY;
   });
 
   afterEach((): void => {
@@ -40,6 +42,11 @@ describe("adLibraryAgentTool relevance filtering", (): void => {
       delete process.env.SEARCHAPI_KEY;
     } else {
       process.env.SEARCHAPI_KEY = originalApiKey;
+    }
+    if (originalForeplayApiKey === undefined) {
+      delete process.env.FOREPLAY_API_KEY;
+    } else {
+      process.env.FOREPLAY_API_KEY = originalForeplayApiKey;
     }
 
     vi.unstubAllGlobals();
@@ -223,9 +230,11 @@ describe("adLibraryAgentTool relevance filtering", (): void => {
 
 describe("adLibraryAgentTool LinkedIn channel", (): void => {
   const originalApiKey = process.env.SEARCHAPI_KEY;
+  const originalForeplayApiKey = process.env.FOREPLAY_API_KEY;
 
   beforeEach((): void => {
     process.env.SEARCHAPI_KEY = "test-searchapi-key";
+    delete process.env.FOREPLAY_API_KEY;
   });
 
   afterEach((): void => {
@@ -233,6 +242,11 @@ describe("adLibraryAgentTool LinkedIn channel", (): void => {
       delete process.env.SEARCHAPI_KEY;
     } else {
       process.env.SEARCHAPI_KEY = originalApiKey;
+    }
+    if (originalForeplayApiKey === undefined) {
+      delete process.env.FOREPLAY_API_KEY;
+    } else {
+      process.env.FOREPLAY_API_KEY = originalForeplayApiKey;
     }
 
     vi.unstubAllGlobals();
@@ -348,5 +362,184 @@ describe("adLibraryAgentTool LinkedIn channel", (): void => {
 
     expect(result.type).toBe("result");
     expect(result.ads).toEqual([]);
+  });
+});
+
+describe("adLibraryAgentTool Foreplay provider", (): void => {
+  const originalSearchApiKey = process.env.SEARCHAPI_KEY;
+  const originalForeplayApiKey = process.env.FOREPLAY_API_KEY;
+
+  beforeEach((): void => {
+    process.env.SEARCHAPI_KEY = "test-searchapi-key";
+    process.env.FOREPLAY_API_KEY = "test-foreplay-key";
+  });
+
+  afterEach((): void => {
+    if (originalSearchApiKey === undefined) {
+      delete process.env.SEARCHAPI_KEY;
+    } else {
+      process.env.SEARCHAPI_KEY = originalSearchApiKey;
+    }
+    if (originalForeplayApiKey === undefined) {
+      delete process.env.FOREPLAY_API_KEY;
+    } else {
+      process.env.FOREPLAY_API_KEY = originalForeplayApiKey;
+    }
+
+    vi.unstubAllGlobals();
+  });
+
+  it("adds domain-resolved Foreplay ads and verified Meta page ads to the Meta wall", async (): Promise<void> => {
+    const requestedMetaPageIds: string[] = [];
+    const fetchMock = vi.fn(async (requestUrl: string) => {
+      const url = new URL(requestUrl);
+
+      if (url.hostname === "public.api.foreplay.co") {
+        if (url.pathname.endsWith("/getBrandsByDomain")) {
+          return searchApiResponse({
+            data: [
+              {
+                id: "foreplay-brand",
+                name: "Gong",
+                domain: "gong.io",
+                ad_library_id: "645975252242804",
+              },
+            ],
+          });
+        }
+
+        return searchApiResponse({
+          data: [
+            {
+              id: "foreplay-ad",
+              ad_library_id: "555",
+              brand_name: "Gong",
+              headline: "Pipeline visibility that closes gaps",
+              primary_text: "See every deal risk before forecast day.",
+              landing_page_url: "https://gong.io/platform",
+              video: "https://r2.foreplay.co/creatives/gong.mp4",
+              thumbnail: "https://r2.foreplay.co/thumbs/gong.jpg",
+              full_transcription: "Forecast every deal with Gong.",
+              platform: "facebook",
+              display_format: "video",
+              is_active: true,
+            },
+          ],
+        });
+      }
+
+      const engine = url.searchParams.get("engine");
+
+      if (engine === "meta_ad_library_page_search") {
+        return searchApiResponse({
+          page_results: [{ id: "searchapi-page", name: "Gong", page_alias: "gong.io" }],
+        });
+      }
+
+      requestedMetaPageIds.push(url.searchParams.get("page_id") ?? "");
+
+      if (url.searchParams.get("page_id") === "645975252242804") {
+        return searchApiResponse({
+          ads: [
+            {
+              ad_archive_id: "556",
+              page_name: "Gong",
+              snapshot: {
+                title: "Automate forecast inspection",
+                body: { text: "Know which deals changed this week." },
+                link_url: "https://gong.io/revenue-intelligence",
+              },
+            },
+          ],
+        });
+      }
+
+      return searchApiResponse({
+        ads: [
+          {
+            ad_archive_id: "native-1",
+            page_name: "Gong",
+            snapshot: {
+              title: "Improve forecast accuracy",
+              body: { text: "Understand pipeline health." },
+              link_url: "https://gong.io/forecast",
+            },
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await getExecute()(
+      {
+        advertiser: "Gong",
+        platform: "meta",
+        domain: "gong.io",
+        max_results: 6,
+      },
+      {},
+    )) as { type: string; ads?: Array<{ id?: string; source?: string; transcript?: string }> };
+
+    expect(result.type).toBe("result");
+    expect(result.ads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "native-1" }),
+        expect.objectContaining({ id: "556", identityVerified: true }),
+        expect.objectContaining({
+          id: "555",
+          source: "foreplay",
+          transcript: "Forecast every deal with Gong.",
+        }),
+      ]),
+    );
+    expect(requestedMetaPageIds).toContain("645975252242804");
+  });
+
+  it("keeps native SearchAPI ads when Foreplay credentials are dead", async (): Promise<void> => {
+    const fetchMock = vi.fn(async (requestUrl: string) => {
+      const url = new URL(requestUrl);
+
+      if (url.hostname === "public.api.foreplay.co") {
+        return new Response("unauthorized", { status: 401 });
+      }
+
+      const engine = url.searchParams.get("engine");
+
+      if (engine === "meta_ad_library_page_search") {
+        return searchApiResponse({
+          page_results: [{ id: "notion-page", name: "Notion", page_alias: "notion.so" }],
+        });
+      }
+
+      return searchApiResponse({
+        ads: [
+          {
+            ad_archive_id: "notion-native",
+            page_name: "Notion",
+            snapshot: {
+              title: "One workspace for every team",
+              body: { text: "Plan and write in Notion." },
+              link_url: "https://notion.so/product",
+            },
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        {
+          advertiser: "Notion",
+          platform: "meta",
+          domain: "notion.so",
+          max_results: 4,
+        },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      ads: [expect.objectContaining({ id: "notion-native" })],
+    });
   });
 });

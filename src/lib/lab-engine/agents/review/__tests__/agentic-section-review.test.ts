@@ -22,6 +22,10 @@ const mockModel = {
   modelId: "review-model",
   provider: "anthropic.messages",
 } as unknown as SectionLanguageModel;
+const mockDeepSeekModel = {
+  modelId: "deepseek-v4-flash",
+  provider: "deepseek.chat",
+} as unknown as SectionLanguageModel;
 
 describe("parseSectionReviewResponse", (): void => {
   it("parses upgraded markdown plus the tiny metadata tail", (): void => {
@@ -127,6 +131,34 @@ describe("reviewAndUpgradeSection", (): void => {
     expect(prompt).toContain('"acv": "user-supplied"');
     expect(prompt).toContain(
       "flag those numbers as unsupported merely because no public source repeats them",
+    );
+  });
+
+  it("disables thinking for DeepSeek review calls", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: [
+        "## Reviewed market category",
+        "",
+        "The section is grounded enough to use.",
+        '<review_metadata>{"tier":"verified","tierRationale":"Claims are supported by supplied sources.","removedItems":[],"clientQuestions":[]}</review_metadata>',
+      ].join("\n"),
+    });
+
+    await reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockDeepSeekModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+    });
+
+    expect(aiMocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          deepseek: {
+            thinking: { type: "disabled" },
+          },
+        },
+      }),
     );
   });
 

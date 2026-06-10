@@ -201,7 +201,9 @@ describe('<AuditReaderShell>', () => {
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
     expect(
-      screen.getByText('Insufficient evidence · 1 unsupported · 90% grounded'),
+      screen.getByText(
+        'Insufficient evidence · Declared evidence gap · 90% grounded',
+      ),
     ).toBeInTheDocument();
   });
 

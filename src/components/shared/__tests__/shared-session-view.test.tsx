@@ -58,7 +58,7 @@ describe('SharedSessionView — v3 share render contract', (): void => {
       screen.getByText(/founder-led revenue operations/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Needs review · 1 unsupported · 67% grounded'),
+      screen.getByText('Needs review · 1 unsupported claim · 67% grounded'),
     ).toBeInTheDocument();
   });
 
@@ -111,8 +111,9 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     expect(
       screen.getByText('One unsupported claim needs client proof.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Needs review · 1 unsupported · 67% grounded'))
-      .toBeInTheDocument();
+    expect(
+      screen.getByText('Needs review · 1 unsupported claim · 67% grounded'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('1 · Category Definition'),
     ).toBeInTheDocument();

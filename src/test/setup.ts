@@ -34,6 +34,7 @@ vi.mock("next/headers", () => ({
 
 // Reset mocks between tests
 beforeEach(() => {
+  process.env.DEEPSEEK_API_KEY ??= "test-deepseek-key";
   vi.clearAllMocks();
 });
 

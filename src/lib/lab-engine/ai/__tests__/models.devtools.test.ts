@@ -12,7 +12,9 @@ interface MockMiddleware {
 interface ModelModuleMocks {
   anthropicModel: (modelId: string) => MockLanguageModel;
   createAnthropic: () => (modelId: string) => MockLanguageModel;
+  createDeepSeek: () => (modelId: string) => MockLanguageModel;
   createGateway: () => (modelId: string) => MockLanguageModel;
+  deepseekModel: (modelId: string) => MockLanguageModel;
   devToolsMiddleware: () => MockMiddleware;
   wrapLanguageModel: (input: {
     model: MockLanguageModel;
@@ -22,6 +24,9 @@ interface ModelModuleMocks {
 
 const modelMocks = vi.hoisted((): ModelModuleMocks => {
   const anthropicModel = vi.fn((modelId: string): MockLanguageModel => ({
+    modelId,
+  }));
+  const deepseekModel = vi.fn((modelId: string): MockLanguageModel => ({
     modelId,
   }));
   const devToolsMiddleware = vi.fn(
@@ -40,7 +45,9 @@ const modelMocks = vi.hoisted((): ModelModuleMocks => {
   return {
     anthropicModel,
     createAnthropic: vi.fn((): ((modelId: string) => MockLanguageModel) => anthropicModel),
+    createDeepSeek: vi.fn((): ((modelId: string) => MockLanguageModel) => deepseekModel),
     createGateway: vi.fn((): ((modelId: string) => MockLanguageModel) => anthropicModel),
+    deepseekModel,
     devToolsMiddleware,
     wrapLanguageModel,
   };
@@ -52,6 +59,10 @@ vi.mock('@ai-sdk/anthropic', () => ({
 
 vi.mock('@ai-sdk/gateway', () => ({
   createGateway: modelMocks.createGateway,
+}));
+
+vi.mock('@ai-sdk/deepseek', () => ({
+  createDeepSeek: modelMocks.createDeepSeek,
 }));
 
 vi.mock('@ai-sdk/devtools', () => ({
@@ -79,6 +90,7 @@ describe('lab engine AI models — local DevTools', (): void => {
   });
 
   it('keeps AI SDK DevTools disabled by default', async (): Promise<void> => {
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
     vi.stubEnv('NODE_ENV', 'test');
 
     const models = await importModels();
@@ -88,10 +100,10 @@ describe('lab engine AI models — local DevTools', (): void => {
       modelId: 'claude-sonnet-4-5',
     });
     expect(models.reviewModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'deepseek-v4-flash',
     });
     expect(models.strategyModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'deepseek-v4-flash',
     });
     expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();
   });
@@ -115,6 +127,7 @@ describe('lab engine AI models — local DevTools', (): void => {
 
   it('wraps lab models with AI SDK DevTools only when explicitly enabled locally', async (): Promise<void> => {
     vi.stubEnv('AI_SDK_DEVTOOLS', 'true');
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
     vi.stubEnv('NODE_ENV', 'development');
 
     const models = await importModels();
@@ -129,11 +142,11 @@ describe('lab engine AI models — local DevTools', (): void => {
       wrapped: true,
     });
     expect(models.reviewModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'deepseek-v4-flash',
       wrapped: true,
     });
     expect(models.strategyModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'deepseek-v4-flash',
       wrapped: true,
     });
     expect(modelMocks.devToolsMiddleware).toHaveBeenCalledTimes(4);
@@ -142,6 +155,7 @@ describe('lab engine AI models — local DevTools', (): void => {
 
   it('does not enable AI SDK DevTools in production', async (): Promise<void> => {
     vi.stubEnv('AI_SDK_DEVTOOLS', 'true');
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
     vi.stubEnv('NODE_ENV', 'production');
 
     const models = await importModels();
@@ -151,7 +165,7 @@ describe('lab engine AI models — local DevTools', (): void => {
       modelId: 'claude-sonnet-4-5',
     });
     expect(models.reviewModel).toEqual({
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'deepseek-v4-flash',
     });
     expect(modelMocks.wrapLanguageModel).not.toHaveBeenCalled();
   });

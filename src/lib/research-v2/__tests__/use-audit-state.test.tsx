@@ -43,6 +43,16 @@ function erroredWorker(
   };
 }
 
+function runningWorker(
+  sectionId: AllPositioningSectionId,
+): AuditStateResponse['workerStates'][number] {
+  return {
+    ...completeWorker(sectionId),
+    status: 'running',
+    latestActivity: 'Running',
+  };
+}
+
 // W3-A pure-lean: 6/6 complete is the paid-media dispatch trigger. This helper
 // builds a 6/6 state with extra capstone (paid-media) workers attached.
 function sixCompleteWithCapstoneState(
@@ -86,6 +96,17 @@ function dispatchedSectionIds(fetchMock: ReturnType<typeof vi.fn>): string[] {
       return typeof parsed.section_id === 'string' ? parsed.section_id : null;
     })
     .filter((sectionId): sectionId is string => sectionId !== null);
+}
+
+function rerunZones(fetchMock: ReturnType<typeof vi.fn>): string[] {
+  return fetchMock.mock.calls
+    .map(([, init]) => {
+      const body = (init as { body?: unknown } | undefined)?.body;
+      if (typeof body !== 'string') return null;
+      const parsed = JSON.parse(body) as { zone?: unknown };
+      return typeof parsed.zone === 'string' ? parsed.zone : null;
+    })
+    .filter((zone): zone is string => zone !== null);
 }
 
 async function flushHookPromises(): Promise<void> {
@@ -224,6 +245,71 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
         (id) => id === PAID_MEDIA_PLAN_SECTION_ID,
       ),
     ).toHaveLength(1);
+
+    unmount();
+  });
+
+  it('reruns an errored core section once after the initial fanout drains', async (): Promise<void> => {
+    vi.useFakeTimers();
+
+    const targetSectionId = 'positioningBuyerICP';
+    const erroredCoreState = sixCompleteState({
+      parent_status: 'partial',
+      children_complete: 5,
+      workerStates: POSITIONING_SECTION_IDS.map((sectionId) =>
+        sectionId === targetSectionId
+          ? erroredWorker(sectionId)
+          : completeWorker(sectionId),
+      ),
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(responseForJson(erroredCoreState))
+      .mockResolvedValueOnce(responseForJson({ ok: true }))
+      .mockResolvedValue(responseForJson(erroredCoreState));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = renderHook(() => useAuditState(RUN_ID));
+
+    await flushHookPromises();
+
+    expect(rerunZones(fetchMock)).toEqual([targetSectionId]);
+
+    for (let i = 0; i < 3; i += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+    }
+
+    expect(rerunZones(fetchMock)).toEqual([targetSectionId]);
+    expect(dispatchedSectionIds(fetchMock)).not.toContain(targetSectionId);
+
+    unmount();
+  });
+
+  it('does not rerun an errored core section before the fanout wave drains', async (): Promise<void> => {
+    const targetSectionId = 'positioningBuyerICP';
+    const activeFanoutState = sixCompleteState({
+      parent_status: 'partial',
+      children_complete: 4,
+      workerStates: POSITIONING_SECTION_IDS.map((sectionId) => {
+        if (sectionId === targetSectionId) return erroredWorker(sectionId);
+        if (sectionId === 'positioningDemandIntent') {
+          return runningWorker(sectionId);
+        }
+        return completeWorker(sectionId);
+      }),
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(responseForJson(activeFanoutState));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = renderHook(() => useAuditState(RUN_ID));
+
+    await flushHookPromises();
+
+    expect(rerunZones(fetchMock)).toEqual([]);
 
     unmount();
   });

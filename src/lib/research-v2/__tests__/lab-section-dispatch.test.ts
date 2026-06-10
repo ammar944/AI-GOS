@@ -240,6 +240,7 @@ describe('scheduleLabSectionJob', () => {
 
     expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
     expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledWith({
+      deadlineAt: expect.any(Number),
       runId: RUN_ID,
       sectionId: SECTION_ID,
       signal: expect.any(AbortSignal),

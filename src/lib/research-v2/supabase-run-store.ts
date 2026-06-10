@@ -26,7 +26,10 @@ import {
 } from '@/lib/lab-engine/events/activity-event';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import { assertSectionArtifactPersistable } from '@/lib/lab-engine/sections/section-registry';
-import { buildCommitPatch } from '@/lib/research-v2/commit-patch';
+import {
+  buildCommitPatch,
+  buildReviewCommitPatch,
+} from '@/lib/research-v2/commit-patch';
 import { createSupabaseWebhookAdapter } from '@/lib/research-v2/supabase-webhook-adapter';
 import {
   buildCommittedSectionProfileInsights,
@@ -53,9 +56,12 @@ export interface CreateSupabaseRunStoreOptions {
   parentAuditRunId: string;
   sectionRunIdByZone: Partial<Record<SectionId, string>>;
   researchInput: ResearchInput;
+  schedulePostCommitReview?: ScheduleSupabaseRunStoreTask;
   env?: Record<string, string | undefined>;
   now?: () => Date;
 }
+
+export type ScheduleSupabaseRunStoreTask = (task: () => Promise<void>) => void;
 
 export class SupabaseRunStoreError extends Error {
   public constructor(message: string) {
@@ -573,7 +579,7 @@ async function attachAgenticReview(input: {
   artifact: ArtifactEnvelope;
   researchInput: ResearchInput;
   timeoutMs: number;
-}): Promise<ArtifactEnvelope> {
+}): Promise<ArtifactEnvelope | null> {
   try {
     const review = await reviewAndUpgradeSection({
       artifact: input.artifact,
@@ -592,12 +598,103 @@ async function attachAgenticReview(input: {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(
-      '[supabase-run-store] agentic section review failed; committing original artifact:',
+      '[supabase-run-store] agentic section review failed; keeping committed original artifact:',
       message,
     );
 
-    return input.artifact;
+    return null;
   }
+}
+
+async function runPostCommitAgenticReview(input: {
+  adapter: ReturnType<typeof createSupabaseWebhookAdapter>;
+  artifact: ArtifactEnvelope;
+  committedRevision: number;
+  completedAt: string;
+  degradeToNeedsReview: boolean;
+  parentAuditRunId: string;
+  researchInput: ResearchInput;
+  reviewTimeoutMs: number;
+  sectionRunId: string;
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<void> {
+  const reviewedArtifact = await attachAgenticReview({
+    artifact: input.artifact,
+    researchInput: input.researchInput,
+    timeoutMs: input.reviewTimeoutMs,
+  });
+
+  if (reviewedArtifact === null) {
+    return;
+  }
+
+  const committed = await input.adapter.commitArtifactSection({
+    artifactId: input.parentAuditRunId,
+    zone: reviewedArtifact.sectionId,
+    sectionRunId: input.sectionRunId,
+    expectedRevision: input.committedRevision,
+    patch: buildReviewCommitPatch(reviewedArtifact.sectionId, reviewedArtifact, {
+      degradeToNeedsReview: input.degradeToNeedsReview,
+    }),
+  });
+
+  if (!committed.ok) {
+    console.warn('[supabase-run-store] agentic section review patch skipped:', {
+      runId: input.researchInput.runId,
+      sectionId: reviewedArtifact.sectionId,
+      sectionRunId: input.sectionRunId,
+      revision: input.committedRevision,
+      error: committed.error,
+      conflict: committed.conflict,
+      committedRevision: committed.revision,
+    });
+    return;
+  }
+
+  await runPostCommitProfileFanout({
+    supabase: input.supabase,
+    userId: input.userId,
+    runId: input.researchInput.runId,
+    parentAuditRunId: input.parentAuditRunId,
+    researchInput: input.researchInput,
+    completedAt: input.completedAt,
+    artifactToCommit: reviewedArtifact,
+  });
+}
+
+function schedulePostCommitAgenticReview(input: {
+  adapter: ReturnType<typeof createSupabaseWebhookAdapter>;
+  artifact: ArtifactEnvelope;
+  committedRevision: number;
+  completedAt: string;
+  degradeToNeedsReview: boolean;
+  options: CreateSupabaseRunStoreOptions;
+  reviewTimeoutMs: number;
+  sectionRunId: string;
+}): void {
+  input.options.schedulePostCommitReview?.(async (): Promise<void> => {
+    try {
+      await runPostCommitAgenticReview({
+        adapter: input.adapter,
+        artifact: input.artifact,
+        committedRevision: input.committedRevision,
+        completedAt: input.completedAt,
+        degradeToNeedsReview: input.degradeToNeedsReview,
+        parentAuditRunId: input.options.parentAuditRunId,
+        researchInput: researchInputSchema.parse(input.options.researchInput),
+        reviewTimeoutMs: input.reviewTimeoutMs,
+        sectionRunId: input.sectionRunId,
+        supabase: input.options.supabase,
+        userId: input.options.userId,
+      });
+    } catch (error) {
+      console.warn(
+        '[supabase-run-store] post-commit agentic section review failed:',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  });
 }
 
 function isProfilePatchSectionId(sectionId: SectionId): sectionId is ProfilePatchSectionId {
@@ -995,27 +1092,21 @@ export function createSupabaseRunStore(
         );
       }
 
-      const artifactToCommit = await attachAgenticReview({
-        artifact: parsedArtifact,
-        researchInput: input,
-        timeoutMs: reviewTimeoutMs,
-      });
-
       // ARI: paid-media is dispatched best-effort even when upstream evidence
       // is thin (evidenceCoverage.ready === false). Badge paid-media
       // needs_review rather than dropping it. Core sections never carry
       // evidenceCoverage, so they are unaffected.
       const isCapstoneSection =
-        artifactToCommit.sectionId === PAID_MEDIA_PLAN_SECTION_ID;
+        parsedArtifact.sectionId === PAID_MEDIA_PLAN_SECTION_ID;
       const degradeToNeedsReview =
         isCapstoneSection && input.evidenceCoverage?.ready === false;
 
       const committed = await adapter.commitArtifactSection({
         artifactId: options.parentAuditRunId,
-        zone: artifactToCommit.sectionId,
+        zone: parsedArtifact.sectionId,
         sectionRunId,
         expectedRevision: context.expectedRevision,
-        patch: buildCommitPatch(artifactToCommit.sectionId, artifactToCommit, {
+        patch: buildCommitPatch(parsedArtifact.sectionId, parsedArtifact, {
           degradeToNeedsReview,
         }),
       });
@@ -1028,17 +1119,28 @@ export function createSupabaseRunStore(
         // and still surface as a real section failure.
         if (committed.error === undefined && committed.conflict) {
           throw new SupabaseRunStoreCommitConflictError(
-            `commit_artifact_section conflict for ${artifactToCommit.sectionId} section_run_id=${sectionRunId} expectedRevision=${context.expectedRevision} committedRevision=${committed.revision}`,
+            `commit_artifact_section conflict for ${parsedArtifact.sectionId} section_run_id=${sectionRunId} expectedRevision=${context.expectedRevision} committedRevision=${committed.revision}`,
             { conflict: true, committedRevision: committed.revision },
           );
         }
         throw new SupabaseRunStoreError(
-          `commit_artifact_section failed for ${artifactToCommit.sectionId} section_run_id=${sectionRunId} revision=${context.expectedRevision}: ${committed.error ?? 'conflict=' + String(committed.conflict)}`,
+          `commit_artifact_section failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId} revision=${context.expectedRevision}: ${committed.error ?? 'conflict=' + String(committed.conflict)}`,
         );
       }
 
       const completedAt = isoNow(now);
-      const existingSection = record.sections[artifactToCommit.sectionId];
+      schedulePostCommitAgenticReview({
+        adapter,
+        artifact: parsedArtifact,
+        committedRevision: committed.revision,
+        completedAt,
+        degradeToNeedsReview,
+        options,
+        reviewTimeoutMs,
+        sectionRunId,
+      });
+
+      const existingSection = record.sections[parsedArtifact.sectionId];
       const startedAt = existingSection?.startedAt ?? completedAt;
       const { error: telemetryError } = await options.supabase
         .from('research_section_runs')
@@ -1046,7 +1148,7 @@ export function createSupabaseRunStore(
           error: null,
           telemetry: buildLabSectionTelemetry({
             elapsedMs: elapsedMs(startedAt, completedAt),
-            latestActivity: `${artifactToCommit.sectionTitle} committed`,
+            latestActivity: `${parsedArtifact.sectionTitle} committed`,
             phase: 'Committed',
             phaseStartedAt: completedAt,
             runtimeTimings: {
@@ -1060,7 +1162,7 @@ export function createSupabaseRunStore(
 
       if (telemetryError) {
         throw new SupabaseRunStoreError(
-          `research_section_runs telemetry update failed for ${artifactToCommit.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
+          `research_section_runs telemetry update failed for ${parsedArtifact.sectionId} section_run_id=${sectionRunId}: ${telemetryError.message}`,
         );
       }
 
@@ -1071,16 +1173,16 @@ export function createSupabaseRunStore(
         parentAuditRunId: options.parentAuditRunId,
         researchInput: input,
         completedAt,
-        artifactToCommit,
+        artifactToCommit: parsedArtifact,
       });
 
       record = mergeSection(
         record,
-        artifactToCommit.sectionId,
+        parsedArtifact.sectionId,
         {
-          sectionId: artifactToCommit.sectionId,
+          sectionId: parsedArtifact.sectionId,
           status: 'completed',
-          artifact: artifactToCommit,
+          artifact: parsedArtifact,
           startedAt,
           completedAt,
           error: null,
