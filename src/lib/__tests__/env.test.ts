@@ -8,7 +8,7 @@ describe("env.ts", () => {
   function setRequiredEnv(): void {
     process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     process.env.SEARCHAPI_KEY = "test-searchapi-key";
-    process.env.BRAVE_SEARCH_API_KEY = "test-brave-key";
+    process.env.FIRECRAWL_API_KEY = "test-firecrawl-key";
     process.env.SPYFU_API_KEY = "test-spyfu-key";
     process.env.CLERK_SECRET_KEY = "test-clerk-secret";
     process.env.CLERK_WEBHOOK_SECRET = "test-clerk-webhook-secret";
@@ -58,8 +58,21 @@ describe("env.ts", () => {
       expect(result.missing).toContain("SEARCHAPI_KEY");
     });
 
-    it("returns valid: false when BRAVE_SEARCH_API_KEY is missing (web_search SPOF)", () => {
-      // Arrange: every required var present except the Brave key
+    it("returns valid: false when FIRECRAWL_API_KEY is missing (web_search SPOF)", () => {
+      // Arrange: every required var present except the Firecrawl key
+      setRequiredEnv();
+      delete process.env.FIRECRAWL_API_KEY;
+
+      // Act
+      const result = validateEnv();
+
+      // Assert
+      expect(result.valid).toBe(false);
+      expect(result.missing).toContain("FIRECRAWL_API_KEY");
+    });
+
+    it("stays valid when BRAVE_SEARCH_API_KEY is missing (web_search fallback is optional)", () => {
+      // Arrange: every required var present, Brave fallback key absent
       setRequiredEnv();
       delete process.env.BRAVE_SEARCH_API_KEY;
 
@@ -67,8 +80,8 @@ describe("env.ts", () => {
       const result = validateEnv();
 
       // Assert
-      expect(result.valid).toBe(false);
-      expect(result.missing).toContain("BRAVE_SEARCH_API_KEY");
+      expect(result.valid).toBe(true);
+      expect(result.missing).not.toContain("BRAVE_SEARCH_API_KEY");
     });
 
     it("returns valid: false when SPYFU_API_KEY is missing (keyword economics SPOF)", () => {

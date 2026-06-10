@@ -875,7 +875,9 @@ describe('runSection VoC candidate prepass', (): void => {
         checkedFirstDraft = true;
         firstDraftPrompt = params.prompt;
         fetchCallsBeforeStructured = requestedUrls.length;
-        expect(fetchCallsBeforeStructured).toBe(6);
+        // web_search now attempts Firecrawl /v2/search first (one extra fetch)
+        // before falling back to Brave [A1].
+        expect(fetchCallsBeforeStructured).toBe(7);
         expect(requestedUrls[0]).toContain('searchapi.io');
         expect(requestedUrls.slice(1, 4)).toEqual(
           expect.arrayContaining([
@@ -884,8 +886,9 @@ describe('runSection VoC candidate prepass', (): void => {
             expect.stringContaining('api.firecrawl.dev'),
           ]),
         );
-        expect(requestedUrls[4]).toContain('api.search.brave.com');
-        expect(requestedUrls[5]).toContain('api.firecrawl.dev');
+        expect(requestedUrls[4]).toContain('api.firecrawl.dev/v2/search');
+        expect(requestedUrls[5]).toContain('api.search.brave.com');
+        expect(requestedUrls[6]).toContain('api.firecrawl.dev');
         expect(params.prompt).toContain('Recovered SaaSLaunch review');
         expect(params.prompt).toContain('Recovered third-party quote');
 
@@ -953,10 +956,12 @@ describe('runSection VoC candidate prepass', (): void => {
     const reviewDiscoveryUrl = decodeURIComponent(requestedUrls[0] ?? '');
 
     expect(streamStructured).toHaveBeenCalled();
-    expect(fetchCallsBeforeStructured).toBe(6);
+    expect(fetchCallsBeforeStructured).toBe(7);
     expect(reviewDiscoveryUrl).toContain('reviews complaints pain points');
     expect(reviewDiscoveryUrl).toContain('site:reddit.com');
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
+    // Prepass firecrawl fetches (3 review scrapes + 1 /v2/search probe +
+    // 1 URL-only recovery) plus one /v2/search attempt per budget probe [A1].
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(9);
     expect(firstDraftPrompt).not.toContain(
       'Founder asks how to stop sales follow-up from disappearing after every pipeline review.',
     );
@@ -1058,7 +1063,8 @@ describe('runSection VoC candidate prepass', (): void => {
       ]),
     );
     expect(streamStructured).not.toHaveBeenCalled();
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
+    // +1: web_search probes Firecrawl /v2/search before the Brave fallback [A1].
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(5);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
@@ -1107,7 +1113,8 @@ describe('runSection VoC candidate prepass', (): void => {
       ]),
     );
     expect(streamStructured).not.toHaveBeenCalled();
-    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(4);
+    // +1: web_search probes Firecrawl /v2/search before the Brave fallback [A1].
+    expect(requestedUrls.filter((url) => url.includes('api.firecrawl.dev'))).toHaveLength(5);
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );

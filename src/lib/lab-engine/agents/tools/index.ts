@@ -1,6 +1,6 @@
 import { adLibraryAgentTool } from "./adlibrary";
-import { braveSearchAgentTool } from "./brave-search";
 import { firecrawlAgentTool } from "./firecrawl";
+import { firecrawlSearchAgentTool } from "./firecrawl-search";
 import { googleAdsAgentTool } from "./google-ads";
 import { keywordAdProbeAgentTool } from "./keyword-ad-probe";
 import { keywordTrendsAgentTool } from "./keyword-trends";
@@ -11,7 +11,7 @@ import { pagespeedAgentTool } from "./pagespeed";
 import { reviewsAgentTool } from "./reviews";
 
 export const TOOL_CATALOG = {
-  web_search: braveSearchAgentTool,
+  web_search: firecrawlSearchAgentTool,
   firecrawl: firecrawlAgentTool,
   adlibrary: adLibraryAgentTool,
   google_ads: googleAdsAgentTool,

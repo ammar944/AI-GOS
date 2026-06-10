@@ -9,10 +9,11 @@ const REQUIRED_ENV_VARS = {
   server: [
     "ANTHROPIC_API_KEY",
     "SEARCHAPI_KEY",
-    // Credential behind web_search (every lab section's primary search tool).
-    // REQUIRED so a missing key surfaces as a hard /api/health 503 instead of
-    // silently gapping every section. Must be set in Vercel (Production + Preview).
-    "BRAVE_SEARCH_API_KEY",
+    // Credential behind web_search (every lab section's primary search tool,
+    // Firecrawl /v2/search) and the firecrawl scrape tool. REQUIRED so a
+    // missing key surfaces as a hard /api/health 503 instead of silently
+    // gapping every section. Must be set in Vercel (Production + Preview).
+    "FIRECRAWL_API_KEY",
     // Primary keyword economics feed for Demand Intent. REQUIRED so a missing
     // SpyFu key fails /api/health instead of leaking model-estimated CPC/volume.
     "SPYFU_API_KEY",
@@ -48,7 +49,7 @@ const OPTIONAL_ENV_VARS = {
     "PERPLEXITY_API_KEY",   // Perplexity API key for research queries
     "FOREPLAY_API_KEY",     // Foreplay API key for creative intelligence
     "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
-    "FIRECRAWL_API_KEY",    // Firecrawl API key for pricing page scraping
+    "BRAVE_SEARCH_API_KEY", // Brave Search fallback for web_search when Firecrawl search fails
     "GROQ_API_KEY",         // Groq API key for Whisper voice transcription
     // Phase 2: Google Ads API (OAuth2 service account flow)
     "GOOGLE_ADS_DEVELOPER_TOKEN",   // Required by every Google Ads API request

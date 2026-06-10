@@ -12,7 +12,7 @@ import {
 
 const braveSearchUrl = "https://api.search.brave.com/res/v1/web/search";
 
-const BraveSearchResultSchema = z
+export const BraveSearchResultSchema = z
   .object({
     title: z.string(),
     url: z.string().url(),
@@ -32,6 +32,17 @@ export const BraveSearchOutputSchema = z.union([
   ToolGapSchema,
 ]);
 
+// Shared web_search input contract — reused by the Firecrawl-backed primary
+// implementation so the tool surface stays identical across providers.
+export const WebSearchInputSchema = z
+  .object({
+    q: z.string().min(1).describe("Search query"),
+    count: z.number().int().default(10).describe("1-20, default 10"),
+    freshness: z.enum(["pd", "pw", "pm", "py"]).optional(),
+    country: z.string().length(2).default("US"),
+  })
+  .strict();
+
 interface BraveSearchApiResult {
   title?: string;
   url?: string;
@@ -45,12 +56,12 @@ interface BraveSearchApiResponse {
   };
 }
 
-function clampResultCount(count: number | undefined): number {
+export function clampResultCount(count: number | undefined): number {
   const candidate = count ?? 10;
   return Math.min(20, Math.max(1, candidate));
 }
 
-function isValidUrl(value: string): boolean {
+export function isValidUrl(value: string): boolean {
   try {
     new URL(value);
     return true;
@@ -97,14 +108,7 @@ function toBraveSearchResult(
 export const braveSearchAgentTool = tool({
   description:
     "Search the public web with Brave Search and return cited organic result snippets.",
-  inputSchema: z
-    .object({
-      q: z.string().min(1).describe("Search query"),
-      count: z.number().int().default(10).describe("1-20, default 10"),
-      freshness: z.enum(["pd", "pw", "pm", "py"]).optional(),
-      country: z.string().length(2).default("US"),
-    })
-    .strict(),
+  inputSchema: WebSearchInputSchema,
   outputSchema: BraveSearchOutputSchema,
   execute: async ({ q, count, freshness, country }, { abortSignal }) => {
     const apiKey = process.env.BRAVE_SEARCH_API_KEY;
