@@ -82,6 +82,7 @@ const topicStopwords: ReadonlySet<string> = new Set([
   "across",
   "after",
   "alert",
+  "and",
   "before",
   "best",
   "better",
@@ -94,6 +95,7 @@ const topicStopwords: ReadonlySet<string> = new Set([
   "else",
   "every",
   "finest",
+  "for",
   "from",
   "help",
   "helps",
@@ -106,6 +108,7 @@ const topicStopwords: ReadonlySet<string> = new Set([
   "solution",
   "team",
   "teams",
+  "the",
   "that",
   "their",
   "this",
@@ -560,6 +563,39 @@ function hasAnyTopicOverlap(
   return false;
 }
 
+function topicTokensReconcile({
+  candidateTokens,
+  topicTokens,
+}: {
+  candidateTokens: ReadonlySet<string>;
+  topicTokens: ReadonlySet<string>;
+}): boolean {
+  return (
+    topicTokens.size >= minimumTopicTokenCount &&
+    candidateTokens.size >= minimumCreativeTokenCount &&
+    hasAnyTopicOverlap(candidateTokens, topicTokens)
+  );
+}
+
+export function textReconcilesWithCompetitorAdTopicContext({
+  text,
+  topicContext,
+}: {
+  text: string;
+  topicContext: string;
+}): boolean {
+  const normalizedText = nonEmptyText(text);
+
+  if (normalizedText === null) {
+    return false;
+  }
+
+  return topicTokensReconcile({
+    candidateTokens: new Set(tokenizeTopicText(normalizedText)),
+    topicTokens: buildTopicTokenSet(topicContext),
+  });
+}
+
 function shouldExcludeLowConfidenceOffTopicCreative({
   creative,
   topicTokens,
@@ -578,7 +614,7 @@ function shouldExcludeLowConfidenceOffTopicCreative({
 
   return (
     creativeTokens.size >= minimumCreativeTokenCount &&
-    !hasAnyTopicOverlap(creativeTokens, topicTokens)
+    !topicTokensReconcile({ candidateTokens: creativeTokens, topicTokens })
   );
 }
 

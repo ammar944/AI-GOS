@@ -4,12 +4,12 @@ import {
   VOC_CANDIDATE_PER_DOMAIN_CAP,
   createVoiceOfCustomerCandidate,
   formatVoiceOfCustomerCandidateBlock,
-  getRegistrableDomain,
   selectVoiceOfCustomerCandidates,
   type VoiceOfCustomerCandidate,
   type VoiceOfCustomerAcquisitionMode,
   type VoiceOfCustomerEvidenceKind,
 } from '../voice-of-customer-candidates';
+import { getRegistrableDomain } from '../../domain-utils';
 
 function acquisitionModeForKind(
   evidenceKind: VoiceOfCustomerEvidenceKind,

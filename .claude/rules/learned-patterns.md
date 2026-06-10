@@ -20,6 +20,9 @@
 
 - When Perplexity + AI SDK `Output.object` must FILL fields, never use `z.record(...)` as the call schema — it compiles to JSON schema with zero required properties and the constrained decoder legally returns `{}` (live-probed 2026-06-10: sonar AND sonar-pro both returned `{"fields": {}}` against a 121-row evidence table). Build a dynamic `z.object` with every wanted field as a REQUIRED property (value can still be null). Mocked unit tests cannot catch this — only a live CLI probe does.
 
+## Ad engine
+- When resolving a brand name to a domain (competitor seeds, advertiser identity), brand-token equality alone is WRONG-COMPANY prone across TLD collisions — live-probed 2026-06-10: "Coda" → coda.org (unrelated org) instead of coda.io via top organic result. Corroborate with topic reconciliation against the probe topicContext (shared helper `textReconcilesWithCompetitorAdTopicContext`), fail-closed when topicContext is empty. Mocked tests stayed green through this bug; only the live proof script caught it.
+
 ## Worker (research-worker)
 - When a watchdog/stale-check marks a job failed, it MUST also `abortControllers.get(jobId)?.abort()` — writing the error status alone leaves a zombie runner that keeps spending and later overwrites `error` with `complete` (user sees timeout, then data appears). Runners must accept and thread the `abortSignal` (4th arg) into every provider call.
 

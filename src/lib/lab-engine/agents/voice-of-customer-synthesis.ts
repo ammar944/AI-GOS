@@ -15,8 +15,8 @@ import {
   VOC_MIN_SUCCESS_QUOTES,
   VOC_MIN_TOP_LEVEL_SOURCES,
 } from "../artifacts/voice-of-customer-floors";
+import { getRegistrableDomain } from "../domain-utils";
 import {
-  getRegistrableDomain,
   type VoiceOfCustomerCandidate,
   type VoiceOfCustomerCandidateResult,
 } from "./voice-of-customer-candidates";

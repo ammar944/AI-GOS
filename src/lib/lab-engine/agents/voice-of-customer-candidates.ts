@@ -2,6 +2,11 @@ import {
   VOC_MIN_DOMAINS,
   VOC_MIN_QUOTES,
 } from "../artifacts/voice-of-customer-floors";
+import {
+  getRegistrableDomain,
+  normalizeHostname,
+  parseUrlLike,
+} from "../domain-utils";
 
 export type VoiceOfCustomerCandidateSource =
   | "reviews"
@@ -78,11 +83,6 @@ interface RankedCandidate {
   index: number;
 }
 
-const knownTwoLabelPublicSuffixes: ReadonlySet<string> = new Set([
-  "co.uk",
-  "com.au",
-]);
-
 const reviewDomains: ReadonlySet<string> = new Set([
   "capterra.com",
   "g2.com",
@@ -116,49 +116,6 @@ const sourceRank: Readonly<Record<VoiceOfCustomerCandidateSource, number>> = {
   // enter the pain-pack ranking, so this rank is a type-completeness entry.
   perplexity_research: 4,
 };
-
-function parseUrlLike(input: string): URL | null {
-  const trimmedInput = input.trim();
-
-  if (trimmedInput.length === 0 || /\s/.test(trimmedInput)) {
-    return null;
-  }
-
-  const urlInput = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmedInput)
-    ? trimmedInput
-    : `https://${trimmedInput}`;
-
-  try {
-    return new URL(urlInput);
-  } catch {
-    return null;
-  }
-}
-
-function isValidHostname(hostname: string): boolean {
-  const labels = hostname.split(".");
-
-  if (labels.length < 2) {
-    return false;
-  }
-
-  return labels.every(
-    (label) =>
-      /^[a-z0-9-]+$/.test(label) &&
-      !label.startsWith("-") &&
-      !label.endsWith("-"),
-  );
-}
-
-function normalizeHostname(hostname: string): string | null {
-  let normalized = hostname.trim().toLowerCase().replace(/\.$/, "");
-
-  while (normalized.startsWith("www.")) {
-    normalized = normalized.slice(4);
-  }
-
-  return isValidHostname(normalized) ? normalized : null;
-}
 
 function normalizeCandidateUrl(input: string): string | null {
   const parsedUrl = parseUrlLike(input);
@@ -293,25 +250,6 @@ function truncateSnippet(snippet: string): string {
   }
 
   return `${snippet.slice(0, maxLength - 3)}...`;
-}
-
-export function getRegistrableDomain(input: string): string | null {
-  const parsedUrl = parseUrlLike(input);
-  const hostname =
-    parsedUrl === null ? null : normalizeHostname(parsedUrl.hostname);
-
-  if (hostname === null) {
-    return null;
-  }
-
-  const labels = hostname.split(".");
-  const suffix = labels.slice(-2).join(".");
-
-  if (knownTwoLabelPublicSuffixes.has(suffix)) {
-    return labels.length >= 3 ? labels.slice(-3).join(".") : null;
-  }
-
-  return labels.slice(-2).join(".");
 }
 
 export function acquisitionModeForEvidenceKind(

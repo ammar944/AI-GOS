@@ -4,6 +4,7 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from "../artifact-envelope";
+import { getRegistrableDomain } from "../../domain-utils";
 import {
   VOC_MIN_DOMAINS,
   VOC_MIN_QUOTES,
@@ -540,33 +541,6 @@ export function validateVoiceOfCustomerMinimums(
   }
 
   return { ok: errors.length === 0, errors };
-}
-
-// Registrable domain = the last two labels of the host (e.g. blog.acme.co.uk
-// -> co.uk is a known limitation; the common SaaS case acme.com / blog.acme.com
-// collapses to acme.com). Used to compare a quote's source against the subject
-// company so subdomain variants cannot evade the self-sourcing ban.
-function getRegistrableDomain(input: string): string | null {
-  let host = input.trim();
-
-  try {
-    host = new URL(input).hostname;
-  } catch {
-    host = host.replace(/^[a-z]+:\/\//i, "").split("/")[0] ?? "";
-  }
-
-  host = host.replace(/^www\./i, "").toLowerCase();
-  const labels = host.split(".").filter((label) => label.length > 0);
-
-  if (labels.length === 0) {
-    return null;
-  }
-
-  if (labels.length === 1) {
-    return labels[0];
-  }
-
-  return labels.slice(-2).join(".");
 }
 
 /**

@@ -11,6 +11,12 @@ import {
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
 import {
+  getRegistrableDomain,
+  getRegistrableDomainBrandToken,
+  isSameRegistrableDomain,
+  normalizeBrandToken,
+} from "../domain-utils";
+import {
   isLikelyNamedBuyerIdentity,
   type BuyerICPBody,
 } from "../artifacts/schemas/buyer-icp";
@@ -103,7 +109,6 @@ import {
   acquisitionModeForEvidenceKind,
   createVoiceOfCustomerCandidate,
   formatVoiceOfCustomerCandidateBlock,
-  getRegistrableDomain,
   inferVoiceOfCustomerEvidenceKind,
   selectVoiceOfCustomerCandidates,
   type VoiceOfCustomerCandidate,
@@ -138,6 +143,7 @@ import {
   type BuyerPersonaCandidate,
 } from "./buyer-persona-acquisition";
 import {
+  cleanAdvertiserQuery,
   extractCompanyFromDomain,
   isAdvertiserMatch,
 } from "./tools/advertiser-match";
@@ -145,7 +151,9 @@ import {
   buildCompetitorAdEvidenceGroups,
   buildEmptyCompetitorAdEvidenceGapGroup,
   summarizeCompetitorAdEvidenceGroups,
+  textReconcilesWithCompetitorAdTopicContext,
 } from "./tools/competitor-ad-adapter";
+import { fetchSearchApiOrganicResults } from "./tools/searchapi-organic";
 import { fetchVerifiedMetaPageAds } from "./tools/adlibrary";
 import {
   normalizeForeplayAd,
@@ -1961,6 +1969,10 @@ const competitorAdProbeForeplayDeadlineMs = 9_000;
 // Cap on Foreplay ads pulled per advertiser. Mirrors the SearchAPI max_results so
 // one channel cannot flood the per-advertiser creative budget.
 const competitorAdProbeForeplayMaxAds = 6;
+// Organic domain fallback is paid, so it is single-shot and narrow: only
+// domainless advertisers, max five SearchAPI organic requests per probe run.
+const competitorAdProbeDomainFallbackAdvertiserLimit = 5;
+const competitorAdProbeDomainFallbackOrganicLimit = 3;
 // Hard ceiling on the VoC candidate prepass (reviews -> web_search -> firecrawl).
 // Unlike the ad probe, the prepass ran on the critical path with NO deadline,
 // so a slow scrape could eat into the section budget and tip VoC past the 270s
@@ -3170,7 +3182,7 @@ function withNormalizedSectionOutput({
   return outputWithAdEvidence;
 }
 
-interface CompetitorAdProbeAdvertiser {
+export interface CompetitorAdProbeAdvertiser {
   advertiser: string;
   domain?: string;
 }
@@ -3210,7 +3222,148 @@ function buildCompetitorAdTopicContext(researchInput: ResearchInput): string {
     .join("\n");
 }
 
-function getCompetitorAdProbeAdvertisers(
+function advertiserDomainMatchesBrand({
+  advertiser,
+  domain,
+}: {
+  advertiser: string;
+  domain: string;
+}): boolean {
+  const advertiserToken = normalizeBrandToken(
+    cleanAdvertiserQuery(advertiser).split(/\s+/u)[0] ?? "",
+  );
+  const domainToken = getRegistrableDomainBrandToken(domain);
+
+  return (
+    advertiserToken.length >= 3 &&
+    domainToken.length >= 3 &&
+    advertiserToken === domainToken
+  );
+}
+
+async function resolveAdvertiserDomainWithOrganicSearch({
+  advertiser,
+  apiKey,
+  clientDomain,
+  signal,
+  topicContext,
+}: {
+  advertiser: string;
+  apiKey: string;
+  clientDomain?: string;
+  signal?: AbortSignal;
+  topicContext: string;
+}): Promise<string | undefined> {
+  if (signal?.aborted === true) {
+    return undefined;
+  }
+
+  try {
+    const organicResults = await fetchSearchApiOrganicResults({
+      abortSignal: signal,
+      apiKey,
+      maxResults: competitorAdProbeDomainFallbackOrganicLimit,
+      query: `${advertiser} official site`,
+    });
+
+    for (const organicResult of organicResults) {
+      const domain = getRegistrableDomain(organicResult.url);
+      const organicResultText = [
+        organicResult.title?.trim(),
+        organicResult.snippet?.trim(),
+      ]
+        .filter(
+          (value): value is string =>
+            value !== undefined && value.length > 0,
+        )
+        .join("\n");
+
+      if (
+        domain === null ||
+        isSameRegistrableDomain(domain, clientDomain) ||
+        !advertiserDomainMatchesBrand({ advertiser, domain }) ||
+        !textReconcilesWithCompetitorAdTopicContext({
+          text: organicResultText,
+          topicContext,
+        })
+      ) {
+        continue;
+      }
+
+      return domain;
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function resolveCompetitorAdProbeAdvertiserDomains({
+  advertisers,
+  clientDomain,
+  signal,
+  topicContext,
+}: {
+  advertisers: readonly CompetitorAdProbeAdvertiser[];
+  clientDomain?: string;
+  signal?: AbortSignal;
+  topicContext: string;
+}): Promise<readonly CompetitorAdProbeAdvertiser[]> {
+  const apiKey = process.env.SEARCHAPI_KEY?.trim();
+
+  if (
+    topicContext.trim().length === 0 ||
+    apiKey === undefined ||
+    apiKey.length === 0
+  ) {
+    return advertisers;
+  }
+
+  const domainlessAdvertisers = advertisers
+    .filter((advertiser) => advertiser.domain === undefined)
+    .slice(0, competitorAdProbeDomainFallbackAdvertiserLimit);
+
+  if (domainlessAdvertisers.length === 0) {
+    return advertisers;
+  }
+
+  const resolvedDomains = await Promise.all(
+    domainlessAdvertisers.map(async (advertiserRecord) => ({
+      advertiser: advertiserRecord.advertiser,
+      domain: await resolveAdvertiserDomainWithOrganicSearch({
+        advertiser: advertiserRecord.advertiser,
+        apiKey,
+        clientDomain,
+        signal,
+        topicContext,
+      }),
+    })),
+  );
+  const domainByAdvertiser = new Map(
+    resolvedDomains.flatMap((result): Array<[string, string]> =>
+      result.domain === undefined
+        ? []
+        : [[result.advertiser.toLowerCase(), result.domain]],
+    ),
+  );
+
+  return advertisers.map((advertiserRecord) => {
+    if (advertiserRecord.domain !== undefined) {
+      return advertiserRecord;
+    }
+
+    const domain = domainByAdvertiser.get(
+      advertiserRecord.advertiser.toLowerCase(),
+    );
+
+    return domain === undefined
+      ? advertiserRecord
+      : { ...advertiserRecord, domain };
+  });
+}
+
+function collectCompetitorAdProbeAdvertisers(
   researchInput: ResearchInput,
 ): readonly CompetitorAdProbeAdvertiser[] {
   const advertisers = new Map<string, CompetitorAdProbeAdvertiser>();
@@ -3268,6 +3421,18 @@ function getCompetitorAdProbeAdvertisers(
     0,
     competitorAdProbeAdvertiserLimit,
   );
+}
+
+export async function getCompetitorAdProbeAdvertisers(
+  researchInput: ResearchInput,
+  signal?: AbortSignal,
+): Promise<readonly CompetitorAdProbeAdvertiser[]> {
+  return resolveCompetitorAdProbeAdvertiserDomains({
+    advertisers: collectCompetitorAdProbeAdvertisers(researchInput),
+    clientDomain: researchInput.company.websiteUrl,
+    signal,
+    topicContext: buildCompetitorAdTopicContext(researchInput),
+  });
 }
 
 
@@ -3637,8 +3802,8 @@ export async function runCompetitorAdProbeSteps({
   signal?: AbortSignal;
 }): Promise<AgentStep[]> {
   const allAdvertisers =
-    explicitAdvertisers ?? getCompetitorAdProbeAdvertisers(researchInput);
-  const advertisers =
+    explicitAdvertisers ?? collectCompetitorAdProbeAdvertisers(researchInput);
+  const cappedAdvertisers =
     maxAdvertisers === undefined
       ? allAdvertisers
       : allAdvertisers.slice(0, Math.max(0, maxAdvertisers));
@@ -3646,7 +3811,7 @@ export async function runCompetitorAdProbeSteps({
   const hasMetaAdsTool = hasExecutableTool(researchTools, "meta_ads");
 
   if (!hasGoogleAdsTool || !hasMetaAdsTool) {
-    const [firstAdvertiser] = advertisers;
+    const [firstAdvertiser] = cappedAdvertisers;
     const advertiser = firstAdvertiser?.advertiser ?? "competitor ad evidence";
     const baseInput = {
       advertiser,
@@ -3684,6 +3849,14 @@ export async function runCompetitorAdProbeSteps({
       },
     ];
   }
+
+  const topicContext = buildCompetitorAdTopicContext(researchInput);
+  const advertisers = await resolveCompetitorAdProbeAdvertiserDomains({
+    advertisers: cappedAdvertisers,
+    clientDomain: researchInput.company.websiteUrl,
+    signal,
+    topicContext,
+  });
 
   const googleAdsTool = getExecutableTool<CompetitorAdProbeToolInput>(
     researchTools,

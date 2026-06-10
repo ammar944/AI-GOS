@@ -301,6 +301,355 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
   });
 });
 
+type FetchSearchApiOrganicResults = (input: {
+  abortSignal?: AbortSignal;
+  apiKey: string;
+  maxResults: number;
+  query: string;
+}) => Promise<Array<{ url: string; title?: string; snippet?: string }>>;
+
+async function importProbeWithOrganicSearchMock(
+  implementation: FetchSearchApiOrganicResults,
+): Promise<{
+  fetchSearchApiOrganicResults: ReturnType<
+    typeof vi.fn<FetchSearchApiOrganicResults>
+  >;
+  runCompetitorAdProbeSteps: typeof runCompetitorAdProbeSteps;
+}> {
+  vi.resetModules();
+  const fetchSearchApiOrganicResults =
+    vi.fn<FetchSearchApiOrganicResults>(implementation);
+
+  vi.doMock('../tools/searchapi-organic', () => ({
+    fetchSearchApiOrganicResults,
+  }));
+
+  const runSectionModule = await import('../run-section');
+
+  return {
+    fetchSearchApiOrganicResults,
+    runCompetitorAdProbeSteps: runSectionModule.runCompetitorAdProbeSteps,
+  };
+}
+
+function createProbeTools(): Record<string, unknown> {
+  const budget = new SectionToolBudget(0, 30);
+  const observe = { concurrent: 0, maxConcurrent: 0 };
+
+  return {
+    google_ads: budgetWrappedAdTool('google_ads', budget, observe),
+    meta_ads: budgetWrappedAdTool('meta_ads', budget, observe),
+    linkedin_ads: budgetWrappedAdTool('linkedin_ads', budget, observe),
+  };
+}
+
+function firstCallInput(step: AgentStep): {
+  advertiser?: unknown;
+  domain?: unknown;
+} {
+  return (step.toolCalls[0]?.input ?? {}) as {
+    advertiser?: unknown;
+    domain?: unknown;
+  };
+}
+
+function getStep(steps: readonly AgentStep[], index: number): AgentStep {
+  const step = steps[index];
+
+  if (step === undefined) {
+    throw new Error(`Expected probe step ${index}.`);
+  }
+
+  return step;
+}
+
+function gtmOnTopicOrganicResult(
+  url: string,
+): { url: string; title: string; snippet: string } {
+  return {
+    url,
+    title: 'GTM pipeline operating system',
+    snippet:
+      'Revenue operators use account research, founder-led sales loops, and follow-up automation.',
+  };
+}
+
+function codaTopicResearchInput(): typeof saaslaunchResearchInput {
+  return {
+    ...saaslaunchResearchInput,
+    company: {
+      ...saaslaunchResearchInput.company,
+      category: 'Collaborative docs and tables automation',
+      description:
+        'A workspace for documents, tables, project planning, and lightweight app automation.',
+      targetCustomer:
+        'Operations teams that coordinate project plans, structured docs, and internal workflows.',
+    },
+    onboarding: {
+      ...saaslaunchResearchInput.onboarding,
+      primaryGoal:
+        'Evaluate collaborative docs, tables, project planning, and automation positioning.',
+      targetSegments: ['Operations teams', 'Project managers'],
+      keyOffers: ['Docs and tables workspace', 'Project planning automation'],
+      distributionChannels: ['Template gallery', 'Product-led adoption'],
+    },
+  };
+}
+
+function emptyTopicResearchInput(): typeof saaslaunchResearchInput {
+  return {
+    ...saaslaunchResearchInput,
+    company: {
+      ...saaslaunchResearchInput.company,
+      category: ' ',
+      description: ' ',
+      targetCustomer: ' ',
+    },
+    onboarding: {
+      ...saaslaunchResearchInput.onboarding,
+      primaryGoal: ' ',
+      targetSegments: [' '],
+      keyOffers: [' '],
+      distributionChannels: [' '],
+    },
+  };
+}
+
+describe('competitor ad probe advertiser organic domain fallback', (): void => {
+  afterEach((): void => {
+    vi.doUnmock('../tools/searchapi-organic');
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  it('fires only for domainless advertisers and passes resolved domains into probe tool input', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const { fetchSearchApiOrganicResults, runCompetitorAdProbeSteps } =
+      await importProbeWithOrganicSearchMock(async ({ query }) => {
+        if (query === 'Domainless official site') {
+          return [gtmOnTopicOrganicResult('https://www.domainless.com/')];
+        }
+
+        throw new Error(`Unexpected organic query: ${query}`);
+      });
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [
+        { advertiser: 'Domainful', domain: 'domainful.com' },
+        { advertiser: 'Domainless' },
+      ],
+      maxAdvertisers: 2,
+      researchInput: saaslaunchResearchInput,
+      researchTools: createProbeTools(),
+    });
+
+    expect(fetchSearchApiOrganicResults).toHaveBeenCalledTimes(1);
+    expect(fetchSearchApiOrganicResults).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: 'test-searchapi-key',
+        maxResults: 3,
+        query: 'Domainless official site',
+      }),
+    );
+    expect(firstCallInput(getStep(steps, 0))).toEqual(
+      expect.objectContaining({
+        advertiser: 'Domainful',
+        domain: 'domainful.com',
+      }),
+    );
+    expect(firstCallInput(getStep(steps, 1))).toEqual(
+      expect.objectContaining({
+        advertiser: 'Domainless',
+        domain: 'domainless.com',
+      }),
+    );
+  });
+
+  it('caps organic fallback at five domainless advertisers per probe run', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const { fetchSearchApiOrganicResults, runCompetitorAdProbeSteps } =
+      await importProbeWithOrganicSearchMock(async ({ query }) => {
+        const advertiser = query.replace(/ official site$/u, '').toLowerCase();
+        return [gtmOnTopicOrganicResult(`https://${advertiser}.com/`)];
+      });
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [
+        { advertiser: 'One' },
+        { advertiser: 'Two' },
+        { advertiser: 'Three' },
+        { advertiser: 'Four' },
+        { advertiser: 'Five' },
+        { advertiser: 'Six' },
+      ],
+      maxAdvertisers: 6,
+      researchInput: saaslaunchResearchInput,
+      researchTools: createProbeTools(),
+    });
+
+    expect(fetchSearchApiOrganicResults).toHaveBeenCalledTimes(5);
+    expect(steps).toHaveLength(6);
+    expect(firstCallInput(getStep(steps, 4)).domain).toBe('five.com');
+    expect(firstCallInput(getStep(steps, 5)).domain).toBeUndefined();
+  });
+
+  it('skips organic fallback when SEARCHAPI_KEY is absent', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', '');
+    const { fetchSearchApiOrganicResults, runCompetitorAdProbeSteps } =
+      await importProbeWithOrganicSearchMock(async () => [
+        { url: 'https://domainless.com/' },
+      ]);
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [{ advertiser: 'Domainless' }],
+      maxAdvertisers: 1,
+      researchInput: saaslaunchResearchInput,
+      researchTools: createProbeTools(),
+    });
+
+    expect(fetchSearchApiOrganicResults).not.toHaveBeenCalled();
+    expect(firstCallInput(getStep(steps, 0)).domain).toBeUndefined();
+  });
+
+  it('rejects organic fallback domains whose brand token does not match the advertiser', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const { runCompetitorAdProbeSteps } = await importProbeWithOrganicSearchMock(
+      async () => [
+        gtmOnTopicOrganicResult('https://www.notionlimited.co.uk/'),
+      ],
+    );
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [{ advertiser: 'Notion' }],
+      maxAdvertisers: 1,
+      researchInput: saaslaunchResearchInput,
+      researchTools: createProbeTools(),
+    });
+
+    expect(firstCallInput(getStep(steps, 0))).toEqual(
+      expect.objectContaining({ advertiser: 'Notion' }),
+    );
+    expect(firstCallInput(getStep(steps, 0)).domain).toBeUndefined();
+  });
+
+  it('threads the section abort signal into the organic fallback helper', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const controller = new AbortController();
+    const { fetchSearchApiOrganicResults, runCompetitorAdProbeSteps } =
+      await importProbeWithOrganicSearchMock(async () => [
+        gtmOnTopicOrganicResult('https://domainless.com/'),
+      ]);
+
+    await runCompetitorAdProbeSteps({
+      advertisers: [{ advertiser: 'Domainless' }],
+      maxAdvertisers: 1,
+      researchInput: saaslaunchResearchInput,
+      researchTools: createProbeTools(),
+      signal: controller.signal,
+    });
+
+    expect(fetchSearchApiOrganicResults).toHaveBeenCalledWith(
+      expect.objectContaining({ abortSignal: controller.signal }),
+    );
+  });
+
+  it('rejects off-topic coda.org and resolves the first on-topic Coda result to coda.io', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const { runCompetitorAdProbeSteps } = await importProbeWithOrganicSearchMock(
+      async () => [
+        {
+          url: 'https://www.coda.org/',
+          title: 'CODA community organization',
+          snippet:
+            'A nonprofit community for public arts, education events, music, and civic programs.',
+        },
+        {
+          url: 'https://coda.io/',
+          title: 'Coda docs and tables',
+          snippet:
+            'Collaborative docs, tables, project planning, and automation for operations teams.',
+        },
+        {
+          url: 'https://coda.dev/',
+          title: 'Coda developer utilities',
+          snippet: 'Package documentation for unrelated developer tools.',
+        },
+      ],
+    );
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [{ advertiser: 'Coda' }],
+      maxAdvertisers: 1,
+      researchInput: codaTopicResearchInput(),
+      researchTools: createProbeTools(),
+    });
+
+    expect(firstCallInput(getStep(steps, 0))).toEqual(
+      expect.objectContaining({
+        advertiser: 'Coda',
+        domain: 'coda.io',
+      }),
+    );
+  });
+
+  it('leaves the advertiser domainless when all three organic results are off-topic', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const { runCompetitorAdProbeSteps } = await importProbeWithOrganicSearchMock(
+      async () => [
+        { url: 'https://coda.io/' },
+        {
+          url: 'https://www.coda.org/',
+          title: 'CODA community organization',
+          snippet: 'Public arts, education events, music, and civic programs.',
+        },
+        {
+          url: 'https://coda.dev/',
+          title: 'Coda developer utilities',
+          snippet: 'Package documentation for unrelated developer tools.',
+        },
+      ],
+    );
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [{ advertiser: 'Coda' }],
+      maxAdvertisers: 1,
+      researchInput: codaTopicResearchInput(),
+      researchTools: createProbeTools(),
+    });
+
+    expect(firstCallInput(getStep(steps, 0))).toEqual(
+      expect.objectContaining({ advertiser: 'Coda' }),
+    );
+    expect(firstCallInput(getStep(steps, 0)).domain).toBeUndefined();
+  });
+
+  it('keeps organic fallback domainless when topicContext is empty', async (): Promise<void> => {
+    vi.stubEnv('SEARCHAPI_KEY', 'test-searchapi-key');
+    const { runCompetitorAdProbeSteps } = await importProbeWithOrganicSearchMock(
+      async () => [
+        {
+          url: 'https://coda.io/',
+          title: 'Coda docs and tables',
+          snippet:
+            'Collaborative docs, tables, project planning, and automation for operations teams.',
+        },
+      ],
+    );
+
+    const steps = await runCompetitorAdProbeSteps({
+      advertisers: [{ advertiser: 'Coda' }],
+      maxAdvertisers: 1,
+      researchInput: emptyTopicResearchInput(),
+      researchTools: createProbeTools(),
+    });
+
+    expect(firstCallInput(getStep(steps, 0))).toEqual(
+      expect.objectContaining({ advertiser: 'Coda' }),
+    );
+    expect(firstCallInput(getStep(steps, 0)).domain).toBeUndefined();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Post-draft rescue probe regression (runs f06333b6 + 0eeebd93): when the GTM
 // brief gives zero competitor seeds the deterministic prepass probe queries

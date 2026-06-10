@@ -15,11 +15,11 @@
 import {
   acquisitionModeForEvidenceKind,
   createVoiceOfCustomerCandidate,
-  getRegistrableDomain,
   inferVoiceOfCustomerEvidenceKind,
   VOC_CANDIDATE_PER_DOMAIN_CAP,
   type VoiceOfCustomerCandidate,
 } from "./voice-of-customer-candidates";
+import { getRegistrableDomain } from "../domain-utils";
 
 export const VOC_SECONDARY_CLASSES = [
   "success",

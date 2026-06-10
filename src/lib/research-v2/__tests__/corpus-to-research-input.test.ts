@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { researchInputSchema } from "../../lab-engine/artifacts/artifact-envelope";
-import { corpusToResearchInput } from "../corpus-to-research-input";
+import {
+  buildCompetitorSeeds,
+  corpusToResearchInput,
+} from "../corpus-to-research-input";
 
 const observedAt = new Date("2026-05-25T12:00:00.000Z");
 
@@ -496,12 +499,74 @@ describe("corpusToResearchInput", (): void => {
 
     const parsed = researchInputSchema.parse(input);
 
-    // The corpus sources are airtable.com only, so neither competitor gets a
-    // domain (conservative enrichment avoids mis-attribution).
+    // The corpus sources are airtable.com only, so Notion stays domainless;
+    // Monday.com resolves from name-shape, not corpus attribution.
     expect(parsed.competitorSeeds).toEqual([
       { name: "Notion", provenance: "user-supplied" },
-      { name: "Monday.com", provenance: "user-supplied" },
+      { name: "Monday.com", domain: "monday.com", provenance: "user-supplied" },
     ]);
+  });
+
+  it("resolves a bare-domain competitor seed from name-shape", (): void => {
+    const seeds = buildCompetitorSeeds({
+      clientDomain: "https://www.airtable.com/",
+      corpusRecords: [],
+      rawTopCompetitors: "monday.com",
+    });
+
+    expect(seeds).toEqual([
+      { name: "monday.com", domain: "monday.com", provenance: "user-supplied" },
+    ]);
+  });
+
+  it("resolves a domainless competitor seed from an unambiguous corpus URL brand token", (): void => {
+    const seeds = buildCompetitorSeeds({
+      clientDomain: "https://www.airtable.com/",
+      corpusRecords: [
+        {
+          title: "Notion customer story",
+          url: "https://www.notion.so/customers/airtable-alternative",
+        },
+      ],
+      rawTopCompetitors: "Notion",
+    });
+
+    expect(seeds).toEqual([
+      { name: "Notion", domain: "notion.so", provenance: "user-supplied" },
+    ]);
+  });
+
+  it("leaves a corpus-matched competitor domainless when the brand token is ambiguous", (): void => {
+    const seeds = buildCompetitorSeeds({
+      clientDomain: "https://www.airtable.com/",
+      corpusRecords: [
+        { url: "https://www.notion.so/customers" },
+        { url: "https://www.notion.com/product" },
+      ],
+      rawTopCompetitors: "Notion",
+    });
+
+    expect(seeds).toEqual([{ name: "Notion", provenance: "user-supplied" }]);
+  });
+
+  it("does not resolve a competitor seed to the client's own domain", (): void => {
+    const seeds = buildCompetitorSeeds({
+      clientDomain: "https://www.notion.so/",
+      corpusRecords: [{ url: "https://www.notion.so/product" }],
+      rawTopCompetitors: "Notion",
+    });
+
+    expect(seeds).toEqual([{ name: "Notion", provenance: "user-supplied" }]);
+  });
+
+  it("leaves a competitor seed domainless when no trusted domain matches", (): void => {
+    const seeds = buildCompetitorSeeds({
+      clientDomain: "https://www.airtable.com/",
+      corpusRecords: [{ url: "https://www.airtable.com/platform" }],
+      rawTopCompetitors: "Notion",
+    });
+
+    expect(seeds).toEqual([{ name: "Notion", provenance: "user-supplied" }]);
   });
 
   it("preserves explicit same-item competitor domains when they safely match the cleaned competitor", (): void => {

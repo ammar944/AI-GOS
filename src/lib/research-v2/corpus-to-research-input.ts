@@ -6,6 +6,12 @@ import {
   type ResearchInput,
   type SourceRef,
 } from "../lab-engine/artifacts/artifact-envelope";
+import {
+  getRegistrableDomain,
+  getRegistrableDomainBrandToken,
+  isSameRegistrableDomain,
+  normalizeBrandToken,
+} from "../lab-engine/domain-utils";
 import { sectionIds, type SectionId } from "../lab-engine/events/activity-event";
 import { cleanAdvertiserQuery } from "../lab-engine/agents/tools/advertiser-match";
 import { isNonAnswer } from "./non-answer";
@@ -809,30 +815,12 @@ function stripCompetitorDescriptor(value: string): string {
   return (value.split("(")[0] ?? value).replace(/[;,.]+$/u, "").trim();
 }
 
-function normalizeDomainToken(value: string): string | null {
-  const withoutProtocol = value.replace(/^[a-z][a-z0-9+.-]*:\/\//iu, "");
-  const withoutPath = withoutProtocol.split(/[/?#]/u)[0] ?? "";
-  const domain = withoutPath.toLowerCase().replace(/^www\./u, "");
-
-  if (
-    domain.length === 0 ||
-    !domain.includes(".") ||
-    !domain
-      .split(".")
-      .every((label) => /^[a-z0-9-]+$/u.test(label) && label.length > 0)
-  ) {
-    return null;
-  }
-
-  return domain;
-}
-
 function getExplicitDomainFromText(value: string): string | null {
   const match = value.match(
     /\b(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+(?:[/?#][^\s),;]*)?/iu,
   );
 
-  return match === null ? null : normalizeDomainToken(match[0]);
+  return match === null ? null : getRegistrableDomain(match[0]);
 }
 
 function getExplicitDomainFromCompetitorItem({
@@ -853,13 +841,6 @@ function getExplicitDomainFromCompetitorItem({
   return getExplicitDomainFromText(stripped);
 }
 
-function normalizeDomainBrandToken(value: string): string {
-  return value
-    .split(".")[0]
-    ?.replace(/[^a-z0-9]/giu, "")
-    .toLowerCase() ?? "";
-}
-
 function explicitDomainSafelyMatchesCompetitor({
   domain,
   name,
@@ -867,10 +848,10 @@ function explicitDomainSafelyMatchesCompetitor({
   domain: string;
   name: string;
 }): boolean {
-  const cleanNameToken = normalizeDomainBrandToken(
+  const cleanNameToken = normalizeBrandToken(
     cleanAdvertiserQuery(name).split(/\s+/u)[0] ?? "",
   );
-  const domainToken = normalizeDomainBrandToken(domain);
+  const domainToken = getRegistrableDomainBrandToken(domain);
 
   return (
     cleanNameToken.length >= 3 &&
@@ -879,36 +860,164 @@ function explicitDomainSafelyMatchesCompetitor({
   );
 }
 
+type CompetitorSeedDomainResolvedBy = "name-shape" | "corpus";
+
+export type CompetitorSeedDomainResolution =
+  | { domain: string; resolvedBy: CompetitorSeedDomainResolvedBy }
+  | { domain?: undefined; resolvedBy: "none" };
+
+interface CompetitorSeedDomainResolutionInput {
+  clientDomain?: string;
+  corpusDomains: readonly string[];
+  name: string;
+}
+
+function getBareDomainFromSeedName(name: string): string | null {
+  if (!/[.]/u.test(name)) {
+    return null;
+  }
+
+  const candidate = name.trim();
+
+  if (/[/\s]/u.test(candidate)) {
+    return null;
+  }
+
+  return getRegistrableDomain(candidate);
+}
+
+function extractRegistrableDomainsFromText(value: string): string[] {
+  const matches = value.matchAll(
+    /\b(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+(?:[/?#][^\s"',<>)\]}]*)?/giu,
+  );
+  const domains: string[] = [];
+
+  for (const match of matches) {
+    const candidate = match[0];
+    const domain = getRegistrableDomain(candidate);
+
+    if (domain !== null) {
+      domains.push(domain);
+    }
+  }
+
+  return domains;
+}
+
+function extractRegistrableDomainsFromValue(value: unknown): string[] {
+  if (typeof value === "string") {
+    return extractRegistrableDomainsFromText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => extractRegistrableDomainsFromValue(item));
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).flatMap((item) =>
+      extractRegistrableDomainsFromValue(item),
+    );
+  }
+
+  return [];
+}
+
+function buildCorpusDomainCandidates(
+  records: readonly Record<string, unknown>[],
+): string[] {
+  const seen = new Set<string>();
+  const domains: string[] = [];
+
+  for (const record of records) {
+    for (const domain of extractRegistrableDomainsFromValue(record)) {
+      if (seen.has(domain)) {
+        continue;
+      }
+
+      seen.add(domain);
+      domains.push(domain);
+    }
+  }
+
+  return domains;
+}
+
+function getUnambiguousCorpusDomainForName({
+  clientDomain,
+  corpusDomains,
+  name,
+}: CompetitorSeedDomainResolutionInput): string | undefined {
+  const nameToken = normalizeBrandToken(
+    cleanAdvertiserQuery(name).split(/\s+/u)[0] ?? "",
+  );
+
+  if (nameToken.length < 3) {
+    return undefined;
+  }
+
+  const clientRegistrableDomain =
+    clientDomain === undefined ? null : getRegistrableDomain(clientDomain);
+  const matchingDomains = new Set(
+    corpusDomains.filter(
+      (domain) =>
+        domain !== clientRegistrableDomain &&
+        getRegistrableDomainBrandToken(domain) === nameToken,
+    ),
+  );
+
+  return matchingDomains.size === 1
+    ? Array.from(matchingDomains)[0]
+    : undefined;
+}
+
+export function resolveCompetitorSeedDomain({
+  clientDomain,
+  corpusDomains,
+  name,
+}: CompetitorSeedDomainResolutionInput): CompetitorSeedDomainResolution {
+  const bareDomain = getBareDomainFromSeedName(name);
+
+  if (
+    bareDomain !== null &&
+    !isSameRegistrableDomain(bareDomain, clientDomain)
+  ) {
+    return { domain: bareDomain, resolvedBy: "name-shape" };
+  }
+
+  const corpusDomain = getUnambiguousCorpusDomainForName({
+    clientDomain,
+    corpusDomains,
+    name,
+  });
+
+  return corpusDomain === undefined
+    ? { resolvedBy: "none" }
+    : { domain: corpusDomain, resolvedBy: "corpus" };
+}
+
 /**
  * Parse the onboarding `topCompetitors` free-text field into competitor seeds for
  * the deterministic ad probe. Numbered/bulleted lists are split only on list
  * markers and newlines so commas/semicolons inside parenthetical descriptions do
  * not become bogus advertiser names. Legacy unnumbered strings fall back to comma
- * splitting. Domain enrichment is CONSERVATIVE: a corpus source domain is
- * attached only when its base token exactly equals the competitor's first
- * significant word, because attaching a WRONG domain makes the advertiser-match
- * short-name guard reject otherwise-valid ad creatives.
+ * splitting. Domain enrichment is CONSERVATIVE: keep safe explicit brief
+ * domains, then resolve bare-domain names, then attach a corpus/evidence domain
+ * only when exactly one non-client registrable domain has the same brand token.
  */
-function buildCompetitorSeeds(
-  rawTopCompetitors: string | undefined,
-  sourceRecords: readonly Record<string, unknown>[],
-): { name: string; domain?: string; provenance: "user-supplied" }[] {
+export function buildCompetitorSeeds({
+  clientDomain,
+  corpusRecords,
+  rawTopCompetitors,
+}: {
+  clientDomain?: string;
+  corpusRecords: readonly Record<string, unknown>[];
+  rawTopCompetitors: string | undefined;
+}): { name: string; domain?: string; provenance: "user-supplied" }[] {
   if (rawTopCompetitors === undefined || rawTopCompetitors.trim() === "") {
     return [];
   }
 
-  const corpusDomains = sourceRecords
-    .map((source) => getValidUrl(firstString(source.url, source.sourceUrl)))
-    .filter((url): url is string => url !== null)
-    .map((url) => {
-      try {
-        return new URL(url).hostname.replace(/^www\./, "");
-      } catch {
-        return null;
-      }
-    })
-    .filter((domain): domain is string => domain !== null);
-
+  const corpusDomains = buildCorpusDomainCandidates(corpusRecords);
   const seen = new Set<string>();
   const seeds: { name: string; domain?: string; provenance: "user-supplied" }[] =
     [];
@@ -944,17 +1053,19 @@ function buildCompetitorSeeds(
 
     seen.add(key);
 
-    const firstWord = key.split(/\s+/)[0]?.replace(/[^a-z0-9]/g, "") ?? "";
     const domain =
       explicitDomain !== null &&
-      explicitDomainSafelyMatchesCompetitor({ domain: explicitDomain, name })
+      explicitDomainSafelyMatchesCompetitor({ domain: explicitDomain, name }) &&
+      !isSameRegistrableDomain(explicitDomain, clientDomain)
         ? explicitDomain
         : undefined;
-    const corpusDomain =
-      firstWord.length >= 3
-        ? corpusDomains.find((d) => (d.split(".")[0] ?? "") === firstWord)
-        : undefined;
-    const seedDomain = domain ?? corpusDomain;
+    const seedDomain =
+      domain ??
+      resolveCompetitorSeedDomain({
+        clientDomain,
+        corpusDomains,
+        name,
+      }).domain;
 
     seeds.push({
       name,
@@ -1107,14 +1218,16 @@ export function corpusToResearchInput(
     },
     sources,
     competitorAds: [],
-    competitorSeeds: buildCompetitorSeeds(
-      firstString(
-        getFieldValue(onboardingFields, "topCompetitors"),
-        getValue(onboardingData, "topCompetitors"),
-        getValue(onboardingData, "top_competitors"),
-      ) ?? undefined,
-      sourceRecords,
-    ),
+    competitorSeeds: buildCompetitorSeeds({
+      clientDomain: websiteUrl,
+      corpusRecords: [...sourceRecords, ...allEvidenceRecords],
+      rawTopCompetitors:
+        firstString(
+          getFieldValue(onboardingFields, "topCompetitors"),
+          getValue(onboardingData, "topCompetitors"),
+          getValue(onboardingData, "top_competitors"),
+        ) ?? undefined,
+    }),
     ...(droppedEvidenceExcerptCount === 0
       ? {}
       : {

@@ -12,7 +12,7 @@
 // BUYER_PERSONA_MAX_PERPLEXITY_CALLS, credential gap aborts retries.
 
 import { isLikelyNamedBuyerIdentity } from "../artifacts/schemas/buyer-icp";
-import { getRegistrableDomain } from "./voice-of-customer-candidates";
+import { getRegistrableDomain } from "../domain-utils";
 
 export const BUYER_PERSONA_VENUES = [
   "public_voices",
