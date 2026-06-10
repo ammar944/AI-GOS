@@ -27,9 +27,74 @@ function replacePersona(
   };
 }
 
+function withPersonaCount(count: number): BuyerICPArtifact {
+  return {
+    ...buyerICPFixtureArtifact,
+    body: {
+      ...buyerICPFixtureArtifact.body,
+      personaReality: {
+        ...buyerICPFixtureArtifact.body.personaReality,
+        personas: buyerICPFixtureArtifact.body.personaReality.personas.slice(
+          0,
+          count,
+        ),
+      },
+    },
+  };
+}
+
 describe("validateBuyerICPMinimums", (): void => {
   it("accepts the fixture", (): void => {
     expect(validateBuyerICPMinimums(buyerICPFixtureArtifact)).toMatchObject({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it("accepts exactly 3 named personas (floor 3)", (): void => {
+    expect(validateBuyerICPMinimums(withPersonaCount(3))).toMatchObject({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it("rejects 2 personas without a gap report", (): void => {
+    const result = validateBuyerICPMinimums(withPersonaCount(2));
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "body.personaReality.personas: have 2, need >=3.",
+    );
+  });
+
+  it("accepts 2 personas with the persona evidence-gap report", (): void => {
+    const base = withPersonaCount(2);
+    const artifact: BuyerICPArtifact = {
+      ...base,
+      body: {
+        ...base.body,
+        evidenceGap: true,
+        evidenceGapReport: {
+          reason: "insufficient_named_buyer_personas",
+          summary: "Found 2 named buyer personas; required 3.",
+          foundNamedPersonaCount: 2,
+          requiredNamedPersonaCount: 3,
+          rejectedPersonaLabels: [],
+          sourcingPlan: ["Recover one more named buyer identity."],
+        },
+      },
+    };
+
+    expect(validateBuyerICPMinimums(artifact)).toMatchObject({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it("accepts a persona carrying the derived vendorSourced label", (): void => {
+    const artifact = replacePersona(0, { vendorSourced: true });
+
+    expect(validateBuyerICPMinimums(artifact)).toMatchObject({
       ok: true,
       errors: [],
     });

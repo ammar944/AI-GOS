@@ -130,6 +130,13 @@ import {
   VOC_MIN_QUOTES,
 } from "../artifacts/voice-of-customer-floors";
 import { ToolGapSchema, type ToolGap } from "./tools/_shared";
+import { perplexityResearchAgentTool } from "./tools/perplexity-research";
+import {
+  acquireBuyerPersonaCandidates,
+  deriveVendorSourced,
+  formatBuyerPersonaCandidateBlock,
+  type BuyerPersonaCandidate,
+} from "./buyer-persona-acquisition";
 import {
   extractCompanyFromDomain,
   isAdvertiserMatch,
@@ -1145,9 +1152,10 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
 const buyerICPPersonaNameErrorPattern =
   /^body\.personaReality\.personas\[\d+\]\.name: must be a named person, public reviewer handle, or named source identity; generic role\/segment\/company labels do not qualify\.$/;
 const buyerICPPersonaCountErrorPattern =
-  /^body\.personaReality\.personas: have \d+, need >=5\.$/;
+  /^body\.personaReality\.personas: have \d+, need >=3\.$/;
 const buyerICPPersonaEvidenceGapReason = "insufficient_named_buyer_personas";
-const buyerICPRequiredNamedPersonaCount = 5;
+// Floor 3 (was 5) — kept in lockstep with validateBuyerICPMinimums.
+const buyerICPRequiredNamedPersonaCount = 3;
 
 function isBuyerICPPersonaEvidenceGapError(error: string): boolean {
   return (
@@ -2022,7 +2030,18 @@ function buildStructuredSectionDraftSchema(
       sources: sectionOutputSchema.shape.sources.describe(
         "Top-level model-authored section sources with distinct cited URLs. Author at least five distinct URLs when the section validator requires >=5 sources.",
       ),
-      body: definition.bodySchema,
+      // VoC streams a LENIENT body: the SDK-side draft validation otherwise
+      // kills the whole stream on one DeepSeek near-miss shape with an opaque
+      // "response did not match schema" (no zod detail, no repair feedback) —
+      // exactly what gap-committed the Anura W1 rerun. The lenient body flows
+      // into buildOutputFromStructuredBody, where the VoC normalizer coerces
+      // near-miss shapes and bodySchema.parse enforces strictness with REAL
+      // issues that drive the repair attempt. Same deferral the paid-media
+      // generation schema (lenientSectionGenerationSchema) already proved live.
+      body:
+        definition.id === "positioningVoiceOfCustomer"
+          ? z.record(z.string(), z.unknown())
+          : definition.bodySchema,
     })
     // .strict() is load-bearing: the draft schema must REJECT a full SectionOutput
     // (extra sectionTitle/confidence keys) so the draft shape stays distinct
@@ -2030,7 +2049,10 @@ function buildStructuredSectionDraftSchema(
     // stray envelope fields. (run-section-artifact-streaming.test.ts:135 asserts this.)
     .strict();
 }
-const paidMediaPlanGenerationSchema = z
+// Lenient SDK-side generation schema for sections whose strictness is
+// enforced AFTER the section normalizer (paid-media since the enum-reject
+// fix; VoC since the Anura blockGap near-miss stream-kill).
+const lenientSectionGenerationSchema = z
   .object({
     body: z.unknown(),
     confidence: z.unknown(),
@@ -2052,8 +2074,13 @@ function getStructuredOutputMaxTokens(
 function getStructuredGenerationSchema(
   definition: RuntimeSectionDefinition,
 ): z.ZodType<unknown> {
-  if (definition.id === "positioningPaidMediaPlan") {
-    return paidMediaPlanGenerationSchema;
+  // SDK-side leniency: strictness lives in the post-normalizer
+  // sectionOutputSchema.parse, not in the provider call.
+  if (
+    definition.id === "positioningPaidMediaPlan" ||
+    definition.id === "positioningVoiceOfCustomer"
+  ) {
+    return lenientSectionGenerationSchema;
   }
 
   return definition.sectionOutputSchema;
@@ -2679,7 +2706,49 @@ function withoutEvidenceGapKeys(
   );
 }
 
-function withNormalizedBuyerICPOutput(rawOutput: unknown): unknown {
+// vendorSourced is derived here, never asked of the model (same pattern as
+// the P3 provenance verifier): registrable domain of persona.sourceUrl equals
+// the subject domain -> true. Whatever the model authored is overwritten.
+function withDerivedVendorSourcedPersonas({
+  personaRealityRecord,
+  subjectWebsiteUrl,
+}: {
+  personaRealityRecord: Record<string, unknown>;
+  subjectWebsiteUrl: string | undefined;
+}): Record<string, unknown> {
+  if (
+    subjectWebsiteUrl === undefined ||
+    !Array.isArray(personaRealityRecord.personas)
+  ) {
+    return personaRealityRecord;
+  }
+
+  return {
+    ...personaRealityRecord,
+    personas: personaRealityRecord.personas.map((persona) => {
+      const personaRecord = getRecord(persona);
+
+      if (personaRecord === null) {
+        return persona;
+      }
+
+      const sourceUrl = getStringProperty(personaRecord, "sourceUrl");
+
+      return {
+        ...personaRecord,
+        vendorSourced: deriveVendorSourced({
+          sourceUrl: sourceUrl ?? "",
+          subjectWebsiteUrl,
+        }),
+      };
+    }),
+  };
+}
+
+export function withNormalizedBuyerICPOutput(
+  rawOutput: unknown,
+  { subjectWebsiteUrl }: { subjectWebsiteUrl?: string } = {},
+): unknown {
   const outputRecord = getRecord(rawOutput);
 
   if (outputRecord === null) {
@@ -2703,7 +2772,10 @@ function withNormalizedBuyerICPOutput(rawOutput: unknown): unknown {
       ...(personaRealityRecord === null
         ? {}
         : {
-            personaReality: withoutEvidenceGapKeys(personaRealityRecord),
+            personaReality: withDerivedVendorSourcedPersonas({
+              personaRealityRecord: withoutEvidenceGapKeys(personaRealityRecord),
+              subjectWebsiteUrl,
+            }),
           }),
       ...(icpExistenceCheckRecord === null
         ? {}
@@ -2731,7 +2803,7 @@ function withNormalizedBuyerICPOutput(rawOutput: unknown): unknown {
   };
 }
 
-function withNormalizedVoiceOfCustomerOutput(rawOutput: unknown): unknown {
+export function withNormalizedVoiceOfCustomerOutput(rawOutput: unknown): unknown {
   const outputWithSources = withSectionSourcesFromBody({
     minimumSources: 5,
     rawOutput,
@@ -2748,67 +2820,129 @@ function withNormalizedVoiceOfCustomerOutput(rawOutput: unknown): unknown {
     return outputWithSources;
   }
 
-  const painLanguageRecord = getRecord(bodyRecord.painLanguage);
-  const switchingStoriesRecord = getRecord(bodyRecord.switchingStories);
-  const successLanguageRecord = getRecord(bodyRecord.successLanguage);
-
   return {
     ...outputRecord,
-    body: withNormalizedVoiceOfCustomerBody({
-      bodyRecord,
-      painLanguageRecord,
-      successLanguageRecord,
-      switchingStoriesRecord,
-    }),
+    body: withNormalizedVoiceOfCustomerBody({ bodyRecord }),
+  };
+}
+
+// Mechanical blockGap shape coercion (TAM-coercion precedent): DeepSeek's
+// compat mode emits near-miss shapes for small optional strict objects —
+// null for "absent", numeric strings for ints, a bare string for a
+// single-step plan, stray extra keys. The coercion is shape-only; a blockGap
+// missing real content (no summary, no plan) still fails bodySchema.parse
+// with a precise issue that drives the repair attempt.
+function normalizeVoiceOfCustomerBlockGapOnBlock(
+  blockRecord: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!("blockGap" in blockRecord)) {
+    return blockRecord;
+  }
+
+  const blockGapRecord = getRecord(blockRecord.blockGap);
+
+  if (blockGapRecord === null) {
+    // null / non-object blockGap means "no gap filed" — drop the key so the
+    // optional schema accepts it.
+    const { blockGap: _droppedBlockGap, ...rest } = blockRecord;
+    return rest;
+  }
+
+  const coerceCount = (value: unknown): unknown => {
+    if (
+      typeof value === "string" &&
+      value.trim() !== "" &&
+      Number.isFinite(Number(value))
+    ) {
+      return Math.trunc(Number(value));
+    }
+    return value;
+  };
+  const rawSourcingPlan = blockGapRecord.sourcingPlan;
+  const sourcingPlan =
+    typeof rawSourcingPlan === "string" && rawSourcingPlan.trim() !== ""
+      ? [rawSourcingPlan]
+      : rawSourcingPlan;
+
+  return {
+    ...blockRecord,
+    blockGap: {
+      ...("summary" in blockGapRecord ? { summary: blockGapRecord.summary } : {}),
+      ...("foundCount" in blockGapRecord
+        ? { foundCount: coerceCount(blockGapRecord.foundCount) }
+        : {}),
+      ...("requiredCount" in blockGapRecord
+        ? { requiredCount: coerceCount(blockGapRecord.requiredCount) }
+        : {}),
+      ...(sourcingPlan === undefined ? {} : { sourcingPlan }),
+    },
   };
 }
 
 function withNormalizedVoiceOfCustomerBody({
   bodyRecord,
-  painLanguageRecord = getRecord(bodyRecord.painLanguage),
-  successLanguageRecord = getRecord(bodyRecord.successLanguage),
-  switchingStoriesRecord = getRecord(bodyRecord.switchingStories),
 }: {
   bodyRecord: Record<string, unknown>;
-  painLanguageRecord?: Record<string, unknown> | null;
-  successLanguageRecord?: Record<string, unknown> | null;
-  switchingStoriesRecord?: Record<string, unknown> | null;
 }): Record<string, unknown> {
+  const painLanguageRecord = getRecord(bodyRecord.painLanguage);
+  const objectionsRecord = getRecord(bodyRecord.objections);
+  const switchingStoriesRecord = getRecord(bodyRecord.switchingStories);
+  const decisionCriteriaRecord = getRecord(bodyRecord.decisionCriteria);
+  const successLanguageRecord = getRecord(bodyRecord.successLanguage);
+
   return {
     ...bodyRecord,
     ...(painLanguageRecord === null
       ? {}
       : {
-          painLanguage: {
-            ...painLanguageRecord,
-            quotes: normalizeArrayRecords({
-              normalize: normalizeVoiceOfCustomerQuoteRecord,
-              value: painLanguageRecord.quotes,
-            }),
-          },
+          painLanguage: (() => {
+            // Pain has no per-block escape: a model-authored
+            // painLanguage.blockGap is stripped, never honored.
+            const { blockGap: _droppedPainBlockGap, ...painRest } =
+              painLanguageRecord;
+            return {
+              ...painRest,
+              quotes: normalizeArrayRecords({
+                normalize: normalizeVoiceOfCustomerQuoteRecord,
+                value: painLanguageRecord.quotes,
+              }),
+            };
+          })(),
+        }),
+    ...(objectionsRecord === null
+      ? {}
+      : {
+          objections: normalizeVoiceOfCustomerBlockGapOnBlock(objectionsRecord),
         }),
     ...(switchingStoriesRecord === null
       ? {}
       : {
-          switchingStories: {
+          switchingStories: normalizeVoiceOfCustomerBlockGapOnBlock({
             ...switchingStoriesRecord,
             stories: normalizeArrayRecords({
               normalize: (story) =>
                 removeEmptyStringProperty(story, "exampleCompany"),
               value: switchingStoriesRecord.stories,
             }),
-          },
+          }),
+        }),
+    ...(decisionCriteriaRecord === null
+      ? {}
+      : {
+          decisionCriteria: normalizeVoiceOfCustomerBlockGapOnBlock(
+            decisionCriteriaRecord,
+          ),
         }),
     ...(successLanguageRecord === null
       ? {}
       : {
-          successLanguage: {
+          successLanguage: normalizeVoiceOfCustomerBlockGapOnBlock({
             ...successLanguageRecord,
             quotes: normalizeArrayRecords({
               normalize: normalizeVoiceOfCustomerQuoteRecord,
               value: successLanguageRecord.quotes,
             }),
-          },
+          }),
         }),
   };
 }
@@ -2919,10 +3053,12 @@ function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
   rawOutput,
   sectionId,
+  subjectWebsiteUrl,
 }: {
   rawOutput: unknown;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   sectionId: SectionId;
+  subjectWebsiteUrl?: string;
 }): unknown {
   const outputWithAdEvidence = withNormalizedCompetitorAdEvidence({
     normalizedAdEvidenceGroups,
@@ -2930,7 +3066,9 @@ function withNormalizedSectionOutput({
   });
 
   if (sectionId === "positioningBuyerICP") {
-    return withNormalizedBuyerICPOutput(outputWithAdEvidence);
+    return withNormalizedBuyerICPOutput(outputWithAdEvidence, {
+      subjectWebsiteUrl,
+    });
   }
 
   if (sectionId === "positioningMarketCategory") {
@@ -3567,6 +3705,7 @@ async function callStructuredAttempt({
         rawOutput,
         normalizedAdEvidenceGroups,
         sectionId: input.sectionId,
+        subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
     );
     const verification = verifySectionBody({
@@ -4698,14 +4837,23 @@ async function buildVoiceOfCustomerCandidatePrepass({
     }
   }
 
-  // W1a: once the pain loop has settled OK, acquire the four SECONDARY quote
-  // classes (success / objections / switching / criteria) via parallel
-  // perplexity calls with their own structural budget — these lookups never
-  // consume VOC_PREPASS_MAX_LOOKUPS, and a pain-pack gap skips them entirely
-  // (the section gap-commits regardless, so the spend would buy nothing).
+  // W1a: after the pain loop settles, acquire all five quote classes via
+  // parallel perplexity calls — the four SECONDARY classes for the tagged
+  // candidate block plus a PAIN rescue channel (the Anura rerun proved
+  // quotable pain can span <3 domains even when the candidate pack clears
+  // its floors). The fan-out runs even on a pain-pack gap: a rescued pain
+  // class can un-doom the section.
   let classCandidates = createEmptyVoiceOfCustomerClassCandidates();
-  if (result.ok) {
+  {
     const classSteps: AgentStep[] = [];
+    // The class fan-out runs against the UNWRAPPED perplexity tool: its
+    // structural cap (VOC_CLASS_MAX_PERPLEXITY_CALLS) IS its budget. Drawing
+    // from the section's generic pool starved both the fan-out retries and
+    // the agent loop's own lookups on the Anura rerun ("section budget
+    // exhausted after 8 lookups").
+    const classLookupTools: Record<string, unknown> = {
+      perplexity_research: perplexityResearchAgentTool,
+    };
     const classAcquisition = await acquireVoiceOfCustomerClassCandidates({
       company: {
         category: researchInput.company.category,
@@ -4715,7 +4863,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
       executeLookup: async (question: string): Promise<unknown> => {
         const toolResult = await executeVoiceOfCustomerPrepassTool({
           input,
-          researchTools,
+          researchTools: classLookupTools,
           stepNumber: 0,
           toolInput: { question, recency: "any" },
           toolName: "perplexity_research",
@@ -4736,6 +4884,15 @@ async function buildVoiceOfCustomerCandidatePrepass({
       step.stepNumber = steps.length + index + 1;
     });
     steps.push(...classSteps);
+
+    // Pain-class rescue candidates join the PAIN pack through the same
+    // selector (dedup, ranking, per-domain caps, floors) — verbatim by
+    // acquisition contract, so they widen the independent-domain spread the
+    // commit floor demands.
+    if (classCandidates.pain.length > 0) {
+      candidates.push(...classCandidates.pain);
+      result = selectVoiceOfCustomerCandidates(candidates);
+    }
   }
 
   const acquisitionLedger = buildVoiceOfCustomerAcquisitionLedger({
@@ -4773,6 +4930,86 @@ async function buildVoiceOfCustomerCandidatePrepass({
     steps,
     subjectDomain,
   };
+}
+
+interface BuyerPersonaCandidatePrepass {
+  candidateBlock: string;
+  candidates: BuyerPersonaCandidate[];
+  events: ActivityEvent[];
+  steps: AgentStep[];
+}
+
+// Venue fan-out is 2 parallel perplexity calls + at most one retry each;
+// bounded so a slow venue pass cannot eat the section budget.
+const buyerPersonaPrepassDeadlineMs = 45_000;
+
+async function buildBuyerPersonaCandidatePrepass({
+  deps,
+  input,
+  researchInput,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): Promise<BuyerPersonaCandidatePrepass> {
+  const prepassSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "Buyer persona venue prepass",
+    timeoutMs: buyerPersonaPrepassDeadlineMs,
+  });
+  const steps: AgentStep[] = [];
+  // Unwrapped tool: the venue pass has its own structural cap and must not
+  // drain the agent loop's generic lookup pool (same rationale as the VoC
+  // class fan-out).
+  const lookupTools: Record<string, unknown> = {
+    perplexity_research: perplexityResearchAgentTool,
+  };
+
+  try {
+    const acquisition = await acquireBuyerPersonaCandidates({
+      company: {
+        category: researchInput.company.category,
+        name: researchInput.company.name,
+        websiteUrl: researchInput.company.websiteUrl,
+      },
+      executeLookup: async (question: string): Promise<unknown> => {
+        const toolResult = await executeVoiceOfCustomerPrepassTool({
+          input: { ...input, signal: prepassSignal.signal },
+          researchTools: lookupTools,
+          stepNumber: 0,
+          toolInput: { question, recency: "any" },
+          toolName: "perplexity_research",
+        });
+
+        if (toolResult === null) {
+          return null;
+        }
+
+        steps.push(toolResult.step);
+        return toolResult.output;
+      },
+    });
+
+    steps.forEach((step, index) => {
+      step.stepNumber = index + 1;
+    });
+
+    return {
+      candidateBlock: formatBuyerPersonaCandidateBlock(acquisition.candidates),
+      candidates: acquisition.candidates,
+      events: steps.flatMap((step) =>
+        buildToolEvents({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          step,
+        }),
+      ),
+      steps,
+    };
+  } finally {
+    prepassSignal.cleanup();
+  }
 }
 
 function formatVoiceOfCustomerCandidateGapIssue({
@@ -5143,6 +5380,7 @@ async function buildAnswerToolAttempt({
         rawOutput: answerInput,
         sectionId: input.sectionId,
         normalizedAdEvidenceGroups,
+        subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
     );
     return await buildVerifiedAttemptFromOutput({
@@ -5207,11 +5445,13 @@ function buildOutputFromStructuredBody({
   definition,
   input,
   normalizedAdEvidenceGroups,
+  subjectWebsiteUrl,
 }: {
   body: unknown;
   definition: RuntimeSectionDefinition;
   input: RunSectionInput;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  subjectWebsiteUrl?: string;
 }): SectionOutput<Record<string, unknown>> {
   const structuredRecord = getRecord(body);
   const rawBody = structuredRecord?.body ?? body;
@@ -5247,6 +5487,7 @@ function buildOutputFromStructuredBody({
     rawOutput: authoredOutput,
     normalizedAdEvidenceGroups,
     sectionId: input.sectionId,
+    subjectWebsiteUrl,
   });
   const normalizedOutputRecord = getRecord(normalizedOutput);
   const normalizedBody =
@@ -5431,6 +5672,7 @@ async function buildStructuredBodyAttempt({
       definition,
       input,
       normalizedAdEvidenceGroups,
+      subjectWebsiteUrl: researchInput.company.websiteUrl,
     });
 
     return await buildVerifiedAttemptFromOutput({
@@ -5672,6 +5914,15 @@ async function runSectionViaAnswerTool(
   }
 
   const voiceOfCustomerPrepassSteps = voiceOfCustomerPrepass?.steps ?? [];
+  const buyerPersonaPrepass =
+    input.sectionId === "positioningBuyerICP"
+      ? await buildBuyerPersonaCandidatePrepass({ deps, input, researchInput })
+      : undefined;
+  if (buyerPersonaPrepass !== undefined) {
+    toolEvents.push(...buyerPersonaPrepass.events);
+    await scheduleFlush();
+  }
+  const buyerPersonaPrepassSteps = buyerPersonaPrepass?.steps ?? [];
   const answerToolInstructions = [
     buildAnswerToolInstructions(
       definition,
@@ -5685,6 +5936,9 @@ async function runSectionViaAnswerTool(
     ...(voiceOfCustomerPrepass === undefined
       ? []
       : ["", voiceOfCustomerPrepass.candidateBlock]),
+    ...(buyerPersonaPrepass === undefined
+      ? []
+      : ["", buyerPersonaPrepass.candidateBlock]),
     "",
     "Skill analyst guidance:",
     skillMd,
@@ -5780,6 +6034,7 @@ async function runSectionViaAnswerTool(
 
   const answerResultSteps = [
     ...voiceOfCustomerPrepassSteps,
+    ...buyerPersonaPrepassSteps,
     ...answerResult.steps,
   ];
   // Post-draft rescue probe: when the brief seeded zero advertisers the
@@ -5908,6 +6163,7 @@ async function runSectionViaAnswerTool(
       await scheduleFlush();
       const repairResultSteps = [
         ...voiceOfCustomerPrepassSteps,
+        ...buyerPersonaPrepassSteps,
         ...repairResult.steps,
       ];
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
@@ -6279,7 +6535,19 @@ async function runSectionViaStructuredBodyStream(
     }
   }
 
-  const modelSteps: AgentStep[] = [...(voiceOfCustomerPrepass?.steps ?? [])];
+  const buyerPersonaPrepass =
+    input.sectionId === "positioningBuyerICP"
+      ? await buildBuyerPersonaCandidatePrepass({ deps, input, researchInput })
+      : undefined;
+  if (buyerPersonaPrepass !== undefined) {
+    toolEvents.push(...buyerPersonaPrepass.events);
+    await scheduleFlush();
+  }
+
+  const modelSteps: AgentStep[] = [
+    ...(voiceOfCustomerPrepass?.steps ?? []),
+    ...(buyerPersonaPrepass?.steps ?? []),
+  ];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
   // One seq ref per RUN, shared across every repair attempt. Each
@@ -6308,6 +6576,7 @@ async function runSectionViaStructuredBodyStream(
   );
 
   const structuredBodyPrompt = buildStructuredBodyPrompt({
+    buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
     definition,
     externalToolNames,
     normalizedAdEvidenceGroups,
@@ -6556,6 +6825,7 @@ async function runSectionViaStructuredBodyStream(
         normalizedAdEvidenceGroups,
         partialSeqRef,
         prompt: buildStructuredBodyRepairPrompt({
+          buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
           definition,
           evidenceTranscript: buildEvidenceTranscript(modelSteps),
           externalToolNames,

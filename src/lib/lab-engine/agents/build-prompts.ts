@@ -652,6 +652,7 @@ export function buildStructuredPrompt({
 }
 
 export function buildStructuredBodyPrompt({
+  buyerPersonaCandidateBlock,
   definition,
   externalToolNames,
   normalizedAdEvidenceGroups,
@@ -659,6 +660,7 @@ export function buildStructuredBodyPrompt({
   skillMd,
   voiceOfCustomerCandidateBlock,
 }: {
+  buyerPersonaCandidateBlock?: string;
   definition: PromptSectionDefinition;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
@@ -685,6 +687,9 @@ export function buildStructuredBodyPrompt({
     ...(voiceOfCustomerCandidateBlock === undefined
       ? []
       : [voiceOfCustomerCandidateBlock, ""]),
+    ...(buyerPersonaCandidateBlock === undefined
+      ? []
+      : [buyerPersonaCandidateBlock, ""]),
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -837,6 +842,7 @@ export function buildRepairPrompt({
 }
 
 export function buildStructuredBodyRepairPrompt({
+  buyerPersonaCandidateBlock,
   definition,
   evidenceTranscript,
   externalToolNames,
@@ -847,6 +853,7 @@ export function buildStructuredBodyRepairPrompt({
   skillMd,
   voiceOfCustomerCandidateBlock,
 }: {
+  buyerPersonaCandidateBlock?: string;
   definition: PromptSectionDefinition;
   evidenceTranscript: string;
   issues: string[];
@@ -859,6 +866,7 @@ export function buildStructuredBodyRepairPrompt({
 }): string {
   return [
     buildStructuredBodyPrompt({
+      buyerPersonaCandidateBlock,
       definition,
       externalToolNames,
       normalizedAdEvidenceGroups,

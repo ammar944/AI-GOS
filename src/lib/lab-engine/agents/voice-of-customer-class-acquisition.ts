@@ -1,11 +1,12 @@
-// Voice of Customer secondary-class acquisition (W1a).
+// Voice of Customer class acquisition (W1a).
 //
-// The pain loop in buildVoiceOfCustomerCandidatePrepass acquires PAIN
+// The pain loop in buildVoiceOfCustomerCandidatePrepass scrapes PAIN
 // candidates only, while the schema demands five quote classes. This module
-// acquires the four SECONDARY classes — success language, objections,
-// switching stories, decision criteria — with one perplexity sonar-pro call
-// per class (parallel), a deterministic strict-line parser, and per-class
-// dedup/per-domain caps so one quote-rich domain cannot starve another class.
+// runs one perplexity sonar-pro call per class (parallel) — the four
+// SECONDARY classes (success language, objections, switching stories,
+// decision criteria) plus a PAIN rescue channel — through a deterministic
+// strict-line parser and per-class dedup/per-domain caps so one quote-rich
+// domain cannot starve another class.
 //
 // Paid-API discipline: at most one retry per class on zero parsed lines,
 // hard cap VOC_CLASS_MAX_PERPLEXITY_CALLS total, abort all retries on a
@@ -30,8 +31,22 @@ export const VOC_SECONDARY_CLASSES = [
 export type VoiceOfCustomerSecondaryClass =
   (typeof VOC_SECONDARY_CLASSES)[number];
 
-/** 4 classes x (1 initial + at most 1 retry). Structural cap, never a loop. */
-export const VOC_CLASS_MAX_PERPLEXITY_CALLS = VOC_SECONDARY_CLASSES.length * 2;
+// Pain rides the same acquisition fan-out as a RESCUE channel (the Anura
+// rerun proved quotable pain can span <3 domains even when the candidate
+// pack clears its floors): pain-class candidates join the PAIN pack through
+// selectVoiceOfCustomerCandidates, never the secondary-class block, and the
+// pain floors stay unchanged.
+export const VOC_ACQUISITION_CLASSES = [
+  "pain",
+  ...VOC_SECONDARY_CLASSES,
+] as const;
+
+export type VoiceOfCustomerAcquisitionClass =
+  (typeof VOC_ACQUISITION_CLASSES)[number];
+
+/** 5 classes x (1 initial + at most 1 retry). Structural cap, never a loop. */
+export const VOC_CLASS_MAX_PERPLEXITY_CALLS =
+  VOC_ACQUISITION_CLASSES.length * 2;
 
 /** Per-class selected-candidate ceiling — small by design, like the pain pack. */
 export const VOC_CLASS_PACK_MAX_SIZE = 8;
@@ -40,11 +55,11 @@ export const VOC_CLASS_PACK_MAX_SIZE = 8;
 const VOC_CLASS_MIN_QUOTE_LENGTH = 12;
 
 export interface VoiceOfCustomerClassCandidate extends VoiceOfCustomerCandidate {
-  vocClass: VoiceOfCustomerSecondaryClass;
+  vocClass: VoiceOfCustomerAcquisitionClass;
 }
 
 export type VoiceOfCustomerClassCandidates = Record<
-  VoiceOfCustomerSecondaryClass,
+  VoiceOfCustomerAcquisitionClass,
   VoiceOfCustomerClassCandidate[]
 >;
 
@@ -58,7 +73,7 @@ export interface VoiceOfCustomerClassLookup {
   attempt: 1 | 2;
   output: unknown;
   question: string;
-  vocClass: VoiceOfCustomerSecondaryClass;
+  vocClass: VoiceOfCustomerAcquisitionClass;
 }
 
 export interface AcquireVoiceOfCustomerClassCandidatesResult {
@@ -77,6 +92,7 @@ export function createEmptyVoiceOfCustomerClassCandidates(): VoiceOfCustomerClas
   return {
     criteria: [],
     objections: [],
+    pain: [],
     success: [],
     switching: [],
   };
@@ -150,8 +166,13 @@ interface ClassQuestionSpec {
 }
 
 const classQuestionSpecs: Readonly<
-  Record<VoiceOfCustomerSecondaryClass, ClassQuestionSpec>
+  Record<VoiceOfCustomerAcquisitionClass, ClassQuestionSpec>
 > = {
+  pain: {
+    ask: "Find verbatim customer PAIN quotes — complaints, frustrations, struggles, things that broke or wasted time/money — from independent reviews and forums (G2, Capterra, Trustpilot, SoftwareAdvice, Reddit, Hacker News)",
+    retryAsk:
+      "Search more broadly across review platforms, Reddit, Hacker News, Trustpilot, and practitioner forums for verbatim customer complaints and frustration language",
+  },
   success: {
     ask: "Find verbatim customer quotes describing concrete OUTCOMES and after-state results (time saved, money saved, a metric improved, control regained) from independent reviews and forums (G2, Capterra, Trustpilot, Reddit)",
     retryAsk:
@@ -181,7 +202,7 @@ export function buildVoiceOfCustomerClassQuestion({
 }: {
   attempt?: 1 | 2;
   company: VoiceOfCustomerSubjectCompany;
-  vocClass: VoiceOfCustomerSecondaryClass;
+  vocClass: VoiceOfCustomerAcquisitionClass;
 }): string {
   const spec = classQuestionSpecs[vocClass];
   // Carry the category disambiguator on every query — a bare brand name
@@ -203,7 +224,7 @@ export function buildVoiceOfCustomerClassCandidates({
 }: {
   answer: string;
   auditedCompanyDomain: string;
-  vocClass: VoiceOfCustomerSecondaryClass;
+  vocClass: VoiceOfCustomerAcquisitionClass;
 }): VoiceOfCustomerClassCandidate[] {
   return parseVerbatimQuoteLines(answer).flatMap((line) => {
     const domain = getRegistrableDomain(line.url);
@@ -314,7 +335,7 @@ export async function acquireVoiceOfCustomerClassCandidates({
   const candidatesByClass = createEmptyVoiceOfCustomerClassCandidates();
 
   const runClass = async (
-    vocClass: VoiceOfCustomerSecondaryClass,
+    vocClass: VoiceOfCustomerAcquisitionClass,
   ): Promise<void> => {
     const collected: VoiceOfCustomerClassCandidate[] = [];
 
@@ -357,7 +378,9 @@ export async function acquireVoiceOfCustomerClassCandidates({
       selectVoiceOfCustomerClassCandidates(collected);
   };
 
-  await Promise.all(VOC_SECONDARY_CLASSES.map((vocClass) => runClass(vocClass)));
+  await Promise.all(
+    VOC_ACQUISITION_CLASSES.map((vocClass) => runClass(vocClass)),
+  );
 
   return { candidatesByClass, lookupCount, lookups };
 }

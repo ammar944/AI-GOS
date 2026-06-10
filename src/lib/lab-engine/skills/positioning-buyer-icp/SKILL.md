@@ -75,7 +75,7 @@ Before any tool calls, read the supplied `businessContext` and any shared corpus
 
 IRON LAW: Never invent named people, companies, account counts, community size, audience numbers, or buyer triggers. If the evidence is thin, write `evidence gap: <reason>` in the relevant prose.
 
-IRON LAW: Real names or none. If you cannot name at least 5 real individuals at named real ICP companies with a source URL, say "ICP is abstract — recommend primary discovery before ad spend" in `personaReality.prose`, set `body.evidenceGap: true`, and file the structured `evidenceGapReport` (reason `insufficient_named_buyer_personas`). Never pad with generic labels — the validator rejects them as persona names.
+IRON LAW: Real names or none. If you cannot name at least 3 real individuals at named real ICP companies with a source URL, say "ICP is abstract — recommend primary discovery before ad spend" in `personaReality.prose`, set `body.evidenceGap: true`, and file the structured `evidenceGapReport` (reason `insufficient_named_buyer_personas`). Never pad with generic labels — the validator rejects them as persona names. Personas sourced from the subject's own case studies are real buyers and count toward the floor; the runner labels them `vendorSourced` automatically — never author that field.
 
 IRON LAW: Every quantitative claim (account count, audience size, subscriber count) carries a source URL and the date observed. An undated count is not evidence; an unsourced count is a fabrication.
 
@@ -118,8 +118,8 @@ Only these research tools are available, and the lookup budget is small — spen
 2. Check ICP existence across firmographic cuts.
    Validation: `icpExistenceCheck.firmographicCuts` has at least 3 cuts across at least 3 DISTINCT `cutType` values — duplicate cutTypes fail validation — each fully fielded with `sourceUrl` and `dateObserved`, and each carrying its platform path in prose.
 
-3. Establish persona reality with named proof.
-   Validation: `personaReality.personas` has at least 5 named real individuals at named real companies, each fully fielded with a valid `sourceUrl`. Below 5, use the structured evidence-gap path instead of padding.
+3. Establish persona reality with named proof — the `Buyer persona venue leads` block first, then your own tool fills.
+   Validation: `personaReality.personas` has at least 3 named real individuals at named real companies, each fully fielded with a valid `sourceUrl`. Below 3, use the structured evidence-gap path instead of padding. Aim for at least one persona from an independent (non-vendor) surface.
 
 4. Map awareness distribution across the buyer base.
    Validation: `awarenessDistribution.levels` covers all five levels exactly once, each `share` carrying its basis per the IRON LAW. Prose names the dominant level and the headline + channel strategy it implies.
@@ -214,7 +214,17 @@ Body sub-sections — `strategicInsight` plus five evidence sub-sections, each `
 
 ### EvidenceGapReport (with `evidenceGap: true`)
 
-Fields: `reason` (literal `insufficient_named_buyer_personas`) · `summary` (what was searched and why named personas could not be evidenced) · `foundNamedPersonaCount` · `requiredNamedPersonaCount` (the floor, 5) · `rejectedPersonaLabels` (the generic labels you refused to ship) · `sourcingPlan` (≥1 concrete sourcing step for the operator).
+Fields: `reason` (literal `insufficient_named_buyer_personas`) · `summary` (what was searched and why named personas could not be evidenced) · `foundNamedPersonaCount` · `requiredNamedPersonaCount` (the floor, 3) · `rejectedPersonaLabels` (the generic labels you refused to ship) · `sourcingPlan` (≥1 concrete sourcing step for the operator).
+
+## The Persona Venue Leads Block
+
+The prompt may carry a block titled `Buyer persona venue leads (perplexity prepass)`: named-individual LEADS acquired harness-side from two venue passes — public voices (podcasts, conference talks, LinkedIn authors, case-study champions) and named reviewer identities (G2/Capterra-class).
+
+Consumption rules:
+
+- Leads are NOT personas. Promote a persona only after the named evidence at the lead's URL supports it; that URL becomes `sourceUrl`.
+- Keep names exactly as stated; never merge leads or upgrade a handle to a full name.
+- Never author `vendorSourced` — the runner derives it from the sourceUrl domain.
 
 ## Confidence Tagging
 

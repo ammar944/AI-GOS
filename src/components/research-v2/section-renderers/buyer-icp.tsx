@@ -113,6 +113,11 @@ export function BuyerICPRenderer({
         <div className="flex flex-col gap-1">
           <span className="font-medium text-foreground">{row.name}</span>
           <span className="text-[12px] text-muted-foreground">{row.company}</span>
+          {row.vendorSourced === true ? (
+            <span className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+              vendor-sourced
+            </span>
+          ) : null}
         </div>
       ),
     },

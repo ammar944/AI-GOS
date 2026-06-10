@@ -257,6 +257,11 @@ const personaSchema = z
     seniority: z.string().min(1),
     teamSize: z.string().min(1).optional(),
     evidence: z.string().min(1),
+    // Derived by the runner normalizer (derive-don't-ask): true when the
+    // persona's sourceUrl registrable domain equals the audited company's.
+    // Vendor-sourced personas still count toward the floor — they are real
+    // buyers — they're just labeled for the reader.
+    vendorSourced: z.boolean().optional(),
   })
   .strict();
 
@@ -408,8 +413,11 @@ export function validateBuyerICPMinimums(
     );
   }
 
-  if (!personaEvidenceGap && personas.length < 5) {
-    errors.push(`body.personaReality.personas: have ${personas.length}, need >=5.`);
+  // Floor 3 (was 5): the venue prepass + perplexity mining make 3 reachable
+  // for quote-sparse subjects; below 3 the structured evidence-gap path is
+  // the honest exit.
+  if (!personaEvidenceGap && personas.length < 3) {
+    errors.push(`body.personaReality.personas: have ${personas.length}, need >=3.`);
   }
 
   personas.forEach((persona, index) => {

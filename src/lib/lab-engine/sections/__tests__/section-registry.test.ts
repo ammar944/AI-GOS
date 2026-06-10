@@ -43,7 +43,9 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
         "firecrawl",
         "perplexity_research",
       ],
-      maxExternalLookups: 6,
+      // 8: pain prepass spends ~3 generic lookups before the agent loop —
+      // see the registry comment (Anura mid-repair budget block).
+      maxExternalLookups: 8,
       scrapeReservedLookups: 2,
       requiredEvidenceClasses: ["voc_quote_or_gap"],
     });

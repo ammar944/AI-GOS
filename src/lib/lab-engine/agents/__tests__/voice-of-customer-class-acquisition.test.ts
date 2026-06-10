@@ -4,9 +4,11 @@ import {
   acquireVoiceOfCustomerClassCandidates,
   buildVoiceOfCustomerClassCandidates,
   buildVoiceOfCustomerClassQuestion,
+  createEmptyVoiceOfCustomerClassCandidates,
   formatVoiceOfCustomerClassCandidateBlock,
   parseVerbatimQuoteLines,
   selectVoiceOfCustomerClassCandidates,
+  VOC_ACQUISITION_CLASSES,
   VOC_CLASS_MAX_PERPLEXITY_CALLS,
   VOC_CLASS_PACK_MAX_SIZE,
   VOC_SECONDARY_CLASSES,
@@ -108,7 +110,7 @@ describe("parseVerbatimQuoteLines", (): void => {
 
 describe("buildVoiceOfCustomerClassQuestion", (): void => {
   it("carries the brand + category disambiguator and the strict line format in every class question", (): void => {
-    for (const vocClass of VOC_SECONDARY_CLASSES) {
+    for (const vocClass of VOC_ACQUISITION_CLASSES) {
       const question = buildVoiceOfCustomerClassQuestion({
         company,
         vocClass,
@@ -128,6 +130,16 @@ describe("buildVoiceOfCustomerClassQuestion", (): void => {
 
     expect(question.toLowerCase()).toContain("switch");
     expect(question.toLowerCase()).toContain("prior");
+  });
+
+  it("asks the pain rescue question for complaint language", (): void => {
+    const question = buildVoiceOfCustomerClassQuestion({
+      company,
+      vocClass: "pain",
+    });
+
+    expect(question.toLowerCase()).toContain("pain");
+    expect(question.toLowerCase()).toContain("complaint");
   });
 });
 
@@ -205,7 +217,7 @@ describe("selectVoiceOfCustomerClassCandidates", (): void => {
 });
 
 describe("acquireVoiceOfCustomerClassCandidates", (): void => {
-  it("fans out one lookup per secondary class when answers parse", async (): Promise<void> => {
+  it("fans out one lookup per acquisition class (pain + 4 secondary) when answers parse", async (): Promise<void> => {
     const questions: string[] = [];
     const result = await acquireVoiceOfCustomerClassCandidates({
       company,
@@ -219,9 +231,9 @@ describe("acquireVoiceOfCustomerClassCandidates", (): void => {
       },
     });
 
-    expect(questions).toHaveLength(VOC_SECONDARY_CLASSES.length);
-    expect(result.lookupCount).toBe(VOC_SECONDARY_CLASSES.length);
-    for (const vocClass of VOC_SECONDARY_CLASSES) {
+    expect(questions).toHaveLength(VOC_ACQUISITION_CLASSES.length);
+    expect(result.lookupCount).toBe(VOC_ACQUISITION_CLASSES.length);
+    for (const vocClass of VOC_ACQUISITION_CLASSES) {
       expect(result.candidatesByClass[vocClass]).toHaveLength(1);
     }
   });
@@ -236,10 +248,10 @@ describe("acquireVoiceOfCustomerClassCandidates", (): void => {
       },
     });
 
-    expect(calls).toBe(VOC_SECONDARY_CLASSES.length * 2);
+    expect(calls).toBe(VOC_ACQUISITION_CLASSES.length * 2);
     expect(calls).toBeLessThanOrEqual(VOC_CLASS_MAX_PERPLEXITY_CALLS);
     expect(result.lookupCount).toBe(calls);
-    for (const vocClass of VOC_SECONDARY_CLASSES) {
+    for (const vocClass of VOC_ACQUISITION_CLASSES) {
       expect(result.candidatesByClass[vocClass]).toEqual([]);
     }
   });
@@ -254,7 +266,7 @@ describe("acquireVoiceOfCustomerClassCandidates", (): void => {
       },
     });
 
-    expect(calls).toBe(VOC_SECONDARY_CLASSES.length);
+    expect(calls).toBe(VOC_ACQUISITION_CLASSES.length);
     expect(result.lookupCount).toBe(calls);
   });
 
@@ -268,28 +280,31 @@ describe("acquireVoiceOfCustomerClassCandidates", (): void => {
       },
     });
 
-    expect(calls).toBe(VOC_SECONDARY_CLASSES.length * 2);
+    expect(calls).toBe(VOC_ACQUISITION_CLASSES.length * 2);
   });
 });
 
 describe("formatVoiceOfCustomerClassCandidateBlock", (): void => {
   it("renders class tags, schema targets, and blockGap guidance for empty classes", (): void => {
-    const successCandidates = buildVoiceOfCustomerClassCandidates({
+    const candidatesByClass = createEmptyVoiceOfCustomerClassCandidates();
+    candidatesByClass.success = buildVoiceOfCustomerClassCandidates({
       answer: quoteLine(1, "g2.com"),
       auditedCompanyDomain: company.websiteUrl,
       vocClass: "success",
     });
-
-    const block = formatVoiceOfCustomerClassCandidateBlock({
-      criteria: [],
-      objections: [],
-      success: successCandidates,
-      switching: [],
+    candidatesByClass.pain = buildVoiceOfCustomerClassCandidates({
+      answer: quoteLine(2, "reddit.com"),
+      auditedCompanyDomain: company.websiteUrl,
+      vocClass: "pain",
     });
+
+    const block = formatVoiceOfCustomerClassCandidateBlock(candidatesByClass);
 
     expect(block).toContain("body.successLanguage.quotes");
     expect(block).toContain("[success]");
     expect(block).toContain("quote 1");
     expect(block).toContain("body.objections.blockGap");
+    // Pain rescue candidates join the pain PACK, never the class block.
+    expect(block).not.toContain("[pain]");
   });
 });

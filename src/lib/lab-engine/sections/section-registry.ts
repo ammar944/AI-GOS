@@ -242,7 +242,10 @@ export const SECTION_REGISTRY = {
     ],
     sectionOutputSchemaName: "VoiceOfCustomerSectionOutput",
     allowedTools: ["web_search", "reviews", "firecrawl", "perplexity_research"],
-    maxExternalLookups: 6,
+    // 8 (was 6): the pain prepass consumes ~3 generic lookups before the
+    // agent loop starts, which left the agent budget-blocked from fetching a
+    // third independent pain domain mid-repair on the Anura rerun.
+    maxExternalLookups: 8,
     scrapeReservedLookups: 2,
     requiredEvidenceClasses: ["voc_quote_or_gap"],
     loadBearingKinds: ["numeric", "url", "quote"],
