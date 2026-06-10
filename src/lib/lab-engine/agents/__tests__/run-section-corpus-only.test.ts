@@ -1124,6 +1124,28 @@ describe('runSection corpus-only mode', (): void => {
     // on the first attempt rather than burning wasted grounding re-runs.
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
     expect(unsupportedNumericClaims).toHaveLength(1);
+    const resultBody = requireRecord(result.artifact.body);
+    const marketSize = requireRecord(resultBody.marketSize);
+    const signals = marketSize.signals;
+
+    if (!Array.isArray(signals)) {
+      throw new Error('Expected marketSize.signals array.');
+    }
+
+    expect(requireRecord(signals[0]).evidence).toBe(
+      'The category is expanding at 44% [unverified] annually.',
+    );
+    expect(result.artifact.verifierSummary).toEqual(
+      expect.objectContaining({
+        strippedNumericClaims: [
+          {
+            action: 'marker',
+            field: 'body.marketSize.signals[0].evidence',
+            value: '44%',
+          },
+        ],
+      }),
+    );
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
     );
@@ -1675,9 +1697,11 @@ describe('runSection corpus-only mode', (): void => {
     expect(artifactCreatives).toHaveLength(8);
     expect(artifactChannels).toHaveLength(4);
     expect(artifactCrossSectionInsight).toHaveLength(1);
-    expect(requireRecord(artifactPhases[0]).monthlyBudgetValue).toBe(3000);
+    expect(requireRecord(artifactPhases[0])).not.toHaveProperty(
+      'monthlyBudgetValue',
+    );
     expect(requireRecord(artifactPhases[0]).monthlyBudgetProvenance).toBe(
-      'model-estimated',
+      'unknown',
     );
     expect(requireRecord(artifactAudiences[0])).not.toHaveProperty(
       'dailyBudgetValue',
@@ -1933,9 +1957,20 @@ describe('runSection corpus-only mode', (): void => {
       steps: [],
       text: '',
     }));
-    const callStructured = vi.fn<StructuredCaller>(
-      async () => buildPaidMediaPlanOutput(),
-    );
+    const callStructured = vi.fn<StructuredCaller>(async () => {
+      const output = buildPaidMediaPlanOutput();
+      const body = requireRecord(output.body);
+      const overview = requireRecord(body.campaignOverview);
+
+      overview.monthlyBudget = '$99,999 / Month';
+      overview.monthlyBudgetValue = 99_999;
+      overview.monthlyBudgetProvenance = 'model-estimated';
+      overview.dailySpend = '$3,333 / day';
+      overview.dailySpendValue = 3_333;
+      overview.dailySpendProvenance = 'user-supplied';
+
+      return output;
+    });
     const verifierSummary = {
       totalClaims: 4,
       judged: 4,
@@ -1976,13 +2011,40 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     const record = await store.readRun(saaslaunchResearchInput.runId);
+    const committedOverview = requireRecord(
+      requireRecord(result.artifact.body).campaignOverview,
+    );
 
     expect(result.artifact.needs_review).toBe(true);
-    expect(result.artifact.verifierSummary).toEqual(verifierSummary);
+    expect(result.artifact.verifierSummary).toEqual(
+      expect.objectContaining({
+        ...verifierSummary,
+        strippedNumericClaims: expect.arrayContaining([
+          expect.objectContaining({
+            action: 'provenance-unknown',
+            field: 'body.campaignOverview.monthlyBudget',
+            value: expect.stringContaining('$99,999'),
+          }),
+        ]),
+      }),
+    );
+    expect(committedOverview.monthlyBudgetProvenance).toBe('unknown');
+    expect(committedOverview).not.toHaveProperty('monthlyBudgetValue');
+    expect(committedOverview.dailySpendProvenance).toBe('user-supplied');
+    expect(committedOverview.dailySpendValue).toBe(3_333);
     expect(record.sections.positioningPaidMediaPlan?.artifact).toEqual(
       expect.objectContaining({
         needs_review: true,
-        verifierSummary,
+        verifierSummary: expect.objectContaining({
+          ...verifierSummary,
+          strippedNumericClaims: expect.arrayContaining([
+            expect.objectContaining({
+              action: 'provenance-unknown',
+              field: 'body.campaignOverview.monthlyBudget',
+              value: expect.stringContaining('$99,999'),
+            }),
+          ]),
+        }),
       }),
     );
     expect(verifyPaidMediaPlan).toHaveBeenCalledTimes(1);

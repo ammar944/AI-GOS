@@ -371,6 +371,38 @@ export interface StripMisattributedQuoteAttributionsResult {
   stripped: StrippedQuoteAttribution[];
 }
 
+export type StrippedNumericClaimAction =
+  | "marker"
+  | "evidence-gap"
+  | "provenance-unknown";
+
+export interface StrippedNumericClaim {
+  value: string;
+  action: StrippedNumericClaimAction;
+  field?: string;
+}
+
+export interface RedactUnsupportedNumericClaimsResult {
+  body: Record<string, unknown>;
+  stripped: StrippedNumericClaim[];
+}
+
+interface UnsupportedNumericToken {
+  value: string;
+}
+
+const unverifiedMarker = "[unverified]";
+const trustedPaidMediaMoneyProvenances = new Set([
+  "user-supplied",
+  "tool-measured",
+  "source-reported",
+]);
+const demandIntentKeywordNumericFieldNames = new Set([
+  "monthlyvolume",
+  "cpc",
+]);
+const bottomUpTamPath = "body.marketSize.bottomUpTam";
+
 function stringFieldValue(
   record: Record<string, unknown>,
   fieldName: string,
@@ -517,6 +549,478 @@ export function stripMisattributedQuoteAttributions({
     path: "body",
     relabelSource,
     stripped,
+    value: cloned,
+  });
+
+  return stripped.length === 0 ? { body, stripped } : { body: cloned, stripped };
+}
+
+function normalizeNumericTokenValue(value: string): string {
+  return normalizeWhitespace(value).toLowerCase();
+}
+
+function collectUnsupportedNumericTokens(
+  verification: VerificationReport,
+): UnsupportedNumericToken[] {
+  const verifiedValues = new Set(
+    verification.claims
+      .filter(
+        (verdict) =>
+          verdict.status === "verified" && isNumericClaim(verdict.claim),
+      )
+      .map((verdict) => normalizeNumericTokenValue(verdict.claim.value)),
+  );
+  const seen = new Set<string>();
+  const tokens: UnsupportedNumericToken[] = [];
+
+  for (const verdict of verification.claims) {
+    if (verdict.status !== "unsupported" || !isNumericClaim(verdict.claim)) {
+      continue;
+    }
+
+    const normalizedValue = normalizeNumericTokenValue(verdict.claim.value);
+
+    if (verifiedValues.has(normalizedValue) || seen.has(normalizedValue)) {
+      continue;
+    }
+
+    seen.add(normalizedValue);
+    tokens.push({ value: verdict.claim.value });
+  }
+
+  return tokens.sort((left, right) => right.value.length - left.value.length);
+}
+
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function markNumericToken({
+  token,
+  value,
+}: {
+  token: UnsupportedNumericToken;
+  value: string;
+}): { applied: boolean; value: string } {
+  if (token.value.length === 0 || !value.includes(token.value)) {
+    return { applied: false, value };
+  }
+
+  let applied = false;
+  const pattern = new RegExp(escapeRegExp(token.value), "g");
+  const redacted = value.replace(pattern, (match, offset: number, source) => {
+    const following = source.slice(offset + match.length);
+
+    if (/^\s*\[unverified\]/i.test(following)) {
+      return match;
+    }
+
+    applied = true;
+    return `${match} ${unverifiedMarker}`;
+  });
+
+  return { applied, value: redacted };
+}
+
+function appendMarkerActions({
+  field,
+  stripped,
+  tokens,
+  value,
+}: {
+  field: string;
+  stripped: StrippedNumericClaim[];
+  tokens: readonly UnsupportedNumericToken[];
+  value: string;
+}): string {
+  let nextValue = value;
+
+  for (const token of tokens) {
+    const result = markNumericToken({ token, value: nextValue });
+
+    if (!result.applied) {
+      continue;
+    }
+
+    nextValue = result.value;
+    stripped.push({
+      action: "marker",
+      field,
+      value: token.value,
+    });
+  }
+
+  return nextValue;
+}
+
+function matchingUnsupportedTokens({
+  tokens,
+  value,
+}: {
+  tokens: readonly UnsupportedNumericToken[];
+  value: string;
+}): UnsupportedNumericToken[] {
+  return tokens.filter((token) => value.includes(token.value));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMissingString(value: unknown): boolean {
+  return typeof value !== "string" || value.trim().length === 0;
+}
+
+function relabelBottomUpTamInput({
+  input,
+  path,
+  stripped,
+  tokens,
+}: {
+  input: Record<string, unknown>;
+  path: string;
+  stripped: StrippedNumericClaim[];
+  tokens: readonly UnsupportedNumericToken[];
+}): boolean {
+  if (typeof input.value !== "string" || typeof input.inputType !== "string") {
+    return false;
+  }
+
+  if (!isMissingString(input.sourceUrl)) {
+    return false;
+  }
+
+  const matchingTokens = matchingUnsupportedTokens({
+    tokens,
+    value: input.value,
+  });
+
+  if (matchingTokens.length === 0) {
+    return false;
+  }
+
+  const evidenceGapValue = `evidence gap: ${input.inputType} unsourced`;
+  const alreadyRelabeled =
+    input.status === "evidence-gap" && input.value === evidenceGapValue;
+
+  if (alreadyRelabeled) {
+    return false;
+  }
+
+  input.status = "evidence-gap";
+  input.value = evidenceGapValue;
+  stripped.push({
+    action: "evidence-gap",
+    field: `${path}.value`,
+    value: matchingTokens[0]?.value ?? input.value,
+  });
+
+  return true;
+}
+
+function relabelReachableRevenueEstimate({
+  record,
+  stripped,
+  tokens,
+}: {
+  record: Record<string, unknown>;
+  stripped: StrippedNumericClaim[];
+  tokens: readonly UnsupportedNumericToken[];
+}): void {
+  const value = record.reachableRevenueEstimate;
+
+  if (typeof value !== "string") {
+    return;
+  }
+
+  const marked = appendMarkerActions({
+    field: `${bottomUpTamPath}.reachableRevenueEstimate`,
+    stripped,
+    tokens,
+    value,
+  });
+  const withEvidenceGap = /evidence\s+gap/i.test(marked)
+    ? marked
+    : `evidence gap: ${marked}`;
+
+  if (withEvidenceGap !== value) {
+    record.reachableRevenueEstimate = withEvidenceGap;
+  }
+}
+
+function relabelBottomUpTamRecord({
+  path,
+  record,
+  stripped,
+  tokens,
+}: {
+  path: string;
+  record: Record<string, unknown>;
+  stripped: StrippedNumericClaim[];
+  tokens: readonly UnsupportedNumericToken[];
+}): void {
+  if (path !== bottomUpTamPath || !Array.isArray(record.inputs)) {
+    return;
+  }
+
+  let relabeledInput = false;
+  record.inputs.forEach((input, index) => {
+    if (!isRecord(input)) {
+      return;
+    }
+
+    relabeledInput =
+      relabelBottomUpTamInput({
+        input,
+        path: `${path}.inputs[${index}]`,
+        stripped,
+        tokens,
+      }) || relabeledInput;
+  });
+
+  if (relabeledInput) {
+    relabelReachableRevenueEstimate({ record, stripped, tokens });
+  }
+}
+
+function moneyValueKey(fieldName: string): string {
+  return `${fieldName}Value`;
+}
+
+function moneyProvenanceKey(fieldName: string): string {
+  return `${fieldName}Provenance`;
+}
+
+function isMoneyDisplayValue({
+  fieldName,
+  value,
+}: {
+  fieldName: string;
+  value: string;
+}): boolean {
+  return (
+    /[$£€]/.test(value) ||
+    /(budget|spend|cost|cpc|cpl|cac)/i.test(fieldName)
+  );
+}
+
+function isPaidMediaMoneyDisplayField({
+  fieldName,
+  record,
+  value,
+}: {
+  fieldName: string;
+  record: Record<string, unknown>;
+  value: unknown;
+}): boolean {
+  if (typeof value !== "string" || !isMoneyDisplayValue({ fieldName, value })) {
+    return false;
+  }
+
+  return (
+    hasOwn(record, moneyProvenanceKey(fieldName)) ||
+    hasOwn(record, moneyValueKey(fieldName))
+  );
+}
+
+function redactPaidMediaMoneyFields({
+  path,
+  record,
+  stripped,
+  tokens,
+}: {
+  path: string;
+  record: Record<string, unknown>;
+  stripped: StrippedNumericClaim[];
+  tokens: readonly UnsupportedNumericToken[];
+}): void {
+  for (const [fieldName, value] of Object.entries(record)) {
+    if (
+      typeof value !== "string" ||
+      isDemandIntentKeywordNumericSibling({
+        fieldName,
+        path: `${path}.${fieldName}`,
+      }) ||
+      !isPaidMediaMoneyDisplayField({ fieldName, record, value })
+    ) {
+      continue;
+    }
+
+    const matchingTokens = matchingUnsupportedTokens({ tokens, value });
+
+    if (matchingTokens.length === 0) {
+      continue;
+    }
+
+    const provenanceKey = moneyProvenanceKey(fieldName);
+    const numericValueKey = moneyValueKey(fieldName);
+    const provenance = record[provenanceKey];
+
+    if (
+      typeof provenance === "string" &&
+      trustedPaidMediaMoneyProvenances.has(provenance)
+    ) {
+      continue;
+    }
+
+    let changed = false;
+
+    if (record[provenanceKey] !== "unknown") {
+      record[provenanceKey] = "unknown";
+      changed = true;
+    }
+
+    if (hasOwn(record, numericValueKey)) {
+      delete record[numericValueKey];
+      changed = true;
+    }
+
+    if (!changed) {
+      continue;
+    }
+
+    matchingTokens.forEach((token) => {
+      stripped.push({
+        action: "provenance-unknown",
+        field: `${path}.${fieldName}`,
+        value: token.value,
+      });
+    });
+  }
+}
+
+function isInsideRawSourceSamples(path: string): boolean {
+  return /(^|\.|\])rawSourceSamples(\.|\[|$)/.test(path);
+}
+
+function isDemandIntentKeywordNumericSibling({
+  fieldName,
+  path,
+}: {
+  fieldName: string;
+  path: string;
+}): boolean {
+  return (
+    path.includes("body.keywordDemand.keywords[") &&
+    demandIntentKeywordNumericFieldNames.has(fieldName.toLowerCase())
+  );
+}
+
+function shouldSkipNumericMarkerField({
+  fieldName,
+  path,
+}: {
+  fieldName: string;
+  path: string;
+}): boolean {
+  const normalized = fieldName.toLowerCase();
+
+  return (
+    normalized.endsWith("url") ||
+    normalized === "verbatimtext" ||
+    normalized.includes("quote") ||
+    normalized === "rawsourcesamples" ||
+    isInsideRawSourceSamples(path) ||
+    isDemandIntentKeywordNumericSibling({ fieldName, path })
+  );
+}
+
+function walkBodyForUnsupportedNumerics({
+  path,
+  stripped,
+  tokens,
+  value,
+}: {
+  path: string;
+  stripped: StrippedNumericClaim[];
+  tokens: readonly UnsupportedNumericToken[];
+  value: unknown;
+}): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      walkBodyForUnsupportedNumerics({
+        path: `${path}[${index}]`,
+        stripped,
+        tokens,
+        value: item,
+      });
+    });
+    return;
+  }
+
+  if (!isRecord(value) || isInsideRawSourceSamples(path)) {
+    return;
+  }
+
+  relabelBottomUpTamRecord({ path, record: value, stripped, tokens });
+  redactPaidMediaMoneyFields({ path, record: value, stripped, tokens });
+
+  for (const [key, childValue] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+
+    if (key === "rawSourceSamples") {
+      continue;
+    }
+
+    if (typeof childValue === "string") {
+      if (
+        shouldSkipNumericMarkerField({ fieldName: key, path: childPath }) ||
+        isPaidMediaMoneyDisplayField({
+          fieldName: key,
+          record: value,
+          value: childValue,
+        })
+      ) {
+        continue;
+      }
+
+      const marked = appendMarkerActions({
+        field: childPath,
+        stripped,
+        tokens,
+        value: childValue,
+      });
+
+      if (marked !== childValue) {
+        value[key] = marked;
+      }
+
+      continue;
+    }
+
+    walkBodyForUnsupportedNumerics({
+      path: childPath,
+      stripped,
+      tokens,
+      value: childValue,
+    });
+  }
+}
+
+export function redactUnsupportedNumericClaims({
+  body,
+  verification,
+}: {
+  body: Record<string, unknown>;
+  verification: VerificationReport;
+}): RedactUnsupportedNumericClaimsResult {
+  const tokens = collectUnsupportedNumericTokens(verification);
+
+  if (tokens.length === 0) {
+    return { body, stripped: [] };
+  }
+
+  const cloned = structuredClone(body);
+  const stripped: StrippedNumericClaim[] = [];
+
+  walkBodyForUnsupportedNumerics({
+    path: "body",
+    stripped,
+    tokens,
     value: cloned,
   });
 

@@ -60,6 +60,26 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
   };
 }
 
+function buildRedactedMarketCategoryFixtureBody(): typeof marketCategoryFixtureArtifact.body {
+  const body = structuredClone(marketCategoryFixtureArtifact.body);
+  const bottomUpTam = body.marketSize.bottomUpTam;
+
+  bottomUpTam.inputs = bottomUpTam.inputs.map((input) => ({
+    ...input,
+    value: input.value
+      .replace('40%', '40% [unverified]')
+      .replace('2%', '2% [unverified]')
+      .replace('$6,000', '$6,000 [unverified]'),
+  }));
+  bottomUpTam.reachableRevenueEstimate = bottomUpTam.reachableRevenueEstimate
+    .replace('$1.09M', '$1.09M [unverified]')
+    .replace('40% commercial-intent', '40% [unverified] commercial-intent')
+    .replace('2% conversion', '2% [unverified] conversion')
+    .replace('$6,000 ACV', '$6,000 [unverified] ACV');
+
+  return body;
+}
+
 interface ModelSourceDraft {
   title: string;
   url: string;
@@ -314,7 +334,9 @@ describe('runSection artifact streaming path', (): void => {
         }),
       }),
     );
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(
+      buildRedactedMarketCategoryFixtureBody(),
+    );
     expect(result.artifact.verdict).toBe(
       'Authored verdict: lead with lifecycle orchestration, not generic project management.',
     );
@@ -476,7 +498,9 @@ describe('runSection artifact streaming path', (): void => {
     );
     expect(eventTypes).toContain('validation-failed');
     expect(eventTypes).toContain('repair-started');
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(
+      buildRedactedMarketCategoryFixtureBody(),
+    );
     expect(record.sections.positioningMarketCategory?.status).toBe(
       'completed',
     );

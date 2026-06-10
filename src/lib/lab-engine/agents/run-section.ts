@@ -168,9 +168,11 @@ import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message
 import {
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
+  redactUnsupportedNumericClaims,
   stripMisattributedQuoteAttributions,
   type EvidenceSupportShortfall,
   type LoadBearingClaimKind,
+  type StrippedNumericClaim,
   type StrippedQuoteAttribution,
 } from "./verification/evidence-support";
 import {
@@ -1716,7 +1718,10 @@ function annotatePaidMediaVerifierReview({
   return artifactEnvelopeSchema.parse({
     ...artifact,
     ...(result.needsReview ? { needs_review: true } : {}),
-    verifierSummary: result.summary,
+    verifierSummary: {
+      ...(artifact.verifierSummary ?? {}),
+      ...result.summary,
+    },
   });
 }
 
@@ -1742,35 +1747,50 @@ function annotateEvidenceSupportReview({
 }: {
   artifact: ArtifactEnvelope;
   sectionId: SectionId;
-  shortfall: EvidenceSupportShortfall;
+  shortfall?: EvidenceSupportShortfall;
 }): ArtifactEnvelope {
-  if (shortfall.provenanceFlags.length === 0) {
-    return artifact;
-  }
-
+  const provenanceFlags = shortfall?.provenanceFlags ?? [];
   const relabelSource = misattributedQuoteSourceRelabelers[sectionId];
   const strip =
     relabelSource !== undefined &&
-    shortfall.provenanceFlags.some((flag) => flag.reason === "misattributed")
+    provenanceFlags.some((flag) => flag.reason === "misattributed")
       ? stripMisattributedQuoteAttributions({
           body: artifact.body,
           relabelSource,
         })
       : { body: artifact.body, stripped: [] as StrippedQuoteAttribution[] };
+  const numericStrip =
+    artifact.verification === undefined
+      ? { body: strip.body, stripped: [] as StrippedNumericClaim[] }
+      : redactUnsupportedNumericClaims({
+          body: strip.body,
+          verification: artifact.verification,
+        });
+
+  if (
+    provenanceFlags.length === 0 &&
+    strip.stripped.length === 0 &&
+    numericStrip.stripped.length === 0
+  ) {
+    return artifact;
+  }
 
   return artifactEnvelopeSchema.parse({
     ...artifact,
-    body: strip.body,
+    body: numericStrip.body,
     confidence:
-      artifact.verification === undefined
+      artifact.verification === undefined || shortfall === undefined
         ? artifact.confidence
         : deriveGroundedConfidence(artifact.verification, shortfall),
     needs_review: true,
     verifierSummary: {
       ...(artifact.verifierSummary ?? {}),
-      provenanceFlags: shortfall.provenanceFlags,
+      ...(provenanceFlags.length > 0 ? { provenanceFlags } : {}),
       ...(strip.stripped.length > 0
         ? { strippedQuoteAttributions: strip.stripped }
+        : {}),
+      ...(numericStrip.stripped.length > 0
+        ? { strippedNumericClaims: numericStrip.stripped }
         : {}),
     },
   });
@@ -4112,14 +4132,11 @@ async function callStructuredAttempt({
 
     return {
       output,
-      artifact:
-        verdict.shortfall === undefined
-          ? verdict.committableArtifact
-          : annotateEvidenceSupportReview({
-              artifact: verdict.committableArtifact,
-              sectionId: input.sectionId,
-              shortfall: verdict.shortfall,
-            }),
+      artifact: annotateEvidenceSupportReview({
+        artifact: verdict.committableArtifact,
+        sectionId: input.sectionId,
+        shortfall: verdict.shortfall,
+      }),
       errors: [],
       ...(verdict.shortfall === undefined
         ? {}
@@ -5590,14 +5607,11 @@ async function buildVerifiedAttemptFromOutput({
 
   return {
     output,
-    artifact:
-      verdict.shortfall === undefined
-        ? verdict.committableArtifact
-        : annotateEvidenceSupportReview({
-            artifact: verdict.committableArtifact,
-            sectionId: input.sectionId,
-            shortfall: verdict.shortfall,
-          }),
+    artifact: annotateEvidenceSupportReview({
+      artifact: verdict.committableArtifact,
+      sectionId: input.sectionId,
+      shortfall: verdict.shortfall,
+    }),
     errors: [],
     ...(verdict.shortfall === undefined
       ? {}

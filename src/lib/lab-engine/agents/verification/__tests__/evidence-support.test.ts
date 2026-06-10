@@ -7,10 +7,16 @@ import {
   deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
+  redactUnsupportedNumericClaims,
   stripMisattributedQuoteAttributions,
 } from "../evidence-support";
 import { structuralVerifier } from "../structural-verifier";
 import type { VerificationReport } from "../types";
+import { marketCategoryFixtureArtifact } from "../../../fixtures/market-category-artifact";
+import {
+  validateMarketCategoryMinimums,
+  type MarketCategoryArtifact,
+} from "../../../artifacts/schemas/market-category";
 
 interface VerifierFixture {
   body: Record<string, unknown>;
@@ -31,6 +37,61 @@ function buildFixtureReport(fixture: VerifierFixture): VerificationReport {
     toolResults: fixture.toolResults,
     corpusExcerpts: fixture.corpusExcerpts,
   });
+}
+
+function buildUnsupportedNumericReport(
+  values: readonly string[],
+): VerificationReport {
+  return {
+    claims: values.map((value) => ({
+      claim: {
+        kind: "numeric" as const,
+        raw: `Unsupported numeric claim ${value}`,
+        value,
+      },
+      reason: "no_match" as const,
+      status: "unsupported" as const,
+    })),
+    unsupportedCount: values.length,
+    verifiedCount: 0,
+  };
+}
+
+function buildMixedNumericReport({
+  unsupported,
+  verified,
+}: {
+  unsupported: readonly string[];
+  verified: readonly string[];
+}): VerificationReport {
+  return {
+    claims: [
+      ...verified.map((value) => ({
+        claim: {
+          kind: "numeric" as const,
+          raw: `Verified numeric claim ${value}`,
+          value,
+        },
+        matchedSourceRef: {
+          kind: "toolResult" as const,
+          stepIndex: 0,
+          toolName: "fixture_support",
+        },
+        status: "verified" as const,
+      })),
+      ...unsupported.map((value) => ({
+        claim: {
+          kind: "numeric" as const,
+          raw: `Unsupported numeric claim ${value}`,
+          value,
+        },
+        reason: "no_match" as const,
+        status: "unsupported" as const,
+      })),
+    ],
+    unsupportedCount: unsupported.length,
+    verifiedCount: verified.length,
+  };
 }
 
 describe("evaluateEvidenceSupport", (): void => {
@@ -429,6 +490,180 @@ describe("getMaxUnsupportedAllowed", (): void => {
     expect(
       getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "2" }),
     ).toBe(2);
+  });
+});
+
+describe("redactUnsupportedNumericClaims", (): void => {
+  it("marks unsupported numeric tokens in prose and stays idempotent", (): void => {
+    const body = {
+      statusSummary:
+        "The community claims 450K members and another 450K members in launch copy.",
+    };
+    const report = buildUnsupportedNumericReport(["450K members"]);
+
+    const first = redactUnsupportedNumericClaims({
+      body,
+      verification: report,
+    });
+    const firstBody = first.body as { statusSummary: string };
+    const second = redactUnsupportedNumericClaims({
+      body: first.body,
+      verification: report,
+    });
+    const secondBody = second.body as { statusSummary: string };
+
+    expect(firstBody.statusSummary).toBe(
+      "The community claims 450K members [unverified] and another 450K members [unverified] in launch copy.",
+    );
+    expect(first.stripped).toEqual([
+      {
+        action: "marker",
+        field: "body.statusSummary",
+        value: "450K members",
+      },
+    ]);
+    expect(secondBody.statusSummary).toBe(firstBody.statusSummary);
+    expect(second.stripped).toEqual([]);
+  });
+
+  it("leaves verified numerics and exempt source/verbatim/raw fields untouched", (): void => {
+    const body = {
+      statusSummary: "Pricing is $99/mo and the forum claims 450K members.",
+      sourceUrl: "450K members",
+      url: "450K members",
+      verbatimText: "450K members",
+      evidenceQuote: "450K members",
+      quote: "450K members",
+      rawSourceSamples: [{ text: "450K members" }],
+    };
+    const report = buildMixedNumericReport({
+      unsupported: ["450K members"],
+      verified: ["$99/mo"],
+    });
+
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: report,
+    });
+    const redacted = result.body as typeof body;
+
+    expect(redacted.statusSummary).toBe(
+      "Pricing is $99/mo and the forum claims 450K members [unverified].",
+    );
+    expect(redacted.sourceUrl).toBe("450K members");
+    expect(redacted.url).toBe("450K members");
+    expect(redacted.verbatimText).toBe("450K members");
+    expect(redacted.evidenceQuote).toBe("450K members");
+    expect(redacted.quote).toBe("450K members");
+    expect(redacted.rawSourceSamples).toEqual([{ text: "450K members" }]);
+    expect(result.stripped).toEqual([
+      {
+        action: "marker",
+        field: "body.statusSummary",
+        value: "450K members",
+      },
+    ]);
+
+    const verifiedOnlyBody = {
+      statusSummary: "Pricing is $99/mo.",
+    };
+    const verifiedOnly = redactUnsupportedNumericClaims({
+      body: verifiedOnlyBody,
+      verification: buildMixedNumericReport({
+        unsupported: [],
+        verified: ["$99/mo"],
+      }),
+    });
+
+    expect(verifiedOnly.body).toBe(verifiedOnlyBody);
+    expect(verifiedOnly.stripped).toEqual([]);
+  });
+
+  it("relabels unsourced bottom-up TAM inputs and keeps market-category minimums valid", (): void => {
+    const body = structuredClone(marketCategoryFixtureArtifact.body);
+    const [firstInput] = body.marketSize.bottomUpTam.inputs;
+
+    if (firstInput === undefined) {
+      throw new Error("Expected bottom-up TAM fixture inputs.");
+    }
+
+    firstInput.status = "sourced";
+    firstInput.value = "450K members";
+    firstInput.sourceUrl = undefined;
+    body.marketSize.bottomUpTam.reachableRevenueEstimate =
+      "evidence gap: $1.09M reachable revenue until recipe inputs are sourced.";
+
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: buildUnsupportedNumericReport([
+        "450K members",
+        "$1.09M",
+      ]),
+    });
+    const redactedArtifact: MarketCategoryArtifact = {
+      ...marketCategoryFixtureArtifact,
+      body: result.body as MarketCategoryArtifact["body"],
+    };
+    const redactedInput =
+      redactedArtifact.body.marketSize.bottomUpTam.inputs[0];
+
+    expect(redactedInput?.status).toBe("evidence-gap");
+    expect(redactedInput?.value).toBe("evidence gap: keyword-volume unsourced");
+    expect(
+      redactedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
+    ).toBe(
+      "evidence gap: $1.09M [unverified] reachable revenue until recipe inputs are sourced.",
+    );
+    expect(result.stripped).toEqual([
+      {
+        action: "evidence-gap",
+        field: "body.marketSize.bottomUpTam.inputs[0].value",
+        value: "450K members",
+      },
+      {
+        action: "marker",
+        field: "body.marketSize.bottomUpTam.reachableRevenueEstimate",
+        value: "$1.09M",
+      },
+    ]);
+    expect(validateMarketCategoryMinimums(redactedArtifact)).toEqual({
+      errors: [],
+      ok: true,
+    });
+  });
+
+  it("downgrades untrusted paid-media money provenance without touching user-supplied economics", (): void => {
+    const body = {
+      campaignOverview: {
+        monthlyBudget: "$99,999 / Month",
+        monthlyBudgetValue: 99_999,
+        monthlyBudgetProvenance: "model-estimated",
+        dailySpend: "$3,333 / day",
+        dailySpendValue: 3_333,
+        dailySpendProvenance: "user-supplied",
+      },
+    };
+
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: buildUnsupportedNumericReport(["$99,999", "$3,333"]),
+    });
+    const overview = (result.body.campaignOverview ??
+      {}) as Record<string, unknown>;
+
+    expect(overview.monthlyBudget).toBe("$99,999 / Month");
+    expect(overview.monthlyBudgetProvenance).toBe("unknown");
+    expect(overview).not.toHaveProperty("monthlyBudgetValue");
+    expect(overview.dailySpend).toBe("$3,333 / day");
+    expect(overview.dailySpendProvenance).toBe("user-supplied");
+    expect(overview.dailySpendValue).toBe(3_333);
+    expect(result.stripped).toEqual([
+      {
+        action: "provenance-unknown",
+        field: "body.campaignOverview.monthlyBudget",
+        value: "$99,999",
+      },
+    ]);
   });
 });
 
