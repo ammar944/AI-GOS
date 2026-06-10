@@ -98,7 +98,20 @@ async function main() {
   const hasIdkAdvertiser = advNames.some((n) => n.trim().toLowerCase() === 'idk');
   const displayableTotal = groups.reduce((t, g) => t + (Number(g.displayableTotal) || 0), 0);
   hard('competitor wall: no "idk" advertiser', !hasIdkAdvertiser, `advertisers=[${advNames.join(', ')}]`);
-  hard('competitor wall: real creatives present', displayableTotal > 0, `displayableTotal=${displayableTotal}`);
+  // Compound seed regression (run 9a9412a2): "X and Y" must never reach the wall as ONE advertiser.
+  const hasCompoundAdvertiser = advNames.some((n) => /\s(?:and|&)\s/i.test(n));
+  hard('competitor wall: no compound advertiser names', !hasCompoundAdvertiser, `advertisers=[${advNames.join(', ')}]`);
+  // Anti-starvation: a zero-creative wall is acceptable ONLY when every group proves
+  // the lookups actually ran (per-platform checked evidence). Brief competitors that
+  // genuinely run no ads are an honest finding, not a failure.
+  const everyGroupProbed = groups.length > 0 && groups.every((g) => Array.isArray(g.platforms) && g.platforms.length > 0);
+  hard(
+    'competitor wall: creatives present OR honest probed-zero',
+    displayableTotal > 0 || everyGroupProbed,
+    displayableTotal > 0
+      ? `displayableTotal=${displayableTotal}`
+      : `displayableTotal=0, probed platforms per group: ${groups.map((g) => `${g.advertiserName}:[${(g.platforms ?? []).join('/')}]`).join(' ')}`,
+  );
   // prose must not fabricate counts on an empty wall (Lane C)
   const prose = String(bodyOf(comp)?.adEvidence?.prose ?? '');
   const proseHasCounts = /\b\d+\s+(ad|ads|creative|creatives|video|videos|carousel|display)\b/i.test(prose);

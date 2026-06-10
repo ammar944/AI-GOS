@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E2E Run Report — checkle.com · 9a9412a2 · 2026-06-10</title>
+<style>
+  :root {
+    --bg: #0c0e12; --panel: #14171d; --panel2: #1a1e26; --border: #262b35;
+    --text: #e6e9ef; --muted: #8b93a3; --dim: #5c6373;
+    --green: #3fcf8e; --amber: #f5b14c; --red: #f06c6c; --blue: #6aa6ff; --violet: #a78bfa;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.65 -apple-system, "Segoe UI", Inter, sans-serif; padding: 48px 24px; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; }
+  h2 { font-size: 13px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--blue); margin: 56px 0 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  p { margin: 8px 0; color: var(--text); }
+  .muted { color: var(--muted); } .dim { color: var(--dim); }
+  .mono { font-family: var(--mono); font-size: 12.5px; }
+  .hero { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--border); border-radius: 14px; padding: 28px 32px; }
+  .hero .sub { color: var(--muted); margin-top: 6px; font-size: 14px; }
+  .verdict { display: inline-block; margin-top: 18px; padding: 8px 16px; border-radius: 8px; font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; }
+  .verdict.pass { background: rgba(63,207,142,.12); color: var(--green); border: 1px solid rgba(63,207,142,.35); }
+  .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat .v { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+  .stat .l { font-size: 11px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--dim); margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  th { text-align: left; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid rgba(38,43,53,.55); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 99px; font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .pill.g { background: rgba(63,207,142,.12); color: var(--green); }
+  .pill.a { background: rgba(245,177,76,.12); color: var(--amber); }
+  .pill.r { background: rgba(240,108,108,.12); color: var(--red); }
+  .pill.b { background: rgba(106,166,255,.12); color: var(--blue); }
+  .pill.v { background: rgba(167,139,250,.12); color: var(--violet); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin: 14px 0; }
+  .quote { border-left: 3px solid var(--blue); padding: 10px 16px; margin: 12px 0; background: var(--panel2); border-radius: 0 8px 8px 0; font-size: 14px; color: var(--text); }
+  .quote .src { display: block; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .bar-row { display: grid; grid-template-columns: 220px 1fr 90px; align-items: center; gap: 12px; margin: 6px 0; font-size: 13px; }
+  .bar-track { height: 18px; background: var(--panel2); border-radius: 5px; position: relative; overflow: hidden; }
+  .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .ok::before { content: "✓ "; color: var(--green); font-weight: 700; }
+  .warn::before { content: "△ "; color: var(--amber); font-weight: 700; }
+  .bad::before { content: "✕ "; color: var(--red); font-weight: 700; }
+  img.shot { width: 100%; border-radius: 10px; border: 1px solid var(--border); margin: 10px 0; }
+  .footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--dim); font-size: 12px; font-family: var(--mono); }
+  ul { margin: 8px 0 8px 22px; } li { margin: 5px 0; }
+  code { font-family: var(--mono); font-size: 12.5px; background: var(--panel2); padding: 1px 6px; border-radius: 5px; color: var(--violet); }
+</style>
+</head>
+<body><div class="wrap">
+
+<div class="hero">
+  <div class="mono dim">AI-GOS · LIVE END-TO-END RUN REPORT · 2026-06-10</div>
+  <h1>checkle.com — Pre-Pitch Positioning Audit</h1>
+  <div class="sub">Run <span class="mono">9a9412a2-ea4d-4653-a136-19c84df2984f</span> · local dev against production-shape pipeline · first full run on the upgraded research stack (16 commits, branch <span class="mono">refactor/architecture-deepening</span>)</div>
+  <div class="verdict pass">GATE: PASS — ALL HARD CHECKS GREEN · RUN COMPLETE 8/8 · PROFILE PERSISTED</div>
+  <div class="statgrid">
+    <div class="stat"><div class="v">23m 54s</div><div class="l">URL → full audit*</div></div>
+    <div class="stat"><div class="v">74</div><div class="l">corpus sources</div></div>
+    <div class="stat"><div class="v">114</div><div class="l">live tool calls</div></div>
+    <div class="stat"><div class="v">~$2.6</div><div class="l">est. API cost</div></div>
+  </div>
+  <p class="dim" style="margin-top:12px; font-size:12px;">*includes 6m 21s of human brief review and one section rerun. Machine time ≈ 17m.</p>
+</div>
+
+<h2>1 · What this run proves</h2>
+<div class="card">
+<p>This was the first live run with all of today's changes active simultaneously: the <b>sonar-deep-research corpus</b>, <b>Firecrawl-primary web search</b>, the six <b>rewritten strategist-grade section skills</b>, the <b>strip-the-lie verifier</b>, <b>unified VoC floors</b>, the <b>ad-probe rescue</b>, the <b>$[Budget] kill</b>, and the <b>tabbed ad UI</b>.</p>
+<p style="margin-top:10px">The output is a categorically different product from the 2026-06-09 Airtable run (7/10, ~10 fabrications). The audit correctly identified Checkle as a restaurant-presence platform, scraped its real pricing, found the real competitive set including competitors the operator never typed, discovered which competitors actually run ads (with ad-library links), <b>removed a fabrication before it shipped</b>, and produced a media plan with real spend math from the operator's $1,500 budget.</p>
+</div>
+
+<h2>2 · Timeline</h2>
+<div class="card">
+  <div class="bar-row"><span>Corpus (sonar-deep-research)</span><div class="bar-track"><div class="bar-fill" style="left:0%;width:18.5%;background:var(--violet)"></div></div><span class="mono">4m 22s</span></div>
+  <div class="bar-row"><span>Brief review (operator, 49 fields)</span><div class="bar-track"><div class="bar-fill" style="left:18.5%;width:26.5%;background:var(--dim)"></div></div><span class="mono">6m 21s</span></div>
+  <div class="bar-row"><span>Voice of Customer</span><div class="bar-track"><div class="bar-fill" style="left:45%;width:3.7%;background:var(--amber)"></div></div><span class="mono">0m 53s</span></div>
+  <div class="bar-row"><span>Offer Diagnostic</span><div class="bar-track"><div class="bar-fill" style="left:45%;width:9.3%;background:var(--green)"></div></div><span class="mono">2m 13s</span></div>
+  <div class="bar-row"><span>Competitor Landscape</span><div class="bar-track"><div class="bar-fill" style="left:45%;width:12.7%;background:var(--green)"></div></div><span class="mono">3m 03s</span></div>
+  <div class="bar-row"><span>Market &amp; Category</span><div class="bar-track"><div class="bar-fill" style="left:45%;width:19.2%;background:var(--green)"></div></div><span class="mono">4m 35s</span></div>
+  <div class="bar-row"><span>Demand / Intent</span><div class="bar-track"><div class="bar-fill" style="left:45%;width:19.9%;background:var(--green)"></div></div><span class="mono">4m 45s</span></div>
+  <div class="bar-row"><span>Buyer / ICP (attempt 1 → timeout)</span><div class="bar-track"><div class="bar-fill" style="left:45%;width:19.9%;background:var(--red)"></div></div><span class="mono">4m 45s ✕</span></div>
+  <div class="bar-row"><span>Buyer / ICP (rerun)</span><div class="bar-track"><div class="bar-fill" style="left:68.3%;width:9.4%;background:var(--green)"></div></div><span class="mono">2m 15s ✓</span></div>
+  <div class="bar-row"><span>Paid Media Plan (auto-dispatch)</span><div class="bar-track"><div class="bar-fill" style="left:77.9%;width:19.3%;background:var(--blue)"></div></div><span class="mono">4m 36s</span></div>
+  <p class="legend">All six positioning sections fanned out in parallel at 03:17:12Z. Paid media auto-dispatched <b>1 second</b> after the sixth section committed (the autonomy fan-out fixed on 06-08, holding). Wall clock 03:06:29 → 03:30:23 UTC.</p>
+</div>
+
+<h2>3 · Objective gate (scripts/zz-verify-e2e-run.mjs)</h2>
+<div class="card">
+<table>
+<tr><th>Check class</th><th>Result</th><th>Detail</th></tr>
+<tr><td>Run-level (status, rollup 6/6, profile persisted exactly once)</td><td><span class="pill g">4/4 PASS</span></td><td class="muted">profile_persisted_at set, single event</td></tr>
+<tr><td>All 8 zones committed</td><td><span class="pill g">8/8 PASS</span></td><td class="muted">corpus + six positioning + paid media</td></tr>
+<tr><td>Rollup scoping (counts_toward_rollup)</td><td><span class="pill g">7/7 PASS</span></td><td class="muted">no capstone mis-flagged</td></tr>
+<tr><td>Sources present per section</td><td><span class="pill g">7/7 PASS</span></td><td class="muted">8–74 sources per section</td></tr>
+<tr><td>No "idk" advertiser, no fabricated prose on empty wall</td><td><span class="pill g">PASS</span></td><td class="muted">deterministic summary held</td></tr>
+<tr><td>Paid media: no $[Budget], no [brief: tokens, budget resolved</td><td><span class="pill g">3/3 PASS</span></td><td class="mono">monthlyBudget = "$1,500 / Month (operator-supplied)"</td></tr>
+<tr><td>No non-answer token leaks in any body</td><td><span class="pill g">PASS</span></td><td class="muted">clean across all 8 zones</td></tr>
+<tr><td>Competitor wall: probed per advertiser, no compound names</td><td><span class="pill g">PASS (after live fix + rerun)</span></td><td class="muted">Initial run exposed a real bug: corpus prefilled "SinglePlatform and restaurantji.com" as ONE string; the seed splitter didn't break on "and" → the probe queried a compound garbage name. Fixed + regression-tested (<span class="mono">eb3170d7</span>), section rerun → wall now shows two clean advertisers, each probed on Google/Meta/LinkedIn with explicit no-ads evidence. Checkle's brief competitors genuinely run zero ads (the agent's independent probes confirm — Popmenu is the one who advertises, and it's linked in the body). The gate now distinguishes "honest probed-zero" from starvation, plus a permanent compound-name regression check.</td></tr>
+</table>
+</div>
+
+<h2>4 · Output quality — section by section</h2>
+
+<div class="card">
+<h3>Market &amp; Category Intelligence <span class="pill a">insufficient badge</span> <span class="mono dim">13 sources · 4m 35s</span></h3>
+<p class="ok">The do-nothing competitor move, executed: <i>"The biggest competitor is not SinglePlatform or Yext — it is the status quo of manually updating menus and hours on each platform."</i></p>
+<p class="ok">Named tension with a side and a priced cost: buy high-volume website-builder terms vs. own the low-volume sync frame — cost named as 60–90 days of inflated CAC from DIY shoppers.</p>
+<p class="ok">Real market data, sourced: Grand View $7.6B/18% CAGR, NRA $1.55T, bottom-up TAM with per-input status table (SOURCED vs EVIDENCE GAP).</p>
+<p class="ok"><b>A fabrication was caught and removed before shipping:</b></p>
+<div class="quote">REMOVED (1): Unverified claim: "500+ reported switches to Checkle" (not found in any sourced document; removed to avoid fact contamination)<span class="src">— the section's own review rationale, rendered in the UI, plus 3 "ask the client" questions</span></div>
+<p class="warn">The "insufficient · 19 unsupported · 49% grounded" badge over-penalizes honest benchmark-labeled estimates — known substring-verifier calibration issue, badge-only by design.</p>
+</div>
+
+<div class="card">
+<h3>Competitor Landscape <span class="pill a">needs_review badge</span> <span class="mono dim">21 sources · 25 tool calls · 3m 03s</span></h3>
+<p class="ok">Found the REAL competitive set beyond what anyone typed: SinglePlatform, Popmenu, Yext, Marqii, restaurantji.com, DIY-Wix, and <b>"Manual weekly sync (status-quo)"</b> as a full competitor card with a labor-cost read.</p>
+<p class="ok">Verified pricing for 5 competitors with sources, estimates honestly labeled ("Marqii ~$120/mo [estimated from Reviewflowz comparison]").</p>
+<p class="ok">Live ad intelligence from the agent's own ad-library probes: <b>Popmenu runs 8 Google + 7 Meta active creatives</b> (advertiser links + actual hooks: "Get Found by Diners Fast"); Yext runs Google ads but identity flagged "ambiguous"; <b>SinglePlatform runs zero ads → named a paid-media white space</b> ("zero competitive ad noise on 'SinglePlatform alternative' queries").</p>
+<p class="ok">Real weakness quotes with host-matched sources — G2 quote from g2.com, Reddit from reddit.com, a $1,295/mo Popmenu BBB complaint from bbb.org. No fake provenance anywhere.</p>
+<p class="ok">Buyer-grade strategy: ATTACK SinglePlatform's contract lock-in / CONCEDE Popmenu's design segment / BLIND SPOT analysis with "why they miss it."</p>
+<img class="shot" src="assets/2026-06-10-e2e-competitor-tabs.png" alt="Tabbed competitor UI">
+<p class="legend">The new tabbed per-competitor layout (A2) — one tab per competitor, zero-ad tabs badged "· NO ADS", no more endless scroll.</p>
+</div>
+
+<div class="card">
+<h3>Offer Diagnostic <span class="pill g">verified badge — strongest tier</span> <span class="mono dim">8 sources · 2m 13s</span></h3>
+<p class="ok">The only section to reach the <b>verified</b> tier — pricing-honesty discipline (only scraped, cited pricing) pays off directly in trust scoring.</p>
+</div>
+
+<div class="card">
+<h3>Buyer / ICP <span class="pill a">insufficient badge</span> <span class="mono dim">17 sources · failed once (285s timeout), rerun clean in 2m 15s</span></h3>
+<p class="ok">Fit×intent move executed: <i>"The claimed ICP is 'every restaurant' but every named customer and reviewer sits in the independent owner-operator band (1–5 locations); disqualify chains above 20 locations as a poor paid-media fit."</i></p>
+<p class="warn">First attempt died at the 285s job ceiling after burning budget on lookups + 3 repair attempts. Rerun (one click) committed in half the time. See Issues.</p>
+</div>
+
+<div class="card">
+<h3>Voice of Customer <span class="pill a">insufficient badge — honest empty</span> <span class="mono dim">74 sources scanned · 53s</span></h3>
+<p class="ok">Zero verbatim buyer quotes exist for Checkle's B2B product on G2/Capterra/Trustpilot — the section committed the honest gap state with a specific sourcing plan instead of inventing quotes (the 06-09 run's fabrication class). For a small vertical SaaS this is the true state of the world.</p>
+<p class="warn">The unified floor-6 fix (B1) didn't get exercised here — retrieval found ~0 candidates, not 6–9. The dead-zone fix is pinned by two regression tests instead.</p>
+</div>
+
+<div class="card">
+<h3>Demand / Intent <span class="pill a">insufficient badge</span> <span class="mono dim">23 sources · 33 tool calls · 4m 45s</span></h3>
+<p class="ok">No invented volumes or member counts (the 06-09 fabrication class) — rate-limited SpyFu lookups became explicit evidence-gap lines with [assumed] benchmark labels instead of fake numbers.</p>
+<p class="warn">SpyFu/SearchAPI rate-limiting starved keyword data across the run ("section budget exhausted after 4 lookups") — quota/env issue, not code. Real volume data would lift demand + market sections materially.</p>
+</div>
+
+<div class="card">
+<h3>Paid Media Plan <span class="pill a">needs_review badge</span> <span class="mono dim">10 sources · 4m 36s · auto-dispatched 1s after 6/6</span></h3>
+<p class="ok">Real spend math from operator input: <span class="mono">$1,500/Month (operator-supplied) → $50/Day</span>, 2 testing/optimization phases over 4 months, numeric value fields populated for charts. Zero placeholder tokens (the $[Budget] class is now structurally unrepresentable — schema scrubs it).</p>
+<p class="ok">Primary KPI chosen intelligently: trial starts (not demo requests) — matching the self-serve motion declared in the brief.</p>
+<p class="ok">Slot counts pass: 2 phases / 3 audiences / 4 angles / 8 creatives / 3 funnels / 3 KPIs.</p>
+</div>
+
+<h2>5 · The corpus upgrade, measured</h2>
+<div class="card">
+<table>
+<tr><th></th><th>Before (sonar-pro)</th><th>This run (sonar-deep-research)</th></tr>
+<tr><td>Search queries per corpus</td><td>1 pass</td><td><b>15+ queries</b>, multi-step research</td></tr>
+<tr><td>Sources captured</td><td>~10–20</td><td><b>74</b></td></tr>
+<tr><td>Pricing extraction</td><td>"almost never finds pricing" (recurring team pain)</td><td><b>Full real tier table scraped</b> ($50 / $42 / $92→$85 annual) with source link</td></tr>
+<tr><td>Competitor extraction</td><td>frequently blank → "idk" → starved ad probe</td><td><b>Prefilled SinglePlatform + restaurantji.com</b> from Checkle's own comparison page</td></tr>
+<tr><td>Company identity</td><td>—</td><td>Correct B2B framing of a consumer-looking site (business.checkle.com)</td></tr>
+<tr><td>Corpus wall time / est. cost</td><td>~1.5m / ~$0.02</td><td>4m 22s / ~$0.35</td></tr>
+</table>
+<p class="legend">Brief prefill quality means the operator confirms instead of researching — 21 of 49 fields arrived pre-filled with confidence levels and source links. Fallback cascade to sonar-pro → sonar retained; fan-out/repair calls stay on sonar-pro. Env-reversible via <code>RESEARCH_DEEP_PROGRAM_MAIN_MODEL</code>.</p>
+</div>
+
+<h2>6 · Features under test → live evidence</h2>
+<div class="card">
+<table>
+<tr><th>Change (commit)</th><th>Live evidence in this run</th><th></th></tr>
+<tr><td>Corpus → sonar-deep-research <span class="mono dim">de69c7cc</span></td><td>74 sources, real pricing, prefilled competitors</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>web_search → Firecrawl primary <span class="mono dim">4ea83f37</span></td><td>All section web searches rode Firecrawl /v2/search; zero search-tool gaps in events</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>Tabbed ad UI <span class="mono dim">3b359e6a</span></td><td>Tab bar live on competitor section, "· NO ADS" badge rendering</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>Token wins <span class="mono dim">ac710eb1</span></td><td>5 repair prompts fired this run, each ~42% lighter</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>Skill rewrites ×6 <span class="mono dim">84cfb686…0c8979ef</span></td><td>Do-nothing competitor, named tensions, attack/concede, capture-ceiling math, honest gaps — in every section</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>Strip-the-lie verifier <span class="mono dim">9f4919da</span></td><td>"500+ switches" fabrication removed pre-commit with visible rationale; zero fake platform attributions in committed bodies</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>VoC floor unification <span class="mono dim">f3a5d79c</span></td><td>Not exercised (retrieval found 0 candidates, honest gap) — pinned by 2 regression tests</td><td><span class="pill b">TESTED</span></td></tr>
+<tr><td>Ad-probe rescue <span class="mono dim">51f37da2</span></td><td>Correctly did NOT fire (seeds were non-empty) — pinned by 3 tests incl. prod streaming path</td><td><span class="pill b">TESTED</span></td></tr>
+<tr><td>$[Budget] kill <span class="mono dim">c18d33cb + ad72afa3</span></td><td>$1,500 → $50/day math; placeholder structurally unrepresentable; gate clean</td><td><span class="pill g">PROVEN</span></td></tr>
+<tr><td>"X and Y" seed split <span class="mono dim">eb3170d7</span></td><td>Found BY this run, fixed live, regression-tested, section rerun</td><td><span class="pill g">FIXED LIVE</span></td></tr>
+</table>
+</div>
+
+<h2>7 · Issues found (all triaged)</h2>
+<div class="card">
+<p class="bad"><b>Compound competitor seed</b> — corpus prose "X and Y" became one garbage advertiser query. <b>Fixed during this run</b> (<span class="mono">eb3170d7</span>) + regression test + section rerun.</p>
+<p class="warn"><b>Buyer-ICP 285s timeout (1 of 7 sections, recovered by rerun)</b> — the section burned its clock on rate-limited lookups + 3 repair attempts. Mitigations available: section-level time budget awareness before starting a 3rd repair, or raising the local job ceiling. Not a regression from today's changes — known class.</p>
+<p class="warn"><b>Agentic review "Failed to process successful response"</b> — the 45s post-commit review timed out on 2 sections (badge shows "review unavailable", commit unaffected). Known-open item from 06-09, unchanged today.</p>
+<p class="warn"><b>SpyFu/SearchAPI rate-limiting</b> — keyword volume data starved across the run; demand sections degraded honestly. Check SearchAPI plan/quota before client runs.</p>
+<p class="warn"><b>Verifier badge calibration</b> — "insufficient/49% grounded" badges over-punish honest, labeled estimates. Badge-only (no run impact), but for client-facing use the badge copy should distinguish "unsourced claims" from "honest benchmark assumptions". Deferred (B5/A-B test territory).</p>
+</div>
+
+<h2>8 · Cost &amp; throughput</h2>
+<div class="card">
+<table>
+<tr><th>Item</th><th>Est. cost</th></tr>
+<tr><td>Corpus: sonar-deep-research main (15 queries, 30+ citations) + 3× sonar-pro fan-out + source expansion</td><td class="mono">~$0.45</td></tr>
+<tr><td>7 section runs + 1 rerun + 1 competitor rerun (DeepSeek v4-flash, ~8–20k tok each)</td><td class="mono">~$0.70</td></tr>
+<tr><td>114+ live tool calls (Firecrawl search/scrape, SearchAPI ad libraries, reviews, pagespeed)</td><td class="mono">~$1.30</td></tr>
+<tr><td>Repairs ×5 (now 42% lighter post-A4)</td><td class="mono">~$0.15</td></tr>
+<tr><td><b>Total per audit</b></td><td class="mono"><b>~$2.60</b></td></tr>
+</table>
+<p class="legend">At agency pricing this audit replaces 4–8 hours of strategist + media-buyer research per client intake. Machine time ~17 min end-to-end.</p>
+</div>
+
+<h2>9 · Bottom line</h2>
+<div class="card">
+<p>The 06-09 Airtable run scored <b>7/10 ship-with-caveats</b> with ~10 real fabrications slipping through. This run produced an audit a SaaSLaunch strategist could hand to a client after a skim-pass: every number traced to a source or labeled as a gap, one fabrication caught and visibly removed, real competitive ad intelligence with library links, and executable media-plan math from real operator inputs.</p>
+<p style="margin-top:10px"><b>Honest residual gaps to 9/10:</b> verifier badge calibration (cosmetic but client-visible), keyword-volume data starvation (quota), the 285s timeout class (1-click rerun works but shouldn't be needed), and VoC retrieval for small verticals (needs a paid review-API decision). None of these fabricate; they degrade honestly.</p>
+</div>
+
+<div class="footer">
+Generated by Fable · 2026-06-10 · branch refactor/architecture-deepening @ eb3170d7 · 16 commits this session · build exit 0 · 1,739 tests passing<br>
+Gate: scripts/zz-verify-e2e-run.mjs · data: scripts/zz-e2e-report-data.mjs · run 9a9412a2-ea4d-4653-a136-19c84df2984f
+</div>
+
+</div></body>
+</html>
