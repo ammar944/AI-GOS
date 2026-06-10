@@ -37,6 +37,15 @@ const NON_ANSWER_VALUES = new Set<string>([
   "...",
 ]);
 
+// A value that is ONLY an unfilled template token — "$[Budget]",
+// "[Budget] / Month", "{budget}", "$[X]" — is template-literal garbage, not an
+// answer. A live paid-media run shipped the literal "$[Budget] / Month" because
+// this leaked through the brief into the budget math. Anchored to the whole
+// string so real answers that merely contain brackets ("Starter $49/mo
+// [annual billing]") never match. (B3, 2026-06-10.)
+const TEMPLATE_TOKEN_PATTERN =
+  /^\$?\s*[[{][^\]}]*[\]}]\s*(?:\/\s*mo(?:nth)?(?:ly)?)?$/i;
+
 export function isNonAnswer(trimmed: string): boolean {
   const normalized = trimmed
     .toLowerCase()
@@ -45,6 +54,10 @@ export function isNonAnswer(trimmed: string): boolean {
     .trim();
 
   if (normalized.length === 0) {
+    return true;
+  }
+
+  if (TEMPLATE_TOKEN_PATTERN.test(normalized)) {
     return true;
   }
 

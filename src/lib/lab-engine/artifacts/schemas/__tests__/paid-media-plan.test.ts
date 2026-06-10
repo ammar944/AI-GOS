@@ -297,7 +297,12 @@ describe("validatePaidMediaPlanMinimums", () => {
   });
 });
 
-describe("budget honesty ($[Budget] leak regression, B3)", () => {
+describe("budget honesty — provenance teeth (B3 supplement)", () => {
+  // Complements the "no placeholder, no fabrication" suite above: there the
+  // placeholder rows already claim provenance "unknown", so the label-driven
+  // provenance override is never exercised. These tests pin the teeth — a
+  // placeholder label next to a CLAIMED user-supplied provenance must still
+  // force "unknown" and drop the fabricated numeric sibling.
   const BUDGET_LEAK_PATTERN = /\$\s*\[\s*Budget\s*\]/i;
   const TEMPLATE_TOKEN_PATTERN = /[\[{]\s*budget\s*[\]}]/i;
 
@@ -308,7 +313,7 @@ describe("budget honesty ($[Budget] leak regression, B3)", () => {
     >;
   }
 
-  it("scrubs $[Budget]-style placeholders from every money field and drops fabricated numeric siblings", () => {
+  it("forces provenance to unknown and drops fabricated siblings when a placeholder label claims user-supplied provenance", () => {
     const rawBody = getRawBody();
     const overview = rawBody.campaignOverview as Record<string, unknown>;
     overview.monthlyBudget = "$[Budget] / Month";
@@ -409,31 +414,6 @@ describe("budget honesty ($[Budget] leak regression, B3)", () => {
       expect(audience.dailyBudget).not.toMatch(/\$\s*\d/);
       expect(audience.dailyBudgetValue).toBeUndefined();
     }
-  });
-
-  it("passes a real budget (6000) through untouched with correct daily math", () => {
-    const rawBody = getRawBody();
-    const overview = rawBody.campaignOverview as Record<string, unknown>;
-    overview.monthlyBudget = "$6,000 / month";
-    overview.monthlyBudgetValue = 6000;
-    overview.monthlyBudgetProvenance = "user-supplied";
-    overview.dailySpend = "$200 / day";
-    overview.dailySpendValue = 200;
-    overview.dailySpendProvenance = "model-estimated";
-
-    const normalized = normalizePaidMediaPlanBody(rawBody);
-
-    expect(normalized.campaignOverview.monthlyBudget).toBe("$6,000 / month");
-    expect(normalized.campaignOverview.monthlyBudgetValue).toBe(6000);
-    expect(normalized.campaignOverview.monthlyBudgetProvenance).toBe(
-      "user-supplied",
-    );
-    expect(normalized.campaignOverview.dailySpend).toBe("$200 / day");
-    expect(normalized.campaignOverview.dailySpendValue).toBe(200);
-    // daily = monthly / 30 holds exactly for the committed numeric siblings.
-    expect(
-      (normalized.campaignOverview.dailySpendValue ?? 0) * 30,
-    ).toBe(normalized.campaignOverview.monthlyBudgetValue);
   });
 
   it("keeps snap-to-unknown: numeric siblings drop when provenance snaps to unknown", () => {
