@@ -27,6 +27,8 @@ const DEFAULT_DEEP_RESEARCH_MAX_TOKENS = 20000;
 const DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 240000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_TIMEOUT_MS = 120000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_MAX_TOKENS = 12000;
+const DEEP_RESEARCH_BACKFILL_TIMEOUT_MS = 60000;
+const DEEP_RESEARCH_BACKFILL_MAX_TOKENS = 4000;
 const MINIMUM_CITED_SOURCES = 10;
 const MINIMUM_GROUNDED_EVIDENCE = 16;
 const MINIMUM_INTELLIGENCE_TOPICS = 6;
@@ -44,7 +46,7 @@ const TOPIC_FANOUT_GROUPS = [
   {
     label: 'voc-demand-events',
     topics: ['voice_of_customer', 'demand_intent', 'recent_events'],
-    focus: 'review or forum language, demand-intent signals, launch/news/recent events, and external market context',
+    focus: "third-party customer reviews and forum complaints ABOUT the company from its users (G2, Capterra, Trustpilot, Reddit user threads) — never the company's own marketing or thought-leadership content about these topics; plus demand-intent signals and recent events",
   },
 ] as const;
 
@@ -126,7 +128,7 @@ const intelligenceTopicSchema = z.object({
   evidence: z.array(deepResearchEvidenceSchema).describe('Topic-specific sourced claims.'),
 });
 
-const deepResearchCorpusSchema = z.object({
+export const deepResearchCorpusSchema = z.object({
   corpus: z.object({
     company: z.string().describe('Clean company name.'),
     category: z.string().describe('Specific product or market category.'),
@@ -153,7 +155,7 @@ const deepResearchCorpusSchema = z.object({
     pricingTiers: onboardingFieldSchema,
     // Economics fields the channel-policy engine gates on (W4): extracted
     // when pricing/budget evidence exists, null-with-gap otherwise. Optional
-    // so a model omission degrades to an empty prefill instead of burning a
+    // so a model omission degrades to an empty field instead of burning a
     // repair round (the prompt still demands both keys).
     acv: onboardingFieldSchema.optional(),
     monthlyAdBudget: onboardingFieldSchema.optional(),
@@ -174,9 +176,11 @@ const deepResearchCorpusSchema = z.object({
   }),
 });
 
-type DeepResearchCorpusOutput = z.infer<typeof deepResearchCorpusSchema>;
+export type DeepResearchCorpusOutput = z.infer<typeof deepResearchCorpusSchema>;
 type DeepResearchEvidence = DeepResearchCorpusOutput['corpus']['evidence'][number];
 type DeepResearchTopic = DeepResearchCorpusOutput['corpus']['intelligenceTopics'][number];
+type OnboardingFieldName = keyof DeepResearchCorpusOutput['onboardingFields'];
+type OnboardingFieldValue = z.infer<typeof onboardingFieldSchema>;
 
 const deepResearchTopicSupplementSchema = z.object({
   evidence: z.array(deepResearchEvidenceSchema).describe('High-signal grounded evidence discovered by the topic fan-out.'),
@@ -185,11 +189,17 @@ const deepResearchTopicSupplementSchema = z.object({
 
 type DeepResearchTopicSupplementOutput = z.infer<typeof deepResearchTopicSupplementSchema>;
 
-const DEEP_RESEARCH_SYSTEM_PROMPT = `You are AI-GOS's Deep Research Agent for a supervised GTM workspace.
+const backfillNullOnboardingFieldsSchema = z.object({
+  fields: z.record(z.string(), onboardingFieldSchema).describe('Backfilled values keyed by requested onboardingFields field name.'),
+});
+
+type BackfillNullOnboardingFieldsOutput = z.infer<typeof backfillNullOnboardingFieldsSchema>;
+
+const DEEP_RESEARCH_SYSTEM_PROMPT = `You are AI-GOS's Deep Research Agent for a supervised company research workflow.
 
 MISSION
-Run one evidence-grounded company/category research pass that extracts and verifies company context for onboarding.
-Do not write GTM section cards. Do not synthesize market, ICP, competitor, offer, keyword, or VoC sections.
+Run one evidence-grounded company/category research pass that extracts and verifies structured company research fields.
+Do not write downstream strategy section cards. Do not synthesize market, ICP, competitor, offer, keyword, or VoC sections.
 Your job is to build the company corpus that later section-specific synthesis jobs will use one by one.
 
 STYLE
@@ -197,7 +207,7 @@ STYLE
 - Every major claim must be backed by a source, quote, user-provided context, or explicit "insufficient evidence" marker.
 - Do not invent market size, pricing, CAC, ROAS, search volume, competitor claims, or customer quotes.
 - If source coverage is thin, say exactly what is missing and still provide the best grounded diagnosis.
-- Keep output concise but complete enough to complete onboarding and seed later section synthesis.
+- Keep output concise but complete enough to complete structured company research fields and seed later section synthesis.
 
 OUTPUT
 Return ONLY valid JSON. No markdown fences. Shape:
@@ -245,8 +255,9 @@ Return ONLY valid JSON. No markdown fences. Shape:
   }
 }
 
-ONBOARDING FIELD RULES
-- onboardingFields is required. This is the field payload the user reviews before section synthesis.
+FIELD EXTRACTION RULES
+- \`onboardingFields\` is an output field-name convention only — 'onboarding' is NOT a research topic. Never research onboarding/user-onboarding unless the company's product is itself an onboarding tool.
+- onboardingFields is required. This is the structured field payload the user reviews before section synthesis.
 - Only populate a field when the value is supported by a source in corpus.sources/evidence or by the supplied user context.
 - Use concise, normalized field values. Do not paste the same homepage meta description into multiple fields.
 - For companyName, return the clean company name, not the page title or SEO title.
@@ -272,13 +283,14 @@ CRITICAL RETURN CONTRACT
 - The final assistant response itself must contain the complete JSON object.
 - The final response must start with "{" and end with "}". No preamble, no completion note, no file path, no markdown.`;
 
-const DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT = `You repair an AI-GOS Deep Research Agent draft into the required onboarding JSON.
+const DEEP_RESEARCH_REPAIR_SYSTEM_PROMPT = `You repair an AI-GOS Deep Research Agent draft into the required structured company research JSON.
 
 Return ONLY valid JSON. No markdown fences, no preamble.
 
 Rules:
 - Use only the supplied original user context, captured sources, and incomplete draft.
-- Do not invent facts. Unsupported onboarding fields must be {"value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not verified in captured evidence."}.
+- \`onboardingFields\` is an output field-name convention only — 'onboarding' is NOT a research topic. Never research onboarding/user-onboarding unless the company's product is itself an onboarding tool.
+- Do not invent facts. Unsupported structured field values must be {"value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not verified in captured evidence."}.
 - Preserve source URLs exactly when used.
 - Preserve or rebuild corpus.intelligenceTopics with at least ${MINIMUM_INTELLIGENCE_TOPICS} distinct topic buckets. Topic evidence must use captured citation URLs only.
 - If a topic is not publicly supported, include the topic with an explicit evidence-gap summary and an empty evidence array.
@@ -1054,10 +1066,12 @@ export function formatDeepResearchArtifactMarkdown(
   };
 }
 
-function buildDeepResearchPrompt(context: string): string {
+export function buildDeepResearchPrompt(context: string): string {
   return `Today is ${new Date().toISOString().slice(0, 10)}.
 
-Use the onboarding/prefill context below as confirmed input. Run the primary Perplexity sonar research pass and build the shared company evidence corpus for onboarding. Separate bounded topic fan-out calls will deepen specific intelligence buckets after this pass. Do not synthesize GTM report sections in this run.
+Use the confirmed company context below as input. Run the primary Perplexity sonar research pass and build the shared company evidence corpus for structured company research fields. Separate bounded topic fan-out calls will deepen specific intelligence buckets after this pass. Do not synthesize downstream strategy sections in this run.
+
+\`onboardingFields\` is an output field-name convention only — 'onboarding' is NOT a research topic. Never research onboarding/user-onboarding unless the company's product is itself an onboarding tool.
 
 SOURCE AND EVIDENCE GATE
 - Build a multi-topic, source-lineaged company corpus that downstream sections can draw from.
@@ -1092,7 +1106,7 @@ RULES
 - Prefer credible new URLs not already captured; reuse existing URLs only when they support new specific evidence.
 - Every evidence item must cite a real Perplexity citation URL from this call or from the already captured URL list.
 - If a requested topic has no public evidence, include the topic with an explicit evidence-gap summary and an empty evidence array.
-- Do not write GTM section cards. Do not invent market size, pricing, review quotes, keyword volume, or competitor claims.
+- Do not write downstream strategy section cards. Do not invent market size, pricing, review quotes, keyword volume, or competitor claims.
 
 RETURN JSON SHAPE
 {
@@ -1290,6 +1304,367 @@ function parseRepairDeepResearchOutput(result: SonarGenerationResult): DeepResea
   }
 
   return parseDeepResearchOutput(parsed);
+}
+
+function getNullOnboardingFieldNames(
+  parsed: DeepResearchCorpusOutput,
+): OnboardingFieldName[] {
+  return (Object.keys(parsed.onboardingFields) as OnboardingFieldName[]).filter((fieldName) => {
+    const field = parsed.onboardingFields[fieldName];
+
+    return field !== undefined && field.value === null;
+  });
+}
+
+function collectCorpusEvidence(parsed: DeepResearchCorpusOutput): DeepResearchEvidence[] {
+  return dedupeEvidence([
+    ...parsed.corpus.evidence,
+    ...parsed.corpus.intelligenceTopics.flatMap((topic) => topic.evidence),
+  ]);
+}
+
+function formatBackfillEvidenceTable(parsed: DeepResearchCorpusOutput): string {
+  const evidence = collectCorpusEvidence(parsed);
+
+  if (evidence.length === 0) {
+    return 'No evidence rows were captured.';
+  }
+
+  return evidence
+    .map((item, index) => {
+      const normalizedUrl = normalizeUrl(item.url) ?? item.url;
+
+      return [
+        `Evidence ${index + 1}`,
+        `URL: ${normalizedUrl}`,
+        `Source: ${item.source}`,
+        `Claim: ${item.claim}`,
+        `Quote: ${item.quote}`,
+      ].join('\n');
+    })
+    .join('\n\n');
+}
+
+function formatAllowedSourceUrls(parsed: DeepResearchCorpusOutput): string {
+  const lines = parsed.corpus.sources.flatMap((source) => {
+    const url = normalizeUrl(source.url);
+
+    return url === null ? [] : [`- ${url}`];
+  });
+
+  return lines.length > 0 ? lines.join('\n') : '- No source URLs available';
+}
+
+function buildBackfillPrompt(input: {
+  nullFieldNames: readonly OnboardingFieldName[];
+  parsed: DeepResearchCorpusOutput;
+}): string {
+  return `Extract missing structured company research fields from PROVIDED EVIDENCE ONLY.
+
+Do not search the web. Do not use outside knowledge. Do not infer from the company name alone.
+Return a value only when the provided claim/quote rows support it.
+Every non-null sourceUrl must be copied from ALLOWED SOURCE URLS.
+If evidence is missing, return {"value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not verified in captured evidence."}.
+For topCompetitors, return competitor company names only as a comma-separated string. Do not include descriptions.
+The field name onboardingFields is an output convention only; onboarding is not a research topic.
+
+COMPANY
+${input.parsed.corpus.company}
+
+CATEGORY
+${input.parsed.corpus.category}
+
+NULL FIELD NAMES TO BACKFILL
+${input.nullFieldNames.map((fieldName) => `- ${fieldName}`).join('\n')}
+
+ALLOWED SOURCE URLS
+${formatAllowedSourceUrls(input.parsed)}
+
+PROVIDED EVIDENCE
+${formatBackfillEvidenceTable(input.parsed)}
+
+Return JSON exactly in this shape:
+{
+  "fields": {
+    "fieldName": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"}
+  }
+}`;
+}
+
+function parseBackfillOutput(result: SonarGenerationResult): BackfillNullOnboardingFieldsOutput | null {
+  const structured = backfillNullOnboardingFieldsSchema.safeParse(readStructuredOutput(result));
+  if (structured.success) {
+    return structured.data;
+  }
+
+  const parsed = tryExtractJson(result.text);
+  if (!parsed || !isRecord(parsed)) {
+    return null;
+  }
+
+  const fromText = backfillNullOnboardingFieldsSchema.safeParse(parsed);
+
+  return fromText.success ? fromText.data : null;
+}
+
+function buildCorpusSourceUrlMap(parsed: DeepResearchCorpusOutput): Map<string, string> {
+  const sourceUrlMap = new Map<string, string>();
+
+  for (const source of parsed.corpus.sources) {
+    const normalized = normalizeUrl(source.url);
+    if (normalized === null) {
+      continue;
+    }
+
+    sourceUrlMap.set(normalized, source.url);
+  }
+
+  return sourceUrlMap;
+}
+
+function clampConfidence(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function evidenceMentionsName(
+  name: string,
+  evidence: readonly DeepResearchEvidence[],
+): boolean {
+  const normalizedName = name.toLowerCase();
+
+  return evidence.some((item) => {
+    const haystack = `${item.claim}\n${item.quote}`.toLowerCase();
+
+    return haystack.includes(normalizedName);
+  });
+}
+
+function filterBackfilledCompetitorNames(
+  value: string,
+  evidence: readonly DeepResearchEvidence[],
+): {
+  droppedNames: string[];
+  survivingNames: string[];
+} {
+  const names = normalizeTopCompetitorsValue(value)
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  const survivingNames = names.filter((name) => evidenceMentionsName(name, evidence));
+  const survivingSet = new Set(survivingNames.map((name) => name.toLowerCase()));
+
+  return {
+    droppedNames: names.filter((name) => !survivingSet.has(name.toLowerCase())),
+    survivingNames,
+  };
+}
+
+function validateBackfilledField(input: {
+  candidate: OnboardingFieldValue | undefined;
+  evidence: readonly DeepResearchEvidence[];
+  fieldName: OnboardingFieldName;
+  sourceUrlMap: ReadonlyMap<string, string>;
+}): OnboardingFieldValue | null {
+  if (input.candidate === undefined) {
+    return null;
+  }
+
+  const value = typeof input.candidate.value === 'string'
+    ? input.candidate.value.trim()
+    : null;
+  const sourceUrl = normalizeUrl(input.candidate.sourceUrl);
+
+  if (value === null || value.length === 0 || sourceUrl === null) {
+    return null;
+  }
+
+  const canonicalSourceUrl = input.sourceUrlMap.get(sourceUrl);
+  if (canonicalSourceUrl === undefined) {
+    return null;
+  }
+
+  if (input.fieldName === 'topCompetitors') {
+    const { droppedNames, survivingNames } = filterBackfilledCompetitorNames(
+      value,
+      input.evidence,
+    );
+
+    if (survivingNames.length === 0) {
+      return null;
+    }
+
+    const reasoningSuffix = droppedNames.length > 0
+      ? ` Deterministic check dropped unsupported names: ${droppedNames.join(', ')}.`
+      : '';
+
+    return {
+      value: survivingNames.join(', '),
+      confidence: clampConfidence(input.candidate.confidence),
+      sourceUrl: canonicalSourceUrl,
+      reasoning: `${input.candidate.reasoning.trim()}${reasoningSuffix}`.trim(),
+    };
+  }
+
+  return {
+    value,
+    confidence: clampConfidence(input.candidate.confidence),
+    sourceUrl: canonicalSourceUrl,
+    reasoning: input.candidate.reasoning.trim(),
+  };
+}
+
+function applyBackfilledFields(input: {
+  backfill: BackfillNullOnboardingFieldsOutput;
+  parsed: DeepResearchCorpusOutput;
+}): DeepResearchCorpusOutput {
+  const nullFieldNames = getNullOnboardingFieldNames(input.parsed);
+  const evidence = collectCorpusEvidence(input.parsed);
+  const sourceUrlMap = buildCorpusSourceUrlMap(input.parsed);
+  const nextFields = { ...input.parsed.onboardingFields };
+
+  for (const fieldName of nullFieldNames) {
+    const current = nextFields[fieldName];
+    if (current === undefined || current.value !== null) {
+      continue;
+    }
+
+    const candidate = input.backfill.fields[fieldName];
+    const validated = validateBackfilledField({
+      candidate,
+      evidence,
+      fieldName,
+      sourceUrlMap,
+    });
+
+    if (validated === null) {
+      continue;
+    }
+
+    nextFields[fieldName] = validated;
+  }
+
+  return {
+    ...input.parsed,
+    onboardingFields: nextFields,
+  };
+}
+
+function countBackfilledFields(
+  before: DeepResearchCorpusOutput,
+  after: DeepResearchCorpusOutput,
+): number {
+  return getNullOnboardingFieldNames(before).filter((fieldName) => {
+    const afterField = after.onboardingFields[fieldName];
+
+    return typeof afterField?.value === 'string' && afterField.value.trim().length > 0;
+  }).length;
+}
+
+export async function backfillNullOnboardingFields(input: {
+  apiKey?: string | null;
+  onProgress?: RunnerProgressReporter;
+  parsed: DeepResearchCorpusOutput;
+  abortSignal?: AbortSignal;
+}): Promise<DeepResearchCorpusOutput> {
+  const nullFieldNames = getNullOnboardingFieldNames(input.parsed);
+
+  if (nullFieldNames.length === 0) {
+    return input.parsed;
+  }
+
+  if (input.abortSignal?.aborted) {
+    throw new Error('Deep research null-field backfill aborted by job shutdown');
+  }
+
+  const apiKey = input.apiKey?.trim() || getPerplexityApiKey();
+  if (!apiKey) {
+    console.warn('[deep-research-program] Skipping null-field backfill: PERPLEXITY_API_KEY is not configured.');
+    return input.parsed;
+  }
+
+  try {
+    await emitRunnerProgress(
+      input.onProgress,
+      'analysis',
+      `backfilling ${nullFieldNames.length} null structured field${nullFieldNames.length === 1 ? '' : 's'} from merged evidence`,
+    );
+
+    const perplexity = createPerplexity({ apiKey });
+    // z.record compiles to a JSON schema with zero required properties, which
+    // Perplexity's constrained decoder satisfies with {"fields": {}} (live-probed
+    // 2026-06-10 on sonar AND sonar-pro). Each null field must be a REQUIRED
+    // property so the model is forced to answer it (value: null stays legal).
+    const backfillCallShape: Record<string, typeof onboardingFieldSchema> = {};
+    for (const fieldName of nullFieldNames) {
+      backfillCallShape[fieldName] = onboardingFieldSchema;
+    }
+    const backfillCallSchema = z.object({
+      fields: z.object(backfillCallShape),
+    });
+    const result = await runWithAbortTimeout(
+      'Deep research null-field backfill',
+      DEEP_RESEARCH_BACKFILL_TIMEOUT_MS,
+      (signal) =>
+        generateText({
+          model: perplexity('sonar-pro'),
+          prompt: buildBackfillPrompt({
+            nullFieldNames,
+            parsed: input.parsed,
+          }),
+          output: Output.object({ schema: backfillCallSchema }),
+          maxOutputTokens: DEEP_RESEARCH_BACKFILL_MAX_TOKENS,
+          maxRetries: 0,
+          temperature: 0,
+          abortSignal: signal,
+        }),
+      input.abortSignal,
+    );
+    const backfill = parseBackfillOutput(result as SonarGenerationResult);
+
+    if (process.env.DEBUG_BACKFILL === '1') {
+      console.log('[debug-backfill] nullFieldNames:', nullFieldNames.join(','));
+      console.log('[debug-backfill] raw text head:', String((result as SonarGenerationResult).text ?? '<no text>').slice(0, 800));
+      console.log('[debug-backfill] parsed:', backfill === null ? 'NULL' : JSON.stringify(backfill).slice(0, 1500));
+    }
+
+    if (backfill === null) {
+      console.warn('[deep-research-program] Null-field backfill returned no parseable structured output; keeping nulls.');
+      return input.parsed;
+    }
+
+    const backfilled = applyBackfilledFields({
+      backfill,
+      parsed: input.parsed,
+    });
+    const filledCount = countBackfilledFields(input.parsed, backfilled);
+
+    await emitRunnerProgress(
+      input.onProgress,
+      'analysis',
+      `backfilled ${filledCount}/${nullFieldNames.length} null structured field${nullFieldNames.length === 1 ? '' : 's'} from merged evidence`,
+    );
+
+    return backfilled;
+  } catch (error) {
+    if (input.abortSignal?.aborted) {
+      throw error;
+    }
+
+    console.warn('[deep-research-program] Null-field backfill failed; keeping nulls.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await emitRunnerProgress(
+      input.onProgress,
+      'analysis',
+      'null-field backfill failed — continuing with verified null gaps',
+    );
+
+    return input.parsed;
+  }
 }
 
 async function ensureMinimumSonarSources(input: {
@@ -1840,7 +2215,14 @@ async function generateSonarCorpus(input: {
       );
 
       if (minimums.passed) {
-        return { ...generated, parsed: strippedParsed };
+        const backfilledParsed = await backfillNullOnboardingFields({
+          apiKey: input.apiKey,
+          onProgress: input.onProgress,
+          parsed: strippedParsed,
+          abortSignal: input.abortSignal,
+        });
+
+        return { ...generated, parsed: backfilledParsed };
       }
 
       await emitRunnerProgress(
@@ -1849,7 +2231,7 @@ async function generateSonarCorpus(input: {
         'tightening corpus against captured Perplexity citations',
       );
 
-      return await repairDeepResearchJsonToMinimums({
+      const repaired = await repairDeepResearchJsonToMinimums({
         apiKey: input.apiKey,
         context: input.context,
         draftText: generated.rawText || JSON.stringify(strippedParsed),
@@ -1860,6 +2242,14 @@ async function generateSonarCorpus(input: {
         validationErrors: minimums.errors,
         abortSignal: input.abortSignal,
       });
+      const backfilledParsed = await backfillNullOnboardingFields({
+        apiKey: input.apiKey,
+        onProgress: input.onProgress,
+        parsed: repaired.parsed,
+        abortSignal: input.abortSignal,
+      });
+
+      return { ...repaired, parsed: backfilledParsed };
     } catch (error) {
       lastError = error;
       console.warn('[deep-research-program] Perplexity corpus model failed', {
@@ -1954,7 +2344,7 @@ export async function runDeepResearchProgram(
         status: 'error',
         section: 'deepResearchProgram',
         error:
-          'Deep research returned no usable onboardingFields. The onboarding review cannot open from shallow prefill data.',
+          'Deep research returned no usable onboardingFields. The structured field review cannot open from shallow field data.',
         durationMs: Date.now() - startTime,
         rawText,
         telemetry: buildPerplexityTelemetry(generated.result, generated.model),

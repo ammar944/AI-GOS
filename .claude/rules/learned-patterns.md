@@ -18,6 +18,8 @@
 - When composing multi-call research (main + fan-out + repair), strip uncited/non-compliant rows deterministically BEFORE hard-failing validation — asking the model to re-comply via repair rounds is slow, paid, and flaky (live: 4 stray URLs killed a 100+-claim corpus; stripping fixed it at zero cost). Repairs must not re-run enrichment fan-outs.
 - AI SDK v6 `result.output` is a THROWING getter (`No output generated.`) when structured parsing failed — wrap access in try/catch before any `safeParse(result.output)` or the text-extraction fallback never runs.
 
+- When Perplexity + AI SDK `Output.object` must FILL fields, never use `z.record(...)` as the call schema — it compiles to JSON schema with zero required properties and the constrained decoder legally returns `{}` (live-probed 2026-06-10: sonar AND sonar-pro both returned `{"fields": {}}` against a 121-row evidence table). Build a dynamic `z.object` with every wanted field as a REQUIRED property (value can still be null). Mocked unit tests cannot catch this — only a live CLI probe does.
+
 ## Worker (research-worker)
 - When a watchdog/stale-check marks a job failed, it MUST also `abortControllers.get(jobId)?.abort()` — writing the error status alone leaves a zombie runner that keeps spending and later overwrites `error` with `complete` (user sees timeout, then data appears). Runners must accept and thread the `abortSignal` (4th arg) into every provider call.
 

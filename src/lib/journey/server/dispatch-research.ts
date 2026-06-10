@@ -536,7 +536,7 @@ async function injectOnboardingAnswers(
       return context;
     }
 
-    const block = `### User Onboarding Answers (Pre-Pitch Positioning Audit)\n${lines.join('\n')}`;
+    const block = `### User-Confirmed Company Research Fields\n${lines.join('\n')}`;
     return `${block}\n\n${context}`;
   } catch (error) {
     console.warn('[dispatch] Failed to inject onboarding answers:', error);

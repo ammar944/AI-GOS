@@ -3,6 +3,9 @@ import { generateText } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  backfillNullOnboardingFields,
+  buildDeepResearchPrompt,
+  type DeepResearchCorpusOutput,
   normalizeTopCompetitorsValue,
   runDeepResearchProgram,
   validateDeepResearchMinimums,
@@ -390,6 +393,61 @@ function queueTopicFanoutResults(generateTextMock: GenerateTextMock): void {
   }
 }
 
+function backfillField(
+  value: string | null,
+  sourceUrl = 'https://ramp.com/customers',
+): {
+  value: string | null;
+  confidence: number;
+  sourceUrl: string | null;
+  reasoning: string;
+} {
+  return {
+    value,
+    confidence: value === null ? 0 : 82,
+    sourceUrl: value === null ? null : sourceUrl,
+    reasoning: value === null
+      ? 'Not verified in captured evidence.'
+      : 'Extracted from merged corpus evidence.',
+  };
+}
+
+function queueBackfillNoopResult(generateTextMock: GenerateTextMock): void {
+  generateTextMock.mockResolvedValueOnce(
+    buildGenerateTextResult({ fields: {} }, []) as Awaited<ReturnType<typeof generateText>>,
+  );
+}
+
+function addCompetitorEvidence(
+  fixture: Record<string, unknown>,
+  text: string,
+): void {
+  const evidence = {
+    claim: text,
+    source: 'Third-party alternatives evidence',
+    url: 'https://ramp.com/customers',
+    quote: text,
+    confidence: 81,
+  };
+  const corpus = fixture.corpus as {
+    evidence: unknown[];
+    intelligenceTopics: Array<{
+      evidence: unknown[];
+      summary: string;
+      topic: string;
+    }>;
+  };
+  corpus.evidence.push(evidence);
+  const competitorsTopic = corpus.intelligenceTopics.find(
+    (topic) => topic.topic === 'competitors',
+  );
+
+  if (competitorsTopic) {
+    competitorsTopic.summary = text;
+    competitorsTopic.evidence.push(evidence);
+  }
+}
+
 function buildGenerateTextResult(
   output: Record<string, unknown>,
   sources: ReadonlyArray<{ title: string; url: string }> = citationSources,
@@ -522,6 +580,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(corpusFixture) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
     const result = await runDeepResearchProgram(
@@ -533,7 +592,7 @@ describe('runDeepResearchProgram', () => {
 
     expect(result.status).toBe('complete');
     expect(createPerplexity).toHaveBeenCalledWith({ apiKey: 'test-perplexity-key' });
-    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(generateTextMock).toHaveBeenCalledTimes(5);
     const call = generateTextMock.mock.calls[0]?.[0] as {
       model?: { modelId?: string };
       output?: unknown;
@@ -574,6 +633,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(buildCorpusFixture()) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
@@ -612,6 +672,7 @@ describe('runDeepResearchProgram', () => {
         ) as Awaited<ReturnType<typeof generateText>>,
       );
     }
+    queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
     const result = await runDeepResearchProgram(
@@ -622,8 +683,8 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    // Main corpus (1) + three fan-out attempts (3) — no draft retry, no fallback model.
-    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    // Main corpus (1) + three fan-out attempts (3) + backfill (1) — no draft retry, no fallback model.
+    expect(generateTextMock).toHaveBeenCalledTimes(5);
     expect(result.provenance?.citationCount).toBe(10);
     expect(
       progress.some((update) =>
@@ -665,13 +726,14 @@ describe('runDeepResearchProgram', () => {
         buildGenerateTextResult(corpusFixture, citationSources.slice(0, 4)) as Awaited<ReturnType<typeof generateText>>,
       );
     queueTopicFanoutResults(generateTextMock);
+    queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(generateTextMock).toHaveBeenCalledTimes(5);
     expect(result.provenance?.citationCount).toBe(10);
   });
 
@@ -693,6 +755,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(brokenCorpus) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
     const result = await runDeepResearchProgram(
@@ -704,12 +767,41 @@ describe('runDeepResearchProgram', () => {
 
     expect(result.status).toBe('complete');
     // Stray uncited URLs cost their rows, not the corpus: no repair round runs.
-    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(generateTextMock).toHaveBeenCalledTimes(5);
     expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
     expect(
       progress.some((update) => update.message.includes('uncited row')),
     ).toBe(true);
     expect(result.provenance?.citationCount).toBe(10);
+  });
+
+  it('keeps null fields and completes when the post-merge backfill call fails', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const corpusFixture = buildCorpusFixture();
+    const onboardingFields = corpusFixture.onboardingFields as {
+      topCompetitors: ReturnType<typeof onboardingField>;
+    };
+    onboardingFields.topCompetitors = onboardingField(null);
+    addCompetitorEvidence(
+      corpusFixture,
+      'Users compare this product with Notion, monday.com, and ClickUp in alternatives discussions.',
+    );
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(corpusFixture) as Awaited<ReturnType<typeof generateText>>,
+    );
+    queueTopicFanoutResults(generateTextMock);
+    generateTextMock.mockRejectedValueOnce(new Error('backfill unavailable'));
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+    );
+
+    expect(result.status).toBe('complete');
+    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    expect(
+      (result.data as DeepResearchCorpusOutput).onboardingFields.topCompetitors.value,
+    ).toBeNull();
   });
 
   it('re-repairs a corpus when the first repair is still below evidence minimums', async () => {
@@ -740,15 +832,16 @@ describe('runDeepResearchProgram', () => {
     generateTextMock.mockResolvedValueOnce(
       buildGenerateTextResult(secondRepair, []) as Awaited<ReturnType<typeof generateText>>,
     );
+    queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    // main + 3 fan-out + repair + re-repair. Repairs must NOT re-run the
+    // main + 3 fan-out + repair + re-repair + one backfill. Repairs must NOT re-run the
     // fan-out (that re-bought 4 Perplexity calls per round before the fix).
-    expect(generateTextMock).toHaveBeenCalledTimes(6);
+    expect(generateTextMock).toHaveBeenCalledTimes(7);
     expect(result.provenance?.citationCount).toBe(10);
   });
 
@@ -773,18 +866,155 @@ describe('runDeepResearchProgram', () => {
       ...(buildGenerateTextResult(repairedCorpus) as Record<string, unknown>),
       text: 'I repaired the corpus into the structured output payload.',
     } as Awaited<ReturnType<typeof generateText>>);
+    queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    // main + 3 fan-out + a single de-enriched repair round.
-    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    // main + 3 fan-out + a single de-enriched repair round + one backfill.
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     expect(result.provenance?.citationCount).toBe(10);
     expect(
       (generateTextMock.mock.calls[4]?.[0] as { output?: unknown }).output,
     ).toBeDefined();
+  });
+});
+
+describe('backfillNullOnboardingFields', () => {
+  it('fills null topCompetitors from merged fan-out evidence', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const fixture = buildCorpusFixture();
+    const onboardingFields = fixture.onboardingFields as {
+      topCompetitors: ReturnType<typeof onboardingField>;
+    };
+    onboardingFields.topCompetitors = onboardingField(null);
+    addCompetitorEvidence(
+      fixture,
+      'Airtable alternatives named by users include Notion, monday.com, ClickUp, and Smartsheet.',
+    );
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult({
+        fields: {
+          topCompetitors: backfillField('Notion, monday.com, ClickUp'),
+        },
+      }, []) as Awaited<ReturnType<typeof generateText>>,
+    );
+
+    const result = await backfillNullOnboardingFields({
+      parsed: fixture as DeepResearchCorpusOutput,
+    });
+
+    expect(result.onboardingFields.topCompetitors.value).toBe('Notion, monday.com, ClickUp');
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    const call = generateTextMock.mock.calls[0]?.[0] as {
+      abortSignal?: AbortSignal;
+      maxOutputTokens?: number;
+      maxRetries?: number;
+      model?: { modelId?: string };
+      prompt?: string;
+      temperature?: number;
+    };
+    expect(call.model?.modelId).toBe('sonar-pro');
+    expect(call.temperature).toBe(0);
+    expect(call.maxOutputTokens).toBeGreaterThan(0);
+    expect(call.maxRetries).toBe(0);
+    expect(call.abortSignal).toBeDefined();
+    expect(call.prompt).toContain('PROVIDED EVIDENCE');
+    expect(call.prompt).toContain('topCompetitors');
+  });
+
+  it('never overwrites a non-null field', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const fixture = buildCorpusFixture();
+    addCompetitorEvidence(
+      fixture,
+      'Users compare this product with Notion, monday.com, and ClickUp in alternatives discussions.',
+    );
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult({
+        fields: {
+          topCompetitors: backfillField('Notion, monday.com, ClickUp'),
+        },
+      }, []) as Awaited<ReturnType<typeof generateText>>,
+    );
+
+    const result = await backfillNullOnboardingFields({
+      parsed: fixture as DeepResearchCorpusOutput,
+    });
+
+    expect(result.onboardingFields.topCompetitors.value).toBe('Brex, Airbase, Navan');
+  });
+
+  it('drops backfilled competitor names absent from evidence claim and quote text', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const fixture = buildCorpusFixture();
+    const onboardingFields = fixture.onboardingFields as {
+      topCompetitors: ReturnType<typeof onboardingField>;
+    };
+    onboardingFields.topCompetitors = onboardingField(null);
+    addCompetitorEvidence(fixture, 'Users compare this product with Notion in alternatives discussions.');
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult({
+        fields: {
+          topCompetitors: backfillField('Notion, GhostCRM'),
+        },
+      }, []) as Awaited<ReturnType<typeof generateText>>,
+    );
+
+    const result = await backfillNullOnboardingFields({
+      parsed: fixture as DeepResearchCorpusOutput,
+    });
+
+    expect(result.onboardingFields.topCompetitors.value).toBe('Notion');
+    expect(result.onboardingFields.topCompetitors.reasoning).toContain('GhostCRM');
+  });
+
+  it('rejects a backfilled value when sourceUrl is outside corpus.sources', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const fixture = buildCorpusFixture();
+    const onboardingFields = fixture.onboardingFields as {
+      topCompetitors: ReturnType<typeof onboardingField>;
+    };
+    onboardingFields.topCompetitors = onboardingField(null);
+    addCompetitorEvidence(
+      fixture,
+      'Users compare this product with Notion, monday.com, and ClickUp in alternatives discussions.',
+    );
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult({
+        fields: {
+          topCompetitors: backfillField(
+            'Notion, monday.com, ClickUp',
+            'https://not-in-corpus.example/source',
+          ),
+        },
+      }, []) as Awaited<ReturnType<typeof generateText>>,
+    );
+
+    const result = await backfillNullOnboardingFields({
+      parsed: fixture as DeepResearchCorpusOutput,
+    });
+
+    expect(result.onboardingFields.topCompetitors.value).toBeNull();
+  });
+});
+
+describe('buildDeepResearchPrompt', () => {
+  it('does not use onboarding as prompt prose except the schema-convention disclaimer', () => {
+    const prompt = buildDeepResearchPrompt('Website: https://airtable.com');
+    const onboardingLines = prompt
+      .split('\n')
+      .filter((line) => line.toLowerCase().includes('onboarding'));
+
+    expect(onboardingLines).toEqual([
+      "`onboardingFields` is an output field-name convention only — 'onboarding' is NOT a research topic. Never research onboarding/user-onboarding unless the company's product is itself an onboarding tool.",
+    ]);
   });
 });
 
