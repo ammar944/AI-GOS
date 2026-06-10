@@ -121,7 +121,9 @@ describe("checkPaidMediaChannelPolicy", () => {
       errors.filter((e) => e.includes("body.audienceTypes[")).length,
     ).toBeGreaterThanOrEqual(2);
     // Budget conflicts unsurfaced in prose -> flagged.
-    expect(errors.some((e) => e.includes('"platform minimum"'))).toBe(true);
+    expect(
+      errors.some((e) => e.includes('the prose does not surface it')),
+    ).toBe(true);
   });
 
   it("passes a LinkedIn + Google plan that surfaces the budget conflict", () => {

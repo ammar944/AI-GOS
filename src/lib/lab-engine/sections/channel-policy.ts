@@ -236,7 +236,12 @@ const PLATFORM_NAME_PATTERNS: Record<AdPlatform, RegExp> = {
 const META_MECHANISM_PATTERN =
   /advantage\+|\blookalike\b|facebook|instagram|\bmeta\b/i;
 
-const PLATFORM_MINIMUM_TOKEN = "platform minimum";
+// Accept any honest surfacing of the budget-vs-minimum conflict — the live
+// Anura rerun wrote "LinkedIn minimum is $5K/mo; the $3K/mo test budget sits
+// below this floor", which is better prose than a pinned literal token. The
+// gate exists to catch SILENT conflicts, not to enforce one phrasing.
+const PLATFORM_MINIMUM_SURFACED_PATTERN =
+  /platform minimum|minimum (?:is|of) \$|below (?:this|the|both) (?:floor|minimum)|under (?:the|its|both) .{0,20}minimum|minimums? \(\$/i;
 
 export interface PaidMediaPolicyCheckBody {
   campaignOverview?: { platform?: unknown; prose?: unknown };
@@ -309,10 +314,10 @@ export function checkPaidMediaChannelPolicy({
   }
 
   if (policy.budgetConflicts.length > 0) {
-    const prose = asString(body.campaignOverview?.prose).toLowerCase();
-    if (!prose.includes(PLATFORM_MINIMUM_TOKEN)) {
+    const prose = asString(body.campaignOverview?.prose);
+    if (!PLATFORM_MINIMUM_SURFACED_PATTERN.test(prose)) {
       errors.push(
-        `body.campaignOverview.prose: the brief budget conflicts with SOP platform minimums (${policy.budgetConflicts.join(" ")}) but the prose does not surface it. State the conflict explicitly using the literal phrase "platform minimum" and describe the staged-entry or raise recommendation.`,
+        `body.campaignOverview.prose: the brief budget conflicts with SOP platform minimums (${policy.budgetConflicts.join(" ")}) but the prose does not surface it. State the conflict explicitly (e.g. "the $X/mo budget sits below the LinkedIn platform minimum of $5,000/mo") and describe the staged-entry or raise recommendation.`,
       );
     }
   }
