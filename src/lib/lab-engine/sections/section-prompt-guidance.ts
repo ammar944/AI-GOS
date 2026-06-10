@@ -13,6 +13,7 @@
 const strategicDepthCommonGuidance = [
   "- Strategic depth fields: `body.strategicInsight` is required with `strategicVerdict`, `nonObviousRead`, `secondOrderImplication`, and `keyTension { tension, side, costOfPosition }`.",
   "- Strategic depth fields must be specific strategic judgments or `evidence gap: <missing signal>`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
 ] as const;
 
 export const marketCategoryStrategicDepthGuidance = [
@@ -93,6 +94,7 @@ export const voiceOfCustomerMinimumGuidance = [
   "- `body.switchingStories.stories[]` keys are `priorSolution`, `reasonToLeave`, `decisionPath`, optional `exampleCompany`, `sourceUrl`; include at least three stories and at least two prior solutions.",
   "- `body.decisionCriteria.criteria[]` keys are `criterion`, `statedBy`, `evidenceQuote`, `sourceUrl`; `statedBy` must be `buyer`, `champion`, `influencer`, or `blocker`; include at least five criteria.",
   "- `body.successLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `afterStatePattern`; include at least five success quotes.",
+  "- VoC secondary blocks have an honest exit: if fetched evidence cannot meet a floor for objections, switchingStories, decisionCriteria, or successLanguage, set that block's blockGap to { summary: \"evidence gap: <missing signal>\", foundCount: <actual count>, requiredCount: <floor>, sourcingPlan: [\"<next source to check>\"] } instead of padding or inventing items. Pain quotes have NO such exit - they must be real.",
 ] as const;
 
 export const demandIntentStrategicDepthGuidance = [

@@ -351,7 +351,7 @@ describe("buildAnswerToolInstructions", (): void => {
       definition: competitorDefinition,
       evidenceTranscript: "source evidence",
       issues: [
-        "body.incumbentBlindSpot.incumbent: must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.",
+        'body.incumbentBlindSpot.incumbent: must be a specific strategic judgment or write exactly `evidence gap: <missing signal>`, not a summary/restatement. Do not satisfy "specific" with numbers that are not in fetched evidence - unsupported numeric precision is treated as fabrication.',
       ],
       previousOutput: {
         body: {

@@ -302,6 +302,24 @@ export type VoiceOfCustomerEvidenceGapClassification =
       errors: string[];
     };
 
+interface BlockGapEscapeInstructionParams {
+  blockGapPath: string;
+  foundCount: number;
+  inventedNoun: string;
+  requiredCount: number;
+  summary: string;
+}
+
+function formatBlockGapEscapeInstruction({
+  blockGapPath,
+  foundCount,
+  inventedNoun,
+  requiredCount,
+  summary,
+}: BlockGapEscapeInstructionParams): string {
+  return ` If fetched evidence does not contain more, set ${blockGapPath} to { summary: "${summary}", foundCount: ${foundCount}, requiredCount: ${requiredCount}, sourcingPlan: ["<source to check next>"] } instead of inventing ${inventedNoun}; invented ${inventedNoun} are removed by the truth gate.`;
+}
+
 function uniqueCount(values: readonly string[]): number {
   return new Set(values).size;
 }
@@ -464,14 +482,16 @@ export function validateVoiceOfCustomerMinimums(
   if (parsedArtifact.body.objections.blockGap === undefined) {
     const objections = parsedArtifact.body.objections.items;
     if (objections.length < 5) {
-      errors.push(`body.objections.items: have ${objections.length}, need >=5.`);
+      errors.push(
+        `body.objections.items: have ${objections.length}, need >=5.${formatBlockGapEscapeInstruction({ blockGapPath: "body.objections.blockGap", foundCount: objections.length, inventedNoun: "objections", requiredCount: 5, summary: "evidence gap: no public objections found" })}`,
+      );
     }
     const categoryCount = uniqueCount(
       objections.map((objection) => objection.category),
     );
     if (categoryCount < 3) {
       errors.push(
-        `body.objections.items: need >=3 objection categories, have ${categoryCount}.`,
+        `body.objections.items: need >=3 objection categories, have ${categoryCount}.${formatBlockGapEscapeInstruction({ blockGapPath: "body.objections.blockGap", foundCount: categoryCount, inventedNoun: "objection categories", requiredCount: 3, summary: "evidence gap: fewer than three public objection categories found" })}`,
       );
     }
   }
@@ -480,7 +500,7 @@ export function validateVoiceOfCustomerMinimums(
     const stories = parsedArtifact.body.switchingStories.stories;
     if (stories.length < 3) {
       errors.push(
-        `body.switchingStories.stories: have ${stories.length}, need >=3.`,
+        `body.switchingStories.stories: have ${stories.length}, need >=3.${formatBlockGapEscapeInstruction({ blockGapPath: "body.switchingStories.blockGap", foundCount: stories.length, inventedNoun: "stories", requiredCount: 3, summary: "evidence gap: no additional public switching stories found" })}`,
       );
     }
     const priorSolutionCount = uniqueCount(
@@ -488,7 +508,7 @@ export function validateVoiceOfCustomerMinimums(
     );
     if (priorSolutionCount < 2) {
       errors.push(
-        `body.switchingStories.stories: need >=2 prior solutions, have ${priorSolutionCount}.`,
+        `body.switchingStories.stories: need >=2 prior solutions, have ${priorSolutionCount}.${formatBlockGapEscapeInstruction({ blockGapPath: "body.switchingStories.blockGap", foundCount: priorSolutionCount, inventedNoun: "prior solutions", requiredCount: 2, summary: "evidence gap: fewer than two public prior solutions found" })}`,
       );
     }
   }
@@ -497,7 +517,7 @@ export function validateVoiceOfCustomerMinimums(
     const criteriaCount = parsedArtifact.body.decisionCriteria.criteria.length;
     if (criteriaCount < 5) {
       errors.push(
-        `body.decisionCriteria.criteria: have ${criteriaCount}, need >=5.`,
+        `body.decisionCriteria.criteria: have ${criteriaCount}, need >=5.${formatBlockGapEscapeInstruction({ blockGapPath: "body.decisionCriteria.blockGap", foundCount: criteriaCount, inventedNoun: "decision criteria", requiredCount: 5, summary: "evidence gap: no additional public decision criteria found" })}`,
       );
     }
   }
@@ -506,7 +526,7 @@ export function validateVoiceOfCustomerMinimums(
     const successCount = parsedArtifact.body.successLanguage.quotes.length;
     if (successCount < VOC_MIN_SUCCESS_QUOTES) {
       errors.push(
-        `body.successLanguage.quotes: have ${successCount}, need >=${VOC_MIN_SUCCESS_QUOTES}.`,
+        `body.successLanguage.quotes: have ${successCount}, need >=${VOC_MIN_SUCCESS_QUOTES}.${formatBlockGapEscapeInstruction({ blockGapPath: "body.successLanguage.blockGap", foundCount: successCount, inventedNoun: "success quotes", requiredCount: VOC_MIN_SUCCESS_QUOTES, summary: "evidence gap: no additional public success language found" })}`,
       );
     }
   }

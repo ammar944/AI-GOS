@@ -4,6 +4,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- BuyerICPSectionOutput exact item contracts: \`body.icpExistenceCheck.firmographicCuts[]\` keys are \`cutType\`, \`value\`, optional \`accountCount\`, \`source\`, \`sourceUrl\`, \`dateObserved\`.",
   "- \`cutType\` must be one of \`industry\`, \`employeeBands\`, \`revenueBands\`, \`geography\`, \`techStack\`.",
   "- BuyerICPSectionOutput minimums: include at least three firmographic cuts with at least three distinct \`cutType\` values.",
@@ -26,6 +27,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- CompetitorLandscapeSectionOutput strategic fields: \`body.whereToAttackVsConcede { attack, concede, rationale }\` and \`body.incumbentBlindSpot { incumbent, blindSpot, whyTheyMissIt }\` are required.",
   "- CompetitorLandscapeSectionOutput strategic repair: \`body.incumbentBlindSpot.incumbent\` must name the incumbent/status-quo and the buyer pain or positioning miss as a full strategic judgment; it must not be only a competitor name, category label, or section summary. If the fetched evidence does not support that judgment, write exactly \`evidence gap: <missing incumbent/status-quo signal>\`.",
   "- CompetitorLandscapeSectionOutput minimums: top-level \`sources\` must include at least five distinct cited Section-level source URLs.",
@@ -48,6 +50,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- DemandIntentSectionOutput strategic fields: \`body.orderedMoves[]\` requires at least two sequenced moves with consecutive \`rank\` values, backward-only \`dependsOn\` rank references, and \`rationale\`; \`body.provesWrongIf { metric, threshold, window }\` is required.",
   "- DemandIntentSectionOutput exact item contracts: \`body.keywordDemand.keywords[]\` keys are \`keyword\`, \`monthlyVolume\`, optional \`monthlyVolumeValue\`, optional \`cpc\`, optional \`cpcValue\`, optional \`difficulty\`, \`intentType\`, \`top3RankingDomains\`, \`sourceTitle\`, \`sourceUrl\`, \`dateObserved\`.",
   "- \`intentType\` must be one of \`informational\`, \`commercial\`, \`transactional\`, \`navigational\`; include at least ten keyword rows.",
@@ -68,6 +71,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- MarketCategorySectionOutput strategic field: \`body.categoryPowerBet { bet, whyNow, riskAccepted }\` must name the category-power bet and the cost accepted.",
   "- MarketCategorySectionOutput minimums: top-level \`sources\` must include at least three Section-level sources.",
   "- MarketCategorySectionOutput minimums: \`body.categoryDefinition.adjacentCategories\` must include at least two categories buyers confuse this with.",
@@ -84,6 +88,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- OfferDiagnosticSectionOutput strategic fields: \`body.singleBindingConstraint { constraint, whyBinding, unlockCondition }\`, \`body.orderedMoves[]\`, and \`body.provesWrongIf { metric, threshold, window }\` are required.",
   "- OfferDiagnosticSectionOutput exact item contracts: \`body.offerMarketFit.proofPoints[]\` keys are \`metric\`, \`value\`, \`reportedBy\`, \`confidence\`, \`sourceUrl\`; include at least three proof points.",
   "- \`reportedBy\` must be \`company-own\` or \`external-source\`; \`confidence\` must be \`high\`, \`medium\`, or \`low\`.",
@@ -130,6 +135,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- VoiceOfCustomerSectionOutput strategic field: \`body.fourForcesBalanceVerdict { push, pull, anxiety, habit, balanceVerdict }\` is required and must make the Four-Forces balance explicit.",
   "- VoiceOfCustomerSectionOutput exact item contracts: \`body.painLanguage.quotes[]\` keys are \`verbatimText\`, \`source\`, \`sourceUrl\`, \`painTheme\`, \`painIntensity\`, plus optional \`role\` (reviewer role/handle) and \`date\` (when the source discloses it).",
   "- \`source\` must be one of \`g2\`, \`reddit\`, \`hackernews\`, \`sales-call\`, \`support-thread\`, \`twitter\`, \`other\`; \`painIntensity\` must be \`high\`, \`medium\`, or \`low\`.",
@@ -143,6 +149,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
   "- \`body.switchingStories.stories[]\` keys are \`priorSolution\`, \`reasonToLeave\`, \`decisionPath\`, optional \`exampleCompany\`, \`sourceUrl\`; include at least three stories and at least two prior solutions.",
   "- \`body.decisionCriteria.criteria[]\` keys are \`criterion\`, \`statedBy\`, \`evidenceQuote\`, \`sourceUrl\`; \`statedBy\` must be \`buyer\`, \`champion\`, \`influencer\`, or \`blocker\`; include at least five criteria.",
   "- \`body.successLanguage.quotes[]\` keys are \`verbatimText\`, \`source\`, \`sourceUrl\`, \`afterStatePattern\`; include at least five success quotes.",
+  "- VoC secondary blocks have an honest exit: if fetched evidence cannot meet a floor for objections, switchingStories, decisionCriteria, or successLanguage, set that block's blockGap to { summary: "evidence gap: <missing signal>", foundCount: <actual count>, requiredCount: <floor>, sourcingPlan: ["<next source to check>"] } instead of padding or inventing items. Pain quotes have NO such exit - they must be real.",
 ]
 `;
 
@@ -150,6 +157,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > strate
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
 ]
 `;
 
@@ -157,6 +165,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > strate
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- CompetitorLandscapeSectionOutput strategic fields: \`body.whereToAttackVsConcede { attack, concede, rationale }\` and \`body.incumbentBlindSpot { incumbent, blindSpot, whyTheyMissIt }\` are required.",
   "- CompetitorLandscapeSectionOutput strategic repair: \`body.incumbentBlindSpot.incumbent\` must name the incumbent/status-quo and the buyer pain or positioning miss as a full strategic judgment; it must not be only a competitor name, category label, or section summary. If the fetched evidence does not support that judgment, write exactly \`evidence gap: <missing incumbent/status-quo signal>\`.",
 ]
@@ -166,6 +175,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > strate
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- DemandIntentSectionOutput strategic fields: \`body.orderedMoves[]\` requires at least two sequenced moves with consecutive \`rank\` values, backward-only \`dependsOn\` rank references, and \`rationale\`; \`body.provesWrongIf { metric, threshold, window }\` is required.",
 ]
 `;
@@ -174,6 +184,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > strate
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- MarketCategorySectionOutput strategic field: \`body.categoryPowerBet { bet, whyNow, riskAccepted }\` must name the category-power bet and the cost accepted.",
 ]
 `;
@@ -182,6 +193,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > strate
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- OfferDiagnosticSectionOutput strategic fields: \`body.singleBindingConstraint { constraint, whyBinding, unlockCondition }\`, \`body.orderedMoves[]\`, and \`body.provesWrongIf { metric, threshold, window }\` are required.",
 ]
 `;
@@ -192,6 +204,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > strate
 [
   "- Strategic depth fields: \`body.strategicInsight\` is required with \`strategicVerdict\`, \`nonObviousRead\`, \`secondOrderImplication\`, and \`keyTension { tension, side, costOfPosition }\`.",
   "- Strategic depth fields must be specific strategic judgments or \`evidence gap: <missing signal>\`; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
   "- VoiceOfCustomerSectionOutput strategic field: \`body.fourForcesBalanceVerdict { push, pull, anxiety, habit, balanceVerdict }\` is required and must make the Four-Forces balance explicit.",
 ]
 `;

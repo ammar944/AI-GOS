@@ -769,7 +769,7 @@ function buildVoiceOfCustomerAttemptEvidenceGapArtifact({
 }
 
 const competitorStrategicTextErrorSuffix =
-  ": must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.";
+  ": must be a specific strategic judgment or write exactly `evidence gap: <missing signal>`, not a summary/restatement. Do not satisfy \"specific\" with numbers that are not in fetched evidence - unsupported numeric precision is treated as fabrication.";
 const competitorStrategicEvidenceGapPaths = new Set([
   "body.whereToAttackVsConcede.attack",
   "body.whereToAttackVsConcede.concede",

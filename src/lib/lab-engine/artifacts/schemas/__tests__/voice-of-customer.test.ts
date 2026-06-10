@@ -362,6 +362,8 @@ describe("Voice of Customer per-block gaps", (): void => {
 
       expect(result.ok).toBe(false);
       expect(result.errors.join(" ")).toContain(`body.${blockKey}`);
+      expect(result.errors.join(" ")).toContain(`body.${blockKey}.blockGap`);
+      expect(result.errors.join(" ")).toContain("sourcingPlan");
     },
   );
 

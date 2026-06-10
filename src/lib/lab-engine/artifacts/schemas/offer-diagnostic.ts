@@ -230,7 +230,7 @@ export function validateOfferDiagnosticMinimums(
 // deterministic model bugs a gap string can't fix and are intentionally left to
 // hard-fail.
 const offerStrategicTextErrorSuffix =
-  ": must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.";
+  ": must be a specific strategic judgment or write exactly `evidence gap: <missing signal>`, not a summary/restatement. Do not satisfy \"specific\" with numbers that are not in fetched evidence - unsupported numeric precision is treated as fabrication.";
 const offerFalsifiabilityErrorPattern =
   /: must be a concrete falsifiability \w+ or explicit evidence gap\.$/;
 

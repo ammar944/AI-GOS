@@ -148,7 +148,7 @@ describe("parseOfferDiagnosticStrategicEvidenceGapPath", (): void => {
   it("extracts an allowlisted strategic-text path", (): void => {
     expect(
       parseOfferDiagnosticStrategicEvidenceGapPath(
-        "body.singleBindingConstraint.constraint: must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.",
+        'body.singleBindingConstraint.constraint: must be a specific strategic judgment or write exactly `evidence gap: <missing signal>`, not a summary/restatement. Do not satisfy "specific" with numbers that are not in fetched evidence - unsupported numeric precision is treated as fabrication.',
       ),
     ).toBe("body.singleBindingConstraint.constraint");
   });
@@ -164,7 +164,7 @@ describe("parseOfferDiagnosticStrategicEvidenceGapPath", (): void => {
   it("extracts an orderedMoves array path", (): void => {
     expect(
       parseOfferDiagnosticStrategicEvidenceGapPath(
-        "body.orderedMoves[1].rationale: must be a specific strategic judgment or explicit evidence gap, not a summary/restatement.",
+        'body.orderedMoves[1].rationale: must be a specific strategic judgment or write exactly `evidence gap: <missing signal>`, not a summary/restatement. Do not satisfy "specific" with numbers that are not in fetched evidence - unsupported numeric precision is treated as fabrication.',
       ),
     ).toBe("body.orderedMoves[1].rationale");
   });
