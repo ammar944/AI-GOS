@@ -322,6 +322,33 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
         sourceSection: "positioningOfferDiagnostic",
       },
     ],
+    projectedResults: [
+      {
+        targetIcp: "Founder-led B2B SaaS teams (11-50 seats)",
+        kpi: "MQL",
+        kpiCostValue: 120,
+        kpiCostProvenance: "tool-measured",
+        objective: "Qualified free-audit leads",
+        durationLabel: "Months 1-2",
+        phaseMonthlyBudgetValue: 6000,
+        phaseMonthlyBudgetProvenance: "user-supplied",
+        projectedCountValue: 50,
+        projectedCountProvenance: "tool-measured",
+        marginOfErrorPercent: 20,
+        sourceSection: "gtmBrief",
+      },
+      {
+        targetIcp: "RevOps leaders at mid-market SaaS",
+        kpi: "SQL",
+        kpiCostProvenance: "unknown",
+        objective: "Pipeline creation",
+        durationLabel: "Months 3-4",
+        phaseMonthlyBudgetValue: 9000,
+        phaseMonthlyBudgetProvenance: "user-supplied",
+        marginOfErrorPercent: 20,
+        sourceSection: "positioningBuyerICP",
+      },
+    ],
     kpis: [
       {
         metric: "MQLs",

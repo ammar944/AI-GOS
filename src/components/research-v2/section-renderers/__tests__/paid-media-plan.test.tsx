@@ -30,7 +30,7 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     const renderer = screen.getByTestId('paid-media-plan-renderer');
 
     expect(renderer).toBeInTheDocument();
-    expect(within(renderer).getAllByTestId('subsection')).toHaveLength(12);
+    expect(within(renderer).getAllByTestId('subsection')).toHaveLength(13);
     [
       'campaignOverview',
       'campaignPhases',

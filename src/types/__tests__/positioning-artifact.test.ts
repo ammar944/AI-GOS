@@ -184,6 +184,7 @@ const labFixtureCases: readonly LabFixtureCase[] = [
       'creativeStrategy',
       'funnelIdeation',
       'kpis',
+      'projectedResults',
       'salesProcess',
     ],
   },

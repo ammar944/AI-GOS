@@ -2709,11 +2709,16 @@ function withoutEvidenceGapKeys(
 // vendorSourced is derived here, never asked of the model (same pattern as
 // the P3 provenance verifier): registrable domain of persona.sourceUrl equals
 // the subject domain -> true. Whatever the model authored is overwritten.
+// Subject-company EMPLOYEES are dropped entirely — the vendor's own founders
+// and staff are never buyer personas, no matter how independent the source
+// that quotes them (the Anura rerun promoted Anura's own CEO as persona #3).
 function withDerivedVendorSourcedPersonas({
   personaRealityRecord,
+  subjectCompanyName,
   subjectWebsiteUrl,
 }: {
   personaRealityRecord: Record<string, unknown>;
+  subjectCompanyName: string | undefined;
   subjectWebsiteUrl: string | undefined;
 }): Record<string, unknown> {
   if (
@@ -2723,31 +2728,93 @@ function withDerivedVendorSourcedPersonas({
     return personaRealityRecord;
   }
 
+  const subjectDomain = getRegistrableDomain(subjectWebsiteUrl);
+  const subjectNameSlug =
+    subjectCompanyName?.trim().toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
+  const isSubjectCompanyLabel = (company: string | null): boolean => {
+    if (company === null) {
+      return false;
+    }
+
+    const companySlug = company.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const companyDomain = getRegistrableDomain(company);
+
+    return (
+      (subjectNameSlug.length > 0 && companySlug === subjectNameSlug) ||
+      (subjectDomain !== null &&
+        (companyDomain === subjectDomain ||
+          companySlug === subjectDomain.replace(/[^a-z0-9]/g, "")))
+    );
+  };
+
   return {
     ...personaRealityRecord,
-    personas: personaRealityRecord.personas.map((persona) => {
+    personas: personaRealityRecord.personas.flatMap((persona) => {
       const personaRecord = getRecord(persona);
 
       if (personaRecord === null) {
-        return persona;
+        return [persona];
+      }
+
+      if (
+        isSubjectCompanyLabel(getStringProperty(personaRecord, "company"))
+      ) {
+        return [];
       }
 
       const sourceUrl = getStringProperty(personaRecord, "sourceUrl");
 
-      return {
-        ...personaRecord,
-        vendorSourced: deriveVendorSourced({
-          sourceUrl: sourceUrl ?? "",
-          subjectWebsiteUrl,
-        }),
-      };
+      return [
+        {
+          ...personaRecord,
+          vendorSourced: deriveVendorSourced({
+            sourceUrl: sourceUrl ?? "",
+            subjectWebsiteUrl,
+          }),
+        },
+      ];
     }),
   };
 }
 
+// A model-authored persona gap alongside a floor-clearing persona set is
+// contradictory — strip it so a complete section does not read as a gap.
+// Below the floor the gap stays (the validator's honest-exit semantics).
+function countValidatorGradePersonas(
+  personaRealityRecord: Record<string, unknown>,
+): number {
+  if (!Array.isArray(personaRealityRecord.personas)) {
+    return 0;
+  }
+
+  return personaRealityRecord.personas.filter((persona) => {
+    const personaRecord = getRecord(persona);
+
+    if (personaRecord === null) {
+      return false;
+    }
+
+    const name = getStringProperty(personaRecord, "name") ?? "";
+    const sourceUrl = getStringProperty(personaRecord, "sourceUrl") ?? "";
+
+    return (
+      /^https?:\/\//i.test(sourceUrl) &&
+      isLikelyNamedBuyerIdentity(name, {
+        company: getStringProperty(personaRecord, "company") ?? undefined,
+        role: getStringProperty(personaRecord, "role") ?? undefined,
+        seniority: getStringProperty(personaRecord, "seniority") ?? undefined,
+        title: getStringProperty(personaRecord, "title") ?? undefined,
+      })
+    );
+  }).length;
+}
+
 export function withNormalizedBuyerICPOutput(
   rawOutput: unknown,
-  { subjectWebsiteUrl }: { subjectWebsiteUrl?: string } = {},
+  {
+    subjectCompanyName,
+    subjectWebsiteUrl,
+  }: { subjectCompanyName?: string; subjectWebsiteUrl?: string } = {},
 ): unknown {
   const outputRecord = getRecord(rawOutput);
 
@@ -2764,18 +2831,32 @@ export function withNormalizedBuyerICPOutput(
   const icpExistenceCheckRecord = getRecord(bodyRecord.icpExistenceCheck);
   const awarenessDistributionRecord = getRecord(bodyRecord.awarenessDistribution);
   const personaRealityRecord = getRecord(bodyRecord.personaReality);
+  const normalizedPersonaReality =
+    personaRealityRecord === null
+      ? null
+      : withDerivedVendorSourcedPersonas({
+          personaRealityRecord: withoutEvidenceGapKeys(personaRealityRecord),
+          subjectCompanyName,
+          subjectWebsiteUrl,
+        });
+  const stripUnnecessaryGap =
+    normalizedPersonaReality !== null &&
+    bodyRecord.evidenceGap === true &&
+    countValidatorGradePersonas(normalizedPersonaReality) >= 3;
+  const {
+    evidenceGap: _strippedEvidenceGap,
+    evidenceGapReport: _strippedEvidenceGapReport,
+    ...bodyWithoutGap
+  } = bodyRecord;
 
   return {
     ...outputRecord,
     body: {
-      ...bodyRecord,
-      ...(personaRealityRecord === null
+      ...(stripUnnecessaryGap ? bodyWithoutGap : bodyRecord),
+      ...(normalizedPersonaReality === null
         ? {}
         : {
-            personaReality: withDerivedVendorSourcedPersonas({
-              personaRealityRecord: withoutEvidenceGapKeys(personaRealityRecord),
-              subjectWebsiteUrl,
-            }),
+            personaReality: normalizedPersonaReality,
           }),
       ...(icpExistenceCheckRecord === null
         ? {}
@@ -3053,11 +3134,13 @@ function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
   rawOutput,
   sectionId,
+  subjectCompanyName,
   subjectWebsiteUrl,
 }: {
   rawOutput: unknown;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   sectionId: SectionId;
+  subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
 }): unknown {
   const outputWithAdEvidence = withNormalizedCompetitorAdEvidence({
@@ -3067,6 +3150,7 @@ function withNormalizedSectionOutput({
 
   if (sectionId === "positioningBuyerICP") {
     return withNormalizedBuyerICPOutput(outputWithAdEvidence, {
+      subjectCompanyName,
       subjectWebsiteUrl,
     });
   }
@@ -3705,6 +3789,7 @@ async function callStructuredAttempt({
         rawOutput,
         normalizedAdEvidenceGroups,
         sectionId: input.sectionId,
+        subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
     );
@@ -5380,6 +5465,7 @@ async function buildAnswerToolAttempt({
         rawOutput: answerInput,
         sectionId: input.sectionId,
         normalizedAdEvidenceGroups,
+        subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
     );
@@ -5445,12 +5531,14 @@ function buildOutputFromStructuredBody({
   definition,
   input,
   normalizedAdEvidenceGroups,
+  subjectCompanyName,
   subjectWebsiteUrl,
 }: {
   body: unknown;
   definition: RuntimeSectionDefinition;
   input: RunSectionInput;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
 }): SectionOutput<Record<string, unknown>> {
   const structuredRecord = getRecord(body);
@@ -5487,6 +5575,7 @@ function buildOutputFromStructuredBody({
     rawOutput: authoredOutput,
     normalizedAdEvidenceGroups,
     sectionId: input.sectionId,
+    subjectCompanyName,
     subjectWebsiteUrl,
   });
   const normalizedOutputRecord = getRecord(normalizedOutput);
@@ -5672,6 +5761,7 @@ async function buildStructuredBodyAttempt({
       definition,
       input,
       normalizedAdEvidenceGroups,
+      subjectCompanyName: researchInput.company.name,
       subjectWebsiteUrl: researchInput.company.websiteUrl,
     });
 

@@ -436,3 +436,118 @@ function getRepeatedRows(value: unknown, count: number): unknown[] {
 
   return Array.from({ length: count }, () => structuredClone(first));
 }
+
+describe("SOP projected-results table (W3)", () => {
+  function rawBodyWithProjectedResults(rows: unknown[]): Record<string, unknown> {
+    const rawBody = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    rawBody.projectedResults = rows;
+    return rawBody;
+  }
+
+  const baseRow = {
+    targetIcp: "RevOps leads at mid-market SaaS",
+    kpi: "SQL",
+    kpiCostValue: 450,
+    kpiCostProvenance: "tool-measured",
+    objective: "Pipeline creation",
+    durationLabel: "Months 1-2",
+    phaseMonthlyBudgetValue: 10000,
+    phaseMonthlyBudgetProvenance: "user-supplied",
+    sourceSection: "gtmBrief",
+  };
+
+  it("computes the count (floor of budget/kpiCost), overwrites model math, and pins the SOP margin", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithProjectedResults([
+        { ...baseRow, projectedCountValue: 999_999, marginOfErrorPercent: 5 },
+      ]),
+    );
+    const row = normalized.projectedResults[0];
+
+    expect(row?.projectedCountValue).toBe(22);
+    expect(row?.marginOfErrorPercent).toBe(20);
+    expect(row?.projectedCountProvenance).toBe("tool-measured");
+  });
+
+  it("inherits the WEAKEST input provenance for the count", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithProjectedResults([
+        {
+          ...baseRow,
+          kpiCostProvenance: "model-estimated",
+          phaseMonthlyBudgetProvenance: "user-supplied",
+        },
+      ]),
+    );
+
+    expect(normalized.projectedResults[0]?.projectedCountProvenance).toBe(
+      "model-estimated",
+    );
+  });
+
+  it("omits the count when kpiCost is unknown or zero — never invented", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithProjectedResults([
+        { ...baseRow, kpiCostValue: 0 },
+        { ...baseRow, kpiCostValue: undefined, kpiCostProvenance: "unknown" },
+      ]),
+    );
+
+    for (const row of normalized.projectedResults) {
+      expect(row.projectedCountValue).toBeUndefined();
+      expect(row.projectedCountProvenance).toBeUndefined();
+      expect(row.marginOfErrorPercent).toBe(20);
+    }
+  });
+
+  it("coerces numeric-string money values before the math", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithProjectedResults([
+        {
+          ...baseRow,
+          kpiCostValue: "$450",
+          phaseMonthlyBudgetValue: "10,000",
+        },
+      ]),
+    );
+
+    expect(normalized.projectedResults[0]?.projectedCountValue).toBe(22);
+  });
+
+  it("pads to one honest gap row when the model omits the table", () => {
+    const rawBody = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    delete rawBody.projectedResults;
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.projectedResults).toHaveLength(1);
+    expect(normalized.projectedResults[0]?.targetIcp).toContain("Evidence gap");
+    expect(normalized.projectedResults[0]?.projectedCountValue).toBeUndefined();
+  });
+
+  it("rejects negative counts at the schema layer", () => {
+    const body = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    body.projectedResults = [
+      { ...baseRow, projectedCountValue: -5, marginOfErrorPercent: 20 },
+    ];
+
+    expect(paidMediaPlanBodySchema.safeParse(body).success).toBe(false);
+  });
+
+  it("validator demands at least one projected-results row", () => {
+    const artifact = cloneFixture();
+    const body = artifact.body as unknown as Record<string, unknown>;
+    body.projectedResults = [];
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("projectedResults");
+  });
+});

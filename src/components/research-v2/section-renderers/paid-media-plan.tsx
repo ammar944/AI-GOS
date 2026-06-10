@@ -30,6 +30,7 @@ const PAID_MEDIA_BODY_KEYS = [
   'competitorMarketingInsights',
   'competitorReviewInsights',
   'channelSuggestions',
+  'projectedResults',
   'kpis',
   'crossSectionInsight',
 ] as const satisfies ReadonlyArray<keyof PaidMediaPlanArtifact['body']>;
@@ -44,6 +45,7 @@ type SalesAsset = PaidMediaBody['salesProcess'][number];
 type CompetitorMarketing = PaidMediaBody['competitorMarketingInsights'][number];
 type CompetitorReview = PaidMediaBody['competitorReviewInsights'][number];
 type ChannelSuggestion = PaidMediaBody['channelSuggestions'][number];
+type ProjectedResultRow = PaidMediaBody['projectedResults'][number];
 type Kpi = PaidMediaBody['kpis'][number];
 
 function getPaidMediaPlanBody(
@@ -88,6 +90,10 @@ function verdictTone(verdict: string): StatusPillTone {
     default:
       return 'neutral';
   }
+}
+
+function formatUsdValue(value: number | undefined): string {
+  return value === undefined ? 'unknown' : `$${value.toLocaleString()}`;
 }
 
 function MoneyValue({
@@ -219,6 +225,55 @@ export function PaidMediaPlanRenderer({
       render: (row) => (
         <StatusPill tone={verdictTone(row.verdict)}>{row.verdict}</StatusPill>
       ),
+    },
+    {
+      key: 'sourceSection',
+      header: 'Source',
+      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+    },
+  ];
+  const projectedResultColumns: ReadonlyArray<DataTableColumn<ProjectedResultRow>> = [
+    {
+      key: 'targetIcp',
+      header: 'Target ICP',
+      className: 'font-medium text-foreground',
+      wrap: 'wrap',
+    },
+    { key: 'kpi', header: 'KPI' },
+    {
+      key: 'kpiCostValue',
+      header: 'KPI cost',
+      render: (row) => (
+        <MoneyValue
+          value={formatUsdValue(row.kpiCostValue)}
+          provenance={row.kpiCostProvenance}
+        />
+      ),
+    },
+    { key: 'objective', header: 'Objective', wrap: 'wrap' },
+    { key: 'durationLabel', header: 'Duration' },
+    {
+      key: 'phaseMonthlyBudgetValue',
+      header: 'Budget / mo',
+      render: (row) => (
+        <MoneyValue
+          value={formatUsdValue(row.phaseMonthlyBudgetValue)}
+          provenance={row.phaseMonthlyBudgetProvenance}
+        />
+      ),
+    },
+    {
+      key: 'projectedCountValue',
+      header: 'Projected results',
+      render: (row) =>
+        row.projectedCountValue === undefined ? (
+          <MonoBadge>no count — KPI cost unknown</MonoBadge>
+        ) : (
+          <MoneyValue
+            value={`${row.projectedCountValue.toLocaleString()} ${row.kpi} (±${row.marginOfErrorPercent}%)`}
+            provenance={row.projectedCountProvenance}
+          />
+        ),
     },
     {
       key: 'sourceSection',
@@ -376,6 +431,15 @@ export function PaidMediaPlanRenderer({
             prose="Current-funnel recommendations use verdict badges for action priority."
           >
             <DataTable columns={channelColumns} rows={body.channelSuggestions} />
+          </SubsectionBlock>
+        </div>
+
+        <div data-testid="pmp-block-projectedResults">
+          <SubsectionBlock
+            label="Projected results"
+            prose="SOP projections: counts are runner-computed as budget ÷ KPI cost at ±20%; rows without a sourced KPI cost carry no count."
+          >
+            <DataTable columns={projectedResultColumns} rows={body.projectedResults} />
           </SubsectionBlock>
         </div>
 

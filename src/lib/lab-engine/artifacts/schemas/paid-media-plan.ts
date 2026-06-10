@@ -154,6 +154,27 @@ const kpiSchema = z.object({
   definition: z.string().min(1),
 });
 
+// SOP projected-results row: Target ICP / KPI / KPI cost / Objective /
+// Duration / Budget / Projected Results (±20%). The MODEL never does the
+// math — normalizeProjectedResultRow computes projectedCountValue =
+// floor(budget / kpiCost), pins marginOfErrorPercent to the SOP constant,
+// and derives the count's provenance from the WEAKEST input. kpiCost
+// unknown/zero -> the count is omitted, never invented.
+const projectedResultRowSchema = z.object({
+  targetIcp: z.string().min(1),
+  kpi: z.string().min(1),
+  kpiCostValue: paidMediaNumericMoneySchema,
+  kpiCostProvenance: z.string().min(1),
+  objective: z.string().min(1),
+  durationLabel: z.string().min(1),
+  phaseMonthlyBudgetValue: paidMediaNumericMoneySchema,
+  phaseMonthlyBudgetProvenance: z.string().min(1),
+  projectedCountValue: z.number().finite().nonnegative().optional(),
+  projectedCountProvenance: z.string().min(1).optional(),
+  marginOfErrorPercent: z.number().finite().nonnegative(),
+  sourceSection: z.string().min(1),
+});
+
 const crossSectionInsightSchema = z.object({
   tension: z.string().min(1),
   sourceSections: z.array(z.string().min(1)),
@@ -193,6 +214,11 @@ export const paidMediaPlanBodySchema = z.object({
   channelSuggestions: z
     .array(channelSuggestionSchema)
     .describe("4 current-funnel suggestion cards (EXACTLY 4)"),
+  projectedResults: z
+    .array(projectedResultRowSchema)
+    .describe(
+      "SOP projected-results table: one row per target ICP x phase; the runner computes counts (>=1 row)",
+    ),
   kpis: z.array(kpiSchema).describe("3 fixed KPIs (EXACTLY 3)"),
   crossSectionInsight: z
     .array(crossSectionInsightSchema)
@@ -769,6 +795,93 @@ function normalizeCrossSectionInsight(
   };
 }
 
+// Accepts numeric strings ("$450", "10,000") for the SOP math — DeepSeek's
+// compat mode emits them; the display formatting is the UI's job.
+function getMoneyNumber(value: unknown): number | undefined {
+  const fromNumber = getNumber(value);
+
+  if (fromNumber !== undefined) {
+    return fromNumber;
+  }
+
+  if (typeof value === "string") {
+    const cleaned = Number(value.replace(/[$,\s]/g, ""));
+    return Number.isFinite(cleaned) && cleaned >= 0 ? cleaned : undefined;
+  }
+
+  return undefined;
+}
+
+// paidMediaMoneyProvenanceValues is ordered strongest -> weakest; the count
+// inherits the WEAKEST of its two inputs (a model-estimated kpiCost makes the
+// count model-estimated no matter how solid the budget is).
+function weakestMoneyProvenance(left: string, right: string): string {
+  const order = paidMediaMoneyProvenanceValues as readonly string[];
+  return order.indexOf(left) >= order.indexOf(right) ? left : right;
+}
+
+const SOP_MARGIN_OF_ERROR_PERCENT = 20;
+
+function normalizeProjectedResultRow(
+  value: unknown,
+  index: number,
+): PaidMediaPlanBody["projectedResults"][number] {
+  const record = getRecord(value);
+  const kpiCostProvenance = snapMoneyProvenance(record.kpiCostProvenance);
+  const phaseMonthlyBudgetProvenance = snapMoneyProvenance(
+    record.phaseMonthlyBudgetProvenance,
+  );
+  const kpiCostValue =
+    kpiCostProvenance === "unknown"
+      ? undefined
+      : getMoneyNumber(record.kpiCostValue ?? record.kpiCost);
+  const phaseMonthlyBudgetValue =
+    phaseMonthlyBudgetProvenance === "unknown"
+      ? undefined
+      : getMoneyNumber(
+          record.phaseMonthlyBudgetValue ??
+            record.phaseBudget ??
+            record.monthlyBudgetValue,
+        );
+  // The model never does the math: any model-authored count is overwritten,
+  // and an uncostable row carries NO count rather than an invented one.
+  const projectedCountValue =
+    kpiCostValue !== undefined &&
+    kpiCostValue > 0 &&
+    phaseMonthlyBudgetValue !== undefined &&
+    phaseMonthlyBudgetValue > 0
+      ? Math.floor(phaseMonthlyBudgetValue / kpiCostValue)
+      : undefined;
+
+  return {
+    targetIcp: getString(
+      record.targetIcp ?? record.icp,
+      `Evidence gap: target ICP missing for projected-results row ${index + 1}.`,
+    ),
+    kpi: getString(record.kpi ?? record.metric, "Evidence gap: KPI missing."),
+    ...optionalNumericField("kpiCostValue", kpiCostValue),
+    kpiCostProvenance,
+    objective: getString(record.objective, "Evidence gap: objective missing."),
+    durationLabel: getString(
+      record.durationLabel ?? record.duration,
+      "Evidence gap: duration missing.",
+    ),
+    ...optionalNumericField("phaseMonthlyBudgetValue", phaseMonthlyBudgetValue),
+    phaseMonthlyBudgetProvenance,
+    ...(projectedCountValue === undefined
+      ? {}
+      : {
+          projectedCountValue,
+          projectedCountProvenance: weakestMoneyProvenance(
+            kpiCostProvenance,
+            phaseMonthlyBudgetProvenance,
+          ),
+        }),
+    marginOfErrorPercent: SOP_MARGIN_OF_ERROR_PERCENT,
+    sourceSection: snapSourceSection(record.sourceSection),
+  };
+}
+
 export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
   const record = getRecord(value);
 
@@ -837,6 +950,12 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
       normalize: normalizeChannelSuggestion,
       value: getNestedArray(record.channelSuggestions, "suggestions"),
     }),
+    projectedResults: withCount({
+      fallback: (index) => normalizeProjectedResultRow({}, index),
+      min: 1,
+      normalize: normalizeProjectedResultRow,
+      value: getNestedArray(record.projectedResults, "rows"),
+    }),
     kpis: withCount({
       fallback: (index) => normalizeKpi({}, index),
       max: 3,
@@ -857,7 +976,16 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
 export function validatePaidMediaPlanMinimums(
   artifact: ArtifactEnvelope & { body: PaidMediaPlanBody },
 ): ValidationResult {
-  artifactEnvelopeSchema.extend({ body: paidMediaPlanBodySchema }).parse(artifact);
+  const parsed = artifactEnvelopeSchema
+    .extend({ body: paidMediaPlanBodySchema })
+    .parse(artifact);
+  const errors: string[] = [];
 
-  return { ok: true, errors: [] };
+  if (parsed.body.projectedResults.length < 1) {
+    errors.push(
+      `body.projectedResults: have ${parsed.body.projectedResults.length}, need >=1 SOP projected-results row.`,
+    );
+  }
+
+  return { ok: errors.length === 0, errors };
 }

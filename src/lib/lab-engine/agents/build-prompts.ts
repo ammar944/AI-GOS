@@ -620,6 +620,7 @@ export function buildStructuredPrompt({
     "",
     ...buildCapabilityGapGuidance(definition, externalToolNames),
     ...buildChannelPolicyPromptLines(definition, researchInput),
+    ...buildProjectedResultsPromptLines(definition),
     "Skill analyst guidance:",
     skillMd,
     "",
@@ -651,6 +652,25 @@ export function buildStructuredPrompt({
   ].join("\n");
 }
 
+// SOP projected-results table instruction (W3) — rides alongside the binding
+// channel-policy block in all three prompt builders; the repair prompt
+// inherits it through buildStructuredBodyPrompt.
+function buildProjectedResultsPromptLines(definition: {
+  sectionOutputSchemaName?: string;
+}): string[] {
+  if (definition.sectionOutputSchemaName !== "PaidMediaPlanSectionOutput") {
+    return [];
+  }
+
+  return [
+    "SOP PROJECTED-RESULTS TABLE (body.projectedResults, at least 1 row):",
+    "- One row per target ICP x campaign phase: targetIcp, kpi (the unit being bought, e.g. MQL/SQL/demo), kpiCostValue + kpiCostProvenance, objective, durationLabel, phaseMonthlyBudgetValue + phaseMonthlyBudgetProvenance, sourceSection.",
+    "- NEVER compute projectedCountValue, projectedCountProvenance, or marginOfErrorPercent — the runner computes the count as floor(budget / KPI cost) at +/-20% and overwrites any model math.",
+    '- KPI cost unknown? Set kpiCostProvenance to "unknown" and omit kpiCostValue — the row ships without a count rather than an invented one.',
+    "",
+  ];
+}
+
 export function buildStructuredBodyPrompt({
   buyerPersonaCandidateBlock,
   definition,
@@ -680,6 +700,7 @@ export function buildStructuredBodyPrompt({
     "",
     ...buildCapabilityGapGuidance(definition, externalToolNames),
     ...buildChannelPolicyPromptLines(definition, researchInput),
+    ...buildProjectedResultsPromptLines(definition),
     "Skill analyst guidance:",
     skillMd,
     "",
@@ -731,6 +752,7 @@ export function buildAnswerToolInstructions(
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...buildCapabilityGapGuidance(definition, options.externalToolNames),
     ...buildChannelPolicyPromptLines(definition, researchInput),
+    ...buildProjectedResultsPromptLines(definition),
     "Output emphasis:",
     definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
     "",
