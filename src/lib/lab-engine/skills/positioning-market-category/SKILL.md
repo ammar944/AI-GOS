@@ -1,6 +1,6 @@
 ---
 name: positioning-market-category
-description: Use this skill when AI-GOS needs to make the category call — what market this is, what is happening inside it, and which category frame a paid-media-led entrant should buy traffic in.
+description: Use this skill when AI-GOS needs to make the category call — what market this is, what is happening inside it, and which category frame the client should buy traffic in at its spend tier.
 metadata:
   version: 3.0.0-lab
   updated: 2026-06-10
@@ -51,6 +51,8 @@ What embarrasses the agency: "you should consider how you position your category
 
 Two frameworks drive this section. Run them as ANALYTICAL MOVES — do the derivation, show the result. Never write a framework's name ("April Dunford", "Play Bigger", "category design") in the artifact: the output shows the move, never the citation.
 
+**Move 0 — establish the client's market position.** Before any category call, classify the CLIENT as one of `incumbent-leader`, `established-challenger`, `new-entrant`, or `niche-specialist` from corpus evidence: funding, customer count, product scale, share-of-voice, category-defining language, review/category shelves, public pricing power, and competitor references. State the classification and the evidence inside the relevant prose before making implications. Then condition every stage implication, white-space directive, and `categoryPowerBet` on BOTH that position and the brief's spend tier. If the CLIENT is Airtable-scale or otherwise an incumbent, do not write an attack plan for a rival buying against the client; write what the client should defend, exploit, concede, or reframe from its own position.
+
 **Move 1 — the April Dunford positioning flow.** The derivation order is binding: competitive alternatives → unique attributes → value-for-whom → category frame. The market category must be DERIVED from the buyer's competitive alternatives and the differentiated value, never asserted first.
 
 1. *Competitive alternatives.* Name what buyers would use if this product did not exist: status quo, DIY stack, adjacent tools. This defines the reachable market — scope `body.categoryDefinition.prose` and `body.marketSize.signals` to it, not the broadest possible TAM.
@@ -60,7 +62,7 @@ Two frameworks drive this section. Run them as ANALYTICAL MOVES — do the deriv
 
 **Move 2 — adjacent confusion mapping.** Map each category buyers could confuse this company with into `body.categoryDefinition.adjacentCategories`: why the confusion happens, and the disambiguating signal. Confusion is not always a problem — sometimes the confused-with category holds the search demand and the right move is to enter through it. Say which case this is.
 
-**Move 3 — the compete-vs-create fork (category design).** In `body.structuralForces.prose` and `body.categoryMaturity.prose`, decide explicitly whether to position WITHIN an existing category or REFRAME a new one. The DEFAULT is the existing category: it has search demand, review-site shelves, and buyers who know how to shop it. Creating a category is a flag-worthy strategic bet, not a default — it demands evidence that buyers reject every existing frame, plus education budget this spend tier usually cannot carry. If the evidence supports the create side, put that bet in `categoryPowerBet` with the cost and repositioning risk priced. Either way, name the white-space opening a paid-media-led entrant can exploit in the next six months.
+**Move 3 — the compete-vs-create fork (category design).** In `body.structuralForces.prose` and `body.categoryMaturity.prose`, decide explicitly whether to position WITHIN an existing category or REFRAME a new one. The DEFAULT is the existing category: it has search demand, review-site shelves, and buyers who know how to shop it. Creating a category is a flag-worthy strategic bet, not a default — it demands evidence that buyers reject every existing frame, plus education budget this spend tier usually cannot carry. If the evidence supports the create side, put that bet in `categoryPowerBet` with the cost and repositioning risk priced. Either way, name the white-space opening the client can credibly exploit at this spend tier, in the position established in Move 0, over the next six months.
 
 **Move 4 — bottom-up market math.** Fill `body.marketSize.bottomUpTam` with the named recipe `keyword-demand-reachable-revenue`: sourced monthly keyword volume × 12 × `commercial-intent-share` × conversion rate × ACV → a directional reachable-revenue estimate. Analyst TAM is a sanity check, never the basis. `body.marketSize.prose` carries the so-what; tie paid-entry guidance to `body.marketSize.prose` or `body.categoryMaturity.prose`.
 
@@ -130,22 +132,25 @@ Only these research tools are available for this section. Shape enforcement and 
 1. Read inputs and pre-flight the shared corpus.
    Validation: company name, URL, claimed category, buyer, and any existing market evidence are in hand.
 
-2. Run the derivation chain — alternatives, attributes, value — then define the category in buyer language and identify 2-4 adjacent categories buyers may confuse with it.
+2. Establish the CLIENT's market position from corpus evidence before deriving the category frame.
+   Validation: the artifact's prose states whether the CLIENT is an incumbent-leader, established-challenger, new-entrant, or niche-specialist; cites the evidence behind that classification; and conditions recommendations on that position plus the spend tier.
+
+3. Run the derivation chain — alternatives, attributes, value — then define the category in buyer language and identify 2-4 adjacent categories buyers may confuse with it.
    Validation: each adjacent category has `name`, `whyBuyersConfuseIt`, and `disambiguatingSignal`; the prose shows the chain, not just the conclusion.
 
-3. Gather market size and trajectory signals across public data, funding flows, hiring velocity, search trend direction, and analyst/report evidence.
+4. Gather market size and trajectory signals across public data, funding flows, hiring velocity, search trend direction, and analyst/report evidence.
    Validation: at least 3 signals, each fully fielded per MarketSizeSignalSchema, each on a DIFFERENT `signalType` — duplicates fail validation. Triangulation requires at least one top-down and one bottom-up methodology signal.
 
-4. Build `marketSize.bottomUpTam` with the `keyword-demand-reachable-revenue` recipe.
+5. Build `marketSize.bottomUpTam` with the `keyword-demand-reachable-revenue` recipe.
    Validation: exactly one input each for `keyword-volume`, `commercial-intent-share`, `conversion-rate`, and `acv` — `keyword_volume` sources the volume row, the sampled keyword mix gives intent share, `firecrawl`/public pricing pages give conversion-rate and ACV. Unsourced multipliers get `status: "evidence-gap"` with `evidence gap: <missing input>` in `value`, and `reachableRevenueEstimate` states the gap. At least 1 caveat.
 
-5. Gather structural forces moving the market and make the compete-vs-create call in the structural-forces prose.
+6. Gather structural forces moving the market and make the compete-vs-create call in the structural-forces prose.
    Validation: at least 3 forces; regulation, platform-shift, and buyer-behavior each represented exactly once (no duplicate force types). A force type with no evidence gets an honest evidence-gap card, not an invented force.
 
-6. Classify category maturity as one stage: emerging, growing, consolidating, or commoditizing — and say what that stage means for a paid entrant at this budget.
+7. Classify category maturity as one stage: emerging, growing, consolidating, or commoditizing — and say what that stage means for the client at this spend tier, in the position established in Move 0.
    Validation: `categoryMaturity.classification` is one object with `stage`, `evidenceSummary`, and at least 2 supporting signals.
 
-7. Write 1-2 paragraphs of prose for each sub-section, then write a tight statusSummary, verdict, confidence score, and section-level sources.
+8. Write 1-2 paragraphs of prose for each sub-section, then write a tight statusSummary, verdict, confidence score, and section-level sources.
    Validation: prose explains the strategic pattern, cards carry the evidence, confidence is 0..1 at runtime, at least 3 section-level sources, and low-evidence gaps are named directly.
 
 ## Output (Artifact shape)
@@ -386,15 +391,15 @@ When a force type has no evidence after a real look, emit the honest card — e.
 
 ### Category Maturity
 
-Incorrect: "The market is maturing. There are many players and competition is increasing." — no stage logic, no signals, no implication a paid entrant can use.
+Incorrect: "The market is maturing. There are many players and competition is increasing." — no stage logic, no signals, no implication the client can use from its own market position and spend tier.
 
-Correct:
+Correct (new-entrant-position case):
 
 - stage: consolidating
 - evidenceSummary: The top five tools list the same six capabilities on their pricing pages [verified, 2026-05-28], and two incumbents cut entry-tier prices in the past two quarters [pricing pages, 2026-04] — parity plus price pressure, not new-player expansion.
 - supportingSignals: a `feature-parity` signal and a `price-pressure` signal, each with its own evidence and sourceUrl.
 
-The prose then says what consolidating MEANS for this entrant: head-term CPCs rise as incumbents defend, wedge keywords stay cheap, differentiation messaging beats brand-building at this budget. A stage without an entry implication is a label, not a finding.
+The prose then says what consolidating MEANS for the client at this spend tier and position: in the new-entrant case, head-term CPCs rise as incumbents defend, wedge keywords stay cheap, and differentiation messaging beats brand-building at this budget. In the incumbent-leader case, the contrast flips: defend high-intent comparison and pricing queries, use owned category language to reframe price pain, and avoid writing a conquest plan for a rival attacking the client. A stage without a position-aware implication is a label, not a finding.
 
 ## Gotchas
 

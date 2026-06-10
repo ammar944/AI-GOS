@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { ResearchInput } from "@/lib/lab-engine/artifacts/artifact-envelope";
 import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
+import { SECTION_REGISTRY } from "@/lib/lab-engine/sections/section-registry";
 import {
   buildAnswerToolInstructions,
+  buildClientIdentityPin,
   buildOnboardingStrategicFrame,
   buildRepairPrompt,
   buildSectionObjectiveRecap,
@@ -91,6 +93,41 @@ function buildScopedResearchInput(): ResearchInput {
 }
 
 describe("buildAnswerToolInstructions", (): void => {
+  it("pins the client identity beside section context for every registered section", (): void => {
+    const expectedPin = buildClientIdentityPin(saaslaunchResearchInput);
+
+    for (const sectionDefinition of Object.values(SECTION_REGISTRY)) {
+      const answerPrompt = buildAnswerToolInstructions(
+        sectionDefinition,
+        saaslaunchResearchInput,
+      );
+      const structuredBodyPrompt = buildStructuredBodyPrompt({
+        definition: sectionDefinition,
+        researchInput: saaslaunchResearchInput,
+        skillMd: "Use section-specific guidance.",
+      });
+      const structuredPrompt = buildStructuredPrompt({
+        definition: sectionDefinition,
+        evidenceTranscript: "source evidence",
+        researchInput: saaslaunchResearchInput,
+        skillMd: "Use section-specific guidance.",
+      });
+
+      expect(answerPrompt).toContain(expectedPin);
+      expect(structuredBodyPrompt).toContain(expectedPin);
+      expect(structuredPrompt).toContain(expectedPin);
+      expect(answerPrompt.indexOf(expectedPin)).toBeLessThan(
+        answerPrompt.indexOf("ResearchInput JSON:"),
+      );
+      expect(structuredBodyPrompt.indexOf(expectedPin)).toBeLessThan(
+        structuredBodyPrompt.indexOf("ResearchInput JSON:"),
+      );
+      expect(structuredPrompt.indexOf(expectedPin)).toBeLessThan(
+        structuredPrompt.indexOf("ResearchInput JSON:"),
+      );
+    }
+  });
+
   it("adds schema-bound answer-tool guidance for DeepSeek mode", (): void => {
     const prompt = buildAnswerToolInstructions(
       definition,

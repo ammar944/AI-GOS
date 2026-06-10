@@ -93,6 +93,58 @@ describe("reviewAndUpgradeSection", (): void => {
     );
   });
 
+  it("drops removedItems label claims that were not applied to body or upgraded markdown", async (): Promise<void> => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((): void => undefined);
+    const appliedLabel = "[model estimate - not tool-measured]";
+    const missingLabel = "[unverified - confirm before use]";
+    const unappliedRemovedItem = `Removed unsupported claim that feature parity was verified - labeled as ${missingLabel}`;
+    const artifactWithAppliedLabel = {
+      ...marketCategoryFixtureArtifact,
+      body: {
+        ...marketCategoryFixtureArtifact.body,
+        marketSize: {
+          prose: `${appliedLabel} directional reachable revenue estimate.`,
+        },
+      },
+    };
+
+    aiMocks.generateText.mockResolvedValue({
+      text: [
+        "## Reviewed market category",
+        "",
+        "The section keeps the unsupported claim unlabelled in markdown.",
+        `<review_metadata>{"tier":"needs_review","tierRationale":"One metadata claim was not actually applied.","removedItems":["Removed unsupported CAC precision","${unappliedRemovedItem}","Relabeled reachable revenue as ${appliedLabel}"],"clientQuestions":[]}</review_metadata>`,
+      ].join("\n"),
+    });
+
+    try {
+      const result = await reviewAndUpgradeSection({
+        artifact: artifactWithAppliedLabel,
+        model: mockModel,
+        researchInput: saaslaunchResearchInput,
+        sectionId: "positioningMarketCategory",
+      });
+
+      expect(result.removedItems).toEqual([
+        "Removed unsupported CAC precision",
+        `Relabeled reachable revenue as ${appliedLabel}`,
+      ]);
+      expect(result.removedItems).not.toContain(unappliedRemovedItem);
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[agentic-section-review] dropped removedItems entries with unapplied labels",
+        expect.objectContaining({
+          droppedItems: [unappliedRemovedItem],
+          sectionId: "positioningMarketCategory",
+          surfaces: ["artifact.body", "review.upgradedMarkdown"],
+        }),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it("treats user-supplied economics provenance as grounded client brief context", async (): Promise<void> => {
     aiMocks.generateText.mockResolvedValue({
       text: [

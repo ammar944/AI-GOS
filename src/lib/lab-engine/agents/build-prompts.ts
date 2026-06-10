@@ -463,6 +463,13 @@ export function buildOnboardingStrategicFrame(
   return lines.join("\n");
 }
 
+export function buildClientIdentityPin(researchInput: ResearchInput): string {
+  const companyName = researchInput.company.name.trim();
+  const websiteUrl = researchInput.company.websiteUrl.trim();
+
+  return `CLIENT = ${companyName} (${websiteUrl}). Every verdict, recommendation, and budget directive in this artifact is advice TO ${companyName} about its own go-to-market. Never write advice for a competitor of ${companyName} or for a hypothetical entrant attacking ${companyName}.`;
+}
+
 function buildResearchInputForPrompt({
   definition,
   researchInput,
@@ -628,6 +635,8 @@ export function buildStructuredPrompt({
     evidenceTranscript,
     "",
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
+    buildClientIdentityPin(researchInput),
+    "",
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -711,6 +720,8 @@ export function buildStructuredBodyPrompt({
     ...(buyerPersonaCandidateBlock === undefined
       ? []
       : [buyerPersonaCandidateBlock, ""]),
+    buildClientIdentityPin(researchInput),
+    "",
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -745,6 +756,8 @@ export function buildAnswerToolInstructions(
   return [
     `You are the AI-GOS section analyst for ${definition.title}.`,
     `Mission: ${definition.mission}`,
+    "",
+    buildClientIdentityPin(researchInput),
     "",
     "ResearchInput JSON:",
     JSON.stringify(buildResearchInputForPrompt({ definition, researchInput })),

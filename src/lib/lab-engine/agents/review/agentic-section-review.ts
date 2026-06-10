@@ -16,8 +16,13 @@ const MAX_DIAGNOSTIC_CHARS = 1_000;
 const DEFAULT_REVIEW_TIMEOUT_MS = 45_000;
 const REVIEW_METADATA_PATTERN =
   /<review_metadata>([\s\S]*?)<\/review_metadata>/u;
+const CLAIMED_REVIEW_LABEL_PATTERN = /\[[^\]\n]{1,120}\]/gu;
 
 type ReviewProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
+type ReviewWarningSink = (
+  message: string,
+  metadata: Record<string, unknown>,
+) => void;
 
 export interface ReviewAndUpgradeSectionInput {
   artifact: ArtifactEnvelope | null;
@@ -197,6 +202,71 @@ export function parseSectionReviewResponse(input: {
   });
 }
 
+function extractClaimedReviewLabels(value: string): string[] {
+  return Array.from(value.matchAll(CLAIMED_REVIEW_LABEL_PATTERN), (match) =>
+    match[0],
+  );
+}
+
+function stringifyArtifactBody(artifact: ArtifactEnvelope | null): string {
+  if (artifact === null) {
+    return "";
+  }
+
+  return JSON.stringify(artifact.body) ?? "";
+}
+
+function buildReviewApplicationSearchText(input: {
+  artifact: ArtifactEnvelope | null;
+  upgradedMarkdown: string;
+}): string {
+  return [stringifyArtifactBody(input.artifact), input.upgradedMarkdown].join(
+    "\n",
+  );
+}
+
+export function enforceReviewRemovedItemsHonesty(input: {
+  artifact: ArtifactEnvelope | null;
+  review: SectionReviewResult;
+  sectionId: SectionId;
+  warn?: ReviewWarningSink;
+}): SectionReviewResult {
+  const searchText = buildReviewApplicationSearchText({
+    artifact: input.artifact,
+    upgradedMarkdown: input.review.upgradedMarkdown,
+  });
+  const droppedItems: string[] = [];
+  const removedItems = input.review.removedItems.filter((item) => {
+    const claimedLabels = extractClaimedReviewLabels(item);
+    const hasUnappliedLabel = claimedLabels.some(
+      (label) => !searchText.includes(label),
+    );
+
+    if (hasUnappliedLabel) {
+      droppedItems.push(item);
+      return false;
+    }
+
+    return true;
+  });
+
+  if (droppedItems.length === 0) {
+    return input.review;
+  }
+
+  const warn = input.warn ?? console.warn;
+  warn("[agentic-section-review] dropped removedItems entries with unapplied labels", {
+    droppedItems,
+    sectionId: input.sectionId,
+    surfaces: ["artifact.body", "review.upgradedMarkdown"],
+  });
+
+  return {
+    ...input.review,
+    removedItems,
+  };
+}
+
 function buildFallbackReview(input: {
   artifact: ArtifactEnvelope | null;
   error: unknown;
@@ -324,9 +394,15 @@ export async function reviewAndUpgradeSection(
       temperature: 0.1,
     });
 
-    return parseSectionReviewResponse({
+    const review = parseSectionReviewResponse({
       fallbackMarkdown,
       text: result.text,
+    });
+
+    return enforceReviewRemovedItemsHonesty({
+      artifact: input.artifact,
+      review,
+      sectionId: input.sectionId,
     });
   } catch (error) {
     return buildFallbackReview({
