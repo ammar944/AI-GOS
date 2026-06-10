@@ -14,7 +14,9 @@ const countFieldNames = new Set([
   "audienceSize",
   "monthlyVolume",
 ]);
-const quoteAttributionFieldNames = [
+// Exported so the misattribution strip (evidence-support.ts) reads the SAME
+// record shape the extractor turns into quoteAttribution claims.
+export const quoteAttributionFieldNames = [
   "verbatimQuote",
   "verbatimText",
   "quote",

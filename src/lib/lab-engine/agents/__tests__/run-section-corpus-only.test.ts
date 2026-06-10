@@ -1053,6 +1053,15 @@ describe('runSection corpus-only mode', (): void => {
             value: 'Clean up your CRM before pipeline review',
           }),
         ],
+        strippedQuoteAttributions: [
+          expect.objectContaining({
+            actualHost: 'baserow.io',
+            claimedPlatform: 'g2',
+            claimedSource: 'G2',
+            relabeledTo: 'baserow.io',
+            value: 'Clean up your CRM before pipeline review',
+          }),
+        ],
       }),
     );
     expect(result.artifact.confidence).toBeLessThan(1);
@@ -1070,6 +1079,16 @@ describe('runSection corpus-only mode', (): void => {
           ],
         }),
       }),
+    );
+    // The lie never ships: the committed body no longer asserts G2 — the quote
+    // is kept but relabeled to the host that actually served it.
+    const committedBody = record.sections.positioningCompetitorLandscape
+      ?.artifact?.body as {
+      publicWeaknesses: { items: Array<{ source: string }> };
+    };
+    expect(committedBody.publicWeaknesses.items[0]?.source).toBe('baserow.io');
+    expect(record.sections.positioningCompetitorLandscape?.status).toBe(
+      'completed',
     );
     expect(record.events.map((event) => event.type)).not.toContain(
       'section-failed',

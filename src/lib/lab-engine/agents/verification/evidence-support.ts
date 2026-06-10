@@ -1,3 +1,4 @@
+import { quoteAttributionFieldNames } from "./claim-extractor";
 import type { Claim, ClaimVerdict, VerificationReport } from "./types";
 
 export type LoadBearingClaimKind = Extract<
@@ -345,6 +346,181 @@ export function evaluateEvidenceSupport({
     issues: unsupportedLoadBearing.map(formatUnsupportedClaimIssue),
     provenanceFlags: evaluateProvenanceFlags(verification),
   };
+}
+
+/** One quote whose false platform attribution was relabeled before commit. */
+export interface StrippedQuoteAttribution {
+  /** Normalized quote text whose platform label was stripped. */
+  value: string;
+  /** The source label the body asserted (e.g. "G2"). */
+  claimedSource: string;
+  /** Canonical platform that label mapped to (e.g. "g2"). */
+  claimedPlatform: KnownPlatform;
+  /** Actual host of the cited sourceUrl (the host that really served it). */
+  actualHost: string;
+  /** The honest label written into the committed body. */
+  relabeledTo: string;
+  /** Which record field carried the false label. */
+  field: "source" | "platform";
+  /** Path of the relabeled record within the artifact body. */
+  path: string;
+}
+
+export interface StripMisattributedQuoteAttributionsResult {
+  body: Record<string, unknown>;
+  stripped: StrippedQuoteAttribution[];
+}
+
+function stringFieldValue(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | undefined {
+  const value = record[fieldName];
+
+  return typeof value === "string" && normalizeWhitespace(value).length > 0
+    ? value
+    : undefined;
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function relabelMisattributedRecord({
+  path,
+  record,
+  relabelSource,
+  stripped,
+}: {
+  path: string;
+  record: Record<string, unknown>;
+  relabelSource: (context: { actualHost: string }) => string;
+  stripped: StrippedQuoteAttribution[];
+}): void {
+  const sourceUrl = stringFieldValue(record, "sourceUrl");
+
+  if (sourceUrl === undefined) {
+    return;
+  }
+
+  const quote = quoteAttributionFieldNames
+    .map((fieldName) => stringFieldValue(record, fieldName))
+    .find((value) => value !== undefined);
+
+  if (quote === undefined) {
+    return;
+  }
+
+  const field =
+    stringFieldValue(record, "source") !== undefined
+      ? ("source" as const)
+      : stringFieldValue(record, "platform") !== undefined
+        ? ("platform" as const)
+        : null;
+
+  if (field === null) {
+    return;
+  }
+
+  const claimedSource = record[field] as string;
+  const platform = canonicalPlatform(claimedSource);
+
+  if (platform === null) {
+    return;
+  }
+
+  const host = hostForUrl(sourceUrl);
+
+  if (host === null || hostMatchesPlatform(host, platform)) {
+    return;
+  }
+
+  const relabeledTo = relabelSource({ actualHost: host });
+
+  record[field] = relabeledTo;
+  stripped.push({
+    actualHost: host,
+    claimedPlatform: platform,
+    claimedSource: normalizeWhitespace(claimedSource),
+    field,
+    path,
+    relabeledTo,
+    value: normalizeWhitespace(quote),
+  });
+}
+
+function walkBodyForMisattributedQuotes({
+  path,
+  relabelSource,
+  stripped,
+  value,
+}: {
+  path: string;
+  relabelSource: (context: { actualHost: string }) => string;
+  stripped: StrippedQuoteAttribution[];
+  value: unknown;
+}): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      walkBodyForMisattributedQuotes({
+        path: `${path}[${index}]`,
+        relabelSource,
+        stripped,
+        value: item,
+      });
+    });
+    return;
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  relabelMisattributedRecord({ path, record, relabelSource, stripped });
+
+  for (const [key, childValue] of Object.entries(record)) {
+    walkBodyForMisattributedQuotes({
+      path: `${path}.${key}`,
+      relabelSource,
+      stripped,
+      value: childValue,
+    });
+  }
+}
+
+/**
+ * Per-claim provenance strip: walks the artifact body for records that assert
+ * a known review/community platform (the same record shape the claim extractor
+ * turns into quoteAttribution claims) whose sourceUrl host does NOT belong to
+ * that platform, and relabels the false attribution via the caller-supplied
+ * relabeler. The quote is kept; only the lie about where it came from is
+ * removed. Mirrors evaluateQuoteAttributionFlag's detection so every
+ * `misattributed` provenance flag has a corresponding strip — but re-walks the
+ * body so duplicate-quote records the claim dedup collapsed are caught too.
+ *
+ * Never throws, never drops a record, never blocks commit: the input body is
+ * returned untouched (same reference) when nothing offends.
+ */
+export function stripMisattributedQuoteAttributions({
+  body,
+  relabelSource,
+}: {
+  body: Record<string, unknown>;
+  relabelSource: (context: { actualHost: string }) => string;
+}): StripMisattributedQuoteAttributionsResult {
+  const cloned = structuredClone(body);
+  const stripped: StrippedQuoteAttribution[] = [];
+
+  walkBodyForMisattributedQuotes({
+    path: "body",
+    relabelSource,
+    stripped,
+    value: cloned,
+  });
+
+  return stripped.length === 0 ? { body, stripped } : { body: cloned, stripped };
 }
 
 export function getMaxUnsupportedAllowed(

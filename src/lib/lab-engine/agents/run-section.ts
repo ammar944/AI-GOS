@@ -137,8 +137,10 @@ import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message
 import {
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
+  stripMisattributedQuoteAttributions,
   type EvidenceSupportShortfall,
   type LoadBearingClaimKind,
+  type StrippedQuoteAttribution,
 } from "./verification/evidence-support";
 import {
   keywordTrendKeywords,
@@ -1628,19 +1630,47 @@ function annotatePaidMediaVerifierReview({
   });
 }
 
+// Single-claim provenance strip (ADR-0010 amendment, ADR-0011): the review-citing
+// sections relabel quotes whose asserted platform the sourceUrl host does not
+// support, BEFORE persistence. The quote stays, the false label goes, the section
+// still commits. Relabel shape is schema-driven per section:
+// - CompetitorLandscape quote `source` is a free string -> the honest label is
+//   the host that actually served the quote.
+// - VoC quote `source` is a closed enum (vocSourceTypes) -> "other" is the only
+//   schema-legal honest relabel.
+const misattributedQuoteSourceRelabelers: Partial<
+  Record<SectionId, (context: { actualHost: string }) => string>
+> = {
+  positioningCompetitorLandscape: ({ actualHost }) => actualHost,
+  positioningVoiceOfCustomer: () => "other",
+};
+
 function annotateEvidenceSupportReview({
   artifact,
+  sectionId,
   shortfall,
 }: {
   artifact: ArtifactEnvelope;
+  sectionId: SectionId;
   shortfall: EvidenceSupportShortfall;
 }): ArtifactEnvelope {
   if (shortfall.provenanceFlags.length === 0) {
     return artifact;
   }
 
+  const relabelSource = misattributedQuoteSourceRelabelers[sectionId];
+  const strip =
+    relabelSource !== undefined &&
+    shortfall.provenanceFlags.some((flag) => flag.reason === "misattributed")
+      ? stripMisattributedQuoteAttributions({
+          body: artifact.body,
+          relabelSource,
+        })
+      : { body: artifact.body, stripped: [] as StrippedQuoteAttribution[] };
+
   return artifactEnvelopeSchema.parse({
     ...artifact,
+    body: strip.body,
     confidence:
       artifact.verification === undefined
         ? artifact.confidence
@@ -1649,6 +1679,9 @@ function annotateEvidenceSupportReview({
     verifierSummary: {
       ...(artifact.verifierSummary ?? {}),
       provenanceFlags: shortfall.provenanceFlags,
+      ...(strip.stripped.length > 0
+        ? { strippedQuoteAttributions: strip.stripped }
+        : {}),
     },
   });
 }
@@ -3517,6 +3550,7 @@ async function callStructuredAttempt({
         output,
         artifact: annotateEvidenceSupportReview({
           artifact: verdict.committableArtifact,
+          sectionId: input.sectionId,
           shortfall: verdict.shortfall,
         }),
         errors: [],
@@ -3531,6 +3565,7 @@ async function callStructuredAttempt({
           ? verdict.committableArtifact
           : annotateEvidenceSupportReview({
               artifact: verdict.committableArtifact,
+              sectionId: input.sectionId,
               shortfall: verdict.shortfall,
             }),
       errors: [],
@@ -4701,6 +4736,7 @@ async function buildVerifiedAttemptFromOutput({
       output,
       artifact: annotateEvidenceSupportReview({
         artifact: verdict.committableArtifact,
+        sectionId: input.sectionId,
         shortfall: verdict.shortfall,
       }),
       errors: [],
@@ -4715,6 +4751,7 @@ async function buildVerifiedAttemptFromOutput({
         ? verdict.committableArtifact
         : annotateEvidenceSupportReview({
             artifact: verdict.committableArtifact,
+            sectionId: input.sectionId,
             shortfall: verdict.shortfall,
           }),
     errors: [],

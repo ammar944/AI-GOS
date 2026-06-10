@@ -7,6 +7,7 @@ import {
   deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
+  stripMisattributedQuoteAttributions,
 } from "../evidence-support";
 import { structuralVerifier } from "../structural-verifier";
 import type { VerificationReport } from "../types";
@@ -428,5 +429,205 @@ describe("getMaxUnsupportedAllowed", (): void => {
     expect(
       getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "2" }),
     ).toBe(2);
+  });
+});
+
+describe("stripMisattributedQuoteAttributions", (): void => {
+  function weaknessItems(
+    body: Record<string, unknown>,
+  ): Array<Record<string, unknown>> {
+    const weaknesses = body.publicWeaknesses as {
+      items: Array<Record<string, unknown>>;
+    };
+
+    return weaknesses.items;
+  }
+
+  it("relabels a G2-claimed quote whose sourceUrl is a vendor blog to the actual host", (): void => {
+    const body = {
+      publicWeaknesses: {
+        items: [
+          {
+            competitor: "Baserow",
+            verbatimQuote: "missing table stakes",
+            source: "G2",
+            sourceUrl: "https://baserow.io/reviews",
+            whyItMatters: "Buyers churn over missing basics.",
+          },
+        ],
+      },
+    };
+
+    const result = stripMisattributedQuoteAttributions({
+      body,
+      relabelSource: ({ actualHost }) => actualHost,
+    });
+
+    expect(weaknessItems(result.body)[0]?.source).toBe("baserow.io");
+    expect(result.stripped).toEqual([
+      {
+        actualHost: "baserow.io",
+        claimedPlatform: "g2",
+        claimedSource: "G2",
+        field: "source",
+        path: "body.publicWeaknesses.items[0]",
+        relabeledTo: "baserow.io",
+        value: "missing table stakes",
+      },
+    ]);
+    // The input body is never mutated — the strip works on a clone.
+    expect(weaknessItems(body)[0]?.source).toBe("G2");
+  });
+
+  it("relabels VoC enum sources via the section relabeler (g2 -> other)", (): void => {
+    const result = stripMisattributedQuoteAttributions({
+      body: {
+        painLanguage: {
+          quotes: [
+            {
+              verbatimText: "the CRM sync constantly breaks for us",
+              source: "g2",
+              sourceUrl: "https://airtable.com/blog/customer-stories",
+              painTheme: "reliability",
+              painIntensity: "high",
+            },
+          ],
+        },
+      },
+      relabelSource: () => "other",
+    });
+
+    const quotes = (
+      result.body.painLanguage as { quotes: Array<Record<string, unknown>> }
+    ).quotes;
+
+    expect(quotes[0]?.source).toBe("other");
+    expect(result.stripped).toEqual([
+      expect.objectContaining({
+        actualHost: "airtable.com",
+        claimedPlatform: "g2",
+        claimedSource: "g2",
+        relabeledTo: "other",
+        value: "the CRM sync constantly breaks for us",
+      }),
+    ]);
+  });
+
+  it("relabels a platform-keyed asserted source when no source field exists", (): void => {
+    const result = stripMisattributedQuoteAttributions({
+      body: {
+        threads: [
+          {
+            quote: "support takes a week to answer anything",
+            platform: "Reddit",
+            sourceUrl: "https://example.com/why-we-switched",
+          },
+        ],
+      },
+      relabelSource: ({ actualHost }) => actualHost,
+    });
+
+    const threads = result.body.threads as Array<Record<string, unknown>>;
+
+    expect(threads[0]?.platform).toBe("example.com");
+    expect(result.stripped).toEqual([
+      expect.objectContaining({
+        claimedPlatform: "reddit",
+        field: "platform",
+        path: "body.threads[0]",
+      }),
+    ]);
+  });
+
+  it("leaves matching-host platform attributions untouched and returns the same body", (): void => {
+    const body = {
+      publicWeaknesses: {
+        items: [
+          {
+            verbatimQuote: "missing table stakes",
+            source: "G2",
+            sourceUrl: "https://www.g2.com/products/acme/reviews",
+          },
+          {
+            verbatimQuote: "hard to administer at scale",
+            source: "Reddit",
+            sourceUrl: "https://old.reddit.com/r/sales/comments/example",
+          },
+        ],
+      },
+    };
+
+    const result = stripMisattributedQuoteAttributions({
+      body,
+      relabelSource: ({ actualHost }) => actualHost,
+    });
+
+    expect(result.stripped).toEqual([]);
+    expect(result.body).toBe(body);
+  });
+
+  it("leaves non-platform sources and unattributable records untouched", (): void => {
+    const body = {
+      quotes: [
+        {
+          verbatimText: "we ripped out three tools after onboarding",
+          source: "sales-call",
+          sourceUrl: "https://example.com/notes",
+        },
+        {
+          verbatimText: "their CSM team is genuinely responsive",
+          source: "Company blog",
+          sourceUrl: "https://vendor.example/blog",
+        },
+        {
+          verbatimQuote: "quote with no sourceUrl is skipped",
+          source: "G2",
+        },
+        {
+          verbatimQuote: "quote with unparseable url is skipped",
+          source: "G2",
+          sourceUrl: "not-a-url",
+        },
+      ],
+    };
+
+    const result = stripMisattributedQuoteAttributions({
+      body,
+      relabelSource: ({ actualHost }) => actualHost,
+    });
+
+    expect(result.stripped).toEqual([]);
+    expect(result.body).toBe(body);
+  });
+
+  it("strips every offending record, not just the first", (): void => {
+    const result = stripMisattributedQuoteAttributions({
+      body: {
+        painLanguage: {
+          quotes: [
+            {
+              verbatimText: "billing surprises every quarter",
+              source: "g2",
+              sourceUrl: "https://vendor-a.example/blog",
+            },
+            {
+              verbatimText: "billing surprises every quarter",
+              source: "reddit",
+              sourceUrl: "https://vendor-b.example/blog",
+            },
+          ],
+        },
+      },
+      relabelSource: () => "other",
+    });
+
+    expect(result.stripped).toHaveLength(2);
+    expect(
+      (
+        result.body.painLanguage as {
+          quotes: Array<Record<string, unknown>>;
+        }
+      ).quotes.map((quote) => quote.source),
+    ).toEqual(["other", "other"]);
   });
 });
