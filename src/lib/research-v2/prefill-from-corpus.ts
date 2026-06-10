@@ -56,6 +56,32 @@ function fieldMetadata(
   return { value, confidence, sourceUrl, reasoning };
 }
 
+/**
+ * Snap a corpus-extracted ACV amount ("$12,000/yr", "$49/mo", "15k") to the
+ * onboarding radio band. Monthly amounts are annualized; unparseable input
+ * returns undefined so the field stays user-choosable.
+ */
+function acvBandFromCorpus(
+  raw: string | undefined,
+): OnboardingV2Data['acv'] | undefined {
+  if (raw === undefined) return undefined;
+
+  const match = /\$?\s*([\d][\d,]*(?:\.\d+)?)\s*([kKmM])?\b/.exec(raw);
+  if (!match || match[1] === undefined) return undefined;
+
+  let amount = Number(match[1].replace(/,/g, ''));
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+
+  if (match[2]?.toLowerCase() === 'k') amount *= 1_000;
+  if (match[2]?.toLowerCase() === 'm') amount *= 1_000_000;
+  if (/\/\s*mo\b|per\s+month|monthly/i.test(raw)) amount *= 12;
+
+  if (amount < 1_000) return 'lt_1k';
+  if (amount < 10_000) return '1k_10k';
+  if (amount < 50_000) return '10k_50k';
+  return 'gt_50k';
+}
+
 function salesMotionFromBusinessModel(
   value: string | undefined,
 ): OnboardingV2Data['salesMotion'] | undefined {
@@ -121,7 +147,11 @@ export function prefillFromCorpusWithMetadata(
 
   setField('salesMotion', 'businessModel', salesMotionFromBusinessModel(str('businessModel')));
 
-  // pricingModel, conversionPath, acv — radios, corpus doesn't emit these; skip
+  // pricingModel, conversionPath — radios, corpus doesn't emit these; skip
+
+  // acv IS a radio, but the corpus now emits a dollar figure (W4) — snap it
+  // to the nearest band; unparseable amounts skip so the user chooses.
+  setField('acv', 'acv', acvBandFromCorpus(str('acv')));
 
   // Section 2: ICP + Pain
   setField('idealCustomer', 'primaryIcpDescription', str('primaryIcpDescription'));
@@ -145,7 +175,9 @@ export function prefillFromCorpusWithMetadata(
   // Section 4: Pricing & Economics
   setField('pricingTiers', 'pricingTiers', str('pricingTiers'));
 
-  // targetPlan, avgLtv, targetCac, monthlyAdBudget — no corpus keys; skip
+  // targetPlan, avgLtv, targetCac — no corpus keys; skip
+
+  setField('monthlyAdBudget', 'monthlyAdBudget', str('monthlyAdBudget'));
 
   // Section 5: Competition & Positioning
   setField('topCompetitors', 'topCompetitors', str('topCompetitors'));

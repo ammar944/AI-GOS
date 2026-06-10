@@ -143,6 +143,12 @@ const deepResearchCorpusSchema = z.object({
     productDescription: onboardingFieldSchema,
     coreDeliverables: onboardingFieldSchema,
     pricingTiers: onboardingFieldSchema,
+    // Economics fields the channel-policy engine gates on (W4): extracted
+    // when pricing/budget evidence exists, null-with-gap otherwise. Optional
+    // so a model omission degrades to an empty prefill instead of burning a
+    // repair round (the prompt still demands both keys).
+    acv: onboardingFieldSchema.optional(),
+    monthlyAdBudget: onboardingFieldSchema.optional(),
     valueProp: onboardingFieldSchema,
     guarantees: onboardingFieldSchema,
     topCompetitors: onboardingFieldSchema,
@@ -212,6 +218,8 @@ Return ONLY valid JSON. No markdown fences. Shape:
     "productDescription": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "coreDeliverables": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "pricingTiers": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "acv": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "monthlyAdBudget": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "valueProp": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "guarantees": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "topCompetitors": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
@@ -237,6 +245,9 @@ ONBOARDING FIELD RULES
 - For productDescription, say what the product does in one concise sentence.
 - For primaryIcpDescription, describe the buyer/user segment, not a generic customer count claim.
 - For coreDeliverables, list concrete product capabilities/features.
+- For acv, extract the average contract value / typical deal size as a plain USD amount (e.g. "$12,000/yr") when pricing pages, case studies, or cited sources disclose it; deriving an annual figure from published per-seat or per-month pricing is allowed ONLY with the math stated in reasoning. Null when pricing is undisclosed.
+- For monthlyAdBudget, populate ONLY when a cited source discloses the company's own paid-ad spend (interviews, case studies, job posts); this is rarely public — null with an explicit gap is the normal answer.
+- For topCompetitors, return a clean comma-separated list of competitor COMPANY NAMES only (e.g. "Asana, Monday.com, ClickUp") — no prose, no "and", no descriptions.
 - For fields that are not publicly discoverable, set value null, confidence 0, sourceUrl null, and explain the gap.
 
 CORPUS DEPTH RULES
@@ -289,6 +300,8 @@ Rules:
     "productDescription": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "coreDeliverables": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "pricingTiers": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "acv": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "monthlyAdBudget": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "valueProp": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "guarantees": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
     "topCompetitors": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
@@ -1077,14 +1090,62 @@ function mergeTopicSupplementIntoCorpus(
   };
 }
 
+// Normalize the model's competitor list into a clean comma-separated list of
+// names: split on commas, semicolons, pipes, newlines, "and"/"&" joiners,
+// strip list markers, dedupe case-insensitively. The app-side seed splitter
+// (corpus-to-research-input) stays as the second net.
+export function normalizeTopCompetitorsValue(value: string): string {
+  const seen = new Set<string>();
+  const names: string[] = [];
+
+  for (const fragment of value.split(/[,;|\n]+/)) {
+    for (const part of fragment.split(/\s+(?:and|&)\s+/i)) {
+      const name = part.replace(/^[\s\-•*\d.)]+/, '').trim();
+      const key = name.toLowerCase();
+
+      if (name.length === 0 || name.length > 80 || seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      names.push(name);
+    }
+  }
+
+  return names.join(', ');
+}
+
+function normalizeDeepResearchOutput(
+  output: DeepResearchCorpusOutput,
+): DeepResearchCorpusOutput {
+  const topCompetitors = output.onboardingFields.topCompetitors;
+
+  if (typeof topCompetitors.value !== 'string') {
+    return output;
+  }
+
+  const normalized = normalizeTopCompetitorsValue(topCompetitors.value);
+
+  return {
+    ...output,
+    onboardingFields: {
+      ...output.onboardingFields,
+      topCompetitors: {
+        ...topCompetitors,
+        value: normalized.length > 0 ? normalized : null,
+      },
+    },
+  };
+}
+
 function parseDeepResearchOutput(value: unknown): DeepResearchCorpusOutput {
-  return deepResearchCorpusSchema.parse(value);
+  return normalizeDeepResearchOutput(deepResearchCorpusSchema.parse(value));
 }
 
 function parseRepairDeepResearchOutput(result: SonarGenerationResult): DeepResearchCorpusOutput {
   const structured = deepResearchCorpusSchema.safeParse(result.output);
   if (structured.success) {
-    return structured.data;
+    return normalizeDeepResearchOutput(structured.data);
   }
 
   const parsed = tryExtractJson(result.text);
@@ -1344,7 +1405,7 @@ async function generateDraftSonarCorpus(input: {
     context: input.context,
     model: getDeepResearchModel(),
     onProgress: input.onProgress,
-    parsed: validated.data,
+    parsed: normalizeDeepResearchOutput(validated.data),
     rawText: result.text,
     sources: sonarSources,
   });

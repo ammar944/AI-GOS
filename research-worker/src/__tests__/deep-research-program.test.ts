@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  normalizeTopCompetitorsValue,
   runDeepResearchProgram,
   validateDeepResearchMinimums,
 } from '../runners/deep-research-program';
@@ -709,5 +710,23 @@ describe('runDeepResearchProgram', () => {
     expect(
       (generateTextMock.mock.calls[4]?.[0] as { output?: unknown }).output,
     ).toBeDefined();
+  });
+});
+
+describe('normalizeTopCompetitorsValue', () => {
+  it('normalizes commas, semicolons, and "and" joiners into a clean list', () => {
+    expect(
+      normalizeTopCompetitorsValue('Asana; Monday.com and ClickUp, Notion'),
+    ).toBe('Asana, Monday.com, ClickUp, Notion');
+  });
+
+  it('strips list markers and dedupes case-insensitively', () => {
+    expect(
+      normalizeTopCompetitorsValue('- Asana\n- asana\n2. ClickUp & Notion'),
+    ).toBe('Asana, ClickUp, Notion');
+  });
+
+  it('keeps ampersand-free single names intact', () => {
+    expect(normalizeTopCompetitorsValue('HubSpot')).toBe('HubSpot');
   });
 });
