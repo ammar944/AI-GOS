@@ -123,6 +123,11 @@ When the block reads `Voice of Customer Candidate Pack: GAP`, or tool fills cann
 | `web_search` | Objection threads, switching stories, comparison discussions for themes the pack does not cover. | URLs, source titles, thread locations. |
 | `reviews` | SearchAPI Google SERP snippets from G2, Capterra, Trustpilot, and similar review domains — SERP snippet data, not platform API data. | Verbatim review excerpts, reviewer role/date where present, source URLs. |
 | `firecrawl` | Read a specific review, forum, or comparison page deeply when a snippet is too thin to quote honestly. | Full-text verbatim quotes, dates, roles, source URLs. |
+| `perplexity_research` | Citation-grounded research that reads review surfaces our scrapers cannot (G2, Capterra, Reddit JS walls). Use it EARLY when the candidate pack is thin: ask for verbatim buyer pain/success quotes about THIS product, disambiguated by domain + category (e.g. "verbatim buyer complaints about Anura.io, the ad-fraud detection platform, from G2/Capterra/Reddit — quote exactly with URLs"). | Verbatim quote candidates with the citation URL each traces to; use those URLs as `sourceUrl`, never Perplexity itself. |
+
+Disambiguation is non-negotiable on every retrieval query: a bare brand name
+("Anura") surfaces homonyms (the film "Anora"); always pair the brand with its
+category or domain.
 
 Only these research tools are available for this section. The lookup budget is small and runner-enforced — spend it on theme gaps (objections, switching, criteria, success language), not on re-finding pain. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
 

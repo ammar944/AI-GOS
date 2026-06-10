@@ -9,12 +9,17 @@ import { SECTION_REGISTRY } from "../section-registry";
 describe("SECTION_REGISTRY live-tool budgets", (): void => {
   it("matches the Phase D bounded in-section tool contract", (): void => {
     expect(SECTION_REGISTRY.positioningMarketCategory).toMatchObject({
-      allowedTools: ["web_search", "firecrawl", "keyword_volume"],
+      allowedTools: [
+        "web_search",
+        "firecrawl",
+        "keyword_volume",
+        "perplexity_research",
+      ],
       maxExternalLookups: 5,
       requiredEvidenceClasses: ["marketCategory_name"],
     });
     expect(SECTION_REGISTRY.positioningBuyerICP).toMatchObject({
-      allowedTools: ["web_search", "firecrawl"],
+      allowedTools: ["web_search", "firecrawl", "perplexity_research"],
       maxExternalLookups: 6,
       requiredEvidenceClasses: ["icp_persona", "icp_quote_or_gap"],
     });
@@ -32,8 +37,13 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
       requiredEvidenceClasses: ["competitor", "adEvidence_or_gap"],
     });
     expect(SECTION_REGISTRY.positioningVoiceOfCustomer).toMatchObject({
-      allowedTools: ["web_search", "reviews", "firecrawl"],
-      maxExternalLookups: 5,
+      allowedTools: [
+        "web_search",
+        "reviews",
+        "firecrawl",
+        "perplexity_research",
+      ],
+      maxExternalLookups: 6,
       scrapeReservedLookups: 2,
       requiredEvidenceClasses: ["voc_quote_or_gap"],
     });
@@ -44,6 +54,7 @@ describe("SECTION_REGISTRY live-tool budgets", (): void => {
         "keyword_volume",
         "keyword_trends",
         "firecrawl",
+        "perplexity_research",
       ],
       maxExternalLookups: 7,
       requiredEvidenceClasses: ["demand_signal_or_gap"],

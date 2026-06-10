@@ -1173,7 +1173,7 @@ describe('runSection VoC candidate prepass', (): void => {
         expect.objectContaining({
           parserStatus: 'not_attempted',
           promotionStatus: 'not_applicable',
-          query: 'SaaSLaunch',
+          query: 'SaaSLaunch AI-native GTM operations',
           rejectionReason: 'api_error',
           scrapeStatus: 'failed',
           sourceUrl: expect.stringContaining('g2.com/products/saaslaunch/reviews'),
@@ -1282,14 +1282,21 @@ describe('runSection VoC candidate prepass', (): void => {
       .map((url) => decodeURIComponent(url));
 
     // Only the three subject-brand review query variants [B1] — NO
-    // PipelinePilot competitor query.
+    // PipelinePilot competitor query. Every variant carries the category
+    // disambiguator (homonym guard: bare "Anura" surfaced the film "Anora").
     expect(decodedSearches).toHaveLength(3);
     decodedSearches.forEach((query) => {
-      expect(query).toContain('SaaSLaunch');
+      expect(query).toContain('SaaSLaunch AI-native GTM operations');
     });
-    expect(decodedSearches[0]).toContain('SaaSLaunch reviews complaints');
-    expect(decodedSearches[1]).toContain('SaaSLaunch reviews');
-    expect(decodedSearches[2]).toContain('SaaSLaunch complaints');
+    expect(decodedSearches[0]).toContain(
+      'SaaSLaunch AI-native GTM operations reviews complaints',
+    );
+    expect(decodedSearches[1]).toContain(
+      'SaaSLaunch AI-native GTM operations reviews',
+    );
+    expect(decodedSearches[2]).toContain(
+      'SaaSLaunch AI-native GTM operations complaints',
+    );
     expect(
       decodedSearches.some((query) => query.includes('PipelinePilot')),
     ).toBe(false);

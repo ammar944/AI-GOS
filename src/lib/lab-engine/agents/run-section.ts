@@ -4421,10 +4421,14 @@ function buildVoiceOfCustomerSearchQuery(
   subjectDomain: string | null,
 ): string {
   const brand = researchInput.company.name.trim();
+  // Bare-brand queries are dangerously ambiguous: the Anura run surfaced
+  // r/TrueFilm threads about the film "Anora". Carry the category so the
+  // SERP locks onto the product, not a homonym.
+  const category = researchInput.company.category.trim();
   const domainExclusion =
     subjectDomain === null ? "" : ` -site:${subjectDomain}`;
 
-  return `${brand} customer reviews complaints pain points reddit forum G2 Capterra Trustpilot${domainExclusion}`;
+  return `${brand} ${category} customer reviews complaints pain points reddit forum G2 Capterra Trustpilot${domainExclusion}`;
 }
 
 function normalizeVoiceOfCustomerReviewQuery(value: string): string | null {
@@ -4446,11 +4450,16 @@ function buildVoiceOfCustomerReviewQueries(
   // never competitorSeeds. The "reviews"/"complaints" variants widen live
   // retrieval so more candidates clear the shared floor (B1); the loop in
   // buildVoiceOfCustomerCandidatePrepass stops as soon as the pack is valid.
+  // Every variant carries the category disambiguator: the bare brand query on
+  // the Anura run surfaced movie-subreddit threads for the film "Anora"
+  // through the reviews tool's site:reddit.com filter. The tool appends its
+  // own review terms + site filters; the prepass owns brand disambiguation.
   const companyName = researchInput.company.name;
+  const category = researchInput.company.category.trim();
   const rawQueries = [
-    companyName,
-    `${companyName} reviews`,
-    `${companyName} complaints`,
+    `${companyName} ${category}`,
+    `${companyName} ${category} reviews`,
+    `${companyName} ${category} complaints`,
   ];
   const seen = new Set<string>();
   const queries: string[] = [];

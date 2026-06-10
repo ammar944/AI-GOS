@@ -106,6 +106,7 @@ IRON LAW: Show the analytical move; never name frameworks in the artifact.
 |---|---|---|
 | `web_search` | Public proof for named personas, companies, communities, newsletters, conferences, and triggers; firmographic counts via search-surfaced data pages. | URLs, source titles, named individuals, account/audience counts, dated signals. |
 | `firecrawl` | Reading the pages search surfaces — company team pages, community about-pages, newsletter sign-up pages, conference rosters. | Page text, named roles, subscriber/attendance figures, dates, source URLs. |
+| `perplexity_research` | Citation-grounded persona mining when search + scrape cannot clear the five-named-persona bar. Ask for NAMED people with title + company + source: case-study champions, webinar/conference speakers, podcast guests, named reviewers — disambiguate the subject by domain + category (e.g. "named customers of Anura.io, the ad-fraud detection platform, from its case studies, webinars, and reviews — full name, title, company, source URL each"). | Named-person candidates with title, company, and the citation URL each traces to; promote a persona only when the exact name appears in the cited evidence. |
 
 Only these research tools are available, and the lookup budget is small — spend it on the gaps that block validation: named personas and venue sizes first. If a tool returns `{ type: "gap" }` (missing credential or rate-limited), work from what `web_search` already surfaced, name the gap, and finish honestly.
 

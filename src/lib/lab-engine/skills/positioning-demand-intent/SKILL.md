@@ -108,6 +108,7 @@ IRON LAW: If evidence is thin, state the gap in the relevant prose. Do not pad c
 | `keyword_volume` | SpyFu-estimated monthly volume, top-of-page CPC, and difficulty for up to 100 keywords in one call. Call it ONCE in bulk, first. | Per-keyword `searchVolume`, `cpc`, `difficulty` (SpyFu estimates). |
 | `keyword_trends` | SearchAPI Google Trends fallback when SpyFu is unavailable or has no row. Relative interest, not volume or CPC. | Per-keyword `averageInterest`, `peakInterest`, `trendDirection`, `sourceUrl`, `dateObserved`. |
 | `firecrawl` | Read pages deeply for content-gap evidence, and venue pages for displayed counts. | Page text, answer depth, recency, missing buyer concerns, displayed counts. |
+| `perplexity_research` | Citation-grounded backstop for community/venue evidence the scrapers cannot reach (Reddit/Quora JS walls): real question phrasings, venue audience sizes, intent-signal events (funding, leadership changes, RFPs) with sources. Disambiguate the subject by domain + category in every question. Never use it to replace `keyword_volume` numbers. | Sourced questions, venue sizes, and intent events with citation URLs — cite those URLs as `sourceUrl`, never Perplexity itself. |
 
 Only these research tools are available for this section. Shape enforcement and minimum checks happen in the TypeScript runner after the evidence loop.
 

@@ -8,6 +8,7 @@ import { keywordVolumeAgentTool } from "./keyword-volume";
 import { linkedInAdsAgentTool } from "./linkedin-ads";
 import { metaAdsAgentTool } from "./meta-ads";
 import { pagespeedAgentTool } from "./pagespeed";
+import { perplexityResearchAgentTool } from "./perplexity-research";
 import { reviewsAgentTool } from "./reviews";
 
 export const TOOL_CATALOG = {
@@ -21,6 +22,7 @@ export const TOOL_CATALOG = {
   keyword_ad_probe: keywordAdProbeAgentTool,
   keyword_trends: keywordTrendsAgentTool,
   keyword_volume: keywordVolumeAgentTool,
+  perplexity_research: perplexityResearchAgentTool,
   reviews: reviewsAgentTool,
 } as const;
 
