@@ -538,16 +538,20 @@ describe('runDeepResearchProgram', () => {
       output?: unknown;
       prompt?: string;
     };
-    expect(call.model?.modelId).toBe('sonar-pro');
+    expect(call.model?.modelId).toBe('sonar-deep-research');
     expect(call.output).toBeDefined();
     expect(call.prompt).toContain('https://ramp.com');
     expect(call.prompt).toContain('intelligenceTopics');
     expect(call.prompt).toContain('multi-topic');
+    const fanoutCall = generateTextMock.mock.calls[1]?.[0] as {
+      model?: { modelId?: string };
+    };
+    expect(fanoutCall.model?.modelId).toBe('sonar-pro');
     expect(generateTextMock.mock.calls[1]?.[0].prompt).toContain('company-market-buyers');
     expect(generateTextMock.mock.calls[2]?.[0].prompt).toContain('competitors-pricing-offer');
     expect(generateTextMock.mock.calls[3]?.[0].prompt).toContain('voc-demand-events');
     expect(result.provenance?.citationCount).toBe(10);
-    expect(result.telemetry?.model).toBe('sonar-pro');
+    expect(result.telemetry?.model).toBe('sonar-deep-research');
     expect(JSON.stringify(result.data)).toContain('Supplemental offer proof');
     expect(JSON.stringify(result.data)).not.toContain('example.com');
     expect(

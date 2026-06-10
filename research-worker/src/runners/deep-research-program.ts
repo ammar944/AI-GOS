@@ -13,6 +13,7 @@ import type { ResearchResult } from '../supabase';
 import type { RunnerTelemetry } from '../telemetry';
 
 const DEFAULT_DEEP_RESEARCH_MODEL = 'sonar-pro';
+const DEFAULT_DEEP_RESEARCH_MAIN_MODEL = 'sonar-deep-research';
 const FALLBACK_DEEP_RESEARCH_MODEL = 'sonar';
 const DEFAULT_DEEP_RESEARCH_MAX_TOKENS = 20000;
 const DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 900000;
@@ -343,12 +344,21 @@ function getDeepResearchModel(): string {
   return readEnvString('RESEARCH_DEEP_PROGRAM_MODEL', DEFAULT_DEEP_RESEARCH_MODEL);
 }
 
-function getDeepResearchModels(): string[] {
-  const configured = getDeepResearchModel();
+function getDeepResearchMainModel(): string {
+  return readEnvString(
+    'RESEARCH_DEEP_PROGRAM_MAIN_MODEL',
+    DEFAULT_DEEP_RESEARCH_MAIN_MODEL,
+  );
+}
 
-  return configured === FALLBACK_DEEP_RESEARCH_MODEL
-    ? [configured]
-    : [configured, FALLBACK_DEEP_RESEARCH_MODEL];
+function getDeepResearchModels(): string[] {
+  return [
+    ...new Set([
+      getDeepResearchMainModel(),
+      getDeepResearchModel(),
+      FALLBACK_DEEP_RESEARCH_MODEL,
+    ]),
+  ];
 }
 
 function getDeepResearchMaxTokens(): number {
@@ -1257,7 +1267,7 @@ async function generateStructuredSonarCorpus(input: {
   const enriched = await enrichCorpusWithTopicFanout({
     apiKey: input.apiKey,
     context: input.context,
-    model: input.model,
+    model: getDeepResearchModel(),
     onProgress: input.onProgress,
     parsed,
     rawText: result.text || JSON.stringify(parsed),
@@ -1267,7 +1277,7 @@ async function generateStructuredSonarCorpus(input: {
     apiKey: input.apiKey,
     context: input.context,
     existingSources: enriched.sources,
-    model: input.model,
+    model: getDeepResearchModel(),
     onProgress: input.onProgress,
   });
   const merged = mergeProviderSourcesIntoCorpus(enriched.parsed, sources);
@@ -1310,7 +1320,7 @@ async function generateDraftSonarCorpus(input: {
       apiKey: input.apiKey,
       context: input.context,
       draftText: result.text,
-      model: input.model,
+      model: getDeepResearchModel(),
       onProgress: input.onProgress,
       previousResult: sonarResult,
       sources: sonarSources,
@@ -1323,7 +1333,7 @@ async function generateDraftSonarCorpus(input: {
       apiKey: input.apiKey,
       context: input.context,
       draftText: result.text,
-      model: input.model,
+      model: getDeepResearchModel(),
       onProgress: input.onProgress,
       previousResult: sonarResult,
       sources: sonarSources,
@@ -1332,7 +1342,7 @@ async function generateDraftSonarCorpus(input: {
   const enriched = await enrichCorpusWithTopicFanout({
     apiKey: input.apiKey,
     context: input.context,
-    model: input.model,
+    model: getDeepResearchModel(),
     onProgress: input.onProgress,
     parsed: validated.data,
     rawText: result.text,
@@ -1342,7 +1352,7 @@ async function generateDraftSonarCorpus(input: {
     apiKey: input.apiKey,
     context: input.context,
     existingSources: enriched.sources,
-    model: input.model,
+    model: getDeepResearchModel(),
     onProgress: input.onProgress,
   });
 
@@ -1526,7 +1536,7 @@ async function generateSonarCorpus(input: {
         apiKey: input.apiKey,
         context: input.context,
         draftText: generated.rawText || JSON.stringify(generated.parsed),
-        model,
+        model: getDeepResearchModel(),
         onProgress: input.onProgress,
         previousResult: generated.result,
         sources: generated.sources,
