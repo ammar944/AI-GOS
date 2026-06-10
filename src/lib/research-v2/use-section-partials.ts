@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { z } from 'zod';
 
+import {
+  clearSectionPartial,
+  sectionPartialPayloadSchema,
+  type SectionPartialPayload,
+} from '@/lib/research-v2/section-partial-contract';
 import { createClient } from '@/lib/supabase/client';
 
-export const sectionPartialPayloadSchema = z
-  .object({
-    zone: z.string().min(1),
-    sectionId: z.string().min(1),
-    seq: z.number().int().nonnegative(),
-    snapshot: z.record(z.string(), z.unknown()),
-  })
-  .strict();
-
-export type SectionPartialState = z.infer<typeof sectionPartialPayloadSchema>;
+// Re-exported so existing consumers (and tests) keep importing the schema and
+// state type from this module; the contract itself now lives in the neutral
+// `section-partial-contract` module enforced at both the broadcast and
+// subscribe boundaries.
+export { sectionPartialPayloadSchema };
+export type SectionPartialState = SectionPartialPayload;
 export type SectionPartialsByZone = Record<string, SectionPartialState>;
 
 export function applySectionPartialPayload(
@@ -33,8 +33,30 @@ export function applySectionPartialPayload(
   };
 }
 
-export function useSectionPartials(runId: string): SectionPartialsByZone {
+export function useSectionPartials(
+  runId: string,
+  committedZones?: ReadonlySet<string>,
+): SectionPartialsByZone {
   const [partials, setPartials] = useState<SectionPartialsByZone>({});
+
+  // Explicit on-commit clear: once a zone reaches a terminal status its draft
+  // partial is no longer rendered (the `activeStatus === 'running'` render
+  // guard hides it), so drop it from the Record instead of letting it linger.
+  // Layered UNDER that render guard — this is the explicit form of what the
+  // guard implied. Does not touch the stale-seq reducer.
+  useEffect(() => {
+    if (committedZones === undefined || committedZones.size === 0) {
+      return;
+    }
+
+    setPartials((current) => {
+      let next = current;
+      for (const zone of committedZones) {
+        next = clearSectionPartial(next, zone);
+      }
+      return next;
+    });
+  }, [committedZones]);
 
   useEffect(() => {
     if (runId.trim().length === 0) {

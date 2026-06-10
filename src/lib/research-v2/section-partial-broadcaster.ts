@@ -1,4 +1,5 @@
 import { broadcastSectionPartial } from './realtime-broadcast';
+import { sectionPartialPayloadSchema } from './section-partial-contract';
 
 export type SectionPartialSnapshot = Record<string, unknown>;
 
@@ -41,12 +42,16 @@ interface ThrottledSectionPartialBroadcasterParams {
 export function makeSectionPartialPayload(
   input: SectionPartialPayload,
 ): SectionPartialPayload {
-  return {
+  // Enforce the shared wire contract at the broadcast boundary (the same strict
+  // schema the consumer applies on subscribe). Identity-on-valid-input: the
+  // four envelope fields are passed verbatim, so parse() returns the same shape
+  // it received.
+  return sectionPartialPayloadSchema.parse({
     zone: input.zone,
     sectionId: input.sectionId,
     seq: input.seq,
     snapshot: input.snapshot,
-  };
+  });
 }
 
 export function createThrottledSectionPartialBroadcaster({

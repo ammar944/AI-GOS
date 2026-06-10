@@ -903,7 +903,6 @@ export function AuditReaderShell({
     isSharing,
   } = useSessionShare();
   const live = useAuditState(runId, pollRefreshKey);
-  const sectionPartials = useSectionPartials(runId);
 
   useEffect(() => {
     setUserActive(null);
@@ -1037,6 +1036,21 @@ export function AuditReaderShell({
     ],
   );
 
+  // Zones whose section has reached a terminal status. Passed to
+  // useSectionPartials so a committed zone's stale draft partial is explicitly
+  // cleared from the partials Record on commit, rather than only being hidden
+  // by the `activeStatus === 'running'` render guard below.
+  const committedZones = useMemo(() => {
+    const zones = new Set<string>();
+    for (const id of READER_SECTION_IDS) {
+      if (TERMINAL_READER_STATUSES.has(statusOf(id))) {
+        zones.add(id);
+      }
+    }
+    return zones;
+  }, [statusOf]);
+
+  const sectionPartials = useSectionPartials(runId, committedZones);
 
   // Default selection: first running, else first complete, else first.
   const computedDefault = useMemo<ReaderSectionId>(() => {

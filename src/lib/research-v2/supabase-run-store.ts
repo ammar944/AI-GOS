@@ -767,6 +767,107 @@ async function emitProfilePersistedEvent(input: {
   }
 }
 
+/**
+ * Post-commit profile fan-out for a single section commit.
+ *
+ * This runs AFTER `commit_artifact_section` has already returned. That RPC
+ * synchronously `PERFORM`s `public.roll_up_research_artifact(...)` inside its
+ * own transaction (see supabase/migrations/20260526_rollup_parent_on_section_commit.sql),
+ * so by the time the adapter resolves, the parent `research_artifacts.status`
+ * row is already ratcheted to `complete` when the final child commits. It is a
+ * synchronous SQL function call inside the commit RPC — NOT a row trigger and
+ * NOT an app-side poll. `claimProfilePersist` below therefore reads that
+ * post-write parent state directly via its `.eq('status', 'complete')` filter:
+ * a same-RPC read-after-write, not a re-query loop.
+ *
+ * Invariants preserved (do not reorder):
+ *   1. `claimProfilePersist` (CAS on `status='complete' AND profile_persisted_at IS NULL`)
+ *      elects exactly one winner under concurrent committers.
+ *   2. `parentAuditComplete = claimed || (await isParentAuditComplete(...))`
+ *      short-circuits so only the CAS loser re-reads parent status.
+ *   3. The CAS winner (`claimed`) emits the single `profile_persisted` event;
+ *      a non-winner that finds the parent already persisted only stamps
+ *      `markProfileSynced` (idempotent).
+ *   4. The share-snapshot refresh and live quality-gate persist always run once
+ *      the parent is complete; the else branch patches the per-section insight
+ *      for a non-completing commit.
+ *
+ * MUST stay awaited by `saveArtifact` so the completing save does not resolve
+ * before `persistAuditProfileBestEffort` settles.
+ */
+async function runPostCommitProfileFanout(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  runId: string;
+  parentAuditRunId: string;
+  researchInput: ResearchInput;
+  completedAt: string;
+  artifactToCommit: ArtifactEnvelope;
+}): Promise<void> {
+  const profilePersistClaimed = await claimProfilePersist({
+    supabase: input.supabase,
+    parentAuditRunId: input.parentAuditRunId,
+    persistedAt: input.completedAt,
+  });
+  const parentAuditComplete =
+    profilePersistClaimed ||
+    (await isParentAuditComplete({
+      supabase: input.supabase,
+      parentAuditRunId: input.parentAuditRunId,
+    }));
+
+  if (parentAuditComplete) {
+    const profileId = await persistAuditProfileBestEffort({
+      supabase: input.supabase,
+      userId: input.userId,
+      runId: input.runId,
+      researchInput: input.researchInput,
+      parentAuditRunId: input.parentAuditRunId,
+    });
+
+    if (profileId) {
+      if (!profilePersistClaimed) {
+        await markProfileSynced({
+          supabase: input.supabase,
+          parentAuditRunId: input.parentAuditRunId,
+          syncedAt: input.completedAt,
+        });
+      }
+
+      if (profilePersistClaimed) {
+        await emitProfilePersistedEvent({
+          supabase: input.supabase,
+          parentAuditRunId: input.parentAuditRunId,
+          runId: input.runId,
+          profileId,
+        });
+      }
+    }
+
+    await refreshV3SharedSessionSnapshotsBestEffort({
+      supabase: input.supabase,
+      userId: input.userId,
+      runId: input.runId,
+    });
+
+    await persistLiveQualityGateBestEffort({
+      supabase: input.supabase,
+      parentAuditRunId: input.parentAuditRunId,
+      runId: input.runId,
+      userId: input.userId,
+      computedAt: input.completedAt,
+    });
+  } else {
+    await patchProfileSectionBestEffort({
+      supabase: input.supabase,
+      userId: input.userId,
+      runId: input.runId,
+      parentAuditRunId: input.parentAuditRunId,
+      artifact: input.artifactToCommit,
+    });
+  }
+}
+
 function assertRunId(expectedRunId: string, actualRunId: string, action: string): void {
   if (actualRunId !== expectedRunId) {
     throw new SupabaseRunStoreError(
@@ -963,68 +1064,15 @@ export function createSupabaseRunStore(
         );
       }
 
-      const profilePersistClaimed = await claimProfilePersist({
+      await runPostCommitProfileFanout({
         supabase: options.supabase,
+        userId: options.userId,
+        runId: input.runId,
         parentAuditRunId: options.parentAuditRunId,
-        persistedAt: completedAt,
+        researchInput: input,
+        completedAt,
+        artifactToCommit,
       });
-      const parentAuditComplete =
-        profilePersistClaimed ||
-        (await isParentAuditComplete({
-          supabase: options.supabase,
-          parentAuditRunId: options.parentAuditRunId,
-        }));
-
-      if (parentAuditComplete) {
-        const profileId = await persistAuditProfileBestEffort({
-          supabase: options.supabase,
-          userId: options.userId,
-          runId: input.runId,
-          researchInput: input,
-          parentAuditRunId: options.parentAuditRunId,
-        });
-
-        if (profileId) {
-          if (!profilePersistClaimed) {
-            await markProfileSynced({
-              supabase: options.supabase,
-              parentAuditRunId: options.parentAuditRunId,
-              syncedAt: completedAt,
-            });
-          }
-
-          if (profilePersistClaimed) {
-            await emitProfilePersistedEvent({
-              supabase: options.supabase,
-              parentAuditRunId: options.parentAuditRunId,
-              runId: input.runId,
-              profileId,
-            });
-          }
-        }
-
-        await refreshV3SharedSessionSnapshotsBestEffort({
-          supabase: options.supabase,
-          userId: options.userId,
-          runId: input.runId,
-        });
-
-        await persistLiveQualityGateBestEffort({
-          supabase: options.supabase,
-          parentAuditRunId: options.parentAuditRunId,
-          runId: input.runId,
-          userId: options.userId,
-          computedAt: completedAt,
-        });
-      } else {
-        await patchProfileSectionBestEffort({
-          supabase: options.supabase,
-          userId: options.userId,
-          runId: input.runId,
-          parentAuditRunId: options.parentAuditRunId,
-          artifact: artifactToCommit,
-        });
-      }
 
       record = mergeSection(
         record,

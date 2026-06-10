@@ -5832,6 +5832,13 @@ async function runSectionViaStructuredBodyStream(
   const modelSteps: AgentStep[] = [...(voiceOfCustomerPrepass?.steps ?? [])];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
+  // One seq ref per RUN, shared across every repair attempt. Each
+  // buildStructuredBodyAttempt builds a FRESH throttled broadcaster but aliases
+  // this same ref (seqRef), so the broadcast seq keeps incrementing across
+  // attempts instead of resetting. The consumer drops frames whose seq <= the
+  // last seen one (applySectionPartialPayload), so a per-attempt reset would
+  // make repair-attempt frames look stale and be silently dropped — sharing the
+  // ref keeps repair partials monotonic and therefore visible.
   const partialSeqRef: SectionPartialSeqRef = { current: 0 };
 
   await appendEvent(
