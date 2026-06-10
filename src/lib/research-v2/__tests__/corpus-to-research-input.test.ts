@@ -529,6 +529,30 @@ describe("corpusToResearchInput", (): void => {
     ]);
   });
 
+  it("splits prose 'X and Y' / 'X & Y' competitor lists into separate seeds (run 9a9412a2 regression)", (): void => {
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      deepResearchProgramData: {
+        ...corpusFixture.deepResearchProgramData,
+        onboardingFields: {
+          ...corpusFixture.deepResearchProgramData.onboardingFields,
+          topCompetitors: {
+            value: "SinglePlatform and restaurantji.com & Popmenu",
+          },
+        },
+      },
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+
+    expect(parsed.competitorSeeds?.map((seed) => seed.name)).toEqual([
+      "SinglePlatform",
+      "restaurantji.com",
+      "Popmenu",
+    ]);
+  });
+
   it("parses numbered/bulleted topCompetitors, dedupes, and caps at 5", (): void => {
     const input = corpusToResearchInput({
       ...corpusFixture,

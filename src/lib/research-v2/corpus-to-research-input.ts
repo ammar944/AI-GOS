@@ -790,7 +790,11 @@ function splitCompetitorSeedCandidates(rawTopCompetitors: string): string[] {
     return normalized.split(competitorListDelimiterPattern);
   }
 
-  return normalized.split(/[\n,]+/u);
+  // Corpus-extracted prose lists arrive as "X and Y" / "X & Y" with no commas.
+  // The compound string would otherwise become ONE advertiser query that the
+  // ad probe matches nothing on (live run 9a9412a2: advertiser literally named
+  // "SinglePlatform and restaurantji.com", 0 creatives).
+  return normalized.split(/[\n,]+|\s+(?:and|&)\s+/iu);
 }
 
 function stripCompetitorListMarker(value: string): string {
