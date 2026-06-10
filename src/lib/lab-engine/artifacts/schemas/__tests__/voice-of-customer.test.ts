@@ -289,3 +289,161 @@ describe("checkVoiceOfCustomerSelfSourcing", (): void => {
     expect(result.errors.join(" ")).toContain("single-source majority");
   });
 });
+
+type SecondaryBlockKey =
+  | "successLanguage"
+  | "objections"
+  | "switchingStories"
+  | "decisionCriteria";
+
+const secondaryBlockArrayKey = {
+  decisionCriteria: "criteria",
+  objections: "items",
+  successLanguage: "quotes",
+  switchingStories: "stories",
+} as const;
+
+function blockGapFor(blockKey: SecondaryBlockKey): Record<string, unknown> {
+  return {
+    summary: `Independent retrieval surfaced no promotable ${blockKey} language.`,
+    foundCount: 0,
+    requiredCount: blockKey === "switchingStories" ? 3 : 5,
+    sourcingPlan: [
+      "Mine the named competitors' G2 comparison categories for this language.",
+    ],
+  };
+}
+
+function withGuttedBlock(
+  blockKey: SecondaryBlockKey,
+  options: { blockGap: boolean },
+): VoiceOfCustomerArtifact {
+  const block = voiceOfCustomerFixtureArtifact.body[blockKey];
+
+  return {
+    ...voiceOfCustomerFixtureArtifact,
+    body: {
+      ...voiceOfCustomerFixtureArtifact.body,
+      [blockKey]: {
+        ...block,
+        [secondaryBlockArrayKey[blockKey]]: [],
+        ...(options.blockGap ? { blockGap: blockGapFor(blockKey) } : {}),
+      },
+    },
+  } as VoiceOfCustomerArtifact;
+}
+
+describe("Voice of Customer per-block gaps", (): void => {
+  const secondaryBlocks: SecondaryBlockKey[] = [
+    "successLanguage",
+    "objections",
+    "switchingStories",
+    "decisionCriteria",
+  ];
+
+  it.each(secondaryBlocks)(
+    "accepts an empty %s block when it declares a blockGap",
+    (blockKey): void => {
+      const artifact = withGuttedBlock(blockKey, { blockGap: true });
+
+      const result = validateVoiceOfCustomerMinimums(artifact);
+
+      expect(result.errors).toEqual([]);
+      expect(result.ok).toBe(true);
+    },
+  );
+
+  it.each(secondaryBlocks)(
+    "still enforces the %s minimum when no blockGap is declared",
+    (blockKey): void => {
+      const artifact = withGuttedBlock(blockKey, { blockGap: false });
+
+      const result = validateVoiceOfCustomerMinimums(artifact);
+
+      expect(result.ok).toBe(false);
+      expect(result.errors.join(" ")).toContain(`body.${blockKey}`);
+    },
+  );
+
+  it("accepts all four secondary blocks gutted when each carries a blockGap", (): void => {
+    const result = validateVoiceOfCustomerMinimums({
+      ...voiceOfCustomerFixtureArtifact,
+      body: {
+        ...voiceOfCustomerFixtureArtifact.body,
+        decisionCriteria: withGuttedBlock("decisionCriteria", { blockGap: true })
+          .body.decisionCriteria,
+        objections: withGuttedBlock("objections", { blockGap: true }).body
+          .objections,
+        successLanguage: withGuttedBlock("successLanguage", { blockGap: true })
+          .body.successLanguage,
+        switchingStories: withGuttedBlock("switchingStories", {
+          blockGap: true,
+        }).body.switchingStories,
+      },
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not let a blockGap bypass the pain-language floors", (): void => {
+    const artifact = withPainQuotes([painQuote("https://g2.com/review/1", 1)]);
+
+    const result = validateVoiceOfCustomerMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("body.painLanguage.quotes");
+  });
+
+  it("rejects a blockGap with extra keys (strict shape)", (): void => {
+    const body = {
+      ...voiceOfCustomerFixtureArtifact.body,
+      successLanguage: {
+        ...voiceOfCustomerFixtureArtifact.body.successLanguage,
+        blockGap: {
+          ...blockGapFor("successLanguage"),
+          padding: "not allowed",
+        },
+      },
+    };
+
+    expect(() => voiceOfCustomerBodySchema.parse(body)).toThrow();
+  });
+
+  it("rejects a blockGap on painLanguage (pain has no per-block escape)", (): void => {
+    const body = {
+      ...voiceOfCustomerFixtureArtifact.body,
+      painLanguage: {
+        ...voiceOfCustomerFixtureArtifact.body.painLanguage,
+        blockGap: blockGapFor("successLanguage"),
+      },
+    };
+
+    expect(() => voiceOfCustomerBodySchema.parse(body)).toThrow();
+  });
+
+  it("keeps the section-level evidence-gap bypass unchanged", (): void => {
+    const artifact = withPainQuotes([painQuote("https://g2.com/review/1", 1)]);
+    const gapped: VoiceOfCustomerArtifact = {
+      ...artifact,
+      body: {
+        ...artifact.body,
+        evidenceGap: true,
+        evidenceGapReport: {
+          reason: "insufficient_voice_of_customer_sources",
+          summary: "Acquisition fell short of the pain floors.",
+          foundPainQuoteCount: 1,
+          requiredPainQuoteCount: 6,
+          foundDistinctPainSourceCount: 1,
+          requiredDistinctPainSourceCount: 3,
+          observedPainSourceDomains: ["g2.com"],
+          sourcingPlan: ["Scrape the named competitor comparison categories."],
+        },
+      },
+    };
+
+    const result = validateVoiceOfCustomerMinimums(gapped);
+
+    expect(result.ok).toBe(true);
+  });
+});

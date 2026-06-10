@@ -255,6 +255,20 @@ function hasAdEvidenceOrGap(
   });
 }
 
+// A per-block VoC gap (body.<block>.blockGap, W1b) is an honest evidence
+// signal in its own right — same standing as the section-level evidenceGap.
+function hasVocBlockGap(body: Record<string, unknown>): boolean {
+  return [
+    body.successLanguage,
+    body.objections,
+    body.switchingStories,
+    body.decisionCriteria,
+  ].some((block) => {
+    const blockGap = asRecord(asRecord(block).blockGap);
+    return hasText(blockGap.summary);
+  });
+}
+
 function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
   const painLanguage = asRecord(body.painLanguage);
   const successLanguage = asRecord(body.successLanguage);
@@ -265,6 +279,7 @@ function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
     hasRecordWithText(painLanguage.quotes, "verbatimText") ||
     hasRecordWithText(successLanguage.quotes, "verbatimText") ||
     hasRecordWithText(decisionCriteria.criteria, "evidenceQuote") ||
+    hasVocBlockGap(body) ||
     hasNestedGap(body)
   );
 }

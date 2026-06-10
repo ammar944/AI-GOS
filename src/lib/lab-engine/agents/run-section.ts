@@ -100,6 +100,7 @@ import {
   VOC_CANDIDATE_PACK_MAX_SIZE,
   VOC_PREPASS_MAX_LOOKUPS,
   VOC_PREPASS_REVIEW_BODY_MAX_PAGES,
+  acquisitionModeForEvidenceKind,
   createVoiceOfCustomerCandidate,
   formatVoiceOfCustomerCandidateBlock,
   getRegistrableDomain,
@@ -111,6 +112,12 @@ import {
   type VoiceOfCustomerEvidenceKind,
   type VoiceOfCustomerCandidateSource,
 } from "./voice-of-customer-candidates";
+import {
+  acquireVoiceOfCustomerClassCandidates,
+  createEmptyVoiceOfCustomerClassCandidates,
+  formatVoiceOfCustomerClassCandidateBlock,
+  type VoiceOfCustomerClassCandidates,
+} from "./voice-of-customer-class-acquisition";
 import {
   buildVoiceOfCustomerAcquisitionLedger,
   type VoiceOfCustomerAcquisitionAttempt,
@@ -1951,7 +1958,11 @@ const competitorAdProbeForeplayMaxAds = 6;
 // so a slow scrape could eat into the section budget and tip VoC past the 270s
 // job timeout. Bounding it here (and degrading to partial candidates on abort,
 // see executeVoiceOfCustomerPrepassTool) caps the front-loaded prepass wall-clock.
-const voiceOfCustomerPrepassDeadlineMs = 45_000;
+// Pain loop (~3 reviews + web_search + firecrawl) plus the W1a secondary-class
+// perplexity fan-out (parallel, ≈ max(call) ≈ 15s, + one retry round worst
+// case). The model phase is deadline-aware (getDeadlineAwareModelTimeoutMs),
+// so a longer prepass shrinks the model window instead of blowing the job.
+const voiceOfCustomerPrepassDeadlineMs = 75_000;
 const answerToolMaxStepCount = 12;
 const answerToolMaxRepairAttempts = 2;
 // Sections routed through the generic answer-tool path instead of the legacy
@@ -3903,6 +3914,7 @@ interface VoiceOfCustomerCandidatePrepass {
   acquisitionAttempts: VoiceOfCustomerAcquisitionAttempt[];
   acquisitionLedger: VoiceOfCustomerAcquisitionLedgerRow[];
   candidateBlock: string;
+  classCandidates: VoiceOfCustomerClassCandidates;
   events: ActivityEvent[];
   result: VoiceOfCustomerCandidateResult;
   steps: AgentStep[];
@@ -3964,20 +3976,6 @@ function buildResearchInputVoiceOfCustomerCandidates(
 
     return candidate === null ? [] : [candidate];
   });
-}
-
-function acquisitionModeForEvidenceKind(
-  evidenceKind: VoiceOfCustomerEvidenceKind,
-): VoiceOfCustomerAcquisitionMode {
-  if (evidenceKind === "review") {
-    return "review_body";
-  }
-
-  if (evidenceKind === "forum") {
-    return "forum_comment";
-  }
-
-  return "support_thread";
 }
 
 function readVoiceOfCustomerAcquisitionMode(
@@ -4700,6 +4698,46 @@ async function buildVoiceOfCustomerCandidatePrepass({
     }
   }
 
+  // W1a: once the pain loop has settled OK, acquire the four SECONDARY quote
+  // classes (success / objections / switching / criteria) via parallel
+  // perplexity calls with their own structural budget — these lookups never
+  // consume VOC_PREPASS_MAX_LOOKUPS, and a pain-pack gap skips them entirely
+  // (the section gap-commits regardless, so the spend would buy nothing).
+  let classCandidates = createEmptyVoiceOfCustomerClassCandidates();
+  if (result.ok) {
+    const classSteps: AgentStep[] = [];
+    const classAcquisition = await acquireVoiceOfCustomerClassCandidates({
+      company: {
+        category: researchInput.company.category,
+        name: researchInput.company.name,
+        websiteUrl: researchInput.company.websiteUrl,
+      },
+      executeLookup: async (question: string): Promise<unknown> => {
+        const toolResult = await executeVoiceOfCustomerPrepassTool({
+          input,
+          researchTools,
+          stepNumber: 0,
+          toolInput: { question, recency: "any" },
+          toolName: "perplexity_research",
+        });
+
+        if (toolResult === null) {
+          return null;
+        }
+
+        classSteps.push(toolResult.step);
+        return toolResult.output;
+      },
+    });
+    classCandidates = classAcquisition.candidatesByClass;
+    // Lookups ran in parallel, so renumber sequentially after the existing
+    // pain-loop steps before they join the shared step list.
+    classSteps.forEach((step, index) => {
+      step.stepNumber = steps.length + index + 1;
+    });
+    steps.push(...classSteps);
+  }
+
   const acquisitionLedger = buildVoiceOfCustomerAcquisitionLedger({
     attempts: acquisitionAttemptsWithQuery,
     candidates,
@@ -4723,7 +4761,13 @@ async function buildVoiceOfCustomerCandidatePrepass({
   return {
     acquisitionAttempts,
     acquisitionLedger,
-    candidateBlock: formatVoiceOfCustomerCandidateBlock(result),
+    candidateBlock: [
+      formatVoiceOfCustomerCandidateBlock(result),
+      ...(result.ok
+        ? [formatVoiceOfCustomerClassCandidateBlock(classCandidates)]
+        : []),
+    ].join("\n\n"),
+    classCandidates,
     events,
     result,
     steps,

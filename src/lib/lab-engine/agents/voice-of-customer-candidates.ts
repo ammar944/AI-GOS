@@ -7,7 +7,8 @@ export type VoiceOfCustomerCandidateSource =
   | "reviews"
   | "researchInput"
   | "web_search"
-  | "firecrawl";
+  | "firecrawl"
+  | "perplexity_research";
 
 export type VoiceOfCustomerEvidenceKind =
   | "review"
@@ -110,6 +111,10 @@ const sourceRank: Readonly<Record<VoiceOfCustomerCandidateSource, number>> = {
   reviews: 1,
   researchInput: 2,
   web_search: 3,
+  // Perplexity candidates are class-tagged secondary-class evidence; they are
+  // selected per class (voice-of-customer-class-acquisition.ts) and never
+  // enter the pain-pack ranking, so this rank is a type-completeness entry.
+  perplexity_research: 4,
 };
 
 function parseUrlLike(input: string): URL | null {
@@ -307,6 +312,20 @@ export function getRegistrableDomain(input: string): string | null {
   }
 
   return labels.slice(-2).join(".");
+}
+
+export function acquisitionModeForEvidenceKind(
+  evidenceKind: VoiceOfCustomerEvidenceKind,
+): VoiceOfCustomerAcquisitionMode {
+  if (evidenceKind === "review") {
+    return "review_body";
+  }
+
+  if (evidenceKind === "forum") {
+    return "forum_comment";
+  }
+
+  return "support_thread";
 }
 
 export function createVoiceOfCustomerCandidate(

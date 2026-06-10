@@ -77,6 +77,7 @@ const fallbackSourceQueries: Readonly<Record<VoiceOfCustomerCandidateSource, str
     researchInput: "researchInput.sectionExcerpts.positioningVoiceOfCustomer",
     reviews: "review body acquisition",
     web_search: "Voice of Customer web search",
+    perplexity_research: "perplexity secondary-class verbatim acquisition",
   };
 
 function evidenceKindForAcquisitionMode(

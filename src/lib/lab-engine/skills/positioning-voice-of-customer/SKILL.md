@@ -86,7 +86,9 @@ IRON LAW: Independent sources count, estimates do not. Pain quotes need at least
 
 IRON LAW: Never pad and never discard. No manufactured, duplicated, or stretched quotes to hit a count; no throwing away real quotes to declare a gap. A six-quote pack commits as a useful section.
 
-IRON LAW: Never author `body.evidenceGap` or `body.evidenceGapReport`. The runner owns the gap path and rejects model-authored gap flags.
+IRON LAW: Never author `body.evidenceGap` or `body.evidenceGapReport`. The runner owns the section-level gap path and rejects model-authored gap flags.
+
+IRON LAW: Per-block gaps are yours — under one condition. `body.successLanguage.blockGap`, `body.objections.blockGap`, `body.switchingStories.blockGap`, and `body.decisionCriteria.blockGap` are model-authored, but ONLY after you attempted promotion from the candidate pack and your own tool fills. `foundCount` is the real promoted count; filing a blockGap while discarding real quotes — or to dodge a floor — is the same defect as padding. Pain language has no blockGap: thin pain stays on the runner's section-level gap path.
 
 IRON LAW: Switching stories need a named prior tool — name it or omit the story.
 
@@ -116,6 +118,17 @@ Consumption rules:
 
 When the block reads `Voice of Customer Candidate Pack: GAP`, or tool fills cannot reach the floor with real quotes: do not fabricate, pad, or author a gap flag. Promote every real quote you have, and make the prose a sourcing map — name the venues where THIS ICP's buyer language actually lives: the named competitors' review-site categories, the specific subreddits where this role complains, the support forums where churn stories surface. "Search G2 and Reddit" is boilerplate; naming the exact communities worth scraping next is a deliverable.
 
+## The Secondary-Class Candidate Block
+
+Below the pain pack, the prompt may carry a block titled `Secondary-class verbatim candidates (perplexity prepass)`: verbatim quote candidates acquired per class, each tagged `[success]`, `[objections]`, `[switching]`, or `[criteria]` with the schema field it serves.
+
+Consumption rules:
+
+- Route each candidate to its tagged field: `[success]` → `body.successLanguage.quotes[]`, `[objections]` → `body.objections.items[]`, `[switching]` → `body.switchingStories.stories[]`, `[criteria]` → `body.decisionCriteria.criteria[]`.
+- The quoted text is verbatim by acquisition contract — promote it unchanged; `sourceUrl` is the candidate URL; the `source` enum derives from that URL's domain, exactly as with pain candidates.
+- A tagged candidate still has to earn its card: a `[switching]` candidate with no named prior tool does not become a story; classify honestly or decline it.
+- When a class shows `none acquired`, attempt your own tool fills for that class first. If real quotes still cannot be found, file that block's `blockGap` — `{ summary, foundCount, requiredCount, sourcingPlan }` — instead of padding, stretching, or borrowing quotes from another class.
+
 ## Research Tools Available
 
 | Tool | Use it for | Output to extract |
@@ -141,17 +154,17 @@ Tool-specific gap rules: if `firecrawl` returns `{ type: "gap", reason: "missing
 2. Promote pain language from the pack.
    Validation: `painLanguage.quotes` has at least 6 verbatim quotes across at least 3 distinct registrable domains, fully fielded per PainQuote (`role`/`date` only where disclosed). None from the subject's own domain; no single domain supplies a majority.
 
-3. Fill objection evidence in the buyer's words — pack first, then targeted lookups.
-   Validation: `objections.items` has at least 5 objections across at least 3 `category` values, fully fielded; each `howToHandle` names a checkable proof artifact.
+3. Fill objection evidence in the buyer's words — `[objections]` candidates first, then the pack, then targeted lookups.
+   Validation: `objections.items` has at least 5 objections across at least 3 `category` values, fully fielded; each `howToHandle` names a checkable proof artifact — or `objections.blockGap` is filed honestly after pack + tool fills came up short.
 
-4. Read for switching moments.
-   Validation: `switchingStories.stories` has at least 3 stories naming at least 2 distinct prior solutions, each with the trigger-event `reasonToLeave`, `decisionPath`, and `sourceUrl`.
+4. Read for switching moments — `[switching]` candidates first.
+   Validation: `switchingStories.stories` has at least 3 stories naming at least 2 distinct prior solutions, each with the trigger-event `reasonToLeave`, `decisionPath`, and `sourceUrl` — or `switchingStories.blockGap` is filed honestly.
 
-5. Extract stated decision criteria.
-   Validation: `decisionCriteria.criteria` has at least 5 criteria, each tied to a verbatim `evidenceQuote`, `statedBy`, and `sourceUrl`.
+5. Extract stated decision criteria — `[criteria]` candidates first.
+   Validation: `decisionCriteria.criteria` has at least 5 criteria, each tied to a verbatim `evidenceQuote`, `statedBy`, and `sourceUrl` — or `decisionCriteria.blockGap` is filed honestly.
 
-6. Promote success-state language, marking hair-on-fire phrases.
-   Validation: `successLanguage.quotes` has at least 5 verbatim quotes, each with an `afterStatePattern`; headline candidates flagged in prose.
+6. Promote success-state language, marking hair-on-fire phrases — `[success]` candidates first.
+   Validation: `successLanguage.quotes` has at least 5 verbatim quotes, each with an `afterStatePattern`; headline candidates flagged in prose — or `successLanguage.blockGap` is filed honestly.
 
 7. Write the forces balance verdict and strategic insight from the classified quotes.
    Validation: `fourForcesBalanceVerdict` names which side wins, citing quote words; `strategicInsight` fields are judgments — the runtime rejects fields shorter than ~32 chars, near-duplicates of the verdict/summary, or vacuous phrasing.

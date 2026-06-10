@@ -198,6 +198,23 @@ const evidenceGapReportSchema = z
   })
   .strict();
 
+// Per-block evidence gap (W1b): each SECONDARY quote class may declare an
+// honest shortfall instead of being padded to its floor or dragging the whole
+// section into the all-or-nothing evidenceGap. Pain language deliberately has
+// no blockGap — pain is the core class, and an empty pain section stays on the
+// (correctly damning) section-level gap path. Unlike body.evidenceGap (runner-
+// owned), blockGap is model-authored — but only after attempting promotion
+// from the candidate pack (SKILL.md authoring rule). Shape kept minimal and
+// strict for DeepSeek schema-compat.
+const blockGapSchema = z
+  .object({
+    summary: z.string().min(1),
+    foundCount: z.number().int().nonnegative(),
+    requiredCount: z.number().int().positive(),
+    sourcingPlan: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
 export const voiceOfCustomerBodySchema = z
   .object({
     strategicInsight: strategicInsightSchema,
@@ -206,27 +223,39 @@ export const voiceOfCustomerBodySchema = z
       .object({ prose: z.string().min(1), quotes: z.array(painQuoteSchema) })
       .strict(),
     objections: z
-      .object({ prose: z.string().min(1), items: z.array(objectionSchema) })
+      .object({
+        prose: z.string().min(1),
+        items: z.array(objectionSchema),
+        blockGap: blockGapSchema.optional(),
+      })
       .strict(),
     switchingStories: z
       .object({
         prose: z.string().min(1),
         stories: z.array(switchingStorySchema),
+        blockGap: blockGapSchema.optional(),
       })
       .strict(),
     decisionCriteria: z
       .object({
         prose: z.string().min(1),
         criteria: z.array(decisionCriterionSchema),
+        blockGap: blockGapSchema.optional(),
       })
       .strict(),
     successLanguage: z
-      .object({ prose: z.string().min(1), quotes: z.array(successQuoteSchema) })
+      .object({
+        prose: z.string().min(1),
+        quotes: z.array(successQuoteSchema),
+        blockGap: blockGapSchema.optional(),
+      })
       .strict(),
     evidenceGap: z.literal(true).optional(),
     evidenceGapReport: evidenceGapReportSchema.optional(),
   })
   .strict();
+
+export type VoiceOfCustomerBlockGap = z.infer<typeof blockGapSchema>;
 
 const modelSourceSchema = z
   .object({
@@ -429,46 +458,57 @@ export function validateVoiceOfCustomerMinimums(
     );
   }
 
-  const objections = parsedArtifact.body.objections.items;
-  if (objections.length < 5) {
-    errors.push(`body.objections.items: have ${objections.length}, need >=5.`);
-  }
-  const categoryCount = uniqueCount(
-    objections.map((objection) => objection.category),
-  );
-  if (categoryCount < 3) {
-    errors.push(
-      `body.objections.items: need >=3 objection categories, have ${categoryCount}.`,
+  // Secondary-class floors are enforced UNLESS that block declares an honest
+  // blockGap (W1b). One thin class no longer drags the section to the
+  // all-or-nothing evidenceGap; pain floors above are never blockGap-bypassed.
+  if (parsedArtifact.body.objections.blockGap === undefined) {
+    const objections = parsedArtifact.body.objections.items;
+    if (objections.length < 5) {
+      errors.push(`body.objections.items: have ${objections.length}, need >=5.`);
+    }
+    const categoryCount = uniqueCount(
+      objections.map((objection) => objection.category),
     );
-  }
-
-  const stories = parsedArtifact.body.switchingStories.stories;
-  if (stories.length < 3) {
-    errors.push(
-      `body.switchingStories.stories: have ${stories.length}, need >=3.`,
-    );
-  }
-  const priorSolutionCount = uniqueCount(
-    stories.map((story) => story.priorSolution),
-  );
-  if (priorSolutionCount < 2) {
-    errors.push(
-      `body.switchingStories.stories: need >=2 prior solutions, have ${priorSolutionCount}.`,
-    );
+    if (categoryCount < 3) {
+      errors.push(
+        `body.objections.items: need >=3 objection categories, have ${categoryCount}.`,
+      );
+    }
   }
 
-  const criteriaCount = parsedArtifact.body.decisionCriteria.criteria.length;
-  if (criteriaCount < 5) {
-    errors.push(
-      `body.decisionCriteria.criteria: have ${criteriaCount}, need >=5.`,
+  if (parsedArtifact.body.switchingStories.blockGap === undefined) {
+    const stories = parsedArtifact.body.switchingStories.stories;
+    if (stories.length < 3) {
+      errors.push(
+        `body.switchingStories.stories: have ${stories.length}, need >=3.`,
+      );
+    }
+    const priorSolutionCount = uniqueCount(
+      stories.map((story) => story.priorSolution),
     );
+    if (priorSolutionCount < 2) {
+      errors.push(
+        `body.switchingStories.stories: need >=2 prior solutions, have ${priorSolutionCount}.`,
+      );
+    }
   }
 
-  const successCount = parsedArtifact.body.successLanguage.quotes.length;
-  if (successCount < VOC_MIN_SUCCESS_QUOTES) {
-    errors.push(
-      `body.successLanguage.quotes: have ${successCount}, need >=${VOC_MIN_SUCCESS_QUOTES}.`,
-    );
+  if (parsedArtifact.body.decisionCriteria.blockGap === undefined) {
+    const criteriaCount = parsedArtifact.body.decisionCriteria.criteria.length;
+    if (criteriaCount < 5) {
+      errors.push(
+        `body.decisionCriteria.criteria: have ${criteriaCount}, need >=5.`,
+      );
+    }
+  }
+
+  if (parsedArtifact.body.successLanguage.blockGap === undefined) {
+    const successCount = parsedArtifact.body.successLanguage.quotes.length;
+    if (successCount < VOC_MIN_SUCCESS_QUOTES) {
+      errors.push(
+        `body.successLanguage.quotes: have ${successCount}, need >=${VOC_MIN_SUCCESS_QUOTES}.`,
+      );
+    }
   }
 
   if (

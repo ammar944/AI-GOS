@@ -307,4 +307,69 @@ describe("checkRequiredEvidenceClasses", (): void => {
       ).toBeNull();
     });
   });
+
+  describe("voc_quote_or_gap", (): void => {
+    const emptyVocBody = {
+      decisionCriteria: { criteria: [], prose: "evidence gap" },
+      objections: { items: [], prose: "evidence gap" },
+      painLanguage: { prose: "evidence gap", quotes: [] },
+      successLanguage: { prose: "evidence gap", quotes: [] },
+      switchingStories: { prose: "evidence gap", stories: [] },
+    };
+
+    it("fails a body with no quotes and no gap signal", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: emptyVocBody,
+          requiredEvidenceClasses: ["voc_quote_or_gap"],
+          sectionId: "positioningVoiceOfCustomer",
+        }),
+      ).toBe("voc_quote_or_gap");
+    });
+
+    it("accepts a per-block gap as the honest alternative to quotes", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyVocBody,
+            objections: {
+              ...emptyVocBody.objections,
+              blockGap: {
+                summary: "No independent objection language surfaced.",
+                foundCount: 0,
+                requiredCount: 5,
+                sourcingPlan: ["Mine competitor G2 comparison categories."],
+              },
+            },
+          },
+          requiredEvidenceClasses: ["voc_quote_or_gap"],
+          sectionId: "positioningVoiceOfCustomer",
+        }),
+      ).toBeNull();
+    });
+
+    it("accepts a verbatim pain quote without any gap", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyVocBody,
+            painLanguage: {
+              prose: "pain",
+              quotes: [
+                {
+                  verbatimText: "the renewal doubled overnight",
+                  source: "g2",
+                  sourceUrl: "https://g2.com/x",
+                  painTheme: "pricing",
+                  painIntensity: "high",
+                },
+              ],
+            },
+          },
+          requiredEvidenceClasses: ["voc_quote_or_gap"],
+          sectionId: "positioningVoiceOfCustomer",
+        }),
+      ).toBeNull();
+    });
+  });
 });
