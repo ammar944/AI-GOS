@@ -1361,6 +1361,53 @@ function describeStructuredOutputError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+// Diagnostic payload for structured-output failures. The bare message ("No
+// object generated: response did not match schema." / "Failed to process
+// successful response") is undiagnosable after the fact — finishReason
+// distinguishes truncation from schema drift, zod issue paths distinguish
+// extra keys from missing fields, and the text tail shows what the model
+// actually emitted. Bounded slices only: section bodies run tens of KB.
+function structuredOutputErrorDetail(error: unknown): Record<string, unknown> {
+  const detail: Record<string, unknown> = {
+    error: describeStructuredOutputError(error),
+  };
+
+  if (error instanceof Error && error.name !== "Error") {
+    detail.errorName = error.name;
+  }
+
+  if (NoObjectGeneratedError.isInstance(error)) {
+    detail.finishReason = error.finishReason;
+    detail.usage = error.usage;
+    const text = error.text ?? "";
+    detail.textLength = text.length;
+    detail.textHead = text.slice(0, 240);
+    detail.textTail = text.slice(-240);
+  }
+
+  if (error instanceof z.ZodError) {
+    detail.zodIssues = error.issues
+      .slice(0, 8)
+      .map((issue) => `${issue.path.join(".")}: ${issue.code}`);
+  } else if (error instanceof Error) {
+    const cause = error.cause;
+    if (cause instanceof z.ZodError) {
+      detail.zodIssues = cause.issues
+        .slice(0, 8)
+        .map((issue) => `${issue.path.join(".")}: ${issue.code}`);
+    } else if (cause instanceof Error) {
+      detail.causeMessage = cause.message.slice(0, 400);
+    }
+
+    const responseBody = (error as { responseBody?: unknown }).responseBody;
+    if (typeof responseBody === "string" && responseBody.length > 0) {
+      detail.responseBodyTail = responseBody.slice(-400);
+    }
+  }
+
+  return detail;
+}
+
 function shouldBypassStructuredCallerFallback({
   error,
   params,
@@ -1401,12 +1448,20 @@ async function parseStreamedStructuredOutput({
     console.warn(
       "[lab-section] structured stream parse failed; falling back to non-streaming structured call",
       {
-        error: describeStructuredOutputError(error),
+        ...structuredOutputErrorDetail(error),
         schemaName: params.schemaName,
       },
     );
 
-    return defaultStructuredCaller(params);
+    try {
+      return await defaultStructuredCaller(params);
+    } catch (fallbackError) {
+      console.error("[lab-section] non-streaming structured fallback failed", {
+        ...structuredOutputErrorDetail(fallbackError),
+        schemaName: params.schemaName,
+      });
+      throw fallbackError;
+    }
   }
 }
 
