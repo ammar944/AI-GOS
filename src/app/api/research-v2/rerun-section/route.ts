@@ -274,6 +274,9 @@ export async function POST(req: Request): Promise<NextResponse> {
       runId,
       sectionId: positioningZone,
     });
+    // True W3 detach: rerun commits get the same dedicated-route review as
+    // first-pass commits (a rerun is exactly when the badge matters most).
+    const rerunInternalKey = process.env.RAILWAY_API_KEY?.trim();
     const seeded = await scheduleLabSectionJob({
       userId,
       runId,
@@ -282,6 +285,17 @@ export async function POST(req: Request): Promise<NextResponse> {
       supabase,
       researchInput: committedResearchInput.researchInput,
       schedule: after,
+      ...(rerunInternalKey === undefined || rerunInternalKey === ''
+        ? {}
+        : {
+            reviewDispatch: {
+              url: new URL(
+                '/api/research-v2/review-section',
+                req.url,
+              ).toString(),
+              internalKey: rerunInternalKey,
+            },
+          }),
     });
 
     return NextResponse.json({

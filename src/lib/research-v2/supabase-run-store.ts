@@ -50,6 +50,11 @@ import {
   type LiveQualityGateShareSnapshot,
 } from '@/lib/research-v3/live-quality-gate';
 
+export interface SupabaseRunStoreReviewDispatch {
+  url: string;
+  internalKey: string;
+}
+
 export interface CreateSupabaseRunStoreOptions {
   supabase: SupabaseClient;
   userId: string;
@@ -57,6 +62,11 @@ export interface CreateSupabaseRunStoreOptions {
   sectionRunIdByZone: Partial<Record<SectionId, string>>;
   researchInput: ResearchInput;
   schedulePostCommitReview?: ScheduleSupabaseRunStoreTask;
+  // True W3 detach: when set, the post-commit agentic review is shipped to the
+  // dedicated review route (own invocation, own maxDuration) instead of
+  // running inside this invocation's residual clock. Falls back inline when
+  // the kickoff cannot be delivered.
+  reviewDispatch?: SupabaseRunStoreReviewDispatch;
   env?: Record<string, string | undefined>;
   now?: () => Date;
 }
@@ -164,6 +174,11 @@ function isoNow(now: () => Date): string {
 
 const labReviewTimeoutEnvKey = 'LAB_REVIEW_TIMEOUT_MS';
 const defaultLabReviewTimeoutMs = 45_000;
+// Detached review budget: the dedicated review route owns its own invocation
+// clock, so the review stops racing the section job's residual seconds
+// (285s job + 45s review > 300s route maxDuration guaranteed-killed reviews
+// on long sections — the Anura run's three `review unavailable` badges).
+const detachedReviewTimeoutMs = 90_000;
 
 function readLabReviewTimeoutMs(
   env: Record<string, string | undefined>,
@@ -606,7 +621,7 @@ async function attachAgenticReview(input: {
   }
 }
 
-async function runPostCommitAgenticReview(input: {
+export interface RunPostCommitAgenticReviewInput {
   adapter: ReturnType<typeof createSupabaseWebhookAdapter>;
   artifact: ArtifactEnvelope;
   committedRevision: number;
@@ -618,7 +633,11 @@ async function runPostCommitAgenticReview(input: {
   sectionRunId: string;
   supabase: SupabaseClient;
   userId: string;
-}): Promise<void> {
+}
+
+export async function runPostCommitAgenticReview(
+  input: RunPostCommitAgenticReviewInput,
+): Promise<void> {
   const reviewedArtifact = await attachAgenticReview({
     artifact: input.artifact,
     researchInput: input.researchInput,
@@ -663,7 +682,7 @@ async function runPostCommitAgenticReview(input: {
   });
 }
 
-function schedulePostCommitAgenticReview(input: {
+interface SchedulePostCommitAgenticReviewInput {
   adapter: ReturnType<typeof createSupabaseWebhookAdapter>;
   artifact: ArtifactEnvelope;
   committedRevision: number;
@@ -672,8 +691,67 @@ function schedulePostCommitAgenticReview(input: {
   options: CreateSupabaseRunStoreOptions;
   reviewTimeoutMs: number;
   sectionRunId: string;
-}): void {
+}
+
+// Ship the review to the dedicated review route so it gets its own invocation
+// clock. Returns false (caller runs inline) when no dispatch target is
+// configured or the kickoff cannot be delivered.
+async function postDetachedReviewKickoff(
+  input: SchedulePostCommitAgenticReviewInput,
+): Promise<boolean> {
+  const dispatch = input.options.reviewDispatch;
+
+  if (dispatch === undefined) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(dispatch.url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-key': dispatch.internalKey,
+      },
+      body: JSON.stringify({
+        userId: input.options.userId,
+        parentAuditRunId: input.options.parentAuditRunId,
+        sectionRunId: input.sectionRunId,
+        committedRevision: input.committedRevision,
+        completedAt: input.completedAt,
+        degradeToNeedsReview: input.degradeToNeedsReview,
+        reviewTimeoutMs: detachedReviewTimeoutMs,
+        artifact: input.artifact,
+        researchInput: researchInputSchema.parse(input.options.researchInput),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        '[supabase-run-store] detached review kickoff rejected; running review inline',
+        { sectionRunId: input.sectionRunId, status: response.status },
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn(
+      '[supabase-run-store] detached review kickoff failed; running review inline',
+      error instanceof Error ? error.message : String(error),
+    );
+    return false;
+  }
+}
+
+function schedulePostCommitAgenticReview(
+  input: SchedulePostCommitAgenticReviewInput,
+): void {
   input.options.schedulePostCommitReview?.(async (): Promise<void> => {
+    if (await postDetachedReviewKickoff(input)) {
+      return;
+    }
+
     try {
       await runPostCommitAgenticReview({
         adapter: input.adapter,

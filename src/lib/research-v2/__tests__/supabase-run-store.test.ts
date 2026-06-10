@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
@@ -1219,4 +1219,94 @@ describe('createSupabaseRunStore', (): void => {
       expect(fakeSupabase.rpc).not.toHaveBeenCalled();
     });
   }
+});
+
+describe('detached review kickoff (true W3 detach)', (): void => {
+  afterEach((): void => {
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs the review payload to the dispatch URL and skips the inline review', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const reviewScheduler = createReviewScheduler();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ scheduled: true }), { status: 202 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
+      reviewDispatch: {
+        url: 'https://app.test/api/research-v2/review-section',
+        internalKey: 'internal-secret',
+      },
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.createRun(saaslaunchResearchInput);
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+    await reviewScheduler.drain();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://app.test/api/research-v2/review-section');
+    expect(
+      (init.headers as Record<string, string>)['x-internal-key'],
+    ).toBe('internal-secret');
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(payload.userId).toBe(userId);
+    expect(payload.parentAuditRunId).toBe(parentAuditRunId);
+    expect(payload.sectionRunId).toBe(
+      sectionRunIdByZone.positioningMarketCategory,
+    );
+    expect(payload.reviewTimeoutMs).toBe(90_000);
+    expect(payload.artifact).toMatchObject({
+      sectionId: 'positioningMarketCategory',
+    });
+    expect(payload.researchInput).toMatchObject({
+      runId: saaslaunchResearchInput.runId,
+    });
+    // The review itself belongs to the detached route invocation now.
+    expect(reviewMocks.reviewAndUpgradeSection).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the inline review when the kickoff is rejected', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase();
+    const reviewScheduler = createReviewScheduler();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('nope', { status: 500 })),
+    );
+
+    const store = createSupabaseRunStore({
+      supabase: fakeSupabase.supabase,
+      userId,
+      parentAuditRunId,
+      sectionRunIdByZone,
+      researchInput: saaslaunchResearchInput,
+      schedulePostCommitReview: reviewScheduler.schedulePostCommitReview,
+      reviewDispatch: {
+        url: 'https://app.test/api/research-v2/review-section',
+        internalKey: 'internal-secret',
+      },
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await store.createRun(saaslaunchResearchInput);
+    await store.saveArtifact(
+      saaslaunchResearchInput.runId,
+      marketCategoryFixtureArtifact,
+    );
+    await reviewScheduler.drain();
+
+    expect(reviewMocks.reviewAndUpgradeSection).toHaveBeenCalledTimes(1);
+  });
 });

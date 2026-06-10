@@ -13,7 +13,10 @@ import {
   type SectionRunClaimResult,
 } from '@/lib/research-v2/section-run-claim';
 import { buildSectionRunIdByZone } from '@/lib/research-v2/section-run-id-map';
-import { createSupabaseRunStore } from '@/lib/research-v2/supabase-run-store';
+import {
+  createSupabaseRunStore,
+  type SupabaseRunStoreReviewDispatch,
+} from '@/lib/research-v2/supabase-run-store';
 
 export const LAB_SECTION_JOB_TIMEOUT_MS = 285_000;
 
@@ -28,6 +31,9 @@ export interface ScheduleLabSectionJobInput {
   supabase: SupabaseClient;
   schedule: ScheduleLabSectionTask;
   onJobComplete?: (context: ScheduleLabSectionJobContext) => Promise<void>;
+  // True W3 detach: forwarded to the run store so the post-commit agentic
+  // review runs in its own route invocation instead of this one's clock.
+  reviewDispatch?: SupabaseRunStoreReviewDispatch;
 }
 
 export interface ScheduleLabSectionJobResult extends SeedOrchestrationResult {
@@ -96,6 +102,9 @@ export async function scheduleLabSectionJob(
     sectionRunIdByZone,
     researchInput: input.researchInput,
     schedulePostCommitReview: input.schedule,
+    ...(input.reviewDispatch === undefined
+      ? {}
+      : { reviewDispatch: input.reviewDispatch }),
   });
 
   await store.createRun(input.researchInput);

@@ -48,6 +48,22 @@ interface ParentRollupStatusRow {
   children_total?: unknown;
 }
 
+// True W3 detach: the post-commit agentic review ships to its own route
+// invocation so it never competes with the 285s section job for this route's
+// 300s clock. Disabled (inline fallback) when the internal key is absent.
+function buildReviewDispatch(
+  request: Request,
+): { url: string; internalKey: string } | undefined {
+  const internalKey = process.env.RAILWAY_API_KEY?.trim();
+  if (internalKey === undefined || internalKey === '') {
+    return undefined;
+  }
+  return {
+    url: new URL('/api/research-v2/review-section', request.url).toString(),
+    internalKey,
+  };
+}
+
 // W3-A pure-lean: the paid-media plan reads the six committed positioning
 // artifacts directly off the 6/6 rollup (and needs the parent audit run id to
 // load them). The thinker + synthesis capstones no longer auto-dispatch through
@@ -186,6 +202,7 @@ async function hasCompleteSixSectionRollup({
 async function dispatchPaidMediaIfSixComplete({
   baseResearchInput,
   parentAuditRunId,
+  reviewDispatch,
   runId,
   schedule,
   supabase,
@@ -193,6 +210,7 @@ async function dispatchPaidMediaIfSixComplete({
 }: {
   baseResearchInput: ResearchInput;
   parentAuditRunId: string;
+  reviewDispatch?: { url: string; internalKey: string };
   runId: string;
   schedule: ScheduleLabSectionTask;
   supabase: ReturnType<typeof createAdminClient>;
@@ -234,6 +252,7 @@ async function dispatchPaidMediaIfSixComplete({
     supabase,
     researchInput: paidMediaResearchInput.researchInput,
     schedule,
+    ...(reviewDispatch === undefined ? {} : { reviewDispatch }),
   });
 }
 
@@ -354,6 +373,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const researchInput = capstoneResearchInput.researchInput;
+    const reviewDispatch = buildReviewDispatch(request);
     const scheduled = await scheduleLabSectionJob({
       userId,
       runId: body.run_id,
@@ -362,6 +382,7 @@ export async function POST(request: Request): Promise<Response> {
       supabase,
       researchInput,
       schedule: after,
+      ...(reviewDispatch === undefined ? {} : { reviewDispatch }),
       ...(isPositioningSectionId(body.section_id)
         ? {
             // W3-A autonomy invariant: when the sixth positioning section commits
@@ -375,6 +396,7 @@ export async function POST(request: Request): Promise<Response> {
                 await dispatchPaidMediaIfSixComplete({
                   baseResearchInput,
                   parentAuditRunId: seeded.parent_audit_run_id,
+                  ...(reviewDispatch === undefined ? {} : { reviewDispatch }),
                   runId: body.run_id,
                   schedule: after,
                   supabase,
