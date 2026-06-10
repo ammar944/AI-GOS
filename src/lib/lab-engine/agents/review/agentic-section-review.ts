@@ -17,6 +17,13 @@ const DEFAULT_REVIEW_TIMEOUT_MS = 45_000;
 const REVIEW_METADATA_PATTERN =
   /<review_metadata>([\s\S]*?)<\/review_metadata>/u;
 const CLAIMED_REVIEW_LABEL_PATTERN = /\[[^\]\n]{1,120}\]/gu;
+const REVIEW_REMOVAL_CLAIM_PATTERN =
+  /\b(?:delete|deleted|drop|dropped|omit|omitted|remove|removed|removing|strip|stripped)\b/iu;
+const CLAIMED_REMOVED_NUMBER_PATTERN =
+  /[$€£]?\s*\d[\d,]*(?:\.\d+)?(?:\s*(?:-|–|—|to)\s*[$€£]?\s*\d[\d,]*(?:\.\d+)?)?\s*(?:%|percent|[kmbt]\b|thousand|million|billion)?/giu;
+const CLAIMED_DOUBLE_QUOTED_TOKEN_PATTERN = /["“]([^"”\n]{2,160})["”]/gu;
+const CLAIMED_SINGLE_QUOTED_TOKEN_PATTERN = /'([^'\n]{2,160})'/gu;
+const UNVERIFIED_MARKER_AFTER_TOKEN_PATTERN = /^\s*\[\s*unverified\b[^\]]*\]/iu;
 
 type ReviewProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
 type ReviewWarningSink = (
@@ -213,7 +220,12 @@ function stringifyArtifactBody(artifact: ArtifactEnvelope | null): string {
     return "";
   }
 
-  return JSON.stringify(artifact.body) ?? "";
+  return (
+    JSON.stringify({
+      statusSummary: artifact.statusSummary,
+      body: artifact.body,
+    }) ?? ""
+  );
 }
 
 function buildReviewApplicationSearchText(input: {
@@ -222,6 +234,135 @@ function buildReviewApplicationSearchText(input: {
 }): string {
   return [stringifyArtifactBody(input.artifact), input.upgradedMarkdown].join(
     "\n",
+  );
+}
+
+function normalizeReviewSearchText(value: string): string {
+  return value.toLowerCase().replace(/\s+/gu, " ").trim();
+}
+
+function claimsRemoval(item: string): boolean {
+  return REVIEW_REMOVAL_CLAIM_PATTERN.test(item);
+}
+
+function extractCapturedTokenMatches(
+  value: string,
+  pattern: RegExp,
+): string[] {
+  return Array.from(value.matchAll(pattern), (match) => match[1] ?? "")
+    .map((match) => match.trim())
+    .filter((match) => match.length > 0);
+}
+
+function extractClaimedRemovedTokens(item: string): string[] {
+  const tokens = [
+    ...Array.from(item.matchAll(CLAIMED_REMOVED_NUMBER_PATTERN), (match) =>
+      match[0].trim(),
+    ),
+    ...extractCapturedTokenMatches(item, CLAIMED_DOUBLE_QUOTED_TOKEN_PATTERN),
+    ...extractCapturedTokenMatches(item, CLAIMED_SINGLE_QUOTED_TOKEN_PATTERN),
+  ];
+
+  return Array.from(
+    new Set(
+      tokens
+        .map((token) => normalizeReviewSearchText(token))
+        .filter((token) => token.length > 0),
+    ),
+  );
+}
+
+function isReviewTokenBoundary(value: string | undefined): boolean {
+  return value === undefined || !/[a-z0-9]/iu.test(value);
+}
+
+function isFollowedByUnverifiedMarker(input: {
+  normalizedText: string;
+  tokenEndIndex: number;
+}): boolean {
+  return UNVERIFIED_MARKER_AFTER_TOKEN_PATTERN.test(
+    input.normalizedText.slice(input.tokenEndIndex),
+  );
+}
+
+function isInsideEvidenceGapPhrase(input: {
+  normalizedText: string;
+  tokenStartIndex: number;
+}): boolean {
+  const evidenceGapIndex = input.normalizedText.lastIndexOf(
+    "evidence gap:",
+    input.tokenStartIndex,
+  );
+
+  if (evidenceGapIndex === -1) {
+    return false;
+  }
+
+  const previousBoundaryIndex = Math.max(
+    input.normalizedText.lastIndexOf(".", input.tokenStartIndex),
+    input.normalizedText.lastIndexOf("!", input.tokenStartIndex),
+    input.normalizedText.lastIndexOf("?", input.tokenStartIndex),
+    input.normalizedText.lastIndexOf(";", input.tokenStartIndex),
+    input.normalizedText.lastIndexOf("\n", input.tokenStartIndex),
+  );
+
+  return evidenceGapIndex > previousBoundaryIndex;
+}
+
+function hasBareTokenOccurrence(input: {
+  normalizedText: string;
+  token: string;
+}): boolean {
+  let searchFromIndex = 0;
+
+  while (searchFromIndex < input.normalizedText.length) {
+    const tokenStartIndex = input.normalizedText.indexOf(
+      input.token,
+      searchFromIndex,
+    );
+
+    if (tokenStartIndex === -1) {
+      return false;
+    }
+
+    const tokenEndIndex = tokenStartIndex + input.token.length;
+    const hasTokenBoundaries =
+      isReviewTokenBoundary(input.normalizedText[tokenStartIndex - 1]) &&
+      isReviewTokenBoundary(input.normalizedText[tokenEndIndex]);
+
+    if (
+      hasTokenBoundaries &&
+      !isFollowedByUnverifiedMarker({
+        normalizedText: input.normalizedText,
+        tokenEndIndex,
+      }) &&
+      !isInsideEvidenceGapPhrase({
+        normalizedText: input.normalizedText,
+        tokenStartIndex,
+      })
+    ) {
+      return true;
+    }
+
+    searchFromIndex = tokenEndIndex;
+  }
+
+  return false;
+}
+
+function hasFalseRemovalClaim(input: {
+  item: string;
+  normalizedSearchText: string;
+}): boolean {
+  if (!claimsRemoval(input.item)) {
+    return false;
+  }
+
+  return extractClaimedRemovedTokens(input.item).some((token) =>
+    hasBareTokenOccurrence({
+      normalizedText: input.normalizedSearchText,
+      token,
+    }),
   );
 }
 
@@ -235,6 +376,7 @@ export function enforceReviewRemovedItemsHonesty(input: {
     artifact: input.artifact,
     upgradedMarkdown: input.review.upgradedMarkdown,
   });
+  const normalizedSearchText = normalizeReviewSearchText(searchText);
   const droppedItems: string[] = [];
   const removedItems = input.review.removedItems.filter((item) => {
     const claimedLabels = extractClaimedReviewLabels(item);
@@ -242,7 +384,10 @@ export function enforceReviewRemovedItemsHonesty(input: {
       (label) => !searchText.includes(label),
     );
 
-    if (hasUnappliedLabel) {
+    if (
+      hasUnappliedLabel ||
+      hasFalseRemovalClaim({ item, normalizedSearchText })
+    ) {
       droppedItems.push(item);
       return false;
     }
@@ -258,7 +403,11 @@ export function enforceReviewRemovedItemsHonesty(input: {
   warn("[agentic-section-review] dropped removedItems entries with unapplied labels", {
     droppedItems,
     sectionId: input.sectionId,
-    surfaces: ["artifact.body", "review.upgradedMarkdown"],
+    surfaces: [
+      "artifact.statusSummary",
+      "artifact.body",
+      "review.upgradedMarkdown",
+    ],
   });
 
   return {

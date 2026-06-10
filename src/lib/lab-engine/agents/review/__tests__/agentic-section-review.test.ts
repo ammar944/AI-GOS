@@ -27,6 +27,23 @@ const mockDeepSeekModel = {
   provider: "deepseek.chat",
 } as unknown as SectionLanguageModel;
 
+function buildReviewResponse(input: {
+  upgradedMarkdown: string;
+  removedItems: string[];
+  tierRationale?: string;
+}): string {
+  return [
+    input.upgradedMarkdown,
+    `<review_metadata>${JSON.stringify({
+      tier: "needs_review",
+      tierRationale:
+        input.tierRationale ?? "Review metadata includes filtered items.",
+      removedItems: input.removedItems,
+      clientQuestions: [],
+    })}</review_metadata>`,
+  ].join("\n");
+}
+
 describe("parseSectionReviewResponse", (): void => {
   it("parses upgraded markdown plus the tiny metadata tail", (): void => {
     const result = parseSectionReviewResponse({
@@ -137,9 +154,114 @@ describe("reviewAndUpgradeSection", (): void => {
         expect.objectContaining({
           droppedItems: [unappliedRemovedItem],
           sectionId: "positioningMarketCategory",
-          surfaces: ["artifact.body", "review.upgradedMarkdown"],
+          surfaces: [
+            "artifact.statusSummary",
+            "artifact.body",
+            "review.upgradedMarkdown",
+          ],
         }),
       );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("drops removedItems removal claims when the claimed token remains in the status summary", async (): Promise<void> => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((): void => undefined);
+    const falseRemovalItem =
+      "Removed unsupported SpyFu search-volume claim: 33,100 monthly searches";
+    const artifactWithUnremovedToken = {
+      ...marketCategoryFixtureArtifact,
+      statusSummary:
+        "SpyFu still shows 33,100 monthly searches in the committed summary.",
+    };
+
+    aiMocks.generateText.mockResolvedValue({
+      text: buildReviewResponse({
+        upgradedMarkdown:
+          "## Reviewed market category\n\nThe upgraded markdown avoids the precise search-volume claim.",
+        removedItems: [falseRemovalItem],
+      }),
+    });
+
+    try {
+      const result = await reviewAndUpgradeSection({
+        artifact: artifactWithUnremovedToken,
+        model: mockModel,
+        researchInput: saaslaunchResearchInput,
+        sectionId: "positioningMarketCategory",
+      });
+
+      expect(result.removedItems).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[agentic-section-review] dropped removedItems entries with unapplied labels",
+        expect.objectContaining({
+          droppedItems: [falseRemovalItem],
+          sectionId: "positioningMarketCategory",
+        }),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("keeps removedItems removal claims when the claimed token is absent from body and upgraded markdown", async (): Promise<void> => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((): void => undefined);
+    const honestRemovalItem =
+      "Removed unsupported SpyFu search-volume claim: 88,777 monthly searches";
+
+    aiMocks.generateText.mockResolvedValue({
+      text: buildReviewResponse({
+        upgradedMarkdown:
+          "## Reviewed market category\n\nThe upgraded markdown contains no precise search-volume claim.",
+        removedItems: [honestRemovalItem],
+      }),
+    });
+
+    try {
+      const result = await reviewAndUpgradeSection({
+        artifact: marketCategoryFixtureArtifact,
+        model: mockModel,
+        researchInput: saaslaunchResearchInput,
+        sectionId: "positioningMarketCategory",
+      });
+
+      expect(result.removedItems).toEqual([honestRemovalItem]);
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("keeps removedItems removal claims when the claimed token only survives with an unverified relabel marker", async (): Promise<void> => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((): void => undefined);
+    const relabeledRemovalItem =
+      "Removed or relabeled unsupported SpyFu search-volume claim: 33,100 monthly searches";
+
+    aiMocks.generateText.mockResolvedValue({
+      text: buildReviewResponse({
+        upgradedMarkdown:
+          "## Reviewed market category\n\nSpyFu search volume is 33,100 [unverified].",
+        removedItems: [relabeledRemovalItem],
+      }),
+    });
+
+    try {
+      const result = await reviewAndUpgradeSection({
+        artifact: marketCategoryFixtureArtifact,
+        model: mockModel,
+        researchInput: saaslaunchResearchInput,
+        sectionId: "positioningMarketCategory",
+      });
+
+      expect(result.removedItems).toEqual([relabeledRemovalItem]);
+      expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
     }
