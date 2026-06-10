@@ -9,6 +9,18 @@ const entityNameFieldNames = new Set([
   "name",
   "persona",
 ]);
+// Self-authored label paths: `name` fields whose value the section AUTHORS as
+// an analytical label rather than reports from the world (funnel path names
+// like "PRIMARY - Cold Social to Comparison Page", structural-force labels,
+// buying-trigger labels). Extracting these as entityName claims guarantees
+// unsupported flags — no source can ever corroborate a label the model just
+// coined — which drags tiers down for honesty-noise, not evidence (Anura run:
+// 3 of paid-media's 7 unsupported claims were its own funnel names).
+const selfAuthoredLabelPaths = new Set([
+  "body.funnelIdeation.name",
+  "body.structuralForces.forces.name",
+  "body.buyingContext.triggers.name",
+]);
 const countFieldNames = new Set([
   "accountCount",
   "audienceSize",
@@ -159,17 +171,23 @@ function pushClaim({
 function extractStringClaims({
   claims,
   fieldName,
+  fieldPath,
   seen,
   value,
 }: {
   claims: Claim[];
   fieldName: string;
+  fieldPath: string;
   seen: Set<string>;
   value: string;
 }): void {
   const normalized = normalizeWhitespace(value);
 
-  if (entityNameFieldNames.has(fieldName) && normalized.length >= 3) {
+  if (
+    entityNameFieldNames.has(fieldName) &&
+    normalized.length >= 3 &&
+    !selfAuthoredLabelPaths.has(fieldPath)
+  ) {
     pushClaim({
       claim: {
         kind: "entityName",
@@ -364,22 +382,27 @@ function extractRecordClaims({
 function walkValue({
   claims,
   fieldName,
+  fieldPath,
   seen,
   value,
 }: {
   claims: Claim[];
   fieldName: string;
+  // Dot-joined ancestor keys, array indices elided ("body.funnelIdeation.name")
+  // — lets the extractor skip pinned self-authored label paths without
+  // changing behavior for same-named fields elsewhere.
+  fieldPath: string;
   seen: Set<string>;
   value: unknown;
 }): void {
   if (typeof value === "string") {
-    extractStringClaims({ claims, fieldName, seen, value });
+    extractStringClaims({ claims, fieldName, fieldPath, seen, value });
     return;
   }
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      walkValue({ claims, fieldName, seen, value: item });
+      walkValue({ claims, fieldName, fieldPath, seen, value: item });
     }
     return;
   }
@@ -391,7 +414,13 @@ function walkValue({
   extractRecordClaims({ claims, record: value, seen });
 
   for (const [key, childValue] of Object.entries(value)) {
-    walkValue({ claims, fieldName: key, seen, value: childValue });
+    walkValue({
+      claims,
+      fieldName: key,
+      fieldPath: `${fieldPath}.${key}`,
+      seen,
+      value: childValue,
+    });
   }
 }
 
@@ -399,7 +428,7 @@ export function extractClaims(body: unknown): Claim[] {
   const claims: Claim[] = [];
   const seen = new Set<string>();
 
-  walkValue({ claims, fieldName: "body", seen, value: body });
+  walkValue({ claims, fieldName: "body", fieldPath: "body", seen, value: body });
 
   return claims;
 }

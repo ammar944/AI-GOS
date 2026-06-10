@@ -193,3 +193,41 @@ describe("extractClaims", (): void => {
     expect(claims.filter((claim) => claim.value === "12%")).toHaveLength(1);
   });
 });
+
+describe("self-authored label paths", (): void => {
+  it("does not extract funnel/force/trigger labels as entityName claims", (): void => {
+    const claims = extractClaims({
+      funnelIdeation: [
+        { name: "PRIMARY - Cold Social to Comparison Page", rank: "1" },
+        { name: "SECONDARY - Paid Search to Product Page", rank: "2" },
+      ],
+      structuralForces: {
+        forces: [{ name: "Evidence and privacy pressure around AI sales automation" }],
+      },
+      buyingContext: {
+        triggers: [{ name: "Fraud loss event", window: "weeks" }],
+      },
+    });
+
+    expect(
+      claims.filter((claim) => claim.kind === "entityName"),
+    ).toEqual([]);
+  });
+
+  it("still extracts real entity names at other paths named `name`", (): void => {
+    const claims = extractClaims({
+      clusters: {
+        venues: [{ name: "r/PPC", audienceSize: "180k members" }],
+      },
+      personaReality: {
+        personas: [{ name: "Brett Kaufmann", company: "Successful Media" }],
+      },
+    });
+
+    const entityNames = claims
+      .filter((claim) => claim.kind === "entityName")
+      .map((claim) => claim.value);
+    expect(entityNames).toContain("r/PPC");
+    expect(entityNames).toContain("Brett Kaufmann");
+  });
+});
