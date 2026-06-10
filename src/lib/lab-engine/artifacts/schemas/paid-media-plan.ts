@@ -515,17 +515,23 @@ function normalizeAudienceType(
     provenance: dailyBudgetProvenance,
     value: record.dailyBudgetValue,
   });
+  // Platform-NEUTRAL fallbacks only. The old defaults were Meta-branded
+  // ("1% Lookalike", "Advantage+"), so a model that omitted an archetype label
+  // shipped a Meta mechanism name on plans whose SOP channel policy forbids
+  // Meta (Anura rerun: correct LinkedIn/Google targeting under a leaked
+  // "Advantage+" label). The skill names the platform-native trios; the
+  // fallback must not re-brand the slot.
   const defaults = [
     {
-      archetype: "Broad Prospecting - Interest Stack",
+      archetype: "Broad Prospecting",
       slot: "01",
     },
     {
-      archetype: "High Intent - ABM ICP List + 1% Lookalike",
+      archetype: "High Intent",
       slot: "02",
     },
     {
-      archetype: "AI Optimized - Advantage+",
+      archetype: "AI Optimized",
       slot: "03",
     },
   ];

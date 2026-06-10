@@ -3573,6 +3573,19 @@ async function callStructuredAttempt({
     const postRequiredEvidenceHook = ({
       artifact: candidateArtifact,
     }: PostRequiredEvidenceHookContext): HookOutcome => {
+      if (input.sectionId === "positioningPaidMediaPlan") {
+        // Media-Plan SOP channel policy — same gate as the answer-tool path,
+        // so the single-call paid-media flow cannot ship Meta-templated
+        // structures (labels included) on a forbidden-Meta brief.
+        const channelPolicyErrors = checkPaidMediaChannelPolicy({
+          body: candidateArtifact.body as PaidMediaPolicyCheckBody,
+          policy: deriveChannelPolicy(researchInput.onboarding),
+        });
+        if (channelPolicyErrors.length > 0) {
+          return { kind: "reject", errors: channelPolicyErrors };
+        }
+      }
+
       if (input.sectionId !== "positioningVoiceOfCustomer") {
         return { kind: "ok" };
       }
