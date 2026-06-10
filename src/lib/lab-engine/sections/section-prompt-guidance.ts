@@ -30,6 +30,7 @@ export const marketCategoryMinimumGuidance = [
   '- MarketCategorySectionOutput bottom-up TAM: use `monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV`; sourced inputs require `sourceUrl`, and unavailable inputs must use `status: "evidence-gap"` with `value` beginning `evidence gap:`. Do not substitute analyst TAM for the bottom-up recipe.',
   "- MarketCategorySectionOutput minimums: `body.structuralForces.forces` must include exactly one `regulation`, one `platform-shift`, and one `buyer-behavior` forceType.",
   "- MarketCategorySectionOutput minimums: `body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals.",
+  "- MarketCategorySectionOutput exact item contracts: `body.categoryMaturity.classification.supportingSignals[]` keys are `signalType`, `evidence`, `implication`, optional `sourceUrl`; do not add `name` or any other key — unrecognized keys fail the strict decoder.",
 ] as const;
 
 export const competitorLandscapeStrategicDepthGuidance = [
