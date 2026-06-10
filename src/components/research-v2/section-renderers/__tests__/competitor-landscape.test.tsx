@@ -72,6 +72,12 @@ describe('CompetitorLandscapeRenderer', () => {
     expect(blocks[7]).toHaveTextContent('SignalForge');
     expect(blocks[7]).toHaveTextContent('Turn scattered GTM signals into account priorities');
     expect(within(blocks[7]).getByTestId('library-link-linkedin-ads')).toBeInTheDocument();
+
+    // One advertiser tab per group in the fixture's adEvidence.
+    const tablist = within(blocks[7]).getByRole('tablist', {
+      name: 'Ad evidence advertisers',
+    });
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(3);
   });
 
   it('renders creative cards in the ads-found state when an advertiser has creatives', () => {
@@ -161,7 +167,7 @@ describe('CompetitorLandscapeRenderer', () => {
     expect(group).not.toHaveAttribute('data-state', 'no-active-ads');
   });
 
-  it('renders no-active-ads and not-checked honest states', () => {
+  it('shows one advertiser panel at a time and switches honest states via tabs', () => {
     const artifact = withAdvertiserGroups([
       makeGroup({
         advertiserName: 'QuietCo',
@@ -180,15 +186,81 @@ describe('CompetitorLandscapeRenderer', () => {
 
     render(<CompetitorLandscapeRenderer artifact={artifact} />);
 
-    const groups = screen.getAllByTestId('ad-evidence-group');
-    expect(groups[0]).toHaveAttribute('data-state', 'no-active-ads');
-    expect(within(groups[0]).getByTestId('ad-evidence-state-no-active-ads')).toHaveTextContent(
-      /No active ads found/i,
-    );
-    expect(groups[1]).toHaveAttribute('data-state', 'not-checked');
-    expect(within(groups[1]).getByTestId('ad-evidence-state-not-checked')).toHaveTextContent(
-      /Not yet checked/i,
-    );
+    const tablist = screen.getByRole('tablist', {
+      name: 'Ad evidence advertisers',
+    });
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(2);
+
+    // Only the selected advertiser's panel renders — first group by default.
+    expect(screen.getAllByTestId('ad-evidence-group')).toHaveLength(1);
+    const quietCoPanel = screen.getByTestId('ad-evidence-group');
+    expect(quietCoPanel).toHaveAttribute('data-state', 'no-active-ads');
+    expect(
+      within(quietCoPanel).getByTestId('ad-evidence-state-no-active-ads'),
+    ).toHaveTextContent(/No active ads found/i);
+
+    fireEvent.click(within(tablist).getByRole('tab', { name: /UnknownCo/i }));
+
+    expect(screen.getAllByTestId('ad-evidence-group')).toHaveLength(1);
+    const unknownCoPanel = screen.getByTestId('ad-evidence-group');
+    expect(unknownCoPanel).toHaveAttribute('data-state', 'not-checked');
+    expect(
+      within(unknownCoPanel).getByTestId('ad-evidence-state-not-checked'),
+    ).toHaveTextContent(/Not yet checked/i);
+  });
+
+  it('badges zero-creative advertiser tabs with a muted no-ads marker', () => {
+    const artifact = withAdvertiserGroups([
+      makeGroup({
+        advertiserName: 'AcmeAds',
+        platforms: ['meta'],
+        rawCounts: { google: 0, meta: 1, linkedin: 0 },
+        displayableCounts: { google: 0, meta: 1, linkedin: 0 },
+        displayableTotal: 1,
+        returnedCreativeCount: 1,
+        creatives: [
+          {
+            id: 'ad_meta_acmeads_0',
+            platform: 'meta',
+            advertiserName: 'AcmeAds',
+            headline: 'Ship pipeline reviews in minutes',
+            body: 'Automated account prioritisation for revenue teams.',
+            landingUrl: null,
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl: null,
+            sourceUrl: 'https://example.com/fixtures/ad-library/acmeads-meta',
+            firstSeen: '2026-04-08',
+            lastSeen: '2026-05-18',
+            format: 'text',
+            isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
+          },
+        ],
+      }),
+      makeGroup({
+        advertiserName: 'QuietCo',
+        platforms: ['meta'],
+        creatives: [],
+      }),
+    ]);
+
+    render(<CompetitorLandscapeRenderer artifact={artifact} />);
+
+    const tablist = screen.getByRole('tablist', {
+      name: 'Ad evidence advertisers',
+    });
+    const markers = within(tablist).getAllByTestId('ad-evidence-tab-no-ads');
+    expect(markers).toHaveLength(1);
+    expect(
+      within(tablist).getByRole('tab', { name: /QuietCo/i }),
+    ).toHaveTextContent(/no ads/i);
+    expect(
+      within(tablist).getByRole('tab', { name: /AcmeAds/i }),
+    ).not.toHaveTextContent(/no ads/i);
   });
 
   it('renders an honest empty state when adEvidence has no advertiser groups', () => {

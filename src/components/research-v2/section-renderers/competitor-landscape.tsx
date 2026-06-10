@@ -315,7 +315,19 @@ function AdEvidenceSection({
 }: {
   adEvidence: CompetitorLandscapeArtifact['adEvidence'];
 }): React.ReactElement {
-  if (adEvidence.advertiserGroups.length === 0) {
+  const groups = adEvidence.advertiserGroups;
+  const [selectedName, setSelectedName] = useState(
+    groups[0]?.advertiserName ?? '',
+  );
+
+  useEffect(() => {
+    if (groups.some((group) => group.advertiserName === selectedName)) {
+      return;
+    }
+    setSelectedName(groups[0]?.advertiserName ?? '');
+  }, [groups, selectedName]);
+
+  if (groups.length === 0) {
     return (
       <div className="grid gap-2 text-[13px] leading-[1.6] text-muted-foreground">
         <p>No live ad creatives captured for this audit.</p>
@@ -323,14 +335,58 @@ function AdEvidenceSection({
     );
   }
 
+  const selectedGroup =
+    groups.find((group) => group.advertiserName === selectedName) ?? groups[0];
+  const selectedId = toDomId(selectedGroup.advertiserName);
+
   return (
-    <div className="grid gap-5">
-      {adEvidence.advertiserGroups.map((group) => (
-        <AdEvidenceGroupBlock
-          key={`${group.advertiserName}-${group.observedAt}`}
-          group={group}
-        />
-      ))}
+    <div className="flex flex-col gap-4">
+      <div
+        role="tablist"
+        aria-label="Ad evidence advertisers"
+        className="flex gap-2 overflow-x-auto border-b border-border"
+      >
+        {groups.map((group) => {
+          const selected =
+            group.advertiserName === selectedGroup.advertiserName;
+          const tabId = toDomId(group.advertiserName);
+          return (
+            <button
+              key={group.advertiserName}
+              id={`ad-evidence-tab-${tabId}`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`ad-evidence-panel-${tabId}`}
+              onClick={() => setSelectedName(group.advertiserName)}
+              className={cn(
+                'shrink-0 border-b-2 px-1 pb-2 pt-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] transition-colors',
+                selected
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-muted-foreground',
+              )}
+            >
+              {group.advertiserName}
+              {group.creatives.length === 0 ? (
+                <span
+                  data-testid="ad-evidence-tab-no-ads"
+                  className="ml-1.5 text-[10px] text-muted-foreground/70"
+                >
+                  · no ads
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        id={`ad-evidence-panel-${selectedId}`}
+        role="tabpanel"
+        aria-labelledby={`ad-evidence-tab-${selectedId}`}
+      >
+        <AdEvidenceGroupBlock group={selectedGroup} />
+      </div>
     </div>
   );
 }
