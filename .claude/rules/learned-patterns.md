@@ -13,6 +13,14 @@
 - When wiring `deepseek-v4-pro` for an IN-PIPELINE call that must emit structured output (e.g. the `<strategic_critic>` JSON tail), set `providerOptions.deepseek.thinking.type = 'disabled'`. With reasoning ENABLED it burns ~7.7k–8.7k output tokens on thinking and runs 170–215s, truncating the tail (`finishReason: length`, no close tag) → the critic falls back with NO upgrade. Thinking DISABLED keeps pro's stronger judgment and emits a complete tail in ~70–95s. `reasoningEffort: 'low'` does NOT meaningfully reduce the reasoning-token burn. Live-probed 2026-06-07 against the Ramp cross-section artifact. (P2.1)
 - `deepseek-v4-pro` model id is valid+funded on the repo's DeepSeek endpoint but rides the `(string & {})` escape hatch (no TS validation) — live-probe a new id once before trusting. Give it generous `maxOutputTokens` (≥12k) for a full body-replacement tail.
 
+## Perplexity (sonar / sonar-deep-research)
+- When a live probe justifies a model upgrade, the probe MUST run the exact shipped call config — the 2026-06-10 sonar-deep-research upgrade probed at `reasoning_effort: low` (17s) but shipped without providerOptions → prod ran at default effort (152–475s) and blew the 900s job watchdog. If `sonar-deep-research` is configured, always pass `providerOptions: { perplexity: { reasoning_effort: ... } }`.
+- When composing multi-call research (main + fan-out + repair), strip uncited/non-compliant rows deterministically BEFORE hard-failing validation — asking the model to re-comply via repair rounds is slow, paid, and flaky (live: 4 stray URLs killed a 100+-claim corpus; stripping fixed it at zero cost). Repairs must not re-run enrichment fan-outs.
+- AI SDK v6 `result.output` is a THROWING getter (`No output generated.`) when structured parsing failed — wrap access in try/catch before any `safeParse(result.output)` or the text-extraction fallback never runs.
+
+## Worker (research-worker)
+- When a watchdog/stale-check marks a job failed, it MUST also `abortControllers.get(jobId)?.abort()` — writing the error status alone leaves a zombie runner that keeps spending and later overwrites `error` with `complete` (user sees timeout, then data appears). Runners must accept and thread the `abortSignal` (4th arg) into every provider call.
+
 ## Next.js
 - When API routes timeout on Vercel, add `export const maxDuration = 300` (requires Pro tier)
 - When SSE events aren't received by frontend, check event name casing — backend and frontend must match exactly

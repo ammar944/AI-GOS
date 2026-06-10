@@ -53,8 +53,8 @@ export function CorpusStream({ userId, runId, onComplete }: CorpusStreamProps) {
         <div className="space-y-2">
           <SectionTitle>Researching company…</SectionTitle>
           <p className="max-w-[68ch] text-[15px] leading-[1.6] text-muted-foreground">
-            Building the source-backed corpus for your positioning audit. Takes
-            30–90 seconds.
+            Building the source-backed corpus for your positioning audit.
+            Usually takes 1–2 minutes — live search activity appears below.
           </p>
         </div>
 

@@ -275,7 +275,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           {
             at: now,
             id: crypto.randomUUID(),
-            message: 'Still running…',
+            message: `Still researching… ${Math.round((Date.now() - startMs) / 1000)}s elapsed`,
             phase: 'heartbeat',
           },
         ],
@@ -573,7 +573,12 @@ setInterval(() => {
   for (const [jobId, job] of activeJobs) {
     const threshold = TOOL_STALE_THRESHOLDS[job.tool as ToolName] ?? STALE_THRESHOLD_MS;
     if (now - job.startedAt > threshold) {
-      console.error(`[stale-check] Job ${jobId} (${job.tool}) exceeded ${threshold / 1000}s — marking as error`);
+      console.error(`[stale-check] Job ${jobId} (${job.tool}) exceeded ${threshold / 1000}s — aborting and marking as error`);
+      // Abort the in-flight runner. Without this the detached job keeps
+      // burning provider credits and later overwrites this error status with
+      // a zombie 'complete' (observed live 2026-06-10: corpus job hit the
+      // watchdog at 900s, then finished at 995s and filled onboarding anyway).
+      abortControllers.get(jobId)?.abort(new Error(`timeout: job exceeded ${threshold / 1000}s`));
       writeJobStatus(job.userId, jobId, {
         runId: job.runId,
         status: 'error',

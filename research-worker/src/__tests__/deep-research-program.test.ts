@@ -538,8 +538,10 @@ describe('runDeepResearchProgram', () => {
       model?: { modelId?: string };
       output?: unknown;
       prompt?: string;
+      providerOptions?: unknown;
     };
-    expect(call.model?.modelId).toBe('sonar-deep-research');
+    expect(call.model?.modelId).toBe('sonar-pro');
+    expect(call.providerOptions).toBeUndefined();
     expect(call.output).toBeDefined();
     expect(call.prompt).toContain('https://ramp.com');
     expect(call.prompt).toContain('intelligenceTopics');
@@ -552,7 +554,7 @@ describe('runDeepResearchProgram', () => {
     expect(generateTextMock.mock.calls[2]?.[0].prompt).toContain('competitors-pricing-offer');
     expect(generateTextMock.mock.calls[3]?.[0].prompt).toContain('voc-demand-events');
     expect(result.provenance?.citationCount).toBe(10);
-    expect(result.telemetry?.model).toBe('sonar-deep-research');
+    expect(result.telemetry?.model).toBe('sonar-pro');
     expect(JSON.stringify(result.data)).toContain('Supplemental offer proof');
     expect(JSON.stringify(result.data)).not.toContain('example.com');
     expect(
@@ -562,6 +564,90 @@ describe('runDeepResearchProgram', () => {
           update.meta.status === 'complete',
       ),
     ).toBe(true);
+  });
+
+  it('pins low reasoning effort when the agentic deep-research model is opted in via env', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    process.env.RESEARCH_DEEP_PROGRAM_MAIN_MODEL = 'sonar-deep-research';
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(buildCorpusFixture()) as Awaited<ReturnType<typeof generateText>>,
+    );
+    queueTopicFanoutResults(generateTextMock);
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+    );
+
+    expect(result.status).toBe('complete');
+    const call = generateTextMock.mock.calls[0]?.[0] as {
+      model?: { modelId?: string };
+      providerOptions?: { perplexity?: { reasoning_effort?: string } };
+    };
+    expect(call.model?.modelId).toBe('sonar-deep-research');
+    expect(call.providerOptions?.perplexity?.reasoning_effort).toBe('low');
+    const fanoutCall = generateTextMock.mock.calls[1]?.[0] as {
+      model?: { modelId?: string };
+      providerOptions?: unknown;
+    };
+    expect(fanoutCall.model?.modelId).toBe('sonar-pro');
+    expect(fanoutCall.providerOptions).toBeUndefined();
+  });
+
+  it('keeps the corpus when a topic fan-out group fails instead of discarding it', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(buildCorpusFixture()) as Awaited<ReturnType<typeof generateText>>,
+    );
+    const supplements = buildTopicSupplementResults();
+    generateTextMock.mockRejectedValueOnce(
+      new Error('Deep research topic fan-out (company-market-buyers) timed out after 120s'),
+    );
+    for (const supplement of supplements.slice(1)) {
+      generateTextMock.mockResolvedValueOnce(
+        buildGenerateTextResult(
+          supplement.output,
+          supplement.sources,
+        ) as Awaited<ReturnType<typeof generateText>>,
+      );
+    }
+    const progress: RunnerProgressUpdate[] = [];
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+      (update) => {
+        progress.push(update);
+      },
+    );
+
+    expect(result.status).toBe('complete');
+    // Main corpus (1) + three fan-out attempts (3) — no draft retry, no fallback model.
+    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(result.provenance?.citationCount).toBe(10);
+    expect(
+      progress.some((update) =>
+        update.message.includes('topic expansion incomplete for company-market-buyers'),
+      ),
+    ).toBe(true);
+  });
+
+  it('aborts before any Perplexity spend when the job signal is already aborted', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const generateTextMock = vi.mocked(generateText);
+    const controller = new AbortController();
+    controller.abort(new Error('job watchdog timeout'));
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+      undefined,
+      undefined,
+      controller.signal,
+    );
+
+    expect(result.status).toBe('error');
+    expect(result.error).toContain('aborted');
+    expect(generateTextMock).not.toHaveBeenCalled();
   });
 
   it('runs bounded topic fan-out when the main corpus has fewer than ten citations', async () => {
@@ -589,104 +675,94 @@ describe('runDeepResearchProgram', () => {
     expect(result.provenance?.citationCount).toBe(10);
   });
 
-  it('re-repairs a corpus when the first repair still contains non-cited URLs', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.ANTHROPIC_AUTH_TOKEN;
+  it('strips uncited rows and completes without repair when minimums still hold', async () => {
     process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
-    const corpusFixture = buildCorpusFixture();
     const brokenCorpus = buildCorpusFixture();
-    const brokenSources = (brokenCorpus.corpus as {
-      sources: Array<{ title: string; url: string; whyItMatters: string }>;
-    }).sources;
-    brokenSources.splice(4, brokenSources.length - 4);
     const brokenEvidence = (brokenCorpus.corpus as {
       evidence: Array<{ claim: string; source: string; url: string; quote: string; confidence: number }>;
     }).evidence;
-    brokenEvidence.splice(5, brokenEvidence.length - 5);
-    brokenEvidence.push(
-      {
-        claim: 'Ramp has an uncited card page.',
-        source: 'Ramp card',
-        url: 'https://ramp.com/card',
-        quote: 'Ramp card claim that is not in the Perplexity citation set.',
-        confidence: 80,
-      },
-      {
-        claim: 'Ramp has an uncited bill pay page.',
-        source: 'Ramp bill pay',
-        url: 'https://ramp.com/bill-pay',
-        quote: 'Ramp bill pay claim that is not in the Perplexity citation set.',
-        confidence: 80,
-      },
-      {
-        claim: 'Ramp has an uncited customer page.',
-        source: 'Ramp customers',
-        url: 'https://ramp.com/customers',
-        quote: 'Ramp customer claim that is not in the Perplexity citation set.',
-        confidence: 80,
-      },
-    );
-
-    const firstRepair = buildCorpusFixture();
-    (firstRepair.corpus as {
-      sources: Array<{ title: string; url: string; whyItMatters: string }>;
-    }).sources.push({
-      title: 'Ramp card',
-      url: 'https://ramp.com/card',
-      whyItMatters: 'Uncited URL from model repair.',
-    });
-    const firstRepairEvidence = (firstRepair.corpus as {
-      evidence: Array<{ claim: string; source: string; url: string; quote: string; confidence: number }>;
-    }).evidence;
-    firstRepairEvidence.splice(5, firstRepairEvidence.length - 5);
-    firstRepairEvidence.push({
+    brokenEvidence.push({
       claim: 'Ramp has an uncited card page.',
       source: 'Ramp card',
       url: 'https://ramp.com/card',
       quote: 'Ramp card claim that is not in the Perplexity citation set.',
       confidence: 80,
     });
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(brokenCorpus) as Awaited<ReturnType<typeof generateText>>,
+    );
+    queueTopicFanoutResults(generateTextMock);
+    const progress: RunnerProgressUpdate[] = [];
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+      (update) => {
+        progress.push(update);
+      },
+    );
+
+    expect(result.status).toBe('complete');
+    // Stray uncited URLs cost their rows, not the corpus: no repair round runs.
+    expect(generateTextMock).toHaveBeenCalledTimes(4);
+    expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
+    expect(
+      progress.some((update) => update.message.includes('uncited row')),
+    ).toBe(true);
+    expect(result.provenance?.citationCount).toBe(10);
+  });
+
+  it('re-repairs a corpus when the first repair is still below evidence minimums', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const gutCorpus = (fixture: Record<string, unknown>): Record<string, unknown> => {
+      const corpus = fixture.corpus as {
+        evidence: Array<unknown>;
+        intelligenceTopics: Array<{ evidence: unknown[] }>;
+      };
+      corpus.evidence.splice(3, corpus.evidence.length - 3);
+      for (const topic of corpus.intelligenceTopics) {
+        topic.evidence = [];
+      }
+      return fixture;
+    };
+    const brokenCorpus = gutCorpus(buildCorpusFixture());
+    const firstRepair = gutCorpus(buildCorpusFixture());
+    const secondRepair = buildCorpusFixture();
 
     const generateTextMock = vi.mocked(generateText);
-    generateTextMock
-      .mockResolvedValueOnce(
-        buildGenerateTextResult(brokenCorpus, citationSources.slice(0, 4)) as Awaited<ReturnType<typeof generateText>>,
-      );
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(brokenCorpus) as Awaited<ReturnType<typeof generateText>>,
+    );
     queueTopicFanoutResults(generateTextMock);
-    generateTextMock
-      .mockResolvedValueOnce(
-        buildGenerateTextResult(firstRepair, []) as Awaited<ReturnType<typeof generateText>>,
-      );
-    queueTopicFanoutResults(generateTextMock);
-    generateTextMock
-      .mockResolvedValueOnce(
-        buildGenerateTextResult(corpusFixture, []) as Awaited<ReturnType<typeof generateText>>,
-      );
-    queueTopicFanoutResults(generateTextMock);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(firstRepair, []) as Awaited<ReturnType<typeof generateText>>,
+    );
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(secondRepair, []) as Awaited<ReturnType<typeof generateText>>,
+    );
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(12);
-    expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
+    // main + 3 fan-out + repair + re-repair. Repairs must NOT re-run the
+    // fan-out (that re-bought 4 Perplexity calls per round before the fix).
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     expect(result.provenance?.citationCount).toBe(10);
   });
 
   it('accepts structured repair output even when repair text is not parseable JSON', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.ANTHROPIC_AUTH_TOKEN;
     process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
     const brokenCorpus = buildCorpusFixture();
     const corpus = brokenCorpus.corpus as {
-      sources: Array<{ title: string; url: string; whyItMatters: string }>;
+      evidence: Array<unknown>;
+      intelligenceTopics: Array<{ evidence: unknown[] }>;
     };
-    corpus.sources[0] = {
-      title: 'Fabricated source',
-      url: 'https://example.com/fake-ramp-report',
-      whyItMatters: 'This fabricated source forces a minimums repair.',
-    };
+    corpus.evidence.splice(3, corpus.evidence.length - 3);
+    for (const topic of corpus.intelligenceTopics) {
+      topic.evidence = [];
+    }
     const repairedCorpus = buildCorpusFixture();
     const generateTextMock = vi.mocked(generateText);
     generateTextMock.mockResolvedValueOnce(
@@ -697,15 +773,14 @@ describe('runDeepResearchProgram', () => {
       ...(buildGenerateTextResult(repairedCorpus) as Record<string, unknown>),
       text: 'I repaired the corpus into the structured output payload.',
     } as Awaited<ReturnType<typeof generateText>>);
-    queueTopicFanoutResults(generateTextMock);
 
     const result = await runDeepResearchProgram(
       'Website: https://ramp.com\nCompany Name: Ramp',
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(8);
-    expect(JSON.stringify(result.data)).not.toContain('example.com');
+    // main + 3 fan-out + a single de-enriched repair round.
+    expect(generateTextMock).toHaveBeenCalledTimes(5);
     expect(result.provenance?.citationCount).toBe(10);
     expect(
       (generateTextMock.mock.calls[4]?.[0] as { output?: unknown }).output,

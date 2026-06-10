@@ -13,10 +13,18 @@ import type { ResearchResult } from '../supabase';
 import type { RunnerTelemetry } from '../telemetry';
 
 const DEFAULT_DEEP_RESEARCH_MODEL = 'sonar-pro';
-const DEFAULT_DEEP_RESEARCH_MAIN_MODEL = 'sonar-deep-research';
+// Blocking corpus default. sonar-deep-research stays env-opt-in
+// (RESEARCH_DEEP_PROGRAM_MAIN_MODEL): at default effort it ran 152-475s live
+// and its output never survived validation, while sonar-pro shipped every
+// corpus in ~100s (job timelines 2026-06-10).
+const DEFAULT_DEEP_RESEARCH_MAIN_MODEL = 'sonar-pro';
+const DEEP_RESEARCH_AGENTIC_MODEL_PREFIX = 'sonar-deep-research';
+const DEFAULT_DEEP_RESEARCH_REASONING_EFFORT = 'low';
 const FALLBACK_DEEP_RESEARCH_MODEL = 'sonar';
 const DEFAULT_DEEP_RESEARCH_MAX_TOKENS = 20000;
-const DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 900000;
+// Per-call cap for the main corpus call. Must stay well under the worker's
+// 900s job watchdog or the fallback chain can never run before the job dies.
+const DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 240000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_TIMEOUT_MS = 120000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_MAX_TOKENS = 12000;
 const MINIMUM_CITED_SOURCES = 10;
@@ -402,6 +410,29 @@ function getDeepResearchRepairMaxTokens(): number {
   );
 }
 
+/**
+ * sonar-deep-research runs an agentic multi-search pass server-side; without
+ * an explicit effort cap it defaults to medium/high and takes minutes (the
+ * 17s probe that justified it ran at low effort). Pin effort whenever the
+ * agentic model is configured so probe and production behave the same.
+ */
+function buildPerplexityCallOptions(
+  model: string,
+): { perplexity: { reasoning_effort: string } } | undefined {
+  if (!model.startsWith(DEEP_RESEARCH_AGENTIC_MODEL_PREFIX)) {
+    return undefined;
+  }
+
+  return {
+    perplexity: {
+      reasoning_effort: readEnvString(
+        'RESEARCH_DEEP_PROGRAM_REASONING_EFFORT',
+        DEFAULT_DEEP_RESEARCH_REASONING_EFFORT,
+      ),
+    },
+  };
+}
+
 function countUsableOnboardingFields(result: Record<string, unknown>): number {
   const data = isRecord(result.data) ? result.data : result;
   const onboardingFields = isRecord(data.onboardingFields)
@@ -525,6 +556,44 @@ function formatCapturedSources(
     .slice(0, 24)
     .map((source) => `- ${source.title} (${source.url})`)
     .join('\n');
+}
+
+function describeCapturedSources(
+  sources: readonly CapturedDeepResearchSource[],
+  limit = 4,
+): string {
+  const hosts = uniqueStrings(
+    sources
+      .map((source) => getUrlHost(source.url))
+      .filter((host): host is string => Boolean(host)),
+  );
+
+  if (hosts.length === 0) {
+    return 'no sources captured yet';
+  }
+
+  const shown = hosts.slice(0, limit).join(', ');
+  const remaining = hosts.length - limit;
+
+  return remaining > 0 ? `${shown} +${remaining} more` : shown;
+}
+
+async function emitMainSweepProgress(
+  onProgress: RunnerProgressReporter | undefined,
+  result: SonarGenerationResult,
+  sources: readonly CapturedDeepResearchSource[],
+): Promise<void> {
+  const searchCount = readPerplexitySearchCount(result.providerMetadata);
+  const searchPart =
+    typeof searchCount === 'number' && searchCount > 0
+      ? `ran ${searchCount} web searches`
+      : 'web sweep complete';
+
+  await emitRunnerProgress(
+    onProgress,
+    'tool',
+    `${searchPart} — captured ${sources.length} sources (${describeCapturedSources(sources)})`,
+  );
 }
 
 function normalizeUrl(value: unknown): string | null {
@@ -689,6 +758,49 @@ function toUngroundedUrls(
   citationUrls: Set<string>,
 ): string[] {
   return uniqueStrings(urls.filter((url) => !citationUrls.has(url)));
+}
+
+function countCorpusRows(parsed: DeepResearchCorpusOutput): number {
+  return (
+    parsed.corpus.sources.length +
+    parsed.corpus.evidence.length +
+    parsed.corpus.intelligenceTopics.reduce(
+      (sum, topic) => sum + topic.evidence.length,
+      0,
+    )
+  );
+}
+
+/**
+ * Drop corpus rows whose URL is not in the captured Perplexity citation set.
+ * Models routinely add a handful of plausible-but-uncited URLs; failing the
+ * whole corpus for them throws away dozens of good cited claims (live probe
+ * 2026-06-10: 4 stray URLs killed a 100+-claim corpus after 487s). Strip the
+ * uncited rows, keep the grounded corpus — same principle as the section
+ * verifier's strip-the-lie repair (ADR-0011).
+ */
+export function stripUncitedCorpusEntries(
+  parsed: DeepResearchCorpusOutput,
+  sources: readonly CapturedDeepResearchSource[],
+): DeepResearchCorpusOutput {
+  const allowed = normalizeSourceSet(sources);
+  const isCited = (url: string): boolean => {
+    const normalized = normalizeUrl(url);
+    return normalized !== null && allowed.has(normalized);
+  };
+
+  return {
+    ...parsed,
+    corpus: {
+      ...parsed.corpus,
+      sources: parsed.corpus.sources.filter((source) => isCited(source.url)),
+      evidence: parsed.corpus.evidence.filter((evidence) => isCited(evidence.url)),
+      intelligenceTopics: parsed.corpus.intelligenceTopics.map((topic) => ({
+        ...topic,
+        evidence: topic.evidence.filter((evidence) => isCited(evidence.url)),
+      })),
+    },
+  };
 }
 
 export function validateDeepResearchMinimums(
@@ -873,8 +985,17 @@ async function runWithAbortTimeout<T>(
   label: string,
   timeoutMs: number,
   run: (signal: AbortSignal) => Promise<T>,
+  outerSignal?: AbortSignal,
 ): Promise<T> {
+  if (outerSignal?.aborted) {
+    throw new Error(`${label} aborted before start`);
+  }
+
   const controller = new AbortController();
+  const onOuterAbort = () => {
+    controller.abort(outerSignal?.reason ?? new Error(`${label} aborted`));
+  };
+  outerSignal?.addEventListener('abort', onOuterAbort, { once: true });
   const timeout = setTimeout(() => {
     controller.abort(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`));
   }, timeoutMs);
@@ -883,12 +1004,17 @@ async function runWithAbortTimeout<T>(
     return await run(controller.signal);
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`);
+      throw new Error(
+        outerSignal?.aborted
+          ? `${label} aborted by job shutdown`
+          : `${label} timed out after ${Math.round(timeoutMs / 1000)}s`,
+      );
     }
 
     throw error;
   } finally {
     clearTimeout(timeout);
+    outerSignal?.removeEventListener('abort', onOuterAbort);
   }
 }
 export function formatDeepResearchArtifactMarkdown(
@@ -1142,8 +1268,18 @@ function parseDeepResearchOutput(value: unknown): DeepResearchCorpusOutput {
   return normalizeDeepResearchOutput(deepResearchCorpusSchema.parse(value));
 }
 
+function readStructuredOutput(result: SonarGenerationResult): unknown {
+  // AI SDK v6 exposes `output` as a throwing getter ('No output generated.')
+  // when structured parsing failed — guard it so the text fallback can run.
+  try {
+    return result.output;
+  } catch {
+    return undefined;
+  }
+}
+
 function parseRepairDeepResearchOutput(result: SonarGenerationResult): DeepResearchCorpusOutput {
-  const structured = deepResearchCorpusSchema.safeParse(result.output);
+  const structured = deepResearchCorpusSchema.safeParse(readStructuredOutput(result));
   if (structured.success) {
     return normalizeDeepResearchOutput(structured.data);
   }
@@ -1162,6 +1298,7 @@ async function ensureMinimumSonarSources(input: {
   existingSources: CapturedDeepResearchSource[];
   model: string;
   onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
 }): Promise<CapturedDeepResearchSource[]> {
   if (input.existingSources.length >= MINIMUM_CITED_SOURCES) {
     return input.existingSources;
@@ -1183,12 +1320,21 @@ async function ensureMinimumSonarSources(input: {
         prompt: `Find additional real, credible web sources for this company research corpus. Use web search and produce a concise source list. Prefer official product pages, pricing pages, docs, customer proof, and credible third-party profiles. Do not use placeholders.\n\nAlready captured URLs:\n${formatCapturedSources(input.existingSources)}\n\nContext:\n${input.context}`,
         maxOutputTokens: 1000,
         temperature: 0.1,
+        providerOptions: buildPerplexityCallOptions(input.model),
         abortSignal: signal,
       }),
+    input.abortSignal,
   );
   const supplementalSources = extractSonarSources(result as SonarGenerationResult);
+  const merged = mergeSources(input.existingSources, supplementalSources);
 
-  return mergeSources(input.existingSources, supplementalSources);
+  await emitRunnerProgress(
+    input.onProgress,
+    'tool',
+    `citations expanded to ${merged.length} sources (${describeCapturedSources(merged)})`,
+  );
+
+  return merged;
 }
 
 interface TopicSupplementResearch {
@@ -1207,11 +1353,12 @@ async function generateTopicSupplement(input: {
   model: string;
   onProgress?: RunnerProgressReporter;
   topics: readonly IntelligenceTopic[];
+  abortSignal?: AbortSignal;
 }): Promise<TopicSupplementResearch> {
   await emitRunnerProgress(
     input.onProgress,
-    'analysis',
-    `expanding corpus topic evidence: ${input.label}`,
+    'tool',
+    `searching the web: ${input.focus}`,
   );
 
   const perplexity = createPerplexity({ apiKey: input.apiKey });
@@ -1231,17 +1378,29 @@ async function generateTopicSupplement(input: {
         output: Output.object({ schema: deepResearchTopicSupplementSchema }),
         maxOutputTokens: getDeepResearchRepairMaxTokens(),
         temperature: 0.1,
+        providerOptions: buildPerplexityCallOptions(input.model),
         abortSignal: signal,
       }),
+    input.abortSignal,
   );
   const sonarResult = result as SonarGenerationResult;
   const output = deepResearchTopicSupplementSchema.parse(result.output);
+  const sources = extractSonarSources(sonarResult);
+  const claimCount =
+    output.evidence.length +
+    output.intelligenceTopics.reduce((sum, topic) => sum + topic.evidence.length, 0);
+
+  await emitRunnerProgress(
+    input.onProgress,
+    'tool',
+    `topic evidence captured: ${input.label} — ${claimCount} claims from ${sources.length} sources (${describeCapturedSources(sources)})`,
+  );
 
   return {
     output,
     rawText: result.text || JSON.stringify(output),
     result: sonarResult,
-    sources: extractSonarSources(sonarResult),
+    sources,
   };
 }
 
@@ -1253,12 +1412,17 @@ async function enrichCorpusWithTopicFanout(input: {
   parsed: DeepResearchCorpusOutput;
   rawText: string;
   sources: CapturedDeepResearchSource[];
+  abortSignal?: AbortSignal;
 }): Promise<{
   parsed: DeepResearchCorpusOutput;
   rawText: string;
   sources: CapturedDeepResearchSource[];
 }> {
-  const supplements = await Promise.all(
+  // allSettled, not all: the supplements are additive enrichment. One flaky
+  // supplement must never discard an already-good main corpus (live 2026-06-10:
+  // a single 120s supplement timeout threw away an 8-minute corpus and
+  // triggered the full draft-retry pyramid).
+  const settled = await Promise.allSettled(
     TOPIC_FANOUT_GROUPS.map((group) =>
       generateTopicSupplement({
         apiKey: input.apiKey,
@@ -1269,9 +1433,28 @@ async function enrichCorpusWithTopicFanout(input: {
         model: input.model,
         onProgress: input.onProgress,
         topics: group.topics,
+        abortSignal: input.abortSignal,
       }),
     ),
   );
+  const supplements: TopicSupplementResearch[] = [];
+  for (const [index, outcome] of settled.entries()) {
+    if (outcome.status === 'fulfilled') {
+      supplements.push(outcome.value);
+      continue;
+    }
+    const label = TOPIC_FANOUT_GROUPS[index]?.label ?? `group-${index}`;
+    console.warn('[deep-research-program] topic fan-out group failed; continuing without it', {
+      error:
+        outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason),
+      label,
+    });
+    await emitRunnerProgress(
+      input.onProgress,
+      'analysis',
+      `topic expansion incomplete for ${label} — continuing with captured evidence`,
+    );
+  }
   const parsed = supplements.reduce(
     (current, supplement) => mergeTopicSupplementIntoCorpus(current, supplement.output),
     input.parsed,
@@ -1307,6 +1490,7 @@ async function generateStructuredSonarCorpus(input: {
   context: string;
   model: string;
   onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
 }): Promise<GeneratedSonarCorpus> {
   const perplexity = createPerplexity({ apiKey: input.apiKey });
   const result = await runWithAbortTimeout(
@@ -1320,10 +1504,14 @@ async function generateStructuredSonarCorpus(input: {
         output: Output.object({ schema: deepResearchCorpusSchema }),
         maxOutputTokens: getDeepResearchMaxTokens(),
         temperature: 0.1,
+        providerOptions: buildPerplexityCallOptions(input.model),
         abortSignal: signal,
       }),
+    input.abortSignal,
   );
   const sonarResult = result as SonarGenerationResult;
+  const mainSources = extractSonarSources(sonarResult);
+  await emitMainSweepProgress(input.onProgress, sonarResult, mainSources);
   const parsed = parseDeepResearchOutput(result.output);
   const enriched = await enrichCorpusWithTopicFanout({
     apiKey: input.apiKey,
@@ -1332,7 +1520,8 @@ async function generateStructuredSonarCorpus(input: {
     onProgress: input.onProgress,
     parsed,
     rawText: result.text || JSON.stringify(parsed),
-    sources: extractSonarSources(sonarResult),
+    sources: mainSources,
+    abortSignal: input.abortSignal,
   });
   const sources = await ensureMinimumSonarSources({
     apiKey: input.apiKey,
@@ -1340,6 +1529,7 @@ async function generateStructuredSonarCorpus(input: {
     existingSources: enriched.sources,
     model: getDeepResearchModel(),
     onProgress: input.onProgress,
+    abortSignal: input.abortSignal,
   });
   const merged = mergeProviderSourcesIntoCorpus(enriched.parsed, sources);
 
@@ -1357,6 +1547,7 @@ async function generateDraftSonarCorpus(input: {
   context: string;
   model: string;
   onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
 }): Promise<GeneratedSonarCorpus> {
   const perplexity = createPerplexity({ apiKey: input.apiKey });
   const result = await runWithAbortTimeout(
@@ -1369,11 +1560,14 @@ async function generateDraftSonarCorpus(input: {
         prompt: buildDeepResearchPrompt(input.context),
         maxOutputTokens: getDeepResearchMaxTokens(),
         temperature: 0.1,
+        providerOptions: buildPerplexityCallOptions(input.model),
         abortSignal: signal,
       }),
+    input.abortSignal,
   );
   const sonarResult = result as SonarGenerationResult;
   const sonarSources = extractSonarSources(sonarResult);
+  await emitMainSweepProgress(input.onProgress, sonarResult, sonarSources);
   const parsed = tryExtractJson(result.text);
 
   if (!parsed || !isRecord(parsed)) {
@@ -1385,6 +1579,8 @@ async function generateDraftSonarCorpus(input: {
       onProgress: input.onProgress,
       previousResult: sonarResult,
       sources: sonarSources,
+      abortSignal: input.abortSignal,
+      enrich: true,
     });
   }
 
@@ -1398,6 +1594,8 @@ async function generateDraftSonarCorpus(input: {
       onProgress: input.onProgress,
       previousResult: sonarResult,
       sources: sonarSources,
+      abortSignal: input.abortSignal,
+      enrich: true,
     });
   }
   const enriched = await enrichCorpusWithTopicFanout({
@@ -1408,6 +1606,7 @@ async function generateDraftSonarCorpus(input: {
     parsed: normalizeDeepResearchOutput(validated.data),
     rawText: result.text,
     sources: sonarSources,
+    abortSignal: input.abortSignal,
   });
   const sources = await ensureMinimumSonarSources({
     apiKey: input.apiKey,
@@ -1415,6 +1614,7 @@ async function generateDraftSonarCorpus(input: {
     existingSources: enriched.sources,
     model: getDeepResearchModel(),
     onProgress: input.onProgress,
+    abortSignal: input.abortSignal,
   });
 
   return {
@@ -1435,6 +1635,14 @@ async function repairDeepResearchJson(input: {
   previousResult: SonarGenerationResult;
   sources: CapturedDeepResearchSource[];
   validationErrors?: string[];
+  abortSignal?: AbortSignal;
+  /**
+   * Run the topic fan-out + source top-up after the JSON repair. Only the
+   * draft path (where fan-out has not run yet) should set this — repair
+   * rounds on an already-enriched corpus must not re-buy 4 Perplexity calls
+   * per round (live probe 2026-06-10 ran the fan-out 4x in one job).
+   */
+  enrich?: boolean;
 }): Promise<GeneratedSonarCorpus> {
   const perplexity = createPerplexity({ apiKey: input.apiKey });
   const validationInstructions =
@@ -1452,22 +1660,44 @@ async function repairDeepResearchJson(input: {
         output: Output.object({ schema: deepResearchCorpusSchema }),
         maxOutputTokens: getDeepResearchRepairMaxTokens(),
         temperature: 0,
+        providerOptions: buildPerplexityCallOptions(input.model),
         abortSignal: signal,
       }),
+    input.abortSignal,
   );
   const sonarResult = result as SonarGenerationResult;
   const validated = parseRepairDeepResearchOutput(sonarResult);
   const baseSources = input.sources.length > 0
     ? input.sources
     : extractSonarSources(sonarResult);
+  const repairRawText = `${input.draftText}\n\n--- repaired JSON ---\n${result.text}`.trim();
+  const mergedResult = {
+    ...input.previousResult,
+    ...sonarResult,
+    totalUsage: sonarResult.totalUsage ?? sonarResult.usage ?? input.previousResult.totalUsage,
+  };
+
+  if (!input.enrich) {
+    const sources = mergeSources(baseSources, extractSonarSources(sonarResult));
+
+    return {
+      model: input.model,
+      parsed: mergeProviderSourcesIntoCorpus(validated, sources),
+      rawText: repairRawText,
+      result: mergedResult,
+      sources,
+    };
+  }
+
   const enriched = await enrichCorpusWithTopicFanout({
     apiKey: input.apiKey,
     context: input.context,
     model: input.model,
     onProgress: input.onProgress,
     parsed: validated,
-    rawText: `${input.draftText}\n\n--- repaired JSON ---\n${result.text}`.trim(),
+    rawText: repairRawText,
     sources: baseSources,
+    abortSignal: input.abortSignal,
   });
   const sources = await ensureMinimumSonarSources({
     apiKey: input.apiKey,
@@ -1475,17 +1705,14 @@ async function repairDeepResearchJson(input: {
     existingSources: enriched.sources,
     model: input.model,
     onProgress: input.onProgress,
+    abortSignal: input.abortSignal,
   });
 
   return {
     model: input.model,
     parsed: mergeProviderSourcesIntoCorpus(enriched.parsed, sources),
     rawText: enriched.rawText,
-    result: {
-      ...input.previousResult,
-      ...sonarResult,
-      totalUsage: sonarResult.totalUsage ?? sonarResult.usage ?? input.previousResult.totalUsage,
-    },
+    result: mergedResult,
     sources,
   };
 }
@@ -1499,36 +1726,39 @@ async function repairDeepResearchJsonToMinimums(input: {
   previousResult: SonarGenerationResult;
   sources: CapturedDeepResearchSource[];
   validationErrors: string[];
+  abortSignal?: AbortSignal;
 }): Promise<GeneratedSonarCorpus> {
   const firstRepair = await repairDeepResearchJson(input);
+  const firstRepairStripped = stripUncitedCorpusEntries(firstRepair.parsed, firstRepair.sources);
   const firstRepairMinimums = validateDeepResearchMinimums(
-    firstRepair.parsed as unknown as Record<string, unknown>,
+    firstRepairStripped as unknown as Record<string, unknown>,
     firstRepair.sources,
   );
 
   if (firstRepairMinimums.passed) {
-    return firstRepair;
+    return { ...firstRepair, parsed: firstRepairStripped };
   }
 
   await emitRunnerProgress(
     input.onProgress,
     'analysis',
-    're-repairing corpus against failed citation minimums',
+    'tightening the corpus once more against captured citations',
   );
 
   const secondRepair = await repairDeepResearchJson({
     ...input,
-    draftText: firstRepair.rawText || JSON.stringify(firstRepair.parsed),
+    draftText: firstRepair.rawText || JSON.stringify(firstRepairStripped),
     previousResult: firstRepair.result,
     validationErrors: firstRepairMinimums.errors,
   });
+  const secondRepairStripped = stripUncitedCorpusEntries(secondRepair.parsed, secondRepair.sources);
   const secondRepairMinimums = validateDeepResearchMinimums(
-    secondRepair.parsed as unknown as Record<string, unknown>,
+    secondRepairStripped as unknown as Record<string, unknown>,
     secondRepair.sources,
   );
 
   if (secondRepairMinimums.passed) {
-    return secondRepair;
+    return { ...secondRepair, parsed: secondRepairStripped };
   }
 
   throw new Error(
@@ -1540,10 +1770,18 @@ async function generateSonarCorpus(input: {
   apiKey: string;
   context: string;
   onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
 }): Promise<GeneratedSonarCorpus> {
   let lastError: unknown;
+  const models = getDeepResearchModels();
 
-  for (const model of getDeepResearchModels()) {
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+    const model = models[modelIndex];
+
+    if (input.abortSignal?.aborted) {
+      throw new Error('Deep research corpus generation aborted by job shutdown');
+    }
+
     try {
       await emitRunnerProgress(
         input.onProgress,
@@ -1558,8 +1796,12 @@ async function generateSonarCorpus(input: {
             context: input.context,
             model,
             onProgress: input.onProgress,
+            abortSignal: input.abortSignal,
           });
         } catch (error) {
+          if (input.abortSignal?.aborted) {
+            throw error;
+          }
           console.warn('[deep-research-program] Structured Perplexity corpus generation failed; retrying with draft JSON extraction', {
             error: error instanceof Error ? error.message : String(error),
             model,
@@ -1567,41 +1809,56 @@ async function generateSonarCorpus(input: {
           await emitRunnerProgress(
             input.onProgress,
             'analysis',
-            'repairing Perplexity corpus JSON from cited draft',
+            'rebuilding corpus JSON from the cited draft',
           );
 
+          // Never burn the draft retry on the slow agentic model — the fast
+          // workhorse rebuilds from the same context in a fraction of the time.
           return await generateDraftSonarCorpus({
             apiKey: input.apiKey,
             context: input.context,
-            model,
+            model: model.startsWith(DEEP_RESEARCH_AGENTIC_MODEL_PREFIX)
+              ? getDeepResearchModel()
+              : model,
             onProgress: input.onProgress,
+            abortSignal: input.abortSignal,
           });
         }
       }, 'deepResearchProgram');
+      const strippedParsed = stripUncitedCorpusEntries(generated.parsed, generated.sources);
+      const droppedRows = countCorpusRows(generated.parsed) - countCorpusRows(strippedParsed);
+      if (droppedRows > 0) {
+        await emitRunnerProgress(
+          input.onProgress,
+          'analysis',
+          `dropped ${droppedRows} uncited row${droppedRows === 1 ? '' : 's'} to keep the corpus source-grounded`,
+        );
+      }
       const minimums = validateDeepResearchMinimums(
-        generated.parsed as unknown as Record<string, unknown>,
+        strippedParsed as unknown as Record<string, unknown>,
         generated.sources,
       );
 
       if (minimums.passed) {
-        return generated;
+        return { ...generated, parsed: strippedParsed };
       }
 
       await emitRunnerProgress(
         input.onProgress,
         'analysis',
-        'repairing corpus against captured Perplexity citations',
+        'tightening corpus against captured Perplexity citations',
       );
 
       return await repairDeepResearchJsonToMinimums({
         apiKey: input.apiKey,
         context: input.context,
-        draftText: generated.rawText || JSON.stringify(generated.parsed),
+        draftText: generated.rawText || JSON.stringify(strippedParsed),
         model: getDeepResearchModel(),
         onProgress: input.onProgress,
         previousResult: generated.result,
         sources: generated.sources,
         validationErrors: minimums.errors,
+        abortSignal: input.abortSignal,
       });
     } catch (error) {
       lastError = error;
@@ -1610,11 +1867,16 @@ async function generateSonarCorpus(input: {
         model,
       });
 
-      if (model !== FALLBACK_DEEP_RESEARCH_MODEL) {
+      if (input.abortSignal?.aborted) {
+        throw error;
+      }
+
+      const nextModel = models[modelIndex + 1];
+      if (nextModel) {
         await emitRunnerProgress(
           input.onProgress,
           'analysis',
-          `falling back to Perplexity ${FALLBACK_DEEP_RESEARCH_MODEL}`,
+          `falling back to Perplexity ${nextModel}`,
         );
       }
     }
@@ -1630,6 +1892,8 @@ async function generateSonarCorpus(input: {
 export async function runDeepResearchProgram(
   context: string,
   onProgress?: RunnerProgressReporter,
+  _chatRefinement?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ResearchResult> {
   const startTime = Date.now();
 
@@ -1669,6 +1933,7 @@ export async function runDeepResearchProgram(
       apiKey,
       context,
       onProgress,
+      abortSignal,
     });
     const parsedRecord = generated.parsed as unknown as Record<string, unknown>;
     const rawText = generated.rawText;
