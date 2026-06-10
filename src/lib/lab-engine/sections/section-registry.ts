@@ -175,7 +175,9 @@ export const SECTION_REGISTRY = {
       "proof gaps",
     ],
     sectionOutputSchemaName: "CompetitorLandscapeSectionOutput",
-    structuredOutputMaxTokens: 8192,
+    // 8192 truncated mid-body (finishReason=length) once quarantine-honest ad
+    // framing landed — the largest section body needs paid-media-class headroom.
+    structuredOutputMaxTokens: 16384,
     allowedTools: [
       "web_search",
       "firecrawl",
