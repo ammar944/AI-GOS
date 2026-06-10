@@ -540,14 +540,33 @@ describe("SOP projected-results table (W3)", () => {
     expect(paidMediaPlanBodySchema.safeParse(body).success).toBe(false);
   });
 
-  it("validator demands at least one projected-results row", () => {
+  it("validator demands at least one SUBSTANTIVE row — padded gap rows do not count", () => {
     const artifact = cloneFixture();
     const body = artifact.body as unknown as Record<string, unknown>;
     body.projectedResults = [];
+    expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(false);
 
+    // The normalizer's min-1 pad (all-gap row) must not satisfy the floor.
+    const padded = normalizePaidMediaPlanBody({
+      ...structuredClone(paidMediaPlanFixtureArtifact.body),
+      projectedResults: undefined,
+    } as unknown as Record<string, unknown>);
+    body.projectedResults = padded.projectedResults;
     const result = validatePaidMediaPlanMinimums(artifact);
 
     expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain("projectedResults");
+    expect(result.errors.join(" ")).toContain("substantive SOP row");
+  });
+
+  it("validator accepts a substantive row even when the KPI cost is honestly unknown", () => {
+    const artifact = cloneFixture();
+    const body = artifact.body as unknown as Record<string, unknown>;
+    body.projectedResults = normalizePaidMediaPlanBody(
+      rawBodyWithProjectedResults([
+        { ...baseRow, kpiCostValue: undefined, kpiCostProvenance: "unknown" },
+      ]),
+    ).projectedResults;
+
+    expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
   });
 });

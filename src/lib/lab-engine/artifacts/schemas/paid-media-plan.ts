@@ -973,6 +973,24 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
   });
 }
 
+// A substantive SOP row names its own plan facts (ICP, KPI, objective,
+// duration come from the model's own slides, never external evidence). The
+// normalizer's min-1 pad produces gap-labeled rows, which must NOT satisfy
+// the floor — otherwise an omitted table sails through with zero repair
+// pressure (Anura paid-media rerun #2).
+function isSubstantiveProjectedResultRow(
+  row: PaidMediaPlanBody["projectedResults"][number],
+): boolean {
+  const gapPattern = /^evidence gap/i;
+
+  return (
+    !gapPattern.test(row.targetIcp) &&
+    !gapPattern.test(row.kpi) &&
+    !gapPattern.test(row.objective) &&
+    !gapPattern.test(row.durationLabel)
+  );
+}
+
 export function validatePaidMediaPlanMinimums(
   artifact: ArtifactEnvelope & { body: PaidMediaPlanBody },
 ): ValidationResult {
@@ -980,10 +998,13 @@ export function validatePaidMediaPlanMinimums(
     .extend({ body: paidMediaPlanBodySchema })
     .parse(artifact);
   const errors: string[] = [];
+  const substantiveRows = parsed.body.projectedResults.filter(
+    isSubstantiveProjectedResultRow,
+  );
 
-  if (parsed.body.projectedResults.length < 1) {
+  if (substantiveRows.length < 1) {
     errors.push(
-      `body.projectedResults: have ${parsed.body.projectedResults.length}, need >=1 SOP projected-results row.`,
+      `body.projectedResults: need >=1 substantive SOP row (own-plan targetIcp/kpi/objective/durationLabel; KPI cost may honestly be unknown), have ${substantiveRows.length}.`,
     );
   }
 

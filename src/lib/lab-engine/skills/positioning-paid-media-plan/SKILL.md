@@ -235,6 +235,21 @@ Website → `FIX` · Content / Organic → `REWORK` · Other Ad Platforms → `R
 (Google / LinkedIn keep-kill-scale) · Email / Nurture → `ADD`. Drive from
 `onboarding.channels` and the client's current activity. `[onboarding.channels]`
 
+**Projected Results table (`body.projectedResults`, at least 1 substantive
+row — SOP).** One row per target ICP × campaign phase (typically a Phase 1 row
+and a Phase 2 row): `{ targetIcp, kpi, kpiCostValue, kpiCostProvenance,
+objective, durationLabel, phaseMonthlyBudgetValue, phaseMonthlyBudgetProvenance,
+sourceSection }`. `targetIcp`, `kpi` (the unit being bought — MQL / SQL / demo),
+`objective`, and `durationLabel` come from YOUR OWN plan (Slides 2–4) — they are
+never an evidence gap. `kpiCostValue` is the cost per KPI unit: use a
+benchmark the research sections actually surfaced (`source-reported`), an
+operator number (`user-supplied`), or your own estimate clearly labeled
+`model-estimated`; when you cannot cost it at all, set `kpiCostProvenance:
+"unknown"` and omit `kpiCostValue`. NEVER author `projectedCountValue`,
+`projectedCountProvenance`, or `marginOfErrorPercent` — the runner computes the
+count as floor(budget ÷ KPI cost) at ±20% and overwrites any model math.
+`[brief: monthlyAdBudget · sections: positioningBuyerICP, positioningDemandIntent]`
+
 **Slide 13 — KPIs & Success Metrics (3 fixed).** `{ metric, role, definition }`
 × 3: the Primary KPI (default MQLs / Signups — define it and say how it is
 measured), CTR (creative and messaging health — the hook / angle signal), CPL
