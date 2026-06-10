@@ -2818,6 +2818,35 @@ function withNormalizedMarketCategoryOutput(rawOutput: unknown): unknown {
   const marketSizeRecord = getRecord(bodyRecord.marketSize);
   const structuralForcesRecord = getRecord(bodyRecord.structuralForces);
 
+  // Mechanical honest-shape coercion (ADR-0012 "repairs get cheaper"): a TAM
+  // input the model already declared status="evidence-gap" but whose value
+  // lacks the literal "evidence gap" phrase fails the minimum validator and
+  // burned a full repair round on the Anura rerun. The status field carries
+  // the honesty; prefixing the value is shape, not content.
+  const bottomUpTamRecord =
+    marketSizeRecord === null ? null : getRecord(marketSizeRecord.bottomUpTam);
+  const normalizedBottomUpTam =
+    bottomUpTamRecord === null || !Array.isArray(bottomUpTamRecord.inputs)
+      ? bottomUpTamRecord
+      : {
+          ...bottomUpTamRecord,
+          inputs: bottomUpTamRecord.inputs.map((input) => {
+            const inputRecord = getRecord(input);
+            if (
+              inputRecord === null ||
+              inputRecord.status !== "evidence-gap" ||
+              typeof inputRecord.value !== "string" ||
+              /evidence\s+gap/i.test(inputRecord.value)
+            ) {
+              return input;
+            }
+            return {
+              ...inputRecord,
+              value: `evidence gap: ${inputRecord.value}`,
+            };
+          }),
+        };
+
   return {
     ...outputRecord,
     body: {
@@ -2831,6 +2860,9 @@ function withNormalizedMarketCategoryOutput(rawOutput: unknown): unknown {
                 key: "signalType",
                 value: marketSizeRecord.signals,
               }),
+              ...(normalizedBottomUpTam === null
+                ? {}
+                : { bottomUpTam: normalizedBottomUpTam }),
             },
           }),
       ...(structuralForcesRecord === null
