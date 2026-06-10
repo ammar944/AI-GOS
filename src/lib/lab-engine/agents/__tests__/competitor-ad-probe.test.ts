@@ -1,10 +1,27 @@
-import type { Tool, ToolExecutionOptions } from 'ai';
-import { describe, expect, it } from 'vitest';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
+import type { Tool, ToolExecutionOptions } from 'ai';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  competitorLandscapeBodySchema,
+  type CompetitorLandscapeBody,
+} from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import { competitorLandscapeFixtureArtifact } from '@/lib/lab-engine/fixtures/competitor-landscape-artifact';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
+import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 
 import { SectionToolBudget } from '../budget';
 import { runCompetitorAdProbeSteps } from '../run-section';
+import type { RunSectionInput, RunSectionResult } from '../run-section';
+import type {
+  AgentStep,
+  AnswerToolRunner,
+  StructuredStreamer,
+} from '../section-agent';
+import type { ToolName } from '../tools';
 
 interface AdRow {
   type: 'ad';
@@ -281,5 +298,364 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     expect(
       (outputs as AdRow[]).every((row) => row.advertiser === 'SeededRival'),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Post-draft rescue probe regression (runs f06333b6 + 0eeebd93): when the GTM
+// brief gives zero competitor seeds the deterministic prepass probe queries
+// nothing, yet the section agent discovers real competitors while drafting.
+// The rescue probe must run those discovered advertisers through the SAME
+// deterministic ad probe and fold the recovered evidence into the committed
+// artifact. When seeds are present the rescue must never fire.
+// ---------------------------------------------------------------------------
+
+type RunSectionFn = (
+  input: RunSectionInput,
+  deps: Parameters<typeof import('../run-section').runSection>[1],
+) => Promise<RunSectionResult>;
+
+interface RecordedProbeCall {
+  advertiser: string;
+  domain: string | undefined;
+  platform: 'google' | 'meta' | 'linkedin';
+}
+
+const rescueNotePattern = /post-draft rescue probe/;
+const discoveredTopThree = ['PipelinePilot', 'RevenueOS Lab', 'SignalForge'];
+
+function createRecordingAdTool(
+  platform: 'google' | 'meta' | 'linkedin',
+  calls: RecordedProbeCall[],
+): Tool<unknown, unknown> {
+  return {
+    execute: async (input: unknown): Promise<unknown> => {
+      const record = input as { advertiser?: unknown; domain?: unknown };
+      const advertiser =
+        typeof record.advertiser === 'string' ? record.advertiser : 'unknown';
+      const domain =
+        typeof record.domain === 'string' ? record.domain : undefined;
+      calls.push({ advertiser, domain, platform });
+
+      if (platform !== 'google') {
+        return { type: 'result', advertiser, platform, ads: [] };
+      }
+
+      const slug = advertiser.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      return {
+        type: 'result',
+        advertiser,
+        platform,
+        ads: [
+          {
+            url: `https://adstransparency.google.com/advertiser/${slug}/ad/rescue-1`,
+            id: `${slug}-rescue-1`,
+            advertiserName: advertiser,
+            title: `${advertiser} pipeline priority ads`,
+            snippet: `${advertiser} promotes GTM workflow tooling for revenue teams.`,
+            landingUrl:
+              domain === undefined
+                ? `https://example.com/${slug}`
+                : `https://${domain}/${slug}`,
+            imageUrl: `https://cdn.example.com/${slug}/rescue-creative.png`,
+            detailsUrl: `https://adstransparency.google.com/advertiser/${slug}/ad/rescue-1`,
+            format: 'image',
+            isActive: true,
+          },
+        ],
+      };
+    },
+  } as unknown as Tool<unknown, unknown>;
+}
+
+function createRescueGapTool(toolName: ToolName): Tool<unknown, unknown> {
+  return {
+    execute: async (): Promise<unknown> => ({
+      type: 'gap',
+      reason: 'not_implemented',
+      message: `${toolName} is not mocked in this rescue regression.`,
+    }),
+  } as unknown as Tool<unknown, unknown>;
+}
+
+async function importRunSectionWithRecordingAdTools(
+  calls: RecordedProbeCall[],
+): Promise<RunSectionFn> {
+  vi.resetModules();
+  vi.doMock('../tool-registry', () => ({
+    buildToolMap: (
+      allowedTools: readonly ToolName[],
+    ): Record<string, Tool<unknown, unknown>> => {
+      const tools: Record<string, Tool<unknown, unknown>> = {};
+
+      for (const toolName of allowedTools) {
+        if (toolName === 'google_ads') {
+          tools[toolName] = createRecordingAdTool('google', calls);
+          continue;
+        }
+
+        if (toolName === 'meta_ads') {
+          tools[toolName] = createRecordingAdTool('meta', calls);
+          continue;
+        }
+
+        if (toolName === 'linkedin_ads') {
+          tools[toolName] = createRecordingAdTool('linkedin', calls);
+          continue;
+        }
+
+        tools[toolName] = createRescueGapTool(toolName);
+      }
+
+      return tools;
+    },
+  }));
+
+  const runSectionModule = await import('../run-section');
+  return runSectionModule.runSection;
+}
+
+function buildRescueSupportStep(): AgentStep {
+  return {
+    stepNumber: 0,
+    finishReason: 'stop',
+    text: '',
+    toolCalls: [],
+    toolResults: [
+      {
+        toolName: 'fixture_support',
+        output: {
+          text: [
+            'https://example.com/signalforge',
+            'https://example.com/pipelinepilot',
+            'https://example.com/revenueos-lab',
+            'https://example.com/growthops-studio',
+            'https://example.com/diy-spreadsheet',
+            'https://example.com/saaslaunch/positioning-notes',
+            'https://example.com/fixtures/ad-library/signalforge-linkedin',
+            'https://example.com/fixtures/ad-library/pipelinepilot-google',
+            'https://example.com/fixtures/ad-library/revenueos-meta',
+            'https://example.com/fixtures/ad-library/growthops-linkedin',
+            'https://example.com/signalforge/pipeline-priority',
+            'https://example.com/pipelinepilot/crm-cleanup',
+            'https://example.com/revenueos-lab/operator',
+            'https://example.com/fixtures/creative/revenueos-operator.png',
+          ].join(' '),
+        },
+      },
+    ],
+  };
+}
+
+function buildDiscoveredCompetitorOutput(): {
+  sectionTitle: string;
+  verdict: string;
+  statusSummary: string;
+  confidence: number;
+  sources: Array<{ title: string; url: string; publisher?: string }>;
+  body: CompetitorLandscapeBody;
+} {
+  return {
+    sectionTitle: competitorLandscapeFixtureArtifact.sectionTitle,
+    verdict: competitorLandscapeFixtureArtifact.verdict,
+    statusSummary: competitorLandscapeFixtureArtifact.statusSummary,
+    confidence: competitorLandscapeFixtureArtifact.confidence,
+    sources: competitorLandscapeFixtureArtifact.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      ...(source.publisher ? { publisher: source.publisher } : {}),
+    })),
+    body: competitorLandscapeFixtureArtifact.body,
+  };
+}
+
+function assertCompetitorLandscapeBody(
+  body: unknown,
+): asserts body is CompetitorLandscapeBody {
+  competitorLandscapeBodySchema.parse(body);
+}
+
+async function makeRescueStore(
+  runId: string,
+  competitorSeeds: Array<{ name: string; domain?: string }>,
+): Promise<{
+  store: ReturnType<typeof createRunStore>;
+  runId: string;
+}> {
+  const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-ad-rescue-'));
+  const store = createRunStore({
+    rootDir,
+    defaultSectionIds: ['positioningCompetitorLandscape'],
+    now: () => new Date('2026-06-09T12:00:00.000Z'),
+  });
+  await store.createRun({
+    ...saaslaunchResearchInput,
+    runId,
+    competitorAds: [],
+    competitorSeeds,
+  });
+  return { store, runId };
+}
+
+describe('runSection post-draft competitor ad rescue probe', (): void => {
+  afterEach((): void => {
+    vi.doUnmock('../tool-registry');
+    vi.resetModules();
+  });
+
+  it('rescues discovered competitors when brief seeds are blank (answer-tool path)', async (): Promise<void> => {
+    const calls: RecordedProbeCall[] = [];
+    const runSection = await importRunSectionWithRecordingAdTools(calls);
+    const { store, runId } = await makeRescueStore('run-ad-rescue-blank', []);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildRescueSupportStep()],
+      text: '',
+      answerInput: buildDiscoveredCompetitorOutput(),
+    }));
+
+    const result = await runSection(
+      { runId, sectionId: 'positioningCompetitorLandscape' },
+      {
+        store,
+        loadSkill: async () => 'Use deterministic ad evidence.',
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runAnswerTool,
+        now: () => new Date('2026-06-09T12:00:00.000Z'),
+      },
+    );
+
+    // The rescue probed EXACTLY the first three discovered competitors
+    // (adProbeMaxAdvertisers cap from the 9-lookup ad reserve), not all five.
+    const probedAdvertisers = [...new Set(calls.map((call) => call.advertiser))]
+      .slice()
+      .sort();
+    expect(probedAdvertisers).toEqual(discoveredTopThree.slice().sort());
+    expect(probedAdvertisers).not.toContain('GrowthOps Studio');
+    expect(probedAdvertisers).not.toContain('Spreadsheet Pipeline Review');
+
+    assertCompetitorLandscapeBody(result.artifact.body);
+    const groups = result.artifact.body.adEvidence.advertiserGroups;
+
+    for (const advertiser of discoveredTopThree) {
+      const group = groups.find(
+        (candidate) => candidate.advertiserName === advertiser,
+      );
+      expect(group).toBeDefined();
+      // The recovered creatives from the probe are on the wall.
+      expect(group?.creatives.length).toBeGreaterThan(0);
+      // Visibility: rescue-probed groups carry the post-draft provenance note.
+      expect(
+        group?.dataGaps.some((gap) => rescueNotePattern.test(gap.reason)),
+      ).toBe(true);
+    }
+
+    // The empty-wall synthetic gap group must NOT remain once ads are rescued.
+    expect(
+      groups.some((group) => group.advertiserName === 'Competitor ad libraries'),
+    ).toBe(false);
+  });
+
+  it('never fires the rescue when brief competitor seeds are present', async (): Promise<void> => {
+    const calls: RecordedProbeCall[] = [];
+    const runSection = await importRunSectionWithRecordingAdTools(calls);
+    const { store, runId } = await makeRescueStore('run-ad-rescue-seeded', [
+      { name: 'Gong', domain: 'gong.io' },
+    ]);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [buildRescueSupportStep()],
+      text: '',
+      answerInput: buildDiscoveredCompetitorOutput(),
+    }));
+
+    const result = await runSection(
+      { runId, sectionId: 'positioningCompetitorLandscape' },
+      {
+        store,
+        loadSkill: async () => 'Use deterministic ad evidence.',
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runAnswerTool,
+        now: () => new Date('2026-06-09T12:00:00.000Z'),
+      },
+    );
+
+    // Only the seeded prepass probe ran: no second probe for discovered names,
+    // even though the answer payload contains five discovered competitors.
+    expect([...new Set(calls.map((call) => call.advertiser))]).toEqual(['Gong']);
+
+    assertCompetitorLandscapeBody(result.artifact.body);
+    const groups = result.artifact.body.adEvidence.advertiserGroups;
+    expect(groups.some((group) => group.advertiserName === 'Gong')).toBe(true);
+    expect(
+      groups.some((group) => group.advertiserName === 'SignalForge'),
+    ).toBe(false);
+    expect(JSON.stringify(result.artifact)).not.toMatch(rescueNotePattern);
+  });
+
+  it('rescues discovered competitors on the structured-stream path (prod default)', async (): Promise<void> => {
+    const calls: RecordedProbeCall[] = [];
+    const runSection = await importRunSectionWithRecordingAdTools(calls);
+    const { store, runId } = await makeRescueStore(
+      'run-ad-rescue-streaming',
+      [],
+    );
+
+    async function* emptyPartials(): AsyncIterable<unknown> {
+      // No partial frames needed; the rescue happens after the final body.
+    }
+
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      params.onStepFinish?.(buildRescueSupportStep());
+      const output = buildDiscoveredCompetitorOutput();
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve({
+          verdict: output.verdict,
+          statusSummary: output.statusSummary,
+          sources: output.sources,
+          body: output.body,
+        }),
+        partialOutputStream: emptyPartials(),
+      };
+    });
+
+    const result = await runSection(
+      { runId, sectionId: 'positioningCompetitorLandscape' },
+      {
+        store,
+        loadSkill: async () => 'Use deterministic ad evidence.',
+        env: {},
+        streamStructured,
+        broadcastPartial: vi.fn(async () => undefined),
+        now: () => new Date('2026-06-09T12:00:00.000Z'),
+      },
+    );
+
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+
+    const probedAdvertisers = [...new Set(calls.map((call) => call.advertiser))]
+      .slice()
+      .sort();
+    expect(probedAdvertisers).toEqual(discoveredTopThree.slice().sort());
+
+    assertCompetitorLandscapeBody(result.artifact.body);
+    const groups = result.artifact.body.adEvidence.advertiserGroups;
+
+    for (const advertiser of discoveredTopThree) {
+      const group = groups.find(
+        (candidate) => candidate.advertiserName === advertiser,
+      );
+      expect(group).toBeDefined();
+      expect(group?.creatives.length).toBeGreaterThan(0);
+      expect(
+        group?.dataGaps.some((gap) => rescueNotePattern.test(gap.reason)),
+      ).toBe(true);
+    }
+
+    expect(
+      groups.some((group) => group.advertiserName === 'Competitor ad libraries'),
+    ).toBe(false);
   });
 });

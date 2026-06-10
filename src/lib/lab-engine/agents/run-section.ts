@@ -1871,6 +1871,12 @@ const competitorAdProbeAdvertiserConcurrency = 3;
 // Hard ceiling on the live competitor ad probe so a slow ad API cannot push
 // CompetitorLandscape past the answer-tool timeout (255s). Worst-case +30s.
 const competitorAdProbeDeadlineMs = 30_000;
+// Per-group provenance note attached to every advertiser group recovered by the
+// post-draft rescue probe (starved-seed case): the advertiser came from the
+// section agent's drafted competitorSet, not from the GTM brief. Rides the
+// existing dataGaps array so no schema change is needed.
+const competitorAdRescueProbeNote =
+  "Ads recovered by post-draft rescue probe (competitor discovered by the research agent, not supplied by the brief).";
 // Per-advertiser ceiling on the optional Foreplay direct prepass (searchBrands ->
 // searchAds). Foreplay runs alongside the SearchAPI probe inside the
 // per-advertiser step; this bound keeps a slow Foreplay round-trip from eating the
@@ -3270,11 +3276,16 @@ async function runCompetitorAdProbeAdvertiserStep({
 }
 
 export async function runCompetitorAdProbeSteps({
+  advertisers: explicitAdvertisers,
   maxAdvertisers,
   researchInput,
   researchTools,
   signal,
 }: {
+  // Explicit advertiser override used by the post-draft rescue probe (model-
+  // discovered competitors). When omitted, advertisers derive from the
+  // researchInput (brief competitorSeeds + fixture competitorAds) as before.
+  advertisers?: readonly CompetitorAdProbeAdvertiser[];
   // When set, caps how many advertisers the probe covers. The reserved ad
   // budget is the binding constraint, so the caller passes the number of
   // advertisers the reserve can fully fund (google + meta + linkedin each).
@@ -3283,7 +3294,8 @@ export async function runCompetitorAdProbeSteps({
   researchTools: Record<string, unknown>;
   signal?: AbortSignal;
 }): Promise<AgentStep[]> {
-  const allAdvertisers = getCompetitorAdProbeAdvertisers(researchInput);
+  const allAdvertisers =
+    explicitAdvertisers ?? getCompetitorAdProbeAdvertisers(researchInput);
   const advertisers =
     maxAdvertisers === undefined
       ? allAdvertisers
@@ -3628,6 +3640,137 @@ async function buildAnswerToolAdEvidence({
   });
 
   return { adProbeSteps, events, normalizedAdEvidenceGroups };
+}
+
+// Pull the section agent's discovered competitor set out of the drafted answer
+// payload (body.competitorSet.competitors[]): name is the advertiser, domain is
+// derived from the competitor's url when parseable. Defensive over unknown
+// because the payload is pre-schema-parse on the answer-tool path.
+function extractDiscoveredCompetitorAdvertisers(
+  answerInput: unknown,
+): CompetitorAdProbeAdvertiser[] {
+  const bodyRecord = getRecord(getRecord(answerInput)?.body);
+  const competitorSetRecord = getRecord(bodyRecord?.competitorSet);
+  const competitors = Array.isArray(competitorSetRecord?.competitors)
+    ? competitorSetRecord.competitors
+    : [];
+  const advertisers = new Map<string, CompetitorAdProbeAdvertiser>();
+
+  for (const competitor of competitors) {
+    const competitorRecord = getRecord(competitor);
+    const name = getStringProperty(competitorRecord, "name");
+
+    if (name === null) {
+      continue;
+    }
+
+    const key = name.toLowerCase();
+
+    if (advertisers.has(key)) {
+      continue;
+    }
+
+    const domain = deriveDomainFromUrl(
+      getStringProperty(competitorRecord, "url"),
+    );
+    advertisers.set(key, {
+      advertiser: name,
+      ...(domain === undefined ? {} : { domain }),
+    });
+  }
+
+  return Array.from(advertisers.values());
+}
+
+// Post-draft rescue probe (competitor landscape only). When the GTM brief gave
+// zero competitor seeds, the deterministic ad prepass probed nothing — but the
+// section agent typically DISCOVERS real competitors while drafting (runs
+// f06333b6 + 0eeebd93 shipped a gap-only wall despite a populated
+// competitorSet). Rescue = run those discovered advertisers through the same
+// deterministic probe once, post-loop, and hand the steps/groups back to the
+// caller's EXISTING merge path. Fires only in the starved-seed case: a prepass
+// that RAN always emits >=1 step (even with 0 ads found, or with the ad tools
+// missing), so zero prepass steps <=> getCompetitorAdProbeAdvertisers() was
+// empty AND google+meta tools are available. With brief seeds present this
+// returns undefined and behavior is byte-identical to before.
+async function runCompetitorAdRescueProbe({
+  answerInput,
+  deps,
+  input,
+  maxAdvertisers,
+  prepassAdProbeSteps,
+  researchInput,
+  researchTools,
+}: {
+  answerInput: unknown;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  maxAdvertisers?: number;
+  prepassAdProbeSteps: readonly AgentStep[];
+  researchInput: ResearchInput;
+  researchTools: Record<string, unknown>;
+}): Promise<
+  | {
+      events: ActivityEvent[];
+      groups: readonly CompetitorAdEvidenceGroup[];
+      steps: readonly AgentStep[];
+    }
+  | undefined
+> {
+  if (input.sectionId !== "positioningCompetitorLandscape") {
+    return undefined;
+  }
+
+  // Only the starved-seed case: never a second probe when the first probe ran,
+  // even if it found 0 ads (those gaps are already honest evidence).
+  if (prepassAdProbeSteps.length > 0) {
+    return undefined;
+  }
+
+  // Yield to the 270s job AbortController: never start fresh paid ad lookups
+  // once the section has been aborted.
+  if (input.signal?.aborted === true) {
+    return undefined;
+  }
+
+  const advertisers = extractDiscoveredCompetitorAdvertisers(answerInput);
+
+  if (advertisers.length === 0) {
+    return undefined;
+  }
+
+  const steps = await runCompetitorAdProbeSteps({
+    advertisers,
+    maxAdvertisers,
+    researchInput,
+    researchTools,
+    signal: input.signal,
+  });
+
+  if (steps.length === 0) {
+    return undefined;
+  }
+
+  const events = steps.flatMap((step) =>
+    buildToolEvents({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      step,
+    }),
+  );
+  // Same observedAt + topicContext as the prepass adapter so recovered
+  // creatives get the identical relevance badging (topicBadge) and dedup keys.
+  const groups = buildCompetitorAdEvidenceGroups({
+    steps,
+    observedAt: getNow(deps).toISOString(),
+    topicContext: buildCompetitorAdTopicContext(researchInput),
+  }).map((group) => ({
+    ...group,
+    dataGaps: [...group.dataGaps, { reason: competitorAdRescueProbeNote }],
+  }));
+
+  return { events, groups, steps };
 }
 
 interface VoiceOfCustomerCandidatePrepass {
@@ -5439,16 +5582,45 @@ async function runSectionViaAnswerTool(
     ...voiceOfCustomerPrepassSteps,
     ...answerResult.steps,
   ];
+  // Post-draft rescue probe: when the brief seeded zero advertisers the
+  // prepass probed nothing, so probe the competitors the agent DISCOVERED in
+  // its drafted competitorSet before the merge. No-op when seeds were present.
+  const adRescue = await runCompetitorAdRescueProbe({
+    answerInput: answerResult.answerInput,
+    deps,
+    input,
+    maxAdvertisers: adProbeMaxAdvertisers,
+    prepassAdProbeSteps: adEvidence.adProbeSteps,
+    researchInput,
+    researchTools: externalTools,
+  });
+
+  if (adRescue !== undefined) {
+    toolEvents.push(...adRescue.events);
+    await scheduleFlush();
+  }
+
+  const adProbeStepsWithRescue: readonly AgentStep[] =
+    adRescue === undefined
+      ? adEvidence.adProbeSteps
+      : [...adEvidence.adProbeSteps, ...adRescue.steps];
+  const prepassGroupsWithRescue =
+    adRescue === undefined
+      ? adEvidence.normalizedAdEvidenceGroups
+      : mergeAdEvidenceGroups(
+          adEvidence.normalizedAdEvidenceGroups ?? [],
+          adRescue.groups,
+        );
   let normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
     deps,
     input,
     modelSteps: answerResultSteps,
-    prepassGroups: adEvidence.normalizedAdEvidenceGroups,
+    prepassGroups: prepassGroupsWithRescue,
     researchInput,
   });
 
   let attempt = await buildAnswerToolAttempt({
-    adProbeSteps: adEvidence.adProbeSteps,
+    adProbeSteps: adProbeStepsWithRescue,
     answerInput: answerResult.answerInput,
     definition,
     deps,
@@ -5546,7 +5718,7 @@ async function runSectionViaAnswerTool(
       });
 
       attempt = await buildAnswerToolAttempt({
-        adProbeSteps: adEvidence.adProbeSteps,
+        adProbeSteps: adProbeStepsWithRescue,
         answerInput: repairResult.answerInput,
         definition,
         deps,
@@ -6021,6 +6193,46 @@ async function runSectionViaStructuredBodyStream(
     }
   }
 
+  // Post-draft rescue probe (mirrors the answer-tool path): when the brief
+  // seeded zero advertisers the prepass probed nothing, so probe the
+  // competitors the agent DISCOVERED in its streamed competitorSet, then fold
+  // the recovered wall into THIS attempt by re-running the existing
+  // answer-tool normalization + verification over the already-parsed output.
+  // No-op when seeds were present (prepass emitted >=1 step).
+  let adProbeStepsWithRescue: readonly AgentStep[] = adEvidence.adProbeSteps;
+  const adRescue = await runCompetitorAdRescueProbe({
+    answerInput: attempt.output,
+    deps,
+    input,
+    maxAdvertisers: adProbeMaxAdvertisers,
+    prepassAdProbeSteps: adEvidence.adProbeSteps,
+    researchInput,
+    researchTools: externalTools,
+  });
+
+  if (adRescue !== undefined) {
+    toolEvents.push(...adRescue.events);
+    await scheduleFlush();
+    adProbeStepsWithRescue = [...adEvidence.adProbeSteps, ...adRescue.steps];
+    normalizedAdEvidenceGroups = mergeAdEvidenceGroups(
+      [...adRescue.groups],
+      normalizedAdEvidenceGroups ?? [],
+    );
+
+    if (attempt.output !== null) {
+      attempt = await buildAnswerToolAttempt({
+        adProbeSteps: adProbeStepsWithRescue,
+        answerInput: attempt.output,
+        definition,
+        deps,
+        input,
+        modelSteps,
+        normalizedAdEvidenceGroups,
+        researchInput,
+      });
+    }
+  }
+
   let bestCommittableAttempt = getBestCommittableAttempt(null, attempt);
 
   // Coarse pre-filter: enter the repair block when an attempt is incomplete OR
@@ -6106,7 +6318,7 @@ async function runSectionViaStructuredBodyStream(
       );
 
       attempt = await buildStructuredBodyAttempt({
-        adProbeSteps: adEvidence.adProbeSteps,
+        adProbeSteps: adProbeStepsWithRescue,
         attempt: validationAttempt,
         definition,
         deps,

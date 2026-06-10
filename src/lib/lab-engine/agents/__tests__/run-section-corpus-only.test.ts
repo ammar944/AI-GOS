@@ -1289,20 +1289,37 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     assertCompetitorLandscapeBody(result.artifact.body);
-    expect(result.artifact.body.adEvidence.advertiserGroups).toEqual([
-      expect.objectContaining({
-        advertiserName: 'Gong',
-        domain: 'gong.io',
-        returnedCreativeCount: 1,
-        creatives: [
-          expect.objectContaining({
-            advertiserName: 'Gong',
-            id: 'gong-ad-1',
-            platform: 'google',
-          }),
-        ],
-      }),
-    ]);
+    // The harvested model ad-tool group is on the wall. With blank brief seeds
+    // the post-draft rescue probe ALSO fires for the drafted competitorSet;
+    // its lookups gap out here (no SEARCHAPI_KEY in tests), so the rescue adds
+    // honest gap-only groups tagged with the rescue provenance note alongside
+    // the harvested Gong group.
+    const advertiserGroups = result.artifact.body.adEvidence.advertiserGroups;
+    expect(advertiserGroups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          advertiserName: 'Gong',
+          domain: 'gong.io',
+          returnedCreativeCount: 1,
+          creatives: [
+            expect.objectContaining({
+              advertiserName: 'Gong',
+              id: 'gong-ad-1',
+              platform: 'google',
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(
+      advertiserGroups
+        .filter((group) => group.advertiserName !== 'Gong')
+        .every((group) =>
+          group.dataGaps.some((gap) =>
+            gap.reason.includes('post-draft rescue probe'),
+          ),
+        ),
+    ).toBe(true);
 
     const record = await store.readRun(researchInput.runId);
     expect(
