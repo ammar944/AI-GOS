@@ -1,6 +1,7 @@
 import type { ResearchInput } from "../artifacts/artifact-envelope";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
 import type { SectionId } from "../events/activity-event";
+import { buildChannelPolicyPromptLines } from "../sections/channel-policy";
 import {
   SECTION_REGISTRY,
   isSupportedSectionId,
@@ -618,6 +619,7 @@ export function buildStructuredPrompt({
     `Mission: ${definition.mission}`,
     "",
     ...buildCapabilityGapGuidance(definition, externalToolNames),
+    ...buildChannelPolicyPromptLines(definition, researchInput),
     "Skill analyst guidance:",
     skillMd,
     "",
@@ -675,6 +677,7 @@ export function buildStructuredBodyPrompt({
     evidenceInstruction,
     "",
     ...buildCapabilityGapGuidance(definition, externalToolNames),
+    ...buildChannelPolicyPromptLines(definition, researchInput),
     "Skill analyst guidance:",
     skillMd,
     "",
@@ -722,6 +725,7 @@ export function buildAnswerToolInstructions(
     "",
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...buildCapabilityGapGuidance(definition, options.externalToolNames),
+    ...buildChannelPolicyPromptLines(definition, researchInput),
     "Output emphasis:",
     definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
     "",

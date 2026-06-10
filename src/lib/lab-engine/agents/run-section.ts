@@ -55,6 +55,11 @@ import {
   type HookOutcome,
   type PostRequiredEvidenceHookContext,
 } from "../sections/committable-gate";
+import {
+  checkPaidMediaChannelPolicy,
+  deriveChannelPolicy,
+  type PaidMediaPolicyCheckBody,
+} from "../sections/channel-policy";
 import { getSectionSubSections } from "../sections/sub-sections";
 import type { RunStore } from "../runs/run-store";
 import {
@@ -4838,6 +4843,19 @@ async function buildVerifiedAttemptFromOutput({
         });
       if (modelAuthoredGapIssue !== null) {
         return { kind: "reject", errors: [modelAuthoredGapIssue] };
+      }
+    }
+
+    if (input.sectionId === "positioningPaidMediaPlan") {
+      // Media-Plan SOP channel policy: re-derived from the same brief the
+      // prompt block used, so a Meta-templated plan on a high-ACV brief
+      // rejects with self-explanatory errors that drive the repair attempt.
+      const channelPolicyErrors = checkPaidMediaChannelPolicy({
+        body: candidateArtifact.body as PaidMediaPolicyCheckBody,
+        policy: deriveChannelPolicy(researchInput.onboarding),
+      });
+      if (channelPolicyErrors.length > 0) {
+        return { kind: "reject", errors: channelPolicyErrors };
       }
     }
 

@@ -115,7 +115,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
   "- \`body.audienceTypes[]\` has exactly 3 rows; each has \`slot\`, \`archetype\`, \`dailyBudget\`, optional \`dailyBudgetValue\`, \`dailyBudgetProvenance\`, \`detail\`, \`sourceSection\`, and \`grounding\`.",
   "- \`body.anglesToTest[]\` has exactly 4 distinct creative angles. Use diverse DR types across Problem-Aware, Mechanism-Led, Proof-Stacked, Enemy, Contrarian, Identity, and Comparison; no two angles should lean on the same lever.",
   "- Each angle row has \`shortName\`, \`description\`, free-string \`angleType\`, \`sourceSection\`, and exact \`grounding\` or \`UNVERIFIED\`.",
-  "- \`body.creativeStrategy\` keys are exactly \`prose\`, \`staticCount\`, \`videoCount\`, \`totalPerAudience\`; use 5 static, 3 UGC, 8 total per audience.",
+  "- \`body.creativeStrategy\` keys are exactly \`prose\`, \`staticCount\`, \`videoCount\`, \`totalPerAudience\`; use 5 static, 3 video/UGC, 8 total per audience, with formats native to the CHANNEL POLICY's primary platform.",
   "- \`body.creativeFramework[]\` has exactly 8 fixed slots: \`PST 1\`, \`PST 2\`, \`PST 3\`, \`Objection 1\`, \`Objection 2\`, \`USP\`, \`Demo + Objection\`, \`Before / After\`; each row has \`label\`, \`angleType\`, deployable \`hook\`, \`executesAngle\`, \`sourceSection\`, and \`grounding\`.",
   "- \`body.funnelIdeation[]\` has exactly 3 rows: \`1 - PRIMARY\`, \`2 - SECONDARY\`, \`3 - TEST\`; each row has \`rank\`, \`name\`, \`description\`, and \`whatItProves\`.",
   "- \`body.salesProcess[]\` should include Sales Process Overview, SDR Opt-In Flow, Personalization Playbook, and Loom Walkthrough rows; use empty \`url\` and explicit gap \`note\` when assets are absent.",

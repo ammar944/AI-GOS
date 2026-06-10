@@ -816,7 +816,11 @@ describe('runSection corpus-only mode', (): void => {
     expect(runAnswerTool).toHaveBeenCalledTimes(1);
     expect(body.evidenceGap).toBe(true);
     expect(eventTypes).not.toContain('repair-started');
-    expect(deadlineSkip?.metadata.issues).toEqual(
+    const deadlineSkipIssues =
+      deadlineSkip !== undefined && 'issues' in deadlineSkip.metadata
+        ? deadlineSkip.metadata.issues
+        : undefined;
+    expect(deadlineSkipIssues).toEqual(
       expect.arrayContaining([
         expect.stringContaining('deadline-aware salvage: skipped repair'),
       ]),

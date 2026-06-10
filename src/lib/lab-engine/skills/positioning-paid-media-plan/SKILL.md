@@ -2,8 +2,8 @@
 name: positioning-paid-media-plan
 description: Use this skill when AI-GOS turns the six committed positioning artifacts into a fixed-template SaaS Launch paid media plan in one call — cross-section reasoning folded inline, grounded direct-response creative, no separate thinker stage.
 metadata:
-  version: 3.0.0-lab
-  updated: 2026-06-08
+  version: 3.1.0-lab
+  updated: 2026-06-10
   author: AI-GOS
   category: GTM/paid-media-plan
   tags: [paid-media, media-buying, direct-response, cross-section, gtm]
@@ -34,8 +34,11 @@ plus `ResearchInput.onboarding` (the frozen GTM brief). Read these brief fields
 when present:
 
 - `onboarding.monthlyAdBudget` → all budget math (the only math in the plan).
+- `onboarding.economics.acv` → drives the SOP channel branch. A binding
+  `CHANNEL POLICY` block is injected into your context with the allowed and
+  forbidden platforms already derived; obey it. See Platform Logic below.
 - `onboarding.channels` (multi-select) + `onboarding.budgetSplit` → which
-  platforms the operator actually runs. See Platform Logic below.
+  platforms the operator actually runs today. See Platform Logic below.
 - `onboarding.salesProcessDocs[]` + `onboarding.salesLoomUrl` → Slide 9. If
   absent, state the gap. Never fabricate a URL.
 - `onboarding.creativeCapacity` → creative counts context (Slide 6).
@@ -103,14 +106,14 @@ slide is noted in brackets.
 
 **Slide 1 — Title.** `{Company}` · "Paid Media Plan" · subtitle is
 `{Platform} · Phase 1 & 2 · {the REAL monthlyAdBudget value} / Month` — e.g.
-"Meta Advertising · Phase 1 & 2 · $6,000 / Month". Substitute the operator's
+"LinkedIn + Google · Phase 1 & 2 · $6,000 / Month". Substitute the operator's
 actual number; a bracketed token (`$[Budget]`, `[Budget]`, or any unsubstituted
 template literal) in the shipped subtitle is an automatic FAIL. When
 `monthlyAdBudget` is missing or a non-answer, the budget segment of the subtitle
 reads exactly `Budget not provided` — never a placeholder, never an invented or
 "typical" number. Footer "Prepared by SaaS Launch · saaslaunch.net". Platform
-reads "Meta Advertising" by default (see Platform Logic); reflect the primary
-declared channel otherwise.
+is the CHANNEL POLICY's allowed set (see Platform Logic) — name the real
+platform(s); never default to Meta out of template habit.
 
 **Slide 2 — Campaign Overview.** Donut (Phase 1 / Phase 2 split) + 4 stat blocks.
 This is the ONLY math, and it runs ONLY when `monthlyAdBudget` is present:
@@ -136,15 +139,32 @@ underperformers · double down on top combinations · scale winning combos ·
 refresh creative + add retargeting on Phase 1 signals · continuous CRO and
 landing-page iteration. `[fixed; sequence by learning value]`
 
-**Slide 4 — Audience Types.** EXACTLY 3 fixed archetypes, tested in parallel,
-equal daily split (daily / 3 each). Each `detail` is company-specific targeting,
-grounded in the Buyer ICP section. `[ICP]`
+**Slide 4 — Audience Types.** EXACTLY 3 slots, tested in parallel, equal daily
+split (daily / 3 each). Each `detail` is company-specific targeting, grounded
+in the Buyer ICP section. The archetype set is PLATFORM-NATIVE — pick the trio
+that matches the CHANNEL POLICY's allowed platforms; never put a Meta mechanism
+(Lookalike, Advantage+) in a plan whose policy forbids Meta. `[ICP]`
+
+When Meta is the primary platform:
 - **01 Broad Prospecting — "Interest Stack":** layered interest targeting — name
   the real industries, roles, behaviors, and competitor-brand interests from the
   ICP.
 - **02 High Intent — "ABM ICP List + 1% Lookalike":** uploaded best-fit list +
   Meta 1% Lookalike. Honor `leadListAvailable`.
 - **03 AI Optimized — "Advantage+":** Meta Advantage+, minimal constraints.
+
+When LinkedIn is the primary platform:
+- **01 Firmographic Stack:** LinkedIn native targeting — industry, company size,
+  job function, seniority from the ICP's firmographic cuts.
+- **02 ABM Company List + Predictive Audiences:** uploaded best-fit company list
+  (honor `leadListAvailable`) + LinkedIn Predictive Audiences seeded from it.
+- **03 Retargeting:** website visitors + ad engagers, layered with ICP filters.
+
+When Google is the primary (or co-primary) platform, audience slots are intent
+themes: **01 Solution-aware search themes** (category keywords) · **02
+Competitor brand terms** (comparison copy) · **03 PMax / display retargeting**.
+On a two-platform policy (e.g. LinkedIn + Google), split the three slots across
+the platforms by learning value and say which platform each slot runs on.
 
 Targeting specificity is the only currency: name the role, the company-size
 band, and the trigger. An audience like "enterprises in healthcare" is not a
@@ -154,11 +174,14 @@ target — it is a category. The ICP section names real firmographic cuts; use t
 below — this is where the four distinct angles live, each mapped to a named DR
 type and grounded in a section. `[Offer + VoC + Competitor]`
 
-**Slide 6 — Creative Strategy (counts).** Bar chart: 5 static / 3 UGC = 8 total
-per audience, tested across all 3 audiences in Phase 1. Static = Problem →
-Solution → Transformation + objection handling. UGC = USP-focused, objection
-handling, before/after. Counts are fixed: `staticCount` 5, `videoCount` 3,
-`totalPerAudience` 8.
+**Slide 6 — Creative Strategy (counts).** Bar chart: 5 static / 3 video = 8
+total per audience, tested across all 3 audiences in Phase 1. Counts are fixed
+(`staticCount` 5, `videoCount` 3, `totalPerAudience` 8); the FORMAT follows the
+primary platform: Meta → static images + UGC video; LinkedIn → single-image +
+short video + document-style proof; Google search → the 8 hooks become RSA
+headline/description copy blocks. Static = Problem → Solution → Transformation
++ objection handling. Video/UGC = USP-focused, objection handling, before/after.
+Say which platform format the counts express in `prose`.
 
 **Slide 7 — Creative Framework (8 fixed slots).** Each slot executes one of the
 four Slide-5 angles and carries a deployable `hook`, the `angleType` fixed to
@@ -250,10 +273,11 @@ choose which four.
 
 **Match altitude to the market.** Use Schwartz to set the angle's pitch:
 
-- *Awareness* (where the individual buyer is): B2B cold traffic on Meta is
-  usually Problem-Aware or Solution-Aware. Lead with the pain in the buyer's
-  words or the differentiated mechanism — never a Most-Aware "book a demo" line
-  on a cold audience.
+- *Awareness* (where the individual buyer is): B2B cold traffic on social
+  (Meta or LinkedIn) is usually Problem-Aware or Solution-Aware. Lead with the
+  pain in the buyer's words or the differentiated mechanism — never a
+  Most-Aware "book a demo" line on a cold audience. Paid search captures
+  Solution-Aware and Product-Aware buyers; match the copy to the query intent.
 - *Sophistication* (how jaded the market is): B2B SaaS categories are typically
   Stage 3-5. A bare "save time / save money" claim is dead on arrival. Carry a
   named mechanism (S3-4) or a buyer identity (S5), not a generic benefit.
@@ -456,21 +480,45 @@ The rules:
   names or account counts the ICP never stated (no "500 accounts from
   [vendor]" unless the ICP says so).
 
-## Platform Logic
+## Platform Logic (Media-Plan SOP — binding)
 
-Default to Meta-format creative (Ammar's decision); the title slide reads "Meta
-Advertising" unless the brief says otherwise. This is channel-aware, not
-Meta-only hardcoded:
+Platform selection is SOP-governed, not a template default. A `CHANNEL POLICY`
+block is injected into your context with the ACV band already parsed from the
+brief and the allowed/forbidden platforms already derived. It is
+validator-enforced: a campaign structured on a forbidden platform fails
+validation and forces a repair.
 
-- Read `onboarding.channels` and `onboarding.budgetSplit`. Name the channels the
-  operator declared.
-- When the operator runs channels beyond Meta, set `campaignOverview.platform`
-  to the primary declared channel and surface an explicit note: "Scoped to
-  Meta-format creative; you also run [X / Y] — see Slide 12 for what to keep,
-  rework, or cut there." Never silently drop a declared channel — Slide 12 is
-  where Google / LinkedIn / email get their keep / kill / scale verdicts.
+The SOP branch the policy encodes:
+
+- **ACV under $3K** → Meta + Google.
+- **ACV $3K–$5K** → Meta + Google + LinkedIn.
+- **ACV above $5K (enterprise-priced motion)** → LinkedIn + Google ONLY.
+  Never structure spend on Meta for this band, even when the budget only fits
+  Meta's minimum — the buyer is not there, and a cheap wrong channel is worse
+  than an honestly staged right channel.
+- **SOP platform minimums:** Meta $3K/mo · Google $5K/mo · LinkedIn $5K/mo.
+
+How to apply it:
+
+- Set `campaignOverview.platform` to the policy's allowed set (name the primary
+  explicitly — "LinkedIn + Google", not "multi-channel"). Slide 4 audiences and
+  Slide 6 creative formats live on the same platforms.
+- **Budget conflicts are strategy, not noise.** When the brief budget sits
+  below an allowed platform's minimum, the policy block lists the conflict.
+  Surface it in `campaignOverview.prose` using the literal phrase
+  "platform minimum", structure the phases as a staged entry the budget can
+  actually fund (e.g. Google capture first, LinkedIn ABM in Phase 2), and put
+  the raise recommendation — tied to the operator's KPI economics — in
+  `channelSuggestions`. Never resolve a conflict by sliding spend to a
+  forbidden platform.
+- Read `onboarding.channels` and `onboarding.budgetSplit` for what the operator
+  runs TODAY. Channels the operator runs that the policy does not structure
+  get their keep / kill / scale verdicts on Slide 12 — never silently dropped.
 - `gtmMotion` (SLG vs PLG) is a sales motion, not a platform: it shapes the
   funnel and primary KPI, not the channel choice.
+- When the policy block is advisory (no parseable ACV), choose the platform
+  from evidence — where the ICP lives and where competitors actually advertise
+  per the ad walls — and justify the choice in `campaignOverview.prose`.
 
 ## Quality Bar
 
