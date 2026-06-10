@@ -5,6 +5,7 @@ import type { SectionLanguageModel } from "@/lib/lab-engine/ai/models";
 import {
   defaultAnswerToolRunner,
   defaultAnswerToolStreamer,
+  dropEmptyUrlStrings,
   defaultEvidencePassRunner,
   defaultEvidenceStreamRunner,
   defaultStructuredCaller,
@@ -291,5 +292,34 @@ describe("section-agent provider-specific options", (): void => {
       "No object generated: response did not match schema.",
     );
     expect(aiMocks.generateTextCalls).toHaveLength(0);
+  });
+});
+
+describe("dropEmptyUrlStrings", (): void => {
+  it("drops empty-string url-keyed fields recursively and keeps everything else", (): void => {
+    const body = {
+      marketSize: {
+        bottomUpTam: {
+          inputs: [
+            { inputType: "keyword-volume", sourceUrl: "", value: "evidence gap: unsourced" },
+            { inputType: "acv", sourceUrl: "https://example.com/pricing", value: "$4,800" },
+          ],
+        },
+        signals: [{ evidence: "grew 20%", signalType: "top-down", sourceUrl: "   " }],
+      },
+      sources: [{ title: "kept", url: "" }],
+      statusSummary: "url: not a key match",
+    };
+
+    dropEmptyUrlStrings(body);
+
+    expect(body.marketSize.bottomUpTam.inputs[0]).not.toHaveProperty("sourceUrl");
+    expect(body.marketSize.bottomUpTam.inputs[1].sourceUrl).toBe(
+      "https://example.com/pricing",
+    );
+    expect(body.marketSize.signals[0]).not.toHaveProperty("sourceUrl");
+    expect(body.sources[0]).not.toHaveProperty("url");
+    expect(body.sources[0].title).toBe("kept");
+    expect(body.statusSummary).toBe("url: not a key match");
   });
 });

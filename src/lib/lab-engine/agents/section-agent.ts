@@ -1085,8 +1085,41 @@ function hasObjectKey(
   return typeof value[key] === "object" && value[key] !== null;
 }
 
+// deepseek-v4-flash emits `"sourceUrl": ""` on unsourced rows instead of
+// omitting the optional field; min(1) URL schemas reject the whole body and
+// burn an attempt (live probe 3, 2026-06-10). An empty string carries zero
+// information, so dropping it is decode tolerance, not truth-weakening —
+// validators that REQUIRE a sourceUrl still fail the row afterwards.
+export function dropEmptyUrlStrings(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    value.forEach((item) => dropEmptyUrlStrings(item));
+    return value;
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  for (const [key, childValue] of Object.entries(record)) {
+    if (
+      typeof childValue === "string" &&
+      childValue.trim().length === 0 &&
+      /url$/iu.test(key)
+    ) {
+      delete record[key];
+      continue;
+    }
+
+    dropEmptyUrlStrings(childValue);
+  }
+
+  return value;
+}
+
 function normalizeSectionEnvelope(value: unknown): unknown {
-  const stripped = stripProviderSchemaMetadata(value);
+  const stripped = dropEmptyUrlStrings(stripProviderSchemaMetadata(value));
 
   if (typeof stripped !== "object" || stripped === null) {
     return stripped;
@@ -1273,7 +1306,7 @@ function parseStructuredResult({
     );
   }
 
-  return params.schema.parse(result.output);
+  return params.schema.parse(normalizeSectionEnvelope(result.output));
 }
 
 async function callOutputFormatStructured(

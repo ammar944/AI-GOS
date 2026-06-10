@@ -82,6 +82,7 @@ exports[`section minimum-guidance characterization (P4 descriptor move) > sectio
   "- MarketCategorySectionOutput minimums: \`body.structuralForces.forces\` must include exactly one \`regulation\`, one \`platform-shift\`, and one \`buyer-behavior\` forceType.",
   "- MarketCategorySectionOutput minimums: \`body.categoryMaturity.classification.supportingSignals\` must include at least two maturity signals.",
   "- MarketCategorySectionOutput exact item contracts: \`body.categoryMaturity.classification.supportingSignals[]\` keys are \`signalType\`, \`evidence\`, \`implication\`, optional \`sourceUrl\`; do not add \`name\` or any other key — unrecognized keys fail the strict decoder.",
+  "- Optional \`sourceUrl\` fields: when a row has no source, OMIT the \`sourceUrl\` key entirely; never emit an empty string \`""\` — empty URL strings fail the decoder.",
 ]
 `;
 
