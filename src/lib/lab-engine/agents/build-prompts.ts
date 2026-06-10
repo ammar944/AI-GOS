@@ -718,11 +718,7 @@ export function buildAnswerToolInstructions(
     `Mission: ${definition.mission}`,
     "",
     "ResearchInput JSON:",
-    JSON.stringify(
-      buildResearchInputForPrompt({ definition, researchInput }),
-      null,
-      2,
-    ),
+    JSON.stringify(buildResearchInputForPrompt({ definition, researchInput })),
     "",
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...buildCapabilityGapGuidance(definition, options.externalToolNames),
@@ -799,7 +795,6 @@ export function buildRepairPrompt({
   normalizedAdEvidenceGroups,
   previousOutput,
   researchInput,
-  skillMd,
   externalToolNames,
 }: {
   definition: PromptSectionDefinition;
@@ -808,7 +803,10 @@ export function buildRepairPrompt({
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   previousOutput: unknown;
   researchInput: ResearchInput;
-  skillMd: string;
+  // Accepted for call-site compatibility; the repair prompt intentionally does
+  // NOT re-inject the multi-thousand-char skill body (token waste) — the live
+  // answer-tool path already carries it in the attempt instructions.
+  skillMd?: string;
   externalToolNames?: readonly string[];
 }): string {
   return [
@@ -818,7 +816,8 @@ export function buildRepairPrompt({
       externalToolNames,
       normalizedAdEvidenceGroups,
       researchInput,
-      skillMd,
+      skillMd:
+        "Apply the section skill rubric you were given in the first attempt — it is already in your context.",
     }),
     "",
     "The previous output failed validation. Return a corrected full output.",
