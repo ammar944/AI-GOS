@@ -31,16 +31,45 @@ import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 
 import { dispatchAutoRerunForErroredSections } from '../route';
 
-type SectionRow = { zone: string; status: string };
+type SectionRow = { zone: string; status: string; data?: unknown };
 
+// Column-faithful like PostgREST: only selected columns come back. A route
+// that forgets `data` in its select sees every VoC as quote-less here — the
+// healthy-VoC tests below would then dispatch a phantom rescue and fail.
 function fakeSupabase(rows: SectionRow[] | null, errorMessage?: string) {
-  const eq = vi.fn().mockResolvedValue(
-    errorMessage === undefined
-      ? { data: rows, error: null }
-      : { data: null, error: { message: errorMessage } },
+  const sectionsSelect = vi.fn((columns: string) => ({
+    eq: vi.fn().mockResolvedValue(
+      errorMessage === undefined
+        ? {
+            data:
+              rows === null
+                ? null
+                : rows.map((row) =>
+                    columns.includes('data')
+                      ? row
+                      : { zone: row.zone, status: row.status },
+                  ),
+            error: null,
+          }
+        : { data: null, error: { message: errorMessage } },
+    ),
+  }));
+  // research_artifacts rollup lookup (reached only when a rescue's own
+  // onJobComplete is invoked): resolves "no rollup row" so the paid-media
+  // check early-returns without dispatching.
+  interface ArtifactsChain {
+    eq: () => ArtifactsChain;
+    maybeSingle: () => Promise<{ data: null; error: null }>;
+  }
+  const artifactsChain: ArtifactsChain = {
+    eq: () => artifactsChain,
+    maybeSingle: async () => ({ data: null, error: null }),
+  };
+  const from = vi.fn((table: string) =>
+    table === 'research_artifacts'
+      ? { select: vi.fn().mockReturnValue(artifactsChain) }
+      : { select: sectionsSelect },
   );
-  const select = vi.fn().mockReturnValue({ eq });
-  const from = vi.fn().mockReturnValue({ select });
   return { from } as never;
 }
 
@@ -53,10 +82,41 @@ const CORE = [
   'positioningOfferDiagnostic',
 ] as const;
 
-function rows(statusByZone: Partial<Record<string, string>>): SectionRow[] {
+const HEALTHY_VOC_DATA = {
+  sectionTitle: 'positioningVoiceOfCustomer',
+  body: {
+    painLanguage: {
+      quotes: [
+        {
+          sourceUrl: 'https://g2.com/reviews/1',
+          verbatimText: 'Saves hours every week',
+        },
+      ],
+    },
+    successLanguage: { quotes: [] },
+  },
+};
+
+const STARVED_VOC_DATA = {
+  sectionTitle: 'positioningVoiceOfCustomer',
+  body: {
+    painLanguage: { quotes: [] },
+    successLanguage: { quotes: [] },
+  },
+};
+
+function rows(
+  statusByZone: Partial<Record<string, string>>,
+  dataByZone: Partial<Record<string, unknown>> = {},
+): SectionRow[] {
   return CORE.map((zone) => ({
     zone,
     status: statusByZone[zone] ?? 'complete',
+    data:
+      dataByZone[zone] ??
+      (zone === 'positioningVoiceOfCustomer'
+        ? HEALTHY_VOC_DATA
+        : { sectionTitle: zone, body: {} }),
   }));
 }
 
@@ -86,12 +146,13 @@ describe('dispatchAutoRerunForErroredSections (ADR-0012)', () => {
   });
 
   it('reruns each errored core section exactly once when the wave has drained', async () => {
-    await dispatchAutoRerunForErroredSections(
+    const rescues = await dispatchAutoRerunForErroredSections(
       baseInput(
         fakeSupabase(rows({ positioningBuyerICP: 'error' })),
       ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
     );
 
+    expect(rescues).toBe(1);
     expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledTimes(1);
     expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledWith(
       expect.objectContaining({ sectionId: 'positioningBuyerICP' }),
@@ -123,12 +184,13 @@ describe('dispatchAutoRerunForErroredSections (ADR-0012)', () => {
   });
 
   it('does nothing when the wave drained clean (no errored sections)', async () => {
-    await dispatchAutoRerunForErroredSections(
+    const rescues = await dispatchAutoRerunForErroredSections(
       baseInput(fakeSupabase(rows({}))) as Parameters<
         typeof dispatchAutoRerunForErroredSections
       >[0],
     );
 
+    expect(rescues).toBe(0);
     expect(dispatchMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
@@ -140,5 +202,157 @@ describe('dispatchAutoRerunForErroredSections (ADR-0012)', () => {
         >[0],
       ),
     ).rejects.toThrow('auto-rerun section status lookup failed');
+  });
+
+  it('rescues a starved-complete VoC (zero real buyer quotes) exactly once', async () => {
+    const consoleInfoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
+
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows({}, { positioningVoiceOfCustomer: STARVED_VOC_DATA }),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(1);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledTimes(1);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: 'positioningVoiceOfCustomer' }),
+    );
+    expect(dispatchMocks.scheduleLabSectionJob).toHaveBeenCalledTimes(1);
+    const call = dispatchMocks.scheduleLabSectionJob.mock.calls[0]?.[0] as {
+      sectionId: string;
+    };
+    expect(call.sectionId).toBe('positioningVoiceOfCustomer');
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[run-lab-section] starved-VoC auto-rescue dispatching',
+      { runId: 'run-1', sectionId: 'positioningVoiceOfCustomer' },
+    );
+
+    consoleInfoSpy.mockRestore();
+  });
+
+  it('does not rescue a complete VoC that carries at least one real buyer quote', async () => {
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows({}, { positioningVoiceOfCustomer: HEALTHY_VOC_DATA }),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(0);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(dispatchMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('treats quote records without usable verbatimText as starved (shared real-quote rule)', async () => {
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows(
+            {},
+            {
+              positioningVoiceOfCustomer: {
+                sectionTitle: 'positioningVoiceOfCustomer',
+                body: {
+                  painLanguage: {
+                    quotes: [
+                      {
+                        sourceUrl: 'https://g2.com/reviews/9',
+                        verbatimText: null,
+                      },
+                    ],
+                  },
+                  successLanguage: { quotes: [{ verbatimText: '   ' }] },
+                },
+              },
+            },
+          ),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(1);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: 'positioningVoiceOfCustomer' }),
+    );
+  });
+
+  it('holds the starved-VoC rescue until the wave has drained', async () => {
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows(
+            { positioningDemandIntent: 'running' },
+            { positioningVoiceOfCustomer: STARVED_VOC_DATA },
+          ),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(0);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(dispatchMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('rescues errored sections and a starved VoC together in one pass', async () => {
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows(
+            { positioningBuyerICP: 'error' },
+            { positioningVoiceOfCustomer: STARVED_VOC_DATA },
+          ),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(2);
+    expect(dispatchMocks.scheduleLabSectionJob).toHaveBeenCalledTimes(2);
+    const sectionIds = dispatchMocks.scheduleLabSectionJob.mock.calls.map(
+      (call) => (call[0] as { sectionId: string }).sectionId,
+    );
+    expect(sectionIds).toEqual(
+      expect.arrayContaining([
+        'positioningBuyerICP',
+        'positioningVoiceOfCustomer',
+      ]),
+    );
+  });
+
+  it("the rescue's onJobComplete carries only the paid-media check (no recursive rescue)", async () => {
+    await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows({}, { positioningVoiceOfCustomer: STARVED_VOC_DATA }),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(dispatchMocks.scheduleLabSectionJob).toHaveBeenCalledTimes(1);
+    const call = dispatchMocks.scheduleLabSectionJob.mock.calls[0]?.[0] as {
+      onJobComplete?: (context: unknown) => Promise<void>;
+    };
+    expect(call.onJobComplete).toBeTypeOf('function');
+
+    // The rescued VoC commits starved AGAIN: invoking its hook must neither
+    // reset nor redispatch anything (the fake rollup is incomplete, so the
+    // paid-media check inside the hook early-returns too).
+    await call.onJobComplete?.({
+      claim: {
+        status: 'claimed',
+        runId: 'run-1',
+        sectionId: 'positioningVoiceOfCustomer',
+        sectionRunId: 'fresh-run',
+      },
+      seeded: { parent_audit_run_id: 'parent-1', section_run_ids: [] },
+    });
+
+    expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledTimes(1);
+    expect(dispatchMocks.scheduleLabSectionJob).toHaveBeenCalledTimes(1);
   });
 });

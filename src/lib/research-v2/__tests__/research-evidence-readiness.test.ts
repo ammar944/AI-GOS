@@ -6,6 +6,7 @@ import {
 } from '@/lib/ai/prompts/positioning-skills';
 import {
   evaluateResearchEvidenceReadiness,
+  realBuyerQuoteCountFromArtifactData,
   type ResearchEvidenceReadinessRow,
 } from '../research-evidence-readiness';
 
@@ -124,6 +125,34 @@ describe('evaluateResearchEvidenceReadiness', (): void => {
         ]),
       },
     ]);
+  });
+
+  it('counts real buyer quotes straight off the persisted artifact envelope', (): void => {
+    // realBuyerQuoteCountFromArtifactData takes the raw
+    // research_artifact_sections.data column value ({ body: {...} } envelope).
+    expect(
+      realBuyerQuoteCountFromArtifactData({
+        body: readyVoiceOfCustomerBody(),
+        sectionTitle: 'positioningVoiceOfCustomer',
+      }),
+    ).toBe(2);
+    // Quote records without usable verbatimText are not "real" quotes.
+    expect(
+      realBuyerQuoteCountFromArtifactData({
+        body: {
+          painLanguage: {
+            quotes: [
+              { sourceUrl: 'https://g2.com/reviews/3', verbatimText: null },
+            ],
+          },
+          successLanguage: { quotes: [{ verbatimText: '   ' }] },
+        },
+        sectionTitle: 'positioningVoiceOfCustomer',
+      }),
+    ).toBe(0);
+    // Missing body / non-record data degrade to zero, never throw.
+    expect(realBuyerQuoteCountFromArtifactData({ sectionTitle: 'x' })).toBe(0);
+    expect(realBuyerQuoteCountFromArtifactData(null)).toBe(0);
   });
 
   it('blocks BuyerICP when fewer than two named buyer identities are present', (): void => {

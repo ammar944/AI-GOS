@@ -28,6 +28,7 @@ import {
   resetSectionRunForRerun,
 } from '@/lib/research-v2/orchestrate-db';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
+import { realBuyerQuoteCountFromArtifactData } from '@/lib/research-v2/research-evidence-readiness';
 import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/uploaded-document-context.server';
 import { createAdminClient } from '@/lib/supabase/server';
 
@@ -194,12 +195,19 @@ async function hasCompleteSixSectionRollup({
 }
 
 // ADR-0012 auto-rerun: when the fan-out wave has fully drained (every core
-// section terminal) and some core sections sit in `error`, dispatch exactly one
-// fresh attempt per errored section — deliberately reproducing the free-lane
-// condition that made manual reruns succeed. Server-side (survives closed
-// tabs, unlike the bounded client retry in use-audit-state). Once-guard is
-// structural: the rerun dispatch's onJobComplete carries only the paid-media
-// check, never this pass, so a failing rerun cannot re-trigger itself.
+// section terminal), dispatch exactly one fresh attempt per rescue-eligible
+// section — deliberately reproducing the free-lane condition that made manual
+// reruns succeed. Rescue-eligible: core sections in `error`, plus a
+// positioningVoiceOfCustomer row that committed `complete` but STARVED (zero
+// real buyer quotes — the known fan-out-contention failure), so paid-media
+// never reads a starved VoC. Server-side (survives closed tabs, unlike the
+// bounded client retry in use-audit-state). Once-guard is structural: the
+// rerun dispatch's onJobComplete carries only the paid-media check, never this
+// pass, so a rerun that fails — or commits starved again — cannot re-trigger
+// itself. Returns the number of rescues dispatched: the first-pass hook skips
+// its paid-media check in the same invocation when this is non-zero, because
+// resetSectionRunForRerun flips the rollup below 6/6 only if it lands before
+// the paid-media rollup read.
 export async function dispatchAutoRerunForErroredSections({
   baseResearchInput,
   parentAuditRunId,
@@ -216,10 +224,10 @@ export async function dispatchAutoRerunForErroredSections({
   schedule: ScheduleLabSectionTask;
   supabase: ReturnType<typeof createAdminClient>;
   userId: string;
-}): Promise<void> {
+}): Promise<number> {
   const { data, error } = await supabase
     .from('research_artifact_sections')
-    .select('zone, status')
+    .select('zone, status, data')
     .eq('artifact_id', parentAuditRunId);
 
   if (error) {
@@ -229,16 +237,17 @@ export async function dispatchAutoRerunForErroredSections({
   }
 
   const coreZones = POSITIONING_SECTION_IDS as readonly string[];
-  const coreRows = ((data ?? []) as { zone?: unknown; status?: unknown }[])
-    .filter(
-      (row): row is { zone: string; status: string } =>
-        typeof row.zone === 'string' &&
-        typeof row.status === 'string' &&
-        coreZones.includes(row.zone),
-    );
+  const coreRows = (
+    (data ?? []) as { zone?: unknown; status?: unknown; data?: unknown }[]
+  ).filter(
+    (row): row is { zone: string; status: string; data: unknown } =>
+      typeof row.zone === 'string' &&
+      typeof row.status === 'string' &&
+      coreZones.includes(row.zone),
+  );
 
   if (coreRows.length < coreZones.length) {
-    return;
+    return 0;
   }
 
   const waveDrained = coreRows.every(
@@ -248,16 +257,35 @@ export async function dispatchAutoRerunForErroredSections({
     .filter((row) => row.status === 'error')
     .map((row) => row.zone)
     .filter(isPositioningSectionId);
+  // Starved-complete VoC: committed clean but with zero real buyer quotes (the
+  // quote-count rule and the `data.body` envelope shape are shared with
+  // research-evidence-readiness). Rescued exactly like an errored section.
+  const starvedVoiceOfCustomerZones = coreRows
+    .filter(
+      (row) =>
+        row.zone === 'positioningVoiceOfCustomer' &&
+        row.status === 'complete' &&
+        realBuyerQuoteCountFromArtifactData(row.data) === 0,
+    )
+    .map((row) => row.zone)
+    .filter(isPositioningSectionId);
+  const rescueZones = [...erroredZones, ...starvedVoiceOfCustomerZones];
 
-  if (!waveDrained || erroredZones.length === 0) {
-    return;
+  if (!waveDrained || rescueZones.length === 0) {
+    return 0;
   }
 
-  for (const sectionId of erroredZones) {
-    console.info('[run-lab-section] ADR-0012 auto-rerun dispatching', {
-      runId,
-      sectionId,
-    });
+  let rescuesDispatched = 0;
+  for (const sectionId of rescueZones) {
+    console.info(
+      erroredZones.includes(sectionId)
+        ? '[run-lab-section] ADR-0012 auto-rerun dispatching'
+        : '[run-lab-section] starved-VoC auto-rescue dispatching',
+      {
+        runId,
+        sectionId,
+      },
+    );
     await resetSectionRunForRerun({ supabase, userId, runId, sectionId });
     await scheduleLabSectionJob({
       userId,
@@ -296,7 +324,10 @@ export async function dispatchAutoRerunForErroredSections({
         }
       },
     });
+    rescuesDispatched += 1;
   }
+
+  return rescuesDispatched;
 }
 
 // W3-A pure-lean: once the six positioning sections roll up complete, dispatch
@@ -499,6 +530,43 @@ export async function POST(request: Request): Promise<Response> {
             // Wrapped in try/catch so a dispatch error never fails the core
             // section's own commit.
             onJobComplete: async ({ seeded }): Promise<void> => {
+              // ADR-0012: one server-side rerun per rescue-eligible section
+              // once the wave drains (errored sections + starved-complete
+              // VoC) — survives closed tabs (the client retry cannot). MUST
+              // be awaited BEFORE the paid-media check: resetSectionRunForRerun
+              // flips the rollup back below 6/6 only if it lands before the
+              // paid-media rollup read.
+              let rescuesDispatched = 0;
+              try {
+                rescuesDispatched = await dispatchAutoRerunForErroredSections({
+                  baseResearchInput,
+                  parentAuditRunId: seeded.parent_audit_run_id,
+                  ...(reviewDispatch === undefined ? {} : { reviewDispatch }),
+                  runId: body.run_id,
+                  schedule: after,
+                  supabase,
+                  userId,
+                });
+              } catch (error) {
+                console.error(
+                  '[run-lab-section] ADR-0012 auto-rerun pass failed',
+                  {
+                    runId: body.run_id,
+                    parentAuditRunId: seeded.parent_audit_run_id,
+                    sectionId: body.section_id,
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                );
+              }
+
+              if (rescuesDispatched > 0) {
+                // A rescue is in flight, so this invocation must not race the
+                // rollup reset. The rescue's own onJobComplete carries the
+                // paid-media check, so the chain still completes.
+                return;
+              }
+
               try {
                 await dispatchPaidMediaIfSixComplete({
                   baseResearchInput,
@@ -512,30 +580,6 @@ export async function POST(request: Request): Promise<Response> {
               } catch (error) {
                 console.error(
                   '[run-lab-section] paid-media auto-dispatch failed',
-                  {
-                    runId: body.run_id,
-                    parentAuditRunId: seeded.parent_audit_run_id,
-                    sectionId: body.section_id,
-                    message:
-                      error instanceof Error ? error.message : String(error),
-                  },
-                );
-              }
-              // ADR-0012: one server-side rerun per errored section once the
-              // wave drains — survives closed tabs (the client retry cannot).
-              try {
-                await dispatchAutoRerunForErroredSections({
-                  baseResearchInput,
-                  parentAuditRunId: seeded.parent_audit_run_id,
-                  ...(reviewDispatch === undefined ? {} : { reviewDispatch }),
-                  runId: body.run_id,
-                  schedule: after,
-                  supabase,
-                  userId,
-                });
-              } catch (error) {
-                console.error(
-                  '[run-lab-section] ADR-0012 auto-rerun pass failed',
                   {
                     runId: body.run_id,
                     parentAuditRunId: seeded.parent_audit_run_id,

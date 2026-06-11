@@ -67,6 +67,13 @@ function realBuyerQuoteCount(body: Record<string, unknown>): number {
   ].filter((quote) => readString(quote.verbatimText) !== null).length;
 }
 
+// Shared with the run-lab-section starved-VoC auto-rescue so the "real buyer
+// quote" rule and the persisted artifact envelope shape (`data.body`) stay
+// single-sourced. Takes the raw `research_artifact_sections.data` column value.
+export function realBuyerQuoteCountFromArtifactData(data: unknown): number {
+  return realBuyerQuoteCount(artifactBody(data));
+}
+
 function namedBuyerIdentityCount(body: Record<string, unknown>): number {
   const personaReality = isRecord(body.personaReality)
     ? body.personaReality

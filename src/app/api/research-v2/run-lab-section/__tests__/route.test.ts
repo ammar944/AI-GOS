@@ -65,6 +65,14 @@ const routeMocks = vi.hoisted(() => {
   };
   committedSectionsQuery.select.mockReturnValue(committedSectionsQuery);
   committedSectionsQuery.eq.mockReturnValue(committedSectionsQuery);
+  // ADR-0012 auto-rerun pass status lookup: select('zone, status, data') on
+  // research_artifact_sections, awaited directly after one .eq(). Routed apart
+  // from committedSectionsQuery by 'status' appearing in the select columns.
+  const sectionStatusQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+  };
+  sectionStatusQuery.select.mockReturnValue(sectionStatusQuery);
   const parentArtifactQuery = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -81,14 +89,20 @@ const routeMocks = vi.hoisted(() => {
   documentsQuery.eq.mockReturnValue(documentsQuery);
   const from = vi.fn((table: string) =>
     table === 'research_artifact_sections'
-      ? committedSectionsQuery
+      ? {
+          select: (columns: string) =>
+            columns.includes('status')
+              ? sectionStatusQuery.select(columns)
+              : committedSectionsQuery.select(columns),
+        }
       : table === 'research_artifacts'
         ? parentArtifactQuery
         : table === 'business_profile_documents'
           ? documentsQuery
           : sessionQuery,
   );
-  const createAdminClient = vi.fn(() => ({ from }));
+  const rpc = vi.fn();
+  const createAdminClient = vi.fn(() => ({ from, rpc }));
 
   return {
     auth,
@@ -103,9 +117,11 @@ const routeMocks = vi.hoisted(() => {
     createSupabaseRunStore,
     sessionQuery,
     committedSectionsQuery,
+    sectionStatusQuery,
     parentArtifactQuery,
     documentsQuery,
     from,
+    rpc,
     createAdminClient,
   };
 });
@@ -356,6 +372,57 @@ function committedPositioningRowsWithVoiceOfCustomerGap(): Array<{
   );
 }
 
+// Rows for the ADR-0012 auto-rerun status lookup (zone, status, data). The
+// default is a fully-drained healthy wave: all six complete, VoC carrying real
+// quotes — the rescue pass no-ops and paid-media dispatch proceeds as before.
+function sectionStatusRows(): Array<{
+  zone: PositioningSectionId;
+  status: string;
+  data: { body?: Record<string, unknown>; sectionTitle: string };
+}> {
+  return POSITIONING_SECTION_IDS.map((zone) => ({
+    zone,
+    status: 'complete',
+    data: readyCommittedSectionData(zone),
+  }));
+}
+
+function sectionStatusRowsWithStarvedVoiceOfCustomer(): Array<{
+  zone: PositioningSectionId;
+  status: string;
+  data: { body?: Record<string, unknown>; sectionTitle: string };
+}> {
+  return sectionStatusRows().map((row) =>
+    row.zone === 'positioningVoiceOfCustomer'
+      ? {
+          ...row,
+          data: {
+            sectionTitle: row.zone,
+            body: {
+              painLanguage: { quotes: [] },
+              successLanguage: { quotes: [] },
+            },
+          },
+        }
+      : row,
+  );
+}
+
+function vocRescueSeededRows(): SeededRows {
+  return {
+    parent_audit_run_id: PARENT_ID,
+    section_run_ids: [
+      {
+        section_id: 'positioningVoiceOfCustomer',
+        section_run_id: '44444444-4444-4444-8444-444444444444',
+        ordinal: 4,
+        reused: true,
+        status: 'queued',
+      },
+    ],
+  };
+}
+
 function validResearchInput(): Record<string, unknown> {
   return {
     runId: VALID_RUN_ID,
@@ -451,6 +518,23 @@ describe('POST /api/research-v2/run-lab-section', () => {
     );
     routeMocks.committedSectionsQuery.in.mockResolvedValue({
       data: committedPositioningRows(),
+      error: null,
+    });
+    routeMocks.sectionStatusQuery.select.mockReturnValue(
+      routeMocks.sectionStatusQuery,
+    );
+    routeMocks.sectionStatusQuery.eq.mockResolvedValue({
+      data: sectionStatusRows(),
+      error: null,
+    });
+    routeMocks.rpc.mockResolvedValue({
+      data: [
+        {
+          section_run_id: '44444444-4444-4444-8444-444444444444',
+          previous_section_run_id: null,
+          previous_status: 'complete',
+        },
+      ],
       error: null,
     });
     routeMocks.parentArtifactQuery.select.mockReturnValue(
@@ -824,6 +908,116 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.claimSectionRun).toHaveBeenCalledTimes(2);
     expect(routeMocks.after).toHaveBeenCalledTimes(1);
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('rescues a starved-complete VoC before the paid-media check and skips paid-media in that invocation', async (): Promise<void> => {
+    // Starved-VoC auto-rescue: VoC committed `complete` with zero real buyer
+    // quotes (fan-out contention). The first-pass hook must dispatch exactly
+    // one VoC rescue BEFORE its paid-media check and skip paid-media in the
+    // same invocation — otherwise paid-media would read the starved VoC off
+    // the 6/6 rollup (which this test deliberately reports as complete).
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'complete',
+        children_complete: POSITIONING_SECTION_IDS.length,
+        children_total: POSITIONING_SECTION_IDS.length,
+      },
+      error: null,
+    });
+    routeMocks.sectionStatusQuery.eq.mockResolvedValue({
+      data: sectionStatusRowsWithStarvedVoiceOfCustomer(),
+      error: null,
+    });
+    // The rescued VoC commits starved AGAIN — paid-media must still dispatch
+    // afterwards with the honest starved artifact (coverage annotation, no
+    // gate, and no second rescue).
+    routeMocks.committedSectionsQuery.in.mockResolvedValue({
+      data: committedPositioningRowsWithVoiceOfCustomerGap(),
+      error: null,
+    });
+    routeMocks.seedOrchestration
+      .mockResolvedValueOnce(defaultSeededRows())
+      .mockResolvedValueOnce(vocRescueSeededRows())
+      .mockResolvedValueOnce(paidMediaSeededRows());
+    routeMocks.claimSectionRun
+      .mockResolvedValueOnce(
+        claimResult(
+          'claimed',
+          '22222222-2222-4222-8222-000000000002',
+          'positioningBuyerICP',
+        ),
+      )
+      .mockResolvedValueOnce(
+        claimResult(
+          'claimed',
+          '44444444-4444-4444-8444-444444444444',
+          'positioningVoiceOfCustomer',
+        ),
+      )
+      .mockResolvedValueOnce(
+        claimResult(
+          'claimed',
+          '33333333-3333-4333-8333-333333333333',
+          PAID_MEDIA_PLAN_SECTION_ID,
+        ),
+      );
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+    expect(response.status).toBe(202);
+
+    // Invocation 1: the sixth core commit's hook — rescue first, NO paid-media.
+    await drainAfter();
+
+    expect(routeMocks.rpc).toHaveBeenCalledTimes(1);
+    expect(routeMocks.rpc).toHaveBeenCalledWith('reset_section_run_for_rerun', {
+      p_user_id: 'user_1',
+      p_run_id: VALID_RUN_ID,
+      p_section_id: 'positioningVoiceOfCustomer',
+    });
+    expect(routeMocks.seedOrchestration).toHaveBeenNthCalledWith(2, {
+      userId: 'user_1',
+      runId: VALID_RUN_ID,
+      zones: ['positioningVoiceOfCustomer'],
+    });
+    const seededZonesAfterRescue = routeMocks.seedOrchestration.mock.calls.flatMap(
+      (call) => (call[0] as { zones: readonly AllPositioningSectionId[] }).zones,
+    );
+    expect(seededZonesAfterRescue).not.toContain(PAID_MEDIA_PLAN_SECTION_ID);
+    const claimedAfterRescue = routeMocks.claimSectionRun.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(claimedAfterRescue).not.toContain(PAID_MEDIA_PLAN_SECTION_ID);
+
+    // Invocation 2: the rescued VoC's job + its paid-media-only hook. It
+    // commits starved again — no second rescue (reset RPC still 1, status
+    // lookup not re-read) — and paid-media dispatches off the recovered 6/6.
+    await drainAfter();
+
+    expect(routeMocks.rpc).toHaveBeenCalledTimes(1);
+    expect(routeMocks.sectionStatusQuery.eq).toHaveBeenCalledTimes(1);
+    expect(routeMocks.seedOrchestration).toHaveBeenNthCalledWith(3, {
+      userId: 'user_1',
+      runId: VALID_RUN_ID,
+      zones: [PAID_MEDIA_PLAN_SECTION_ID],
+    });
+
+    await drainAfter();
+
+    const ranSectionIds = routeMocks.runLabSectionJob.mock.calls.map(
+      (call) => (call[0] as { sectionId: AllPositioningSectionId }).sectionId,
+    );
+    expect(ranSectionIds).toEqual([
+      'positioningBuyerICP',
+      'positioningVoiceOfCustomer',
+      PAID_MEDIA_PLAN_SECTION_ID,
+    ]);
   });
 
   it('does not mask Clerk auth failures as 401 responses', async (): Promise<void> => {
