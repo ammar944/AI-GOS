@@ -118,7 +118,7 @@ Only these research tools are available, and the lookup budget is small — spen
    Validation: `icpExistenceCheck.firmographicCuts` has at least 3 cuts across at least 3 DISTINCT `cutType` values — duplicate cutTypes fail validation — each fully fielded with `sourceUrl` and `dateObserved`, and each carrying its platform path in prose.
 
 3. Establish persona reality with named proof — the `Buyer persona venue leads` block first, then your own tool fills.
-   Validation: `personaReality.personas` has at least 3 named real individuals at named real companies, each fully fielded with a valid `sourceUrl`. Below 3, use the structured evidence-gap path instead of padding. Aim for at least one persona from an independent (non-vendor) surface.
+   Validation: `personaReality.personas` has at least 3 named real individuals at named real companies, each fully fielded with a valid `sourceUrl`. Below 3, use the structured evidence-gap path instead of padding. The floor is 3; the deliverable standard is 5 — when the lead pack and your tool fills support it, promote 5 verified personas. Aim for at least one persona from an independent (non-vendor) surface.
 
 4. Map awareness distribution across the buyer base.
    Validation: `awarenessDistribution.levels` covers all five levels exactly once, each `share` carrying its basis per the IRON LAW. Prose names the dominant level and the headline + channel strategy it implies.

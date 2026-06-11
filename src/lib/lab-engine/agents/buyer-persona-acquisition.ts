@@ -19,11 +19,33 @@ export const BUYER_PERSONA_VENUES = [
   "reviewer_identities",
 ] as const;
 
-export type BuyerPersonaVenue = (typeof BUYER_PERSONA_VENUES)[number];
+// W5 second acquisition pass: fired only when the first pass leaves a thin
+// lead pack. Distinct hunting grounds from the broad first-pass sweep —
+// named champions quoted in customer case studies, and named speakers on
+// webinar/conference rosters (incl. LinkedIn event posts).
+export const BUYER_PERSONA_SECOND_PASS_VENUES = [
+  "case_study_champions",
+  "event_speakers",
+] as const;
 
-/** 2 venues x (1 initial + at most 1 retry). Structural cap, never a loop. */
+export type BuyerPersonaVenue =
+  | (typeof BUYER_PERSONA_VENUES)[number]
+  | (typeof BUYER_PERSONA_SECOND_PASS_VENUES)[number];
+
+/**
+ * First pass: 2 venues x (1 initial + at most 1 retry). Thin-pack second
+ * pass: 2 venues x 1 attempt, no retries. Structural cap, never a loop.
+ */
 export const BUYER_PERSONA_MAX_PERPLEXITY_CALLS =
-  BUYER_PERSONA_VENUES.length * 2;
+  BUYER_PERSONA_VENUES.length * 2 + BUYER_PERSONA_SECOND_PASS_VENUES.length;
+
+/**
+ * Below this many viable leads after the first pass, mine the second-pass
+ * venues. Committed personas attrite from leads (the agent must verify each
+ * name at its URL), so the 5-persona deliverable needs lead headroom — the
+ * live 3/5 runs came from thin packs, not from the agent ignoring leads.
+ */
+export const BUYER_PERSONA_SECOND_PASS_THRESHOLD = 8;
 
 /** Lead-pack ceiling — the floor is 3 personas; a dozen leads is plenty. */
 export const BUYER_PERSONA_PACK_MAX_SIZE = 12;
@@ -139,6 +161,16 @@ const venueQuestionSpecs: Readonly<Record<BuyerPersonaVenue, VenueQuestionSpec>>
       retryAsk:
         "Search more broadly across G2, Capterra, TrustRadius, Gartner Peer Insights, and Trustpilot for NAMED reviewer identities (name or public handle, title, company) for this product or its category",
     },
+    case_study_champions: {
+      ask: "Find NAMED customer champions quoted in customer case studies, customer-story pages, and testimonial sections for this product or its close competitors — the quoted person's full name, stated title, and company",
+      retryAsk:
+        "Search vendor case-study libraries, customer-story pages, and press releases announcing customer wins for NAMED individuals (full name, title, company) who championed this product or a close competitor",
+    },
+    event_speakers: {
+      ask: "Find NAMED speakers from recent webinars, conference sessions, summits, and meetups about this category — speaker full name, stated title, and company, from event agenda/roster pages or LinkedIn event posts",
+      retryAsk:
+        "Search conference agendas, webinar registration pages, podcast guest lists, and LinkedIn event posts for NAMED speakers (full name, title, company) presenting on this category's problem space",
+    },
   };
 
 export function buildBuyerPersonaVenueQuestion({
@@ -219,10 +251,13 @@ export async function acquireBuyerPersonaCandidates({
   const lookups: BuyerPersonaLookup[] = [];
   const collectedByVenue = new Map<BuyerPersonaVenue, BuyerPersonaCandidate[]>();
 
-  const runVenue = async (venue: BuyerPersonaVenue): Promise<void> => {
+  const runVenue = async (
+    venue: BuyerPersonaVenue,
+    attempts: readonly (1 | 2)[],
+  ): Promise<void> => {
     const collected: BuyerPersonaCandidate[] = [];
 
-    for (const attempt of [1, 2] as const) {
+    for (const attempt of attempts) {
       if (
         credentialGapSeen ||
         lookupCount >= BUYER_PERSONA_MAX_PERPLEXITY_CALLS
@@ -257,26 +292,45 @@ export async function acquireBuyerPersonaCandidates({
     collectedByVenue.set(venue, collected);
   };
 
-  await Promise.all(BUYER_PERSONA_VENUES.map((venue) => runVenue(venue)));
-
   const seenKeys = new Set<string>();
   const candidates: BuyerPersonaCandidate[] = [];
 
-  for (const venue of BUYER_PERSONA_VENUES) {
-    for (const candidate of collectedByVenue.get(venue) ?? []) {
-      const key = `${candidate.name.toLowerCase()}::${candidate.url}`;
+  const appendVenueCandidates = (
+    venues: readonly BuyerPersonaVenue[],
+  ): void => {
+    for (const venue of venues) {
+      for (const candidate of collectedByVenue.get(venue) ?? []) {
+        const key = `${candidate.name.toLowerCase()}::${candidate.url}`;
 
-      if (seenKeys.has(key)) {
-        continue;
-      }
+        if (seenKeys.has(key)) {
+          continue;
+        }
 
-      seenKeys.add(key);
-      candidates.push(candidate);
+        seenKeys.add(key);
+        candidates.push(candidate);
 
-      if (candidates.length >= BUYER_PERSONA_PACK_MAX_SIZE) {
-        return { candidates, lookupCount, lookups };
+        if (candidates.length >= BUYER_PERSONA_PACK_MAX_SIZE) {
+          return;
+        }
       }
     }
+  };
+
+  await Promise.all(
+    BUYER_PERSONA_VENUES.map((venue) => runVenue(venue, [1, 2])),
+  );
+  appendVenueCandidates(BUYER_PERSONA_VENUES);
+
+  // Thin-pack second pass: distinct surfaces (case studies, event rosters),
+  // one attempt per venue, never after a credential gap.
+  if (
+    !credentialGapSeen &&
+    candidates.length < BUYER_PERSONA_SECOND_PASS_THRESHOLD
+  ) {
+    await Promise.all(
+      BUYER_PERSONA_SECOND_PASS_VENUES.map((venue) => runVenue(venue, [1])),
+    );
+    appendVenueCandidates(BUYER_PERSONA_SECOND_PASS_VENUES);
   }
 
   return { candidates, lookupCount, lookups };

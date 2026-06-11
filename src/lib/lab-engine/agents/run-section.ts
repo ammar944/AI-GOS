@@ -5357,7 +5357,12 @@ interface BuyerPersonaCandidatePrepass {
 
 // Venue fan-out is 2 parallel perplexity calls + at most one retry each;
 // bounded so a slow venue pass cannot eat the section budget.
-const buyerPersonaPrepassDeadlineMs = 45_000;
+// 45s covered the two-venue first pass; the W5 thin-pack second pass adds one
+// more serial perplexity round (two venues in parallel), so the deadline gets
+// room for it. Conditional: typical runs with a healthy pack stay ~first-pass
+// latency. On timeout the second pass yields nothing and the prepass commits
+// whatever the first pass found — never a failure.
+const buyerPersonaPrepassDeadlineMs = 70_000;
 
 async function buildBuyerPersonaCandidatePrepass({
   deps,

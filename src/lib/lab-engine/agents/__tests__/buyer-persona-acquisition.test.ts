@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   acquireBuyerPersonaCandidates,
   BUYER_PERSONA_MAX_PERPLEXITY_CALLS,
+  BUYER_PERSONA_SECOND_PASS_THRESHOLD,
+  BUYER_PERSONA_SECOND_PASS_VENUES,
   BUYER_PERSONA_VENUES,
   buildBuyerPersonaCandidates,
   buildBuyerPersonaVenueQuestion,
@@ -124,7 +126,7 @@ describe("buildBuyerPersonaCandidates", (): void => {
 });
 
 describe("acquireBuyerPersonaCandidates", (): void => {
-  it("fans out one lookup per venue when answers parse", async (): Promise<void> => {
+  it("fans out per venue and tops up from second-pass venues while the pack is thin", async (): Promise<void> => {
     let calls = 0;
     const result = await acquireBuyerPersonaCandidates({
       company,
@@ -134,12 +136,62 @@ describe("acquireBuyerPersonaCandidates", (): void => {
       },
     });
 
-    expect(calls).toBe(BUYER_PERSONA_VENUES.length);
+    // 2 first-pass venues (1 hit each) leave the pack thin -> both
+    // second-pass venues fire once each.
+    expect(calls).toBe(
+      BUYER_PERSONA_VENUES.length + BUYER_PERSONA_SECOND_PASS_VENUES.length,
+    );
     expect(result.lookupCount).toBe(calls);
-    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates).toHaveLength(4);
+    expect(
+      result.candidates.map((candidate) => candidate.venue),
+    ).toEqual([
+      "public_voices",
+      "reviewer_identities",
+      "case_study_champions",
+      "event_speakers",
+    ]);
   });
 
-  it("retries each venue at most once on zero parsed lines (cap 4)", async (): Promise<void> => {
+  it("skips the second pass when the first pass already fills the pack", async (): Promise<void> => {
+    const names = [
+      "Maya Chen",
+      "Jordan Velez",
+      "Sasha Bloom",
+      "Lee Okafor",
+      "Priya Nair",
+      "Tomas Rivera",
+      "Ana Duarte",
+      "Marcus Webb",
+    ];
+    let calls = 0;
+    const result = await acquireBuyerPersonaCandidates({
+      company,
+      executeLookup: async (): Promise<unknown> => {
+        calls += 1;
+        return perplexityResult(
+          names
+            .map(
+              (name, index) =>
+                `${name} — VP Demand Generation — Brightpath Labs — https://venue${calls}-${index}.com/talk`,
+            )
+            .join("\n"),
+        );
+      },
+    });
+
+    expect(calls).toBe(BUYER_PERSONA_VENUES.length);
+    expect(result.candidates.length).toBeGreaterThanOrEqual(
+      BUYER_PERSONA_SECOND_PASS_THRESHOLD,
+    );
+    expect(
+      result.candidates.every((candidate) =>
+        (BUYER_PERSONA_VENUES as readonly string[]).includes(candidate.venue),
+      ),
+    ).toBe(true);
+  });
+
+  it("caps zero-parse runs at first-pass retries plus one second-pass attempt per venue", async (): Promise<void> => {
     let calls = 0;
     await acquireBuyerPersonaCandidates({
       company,
@@ -149,8 +201,9 @@ describe("acquireBuyerPersonaCandidates", (): void => {
       },
     });
 
-    expect(calls).toBe(BUYER_PERSONA_VENUES.length * 2);
-    expect(calls).toBeLessThanOrEqual(BUYER_PERSONA_MAX_PERPLEXITY_CALLS);
+    // 2 venues x (1 + 1 retry) + 2 second-pass venues x 1 = the structural cap.
+    expect(calls).toBe(BUYER_PERSONA_MAX_PERPLEXITY_CALLS);
+    expect(BUYER_PERSONA_MAX_PERPLEXITY_CALLS).toBe(6);
   });
 
   it("aborts retries on a credential gap", async (): Promise<void> => {
@@ -163,7 +216,23 @@ describe("acquireBuyerPersonaCandidates", (): void => {
       },
     });
 
+    // The gap also blocks the second pass entirely.
     expect(calls).toBe(BUYER_PERSONA_VENUES.length);
+  });
+
+  it("targets case studies and event rosters in the second-pass venue questions", (): void => {
+    const caseStudyQuestion = buildBuyerPersonaVenueQuestion({
+      company,
+      venue: "case_study_champions",
+    });
+    const eventQuestion = buildBuyerPersonaVenueQuestion({
+      company,
+      venue: "event_speakers",
+    });
+
+    expect(caseStudyQuestion.toLowerCase()).toContain("case stud");
+    expect(eventQuestion.toLowerCase()).toMatch(/webinar|conference/);
+    expect(eventQuestion.toLowerCase()).toContain("linkedin");
   });
 
   it("dedupes identical name+url pairs across venues", async (): Promise<void> => {
