@@ -41,9 +41,13 @@ import {
   toReaderSources,
 } from '@/components/research-v2/reader-sources';
 import {
+  resolveSectionVerificationTier,
+  TIER_DOT_CLASS,
+  TIER_RAIL_LABEL,
   VerificationTierBadge,
   type VerificationTierBadgeProps,
 } from '@/components/research-v2/verification-tier-badge';
+import type { VerificationTier } from '@/lib/research-v2/verification-tier';
 import {
   BodyProse,
   ErrorStateBlock,
@@ -682,7 +686,10 @@ interface RunStatusCardProps {
   active: ReaderSectionId;
   onSelect: (id: ReaderSectionId) => void;
   statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
+  tierOf: (id: ReaderSectionId) => VerificationTier | null;
   positioningCompletedCount: number;
+  /** Completed sections whose verification tier is needs_review/insufficient — display only. */
+  flaggedSectionCount: number;
   activePhaseLabel: string | null;
   verified: number;
   flagged: number;
@@ -699,7 +706,9 @@ function RunStatusCard({
   active,
   onSelect,
   statusOf,
+  tierOf,
   positioningCompletedCount,
+  flaggedSectionCount,
   activePhaseLabel,
   verified,
   flagged,
@@ -712,7 +721,9 @@ function RunStatusCard({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-      {/* Header: rollup + elapsed clock + run state */}
+      {/* Header: rollup + elapsed clock + run state. The green check is earned
+          only when zero completed sections carry a flagged verification tier —
+          a run with needs_review/insufficient sections summarizes amber. */}
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
           {running ? (
@@ -722,13 +733,27 @@ function RunStatusCard({
               aria-hidden="true"
             />
           ) : allSectionsTerminal ? (
-            <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden="true" />
+            flaggedSectionCount > 0 ? (
+              <AlertTriangle
+                className="size-3.5 text-amber-600"
+                strokeWidth={2.5}
+                aria-hidden="true"
+              />
+            ) : (
+              <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden="true" />
+            )
           ) : null}
           <span className="font-mono text-[12px] font-medium tabular-nums text-foreground">
             {positioningCompletedCount}/{POSITIONING_SECTION_IDS.length}
           </span>
           {allSectionsTerminal ? (
-            <span className="text-[12px] font-medium text-muted-foreground">Done</span>
+            flaggedSectionCount > 0 ? (
+              <span className="text-[12px] font-medium text-amber-600">
+                Done · {flaggedSectionCount} flagged
+              </span>
+            ) : (
+              <span className="text-[12px] font-medium text-muted-foreground">Done</span>
+            )
           ) : null}
         </span>
         {running && elapsedMs !== null ? (
@@ -755,7 +780,14 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          const subLine = sectionStatusSubline(status);
+          // Honest subline: a completed section with a flagged verification
+          // tier reads as its tier ('Needs review' / 'Insufficient'), never as
+          // a bare 'Complete'. Non-complete statuses keep the current display.
+          const tier = status === 'complete' ? tierOf(id) : null;
+          const subLine =
+            tier && tier !== 'verified'
+              ? TIER_RAIL_LABEL[tier]
+              : sectionStatusSubline(status);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -787,6 +819,17 @@ function RunStatusCard({
                   {subLine}
                 </span>
               </span>
+              {tier ? (
+                <span
+                  data-testid={`section-tier-dot-${id}`}
+                  data-tier={tier}
+                  className={cn(
+                    'size-1.5 shrink-0 rounded-full',
+                    TIER_DOT_CLASS[tier],
+                  )}
+                  aria-hidden="true"
+                />
+              ) : null}
             </button>
           );
         })}
@@ -1113,6 +1156,41 @@ export function AuditReaderShell({
       ),
     [statusOf],
   );
+
+  // Per-section verification tiers for the rail — presentation only, resolved
+  // with the same precedence as the detail-pane VerificationTierBadge. Does
+  // not feed dispatch/gating logic (positioningCompletedCount keeps that job).
+  const tierByZone = useMemo(() => {
+    const m = new Map<ReaderSectionId, VerificationTier | null>();
+    for (const id of READER_SECTION_IDS) {
+      const snapshot = live.sectionsByZone[id];
+      m.set(
+        id,
+        resolveSectionVerificationTier({
+          verificationTier: snapshot?.verificationTier ?? null,
+          verificationFlag: snapshot?.verificationFlag ?? null,
+          verification: typedByZone.get(id)?.verification ?? null,
+        }),
+      );
+    }
+    return m;
+  }, [live.sectionsByZone, typedByZone]);
+
+  const tierOf = useCallback(
+    (id: ReaderSectionId): VerificationTier | null => tierByZone.get(id) ?? null,
+    [tierByZone],
+  );
+
+  // Completed sections whose tier is flagged — drives the amber run summary.
+  const flaggedSectionCount = useMemo(() => {
+    let count = 0;
+    for (const id of READER_SECTION_IDS) {
+      if (statusOf(id) !== 'complete') continue;
+      const tier = tierByZone.get(id);
+      if (tier === 'needs_review' || tier === 'insufficient') count += 1;
+    }
+    return count;
+  }, [statusOf, tierByZone]);
 
   // ---- Run-status rollups (W3) -----------------------------------------
   // Verified / flagged claims summed across committed sections.
@@ -1461,7 +1539,9 @@ export function AuditReaderShell({
               active={active}
               onSelect={select}
               statusOf={statusOf}
+              tierOf={tierOf}
               positioningCompletedCount={positioningCompletedCount}
+              flaggedSectionCount={flaggedSectionCount}
               activePhaseLabel={activePhaseLabel}
               verified={verificationRollup.verified}
               flagged={verificationRollup.flagged}

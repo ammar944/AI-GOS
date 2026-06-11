@@ -14,6 +14,8 @@
 ## Local Contracts
 
 - Render persisted, schema-backed artifacts only. Do not invent missing research values.
+- AI-authored prose fields (subsection `prose`, `statusSummary`, executive-brief thesis/moves) render as markdown through `src/components/ai-elements/response.tsx` (streamdown wrapper); citation `[n]` markers must keep resolving to Cite hover-cards (see `narrative-block.tsx` component overrides).
+- The reader rail must stay tier-honest: completed sections with `needs_review`/`insufficient` verification tiers surface their tier (label + dot) and the run summary may not show an unqualified green check while any flagged section exists. Tier display is presentation-only and must not feed dispatch/gating logic.
 - Keep source/citation affordances visible when the artifact provides source data.
 - Renderer behavior must match artifact schemas in `src/lib/lab-engine/artifacts/` and contracts in `src/lib/research-v2/`.
 - Preserve stable section IDs and zone IDs.

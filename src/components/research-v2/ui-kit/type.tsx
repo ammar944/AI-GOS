@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { Response } from '@/components/ai-elements/response';
 import { cn } from '@/lib/utils';
 
 export function Eyebrow({
@@ -42,8 +43,9 @@ export function SectionTitle({
   );
 }
 
-export function BodyProse({ children }: { children: ReactNode }): React.ReactElement {
-  return (
-    <p className="max-w-[68ch] text-[15px] leading-[1.6] text-foreground">{children}</p>
-  );
+// AI-authored prose (e.g. statusSummary) is markdown — render it through the
+// AI Elements Response wrapper so emphasis/lists format instead of showing
+// raw `**` markers. Styling comes from Response's shared prose class.
+export function BodyProse({ children }: { children: string }): React.ReactElement {
+  return <Response>{children}</Response>;
 }

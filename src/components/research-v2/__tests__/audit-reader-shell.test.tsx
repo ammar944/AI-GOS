@@ -207,6 +207,51 @@ describe('<AuditReaderShell>', () => {
     ).toBeInTheDocument();
   });
 
+  it('summarizes flagged verification tiers in the rail instead of an unqualified green Done', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: { verificationTier: 'insufficient' },
+        positioningBuyerICP: { verificationTier: 'needs_review' },
+        positioningCompetitorLandscape: { verificationTier: 'verified' },
+      },
+    });
+
+    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    // Run summary is amber-qualified, not a bare green "Done".
+    expect(screen.getByText('Done · 2 flagged')).toBeInTheDocument();
+
+    // Flagged rows read as their tier, never as bare 'Complete'.
+    expect(
+      screen.getByRole('button', { name: /market & category.*insufficient/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /buyer \/ icp.*needs review/i }),
+    ).toBeInTheDocument();
+    // Verified rows keep 'Complete' and a green tier dot.
+    expect(
+      screen.getByRole('button', { name: /competitors.*complete/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('section-tier-dot-positioningMarketCategory'),
+    ).toHaveAttribute('data-tier', 'insufficient');
+    expect(
+      screen.getByTestId('section-tier-dot-positioningBuyerICP'),
+    ).toHaveAttribute('data-tier', 'needs_review');
+    expect(
+      screen.getByTestId('section-tier-dot-positioningCompetitorLandscape'),
+    ).toHaveAttribute('data-tier', 'verified');
+  });
+
   it('renders typed cards and review metadata without exposing reviewed artifact JSON', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,

@@ -19,9 +19,15 @@ export interface DataTableColumn<T> {
   maxWidth?: string;
   /** When true, the column absorbs slack (width:auto in colgroup). Opts the table into table-fixed + colgroup. */
   grow?: boolean;
-  /** Text wrapping behavior for the cell. Opts the table into table-fixed + colgroup. */
+  /**
+   * Text wrapping behavior for the cell. Opts the table into table-fixed +
+   * colgroup. 'truncate' | 'nowrap' | 'clamp' are all content-preserving:
+   * they wrap up to `clampLines` lines (line-clamp) and carry the full raw
+   * value in the cell's title attribute — research content is never silently
+   * clipped to an unreadable sliver.
+   */
   wrap?: 'wrap' | 'truncate' | 'nowrap' | 'clamp';
-  /** Number of lines for wrap:'clamp' (1-4). Defaults to 2. Opts the table into table-fixed + colgroup. */
+  /** Number of lines for clipped wrap modes (1-4). Defaults to 3. Opts the table into table-fixed + colgroup. */
   clampLines?: number;
 }
 
@@ -135,21 +141,21 @@ export function DataTable<T>({
                   const rendered = col.render
                     ? col.render(row, rowIndex)
                     : (rawValue as ReactNode);
-                  const wrapClass =
-                    col.wrap === 'nowrap'
-                      ? 'overflow-hidden truncate'
-                      : col.wrap === 'truncate'
-                        ? 'truncate'
-                        : col.wrap === 'clamp'
-                          ? CLAMP_CLASS[col.clampLines ?? 2]
-                          : col.wrap === 'wrap'
-                            ? 'break-words'
-                            : undefined;
-                  const titleAttr =
-                    (col.wrap === 'truncate' || col.wrap === 'nowrap') &&
-                    rawValue != null
-                      ? String(rawValue)
+                  // 'truncate' / 'nowrap' / 'clamp' all render as a bounded
+                  // line-clamp instead of a blind single-line truncate, so
+                  // long research content stays readable; the title attribute
+                  // below still carries the full text for clipped cells.
+                  const clipped =
+                    col.wrap === 'nowrap' ||
+                    col.wrap === 'truncate' ||
+                    col.wrap === 'clamp';
+                  const wrapClass = clipped
+                    ? cn(CLAMP_CLASS[col.clampLines ?? 3], 'break-words')
+                    : col.wrap === 'wrap'
+                      ? 'break-words'
                       : undefined;
+                  const titleAttr =
+                    clipped && rawValue != null ? String(rawValue) : undefined;
                   return (
                     <td
                       key={col.key}

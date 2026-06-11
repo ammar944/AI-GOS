@@ -24,6 +24,37 @@ const TIER_STYLES: Record<VerificationTier, string> = {
   insufficient: 'border-red-500/20 bg-red-500/10 text-red-400',
 };
 
+/** Tier dot colors for compact indicators (rail rows) — same hue mapping as TIER_STYLES. */
+export const TIER_DOT_CLASS: Record<VerificationTier, string> = {
+  verified: 'bg-emerald-500',
+  needs_review: 'bg-amber-500',
+  insufficient: 'bg-red-500',
+};
+
+/** Short tier labels for tight surfaces (rail sublines). */
+export const TIER_RAIL_LABEL: Record<VerificationTier, string> = {
+  verified: 'Verified',
+  needs_review: 'Needs review',
+  insufficient: 'Insufficient',
+};
+
+/**
+ * Resolve a section's verification tier with the same precedence the badge
+ * uses: persisted tier → persisted flag tier → tier derived from the typed
+ * artifact's verification counts. Null when no verification signal exists.
+ */
+export function resolveSectionVerificationTier(input: {
+  verificationTier?: VerificationTier | null;
+  verificationFlag?: VerificationFlag | null;
+  verification?: VerificationReportEnvelope | null;
+}): VerificationTier | null {
+  const persistedTier = readVerificationTier(input.verificationTier);
+  if (persistedTier) return persistedTier;
+  const persistedFlag = readVerificationFlag(input.verificationFlag);
+  if (persistedFlag) return persistedFlag.tier;
+  return buildVerificationFlag({ verification: input.verification })?.tier ?? null;
+}
+
 function pluralizeUnsupported(count: number): string {
   return count === 1 ? '1 unsupported claim' : `${count} unsupported claims`;
 }

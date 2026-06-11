@@ -5,6 +5,8 @@
 // no decoration, color only for state. Renders nothing until the detached
 // brief route has written research_artifacts.thesis.
 
+import { Response } from '@/components/ai-elements/response';
+
 interface BriefMove {
   rank: number;
   move: string;
@@ -68,10 +70,6 @@ export function ExecutiveBriefCard({
   }
 
   const labelOf = sectionLabelOf ?? ((sectionId: string) => sectionId);
-  const paragraphs = brief.executiveThesis
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
   const moves = asMoves(brief.rankedMoves);
   const conflicts = asConflicts(brief.factConflicts);
 
@@ -84,20 +82,9 @@ export function ExecutiveBriefCard({
         Executive Brief
       </div>
 
-      <div className="space-y-3">
-        {paragraphs.map((paragraph, index) => (
-          <p
-            key={index}
-            className={
-              index === 0
-                ? 'text-[14px] leading-relaxed text-foreground'
-                : 'text-[14px] leading-relaxed text-muted-foreground'
-            }
-          >
-            {paragraph}
-          </p>
-        ))}
-      </div>
+      {/* Thesis is AI-authored markdown with paragraph breaks — Response gives
+          it the shared 68ch body measure instead of a full-width text wall. */}
+      <Response>{brief.executiveThesis}</Response>
 
       {moves.length > 0 ? (
         <div className="mt-6 border-t border-border pt-5">
@@ -111,9 +98,11 @@ export function ExecutiveBriefCard({
                   {move.rank}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[14px] leading-relaxed text-foreground">
+                  {/* The move directive is the item's title — bolded (DM Sans
+                      500), rendered as markdown via Response. */}
+                  <Response className="[&_p]:font-medium [&_p]:text-foreground">
                     {move.move}
-                  </p>
+                  </Response>
                   {move.provingSections.length > 0 ? (
                     <p className="mt-1 font-mono text-[11px] text-muted-foreground/70">
                       proven by{' '}
@@ -134,27 +123,24 @@ export function ExecutiveBriefCard({
           <div className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
             Reconciled Facts
           </div>
-          <ul className="space-y-3">
+          <ul className="space-y-4">
             {conflicts.map((conflict) => (
               <li key={conflict.factKey} className="text-[13px] leading-relaxed">
-                <span className="font-medium text-foreground">
-                  {conflict.factKey}
-                </span>
+                <p className="font-medium text-foreground">{conflict.factKey}</p>
                 {Array.isArray(conflict.readings) &&
                 conflict.readings.length > 0 ? (
-                  <span className="text-muted-foreground/70">
-                    {' '}
-                    (
+                  <p className="mt-0.5 font-mono text-[11px] leading-relaxed text-muted-foreground/70">
                     {conflict.readings
                       .map(
                         (reading) =>
                           `${labelOf(reading.sectionId)}: ${reading.value}`,
                       )
-                      .join(' vs ')}
-                    )
-                  </span>
+                      .join(' · ')}
+                  </p>
                 ) : null}
-                <span className="text-muted-foreground"> — {conflict.resolution}</span>
+                <p className="mt-1 max-w-[68ch] text-muted-foreground">
+                  {conflict.resolution}
+                </p>
               </li>
             ))}
           </ul>
