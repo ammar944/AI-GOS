@@ -163,7 +163,7 @@ const reviewPermalinkPatternSources = [
   String.raw`https?://(?:www\.)?trustpilot\.com/reviews/[a-f0-9]{16,}`,
 ];
 
-function isReviewPermalinkUrl(url: string): boolean {
+export function isReviewPermalinkUrl(url: string): boolean {
   return reviewPermalinkPatternSources.some((source) =>
     new RegExp(source, "i").test(url),
   );

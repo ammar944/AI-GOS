@@ -163,6 +163,10 @@ import {
   KeywordVolumeOutputSchema,
   SPYFU_SOURCE_URL,
 } from "./tools/keyword-volume";
+import {
+  isReviewPermalinkUrl,
+  ReviewsOutputSchema,
+} from "./tools/reviews";
 import { fetchSearchApiOrganicResults } from "./tools/searchapi-organic";
 import { fetchVerifiedMetaPageAds } from "./tools/adlibrary";
 import {
@@ -5610,6 +5614,160 @@ export async function buildBrandedKeywordPrepass({
   return { candidateBlock, events, steps: [call.step] };
 }
 
+// Competitor review-permalink prepass (competitor landscape only): the W5 VoC
+// permalink machinery pointed at the brief's top competitors, so
+// publicWeaknesses can carry REAL per-review permalinks instead of index-page
+// paraphrases (run 8081e646 cold judge: competitor quotes were "honestly
+// paraphrased, not the permalinked real quotes a 9 needs"). Bounded: top 3
+// seeded competitors, one reviews-tool call each (mode "bodies"), parallel
+// under one 60s deadline. Best-effort — no permalinks means the block tells
+// the agent to paraphrase honestly; never a section failure. The provenance
+// gate downstream enforces the same contract deterministically.
+const competitorReviewPrepassDeadlineMs = 60_000;
+const competitorReviewPrepassMaxCompetitors = 3;
+const competitorReviewPrepassQuotesPerCompetitor = 2;
+
+interface CompetitorReviewPrepass {
+  candidateBlock: string;
+  events: ActivityEvent[];
+  steps: readonly AgentStep[];
+}
+
+interface CompetitorReviewPermalinkQuote {
+  date?: string;
+  reviewText: string;
+  reviewer?: string;
+  role?: string;
+  source: string;
+  url: string;
+}
+
+function competitorReviewPermalinkQuotes(output: unknown): CompetitorReviewPermalinkQuote[] {
+  const parsed = ReviewsOutputSchema.safeParse(output);
+
+  if (!parsed.success || parsed.data.type !== "result") {
+    return [];
+  }
+
+  return parsed.data.excerpts
+    .filter(
+      (excerpt): excerpt is typeof excerpt & { reviewText: string } =>
+        typeof excerpt.reviewText === "string" &&
+        excerpt.reviewText.trim().length > 0 &&
+        isReviewPermalinkUrl(excerpt.url),
+    )
+    .slice(0, competitorReviewPrepassQuotesPerCompetitor)
+    .map((excerpt) => ({
+      reviewText: excerpt.reviewText.trim(),
+      source: excerpt.source,
+      url: excerpt.url,
+      ...(excerpt.date === undefined ? {} : { date: excerpt.date }),
+      ...(excerpt.reviewer === undefined ? {} : { reviewer: excerpt.reviewer }),
+      ...(excerpt.role === undefined ? {} : { role: excerpt.role }),
+    }));
+}
+
+export async function buildCompetitorReviewPrepass({
+  deps,
+  input,
+  researchInput,
+  researchTools,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  researchTools: Record<string, unknown>;
+}): Promise<CompetitorReviewPrepass | undefined> {
+  const seeds = (researchInput.competitorSeeds ?? [])
+    .map((seed) => seed.name.trim())
+    .filter((name) => name.length > 0)
+    .slice(0, competitorReviewPrepassMaxCompetitors);
+
+  if (seeds.length === 0) {
+    return undefined;
+  }
+
+  const prepassSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "Competitor review prepass",
+    timeoutMs: competitorReviewPrepassDeadlineMs,
+  });
+  let calls: Array<{
+    brand: string;
+    call: Awaited<ReturnType<typeof executeVoiceOfCustomerPrepassTool>>;
+  }>;
+  try {
+    calls = await Promise.all(
+      seeds.map(async (brand, index) => ({
+        brand,
+        call: await executeVoiceOfCustomerPrepassTool({
+          input: { ...input, signal: prepassSignal.signal },
+          researchTools,
+          stepNumber: index,
+          toolInput: {
+            brand,
+            max_body_pages: 2,
+            max_results: 5,
+            mode: "bodies",
+          },
+          toolName: "reviews",
+        }),
+      })),
+    );
+  } finally {
+    prepassSignal.cleanup();
+  }
+
+  const steps: AgentStep[] = [];
+  const events: ActivityEvent[] = [];
+  const brandLines: string[] = [];
+
+  for (const { brand, call } of calls) {
+    if (call !== null) {
+      steps.push(call.step);
+      events.push(
+        ...buildToolEvents({
+          deps,
+          runId: input.runId,
+          sectionId: input.sectionId,
+          step: call.step,
+        }),
+      );
+    }
+
+    const quotes =
+      call === null ? [] : competitorReviewPermalinkQuotes(call.output);
+
+    brandLines.push(`## ${brand}`);
+
+    if (quotes.length === 0) {
+      brandLines.push(
+        "- no per-review permalinks retrieved — paraphrase from your other evidence with a page-level sourceUrl; never label it verbatim",
+      );
+      continue;
+    }
+
+    for (const quote of quotes) {
+      const attribution = [quote.reviewer, quote.role, quote.date]
+        .filter((part): part is string => typeof part === "string")
+        .join(", ");
+
+      brandLines.push(
+        `- [${quote.source} permalink] ${quote.url}`,
+        `  "${quote.reviewText.slice(0, 280)}"${attribution.length === 0 ? "" : ` (${attribution})`}`,
+      );
+    }
+  }
+
+  const candidateBlock = [
+    "COMPETITOR REVIEW PREPASS (deterministic — real per-review permalinks fetched before you ran):",
+    "publicWeaknesses verbatim contract: a verbatimQuote may ONLY be copied exactly from the quotes below, with sourceUrl set to that quote's permalink. Competitors without quotes below get a paraphrased pattern from your other evidence with a page-level sourceUrl — never labeled verbatim.",
+    ...brandLines,
+  ].join("\n");
+
+  return { candidateBlock, events, steps };
+}
+
 // Venue fan-out is 2 parallel perplexity calls + at most one retry each;
 // bounded so a slow venue pass cannot eat the section budget.
 // 45s covered the two-venue first pass; the W5 thin-pack second pass adds one
@@ -6695,6 +6853,20 @@ async function runSectionViaAnswerTool(
     await scheduleFlush();
   }
   const brandedKeywordPrepassSteps = brandedKeywordPrepass?.steps ?? [];
+  const competitorReviewPrepass =
+    input.sectionId === "positioningCompetitorLandscape"
+      ? await buildCompetitorReviewPrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+  if (competitorReviewPrepass !== undefined) {
+    toolEvents.push(...competitorReviewPrepass.events);
+    await scheduleFlush();
+  }
+  const competitorReviewPrepassSteps = competitorReviewPrepass?.steps ?? [];
   const answerToolInstructions = [
     buildAnswerToolInstructions(
       definition,
@@ -6714,6 +6886,9 @@ async function runSectionViaAnswerTool(
     ...(brandedKeywordPrepass === undefined
       ? []
       : ["", brandedKeywordPrepass.candidateBlock]),
+    ...(competitorReviewPrepass === undefined
+      ? []
+      : ["", competitorReviewPrepass.candidateBlock]),
     "",
     "Skill analyst guidance:",
     skillMd,
@@ -6811,6 +6986,7 @@ async function runSectionViaAnswerTool(
     ...voiceOfCustomerPrepassSteps,
     ...buyerPersonaPrepassSteps,
     ...brandedKeywordPrepassSteps,
+    ...competitorReviewPrepassSteps,
     ...answerResult.steps,
   ];
   // Post-draft rescue probe: when the brief seeded zero advertisers the
@@ -6941,6 +7117,7 @@ async function runSectionViaAnswerTool(
         ...voiceOfCustomerPrepassSteps,
         ...buyerPersonaPrepassSteps,
         ...brandedKeywordPrepassSteps,
+        ...competitorReviewPrepassSteps,
         ...repairResult.steps,
       ];
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
@@ -7335,10 +7512,25 @@ async function runSectionViaStructuredBodyStream(
     await scheduleFlush();
   }
 
+  const competitorReviewPrepass =
+    input.sectionId === "positioningCompetitorLandscape"
+      ? await buildCompetitorReviewPrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+  if (competitorReviewPrepass !== undefined) {
+    toolEvents.push(...competitorReviewPrepass.events);
+    await scheduleFlush();
+  }
+
   const modelSteps: AgentStep[] = [
     ...(voiceOfCustomerPrepass?.steps ?? []),
     ...(buyerPersonaPrepass?.steps ?? []),
     ...(brandedKeywordPrepass?.steps ?? []),
+    ...(competitorReviewPrepass?.steps ?? []),
   ];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
@@ -7370,6 +7562,7 @@ async function runSectionViaStructuredBodyStream(
   const structuredBodyPrompt = buildStructuredBodyPrompt({
     brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
     buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
+    competitorReviewCandidateBlock: competitorReviewPrepass?.candidateBlock,
     definition,
     externalToolNames,
     normalizedAdEvidenceGroups,
@@ -7620,6 +7813,7 @@ async function runSectionViaStructuredBodyStream(
         prompt: buildStructuredBodyRepairPrompt({
           brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
           buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
+          competitorReviewCandidateBlock: competitorReviewPrepass?.candidateBlock,
           definition,
           evidenceTranscript: buildEvidenceTranscript(modelSteps),
           externalToolNames,

@@ -1288,9 +1288,27 @@ describe('runSection corpus-only mode', (): void => {
       competitorSet: competitorLandscapeFixtureArtifact.body.competitorSet,
     });
     assertCompetitorLandscapeBody(result.artifact.body);
+    // The subject is always probed first (its own ads are first-class
+    // evidence), so its gap group leads the wall, flagged isSubject.
     expect(result.artifact.body.adEvidence.advertiserGroups[0]).toMatchObject({
-      advertiserName: 'Kalungi',
-      domain: 'kalungi.com',
+      advertiserName: 'SaaSLaunch',
+      domain: 'example.com',
+      isSubject: true,
+      sourceErrors: [
+        {
+          platform: 'google',
+          message: expect.stringContaining('google_ads tool is unavailable'),
+        },
+        {
+          platform: 'meta',
+          message: expect.stringContaining('meta_ads tool is unavailable'),
+        },
+      ],
+    });
+    // With the corpus-only probe slot taken by the subject, the post-draft
+    // rescue carries the drafted competitorSet (SignalForge rides first there).
+    expect(result.artifact.body.adEvidence.advertiserGroups[1]).toMatchObject({
+      advertiserName: 'SignalForge',
       sourceErrors: [
         {
           platform: 'google',
@@ -1467,7 +1485,10 @@ describe('runSection corpus-only mode', (): void => {
     );
     expect(
       advertiserGroups
-        .filter((group) => group.advertiserName !== 'Gong')
+        .filter(
+          (group) =>
+            group.advertiserName !== 'Gong' && group.isSubject !== true,
+        )
         .every((group) =>
           group.dataGaps.some((gap) =>
             gap.reason.includes('post-draft rescue probe'),

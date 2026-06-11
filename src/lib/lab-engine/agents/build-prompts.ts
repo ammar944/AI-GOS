@@ -698,6 +698,7 @@ function buildProjectedResultsPromptLines(definition: {
 export function buildStructuredBodyPrompt({
   brandedKeywordCandidateBlock,
   buyerPersonaCandidateBlock,
+  competitorReviewCandidateBlock,
   definition,
   externalToolNames,
   normalizedAdEvidenceGroups,
@@ -707,6 +708,7 @@ export function buildStructuredBodyPrompt({
 }: {
   brandedKeywordCandidateBlock?: string;
   buyerPersonaCandidateBlock?: string;
+  competitorReviewCandidateBlock?: string;
   definition: PromptSectionDefinition;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
@@ -740,6 +742,9 @@ export function buildStructuredBodyPrompt({
     ...(brandedKeywordCandidateBlock === undefined
       ? []
       : [brandedKeywordCandidateBlock, ""]),
+    ...(competitorReviewCandidateBlock === undefined
+      ? []
+      : [competitorReviewCandidateBlock, ""]),
     buildClientIdentityPin(researchInput),
     "",
     "ResearchInput JSON:",
@@ -899,6 +904,7 @@ export function buildRepairPrompt({
 export function buildStructuredBodyRepairPrompt({
   brandedKeywordCandidateBlock,
   buyerPersonaCandidateBlock,
+  competitorReviewCandidateBlock,
   definition,
   evidenceTranscript,
   externalToolNames,
@@ -911,6 +917,7 @@ export function buildStructuredBodyRepairPrompt({
 }: {
   brandedKeywordCandidateBlock?: string;
   buyerPersonaCandidateBlock?: string;
+  competitorReviewCandidateBlock?: string;
   definition: PromptSectionDefinition;
   evidenceTranscript: string;
   issues: string[];
@@ -925,6 +932,7 @@ export function buildStructuredBodyRepairPrompt({
     buildStructuredBodyPrompt({
       brandedKeywordCandidateBlock,
       buyerPersonaCandidateBlock,
+      competitorReviewCandidateBlock,
       definition,
       externalToolNames,
       normalizedAdEvidenceGroups,
