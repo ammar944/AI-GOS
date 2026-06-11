@@ -166,6 +166,16 @@ function alignConflicts({
 export async function runExecutiveBrief(
   params: RunExecutiveBriefParams,
 ): Promise<ExecutiveBriefResult> {
+  // Hard floor at the module boundary: with no committed bodies the model
+  // fabricates an entire confident report from nothing (live-probed — fake
+  // win-loss rates, invented TAM, citations to sections that do not exist).
+  // The route also guards this; the module must be unable to do it at all.
+  if (params.sections.length === 0) {
+    throw new Error(
+      "executive brief requires committed section bodies; refusing to write from nothing",
+    );
+  }
+
   const callStructured = params.callStructured ?? defaultStructuredCaller;
   const model = params.model ?? sectionWriterModel;
   const abortSignals = [AbortSignal.timeout(executiveBriefTimeoutMs)];

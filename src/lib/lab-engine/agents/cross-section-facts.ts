@@ -97,6 +97,46 @@ function mentionsSubject({
   return sentence.toLowerCase().includes(subjectName.toLowerCase());
 }
 
+// Per-key token hygiene, calibrated on the live 1d0a4831 probe: bare years are
+// never fact readings, money keys take only $-tokens (an ARR figure inside a
+// "customer count" sentence is not a customer count), and count keys take only
+// non-$ tokens.
+const moneyFactKeys = new Set([
+  "team-plan price",
+  "business-plan price",
+  "enterprise-plan price",
+  "pro-plan price",
+  "plus-plan price",
+  "ARR",
+  "valuation",
+  "ACV",
+  "CAC",
+]);
+
+function tokenAllowedForKey({
+  key,
+  token,
+}: {
+  key: string;
+  token: string;
+}): boolean {
+  if (/^(?:19|20)\d{2}$/.test(token.replace(/,/g, "").trim())) {
+    return false;
+  }
+
+  const isMoney = token.trim().startsWith("$");
+
+  if (moneyFactKeys.has(key)) {
+    return isMoney;
+  }
+
+  if (key === "customer count") {
+    return !isMoney;
+  }
+
+  return true;
+}
+
 export function extractCrossSectionFactConflicts({
   sections,
   subjectName,
@@ -129,6 +169,10 @@ export function extractCrossSectionFactConflicts({
           }
 
           for (const token of tokens) {
+            if (!tokenAllowedForKey({ key, token })) {
+              continue;
+            }
+
             const normalized = normalizeFactValue(token);
             const byValue =
               readingsByKey.get(key) ??

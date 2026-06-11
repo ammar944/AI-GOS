@@ -105,6 +105,32 @@ describe("extractCrossSectionFactConflicts", (): void => {
     expect(conflicts.map((conflict) => conflict.factKey)).toContain("ARR");
   });
 
+  it("filters bare years and cross-type tokens from fact readings", (): void => {
+    const conflicts = extractCrossSectionFactConflicts({
+      subjectName: "Airtable",
+      sections: [
+        {
+          sectionId: "a",
+          body: {
+            prose:
+              "Airtable's ARR reached $478M in 2024 while 500,000 brands use the platform daily.",
+          },
+        },
+        {
+          sectionId: "b",
+          body: {
+            prose:
+              "Airtable's ARR of $478M in 2023 anchors the read; customer count claims of 500,000 brands recur in Airtable copy.",
+          },
+        },
+      ],
+    });
+
+    // Same ARR value + same customer count, differing only in bare years and
+    // cross-type tokens — no conflict should survive the per-key filters.
+    expect(conflicts).toEqual([]);
+  });
+
   it("caps emitted conflicts and never throws on hostile bodies", (): void => {
     const conflicts = extractCrossSectionFactConflicts({
       subjectName: "Airtable",

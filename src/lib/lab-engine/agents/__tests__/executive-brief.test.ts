@@ -113,6 +113,19 @@ describe("runExecutiveBrief", (): void => {
     expect(result.factConflicts[0]?.winningSectionId).toBe("");
   });
 
+  it("refuses to write a brief from zero committed sections", async (): Promise<void> => {
+    await expect(
+      runExecutiveBrief({
+        callStructured: buildCaller({}),
+        companyName: "Airtable",
+        companyWebsiteUrl: "https://airtable.com",
+        conflicts: [],
+        model: {} as never,
+        sections: [],
+      }),
+    ).rejects.toThrow("refusing to write from nothing");
+  });
+
   it("throws on a non-object result so the route records an error thesis", async (): Promise<void> => {
     await expect(
       runExecutiveBrief({
