@@ -110,6 +110,7 @@ Consumption rules:
 
 - Quote text comes from the snippet — or the fetched page behind the URL — unchanged. Need more words? Fetch the page; never improvise the rest.
 - `sourceUrl` is the candidate's URL; the `source` enum derives from that URL's domain. The bracket metadata says how the candidate was acquired — it never licenses a different platform attribution.
+- A reader must be able to open `sourceUrl` and find the quote. Candidates scraped from review pages carry the specific review's permalink (e.g. `g2.com/products/<x>/reviews/<x>-review-NNN`, `capterra.com/p/<id>/<x>/reviews/NNN`, `trustpilot.com/reviews/<id>`) — keep it exactly. A category index URL is honest only when no permalink exists for that quote.
 - A candidate may feed more than one sub-section when its words carry both (a switching story that voices a pain). Reuse honestly rather than stretching a weak quote.
 - Align top-level `sources` with the candidate URLs you actually promoted.
 

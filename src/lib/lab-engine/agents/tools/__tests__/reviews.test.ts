@@ -579,6 +579,171 @@ describe("reviewsAgentTool", (): void => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("attaches each review's own permalink when a scraped G2 index page carries review anchors", async (): Promise<void> => {
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.g2.com/products/airtable/reviews",
+              snippet: "G2 reviews for Airtable.",
+              title: "Airtable reviews",
+            },
+          ],
+        });
+      }
+
+      return jsonResponse({
+        data: {
+          markdown: [
+            '[Airtable Review: "Great but pricey"](https://www.g2.com/products/airtable/reviews/airtable-review-1111111)',
+            "Verified User in Marketing",
+            "What do you like best about Airtable?",
+            "The flexibility is useful for our team workflows.",
+            "What do you dislike about Airtable?",
+            "The pricing escalates quickly and the per-seat model is expensive for our growing marketing operations team.",
+            "Review collected by and hosted on G2.com.",
+            '[Airtable Review: "Automation limits"](https://www.g2.com/products/airtable/reviews/airtable-review-2222222)',
+            "Verified User in Operations",
+            "What do you dislike about Airtable?",
+            "Automation runs are limited and the record caps are a frustrating problem for scaling our client database.",
+            "Review collected by and hosted on G2.com.",
+          ].join("\n"),
+          metadata: {
+            sourceURL: "https://www.g2.com/products/airtable/reviews",
+            title: "Airtable G2 Reviews",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        { brand: "Airtable", max_body_pages: 1, max_results: 1, mode: "bodies" },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      excerpts: [
+        {
+          url: "https://www.g2.com/products/airtable/reviews/airtable-review-1111111",
+          reviewText: expect.stringContaining("pricing escalates quickly"),
+        },
+        {
+          url: "https://www.g2.com/products/airtable/reviews/airtable-review-2222222",
+          reviewText: expect.stringContaining("Automation runs are limited"),
+        },
+      ],
+    });
+  });
+
+  it("resolves Capterra Cons blocks to the owning review's permalink anchor", async (): Promise<void> => {
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.capterra.com/p/178986/Airtable/reviews/",
+              snippet: "Capterra reviews for Airtable.",
+              title: "Airtable Capterra reviews",
+            },
+          ],
+        });
+      }
+
+      return jsonResponse({
+        data: {
+          markdown: [
+            "[Maria R. — Airtable review](https://www.capterra.com/p/178986/Airtable/reviews/9999999/)",
+            "Pros: Easy to set up for small teams.",
+            "Cons: The mobile app is slow and syncing failures are a constant problem for our distributed operations team.",
+          ].join("\n"),
+          metadata: {
+            sourceURL: "https://www.capterra.com/p/178986/Airtable/reviews/",
+            title: "Airtable Capterra Reviews",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        { brand: "Airtable", max_body_pages: 1, max_results: 1, mode: "bodies" },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      excerpts: [
+        {
+          url: "https://www.capterra.com/p/178986/Airtable/reviews/9999999/",
+          reviewText: expect.stringContaining("mobile app is slow"),
+        },
+      ],
+    });
+  });
+
+  it("spends a constrained scrape budget on permalink SERP hits before index pages", async (): Promise<void> => {
+    const scrapedUrls: string[] = [];
+    const fetchMock = vi.fn<typeof fetch>(async (requestUrl, requestInit) => {
+      const url = requestUrlToString(requestUrl);
+
+      if (url.includes("searchapi.io")) {
+        return jsonResponse({
+          organic_results: [
+            {
+              link: "https://www.g2.com/products/airtable/reviews",
+              snippet: "Index page.",
+              title: "Airtable reviews",
+            },
+            {
+              link: "https://www.g2.com/products/airtable/reviews/airtable-review-3333333",
+              snippet: "One specific review.",
+              title: "Airtable review",
+            },
+          ],
+        });
+      }
+
+      const body = JSON.parse(String(requestInit?.body)) as { url?: string };
+      scrapedUrls.push(body.url ?? "");
+
+      return jsonResponse({
+        data: {
+          markdown: [
+            "What do you dislike about Airtable?",
+            "Sync conflicts keep corrupting our shared client base and support is slow to resolve the issue.",
+          ].join("\n"),
+          metadata: {
+            sourceURL: body.url ?? "",
+            title: "Airtable review",
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await getExecute()(
+      { brand: "Airtable", max_body_pages: 1, max_results: 2, mode: "bodies" },
+      {},
+    )) as { excerpts: Array<{ url: string }> };
+
+    // The permalink hit wins the single scrape slot, and excerpts from a
+    // permalink page keep that permalink even without in-page anchors.
+    expect(scrapedUrls).toEqual([
+      "https://www.g2.com/products/airtable/reviews/airtable-review-3333333",
+    ]);
+    expect(result.excerpts[0]?.url).toBe(
+      "https://www.g2.com/products/airtable/reviews/airtable-review-3333333",
+    );
+  });
+
 });
 
 describe("isProductReviewText", (): void => {

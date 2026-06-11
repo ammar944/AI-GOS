@@ -151,13 +151,81 @@ function deriveReviewSource(url: string): string {
   return "Web";
 }
 
+// W5 traceable-quote upgrade: a quote must point at the SPECIFIC review, not a
+// 50-review index page. These patterns recognize per-review permalinks on the
+// three structured platforms — used to (a) rank permalink SERP hits into the
+// scrape budget first and (b) attach the owning review's permalink to each
+// excerpt parsed off a scraped page.
+const reviewPermalinkPatternSources = [
+  String.raw`https?://(?:www\.)?g2\.com/products/[a-z0-9_-]+/reviews/[a-z0-9_-]*review-\d+[a-z0-9/_#?=&-]*`,
+  String.raw`https?://(?:www\.)?g2\.com/survey_responses/[a-z0-9_-]+`,
+  String.raw`https?://(?:www\.)?capterra\.com/p/\d+/[a-zA-Z0-9_-]+/reviews/\d+/?`,
+  String.raw`https?://(?:www\.)?trustpilot\.com/reviews/[a-f0-9]{16,}`,
+];
+
+function isReviewPermalinkUrl(url: string): boolean {
+  return reviewPermalinkPatternSources.some((source) =>
+    new RegExp(source, "i").test(url),
+  );
+}
+
+// Review cards on G2/Capterra/Trustpilot open with the review-title anchor, so
+// the permalink that OWNS a parsed block is the last permalink anchor before
+// the block's offset. Bounded distance guards against inheriting an anchor
+// from a far-away region; null falls back to the scraped page URL (current
+// behavior — honest but vague), never a guessed neighbor.
+const maxPermalinkAnchorDistanceChars = 6_000;
+
+function buildReviewPermalinkResolver(
+  markdown: string,
+  pageUrl: string,
+): (offset: number) => string | null {
+  if (isReviewPermalinkUrl(pageUrl)) {
+    return () => pageUrl;
+  }
+
+  const pattern = new RegExp(reviewPermalinkPatternSources.join("|"), "gi");
+  const anchors = Array.from(markdown.matchAll(pattern), (match) => ({
+    index: match.index ?? 0,
+    url: match[0],
+  }));
+
+  return (offset: number): string | null => {
+    let owner: { index: number; url: string } | null = null;
+
+    for (const anchor of anchors) {
+      if (anchor.index >= offset) {
+        break;
+      }
+
+      owner = anchor;
+    }
+
+    return owner !== null &&
+      offset - owner.index <= maxPermalinkAnchorDistanceChars
+      ? owner.url
+      : null;
+  };
+}
+
+function withReviewPermalink(
+  searchResult: ReviewSearchResult,
+  permalink: string | null,
+): ReviewSearchResult {
+  return permalink === null || permalink === searchResult.url
+    ? searchResult
+    : { ...searchResult, url: permalink };
+}
+
 function getReviewBodyScrapePriority(result: ReviewSearchResult): number {
   if (
     result.source === "G2" ||
     result.source === "Capterra" ||
     result.source === "Trustpilot"
   ) {
-    return 0;
+    // A SERP hit that IS a review permalink yields born-traceable excerpts —
+    // spend the scrape budget there before platform index pages.
+    return isReviewPermalinkUrl(result.url) ? -1 : 0;
   }
 
   const acquisitionMode =
@@ -379,12 +447,22 @@ function extractTrustpilotReviewBodies(
   markdown: string,
   searchResult: ReviewSearchResult,
 ): ReviewBodyExcerpt[] {
-  const blocks = markdown
-    .split(/(?=Rated\s+\d\s+out of\s+5 stars)/i)
-    .filter((block) => /^Rated\s+\d\s+out of\s+5 stars/i.test(block.trim()));
+  const resolvePermalink = buildReviewPermalinkResolver(
+    markdown,
+    searchResult.url,
+  );
+  const blockStarts = Array.from(
+    markdown.matchAll(/Rated\s+\d\s+out of\s+5 stars/gi),
+    (match) => match.index ?? 0,
+  );
   const excerpts: ReviewBodyExcerpt[] = [];
 
-  for (const block of blocks) {
+  for (let blockIndex = 0; blockIndex < blockStarts.length; blockIndex += 1) {
+    const blockStart = blockStarts[blockIndex] ?? 0;
+    const block = markdown.slice(
+      blockStart,
+      blockStarts[blockIndex + 1] ?? markdown.length,
+    );
     const ratingMatch = block.match(/Rated\s+(\d)\s+out of\s+5 stars/i);
     const rating = ratingMatch?.[1] ? Number(ratingMatch[1]) : null;
 
@@ -422,7 +500,10 @@ function extractTrustpilotReviewBodies(
       date,
       rating,
       reviewText: textLines.join(" "),
-      searchResult,
+      searchResult: withReviewPermalink(
+        searchResult,
+        resolvePermalink(blockStart),
+      ),
     });
 
     if (excerpt !== null) {
@@ -441,12 +522,25 @@ function extractG2ReviewBodies(
   markdown: string,
   searchResult: ReviewSearchResult,
 ): ReviewBodyExcerpt[] {
-  const sections = markdown.split(
-    /(?=What do you (?:dislike|like)|What problems are you solving)/i,
+  // Offset-aware section scan (same chunks the old lookahead split produced):
+  // each review card's title anchor precedes its question headings, so the
+  // section's start offset resolves to the owning review's permalink.
+  const resolvePermalink = buildReviewPermalinkResolver(
+    markdown,
+    searchResult.url,
+  );
+  const sectionStarts = Array.from(
+    markdown.matchAll(/What do you (?:dislike|like)|What problems are you solving/gi),
+    (match) => match.index ?? 0,
   );
   const excerpts: ReviewBodyExcerpt[] = [];
 
-  for (const section of sections) {
+  for (let sectionIndex = 0; sectionIndex < sectionStarts.length; sectionIndex += 1) {
+    const sectionStart = sectionStarts[sectionIndex] ?? 0;
+    const section = markdown.slice(
+      sectionStart,
+      sectionStarts[sectionIndex + 1] ?? markdown.length,
+    );
     const isPainSection =
       /^What do you dislike/i.test(section) ||
       /^What problems are you solving/i.test(section);
@@ -484,7 +578,10 @@ function extractG2ReviewBodies(
       reviewText: textLines
         .join(" ")
         .replace(/\s*Review collected by and hosted on G2\.com\.?\s*/gi, ""),
-      searchResult,
+      searchResult: withReviewPermalink(
+        searchResult,
+        resolvePermalink(sectionStart),
+      ),
     });
 
     if (excerpt !== null) {
@@ -540,7 +637,21 @@ function extractCapterraReviewBodies(
   markdown: string,
   searchResult: ReviewSearchResult,
 ): ReviewBodyExcerpt[] {
+  const resolvePermalink = buildReviewPermalinkResolver(
+    markdown,
+    searchResult.url,
+  );
   const lines = markdown.split("\n");
+  // Char offset of each line start, so a Cons/Overall heading can resolve the
+  // owning review's permalink anchor (review cards open with their anchor).
+  const lineOffsets: number[] = [];
+  let lineOffset = 0;
+
+  for (const line of lines) {
+    lineOffsets.push(lineOffset);
+    lineOffset += line.length + 1;
+  }
+
   const excerpts: ReviewBodyExcerpt[] = [];
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
@@ -579,7 +690,10 @@ function extractCapterraReviewBodies(
       acquisitionMode: "review_body",
       rating: null,
       reviewText: textLines.join(" "),
-      searchResult,
+      searchResult: withReviewPermalink(
+        searchResult,
+        resolvePermalink(lineOffsets[lineIndex] ?? 0),
+      ),
     });
 
     if (excerpt !== null) {
