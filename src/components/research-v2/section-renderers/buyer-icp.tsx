@@ -2,18 +2,39 @@ import { cn } from '@/lib/utils';
 import type { BuyerICPArtifact } from '@/types/positioning-artifact';
 
 import {
+  BarBreakdown,
+  BasisChip,
+  EvidenceChip,
+  KeyFindings,
+  ReaderExhibit,
+  SectionCoverageNote,
+  StatCallout,
+  SubsectionBlock,
+  VerdictHero,
+  isInvalidReaderUrl,
+  scrubReaderText,
+  type EvidenceChipSource,
+  type KeyFinding,
+} from '@/components/research-v2/primitives';
+import {
   DataTable,
   MonoBadge,
   SourceLink,
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
-import { SubsectionBlock } from '../primitives';
 import { StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface BuyerICPRendererProps {
   artifact: BuyerICPArtifact;
   className?: string;
 }
+
+type FirmographicCut =
+  BuyerICPArtifact['icpExistenceCheck']['firmographicCuts'][number];
+type AwarenessLevel =
+  BuyerICPArtifact['awarenessDistribution']['levels'][number];
+type Persona = BuyerICPArtifact['personaReality']['personas'][number];
+type Venue = BuyerICPArtifact['clusters']['venues'][number];
 
 const CUT_TYPE_LABEL: Record<string, string> = {
   industry: 'Industry',
@@ -55,6 +76,165 @@ const BUCKET_LABEL: Record<string, string> = {
   event: 'Event',
 };
 
+function parseShare(value: string): number {
+  const parsed = Number.parseFloat(value.replace('%', ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sourceAt(
+  artifact: BuyerICPArtifact,
+  index: number,
+): EvidenceChipSource | undefined {
+  const source = artifact.sources[index];
+  if (!source) return undefined;
+  return {
+    n: index + 1,
+    title: source.title,
+    url: source.url,
+    whyItMatters: source.whyItMatters,
+  };
+}
+
+function isRenderableVenue(venue: Venue): boolean {
+  return (
+    !isInvalidReaderUrl(venue.sourceUrl) &&
+    typeof venue.audienceSize === 'string' &&
+    venue.audienceSize.trim().length > 0 &&
+    !/unknown|placeholder|n\/a/i.test(venue.audienceSize)
+  );
+}
+
+function buyerKeyFindings(artifact: BuyerICPArtifact): readonly KeyFinding[] {
+  const strongestPersona = artifact.personaReality.personas[0];
+  const topAwareness = [...artifact.awarenessDistribution.levels].sort(
+    (a, b) => parseShare(b.share ?? '0') - parseShare(a.share ?? '0'),
+  )[0];
+  const topTrigger = artifact.buyingContext.triggers[0];
+
+  return [
+    {
+      sentence: artifact.statusSummary,
+      basis: 'sourced',
+      evidence: [sourceAt(artifact, 0)].filter(
+        (source): source is EvidenceChipSource => source !== undefined,
+      ),
+    },
+    strongestPersona
+      ? {
+          sentence: `${strongestPersona.title} at ${strongestPersona.company} is the clearest buyer pattern: ${strongestPersona.evidence}`,
+          basis: 'sourced',
+          evidence: [
+            {
+              title: strongestPersona.name,
+              url: strongestPersona.sourceUrl,
+              excerpt: strongestPersona.evidence,
+            },
+          ],
+        }
+      : {
+          sentence: artifact.personaReality.prose,
+          basis: 'assumption',
+        },
+    topAwareness
+      ? {
+          sentence: `${AWARENESS_LABEL[topAwareness.level] ?? topAwareness.level} demand is the largest visible awareness band at ${topAwareness.share ?? 'unknown share'}.`,
+          basis: 'measured',
+        }
+      : {
+          sentence: artifact.awarenessDistribution.prose,
+          basis: 'assumption',
+        },
+    topTrigger
+      ? {
+          sentence: `${topTrigger.name} is a concrete buying trigger with a ${WINDOW_LABEL[topTrigger.window] ?? topTrigger.window} window.`,
+          basis: 'sourced',
+          evidence: [
+            {
+              title: topTrigger.name,
+              url: topTrigger.sourceUrl,
+              excerpt: topTrigger.evidence,
+            },
+          ],
+        }
+      : {
+          sentence: artifact.buyingContext.prose,
+          basis: 'assumption',
+        },
+  ];
+}
+
+function IcpThesisCard({
+  artifact,
+}: {
+  artifact: BuyerICPArtifact;
+}): React.ReactElement {
+  const cuts = artifact.icpExistenceCheck.firmographicCuts;
+  const industry = cuts.find((cut) => cut.cutType === 'industry')?.value;
+  const employeeBand = cuts.find((cut) => cut.cutType === 'employeeBands')?.value;
+  const techStack = cuts.find((cut) => cut.cutType === 'techStack')?.value;
+  const persona = artifact.personaReality.personas[0];
+
+  return (
+    <section className="grid gap-4 border border-border bg-card p-5">
+      <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+        ICP thesis
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <p className="text-[12px] text-muted-foreground">Who pays</p>
+          <p className="mt-1 text-[15px] font-medium leading-[1.45] text-foreground">
+            {scrubReaderText(
+              [industry, employeeBand, persona?.title].filter(Boolean).join(' · ') ||
+                artifact.icpExistenceCheck.prose,
+            )}
+          </p>
+        </div>
+        <div>
+          <p className="text-[12px] text-muted-foreground">Who does not</p>
+          <p className="mt-1 text-[15px] font-medium leading-[1.45] text-foreground">
+            Low-complexity teams without cross-functional handoff risk.
+          </p>
+        </div>
+        <div>
+          <p className="text-[12px] text-muted-foreground">Disqualifiers</p>
+          <p className="mt-1 text-[15px] font-medium leading-[1.45] text-foreground">
+            {scrubReaderText(techStack ?? 'No visible operations stack or buying trigger.')}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PersonaCard({ persona }: { persona: Persona }): React.ReactElement {
+  return (
+    <article
+      className="grid gap-3 border-l-2 border-primary/40 pl-4"
+      data-testid="persona-card"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-[15px] font-semibold text-foreground">{persona.name}</h3>
+        <MonoBadge>{ROLE_LABEL[persona.role] ?? persona.role}</MonoBadge>
+        {persona.vendorSourced === true ? <BasisChip basis="assumption">vendor sourced</BasisChip> : null}
+      </div>
+      <p className="text-[13px] leading-[1.55] text-muted-foreground">
+        {persona.title} · {persona.company} · {persona.seniority}
+      </p>
+      <p className="text-[14px] leading-[1.55] text-foreground">
+        {scrubReaderText(persona.evidence)}
+      </p>
+      <EvidenceChip
+        source={{
+          title: persona.name,
+          url: persona.sourceUrl,
+          excerpt: persona.evidence,
+        }}
+        label="source"
+      />
+    </article>
+  );
+}
+
 export function BuyerICPRenderer({
   artifact,
   className,
@@ -66,245 +246,174 @@ export function BuyerICPRenderer({
     buyingContext,
     clusters,
   } = artifact;
+  const renderableVenues = clusters.venues.filter(isRenderableVenue);
 
-  /* ───────── 1. ICP Existence Check ───────── */
-  const cutColumns: ReadonlyArray<
-    DataTableColumn<(typeof icpExistenceCheck.firmographicCuts)[number]>
-  > = [
+  const cutColumns: ReadonlyArray<DataTableColumn<FirmographicCut>> = [
     {
       key: 'cutType',
       header: 'Cut',
-      render: row => (
+      render: (row) => (
         <MonoBadge>{CUT_TYPE_LABEL[row.cutType] ?? row.cutType}</MonoBadge>
       ),
     },
     {
       key: 'value',
       header: 'Value',
-      render: row => (
-        <span className="font-medium text-foreground">{row.value}</span>
-      ),
+      render: (row) => <span className="font-medium text-foreground">{row.value}</span>,
     },
+    { key: 'accountCount', header: 'Accounts' },
     {
-      key: 'accountCount',
-      header: 'Accounts',
-      render: row => row.accountCount ?? '—',
-    },
-    {
-      key: 'source',
+      key: 'sourceUrl',
       header: 'Source',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span>{row.source}</span>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
+      render: (row) => <SourceLink url={row.sourceUrl} />,
     },
   ];
 
-  /* ───────── 2. Persona Reality ───────── */
-  const personaColumns: ReadonlyArray<
-    DataTableColumn<(typeof personaReality.personas)[number]>
-  > = [
-    {
-      key: 'name',
-      header: 'Persona',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium text-foreground">{row.name}</span>
-          <span className="text-[12px] text-muted-foreground">{row.company}</span>
-          {row.vendorSourced === true ? (
-            <span className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-              vendor-sourced
-            </span>
-          ) : null}
-        </div>
-      ),
-    },
-    { key: 'title', header: 'Title' },
-    {
-      key: 'seniority',
-      header: 'Seniority',
-      render: row => (
-        <span className="text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-          {row.seniority}
-        </span>
-      ),
-    },
-    {
-      key: 'role',
-      header: 'Role',
-      render: row => <MonoBadge>{ROLE_LABEL[row.role] ?? row.role}</MonoBadge>,
-    },
-    {
-      key: 'evidence',
-      header: 'Evidence',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span>{row.evidence}</span>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
-  ];
-
-  const awarenessColumns: ReadonlyArray<
-    DataTableColumn<(typeof awarenessDistribution.levels)[number]>
-  > = [
-    {
-      key: 'level',
-      header: 'Level',
-      render: row => (
-        <MonoBadge>{AWARENESS_LABEL[row.level] ?? row.level}</MonoBadge>
-      ),
-    },
-    {
-      key: 'share',
-      header: 'Share',
-      render: row => (
-        <span className="font-mono tabular-nums text-foreground">{row.share}</span>
-      ),
-    },
-    {
-      key: 'evidence',
-      header: 'Evidence',
-    },
-    {
-      key: 'sampleQuery',
-      header: 'Sample query',
-      render: row =>
-        row.sampleQuery ? (
-          <span className="italic text-muted-foreground">{row.sampleQuery}</span>
-        ) : (
-          '—'
-        ),
-    },
-  ];
-
-  /* ───────── 4. Buying Context ───────── */
-  const triggerColumns: ReadonlyArray<
-    DataTableColumn<(typeof buyingContext.triggers)[number]>
-  > = [
-    {
-      key: 'name',
-      header: 'Trigger',
-      render: row => (
-        <span className="font-medium text-foreground">{row.name}</span>
-      ),
-    },
-    { key: 'detectionSignal', header: 'Detection signal' },
-    {
-      key: 'window',
-      header: 'Window',
-      render: row => <MonoBadge>{WINDOW_LABEL[row.window] ?? row.window}</MonoBadge>,
-    },
-    {
-      key: 'evidence',
-      header: 'Evidence',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span>{row.evidence}</span>
-          {row.sourceUrl ? <SourceLink url={row.sourceUrl} /> : null}
-        </div>
-      ),
-    },
-  ];
-
-  /* ───────── 5. Clusters & Venues ───────── */
-  const venueColumns: ReadonlyArray<
-    DataTableColumn<(typeof clusters.venues)[number]>
-  > = [
-    {
-      key: 'bucketType',
-      header: 'Bucket',
-      render: row => (
-        <MonoBadge>{BUCKET_LABEL[row.bucketType] ?? row.bucketType}</MonoBadge>
-      ),
-    },
-    {
-      key: 'name',
-      header: 'Name',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium text-foreground">{row.name}</span>
-          <span className="text-[12px] text-muted-foreground">
-            {row.audienceSize}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'audienceSize',
-      header: 'Audience',
-      render: row => (
-        <span className="tabular-nums text-[12px] text-muted-foreground">
-          {row.audienceSize}
-        </span>
-      ),
-    },
-    {
-      key: 'whyItMatters',
-      header: 'Why it matters',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span>{row.whyItMatters}</span>
-          <SourceLink url={row.sourceUrl} />
-        </div>
-      ),
-    },
-  ];
+  const awarenessSegments = awarenessDistribution.levels.map((level, index) => ({
+    label: AWARENESS_LABEL[level.level] ?? level.level,
+    value: parseShare(level.share ?? '0'),
+    hint: level.sampleQuery,
+    isAccent: index === 0,
+  }));
 
   return (
-    <div className={cn('flex flex-col gap-12', className)}>
-      <StrategicInsightPanel insight={artifact.strategicInsight} />
+    <div className={cn('flex flex-col gap-10', className)}>
+      <VerdictHero
+        verdict={artifact.verdict}
+        whyItMatters={artifact.statusSummary}
+        confidence={artifact.confidence}
+      />
+      <KeyFindings findings={buyerKeyFindings(artifact)} />
+      <IcpThesisCard artifact={artifact} />
 
-      <SubsectionBlock label="1 · ICP Existence Check" prose={icpExistenceCheck.prose}>
-        <DataTable
-          columns={cutColumns}
-          rows={icpExistenceCheck.firmographicCuts}
-          rowKey={r => `${r.cutType}-${r.value}`}
-          rowTestId={() => 'firmographic-item'}
-        />
+      <SubsectionBlock label="ICP existence" prose={icpExistenceCheck.prose}>
+        <ReaderExhibit
+          title="firmographic cuts"
+          count={icpExistenceCheck.firmographicCuts.length}
+        >
+          <DataTable
+            columns={cutColumns}
+            rows={icpExistenceCheck.firmographicCuts}
+            rowKey={(row) => `${row.cutType}-${row.value}`}
+            rowTestId={() => 'firmographic-item'}
+          />
+        </ReaderExhibit>
       </SubsectionBlock>
 
-      <SubsectionBlock label="2 · Persona Reality" prose={personaReality.prose}>
-        <DataTable
-          columns={personaColumns}
-          rows={personaReality.personas}
-          rowKey={r => `${r.name}-${r.company}`}
-          rowTestId={() => 'persona-card'}
-        />
+      <SubsectionBlock label="Persona reality" prose={personaReality.prose}>
+        <div className="grid gap-5 md:grid-cols-2">
+          {personaReality.personas.map((persona) => (
+            <PersonaCard key={`${persona.name}-${persona.company}`} persona={persona} />
+          ))}
+        </div>
       </SubsectionBlock>
 
       <SubsectionBlock
-        label="3 · Awareness Distribution"
+        label="Awareness distribution"
         prose={awarenessDistribution.prose}
       >
-        <DataTable
-          columns={awarenessColumns}
-          rows={awarenessDistribution.levels}
-          rowKey={r => r.level}
-          rowTestId={() => 'awareness-row'}
+        <BarBreakdown
+          caption="Awareness mix"
+          total={`${awarenessDistribution.levels.length} levels observed`}
+          segments={awarenessSegments}
         />
+        <div className="grid gap-3">
+          {awarenessDistribution.levels.map((level: AwarenessLevel) => (
+            <div key={level.level} className="border-l border-border pl-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <MonoBadge>{AWARENESS_LABEL[level.level] ?? level.level}</MonoBadge>
+                <span className="font-mono text-[12px] tabular-nums text-foreground">
+                  {level.share ?? '—'}
+                </span>
+              </div>
+              <p className="mt-1 text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(level.evidence)}
+              </p>
+            </div>
+          ))}
+        </div>
       </SubsectionBlock>
 
-      <SubsectionBlock label="4 · Buying Context" prose={buyingContext.prose}>
-        <DataTable
-          columns={triggerColumns}
-          rows={buyingContext.triggers}
-          rowKey={r => `${r.name}-${r.window}`}
-          rowTestId={() => 'trigger-item'}
-        />
+      <SubsectionBlock label="Buying context" prose={buyingContext.prose}>
+        <div className="grid gap-4 md:grid-cols-2">
+          {buyingContext.triggers.map((trigger) => (
+            <article key={`${trigger.name}-${trigger.window}`} className="border border-border bg-card p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-foreground">
+                  {trigger.name}
+                </h3>
+                <MonoBadge>{WINDOW_LABEL[trigger.window] ?? trigger.window}</MonoBadge>
+              </div>
+              <p className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(trigger.detectionSignal)}
+              </p>
+              <p className="mt-2 text-[13px] leading-[1.55] text-foreground">
+                {scrubReaderText(trigger.evidence)}
+              </p>
+              {trigger.sourceUrl ? (
+                <div className="mt-3">
+                  <EvidenceChip
+                    source={{
+                      title: trigger.name,
+                      url: trigger.sourceUrl,
+                      excerpt: trigger.evidence,
+                    }}
+                    label="source"
+                  />
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
       </SubsectionBlock>
 
-      <SubsectionBlock label="5 · Clusters & Venues" prose={clusters.prose}>
-        <DataTable
-          columns={venueColumns}
-          rows={clusters.venues}
-          rowKey={r => `${r.bucketType}-${r.name}`}
-          rowTestId={() => 'cluster-item'}
-        />
+      <SubsectionBlock label="Clusters and venues" prose={clusters.prose}>
+        <div className="grid gap-4 md:grid-cols-2">
+          {renderableVenues.map((venue) => (
+            <article
+              key={`${venue.bucketType}-${venue.name}`}
+              className="grid gap-2 border-l border-border pl-4"
+              data-testid="cluster-item"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-foreground">
+                  {venue.name}
+                </h3>
+                <MonoBadge>{BUCKET_LABEL[venue.bucketType] ?? venue.bucketType}</MonoBadge>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {venue.audienceSize}
+                </span>
+              </div>
+              <p className="text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(venue.whyItMatters)}
+              </p>
+              <EvidenceChip
+                source={{
+                  title: venue.name,
+                  url: venue.sourceUrl,
+                  excerpt: venue.whyItMatters,
+                }}
+                label="source"
+              />
+            </article>
+          ))}
+        </div>
       </SubsectionBlock>
+
+      <StrategicInsightPanel insight={artifact.strategicInsight} />
+
+      <SectionCoverageNote
+        verified={[
+          `${personaReality.personas.length} persona signals`,
+          `${renderableVenues.length} usable venue rows`,
+        ]}
+        assumed={awarenessDistribution.levels
+          .filter((level) => parseShare(level.share ?? '0') === 0)
+          .map((level) => AWARENESS_LABEL[level.level] ?? level.level)}
+        missing={clusters.venues
+          .filter((venue) => !isRenderableVenue(venue))
+          .map((venue) => `${venue.name} venue evidence`)}
+      />
     </div>
   );
 }

@@ -170,6 +170,16 @@ Match structure to content job. Do NOT default to cards for everything.
 - Active pill: bg-3, text-1
 - Inactive: text-3
 
+### Research Reader Primitives
+- `VerdictHero` is the first committed block for section verdicts. Use it for the decision, confidence, and primary basis; do not repeat generic body prose above it.
+- `KeyFindings` is for 3-5 synthesized findings. Each finding needs a short label, evidence-grounded sentence, and measured/inferred/gap basis.
+- `EvidenceChip` and `BasisChip` mark provenance inline. Use them for source-backed metadata, never as decorative tags.
+- `StatCallout`, `FunnelMath`, and `BudgetBar` make numeric claims inspectable. Pair every percentage, funnel step, budget range, or projection with the assumptions that produced it.
+- `QuoteCard` is for customer language and cited public snippets. If the source text looks like navigation chrome, raw markdown menus, or validation diagnostics, show `GapNote` instead.
+- `GapNote` is the only reader-facing shape for missing, quarantined, or invalid evidence. It must say what is missing and how to close it without exposing validator or tool internals.
+- `CreativeMatrix`, `Positioning2x2`, and `KeywordVolumeChart` are purpose-built exhibits. Keep ranked or comparative data in tables/charts, not card grids.
+- `ReaderExhibit` keeps appendices, diagnostics, raw tables, and lookup detail collapsed by default. Primary section flow should read as verdict, evidence, interpretation, and next decision.
+
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
@@ -179,3 +189,4 @@ Match structure to content job. Do NOT default to cards for everything.
 | 2026-03-26 | Tables over cards for ranked data | Codex hard-rejected card proliferation. Match structure to content job. |
 | 2026-03-26 | Callout blocks over hero cards | 2px left accent, no background fill. Subtle > loud. |
 | 2026-06-02 | Table header + row restyle (amendment 2.1) | Headers 10px text-4 failed ~1.6:1 contrast → 11px text-2 (clears 4.5:1). Rows get a faint `border-border/60` hairline (was transparent). Table-heavy sections may widen the table up to 960px. |
+| 2026-06-11 | Add research reader primitive contract | Wave 4 reader polish standardizes verdicts, findings, gaps, source chips, funnel math, budget bars, creative matrices, quote cards, and collapsed exhibits. |

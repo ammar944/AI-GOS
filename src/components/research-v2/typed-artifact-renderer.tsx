@@ -39,7 +39,12 @@ import {
   PaidMediaPlanRenderer,
   VoiceOfCustomerRenderer,
 } from './section-renderers';
-import { SubsectionBlock } from './primitives';
+import {
+  GapNote,
+  SubsectionBlock,
+  isReaderPipelineChrome,
+  scrubReaderText,
+} from './primitives';
 
 export interface TypedArtifactRendererProps {
   artifact: PositioningTypedArtifact;
@@ -148,7 +153,10 @@ function isUrl(value: string): boolean {
 }
 
 function renderStringValue(value: string): ReactNode {
-  if (!isUrl(value)) return value;
+  if (isReaderPipelineChrome(value)) {
+    return <GapNote gap={value} subject="this saved artifact field" />;
+  }
+  if (!isUrl(value)) return scrubReaderText(value);
   return <SourceLink url={value} />;
 }
 
@@ -415,8 +423,8 @@ export function GenericTypedArtifactRenderer({
         {showSectionTitle ? (
           <SectionTitle as="h2">{artifact.sectionTitle}</SectionTitle>
         ) : null}
-        <VerdictCallout verdict={artifact.verdict} />
-        <BodyProse>{artifact.statusSummary}</BodyProse>
+        <VerdictCallout verdict={scrubReaderText(artifact.verdict)} />
+        <BodyProse>{scrubReaderText(artifact.statusSummary)}</BodyProse>
       </header>
 
       {subSections.map((subSection) => (

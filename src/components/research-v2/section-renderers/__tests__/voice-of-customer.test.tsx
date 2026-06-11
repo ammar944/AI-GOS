@@ -176,15 +176,19 @@ const fixture: VoiceOfCustomerArtifact = {
 };
 
 describe('VoiceOfCustomerRenderer', () => {
-  it('renders 5 sub-section blocks with the canonical labels 1-5', () => {
+  it('renders 5 editorial blocks with verdict and findings', () => {
     render(<VoiceOfCustomerRenderer artifact={fixture} />);
+    expect(screen.getByTestId('verdict-hero')).toHaveTextContent(
+      /pricing complaints dominate/i,
+    );
+    expect(screen.getByTestId('key-findings')).toBeInTheDocument();
     const blocks = screen.getAllByTestId('subsection');
     expect(blocks).toHaveLength(5);
-    expect(blocks[0]).toHaveTextContent('1 · Pain Language');
-    expect(blocks[1]).toHaveTextContent('2 · Objections');
-    expect(blocks[2]).toHaveTextContent('3 · Switching Stories');
-    expect(blocks[3]).toHaveTextContent('4 · Decision Criteria');
-    expect(blocks[4]).toHaveTextContent('5 · Success Language');
+    expect(blocks[0]).toHaveTextContent('Pain language');
+    expect(blocks[1]).toHaveTextContent('Objections');
+    expect(blocks[2]).toHaveTextContent('Switching stories');
+    expect(blocks[3]).toHaveTextContent('Decision criteria');
+    expect(blocks[4]).toHaveTextContent('Success language');
   });
 
   it('renders >=3 pain quotes with voc-quote testid', () => {
@@ -226,12 +230,31 @@ describe('VoiceOfCustomerRenderer', () => {
     const success = screen.getAllByTestId('success-quote');
     expect(success.length).toBeGreaterThanOrEqual(3);
     expect(success[0]).toHaveTextContent('finally see everything');
-    expect(success[0]).toHaveTextContent('after-state');
+    expect(success[0]).toHaveTextContent('After-state');
     expect(success[0]).toHaveTextContent('Single source of truth');
 
     // Pain quotes and success quotes are distinct testid namespaces.
     const pain = screen.queryAllByTestId('voc-quote');
     expect(pain.length).toBeGreaterThanOrEqual(3);
     expect(success).not.toEqual(expect.arrayContaining(pain));
+  });
+
+  it('renders a GapNote instead of long nav-menu quote dumps', () => {
+    const navDump = Array.from({ length: 4 })
+      .map((_, index) => `[Menu ${index}](https://example.com/${index})`)
+      .join(' ');
+    const artifact = structuredClone(fixture);
+    artifact.painLanguage.quotes = [
+      {
+        ...artifact.painLanguage.quotes[0],
+        verbatimText: `${navDump} ${'navigation '.repeat(200)}`,
+      },
+    ];
+
+    render(<VoiceOfCustomerRenderer artifact={artifact} />);
+
+    expect(screen.queryByText(/Menu 0/)).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('gap-note').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByTestId('voc-quote')).toHaveLength(0);
   });
 });

@@ -7,7 +7,6 @@ import { PaidMediaPlanRenderer } from '../paid-media-plan';
 
 interface MissingProvenancePaidMediaPlanBody {
   campaignOverview: Record<string, unknown>;
-  campaignPhases: Array<Record<string, unknown>>;
   audienceTypes: Array<Record<string, unknown>>;
 }
 
@@ -17,94 +16,46 @@ function buildMissingProvenancePaidMediaPlanArtifact(): typeof paidMediaPlanFixt
 
   delete body.campaignOverview.monthlyBudgetProvenance;
   body.campaignOverview.dailySpendProvenance = '';
-  delete body.campaignPhases[0]?.monthlyBudgetProvenance;
   delete body.audienceTypes[0]?.dailyBudgetProvenance;
 
   return artifact;
 }
 
 describe('<PaidMediaPlanRenderer>', (): void => {
-  it('renders typed paid-media subsections instead of generic key dumps', (): void => {
+  it('renders the three-layer paid-media plan surface', (): void => {
     render(<PaidMediaPlanRenderer artifact={paidMediaPlanFixtureArtifact} />);
 
-    const renderer = screen.getByTestId('paid-media-plan-renderer');
+    const renderer = screen.getByTestId(
+      'typed-artifact-renderer-positioningPaidMediaPlan',
+    );
 
     expect(renderer).toBeInTheDocument();
-    expect(within(renderer).getAllByTestId('subsection')).toHaveLength(13);
-    [
-      'campaignOverview',
-      'campaignPhases',
-      'audienceTypes',
-      'anglesToTest',
-      'creativeStrategy',
-      'creativeFramework',
-      'funnelIdeation',
-      'salesProcess',
-      'competitorMarketingInsights',
-      'competitorReviewInsights',
-      'channelSuggestions',
-      'kpis',
-    ].forEach((key) => {
-      expect(within(renderer).getByTestId(`pmp-block-${key}`)).toBeInTheDocument();
-    });
-    expect(
-      within(renderer).getByText('A four-month paid-media plan starts with controlled testing before scale.'),
-    ).toBeInTheDocument();
-    expect(within(renderer).getByTestId('paid-media-driver-strip')).toBeInTheDocument();
-    expect(
-      within(renderer).getByText(/spend first on the narrow speed-and-proof loop/i),
-    ).toBeInTheDocument();
-    expect(within(renderer).getByText('Monthly budget')).toBeInTheDocument();
-    expect(within(renderer).getAllByText('$3,000').length).toBeGreaterThan(0);
-    // Display-level provenance translation: internal 'user-supplied' /
-    // 'operator-supplied' tokens read as 'from your brief'.
-    expect(
-      within(renderer).getAllByText('from your brief').length,
-    ).toBeGreaterThan(0);
-    expect(within(renderer).queryByText('user-supplied')).not.toBeInTheDocument();
-    expect(
-      within(renderer).queryByText('operator-supplied'),
-    ).not.toBeInTheDocument();
-    expect(
-      within(renderer).getAllByText('model-estimated').length,
-    ).toBeGreaterThan(0);
-    expect(within(renderer).getByText('Campaign phases')).toBeInTheDocument();
-    expect(within(renderer).getByText('Audience types')).toBeInTheDocument();
-    expect(within(renderer).getByText('Angles to test')).toBeInTheDocument();
-    expect(within(renderer).getByText('Creative framework')).toBeInTheDocument();
-    expect(within(renderer).getByText('Channel suggestions')).toBeInTheDocument();
-    expect(within(renderer).getByText('Phase 1 - Testing')).toBeInTheDocument();
-    expect(
-      within(renderer).getByText('Stop losing qualified pipeline while campaign decisions sit in docs.'),
-    ).toBeInTheDocument();
-    expect(within(renderer).getAllByText('Free audit').length).toBeGreaterThan(0);
-    expect(within(renderer).getAllByText('MQLs').length).toBeGreaterThan(0);
-    expect(
-      within(renderer).getByText(/qualified free-audit leads that match the ICP/i),
-    ).toBeInTheDocument();
-    expect(
-      within(renderer).getByText(/every launchable row carries a source section/i),
-    ).toBeInTheDocument();
-    expect(within(renderer).queryByText('Strategic thesis')).not.toBeInTheDocument();
-    expect(
-      within(renderer).queryByText('Contradiction reconciliation'),
-    ).not.toBeInTheDocument();
-    expect(within(renderer).queryByText('Ordered moves')).not.toBeInTheDocument();
+    expect(within(renderer).getByTestId('verdict-hero')).toBeInTheDocument();
+    expect(within(renderer).getByTestId('key-findings')).toBeInTheDocument();
+    expect(within(renderer).getByTestId('budget-bar')).toBeInTheDocument();
+    expect(within(renderer).getByTestId('creative-matrix')).toBeInTheDocument();
+    expect(within(renderer).getAllByTestId('funnel-math').length).toBeGreaterThan(0);
+    expect(within(renderer).getByText('Cross-section thesis')).toBeInTheDocument();
   });
 
-  it('renders unknown provenance for artifacts missing displayed provenance fields', (): void => {
+  it('maps section enum ids to reader labels', (): void => {
+    const { container } = render(
+      <PaidMediaPlanRenderer artifact={paidMediaPlanFixtureArtifact} />,
+    );
+
+    expect(container.textContent).not.toContain('positioningVoiceOfCustomer');
+    expect(container.textContent).toContain('Voice of Customer');
+  });
+
+  it('renders unknown provenance as assumption-confirm language', (): void => {
     const artifact = buildMissingProvenancePaidMediaPlanArtifact();
 
     render(<PaidMediaPlanRenderer artifact={artifact} />);
 
-    const renderer = screen.getByTestId('paid-media-plan-renderer');
-
-    expect(within(renderer).getAllByText('unknown').length).toBeGreaterThanOrEqual(
-      4,
-    );
+    expect(screen.getAllByText(/assumption — confirm/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders no needs-review pill even when the envelope flags needs_review (tier chrome removed 2026-06-11)', (): void => {
+  it('renders no needs-review pill even when the envelope flags needs_review', (): void => {
     render(
       <PaidMediaPlanRenderer
         artifact={{
@@ -120,28 +71,13 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     expect(screen.queryByText('Needs review')).not.toBeInTheDocument();
   });
 
-  it('collapses evidence-gap sales assets into one "Assets to supply" checklist', (): void => {
+  it('collapses missing sales assets into one GapNote', (): void => {
     render(<PaidMediaPlanRenderer artifact={paidMediaPlanFixtureArtifact} />);
 
-    const checklist = screen.getByTestId('pmp-sales-assets-to-supply');
-
-    expect(within(checklist).getByText('Assets to supply')).toBeInTheDocument();
-    expect(within(checklist).getByText('SDR Opt-In Flow')).toBeInTheDocument();
+    expect(screen.getAllByTestId('gap-note').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/SDR Opt-In Flow/i).length).toBeGreaterThanOrEqual(1);
     expect(
-      within(checklist).getByText('Personalization Playbook'),
-    ).toBeInTheDocument();
-    expect(within(checklist).getByText('Loom Walkthrough')).toBeInTheDocument();
-
-    // The linked asset still renders as a table row; the per-row apology
-    // copy for missing assets does not render at all.
-    const salesBlock = screen.getByTestId('pmp-block-salesProcess');
-    expect(
-      within(salesBlock).getByText('Sales Process Overview'),
-    ).toBeInTheDocument();
-    expect(
-      within(salesBlock).queryByText(
-        'Evidence gap: SDR opt-in flow was not provided.',
-      ),
+      screen.queryByText('Evidence gap: SDR opt-in flow was not provided.'),
     ).not.toBeInTheDocument();
   });
 

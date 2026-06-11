@@ -6,6 +6,7 @@
 // brief route has written research_artifacts.thesis.
 
 import { Response } from '@/components/ai-elements/response';
+import { DecisionCard, GapNote, ReaderExhibit, scrubReaderText } from './primitives';
 
 interface BriefMove {
   rank: number;
@@ -52,8 +53,14 @@ function asConflicts(value: unknown): BriefConflict[] {
 export function ExecutiveBriefCard({
   brief,
   sectionLabelOf,
-}: ExecutiveBriefCardProps) {
-  if (!isRecord(brief)) return null;
+}: ExecutiveBriefCardProps): React.ReactElement {
+  if (!isRecord(brief)) {
+    return (
+      <section aria-label="Executive brief" className="mb-10">
+        <GapNote subject="the executive decision memo" />
+      </section>
+    );
+  }
 
   if (brief.status === 'generating') {
     return (
@@ -66,7 +73,11 @@ export function ExecutiveBriefCard({
   }
 
   if (brief.status !== 'complete' || typeof brief.executiveThesis !== 'string') {
-    return null;
+    return (
+      <section aria-label="Executive brief" className="mb-10">
+        <GapNote subject="the executive decision memo" />
+      </section>
+    );
   }
 
   const labelOf = sectionLabelOf ?? ((sectionId: string) => sectionId);
@@ -76,15 +87,15 @@ export function ExecutiveBriefCard({
   return (
     <section
       aria-label="Executive brief"
-      className="mb-10 rounded-lg border border-border bg-card p-6"
+      className="mb-10 border-l-2 border-primary pl-5"
     >
       <div className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        Executive Brief
+        Executive decision memo
       </div>
 
       {/* Thesis is AI-authored markdown with paragraph breaks — Response gives
           it the shared 68ch body measure instead of a full-width text wall. */}
-      <Response>{brief.executiveThesis}</Response>
+      <Response>{scrubReaderText(brief.executiveThesis)}</Response>
 
       {moves.length > 0 ? (
         <div className="mt-6 border-t border-border pt-5">
@@ -93,25 +104,14 @@ export function ExecutiveBriefCard({
           </div>
           <ol className="space-y-3">
             {moves.map((move) => (
-              <li key={move.rank} className="flex gap-3">
-                <span className="font-mono text-[13px] font-semibold tabular-nums text-foreground">
-                  {move.rank}
-                </span>
-                <div className="min-w-0">
-                  {/* The move directive is the item's title — bolded (DM Sans
-                      500), rendered as markdown via Response. */}
-                  <Response className="[&_p]:font-medium [&_p]:text-foreground">
-                    {move.move}
-                  </Response>
-                  {move.provingSections.length > 0 ? (
-                    <p className="mt-1 font-mono text-[11px] text-muted-foreground/70">
-                      proven by{' '}
-                      {move.provingSections
-                        .map((sectionId) => labelOf(sectionId))
-                        .join(' · ')}
-                    </p>
-                  ) : null}
-                </div>
+              <li key={move.rank}>
+                <DecisionCard
+                  number={move.rank}
+                  move={move.move}
+                  evidence={move.provingSections.map((sectionId) => ({
+                    title: labelOf(sectionId),
+                  }))}
+                />
               </li>
             ))}
           </ol>
@@ -119,14 +119,14 @@ export function ExecutiveBriefCard({
       ) : null}
 
       {conflicts.length > 0 ? (
-        <div className="mt-6 border-t border-border pt-5">
-          <div className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-            Reconciled Facts
-          </div>
+        <div className="mt-6">
+          <ReaderExhibit title="appendix: fact reconciliation" count={conflicts.length}>
           <ul className="space-y-4">
             {conflicts.map((conflict) => (
               <li key={conflict.factKey} className="text-[13px] leading-relaxed">
-                <p className="font-medium text-foreground">{conflict.factKey}</p>
+                <p className="font-medium text-foreground">
+                  {scrubReaderText(conflict.factKey)}
+                </p>
                 {Array.isArray(conflict.readings) &&
                 conflict.readings.length > 0 ? (
                   <p className="mt-0.5 font-mono text-[11px] leading-relaxed text-muted-foreground/70">
@@ -139,11 +139,12 @@ export function ExecutiveBriefCard({
                   </p>
                 ) : null}
                 <p className="mt-1 max-w-[68ch] text-muted-foreground">
-                  {conflict.resolution}
+                  {scrubReaderText(conflict.resolution)}
                 </p>
               </li>
             ))}
           </ul>
+          </ReaderExhibit>
         </div>
       ) : null}
     </section>

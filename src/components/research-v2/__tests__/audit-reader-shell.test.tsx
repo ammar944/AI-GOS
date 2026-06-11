@@ -311,9 +311,7 @@ describe('<AuditReaderShell>', () => {
     expect(
       screen.queryByText('Removed fabricated TAM precision'),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('1 · Category Definition'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Category definition')).toBeInTheDocument();
     expect(screen.queryByText('Reviewed strategic thesis')).not.toBeInTheDocument();
     expect(screen.queryByText('{"should":"not render"}')).not.toBeInTheDocument();
   });
@@ -351,24 +349,22 @@ describe('<AuditReaderShell>', () => {
     expect(
       within(
         screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
-      ).getByTestId('paid-media-plan-renderer'),
+      ).getByTestId('verdict-hero'),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByTestId(
-        new RegExp(`^sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-`),
-      ),
-    ).toHaveLength(12);
+      screen.queryByTestId(`sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-campaignOverview`),
+    ).not.toBeInTheDocument();
   });
 
   it('uses the controlled section change callback for keyboard navigation', (): void => {
     const onSectionChange = vi.fn();
 
     render(
-      <AuditReaderShell
-        runId="00000000-0000-4000-8000-0000000000aa"
-        activeSectionId="positioningMarketCategory"
-        onSectionChange={onSectionChange}
-      />,
+        <AuditReaderShell
+          runId="00000000-0000-4000-8000-0000000000aa"
+          activeSectionId="positioningDemandIntent"
+          onSectionChange={onSectionChange}
+        />,
     );
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
@@ -380,16 +376,16 @@ describe('<AuditReaderShell>', () => {
     const onSectionChange = vi.fn();
 
     render(
-      <AuditReaderShell
-        runId="00000000-0000-4000-8000-0000000000aa"
-        activeSectionId="positioningBuyerICP"
+        <AuditReaderShell
+          runId="00000000-0000-4000-8000-0000000000aa"
+          activeSectionId="positioningBuyerICP"
         onSectionChange={onSectionChange}
       />,
     );
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
 
-    expect(onSectionChange).toHaveBeenCalledWith('positioningMarketCategory');
+    expect(onSectionChange).toHaveBeenCalledWith('positioningDemandIntent');
   });
 
   it('ignores arrow keys while an editable field has focus', (): void => {
@@ -514,7 +510,7 @@ describe('<AuditReaderShell>', () => {
     expect(strip.textContent).not.toContain('%');
   });
 
-  it('renders streamed partials through the generic drafting renderer without committed state', (): void => {
+  it('renders streamed partials through the designed drafting skeleton without committed state', (): void => {
     mocks.useSectionPartials.mockReturnValue({
       positioningMarketCategory: {
         zone: 'positioningMarketCategory',
@@ -546,13 +542,12 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Drafting...')).toBeInTheDocument();
     expect(
-      screen.getByTestId('typed-artifact-renderer-positioningMarketCategory'),
-    ).toBeInTheDocument();
+      screen.getByTestId('drafting-section-skeleton-positioningMarketCategory'),
+    ).toHaveTextContent('Drafting the section verdict');
     expect(
-      screen.getByText('Draft category definition is arriving progressively.'),
-    ).toBeInTheDocument();
+      screen.queryByText('Draft category definition is arriving progressively.'),
+    ).not.toBeInTheDocument();
     expect(mocks.useAuditState.mock.results[0]?.value.sectionsByZone).toEqual({});
   });
 
@@ -615,8 +610,8 @@ describe('<AuditReaderShell>', () => {
       <AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />,
     );
 
-    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Section 1 of 7')).toBeInTheDocument());
+    expect(screen.getByText('Section 6 of 7')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Section 6 of 7')).toBeInTheDocument());
 
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -636,7 +631,7 @@ describe('<AuditReaderShell>', () => {
     });
     rerender(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Section 6 of 7')).toBeInTheDocument();
     expect(vi.mocked(HTMLElement.prototype.scrollTo)).not.toHaveBeenCalled();
   });
 
@@ -651,7 +646,12 @@ describe('<AuditReaderShell>', () => {
       sectionsByZone: {},
     });
 
-    render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId="positioningMarketCategory"
+      />,
+    );
 
     expect(screen.getByText('Section needs review')).toBeInTheDocument();
     expect(

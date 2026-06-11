@@ -41,13 +41,6 @@ const fixture: OfferPerformanceArtifact = {
       rationale:
         'The fixture shows different funnel constraints for self-serve activation and enterprise upsell.',
     },
-    {
-      rank: 2,
-      move: 'Route enterprise-intent traffic to proof assets that quantify multi-team adoption.',
-      dependsOn: [1],
-      rationale:
-        'The second move depends on segment separation so proof assets match the actual buyer motion.',
-    },
   ],
   provesWrongIf: {
     metric: 'enterprise-intent traffic to sales-qualified opportunity rate',
@@ -86,13 +79,6 @@ const fixture: OfferPerformanceArtifact = {
         confidence: 'medium',
         sourceUrl: 'https://ir.monday.com/quarterly',
       },
-      {
-        metric: 'G2 user rating',
-        value: '4.7/5 across 10K+ reviews',
-        reportedBy: 'external-source',
-        confidence: 'low',
-        sourceUrl: 'https://www.g2.com/products/monday-com/reviews',
-      },
     ],
   },
   funnelDiagnosis: {
@@ -112,13 +98,6 @@ const fixture: OfferPerformanceArtifact = {
         hypothesis: 'Too short for cross-functional Work OS deployments.',
         sourceUrl: 'https://monday.com/pricing/',
       },
-      {
-        stageName: 'Enterprise upsell',
-        metric: 'Customers >$50K ARR / total',
-        magnitude: '~0.9% (2,077 of 225K+)',
-        hypothesis: 'Friction in SMB→enterprise transition.',
-        sourceUrl: 'https://ir.monday.com/example2',
-      },
     ],
   },
   channelTruth: {
@@ -129,12 +108,6 @@ const fixture: OfferPerformanceArtifact = {
         hasWorked: 'yes',
         quantifiedEvidence: '225K+ customers acquired via free trial.',
         sourceUrl: 'https://monday.com/pricing/',
-      },
-      {
-        channelName: 'Paid Digital & Brand',
-        hasWorked: 'yes',
-        quantifiedEvidence: 'FY2023 S&M ~$582M funded global paid campaigns.',
-        sourceUrl: 'https://ir.monday.com/example2',
       },
       {
         channelName: 'Enterprise Direct Sales',
@@ -158,12 +131,6 @@ const fixture: OfferPerformanceArtifact = {
         metric: 'NDR (10+ user cohort)',
         value: '>110%',
         sourceUrl: 'https://ir.monday.com/quarterly',
-      },
-      {
-        signalType: 'retention',
-        metric: 'NDR (>$50K ARR cohort)',
-        value: '>115%',
-        sourceUrl: 'https://ir.monday.com/example2',
       },
       {
         signalType: 'activation',
@@ -200,81 +167,38 @@ const fixture: OfferPerformanceArtifact = {
         contradiction: 'Strong percentage growth masks low absolute penetration.',
         severity: 'medium',
       },
-      {
-        claimedMotion: 'Fast trial-to-paid via 14-day free trial',
-        actualEvidence: '14-day window vs. multi-team Work OS evaluation needs.',
-        contradiction: 'Trial length optimized for SMB at the expense of multi-team accounts.',
-        severity: 'low',
-      },
     ],
   },
 };
 
 describe('OfferDiagnosticRenderer', () => {
-  it('renders 5 subsection blocks with correct labels', () => {
+  it('renders binding constraint as the verdict hero', () => {
     render(<OfferDiagnosticRenderer artifact={fixture} />);
+
+    expect(screen.getByTestId('verdict-hero')).toHaveTextContent(
+      /binding constraint is enterprise proof specificity/i,
+    );
+    expect(screen.getByTestId('key-findings')).toBeInTheDocument();
+  });
+
+  it('renders five narrative blocks and funnel math rows', () => {
+    render(<OfferDiagnosticRenderer artifact={fixture} />);
+
     const blocks = screen.getAllByTestId('subsection');
     expect(blocks).toHaveLength(5);
-    expect(blocks[0]).toHaveTextContent('1 · Offer-Market Fit');
-    expect(blocks[1]).toHaveTextContent('2 · Funnel Diagnosis');
-    expect(blocks[2]).toHaveTextContent('3 · Channel Truth');
-    expect(blocks[3]).toHaveTextContent('4 · Retention Health');
-    expect(blocks[4]).toHaveTextContent('5 · Red Flags');
-  });
-
-  it('renders prose for every subsection', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
-    const prose = screen.getAllByTestId('subsection-prose');
-    expect(prose).toHaveLength(5);
-    expect(prose[0]).toHaveTextContent('monday.com shows clear PMF');
-    expect(prose[1]).toHaveTextContent('Two visible funnel breaks');
-    expect(prose[2]).toHaveTextContent('Three observable channels');
-    expect(prose[3]).toHaveTextContent('NDR exceeds 110%');
-    expect(prose[4]).toHaveTextContent('Three red flags');
-  });
-
-  it('renders ≥3 proof-point-item rows (schema minimum)', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
-    expect(screen.getAllByTestId('proof-point-item').length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders ≥2 funnel-break-item rows (schema minimum)', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
+    expect(blocks[0]).toHaveTextContent('Offer-market fit');
+    expect(blocks[1]).toHaveTextContent('Funnel diagnosis');
     expect(screen.getAllByTestId('funnel-break-item').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByTestId('funnel-math').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('renders ≥3 channel-item rows (schema minimum)', () => {
+  it('renders channels, retention signals, red flags, and tripwire cards', () => {
     render(<OfferDiagnosticRenderer artifact={fixture} />);
+
     expect(screen.getAllByTestId('channel-item').length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders ≥3 retention-item rows (schema minimum)', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
     expect(screen.getAllByTestId('retention-item').length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders ≥3 red-flag-item rows (schema minimum)', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
     expect(screen.getAllByTestId('red-flag-item').length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders ≥3 distinct channelName values', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
-    const channelItems = screen.getAllByTestId('channel-item');
-    const distinctNames = new Set(channelItems.map(el => el.textContent?.trim()));
-    expect(distinctNames.size).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders reportedBy, confidence, hasWorked, signalType, severity pills with label transforms', () => {
-    render(<OfferDiagnosticRenderer artifact={fixture} />);
-    // reportedBy label transforms
-    expect(screen.getAllByText('Company-own').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('External').length).toBeGreaterThanOrEqual(1);
-    // hasWorked label transforms (proves pill rendering)
-    expect(screen.getAllByText('Yes').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Partial').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Unknown').length).toBeGreaterThanOrEqual(1);
-    // signalType label transform
-    expect(screen.getAllByText('First value').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Tripwire')).toBeInTheDocument();
+    expect(screen.getByText('enterprise-intent traffic to sales-qualified opportunity rate')).toBeInTheDocument();
   });
 });

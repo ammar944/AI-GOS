@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-
 import {
   CompetitorAdEvidence,
   type CompetitorAdEvidenceProps,
@@ -10,16 +8,25 @@ import { cn } from '@/lib/utils';
 import type { CompetitorLandscapeArtifact } from '@/types/positioning-artifact';
 import {
   BarBreakdown,
-  PositioningAxisStack,
+  BasisChip,
+  EvidenceChip,
+  GapNote,
+  KeyFindings,
+  Positioning2x2,
+  QuoteCard,
+  ReaderExhibit,
+  SectionCoverageNote,
   SubsectionBlock,
-  type PositioningAxisItem,
-} from '../primitives';
+  VerdictHero,
+  clientGapSentence,
+  scrubReaderText,
+  type EvidenceChipSource,
+  type KeyFinding,
+  type Positioning2x2Point,
+} from '@/components/research-v2/primitives';
 import {
   DataTable,
-  Eyebrow,
-  hostname,
   MonoBadge,
-  QuoteCallout,
   SourceLink,
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
@@ -49,12 +56,10 @@ type PricingPoint =
   CompetitorLandscapeArtifact['pricingReality']['dataPoints'][number];
 type ShareOfVoiceSlice =
   CompetitorLandscapeArtifact['shareOfVoice']['slices'][number];
-type CompetitorWeakness =
-  CompetitorLandscapeArtifact['publicWeaknesses']['items'][number];
 type NarrativeArc =
   CompetitorLandscapeArtifact['narrativeArcs']['arcs'][number];
 type AdPresenceSignal =
-  CompetitorLandscapeArtifact['adPresence']['signals'][number];
+  NonNullable<CompetitorLandscapeArtifact['adPresence']>['signals'][number];
 type AdEvidenceGroup =
   CompetitorLandscapeArtifact['adEvidence']['advertiserGroups'][number];
 type AdEvidenceCreative =
@@ -69,13 +74,6 @@ const AD_CREATIVE_FORMATS: readonly AdEvidenceCreativeFormat[] = [
   'message',
   'unknown',
 ];
-
-interface AxisPosition {
-  axisName: string;
-  ourPosition: string;
-  position: string;
-  evidenceUrl: string;
-}
 
 function formatPlatforms(platforms: readonly string[]): string {
   if (platforms.length === 0) return 'No active platform observed';
@@ -95,8 +93,6 @@ function normalizeAdCreativeFormat(format: string): AdEvidenceCreativeFormat {
 function mapAdCreative(
   creative: AdEvidenceGroup['creatives'][number],
 ): AdEvidenceCreative {
-  // sourceUrl is schema-guaranteed; fall back to landingUrl/sourceUrl so the
-  // card always has a working click-through even when detailsUrl is null.
   const sourceLink =
     creative.detailsUrl ?? creative.landingUrl ?? creative.sourceUrl;
   return {
@@ -121,49 +117,14 @@ function mapAdCreative(
   };
 }
 
-function AdEvidenceNotes({
-  group,
-}: {
-  group: AdEvidenceGroup;
-}): React.ReactElement | null {
-  const notes = [
-    ...group.dataGaps.map((gap) => ({
-      key: `gap-${gap.platform ?? 'all'}-${gap.reason}`,
-      text: `${gap.platform ? `${AD_PLATFORM_LABEL[gap.platform]}: ` : ''}${gap.reason}`,
-    })),
-    ...group.sourceErrors.map((error) => ({
-      key: `error-${error.platform}-${error.message}`,
-      text: `${AD_PLATFORM_LABEL[error.platform]}: ${error.message}`,
-    })),
-  ];
-
-  if (notes.length === 0) {
-    return null;
-  }
-
-  return (
-    <ul className="grid gap-1 text-[12px] leading-[1.5] text-muted-foreground">
-      {notes.map((note) => (
-        <li key={note.key}>{note.text}</li>
-      ))}
-    </ul>
-  );
-}
-
-type AdEvidenceState =
-  | 'ads-found'
-  | 'quarantine-only'
-  | 'no-active-ads'
-  | 'lookup-capped'
-  | 'not-checked';
-
-// A lookup is "capped" when no creatives came back AND a gap/error blames a
-// budget / rate-limit / exhaustion ceiling (e.g. the live string
-// "google lookup failed: section budget exhausted after N lookups").
-const LOOKUP_CAPPED_PATTERN = /\b(budget|rate[- ]?limit|rate limited|exhaust)/i;
-
-function isLookupCappedReason(reason: string): boolean {
-  return LOOKUP_CAPPED_PATTERN.test(reason);
+function toLibraryLinkProps(
+  group: AdEvidenceGroup,
+): CompetitorAdEvidenceProps['libraryLinks'] {
+  return {
+    metaLibraryUrl: group.libraryLinks.meta,
+    linkedInLibraryUrl: group.libraryLinks.linkedin,
+    googleAdvertiserUrl: group.libraryLinks.google,
+  };
 }
 
 function countVerifiedCreatives(group: AdEvidenceGroup): number {
@@ -173,297 +134,18 @@ function countVerifiedCreatives(group: AdEvidenceGroup): number {
   );
 }
 
-function countQuarantinedCreatives(group: AdEvidenceGroup): number {
-  return (
-    group.quarantinedCount ??
-    group.creatives.filter((creative) => creative.verified === false).length
-  );
-}
-
-function hasQuarantineOnlySignals(group: AdEvidenceGroup): boolean {
-  return (
-    countVerifiedCreatives(group) === 0 &&
-    countQuarantinedCreatives(group) > 0
-  );
-}
-
-function classifyAdEvidenceState(group: AdEvidenceGroup): AdEvidenceState {
-  if (countVerifiedCreatives(group) > 0) {
-    return 'ads-found';
-  }
-  if (hasQuarantineOnlySignals(group)) {
-    return 'quarantine-only';
-  }
-  if (group.creatives.length > 0) {
-    return 'ads-found';
-  }
-  if (group.platforms.length === 0) {
-    return 'not-checked';
-  }
-  const capped =
-    group.dataGaps.some((gap) => isLookupCappedReason(gap.reason)) ||
-    group.sourceErrors.some((error) => isLookupCappedReason(error.message));
-  return capped ? 'lookup-capped' : 'no-active-ads';
-}
-
-function toLibraryLinkProps(group: AdEvidenceGroup): CompetitorAdEvidenceProps['libraryLinks'] {
+function sourceAt(
+  artifact: CompetitorLandscapeArtifact,
+  index: number,
+): EvidenceChipSource | undefined {
+  const source = artifact.sources[index];
+  if (!source) return undefined;
   return {
-    metaLibraryUrl: group.libraryLinks.meta,
-    linkedInLibraryUrl: group.libraryLinks.linkedin,
-    googleAdvertiserUrl: group.libraryLinks.google,
+    n: index + 1,
+    title: source.title,
+    url: source.url,
+    whyItMatters: source.whyItMatters,
   };
-}
-
-function TransparencyLinks({
-  group,
-}: {
-  group: AdEvidenceGroup;
-}): React.ReactElement | null {
-  const links = [
-    { key: 'google', label: 'Google Ads Transparency', url: group.libraryLinks.google },
-    { key: 'meta', label: 'Meta Ad Library', url: group.libraryLinks.meta },
-    { key: 'linkedin', label: 'LinkedIn Ad Library', url: group.libraryLinks.linkedin },
-  ].filter((link): link is { key: string; label: string; url: string } =>
-    Boolean(link.url),
-  );
-
-  if (links.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {links.map((link) => (
-        <a
-          key={link.key}
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid={`transparency-link-${link.key}`}
-          className="inline-flex items-center rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground no-underline transition-colors hover:border-primary hover:text-primary"
-        >
-          {link.label} →
-        </a>
-      ))}
-    </div>
-  );
-}
-
-function observedAtLabel(observedAt: string): string {
-  const parsed = new Date(observedAt);
-  if (Number.isNaN(parsed.getTime())) return observedAt;
-  return parsed.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function AdEvidenceStateBody({
-  group,
-  state,
-}: {
-  group: AdEvidenceGroup;
-  state: AdEvidenceState;
-}): React.ReactElement {
-  if (state === 'ads-found') {
-    return (
-      <CompetitorAdEvidence
-        adCreatives={group.creatives.map(mapAdCreative)}
-        libraryLinks={toLibraryLinkProps(group)}
-      />
-    );
-  }
-
-  if (state === 'quarantine-only') {
-    return (
-      <div
-        data-testid="ad-evidence-state-quarantine-only"
-        className="grid gap-3"
-      >
-        <p className="text-[13px] leading-[1.6] text-muted-foreground">
-          Identity-unverified ad signals captured for this advertiser. Verified
-          competitor ad count is 0; treat the samples below as quarantine
-          evidence, not confirmed competitor advertising.
-        </p>
-        <CompetitorAdEvidence
-          adCreatives={group.creatives.map(mapAdCreative)}
-          libraryLinks={toLibraryLinkProps(group)}
-        />
-      </div>
-    );
-  }
-
-  if (state === 'lookup-capped') {
-    return (
-      <div data-testid="ad-evidence-state-lookup-capped" className="grid gap-2">
-        <p className="text-[13px] leading-[1.6] text-muted-foreground">
-          Lookup capped — the ad-library scan stopped before this advertiser was
-          fully checked on {formatPlatforms(group.platforms)}. Open the ad
-          transparency libraries to see live creatives directly.
-        </p>
-        <TransparencyLinks group={group} />
-      </div>
-    );
-  }
-
-  if (state === 'not-checked') {
-    return (
-      <p
-        data-testid="ad-evidence-state-not-checked"
-        className="text-[13px] leading-[1.6] text-muted-foreground"
-      >
-        Not yet checked — no ad platform was queried for this advertiser.
-      </p>
-    );
-  }
-
-  // no-active-ads
-  return (
-    <p
-      data-testid="ad-evidence-state-no-active-ads"
-      className="text-[13px] leading-[1.6] text-muted-foreground"
-    >
-      No active ads found on {formatPlatforms(group.platforms)} as of{' '}
-      {observedAtLabel(group.observedAt)}.
-    </p>
-  );
-}
-
-function AdEvidenceGroupBlock({
-  group,
-}: {
-  group: AdEvidenceGroup;
-}): React.ReactElement {
-  const state = classifyAdEvidenceState(group);
-
-  return (
-    <section
-      data-testid="ad-evidence-group"
-      data-state={state}
-      className="grid gap-3 border-b border-border pb-5 last:border-b-0 last:pb-0"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[15px] font-semibold leading-tight tracking-[0] text-foreground">
-          {group.advertiserName}
-        </h3>
-        {group.domain ? (
-          <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-            {group.domain}
-          </div>
-        ) : null}
-      </div>
-      <AdEvidenceStateBody group={group} state={state} />
-      <AdEvidenceNotes group={group} />
-    </section>
-  );
-}
-
-function AdEvidenceSection({
-  adEvidence,
-}: {
-  adEvidence: CompetitorLandscapeArtifact['adEvidence'];
-}): React.ReactElement {
-  const groups = adEvidence.advertiserGroups;
-  const [selectedName, setSelectedName] = useState(
-    groups[0]?.advertiserName ?? '',
-  );
-
-  useEffect(() => {
-    if (groups.some((group) => group.advertiserName === selectedName)) {
-      return;
-    }
-    setSelectedName(groups[0]?.advertiserName ?? '');
-  }, [groups, selectedName]);
-
-  if (groups.length === 0) {
-    return (
-      <div className="grid gap-2 text-[13px] leading-[1.6] text-muted-foreground">
-        <p>No live ad creatives captured for this audit.</p>
-      </div>
-    );
-  }
-
-  const selectedGroup =
-    groups.find((group) => group.advertiserName === selectedName) ?? groups[0];
-  const selectedId = toDomId(selectedGroup.advertiserName);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div
-        role="tablist"
-        aria-label="Ad evidence advertisers"
-        className="flex gap-2 overflow-x-auto border-b border-border"
-      >
-        {groups.map((group) => {
-          const selected =
-            group.advertiserName === selectedGroup.advertiserName;
-          const tabId = toDomId(group.advertiserName);
-          const state = classifyAdEvidenceState(group);
-          return (
-            <button
-              key={group.advertiserName}
-              id={`ad-evidence-tab-${tabId}`}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`ad-evidence-panel-${tabId}`}
-              onClick={() => setSelectedName(group.advertiserName)}
-              className={cn(
-                'shrink-0 border-b-2 px-1 pb-2 pt-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] transition-colors',
-                selected
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-muted-foreground',
-              )}
-            >
-              {group.advertiserName}
-              {state === 'quarantine-only' ? (
-                <span
-                  data-testid="ad-evidence-tab-quarantine-only"
-                  className="ml-1.5 text-[10px] text-muted-foreground/70"
-                >
-                  · unverified
-                </span>
-              ) : null}
-              {group.creatives.length === 0 ? (
-                <span
-                  data-testid="ad-evidence-tab-no-ads"
-                  className="ml-1.5 text-[10px] text-muted-foreground/70"
-                >
-                  · no ads
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-
-      <div
-        id={`ad-evidence-panel-${selectedId}`}
-        role="tabpanel"
-        aria-labelledby={`ad-evidence-tab-${selectedId}`}
-      >
-        <AdEvidenceGroupBlock group={selectedGroup} />
-      </div>
-    </div>
-  );
-}
-
-function getUniqueCompetitors(
-  competitors: readonly CompetitorRow[],
-): CompetitorRow[] {
-  const seen = new Set<string>();
-  return competitors.filter((competitor) => {
-    if (seen.has(competitor.name)) return false;
-    seen.add(competitor.name);
-    return true;
-  });
-}
-
-function toDomId(value: string): string {
-  const cleaned = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return cleaned || 'competitor';
 }
 
 function findByCompetitor<T extends { competitor: string }>(
@@ -473,196 +155,229 @@ function findByCompetitor<T extends { competitor: string }>(
   return rows.find((row) => row.competitor === competitorName) ?? null;
 }
 
-function getAxisPositions(
+function competitorKeyFindings(
   artifact: CompetitorLandscapeArtifact,
-  competitorName: string,
-): AxisPosition[] {
-  return artifact.positioningTaxonomy.axes.flatMap((axis) =>
-    axis.competitorPositions
-      .filter((position) => position.competitor === competitorName)
-      .map((position) => ({
-        axisName: axis.axisName,
-        ourPosition: axis.ourPosition,
-        position: position.position,
-        evidenceUrl: axis.evidenceUrl,
-      })),
+): readonly KeyFinding[] {
+  const competitor = artifact.competitorSet.competitors[0];
+  const pricing = artifact.pricingReality.dataPoints[0];
+  const weakness = artifact.publicWeaknesses.items[0];
+  const adGroup = artifact.adEvidence.advertiserGroups[0];
+
+  return [
+    {
+      sentence: artifact.statusSummary,
+      basis: 'sourced',
+      evidence: [sourceAt(artifact, 0)].filter(
+        (source): source is EvidenceChipSource => source !== undefined,
+      ),
+    },
+    competitor
+      ? {
+          sentence: `${competitor.name} sets the clearest comparison frame: ${competitor.oneLinePositioning}`,
+          basis: 'sourced',
+          evidence: [
+            {
+              title: competitor.name,
+              url: competitor.sourceUrl,
+              excerpt: competitor.verbatimHeroCopy,
+            },
+          ],
+        }
+      : {
+          sentence: artifact.competitorSet.prose,
+          basis: 'assumption',
+        },
+    pricing
+      ? {
+          sentence: `${pricing.competitor} pricing is visible at ${pricing.monthlyPrice} for ${pricing.tierName}.`,
+          basis: 'sourced',
+          evidence: [
+            {
+              title: `${pricing.competitor} pricing`,
+              url: pricing.sourceUrl,
+            },
+          ],
+        }
+      : {
+          sentence: artifact.pricingReality.prose,
+          basis: 'assumption',
+        },
+    weakness
+      ? {
+          sentence: `${weakness.competitor} has a public weakness to exploit: ${weakness.whyItMatters}`,
+          basis: 'sourced',
+          evidence: [
+            {
+              title: weakness.source,
+              url: weakness.sourceUrl,
+              excerpt: weakness.verbatimQuote,
+            },
+          ],
+        }
+      : {
+          sentence: artifact.publicWeaknesses.prose,
+          basis: 'assumption',
+        },
+    adGroup
+      ? {
+          sentence: `${adGroup.advertiserName} has ${countVerifiedCreatives(adGroup)} confirmed ad creatives in this run.`,
+          basis: countVerifiedCreatives(adGroup) > 0 ? 'measured' : 'gap',
+        }
+      : {
+          sentence: artifact.adEvidence.prose,
+          basis: 'gap',
+        },
+  ];
+}
+
+function competitor2x2(
+  artifact: CompetitorLandscapeArtifact,
+): React.ReactElement | null {
+  const [xAxis, yAxis] = artifact.positioningTaxonomy.axes;
+  if (!xAxis || !yAxis) return null;
+
+  const names = Array.from(
+    new Set([
+      ...xAxis.competitorPositions.map((position) => position.competitor),
+      ...yAxis.competitorPositions.map((position) => position.competitor),
+    ]),
+  );
+  const points: Positioning2x2Point[] = [
+    { label: 'You', x: 50, y: 50, isUs: true },
+    ...names.map((name, index) => {
+      const xIndex = xAxis.competitorPositions.findIndex(
+        (position) => position.competitor === name,
+      );
+      const yIndex = yAxis.competitorPositions.findIndex(
+        (position) => position.competitor === name,
+      );
+      return {
+        label: name,
+        x: 15 + ((xIndex >= 0 ? xIndex : index) % 5) * 18,
+        y: 20 + ((yIndex >= 0 ? yIndex : index) % 5) * 16,
+      };
+    }),
+  ];
+
+  return (
+    <Positioning2x2
+      xAxisLabel={xAxis.axisName}
+      yAxisLabel={yAxis.axisName}
+      points={points}
+    />
   );
 }
 
-function CompetitorFact({
-  label,
-  children,
+function AdvertiserSummary({
+  group,
+  adPresence,
 }: {
-  label: string;
-  children: ReactNode;
+  group: AdEvidenceGroup;
+  adPresence?: AdPresenceSignal | null;
+}): React.ReactElement {
+  const verifiedCount = countVerifiedCreatives(group);
+  const verifiedThemeCreative = group.creatives.find(
+    (creative) => creative.verified !== false,
+  );
+  const theme =
+    adPresence?.evidence ??
+    verifiedThemeCreative?.headline ??
+    verifiedThemeCreative?.body;
+
+  return (
+    <article className="grid gap-3 border border-border bg-card p-4" data-testid="ad-evidence-group">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[15px] font-semibold text-foreground">
+          {group.advertiserName}
+        </h3>
+        <BasisChip basis={verifiedCount > 0 ? 'measured' : 'gap'}>
+          {verifiedCount} verified
+        </BasisChip>
+      </div>
+      <p className="text-[12px] leading-[1.5] text-muted-foreground">
+        {formatPlatforms(group.platforms)}
+      </p>
+      {theme ? (
+        <p className="text-[13px] leading-[1.55] text-foreground">
+          {scrubReaderText(theme)}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {group.libraryLinks.google ? <SourceLink url={group.libraryLinks.google} /> : null}
+        {group.libraryLinks.meta ? <SourceLink url={group.libraryLinks.meta} /> : null}
+        {group.libraryLinks.linkedin ? <SourceLink url={group.libraryLinks.linkedin} /> : null}
+      </div>
+    </article>
+  );
+}
+
+function CuratedAdGallery({
+  group,
+}: {
+  group: AdEvidenceGroup;
+}): React.ReactElement {
+  const curated = group.creatives
+    .filter((creative) => creative.verified !== false)
+    .slice(0, 4);
+
+  if (curated.length === 0) {
+    return (
+      <GapNote
+        subject={`confirmed ad creatives for ${group.advertiserName}`}
+        howToClose="Open the transparency library links and confirm advertiser identity."
+      />
+    );
+  }
+
+  return (
+    <section className="grid gap-3">
+      <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+        {group.advertiserName} creative gallery
+      </div>
+      <CompetitorAdEvidence
+        adCreatives={curated.map(mapAdCreative)}
+        libraryLinks={toLibraryLinkProps(group)}
+      />
+    </section>
+  );
+}
+
+function Diagnostics({
+  groups,
+}: {
+  groups: readonly AdEvidenceGroup[];
 }): React.ReactElement {
   return (
-    <div className="grid gap-1">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="text-[13px] leading-[1.5] text-muted-foreground">
-        {children}
-      </dd>
-    </div>
-  );
-}
-
-function CompetitorFocusPanel({
-  artifact,
-}: {
-  artifact: CompetitorLandscapeArtifact;
-}): React.ReactElement | null {
-  const competitors = useMemo(
-    () => getUniqueCompetitors(artifact.competitorSet.competitors),
-    [artifact.competitorSet.competitors],
-  );
-  const [selectedName, setSelectedName] = useState(
-    competitors[0]?.name ?? '',
-  );
-
-  useEffect(() => {
-    if (competitors.some((competitor) => competitor.name === selectedName)) {
-      return;
-    }
-    setSelectedName(competitors[0]?.name ?? '');
-  }, [competitors, selectedName]);
-
-  if (competitors.length === 0) return null;
-
-  const selectedCompetitor =
-    competitors.find((competitor) => competitor.name === selectedName) ??
-    competitors[0];
-  const selectedId = toDomId(selectedCompetitor.name);
-  const pricingPoint: PricingPoint | null = findByCompetitor(
-    artifact.pricingReality.dataPoints,
-    selectedCompetitor.name,
-  );
-  const shareOfVoiceSlice: ShareOfVoiceSlice | null =
-    artifact.shareOfVoice.slices.find(
-      (slice) => slice.winner === selectedCompetitor.name,
-    ) ?? null;
-  const weakness: CompetitorWeakness | null = findByCompetitor(
-    artifact.publicWeaknesses.items,
-    selectedCompetitor.name,
-  );
-  const narrativeArc: NarrativeArc | null = findByCompetitor(
-    artifact.narrativeArcs.arcs,
-    selectedCompetitor.name,
-  );
-  const adSignal: AdPresenceSignal | null = artifact.adPresence
-    ? findByCompetitor(artifact.adPresence.signals, selectedCompetitor.name)
-    : null;
-  const axisPositions = getAxisPositions(artifact, selectedCompetitor.name);
-
-  return (
-    <section className="flex flex-col gap-4">
-      <div
-        role="tablist"
-        aria-label="Competitors"
-        className="flex gap-2 overflow-x-auto border-b border-border"
-      >
-        {competitors.map((competitor) => {
-          const selected = competitor.name === selectedCompetitor.name;
-          const tabId = toDomId(competitor.name);
+    <ReaderExhibit title="evidence diagnostics" count={groups.length}>
+      <div className="grid gap-4">
+        {groups.map((group) => {
+          const notes = [
+            ...group.dataGaps.map((gap) =>
+              clientGapSentence(gap.reason, `${group.advertiserName} ${gap.platform ?? 'ad'} evidence`),
+            ),
+            ...group.sourceErrors.map((error) =>
+              clientGapSentence(error.message, `${group.advertiserName} ${error.platform} evidence`),
+            ),
+          ];
           return (
-            <button
-              key={competitor.name}
-              id={`competitor-tab-${tabId}`}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`competitor-panel-${tabId}`}
-              onClick={() => setSelectedName(competitor.name)}
-              className={cn(
-                'shrink-0 border-b-2 px-1 pb-2 pt-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] transition-colors',
-                selected
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-muted-foreground',
+            <div key={group.advertiserName} className="border-l border-border pl-4">
+              <p className="font-medium text-foreground">{group.advertiserName}</p>
+              {notes.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">
+                  No renderer-level evidence diagnostics for this advertiser.
+                </p>
+              ) : (
+                <ul className="mt-2 grid gap-1 text-[13px] text-muted-foreground">
+                  {notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
               )}
-            >
-              {competitor.name}
-            </button>
+            </div>
           );
         })}
       </div>
-
-      <div
-        id={`competitor-panel-${selectedId}`}
-        role="tabpanel"
-        aria-labelledby={`competitor-tab-${selectedId}`}
-        data-testid="competitor-focus-panel"
-        className="grid gap-5 border-b border-border pb-6"
-      >
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[18px] font-semibold leading-tight tracking-[0] text-foreground">
-              {selectedCompetitor.name}
-            </h3>
-            <MonoBadge>{COMPETITOR_TYPE_LABEL[selectedCompetitor.competitorType] ?? selectedCompetitor.competitorType}</MonoBadge>
-          </div>
-          <p className="max-w-[72ch] text-[14px] leading-[1.65] text-muted-foreground">
-            {selectedCompetitor.oneLinePositioning}
-          </p>
-          <SourceLink url={selectedCompetitor.sourceUrl} />
-        </div>
-
-        <dl className="grid gap-4 md:grid-cols-2">
-          <CompetitorFact label="Hero copy">
-            {selectedCompetitor.verbatimHeroCopy}
-          </CompetitorFact>
-          <CompetitorFact label="Pricing position">
-            {pricingPoint
-              ? `${pricingPoint.tierName} · ${pricingPoint.monthlyPrice} · ${pricingPoint.packagingPattern}`
-              : selectedCompetitor.pricingPosition}
-          </CompetitorFact>
-          {shareOfVoiceSlice ? (
-            <CompetitorFact label="Share of voice">
-              {shareOfVoiceSlice.surface}: {shareOfVoiceSlice.evidence}
-            </CompetitorFact>
-          ) : null}
-          {adSignal ? (
-            <CompetitorFact label="Ad presence">
-              {formatPlatforms(adSignal.platforms)} · {adSignal.estSpend}
-            </CompetitorFact>
-          ) : null}
-          {narrativeArc ? (
-            <CompetitorFact label="Narrative arc">
-              {narrativeArc.villain} → {narrativeArc.hero}: {narrativeArc.transformationClaim}
-            </CompetitorFact>
-          ) : null}
-          {weakness ? (
-            <CompetitorFact label="Public weakness">
-              {weakness.verbatimQuote} · {weakness.whyItMatters}
-            </CompetitorFact>
-          ) : null}
-        </dl>
-
-        {axisPositions.length > 0 ? (
-          <div className="grid gap-2">
-            <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-              Positioning axes
-            </div>
-            <ul className="grid gap-2">
-              {axisPositions.map((axis) => (
-                <li
-                  key={`${axis.axisName}-${axis.position}`}
-                  className="grid gap-1 text-[13px] leading-[1.5] text-muted-foreground"
-                >
-                  <span className="font-medium text-foreground">
-                    {axis.axisName}
-                  </span>
-                  <span>{selectedCompetitor.name}: {axis.position}</span>
-                  <span className="text-muted-foreground">
-                    Us: {axis.ourPosition}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </section>
+    </ReaderExhibit>
   );
 }
 
@@ -681,101 +396,85 @@ export function CompetitorLandscapeRenderer({
     adEvidence,
   } = artifact;
 
-  /* ───────── 1. Competitor set table ───────── */
-  const competitorColumns: ReadonlyArray<
-    DataTableColumn<(typeof competitorSet.competitors)[number]>
-  > = [
+  const competitorColumns: ReadonlyArray<DataTableColumn<CompetitorRow>> = [
     {
       key: 'name',
       header: 'Competitor',
-      render: row => (
+      render: (row) => (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground">{row.name}</span>
-            <MonoBadge>{COMPETITOR_TYPE_LABEL[row.competitorType] ?? row.competitorType}</MonoBadge>
+            <MonoBadge>
+              {COMPETITOR_TYPE_LABEL[row.competitorType] ?? row.competitorType}
+            </MonoBadge>
           </div>
-          <a
-            href={row.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] text-muted-foreground no-underline hover:text-primary hover:underline"
-          >
-            {hostname(row.url)} →
-          </a>
+          <SourceLink url={row.url} />
         </div>
       ),
     },
-    { key: 'oneLinePositioning', header: 'Positioning' },
-    { key: 'pricingPosition', header: 'Pricing' },
+    { key: 'oneLinePositioning', header: 'Positioning', wrap: 'clamp', clampLines: 3 },
+    { key: 'pricingPosition', header: 'Pricing', wrap: 'clamp', clampLines: 2 },
     {
       key: 'sourceUrl',
       header: 'Source',
-      render: row => <SourceLink url={row.sourceUrl} />,
+      render: (row) => <SourceLink url={row.sourceUrl} />,
     },
   ];
 
-  /* ───────── 2. Positioning axes ───────── */
-  const axesForStack: PositioningAxisItem[] = positioningTaxonomy.axes.map(axis => ({
-    axisName: axis.axisName,
-    evidenceUrl: axis.evidenceUrl,
-    positions: [
-      { label: 'You', position: axis.ourPosition, isUs: true },
-      ...axis.competitorPositions.map(p => ({
-        label: p.competitor,
-        position: p.position,
-      })),
-    ],
-  }));
-
-  /* ───────── 3. Pricing reality table ───────── */
-  const pricingColumns: ReadonlyArray<
-    DataTableColumn<(typeof pricingReality.dataPoints)[number]>
-  > = [
+  const pricingColumns: ReadonlyArray<DataTableColumn<PricingPoint>> = [
     {
       key: 'competitor',
       header: 'Competitor',
-      width: '100px',
+      width: '120px',
       wrap: 'wrap',
-      render: row => (
-        <span className="font-medium text-foreground">{row.competitor}</span>
-      ),
+      render: (row) => <span className="font-medium text-foreground">{row.competitor}</span>,
     },
-    { key: 'tierName', header: 'Tier', width: '115px', wrap: 'wrap' },
-    { key: 'monthlyPrice', header: 'Monthly', width: '125px', wrap: 'wrap' },
+    { key: 'tierName', header: 'Tier', width: '120px', wrap: 'wrap' },
+    { key: 'monthlyPrice', header: 'Monthly', width: '120px', wrap: 'wrap' },
     { key: 'packagingPattern', header: 'Packaging', grow: true, wrap: 'wrap' },
-    { key: 'gatedSignals', header: 'Gates', width: '128px', wrap: 'wrap' },
+    { key: 'gatedSignals', header: 'Gates', width: '140px', wrap: 'wrap' },
     {
       key: 'sourceUrl',
       header: 'Source',
-      width: '78px',
+      width: '90px',
       wrap: 'nowrap',
-      render: row => <SourceLink url={row.sourceUrl} />,
+      render: (row) => <SourceLink url={row.sourceUrl} />,
     },
   ];
 
-  /* ───────── 4. Share of voice ───────── */
-  const shareOfVoiceColumns: ReadonlyArray<
-    DataTableColumn<(typeof shareOfVoice.slices)[number]>
-  > = [
+  const shareOfVoiceColumns: ReadonlyArray<DataTableColumn<ShareOfVoiceSlice>> = [
     {
       key: 'surface',
       header: 'Surface',
-      render: row => (
-        <span className="font-medium text-foreground">{row.surface}</span>
-      ),
+      render: (row) => <span className="font-medium text-foreground">{row.surface}</span>,
     },
     { key: 'winner', header: 'Winner' },
-    { key: 'evidence', header: 'Evidence' },
+    { key: 'evidence', header: 'Evidence', wrap: 'clamp', clampLines: 3 },
     {
       key: 'sourceUrl',
       header: 'Source',
-      render: row => <SourceLink url={row.sourceUrl} />,
+      render: (row) => <SourceLink url={row.sourceUrl} />,
     },
   ];
 
-  // Derive a winner-frequency breakdown bar from the slices (optional secondary view).
+  const narrativeColumns: ReadonlyArray<DataTableColumn<NarrativeArc>> = [
+    {
+      key: 'competitor',
+      header: 'Competitor',
+      render: (row) => <span className="font-medium text-foreground">{row.competitor}</span>,
+    },
+    { key: 'villain', header: 'Villain', wrap: 'clamp', clampLines: 2 },
+    { key: 'hero', header: 'Hero', wrap: 'clamp', clampLines: 2 },
+    { key: 'transformationClaim', header: 'Transformation', wrap: 'clamp', clampLines: 3 },
+    {
+      key: 'sourceUrl',
+      header: 'Source',
+      render: (row) => <SourceLink url={row.sourceUrl} />,
+    },
+  ];
+
   const winnerCounts = new Map<string, number>();
-  shareOfVoice.slices.forEach(slice => {
+  shareOfVoice.slices.forEach((slice) => {
     if (slice.winner) {
       winnerCounts.set(slice.winner, (winnerCounts.get(slice.winner) ?? 0) + 1);
     }
@@ -784,55 +483,15 @@ export function CompetitorLandscapeRenderer({
     .sort(([, a], [, b]) => b - a)
     .map(([label, value]) => ({ label, value }));
 
-  /* ───────── 6. Narrative arcs table ───────── */
-  const narrativeColumns: ReadonlyArray<
-    DataTableColumn<(typeof narrativeArcs.arcs)[number]>
-  > = [
-    {
-      key: 'competitor',
-      header: 'Competitor',
-      render: row => (
-        <span className="font-medium text-foreground">{row.competitor}</span>
-      ),
-    },
-    { key: 'villain', header: 'Villain' },
-    { key: 'hero', header: 'Hero' },
-    { key: 'transformationClaim', header: 'Transformation' },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      render: row => <SourceLink url={row.sourceUrl} />,
-    },
-  ];
-
-  const adPresenceRows = adPresence?.signals ?? [];
-  const adPresenceColumns: ReadonlyArray<
-    DataTableColumn<(typeof adPresenceRows)[number]>
-  > = [
-    {
-      key: 'competitor',
-      header: 'Competitor',
-      render: row => (
-        <span className="font-medium text-foreground">{row.competitor}</span>
-      ),
-    },
-    {
-      key: 'platforms',
-      header: 'Platforms',
-      render: row => formatPlatforms(row.platforms),
-    },
-    { key: 'estSpend', header: 'Spend Signal' },
-    { key: 'evidence', header: 'Evidence' },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      render: row => <SourceLink url={row.sourceUrl} />,
-    },
-  ];
-
   return (
-    <div className={cn('flex flex-col gap-12', className)}>
-      <CompetitorFocusPanel artifact={artifact} />
+    <div className={cn('flex flex-col gap-10', className)}>
+      <VerdictHero
+        verdict={artifact.verdict}
+        whyItMatters={artifact.statusSummary}
+        confidence={artifact.confidence}
+      />
+      <KeyFindings findings={competitorKeyFindings(artifact)} />
+
       {artifact.strategicInsight ||
       artifact.whereToAttackVsConcede ||
       artifact.incumbentBlindSpot ? (
@@ -856,84 +515,165 @@ export function CompetitorLandscapeRenderer({
         </StrategicInsightPanel>
       ) : null}
 
-      <SubsectionBlock label="1 · Competitor Set" prose={competitorSet.prose}>
-        <DataTable columns={competitorColumns} rows={competitorSet.competitors} rowKey={r => r.url || r.name} />
+      <SubsectionBlock label="Competitor set" prose={competitorSet.prose}>
+        <div className="grid gap-4 md:grid-cols-2">
+          {competitorSet.competitors.map((competitor) => {
+            const adSignal = adPresence
+              ? findByCompetitor(adPresence.signals, competitor.name)
+              : null;
+            const pricing = findByCompetitor(pricingReality.dataPoints, competitor.name);
+            return (
+              <article key={competitor.name} className="grid gap-3 border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-[15px] font-semibold text-foreground">
+                    {competitor.name}
+                  </h3>
+                  <MonoBadge>
+                    {COMPETITOR_TYPE_LABEL[competitor.competitorType] ??
+                      competitor.competitorType}
+                  </MonoBadge>
+                  <EvidenceChip
+                    source={{
+                      title: competitor.name,
+                      url: competitor.sourceUrl,
+                      excerpt: competitor.verbatimHeroCopy,
+                    }}
+                    label="source"
+                  />
+                </div>
+                <p className="text-[13px] leading-[1.55] text-foreground">
+                  {scrubReaderText(competitor.oneLinePositioning)}
+                </p>
+                <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                  Pricing: {pricing?.monthlyPrice ?? competitor.pricingPosition}
+                </p>
+                {adSignal ? (
+                  <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                    Ads: {formatPlatforms(adSignal.platforms)} · {adSignal.estSpend}
+                  </p>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+        <ReaderExhibit title="full competitor comparison" count={competitorSet.competitors.length}>
+          <DataTable
+            columns={competitorColumns}
+            rows={competitorSet.competitors}
+            rowKey={(row) => row.url || row.name}
+          />
+        </ReaderExhibit>
       </SubsectionBlock>
 
-      <SubsectionBlock label="2 · Positioning Taxonomy" prose={positioningTaxonomy.prose}>
-        <PositioningAxisStack axes={axesForStack} />
+      <SubsectionBlock label="Positioning taxonomy" prose={positioningTaxonomy.prose}>
+        {competitor2x2(artifact)}
       </SubsectionBlock>
 
-      <SubsectionBlock label="3 · Pricing Reality" prose={pricingReality.prose}>
+      <SubsectionBlock label="Pricing reality" prose={pricingReality.prose}>
         <DataTable
           className="max-w-[960px]"
           columns={pricingColumns}
           rows={pricingReality.dataPoints}
-          rowKey={r => `${r.competitor}-${r.tierName}`}
+          rowKey={(row) => `${row.competitor}-${row.tierName}`}
         />
       </SubsectionBlock>
 
-      <SubsectionBlock label="4 · Share of Voice" prose={shareOfVoice.prose}>
-        <DataTable
-          columns={shareOfVoiceColumns}
-          rows={shareOfVoice.slices}
-          rowKey={r => `${r.surface}-${r.winner}`}
-        />
+      <SubsectionBlock label="Share of voice" prose={shareOfVoice.prose}>
         {winnerSegments.length > 1 ? (
-          <div className="mt-4">
-            <BarBreakdown
-              caption="Winner frequency across surfaces"
-              total={`${shareOfVoice.slices.length} surfaces`}
-              segments={winnerSegments}
-            />
-          </div>
+          <BarBreakdown
+            caption="Winner frequency across surfaces"
+            total={`${shareOfVoice.slices.length} surfaces`}
+            segments={winnerSegments}
+          />
         ) : null}
+        <ReaderExhibit title="share-of-voice rows" count={shareOfVoice.slices.length}>
+          <DataTable
+            columns={shareOfVoiceColumns}
+            rows={shareOfVoice.slices}
+            rowKey={(row) => `${row.surface}-${row.winner}`}
+          />
+        </ReaderExhibit>
       </SubsectionBlock>
 
-      <SubsectionBlock label="5 · Public Weaknesses" prose={publicWeaknesses.prose}>
-        <div className="flex flex-col gap-6">
-          {publicWeaknesses.items.map((item, idx) => (
-            <div key={`${item.competitor}-${idx}`} className="flex flex-col gap-2">
-              <QuoteCallout
-                text={item.verbatimQuote}
-                source={`${item.competitor} · ${item.source}`}
+      <SubsectionBlock label="Public weaknesses" prose={publicWeaknesses.prose}>
+        <div className="grid gap-6">
+          {publicWeaknesses.items.map((item, index) => (
+            <div key={`${item.competitor}-${index}`} className="grid gap-2">
+              <QuoteCard
+                quote={item.verbatimQuote}
+                venue={`${item.competitor} · ${item.source}`}
                 url={item.sourceUrl}
               />
               {item.whyItMatters ? (
-                <p className="pl-5 text-[15px] leading-[1.6] text-foreground">
-                  <Eyebrow className="mr-1 inline">why it matters</Eyebrow>
-                  {item.whyItMatters}
+                <p className="pl-5 text-[14px] leading-[1.6] text-foreground">
+                  {scrubReaderText(item.whyItMatters)}
                 </p>
               ) : null}
             </div>
           ))}
           {publicWeaknesses.items.length === 0 ? (
-            <Eyebrow>No verbatim weaknesses captured</Eyebrow>
+            <GapNote subject="public competitor weaknesses" />
           ) : null}
         </div>
       </SubsectionBlock>
 
-      <SubsectionBlock label="6 · Narrative Arcs" prose={narrativeArcs.prose}>
-        <DataTable
-          columns={narrativeColumns}
-          rows={narrativeArcs.arcs}
-          rowKey={r => `${r.competitor}-${r.hero}`}
-        />
-      </SubsectionBlock>
-
-      {adPresence ? (
-        <SubsectionBlock label="7 · Ad Presence" prose={adPresence.prose}>
+      <SubsectionBlock label="Narrative arcs" prose={narrativeArcs.prose}>
+        <ReaderExhibit title="narrative arc table" count={narrativeArcs.arcs.length}>
           <DataTable
-            columns={adPresenceColumns}
-            rows={adPresenceRows}
-            rowKey={r => `${r.competitor}-${r.sourceUrl}`}
+            columns={narrativeColumns}
+            rows={narrativeArcs.arcs}
+            rowKey={(row) => `${row.competitor}-${row.hero}`}
           />
-        </SubsectionBlock>
-      ) : null}
-
-      <SubsectionBlock label="8 · Ad Evidence" prose={adEvidence.prose}>
-        <AdEvidenceSection adEvidence={adEvidence} />
+        </ReaderExhibit>
       </SubsectionBlock>
+
+      <SubsectionBlock label="Ad evidence" prose={adEvidence.prose}>
+        {adEvidence.advertiserGroups.length === 0 ? (
+          <GapNote
+            subject="confirmed competitor ad creatives"
+            howToClose="Open transparency libraries for the named competitors and rerun the ad evidence pass."
+          />
+        ) : (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              {adEvidence.advertiserGroups.map((group) => (
+                <AdvertiserSummary
+                  key={group.advertiserName}
+                  group={group}
+                  adPresence={
+                    adPresence
+                      ? findByCompetitor(adPresence.signals, group.advertiserName)
+                      : null
+                  }
+                />
+              ))}
+            </div>
+            <div className="grid gap-8">
+              {adEvidence.advertiserGroups.map((group) => (
+                <CuratedAdGallery key={group.advertiserName} group={group} />
+              ))}
+            </div>
+            <Diagnostics groups={adEvidence.advertiserGroups} />
+          </>
+        )}
+      </SubsectionBlock>
+
+      <SectionCoverageNote
+        verified={[
+          `${competitorSet.competitors.length} competitors`,
+          `${pricingReality.dataPoints.length} pricing points`,
+          `${adEvidence.advertiserGroups.reduce(
+            (sum, group) => sum + countVerifiedCreatives(group),
+            0,
+          )} verified ad creatives`,
+        ]}
+        assumed={shareOfVoice.slices
+          .filter((slice) => slice.winner.trim().length === 0)
+          .map((slice) => slice.surface)}
+        missing={adEvidence.advertiserGroups
+          .filter((group) => countVerifiedCreatives(group) === 0)
+          .map((group) => `${group.advertiserName} confirmed ad creative`)}
+      />
     </div>
   );
 }

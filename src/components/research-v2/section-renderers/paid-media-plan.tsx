@@ -2,16 +2,36 @@ import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/p
 import { cn } from '@/lib/utils';
 import { isRecord, type PositioningTypedArtifact } from '@/types/positioning-artifact';
 import {
-  Callout,
+  BudgetBar,
+  CreativeMatrix,
+  FunnelMath,
+  GapNote,
+  KeyFindings,
+  MilestoneTimeline,
+  ReaderExhibit,
+  SectionCoverageNote,
+  StatCallout,
+  SubsectionBlock,
+  VerdictHero,
+  scrubReaderText,
+  type BudgetBarSegment,
+  type CreativeMatrixItem,
+  type FunnelMathStep,
+  type KeyFinding,
+  type MilestoneItem,
+} from '@/components/research-v2/primitives';
+import {
   DataTable,
-  InlineStats,
   MonoBadge,
   SourceLink,
   StatusPill,
   type DataTableColumn,
   type StatusPillTone,
 } from '@/components/research-v2/ui-kit';
-import { SubsectionBlock } from '../primitives';
+import {
+  READER_SECTION_LABELS,
+  type ReaderSectionId,
+} from '@/components/research-v3/reader-sections';
 
 export interface PaidMediaPlanRendererProps {
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact;
@@ -62,12 +82,14 @@ function getPaidMediaPlanBody(
   ) as PaidMediaBody;
 }
 
-/**
- * Display-level provenance translation: internal pipeline tokens read as
- * client-facing language. Data in the artifact is untouched.
- */
+function sectionLabel(value: string): string {
+  return READER_SECTION_LABELS[value as ReaderSectionId] ?? value;
+}
+
 function provenanceLabel(value: string | undefined): string {
-  if (value === undefined || value.trim().length === 0) return 'unknown';
+  if (value === undefined || value.trim().length === 0 || value === 'unknown') {
+    return 'assumption — confirm';
+  }
   if (value === 'user-supplied' || value === 'operator-supplied') {
     return 'from your brief';
   }
@@ -100,41 +122,128 @@ function formatUsdValue(value: number | undefined): string {
   return value === undefined ? 'unknown' : `$${value.toLocaleString()}`;
 }
 
-function MoneyValue({
-  provenance,
-  value,
-}: {
-  provenance: string | undefined;
-  value: string;
-}): React.ReactElement {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-2">
-      <span>{value}</span>
-      <MonoBadge>{provenanceLabel(provenance)}</MonoBadge>
-    </span>
-  );
+function numericMoney(value: string | number | undefined): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (!value) return 0;
+  const parsed = Number.parseFloat(value.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function MoneyStat({
-  label,
-  provenance,
-  value,
-}: {
-  label: string;
-  provenance: string | undefined;
-  value: string;
-}): React.ReactElement {
-  return (
-    <div>
-      <dt className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[22px] font-semibold tabular-nums text-foreground">
-        <span>{value}</span>
-        <MonoBadge>{provenanceLabel(provenance)}</MonoBadge>
-      </dd>
-    </div>
-  );
+function paidMediaKeyFindings(
+  body: PaidMediaBody,
+  artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
+): readonly KeyFinding[] {
+  const firstInsight = body.crossSectionInsight[0];
+  const firstChannel = body.channelSuggestions[0];
+  const firstProjection = body.projectedResults[0];
+
+  return [
+    {
+      sentence: artifact.statusSummary,
+      basis: 'sourced',
+    },
+    {
+      sentence: `${body.campaignOverview.monthlyBudget} monthly budget over ${body.campaignOverview.totalMonths} months, optimized to ${body.campaignOverview.primaryKpi}.`,
+      basis: provenanceLabel(body.campaignOverview.monthlyBudgetProvenance).includes('assumption')
+        ? 'assumption'
+        : 'measured',
+    },
+    firstInsight
+      ? {
+          sentence: `${firstInsight.tension}: ${firstInsight.implicationForPlan}`,
+          basis: 'sourced',
+        }
+      : {
+          sentence: body.campaignOverview.prose,
+          basis: 'assumption',
+        },
+    firstChannel
+      ? {
+          sentence: `${firstChannel.channel} is marked ${firstChannel.verdict}: ${firstChannel.recommendation}`,
+          basis: firstChannel.verdict === 'KILL' ? 'gap' : 'sourced',
+        }
+      : {
+          sentence: 'No channel verdict rows were produced for this plan.',
+          basis: 'gap',
+        },
+    firstProjection
+      ? {
+          sentence: `${firstProjection.targetIcp} projection tracks ${firstProjection.kpi} against a ${formatUsdValue(firstProjection.kpiCostValue)} KPI cost.`,
+          basis: provenanceLabel(firstProjection.kpiCostProvenance).includes('assumption')
+            ? 'assumption'
+            : 'benchmark',
+        }
+      : {
+          sentence: 'No projection ledger rows were produced for this plan.',
+          basis: 'gap',
+        },
+  ];
+}
+
+function budgetSegments(body: PaidMediaBody): BudgetBarSegment[] {
+  return body.audienceTypes.map((audience) => ({
+    label: audience.archetype,
+    value: numericMoney(audience.dailyBudget),
+    displayValue: audience.dailyBudget,
+    basis: provenanceLabel(audience.dailyBudgetProvenance).includes('assumption')
+      ? 'assumption'
+      : 'measured',
+  }));
+}
+
+function phaseMilestones(phases: readonly CampaignPhase[]): MilestoneItem[] {
+  return phases.map((phase, index) => ({
+    label: phase.monthsLabel,
+    title: phase.phaseName,
+    body: `${phase.monthlyBudget}: ${phase.bullets.join(', ')}`,
+    accent: index === 0,
+  }));
+}
+
+function creativeItems(slots: readonly CreativeSlot[]): CreativeMatrixItem[] {
+  return slots.map((slot) => ({
+    audience: slot.executesAngle,
+    angle: slot.angleType,
+    hook: slot.hook,
+    format: slot.label,
+    status: /proof|case|claim|unknown/i.test(slot.grounding)
+      ? 'needs-proof'
+      : 'runnable',
+    evidence: {
+      title: slot.label,
+      excerpt: slot.grounding,
+    },
+  }));
+}
+
+function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
+  return [
+    {
+      label: 'Budget',
+      value: formatUsdValue(row.phaseMonthlyBudgetValue),
+      basis: provenanceLabel(row.phaseMonthlyBudgetProvenance).includes('assumption')
+        ? 'assumption'
+        : 'measured',
+    },
+    {
+      label: 'KPI cost',
+      value: formatUsdValue(row.kpiCostValue),
+      basis: provenanceLabel(row.kpiCostProvenance).includes('assumption')
+        ? 'assumption'
+        : 'benchmark',
+    },
+    {
+      label: 'Projected count',
+      value:
+        row.projectedCountValue === undefined
+          ? 'not computed'
+          : row.projectedCountValue.toLocaleString(),
+      basis: provenanceLabel(row.projectedCountProvenance).includes('assumption')
+        ? 'assumption'
+        : 'benchmark',
+    },
+    { label: 'Duration', value: row.durationLabel, basis: 'assumption' },
+  ];
 }
 
 export function PaidMediaPlanRenderer({
@@ -142,92 +251,58 @@ export function PaidMediaPlanRenderer({
   className,
 }: PaidMediaPlanRendererProps): React.ReactElement {
   const body = getPaidMediaPlanBody(artifact);
-  // Evidence-gap sales rows collapse into one "Assets to supply" checklist
-  // instead of repeating per-row apology copy.
   const linkedSalesAssets = body.salesProcess.filter(
     (asset) => !isMissingSalesAsset(asset),
   );
   const missingSalesAssets = body.salesProcess.filter(isMissingSalesAsset);
+
   const phaseColumns: ReadonlyArray<DataTableColumn<CampaignPhase>> = [
     { key: 'phaseName', header: 'Phase', className: 'font-medium text-foreground' },
     { key: 'monthsLabel', header: 'Timing' },
-    {
-      key: 'monthlyBudget',
-      header: 'Budget',
-      render: (row) => (
-        <MoneyValue
-          value={row.monthlyBudget}
-          provenance={row.monthlyBudgetProvenance}
-        />
-      ),
-    },
+    { key: 'monthlyBudget', header: 'Budget' },
     { key: 'bullets', header: 'Focus', render: (row) => row.bullets.join(', ') },
-  ];
-  const audienceColumns: ReadonlyArray<DataTableColumn<AudienceType>> = [
-    { key: 'slot', header: 'Slot', className: 'font-medium text-foreground' },
-    { key: 'archetype', header: 'Archetype' },
-    {
-      key: 'dailyBudget',
-      header: 'Daily budget',
-      render: (row) => (
-        <MoneyValue
-          value={row.dailyBudget}
-          provenance={row.dailyBudgetProvenance}
-        />
-      ),
-    },
-    { key: 'detail', header: 'Detail', wrap: 'wrap' },
-    { key: 'grounding', header: 'Grounding', wrap: 'wrap' },
   ];
   const angleColumns: ReadonlyArray<DataTableColumn<Angle>> = [
     { key: 'shortName', header: 'Angle', className: 'font-medium text-foreground' },
     { key: 'angleType', header: 'Type' },
-    { key: 'description', header: 'Description', wrap: 'wrap' },
-    { key: 'grounding', header: 'Grounding', wrap: 'wrap' },
-  ];
-  const creativeColumns: ReadonlyArray<DataTableColumn<CreativeSlot>> = [
-    { key: 'label', header: 'Slot', className: 'font-medium text-foreground' },
-    { key: 'angleType', header: 'Type' },
-    { key: 'hook', header: 'Hook', grow: true, wrap: 'wrap' },
-    { key: 'executesAngle', header: 'Angle' },
-    { key: 'grounding', header: 'Grounding', wrap: 'wrap' },
+    { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 3 },
+    { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 3 },
   ];
   const funnelColumns: ReadonlyArray<DataTableColumn<FunnelPath>> = [
     { key: 'rank', header: 'Rank', className: 'font-medium text-foreground' },
     { key: 'name', header: 'Path' },
-    { key: 'description', header: 'Description', wrap: 'wrap' },
-    { key: 'whatItProves', header: 'What it proves', wrap: 'wrap' },
+    { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 3 },
+    { key: 'whatItProves', header: 'What it proves', wrap: 'clamp', clampLines: 3 },
   ];
   const salesColumns: ReadonlyArray<DataTableColumn<SalesAsset>> = [
     { key: 'label', header: 'Asset', className: 'font-medium text-foreground' },
     { key: 'assetType', header: 'Type' },
-    { key: 'note', header: 'Note' },
+    { key: 'note', header: 'Note', wrap: 'clamp', clampLines: 3 },
     {
       key: 'url',
       header: 'Link',
-      render: (row) =>
-        row.url.length > 0 ? <SourceLink url={row.url} /> : <MonoBadge>gap</MonoBadge>,
+      render: (row) => (row.url.length > 0 ? <SourceLink url={row.url} /> : null),
     },
   ];
   const competitorColumns: ReadonlyArray<DataTableColumn<CompetitorMarketing>> = [
     { key: 'competitor', header: 'Competitor', className: 'font-medium text-foreground' },
-    { key: 'messaging', header: 'Messaging', wrap: 'wrap' },
-    { key: 'adPlatforms', header: 'Platforms', wrap: 'wrap' },
-    { key: 'positioning', header: 'Positioning', wrap: 'wrap' },
-    { key: 'offer', header: 'Offer', wrap: 'wrap' },
+    { key: 'messaging', header: 'Messaging', wrap: 'clamp', clampLines: 3 },
+    { key: 'adPlatforms', header: 'Platforms', wrap: 'clamp', clampLines: 2 },
+    { key: 'positioning', header: 'Positioning', wrap: 'clamp', clampLines: 3 },
+    { key: 'offer', header: 'Offer', wrap: 'clamp', clampLines: 2 },
   ];
   const reviewColumns: ReadonlyArray<DataTableColumn<CompetitorReview>> = [
-    { key: 'complaint', header: 'Complaint', wrap: 'wrap' },
-    { key: 'howWeLeverage', header: 'Leverage', wrap: 'wrap' },
+    { key: 'complaint', header: 'Complaint', wrap: 'clamp', clampLines: 3 },
+    { key: 'howWeLeverage', header: 'Leverage', wrap: 'clamp', clampLines: 3 },
     {
       key: 'sourceSection',
       header: 'Source',
-      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+      render: (row) => <MonoBadge>{sectionLabel(row.sourceSection)}</MonoBadge>,
     },
   ];
   const channelColumns: ReadonlyArray<DataTableColumn<ChannelSuggestion>> = [
     { key: 'channel', header: 'Channel', className: 'font-medium text-foreground' },
-    { key: 'recommendation', header: 'Recommendation', wrap: 'wrap' },
+    { key: 'recommendation', header: 'Recommendation', wrap: 'clamp', clampLines: 3 },
     {
       key: 'verdict',
       header: 'Verdict',
@@ -238,247 +313,181 @@ export function PaidMediaPlanRenderer({
     {
       key: 'sourceSection',
       header: 'Source',
-      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
-    },
-  ];
-  const projectedResultColumns: ReadonlyArray<DataTableColumn<ProjectedResultRow>> = [
-    {
-      key: 'targetIcp',
-      header: 'Target ICP',
-      className: 'font-medium text-foreground',
-      wrap: 'wrap',
-    },
-    { key: 'kpi', header: 'KPI' },
-    {
-      key: 'kpiCostValue',
-      header: 'KPI cost',
-      render: (row) => (
-        <MoneyValue
-          value={formatUsdValue(row.kpiCostValue)}
-          provenance={row.kpiCostProvenance}
-        />
-      ),
-    },
-    { key: 'objective', header: 'Objective', wrap: 'wrap' },
-    { key: 'durationLabel', header: 'Duration' },
-    {
-      key: 'phaseMonthlyBudgetValue',
-      header: 'Budget / mo',
-      render: (row) => (
-        <MoneyValue
-          value={formatUsdValue(row.phaseMonthlyBudgetValue)}
-          provenance={row.phaseMonthlyBudgetProvenance}
-        />
-      ),
-    },
-    {
-      key: 'projectedCountValue',
-      header: 'Projected results',
-      render: (row) =>
-        row.projectedCountValue === undefined ? (
-          <MonoBadge>no count — KPI cost unknown</MonoBadge>
-        ) : (
-          <MoneyValue
-            value={`${row.projectedCountValue.toLocaleString()} ${row.kpi} (±${row.marginOfErrorPercent}%)`}
-            provenance={row.projectedCountProvenance}
-          />
-        ),
-    },
-    {
-      key: 'sourceSection',
-      header: 'Source',
-      render: (row) => <MonoBadge>{row.sourceSection}</MonoBadge>,
+      render: (row) => <MonoBadge>{sectionLabel(row.sourceSection)}</MonoBadge>,
     },
   ];
   const kpiColumns: ReadonlyArray<DataTableColumn<Kpi>> = [
     { key: 'metric', header: 'Metric', className: 'font-medium text-foreground' },
     { key: 'role', header: 'Role' },
-    { key: 'definition', header: 'Definition' },
+    { key: 'definition', header: 'Definition', wrap: 'clamp', clampLines: 3 },
   ];
+
   return (
     <div
       data-testid="typed-artifact-renderer-positioningPaidMediaPlan"
       className={cn('space-y-10', className)}
     >
-      <div data-testid="paid-media-plan-renderer" className="space-y-10">
-        <div
-          data-testid="paid-media-driver-strip"
-          className="grid gap-3 border-l-2 border-primary/30 pl-4 md:grid-cols-3"
-        >
+      <VerdictHero
+        verdict={artifact.verdict}
+        whyItMatters={artifact.statusSummary}
+        confidence={artifact.confidence}
+      />
+      <KeyFindings findings={paidMediaKeyFindings(body, artifact)} />
+
+      <SubsectionBlock label="Plan brief" prose={body.campaignOverview.prose}>
+        <div className="grid gap-6">
+          <BudgetBar
+            segments={budgetSegments(body)}
+            totalLabel={`${body.campaignOverview.dailySpend} daily spend · ${body.campaignOverview.monthlyBudget} monthly`}
+          />
+          <MilestoneTimeline steps={phaseMilestones(body.campaignPhases)} />
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCallout
+              value={body.campaignOverview.monthlyBudget}
+              label={`Monthly budget · ${provenanceLabel(body.campaignOverview.monthlyBudgetProvenance)}`}
+              basis={
+                provenanceLabel(body.campaignOverview.monthlyBudgetProvenance).includes('assumption')
+                  ? 'assumption'
+                  : 'measured'
+              }
+            />
+            <StatCallout
+              value={body.campaignOverview.primaryKpi}
+              label="Primary KPI"
+              basis="measured"
+            />
+            <StatCallout
+              value={body.campaignOverview.platform}
+              label="Platform"
+              basis="assumption"
+            />
+          </div>
+        </div>
+      </SubsectionBlock>
+
+      <section className="grid gap-4">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          Cross-section thesis
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
           {body.crossSectionInsight.map((insight) => (
-            <div key={insight.tension} className="space-y-2">
-              <p className="text-sm font-medium text-foreground">{insight.tension}</p>
-              <p className="text-sm text-muted-foreground">{insight.implicationForPlan}</p>
-              <div className="flex flex-wrap gap-2">
+            <article key={insight.tension} className="border-l border-border pl-4">
+              <p className="text-[15px] font-medium leading-[1.45] text-foreground">
+                {scrubReaderText(insight.tension)}
+              </p>
+              <p className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(insight.implicationForPlan)}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {insight.sourceSections.map((section) => (
-                  <MonoBadge key={section}>{section}</MonoBadge>
+                  <MonoBadge key={section}>{sectionLabel(section)}</MonoBadge>
                 ))}
               </div>
-            </div>
+            </article>
           ))}
         </div>
+      </section>
 
-        <div data-testid="pmp-block-campaignOverview">
-          <SubsectionBlock label="Campaign overview" prose={body.campaignOverview.prose}>
-            <div className="space-y-4">
-              <dl className="flex flex-wrap gap-x-10 gap-y-4">
-                <MoneyStat
-                  label="Monthly budget"
-                  value={body.campaignOverview.monthlyBudget}
-                  provenance={body.campaignOverview.monthlyBudgetProvenance}
-                />
-                <MoneyStat
-                  label="Daily spend"
-                  value={body.campaignOverview.dailySpend}
-                  provenance={body.campaignOverview.dailySpendProvenance}
-                />
-              </dl>
-              <InlineStats
-                items={[
-                  { label: 'Months', value: body.campaignOverview.totalMonths },
-                  { label: 'Primary KPI', value: body.campaignOverview.primaryKpi },
-                  { label: 'Platform', value: body.campaignOverview.platform },
-                ]}
-              />
-            </div>
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-campaignPhases">
-          <SubsectionBlock
-            label="Campaign phases"
-            prose="Two phases keep the first budget focused on learning before scale."
-          >
-            <DataTable columns={phaseColumns} rows={body.campaignPhases} />
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-audienceTypes">
-          <SubsectionBlock
-            label="Audience types"
-            prose="Three fixed audience archetypes run in parallel during Phase 1."
-          >
-            <DataTable columns={audienceColumns} rows={body.audienceTypes} />
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-anglesToTest">
-          <SubsectionBlock
-            label="Angles to test"
-            prose="Four distinct angles translate positioning evidence into creative tests."
-          >
+      <SubsectionBlock label="Creative matrix" prose={body.creativeStrategy.prose}>
+        <CreativeMatrix items={creativeItems(body.creativeFramework)} />
+        <ReaderExhibit title="angles and creative slots" count={body.creativeFramework.length}>
+          <div className="grid gap-5">
             <DataTable columns={angleColumns} rows={body.anglesToTest} />
-          </SubsectionBlock>
-        </div>
+          </div>
+        </ReaderExhibit>
+      </SubsectionBlock>
 
-        <div data-testid="pmp-block-creativeStrategy">
-          <SubsectionBlock label="Creative strategy" prose={body.creativeStrategy.prose}>
-            <InlineStats
-              items={[
-                { label: 'Static', value: body.creativeStrategy.staticCount },
-                { label: 'Video', value: body.creativeStrategy.videoCount },
-                { label: 'Per audience', value: body.creativeStrategy.totalPerAudience },
-              ]}
+      <SubsectionBlock
+        label="Assumptions and funnel ledger"
+        prose="Projection rows show the budget, KPI cost, projected count, and duration assumptions used by the plan."
+      >
+        <div className="grid gap-5">
+          {body.projectedResults.map((row) => (
+            <article key={`${row.targetIcp}-${row.kpi}`} className="grid gap-3 border-l border-border pl-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-foreground">
+                  {row.targetIcp}
+                </h3>
+                <MonoBadge>{row.kpi}</MonoBadge>
+                <MonoBadge>{sectionLabel(row.sourceSection)}</MonoBadge>
+              </div>
+              <FunnelMath steps={projectionSteps(row)} />
+              <p className="text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(row.objective)}
+              </p>
+            </article>
+          ))}
+        </div>
+      </SubsectionBlock>
+
+      <ReaderExhibit title="campaign phase rows" count={body.campaignPhases.length}>
+        <DataTable columns={phaseColumns} rows={body.campaignPhases} />
+      </ReaderExhibit>
+
+      <ReaderExhibit title="funnel paths" count={body.funnelIdeation.length}>
+        <DataTable columns={funnelColumns} rows={body.funnelIdeation} />
+      </ReaderExhibit>
+
+      <ReaderExhibit
+        title="sales assets"
+        count={linkedSalesAssets.length + missingSalesAssets.length}
+      >
+        <div className="grid gap-4">
+          {linkedSalesAssets.length > 0 ? (
+            <DataTable columns={salesColumns} rows={linkedSalesAssets} />
+          ) : null}
+          {missingSalesAssets.length > 0 ? (
+            <GapNote
+              subject="sales assets required for the paid-media path"
+              howToClose={missingSalesAssets.map((asset) => asset.label).join(', ')}
             />
-          </SubsectionBlock>
+          ) : null}
         </div>
+      </ReaderExhibit>
 
-        <div data-testid="pmp-block-creativeFramework">
-          <SubsectionBlock
-            label="Creative framework"
-            prose="Eight fixed creative slots execute the selected angles."
-          >
-            <DataTable columns={creativeColumns} rows={body.creativeFramework} />
-          </SubsectionBlock>
+      <ReaderExhibit
+        title="competitor marketing and review leverage"
+        count={
+          body.competitorMarketingInsights.length +
+          body.competitorReviewInsights.length
+        }
+      >
+        <div className="grid gap-6">
+          <DataTable
+            columns={competitorColumns}
+            rows={body.competitorMarketingInsights}
+          />
+          <DataTable columns={reviewColumns} rows={body.competitorReviewInsights} />
         </div>
+      </ReaderExhibit>
 
-        <div data-testid="pmp-block-funnelIdeation">
-          <SubsectionBlock
-            label="Funnel ideation"
-            prose="Three funnel paths define what each paid click is meant to prove."
-          >
-            <DataTable columns={funnelColumns} rows={body.funnelIdeation} />
-          </SubsectionBlock>
+      <ReaderExhibit title="channel verdicts and KPIs" count={body.channelSuggestions.length + body.kpis.length}>
+        <div className="grid gap-6">
+          <DataTable columns={channelColumns} rows={body.channelSuggestions} />
+          <DataTable columns={kpiColumns} rows={body.kpis} />
         </div>
+      </ReaderExhibit>
 
-        <div data-testid="pmp-block-salesProcess">
-          <SubsectionBlock
-            label="Sales process"
-            prose="Sales assets are linked when provided and marked as gaps when absent."
-          >
-            <div className="space-y-4">
-              {linkedSalesAssets.length > 0 ? (
-                <DataTable columns={salesColumns} rows={linkedSalesAssets} />
-              ) : null}
-              {missingSalesAssets.length > 0 ? (
-                <div
-                  data-testid="pmp-sales-assets-to-supply"
-                  className="rounded-md border border-border bg-background p-4"
-                >
-                  <p className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-                    Assets to supply
-                  </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {missingSalesAssets.map((asset) => (
-                      <li key={asset.label}>{asset.label}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-competitorMarketingInsights">
-          <SubsectionBlock
-            label="Competitor marketing insights"
-            prose="Competitor marketing signals define what the plan exploits or avoids."
-          >
-            <DataTable columns={competitorColumns} rows={body.competitorMarketingInsights} />
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-competitorReviewInsights">
-          <SubsectionBlock
-            label="Competitor review insights"
-            prose="Review complaints become ad and sales leverage only when grounded."
-          >
-            <DataTable columns={reviewColumns} rows={body.competitorReviewInsights} />
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-channelSuggestions">
-          <SubsectionBlock
-            label="Channel suggestions"
-            prose="Current-funnel recommendations use verdict badges for action priority."
-          >
-            <DataTable columns={channelColumns} rows={body.channelSuggestions} />
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-projectedResults">
-          <SubsectionBlock
-            label="Projected results"
-            prose="SOP projections: counts are runner-computed as budget ÷ KPI cost at ±20%; rows without a sourced KPI cost carry no count."
-          >
-            <DataTable columns={projectedResultColumns} rows={body.projectedResults} />
-          </SubsectionBlock>
-        </div>
-
-        <div data-testid="pmp-block-kpis">
-          <SubsectionBlock
-            label="KPIs"
-            prose="The plan tracks one primary outcome plus creative health and efficiency."
-          >
-            <DataTable columns={kpiColumns} rows={body.kpis} />
-          </SubsectionBlock>
-        </div>
-
-        <Callout label="Grounding" tone="accent">
-          Every launchable row carries a source section and grounding note; `UNVERIFIED`
-          marks an explicit evidence gap.
-        </Callout>
-      </div>
+      <SectionCoverageNote
+        verified={[
+          `${body.campaignPhases.length} campaign phases`,
+          `${body.creativeFramework.length} creative slots`,
+          `${body.projectedResults.length} projection rows`,
+        ]}
+        assumed={[
+          ...body.audienceTypes
+            .filter((audience: AudienceType) =>
+              provenanceLabel(audience.dailyBudgetProvenance).includes('assumption'),
+            )
+            .map((audience) => `${audience.archetype} budget`),
+          ...body.projectedResults
+            .filter((row) =>
+              provenanceLabel(row.projectedCountProvenance).includes('assumption'),
+            )
+            .map((row) => `${row.targetIcp} projection`),
+        ]}
+        missing={missingSalesAssets.map((asset) => asset.label)}
+      />
     </div>
   );
 }

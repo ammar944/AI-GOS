@@ -41,7 +41,6 @@ import {
   toReaderSources,
 } from '@/components/research-v2/reader-sources';
 import {
-  BodyProse,
   ErrorStateBlock,
   Eyebrow,
   hostname,
@@ -50,7 +49,6 @@ import {
   SectionActions,
   SectionTitle,
   StatusIcon,
-  VerdictCallout,
   type ReaderSectionStatus,
 } from '@/components/research-v2/ui-kit';
 import {
@@ -76,7 +74,6 @@ import {
   buildSectionActivityFeed,
   sectionFeedToSteps,
 } from '@/lib/research-v2/section-activity';
-import { getSectionSubSections } from '@/lib/lab-engine/sections/sub-sections';
 import {
   pickPositioningTypedArtifact,
   isRecord,
@@ -85,10 +82,8 @@ import {
 import { useSessionShare } from '@/hooks/use-session-share';
 import { cn } from '@/lib/utils';
 
-import {
-  GenericTypedArtifactRenderer,
-  TypedArtifactRenderer,
-} from './typed-artifact-renderer';
+import { TypedArtifactRenderer } from './typed-artifact-renderer';
+import { scrubReaderText } from './primitives';
 
 // ---------------------------------------------------------------------------
 // Labels + small helpers
@@ -478,7 +473,7 @@ export function buildDraftArtifact({
   // (buildStructuredSectionDraftSchema). We only read body here (top-level verdict/
   // statusSummary/sources are ignored on the draft view). The committed artifact renders the body's
   // sub-section keys at the top level, so unwrap body here too — otherwise
-  // GenericTypedArtifactRenderer collapses every sub-section under one "Body" group.
+  // The committed artifact renders the body's sub-section keys at the top level.
   // Fall back to the raw snapshot for the legacy bare-body shape / pre-body partials.
   const body = snapshot.body;
   const bodyRecord =
@@ -500,10 +495,25 @@ export function buildDraftArtifact({
 function DraftingArtifactView({
   artifact,
   zoneId,
+  phaseLabel,
 }: {
   artifact: PositioningTypedArtifact;
   zoneId: ReaderSectionId;
+  phaseLabel: string;
 }): ReactElement {
+  const rawFindings = artifact.keyFindings;
+  const findings = Array.isArray(rawFindings)
+    ? rawFindings
+        .map((item) => {
+          if (typeof item === 'string') return item;
+          if (!isRecord(item)) return null;
+          const sentence = item.sentence ?? item.finding ?? item.title;
+          return typeof sentence === 'string' ? sentence : null;
+        })
+        .filter((item): item is string => item !== null)
+        .slice(0, 3)
+    : [];
+
   return (
     <div className="mt-8 space-y-6">
       <div className="flex items-center gap-2.5 text-[13px] text-foreground">
@@ -512,71 +522,39 @@ function DraftingArtifactView({
           strokeWidth={2.5}
           aria-hidden="true"
         />
-        <span className="font-medium">Drafting...</span>
+        <span className="font-medium">{phaseLabel}</span>
       </div>
-      <TypedArtifactErrorBoundary sectionId={zoneId}>
-        <GenericTypedArtifactRenderer
-          artifact={artifact}
-          zoneId={zoneId}
-          showSectionTitle={false}
-        />
-      </TypedArtifactErrorBoundary>
-    </div>
-  );
-}
-
-function getCommittedPaidMediaSubSectionKeys(
-  events: readonly SectionEvent[],
-): ReadonlySet<string> {
-  return new Set(
-    events
-      .filter((event) => event.event_type === 'sub-section-committed')
-      .map((event) => {
-        const metadata =
-          event.payload?.metadata &&
-          typeof event.payload.metadata === 'object' &&
-          !Array.isArray(event.payload.metadata)
-            ? (event.payload.metadata as Record<string, unknown>)
-            : event.payload;
-        return typeof metadata?.subSectionKey === 'string' &&
-          metadata.status === 'committed'
-          ? metadata.subSectionKey
-          : null;
-      })
-      .filter((key): key is string => key !== null),
-  );
-}
-
-function PaidMediaPlanSubSectionChecklist({
-  committedAll,
-  events,
-}: {
-  committedAll: boolean;
-  events: readonly SectionEvent[];
-}): ReactElement {
-  const committedKeys = getCommittedPaidMediaSubSectionKeys(events);
-
-  return (
-    <div className="grid gap-2 border-l-2 border-border pl-4">
-      {getSectionSubSections(PAID_MEDIA_PLAN_SECTION_ID).map((subSection) => {
-        const committed = committedAll || committedKeys.has(subSection.key);
-        return (
-          <div
-            key={subSection.key}
-            className="flex items-center justify-between gap-3 text-[13px]"
-          >
-            <span className="min-w-0 truncate text-muted-foreground">
-              {subSection.label}
-            </span>
-            <span
-              data-testid={`sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-${subSection.key}`}
-              className="shrink-0 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground"
-            >
-              {committed ? 'Committed' : 'Queued'}
-            </span>
+      <section
+        data-testid={`drafting-section-skeleton-${zoneId}`}
+        className="grid gap-5 border-l-2 border-primary/40 pl-5"
+      >
+        <div>
+          <Eyebrow>{READER_SECTION_LABELS[zoneId]}</Eyebrow>
+          <h3 className="mt-2 max-w-[18ch] font-sans text-[28px] font-semibold leading-[1.1] tracking-[0] text-foreground">
+            Drafting the section verdict
+          </h3>
+        </div>
+        {findings.length > 0 ? (
+          <ol className="grid gap-3">
+            {findings.map((finding, index) => (
+              <li key={`${finding}-${index}`} className="grid grid-cols-[24px_1fr] gap-3">
+                <span className="font-mono text-[12px] font-semibold text-foreground">
+                  {index + 1}
+                </span>
+                <p className="text-[14px] leading-[1.55] text-muted-foreground">
+                  {scrubReaderText(finding)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="grid gap-3" aria-hidden="true">
+            <div className="h-4 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            <div className="h-4 w-4/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
           </div>
-        );
-      })}
+        )}
+      </section>
     </div>
   );
 }
@@ -594,16 +572,8 @@ function PaidMediaPlanTerminalPanel({
 
   return (
     <div className="space-y-7">
-      <PaidMediaPlanSubSectionChecklist
-        committedAll={artifact !== null}
-        events={events}
-      />
       {artifact ? (
         <>
-          {artifact.statusSummary ? (
-            <BodyProse>{artifact.statusSummary}</BodyProse>
-          ) : null}
-          {artifact.verdict ? <VerdictCallout verdict={artifact.verdict} /> : null}
           <ReaderSourcesProvider sources={readerSources}>
             <TypedArtifactErrorBoundary sectionId={PAID_MEDIA_PLAN_SECTION_ID}>
               <TypedArtifactRenderer
@@ -1247,7 +1217,7 @@ export function AuditReaderShell({
 
       <div className="flex min-h-0 flex-1">
         <main ref={mainRef} className="flex-1 overflow-y-auto bg-card">
-          <article className="mx-auto max-w-[760px] px-6 py-10 sm:px-10">
+          <article className="mx-auto max-w-[860px] px-6 py-10 sm:px-10">
             <MobileSectionSwitcher
               active={active}
               onSelect={select}
@@ -1293,10 +1263,6 @@ export function AuditReaderShell({
                       completedActivitySummary.durationLabel ?? undefined
                     }
                   />
-                  {activeTyped.statusSummary ? (
-                    <BodyProse>{activeTyped.statusSummary}</BodyProse>
-                  ) : null}
-                  <VerdictCallout verdict={activeTyped.verdict} />
                   {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
@@ -1333,6 +1299,7 @@ export function AuditReaderShell({
                   <DraftingArtifactView
                     artifact={activeDraftArtifact}
                     zoneId={active}
+                    phaseLabel={activeWorker?.phaseLabel ?? 'Drafting section'}
                   />
                 ) : (
                   <RunningActivityView

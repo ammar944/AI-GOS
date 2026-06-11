@@ -6,86 +6,44 @@ import { DemandIntentRenderer } from '../demand-intent';
 import { demandIntentArtifact } from './fixtures';
 
 describe('DemandIntentRenderer', () => {
-  it('renders five subsection blocks in plan order', () => {
+  it('renders the editorial template and five narrative blocks', () => {
     render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
+
+    expect(screen.getByTestId('verdict-hero')).toHaveTextContent(/demand is visible/i);
+    expect(screen.getByTestId('key-findings')).toBeInTheDocument();
     const blocks = screen.getAllByTestId('subsection');
     expect(blocks).toHaveLength(5);
-    expect(blocks[0]).toHaveTextContent('1 · Keyword Demand');
-    expect(blocks[1]).toHaveTextContent('2 · Question Mining');
-    expect(blocks[2]).toHaveTextContent('3 · Content Gaps');
-    expect(blocks[3]).toHaveTextContent('4 · Intent Signals');
-    expect(blocks[4]).toHaveTextContent('5 · Venue Map');
+    expect(blocks[0]).toHaveTextContent('Keyword demand');
+    expect(blocks[1]).toHaveTextContent('Question mining');
+    expect(blocks[2]).toHaveTextContent('Content gaps');
+    expect(blocks[3]).toHaveTextContent('Intent signals');
+    expect(blocks[4]).toHaveTextContent('Venue map');
   });
 
-  it('renders at least three keyword rows from the fixture', () => {
+  it('keeps the keyword table as an exhibit with source chips', () => {
     render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
-    const items = screen.getAllByTestId('keyword-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
-  });
 
-  it('renders the CPC value for a keyword row that has cpc, and an em-dash for rows without', () => {
-    render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
-    // Fixture row 0 carries cpc; later rows do not.
+    expect(screen.getByText(/Exhibits: keyword table/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId('keyword-item').length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('$8.40 (SpyFu-estimated)')).toBeInTheDocument();
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
-  it('renders at least three question rows from the fixture', () => {
+  it('renders buyer questions as quote cards', () => {
     render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
-    const items = screen.getAllByTestId('question-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
+
+    expect(screen.getAllByTestId('quote-card').length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText(/automate lead routing/i).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('renders at least three content-gap rows from the fixture', () => {
-    render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
-    const items = screen.getAllByTestId('gap-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders at least three intent-signal rows from the fixture', () => {
-    render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
-    const items = screen.getAllByTestId('intent-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders at least three venue rows from the fixture', () => {
-    render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
-    const items = screen.getAllByTestId('venue-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders data gaps as an em-dash with no source link, and a compact line for empty question mining', () => {
+  it('renders validator-style intent gaps as GapNote, never raw validator text', () => {
     const artifact = structuredClone(demandIntentArtifact);
-    const gapRow = artifact.keywordDemand.keywords[1];
-    gapRow.monthlyVolume = 'Data gap: keyword_volume tool returned no rows';
-    gapRow.sourceUrl = 'keyword_volume tool data gap';
+    artifact.intentSignals.items[0].description = 'validator requires >=5 intent signals';
     artifact.questionMining.questions = [];
 
     render(<DemandIntentRenderer artifact={artifact} />);
 
-    // Gap volumes read as an em-dash, never as apology prose.
-    expect(
-      screen.queryByText('Data gap: keyword_volume tool returned no rows'),
-    ).not.toBeInTheDocument();
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
-
-    // Non-URL source strings never render as link text or anchors.
-    expect(
-      screen.queryByText('keyword_volume tool data gap'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen
-        .getAllByRole('link')
-        .some(
-          (link) =>
-            link.getAttribute('href') === 'keyword_volume tool data gap',
-        ),
-    ).toBe(false);
-
-    // Empty question mining renders one compact gap line, not an empty table.
-    expect(screen.getByTestId('question-mining-gap')).toHaveTextContent(
-      'No buyer questions were captured for this run.',
-    );
+    expect(screen.queryByText(/validator requires/i)).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('gap-note').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryAllByTestId('question-item')).toHaveLength(0);
   });
 });

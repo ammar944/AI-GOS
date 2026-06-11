@@ -1,13 +1,28 @@
 import { cn } from '@/lib/utils';
 import type { MarketCategoryArtifact } from '@/types/positioning-artifact';
 import {
+  BasisChip,
+  EvidenceChip,
+  GapNote,
+  KeyFindings,
+  ReaderExhibit,
+  SectionCoverageNote,
+  StatCallout,
+  SubsectionBlock,
+  VerdictHero,
+  clientGapSentence,
+  isReaderPipelineChrome,
+  scrubReaderText,
+  type EvidenceBasis,
+  type EvidenceChipSource,
+  type KeyFinding,
+} from '@/components/research-v2/primitives';
+import {
   DataTable,
-  Eyebrow,
   MonoBadge,
   SourceLink,
   type DataTableColumn,
 } from '@/components/research-v2/ui-kit';
-import { SubsectionBlock } from '../primitives';
 import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface MarketCategoryRendererProps {
@@ -15,48 +30,18 @@ export interface MarketCategoryRendererProps {
   className?: string;
 }
 
-type MarketCategoryBottomUpTam = MarketCategoryArtifact['marketSize']['bottomUpTam'];
+type MarketCategoryBottomUpTam = NonNullable<
+  MarketCategoryArtifact['marketSize']['bottomUpTam']
+>;
 type MarketCategoryBottomUpTamInput = MarketCategoryBottomUpTam['inputs'][number];
+type MarketSignal = MarketCategoryArtifact['marketSize']['signals'][number];
 
 const legacyBottomUpTam: MarketCategoryBottomUpTam = {
   recipeName: 'keyword-demand-reachable-revenue',
   formula: 'monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV',
   reachableRevenueEstimate:
     'evidence gap: this saved Market Category artifact predates bottom-up TAM input capture.',
-  inputs: [
-    {
-      inputType: 'keyword-volume',
-      label: 'Keyword volume',
-      value: 'evidence gap: not captured in this saved artifact.',
-      status: 'evidence-gap',
-      sourceTitle: 'Legacy artifact',
-      dateObserved: 'unknown',
-    },
-    {
-      inputType: 'commercial-intent-share',
-      label: 'Commercial-intent share',
-      value: 'evidence gap: not captured in this saved artifact.',
-      status: 'evidence-gap',
-      sourceTitle: 'Legacy artifact',
-      dateObserved: 'unknown',
-    },
-    {
-      inputType: 'conversion-rate',
-      label: 'Conversion rate',
-      value: 'evidence gap: not captured in this saved artifact.',
-      status: 'evidence-gap',
-      sourceTitle: 'Legacy artifact',
-      dateObserved: 'unknown',
-    },
-    {
-      inputType: 'acv',
-      label: 'Annual contract value',
-      value: 'evidence gap: not captured in this saved artifact.',
-      status: 'evidence-gap',
-      sourceTitle: 'Legacy artifact',
-      dateObserved: 'unknown',
-    },
-  ],
+  inputs: [],
   caveats: ['Legacy artifacts require a section rerun to compute bottom-up TAM.'],
 };
 
@@ -82,27 +67,10 @@ const TAM_INPUT_LABEL: Record<string, string> = {
   acv: 'ACV',
 };
 
-const TAM_STATUS_LABEL: Record<string, string> = {
-  sourced: 'Sourced',
-  'evidence-gap': 'Evidence gap',
-};
-
 const FORCE_TYPE_LABEL: Record<string, string> = {
   regulation: 'Regulation',
   'platform-shift': 'Platform shift',
   'buyer-behavior': 'Buyer behavior',
-};
-
-const IMPACT_LABEL: Record<string, string> = {
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-};
-
-const DIRECTION_LABEL: Record<string, string> = {
-  accelerating: 'Accelerating',
-  decelerating: 'Decelerating',
-  neutral: 'Neutral',
 };
 
 const MATURITY_SIGNAL_LABEL: Record<string, string> = {
@@ -120,6 +88,139 @@ const MATURITY_STAGE_LABEL: Record<string, string> = {
   commoditizing: 'Commoditizing',
 };
 
+function sourceAt(
+  artifact: MarketCategoryArtifact,
+  index: number,
+): EvidenceChipSource | undefined {
+  const source = artifact.sources[index];
+  if (!source) return undefined;
+  return {
+    n: index + 1,
+    title: source.title,
+    url: source.url,
+    whyItMatters: source.whyItMatters,
+  };
+}
+
+function tamBasis(status: string): EvidenceBasis {
+  return status === 'sourced' ? 'sourced' : 'gap';
+}
+
+function signalBasis(signal: MarketSignal): EvidenceBasis {
+  return signal.trajectory === 'unclear' ? 'assumption' : 'sourced';
+}
+
+function marketKeyFindings(
+  artifact: MarketCategoryArtifact,
+): readonly KeyFinding[] {
+  const { categoryDefinition, marketSize, structuralForces, categoryMaturity } = artifact;
+  const topSignal = marketSize.signals[0];
+  const topForce = structuralForces.forces[0];
+  return [
+    {
+      sentence: artifact.statusSummary,
+      basis: 'sourced',
+      evidence: [sourceAt(artifact, 0)].filter(
+        (source): source is EvidenceChipSource => source !== undefined,
+      ),
+    },
+    topSignal
+      ? {
+          sentence: `${topSignal.name}: ${topSignal.evidence}`,
+          basis: signalBasis(topSignal),
+          evidence: [
+            {
+              title: topSignal.sourceTitle,
+              url: topSignal.sourceUrl,
+              date: topSignal.dateObserved,
+            },
+          ],
+        }
+      : {
+          sentence: categoryDefinition.prose,
+          basis: 'assumption',
+        },
+    topForce
+      ? {
+          sentence: `${topForce.name} changes the category through ${topForce.implication}`,
+          basis: topForce.impact === 'high' ? 'measured' : 'sourced',
+          evidence: [
+            {
+              title: topForce.sourceTitle ?? topForce.name,
+              url: topForce.sourceUrl,
+              excerpt: topForce.evidence,
+            },
+          ],
+        }
+      : {
+          sentence: structuralForces.prose,
+          basis: 'assumption',
+        },
+    {
+      sentence: `Category maturity reads as ${
+        MATURITY_STAGE_LABEL[categoryMaturity.classification.stage] ??
+        categoryMaturity.classification.stage
+      }: ${categoryMaturity.classification.evidenceSummary}`,
+      basis: 'sourced',
+      evidence: [sourceAt(artifact, 2)].filter(
+        (source): source is EvidenceChipSource => source !== undefined,
+      ),
+    },
+  ];
+}
+
+function TamFormulaChain({
+  bottomUpTam,
+}: {
+  bottomUpTam: MarketCategoryBottomUpTam;
+}): React.ReactElement {
+  const estimate = scrubReaderText(bottomUpTam.reachableRevenueEstimate);
+  const estimateIsGap =
+    isReaderPipelineChrome(bottomUpTam.reachableRevenueEstimate) ||
+    /directional only/i.test(bottomUpTam.reachableRevenueEstimate);
+
+  return (
+    <div className="grid gap-4">
+      {estimateIsGap ? (
+        <GapNote>{clientGapSentence(bottomUpTam.reachableRevenueEstimate, 'a reliable TAM estimate')}</GapNote>
+      ) : (
+        <StatCallout value={estimate} label="Reachable revenue estimate" basis="sourced" />
+      )}
+      <div className="grid gap-2 md:grid-cols-[repeat(auto-fit,minmax(130px,1fr))]">
+        {bottomUpTam.inputs.map((input) => (
+          <div key={input.inputType} className="border-l border-border pl-3">
+            <div className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+              {TAM_INPUT_LABEL[input.inputType] ?? input.inputType}
+            </div>
+            <p className="mt-1 text-[13px] leading-[1.45] text-foreground">
+              {scrubReaderText(input.value)}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <BasisChip basis={tamBasis(input.status)} />
+              {input.sourceUrl ? (
+                <EvidenceChip
+                  source={{
+                    title: input.sourceTitle,
+                    url: input.sourceUrl,
+                    date: input.dateObserved,
+                  }}
+                  label="source"
+                />
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+        Formula: {scrubReaderText(bottomUpTam.formula)}
+      </p>
+      {bottomUpTam.caveats.length > 0 ? (
+        <GapNote>{scrubReaderText(bottomUpTam.caveats[0])}</GapNote>
+      ) : null}
+    </div>
+  );
+}
+
 export function MarketCategoryRenderer({
   artifact,
   className,
@@ -127,153 +228,148 @@ export function MarketCategoryRenderer({
   const { categoryDefinition, marketSize, structuralForces, categoryMaturity } = artifact;
   const bottomUpTam = marketSize.bottomUpTam ?? legacyBottomUpTam;
 
-  /* ───────── 1. Adjacent categories table ───────── */
-  const adjacentColumns: ReadonlyArray<
-    DataTableColumn<(typeof categoryDefinition.adjacentCategories)[number]>
-  > = [
-    {
-      key: 'name',
-      header: 'Adjacent',
-      render: row => (
-        <span className="font-medium text-foreground">{row.name}</span>
-      ),
-    },
-    { key: 'whyBuyersConfuseIt', header: 'Why buyers confuse' },
-    { key: 'disambiguatingSignal', header: 'Disambiguator' },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      render: row => (row.sourceUrl ? <SourceLink url={row.sourceUrl} /> : null),
-    },
-  ];
-
-  /* ───────── 2. Market size signals table ───────── */
-  const signalColumns: ReadonlyArray<
-    DataTableColumn<(typeof marketSize.signals)[number]>
-  > = [
+  const signalColumns: ReadonlyArray<DataTableColumn<MarketSignal>> = [
     {
       key: 'signalType',
-      header: 'Signal type',
-      render: row => (
+      header: 'Signal',
+      render: (row) => (
         <MonoBadge>{SIGNAL_TYPE_LABEL[row.signalType] ?? row.signalType}</MonoBadge>
       ),
     },
     {
       key: 'name',
       header: 'Name',
-      render: row => (
-        <span className="font-medium text-foreground">{row.name}</span>
-      ),
+      render: (row) => <span className="font-medium text-foreground">{row.name}</span>,
     },
-    { key: 'evidence', header: 'Evidence' },
+    { key: 'evidence', header: 'Evidence', wrap: 'clamp', clampLines: 3 },
     {
       key: 'trajectory',
       header: 'Trajectory',
-      render: row => (
+      render: (row) => (
         <MonoBadge>{TRAJECTORY_LABEL[row.trajectory] ?? row.trajectory}</MonoBadge>
       ),
     },
     {
-      key: 'methodology',
-      header: 'Method',
-      render: row => (
-        <span className="text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-          {row.methodology}
-        </span>
-      ),
-    },
-    {
       key: 'sourceUrl',
       header: 'Source',
-      render: row => <SourceLink url={row.sourceUrl} />,
+      render: (row) => <SourceLink url={row.sourceUrl} />,
     },
   ];
-
-  const tamInputColumns: ReadonlyArray<
-    DataTableColumn<MarketCategoryBottomUpTamInput>
-  > = [
-    {
-      key: 'inputType',
-      header: 'Input',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <MonoBadge>{TAM_INPUT_LABEL[row.inputType] ?? row.inputType}</MonoBadge>
-          <span className="text-[12px] leading-[1.4] text-muted-foreground">
-            {row.label}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'value',
-      header: 'Value',
-      render: row => (
-        <span className="font-medium text-foreground">{row.value}</span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: row => (
-        <MonoBadge>{TAM_STATUS_LABEL[row.status] ?? row.status}</MonoBadge>
-      ),
-    },
-    {
-      key: 'sourceUrl',
-      header: 'Source',
-      render: row => (
-        <div className="flex flex-col gap-1">
-          <span className="text-[12px] leading-[1.4] text-muted-foreground">
-            {row.sourceTitle}
-          </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-            {row.dateObserved}
-          </span>
-          {row.sourceUrl ? <SourceLink url={row.sourceUrl} /> : null}
-        </div>
-      ),
-    },
-  ];
-
-  /* ───────── 3. Structural forces table ───────── */
-  const forceColumns: ReadonlyArray<
-    DataTableColumn<(typeof structuralForces.forces)[number]>
-  > = [
-    {
-      key: 'forceType',
-      header: 'Force type',
-      render: row => (
-        <MonoBadge>{FORCE_TYPE_LABEL[row.forceType] ?? row.forceType}</MonoBadge>
-      ),
-    },
-    {
-      key: 'name',
-      header: 'Name',
-      render: row => (
-        <span className="font-medium text-foreground">{row.name}</span>
-      ),
-    },
-    { key: 'implication', header: 'Implication' },
-    {
-      key: 'impact',
-      header: 'Impact',
-      render: row => <MonoBadge>{IMPACT_LABEL[row.impact] ?? row.impact}</MonoBadge>,
-    },
-    {
-      key: 'direction',
-      header: 'Direction',
-      render: row => (
-        <MonoBadge>{DIRECTION_LABEL[row.direction] ?? row.direction}</MonoBadge>
-      ),
-    },
-  ];
-
-  /* ───────── 4. Category maturity — single classification ───────── */
-  const { classification } = categoryMaturity;
-  const stageLabel = MATURITY_STAGE_LABEL[classification.stage] ?? classification.stage;
 
   return (
-    <div className={cn('flex flex-col gap-12', className)}>
+    <div className={cn('flex flex-col gap-10', className)}>
+      <VerdictHero
+        verdict={artifact.verdict}
+        whyItMatters={artifact.statusSummary}
+        confidence={artifact.confidence}
+      />
+      <KeyFindings findings={marketKeyFindings(artifact)} />
+
+      <SubsectionBlock label="Category definition" prose={categoryDefinition.prose}>
+        <div className="grid gap-3 md:grid-cols-2">
+          {categoryDefinition.adjacentCategories.slice(0, 4).map((category) => (
+            <article key={category.name} className="grid gap-3 border border-border bg-card p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-foreground">
+                  {category.name}
+                </h3>
+                {category.sourceUrl ? (
+                  <EvidenceChip
+                    source={{
+                      title: category.sourceTitle ?? category.name,
+                      url: category.sourceUrl,
+                    }}
+                    label="source"
+                  />
+                ) : null}
+              </div>
+              <p className="text-[13px] leading-[1.55] text-muted-foreground">
+                Confused because {scrubReaderText(category.whyBuyersConfuseIt)}
+              </p>
+              <p className="text-[13px] leading-[1.55] text-foreground">
+                Disambiguator: {scrubReaderText(category.disambiguatingSignal)}
+              </p>
+            </article>
+          ))}
+        </div>
+      </SubsectionBlock>
+
+      <SubsectionBlock label="Market size" prose={marketSize.prose}>
+        <TamFormulaChain bottomUpTam={bottomUpTam} />
+        <ReaderExhibit title="market signals" count={marketSize.signals.length}>
+          <DataTable
+            columns={signalColumns}
+            rows={marketSize.signals}
+            rowKey={(row) => `${row.signalType}-${row.name}`}
+            rowTestId={() => 'signal-item'}
+          />
+        </ReaderExhibit>
+      </SubsectionBlock>
+
+      <SubsectionBlock label="Structural forces" prose={structuralForces.prose}>
+        <div className="grid gap-4">
+          {structuralForces.forces.map((force) => (
+            <article key={`${force.forceType}-${force.name}`} className="border-l-2 border-primary/40 pl-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <MonoBadge>{FORCE_TYPE_LABEL[force.forceType] ?? force.forceType}</MonoBadge>
+                <BasisChip basis={force.impact === 'high' ? 'measured' : 'sourced'}>
+                  {force.impact}
+                </BasisChip>
+                <EvidenceChip
+                  source={{
+                    title: force.sourceTitle ?? force.name,
+                    url: force.sourceUrl,
+                    excerpt: force.evidence,
+                  }}
+                  label="source"
+                />
+              </div>
+              <p className="mt-2 text-[15px] font-medium leading-[1.45] text-foreground">
+                {scrubReaderText(force.name)}
+              </p>
+              <p className="mt-1 text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(force.implication)}
+              </p>
+            </article>
+          ))}
+        </div>
+      </SubsectionBlock>
+
+      <SubsectionBlock label="Category maturity" prose={categoryMaturity.prose}>
+        <div className="grid gap-4">
+          <StatCallout
+            value={
+              MATURITY_STAGE_LABEL[categoryMaturity.classification.stage] ??
+              categoryMaturity.classification.stage
+            }
+            label={categoryMaturity.classification.evidenceSummary}
+            basis="sourced"
+          />
+          {categoryMaturity.classification.supportingSignals.map((signal, index) => (
+            <div key={`${signal.signalType}-${index}`} className="border-l border-border pl-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <MonoBadge>
+                  {MATURITY_SIGNAL_LABEL[signal.signalType] ?? signal.signalType}
+                </MonoBadge>
+                {signal.sourceUrl ? (
+                  <EvidenceChip
+                    source={{
+                      title: MATURITY_SIGNAL_LABEL[signal.signalType] ?? signal.signalType,
+                      url: signal.sourceUrl,
+                      excerpt: signal.evidence,
+                    }}
+                    label="source"
+                  />
+                ) : null}
+              </div>
+              <p className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
+                {scrubReaderText(signal.implication)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </SubsectionBlock>
+
       {artifact.strategicInsight || artifact.categoryPowerBet ? (
         <StrategicInsightPanel insight={artifact.strategicInsight}>
           <StrategicField label="category-power bet" value={artifact.categoryPowerBet?.bet} />
@@ -285,98 +381,13 @@ export function MarketCategoryRenderer({
         </StrategicInsightPanel>
       ) : null}
 
-      <SubsectionBlock label="1 · Category Definition" prose={categoryDefinition.prose}>
-        <DataTable
-          columns={adjacentColumns}
-          rows={categoryDefinition.adjacentCategories}
-          rowKey={r => r.name}
-          rowTestId={() => 'adjacent-item'}
-        />
-      </SubsectionBlock>
-
-      <SubsectionBlock label="2 · Market Size" prose={marketSize.prose}>
-        <div className="flex flex-col gap-6">
-          <DataTable
-            columns={signalColumns}
-            rows={marketSize.signals}
-            rowKey={r => `${r.signalType}-${r.name}`}
-            rowTestId={() => 'signal-item'}
-          />
-
-          <div className="flex flex-col gap-3 border-t border-border pt-5">
-            <div className="flex flex-col gap-1">
-              <Eyebrow>bottom-up tam</Eyebrow>
-              <p className="text-[14px] font-medium leading-[1.5] text-foreground">
-                {bottomUpTam.reachableRevenueEstimate}
-              </p>
-              <p className="text-[12px] leading-[1.5] text-muted-foreground">
-                {bottomUpTam.formula}
-              </p>
-            </div>
-            <DataTable
-              columns={tamInputColumns}
-              rows={bottomUpTam.inputs}
-              rowKey={r => r.inputType}
-              rowTestId={() => 'tam-input-item'}
-            />
-            {bottomUpTam.caveats.length > 0 ? (
-              <ul className="flex flex-col gap-1 text-[12px] leading-[1.5] text-muted-foreground">
-                {bottomUpTam.caveats.map((caveat, index) => (
-                  <li key={`${index}-${caveat}`}>{caveat}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </div>
-      </SubsectionBlock>
-
-      <SubsectionBlock label="3 · Structural Forces" prose={structuralForces.prose}>
-        <DataTable
-          columns={forceColumns}
-          rows={structuralForces.forces}
-          rowKey={r => `${r.forceType}-${r.name}`}
-          rowTestId={() => 'force-item'}
-        />
-      </SubsectionBlock>
-
-      <SubsectionBlock label="4 · Category Maturity" prose={categoryMaturity.prose}>
-        <div className="flex flex-col gap-4">
-          <div className="flex items-baseline gap-3">
-            <h4 className="text-[20px] font-semibold leading-tight tracking-tight text-foreground">
-              {stageLabel}
-            </h4>
-            <Eyebrow>stage classification</Eyebrow>
-          </div>
-          <p className="text-[14px] leading-[1.6] text-muted-foreground">
-            {classification.evidenceSummary}
-          </p>
-          {classification.supportingSignals.length > 0 ? (
-            <ul className="flex flex-col gap-3 border-l border-border pl-4">
-              {classification.supportingSignals.map((signal, idx) => (
-                <li
-                  key={`${signal.signalType}-${idx}`}
-                  className="flex flex-col gap-1 text-[13px] leading-[1.5] text-muted-foreground"
-                >
-                  <div className="flex items-center gap-2">
-                    <MonoBadge>
-                      {MATURITY_SIGNAL_LABEL[signal.signalType] ?? signal.signalType}
-                    </MonoBadge>
-                    {signal.sourceUrl ? <SourceLink url={signal.sourceUrl} /> : null}
-                  </div>
-                  <div>
-                    <Eyebrow className="mr-1 inline">evidence</Eyebrow>
-                    {signal.evidence}
-                  </div>
-                  <div>
-                    <Eyebrow className="mr-1 inline">implication</Eyebrow>
-                    {signal.implication}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      </SubsectionBlock>
+      <SectionCoverageNote
+        verified={marketSize.signals.slice(0, 3).map((signal) => signal.name)}
+        assumed={bottomUpTam.inputs
+          .filter((input) => input.status !== 'sourced')
+          .map((input) => input.label)}
+        missing={bottomUpTam.caveats}
+      />
     </div>
   );
 }

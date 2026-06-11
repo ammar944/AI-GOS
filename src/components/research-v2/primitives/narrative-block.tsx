@@ -9,6 +9,8 @@ import {
   type ReaderSource,
 } from '@/components/research-v2/reader-sources';
 import { cn } from '@/lib/utils';
+import { GapNote } from './gap-note';
+import { scrubReaderText, textOrGap } from './reader-text';
 
 export interface NarrativeBlockProps {
   title?: string;
@@ -101,14 +103,22 @@ export function NarrativeBlock({
   children,
   className,
 }: NarrativeBlockProps): React.ReactElement {
+  const renderedProse = textOrGap(prose, title ?? 'this section narrative');
+
   return (
     <div className={cn('flex flex-col gap-4', className)}>
       {title ? (
         <h4 className="text-[15px] font-semibold leading-[1.4] tracking-[-0.005em] text-foreground">
-          {title}
+          {scrubReaderText(title)}
         </h4>
       ) : null}
-      <Response components={CITED_MARKDOWN_COMPONENTS}>{prose}</Response>
+      {renderedProse.kind === 'gap' ? (
+        <GapNote>{renderedProse.value}</GapNote>
+      ) : (
+        <Response components={CITED_MARKDOWN_COMPONENTS}>
+          {renderedProse.value}
+        </Response>
+      )}
       {children}
     </div>
   );

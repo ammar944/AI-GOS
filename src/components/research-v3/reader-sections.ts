@@ -1,7 +1,6 @@
 import {
   isPositioningSectionId,
   PAID_MEDIA_PLAN_SECTION_ID,
-  POSITIONING_SECTION_IDS,
   ALL_POSITIONING_SECTION_LABELS,
   type PositioningSectionId,
   type PaidMediaPlanSectionId,
@@ -12,11 +11,16 @@ export type ReaderSectionId =
   | PaidMediaPlanSectionId;
 
 export const READER_SECTION_IDS = [
-  ...POSITIONING_SECTION_IDS,
+  'positioningDemandIntent',
+  'positioningBuyerICP',
+  'positioningCompetitorLandscape',
+  'positioningVoiceOfCustomer',
+  'positioningOfferDiagnostic',
+  'positioningMarketCategory',
   PAID_MEDIA_PLAN_SECTION_ID,
 ] as const satisfies readonly ReaderSectionId[];
 
-export const FIRST_READER_SECTION_ID: ReaderSectionId = POSITIONING_SECTION_IDS[0];
+export const FIRST_READER_SECTION_ID: ReaderSectionId = READER_SECTION_IDS[0];
 
 export const READER_SECTION_LABELS: Record<ReaderSectionId, string> = {
   ...ALL_POSITIONING_SECTION_LABELS,

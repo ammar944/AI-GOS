@@ -6,46 +6,40 @@ import { MarketCategoryRenderer } from '../market-category';
 import { marketCategoryArtifact } from './fixtures';
 
 describe('MarketCategoryRenderer', () => {
-  it('renders four subsection blocks in plan order', () => {
+  it('renders the editorial section template', () => {
     render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
+
+    expect(screen.getByTestId('verdict-hero')).toHaveTextContent(
+      /workflow automation category/i,
+    );
+    expect(screen.getByTestId('key-findings')).toBeInTheDocument();
+    expect(screen.getByTestId('section-coverage-note')).toHaveTextContent(
+      /what we verified/i,
+    );
+  });
+
+  it('renders four narrative blocks with compact category cards and TAM formula', () => {
+    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
+
     const blocks = screen.getAllByTestId('subsection');
     expect(blocks).toHaveLength(4);
-    expect(blocks[0]).toHaveTextContent('1 · Category Definition');
-    expect(blocks[1]).toHaveTextContent('2 · Market Size');
-    expect(blocks[2]).toHaveTextContent('3 · Structural Forces');
-    expect(blocks[3]).toHaveTextContent('4 · Category Maturity');
-  });
-
-  it('renders at least two adjacent-category rows from the fixture', () => {
-    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
-    const items = screen.getAllByTestId('adjacent-item');
-    expect(items.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('renders the strategic insight panel without changing subsection count', () => {
-    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
-    expect(screen.getByTestId('strategic-insight-panel')).toHaveTextContent(
-      'non-obvious read',
-    );
-    expect(screen.getByText(/category-power bet/i)).toBeInTheDocument();
-  });
-
-  it('renders at least three market-size signal rows from the fixture', () => {
-    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
-    const items = screen.getAllByTestId('signal-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('renders the four bottom-up TAM input rows from the fixture', () => {
-    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
-    const items = screen.getAllByTestId('tam-input-item');
-    expect(items).toHaveLength(4);
+    expect(blocks[0]).toHaveTextContent('Category definition');
+    expect(blocks[1]).toHaveTextContent('Market size');
+    expect(blocks[2]).toHaveTextContent('Structural forces');
+    expect(blocks[3]).toHaveTextContent('Category maturity');
+    expect(screen.getByText('Task management')).toBeInTheDocument();
+    expect(screen.getByText(/Formula:/i)).toHaveTextContent(/keyword volume/i);
     expect(screen.getByText(/directional reachable revenue/i)).toBeInTheDocument();
-    expect(screen.getByText('Keyword sample')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-05-20').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders evidence-gap TAM rows for legacy artifacts without bottomUpTam', () => {
+  it('keeps market signal rows inside an exhibit', () => {
+    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
+
+    expect(screen.getByText(/Exhibits: market signals/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId('signal-item').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('renders a client-plain gap for legacy artifacts without bottomUpTam', () => {
     const legacyMarketSize = {
       prose: marketCategoryArtifact.marketSize.prose,
       signals: marketCategoryArtifact.marketSize.signals,
@@ -57,28 +51,8 @@ describe('MarketCategoryRenderer', () => {
 
     render(<MarketCategoryRenderer artifact={legacyArtifact} />);
 
-    const items = screen.getAllByTestId('tam-input-item');
-    expect(items).toHaveLength(4);
-    expect(
-      screen.getByText(
-        /this saved Market Category artifact predates bottom-up TAM input capture/i,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/not captured in this saved artifact/i)).toHaveLength(4);
-  });
-
-  it('renders at least three structural-force rows from the fixture', () => {
-    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
-    const items = screen.getAllByTestId('force-item');
-    expect(items.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('surfaces the category-maturity stage classification in the fourth block', () => {
-    render(<MarketCategoryRenderer artifact={marketCategoryArtifact} />);
-    const blocks = screen.getAllByTestId('subsection');
-    const maturityBlock = blocks[3];
-    const stage = marketCategoryArtifact.categoryMaturity.classification.stage;
-    // Renderer title-cases the enum, so match case-insensitively.
-    expect(maturityBlock.textContent?.toLowerCase()).toContain(stage.toLowerCase());
+    expect(screen.getAllByTestId('gap-note')[0]).toHaveTextContent(
+      /not enough public evidence was found/i,
+    );
   });
 });

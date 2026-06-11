@@ -6,50 +6,48 @@ import { BuyerICPRenderer } from '../buyer-icp';
 import { buyerIcpArtifact } from './fixtures';
 
 describe('BuyerICPRenderer', () => {
-  it('renders five subsection blocks in plan order', () => {
+  it('renders verdict, key findings, and ICP thesis', () => {
+    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
+
+    expect(screen.getByTestId('verdict-hero')).toHaveTextContent(
+      /operations-led mid-market/i,
+    );
+    expect(screen.getByTestId('key-findings')).toBeInTheDocument();
+    expect(screen.getByText('ICP thesis')).toBeInTheDocument();
+    expect(screen.getByText('Who pays')).toBeInTheDocument();
+  });
+
+  it('renders five narrative blocks with expected labels', () => {
     render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
     const blocks = screen.getAllByTestId('subsection');
     expect(blocks).toHaveLength(5);
-    expect(blocks[0]).toHaveTextContent('1 · ICP Existence Check');
-    expect(blocks[1]).toHaveTextContent('2 · Persona Reality');
-    expect(blocks[2]).toHaveTextContent('3 · Awareness Distribution');
-    expect(blocks[3]).toHaveTextContent('4 · Buying Context');
-    expect(blocks[4]).toHaveTextContent('5 · Clusters & Venues');
+    expect(blocks[0]).toHaveTextContent('ICP existence');
+    expect(blocks[1]).toHaveTextContent('Persona reality');
+    expect(blocks[2]).toHaveTextContent('Awareness distribution');
+    expect(blocks[3]).toHaveTextContent('Buying context');
+    expect(blocks[4]).toHaveTextContent('Clusters and venues');
   });
 
-  it('renders at least one firmographic-cut row from the fixture', () => {
+  it('renders persona evidence cards, awareness bar, and suppressible venues', () => {
     render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
-    const items = screen.getAllByTestId('firmographic-item');
-    expect(items.length).toBeGreaterThanOrEqual(1);
+
+    expect(screen.getAllByTestId('persona-card').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Awareness mix')).toBeInTheDocument();
+    expect(screen.getAllByTestId('cluster-item').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('renders at least two persona cards from the fixture', () => {
-    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
-    const items = screen.getAllByTestId('persona-card');
-    expect(items.length).toBeGreaterThanOrEqual(2);
-  });
+  it('suppresses placeholder venues from render', () => {
+    const artifact = structuredClone(buyerIcpArtifact);
+    artifact.clusters.venues.push({
+      bucketType: 'community',
+      name: 'Placeholder Venue',
+      audienceSize: 'unknown',
+      sourceUrl: 'https://placeholder.invalid',
+      whyItMatters: 'Should not render.',
+    });
 
-  it('renders all five awareness rungs from the fixture', () => {
-    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
-    const items = screen.getAllByTestId('awareness-row');
-    expect(items).toHaveLength(5);
-  });
+    render(<BuyerICPRenderer artifact={artifact} />);
 
-  it('renders at least one buying-trigger row from the fixture', () => {
-    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
-    const items = screen.getAllByTestId('trigger-item');
-    expect(items.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('renders at least two cluster venues from the fixture', () => {
-    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
-    const items = screen.getAllByTestId('cluster-item');
-    expect(items.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('surfaces prose for every sub-section', () => {
-    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
-    const proseBlocks = screen.getAllByTestId('subsection-prose');
-    expect(proseBlocks).toHaveLength(5);
+    expect(screen.queryByText('Placeholder Venue')).not.toBeInTheDocument();
   });
 });
