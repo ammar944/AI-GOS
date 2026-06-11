@@ -2028,7 +2028,12 @@ const voiceOfCustomerStructuredOutputTimeoutMs = 150_000;
 export const answerToolTimeoutMs = 255_000;
 const structuredFirstChunkTimeoutMs = 60_000;
 const structuredChunkIdleTimeoutMs = 60_000;
-const competitorAdProbeAdvertiserLimit = 5;
+// W5: cover the FULL discovered competitor set (the cold read sampled 3 of 8
+// and called the rest "budget exhausted"). Stagger stays at concurrency 3 and
+// the 30s probe deadline remains the hard wall-clock guard — a slow ad API
+// still cannot push the section past its budget; it just covers fewer
+// advertisers that run.
+const competitorAdProbeAdvertiserLimit = 8;
 // Over-fetch a pool per provider so the adapter's blended ranker (identity +
 // recency + richness) has real choice before capping to the displayed set.
 // adlibrary filters by advertiser identity + usable text BEFORE this cap, so a
@@ -4336,6 +4341,17 @@ function extractDiscoveredCompetitorAdvertisers(
     const name = getStringProperty(competitorRecord, "name");
 
     if (name === null) {
+      continue;
+    }
+
+    // Status-quo and DIY entries are buyer workflows ("spreadsheet pipeline
+    // review", "founder memory"), not advertisers — probing ad libraries for
+    // them spends paid lookups on guaranteed misses (and invites same-name
+    // wrong-company matches). Surfaced when W5 raised the probe cap to the
+    // full discovered set.
+    const competitorType = getStringProperty(competitorRecord, "competitorType");
+
+    if (competitorType === "status-quo" || competitorType === "diy") {
       continue;
     }
 

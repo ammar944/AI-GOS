@@ -874,8 +874,9 @@ describe('runSection post-draft competitor ad rescue probe', (): void => {
       },
     );
 
-    // The rescue probed EXACTLY the first three discovered competitors
-    // (adProbeMaxAdvertisers cap from the 9-lookup ad reserve), not all five.
+    // The rescue probed EXACTLY the three ADVERTISABLE discovered competitors:
+    // status-quo and DIY entries are buyer workflows, not advertisers, and are
+    // type-filtered out of the probe (W5 raised the cap to the full set).
     const probedAdvertisers = [...new Set(calls.map((call) => call.advertiser))]
       .slice()
       .sort();

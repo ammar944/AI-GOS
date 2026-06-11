@@ -318,6 +318,7 @@ Correct (`strategicVerdict`): "Spend the first dollar on the ~2,200-search captu
 - A content gap without a named weak page is an assertion, not evidence.
 - "Hiring is up" without a search query and result trail is not an intent signal.
 - A CPC on a Trends-backed row is a fabrication the runner hard-rejects — numeric economics exist only where SpyFu returned the keyword.
+- A null/absent SpyFu CPC means SpyFu has NO auction data for that keyword — render it `n/a` and FORBID strategy text from citing $0 (or "near-zero") CPC as a cheap-entry opportunity. An uncontested-auction read requires `keyword_ad_probe` evidence (zero ad results on the live SERP), never a missing CPC.
 - Branded search for the company itself is awareness evidence, not reachable new demand — exclude it from the capture ceiling and say why.
 - An implication is specific: "run a search campaign on the pricing cluster" is actionable; "create content" is not.
 

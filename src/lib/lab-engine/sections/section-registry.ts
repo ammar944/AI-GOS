@@ -189,12 +189,14 @@ export const SECTION_REGISTRY = {
     ],
     maxExternalLookups: 6,
     // Reserved pool is additive on top of maxExternalLookups and only ad tools
-    // draw from it. 9 reserved / 3 lookups-per-advertiser (google + meta +
-    // linkedin) => the deterministic probe covers 3 competitors (the brief
-    // requires >=3), without borrowing from the generic research budget. The
-    // optional Foreplay direct prepass does not draw from this pool. Hard-capped
-    // at 5 advertisers + a 30s probe deadline downstream.
-    adReservedLookups: 9,
+    // draw from it. 24 reserved / 3 lookups-per-advertiser (google + meta +
+    // linkedin) => the deterministic probe covers the FULL discovered
+    // competitor set (W5: 8/8, not a 3-of-8 sample), without borrowing from
+    // the generic research budget. The optional Foreplay direct prepass does
+    // not draw from this pool (and fails fast since wave-3). Staggered at
+    // concurrency 3 under the 30s probe deadline downstream — the deadline,
+    // not the pool, is the wall-clock guard.
+    adReservedLookups: 24,
     requiredEvidenceClasses: ["competitor", "adEvidence_or_gap"],
     loadBearingKinds: ["numeric", "url"],
     strategicDepthGuidance: competitorLandscapeStrategicDepthGuidance,
