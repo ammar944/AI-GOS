@@ -53,4 +53,39 @@ describe('DemandIntentRenderer', () => {
     const items = screen.getAllByTestId('venue-item');
     expect(items.length).toBeGreaterThanOrEqual(3);
   });
+
+  it('renders data gaps as an em-dash with no source link, and a compact line for empty question mining', () => {
+    const artifact = structuredClone(demandIntentArtifact);
+    const gapRow = artifact.keywordDemand.keywords[1];
+    gapRow.monthlyVolume = 'Data gap: keyword_volume tool returned no rows';
+    gapRow.sourceUrl = 'keyword_volume tool data gap';
+    artifact.questionMining.questions = [];
+
+    render(<DemandIntentRenderer artifact={artifact} />);
+
+    // Gap volumes read as an em-dash, never as apology prose.
+    expect(
+      screen.queryByText('Data gap: keyword_volume tool returned no rows'),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+
+    // Non-URL source strings never render as link text or anchors.
+    expect(
+      screen.queryByText('keyword_volume tool data gap'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('link')
+        .some(
+          (link) =>
+            link.getAttribute('href') === 'keyword_volume tool data gap',
+        ),
+    ).toBe(false);
+
+    // Empty question mining renders one compact gap line, not an empty table.
+    expect(screen.getByTestId('question-mining-gap')).toHaveTextContent(
+      'No buyer questions were captured for this run.',
+    );
+    expect(screen.queryAllByTestId('question-item')).toHaveLength(0);
+  });
 });

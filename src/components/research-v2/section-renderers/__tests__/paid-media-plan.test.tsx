@@ -56,9 +56,15 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     ).toBeInTheDocument();
     expect(within(renderer).getByText('Monthly budget')).toBeInTheDocument();
     expect(within(renderer).getAllByText('$3,000').length).toBeGreaterThan(0);
+    // Display-level provenance translation: internal 'user-supplied' /
+    // 'operator-supplied' tokens read as 'from your brief'.
     expect(
-      within(renderer).getAllByText('user-supplied').length,
+      within(renderer).getAllByText('from your brief').length,
     ).toBeGreaterThan(0);
+    expect(within(renderer).queryByText('user-supplied')).not.toBeInTheDocument();
+    expect(
+      within(renderer).queryByText('operator-supplied'),
+    ).not.toBeInTheDocument();
     expect(
       within(renderer).getAllByText('model-estimated').length,
     ).toBeGreaterThan(0);
@@ -98,7 +104,7 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     );
   });
 
-  it('renders the paid-media verifier needs-review badge from the envelope flag', (): void => {
+  it('renders no needs-review pill even when the envelope flags needs_review (tier chrome removed 2026-06-11)', (): void => {
     render(
       <PaidMediaPlanRenderer
         artifact={{
@@ -108,9 +114,35 @@ describe('<PaidMediaPlanRenderer>', (): void => {
       />,
     );
 
-    expect(screen.getByTestId('paid-media-needs-review-badge')).toHaveTextContent(
-      'Needs review',
-    );
+    expect(
+      screen.queryByTestId('paid-media-needs-review-badge'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Needs review')).not.toBeInTheDocument();
+  });
+
+  it('collapses evidence-gap sales assets into one "Assets to supply" checklist', (): void => {
+    render(<PaidMediaPlanRenderer artifact={paidMediaPlanFixtureArtifact} />);
+
+    const checklist = screen.getByTestId('pmp-sales-assets-to-supply');
+
+    expect(within(checklist).getByText('Assets to supply')).toBeInTheDocument();
+    expect(within(checklist).getByText('SDR Opt-In Flow')).toBeInTheDocument();
+    expect(
+      within(checklist).getByText('Personalization Playbook'),
+    ).toBeInTheDocument();
+    expect(within(checklist).getByText('Loom Walkthrough')).toBeInTheDocument();
+
+    // The linked asset still renders as a table row; the per-row apology
+    // copy for missing assets does not render at all.
+    const salesBlock = screen.getByTestId('pmp-block-salesProcess');
+    expect(
+      within(salesBlock).getByText('Sales Process Overview'),
+    ).toBeInTheDocument();
+    expect(
+      within(salesBlock).queryByText(
+        'Evidence gap: SDR opt-in flow was not provided.',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it('maps channel verdicts to semantic status-pill tones', (): void => {

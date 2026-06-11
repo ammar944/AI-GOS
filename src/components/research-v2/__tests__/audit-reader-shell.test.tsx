@@ -136,7 +136,7 @@ describe('<AuditReaderShell>', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows graded verification claim counts for completed sections', (): void => {
+  it('renders no verification claim-count badge for completed sections (tier chrome removed 2026-06-11)', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -160,12 +160,18 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
+    // The section still renders; the tier badge and claim rollup do not.
     expect(
-      screen.getByText('Verified · 12 supported · 86% grounded'),
+      screen.getByRole('button', { name: /market & category.*complete/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Verified · 12 supported · 86% grounded'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('12 verified')).not.toBeInTheDocument();
+    expect(screen.queryByText('2 unverified')).not.toBeInTheDocument();
   });
 
-  it('prefers the persisted verification tier over fallback count math', (): void => {
+  it('ignores the persisted verification tier for display (no badge renders)', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -201,13 +207,17 @@ describe('<AuditReaderShell>', () => {
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Insufficient evidence · Declared evidence gap · 90% grounded',
       ),
+    ).not.toBeInTheDocument();
+    // The rail row keeps the plain status subline, not the tier label.
+    expect(
+      screen.getByRole('button', { name: /market & category.*complete/i }),
     ).toBeInTheDocument();
   });
 
-  it('summarizes flagged verification tiers in the rail instead of an unqualified green Done', (): void => {
+  it('shows an unconditional green Done with no tier sublines or dots when all sections are terminal', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -227,29 +237,31 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    // Run summary is amber-qualified, not a bare green "Done".
-    expect(screen.getByText('Done · 2 flagged')).toBeInTheDocument();
+    // Run summary is a bare green "Done" — never tier-qualified.
+    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(screen.queryByText(/done · \d+ flagged/i)).not.toBeInTheDocument();
 
-    // Flagged rows read as their tier, never as bare 'Complete'.
+    // Every completed row reads as 'Complete' regardless of persisted tier.
     expect(
-      screen.getByRole('button', { name: /market & category.*insufficient/i }),
+      screen.getByRole('button', { name: /market & category.*complete/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /buyer \/ icp.*needs review/i }),
+      screen.getByRole('button', { name: /buyer \/ icp.*complete/i }),
     ).toBeInTheDocument();
-    // Verified rows keep 'Complete' and a green tier dot.
     expect(
       screen.getByRole('button', { name: /competitors.*complete/i }),
     ).toBeInTheDocument();
+
+    // No tier dots anywhere in the rail.
     expect(
-      screen.getByTestId('section-tier-dot-positioningMarketCategory'),
-    ).toHaveAttribute('data-tier', 'insufficient');
+      screen.queryByTestId('section-tier-dot-positioningMarketCategory'),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('section-tier-dot-positioningBuyerICP'),
-    ).toHaveAttribute('data-tier', 'needs_review');
+      screen.queryByTestId('section-tier-dot-positioningBuyerICP'),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('section-tier-dot-positioningCompetitorLandscape'),
-    ).toHaveAttribute('data-tier', 'verified');
+      screen.queryByTestId('section-tier-dot-positioningCompetitorLandscape'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders typed cards and review metadata without exposing reviewed artifact JSON', (): void => {
@@ -286,8 +298,19 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Review rationale')).toBeInTheDocument();
-    expect(screen.getByText('Removed fabricated TAM precision')).toBeInTheDocument();
+    // Only the client-facing questions render — tier rationale and the
+    // removed-items list are verifier metric noise and stay hidden.
+    expect(screen.getByText('Ask the client (1)')).toBeInTheDocument();
+    expect(
+      screen.getByText('Can you provide sourced TAM assumptions?'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Review rationale')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('One claim needs stronger sourcing.'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Removed fabricated TAM precision'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText('1 · Category Definition'),
     ).toBeInTheDocument();

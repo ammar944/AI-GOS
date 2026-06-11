@@ -18,8 +18,6 @@ import {
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { PROFILE_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile, ProfileSession } from '@/lib/profiles/business-profiles';
-import { getProfileVerificationSummaries } from '@/lib/profiles/profile-verification-summary';
-import { VerificationTierBadge } from '@/components/research-v2/verification-tier-badge';
 import { StyleRefsTab } from '@/components/assets/style-refs-tab';
 
 type TabId = 'overview' | 'research' | 'assets';
@@ -333,7 +331,6 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
   const offerScore = profile.offerScore as Record<string, unknown> | null;
   const positioning = profile.positioningStrategy as Record<string, unknown> | null;
   const insights = profile.aiInsights as Record<string, unknown> | null;
-  const verificationSummaries = getProfileVerificationSummaries(insights);
 
   if (!hasInsights) {
     return (
@@ -359,30 +356,6 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
       <p className="text-[11px] uppercase tracking-[0.06em] font-mono font-medium text-[var(--text-quaternary)]">
         AI Intelligence
       </p>
-
-      {verificationSummaries.length > 0 ? (
-        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
-          <p className="mb-3 text-[10px] uppercase tracking-wider font-mono text-[var(--text-tertiary)]">
-            Section verification
-          </p>
-          <div className="space-y-2">
-            {verificationSummaries.map((summary) => (
-              <div
-                key={summary.sectionId}
-                className="flex flex-wrap items-center justify-between gap-2"
-              >
-                <span className="text-xs text-[var(--text-secondary)]">
-                  {summary.sectionTitle}
-                </span>
-                <VerificationTierBadge
-                  verificationTier={summary.verificationTier}
-                  verificationFlag={summary.verificationFlag}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Offer Score */}
@@ -459,17 +432,6 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
 
 /* ─── Research Tab ─── */
 
-function verificationReviewCount(session: ProfileSession): number {
-  return (
-    (session.verificationTierCounts?.needs_review ?? 0) +
-    (session.verificationTierCounts?.insufficient ?? 0)
-  );
-}
-
-function verificationReviewLabel(count: number): string {
-  return count === 1 ? '1 section needs review' : `${count} sections need review`;
-}
-
 function ResearchTab({
   sessions,
   loading,
@@ -529,11 +491,6 @@ function ResearchTab({
               <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
                 {session.sectionCount}/{session.totalSections} sections completed
               </p>
-              {verificationReviewCount(session) > 0 ? (
-                <p className="text-[10px] font-mono text-amber-400 mt-1">
-                  {verificationReviewLabel(verificationReviewCount(session))}
-                </p>
-              ) : null}
             </div>
           </div>
           <SectionProgress count={session.sectionCount} total={session.totalSections} />

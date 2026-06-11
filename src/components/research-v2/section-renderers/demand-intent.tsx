@@ -51,6 +51,11 @@ const VENUE_TYPE_LABEL: Record<string, string> = {
   slack: 'Slack',
 };
 
+/** Explicit tool data gaps read as an em-dash, not apology prose. */
+function gapAwareValue(value: string): string {
+  return /^data gap:/i.test(value) ? '—' : value;
+}
+
 function DomainChips({ domains }: { domains: ReadonlyArray<string> }): React.ReactElement | null {
   if (!domains || domains.length === 0) return null;
   return (
@@ -91,7 +96,7 @@ export function DemandIntentRenderer({
       key: 'monthlyVolume',
       header: 'Monthly volume',
       numeric: true,
-      render: row => <span>{row.monthlyVolume}</span>,
+      render: row => <span>{gapAwareValue(row.monthlyVolume)}</span>,
     },
     {
       key: 'cpc',
@@ -257,12 +262,21 @@ export function DemandIntentRenderer({
       </SubsectionBlock>
 
       <SubsectionBlock label="2 · Question Mining" prose={questionMining.prose}>
-        <DataTable
-          columns={questionColumns}
-          rows={questionMining.questions}
-          rowKey={(r, idx) => `${r.surface}-${idx}`}
-          rowTestId={() => 'question-item'}
-        />
+        {questionMining.questions.length === 0 ? (
+          <p
+            data-testid="question-mining-gap"
+            className="text-[13px] text-muted-foreground"
+          >
+            No buyer questions were captured for this run.
+          </p>
+        ) : (
+          <DataTable
+            columns={questionColumns}
+            rows={questionMining.questions}
+            rowKey={(r, idx) => `${r.surface}-${idx}`}
+            rowTestId={() => 'question-item'}
+          />
+        )}
       </SubsectionBlock>
 
       <SubsectionBlock label="3 · Content Gaps" prose={contentGaps.prose}>

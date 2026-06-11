@@ -10,7 +10,6 @@ import {
   VerdictCallout,
 } from '@/components/research-v2/ui-kit';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
-import { VerificationTierBadge } from '@/components/research-v2/verification-tier-badge';
 import { ShaderMeshBackground, BackgroundPattern } from '@/components/ui/sl-background';
 import { CardContentSwitch } from '@/components/research/card-renderer';
 import { SectionHeader } from '@/components/workspace/section-header';
@@ -44,8 +43,6 @@ interface V3SharedSectionViewModel {
   title: string;
   artifact: PositioningTypedArtifact | null;
   markdown: string | null;
-  verificationTier: V3ShareResearchSnapshot['sections'][number]['verificationTier'];
-  verificationFlag: V3ShareResearchSnapshot['sections'][number]['verificationFlag'];
 }
 
 function formatDate(dateString: string): string {
@@ -79,11 +76,12 @@ function buildV3ViewSections(
     title: section.title || READER_SECTION_LABELS[section.zone],
     artifact: pickPositioningTypedArtifact(section.data, section.zone),
     markdown: section.markdown,
-    verificationTier: section.verificationTier,
-    verificationFlag: section.verificationFlag,
   }));
 }
 
+// Verifier metric chrome (tier rationale, removed-items list) is intentionally
+// not rendered — only the client-facing questions surface (user decision
+// 2026-06-11; verification data still persists in DB/API).
 function SharedReviewMetadata({
   artifact,
 }: {
@@ -91,38 +89,20 @@ function SharedReviewMetadata({
 }): ReactElement | null {
   const review = artifact.review;
 
-  if (!review) {
+  if (!review || review.clientQuestions.length === 0) {
     return null;
   }
 
   return (
     <div className="space-y-3 rounded-md border border-border bg-background p-4">
       <div className="space-y-1">
-        <Eyebrow>Review rationale</Eyebrow>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {review.tierRationale}
-        </p>
+        <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          {review.clientQuestions.map((question) => (
+            <li key={question}>{question}</li>
+          ))}
+        </ul>
       </div>
-      {review.removedItems.length > 0 ? (
-        <div className="space-y-1">
-          <Eyebrow>Removed ({review.removedItems.length})</Eyebrow>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            {review.removedItems.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {review.clientQuestions.length > 0 ? (
-        <div className="space-y-1">
-          <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            {review.clientQuestions.map((question) => (
-              <li key={question}>{question}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -216,12 +196,6 @@ function V3SharedSessionView({
                 <SectionTitle className="mt-2">
                   {activeSection.artifact?.sectionTitle ?? activeSection.title}
                 </SectionTitle>
-                <VerificationTierBadge
-                  className="mt-3"
-                  verification={activeSection.artifact?.verification}
-                  verificationTier={activeSection.verificationTier}
-                  verificationFlag={activeSection.verificationFlag}
-                />
                 {activeSection.artifact ? (
                   <div className="mt-6 space-y-7">
                     {activeSection.artifact.statusSummary ? (

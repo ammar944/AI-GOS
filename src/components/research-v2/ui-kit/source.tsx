@@ -42,8 +42,11 @@ export function SourceLink({
   url?: string;
   className?: string;
 }): React.ReactElement | null {
+  // Only real http(s) URLs render as links — gap placeholder strings
+  // (e.g. 'keyword_volume tool data gap') must never become anchors.
+  if (!url || !/^https?:\/\//i.test(url)) return null;
   const host = hostname(url);
-  if (!host || !url) return null;
+  if (!host) return null;
 
   return (
     <a

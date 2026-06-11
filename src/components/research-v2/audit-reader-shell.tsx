@@ -41,14 +41,6 @@ import {
   toReaderSources,
 } from '@/components/research-v2/reader-sources';
 import {
-  resolveSectionVerificationTier,
-  TIER_DOT_CLASS,
-  TIER_RAIL_LABEL,
-  VerificationTierBadge,
-  type VerificationTierBadgeProps,
-} from '@/components/research-v2/verification-tier-badge';
-import type { VerificationTier } from '@/lib/research-v2/verification-tier';
-import {
   BodyProse,
   ErrorStateBlock,
   Eyebrow,
@@ -320,70 +312,29 @@ function artifactToMarkdown(artifact: PositioningTypedArtifact): string {
     lines.push('');
   }
 
-  if (artifact.verification !== undefined) {
-    lines.push('## Verification');
-    lines.push(`Verified: ${artifact.verification.verifiedCount}`);
-    lines.push(`Unsupported: ${artifact.verification.unsupportedCount}`);
-    lines.push('');
-  }
-
   return `${lines.join('\n').trim()}\n`;
 }
 
-function VerificationBadge({
-  verification,
-  verificationTier,
-  verificationFlag,
-}: {
-  verification: PositioningTypedArtifact['verification'];
-  verificationTier?: VerificationTierBadgeProps['verificationTier'];
-  verificationFlag?: VerificationTierBadgeProps['verificationFlag'];
-}): ReactElement | null {
-  return (
-    <VerificationTierBadge
-      verification={verification}
-      verificationTier={verificationTier}
-      verificationFlag={verificationFlag}
-    />
-  );
-}
-
+// Verifier metric chrome (tier rationale, removed-items list) is intentionally
+// not rendered — only the client-facing questions surface (user decision
+// 2026-06-11; verification data still persists in DB/API).
 function ReviewMetadataPanel({
   review,
 }: {
   review: NonNullable<PositioningTypedArtifact['review']>;
-}): ReactElement {
-  const hasRemovedItems = review.removedItems.length > 0;
-  const hasClientQuestions = review.clientQuestions.length > 0;
+}): ReactElement | null {
+  if (review.clientQuestions.length === 0) return null;
 
   return (
     <div className="space-y-4 rounded-md border border-border bg-background p-4">
-      <div className="space-y-1">
-        <Eyebrow>Review rationale</Eyebrow>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {review.tierRationale}
-        </p>
+      <div className="space-y-2">
+        <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
+        <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+          {review.clientQuestions.map((question) => (
+            <li key={question}>{question}</li>
+          ))}
+        </ul>
       </div>
-      {hasRemovedItems ? (
-        <div className="space-y-2">
-          <Eyebrow>Removed ({review.removedItems.length})</Eyebrow>
-          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
-            {review.removedItems.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {hasClientQuestions ? (
-        <div className="space-y-2">
-          <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
-          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
-            {review.clientQuestions.map((question) => (
-              <li key={question}>{question}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -686,13 +637,8 @@ interface RunStatusCardProps {
   active: ReaderSectionId;
   onSelect: (id: ReaderSectionId) => void;
   statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
-  tierOf: (id: ReaderSectionId) => VerificationTier | null;
   positioningCompletedCount: number;
-  /** Completed sections whose verification tier is needs_review/insufficient — display only. */
-  flaggedSectionCount: number;
   activePhaseLabel: string | null;
-  verified: number;
-  flagged: number;
   elapsedMs: number | null;
   runDispatched: boolean;
   allSectionsTerminal: boolean;
@@ -701,17 +647,13 @@ interface RunStatusCardProps {
 // Self-contained floating status box docked in the right gutter. Merges the
 // old left SectionRail (section navigator) with the old top-right RunStatusBar
 // (run rollup) into one Codex-style card: rollup header → active-phase shimmer
-// → section list (clickable navigator) → verification foot.
+// → section list (clickable navigator).
 function RunStatusCard({
   active,
   onSelect,
   statusOf,
-  tierOf,
   positioningCompletedCount,
-  flaggedSectionCount,
   activePhaseLabel,
-  verified,
-  flagged,
   elapsedMs,
   runDispatched,
   allSectionsTerminal,
@@ -721,9 +663,8 @@ function RunStatusCard({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-      {/* Header: rollup + elapsed clock + run state. The green check is earned
-          only when zero completed sections carry a flagged verification tier —
-          a run with needs_review/insufficient sections summarizes amber. */}
+      {/* Header: rollup + elapsed clock + run state. Verification tier chrome
+          is intentionally absent (user decision 2026-06-11) — done is done. */}
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
           {running ? (
@@ -733,27 +674,13 @@ function RunStatusCard({
               aria-hidden="true"
             />
           ) : allSectionsTerminal ? (
-            flaggedSectionCount > 0 ? (
-              <AlertTriangle
-                className="size-3.5 text-amber-600"
-                strokeWidth={2.5}
-                aria-hidden="true"
-              />
-            ) : (
-              <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden="true" />
-            )
+            <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden="true" />
           ) : null}
           <span className="font-mono text-[12px] font-medium tabular-nums text-foreground">
             {positioningCompletedCount}/{POSITIONING_SECTION_IDS.length}
           </span>
           {allSectionsTerminal ? (
-            flaggedSectionCount > 0 ? (
-              <span className="text-[12px] font-medium text-amber-600">
-                Done · {flaggedSectionCount} flagged
-              </span>
-            ) : (
-              <span className="text-[12px] font-medium text-muted-foreground">Done</span>
-            )
+            <span className="text-[12px] font-medium text-muted-foreground">Done</span>
           ) : null}
         </span>
         {running && elapsedMs !== null ? (
@@ -780,14 +707,7 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          // Honest subline: a completed section with a flagged verification
-          // tier reads as its tier ('Needs review' / 'Insufficient'), never as
-          // a bare 'Complete'. Non-complete statuses keep the current display.
-          const tier = status === 'complete' ? tierOf(id) : null;
-          const subLine =
-            tier && tier !== 'verified'
-              ? TIER_RAIL_LABEL[tier]
-              : sectionStatusSubline(status);
+          const subLine = sectionStatusSubline(status);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -819,46 +739,10 @@ function RunStatusCard({
                   {subLine}
                 </span>
               </span>
-              {tier ? (
-                <span
-                  data-testid={`section-tier-dot-${id}`}
-                  data-tier={tier}
-                  className={cn(
-                    'size-1.5 shrink-0 rounded-full',
-                    TIER_DOT_CLASS[tier],
-                  )}
-                  aria-hidden="true"
-                />
-              ) : null}
             </button>
           );
         })}
       </nav>
-
-      {/* Verification rollup foot — only when claims exist */}
-      {verified > 0 || flagged > 0 ? (
-        <>
-          <div className="my-3 h-px bg-border" aria-hidden="true" />
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
-            <span
-              className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-emerald-600"
-              title="Claims matched verbatim to a fetched source — advisory, does not block the report."
-              aria-label={`${verified} verified — claims matched verbatim to a fetched source (advisory, does not block the report)`}
-            >
-              <Check className="size-3" strokeWidth={3} aria-hidden="true" /> {verified} verified
-            </span>
-            {flagged > 0 ? (
-              <span
-                className="inline-flex items-center gap-1 font-mono text-[12px] tabular-nums text-amber-600"
-                title="Claims matched verbatim to a fetched source — advisory, does not block the report."
-                aria-label={`${flagged} unverified — claims not matched verbatim to a fetched source (advisory, does not block the report)`}
-              >
-                <AlertTriangle className="size-3" strokeWidth={2.5} aria-hidden="true" /> {flagged} unverified
-              </span>
-            ) : null}
-          </div>
-        </>
-      ) : null}
     </div>
   );
 }
@@ -1123,7 +1007,6 @@ export function AuditReaderShell({
   const activeIndex = READER_SECTION_IDS.indexOf(active);
   const activeTyped = typedByZone.get(active) ?? null;
   const activeReview = activeTyped?.review ?? null;
-  const activeSectionSnapshot = live.sectionsByZone[active];
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
   const activeDraftArtifact = useMemo(() => {
@@ -1156,55 +1039,6 @@ export function AuditReaderShell({
       ),
     [statusOf],
   );
-
-  // Per-section verification tiers for the rail — presentation only, resolved
-  // with the same precedence as the detail-pane VerificationTierBadge. Does
-  // not feed dispatch/gating logic (positioningCompletedCount keeps that job).
-  const tierByZone = useMemo(() => {
-    const m = new Map<ReaderSectionId, VerificationTier | null>();
-    for (const id of READER_SECTION_IDS) {
-      const snapshot = live.sectionsByZone[id];
-      m.set(
-        id,
-        resolveSectionVerificationTier({
-          verificationTier: snapshot?.verificationTier ?? null,
-          verificationFlag: snapshot?.verificationFlag ?? null,
-          verification: typedByZone.get(id)?.verification ?? null,
-        }),
-      );
-    }
-    return m;
-  }, [live.sectionsByZone, typedByZone]);
-
-  const tierOf = useCallback(
-    (id: ReaderSectionId): VerificationTier | null => tierByZone.get(id) ?? null,
-    [tierByZone],
-  );
-
-  // Completed sections whose tier is flagged — drives the amber run summary.
-  const flaggedSectionCount = useMemo(() => {
-    let count = 0;
-    for (const id of READER_SECTION_IDS) {
-      if (statusOf(id) !== 'complete') continue;
-      const tier = tierByZone.get(id);
-      if (tier === 'needs_review' || tier === 'insufficient') count += 1;
-    }
-    return count;
-  }, [statusOf, tierByZone]);
-
-  // ---- Run-status rollups (W3) -----------------------------------------
-  // Verified / flagged claims summed across committed sections.
-  const verificationRollup = useMemo(() => {
-    let verified = 0;
-    let flagged = 0;
-    for (const id of READER_SECTION_IDS) {
-      const v = typedByZone.get(id)?.verification;
-      if (!v) continue;
-      verified += v.verifiedCount;
-      flagged += v.unsupportedCount;
-    }
-    return { verified, flagged };
-  }, [typedByZone]);
 
   // Active phase label = the running worker's human-readable phase (already
   // customer-safe, e.g. "Reading sources"). Null when nothing is running.
@@ -1432,13 +1266,6 @@ export function AuditReaderShell({
                 Section {activeIndex + 1} of {READER_SECTION_IDS.length}
               </Eyebrow>
               <div className="flex items-center gap-3">
-                {activeStatus === 'complete' && activeTyped ? (
-                  <VerificationBadge
-                    verification={activeTyped.verification}
-                    verificationTier={activeSectionSnapshot?.verificationTier}
-                    verificationFlag={activeSectionSnapshot?.verificationFlag}
-                  />
-                ) : null}
                 <SectionActions
                   onCopy={activeTyped ? copyActive : undefined}
                   onRerun={() => rerunSection(active)}
@@ -1539,12 +1366,8 @@ export function AuditReaderShell({
               active={active}
               onSelect={select}
               statusOf={statusOf}
-              tierOf={tierOf}
               positioningCompletedCount={positioningCompletedCount}
-              flaggedSectionCount={flaggedSectionCount}
               activePhaseLabel={activePhaseLabel}
-              verified={verificationRollup.verified}
-              flagged={verificationRollup.flagged}
               elapsedMs={elapsedMs}
               runDispatched={runDispatched}
               allSectionsTerminal={allSectionsTerminal}

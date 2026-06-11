@@ -57,9 +57,11 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     expect(
       screen.getByText(/founder-led revenue operations/i),
     ).toBeInTheDocument();
+    // Tier chrome removed from the shared view (user decision 2026-06-11) —
+    // the persisted tier/flag never render as a badge.
     expect(
-      screen.getByText('Needs review · 1 unsupported claim · 67% grounded'),
-    ).toBeInTheDocument();
+      screen.queryByText('Needs review · 1 unsupported claim · 67% grounded'),
+    ).not.toBeInTheDocument();
   });
 
   it('falls back to "No data available" instead of crashing when a complete section has unpickable data and no markdown', (): void => {
@@ -107,13 +109,22 @@ describe('SharedSessionView — v3 share render contract', (): void => {
       />,
     );
 
-    expect(screen.getByText('Review rationale')).toBeInTheDocument();
+    // Only the client-facing questions render — tier rationale, removed
+    // items, and the tier badge are verifier metric noise and stay hidden.
+    expect(screen.getByText('Ask the client (1)')).toBeInTheDocument();
     expect(
-      screen.getByText('One unsupported claim needs client proof.'),
+      screen.getByText('Can you provide sourced segment sizing?'),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Review rationale')).not.toBeInTheDocument();
     expect(
-      screen.getByText('Needs review · 1 unsupported claim · 67% grounded'),
-    ).toBeInTheDocument();
+      screen.queryByText('One unsupported claim needs client proof.'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Unsupported market-size precision'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Needs review · 1 unsupported claim · 67% grounded'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText('1 · Category Definition'),
     ).toBeInTheDocument();

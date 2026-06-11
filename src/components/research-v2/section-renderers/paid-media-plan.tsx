@@ -62,16 +62,20 @@ function getPaidMediaPlanBody(
   ) as PaidMediaBody;
 }
 
-function hasNeedsReviewBadge(
-  artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
-): boolean {
-  const record = artifact as unknown as Record<string, unknown>;
-
-  return record.needs_review === true;
+/**
+ * Display-level provenance translation: internal pipeline tokens read as
+ * client-facing language. Data in the artifact is untouched.
+ */
+function provenanceLabel(value: string | undefined): string {
+  if (value === undefined || value.trim().length === 0) return 'unknown';
+  if (value === 'user-supplied' || value === 'operator-supplied') {
+    return 'from your brief';
+  }
+  return value;
 }
 
-function provenanceLabel(value: string | undefined): string {
-  return value === undefined || value.trim().length === 0 ? 'unknown' : value;
+function isMissingSalesAsset(asset: SalesAsset): boolean {
+  return asset.url === '' && /^evidence gap:/i.test(asset.note);
 }
 
 function verdictTone(verdict: string): StatusPillTone {
@@ -138,7 +142,12 @@ export function PaidMediaPlanRenderer({
   className,
 }: PaidMediaPlanRendererProps): React.ReactElement {
   const body = getPaidMediaPlanBody(artifact);
-  const needsReview = hasNeedsReviewBadge(artifact);
+  // Evidence-gap sales rows collapse into one "Assets to supply" checklist
+  // instead of repeating per-row apology copy.
+  const linkedSalesAssets = body.salesProcess.filter(
+    (asset) => !isMissingSalesAsset(asset),
+  );
+  const missingSalesAssets = body.salesProcess.filter(isMissingSalesAsset);
   const phaseColumns: ReadonlyArray<DataTableColumn<CampaignPhase>> = [
     { key: 'phaseName', header: 'Phase', className: 'font-medium text-foreground' },
     { key: 'monthsLabel', header: 'Timing' },
@@ -292,12 +301,6 @@ export function PaidMediaPlanRenderer({
       className={cn('space-y-10', className)}
     >
       <div data-testid="paid-media-plan-renderer" className="space-y-10">
-        {needsReview ? (
-          <StatusPill tone="flagged" data-testid="paid-media-needs-review-badge">
-            Needs review
-          </StatusPill>
-        ) : null}
-
         <div
           data-testid="paid-media-driver-strip"
           className="grid gap-3 border-l-2 border-primary/30 pl-4 md:grid-cols-3"
@@ -403,7 +406,26 @@ export function PaidMediaPlanRenderer({
             label="Sales process"
             prose="Sales assets are linked when provided and marked as gaps when absent."
           >
-            <DataTable columns={salesColumns} rows={body.salesProcess} />
+            <div className="space-y-4">
+              {linkedSalesAssets.length > 0 ? (
+                <DataTable columns={salesColumns} rows={linkedSalesAssets} />
+              ) : null}
+              {missingSalesAssets.length > 0 ? (
+                <div
+                  data-testid="pmp-sales-assets-to-supply"
+                  className="rounded-md border border-border bg-background p-4"
+                >
+                  <p className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                    Assets to supply
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {missingSalesAssets.map((asset) => (
+                      <li key={asset.label}>{asset.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           </SubsectionBlock>
         </div>
 

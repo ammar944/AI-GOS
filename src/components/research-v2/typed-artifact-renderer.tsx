@@ -67,6 +67,7 @@ const ARTIFACT_META_KEYS = new Set([
   'confidence',
   'sources',
   'review',
+  'verification',
 ]);
 
 const PRIMARY_FIELD_KEYS = [
