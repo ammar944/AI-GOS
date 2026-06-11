@@ -1,96 +1,129 @@
-# AGENTS.md — AIGOS Project
+# AGENTS.md - AI-GOS Root DOX Contract
 
-> **Architecture map: read [`docs/source-map.md`](docs/source-map.md) first.** It is the verified, path-accurate map of the whole research pipeline (research-v3 page → worker corpus → in-process lab-engine sections → Audit Reader → profile).
+## Purpose
 
-> AI-powered Go-to-Market Operations System. Read CLAUDE.md for full architecture details.
+- This is the binding root work contract for AI-GOS agents.
+- AI-GOS is the AI-powered Go-to-Market Operations System for source-backed SaaS positioning, GTM research, audit reading, and profile persistence.
+- Read `docs/source-map.md` before architecture-sensitive work. It is the verified, path-accurate map of the research pipeline.
+- Read `CLAUDE.md` for Claude-specific operating defaults, but do not let it contradict this DOX chain.
 
-## Commands
+## Ownership
+
+- This root file owns project-wide workflow, code style, anti-hallucination rules, architecture invariants, verification expectations, and the top-level Child DOX Index.
+- Child `AGENTS.md` files own local contracts for their subtree. The closer file controls local details, but no child may weaken DOX or project-wide safety rules.
+- Hidden/tooling state such as `.agents/`, `.claude-flow/`, `.codex/`, `.gstack/`, `.omc/`, `.playwright-mcp/`, `.vercel/`, and `tmp/` is not product source unless the task explicitly names it.
+
+## Local Contracts
+
+### DOX Workflow
+
+- `AGENTS.md` files are binding work contracts for their subtrees.
+- Before editing, read this file, identify every file or folder you expect to touch, walk from the repo root to each target path, and read every `AGENTS.md` on that path.
+- If a parent lists a child `AGENTS.md` whose scope contains the target, read that child and continue.
+- After every meaningful edit, run a DOX pass: re-check changed paths against the applicable chain, update nearest owning docs when contracts changed, refresh affected Child DOX Indexes, and remove stale or contradictory text.
+- Update the closest owning `AGENTS.md` when a change affects purpose, scope, ownership, durable structure, workflow, operating rules, required inputs/outputs, permissions, side effects, artifacts, user preferences, or agent-doc indexes.
+- Small implementation edits that do not change behavior or contracts may leave docs unchanged, but the DOX pass still must happen.
+
+### User Preferences
+
+- Ammar is a senior AI developer building production SaaS. Treat exact paths, commands, run IDs, branch names, handoff files, and proof artifacts as hard contracts.
+- Do not invent status, market data, statistics, pricing, competitor claims, API endpoints, or verification results.
+- When asked to execute a named spec or handoff, implement that artifact after quick repo orientation. Do not turn it into a plan recap.
+- When asked for diagnosis, find the root cause before editing.
+- When asked for read-only work, do not let a write-heavy spec override that constraint.
+- Keep outputs artifact-first: exact files, exact commands, exact evidence, and clear limits.
+
+### Code Style
+
+- TypeScript strict mode everywhere. No `any`, no implicit types, no silent type escapes.
+- Use explicit return types on functions and named exports only.
+- Use kebab-case for files/directories and `Props` suffixes for React prop interfaces.
+- Prefer pure, single-purpose functions. Do not mutate inputs or global state.
+- Avoid flag parameters that switch multi-mode behavior.
+- Keep imports at the top. Prefer `@/` absolute imports for app source.
+- Use `cn()` or `clsx` for conditional classes.
+- Follow DRY, KISS, and YAGNI. Search for existing logic before adding new code.
+
+### Error Handling
+
+- Raise errors explicitly with actionable messages.
+- Include relevant context: request params, response status, run IDs, profile IDs, section IDs, and provider/tool names.
+- Do not hide root causes behind catch-all handlers.
+- Do not add fallback behavior unless explicitly requested or already part of a documented local contract.
+- External API calls may retry with warnings, then must throw the final error.
+- Use structured logging fields, not interpolated diagnostic strings.
+
+### Architecture Invariants
+
+- Framework: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4, shadcn/ui new-york, Clerk, Supabase, Vercel AI SDK v6.
+- Canonical user-facing research surface: `src/app/research-v3/page.tsx`.
+- The `/research-v2` page route is deleted. Do not reintroduce it unless explicitly asked.
+- The `/journey` page route is deleted. Do not reference it as a current surface.
+- The `src/app/api/research-v2/*` routes remain the live backend used by `/research-v3`.
+- Research flow: `deepResearchProgram -> positioningMarketCategory -> positioningBuyerICP -> positioningCompetitorLandscape -> positioningVoiceOfCustomer -> positioningDemandIntent -> positioningOfferDiagnostic -> positioningPaidMediaPlan`.
+- The six positioning sections plus paid media plan run in-process through `src/lib/lab-engine/`.
+- `research-worker/` is a separate Railway process for worker-backed corpus, identity, meeting extraction, and legacy worker concerns. It cannot import from `src/lib/`.
+- Shared shapes crossing the app/worker boundary must be mirrored intentionally on both sides.
+- DB truth usually outranks UI truth. Verify durable research state in Supabase-backed tables when live proof matters.
+
+### AI and Research Rules
+
+- Preserve Vercel AI SDK v6 patterns for user-facing chat/edit behavior: `useChat`, `DefaultChatTransport`, UI message streams, and AI SDK tool calls.
+- New AI SDK structured-output code should follow the current Vercel AI SDK v6 patterns already in the repo.
+- Use Zod schemas for AI outputs, API inputs, and persisted contracts.
+- Tool results must be validated before generation or persistence.
+- All research claims must come from user-provided context, approved tools/APIs, live model/tool outputs, or persisted source artifacts.
+- If a tool returns no data, report that. Do not fill gaps with plausible text.
+
+### Commands
 
 ```bash
-npm run dev          # Next.js dev server (localhost:3000)
-npm run build        # Production build
-npm run lint         # ESLint
-npm test             # Vitest watch mode
-npm run test:run     # Vitest single run
+npm run dev
+npm run build
+npm run lint
+npm test
+npm run test:run
 ```
 
-## Architecture
+Worker commands:
 
-- **Framework:** Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
-- **AI:** Vercel AI SDK v6 for the `/research-v2` workspace chat/agent layer. Preserve `useChat`, `DefaultChatTransport`, UI message streams, and AI SDK tool calls for user-facing chat/edit behavior.
-- **Research:** The six positioning sections run IN-PROCESS via the lab engine (`src/lib/lab-engine/`, DeepSeek + live tools). The separate Railway worker (`research-worker/`) runs only the deepResearchProgram corpus, identity resolution, and meeting extraction (Perplexity sonar, ADR-0007), dispatched from `/api/research-v2/dispatch`. Async — 202-and-write-back via Supabase realtime.
-- **DB:** Supabase (PostgreSQL + pgvector)
-- **Auth:** Clerk
-- **UI:** shadcn/ui (new-york, zinc) + SaasLaunch Design Language
-
-## Key Paths
-
-```
-src/app/research-v3/page.tsx              # Canonical user-facing surface (Audit Reader)
-src/app/api/research-v2/chat/route.ts     # Vercel AI SDK workspace chat/edit route
-src/app/api/research-v2/dispatch/route.ts # Research dispatch route (deepResearchProgram + positioning sections)
-src/lib/journey/server/dispatch-research.ts # Dispatch helper used by research-v2 route
-src/lib/lab-engine/skills/positioning-*/  # Per-section prompt skills (SKILL.md, lab engine)
-src/components/research-v2|v3|workspace/  # Audit Reader, typed renderers, chat-thread, workspace cards
-research-worker/src/index.ts              # Express :3001, /run endpoint
-research-worker/src/runner.ts             # Anthropic streaming + tool loop
-research-worker/src/runners/              # runDeepResearchProgram + 6 positioning runners
-docs/                                     # PRD, design specs, audit reports
+```bash
+cd research-worker && npm run dev
+cd research-worker && npm run build
+cd research-worker && npm run test:run
 ```
 
-## Conventions
+### Done Means
 
-- Path alias: `@/*` → `./src/*`
-- Named exports only
-- kebab-case files
-- Zod schemas for all AI output + API input
-- `cn()` for conditional classes
-- SSE streaming with typed events
-- Node.js runtime for AI routes (NOT Edge)
+- The code compiles or the relevant verification command is run and reported honestly.
+- Existing and new relevant tests pass, or any skipped tests are named with the reason.
+- Types remain strict and complete.
+- Error cases are handled explicitly.
+- No unrelated worktree changes are reverted or modified.
+- Meaningful feature/fix work is committed atomically when the user or applicable workflow requires commits.
 
-## Current Direction
+## Work Guidance
 
-- `/research-v2` is the canonical user-facing surface. The `/journey` page route has been deleted — do not reference it as a current surface.
-- "Manus for GTM" means: deep research saves context, fills onboarding/profile context, then the `/research-v2` workspace synthesizes GTM report sections one by one with a Cursor/Codex-style chat-and-artifact editing loop.
-- Keep the Vercel AI SDK architecture for user-facing chat, workspace edits, UI message streams, and future agent loops. If formalizing it, use AI SDK v6 `ToolLoopAgent` / `createAgentUIStreamResponse` patterns rather than replacing the workspace chat with raw worker output.
-- Swap the backend behind Journey: the deep research worker gets access to Anthropic skills, tools, web search, code execution, and approved APIs, then writes durable corpus/artifacts back to `journey_sessions.research_results`.
-- Do not hard schema-force the deep research section cards yet. Validate inputs, dispatch envelopes, run IDs, persistence shape, and parsable JSON; prompt-enforce evidence standards, section quality, and source coverage until the prompts stabilize.
+- Use `rg` for search and non-interactive commands such as `git --no-pager diff`.
+- Prefer minimal diffs that match local style.
+- Read dependency/source code when behavior is unclear.
+- Use `pnpm` only where the project provides it; this repo currently uses npm scripts.
+- Do not install global dependencies. Add project dependencies through package manifests.
+- For UI work, read `DESIGN.md` and the relevant component subtree docs first.
+- For production bug work, start with environment, auth, worker reachability, and DB state before deep source edits.
 
-## Models
+## Verification
 
-- **Workspace chat/agent**: Vercel AI SDK v6 in `src/app/api/research-v2/chat/route.ts`; keep it focused on chat, artifact editing, source explanation, and research observation.
-- **Research runners**: Anthropic SDK in `research-worker/src/runners/*.ts`, with native web search/tool access and optional platform skills. Run as detached async jobs on Railway.
-- **Identity / structuring**: Haiku for fast structuring inside specific runners (e.g. `resolve-identity.ts`).
-- **No OpenRouter** — calls are direct `@ai-sdk/anthropic`, `@ai-sdk/perplexity` (corpus, ADR-0007), or DeepSeek (lab sections).
+- Root-level code changes normally require `npm run lint` and `npm run test:run`; narrow changes may use scoped Vitest or touched-file lint when repo-wide noise is pre-existing and documented.
+- Worker changes require `cd research-worker && npm run build` and relevant worker tests.
+- DB migrations require schema review plus related app/worker contract tests.
+- Documentation-only DOX changes require at least `git diff --check` and a final DOX chain review.
 
-## Anti-Hallucination Rules
+## Child DOX Index
 
-- NEVER invent market data, pricing, statistics, or competitor info
-- ALL data must come from user-provided context, approved tools/APIs, Anthropic web search, or persisted source artifacts
-- If a tool returns no data, report it — don't fill in fake numbers
-- Tool result reminders after every API response
-
-## Current Flow (production)
-
-```
-src/app/research-v3/page.tsx              [URL entry + Audit Reader]
-  │  POST /api/research-v2/orchestrate (+ /api/research-v2/chat to edit)
-  ▼
-src/app/api/research-v2/chat/route.ts     [Vercel AI SDK workspace chat/edit route]
-  │  (research tool call / operator button click)
-  ▼
-src/app/api/research-v2/dispatch/route.ts [dispatch via dispatch-research.ts helper]
-  │  POST RAILWAY_WORKER_URL/run
-  ▼
-research-worker/src/index.ts              [Express, returns 202, runs detached skills/tools research]
-  │  writeResearchResult()
-  ▼
-Supabase journey_sessions.research_results
-  │  realtime subscription
-  ▼
-src/app/research-v3/page.tsx              [results render in Audit Reader]
-```
-
-Pipeline order: `deepResearchProgram → positioningMarketCategory → positioningBuyerICP → positioningCompetitorLandscape → positioningVoiceOfCustomer → positioningDemandIntent → positioningOfferDiagnostic`
-
-> Older orchestration docs describe a "lead agent Q&A while research happens in background" architecture. **That design was never shipped — ignore it.** The chat agent and research are a single tool-calling loop, not two phases.
+- `src/AGENTS.md` - Next.js product source: routes, components, hooks, domain libraries, tests, and shared types.
+- `research-worker/AGENTS.md` - Separate Railway worker package for corpus, extraction, worker tools, and worker evals.
+- `docs/AGENTS.md` - Architecture maps, ADRs, handoffs, plans, reports, specs, and archived docs.
+- `supabase/AGENTS.md` - Database schema, migrations, RLS, SQL functions, and Supabase scripts.
+- `scripts/AGENTS.md` - Repo automation, diagnostics, soak scripts, canaries, and recovery/proof scripts.
+- `public/AGENTS.md` - Static assets, icons, manifest files, and public browser-served files.

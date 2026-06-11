@@ -2,6 +2,12 @@
 
 > **Architecture map: read [`docs/source-map.md`](docs/source-map.md) first.** It is the verified, path-accurate map of the whole research pipeline (research-v3 page → worker corpus → in-process lab-engine sections → Audit Reader → profile).
 
+## DOX Contract
+
+- Root `AGENTS.md` is the binding DOX rail for this repository.
+- Before editing, read the applicable `AGENTS.md` chain from the repo root to every target path.
+- After meaningful edits, perform the DOX closeout pass described in root `AGENTS.md`.
+
 ## Operating Defaults
 
 - **Default model is Opus.** Don't be afraid to spend tokens on judgment, planning, and review. Use Sonnet for medium tasks, Haiku only for genuinely tiny mechanical work (rename, list, format).
