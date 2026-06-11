@@ -8,8 +8,7 @@
 
 - `deep-research-program.ts` owns corpus generation.
 - `meeting-extract.ts` owns meeting transcript extraction.
-- `journey-section-synthesis.ts` owns worker-side synthesis behavior where still used.
-- `base.ts` owns shared runner helpers.
+- `index.ts` owns runner exports, including the identity resolver re-export from `../identity/resolve-identity.ts`.
 
 ## Local Contracts
 

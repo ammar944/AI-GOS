@@ -1,6 +1,6 @@
 # AI-GOS — Source Map
 
-> Orientation doc for an agent with no repo memory. Every path below was verified against the working tree on `main`. Where the older `CLAUDE.md` and reality disagree, this map follows reality and flags the drift.
+> Orientation doc for an agent with no repo memory. Every path below is maintained against the current working tree. Where other docs and source reality disagree, this map follows source reality and flags the drift.
 
 ## 1. What this app is
 
@@ -28,7 +28,7 @@ The canonical user surface is **`/research-v3`** (the old `/research-v2` *page* 
 
 8. **Realtime / polling push** — sections commit to Supabase; the frontend gets updates via realtime broadcast + polling. Broadcast (server→Supabase): `src/lib/research-v2/realtime-broadcast.ts` + `section-partial-broadcaster.ts`. Client subscription/polling hook: `src/lib/journey/research-realtime.ts` (`useResearchRealtime`). Live activity stream sanitizer: `src/lib/research-v2/section-activity.ts`.
 
-9. **Persist to profile** — results saved to the business profile (`src/lib/profiles/business-profiles.ts`); detail page `src/app/profiles/[id]/` with Overview/Research/Scripts/Assets tabs.
+9. **Persist to profile** — results saved to the business profile (`src/lib/profiles/business-profiles.ts`); detail page `src/app/profiles/[id]/` has Overview, Research, and Assets tabs.
 
 ---
 
@@ -127,9 +127,9 @@ AI-GOS/
 | Dir / file | Owns |
 |---|---|
 | `index.ts` | Express entry. `POST /run` (dispatches `TOOL_RUNNERS`), `POST /abort`, `GET /health`, `GET /capabilities`. Bounded concurrency + per-tool timeouts. |
-| `runners/` | The runners that still live on the worker: `deep-research-program.ts` (the corpus — the main job), `journey-section-synthesis.ts`, `meeting-extract.ts`, `base.ts`. **NOTE:** the 6 positioning runners were deleted from the worker and now live in `src/lib/lab-engine/`. |
+| `runners/` | Worker runner exports: `deep-research-program.ts` (the corpus main job), `meeting-extract.ts`, and `index.ts`, which also re-exports identity resolution from `../identity/resolve-identity.ts`. **NOTE:** the 6 positioning runners were deleted from the worker and now live in `src/lib/lab-engine/`. |
 | `contracts.ts` | Zod schemas for worker job inputs/outputs (the duplicated half of the schema-duplication rule). |
-| `tools/` | Worker-side tool integrations: `adlibrary.ts`, `meta-ads.ts`, `google-ads.ts`, `apify-ads.ts`, `firecrawl.ts`, `ga4.ts`, `spyfu.ts`, `keyword-ad-probe.ts`, `reviews.ts`, `pagespeed.ts`, `chart.ts`. |
+| `tools/` | Worker-side tool integrations: `adlibrary.ts`, `apify-ads.ts`, `firecrawl.ts`, `keyword-ad-probe.ts`, `reviews.ts`, and `spyfu.ts`, plus shared ad-library types. |
 | `competitors/` | Competitor discovery/fetch: `parse-context.ts`, `parallel-fetch.ts`, `sonar-research.ts`, `review-cross-analysis.ts`. |
 | `identity/` | `resolve-identity.ts` — resolves the company identity from a URL. |
 | `intelligence/` | Intelligence cards, `dispatcher.ts`, `evidence-packer.ts`, `fabrication-sweep.ts`. |
@@ -144,7 +144,7 @@ AI-GOS/
 There are **two independent Node processes** with NO shared imports:
 
 - **Next.js app** (`src/`) — deploys to Vercel. Runs all API routes AND, importantly, runs the **lab engine (6 positioning sections) in-process** inside `run-lab-section`/`orchestrate` route lambdas. Because of this, section tool keys like `SEARCHAPI_KEY`, `DEEPSEEK_API_KEY`, Anthropic/Perplexity keys must be present in **Vercel** env, not only on the worker.
-- **Railway worker** (`research-worker/`) — deploys separately (`cd research-worker && railway up`). Runs only `deepResearchProgram` (corpus), `journeySectionSynthesis`, `meetingExtract` via `POST /run`. Reached through `RAILWAY_WORKER_URL` + `RAILWAY_API_KEY`; without those, worker dispatch **fails silently**.
+- **Railway worker** (`research-worker/`) — deploys separately (`cd research-worker && railway up`). Runs only `runDeepResearchProgram`, `resolveIdentity`, and `extractMeetingTranscript` via `POST /run`. Reached through `RAILWAY_WORKER_URL` + `RAILWAY_API_KEY`; without those, worker dispatch **fails silently**.
 
 **Hard boundary rule:** `research-worker/` **cannot import from `src/lib/`** (separate `package.json`, separate build). Any schema/type needed on both sides must be **defined in both places**. The frontend's research contracts live in `src/lib/journey/research-result-contract.ts` / `src/lib/research-v2/*` and the section schemas in `src/lib/lab-engine/artifacts/schemas/`; the worker's mirror lives in `research-worker/src/contracts.ts`. When you change a shared shape, edit both copies or the contract silently diverges. (Same applies to dispatch tool-name maps and any stale-threshold constants the dispatch route mirrors from the worker.)
 
@@ -165,7 +165,7 @@ The worker entry exposes a `GET /capabilities` self-report; the Next.js side mir
   - Worker-side mirror: `research-worker/src/contracts.ts`. (See §4 duplication rule.)
   - Field catalog / onboarding fields (must sync across 6 places — see CLAUDE.md gotcha): `src/lib/journey/field-catalog.ts`.
 
-- **Where the lab-engine section runners live:** `src/lib/lab-engine/agents/run-section.ts` is the entry (`runSection()`, plus answer-tool / structured-body-stream paths, repair, and the competitor-ad probe). Supporting: `section-agent.ts`, `answer-tool.ts`, `section-tools.ts`, `tool-registry.ts`, `build-prompts.ts`, `budget.ts`, `verification/`. Prompts per section: `src/lib/lab-engine/skills/positioning-*/SKILL.md`. (CLAUDE.md still describes 6 `positioning*` runners under `research-worker/src/runners/` — that is **stale**; those were deleted and reimplemented here in-process.)
+- **Where the lab-engine section runners live:** `src/lib/lab-engine/agents/run-section.ts` is the entry (`runSection()`, plus answer-tool / structured-body-stream paths, repair, and the competitor-ad probe). Supporting: `section-agent.ts`, `answer-tool.ts`, `section-tools.ts`, `tool-registry.ts`, `build-prompts.ts`, `budget.ts`, `verification/`. Prompts per section: `src/lib/lab-engine/skills/positioning-*/SKILL.md`.
 
 - **Realtime / polling path:**
   - Server publishes section partials/results to Supabase realtime: `src/lib/research-v2/realtime-broadcast.ts` (`broadcastSectionPartial`) + `section-partial-broadcaster.ts`.
@@ -174,7 +174,7 @@ The worker entry exposes a `GET /capabilities` self-report; the Next.js side mir
 
 ---
 
-### Drift flags (things the checked-in `CLAUDE.md` gets wrong)
+### Current Cross-Checks
 1. Canonical page is **`src/app/research-v3/page.tsx`**, not `research-v2/page.tsx` (deleted). The v2 *libs/components/API routes* remain the live backend.
-2. The **6 positioning runners are NOT in `research-worker/src/runners/`** — they are the in-process lab engine in `src/lib/lab-engine/`. The worker now runs only corpus + synthesis + meeting-extract.
+2. The **6 positioning runners are NOT in `research-worker/src/runners/`** — they are the in-process lab engine in `src/lib/lab-engine/`. The worker now runs only corpus, identity resolution, and meeting extraction.
 3. Section research runs **in-process on Vercel**, so section API keys (`SEARCHAPI_KEY`, `DEEPSEEK_API_KEY`, etc.) must be in **Vercel** env, not the worker. The `bug-triage.md` "worker reachability" check only matters for the corpus step.
