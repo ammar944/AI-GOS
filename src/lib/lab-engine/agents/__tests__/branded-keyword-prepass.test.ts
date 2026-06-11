@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { saaslaunchResearchInput } from "@/lib/lab-engine/fixtures/saaslaunch";
 import type { RunSectionDeps, RunSectionInput } from "../run-section";
 import {
+  brandedKeywordPrepassRetryDelayMs,
   buildBrandedKeywordPrepass,
   buildBrandedKeywordTerms,
 } from "../run-section";
@@ -28,6 +29,10 @@ function keywordVolumeToolReturning(output: unknown): Record<string, unknown> {
     },
   };
 }
+
+afterEach((): void => {
+  vi.useRealTimers();
+});
 
 describe("buildBrandedKeywordTerms", () => {
   it("derives the four branded head terms from the company name", () => {
@@ -103,23 +108,74 @@ describe("buildBrandedKeywordPrepass", () => {
     expect(prepass?.candidateBlock).toContain("branded-vs-non-branded");
   });
 
-  it("falls back to an honest gap instruction when the tool returns a gap", async () => {
-    const prepass = await buildBrandedKeywordPrepass({
-      deps,
-      input,
-      researchInput: saaslaunchResearchInput,
-      researchTools: keywordVolumeToolReturning({
+  it("re-attempts once after a delay, then falls back to an honest gap instruction", async () => {
+    vi.useFakeTimers();
+    const execute = vi.fn(
+      async (): Promise<unknown> => ({
         type: "gap",
         message: "SPYFU_API_KEY missing",
       }),
-    });
+    );
 
-    expect(prepass?.steps).toHaveLength(1);
+    const prepassPromise = buildBrandedKeywordPrepass({
+      deps,
+      input,
+      researchInput: saaslaunchResearchInput,
+      researchTools: { keyword_volume: { execute } },
+    });
+    await vi.advanceTimersByTimeAsync(brandedKeywordPrepassRetryDelayMs);
+    const prepass = await prepassPromise;
+
+    // One delayed re-attempt, both honest gap steps recorded.
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(prepass?.steps).toHaveLength(2);
     expect(keywordVolumeKeywords(prepass?.steps ?? [])).toEqual([]);
     expect(prepass?.candidateBlock).toContain(
       "returned no data for the subject's branded head terms",
     );
     expect(prepass?.candidateBlock).toContain("never estimate branded volumes");
+  });
+
+  it("recovers measured rows on the delayed re-attempt after a transient failure", async () => {
+    vi.useFakeTimers();
+    const execute = vi
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValueOnce({
+        type: "gap",
+        message: "SpyFu keyword volume rate-limited",
+      })
+      .mockResolvedValueOnce({
+        type: "result",
+        source: "SpyFu",
+        sourceUrl: "https://www.spyfu.com/",
+        keywords: [
+          {
+            keyword: "saaslaunch",
+            searchVolume: 2400,
+            cpc: 3.1,
+            difficulty: 22,
+            display:
+              '"saaslaunch" — 2,400 searches/mo, CPC $3.10, difficulty 22 (SpyFu-estimated)',
+          },
+        ],
+      });
+
+    const prepassPromise = buildBrandedKeywordPrepass({
+      deps,
+      input,
+      researchInput: saaslaunchResearchInput,
+      researchTools: { keyword_volume: { execute } },
+    });
+    await vi.advanceTimersByTimeAsync(brandedKeywordPrepassRetryDelayMs);
+    const prepass = await prepassPromise;
+
+    // A single transient SpyFu failure no longer freezes the gap block: the
+    // re-attempt's measured rows drive the candidate block.
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(prepass?.steps).toHaveLength(2);
+    expect(keywordVolumeKeywords(prepass?.steps ?? [])).toEqual(["saaslaunch"]);
+    expect(prepass?.candidateBlock).toContain("BRANDED DEMAND PREPASS");
+    expect(prepass?.candidateBlock).toContain("2,400 searches/mo");
   });
 
   it("degrades to the gap instruction with no steps when the tool is absent", async () => {

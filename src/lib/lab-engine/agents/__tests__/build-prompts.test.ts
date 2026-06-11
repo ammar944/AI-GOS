@@ -209,6 +209,9 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(toolPrompt).toContain("additive reserved ad-tool pool");
     expect(toolPrompt).not.toContain("independent per-channel caps");
     expect(toolPrompt).toContain("rate_limited");
+    // Budget exhaustion is its own honest reason, never narrated as rate limiting.
+    expect(toolPrompt).toContain("budget_exhausted");
+    expect(toolPrompt).toContain("do not narrate this in prose");
     expect(noToolPrompt).not.toContain("Capability gaps:");
     expect(noToolPrompt).not.toContain(
       "share the generic `maxExternalLookups` pool",
@@ -576,6 +579,9 @@ describe("buildStructuredPrompt", (): void => {
     expect(toolPrompt).toContain("additive reserved ad-tool pool");
     expect(toolPrompt).not.toContain("independent per-channel caps");
     expect(toolPrompt).toContain("rate_limited");
+    // Budget exhaustion is its own honest reason, never narrated as rate limiting.
+    expect(toolPrompt).toContain("budget_exhausted");
+    expect(toolPrompt).toContain("do not narrate this in prose");
     expect(noToolPrompt).not.toContain("Capability gaps:");
     expect(noToolPrompt).not.toContain(
       "share the generic `maxExternalLookups` pool",

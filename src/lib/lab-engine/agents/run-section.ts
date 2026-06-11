@@ -139,7 +139,7 @@ import {
   VOC_MIN_DOMAINS,
   VOC_MIN_QUOTES,
 } from "../artifacts/voice-of-customer-floors";
-import { ToolGapSchema, type ToolGap } from "./tools/_shared";
+import { sleepWithAbort, ToolGapSchema, type ToolGap } from "./tools/_shared";
 import { perplexityResearchAgentTool } from "./tools/perplexity-research";
 import {
   acquireBuyerPersonaCandidates,
@@ -196,9 +196,11 @@ import {
   type StrippedNamedEntityMetric,
 } from "./verification/creative-truth-gate";
 import {
+  buildPlaceholderTrustedHosts,
   downgradeUnpermalinkedVerbatimQuotes,
   scrubQuoteEmails,
   stripExemplarEchoes,
+  stripPlaceholderSourceUrls,
   type DowngradedVerbatimQuote,
 } from "./verification/provenance-gate";
 import {
@@ -1786,11 +1788,16 @@ const misattributedQuoteSourceRelabelers: Partial<
 
 function annotateEvidenceSupportReview({
   artifact,
+  placeholderTrustedHosts,
   researchInput,
   sectionId,
   shortfall,
 }: {
   artifact: ArtifactEnvelope;
+  // For call sites that intentionally omit researchInput (keeping their
+  // numeric-coherence truth scope unchanged) but still know the runner-owned
+  // trusted hosts for the placeholder-URL strike.
+  placeholderTrustedHosts?: ReadonlySet<string>;
   researchInput?: ResearchInput;
   sectionId: SectionId;
   shortfall?: EvidenceSupportShortfall;
@@ -1828,13 +1835,24 @@ function annotateEvidenceSupportReview({
           stripped: [] as DowngradedVerbatimQuote[],
         };
   const emailScrub = scrubQuoteEmails({ body: verbatimDowngrade.body });
+  // Placeholder-URL strike (run 314d5f02): fabricated placeholder sourceUrls
+  // (example.com, short-digit LinkedIn groups, Reddit pseudo-permalinks,
+  // sequential-digit ids) are relabeled to the evidence-gap marker URL so a
+  // made-up link never ships as provenance; the row and its claim survive.
+  // Hosts vouched for by the runner-owned ResearchInput (subject site, corpus
+  // excerpts, source refs) exempt the example-host shape only.
+  const placeholderUrlStrip = stripPlaceholderSourceUrls({
+    body: emailScrub.body,
+    trustedHosts:
+      placeholderTrustedHosts ?? buildPlaceholderTrustedHosts(researchInput),
+  });
   // Coherence pack (run 8081e646 cold-judge fixes): pipeline vocabulary out of
   // client prose, then narrative numbers must trace to the section's own
   // structured evidence (values, column sums, lengths, group counts) or the
   // sentence goes. Runs before the verification-driven numeric redactor so the
   // table-contradiction class is caught even for claims the verifier graded.
   const jargonScrub = scrubBodyInternalJargon({
-    body: emailScrub.body,
+    body: placeholderUrlStrip.body,
     sectionId,
   });
   const numericCoherence = enforceNumericCoherence({
@@ -1921,6 +1939,7 @@ function annotateEvidenceSupportReview({
     exemplarEcho.stripped.length === 0 &&
     verbatimDowngrade.stripped.length === 0 &&
     emailScrub.stripped.length === 0 &&
+    placeholderUrlStrip.stripped.length === 0 &&
     internalJargonStrikes.length === 0 &&
     numericCoherenceStrikes.length === 0 &&
     namedEntityStrip.stripped.length === 0 &&
@@ -1957,6 +1976,9 @@ function annotateEvidenceSupportReview({
         : {}),
       ...(emailScrub.stripped.length > 0
         ? { scrubbedQuoteEmails: emailScrub.stripped }
+        : {}),
+      ...(placeholderUrlStrip.stripped.length > 0
+        ? { strippedPlaceholderUrls: placeholderUrlStrip.stripped }
         : {}),
       ...(internalJargonStrikes.length > 0
         ? { internalJargonStrikes }
@@ -5521,11 +5543,21 @@ interface BuyerPersonaCandidatePrepass {
 // provenance validator accepts the rows and claim verification can match them.
 const brandedKeywordPrepassDeadlineMs = 20_000;
 
+// One bounded re-attempt after a short delay: a single transient SpyFu failure
+// at t0 must not freeze a "returned no data" gap block into every subsequent
+// prompt for the rest of the run (SpyFu-resilience lane).
+export const brandedKeywordPrepassRetryDelayMs = 8_000;
+
 interface BrandedKeywordPrepass {
   candidateBlock: string;
   events: ActivityEvent[];
   steps: readonly AgentStep[];
 }
+
+type BrandedKeywordMeasuredRow = Extract<
+  z.infer<typeof KeywordVolumeOutputSchema>,
+  { type: "result" }
+>["keywords"][number];
 
 export function buildBrandedKeywordTerms(companyName: string): string[] {
   const brand = companyName.trim().toLowerCase();
@@ -5559,22 +5591,62 @@ export async function buildBrandedKeywordPrepass({
     return undefined;
   }
 
-  const prepassSignal = createTimeoutSignal({
-    parentSignal: input.signal,
-    reasonLabel: "Branded keyword prepass",
-    timeoutMs: brandedKeywordPrepassDeadlineMs,
-  });
-  let call: Awaited<ReturnType<typeof executeVoiceOfCustomerPrepassTool>>;
-  try {
-    call = await executeVoiceOfCustomerPrepassTool({
-      input: { ...input, signal: prepassSignal.signal },
-      researchTools,
-      stepNumber: 0,
-      toolInput: { keywords: terms },
-      toolName: "keyword_volume",
+  const attemptCall = async (
+    stepNumber: number,
+  ): Promise<VoiceOfCustomerToolCallResult | null> => {
+    const prepassSignal = createTimeoutSignal({
+      parentSignal: input.signal,
+      reasonLabel: "Branded keyword prepass",
+      timeoutMs: brandedKeywordPrepassDeadlineMs,
     });
-  } finally {
-    prepassSignal.cleanup();
+    try {
+      return await executeVoiceOfCustomerPrepassTool({
+        input: { ...input, signal: prepassSignal.signal },
+        researchTools,
+        stepNumber,
+        toolInput: { keywords: terms },
+        toolName: "keyword_volume",
+      });
+    } finally {
+      prepassSignal.cleanup();
+    }
+  };
+
+  const measuredRows = (
+    call: VoiceOfCustomerToolCallResult | null,
+  ): BrandedKeywordMeasuredRow[] => {
+    if (call === null) {
+      return [];
+    }
+    const parsed = KeywordVolumeOutputSchema.safeParse(call.output);
+    return parsed.success && parsed.data.type === "result"
+      ? parsed.data.keywords
+      : [];
+  };
+
+  const firstCall = await attemptCall(0);
+  const calls: VoiceOfCustomerToolCallResult[] =
+    firstCall === null ? [] : [firstCall];
+  let rows = measuredRows(firstCall);
+
+  // One delayed re-attempt before committing the gap block: a transient SpyFu
+  // failure (429 burst, cold key) at t0 must not poison the whole section.
+  // Still best-effort — a second miss commits the honest gap block, never a
+  // section failure.
+  if (
+    rows.length === 0 &&
+    getPrepassExecutableTool(researchTools, "keyword_volume") !== null
+  ) {
+    try {
+      await sleepWithAbort(brandedKeywordPrepassRetryDelayMs, input.signal);
+      const retryCall = await attemptCall(1);
+      if (retryCall !== null) {
+        calls.push(retryCall);
+        rows = measuredRows(retryCall);
+      }
+    } catch {
+      // Aborted during the retry delay — keep whatever the first attempt produced.
+    }
   }
 
   const gapBlock = [
@@ -5583,22 +5655,18 @@ export async function buildBrandedKeywordPrepass({
     "State the branded-volume gap honestly in keywordDemand.prose; never estimate branded volumes.",
   ].join("\n");
 
-  if (call === null) {
-    return { candidateBlock: gapBlock, events: [], steps: [] };
-  }
-
-  const events = buildToolEvents({
-    deps,
-    runId: input.runId,
-    sectionId: input.sectionId,
-    step: call.step,
-  });
-  const parsed = KeywordVolumeOutputSchema.safeParse(call.output);
-  const rows =
-    parsed.success && parsed.data.type === "result" ? parsed.data.keywords : [];
+  const events = calls.flatMap((recordedCall) =>
+    buildToolEvents({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      step: recordedCall.step,
+    }),
+  );
+  const steps = calls.map((recordedCall) => recordedCall.step);
 
   if (rows.length === 0) {
-    return { candidateBlock: gapBlock, events, steps: [call.step] };
+    return { candidateBlock: gapBlock, events, steps };
   }
 
   const dateObserved = getNow(deps).toISOString().slice(0, 10);
@@ -5611,7 +5679,7 @@ export async function buildBrandedKeywordPrepass({
     ...rows.map((row) => `- ${row.display}`),
   ].join("\n");
 
-  return { candidateBlock, events, steps: [call.step] };
+  return { candidateBlock, events, steps };
 }
 
 // Competitor review-permalink prepass (competitor landscape only): the W5 VoC
@@ -6242,6 +6310,7 @@ async function buildVerifiedAttemptFromFinalOutput({
     output,
     artifact: annotateEvidenceSupportReview({
       artifact: verdict.committableArtifact,
+      placeholderTrustedHosts: buildPlaceholderTrustedHosts(researchInput),
       sectionId: input.sectionId,
       shortfall: verdict.shortfall,
     }),

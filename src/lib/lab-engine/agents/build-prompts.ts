@@ -174,13 +174,13 @@ function buildCapabilityGapGuidance(
     "Capability gaps:",
     'If a tool call returns `{ type: "gap", reason: "...", message: "..." }`, treat it as a capability gap.',
     "Do not retry the same tool with different inputs unless the gap reason is `rate_limited`.",
-    "Name the gap explicitly in section prose using the format `evidence gap: <human-readable reason>`.",
+    "Name the gap in section prose as missing MARKET evidence using the format `evidence gap: <missing market evidence>` (e.g. `evidence gap: no public pricing found for X`) — never name tools, credentials, budgets, rate limits, prepass mechanics, or internal stage names in section prose; tool diagnostics belong only in structured gap fields.",
     "Continue producing the best honest artifact from the evidence that remains.",
     ...buildCapabilityGapToolHints(definition),
     "",
     "Budget note:",
     "`web_search` and SDK tools share the generic `maxExternalLookups` pool. Competitor Landscape also receives an additive reserved ad-tool pool for `adlibrary`, `google_ads`, `meta_ads`, and `linkedin_ads`; other sections should assume only the shared generic pool.",
-    `When a tool call is rejected because the applicable pool is exhausted, treat the returned \`rate_limited\` gap as evidence that the surface was capped, not as ${getCapabilityGapSignalLabel(definition)}.`,
+    `When a tool call is rejected because the applicable pool is exhausted, treat the returned \`budget_exhausted\` gap as evidence that the surface was capped by section budget — do not narrate this in prose, and never read it as ${getCapabilityGapSignalLabel(definition)}.`,
     "",
   ];
 }
