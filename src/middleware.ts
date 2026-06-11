@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/share/(.*)", // Share token lookup is public
   "/api/landing-events", // Public tracker ingest; route enforces origin and event registry
   "/api/research-v2/review-section", // Internal x-internal-key auth (detached review kickoff) — Clerk 404s it otherwise
+  "/api/research-v2/executive-brief", // Internal x-internal-key auth (W3 brief kickoff) — Clerk 404s it otherwise
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
