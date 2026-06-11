@@ -187,6 +187,12 @@ import {
   type StrippedNamedEntityMetric,
 } from "./verification/creative-truth-gate";
 import {
+  downgradeUnpermalinkedVerbatimQuotes,
+  scrubQuoteEmails,
+  stripExemplarEchoes,
+  type DowngradedVerbatimQuote,
+} from "./verification/provenance-gate";
+import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
 } from "./run-section-keyword-results";
@@ -1787,15 +1793,30 @@ function annotateEvidenceSupportReview({
     body: strip.body,
     sectionId,
   });
+  // Provenance gate (run 8081e646 cold-judge fixes): SKILL.md exemplar echoes
+  // out of deployable copy, index-page "verbatim" quotes downgraded to
+  // explicit paraphrased patterns, emails scrubbed from quote cards.
+  const exemplarEcho = stripExemplarEchoes({
+    body: exemplarDrop.body,
+    sectionId,
+  });
+  const verbatimDowngrade =
+    sectionId === "positioningCompetitorLandscape"
+      ? downgradeUnpermalinkedVerbatimQuotes({ body: exemplarEcho.body })
+      : {
+          body: exemplarEcho.body,
+          stripped: [] as DowngradedVerbatimQuote[],
+        };
+  const emailScrub = scrubQuoteEmails({ body: verbatimDowngrade.body });
   const namedEntityStrip =
     sectionId === "positioningPaidMediaPlan" &&
     artifact.verification !== undefined
       ? stripUngroundedNamedEntityMetrics({
-          body: exemplarDrop.body,
+          body: emailScrub.body,
           verification: artifact.verification,
         })
       : {
-          body: exemplarDrop.body,
+          body: emailScrub.body,
           stripped: [] as StrippedNamedEntityMetric[],
         };
   const numericStrip =
@@ -1828,6 +1849,9 @@ function annotateEvidenceSupportReview({
     provenanceFlags.length === 0 &&
     strip.stripped.length === 0 &&
     exemplarDrop.stripped.length === 0 &&
+    exemplarEcho.stripped.length === 0 &&
+    verbatimDowngrade.stripped.length === 0 &&
+    emailScrub.stripped.length === 0 &&
     namedEntityStrip.stripped.length === 0 &&
     strippedNumericClaims.length === 0 &&
     strippedVerificationMarkers.length === 0
@@ -1853,6 +1877,15 @@ function annotateEvidenceSupportReview({
         : {}),
       ...(exemplarDrop.stripped.length > 0
         ? { droppedConfessedExemplars: exemplarDrop.stripped }
+        : {}),
+      ...(exemplarEcho.stripped.length > 0
+        ? { strippedExemplarEchoes: exemplarEcho.stripped }
+        : {}),
+      ...(verbatimDowngrade.stripped.length > 0
+        ? { downgradedVerbatimQuotes: verbatimDowngrade.stripped }
+        : {}),
+      ...(emailScrub.stripped.length > 0
+        ? { scrubbedQuoteEmails: emailScrub.stripped }
         : {}),
       ...(namedEntityStrip.stripped.length > 0
         ? { strippedNamedEntityMetrics: namedEntityStrip.stripped }

@@ -1,0 +1,435 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  downgradeUnpermalinkedVerbatimQuotes,
+  scrubQuoteEmails,
+  stripExemplarEchoes,
+} from "../provenance-gate";
+
+// Fixtures mirror run 8081e646 (Airtable E2E, 2026-06-11): the cold judge
+// found Ramp-era exemplar copy inside deployable paid-media fields, an
+// exemplar SOC 2 question inside demand-intent question mining, 4 of 5
+// competitor "verbatim quotes" sitting on index pages, and an employee email
+// inside a VoC quote.
+
+describe("stripExemplarEchoes", (): void => {
+  it("strips the leaked OCR-receipt sentence from paid-media creative copy", (): void => {
+    const body = {
+      audienceTypes: [
+        {
+          detail:
+            "Airtable matches transactions with receipts via OCR — closing from 8 days to 3. Retarget visitors who viewed the pricing page.",
+          grounding: "VoC section",
+          name: "Warm retargeting",
+        },
+      ],
+      campaignOverview: {
+        prose:
+          "Airtable's connected-apps positioning targets operations teams stuck between spreadsheets and point tools.",
+      },
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningPaidMediaPlan",
+    });
+
+    expect(result.stripped).toHaveLength(1);
+    expect(result.stripped[0]?.motif).toBe("fintech-receipt-ocr");
+    const audienceTypes = result.body.audienceTypes as Array<
+      Record<string, unknown>
+    >;
+    expect(audienceTypes[0]?.detail).toBe(
+      "Retarget visitors who viewed the pricing page.",
+    );
+    expect(audienceTypes[0]?.grounding).toBe("UNVERIFIED");
+  });
+
+  it("replaces a fully-leaked hook with the gap line", (): void => {
+    const body = {
+      creativeRequirements: [
+        {
+          grounding: "DemandIntent",
+          hook: "Stop chasing your team's receipts — close the month in 3 days.",
+        },
+      ],
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningPaidMediaPlan",
+    });
+
+    const rows = result.body.creativeRequirements as Array<
+      Record<string, unknown>
+    >;
+    expect(rows[0]?.hook).toBe(
+      "evidence gap: copy removed — exemplar-derived content could not be traced to this subject's research evidence",
+    );
+    expect(rows[0]?.grounding).toBe("UNVERIFIED");
+  });
+
+  it("keeps receipt language when structured evidence supports the domain", (): void => {
+    const body = {
+      audienceTypes: [
+        {
+          detail: "Finance teams drowning in receipts at month-end close.",
+          grounding: "VoC section",
+        },
+      ],
+      vocEvidence: [
+        {
+          verbatimText:
+            "Every month-end close I'm chasing receipts across three systems.",
+        },
+      ],
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningPaidMediaPlan",
+    });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+
+  it("does not let model narrative vouch for a motif (self-vouching guard)", (): void => {
+    const body = {
+      campaignOverview: {
+        prose:
+          "The plan leans on receipt-chasing pain because buyers bleed hours at month-end close.",
+      },
+      creativeFramework: [
+        {
+          grounding:
+            "mechanism (OCR) is product capability from the subject's own documentation",
+          hook: "Stop chasing receipts — close the month in 3 days.",
+        },
+      ],
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningPaidMediaPlan",
+    });
+
+    const fields = result.stripped.map((item) => item.field);
+    expect(fields).toContain("body.creativeFramework[0].hook");
+    expect(fields).toContain("body.creativeFramework[0].grounding");
+    expect(fields).toContain("body.campaignOverview.prose");
+    const rows = result.body.creativeFramework as Array<
+      Record<string, unknown>
+    >;
+    expect(rows[0]?.grounding).toBe("UNVERIFIED");
+  });
+
+  it("strips assertive echo narration from prose but keeps honest negations", (): void => {
+    const body = {
+      questionMining: {
+        prose:
+          "The highest-frequency buyer question cluster is cost-anxiety: 'how much did your soc 2 type 2 actually cost all-in'. Zero SOC 2 questions were observed for this subject's own category. Pricing anxiety dominates instead.",
+        questions: [],
+      },
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningDemandIntent",
+    });
+
+    expect(result.stripped).toHaveLength(1);
+    const mining = result.body.questionMining as Record<string, unknown>;
+    expect(mining.prose).toBe(
+      "Zero SOC 2 questions were observed for this subject's own category. Pricing anxiety dominates instead.",
+    );
+  });
+
+  it("is not shielded by a negation far from the motif (run 8081e646 sentence)", (): void => {
+    const body = {
+      questionMining: {
+        prose:
+          "The highest-frequency buyer question cluster is cost-anxiety: 'how much did your soc 2 type 2 actually cost all-in' and 'airtable per user pricing model is too high' surface as recurring Reddit threads in r/Airtable, not support tickets. These cost questions are creation-venue signals.",
+        questions: [],
+      },
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningDemandIntent",
+    });
+
+    expect(result.stripped).toHaveLength(1);
+    expect(result.stripped[0]?.motif).toBe("compliance-soc2");
+    const mining = result.body.questionMining as Record<string, unknown>;
+    expect(mining.prose).toBe(
+      "These cost questions are creation-venue signals.",
+    );
+  });
+
+  it("relabels the exemplar SOC 2 question in demand-intent question mining", (): void => {
+    const body = {
+      questionMining: {
+        prose: "Cost anxiety dominates pre-category questions.",
+        questions: [
+          {
+            question:
+              "how much did your soc 2 type 2 actually cost all-in? auditor quotes are all over the place",
+            sourceUrl: "https://www.reddit.com/r/startups/comments/abc123/x/",
+            surface: "reddit",
+          },
+          {
+            question: "is airtable worth it for a small ops team?",
+            sourceUrl: "https://www.reddit.com/r/Airtable/comments/zzz999/x/",
+            surface: "reddit",
+          },
+        ],
+      },
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningDemandIntent",
+    });
+
+    expect(result.stripped).toHaveLength(1);
+    expect(result.stripped[0]?.motif).toBe("compliance-soc2");
+    const mining = result.body.questionMining as Record<string, unknown>;
+    const questions = mining.questions as Array<Record<string, unknown>>;
+    expect(questions[0]?.question).toBe(
+      "evidence gap: question removed — exemplar-derived question, not observed for this subject",
+    );
+    expect(questions[1]?.question).toBe(
+      "is airtable worth it for a small ops team?",
+    );
+  });
+
+  it("keeps SOC 2 questions for a subject whose evidence is about SOC 2", (): void => {
+    const body = {
+      keywordDemand: {
+        rows: [{ keyword: "soc 2 compliance software", monthlyVolume: "1,300" }],
+      },
+      questionMining: {
+        questions: [
+          {
+            question: "how much did your soc 2 type 2 actually cost all-in?",
+            surface: "reddit",
+          },
+        ],
+      },
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningDemandIntent",
+    });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+
+  it("strips the exemplar ERP-stack pair but keeps a single integration mention", (): void => {
+    const body = {
+      audienceTypes: [
+        {
+          detail:
+            "Worried about ERP integration? Syncs with NetSuite, QuickBooks, Xero, and Sage. Airtable connects to your existing stack.",
+        },
+        {
+          detail: "Teams already exporting reports to QuickBooks each week.",
+        },
+      ],
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningPaidMediaPlan",
+    });
+
+    expect(result.stripped).toHaveLength(1);
+    expect(result.stripped[0]?.motif).toBe("fintech-erp-stack");
+    const audienceTypes = result.body.audienceTypes as Array<
+      Record<string, unknown>
+    >;
+    expect(audienceTypes[0]?.detail).toBe(
+      "Worried about ERP integration? Airtable connects to your existing stack.",
+    );
+    expect(audienceTypes[1]?.detail).toBe(
+      "Teams already exporting reports to QuickBooks each week.",
+    );
+  });
+
+  it("does not touch sections without deployable-copy surfaces", (): void => {
+    const body = {
+      painLanguage: {
+        prose: "Buyers complain about per-seat pricing and receipt chaos.",
+      },
+    };
+
+    const result = stripExemplarEchoes({
+      body,
+      sectionId: "positioningVoiceOfCustomer",
+    });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+});
+
+describe("downgradeUnpermalinkedVerbatimQuotes", (): void => {
+  // The five real publicWeaknesses items from run 8081e646.
+  const buildBody = (): Record<string, unknown> => ({
+    publicWeaknesses: {
+      items: [
+        {
+          competitor: "Smartsheet",
+          source: "G2 review snippet (retrieved via search)",
+          sourceUrl: "https://www.g2.com/products/smartsheet/reviews",
+          verbatimQuote:
+            "took us almost a month before the numbers matched our store data",
+          whyItMatters: "Onboarding friction.",
+        },
+        {
+          competitor: "Notion",
+          source: "Reddit r/Airtable thread",
+          sourceUrl:
+            "https://www.reddit.com/r/Airtable/comments/1r1wice/looking_for_airtable_alternatives_for_small/",
+          verbatimQuote:
+            "Notion is great for docs but terrible for structured data",
+          whyItMatters: "Structured-data gap.",
+        },
+        {
+          competitor: "Monday.com",
+          source: "G2 review snippet (retrieved via search)",
+          sourceUrl: "https://www.g2.com/products/monday-com/reviews",
+          verbatimQuote:
+            "Monday.com is great for visual tracking but falls apart once you need reporting",
+          whyItMatters: "Reporting ceiling.",
+        },
+        {
+          competitor: "ClickUp",
+          source: "Reddit community thread (retrieved via search)",
+          sourceUrl: "https://www.reddit.com/r/clickup/",
+          verbatimQuote:
+            "ClickUp tries to do everything and as a result nothing works perfectly",
+          whyItMatters: "Sprawl complaint.",
+        },
+        {
+          competitor: "Smartsheet",
+          source: "Smartsheet pricing page analysis (SmartSuite blog)",
+          sourceUrl: "https://www.smartsuite.com/blog/smartsheet-pricing",
+          verbatimQuote:
+            "Smartsheet Business requires a minimum of 3 users at $19/seat",
+          whyItMatters: "Pricing floor.",
+        },
+      ],
+      prose: "Public weakness patterns across the competitive set.",
+    },
+  });
+
+  it("downgrades index-page and vendor-blog quotes, keeps thread permalinks", (): void => {
+    const result = downgradeUnpermalinkedVerbatimQuotes({ body: buildBody() });
+
+    expect(result.stripped).toHaveLength(4);
+    expect(result.stripped.map((item) => item.field)).toEqual([
+      "body.publicWeaknesses.items[0].verbatimQuote",
+      "body.publicWeaknesses.items[2].verbatimQuote",
+      "body.publicWeaknesses.items[3].verbatimQuote",
+      "body.publicWeaknesses.items[4].verbatimQuote",
+    ]);
+
+    const weaknesses = result.body.publicWeaknesses as Record<string, unknown>;
+    const items = weaknesses.items as Array<Record<string, unknown>>;
+    expect(items[0]?.verbatimQuote).toMatch(
+      /^Paraphrased pattern \(no per-review permalink\): took us almost/,
+    );
+    expect(items[0]?.source).toMatch(/page-level source/);
+    // The real Reddit thread permalink survives untouched.
+    expect(items[1]?.verbatimQuote).toBe(
+      "Notion is great for docs but terrible for structured data",
+    );
+    expect(items[1]?.source).toBe("Reddit r/Airtable thread");
+  });
+
+  it("keeps a true per-review permalink verbatim", (): void => {
+    const body = {
+      publicWeaknesses: {
+        items: [
+          {
+            competitor: "Smartsheet",
+            source: "G2 review",
+            sourceUrl:
+              "https://www.g2.com/products/smartsheet/reviews/smartsheet-review-10386642",
+            verbatimQuote: "the formula syntax fights you at every step",
+            whyItMatters: "Formula friction.",
+          },
+        ],
+        prose: "x",
+      },
+    };
+
+    const result = downgradeUnpermalinkedVerbatimQuotes({ body });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+
+  it("is idempotent for already-downgraded quotes", (): void => {
+    const first = downgradeUnpermalinkedVerbatimQuotes({ body: buildBody() });
+    const second = downgradeUnpermalinkedVerbatimQuotes({ body: first.body });
+
+    expect(second.stripped).toHaveLength(0);
+    expect(second.body).toBe(first.body);
+  });
+
+  it("ignores bodies without publicWeaknesses", (): void => {
+    const body = { competitorSet: { competitors: [], prose: "x" } };
+
+    const result = downgradeUnpermalinkedVerbatimQuotes({ body });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+});
+
+describe("scrubQuoteEmails", (): void => {
+  it("replaces an email address inside a quote card and records field + count only", (): void => {
+    const body = {
+      retentionSignals: {
+        quotes: [
+          {
+            source: "Trustpilot",
+            verbatimText:
+              "Support never replied — I emailed riley.sparkman@airtable.com twice and got silence.",
+          },
+        ],
+      },
+    };
+
+    const result = scrubQuoteEmails({ body });
+
+    expect(result.stripped).toEqual([
+      {
+        count: 1,
+        field: "body.retentionSignals.quotes[0].verbatimText",
+      },
+    ]);
+    const signals = result.body.retentionSignals as Record<string, unknown>;
+    const quotes = signals.quotes as Array<Record<string, unknown>>;
+    expect(quotes[0]?.verbatimText).toBe(
+      "Support never replied — I emailed [email removed] twice and got silence.",
+    );
+    expect(JSON.stringify(result.stripped)).not.toContain("airtable.com");
+  });
+
+  it("leaves emails outside quote-card fields alone", (): void => {
+    const body = {
+      contactChannel: { prose: "Press contact: press@example.com" },
+    };
+
+    const result = scrubQuoteEmails({ body });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+});

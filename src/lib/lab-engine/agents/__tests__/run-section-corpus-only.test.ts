@@ -1225,12 +1225,22 @@ describe('runSection corpus-only mode', (): void => {
       }),
     );
     // The lie never ships: the committed body no longer asserts G2 — the quote
-    // is kept but relabeled to the host that actually served it.
+    // is kept but relabeled to the host that actually served it, and because
+    // that host is a page-level source (not a per-review permalink) the
+    // provenance gate also downgrades the verbatim claim to an explicit
+    // paraphrased pattern.
     const committedBody = record.sections.positioningCompetitorLandscape
       ?.artifact?.body as {
-      publicWeaknesses: { items: Array<{ source: string }> };
+      publicWeaknesses: {
+        items: Array<{ source: string; verbatimQuote: string }>;
+      };
     };
-    expect(committedBody.publicWeaknesses.items[0]?.source).toBe('baserow.io');
+    expect(committedBody.publicWeaknesses.items[0]?.source).toBe(
+      'baserow.io — page-level source; not verifiable as verbatim',
+    );
+    expect(committedBody.publicWeaknesses.items[0]?.verbatimQuote).toBe(
+      'Paraphrased pattern (no per-review permalink): Clean up your CRM before pipeline review',
+    );
     expect(record.sections.positioningCompetitorLandscape?.status).toBe(
       'completed',
     );
