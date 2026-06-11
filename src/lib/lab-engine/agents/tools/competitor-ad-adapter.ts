@@ -2,6 +2,7 @@ import {
   adCreativeFingerprint,
   type CompetitorAdEvidenceGroup,
 } from "../../artifacts/schemas/competitor-landscape";
+import { getRegistrableDomain } from "../../domain-utils";
 import { NOT_PROBED_THIS_RUN_PHRASE } from "../../sections/sentinels";
 import type { AgentStep } from "../section-agent";
 import { detectAdLanguage } from "./ad-language";
@@ -1133,4 +1134,32 @@ export function summarizeCompetitorAdEvidenceGroups(
       ? `Evidence gaps are preserved in advertiserGroups.dataGaps and advertiserGroups.sourceErrors.`
       : "No ad-library data gaps were reported by the normalized tool results.",
   ].join(" ");
+}
+
+// Marks the subject's own group on the wall (the subject is probed alongside
+// competitors so its live ad presence is first-class evidence). Registrable
+// domain equality is the primary signal; trimmed case-insensitive advertiser
+// name equality is the fallback for domainless gap groups.
+export function markSubjectAdvertiserGroups({
+  groups,
+  subjectDomain,
+  subjectName,
+}: {
+  groups: readonly CompetitorAdEvidenceGroup[];
+  subjectDomain: string | null;
+  subjectName: string;
+}): CompetitorAdEvidenceGroup[] {
+  const normalizedName = subjectName.trim().toLowerCase();
+
+  return groups.map((group) => {
+    const domainMatch =
+      subjectDomain !== null &&
+      group.domain !== null &&
+      getRegistrableDomain(group.domain) === subjectDomain;
+    const nameMatch =
+      normalizedName.length > 0 &&
+      group.advertiserName.trim().toLowerCase() === normalizedName;
+
+    return domainMatch || nameMatch ? { ...group, isSubject: true } : group;
+  });
 }

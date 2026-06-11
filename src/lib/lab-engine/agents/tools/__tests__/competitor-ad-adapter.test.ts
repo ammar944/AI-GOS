@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { NOT_PROBED_THIS_RUN_PHRASE } from "../../../sections/sentinels";
 import {
   buildCompetitorAdEvidenceGroups,
+  markSubjectAdvertiserGroups,
   QUARANTINE_ONLY_AD_EVIDENCE_GAP_PREFIX,
 } from "../competitor-ad-adapter";
+import type { CompetitorAdEvidenceGroup } from "../../../artifacts/schemas/competitor-landscape";
 
 describe("buildCompetitorAdEvidenceGroups", (): void => {
   it("sets the group domain from the matching ad tool input", (): void => {
@@ -632,5 +634,39 @@ describe("competitor ad verification tiering", (): void => {
     expect(group.creatives[0]?.isEnglish).toBe(false);
     expect(group.creatives[0]?.verified).toBe(false);
     expect(group.identityConfidence).toBe("low");
+  });
+});
+
+describe("markSubjectAdvertiserGroups", () => {
+  const stubGroup = (
+    advertiserName: string,
+    domain: string | null,
+  ): CompetitorAdEvidenceGroup =>
+    ({ advertiserName, domain }) as unknown as CompetitorAdEvidenceGroup;
+
+  it("flags the subject's group by registrable domain or trimmed name, leaving competitors untouched", () => {
+    const marked = markSubjectAdvertiserGroups({
+      groups: [
+        stubGroup("Airtable", "www.airtable.com"),
+        stubGroup("Notion", "notion.so"),
+        stubGroup(" airtable ", null),
+      ],
+      subjectDomain: "airtable.com",
+      subjectName: "Airtable",
+    });
+
+    expect(marked[0]?.isSubject).toBe(true);
+    expect(marked[1]?.isSubject).toBeUndefined();
+    expect(marked[2]?.isSubject).toBe(true);
+  });
+
+  it("marks nothing when neither domain nor name matches", () => {
+    const marked = markSubjectAdvertiserGroups({
+      groups: [stubGroup("Notion", "notion.so")],
+      subjectDomain: "airtable.com",
+      subjectName: "Airtable",
+    });
+
+    expect(marked[0]?.isSubject).toBeUndefined();
   });
 });

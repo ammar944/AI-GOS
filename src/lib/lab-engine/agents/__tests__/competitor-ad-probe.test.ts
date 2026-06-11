@@ -248,13 +248,15 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     });
 
     expect(steps.map((step) => step.stepNumber)).toEqual([0, 1, 2]);
+    // The subject always rides first in the advertiser slice (its own live ads
+    // are first-class evidence), so the budget covers subject + two rivals.
     expect(
       steps.map((step) => {
         const firstCall = step.toolCalls[0];
         const input = firstCall?.input as { advertiser?: unknown } | undefined;
         return input?.advertiser;
       }),
-    ).toEqual(['FirstRival', 'SecondRival', 'ThirdRival']);
+    ).toEqual(['SaaSLaunch', 'FirstRival', 'SecondRival']);
     expect(
       steps.flatMap((step) => step.toolResults.map((result) => result.output)),
     ).toHaveLength(6);
@@ -267,9 +269,10 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     expect(budget.remaining()).toBe(0);
   });
 
-  it('seeds the probe advertiser list from competitorSeeds when competitorAds is empty', async (): Promise<void> => {
-    // Production condition: corpus builder leaves competitorAds empty and feeds
-    // competitorSeeds (parsed from the onboarding topCompetitors brief field).
+  it('probes the subject first with a domain pinned from the brief URL', async (): Promise<void> => {
+    // The subject's own ad presence is first-class evidence: it always wins
+    // the advertiser-limit slice, and its domain comes straight from the brief
+    // websiteUrl so identity is domain-corroborated without the resolver.
     const budget = new SectionToolBudget(6, 2);
     const observe = { concurrent: 0, maxConcurrent: 0 };
     const researchTools: Record<string, unknown> = {
@@ -291,12 +294,56 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     });
 
     expect(steps).toHaveLength(1);
+    const firstCall = steps[0]?.toolCalls[0];
+    const input = firstCall?.input as
+      | { advertiser?: unknown; domain?: unknown }
+      | undefined;
+    expect(input?.advertiser).toBe('SaaSLaunch');
+    expect(input?.domain).toBe('example.com');
     const outputs = steps[0]?.toolResults.map((result) => result.output) ?? [];
     expect(outputs).toHaveLength(2);
-    // Both ad tools fetched real rows for the FIRST seed (seeds win the slice).
     expect(outputs.every(isAdRow)).toBe(true);
+  });
+
+  it('seeds the probe advertiser list from competitorSeeds when competitorAds is empty', async (): Promise<void> => {
+    // Production condition: corpus builder leaves competitorAds empty and feeds
+    // competitorSeeds (parsed from the onboarding topCompetitors brief field).
+    // Seeds follow the subject in the slice.
+    const budget = new SectionToolBudget(6, 2);
+    const observe = { concurrent: 0, maxConcurrent: 0 };
+    const researchTools: Record<string, unknown> = {
+      google_ads: budgetWrappedAdTool('google_ads', budget, observe),
+      meta_ads: budgetWrappedAdTool('meta_ads', budget, observe),
+    };
+
+    const steps = await runCompetitorAdProbeSteps({
+      maxAdvertisers: 2,
+      researchInput: {
+        ...saaslaunchResearchInput,
+        competitorAds: [],
+        competitorSeeds: [
+          { name: 'SeededRival', domain: 'seededrival.com' },
+          { name: 'SecondRival' },
+        ],
+      },
+      researchTools,
+    });
+
+    expect(steps).toHaveLength(2);
+    const probedAdvertisers = steps.map((step) => {
+      const input = step.toolCalls[0]?.input as
+        | { advertiser?: unknown }
+        | undefined;
+      return input?.advertiser;
+    });
+    expect(probedAdvertisers).toEqual(['SaaSLaunch', 'SeededRival']);
+    const seededOutputs =
+      steps[1]?.toolResults.map((result) => result.output) ?? [];
+    expect(seededOutputs.every(isAdRow)).toBe(true);
     expect(
-      (outputs as AdRow[]).every((row) => row.advertiser === 'SeededRival'),
+      (seededOutputs as AdRow[]).every(
+        (row) => row.advertiser === 'SeededRival',
+      ),
     ).toBe(true);
   });
 });
@@ -874,13 +921,16 @@ describe('runSection post-draft competitor ad rescue probe', (): void => {
       },
     );
 
-    // The rescue probed EXACTLY the three ADVERTISABLE discovered competitors:
-    // status-quo and DIY entries are buyer workflows, not advertisers, and are
-    // type-filtered out of the probe (W5 raised the cap to the full set).
+    // The prepass probed the subject (always seeded), then the rescue probed
+    // EXACTLY the three ADVERTISABLE discovered competitors: status-quo and
+    // DIY entries are buyer workflows, not advertisers, and are type-filtered
+    // out of the probe (W5 raised the cap to the full set).
     const probedAdvertisers = [...new Set(calls.map((call) => call.advertiser))]
       .slice()
       .sort();
-    expect(probedAdvertisers).toEqual(discoveredTopThree.slice().sort());
+    expect(probedAdvertisers).toEqual(
+      [...discoveredTopThree, 'SaaSLaunch'].sort(),
+    );
     expect(probedAdvertisers).not.toContain('GrowthOps Studio');
     expect(probedAdvertisers).not.toContain('Spreadsheet Pipeline Review');
 
@@ -930,9 +980,12 @@ describe('runSection post-draft competitor ad rescue probe', (): void => {
       },
     );
 
-    // Only the seeded prepass probe ran: no second probe for discovered names,
-    // even though the answer payload contains five discovered competitors.
-    expect([...new Set(calls.map((call) => call.advertiser))]).toEqual(['Gong']);
+    // Only the seeded prepass probe ran (subject + the seeded competitor): no
+    // second probe for discovered names, even though the answer payload
+    // contains five discovered competitors.
+    expect(
+      [...new Set(calls.map((call) => call.advertiser))].slice().sort(),
+    ).toEqual(['Gong', 'SaaSLaunch']);
 
     assertCompetitorLandscapeBody(result.artifact.body);
     const groups = result.artifact.body.adEvidence.advertiserGroups;
@@ -988,7 +1041,9 @@ describe('runSection post-draft competitor ad rescue probe', (): void => {
     const probedAdvertisers = [...new Set(calls.map((call) => call.advertiser))]
       .slice()
       .sort();
-    expect(probedAdvertisers).toEqual(discoveredTopThree.slice().sort());
+    expect(probedAdvertisers).toEqual(
+      [...discoveredTopThree, 'SaaSLaunch'].sort(),
+    );
 
     assertCompetitorLandscapeBody(result.artifact.body);
     const groups = result.artifact.body.adEvidence.advertiserGroups;

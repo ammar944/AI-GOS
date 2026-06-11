@@ -252,6 +252,10 @@ export const competitorAdEvidenceGroupSchema = z
     // (low verifiedCount + high quarantinedCount) directly from the committed
     // artifact instead of inferring it. Optional for pre-rebuild artifacts.
     verifiedCount: z.number().int().nonnegative().optional(),
+    // True when this group is the SUBJECT's own ad presence — the subject is
+    // probed alongside competitors so the wall answers "what is the subject
+    // running right now". Optional for pre-rebuild artifacts.
+    isSubject: z.boolean().optional(),
   })
   .strict();
 

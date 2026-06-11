@@ -155,6 +155,7 @@ import {
 import {
   buildCompetitorAdEvidenceGroups,
   buildEmptyCompetitorAdEvidenceGapGroup,
+  markSubjectAdvertiserGroups,
   summarizeCompetitorAdEvidenceGroups,
   textReconcilesWithCompetitorAdTopicContext,
 } from "./tools/competitor-ad-adapter";
@@ -3619,6 +3620,21 @@ function collectCompetitorAdProbeAdvertisers(
 ): readonly CompetitorAdProbeAdvertiser[] {
   const advertisers = new Map<string, CompetitorAdProbeAdvertiser>();
 
+  // The SUBJECT's own live ads are first-class evidence (the minute-one media
+  // buyer question: "what is the subject running right now?"). Inserted first
+  // so the subject always wins the advertiser-limit slice, with its domain
+  // pinned from the brief URL — identity is domain-corroborated by
+  // construction, never resolver-dependent.
+  const subjectName = researchInput.company.name.trim();
+  const subjectDomain = getRegistrableDomain(researchInput.company.websiteUrl);
+
+  if (subjectName.length > 0) {
+    advertisers.set(subjectName.toLowerCase(), {
+      advertiser: subjectName,
+      ...(subjectDomain === null ? {} : { domain: subjectDomain }),
+    });
+  }
+
   // Brief-derived competitor seeds take priority (inserted first, so they win
   // the advertiser-limit slice). competitorAds is fixture/preview context.
   for (const seed of researchInput.competitorSeeds ?? []) {
@@ -4417,10 +4433,14 @@ async function buildAnswerToolAdEvidence({
       step,
     }),
   );
-  const normalizedAdEvidenceGroups = buildCompetitorAdEvidenceGroups({
-    steps: adProbeSteps,
-    observedAt: getNow(deps).toISOString(),
-    topicContext: buildCompetitorAdTopicContext(researchInput),
+  const normalizedAdEvidenceGroups = markSubjectAdvertiserGroups({
+    groups: buildCompetitorAdEvidenceGroups({
+      steps: adProbeSteps,
+      observedAt: getNow(deps).toISOString(),
+      topicContext: buildCompetitorAdTopicContext(researchInput),
+    }),
+    subjectDomain: getRegistrableDomain(researchInput.company.websiteUrl),
+    subjectName: researchInput.company.name,
   });
 
   return { adProbeSteps, events, normalizedAdEvidenceGroups };
@@ -4478,16 +4498,17 @@ function extractDiscoveredCompetitorAdvertisers(
 }
 
 // Post-draft rescue probe (competitor landscape only). When the GTM brief gave
-// zero competitor seeds, the deterministic ad prepass probed nothing — but the
-// section agent typically DISCOVERS real competitors while drafting (runs
-// f06333b6 + 0eeebd93 shipped a gap-only wall despite a populated
+// zero competitor seeds, the deterministic ad prepass probed no COMPETITOR —
+// but the section agent typically DISCOVERS real competitors while drafting
+// (runs f06333b6 + 0eeebd93 shipped a gap-only wall despite a populated
 // competitorSet). Rescue = run those discovered advertisers through the same
 // deterministic probe once, post-loop, and hand the steps/groups back to the
-// caller's EXISTING merge path. Fires only in the starved-seed case: a prepass
-// that RAN always emits >=1 step (even with 0 ads found, or with the ad tools
-// missing), so zero prepass steps <=> getCompetitorAdProbeAdvertisers() was
-// empty AND google+meta tools are available. With brief seeds present this
-// returns undefined and behavior is byte-identical to before.
+// caller's EXISTING merge path. Fires only in the starved-seed case. The
+// subject is now always seeded into the prepass (its own ads are first-class
+// evidence), so "starved" means the prepass probed nobody EXCEPT the subject —
+// a subject-only prepass must still rescue discovered competitors. With brief
+// seeds present this returns undefined and behavior is byte-identical to
+// before.
 async function runCompetitorAdRescueProbe({
   answerInput,
   deps,
@@ -4516,9 +4537,34 @@ async function runCompetitorAdRescueProbe({
     return undefined;
   }
 
-  // Only the starved-seed case: never a second probe when the first probe ran,
-  // even if it found 0 ads (those gaps are already honest evidence).
-  if (prepassAdProbeSteps.length > 0) {
+  // Only the starved-seed case: never a second probe when the first probe ran
+  // against a real competitor, even if it found 0 ads (those gaps are already
+  // honest evidence). A prepass that probed only the SUBJECT does not count —
+  // the wall would still carry zero competitor evidence without the rescue.
+  const normalizedSubjectName = researchInput.company.name.trim().toLowerCase();
+  const advertiserOfToolCall = (callInput: unknown): string | undefined => {
+    if (
+      typeof callInput === "object" &&
+      callInput !== null &&
+      typeof (callInput as { advertiser?: unknown }).advertiser === "string"
+    ) {
+      return (callInput as { advertiser: string }).advertiser;
+    }
+
+    return undefined;
+  };
+  const prepassProbedCompetitor = prepassAdProbeSteps.some((step) =>
+    step.toolCalls.some((toolCall) => {
+      const advertiser = advertiserOfToolCall(toolCall.input);
+
+      return (
+        advertiser !== undefined &&
+        advertiser.trim().toLowerCase() !== normalizedSubjectName
+      );
+    }),
+  );
+
+  if (prepassProbedCompetitor) {
     return undefined;
   }
 
