@@ -134,6 +134,7 @@ import {
   type VoiceOfCustomerAcquisitionLedgerRow,
 } from "./voice-of-customer-acquisition-ledger";
 import { synthesizeVoiceOfCustomerFromCandidates } from "./voice-of-customer-synthesis";
+import { buildAdEvidenceWallDigestStep } from "./ad-evidence-wall-digest";
 import {
   VOC_MIN_DOMAINS,
   VOC_MIN_QUOTES,
@@ -5474,23 +5475,35 @@ function buildMergedAnswerToolAdEvidenceGroups({
 }
 
 function buildVerifierEvidenceSteps({
+  adEvidenceGroups,
   adProbeSteps,
   input,
   modelSteps,
 }: {
+  adEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   adProbeSteps?: readonly AgentStep[];
   input: RunSectionInput;
   modelSteps: readonly AgentStep[];
 }): readonly AgentStep[] {
-  if (
-    input.sectionId !== "positioningCompetitorLandscape" ||
-    adProbeSteps === undefined ||
-    adProbeSteps.length === 0
-  ) {
+  if (input.sectionId !== "positioningCompetitorLandscape") {
     return modelSteps;
   }
 
-  return [...modelSteps, ...adProbeSteps];
+  // W5 provenance bridge: the body's wall copy cites counts/URLs measured by
+  // the deterministic wall builder, not present verbatim in any per-platform
+  // probe result — the digest step makes honest wall claims verifiable.
+  const digestStep = buildAdEvidenceWallDigestStep(adEvidenceGroups ?? []);
+  const probeSteps = adProbeSteps ?? [];
+
+  if (probeSteps.length === 0 && digestStep === undefined) {
+    return modelSteps;
+  }
+
+  return [
+    ...modelSteps,
+    ...probeSteps,
+    ...(digestStep === undefined ? [] : [digestStep]),
+  ];
 }
 
 
@@ -5865,6 +5878,7 @@ async function buildAnswerToolAttempt({
       output,
       researchInput,
       verifierSteps: buildVerifierEvidenceSteps({
+        adEvidenceGroups: normalizedAdEvidenceGroups,
         adProbeSteps,
         input,
         modelSteps,
@@ -6165,6 +6179,7 @@ async function buildStructuredBodyAttempt({
       output,
       researchInput,
       verifierSteps: buildVerifierEvidenceSteps({
+        adEvidenceGroups: normalizedAdEvidenceGroups,
         adProbeSteps,
         input,
         modelSteps,

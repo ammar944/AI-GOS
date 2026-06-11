@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { buildAdEvidenceWallDigestStep } from "../../ad-evidence-wall-digest";
+import {
+  formatKeywordVolumeDisplay,
+  SPYFU_SOURCE_URL,
+} from "../../tools/keyword-volume";
 import {
   structuralVerifier,
   structuralVerifierWithEntailment,
@@ -443,6 +448,237 @@ describe("structuralVerifier", (): void => {
           status: "unsupported",
           claim: expect.objectContaining({ kind: "numeric", value: "$99/mo" }),
           reason: "no_match",
+        }),
+      ]),
+    );
+  });
+});
+
+// W5 tool-evidence provenance bridge: tool-measured figures must verify against
+// the tool's own output. Run 1d0a4831 baseline: every SpyFu keyword row and
+// every ad-wall evidence line died as no_match because the keyword_volume
+// output carried no URL (numericAttribution filters sources by assertedSourceUrl)
+// and wall counts existed only in group metadata, not in any source text.
+describe("structuralVerifier tool-evidence provenance bridge", (): void => {
+  const spyFuToolResult = {
+    toolName: "keyword_volume",
+    input: { keywords: ["airtable pricing", "airtable vs notion"] },
+    output: {
+      type: "result",
+      source: "SpyFu",
+      sourceUrl: SPYFU_SOURCE_URL,
+      keywords: [
+        {
+          keyword: "airtable pricing",
+          searchVolume: 4800,
+          cpc: 38.63,
+          difficulty: 27,
+          display: formatKeywordVolumeDisplay({
+            cpc: 38.63,
+            difficulty: 27,
+            keyword: "airtable pricing",
+            searchVolume: 4800,
+          }),
+        },
+        {
+          keyword: "airtable vs notion",
+          searchVolume: 660,
+          cpc: null,
+          difficulty: 15,
+          display: formatKeywordVolumeDisplay({
+            cpc: null,
+            difficulty: 15,
+            keyword: "airtable vs notion",
+            searchVolume: 660,
+          }),
+        },
+      ],
+    },
+  };
+
+  it("verifies SpyFu-attributed keyword rows against the enriched keyword_volume output", (): void => {
+    const report = structuralVerifier({
+      body: {
+        keywordDemand: {
+          keywords: [
+            {
+              keyword: "airtable pricing",
+              monthlyVolume: "4,800 (SpyFu-estimated)",
+              cpc: "$38.63 (SpyFu-estimated)",
+              sourceUrl: SPYFU_SOURCE_URL,
+            },
+            {
+              keyword: "airtable vs notion",
+              monthlyVolume: "660 (SpyFu-estimated)",
+              cpc: "n/a",
+              sourceUrl: SPYFU_SOURCE_URL,
+            },
+          ],
+        },
+      },
+      toolResults: [spyFuToolResult],
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({
+            kind: "numericAttribution",
+            value: "4,800 (SpyFu-estimated)",
+          }),
+          matchedSourceRef: expect.objectContaining({
+            kind: "toolResult",
+            toolName: "keyword_volume",
+          }),
+        }),
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({
+            kind: "numericAttribution",
+            value: "660 (SpyFu-estimated)",
+          }),
+          matchedSourceRef: expect.objectContaining({
+            kind: "toolResult",
+            toolName: "keyword_volume",
+          }),
+        }),
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({ kind: "numeric", value: "$38.63" }),
+          matchedSourceRef: expect.objectContaining({
+            kind: "toolResult",
+            toolName: "keyword_volume",
+          }),
+        }),
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({
+            kind: "url",
+            value: SPYFU_SOURCE_URL,
+          }),
+        }),
+      ]),
+    );
+    expect(report.unsupportedCount).toBe(0);
+  });
+
+  it("keeps invented SpyFu figures unsupported", (): void => {
+    const report = structuralVerifier({
+      body: {
+        keywordDemand: {
+          keywords: [
+            {
+              keyword: "airtable pricing",
+              monthlyVolume: "9,999 (SpyFu-estimated)",
+              sourceUrl: SPYFU_SOURCE_URL,
+            },
+          ],
+        },
+      },
+      toolResults: [spyFuToolResult],
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "unsupported",
+          claim: expect.objectContaining({
+            kind: "numericAttribution",
+            value: "9,999 (SpyFu-estimated)",
+          }),
+          reason: "no_match",
+        }),
+      ]),
+    );
+  });
+
+  it("verifies ad-wall evidence lines against the wall digest step", (): void => {
+    const digestStep = buildAdEvidenceWallDigestStep([
+      {
+        advertiserName: "Notion",
+        domain: "notion.so",
+        platforms: ["google", "meta"],
+        rawCounts: { google: 13, meta: 17, linkedin: 0 },
+        displayableCounts: { google: 13, meta: 15, linkedin: 0 },
+        displayableTotal: 28,
+        returnedCreativeCount: 12,
+        creatives: [
+          {
+            id: "creative-1",
+            platform: "meta",
+            advertiserName: "Notion",
+            headline: "See the Power in Your Automations",
+            body: "One workspace for every team.",
+            landingUrl: "https://www.notion.so/",
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl:
+              "https://www.facebook.com/ads/library/?id=680819654125583",
+            sourceUrl:
+              "https://www.facebook.com/ads/library/?id=680819654125583",
+            firstSeen: "2026-05-01",
+            lastSeen: "2026-06-01",
+            format: "image",
+            isActive: true,
+            source: "meta_ads",
+            transcript: null,
+            cta: "Learn more",
+            verified: true,
+          },
+        ],
+        libraryLinks: { meta: "https://www.facebook.com/ads/library/" },
+        rawSourceSamples: [],
+        dataGaps: [],
+        sourceErrors: [],
+        observedAt: "2026-06-11",
+        identityConfidence: "verified",
+        quarantinedCount: 2,
+        verifiedCount: 26,
+      },
+    ]);
+
+    if (digestStep === undefined) {
+      throw new Error("expected a digest step for a non-empty wall");
+    }
+
+    const report = structuralVerifier({
+      body: {
+        adPresence: {
+          rows: [
+            {
+              advertiser: "Notion",
+              evidence:
+                "28 displayable creatives (13 Google, 15 Meta). Top hook: 'See the Power in Your Automations'",
+              sourceUrl:
+                "https://www.facebook.com/ads/library/?id=680819654125583",
+            },
+          ],
+        },
+      },
+      toolResults: digestStep.toolResults,
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({ kind: "sourceAttribution" }),
+          matchedSourceRef: expect.objectContaining({
+            kind: "toolResult",
+            toolName: "ad_evidence_wall_digest",
+          }),
+        }),
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({
+            kind: "url",
+            value: "https://www.facebook.com/ads/library/?id=680819654125583",
+          }),
         }),
       ]),
     );
