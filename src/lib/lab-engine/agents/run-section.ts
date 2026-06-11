@@ -193,6 +193,15 @@ import {
   type DowngradedVerbatimQuote,
 } from "./verification/provenance-gate";
 import {
+  buildSectionNumericTruth,
+  enforceNumericCoherence,
+  gateProseNumbers,
+  scrubBodyInternalJargon,
+  scrubInternalJargon,
+  type InternalJargonStrike,
+  type NumericCoherenceStrike,
+} from "./verification/numeric-coherence";
+import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
 } from "./run-section-keyword-results";
@@ -1768,10 +1777,12 @@ const misattributedQuoteSourceRelabelers: Partial<
 
 function annotateEvidenceSupportReview({
   artifact,
+  researchInput,
   sectionId,
   shortfall,
 }: {
   artifact: ArtifactEnvelope;
+  researchInput?: ResearchInput;
   sectionId: SectionId;
   shortfall?: EvidenceSupportShortfall;
 }): ArtifactEnvelope {
@@ -1808,15 +1819,29 @@ function annotateEvidenceSupportReview({
           stripped: [] as DowngradedVerbatimQuote[],
         };
   const emailScrub = scrubQuoteEmails({ body: verbatimDowngrade.body });
+  // Coherence pack (run 8081e646 cold-judge fixes): pipeline vocabulary out of
+  // client prose, then narrative numbers must trace to the section's own
+  // structured evidence (values, column sums, lengths, group counts) or the
+  // sentence goes. Runs before the verification-driven numeric redactor so the
+  // table-contradiction class is caught even for claims the verifier graded.
+  const jargonScrub = scrubBodyInternalJargon({
+    body: emailScrub.body,
+    sectionId,
+  });
+  const numericCoherence = enforceNumericCoherence({
+    ...(researchInput === undefined ? {} : { auxiliaryEvidence: researchInput }),
+    body: jargonScrub.body,
+    sectionId,
+  });
   const namedEntityStrip =
     sectionId === "positioningPaidMediaPlan" &&
     artifact.verification !== undefined
       ? stripUngroundedNamedEntityMetrics({
-          body: emailScrub.body,
+          body: numericCoherence.body,
           verification: artifact.verification,
         })
       : {
-          body: emailScrub.body,
+          body: numericCoherence.body,
           stripped: [] as StrippedNamedEntityMetric[],
         };
   const numericStrip =
@@ -1834,6 +1859,41 @@ function annotateEvidenceSupportReview({
     field: "verdict",
     value: artifact.verdict,
   });
+  // Hero copy (statusSummary/verdict) obeys the same contract as body prose:
+  // no pipeline jargon, no figures the section's own evidence cannot back.
+  const sectionTruth = buildSectionNumericTruth({
+    ...(researchInput === undefined ? {} : { auxiliaryEvidence: researchInput }),
+    body: numericStrip.body,
+    sectionId,
+  });
+  const statusSummaryJargon = scrubInternalJargon({
+    field: "statusSummary",
+    value: statusSummaryStrip.value,
+  });
+  const statusSummaryCoherence = gateProseNumbers({
+    field: "statusSummary",
+    truth: sectionTruth,
+    value: statusSummaryJargon.value,
+  });
+  const verdictJargon = scrubInternalJargon({
+    field: "verdict",
+    value: verdictStrip.value,
+  });
+  const verdictCoherence = gateProseNumbers({
+    field: "verdict",
+    truth: sectionTruth,
+    value: verdictJargon.value,
+  });
+  const internalJargonStrikes: InternalJargonStrike[] = [
+    ...jargonScrub.stripped,
+    ...statusSummaryJargon.strikes,
+    ...verdictJargon.strikes,
+  ];
+  const numericCoherenceStrikes: NumericCoherenceStrike[] = [
+    ...numericCoherence.stripped,
+    ...statusSummaryCoherence.strikes,
+    ...verdictCoherence.strikes,
+  ];
   const strippedVerificationMarkers = [
     ...numericStrip.stripped.filter(
       (item) => item.action === "verified-marker-removed",
@@ -1852,6 +1912,8 @@ function annotateEvidenceSupportReview({
     exemplarEcho.stripped.length === 0 &&
     verbatimDowngrade.stripped.length === 0 &&
     emailScrub.stripped.length === 0 &&
+    internalJargonStrikes.length === 0 &&
+    numericCoherenceStrikes.length === 0 &&
     namedEntityStrip.stripped.length === 0 &&
     strippedNumericClaims.length === 0 &&
     strippedVerificationMarkers.length === 0
@@ -1862,8 +1924,8 @@ function annotateEvidenceSupportReview({
   return artifactEnvelopeSchema.parse({
     ...artifact,
     body: numericStrip.body,
-    statusSummary: statusSummaryStrip.value,
-    verdict: verdictStrip.value,
+    statusSummary: statusSummaryCoherence.value,
+    verdict: verdictCoherence.value,
     confidence:
       artifact.verification === undefined || shortfall === undefined
         ? artifact.confidence
@@ -1886,6 +1948,12 @@ function annotateEvidenceSupportReview({
         : {}),
       ...(emailScrub.stripped.length > 0
         ? { scrubbedQuoteEmails: emailScrub.stripped }
+        : {}),
+      ...(internalJargonStrikes.length > 0
+        ? { internalJargonStrikes }
+        : {}),
+      ...(numericCoherenceStrikes.length > 0
+        ? { numericCoherenceStrikes }
         : {}),
       ...(namedEntityStrip.stripped.length > 0
         ? { strippedNamedEntityMetrics: namedEntityStrip.stripped }
@@ -4285,6 +4353,7 @@ async function callStructuredAttempt({
         output,
         artifact: annotateEvidenceSupportReview({
           artifact: verdict.committableArtifact,
+          researchInput,
           sectionId: input.sectionId,
           shortfall: verdict.shortfall,
         }),
@@ -4297,6 +4366,7 @@ async function callStructuredAttempt({
       output,
       artifact: annotateEvidenceSupportReview({
         artifact: verdict.committableArtifact,
+        researchInput,
         sectionId: input.sectionId,
         shortfall: verdict.shortfall,
       }),
@@ -5849,6 +5919,7 @@ async function buildVerifiedAttemptFromFinalOutput({
       output,
       artifact: annotateEvidenceSupportReview({
         artifact: verdict.committableArtifact,
+        researchInput,
         sectionId: input.sectionId,
         shortfall: verdict.shortfall,
       }),

@@ -128,6 +128,7 @@ async function generateExecutiveBrief(
       durationMs: Date.now() - startedAt,
       executiveThesis: brief.executiveThesis,
       factConflicts: brief.factConflicts,
+      fidelityStrikes: brief.fidelityStrikes,
       generatedAt: new Date().toISOString(),
       rankedMoves: brief.rankedMoves,
       status: 'complete',

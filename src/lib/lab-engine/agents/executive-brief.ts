@@ -6,6 +6,10 @@ import {
   defaultStructuredCaller,
   type StructuredCaller,
 } from "./section-agent";
+import {
+  enforceBriefNumericFidelity,
+  type BriefFidelityStrike,
+} from "./verification/numeric-coherence";
 
 // W3 executive brief: the one reader that sees the WHOLE report before the
 // client does. Runs AFTER the paid-media plan commits (all seven bodies in
@@ -44,6 +48,9 @@ export interface ExecutiveBriefResult {
   executiveThesis: string;
   rankedMoves: ExecutiveBriefRankedMove[];
   factConflicts: ExecutiveBriefResolvedConflict[];
+  // Numeric-fidelity gate record: every figure or jargon token removed because
+  // it could not be traced to the committed section bodies.
+  fidelityStrikes: BriefFidelityStrike[];
 }
 
 export interface RunExecutiveBriefParams {
@@ -202,18 +209,28 @@ export async function runExecutiveBrief(
 
   const parsed = briefSchema.parse(raw);
 
+  // Numeric-fidelity gate (run 8081e646 cold-judge fixes): the brief's honesty
+  // contract is prompt-side and proven insufficient — deterministically excise
+  // every figure absent from the committed section bodies and every leaked
+  // pipeline token before the brief can be persisted.
+  const slicedMoves = parsed.rankedMoves.slice(0, maxRankedMoves);
+  const fidelity = enforceBriefNumericFidelity({
+    moves: slicedMoves.map((move) => move.move),
+    sectionBodies: params.sections.map((section) => section.body),
+    thesis: parsed.executiveThesis,
+  });
+
   return {
-    executiveThesis: parsed.executiveThesis,
+    executiveThesis: fidelity.thesis,
     factConflicts: alignConflicts({
       conflicts: params.conflicts,
       modelConflicts: parsed.factConflicts,
     }),
-    rankedMoves: parsed.rankedMoves
-      .slice(0, maxRankedMoves)
-      .map((move, index) => ({
-        move: move.move,
-        provingSections: move.provingSections,
-        rank: index + 1,
-      })),
+    fidelityStrikes: fidelity.strikes,
+    rankedMoves: slicedMoves.map((move, index) => ({
+      move: fidelity.moves[index] ?? move.move,
+      provingSections: move.provingSections,
+      rank: index + 1,
+    })),
   };
 }
