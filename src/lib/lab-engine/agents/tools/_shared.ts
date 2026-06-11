@@ -7,6 +7,7 @@ export const ToolGapSchema = z
       "missing_credential",
       "api_error",
       "rate_limited",
+      "budget_exhausted",
       "not_implemented",
       "aborted",
       "content_unavailable",
@@ -107,7 +108,7 @@ export async function timedFetch(
   });
 }
 
-function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+export function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted === true) {
       reject(new DOMException("Aborted", "AbortError"));

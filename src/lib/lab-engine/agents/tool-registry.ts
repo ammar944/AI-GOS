@@ -42,9 +42,12 @@ function wrapWithBudget<TInput, TOutput>(
       const budgetReceipt = budget.consumeWithReceipt(toolName);
 
       if (budgetReceipt === null) {
+        // Honest reason: the section budget capped this surface — the provider
+        // was never called, so "rate_limited" would be a lie that leaks
+        // "rate-limited" narration into section prose.
         return {
           type: "gap",
-          reason: "rate_limited",
+          reason: "budget_exhausted",
           message: `section budget exhausted after ${budget.max} lookups`,
         } as unknown as TOutput;
       }

@@ -2,11 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getKeywordsByBulkSearch = vi.fn();
 
-vi.mock("@/lib/ai/spyfu-client", () => ({
-  getKeywordsByBulkSearch: (...args: unknown[]) =>
-    getKeywordsByBulkSearch(...args),
-}));
+vi.mock("@/lib/ai/spyfu-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ai/spyfu-client")>();
+  return {
+    ...actual,
+    getKeywordsByBulkSearch: (...args: unknown[]) =>
+      getKeywordsByBulkSearch(...args),
+  };
+});
 
+import { SpyFuRateLimitError } from "@/lib/ai/spyfu-client";
 import {
   formatKeywordVolumeDisplay,
   KeywordVolumeOutputSchema,
@@ -99,5 +104,38 @@ describe("keywordVolumeAgentTool", (): void => {
 
     expect(parsed.type).toBe("gap");
     expect(getKeywordsByBulkSearch).not.toHaveBeenCalled();
+  });
+
+  it("maps exhausted 429s to a retryable rate_limited gap that refunds budget", async (): Promise<void> => {
+    vi.stubEnv("SPYFU_API_KEY", "test-key");
+    getKeywordsByBulkSearch.mockRejectedValue(
+      new SpyFuRateLimitError(
+        "POST /keyword_api/v2/related/getKeywordInformation",
+        4,
+      ),
+    );
+
+    const output = await executeTool(["airtable pricing"]);
+    const parsed = KeywordVolumeOutputSchema.parse(output);
+
+    // rate_limited (NOT api_error): the prompt contract only allows the model
+    // to retry rate_limited gaps; consumesBudget false refunds the lookup.
+    expect(parsed).toMatchObject({
+      type: "gap",
+      reason: "rate_limited",
+      consumesBudget: false,
+    });
+  });
+
+  it("keeps a non-429 SpyFu failure as a terminal api_error gap", async (): Promise<void> => {
+    vi.stubEnv("SPYFU_API_KEY", "test-key");
+    getKeywordsByBulkSearch.mockRejectedValue(
+      new Error("SpyFu API error 500 on POST /keyword_api"),
+    );
+
+    const output = await executeTool(["airtable pricing"]);
+    const parsed = KeywordVolumeOutputSchema.parse(output);
+
+    expect(parsed).toMatchObject({ type: "gap", reason: "api_error" });
   });
 });

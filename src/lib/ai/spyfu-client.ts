@@ -6,11 +6,60 @@
 // Configuration
 // =============================================================================
 
-const SPYFU_API_KEY = process.env.SPYFU_API_KEY;
 const SPYFU_BASE_URL = 'https://api.spyfu.com/apis';
 
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
+
+/** 429 backoff schedule (ms) before each retry attempt; jitter is added on top. */
+const RATE_LIMIT_BACKOFF_MS = [2_000, 5_000, 10_000];
+const RATE_LIMIT_JITTER_MAX_MS = 500;
+/** Ceiling for honoring a server-provided Retry-After value. */
+const MAX_RETRY_AFTER_MS = 30_000;
+
+/**
+ * Read the API key at CALL time, not module load. A warm serverless process
+ * started before the key was provisioned would otherwise keep `undefined`
+ * forever and poison every SpyFu call for the life of the process.
+ */
+function getSpyFuApiKey(): string | undefined {
+  const key = process.env.SPYFU_API_KEY;
+  return key === undefined || key.trim() === '' ? undefined : key;
+}
+
+/**
+ * Thrown when SpyFu keeps returning HTTP 429 after all retries are exhausted.
+ * Callers (keyword_volume tool) map this to a retryable `rate_limited` gap
+ * instead of a terminal `api_error` the section prompt forbids retrying.
+ */
+export class SpyFuRateLimitError extends Error {
+  readonly status = 429;
+
+  constructor(endpoint: string, attempts: number) {
+    super(`SpyFu rate limited (429) on ${endpoint} after ${attempts} attempts`);
+    this.name = 'SpyFuRateLimitError';
+  }
+}
+
+/**
+ * Delay before the next attempt after a 429. Retry-After may be seconds OR an
+ * HTTP-date; `Number()` on a date is NaN and a NaN delay means
+ * `setTimeout(NaN)` = zero-delay hot loop. Only finite positive second values
+ * are honored, clamped to MAX_RETRY_AFTER_MS; otherwise fall back to the
+ * jittered backoff schedule.
+ */
+function rateLimitDelayMs(retryAfter: string | null, attempt: number): number {
+  if (retryAfter !== null) {
+    const parsed = Number(retryAfter);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.min(parsed * 1000, MAX_RETRY_AFTER_MS);
+    }
+  }
+
+  const base =
+    RATE_LIMIT_BACKOFF_MS[Math.min(attempt, RATE_LIMIT_BACKOFF_MS.length - 1)];
+  return base + Math.random() * RATE_LIMIT_JITTER_MAX_MS;
+}
 
 /** Informational/navigational terms to exclude from keyword discovery */
 const EXCLUDE_TERMS = 'jobs,job,salary,salaries,career,careers,hiring,internship,course,courses,certification,tutorial,near me,reddit,quora,agency,agencies,consultant,freelancer';
@@ -124,7 +173,7 @@ export function extractDomain(url: string): string {
 
 /** Check if SpyFu API is available */
 export function isSpyFuAvailable(): boolean {
-  return !!SPYFU_API_KEY;
+  return getSpyFuApiKey() !== undefined;
 }
 
 // =============================================================================
@@ -170,13 +219,14 @@ async function spyfuFetch<T>(
   endpoint: string,
   params: Record<string, string | number | boolean> = {},
 ): Promise<T> {
-  if (!SPYFU_API_KEY) {
+  const apiKey = getSpyFuApiKey();
+  if (apiKey === undefined) {
     throw new Error('SPYFU_API_KEY not configured');
   }
 
   const url = new URL(`${SPYFU_BASE_URL}${endpoint}`);
   // Auth via api_key query parameter
-  url.searchParams.set('api_key', SPYFU_API_KEY);
+  url.searchParams.set('api_key', apiKey);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, String(value));
   }
@@ -195,12 +245,14 @@ async function spyfuFetch<T>(
 
       // Handle rate limiting
       if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
-        const delayMs = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
-          : INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
-        console.warn(`[SpyFu] Rate limited on ${endpoint}, retrying in ${delayMs}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        // Track the typed error so all-429 exhaustion throws SpyFuRateLimitError,
+        // not a generic error that downstream maps to a non-retryable api_error gap.
+        lastError = new SpyFuRateLimitError(endpoint, attempt + 1);
+        if (attempt < MAX_RETRIES) {
+          const delayMs = rateLimitDelayMs(response.headers.get('Retry-After'), attempt);
+          console.warn(`[SpyFu] Rate limited on ${endpoint}, retrying in ${Math.round(delayMs)}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
         continue;
       }
 
@@ -233,13 +285,14 @@ async function spyfuFetchPost<T>(
   body: unknown,
   params: Record<string, string | number | boolean> = {},
 ): Promise<T> {
-  if (!SPYFU_API_KEY) {
+  const apiKey = getSpyFuApiKey();
+  if (apiKey === undefined) {
     throw new Error('SPYFU_API_KEY not configured');
   }
 
   const url = new URL(`${SPYFU_BASE_URL}${endpoint}`);
   // Auth via api_key query parameter
-  url.searchParams.set('api_key', SPYFU_API_KEY);
+  url.searchParams.set('api_key', apiKey);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, String(value));
   }
@@ -259,12 +312,14 @@ async function spyfuFetchPost<T>(
       });
 
       if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
-        const delayMs = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
-          : INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
-        console.warn(`[SpyFu] Rate limited on POST ${endpoint}, retrying in ${delayMs}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        // Track the typed error so all-429 exhaustion throws SpyFuRateLimitError,
+        // not a generic error that downstream maps to a non-retryable api_error gap.
+        lastError = new SpyFuRateLimitError(`POST ${endpoint}`, attempt + 1);
+        if (attempt < MAX_RETRIES) {
+          const delayMs = rateLimitDelayMs(response.headers.get('Retry-After'), attempt);
+          console.warn(`[SpyFu] Rate limited on POST ${endpoint}, retrying in ${Math.round(delayMs)}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
         continue;
       }
 

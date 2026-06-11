@@ -50,7 +50,7 @@ function budgetWrappedAdTool(
       if (!budget.consume(toolName)) {
         return {
           type: 'gap',
-          reason: 'rate_limited',
+          reason: 'budget_exhausted',
           message: `section budget exhausted after ${budget.max} lookups`,
         };
       }
@@ -104,7 +104,8 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     expect(outputs.every(isAdRow)).toBe(true);
     expect(
       outputs.some(
-        (output) => !isAdRow(output) && (output as GapRow).reason === 'rate_limited',
+        (output) =>
+          !isAdRow(output) && (output as GapRow).reason === 'budget_exhausted',
       ),
     ).toBe(false);
 
@@ -134,7 +135,9 @@ describe('runCompetitorAdProbeSteps with a reserved ad budget', (): void => {
     // Both are gap rows: the verifier accepts these as adEvidence_or_gap.
     expect(outputs.every((output) => !isAdRow(output))).toBe(true);
     expect(
-      outputs.every((output) => (output as GapRow).reason === 'rate_limited'),
+      outputs.every(
+        (output) => (output as GapRow).reason === 'budget_exhausted',
+      ),
     ).toBe(true);
   });
 

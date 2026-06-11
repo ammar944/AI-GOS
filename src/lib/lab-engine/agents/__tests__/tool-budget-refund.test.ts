@@ -82,4 +82,29 @@ describe('tool budget refunds', (): void => {
       expect(budget.remaining()).toBe(1);
     },
   );
+
+  it('returns a budget_exhausted gap (not rate_limited) when the pool is empty', async (): Promise<void> => {
+    // The provider was never called — narrating this as "rate_limited" leaked
+    // fictional rate-limit prose into sections.
+    const budget = new SectionToolBudget(0);
+    const tools = buildToolMap(['firecrawl'], {
+      budget,
+      webSearchMaxUses: 1,
+    });
+    const firecrawl = requireTool(tools.firecrawl, 'firecrawl');
+
+    const output = await firecrawl.execute?.(
+      {
+        onlyMainContent: true,
+        url: 'https://www.g2.com/products/acme/reviews',
+      },
+      {} as ToolExecutionOptions,
+    );
+
+    expect(output).toMatchObject({
+      type: 'gap',
+      reason: 'budget_exhausted',
+      message: `section budget exhausted after ${budget.max} lookups`,
+    });
+  });
 });

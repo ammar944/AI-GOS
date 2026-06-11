@@ -1,7 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getKeywordsByBulkSearch } from "@/lib/ai/spyfu-client";
+import {
+  getKeywordsByBulkSearch,
+  SpyFuRateLimitError,
+} from "@/lib/ai/spyfu-client";
 
 import {
   ToolGapSchema,
@@ -107,6 +110,18 @@ export const keywordVolumeAgentTool = tool({
         }),
       };
     } catch (error) {
+      if (error instanceof SpyFuRateLimitError) {
+        // 429 exhaustion is transient: surface a retryable `rate_limited` gap
+        // (the prompt contract only allows retrying rate_limited gaps) and
+        // refund the budget unit so the retry does not cost a second lookup.
+        const gap: ToolGap = {
+          type: "gap",
+          reason: "rate_limited",
+          message: `SpyFu keyword volume rate-limited: ${error.message}`,
+          consumesBudget: false,
+        };
+        return gap;
+      }
       return errorToGap(error, "SpyFu keyword volume failed");
     }
   },

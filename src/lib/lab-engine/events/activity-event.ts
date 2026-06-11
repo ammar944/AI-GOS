@@ -59,6 +59,7 @@ const toolFinishedGapMetadataSchema = z
       "missing_credential",
       "api_error",
       "rate_limited",
+      "budget_exhausted",
       "not_implemented",
       "aborted",
       "content_unavailable",
