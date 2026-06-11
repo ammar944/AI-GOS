@@ -49,37 +49,41 @@ type MarkdownElementProps<Tag extends keyof JSX.IntrinsicElements> =
   JSX.IntrinsicElements[Tag] & { node?: unknown };
 
 function CitedParagraph({
-  node: _node,
+  node,
   children,
   ...rest
 }: MarkdownElementProps<'p'>): React.ReactElement {
+  void node; // hast node — must not spread onto the DOM
   const sources = useReaderSources();
   return <p {...rest}>{citedChildren(children, sources)}</p>;
 }
 
 function CitedListItem({
-  node: _node,
+  node,
   children,
   ...rest
 }: MarkdownElementProps<'li'>): React.ReactElement {
+  void node;
   const sources = useReaderSources();
   return <li {...rest}>{citedChildren(children, sources)}</li>;
 }
 
 function CitedStrong({
-  node: _node,
+  node,
   children,
   ...rest
 }: MarkdownElementProps<'strong'>): React.ReactElement {
+  void node;
   const sources = useReaderSources();
   return <strong {...rest}>{citedChildren(children, sources)}</strong>;
 }
 
 function CitedEmphasis({
-  node: _node,
+  node,
   children,
   ...rest
 }: MarkdownElementProps<'em'>): React.ReactElement {
+  void node;
   const sources = useReaderSources();
   return <em {...rest}>{citedChildren(children, sources)}</em>;
 }
