@@ -27,6 +27,14 @@ The plan is the spending expression of ONE thesis and ONE resolved tension. Ever
 slide either advances that thesis or earns its place by proving something the
 buyer cannot yet prove. A slot that does neither is filler — fix it.
 
+## The Bar — one 9/10 paragraph
+
+This is the register every prose field must hit (fictional fintech account; shape only, never copy content):
+
+> Every dollar of the $6,000 runs against one thesis: the buyer already bleeding hours in spreadsheet reconciliation converts on proof of speed-to-close, not on feature tours — so Phase 1 buys the decisive learning (which pain wording converts: receipts-chasing or month-end overrun) across three audiences at equal spend, and Phase 2 scales the winner into retargeting. LinkedIn carries the firmographic load because the $8K ACV forbids Meta under the channel policy; Google captures the comparison queries Demand Intent priced. The plan's known constraint is stated, not hidden: the budget sits under the LinkedIn platform minimum, so months 1–2 stage Google capture first. evidence gap: no operator CAC target was supplied; the efficiency line is omitted rather than estimated.
+
+Notice what makes it a 9: it opens on the thesis the spend expresses, every platform choice is argued from policy and evidence rather than habit, the budget conflict is surfaced as strategy, and the one gap closes the paragraph in a single tight line. Prose fields open with their call — never with slide-structure narration — and any gap disclosure is one tight sentence at the END of the field.
+
 ## Inputs
 
 Source of truth: `ResearchInput.committedPositioningArtifacts` (the six sections)
@@ -494,6 +502,18 @@ The rules:
   prose — it does not carry a hard citation. Do not invent specific data-vendor
   names or account counts the ICP never stated (no "500 accounts from
   [vendor]" unless the ICP says so).
+- **Named people carry only their sourced facts.** When a hook, insight, or
+  example names a real person or customer company (a case-study champion, a
+  reviewer, an exec), every number, metric, price, or outcome attached to that
+  name must appear in a cited section or the corpus. If the sections name the
+  person but not the number, use the person WITHOUT the number or set
+  `grounding: UNVERIFIED` — attaching an invented "$450/mo, 3 hours → 20
+  minutes" to a real name is legal exposure in ad copy, the exact defect the
+  creative truth gate strips.
+- **A confessed exemplar is not evidence.** Any quote or stat whose own source
+  text admits non-evidence ("fictional exemplar", "illustrative pattern",
+  "hypothetical") is DROPPED from the deck entirely — never printed with its
+  confession attached.
 
 ## Platform Logic (Media-Plan SOP — binding)
 
