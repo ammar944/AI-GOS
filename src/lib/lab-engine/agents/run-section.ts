@@ -181,6 +181,11 @@ import {
   type StrippedQuoteAttribution,
 } from "./verification/evidence-support";
 import {
+  dropConfessedExemplarQuotes,
+  stripUngroundedNamedEntityMetrics,
+  type StrippedNamedEntityMetric,
+} from "./verification/creative-truth-gate";
+import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
 } from "./run-section-keyword-results";
@@ -1773,11 +1778,30 @@ function annotateEvidenceSupportReview({
           relabelSource,
         })
       : { body: artifact.body, stripped: [] as StrippedQuoteAttribution[] };
+  // W6 creative truth gate: confessed exemplars never ship with their
+  // confession; paid-media creative copy never attaches an unsupported metric
+  // to a named person. Runs before the numeric redactor so removed sentences
+  // are not marker-spliced.
+  const exemplarDrop = dropConfessedExemplarQuotes({
+    body: strip.body,
+    sectionId,
+  });
+  const namedEntityStrip =
+    sectionId === "positioningPaidMediaPlan" &&
+    artifact.verification !== undefined
+      ? stripUngroundedNamedEntityMetrics({
+          body: exemplarDrop.body,
+          verification: artifact.verification,
+        })
+      : {
+          body: exemplarDrop.body,
+          stripped: [] as StrippedNamedEntityMetric[],
+        };
   const numericStrip =
     artifact.verification === undefined
-      ? { body: strip.body, stripped: [] as StrippedNumericClaim[] }
+      ? { body: namedEntityStrip.body, stripped: [] as StrippedNumericClaim[] }
       : redactUnsupportedNumericClaims({
-          body: strip.body,
+          body: namedEntityStrip.body,
           verification: artifact.verification,
         });
   const statusSummaryStrip = stripModelAuthoredVerifiedMarkers({
@@ -1802,6 +1826,8 @@ function annotateEvidenceSupportReview({
   if (
     provenanceFlags.length === 0 &&
     strip.stripped.length === 0 &&
+    exemplarDrop.stripped.length === 0 &&
+    namedEntityStrip.stripped.length === 0 &&
     strippedNumericClaims.length === 0 &&
     strippedVerificationMarkers.length === 0
   ) {
@@ -1823,6 +1849,12 @@ function annotateEvidenceSupportReview({
       ...(provenanceFlags.length > 0 ? { provenanceFlags } : {}),
       ...(strip.stripped.length > 0
         ? { strippedQuoteAttributions: strip.stripped }
+        : {}),
+      ...(exemplarDrop.stripped.length > 0
+        ? { droppedConfessedExemplars: exemplarDrop.stripped }
+        : {}),
+      ...(namedEntityStrip.stripped.length > 0
+        ? { strippedNamedEntityMetrics: namedEntityStrip.stripped }
         : {}),
       ...(strippedNumericClaims.length > 0
         ? { strippedNumericClaims }

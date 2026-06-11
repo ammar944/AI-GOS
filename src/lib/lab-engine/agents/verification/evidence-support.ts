@@ -388,7 +388,7 @@ export interface RedactUnsupportedNumericClaimsResult {
   stripped: StrippedNumericClaim[];
 }
 
-interface UnsupportedNumericToken {
+export interface UnsupportedNumericToken {
   value: string;
 }
 
@@ -564,7 +564,7 @@ function normalizeNumericTokenValue(value: string): string {
   return normalizeWhitespace(value).toLowerCase();
 }
 
-function collectUnsupportedNumericTokens(
+export function collectUnsupportedNumericTokens(
   verification: VerificationReport,
 ): UnsupportedNumericToken[] {
   const verifiedValues = new Set(
@@ -616,7 +616,7 @@ function isDigitChar(char: string | undefined): boolean {
 // match inside a longer word or number corrupts the prose — the live
 // `$450/mo [unverified]nth` defect — so embedded matches are skipped: the
 // claim stays unsupported in the verification report and the badge covers it.
-function isCleanTokenBoundary({
+export function isCleanTokenBoundary({
   matchLength,
   offset,
   source,
