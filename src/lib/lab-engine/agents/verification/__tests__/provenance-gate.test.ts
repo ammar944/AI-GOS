@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildPlaceholderTrustedHosts,
   downgradeUnpermalinkedVerbatimQuotes,
+  placeholderSourceUrlRelabel,
   scrubQuoteEmails,
   stripExemplarEchoes,
+  stripPlaceholderSourceUrls,
 } from "../provenance-gate";
 
 // Fixtures mirror run 8081e646 (Airtable E2E, 2026-06-11): the cold judge
@@ -382,6 +385,31 @@ describe("downgradeUnpermalinkedVerbatimQuotes", (): void => {
     expect(second.body).toBe(first.body);
   });
 
+  it("downgrades a Reddit pseudo-permalink whose id segment is a topic slug", (): void => {
+    const body = {
+      publicWeaknesses: {
+        items: [
+          {
+            competitor: "Smartsheet",
+            source: "Reddit thread",
+            sourceUrl:
+              "https://www.reddit.com/r/projectmanagement/comments/people-hate-pricing/",
+            verbatimQuote: "the pricing doubled overnight",
+            whyItMatters: "Pricing shock.",
+          },
+        ],
+        prose: "x",
+      },
+    };
+
+    const result = downgradeUnpermalinkedVerbatimQuotes({ body });
+
+    expect(result.stripped).toHaveLength(1);
+    const weaknesses = result.body.publicWeaknesses as Record<string, unknown>;
+    const items = weaknesses.items as Array<Record<string, unknown>>;
+    expect(items[0]?.verbatimQuote).toMatch(/^Paraphrased pattern/);
+  });
+
   it("ignores bodies without publicWeaknesses", (): void => {
     const body = { competitorSet: { competitors: [], prose: "x" } };
 
@@ -431,5 +459,131 @@ describe("scrubQuoteEmails", (): void => {
 
     expect(result.stripped).toHaveLength(0);
     expect(result.body).toBe(body);
+  });
+});
+
+describe("stripPlaceholderSourceUrls", (): void => {
+  it("relabels placeholder-shaped sourceUrls and records each strike", (): void => {
+    const body = {
+      audienceSignals: {
+        items: [
+          {
+            detail: "B2B ops community",
+            sourceUrl: "https://www.linkedin.com/groups/12345",
+          },
+          {
+            detail: "Generic doc",
+            sourceUrl: "https://example.com/research/report",
+          },
+          {
+            detail: "Pseudo thread",
+            sourceUrl:
+              "https://www.reddit.com/r/airtable/comments/why-users-switch-tools/",
+          },
+          {
+            detail: "Sequential id",
+            sourceUrl:
+              "https://www.g2.com/products/foo/reviews/foo-review-123456789",
+          },
+        ],
+      },
+    };
+
+    const result = stripPlaceholderSourceUrls({ body });
+
+    expect(result.stripped).toHaveLength(4);
+    expect(result.stripped.map((item) => item.field)).toEqual([
+      "body.audienceSignals.items[0].sourceUrl",
+      "body.audienceSignals.items[1].sourceUrl",
+      "body.audienceSignals.items[2].sourceUrl",
+      "body.audienceSignals.items[3].sourceUrl",
+    ]);
+    expect(result.stripped[0]?.sourceUrl).toBe(
+      "https://www.linkedin.com/groups/12345",
+    );
+    expect(result.stripped[0]?.reason).toMatch(/LinkedIn group/);
+    expect(result.stripped[1]?.reason).toMatch(/example\.com/);
+    expect(result.stripped[2]?.reason).toMatch(/pseudo-permalink/);
+    expect(result.stripped[3]?.reason).toMatch(/sequential-digit/);
+
+    const signals = result.body.audienceSignals as Record<string, unknown>;
+    const items = signals.items as Array<Record<string, unknown>>;
+    // Schema-legal null-equivalent: still a non-empty parseable URL.
+    expect(items.map((item) => item.sourceUrl)).toEqual([
+      placeholderSourceUrlRelabel,
+      placeholderSourceUrlRelabel,
+      placeholderSourceUrlRelabel,
+      placeholderSourceUrlRelabel,
+    ]);
+    // The rows and their claims survive; only the fabricated URLs go.
+    expect(items.map((item) => item.detail)).toEqual([
+      "B2B ops community",
+      "Generic doc",
+      "Pseudo thread",
+      "Sequential id",
+    ]);
+  });
+
+  it("keeps real source URLs untouched and returns the same body", (): void => {
+    const body = {
+      rows: [
+        {
+          sourceUrl:
+            "https://www.reddit.com/r/Airtable/comments/1r1wice/looking_for_airtable_alternatives_for_small/",
+        },
+        {
+          sourceUrl:
+            "https://www.g2.com/products/smartsheet/reviews/smartsheet-review-10386642",
+        },
+        { sourceUrl: "https://www.linkedin.com/groups/13720748/" },
+        { sourceUrl: "https://www.smartsuite.com/blog/smartsheet-pricing" },
+      ],
+    };
+
+    const result = stripPlaceholderSourceUrls({ body });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(body);
+  });
+
+  it("exempts the example-host shape for hosts vouched by the research input", (): void => {
+    const trustedHosts = buildPlaceholderTrustedHosts({
+      company: { websiteUrl: "https://example.com/saaslaunch" },
+      corpus: {
+        excerpts: [{ sourceUrl: "https://www.example.com/notes" }],
+      },
+    });
+    const body = {
+      rows: [
+        { sourceUrl: "https://example.com/saaslaunch/positioning-notes" },
+        // Structural shapes stay struck even on a trusted host.
+        { sourceUrl: "https://example.com/p/1234567" },
+      ],
+    };
+
+    const result = stripPlaceholderSourceUrls({ body, trustedHosts });
+
+    expect(result.stripped).toHaveLength(1);
+    expect(result.stripped[0]?.reason).toMatch(/sequential-digit/);
+    const rows = result.body.rows as Array<Record<string, unknown>>;
+    expect(rows[0]?.sourceUrl).toBe(
+      "https://example.com/saaslaunch/positioning-notes",
+    );
+    expect(rows[1]?.sourceUrl).toBe(placeholderSourceUrlRelabel);
+  });
+
+  it("is idempotent: relabeled sourceUrls are not re-struck", (): void => {
+    const body = {
+      rows: [
+        { sourceUrl: "https://example.org/made-up" },
+      ],
+    };
+
+    const first = stripPlaceholderSourceUrls({ body });
+    const second = stripPlaceholderSourceUrls({ body: first.body });
+
+    expect(first.stripped).toHaveLength(1);
+    expect(second.stripped).toHaveLength(0);
+    expect(second.body).toBe(first.body);
   });
 });

@@ -85,13 +85,30 @@ const truthExcludedFieldNames: ReadonlySet<string> = new Set([
 ]);
 
 // Pipeline/config vocabulary that must never reach client prose. Patterns stay
-// tight to observed leaks plus unambiguous internal identifiers.
+// tight to observed leaks plus unambiguous internal identifiers. The run
+// 314d5f02 additions are process-excuse vocabulary: patterns anchor to the
+// internal phrase, not the shared word — "ad budget" / "media budget" and a
+// security subject's "quarantined files" are legitimate market prose and must
+// survive.
 const internalJargonPatterns: ReadonlyArray<{ id: string; pattern: RegExp }> = [
   { id: "channel-policy", pattern: /\bCHANNEL POLICY\b/ },
   { id: "verified-count", pattern: /\bverifiedCount\b\s*[:=]?\s*\d*/ },
   { id: "required-evidence", pattern: /\brequired_evidence\b/i },
   { id: "allowed-tools", pattern: /\ballowedTools\b/ },
   { id: "counts-toward-rollup", pattern: /\bcounts_toward_rollup\b/i },
+  { id: "tool-budget", pattern: /\btool budgets?\b/i },
+  { id: "budget-exhausted", pattern: /\bbudgets?\s+(?:were|was|are|is)\s+exhausted\b/i },
+  { id: "prepass", pattern: /\bpre-?pass(?:es)?\b/i },
+  { id: "candidate-pack", pattern: /\bcandidate packs?\b/i },
+  { id: "displayable-creatives", pattern: /\bdisplayable creatives?\b/i },
+  { id: "see-section-badge", pattern: /\bsee section badge\b/i },
+  { id: "lead-list-available", pattern: /\bleadListAvailable\b/ },
+  { id: "pre-normalized", pattern: /\bpre-?normali[sz]ed\b/i },
+  {
+    id: "quarantined-pipeline",
+    pattern:
+      /\bquarantined\s+(?:ads?|creatives?|advertisers?)\b|\b(?:ads?|creatives?|advertisers?)\s+(?:were|was|are|is)\s+quarantined\b/i,
+  },
 ];
 
 const sectionIdHumanLabels: Record<string, string> = {

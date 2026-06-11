@@ -131,6 +131,67 @@ describe("reviewAndUpgradeSection", (): void => {
     expect(result.upgradedMarkdown).not.toContain("[verified");
   });
 
+  it("strips the model-authored verification-chrome bracket family from reviewed markdown", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: buildReviewResponse({
+        upgradedMarkdown: [
+          "## Reviewed market category",
+          "",
+          "Pricing starts at $99 [Unverified - confirm before use] per seat.",
+          "Growth is 40% [model estimate - not tool-measured] annually.",
+          "Confidence is [medium] on retention, [assumed] for expansion.",
+          "Background reading: [Medium](https://medium.com/example-post).",
+        ].join("\n"),
+        removedItems: [],
+      }),
+    });
+
+    const result = await reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+    });
+
+    expect(result.upgradedMarkdown).toContain("Pricing starts at $99 per seat.");
+    expect(result.upgradedMarkdown).toContain("Growth is 40% annually.");
+    expect(result.upgradedMarkdown).toContain(
+      "Confidence is on retention, for expansion.",
+    );
+    expect(result.upgradedMarkdown).not.toContain("[Unverified");
+    expect(result.upgradedMarkdown).not.toContain("[model estimate");
+    expect(result.upgradedMarkdown).not.toContain("[medium]");
+    expect(result.upgradedMarkdown).not.toContain("[assumed]");
+    // Markdown link text is not verification chrome.
+    expect(result.upgradedMarkdown).toContain(
+      "[Medium](https://medium.com/example-post)",
+    );
+  });
+
+  it("instructs the review model to skip bracketed chrome and gap sections", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: buildReviewResponse({
+        upgradedMarkdown: "## Reviewed market category\n\nClean narrative.",
+        removedItems: [],
+      }),
+    });
+
+    await reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+    });
+
+    const prompt = aiMocks.generateText.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain(
+      "Do not add bracketed verification markers anywhere",
+    );
+    expect(prompt).toContain("never add gap sections or gap headings");
+    expect(prompt).not.toContain("Label model estimates");
+    expect(prompt).not.toContain("author an honest evidence-gap section");
+  });
+
   it("drops removedItems label claims that were not applied and vague removal claims", async (): Promise<void> => {
     const warnSpy = vi
       .spyOn(console, "warn")
@@ -281,6 +342,10 @@ describe("reviewAndUpgradeSection", (): void => {
       });
 
       expect(result.removedItems).toEqual([relabeledRemovalItem]);
+      // The relabel marker satisfied the honesty check, then the chrome strip
+      // removed it from the shipped markdown.
+      expect(result.upgradedMarkdown).toContain("SpyFu search volume is 33,100.");
+      expect(result.upgradedMarkdown).not.toContain("[unverified]");
       expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();

@@ -268,6 +268,48 @@ describe("scrubInternalJargon", () => {
     expect(result.stripped).toHaveLength(1);
     expect(campaignOverview.prose).toBe("Spend follows demand.");
   });
+
+  it("strips process-excuse vocabulary leaked into prose (run 314d5f02)", () => {
+    const scrubbed = scrubInternalJargon({
+      field: "body.prose",
+      value: [
+        "The tool budget limited retrieval.",
+        "Search budgets were exhausted before competitor coverage completed.",
+        "The prepass missed two competitors.",
+        "The candidate pack held nine quotes.",
+        "Only displayable creatives are shown on the wall.",
+        "Treat these figures with caution — see section badge.",
+        "leadListAvailable was false for this segment.",
+        "Volumes are pre-normalized before display.",
+        "Several ads were quarantined during identity checks.",
+      ].join(" "),
+    });
+
+    expect(scrubbed.strikes.map((strike) => strike.pattern)).toEqual([
+      "tool-budget",
+      "budget-exhausted",
+      "prepass",
+      "candidate-pack",
+      "displayable-creatives",
+      "see-section-badge",
+      "lead-list-available",
+      "pre-normalized",
+      "quarantined-pipeline",
+    ]);
+    expect(scrubbed.value).toBe(
+      "evidence gap: narrative removed — internal pipeline vocabulary is not client prose.",
+    );
+  });
+
+  it("keeps legitimate market prose about budgets and quarantined files", () => {
+    const value =
+      "The median ad budget for this segment is modest. Media budget allocation favors search. The antivirus quarantined files automatically.";
+
+    const scrubbed = scrubInternalJargon({ field: "body.prose", value });
+
+    expect(scrubbed.strikes).toEqual([]);
+    expect(scrubbed.value).toBe(value);
+  });
 });
 
 describe("gateProseNumbers with section truth (envelope strings)", () => {

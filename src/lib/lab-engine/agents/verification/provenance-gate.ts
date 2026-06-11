@@ -20,6 +20,11 @@
 // 3) scrubQuoteEmails — personal email addresses inside quote cards are
 //    replaced before the artifact can reach a client (run 8081e646 shipped an
 //    employee email inside a VoC Trustpilot quote).
+// 4) stripPlaceholderSourceUrls — fabricated placeholder URLs (example.com,
+//    short-digit LinkedIn group ids, sequential-digit ids, Reddit
+//    pseudo-permalinks whose "id" segment is a topic slug) are relabeled to an
+//    explicit evidence-gap marker URL so a made-up link can never ship as
+//    provenance. The row and its claim stay; only the fake URL goes.
 
 export interface StrippedExemplarEcho {
   field: string;
@@ -36,6 +41,12 @@ export interface DowngradedVerbatimQuote {
 export interface ScrubbedQuoteEmail {
   field: string;
   count: number;
+}
+
+export interface StrippedPlaceholderUrl {
+  field: string;
+  sourceUrl: string;
+  reason: string;
 }
 
 interface ProvenanceGateResult<TRecord> {
@@ -189,7 +200,9 @@ const verbatimCapableUrlPatterns: readonly RegExp[] = [
   /g2\.com\/survey_responses\//i,
   /capterra\.[a-z.]+\/p\/\d+\/[^/]+\/reviews\/\d+/i,
   /trustpilot\.com\/reviews\/[0-9a-f]{16,}/i,
-  /reddit\.com\/r\/[^/]+\/comments\/[a-z0-9]+/i,
+  // The id segment must END at a path boundary: a pseudo-permalink topic slug
+  // ("/comments/people-hate-pricing/") would otherwise prefix-match.
+  /reddit\.com\/r\/[^/]+\/comments\/[a-z0-9]+(?:[/?#]|$)/i,
   /news\.ycombinator\.com\/item\?id=\d+/i,
 ];
 
@@ -548,4 +561,213 @@ export function scrubQuoteEmails({
   return scrubbed.length === 0
     ? { body, stripped: [] }
     : { body: cloned, stripped: scrubbed };
+}
+
+// LinkedIn group ids fabricated by the model are short digit runs; real group
+// URLs carry longer ids plus a slug. Anchored to the end of the path.
+const linkedInShortGroupIdPattern = /linkedin\.com\/groups\/\d{1,7}\/?$/i;
+
+const examplePlaceholderHostPattern =
+  /^https?:\/\/(?:[\w-]+\.)*example\.(?:com|org)(?:[/?#]|$)/i;
+
+const redditCommentsIdSegmentPattern =
+  /reddit\.com\/r\/[^/]+\/comments\/([^/?#]+)/i;
+
+// A real Reddit comments id is a short lowercase base36 token; a fabricated
+// pseudo-permalink puts the topic slug where the id belongs.
+const redditBase36IdPattern = /^[a-z0-9]{4,10}$/;
+
+// Schema-legal null-equivalent: section schemas pin sourceUrl as a non-empty
+// string (several as a URL), and assertSectionArtifactPersistable re-parses
+// the annotated body before persistence — so the honest relabel must itself
+// be a parseable URL. `.invalid` is RFC 2606 reserved and never resolves.
+export const placeholderSourceUrlRelabel =
+  "https://evidence-gap.invalid/placeholder-source-removed";
+
+function normalizeHost(host: string): string {
+  return host.toLowerCase().replace(/^www\./, "");
+}
+
+function urlHost(url: string): string | null {
+  try {
+    return normalizeHost(new URL(url).hostname);
+  } catch {
+    return null;
+  }
+}
+
+// Fixture/offline harnesses legitimately live on example.com (subject site,
+// corpus excerpts, source refs) — a host vouched for by the runner-owned
+// ResearchInput is not a fabrication signal. Real corpora never cite
+// example.com, so production stays fail-closed. Only the example-host shape
+// consults this set; the structural shapes (short LinkedIn group ids, Reddit
+// pseudo-permalinks, sequential digits) are placeholder-shaped regardless of
+// host trust.
+export function buildPlaceholderTrustedHosts(input?: {
+  company?: { websiteUrl?: string | null };
+  corpus?: { excerpts?: ReadonlyArray<{ sourceUrl?: string | null }> };
+  sources?: ReadonlyArray<{ url?: string | null }>;
+}): ReadonlySet<string> {
+  const hosts = new Set<string>();
+  const addHost = (value: string | null | undefined): void => {
+    if (typeof value !== "string" || value.length === 0) {
+      return;
+    }
+
+    const host = urlHost(value);
+
+    if (host !== null) {
+      hosts.add(host);
+    }
+  };
+
+  addHost(input?.company?.websiteUrl);
+
+  for (const excerpt of input?.corpus?.excerpts ?? []) {
+    addHost(excerpt.sourceUrl);
+  }
+
+  for (const source of input?.sources ?? []) {
+    addHost(source.url);
+  }
+
+  return hosts;
+}
+
+function isTrustedHost({
+  trustedHosts,
+  url,
+}: {
+  trustedHosts: ReadonlySet<string>;
+  url: string;
+}): boolean {
+  const host = urlHost(url);
+
+  return host !== null && trustedHosts.has(host);
+}
+
+function hasSequentialDigitRun(url: string): boolean {
+  for (const match of url.matchAll(/\d{6,}/g)) {
+    const digits = match[0];
+    let sequential = true;
+
+    for (let index = 1; index < digits.length; index += 1) {
+      if (digits.charCodeAt(index) !== digits.charCodeAt(index - 1) + 1) {
+        sequential = false;
+        break;
+      }
+    }
+
+    if (sequential) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function placeholderUrlReason({
+  trustedHosts,
+  url,
+}: {
+  trustedHosts: ReadonlySet<string>;
+  url: string;
+}): string | null {
+  if (
+    examplePlaceholderHostPattern.test(url) &&
+    !isTrustedHost({ trustedHosts, url })
+  ) {
+    return "example.com/example.org placeholder host";
+  }
+
+  if (linkedInShortGroupIdPattern.test(url)) {
+    return "LinkedIn group URL with a short placeholder numeric id";
+  }
+
+  const redditSegment = redditCommentsIdSegmentPattern.exec(url);
+
+  if (
+    redditSegment !== null &&
+    !redditBase36IdPattern.test(redditSegment[1] ?? "")
+  ) {
+    return "Reddit pseudo-permalink: topic slug where the base36 post id belongs";
+  }
+
+  if (hasSequentialDigitRun(url)) {
+    return "sequential-digit placeholder id (e.g. 1234567)";
+  }
+
+  return null;
+}
+
+function walkForPlaceholderUrls({
+  path,
+  stripped,
+  trustedHosts,
+  value,
+}: {
+  path: string;
+  stripped: StrippedPlaceholderUrl[];
+  trustedHosts: ReadonlySet<string>;
+  value: unknown;
+}): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      walkForPlaceholderUrls({
+        path: `${path}[${index}]`,
+        stripped,
+        trustedHosts,
+        value: item,
+      });
+    });
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  for (const [key, childValue] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+
+    if (key === "sourceUrl" && typeof childValue === "string") {
+      const reason = placeholderUrlReason({ trustedHosts, url: childValue });
+
+      if (reason !== null) {
+        value[key] = placeholderSourceUrlRelabel;
+        stripped.push({ field: childPath, reason, sourceUrl: childValue });
+      }
+
+      continue;
+    }
+
+    walkForPlaceholderUrls({
+      path: childPath,
+      stripped,
+      trustedHosts,
+      value: childValue,
+    });
+  }
+}
+
+// Deterministic placeholder-URL strike (ADR-0011 posture: strip the lie,
+// record it in verifierSummary, never hard-fail). A sourceUrl matching an
+// obvious placeholder shape is relabeled to the explicit evidence-gap marker
+// URL and recorded as strippedPlaceholderUrls. The row and its claim survive;
+// only the fabricated provenance goes.
+export function stripPlaceholderSourceUrls({
+  body,
+  trustedHosts = new Set<string>(),
+}: {
+  body: Record<string, unknown>;
+  trustedHosts?: ReadonlySet<string>;
+}): ProvenanceGateResult<StrippedPlaceholderUrl> {
+  const cloned = structuredClone(body);
+  const stripped: StrippedPlaceholderUrl[] = [];
+
+  walkForPlaceholderUrls({ path: "body", stripped, trustedHosts, value: cloned });
+
+  return stripped.length === 0
+    ? { body, stripped: [] }
+    : { body: cloned, stripped };
 }

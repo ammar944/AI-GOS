@@ -26,6 +26,12 @@ const REVIEW_REMOVAL_CLAIM_PATTERN =
 const CLAIMED_DOUBLE_QUOTED_TOKEN_PATTERN = /["“]([^"”\n]{2,160})["”]/gu;
 const CLAIMED_SINGLE_QUOTED_TOKEN_PATTERN = /'([^'\n]{2,160})'/gu;
 const UNVERIFIED_MARKER_AFTER_TOKEN_PATTERN = /^\s*\[\s*unverified\b[^\]]*\]/iu;
+// The model-authored verification-chrome bracket family ([unverified ...],
+// [model estimate ...], [assumed], [medium]) never ships in client markdown:
+// verification state is deterministic downstream (section badge +
+// verifierSummary). The (?!\() guard keeps markdown link text intact.
+const VERIFICATION_CHROME_MARKER_PATTERN =
+  /\s*\[\s*(?:unverified|model estimate|assumed|medium)\b[^\]\n]{0,160}\](?!\()/giu;
 
 type ReviewProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
 type ReviewWarningSink = (
@@ -442,6 +448,29 @@ function sanitizeReviewVerifiedMarkers(
   };
 }
 
+// Strips the whole model-authored bracket family from upgradedMarkdown so
+// prompt drift can never reintroduce inline verification chrome (run 314d5f02
+// shipped 83 [unverified] markers). Runs AFTER enforceReviewRemovedItemsHonesty
+// so relabel-aware removal claims still see "token [unverified]" as relabeled
+// (not bare) before the chrome is removed.
+function sanitizeReviewVerificationChrome(
+  review: SectionReviewResult,
+): SectionReviewResult {
+  const upgradedMarkdown = review.upgradedMarkdown.replace(
+    VERIFICATION_CHROME_MARKER_PATTERN,
+    "",
+  );
+
+  if (upgradedMarkdown === review.upgradedMarkdown) {
+    return review;
+  }
+
+  return {
+    ...review,
+    upgradedMarkdown,
+  };
+}
+
 function buildFallbackReview(input: {
   artifact: ArtifactEnvelope | null;
   error: unknown;
@@ -478,9 +507,8 @@ function buildReviewPrompt(input: {
     "- Credit client-provided onboarding economics as (client brief), not as tool-measured facts.",
     "- Treat ResearchInput fields marked `provenance: \"user-supplied\"` as grounded client brief; do not remove or flag those numbers as unsupported merely because no public source repeats them.",
     "- Treat competitor seeds marked `provenance: \"user-supplied\"` as operator-provided starting points, not fetched competitive evidence.",
-    "- Label model estimates as [model estimate - not tool-measured].",
-    "- Label plausible but unfetched claims as [unverified - confirm before use].",
-    "- If evidence is too thin, author an honest evidence-gap section that says what is missing and what to ask next.",
+    "- Do not add bracketed verification markers anywhere; remove unverifiable claims or surface them in clientQuestions — verification chrome is deterministic downstream.",
+    "- Name missing evidence in clientQuestions (structured); never add gap sections or gap headings to the markdown.",
     "- Do not invent market data, prices, competitors, quotes, statistics, URLs, reviewer names, or dates.",
     '- In removedItems, any entry claiming removal MUST quote the exact removed value, e.g. `Removed "33,100 monthly searches"`; omit vague removal claims.',
     "- Keep the output as polished markdown for the client.",
@@ -576,11 +604,13 @@ export async function reviewAndUpgradeSection(
     });
     const sanitizedReview = sanitizeReviewVerifiedMarkers(review);
 
-    return enforceReviewRemovedItemsHonesty({
-      artifact: input.artifact,
-      review: sanitizedReview.review,
-      sectionId: input.sectionId,
-    });
+    return sanitizeReviewVerificationChrome(
+      enforceReviewRemovedItemsHonesty({
+        artifact: input.artifact,
+        review: sanitizedReview.review,
+        sectionId: input.sectionId,
+      }),
+    );
   } catch (error) {
     return buildFallbackReview({
       artifact: input.artifact,

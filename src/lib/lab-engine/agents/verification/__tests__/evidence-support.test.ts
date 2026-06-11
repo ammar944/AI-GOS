@@ -1036,7 +1036,75 @@ describe("redactUnsupportedNumericClaims marker boundaries (W4)", (): void => {
       "[4 figures in this field are unverified — see section badge]",
     );
     expect(
-      result.stripped.filter((entry) => entry.action === "marker"),
+      result.stripped.filter((entry) => entry.action === "marker-aggregated"),
     ).toHaveLength(4);
+    expect(
+      result.stripped.filter((entry) => entry.action === "marker"),
+    ).toHaveLength(0);
+  });
+
+  it("counts occurrences, not distinct tokens, against the per-field cap", (): void => {
+    const result = proseAfterRedaction({
+      prose:
+        "Plans run $48 monthly, renew at $48, expand at $48, and cap at $48.",
+      unsupported: ["$48"],
+    });
+
+    expect(result.prose).not.toContain("[unverified]");
+    expect(result.prose).toContain(
+      "[1 figure in this field is unverified — see section badge]",
+    );
+    expect(result.stripped).toEqual([
+      {
+        action: "marker-aggregated",
+        field: "body.marketSize.prose",
+        value: "$48",
+      },
+    ]);
+  });
+
+  it("stops splicing inline markers once the section budget is exhausted", (): void => {
+    const body = {
+      alpha: { prose: "Adoption hit 17% with 240 accounts and $9.2M booked." },
+      beta: { prose: "Pipeline added 55% more, 610 leads, and $4.1M closed." },
+      gamma: { prose: "Churn fell 12% across 980 accounts." },
+    };
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: buildUnsupportedNumericReport([
+        "17%",
+        "240",
+        "$9.2M",
+        "55%",
+        "610",
+        "$4.1M",
+        "12%",
+        "980",
+      ]),
+    });
+    const redacted = result.body as typeof body;
+
+    // First six markable occurrences (alpha + beta) ship inline.
+    expect(redacted.alpha.prose.match(/\[unverified\]/g)).toHaveLength(3);
+    expect(redacted.beta.prose.match(/\[unverified\]/g)).toHaveLength(3);
+    // Budget exhausted: gamma keeps its prose untouched, no footnote.
+    expect(redacted.gamma.prose).toBe(body.gamma.prose);
+    expect(
+      result.stripped.filter((entry) => entry.action === "marker"),
+    ).toHaveLength(6);
+    expect(
+      result.stripped.filter((entry) => entry.action === "marker-aggregated"),
+    ).toEqual([
+      {
+        action: "marker-aggregated",
+        field: "body.gamma.prose",
+        value: "12%",
+      },
+      {
+        action: "marker-aggregated",
+        field: "body.gamma.prose",
+        value: "980",
+      },
+    ]);
   });
 });

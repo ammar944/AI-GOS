@@ -373,6 +373,7 @@ export interface StripMisattributedQuoteAttributionsResult {
 
 export type StrippedNumericClaimAction =
   | "marker"
+  | "marker-aggregated"
   | "evidence-gap"
   | "provenance-unknown"
   | "verified-marker-removed";
@@ -663,17 +664,19 @@ export function isCleanTokenBoundary({
 }
 
 function markNumericToken({
+  budget,
   token,
   value,
 }: {
+  budget?: InlineMarkerBudget;
   token: UnsupportedNumericToken;
   value: string;
-}): { applied: boolean; value: string } {
+}): { appliedCount: number; value: string } {
   if (token.value.length === 0 || !value.includes(token.value)) {
-    return { applied: false, value };
+    return { appliedCount: 0, value };
   }
 
-  let applied = false;
+  let appliedCount = 0;
   const pattern = new RegExp(escapeRegExp(token.value), "g");
   const redacted = value.replace(pattern, (match, offset: number, source) => {
     const following = source.slice(offset + match.length);
@@ -688,18 +691,37 @@ function markNumericToken({
       return match;
     }
 
-    applied = true;
+    if (budget !== undefined) {
+      if (budget.remaining <= 0) {
+        return match;
+      }
+
+      budget.remaining -= 1;
+    }
+
+    appliedCount += 1;
     return `${match} ${unverifiedMarker}`;
   });
 
-  return { applied, value: redacted };
+  return { appliedCount, value: redacted };
 }
 
-// Above this many distinct unsupported figures in one field, inline markers
+// Above this many applied marker occurrences in one field, inline markers
 // stop reading as annotation and start reading as static. The field keeps its
 // prose intact and carries ONE aggregate footnote instead; per-token stripped
 // actions still record every figure for the report and badge.
 export const inlineMarkerCapPerField = 3;
+
+// Section-wide occurrence budget for spliced [unverified] markers. Run
+// 314d5f02 shipped 83 inline markers because the per-field cap counted
+// distinct tokens while every occurrence was spliced globally. Beyond this
+// budget splicing stops: the claims stay recorded as "marker-aggregated" and
+// the section badge covers them (same posture as the boundary-skip above).
+export const inlineMarkerBudgetPerSection = 6;
+
+interface InlineMarkerBudget {
+  remaining: number;
+}
 
 function buildAggregateMarkerFootnote(count: number): string {
   return `[${count} figure${count === 1 ? "" : "s"} in this field ${
@@ -708,24 +730,40 @@ function buildAggregateMarkerFootnote(count: number): string {
 }
 
 function appendMarkerActions({
+  budget,
   field,
   stripped,
   tokens,
   value,
 }: {
+  budget?: InlineMarkerBudget;
   field: string;
   stripped: StrippedNumericClaim[];
   tokens: readonly UnsupportedNumericToken[];
   value: string;
 }): string {
-  const markableTokens = tokens.filter(
-    (token) => markNumericToken({ token, value }).applied,
-  );
+  // Dry run (no budget consumed): which tokens are markable in this field and
+  // how many occurrences would actually be spliced.
+  const markableTokens: UnsupportedNumericToken[] = [];
+  let markableOccurrenceCount = 0;
 
-  if (markableTokens.length > inlineMarkerCapPerField) {
+  for (const token of tokens) {
+    const { appliedCount } = markNumericToken({ token, value });
+
+    if (appliedCount > 0) {
+      markableTokens.push(token);
+      markableOccurrenceCount += appliedCount;
+    }
+  }
+
+  if (markableOccurrenceCount === 0) {
+    return value;
+  }
+
+  if (markableOccurrenceCount > inlineMarkerCapPerField) {
     for (const token of markableTokens) {
       stripped.push({
-        action: "marker",
+        action: "marker-aggregated",
         field,
         value: token.value,
       });
@@ -736,10 +774,17 @@ function appendMarkerActions({
 
   let nextValue = value;
 
-  for (const token of tokens) {
-    const result = markNumericToken({ token, value: nextValue });
+  for (const token of markableTokens) {
+    const result = markNumericToken({ budget, token, value: nextValue });
 
-    if (!result.applied) {
+    if (result.appliedCount === 0) {
+      // Markable, but the section budget is exhausted: record without
+      // splicing — verifierSummary distinguishes shipped vs aggregated.
+      stripped.push({
+        action: "marker-aggregated",
+        field,
+        value: token.value,
+      });
       continue;
     }
 
@@ -843,10 +888,12 @@ function relabelBottomUpTamInput({
 }
 
 function relabelReachableRevenueEstimate({
+  budget,
   record,
   stripped,
   tokens,
 }: {
+  budget?: InlineMarkerBudget;
   record: Record<string, unknown>;
   stripped: StrippedNumericClaim[];
   tokens: readonly UnsupportedNumericToken[];
@@ -858,6 +905,7 @@ function relabelReachableRevenueEstimate({
   }
 
   const marked = appendMarkerActions({
+    budget,
     field: `${bottomUpTamPath}.reachableRevenueEstimate`,
     stripped,
     tokens,
@@ -873,11 +921,13 @@ function relabelReachableRevenueEstimate({
 }
 
 function relabelBottomUpTamRecord({
+  budget,
   path,
   record,
   stripped,
   tokens,
 }: {
+  budget?: InlineMarkerBudget;
   path: string;
   record: Record<string, unknown>;
   stripped: StrippedNumericClaim[];
@@ -903,7 +953,7 @@ function relabelBottomUpTamRecord({
   });
 
   if (relabeledInput) {
-    relabelReachableRevenueEstimate({ record, stripped, tokens });
+    relabelReachableRevenueEstimate({ budget, record, stripped, tokens });
   }
 }
 
@@ -1050,11 +1100,13 @@ function shouldSkipNumericMarkerField({
 }
 
 function walkBodyForUnsupportedNumerics({
+  budget,
   path,
   stripped,
   tokens,
   value,
 }: {
+  budget: InlineMarkerBudget;
   path: string;
   stripped: StrippedNumericClaim[];
   tokens: readonly UnsupportedNumericToken[];
@@ -1063,6 +1115,7 @@ function walkBodyForUnsupportedNumerics({
   if (Array.isArray(value)) {
     value.forEach((item, index) => {
       walkBodyForUnsupportedNumerics({
+        budget,
         path: `${path}[${index}]`,
         stripped,
         tokens,
@@ -1076,7 +1129,7 @@ function walkBodyForUnsupportedNumerics({
     return;
   }
 
-  relabelBottomUpTamRecord({ path, record: value, stripped, tokens });
+  relabelBottomUpTamRecord({ budget, path, record: value, stripped, tokens });
   redactPaidMediaMoneyFields({ path, record: value, stripped, tokens });
 
   for (const [key, childValue] of Object.entries(value)) {
@@ -1105,6 +1158,7 @@ function walkBodyForUnsupportedNumerics({
       stripped.push(...verifiedMarkerStrip.stripped);
 
       const marked = appendMarkerActions({
+        budget,
         field: childPath,
         stripped,
         tokens,
@@ -1119,6 +1173,7 @@ function walkBodyForUnsupportedNumerics({
     }
 
     walkBodyForUnsupportedNumerics({
+      budget,
       path: childPath,
       stripped,
       tokens,
@@ -1145,8 +1200,12 @@ export function redactUnsupportedNumericClaims({
 
   const cloned = structuredClone(body);
   const stripped: StrippedNumericClaim[] = [];
+  const budget: InlineMarkerBudget = {
+    remaining: inlineMarkerBudgetPerSection,
+  };
 
   walkBodyForUnsupportedNumerics({
+    budget,
     path: "body",
     stripped,
     tokens,
