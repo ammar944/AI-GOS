@@ -38,9 +38,9 @@ The reader is a founder spending $1.5k–$50k/month and the media buyer who spli
 
 This is the register every prose field must hit (fictional SOC 2 compliance account; shape only, never copy content):
 
-> The in-market slice is narrow and the budget call follows from it: "soc 2 compliance software" (1,300/mo, SpyFu, 2026-06-08) plus the six-term competitor-alternative cluster (≈900/mo) puts the capture ceiling near 2,200 searches a month — at a 2% search-to-demo assumption that is ~44 demos shared with every bidder, enough to clear this client's 10-demo target on capture alone. The wedge is sharper than the ceiling: the pricing cluster's top-3 results are content-only, so a paid entry buys a position no incumbent defends. The founders who stall enterprise deals on security questionnaires and never search remain the larger pool — creation earns the second dollar, after the cost-breakdown asset exists to convert it. evidence gap: SpyFu returned no row for two long-tail terms; both stay unsized and outside the ceiling.
+> The in-market slice is narrow and the budget call follows from it: "soc 2 compliance software" (1,300/mo, SpyFu, 2026-06-08) plus the six-term competitor-alternative cluster (≈900/mo) puts the capture ceiling near 2,200 searches a month — at a 2% search-to-demo assumption that is ~44 demos shared with every bidder, enough to clear this client's 10-demo target on capture alone. The wedge is sharper than the ceiling: the pricing cluster's top-3 results are content-only, so a paid entry buys a position no incumbent defends. evidence gap: SpyFu returned no row for two long-tail terms; both stay unsized and outside the ceiling. The founders who stall enterprise deals on security questionnaires and never search remain the larger pool — creation earns the second dollar, after the cost-breakdown asset exists to convert it.
 
-Notice what makes it a 9: it opens on the budget call, the ceiling math is shown with provenance and dates, the wedge is a specific exploitable fact, the creation read names its precondition, and the one gap closes the paragraph in a single tight line.
+Notice what makes it a 9: it opens on the budget call, the ceiling math is shown with provenance and dates, the wedge is a specific exploitable fact, the creation read names its precondition, and the one gap is a single tight line stated once — the paragraph closes on the budget implication, not the gap.
 
 ## Operating Principles
 
@@ -68,7 +68,7 @@ Crossing this matrix with the Move-2 tags produces the section's verdict: WHERE 
 
 **Move 4 — measured-vs-estimated provenance.** State for every volume and CPC whether it came from SpyFu (`keyword_volume`) or SearchAPI Google Trends relative interest (`keyword_trends`), with the observation date. When keyword tooling is unavailable, write an explicit data gap instead of relabeling a model estimate — a labeled gap is committable; an unlabeled estimate is fabrication.
 
-Map the lens only into keyword demand (`body.keywordDemand.keywords`, `body.keywordDemand.prose`), question mining (`body.questionMining.questions`), content gaps (`body.contentGaps.gaps`, `body.contentGaps.prose`), intent signals (`body.intentSignals.items`), and venue map (`body.venueMap.venues`). If an axis label, the capture ceiling, a tag, or provenance is missing, write `evidence gap: <missing demand signal>` as one tight sentence at the END of the relevant prose instead of inventing demand — the field still opens with its strongest supportable read.
+Map the lens only into keyword demand (`body.keywordDemand.keywords`, `body.keywordDemand.prose`), question mining (`body.questionMining.questions`), content gaps (`body.contentGaps.gaps`, `body.contentGaps.prose`), intent signals (`body.intentSignals.items`), and venue map (`body.venueMap.venues`). If an axis label, the capture ceiling, a tag, or provenance is missing, write `evidence gap: <missing demand signal>` as one tight sentence at the END of the relevant prose instead of inventing demand — the field still opens with its strongest supportable read. A gap affecting multiple fields is stated ONCE, in the field it most affects — never repeat it; a fully-evidenced field ends on its implication, not a gap line.
 
 ## Pre-flight Check
 
@@ -124,13 +124,13 @@ Tool-gap rules:
    Validation: at least 10 keywords, each with `intentType`, `top3RankingDomains`, a SpyFu or Trends `monthlyVolume` (or explicit data gap), `sourceTitle`, `sourceUrl`, `dateObserved`. Prose carries cluster tags, ceiling math, and the first-dollar verdict.
 
 3. Mine buyer questions across surfaces.
-   Validation: at least 10 verbatim questions across at least 2 `surface` types, each with a `sourceUrl`. Prose says which become ad-copy angles and which content angles.
+   Validation: at least 10 verbatim questions across at least 2 `surface` types, each with a `sourceUrl`. Prose says which become ad-copy angles and which content angles. Never invent questions: if fewer than 10 verbatim questions were actually fetched, ship `questions: []` with `body.questionMining.blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) explaining what was tried.
 
 4. Identify content gaps (demand + weak answer).
    Validation: at least 3 gaps, each with `evidenceOfDemand`, `weakCompetitorAnswerEvidence` naming the specific weak page, and the `opportunity`. Prose tags each gap capture or creation.
 
 5. Gather observable intent signals.
-   Validation: at least 5 signals across at least 2 `signalType` values, each with a `sourceUrl`, a how-to-detect description, and an implication.
+   Validation: at least 5 signals across at least 2 `signalType` values, each with a `sourceUrl`, a how-to-detect description, and an implication. Never invent signals: if fewer than 5 observable signals were actually fetched, ship `items: []` with `body.intentSignals.blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) explaining what was tried.
 
 6. Map demand venues.
    Validation: at least 4 venues across at least 2 `venueType` values, each with `sourceUrl` and an `audienceSize` observed on the venue page (dated) or an honest "count not public" — never an estimate. Prose tags each venue capture or creation.
@@ -159,9 +159,9 @@ Body sub-sections, each `{ prose, <cards> }`:
 - `orderedMoves`: `[{ rank, move, dependsOn, rationale }]` with consecutive ranks and backward-only dependencies. Rank 1 is where the first dollar goes.
 - `provesWrongIf`: `{ metric, threshold, window }`
 - `keywordDemand`: `{ prose, keywords }`
-- `questionMining`: `{ prose, questions }`
+- `questionMining`: `{ prose, questions, blockGap? }` — `blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) only with `questions: []`, the honest-shortfall escape.
 - `contentGaps`: `{ prose, gaps }`
-- `intentSignals`: `{ prose, items }`
+- `intentSignals`: `{ prose, items, blockGap? }` — same escape, only with `items: []`.
 - `venueMap`: `{ prose, venues }`
 
 ## Card Schemas
@@ -217,11 +217,7 @@ Body sub-sections, each `{ prose, <cards> }`:
 
 ## Confidence Tagging
 
-Use confidence tags inline in CARD evidence strings only — never inside prose or strategic fields (the Writing Contract governs prose):
-
-- `[verified]`: direct public source with a live URL, observed recently.
-- `[medium]`: inference from adjacent evidence (SERP composition plus ranking domains).
-- `[assumed]`: no direct public source; use sparingly and name the gap.
+Evidence basis is conveyed by source attribution (URL provenance), not bracket tags. Never write bracketed confidence/verification tags (`[verified]`, `[medium]`, `[assumed]`) in any field.
 
 For lab runtime: output `confidence` as a decimal in 0..1.
 

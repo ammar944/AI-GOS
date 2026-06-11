@@ -482,4 +482,60 @@ describe("checkRequiredEvidenceClasses", (): void => {
       ).toBeNull();
     });
   });
+
+  describe("demand_signal_or_gap", (): void => {
+    const emptyDemandBody = {
+      intentSignals: { items: [], prose: "evidence gap" },
+      keywordDemand: { keywords: [], prose: "evidence gap" },
+      questionMining: { prose: "evidence gap", questions: [] },
+    };
+    const demandBlockGap = {
+      foundCount: 0,
+      requiredCount: 10,
+      sourcingPlan: ["Mine competitor community threads."],
+      summary: "No verbatim buyer questions surfaced on public surfaces.",
+    };
+
+    it("fails a body with no signals and no gap signal", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: emptyDemandBody,
+          requiredEvidenceClasses: ["demand_signal_or_gap"],
+          sectionId: "positioningDemandIntent",
+        }),
+      ).toBe("demand_signal_or_gap");
+    });
+
+    it("accepts a questionMining blockGap as the honest alternative to invented questions", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyDemandBody,
+            questionMining: {
+              ...emptyDemandBody.questionMining,
+              blockGap: demandBlockGap,
+            },
+          },
+          requiredEvidenceClasses: ["demand_signal_or_gap"],
+          sectionId: "positioningDemandIntent",
+        }),
+      ).toBeNull();
+    });
+
+    it("accepts an intentSignals blockGap as the honest alternative to invented signals", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyDemandBody,
+            intentSignals: {
+              ...emptyDemandBody.intentSignals,
+              blockGap: { ...demandBlockGap, requiredCount: 5 },
+            },
+          },
+          requiredEvidenceClasses: ["demand_signal_or_gap"],
+          sectionId: "positioningDemandIntent",
+        }),
+      ).toBeNull();
+    });
+  });
 });

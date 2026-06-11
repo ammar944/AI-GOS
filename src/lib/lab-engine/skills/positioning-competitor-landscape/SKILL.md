@@ -27,9 +27,9 @@ The reader is a founder spending $1.5k–$50k/month and the media buyer who writ
 
 This is the register every prose field must hit (fictional Cartreader account; shape only, never copy content):
 
-> Cartreader's most dangerous competitor charges nothing and runs no ads: the founder's GA4-plus-spreadsheet Sunday ritual, named in five of nine retrieved buyer threads, which costs a weekly evening of manual reconciliation and still leaves attribution doubts. Among funded rivals, Funnelglass and MetricPeak both sell attribution accuracy while their own buyers complain about onboarding weeks — six of nine retrieved complaints name setup time, and neither runs a single ad answering it. That is the asymmetry to spend against: fastest-to-first-insight is uncontested on every surface we probed, while the accuracy axis is armored by a published whitepaper and won bake-offs. evidence gap: no public thread names a DIY build; the bucket stays with a thin-evidence flag.
+> Cartreader's most dangerous competitor charges nothing and runs no ads: the founder's GA4-plus-spreadsheet Sunday ritual, named in five of nine retrieved buyer threads, which costs a weekly evening of manual reconciliation and still leaves attribution doubts. Among funded rivals, Funnelglass and MetricPeak both sell attribution accuracy while their own buyers complain about onboarding weeks — six of nine retrieved complaints name setup time, and neither runs a single ad answering it. evidence gap: no public thread names a DIY build; the bucket stays with a thin-evidence flag. That is the asymmetry to spend against: fastest-to-first-insight is uncontested on every surface we probed, while the accuracy axis is armored by a published whitepaper and won bake-offs.
 
-Notice what makes it a 9: it opens on the most dangerous competitor (which is not a vendor), every count traces to retrieved evidence, the attack/concede call is made inside the argument, the white space is delivered as a finding, and the one gap closes the paragraph in a single tight line.
+Notice what makes it a 9: it opens on the most dangerous competitor (which is not a vendor), every count traces to retrieved evidence, the attack/concede call is made inside the argument, the white space is delivered as a finding, and the one gap is a single tight line stated once — the paragraph closes on the attack/concede implication, not the gap.
 
 ## Operating Principles
 
@@ -56,7 +56,7 @@ Two frameworks plus one battlecard craft drive this section. Run them as ANALYTI
 
 **Move 6 — Know/Say/Show narrative arcs.** Map each top competitor's villain, hero, and transformation claim into `body.narrativeArcs.arcs` as the "when they say, you say" battlecard; incomplete arcs belong in prose as a named gap, not as fabricated cards.
 
-Map the lens only into competitors (`body.competitorSet`), axes (`body.positioningTaxonomy`), pricing reality (`body.pricingReality`), weaknesses (`body.publicWeaknesses`), ad presence (`body.adPresence`), and narrative arcs (`body.narrativeArcs`). If evidence is missing for a competitive alternative, axis of competition, proof gap, exploitable weakness, or narrative arc, write `evidence gap: <missing signal>` as one tight sentence at the END of the relevant prose — the field still opens with its strongest supportable read.
+Map the lens only into competitors (`body.competitorSet`), axes (`body.positioningTaxonomy`), pricing reality (`body.pricingReality`), weaknesses (`body.publicWeaknesses`), ad presence (`body.adPresence`), and narrative arcs (`body.narrativeArcs`). If evidence is missing for a competitive alternative, axis of competition, proof gap, exploitable weakness, or narrative arc, write `evidence gap: <missing signal>` as one tight sentence at the END of the relevant prose — the field still opens with its strongest supportable read. A gap affecting multiple fields is stated ONCE, in the field it most affects — never repeat it; a fully-evidenced field ends on its implication, not a gap line.
 
 ## Pre-flight Check
 
@@ -231,11 +231,7 @@ Each source has `title`, `url` (canonical public URL), and optional `publisher`.
 
 ## Confidence Tagging
 
-Use confidence tags inline in CARD evidence strings only — never inside prose or strategic fields (the Writing Contract governs prose):
-
-- `[verified]`: direct public source, pricing page, ad library, category page, review, or community thread.
-- `[medium]`: inference from multiple adjacent public signals.
-- `[assumed]`: no direct public source; use sparingly and explain the evidence gap.
+Evidence basis is conveyed by source attribution (URL provenance), not bracket tags. Never write bracketed confidence/verification tags (`[verified]`, `[medium]`, `[assumed]`) in any field.
 
 ## Correct vs Incorrect Examples
 
@@ -428,7 +424,7 @@ Before returning the final section output, verify:
 - A competitor can appear in multiple sub-sections; do not invent new names just to increase counts.
 - Ad-library copy may be campaign-specific; raw row counts overstate deployable creative.
 - A homepage supports hero copy, not customer weakness; a category directory supports adjacency, not proof of buyer comparison.
-- If a tool surface is unavailable, say what evidence was missing and what substitute evidence was used.
+- If a surface could not be probed, name the missing MARKET evidence in prose (e.g. `evidence gap: no buyer reviews retrieved for X`) and what substitute evidence was used — never name the tool, credential, or rate limit in section prose.
 
 ## Anti-Slop Rules
 
@@ -440,7 +436,7 @@ Before returning the final section output, verify:
 - Do not call a surface "owned" unless the evidence is specific to that surface.
 - Do not collapse the four buckets into one generic competitor list. Do not output placeholder source URLs.
 - Do not turn fixture competitor ads into proof of current campaign activity unless the fixture source says they are current.
-- Do not bury capability gaps in generic caveats; name the tool and gap reason when it affected evidence quality.
+- Do not bury capability gaps in generic caveats; name the specific missing MARKET evidence when it affected evidence quality — tool, credential, and rate-limit diagnostics belong in structured gap fields, never in section prose.
 
 ## Handoff
 

@@ -64,6 +64,55 @@ describe("strategic insight validators", (): void => {
     expect(errors.join(" ")).toContain("duplicates");
   });
 
+  it("permits a single evidence-gap line among distinct strategic fields", (): void => {
+    const errors: string[] = [];
+
+    validateStrategicInsightMinimums(errors, "body.strategicInsight", {
+      strategicVerdict:
+        "The buyer should prioritize accountable workflow control before broad automation claims.",
+      nonObviousRead:
+        "evidence gap: no public source names the dominant prior tool in this segment.",
+      secondOrderImplication:
+        "Targeting should weight founder-led operating pain over broad SaaS size filters.",
+      keyTension: {
+        tension:
+          "The buyer wants operating leverage but fears a full RevOps rebuild too early.",
+        side:
+          "Take the lightweight operating ritual side before selling a system migration.",
+        costOfPosition:
+          "This gives up broad RevOps accounts to win founder pain earlier.",
+      },
+    });
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it("rejects the same evidence-gap line repeated across strategic fields", (): void => {
+    const errors: string[] = [];
+    const repeatedGap =
+      "evidence gap: no public source names the dominant prior tool in this segment.";
+
+    validateStrategicInsightMinimums(errors, "body.strategicInsight", {
+      strategicVerdict:
+        "The buyer should prioritize accountable workflow control before broad automation claims.",
+      nonObviousRead: repeatedGap,
+      secondOrderImplication: repeatedGap,
+      keyTension: {
+        tension:
+          "The buyer wants operating leverage but fears a full RevOps rebuild too early.",
+        side:
+          "Take the lightweight operating ritual side before selling a system migration.",
+        costOfPosition:
+          "This gives up broad RevOps accounts to win founder pain earlier.",
+      },
+    });
+
+    expect(errors).toHaveLength(1);
+    expect(errors.join(" ")).toContain(
+      "body.strategicInsight.secondOrderImplication: repeats the evidence gap already stated in body.strategicInsight.nonObviousRead",
+    );
+  });
+
   it("rejects exact or near restatements of verdict and status summary", (): void => {
     const errors: string[] = [];
 

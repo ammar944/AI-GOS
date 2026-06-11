@@ -41,9 +41,9 @@ Two facts shape this section. Scraped pricing is often missing — the gap IS th
 
 This is the register every prose field must hit (fictional ticket-QA account; shape only, never copy content):
 
-> The binding lever is likelihood, not price: the $49/agent tier is public and mid-market [pricing page, 2026-05-30], but nothing on the site gives a cold click a reason to believe the QA-accuracy promise — zero named logos, one 4.2-star page with 11 reviews, no guarantee. The outcome and effort levers hold (audited support quality in two weeks; native Zendesk app), which is exactly why the proof hole decides the diagnosis: a warm referral forgives it, a $30 click does not. Stack two quantified case studies and surface the review page before scaling spend; until then every paid dollar buys traffic the offer cannot convert. evidence gap: no activation or retention figure is public; the 14-day time-to-value claim stands against three 6-week setup reviews.
+> The binding lever is likelihood, not price: the $49/agent tier is public and mid-market [pricing page, 2026-05-30], but nothing on the site gives a cold click a reason to believe the QA-accuracy promise — zero named logos, one 4.2-star page with 11 reviews, no guarantee. The outcome and effort levers hold (audited support quality in two weeks; native Zendesk app), which is exactly why the proof hole decides the diagnosis: a warm referral forgives it, a $30 click does not. evidence gap: no activation or retention figure is public; the 14-day time-to-value claim stands against three 6-week setup reviews. Stack two quantified case studies and surface the review page before scaling spend; until then every paid dollar buys traffic the offer cannot convert.
 
-Notice what makes it a 9: it opens on the binding constraint, the levers that HOLD are used to sharpen the one that fails, the fix is sequenced against spend, and the one gap closes the paragraph in a single tight line.
+Notice what makes it a 9: it opens on the binding constraint, the levers that HOLD are used to sharpen the one that fails, the fix is sequenced against spend, and the one gap is a single tight line stated once — the paragraph closes on the spend consequence, not the gap.
 
 ## Operating Principles
 
@@ -83,7 +83,7 @@ An offer page that lists capability nouns with no before/after is itself a findi
 
 **Move 4 — conversion-surface read.** When evidence exists, diagnose the offer the ICP hits FROM AN AD: landing page vs pricing page, form length, trial-vs-demo gate, the time-to-value claim at the click, lead-magnet presence. A strong product behind a demo-only wall converts paid clicks like a weak product. Findings → `body.funnelDiagnosis.breaks` (click-side stages) and `body.channelTruth.prose`.
 
-If any move's input — a lever score, the tiering, the pricing read, a proof gap — is unevidenced, write `evidence gap: <missing company metric>` as one tight sentence at the END of the relevant prose instead of inventing offer math or a price — the field still opens with its strongest supportable read.
+If any move's input — a lever score, the tiering, the pricing read, a proof gap — is unevidenced, write `evidence gap: <missing company metric>` as one tight sentence at the END of the relevant prose instead of inventing offer math or a price — the field still opens with its strongest supportable read. A gap affecting multiple fields is stated ONCE, in the field it most affects — never repeat it; a fully-evidenced field ends on its implication, not a gap line.
 
 ## Pre-flight Check
 
@@ -202,7 +202,7 @@ All fields are required strings unless an enum is shown.
 
 ## Confidence Tagging
 
-Inline tags in CARD evidence strings only — never inside prose or strategic fields (the Writing Contract governs prose): `[verified]` (reported number with live source URL or onboarding field) · `[medium]` (inferred / back-calculated — mark the inference) · `[assumed]` (no reported number; name the gap, never estimate from segment averages). For lab runtime: output `confidence` as a decimal in 0..1.
+Evidence basis is conveyed by source attribution (URL provenance), not bracket tags. Never write bracketed confidence/verification tags (`[verified]`, `[medium]`, `[assumed]`) in any field. For lab runtime: output `confidence` as a decimal in 0..1.
 
 ## Correct vs Incorrect Examples
 

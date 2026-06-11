@@ -38,9 +38,9 @@ The reader is a founder spending $1.5k–$50k/month and the media buyer who will
 
 This is the register every prose field must hit (fictional DispatchHQ account; shape only, never copy content):
 
-> The pain that converts is dispatch collapse, not software dissatisfaction: four of six promoted quotes describe a specific broken morning — "techs showing up to cancelled jobs", "14 jobs around a whiteboard" — and all four come from owner-operators, not admins. That is cold-hook material in the buyer's own cadence, and it decides the creative call: dramatize the collapse moment, not the feature list. The remaining two quotes price the pain in hours (a Sunday rebuilt weekly) — strong corroboration, weaker hooks. evidence gap: no quote yet voices the enterprise dispatcher tier; the pack's domains skew owner-operator.
+> The pain that converts is dispatch collapse, not software dissatisfaction: four of six promoted quotes describe a specific broken morning — "techs showing up to cancelled jobs", "14 jobs around a whiteboard" — and all four come from owner-operators, not admins. evidence gap: no quote yet voices the enterprise dispatcher tier; the pack's domains skew owner-operator. That is cold-hook material in the buyer's own cadence, and it decides the creative call: dramatize the collapse moment, not the feature list. The remaining two quotes price the pain in hours (a Sunday rebuilt weekly) — strong corroboration, weaker hooks.
 
-Notice what makes it a 9: it opens on which pain converts (a call, not a count), the quotes appear as evidence inside the argument, each cluster is routed to its media use, and the one gap closes the paragraph in a single tight line.
+Notice what makes it a 9: it opens on which pain converts (a call, not a count), the quotes appear as evidence inside the argument, each cluster is routed to its media use, and the one gap is a single tight line stated once — the paragraph closes on the creative call, not the gap.
 
 ## Operating Principles
 
@@ -69,7 +69,7 @@ The forces diagram is the synthesis, not a quote dump. `body.fourForcesBalanceVe
 
 **Move 3 — review-mining taxonomy.** Tag every candidate as pain / objection / switching-trigger / success-language, then route each tag to its media use: pain → cold hooks; objections → objection-handling creative; switching-triggers → retargeting timing and comparison pages; success language → landing-page proof and headline candidates.
 
-Map the lens only into pain themes, trigger language, objections, decision criteria, and success language. If Push, Pull, Anxiety, Habit, or the desired-outcome verbatim evidence is thin, write `evidence gap: <missing quote surface>` as one tight sentence at the END of the relevant prose instead of inventing buyer language or stretching a quote to cover a force its words do not carry — the field still opens with its strongest supportable read.
+Map the lens only into pain themes, trigger language, objections, decision criteria, and success language. If Push, Pull, Anxiety, Habit, or the desired-outcome verbatim evidence is thin, write `evidence gap: <missing quote surface>` as one tight sentence at the END of the relevant prose instead of inventing buyer language or stretching a quote to cover a force its words do not carry — the field still opens with its strongest supportable read. A gap affecting multiple fields is stated ONCE, in the field it most affects — never repeat it; a fully-evidenced field ends on its implication, not a gap line.
 
 ## Pre-flight Check
 
@@ -249,7 +249,7 @@ Seven body sub-sections:
 
 ## Confidence Tagging
 
-This section writes NO inline confidence tags anywhere — quote provenance is carried by `sourceUrl` + the `source` enum, prose is governed by the Writing Contract, and verification chrome is rendered downstream. When pattern inference stretches beyond the promoted quotes, say so in plain words and name the gap.
+Evidence basis is conveyed by source attribution (URL provenance: `sourceUrl` + the `source` enum), not bracket tags. Never write bracketed confidence/verification tags in any field. When pattern inference stretches beyond the promoted quotes, say so in plain words and name the gap.
 
 For lab runtime: output `confidence` as a decimal in 0..1.
 

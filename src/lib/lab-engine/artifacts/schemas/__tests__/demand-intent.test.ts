@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { demandIntentFixtureArtifact } from "../../../fixtures/demand-intent-artifact";
 import {
+  DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_TITLE,
+  DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_URL,
   DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME,
   checkDemandIntentKeywordProvenance,
   keywordSignalSchema,
   softenDemandIntentForSpyFuToolGap,
   validateDemandIntentMinimums,
   type DemandIntentArtifact,
+  type DemandIntentBlockGap,
 } from "../demand-intent";
 
 function withKeywordVolume(
@@ -362,12 +365,22 @@ describe("checkDemandIntentKeywordProvenance — SpyFu ToolGap soften (T2a)", ()
     });
 
     // Rows are relabeled to the explicit data-gap marker and numerics dropped.
-    softened.body.keywordDemand.keywords.forEach((keyword) => {
+    softened.body.keywordDemand.keywords.forEach((keyword, index) => {
       expect(keyword.monthlyVolume).toBe(DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME);
       expect(keyword.monthlyVolumeValue).toBeUndefined();
       expect(keyword.cpc).toBeUndefined();
       expect(keyword.cpcValue).toBeUndefined();
       expect(keyword.difficulty).toBeUndefined();
+      // Non-SpyFu source fields are kept untouched — never overwritten with
+      // an internal tool diagnostic string.
+      expect(keyword.sourceTitle).toBe(
+        demandIntentFixtureArtifact.body.keywordDemand.keywords[index]
+          .sourceTitle,
+      );
+      expect(keyword.sourceUrl).toBe(
+        demandIntentFixtureArtifact.body.keywordDemand.keywords[index]
+          .sourceUrl,
+      );
     });
 
     // Re-run provenance with NO tool keywords (the ToolGap persists) — clean.
@@ -411,11 +424,122 @@ describe("checkDemandIntentKeywordProvenance — SpyFu ToolGap soften (T2a)", ()
     softened.body.keywordDemand.keywords.forEach((keyword) => {
       expect(/spyfu/i.test(keyword.sourceTitle)).toBe(false);
       expect(/spyfu/i.test(keyword.sourceUrl)).toBe(false);
+      // The replacements name the missing market evidence — never the
+      // internal tool diagnostic string that used to leak into these fields.
+      expect(keyword.sourceTitle).toBe(DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_TITLE);
+      expect(keyword.sourceUrl).toBe(DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_URL);
+      expect(/keyword_volume|tool data gap/i.test(keyword.sourceTitle)).toBe(
+        false,
+      );
+      expect(/keyword_volume|tool data gap/i.test(keyword.sourceUrl)).toBe(
+        false,
+      );
     });
     // The relabeled artifact is provenance-clean.
     expect(
       checkDemandIntentKeywordProvenance({ artifact: softened }).ok,
     ).toBe(true);
+  });
+});
+
+describe("validateDemandIntentMinimums — blockGap honest-shortfall escape", (): void => {
+  const blockGap: DemandIntentBlockGap = {
+    summary: "evidence gap: no verbatim buyer questions found on public surfaces",
+    foundCount: 0,
+    requiredCount: 10,
+    sourcingPlan: ["Mine competitor community threads next run."],
+  };
+
+  function withQuestionMining(
+    questionMining: DemandIntentArtifact["body"]["questionMining"],
+  ): DemandIntentArtifact {
+    return {
+      ...demandIntentFixtureArtifact,
+      body: { ...demandIntentFixtureArtifact.body, questionMining },
+    };
+  }
+
+  function withIntentSignals(
+    intentSignals: DemandIntentArtifact["body"]["intentSignals"],
+  ): DemandIntentArtifact {
+    return {
+      ...demandIntentFixtureArtifact,
+      body: { ...demandIntentFixtureArtifact.body, intentSignals },
+    };
+  }
+
+  it("accepts questions: [] with a blockGap instead of invented questions", (): void => {
+    const result = validateDemandIntentMinimums(
+      withQuestionMining({
+        prose: demandIntentFixtureArtifact.body.questionMining.prose,
+        questions: [],
+        blockGap,
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("rejects an empty questions list WITHOUT a blockGap and names the escape", (): void => {
+    const result = validateDemandIntentMinimums(
+      withQuestionMining({
+        prose: demandIntentFixtureArtifact.body.questionMining.prose,
+        questions: [],
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "body.questionMining.questions: have 0, need >=10.",
+    );
+    expect(result.errors.join(" ")).toContain("blockGap");
+  });
+
+  it("rejects a partially-filled questions list even WITH a blockGap (floor stays all-or-nothing)", (): void => {
+    const result = validateDemandIntentMinimums(
+      withQuestionMining({
+        prose: demandIntentFixtureArtifact.body.questionMining.prose,
+        questions: demandIntentFixtureArtifact.body.questionMining.questions.slice(
+          0,
+          4,
+        ),
+        blockGap,
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "body.questionMining.questions: have 4, need >=10.",
+    );
+  });
+
+  it("accepts items: [] with a blockGap for intentSignals", (): void => {
+    const result = validateDemandIntentMinimums(
+      withIntentSignals({
+        prose: demandIntentFixtureArtifact.body.intentSignals.prose,
+        items: [],
+        blockGap: { ...blockGap, requiredCount: 5 },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("rejects an empty intentSignals list WITHOUT a blockGap and names the escape", (): void => {
+    const result = validateDemandIntentMinimums(
+      withIntentSignals({
+        prose: demandIntentFixtureArtifact.body.intentSignals.prose,
+        items: [],
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "body.intentSignals.items: have 0, need >=5.",
+    );
+    expect(result.errors.join(" ")).toContain("blockGap");
   });
 });
 

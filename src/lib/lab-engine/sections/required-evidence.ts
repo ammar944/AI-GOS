@@ -297,6 +297,13 @@ function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
   );
 }
 
+function hasDemandBlockGap(body: Record<string, unknown>): boolean {
+  return [body.questionMining, body.intentSignals].some((block) => {
+    const blockGap = asRecord(asRecord(block).blockGap);
+    return hasText(blockGap.summary);
+  });
+}
+
 function hasDemandSignalOrGap(body: Record<string, unknown>): boolean {
   const keywordDemand = asRecord(body.keywordDemand);
   const intentSignals = asRecord(body.intentSignals);
@@ -306,6 +313,7 @@ function hasDemandSignalOrGap(body: Record<string, unknown>): boolean {
     hasRecordWithText(keywordDemand.keywords, "keyword") ||
     hasRecordWithText(intentSignals.items, "description") ||
     hasRecordWithText(questionMining.questions, "question") ||
+    hasDemandBlockGap(body) ||
     hasNestedGap(body)
   );
 }

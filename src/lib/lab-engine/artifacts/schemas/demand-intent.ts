@@ -90,6 +90,20 @@ const demandVenueSchema = z
   })
   .strict();
 
+// Per-block evidence gap mirroring the VoC switchingStories pattern (shape
+// copied exactly from voice-of-customer.ts): a fetch shortfall in question
+// mining or intent signals may ship an honest EMPTY block plus this gap
+// instead of inventing rows to clear the floor. Optional and additive —
+// live-prod artifacts without it still parse.
+const demandIntentBlockGapSchema = z
+  .object({
+    summary: z.string().min(1),
+    foundCount: z.number().int().nonnegative(),
+    requiredCount: z.number().int().positive(),
+    sourcingPlan: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
 export const demandIntentBodySchema = z
   .object({
     strategicInsight: strategicInsightSchema,
@@ -99,13 +113,21 @@ export const demandIntentBodySchema = z
       .object({ prose: z.string().min(1), keywords: z.array(keywordSignalSchema) })
       .strict(),
     questionMining: z
-      .object({ prose: z.string().min(1), questions: z.array(buyerQuestionSchema) })
+      .object({
+        prose: z.string().min(1),
+        questions: z.array(buyerQuestionSchema),
+        blockGap: demandIntentBlockGapSchema.optional(),
+      })
       .strict(),
     contentGaps: z
       .object({ prose: z.string().min(1), gaps: z.array(contentGapSchema) })
       .strict(),
     intentSignals: z
-      .object({ prose: z.string().min(1), items: z.array(intentSignalSchema) })
+      .object({
+        prose: z.string().min(1),
+        items: z.array(intentSignalSchema),
+        blockGap: demandIntentBlockGapSchema.optional(),
+      })
       .strict(),
     venueMap: z
       .object({ prose: z.string().min(1), venues: z.array(demandVenueSchema) })
@@ -132,6 +154,7 @@ export const demandIntentSectionOutputSchema = z
   })
   .strict();
 
+export type DemandIntentBlockGap = z.infer<typeof demandIntentBlockGapSchema>;
 export type DemandIntentBody = z.infer<typeof demandIntentBodySchema>;
 export type DemandIntentSectionOutput = z.infer<
   typeof demandIntentSectionOutputSchema
@@ -167,6 +190,15 @@ function isExplicitDataGap(value: string | undefined): boolean {
 // check is clean) and does NOT match the minimums' "not disclosed" rejection.
 export const DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME =
   "data gap: keyword_volume (SpyFu) unavailable for this run";
+
+// Neutral replacements for SpyFu-claiming source fields under the ToolGap
+// soften. Must NOT contain "spyfu" (the re-run provenance check would re-flag
+// the row as a SpyFu claim) and must NOT read as internal tool diagnostics in
+// client-facing fields — they name the missing market evidence instead.
+export const DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_TITLE =
+  "No public volume source for this keyword";
+export const DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_URL =
+  "no public volume source";
 
 const spyFuClaimPattern = /spyfu[\s-]*estimat/i;
 const spyFuSourcePattern = /spyfu/i;
@@ -346,13 +378,14 @@ export function softenDemandIntentForSpyFuToolGap({
     return {
       ...rest,
       monthlyVolume: DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME,
-      // Replacement must NOT contain "spyfu" or the re-run provenance check
-      // would re-flag the row as a SpyFu claim.
+      // Real non-SpyFu source fields are kept as-is. Only SpyFu-claiming
+      // values are replaced — and never with an internal tool diagnostic
+      // string (see the replacement constants' contract above).
       sourceTitle: spyFuSourcePattern.test(keyword.sourceTitle)
-        ? "keyword_volume tool data gap"
+        ? DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_TITLE
         : keyword.sourceTitle,
       sourceUrl: spyFuSourcePattern.test(keyword.sourceUrl)
-        ? "keyword_volume tool data gap"
+        ? DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_URL
         : keyword.sourceUrl,
     };
   });
@@ -417,17 +450,28 @@ export function validateDemandIntentMinimums(
     }
   });
 
-  const questions = parsedArtifact.body.questionMining.questions;
-  if (questions.length < 10) {
-    errors.push(`body.questionMining.questions: have ${questions.length}, need >=10.`);
-  }
-  const questionSurfaceCount = uniqueCount(
-    questions.map((question) => question.surface),
-  );
-  if (questionSurfaceCount < 2) {
-    errors.push(
-      `body.questionMining.questions: need >=2 surface types, have ${questionSurfaceCount}.`,
+  // questionMining and intentSignals carry an OPTIONAL blockGap escape
+  // (mirroring VoC): either meet the floor with verbatim fetched evidence, or
+  // ship an EMPTY list with the blockGap. A partially-padded list plus a gap
+  // label is rejected — invention is never the legal way past the floor.
+  const questionMining = parsedArtifact.body.questionMining;
+  const questions = questionMining.questions;
+  const questionsShipHonestGap =
+    questionMining.blockGap !== undefined && questions.length === 0;
+  if (!questionsShipHonestGap) {
+    if (questions.length < 10) {
+      errors.push(
+        `body.questionMining.questions: have ${questions.length}, need >=10. Never invent questions: if fewer than 10 verbatim questions were actually fetched, ship questions: [] with body.questionMining.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
+      );
+    }
+    const questionSurfaceCount = uniqueCount(
+      questions.map((question) => question.surface),
     );
+    if (questionSurfaceCount < 2) {
+      errors.push(
+        `body.questionMining.questions: need >=2 surface types, have ${questionSurfaceCount}.`,
+      );
+    }
   }
 
   const gapCount = parsedArtifact.body.contentGaps.gaps.length;
@@ -435,17 +479,24 @@ export function validateDemandIntentMinimums(
     errors.push(`body.contentGaps.gaps: have ${gapCount}, need >=3.`);
   }
 
-  const intentSignals = parsedArtifact.body.intentSignals.items;
-  if (intentSignals.length < 5) {
-    errors.push(`body.intentSignals.items: have ${intentSignals.length}, need >=5.`);
-  }
-  const signalTypeCount = uniqueCount(
-    intentSignals.map((signal) => signal.signalType),
-  );
-  if (signalTypeCount < 2) {
-    errors.push(
-      `body.intentSignals.items: need >=2 signalTypes, have ${signalTypeCount}.`,
+  const intentSignalsBlock = parsedArtifact.body.intentSignals;
+  const intentSignals = intentSignalsBlock.items;
+  const intentSignalsShipHonestGap =
+    intentSignalsBlock.blockGap !== undefined && intentSignals.length === 0;
+  if (!intentSignalsShipHonestGap) {
+    if (intentSignals.length < 5) {
+      errors.push(
+        `body.intentSignals.items: have ${intentSignals.length}, need >=5. Never invent signals: if fewer than 5 observable intent signals were actually fetched, ship items: [] with body.intentSignals.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
+      );
+    }
+    const signalTypeCount = uniqueCount(
+      intentSignals.map((signal) => signal.signalType),
     );
+    if (signalTypeCount < 2) {
+      errors.push(
+        `body.intentSignals.items: need >=2 signalTypes, have ${signalTypeCount}.`,
+      );
+    }
   }
 
   const venues = parsedArtifact.body.venueMap.venues;

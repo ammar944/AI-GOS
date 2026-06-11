@@ -226,9 +226,13 @@ export function validateStrategicInsightMinimums(
   entries.forEach(([key, value]) => {
     const normalized = normalizeForComparison(value);
 
-    if (!isEvidenceGap(value) && observed.has(normalized)) {
+    if (observed.has(normalized)) {
+      // Evidence gaps get NO duplication exemption: a shared gap is stated
+      // ONCE, in the field it most affects — a repeated gap line is filler.
       errors.push(
-        `${path}.${key}: duplicates ${path}.${observed.get(normalized)}; strategic fields must make distinct judgments.`,
+        isEvidenceGap(value)
+          ? `${path}.${key}: repeats the evidence gap already stated in ${path}.${observed.get(normalized)}; state a shared gap once, in the field it most affects, and make this field a distinct judgment.`
+          : `${path}.${key}: duplicates ${path}.${observed.get(normalized)}; strategic fields must make distinct judgments.`,
       );
       return;
     }

@@ -38,9 +38,9 @@ The reader is a founder spending $1.5k–$50k/month and the media buyer who buil
 
 This is the register every prose field must hit (fictional CI flaky-test account; shape only, never copy content):
 
-> The ICP is narrower and better than the brief claims: not "engineering teams of any size" but the 200–2,000-engineer band running monorepo CI — every named customer, every reviewer handle, and both conference champions sit inside it. That band is buildable today: LinkedIn platform/DevEx title filters reach it directly, Google captures its problem-framed queries, and Meta has no interest that maps to it — a named weakness, not a hedge. The cut that matters for spend is the band WITH a newly hired platform lead in seat: switching stories start there, and accounts without that trigger belong in nurture, not prospecting. evidence gap: no public source counts accounts in the band; the marketplace install figure stands in directionally.
+> The ICP is narrower and better than the brief claims: not "engineering teams of any size" but the 200–2,000-engineer band running monorepo CI — every named customer, every reviewer handle, and both conference champions sit inside it. That band is buildable today: LinkedIn platform/DevEx title filters reach it directly, Google captures its problem-framed queries, and Meta has no interest that maps to it — a named weakness, not a hedge. evidence gap: no public source counts accounts in the band; the marketplace install figure stands in directionally. The cut that matters for spend is the band WITH a newly hired platform lead in seat: switching stories start there, and accounts without that trigger belong in nurture, not prospecting.
 
-Notice what makes it a 9: it opens on the call (narrower-and-better), refutes the brief instead of flattering it, every platform claim is specific and one is a named weakness, the spend/nurture split is decided, and the one gap closes the paragraph in a single tight line.
+Notice what makes it a 9: it opens on the call (narrower-and-better), refutes the brief instead of flattering it, every platform claim is specific and one is a named weakness, the spend/nurture split is decided, and the one gap is a single tight line stated once — the paragraph closes on the spend implication, not the gap.
 
 ## Operating Principles
 
@@ -71,7 +71,7 @@ Three frameworks drive this section. Run them as ANALYTICAL MOVES — do the der
 
 Reachability closes the loop: `body.clusters.venues` proves the segment congregates somewhere reachable; if it is too narrow or unreachable, say so in `body.clusters.prose` rather than soften it.
 
-Map the lens only into firmographic cuts, personas, awareness levels, triggers, and venues. If the firmographic-technographic fit, the hired job, the psychographic-behavioral read, trigger events, the dominant awareness level, or the disqualifier is not evidenced, write `evidence gap: <missing signal>` as one tight sentence at the END of the relevant prose instead of inventing buyer facts — the field still opens with its strongest supportable read.
+Map the lens only into firmographic cuts, personas, awareness levels, triggers, and venues. If the firmographic-technographic fit, the hired job, the psychographic-behavioral read, trigger events, the dominant awareness level, or the disqualifier is not evidenced, write `evidence gap: <missing signal>` as one tight sentence at the END of the relevant prose instead of inventing buyer facts — the field still opens with its strongest supportable read. A gap affecting multiple fields is stated ONCE, in the field it most affects — never repeat it; a fully-evidenced field ends on its implication, not a gap line.
 
 ## Pre-flight Check
 
@@ -107,7 +107,7 @@ Before any tool calls, read the supplied `businessContext` and any shared corpus
 | `firecrawl` | Reading the pages search surfaces — company team pages, community about-pages, newsletter sign-up pages, conference rosters. | Page text, named roles, subscriber/attendance figures, dates, source URLs. |
 | `perplexity_research` | Citation-grounded persona mining when search + scrape cannot clear the five-named-persona bar. Ask for NAMED people with title + company + source: case-study champions, webinar/conference speakers, podcast guests, named reviewers — disambiguate the subject by domain + category (e.g. "named customers of Anura.io, the ad-fraud detection platform, from its case studies, webinars, and reviews — full name, title, company, source URL each"). | Named-person candidates with title, company, and the citation URL each traces to; promote a persona only when the exact name appears in the cited evidence. |
 
-Only these research tools are available, and the lookup budget is small — spend it on the gaps that block validation: named personas and venue sizes first. If a tool returns `{ type: "gap" }` (missing credential or rate-limited), work from what `web_search` already surfaced, name the gap, and finish honestly.
+Only these research tools are available, and the lookup budget is small — spend it on the gaps that block validation: named personas and venue sizes first. If a tool returns `{ type: "gap" }` (missing credential or rate-limited), work from what `web_search` already surfaced and finish honestly — in prose, name the missing MARKET evidence (e.g. `evidence gap: no public venue size found`), never the tool, credential, or rate limit that failed.
 
 ## Workflow
 
@@ -227,11 +227,7 @@ Consumption rules:
 
 ## Confidence Tagging
 
-Use confidence tags inline in CARD evidence strings only — never inside prose or strategic fields (the Writing Contract governs prose):
-
-- `[verified]`: direct public source, ideally observed within the last 6 months.
-- `[medium]`: inference from adjacent evidence (title-search counts plus job postings).
-- `[assumed]`: no direct public source; use sparingly and explain the gap.
+Evidence basis is conveyed by source attribution (URL provenance), not bracket tags. Never write bracketed confidence/verification tags (`[verified]`, `[medium]`, `[assumed]`) in any field.
 
 For lab runtime: output `confidence` as a decimal in 0..1 (e.g., 0.6 = moderate, 0.9 = high).
 

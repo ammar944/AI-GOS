@@ -39,9 +39,9 @@ The reader is a founder spending $1.5k–$50k/month on paid media and the media 
 
 This is the register every prose field must hit (fictional meeting-workflow account; shape only, never copy content):
 
-> RevOps leads do not shop for "meeting operations software" — they shop for AI meeting assistants, and that shelf is where this product must enter. If the product vanished tomorrow its buyers would fall back to a notetaker plus Notion agendas plus calendar nudges; fourteen G2 complaints about exactly that stack name the recurring decision-and-follow-up loop nobody owns. That loop is the one attribute the incumbents provably lack: all five lead their pricing pages with transcription accuracy, and none sell what happens between meetings. Enter the searched category, win it on the workflow-control wedge, and accept the cost that comes with the shelf — notetaker-shoppers will click, so landing pages must disambiguate before trial. evidence gap: no third-party source sizes the meeting-workflow sub-segment; the bottom-up recipe stands in.
+> RevOps leads do not shop for "meeting operations software" — they shop for AI meeting assistants, and that shelf is where this product must enter. If the product vanished tomorrow its buyers would fall back to a notetaker plus Notion agendas plus calendar nudges; fourteen G2 complaints about exactly that stack name the recurring decision-and-follow-up loop nobody owns. That loop is the one attribute the incumbents provably lack: all five lead their pricing pages with transcription accuracy, and none sell what happens between meetings. evidence gap: no third-party source sizes the meeting-workflow sub-segment; the bottom-up recipe stands in. Enter the searched category, win it on the workflow-control wedge, and accept the cost that comes with the shelf — notetaker-shoppers will click, so landing pages must disambiguate before trial.
 
-Notice what makes it a 9: it opens on the call, every sentence is specific to this company and shelf, the chain (alternatives → attribute → value → frame) is woven into the argument rather than narrated, the cost is priced, and the one gap closes the paragraph in a single tight line.
+Notice what makes it a 9: it opens on the call, every sentence is specific to this company and shelf, the chain (alternatives → attribute → value → frame) is woven into the argument rather than narrated, the cost is priced, and the one gap is a single tight line stated once — the paragraph closes on the frame call, not the gap.
 
 ## Operating Principles
 
@@ -74,7 +74,7 @@ Two frameworks drive this section. Run them as ANALYTICAL MOVES — do the deriv
 
 The tension this section most often has to name: the category the buyer searches for is rarely the category the product wants to own. The usual resolution is to buy traffic in the searched category while messaging carries the wedge — but make the call from THIS company's evidence, and price whichever side you take.
 
-If competitive alternatives, the differentiated category frame, adjacent confusion, the compete-vs-create fork, or the white-space opening is not supported by evidence, write `evidence gap: <missing signal>` as one tight sentence at the END of the relevant prose instead of inventing facts — the field still opens with its strongest supportable read.
+If competitive alternatives, the differentiated category frame, adjacent confusion, the compete-vs-create fork, or the white-space opening is not supported by evidence, write `evidence gap: <missing signal>` as one tight sentence at the END of the relevant prose instead of inventing facts — the field still opens with its strongest supportable read. A gap affecting multiple fields is stated ONCE, in the field it most affects — never repeat it; a fully-evidenced field ends on its implication, not a gap line.
 
 ## Pre-flight Check
 
@@ -251,11 +251,7 @@ Six body sub-sections:
 
 ## Confidence Tagging
 
-Use confidence tags inline in CARD evidence strings only — never inside prose or strategic fields (the Writing Contract governs prose):
-
-- `[verified]`: direct public source, ideally observed within the last 6 months.
-- `[medium]`: inference from adjacent evidence, such as category pages plus hiring language.
-- `[assumed]`: no direct public source; use sparingly and explain the gap.
+Evidence basis is conveyed by source attribution (URL provenance), not bracket tags. Never write bracketed confidence/verification tags (`[verified]`, `[medium]`, `[assumed]`) in any field.
 
 For lab runtime: output `confidence` as a decimal in 0..1 (e.g., 0.6 = moderate, 0.9 = high). The SKILL prose uses 0-10 analyst-style framing; the runtime contract is 0..1.
 
