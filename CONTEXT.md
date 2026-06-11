@@ -104,6 +104,14 @@ _Avoid_: Wizard (one UI of it), sign-up, account onboarding
 A dedicated Onboarding step, separate from the 7 GTM question sections, that collects the paid-media inputs — `salesProcessDocs`, `salesLoomUrl`, `creativeCapacity`, `leadListAvailable` — that feed the 7th `positioningPaidMediaPlan` synthesis Section (ADR-0005), not the 6 positioning Sections.
 _Avoid_: Media plan (that is the output Section), ad setup
 
+**Growth Playbook**:
+SaaSLaunch's per-client master deliverable document (agency Drive template): Niche & Demographic, Briefing Sheet, Strategic Research Blueprint, Media Plan, Creative Brief (concept sheets), Testing Plan, and sales-ops sections. The Audit's downstream destination — its output is consumed into the Playbook's `Strategic Research Blueprint` and `Media Plan` slots, which the template leaves empty per client.
+_Avoid_: Client doc, deliverable (ambiguous — the Audit is also a deliverable)
+
+**Media-Plan SOP**:
+The channel-selection and campaign-structure framework SaaSLaunch's media buyers (Jad, Wasam) operate by: ACV-band channel logic, company-size matrix, per-platform minimum budgets (Meta $3k / Google $5k / LinkedIn $5k per month), budget-split percentages, campaign→ad-set→ad structures, projected-results table (Target ICP / KPI / KPI cost / Objective / Duration / Budget / Projected Results, 20% margin of error), and risk-tolerance alert rules. Source: the `Media-Plan-Engineering` doc in the SaaSLaunch corpus. Serves as the grading rubric for `positioningPaidMediaPlan` output; full SOP emission is a future phase, not current runtime behavior.
+_Avoid_: Media plan template (the Playbook slot is the template; the SOP is the logic)
+
 **Artifact-builder tool** _(deprecated)_:
 Briefly proposed in ADR-0001 (one tool per UI brick), superseded by ADR-0002 and then by the current answer-tool lab path. Each Section's Artifact is produced as a single structured output, not via per-brick tool calls. The Subagent's tool map contains only research tools (`web_search`, `firecrawl`, etc.); structure comes from the Artifact schema, not from tools.
 _Avoid_: Use **Artifact** + **Sub-section** + **Card** instead.
