@@ -468,6 +468,10 @@ export interface StructuredCallParams<TOutput> {
   signal?: AbortSignal;
   telemetry?: TelemetrySettings;
   onStepFinish?: (step: AgentStep) => void;
+  fallbackBudget?: {
+    minRemainingMs: number;
+    remainingMs: () => number | null;
+  };
 }
 
 export type StructuredCaller = (
@@ -1460,6 +1464,30 @@ function shouldBypassStructuredCallerFallback({
   );
 }
 
+function getStructuredFallbackSkipReason(
+  params: StructuredCallParams<unknown>,
+): string | null {
+  if (params.fallbackBudget === undefined) {
+    return null;
+  }
+
+  const remainingMs = params.fallbackBudget.remainingMs();
+
+  if (
+    remainingMs === null ||
+    remainingMs >= params.fallbackBudget.minRemainingMs
+  ) {
+    return null;
+  }
+
+  return [
+    "deadline-aware structured fallback skipped:",
+    `remaining section budget ${remainingMs}ms`,
+    `below fallback floor ${params.fallbackBudget.minRemainingMs}ms`,
+    `schemaName=${params.schemaName}`,
+  ].join(" ");
+}
+
 async function parseStreamedStructuredOutput({
   output,
   params,
@@ -1476,6 +1504,20 @@ async function parseStreamedStructuredOutput({
 
     if (shouldBypassStructuredCallerFallback({ error, params })) {
       throw error;
+    }
+
+    const fallbackSkipReason = getStructuredFallbackSkipReason(params);
+
+    if (fallbackSkipReason !== null) {
+      console.warn(
+        "[lab-section] structured stream parse failed; skipping non-streaming structured fallback",
+        {
+          ...structuredOutputErrorDetail(error),
+          reason: fallbackSkipReason,
+          schemaName: params.schemaName,
+        },
+      );
+      throw new Error(fallbackSkipReason, { cause: error });
     }
 
     console.warn(

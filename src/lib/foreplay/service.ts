@@ -34,7 +34,67 @@ interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  errorCode?: ForeplayApiErrorCode;
+  status?: number;
   credits_used?: number;
+}
+
+type ForeplayApiErrorCode =
+  | 'foreplay_domain_excluded'
+  | 'foreplay_non_retryable_client_error'
+  | 'foreplay_api_error';
+
+class ForeplayApiError extends Error {
+  readonly code: ForeplayApiErrorCode;
+  readonly status: number;
+
+  constructor({
+    body,
+    context,
+    status,
+    statusText,
+  }: {
+    body: string;
+    context: string;
+    status: number;
+    statusText: string;
+  }) {
+    const code = classifyForeplayApiError({ body, status });
+
+    super(`Foreplay API error: ${status} ${statusText} - ${context} - ${body}`);
+    this.name = 'ForeplayApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function classifyForeplayApiError({
+  body,
+  status,
+}: {
+  body: string;
+  status: number;
+}): ForeplayApiErrorCode {
+  if (
+    status === 400 &&
+    /domain\s+is\s+excluded|excluded\s+list/i.test(body)
+  ) {
+    return 'foreplay_domain_excluded';
+  }
+
+  if (status >= 400 && status < 500 && status !== 429) {
+    return 'foreplay_non_retryable_client_error';
+  }
+
+  return 'foreplay_api_error';
+}
+
+function isNonRetryableForeplayError(error: Error): boolean {
+  return (
+    error instanceof ForeplayApiError &&
+    (error.code === 'foreplay_domain_excluded' ||
+      error.code === 'foreplay_non_retryable_client_error')
+  );
 }
 
 /**
@@ -206,7 +266,12 @@ export class ForeplayService {
           console.error(`[Foreplay] API Error: ${response.status} ${response.statusText}`);
           console.error(`[Foreplay] Error body: ${errorText}`);
           console.error(`[Foreplay] Likely cause: ${errorContext}`);
-          throw new Error(`Foreplay API error: ${response.status} ${response.statusText} - ${errorContext} - ${errorText}`);
+          throw new ForeplayApiError({
+            body: errorText,
+            context: errorContext,
+            status: response.status,
+            statusText: response.statusText,
+          });
         }
 
         const data = await response.json();
@@ -231,13 +296,8 @@ export class ForeplayService {
           break;
         }
 
-        // Don't retry on client errors (4xx) - these won't change on retry
-        // 401 = bad auth, 402 = no credits, 403 = no permission, 404 = not found, 422 = validation
-        if (lastError.message.includes('401') ||
-            lastError.message.includes('402') ||
-            lastError.message.includes('403') ||
-            lastError.message.includes('404') ||
-            lastError.message.includes('422')) {
+        // Don't retry on non-rate-limit client errors (4xx) - these won't change on retry.
+        if (isNonRetryableForeplayError(lastError)) {
           console.log(`[Foreplay] Not retrying - client error won't change on retry`);
           break;
         }
@@ -252,6 +312,9 @@ export class ForeplayService {
     return {
       success: false,
       error: lastError?.message ?? 'Unknown error',
+      ...(lastError instanceof ForeplayApiError
+        ? { errorCode: lastError.code, status: lastError.status }
+        : {}),
     };
   }
 
@@ -296,6 +359,15 @@ export class ForeplayService {
 
       if (!response.success) {
         console.warn(`[Foreplay] Brand search for "${domain}" failed: ${response.error}`);
+        if (
+          response.errorCode === 'foreplay_domain_excluded' ||
+          response.errorCode === 'foreplay_non_retryable_client_error'
+        ) {
+          console.warn(
+            `[Foreplay] Stopping brand search variants for "${params.domain}" after non-retryable ${response.status ?? 'unknown'} response`,
+          );
+          return [];
+        }
         continue; // Try next variant
       }
 

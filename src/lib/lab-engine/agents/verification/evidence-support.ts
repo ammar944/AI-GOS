@@ -3,7 +3,7 @@ import type { Claim, ClaimVerdict, VerificationReport } from "./types";
 
 export type LoadBearingClaimKind = Extract<
   Claim["kind"],
-  "numeric" | "url" | "quote"
+  "numeric" | "sourceAttribution" | "url" | "quote"
 >;
 
 export type UnsupportedLoadBearingClaim = Extract<
@@ -32,7 +32,7 @@ export interface EvaluateEvidenceSupportInput {
   loadBearingKinds?: readonly LoadBearingClaimKind[];
 }
 
-const defaultLoadBearingKinds = ["numeric", "url"] as const;
+const defaultLoadBearingKinds = ["numeric", "sourceAttribution", "url"] as const;
 const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
 // Default OPEN (Infinity): the evidence gate is advisory unless an operator sets
 // LAB_VERIFIER_MAX_UNSUPPORTED to a finite integer. A finite default would hard-fail
@@ -374,7 +374,8 @@ export interface StripMisattributedQuoteAttributionsResult {
 export type StrippedNumericClaimAction =
   | "marker"
   | "evidence-gap"
-  | "provenance-unknown";
+  | "provenance-unknown"
+  | "verified-marker-removed";
 
 export interface StrippedNumericClaim {
   value: string;
@@ -392,6 +393,10 @@ interface UnsupportedNumericToken {
 }
 
 const unverifiedMarker = "[unverified]";
+const modelAuthoredVerifiedMarkerPattern =
+  /\s*\[\s*verified\b[^\]\n]{0,160}\]/giu;
+const modelAuthoredVerifiedMarkerProbePattern =
+  /\[\s*verified\b[^\]\n]{0,160}\]/iu;
 const trustedPaidMediaMoneyProvenances = new Set([
   "user-supplied",
   "tool-measured",
@@ -655,6 +660,29 @@ function appendMarkerActions({
   }
 
   return nextValue;
+}
+
+export function stripModelAuthoredVerifiedMarkers({
+  field,
+  value,
+}: {
+  field?: string;
+  value: string;
+}): { stripped: StrippedNumericClaim[]; value: string } {
+  const matches = Array.from(value.matchAll(modelAuthoredVerifiedMarkerPattern));
+
+  if (matches.length === 0) {
+    return { stripped: [], value };
+  }
+
+  return {
+    stripped: matches.map((match) => ({
+      action: "verified-marker-removed",
+      ...(field === undefined ? {} : { field }),
+      value: match[0].trim(),
+    })),
+    value: value.replace(modelAuthoredVerifiedMarkerPattern, ""),
+  };
 }
 
 function matchingUnsupportedTokens({
@@ -978,11 +1006,17 @@ function walkBodyForUnsupportedNumerics({
         continue;
       }
 
+      const verifiedMarkerStrip = stripModelAuthoredVerifiedMarkers({
+        field: childPath,
+        value: childValue,
+      });
+      stripped.push(...verifiedMarkerStrip.stripped);
+
       const marked = appendMarkerActions({
         field: childPath,
         stripped,
         tokens,
-        value: childValue,
+        value: verifiedMarkerStrip.value,
       });
 
       if (marked !== childValue) {
@@ -1010,7 +1044,10 @@ export function redactUnsupportedNumericClaims({
 }): RedactUnsupportedNumericClaimsResult {
   const tokens = collectUnsupportedNumericTokens(verification);
 
-  if (tokens.length === 0) {
+  if (
+    tokens.length === 0 &&
+    !modelAuthoredVerifiedMarkerProbePattern.test(JSON.stringify(body))
+  ) {
     return { body, stripped: [] };
   }
 

@@ -138,6 +138,10 @@ const defaultGoogleAdRegion = "US";
 const searchApiTimeoutMs = 15_000;
 const foreplayTimeoutMs = 8_000;
 
+function shouldRetryForeplayStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 function asRecord(value: unknown): SearchApiRecord | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as SearchApiRecord)
@@ -288,6 +292,7 @@ async function fetchForeplayJson({
       },
       timeoutMs: foreplayTimeoutMs,
     },
+    { retryOnStatus: shouldRetryForeplayStatus },
   );
 
   if (!response.ok) {

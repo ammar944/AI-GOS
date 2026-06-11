@@ -293,6 +293,52 @@ describe("section-agent provider-specific options", (): void => {
     );
     expect(aiMocks.generateTextCalls).toHaveLength(0);
   });
+
+  it("skips non-streaming structured fallback when remaining budget is below the floor", async (): Promise<void> => {
+    aiMocks.streamTextOutput = Promise.reject(
+      new Error("No object generated: response did not match schema."),
+    );
+
+    const result = defaultStructuredStreamer({
+      fallbackBudget: {
+        minRemainingMs: 260_000,
+        remainingMs: () => 95_600,
+      },
+      maxOutputTokens: 1000,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+      schema: structuredSchema,
+      schemaDescription: "schema",
+      schemaName: "MarketCategorySectionOutputBody",
+    });
+
+    await expect(result.output).rejects.toThrow(
+      "deadline-aware structured fallback skipped",
+    );
+    expect(aiMocks.generateTextCalls).toHaveLength(0);
+  });
+
+  it("uses non-streaming structured fallback when remaining budget clears the floor", async (): Promise<void> => {
+    aiMocks.streamTextOutput = Promise.reject(
+      new Error("No object generated: response did not match schema."),
+    );
+
+    const result = defaultStructuredStreamer({
+      fallbackBudget: {
+        minRemainingMs: 260_000,
+        remainingMs: () => 285_000,
+      },
+      maxOutputTokens: 1000,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+      schema: structuredSchema,
+      schemaDescription: "schema",
+      schemaName: "MarketCategorySectionOutputBody",
+    });
+
+    await expect(result.output).resolves.toEqual({ ok: true });
+    expect(aiMocks.generateTextCalls).toHaveLength(1);
+  });
 });
 
 describe("dropEmptyUrlStrings", (): void => {

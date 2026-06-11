@@ -76,9 +76,46 @@ interface SearchableSource {
 }
 
 const urlPattern = /https?:\/\/[^\s)"'>\]}]+/gi;
+const sourceAttributionEntityPattern =
+  /\b(?:[A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,3}|[A-Z]{2,}\d*)\b/g;
 const maxJudgeSourceTextLength = 2_000;
 const maxJudgeSources = 80;
 const maxJudgeOutputTokens = 4_096;
+const sourceAttributionEntityStopWords = new Set([
+  "A",
+  "An",
+  "And",
+  "As",
+  "At",
+  "Both",
+  "But",
+  "By",
+  "Confidence",
+  "Evidence",
+  "For",
+  "From",
+  "High",
+  "If",
+  "In",
+  "Into",
+  "Low",
+  "Medium",
+  "Of",
+  "On",
+  "Or",
+  "Per",
+  "Source",
+  "Sources",
+  "That",
+  "The",
+  "These",
+  "This",
+  "Those",
+  "To",
+  "When",
+  "Where",
+  "With",
+]);
 
 const entailmentJudgeVerdictSchema = z
   .object({
@@ -227,10 +264,50 @@ function stripCurrencyDecimals(value: string): string {
 }
 
 function expandMagnitude(value: string): string {
-  return value.replace(/\b(\d+(?:\.\d+)?)\s?m\b/gi, "$1 million");
+  return value
+    .replace(/\b(\d+(?:\.\d+)?)\s?k\b/gi, "$1 thousand")
+    .replace(/\b(\d+(?:\.\d+)?)\s?m\b/gi, "$1 million")
+    .replace(/\b(\d+(?:\.\d+)?)\s?b\b/gi, "$1 billion");
+}
+
+function isNumericRangeClaim(value: string): boolean {
+  return /\d[\d,]*(?:\.\d+)?(?:\s?(?:k|m|b|thousand|million|billion)\b|%)?\s*(?:-|–|—|to)\s*[$£€]?\s?\d[\d,]*(?:\.\d+)?/iu.test(
+    value,
+  );
+}
+
+function normalizeRangeSeparators(value: string): string {
+  return normalizeSearchText(value).replace(/\s*(?:-|–|—|\bto\b)\s*/gu, "-");
+}
+
+function buildNumericRangeNeedles(value: string): string[] {
+  const normalized = normalizeRangeSeparators(value);
+  const withoutDecimals = normalizeRangeSeparators(stripCurrencyDecimals(value));
+  const expandedMagnitude = normalizeRangeSeparators(expandMagnitude(value));
+  const monthlyVariant = withoutDecimals
+    .replace(/\s?\/\s?mo\b/g, " per month")
+    .replace(/\s?\/\s?month\b/g, " per month");
+  const variants = [
+    normalized,
+    withoutDecimals,
+    expandedMagnitude,
+    monthlyVariant,
+  ];
+
+  return Array.from(
+    new Set(
+      variants
+        .flatMap((variant) => [variant, variant.replace(/[,+]/g, "")])
+        .filter((variant) => variant.length > 0),
+    ),
+  );
 }
 
 function buildNumericNeedles(value: string): string[] {
+  if (isNumericRangeClaim(value)) {
+    return buildNumericRangeNeedles(value);
+  }
+
   const normalized = normalizeSearchText(value);
   const withoutDecimals = normalizeSearchText(stripCurrencyDecimals(value));
   const expandedMagnitude = normalizeSearchText(expandMagnitude(value));
@@ -312,6 +389,101 @@ function findTextMatch({
   return null;
 }
 
+function extractSourceAttributionEntities(value: string): string[] {
+  const seen = new Set<string>();
+  const entities: string[] = [];
+
+  for (const match of value.matchAll(sourceAttributionEntityPattern)) {
+    const terms = normalizeWhitespace(match[0])
+      .split(/\s+/)
+      .filter((term) => term.length > 0);
+
+    while (
+      terms.length > 0 &&
+      sourceAttributionEntityStopWords.has(terms[0] ?? "")
+    ) {
+      terms.shift();
+    }
+
+    while (
+      terms.length > 0 &&
+      sourceAttributionEntityStopWords.has(terms[terms.length - 1] ?? "")
+    ) {
+      terms.pop();
+    }
+
+    const entity = terms.join(" ");
+
+    if (
+      terms.length === 0 ||
+      terms.every((term) => sourceAttributionEntityStopWords.has(term)) ||
+      (entity.length < 3 && !/\d/.test(entity))
+    ) {
+      continue;
+    }
+
+    const key = entity.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    entities.push(entity);
+  }
+
+  return entities;
+}
+
+function sourceTextContainsEntity(sourceText: string, entity: string): boolean {
+  const normalizedEntity = normalizeSearchText(entity);
+
+  if (sourceText.includes(normalizedEntity)) {
+    return true;
+  }
+
+  const tokens = normalizedEntity
+    .split(/\s+/)
+    .filter((token) => token.length > 0);
+
+  return tokens.length > 0 && tokens.every((token) => sourceText.includes(token));
+}
+
+function sourceSupportsAttributionClaim({
+  claim,
+  source,
+}: {
+  claim: Extract<Claim, { kind: "sourceAttribution" }>;
+  source: SearchableSource;
+}): boolean {
+  const entities = extractSourceAttributionEntities(claim.value);
+
+  if (entities.length === 0) {
+    return true;
+  }
+
+  return entities.every((entity) =>
+    sourceTextContainsEntity(source.text, entity),
+  );
+}
+
+function findSourceAttributionMatch(
+  claim: Extract<Claim, { kind: "sourceAttribution" }>,
+  sources: readonly SearchableSource[],
+): VerificationSourceRef | null {
+  const citedSources = sources.filter((source) =>
+    isSourceAtUrl(source, claim.assertedSourceUrl),
+  );
+
+  for (const source of citedSources) {
+    if (sourceSupportsAttributionClaim({ claim, source })) {
+      return source.ref;
+    }
+  }
+
+  return null;
+}
+
 function isSourceAtUrl(source: SearchableSource, sourceUrl: string): boolean {
   const normalizedSourceUrl = cleanUrl(sourceUrl);
 
@@ -345,6 +517,10 @@ function findClaimMatch(
         isSourceAtUrl(source, claim.assertedSourceUrl ?? ""),
       ),
     });
+  }
+
+  if (claim.kind === "sourceAttribution") {
+    return findSourceAttributionMatch(claim, sources);
   }
 
   if (claim.kind === "quote") {
@@ -480,6 +656,7 @@ function buildJudgePrompt({
     "Use supported when the evidence entails the claim, even if phrased differently.",
     "Use user_asserted only when a userProvided source states the claim.",
     "Use refuted when the evidence contradicts the claim or does not support it.",
+    "For sourceAttribution claims, the cited assertedSourceUrl must support every named entity, product, and vendor in the claim; a source about Google/AppSheet does not support a Microsoft/E5 claim.",
     "For supported or user_asserted verdicts, include the strongest sourceIndex.",
     "",
     JSON.stringify(
@@ -597,13 +774,23 @@ function applyJudgeVerdict({
     };
   }
 
+  if (
+    deterministicVerdict.claim.kind === "sourceAttribution" &&
+    deterministicVerdict.status !== "verified"
+  ) {
+    return deterministicVerdict;
+  }
+
   const judgedSource = getSourceByIndex({
     sourceIndex: judgeVerdict.sourceIndex,
     sources,
   });
   const deterministicSource =
     getVerifiedSourceFromDeterministicVerdict(deterministicVerdict);
-  const sourceRef = judgedSource?.ref ?? deterministicSource;
+  const sourceRef =
+    deterministicVerdict.claim.kind === "sourceAttribution"
+      ? deterministicSource
+      : (judgedSource?.ref ?? deterministicSource);
 
   if (sourceRef === undefined) {
     return deterministicVerdict;

@@ -110,7 +110,28 @@ describe("reviewAndUpgradeSection", (): void => {
     );
   });
 
-  it("drops removedItems label claims that were not applied to body or upgraded markdown", async (): Promise<void> => {
+  it("strips model-authored verified markers from reviewed markdown", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: [
+        "## Reviewed market category",
+        "",
+        "The section is [verified: review model] grounded enough to use.",
+        '<review_metadata>{"tier":"needs_review","tierRationale":"Review marker was sanitized.","removedItems":[],"clientQuestions":[]}</review_metadata>',
+      ].join("\n"),
+    });
+
+    const result = await reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+    });
+
+    expect(result.upgradedMarkdown).toContain("The section is grounded");
+    expect(result.upgradedMarkdown).not.toContain("[verified");
+  });
+
+  it("drops removedItems label claims that were not applied and vague removal claims", async (): Promise<void> => {
     const warnSpy = vi
       .spyOn(console, "warn")
       .mockImplementation((): void => undefined);
@@ -145,14 +166,13 @@ describe("reviewAndUpgradeSection", (): void => {
       });
 
       expect(result.removedItems).toEqual([
-        "Removed unsupported CAC precision",
         `Relabeled reachable revenue as ${appliedLabel}`,
       ]);
       expect(result.removedItems).not.toContain(unappliedRemovedItem);
       expect(warnSpy).toHaveBeenCalledWith(
-        "[agentic-section-review] dropped removedItems entries with unapplied labels",
+        "[agentic-section-review] dropped dishonest removedItems entries",
         expect.objectContaining({
-          droppedItems: [unappliedRemovedItem],
+          droppedItems: ["Removed unsupported CAC precision", unappliedRemovedItem],
           sectionId: "positioningMarketCategory",
           surfaces: [
             "artifact.statusSummary",
@@ -171,7 +191,7 @@ describe("reviewAndUpgradeSection", (): void => {
       .spyOn(console, "warn")
       .mockImplementation((): void => undefined);
     const falseRemovalItem =
-      "Removed unsupported SpyFu search-volume claim: 33,100 monthly searches";
+      'Removed unsupported SpyFu search-volume claim: "33,100 monthly searches"';
     const artifactWithUnremovedToken = {
       ...marketCategoryFixtureArtifact,
       statusSummary:
@@ -196,7 +216,7 @@ describe("reviewAndUpgradeSection", (): void => {
 
       expect(result.removedItems).toEqual([]);
       expect(warnSpy).toHaveBeenCalledWith(
-        "[agentic-section-review] dropped removedItems entries with unapplied labels",
+        "[agentic-section-review] dropped dishonest removedItems entries",
         expect.objectContaining({
           droppedItems: [falseRemovalItem],
           sectionId: "positioningMarketCategory",
@@ -212,7 +232,7 @@ describe("reviewAndUpgradeSection", (): void => {
       .spyOn(console, "warn")
       .mockImplementation((): void => undefined);
     const honestRemovalItem =
-      "Removed unsupported SpyFu search-volume claim: 88,777 monthly searches";
+      'Removed unsupported SpyFu search-volume claim: "88,777 monthly searches"';
 
     aiMocks.generateText.mockResolvedValue({
       text: buildReviewResponse({
@@ -242,7 +262,7 @@ describe("reviewAndUpgradeSection", (): void => {
       .spyOn(console, "warn")
       .mockImplementation((): void => undefined);
     const relabeledRemovalItem =
-      "Removed or relabeled unsupported SpyFu search-volume claim: 33,100 monthly searches";
+      'Removed or relabeled unsupported SpyFu search-volume claim: "33,100"';
 
     aiMocks.generateText.mockResolvedValue({
       text: buildReviewResponse({

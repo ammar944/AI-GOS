@@ -169,6 +169,7 @@ import {
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
   redactUnsupportedNumericClaims,
+  stripModelAuthoredVerifiedMarkers,
   stripMisattributedQuoteAttributions,
   type EvidenceSupportShortfall,
   type LoadBearingClaimKind,
@@ -326,6 +327,7 @@ function getNewId(deps: RunSectionDeps): string {
 
 export const labSectionRepairFloorMs = 75_000;
 export const labSectionEmitFloorMs = 20_000;
+export const labSectionStructuredFallbackMinFloorMs = 120_000;
 
 function getRemainingDeadlineMs(
   input: RunSectionInput,
@@ -377,6 +379,13 @@ function formatDeadlineRepairSkipIssue(
     `runId=${input.runId}`,
     `sectionId=${input.sectionId}`,
   ].join(" ");
+}
+
+function getStructuredFallbackFloorMs(sectionId: SectionId): number {
+  return Math.max(
+    labSectionStructuredFallbackMinFloorMs,
+    getStructuredOutputTimeoutMs(sectionId) + labSectionEmitFloorMs,
+  );
 }
 
 function createEvent({
@@ -1766,11 +1775,30 @@ function annotateEvidenceSupportReview({
           body: strip.body,
           verification: artifact.verification,
         });
+  const statusSummaryStrip = stripModelAuthoredVerifiedMarkers({
+    field: "statusSummary",
+    value: artifact.statusSummary,
+  });
+  const verdictStrip = stripModelAuthoredVerifiedMarkers({
+    field: "verdict",
+    value: artifact.verdict,
+  });
+  const strippedVerificationMarkers = [
+    ...numericStrip.stripped.filter(
+      (item) => item.action === "verified-marker-removed",
+    ),
+    ...statusSummaryStrip.stripped,
+    ...verdictStrip.stripped,
+  ];
+  const strippedNumericClaims = numericStrip.stripped.filter(
+    (item) => item.action !== "verified-marker-removed",
+  );
 
   if (
     provenanceFlags.length === 0 &&
     strip.stripped.length === 0 &&
-    numericStrip.stripped.length === 0
+    strippedNumericClaims.length === 0 &&
+    strippedVerificationMarkers.length === 0
   ) {
     return artifact;
   }
@@ -1778,6 +1806,8 @@ function annotateEvidenceSupportReview({
   return artifactEnvelopeSchema.parse({
     ...artifact,
     body: numericStrip.body,
+    statusSummary: statusSummaryStrip.value,
+    verdict: verdictStrip.value,
     confidence:
       artifact.verification === undefined || shortfall === undefined
         ? artifact.confidence
@@ -1789,8 +1819,11 @@ function annotateEvidenceSupportReview({
       ...(strip.stripped.length > 0
         ? { strippedQuoteAttributions: strip.stripped }
         : {}),
-      ...(numericStrip.stripped.length > 0
-        ? { strippedNumericClaims: numericStrip.stripped }
+      ...(strippedNumericClaims.length > 0
+        ? { strippedNumericClaims }
+        : {}),
+      ...(strippedVerificationMarkers.length > 0
+        ? { strippedVerificationMarkers }
         : {}),
     },
   });
@@ -1936,9 +1969,9 @@ const paidMediaLengthRetryStructuredOutputMaxTokens = 20_480;
 const structuredOutputTimeoutMs = 240_000;
 const voiceOfCustomerStructuredOutputTimeoutMs = 150_000;
 // Inner backstop in the timeout hierarchy (Cluster A target, Option A):
-// answer-tool 255s < job timeout (LAB_SECTION_JOB_TIMEOUT_MS = 270s) <
+// answer-tool 255s < job timeout (LAB_SECTION_JOB_TIMEOUT_MS = 285s) <
 // route maxDuration (300s). The answer-tool timeout trips first as an inner
-// guard; the 270s job-timeout AbortController is the canonical controlled
+// guard; the 285s job-timeout AbortController is the canonical controlled
 // failure emitter, firing ~15s later and ~30s before the platform cap so the
 // app records a terminal section-failed event instead of orphaning a 'running'
 // row. The previous 540s value was longer than both the job and route ceilings,
@@ -1950,7 +1983,7 @@ const voiceOfCustomerStructuredOutputTimeoutMs = 150_000;
 // recomputed `Date.now() + answerToolTimeoutMs` in runAnswerToolWithStallGuard),
 // NOT a cumulative section budget, and any VoC prepass time runs before it. So
 // across multiple repairs the inner 255s guard does NOT bound total section
-// wall-clock — the 270s job AbortController is the real ceiling under repairs.
+// wall-clock — the 285s job AbortController is the real ceiling under repairs.
 // The repair loops therefore yield to input.signal?.aborted (see the while
 // guards) so an aborted section commits its best attempt or fails cleanly
 // rather than racing the controller into an orphaned 'running' row. A true
@@ -1995,7 +2028,7 @@ const competitorAdProbeDomainFallbackAdvertiserLimit = 5;
 const competitorAdProbeDomainFallbackOrganicLimit = 3;
 // Hard ceiling on the VoC candidate prepass (reviews -> web_search -> firecrawl).
 // Unlike the ad probe, the prepass ran on the critical path with NO deadline,
-// so a slow scrape could eat into the section budget and tip VoC past the 270s
+  // so a slow scrape could eat into the section budget and tip VoC past the 285s
 // job timeout. Bounding it here (and degrading to partial candidates on abort,
 // see executeVoiceOfCustomerPrepassTool) caps the front-loaded prepass wall-clock.
 // Pain loop (~3 reviews + web_search + firecrawl) plus the W1a secondary-class
@@ -5921,6 +5954,10 @@ async function buildStructuredBodyAttempt({
 
   try {
     const structuredStream = streamStructured({
+      fallbackBudget: {
+        minRemainingMs: getStructuredFallbackFloorMs(input.sectionId),
+        remainingMs: () => getRemainingDeadlineMs(input, deps),
+      },
       model: sectionRunnerModel,
       schema: structuredDraftSchema,
       schemaName: `${definition.sectionOutputSchemaName}Body`,

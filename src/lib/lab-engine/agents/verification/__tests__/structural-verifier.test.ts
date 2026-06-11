@@ -157,6 +157,144 @@ describe("structuralVerifier", (): void => {
     );
   });
 
+  it("does not verify a numeric range from scalar endpoint-like source text", (): void => {
+    const report = structuralVerifier({
+      body: {
+        marketSize:
+          "Reachable revenue is $1.3M–$2.6M based on current demand.",
+      },
+      toolResults: [
+        {
+          toolName: "web_search",
+          output: {
+            text:
+              "The category includes $1.3B and $11.7B market estimates, but no reachable-revenue range.",
+          },
+        },
+      ],
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          claim: expect.objectContaining({ value: "$1.3M–$2.6M" }),
+          reason: "no_match",
+          status: "unsupported",
+        }),
+      ]),
+    );
+  });
+
+  it("verifies a numeric range only when the full span is present with normalized separators", (): void => {
+    const report = structuralVerifier({
+      body: {
+        marketSize:
+          "Reachable revenue is $1.3M–$2.6M based on current demand.",
+      },
+      toolResults: [
+        {
+          toolName: "web_search",
+          output: {
+            text:
+              "The source reports a reachable revenue span of $1.3m-$2.6m for the target segment.",
+          },
+        },
+      ],
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          claim: expect.objectContaining({ value: "$1.3M–$2.6M" }),
+          matchedSourceRef: expect.objectContaining({ kind: "toolResult" }),
+          status: "verified",
+        }),
+      ]),
+    );
+  });
+
+  it("flags source-scoped prose when the cited source lacks a named entity in the claim", (): void => {
+    const report = structuralVerifier({
+      body: {
+        structuralForces: {
+          forces: [
+            {
+              evidence:
+                "Both Microsoft and Google embed low-code database and automation capabilities in enterprise suites (Power Apps in E5, AppSheet in Workspace) at zero marginal cost.",
+              sourceUrl: "https://about.google/appsheet/",
+            },
+          ],
+        },
+      },
+      toolResults: [
+        {
+          toolName: "web_search",
+          output: {
+            sourceUrl: "https://about.google/appsheet/",
+            text:
+              "Google AppSheet helps teams build apps and automations for Google Workspace users.",
+          },
+        },
+      ],
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          claim: expect.objectContaining({
+            assertedSourceUrl: "https://about.google/appsheet/",
+            kind: "sourceAttribution",
+          }),
+          reason: "no_match",
+          status: "unsupported",
+        }),
+      ]),
+    );
+  });
+
+  it("verifies source-scoped prose when the cited source contains all named entities", (): void => {
+    const report = structuralVerifier({
+      body: {
+        structuralForces: {
+          forces: [
+            {
+              evidence:
+                "Both Microsoft and Google embed low-code database and automation capabilities in enterprise suites (Power Apps in E5, AppSheet in Workspace) at zero marginal cost.",
+              sourceUrl: "https://example.com/platform-bundles",
+            },
+          ],
+        },
+      },
+      toolResults: [
+        {
+          toolName: "web_search",
+          output: {
+            sourceUrl: "https://example.com/platform-bundles",
+            text:
+              "Microsoft Power Apps is included in E5, while Google AppSheet is bundled for Google Workspace customers.",
+          },
+        },
+      ],
+      corpusExcerpts: [],
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          claim: expect.objectContaining({
+            assertedSourceUrl: "https://example.com/platform-bundles",
+            kind: "sourceAttribution",
+          }),
+          matchedSourceRef: expect.objectContaining({ kind: "toolResult" }),
+          status: "verified",
+        }),
+      ]),
+    );
+  });
+
   it("credits operator-self-labeled economics as user_asserted even when derived", (): void => {
     const report = structuralVerifier({
       body: {

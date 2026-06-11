@@ -26,6 +26,11 @@ const countFieldNames = new Set([
   "audienceSize",
   "monthlyVolume",
 ]);
+const sourceAttributionFieldNames = new Set([
+  "evidence",
+  "evidenceSummary",
+  "proof",
+]);
 // Exported so the misattribution strip (evidence-support.ts) reads the SAME
 // record shape the extractor turns into quoteAttribution claims.
 export const quoteAttributionFieldNames = [
@@ -62,7 +67,7 @@ const rangeTokenSource =
 // intentionally excluded. An optional trailing unit (/mo or one word) is kept.
 const rangePattern = new RegExp(
   `(?<![\\w$£€])(?:${rangeTokenSource})\\s*[–—-]\\s*(?:${rangeTokenSource})` +
-    `(?:\\s?\\/\\s?(?:mo|month|yr|year)|\\s+[A-Za-z][A-Za-z-]*)?`,
+    `(?:\\s?\\/\\s?(?:mo|month|yr|year)|\\s+(?:arr|mrr|acv|cac|users?|members?|seats?|employees?|companies|accounts|searches|clicks|impressions|leads|visitors?|visits|revenue|spend|budget))?`,
   "gi",
 );
 // A matched range only counts if it carries a currency symbol, percent,
@@ -136,11 +141,57 @@ function normalizeClaim(claim: Claim): Claim | null {
     };
   }
 
+  if (claim.kind === "sourceAttribution") {
+    const assertedSourceUrl = cleanUrl(
+      normalizeWhitespace(claim.assertedSourceUrl),
+    );
+
+    if (assertedSourceUrl.length === 0) {
+      return null;
+    }
+
+    return {
+      kind: claim.kind,
+      value: normalizedValue,
+      raw: normalizedRaw,
+      assertedSourceUrl,
+    };
+  }
+
   return {
     kind: claim.kind,
     value: normalizedValue,
     raw: normalizedRaw,
   };
+}
+
+function claimDedupKey(claim: Claim): string {
+  if (claim.kind === "numericAttribution") {
+    return [
+      claim.kind,
+      claim.value.toLowerCase(),
+      claim.assertedSourceUrl ?? "",
+    ].join(":");
+  }
+
+  if (claim.kind === "quoteAttribution") {
+    return [
+      claim.kind,
+      claim.value.toLowerCase(),
+      claim.assertedSource.toLowerCase(),
+      claim.assertedSourceUrl ?? "",
+    ].join(":");
+  }
+
+  if (claim.kind === "sourceAttribution") {
+    return [
+      claim.kind,
+      claim.value.toLowerCase(),
+      claim.assertedSourceUrl,
+    ].join(":");
+  }
+
+  return `${claim.kind}:${claim.value.toLowerCase()}`;
 }
 
 function pushClaim({
@@ -158,7 +209,7 @@ function pushClaim({
     return;
   }
 
-  const key = `${normalizedClaim.kind}:${normalizedClaim.value.toLowerCase()}`;
+  const key = claimDedupKey(normalizedClaim);
 
   if (seen.has(key)) {
     return;
@@ -334,6 +385,26 @@ function extractRecordClaims({
   seen: Set<string>;
 }): void {
   const sourceUrl = stringField(record, "sourceUrl");
+
+  if (sourceUrl !== undefined) {
+    for (const [key, childValue] of Object.entries(record)) {
+      if (
+        sourceAttributionFieldNames.has(key) &&
+        typeof childValue === "string"
+      ) {
+        pushClaim({
+          claim: {
+            assertedSourceUrl: sourceUrl,
+            kind: "sourceAttribution",
+            raw: childValue,
+            value: childValue,
+          },
+          claims,
+          seen,
+        });
+      }
+    }
+  }
 
   for (const [key, childValue] of Object.entries(record)) {
     if (

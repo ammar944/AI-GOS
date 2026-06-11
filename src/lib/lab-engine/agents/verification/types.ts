@@ -14,6 +14,12 @@ export type Claim =
       assertedSource: string;
       assertedSourceUrl?: string;
     }
+  | {
+      kind: "sourceAttribution";
+      value: string;
+      raw: string;
+      assertedSourceUrl: string;
+    }
   | { kind: "url"; value: string; raw: string }
   | { kind: "entityName"; value: string; raw: string };
 

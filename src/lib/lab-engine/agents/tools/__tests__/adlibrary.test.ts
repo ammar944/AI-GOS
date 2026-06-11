@@ -542,4 +542,61 @@ describe("adLibraryAgentTool Foreplay provider", (): void => {
       ads: [expect.objectContaining({ id: "notion-native" })],
     });
   });
+
+  it("keeps native SearchAPI ads and does not retry when Foreplay excludes the domain", async (): Promise<void> => {
+    const fetchMock = vi.fn(async (requestUrl: string) => {
+      const url = new URL(requestUrl);
+
+      if (url.hostname === "public.api.foreplay.co") {
+        return new Response(
+          "Domain is excluded - monday.com is in the excluded list",
+          { status: 400 },
+        );
+      }
+
+      const engine = url.searchParams.get("engine");
+
+      if (engine === "meta_ad_library_page_search") {
+        return searchApiResponse({
+          page_results: [{ id: "monday-page", name: "monday.com", page_alias: "monday.com" }],
+        });
+      }
+
+      return searchApiResponse({
+        ads: [
+          {
+            ad_archive_id: "monday-native",
+            page_name: "monday.com",
+            snapshot: {
+              title: "Work management for every team",
+              body: { text: "Plan and track work with monday.com." },
+              link_url: "https://monday.com/product",
+            },
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getExecute()(
+        {
+          advertiser: "monday.com",
+          platform: "meta",
+          domain: "monday.com",
+          max_results: 4,
+        },
+        {},
+      ),
+    ).resolves.toMatchObject({
+      type: "result",
+      ads: [expect.objectContaining({ id: "monday-native" })],
+    });
+    expect(
+      fetchMock.mock.calls.filter(([requestUrl]) => {
+        const url = new URL(requestUrl as string);
+        return url.hostname === "public.api.foreplay.co";
+      }),
+    ).toHaveLength(1);
+  });
 });

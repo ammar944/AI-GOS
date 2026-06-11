@@ -175,6 +175,14 @@ const verificationClaimSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
+      kind: z.literal("sourceAttribution"),
+      value: z.string().min(1),
+      raw: z.string().min(1),
+      assertedSourceUrl: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal("url"),
       value: z.string().min(1),
       raw: z.string().min(1),

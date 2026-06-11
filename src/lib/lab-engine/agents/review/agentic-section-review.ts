@@ -1,6 +1,10 @@
 import { generateText } from "ai";
 
 import {
+  stripModelAuthoredVerifiedMarkers,
+  type StrippedNumericClaim,
+} from "@/lib/lab-engine/agents/verification/evidence-support";
+import {
   sectionReviewResultSchema,
   type ArtifactEnvelope,
   type ResearchInput,
@@ -19,8 +23,6 @@ const REVIEW_METADATA_PATTERN =
 const CLAIMED_REVIEW_LABEL_PATTERN = /\[[^\]\n]{1,120}\]/gu;
 const REVIEW_REMOVAL_CLAIM_PATTERN =
   /\b(?:delete|deleted|drop|dropped|omit|omitted|remove|removed|removing|strip|stripped)\b/iu;
-const CLAIMED_REMOVED_NUMBER_PATTERN =
-  /[$€£]?\s*\d[\d,]*(?:\.\d+)?(?:\s*(?:-|–|—|to)\s*[$€£]?\s*\d[\d,]*(?:\.\d+)?)?\s*(?:%|percent|[kmbt]\b|thousand|million|billion)?/giu;
 const CLAIMED_DOUBLE_QUOTED_TOKEN_PATTERN = /["“]([^"”\n]{2,160})["”]/gu;
 const CLAIMED_SINGLE_QUOTED_TOKEN_PATTERN = /'([^'\n]{2,160})'/gu;
 const UNVERIFIED_MARKER_AFTER_TOKEN_PATTERN = /^\s*\[\s*unverified\b[^\]]*\]/iu;
@@ -256,9 +258,6 @@ function extractCapturedTokenMatches(
 
 function extractClaimedRemovedTokens(item: string): string[] {
   const tokens = [
-    ...Array.from(item.matchAll(CLAIMED_REMOVED_NUMBER_PATTERN), (match) =>
-      match[0].trim(),
-    ),
     ...extractCapturedTokenMatches(item, CLAIMED_DOUBLE_QUOTED_TOKEN_PATTERN),
     ...extractCapturedTokenMatches(item, CLAIMED_SINGLE_QUOTED_TOKEN_PATTERN),
   ];
@@ -358,7 +357,13 @@ function hasFalseRemovalClaim(input: {
     return false;
   }
 
-  return extractClaimedRemovedTokens(input.item).some((token) =>
+  const claimedRemovedTokens = extractClaimedRemovedTokens(input.item);
+
+  if (claimedRemovedTokens.length === 0) {
+    return true;
+  }
+
+  return claimedRemovedTokens.some((token) =>
     hasBareTokenOccurrence({
       normalizedText: input.normalizedSearchText,
       token,
@@ -400,7 +405,7 @@ export function enforceReviewRemovedItemsHonesty(input: {
   }
 
   const warn = input.warn ?? console.warn;
-  warn("[agentic-section-review] dropped removedItems entries with unapplied labels", {
+  warn("[agentic-section-review] dropped dishonest removedItems entries", {
     droppedItems,
     sectionId: input.sectionId,
     surfaces: [
@@ -413,6 +418,27 @@ export function enforceReviewRemovedItemsHonesty(input: {
   return {
     ...input.review,
     removedItems,
+  };
+}
+
+function sanitizeReviewVerifiedMarkers(
+  review: SectionReviewResult,
+): { review: SectionReviewResult; stripped: StrippedNumericClaim[] } {
+  const result = stripModelAuthoredVerifiedMarkers({
+    field: "review.upgradedMarkdown",
+    value: review.upgradedMarkdown,
+  });
+
+  if (result.stripped.length === 0) {
+    return { review, stripped: [] };
+  }
+
+  return {
+    review: {
+      ...review,
+      upgradedMarkdown: result.value,
+    },
+    stripped: result.stripped,
   };
 }
 
@@ -456,6 +482,7 @@ function buildReviewPrompt(input: {
     "- Label plausible but unfetched claims as [unverified - confirm before use].",
     "- If evidence is too thin, author an honest evidence-gap section that says what is missing and what to ask next.",
     "- Do not invent market data, prices, competitors, quotes, statistics, URLs, reviewer names, or dates.",
+    '- In removedItems, any entry claiming removal MUST quote the exact removed value, e.g. `Removed "33,100 monthly searches"`; omit vague removal claims.',
     "- Keep the output as polished markdown for the client.",
     "",
     "Return upgraded markdown first. End with exactly one metadata tail:",
@@ -547,10 +574,11 @@ export async function reviewAndUpgradeSection(
       fallbackMarkdown,
       text: result.text,
     });
+    const sanitizedReview = sanitizeReviewVerifiedMarkers(review);
 
     return enforceReviewRemovedItemsHonesty({
       artifact: input.artifact,
-      review,
+      review: sanitizedReview.review,
       sectionId: input.sectionId,
     });
   } catch (error) {

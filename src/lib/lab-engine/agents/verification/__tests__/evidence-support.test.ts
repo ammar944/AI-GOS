@@ -138,6 +138,42 @@ describe("evaluateEvidenceSupport", (): void => {
     );
   });
 
+  it("returns unsupported source-scoped prose as a load-bearing issue", (): void => {
+    const report = structuralVerifier({
+      body: {
+        structuralForces: {
+          forces: [
+            {
+              evidence:
+                "Microsoft Power Apps in E5 and Google AppSheet in Workspace are bundled at zero marginal cost.",
+              sourceUrl: "https://about.google/appsheet/",
+            },
+          ],
+        },
+      },
+      toolResults: [
+        {
+          toolName: "web_search",
+          output: {
+            sourceUrl: "https://about.google/appsheet/",
+            text:
+              "Google AppSheet helps Google Workspace users create low-code apps.",
+          },
+        },
+      ],
+      corpusExcerpts: [],
+    });
+    const shortfall = evaluateEvidenceSupport({ verification: report });
+
+    expect(shortfall.unsupportedLoadBearing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          claim: expect.objectContaining({ kind: "sourceAttribution" }),
+        }),
+      ]),
+    );
+  });
+
   it("does not gate unsupported quote-only claims", (): void => {
     const shortfall = evaluateEvidenceSupport({
       verification: buildFixtureReport(fabricatedQuoteFixture),
@@ -155,7 +191,7 @@ describe("evaluateEvidenceSupport", (): void => {
       loadBearingKinds: ["numeric", "url", "quote"],
     });
 
-    // Default scope (numeric + url) leaves the unsupported quote ungated...
+    // Default scope leaves the unsupported quote ungated...
     expect(defaultShortfall.unsupportedLoadBearing).toHaveLength(0);
     // ...but an explicit numeric + url + quote scope gates it.
     expect(vocShortfall.unsupportedLoadBearing.length).toBeGreaterThan(0);
@@ -494,6 +530,35 @@ describe("getMaxUnsupportedAllowed", (): void => {
 });
 
 describe("redactUnsupportedNumericClaims", (): void => {
+  it("strips model-authored verified markers even without unsupported numeric claims", (): void => {
+    const body = {
+      statusSummary:
+        "The claim is [verified: vendor docs] useful, while the next sentence stays [unverified].",
+      rawSourceSamples: [{ text: "Source said [verified: do not alter raw]." }],
+      quote: "A buyer said [verified: leave quoted evidence untouched].",
+      sourceUrl: "https://example.com/[verified]",
+    };
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: buildUnsupportedNumericReport([]),
+    });
+    const redacted = result.body as typeof body;
+
+    expect(redacted.statusSummary).toBe(
+      "The claim is useful, while the next sentence stays [unverified].",
+    );
+    expect(redacted.rawSourceSamples).toEqual(body.rawSourceSamples);
+    expect(redacted.quote).toBe(body.quote);
+    expect(redacted.sourceUrl).toBe(body.sourceUrl);
+    expect(result.stripped).toEqual([
+      {
+        action: "verified-marker-removed",
+        field: "body.statusSummary",
+        value: "[verified: vendor docs]",
+      },
+    ]);
+  });
+
   it("marks unsupported numeric tokens in prose and stays idempotent", (): void => {
     const body = {
       statusSummary:
@@ -524,6 +589,34 @@ describe("redactUnsupportedNumericClaims", (): void => {
     ]);
     expect(secondBody.statusSummary).toBe(firstBody.statusSummary);
     expect(second.stripped).toEqual([]);
+  });
+
+  it("strips fake verified markers and marks unsupported numeric ranges", (): void => {
+    const body = {
+      statusSummary:
+        "Reachable revenue is $1.3M–$2.6M [verified: SpyFu] based on demand.",
+    };
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: buildUnsupportedNumericReport(["$1.3M–$2.6M"]),
+    });
+    const redacted = result.body as typeof body;
+
+    expect(redacted.statusSummary).toBe(
+      "Reachable revenue is $1.3M–$2.6M [unverified] based on demand.",
+    );
+    expect(result.stripped).toEqual([
+      {
+        action: "verified-marker-removed",
+        field: "body.statusSummary",
+        value: "[verified: SpyFu]",
+      },
+      {
+        action: "marker",
+        field: "body.statusSummary",
+        value: "$1.3M–$2.6M",
+      },
+    ]);
   });
 
   it("leaves verified numerics and exempt source/verbatim/raw fields untouched", (): void => {

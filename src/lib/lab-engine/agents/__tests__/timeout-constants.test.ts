@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { LAB_SECTION_JOB_TIMEOUT_MS } from '@/lib/research-v2/lab-section-dispatch';
 
-import { answerToolTimeoutMs } from '../run-section';
+import {
+  answerToolTimeoutMs,
+  labSectionRepairFloorMs,
+  labSectionStructuredFallbackMinFloorMs,
+} from '../run-section';
 
 // The route's Vercel maxDuration (src/app/api/research-v2/run-lab-section/route.ts
 // :36 and orchestrate/route.ts:34) is the platform hard cap. We mirror it as a
@@ -34,5 +38,14 @@ describe('lab section timeout hierarchy', (): void => {
     expect(ROUTE_MAX_DURATION_MS - LAB_SECTION_JOB_TIMEOUT_MS).toBeGreaterThanOrEqual(
       15_000,
     );
+  });
+
+  it('keeps the structured fallback floor above the normal repair floor', (): void => {
+    expect(labSectionStructuredFallbackMinFloorMs).toBeGreaterThan(
+      labSectionRepairFloorMs,
+    );
+    expect(
+      labSectionStructuredFallbackMinFloorMs + (ROUTE_MAX_DURATION_MS - LAB_SECTION_JOB_TIMEOUT_MS),
+    ).toBeLessThan(LAB_SECTION_JOB_TIMEOUT_MS);
   });
 });

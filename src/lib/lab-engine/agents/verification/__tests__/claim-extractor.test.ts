@@ -72,6 +72,8 @@ describe("extractClaims", (): void => {
       marketSize: "TAM is $1M–$5M ARR per segment.",
       pricingBand: "Plans run $49–$99/mo across tiers.",
       audience: "Reaches 10,000–50,000 users in the funnel.",
+      reachableRevenue:
+        "Reachable revenue is $1.3M–$2.6M based on current demand.",
     });
 
     const numericValues = claims
@@ -81,6 +83,7 @@ describe("extractClaims", (): void => {
     expect(numericValues).toContain("$1M–$5M ARR");
     expect(numericValues).toContain("$49–$99/mo");
     expect(numericValues).toContain("10,000–50,000 users");
+    expect(numericValues).toContain("$1.3M–$2.6M");
     // The fragments must NOT appear as standalone claims (verification theater).
     expect(numericValues).not.toContain("$1");
     expect(numericValues).not.toContain("$5");
@@ -88,6 +91,9 @@ describe("extractClaims", (): void => {
     expect(numericValues).not.toContain("5M");
     expect(numericValues).not.toContain("$49");
     expect(numericValues).not.toContain("$99/mo");
+    expect(numericValues).not.toContain("$1.3M");
+    expect(numericValues).not.toContain("$2.6M");
+    expect(numericValues).not.toContain("$1.3M–$2.6M based");
   });
 
   it("leaves single values, dates, and phone numbers unchanged by the range pass", (): void => {
@@ -130,6 +136,31 @@ describe("extractClaims", (): void => {
           assertedSourceUrl: "https://community.airtable.com/t5/forums",
           kind: "numericAttribution",
           value: "450,000+ members",
+        }),
+      ]),
+    );
+  });
+
+  it("extracts source-scoped prose attribution from evidence records", (): void => {
+    const claims = extractClaims({
+      structuralForces: {
+        forces: [
+          {
+            evidence:
+              "Both Microsoft and Google bundle low-code tools through Power Apps and AppSheet.",
+            sourceUrl: "https://about.google/appsheet/",
+          },
+        ],
+      },
+    });
+
+    expect(claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          assertedSourceUrl: "https://about.google/appsheet/",
+          kind: "sourceAttribution",
+          value:
+            "Both Microsoft and Google bundle low-code tools through Power Apps and AppSheet.",
         }),
       ]),
     );
