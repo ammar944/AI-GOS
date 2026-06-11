@@ -6,6 +6,8 @@ import {
 } from "../../artifacts/artifact-envelope";
 import type { SectionId } from "../../events/activity-event";
 import { marketCategoryFixtureArtifact } from "../../fixtures/market-category-artifact";
+import { voiceOfCustomerFixtureArtifact } from "../../fixtures/voice-of-customer-artifact";
+import { validateVoiceOfCustomerMinimums } from "../../artifacts/schemas/voice-of-customer";
 import type { LoadBearingClaimKind } from "../../agents/verification/evidence-support";
 import type { VerificationReport } from "../../agents/verification/types";
 import {
@@ -110,6 +112,15 @@ function verifiedQuoteAttributionClaim(): VerificationReport["claims"][number] {
       sourceUrl: "https://baserow.io/reviews",
     },
     status: "verified",
+  };
+}
+
+function vocBlockGap(summary: string): Record<string, unknown> {
+  return {
+    summary,
+    foundCount: 0,
+    requiredCount: 1,
+    sourcingPlan: ["Check review, forum, and community sources next run."],
   };
 }
 
@@ -400,5 +411,56 @@ describe("evaluateCommittableAttempt", (): void => {
         value: "missing table stakes",
       }),
     ]);
+  });
+
+  it("commits an empty VoC artifact when all quote blocks are gapped with retrievalSummary", (): void => {
+    const body = {
+      ...voiceOfCustomerFixtureArtifact.body,
+      retrievalSummary:
+        "Searched review, forum, and public community surfaces; no admissible customer-authored quotes were retrieved.",
+      painLanguage: {
+        ...voiceOfCustomerFixtureArtifact.body.painLanguage,
+        quotes: [],
+        blockGap: vocBlockGap("No admissible pain language was retrieved."),
+      },
+      objections: {
+        ...voiceOfCustomerFixtureArtifact.body.objections,
+        items: [],
+        blockGap: vocBlockGap("No admissible objections were retrieved."),
+      },
+      switchingStories: {
+        ...voiceOfCustomerFixtureArtifact.body.switchingStories,
+        stories: [],
+        blockGap: vocBlockGap("No admissible switching stories were retrieved."),
+      },
+      decisionCriteria: {
+        ...voiceOfCustomerFixtureArtifact.body.decisionCriteria,
+        criteria: [],
+        blockGap: vocBlockGap("No admissible decision criteria were retrieved."),
+      },
+      successLanguage: {
+        ...voiceOfCustomerFixtureArtifact.body.successLanguage,
+        quotes: [],
+        blockGap: vocBlockGap("No admissible success language was retrieved."),
+      },
+    };
+    const artifact = buildArtifact({
+      body: body as unknown as Record<string, unknown>,
+      sectionId: "positioningVoiceOfCustomer",
+    });
+    const verdict = evaluateCommittableAttempt({
+      artifact,
+      definition: {
+        ...buildDefinition({ sectionId: "positioningVoiceOfCustomer" }),
+        validateMinimums: (candidate) =>
+          validateVoiceOfCustomerMinimums(
+            candidate as Parameters<typeof validateVoiceOfCustomerMinimums>[0],
+          ),
+      },
+      env: {},
+      verification: buildVerificationReport(),
+    });
+
+    expect(verdict.kind).toBe("committable");
   });
 });

@@ -35,6 +35,10 @@ const channelVerdictValues = [
 ] as const;
 
 const paidMediaNumericMoneySchema = z.number().finite().nonnegative().optional();
+const sourceSectionSchema = z.enum(sourceSectionValues);
+const channelVerdictSchema = z.enum(channelVerdictValues);
+type SourceSection = z.infer<typeof sourceSectionSchema>;
+type ChannelVerdict = z.infer<typeof channelVerdictSchema>;
 
 const modelSourceSchema = z
   .object({
@@ -79,7 +83,7 @@ const audienceTypeSchema = z.object({
   dailyBudgetValue: paidMediaNumericMoneySchema,
   dailyBudgetProvenance: z.string().min(1),
   detail: z.string().min(1),
-  sourceSection: z.string().min(1),
+  sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
 });
 
@@ -87,7 +91,7 @@ const angleSchema = z.object({
   shortName: z.string().min(1),
   description: z.string().min(1),
   angleType: z.string().min(1),
-  sourceSection: z.string().min(1),
+  sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
 });
 
@@ -103,7 +107,7 @@ const creativeFrameworkSlotSchema = z.object({
   angleType: z.string().min(1),
   hook: z.string().min(1),
   executesAngle: z.string().min(1),
-  sourceSection: z.string().min(1),
+  sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
 });
 
@@ -130,22 +134,22 @@ const competitorMarketingInsightSchema = z.object({
   angles: z.string().min(1),
   positioning: z.string().min(1),
   offer: z.string().min(1),
-  sourceSection: z.string().min(1),
+  sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
 });
 
 const competitorReviewInsightSchema = z.object({
   complaint: z.string().min(1),
   howWeLeverage: z.string().min(1),
-  sourceSection: z.string().min(1),
+  sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
 });
 
 const channelSuggestionSchema = z.object({
   channel: z.string().min(1),
   recommendation: z.string().min(1),
-  verdict: z.string().min(1),
-  sourceSection: z.string().min(1),
+  verdict: channelVerdictSchema,
+  sourceSection: sourceSectionSchema,
 });
 
 const kpiSchema = z.object({
@@ -172,39 +176,112 @@ const projectedResultRowSchema = z.object({
   projectedCountValue: z.number().finite().nonnegative().optional(),
   projectedCountProvenance: z.string().min(1).optional(),
   marginOfErrorPercent: z.number().finite().nonnegative(),
-  sourceSection: z.string().min(1),
+  sourceSection: sourceSectionSchema,
 });
 
 const crossSectionInsightSchema = z.object({
   tension: z.string().min(1),
-  sourceSections: z.array(z.string().min(1)),
+  sourceSections: z.array(sourceSectionSchema).min(2),
   implicationForPlan: z.string().min(1),
   clientBlindSpot: z.string().min(1),
   secondOrderRisk: z.string().min(1),
   contrarianInversion: z.string().min(1),
 });
 
+const feasibilityAuditSchema = z
+  .object({
+    summary: z.string().min(1),
+    verdicts: z.array(
+      z
+        .object({
+          audience: z.string().min(1),
+          allocation: z.number().finite().nonnegative().optional(),
+          allocationBasis: z.string().min(1),
+          measuredVolume: z.number().finite().nonnegative().optional(),
+          volumeBasis: z.string().min(1),
+          verdict: z.enum(["fits", "exceeds", "unknown"]),
+          math: z.array(z.string().min(1)),
+          targetCostPerConversion: z.number().finite().nonnegative().optional(),
+          matchedKeywords: z.array(
+            z
+              .object({
+                keyword: z.string().min(1),
+                monthlyVolume: z.number().finite().nonnegative(),
+                cpc: z.number().finite().nonnegative().optional(),
+              })
+              .strict(),
+          ),
+          ceiling: z
+            .object({
+              min: z.number().finite().nonnegative(),
+              max: z.number().finite().nonnegative(),
+              basis: z.string().min(1),
+            })
+            .strict()
+            .optional(),
+          cpcRange: z
+            .object({
+              min: z.number().finite().nonnegative(),
+              max: z.number().finite().nonnegative(),
+              basis: z.string().min(1),
+            })
+            .strict()
+            .optional(),
+          ctrRange: z
+            .object({
+              min: z.number().finite().nonnegative(),
+              max: z.number().finite().nonnegative(),
+              basis: z.string().min(1),
+            })
+            .strict()
+            .optional(),
+          cvrRange: z
+            .object({
+              min: z.number().finite().nonnegative(),
+              max: z.number().finite().nonnegative(),
+              basis: z.string().min(1),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 export const paidMediaPlanBodySchema = z.object({
   campaignOverview: campaignOverviewSchema,
   campaignPhases: z
     .array(campaignPhaseSchema)
-    .describe("Phase 1 Testing -> Phase 2 Optimize & Scale (EXACTLY 2)"),
+    .min(1)
+    .max(3)
+    .describe("1-3 campaign phases; no filler rows"),
   audienceTypes: z
     .array(audienceTypeSchema)
-    .describe("3 fixed archetypes tested in parallel (EXACTLY 3)"),
+    .min(1)
+    .max(4)
+    .describe("1-4 audience types tested in parallel; no filler rows"),
   anglesToTest: z
     .array(angleSchema)
-    .describe("4 distinct creative angles, diversity-enforced (EXACTLY 4)"),
+    .min(2)
+    .max(6)
+    .describe("2-6 evidence-backed creative angles; no filler rows"),
   creativeStrategy: creativeStrategySchema,
   creativeFramework: z
     .array(creativeFrameworkSlotSchema)
-    .describe("5 static + 3 UGC fixed slots (EXACTLY 8)"),
+    .min(3)
+    .max(12)
+    .describe("3-12 creative slots; no filler rows"),
   funnelIdeation: z
     .array(funnelIdeationSchema)
-    .describe("3 funnel paths: PRIMARY / SECONDARY / TEST (EXACTLY 3)"),
+    .min(1)
+    .max(3)
+    .describe("1-3 funnel paths; no filler rows"),
   salesProcess: z
     .array(salesProcessAssetSchema)
-    .describe("3 sales docs + 1 Loom; state gaps, never fabricate URLs"),
+    .min(1)
+    .max(4)
+    .describe("1-4 supplied sales assets, or one explicit gap object"),
   competitorMarketingInsights: z
     .array(competitorMarketingInsightSchema)
     .describe("Competitor marketing teardown (>=2)"),
@@ -213,16 +290,22 @@ export const paidMediaPlanBodySchema = z.object({
     .describe("3 competitor-review complaints + leverage (EXACTLY 3)"),
   channelSuggestions: z
     .array(channelSuggestionSchema)
-    .describe("4 current-funnel suggestion cards (EXACTLY 4)"),
+    .min(1)
+    .max(6)
+    .describe("1-6 current-funnel suggestion cards; no filler rows"),
   projectedResults: z
     .array(projectedResultRowSchema)
+    .min(1)
     .describe(
       "SOP projected-results table: one row per target ICP x phase; the runner computes counts (>=1 row)",
     ),
-  kpis: z.array(kpiSchema).describe("3 fixed KPIs (EXACTLY 3)"),
+  kpis: z.array(kpiSchema).min(2).max(5).describe("2-5 KPIs; no filler rows"),
   crossSectionInsight: z
     .array(crossSectionInsightSchema)
+    .min(1)
+    .max(3)
     .describe("1-3 cross-section tensions that drove the plan"),
+  feasibilityAudit: feasibilityAuditSchema.optional(),
 });
 
 export const paidMediaPlanSectionOutputSchema = z
@@ -287,8 +370,17 @@ export function snapSourceSection(value: unknown): string {
     voc: "positioningVoiceOfCustomer",
     "voice-of-customer": "positioningVoiceOfCustomer",
   };
+  const alias = aliases[slug];
 
-  return aliases[slug] ?? "gtmBrief";
+  if (alias !== undefined) {
+    return alias;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  return "unknown-source-section";
 }
 
 function snapMoneyProvenance(value: unknown): string {
@@ -343,14 +435,35 @@ function snapChannelVerdict(value: unknown): string {
     start: "ADD",
     test: "ADD",
   };
+  const alias = aliases[slug];
 
-  return aliases[slug] ?? "REVIEW";
+  if (alias !== undefined) {
+    return alias;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim().toUpperCase();
+  }
+
+  return "UNKNOWN";
+}
+
+function normalizeSourceSection(value: unknown): SourceSection {
+  return sourceSectionSchema.parse(snapSourceSection(value));
+}
+
+function normalizeChannelVerdict(value: unknown): ChannelVerdict {
+  return channelVerdictSchema.parse(snapChannelVerdict(value));
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // Unsubstituted budget template literals ("$[Budget]", "[Budget]", "{budget}",
@@ -411,30 +524,6 @@ function getNestedArray(value: unknown, key: string): unknown[] {
 
 function normalizeStringArray(value: unknown): string[] {
   return getArray(value).map((item) => getString(item, "")).filter(Boolean);
-}
-
-function withCount<T>({
-  fallback,
-  max,
-  min,
-  normalize,
-  value,
-}: {
-  fallback: (index: number) => T;
-  max?: number;
-  min: number;
-  normalize: (item: unknown, index: number) => T;
-  value: unknown;
-}): T[] {
-  const normalized = getArray(value).map((item, index) => normalize(item, index));
-  const capped = max === undefined ? normalized : normalized.slice(0, max);
-  const padded = [...capped];
-
-  while (padded.length < min) {
-    padded.push(fallback(padded.length));
-  }
-
-  return padded;
 }
 
 function normalizeMoneyValue({
@@ -572,7 +661,7 @@ function normalizeAudienceType(
     ...optionalNumericField("dailyBudgetValue", dailyBudgetValue),
     dailyBudgetProvenance,
     detail: getString(record.detail, "Evidence gap: targeting detail missing."),
-    sourceSection: snapSourceSection(record.sourceSection),
+    sourceSection: normalizeSourceSection(record.sourceSection),
     grounding: getString(record.grounding, "UNVERIFIED"),
   };
 }
@@ -590,7 +679,7 @@ function normalizeAngle(
       "Evidence gap: creative angle description missing.",
     ),
     angleType: getString(record.angleType, "REVIEW"),
-    sourceSection: snapSourceSection(record.sourceSection),
+    sourceSection: normalizeSourceSection(record.sourceSection),
     grounding: getString(record.grounding ?? record.insight, "UNVERIFIED"),
   };
 }
@@ -634,7 +723,7 @@ function normalizeCreativeFrameworkSlot(
       "Evidence gap: hook copy missing.",
     ),
     executesAngle: getString(record.executesAngle, `Angle ${Math.min(index + 1, 4)}`),
-    sourceSection: snapSourceSection(record.sourceSection),
+    sourceSection: normalizeSourceSection(record.sourceSection),
     grounding: getString(record.grounding, "UNVERIFIED"),
   };
 }
@@ -680,6 +769,28 @@ function normalizeSalesAsset(
   };
 }
 
+function normalizeSalesProcessAssets(
+  value: unknown,
+): PaidMediaPlanBody["salesProcess"] {
+  const assets = getNestedArray(value, "assets");
+
+  if (assets.length === 0) {
+    return [
+      normalizeSalesAsset(
+        {
+          assetType: "gap",
+          label: "Sales assets not supplied",
+          note: "Client did not supply sales assets; upload sales deck, call recording, process doc, or Loom walkthrough.",
+          url: "",
+        },
+        0,
+      ),
+    ];
+  }
+
+  return assets.map(normalizeSalesAsset);
+}
+
 function normalizeCompetitorMarketingInsight(
   value: unknown,
   index: number,
@@ -701,7 +812,7 @@ function normalizeCompetitorMarketingInsight(
       "Evidence gap: positioning missing.",
     ),
     offer: getString(record.offer, "Evidence gap: offer missing."),
-    sourceSection: snapSourceSection(record.sourceSection),
+    sourceSection: normalizeSourceSection(record.sourceSection),
     grounding: getString(record.grounding, "UNVERIFIED"),
   };
 }
@@ -721,7 +832,7 @@ function normalizeCompetitorReviewInsight(
       record.howWeLeverage ?? record.adLeverage,
       "Evidence gap: ad leverage missing.",
     ),
-    sourceSection: snapSourceSection(record.sourceSection),
+    sourceSection: normalizeSourceSection(record.sourceSection),
     grounding: getString(record.grounding, "UNVERIFIED"),
   };
 }
@@ -744,8 +855,8 @@ function normalizeChannelSuggestion(
       record.recommendation ?? record.observation,
       "Evidence gap: channel recommendation missing.",
     ),
-    verdict: snapChannelVerdict(record.verdict),
-    sourceSection: snapSourceSection(record.sourceSection),
+    verdict: normalizeChannelVerdict(record.verdict),
+    sourceSection: normalizeSourceSection(record.sourceSection),
   };
 }
 
@@ -770,15 +881,11 @@ function normalizeCrossSectionInsight(
 ): PaidMediaPlanBody["crossSectionInsight"][number] {
   const record = getRecord(value);
   const sourceSections = normalizeStringArray(record.sourceSections)
-    .map(snapSourceSection)
-    .filter((section) => section !== "gtmBrief");
+    .map(normalizeSourceSection);
 
   return {
     tension: getString(record.tension, `Cross-section tension ${index + 1} needs review.`),
-    sourceSections:
-      sourceSections.length >= 2
-        ? sourceSections
-        : ["positioningVoiceOfCustomer", "positioningOfferDiagnostic"],
+    sourceSections,
     implicationForPlan: getString(
       record.implicationForPlan,
       "Evidence gap: plan implication missing.",
@@ -878,7 +985,7 @@ function normalizeProjectedResultRow(
           ),
         }),
     marginOfErrorPercent: SOP_MARGIN_OF_ERROR_PERCENT,
-    sourceSection: snapSourceSection(record.sourceSection),
+    sourceSection: normalizeSourceSection(record.sourceSection),
   };
 }
 
@@ -887,97 +994,51 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
 
   return paidMediaPlanBodySchema.parse({
     campaignOverview: normalizeCampaignOverview(record.campaignOverview),
-    campaignPhases: withCount({
-      fallback: (index) => normalizeCampaignPhase({}, index),
-      max: 2,
-      min: 2,
-      normalize: normalizeCampaignPhase,
-      value: getNestedArray(record.campaignPhases, "phases"),
-    }),
-    audienceTypes: withCount({
-      fallback: (index) => normalizeAudienceType({}, index),
-      max: 3,
-      min: 3,
-      normalize: normalizeAudienceType,
-      value: getNestedArray(record.audienceTypes, "audiences"),
-    }),
-    anglesToTest: withCount({
-      fallback: (index) => normalizeAngle({}, index),
-      max: 4,
-      min: 4,
-      normalize: normalizeAngle,
-      value: getNestedArray(record.anglesToTest, "angles"),
-    }),
+    campaignPhases: getNestedArray(record.campaignPhases, "phases").map(
+      normalizeCampaignPhase,
+    ),
+    audienceTypes: getNestedArray(record.audienceTypes, "audiences").map(
+      normalizeAudienceType,
+    ),
+    anglesToTest: getNestedArray(record.anglesToTest, "angles").map(
+      normalizeAngle,
+    ),
     creativeStrategy: normalizeCreativeStrategy(record.creativeStrategy),
-    creativeFramework: withCount({
-      fallback: (index) => normalizeCreativeFrameworkSlot({}, index),
-      max: 8,
-      min: 8,
-      normalize: normalizeCreativeFrameworkSlot,
-      value: getNestedArray(record.creativeFramework, "creatives"),
-    }),
-    funnelIdeation: withCount({
-      fallback: (index) => normalizeFunnelPath({}, index),
-      max: 3,
-      min: 3,
-      normalize: normalizeFunnelPath,
-      value: getNestedArray(record.funnelIdeation, "recommendations"),
-    }),
-    salesProcess: withCount({
-      fallback: (index) => normalizeSalesAsset({}, index),
-      max: 4,
-      min: 4,
-      normalize: normalizeSalesAsset,
-      value: getNestedArray(record.salesProcess, "assets"),
-    }),
-    competitorMarketingInsights: withCount({
-      fallback: (index) => normalizeCompetitorMarketingInsight({}, index),
-      min: 2,
-      normalize: normalizeCompetitorMarketingInsight,
-      value: getNestedArray(record.competitorMarketingInsights, "competitors"),
-    }),
-    competitorReviewInsights: withCount({
-      fallback: (index) => normalizeCompetitorReviewInsight({}, index),
-      max: 3,
-      min: 3,
-      normalize: normalizeCompetitorReviewInsight,
-      value: getNestedArray(record.competitorReviewInsights, "insights"),
-    }),
-    channelSuggestions: withCount({
-      fallback: (index) => normalizeChannelSuggestion({}, index),
-      max: 4,
-      min: 4,
-      normalize: normalizeChannelSuggestion,
-      value: getNestedArray(record.channelSuggestions, "suggestions"),
-    }),
-    projectedResults: withCount({
-      fallback: (index) => normalizeProjectedResultRow({}, index),
-      min: 1,
-      normalize: normalizeProjectedResultRow,
-      value: getNestedArray(record.projectedResults, "rows"),
-    }),
-    kpis: withCount({
-      fallback: (index) => normalizeKpi({}, index),
-      max: 3,
-      min: 3,
-      normalize: normalizeKpi,
-      value: getNestedArray(record.kpis, "kpis"),
-    }),
-    crossSectionInsight: withCount({
-      fallback: (index) => normalizeCrossSectionInsight({}, index),
-      max: 3,
-      min: 1,
-      normalize: normalizeCrossSectionInsight,
-      value: record.crossSectionInsight,
-    }),
+    creativeFramework: getNestedArray(record.creativeFramework, "creatives").map(
+      normalizeCreativeFrameworkSlot,
+    ),
+    funnelIdeation: getNestedArray(record.funnelIdeation, "recommendations").map(
+      normalizeFunnelPath,
+    ),
+    salesProcess: normalizeSalesProcessAssets(record.salesProcess),
+    competitorMarketingInsights: getNestedArray(
+      record.competitorMarketingInsights,
+      "competitors",
+    ).map(normalizeCompetitorMarketingInsight),
+    competitorReviewInsights: getNestedArray(
+      record.competitorReviewInsights,
+      "insights",
+    ).map(normalizeCompetitorReviewInsight),
+    channelSuggestions: getNestedArray(record.channelSuggestions, "suggestions").map(
+      normalizeChannelSuggestion,
+    ),
+    projectedResults: getNestedArray(record.projectedResults, "rows").map(
+      normalizeProjectedResultRow,
+    ),
+    kpis: getNestedArray(record.kpis, "kpis").map(normalizeKpi),
+    crossSectionInsight: getNestedArray(record.crossSectionInsight, "insights").map(
+      normalizeCrossSectionInsight,
+    ),
+    ...(isPlainRecord(record.feasibilityAudit)
+      ? { feasibilityAudit: record.feasibilityAudit }
+      : {}),
   });
 }
 
 // A substantive SOP row names its own plan facts (ICP, KPI, objective,
 // duration come from the model's own slides, never external evidence). The
-// normalizer's min-1 pad produces gap-labeled rows, which must NOT satisfy
-// the floor — otherwise an omitted table sails through with zero repair
-// pressure (Anura paid-media rerun #2).
+// Explicit gap rows must NOT satisfy the floor — otherwise an omitted table
+// can sail through with zero repair pressure.
 function isSubstantiveProjectedResultRow(
   row: PaidMediaPlanBody["projectedResults"][number],
 ): boolean {

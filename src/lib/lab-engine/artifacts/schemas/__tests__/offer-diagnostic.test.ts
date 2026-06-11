@@ -102,7 +102,7 @@ describe("offer-diagnostic evidence-gap escape hatch (T2b)", (): void => {
 
     expect(ok).toBe(true);
     expect(
-      patched?.strategicInsight.nonObviousRead.startsWith("evidence gap:"),
+      patched?.strategicInsight.nonObviousRead?.startsWith("evidence gap:"),
     ).toBe(true);
   });
 
@@ -141,6 +141,42 @@ describe("offer-diagnostic evidence-gap escape hatch (T2b)", (): void => {
         errors: minimums.errors,
       }),
     ).toBeNull();
+  });
+
+  it("accepts one retention signal instead of forcing retention diversity", (): void => {
+    const firstSignal = offerDiagnosticFixtureArtifact.body.retentionHealth.signals[0];
+
+    if (firstSignal === undefined) {
+      throw new Error("Expected offer diagnostic retention fixture signal.");
+    }
+
+    const body: OfferDiagnosticBody = {
+      ...offerDiagnosticFixtureArtifact.body,
+      retentionHealth: {
+        ...offerDiagnosticFixtureArtifact.body.retentionHealth,
+        signals: [firstSignal],
+      },
+    };
+
+    expect(validateOfferDiagnosticMinimums(rebuildArtifact(body)).ok).toBe(true);
+  });
+
+  it("accepts a retentionHealth blockGap when no retention signal is evidenced", (): void => {
+    const body: OfferDiagnosticBody = {
+      ...offerDiagnosticFixtureArtifact.body,
+      retentionHealth: {
+        ...offerDiagnosticFixtureArtifact.body.retentionHealth,
+        signals: [],
+        blockGap: {
+          summary: "No public retention signal was retrieved.",
+          foundCount: 0,
+          requiredCount: 1,
+          sourcingPlan: ["Check onboarding analytics and customer proof assets."],
+        },
+      },
+    };
+
+    expect(validateOfferDiagnosticMinimums(rebuildArtifact(body)).ok).toBe(true);
   });
 });
 

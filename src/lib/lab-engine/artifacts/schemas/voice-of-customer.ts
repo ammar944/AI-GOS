@@ -7,13 +7,13 @@ import {
 import { getRegistrableDomain } from "../../domain-utils";
 import {
   VOC_MIN_DOMAINS,
-  VOC_MIN_QUOTES,
-  VOC_MIN_SUCCESS_QUOTES,
   VOC_MIN_TOP_LEVEL_SOURCES,
 } from "../voice-of-customer-floors";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapSchema,
   fourForcesBalanceVerdictSchema,
+  keyFindingsSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
   validateStrategicText,
@@ -199,56 +199,50 @@ const evidenceGapReportSchema = z
   })
   .strict();
 
-// Per-block evidence gap (W1b): each SECONDARY quote class may declare an
-// honest shortfall instead of being padded to its floor or dragging the whole
-// section into the all-or-nothing evidenceGap. Pain language deliberately has
-// no blockGap — pain is the core class, and an empty pain section stays on the
-// (correctly damning) section-level gap path. Unlike body.evidenceGap (runner-
-// owned), blockGap is model-authored — but only after attempting promotion
-// from the candidate pack (SKILL.md authoring rule). Shape kept minimal and
-// strict for DeepSeek schema-compat.
-const blockGapSchema = z
-  .object({
-    summary: z.string().min(1),
-    foundCount: z.number().int().nonnegative(),
-    requiredCount: z.number().int().positive(),
-    sourcingPlan: z.array(z.string().min(1)).min(1),
-  })
-  .strict();
+const blockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 export const voiceOfCustomerBodySchema = z
   .object({
+    keyFindings: keyFindingsSchema.optional(),
+    retrievalSummary: z.string().min(1).optional(),
     strategicInsight: strategicInsightSchema,
     fourForcesBalanceVerdict: fourForcesBalanceVerdictSchema,
     painLanguage: z
-      .object({ prose: z.string().min(1), quotes: z.array(painQuoteSchema) })
+      .object({
+        prose: z.string().min(1),
+        quotes: z.array(painQuoteSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
     objections: z
       .object({
         prose: z.string().min(1),
         items: z.array(objectionSchema),
-        blockGap: blockGapSchema.optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     switchingStories: z
       .object({
         prose: z.string().min(1),
         stories: z.array(switchingStorySchema),
-        blockGap: blockGapSchema.optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     decisionCriteria: z
       .object({
         prose: z.string().min(1),
         criteria: z.array(decisionCriterionSchema),
-        blockGap: blockGapSchema.optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     successLanguage: z
       .object({
         prose: z.string().min(1),
         quotes: z.array(successQuoteSchema),
-        blockGap: blockGapSchema.optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     evidenceGap: z.literal(true).optional(),
@@ -256,7 +250,7 @@ export const voiceOfCustomerBodySchema = z
   })
   .strict();
 
-export type VoiceOfCustomerBlockGap = z.infer<typeof blockGapSchema>;
+export type VoiceOfCustomerBlockGap = z.infer<typeof evidenceBlockGapSchema>;
 
 const modelSourceSchema = z
   .object({
@@ -303,26 +297,12 @@ export type VoiceOfCustomerEvidenceGapClassification =
       errors: string[];
     };
 
-interface BlockGapEscapeInstructionParams {
-  blockGapPath: string;
-  foundCount: number;
-  inventedNoun: string;
-  requiredCount: number;
-  summary: string;
-}
-
-function formatBlockGapEscapeInstruction({
-  blockGapPath,
-  foundCount,
-  inventedNoun,
-  requiredCount,
-  summary,
-}: BlockGapEscapeInstructionParams): string {
-  return ` If fetched evidence does not contain more, set ${blockGapPath} to { summary: "${summary}", foundCount: ${foundCount}, requiredCount: ${requiredCount}, sourcingPlan: ["<source to check next>"] } instead of inventing ${inventedNoun}; invented ${inventedNoun} are removed by the truth gate.`;
-}
-
 function uniqueCount(values: readonly string[]): number {
   return new Set(values).size;
+}
+
+function hasBlockGap(block: { blockGap?: unknown }): boolean {
+  return block.blockGap !== undefined;
 }
 
 function getSourceKey(sourceUrl: string, fallback: string): string {
@@ -456,80 +436,90 @@ export function validateVoiceOfCustomerMinimums(
     parsedArtifact.body.fourForcesBalanceVerdict.balanceVerdict,
   );
 
-  if (parsedArtifact.sources.length < VOC_MIN_TOP_LEVEL_SOURCES) {
+  const allQuoteBlocksGapped =
+    parsedArtifact.body.painLanguage.quotes.length === 0 &&
+    hasBlockGap(parsedArtifact.body.painLanguage) &&
+    parsedArtifact.body.objections.items.length === 0 &&
+    hasBlockGap(parsedArtifact.body.objections) &&
+    parsedArtifact.body.switchingStories.stories.length === 0 &&
+    hasBlockGap(parsedArtifact.body.switchingStories) &&
+    parsedArtifact.body.decisionCriteria.criteria.length === 0 &&
+    hasBlockGap(parsedArtifact.body.decisionCriteria) &&
+    parsedArtifact.body.successLanguage.quotes.length === 0 &&
+    hasBlockGap(parsedArtifact.body.successLanguage);
+  const hasRetrievalSummary =
+    parsedArtifact.body.retrievalSummary !== undefined &&
+    parsedArtifact.body.retrievalSummary.trim().length > 0;
+
+  if (
+    parsedArtifact.sources.length < VOC_MIN_TOP_LEVEL_SOURCES &&
+    !(allQuoteBlocksGapped && hasRetrievalSummary)
+  ) {
     errors.push(
       `sources: have ${parsedArtifact.sources.length}, need >=${VOC_MIN_TOP_LEVEL_SOURCES}.`,
     );
   }
 
   const painQuotes = parsedArtifact.body.painLanguage.quotes;
-  if (painQuotes.length < VOC_MIN_QUOTES) {
-    errors.push(
-      `body.painLanguage.quotes: have ${painQuotes.length}, need >=${VOC_MIN_QUOTES}.`,
-    );
-  }
   const painSourceCount = uniqueCount(
     painQuotes.map((quote) => getSourceKey(quote.sourceUrl, quote.source)),
   );
-  if (painSourceCount < VOC_MIN_DOMAINS) {
+  if (
+    painQuotes.length > 0 &&
+    painSourceCount < VOC_MIN_DOMAINS &&
+    !(allQuoteBlocksGapped && hasRetrievalSummary)
+  ) {
     errors.push(
       `body.painLanguage.quotes: need >=${VOC_MIN_DOMAINS} distinct sources, have ${painSourceCount}.`,
     );
   }
 
-  // Secondary-class floors are enforced UNLESS that block declares an honest
-  // blockGap (W1b). One thin class no longer drags the section to the
-  // all-or-nothing evidenceGap; pain floors above are never blockGap-bypassed.
-  if (parsedArtifact.body.objections.blockGap === undefined) {
-    const objections = parsedArtifact.body.objections.items;
-    if (objections.length < 5) {
-      errors.push(
-        `body.objections.items: have ${objections.length}, need >=5.${formatBlockGapEscapeInstruction({ blockGapPath: "body.objections.blockGap", foundCount: objections.length, inventedNoun: "objections", requiredCount: 5, summary: "evidence gap: no public objections found" })}`,
-      );
-    }
-    const categoryCount = uniqueCount(
-      objections.map((objection) => objection.category),
+  if (painQuotes.length === 0 && !hasBlockGap(parsedArtifact.body.painLanguage)) {
+    errors.push(
+      `body.painLanguage.quotes: have 0; add body.painLanguage.blockGap instead of inventing pain quotes.`,
     );
-    if (categoryCount < 3) {
-      errors.push(
-        `body.objections.items: need >=3 objection categories, have ${categoryCount}.${formatBlockGapEscapeInstruction({ blockGapPath: "body.objections.blockGap", foundCount: categoryCount, inventedNoun: "objection categories", requiredCount: 3, summary: "evidence gap: fewer than three public objection categories found" })}`,
-      );
-    }
   }
 
-  if (parsedArtifact.body.switchingStories.blockGap === undefined) {
-    const stories = parsedArtifact.body.switchingStories.stories;
-    if (stories.length < 3) {
-      errors.push(
-        `body.switchingStories.stories: have ${stories.length}, need >=3.${formatBlockGapEscapeInstruction({ blockGapPath: "body.switchingStories.blockGap", foundCount: stories.length, inventedNoun: "stories", requiredCount: 3, summary: "evidence gap: no additional public switching stories found" })}`,
-      );
-    }
-    const priorSolutionCount = uniqueCount(
-      stories.map((story) => story.priorSolution),
+  if (
+    parsedArtifact.body.objections.items.length === 0 &&
+    !hasBlockGap(parsedArtifact.body.objections)
+  ) {
+    errors.push(
+      "body.objections.items: have 0; add body.objections.blockGap instead of inventing objections.",
     );
-    if (priorSolutionCount < 2) {
-      errors.push(
-        `body.switchingStories.stories: need >=2 prior solutions, have ${priorSolutionCount}.${formatBlockGapEscapeInstruction({ blockGapPath: "body.switchingStories.blockGap", foundCount: priorSolutionCount, inventedNoun: "prior solutions", requiredCount: 2, summary: "evidence gap: fewer than two public prior solutions found" })}`,
-      );
-    }
   }
 
-  if (parsedArtifact.body.decisionCriteria.blockGap === undefined) {
-    const criteriaCount = parsedArtifact.body.decisionCriteria.criteria.length;
-    if (criteriaCount < 5) {
-      errors.push(
-        `body.decisionCriteria.criteria: have ${criteriaCount}, need >=5.${formatBlockGapEscapeInstruction({ blockGapPath: "body.decisionCriteria.blockGap", foundCount: criteriaCount, inventedNoun: "decision criteria", requiredCount: 5, summary: "evidence gap: no additional public decision criteria found" })}`,
-      );
-    }
+  if (
+    parsedArtifact.body.switchingStories.stories.length === 0 &&
+    !hasBlockGap(parsedArtifact.body.switchingStories)
+  ) {
+    errors.push(
+      "body.switchingStories.stories: have 0; add body.switchingStories.blockGap instead of inventing switching stories.",
+    );
   }
 
-  if (parsedArtifact.body.successLanguage.blockGap === undefined) {
-    const successCount = parsedArtifact.body.successLanguage.quotes.length;
-    if (successCount < VOC_MIN_SUCCESS_QUOTES) {
-      errors.push(
-        `body.successLanguage.quotes: have ${successCount}, need >=${VOC_MIN_SUCCESS_QUOTES}.${formatBlockGapEscapeInstruction({ blockGapPath: "body.successLanguage.blockGap", foundCount: successCount, inventedNoun: "success quotes", requiredCount: VOC_MIN_SUCCESS_QUOTES, summary: "evidence gap: no additional public success language found" })}`,
-      );
-    }
+  if (
+    parsedArtifact.body.decisionCriteria.criteria.length === 0 &&
+    !hasBlockGap(parsedArtifact.body.decisionCriteria)
+  ) {
+    errors.push(
+      "body.decisionCriteria.criteria: have 0; add body.decisionCriteria.blockGap instead of inventing decision criteria.",
+    );
+  }
+
+  if (
+    parsedArtifact.body.successLanguage.quotes.length === 0 &&
+    !hasBlockGap(parsedArtifact.body.successLanguage)
+  ) {
+    errors.push(
+      "body.successLanguage.quotes: have 0; add body.successLanguage.blockGap instead of inventing success language.",
+    );
+  }
+
+  if (allQuoteBlocksGapped && !hasRetrievalSummary) {
+    errors.push(
+      "body.retrievalSummary: required when every VoC quote-bearing block is gapped.",
+    );
   }
 
   if (

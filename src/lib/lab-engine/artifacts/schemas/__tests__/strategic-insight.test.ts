@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  keyFindingsSchema,
+  strategicInsightSchema,
   validateOrderedStrategicMovesMinimums,
   validateProvesWrongIfMinimums,
   validateStrategicInsightMinimums,
@@ -85,6 +87,80 @@ describe("strategic insight validators", (): void => {
     });
 
     expect(errors).toHaveLength(0);
+  });
+
+  it("permits omitted nonObviousRead and secondOrderImplication", (): void => {
+    const parsed = strategicInsightSchema.safeParse({
+      strategicVerdict:
+        "The buyer should prioritize accountable workflow control before broad automation claims.",
+      keyTension: {
+        tension:
+          "The buyer wants operating leverage but fears a full RevOps rebuild too early.",
+        side:
+          "Take the lightweight operating ritual side before selling a system migration.",
+        costOfPosition:
+          "This gives up broad RevOps accounts to win founder pain earlier.",
+      },
+    });
+    const errors: string[] = [];
+
+    validateStrategicInsightMinimums(errors, "body.strategicInsight", {
+      strategicVerdict:
+        "The buyer should prioritize accountable workflow control before broad automation claims.",
+      keyTension: {
+        tension:
+          "The buyer wants operating leverage but fears a full RevOps rebuild too early.",
+        side:
+          "Take the lightweight operating ritual side before selling a system migration.",
+        costOfPosition:
+          "This gives up broad RevOps accounts to win founder pain earlier.",
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+    expect(errors).toHaveLength(0);
+  });
+
+  it("validates keyFindings sourceUrls by basis", (): void => {
+    expect(
+      keyFindingsSchema.safeParse([
+        {
+          finding: "Measured demand exists in the observed keyword set.",
+          basis: "measured",
+          sourceUrls: ["https://example.com/keyword"],
+        },
+        {
+          finding: "Public reviews mention the switching pain directly.",
+          basis: "sourced",
+          sourceUrls: ["https://example.com/review"],
+        },
+        {
+          finding: "The current ACV is an operator assumption to confirm.",
+          basis: "assumption",
+          sourceUrls: [],
+        },
+      ]).success,
+    ).toBe(true);
+
+    expect(
+      keyFindingsSchema.safeParse([
+        {
+          finding: "Measured demand exists in the observed keyword set.",
+          basis: "measured",
+          sourceUrls: [],
+        },
+        {
+          finding: "Public reviews mention the switching pain directly.",
+          basis: "sourced",
+          sourceUrls: ["https://example.com/review"],
+        },
+        {
+          finding: "The current ACV is an operator assumption to confirm.",
+          basis: "assumption",
+          sourceUrls: [],
+        },
+      ]).success,
+    ).toBe(false);
   });
 
   it("rejects the same evidence-gap line repeated across strategic fields", (): void => {

@@ -1,19 +1,18 @@
-// Per-section prompt minimum-guidance text. Relocated in Phase 4 from the
-// build-prompts.ts schemaName if-chains so the SectionDefinition descriptor owns
-// it: the committable gate and build-prompts now read descriptor fields instead
-// of string-matching section ids. This mirrors how the registry already imports
-// each section's bodySchema from artifacts/schemas/. Behaviour is byte-identical
-// — locked by build-prompts-guidance.characterization.test.ts.
-//
-// `strategicDepthGuidance` is the strategic-insight cardinality block (prepended
-// to the section minimums for the 6 core sections; empty for paid-media).
-// `promptMinimumGuidance` is the section-specific minimums (WITHOUT the strategic
-// prefix — build-prompts composes the two as [...strategic, ...minimums]).
+// Per-section reader-contract guidance. The committable gate and build-prompts
+// read descriptor-owned guidance instead of string-matching section ids.
+// The guidance intentionally avoids row quotas: schemas and validators enforce
+// shape, while prompts ask for honest, reader-shaped evidence.
 
 const strategicDepthCommonGuidance = [
-  "- Strategic depth fields: `body.strategicInsight` is required with `strategicVerdict`, `nonObviousRead`, `secondOrderImplication`, and `keyTension { tension, side, costOfPosition }`.",
-  "- Strategic depth fields must be specific strategic judgments or `evidence gap: <missing signal>`; do not restate verdict/statusSummary or summarize the section.",
-  "- Strategic depth fields must not carry numeric precision (counts, percentages, market sizes, dollar figures) that is absent from fetched evidence or the corpus; prefer qualitative judgment or the evidence-gap phrasing over invented numbers.",
+  "- Strategic depth fields: `body.strategicInsight` is required with `strategicVerdict` and `keyTension { tension, side, costOfPosition }`; emit `nonObviousRead` and `secondOrderImplication` only when the section evidence earns them.",
+  "- Strategic depth fields must be specific strategic judgments or one plain-language coverage gap sentence; do not restate verdict/statusSummary or summarize the section.",
+  "- Strategic depth fields must not carry numeric precision absent from fetched evidence or the corpus; use qualitative judgment or the gap shape over invented numbers.",
+] as const;
+
+const evidenceBlockGuidance = [
+  "- Lead the body with `keyFindings` when evidence supports it: each finding is one plain-language sentence with basis `measured`, `sourced`, `benchmark`, or `assumption`; source-backed findings carry sourceUrls, assumptions may leave sourceUrls empty.",
+  "- Populate a block only when evidence supports it; use that block's `blockGap` shape otherwise. A gap is one client-plain coverage sentence plus what was searched or what should be checked next.",
+  "- Do not write validator counts, tool names, budget-exhaustion notes, or internal process language in reader-facing fields.",
 ] as const;
 
 export const marketCategoryStrategicDepthGuidance = [
@@ -22,14 +21,11 @@ export const marketCategoryStrategicDepthGuidance = [
 ] as const;
 
 export const marketCategoryMinimumGuidance = [
-  "- MarketCategorySectionOutput minimums: top-level `sources` must include at least three Section-level sources.",
-  "- MarketCategorySectionOutput minimums: `body.categoryDefinition.adjacentCategories` must include at least two categories buyers confuse this with.",
-  "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least three public trajectory signals with unique `signalType` values.",
-  "- MarketCategorySectionOutput minimums: `body.marketSize.signals` must include at least one `top-down` and one `bottom-up` methodology.",
+  ...evidenceBlockGuidance,
+  "- MarketCategorySectionOutput sources must be real section-level evidence, not invented market statistics.",
+  "- Populate adjacent categories, market signals, structural forces, and maturity signals only when fetched evidence supports them; otherwise use the block gap for that block.",
   "- MarketCategorySectionOutput exact contract: `body.marketSize.bottomUpTam.recipeName` must be `keyword-demand-reachable-revenue`; `inputs[]` must include exactly one each for `keyword-volume`, `commercial-intent-share`, `conversion-rate`, and `acv`.",
-  '- MarketCategorySectionOutput bottom-up TAM: use `monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV`; sourced inputs require `sourceUrl`, and unavailable inputs must use `status: "evidence-gap"` with `value` beginning `evidence gap:`. Do not substitute analyst TAM for the bottom-up recipe.',
-  "- MarketCategorySectionOutput minimums: `body.structuralForces.forces` must include exactly one `regulation`, one `platform-shift`, and one `buyer-behavior` forceType.",
-  "- MarketCategorySectionOutput minimums: `body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals.",
+  '- MarketCategorySectionOutput bottom-up TAM: use `monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV`; sourced inputs require `sourceUrl`, and unavailable inputs must use `status: "evidence-gap"` with `value` beginning `evidence gap:`. If multiple inputs are gaps, state `directional only — not computed`; do not substitute analyst TAM for the recipe.',
   "- MarketCategorySectionOutput exact item contracts: `body.categoryMaturity.classification.supportingSignals[]` keys are `signalType`, `evidence`, `implication`, optional `sourceUrl`; do not add `name` or any other key — unrecognized keys fail the strict decoder.",
   "- Optional `sourceUrl` fields: when a row has no source, OMIT the `sourceUrl` key entirely; never emit an empty string `\"\"` — empty URL strings fail the decoder.",
 ] as const;
@@ -41,19 +37,11 @@ export const competitorLandscapeStrategicDepthGuidance = [
 ] as const;
 
 export const competitorLandscapeMinimumGuidance = [
-  "- CompetitorLandscapeSectionOutput minimums: top-level `sources` must include at least five distinct cited Section-level source URLs.",
+  ...evidenceBlockGuidance,
   "- CompetitorLandscapeSectionOutput grounding: cite only competitor URLs and numeric pricing/deal values that appear in fetched tool evidence, the evidence transcript, pre-normalized live ad evidence, or ResearchInput/corpus; if the source was not fetched, mark it as an evidence gap instead of asserting the URL or number.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.competitorSet.competitors` must include at least one `direct` and one `status-quo` competitor. Include `indirect` and `diy` competitors when public evidence names them; if a bucket has no credible evidence, name it as an evidence gap in prose instead of dropping or fabricating it.",
-  "- CompetitorLandscapeSectionOutput minimums: `status-quo` means the buyer's current non-purchase workflow, such as spreadsheet backlog tracking, Slack/email triage, founder memory, or manual process review. Source it to public evidence that names the workflow pain or current process, and call out any thin evidence in prose instead of dropping the bucket.",
-  "- For the SaaSLaunch fixture, use a manual founder-led sales workflow, spreadsheet pipeline review, or founder memory/follow-up process as the `diy` competitor when public sources do not name a productized DIY alternative.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.positioningTaxonomy.axes` must include at least three axes.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.pricingReality.dataPoints` must cover at least three distinct competitors.",
-  "- CompetitorLandscapeSectionOutput minimums: do not repeat one competitor to satisfy distinct-competitor checks; if pricing is public for Jira, Asana, ClickUp, GitHub Projects, Monday.com, Shortcut, or another named competitor, use those separate competitor names with their own source URLs.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.shareOfVoice.slices` must include at least three surfaces.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.publicWeaknesses.items` must include at least four verbatim weaknesses.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.publicWeaknesses.items` must cover at least two distinct competitors.",
-  "- CompetitorLandscapeSectionOutput minimums: public weaknesses must quote or summarize weakness evidence for at least two different competitor names; do not reuse all weaknesses from a single competitor.",
-  "- CompetitorLandscapeSectionOutput minimums: `body.narrativeArcs.arcs` must include at least three arcs.",
+  "- Competitor categories are evidence claims: include direct, status-quo, indirect, or DIY competitors only when public evidence, ResearchInput, or corpus material supports that buyer alternative.",
+  "- Subject-derived current-workflow competitors must come from this subject's actual buyer context; use a block gap when the workflow is plausible but not evidenced.",
+  "- Populate positioning axes, pricing reality, share of voice, public weaknesses, narrative arcs, ad presence, and ad evidence only when evidence supports them; use the block gap otherwise.",
 ] as const;
 
 export const buyerICPStrategicDepthGuidance = [
@@ -61,21 +49,21 @@ export const buyerICPStrategicDepthGuidance = [
 ] as const;
 
 export const buyerICPMinimumGuidance = [
+  ...evidenceBlockGuidance,
   "- BuyerICPSectionOutput exact item contracts: `body.icpExistenceCheck.firmographicCuts[]` keys are `cutType`, `value`, optional `accountCount`, `source`, `sourceUrl`, `dateObserved`.",
   "- `cutType` must be one of `industry`, `employeeBands`, `revenueBands`, `geography`, `techStack`.",
-  "- BuyerICPSectionOutput minimums: include at least three firmographic cuts with at least three distinct `cutType` values.",
+  "- Populate firmographic cuts only when evidence supports them; otherwise use `body.icpExistenceCheck.blockGap`.",
   "- `body.personaReality.personas[]` keys are `name`, `title`, `company`, `sourceUrl`, `role`, `seniority`, optional `teamSize`, `evidence`.",
-  "- `role` must be one of `champion`, `economic-buyer`, `decision-maker`, `influencer`, `end-user`, `gatekeeper`; include at least five personas.",
+  "- `role` must be one of `champion`, `economic-buyer`, `decision-maker`, `influencer`, `end-user`, `gatekeeper`.",
   "- `body.personaReality.personas[].name` must be a named person, public reviewer handle, or named source identity present in fetched evidence.",
   "- Each persona row is allowed only when the exact `name` string appears in fetched tool evidence or a corpus excerpt next to its company, title, source URL, or buyer role evidence.",
   "- Role labels, segments, departments, seniority labels, and company names do not satisfy `body.personaReality.personas[].name`.",
-  "- Do not invent named people. If no named buyer identity exists in the fetched evidence, state an explicit evidence gap instead of padding persona rows.",
-  "- `body.awarenessDistribution.levels[]` keys are `level`, `share`, `evidence`, optional `sampleQuery`; `share` must be a string like `20%`, `low`, or `medium`, never a number.",
-  "- Include exactly one awareness row each for `unaware`, `problem-aware`, `solution-aware`, `product-aware`, `most-aware`.",
+  "- Do not invent named people. If no named buyer identity exists in the fetched evidence, use `body.personaReality.blockGap` instead of padding persona rows.",
+  "- `body.awarenessDistribution.levels[]` keys are `level`, optional `share`, `evidence`, optional `sampleQuery`; `share` must be a string like `20%`, `low`, or `medium`, never a number. Prefer `dominantLevel` with reasoning when the evidence supports a qualitative awareness read.",
   "- `body.buyingContext.triggers[]` keys are `name`, `detectionSignal`, `window`, `evidence`, optional `sourceUrl`; do not use `event`, `urgency`, or `buyerQuote`.",
-  "- `window` must be one of `immediate`, `weeks`, `quarters`; include at least three triggers.",
+  "- `window` must be one of `immediate`, `weeks`, `quarters`; use `body.buyingContext.blockGap` when triggers are not evidenced.",
   "- `body.clusters.venues[]` keys are `bucketType`, `name`, `audienceSize`, `sourceUrl`, `whyItMatters`; do not use `type`, `icpConcentration`, `accessMethod`, or `evidence`.",
-  "- `bucketType` must be one of `community`, `newsletter`, `conference`, `podcast`, `slack-group`, `event`; include at least two `community` and two `newsletter` venues.",
+  "- `bucketType` must be one of `community`, `newsletter`, `conference`, `podcast`, `slack-group`, `event`; `audienceSize` is optional and must be omitted when not verified.",
 ] as const;
 
 export const voiceOfCustomerStrategicDepthGuidance = [
@@ -84,19 +72,17 @@ export const voiceOfCustomerStrategicDepthGuidance = [
 ] as const;
 
 export const voiceOfCustomerMinimumGuidance = [
+  ...evidenceBlockGuidance,
   "- VoiceOfCustomerSectionOutput exact item contracts: `body.painLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `painTheme`, `painIntensity`, plus optional `role` (reviewer role/handle) and `date` (when the source discloses it).",
   "- `source` must be one of `g2`, `reddit`, `hackernews`, `sales-call`, `support-thread`, `twitter`, `other`; `painIntensity` must be `high`, `medium`, or `low`.",
-  "- VoiceOfCustomerSectionOutput minimums: top-level `sources` must include at least five distinct cited source URLs across independent domains; do not use the audited company's own domain as a VoC source.",
-  "- VoiceOfCustomerSectionOutput minimums: include at least ten pain quotes from at least three distinct sources.",
   "- Pain quotes are LOAD-BEARING: every `verbatimText` must trace to a fetched source or corpus excerpt. NEVER present the subject company's own homepage, marketing, or testimonial copy as buyer pain — pain quotes come only from independent sources (review sites, forums, support threads), never the audited company's own domain.",
-  "- No single source may supply a majority of the pain quotes; spread them across independent domains.",
   "- When a `reviews` snippet is truncated, chain `firecrawl` on its `sourceUrl` to recover the full verbatim quote (and the reviewer `role`/`date` when shown) rather than emitting a clipped quote.",
-  "- `body.objections.items[]` keys are `objectionText`, `category`, `frequency`, `howToHandle`, `sourceUrl`; include at least five objections across at least three categories.",
+  "- `body.objections.items[]` keys are `objectionText`, `category`, `frequency`, `howToHandle`, `sourceUrl`.",
   "- `category` must be one of `price`, `feature`, `trust`, `switching-cost`, `timing`, `stakeholder`, `other`; `frequency` must be `recurring`, `occasional`, or `one-off`.",
-  "- `body.switchingStories.stories[]` keys are `priorSolution`, `reasonToLeave`, `decisionPath`, optional `exampleCompany`, `sourceUrl`; include at least three stories and at least two prior solutions.",
-  "- `body.decisionCriteria.criteria[]` keys are `criterion`, `statedBy`, `evidenceQuote`, `sourceUrl`; `statedBy` must be `buyer`, `champion`, `influencer`, or `blocker`; include at least five criteria.",
-  "- `body.successLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `afterStatePattern`; include at least five success quotes.",
-  "- VoC secondary blocks have an honest exit: if fetched evidence cannot meet a floor for objections, switchingStories, decisionCriteria, or successLanguage, set that block's blockGap to { summary: \"evidence gap: <missing signal>\", foundCount: <actual count>, requiredCount: <floor>, sourcingPlan: [\"<next source to check>\"] } instead of padding or inventing items. Pain quotes have NO such exit - they must be real.",
+  "- `body.switchingStories.stories[]` keys are `priorSolution`, `reasonToLeave`, `decisionPath`, optional `exampleCompany`, `sourceUrl`.",
+  "- `body.decisionCriteria.criteria[]` keys are `criterion`, `statedBy`, `evidenceQuote`, `sourceUrl`; `statedBy` must be `buyer`, `champion`, `influencer`, or `blocker`.",
+  "- `body.successLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `afterStatePattern`.",
+  "- Every quote-bearing block may use `blockGap` instead of rows when retrieval comes up empty. If all quote blocks are gapped, set top-level `retrievalSummary` with what was searched and the next sourcing plan.",
 ] as const;
 
 export const demandIntentStrategicDepthGuidance = [
@@ -105,18 +91,19 @@ export const demandIntentStrategicDepthGuidance = [
 ] as const;
 
 export const demandIntentMinimumGuidance = [
+  ...evidenceBlockGuidance,
   "- DemandIntentSectionOutput exact item contracts: `body.keywordDemand.keywords[]` keys are `keyword`, `monthlyVolume`, optional `monthlyVolumeValue`, optional `cpc`, optional `cpcValue`, optional `difficulty`, `intentType`, `top3RankingDomains`, `sourceTitle`, `sourceUrl`, `dateObserved`.",
-  "- `intentType` must be one of `informational`, `commercial`, `transactional`, `navigational`; include at least ten keyword rows.",
+  "- `intentType` must be one of `informational`, `commercial`, `transactional`, `navigational`.",
   "- Put a falsifiable signal on every keyword row: call the `keyword_volume` tool (SpyFu) with your candidate keywords in ONE bulk call (up to 100) to get monthly search volume + CPC + difficulty. If `keyword_volume` returns a gap/rate-limit/no row, call `keyword_trends` (SearchAPI Google Trends) for a real relative-interest fallback.",
   "- Preserve display/provenance strings: keep `monthlyVolume` and optional `cpc` as reader-facing strings with provenance labels such as `320 (SpyFu-estimated)` and `$4.10 (SpyFu-estimated)`.",
   "- Numeric siblings are tool-derived only: when `keyword_volume` returns data for a keyword, set `monthlyVolumeValue` to `searchVolume`, `cpcValue` to `cpc`, and `difficulty` to `difficulty` as nonnegative numbers. If only `keyword_trends` returns data, omit numeric siblings and write `monthlyVolume` as a relative-interest string such as `relative interest 42/100 (SearchAPI Google Trends)`. Do not invent sortable numbers.",
   "- Provenance honesty is enforced: ONLY label `monthlyVolume`/`cpc` values 'SpyFu-estimated' when the `keyword_volume` tool returned data for that keyword. If SpyFu returns a gap, you MUST NOT claim SpyFu provenance and MUST NOT use model-estimated keyword economics — use `keyword_trends` or restate the row as a data gap. Never write `not disclosed` — it is rejected by the validator.",
-  "- `body.questionMining.questions[]` keys are `question`, `surface`, `sourceUrl`, `frequency`; include at least ten questions across at least two surface types.",
+  "- `body.questionMining.questions[]` keys are `question`, `surface`, `sourceUrl`, `frequency`.",
   "- `surface` must be one of `paa`, `reddit`, `quora`, `community`, `forum`, `support-thread`; `frequency` must be `recurring` or `occasional`.",
-  "- `body.contentGaps.gaps[]` keys are `topic`, `evidenceOfDemand`, `weakCompetitorAnswerEvidence`, `opportunity`; include at least three gaps.",
-  "- `body.intentSignals.items[]` keys are `signalType`, `description`, `sourceUrl`, optional `exampleCompany`; include at least five items across at least two signalTypes.",
+  "- `body.contentGaps.gaps[]` keys are `topic`, `evidenceOfDemand`, `weakCompetitorAnswerEvidence`, `opportunity`.",
+  "- `body.intentSignals.items[]` keys are `signalType`, `description`, `sourceUrl`, optional `exampleCompany`.",
   "- `signalType` must be one of `job-posting`, `rfp`, `news-trigger`, `funding`, `leadership-change`.",
-  "- `body.venueMap.venues[]` keys are `name`, `venueType`, `audienceSize`, `sourceUrl`; `venueType` must be `event`, `community`, `newsletter`, `podcast`, or `slack`; include at least four venues across at least two venueTypes.",
+  "- `body.venueMap.venues[]` keys are `name`, `venueType`, `audienceSize`, `sourceUrl`; `venueType` must be `event`, `community`, `newsletter`, `podcast`, or `slack`.",
 ] as const;
 
 export const offerDiagnosticStrategicDepthGuidance = [
@@ -125,24 +112,27 @@ export const offerDiagnosticStrategicDepthGuidance = [
 ] as const;
 
 export const offerDiagnosticMinimumGuidance = [
-  "- OfferDiagnosticSectionOutput exact item contracts: `body.offerMarketFit.proofPoints[]` keys are `metric`, `value`, `reportedBy`, `confidence`, `sourceUrl`; include at least three proof points.",
+  ...evidenceBlockGuidance,
+  "- OfferDiagnosticSectionOutput exact item contracts: `body.offerMarketFit.proofPoints[]` keys are `metric`, `value`, `reportedBy`, `confidence`, `sourceUrl`.",
   "- `reportedBy` must be `company-own` or `external-source`; `confidence` must be `high`, `medium`, or `low`.",
-  "- `body.funnelDiagnosis.breaks[]` keys are `stageName`, `metric`, `magnitude`, `hypothesis`, `sourceUrl`; include at least two funnel breaks.",
-  "- `body.channelTruth.channels[]` keys are `channelName`, `hasWorked`, `quantifiedEvidence`, `sourceUrl`; include at least three distinct channels.",
+  "- `body.funnelDiagnosis.breaks[]` keys are `stageName`, `metric`, `magnitude`, `hypothesis`, `sourceUrl`.",
+  "- `body.channelTruth.channels[]` keys are `channelName`, `hasWorked`, `quantifiedEvidence`, `sourceUrl`.",
   "- `hasWorked` must be one of `yes`, `partial`, `no`, `unknown`.",
-  "- `body.retentionHealth.signals[]` keys are `signalType`, `metric`, `value`, `sourceUrl`; include at least three signals across at least two signalTypes.",
+  "- `body.retentionHealth.signals[]` keys are `signalType`, `metric`, `value`, `sourceUrl`.",
   "- `signalType` must be one of `activation`, `retention`, `first-value-moment`.",
-  "- `body.redFlags.items[]` keys are `claimedMotion`, `actualEvidence`, `contradiction`, `severity`; `severity` must be `high`, `medium`, or `low`; include at least three red flags.",
+  "- `body.redFlags.items[]` keys are `claimedMotion`, `actualEvidence`, `contradiction`, `severity`; `severity` must be `high`, `medium`, or `low`.",
+  "- If proof, funnel, channel, retention, or red-flag evidence is unavailable, use the corresponding block gap instead of inventing rows.",
 ] as const;
 
 export const paidMediaPlanStrategicDepthGuidance = [] as const;
 
 export const paidMediaPlanMinimumGuidance = [
+  ...evidenceBlockGuidance,
   "- PaidMediaPlanSectionOutput top-level `sources[]` objects use only `title`, `url`, and optional `publisher`; do not emit `id` or `observedAt`.",
   "- Emit the lean 12-block body only: `campaignOverview`, `campaignPhases`, `audienceTypes`, `anglesToTest`, `creativeStrategy`, `creativeFramework`, `funnelIdeation`, `salesProcess`, `competitorMarketingInsights`, `competitorReviewInsights`, `channelSuggestions`, `kpis`, plus folded internal `crossSectionInsight`.",
   "- Do NOT emit `strategicThesis`, `contradictionReconciliation`, or `orderedMoves`; those capstone fields were removed and their reasoning now belongs inside `crossSectionInsight`.",
-  "- Source sections are free strings but should snap to `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`.",
-  "- `body.crossSectionInsight[]` carries 1-3 tensions that drove the plan; each item has `tension`, `sourceSections[]` (>=2 section ids), `implicationForPlan`, `clientBlindSpot`, `secondOrderRisk`, and `contrarianInversion`.",
+  "- Source sections must be one of `positioningMarketCategory`, `positioningBuyerICP`, `positioningCompetitorLandscape`, `positioningVoiceOfCustomer`, `positioningDemandIntent`, `positioningOfferDiagnostic`, or `gtmBrief`; unknown provenance should fail repair, not snap to a default.",
+  "- `body.crossSectionInsight[]` carries tensions that drove the plan; each item has `tension`, `sourceSections[]`, `implicationForPlan`, `clientBlindSpot`, `secondOrderRisk`, and `contrarianInversion`.",
   "- Paid-media money provenance fields are free strings; prefer `user-supplied`, `tool-measured`, `source-reported`, `model-estimated`, or `unknown`. Use `unknown` when the number cannot be tied to user input, tool measurement, source reporting, or an explicit scenario assumption.",
   "- Optional paid-media numeric siblings are machine-sortable numbers: `monthlyBudgetValue`, `dailySpendValue`, and `dailyBudgetValue`; add numeric siblings only when they come from user-supplied economics, tool-measured data, source-reported data, or explicit scenario assumptions with corresponding provenance.",
   "- Keep display strings and provenance fields. Numeric siblings must not duplicate provenance in strings; keep provenance in `monthlyBudgetProvenance`, `dailySpendProvenance`, and `dailyBudgetProvenance`.",
@@ -151,16 +141,16 @@ export const paidMediaPlanMinimumGuidance = [
   "- `body.campaignOverview` keys are exactly `prose`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, `totalMonths`, `phaseCount`, `dailySpend`, optional `dailySpendValue`, `dailySpendProvenance`, `primaryKpi`, `platform`.",
   "- PaidMediaPlanSectionOutput numeric fields are `totalMonths`, `phaseCount`, `staticCount`, `videoCount`, `totalPerAudience`, plus optional machine-sortable money siblings `monthlyBudgetValue`, `dailySpendValue`, and `dailyBudgetValue`; emit those as numbers.",
   "- PaidMediaPlanSectionOutput array fields must stay arrays. Budget, daily-spend, slot, and descriptive fields must be JSON strings.",
-  "- `body.campaignPhases[]` has exactly 2 rows; each has `phaseName`, `monthsLabel`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, and `bullets`.",
-  "- `body.audienceTypes[]` has exactly 3 rows; each has `slot`, `archetype`, `dailyBudget`, optional `dailyBudgetValue`, `dailyBudgetProvenance`, `detail`, `sourceSection`, and `grounding`.",
-  "- `body.anglesToTest[]` has exactly 4 distinct creative angles. Use diverse DR types across Problem-Aware, Mechanism-Led, Proof-Stacked, Enemy, Contrarian, Identity, and Comparison; no two angles should lean on the same lever.",
+  "- `body.campaignPhases[]` rows have `phaseName`, `monthsLabel`, `monthlyBudget`, optional `monthlyBudgetValue`, `monthlyBudgetProvenance`, and `bullets`.",
+  "- `body.audienceTypes[]` rows have `slot`, `archetype`, `dailyBudget`, optional `dailyBudgetValue`, `dailyBudgetProvenance`, `detail`, `sourceSection`, and `grounding`.",
+  "- `body.anglesToTest[]` contains distinct creative angles. Use diverse DR types across Problem-Aware, Mechanism-Led, Proof-Stacked, Enemy, Contrarian, Identity, and Comparison only when evidence supports them.",
   "- Each angle row has `shortName`, `description`, free-string `angleType`, `sourceSection`, and exact `grounding` or `UNVERIFIED`.",
-  "- `body.creativeStrategy` keys are exactly `prose`, `staticCount`, `videoCount`, `totalPerAudience`; use 5 static, 3 video/UGC, 8 total per audience, with formats native to the CHANNEL POLICY's primary platform.",
-  "- `body.creativeFramework[]` has exactly 8 fixed slots: `PST 1`, `PST 2`, `PST 3`, `Objection 1`, `Objection 2`, `USP`, `Demo + Objection`, `Before / After`; each row has `label`, `angleType`, deployable `hook`, `executesAngle`, `sourceSection`, and `grounding`.",
-  "- `body.funnelIdeation[]` has exactly 3 rows: `1 - PRIMARY`, `2 - SECONDARY`, `3 - TEST`; each row has `rank`, `name`, `description`, and `whatItProves`.",
-  "- `body.salesProcess[]` should include Sales Process Overview, SDR Opt-In Flow, Personalization Playbook, and Loom Walkthrough rows; use empty `url` and explicit gap `note` when assets are absent.",
-  "- `body.competitorMarketingInsights[]` has at least 2 rows with `competitor`, `messaging`, `adPlatforms`, `estSpendProvenance`, `icp`, `angles`, `positioning`, `offer`, `sourceSection`, and `grounding`; never invent spend.",
-  "- `body.competitorReviewInsights[]` has exactly 3 rows with `complaint`, `howWeLeverage`, `sourceSection`, and `grounding`; never invent quotes.",
-  "- `body.channelSuggestions[]` has exactly 4 rows for Website, Content / Organic, Other Ad Platforms, and Email / Nurture; verdict is free string but use one of `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, `SCALE`.",
-  "- `body.kpis[]` has exactly 3 rows: primary KPI, CTR, and CPL; each KPI has `metric`, `role`, and `definition`.",
+  "- `body.creativeStrategy` keys are exactly `prose`, `staticCount`, `videoCount`, `totalPerAudience`; formats must be native to the CHANNEL POLICY's primary platform.",
+  "- `body.creativeFramework[]` rows have `label`, `angleType`, deployable `hook`, `executesAngle`, `sourceSection`, and `grounding`.",
+  "- `body.funnelIdeation[]` rows have `rank`, `name`, `description`, and `whatItProves`.",
+  "- `body.salesProcess[]` should use supplied sales assets; if none were supplied, emit one explicit gap asset that says what the client should upload.",
+  "- `body.competitorMarketingInsights[]` rows have `competitor`, `messaging`, `adPlatforms`, `estSpendProvenance`, `icp`, `angles`, `positioning`, `offer`, `sourceSection`, and `grounding`; never invent spend.",
+  "- `body.competitorReviewInsights[]` rows have `complaint`, `howWeLeverage`, `sourceSection`, and `grounding`; never invent quotes.",
+  "- `body.channelSuggestions[]` rows use verdict `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, or `SCALE`.",
+  "- `body.kpis[]` rows have `metric`, `role`, and `definition`.",
 ] as const;

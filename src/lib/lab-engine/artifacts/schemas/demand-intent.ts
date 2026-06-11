@@ -6,6 +6,8 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapSchema,
+  keyFindingsSchema,
   orderedStrategicMoveSchema,
   provesWrongIfSchema,
   strategicInsightSchema,
@@ -37,6 +39,10 @@ const signalTypes = [
   "leadership-change",
 ] as const;
 const venueTypes = ["event", "community", "newsletter", "podcast", "slack"] as const;
+const blockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 export const keywordSignalSchema = z
   .object({
@@ -90,50 +96,45 @@ const demandVenueSchema = z
   })
   .strict();
 
-// Per-block evidence gap mirroring the VoC switchingStories pattern (shape
-// copied exactly from voice-of-customer.ts): a fetch shortfall in question
-// mining or intent signals may ship an honest EMPTY block plus this gap
-// instead of inventing rows to clear the floor. Optional and additive —
-// live-prod artifacts without it still parse.
-const demandIntentBlockGapSchema = z
-  .object({
-    summary: z.string().min(1),
-    foundCount: z.number().int().nonnegative(),
-    requiredCount: z.number().int().positive(),
-    sourcingPlan: z.array(z.string().min(1)).min(1),
-  })
-  .strict();
-
 export const demandIntentBodySchema = z
   .object({
+    keyFindings: keyFindingsSchema.optional(),
     strategicInsight: strategicInsightSchema,
     orderedMoves: z.array(orderedStrategicMoveSchema),
     provesWrongIf: provesWrongIfSchema,
     keywordDemand: z
-      .object({ prose: z.string().min(1), keywords: z.array(keywordSignalSchema) })
+      .object({
+        prose: z.string().min(1),
+        keywords: z.array(keywordSignalSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
     questionMining: z
       .object({
         prose: z.string().min(1),
         questions: z.array(buyerQuestionSchema),
-        blockGap: demandIntentBlockGapSchema.nullable().transform((value) => value ?? undefined).optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     contentGaps: z
-      .object({ prose: z.string().min(1), gaps: z.array(contentGapSchema) })
+      .object({
+        prose: z.string().min(1),
+        gaps: z.array(contentGapSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
     intentSignals: z
       .object({
         prose: z.string().min(1),
         items: z.array(intentSignalSchema),
-        blockGap: demandIntentBlockGapSchema.nullable().transform((value) => value ?? undefined).optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     venueMap: z
       .object({
         prose: z.string().min(1),
         venues: z.array(demandVenueSchema),
-        blockGap: demandIntentBlockGapSchema.nullable().transform((value) => value ?? undefined).optional(),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
   })
@@ -158,7 +159,7 @@ export const demandIntentSectionOutputSchema = z
   })
   .strict();
 
-export type DemandIntentBlockGap = z.infer<typeof demandIntentBlockGapSchema>;
+export type DemandIntentBlockGap = z.infer<typeof evidenceBlockGapSchema>;
 export type DemandIntentBody = z.infer<typeof demandIntentBodySchema>;
 export type DemandIntentSectionOutput = z.infer<
   typeof demandIntentSectionOutputSchema
@@ -183,6 +184,10 @@ function isExplicitDataGap(value: string | undefined): boolean {
   return /(?:data\s+gap|unavailable|no\s+row|no\s+usable|rate[-\s]*limit|returned\s+nothing)/iu.test(
     value,
   );
+}
+
+function hasBlockGap(block: { blockGap?: unknown }): boolean {
+  return block.blockGap !== undefined;
 }
 
 // Explicit data-gap marker used when softening SpyFu-claiming rows under a
@@ -434,8 +439,10 @@ export function validateDemandIntentMinimums(
   }
 
   const keywordCount = parsedArtifact.body.keywordDemand.keywords.length;
-  if (keywordCount < 10) {
-    errors.push(`body.keywordDemand.keywords: have ${keywordCount}, need >=10.`);
+  if (keywordCount < 5 && !hasBlockGap(parsedArtifact.body.keywordDemand)) {
+    errors.push(
+      `body.keywordDemand.keywords: have ${keywordCount}, need >=5 or body.keywordDemand.blockGap for the remaining demand evidence.`,
+    );
   }
 
   // Every keyword row must carry a falsifiable signal. Scoped to monthlyVolume
@@ -450,54 +457,42 @@ export function validateDemandIntentMinimums(
     }
   });
 
-  // questionMining and intentSignals carry an OPTIONAL blockGap escape
-  // (mirroring VoC): either meet the floor with verbatim fetched evidence, or
-  // ship an EMPTY list with the blockGap. A partially-padded list plus a gap
-  // label is rejected — invention is never the legal way past the floor.
+  // Array blocks carry an optional blockGap escape: keep every real row that was
+  // actually fetched, then explain the shortfall instead of padding to a quota.
   const questionMining = parsedArtifact.body.questionMining;
   const questions = questionMining.questions;
-  const questionsShipHonestGap =
-    questionMining.blockGap !== undefined && questions.length === 0;
-  if (!questionsShipHonestGap) {
-    if (questions.length < 10) {
-      errors.push(
-        `body.questionMining.questions: have ${questions.length}, need >=10. Never invent questions: if fewer than 10 verbatim questions were actually fetched, ship questions: [] with body.questionMining.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
-      );
-    }
+  if (questions.length < 10 && !hasBlockGap(questionMining)) {
+    errors.push(
+      `body.questionMining.questions: have ${questions.length}, need >=10 or body.questionMining.blockGap. Never invent questions; explain what was tried in the blockGap.`,
+    );
     // Surface diversity is prompt-side guidance, never a validator floor:
     // run 314d5f02 proved the >=2-surface quota was only ever satisfied by
     // inventing Quora/forum rows — honest single-surface mining must pass.
   }
 
   const gapCount = parsedArtifact.body.contentGaps.gaps.length;
-  if (gapCount < 3) {
-    errors.push(`body.contentGaps.gaps: have ${gapCount}, need >=3.`);
+  if (gapCount < 3 && !hasBlockGap(parsedArtifact.body.contentGaps)) {
+    errors.push(
+      `body.contentGaps.gaps: have ${gapCount}, need >=3 or body.contentGaps.blockGap.`,
+    );
   }
 
   const intentSignalsBlock = parsedArtifact.body.intentSignals;
   const intentSignals = intentSignalsBlock.items;
-  const intentSignalsShipHonestGap =
-    intentSignalsBlock.blockGap !== undefined && intentSignals.length === 0;
-  if (!intentSignalsShipHonestGap) {
-    if (intentSignals.length < 5) {
-      errors.push(
-        `body.intentSignals.items: have ${intentSignals.length}, need >=5. Never invent signals: if fewer than 5 observable intent signals were actually fetched, ship items: [] with body.intentSignals.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
-      );
-    }
+  if (intentSignals.length < 5 && !hasBlockGap(intentSignalsBlock)) {
+    errors.push(
+      `body.intentSignals.items: have ${intentSignals.length}, need >=5 or body.intentSignals.blockGap. Never invent signals; explain what was tried in the blockGap.`,
+    );
     // signalType diversity is prompt-side guidance only (same fabrication
     // forcer as the question-surface quota — see above).
   }
 
   const venueMapBlock = parsedArtifact.body.venueMap;
   const venues = venueMapBlock.venues;
-  const venuesShipHonestGap =
-    venueMapBlock.blockGap !== undefined && venues.length === 0;
-  if (!venuesShipHonestGap) {
-    if (venues.length < 4) {
-      errors.push(
-        `body.venueMap.venues: have ${venues.length}, need >=4. Never invent venues: if fewer than 4 real venues were actually verified, ship venues: [] with body.venueMap.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
-      );
-    }
+  if (venues.length < 4 && !hasBlockGap(venueMapBlock)) {
+    errors.push(
+      `body.venueMap.venues: have ${venues.length}, need >=4 or body.venueMap.blockGap. Never invent venues; explain what was tried in the blockGap.`,
+    );
     // venueType diversity is prompt-side guidance only (same fabrication
     // forcer class — a quota satisfied by invented newsletters is worse
     // than four real communities).

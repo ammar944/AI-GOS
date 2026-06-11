@@ -321,13 +321,14 @@ describe("validateBuyerICPMinimums", (): void => {
     expect(result.errors.join(" ")).toContain("duplicate level problem-aware");
   });
 
-  it("continues rejecting missing awareness levels", (): void => {
+  it("accepts partial awareness levels without forcing all five stages", (): void => {
     const artifact: BuyerICPArtifact = {
       ...buyerICPFixtureArtifact,
       body: {
         ...buyerICPFixtureArtifact.body,
         awarenessDistribution: {
           ...buyerICPFixtureArtifact.body.awarenessDistribution,
+          dominantLevel: "problem-aware",
           levels: buyerICPFixtureArtifact.body.awarenessDistribution.levels.filter(
             (level) => level.level !== "most-aware",
           ),
@@ -337,7 +338,7 @@ describe("validateBuyerICPMinimums", (): void => {
 
     const result = validateBuyerICPMinimums(artifact);
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain("missing levels most-aware");
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 });

@@ -468,6 +468,48 @@ describe("validateDemandIntentMinimums — blockGap honest-shortfall escape", ()
     };
   }
 
+  function withKeywordDemand(
+    keywordDemand: DemandIntentArtifact["body"]["keywordDemand"],
+  ): DemandIntentArtifact {
+    return {
+      ...demandIntentFixtureArtifact,
+      body: { ...demandIntentFixtureArtifact.body, keywordDemand },
+    };
+  }
+
+  it("rejects fewer than five keyword rows without a blockGap", (): void => {
+    const result = validateDemandIntentMinimums(
+      withKeywordDemand({
+        ...demandIntentFixtureArtifact.body.keywordDemand,
+        keywords: demandIntentFixtureArtifact.body.keywordDemand.keywords.slice(
+          0,
+          4,
+        ),
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "body.keywordDemand.keywords: have 4, need >=5",
+    );
+  });
+
+  it("accepts fewer than five keyword rows with a keywordDemand blockGap", (): void => {
+    const result = validateDemandIntentMinimums(
+      withKeywordDemand({
+        ...demandIntentFixtureArtifact.body.keywordDemand,
+        keywords: demandIntentFixtureArtifact.body.keywordDemand.keywords.slice(
+          0,
+          4,
+        ),
+        blockGap: { ...blockGap, requiredCount: 5 },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
   it("accepts questions: [] with a blockGap instead of invented questions", (): void => {
     const result = validateDemandIntentMinimums(
       withQuestionMining({
@@ -491,12 +533,12 @@ describe("validateDemandIntentMinimums — blockGap honest-shortfall escape", ()
 
     expect(result.ok).toBe(false);
     expect(result.errors.join(" ")).toContain(
-      "body.questionMining.questions: have 0, need >=10.",
+      "body.questionMining.questions: have 0, need >=10 or body.questionMining.blockGap.",
     );
     expect(result.errors.join(" ")).toContain("blockGap");
   });
 
-  it("rejects a partially-filled questions list even WITH a blockGap (floor stays all-or-nothing)", (): void => {
+  it("accepts a partially-filled questions list WITH a blockGap", (): void => {
     const result = validateDemandIntentMinimums(
       withQuestionMining({
         prose: demandIntentFixtureArtifact.body.questionMining.prose,
@@ -508,10 +550,8 @@ describe("validateDemandIntentMinimums — blockGap honest-shortfall escape", ()
       }),
     );
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain(
-      "body.questionMining.questions: have 4, need >=10.",
-    );
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   it("accepts items: [] with a blockGap for intentSignals", (): void => {
@@ -537,7 +577,7 @@ describe("validateDemandIntentMinimums — blockGap honest-shortfall escape", ()
 
     expect(result.ok).toBe(false);
     expect(result.errors.join(" ")).toContain(
-      "body.intentSignals.items: have 0, need >=5.",
+      "body.intentSignals.items: have 0, need >=5 or body.intentSignals.blockGap.",
     );
     expect(result.errors.join(" ")).toContain("blockGap");
   });
@@ -649,7 +689,7 @@ describe("validateDemandIntentMinimums — diversity is guidance, not a floor", 
     expect(result.errors).toHaveLength(0);
   });
 
-  it("rejects a thin venue list even WITH a blockGap (floor stays all-or-nothing)", (): void => {
+  it("accepts a thin venue list WITH a blockGap", (): void => {
     const result = validateDemandIntentMinimums({
       ...demandIntentFixtureArtifact,
       body: {
@@ -662,10 +702,7 @@ describe("validateDemandIntentMinimums — diversity is guidance, not a floor", 
       },
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain(
-      "body.venueMap.venues: have 2, need >=4.",
-    );
-    expect(result.errors.join(" ")).toContain("blockGap");
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 });

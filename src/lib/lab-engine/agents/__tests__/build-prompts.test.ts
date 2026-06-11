@@ -142,21 +142,24 @@ describe("buildAnswerToolInstructions", (): void => {
     );
   });
 
-  it("spells out Market Category validator cardinality minimums", (): void => {
+  it("spells out the Market Category reader contract without quota floors", (): void => {
     const prompt = buildAnswerToolInstructions(
       definition,
       saaslaunchResearchInput,
     );
 
+    expect(prompt).toContain("Reader contract:");
+    expect(prompt).not.toContain("Validator checklist:");
+    expect(prompt).toContain("Lead the body with `keyFindings`");
     expect(prompt).toContain(
-      "`body.marketSize.signals` must include at least three public trajectory signals",
+      "Populate adjacent categories, market signals, structural forces, and maturity signals only when fetched evidence supports them",
     );
     expect(prompt).toContain("`body.strategicInsight` is required");
     expect(prompt).toContain("`body.categoryPowerBet { bet, whyNow, riskAccepted }`");
     expect(prompt).toContain("`body.marketSize.bottomUpTam.recipeName`");
     expect(prompt).toContain("keyword-demand-reachable-revenue");
     expect(prompt).toContain(
-      "`body.categoryMaturity.classification.supportingSignals` must include at least two maturity signals",
+      "If multiple inputs are gaps, state `directional only — not computed`",
     );
   });
 
@@ -218,31 +221,31 @@ describe("buildAnswerToolInstructions", (): void => {
     );
   });
 
-  it("spells out Competitor Landscape weakness coverage minimums", (): void => {
+  it("spells out Competitor Landscape weakness gap guidance", (): void => {
     const prompt = buildAnswerToolInstructions(
       competitorDefinition,
       saaslaunchResearchInput,
     );
 
     expect(prompt).toContain(
-      "`body.publicWeaknesses.items` must include at least four verbatim weaknesses",
+      "Populate positioning axes, pricing reality, share of voice, public weaknesses, narrative arcs, ad presence, and ad evidence only when evidence supports them",
     );
     expect(prompt).toContain(
-      "`body.publicWeaknesses.items` must cover at least two distinct competitors",
+      "use the block gap otherwise",
     );
   });
 
-  it("spells out Competitor Landscape status-quo bucket guidance", (): void => {
+  it("spells out Competitor Landscape subject-derived competitor guidance", (): void => {
     const prompt = buildAnswerToolInstructions(
       competitorDefinition,
       saaslaunchResearchInput,
     );
 
     expect(prompt).toContain(
-      "`status-quo` means the buyer's current non-purchase workflow",
+      "Competitor categories are evidence claims",
     );
     expect(prompt).toContain(
-      "call out any thin evidence in prose instead of dropping the bucket",
+      "Subject-derived current-workflow competitors must come from this subject's actual buyer context",
     );
   });
 
@@ -329,7 +332,7 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(prompt).toContain('"identityBasis": "name_only"');
   });
 
-  it("repeats Competitor Landscape weakness coverage minimums in repair prompts", (): void => {
+  it("repeats Competitor Landscape weakness gap guidance in repair prompts", (): void => {
     const prompt = buildRepairPrompt({
       definition: competitorDefinition,
       evidenceTranscript: "source evidence",
@@ -342,14 +345,14 @@ describe("buildAnswerToolInstructions", (): void => {
     });
 
     expect(prompt).toContain(
-      "`body.publicWeaknesses.items` must include at least four verbatim weaknesses",
+      "Populate positioning axes, pricing reality, share of voice, public weaknesses, narrative arcs, ad presence, and ad evidence only when evidence supports them",
     );
     expect(prompt).toContain(
-      "`body.publicWeaknesses.items` must cover at least two distinct competitors",
+      "use the block gap otherwise",
     );
   });
 
-  it("repeats Competitor Landscape status-quo bucket guidance in repair prompts", (): void => {
+  it("repeats Competitor Landscape subject-derived competitor guidance in repair prompts", (): void => {
     const prompt = buildRepairPrompt({
       definition: competitorDefinition,
       evidenceTranscript: "source evidence",
@@ -362,10 +365,10 @@ describe("buildAnswerToolInstructions", (): void => {
     });
 
     expect(prompt).toContain(
-      "`status-quo` means the buyer's current non-purchase workflow",
+      "Competitor categories are evidence claims",
     );
     expect(prompt).toContain(
-      "call out any thin evidence in prose instead of dropping the bucket",
+      "Subject-derived current-workflow competitors must come from this subject's actual buyer context",
     );
   });
 
@@ -388,7 +391,7 @@ describe("buildAnswerToolInstructions", (): void => {
       "Role labels, segments, departments, seniority labels, and company names do not satisfy `body.personaReality.personas[].name`",
     );
     expect(prompt).toContain(
-      "If no named buyer identity exists in the fetched evidence, state an explicit evidence gap instead of padding persona rows",
+      "If no named buyer identity exists in the fetched evidence, use `body.personaReality.blockGap` instead of padding persona rows",
     );
   });
 
@@ -501,22 +504,19 @@ describe("buildAnswerToolInstructions", (): void => {
       "Do NOT emit `strategicThesis`, `contradictionReconciliation`, or `orderedMoves`",
     );
     expect(prompt).toContain(
-      "`body.crossSectionInsight[]` carries 1-3 tensions",
+      "`body.crossSectionInsight[]` carries tensions",
     );
     expect(prompt).toContain(
-      "`body.campaignPhases[]` has exactly 2 rows",
+      "`body.campaignPhases[]` rows have",
     );
     expect(prompt).toContain(
-      "`body.audienceTypes[]` has exactly 3 rows",
+      "`body.audienceTypes[]` rows have",
     );
     expect(prompt).toContain(
-      "`body.creativeFramework[]` has exactly 8 fixed slots",
+      "`body.creativeFramework[]` rows have",
     );
     expect(prompt).toContain(
-      "`body.channelSuggestions[]` has exactly 4 rows",
-    );
-    expect(prompt).toContain(
-      "verdict is free string but use one of `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, `SCALE`",
+      "`body.channelSuggestions[]` rows use verdict `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, or `SCALE`",
     );
     expect(prompt).toContain(
       "Paid-media money provenance fields are free strings; prefer",
@@ -525,7 +525,7 @@ describe("buildAnswerToolInstructions", (): void => {
       "Omit numeric siblings when the number is unknown or weakly inferred",
     );
     expect(prompt).toContain(
-      "`body.competitorMarketingInsights[]` has at least 2 rows",
+      "`body.salesProcess[]` should use supplied sales assets; if none were supplied, emit one explicit gap asset",
     );
     expect(prompt).toContain("never invent spend");
   });
@@ -603,22 +603,19 @@ describe("buildStructuredPrompt", (): void => {
     expect(paidMediaPrompt).toContain("body.crossSectionInsight[]");
     expect(paidMediaPrompt).toContain("contrarianInversion");
     expect(paidMediaPrompt).toContain(
-      "`body.anglesToTest[]` has exactly 4 distinct creative angles",
+      "`body.anglesToTest[]` contains distinct creative angles",
     );
     expect(paidMediaPrompt).toContain(
-      "`body.creativeFramework[]` has exactly 8 fixed slots",
+      "`body.creativeFramework[]` rows have",
     );
     expect(paidMediaPrompt).toContain(
-      "`body.channelSuggestions[]` has exactly 4 rows",
-    );
-    expect(paidMediaPrompt).toContain(
-      "verdict is free string but use one of `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, `SCALE`",
+      "`body.channelSuggestions[]` rows use verdict `FIX`, `REWORK`, `REVIEW`, `KEEP`, `ADD`, `KILL`, or `SCALE`",
     );
     expect(paidMediaPrompt).toContain(
       "Each angle row has `shortName`, `description`, free-string `angleType`, `sourceSection`, and exact `grounding`",
     );
     expect(paidMediaPrompt).toContain(
-      "each row has `label`, `angleType`, deployable `hook`, `executesAngle`, `sourceSection`, and `grounding`",
+      "`body.creativeFramework[]` rows have `label`, `angleType`, deployable `hook`, `executesAngle`, `sourceSection`, and `grounding`",
     );
     expect(paidMediaPrompt).toContain("never invent quotes");
   });

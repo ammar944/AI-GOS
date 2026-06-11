@@ -1,5 +1,41 @@
 import { z } from "zod";
 
+const keyFindingBasisValues = [
+  "measured",
+  "sourced",
+  "benchmark",
+  "assumption",
+] as const;
+
+export const evidenceBlockGapSchema = z
+  .object({
+    summary: z.string().min(1),
+    foundCount: z.number().int().nonnegative(),
+    requiredCount: z.number().int().positive(),
+    sourcingPlan: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
+export const keyFindingSchema = z
+  .object({
+    finding: z.string().min(1),
+    basis: z.enum(keyFindingBasisValues),
+    sourceUrls: z.array(z.string().url()),
+  })
+  .strict()
+  .superRefine((finding, context) => {
+    if (finding.basis !== "assumption" && finding.sourceUrls.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "sourceUrls may be empty only when basis is assumption.",
+        path: ["sourceUrls"],
+      });
+    }
+  });
+
+export const keyFindingsSchema = z.array(keyFindingSchema).min(3).max(5);
+
 export const keyTensionSchema = z
   .object({
     tension: z.string().min(1),
@@ -11,8 +47,8 @@ export const keyTensionSchema = z
 export const strategicInsightSchema = z
   .object({
     strategicVerdict: z.string().min(1),
-    nonObviousRead: z.string().min(1),
-    secondOrderImplication: z.string().min(1),
+    nonObviousRead: z.string().min(1).optional(),
+    secondOrderImplication: z.string().min(1).optional(),
     keyTension: keyTensionSchema,
   })
   .strict();
@@ -77,6 +113,8 @@ export const bindingConstraintSchema = z
   .strict();
 
 export type StrategicInsight = z.infer<typeof strategicInsightSchema>;
+export type EvidenceBlockGap = z.infer<typeof evidenceBlockGapSchema>;
+export type KeyFinding = z.infer<typeof keyFindingSchema>;
 export type OrderedStrategicMove = z.infer<typeof orderedStrategicMoveSchema>;
 export type ProvesWrongIf = z.infer<typeof provesWrongIfSchema>;
 
@@ -213,17 +251,27 @@ export function validateStrategicInsightMinimums(
   insight: StrategicInsight,
   options: StrategicTextValidationOptions = {},
 ): void {
-  const entries = [
-    ["strategicVerdict", insight.strategicVerdict],
-    ["nonObviousRead", insight.nonObviousRead],
-    ["secondOrderImplication", insight.secondOrderImplication],
-    ["keyTension.tension", insight.keyTension.tension],
-    ["keyTension.side", insight.keyTension.side],
-    ["keyTension.costOfPosition", insight.keyTension.costOfPosition],
-  ] as const;
+  const entries: Array<{ key: string; value: string }> = [
+    { key: "strategicVerdict", value: insight.strategicVerdict },
+    { key: "keyTension.tension", value: insight.keyTension.tension },
+    { key: "keyTension.side", value: insight.keyTension.side },
+    {
+      key: "keyTension.costOfPosition",
+      value: insight.keyTension.costOfPosition,
+    },
+  ];
+  if (insight.nonObviousRead !== undefined) {
+    entries.push({ key: "nonObviousRead", value: insight.nonObviousRead });
+  }
+  if (insight.secondOrderImplication !== undefined) {
+    entries.push({
+      key: "secondOrderImplication",
+      value: insight.secondOrderImplication,
+    });
+  }
   const observed = new Map<string, string>();
 
-  entries.forEach(([key, value]) => {
+  entries.forEach(({ key, value }) => {
     const normalized = normalizeForComparison(value);
 
     if (observed.has(normalized)) {
@@ -246,18 +294,22 @@ export function validateStrategicInsightMinimums(
     insight.strategicVerdict,
     options,
   );
-  validateStrategicText(
-    errors,
-    `${path}.nonObviousRead`,
-    insight.nonObviousRead,
-    options,
-  );
-  validateStrategicText(
-    errors,
-    `${path}.secondOrderImplication`,
-    insight.secondOrderImplication,
-    options,
-  );
+  if (insight.nonObviousRead !== undefined) {
+    validateStrategicText(
+      errors,
+      `${path}.nonObviousRead`,
+      insight.nonObviousRead,
+      options,
+    );
+  }
+  if (insight.secondOrderImplication !== undefined) {
+    validateStrategicText(
+      errors,
+      `${path}.secondOrderImplication`,
+      insight.secondOrderImplication,
+      options,
+    );
+  }
   validateStrategicText(
     errors,
     `${path}.keyTension.tension`,

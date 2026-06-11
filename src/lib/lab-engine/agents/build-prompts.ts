@@ -108,7 +108,7 @@ function buildStructuredDraftShapeGuidance(): string {
     "",
     "Return ONLY this structured draft object.",
     "Author `verdict` and `statusSummary` as distinct reader-facing fields; do not copy the same body prose block into both.",
-    "Author top-level `sources` with distinct cited public URLs. Include at least five distinct URLs whenever the section minimum validator requires >=5 sources.",
+    "Author top-level `sources` with distinct cited public URLs that actually support the section claims.",
     "Only these root keys are allowed: `verdict`, `statusSummary`, `sources`, and `body`.",
     "Do not include `sectionTitle`, `confidence`, or `$schema` at the root.",
     "Every evidence-backed row that has a public source must carry its own `sourceUrl` field inside `body` so the runner can merge row-level sources with the top-level `sources` channel after validation.",
@@ -621,6 +621,19 @@ export function buildSectionMinimumGuidance(
   return [...buildStrategicDepthMinimumGuidance(definition), ...minimums];
 }
 
+function buildReaderContract(definition: PromptSectionDefinition): string[] {
+  return [
+    "Reader contract:",
+    "- Write for a paying founder: sharp conclusion first, evidence second, operational implication third.",
+    "- Every number typed must be labeled by basis in the field itself or its adjacent provenance: measured, sourced, benchmark, assumption, or gap.",
+    "- No process language in reader-facing fields: no `evidence gap: budget exhausted`, validator counts, tool names, internal stage names, or repair-loop narration.",
+    "- State gaps in one plain-language sentence that explains the missing evidence and what would close it.",
+    "- Lead sections with `keyFindings` when evidence supports them; do not invent findings to satisfy a shape.",
+    ...buildSectionMinimumGuidance(definition),
+    "- Schema compliance is enforced by the answer tool; satisfy the declared JSON shape.",
+  ];
+}
+
 export function buildStructuredPrompt({
   definition,
   evidenceTranscript,
@@ -662,11 +675,9 @@ export function buildStructuredPrompt({
     "Output emphasis:",
     definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
     "",
-    "Validator checklist:",
-    "- Satisfy the section-specific schema and minimum validator.",
+    ...buildReaderContract(definition),
     "- Use real source URLs from the evidence transcript and ResearchInput.",
     "- For Competitor Landscape ad evidence, use pre-normalized live ad evidence only.",
-    ...buildSectionMinimumGuidance(definition),
     "- Keep confidence in the 0..1 envelope scale.",
     "- Do not state a confidence figure as text in verdict, statusSummary, or any body prose; report it only in the confidence field.",
     "",
@@ -757,12 +768,10 @@ export function buildStructuredBodyPrompt({
     "Output emphasis:",
     definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
     "",
-    "Validator checklist:",
-    "- Satisfy the section-specific body schema and minimum validator.",
+    ...buildReaderContract(definition),
     "- Author verdict and statusSummary as distinct, purpose-built reader copy.",
     "- Use real source URLs from tool evidence and ResearchInput.",
     "- For Competitor Landscape ad evidence, use pre-normalized live ad evidence only.",
-    ...buildSectionMinimumGuidance(definition),
     "- Do not state a confidence figure in verdict, statusSummary, or any body prose.",
     "",
     buildStructuredDraftShapeGuidance(),
@@ -794,10 +803,8 @@ export function buildAnswerToolInstructions(
     "Output emphasis:",
     definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
     "",
-    "Validator checklist:",
-    "- Gather enough evidence to satisfy the section-specific schema and minimum validator.",
+    ...buildReaderContract(definition),
     "- Use real source URLs from tool evidence and ResearchInput.",
-    ...buildSectionMinimumGuidance(definition),
     "- Keep confidence in the 0..1 envelope scale.",
     "- Do not state a confidence figure as text in verdict, statusSummary, or any body prose; report it only in the confidence field.",
     "",

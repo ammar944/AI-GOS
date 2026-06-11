@@ -7,6 +7,8 @@ import {
 import type { ValidationResult } from "./market-category";
 import {
   bindingConstraintSchema,
+  evidenceBlockGapSchema,
+  keyFindingsSchema,
   orderedStrategicMoveSchema,
   provesWrongIfSchema,
   strategicInsightSchema,
@@ -25,6 +27,10 @@ const retentionSignalTypes = [
   "first-value-moment",
 ] as const;
 const severityValues = ["high", "medium", "low"] as const;
+const blockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 const fitProofPointSchema = z
   .object({
@@ -75,6 +81,7 @@ const redFlagSchema = z
 
 export const offerDiagnosticBodySchema = z
   .object({
+    keyFindings: keyFindingsSchema.optional(),
     strategicInsight: strategicInsightSchema,
     orderedMoves: z.array(orderedStrategicMoveSchema),
     provesWrongIf: provesWrongIfSchema,
@@ -83,19 +90,36 @@ export const offerDiagnosticBodySchema = z
       .object({
         prose: z.string().min(1),
         proofPoints: z.array(fitProofPointSchema),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     funnelDiagnosis: z
-      .object({ prose: z.string().min(1), breaks: z.array(funnelBreakSchema) })
+      .object({
+        prose: z.string().min(1),
+        breaks: z.array(funnelBreakSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
     channelTruth: z
-      .object({ prose: z.string().min(1), channels: z.array(channelEvidenceSchema) })
+      .object({
+        prose: z.string().min(1),
+        channels: z.array(channelEvidenceSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
     retentionHealth: z
-      .object({ prose: z.string().min(1), signals: z.array(retentionSignalSchema) })
+      .object({
+        prose: z.string().min(1),
+        signals: z.array(retentionSignalSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
     redFlags: z
-      .object({ prose: z.string().min(1), items: z.array(redFlagSchema) })
+      .object({
+        prose: z.string().min(1),
+        items: z.array(redFlagSchema),
+        blockGap: blockGapFieldSchema,
+      })
       .strict(),
   })
   .strict();
@@ -129,6 +153,10 @@ export type OfferDiagnosticArtifact = ArtifactEnvelope & {
 
 function uniqueCount(values: readonly string[]): number {
   return new Set(values.map((value) => value.trim().toLowerCase())).size;
+}
+
+function hasBlockGap(block: { blockGap?: unknown }): boolean {
+  return block.blockGap !== undefined;
 }
 
 export function validateOfferDiagnosticMinimums(
@@ -178,45 +206,37 @@ export function validateOfferDiagnosticMinimums(
   }
 
   const proofCount = parsedArtifact.body.offerMarketFit.proofPoints.length;
-  if (proofCount < 3) {
+  if (proofCount < 3 && !hasBlockGap(parsedArtifact.body.offerMarketFit)) {
     errors.push(`body.offerMarketFit.proofPoints: have ${proofCount}, need >=3.`);
   }
 
   const breakCount = parsedArtifact.body.funnelDiagnosis.breaks.length;
-  if (breakCount < 2) {
+  if (breakCount < 2 && !hasBlockGap(parsedArtifact.body.funnelDiagnosis)) {
     errors.push(`body.funnelDiagnosis.breaks: have ${breakCount}, need >=2.`);
   }
 
   const channels = parsedArtifact.body.channelTruth.channels;
-  if (channels.length < 3) {
+  if (channels.length < 3 && !hasBlockGap(parsedArtifact.body.channelTruth)) {
     errors.push(`body.channelTruth.channels: have ${channels.length}, need >=3.`);
   }
   const channelNameCount = uniqueCount(
     channels.map((channel) => channel.channelName),
   );
-  if (channelNameCount < 3) {
+  if (channelNameCount < 3 && !hasBlockGap(parsedArtifact.body.channelTruth)) {
     errors.push(
       `body.channelTruth.channels: need >=3 distinct channel names, have ${channelNameCount}.`,
     );
   }
 
   const retentionSignals = parsedArtifact.body.retentionHealth.signals;
-  if (retentionSignals.length < 3) {
+  if (retentionSignals.length < 1 && !hasBlockGap(parsedArtifact.body.retentionHealth)) {
     errors.push(
-      `body.retentionHealth.signals: have ${retentionSignals.length}, need >=3.`,
-    );
-  }
-  const retentionTypeCount = uniqueCount(
-    retentionSignals.map((signal) => signal.signalType),
-  );
-  if (retentionTypeCount < 2) {
-    errors.push(
-      `body.retentionHealth.signals: need >=2 signalTypes, have ${retentionTypeCount}.`,
+      `body.retentionHealth.signals: have ${retentionSignals.length}, need >=1 or body.retentionHealth.blockGap.`,
     );
   }
 
   const redFlagCount = parsedArtifact.body.redFlags.items.length;
-  if (redFlagCount < 3) {
+  if (redFlagCount < 3 && !hasBlockGap(parsedArtifact.body.redFlags)) {
     errors.push(`body.redFlags.items: have ${redFlagCount}, need >=3.`);
   }
 

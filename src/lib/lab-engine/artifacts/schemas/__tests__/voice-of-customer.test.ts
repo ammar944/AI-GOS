@@ -296,6 +296,13 @@ type SecondaryBlockKey =
   | "switchingStories"
   | "decisionCriteria";
 
+interface TestBlockGap {
+  summary: string;
+  foundCount: number;
+  requiredCount: number;
+  sourcingPlan: string[];
+}
+
 const secondaryBlockArrayKey = {
   decisionCriteria: "criteria",
   objections: "items",
@@ -303,7 +310,7 @@ const secondaryBlockArrayKey = {
   switchingStories: "stories",
 } as const;
 
-function blockGapFor(blockKey: SecondaryBlockKey): Record<string, unknown> {
+function blockGapFor(blockKey: SecondaryBlockKey): TestBlockGap {
   return {
     summary: `Independent retrieval surfaced no promotable ${blockKey} language.`,
     foundCount: 0,
@@ -363,7 +370,7 @@ describe("Voice of Customer per-block gaps", (): void => {
       expect(result.ok).toBe(false);
       expect(result.errors.join(" ")).toContain(`body.${blockKey}`);
       expect(result.errors.join(" ")).toContain(`body.${blockKey}.blockGap`);
-      expect(result.errors.join(" ")).toContain("sourcingPlan");
+      expect(result.errors.join(" ")).toContain("instead of inventing");
     },
   );
 
@@ -388,13 +395,27 @@ describe("Voice of Customer per-block gaps", (): void => {
     expect(result.ok).toBe(true);
   });
 
-  it("does not let a blockGap bypass the pain-language floors", (): void => {
-    const artifact = withPainQuotes([painQuote("https://g2.com/review/1", 1)]);
+  it("accepts an empty painLanguage block when it declares a blockGap", (): void => {
+    const artifact: VoiceOfCustomerArtifact = {
+      ...voiceOfCustomerFixtureArtifact,
+      body: {
+        ...voiceOfCustomerFixtureArtifact.body,
+        painLanguage: {
+          ...voiceOfCustomerFixtureArtifact.body.painLanguage,
+          quotes: [],
+          blockGap: {
+            ...blockGapFor("successLanguage"),
+            summary:
+              "Independent retrieval surfaced no promotable pain language.",
+          },
+        },
+      },
+    };
 
     const result = validateVoiceOfCustomerMinimums(artifact);
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain("body.painLanguage.quotes");
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   it("rejects a blockGap with extra keys (strict shape)", (): void => {
@@ -412,7 +433,7 @@ describe("Voice of Customer per-block gaps", (): void => {
     expect(() => voiceOfCustomerBodySchema.parse(body)).toThrow();
   });
 
-  it("rejects a blockGap on painLanguage (pain has no per-block escape)", (): void => {
+  it("accepts a blockGap on painLanguage", (): void => {
     const body = {
       ...voiceOfCustomerFixtureArtifact.body,
       painLanguage: {
@@ -421,7 +442,41 @@ describe("Voice of Customer per-block gaps", (): void => {
       },
     };
 
-    expect(() => voiceOfCustomerBodySchema.parse(body)).toThrow();
+    expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
+  });
+
+  it("accepts an entirely empty VoC when all quote blocks are gapped and retrievalSummary is present", (): void => {
+    const artifact: VoiceOfCustomerArtifact = {
+      ...voiceOfCustomerFixtureArtifact,
+      body: {
+        ...voiceOfCustomerFixtureArtifact.body,
+        retrievalSummary:
+          "Searched review, forum, and public community surfaces; no admissible customer-authored quotes were retrieved.",
+        painLanguage: {
+          ...voiceOfCustomerFixtureArtifact.body.painLanguage,
+          quotes: [],
+          blockGap: {
+            ...blockGapFor("successLanguage"),
+            summary:
+              "Independent retrieval surfaced no promotable pain language.",
+          },
+        },
+        decisionCriteria: withGuttedBlock("decisionCriteria", { blockGap: true })
+          .body.decisionCriteria,
+        objections: withGuttedBlock("objections", { blockGap: true }).body
+          .objections,
+        successLanguage: withGuttedBlock("successLanguage", { blockGap: true })
+          .body.successLanguage,
+        switchingStories: withGuttedBlock("switchingStories", {
+          blockGap: true,
+        }).body.switchingStories,
+      },
+    };
+
+    const result = validateVoiceOfCustomerMinimums(artifact);
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   it("keeps the section-level evidence-gap bypass unchanged", (): void => {

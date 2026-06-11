@@ -40,8 +40,8 @@ describe("snapSourceSection", () => {
     );
   });
 
-  it("snaps unknown legacy sources to the GTM brief fallback", () => {
-    expect(snapSourceSection("legacy-thinker")).toBe("gtmBrief");
+  it("keeps unknown legacy sources invalid instead of snapping to GTM brief", () => {
+    expect(snapSourceSection("legacy-thinker")).toBe("legacy-thinker");
   });
 });
 
@@ -102,13 +102,13 @@ describe("paidMediaPlanSectionOutputSchema", () => {
 });
 
 describe("normalizePaidMediaPlanBody", () => {
-  it("pads and truncates fixed-count arrays without throwing", () => {
+  it("preserves delivered row counts without padding or truncation", () => {
     const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
       string,
       unknown
     >;
 
-    rawBody.campaignPhases = [];
+    rawBody.campaignPhases = getRepeatedRows(rawBody.campaignPhases, 1);
     rawBody.audienceTypes = [
       {
         slot: "01",
@@ -121,9 +121,10 @@ describe("normalizePaidMediaPlanBody", () => {
         grounding: "VoC says operators need proof.",
       },
     ];
-    rawBody.anglesToTest = getRepeatedRows(rawBody.anglesToTest, 6);
-    rawBody.creativeFramework = getRepeatedRows(rawBody.creativeFramework, 10);
-    rawBody.funnelIdeation = [];
+    rawBody.anglesToTest = getRepeatedRows(rawBody.anglesToTest, 2);
+    rawBody.creativeFramework = getRepeatedRows(rawBody.creativeFramework, 3);
+    rawBody.funnelIdeation = getRepeatedRows(rawBody.funnelIdeation, 1);
+    rawBody.salesProcess = [];
     rawBody.competitorReviewInsights = [];
     rawBody.channelSuggestions = [
       {
@@ -133,18 +134,20 @@ describe("normalizePaidMediaPlanBody", () => {
         sourceSection: "offer diagnostic",
       },
     ];
-    rawBody.kpis = [];
+    rawBody.kpis = getRepeatedRows(rawBody.kpis, 2);
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
-    expect(normalized.campaignPhases).toHaveLength(2);
-    expect(normalized.audienceTypes).toHaveLength(3);
-    expect(normalized.anglesToTest).toHaveLength(4);
-    expect(normalized.creativeFramework).toHaveLength(8);
-    expect(normalized.funnelIdeation).toHaveLength(3);
-    expect(normalized.competitorReviewInsights).toHaveLength(3);
-    expect(normalized.channelSuggestions).toHaveLength(4);
-    expect(normalized.kpis).toHaveLength(3);
+    expect(normalized.campaignPhases).toHaveLength(1);
+    expect(normalized.audienceTypes).toHaveLength(1);
+    expect(normalized.anglesToTest).toHaveLength(2);
+    expect(normalized.creativeFramework).toHaveLength(3);
+    expect(normalized.funnelIdeation).toHaveLength(1);
+    expect(normalized.salesProcess).toHaveLength(1);
+    expect(normalized.salesProcess[0]?.assetType).toBe("gap");
+    expect(normalized.competitorReviewInsights).toHaveLength(0);
+    expect(normalized.channelSuggestions).toHaveLength(1);
+    expect(normalized.kpis).toHaveLength(2);
     expect(normalized.audienceTypes[0]?.sourceSection).toBe(
       "positioningVoiceOfCustomer",
     );
@@ -152,6 +155,33 @@ describe("normalizePaidMediaPlanBody", () => {
       "user-supplied",
     );
     expect(normalized.channelSuggestions[0]?.verdict).toBe("ADD");
+  });
+
+  it("fails under-count arrays instead of padding repair rows", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    rawBody.anglesToTest = getRepeatedRows(rawBody.anglesToTest, 1);
+
+    expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
+  });
+
+  it("fails unknown sourceSection and channel verdict instead of snapping to defaults", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    rawBody.channelSuggestions = [
+      {
+        channel: "Website",
+        recommendation: "Rewrite the hero CTA around the audit proof.",
+        verdict: "maybe",
+        sourceSection: "legacy-thinker",
+      },
+    ];
+
+    expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
   });
 
   it("accepts old wrapped arrays during rollout and emits the lean shape", () => {
@@ -516,17 +546,13 @@ describe("SOP projected-results table (W3)", () => {
     expect(normalized.projectedResults[0]?.projectedCountValue).toBe(22);
   });
 
-  it("pads to one honest gap row when the model omits the table", () => {
+  it("fails validation when the model omits the projected-results table", () => {
     const rawBody = structuredClone(
       paidMediaPlanFixtureArtifact.body,
     ) as unknown as Record<string, unknown>;
     delete rawBody.projectedResults;
 
-    const normalized = normalizePaidMediaPlanBody(rawBody);
-
-    expect(normalized.projectedResults).toHaveLength(1);
-    expect(normalized.projectedResults[0]?.targetIcp).toContain("Evidence gap");
-    expect(normalized.projectedResults[0]?.projectedCountValue).toBeUndefined();
+    expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
   });
 
   it("rejects negative counts at the schema layer", () => {
@@ -540,18 +566,21 @@ describe("SOP projected-results table (W3)", () => {
     expect(paidMediaPlanBodySchema.safeParse(body).success).toBe(false);
   });
 
-  it("validator demands at least one SUBSTANTIVE row — padded gap rows do not count", () => {
+  it("validator demands at least one SUBSTANTIVE row — explicit gap rows do not count", () => {
     const artifact = cloneFixture();
     const body = artifact.body as unknown as Record<string, unknown>;
-    body.projectedResults = [];
-    expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(false);
-
-    // The normalizer's min-1 pad (all-gap row) must not satisfy the floor.
-    const padded = normalizePaidMediaPlanBody({
-      ...structuredClone(paidMediaPlanFixtureArtifact.body),
-      projectedResults: undefined,
-    } as unknown as Record<string, unknown>);
-    body.projectedResults = padded.projectedResults;
+    body.projectedResults = [
+      {
+        targetIcp: "Evidence gap: target ICP missing.",
+        kpi: "Evidence gap: KPI missing.",
+        kpiCostProvenance: "unknown",
+        objective: "Evidence gap: objective missing.",
+        durationLabel: "Evidence gap: duration missing.",
+        phaseMonthlyBudgetProvenance: "unknown",
+        marginOfErrorPercent: 20,
+        sourceSection: "gtmBrief",
+      },
+    ];
     const result = validatePaidMediaPlanMinimums(artifact);
 
     expect(result.ok).toBe(false);

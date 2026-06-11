@@ -6,6 +6,8 @@ import {
 } from "../artifact-envelope";
 import {
   categoryPowerBetSchema,
+  evidenceBlockGapSchema,
+  keyFindingsSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
   validateStrategicText,
@@ -57,6 +59,12 @@ const structuralForceDirections = [
   "neutral",
 ] as const;
 const validUrlPattern = /^https?:\/\/\S+\.\S+/;
+const directionalOnlyTamEstimate = "directional only — not computed";
+
+const blockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 export const adjacentCategorySchema = z
   .object({
@@ -101,7 +109,71 @@ export const bottomUpTamSchema = z
     inputs: z.array(bottomUpTamInputSchema),
     caveats: z.array(z.string().min(1)),
   })
-  .strict();
+  .strict()
+  .superRefine((tam, context) => {
+    const gapCount = tam.inputs.filter((input) => input.status === "evidence-gap").length;
+    const computedRevenue = computeBottomUpTamRevenue(tam.inputs);
+
+    if (
+      gapCount >= 2 &&
+      tam.reachableRevenueEstimate.trim() !== directionalOnlyTamEstimate
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          `reachableRevenueEstimate must be exactly "${directionalOnlyTamEstimate}" when at least two TAM inputs are evidence gaps.`,
+        path: ["reachableRevenueEstimate"],
+      });
+      return;
+    }
+
+    if (computedRevenue === null) {
+      return;
+    }
+
+    const statedRevenue = parseMoneyLikeNumber(tam.reachableRevenueEstimate);
+    if (statedRevenue === null) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "reachableRevenueEstimate must include the computed bottom-up revenue when all TAM inputs are parseable.",
+        path: ["reachableRevenueEstimate"],
+      });
+      return;
+    }
+
+    const larger = Math.max(statedRevenue, computedRevenue);
+    const smaller = Math.min(statedRevenue, computedRevenue);
+    const ratio = smaller === 0 ? Number.POSITIVE_INFINITY : larger / smaller;
+    if (ratio > 2) {
+      context.addIssue({
+        code: "custom",
+        message:
+          `reachableRevenueEstimate is more than 2x away from the recorded TAM inputs; expected approximately ${formatTamRevenue(computedRevenue)}.`,
+        path: ["reachableRevenueEstimate"],
+      });
+    }
+  })
+  .transform((tam) => {
+    const gapCount = tam.inputs.filter((input) => input.status === "evidence-gap").length;
+    const computedRevenue = computeBottomUpTamRevenue(tam.inputs);
+
+    if (gapCount >= 2) {
+      return {
+        ...tam,
+        reachableRevenueEstimate: directionalOnlyTamEstimate,
+      };
+    }
+
+    if (computedRevenue === null) {
+      return tam;
+    }
+
+    return {
+      ...tam,
+      reachableRevenueEstimate: `${formatTamRevenue(computedRevenue)} directional reachable revenue = monthly keyword volume x 12 x commercial-intent share x conversion rate x ACV.`,
+    };
+  });
 
 export const structuralForceSchema = z
   .object({
@@ -137,6 +209,7 @@ export const categoryDefinitionSchema = z
   .object({
     prose: z.string().min(1),
     adjacentCategories: z.array(adjacentCategorySchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -145,6 +218,7 @@ export const marketSizeSchema = z
     prose: z.string().min(1),
     signals: z.array(marketSizeSignalSchema),
     bottomUpTam: bottomUpTamSchema,
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -152,6 +226,7 @@ export const structuralForcesSchema = z
   .object({
     prose: z.string().min(1),
     forces: z.array(structuralForceSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -159,11 +234,13 @@ export const categoryMaturitySchema = z
   .object({
     prose: z.string().min(1),
     classification: maturityClassificationSchema,
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
 export const marketCategoryBodySchema = z
   .object({
+    keyFindings: keyFindingsSchema.optional(),
     strategicInsight: strategicInsightSchema,
     categoryPowerBet: categoryPowerBetSchema,
     categoryDefinition: categoryDefinitionSchema,
@@ -207,6 +284,98 @@ export interface ValidationResult {
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasBlockGap(block: { blockGap?: unknown }): boolean {
+  return block.blockGap !== undefined;
+}
+
+function parseMoneyLikeNumber(value: string): number | null {
+  const normalized = value.trim().toLowerCase();
+  const match = /(?:\$)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)(?:\s*([kmb])\b)?/.exec(normalized);
+
+  if (match === null) {
+    return null;
+  }
+
+  const rawNumber = Number(match[1].replace(/,/g, ""));
+  if (!Number.isFinite(rawNumber)) {
+    return null;
+  }
+
+  const multiplier = match[2] === "b"
+    ? 1_000_000_000
+    : match[2] === "m"
+      ? 1_000_000
+      : match[2] === "k"
+        ? 1_000
+        : 1;
+
+  return rawNumber * multiplier;
+}
+
+function parsePercentLikeRate(value: string): number | null {
+  const percentMatch = /([0-9][0-9,]*(?:\.[0-9]+)?)\s*%/.exec(value);
+  if (percentMatch !== null) {
+    const percent = Number(percentMatch[1].replace(/,/g, ""));
+    return Number.isFinite(percent) ? percent / 100 : null;
+  }
+
+  const decimalMatch = /([0-9](?:\.[0-9]+)?)/.exec(value);
+  if (decimalMatch === null) {
+    return null;
+  }
+
+  const decimal = Number(decimalMatch[1]);
+  return Number.isFinite(decimal) && decimal <= 1 ? decimal : null;
+}
+
+function findTamInputValue(
+  inputs: readonly z.infer<typeof bottomUpTamInputSchema>[],
+  inputType: (typeof bottomUpTamInputTypes)[number],
+): string | null {
+  const input = inputs.find((candidate) => candidate.inputType === inputType);
+  return input?.status === "sourced" ? input.value : null;
+}
+
+function computeBottomUpTamRevenue(
+  inputs: readonly z.infer<typeof bottomUpTamInputSchema>[],
+): number | null {
+  const keywordVolume = parseMoneyLikeNumber(
+    findTamInputValue(inputs, "keyword-volume") ?? "",
+  );
+  const commercialIntentShare = parsePercentLikeRate(
+    findTamInputValue(inputs, "commercial-intent-share") ?? "",
+  );
+  const conversionRate = parsePercentLikeRate(
+    findTamInputValue(inputs, "conversion-rate") ?? "",
+  );
+  const acv = parseMoneyLikeNumber(findTamInputValue(inputs, "acv") ?? "");
+
+  if (
+    keywordVolume === null ||
+    commercialIntentShare === null ||
+    conversionRate === null ||
+    acv === null
+  ) {
+    return null;
+  }
+
+  return keywordVolume * 12 * commercialIntentShare * conversionRate * acv;
+}
+
+function formatTamRevenue(value: number): string {
+  if (value >= 1_000_000_000) {
+    return `$${(value / 1_000_000_000).toFixed(2).replace(/\.00$/, "")}B`;
+  }
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(2).replace(/\.00$/, "")}M`;
+  }
+  if (value >= 1_000) {
+    return `$${(value / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
+
+  return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
 function pushMissingText(
@@ -466,16 +635,16 @@ export function validateMarketCategoryMinimums(
 
   const adjacentCount =
     parsedArtifact.body.categoryDefinition.adjacentCategories.length;
-  if (adjacentCount < 2) {
+  if (adjacentCount < 2 && !hasBlockGap(parsedArtifact.body.categoryDefinition)) {
     errors.push(
       `body.categoryDefinition.adjacentCategories: have ${adjacentCount}, need >=2 categories buyers confuse this with.`,
     );
   }
 
   const marketSignalCount = parsedArtifact.body.marketSize.signals.length;
-  if (marketSignalCount < 3) {
+  if (marketSignalCount < 2 && !hasBlockGap(parsedArtifact.body.marketSize)) {
     errors.push(
-      `body.marketSize.signals: have ${marketSignalCount}, need >=3 public trajectory signals.`,
+      `body.marketSize.signals: have ${marketSignalCount}, need >=2 public trajectory signals or body.marketSize.blockGap.`,
     );
   }
 
@@ -486,24 +655,13 @@ export function validateMarketCategoryMinimums(
     errors.push(`body.marketSize.signals: duplicate signalType ${duplicate}.`);
   }
 
-  const methodologyValues = parsedArtifact.body.marketSize.signals.map(
-    (signal) => signal.methodology,
-  );
-  const hasTopDown = methodologyValues.includes("top-down");
-  const hasBottomUp = methodologyValues.includes("bottom-up");
-  if (!hasTopDown || !hasBottomUp) {
-    errors.push(
-      `body.marketSize.signals: triangulation required - need at least one top-down and one bottom-up methodology signal (have top-down=${hasTopDown}, bottom-up=${hasBottomUp}).`,
-    );
-  }
-
-  const bottomUpInputTypes = parsedArtifact.body.marketSize.bottomUpTam.inputs.map(
-    (input) => input.inputType,
-  );
+  const marketSizeHasBlockGap = hasBlockGap(parsedArtifact.body.marketSize);
+  const bottomUpInputTypes =
+    parsedArtifact.body.marketSize.bottomUpTam.inputs.map((input) => input.inputType);
   const missingBottomUpInputTypes = bottomUpTamInputTypes.filter(
     (inputType) => !bottomUpInputTypes.includes(inputType),
   );
-  if (missingBottomUpInputTypes.length > 0) {
+  if (!marketSizeHasBlockGap && missingBottomUpInputTypes.length > 0) {
     errors.push(
       `body.marketSize.bottomUpTam.inputs: missing input types ${missingBottomUpInputTypes.join(", ")}.`,
     );
@@ -515,8 +673,25 @@ export function validateMarketCategoryMinimums(
     parsedArtifact.body.marketSize.bottomUpTam.inputs.some(
       (input) => input.status === "evidence-gap",
     );
+  const bottomUpEvidenceGapCount =
+    parsedArtifact.body.marketSize.bottomUpTam.inputs.filter(
+      (input) => input.status === "evidence-gap",
+    ).length;
+  const computedBottomUpRevenue = computeBottomUpTamRevenue(
+    parsedArtifact.body.marketSize.bottomUpTam.inputs,
+  );
+  if (
+    bottomUpEvidenceGapCount >= 2 &&
+    parsedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate !==
+      directionalOnlyTamEstimate
+  ) {
+    errors.push(
+      `body.marketSize.bottomUpTam.reachableRevenueEstimate: must be exactly "${directionalOnlyTamEstimate}" when at least two recipe inputs are evidence gaps.`,
+    );
+  }
   if (
     hasBottomUpEvidenceGap &&
+    bottomUpEvidenceGapCount < 2 &&
     !/evidence\s+gap/i.test(
       parsedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
     )
@@ -525,35 +700,46 @@ export function validateMarketCategoryMinimums(
       "body.marketSize.bottomUpTam.reachableRevenueEstimate: must state an evidence gap when any recipe input is an evidence gap.",
     );
   }
+  if (computedBottomUpRevenue !== null) {
+    const statedRevenue = parseMoneyLikeNumber(
+      parsedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
+    );
+    if (statedRevenue === null) {
+      errors.push(
+        "body.marketSize.bottomUpTam.reachableRevenueEstimate: must include the computed bottom-up revenue.",
+      );
+    } else {
+      const larger = Math.max(statedRevenue, computedBottomUpRevenue);
+      const smaller = Math.min(statedRevenue, computedBottomUpRevenue);
+      const ratio = smaller === 0 ? Number.POSITIVE_INFINITY : larger / smaller;
+      if (ratio > 2) {
+        errors.push(
+          `body.marketSize.bottomUpTam.reachableRevenueEstimate: more than 2x away from recorded inputs; expected approximately ${formatTamRevenue(computedBottomUpRevenue)}.`,
+        );
+      }
+    }
+  }
   if (parsedArtifact.body.marketSize.bottomUpTam.caveats.length < 1) {
     errors.push("body.marketSize.bottomUpTam.caveats: have 0, need >=1 caveat.");
   }
 
   const forceCount = parsedArtifact.body.structuralForces.forces.length;
-  if (forceCount < 3) {
+  if (forceCount < 1 && !hasBlockGap(parsedArtifact.body.structuralForces)) {
     errors.push(
-      `body.structuralForces.forces: have ${forceCount}, need >=3 forces covering regulation, platform-shift, and buyer-behavior.`,
+      `body.structuralForces.forces: have ${forceCount}, need >=1 structural force with evidence or body.structuralForces.blockGap.`,
     );
   }
 
   const observedForceTypes = parsedArtifact.body.structuralForces.forces.map(
     (force) => force.forceType,
   );
-  const missingForceTypes = structuralForceTypes.filter(
-    (forceType) => !observedForceTypes.includes(forceType),
-  );
-  if (missingForceTypes.length > 0) {
-    errors.push(
-      `body.structuralForces.forces: missing force types ${missingForceTypes.join(", ")}.`,
-    );
-  }
   for (const duplicate of findDuplicates(observedForceTypes)) {
     errors.push(`body.structuralForces.forces: duplicate forceType ${duplicate}.`);
   }
 
   const maturitySignalCount =
     parsedArtifact.body.categoryMaturity.classification.supportingSignals.length;
-  if (maturitySignalCount < 2) {
+  if (maturitySignalCount < 2 && !hasBlockGap(parsedArtifact.body.categoryMaturity)) {
     errors.push(
       `body.categoryMaturity.classification.supportingSignals: have ${maturitySignalCount}, need >=2 maturity signals.`,
     );

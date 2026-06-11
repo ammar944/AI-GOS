@@ -6,6 +6,8 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapSchema,
+  keyFindingsSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
 } from "./strategic-insight";
@@ -111,6 +113,10 @@ const genericIdentityTokens = new Set([
 ]);
 const provenanceSignalPattern =
   /\b(query|search|source|public|fetched|observed|tool|corpus|review|reddit|forum|community|newsletter|survey|interview|call|profile)\b/i;
+const blockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 function normalizeLabel(value: string): string {
   return value
@@ -164,6 +170,10 @@ function hasAwarenessBasis(
 
 function looksNumericShare(share: string): boolean {
   return /[\d%]/.test(share);
+}
+
+function hasBlockGap(block: { blockGap?: unknown }): boolean {
+  return block.blockGap !== undefined;
 }
 
 export function isHttpUrl(value: string): boolean {
@@ -268,7 +278,7 @@ const personaSchema = z
 const awarenessLevelSchema = z
   .object({
     level: z.enum(awarenessLevels),
-    share: z.string().min(1),
+    share: z.string().min(1).optional(),
     evidence: z.string().min(1),
     sampleQuery: z.string().min(1).optional(),
   })
@@ -288,7 +298,7 @@ const clusterVenueSchema = z
   .object({
     bucketType: z.enum(clusterBuckets),
     name: z.string().min(1),
-    audienceSize: z.string().min(1),
+    audienceSize: z.string().min(1).optional(),
     sourceUrl: z.string().min(1),
     whyItMatters: z.string().min(1),
   })
@@ -307,35 +317,42 @@ const evidenceGapReportSchema = z
 
 export const buyerICPBodySchema = z
   .object({
+    keyFindings: keyFindingsSchema.optional(),
     strategicInsight: strategicInsightSchema,
     icpExistenceCheck: z
       .object({
         prose: z.string().min(1),
         firmographicCuts: z.array(firmographicCutSchema),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     personaReality: z
       .object({
         prose: z.string().min(1),
         personas: z.array(personaSchema),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     awarenessDistribution: z
       .object({
         prose: z.string().min(1),
+        dominantLevel: z.enum(awarenessLevels).optional(),
         levels: z.array(awarenessLevelSchema),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     buyingContext: z
       .object({
         prose: z.string().min(1),
         triggers: z.array(triggerSchema),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     clusters: z
       .object({
         prose: z.string().min(1),
         venues: z.array(clusterVenueSchema),
+        blockGap: blockGapFieldSchema,
       })
       .strict(),
     evidenceGap: z.literal(true).optional(),
@@ -416,7 +433,11 @@ export function validateBuyerICPMinimums(
   // Floor 3 (was 5): the venue prepass + perplexity mining make 3 reachable
   // for quote-sparse subjects; below 3 the structured evidence-gap path is
   // the honest exit.
-  if (!personaEvidenceGap && personas.length < 3) {
+  if (
+    !personaEvidenceGap &&
+    personas.length < 3 &&
+    !hasBlockGap(parsedArtifact.body.personaReality)
+  ) {
     errors.push(`body.personaReality.personas: have ${personas.length}, need >=3.`);
   }
 
@@ -443,7 +464,10 @@ export function validateBuyerICPMinimums(
 
   const firmographicCuts =
     parsedArtifact.body.icpExistenceCheck.firmographicCuts;
-  if (firmographicCuts.length < 3) {
+  if (
+    firmographicCuts.length < 3 &&
+    !hasBlockGap(parsedArtifact.body.icpExistenceCheck)
+  ) {
     errors.push(
       `body.icpExistenceCheck.firmographicCuts: have ${firmographicCuts.length}, need >=3.`,
     );
@@ -455,7 +479,10 @@ export function validateBuyerICPMinimums(
       `body.icpExistenceCheck.firmographicCuts: duplicate cutType ${duplicate}.`,
     );
   }
-  if (uniqueCount(cutTypeValues) < 3) {
+  if (
+    uniqueCount(cutTypeValues) < 3 &&
+    !hasBlockGap(parsedArtifact.body.icpExistenceCheck)
+  ) {
     errors.push(
       `body.icpExistenceCheck.firmographicCuts: need >=3 distinct cutType values.`,
     );
@@ -471,12 +498,13 @@ export function validateBuyerICPMinimums(
 
   const awarenessLevelsObserved = parsedArtifact.body.awarenessDistribution.levels;
   const observedAwarenessLevels = awarenessLevelsObserved.map((level) => level.level);
-  const missingAwarenessLevels = awarenessLevels.filter(
-    (level) => !observedAwarenessLevels.includes(level),
-  );
-  if (missingAwarenessLevels.length > 0) {
+  if (
+    awarenessLevelsObserved.length === 0 &&
+    parsedArtifact.body.awarenessDistribution.dominantLevel === undefined &&
+    !hasBlockGap(parsedArtifact.body.awarenessDistribution)
+  ) {
     errors.push(
-      `body.awarenessDistribution.levels: missing levels ${missingAwarenessLevels.join(", ")}.`,
+      "body.awarenessDistribution: include at least one evidenced awareness level, dominantLevel, or body.awarenessDistribution.blockGap.",
     );
   }
   for (const duplicate of findDuplicates(observedAwarenessLevels)) {
@@ -486,7 +514,10 @@ export function validateBuyerICPMinimums(
   }
 
   awarenessLevelsObserved.forEach((level, index) => {
-    if (!hasAwarenessBasis(level.evidence, level.sampleQuery, level.share)) {
+    if (
+      level.share !== undefined &&
+      !hasAwarenessBasis(level.evidence, level.sampleQuery, level.share)
+    ) {
       const reason = looksNumericShare(level.share)
         ? "numeric-looking shares require sampleQuery, provenance-bearing evidence, or the exact [model estimate - not tool-measured] label."
         : "shares require evidence/sampleQuery basis or the exact [model estimate - not tool-measured] label.";
@@ -498,7 +529,7 @@ export function validateBuyerICPMinimums(
 
   const triggers = parsedArtifact.body.buyingContext.triggers;
   const triggerCount = triggers.length;
-  if (triggerCount < 3) {
+  if (triggerCount < 3 && !hasBlockGap(parsedArtifact.body.buyingContext)) {
     errors.push(`body.buyingContext.triggers: have ${triggerCount}, need >=3.`);
   }
 
@@ -511,21 +542,9 @@ export function validateBuyerICPMinimums(
   });
 
   const venues = parsedArtifact.body.clusters.venues;
-  const communityCount = venues.filter(
-    (venue) => venue.bucketType === "community",
-  ).length;
-  const newsletterCount = venues.filter(
-    (venue) => venue.bucketType === "newsletter",
-  ).length;
-
-  if (communityCount < 2) {
+  if (venues.length < 1 && !hasBlockGap(parsedArtifact.body.clusters)) {
     errors.push(
-      `body.clusters.venues: have ${communityCount} community venues, need >=2.`,
-    );
-  }
-  if (newsletterCount < 2) {
-    errors.push(
-      `body.clusters.venues: have ${newsletterCount} newsletter venues, need >=2.`,
+      `body.clusters.venues: have ${venues.length}, need >=1 real venue or body.clusters.blockGap.`,
     );
   }
 

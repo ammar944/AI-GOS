@@ -6,7 +6,9 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapSchema,
   incumbentBlindSpotSchema,
+  keyFindingsSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
   validateStrategicText,
@@ -17,6 +19,10 @@ const competitorTypes = ["direct", "indirect", "status-quo", "diy"] as const;
 const adPlatforms = ["google", "meta", "linkedin"] as const;
 const validUrlPattern = /^https?:\/\/\S+\.\S+/;
 const adPlatformSchema = z.enum(adPlatforms);
+const blockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 const competitorSchema = z
   .object({
@@ -90,6 +96,7 @@ const competitorSetSchema = z
   .object({
     prose: z.string().min(1),
     competitors: z.array(competitorSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -97,6 +104,7 @@ const positioningTaxonomySchema = z
   .object({
     prose: z.string().min(1),
     axes: z.array(positioningAxisSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -104,6 +112,7 @@ const pricingRealitySchema = z
   .object({
     prose: z.string().min(1),
     dataPoints: z.array(pricingDataPointSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -111,6 +120,7 @@ const shareOfVoiceSchema = z
   .object({
     prose: z.string().min(1),
     slices: z.array(shareOfVoiceSliceSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -118,6 +128,7 @@ const publicWeaknessesSchema = z
   .object({
     prose: z.string().min(1),
     items: z.array(competitorWeaknessSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -125,6 +136,7 @@ const narrativeArcsSchema = z
   .object({
     prose: z.string().min(1),
     arcs: z.array(narrativeArcSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -142,6 +154,7 @@ const adPresenceSchema = z
   .object({
     prose: z.string().min(1),
     signals: z.array(adPresenceSignalSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
@@ -263,11 +276,13 @@ const adEvidenceSchema = z
   .object({
     prose: z.string().min(1),
     advertiserGroups: z.array(competitorAdEvidenceGroupSchema),
+    blockGap: blockGapFieldSchema,
   })
   .strict();
 
 export const competitorLandscapeBodySchema = z
   .object({
+    keyFindings: keyFindingsSchema.optional(),
     strategicInsight: strategicInsightSchema,
     whereToAttackVsConcede: whereToAttackVsConcedeSchema,
     incumbentBlindSpot: incumbentBlindSpotSchema,
@@ -372,6 +387,10 @@ function pushMissingText(
 
 function uniqueCount(values: readonly string[]): number {
   return new Set(values).size;
+}
+
+function hasBlockGap(block: { blockGap?: unknown }): boolean {
+  return block.blockGap !== undefined;
 }
 
 function validateUrl(errors: string[], path: string, url: string): void {
@@ -688,7 +707,7 @@ export function validateCompetitorLandscapeMinimums(
   }
 
   const competitorCount = parsedArtifact.body.competitorSet.competitors.length;
-  if (competitorCount < 5) {
+  if (competitorCount < 5 && !hasBlockGap(parsedArtifact.body.competitorSet)) {
     errors.push(
       `body.competitorSet.competitors: have ${competitorCount}, need >=5 competitors across direct, indirect, status-quo, and diy.`,
     );
@@ -701,19 +720,19 @@ export function validateCompetitorLandscapeMinimums(
   const missingTypes = requiredCompetitorTypes.filter(
     (competitorType) => !observedTypes.includes(competitorType),
   );
-  if (missingTypes.length > 0) {
+  if (missingTypes.length > 0 && !hasBlockGap(parsedArtifact.body.competitorSet)) {
     errors.push(
       `body.competitorSet.competitors: missing competitor types ${missingTypes.join(", ")}.`,
     );
   }
 
   const axisCount = parsedArtifact.body.positioningTaxonomy.axes.length;
-  if (axisCount < 3) {
+  if (axisCount < 3 && !hasBlockGap(parsedArtifact.body.positioningTaxonomy)) {
     errors.push(`body.positioningTaxonomy.axes: have ${axisCount}, need >=3 axes.`);
   }
 
   const pricingPointCount = parsedArtifact.body.pricingReality.dataPoints.length;
-  if (pricingPointCount < 3) {
+  if (pricingPointCount < 3 && !hasBlockGap(parsedArtifact.body.pricingReality)) {
     errors.push(
       `body.pricingReality.dataPoints: have ${pricingPointCount}, need >=3 pricing data points.`,
     );
@@ -723,21 +742,24 @@ export function validateCompetitorLandscapeMinimums(
       (point) => point.competitor,
     ),
   );
-  if (distinctPricingCompetitors < 3) {
+  if (
+    distinctPricingCompetitors < 3 &&
+    !hasBlockGap(parsedArtifact.body.pricingReality)
+  ) {
     errors.push(
       `body.pricingReality.dataPoints: need pricing evidence for >=3 distinct competitors, have ${distinctPricingCompetitors}.`,
     );
   }
 
   const shareOfVoiceCount = parsedArtifact.body.shareOfVoice.slices.length;
-  if (shareOfVoiceCount < 3) {
+  if (shareOfVoiceCount < 3 && !hasBlockGap(parsedArtifact.body.shareOfVoice)) {
     errors.push(
       `body.shareOfVoice.slices: have ${shareOfVoiceCount}, need >=3 surfaces.`,
     );
   }
 
   const weaknessCount = parsedArtifact.body.publicWeaknesses.items.length;
-  if (weaknessCount < 4) {
+  if (weaknessCount < 4 && !hasBlockGap(parsedArtifact.body.publicWeaknesses)) {
     errors.push(
       `body.publicWeaknesses.items: have ${weaknessCount}, need >=4 verbatim weaknesses.`,
     );
@@ -745,14 +767,17 @@ export function validateCompetitorLandscapeMinimums(
   const weaknessCompetitorCount = uniqueCount(
     parsedArtifact.body.publicWeaknesses.items.map((item) => item.competitor),
   );
-  if (weaknessCompetitorCount < 2) {
+  if (
+    weaknessCompetitorCount < 2 &&
+    !hasBlockGap(parsedArtifact.body.publicWeaknesses)
+  ) {
     errors.push(
       `body.publicWeaknesses.items: need weaknesses across >=2 competitors, have ${weaknessCompetitorCount}.`,
     );
   }
 
   const narrativeArcCount = parsedArtifact.body.narrativeArcs.arcs.length;
-  if (narrativeArcCount < 3) {
+  if (narrativeArcCount < 3 && !hasBlockGap(parsedArtifact.body.narrativeArcs)) {
     errors.push(
       `body.narrativeArcs.arcs: have ${narrativeArcCount}, need >=3 arcs.`,
     );

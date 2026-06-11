@@ -148,4 +148,79 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
       "reachableRevenueEstimate: must state an evidence gap",
     );
   });
+
+  it("accepts the directional-only TAM state when two inputs are evidence gaps", (): void => {
+    const [firstInput, secondInput, ...remainingInputs] =
+      marketCategoryFixtureArtifact.body.marketSize.bottomUpTam.inputs;
+
+    if (firstInput === undefined || secondInput === undefined) {
+      throw new Error("Expected bottom-up TAM fixture inputs.");
+    }
+
+    const artifact: MarketCategoryArtifact = {
+      ...marketCategoryFixtureArtifact,
+      body: {
+        ...marketCategoryFixtureArtifact.body,
+        marketSize: {
+          ...marketCategoryFixtureArtifact.body.marketSize,
+          bottomUpTam: {
+            ...marketCategoryFixtureArtifact.body.marketSize.bottomUpTam,
+            reachableRevenueEstimate: "directional only — not computed",
+            inputs: [
+              {
+                ...firstInput,
+                status: "evidence-gap",
+                value: "evidence gap: keyword volume unavailable.",
+                sourceUrl: undefined,
+              },
+              {
+                ...secondInput,
+                status: "evidence-gap",
+                value: "evidence gap: commercial intent share unavailable.",
+                sourceUrl: undefined,
+              },
+              ...remainingInputs,
+            ],
+          },
+        },
+      },
+    };
+
+    const result = validateMarketCategoryMinimums(artifact);
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("accepts a market-size block gap without forced bottom-up TAM inputs", (): void => {
+    const artifact: MarketCategoryArtifact = {
+      ...marketCategoryFixtureArtifact,
+      body: {
+        ...marketCategoryFixtureArtifact.body,
+        marketSize: {
+          ...marketCategoryFixtureArtifact.body.marketSize,
+          signals: [],
+          blockGap: {
+            summary:
+              "No source-backed market-size signals were retrieved in this run.",
+            foundCount: 0,
+            requiredCount: 2,
+            sourcingPlan: [
+              "Run keyword-volume and public funding/hiring checks before estimating market size.",
+            ],
+          },
+          bottomUpTam: {
+            ...marketCategoryFixtureArtifact.body.marketSize.bottomUpTam,
+            reachableRevenueEstimate: "directional only — not computed",
+            inputs: [],
+          },
+        },
+      },
+    };
+
+    const result = validateMarketCategoryMinimums(artifact);
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
 });
