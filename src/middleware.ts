@@ -11,6 +11,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/chat/(.*)", // Chat routes handle their own auth
   "/api/profiles(.*)", // Profile routes handle their own auth
   "/api/share/(.*)", // Share token lookup is public
+  "/api/landing-events", // Public tracker ingest; route enforces origin and event registry
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
