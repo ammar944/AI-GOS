@@ -5,12 +5,22 @@ import {
   ALL_POSITIONING_SECTION_IDS,
   ALL_POSITIONING_SECTION_LABELS,
   isAllPositioningSectionId,
+  PAID_MEDIA_PLAN_SECTION_ID,
 } from '@/lib/ai/prompts/positioning-skills';
-import { extractCrossSectionFactConflicts } from '@/lib/lab-engine/agents/cross-section-facts';
+import { extractCrossSectionFactConflictsFromLedger } from '@/lib/lab-engine/agents/cross-section-facts';
 import {
   runExecutiveBrief,
   type ExecutiveBriefSectionInput,
 } from '@/lib/lab-engine/agents/executive-brief';
+import { findContradictions } from '@/lib/lab-engine/agents/synthesis/contradictions';
+import {
+  buildFactLedger,
+  type SynthesisSectionInput,
+} from '@/lib/lab-engine/agents/synthesis/fact-ledger';
+import {
+  auditPaidMediaFeasibility,
+  type PaidMediaFeasibilityAudit,
+} from '@/lib/lab-engine/agents/synthesis/feasibility';
 import { createAdminClient } from '@/lib/supabase/server';
 
 // W3 executive brief (detached, mirrors review-section ADR-0012 shape): the
@@ -64,6 +74,72 @@ function toBriefSectionInput(row: SectionRow): ExecutiveBriefSectionInput | null
   };
 }
 
+function toSynthesisSectionInput(row: SectionRow): SynthesisSectionInput | null {
+  if (!isAllPositioningSectionId(row.zone) || !isRecord(row.data)) {
+    return null;
+  }
+
+  const envelope = row.data;
+  const body = isRecord(envelope.body) ? envelope.body : {};
+
+  return {
+    body,
+    review: isRecord(envelope.review) ? envelope.review : undefined,
+    sectionId: row.zone,
+    sectionTitle:
+      typeof envelope.sectionTitle === 'string'
+        ? envelope.sectionTitle
+        : ALL_POSITIONING_SECTION_LABELS[row.zone],
+    statusSummary:
+      typeof envelope.statusSummary === 'string' ? envelope.statusSummary : '',
+    verdict: typeof envelope.verdict === 'string' ? envelope.verdict : '',
+    verifierSummary: isRecord(envelope.verifierSummary)
+      ? envelope.verifierSummary
+      : undefined,
+  };
+}
+
+async function persistPaidMediaFeasibility({
+  feasibilityAudit,
+  parentAuditRunId,
+  rows,
+  supabase,
+}: {
+  feasibilityAudit: PaidMediaFeasibilityAudit;
+  parentAuditRunId: string;
+  rows: readonly SectionRow[];
+  supabase: ReturnType<typeof createAdminClient>;
+}): Promise<void> {
+  const paidMediaRow = rows.find(
+    (row) => row.zone === PAID_MEDIA_PLAN_SECTION_ID,
+  );
+  const paidMediaData = paidMediaRow?.data;
+
+  if (!isRecord(paidMediaData) || !isRecord(paidMediaData.body)) {
+    return;
+  }
+
+  const nextData = {
+    ...paidMediaData,
+    body: {
+      ...paidMediaData.body,
+      feasibilityAudit,
+    },
+  };
+  const { error } = await supabase
+    .from('research_artifact_sections')
+    .update({ data: nextData })
+    .eq('artifact_id', parentAuditRunId)
+    .eq('zone', PAID_MEDIA_PLAN_SECTION_ID);
+
+  if (error) {
+    console.error('[executive-brief] paid-media feasibility write failed', {
+      message: error.message,
+      parentAuditRunId,
+    });
+  }
+}
+
 async function generateExecutiveBrief(
   payload: z.infer<typeof RequestSchema>,
 ): Promise<void> {
@@ -100,41 +176,80 @@ async function generateExecutiveBrief(
       throw new Error(`section load failed: ${error.message}`);
     }
 
-    const sections = ((data ?? []) as SectionRow[])
+    const rows = (data ?? []) as SectionRow[];
+    const sections = rows
       .map(toBriefSectionInput)
       .filter((section): section is ExecutiveBriefSectionInput => section !== null);
+    const synthesisSections = rows
+      .map(toSynthesisSectionInput)
+      .filter((section): section is SynthesisSectionInput => section !== null);
 
-    if (sections.length < ALL_POSITIONING_SECTION_IDS.length) {
+    if (sections.length === 0) {
       throw new Error(
-        `expected ${ALL_POSITIONING_SECTION_IDS.length} committed sections, found ${sections.length}`,
+        'expected at least one committed section for executive brief, found 0',
       );
     }
 
-    const conflicts = extractCrossSectionFactConflicts({
-      sections,
+    const factLedger = buildFactLedger({
+      requiredSectionIds: [...ALL_POSITIONING_SECTION_IDS],
+      sections: synthesisSections,
       subjectName: payload.companyName,
+      subjectWebsiteUrl: payload.companyWebsiteUrl,
+    });
+    const conflicts = extractCrossSectionFactConflictsFromLedger(factLedger);
+    const contradictions = findContradictions({
+      ledger: factLedger,
+      sections: synthesisSections,
+    });
+    const paidMediaSection = synthesisSections.find(
+      (section) => section.sectionId === PAID_MEDIA_PLAN_SECTION_ID,
+    );
+    const feasibilityAudit = auditPaidMediaFeasibility({
+      factLedger,
+      paidMediaBody: paidMediaSection?.body,
+    });
+
+    await persistPaidMediaFeasibility({
+      feasibilityAudit,
+      parentAuditRunId: payload.parentAuditRunId,
+      rows,
+      supabase,
     });
 
     const startedAt = Date.now();
     const brief = await runExecutiveBrief({
       companyName: payload.companyName,
       companyWebsiteUrl: payload.companyWebsiteUrl,
+      contradictions,
       conflicts,
+      factLedger,
+      feasibilityAudit,
       sections,
     });
 
     await writeThesis({
+      appendix: brief.appendix,
+      assumptionsToConfirm: brief.assumptionsToConfirm,
       conflictsDetected: conflicts.length,
+      contradictions,
+      decisions: brief.decisions,
       durationMs: Date.now() - startedAt,
       executiveThesis: brief.executiveThesis,
       factConflicts: brief.factConflicts,
+      factLedger,
+      feasibilityAudit,
       fidelityStrikes: brief.fidelityStrikes,
       generatedAt: new Date().toISOString(),
       rankedMoves: brief.rankedMoves,
       status: 'complete',
+      thesis: brief.thesis,
     });
 
     console.info('[executive-brief] generated', {
+      criticalContradictions: contradictions.filter(
+        (contradiction) =>
+          contradiction.severity === 'critical' && !contradiction.resolved,
+      ).length,
       conflictsDetected: conflicts.length,
       durationMs: Date.now() - startedAt,
       parentAuditRunId: payload.parentAuditRunId,
