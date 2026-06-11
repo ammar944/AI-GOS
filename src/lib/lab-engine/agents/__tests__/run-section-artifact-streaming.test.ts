@@ -71,11 +71,9 @@ function buildRedactedMarketCategoryFixtureBody(): typeof marketCategoryFixtureA
       .replace('2%', '2% [unverified]')
       .replace('$6,000', '$6,000 [unverified]'),
   }));
-  bottomUpTam.reachableRevenueEstimate = bottomUpTam.reachableRevenueEstimate
-    .replace('$1.09M', '$1.09M [unverified]')
-    .replace('40% commercial-intent', '40% [unverified] commercial-intent')
-    .replace('2% conversion', '2% [unverified] conversion')
-    .replace('$6,000 ACV', '$6,000 [unverified] ACV');
+  // Four unsupported figures in one field exceed the W4 inline-marker cap, so
+  // the field carries one aggregate footnote instead of four inline splices.
+  bottomUpTam.reachableRevenueEstimate = `${bottomUpTam.reachableRevenueEstimate} [4 figures in this field are unverified — see section badge]`;
 
   return body;
 }

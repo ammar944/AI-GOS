@@ -604,6 +604,64 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function isAlphanumericChar(char: string | undefined): boolean {
+  return char !== undefined && /[A-Za-z0-9]/.test(char);
+}
+
+function isDigitChar(char: string | undefined): boolean {
+  return char !== undefined && /[0-9]/.test(char);
+}
+
+// A marker may only be spliced at a clean token boundary. A raw substring
+// match inside a longer word or number corrupts the prose — the live
+// `$450/mo [unverified]nth` defect — so embedded matches are skipped: the
+// claim stays unsupported in the verification report and the badge covers it.
+function isCleanTokenBoundary({
+  matchLength,
+  offset,
+  source,
+}: {
+  matchLength: number;
+  offset: number;
+  source: string;
+}): boolean {
+  const before = source[offset - 1];
+  const after = source[offset + matchLength];
+
+  if (isAlphanumericChar(before) || isAlphanumericChar(after)) {
+    return false;
+  }
+
+  const firstChar = source[offset];
+  const lastChar = source[offset + matchLength - 1];
+
+  // Grouped/decimal number continuation across the edge: "300" inside
+  // "1,300", "24" inside "24.8B", "1,300" inside "1,300,500".
+  if (
+    (before === "," || before === ".") &&
+    isDigitChar(source[offset - 2]) &&
+    isDigitChar(firstChar)
+  ) {
+    return false;
+  }
+
+  if (
+    (after === "," || after === ".") &&
+    isDigitChar(source[offset + matchLength + 1]) &&
+    isDigitChar(lastChar)
+  ) {
+    return false;
+  }
+
+  // A percent glued to the digits is part of the figure: never produce
+  // "100 [unverified]%".
+  if (after === "%" && isDigitChar(lastChar)) {
+    return false;
+  }
+
+  return true;
+}
+
 function markNumericToken({
   token,
   value,
@@ -624,11 +682,29 @@ function markNumericToken({
       return match;
     }
 
+    if (
+      !isCleanTokenBoundary({ matchLength: match.length, offset, source })
+    ) {
+      return match;
+    }
+
     applied = true;
     return `${match} ${unverifiedMarker}`;
   });
 
   return { applied, value: redacted };
+}
+
+// Above this many distinct unsupported figures in one field, inline markers
+// stop reading as annotation and start reading as static. The field keeps its
+// prose intact and carries ONE aggregate footnote instead; per-token stripped
+// actions still record every figure for the report and badge.
+export const inlineMarkerCapPerField = 3;
+
+function buildAggregateMarkerFootnote(count: number): string {
+  return `[${count} figure${count === 1 ? "" : "s"} in this field ${
+    count === 1 ? "is" : "are"
+  } unverified — see section badge]`;
 }
 
 function appendMarkerActions({
@@ -642,6 +718,22 @@ function appendMarkerActions({
   tokens: readonly UnsupportedNumericToken[];
   value: string;
 }): string {
+  const markableTokens = tokens.filter(
+    (token) => markNumericToken({ token, value }).applied,
+  );
+
+  if (markableTokens.length > inlineMarkerCapPerField) {
+    for (const token of markableTokens) {
+      stripped.push({
+        action: "marker",
+        field,
+        value: token.value,
+      });
+    }
+
+    return `${value} ${buildAggregateMarkerFootnote(markableTokens.length)}`;
+  }
+
   let nextValue = value;
 
   for (const token of tokens) {

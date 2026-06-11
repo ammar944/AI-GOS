@@ -959,3 +959,84 @@ describe("stripMisattributedQuoteAttributions", (): void => {
     ).toEqual(["other", "other"]);
   });
 });
+
+describe("redactUnsupportedNumericClaims marker boundaries (W4)", (): void => {
+  function proseAfterRedaction({
+    prose,
+    unsupported,
+  }: {
+    prose: string;
+    unsupported: readonly string[];
+  }): { prose: string; stripped: ReturnType<typeof redactUnsupportedNumericClaims>["stripped"] } {
+    const result = redactUnsupportedNumericClaims({
+      body: { marketSize: { prose } },
+      verification: buildUnsupportedNumericReport(unsupported),
+    });
+
+    return {
+      prose: (result.body.marketSize as { prose: string }).prose,
+      stripped: result.stripped,
+    };
+  }
+
+  it("never splits a word: an embedded token match is skipped, a standalone one is marked", (): void => {
+    const result = proseAfterRedaction({
+      prose: "Trackers run $450/month on ten seats; the audit cites $450/mo directly.",
+      unsupported: ["$450/mo"],
+    });
+
+    expect(result.prose).not.toContain("mo [unverified]nth");
+    expect(result.prose).toContain("$450/month on ten seats");
+    expect(result.prose).toContain("$450/mo [unverified] directly");
+  });
+
+  it("never splits a grouped number: a token inside a larger comma-grouped figure is skipped", (): void => {
+    const result = proseAfterRedaction({
+      prose: "The shelf lists 1,300 products while the niche holds 300 buyers.",
+      unsupported: ["300"],
+    });
+
+    expect(result.prose).toContain("1,300 products");
+    expect(result.prose).not.toContain("1,300 [unverified]");
+    expect(result.prose).toContain("300 [unverified] buyers");
+  });
+
+  it("never detaches a percent sign from its figure", (): void => {
+    const result = proseAfterRedaction({
+      prose: "Coverage of 100% is claimed on the pricing page.",
+      unsupported: ["100"],
+    });
+
+    expect(result.prose).not.toContain("100 [unverified]%");
+    expect(result.prose).toBe("Coverage of 100% is claimed on the pricing page.");
+    expect(result.stripped).toEqual([]);
+  });
+
+  it("keeps inline markers at or below the per-field cap", (): void => {
+    const result = proseAfterRedaction({
+      prose: "Growth of 17% on 240 accounts produced $9.2M.",
+      unsupported: ["17%", "240", "$9.2M"],
+    });
+
+    expect(result.prose).toContain("17% [unverified]");
+    expect(result.prose).toContain("240 [unverified]");
+    expect(result.prose).toContain("$9.2M [unverified]");
+    expect(result.prose).not.toContain("see section badge");
+  });
+
+  it("replaces inline markers with one aggregate footnote above the cap", (): void => {
+    const result = proseAfterRedaction({
+      prose:
+        "Growth of 17% on 240 accounts produced $9.2M against a $48 CPC baseline.",
+      unsupported: ["17%", "240", "$9.2M", "$48"],
+    });
+
+    expect(result.prose).not.toContain("[unverified]");
+    expect(result.prose).toContain(
+      "[4 figures in this field are unverified — see section badge]",
+    );
+    expect(
+      result.stripped.filter((entry) => entry.action === "marker"),
+    ).toHaveLength(4);
+  });
+});
