@@ -42,6 +42,7 @@ export interface SectionModelMetadata {
   repairModelId: string;
   reviewModel: ReviewModelMetadata;
   strategyModel: ReviewModelMetadata;
+  writerModel: ReviewModelMetadata;
   transport: "anthropic" | "deepseek-direct" | "ollama-openai-compatible";
   baseURL?: string;
 }
@@ -52,6 +53,7 @@ export interface SectionModelSelection {
   reviewModel: SectionLanguageModel;
   sectionRunnerModel: SectionLanguageModel;
   strategyModel: SectionLanguageModel;
+  writerModel: SectionLanguageModel;
 }
 
 interface WrappedSectionModels {
@@ -59,6 +61,7 @@ interface WrappedSectionModels {
   reviewModel: SectionLanguageModel;
   sectionRunnerModel: SectionLanguageModel;
   strategyModel: SectionLanguageModel;
+  writerModel: SectionLanguageModel;
 }
 
 export type SectionModelDispatchPreflightResult =
@@ -391,12 +394,18 @@ function createAnthropicSelection(env: NodeJS.ProcessEnv): SectionModelSelection
       repairModelId: SONNET_SECTION_MODEL_ID,
       reviewModel: reviewModelSelection.metadata,
       strategyModel: reviewModelSelection.metadata,
+      writerModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
       transport: "anthropic",
     },
     repairModel: sectionRunnerModel,
     reviewModel: reviewModelSelection.model,
     sectionRunnerModel,
     strategyModel: reviewModelSelection.model,
+    writerModel: sectionRunnerModel,
   };
 }
 
@@ -441,12 +450,20 @@ function createDeepSeekDirectSelection(
       repairModelId: DEEPSEEK_SECTION_MODEL_ID,
       reviewModel: reviewModelSelection.metadata,
       strategyModel: strategyModelSelection.metadata,
+      // Writer pen (W1 pro-pen/flash-hands): always v4-pro under deepseek-direct,
+      // independent of the LAB_REVIEW_MODEL override that redirects strategyModel.
+      writerModel: {
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_PRO_MODEL_ID,
+        transport: "deepseek-direct",
+      },
       transport: "deepseek-direct",
     },
     repairModel: sectionRunnerModel,
     reviewModel: reviewModelSelection.model,
     sectionRunnerModel,
     strategyModel: strategyModelSelection.model,
+    writerModel: strategyModel,
   };
 }
 
@@ -483,12 +500,18 @@ function createDeepSeekOllamaSelection(
       repairModelId: modelId,
       reviewModel: reviewModelSelection.metadata,
       strategyModel: reviewModelSelection.metadata,
+      writerModel: {
+        provider: "deepseek-ollama",
+        modelId,
+        transport: "ollama-openai-compatible",
+      },
       transport: "ollama-openai-compatible",
     },
     repairModel: sectionRunnerModel,
     reviewModel: reviewModelSelection.model,
     sectionRunnerModel,
     strategyModel: reviewModelSelection.model,
+    writerModel: sectionRunnerModel,
   };
 }
 
@@ -525,6 +548,7 @@ function getWrappedSectionModels(): WrappedSectionModels {
       reviewModel: withLocalDevTools(selection.reviewModel),
       sectionRunnerModel: withLocalDevTools(selection.sectionRunnerModel),
       strategyModel: withLocalDevTools(selection.strategyModel),
+      writerModel: withLocalDevTools(selection.writerModel),
     };
   }
 
@@ -578,6 +602,24 @@ export function getStrategyModelTransport(): ReviewModelMetadata["transport"] {
   return getSelectedSectionModelMetadata().strategyModel.transport;
 }
 
+export function getWriterModelId(): string {
+  return getSelectedSectionModelMetadata().writerModel.modelId;
+}
+
+// The writer pen only earns its extra call when the writer is a stronger model
+// than the section runner; with identical ids the pass is a no-op. Resolution
+// failures (e.g. missing provider keys in unit-test envs) disable the pen
+// instead of failing the section.
+export function isSectionWriterPenEnabled(): boolean {
+  try {
+    const metadata = getSelectedSectionModelMetadata();
+
+    return metadata.writerModel.modelId !== metadata.modelId;
+  } catch {
+    return false;
+  }
+}
+
 export const selectedSectionModelMetadata = createLazyObject<SectionModelMetadata>(
   getSelectedSectionModelMetadata,
 );
@@ -592,4 +634,7 @@ export const reviewModel = createLazyObject<SectionLanguageModel>(
 );
 export const strategyModel = createLazyObject<SectionLanguageModel>(
   () => getWrappedSectionModels().strategyModel,
+);
+export const sectionWriterModel = createLazyObject<SectionLanguageModel>(
+  () => getWrappedSectionModels().writerModel,
 );

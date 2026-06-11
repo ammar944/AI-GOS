@@ -97,6 +97,10 @@ import {
   type StructuredCaller,
   type StructuredStreamer,
 } from "./section-agent";
+import {
+  defaultSectionWriterPassRunner,
+  type SectionWriterPassRunner,
+} from "./writer-pass";
 import { createLabSectionTelemetry } from "./telemetry";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
@@ -239,6 +243,7 @@ export interface RunSectionDeps {
   env?: Record<string, string | undefined>;
   runAnswerTool?: AnswerToolRunner;
   runEvidencePass?: EvidencePassRunner;
+  runWriterPass?: SectionWriterPassRunner;
   callStructured?: StructuredCaller;
   streamStructured?: StructuredStreamer;
   verifyPaidMediaPlan?: (
@@ -5479,15 +5484,7 @@ function buildDemandIntentSpyFuToolGapArtifact({
   return minimums.ok ? candidate : undefined;
 }
 
-async function buildVerifiedAttemptFromOutput({
-  definition,
-  deps,
-  input,
-  modelSteps,
-  output,
-  researchInput,
-  verifierSteps,
-}: {
+interface BuildVerifiedAttemptArgs {
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
@@ -5495,7 +5492,76 @@ async function buildVerifiedAttemptFromOutput({
   output: SectionOutput<Record<string, unknown>>;
   researchInput: ResearchInput;
   verifierSteps?: readonly AgentStep[];
-}): Promise<AttemptResult> {
+}
+
+// W1 pro-pen/flash-hands: hand the narrative layer of the runner's draft to the
+// stronger writer model BEFORE verification, so the verifier/redactor/gates
+// police the prose the client actually reads. The pen is no-harm by
+// construction: skips and failures keep the runner draft, and a penned draft
+// that hard-fails the gate is retried once with the original draft so the pen
+// can never sink an attempt that would have committed.
+async function buildVerifiedAttemptFromOutput(
+  args: BuildVerifiedAttemptArgs,
+): Promise<AttemptResult> {
+  const runWriterPass = args.deps.runWriterPass ?? defaultSectionWriterPassRunner;
+  const pen = await runWriterPass({
+    output: args.output,
+    sectionId: args.input.sectionId,
+    sectionTitle: args.definition.title,
+    mission: args.definition.mission,
+    companyName: args.researchInput.company.name,
+    companyWebsiteUrl: args.researchInput.company.websiteUrl,
+    remainingMs: getRemainingDeadlineMs(args.input, args.deps),
+    signal: args.input.signal,
+  });
+
+  if (pen.applied) {
+    console.info("[lab-section] writer pen rewrote narrative fields", {
+      durationMs: pen.durationMs,
+      rewrittenFieldCount: pen.rewrittenFieldCount,
+      runId: args.input.runId,
+      sectionId: args.input.sectionId,
+      writerModelId: pen.writerModelId,
+    });
+  } else if (pen.skipReason !== "writer_pen_disabled") {
+    console.info("[lab-section] writer pen skipped", {
+      durationMs: pen.durationMs,
+      runId: args.input.runId,
+      sectionId: args.input.sectionId,
+      skipReason: pen.skipReason,
+    });
+  }
+
+  const attempt = await buildVerifiedAttemptFromFinalOutput({
+    ...args,
+    output: pen.output,
+  });
+
+  if (!pen.applied || attempt.artifact !== null) {
+    return attempt;
+  }
+
+  console.warn(
+    "[lab-section] writer pen attempt failed the gate; retrying with runner draft",
+    {
+      errors: attempt.errors.slice(0, 4),
+      runId: args.input.runId,
+      sectionId: args.input.sectionId,
+    },
+  );
+
+  return buildVerifiedAttemptFromFinalOutput(args);
+}
+
+async function buildVerifiedAttemptFromFinalOutput({
+  definition,
+  deps,
+  input,
+  modelSteps,
+  output,
+  researchInput,
+  verifierSteps,
+}: BuildVerifiedAttemptArgs): Promise<AttemptResult> {
   const evidenceSteps = verifierSteps ?? modelSteps;
   const verification = verifySectionBody({
     body: output.body,

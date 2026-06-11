@@ -149,8 +149,12 @@ describe('lab engine AI models — local DevTools', (): void => {
       modelId: 'deepseek-v4-flash',
       wrapped: true,
     });
-    expect(modelMocks.devToolsMiddleware).toHaveBeenCalledTimes(4);
-    expect(modelMocks.wrapLanguageModel).toHaveBeenCalledTimes(4);
+    expect(models.sectionWriterModel).toEqual({
+      modelId: 'claude-sonnet-4-5',
+      wrapped: true,
+    });
+    expect(modelMocks.devToolsMiddleware).toHaveBeenCalledTimes(5);
+    expect(modelMocks.wrapLanguageModel).toHaveBeenCalledTimes(5);
   });
 
   it('does not enable AI SDK DevTools in production', async (): Promise<void> => {

@@ -146,6 +146,11 @@ describe("createSectionModelSelection", (): void => {
         modelId: DEEPSEEK_SECTION_MODEL_ID,
         transport: "deepseek-direct",
       },
+      writerModel: {
+        provider: "anthropic",
+        modelId: SONNET_SECTION_MODEL_ID,
+        transport: "anthropic",
+      },
       transport: "anthropic",
     });
     expect(selection.sectionRunnerModel.provider).toBe("anthropic.messages");
@@ -176,6 +181,11 @@ describe("createSectionModelSelection", (): void => {
         modelId: DEEPSEEK_PRO_MODEL_ID,
         transport: "deepseek-direct",
       },
+      writerModel: {
+        provider: "deepseek-direct",
+        modelId: DEEPSEEK_PRO_MODEL_ID,
+        transport: "deepseek-direct",
+      },
       transport: "deepseek-direct",
     });
     expect(selection.sectionRunnerModel.provider).toBe("deepseek.chat");
@@ -184,6 +194,8 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.reviewModel.modelId).toBe(DEEPSEEK_SECTION_MODEL_ID);
     expect(selection.strategyModel.provider).toBe("deepseek.chat");
     expect(selection.strategyModel.modelId).toBe(DEEPSEEK_PRO_MODEL_ID);
+    expect(selection.writerModel.provider).toBe("deepseek.chat");
+    expect(selection.writerModel.modelId).toBe(DEEPSEEK_PRO_MODEL_ID);
   });
 
   it("selects DeepSeek v4 flash through the local Ollama transport", (): void => {
@@ -205,6 +217,11 @@ describe("createSectionModelSelection", (): void => {
         transport: "ollama-openai-compatible",
       },
       strategyModel: {
+        provider: "deepseek-ollama",
+        modelId: DEEPSEEK_SECTION_MODEL_ID,
+        transport: "ollama-openai-compatible",
+      },
+      writerModel: {
         provider: "deepseek-ollama",
         modelId: DEEPSEEK_SECTION_MODEL_ID,
         transport: "ollama-openai-compatible",
@@ -296,6 +313,10 @@ describe("createSectionModelSelection", (): void => {
     expect(selection.metadata.strategyModel.modelId).toBe(OPUS_REVIEW_MODEL_ID);
     expect(selection.reviewModel.provider).toBe("anthropic.messages");
     expect(selection.strategyModel.provider).toBe("anthropic.messages");
+    // The writer pen is pinned to pro regardless of the review override.
+    expect(selection.metadata.writerModel.modelId).toBe(DEEPSEEK_PRO_MODEL_ID);
+    expect(selection.writerModel.provider).toBe("deepseek.chat");
+    expect(selection.writerModel.modelId).toBe(DEEPSEEK_PRO_MODEL_ID);
   });
 
   it("supports GPT-5.5 through Vercel AI Gateway", (): void => {
