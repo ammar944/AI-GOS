@@ -1158,6 +1158,7 @@ export function markSubjectAdvertiserGroups({
       getRegistrableDomain(group.domain) === subjectDomain;
     const nameMatch =
       normalizedName.length > 0 &&
+      group.domain === null &&
       group.advertiserName.trim().toLowerCase() === normalizedName;
 
     return domainMatch || nameMatch ? { ...group, isSubject: true } : group;

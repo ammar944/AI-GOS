@@ -96,13 +96,19 @@ async function makeStore(): Promise<RunStore> {
   return store;
 }
 
+async function sourceLivenessUnavailableFetch(): Promise<Response> {
+  throw new Error('source liveness network unavailable in test');
+}
+
 describe('runSection live event persistence', (): void => {
   beforeEach((): void => {
     vi.stubEnv('LAB_SECTION_STREAMING', 'false');
+    vi.stubGlobal('fetch', sourceLivenessUnavailableFetch);
   });
 
   afterEach((): void => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('persists tool events while the answer-tool attempt is still pending', async (): Promise<void> => {

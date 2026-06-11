@@ -29,7 +29,7 @@ describe("extractCrossSectionFactConflicts", (): void => {
     });
 
     expect(conflicts).toHaveLength(1);
-    expect(conflicts[0]?.factKey).toBe("business-plan price");
+    expect(conflicts[0]?.factKey).toBe("subject-price:business");
     expect(
       conflicts[0]?.readings.map((reading) => reading.sectionId).sort(),
     ).toEqual([

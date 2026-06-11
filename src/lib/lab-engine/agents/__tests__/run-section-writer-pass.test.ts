@@ -46,14 +46,20 @@ function buildMarketCategorySupportStep(): AgentStep {
   };
 }
 
+async function sourceLivenessUnavailableFetch(): Promise<Response> {
+  throw new Error("source liveness network unavailable in test");
+}
+
 describe("runSection writer pen integration", (): void => {
   beforeEach((): void => {
     vi.stubEnv("DEEPSEEK_API_KEY", "test-deepseek-key");
     vi.stubEnv("LAB_SECTION_STREAMING", "false");
+    vi.stubGlobal("fetch", sourceLivenessUnavailableFetch);
   });
 
   afterEach((): void => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("commits the penned narrative when the rewrite passes the gate", async (): Promise<void> => {

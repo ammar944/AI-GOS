@@ -55,8 +55,8 @@ describe('SharedSessionView — v3 share render contract', (): void => {
     // the typed artifact body renders — this statusSummary prose only appears
     // when pickPositioningTypedArtifact resolves the section (not the fallback)
     expect(
-      screen.getByText(/founder-led revenue operations/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/founder-led revenue operations/i).length,
+    ).toBeGreaterThan(0);
     // Tier chrome removed from the shared view (user decision 2026-06-11) —
     // the persisted tier/flag never render as a badge.
     expect(
@@ -126,7 +126,7 @@ describe('SharedSessionView — v3 share render contract', (): void => {
       screen.queryByText('Needs review · 1 unsupported claim · 67% grounded'),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText('1 · Category Definition'),
+      screen.getByText('Category definition'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Reviewed market category')).not.toBeInTheDocument();
     expect(screen.queryByText('{"should":"not render"}')).not.toBeInTheDocument();

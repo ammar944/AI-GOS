@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ResearchInput } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
@@ -35,6 +35,10 @@ async function makeStore(
   });
   await store.createRun(researchInput);
   return store;
+}
+
+async function sourceLivenessUnavailableFetch(): Promise<Response> {
+  throw new Error('source liveness network unavailable in test');
 }
 
 async function* partials(
@@ -71,9 +75,8 @@ function buildRedactedMarketCategoryFixtureBody(): typeof marketCategoryFixtureA
       .replace('2%', '2% [unverified]')
       .replace('$6,000', '$6,000 [unverified]'),
   }));
-  // Four unsupported figures in one field exceed the W4 inline-marker cap, so
-  // the field carries one aggregate footnote instead of four inline splices.
-  bottomUpTam.reachableRevenueEstimate = `${bottomUpTam.reachableRevenueEstimate} [4 figures in this field are unverified — see section badge]`;
+  bottomUpTam.reachableRevenueEstimate =
+    bottomUpTam.reachableRevenueEstimate.replace('$1.09M', '$1.09M [unverified]');
 
   return body;
 }
@@ -118,7 +121,7 @@ function buildInvalidMarketCategoryBody(): Record<string, unknown> {
     ...output.body,
     marketSize: {
       ...output.body.marketSize,
-      signals: output.body.marketSize.signals.slice(1),
+      signals: output.body.marketSize.signals.slice(0, 1),
     },
   };
 }
@@ -227,7 +230,7 @@ function buildSaaslaunchInputWithVoiceOfCustomerCandidates(): ResearchInput {
     ['reddit-one', 'https://www.reddit.com/r/sales/comments/saaslaunch-one'],
     ['reddit-two', 'https://www.reddit.com/r/sales/comments/saaslaunch-two'],
     ['capterra-one', 'https://www.capterra.com/p/saaslaunch/reviews/one'],
-    ['community-one', 'https://community.revops.example/t/saaslaunch-handoff'],
+    ['community-one', 'https://community.revops.example/thread/saaslaunch-handoff'],
   ].map(([id, sourceUrl], index) => ({
     id: `voc_candidate_${id}`,
     observedAt,
@@ -235,7 +238,7 @@ function buildSaaslaunchInputWithVoiceOfCustomerCandidates(): ResearchInput {
     sourceUrl,
     text: `Independent buyer-language candidate ${
       index + 1
-    }: account context and founder-led follow-up work still fall through the cracks.`,
+    }: our account context and founder-led follow-up work still fall through the cracks after sales calls.`,
     title: `VoC Candidate ${index + 1}`,
   }));
 
@@ -258,6 +261,14 @@ function buildSaaslaunchInputWithVoiceOfCustomerCandidates(): ResearchInput {
 }
 
 describe('runSection artifact streaming path', (): void => {
+  beforeEach((): void => {
+    vi.stubGlobal('fetch', sourceLivenessUnavailableFetch);
+  });
+
+  afterEach((): void => {
+    vi.unstubAllGlobals();
+  });
+
   it('streams partial bodies but gates only the final validated output', async (): Promise<void> => {
     const store = await makeStore();
     const consumeStream = vi.fn(() => Promise.resolve());

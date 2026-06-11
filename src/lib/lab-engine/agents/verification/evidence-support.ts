@@ -25,6 +25,7 @@ export interface EvidenceSupportShortfall {
   unsupportedLoadBearing: UnsupportedLoadBearingClaim[];
   issues: string[];
   provenanceFlags: ProvenanceFlag[];
+  computedTrustConfidence?: number;
 }
 
 export interface EvaluateEvidenceSupportInput {
@@ -1243,6 +1244,10 @@ export function deriveGroundedConfidence(report: {
   verifiedCount: number;
   unsupportedCount: number;
 }, shortfall?: EvidenceSupportShortfall): number {
+  if (shortfall?.computedTrustConfidence !== undefined) {
+    return shortfall.computedTrustConfidence;
+  }
+
   const provenancePenalty = shortfall?.provenanceFlags.length ?? 0;
   const total =
     report.verifiedCount + report.unsupportedCount + provenancePenalty;

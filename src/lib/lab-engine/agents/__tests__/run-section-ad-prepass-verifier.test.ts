@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import type { Tool } from 'ai';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   competitorLandscapeBodySchema,
@@ -192,7 +192,14 @@ function assertCompetitorLandscapeBody(
 }
 
 describe('runSection ad-prepass verifier provenance', (): void => {
+  beforeEach((): void => {
+    vi.stubGlobal('fetch', async (): Promise<Response> => {
+      throw new Error('source liveness network unavailable in test');
+    });
+  });
+
   afterEach((): void => {
+    vi.unstubAllGlobals();
     vi.doUnmock('../tool-registry');
     vi.resetModules();
   });

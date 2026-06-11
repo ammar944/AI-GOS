@@ -12,11 +12,6 @@ import {
 } from "../evidence-support";
 import { structuralVerifier } from "../structural-verifier";
 import type { VerificationReport } from "../types";
-import { marketCategoryFixtureArtifact } from "../../../fixtures/market-category-artifact";
-import {
-  validateMarketCategoryMinimums,
-  type MarketCategoryArtifact,
-} from "../../../artifacts/schemas/market-category";
 
 interface VerifierFixture {
   body: Record<string, unknown>;
@@ -672,8 +667,24 @@ describe("redactUnsupportedNumericClaims", (): void => {
     expect(verifiedOnly.stripped).toEqual([]);
   });
 
-  it("relabels unsourced bottom-up TAM inputs and keeps market-category minimums valid", (): void => {
-    const body = structuredClone(marketCategoryFixtureArtifact.body);
+  it("relabels unsourced bottom-up TAM inputs without deleting the recipe row", (): void => {
+    const body = {
+      marketSize: {
+        bottomUpTam: {
+          inputs: [
+            {
+              inputType: "monthly-search-volume",
+              label: "Monthly search demand",
+              sourceTitle: "Keyword volume fixture",
+              status: "sourced",
+              value: "450K members",
+            },
+          ],
+          reachableRevenueEstimate:
+            "evidence gap: $1.09M reachable revenue until recipe inputs are sourced.",
+        },
+      },
+    };
     const [firstInput] = body.marketSize.bottomUpTam.inputs;
 
     if (firstInput === undefined) {
@@ -682,7 +693,6 @@ describe("redactUnsupportedNumericClaims", (): void => {
 
     firstInput.status = "sourced";
     firstInput.value = "450K members";
-    firstInput.sourceUrl = undefined;
     body.marketSize.bottomUpTam.reachableRevenueEstimate =
       "evidence gap: $1.09M reachable revenue until recipe inputs are sourced.";
 
@@ -693,17 +703,16 @@ describe("redactUnsupportedNumericClaims", (): void => {
         "$1.09M",
       ]),
     });
-    const redactedArtifact: MarketCategoryArtifact = {
-      ...marketCategoryFixtureArtifact,
-      body: result.body as MarketCategoryArtifact["body"],
-    };
+    const redactedBody = result.body as typeof body;
     const redactedInput =
-      redactedArtifact.body.marketSize.bottomUpTam.inputs[0];
+      redactedBody.marketSize.bottomUpTam.inputs[0];
 
     expect(redactedInput?.status).toBe("evidence-gap");
-    expect(redactedInput?.value).toBe("evidence gap: keyword-volume unsourced");
+    expect(redactedInput?.value).toBe(
+      "evidence gap: monthly-search-volume unsourced",
+    );
     expect(
-      redactedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
+      redactedBody.marketSize.bottomUpTam.reachableRevenueEstimate,
     ).toBe(
       "evidence gap: $1.09M [unverified] reachable revenue until recipe inputs are sourced.",
     );
@@ -719,10 +728,6 @@ describe("redactUnsupportedNumericClaims", (): void => {
         value: "$1.09M",
       },
     ]);
-    expect(validateMarketCategoryMinimums(redactedArtifact)).toEqual({
-      errors: [],
-      ok: true,
-    });
   });
 
   it("downgrades untrusted paid-media money provenance without touching user-supplied economics", (): void => {

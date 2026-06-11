@@ -669,4 +669,14 @@ describe("markSubjectAdvertiserGroups", () => {
 
     expect(marked[0]?.isSubject).toBeUndefined();
   });
+
+  it("does not mark same-name groups when a different domain is present", () => {
+    const marked = markSubjectAdvertiserGroups({
+      groups: [stubGroup("Airtable", "wikipedia.org")],
+      subjectDomain: "airtable.com",
+      subjectName: "Airtable",
+    });
+
+    expect(marked[0]?.isSubject).toBeUndefined();
+  });
 });

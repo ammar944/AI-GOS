@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Tool, ToolExecutionOptions } from 'ai';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   competitorLandscapeBodySchema,
@@ -897,7 +897,14 @@ async function makeRescueStore(
 }
 
 describe('runSection post-draft competitor ad rescue probe', (): void => {
+  beforeEach((): void => {
+    vi.stubGlobal('fetch', async (): Promise<Response> => {
+      throw new Error('source liveness network unavailable in test');
+    });
+  });
+
   afterEach((): void => {
+    vi.unstubAllGlobals();
     vi.doUnmock('../tool-registry');
     vi.resetModules();
   });

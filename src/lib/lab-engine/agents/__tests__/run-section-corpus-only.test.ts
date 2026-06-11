@@ -109,7 +109,7 @@ function buildInvalidMarketCategoryOutput(): MarketCategorySectionOutput {
       ...output.body,
       marketSize: {
         ...output.body.marketSize,
-        signals: output.body.marketSize.signals.slice(1),
+        signals: output.body.marketSize.signals.slice(0, 1),
       },
     },
   };
@@ -407,6 +407,10 @@ function requireRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+async function sourceLivenessUnavailableFetch(): Promise<Response> {
+  throw new Error('source liveness network unavailable in test');
+}
+
 function assertCompetitorLandscapeBody(
   body: unknown,
 ): asserts body is CompetitorLandscapeBody {
@@ -417,10 +421,12 @@ describe('runSection corpus-only mode', (): void => {
   beforeEach((): void => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
     vi.stubEnv('LAB_SECTION_STREAMING', 'false');
+    vi.stubGlobal('fetch', sourceLivenessUnavailableFetch);
   });
 
   afterEach((): void => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('passes an empty external tool map and still validates a section output', async (): Promise<void> => {
@@ -1722,9 +1728,9 @@ describe('runSection corpus-only mode', (): void => {
     expect(artifactCampaignOverview.dailySpendProvenance).toBe(
       'model-estimated',
     );
-    expect(artifactPhases).toHaveLength(2);
+    expect(artifactPhases).toHaveLength(3);
     expect(artifactAudiences).toHaveLength(3);
-    expect(artifactAngles).toHaveLength(4);
+    expect(artifactAngles).toHaveLength(5);
     expect(artifactCreatives).toHaveLength(8);
     expect(artifactChannels).toHaveLength(4);
     expect(artifactCrossSectionInsight).toHaveLength(1);
@@ -2378,6 +2384,7 @@ describe('runSection corpus-only mode', (): void => {
     expect(requireRecord(crossSectionInsight[0]).sourceSections).toEqual([
       'positioningVoiceOfCustomer',
       'positioningOfferDiagnostic',
+      'gtmBrief',
     ]);
     expect(callStructured).toHaveBeenCalledTimes(1);
   });

@@ -213,6 +213,23 @@ import {
   type NumericCoherenceStrike,
 } from "./verification/numeric-coherence";
 import {
+  dedupeQuoteBearingFields,
+  isAdmissibleQuote,
+  type DroppedDuplicateQuoteField,
+} from "./verification/quote-admission";
+import {
+  applySourceLivenessGate,
+  collectPreverifiedSourceUrlsFromSteps,
+  collectSubjectSiteObservations,
+  collectSubjectSiteObservationsFromSteps,
+  extractSubjectSiteObservation,
+  stripContradictedSubjectCtaClaims,
+  type SourceLivenessDrop,
+  type SourceLivenessFetch,
+  type SubjectSiteObservation,
+  type SubjectCtaClaimStrip,
+} from "./verification/source-liveness";
+import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
 } from "./run-section-keyword-results";
@@ -281,6 +298,7 @@ export interface RunSectionDeps {
   verifyPaidMediaPlan?: (
     input: VerifyPaidMediaPlanInput,
   ) => Promise<PaidMediaPlanVerificationResult>;
+  fetchImpl?: SourceLivenessFetch;
   broadcastPartial?: SectionPartialPublishFn;
   now?: () => Date;
   newId?: () => string;
@@ -634,6 +652,25 @@ type VoiceOfCustomerEvidenceGapFacts = Extract<
 const voiceOfCustomerRequiredPainQuoteCount = VOC_MIN_QUOTES;
 const voiceOfCustomerRequiredDistinctPainSourceCount = VOC_MIN_DOMAINS;
 
+function buildVoiceOfCustomerBlockGap({
+  foundCount,
+  requiredCount,
+  summary,
+}: {
+  foundCount: number;
+  requiredCount: number;
+  summary: string;
+}): Record<string, unknown> {
+  return {
+    summary,
+    foundCount,
+    requiredCount,
+    sourcingPlan: [
+      "Recover independent review, forum, or support-thread evidence before promoting this block.",
+    ],
+  };
+}
+
 function buildVoiceOfCustomerEvidenceGapBody({
   acquisitionAttempts,
   acquisitionLedger,
@@ -659,6 +696,7 @@ function buildVoiceOfCustomerEvidenceGapBody({
   ].join(" ");
 
   return {
+    retrievalSummary: summary,
     strategicInsight: {
       strategicVerdict:
         "evidence gap: independent Voice of Customer evidence did not clear the sourcing floor.",
@@ -690,26 +728,56 @@ function buildVoiceOfCustomerEvidenceGapBody({
     painLanguage: {
       prose: summary,
       quotes: [],
+      blockGap: buildVoiceOfCustomerBlockGap({
+        foundCount: facts.foundPainQuoteCount,
+        requiredCount: voiceOfCustomerRequiredPainQuoteCount,
+        summary:
+          "No pain-language quotes were promoted because independent VoC sourcing did not clear the quote floor.",
+      }),
     },
     objections: {
       prose:
         "Objection language was not promoted because the run lacked enough independent customer-review or forum evidence.",
       items: [],
+      blockGap: buildVoiceOfCustomerBlockGap({
+        foundCount: 0,
+        requiredCount: 1,
+        summary:
+          "No objection language was promoted from independently sourced VoC.",
+      }),
     },
     switchingStories: {
       prose:
         "Switching stories were not promoted because the available independent VoC surfaces were below the sourcing floor.",
       stories: [],
+      blockGap: buildVoiceOfCustomerBlockGap({
+        foundCount: 0,
+        requiredCount: 1,
+        summary:
+          "No switching stories were promoted from independently sourced VoC.",
+      }),
     },
     decisionCriteria: {
       prose:
         "Decision criteria were not promoted because the run could not corroborate buyer criteria from enough independent VoC sources.",
       criteria: [],
+      blockGap: buildVoiceOfCustomerBlockGap({
+        foundCount: 0,
+        requiredCount: 1,
+        summary:
+          "No decision criteria were promoted from independently sourced VoC.",
+      }),
     },
     successLanguage: {
       prose:
         "Success language was not promoted because the run did not acquire enough independent customer after-state quotes.",
       quotes: [],
+      blockGap: buildVoiceOfCustomerBlockGap({
+        foundCount: 0,
+        requiredCount: 1,
+        summary:
+          "No success-language quotes were promoted from independently sourced VoC.",
+      }),
     },
     evidenceGap: true,
     evidenceGapReport: {
@@ -1786,22 +1854,117 @@ const misattributedQuoteSourceRelabelers: Partial<
   positioningVoiceOfCustomer: () => "other",
 };
 
-function annotateEvidenceSupportReview({
+function hasEvidenceGapCore(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(hasEvidenceGapCore);
+  }
+
+  if (typeof value === "string") {
+    return /\bevidence gap\b/i.test(value);
+  }
+
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+
+  return Object.entries(record).some(
+    ([key, child]) => /evidencegap/i.test(key) || hasEvidenceGapCore(child),
+  );
+}
+
+function deriveClaimSupportShare({
+  report,
+  shortfall,
+}: {
+  report: VerificationReportEnvelope;
+  shortfall?: EvidenceSupportShortfall;
+}): number {
+  const provenancePenalty = shortfall?.provenanceFlags.length ?? 0;
+  const total =
+    report.verifiedCount + report.unsupportedCount + provenancePenalty;
+
+  if (total === 0) {
+    return 0;
+  }
+
+  return report.verifiedCount / total;
+}
+
+function deriveWave2TrustConfidence({
   artifact,
+  honestEmptyCore,
+  quoteForceEmptied,
+  shortfall,
+  sourceLiveness,
+}: {
+  artifact: ArtifactEnvelope;
+  honestEmptyCore: boolean;
+  quoteForceEmptied: boolean;
+  shortfall?: EvidenceSupportShortfall;
+  sourceLiveness: Awaited<ReturnType<typeof applySourceLivenessGate>>;
+}): {
+  claimSupportShare: number;
+  confidence: number;
+  quoteForceEmptied: boolean;
+  honestEmptyCore: boolean;
+} | null {
+  if (artifact.verification === undefined) {
+    return null;
+  }
+
+  const claimSupportShare = deriveClaimSupportShare({
+    report: artifact.verification,
+    shortfall,
+  });
+  const livenessKnownRate =
+    sourceLiveness.livenessPassRate === null ? 1 : sourceLiveness.livenessPassRate;
+  const containmentKnownRate =
+    sourceLiveness.containmentPassRate === null
+      ? 1
+      : sourceLiveness.containmentPassRate;
+  const rawConfidence = Math.min(
+    livenessKnownRate,
+    containmentKnownRate,
+    claimSupportShare,
+  );
+  const quoteCapped = quoteForceEmptied
+    ? Math.min(rawConfidence, 0.6)
+    : rawConfidence;
+  const confidence = honestEmptyCore ? Math.min(quoteCapped, 0.4) : quoteCapped;
+
+  return {
+    claimSupportShare,
+    confidence,
+    honestEmptyCore,
+    quoteForceEmptied,
+  };
+}
+
+async function annotateEvidenceSupportReview({
+  artifact,
+  fetchImpl,
   placeholderTrustedHosts,
+  preverifiedSourceUrls,
   researchInput,
   sectionId,
   shortfall,
+  signal,
+  subjectSiteObservations,
 }: {
   artifact: ArtifactEnvelope;
+  fetchImpl?: SourceLivenessFetch;
   // For call sites that intentionally omit researchInput (keeping their
   // numeric-coherence truth scope unchanged) but still know the runner-owned
   // trusted hosts for the placeholder-URL strike.
   placeholderTrustedHosts?: ReadonlySet<string>;
+  preverifiedSourceUrls?: ReadonlySet<string>;
   researchInput?: ResearchInput;
   sectionId: SectionId;
   shortfall?: EvidenceSupportShortfall;
-}): ArtifactEnvelope {
+  signal?: AbortSignal;
+  subjectSiteObservations?: readonly SubjectSiteObservation[];
+}): Promise<ArtifactEnvelope> {
   const provenanceFlags = shortfall?.provenanceFlags ?? [];
   const relabelSource = misattributedQuoteSourceRelabelers[sectionId];
   const strip =
@@ -1846,13 +2009,37 @@ function annotateEvidenceSupportReview({
     trustedHosts:
       placeholderTrustedHosts ?? buildPlaceholderTrustedHosts(researchInput),
   });
+  const sourceLiveness = await applySourceLivenessGate({
+    body: placeholderUrlStrip.body,
+    ...(fetchImpl === undefined ? {} : { fetchImpl }),
+    ...(preverifiedSourceUrls === undefined
+      ? {}
+      : { preverifiedUrls: preverifiedSourceUrls }),
+    signal,
+  });
+  const quoteDedup = dedupeQuoteBearingFields({
+    body: sourceLiveness.body,
+  });
+  const subjectCta = stripContradictedSubjectCtaClaims({
+    body: quoteDedup.body,
+    observations:
+      sectionId === "positioningOfferDiagnostic" && researchInput !== undefined
+        ? [
+            ...collectSubjectSiteObservations({
+              corpusExcerpts: researchInput.corpus.excerpts,
+              subjectWebsiteUrl: researchInput.company.websiteUrl,
+            }),
+            ...(subjectSiteObservations ?? []),
+          ]
+        : [],
+  });
   // Coherence pack (run 8081e646 cold-judge fixes): pipeline vocabulary out of
   // client prose, then narrative numbers must trace to the section's own
   // structured evidence (values, column sums, lengths, group counts) or the
   // sentence goes. Runs before the verification-driven numeric redactor so the
   // table-contradiction class is caught even for claims the verifier graded.
   const jargonScrub = scrubBodyInternalJargon({
-    body: placeholderUrlStrip.body,
+    body: subjectCta.body,
     sectionId,
   });
   const numericCoherence = enforceNumericCoherence({
@@ -1931,6 +2118,34 @@ function annotateEvidenceSupportReview({
   const strippedNumericClaims = numericStrip.stripped.filter(
     (item) => item.action !== "verified-marker-removed",
   );
+  const quoteForceEmptied =
+    sectionId === "positioningVoiceOfCustomer" &&
+    sourceLiveness.droppedRows.length > 0 &&
+    hasEvidenceGapCore(numericStrip.body);
+  const trust = deriveWave2TrustConfidence({
+    artifact,
+    honestEmptyCore: hasEvidenceGapCore(numericStrip.body),
+    quoteForceEmptied,
+    shortfall,
+    sourceLiveness,
+  });
+  const trustShortfall =
+    trust === null || shortfall === undefined
+      ? shortfall
+      : {
+          ...shortfall,
+          computedTrustConfidence: trust.confidence,
+        };
+  const confidence =
+    trust === null
+      ? artifact.confidence
+      : deriveGroundedConfidence(
+          artifact.verification as VerificationReportEnvelope,
+          trustShortfall,
+        );
+  const confidenceChanged =
+    artifact.verification !== undefined &&
+    Math.abs(confidence - artifact.confidence) > 0.000001;
 
   if (
     provenanceFlags.length === 0 &&
@@ -1940,11 +2155,15 @@ function annotateEvidenceSupportReview({
     verbatimDowngrade.stripped.length === 0 &&
     emailScrub.stripped.length === 0 &&
     placeholderUrlStrip.stripped.length === 0 &&
+    sourceLiveness.droppedRows.length === 0 &&
+    quoteDedup.dropped.length === 0 &&
+    subjectCta.stripped.length === 0 &&
     internalJargonStrikes.length === 0 &&
     numericCoherenceStrikes.length === 0 &&
     namedEntityStrip.stripped.length === 0 &&
     strippedNumericClaims.length === 0 &&
-    strippedVerificationMarkers.length === 0
+    strippedVerificationMarkers.length === 0 &&
+    !confidenceChanged
   ) {
     return artifact;
   }
@@ -1954,10 +2173,7 @@ function annotateEvidenceSupportReview({
     body: numericStrip.body,
     statusSummary: statusSummaryCoherence.value,
     verdict: verdictCoherence.value,
-    confidence:
-      artifact.verification === undefined || shortfall === undefined
-        ? artifact.confidence
-        : deriveGroundedConfidence(artifact.verification, shortfall),
+    confidence,
     needs_review: true,
     verifierSummary: {
       ...(artifact.verifierSummary ?? {}),
@@ -1980,6 +2196,32 @@ function annotateEvidenceSupportReview({
       ...(placeholderUrlStrip.stripped.length > 0
         ? { strippedPlaceholderUrls: placeholderUrlStrip.stripped }
         : {}),
+      ...(sourceLiveness.droppedRows.length > 0 ||
+      sourceLiveness.checkedUrls.length > 0
+        ? {
+            sourceLiveness: {
+              checkedUrlCount: sourceLiveness.checkedUrls.length,
+              containmentPassRate: sourceLiveness.containmentPassRate,
+              droppedRows: sourceLiveness.droppedRows satisfies SourceLivenessDrop[],
+              livenessPassRate: sourceLiveness.livenessPassRate,
+              ...(sourceLiveness.networkUnavailable
+                ? { networkUnavailable: true }
+                : {}),
+            },
+          }
+        : {}),
+      ...(quoteDedup.dropped.length > 0
+        ? {
+            droppedDuplicateQuoteFields:
+              quoteDedup.dropped satisfies DroppedDuplicateQuoteField[],
+          }
+        : {}),
+      ...(subjectCta.stripped.length > 0
+        ? {
+            strippedSubjectCtaClaims:
+              subjectCta.stripped satisfies SubjectCtaClaimStrip[],
+          }
+        : {}),
       ...(internalJargonStrikes.length > 0
         ? { internalJargonStrikes }
         : {}),
@@ -1995,6 +2237,21 @@ function annotateEvidenceSupportReview({
       ...(strippedVerificationMarkers.length > 0
         ? { strippedVerificationMarkers }
         : {}),
+      ...(trust === null
+        ? {}
+        : {
+            computedTrust: {
+              claimSupportShare: trust.claimSupportShare,
+              confidence: trust.confidence,
+              containmentPassRate: sourceLiveness.containmentPassRate,
+              honestEmptyCore: trust.honestEmptyCore,
+              livenessPassRate: sourceLiveness.livenessPassRate,
+              ...(sourceLiveness.networkUnavailable
+                ? { networkUnavailable: true }
+                : {}),
+              quoteForceEmptied: trust.quoteForceEmptied,
+            },
+          }),
     },
   });
 }
@@ -4397,11 +4654,20 @@ async function callStructuredAttempt({
     if (verdict.kind === "evidenceShortfall") {
       return {
         output,
-        artifact: annotateEvidenceSupportReview({
+        artifact: await annotateEvidenceSupportReview({
           artifact: verdict.committableArtifact,
+          fetchImpl: deps.fetchImpl,
+          preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
+            steps: modelSteps,
+          }),
           researchInput,
           sectionId: input.sectionId,
           shortfall: verdict.shortfall,
+          signal: timeoutSignal.signal,
+          subjectSiteObservations: collectSubjectSiteObservationsFromSteps({
+            steps: modelSteps,
+            subjectWebsiteUrl: researchInput.company.websiteUrl,
+          }),
         }),
         errors: [],
         evidenceSupportShortfall: verdict.shortfall,
@@ -4410,11 +4676,20 @@ async function callStructuredAttempt({
 
     return {
       output,
-      artifact: annotateEvidenceSupportReview({
+      artifact: await annotateEvidenceSupportReview({
         artifact: verdict.committableArtifact,
+        fetchImpl: deps.fetchImpl,
+        preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
+          steps: modelSteps,
+        }),
         researchInput,
         sectionId: input.sectionId,
         shortfall: verdict.shortfall,
+        signal: timeoutSignal.signal,
+        subjectSiteObservations: collectSubjectSiteObservationsFromSteps({
+          steps: modelSteps,
+          subjectWebsiteUrl: researchInput.company.websiteUrl,
+        }),
       }),
       errors: [],
       ...(verdict.shortfall === undefined
@@ -4658,6 +4933,13 @@ interface VoiceOfCustomerCandidatePrepass {
 interface VoiceOfCustomerToolCallResult {
   output: unknown;
   step: AgentStep;
+}
+
+interface SubjectSiteObservationPrepass {
+  candidateBlock: string;
+  events: ActivityEvent[];
+  observations: SubjectSiteObservation[];
+  steps: AgentStep[];
 }
 
 interface VoiceOfCustomerRecoveryTarget {
@@ -5193,6 +5475,156 @@ async function executeVoiceOfCustomerPrepassTool({
   };
 }
 
+function buildSubjectSiteObservationTargets(websiteUrl: string): string[] {
+  const rootUrl = getValidHttpUrl(websiteUrl);
+
+  if (rootUrl === null) {
+    return [];
+  }
+
+  try {
+    const parsed = new URL(rootUrl);
+    const root = parsed.origin;
+    const pricing = new URL("/pricing", root).toString();
+
+    return Array.from(new Set([root, pricing]));
+  } catch {
+    return [];
+  }
+}
+
+function subjectSiteObservationFromFirecrawlOutput({
+  fallbackUrl,
+  output,
+}: {
+  fallbackUrl: string;
+  output: unknown;
+}): SubjectSiteObservation | null {
+  const record = getRecord(output);
+
+  if (record === null || getStringProperty(record, "type") !== "result") {
+    return null;
+  }
+
+  const markdown = getStringProperty(record, "markdown");
+  if (markdown === null) {
+    return null;
+  }
+
+  const sourceUrl =
+    getValidHttpUrl(getStringProperty(record, "sourceUrl")) ??
+    getValidHttpUrl(getStringProperty(record, "url")) ??
+    fallbackUrl;
+  const observation = extractSubjectSiteObservation({
+    sourceUrl,
+    text: markdown,
+  });
+
+  return observation.ctas.length === 0 ? null : observation;
+}
+
+function formatSubjectSiteObservationBlock(
+  observations: readonly SubjectSiteObservation[],
+): string {
+  if (observations.length === 0) {
+    return "";
+  }
+
+  const rows = observations.map((observation) => {
+    const ctas = observation.ctas.length === 0
+      ? "none observed"
+      : observation.ctas.join("; ");
+
+    return `- ${observation.sourceUrl}: observed CTAs: ${ctas}`;
+  });
+
+  return [
+    "Subject-site CTA observation prepass:",
+    ...rows,
+    "Use these fetched subject-page observations for demo/trial/signup/self-serve claims. If they contradict a no-self-serve/no-trial claim, state an evidence gap instead of the contradicted claim.",
+  ].join("\n");
+}
+
+async function buildSubjectSiteObservationPrepass({
+  deps,
+  input,
+  researchInput,
+  researchTools,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  researchTools: Record<string, unknown>;
+}): Promise<SubjectSiteObservationPrepass | undefined> {
+  const targets = buildSubjectSiteObservationTargets(
+    researchInput.company.websiteUrl,
+  );
+  const firecrawlTool = getPrepassExecutableTool(researchTools, "firecrawl");
+
+  if (firecrawlTool === null || firecrawlTool.execute === undefined) {
+    return undefined;
+  }
+
+  const steps: AgentStep[] = [];
+  const observations: SubjectSiteObservation[] = [];
+
+  for (const target of targets) {
+    let output: unknown;
+    try {
+      output = await firecrawlTool.execute(
+        { onlyMainContent: true, url: target },
+        { abortSignal: input.signal } as ToolExecutionOptions,
+      );
+    } catch {
+      continue;
+    }
+
+    const step: AgentStep = {
+      stepNumber: steps.length + 1,
+      finishReason: "tool-calls",
+      text: "Subject-site CTA observation prepass used firecrawl.",
+      toolCalls: [
+        { toolName: "firecrawl", input: { onlyMainContent: true, url: target } },
+      ],
+      toolResults: [
+        {
+          toolName: "firecrawl",
+          input: { onlyMainContent: true, url: target },
+          output,
+          type: "tool-result",
+        },
+      ],
+    };
+    const observation = subjectSiteObservationFromFirecrawlOutput({
+      fallbackUrl: target,
+      output,
+    });
+
+    steps.push(step);
+    if (observation !== null) {
+      observations.push(observation);
+    }
+  }
+
+  if (steps.length === 0) {
+    return undefined;
+  }
+
+  return {
+    candidateBlock: formatSubjectSiteObservationBlock(observations),
+    events: steps.flatMap((step) =>
+      buildToolEvents({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        step,
+      }),
+    ),
+    observations,
+    steps,
+  };
+}
+
 function buildVoiceOfCustomerSearchQuery(
   researchInput: ResearchInput,
   subjectDomain: string | null,
@@ -5321,6 +5753,24 @@ function getFirecrawlEnrichmentTarget(
   };
 }
 
+function selectAdmissibleVoiceOfCustomerCandidates({
+  candidates,
+  subjectDomain,
+}: {
+  candidates: readonly VoiceOfCustomerCandidate[];
+  subjectDomain: string | null;
+}): VoiceOfCustomerCandidateResult {
+  return selectVoiceOfCustomerCandidates(
+    candidates.filter((candidate) =>
+      isAdmissibleQuote({
+        sourceUrl: candidate.url,
+        subjectDomain,
+        text: candidate.snippet,
+      }),
+    ),
+  );
+}
+
 async function buildVoiceOfCustomerCandidatePrepass({
   deps,
   input,
@@ -5336,7 +5786,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
   const candidates = buildResearchInputVoiceOfCustomerCandidates(researchInput);
   const recoveryTargets: VoiceOfCustomerRecoveryTarget[] = [];
   const steps: AgentStep[] = [];
-  let result = selectVoiceOfCustomerCandidates(candidates);
+  let result = selectAdmissibleVoiceOfCustomerCandidates({
+    candidates,
+    subjectDomain,
+  });
   const tryTool = async (
     toolName: ToolName,
     toolInput: unknown,
@@ -5383,7 +5836,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
     });
     candidates.push(...reviewCandidates.candidates);
     recoveryTargets.push(...reviewCandidates.recoveryTargets);
-    result = selectVoiceOfCustomerCandidates(candidates);
+    result = selectAdmissibleVoiceOfCustomerCandidates({
+      candidates,
+      subjectDomain,
+    });
 
     if (result.ok || steps.length >= VOC_PREPASS_MAX_LOOKUPS - 1) {
       break;
@@ -5406,7 +5862,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
   candidates.push(...webSearchCandidates.candidates);
   recoveryTargets.push(...webSearchCandidates.recoveryTargets);
 
-  result = selectVoiceOfCustomerCandidates(candidates);
+  result = selectAdmissibleVoiceOfCustomerCandidates({
+    candidates,
+    subjectDomain,
+  });
   const firecrawlTarget =
     getFirecrawlEnrichmentTarget(result) ??
     getFirecrawlRecoveryTarget({
@@ -5428,7 +5887,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
 
     if (recoveredCandidate !== null) {
       candidates.push(recoveredCandidate);
-      result = selectVoiceOfCustomerCandidates(candidates);
+      result = selectAdmissibleVoiceOfCustomerCandidates({
+        candidates,
+        subjectDomain,
+      });
     }
   }
 
@@ -5486,7 +5948,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
     // commit floor demands.
     if (classCandidates.pain.length > 0) {
       candidates.push(...classCandidates.pain);
-      result = selectVoiceOfCustomerCandidates(candidates);
+      result = selectAdmissibleVoiceOfCustomerCandidates({
+        candidates,
+        subjectDomain,
+      });
     }
   }
 
@@ -6295,11 +6760,20 @@ async function buildVerifiedAttemptFromFinalOutput({
   if (verdict.kind === "evidenceShortfall") {
     return {
       output,
-      artifact: annotateEvidenceSupportReview({
+      artifact: await annotateEvidenceSupportReview({
         artifact: verdict.committableArtifact,
+        fetchImpl: deps.fetchImpl,
+        preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
+          steps: evidenceSteps,
+        }),
         researchInput,
         sectionId: input.sectionId,
         shortfall: verdict.shortfall,
+        signal: input.signal,
+        subjectSiteObservations: collectSubjectSiteObservationsFromSteps({
+          steps: evidenceSteps,
+          subjectWebsiteUrl: researchInput.company.websiteUrl,
+        }),
       }),
       errors: [],
       evidenceSupportShortfall: verdict.shortfall,
@@ -6308,11 +6782,20 @@ async function buildVerifiedAttemptFromFinalOutput({
 
   return {
     output,
-    artifact: annotateEvidenceSupportReview({
+    artifact: await annotateEvidenceSupportReview({
       artifact: verdict.committableArtifact,
+      fetchImpl: deps.fetchImpl,
       placeholderTrustedHosts: buildPlaceholderTrustedHosts(researchInput),
+      preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
+        steps: evidenceSteps,
+      }),
       sectionId: input.sectionId,
       shortfall: verdict.shortfall,
+      signal: input.signal,
+      subjectSiteObservations: collectSubjectSiteObservationsFromSteps({
+        steps: evidenceSteps,
+        subjectWebsiteUrl: researchInput.company.websiteUrl,
+      }),
     }),
     errors: [],
     ...(verdict.shortfall === undefined
@@ -6936,6 +7419,21 @@ async function runSectionViaAnswerTool(
     await scheduleFlush();
   }
   const competitorReviewPrepassSteps = competitorReviewPrepass?.steps ?? [];
+  const subjectSiteObservationPrepass =
+    input.sectionId === "positioningOfferDiagnostic"
+      ? await buildSubjectSiteObservationPrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+  if (subjectSiteObservationPrepass !== undefined) {
+    toolEvents.push(...subjectSiteObservationPrepass.events);
+    await scheduleFlush();
+  }
+  const subjectSiteObservationPrepassSteps =
+    subjectSiteObservationPrepass?.steps ?? [];
   const answerToolInstructions = [
     buildAnswerToolInstructions(
       definition,
@@ -6958,6 +7456,10 @@ async function runSectionViaAnswerTool(
     ...(competitorReviewPrepass === undefined
       ? []
       : ["", competitorReviewPrepass.candidateBlock]),
+    ...(subjectSiteObservationPrepass === undefined ||
+    subjectSiteObservationPrepass.candidateBlock.length === 0
+      ? []
+      : ["", subjectSiteObservationPrepass.candidateBlock]),
     "",
     "Skill analyst guidance:",
     skillMd,
@@ -7056,6 +7558,7 @@ async function runSectionViaAnswerTool(
     ...buyerPersonaPrepassSteps,
     ...brandedKeywordPrepassSteps,
     ...competitorReviewPrepassSteps,
+    ...subjectSiteObservationPrepassSteps,
     ...answerResult.steps,
   ];
   // Post-draft rescue probe: when the brief seeded zero advertisers the
@@ -7187,6 +7690,7 @@ async function runSectionViaAnswerTool(
         ...buyerPersonaPrepassSteps,
         ...brandedKeywordPrepassSteps,
         ...competitorReviewPrepassSteps,
+        ...subjectSiteObservationPrepassSteps,
         ...repairResult.steps,
       ];
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
@@ -7595,11 +8099,26 @@ async function runSectionViaStructuredBodyStream(
     await scheduleFlush();
   }
 
+  const subjectSiteObservationPrepass =
+    input.sectionId === "positioningOfferDiagnostic"
+      ? await buildSubjectSiteObservationPrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+  if (subjectSiteObservationPrepass !== undefined) {
+    toolEvents.push(...subjectSiteObservationPrepass.events);
+    await scheduleFlush();
+  }
+
   const modelSteps: AgentStep[] = [
     ...(voiceOfCustomerPrepass?.steps ?? []),
     ...(buyerPersonaPrepass?.steps ?? []),
     ...(brandedKeywordPrepass?.steps ?? []),
     ...(competitorReviewPrepass?.steps ?? []),
+    ...(subjectSiteObservationPrepass?.steps ?? []),
   ];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
