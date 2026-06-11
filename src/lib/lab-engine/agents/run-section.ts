@@ -159,6 +159,10 @@ import {
   summarizeCompetitorAdEvidenceGroups,
   textReconcilesWithCompetitorAdTopicContext,
 } from "./tools/competitor-ad-adapter";
+import {
+  KeywordVolumeOutputSchema,
+  SPYFU_SOURCE_URL,
+} from "./tools/keyword-volume";
 import { fetchSearchApiOrganicResults } from "./tools/searchapi-organic";
 import { fetchVerifiedMetaPageAds } from "./tools/adlibrary";
 import {
@@ -5504,6 +5508,108 @@ interface BuyerPersonaCandidatePrepass {
   steps: AgentStep[];
 }
 
+// Branded demand prepass (demand-intent only): ONE deterministic SpyFu
+// keyword_volume call over the subject's branded head terms before the agent
+// runs, so the section always carries the branded demand floor a media buyer
+// checks first (run 8081e646 cold judge: "no branded keyword volumes").
+// Best-effort: a tool gap becomes an honest gap instruction, never a section
+// failure. The recorded step rides the model-steps list, so the keyword
+// provenance validator accepts the rows and claim verification can match them.
+const brandedKeywordPrepassDeadlineMs = 20_000;
+
+interface BrandedKeywordPrepass {
+  candidateBlock: string;
+  events: ActivityEvent[];
+  steps: readonly AgentStep[];
+}
+
+export function buildBrandedKeywordTerms(companyName: string): string[] {
+  const brand = companyName.trim().toLowerCase();
+
+  if (brand.length === 0) {
+    return [];
+  }
+
+  return [
+    brand,
+    `${brand} pricing`,
+    `${brand} alternatives`,
+    `${brand} reviews`,
+  ];
+}
+
+export async function buildBrandedKeywordPrepass({
+  deps,
+  input,
+  researchInput,
+  researchTools,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  researchTools: Record<string, unknown>;
+}): Promise<BrandedKeywordPrepass | undefined> {
+  const terms = buildBrandedKeywordTerms(researchInput.company.name);
+
+  if (terms.length === 0) {
+    return undefined;
+  }
+
+  const prepassSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "Branded keyword prepass",
+    timeoutMs: brandedKeywordPrepassDeadlineMs,
+  });
+  let call: Awaited<ReturnType<typeof executeVoiceOfCustomerPrepassTool>>;
+  try {
+    call = await executeVoiceOfCustomerPrepassTool({
+      input: { ...input, signal: prepassSignal.signal },
+      researchTools,
+      stepNumber: 0,
+      toolInput: { keywords: terms },
+      toolName: "keyword_volume",
+    });
+  } finally {
+    prepassSignal.cleanup();
+  }
+
+  const gapBlock = [
+    "BRANDED DEMAND PREPASS (deterministic SpyFu keyword_volume — already ran):",
+    `keyword_volume returned no data for the subject's branded head terms (${terms.join(", ")}).`,
+    "State the branded-volume gap honestly in keywordDemand.prose; never estimate branded volumes.",
+  ].join("\n");
+
+  if (call === null) {
+    return { candidateBlock: gapBlock, events: [], steps: [] };
+  }
+
+  const events = buildToolEvents({
+    deps,
+    runId: input.runId,
+    sectionId: input.sectionId,
+    step: call.step,
+  });
+  const parsed = KeywordVolumeOutputSchema.safeParse(call.output);
+  const rows =
+    parsed.success && parsed.data.type === "result" ? parsed.data.keywords : [];
+
+  if (rows.length === 0) {
+    return { candidateBlock: gapBlock, events, steps: [call.step] };
+  }
+
+  const dateObserved = getNow(deps).toISOString().slice(0, 10);
+  const candidateBlock = [
+    "BRANDED DEMAND PREPASS (deterministic SpyFu keyword_volume — already ran; do NOT re-fetch these terms):",
+    "The subject's branded head terms below are measured. Include EVERY row in keywordDemand.keywords with:",
+    `- intentType "navigational"; sourceTitle "SpyFu keyword_volume"; sourceUrl "${SPYFU_SOURCE_URL}"; dateObserved "${dateObserved}";`,
+    "- monthlyVolume/cpc copied in the row's display formatting (keep the (SpyFu-estimated) label; a null cpc renders as n/a, never $0).",
+    "Open keywordDemand.prose with the branded-vs-non-branded demand split — the branded floor below is the denominator a media buyer checks first.",
+    ...rows.map((row) => `- ${row.display}`),
+  ].join("\n");
+
+  return { candidateBlock, events, steps: [call.step] };
+}
+
 // Venue fan-out is 2 parallel perplexity calls + at most one retry each;
 // bounded so a slow venue pass cannot eat the section budget.
 // 45s covered the two-venue first pass; the W5 thin-pack second pass adds one
@@ -6575,6 +6681,20 @@ async function runSectionViaAnswerTool(
     await scheduleFlush();
   }
   const buyerPersonaPrepassSteps = buyerPersonaPrepass?.steps ?? [];
+  const brandedKeywordPrepass =
+    input.sectionId === "positioningDemandIntent"
+      ? await buildBrandedKeywordPrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+  if (brandedKeywordPrepass !== undefined) {
+    toolEvents.push(...brandedKeywordPrepass.events);
+    await scheduleFlush();
+  }
+  const brandedKeywordPrepassSteps = brandedKeywordPrepass?.steps ?? [];
   const answerToolInstructions = [
     buildAnswerToolInstructions(
       definition,
@@ -6591,6 +6711,9 @@ async function runSectionViaAnswerTool(
     ...(buyerPersonaPrepass === undefined
       ? []
       : ["", buyerPersonaPrepass.candidateBlock]),
+    ...(brandedKeywordPrepass === undefined
+      ? []
+      : ["", brandedKeywordPrepass.candidateBlock]),
     "",
     "Skill analyst guidance:",
     skillMd,
@@ -6687,6 +6810,7 @@ async function runSectionViaAnswerTool(
   const answerResultSteps = [
     ...voiceOfCustomerPrepassSteps,
     ...buyerPersonaPrepassSteps,
+    ...brandedKeywordPrepassSteps,
     ...answerResult.steps,
   ];
   // Post-draft rescue probe: when the brief seeded zero advertisers the
@@ -6816,6 +6940,7 @@ async function runSectionViaAnswerTool(
       const repairResultSteps = [
         ...voiceOfCustomerPrepassSteps,
         ...buyerPersonaPrepassSteps,
+        ...brandedKeywordPrepassSteps,
         ...repairResult.steps,
       ];
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
@@ -7196,9 +7321,24 @@ async function runSectionViaStructuredBodyStream(
     await scheduleFlush();
   }
 
+  const brandedKeywordPrepass =
+    input.sectionId === "positioningDemandIntent"
+      ? await buildBrandedKeywordPrepass({
+          deps,
+          input,
+          researchInput,
+          researchTools: externalTools,
+        })
+      : undefined;
+  if (brandedKeywordPrepass !== undefined) {
+    toolEvents.push(...brandedKeywordPrepass.events);
+    await scheduleFlush();
+  }
+
   const modelSteps: AgentStep[] = [
     ...(voiceOfCustomerPrepass?.steps ?? []),
     ...(buyerPersonaPrepass?.steps ?? []),
+    ...(brandedKeywordPrepass?.steps ?? []),
   ];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
@@ -7228,6 +7368,7 @@ async function runSectionViaStructuredBodyStream(
   );
 
   const structuredBodyPrompt = buildStructuredBodyPrompt({
+    brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
     buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
     definition,
     externalToolNames,
@@ -7477,6 +7618,7 @@ async function runSectionViaStructuredBodyStream(
         normalizedAdEvidenceGroups,
         partialSeqRef,
         prompt: buildStructuredBodyRepairPrompt({
+          brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
           buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
           definition,
           evidenceTranscript: buildEvidenceTranscript(modelSteps),
