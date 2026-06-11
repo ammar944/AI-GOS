@@ -25,7 +25,7 @@
   ],
   "corpusExcerpts": [],
   "expected_verdict": {
-    "verifiedCount": 1,
+    "verifiedCount": 2,
     "unsupportedCount": 2,
     "requiredClassesSatisfied": false
   }
