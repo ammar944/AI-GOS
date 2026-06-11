@@ -124,7 +124,7 @@ Tool-gap rules:
    Validation: at least 10 keywords, each with `intentType`, `top3RankingDomains`, a SpyFu or Trends `monthlyVolume` (or explicit data gap), `sourceTitle`, `sourceUrl`, `dateObserved`. Prose carries cluster tags, ceiling math, and the first-dollar verdict.
 
 3. Mine buyer questions across surfaces.
-   Validation: at least 10 verbatim questions across at least 2 `surface` types, each with a `sourceUrl`. Prose says which become ad-copy angles and which content angles. Never invent questions: if fewer than 10 verbatim questions were actually fetched, ship `questions: []` with `body.questionMining.blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) explaining what was tried.
+   Validation: at least 10 verbatim questions, each with a `sourceUrl`. Mine at least 2 `surface` types where they exist, but a single surface that genuinely dominates (e.g. all real questions live on Reddit) is honest and acceptable — say so in prose. Never invent questions: if fewer than 10 verbatim questions were actually fetched, ship `questions: []` with `body.questionMining.blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) explaining what was tried.
 
 4. Identify content gaps (demand + weak answer).
    Validation: at least 3 gaps, each with `evidenceOfDemand`, `weakCompetitorAnswerEvidence` naming the specific weak page, and the `opportunity`. Prose tags each gap capture or creation.
@@ -133,7 +133,7 @@ Tool-gap rules:
    Validation: at least 5 signals across at least 2 `signalType` values, each with a `sourceUrl`, a how-to-detect description, and an implication. Never invent signals: if fewer than 5 observable signals were actually fetched, ship `items: []` with `body.intentSignals.blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) explaining what was tried.
 
 6. Map demand venues.
-   Validation: at least 4 venues across at least 2 `venueType` values, each with `sourceUrl` and an `audienceSize` observed on the venue page (dated) or an honest "count not public" — never an estimate. Prose tags each venue capture or creation.
+   Validation: at least 4 venues, each with `sourceUrl` and an `audienceSize` observed on the venue page (dated) or an honest "count not public" — never an estimate. Spread across `venueType` values where reality allows; a single venueType of real venues beats a diverse list of invented ones. Never invent venues: if fewer than 4 real venues were verified, ship `venues: []` with `body.venueMap.blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`). Prose tags each venue capture or creation.
 
 7. Write 1-2 paragraphs of prose per sub-section per the Writing Contract — thesis first, ceiling math woven as evidence, any gap closing the field — then a tight `statusSummary`, `verdict`, `confidence`, and section-level `sources` (at least 5).
    Validation: each prose field opens with its budget-relevant call and ends in implications, cards carry dated evidence, confidence is 0..1, every `monthlyVolume` is SpyFu, Trends, or an explicit data gap (never `not disclosed`, never invented).
@@ -162,7 +162,7 @@ Body sub-sections, each `{ prose, <cards> }`:
 - `questionMining`: `{ prose, questions, blockGap? }` — `blockGap` (`{ summary, foundCount, requiredCount, sourcingPlan }`) only with `questions: []`, the honest-shortfall escape.
 - `contentGaps`: `{ prose, gaps }`
 - `intentSignals`: `{ prose, items, blockGap? }` — same escape, only with `items: []`.
-- `venueMap`: `{ prose, venues }`
+- `venueMap`: `{ prose, venues, blockGap? }` — same escape, only with `venues: []`.
 
 ## Card Schemas
 

@@ -583,3 +583,89 @@ describe("keywordSignalSchema — optional cpc", (): void => {
     ).toBe(false);
   });
 });
+
+// Diversity quotas (>=2 surface/signal/venue types) were validator floors that
+// run 314d5f02 proved are only ever satisfied by INVENTING rows: with real
+// single-surface mining, the section hard-failed. Diversity is prompt-side
+// guidance now; honesty floors (counts + blockGap escape) remain.
+describe("validateDemandIntentMinimums — diversity is guidance, not a floor", (): void => {
+  const venueBlockGap: DemandIntentBlockGap = {
+    summary: "evidence gap: no public venues with displayed audience counts found",
+    foundCount: 1,
+    requiredCount: 4,
+    sourcingPlan: ["Probe podcast directories and Slack community indexes next run."],
+  };
+
+  it("accepts 10+ real questions all from ONE surface", (): void => {
+    const questions =
+      demandIntentFixtureArtifact.body.questionMining.questions.map(
+        (question) => ({ ...question, surface: "reddit" as const }),
+      );
+    const result = validateDemandIntentMinimums({
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        questionMining: {
+          ...demandIntentFixtureArtifact.body.questionMining,
+          questions,
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("accepts 4+ real venues all of ONE venueType", (): void => {
+    const venues = demandIntentFixtureArtifact.body.venueMap.venues.map(
+      (venue) => ({ ...venue, venueType: "community" as const }),
+    );
+    const result = validateDemandIntentMinimums({
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        venueMap: { ...demandIntentFixtureArtifact.body.venueMap, venues },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("accepts venues: [] with a blockGap instead of invented venues", (): void => {
+    const result = validateDemandIntentMinimums({
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        venueMap: {
+          prose: demandIntentFixtureArtifact.body.venueMap.prose,
+          venues: [],
+          blockGap: venueBlockGap,
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("rejects a thin venue list even WITH a blockGap (floor stays all-or-nothing)", (): void => {
+    const result = validateDemandIntentMinimums({
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        venueMap: {
+          prose: demandIntentFixtureArtifact.body.venueMap.prose,
+          venues: demandIntentFixtureArtifact.body.venueMap.venues.slice(0, 2),
+          blockGap: venueBlockGap,
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "body.venueMap.venues: have 2, need >=4.",
+    );
+    expect(result.errors.join(" ")).toContain("blockGap");
+  });
+});

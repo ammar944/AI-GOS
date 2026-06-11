@@ -130,7 +130,11 @@ export const demandIntentBodySchema = z
       })
       .strict(),
     venueMap: z
-      .object({ prose: z.string().min(1), venues: z.array(demandVenueSchema) })
+      .object({
+        prose: z.string().min(1),
+        venues: z.array(demandVenueSchema),
+        blockGap: demandIntentBlockGapSchema.optional(),
+      })
       .strict(),
   })
   .strict();
@@ -162,10 +166,6 @@ export type DemandIntentSectionOutput = z.infer<
 export type DemandIntentArtifact = ArtifactEnvelope & {
   body: DemandIntentBody;
 };
-
-function uniqueCount(values: readonly string[]): number {
-  return new Set(values).size;
-}
 
 function normalizeKeywordForEvidence(value: string): string {
   return value.trim().toLowerCase();
@@ -464,14 +464,9 @@ export function validateDemandIntentMinimums(
         `body.questionMining.questions: have ${questions.length}, need >=10. Never invent questions: if fewer than 10 verbatim questions were actually fetched, ship questions: [] with body.questionMining.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
       );
     }
-    const questionSurfaceCount = uniqueCount(
-      questions.map((question) => question.surface),
-    );
-    if (questionSurfaceCount < 2) {
-      errors.push(
-        `body.questionMining.questions: need >=2 surface types, have ${questionSurfaceCount}.`,
-      );
-    }
+    // Surface diversity is prompt-side guidance, never a validator floor:
+    // run 314d5f02 proved the >=2-surface quota was only ever satisfied by
+    // inventing Quora/forum rows — honest single-surface mining must pass.
   }
 
   const gapCount = parsedArtifact.body.contentGaps.gaps.length;
@@ -489,25 +484,23 @@ export function validateDemandIntentMinimums(
         `body.intentSignals.items: have ${intentSignals.length}, need >=5. Never invent signals: if fewer than 5 observable intent signals were actually fetched, ship items: [] with body.intentSignals.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
       );
     }
-    const signalTypeCount = uniqueCount(
-      intentSignals.map((signal) => signal.signalType),
-    );
-    if (signalTypeCount < 2) {
-      errors.push(
-        `body.intentSignals.items: need >=2 signalTypes, have ${signalTypeCount}.`,
-      );
-    }
+    // signalType diversity is prompt-side guidance only (same fabrication
+    // forcer as the question-surface quota — see above).
   }
 
-  const venues = parsedArtifact.body.venueMap.venues;
-  if (venues.length < 4) {
-    errors.push(`body.venueMap.venues: have ${venues.length}, need >=4.`);
-  }
-  const venueTypeCount = uniqueCount(venues.map((venue) => venue.venueType));
-  if (venueTypeCount < 2) {
-    errors.push(
-      `body.venueMap.venues: need >=2 venueTypes, have ${venueTypeCount}.`,
-    );
+  const venueMapBlock = parsedArtifact.body.venueMap;
+  const venues = venueMapBlock.venues;
+  const venuesShipHonestGap =
+    venueMapBlock.blockGap !== undefined && venues.length === 0;
+  if (!venuesShipHonestGap) {
+    if (venues.length < 4) {
+      errors.push(
+        `body.venueMap.venues: have ${venues.length}, need >=4. Never invent venues: if fewer than 4 real venues were actually verified, ship venues: [] with body.venueMap.blockGap = { summary, foundCount, requiredCount, sourcingPlan } explaining what was tried.`,
+      );
+    }
+    // venueType diversity is prompt-side guidance only (same fabrication
+    // forcer class — a quota satisfied by invented newsletters is worse
+    // than four real communities).
   }
 
   return { ok: errors.length === 0, errors };
