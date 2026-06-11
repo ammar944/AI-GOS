@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, Building2, PanelLeftClose, PanelLeft } from 'lucide-react';
+import {
+  Home,
+  Compass,
+  Building2,
+  BarChart3,
+  PanelLeftClose,
+  PanelLeft,
+} from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/logo';
 import { Button } from '@/components/ui/button';
@@ -17,11 +24,20 @@ interface NavEntry {
   href: string;
 }
 
-const NAV_ITEMS: NavEntry[] = [
+const BASE_NAV_ITEMS: NavEntry[] = [
   { icon: Home, label: 'Home', href: '/dashboard' },
   { icon: Compass, label: 'Research', href: '/research-v3' },
   { icon: Building2, label: 'Profiles', href: '/profiles' },
 ];
+
+const INTERNAL_NAV_ITEMS: NavEntry[] = [
+  { icon: BarChart3, label: 'SaaSLaunch', href: '/internal/saaslaunch' },
+];
+
+interface AuthMeResponse {
+  authenticated: boolean;
+  role?: 'admin' | 'internal' | 'client';
+}
 
 function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }): React.JSX.Element {
   const pathname = usePathname();
@@ -60,15 +76,49 @@ export function AppSidebar(): React.JSX.Element {
   const shell = useOptionalShell();
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [showInternalNav, setShowInternalNav] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAccess(): Promise<void> {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (!response.ok) {
+          if (!cancelled) setShowInternalNav(false);
+          return;
+        }
+        const payload = (await response.json()) as AuthMeResponse;
+        if (!cancelled) {
+          setShowInternalNav(
+            payload.authenticated === true &&
+              (payload.role === 'admin' || payload.role === 'internal'),
+          );
+        }
+      } catch (error) {
+        console.warn('[app-sidebar] failed to load internal navigation access', error);
+        if (!cancelled) setShowInternalNav(false);
+      }
+    }
+
+    void loadAccess();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Use shell context when available, otherwise fall back to local state
   const collapsed = shell?.sidebarCollapsed ?? localCollapsed;
   const expanded = !collapsed;
   const toggleSidebar = shell?.toggleSidebar ?? (() => setLocalCollapsed((c) => !c));
+  const navItems = showInternalNav
+    ? [...BASE_NAV_ITEMS, ...INTERNAL_NAV_ITEMS]
+    : BASE_NAV_ITEMS;
 
   return (
     <aside
@@ -115,7 +165,7 @@ export function AppSidebar(): React.JSX.Element {
 
       {/* Navigation */}
       <nav className="flex flex-col gap-1 px-2">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <SidebarLink key={item.href} item={item} expanded={expanded} />
         ))}
       </nav>

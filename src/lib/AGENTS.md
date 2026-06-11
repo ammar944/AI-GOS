@@ -10,6 +10,7 @@
 - `research-v2/` owns orchestration glue for the live research backend.
 - `journey/` owns journey/session contracts, dispatch helper, realtime hook, and field catalog.
 - `ai/` owns provider configuration, AI helpers, and AI tool wrappers outside the lab engine.
+- `saaslaunch/` owns internal SaaSLaunch landing analytics contracts, registry validation, event ingest helpers, and internal dashboard read models.
 - Other folders own their named domain concerns unless a closer `AGENTS.md` exists.
 
 ## Local Contracts
@@ -37,4 +38,5 @@
 - `journey/AGENTS.md` - Journey/session contracts, dispatch helper, realtime, and field catalog.
 - `lab-engine/AGENTS.md` - In-process section agent engine, tools, verification, schemas, and prompt skills.
 - `research-v2/AGENTS.md` - Live research orchestration, state, persistence, partials, and sharing glue.
+- `saaslaunch/` - Internal SaaSLaunch landing analytics contracts, validation, ingest persistence, and dashboard read models.
 - `workspace/AGENTS.md` - Workspace card taxonomy and non-UI workspace helpers.

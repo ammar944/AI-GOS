@@ -8,6 +8,7 @@
 
 - Page routes own URL-level behavior and composition only.
 - API routes under `api/` own HTTP boundaries and request/response contracts.
+- `internal/saaslaunch/` owns the protected internal SaaSLaunch landing analytics UI and must stay behind the `/internal` layout guard.
 - Shared UI belongs in `src/components/`; reusable business logic belongs in `src/lib/`.
 
 ## Local Contracts
@@ -31,4 +32,5 @@
 ## Child DOX Index
 
 - `api/AGENTS.md` - All HTTP API route handlers.
+- `internal/saaslaunch/` - Protected internal SaaSLaunch landing analytics UI.
 - `research-v3/AGENTS.md` - Canonical Audit Reader front door and live research page.

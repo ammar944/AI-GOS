@@ -8,6 +8,7 @@
 
 - Each route folder owns its request parsing, auth, response shape, and errors.
 - Shared persistence, AI, worker, and orchestration logic belongs in `src/lib/`.
+- `landing-events/` is a public SaaSLaunch tracker ingest boundary; it must keep origin allowlisting, registry validation, property schema enforcement, and rejection persistence in `src/lib/saaslaunch/`.
 
 ## Local Contracts
 
@@ -31,3 +32,4 @@
 ## Child DOX Index
 
 - `research-v2/AGENTS.md` - Live research backend routes used by the `research-v3` page.
+- `landing-events/` - Public SaaSLaunch landing analytics ingest route.

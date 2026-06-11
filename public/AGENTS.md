@@ -13,6 +13,7 @@
 - Preserve filenames referenced by HTML metadata, manifests, components, or CSS.
 - Inspect actual assets before replacing them.
 - Do not place secrets, private docs, or generated proof artifacts here.
+- `sl-analytics.v1.js` is the public SaaSLaunch landing tracker. It must not collect form values, raw personal identifiers, secrets, or non-UTM query parameters; server-side validation remains authoritative.
 
 ## Work Guidance
 
