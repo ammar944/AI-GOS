@@ -210,6 +210,13 @@ export function useAuditState(
   useEffect(() => {
     cancelled.current = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // W3 executive brief: the detached brief route writes thesis
+    // {status:'generating'} ~1s after the paid-media commit. Keep a short
+    // bounded grace window after paid-media turns terminal so the poll
+    // observes that claim, then keep polling only while it reports
+    // 'generating'. A null thesis after the grace window (kickoff never
+    // configured/fired) stops the poll exactly as before.
+    let briefGracePollsLeft = 4;
     // Aborts any in-flight dispatch fetch on unmount / runId change so it can't
     // reject with an empty-message DOMException after the effect tears down.
     const dispatchAbort = new AbortController();
@@ -310,7 +317,23 @@ export function useAuditState(
           next.workerStates.length > 0 &&
           next.workerStates.every((w) => TERMINAL.has(w.status));
         const waitingForPostSix = sixComplete && !isPaidMediaPlanTerminal(next);
-        if (!allTerminal || waitingForPostSix) schedule();
+        const brief = next.executive_brief;
+        const briefGenerating =
+          isRecord(brief) && brief.status === 'generating';
+        const briefPendingGrace =
+          isPaidMediaPlanTerminal(next) &&
+          (brief === null || brief === undefined) &&
+          briefGracePollsLeft > 0;
+        if (briefPendingGrace) {
+          briefGracePollsLeft -= 1;
+        }
+        if (
+          !allTerminal ||
+          waitingForPostSix ||
+          briefGenerating ||
+          briefPendingGrace
+        )
+          schedule();
       } catch {
         schedule();
       }

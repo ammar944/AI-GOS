@@ -69,6 +69,9 @@ export interface AuditStateResponse {
   parent_status: string | null;
   children_complete: number;
   children_total: number;
+  // W3 executive brief payload (research_artifacts.thesis jsonb): null until
+  // the post-paid-media kickoff writes {status:'generating'|'complete'|'error'}.
+  executive_brief?: Record<string, unknown> | null;
   workerStates: Array<{
     section_id: AllPositioningSectionId;
     status: WorkerStatus;
@@ -408,7 +411,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
   const supabase = createAdminClient();
   const { data: parent, error: parentErr } = await supabase
     .from('research_artifacts')
-    .select('id, status, children_total, children_complete')
+    .select('id, status, children_total, children_complete, thesis')
     .eq('user_id', userId)
     .eq('run_id', runId)
     .maybeSingle();
@@ -626,6 +629,8 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       parent_status: parentStatus,
       children_complete: childrenComplete,
       children_total: childrenTotal,
+      executive_brief:
+        (parent.thesis as Record<string, unknown> | null) ?? null,
       workerStates,
       sectionsByZone,
       eventsByZone,

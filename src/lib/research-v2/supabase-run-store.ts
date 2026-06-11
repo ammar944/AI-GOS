@@ -744,6 +744,77 @@ async function postDetachedReviewKickoff(
   }
 }
 
+// W3 executive brief kickoff (Manus-grade program): fired once, when the
+// paid-media plan commits — the moment all seven bodies exist. Mirrors the
+// detached-review shape (own route, own invocation clock, 202 ACK only); the
+// dispatch target is derived from reviewDispatch by convention so no caller
+// needs new plumbing. Best-effort: a missed kickoff means no brief, never a
+// failed section.
+function deriveExecutiveBriefDispatch(
+  reviewDispatch: SupabaseRunStoreReviewDispatch | undefined,
+): SupabaseRunStoreReviewDispatch | undefined {
+  if (reviewDispatch === undefined) {
+    return undefined;
+  }
+
+  if (!/review-section\/?$/.test(reviewDispatch.url)) {
+    return undefined;
+  }
+
+  return {
+    internalKey: reviewDispatch.internalKey,
+    url: reviewDispatch.url.replace(/review-section\/?$/, 'executive-brief'),
+  };
+}
+
+async function postExecutiveBriefKickoff({
+  options,
+  runId,
+}: {
+  options: CreateSupabaseRunStoreOptions;
+  runId: string;
+}): Promise<void> {
+  const dispatch = deriveExecutiveBriefDispatch(options.reviewDispatch);
+
+  if (dispatch === undefined) {
+    console.info(
+      '[supabase-run-store] executive brief kickoff skipped: no dispatch target',
+      { runId },
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch(dispatch.url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-key': dispatch.internalKey,
+      },
+      body: JSON.stringify({
+        userId: options.userId,
+        runId,
+        parentAuditRunId: options.parentAuditRunId,
+        companyName: options.researchInput.company.name,
+        companyWebsiteUrl: options.researchInput.company.websiteUrl,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      console.warn('[supabase-run-store] executive brief kickoff rejected', {
+        runId,
+        status: response.status,
+      });
+    }
+  } catch (error) {
+    console.warn(
+      '[supabase-run-store] executive brief kickoff failed',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 function schedulePostCommitAgenticReview(
   input: SchedulePostCommitAgenticReviewInput,
 ): void {
@@ -1253,6 +1324,10 @@ export function createSupabaseRunStore(
         completedAt,
         artifactToCommit: parsedArtifact,
       });
+
+      if (isCapstoneSection) {
+        await postExecutiveBriefKickoff({ options, runId: input.runId });
+      }
 
       record = mergeSection(
         record,

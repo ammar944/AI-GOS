@@ -61,6 +61,7 @@ import {
   POSITIONING_SECTION_IDS,
   type AllPositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
+import { ExecutiveBriefCard } from '@/components/research-v2/executive-brief-card';
 import { useAuditState } from '@/lib/research-v2/use-audit-state';
 import { hasSixPositioningSectionsComplete } from '@/lib/research-v2/six-sections-complete';
 import { useSectionPartials } from '@/lib/research-v2/use-section-partials';
@@ -1339,6 +1340,13 @@ export function AuditReaderShell({
               active={active}
               onSelect={select}
               statusOf={statusOf}
+            />
+
+            <ExecutiveBriefCard
+              brief={live.executive_brief}
+              sectionLabelOf={(sectionId) =>
+                READER_SECTION_LABELS[sectionId as ReaderSectionId] ?? sectionId
+              }
             />
 
             <div className="flex items-center justify-between gap-4">
