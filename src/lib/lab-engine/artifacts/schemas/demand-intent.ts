@@ -116,7 +116,7 @@ export const demandIntentBodySchema = z
       .object({
         prose: z.string().min(1),
         questions: z.array(buyerQuestionSchema),
-        blockGap: demandIntentBlockGapSchema.optional(),
+        blockGap: demandIntentBlockGapSchema.nullable().transform((value) => value ?? undefined).optional(),
       })
       .strict(),
     contentGaps: z
@@ -126,14 +126,14 @@ export const demandIntentBodySchema = z
       .object({
         prose: z.string().min(1),
         items: z.array(intentSignalSchema),
-        blockGap: demandIntentBlockGapSchema.optional(),
+        blockGap: demandIntentBlockGapSchema.nullable().transform((value) => value ?? undefined).optional(),
       })
       .strict(),
     venueMap: z
       .object({
         prose: z.string().min(1),
         venues: z.array(demandVenueSchema),
-        blockGap: demandIntentBlockGapSchema.optional(),
+        blockGap: demandIntentBlockGapSchema.nullable().transform((value) => value ?? undefined).optional(),
       })
       .strict(),
   })
