@@ -5,6 +5,7 @@ import fabricatedPriceFixture from "../__evals__/fixtures/synthetic-fabricated-p
 import fabricatedQuoteFixture from "../__evals__/fixtures/synthetic-fabricated-quote.json";
 import {
   collectBriefMoneyDigits,
+  deriveClaimSupportCountsForTrust,
   deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
@@ -833,6 +834,90 @@ describe("redactUnsupportedNumericClaims", (): void => {
 
     expect(result.body).toBe(body);
     expect(result.stripped).toEqual([]);
+  });
+
+  it("excludes paid-media own cascade money and prescriptions from trust counts while retaining fabricated benchmarks", (): void => {
+    const body = {
+      campaignOverview: {
+        dailySpend: "$833/day",
+        dailySpendValue: 833,
+        dailySpendProvenance: "derived",
+        prose: "A fabricated CAC benchmark is $12,000.",
+      },
+      audienceTypes: [
+        {
+          dailyBudget: "$500/day",
+          dailyBudgetValue: 500,
+          dailyBudgetProvenance: "derived",
+        },
+        {
+          dailyBudget: "$200/day",
+          dailyBudgetValue: 200,
+          dailyBudgetProvenance: "derived",
+        },
+      ],
+      channelSuggestions: [
+        {
+          recommendation:
+            "Increase LinkedIn budget to 20% if enterprise trial CVR exceeds bottoms-up by 2x.",
+        },
+      ],
+    };
+    const report: VerificationReport = {
+      claims: [
+        ...["one", "two", "three", "four"].map((value) => ({
+          claim: {
+            kind: "quote" as const,
+            raw: `Verified claim ${value}`,
+            value: `Verified claim ${value}`,
+          },
+          matchedSourceRef: {
+            excerptIndex: 0,
+            kind: "corpusExcerpt" as const,
+            sourceUrl: "https://example.com/source",
+          },
+          status: "verified" as const,
+        })),
+        ...[
+          { raw: "$833/day", value: "$833/day" },
+          { raw: "$500/day", value: "$500" },
+          { raw: "$200/day", value: "$200" },
+          {
+            raw:
+              "Increase LinkedIn budget to 20% if enterprise trial CVR exceeds bottoms-up by 2x.",
+            value: "20%",
+          },
+          {
+            raw: "A fabricated CAC benchmark is $12,000.",
+            value: "$12,000",
+          },
+        ].map(({ raw, value }) => ({
+          claim: {
+            kind: "numeric" as const,
+            raw,
+            value,
+          },
+          reason: "no_match" as const,
+          status: "unsupported" as const,
+        })),
+      ],
+      unsupportedCount: 5,
+      verifiedCount: 4,
+    };
+
+    expect(
+      deriveClaimSupportCountsForTrust({
+        body,
+        briefMoneyDigits: collectBriefMoneyDigits({
+          monthlyAdBudget: "$25,000/month",
+        }),
+        report,
+        sectionId: "positioningPaidMediaPlan",
+      }),
+    ).toEqual({
+      unsupportedCount: 1,
+      verifiedCount: 4,
+    });
   });
 });
 

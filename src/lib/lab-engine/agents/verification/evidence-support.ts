@@ -33,6 +33,18 @@ export interface EvaluateEvidenceSupportInput {
   loadBearingKinds?: readonly LoadBearingClaimKind[];
 }
 
+export interface ClaimSupportCounts {
+  verifiedCount: number;
+  unsupportedCount: number;
+}
+
+export interface DeriveClaimSupportCountsForTrustInput {
+  body: Record<string, unknown>;
+  briefMoneyDigits?: ReadonlySet<string>;
+  report: VerificationReport;
+  sectionId: string;
+}
+
 const defaultLoadBearingKinds = ["numeric", "sourceAttribution", "url"] as const;
 const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
 // Default OPEN (Infinity): the evidence gate is advisory unless an operator sets
@@ -410,6 +422,7 @@ const trustedPaidMediaMoneyProvenances = new Set([
   // cascade reconciler is the sole writer of the committed derived token.
   "derived",
 ]);
+const claimSupportPaidMediaMoneyProvenances = new Set(["derived"]);
 const userSuppliedMoneyProvenance = "user-supplied";
 const modelEstimatedMoneyProvenance = "model-estimated";
 const demandIntentKeywordNumericFieldNames = new Set([
@@ -1228,6 +1241,321 @@ export function redactUnsupportedNumericClaims({
   });
 
   return stripped.length === 0 ? { body, stripped } : { body: cloned, stripped };
+}
+
+const paidMediaRecommendationPathPatterns = [
+  /^body\.channelSuggestions\[\d+\]\.recommendation$/,
+  /^body\.campaignPhases\[\d+\]\.bullets\[\d+\]$/,
+  /^body\.anglesToTest\[\d+\]\.description$/,
+  /^body\.funnelIdeation\[\d+\]\.description$/,
+  /^body\.funnelIdeation\[\d+\]\.whatItProves$/,
+] as const;
+const paidMediaPlanActionVerbs = [
+  "add",
+  "allocate",
+  "cap",
+  "cut",
+  "decrease",
+  "hold",
+  "increase",
+  "launch",
+  "lower",
+  "move",
+  "pause",
+  "prioritize",
+  "raise",
+  "reallocate",
+  "reduce",
+  "reserve",
+  "route",
+  "scale",
+  "shift",
+  "split",
+  "start",
+  "stop",
+  "test",
+] as const;
+const paidMediaPlanActionVerbSource = paidMediaPlanActionVerbs.join("|");
+const paidMediaPlanImperativePattern = new RegExp(
+  `^(?:${paidMediaPlanActionVerbSource})\\b`,
+  "i",
+);
+const paidMediaPlanConditionalActionPattern = new RegExp(
+  `^(?:if|when)\\b.{0,160}\\b(?:${paidMediaPlanActionVerbSource})\\b`,
+  "i",
+);
+const sentenceSplitPattern = /(?<=[.!?])\s+/;
+
+function isPaidMediaRecommendationPath(path: string): boolean {
+  return paidMediaRecommendationPathPatterns.some((pattern) =>
+    pattern.test(path),
+  );
+}
+
+function isPaidMediaPlanPrescription(value: string): boolean {
+  const normalized = normalizeWhitespace(value);
+
+  return (
+    paidMediaPlanImperativePattern.test(normalized) ||
+    paidMediaPlanConditionalActionPattern.test(normalized)
+  );
+}
+
+function claimTokenAppearsInText({
+  token,
+  value,
+}: {
+  token: string;
+  value: string;
+}): boolean {
+  return sentenceHasClaimToken({ sentence: value, token });
+}
+
+function sentenceHasClaimToken({
+  sentence,
+  token,
+}: {
+  sentence: string;
+  token: string;
+}): boolean {
+  if (!sentence.includes(token)) {
+    return false;
+  }
+
+  const pattern = new RegExp(escapeRegExp(token), "g");
+  let match = pattern.exec(sentence);
+
+  while (match !== null) {
+    if (
+      isCleanTokenBoundary({
+        matchLength: match[0].length,
+        offset: match.index,
+        source: sentence,
+      })
+    ) {
+      return true;
+    }
+
+    match = pattern.exec(sentence);
+  }
+
+  return false;
+}
+
+function valueHasPrescriptiveClaimToken({
+  token,
+  value,
+}: {
+  token: string;
+  value: string;
+}): boolean {
+  return value
+    .split(sentenceSplitPattern)
+    .map(normalizeWhitespace)
+    .filter((sentence) => sentence.length > 0)
+    .some(
+      (sentence) =>
+        sentenceHasClaimToken({ sentence, token }) &&
+        isPaidMediaPlanPrescription(sentence),
+    );
+}
+
+function collectPaidMediaPrescriptionFields({
+  body,
+}: {
+  body: Record<string, unknown>;
+}): string[] {
+  const fields: string[] = [];
+
+  function visit(value: unknown, path: string): void {
+    if (typeof value === "string") {
+      if (isPaidMediaRecommendationPath(path)) {
+        fields.push(value);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${path}[${index}]`));
+      return;
+    }
+
+    if (!isRecord(value)) {
+      return;
+    }
+
+    for (const [key, childValue] of Object.entries(value)) {
+      visit(childValue, `${path}.${key}`);
+    }
+  }
+
+  visit(body, "body");
+
+  return fields;
+}
+
+function addMoneyDigitVariants({
+  digits,
+  value,
+}: {
+  digits: Set<string>;
+  value: string;
+}): void {
+  moneyDigitVariants(value).forEach((variant) => {
+    digits.add(variant);
+  });
+}
+
+function collectPaidMediaOwnMoneyDigits({
+  body,
+  briefMoneyDigits,
+}: {
+  body: Record<string, unknown>;
+  briefMoneyDigits: ReadonlySet<string>;
+}): ReadonlySet<string> {
+  const digits = new Set<string>();
+
+  function visit(value: unknown): void {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    if (!isRecord(value)) {
+      return;
+    }
+
+    for (const [fieldName, fieldValue] of Object.entries(value)) {
+      if (
+        typeof fieldValue !== "string" ||
+        !isPaidMediaMoneyDisplayField({
+          fieldName,
+          record: value,
+          value: fieldValue,
+        })
+      ) {
+        continue;
+      }
+
+      const provenance = value[moneyProvenanceKey(fieldName)];
+
+      if (
+        typeof provenance === "string" &&
+        claimSupportPaidMediaMoneyProvenances.has(provenance)
+      ) {
+        addMoneyDigitVariants({ digits, value: fieldValue });
+        continue;
+      }
+
+      if (
+        provenance === userSuppliedMoneyProvenance &&
+        tokenAppearsInBriefEconomics({
+          briefMoneyDigits,
+          token: fieldValue,
+        })
+      ) {
+        addMoneyDigitVariants({ digits, value: fieldValue });
+      }
+    }
+
+    Object.values(value).forEach(visit);
+  }
+
+  visit(body);
+
+  return digits;
+}
+
+function tokenAppearsInMoneyDigits({
+  digits,
+  token,
+}: {
+  digits: ReadonlySet<string>;
+  token: string;
+}): boolean {
+  return moneyDigitVariants(token).some((variant) => digits.has(variant));
+}
+
+function isPaidMediaTrustExemptUnsupportedClaim({
+  briefMoneyDigits,
+  claim,
+  ownMoneyDigits,
+  prescriptionFields,
+}: {
+  briefMoneyDigits: ReadonlySet<string>;
+  claim: Claim;
+  ownMoneyDigits: ReadonlySet<string>;
+  prescriptionFields: readonly string[];
+}): boolean {
+  if (!isNumericClaim(claim)) {
+    return false;
+  }
+
+  if (
+    tokenAppearsInBriefEconomics({
+      briefMoneyDigits,
+      token: claim.value,
+    })
+  ) {
+    return true;
+  }
+
+  if (tokenAppearsInMoneyDigits({ digits: ownMoneyDigits, token: claim.value })) {
+    return true;
+  }
+
+  return prescriptionFields.some((fieldValue) => {
+    if (normalizeWhitespace(fieldValue) !== normalizeWhitespace(claim.raw)) {
+      return false;
+    }
+
+    if (!claimTokenAppearsInText({ token: claim.value, value: fieldValue })) {
+      return false;
+    }
+
+    return valueHasPrescriptiveClaimToken({
+      token: claim.value,
+      value: fieldValue,
+    });
+  });
+}
+
+export function deriveClaimSupportCountsForTrust({
+  body,
+  briefMoneyDigits = new Set<string>(),
+  report,
+  sectionId,
+}: DeriveClaimSupportCountsForTrustInput): ClaimSupportCounts {
+  if (sectionId !== "positioningPaidMediaPlan") {
+    return {
+      unsupportedCount: report.unsupportedCount,
+      verifiedCount: report.verifiedCount,
+    };
+  }
+
+  const ownMoneyDigits = collectPaidMediaOwnMoneyDigits({
+    body,
+    briefMoneyDigits,
+  });
+  const prescriptionFields = collectPaidMediaPrescriptionFields({ body });
+  const exemptUnsupportedCount = report.claims.filter(
+    (verdict) =>
+      verdict.status === "unsupported" &&
+      isPaidMediaTrustExemptUnsupportedClaim({
+        briefMoneyDigits,
+        claim: verdict.claim,
+        ownMoneyDigits,
+        prescriptionFields,
+      }),
+  ).length;
+
+  return {
+    unsupportedCount: Math.max(
+      0,
+      report.unsupportedCount - exemptUnsupportedCount,
+    ),
+    verifiedCount: report.verifiedCount,
+  };
 }
 
 export function getMaxUnsupportedAllowed(

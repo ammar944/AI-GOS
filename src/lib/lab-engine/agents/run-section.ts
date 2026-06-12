@@ -200,6 +200,7 @@ import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
 import {
   collectBriefMoneyDigits,
+  deriveClaimSupportCountsForTrust,
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
   redactUnsupportedNumericClaims,
@@ -248,6 +249,7 @@ import {
   stripContradictedSubjectCtaClaims,
   type SourceLivenessDrop,
   type SourceLivenessFetch,
+  type SourceLivenessResult,
   type SubjectSiteObservation,
   type SubjectCtaClaimStrip,
 } from "./verification/source-liveness";
@@ -2574,13 +2576,62 @@ const misattributedQuoteSourceRelabelers: Partial<
   positioningVoiceOfCustomer: () => "other",
 };
 
-function hasEvidenceGapCore(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return value.some(hasEvidenceGapCore);
+const smallNContainmentProbeFloor = 4;
+const jsWalledContainmentDomains = new Set([
+  "capterra.com",
+  "g2.com",
+  "reddit.com",
+  "trustradius.com",
+  "trustpilot.com",
+  "youtu.be",
+  "youtube.com",
+]);
+const forumHostPattern = /(^|\.)(?:community|discourse|forum|forums)(\.|$)/i;
+
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isGapSubstitutedEvidenceBlock(value: unknown): boolean {
+  const record = getRecord(value);
+
+  if (record === null) {
+    return false;
   }
 
-  if (typeof value === "string") {
-    return /\bevidence gap\b/i.test(value);
+  const blockGap = getRecord(record.blockGap);
+
+  if (blockGap === null || !hasText(blockGap.summary)) {
+    return false;
+  }
+
+  return Object.entries(record).some(
+    ([key, childValue]) =>
+      key !== "blockGap" &&
+      Array.isArray(childValue) &&
+      childValue.length === 0,
+  );
+}
+
+function isSectionEvidenceGapReport(value: unknown): boolean {
+  const record = getRecord(value);
+
+  if (record === null) {
+    return false;
+  }
+
+  const evidenceGapReport = getRecord(record.evidenceGapReport);
+
+  return record.evidenceGap === true && evidenceGapReport !== null;
+}
+
+export function hasHonestEmptyCore(value: unknown): boolean {
+  if (isGapSubstitutedEvidenceBlock(value) || isSectionEvidenceGapReport(value)) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(hasHonestEmptyCore);
   }
 
   const record = getRecord(value);
@@ -2588,61 +2639,147 @@ function hasEvidenceGapCore(value: unknown): boolean {
     return false;
   }
 
-  return Object.entries(record).some(
-    ([key, child]) => /evidencegap/i.test(key) || hasEvidenceGapCore(child),
+  return Object.values(record).some(hasHonestEmptyCore);
+}
+
+function isJsWalledContainmentUrl(sourceUrl: string): boolean {
+  const registrableDomain = getRegistrableDomain(sourceUrl);
+
+  if (
+    registrableDomain !== null &&
+    jsWalledContainmentDomains.has(registrableDomain)
+  ) {
+    return true;
+  }
+
+  try {
+    const hostname = new URL(sourceUrl).hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+
+    return forumHostPattern.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+function deriveContainmentKnownRate(
+  sourceLiveness: SourceLivenessResult,
+): {
+  containmentKnownRate: number;
+  smallNContainmentUnknownCount: number;
+} {
+  if (sourceLiveness.containmentPassRate === null) {
+    return {
+      containmentKnownRate: 1,
+      smallNContainmentUnknownCount: 0,
+    };
+  }
+
+  const containmentChecks = sourceLiveness.checkedUrls.filter(
+    (check) => check.containmentChecked,
   );
+
+  if (
+    containmentChecks.length === 0 ||
+    containmentChecks.length >= smallNContainmentProbeFloor
+  ) {
+    return {
+      containmentKnownRate: sourceLiveness.containmentPassRate,
+      smallNContainmentUnknownCount: 0,
+    };
+  }
+
+  const knownChecks = containmentChecks.filter(
+    (check) =>
+      check.containmentPassed || !isJsWalledContainmentUrl(check.sourceUrl),
+  );
+  const smallNContainmentUnknownCount =
+    containmentChecks.length - knownChecks.length;
+
+  return {
+    containmentKnownRate:
+      knownChecks.length === 0
+        ? 1
+        : knownChecks.filter((check) => check.containmentPassed).length /
+          knownChecks.length,
+    smallNContainmentUnknownCount,
+  };
 }
 
 function deriveClaimSupportShare({
+  body,
+  briefMoneyDigits,
   report,
+  sectionId,
   shortfall,
 }: {
+  body: Record<string, unknown>;
+  briefMoneyDigits?: ReadonlySet<string>;
   report: VerificationReportEnvelope;
+  sectionId: SectionId;
   shortfall?: EvidenceSupportShortfall;
 }): number {
+  const supportCounts = deriveClaimSupportCountsForTrust({
+    body,
+    ...(briefMoneyDigits === undefined ? {} : { briefMoneyDigits }),
+    report,
+    sectionId,
+  });
   const provenancePenalty = shortfall?.provenanceFlags.length ?? 0;
   const total =
-    report.verifiedCount + report.unsupportedCount + provenancePenalty;
+    supportCounts.verifiedCount +
+    supportCounts.unsupportedCount +
+    provenancePenalty;
 
   if (total === 0) {
     return 0;
   }
 
-  return report.verifiedCount / total;
+  return supportCounts.verifiedCount / total;
 }
 
-function deriveWave2TrustConfidence({
+export function deriveWave2TrustConfidence({
   artifact,
+  briefMoneyDigits,
   honestEmptyCore,
   quoteForceEmptied,
+  sectionId,
   shortfall,
   sourceLiveness,
 }: {
   artifact: ArtifactEnvelope;
+  briefMoneyDigits?: ReadonlySet<string>;
   honestEmptyCore: boolean;
   quoteForceEmptied: boolean;
+  sectionId: SectionId;
   shortfall?: EvidenceSupportShortfall;
-  sourceLiveness: Awaited<ReturnType<typeof applySourceLivenessGate>>;
+  sourceLiveness: SourceLivenessResult;
 }): {
   claimSupportShare: number;
   confidence: number;
+  containmentKnownRate: number;
   quoteForceEmptied: boolean;
   honestEmptyCore: boolean;
+  smallNContainmentUnknownCount: number;
 } | null {
   if (artifact.verification === undefined) {
     return null;
   }
 
   const claimSupportShare = deriveClaimSupportShare({
+    body: artifact.body,
+    ...(briefMoneyDigits === undefined ? {} : { briefMoneyDigits }),
     report: artifact.verification,
+    sectionId,
     shortfall,
   });
   const livenessKnownRate =
     sourceLiveness.livenessPassRate === null ? 1 : sourceLiveness.livenessPassRate;
-  const containmentKnownRate =
-    sourceLiveness.containmentPassRate === null
-      ? 1
-      : sourceLiveness.containmentPassRate;
+  const {
+    containmentKnownRate,
+    smallNContainmentUnknownCount,
+  } = deriveContainmentKnownRate(sourceLiveness);
   const rawConfidence = Math.min(
     livenessKnownRate,
     containmentKnownRate,
@@ -2656,8 +2793,10 @@ function deriveWave2TrustConfidence({
   return {
     claimSupportShare,
     confidence,
+    containmentKnownRate,
     honestEmptyCore,
     quoteForceEmptied,
+    smallNContainmentUnknownCount,
   };
 }
 
@@ -2874,14 +3013,19 @@ async function annotateEvidenceSupportReview({
   const strippedNumericClaims = numericStrip.stripped.filter(
     (item) => item.action !== "verified-marker-removed",
   );
+  const honestEmptyCore = hasHonestEmptyCore(numericStrip.body);
   const quoteForceEmptied =
     sectionId === "positioningVoiceOfCustomer" &&
     sourceLiveness.droppedRows.length > 0 &&
-    hasEvidenceGapCore(numericStrip.body);
+    honestEmptyCore;
   const trust = deriveWave2TrustConfidence({
     artifact,
-    honestEmptyCore: hasEvidenceGapCore(numericStrip.body),
+    briefMoneyDigits: collectBriefMoneyDigits(
+      researchInput?.onboarding?.economics,
+    ),
+    honestEmptyCore,
     quoteForceEmptied,
+    sectionId,
     shortfall,
     sourceLiveness,
   });
@@ -3014,9 +3158,16 @@ async function annotateEvidenceSupportReview({
             computedTrust: {
               claimSupportShare: trust.claimSupportShare,
               confidence: trust.confidence,
+              containmentKnownRate: trust.containmentKnownRate,
               containmentPassRate: sourceLiveness.containmentPassRate,
               honestEmptyCore: trust.honestEmptyCore,
               livenessPassRate: sourceLiveness.livenessPassRate,
+              ...(trust.smallNContainmentUnknownCount > 0
+                ? {
+                    smallNContainmentUnknownCount:
+                      trust.smallNContainmentUnknownCount,
+                  }
+                : {}),
               ...(sourceLiveness.networkUnavailable
                 ? { networkUnavailable: true }
                 : {}),
