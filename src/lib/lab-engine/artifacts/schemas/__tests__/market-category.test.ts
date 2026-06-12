@@ -81,7 +81,7 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
     expect(result.errors.join(" ")).toContain("sourceUrl is not a valid URL");
   });
 
-  it("requires evidence-gap inputs to label the gap in the value", (): void => {
+  it("prefixes unlabeled evidence-gap values deterministically instead of rejecting", (): void => {
     const [firstInput, ...remainingInputs] =
       marketCategoryFixtureArtifact.body.marketSize.bottomUpTam.inputs;
 
@@ -113,13 +113,14 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
 
     const result = validateMarketCategoryMinimums(artifact);
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain(
-      "evidence-gap inputs must name the evidence gap",
-    );
+    expect(result.ok).toBe(true);
+
+    const reparsedBody = marketCategoryBodySchema.parse(artifact.body);
+    const gapInput = reparsedBody.marketSize.bottomUpTam.inputs[0];
+    expect(gapInput?.value.toLowerCase().startsWith("evidence gap:")).toBe(true);
   });
 
-  it("rejects a numeric reachable-revenue estimate when any input is an evidence gap", (): void => {
+  it("accepts a computed estimate alongside a single labeled evidence-gap input", (): void => {
     const [firstInput, ...remainingInputs] =
       marketCategoryFixtureArtifact.body.marketSize.bottomUpTam.inputs;
 
@@ -152,10 +153,7 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
 
     const result = validateMarketCategoryMinimums(artifact);
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain(
-      "reachableRevenueEstimate: must state an evidence gap",
-    );
+    expect(result.ok).toBe(true);
   });
 
   it("accepts the directional-only TAM state when two inputs are evidence gaps", (): void => {

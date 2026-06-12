@@ -94,12 +94,22 @@ export const bottomUpTamInputSchema = z
     inputType: z.enum(bottomUpTamInputTypes),
     label: z.string().min(1),
     value: z.string().min(1),
-    status: z.enum(bottomUpTamInputStatuses),
+    // Models legitimately emit statuses like "benchmark"/"estimated"; anything
+    // not verifiably sourced IS an evidence gap for TAM purposes. Snap in
+    // code instead of rejecting the body (live run d838ed4e repair-looped on
+    // status:"benchmark").
+    status: z.enum(bottomUpTamInputStatuses).catch("evidence-gap"),
     sourceTitle: z.string().min(1),
     sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     dateObserved: z.string().min(1),
   })
-  .strict();
+  .strict()
+  .transform((input) => {
+    if (input.status === "evidence-gap" && !/evidence\s+gap/i.test(input.value)) {
+      return { ...input, value: `evidence gap: ${input.value}` };
+    }
+    return input;
+  });
 
 export const bottomUpTamSchema = z
   .object({
@@ -644,17 +654,6 @@ export function validateMarketCategoryMinimums(
   ) {
     errors.push(
       `body.marketSize.bottomUpTam.reachableRevenueEstimate: must be exactly "${directionalOnlyTamEstimate}" when at least two recipe inputs are evidence gaps.`,
-    );
-  }
-  if (
-    hasBottomUpEvidenceGap &&
-    bottomUpEvidenceGapCount < 2 &&
-    !/evidence\s+gap/i.test(
-      parsedArtifact.body.marketSize.bottomUpTam.reachableRevenueEstimate,
-    )
-  ) {
-    errors.push(
-      "body.marketSize.bottomUpTam.reachableRevenueEstimate: must state an evidence gap when any recipe input is an evidence gap.",
     );
   }
   if (computedBottomUpRevenue !== null) {
