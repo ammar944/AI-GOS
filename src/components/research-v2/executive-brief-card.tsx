@@ -6,7 +6,21 @@
 // brief route has written research_artifacts.thesis.
 
 import { Response } from '@/components/ai-elements/response';
+import { cn } from '@/lib/utils';
 import { DecisionCard, GapNote, ReaderExhibit, scrubReaderText } from './primitives';
+
+// Memo typography, scoped to the brief only (response.tsx defaults stay
+// flattened): the first paragraph reads as a lede, h2/h3 get their scale
+// back, and paragraphs breathe. A decision memo, not a wall.
+export const MEMO_PROSE_CLASS = cn(
+  'space-y-4',
+  '[&>p:first-of-type]:text-[17px] [&>p:first-of-type]:leading-[1.65] [&>p:first-of-type]:text-foreground',
+  '[&_h2]:mt-7 [&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:tracking-[-0.01em]',
+  '[&_h3]:mt-6 [&_h3]:text-[16px] [&_h3]:font-semibold',
+);
+
+// Quiet editorial label (matches the restyled ui-kit Eyebrow).
+const MEMO_LABEL_CLASS = 'font-sans text-[12px] font-medium text-muted-foreground';
 
 interface BriefMove {
   rank: number;
@@ -65,9 +79,7 @@ export function ExecutiveBriefCard({
   if (brief.status === 'generating') {
     return (
       <div className="mb-8 rounded-lg border border-border bg-muted/20 px-5 py-3">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-          Composing executive brief…
-        </span>
+        <span className={MEMO_LABEL_CLASS}>Composing executive brief…</span>
       </div>
     );
   }
@@ -89,19 +101,18 @@ export function ExecutiveBriefCard({
       aria-label="Executive brief"
       className="mb-10 border-l-2 border-primary pl-5"
     >
-      <div className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        Executive decision memo
-      </div>
+      <div className={cn('mb-5', MEMO_LABEL_CLASS)}>Executive decision memo</div>
 
       {/* Thesis is AI-authored markdown with paragraph breaks — Response gives
-          it the shared 68ch body measure instead of a full-width text wall. */}
-      <Response>{scrubReaderText(brief.executiveThesis)}</Response>
+          it the shared 68ch body measure; MEMO_PROSE_CLASS restores lede +
+          heading scale within the brief only. */}
+      <Response className={MEMO_PROSE_CLASS}>
+        {scrubReaderText(brief.executiveThesis)}
+      </Response>
 
       {moves.length > 0 ? (
-        <div className="mt-6 border-t border-border pt-5">
-          <div className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-            The Three Moves
-          </div>
+        <div className="mt-8 border-t border-border pt-6">
+          <div className={cn('mb-4', MEMO_LABEL_CLASS)}>The Three Moves</div>
           <ol className="space-y-3">
             {moves.map((move) => (
               <li key={move.rank}>

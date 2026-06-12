@@ -174,6 +174,48 @@ describe('buildOnboardingReviewMetadata field contract', () => {
     expect(review.optionalIncomplete).not.toContain('growthTrend');
   });
 
+  it('internal-metrics fields are optional: blank Section 7 + economics fields neither pin nor block', () => {
+    // Demoted 2026-06-12: prefill can never auto-fill internal performance
+    // data, so these fields must not pin the blocker rail or fail the run gate.
+    const demotedKeys = [
+      'channels',
+      'budgetSplit',
+      'whatsWorking',
+      'whatsNotWorking',
+      'currentCac',
+      'monthlyRevenue',
+      'targetPlan',
+      'avgLtv',
+      'targetCac',
+      'monthlyPipelineTarget',
+    ] as const;
+    const data = {
+      ...makeAllRequiredFilled(),
+      channels: [],
+      budgetSplit: '',
+      whatsWorking: '',
+      whatsNotWorking: '',
+      currentCac: '',
+      monthlyRevenue: '',
+      targetPlan: '',
+      avgLtv: '',
+      targetCac: '',
+      monthlyPipelineTarget: '',
+    } satisfies OnboardingV2Data;
+
+    const review = buildOnboardingReviewMetadata(data);
+
+    for (const key of demotedKeys) {
+      expect(review.fields[key]?.state).toBe('Optional');
+      expect(review.pinnedFieldKeys).not.toContain(key);
+      expect(review.optionalIncomplete).toContain(key);
+    }
+    expect(review.pinnedFieldKeys).toHaveLength(0);
+
+    // Run-audit gating: the canonical schema accepts the brief.
+    expect(OnboardingV2Schema.safeParse(data).success).toBe(true);
+  });
+
   it('counts every field exactly once across all buckets', () => {
     const data = { ...makeAllRequiredFilled(), companyName: '', activationToPaid: '' };
     const review = buildOnboardingReviewMetadata(data);

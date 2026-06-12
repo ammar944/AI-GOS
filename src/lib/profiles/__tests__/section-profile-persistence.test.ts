@@ -129,6 +129,34 @@ describe('section profile persistence', (): void => {
     });
   });
 
+  it('persists only clientQuestions from a review — tierRationale and removedItems stay internal', (): void => {
+    const reviewedArtifact = {
+      ...marketCategoryFixtureArtifact,
+      review: {
+        upgradedMarkdown: 'Reviewed market category markdown.',
+        tier: 'needs_review' as const,
+        tierRationale: 'Model-asserted clean bill of health.',
+        removedItems: ['Removed a claim that was never in the body.'],
+        clientQuestions: ['Can you share real churn-call notes?'],
+      },
+    };
+
+    const insights = buildCommittedSectionProfileInsights({
+      sectionId: 'positioningMarketCategory',
+      artifact: reviewedArtifact,
+    });
+    const summary = insights.positioningMarketCategory as Record<
+      string,
+      unknown
+    >;
+
+    expect(summary.clientQuestions).toEqual([
+      'Can you share real churn-call notes?',
+    ]);
+    expect(summary).not.toHaveProperty('reviewTierRationale');
+    expect(summary).not.toHaveProperty('removedItems');
+  });
+
   it('sources positioningStrategy from paid-media cross-section insight', (): void => {
     const insights = buildCommittedSectionProfileInsights({
       sectionId: 'positioningPaidMediaPlan',

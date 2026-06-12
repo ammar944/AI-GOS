@@ -6,8 +6,11 @@ import {
   backfillNullOnboardingFields,
   buildDeepResearchPrompt,
   type DeepResearchCorpusOutput,
+  mergeProviderSourcesIntoCorpus,
+  mergeTopicSummary,
   normalizeTopCompetitorsValue,
   runDeepResearchProgram,
+  scrubDeepResearchProcessTalk,
   validateDeepResearchMinimums,
 } from '../runners/deep-research-program';
 import type { RunnerProgressUpdate } from '../runner';
@@ -137,7 +140,7 @@ function buildCorpusFixture(): Record<string, unknown> {
               claim: 'Ramp presents itself as a spend management platform.',
               source: 'Ramp homepage',
               url: 'https://ramp.com/',
-              quote: 'Ramp describes its platform as helping businesses control spend.',
+              quote: 'Ramp presents spend control software for modern finance teams on its homepage.',
               confidence: 90,
             },
             {
@@ -157,7 +160,7 @@ function buildCorpusFixture(): Record<string, unknown> {
               claim: 'Ramp combines cards, expenses, bill pay, procurement, and reporting workflows.',
               source: 'Ramp homepage',
               url: 'https://ramp.com/',
-              quote: 'Ramp combines cards, expenses, bill pay, procurement, and reporting workflows.',
+              quote: 'Ramp positions one platform spanning cards, expenses, bill pay, and procurement.',
               confidence: 85,
             },
           ],
@@ -170,7 +173,7 @@ function buildCorpusFixture(): Record<string, unknown> {
               claim: 'Ramp targets finance teams.',
               source: 'Ramp homepage',
               url: 'https://ramp.com/',
-              quote: 'Ramp positions finance automation for businesses and their finance teams.',
+              quote: 'Ramp homepage messaging speaks to finance teams that need spend controls.',
               confidence: 83,
             },
             {
@@ -190,7 +193,7 @@ function buildCorpusFixture(): Record<string, unknown> {
               claim: 'Ramp includes procurement in the same spend platform.',
               source: 'Ramp procurement',
               url: 'https://ramp.com/procurement',
-              quote: 'Ramp procurement helps companies manage purchase intake and approvals.',
+              quote: 'Ramp procurement pages position purchase intake against standalone procurement tools.',
               confidence: 84,
             },
           ],
@@ -203,14 +206,14 @@ function buildCorpusFixture(): Record<string, unknown> {
               claim: 'Ramp publishes pricing information.',
               source: 'Ramp pricing',
               url: 'https://ramp.com/pricing',
-              quote: 'Ramp pricing pages describe plan options for the product.',
+              quote: 'Ramp lists plan tiers and packaging options on its pricing page.',
               confidence: 82,
             },
             {
               claim: 'Ramp integrations extend the spend management package into connected finance systems.',
               source: 'Ramp integrations',
               url: 'https://ramp.com/integrations',
-              quote: 'Ramp integrations connect the platform to finance and operating systems.',
+              quote: 'Ramp integration listings extend packaging into connected finance systems.',
               confidence: 78,
             },
           ],
@@ -529,7 +532,9 @@ describe('validateDeepResearchMinimums', () => {
         'pricing_packaging',
         'demand_intent',
       ],
-      evidenceCount: 16,
+      // Evidence identity is url+quote (claim excluded), so every fixture row
+      // is distinct: 8 top-level + 10 topic excerpts.
+      evidenceCount: 18,
       passed: true,
       sourceCount: 10,
     });
@@ -636,6 +641,9 @@ describe('runDeepResearchProgram', () => {
     expect(result.telemetry?.model).toBe('sonar-pro');
     expect(JSON.stringify(result.data)).toContain('Cross-section memo');
     expect(JSON.stringify(result.data)).toContain('Supplemental offer proof');
+    // Merged topic summaries join with a plain space — the pipeline joiner
+    // literal must never ship inside client-facing prose.
+    expect(JSON.stringify(result.data)).not.toContain('Supplemental fan-out:');
     expect(JSON.stringify(result.data)).not.toContain('example.com');
     expect(
       progress.some(
@@ -682,7 +690,7 @@ describe('runDeepResearchProgram', () => {
     expect(memoCall.providerOptions?.perplexity?.reasoning_effort).toBe('low');
   });
 
-  it('keeps the corpus when a topic fan-out group fails instead of discarding it', async () => {
+  it('keeps the corpus when a topic fan-out group fails both attempts instead of discarding it', async () => {
     process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
     const generateTextMock = vi.mocked(generateText);
     generateTextMock.mockResolvedValueOnce(
@@ -700,6 +708,10 @@ describe('runDeepResearchProgram', () => {
         ) as Awaited<ReturnType<typeof generateText>>,
       );
     }
+    // The single retry for the failed group also rejects.
+    generateTextMock.mockRejectedValueOnce(
+      new Error('Deep research topic fan-out (company-market-buyers) timed out after 120s'),
+    );
     queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
@@ -712,14 +724,116 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    // Main corpus (1) + three fan-out attempts (3) + additive memo (1) + backfill (1) — no draft retry, no fallback model.
-    expect(generateTextMock).toHaveBeenCalledTimes(6);
+    // Main corpus (1) + three fan-out attempts (3) + one bounded retry of the
+    // failed group (1) + additive memo (1) + backfill (1) — no draft retry, no fallback model.
+    expect(generateTextMock).toHaveBeenCalledTimes(7);
     expect(result.provenance?.citationCount).toBe(10);
+    expect(
+      progress.some((update) =>
+        update.message.includes('retrying topic expansion for company-market-buyers'),
+      ),
+    ).toBe(true);
     expect(
       progress.some((update) =>
         update.message.includes('topic expansion incomplete for company-market-buyers'),
       ),
     ).toBe(true);
+  });
+
+  it('recovers a failed topic fan-out group on its single retry', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(buildCorpusFixture()) as Awaited<ReturnType<typeof generateText>>,
+    );
+    const supplements = buildTopicSupplementResults();
+    generateTextMock.mockRejectedValueOnce(
+      new Error('Deep research topic fan-out (company-market-buyers) timed out after 120s'),
+    );
+    for (const supplement of supplements.slice(1)) {
+      generateTextMock.mockResolvedValueOnce(
+        buildGenerateTextResult(
+          supplement.output,
+          supplement.sources,
+        ) as Awaited<ReturnType<typeof generateText>>,
+      );
+    }
+    // The retry succeeds with the group's supplement.
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(
+        supplements[0]!.output,
+        supplements[0]!.sources,
+      ) as Awaited<ReturnType<typeof generateText>>,
+    );
+    queueDeepResearchMemoResult(generateTextMock);
+    queueBackfillNoopResult(generateTextMock);
+    const progress: RunnerProgressUpdate[] = [];
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+      (update) => {
+        progress.push(update);
+      },
+    );
+
+    expect(result.status).toBe('complete');
+    expect(generateTextMock).toHaveBeenCalledTimes(7);
+    // The recovered group's evidence is merged — no "incomplete" downgrade.
+    expect(JSON.stringify(result.data)).toContain('Supplemental buyer proof');
+    expect(
+      progress.some((update) =>
+        update.message.includes('retrying topic expansion for company-market-buyers'),
+      ),
+    ).toBe(true);
+    expect(
+      progress.some((update) =>
+        update.message.includes('topic expansion incomplete for company-market-buyers'),
+      ),
+    ).toBe(false);
+  });
+
+  it('falls back to raw-text JSON when a fan-out structured output getter throws', async () => {
+    process.env.PERPLEXITY_API_KEY = 'test-perplexity-key';
+    const generateTextMock = vi.mocked(generateText);
+    generateTextMock.mockResolvedValueOnce(
+      buildGenerateTextResult(buildCorpusFixture()) as Awaited<ReturnType<typeof generateText>>,
+    );
+    const supplements = buildTopicSupplementResults();
+    // AI SDK v6 `output` is a THROWING getter when structured parsing failed;
+    // the raw text still carries the JSON payload.
+    const throwingOutputResult = {
+      ...(buildGenerateTextResult(
+        supplements[0]!.output,
+        supplements[0]!.sources,
+      ) as Record<string, unknown>),
+    };
+    Object.defineProperty(throwingOutputResult, 'output', {
+      get() {
+        throw new Error('No output generated.');
+      },
+    });
+    generateTextMock.mockResolvedValueOnce(
+      throwingOutputResult as unknown as Awaited<ReturnType<typeof generateText>>,
+    );
+    for (const supplement of supplements.slice(1)) {
+      generateTextMock.mockResolvedValueOnce(
+        buildGenerateTextResult(
+          supplement.output,
+          supplement.sources,
+        ) as Awaited<ReturnType<typeof generateText>>,
+      );
+    }
+    queueDeepResearchMemoResult(generateTextMock);
+    queueBackfillNoopResult(generateTextMock);
+
+    const result = await runDeepResearchProgram(
+      'Website: https://ramp.com\nCompany Name: Ramp',
+    );
+
+    expect(result.status).toBe('complete');
+    // No retry needed: the text fallback recovers the supplement in-place.
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
+    expect(JSON.stringify(result.data)).toContain('Supplemental buyer proof');
   });
 
   it('aborts before any Perplexity spend when the job signal is already aborted', async () => {
@@ -1049,6 +1163,132 @@ describe('buildDeepResearchPrompt', () => {
     expect(onboardingLines).toEqual([
       "`onboardingFields` is an output field-name convention only — 'onboarding' is NOT a research topic. Never research onboarding/user-onboarding unless the company's product is itself an onboarding tool.",
     ]);
+  });
+});
+
+describe('validateDeepResearchMinimums — grounded source counting', () => {
+  it('counts evidence-cited URLs toward the source minimum so unpadded corpora pass', () => {
+    const fixture = buildCorpusFixture();
+    const corpus = fixture.corpus as {
+      sources: Array<{ title: string; url: string; whyItMatters: string }>;
+    };
+    // Only 4 curated sources, but the evidence rows cite all 10 captured
+    // citations — the minimum must count grounding, not source-list padding.
+    corpus.sources = corpus.sources.slice(0, 4);
+
+    const report = validateDeepResearchMinimums(fixture, citationSources);
+
+    expect(report.passed).toBe(true);
+    expect(report.sourceCount).toBe(10);
+  });
+
+  it('counts paraphrased-claim duplicates (same url+quote) once', () => {
+    const fixture = buildCorpusFixture();
+    const corpus = fixture.corpus as {
+      evidence: Array<{ claim: string; source: string; url: string; quote: string; confidence: number }>;
+    };
+    corpus.evidence.push({
+      claim: 'A paraphrased restatement of the homepage claim.',
+      source: 'Ramp homepage',
+      url: 'https://ramp.com/',
+      quote: 'Ramp describes its platform as helping businesses control spend.',
+      confidence: 70,
+    });
+
+    const report = validateDeepResearchMinimums(fixture, citationSources);
+
+    expect(report.evidenceCount).toBe(18);
+  });
+});
+
+describe('mergeProviderSourcesIntoCorpus', () => {
+  it('backfills only evidence-cited citations, with citing-topic whyItMatters', () => {
+    const fixture = buildCorpusFixture() as unknown as DeepResearchCorpusOutput;
+    fixture.corpus.sources = fixture.corpus.sources.filter(
+      (source) =>
+        ![
+          'https://ramp.com/customers',
+          'https://ramp.com/integrations',
+          'https://ramp.com/bill-pay',
+        ].includes(source.url),
+    );
+
+    const merged = mergeProviderSourcesIntoCorpus(fixture, [
+      ...citationSources,
+      { title: 'Uncited memo citation', url: 'https://moengage.com/blog/post' },
+    ]);
+    const byUrl = new Map(
+      merged.corpus.sources.map((source) => [source.url, source]),
+    );
+
+    // Cited by topic evidence → backfilled with the citing topic named.
+    expect(byUrl.get('https://ramp.com/customers')?.whyItMatters).toBe(
+      'Cited under buyer_icp evidence.',
+    );
+    expect(byUrl.get('https://ramp.com/integrations')?.whyItMatters).toBe(
+      'Cited under pricing_packaging evidence.',
+    );
+    // Cited only by top-level corpus evidence → grounded-evidence label.
+    expect(byUrl.get('https://ramp.com/bill-pay')?.whyItMatters).toBe(
+      'Cited in the grounded company evidence.',
+    );
+    // A captured citation no evidence row cites is NOT padded in.
+    expect(byUrl.has('https://moengage.com/blog/post')).toBe(false);
+    // The old copy-pasted boilerplate is gone for good.
+    expect(JSON.stringify(merged.corpus.sources)).not.toContain(
+      'Perplexity sonar citation used to ground the company corpus.',
+    );
+  });
+});
+
+describe('mergeTopicSummary', () => {
+  it('joins distinct summaries with a plain space, never the pipeline joiner', () => {
+    const merged = mergeTopicSummary(
+      'Ramp serves finance teams.',
+      'Reviews highlight onboarding friction at scale.',
+    );
+
+    expect(merged).toBe(
+      'Ramp serves finance teams. Reviews highlight onboarding friction at scale.',
+    );
+    expect(merged).not.toContain('Supplemental fan-out:');
+  });
+
+  it('drops a supplemental summary that mostly restates the existing one', () => {
+    const existing =
+      'Ramp combines cards, expenses, bill pay, and procurement for finance teams.';
+    const supplemental =
+      'Ramp combines cards, expenses, bill pay, and procurement for finance teams today.';
+
+    expect(mergeTopicSummary(existing, supplemental)).toBe(existing);
+  });
+});
+
+describe('scrubDeepResearchProcessTalk', () => {
+  it('removes "in this pass/call/run" phrases', () => {
+    expect(
+      scrubDeepResearchProcessTalk(
+        'Public sources in this pass do not disclose pricing.',
+      ),
+    ).toBe('Public sources do not disclose pricing.');
+    expect(
+      scrubDeepResearchProcessTalk('No competitor list was captured in this call.'),
+    ).toBe('No competitor list was captured.');
+  });
+
+  it('rewrites dedicated-pass deferral sentences into plain gap statements', () => {
+    expect(
+      scrubDeepResearchProcessTalk(
+        'Competitor naming should be deferred to a dedicated competitor research pass.',
+      ),
+    ).toBe('Competitor naming is not disclosed in the cited sources.');
+  });
+
+  it('keeps client-language text untouched', () => {
+    const text =
+      'Ramp passes SOC 2 audits and runs spend programs for finance teams.';
+
+    expect(scrubDeepResearchProcessTalk(text)).toBe(text);
   });
 });
 

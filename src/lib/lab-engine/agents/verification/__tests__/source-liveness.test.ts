@@ -179,6 +179,101 @@ describe("applySourceLivenessGate", (): void => {
     expect(result.livenessPassRate).toBe(0.5);
   });
 
+  it("keeps rows from bot-hostile review hosts on 403 as liveness-unknown", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (input: string): Promise<Response> =>
+        response({ status: input.includes("trustpilot") ? 403 : 404 }),
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        questions: [
+          {
+            evidence: "Reviewers report sync failures.",
+            sourceUrl: "https://www.trustpilot.com/review/airtable.com",
+          },
+          {
+            evidence: "Airtable pricing starts at $20",
+            sourceUrl: "https://example.com/dead-pricing",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { questions?: unknown[] };
+
+    // The 403 from Trustpilot means "probe blocked", not "evidence dead":
+    // the row survives, is recorded as liveness-unknown, and stays out of
+    // the passRate denominator (only the 404 row counts — and fails).
+    expect(body.questions).toHaveLength(1);
+    expect(result.livenessUnknownRows).toEqual([
+      {
+        path: "body.questions[0]",
+        sourceUrl: "https://www.trustpilot.com/review/airtable.com",
+        status: 403,
+      },
+    ]);
+    expect(result.droppedRows).toEqual([
+      expect.objectContaining({
+        path: "body.questions[1]",
+        reason: "http-error",
+      }),
+    ]);
+    expect(result.livenessPassRate).toBe(0);
+  });
+
+  it("still drops a 403 from a host outside the bot-hostile set", async (): Promise<void> => {
+    const fetchImpl = vi.fn(async (): Promise<Response> => response({ status: 403 }));
+    const result = await applySourceLivenessGate({
+      body: {
+        findings: [
+          {
+            evidence: "Airtable pricing starts at $20",
+            sourceUrl: "https://example.com/blocked-pricing",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { findings?: unknown[] };
+
+    expect(body.findings).toEqual([]);
+    expect(result.livenessUnknownRows).toEqual([]);
+    expect(result.droppedRows).toEqual([
+      expect.objectContaining({ reason: "http-error" }),
+    ]);
+  });
+
+  it("replaces the prose of a fully-emptied block with the blockGap summary", async (): Promise<void> => {
+    const fetchImpl = vi.fn(async (): Promise<Response> => response({ status: 404 }));
+    const result = await applySourceLivenessGate({
+      body: {
+        shareOfVoice: {
+          prose:
+            "Smartsheet leads the share of voice with 42 creatives across Google and Meta.",
+          slices: [
+            {
+              evidence: "Smartsheet runs 42 creatives.",
+              sourceUrl: "https://example.com/dead-share-of-voice",
+            },
+          ],
+        },
+      },
+      fetchImpl,
+    });
+    const shareOfVoice = (result.body as Record<string, unknown>)
+      .shareOfVoice as Record<string, unknown>;
+
+    // Prose narrating the dropped rows may not keep asserting the dropped
+    // numbers over an empty table: it carries the same honest gap summary.
+    expect(shareOfVoice.slices).toEqual([]);
+    expect(shareOfVoice.prose).toBe(
+      "Rows in this block were removed before publishing because their cited sources could not be verified live.",
+    );
+    expect((shareOfVoice.blockGap as Record<string, unknown>).summary).toBe(
+      shareOfVoice.prose,
+    );
+  });
+
   it("exempts preverified URLs without fetching", async (): Promise<void> => {
     const fetchImpl = vi.fn(async (): Promise<Response> => response({ status: 500 }));
     const result = await applySourceLivenessGate({
@@ -250,18 +345,21 @@ describe("collectPreverifiedSourceUrlsFromSteps", (): void => {
 });
 
 describe("subject CTA observation", (): void => {
-  it("strips no-self-serve claims contradicted by observed free signup CTAs", (): void => {
-    const observation = extractSubjectSiteObservation({
+  function freeSignupObservation(): ReturnType<typeof extractSubjectSiteObservation> {
+    return extractSubjectSiteObservation({
       sourceUrl: "https://www.airtable.com/pricing",
       text: "[Sign up for free](/signup) [Contact sales](/contact-sales)",
     });
+  }
+
+  it("strips no-self-serve claims contradicted by observed free signup CTAs", (): void => {
     const result = stripContradictedSubjectCtaClaims({
       body: {
         funnel: {
           claim: "Airtable has no self-serve free signup path and requires a demo for activation.",
         },
       },
-      observations: [observation],
+      observations: [freeSignupObservation()],
     });
     const body = result.body as { funnel?: { claim?: string } };
 
@@ -273,5 +371,90 @@ describe("subject CTA observation", (): void => {
         observedCtas: ["Sign up for free"],
       }),
     ]);
+  });
+
+  it("strips affirmative demo-gate assertions contradicted by an observed free CTA", (): void => {
+    const result = stripContradictedSubjectCtaClaims({
+      body: {
+        funnel: { claim: "Every CTA on the site routes to a demo." },
+      },
+      observations: [freeSignupObservation()],
+    });
+    const body = result.body as { funnel?: { claim?: string } };
+
+    expect(body.funnel?.claim).toContain("Evidence gap");
+    expect(result.stripped).toHaveLength(1);
+  });
+
+  it("never strikes funnel-arithmetic or free-tier analysis (run d838ed4e false positives)", (): void => {
+    const body = {
+      funnelDiagnosis: {
+        prose:
+          "The funnel converts 4% visitor-to-signup, but 94% of those signups never convert to paid.",
+      },
+      strategicInsight: {
+        nonObviousRead:
+          "Users can stay on the free tier indefinitely without hitting a paywall, so free users never experience a first-value-moment.",
+      },
+      redFlags: {
+        items: [
+          { actualEvidence: "No public breakdown of free vs. paid accounts." },
+        ],
+      },
+    };
+
+    const result = stripContradictedSubjectCtaClaims({
+      body,
+      observations: [freeSignupObservation()],
+    });
+
+    expect(result.stripped).toEqual([]);
+    expect(result.body).toEqual(body);
+  });
+
+  it("strikes only the offending sentence, keeping the rest of the field", (): void => {
+    const result = stripContradictedSubjectCtaClaims({
+      body: {
+        funnel: {
+          claim:
+            "The pricing ladder anchors on the Team plan. The website has no self-serve signup path. Expansion revenue follows seat growth.",
+        },
+      },
+      observations: [freeSignupObservation()],
+    });
+    const body = result.body as { funnel?: { claim?: string } };
+
+    expect(body.funnel?.claim).toBe(
+      "The pricing ladder anchors on the Team plan. Expansion revenue follows seat growth.",
+    );
+    expect(result.stripped).toEqual([
+      expect.objectContaining({
+        path: "body.funnel.claim",
+        removedText: "The website has no self-serve signup path.",
+      }),
+    ]);
+  });
+
+  it("ships the gap placeholder into at most one field per section", (): void => {
+    const result = stripContradictedSubjectCtaClaims({
+      body: {
+        first: { claim: "The website offers no self-serve signup path." },
+        second: { claim: "Every CTA on the homepage routes to a demo." },
+      },
+      observations: [freeSignupObservation()],
+    });
+    const body = result.body as {
+      first?: { claim?: string };
+      second?: { claim?: string };
+    };
+
+    // run d838ed4e pasted the identical placeholder into five strategic
+    // fields. Only the FIRST fully-offending field carries it now; the
+    // second keeps its text (the strike machinery records only real strips).
+    expect(body.first?.claim).toContain("Evidence gap");
+    expect(body.second?.claim).toBe(
+      "Every CTA on the homepage routes to a demo.",
+    );
+    expect(result.stripped).toHaveLength(1);
   });
 });

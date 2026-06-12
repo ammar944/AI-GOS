@@ -4,6 +4,7 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from "../artifact-envelope";
+import { getRegistrableDomain } from "../../domain-utils";
 import type { ValidationResult } from "./market-category";
 import {
   evidenceBlockGapFieldSchema,
@@ -494,6 +495,43 @@ export function validateDemandIntentMinimums(
     // venueType diversity is prompt-side guidance only (same fabrication
     // forcer class — a quota satisfied by invented newsletters is worse
     // than four real communities).
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/**
+ * DemandIntent-specific independence gate (returned as a ValidationResult so
+ * the runner's repair loop retries on failure), mirroring the VoC
+ * self-sourcing gate: an intent signal sourced from the subject company's own
+ * registrable domain is the vendor vouching for its own demand ("job-posting"
+ * signals citing the subject's blog), not third-party intent evidence. The
+ * repair instruction relabels the shortfall into body.intentSignals.blockGap
+ * instead of keeping the self-sourced row.
+ */
+export function checkDemandIntentIntentSignalIndependence({
+  artifact,
+  subjectDomain,
+}: {
+  artifact: ArtifactEnvelope;
+  subjectDomain: string;
+}): ValidationResult {
+  const parsed = artifactEnvelopeSchema
+    .extend({ body: demandIntentBodySchema })
+    .parse(artifact);
+  const errors: string[] = [];
+  const subjectRegistrable = getRegistrableDomain(subjectDomain);
+
+  if (subjectRegistrable !== null) {
+    parsed.body.intentSignals.items.forEach((item, index) => {
+      const itemRegistrable = getRegistrableDomain(item.sourceUrl);
+
+      if (itemRegistrable !== null && itemRegistrable === subjectRegistrable) {
+        errors.push(
+          `body.intentSignals.items[${index}]: sourced from the subject company's own domain (${subjectRegistrable}); intent signals must cite independent venues (job boards, news, funding databases) — drop the row and carry the shortfall in body.intentSignals.blockGap.`,
+        );
+      }
+    });
   }
 
   return { ok: errors.length === 0, errors };

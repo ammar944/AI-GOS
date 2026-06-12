@@ -62,7 +62,7 @@ export function StrategicInsightPanel({
         <div className="grid gap-5">
           {insight.nonObviousRead ? (
             <div className="border-l border-border pl-4">
-              <Eyebrow>non-obvious read</Eyebrow>
+              <Eyebrow>What others miss</Eyebrow>
               <p className="mt-1 text-[15px] leading-[1.6] text-foreground">
                 {scrubReaderText(insight.nonObviousRead)}
               </p>
@@ -71,13 +71,13 @@ export function StrategicInsightPanel({
           {insight.keyTension ? (
             <div className="grid gap-3 md:grid-cols-2">
               <div className="border border-border bg-card p-4">
-                <Eyebrow>tension</Eyebrow>
+                <Eyebrow>The tension</Eyebrow>
                 <p className="mt-2 text-[14px] leading-[1.55] text-muted-foreground">
                   {scrubReaderText(insight.keyTension.tension)}
                 </p>
               </div>
               <div className="border border-primary/30 bg-primary/5 p-4">
-                <Eyebrow className="text-primary/80">chosen side</Eyebrow>
+                <Eyebrow className="text-primary/80">Where we land</Eyebrow>
                 <p className="mt-2 text-[14px] leading-[1.55] text-foreground">
                   {scrubReaderText(insight.keyTension.side)}
                 </p>
@@ -88,7 +88,7 @@ export function StrategicInsightPanel({
             </div>
           ) : null}
           <StrategicField
-            label="second-order implication"
+            label="Second-order effect"
             value={insight.secondOrderImplication}
           />
           {insight.strategicVerdict ? (

@@ -35,6 +35,12 @@ export interface ExecutiveBriefSectionInput {
   verdict: string;
   statusSummary: string;
   body: Record<string, unknown>;
+  // Persisted verification tier + confidence for the committed section row.
+  // Optional so callers without DB context (tests, fixtures) stay valid;
+  // when present the memo marks decisions resting on weak sections as
+  // directional.
+  verificationTier?: "verified" | "needs_review" | "insufficient" | null;
+  verificationConfidence?: number | null;
 }
 
 export interface ExecutiveBriefRankedMove {
@@ -191,6 +197,8 @@ const briefInstructions = [
   "2. decisions: 3-5 items. Each decision needs cost, confidenceGrade A/B/C with confidenceBasis, bestEvidence, and provesWrongIf.",
   "3. assumptionsToConfirm: include only assumptions provided in the prompt. Do not invent new assumptions.",
   "",
+  "Mark any decision that rests primarily on a section whose verification line reads needs_review or insufficient as 'directional', with one clause naming the weak section (e.g. \"Directional — competitor pricing verified needs_review.\"). Do not hedge decisions backed by verified sections.",
+  "",
   "The LLM may phrase; TypeScript owns fact selection, contradictions, and feasibility math.",
 ].join("\n");
 
@@ -271,6 +279,17 @@ function feasibilitySummary(
   return JSON.stringify(feasibilityAudit, null, 1);
 }
 
+function sectionVerificationLine(section: ExecutiveBriefSectionInput): string {
+  const tier = section.verificationTier ?? "unknown";
+  const confidence =
+    typeof section.verificationConfidence === "number" &&
+    Number.isFinite(section.verificationConfidence)
+      ? ` (confidence ${section.verificationConfidence.toFixed(2)})`
+      : "";
+
+  return `verification: ${tier}${confidence}`;
+}
+
 function buildBriefPrompt({
   assumptionsToConfirm,
   params,
@@ -285,6 +304,7 @@ function buildBriefPrompt({
       [
         `### ${section.sectionId} — ${section.sectionTitle}`,
         `verdict: ${section.verdict}`,
+        sectionVerificationLine(section),
         `statusSummary: ${section.statusSummary}`,
         `keyFindings: ${JSON.stringify(sectionKeyFindings(section))}`,
       ].join("\n"),

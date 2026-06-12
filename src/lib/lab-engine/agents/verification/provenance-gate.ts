@@ -441,68 +441,152 @@ function isVerbatimCapableUrl(url: string): boolean {
   return verbatimCapableUrlPatterns.some((pattern) => pattern.test(url));
 }
 
+interface VerbatimQuoteSurface {
+  blockKey: string;
+  itemsKey: string;
+  quoteField: string;
+  // CompetitorLandscape `source` is a free string and takes the page-level
+  // suffix; VoC `source` is a closed enum (vocSourceTypes) where any append
+  // would fail schema re-parse at persistence.
+  appendSourceSuffix: boolean;
+}
+
+const unpermalinkedDowngradeReason =
+  "sourceUrl is an index/page-level URL, not a per-review or per-thread permalink";
+
+function downgradeQuoteSurface({
+  body,
+  cloned,
+  stripped,
+  surface,
+}: {
+  body: Record<string, unknown>;
+  cloned: Record<string, unknown>;
+  stripped: DowngradedVerbatimQuote[];
+  surface: VerbatimQuoteSurface;
+}): void {
+  const block = body[surface.blockKey];
+
+  if (!isRecord(block) || !Array.isArray(block[surface.itemsKey])) {
+    return;
+  }
+
+  const items = block[surface.itemsKey] as unknown[];
+  const clonedBlock = cloned[surface.blockKey];
+
+  if (!isRecord(clonedBlock) || !Array.isArray(clonedBlock[surface.itemsKey])) {
+    return;
+  }
+
+  const clonedItems = clonedBlock[surface.itemsKey] as unknown[];
+
+  items.forEach((item, index) => {
+    if (!isRecord(item)) {
+      return;
+    }
+
+    const quote = item[surface.quoteField];
+
+    if (
+      typeof quote !== "string" ||
+      typeof item.sourceUrl !== "string" ||
+      quote.startsWith(paraphrasedQuotePrefix) ||
+      isVerbatimCapableUrl(item.sourceUrl)
+    ) {
+      return;
+    }
+
+    const clonedItem = clonedItems[index];
+
+    if (!isRecord(clonedItem) || typeof clonedItem[surface.quoteField] !== "string") {
+      return;
+    }
+
+    clonedItem[surface.quoteField] = `${paraphrasedQuotePrefix}${quote}`;
+
+    if (
+      surface.appendSourceSuffix &&
+      typeof clonedItem.source === "string" &&
+      !clonedItem.source.endsWith(indexSourceSuffix)
+    ) {
+      clonedItem.source = `${clonedItem.source}${indexSourceSuffix}`;
+    }
+
+    stripped.push({
+      field: `body.${surface.blockKey}.${surface.itemsKey}[${index}].${surface.quoteField}`,
+      reason: unpermalinkedDowngradeReason,
+      sourceUrl: item.sourceUrl,
+    });
+  });
+}
+
+function downgradeUnpermalinkedQuoteSurfaces({
+  body,
+  surfaces,
+}: {
+  body: Record<string, unknown>;
+  surfaces: readonly VerbatimQuoteSurface[];
+}): ProvenanceGateResult<DowngradedVerbatimQuote> {
+  const cloned = structuredClone(body);
+  const stripped: DowngradedVerbatimQuote[] = [];
+
+  for (const surface of surfaces) {
+    downgradeQuoteSurface({ body, cloned, stripped, surface });
+  }
+
+  return stripped.length === 0 ? { body, stripped: [] } : { body: cloned, stripped };
+}
+
 export function downgradeUnpermalinkedVerbatimQuotes({
   body,
 }: {
   body: Record<string, unknown>;
 }): ProvenanceGateResult<DowngradedVerbatimQuote> {
-  const publicWeaknesses = body.publicWeaknesses;
+  return downgradeUnpermalinkedQuoteSurfaces({
+    body,
+    surfaces: [
+      {
+        appendSourceSuffix: true,
+        blockKey: "publicWeaknesses",
+        itemsKey: "items",
+        quoteField: "verbatimQuote",
+      },
+    ],
+  });
+}
 
-  if (!isRecord(publicWeaknesses) || !Array.isArray(publicWeaknesses.items)) {
-    return { body, stripped: [] };
-  }
-
-  const downgradeTargets = publicWeaknesses.items
-    .map((item, index) => ({ index, item }))
-    .filter(({ item }) => {
-      if (!isRecord(item)) {
-        return false;
-      }
-
-      return (
-        typeof item.verbatimQuote === "string" &&
-        typeof item.sourceUrl === "string" &&
-        !item.verbatimQuote.startsWith(paraphrasedQuotePrefix) &&
-        !isVerbatimCapableUrl(item.sourceUrl)
-      );
-    });
-
-  if (downgradeTargets.length === 0) {
-    return { body, stripped: [] };
-  }
-
-  const cloned = structuredClone(body);
-  const clonedWeaknesses = cloned.publicWeaknesses as Record<string, unknown>;
-  const clonedItems = clonedWeaknesses.items as unknown[];
-  const stripped: DowngradedVerbatimQuote[] = [];
-
-  for (const { index } of downgradeTargets) {
-    const item = clonedItems[index];
-
-    if (!isRecord(item) || typeof item.verbatimQuote !== "string") {
-      continue;
-    }
-
-    const sourceUrl = typeof item.sourceUrl === "string" ? item.sourceUrl : "";
-
-    item.verbatimQuote = `${paraphrasedQuotePrefix}${item.verbatimQuote}`;
-
-    if (
-      typeof item.source === "string" &&
-      !item.source.endsWith(indexSourceSuffix)
-    ) {
-      item.source = `${item.source}${indexSourceSuffix}`;
-    }
-
-    stripped.push({
-      field: `body.publicWeaknesses.items[${index}].verbatimQuote`,
-      reason:
-        "sourceUrl is an index/page-level URL, not a per-review or per-thread permalink",
-      sourceUrl,
-    });
-  }
-
-  return { body: cloned, stripped };
+// VoC mirror of the competitor downgrade (was competitor-only; run d838ed4e
+// shipped VoC "verbatimText" cited to review-site index pages): index-page
+// sourceUrls relabel the quote as an explicit paraphrased pattern. The closed
+// `source` enum is never touched.
+export function downgradeUnpermalinkedVocQuotes({
+  body,
+}: {
+  body: Record<string, unknown>;
+}): ProvenanceGateResult<DowngradedVerbatimQuote> {
+  return downgradeUnpermalinkedQuoteSurfaces({
+    body,
+    surfaces: [
+      {
+        appendSourceSuffix: false,
+        blockKey: "painLanguage",
+        itemsKey: "quotes",
+        quoteField: "verbatimText",
+      },
+      {
+        appendSourceSuffix: false,
+        blockKey: "successLanguage",
+        itemsKey: "quotes",
+        quoteField: "verbatimText",
+      },
+      {
+        appendSourceSuffix: false,
+        blockKey: "decisionCriteria",
+        itemsKey: "criteria",
+        quoteField: "evidenceQuote",
+      },
+    ],
+  });
 }
 
 function walkForQuoteEmails({
@@ -766,6 +850,125 @@ export function stripPlaceholderSourceUrls({
   const stripped: StrippedPlaceholderUrl[] = [];
 
   walkForPlaceholderUrls({ path: "body", stripped, trustedHosts, value: cloned });
+
+  return stripped.length === 0
+    ? { body, stripped: [] }
+    : { body: cloned, stripped };
+}
+
+const unverifiedSourceUrlReason =
+  "model-authored URL graded unsupported by the claim verifier: no research tool ever observed it";
+
+function rowCarriesQuoteCardField(row: Record<string, unknown>): boolean {
+  return Object.entries(row).some(
+    ([key, value]) => quoteCardFieldNames.has(key) && typeof value === "string",
+  );
+}
+
+function walkForUnverifiedSourceUrls({
+  path,
+  stripped,
+  unsupportedUrls,
+  value,
+}: {
+  path: string;
+  stripped: StrippedPlaceholderUrl[];
+  unsupportedUrls: ReadonlySet<string>;
+  value: unknown;
+}): void {
+  if (Array.isArray(value)) {
+    // Differential guard: the fabrication signal is one row's URL being
+    // unsupported while a SIBLING row's URL was tool-observed (run d838ed4e:
+    // capterra /p/146652 verified, /p/147768 no_match). When EVERY row's URL
+    // is unsupported the likelier cause is a verifier blind spot (acquisition
+    // steps not visible to the claim verifier), and relabeling the whole
+    // array would collapse distinct-source persistence minimums into a hard
+    // fail — so the array is left alone.
+    const sourceUrlRows = value.filter(
+      (item): item is Record<string, unknown> =>
+        isRecord(item) && typeof item.sourceUrl === "string",
+    );
+    // A row already relabeled to the evidence-gap marker (placeholder strip)
+    // is not a tool-observed sibling — it must not unlock relabeling here.
+    const hasToolObservedSibling = sourceUrlRows.some(
+      (row) =>
+        row.sourceUrl !== placeholderSourceUrlRelabel &&
+        !unsupportedUrls.has(row.sourceUrl as string),
+    );
+
+    value.forEach((item, index) => {
+      const itemPath = `${path}[${index}]`;
+
+      if (
+        hasToolObservedSibling &&
+        isRecord(item) &&
+        typeof item.sourceUrl === "string" &&
+        unsupportedUrls.has(item.sourceUrl) &&
+        rowCarriesQuoteCardField(item)
+      ) {
+        stripped.push({
+          field: `${itemPath}.sourceUrl`,
+          reason: unverifiedSourceUrlReason,
+          sourceUrl: item.sourceUrl,
+        });
+        item.sourceUrl = placeholderSourceUrlRelabel;
+      }
+
+      walkForUnverifiedSourceUrls({
+        path: itemPath,
+        stripped,
+        unsupportedUrls,
+        value: item,
+      });
+    });
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  for (const [key, childValue] of Object.entries(value)) {
+    if (key === "sourceUrl") {
+      continue;
+    }
+
+    walkForUnverifiedSourceUrls({
+      path: `${path}.${key}`,
+      stripped,
+      unsupportedUrls,
+      value: childValue,
+    });
+  }
+}
+
+// Acts on a signal the structural verifier already computed: a quote/
+// objection/story row whose sourceUrl was extracted as a url-claim and graded
+// unsupported (no_match) is a model-authored link no tool ever saw — e.g. the
+// second Capterra product id in run d838ed4e. The row and its text survive;
+// the fabricated link is relabeled to the same evidence-gap marker convention
+// as stripPlaceholderSourceUrls. Only rows inside arrays with at least one
+// tool-observed sibling are struck (see the differential guard in the walk).
+export function stripUnverifiedSourceUrls({
+  body,
+  unsupportedUrls,
+}: {
+  body: Record<string, unknown>;
+  unsupportedUrls: ReadonlySet<string>;
+}): ProvenanceGateResult<StrippedPlaceholderUrl> {
+  if (unsupportedUrls.size === 0) {
+    return { body, stripped: [] };
+  }
+
+  const cloned = structuredClone(body);
+  const stripped: StrippedPlaceholderUrl[] = [];
+
+  walkForUnverifiedSourceUrls({
+    path: "body",
+    stripped,
+    unsupportedUrls,
+    value: cloned,
+  });
 
   return stripped.length === 0
     ? { body, stripped: [] }

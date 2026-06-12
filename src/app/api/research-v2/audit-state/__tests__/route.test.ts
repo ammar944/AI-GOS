@@ -48,11 +48,25 @@ const routeMocks = vi.hoisted(() => {
   eventsQuery.order.mockReturnValue(eventsQuery);
   eventsQuery.limit.mockResolvedValue({ data: [], error: null });
 
+  const gateQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
+    limit: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  gateQuery.select.mockReturnValue(gateQuery);
+  gateQuery.eq.mockReturnValue(gateQuery);
+  gateQuery.order.mockReturnValue(gateQuery);
+  gateQuery.limit.mockReturnValue(gateQuery);
+  gateQuery.maybeSingle.mockResolvedValue({ data: null, error: null });
+
   const from = vi.fn((table: string) => {
     if (table === 'research_artifacts') return parentQuery;
     if (table === 'research_section_runs') return runsQuery;
     if (table === 'research_artifact_sections') return sectionsQuery;
     if (table === 'research_section_events') return eventsQuery;
+    if (table === 'research_quality_gate_results') return gateQuery;
     throw new Error(`Unexpected table ${table}`);
   });
   const rpc = vi.fn();
@@ -65,6 +79,7 @@ const routeMocks = vi.hoisted(() => {
     runsQuery,
     sectionsQuery,
     eventsQuery,
+    gateQuery,
     rpc,
   };
 });
@@ -137,6 +152,14 @@ describe('GET /api/research-v2/audit-state', () => {
     routeMocks.eventsQuery.eq.mockReturnValue(routeMocks.eventsQuery);
     routeMocks.eventsQuery.order.mockReturnValue(routeMocks.eventsQuery);
     routeMocks.eventsQuery.limit.mockResolvedValue({ data: [], error: null });
+    routeMocks.gateQuery.select.mockReturnValue(routeMocks.gateQuery);
+    routeMocks.gateQuery.eq.mockReturnValue(routeMocks.gateQuery);
+    routeMocks.gateQuery.order.mockReturnValue(routeMocks.gateQuery);
+    routeMocks.gateQuery.limit.mockReturnValue(routeMocks.gateQuery);
+    routeMocks.gateQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
     routeMocks.rpc.mockResolvedValue({ data: 0, error: null });
   });
 
@@ -482,6 +505,35 @@ describe('GET /api/research-v2/audit-state', () => {
       executionMode: null,
       runtimeTimings: {},
     });
+  });
+
+  it('surfaces the run-level quality gate verdict when a gate row exists', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.gateQuery.maybeSingle.mockResolvedValue({
+      data: {
+        result: { verdict: 'ship_with_caveats', gates: {} },
+        computed_at: '2026-06-12T08:00:00.000Z',
+      },
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.qualityGate).toEqual({
+      result: { verdict: 'ship_with_caveats', gates: {} },
+      computedAt: '2026-06-12T08:00:00.000Z',
+    });
+    expect(routeMocks.gateQuery.eq).toHaveBeenCalledWith('run_id', RUN_ID);
+  });
+
+  it('returns a null quality gate when no gate row exists', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(body.qualityGate).toBeNull();
   });
 
   it('prefers the committed artifact section run over a newer terminal row', async () => {

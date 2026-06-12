@@ -69,4 +69,57 @@ describe('DataTable', () => {
     expect(screen.getByTestId('row-Alpha')).toBeInTheDocument();
     expect(screen.getByTestId('row-Beta')).toBeInTheDocument();
   });
+
+  it('keeps clamped cells as real table cells: 4 columns render 4 tds and no td carries line-clamp', () => {
+    // Regression: line-clamp on the <td> sets display:-webkit-box, which
+    // destroys table-cell display; CSS table fixup then merges adjacent
+    // cells into one anonymous cell (stacked text, empty trailing columns).
+    interface WideRow {
+      name: string;
+      positioning: string;
+      pricing: string;
+      source: string;
+    }
+    const wideColumns = [
+      { key: 'name', header: 'Name' },
+      { key: 'positioning', header: 'Positioning', wrap: 'clamp' as const, clampLines: 3 },
+      { key: 'pricing', header: 'Pricing', wrap: 'clamp' as const, clampLines: 2 },
+      { key: 'source', header: 'Source' },
+    ];
+    const wideRows: WideRow[] = [
+      {
+        name: 'Notion',
+        positioning: 'All-in-one workspace for notes and docs.',
+        pricing: '$10/seat/month (Plus)',
+        source: 'notion.so',
+      },
+    ];
+
+    const { container } = render(
+      <DataTable columns={wideColumns} rows={wideRows} />,
+    );
+
+    const cells = container.querySelectorAll('tbody tr td');
+    expect(cells).toHaveLength(4);
+    cells.forEach((cell) => {
+      expect(cell.className).not.toContain('line-clamp');
+    });
+    // The clamp lives on an inner div, content intact.
+    expect(
+      container.querySelector('tbody td div.line-clamp-3'),
+    ).toHaveTextContent('All-in-one workspace for notes and docs.');
+    expect(screen.getByText('notion.so')).toBeInTheDocument();
+  });
+
+  it('scrubs default-rendered string cells so trust markers never print raw', () => {
+    const markedColumns = [{ key: 'note', header: 'Note' }];
+    const markedRows = [{ note: 'Serves 500k [unverified] brands today.' }];
+
+    render(<DataTable columns={markedColumns} rows={markedRows} />);
+
+    expect(
+      screen.getByText('Serves 500k brands today.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\[unverified\]/)).not.toBeInTheDocument();
+  });
 });

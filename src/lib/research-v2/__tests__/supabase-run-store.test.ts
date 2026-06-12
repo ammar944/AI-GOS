@@ -37,9 +37,19 @@ vi.mock(
   },
 );
 
-vi.mock('@/lib/lab-engine/agents/review/agentic-section-review', () => ({
-  reviewAndUpgradeSection: reviewMocks.reviewAndUpgradeSection,
-}));
+vi.mock(
+  '@/lib/lab-engine/agents/review/agentic-section-review',
+  async (importOriginal) => {
+    const actual = await importOriginal<
+      typeof import('@/lib/lab-engine/agents/review/agentic-section-review')
+    >();
+
+    return {
+      ...actual,
+      reviewAndUpgradeSection: reviewMocks.reviewAndUpgradeSection,
+    };
+  },
+);
 
 vi.mock('@/lib/research-v2/share-snapshot', async (importOriginal) => {
   const actual = await importOriginal<
@@ -451,11 +461,24 @@ describe('createSupabaseRunStore', (): void => {
               tier: 'verified',
             }),
           }),
-          markdown: 'Reviewed market category markdown.',
+          // Review prose stays metadata-only: the markdown column keeps the
+          // deterministic verdict/summary lines, never upgradedMarkdown.
+          markdown: expect.stringContaining(
+            marketCategoryFixtureArtifact.verdict,
+          ),
           verificationTier: 'verified',
         }),
       }),
     );
+    const reviewPatchCall = fakeSupabase.rpc.mock.calls.find(
+      ([rpcName, args]) =>
+        rpcName === 'commit_artifact_section' &&
+        (args as { p_expected_revision?: number }).p_expected_revision === 1,
+    );
+    expect(
+      (reviewPatchCall?.[1] as { p_patch: { markdown: string } }).p_patch
+        .markdown,
+    ).not.toContain('Reviewed market category markdown.');
     expect(fakeSupabase.update).toHaveBeenCalledWith(
       expect.objectContaining({
         error: null,
@@ -640,7 +663,9 @@ describe('createSupabaseRunStore', (): void => {
             verifiedCount: 2,
             unsupportedCount: 1,
           }),
-          markdown: 'Needs review markdown.',
+          markdown: expect.stringContaining(
+            marketCategoryFixtureArtifact.verdict,
+          ),
           data: expect.objectContaining({
             review: expect.objectContaining({
               removedItems: ['Unsupported TAM precision'],
@@ -725,7 +750,7 @@ describe('createSupabaseRunStore', (): void => {
     );
   });
 
-  it('commits the original artifact when the agentic review hook fails', async (): Promise<void> => {
+  it('stamps review tier unavailable on the committed row when the agentic review hook fails', async (): Promise<void> => {
     reviewMocks.reviewAndUpgradeSection.mockRejectedValueOnce(
       new Error('review transport failed'),
     );
@@ -758,8 +783,31 @@ describe('createSupabaseRunStore', (): void => {
     await reviewScheduler.drain();
 
     expect(warn).toHaveBeenCalledWith(
-      '[supabase-run-store] agentic section review failed; keeping committed original artifact:',
+      '[supabase-run-store] agentic section review failed; stamping review unavailable on the committed artifact:',
       'review transport failed',
+    );
+    // A failed review is distinguishable from never-reviewed: the row's
+    // review metadata carries tier 'unavailable' plus diagnostics, while the
+    // markdown column keeps the deterministic verdict/summary lines.
+    expect(fakeSupabase.rpc).toHaveBeenCalledWith(
+      'commit_artifact_section',
+      expect.objectContaining({
+        p_expected_revision: 1,
+        p_patch: expect.objectContaining({
+          data: expect.objectContaining({
+            review: expect.objectContaining({
+              tier: 'unavailable',
+              tierRationale: expect.stringContaining('review transport failed'),
+              errorDiagnostics: expect.objectContaining({
+                message: 'review transport failed',
+              }),
+            }),
+          }),
+          markdown: expect.stringContaining(
+            marketCategoryFixtureArtifact.verdict,
+          ),
+        }),
+      }),
     );
     warn.mockRestore();
   });

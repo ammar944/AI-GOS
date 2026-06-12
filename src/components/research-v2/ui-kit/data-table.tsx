@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
+// Direct file import (not the primitives barrel) to keep ui-kit free of a
+// barrel cycle — primitives components import from the ui-kit barrel.
+import { scrubReaderText } from '@/components/research-v2/primitives/reader-text';
 
 import { Eyebrow } from './type';
 
@@ -138,9 +141,14 @@ export function DataTable<T>({
               >
                 {columns.map((col) => {
                   const rawValue = (row as Record<string, unknown>)[col.key];
+                  // Default-rendered string cells pass through scrubReaderText
+                  // so trust markers ('[unverified]') and pipeline tokens never
+                  // print raw in tables. Render callbacks own their own output.
                   const rendered = col.render
                     ? col.render(row, rowIndex)
-                    : (rawValue as ReactNode);
+                    : typeof rawValue === 'string'
+                      ? scrubReaderText(rawValue)
+                      : (rawValue as ReactNode);
                   // 'truncate' / 'nowrap' / 'clamp' all render as a bounded
                   // line-clamp instead of a blind single-line truncate, so
                   // long research content stays readable; the title attribute
@@ -165,11 +173,19 @@ export function DataTable<T>({
                         'px-3 align-top text-foreground/90',
                         col.numeric && 'text-right font-mono tabular-nums',
                         !col.numeric && 'text-left',
-                        wrapClass,
                         col.className,
                       )}
                     >
-                      {rendered}
+                      {/* Wrap/clamp classes live on an inner div, never the td:
+                          line-clamp's display:-webkit-box destroys table-cell
+                          display, and CSS table fixup then merges adjacent
+                          non-cell children into one anonymous cell (stacked
+                          text, empty trailing columns). */}
+                      {wrapClass ? (
+                        <div className={wrapClass}>{rendered}</div>
+                      ) : (
+                        rendered
+                      )}
                     </td>
                   );
                 })}

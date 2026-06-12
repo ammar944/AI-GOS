@@ -72,6 +72,12 @@ export interface AuditStateResponse {
   // W3 executive brief payload (research_artifacts.thesis jsonb): null until
   // the post-paid-media kickoff writes {status:'generating'|'complete'|'error'}.
   executive_brief?: Record<string, unknown> | null;
+  // Run-level quality gate verdict (research_quality_gate_results jsonb):
+  // null until the post-completion gate pass writes a row for this run.
+  qualityGate?: {
+    result: Record<string, unknown> | null;
+    computedAt: string | null;
+  } | null;
   workerStates: Array<{
     section_id: AllPositioningSectionId;
     status: WorkerStatus;
@@ -374,6 +380,43 @@ function queuedWorkerState(): WorkerStateReadModel {
   return buildWorkerStateReadModel({ status: 'queued', telemetry: null });
 }
 
+// Best-effort: the gate row is additive diagnostics — a lookup failure must
+// never fail the polling read.
+async function readQualityGateBestEffort(
+  supabase: ReturnType<typeof createAdminClient>,
+  runId: string,
+): Promise<AuditStateResponse['qualityGate']> {
+  try {
+    const { data, error } = await supabase
+      .from('research_quality_gate_results')
+      .select('result, computed_at')
+      .eq('run_id', runId)
+      .order('computed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[audit-state] quality gate lookup failed:', error.message);
+      return null;
+    }
+    if (!data) {
+      return null;
+    }
+
+    const row = data as { result?: unknown; computed_at?: unknown };
+    return {
+      result: asRecord(row.result),
+      computedAt: pickString(row.computed_at),
+    };
+  } catch (error) {
+    console.warn(
+      '[audit-state] quality gate lookup errored:',
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
+}
+
 function deriveParentStatus(
   parentStatus: string | null,
   workerStates: AuditStateResponse['workerStates'],
@@ -622,6 +665,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
     (parent.status as string | null) ?? null,
     workerStates,
   );
+  const qualityGate = await readQualityGateBestEffort(supabase, runId);
 
   return NextResponse.json(
     {
@@ -631,6 +675,7 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       children_total: childrenTotal,
       executive_brief:
         (parent.thesis as Record<string, unknown> | null) ?? null,
+      qualityGate,
       workerStates,
       sectionsByZone,
       eventsByZone,

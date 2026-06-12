@@ -248,20 +248,11 @@ function strippedClaimsFromValue({
   }));
 }
 
+// review.removedItems is deliberately NOT ingested here: those entries are
+// model-asserted removal claims (often phantom — referencing text that never
+// existed in the body), not deterministic verifier strips. Only the
+// verifierSummary strip records feed the contradiction scan.
 function strippedClaimsFromSection(section: SynthesisSectionInput): StrippedClaim[] {
-  const reviewRemoved = Array.isArray(section.review?.removedItems)
-    ? section.review.removedItems.flatMap((item, index) =>
-        typeof item === "string"
-          ? [
-              {
-                claim: item,
-                field: `review.removedItems[${index}]`,
-                sectionId: section.sectionId,
-              },
-            ]
-          : [],
-      )
-    : [];
   const verifierClaims = section.verifierSummary === undefined
     ? []
     : Object.entries(section.verifierSummary)
@@ -274,7 +265,7 @@ function strippedClaimsFromSection(section: SynthesisSectionInput): StrippedClai
           }),
         );
 
-  return [...reviewRemoved, ...verifierClaims].filter(
+  return verifierClaims.filter(
     (claim) => normalizeWhitespace(claim.claim).length >= 4,
   );
 }

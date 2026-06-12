@@ -17,7 +17,11 @@ import {
   reviewModel,
   selectedSectionModelMetadata,
 } from '@/lib/lab-engine/ai/models';
-import { reviewAndUpgradeSection } from '@/lib/lab-engine/agents/review/agentic-section-review';
+import {
+  buildModelErrorDiagnostics,
+  buildOriginalArtifactMarkdown,
+  reviewAndUpgradeSection,
+} from '@/lib/lab-engine/agents/review/agentic-section-review';
 import {
   activityEventSchema,
   sectionIds,
@@ -613,11 +617,41 @@ async function attachAgenticReview(input: {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(
-      '[supabase-run-store] agentic section review failed; keeping committed original artifact:',
+      '[supabase-run-store] agentic section review failed; stamping review unavailable on the committed artifact:',
       message,
     );
 
-    return null;
+    // Stamp tier 'unavailable' so a failed review is distinguishable from a
+    // section that was never reviewed. Best-effort: if even the fallback
+    // stamp cannot be persisted, keep the committed original artifact.
+    try {
+      const fallbackArtifact = artifactEnvelopeSchema.parse({
+        ...input.artifact,
+        review: {
+          upgradedMarkdown: buildOriginalArtifactMarkdown(
+            input.artifact,
+            input.artifact.sectionId,
+          ),
+          tier: 'unavailable',
+          tierRationale: `Agentic review failed: ${message}`,
+          removedItems: [],
+          clientQuestions: [],
+          errorDiagnostics: buildModelErrorDiagnostics(error),
+        },
+      });
+      assertSectionArtifactPersistable(fallbackArtifact);
+
+      return fallbackArtifact;
+    } catch (fallbackError) {
+      console.warn(
+        '[supabase-run-store] review-unavailable stamp failed; keeping committed original artifact:',
+        fallbackError instanceof Error
+          ? fallbackError.message
+          : String(fallbackError),
+      );
+
+      return null;
+    }
   }
 }
 

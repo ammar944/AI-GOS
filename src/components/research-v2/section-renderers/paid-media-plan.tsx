@@ -14,6 +14,7 @@ import {
   SubsectionBlock,
   VerdictHero,
   scrubReaderText,
+  stripMoneyProvenanceSuffix,
   type BudgetBarSegment,
   type CreativeMatrixItem,
   type FunnelMathStep,
@@ -68,7 +69,7 @@ type ChannelSuggestion = PaidMediaBody['channelSuggestions'][number];
 type ProjectedResultRow = PaidMediaBody['projectedResults'][number];
 type Kpi = PaidMediaBody['kpis'][number];
 
-function getPaidMediaPlanBody(
+export function getPaidMediaPlanBody(
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact,
 ): PaidMediaBody {
   const record = artifact as unknown as Record<string, unknown>;
@@ -88,21 +89,26 @@ function sectionLabel(value: string): string {
   return READER_SECTION_LABELS[value as ReaderSectionId] ?? value;
 }
 
-function provenanceLabel(value: string | undefined): string {
-  if (value === undefined || value.trim().length === 0 || value === 'unknown') {
-    return 'assumption — confirm';
-  }
+// Exhaustive over paidMediaMoneyProvenanceValues — anything unmapped reads as
+// an assumption to confirm, never a raw pipeline token.
+export function provenanceLabel(value: string | undefined): string {
   if (value === 'user-supplied' || value === 'operator-supplied') {
     return 'from your brief';
   }
-  return value;
+  if (value === 'tool-measured') {
+    return 'measured';
+  }
+  if (value === 'source-reported') {
+    return 'from a published source';
+  }
+  return 'assumption — confirm';
 }
 
-function isMissingSalesAsset(asset: SalesAsset): boolean {
+export function isMissingSalesAsset(asset: SalesAsset): boolean {
   return asset.url === '' && /^evidence gap:/i.test(asset.note);
 }
 
-function verdictTone(verdict: string): StatusPillTone {
+export function verdictTone(verdict: string): StatusPillTone {
   switch (verdict.trim().toUpperCase()) {
     case 'KILL':
       return 'error';
@@ -120,11 +126,11 @@ function verdictTone(verdict: string): StatusPillTone {
   }
 }
 
-function formatUsdValue(value: number | undefined): string {
-  return value === undefined ? 'unknown' : `$${value.toLocaleString()}`;
+export function formatUsdValue(value: number | undefined): string {
+  return value === undefined ? 'not available' : `$${value.toLocaleString()}`;
 }
 
-function numericMoney(value: string | number | undefined): number {
+export function numericMoney(value: string | number | undefined): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   if (!value) return 0;
   const parsed = Number.parseFloat(value.replace(/[^0-9.]/g, ''));
@@ -182,11 +188,11 @@ function paidMediaKeyFindings(
   ];
 }
 
-function budgetSegments(body: PaidMediaBody): BudgetBarSegment[] {
+export function budgetSegments(body: PaidMediaBody): BudgetBarSegment[] {
   return body.audienceTypes.map((audience) => ({
     label: audience.archetype,
     value: numericMoney(audience.dailyBudget),
-    displayValue: audience.dailyBudget,
+    displayValue: stripMoneyProvenanceSuffix(audience.dailyBudget),
     basis: provenanceLabel(audience.dailyBudgetProvenance).includes('assumption')
       ? 'assumption'
       : 'measured',
@@ -340,7 +346,7 @@ export function PaidMediaPlanRenderer({
         <div className="grid gap-6">
           <BudgetBar
             segments={budgetSegments(body)}
-            totalLabel={`${body.campaignOverview.dailySpend} daily spend · ${body.campaignOverview.monthlyBudget} monthly`}
+            totalLabel={`${stripMoneyProvenanceSuffix(body.campaignOverview.dailySpend)} daily spend · ${stripMoneyProvenanceSuffix(body.campaignOverview.monthlyBudget)} monthly`}
           />
           <MilestoneTimeline steps={phaseMilestones(body.campaignPhases)} />
           <div className="grid gap-4 md:grid-cols-3">

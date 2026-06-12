@@ -6,6 +6,8 @@ import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-
 import {
   buildV3ShareSnapshot,
   createV3SharedSession,
+  isV3ShareResearchSnapshot,
+  readExecutiveBriefFromThesis,
   refreshV3SharedSessionSnapshots,
 } from '../share-snapshot';
 
@@ -14,7 +16,7 @@ const runId = '00000000-0000-4000-8000-0000000000aa';
 const sessionId = '33333333-3333-4333-8333-333333333333';
 const parentAuditRunId = '11111111-1111-4111-8111-111111111111';
 
-function createFakeSupabase(): {
+function createFakeSupabase(options?: { thesis?: unknown }): {
   supabase: SupabaseClient;
   insert: ReturnType<typeof vi.fn>;
 } {
@@ -26,7 +28,7 @@ function createFakeSupabase(): {
     error: null,
   });
   const artifactMaybeSingle = vi.fn().mockResolvedValue({
-    data: { id: parentAuditRunId },
+    data: { id: parentAuditRunId, thesis: options?.thesis ?? null },
     error: null,
   });
   const sectionsOrder = vi.fn().mockResolvedValue({
@@ -120,7 +122,7 @@ function createRefreshFakeSupabase(): {
     error: null,
   });
   const artifactMaybeSingle = vi.fn().mockResolvedValue({
-    data: { id: parentAuditRunId },
+    data: { id: parentAuditRunId, thesis: null },
     error: null,
   });
   const sectionsOrder = vi.fn().mockResolvedValue({
@@ -313,7 +315,70 @@ describe('v3 share snapshot', (): void => {
           updatedAt: '2026-05-25T12:00:00.000Z',
         },
       ],
+      executiveBrief: null,
     });
+  });
+
+  it('carries a completed executive brief as a top-level snapshot string', (): void => {
+    const executiveBrief = readExecutiveBriefFromThesis({
+      status: 'complete',
+      executiveThesis: 'One argument the whole report proves.',
+      decisions: [
+        { decision: 'Launch the comparison campaign.' },
+        { decision: 'Fix the demo gate.' },
+      ],
+    });
+
+    expect(executiveBrief).toBe(
+      [
+        'One argument the whole report proves.',
+        '',
+        '1. Launch the comparison campaign.',
+        '2. Fix the demo gate.',
+      ].join('\n'),
+    );
+
+    const snapshot = buildV3ShareSnapshot({
+      runId,
+      title: 'SaaSLaunch Positioning Audit',
+      sections: [
+        {
+          zone: 'positioningMarketCategory',
+          title: marketCategoryFixtureArtifact.sectionTitle,
+          markdown: null,
+          data: marketCategoryFixtureArtifact,
+          status: 'complete',
+          verification_tier: null,
+          verification_flag: null,
+          updated_at: '2026-05-25T12:00:00.000Z',
+        },
+      ],
+      executiveBrief,
+    });
+
+    expect(snapshot.executiveBrief).toBe(executiveBrief);
+  });
+
+  it('ships no executive brief for generating, error, or missing thesis states', (): void => {
+    expect(
+      readExecutiveBriefFromThesis({ status: 'generating', claimedAt: 'now' }),
+    ).toBeNull();
+    expect(
+      readExecutiveBriefFromThesis({ status: 'error', message: 'boom' }),
+    ).toBeNull();
+    expect(readExecutiveBriefFromThesis(null)).toBeNull();
+    expect(readExecutiveBriefFromThesis(undefined)).toBeNull();
+  });
+
+  it('keeps legacy snapshots without executiveBrief recognized as v3 snapshots', (): void => {
+    expect(
+      isV3ShareResearchSnapshot({
+        schemaVersion: 'research-v3',
+        runId,
+        title: 'Legacy snapshot',
+        sections: [],
+      }),
+    ).toBe(true);
   });
 
   it('preserves reviewed artifact body and committed trust metadata in share sections', (): void => {
@@ -396,6 +461,7 @@ describe('v3 share snapshot', (): void => {
       title: 'Shared title',
       research_snapshot: expect.objectContaining({
         schemaVersion: 'research-v3',
+        executiveBrief: null,
         sections: expect.arrayContaining([
           expect.objectContaining({
             zone: 'positioningMarketCategory',
@@ -408,6 +474,37 @@ describe('v3 share snapshot', (): void => {
       }),
       media_plan_snapshot: null,
     });
+  });
+
+  it('populates the shared snapshot executiveBrief from research_artifacts.thesis', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({
+      thesis: {
+        status: 'complete',
+        executiveThesis: 'One argument the whole report proves.',
+        decisions: [{ decision: 'Launch the comparison campaign.' }],
+      },
+    });
+
+    await createV3SharedSession({
+      supabase: fakeSupabase.supabase,
+      userId,
+      runId,
+      title: 'Shared title',
+      appUrl: 'https://app.example',
+      newShareToken: () => 'share_token_123',
+    });
+
+    expect(fakeSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        research_snapshot: expect.objectContaining({
+          executiveBrief: [
+            'One argument the whole report proves.',
+            '',
+            '1. Launch the comparison campaign.',
+          ].join('\n'),
+        }),
+      }),
+    );
   });
 
   it('refreshes existing v3 share snapshots without rewriting legacy snapshots', async (): Promise<void> => {

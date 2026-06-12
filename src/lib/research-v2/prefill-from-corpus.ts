@@ -3,7 +3,7 @@ import type {
   OnboardingPrefillMetadata,
   OnboardingV2Data,
 } from './onboarding-v2-types';
-import { isNonAnswer } from './non-answer';
+import { isHedgeAnswer, isNonAnswer } from './non-answer';
 
 export interface CorpusOnboardingField {
   value?: unknown;
@@ -113,6 +113,27 @@ function salesMotionFromBusinessModel(
   return undefined;
 }
 
+// The companySize form field asks for the TARGET CUSTOMER's employee-count or
+// revenue band ("50–500 employees", "$5M–$50M ARR"). The corpus model has
+// answered it with the company's OWN usage/scale claim ("500,000+ brands use
+// Airtable") — a marketing number, not a firmographic band. Drop usage-claim
+// values unless they carry an employee/revenue band marker.
+const COMPANY_SIZE_USAGE_CLAIM_PATTERN =
+  /\b(use|uses|users|brands|customers|companies|teams)\b/i;
+const COMPANY_SIZE_BAND_MARKER_PATTERN =
+  /employees?|headcount|revenue|\barr\b|\$/i;
+
+function companySizeFromCorpus(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  if (
+    COMPANY_SIZE_USAGE_CLAIM_PATTERN.test(raw) &&
+    !COMPANY_SIZE_BAND_MARKER_PATTERN.test(raw)
+  ) {
+    return undefined;
+  }
+  return raw;
+}
+
 export function prefillFromCorpusWithMetadata(
   onboardingFields: Record<string, CorpusOnboardingField>,
 ): PrefillFromCorpusResult {
@@ -120,9 +141,12 @@ export function prefillFromCorpusWithMetadata(
     const val = onboardingFields[key]?.value;
     if (typeof val !== 'string') return undefined;
     const trimmed = val.trim();
-    // Drop corpus non-answers ("idk"/"none"/…) so the brief-review form shows
+    // Drop corpus non-answers ("idk"/"none"/…) and hedge prose ("not
+    // explicitly limited in public sources") so the brief-review form shows
     // blank instead of prefilling junk the run path already discards to null.
-    if (trimmed.length === 0 || isNonAnswer(trimmed)) return undefined;
+    if (trimmed.length === 0 || isNonAnswer(trimmed) || isHedgeAnswer(trimmed)) {
+      return undefined;
+    }
     return trimmed;
   }
 
@@ -157,7 +181,7 @@ export function prefillFromCorpusWithMetadata(
   setField('idealCustomer', 'primaryIcpDescription', str('primaryIcpDescription'));
   setField('industry', 'industryVertical', str('industryVertical'));
   setField('jobTitles', 'jobTitles', str('jobTitles'));
-  setField('companySize', 'companySize', str('companySize'));
+  setField('companySize', 'companySize', companySizeFromCorpus(str('companySize')));
   setField('geographicFocus', 'geography', str('geography'));
 
   // triggers — no direct corpus key (situationBeforeBuying is closest)

@@ -25,10 +25,19 @@ export interface SourceLivenessCheck {
   status: number | null;
 }
 
+/** Row kept because its host blocks server-side probes (403/429/503 from a
+ * known bot-hostile review platform): liveness is UNKNOWN, not failed. */
+export interface SourceLivenessUnknownRow {
+  path: string;
+  sourceUrl: string;
+  status: number;
+}
+
 export interface SourceLivenessResult {
   body: Record<string, unknown>;
   checkedUrls: SourceLivenessCheck[];
   droppedRows: SourceLivenessDrop[];
+  livenessUnknownRows: SourceLivenessUnknownRow[];
   containmentPassRate: number | null;
   livenessPassRate: number | null;
   networkUnavailable: boolean;
@@ -119,6 +128,30 @@ const freeSignupPattern =
   /\b(?:free|trial|sign\s?up|signup|start\s+free|get\s+started|create\s+account|try\s+for\s+free)\b/i;
 const negativeSelfServePattern =
   /\b(?:no|not|never|without|lacks?|lack|absent|unavailable|does\s+not|doesn't)\b.{0,60}\b(?:self[-\s]?serve|free|trial|sign\s?up|signup|create\s+account|get\s+started)\b|\b(?:self[-\s]?serve|free|trial|sign\s?up|signup|create\s+account|get\s+started)\b.{0,60}\b(?:no|not|never|without|lacks?|lack|absent|unavailable|does\s+not|doesn't)\b/i;
+// A negated-self-serve match only counts as a SUBJECT-SITE CTA claim when the
+// sentence carries an explicit site/CTA anchor. Bare "free"/"signup" proximity
+// struck funnel-arithmetic prose in run d838ed4e ("94% of those signups never
+// convert") — analysis that asserts nothing about the site's purchase path.
+const subjectCtaAnchorPattern =
+  /\b(?:CTAs?|call[-\s]?to[-\s]?action|book[-\s]a[-\s]demo|request[-\s]a[-\s]demo|demo[-\s]?gated?|path[-\s]to[-\s]purchase|self[-\s]?serve|homepage|pricing\s+page|landing\s+page|website)\b/i;
+// Affirmative exclusive-gating assertions ("demo-gated", "every CTA routes to
+// a demo", "the only path is book-a-demo") contradict an observed free/signup
+// CTA without any negation token.
+const demoGateAssertionPattern =
+  /\bdemo[-\s]?gated?\b|\bgated\s+behind\s+(?:a\s+)?demo\b|\b(?:every|all|each)\s+CTAs?\b[^.!?]{0,60}\b(?:demo|sales)\b|\broutes?\s+(?:all|every|each)\b[^.!?]{0,40}\bto\s+(?:a\s+)?demo\b|\b(?:only|sole(?:ly)?|exclusively)\b[^.!?]{0,40}\bbook[-\s]a[-\s]demo\b|\bbook[-\s]a[-\s]demo\b[^.!?]{0,40}\b(?:only|sole)\b/i;
+const ctaSentenceSplitPattern = /(?<=[.!?])\s+/;
+// Anti-bot statuses from hosts that block server-side fetches: a 403/429/503
+// from these platforms means "probe blocked", not "evidence dead". Rows are
+// kept and excluded from the liveness passRate denominator (mirroring the
+// networkUnavailable carve-out).
+const botHostileStatusCodes = new Set([403, 429, 503]);
+const botHostileRegistrableDomains = new Set([
+  "g2.com",
+  "capterra.com",
+  "trustpilot.com",
+  "trustradius.com",
+  "reddit.com",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -482,10 +515,15 @@ async function mapWithConcurrency<T, R>({
   return results;
 }
 
+const emptiedBlockGapSummary =
+  "Rows in this block were removed before publishing because their cited sources could not be verified live.";
+
 // When liveness/containment drops empty out a standard evidence block
 // ({ prose, <rows>[], blockGap? }), install an honest blockGap so the
 // artifact stays committable and the reader sees a plain-language gap
-// instead of the section crashing on persistence minimums.
+// instead of the section crashing on persistence minimums. The block's prose
+// is replaced with the same summary: prose narrating dropped rows would
+// otherwise keep asserting the dropped numbers over an empty table.
 function installBlockGapsForEmptiedBlocks({
   after,
   before,
@@ -521,9 +559,9 @@ function installBlockGapsForEmptiedBlocks({
       ) {
         next[key] = {
           ...afterValue,
+          prose: emptiedBlockGapSummary,
           blockGap: {
-            summary:
-              "Rows in this block were removed before publishing because their cited sources could not be verified live.",
+            summary: emptiedBlockGapSummary,
             foundCount: 0,
             requiredCount: beforeField.length,
             sourcingPlan: [
@@ -668,6 +706,7 @@ export async function applySourceLivenessGate({
 
   const droppedRows: SourceLivenessDrop[] = [];
   const checkedUrls: SourceLivenessCheck[] = [];
+  const livenessUnknownRows: SourceLivenessUnknownRow[] = [];
   const droppedPaths = new Set<string>();
   let liveTotal = 0;
   let livePassed = 0;
@@ -689,6 +728,32 @@ export async function applySourceLivenessGate({
     const probe = probes.get(row.sourceUrl);
 
     if (probe === undefined) {
+      continue;
+    }
+
+    if (
+      probe.type === "dead" &&
+      probe.status !== null &&
+      botHostileStatusCodes.has(probe.status) &&
+      botHostileRegistrableDomains.has(
+        getRegistrableDomain(row.sourceUrl) ?? "",
+      )
+    ) {
+      // Bot-walled host: the probe was blocked, not the evidence refuted.
+      // Keep the row, record it, and leave it out of the passRate
+      // denominator (mirrors the networkUnavailable carve-out below).
+      livenessUnknownRows.push({
+        path: row.path,
+        sourceUrl: row.sourceUrl,
+        status: probe.status,
+      });
+      checkedUrls.push({
+        containmentChecked: false,
+        containmentPassed: false,
+        livenessPassed: false,
+        sourceUrl: row.sourceUrl,
+        status: probe.status,
+      });
       continue;
     }
 
@@ -763,6 +828,7 @@ export async function applySourceLivenessGate({
     body: networkUnavailable ? cloned : isRecord(gappedBody) ? gappedBody : cloned,
     checkedUrls,
     droppedRows: networkUnavailable ? [] : droppedRows,
+    livenessUnknownRows: networkUnavailable ? [] : livenessUnknownRows,
     containmentPassRate: networkUnavailable
       ? null
       : passRate({
@@ -944,32 +1010,87 @@ function observedSelfServeCtas(
   );
 }
 
+const contradictedSubjectCtaPlaceholder =
+  "Evidence gap: subject-site CTA claim removed because fetched subject pages showed a free/signup path.";
+
+// A sentence contradicts an observed free/signup CTA only when it explicitly
+// asserts the subject site's CTA/gating state: either an affirmative
+// exclusive-gate claim ("every CTA routes to a demo", "demo-gated") or a
+// negated self-serve claim anchored to the site/CTA ("no self-serve signup
+// path"). Pure funnel arithmetic ("94% of signups never convert") asserts
+// nothing about the purchase path and must survive.
+function sentenceAssertsContradictedSubjectCta(sentence: string): boolean {
+  return (
+    demoGateAssertionPattern.test(sentence) ||
+    (negativeSelfServePattern.test(sentence) &&
+      subjectCtaAnchorPattern.test(sentence))
+  );
+}
+
+interface SubjectCtaStripState {
+  placeholderUsed: boolean;
+}
+
 function stripContradictedStrings({
   observedCtas,
   path,
+  state,
   value,
 }: {
   observedCtas: readonly string[];
   path: string;
+  state: SubjectCtaStripState;
   value: unknown;
 }): { value: unknown; stripped: SubjectCtaClaimStrip[] } {
   if (typeof value === "string") {
-    if (negativeSelfServePattern.test(value)) {
+    const sentences = value.split(ctaSentenceSplitPattern);
+    const offending = sentences.filter(sentenceAssertsContradictedSubjectCta);
+
+    if (offending.length === 0) {
+      return { value, stripped: [] };
+    }
+
+    // Strike only the offending sentence(s); the rest of the field survives.
+    const remainder = sentences
+      .filter((sentence) => !sentenceAssertsContradictedSubjectCta(sentence))
+      .join(" ")
+      .trim();
+
+    if (remainder.length > 0) {
       return {
-        value:
-          "Evidence gap: subject-site CTA claim removed because fetched subject pages showed a free/signup path.",
+        value: remainder,
         stripped: [
           {
             path,
             reason: "contradicted-subject-site-cta",
-            removedText: value,
+            removedText: offending.join(" "),
             observedCtas: [...observedCtas],
           },
         ],
       };
     }
 
-    return { value, stripped: [] };
+    // The whole field offends. The placeholder may ship at most ONCE per
+    // section — run d838ed4e pasted the identical placeholder into five
+    // strategic fields. A second fully-offending field keeps its text; the
+    // section badge and verifierSummary still surface the first strike.
+    if (state.placeholderUsed) {
+      return { value, stripped: [] };
+    }
+
+    state.placeholderUsed = true;
+
+    return {
+      value: contradictedSubjectCtaPlaceholder,
+      stripped: [
+        {
+          path,
+          reason: "contradicted-subject-site-cta",
+          removedText: value,
+          observedCtas: [...observedCtas],
+        },
+      ],
+    };
   }
 
   if (Array.isArray(value)) {
@@ -978,6 +1099,7 @@ function stripContradictedStrings({
       const child = stripContradictedStrings({
         observedCtas,
         path: `${path}[${index}]`,
+        state,
         value: item,
       });
       stripped.push(...child.stripped);
@@ -998,6 +1120,7 @@ function stripContradictedStrings({
     const child = stripContradictedStrings({
       observedCtas,
       path: pathForChild(path, key),
+      state,
       value: childValue,
     });
     next[key] = child.value;
@@ -1024,6 +1147,7 @@ export function stripContradictedSubjectCtaClaims({
   const result = stripContradictedStrings({
     observedCtas,
     path: "body",
+    state: { placeholderUsed: false },
     value: cloned,
   });
 

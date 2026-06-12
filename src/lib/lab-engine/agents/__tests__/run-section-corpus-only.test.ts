@@ -1138,14 +1138,16 @@ describe('runSection corpus-only mode', (): void => {
       throw new Error('Expected marketSize.signals array.');
     }
 
+    // The body string ships untouched (no inline [unverified] splice); the
+    // unsupported figure is carried as verifierSummary metadata only.
     expect(requireRecord(signals[0]).evidence).toBe(
-      'The category is expanding at 44% [unverified] annually.',
+      'The category is expanding at 44% annually.',
     );
     expect(result.artifact.verifierSummary).toEqual(
       expect.objectContaining({
         strippedNumericClaims: [
           {
-            action: 'marker',
+            action: 'recorded',
             field: 'body.marketSize.signals[0].evidence',
             value: '44%',
           },
@@ -1575,7 +1577,11 @@ describe('runSection corpus-only mode', (): void => {
       cpcValue: 4.1,
       difficulty: 22,
     });
-    expect(runAnswerTool).toHaveBeenCalledTimes(1);
+    // This corpus-only fixture leaves > 6 unsupported load-bearing claims, so
+    // the finite repair trigger spends both bounded grounding repairs
+    // (1 initial + answerToolMaxRepairAttempts) before committing the best
+    // attempt — the gate itself (50) still never hard-fails the section.
+    expect(runAnswerTool).toHaveBeenCalledTimes(3);
   });
 
   it('normalizes paid-media structured drift before strict validation', async (): Promise<void> => {
@@ -1750,8 +1756,11 @@ describe('runSection corpus-only mode', (): void => {
       'positioningVoiceOfCustomer',
     );
     expect(requireRecord(artifactAudiences[1]).dailyBudgetValue).toBe(33.33);
+    // The model-asserted "user-supplied" label (snapped from "customer") is
+    // unearned — the saaslaunch brief carries no economics — so provenance
+    // downgrades to "model-estimated" while the display value stays.
     expect(requireRecord(artifactAudiences[1]).dailyBudgetProvenance).toBe(
-      'user-supplied',
+      'model-estimated',
     );
     expect(requireRecord(artifactAngles[0]).sourceSection).toBe(
       'positioningVoiceOfCustomer',
@@ -2067,7 +2076,9 @@ describe('runSection corpus-only mode', (): void => {
     );
     expect(committedOverview.monthlyBudgetProvenance).toBe('unknown');
     expect(committedOverview).not.toHaveProperty('monthlyBudgetValue');
-    expect(committedOverview.dailySpendProvenance).toBe('user-supplied');
+    // Model-claimed "user-supplied" with no matching brief economics figure:
+    // downgraded to "model-estimated"; the display value survives.
+    expect(committedOverview.dailySpendProvenance).toBe('model-estimated');
     expect(committedOverview.dailySpendValue).toBe(3_333);
     expect(record.sections.positioningPaidMediaPlan?.artifact).toEqual(
       expect.objectContaining({

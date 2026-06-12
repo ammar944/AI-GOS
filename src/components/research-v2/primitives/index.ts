@@ -55,5 +55,6 @@ export {
   isReaderPipelineChrome,
   looksLikeNavMenuGarbage,
   scrubReaderText,
+  stripMoneyProvenanceSuffix,
   textOrGap,
 } from './reader-text';

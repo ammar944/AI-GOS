@@ -32,3 +32,8 @@ export {
   PaidMediaPlanRenderer,
   type PaidMediaPlanRendererProps,
 } from './paid-media-plan';
+
+export {
+  PaidMediaPlanDeck,
+  type PaidMediaPlanDeckProps,
+} from './paid-media-plan-deck';

@@ -68,21 +68,11 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
   };
 }
 
+// The verifier records unsupported figures as verifierSummary metadata and
+// never writes into the body: the committed body is the fixture body, with
+// no inline [unverified] splices or aggregate footnotes.
 function buildRedactedMarketCategoryFixtureBody(): typeof marketCategoryFixtureArtifact.body {
-  const body = structuredClone(marketCategoryFixtureArtifact.body);
-  const bottomUpTam = body.marketSize.bottomUpTam;
-
-  bottomUpTam.inputs = bottomUpTam.inputs.map((input) => ({
-    ...input,
-    value: input.value
-      .replace('40%', '40% [unverified]')
-      .replace('2%', '2% [unverified]')
-      .replace('$6,000', '$6,000 [unverified]'),
-  }));
-  bottomUpTam.reachableRevenueEstimate =
-    bottomUpTam.reachableRevenueEstimate.replace('$1.09M', '$1.09M [unverified]');
-
-  return body;
+  return structuredClone(marketCategoryFixtureArtifact.body);
 }
 
 interface ModelSourceDraft {

@@ -163,6 +163,9 @@ export function buildOriginalArtifactMarkdown(
     ].join("\n");
   }
 
+  // No review-status scaffolding here: this string is fed back into the
+  // review prompt as "Current section markdown", and the model dutifully
+  // "removed" the boilerplate, polluting removedItems with phantom entries.
   return [
     `# ${artifact.sectionTitle}`,
     "",
@@ -171,9 +174,6 @@ export function buildOriginalArtifactMarkdown(
     "",
     `## Summary`,
     artifact.statusSummary,
-    "",
-    `## Review status`,
-    "The automated review pass was unavailable. The validated typed section artifact remains the source of truth in the reader.",
   ].join("\n");
 }
 

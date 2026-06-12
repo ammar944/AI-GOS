@@ -373,10 +373,10 @@ export interface StripMisattributedQuoteAttributionsResult {
 }
 
 export type StrippedNumericClaimAction =
-  | "marker"
-  | "marker-aggregated"
+  | "recorded"
   | "evidence-gap"
   | "provenance-unknown"
+  | "provenance-downgraded"
   | "verified-marker-removed";
 
 export interface StrippedNumericClaim {
@@ -394,16 +394,20 @@ export interface UnsupportedNumericToken {
   value: string;
 }
 
-const unverifiedMarker = "[unverified]";
 const modelAuthoredVerifiedMarkerPattern =
   /\s*\[\s*verified\b[^\]\n]{0,160}\]/giu;
 const modelAuthoredVerifiedMarkerProbePattern =
   /\[\s*verified\b[^\]\n]{0,160}\]/iu;
+// Unconditionally trusted money provenances. "user-supplied" is NOT here: the
+// label is model-asserted, so it only earns the exemption when the figure
+// actually appears in the brief economics (see briefMoneyDigits below) —
+// otherwise it is downgraded to "model-estimated".
 const trustedPaidMediaMoneyProvenances = new Set([
-  "user-supplied",
   "tool-measured",
   "source-reported",
 ]);
+const userSuppliedMoneyProvenance = "user-supplied";
+const modelEstimatedMoneyProvenance = "model-estimated";
 const demandIntentKeywordNumericFieldNames = new Set([
   "monthlyvolume",
   "cpc",
@@ -614,10 +618,11 @@ function isDigitChar(char: string | undefined): boolean {
   return char !== undefined && /[0-9]/.test(char);
 }
 
-// A marker may only be spliced at a clean token boundary. A raw substring
-// match inside a longer word or number corrupts the prose — the live
-// `$450/mo [unverified]nth` defect — so embedded matches are skipped: the
-// claim stays unsupported in the verification report and the badge covers it.
+// A token only counts as PRESENT in a field at a clean token boundary. A raw
+// substring match inside a longer word or number is a different figure — the
+// historic `$450/mo` inside `$450/month` defect — so embedded matches are
+// skipped: the claim stays unsupported in the verification report and the
+// badge covers it.
 export function isCleanTokenBoundary({
   matchLength,
   offset,
@@ -664,140 +669,63 @@ export function isCleanTokenBoundary({
   return true;
 }
 
-function markNumericToken({
-  budget,
+function tokenPresentAtCleanBoundary({
   token,
   value,
 }: {
-  budget?: InlineMarkerBudget;
   token: UnsupportedNumericToken;
   value: string;
-}): { appliedCount: number; value: string } {
+}): boolean {
   if (token.value.length === 0 || !value.includes(token.value)) {
-    return { appliedCount: 0, value };
+    return false;
   }
 
-  let appliedCount = 0;
   const pattern = new RegExp(escapeRegExp(token.value), "g");
-  const redacted = value.replace(pattern, (match, offset: number, source) => {
-    const following = source.slice(offset + match.length);
+  let match = pattern.exec(value);
 
-    if (/^\s*\[unverified\]/i.test(following)) {
-      return match;
-    }
-
+  while (match !== null) {
     if (
-      !isCleanTokenBoundary({ matchLength: match.length, offset, source })
+      isCleanTokenBoundary({
+        matchLength: match[0].length,
+        offset: match.index,
+        source: value,
+      })
     ) {
-      return match;
+      return true;
     }
 
-    if (budget !== undefined) {
-      if (budget.remaining <= 0) {
-        return match;
-      }
+    match = pattern.exec(value);
+  }
 
-      budget.remaining -= 1;
-    }
-
-    appliedCount += 1;
-    return `${match} ${unverifiedMarker}`;
-  });
-
-  return { appliedCount, value: redacted };
+  return false;
 }
 
-// Above this many applied marker occurrences in one field, inline markers
-// stop reading as annotation and start reading as static. The field keeps its
-// prose intact and carries ONE aggregate footnote instead; per-token stripped
-// actions still record every figure for the report and badge.
-export const inlineMarkerCapPerField = 3;
-
-// Section-wide occurrence budget for spliced [unverified] markers. Run
-// 314d5f02 shipped 83 inline markers because the per-field cap counted
-// distinct tokens while every occurrence was spliced globally. Beyond this
-// budget splicing stops: the claims stay recorded as "marker-aggregated" and
-// the section badge covers them (same posture as the boundary-skip above).
-export const inlineMarkerBudgetPerSection = 6;
-
-interface InlineMarkerBudget {
-  remaining: number;
-}
-
-function buildAggregateMarkerFootnote(count: number): string {
-  return `[${count} figure${count === 1 ? "" : "s"} in this field ${
-    count === 1 ? "is" : "are"
-  } unverified — see section badge]`;
-}
-
-function appendMarkerActions({
-  budget,
+// The verifier never writes into the deliverable: unsupported figures are
+// RECORDED in verifierSummary.strippedNumericClaims (exact field paths) and
+// surfaced through the needs_review badge — the body string ships unchanged.
+// The previous behavior spliced inline `[unverified]` markers and aggregate
+// footnotes into committed prose, which every downstream consumer (executive
+// brief input, paid-media research input, share, profile) inherited.
+function recordUnsupportedNumericTokens({
   field,
   stripped,
   tokens,
   value,
 }: {
-  budget?: InlineMarkerBudget;
   field: string;
   stripped: StrippedNumericClaim[];
   tokens: readonly UnsupportedNumericToken[];
   value: string;
-}): string {
-  // Dry run (no budget consumed): which tokens are markable in this field and
-  // how many occurrences would actually be spliced.
-  const markableTokens: UnsupportedNumericToken[] = [];
-  let markableOccurrenceCount = 0;
-
+}): void {
   for (const token of tokens) {
-    const { appliedCount } = markNumericToken({ token, value });
-
-    if (appliedCount > 0) {
-      markableTokens.push(token);
-      markableOccurrenceCount += appliedCount;
-    }
-  }
-
-  if (markableOccurrenceCount === 0) {
-    return value;
-  }
-
-  if (markableOccurrenceCount > inlineMarkerCapPerField) {
-    for (const token of markableTokens) {
+    if (tokenPresentAtCleanBoundary({ token, value })) {
       stripped.push({
-        action: "marker-aggregated",
+        action: "recorded",
         field,
         value: token.value,
       });
     }
-
-    return `${value} ${buildAggregateMarkerFootnote(markableTokens.length)}`;
   }
-
-  let nextValue = value;
-
-  for (const token of markableTokens) {
-    const result = markNumericToken({ budget, token, value: nextValue });
-
-    if (result.appliedCount === 0) {
-      // Markable, but the section budget is exhausted: record without
-      // splicing — verifierSummary distinguishes shipped vs aggregated.
-      stripped.push({
-        action: "marker-aggregated",
-        field,
-        value: token.value,
-      });
-      continue;
-    }
-
-    nextValue = result.value;
-    stripped.push({
-      action: "marker",
-      field,
-      value: token.value,
-    });
-  }
-
-  return nextValue;
 }
 
 export function stripModelAuthoredVerifiedMarkers({
@@ -888,47 +816,27 @@ function relabelBottomUpTamInput({
   return true;
 }
 
-function relabelReachableRevenueEstimate({
-  budget,
-  record,
-  stripped,
-  tokens,
-}: {
-  budget?: InlineMarkerBudget;
-  record: Record<string, unknown>;
-  stripped: StrippedNumericClaim[];
-  tokens: readonly UnsupportedNumericToken[];
-}): void {
+// Prefixes the estimate with the evidence-gap label when any recipe input was
+// relabeled. Unsupported tokens inside the estimate are recorded by the
+// generic body walk — no separate record here.
+function relabelReachableRevenueEstimate(
+  record: Record<string, unknown>,
+): void {
   const value = record.reachableRevenueEstimate;
 
-  if (typeof value !== "string") {
+  if (typeof value !== "string" || /evidence\s+gap/i.test(value)) {
     return;
   }
 
-  const marked = appendMarkerActions({
-    budget,
-    field: `${bottomUpTamPath}.reachableRevenueEstimate`,
-    stripped,
-    tokens,
-    value,
-  });
-  const withEvidenceGap = /evidence\s+gap/i.test(marked)
-    ? marked
-    : `evidence gap: ${marked}`;
-
-  if (withEvidenceGap !== value) {
-    record.reachableRevenueEstimate = withEvidenceGap;
-  }
+  record.reachableRevenueEstimate = `evidence gap: ${value}`;
 }
 
 function relabelBottomUpTamRecord({
-  budget,
   path,
   record,
   stripped,
   tokens,
 }: {
-  budget?: InlineMarkerBudget;
   path: string;
   record: Record<string, unknown>;
   stripped: StrippedNumericClaim[];
@@ -954,8 +862,80 @@ function relabelBottomUpTamRecord({
   });
 
   if (relabeledInput) {
-    relabelReachableRevenueEstimate({ budget, record, stripped, tokens });
+    relabelReachableRevenueEstimate(record);
   }
+}
+
+// Digit-normal forms of every number in a string: commas stripped, K/M/B
+// magnitudes expanded ("$3,000" -> "3000"; "5k" -> "5" and "5000"). Used to
+// check whether a model-claimed "user-supplied" money figure actually appears
+// in the brief economics.
+function moneyDigitVariants(value: string): string[] {
+  const variants: string[] = [];
+
+  for (const match of value.matchAll(/\d[\d,]*(?:\.\d+)?\s?(?:[kmb]\b)?/gi)) {
+    const raw = match[0].trim();
+    const magnitudeMatch = /^([\d,.]+)\s?([kmb])$/i.exec(raw);
+    const digits = raw.replace(/[\s,]/g, "").replace(/[kmb]$/i, "");
+
+    if (digits.length > 0) {
+      variants.push(digits);
+    }
+
+    if (magnitudeMatch !== null) {
+      const base = Number.parseFloat(magnitudeMatch[1].replace(/,/g, ""));
+      const multiplier = suffixMultipliers[magnitudeMatch[2].toLowerCase()];
+
+      if (Number.isFinite(base) && multiplier !== undefined) {
+        variants.push(String(Math.round(base * multiplier)));
+      }
+    }
+  }
+
+  return variants;
+}
+
+const suffixMultipliers: Record<string, number> = {
+  b: 1_000_000_000,
+  k: 1_000,
+  m: 1_000_000,
+};
+
+/**
+ * Digit-normal index of every money/number figure the operator actually
+ * supplied in the brief economics. A paid-media money field may only claim
+ * "user-supplied" provenance for figures present here.
+ */
+export function collectBriefMoneyDigits(economics: unknown): ReadonlySet<string> {
+  const digits = new Set<string>();
+
+  if (!isRecord(economics)) {
+    return digits;
+  }
+
+  for (const value of Object.values(economics)) {
+    if (typeof value !== "string") {
+      continue;
+    }
+
+    for (const variant of moneyDigitVariants(value)) {
+      digits.add(variant);
+    }
+  }
+
+  return digits;
+}
+
+function tokenAppearsInBriefEconomics({
+  briefMoneyDigits,
+  token,
+}: {
+  briefMoneyDigits: ReadonlySet<string>;
+  token: string;
+}): boolean {
+  return moneyDigitVariants(token).some((variant) =>
+    briefMoneyDigits.has(variant),
+  );
 }
 
 function moneyValueKey(fieldName: string): string {
@@ -999,11 +979,13 @@ function isPaidMediaMoneyDisplayField({
 }
 
 function redactPaidMediaMoneyFields({
+  briefMoneyDigits,
   path,
   record,
   stripped,
   tokens,
 }: {
+  briefMoneyDigits: ReadonlySet<string>;
   path: string;
   record: Record<string, unknown>;
   stripped: StrippedNumericClaim[];
@@ -1035,6 +1017,30 @@ function redactPaidMediaMoneyFields({
       typeof provenance === "string" &&
       trustedPaidMediaMoneyProvenances.has(provenance)
     ) {
+      continue;
+    }
+
+    if (provenance === userSuppliedMoneyProvenance) {
+      // "user-supplied" is a model-asserted label: it only earns the
+      // exemption when the figure actually appears in the brief economics.
+      // Otherwise the provenance is downgraded to "model-estimated" — the
+      // display string and numeric value stay.
+      const earned = matchingTokens.every((token) =>
+        tokenAppearsInBriefEconomics({ briefMoneyDigits, token: token.value }),
+      );
+
+      if (earned) {
+        continue;
+      }
+
+      record[provenanceKey] = modelEstimatedMoneyProvenance;
+      matchingTokens.forEach((token) => {
+        stripped.push({
+          action: "provenance-downgraded",
+          field: `${path}.${fieldName}`,
+          value: token.value,
+        });
+      });
       continue;
     }
 
@@ -1101,13 +1107,13 @@ function shouldSkipNumericMarkerField({
 }
 
 function walkBodyForUnsupportedNumerics({
-  budget,
+  briefMoneyDigits,
   path,
   stripped,
   tokens,
   value,
 }: {
-  budget: InlineMarkerBudget;
+  briefMoneyDigits: ReadonlySet<string>;
   path: string;
   stripped: StrippedNumericClaim[];
   tokens: readonly UnsupportedNumericToken[];
@@ -1116,7 +1122,7 @@ function walkBodyForUnsupportedNumerics({
   if (Array.isArray(value)) {
     value.forEach((item, index) => {
       walkBodyForUnsupportedNumerics({
-        budget,
+        briefMoneyDigits,
         path: `${path}[${index}]`,
         stripped,
         tokens,
@@ -1130,8 +1136,14 @@ function walkBodyForUnsupportedNumerics({
     return;
   }
 
-  relabelBottomUpTamRecord({ budget, path, record: value, stripped, tokens });
-  redactPaidMediaMoneyFields({ path, record: value, stripped, tokens });
+  relabelBottomUpTamRecord({ path, record: value, stripped, tokens });
+  redactPaidMediaMoneyFields({
+    briefMoneyDigits,
+    path,
+    record: value,
+    stripped,
+    tokens,
+  });
 
   for (const [key, childValue] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
@@ -1158,23 +1170,22 @@ function walkBodyForUnsupportedNumerics({
       });
       stripped.push(...verifiedMarkerStrip.stripped);
 
-      const marked = appendMarkerActions({
-        budget,
+      recordUnsupportedNumericTokens({
         field: childPath,
         stripped,
         tokens,
         value: verifiedMarkerStrip.value,
       });
 
-      if (marked !== childValue) {
-        value[key] = marked;
+      if (verifiedMarkerStrip.value !== childValue) {
+        value[key] = verifiedMarkerStrip.value;
       }
 
       continue;
     }
 
     walkBodyForUnsupportedNumerics({
-      budget,
+      briefMoneyDigits,
       path: childPath,
       stripped,
       tokens,
@@ -1185,9 +1196,11 @@ function walkBodyForUnsupportedNumerics({
 
 export function redactUnsupportedNumericClaims({
   body,
+  briefMoneyDigits = new Set<string>(),
   verification,
 }: {
   body: Record<string, unknown>;
+  briefMoneyDigits?: ReadonlySet<string>;
   verification: VerificationReport;
 }): RedactUnsupportedNumericClaimsResult {
   const tokens = collectUnsupportedNumericTokens(verification);
@@ -1201,12 +1214,9 @@ export function redactUnsupportedNumericClaims({
 
   const cloned = structuredClone(body);
   const stripped: StrippedNumericClaim[] = [];
-  const budget: InlineMarkerBudget = {
-    remaining: inlineMarkerBudgetPerSection,
-  };
 
   walkBodyForUnsupportedNumerics({
-    budget,
+    briefMoneyDigits,
     path: "body",
     stripped,
     tokens,

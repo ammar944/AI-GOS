@@ -20,6 +20,7 @@ import {
   VerdictHero,
   clientGapSentence,
   scrubReaderText,
+  textOrGap,
   type EvidenceChipSource,
   type KeyFinding,
   type Positioning2x2Point,
@@ -155,6 +156,13 @@ function findByCompetitor<T extends { competitor: string }>(
   return rows.find((row) => row.competitor === competitorName) ?? null;
 }
 
+// Hero copy is model-fetched verbatim text; when it carries a gap sentinel or
+// nav garbage it must not surface as an evidence excerpt at all.
+function heroCopyExcerpt(value: string): string | undefined {
+  const result = textOrGap(value, 'hero copy');
+  return result.kind === 'text' ? result.value : undefined;
+}
+
 function competitorKeyFindings(
   artifact: CompetitorLandscapeArtifact,
 ): readonly KeyFinding[] {
@@ -179,7 +187,7 @@ function competitorKeyFindings(
             {
               title: competitor.name,
               url: competitor.sourceUrl,
-              excerpt: competitor.verbatimHeroCopy,
+              excerpt: heroCopyExcerpt(competitor.verbatimHeroCopy),
             },
           ],
         }
@@ -536,7 +544,7 @@ export function CompetitorLandscapeRenderer({
                     source={{
                       title: competitor.name,
                       url: competitor.sourceUrl,
-                      excerpt: competitor.verbatimHeroCopy,
+                      excerpt: heroCopyExcerpt(competitor.verbatimHeroCopy),
                     }}
                     label="source"
                   />
@@ -549,7 +557,14 @@ export function CompetitorLandscapeRenderer({
                 </p>
                 {adSignal ? (
                   <p className="text-[12px] leading-[1.5] text-muted-foreground">
-                    Ads: {formatPlatforms(adSignal.platforms)} · {adSignal.estSpend}
+                    {(() => {
+                      // estSpend can arrive as a gap sentinel — never print it
+                      // beside the platform list as if it were a number.
+                      const spend = textOrGap(adSignal.estSpend, 'ad spend');
+                      return spend.kind === 'text'
+                        ? `Ads: ${formatPlatforms(adSignal.platforms)} · ${spend.value}`
+                        : `Ads: ${formatPlatforms(adSignal.platforms)}`;
+                    })()}
                   </p>
                 ) : null}
               </article>

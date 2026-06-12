@@ -210,6 +210,7 @@ STYLE
 - Every major claim must be backed by a source, quote, user-provided context, or explicit "insufficient evidence" marker.
 - Do not invent market size, pricing, CAC, ROAS, search volume, competitor claims, or customer quotes.
 - If source coverage is thin, say exactly what is missing and still provide the best grounded diagnosis.
+- Never reference passes, calls, sweeps, fan-outs, or this research process; describe gaps in client language (e.g. "no public pricing is disclosed").
 - Keep output concise but complete enough to complete structured company research fields and seed later section synthesis.
 
 OUTPUT
@@ -266,6 +267,7 @@ FIELD EXTRACTION RULES
 - For companyName, return the clean company name, not the page title or SEO title.
 - For productDescription, say what the product does in one concise sentence.
 - For primaryIcpDescription, describe the buyer/user segment, not a generic customer count claim.
+- For companySize, return the TARGET CUSTOMER segment's employee-count or revenue band (e.g. "50-500 employees", "$5M-$50M ARR"); NEVER the company's own user/brand/customer-count claims. Null when not disclosed.
 - For coreDeliverables, list concrete product capabilities/features.
 - For acv, extract the average contract value / typical deal size as a plain USD amount (e.g. "$12,000/yr") when pricing pages, case studies, or cited sources disclose it; deriving an annual figure from published per-seat or per-month pricing is allowed ONLY with the math stated in reasoning. Null when pricing is undisclosed.
 - For monthlyAdBudget, populate ONLY when a cited source discloses the company's own paid-ad spend (interviews, case studies, job posts); this is rarely public — null with an explicit gap is the normal answer.
@@ -294,6 +296,7 @@ Rules:
 - Use only the supplied original user context, captured sources, and incomplete draft.
 - \`onboardingFields\` is an output field-name convention only — 'onboarding' is NOT a research topic. Never research onboarding/user-onboarding unless the company's product is itself an onboarding tool.
 - Do not invent facts. Unsupported structured field values must be {"value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not verified in captured evidence."}.
+- For companySize, return the TARGET CUSTOMER segment's employee-count or revenue band (e.g. "50-500 employees", "$5M-$50M ARR"); NEVER the company's own user/brand/customer-count claims. Null when not disclosed.
 - Preserve source URLs exactly when used.
 - Preserve or rebuild corpus.intelligenceTopics with at least ${MINIMUM_INTELLIGENCE_TOPICS} distinct topic buckets. Topic evidence must use captured citation URLs only.
 - If a topic is not publicly supported, include the topic with an explicit evidence-gap summary and an empty evidence array.
@@ -738,7 +741,8 @@ function extractGroundedEvidenceUrls(result: Record<string, unknown>): string[] 
       return [];
     }
 
-    const evidenceKey = [url, claim.toLowerCase(), quote.toLowerCase()].join('\n');
+    // Aligned with evidenceIdentity: url + quote, claim excluded.
+    const evidenceKey = [url, quote.toLowerCase()].join('\n');
 
     if (seenEvidenceItems.has(evidenceKey)) {
       return [];
@@ -829,8 +833,14 @@ export function validateDeepResearchMinimums(
   const sourceUrls = extractCorpusSources(result).map((source) => source.url);
   const evidenceUrls = extractGroundedEvidenceUrls(result);
   const coveredTopics = extractCoveredIntelligenceTopics(result);
+  // Count distinct cited URLs the corpus actually grounds (curated sources
+  // PLUS evidence-cited URLs). The source minimum used to pass only because
+  // uncited provider citations were padded into corpus.sources; now that the
+  // backfill is evidence-gated, honest runs must not fail on the same bar.
   const groundedSourceUrls = uniqueStrings(
-    sourceUrls.filter((url) => citationUrls.has(url) && !isFabricatedUrl(url)),
+    [...sourceUrls, ...evidenceUrls].filter(
+      (url) => citationUrls.has(url) && !isFabricatedUrl(url),
+    ),
   );
   const groundedEvidenceUrls = evidenceUrls.filter(
     (url) => citationUrls.has(url) && !isFabricatedUrl(url),
@@ -841,7 +851,7 @@ export function validateDeepResearchMinimums(
   const errors = [
     groundedSourceUrls.length >= MINIMUM_CITED_SOURCES
       ? null
-      : `corpus.sources has ${groundedSourceUrls.length}/${MINIMUM_CITED_SOURCES} real Perplexity-cited URLs`,
+      : `corpus.sources plus evidence grounds ${groundedSourceUrls.length}/${MINIMUM_CITED_SOURCES} distinct real Perplexity-cited URLs`,
     groundedEvidenceUrls.length >= MINIMUM_GROUNDED_EVIDENCE
       ? null
       : `corpus.evidence plus intelligenceTopics[].evidence has ${groundedEvidenceUrls.length}/${MINIMUM_GROUNDED_EVIDENCE} grounded cited excerpts`,
@@ -919,7 +929,37 @@ function mergeSources(
   return dedupeSources([...primary, ...supplemental]);
 }
 
-function mergeProviderSourcesIntoCorpus(
+// Map of normalizedUrl -> whyItMatters derived from the evidence that cites
+// it. Topic evidence wins (it names the intelligence bucket); top-level
+// corpus evidence is the fallback label. URLs no evidence row cites are
+// absent — they must not be backfilled as zero-contribution source padding.
+function buildEvidenceCitationIndex(
+  parsed: DeepResearchCorpusOutput,
+): Map<string, string> {
+  const citedUnder = new Map<string, string>();
+
+  for (const topic of parsed.corpus.intelligenceTopics) {
+    for (const evidence of topic.evidence) {
+      const url = normalizeUrl(evidence.url);
+
+      if (url !== null && !citedUnder.has(url)) {
+        citedUnder.set(url, `Cited under ${topic.topic} evidence.`);
+      }
+    }
+  }
+
+  for (const evidence of parsed.corpus.evidence) {
+    const url = normalizeUrl(evidence.url);
+
+    if (url !== null && !citedUnder.has(url)) {
+      citedUnder.set(url, 'Cited in the grounded company evidence.');
+    }
+  }
+
+  return citedUnder;
+}
+
+export function mergeProviderSourcesIntoCorpus(
   parsed: DeepResearchCorpusOutput,
   sonarSources: readonly CapturedDeepResearchSource[],
 ): DeepResearchCorpusOutput {
@@ -928,13 +968,24 @@ function mergeProviderSourcesIntoCorpus(
       .map((source) => normalizeUrl(source.url))
       .filter((url): url is string => url !== null),
   );
+  const citedUnder = buildEvidenceCitationIndex(parsed);
   const providerSourceBackfill = sonarSources
     .filter((source) => !existingUrls.has(source.url))
-    .map((source) => ({
-      title: source.title,
-      url: source.url,
-      whyItMatters: 'Perplexity sonar citation used to ground the company corpus.',
-    }));
+    .flatMap((source) => {
+      const whyItMatters = citedUnder.get(source.url);
+
+      // Only backfill citations at least one evidence row actually cites —
+      // uncited provider citations are source-list padding, not grounding.
+      if (whyItMatters === undefined) {
+        return [];
+      }
+
+      return [{
+        title: source.title,
+        url: source.url,
+        whyItMatters,
+      }];
+    });
 
   return {
     ...parsed,
@@ -1112,6 +1163,7 @@ RULES
 - Prefer credible new URLs not already captured; reuse existing URLs only when they support new specific evidence.
 - Every evidence item must cite a real Perplexity citation URL from this call or from the already captured URL list.
 - If a requested topic has no public evidence, include the topic with an explicit evidence-gap summary and an empty evidence array.
+- Never reference passes, calls, sweeps, fan-outs, or this research process; describe gaps in client language (e.g. "no public pricing is disclosed").
 - Do not write downstream strategy section cards. Do not invent market size, pricing, review quotes, keyword volume, or competitor claims.
 
 RETURN JSON SHAPE
@@ -1156,34 +1208,66 @@ CONFIRMED CONTEXT
 ${input.context}`;
 }
 
+// Identity is normalized url + normalized quote ONLY. The 5 merge sources
+// (main pass, fan-outs, memo, repair) restate the same quote under paraphrased
+// claims — including claim text in the key let those duplicates pile up 2-4x
+// and flow into every section prompt.
 function evidenceIdentity(evidence: DeepResearchEvidence): string {
   const url = normalizeUrl(evidence.url) ?? evidence.url;
 
-  return [
-    url,
-    evidence.claim.trim().toLowerCase(),
-    evidence.quote.trim().toLowerCase(),
-  ].join('\n');
+  return [url, evidence.quote.trim().toLowerCase()].join('\n');
 }
 
 function dedupeEvidence(
   evidence: readonly DeepResearchEvidence[],
 ): DeepResearchEvidence[] {
-  const seen = new Set<string>();
+  const byKey = new Map<string, DeepResearchEvidence>();
 
-  return evidence.filter((item) => {
+  for (const item of evidence) {
     const key = evidenceIdentity(item);
+    const existing = byKey.get(key);
 
-    if (seen.has(key)) {
-      return false;
+    // Keep the first row; a later duplicate replaces it only when it is more
+    // confident (Map.set on an existing key preserves insertion order).
+    if (existing === undefined || item.confidence > existing.confidence) {
+      byKey.set(key, item);
     }
+  }
 
-    seen.add(key);
-    return true;
-  });
+  return [...byKey.values()];
 }
 
-function mergeTopicSummary(existing: string, supplemental: string): string {
+function tokenizeSummaryText(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 0);
+}
+
+// Fraction of the supplemental summary's tokens already present in the
+// existing summary. Above the threshold the supplemental sentence is a
+// near-restatement and concatenating it would just double the topic summary.
+const SUPPLEMENTAL_SUMMARY_OVERLAP_DROP_THRESHOLD = 0.8;
+
+function supplementalSummaryOverlapRatio(
+  existing: string,
+  supplemental: string,
+): number {
+  const supplementalTokens = tokenizeSummaryText(supplemental);
+
+  if (supplementalTokens.length === 0) {
+    return 1;
+  }
+
+  const existingTokens = new Set(tokenizeSummaryText(existing));
+  const overlapping = supplementalTokens.filter((token) =>
+    existingTokens.has(token),
+  ).length;
+
+  return overlapping / supplementalTokens.length;
+}
+
+export function mergeTopicSummary(existing: string, supplemental: string): string {
   const normalizedExisting = existing.trim();
   const normalizedSupplemental = supplemental.trim();
 
@@ -1202,7 +1286,17 @@ function mergeTopicSummary(existing: string, supplemental: string): string {
     return normalizedExisting;
   }
 
-  return `${normalizedExisting} Supplemental fan-out: ${normalizedSupplemental}`;
+  // Near-duplicate supplemental summaries are dropped, not concatenated —
+  // and the join is a plain space so no pipeline vocabulary ("Supplemental
+  // fan-out:") ever ships inside a client-facing topic summary.
+  if (
+    supplementalSummaryOverlapRatio(normalizedExisting, normalizedSupplemental) >
+    SUPPLEMENTAL_SUMMARY_OVERLAP_DROP_THRESHOLD
+  ) {
+    return normalizedExisting;
+  }
+
+  return `${normalizedExisting} ${normalizedSupplemental}`;
 }
 
 function mergeIntelligenceTopics(
@@ -1295,10 +1389,6 @@ function appendCrossSectionDeepResearchMemo(input: {
     return input.parsed;
   }
 
-  const withSources = mergeProviderSourcesIntoCorpus(
-    input.parsed,
-    input.sources,
-  );
   const memoEvidence: DeepResearchEvidence = {
     claim:
       'sonar-deep-research produced a cited cross-section research memo for downstream GTM section drafting.',
@@ -1308,14 +1398,17 @@ function appendCrossSectionDeepResearchMemo(input: {
     confidence: 80,
   };
   const withMemo = {
-    ...withSources,
+    ...input.parsed,
     corpus: {
-      ...withSources.corpus,
-      evidence: dedupeEvidence([...withSources.corpus.evidence, memoEvidence]),
+      ...input.parsed.corpus,
+      evidence: dedupeEvidence([...input.parsed.corpus.evidence, memoEvidence]),
     },
   };
+  // Source merge runs AFTER the memo evidence lands so the memo's citing
+  // source qualifies for the evidence-cited backfill.
+  const withSources = mergeProviderSourcesIntoCorpus(withMemo, input.sources);
 
-  return stripUncitedCorpusEntries(withMemo, input.sources);
+  return stripUncitedCorpusEntries(withSources, input.sources);
 }
 
 // Normalize the model's competitor list into a clean comma-separated list of
@@ -1341,6 +1434,66 @@ export function normalizeTopCompetitorsValue(value: string): string {
   }
 
   return names.join(', ');
+}
+
+// Deterministic process-talk scrub: the STYLE prompt rule asks the model not
+// to narrate passes/calls/fan-outs, and this post-processor enforces it on
+// the persisted corpus (researchSummary, topic summaries, field reasonings).
+// Conservative by design — it strips the named process phrases and rewrites
+// "deferred to a dedicated ... pass" sentences into plain gap statements; it
+// never rewrites evidence claims or quotes.
+const PROCESS_TALK_IN_THIS_PATTERN =
+  /\s*\bin this (?:(?:research|corpus|sonar|initial|first|current|primary) )?(?:pass|call|run)\b/gi;
+const PROCESS_TALK_DEFERRAL_PATTERN =
+  /([^.!?\n]*?)\s*\b(?:should|will|can|must|may) be deferred to a dedicated[^.!?\n]*?(?:pass|call|sweep|fan-?outs?)[^.!?\n]*([.!?]|$)/gi;
+
+export function scrubDeepResearchProcessTalk(value: string): string {
+  const scrubbed = value
+    .replace(PROCESS_TALK_DEFERRAL_PATTERN, (_match, subject: string, terminator: string) => {
+      const leadingWhitespace = /^\s*/.exec(subject)?.[0] ?? '';
+      const trimmedSubject = subject.trim();
+
+      return trimmedSubject.length > 0
+        ? `${leadingWhitespace}${trimmedSubject} is not disclosed in the cited sources${terminator}`
+        : `${leadingWhitespace}Not disclosed in the cited sources${terminator}`;
+    })
+    .replace(PROCESS_TALK_IN_THIS_PATTERN, '')
+    // Tidy the seams the removals leave behind: orphaned punctuation at a
+    // sentence start, space-before-punctuation, doubled spaces.
+    .replace(/(^|[\n.!?])\s*[,;:]\s*/g, '$1 ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+
+  // Never mangle content into nothing: if the scrub leaves an empty string,
+  // the original text was load-bearing — keep it.
+  return scrubbed.length > 0 ? scrubbed : value.trim();
+}
+
+function scrubProcessTalkFromCorpus(
+  parsed: DeepResearchCorpusOutput,
+): DeepResearchCorpusOutput {
+  const onboardingFields = Object.fromEntries(
+    Object.entries(parsed.onboardingFields).map(([fieldName, field]) => [
+      fieldName,
+      field === undefined
+        ? field
+        : { ...field, reasoning: scrubDeepResearchProcessTalk(field.reasoning) },
+    ]),
+  ) as DeepResearchCorpusOutput['onboardingFields'];
+
+  return {
+    ...parsed,
+    corpus: {
+      ...parsed.corpus,
+      researchSummary: scrubDeepResearchProcessTalk(parsed.corpus.researchSummary),
+      intelligenceTopics: parsed.corpus.intelligenceTopics.map((topic) => ({
+        ...topic,
+        summary: scrubDeepResearchProcessTalk(topic.summary),
+      })),
+    },
+    onboardingFields,
+  };
 }
 
 function normalizeDeepResearchOutput(
@@ -1807,6 +1960,33 @@ interface TopicSupplementResearch {
   sources: CapturedDeepResearchSource[];
 }
 
+// `result.output` is a THROWING getter when structured parsing failed
+// (truncation at the token cap, malformed JSON). Guard it and fall back to
+// extracting JSON from the raw text — an unguarded parse here silently
+// killed the whole topic group, which is why competitors/pricing topics
+// shipped empty.
+function parseTopicSupplementOutput(
+  result: SonarGenerationResult,
+  label: string,
+): DeepResearchTopicSupplementOutput {
+  const structured = deepResearchTopicSupplementSchema.safeParse(
+    readStructuredOutput(result),
+  );
+  if (structured.success) {
+    return structured.data;
+  }
+
+  const parsed = tryExtractJson(result.text);
+  const fromText = deepResearchTopicSupplementSchema.safeParse(parsed);
+  if (fromText.success) {
+    return fromText.data;
+  }
+
+  throw new Error(
+    `Deep research topic fan-out (${label}) returned no parseable structured output`,
+  );
+}
+
 async function generateTopicSupplement(input: {
   apiKey: string;
   context: string;
@@ -1847,7 +2027,7 @@ async function generateTopicSupplement(input: {
     input.abortSignal,
   );
   const sonarResult = result as SonarGenerationResult;
-  const output = deepResearchTopicSupplementSchema.parse(result.output);
+  const output = parseTopicSupplementOutput(sonarResult, input.label);
   const sources = extractSonarSources(sonarResult);
   const claimCount =
     output.evidence.length +
@@ -1865,6 +2045,34 @@ async function generateTopicSupplement(input: {
     result: sonarResult,
     sources,
   };
+}
+
+// A topic fan-out group is single-shot upstream; one truncated/timed-out call
+// used to silently drop the whole group (and with it competitors/pricing
+// evidence). Retry a rejected group exactly once before letting allSettled's
+// tolerance kick in. Never retry on job abort.
+async function generateTopicSupplementWithRetry(
+  input: Parameters<typeof generateTopicSupplement>[0],
+): Promise<TopicSupplementResearch> {
+  try {
+    return await generateTopicSupplement(input);
+  } catch (error) {
+    if (input.abortSignal?.aborted) {
+      throw error;
+    }
+
+    console.warn('[deep-research-program] topic fan-out group failed; retrying once', {
+      error: error instanceof Error ? error.message : String(error),
+      label: input.label,
+    });
+    await emitRunnerProgress(
+      input.onProgress,
+      'analysis',
+      `retrying topic expansion for ${input.label}`,
+    );
+
+    return generateTopicSupplement(input);
+  }
 }
 
 async function enrichCorpusWithDeepResearchMemo(input: {
@@ -1972,7 +2180,7 @@ async function enrichCorpusWithTopicFanout(input: {
   // triggered the full draft-retry pyramid).
   const settled = await Promise.allSettled(
     TOPIC_FANOUT_GROUPS.map((group) =>
-      generateTopicSupplement({
+      generateTopicSupplementWithRetry({
         apiKey: input.apiKey,
         context: input.context,
         existingSources: input.sources,
@@ -2402,7 +2610,10 @@ async function generateSonarCorpus(input: {
           abortSignal: input.abortSignal,
         });
 
-        return { ...memoEnriched, parsed: backfilledParsed };
+        return {
+          ...memoEnriched,
+          parsed: scrubProcessTalkFromCorpus(backfilledParsed),
+        };
       }
 
       await emitRunnerProgress(
@@ -2436,7 +2647,10 @@ async function generateSonarCorpus(input: {
         abortSignal: input.abortSignal,
       });
 
-      return { ...memoEnriched, parsed: backfilledParsed };
+      return {
+        ...memoEnriched,
+        parsed: scrubProcessTalkFromCorpus(backfilledParsed),
+      };
     } catch (error) {
       lastError = error;
       console.warn('[deep-research-program] Perplexity corpus model failed', {

@@ -227,6 +227,42 @@ describe("enforceNumericCoherence", () => {
 
     expect(result.stripped).toHaveLength(2);
   });
+
+  it("masks product numbers as non-claims (run d838ed4e Microsoft 365 strike)", () => {
+    const body = {
+      segments: {
+        prose:
+          "Technographically, they use Google Workspace or Microsoft 365 across teams. Fortune 500 brands and S&P 500 names run 24x7 operations 365 days a year.",
+        rows: [],
+      },
+    };
+
+    const result = enforceNumericCoherence({
+      body,
+      sectionId: "positioningBuyerICP",
+    });
+
+    expect(result.stripped).toHaveLength(0);
+  });
+
+  it("rescues a figure the claim verifier graded verified (verifiedClaimValues)", () => {
+    const body = {
+      segments: { prose: "About 1,200 reviews back this pattern.", rows: [] },
+    };
+
+    const struck = enforceNumericCoherence({
+      body,
+      sectionId: "positioningBuyerICP",
+    });
+    const rescued = enforceNumericCoherence({
+      body,
+      sectionId: "positioningBuyerICP",
+      verifiedClaimValues: ["1,200 reviews"],
+    });
+
+    expect(struck.stripped).toHaveLength(1);
+    expect(rescued.stripped).toHaveLength(0);
+  });
 });
 
 describe("scrubInternalJargon", () => {

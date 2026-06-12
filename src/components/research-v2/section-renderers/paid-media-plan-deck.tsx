@@ -1,0 +1,688 @@
+// Client-facing deck presentation of the paid-media plan — the same
+// PaidMediaPlanArtifact rendered in the SaaSLaunch 13-page deck order
+// (cover → campaign overview → phases → audiences → angles → creative
+// strategy → creative framework → funnel ideation → sales process →
+// competitor marketing → competitor reviews → current-funnel suggestions →
+// KPIs). Visual register follows the agency template: pale-blue card fills,
+// oversized blue stat callouts, one-sentence subtitles, verdict pills.
+// No mono-uppercase analyst chrome, no sourceSection badges, no per-row
+// provenance chips — provenance lives in ONE assumptions panel at the end.
+
+import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
+import { cn } from '@/lib/utils';
+import type { PositioningTypedArtifact } from '@/types/positioning-artifact';
+import {
+  BudgetBar,
+  scrubReaderText,
+  stripMoneyProvenanceSuffix,
+} from '@/components/research-v2/primitives';
+import { StatusPill } from '@/components/research-v2/ui-kit';
+import {
+  budgetSegments,
+  formatUsdValue,
+  getPaidMediaPlanBody,
+  isMissingSalesAsset,
+  provenanceLabel,
+  verdictTone,
+} from './paid-media-plan';
+
+export interface PaidMediaPlanDeckProps {
+  artifact: PaidMediaPlanArtifact | PositioningTypedArtifact;
+  /** Company / subject name for the cover band. */
+  subjectName?: string;
+  className?: string;
+}
+
+type PaidMediaBody = PaidMediaPlanArtifact['body'];
+type CreativeSlot = PaidMediaBody['creativeFramework'][number];
+
+function money(value: string): string {
+  return stripMoneyProvenanceSuffix(scrubReaderText(value));
+}
+
+// ---------------------------------------------------------------------------
+// Deck-local layout primitives
+// ---------------------------------------------------------------------------
+
+function DeckPage({
+  title,
+  subtitle,
+  children,
+  className,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  className?: string;
+}): React.ReactElement {
+  return (
+    <section className={cn('deck-page grid gap-6', className)}>
+      <header>
+        <h2 className="font-sans text-[24px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
+          {title}
+        </h2>
+        {subtitle ? (
+          <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
+            {subtitle}
+          </p>
+        ) : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+// Small blue smallcaps label, matching the template's card eyebrows
+// ("BROAD PROSPECTING") — deck idiom, not the analyst mono register.
+function DeckLabel({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+      {children}
+    </div>
+  );
+}
+
+// Oversized blue stat beside a bold label — the template's overview tiles.
+function StatTile({
+  value,
+  label,
+  detail,
+}: {
+  value: string;
+  label: string;
+  detail?: string;
+}): React.ReactElement {
+  return (
+    <div className="flex items-center gap-5 rounded-md bg-primary/5 px-5 py-4">
+      <div className="shrink-0 font-sans text-[26px] font-semibold leading-none tabular-nums text-primary">
+        {value}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[14px] font-semibold leading-[1.3] text-foreground">
+          {label}
+        </div>
+        {detail ? (
+          <div className="mt-0.5 text-[12px] leading-[1.45] text-muted-foreground">
+            {detail}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function BannerPill({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="rounded-md bg-primary px-4 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-primary-foreground">
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-page helpers
+// ---------------------------------------------------------------------------
+
+function splitArchetype(archetype: string): { eyebrow: string | null; title: string } {
+  const parts = archetype.split(/\s+[-–—]\s+/);
+  if (parts.length >= 2) {
+    return { eyebrow: parts[0].trim(), title: parts.slice(1).join(' — ').trim() };
+  }
+  return { eyebrow: null, title: archetype.trim() };
+}
+
+function isUgcSlot(slot: CreativeSlot): boolean {
+  return /\b(ugc|video|usp|demo|before)\b|before\s*\/\s*after/i.test(
+    `${slot.label} ${slot.angleType}`,
+  );
+}
+
+function funnelRankBadge(rank: string): {
+  label: string;
+  className: string;
+} {
+  if (/primary/i.test(rank)) {
+    return { label: 'PRIMARY', className: 'bg-primary text-primary-foreground' };
+  }
+  if (/secondary/i.test(rank)) {
+    return { label: 'SECONDARY', className: 'bg-primary/10 text-primary' };
+  }
+  if (/test/i.test(rank)) {
+    return { label: 'TEST', className: 'bg-muted text-muted-foreground' };
+  }
+  return { label: rank, className: 'bg-muted text-muted-foreground' };
+}
+
+function isGapRecommendation(recommendation: string): boolean {
+  return /^evidence gap/i.test(recommendation.trim());
+}
+
+interface ProvenanceRow {
+  label: string;
+  display: string;
+  provenance: string;
+}
+
+function collectProvenanceRows(body: PaidMediaBody): ProvenanceRow[] {
+  const rows: ProvenanceRow[] = [
+    {
+      label: 'Monthly budget',
+      display: money(body.campaignOverview.monthlyBudget),
+      provenance: provenanceLabel(body.campaignOverview.monthlyBudgetProvenance),
+    },
+    {
+      label: 'Daily spend',
+      display: money(body.campaignOverview.dailySpend),
+      provenance: provenanceLabel(body.campaignOverview.dailySpendProvenance),
+    },
+    ...body.campaignPhases.map((phase) => ({
+      label: `${phase.phaseName} budget`,
+      display: money(phase.monthlyBudget),
+      provenance: provenanceLabel(phase.monthlyBudgetProvenance),
+    })),
+    ...body.audienceTypes.map((audience) => ({
+      label: `${audience.archetype} daily budget`,
+      display: money(audience.dailyBudget),
+      provenance: provenanceLabel(audience.dailyBudgetProvenance),
+    })),
+    ...body.projectedResults.flatMap((row) => [
+      {
+        label: `${row.targetIcp} — ${row.kpi} cost`,
+        display: formatUsdValue(row.kpiCostValue),
+        provenance: provenanceLabel(row.kpiCostProvenance),
+      },
+      {
+        label: `${row.targetIcp} — phase budget`,
+        display: formatUsdValue(row.phaseMonthlyBudgetValue),
+        provenance: provenanceLabel(row.phaseMonthlyBudgetProvenance),
+      },
+    ]),
+  ];
+
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function PaidMediaPlanDeck({
+  artifact,
+  subjectName,
+  className,
+}: PaidMediaPlanDeckProps): React.ReactElement {
+  const body = getPaidMediaPlanBody(artifact);
+  const overview = body.campaignOverview;
+
+  const staticSlots = body.creativeFramework.filter((slot) => !isUgcSlot(slot));
+  const ugcSlots = body.creativeFramework.filter(isUgcSlot);
+  const linkedSalesAssets = body.salesProcess.filter(
+    (asset) => !isMissingSalesAsset(asset),
+  );
+  const missingSalesAssets = body.salesProcess.filter(isMissingSalesAsset);
+  const funnelSuggestions = body.channelSuggestions.filter(
+    (row) => !isGapRecommendation(row.recommendation),
+  );
+
+  return (
+    <div
+      data-testid="paid-media-plan-deck"
+      className={cn('space-y-12', className)}
+    >
+      {/* p1 — cover */}
+      <section className="deck-page grid gap-5">
+        <h1 className="font-sans text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-foreground">
+          Paid Media Plan
+        </h1>
+        {subjectName ? (
+          <div className="rounded-md bg-primary px-6 py-3 text-center text-[16px] font-semibold text-primary-foreground sm:max-w-[420px]">
+            {subjectName}
+          </div>
+        ) : null}
+        <p className="text-[14px] text-muted-foreground">
+          {scrubReaderText(overview.platform)}
+          {' · '}
+          {overview.phaseCount}-phase plan
+          {' · '}
+          {money(overview.monthlyBudget)} / month
+        </p>
+      </section>
+
+      {/* p2 — campaign overview */}
+      <DeckPage
+        title="Campaign Overview"
+        subtitle={`Monthly paid media budget · ${scrubReaderText(overview.platform)} · ${overview.totalMonths}-month, ${overview.phaseCount}-phase plan`}
+      >
+        <div className="grid gap-3">
+          <StatTile
+            value={money(overview.monthlyBudget)}
+            label="Monthly Budget"
+            detail="Paid media spend per month"
+          />
+          {body.campaignPhases.map((phase) => (
+            <StatTile
+              key={phase.phaseName}
+              value={money(phase.monthlyBudget)}
+              label={phase.phaseName}
+              detail={phase.monthsLabel}
+            />
+          ))}
+          <StatTile
+            value={money(overview.dailySpend)}
+            label="Daily Spend"
+            detail={`Across test audiences · KPI: ${scrubReaderText(overview.primaryKpi)}`}
+          />
+        </div>
+        <BudgetBar
+          segments={budgetSegments(body)}
+          totalLabel={`${money(overview.dailySpend)} daily spend · ${money(overview.monthlyBudget)} monthly`}
+        />
+      </DeckPage>
+
+      {/* p3 — campaign phases */}
+      <DeckPage
+        title="Campaign Phases"
+        subtitle="How the budget moves from testing to scale"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          {body.campaignPhases.map((phase) => (
+            <article
+              key={phase.phaseName}
+              className="grid content-start gap-4 rounded-md border border-border bg-card p-5"
+            >
+              <BannerPill>{phase.phaseName}</BannerPill>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[13px] font-medium text-muted-foreground">
+                  {phase.monthsLabel}
+                </span>
+                <span className="font-sans text-[20px] font-semibold tabular-nums text-primary">
+                  {money(phase.monthlyBudget)}
+                  <span className="text-[12px] font-medium text-muted-foreground">
+                    {' '}
+                    / month
+                  </span>
+                </span>
+              </div>
+              <ul className="grid gap-1.5">
+                {phase.bullets.map((bullet) => (
+                  <li
+                    key={bullet}
+                    className="flex gap-2 text-[13px] leading-[1.5] text-foreground/90"
+                  >
+                    <span aria-hidden="true" className="text-primary">
+                      ✓
+                    </span>
+                    {scrubReaderText(bullet)}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </DeckPage>
+
+      {/* p4 — audience types */}
+      <DeckPage
+        title="Audience Types"
+        subtitle={`${body.audienceTypes.length} audiences tested in parallel · KPI: ${scrubReaderText(overview.primaryKpi)}`}
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          {body.audienceTypes.map((audience, index) => {
+            const { eyebrow, title } = splitArchetype(audience.archetype);
+            return (
+              <article
+                key={audience.slot}
+                className="grid content-start gap-3 rounded-md border border-border bg-card p-5"
+              >
+                <div className="font-sans text-[24px] font-semibold tabular-nums text-primary">
+                  {audience.slot || String(index + 1).padStart(2, '0')}
+                </div>
+                {eyebrow ? <DeckLabel>{eyebrow}</DeckLabel> : null}
+                <h3 className="text-[17px] font-semibold leading-[1.3] text-foreground">
+                  {title}
+                </h3>
+                <p className="text-[13px] leading-[1.55] text-foreground/90">
+                  {scrubReaderText(audience.detail)}
+                </p>
+                <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                  {scrubReaderText(audience.grounding)}
+                </p>
+                <div className="mt-auto rounded-md bg-primary/5 px-4 py-2 text-center text-[14px] font-semibold tabular-nums text-primary">
+                  {money(audience.dailyBudget)}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </DeckPage>
+
+      {/* p5 — angles to test */}
+      <DeckPage
+        title="Angles to Test"
+        subtitle="The messaging bets the first creative round is built on"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          {body.anglesToTest.map((angle) => (
+            <article
+              key={angle.shortName}
+              className="grid content-start gap-2 rounded-md border border-border bg-card p-5"
+            >
+              <DeckLabel>{angle.angleType}</DeckLabel>
+              <h3 className="text-[16px] font-semibold leading-[1.3] text-foreground">
+                {scrubReaderText(angle.shortName)}
+              </h3>
+              <p className="text-[13px] leading-[1.55] text-foreground/90">
+                {scrubReaderText(angle.description)}
+              </p>
+            </article>
+          ))}
+        </div>
+      </DeckPage>
+
+      {/* p6 — creative strategy */}
+      <DeckPage
+        title="Creative Strategy"
+        subtitle="Volume and mix per audience for the first test cycle"
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <StatTile
+            value={String(body.creativeStrategy.staticCount)}
+            label="Static ads"
+            detail="Per audience"
+          />
+          <StatTile
+            value={String(body.creativeStrategy.videoCount)}
+            label="UGC videos"
+            detail="Per audience"
+          />
+          <StatTile
+            value={String(body.creativeStrategy.totalPerAudience)}
+            label="Creatives total"
+            detail="Per audience"
+          />
+        </div>
+        <p className="max-w-[68ch] text-[14px] leading-[1.6] text-foreground/90">
+          {scrubReaderText(body.creativeStrategy.prose)}
+        </p>
+      </DeckPage>
+
+      {/* p7 — creative framework */}
+      <DeckPage
+        title="Creative Framework"
+        subtitle="Every creative is built on a defined framework so test results are clear and repeatable"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5">
+            <BannerPill>{body.creativeStrategy.staticCount} static ads</BannerPill>
+            <h3 className="text-[16px] font-semibold text-foreground">
+              Static Creatives
+            </h3>
+            <ul className="grid gap-2.5">
+              {staticSlots.map((slot) => (
+                <li key={slot.label} className="text-[13px] leading-[1.55]">
+                  <span className="font-semibold text-primary">{slot.label}: </span>
+                  <span className="text-foreground/90">
+                    {scrubReaderText(slot.hook)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </article>
+          <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5">
+            <BannerPill>{body.creativeStrategy.videoCount} UGC videos</BannerPill>
+            <h3 className="text-[16px] font-semibold text-foreground">
+              UGC Creatives
+            </h3>
+            <ul className="grid gap-2.5">
+              {ugcSlots.map((slot) => (
+                <li key={slot.label} className="text-[13px] leading-[1.55]">
+                  <span className="font-semibold text-primary">{slot.label}: </span>
+                  <span className="text-foreground/90">
+                    {scrubReaderText(slot.hook)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </div>
+      </DeckPage>
+
+      {/* p8 — funnel ideation */}
+      <DeckPage
+        title="Funnel Ideation"
+        subtitle="Ranked funnel paths and what each one proves"
+      >
+        <div className="grid gap-3">
+          {body.funnelIdeation.map((path) => {
+            const badge = funnelRankBadge(path.rank);
+            return (
+              <article
+                key={path.name}
+                className="grid gap-2 rounded-md border border-border bg-card p-5"
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className={cn(
+                      'rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.06em]',
+                      badge.className,
+                    )}
+                  >
+                    {badge.label}
+                  </span>
+                  <h3 className="text-[15px] font-semibold text-foreground">
+                    {scrubReaderText(path.name)}
+                  </h3>
+                </div>
+                <p className="text-[13px] leading-[1.55] text-foreground/90">
+                  {scrubReaderText(path.description)}
+                </p>
+                <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                  Proves: {scrubReaderText(path.whatItProves)}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      </DeckPage>
+
+      {/* p9 — sales process */}
+      {linkedSalesAssets.length > 0 || missingSalesAssets.length > 0 ? (
+        <DeckPage
+          title="Sales Process"
+          subtitle="The follow-up assets the campaign hands leads into"
+        >
+          {linkedSalesAssets.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {linkedSalesAssets.map((asset) => (
+                <article
+                  key={asset.label}
+                  className="grid content-start gap-1.5 rounded-md bg-primary/5 p-5"
+                >
+                  <h3 className="text-[15px] font-semibold text-foreground">
+                    {asset.label}
+                  </h3>
+                  <p className="text-[13px] leading-[1.55] text-foreground/90">
+                    {scrubReaderText(asset.note)}
+                  </p>
+                  {asset.url ? (
+                    <a
+                      href={asset.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[12px] font-medium text-primary hover:underline"
+                    >
+                      View document
+                    </a>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md bg-primary/5 p-6">
+              <h3 className="text-[15px] font-semibold text-foreground">
+                Share your sales process to complete this page
+              </h3>
+              <p className="mt-1.5 max-w-[68ch] text-[13px] leading-[1.6] text-muted-foreground">
+                Send over {missingSalesAssets.map((asset) => asset.label).join(', ')}{' '}
+                and we will wire the campaign hand-off to the way your team
+                actually sells.
+              </p>
+            </div>
+          )}
+        </DeckPage>
+      ) : null}
+
+      {/* p10 — competitor insights: marketing */}
+      {body.competitorMarketingInsights.length > 0 ? (
+        <DeckPage
+          title="Competitor Insights — Marketing"
+          subtitle="How competitors message, position, and package against you"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {body.competitorMarketingInsights.map((insight) => (
+              <article
+                key={insight.competitor}
+                className="grid content-start gap-2.5 rounded-md border border-border bg-card p-5"
+              >
+                <h3 className="text-[16px] font-semibold text-foreground">
+                  {insight.competitor}
+                </h3>
+                {(
+                  [
+                    ['Messaging', insight.messaging],
+                    ['Ad platforms', insight.adPlatforms],
+                    ['ICP', insight.icp],
+                    ['Angles', insight.angles],
+                    ['Positioning', insight.positioning],
+                    ['Offer', insight.offer],
+                  ] as const
+                ).map(([label, value]) => (
+                  <p key={label} className="text-[13px] leading-[1.55]">
+                    <span className="font-semibold text-primary">{label}: </span>
+                    <span className="text-foreground/90">
+                      {scrubReaderText(value)}
+                    </span>
+                  </p>
+                ))}
+              </article>
+            ))}
+          </div>
+        </DeckPage>
+      ) : null}
+
+      {/* p11 — competitor insights: reviews */}
+      {body.competitorReviewInsights.length > 0 ? (
+        <DeckPage
+          title="Competitor Insights — Reviews"
+          subtitle="What their customers complain about, and how this plan uses it"
+        >
+          <div className="grid gap-3">
+            {body.competitorReviewInsights.map((insight) => (
+              <article
+                key={insight.complaint}
+                className="grid gap-1.5 rounded-md border border-border bg-card p-5"
+              >
+                <p className="text-[14px] font-medium leading-[1.5] text-foreground">
+                  {scrubReaderText(insight.complaint)}
+                </p>
+                <p className="text-[13px] leading-[1.55]">
+                  <span className="font-semibold text-primary">
+                    How we leverage:{' '}
+                  </span>
+                  <span className="text-foreground/90">
+                    {scrubReaderText(insight.howWeLeverage)}
+                  </span>
+                </p>
+              </article>
+            ))}
+          </div>
+        </DeckPage>
+      ) : null}
+
+      {/* p12 — current funnel suggestions (gap rows never render; page is
+          omitted entirely if nothing real survives) */}
+      {funnelSuggestions.length > 0 ? (
+        <DeckPage
+          title="Suggestions on Current Funnels"
+          subtitle="Quick recommendations on your existing channels — what to fix and what to leave"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {funnelSuggestions.map((suggestion) => (
+              <article
+                key={suggestion.channel}
+                className="grid content-start gap-3 rounded-md border border-border bg-card p-5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-[16px] font-semibold text-foreground">
+                    {suggestion.channel}
+                  </h3>
+                  <StatusPill tone={verdictTone(suggestion.verdict)}>
+                    {suggestion.verdict}
+                  </StatusPill>
+                </div>
+                <p className="text-[13px] leading-[1.55]">
+                  <span className="font-semibold text-primary">
+                    Recommendation:{' '}
+                  </span>
+                  <span className="text-foreground/90">
+                    {scrubReaderText(suggestion.recommendation)}
+                  </span>
+                </p>
+              </article>
+            ))}
+          </div>
+        </DeckPage>
+      ) : null}
+
+      {/* p13 — KPIs */}
+      <DeckPage
+        title="KPIs & Success Metrics"
+        subtitle="The core metrics we measure to define success across the campaign"
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          {body.kpis.map((kpi) => (
+            <article
+              key={kpi.metric}
+              className="grid content-start gap-2 rounded-md bg-primary/5 p-5"
+            >
+              <div className="font-sans text-[24px] font-semibold leading-none text-primary">
+                {scrubReaderText(kpi.metric)}
+              </div>
+              <div className="text-[13px] font-semibold text-foreground">
+                {scrubReaderText(kpi.role)}
+              </div>
+              <p className="text-[13px] leading-[1.55] text-foreground/90">
+                {scrubReaderText(kpi.definition)}
+              </p>
+            </article>
+          ))}
+        </div>
+      </DeckPage>
+
+      {/* Single assumptions & provenance footnote — the only place in the
+          deck where a number's origin is spelled out. */}
+      <section className="deck-page rounded-md border border-border bg-muted/20 p-6">
+        <h2 className="text-[15px] font-semibold text-foreground">
+          Assumptions &amp; provenance
+        </h2>
+        <p className="mt-1 text-[12px] leading-[1.5] text-muted-foreground">
+          Where each number in this plan comes from.
+        </p>
+        <ul className="mt-4 grid gap-1.5">
+          {collectProvenanceRows(body).map((row) => (
+            <li
+              key={`${row.label}-${row.display}`}
+              className="flex flex-wrap items-baseline gap-x-2 text-[12px] leading-[1.5]"
+            >
+              <span className="text-muted-foreground">{row.label}</span>
+              <span className="font-medium tabular-nums text-foreground">
+                {row.display}
+              </span>
+              <span className="text-muted-foreground">· {row.provenance}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}

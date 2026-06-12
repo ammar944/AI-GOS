@@ -1731,7 +1731,12 @@ describe('runSection VoC candidate prepass', (): void => {
     const eventTypes = record.events.map((event) => event.type);
     const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
 
-    expect(streamStructured).toHaveBeenCalledTimes(1);
+    // The fixture draft cites URLs the evidence step never observed, leaving
+    // > 6 unsupported load-bearing claims — the finite repair trigger spends
+    // both bounded grounding repairs (1 initial + 2) before committing the
+    // best attempt. The dead-zone contract under test is unchanged: 6 quotes
+    // across 3 domains commit WITHOUT an evidence gap.
+    expect(streamStructured).toHaveBeenCalledTimes(3);
     expect(body.evidenceGap).not.toBe(true);
     expect(body.evidenceGapReport).toBeUndefined();
     expect(body.painLanguage.quotes).toHaveLength(6);

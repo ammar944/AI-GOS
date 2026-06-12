@@ -3,12 +3,16 @@
 import { useMemo, useState, type ReactElement } from 'react';
 import { Share2, ExternalLink, FileText, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Response } from '@/components/ai-elements/response';
 import {
   BodyProse,
   Eyebrow,
   SectionTitle,
   VerdictCallout,
 } from '@/components/research-v2/ui-kit';
+import { MEMO_PROSE_CLASS } from '@/components/research-v2/executive-brief-card';
+import { scrubReaderText } from '@/components/research-v2/primitives';
+import { PaidMediaPlanDeck } from '@/components/research-v2/section-renderers/paid-media-plan-deck';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
 import { ShaderMeshBackground, BackgroundPattern } from '@/components/ui/sl-background';
 import { CardContentSwitch } from '@/components/research/card-renderer';
@@ -96,7 +100,7 @@ function SharedReviewMetadata({
   return (
     <div className="space-y-3 rounded-md border border-border bg-background p-4">
       <div className="space-y-1">
-        <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
+        <Eyebrow>Open questions ({review.clientQuestions.length})</Eyebrow>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
           {review.clientQuestions.map((question) => (
             <li key={question}>{question}</li>
@@ -120,6 +124,14 @@ function V3SharedSessionView({
   const [activeZone, setActiveZone] = useState(() => sections[0]?.zone ?? null);
   const activeSection =
     sections.find((section) => section.zone === activeZone) ?? sections[0] ?? null;
+  // Executive brief is a string|null snapshot field; render defensively —
+  // older snapshots omit it and the share pipeline may write null.
+  const executiveBrief =
+    typeof snapshot.executiveBrief === 'string' &&
+    snapshot.executiveBrief.trim().length > 0
+      ? snapshot.executiveBrief
+      : null;
+  const subjectName = title.replace(/\s+positioning audit$/i, '').trim() || title;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -190,13 +202,38 @@ function V3SharedSessionView({
               </nav>
             ) : null}
 
+            {executiveBrief ? (
+              <section
+                aria-label="Executive memo"
+                className="mx-auto mb-10 max-w-[760px] border-l-2 border-primary pl-5"
+              >
+                <div className="mb-4 font-sans text-[12px] font-medium text-muted-foreground">
+                  Executive memo
+                </div>
+                <Response className={MEMO_PROSE_CLASS}>
+                  {scrubReaderText(executiveBrief)}
+                </Response>
+              </section>
+            ) : null}
+
             {activeSection ? (
               <article className="mx-auto max-w-[760px]">
                 <Eyebrow>Shared Audit</Eyebrow>
                 <SectionTitle className="mt-2">
                   {activeSection.artifact?.sectionTitle ?? activeSection.title}
                 </SectionTitle>
-                {activeSection.artifact ? (
+                {activeSection.artifact &&
+                activeSection.zone === 'positioningPaidMediaPlan' ? (
+                  <div className="mt-6 space-y-7">
+                    {/* The media plan is the deliverable — clients get the
+                        deck, not the operator tables. */}
+                    <PaidMediaPlanDeck
+                      artifact={activeSection.artifact}
+                      subjectName={subjectName}
+                    />
+                    <SharedReviewMetadata artifact={activeSection.artifact} />
+                  </div>
+                ) : activeSection.artifact ? (
                   <div className="mt-6 space-y-7">
                     {activeSection.artifact.statusSummary ? (
                       <BodyProse>{activeSection.artifact.statusSummary}</BodyProse>
@@ -230,17 +267,8 @@ function V3SharedSessionView({
         </div>
 
         <div className="shrink-0 border-t border-border bg-card">
-          <div className="mx-auto flex h-11 max-w-6xl items-center justify-between px-4">
-            <p className="hidden text-xs text-muted-foreground sm:inline">
-              Generated with AIGOS
-            </p>
-            <a
-              href="/research-v3"
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Create Your Own
-              <ExternalLink className="size-3" />
-            </a>
+          <div className="mx-auto flex h-11 max-w-6xl items-center px-4">
+            <p className="text-xs text-muted-foreground">Prepared with AI-GOS</p>
           </div>
         </div>
       </main>
@@ -427,20 +455,13 @@ function LegacySharedSessionView({
           </div>
         </div>
 
-        {/* Footer CTA */}
+        {/* Footer */}
         <div className="shrink-0 border-t border-[var(--border-default)] bg-[rgba(7,9,14,0.6)] backdrop-blur-xl">
           <div className="container mx-auto px-4">
-            <div className="flex h-11 items-center justify-between">
-              <p className="text-[var(--text-tertiary)] text-xs hidden sm:inline">
-                Generated with AIGOS
+            <div className="flex h-11 items-center">
+              <p className="text-[var(--text-tertiary)] text-xs">
+                Prepared with AI-GOS
               </p>
-              <a
-                href="/research-v3"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-opacity duration-200 hover:opacity-90 cursor-pointer bg-[var(--accent-green)] text-white ml-auto"
-              >
-                Create Your Own
-                <ExternalLink className="h-3 w-3" />
-              </a>
             </div>
           </div>
         </div>

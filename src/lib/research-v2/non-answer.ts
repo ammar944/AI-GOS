@@ -46,6 +46,18 @@ const NON_ANSWER_VALUES = new Set<string>([
 const TEMPLATE_TOKEN_PATTERN =
   /^\$?\s*[[{][^\]}]*[\]}]\s*(?:\/\s*mo(?:nth)?(?:ly)?)?$/i;
 
+// Sentence-level hedge phrases the corpus model emits INSTEAD of null when a
+// field is not publicly discoverable ("Primarily global / not explicitly
+// limited in public sources"). Token-level isNonAnswer cannot catch these.
+// Used by the prefill display path so the brief form stays blank instead of
+// asking the user to read and delete a meta-statement about source coverage.
+const HEDGE_PHRASE_PATTERN =
+  /not (explicitly|publicly|clearly) (limited|disclosed|stated)|public sources do not|no (public|cited) (evidence|sources)|undisclosed/i;
+
+export function isHedgeAnswer(trimmed: string): boolean {
+  return HEDGE_PHRASE_PATTERN.test(trimmed);
+}
+
 export function isNonAnswer(trimmed: string): boolean {
   const normalized = trimmed
     .toLowerCase()

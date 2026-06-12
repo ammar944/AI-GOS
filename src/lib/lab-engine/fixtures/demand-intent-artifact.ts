@@ -125,7 +125,10 @@ export const demandIntentFixtureArtifact = artifactEnvelopeSchema
         items: Array.from({ length: 5 }, (_, index) => ({
           signalType: signalTypes[index % signalTypes.length],
           description: `Observable intent signal ${index + 1} for GTM workflow strain.`,
-          sourceUrl: `https://example.com/demand/signal-${index + 1}`,
+          // Independent venue host: intent signals citing the subject's own
+          // registrable domain (example.com in the saaslaunch fixtures) are
+          // rejected by checkDemandIntentIntentSignalIndependence.
+          sourceUrl: `https://jobs.fixturehiring.test/demand/signal-${index + 1}`,
           exampleCompany: `Fixture Demand Co ${index + 1}`,
         })),
       },

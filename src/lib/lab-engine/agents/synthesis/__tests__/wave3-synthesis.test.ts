@@ -149,6 +149,42 @@ describe("Wave 3 synthesis layer", (): void => {
     ).toBe(true);
   });
 
+  it("does not ingest review.removedItems as stripped claims", (): void => {
+    // removedItems are model-asserted removal claims (often phantom), not
+    // deterministic verifier strips — they must never seed the
+    // inherited-stripped-claim scan.
+    const sections: SynthesisSectionInput[] = [
+      {
+        body: { prose: "Demand source body." },
+        review: {
+          upgradedMarkdown: "Reviewed demand markdown.",
+          tier: "needs_review",
+          tierRationale: "Reviewer asserted a removal.",
+          removedItems: ['Removed unsupported CPC claim: "$30 CPC"'],
+          clientQuestions: [],
+        },
+        sectionId: "positioningDemandIntent",
+      },
+      {
+        body: {
+          campaignOverview: {
+            prose: "Scale the campaign assuming $30 CPC.",
+          },
+        },
+        sectionId: "positioningPaidMediaPlan",
+      },
+    ];
+    const ledger = buildFactLedger({ sections, subjectName: "Airtable" });
+    const contradictions = findContradictions({ ledger, sections });
+
+    expect(
+      contradictions.some(
+        (contradiction) =>
+          contradiction.kind === "inherited-stripped-claim",
+      ),
+    ).toBe(false);
+  });
+
   it("flags a paid-media statement inherited from a stripped home-section claim", (): void => {
     const sections: SynthesisSectionInput[] = [
       {

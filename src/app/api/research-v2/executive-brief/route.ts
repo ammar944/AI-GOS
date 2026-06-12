@@ -26,6 +26,10 @@ import {
   auditPaidMediaFeasibility,
   type PaidMediaFeasibilityAudit,
 } from '@/lib/lab-engine/agents/synthesis/feasibility';
+import {
+  readVerificationFlag,
+  readVerificationTier,
+} from '@/lib/research-v2/verification-tier';
 import { createAdminClient } from '@/lib/supabase/server';
 
 // W3 executive brief (detached, mirrors review-section ADR-0012 shape): the
@@ -52,6 +56,8 @@ interface SectionRow {
   zone: string | null;
   status: string | null;
   data: unknown;
+  verification_tier: unknown;
+  verification_flag: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,6 +114,10 @@ function toBriefSectionInput(row: SectionRow): ExecutiveBriefSectionInput | null
 
   const envelope = row.data;
   const body = isRecord(envelope.body) ? envelope.body : {};
+  // Thread the persisted verification tier + confidence into the brief input
+  // so the memo can mark decisions resting on weak sections as directional —
+  // without these the brief is penned blind over insufficient sections.
+  const verificationFlag = readVerificationFlag(row.verification_flag);
 
   return {
     body,
@@ -119,6 +129,11 @@ function toBriefSectionInput(row: SectionRow): ExecutiveBriefSectionInput | null
     statusSummary:
       typeof envelope.statusSummary === 'string' ? envelope.statusSummary : '',
     verdict: typeof envelope.verdict === 'string' ? envelope.verdict : '',
+    verificationTier:
+      readVerificationTier(row.verification_tier) ??
+      verificationFlag?.tier ??
+      null,
+    verificationConfidence: verificationFlag?.confidence ?? null,
   };
 }
 
@@ -215,7 +230,7 @@ async function generateExecutiveBrief(
   try {
     const { data, error } = await supabase
       .from('research_artifact_sections')
-      .select('zone, status, data')
+      .select('zone, status, data, verification_tier, verification_flag')
       .eq('artifact_id', payload.parentAuditRunId)
       .eq('status', 'complete')
       .in('zone', [...ALL_POSITIONING_SECTION_IDS]);

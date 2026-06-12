@@ -182,20 +182,22 @@ export const OnboardingV2Schema = z.object({
   firstValueMoment: z.string().min(1, 'Required'),
   activationEvent: z.string().min(1, 'Required'),
   retentionDrivers: z.string().min(1, 'Required'),
-  // Section 4
+  // Section 4 — internal economics (targetPlan/avgLtv/targetCac) are never
+  // publicly discoverable, so they cannot block the run.
   pricingTiers: z.string().min(1, 'Required'),
-  targetPlan: z.string().min(1, 'Required'),
-  avgLtv: z.string().min(1, 'Required'),
-  targetCac: z.string().min(1, 'Required'),
+  targetPlan: z.string().optional().default(''),
+  avgLtv: z.string().optional().default(''),
+  targetCac: z.string().optional().default(''),
   monthlyAdBudget: z.string().min(1, 'Required'),
   // Section 5
   topCompetitors: z.string().min(1, 'Required'),
   whyCustomersChooseYou: z.string().min(1, 'Required'),
   lossReasons: z.string().min(1, 'Required'),
   competitorAdvantages: z.string().min(1, 'Required'),
-  // Section 6
+  // Section 6 — monthlyPipelineTarget is an internal metric prefill can never
+  // supply; optional so it stops pinning the blocker rail.
   primaryGoal90Days: z.string().min(1, 'Required'),
-  monthlyPipelineTarget: z.string().min(1, 'Required'),
+  monthlyPipelineTarget: z.string().optional().default(''),
   commonObjections: z.string().min(1, 'Required'),
   keyPromises: z.string().min(1, 'Required'),
   brandPositioning: z.string().min(1, 'Required'),
@@ -205,13 +207,14 @@ export const OnboardingV2Schema = z.object({
   salesLoomUrl: z.string().url('Enter a valid Loom URL').or(z.literal('')).optional().default(''),
   creativeCapacity: z.enum(['lean', 'standard', 'high', '']).optional().default(''),
   leadListAvailable: z.boolean().nullable().optional().default(null),
-  // Section 7
-  channels: z.array(z.string()).min(1, 'Select at least one channel'),
-  budgetSplit: z.string().min(1, 'Required'),
-  whatsWorking: z.string().min(1, 'Required'),
-  whatsNotWorking: z.string().min(1, 'Required'),
-  currentCac: z.string().min(1, 'Required'),
-  monthlyRevenue: z.string().min(1, 'Required'),
+  // Section 7 — current-marketing performance is internal data research can
+  // never auto-fill; the whole section is optional context, not a run blocker.
+  channels: z.array(z.string()).optional().default([]),
+  budgetSplit: z.string().optional().default(''),
+  whatsWorking: z.string().optional().default(''),
+  whatsNotWorking: z.string().optional().default(''),
+  currentCac: z.string().optional().default(''),
+  monthlyRevenue: z.string().optional().default(''),
   avgSalesCycle: z.string().optional().default(''),
   // Optional funnel metrics
   visitorToSignup: z.string().optional().default(''),
@@ -376,9 +379,9 @@ export const SECTION_META: SectionMeta[] = [
     icon: 'TrendingUp',
     fields: [
       { key: 'pricingTiers', label: 'List your pricing tiers', type: 'textarea', required: true, placeholder: 'e.g. Starter $49/mo, Growth $199/mo, Enterprise custom' },
-      { key: 'targetPlan', label: "What is your target customer's typical plan?", type: 'text', required: true, placeholder: 'e.g. Growth plan' },
-      { key: 'avgLtv', label: 'Average LTV', type: 'text', required: true, placeholder: 'e.g. $2,400' },
-      { key: 'targetCac', label: 'Target CAC', type: 'text', required: true, placeholder: 'e.g. $400' },
+      { key: 'targetPlan', label: "What is your target customer's typical plan?", type: 'text', required: false, placeholder: 'e.g. Growth plan', description: 'optional — sharpens economics' },
+      { key: 'avgLtv', label: 'Average LTV', type: 'text', required: false, placeholder: 'e.g. $2,400', description: 'optional — sharpens economics' },
+      { key: 'targetCac', label: 'Target CAC', type: 'text', required: false, placeholder: 'e.g. $400', description: 'optional — sharpens economics' },
       { key: 'monthlyAdBudget', label: 'Monthly ad budget (or planned budget)', type: 'text', required: true, placeholder: 'e.g. $10,000/mo' },
     ],
   },
@@ -403,7 +406,7 @@ export const SECTION_META: SectionMeta[] = [
     icon: 'Target',
     fields: [
       { key: 'primaryGoal90Days', label: 'What is your primary goal in the next 90 days?', type: 'textarea', required: true, placeholder: 'e.g. 50 qualified demos, $500K new ARR...' },
-      { key: 'monthlyPipelineTarget', label: 'Monthly pipeline target ($ or # of demos)', type: 'text', required: true, placeholder: 'e.g. $200K pipeline or 40 demos/mo' },
+      { key: 'monthlyPipelineTarget', label: 'Monthly pipeline target ($ or # of demos)', type: 'text', required: false, placeholder: 'e.g. $200K pipeline or 40 demos/mo', description: 'optional' },
       { key: 'commonObjections', label: 'Common objections from prospects', type: 'textarea', required: true, placeholder: 'e.g. "We already have X", "Not the right time"...' },
       { key: 'keyPromises', label: 'Key promises / outcomes you want to be known for', type: 'textarea', required: true, placeholder: 'e.g. "10x faster reporting"' },
       { key: 'brandPositioning', label: 'Current brand positioning (1–2 sentences)', type: 'textarea', required: true, placeholder: 'e.g. "We help [ICP] achieve [outcome] without [pain]"' },
@@ -417,7 +420,7 @@ export const SECTION_META: SectionMeta[] = [
     icon: 'Route',
     fields: [
       {
-        key: 'channels', label: 'What channels are you currently running?', type: 'checkbox', required: true,
+        key: 'channels', label: 'What channels are you currently running?', type: 'checkbox', required: false,
         options: [
           { value: 'meta', label: 'Meta' },
           { value: 'google', label: 'Google' },
@@ -427,12 +430,13 @@ export const SECTION_META: SectionMeta[] = [
           { value: 'organic', label: 'Organic' },
           { value: 'other', label: 'Other' },
         ],
+        description: 'optional — leave blank if not running ads yet',
       },
-      { key: 'budgetSplit', label: 'Budget split per channel', type: 'textarea', required: true, placeholder: 'e.g. Meta 50%, Google 30%, LinkedIn 20%' },
-      { key: 'whatsWorking', label: "What's working right now?", type: 'textarea', required: true, placeholder: 'Channels, campaigns, offers that are performing' },
-      { key: 'whatsNotWorking', label: "What's not working?", type: 'textarea', required: true, placeholder: 'Channels or tactics that are underperforming' },
-      { key: 'currentCac', label: 'Current CAC', type: 'text', required: true, placeholder: 'e.g. $600' },
-      { key: 'monthlyRevenue', label: 'Monthly revenue (MRR or ARR)', type: 'text', required: true, placeholder: 'e.g. $50K MRR' },
+      { key: 'budgetSplit', label: 'Budget split per channel', type: 'textarea', required: false, placeholder: 'e.g. Meta 50%, Google 30%, LinkedIn 20%', description: 'optional' },
+      { key: 'whatsWorking', label: "What's working right now?", type: 'textarea', required: false, placeholder: 'Channels, campaigns, offers that are performing', description: 'optional' },
+      { key: 'whatsNotWorking', label: "What's not working?", type: 'textarea', required: false, placeholder: 'Channels or tactics that are underperforming', description: 'optional' },
+      { key: 'currentCac', label: 'Current CAC', type: 'text', required: false, placeholder: 'e.g. $600', description: 'optional' },
+      { key: 'monthlyRevenue', label: 'Monthly revenue (MRR or ARR)', type: 'text', required: false, placeholder: 'e.g. $50K MRR', description: 'optional' },
       { key: 'avgSalesCycle', label: 'Average sales cycle length', type: 'text', required: false, placeholder: 'e.g. 30 days', description: 'if sales-led' },
       { key: 'visitorToSignup', label: 'Website visitor → signup %', type: 'text', required: false, placeholder: 'e.g. 3%', description: 'optional funnel metric' },
       { key: 'signupToActivation', label: 'Signup → activation %', type: 'text', required: false, placeholder: 'e.g. 40%', description: 'optional funnel metric' },

@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildPlaceholderTrustedHosts,
   downgradeUnpermalinkedVerbatimQuotes,
+  downgradeUnpermalinkedVocQuotes,
   placeholderSourceUrlRelabel,
   scrubQuoteEmails,
   stripExemplarEchoes,
   stripPlaceholderSourceUrls,
+  stripUnverifiedSourceUrls,
 } from "../provenance-gate";
 
 // Fixtures mirror run 8081e646 (Airtable E2E, 2026-06-11): the cold judge
@@ -459,6 +461,220 @@ describe("scrubQuoteEmails", (): void => {
 
     expect(result.stripped).toHaveLength(0);
     expect(result.body).toBe(body);
+  });
+});
+
+describe("downgradeUnpermalinkedVocQuotes", (): void => {
+  const buildVocBody = (): Record<string, unknown> => ({
+    painLanguage: {
+      prose: "Pain themes cluster around sync limits.",
+      quotes: [
+        {
+          verbatimText: "the base just stops syncing once you cross 50k rows",
+          source: "g2",
+          sourceUrl: "https://www.g2.com/products/airtable/reviews",
+          painTheme: "scale ceiling",
+          painIntensity: "high",
+        },
+        {
+          verbatimText: "we hit the API rate limit weekly",
+          source: "reddit",
+          sourceUrl:
+            "https://www.reddit.com/r/Airtable/comments/1r1wice/looking_for_airtable_alternatives_for_small/",
+          painTheme: "rate limits",
+          painIntensity: "medium",
+        },
+      ],
+    },
+    successLanguage: {
+      prose: "Wins cluster around onboarding speed.",
+      quotes: [
+        {
+          verbatimText: "we shipped our tracker in a single afternoon",
+          source: "capterra",
+          sourceUrl: "https://www.capterra.com/p/146652/Airtable/reviews/",
+          afterStatePattern: "fast time-to-value",
+        },
+      ],
+    },
+    decisionCriteria: {
+      prose: "Buyers weigh integrations first.",
+      criteria: [
+        {
+          criterion: "native integrations",
+          statedBy: "buyer",
+          evidenceQuote: "we picked it because it talks to everything we use",
+          sourceUrl: "https://www.g2.com/products/airtable/reviews",
+        },
+      ],
+    },
+  });
+
+  it("relabels index-page VoC quotes as paraphrased patterns without touching the source enum", (): void => {
+    const body = buildVocBody();
+    const result = downgradeUnpermalinkedVocQuotes({ body });
+
+    expect(result.stripped.map((item) => item.field)).toEqual([
+      "body.painLanguage.quotes[0].verbatimText",
+      "body.successLanguage.quotes[0].verbatimText",
+      "body.decisionCriteria.criteria[0].evidenceQuote",
+    ]);
+
+    const painLanguage = result.body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const successLanguage = result.body.successLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const decisionCriteria = result.body.decisionCriteria as {
+      criteria: Array<Record<string, unknown>>;
+    };
+
+    expect(painLanguage.quotes[0]?.verbatimText).toMatch(
+      /^Paraphrased pattern \(no per-review permalink\): the base just stops/,
+    );
+    // The VoC source field is a closed enum: never suffixed.
+    expect(painLanguage.quotes[0]?.source).toBe("g2");
+    // The real Reddit thread permalink survives untouched.
+    expect(painLanguage.quotes[1]?.verbatimText).toBe(
+      "we hit the API rate limit weekly",
+    );
+    expect(successLanguage.quotes[0]?.verbatimText).toMatch(
+      /^Paraphrased pattern/,
+    );
+    expect(decisionCriteria.criteria[0]?.evidenceQuote).toMatch(
+      /^Paraphrased pattern/,
+    );
+  });
+
+  it("is idempotent and ignores bodies without VoC quote blocks", (): void => {
+    const first = downgradeUnpermalinkedVocQuotes({ body: buildVocBody() });
+    const second = downgradeUnpermalinkedVocQuotes({ body: first.body });
+
+    expect(second.stripped).toHaveLength(0);
+    expect(second.body).toBe(first.body);
+
+    const unrelated = { competitorSet: { competitors: [], prose: "x" } };
+    const result = downgradeUnpermalinkedVocQuotes({ body: unrelated });
+
+    expect(result.stripped).toHaveLength(0);
+    expect(result.body).toBe(unrelated);
+  });
+});
+
+describe("stripUnverifiedSourceUrls", (): void => {
+  it("relabels quote-row sourceUrls whose url-claim the verifier graded unsupported", (): void => {
+    const body = {
+      painLanguage: {
+        quotes: [
+          {
+            verbatimText: "exports silently drop linked records",
+            source: "capterra",
+            sourceUrl: "https://www.capterra.com/p/147768/Airtable/reviews/",
+          },
+          {
+            verbatimText: "the mobile app is read-only in practice",
+            source: "capterra",
+            sourceUrl: "https://www.capterra.com/p/146652/Airtable/reviews/",
+          },
+        ],
+      },
+      marketSize: {
+        // Non-quote rows are out of scope for this strip.
+        signals: [
+          {
+            evidence: "Category grows 12% annually.",
+            sourceUrl: "https://www.capterra.com/p/147768/Airtable/reviews/",
+          },
+        ],
+      },
+    };
+
+    const result = stripUnverifiedSourceUrls({
+      body,
+      unsupportedUrls: new Set([
+        "https://www.capterra.com/p/147768/Airtable/reviews/",
+      ]),
+    });
+    const painLanguage = result.body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const marketSize = result.body.marketSize as {
+      signals: Array<Record<string, unknown>>;
+    };
+
+    // The fabricated product-id URL is relabeled to the evidence-gap marker;
+    // the quote text survives. The tool-observed sibling URL is untouched.
+    expect(painLanguage.quotes[0]?.sourceUrl).toBe(placeholderSourceUrlRelabel);
+    expect(painLanguage.quotes[0]?.verbatimText).toBe(
+      "exports silently drop linked records",
+    );
+    expect(painLanguage.quotes[1]?.sourceUrl).toBe(
+      "https://www.capterra.com/p/146652/Airtable/reviews/",
+    );
+    expect(marketSize.signals[0]?.sourceUrl).toBe(
+      "https://www.capterra.com/p/147768/Airtable/reviews/",
+    );
+    expect(result.stripped).toEqual([
+      {
+        field: "body.painLanguage.quotes[0].sourceUrl",
+        reason:
+          "model-authored URL graded unsupported by the claim verifier: no research tool ever observed it",
+        sourceUrl: "https://www.capterra.com/p/147768/Airtable/reviews/",
+      },
+    ]);
+  });
+
+  it("returns the same body when no unsupported url claims exist", (): void => {
+    const body = {
+      painLanguage: {
+        quotes: [
+          {
+            verbatimText: "q",
+            sourceUrl: "https://www.capterra.com/p/146652/Airtable/reviews/",
+          },
+        ],
+      },
+    };
+
+    const result = stripUnverifiedSourceUrls({
+      body,
+      unsupportedUrls: new Set<string>(),
+    });
+
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
+  });
+
+  it("leaves an array alone when EVERY row's URL is unsupported (verifier blind spot)", (): void => {
+    const body = {
+      painLanguage: {
+        quotes: [
+          {
+            verbatimText: "quote one",
+            sourceUrl: "https://one.example/review",
+          },
+          {
+            verbatimText: "quote two",
+            sourceUrl: "https://two.example/review",
+          },
+        ],
+      },
+    };
+
+    const result = stripUnverifiedSourceUrls({
+      body,
+      unsupportedUrls: new Set([
+        "https://one.example/review",
+        "https://two.example/review",
+      ]),
+    });
+
+    // No tool-observed sibling = no differential fabrication signal: a
+    // wholesale relabel would collapse VoC distinct-source minimums into a
+    // persistence hard-fail, so the array ships unchanged.
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
   });
 });
 

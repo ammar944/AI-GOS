@@ -69,6 +69,25 @@ describe("painQuoteSchema role/date", (): void => {
 
     expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
   });
+
+  it("accepts capterra, trustpilot, and trustradius as quote sources", (): void => {
+    // The dominant review platforms must be expressible — a closed enum used
+    // to force every Capterra/Trustpilot/TrustRadius quote to source 'other'.
+    const quotes = [
+      { ...painQuote("https://capterra.com/p/146652/Acme/reviews/901", 1), source: "capterra" as const },
+      { ...painQuote("https://trustpilot.com/reviews/abc123", 2), source: "trustpilot" as const },
+      { ...painQuote("https://trustradius.com/reviews/acme-2026", 3), source: "trustradius" as const },
+    ];
+    const body = {
+      ...voiceOfCustomerFixtureArtifact.body,
+      painLanguage: {
+        ...voiceOfCustomerFixtureArtifact.body.painLanguage,
+        quotes,
+      },
+    };
+
+    expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
+  });
 });
 
 describe("Voice of Customer evidence-gap classification", (): void => {

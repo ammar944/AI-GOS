@@ -1,9 +1,21 @@
 const TRUST_MARKER_PATTERN = /\[(?:unverified|verified[^\]]*)\]/gi;
+// Aggregate verifier footnotes spliced into committed bodies, e.g.
+// "[3 figures in this field are unverified — see section badge]".
+const AGGREGATE_FOOTNOTE_PATTERN =
+  /\[\d+ figures? in this field (?:are|is) unverified[^\]]*\]/gi;
 const PIPELINE_TEXT_PATTERN =
   /evidence gap:|validator|budget exhausted|exemplar-derived|agentic review unavailable|verifiedCount|quarantinedCount|identity-unverified/i;
 const TOOL_NAME_PATTERN =
-  /\b(searchapi|serpapi|firecrawl|perplexity|brave search|spyfu|answer-tool|lab engine)\b/i;
+  /\b(searchapi|serpapi|firecrawl|perplexity|brave search|spyfu|answer-tool|lab engine|keyword_volume|keyword_trends|adlibrary|google_ads|meta_ads|linkedin_ads|web_search)\b/i;
 const MARKDOWN_LINK_PATTERN = /\[[^\]]+\]\([^)]+\)/g;
+// Image links carry no readable label — drop them outright.
+const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*\]\([^)]*\)/g;
+// Plain links keep the label, lose the URL syntax.
+const MARKDOWN_LINK_LABEL_PATTERN = /\[([^\]]*)\]\([^)]*\)/g;
+// Trailing money-provenance parentheticals on display strings, e.g.
+// "$3,000 (user-supplied)" -> "$3,000".
+const MONEY_PROVENANCE_SUFFIX_PATTERN =
+  /\s*\((?:user-supplied|operator-supplied|tool-measured|source-reported|model-estimated|unknown)\)\s*$/i;
 
 const SECTION_ENUM_LABELS: Record<string, string> = {
   positioningMarketCategory: 'Market & Category',
@@ -27,10 +39,22 @@ function collapseWhitespace(value: string): string {
 export function scrubReaderText(value: string): string {
   return collapseWhitespace(
     value
+      .replace(AGGREGATE_FOOTNOTE_PATTERN, '')
       .replace(TRUST_MARKER_PATTERN, '')
+      .replace(MARKDOWN_IMAGE_PATTERN, '')
+      .replace(MARKDOWN_LINK_LABEL_PATTERN, '$1')
       .replace(SECTION_ENUM_PATTERN, (token) => SECTION_ENUM_LABELS[token] ?? token)
       .replace(/\s+([,.;:])/g, '$1'),
   );
+}
+
+/**
+ * Removes a trailing money-provenance parenthetical from a display string
+ * ("$3,000 (user-supplied)" -> "$3,000"). Provenance belongs in the deck's
+ * single assumptions panel, never inline beside the number.
+ */
+export function stripMoneyProvenanceSuffix(value: string): string {
+  return value.replace(MONEY_PROVENANCE_SUFFIX_PATTERN, '').trim();
 }
 
 export function isReaderPipelineChrome(value: string): boolean {

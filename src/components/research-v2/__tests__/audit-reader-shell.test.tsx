@@ -171,7 +171,7 @@ describe('<AuditReaderShell>', () => {
     expect(screen.queryByText('2 unverified')).not.toBeInTheDocument();
   });
 
-  it('ignores the persisted verification tier for display (no badge renders)', (): void => {
+  it('renders the persisted verification tier as a quiet subline + dot, never a metric badge', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -211,13 +211,25 @@ describe('<AuditReaderShell>', () => {
         'Insufficient evidence · Declared evidence gap · 90% grounded',
       ),
     ).not.toBeInTheDocument();
-    // The rail row keeps the plain status subline, not the tier label.
+    // The rail row carries the tier-honest subline + amber dot — one quiet
+    // signal, never a claim-count badge.
     expect(
-      screen.getByRole('button', { name: /market & category.*complete/i }),
+      screen.getByRole('button', {
+        name: /market & category.*complete — needs review/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('section-tier-dot-positioningMarketCategory'),
     ).toBeInTheDocument();
   });
 
-  it('shows an unconditional green Done with no tier sublines or dots when all sections are terminal', (): void => {
+  // REVERSAL (2026-06-12): this test previously pinned the 2026-06-11
+  // "done is done" decision (unconditional green Done, no tier sublines or
+  // dots). The new bar forbids success chrome over needs_review content, so
+  // the rail is now tier-honest: flagged committed sections read
+  // 'Complete — needs review' with one amber dot, and the rollup 'Done'
+  // carries a quiet 'N of 6 need review' qualifier.
+  it('qualifies Done and flags committed needs_review/insufficient sections with a subline + dot', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -237,28 +249,33 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    // Run summary is a bare green "Done" — never tier-qualified.
+    // Rollup still says Done, but with the honest qualifier beside it.
     expect(screen.getByText('Done')).toBeInTheDocument();
-    expect(screen.queryByText(/done · \d+ flagged/i)).not.toBeInTheDocument();
+    expect(screen.getByText('2 of 6 need review')).toBeInTheDocument();
 
-    // Every completed row reads as 'Complete' regardless of persisted tier.
+    // Flagged committed rows read 'Complete — needs review'; verified rows
+    // stay plain 'Complete'.
     expect(
-      screen.getByRole('button', { name: /market & category.*complete/i }),
+      screen.getByRole('button', {
+        name: /market & category.*complete — needs review/i,
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /buyer \/ icp.*complete/i }),
+      screen.getByRole('button', {
+        name: /buyer \/ icp.*complete — needs review/i,
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /competitors.*complete/i }),
+      screen.getByRole('button', { name: /^competitors: complete$/i }),
     ).toBeInTheDocument();
 
-    // No tier dots anywhere in the rail.
+    // One amber dot per flagged row — none for verified sections.
     expect(
-      screen.queryByTestId('section-tier-dot-positioningMarketCategory'),
-    ).not.toBeInTheDocument();
+      screen.getByTestId('section-tier-dot-positioningMarketCategory'),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByTestId('section-tier-dot-positioningBuyerICP'),
-    ).not.toBeInTheDocument();
+      screen.getByTestId('section-tier-dot-positioningBuyerICP'),
+    ).toBeInTheDocument();
     expect(
       screen.queryByTestId('section-tier-dot-positioningCompetitorLandscape'),
     ).not.toBeInTheDocument();
@@ -300,7 +317,7 @@ describe('<AuditReaderShell>', () => {
 
     // Only the client-facing questions render — tier rationale and the
     // removed-items list are verifier metric noise and stay hidden.
-    expect(screen.getByText('Ask the client (1)')).toBeInTheDocument();
+    expect(screen.getByText('Open questions for you (1)')).toBeInTheDocument();
     expect(
       screen.getByText('Can you provide sourced TAM assumptions?'),
     ).toBeInTheDocument();
@@ -316,7 +333,7 @@ describe('<AuditReaderShell>', () => {
     expect(screen.queryByText('{"should":"not render"}')).not.toBeInTheDocument();
   });
 
-  it('renders the paid media terminal and hides the progress strip when every section is terminal', (): void => {
+  it('renders the paid media deck by default with a Working view toggle to the operator renderer', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -343,6 +360,16 @@ describe('<AuditReaderShell>', () => {
 
     expect(screen.getByText('Section 7 of 7')).toBeInTheDocument();
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
+
+    // Deck is the default client-facing view; the operator renderer is not
+    // mounted until the toggle is used.
+    expect(screen.getByTestId('paid-media-plan-deck')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Working view' }));
+
     expect(
       screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
     ).toBeInTheDocument();
@@ -351,9 +378,10 @@ describe('<AuditReaderShell>', () => {
         screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
       ).getByTestId('verdict-hero'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId(`sub-section-status-${PAID_MEDIA_PLAN_SECTION_ID}-campaignOverview`),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('paid-media-plan-deck')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deck' }));
+    expect(screen.getByTestId('paid-media-plan-deck')).toBeInTheDocument();
   });
 
   it('uses the controlled section change callback for keyboard navigation', (): void => {

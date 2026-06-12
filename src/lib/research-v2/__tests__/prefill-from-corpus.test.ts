@@ -63,4 +63,42 @@ describe("prefillFromCorpus non-answer normalization", () => {
       prefillFromCorpus({ monthlyAdBudget: { value: "none" } }).monthlyAdBudget,
     ).toBeUndefined();
   });
+
+  it("drops hedge prose so the form shows blank instead of a coverage meta-statement", () => {
+    const data = prefillFromCorpus({
+      geography: {
+        value: "Primarily global / not explicitly limited in public sources",
+      },
+      pricingTiers: { value: "Pricing is not publicly disclosed" },
+      companyName: { value: "Acme Inc" },
+    });
+
+    expect(data.geographicFocus).toBeUndefined();
+    expect(data.pricingTiers).toBeUndefined();
+    expect(data.companyName).toBe("Acme Inc");
+  });
+
+  it("drops companySize usage claims (the field asks for the TARGET CUSTOMER's band)", () => {
+    // The Airtable regression: the corpus answered the ICP-size question with
+    // the company's own marketing scale claim.
+    expect(
+      prefillFromCorpus({ companySize: { value: "500,000+ brands use Airtable" } })
+        .companySize,
+    ).toBeUndefined();
+    expect(
+      prefillFromCorpus({ companySize: { value: "Teams of all sizes" } })
+        .companySize,
+    ).toBeUndefined();
+  });
+
+  it("keeps companySize firmographic bands, including ones that mention companies", () => {
+    expect(
+      prefillFromCorpus({ companySize: { value: "50-500 employees" } })
+        .companySize,
+    ).toBe("50-500 employees");
+    expect(
+      prefillFromCorpus({ companySize: { value: "Companies with $5M-$50M ARR" } })
+        .companySize,
+    ).toBe("Companies with $5M-$50M ARR");
+  });
 });

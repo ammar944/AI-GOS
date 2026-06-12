@@ -55,6 +55,14 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     expect(screen.getAllByText(/assumption — confirm/i).length).toBeGreaterThanOrEqual(1);
   });
 
+  it('renders missing USD values as "not available", never a raw unknown token', (): void => {
+    // The fixture's second projection row has kpiCostValue undefined.
+    render(<PaidMediaPlanRenderer artifact={paidMediaPlanFixtureArtifact} />);
+
+    expect(screen.getAllByText('not available').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('unknown')).not.toBeInTheDocument();
+  });
+
   it('renders no needs-review pill even when the envelope flags needs_review', (): void => {
     render(
       <PaidMediaPlanRenderer

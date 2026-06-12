@@ -13,7 +13,9 @@ export function Eyebrow({
   return (
     <span
       className={cn(
-        'font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground',
+        // Quiet editorial label — sans, no uppercase transform. The old
+        // mono-uppercase treatment read as analyst-console chrome.
+        'font-sans text-[12px] font-medium text-muted-foreground',
         className,
       )}
     >

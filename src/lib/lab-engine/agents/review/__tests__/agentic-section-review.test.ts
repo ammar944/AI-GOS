@@ -192,6 +192,34 @@ describe("reviewAndUpgradeSection", (): void => {
     expect(prompt).not.toContain("author an honest evidence-gap section");
   });
 
+  it("does not pollute the review prompt with review-status scaffolding for committed artifacts", async (): Promise<void> => {
+    aiMocks.generateText.mockResolvedValue({
+      text: buildReviewResponse({
+        upgradedMarkdown: "## Reviewed market category\n\nClean narrative.",
+        removedItems: [],
+      }),
+    });
+
+    await reviewAndUpgradeSection({
+      artifact: marketCategoryFixtureArtifact,
+      model: mockModel,
+      researchInput: saaslaunchResearchInput,
+      sectionId: "positioningMarketCategory",
+    });
+
+    // The boilerplate used to ride into "Current section markdown" and the
+    // model dutifully "removed" it, producing phantom removedItems entries.
+    const prompt = aiMocks.generateText.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).not.toContain("## Review status");
+    expect(prompt).not.toContain("The automated review pass was unavailable");
+    expect(
+      buildOriginalArtifactMarkdown(
+        marketCategoryFixtureArtifact,
+        "positioningMarketCategory",
+      ),
+    ).not.toContain("## Review status");
+  });
+
   it("drops removedItems label claims that were not applied and vague removal claims", async (): Promise<void> => {
     const warnSpy = vi
       .spyOn(console, "warn")

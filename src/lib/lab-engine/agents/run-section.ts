@@ -31,6 +31,7 @@ import {
   normalizePaidMediaPlanBody,
 } from "../artifacts/schemas/paid-media-plan";
 import {
+  checkDemandIntentIntentSignalIndependence,
   checkDemandIntentKeywordProvenance,
   softenDemandIntentForSpyFuToolGap,
   type DemandIntentBody,
@@ -189,6 +190,7 @@ import {
 import type { ToolName } from "./tools/index";
 import type { RunSectionStreamWriter } from "../streaming/run-section-ui-message";
 import {
+  collectBriefMoneyDigits,
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
   redactUnsupportedNumericClaims,
@@ -207,9 +209,11 @@ import {
 import {
   buildPlaceholderTrustedHosts,
   downgradeUnpermalinkedVerbatimQuotes,
+  downgradeUnpermalinkedVocQuotes,
   scrubQuoteEmails,
   stripExemplarEchoes,
   stripPlaceholderSourceUrls,
+  stripUnverifiedSourceUrls,
   type DowngradedVerbatimQuote,
 } from "./verification/provenance-gate";
 import {
@@ -2335,7 +2339,6 @@ function deriveWave2TrustConfidence({
 async function annotateEvidenceSupportReview({
   artifact,
   fetchImpl,
-  placeholderTrustedHosts,
   preverifiedSourceUrls,
   researchInput,
   sectionId,
@@ -2345,11 +2348,10 @@ async function annotateEvidenceSupportReview({
 }: {
   artifact: ArtifactEnvelope;
   fetchImpl?: SourceLivenessFetch;
-  // For call sites that intentionally omit researchInput (keeping their
-  // numeric-coherence truth scope unchanged) but still know the runner-owned
-  // trusted hosts for the placeholder-URL strike.
-  placeholderTrustedHosts?: ReadonlySet<string>;
   preverifiedSourceUrls?: ReadonlySet<string>;
+  // Every call site passes researchInput: the clean commit path must never
+  // run with a SMALLER numeric-coherence truth universe than the shortfall
+  // path (run d838ed4e inverted severity by omitting it on clean commits).
   researchInput?: ResearchInput;
   sectionId: SectionId;
   shortfall?: EvidenceSupportShortfall;
@@ -2357,6 +2359,26 @@ async function annotateEvidenceSupportReview({
   subjectSiteObservations?: readonly SubjectSiteObservation[];
 }): Promise<ArtifactEnvelope> {
   const provenanceFlags = shortfall?.provenanceFlags ?? [];
+  // Sourced facts the claim verifier matched to a tool result or corpus
+  // excerpt: threaded into the coherence truth so a source-verified figure is
+  // never struck as incoherent.
+  const verifiedClaimValues =
+    artifact.verification === undefined
+      ? []
+      : artifact.verification.claims
+          .filter((verdict) => verdict.status === "verified")
+          .map((verdict) => verdict.claim.value);
+  // url-claims the verifier graded unsupported (no_match): the model authored
+  // a link no tool ever saw — quote/objection/story rows citing one get the
+  // evidence-gap relabel below.
+  const unsupportedUrlClaims = new Set(
+    (artifact.verification?.claims ?? [])
+      .filter(
+        (verdict) =>
+          verdict.status === "unsupported" && verdict.claim.kind === "url",
+      )
+      .map((verdict) => verdict.claim.value),
+  );
   const relabelSource = misattributedQuoteSourceRelabelers[sectionId];
   const strip =
     relabelSource !== undefined &&
@@ -2384,10 +2406,12 @@ async function annotateEvidenceSupportReview({
   const verbatimDowngrade =
     sectionId === "positioningCompetitorLandscape"
       ? downgradeUnpermalinkedVerbatimQuotes({ body: exemplarEcho.body })
-      : {
-          body: exemplarEcho.body,
-          stripped: [] as DowngradedVerbatimQuote[],
-        };
+      : sectionId === "positioningVoiceOfCustomer"
+        ? downgradeUnpermalinkedVocQuotes({ body: exemplarEcho.body })
+        : {
+            body: exemplarEcho.body,
+            stripped: [] as DowngradedVerbatimQuote[],
+          };
   const emailScrub = scrubQuoteEmails({ body: verbatimDowngrade.body });
   // Placeholder-URL strike (run 314d5f02): fabricated placeholder sourceUrls
   // (example.com, short-digit LinkedIn groups, Reddit pseudo-permalinks,
@@ -2397,8 +2421,7 @@ async function annotateEvidenceSupportReview({
   // excerpts, source refs) exempt the example-host shape only.
   const placeholderUrlStrip = stripPlaceholderSourceUrls({
     body: emailScrub.body,
-    trustedHosts:
-      placeholderTrustedHosts ?? buildPlaceholderTrustedHosts(researchInput),
+    trustedHosts: buildPlaceholderTrustedHosts(researchInput),
   });
   const sourceLiveness = await applySourceLivenessGate({
     body: placeholderUrlStrip.body,
@@ -2408,8 +2431,18 @@ async function annotateEvidenceSupportReview({
       : { preverifiedUrls: preverifiedSourceUrls }),
     signal,
   });
-  const quoteDedup = dedupeQuoteBearingFields({
+  // Runs AFTER the liveness gate so the evidence-gap relabel URL is never
+  // itself probed (and fetch-error-dropped) by the gate above.
+  const unverifiedUrlStrip = stripUnverifiedSourceUrls({
     body: sourceLiveness.body,
+    unsupportedUrls: unsupportedUrlClaims,
+  });
+  const placeholderUrlStrikes = [
+    ...placeholderUrlStrip.stripped,
+    ...unverifiedUrlStrip.stripped,
+  ];
+  const quoteDedup = dedupeQuoteBearingFields({
+    body: unverifiedUrlStrip.body,
   });
   const subjectCta = stripContradictedSubjectCtaClaims({
     body: quoteDedup.body,
@@ -2437,6 +2470,7 @@ async function annotateEvidenceSupportReview({
     ...(researchInput === undefined ? {} : { auxiliaryEvidence: researchInput }),
     body: jargonScrub.body,
     sectionId,
+    verifiedClaimValues,
   });
   const namedEntityStrip =
     sectionId === "positioningPaidMediaPlan" &&
@@ -2454,6 +2488,11 @@ async function annotateEvidenceSupportReview({
       ? { body: namedEntityStrip.body, stripped: [] as StrippedNumericClaim[] }
       : redactUnsupportedNumericClaims({
           body: namedEntityStrip.body,
+          // Money figures may only claim "user-supplied" provenance when they
+          // actually appear in the brief economics.
+          briefMoneyDigits: collectBriefMoneyDigits(
+            researchInput?.onboarding?.economics,
+          ),
           verification: artifact.verification,
         });
   const statusSummaryStrip = stripModelAuthoredVerifiedMarkers({
@@ -2470,6 +2509,7 @@ async function annotateEvidenceSupportReview({
     ...(researchInput === undefined ? {} : { auxiliaryEvidence: researchInput }),
     body: numericStrip.body,
     sectionId,
+    verifiedClaimValues,
   });
   const statusSummaryJargon = scrubInternalJargon({
     field: "statusSummary",
@@ -2520,11 +2560,19 @@ async function annotateEvidenceSupportReview({
     shortfall,
     sourceLiveness,
   });
+  // Single writer for confidence: whenever trust was computed it IS the
+  // envelope confidence — even with no shortfall object — so the top-level
+  // confidence always equals verifierSummary.computedTrust.confidence.
+  // (Previously the trust number was dropped on clean commits, leaving two
+  // diverging confidences per artifact.)
   const trustShortfall =
-    trust === null || shortfall === undefined
+    trust === null
       ? shortfall
       : {
-          ...shortfall,
+          unsupportedLoadBearing: [],
+          issues: [],
+          provenanceFlags: [],
+          ...(shortfall ?? {}),
           computedTrustConfidence: trust.confidence,
         };
   const confidence =
@@ -2545,7 +2593,7 @@ async function annotateEvidenceSupportReview({
     exemplarEcho.stripped.length === 0 &&
     verbatimDowngrade.stripped.length === 0 &&
     emailScrub.stripped.length === 0 &&
-    placeholderUrlStrip.stripped.length === 0 &&
+    placeholderUrlStrikes.length === 0 &&
     sourceLiveness.droppedRows.length === 0 &&
     quoteDedup.dropped.length === 0 &&
     subjectCta.stripped.length === 0 &&
@@ -2584,8 +2632,8 @@ async function annotateEvidenceSupportReview({
       ...(emailScrub.stripped.length > 0
         ? { scrubbedQuoteEmails: emailScrub.stripped }
         : {}),
-      ...(placeholderUrlStrip.stripped.length > 0
-        ? { strippedPlaceholderUrls: placeholderUrlStrip.stripped }
+      ...(placeholderUrlStrikes.length > 0
+        ? { strippedPlaceholderUrls: placeholderUrlStrikes }
         : {}),
       ...(sourceLiveness.droppedRows.length > 0 ||
       sourceLiveness.checkedUrls.length > 0
@@ -2595,6 +2643,13 @@ async function annotateEvidenceSupportReview({
               containmentPassRate: sourceLiveness.containmentPassRate,
               droppedRows: sourceLiveness.droppedRows satisfies SourceLivenessDrop[],
               livenessPassRate: sourceLiveness.livenessPassRate,
+              ...(sourceLiveness.livenessUnknownRows.length > 0
+                ? {
+                    livenessUnknownCount:
+                      sourceLiveness.livenessUnknownRows.length,
+                    livenessUnknownRows: sourceLiveness.livenessUnknownRows,
+                  }
+                : {}),
               ...(sourceLiveness.networkUnavailable
                 ? { networkUnavailable: true }
                 : {}),
@@ -2740,23 +2795,32 @@ function getRepairReason(attempt: AttemptResult): string {
   return getAttemptRepairIssues(attempt).join("; ").slice(0, 200);
 }
 
+// Finite repair trigger, decoupled from the hard-fail ceiling: with
+// LAB_VERIFIER_MAX_UNSUPPORTED unset the gate defaults to Infinity, so a
+// gate-coupled trigger never repaired anything — a section with 18/48
+// unsupported load-bearing claims committed on attempt one with zero
+// grounding repairs (run d838ed4e BuyerICP). Above this many unsupported
+// load-bearing claims a grounding repair is worth one of the bounded
+// answerToolMaxRepairAttempts; the hard-fail ceiling itself stays Infinity.
+const repairUnsupportedLoadBearingThreshold = 6;
+
 // Repair only when it can change the committed outcome: a genuine schema/parse
-// failure (no committable artifact) OR an unsupported-load-bearing count that
-// actually exceeds the evidence gate (getEvidenceGateFailureReason !== null).
+// failure (no committable artifact), an unsupported-load-bearing count above
+// the finite repair threshold, OR a count that exceeds the evidence gate
+// (getEvidenceGateFailureReason !== null).
 //
-// This is deliberately tied to maxUnsupportedAllowed (getMaxUnsupportedAllowed).
-// The trigger used to fire on the mere PRESENCE of any shortfall
-// (evidenceSupportShortfall !== undefined), decoupled from the gate — so every
-// section burned up to answerToolMaxRepairAttempts full agentic re-runs
-// grounding claims it could still accept. Gating on the count preserves bounded
-// grounding repairs while avoiding repairs for unsupported claims that are
-// explicitly within the configured threshold.
+// The trigger stays COUNT-based, never presence-based: it used to fire on the
+// mere PRESENCE of any shortfall (evidenceSupportShortfall !== undefined) — so
+// every section burned up to answerToolMaxRepairAttempts full agentic re-runs
+// grounding claims it could still accept (the per-section repair storm).
 function shouldRepairAttempt(
   attempt: AttemptResult,
   maxUnsupportedAllowed: number,
 ): boolean {
   return (
     attempt.artifact === null ||
+    getUnsupportedLoadBearingCount(attempt) >
+      repairUnsupportedLoadBearingThreshold ||
     getEvidenceGateFailureReason(attempt, maxUnsupportedAllowed) !== null
   );
 }
@@ -3367,8 +3431,12 @@ function normalizeVerbatimTextRecord(
   };
 }
 
+// Kept in lockstep with vocSourceTypes in artifacts/schemas/voice-of-customer.ts.
 const voiceOfCustomerQuoteSourceValues = new Set([
   "g2",
+  "capterra",
+  "trustpilot",
+  "trustradius",
   "reddit",
   "hackernews",
   "sales-call",
@@ -4940,6 +5008,20 @@ async function callStructuredAttempt({
         });
         if (channelPolicyErrors.length > 0) {
           return { kind: "reject", errors: channelPolicyErrors };
+        }
+      }
+
+      if (input.sectionId === "positioningDemandIntent") {
+        // Subject-domain independence for intent signals — same gate as the
+        // answer-tool path: vendor self-sourced "demand" rows reject with
+        // errors that drive the repair toward an honest blockGap.
+        const intentIndependence = checkDemandIntentIntentSignalIndependence({
+          artifact: candidateArtifact,
+          subjectDomain: researchInput.company.websiteUrl,
+        });
+
+        if (!intentIndependence.ok) {
+          return { kind: "reject", errors: intentIndependence.errors };
         }
       }
 
@@ -7016,6 +7098,22 @@ async function buildVerifiedAttemptFromFinalOutput({
       }
     }
 
+    if (input.sectionId === "positioningDemandIntent") {
+      // Subject-domain independence for intent signals (mirrors the VoC
+      // self-sourcing gate above): "job-posting"-style signals citing the
+      // subject's own marketing pages are vendor self-vouching, not
+      // third-party demand — reject so the repair drops the row and carries
+      // the shortfall in body.intentSignals.blockGap.
+      const intentIndependence = checkDemandIntentIntentSignalIndependence({
+        artifact: candidateArtifact,
+        subjectDomain: researchInput.company.websiteUrl,
+      });
+
+      if (!intentIndependence.ok) {
+        return { kind: "reject", errors: intentIndependence.errors };
+      }
+    }
+
     if (input.sectionId === "positioningPaidMediaPlan") {
       // Media-Plan SOP channel policy: re-derived from the same brief the
       // prompt block used, so a Meta-templated plan on a high-ACV brief
@@ -7180,10 +7278,13 @@ async function buildVerifiedAttemptFromFinalOutput({
     artifact: await annotateEvidenceSupportReview({
       artifact: verdict.committableArtifact,
       fetchImpl: deps.fetchImpl,
-      placeholderTrustedHosts: buildPlaceholderTrustedHosts(researchInput),
       preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
         steps: evidenceSteps,
       }),
+      // The clean commit path passes the same researchInput as the shortfall
+      // path above: a clean section must never face a SMALLER numeric-
+      // coherence truth universe than a shortfall section.
+      researchInput,
       sectionId: input.sectionId,
       shortfall: verdict.shortfall,
       signal: input.signal,

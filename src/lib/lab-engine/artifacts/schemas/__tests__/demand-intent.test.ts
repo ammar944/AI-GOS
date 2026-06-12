@@ -5,6 +5,7 @@ import {
   DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_TITLE,
   DEMAND_INTENT_SPYFU_TOOLGAP_SOURCE_URL,
   DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME,
+  checkDemandIntentIntentSignalIndependence,
   checkDemandIntentKeywordProvenance,
   keywordSignalSchema,
   softenDemandIntentForSpyFuToolGap,
@@ -704,5 +705,61 @@ describe("validateDemandIntentMinimums — diversity is guidance, not a floor", 
 
     expect(result.ok).toBe(true);
     expect(result.errors).toHaveLength(0);
+  });
+});
+
+describe("checkDemandIntentIntentSignalIndependence", (): void => {
+  function withIntentSignalUrl(
+    sourceUrl: string,
+    index = 0,
+  ): DemandIntentArtifact {
+    const items = demandIntentFixtureArtifact.body.intentSignals.items.map(
+      (item, itemIndex) =>
+        itemIndex === index ? { ...item, sourceUrl } : item,
+    );
+
+    return {
+      ...demandIntentFixtureArtifact,
+      body: {
+        ...demandIntentFixtureArtifact.body,
+        intentSignals: {
+          ...demandIntentFixtureArtifact.body.intentSignals,
+          items,
+        },
+      },
+    };
+  }
+
+  it("rejects intent signals sourced from the subject's own registrable domain", (): void => {
+    // Vendor self-sourcing: a "job-posting" signal citing the subject's blog
+    // is the company vouching for its own demand, not third-party evidence.
+    const result = checkDemandIntentIntentSignalIndependence({
+      artifact: withIntentSignalUrl("https://blog.acme.com/how-to-research"),
+      subjectDomain: "https://www.acme.com",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("body.intentSignals.items[0]");
+    expect(result.errors[0]).toContain("body.intentSignals.blockGap");
+  });
+
+  it("accepts intent signals from independent venues", (): void => {
+    const result = checkDemandIntentIntentSignalIndependence({
+      artifact: demandIntentFixtureArtifact,
+      subjectDomain: "https://www.acme.com",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("is inert when the subject domain is unparseable", (): void => {
+    const result = checkDemandIntentIntentSignalIndependence({
+      artifact: withIntentSignalUrl("https://acme.com/blog"),
+      subjectDomain: "not a domain",
+    });
+
+    expect(result.ok).toBe(true);
   });
 });

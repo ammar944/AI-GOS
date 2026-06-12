@@ -22,6 +22,9 @@ import {
 
 const vocSourceTypes = [
   "g2",
+  "capterra",
+  "trustpilot",
+  "trustradius",
   "reddit",
   "hackernews",
   "sales-call",

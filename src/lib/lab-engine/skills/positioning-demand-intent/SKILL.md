@@ -34,6 +34,7 @@ Use only the tools allowed for this section.
 
 - Do not invent keyword volume, CPC, difficulty, ranking domains, questions, venues, or intent signals.
 - Numeric keyword siblings are tool-derived only. If measurement is absent, use a gap or relative-interest language without sortable numbers.
+- Intent signals must cite independent venues (job boards, news, funding databases) — never the subject company's own domain.
 - Use blockGap instead of padding keyword, question, content-gap, intent, or venue rows.
 - Demand creation is a strategy call, not a way to hide weak capture evidence.
 - Lead with `keyFindings` when the evidence supports 3-5 demand truths.

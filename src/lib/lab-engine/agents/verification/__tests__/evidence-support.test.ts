@@ -4,6 +4,7 @@ import cleanMarketCategoryFixture from "../__evals__/fixtures/ramp-market-catego
 import fabricatedPriceFixture from "../__evals__/fixtures/synthetic-fabricated-price.json";
 import fabricatedQuoteFixture from "../__evals__/fixtures/synthetic-fabricated-quote.json";
 import {
+  collectBriefMoneyDigits,
   deriveGroundedConfidence,
   evaluateEvidenceSupport,
   getMaxUnsupportedAllowed,
@@ -554,7 +555,7 @@ describe("redactUnsupportedNumericClaims", (): void => {
     ]);
   });
 
-  it("marks unsupported numeric tokens in prose and stays idempotent", (): void => {
+  it("records unsupported numeric tokens as metadata without touching the body string", (): void => {
     const body = {
       statusSummary:
         "The community claims 450K members and another 450K members in launch copy.",
@@ -572,21 +573,22 @@ describe("redactUnsupportedNumericClaims", (): void => {
     });
     const secondBody = second.body as { statusSummary: string };
 
-    expect(firstBody.statusSummary).toBe(
-      "The community claims 450K members [unverified] and another 450K members [unverified] in launch copy.",
-    );
+    // The body string ships unchanged: no inline [unverified] splice, no
+    // aggregate footnote — the claim is carried as metadata only.
+    expect(firstBody.statusSummary).toBe(body.statusSummary);
     expect(first.stripped).toEqual([
       {
-        action: "marker",
+        action: "recorded",
         field: "body.statusSummary",
         value: "450K members",
       },
     ]);
-    expect(secondBody.statusSummary).toBe(firstBody.statusSummary);
-    expect(second.stripped).toEqual([]);
+    // Re-running is deterministic: same untouched body, same metadata.
+    expect(secondBody.statusSummary).toBe(body.statusSummary);
+    expect(second.stripped).toEqual(first.stripped);
   });
 
-  it("strips fake verified markers and marks unsupported numeric ranges", (): void => {
+  it("strips fake verified markers and records unsupported numeric ranges", (): void => {
     const body = {
       statusSummary:
         "Reachable revenue is $1.3M–$2.6M [verified: SpyFu] based on demand.",
@@ -597,8 +599,10 @@ describe("redactUnsupportedNumericClaims", (): void => {
     });
     const redacted = result.body as typeof body;
 
+    // The fake [verified] marker is removed; the range itself stays in the
+    // prose unmarked and is recorded as metadata.
     expect(redacted.statusSummary).toBe(
-      "Reachable revenue is $1.3M–$2.6M [unverified] based on demand.",
+      "Reachable revenue is $1.3M–$2.6M based on demand.",
     );
     expect(result.stripped).toEqual([
       {
@@ -607,7 +611,7 @@ describe("redactUnsupportedNumericClaims", (): void => {
         value: "[verified: SpyFu]",
       },
       {
-        action: "marker",
+        action: "recorded",
         field: "body.statusSummary",
         value: "$1.3M–$2.6M",
       },
@@ -636,7 +640,7 @@ describe("redactUnsupportedNumericClaims", (): void => {
     const redacted = result.body as typeof body;
 
     expect(redacted.statusSummary).toBe(
-      "Pricing is $99/mo and the forum claims 450K members [unverified].",
+      "Pricing is $99/mo and the forum claims 450K members.",
     );
     expect(redacted.sourceUrl).toBe("450K members");
     expect(redacted.url).toBe("450K members");
@@ -646,7 +650,7 @@ describe("redactUnsupportedNumericClaims", (): void => {
     expect(redacted.rawSourceSamples).toEqual([{ text: "450K members" }]);
     expect(result.stripped).toEqual([
       {
-        action: "marker",
+        action: "recorded",
         field: "body.statusSummary",
         value: "450K members",
       },
@@ -711,10 +715,12 @@ describe("redactUnsupportedNumericClaims", (): void => {
     expect(redactedInput?.value).toBe(
       "evidence gap: monthly-search-volume unsourced",
     );
+    // The estimate keeps its existing evidence-gap label; the unsupported
+    // figure inside it is recorded as metadata, never marker-spliced.
     expect(
       redactedBody.marketSize.bottomUpTam.reachableRevenueEstimate,
     ).toBe(
-      "evidence gap: $1.09M [unverified] reachable revenue until recipe inputs are sourced.",
+      "evidence gap: $1.09M reachable revenue until recipe inputs are sourced.",
     );
     expect(result.stripped).toEqual([
       {
@@ -723,14 +729,14 @@ describe("redactUnsupportedNumericClaims", (): void => {
         value: "450K members",
       },
       {
-        action: "marker",
+        action: "recorded",
         field: "body.marketSize.bottomUpTam.reachableRevenueEstimate",
         value: "$1.09M",
       },
     ]);
   });
 
-  it("downgrades untrusted paid-media money provenance without touching user-supplied economics", (): void => {
+  it("downgrades unearned user-supplied money provenance to model-estimated", (): void => {
     const body = {
       campaignOverview: {
         monthlyBudget: "$99,999 / Month",
@@ -742,6 +748,9 @@ describe("redactUnsupportedNumericClaims", (): void => {
       },
     };
 
+    // No brief money values: the model-asserted "user-supplied" label is
+    // unearned and downgrades to "model-estimated" (display string and
+    // numeric value stay); untrusted provenance still snaps to "unknown".
     const result = redactUnsupportedNumericClaims({
       body,
       verification: buildUnsupportedNumericReport(["$99,999", "$3,333"]),
@@ -753,7 +762,7 @@ describe("redactUnsupportedNumericClaims", (): void => {
     expect(overview.monthlyBudgetProvenance).toBe("unknown");
     expect(overview).not.toHaveProperty("monthlyBudgetValue");
     expect(overview.dailySpend).toBe("$3,333 / day");
-    expect(overview.dailySpendProvenance).toBe("user-supplied");
+    expect(overview.dailySpendProvenance).toBe("model-estimated");
     expect(overview.dailySpendValue).toBe(3_333);
     expect(result.stripped).toEqual([
       {
@@ -761,7 +770,51 @@ describe("redactUnsupportedNumericClaims", (): void => {
         field: "body.campaignOverview.monthlyBudget",
         value: "$99,999",
       },
+      {
+        action: "provenance-downgraded",
+        field: "body.campaignOverview.dailySpend",
+        value: "$3,333",
+      },
     ]);
+  });
+
+  it("keeps user-supplied money provenance when the figure appears in the brief economics", (): void => {
+    const body = {
+      campaignOverview: {
+        dailySpend: "$3,333 / day",
+        dailySpendValue: 3_333,
+        dailySpendProvenance: "user-supplied",
+      },
+    };
+
+    const result = redactUnsupportedNumericClaims({
+      body,
+      briefMoneyDigits: collectBriefMoneyDigits({
+        monthlyAdBudget: "$100k/month (about $3,333 a day)",
+      }),
+      verification: buildUnsupportedNumericReport(["$3,333"]),
+    });
+
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
+  });
+
+  it("expands brief magnitude shorthand when earning user-supplied provenance", (): void => {
+    const body = {
+      campaignOverview: {
+        monthlyBudget: "$5,000 / Month",
+        monthlyBudgetProvenance: "user-supplied",
+      },
+    };
+
+    const result = redactUnsupportedNumericClaims({
+      body,
+      briefMoneyDigits: collectBriefMoneyDigits({ monthlyAdBudget: "$5k" }),
+      verification: buildUnsupportedNumericReport(["$5,000"]),
+    });
+
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
   });
 });
 
@@ -965,7 +1018,7 @@ describe("stripMisattributedQuoteAttributions", (): void => {
   });
 });
 
-describe("redactUnsupportedNumericClaims marker boundaries (W4)", (): void => {
+describe("redactUnsupportedNumericClaims body-untouched contract", (): void => {
   function proseAfterRedaction({
     prose,
     unsupported,
@@ -984,91 +1037,88 @@ describe("redactUnsupportedNumericClaims marker boundaries (W4)", (): void => {
     };
   }
 
-  it("never splits a word: an embedded token match is skipped, a standalone one is marked", (): void => {
+  it("records a standalone token but never an embedded match inside a longer word", (): void => {
     const result = proseAfterRedaction({
       prose: "Trackers run $450/month on ten seats; the audit cites $450/mo directly.",
       unsupported: ["$450/mo"],
     });
 
-    expect(result.prose).not.toContain("mo [unverified]nth");
-    expect(result.prose).toContain("$450/month on ten seats");
-    expect(result.prose).toContain("$450/mo [unverified] directly");
+    expect(result.prose).toBe(
+      "Trackers run $450/month on ten seats; the audit cites $450/mo directly.",
+    );
+    expect(result.stripped).toEqual([
+      {
+        action: "recorded",
+        field: "body.marketSize.prose",
+        value: "$450/mo",
+      },
+    ]);
   });
 
-  it("never splits a grouped number: a token inside a larger comma-grouped figure is skipped", (): void => {
+  it("records a standalone token but never a match inside a larger comma-grouped figure", (): void => {
     const result = proseAfterRedaction({
       prose: "The shelf lists 1,300 products while the niche holds 300 buyers.",
       unsupported: ["300"],
     });
 
-    expect(result.prose).toContain("1,300 products");
-    expect(result.prose).not.toContain("1,300 [unverified]");
-    expect(result.prose).toContain("300 [unverified] buyers");
+    expect(result.prose).toBe(
+      "The shelf lists 1,300 products while the niche holds 300 buyers.",
+    );
+    expect(result.stripped).toEqual([
+      {
+        action: "recorded",
+        field: "body.marketSize.prose",
+        value: "300",
+      },
+    ]);
   });
 
-  it("never detaches a percent sign from its figure", (): void => {
+  it("does not record a token glued to a percent sign (different figure)", (): void => {
     const result = proseAfterRedaction({
       prose: "Coverage of 100% is claimed on the pricing page.",
       unsupported: ["100"],
     });
 
-    expect(result.prose).not.toContain("100 [unverified]%");
     expect(result.prose).toBe("Coverage of 100% is claimed on the pricing page.");
     expect(result.stripped).toEqual([]);
   });
 
-  it("keeps inline markers at or below the per-field cap", (): void => {
+  it("records every distinct present token once per field with no cap, footnote, or splice", (): void => {
+    const prose =
+      "Growth of 17% on 240 accounts produced $9.2M against a $48 CPC baseline.";
     const result = proseAfterRedaction({
-      prose: "Growth of 17% on 240 accounts produced $9.2M.",
-      unsupported: ["17%", "240", "$9.2M"],
-    });
-
-    expect(result.prose).toContain("17% [unverified]");
-    expect(result.prose).toContain("240 [unverified]");
-    expect(result.prose).toContain("$9.2M [unverified]");
-    expect(result.prose).not.toContain("see section badge");
-  });
-
-  it("replaces inline markers with one aggregate footnote above the cap", (): void => {
-    const result = proseAfterRedaction({
-      prose:
-        "Growth of 17% on 240 accounts produced $9.2M against a $48 CPC baseline.",
+      prose,
       unsupported: ["17%", "240", "$9.2M", "$48"],
     });
 
+    expect(result.prose).toBe(prose);
     expect(result.prose).not.toContain("[unverified]");
-    expect(result.prose).toContain(
-      "[4 figures in this field are unverified — see section badge]",
-    );
+    expect(result.prose).not.toContain("see section badge");
+    expect(result.stripped).toHaveLength(4);
     expect(
-      result.stripped.filter((entry) => entry.action === "marker-aggregated"),
-    ).toHaveLength(4);
-    expect(
-      result.stripped.filter((entry) => entry.action === "marker"),
-    ).toHaveLength(0);
+      result.stripped.every((entry) => entry.action === "recorded"),
+    ).toBe(true);
   });
 
-  it("counts occurrences, not distinct tokens, against the per-field cap", (): void => {
+  it("records repeated occurrences of one token as a single metadata entry", (): void => {
+    const prose =
+      "Plans run $48 monthly, renew at $48, expand at $48, and cap at $48.";
     const result = proseAfterRedaction({
-      prose:
-        "Plans run $48 monthly, renew at $48, expand at $48, and cap at $48.",
+      prose,
       unsupported: ["$48"],
     });
 
-    expect(result.prose).not.toContain("[unverified]");
-    expect(result.prose).toContain(
-      "[1 figure in this field is unverified — see section badge]",
-    );
+    expect(result.prose).toBe(prose);
     expect(result.stripped).toEqual([
       {
-        action: "marker-aggregated",
+        action: "recorded",
         field: "body.marketSize.prose",
         value: "$48",
       },
     ]);
   });
 
-  it("stops splicing inline markers once the section budget is exhausted", (): void => {
+  it("records across all fields with no section-wide budget and leaves every body string unchanged", (): void => {
     const body = {
       alpha: { prose: "Adoption hit 17% with 240 accounts and $9.2M booked." },
       beta: { prose: "Pipeline added 55% more, 610 leads, and $4.1M closed." },
@@ -1089,27 +1139,19 @@ describe("redactUnsupportedNumericClaims marker boundaries (W4)", (): void => {
     });
     const redacted = result.body as typeof body;
 
-    // First six markable occurrences (alpha + beta) ship inline.
-    expect(redacted.alpha.prose.match(/\[unverified\]/g)).toHaveLength(3);
-    expect(redacted.beta.prose.match(/\[unverified\]/g)).toHaveLength(3);
-    // Budget exhausted: gamma keeps its prose untouched, no footnote.
+    expect(redacted.alpha.prose).toBe(body.alpha.prose);
+    expect(redacted.beta.prose).toBe(body.beta.prose);
     expect(redacted.gamma.prose).toBe(body.gamma.prose);
+    expect(JSON.stringify(result.body)).not.toContain("[unverified]");
+    expect(result.stripped).toHaveLength(8);
     expect(
-      result.stripped.filter((entry) => entry.action === "marker"),
-    ).toHaveLength(6);
+      result.stripped.every((entry) => entry.action === "recorded"),
+    ).toBe(true);
     expect(
-      result.stripped.filter((entry) => entry.action === "marker-aggregated"),
+      result.stripped.filter((entry) => entry.field === "body.gamma.prose"),
     ).toEqual([
-      {
-        action: "marker-aggregated",
-        field: "body.gamma.prose",
-        value: "12%",
-      },
-      {
-        action: "marker-aggregated",
-        field: "body.gamma.prose",
-        value: "980",
-      },
+      { action: "recorded", field: "body.gamma.prose", value: "12%" },
+      { action: "recorded", field: "body.gamma.prose", value: "980" },
     ]);
   });
 });

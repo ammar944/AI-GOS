@@ -83,6 +83,7 @@ import { useSessionShare } from '@/hooks/use-session-share';
 import { cn } from '@/lib/utils';
 
 import { TypedArtifactRenderer } from './typed-artifact-renderer';
+import { PaidMediaPlanDeck } from './section-renderers/paid-media-plan-deck';
 import { scrubReaderText } from './primitives';
 
 // ---------------------------------------------------------------------------
@@ -323,7 +324,7 @@ function ReviewMetadataPanel({
   return (
     <div className="space-y-4 rounded-md border border-border bg-background p-4">
       <div className="space-y-2">
-        <Eyebrow>Ask the client ({review.clientQuestions.length})</Eyebrow>
+        <Eyebrow>Open questions for you ({review.clientQuestions.length})</Eyebrow>
         <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
           {review.clientQuestions.map((question) => (
             <li key={question}>{question}</li>
@@ -334,11 +335,19 @@ function ReviewMetadataPanel({
   );
 }
 
+// `needsReview` is the verification tier delivered in the audit-state payload
+// (needs_review / insufficient). A committed section that the verifier flagged
+// reads honestly as 'Complete — needs review' instead of plain 'Complete'.
+// This reverses the 2026-06-11 "done is done" decision per the 2026-06-12 bar
+// (success chrome may not overclaim needs_review content).
 function sectionStatusSubline(
   status: ReaderSectionStatus,
+  needsReview = false,
 ): string {
-  if (status === 'complete') return 'Complete';
-  if (status === 'error') return 'Needs review';
+  if (status === 'complete') {
+    return needsReview ? 'Complete — needs review' : 'Complete';
+  }
+  if (status === 'error') return 'Failed';
   if (status === 'aborted') return 'Aborted';
   if (status === 'ready') return 'Ready after 6/6';
   if (status === 'locked') return 'Locked until 6/6';
@@ -563,26 +572,71 @@ function PaidMediaPlanTerminalPanel({
   artifact,
   events,
   statusText,
+  subjectName,
 }: {
   artifact: PositioningTypedArtifact | null;
   events: readonly SectionEvent[];
   statusText: string;
+  subjectName?: string;
 }): ReactElement {
+  // The deck is the deliverable; the operator renderer stays reachable behind
+  // a small 'Working view' toggle.
+  const [view, setView] = useState<'deck' | 'working'>('deck');
   const readerSources = artifact ? toReaderSources(artifact.sources) : [];
 
   return (
     <div className="space-y-7">
       {artifact ? (
         <>
-          <ReaderSourcesProvider sources={readerSources}>
+          <div className="no-print flex justify-end">
+            <div
+              role="group"
+              aria-label="Paid media plan view"
+              className="inline-flex rounded-md border border-border p-0.5"
+            >
+              <button
+                type="button"
+                onClick={() => setView('deck')}
+                aria-pressed={view === 'deck'}
+                className={cn(
+                  'rounded px-2.5 py-1 text-[12px] font-medium transition-colors',
+                  view === 'deck'
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Deck
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('working')}
+                aria-pressed={view === 'working'}
+                className={cn(
+                  'rounded px-2.5 py-1 text-[12px] font-medium transition-colors',
+                  view === 'working'
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Working view
+              </button>
+            </div>
+          </div>
+          {view === 'deck' ? (
             <TypedArtifactErrorBoundary sectionId={PAID_MEDIA_PLAN_SECTION_ID}>
-              <TypedArtifactRenderer
-                artifact={artifact}
-                zoneId={PAID_MEDIA_PLAN_SECTION_ID}
-                showSectionTitle={false}
-              />
+              <PaidMediaPlanDeck artifact={artifact} subjectName={subjectName} />
             </TypedArtifactErrorBoundary>
-          </ReaderSourcesProvider>
+          ) : (
+            <ReaderSourcesProvider sources={readerSources}>
+              <TypedArtifactErrorBoundary sectionId={PAID_MEDIA_PLAN_SECTION_ID}>
+                <TypedArtifactRenderer
+                  artifact={artifact}
+                  zoneId={PAID_MEDIA_PLAN_SECTION_ID}
+                  showSectionTitle={false}
+                />
+              </TypedArtifactErrorBoundary>
+            </ReaderSourcesProvider>
+          )}
           <SourcesFooter sources={readerSources} />
         </>
       ) : (
@@ -607,6 +661,8 @@ interface RunStatusCardProps {
   active: ReaderSectionId;
   onSelect: (id: ReaderSectionId) => void;
   statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
+  needsReviewOf: (id: ReaderSectionId) => boolean;
+  needsReviewCount: number;
   positioningCompletedCount: number;
   activePhaseLabel: string | null;
   elapsedMs: number | null;
@@ -622,6 +678,8 @@ function RunStatusCard({
   active,
   onSelect,
   statusOf,
+  needsReviewOf,
+  needsReviewCount,
   positioningCompletedCount,
   activePhaseLabel,
   elapsedMs,
@@ -633,8 +691,10 @@ function RunStatusCard({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-      {/* Header: rollup + elapsed clock + run state. Verification tier chrome
-          is intentionally absent (user decision 2026-06-11) — done is done. */}
+      {/* Header: rollup + elapsed clock + run state. The rollup is tier-honest:
+          'Done' carries a quiet 'N of 6 need review' qualifier when the
+          verifier flagged committed sections (reverses the 2026-06-11
+          "done is done" decision per the 2026-06-12 bar). */}
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
           {running ? (
@@ -651,6 +711,11 @@ function RunStatusCard({
           </span>
           {allSectionsTerminal ? (
             <span className="text-[12px] font-medium text-muted-foreground">Done</span>
+          ) : null}
+          {allSectionsTerminal && needsReviewCount > 0 ? (
+            <span className="text-[11px] text-muted-foreground/80">
+              {needsReviewCount} of {POSITIONING_SECTION_IDS.length} need review
+            </span>
           ) : null}
         </span>
         {running && elapsedMs !== null ? (
@@ -677,7 +742,8 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          const subLine = sectionStatusSubline(status);
+          const needsReview = status === 'complete' && needsReviewOf(id);
+          const subLine = sectionStatusSubline(status, needsReview);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -705,7 +771,14 @@ function RunStatusCard({
                 >
                   {SECTION_SHORT_LABEL[id]}
                 </span>
-                <span className="block text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  {needsReview ? (
+                    <span
+                      data-testid={`section-tier-dot-${id}`}
+                      aria-hidden="true"
+                      className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500"
+                    />
+                  ) : null}
                   {subLine}
                 </span>
               </span>
@@ -913,6 +986,17 @@ export function AuditReaderShell({
 
   const sixSectionsComplete = hasSixPositioningSectionsComplete(live);
 
+  // Tier honesty: the audit-state payload ships verificationTier per zone.
+  // A committed section flagged needs_review/insufficient surfaces as
+  // 'Complete — needs review' with a quiet amber dot in the rail.
+  const needsReviewOf = useCallback(
+    (id: ReaderSectionId): boolean => {
+      const tier = live.sectionsByZone[id]?.verificationTier;
+      return tier === 'needs_review' || tier === 'insufficient';
+    },
+    [live.sectionsByZone],
+  );
+
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {
       const worker = workerById.get(id);
@@ -999,6 +1083,14 @@ export function AuditReaderShell({
     () =>
       POSITIONING_SECTION_IDS.filter((id) => statusOf(id) === 'complete').length,
     [statusOf],
+  );
+
+  const needsReviewCount = useMemo(
+    () =>
+      POSITIONING_SECTION_IDS.filter(
+        (id) => statusOf(id) === 'complete' && needsReviewOf(id),
+      ).length,
+    [needsReviewOf, statusOf],
   );
 
 
@@ -1180,7 +1272,7 @@ export function AuditReaderShell({
       className="flex h-full flex-col bg-background font-sans text-foreground"
     >
       {/* top bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-5">
+      <header className="no-print flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-5">
         <div className="flex items-center gap-2.5">
           <Eyebrow>Positioning Audit</Eyebrow>
           <span className="text-muted-foreground/40">/</span>
@@ -1231,7 +1323,7 @@ export function AuditReaderShell({
               }
             />
 
-            <div className="flex items-center justify-between gap-4">
+            <div className="no-print flex items-center justify-between gap-4">
               <Eyebrow>
                 Section {activeIndex + 1} of {READER_SECTION_IDS.length}
               </Eyebrow>
@@ -1256,18 +1348,21 @@ export function AuditReaderShell({
             <div className="mt-6 space-y-7">
               {activeStatus === 'complete' && activeTyped ? (
                 <>
-                  <CompletedActivitySummary
-                    sourceCount={completedActivitySummary.sourceCount}
-                    toolCount={completedActivitySummary.toolCount}
-                    durationLabel={
-                      completedActivitySummary.durationLabel ?? undefined
-                    }
-                  />
+                  <div className="no-print">
+                    <CompletedActivitySummary
+                      sourceCount={completedActivitySummary.sourceCount}
+                      toolCount={completedActivitySummary.toolCount}
+                      durationLabel={
+                        completedActivitySummary.durationLabel ?? undefined
+                      }
+                    />
+                  </div>
                   {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
                       events={activeEvents}
                       statusText="Paid media plan committed."
+                      subjectName={company}
                     />
                   ) : (
                     <ReaderSourcesProvider sources={activeReaderSources}>
@@ -1317,6 +1412,7 @@ export function AuditReaderShell({
                       ? 'Ready to run.'
                       : 'Locked - unlocks after the six positioning sections complete.'
                   }
+                  subjectName={company}
                 />
               ) : (
                 <QueuedState />
@@ -1333,6 +1429,8 @@ export function AuditReaderShell({
               active={active}
               onSelect={select}
               statusOf={statusOf}
+              needsReviewOf={needsReviewOf}
+              needsReviewCount={needsReviewCount}
               positioningCompletedCount={positioningCompletedCount}
               activePhaseLabel={activePhaseLabel}
               elapsedMs={elapsedMs}

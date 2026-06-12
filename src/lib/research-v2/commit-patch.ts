@@ -8,6 +8,8 @@ import { sectionReviewResultSchema } from '@/lib/lab-engine/artifacts/artifact-e
 import {
   buildReviewVerificationFlag,
   buildVerificationFlag,
+  INSUFFICIENT_MAX_CONFIDENCE,
+  VERIFIED_MIN_CONFIDENCE,
   type VerificationFlag,
   type VerificationTier,
 } from '@/lib/research-v2/verification-tier';
@@ -59,15 +61,62 @@ function readSectionReview(artifact: Record<string, unknown>) {
   return parsed.success ? parsed.data : null;
 }
 
-function readDisplayableReviewMarkdown(
-  review: ReturnType<typeof readSectionReview>,
-): string | null {
-  if (!review || review.tier === 'unavailable' || review.errorDiagnostics) {
-    return null;
+// Trust-corrected confidence computed by the wave-2 verifier
+// (min of liveness/containment/claim-support, with honest-empty caps).
+// When present it is the most pessimistic — and most honest — number the
+// pipeline has for this section, so the persisted badge clamps to it.
+function readComputedTrustConfidence(
+  artifact: Record<string, unknown>,
+): number | null {
+  const verifierSummary = isRecord(artifact.verifierSummary)
+    ? artifact.verifierSummary
+    : null;
+  const computedTrust =
+    verifierSummary && isRecord(verifierSummary.computedTrust)
+      ? verifierSummary.computedTrust
+      : null;
+  const confidence = computedTrust?.confidence;
+
+  return typeof confidence === 'number' && Number.isFinite(confidence)
+    ? Math.min(1, Math.max(0, confidence))
+    : null;
+}
+
+const VERIFICATION_TIER_SEVERITY: Record<VerificationTier, number> = {
+  verified: 0,
+  needs_review: 1,
+  insufficient: 2,
+};
+
+function clampFlagToComputedTrust(
+  flag: VerificationFlag | null,
+  computedTrustConfidence: number | null,
+): VerificationFlag | null {
+  if (
+    flag === null ||
+    computedTrustConfidence === null ||
+    computedTrustConfidence >= flag.confidence
+  ) {
+    return flag;
   }
 
-  const markdown = review.upgradedMarkdown.trim();
-  return markdown.length > 0 ? markdown : null;
+  const tierFromTrust: VerificationTier =
+    flag.evidenceGap || computedTrustConfidence < INSUFFICIENT_MAX_CONFIDENCE
+      ? 'insufficient'
+      : computedTrustConfidence < VERIFIED_MIN_CONFIDENCE
+        ? 'needs_review'
+        : 'verified';
+  const tier =
+    VERIFICATION_TIER_SEVERITY[tierFromTrust] >=
+    VERIFICATION_TIER_SEVERITY[flag.tier]
+      ? tierFromTrust
+      : flag.tier;
+
+  return {
+    ...flag,
+    confidence: computedTrustConfidence,
+    tier,
+  };
 }
 
 export interface CommitArtifactSectionInput {
@@ -107,15 +156,22 @@ export function buildCommitPatch(
   const summary = typeof a.statusSummary === 'string' ? a.statusSummary : null;
   const verdict = typeof a.verdict === 'string' ? a.verdict : null;
   const review = readSectionReview(a);
-  const reviewMarkdown = readDisplayableReviewMarkdown(review);
+  // The markdown column is always the deterministic verdict/summary lines.
+  // review.upgradedMarkdown is regenerated model prose with zero evidence
+  // verification — it must never replace the canonical markdown (it shipped
+  // invented quotes/prices to the share view). Review stays tier +
+  // clientQuestions metadata only.
   const markdownLines: string[] = [];
   if (verdict) markdownLines.push(`**Verdict:** ${verdict}`);
   if (summary) markdownLines.push('', summary);
-  const markdown = reviewMarkdown ?? markdownLines.join('\n');
-  const deterministicVerificationFlag = buildVerificationFlag({
-    verification: a.verification,
-    evidenceGap: readEvidenceGap(a),
-  });
+  const markdown = markdownLines.join('\n');
+  const deterministicVerificationFlag = clampFlagToComputedTrust(
+    buildVerificationFlag({
+      verification: a.verification,
+      evidenceGap: readEvidenceGap(a),
+    }),
+    readComputedTrustConfidence(a),
+  );
   const verificationFlag = review
     ? buildReviewVerificationFlag({
         tier: review.tier,

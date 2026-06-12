@@ -228,10 +228,12 @@ export function buildCommittedSectionProfileInsights(input: {
     sourceCount: input.artifact.sources.length,
     ...(verificationTier ? { verificationTier } : {}),
     ...(verificationFlag ? { verificationFlag } : {}),
+    // Review stays tier + clientQuestions only. tierRationale and removedItems
+    // are unverified model assertions (phantom removals, fabricated clean
+    // bills of health) — they remain on the artifact as an internal log but
+    // never persist into profile insights.
     ...(input.artifact.review
       ? {
-          reviewTierRationale: input.artifact.review.tierRationale,
-          removedItems: input.artifact.review.removedItems,
           clientQuestions: input.artifact.review.clientQuestions,
         }
       : {}),

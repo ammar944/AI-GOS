@@ -113,6 +113,51 @@ describe("runExecutiveBrief", (): void => {
     expect(result.factConflicts[0]?.winningSectionId).toBe("");
   });
 
+  it("threads verification tier and confidence into the prompt with the directional rule", async (): Promise<void> => {
+    const captured: Array<{ instructions?: string; prompt?: string }> = [];
+    const caller: StructuredCaller = async (params) => {
+      captured.push({
+        instructions: (params as { instructions?: string }).instructions,
+        prompt: (params as { prompt?: string }).prompt,
+      });
+      return {
+        executiveThesis: "One argument.",
+        factConflicts: [],
+        rankedMoves: [{ move: "Move one.", provingSections: [], rank: 1 }],
+      };
+    };
+
+    await runExecutiveBrief({
+      callStructured: caller,
+      companyName: "Airtable",
+      companyWebsiteUrl: "https://airtable.com",
+      conflicts: [],
+      model: {} as never,
+      sections: [
+        {
+          ...sections[0],
+          verificationTier: "insufficient",
+          verificationConfidence: 0.4,
+        },
+        {
+          body: { buyerMap: { prose: "Buyer map." } },
+          sectionId: "positioningBuyerICP",
+          sectionTitle: "Buyer & ICP Validation",
+          statusSummary: "Buyers validated.",
+          verdict: "Target the ops lead.",
+        },
+      ],
+    });
+
+    const prompt = captured[0]?.prompt ?? "";
+    const instructions = captured[0]?.instructions ?? "";
+    expect(prompt).toContain("verification: insufficient (confidence 0.40)");
+    // Sections without DB context degrade honestly to unknown, not verified.
+    expect(prompt).toContain("verification: unknown");
+    expect(instructions).toContain("'directional'");
+    expect(instructions).toContain("needs_review or insufficient");
+  });
+
   it("refuses to write a brief from zero committed sections", async (): Promise<void> => {
     await expect(
       runExecutiveBrief({

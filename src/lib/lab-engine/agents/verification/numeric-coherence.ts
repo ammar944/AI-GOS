@@ -152,13 +152,19 @@ const spelledNumberValues: Record<string, number> = {
 const spelledNumberAlternation = Object.keys(spelledNumberValues).join("|");
 
 // Non-claims masked out before scanning prose: URLs, markdown link targets,
-// bracketed citation markers, always-on shorthand, anchor ids.
+// bracketed citation markers, always-on shorthand, anchor ids, and product
+// numbers that read as magnitudes but are names (run d838ed4e struck
+// "Microsoft 365" prose because 365 tripped the bare-integer rule).
 const maskPatterns: readonly RegExp[] = [
   /\bhttps?:\/\/\S+/g,
   /\]\([^)]*\)/g,
   /\[\d+\]/g,
   /\b24\/7\b/g,
   /#\d+\b/g,
+  /\b(?:Microsoft|Office)\s*365\b/gi,
+  /\bFortune\s*(?:50|100|500|1000)\b/gi,
+  /\bS&P\s*500\b/gi,
+  /\b(?:24[/x]7|365\s*days)\b/gi,
 ];
 
 interface NumericToken {
@@ -688,14 +694,34 @@ function surfacesForSection(sectionId: string): ReadonlySet<string> {
   return proseClaimSurfaces[sectionId] ?? proseClaimSurfaces.default;
 }
 
+// Verifier-verified claim values are sourced facts: a figure the claim
+// verifier matched to a tool result or corpus excerpt must never be struck as
+// incoherent just because it lives only in narrative. Strings are walked
+// individually (not as an array) so the claim COUNT never enters the truth.
+function buildVerifiedClaimTruth(
+  verifiedClaimValues: readonly string[],
+): NumericTruthIndex {
+  const values: number[] = [];
+  const rawParts: string[] = [];
+
+  for (const claimValue of verifiedClaimValues) {
+    rawParts.push(claimValue);
+    addStructuredStringNumbers(claimValue, values);
+  }
+
+  return { rawText: rawParts.join("\n"), values };
+}
+
 export function buildSectionNumericTruth({
   auxiliaryEvidence,
   body,
   sectionId,
+  verifiedClaimValues,
 }: {
   auxiliaryEvidence?: unknown;
   body: Record<string, unknown>;
   sectionId: string;
+  verifiedClaimValues?: readonly string[];
 }): NumericTruthIndex {
   const excludeFields = new Set([
     ...surfacesForSection(sectionId),
@@ -703,24 +729,27 @@ export function buildSectionNumericTruth({
   ]);
 
   const ownTruth = buildNumericTruthIndex({ excludeFields, value: body });
-
-  if (auxiliaryEvidence === undefined) {
-    return ownTruth;
-  }
+  const claimTruth = buildVerifiedClaimTruth(verifiedClaimValues ?? []);
 
   // A section's permissible fact universe is its own evidence PLUS the
   // research input it was written from (corpus rows; for paid-media also the
-  // committed sibling bodies merged into its ResearchInput). A figure traced
-  // to the input is sourced, not incoherent — only numbers backed by neither
-  // the artifact nor its input are fabrication-class.
-  const inputTruth = buildNumericTruthIndex({
-    excludeFields: new Set<string>(),
-    value: auxiliaryEvidence,
-  });
+  // committed sibling bodies merged into its ResearchInput) PLUS every claim
+  // the verifier matched to a real source. A figure traced to any of these is
+  // sourced, not incoherent — only numbers backed by none are
+  // fabrication-class.
+  const inputTruth =
+    auxiliaryEvidence === undefined
+      ? { rawText: "", values: [] as number[] }
+      : buildNumericTruthIndex({
+          excludeFields: new Set<string>(),
+          value: auxiliaryEvidence,
+        });
 
   return {
-    rawText: `${ownTruth.rawText}\n${inputTruth.rawText}`,
-    values: [...ownTruth.values, ...inputTruth.values],
+    rawText: [ownTruth.rawText, inputTruth.rawText, claimTruth.rawText]
+      .filter((part) => part.length > 0)
+      .join("\n"),
+    values: [...ownTruth.values, ...inputTruth.values, ...claimTruth.values],
   };
 }
 
@@ -728,13 +757,20 @@ export function enforceNumericCoherence({
   auxiliaryEvidence,
   body,
   sectionId,
+  verifiedClaimValues,
 }: {
   auxiliaryEvidence?: unknown;
   body: Record<string, unknown>;
   sectionId: string;
+  verifiedClaimValues?: readonly string[];
 }): GateResult<NumericCoherenceStrike> {
   const surfaces = surfacesForSection(sectionId);
-  const truth = buildSectionNumericTruth({ auxiliaryEvidence, body, sectionId });
+  const truth = buildSectionNumericTruth({
+    auxiliaryEvidence,
+    body,
+    sectionId,
+    ...(verifiedClaimValues === undefined ? {} : { verifiedClaimValues }),
+  });
   const cloned = structuredClone(body);
   const stripped: NumericCoherenceStrike[] = [];
 

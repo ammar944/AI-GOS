@@ -74,7 +74,7 @@ export const voiceOfCustomerStrategicDepthGuidance = [
 export const voiceOfCustomerMinimumGuidance = [
   ...evidenceBlockGuidance,
   "- VoiceOfCustomerSectionOutput exact item contracts: `body.painLanguage.quotes[]` keys are `verbatimText`, `source`, `sourceUrl`, `painTheme`, `painIntensity`, plus optional `role` (reviewer role/handle) and `date` (when the source discloses it).",
-  "- `source` must be one of `g2`, `reddit`, `hackernews`, `sales-call`, `support-thread`, `twitter`, `other`; `painIntensity` must be `high`, `medium`, or `low`.",
+  "- `source` must be one of `g2`, `capterra`, `trustpilot`, `trustradius`, `reddit`, `hackernews`, `sales-call`, `support-thread`, `twitter`, `other`; `painIntensity` must be `high`, `medium`, or `low`.",
   "- Pain quotes are LOAD-BEARING: every `verbatimText` must trace to a fetched source or corpus excerpt. NEVER present the subject company's own homepage, marketing, or testimonial copy as buyer pain — pain quotes come only from independent sources (review sites, forums, support threads), never the audited company's own domain.",
   "- When a `reviews` snippet is truncated, chain `firecrawl` on its `sourceUrl` to recover the full verbatim quote (and the reviewer `role`/`date` when shown) rather than emitting a clipped quote.",
   "- `body.objections.items[]` keys are `objectionText`, `category`, `frequency`, `howToHandle`, `sourceUrl`.",

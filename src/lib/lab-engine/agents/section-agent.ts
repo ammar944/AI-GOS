@@ -721,8 +721,13 @@ const buyerClusterVenueProviderSchema = z
 const painQuoteProviderSchema = z
   .object({
     verbatimText: z.string(),
+    // Kept in lockstep with vocSourceTypes in
+    // artifacts/schemas/voice-of-customer.ts.
     source: z.enum([
       "g2",
+      "capterra",
+      "trustpilot",
+      "trustradius",
       "reddit",
       "hackernews",
       "sales-call",
@@ -778,8 +783,13 @@ const decisionCriterionProviderSchema = z
 const successQuoteProviderSchema = z
   .object({
     verbatimText: z.string(),
+    // Kept in lockstep with vocSourceTypes in
+    // artifacts/schemas/voice-of-customer.ts.
     source: z.enum([
       "g2",
+      "capterra",
+      "trustpilot",
+      "trustradius",
       "reddit",
       "hackernews",
       "sales-call",

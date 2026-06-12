@@ -13,6 +13,7 @@ import {
   clientGapSentence,
   isReaderPipelineChrome,
   scrubReaderText,
+  textOrGap,
   type EvidenceBasis,
   type EvidenceChipSource,
   type KeyFinding,
@@ -187,13 +188,27 @@ function TamFormulaChain({
         <StatCallout value={estimate} label="Reachable revenue estimate" basis="sourced" />
       )}
       <div className="grid gap-2 md:grid-cols-[repeat(auto-fit,minmax(130px,1fr))]">
-        {bottomUpTam.inputs.map((input) => (
+        {bottomUpTam.inputs.map((input) => {
+          // Gap sentinels ("evidence gap: ...") never render as data values —
+          // they become one client-plain sentence.
+          const inputValue = textOrGap(
+            input.value,
+            (TAM_INPUT_LABEL[input.inputType] ?? input.inputType).toLowerCase(),
+          );
+          return (
           <div key={input.inputType} className="border-l border-border pl-3">
             <div className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
               {TAM_INPUT_LABEL[input.inputType] ?? input.inputType}
             </div>
-            <p className="mt-1 text-[13px] leading-[1.45] text-foreground">
-              {scrubReaderText(input.value)}
+            <p
+              className={cn(
+                'mt-1 text-[13px] leading-[1.45]',
+                inputValue.kind === 'gap'
+                  ? 'text-muted-foreground'
+                  : 'text-foreground',
+              )}
+            >
+              {inputValue.value}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <BasisChip basis={tamBasis(input.status)} />
@@ -209,7 +224,8 @@ function TamFormulaChain({
               ) : null}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
         Formula: {scrubReaderText(bottomUpTam.formula)}
@@ -372,10 +388,10 @@ export function MarketCategoryRenderer({
 
       {artifact.strategicInsight || artifact.categoryPowerBet ? (
         <StrategicInsightPanel insight={artifact.strategicInsight}>
-          <StrategicField label="category-power bet" value={artifact.categoryPowerBet?.bet} />
-          <StrategicField label="why now" value={artifact.categoryPowerBet?.whyNow} />
+          <StrategicField label="The category bet" value={artifact.categoryPowerBet?.bet} />
+          <StrategicField label="Why now" value={artifact.categoryPowerBet?.whyNow} />
           <StrategicField
-            label="risk accepted"
+            label="Risk accepted"
             value={artifact.categoryPowerBet?.riskAccepted}
           />
         </StrategicInsightPanel>

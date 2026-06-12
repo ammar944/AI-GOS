@@ -238,12 +238,13 @@ describe('OnboardingWizard (multi-step surface)', () => {
   });
 
   it('"Go to next field" jumps to the right step and focuses the field', () => {
-    // Everything complete EXCEPT `targetCac` (step 4, Pricing & Economics),
+    // Everything complete EXCEPT `pricingTiers` (step 4, Pricing & Economics),
     // which is forward of the starting step and not yet visited — proving the
-    // jump bypasses the `<= highestStepReached` guard.
-    const data = { ...makeCompleteData(), targetCac: '' };
+    // jump bypasses the `<= highestStepReached` guard. (targetCac was demoted
+    // to optional 2026-06-12, so the jump target is the still-required tiers.)
+    const data = { ...makeCompleteData(), pricingTiers: '' };
     const pricingStepIndex = SECTION_META.findIndex((section) =>
-      section.fields.some((field) => field.key === 'targetCac'),
+      section.fields.some((field) => field.key === 'pricingTiers'),
     );
 
     render(
@@ -256,7 +257,9 @@ describe('OnboardingWizard (multi-step surface)', () => {
 
     // The still-required panel surfaces exactly one blocker with its label.
     expect(screen.getByText('1 field still need input')).toBeInTheDocument();
-    expect(screen.getByText('Next: “Target CAC”')).toBeInTheDocument();
+    expect(
+      screen.getByText('Next: “List your pricing tiers”'),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Go to next field/ }));
 
@@ -265,7 +268,7 @@ describe('OnboardingWizard (multi-step surface)', () => {
       screen.getAllByText(`Step ${pricingStepIndex + 1} of 8`).length,
     ).toBeGreaterThan(0);
 
-    const control = document.getElementById('targetCac-control');
+    const control = document.getElementById('pricingTiers-control');
     expect(control).not.toBeNull();
     expect(document.activeElement).toBe(control);
   });

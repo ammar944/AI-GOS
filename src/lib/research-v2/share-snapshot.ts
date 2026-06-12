@@ -29,6 +29,10 @@ export interface V3ShareResearchSnapshot {
   runId: string;
   title: string;
   sections: V3ShareSectionSnapshot[];
+  // Executive decision memo rendered from research_artifacts.thesis when the
+  // brief has completed. Optional for backward compatibility: snapshots
+  // written before this field exists simply omit it.
+  executiveBrief?: string | null;
 }
 
 export interface ResearchArtifactSectionShareRow {
@@ -70,6 +74,7 @@ interface JourneySessionShareRow {
 
 interface ParentAuditShareRow {
   id: string;
+  thesis: unknown;
 }
 
 interface ExistingSharedSessionRow {
@@ -82,6 +87,7 @@ interface V3ShareSnapshotContext {
   session: JourneySessionShareRow;
   sections: ResearchArtifactSectionShareRow[];
   title: string;
+  executiveBrief: string | null;
 }
 
 export type ShareSnapshotErrorCode =
@@ -139,10 +145,39 @@ function buildDefaultShareTitle(input: {
   );
 }
 
+// Renders research_artifacts.thesis into the share snapshot's executiveBrief
+// string. Only a completed brief ships: generating/error states (and legacy
+// rows without a thesis) yield null. The thesis paragraph plus the guarded
+// decision list — all fields already passed guardBriefNumbers upstream.
+export function readExecutiveBriefFromThesis(thesis: unknown): string | null {
+  if (!isRecord(thesis) || thesis.status !== 'complete') {
+    return null;
+  }
+
+  const thesisText =
+    nonEmptyString(thesis.executiveThesis) ?? nonEmptyString(thesis.thesis);
+  if (thesisText === null) {
+    return null;
+  }
+
+  const decisions = Array.isArray(thesis.decisions) ? thesis.decisions : [];
+  const decisionLines = decisions
+    .map((decision) =>
+      isRecord(decision) ? nonEmptyString(decision.decision) : null,
+    )
+    .filter((decision): decision is string => decision !== null)
+    .map((decision, index) => `${index + 1}. ${decision}`);
+
+  return decisionLines.length === 0
+    ? thesisText
+    : [thesisText, '', ...decisionLines].join('\n');
+}
+
 export function buildV3ShareSnapshot(input: {
   runId: string;
   title: string;
   sections: ResearchArtifactSectionShareRow[];
+  executiveBrief?: string | null;
 }): V3ShareResearchSnapshot {
   const sections = input.sections
     .filter((row): row is ResearchArtifactSectionShareRow & { zone: string } => {
@@ -167,6 +202,7 @@ export function buildV3ShareSnapshot(input: {
     runId: input.runId,
     title: input.title,
     sections,
+    executiveBrief: input.executiveBrief ?? null,
   };
 }
 
@@ -208,7 +244,7 @@ async function loadV3ShareSnapshotContext(input: {
   const session = sessionData as JourneySessionShareRow;
   const { data: parentData, error: parentError } = await input.supabase
     .from('research_artifacts')
-    .select('id')
+    .select('id, thesis')
     .eq('run_id', input.runId)
     .eq('user_id', input.userId)
     .maybeSingle();
@@ -245,10 +281,12 @@ async function loadV3ShareSnapshotContext(input: {
 
   const title = buildDefaultShareTitle({ title: input.title, session });
   const sections = (sectionData ?? []) as ResearchArtifactSectionShareRow[];
+  const executiveBrief = readExecutiveBriefFromThesis(parent.thesis);
   const snapshot = buildV3ShareSnapshot({
     runId: input.runId,
     title,
     sections,
+    executiveBrief,
   });
 
   if (snapshot.sections.length === 0) {
@@ -262,6 +300,7 @@ async function loadV3ShareSnapshotContext(input: {
     session,
     sections,
     title,
+    executiveBrief,
   };
 }
 
@@ -274,6 +313,7 @@ export async function createV3SharedSession(
     runId: input.runId,
     title,
     sections: context.sections,
+    executiveBrief: context.executiveBrief,
   });
 
   const shareToken = (input.newShareToken ?? generateShareToken)();
@@ -339,6 +379,7 @@ export async function refreshV3SharedSessionSnapshots(
       runId: input.runId,
       title,
       sections: context.sections,
+      executiveBrief: context.executiveBrief,
     });
     const { error: updateError } = await input.supabase
       .from('shared_sessions')

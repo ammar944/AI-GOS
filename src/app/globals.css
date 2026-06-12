@@ -1560,4 +1560,28 @@ html:not(.dark) .logo-adaptive {
   [class*="bg-gradient-to-r"] {
     background: #e5e7eb !important;
   }
+
+  /* ------------------------------------------
+     Audit Reader + media-plan deck print
+     Printing the reader with the deck visible
+     yields a clean paginated client document:
+     app chrome/sidebar/activity hidden (via
+     .no-print + the nav/aside rules above),
+     scroll containers unrolled, white surface,
+     deck pages kept whole across page breaks.
+     ------------------------------------------ */
+  [data-testid="audit-reader-shell"],
+  [data-testid="audit-reader-shell"] > div,
+  [data-testid="audit-reader-shell"] main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  .deck-page {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
