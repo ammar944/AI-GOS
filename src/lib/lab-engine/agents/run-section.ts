@@ -4123,6 +4123,7 @@ function withNormalizedMarketCategoryOutput(rawOutput: unknown): unknown {
 function withNormalizedPaidMediaPlanOutput(
   rawOutput: unknown,
   onboarding?: ResearchInput["onboarding"],
+  fallbackSources?: ResearchInput["sources"],
 ): unknown {
   const outputRecord = getRecord(rawOutput);
 
@@ -4136,13 +4137,30 @@ function withNormalizedPaidMediaPlanOutput(
     return rawOutput;
   }
 
+  const normalizedSources = normalizeStructuredRecordArray({
+    allowedKeys: ["title", "url", "publisher"],
+    stringKeys: ["title", "url", "publisher"],
+    value: outputRecord.sources,
+  });
+
+  // The paid-media plan does zero fresh research — its sources ARE the
+  // research inputs it synthesized from. A model that emits an empty source
+  // list must not kill the section on the envelope floor (run f3993043);
+  // backfill from the research input instead.
+  const backfilledSources =
+    Array.isArray(normalizedSources) && normalizedSources.length > 0
+      ? normalizedSources
+      : (fallbackSources ?? []).slice(0, 12).map((source) => ({
+          title: source.title,
+          url: source.url,
+          ...(source.publisher === undefined
+            ? {}
+            : { publisher: source.publisher }),
+        }));
+
   return {
     ...outputRecord,
-    sources: normalizeStructuredRecordArray({
-      allowedKeys: ["title", "url", "publisher"],
-      stringKeys: ["title", "url", "publisher"],
-      value: outputRecord.sources,
-    }),
+    sources: backfilledSources,
     // Brief-derived context for the single-writer paid-media math: the
     // target CAC bridges SOP projected-results rows whose KPI cost is
     // honestly unknown, and creativeCapacity keys the computed creative
@@ -4162,6 +4180,7 @@ function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
   onboarding,
   rawOutput,
+  researchInputSources,
   sectionId,
   subjectCompanyName,
   subjectWebsiteUrl,
@@ -4169,6 +4188,7 @@ function withNormalizedSectionOutput({
   rawOutput: unknown;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   onboarding?: ResearchInput["onboarding"];
+  researchInputSources?: ResearchInput["sources"];
   sectionId: SectionId;
   subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
@@ -4194,7 +4214,11 @@ function withNormalizedSectionOutput({
   }
 
   if (sectionId === "positioningPaidMediaPlan") {
-    return withNormalizedPaidMediaPlanOutput(outputWithAdEvidence, onboarding);
+    return withNormalizedPaidMediaPlanOutput(
+      outputWithAdEvidence,
+      onboarding,
+      researchInputSources,
+    );
   }
 
   return outputWithAdEvidence;
@@ -4995,6 +5019,7 @@ async function callStructuredAttempt({
         rawOutput,
         normalizedAdEvidenceGroups,
         onboarding: researchInput.onboarding,
+        researchInputSources: researchInput.sources,
         sectionId: input.sectionId,
         subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
@@ -7351,6 +7376,7 @@ async function buildAnswerToolAttempt({
         sectionId: input.sectionId,
         normalizedAdEvidenceGroups,
         onboarding: researchInput.onboarding,
+        researchInputSources: researchInput.sources,
         subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
@@ -7419,6 +7445,7 @@ function buildOutputFromStructuredBody({
   input,
   normalizedAdEvidenceGroups,
   onboarding,
+  researchInputSources,
   subjectCompanyName,
   subjectWebsiteUrl,
 }: {
@@ -7427,6 +7454,7 @@ function buildOutputFromStructuredBody({
   input: RunSectionInput;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   onboarding?: ResearchInput["onboarding"];
+  researchInputSources?: ResearchInput["sources"];
   subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
 }): SectionOutput<Record<string, unknown>> {
@@ -7464,6 +7492,7 @@ function buildOutputFromStructuredBody({
     rawOutput: authoredOutput,
     normalizedAdEvidenceGroups,
     onboarding,
+    researchInputSources,
     sectionId: input.sectionId,
     subjectCompanyName,
     subjectWebsiteUrl,
@@ -7656,6 +7685,7 @@ async function buildStructuredBodyAttempt({
       input,
       normalizedAdEvidenceGroups,
       onboarding: researchInput.onboarding,
+      researchInputSources: researchInput.sources,
       subjectCompanyName: researchInput.company.name,
       subjectWebsiteUrl: researchInput.company.websiteUrl,
     });
