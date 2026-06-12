@@ -103,10 +103,17 @@ export const bottomUpTamInputSchema = z
   })
   .strict()
   .transform((input) => {
-    if (input.status === "evidence-gap" && !/evidence\s+gap/i.test(input.value)) {
-      return { ...input, value: `evidence gap: ${input.value}` };
+    // A "sourced" input without a URL is not sourced — it is an evidence gap.
+    // Snap instead of rejecting the body (run f3993043 hard-failed on
+    // inputs[3].sourceUrl required-missing).
+    const status =
+      input.status === "sourced" && input.sourceUrl === undefined
+        ? "evidence-gap"
+        : input.status;
+    if (status === "evidence-gap" && !/evidence\s+gap/i.test(input.value)) {
+      return { ...input, status, value: `evidence gap: ${input.value}` };
     }
-    return input;
+    return { ...input, status };
   });
 
 export const bottomUpTamSchema = z

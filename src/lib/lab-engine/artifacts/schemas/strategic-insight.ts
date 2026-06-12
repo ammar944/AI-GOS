@@ -7,6 +7,39 @@ const keyFindingBasisValues = [
   "assumption",
 ] as const;
 
+type KeyFindingBasis = (typeof keyFindingBasisValues)[number];
+
+// Models drift off the basis enum under load ("verified", "estimated",
+// "evidence-gap"...). Snap in code instead of rejecting the section
+// (run f3993043: VoC + MarketCategory hard-failed on basis labels).
+const keyFindingBasisAliases: Record<string, KeyFindingBasis> = {
+  "tool-measured": "measured",
+  observed: "measured",
+  cited: "sourced",
+  verified: "sourced",
+  "source-reported": "sourced",
+  "industry-benchmark": "benchmark",
+  estimate: "assumption",
+  estimated: "assumption",
+  inferred: "assumption",
+  "model-estimated": "assumption",
+  "user-supplied": "assumption",
+  "client-supplied": "assumption",
+  "evidence-gap": "assumption",
+  gap: "assumption",
+  unknown: "assumption",
+};
+
+const keyFindingBasisSchema = z
+  .string()
+  .transform((value): KeyFindingBasis => {
+    const normalized = value.trim().toLowerCase();
+    if ((keyFindingBasisValues as readonly string[]).includes(normalized)) {
+      return normalized as KeyFindingBasis;
+    }
+    return keyFindingBasisAliases[normalized] ?? "assumption";
+  });
+
 export const evidenceBlockGapSchema = z
   .object({
     summary: z.string().min(1),
@@ -39,7 +72,7 @@ export const evidenceBlockGapFieldSchema = evidenceBlockGapSchema
 export const keyFindingSchema = z
   .object({
     finding: z.string().min(1),
-    basis: z.enum(keyFindingBasisValues),
+    basis: keyFindingBasisSchema,
     sourceUrls: z.array(z.string().url()),
   })
   .strict()

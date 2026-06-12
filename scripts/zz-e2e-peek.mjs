@@ -1,0 +1,14 @@
+import { chromium } from 'playwright-core';
+const CDP_URL = process.env.E2E_CDP_URL ?? 'http://localhost:9223';
+const browser = await chromium.connectOverCDP(CDP_URL);
+const context = browser.contexts()[0];
+const page = context.pages().find((p) => p.url().includes('/research-v3')) ?? context.pages()[0];
+console.log('url:', page.url());
+await page.screenshot({ path: 'tmp/ui-audit/peek-now.jpeg', type: 'jpeg', quality: 70 });
+const stillNeed = await page.locator('text=/still need input/').allTextContents().catch(() => []);
+const stepText = await page.locator('text=/Step \\d+ of \\d+/').allTextContents().catch(() => []);
+const buttons = await page.getByRole('button').allTextContents().catch(() => []);
+console.log('step:', JSON.stringify(stepText));
+console.log('stillNeed:', JSON.stringify(stillNeed));
+console.log('buttons:', JSON.stringify(buttons.slice(0, 20)));
+await browser.close();
