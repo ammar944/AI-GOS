@@ -2388,7 +2388,11 @@ function getBestCommittableAttempt(
     : current;
 }
 
-const defaultStructuredOutputMaxTokens = 8192;
+// 8192 truncated DemandIntent/MarketCategory bodies mid-JSON once keyFindings
+// and gap shapes landed (live run d838ed4e: finishReason=length at exactly
+// 8192 on every attempt -> parse fail -> repair loop -> budget death).
+// DeepSeek v4-flash handles 20k+ (paid-media retry already uses 20480).
+const defaultStructuredOutputMaxTokens = 16_384;
 const paidMediaLengthRetryStructuredOutputMaxTokens = 20_480;
 // Must fire well under undici's default headersTimeout (~5 min) so the
 // server records a terminal failure before the verifier's fetch dies and

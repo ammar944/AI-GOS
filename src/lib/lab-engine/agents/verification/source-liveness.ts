@@ -482,6 +482,63 @@ async function mapWithConcurrency<T, R>({
   return results;
 }
 
+// When liveness/containment drops empty out a standard evidence block
+// ({ prose, <rows>[], blockGap? }), install an honest blockGap so the
+// artifact stays committable and the reader sees a plain-language gap
+// instead of the section crashing on persistence minimums.
+function installBlockGapsForEmptiedBlocks({
+  after,
+  before,
+}: {
+  after: Record<string, unknown>;
+  before: Record<string, unknown>;
+}): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...after };
+
+  for (const [key, afterValue] of Object.entries(after)) {
+    const beforeValue = before[key];
+
+    if (!isRecord(afterValue) || !isRecord(beforeValue)) {
+      continue;
+    }
+
+    if (typeof afterValue.prose !== "string") {
+      continue;
+    }
+
+    if (afterValue.blockGap !== undefined && afterValue.blockGap !== null) {
+      continue;
+    }
+
+    for (const [field, fieldValue] of Object.entries(afterValue)) {
+      const beforeField = beforeValue[field];
+
+      if (
+        Array.isArray(fieldValue) &&
+        fieldValue.length === 0 &&
+        Array.isArray(beforeField) &&
+        beforeField.length > 0
+      ) {
+        next[key] = {
+          ...afterValue,
+          blockGap: {
+            summary:
+              "Rows in this block were removed before publishing because their cited sources could not be verified live.",
+            foundCount: 0,
+            requiredCount: beforeField.length,
+            sourcingPlan: [
+              "Re-verify the removed citations against live sources and restore the rows that hold up.",
+            ],
+          },
+        };
+        break;
+      }
+    }
+  }
+
+  return next;
+}
+
 function dropRowsByPath({
   drops,
   value,
@@ -697,9 +754,13 @@ export async function applySourceLivenessGate({
   }
 
   const nextBody = dropRowsByPath({ drops: droppedPaths, value: cloned });
+  const gappedBody =
+    !networkUnavailable && isRecord(nextBody)
+      ? installBlockGapsForEmptiedBlocks({ after: nextBody, before: cloned })
+      : nextBody;
 
   return {
-    body: networkUnavailable ? cloned : isRecord(nextBody) ? nextBody : cloned,
+    body: networkUnavailable ? cloned : isRecord(gappedBody) ? gappedBody : cloned,
     checkedUrls,
     droppedRows: networkUnavailable ? [] : droppedRows,
     containmentPassRate: networkUnavailable
