@@ -7,6 +7,7 @@ import {
 import type { ValidationResult } from "./market-category";
 import {
   bindingConstraintSchema,
+  evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   keyFindingsSchema,
   orderedStrategicMoveSchema,
@@ -27,10 +28,7 @@ const retentionSignalTypes = [
   "first-value-moment",
 ] as const;
 const severityValues = ["high", "medium", "low"] as const;
-const blockGapFieldSchema = evidenceBlockGapSchema
-  .nullable()
-  .transform((value) => value ?? undefined)
-  .optional();
+const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 const fitProofPointSchema = z
   .object({

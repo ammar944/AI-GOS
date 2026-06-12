@@ -11,6 +11,7 @@ import {
 } from "../voice-of-customer-floors";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   fourForcesBalanceVerdictSchema,
   keyFindingsSchema,
@@ -203,10 +204,7 @@ const evidenceGapReportSchema = z
   })
   .strict();
 
-const blockGapFieldSchema = evidenceBlockGapSchema
-  .nullable()
-  .transform((value) => value ?? undefined)
-  .optional();
+const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 export const voiceOfCustomerBodySchema = z
   .object({

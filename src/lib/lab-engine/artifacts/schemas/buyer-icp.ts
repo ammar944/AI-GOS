@@ -6,6 +6,7 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   keyFindingsSchema,
   strategicInsightSchema,
@@ -113,10 +114,7 @@ const genericIdentityTokens = new Set([
 ]);
 const provenanceSignalPattern =
   /\b(query|search|source|public|fetched|observed|tool|corpus|review|reddit|forum|community|newsletter|survey|interview|call|profile)\b/i;
-const blockGapFieldSchema = evidenceBlockGapSchema
-  .nullable()
-  .transform((value) => value ?? undefined)
-  .optional();
+const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 function normalizeLabel(value: string): string {
   return value

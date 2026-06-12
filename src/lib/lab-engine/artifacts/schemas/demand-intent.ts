@@ -6,6 +6,7 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   keyFindingsSchema,
   orderedStrategicMoveSchema,
@@ -39,10 +40,7 @@ const signalTypes = [
   "leadership-change",
 ] as const;
 const venueTypes = ["event", "community", "newsletter", "podcast", "slack"] as const;
-const blockGapFieldSchema = evidenceBlockGapSchema
-  .nullable()
-  .transform((value) => value ?? undefined)
-  .optional();
+const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 export const keywordSignalSchema = z
   .object({

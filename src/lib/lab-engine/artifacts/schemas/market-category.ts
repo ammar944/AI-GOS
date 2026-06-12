@@ -6,6 +6,7 @@ import {
 } from "../artifact-envelope";
 import {
   categoryPowerBetSchema,
+  evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   keyFindingsSchema,
   strategicInsightSchema,
@@ -61,10 +62,7 @@ const structuralForceDirections = [
 const validUrlPattern = /^https?:\/\/\S+\.\S+/;
 const directionalOnlyTamEstimate = "directional only — not computed";
 
-const blockGapFieldSchema = evidenceBlockGapSchema
-  .nullable()
-  .transform((value) => value ?? undefined)
-  .optional();
+const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 export const adjacentCategorySchema = z
   .object({

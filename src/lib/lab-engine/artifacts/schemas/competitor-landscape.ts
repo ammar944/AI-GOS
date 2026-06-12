@@ -6,6 +6,7 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   incumbentBlindSpotSchema,
   keyFindingsSchema,
@@ -19,10 +20,7 @@ const competitorTypes = ["direct", "indirect", "status-quo", "diy"] as const;
 const adPlatforms = ["google", "meta", "linkedin"] as const;
 const validUrlPattern = /^https?:\/\/\S+\.\S+/;
 const adPlatformSchema = z.enum(adPlatforms);
-const blockGapFieldSchema = evidenceBlockGapSchema
-  .nullable()
-  .transform((value) => value ?? undefined)
-  .optional();
+const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 const competitorSchema = z
   .object({

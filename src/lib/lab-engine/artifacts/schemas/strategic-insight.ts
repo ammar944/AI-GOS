@@ -11,10 +11,30 @@ export const evidenceBlockGapSchema = z
   .object({
     summary: z.string().min(1),
     foundCount: z.number().int().nonnegative(),
-    requiredCount: z.number().int().positive(),
-    sourcingPlan: z.array(z.string().min(1)).min(1),
+    // Models emit vestigial gaps (requiredCount: 0) on blocks that have rows;
+    // normalize in code instead of rejecting the body (run d838ed4e).
+    requiredCount: z.number().int().nonnegative().catch(0),
+    sourcingPlan: z.array(z.string().min(1)).catch([]),
   })
   .strict();
+
+// Canonical optional blockGap field: degenerate gaps (requiredCount <= 0)
+// are dropped; meaningful gaps always carry a sourcing plan.
+export const evidenceBlockGapFieldSchema = evidenceBlockGapSchema
+  .nullable()
+  .transform((value) => {
+    if (value === null || value === undefined || value.requiredCount <= 0) {
+      return undefined;
+    }
+    if (value.sourcingPlan.length === 0) {
+      return {
+        ...value,
+        sourcingPlan: ["Re-run acquisition for this block with verified sources."],
+      };
+    }
+    return value;
+  })
+  .optional();
 
 export const keyFindingSchema = z
   .object({
