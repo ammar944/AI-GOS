@@ -970,7 +970,10 @@ const CHANNEL_SUGGESTION_RECOMMENDATION_FALLBACK =
   "Evidence gap: channel recommendation missing.";
 const CHANNEL_SUGGESTION_KNOWN_KEYS = new Set([
   "channel",
+  "detail",
+  "note",
   "observation",
+  "rationale",
   "recommendation",
   "sourceSection",
   "verdict",
@@ -987,8 +990,14 @@ function normalizeChannelSuggestion(
     "Other Ad Platforms",
     "Email / Nurture",
   ];
+  // Key drift observed live (runs d838ed4e + f3993043): the model writes the
+  // recommendation text under detail/rationale/note. Accept the aliases.
   const recommendation = getString(
-    record.recommendation ?? record.observation,
+    record.recommendation ??
+      record.observation ??
+      record.detail ??
+      record.rationale ??
+      record.note,
     CHANNEL_SUGGESTION_RECOMMENDATION_FALLBACK,
   );
 
