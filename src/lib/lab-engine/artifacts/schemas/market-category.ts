@@ -111,7 +111,13 @@ export const bottomUpTamSchema = z
   })
   .strict()
   .transform((tam) => {
-    const gapCount = tam.inputs.filter((input) => input.status === "evidence-gap").length;
+    const explicitGapCount = tam.inputs.filter(
+      (input) => input.status === "evidence-gap",
+    ).length;
+    const missingTypeCount = bottomUpTamInputTypes.filter(
+      (inputType) => !tam.inputs.some((input) => input.inputType === inputType),
+    ).length;
+    const gapCount = explicitGapCount + missingTypeCount;
     const computedRevenue = computeBottomUpTamRevenue(tam.inputs);
 
     if (gapCount >= 2) {
@@ -611,17 +617,12 @@ export function validateMarketCategoryMinimums(
     errors.push(`body.marketSize.signals: duplicate signalType ${duplicate}.`);
   }
 
-  const marketSizeHasBlockGap = hasBlockGap(parsedArtifact.body.marketSize);
   const bottomUpInputTypes =
     parsedArtifact.body.marketSize.bottomUpTam.inputs.map((input) => input.inputType);
-  const missingBottomUpInputTypes = bottomUpTamInputTypes.filter(
-    (inputType) => !bottomUpInputTypes.includes(inputType),
-  );
-  if (!marketSizeHasBlockGap && missingBottomUpInputTypes.length > 0) {
-    errors.push(
-      `body.marketSize.bottomUpTam.inputs: missing input types ${missingBottomUpInputTypes.join(", ")}.`,
-    );
-  }
+  // Missing input types are NOT an error: the TAM transform treats absent
+  // inputs as evidence gaps and snaps the estimate to "directional only".
+  // Demanding all four types from the model was a fabrication-forcer
+  // (live run d838ed4e died at persistence here with a committable body).
   for (const duplicate of findDuplicates(bottomUpInputTypes)) {
     errors.push(`body.marketSize.bottomUpTam.inputs: duplicate inputType ${duplicate}.`);
   }

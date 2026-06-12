@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { marketCategoryFixtureArtifact } from "../../../fixtures/market-category-artifact";
 import {
+  marketCategoryBodySchema,
   validateMarketCategoryMinimums,
   type MarketCategoryArtifact,
 } from "../market-category";
@@ -14,7 +15,7 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
     expect(result.errors).toHaveLength(0);
   });
 
-  it("rejects a recipe missing a required input type", (): void => {
+  it("accepts a recipe missing input types and snaps the estimate to directional-only when two or more are absent or gapped", (): void => {
     const artifact: MarketCategoryArtifact = {
       ...marketCategoryFixtureArtifact,
       body: {
@@ -25,7 +26,9 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
             ...marketCategoryFixtureArtifact.body.marketSize.bottomUpTam,
             inputs:
               marketCategoryFixtureArtifact.body.marketSize.bottomUpTam.inputs.filter(
-                (input) => input.inputType !== "acv",
+                (input) =>
+                  input.inputType !== "acv" &&
+                  input.inputType !== "keyword-volume",
               ),
           },
         },
@@ -34,8 +37,14 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
 
     const result = validateMarketCategoryMinimums(artifact);
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain("missing input types acv");
+    expect(
+      result.errors.find((error) => error.includes("missing input types")),
+    ).toBeUndefined();
+
+    const reparsedBody = marketCategoryBodySchema.parse(artifact.body);
+    expect(reparsedBody.marketSize.bottomUpTam.reachableRevenueEstimate).toBe(
+      "directional only — not computed",
+    );
   });
 
   it("rejects a sourced input without a valid source URL", (): void => {
