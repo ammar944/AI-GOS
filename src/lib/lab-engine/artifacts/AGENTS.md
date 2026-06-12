@@ -15,6 +15,10 @@
 - Do not make required evidence optional to bypass failing output.
 - Keep discriminants, section IDs, and field names stable unless all consumers are updated.
 - Artifact schemas must describe real persisted data, not UI-only convenience shapes.
+- Model-emitted output must enter through the tolerant decode boundary before strict artifact parsing.
+- Tolerant decode may snap declared enum fallbacks, clamp array ceilings, strip unknown keys, and drop irreparable rows, but it must never synthesize missing content.
+- Editorial floors, required evidence, and minimum validators remain strict after decode; genuine content gaps surface as structured shortfalls for repair.
+- Decode repairs must be carried as telemetry on the artifact envelope when a section commits.
 
 ## Work Guidance
 

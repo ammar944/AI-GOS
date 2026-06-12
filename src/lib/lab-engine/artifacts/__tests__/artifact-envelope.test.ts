@@ -73,6 +73,14 @@ describe("artifactEnvelopeSchema", (): void => {
         },
       ],
       body: { campaignOverview: { prose: "Use a bounded launch." } },
+      decodeRepairs: [
+        {
+          path: "body.channelSuggestions[0].verdict",
+          action: "snap-enum",
+          from: "review",
+          to: "REVIEW",
+        },
+      ],
       needs_review: true,
       verifierSummary: {
         totalClaims: 3,
@@ -82,6 +90,12 @@ describe("artifactEnvelopeSchema", (): void => {
     });
 
     expect(artifact.needs_review).toBe(true);
+    expect(artifact.decodeRepairs).toEqual([
+      expect.objectContaining({
+        action: "snap-enum",
+        path: "body.channelSuggestions[0].verdict",
+      }),
+    ]);
     expect(artifact.verifierSummary).toEqual(
       expect.objectContaining({
         totalClaims: 3,

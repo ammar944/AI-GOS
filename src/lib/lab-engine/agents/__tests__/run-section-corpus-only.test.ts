@@ -1724,15 +1724,17 @@ describe('runSection corpus-only mode', (): void => {
     expect(artifactBody).not.toHaveProperty('strategicThesis');
     expect(artifactBody).not.toHaveProperty('contradictionReconciliation');
     expect(artifactBody).not.toHaveProperty('orderedMoves');
-    expect(artifactCampaignOverview.monthlyBudget).toBe('3000');
-    expect(artifactCampaignOverview.dailySpend).toBe('100');
+    // Tolerant decode preserves shape repair while the paid-media normalizer
+    // owns formatted money displays and drops unsafe numeric siblings.
+    expect(artifactCampaignOverview.monthlyBudget).toBe('$3,000/month');
+    expect(artifactCampaignOverview.dailySpend).toBe('$100/day');
     expect(artifactCampaignOverview.monthlyBudgetValue).toBe(3000);
-    expect(artifactCampaignOverview.dailySpendValue).toBe(100);
+    expect(artifactCampaignOverview).not.toHaveProperty('dailySpendValue');
     expect(artifactCampaignOverview.monthlyBudgetProvenance).toBe(
-      'user-supplied',
+      'model-estimated',
     );
     expect(artifactCampaignOverview.dailySpendProvenance).toBe(
-      'model-estimated',
+      'unknown',
     );
     expect(artifactPhases).toHaveLength(3);
     expect(artifactAudiences).toHaveLength(3);
@@ -1746,11 +1748,9 @@ describe('runSection corpus-only mode', (): void => {
     expect(requireRecord(artifactPhases[0]).monthlyBudgetProvenance).toBe(
       'unknown',
     );
-    expect(requireRecord(artifactAudiences[0])).not.toHaveProperty(
-      'dailyBudgetValue',
-    );
+    expect(requireRecord(artifactAudiences[0]).dailyBudgetValue).toBe(33);
     expect(requireRecord(artifactAudiences[0]).dailyBudgetProvenance).toBe(
-      'unknown',
+      'derived',
     );
     expect(requireRecord(artifactAudiences[0]).sourceSection).toBe(
       'positioningVoiceOfCustomer',

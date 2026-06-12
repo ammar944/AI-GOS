@@ -64,6 +64,7 @@ describe("createAnswerTool", (): void => {
   it("keeps Anthropic inputSchema loose so execute can return field feedback", async (): Promise<void> => {
     const tool = createAnswerTool(sectionSchema, {
       model: createModel("anthropic.messages"),
+      sectionId: "positioningMarketCategory",
     });
 
     expect(getZodInputSchema(tool).safeParse({ unexpected: true }).success).toBe(
@@ -78,6 +79,7 @@ describe("createAnswerTool", (): void => {
   it("binds DeepSeek inputSchema to the full section schema while keeping execute validation", async (): Promise<void> => {
     const tool = createAnswerTool(sectionSchema, {
       model: createModel("deepseek.chat"),
+      sectionId: "positioningMarketCategory",
     });
 
     expect(getZodInputSchema(tool).safeParse({ unexpected: true }).success).toBe(
@@ -89,6 +91,42 @@ describe("createAnswerTool", (): void => {
     await expect(executeAnswerTool(tool, {})).resolves.toMatchObject({
       __answerRejected: true,
       issues: ["sectionTitle: Invalid input: expected string, received undefined"],
+    });
+  });
+
+  it("accepts tolerant decode repairs but still rejects missing content", async (): Promise<void> => {
+    const schema = z
+      .object({
+        rows: z
+          .array(
+            z
+              .object({
+                label: z.string().min(1),
+                verdict: z.enum(["REVIEW", "KEEP"]),
+              })
+              .strict(),
+          )
+          .min(1),
+      })
+      .strict();
+    const tool = createAnswerTool(schema, {
+      model: createModel("anthropic.messages"),
+      sectionId: "positioningPaidMediaPlan",
+    });
+
+    await expect(
+      executeAnswerTool(tool, {
+        rows: [{ label: "Channel", verdict: "review" }],
+      }),
+    ).resolves.toEqual({
+      rows: [{ label: "Channel", verdict: "REVIEW" }],
+    });
+
+    // Decode policy shifted from rejecting all Zod shape drift to repairing
+    // shape-only drift; true missing content remains a repair shortfall.
+    await expect(executeAnswerTool(tool, { rows: [] })).resolves.toMatchObject({
+      __answerRejected: true,
+      issues: ["rows: Too small: expected array to have >=1 items"],
     });
   });
 });

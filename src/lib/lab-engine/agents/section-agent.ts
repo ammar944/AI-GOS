@@ -17,6 +17,11 @@ import {
 import { z } from "zod";
 
 import type { SectionLanguageModel } from "../ai/models";
+import {
+  createTolerantDecodeShortfallError,
+  tolerantDecode,
+  withDecodeRepairsMetadata,
+} from "../artifacts/tolerant-decode";
 
 type AgentToolResultType = "tool-result" | "tool-error";
 
@@ -94,6 +99,16 @@ type ToolLoopAgentSettings = ConstructorParameters<typeof ToolLoopAgent>[0];
 type ToolLoopProviderOptions = ToolLoopAgentSettings["providerOptions"];
 type StructuredProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
 type StructuredOutputDefinition = ReturnType<typeof Output.object>;
+
+const schemaNameSectionIds: Record<string, string> = {
+  BuyerICPSectionOutput: "positioningBuyerICP",
+  CompetitorLandscapeSectionOutput: "positioningCompetitorLandscape",
+  DemandIntentSectionOutput: "positioningDemandIntent",
+  MarketCategorySectionOutput: "positioningMarketCategory",
+  OfferDiagnosticSectionOutput: "positioningOfferDiagnostic",
+  PaidMediaPlanSectionOutput: "positioningPaidMediaPlan",
+  VoiceOfCustomerSectionOutput: "positioningVoiceOfCustomer",
+};
 
 function getPropertyValue(object: unknown, key: string): unknown {
   if (typeof object !== "object" || object === null || !(key in object)) {
@@ -1153,6 +1168,37 @@ function normalizeSectionEnvelope(value: unknown): unknown {
   return stripped;
 }
 
+function sectionIdForSchemaName(schemaName: string): string {
+  const outputSchemaName = schemaName.endsWith("Body")
+    ? schemaName.slice(0, -"Body".length)
+    : schemaName;
+
+  return schemaNameSectionIds[outputSchemaName] ?? schemaName;
+}
+
+function tolerantParseStructuredValue({
+  schema,
+  schemaName,
+  value,
+}: {
+  schema: z.ZodType<unknown>;
+  schemaName: string;
+  value: unknown;
+}): unknown {
+  const decoded = tolerantDecode(schema, normalizeSectionEnvelope(value), {
+    sectionId: sectionIdForSchemaName(schemaName),
+  });
+
+  if (decoded.ok) {
+    return withDecodeRepairsMetadata(decoded.value, decoded.snaps);
+  }
+
+  throw createTolerantDecodeShortfallError({
+    context: `Structured output ${schemaName} failed tolerant decode`,
+    shortfalls: decoded.shortfalls,
+  });
+}
+
 function parseJsonToolText({
   schema,
   schemaName,
@@ -1183,7 +1229,7 @@ function parseJsonToolText({
     );
   }
 
-  return schema.parse(normalizeSectionEnvelope(parsed));
+  return tolerantParseStructuredValue({ schema, schemaName, value: parsed });
 }
 
 function isEmptyObjectText(text: string): boolean {
@@ -1320,7 +1366,11 @@ function parseStructuredResult({
     );
   }
 
-  return params.schema.parse(normalizeSectionEnvelope(result.output));
+  return tolerantParseStructuredValue({
+    schema: params.schema,
+    schemaName: params.schemaName,
+    value: result.output,
+  });
 }
 
 async function callOutputFormatStructured(
@@ -1515,7 +1565,11 @@ async function parseStreamedStructuredOutput({
   params: StructuredCallParams<unknown>;
 }): Promise<unknown> {
   try {
-    return params.schema.parse(normalizeSectionEnvelope(await output));
+    return tolerantParseStructuredValue({
+      schema: params.schema,
+      schemaName: params.schemaName,
+      value: await output,
+    });
   } catch (error) {
     if (isAbortOrTimeoutError(error)) {
       throw error;

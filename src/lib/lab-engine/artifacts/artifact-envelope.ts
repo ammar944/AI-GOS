@@ -60,6 +60,16 @@ export const researchProvenanceSchema = z.enum([
   "unknown",
 ]);
 
+export const decodeRepairSchema = z
+  .object({
+    path: z.string().min(1),
+    action: z.string().min(1),
+    from: z.unknown().optional(),
+    to: z.unknown().optional(),
+    detail: z.string().min(1).optional(),
+  })
+  .strict();
+
 const onboardingEconomicsSchema = z
   .object({
     pricingModel: z.string().min(1).optional(),
@@ -353,6 +363,7 @@ export const artifactEnvelopeSchema = z
       .refine((body) => Object.keys(body).length > 0, "Body cannot be empty"),
     verification: verificationReportSchema.optional(),
     review: sectionReviewResultSchema.optional(),
+    decodeRepairs: z.array(decodeRepairSchema).optional(),
     needs_review: z.boolean().optional(),
     verifierSummary: z.record(z.string(), z.unknown()).optional(),
     createdAt: isoDateTimeSchema,
@@ -448,6 +459,7 @@ export type ResearchInput = z.infer<typeof researchInputSchema>;
 export type VerificationReportEnvelope = z.infer<typeof verificationReportSchema>;
 export type SectionReviewResult = z.infer<typeof sectionReviewResultSchema>;
 export type ArtifactEnvelope = z.infer<typeof artifactEnvelopeSchema>;
+export type DecodeRepair = z.infer<typeof decodeRepairSchema>;
 export type SectionRunRecord = z.infer<typeof sectionRunRecordSchema>;
 export type RunRecordStatus = z.infer<typeof runRecordStatusSchema>;
 export type RunRecordSource = z.infer<typeof runRecordSourceSchema>;

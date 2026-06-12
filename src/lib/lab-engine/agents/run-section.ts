@@ -12,9 +12,15 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
   type CompetitorAd,
+  type DecodeRepair,
   type ResearchInput,
   type VerificationReportEnvelope,
 } from "../artifacts/artifact-envelope";
+import {
+  createTolerantDecodeShortfallError,
+  takeDecodeRepairsMetadata,
+  tolerantDecode,
+} from "../artifacts/tolerant-decode";
 import {
   getRegistrableDomain,
   getRegistrableDomainBrandToken,
@@ -936,6 +942,69 @@ function getErrorIssues(error: unknown): string[] {
   return [String(error)];
 }
 
+function warnDecodeRepairs({
+  decodeRepairs,
+  input,
+  schemaName,
+}: {
+  decodeRepairs: readonly DecodeRepair[];
+  input: RunSectionInput;
+  schemaName: string;
+}): void {
+  if (decodeRepairs.length === 0) {
+    return;
+  }
+
+  console.warn("[lab-section] tolerant decode repaired model output", {
+    repairCount: decodeRepairs.length,
+    repairs: decodeRepairs.map((repair) => ({
+      action: repair.action,
+      path: repair.path,
+      detail: repair.detail,
+    })),
+    runId: input.runId,
+    schemaName,
+    sectionId: input.sectionId,
+  });
+}
+
+function decodeModelBoundary<TValue>({
+  input,
+  rawValue,
+  schema,
+  schemaName,
+  upstreamRepairs = [],
+}: {
+  input: RunSectionInput;
+  rawValue: unknown;
+  schema: z.ZodType<TValue>;
+  schemaName: string;
+  upstreamRepairs?: readonly DecodeRepair[];
+}): { value: TValue; decodeRepairs: DecodeRepair[] } {
+  const metadata = takeDecodeRepairsMetadata(rawValue);
+  const decoded = tolerantDecode(schema, metadata.value, {
+    sectionId: input.sectionId,
+  });
+  const decodeRepairs = [
+    ...upstreamRepairs,
+    ...metadata.snaps,
+    ...decoded.snaps,
+  ];
+
+  if (decoded.ok) {
+    warnDecodeRepairs({ decodeRepairs, input, schemaName });
+    return {
+      value: decoded.value,
+      decodeRepairs,
+    };
+  }
+
+  throw createTolerantDecodeShortfallError({
+    context: `${schemaName} failed tolerant decode for section ${input.sectionId}`,
+    shortfalls: decoded.shortfalls,
+  });
+}
+
 function describeErrorForLog(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -994,12 +1063,14 @@ function deriveSourceId(url: string, index: number): string {
 }
 
 function buildEnvelope({
+  decodeRepairs,
   definition,
   deps,
   input,
   output,
   verification,
 }: {
+  decodeRepairs?: readonly DecodeRepair[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
@@ -1033,6 +1104,9 @@ function buildEnvelope({
       })),
       body: output.body,
       ...(verification === undefined ? {} : { verification }),
+      ...(decodeRepairs === undefined || decodeRepairs.length === 0
+        ? {}
+        : { decodeRepairs: [...decodeRepairs] }),
       createdAt: observedAt,
     });
 }
@@ -5014,9 +5088,11 @@ async function callStructuredAttempt({
       }),
       outputTimeoutMs,
     );
-    const output = definition.sectionOutputSchema.parse(
-      withNormalizedSectionOutput({
-        rawOutput,
+    const rawOutputMetadata = takeDecodeRepairsMetadata(rawOutput);
+    const decodedOutput = decodeModelBoundary({
+      input,
+      rawValue: withNormalizedSectionOutput({
+        rawOutput: rawOutputMetadata.value,
         normalizedAdEvidenceGroups,
         onboarding: researchInput.onboarding,
         researchInputSources: researchInput.sources,
@@ -5024,7 +5100,11 @@ async function callStructuredAttempt({
         subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
-    );
+      schema: definition.sectionOutputSchema,
+      schemaName: definition.sectionOutputSchemaName,
+      upstreamRepairs: rawOutputMetadata.snaps,
+    });
+    const output = decodedOutput.value;
     const verification = verifySectionBody({
       body: output.body,
       evidenceSteps: modelSteps,
@@ -5036,6 +5116,7 @@ async function callStructuredAttempt({
       input,
       output,
       verification,
+      decodeRepairs: decodedOutput.decodeRepairs,
     });
     const postRequiredEvidenceHook = ({
       artifact: candidateArtifact,
@@ -7016,6 +7097,7 @@ function buildDemandIntentSpyFuToolGapArtifact({
 }
 
 interface BuildVerifiedAttemptArgs {
+  decodeRepairs?: readonly DecodeRepair[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
@@ -7087,6 +7169,7 @@ async function buildVerifiedAttemptFromOutput(
 async function buildVerifiedAttemptFromFinalOutput({
   definition,
   deps,
+  decodeRepairs,
   input,
   modelSteps,
   output,
@@ -7102,6 +7185,7 @@ async function buildVerifiedAttemptFromFinalOutput({
   const artifact = buildEnvelope({
     definition,
     deps,
+    decodeRepairs,
     input,
     output,
     verification,
@@ -7370,9 +7454,11 @@ async function buildAnswerToolAttempt({
   }
 
   try {
-    const output = definition.sectionOutputSchema.parse(
-      withNormalizedSectionOutput({
-        rawOutput: answerInput,
+    const answerInputMetadata = takeDecodeRepairsMetadata(answerInput);
+    const decodedOutput = decodeModelBoundary({
+      input,
+      rawValue: withNormalizedSectionOutput({
+        rawOutput: answerInputMetadata.value,
         sectionId: input.sectionId,
         normalizedAdEvidenceGroups,
         onboarding: researchInput.onboarding,
@@ -7380,13 +7466,17 @@ async function buildAnswerToolAttempt({
         subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
-    );
+      schema: definition.sectionOutputSchema,
+      schemaName: definition.sectionOutputSchemaName,
+      upstreamRepairs: answerInputMetadata.snaps,
+    });
     return await buildVerifiedAttemptFromOutput({
+      decodeRepairs: decodedOutput.decodeRepairs,
       definition,
       deps,
       input,
       modelSteps,
-      output,
+      output: decodedOutput.value,
       researchInput,
       verifierSteps: buildVerifierEvidenceSteps({
         adEvidenceGroups: normalizedAdEvidenceGroups,
@@ -7439,6 +7529,11 @@ function mergeModelSources(
   return Array.from(sourcesByUrl.values());
 }
 
+interface DecodedSectionOutput {
+  decodeRepairs: DecodeRepair[];
+  output: SectionOutput<Record<string, unknown>>;
+}
+
 function buildOutputFromStructuredBody({
   body,
   definition,
@@ -7457,17 +7552,23 @@ function buildOutputFromStructuredBody({
   researchInputSources?: ResearchInput["sources"];
   subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
-}): SectionOutput<Record<string, unknown>> {
-  const structuredRecord = getRecord(body);
-  const rawBody = structuredRecord?.body ?? body;
+}): DecodedSectionOutput {
+  const bodyMetadata = takeDecodeRepairsMetadata(body);
+  const structuredRecord = getRecord(bodyMetadata.value);
+  const rawBody = structuredRecord?.body ?? bodyMetadata.value;
   const rawBodyRecord = getRecord(rawBody);
   const normalizedRawBody =
     input.sectionId === "positioningVoiceOfCustomer" && rawBodyRecord !== null
       ? withNormalizedVoiceOfCustomerBody({ bodyRecord: rawBodyRecord })
       : rawBody;
-  const parsedBody = definition.bodySchema.parse(
-    normalizedRawBody,
-  );
+  const decodedBody = decodeModelBoundary({
+    input,
+    rawValue: normalizedRawBody,
+    schema: definition.bodySchema,
+    schemaName: `${definition.sectionOutputSchemaName}Body`,
+    upstreamRepairs: bodyMetadata.snaps,
+  });
+  const parsedBody = decodedBody.value;
   const syntheticOutput = buildSyntheticSectionOutput({
     body: parsedBody,
     definition,
@@ -7498,25 +7599,45 @@ function buildOutputFromStructuredBody({
     subjectWebsiteUrl,
   });
   const normalizedOutputRecord = getRecord(normalizedOutput);
-  const normalizedBody =
+  const decodedNormalizedBody =
     normalizedOutputRecord === null
-      ? parsedBody
-      : definition.bodySchema.parse(normalizedOutputRecord.body);
+      ? { value: parsedBody, decodeRepairs: [] }
+      : decodeModelBoundary({
+          input,
+          rawValue: normalizedOutputRecord.body,
+          schema: definition.bodySchema,
+          schemaName: `${definition.sectionOutputSchemaName}NormalizedBody`,
+        });
+  const normalizedBody = decodedNormalizedBody.value;
   const existingSources = Array.isArray(normalizedOutputRecord?.sources)
     ? normalizedOutputRecord.sources
         .map((source) => normalizeModelSource(source))
         .filter((source): source is ModelSourceInput => source !== null)
     : [];
 
-  return definition.sectionOutputSchema.parse({
-    ...authoredOutput,
-    ...(normalizedOutputRecord ?? {}),
-    body: normalizedBody,
-    sources: mergeModelSources([
-      ...existingSources,
-      ...collectModelSourcesFromBody(normalizedBody),
-    ]),
+  const decodedOutput = decodeModelBoundary({
+    input,
+    rawValue: {
+      ...authoredOutput,
+      ...(normalizedOutputRecord ?? {}),
+      body: normalizedBody,
+      sources: mergeModelSources([
+        ...existingSources,
+        ...collectModelSourcesFromBody(normalizedBody),
+      ]),
+    },
+    schema: definition.sectionOutputSchema,
+    schemaName: definition.sectionOutputSchemaName,
+    upstreamRepairs: [
+      ...decodedBody.decodeRepairs,
+      ...decodedNormalizedBody.decodeRepairs,
+    ],
   });
+
+  return {
+    decodeRepairs: decodedOutput.decodeRepairs,
+    output: decodedOutput.value,
+  };
 }
 
 async function buildStructuredBodyAttempt({
@@ -7679,7 +7800,7 @@ async function buildStructuredBodyAttempt({
       throw bodyResult.error;
     }
     const body = bodyResult.value;
-    const output = buildOutputFromStructuredBody({
+    const decodedOutput = buildOutputFromStructuredBody({
       body,
       definition,
       input,
@@ -7691,11 +7812,12 @@ async function buildStructuredBodyAttempt({
     });
 
     return await buildVerifiedAttemptFromOutput({
+      decodeRepairs: decodedOutput.decodeRepairs,
       definition,
       deps,
       input,
       modelSteps,
-      output,
+      output: decodedOutput.output,
       researchInput,
       verifierSteps: buildVerifierEvidenceSteps({
         adEvidenceGroups: normalizedAdEvidenceGroups,
@@ -8041,6 +8163,7 @@ async function runSectionViaAnswerTool(
   ].join("\n");
   const answerTool = createAnswerTool(definition.sectionOutputSchema, {
     model: sectionRunnerModel,
+    sectionId: input.sectionId,
   });
   const runAnswerToolAttempt = async ({
     attempt,

@@ -2,6 +2,10 @@ import type { Tool } from "ai";
 import { z } from "zod";
 
 import type { SectionLanguageModel } from "../ai/models";
+import {
+  formatDecodeShortfalls,
+  tolerantDecode,
+} from "../artifacts/tolerant-decode";
 
 // Anthropic stays loose so malformed `answer` calls reach `execute` and receive
 // field-level feedback. Non-Anthropic providers get the full section schema
@@ -14,6 +18,7 @@ export type AnswerToolInputSchemaMode =
 
 export interface CreateAnswerToolOptions {
   model: SectionLanguageModel;
+  sectionId: string;
 }
 
 export interface AnswerToolRejection {
@@ -64,10 +69,12 @@ export function createAnswerTool<TSchema extends z.ZodType<unknown>>(
       "fields, and call `answer` again. Do not call with empty or partial input.",
     inputSchema: getAnswerToolInputSchema({ mode: inputSchemaMode, schema }),
     execute: (input): unknown => {
-      const result = schema.safeParse(input);
+      const result = tolerantDecode(schema, input, {
+        sectionId: options.sectionId,
+      });
 
-      if (result.success) {
-        return input;
+      if (result.ok) {
+        return result.value;
       }
 
       return {
@@ -75,7 +82,7 @@ export function createAnswerTool<TSchema extends z.ZodType<unknown>>(
         message:
           "Your answer did not match the required schema. Fix exactly the " +
           "fields listed below and call `answer` again with the corrected JSON.",
-        issues: formatSchemaIssues(result.error),
+        issues: formatDecodeShortfalls(result.shortfalls),
       } satisfies AnswerToolRejection;
     },
   };
