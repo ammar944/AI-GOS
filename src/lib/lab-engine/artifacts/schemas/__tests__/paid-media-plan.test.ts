@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { paidMediaPlanFixtureArtifact } from "../../../fixtures/paid-media-plan-artifact";
@@ -7,6 +7,7 @@ import {
   paidMediaMoneyProvenanceValues,
   paidMediaPlanBodySchema,
   paidMediaPlanSectionOutputSchema,
+  parsePaidMediaTargetCacValue,
   snapSourceSection,
   validatePaidMediaPlanMinimums,
   type PaidMediaPlanArtifact,
@@ -109,13 +110,15 @@ describe("normalizePaidMediaPlanBody", () => {
     >;
 
     rawBody.campaignPhases = getRepeatedRows(rawBody.campaignPhases, 1);
+    // dailyBudgetValue 100 = the overview's dailySpendValue, so the single
+    // audience row keeps the budget cascade reconciling.
     rawBody.audienceTypes = [
       {
         slot: "01",
         archetype: "Interest Stack",
-        dailyBudget: "$33/day",
+        dailyBudget: "$100/day",
         dailyBudgetProvenance: "customer",
-        dailyBudgetValue: 33,
+        dailyBudgetValue: 100,
         detail: "Founder-led SaaS operators",
         sourceSection: "positioningVoC",
         grounding: "VoC says operators need proof.",
@@ -302,6 +305,15 @@ describe("budget honesty (B3: no placeholder, no fabrication)", () => {
       phase.monthlyBudgetValue = 6000;
       phase.monthlyBudgetProvenance = "user-supplied";
     }
+    // Keep the audience split reconciling with the new $200/day spend so the
+    // cascade pass leaves the user-supplied math untouched.
+    const audienceSplits = [66.67, 66.67, 66.66];
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    audiences.forEach((audience, index) => {
+      audience.dailyBudget = `$${audienceSplits[index]}/day`;
+      audience.dailyBudgetValue = audienceSplits[index];
+      audience.dailyBudgetProvenance = "user-supplied";
+    });
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
@@ -316,6 +328,10 @@ describe("budget honesty (B3: no placeholder, no fabrication)", () => {
       expect(phase.monthlyBudgetValue).toBe(6000);
       expect(phase.monthlyBudget).toBe("$6,000 / Month");
     }
+    normalized.audienceTypes.forEach((audience, index) => {
+      expect(audience.dailyBudgetValue).toBe(audienceSplits[index]);
+      expect(audience.dailyBudgetProvenance).toBe("user-supplied");
+    });
   });
 });
 
@@ -531,7 +547,9 @@ describe("SOP projected-results table (W3)", () => {
     for (const row of normalized.projectedResults) {
       expect(row.projectedCountValue).toBeUndefined();
       expect(row.projectedCountProvenance).toBeUndefined();
-      expect(row.marginOfErrorPercent).toBe(20);
+      // No count -> no margin: a ±20% on a number that does not exist is
+      // dishonest, so the SOP constant only rides alongside a real count.
+      expect(row.marginOfErrorPercent).toBeUndefined();
     }
   });
 
@@ -600,5 +618,386 @@ describe("SOP projected-results table (W3)", () => {
     ).projectedResults;
 
     expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
+  });
+});
+
+describe("budget cascade reconciliation (W2)", () => {
+  function getRawBody(): Record<string, unknown> {
+    return structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+  }
+
+  it("validator flags an audience split that does not sum to the daily spend within $5", () => {
+    const artifact = cloneFixture();
+    artifact.body.audienceTypes[0]!.dailyBudgetValue = 300;
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "sum of dailyBudgetValue",
+    );
+  });
+
+  it("validator flags dailySpendValue * 30 drifting from monthlyBudgetValue beyond $25", () => {
+    const artifact = cloneFixture();
+    artifact.body.campaignOverview.dailySpendValue = 833;
+    artifact.body.campaignOverview.monthlyBudgetValue = 30000;
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("dailySpendValue * 30");
+  });
+
+  it("validator flags a single phase budgeting more than the plan's monthly budget", () => {
+    const artifact = cloneFixture();
+    artifact.body.campaignPhases[0]!.monthlyBudgetValue = 9000;
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("body.campaignPhases[0]");
+  });
+
+  it("validator allows overlapping phases — no phase-sum constraint", () => {
+    const artifact = cloneFixture();
+    // Two phases at the full monthly budget each: legal (phases overlap).
+    artifact.body.campaignPhases[0]!.monthlyBudgetValue = 3000;
+    artifact.body.campaignPhases[1]!.monthlyBudgetValue = 3000;
+
+    expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
+  });
+
+  it("normalize drops a non-reconciling audience split and snaps its provenance to unknown (run d838ed4e shape)", () => {
+    const rawBody = getRawBody();
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    // 300 + 33.33 + 33.33 = 366.66 vs dailySpendValue 100 — violates the $5 rule.
+    audiences[0]!.dailyBudgetValue = 300;
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    for (const audience of normalized.audienceTypes) {
+      expect(audience.dailyBudgetValue).toBeUndefined();
+      expect(audience.dailyBudgetProvenance).toBe("unknown");
+      // Display strings survive — only the contradicting numbers drop.
+      expect(audience.dailyBudget.length).toBeGreaterThan(0);
+    }
+    // The anchor legs are untouched.
+    expect(normalized.campaignOverview.dailySpendValue).toBe(100);
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBe(3000);
+  });
+
+  it("normalize drops a daily spend that contradicts the monthly budget and keeps the reconciling audience split", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.dailySpendValue = 150; // 150 * 30 = 4500 vs monthly 3000
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    for (const audience of audiences) {
+      audience.dailyBudgetValue = 50; // sums to 150 = the (pre-drop) daily spend
+    }
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.dailySpendValue).toBeUndefined();
+    expect(normalized.campaignOverview.dailySpendProvenance).toBe("unknown");
+    expect(normalized.campaignOverview.monthlyBudgetValue).toBe(3000);
+    for (const audience of normalized.audienceTypes) {
+      expect(audience.dailyBudgetValue).toBe(50);
+    }
+  });
+
+  it("normalize drops only the offending phase budget when a phase exceeds the monthly budget", () => {
+    const rawBody = getRawBody();
+    const phases = rawBody.campaignPhases as Array<Record<string, unknown>>;
+    phases[0]!.monthlyBudgetValue = 9000; // exceeds monthly 3000
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignPhases[0]?.monthlyBudgetValue).toBeUndefined();
+    expect(normalized.campaignPhases[0]?.monthlyBudgetProvenance).toBe(
+      "unknown",
+    );
+    expect(normalized.campaignPhases[1]?.monthlyBudgetValue).toBe(3000);
+  });
+
+  it("a normalized body always re-validates clean — a committed cascade can never contradict itself", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.dailySpendValue = 833; // every leg broken at once
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    audiences[0]!.dailyBudgetValue = 300;
+    const phases = rawBody.campaignPhases as Array<Record<string, unknown>>;
+    phases[0]!.monthlyBudgetValue = 15000;
+
+    const artifact = cloneFixture();
+    artifact.body = normalizePaidMediaPlanBody(rawBody);
+
+    expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
+  });
+});
+
+describe("channel suggestions substantive floor (W2)", () => {
+  it("fails a 100%-placeholder channel table into repair instead of shipping it", () => {
+    const artifact = cloneFixture();
+    artifact.body.channelSuggestions = artifact.body.channelSuggestions.map(
+      (suggestion) => ({
+        ...suggestion,
+        recommendation: "Evidence gap: channel recommendation missing.",
+      }),
+    );
+
+    const result = validatePaidMediaPlanMinimums(artifact);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("body.channelSuggestions");
+  });
+
+  it("accepts a table with at least one substantive recommendation", () => {
+    const artifact = cloneFixture();
+    artifact.body.channelSuggestions = artifact.body.channelSuggestions.map(
+      (suggestion, index) =>
+        index === 0
+          ? suggestion
+          : {
+              ...suggestion,
+              recommendation: "Evidence gap: channel recommendation missing.",
+            },
+    );
+
+    expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
+  });
+
+  it("warns on key drift when a row falls back to the placeholder despite carrying stray string keys", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const rawBody = structuredClone(
+        paidMediaPlanFixtureArtifact.body,
+      ) as Record<string, unknown>;
+      rawBody.channelSuggestions = [
+        {
+          channel: "Website",
+          suggestion: "Rewrite the hero CTA around the audit proof.",
+          verdict: "FIX",
+          sourceSection: "positioningOfferDiagnostic",
+        },
+      ];
+
+      const normalized = normalizePaidMediaPlanBody(rawBody);
+
+      expect(normalized.channelSuggestions[0]?.recommendation).toBe(
+        "Evidence gap: channel recommendation missing.",
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("possible key drift"),
+        expect.objectContaining({ strayStringKeys: ["suggestion"] }),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
+
+describe("display-string provenance hygiene (W2)", () => {
+  it("strips trailing provenance parentheticals from money display strings — the enum is the only provenance writer", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$3,000/month (user-supplied)";
+    overview.dailySpend = "$100/day (model-estimated)";
+    const phases = rawBody.campaignPhases as Array<Record<string, unknown>>;
+    phases[0]!.monthlyBudget = "$3,000/month (60% of search budget) (user-supplied)";
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    audiences[0]!.dailyBudget = "$33.33/day (20% of total) (user-supplied)";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.monthlyBudget).toBe("$3,000/month");
+    expect(normalized.campaignOverview.dailySpend).toBe("$100/day");
+    expect(normalized.campaignPhases[0]?.monthlyBudget).toBe(
+      "$3,000/month (60% of search budget)",
+    );
+    expect(normalized.audienceTypes[0]?.dailyBudget).toBe(
+      "$33.33/day (20% of total)",
+    );
+  });
+
+  it("keeps non-provenance parentheticals intact", () => {
+    const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$3,000/month (60% of search budget)";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.monthlyBudget).toBe(
+      "$3,000/month (60% of search budget)",
+    );
+  });
+});
+
+describe("creative strategy counts single-writer (W2)", () => {
+  function getRawBody(): Record<string, unknown> {
+    return structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
+      string,
+      unknown
+    >;
+  }
+
+  it("always overwrites model-emitted counts (run d838ed4e shipped free-invented 9/6/5)", () => {
+    const rawBody = getRawBody();
+    rawBody.creativeStrategy = {
+      prose: "Creative mix prose.",
+      staticCount: 6,
+      videoCount: 9,
+      totalPerAudience: 5,
+    };
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    // Fixture slot labels (PST/Objection/USP/...) are unclassifiable and no
+    // capacity is supplied -> SOP constants 5 static / 3 video / 8 total.
+    expect(normalized.creativeStrategy.staticCount).toBe(5);
+    expect(normalized.creativeStrategy.videoCount).toBe(3);
+    expect(normalized.creativeStrategy.totalPerAudience).toBe(8);
+    expect(normalized.creativeStrategy.prose).toBe("Creative mix prose.");
+  });
+
+  it("computes counts when the model omits them — no silent model-default path left", () => {
+    const rawBody = getRawBody();
+    rawBody.creativeStrategy = { prose: "Counts omitted by the model." };
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.creativeStrategy.staticCount).toBe(5);
+    expect(normalized.creativeStrategy.videoCount).toBe(3);
+    expect(normalized.creativeStrategy.totalPerAudience).toBe(8);
+  });
+
+  it("derives counts from creativeFramework slot labels when every slot is classifiable", () => {
+    const rawBody = getRawBody();
+    const slots = rawBody.creativeFramework as Array<Record<string, unknown>>;
+    rawBody.creativeFramework = [
+      { ...slots[0]!, label: "Static headline 1" },
+      { ...slots[1]!, label: "UGC video walkthrough" },
+      { ...slots[2]!, label: "Static image proof stack" },
+    ];
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.creativeStrategy.staticCount).toBe(2);
+    expect(normalized.creativeStrategy.videoCount).toBe(1);
+    expect(normalized.creativeStrategy.totalPerAudience).toBe(3);
+  });
+
+  it("keys the default off the brief's creativeCapacity when slot labels are unclassifiable", () => {
+    const normalized = normalizePaidMediaPlanBody(getRawBody(), {
+      creativeCapacity: "lean",
+    });
+
+    expect(normalized.creativeStrategy.staticCount).toBe(3);
+    expect(normalized.creativeStrategy.videoCount).toBe(1);
+    expect(normalized.creativeStrategy.totalPerAudience).toBe(4);
+  });
+
+  it("accepts model output that omits the counts at the schema layer", () => {
+    const body = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    body.creativeStrategy = { prose: "Counts are computed by the runner." };
+
+    expect(paidMediaPlanBodySchema.safeParse(body).success).toBe(true);
+  });
+});
+
+describe("brief target-CAC bridge for projected results (W2)", () => {
+  function rawBodyWithRows(rows: unknown[]): Record<string, unknown> {
+    const rawBody = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    rawBody.projectedResults = rows;
+    return rawBody;
+  }
+
+  const unknownCostRow = {
+    targetIcp: "Mid-market ops teams searching competitor-alternative terms",
+    kpi: "Signup",
+    kpiCostProvenance: "unknown",
+    objective: "Capture active evaluators",
+    durationLabel: "Days 1-60",
+    phaseMonthlyBudgetValue: 15000,
+    phaseMonthlyBudgetProvenance: "user-supplied",
+    sourceSection: "positioningDemandIntent",
+  };
+
+  it("bridges the brief's target CAC into an unknown-cost acquisition row and runs the SOP math", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithRows([unknownCostRow]),
+      { targetCac: "≤$4,000" },
+    );
+    const row = normalized.projectedResults[0];
+
+    expect(row?.kpiCostValue).toBe(4000);
+    expect(row?.kpiCostProvenance).toBe("user-supplied");
+    expect(row?.projectedCountValue).toBe(3); // floor(15000 / 4000)
+    expect(row?.projectedCountProvenance).toBe("user-supplied");
+    expect(row?.marginOfErrorPercent).toBe(20);
+  });
+
+  it("does not bridge a row whose KPI is not a CAC unit", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithRows([{ ...unknownCostRow, kpi: "SQL" }]),
+      { targetCac: "≤$4,000" },
+    );
+    const row = normalized.projectedResults[0];
+
+    expect(row?.kpiCostValue).toBeUndefined();
+    expect(row?.kpiCostProvenance).toBe("unknown");
+    expect(row?.projectedCountValue).toBeUndefined();
+    expect(row?.marginOfErrorPercent).toBeUndefined();
+  });
+
+  it("does not bridge without a parseable target CAC", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithRows([unknownCostRow]),
+      { targetCac: "not disclosed" },
+    );
+    const row = normalized.projectedResults[0];
+
+    expect(row?.kpiCostValue).toBeUndefined();
+    expect(row?.kpiCostProvenance).toBe("unknown");
+  });
+
+  it("never overrides a model-supplied KPI cost", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithRows([
+        {
+          ...unknownCostRow,
+          kpiCostValue: 500,
+          kpiCostProvenance: "tool-measured",
+        },
+      ]),
+      { targetCac: "$4,000" },
+    );
+    const row = normalized.projectedResults[0];
+
+    expect(row?.kpiCostValue).toBe(500);
+    expect(row?.kpiCostProvenance).toBe("tool-measured");
+  });
+
+  it("parses common brief CAC formats", () => {
+    expect(parsePaidMediaTargetCacValue("≤$4,000")).toBe(4000);
+    expect(parsePaidMediaTargetCacValue("$4k")).toBe(4000);
+    expect(parsePaidMediaTargetCacValue("4000")).toBe(4000);
+    expect(parsePaidMediaTargetCacValue("under $1.5k blended")).toBe(1500);
+    expect(parsePaidMediaTargetCacValue("not disclosed")).toBeUndefined();
+    expect(parsePaidMediaTargetCacValue(undefined)).toBeUndefined();
   });
 });

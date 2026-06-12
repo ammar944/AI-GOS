@@ -28,6 +28,19 @@ export const paidMediaMoneyProvenanceValues = [
   "unknown",
 ] as const;
 
+// Mirrors the onboarding snapshot's creativeCapacity enum (artifact-envelope).
+export type PaidMediaCreativeCapacity = "lean" | "standard" | "high";
+
+// Brief-derived context threaded in by the runner pre-pass
+// (withNormalizedPaidMediaPlanOutput in run-section.ts):
+// - creativeCapacity keys the single-writer creative counts.
+// - targetCac (raw brief string, e.g. "≤$4,000") bridges the SOP
+//   projected-results math when the model honestly reports KPI cost unknown.
+export interface NormalizePaidMediaPlanBodyOptions {
+  creativeCapacity?: PaidMediaCreativeCapacity;
+  targetCac?: string;
+}
+
 const channelVerdictValues = [
   "FIX",
   "REWORK",
@@ -99,11 +112,15 @@ const angleSchema = z.object({
   grounding: z.string().min(1),
 });
 
+// staticCount/videoCount/totalPerAudience are COMPUTED by the runner
+// (normalizeCreativeStrategy) — the model's values are always overwritten.
+// They stay schema-optional only so model outputs that omit them (per the
+// updated prompt guidance) and legacy payloads both parse.
 const creativeStrategySchema = z.object({
   prose: z.string().min(1),
-  staticCount: z.number(),
-  videoCount: z.number(),
-  totalPerAudience: z.number(),
+  staticCount: z.number().optional(),
+  videoCount: z.number().optional(),
+  totalPerAudience: z.number().optional(),
 });
 
 const creativeFrameworkSlotSchema = z.object({
@@ -168,6 +185,8 @@ const kpiSchema = z.object({
 // floor(budget / kpiCost), pins marginOfErrorPercent to the SOP constant,
 // and derives the count's provenance from the WEAKEST input. kpiCost
 // unknown/zero -> the count is omitted, never invented.
+// marginOfErrorPercent is OPTIONAL and only present alongside
+// projectedCountValue — a ±20% on a number that does not exist is dishonest.
 const projectedResultRowSchema = z.object({
   targetIcp: z.string().min(1),
   kpi: z.string().min(1),
@@ -179,7 +198,7 @@ const projectedResultRowSchema = z.object({
   phaseMonthlyBudgetProvenance: z.string().min(1),
   projectedCountValue: z.number().finite().nonnegative().optional(),
   projectedCountProvenance: z.string().min(1).optional(),
-  marginOfErrorPercent: z.number().finite().nonnegative(),
+  marginOfErrorPercent: z.number().finite().nonnegative().optional(),
   sourceSection: sourceSectionSchema,
 });
 
@@ -510,6 +529,29 @@ function getString(value: unknown, fallback: string): string {
   return fallback;
 }
 
+// Provenance has exactly ONE writer — the provenance enum field. Models keep
+// baking "(user-supplied)"-style parentheticals into money display strings
+// ("$300/day (60% of search budget) (user-supplied)", run d838ed4e), so the
+// reader renders provenance twice — once raw, once as the enum chip. Strip
+// trailing provenance parentheticals at the source; the reader's defensive
+// strip stays, but committed data must already be clean.
+const TRAILING_PROVENANCE_PARENTHETICAL_PATTERN =
+  /(?:\s*\((?:user-supplied|tool-measured|source-reported|model-estimated|unknown|operator-supplied)\))+\s*$/i;
+
+function getMoneyDisplayString(value: unknown, fallback: string): string {
+  const display = getString(value, fallback);
+
+  if (display === fallback) {
+    return display;
+  }
+
+  const stripped = display
+    .replace(TRAILING_PROVENANCE_PARENTHETICAL_PATTERN, "")
+    .trim();
+
+  return stripped.length > 0 ? stripped : fallback;
+}
+
 function getNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -569,13 +611,16 @@ function normalizeCampaignOverview(value: unknown): PaidMediaPlanBody["campaignO
   return {
     prose: getString(record.prose, "Paid media plan overview needs review."),
     platform: getString(record.platform, "Meta Ads"),
-    monthlyBudget: getString(
+    monthlyBudget: getMoneyDisplayString(
       record.monthlyBudget,
       "Budget not provided — enter a monthly budget to compute the spend plan",
     ),
     ...optionalNumericField("monthlyBudgetValue", monthlyBudgetValue),
     monthlyBudgetProvenance,
-    dailySpend: getString(record.dailySpend, "Daily spend not provided"),
+    dailySpend: getMoneyDisplayString(
+      record.dailySpend,
+      "Daily spend not provided",
+    ),
     ...optionalNumericField("dailySpendValue", dailySpendValue),
     dailySpendProvenance,
     totalMonths: getNumber(record.totalMonths) ?? 4,
@@ -607,7 +652,10 @@ function normalizeCampaignPhase(
       record.monthsLabel,
       index === 0 ? "Months 1-2" : "Months 3-4",
     ),
-    monthlyBudget: getString(record.monthlyBudget, "Budget not provided"),
+    monthlyBudget: getMoneyDisplayString(
+      record.monthlyBudget,
+      "Budget not provided",
+    ),
     ...optionalNumericField("monthlyBudgetValue", monthlyBudgetValue),
     monthlyBudgetProvenance,
     bullets:
@@ -661,7 +709,10 @@ function normalizeAudienceType(
       record.archetype,
       defaults[index]?.archetype ?? "Audience slot needs review",
     ),
-    dailyBudget: getString(record.dailyBudget, "Daily budget not provided"),
+    dailyBudget: getMoneyDisplayString(
+      record.dailyBudget,
+      "Daily budget not provided",
+    ),
     ...optionalNumericField("dailyBudgetValue", dailyBudgetValue),
     dailyBudgetProvenance,
     detail: getString(record.detail, "Evidence gap: targeting detail missing."),
@@ -688,14 +739,88 @@ function normalizeAngle(
   };
 }
 
-function normalizeCreativeStrategy(value: unknown): PaidMediaPlanBody["creativeStrategy"] {
+// SOP creative-production constants (SaaSLaunch 13-slide deck: 5 static +
+// 3 video per audience). The brief's creativeCapacity scales the mix when
+// supplied; "standard" mirrors the SOP constants.
+const SOP_STATIC_CREATIVE_COUNT = 5;
+const SOP_VIDEO_CREATIVE_COUNT = 3;
+const CREATIVE_CAPACITY_COUNTS: Record<
+  PaidMediaCreativeCapacity,
+  { staticCount: number; videoCount: number }
+> = {
+  lean: { staticCount: 3, videoCount: 1 },
+  standard: {
+    staticCount: SOP_STATIC_CREATIVE_COUNT,
+    videoCount: SOP_VIDEO_CREATIVE_COUNT,
+  },
+  high: { staticCount: 8, videoCount: 5 },
+};
+
+const VIDEO_SLOT_LABEL_PATTERN = /\b(ugc|video|vsl|reel|motion)\b/i;
+const STATIC_SLOT_LABEL_PATTERN = /\b(static|headline|image|carousel|banner)\b/i;
+
+function classifyCreativeSlotLabel(label: string): "video" | "static" | null {
+  if (VIDEO_SLOT_LABEL_PATTERN.test(label)) {
+    return "video";
+  }
+
+  if (STATIC_SLOT_LABEL_PATTERN.test(label)) {
+    return "static";
+  }
+
+  return null;
+}
+
+// Single-writer creative counts: the runner derives them, the model's values
+// are ALWAYS overwritten (run d838ed4e shipped free-invented 9/6/5 against a
+// 6-slot framework; the old `?? 5/3/8` defaults silently fabricated counts
+// when the model omitted them). Priority: framework slot labels when every
+// slot is classifiable -> brief creativeCapacity policy -> SOP constants.
+function deriveCreativeCounts({
+  creativeCapacity,
+  creativeFramework,
+}: {
+  creativeCapacity?: PaidMediaCreativeCapacity;
+  creativeFramework: PaidMediaPlanBody["creativeFramework"];
+}): { staticCount: number; videoCount: number } {
+  const classified = creativeFramework.map((slot) =>
+    classifyCreativeSlotLabel(slot.label),
+  );
+
+  if (classified.length > 0 && classified.every((kind) => kind !== null)) {
+    return {
+      staticCount: classified.filter((kind) => kind === "static").length,
+      videoCount: classified.filter((kind) => kind === "video").length,
+    };
+  }
+
+  if (creativeCapacity !== undefined) {
+    return CREATIVE_CAPACITY_COUNTS[creativeCapacity];
+  }
+
+  return {
+    staticCount: SOP_STATIC_CREATIVE_COUNT,
+    videoCount: SOP_VIDEO_CREATIVE_COUNT,
+  };
+}
+
+function normalizeCreativeStrategy({
+  creativeCapacity,
+  creativeFramework,
+  value,
+}: {
+  creativeCapacity?: PaidMediaCreativeCapacity;
+  creativeFramework: PaidMediaPlanBody["creativeFramework"];
+  value: unknown;
+}): PaidMediaPlanBody["creativeStrategy"] {
   const record = getRecord(value);
+  const counts = deriveCreativeCounts({ creativeCapacity, creativeFramework });
 
   return {
     prose: getString(record.prose, "Creative mix needs review."),
-    staticCount: getNumber(record.staticCount) ?? 5,
-    videoCount: getNumber(record.videoCount) ?? 3,
-    totalPerAudience: getNumber(record.totalPerAudience) ?? 8,
+    staticCount: counts.staticCount,
+    videoCount: counts.videoCount,
+    totalPerAudience: counts.staticCount + counts.videoCount,
   };
 }
 
@@ -841,6 +966,16 @@ function normalizeCompetitorReviewInsight(
   };
 }
 
+const CHANNEL_SUGGESTION_RECOMMENDATION_FALLBACK =
+  "Evidence gap: channel recommendation missing.";
+const CHANNEL_SUGGESTION_KNOWN_KEYS = new Set([
+  "channel",
+  "observation",
+  "recommendation",
+  "sourceSection",
+  "verdict",
+]);
+
 function normalizeChannelSuggestion(
   value: unknown,
   index: number,
@@ -852,13 +987,35 @@ function normalizeChannelSuggestion(
     "Other Ad Platforms",
     "Email / Nurture",
   ];
+  const recommendation = getString(
+    record.recommendation ?? record.observation,
+    CHANNEL_SUGGESTION_RECOMMENDATION_FALLBACK,
+  );
+
+  if (recommendation === CHANNEL_SUGGESTION_RECOMMENDATION_FALLBACK) {
+    // Key drift visibility: the model emitted recommendation text under an
+    // unexpected key (run d838ed4e shipped a 100%-placeholder channel table
+    // this way). Surface the stray keys so the drift is debuggable.
+    const strayStringKeys = Object.entries(record)
+      .filter(
+        ([key, entryValue]) =>
+          !CHANNEL_SUGGESTION_KNOWN_KEYS.has(key) &&
+          typeof entryValue === "string" &&
+          entryValue.trim().length > 0,
+      )
+      .map(([key]) => key);
+
+    if (strayStringKeys.length > 0) {
+      console.warn(
+        "[paid-media-plan] channelSuggestions row fell back to the placeholder despite carrying string-valued keys — possible key drift",
+        { index, strayStringKeys },
+      );
+    }
+  }
 
   return {
     channel: getString(record.channel, channels[index] ?? `Channel ${index + 1}`),
-    recommendation: getString(
-      record.recommendation ?? record.observation,
-      "Evidence gap: channel recommendation missing.",
-    ),
+    recommendation,
     verdict: normalizeChannelVerdict(record.verdict),
     sourceSection: normalizeSourceSection(record.sourceSection),
   };
@@ -933,17 +1090,63 @@ function weakestMoneyProvenance(left: string, right: string): string {
 
 const SOP_MARGIN_OF_ERROR_PERCENT = 20;
 
+// CAC-unit KPIs: rows whose KPI denotes an acquisition (signup/customer) may
+// honestly borrow the brief's target CAC as their KPI cost. MQL/SQL/CTR-style
+// units must NOT be costed with a CAC — that would overstate efficiency.
+const CAC_UNIT_KPI_PATTERN = /\b(sign[\s-]?ups?|customers?|acquisitions?)\b/i;
+
+// Parse the brief's target CAC string ("≤$4,000", "$4k", "4000") into a
+// number. First numeric token wins; zero/negative parses are rejected.
+export function parsePaidMediaTargetCacValue(
+  value: string | undefined,
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const match = value.replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*([km])?/i);
+
+  if (match === null) {
+    return undefined;
+  }
+
+  const base = Number(match[1]);
+
+  if (!Number.isFinite(base) || base <= 0) {
+    return undefined;
+  }
+
+  const suffix = match[2]?.toLowerCase();
+
+  return suffix === "k" ? base * 1000 : suffix === "m" ? base * 1_000_000 : base;
+}
+
 function normalizeProjectedResultRow(
   value: unknown,
   index: number,
+  options?: NormalizePaidMediaPlanBodyOptions,
 ): PaidMediaPlanBody["projectedResults"][number] {
   const record = getRecord(value);
-  const kpiCostProvenance = snapMoneyProvenance(record.kpiCostProvenance);
+  const kpi = getString(record.kpi ?? record.metric, "Evidence gap: KPI missing.");
+  const snappedKpiCostProvenance = snapMoneyProvenance(record.kpiCostProvenance);
+  // Brief-CAC bridge: when the model honestly reports the KPI cost unknown
+  // and the brief supplied a target CAC whose unit matches the row's KPI,
+  // the runner sets the cost from the brief (provenance 'user-supplied' —
+  // it IS the client's own number) so the SOP floor() math below can run.
+  const targetCacValue = parsePaidMediaTargetCacValue(options?.targetCac);
+  const bridgeKpiCostFromTargetCac =
+    snappedKpiCostProvenance === "unknown" &&
+    targetCacValue !== undefined &&
+    CAC_UNIT_KPI_PATTERN.test(kpi);
+  const kpiCostProvenance = bridgeKpiCostFromTargetCac
+    ? "user-supplied"
+    : snappedKpiCostProvenance;
   const phaseMonthlyBudgetProvenance = snapMoneyProvenance(
     record.phaseMonthlyBudgetProvenance,
   );
-  const kpiCostValue =
-    kpiCostProvenance === "unknown"
+  const kpiCostValue = bridgeKpiCostFromTargetCac
+    ? targetCacValue
+    : kpiCostProvenance === "unknown"
       ? undefined
       : getMoneyNumber(record.kpiCostValue ?? record.kpiCost);
   const phaseMonthlyBudgetValue =
@@ -969,7 +1172,7 @@ function normalizeProjectedResultRow(
       record.targetIcp ?? record.icp,
       `Evidence gap: target ICP missing for projected-results row ${index + 1}.`,
     ),
-    kpi: getString(record.kpi ?? record.metric, "Evidence gap: KPI missing."),
+    kpi,
     ...optionalNumericField("kpiCostValue", kpiCostValue),
     kpiCostProvenance,
     objective: getString(record.objective, "Evidence gap: objective missing."),
@@ -979,6 +1182,7 @@ function normalizeProjectedResultRow(
     ),
     ...optionalNumericField("phaseMonthlyBudgetValue", phaseMonthlyBudgetValue),
     phaseMonthlyBudgetProvenance,
+    // The SOP margin only qualifies a count that exists — no ±20% on nothing.
     ...(projectedCountValue === undefined
       ? {}
       : {
@@ -987,16 +1191,22 @@ function normalizeProjectedResultRow(
             kpiCostProvenance,
             phaseMonthlyBudgetProvenance,
           ),
+          marginOfErrorPercent: SOP_MARGIN_OF_ERROR_PERCENT,
         }),
-    marginOfErrorPercent: SOP_MARGIN_OF_ERROR_PERCENT,
     sourceSection: normalizeSourceSection(record.sourceSection),
   };
 }
 
-export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
+export function normalizePaidMediaPlanBody(
+  value: unknown,
+  options?: NormalizePaidMediaPlanBodyOptions,
+): PaidMediaPlanBody {
   const record = getRecord(value);
-
-  return paidMediaPlanBodySchema.parse({
+  const creativeFramework = getNestedArray(
+    record.creativeFramework,
+    "creatives",
+  ).map(normalizeCreativeFrameworkSlot);
+  const parsed = paidMediaPlanBodySchema.parse({
     campaignOverview: normalizeCampaignOverview(record.campaignOverview),
     campaignPhases: getNestedArray(record.campaignPhases, "phases").map(
       normalizeCampaignPhase,
@@ -1007,10 +1217,12 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
     anglesToTest: getNestedArray(record.anglesToTest, "angles").map(
       normalizeAngle,
     ),
-    creativeStrategy: normalizeCreativeStrategy(record.creativeStrategy),
-    creativeFramework: getNestedArray(record.creativeFramework, "creatives").map(
-      normalizeCreativeFrameworkSlot,
-    ),
+    creativeStrategy: normalizeCreativeStrategy({
+      creativeCapacity: options?.creativeCapacity,
+      creativeFramework,
+      value: record.creativeStrategy,
+    }),
+    creativeFramework,
     funnelIdeation: getNestedArray(record.funnelIdeation, "recommendations").map(
       normalizeFunnelPath,
     ),
@@ -1027,7 +1239,7 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
       normalizeChannelSuggestion,
     ),
     projectedResults: getNestedArray(record.projectedResults, "rows").map(
-      normalizeProjectedResultRow,
+      (row, index) => normalizeProjectedResultRow(row, index, options),
     ),
     kpis: getNestedArray(record.kpis, "kpis").map(normalizeKpi),
     crossSectionInsight: getNestedArray(record.crossSectionInsight, "insights").map(
@@ -1037,6 +1249,143 @@ export function normalizePaidMediaPlanBody(value: unknown): PaidMediaPlanBody {
       ? { feasibilityAudit: record.feasibilityAudit }
       : {}),
   });
+
+  return reconcilePaidMediaBudgetCascade(parsed);
+}
+
+// The budget cascade reconciliation contract (section-prompt-guidance.ts $5
+// rule), enforced in CODE: when the optional numeric siblings are emitted,
+// (a) the audience daily budgets must sum to the overview daily spend within
+// $5, (b) dailySpendValue*30 must equal monthlyBudgetValue within $25, and
+// (c) no single phase may budget more per month than the plan's monthly
+// budget (phases may overlap, so there is deliberately NO phase-sum check).
+const AUDIENCE_DAILY_SUM_TOLERANCE_USD = 5;
+const DAILY_TIMES_30_TOLERANCE_USD = 25;
+
+type PaidMediaBudgetCascadeViolation =
+  | { kind: "audience-sum"; message: string }
+  | { kind: "daily-vs-monthly"; message: string }
+  | { kind: "phase-exceeds-monthly"; message: string; phaseIndex: number };
+
+// Repair-prompt-facing dollar formatting: cents precision, no float artifacts.
+function formatUsdForError(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
+function collectPaidMediaBudgetCascadeViolations(
+  body: PaidMediaPlanBody,
+): PaidMediaBudgetCascadeViolation[] {
+  const violations: PaidMediaBudgetCascadeViolation[] = [];
+  const { dailySpendValue, monthlyBudgetValue } = body.campaignOverview;
+  const audienceValues = body.audienceTypes.map(
+    (audience) => audience.dailyBudgetValue,
+  );
+
+  if (
+    dailySpendValue !== undefined &&
+    audienceValues.length > 0 &&
+    audienceValues.every((value) => value !== undefined)
+  ) {
+    const audienceSum = audienceValues.reduce(
+      (sum, value) => sum + (value ?? 0),
+      0,
+    );
+
+    if (Math.abs(audienceSum - dailySpendValue) > AUDIENCE_DAILY_SUM_TOLERANCE_USD) {
+      violations.push({
+        kind: "audience-sum",
+        message: `body.audienceTypes: sum of dailyBudgetValue ($${formatUsdForError(audienceSum)}) must equal body.campaignOverview.dailySpendValue ($${formatUsdForError(dailySpendValue)}) within $${AUDIENCE_DAILY_SUM_TOLERANCE_USD}; fix the audience split or omit the numeric siblings.`,
+      });
+    }
+  }
+
+  if (dailySpendValue !== undefined && monthlyBudgetValue !== undefined) {
+    const projectedMonthly = dailySpendValue * 30;
+
+    if (
+      Math.abs(projectedMonthly - monthlyBudgetValue) >
+      DAILY_TIMES_30_TOLERANCE_USD
+    ) {
+      violations.push({
+        kind: "daily-vs-monthly",
+        message: `body.campaignOverview: dailySpendValue * 30 ($${formatUsdForError(projectedMonthly)}) must equal monthlyBudgetValue ($${formatUsdForError(monthlyBudgetValue)}) within $${DAILY_TIMES_30_TOLERANCE_USD}; recompute dailySpendValue = monthlyBudgetValue / 30 or omit the numeric sibling.`,
+      });
+    }
+  }
+
+  if (monthlyBudgetValue !== undefined) {
+    body.campaignPhases.forEach((phase, phaseIndex) => {
+      if (
+        phase.monthlyBudgetValue !== undefined &&
+        phase.monthlyBudgetValue > monthlyBudgetValue
+      ) {
+        violations.push({
+          kind: "phase-exceeds-monthly",
+          message: `body.campaignPhases[${phaseIndex}]: monthlyBudgetValue ($${formatUsdForError(phase.monthlyBudgetValue)}) exceeds body.campaignOverview.monthlyBudgetValue ($${formatUsdForError(monthlyBudgetValue)}); a single phase cannot budget more than the plan's monthly budget.`,
+          phaseIndex,
+        });
+      }
+    });
+  }
+
+  return violations;
+}
+
+// Normalize-time fallback for a cascade the model failed to reconcile: drop
+// the OFFENDING numeric *Value siblings and snap their provenance to
+// "unknown" (the same mechanism normalizeMoneyValue uses to hide numbers),
+// so a committed artifact can NEVER carry a non-reconciling cascade. The
+// anchor is monthlyBudgetValue (typically the brief's own number): the daily
+// spend is validated against it, and the audience split against the daily
+// spend — whichever leg disagrees with its anchor is the one dropped.
+export function reconcilePaidMediaBudgetCascade(
+  body: PaidMediaPlanBody,
+): PaidMediaPlanBody {
+  const violations = collectPaidMediaBudgetCascadeViolations(body);
+
+  if (violations.length === 0) {
+    return body;
+  }
+
+  console.warn(
+    "[paid-media-plan] budget cascade did not reconcile; dropping offending numeric siblings",
+    { messages: violations.map((violation) => violation.message) },
+  );
+
+  const dropDailySpend = violations.some(
+    (violation) => violation.kind === "daily-vs-monthly",
+  );
+  const dropAudienceBudgets = violations.some(
+    (violation) => violation.kind === "audience-sum",
+  );
+  const phaseIndexesToDrop = new Set(
+    violations.flatMap((violation) =>
+      violation.kind === "phase-exceeds-monthly" ? [violation.phaseIndex] : [],
+    ),
+  );
+
+  const campaignOverview = dropDailySpend
+    ? (() => {
+        const { dailySpendValue: _dropped, ...rest } = body.campaignOverview;
+        return { ...rest, dailySpendProvenance: "unknown" };
+      })()
+    : body.campaignOverview;
+  const audienceTypes = dropAudienceBudgets
+    ? body.audienceTypes.map((audience) => {
+        const { dailyBudgetValue: _dropped, ...rest } = audience;
+        return { ...rest, dailyBudgetProvenance: "unknown" };
+      })
+    : body.audienceTypes;
+  const campaignPhases = body.campaignPhases.map((phase, phaseIndex) => {
+    if (!phaseIndexesToDrop.has(phaseIndex)) {
+      return phase;
+    }
+
+    const { monthlyBudgetValue: _dropped, ...rest } = phase;
+    return { ...rest, monthlyBudgetProvenance: "unknown" };
+  });
+
+  return { ...body, audienceTypes, campaignOverview, campaignPhases };
 }
 
 // A substantive SOP row names its own plan facts (ICP, KPI, objective,
@@ -1056,6 +1405,18 @@ function isSubstantiveProjectedResultRow(
   );
 }
 
+// Mirrors isSubstantiveProjectedResultRow for the channel table: a row whose
+// recommendation is the normalizer's own placeholder is bookkeeping, not a
+// suggestion — a 100%-placeholder table must fail into repair, never ship
+// (run d838ed4e shipped four verdicts with zero recommendations).
+function isSubstantiveChannelSuggestion(
+  row: PaidMediaPlanBody["channelSuggestions"][number],
+): boolean {
+  const recommendation = row.recommendation.trim();
+
+  return recommendation.length > 0 && !/^evidence gap/i.test(recommendation);
+}
+
 export function validatePaidMediaPlanMinimums(
   artifact: ArtifactEnvelope & { body: PaidMediaPlanBody },
 ): ValidationResult {
@@ -1072,6 +1433,22 @@ export function validatePaidMediaPlanMinimums(
       `body.projectedResults: need >=1 substantive SOP row (own-plan targetIcp/kpi/objective/durationLabel; KPI cost may honestly be unknown), have ${substantiveRows.length}.`,
     );
   }
+
+  const substantiveChannelRows = parsed.body.channelSuggestions.filter(
+    isSubstantiveChannelSuggestion,
+  );
+
+  if (substantiveChannelRows.length < 1) {
+    errors.push(
+      `body.channelSuggestions: need >=1 substantive recommendation (a verdict with an "Evidence gap:" placeholder recommendation does not count), have ${substantiveChannelRows.length}.`,
+    );
+  }
+
+  errors.push(
+    ...collectPaidMediaBudgetCascadeViolations(parsed.body).map(
+      (violation) => violation.message,
+    ),
+  );
 
   return { ok: errors.length === 0, errors };
 }

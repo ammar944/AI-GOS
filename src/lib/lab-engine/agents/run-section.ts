@@ -4120,7 +4120,10 @@ function withNormalizedMarketCategoryOutput(rawOutput: unknown): unknown {
   };
 }
 
-function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
+function withNormalizedPaidMediaPlanOutput(
+  rawOutput: unknown,
+  onboarding?: ResearchInput["onboarding"],
+): unknown {
   const outputRecord = getRecord(rawOutput);
 
   if (outputRecord === null) {
@@ -4140,12 +4143,24 @@ function withNormalizedPaidMediaPlanOutput(rawOutput: unknown): unknown {
       stringKeys: ["title", "url", "publisher"],
       value: outputRecord.sources,
     }),
-    body: normalizePaidMediaPlanBody(bodyRecord),
+    // Brief-derived context for the single-writer paid-media math: the
+    // target CAC bridges SOP projected-results rows whose KPI cost is
+    // honestly unknown, and creativeCapacity keys the computed creative
+    // counts. Both are code-owned — the model's values never survive.
+    body: normalizePaidMediaPlanBody(bodyRecord, {
+      ...(onboarding?.creativeCapacity === undefined
+        ? {}
+        : { creativeCapacity: onboarding.creativeCapacity }),
+      ...(onboarding?.economics?.targetCac === undefined
+        ? {}
+        : { targetCac: onboarding.economics.targetCac }),
+    }),
   };
 }
 
 function withNormalizedSectionOutput({
   normalizedAdEvidenceGroups,
+  onboarding,
   rawOutput,
   sectionId,
   subjectCompanyName,
@@ -4153,6 +4168,7 @@ function withNormalizedSectionOutput({
 }: {
   rawOutput: unknown;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  onboarding?: ResearchInput["onboarding"];
   sectionId: SectionId;
   subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
@@ -4178,7 +4194,7 @@ function withNormalizedSectionOutput({
   }
 
   if (sectionId === "positioningPaidMediaPlan") {
-    return withNormalizedPaidMediaPlanOutput(outputWithAdEvidence);
+    return withNormalizedPaidMediaPlanOutput(outputWithAdEvidence, onboarding);
   }
 
   return outputWithAdEvidence;
@@ -4978,6 +4994,7 @@ async function callStructuredAttempt({
       withNormalizedSectionOutput({
         rawOutput,
         normalizedAdEvidenceGroups,
+        onboarding: researchInput.onboarding,
         sectionId: input.sectionId,
         subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
@@ -7333,6 +7350,7 @@ async function buildAnswerToolAttempt({
         rawOutput: answerInput,
         sectionId: input.sectionId,
         normalizedAdEvidenceGroups,
+        onboarding: researchInput.onboarding,
         subjectCompanyName: researchInput.company.name,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
@@ -7400,6 +7418,7 @@ function buildOutputFromStructuredBody({
   definition,
   input,
   normalizedAdEvidenceGroups,
+  onboarding,
   subjectCompanyName,
   subjectWebsiteUrl,
 }: {
@@ -7407,6 +7426,7 @@ function buildOutputFromStructuredBody({
   definition: RuntimeSectionDefinition;
   input: RunSectionInput;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  onboarding?: ResearchInput["onboarding"];
   subjectCompanyName?: string;
   subjectWebsiteUrl?: string;
 }): SectionOutput<Record<string, unknown>> {
@@ -7443,6 +7463,7 @@ function buildOutputFromStructuredBody({
   const normalizedOutput = withNormalizedSectionOutput({
     rawOutput: authoredOutput,
     normalizedAdEvidenceGroups,
+    onboarding,
     sectionId: input.sectionId,
     subjectCompanyName,
     subjectWebsiteUrl,
@@ -7634,6 +7655,7 @@ async function buildStructuredBodyAttempt({
       definition,
       input,
       normalizedAdEvidenceGroups,
+      onboarding: researchInput.onboarding,
       subjectCompanyName: researchInput.company.name,
       subjectWebsiteUrl: researchInput.company.websiteUrl,
     });

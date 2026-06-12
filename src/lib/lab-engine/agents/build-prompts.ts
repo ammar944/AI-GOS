@@ -442,6 +442,15 @@ export function buildOnboardingStrategicFrame(
     onboarding.leadListAvailable === undefined
       ? null
       : `Lead list available: ${String(onboarding.leadListAvailable)}.`,
+    // Supplied sales assets must reach the model — without these lines the
+    // paid-media salesProcess block can never be anything but its gap row,
+    // even when the client uploaded docs (RC-D).
+    ...(onboarding.salesProcessDocs ?? []).map(
+      (doc) => `Sales process doc supplied: ${doc.label} (${doc.url}).`,
+    ),
+    onboarding.salesLoomUrl === undefined
+      ? null
+      : `Sales process Loom walkthrough supplied: ${onboarding.salesLoomUrl}.`,
   ].filter((line): line is string => line !== null);
   const economics = onboarding.economics;
 

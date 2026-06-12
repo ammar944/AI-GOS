@@ -77,6 +77,17 @@ function buildScopedResearchInput(): ResearchInput {
     ...saaslaunchResearchInput,
     onboarding: {
       ...saaslaunchResearchInput.onboarding,
+      salesProcessDocs: [
+        {
+          label: "Sales Process Overview",
+          url: "https://example.com/sales-process.pdf",
+        },
+        {
+          label: "SDR Opt-In Flow",
+          url: "https://example.com/sdr-opt-in.pdf",
+        },
+      ],
+      salesLoomUrl: "https://www.loom.com/share/sales-walkthrough",
       economics: {
         targetCac: "$4,500",
         avgLtv: "$18,000",
@@ -194,6 +205,27 @@ describe("buildAnswerToolInstructions", (): void => {
     expect(frame).toContain("sets the paid-learning efficiency boundary");
     expect(frame).not.toContain('"economics"');
     expect(frame).not.toContain("{");
+  });
+
+  it("surfaces supplied sales assets in the strategic frame (label + url each)", (): void => {
+    const frame = buildOnboardingStrategicFrame(buildScopedResearchInput());
+
+    expect(frame).toContain(
+      "Sales process doc supplied: Sales Process Overview (https://example.com/sales-process.pdf).",
+    );
+    expect(frame).toContain(
+      "Sales process doc supplied: SDR Opt-In Flow (https://example.com/sdr-opt-in.pdf).",
+    );
+    expect(frame).toContain(
+      "Sales process Loom walkthrough supplied: https://www.loom.com/share/sales-walkthrough.",
+    );
+  });
+
+  it("omits sales-asset lines when the brief supplied none", (): void => {
+    const frame = buildOnboardingStrategicFrame(saaslaunchResearchInput);
+
+    expect(frame).not.toContain("Sales process doc supplied:");
+    expect(frame).not.toContain("Sales process Loom walkthrough supplied:");
   });
 
   it("adds shared capability-gap guidance only when tools are available", (): void => {

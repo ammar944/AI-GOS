@@ -345,7 +345,8 @@ export const paidMediaPlanFixtureArtifact: PaidMediaPlanArtifact = {
         durationLabel: "Months 3-4",
         phaseMonthlyBudgetValue: 9000,
         phaseMonthlyBudgetProvenance: "user-supplied",
-        marginOfErrorPercent: 20,
+        // No projectedCountValue -> no marginOfErrorPercent: the SOP ±20%
+        // only qualifies a count that exists.
         sourceSection: "positioningBuyerICP",
       },
     ],
