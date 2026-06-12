@@ -83,7 +83,7 @@ const intentSignalSchema = z
     signalType: z.enum(signalTypes),
     description: z.string().min(1),
     sourceUrl: z.string().min(1),
-    exampleCompany: z.string().min(1).optional(),
+    exampleCompany: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
