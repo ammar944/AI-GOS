@@ -41,7 +41,14 @@ function isAnthropicModel(model: SectionLanguageModel): boolean {
 export function getAnswerToolInputSchemaMode(
   model: SectionLanguageModel,
 ): AnswerToolInputSchemaMode {
-  return isAnthropicModel(model) ? "loose-passthrough" : "section-schema";
+  // Always loose: when the tool inputSchema is the full section schema, the
+  // AI SDK validates the input BEFORE execute() runs, so a shape violation
+  // throws at the SDK boundary and neither tolerantDecode nor the
+  // __answerRejected feedback protocol ever sees the call. Proven live on the
+  // run f3993043 reruns (salesProcess too_big surfaced as a raw ZodError).
+  // Schema guidance still reaches the model through the section prompt.
+  void isAnthropicModel;
+  return "loose-passthrough";
 }
 
 function getAnswerToolInputSchema<TSchema extends z.ZodType<unknown>>({

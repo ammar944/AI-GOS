@@ -972,7 +972,9 @@ function normalizeSalesProcessAssets(
     ];
   }
 
-  return assets.map(normalizeSalesAsset);
+  // Ceiling clamp mirrors funnelIdeation/channelSuggestions/kpis: overshoot
+  // truncates (schema max 4), never rejects (live kill on run f3993043 rerun).
+  return assets.slice(0, 4).map(normalizeSalesAsset);
 }
 
 function normalizeCompetitorMarketingInsight(

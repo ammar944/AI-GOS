@@ -50,12 +50,12 @@ describe("getAnswerToolInputSchemaMode", (): void => {
     );
   });
 
-  it("uses the full section schema for DeepSeek providers", (): void => {
+  it("keeps loose passthrough for DeepSeek providers too — SDK-level inputSchema validation throws before execute(), bypassing tolerantDecode and the __answerRejected protocol (live kill, run f3993043 reruns)", (): void => {
     expect(getAnswerToolInputSchemaMode(createModel("deepseek.chat"))).toBe(
-      "section-schema",
+      "loose-passthrough",
     );
     expect(getAnswerToolInputSchemaMode(createModel("ollama.chat"))).toBe(
-      "section-schema",
+      "loose-passthrough",
     );
   });
 });
@@ -76,18 +76,15 @@ describe("createAnswerTool", (): void => {
     });
   });
 
-  it("binds DeepSeek inputSchema to the full section schema while keeping execute validation", async (): Promise<void> => {
+  it("keeps DeepSeek inputSchema loose so the SDK never pre-validates and execute owns rejection feedback", async (): Promise<void> => {
     const tool = createAnswerTool(sectionSchema, {
       model: createModel("deepseek.chat"),
       sectionId: "positioningMarketCategory",
     });
 
     expect(getZodInputSchema(tool).safeParse({ unexpected: true }).success).toBe(
-      false,
+      true,
     );
-    expect(
-      getZodInputSchema(tool).safeParse({ sectionTitle: "Market" }).success,
-    ).toBe(true);
     await expect(executeAnswerTool(tool, {})).resolves.toMatchObject({
       __answerRejected: true,
       issues: ["sectionTitle: Invalid input: expected string, received undefined"],
