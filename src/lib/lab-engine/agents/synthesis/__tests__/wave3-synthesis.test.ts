@@ -300,6 +300,46 @@ describe("Wave 3 synthesis layer", (): void => {
     );
   });
 
+  it("includes the run-level evidence pool in the executive memo prompt", async (): Promise<void> => {
+    const sections = [
+      {
+        body: { keyFindings: ["Demand exists."] },
+        sectionId: "positioningDemandIntent",
+        sectionTitle: "Demand",
+        statusSummary: "Demand exists.",
+        verdict: "Proceed carefully.",
+      },
+    ];
+    let capturedPrompt = "";
+    const result = await runExecutiveBrief({
+      callStructured: async (params) => {
+        capturedPrompt = params.prompt;
+        return {
+          assumptionsToConfirm: [],
+          decisions: [
+            baseDecision("Publish the comparison page."),
+            baseDecision("Confirm the funnel."),
+            baseDecision("Measure trial quality."),
+          ],
+          thesis: "The report supports a cautious demand capture thesis.",
+        };
+      },
+      companyName: "Airtable",
+      companyWebsiteUrl: "https://airtable.com",
+      conflicts: [],
+      evidencePoolBlock:
+        "Run-level evidence pool for executive memo\nEvidence 1: corpusExcerpt",
+      model: {} as never,
+      sections,
+    });
+
+    expect(result.thesis).toContain("cautious demand capture");
+    expect(capturedPrompt).toContain("RUN-LEVEL EVIDENCE POOL:");
+    expect(capturedPrompt).toContain(
+      "Run-level evidence pool for executive memo",
+    );
+  });
+
   it("renders a memo with one required section absent and records the absence in the appendix ledger", async (): Promise<void> => {
     const sections = [
       {

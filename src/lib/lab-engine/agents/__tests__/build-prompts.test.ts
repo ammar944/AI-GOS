@@ -7,11 +7,16 @@ import { SECTION_REGISTRY } from "@/lib/lab-engine/sections/section-registry";
 import {
   buildAnswerToolInstructions,
   buildClientIdentityPin,
+  buildEvidenceTranscript,
   buildOnboardingStrategicFrame,
   buildRepairPrompt,
   buildSectionObjectiveRecap,
   buildStructuredBodyPrompt,
   buildStructuredPrompt,
+  buildStructurerPrompt,
+  buildThinkerPrompt,
+  STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT,
+  STRUCTURER_NO_NEW_FACTS_RULE,
   type PromptSectionDefinition,
 } from "../build-prompts";
 
@@ -552,6 +557,74 @@ describe("buildStructuredBodyPrompt", (): void => {
     );
     expect(prompt).not.toContain("Return ONLY the section body object.");
     expect(prompt).not.toContain("Do not include `sectionTitle`, `verdict`, `statusSummary`");
+  });
+});
+
+describe("buildThinkerPrompt", (): void => {
+  it("asks the thinker for prose analysis instead of schema output", (): void => {
+    const prompt = buildThinkerPrompt({
+      definition,
+      evidencePoolBlock: "Run-level evidence pool\nEvidence from corpus.",
+      externalToolNames: [],
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use section-specific market guidance.",
+    });
+
+    expect(prompt).toContain("Return plain prose analysis only");
+    expect(prompt).toContain("Do not return JSON");
+    expect(prompt).toContain("Do not write the final JSON");
+    expect(prompt).toContain("Run-level evidence pool");
+    expect(prompt).toContain(buildClientIdentityPin(saaslaunchResearchInput));
+    expect(prompt).not.toContain("Required JSON root shape:");
+    expect(prompt).not.toContain(STRUCTURER_NO_NEW_FACTS_RULE);
+  });
+});
+
+describe("buildStructurerPrompt", (): void => {
+  it("binds structuring to the thinker analysis and evidence pool", (): void => {
+    const prompt = buildStructurerPrompt({
+      definition,
+      evidencePoolBlock: "Run-level evidence pool\nEvidence from corpus.",
+      externalToolNames: [],
+      researchInput: saaslaunchResearchInput,
+      skillMd: "Use section-specific market guidance.",
+      thinkerAnalysis:
+        "The category argument is anchored in sourced lifecycle orchestration evidence.",
+    });
+
+    expect(prompt).toContain(STRUCTURER_NO_NEW_FACTS_RULE);
+    expect(prompt).toContain("Thinker analysis:");
+    expect(prompt).toContain(
+      "The category argument is anchored in sourced lifecycle orchestration evidence.",
+    );
+    expect(prompt).toContain("Run-level evidence pool");
+    expect(prompt).toContain("Required JSON root shape:");
+  });
+});
+
+describe("buildEvidenceTranscript", (): void => {
+  it("keeps the expanded 48k character evidence window", (): void => {
+    const transcript = buildEvidenceTranscript([
+      {
+        finishReason: "stop",
+        stepNumber: 1,
+        text: "x".repeat(20_000),
+        toolCalls: [],
+        toolResults: [],
+      },
+      {
+        finishReason: "stop",
+        stepNumber: 2,
+        text: "y".repeat(20_000),
+        toolCalls: [],
+        toolResults: [],
+      },
+    ]);
+
+    expect(STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT).toBe(48_000);
+    expect(transcript).toContain("x".repeat(1_000));
+    expect(transcript).toContain("y".repeat(1_000));
+    expect(transcript).not.toContain("...truncated...");
   });
 });
 

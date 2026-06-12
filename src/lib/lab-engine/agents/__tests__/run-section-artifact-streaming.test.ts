@@ -7,6 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ResearchInput } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import type { MarketCategorySectionOutput } from '@/lib/lab-engine/artifacts/schemas/market-category';
 import type { VoiceOfCustomerSectionOutput } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
+import type {
+  EvidencePoolStore,
+  EvidencePoolStoreWriteInput,
+} from '@/lib/lab-engine/evidence/evidence-pool';
 import type { SectionId } from '@/lib/lab-engine/events/activity-event';
 import { marketCategoryFixtureArtifact } from '@/lib/lab-engine/fixtures/market-category-artifact';
 import { voiceOfCustomerFixtureArtifact } from '@/lib/lab-engine/fixtures/voice-of-customer-artifact';
@@ -20,7 +24,7 @@ import {
   type SectionPartialsByZone,
 } from '@/lib/research-v2/use-section-partials';
 
-import { runSection } from '../run-section';
+import { runSection, type SectionThinkerPassRunner } from '../run-section';
 import type { AnswerToolRunner, StructuredStreamer } from '../section-agent';
 
 async function makeStore(
@@ -166,6 +170,26 @@ function emitFixtureEvidenceStep(
   });
 }
 
+function createMemoryEvidencePoolStore(): {
+  artifactData: () => Record<string, unknown>;
+  store: EvidencePoolStore;
+} {
+  let artifactData: Record<string, unknown> = {};
+
+  return {
+    artifactData: () => artifactData,
+    store: {
+      readArtifactData: async (): Promise<unknown> => artifactData,
+      writeArtifactData: async ({
+        data,
+      }: EvidencePoolStoreWriteInput): Promise<unknown> => {
+        artifactData = data;
+        return artifactData;
+      },
+    },
+  };
+}
+
 
 function collapseSourceUrls(
   value: Record<string, unknown>,
@@ -263,10 +287,12 @@ function buildSaaslaunchInputWithVoiceOfCustomerCandidates(): ResearchInput {
 describe('runSection artifact streaming path', (): void => {
   beforeEach((): void => {
     vi.stubGlobal('fetch', sourceLivenessUnavailableFetch);
+    vi.stubEnv('LAB_THINKER_MODE', 'off');
   });
 
   afterEach((): void => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('streams partial bodies but gates only the final validated output', async (): Promise<void> => {
@@ -366,6 +392,62 @@ describe('runSection artifact streaming path', (): void => {
     expect(record.events.map((event) => event.type)).not.toContain(
       'artifact-partial' as never,
     );
+  });
+
+  it('feeds thinker prose and the evidence pool into the structurer prompt', async (): Promise<void> => {
+    const store = await makeStore();
+    const pool = createMemoryEvidencePoolStore();
+    const runThinkerPass = vi.fn<SectionThinkerPassRunner>(async (params) => {
+      expect(params.maxOutputTokens).toBe(12_288);
+      expect(params.prompt).toContain('Return plain prose analysis only');
+      expect(params.prompt).toContain('Run-level evidence pool');
+      expect(params.prompt).not.toContain('Required JSON root shape:');
+
+      return [
+        'Thinker analysis:',
+        'SaaSLaunch should frame the market as lifecycle orchestration based on sourced corpus evidence.',
+        'Use https://example.com/lifecycle as the supporting reference.',
+      ].join('\n');
+    });
+    const streamStructured = vi.fn<StructuredStreamer>((params) => {
+      expect(params.prompt).toContain(
+        'Extract and organize the analysis into the schema. You may REORGANIZE and TRIM; you may NOT add facts, numbers, names, or URLs that are not in the analysis or evidence pool.',
+      );
+      expect(params.prompt).toContain(
+        'SaaSLaunch should frame the market as lifecycle orchestration',
+      );
+      expect(params.prompt).toContain('Run-level evidence pool');
+      expect(params.prompt).toContain('corpusExcerpt');
+      emitFixtureEvidenceStep(params);
+
+      return {
+        consumeStream: () => Promise.resolve(),
+        output: Promise.resolve(buildMarketCategoryDraft()),
+        partialOutputStream: partials([]),
+      };
+    });
+
+    await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningMarketCategory',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use research-first thinker output.',
+        allowedTools: [],
+        env: { LAB_THINKER_MODE: 'pro' },
+        evidencePoolStore: pool.store,
+        parentAuditRunId: 'parent-1',
+        runThinkerPass,
+        streamStructured,
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+      },
+    );
+
+    expect(runThinkerPass).toHaveBeenCalledTimes(1);
+    expect(streamStructured).toHaveBeenCalledTimes(1);
+    expect(pool.artifactData()).toHaveProperty('wave6EvidencePool');
   });
 
   it('counts authored VoC draft sources before body-harvested source URLs', async (): Promise<void> => {

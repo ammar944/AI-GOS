@@ -241,6 +241,11 @@ describe('scheduleLabSectionJob', () => {
     expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
     expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledWith({
       deadlineAt: expect.any(Number),
+      evidencePoolStore: expect.objectContaining({
+        readArtifactData: expect.any(Function),
+        writeArtifactData: expect.any(Function),
+      }),
+      parentAuditRunId: PARENT_ID,
       runId: RUN_ID,
       sectionId: SECTION_ID,
       signal: expect.any(AbortSignal),

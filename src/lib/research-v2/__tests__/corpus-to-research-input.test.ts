@@ -5,6 +5,7 @@ import {
   buildCompetitorSeeds,
   corpusToResearchInput,
 } from "../corpus-to-research-input";
+import { MAX_UPLOADED_DOCUMENT_EXCERPT_CHARS } from "../uploaded-document-context";
 
 const observedAt = new Date("2026-05-25T12:00:00.000Z");
 
@@ -197,6 +198,33 @@ describe("corpusToResearchInput", (): void => {
         }),
       ]),
     );
+  });
+
+  it("keeps the expanded uploaded-document corpus excerpt window", (): void => {
+    const longText = "buyer evidence ".repeat(3_000);
+    const input = corpusToResearchInput({
+      ...corpusFixture,
+      uploadedDocuments: [
+        {
+          id: "doc_long",
+          fileName: "long-brief.md",
+          docKind: "client_briefing",
+          sectionTags: [],
+          tokenCount: 12_000,
+          parsedMarkdown: longText,
+        },
+      ],
+      now: () => observedAt,
+    });
+
+    const parsed = researchInputSchema.parse(input);
+    const uploadedExcerpt = parsed.corpus.excerpts.find(
+      (excerpt) => excerpt.id === "excerpt_uploaded_long-brief-md_1",
+    );
+
+    expect(MAX_UPLOADED_DOCUMENT_EXCERPT_CHARS).toBe(48_000);
+    expect(uploadedExcerpt?.text.length).toBeGreaterThan(12_000);
+    expect(uploadedExcerpt?.text).not.toContain("[truncated]");
   });
 
   it("attributes evidence excerpts to evidence URLs missing from corpus sources", (): void => {

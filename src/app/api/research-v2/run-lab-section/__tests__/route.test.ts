@@ -625,6 +625,11 @@ describe('POST /api/research-v2/run-lab-section', () => {
       sectionId: 'positioningBuyerICP',
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
+      parentAuditRunId: PARENT_ID,
+      evidencePoolStore: expect.objectContaining({
+        readArtifactData: expect.any(Function),
+        writeArtifactData: expect.any(Function),
+      }),
     });
   });
 
@@ -740,6 +745,11 @@ describe('POST /api/research-v2/run-lab-section', () => {
       sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
+      parentAuditRunId: PARENT_ID,
+      evidencePoolStore: expect.objectContaining({
+        readArtifactData: expect.any(Function),
+        writeArtifactData: expect.any(Function),
+      }),
     });
   });
 
@@ -1273,6 +1283,11 @@ describe('POST /api/research-v2/run-lab-section', () => {
       sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
+      parentAuditRunId: PARENT_ID,
+      evidencePoolStore: expect.objectContaining({
+        readArtifactData: expect.any(Function),
+        writeArtifactData: expect.any(Function),
+      }),
     });
   });
 
@@ -1328,6 +1343,11 @@ describe('POST /api/research-v2/run-lab-section', () => {
       sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       signal: expect.any(AbortSignal),
       store: routeMocks.store,
+      parentAuditRunId: PARENT_ID,
+      evidencePoolStore: expect.objectContaining({
+        readArtifactData: expect.any(Function),
+        writeArtifactData: expect.any(Function),
+      }),
     });
   });
 });

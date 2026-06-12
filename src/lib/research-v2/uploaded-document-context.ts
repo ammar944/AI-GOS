@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const MAX_UPLOADED_DOCUMENT_CONTEXT_CHARS = 30_000;
-export const MAX_UPLOADED_DOCUMENT_EXCERPT_CHARS = 12_000;
+export const MAX_UPLOADED_DOCUMENT_EXCERPT_CHARS = 48_000;
 
 export const uploadedDocumentReferenceSchema = z
   .object({

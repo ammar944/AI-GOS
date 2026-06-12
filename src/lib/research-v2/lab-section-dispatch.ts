@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import type { ResearchInput } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import {
+  createResearchArtifactsEvidencePoolStore,
+  type SupabaseEvidencePoolClient,
+} from '@/lib/lab-engine/evidence/evidence-pool';
 import type { SupportedSectionId } from '@/lib/lab-engine/sections/section-registry';
 import { runLabSectionJob } from '@/lib/research-v2/lab-section-job';
 import {
@@ -106,6 +110,9 @@ export async function scheduleLabSectionJob(
       ? {}
       : { reviewDispatch: input.reviewDispatch }),
   });
+  const evidencePoolStore = createResearchArtifactsEvidencePoolStore(
+    input.supabase as unknown as SupabaseEvidencePoolClient,
+  );
 
   await store.createRun(input.researchInput);
 
@@ -124,6 +131,8 @@ export async function scheduleLabSectionJob(
         runId: input.runId,
         sectionId: input.sectionId,
         deadlineAt,
+        evidencePoolStore,
+        parentAuditRunId: seeded.parent_audit_run_id,
         signal: controller.signal,
         store,
       });

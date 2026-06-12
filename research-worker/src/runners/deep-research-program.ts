@@ -19,7 +19,6 @@ const DEFAULT_DEEP_RESEARCH_MODEL = 'sonar-pro';
 // corpus in ~100s (job timelines 2026-06-10).
 const DEFAULT_DEEP_RESEARCH_MAIN_MODEL = 'sonar-pro';
 const DEEP_RESEARCH_AGENTIC_MODEL_PREFIX = 'sonar-deep-research';
-const DEFAULT_DEEP_RESEARCH_REASONING_EFFORT = 'low';
 const FALLBACK_DEEP_RESEARCH_MODEL = 'sonar';
 const DEFAULT_DEEP_RESEARCH_MAX_TOKENS = 20000;
 // Per-call cap for the main corpus call. Must stay well under the worker's
@@ -29,6 +28,10 @@ const DEFAULT_DEEP_RESEARCH_REPAIR_TIMEOUT_MS = 120000;
 const DEFAULT_DEEP_RESEARCH_REPAIR_MAX_TOKENS = 12000;
 const DEEP_RESEARCH_BACKFILL_TIMEOUT_MS = 60000;
 const DEEP_RESEARCH_BACKFILL_MAX_TOKENS = 4000;
+const DEEP_RESEARCH_MEMO_MODEL = 'sonar-deep-research';
+const DEEP_RESEARCH_MEMO_TIMEOUT_MS = 240000;
+const DEEP_RESEARCH_MEMO_MAX_TOKENS = 6000;
+const DEEP_RESEARCH_MEMO_QUOTE_CHAR_LIMIT = 6000;
 const MINIMUM_CITED_SOURCES = 10;
 const MINIMUM_GROUNDED_EVIDENCE = 16;
 const MINIMUM_INTELLIGENCE_TOPICS = 6;
@@ -422,6 +425,16 @@ function getDeepResearchRepairMaxTokens(): number {
   );
 }
 
+function buildLowReasoningPerplexityOptions(): {
+  perplexity: { reasoning_effort: 'low' };
+} {
+  return {
+    perplexity: {
+      reasoning_effort: 'low',
+    },
+  };
+}
+
 /**
  * sonar-deep-research runs an agentic multi-search pass server-side; without
  * an explicit effort cap it defaults to medium/high and takes minutes (the
@@ -435,14 +448,7 @@ function buildPerplexityCallOptions(
     return undefined;
   }
 
-  return {
-    perplexity: {
-      reasoning_effort: readEnvString(
-        'RESEARCH_DEEP_PROGRAM_REASONING_EFFORT',
-        DEFAULT_DEEP_RESEARCH_REASONING_EFFORT,
-      ),
-    },
-  };
+  return buildLowReasoningPerplexityOptions();
 }
 
 function countUsableOnboardingFields(result: Record<string, unknown>): number {
@@ -1125,6 +1131,31 @@ CONFIRMED CONTEXT
 ${input.context}`;
 }
 
+function buildCrossSectionDeepResearchMemoPrompt(input: {
+  context: string;
+  existingSources: readonly CapturedDeepResearchSource[];
+}): string {
+  return `Today is ${new Date().toISOString().slice(0, 10)}.
+
+Run one additive cross-section research pass for this company corpus.
+
+TASK
+Write a cited research memo that downstream GTM sections can reuse. Focus on the strongest source-backed facts across category, buyer, competitors, voice of customer, demand, offer/pricing, and recent events.
+
+RULES
+- This is additive research after the primary sonar-pro corpus. Do not repeat generic homepage summary.
+- Use current web evidence and cite claims inline with source URLs.
+- Do not invent market size, pricing, search volume, customer quotes, competitor claims, people, or named communities.
+- If a topic is not publicly supported, state the evidence gap plainly.
+- Return prose only. Do not return JSON.
+
+ALREADY CAPTURED URLS
+${formatCapturedSources(input.existingSources)}
+
+CONFIRMED CONTEXT
+${input.context}`;
+}
+
 function evidenceIdentity(evidence: DeepResearchEvidence): string {
   const url = normalizeUrl(evidence.url) ?? evidence.url;
 
@@ -1228,6 +1259,63 @@ function mergeTopicSupplementIntoCorpus(
       ),
     },
   };
+}
+
+function getFirstUsableMemoSource(
+  sources: readonly CapturedDeepResearchSource[],
+): CapturedDeepResearchSource | null {
+  return (
+    sources.find((source) => {
+      const normalizedUrl = normalizeUrl(source.url);
+
+      return normalizedUrl !== null && !isFabricatedUrl(normalizedUrl);
+    }) ?? null
+  );
+}
+
+function truncateMemoText(value: string): string {
+  const trimmed = value.trim();
+
+  if (trimmed.length <= DEEP_RESEARCH_MEMO_QUOTE_CHAR_LIMIT) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, DEEP_RESEARCH_MEMO_QUOTE_CHAR_LIMIT)}\n[truncated from sonar-deep-research memo]`;
+}
+
+function appendCrossSectionDeepResearchMemo(input: {
+  memoText: string;
+  parsed: DeepResearchCorpusOutput;
+  sources: readonly CapturedDeepResearchSource[];
+}): DeepResearchCorpusOutput {
+  const source = getFirstUsableMemoSource(input.sources);
+  const memoText = truncateMemoText(input.memoText);
+
+  if (source === null || memoText.length === 0) {
+    return input.parsed;
+  }
+
+  const withSources = mergeProviderSourcesIntoCorpus(
+    input.parsed,
+    input.sources,
+  );
+  const memoEvidence: DeepResearchEvidence = {
+    claim:
+      'sonar-deep-research produced a cited cross-section research memo for downstream GTM section drafting.',
+    source: source.title,
+    url: source.url,
+    quote: memoText,
+    confidence: 80,
+  };
+  const withMemo = {
+    ...withSources,
+    corpus: {
+      ...withSources.corpus,
+      evidence: dedupeEvidence([...withSources.corpus.evidence, memoEvidence]),
+    },
+  };
+
+  return stripUncitedCorpusEntries(withMemo, input.sources);
 }
 
 // Normalize the model's competitor list into a clean comma-separated list of
@@ -1779,6 +1867,91 @@ async function generateTopicSupplement(input: {
   };
 }
 
+async function enrichCorpusWithDeepResearchMemo(input: {
+  apiKey: string;
+  context: string;
+  generated: GeneratedSonarCorpus;
+  onProgress?: RunnerProgressReporter;
+  abortSignal?: AbortSignal;
+}): Promise<GeneratedSonarCorpus> {
+  try {
+    await emitRunnerProgress(
+      input.onProgress,
+      'tool',
+      'running additive sonar-deep-research cross-section memo',
+    );
+
+    const perplexity = createPerplexity({ apiKey: input.apiKey });
+    const result = await runWithAbortTimeout(
+      'Deep research cross-section memo',
+      DEEP_RESEARCH_MEMO_TIMEOUT_MS,
+      (signal) =>
+        generateText({
+          model: perplexity(DEEP_RESEARCH_MEMO_MODEL),
+          prompt: buildCrossSectionDeepResearchMemoPrompt({
+            context: input.context,
+            existingSources: input.generated.sources,
+          }),
+          maxOutputTokens: DEEP_RESEARCH_MEMO_MAX_TOKENS,
+          temperature: 0.1,
+          providerOptions: buildLowReasoningPerplexityOptions(),
+          abortSignal: signal,
+        }),
+      input.abortSignal,
+    );
+    const sonarResult = result as SonarGenerationResult;
+    const memoSources = extractSonarSources(sonarResult);
+    if (memoSources.length === 0 || result.text.trim().length === 0) {
+      await emitRunnerProgress(
+        input.onProgress,
+        'analysis',
+        'sonar-deep-research memo returned no cited row to append',
+      );
+      return input.generated;
+    }
+
+    const mergedSources = mergeSources(input.generated.sources, memoSources);
+    const parsed = appendCrossSectionDeepResearchMemo({
+      memoText: result.text,
+      parsed: input.generated.parsed,
+      sources: mergedSources,
+    });
+
+    if (countCorpusRows(parsed) === countCorpusRows(input.generated.parsed)) {
+      await emitRunnerProgress(
+        input.onProgress,
+        'analysis',
+        'sonar-deep-research memo returned no cited row to append',
+      );
+      return input.generated;
+    }
+
+    await emitRunnerProgress(
+      input.onProgress,
+      'tool',
+      `sonar-deep-research memo appended from ${memoSources.length} citation source${memoSources.length === 1 ? '' : 's'}`,
+    );
+
+    return {
+      ...input.generated,
+      parsed,
+      rawText: `${input.generated.rawText}\n\n--- sonar-deep-research memo ---\n\n${result.text}`.trim(),
+      sources: mergedSources,
+    };
+  } catch (error) {
+    console.warn('[deep-research-program] additive sonar-deep-research memo failed; continuing with sonar-pro corpus', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await emitRunnerProgress(
+      input.onProgress,
+      'analysis',
+      'sonar-deep-research memo failed — continuing with the sonar-pro corpus',
+    );
+
+    return input.generated;
+  }
+}
+
 async function enrichCorpusWithTopicFanout(input: {
   apiKey: string;
   context: string;
@@ -2215,14 +2388,21 @@ async function generateSonarCorpus(input: {
       );
 
       if (minimums.passed) {
+        const memoEnriched = await enrichCorpusWithDeepResearchMemo({
+          apiKey: input.apiKey,
+          context: input.context,
+          generated: { ...generated, parsed: strippedParsed },
+          onProgress: input.onProgress,
+          abortSignal: input.abortSignal,
+        });
         const backfilledParsed = await backfillNullOnboardingFields({
           apiKey: input.apiKey,
           onProgress: input.onProgress,
-          parsed: strippedParsed,
+          parsed: memoEnriched.parsed,
           abortSignal: input.abortSignal,
         });
 
-        return { ...generated, parsed: backfilledParsed };
+        return { ...memoEnriched, parsed: backfilledParsed };
       }
 
       await emitRunnerProgress(
@@ -2242,14 +2422,21 @@ async function generateSonarCorpus(input: {
         validationErrors: minimums.errors,
         abortSignal: input.abortSignal,
       });
+      const memoEnriched = await enrichCorpusWithDeepResearchMemo({
+        apiKey: input.apiKey,
+        context: input.context,
+        generated: repaired,
+        onProgress: input.onProgress,
+        abortSignal: input.abortSignal,
+      });
       const backfilledParsed = await backfillNullOnboardingFields({
         apiKey: input.apiKey,
         onProgress: input.onProgress,
-        parsed: repaired.parsed,
+        parsed: memoEnriched.parsed,
         abortSignal: input.abortSignal,
       });
 
-      return { ...repaired, parsed: backfilledParsed };
+      return { ...memoEnriched, parsed: backfilledParsed };
     } catch (error) {
       lastError = error;
       console.warn('[deep-research-program] Perplexity corpus model failed', {

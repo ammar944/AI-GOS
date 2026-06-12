@@ -393,6 +393,17 @@ function queueTopicFanoutResults(generateTextMock: GenerateTextMock): void {
   }
 }
 
+function queueDeepResearchMemoResult(generateTextMock: GenerateTextMock): void {
+  generateTextMock.mockResolvedValueOnce({
+    ...(buildGenerateTextResult(
+      { memo: 'Cross-section deep research memo.' },
+      [citationSources[8]!],
+    ) as Record<string, unknown>),
+    text:
+      'Cross-section memo: finance automation demand, buyer proof, offer depth, and approval-workflow evidence remain the strongest reusable facts for downstream sections. Source: https://ramp.com/blog/finance-automation',
+  } as Awaited<ReturnType<typeof generateText>>);
+}
+
 function backfillField(
   value: string | null,
   sourceUrl = 'https://ramp.com/customers',
@@ -580,6 +591,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(corpusFixture) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
@@ -592,7 +604,7 @@ describe('runDeepResearchProgram', () => {
 
     expect(result.status).toBe('complete');
     expect(createPerplexity).toHaveBeenCalledWith({ apiKey: 'test-perplexity-key' });
-    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     const call = generateTextMock.mock.calls[0]?.[0] as {
       model?: { modelId?: string };
       output?: unknown;
@@ -609,11 +621,20 @@ describe('runDeepResearchProgram', () => {
       model?: { modelId?: string };
     };
     expect(fanoutCall.model?.modelId).toBe('sonar-pro');
+    const memoCall = generateTextMock.mock.calls[4]?.[0] as {
+      maxOutputTokens?: number;
+      model?: { modelId?: string };
+      providerOptions?: { perplexity?: { reasoning_effort?: string } };
+    };
+    expect(memoCall.model?.modelId).toBe('sonar-deep-research');
+    expect(memoCall.providerOptions?.perplexity?.reasoning_effort).toBe('low');
+    expect(memoCall.maxOutputTokens).toBeGreaterThan(0);
     expect(generateTextMock.mock.calls[1]?.[0].prompt).toContain('company-market-buyers');
     expect(generateTextMock.mock.calls[2]?.[0].prompt).toContain('competitors-pricing-offer');
     expect(generateTextMock.mock.calls[3]?.[0].prompt).toContain('voc-demand-events');
     expect(result.provenance?.citationCount).toBe(10);
     expect(result.telemetry?.model).toBe('sonar-pro');
+    expect(JSON.stringify(result.data)).toContain('Cross-section memo');
     expect(JSON.stringify(result.data)).toContain('Supplemental offer proof');
     expect(JSON.stringify(result.data)).not.toContain('example.com');
     expect(
@@ -633,6 +654,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(buildCorpusFixture()) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
@@ -652,6 +674,12 @@ describe('runDeepResearchProgram', () => {
     };
     expect(fanoutCall.model?.modelId).toBe('sonar-pro');
     expect(fanoutCall.providerOptions).toBeUndefined();
+    const memoCall = generateTextMock.mock.calls[4]?.[0] as {
+      model?: { modelId?: string };
+      providerOptions?: { perplexity?: { reasoning_effort?: string } };
+    };
+    expect(memoCall.model?.modelId).toBe('sonar-deep-research');
+    expect(memoCall.providerOptions?.perplexity?.reasoning_effort).toBe('low');
   });
 
   it('keeps the corpus when a topic fan-out group fails instead of discarding it', async () => {
@@ -672,6 +700,7 @@ describe('runDeepResearchProgram', () => {
         ) as Awaited<ReturnType<typeof generateText>>,
       );
     }
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
@@ -683,8 +712,8 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    // Main corpus (1) + three fan-out attempts (3) + backfill (1) — no draft retry, no fallback model.
-    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    // Main corpus (1) + three fan-out attempts (3) + additive memo (1) + backfill (1) — no draft retry, no fallback model.
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     expect(result.provenance?.citationCount).toBe(10);
     expect(
       progress.some((update) =>
@@ -726,6 +755,7 @@ describe('runDeepResearchProgram', () => {
         buildGenerateTextResult(corpusFixture, citationSources.slice(0, 4)) as Awaited<ReturnType<typeof generateText>>,
       );
     queueTopicFanoutResults(generateTextMock);
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
@@ -733,7 +763,7 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     expect(result.provenance?.citationCount).toBe(10);
   });
 
@@ -755,6 +785,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(brokenCorpus) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
     const progress: RunnerProgressUpdate[] = [];
 
@@ -767,7 +798,7 @@ describe('runDeepResearchProgram', () => {
 
     expect(result.status).toBe('complete');
     // Stray uncited URLs cost their rows, not the corpus: no repair round runs.
-    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     expect(JSON.stringify(result.data)).not.toContain('https://ramp.com/card');
     expect(
       progress.some((update) => update.message.includes('uncited row')),
@@ -791,6 +822,7 @@ describe('runDeepResearchProgram', () => {
       buildGenerateTextResult(corpusFixture) as Awaited<ReturnType<typeof generateText>>,
     );
     queueTopicFanoutResults(generateTextMock);
+    queueDeepResearchMemoResult(generateTextMock);
     generateTextMock.mockRejectedValueOnce(new Error('backfill unavailable'));
 
     const result = await runDeepResearchProgram(
@@ -798,7 +830,7 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    expect(generateTextMock).toHaveBeenCalledTimes(5);
+    expect(generateTextMock).toHaveBeenCalledTimes(6);
     expect(
       (result.data as DeepResearchCorpusOutput).onboardingFields.topCompetitors.value,
     ).toBeNull();
@@ -832,6 +864,7 @@ describe('runDeepResearchProgram', () => {
     generateTextMock.mockResolvedValueOnce(
       buildGenerateTextResult(secondRepair, []) as Awaited<ReturnType<typeof generateText>>,
     );
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
@@ -839,9 +872,9 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    // main + 3 fan-out + repair + re-repair + one backfill. Repairs must NOT re-run the
+    // main + 3 fan-out + repair + re-repair + additive memo + one backfill. Repairs must NOT re-run the
     // fan-out (that re-bought 4 Perplexity calls per round before the fix).
-    expect(generateTextMock).toHaveBeenCalledTimes(7);
+    expect(generateTextMock).toHaveBeenCalledTimes(8);
     expect(result.provenance?.citationCount).toBe(10);
   });
 
@@ -866,6 +899,7 @@ describe('runDeepResearchProgram', () => {
       ...(buildGenerateTextResult(repairedCorpus) as Record<string, unknown>),
       text: 'I repaired the corpus into the structured output payload.',
     } as Awaited<ReturnType<typeof generateText>>);
+    queueDeepResearchMemoResult(generateTextMock);
     queueBackfillNoopResult(generateTextMock);
 
     const result = await runDeepResearchProgram(
@@ -873,8 +907,8 @@ describe('runDeepResearchProgram', () => {
     );
 
     expect(result.status).toBe('complete');
-    // main + 3 fan-out + a single de-enriched repair round + one backfill.
-    expect(generateTextMock).toHaveBeenCalledTimes(6);
+    // main + 3 fan-out + a single de-enriched repair round + additive memo + one backfill.
+    expect(generateTextMock).toHaveBeenCalledTimes(7);
     expect(result.provenance?.citationCount).toBe(10);
     expect(
       (generateTextMock.mock.calls[4]?.[0] as { output?: unknown }).output,

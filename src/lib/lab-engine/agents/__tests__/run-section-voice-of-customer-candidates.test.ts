@@ -975,8 +975,9 @@ describe('runSection VoC candidate prepass', (): void => {
         firstDraftPrompt = params.prompt;
         fetchCallsBeforeStructured = requestedUrls.length;
         // web_search now attempts Firecrawl /v2/search first (one extra fetch)
-        // before falling back to Brave [A1].
-        expect(fetchCallsBeforeStructured).toBe(7);
+        // before falling back to Brave [A1]; Wave 6 adds the subject-site
+        // observation prepass fetch before drafting.
+        expect(fetchCallsBeforeStructured).toBe(8);
         expect(requestedUrls[0]).toContain('searchapi.io');
         expect(requestedUrls.slice(1, 4)).toEqual(
           expect.arrayContaining([
@@ -1047,7 +1048,7 @@ describe('runSection VoC candidate prepass', (): void => {
     const reviewDiscoveryUrl = decodeURIComponent(requestedUrls[0] ?? '');
 
     expect(streamStructured).toHaveBeenCalled();
-    expect(fetchCallsBeforeStructured).toBe(7);
+    expect(fetchCallsBeforeStructured).toBe(8);
     expect(reviewDiscoveryUrl).toContain('reviews complaints pain points');
     expect(reviewDiscoveryUrl).toContain('site:reddit.com');
     // Prepass firecrawl fetches (3 review scrapes + 1 /v2/search probe +

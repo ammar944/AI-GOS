@@ -24,6 +24,7 @@ export interface PromptSectionDefinition {
 }
 
 export interface AnswerToolInstructionOptions {
+  evidencePoolBlock?: string;
   externalToolNames?: readonly string[];
   inputSchemaMode?: AnswerToolInputSchemaMode;
 }
@@ -44,6 +45,10 @@ const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
   OfferDiagnosticSectionOutput: "positioningOfferDiagnostic",
   PaidMediaPlanSectionOutput: "positioningPaidMediaPlan",
 };
+
+export const STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT = 48_000;
+export const STRUCTURER_NO_NEW_FACTS_RULE =
+  "Extract and organize the analysis into the schema. You may REORGANIZE and TRIM; you may NOT add facts, numbers, names, or URLs that are not in the analysis or evidence pool.";
 
 interface CompactAdEvidenceCreative {
   body: string | null;
@@ -207,7 +212,7 @@ export function shortenForEvent(value: unknown, maxChars = 180): string {
 }
 
 export function buildEvidenceTranscript(steps: AgentStep[]): string {
-  const maxChars = 12_000;
+  const maxChars = STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT;
   const blocks = steps.map((step) =>
     [
       `[step ${step.stepNumber} finish=${step.finishReason}]`,
@@ -230,6 +235,20 @@ export function buildEvidenceTranscript(steps: AgentStep[]): string {
   }
 
   return `...truncated...\n${joined.slice(-maxChars)}`;
+}
+
+function buildEvidencePoolPromptBlock(
+  evidencePoolBlock: string | undefined,
+): string[] {
+  if (evidencePoolBlock === undefined || evidencePoolBlock.trim().length === 0) {
+    return [];
+  }
+
+  return [
+    "Evidence pool:",
+    evidencePoolBlock,
+    "",
+  ];
 }
 
 function formatToolResultForTranscript(
@@ -636,6 +655,7 @@ function buildReaderContract(definition: PromptSectionDefinition): string[] {
 
 export function buildStructuredPrompt({
   definition,
+  evidencePoolBlock,
   evidenceTranscript,
   externalToolNames,
   normalizedAdEvidenceGroups,
@@ -643,6 +663,7 @@ export function buildStructuredPrompt({
   skillMd,
 }: {
   definition: PromptSectionDefinition;
+  evidencePoolBlock?: string;
   evidenceTranscript: string;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
@@ -662,6 +683,7 @@ export function buildStructuredPrompt({
     "Evidence from the loop:",
     evidenceTranscript,
     "",
+    ...buildEvidencePoolPromptBlock(evidencePoolBlock),
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     buildClientIdentityPin(researchInput),
     "",
@@ -684,6 +706,159 @@ export function buildStructuredPrompt({
     buildRootShapeGuidance(),
     "",
     "Produce the section output strictly matching the schema. The runner will wrap it into the envelope.",
+  ].join("\n");
+}
+
+export function buildThinkerPrompt({
+  brandedKeywordCandidateBlock,
+  buyerPersonaCandidateBlock,
+  competitorReviewCandidateBlock,
+  definition,
+  evidencePoolBlock,
+  externalToolNames,
+  normalizedAdEvidenceGroups,
+  researchInput,
+  skillMd,
+  voiceOfCustomerCandidateBlock,
+}: {
+  brandedKeywordCandidateBlock?: string;
+  buyerPersonaCandidateBlock?: string;
+  competitorReviewCandidateBlock?: string;
+  definition: PromptSectionDefinition;
+  evidencePoolBlock?: string;
+  normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  researchInput: ResearchInput;
+  skillMd: string;
+  externalToolNames?: readonly string[];
+  voiceOfCustomerCandidateBlock?: string;
+}): string {
+  const evidenceInstruction =
+    externalToolNames !== undefined && externalToolNames.length === 0
+      ? "No external research tools are available. Use only the ResearchInput JSON, evidence pool, pre-normalized evidence blocks, and skill guidance."
+      : "Use the evidence pool, pre-normalized blocks, ResearchInput, and any already-fetched tool evidence. Do not request a structured schema in this pass.";
+
+  return [
+    `You are the AI-GOS research-first thinker for ${definition.title}.`,
+    `Mission: ${definition.mission}`,
+    evidenceInstruction,
+    "",
+    "Return plain prose analysis only. Do not return JSON, a schema-shaped object, markdown tables, or field-key scaffolding.",
+    "Your job is to reason deeply before the structurer writes the final object: identify the section's argument, source-backed findings, source references, verdict logic, tensions, risks, and evidence gaps.",
+    "Do not invent facts, numbers, names, quotes, prices, URLs, or competitor claims. If evidence is missing, state the gap and what would close it.",
+    "",
+    ...buildCapabilityGapGuidance(definition, externalToolNames),
+    ...buildChannelPolicyPromptLines(definition, researchInput),
+    ...buildProjectedResultsPromptLines(definition),
+    "Skill analyst guidance:",
+    skillMd,
+    "",
+    ...buildEvidencePoolPromptBlock(evidencePoolBlock),
+    ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
+    ...(voiceOfCustomerCandidateBlock === undefined
+      ? []
+      : [voiceOfCustomerCandidateBlock, ""]),
+    ...(buyerPersonaCandidateBlock === undefined
+      ? []
+      : [buyerPersonaCandidateBlock, ""]),
+    ...(brandedKeywordCandidateBlock === undefined
+      ? []
+      : [brandedKeywordCandidateBlock, ""]),
+    ...(competitorReviewCandidateBlock === undefined
+      ? []
+      : [competitorReviewCandidateBlock, ""]),
+    buildClientIdentityPin(researchInput),
+    "",
+    "ResearchInput JSON:",
+    JSON.stringify(
+      buildResearchInputForPrompt({ definition, researchInput }),
+      null,
+      2,
+    ),
+    "",
+    "Output emphasis:",
+    definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
+    "",
+    ...buildReaderContract(definition),
+    "- Use real source URLs from evidence and ResearchInput.",
+    "- For Competitor Landscape ad evidence, reason from pre-normalized live ad evidence only.",
+    "- Do not write the final JSON. Produce analyst prose for the structurer.",
+    buildSectionObjectiveRecap(definition, researchInput),
+  ].join("\n");
+}
+
+export function buildStructurerPrompt({
+  brandedKeywordCandidateBlock,
+  buyerPersonaCandidateBlock,
+  competitorReviewCandidateBlock,
+  definition,
+  evidencePoolBlock,
+  externalToolNames,
+  normalizedAdEvidenceGroups,
+  researchInput,
+  skillMd,
+  thinkerAnalysis,
+  voiceOfCustomerCandidateBlock,
+}: {
+  brandedKeywordCandidateBlock?: string;
+  buyerPersonaCandidateBlock?: string;
+  competitorReviewCandidateBlock?: string;
+  definition: PromptSectionDefinition;
+  evidencePoolBlock?: string;
+  normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  researchInput: ResearchInput;
+  skillMd: string;
+  thinkerAnalysis: string;
+  externalToolNames?: readonly string[];
+  voiceOfCustomerCandidateBlock?: string;
+}): string {
+  return [
+    `Section ${definition.title}.`,
+    `Mission: ${definition.mission}`,
+    STRUCTURER_NO_NEW_FACTS_RULE,
+    "",
+    ...buildCapabilityGapGuidance(definition, externalToolNames),
+    ...buildChannelPolicyPromptLines(definition, researchInput),
+    ...buildProjectedResultsPromptLines(definition),
+    "Skill analyst guidance:",
+    skillMd,
+    "",
+    "Thinker analysis:",
+    thinkerAnalysis,
+    "",
+    ...buildEvidencePoolPromptBlock(evidencePoolBlock),
+    ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
+    ...(voiceOfCustomerCandidateBlock === undefined
+      ? []
+      : [voiceOfCustomerCandidateBlock, ""]),
+    ...(buyerPersonaCandidateBlock === undefined
+      ? []
+      : [buyerPersonaCandidateBlock, ""]),
+    ...(brandedKeywordCandidateBlock === undefined
+      ? []
+      : [brandedKeywordCandidateBlock, ""]),
+    ...(competitorReviewCandidateBlock === undefined
+      ? []
+      : [competitorReviewCandidateBlock, ""]),
+    buildClientIdentityPin(researchInput),
+    "",
+    "ResearchInput JSON:",
+    JSON.stringify(
+      buildResearchInputForPrompt({ definition, researchInput }),
+      null,
+      2,
+    ),
+    "",
+    "Output emphasis:",
+    definition.outputEmphasis.map((item) => `- ${item}`).join("\n"),
+    "",
+    ...buildReaderContract(definition),
+    "- Author verdict and statusSummary as distinct, purpose-built reader copy.",
+    "- Use real source URLs from the thinker analysis, evidence pool, tool evidence, and ResearchInput.",
+    "- For Competitor Landscape ad evidence, use pre-normalized live ad evidence only.",
+    "- Do not state a confidence figure in verdict, statusSummary, or any body prose.",
+    "",
+    buildStructuredDraftShapeGuidance(),
+    buildSectionObjectiveRecap(definition, researchInput),
   ].join("\n");
 }
 
@@ -711,6 +886,7 @@ export function buildStructuredBodyPrompt({
   buyerPersonaCandidateBlock,
   competitorReviewCandidateBlock,
   definition,
+  evidencePoolBlock,
   externalToolNames,
   normalizedAdEvidenceGroups,
   researchInput,
@@ -721,6 +897,7 @@ export function buildStructuredBodyPrompt({
   buyerPersonaCandidateBlock?: string;
   competitorReviewCandidateBlock?: string;
   definition: PromptSectionDefinition;
+  evidencePoolBlock?: string;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   researchInput: ResearchInput;
   skillMd: string;
@@ -743,6 +920,7 @@ export function buildStructuredBodyPrompt({
     "Skill analyst guidance:",
     skillMd,
     "",
+    ...buildEvidencePoolPromptBlock(evidencePoolBlock),
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...(voiceOfCustomerCandidateBlock === undefined
       ? []
@@ -796,6 +974,7 @@ export function buildAnswerToolInstructions(
     "ResearchInput JSON:",
     JSON.stringify(buildResearchInputForPrompt({ definition, researchInput })),
     "",
+    ...buildEvidencePoolPromptBlock(options.evidencePoolBlock),
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...buildCapabilityGapGuidance(definition, options.externalToolNames),
     ...buildChannelPolicyPromptLines(definition, researchInput),
@@ -866,6 +1045,7 @@ function buildIssueSpecificRepairGuidance(
 
 export function buildRepairPrompt({
   definition,
+  evidencePoolBlock,
   evidenceTranscript,
   issues,
   normalizedAdEvidenceGroups,
@@ -874,6 +1054,7 @@ export function buildRepairPrompt({
   externalToolNames,
 }: {
   definition: PromptSectionDefinition;
+  evidencePoolBlock?: string;
   evidenceTranscript: string;
   issues: string[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
@@ -888,6 +1069,7 @@ export function buildRepairPrompt({
   return [
     buildStructuredPrompt({
       definition,
+      evidencePoolBlock,
       evidenceTranscript,
       externalToolNames,
       normalizedAdEvidenceGroups,
@@ -913,6 +1095,7 @@ export function buildStructuredBodyRepairPrompt({
   buyerPersonaCandidateBlock,
   competitorReviewCandidateBlock,
   definition,
+  evidencePoolBlock,
   evidenceTranscript,
   externalToolNames,
   issues,
@@ -926,6 +1109,7 @@ export function buildStructuredBodyRepairPrompt({
   buyerPersonaCandidateBlock?: string;
   competitorReviewCandidateBlock?: string;
   definition: PromptSectionDefinition;
+  evidencePoolBlock?: string;
   evidenceTranscript: string;
   issues: string[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
@@ -941,6 +1125,7 @@ export function buildStructuredBodyRepairPrompt({
       buyerPersonaCandidateBlock,
       competitorReviewCandidateBlock,
       definition,
+      evidencePoolBlock,
       externalToolNames,
       normalizedAdEvidenceGroups,
       researchInput,

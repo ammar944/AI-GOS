@@ -99,6 +99,7 @@ export interface RunExecutiveBriefParams {
   factLedger?: FactLedger;
   contradictions?: readonly Contradiction[];
   feasibilityAudit?: PaidMediaFeasibilityAudit;
+  evidencePoolBlock?: string;
   signal?: AbortSignal;
   callStructured?: StructuredCaller;
   model?: SectionLanguageModel;
@@ -305,6 +306,9 @@ function buildBriefPrompt({
     "",
     "FEASIBILITY AUDIT:",
     feasibilitySummary(params.feasibilityAudit),
+    "",
+    "RUN-LEVEL EVIDENCE POOL:",
+    params.evidencePoolBlock ?? "not available",
     "",
     "ASSUMPTIONS TO CONFIRM (copy these exactly if needed):",
     assumptionsToConfirm.length === 0

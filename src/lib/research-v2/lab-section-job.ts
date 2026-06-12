@@ -13,6 +13,7 @@ import {
   type RunSectionInput,
   type RunSectionResult,
 } from '@/lib/lab-engine/agents/run-section';
+import type { EvidencePoolStore } from '@/lib/lab-engine/evidence/evidence-pool';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import {
   isSupportedSectionId,
@@ -32,6 +33,8 @@ export interface RunLabSectionJobInput {
   signal?: AbortSignal;
   deadlineAt?: number;
   store: RunStore;
+  evidencePoolStore?: EvidencePoolStore;
+  parentAuditRunId?: string;
   runSectionImpl?: LabRunSection;
   now?: () => Date;
   newId?: () => string;
@@ -64,6 +67,12 @@ export async function runLabSectionJob(
         store: input.store,
         loadSkill: loadLabSkill,
         allowedTools: getLabEngineAllowedTools(),
+        ...(input.evidencePoolStore === undefined
+          ? {}
+          : { evidencePoolStore: input.evidencePoolStore }),
+        ...(input.parentAuditRunId === undefined
+          ? {}
+          : { parentAuditRunId: input.parentAuditRunId }),
       },
     );
     await withAbortSignal(

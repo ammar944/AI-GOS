@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { Tool, ToolExecutionOptions } from "ai";
+import {
+  generateText,
+  type TelemetrySettings,
+  type Tool,
+  type ToolExecutionOptions,
+} from "ai";
 import { z } from "zod";
 
 import {
@@ -37,7 +42,9 @@ import {
   type VoiceOfCustomerEvidenceGapClassification,
 } from "../artifacts/schemas/voice-of-customer";
 import {
+  resolveLabThinkerMode,
   sectionRunnerModel,
+  sectionThinkerModel,
   type SectionLanguageModel,
 } from "../ai/models";
 import {
@@ -76,6 +83,8 @@ import {
   buildStructuredBodyPrompt,
   buildStructuredBodyRepairPrompt,
   buildStructuredPrompt,
+  buildStructurerPrompt,
+  buildThinkerPrompt,
   shortenForEvent,
 } from "./build-prompts";
 import {
@@ -277,6 +286,16 @@ import {
   type SectionPartialPublishFn,
   type SectionPartialSeqRef,
 } from "@/lib/research-v2/section-partial-broadcaster";
+import {
+  appendEvidencePoolEntries,
+  formatEvidencePoolSlice,
+  readEvidencePoolFromArtifactData,
+  STRUCTURER_EVIDENCE_POOL_CHAR_LIMIT,
+  THINKER_EVIDENCE_POOL_CHAR_LIMIT,
+  type EvidencePoolEntry,
+  type EvidencePoolEntryKind,
+  type EvidencePoolStore,
+} from "../evidence/evidence-pool";
 
 export interface RunSectionInput {
   runId: string;
@@ -285,13 +304,28 @@ export interface RunSectionInput {
   deadlineAt?: number;
 }
 
+export interface SectionThinkerPassParams {
+  maxOutputTokens: number;
+  model: SectionLanguageModel;
+  prompt: string;
+  signal?: AbortSignal;
+  telemetry?: TelemetrySettings;
+}
+
+export type SectionThinkerPassRunner = (
+  params: SectionThinkerPassParams,
+) => Promise<string>;
+
 export interface RunSectionDeps {
   store: RunStore;
   loadSkill: (slug: string) => Promise<string>;
   allowedTools?: readonly ToolName[];
   env?: Record<string, string | undefined>;
+  evidencePoolStore?: EvidencePoolStore;
+  parentAuditRunId?: string;
   runAnswerTool?: AnswerToolRunner;
   runEvidencePass?: EvidencePassRunner;
+  runThinkerPass?: SectionThinkerPassRunner;
   runWriterPass?: SectionWriterPassRunner;
   callStructured?: StructuredCaller;
   streamStructured?: StructuredStreamer;
@@ -383,6 +417,36 @@ function getNewId(deps: RunSectionDeps): string {
 export const labSectionRepairFloorMs = 75_000;
 export const labSectionEmitFloorMs = 20_000;
 export const labSectionStructuredFallbackMinFloorMs = 120_000;
+export const labSectionThinkerPassTimeoutMs = 120_000;
+export const labSectionThinkerPassMaxOutputTokens = 12_288;
+
+type ThinkerProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
+
+function getThinkerProviderOptions(): ThinkerProviderOptions {
+  return {
+    deepseek: {
+      thinking: {
+        type: "disabled",
+      },
+    },
+  };
+}
+
+export async function defaultSectionThinkerPassRunner(
+  params: SectionThinkerPassParams,
+): Promise<string> {
+  const result = await generateText({
+    model: params.model,
+    prompt: params.prompt,
+    maxOutputTokens: params.maxOutputTokens,
+    temperature: 0.1,
+    experimental_telemetry: params.telemetry,
+    providerOptions: getThinkerProviderOptions(),
+    ...(params.signal === undefined ? {} : { abortSignal: params.signal }),
+  });
+
+  return result.text;
+}
 
 function getRemainingDeadlineMs(
   input: RunSectionInput,
@@ -467,6 +531,333 @@ function createEvent({
     createdAt: getNow(deps).toISOString(),
     metadata,
   });
+}
+
+function getEvidencePoolStorageContext(
+  deps: RunSectionDeps,
+): { parentAuditRunId: string; store: EvidencePoolStore } | null {
+  if (
+    deps.parentAuditRunId === undefined ||
+    deps.evidencePoolStore === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    parentAuditRunId: deps.parentAuditRunId,
+    store: deps.evidencePoolStore,
+  };
+}
+
+function inferEvidencePoolEntryKind(toolName: string): EvidencePoolEntryKind {
+  const normalized = toolName.toLowerCase();
+
+  if (
+    normalized.includes("keyword_volume") ||
+    normalized.includes("keyword_trends") ||
+    normalized.includes("spyfu")
+  ) {
+    return "spyfuKeywordTable";
+  }
+
+  if (
+    normalized.includes("adlibrary") ||
+    normalized.includes("google_ads") ||
+    normalized.includes("meta_ads") ||
+    normalized.includes("linkedin_ads") ||
+    normalized.includes("foreplay")
+  ) {
+    return "adLibraryPull";
+  }
+
+  if (normalized.includes("review")) {
+    return "reviewScrape";
+  }
+
+  if (normalized.includes("perplexity")) {
+    return "perplexityAnswer";
+  }
+
+  if (
+    normalized.includes("web_search") ||
+    normalized.includes("searchapi") ||
+    normalized.includes("organic")
+  ) {
+    return "webSearchResult";
+  }
+
+  if (normalized.includes("cta") || normalized.includes("subject_site")) {
+    return "ctaObservation";
+  }
+
+  return "toolResult";
+}
+
+function findFirstSourceUrl(value: unknown, depth = 0): string | undefined {
+  if (depth > 4) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const url = findFirstSourceUrl(item, depth + 1);
+      if (url !== undefined) {
+        return url;
+      }
+    }
+
+    return undefined;
+  }
+
+  const record = getRecord(value);
+  if (record === null) {
+    return undefined;
+  }
+
+  const direct =
+    getValidHttpUrl(getStringProperty(record, "sourceUrl")) ??
+    getValidHttpUrl(getStringProperty(record, "url")) ??
+    getValidHttpUrl(getStringProperty(record, "source_url"));
+
+  if (direct !== null) {
+    return direct;
+  }
+
+  for (const item of Object.values(record)) {
+    const url = findFirstSourceUrl(item, depth + 1);
+    if (url !== undefined) {
+      return url;
+    }
+  }
+
+  return undefined;
+}
+
+function buildCorpusEvidencePoolEntries({
+  input,
+  researchInput,
+}: {
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): EvidencePoolEntry[] {
+  const entries: EvidencePoolEntry[] = [];
+  const seen = new Set<string>();
+  const appendExcerpt = (
+    excerpt: ResearchInput["corpus"]["excerpts"][number],
+    sectionId: SectionId | undefined,
+  ): void => {
+    const key = `${sectionId ?? "run"}:${excerpt.id}:${excerpt.sourceUrl}`;
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    entries.push({
+      kind: "corpusExcerpt",
+      sourceUrl: excerpt.sourceUrl,
+      fetchedAt: excerpt.observedAt,
+      toolName: "deepResearchProgram",
+      payload: {
+        id: excerpt.id,
+        sourceId: excerpt.sourceId,
+        text: excerpt.text,
+        title: excerpt.title,
+      },
+      ...(sectionId === undefined ? {} : { sectionId }),
+    });
+  };
+
+  for (const excerpt of researchInput.corpus.excerpts) {
+    appendExcerpt(excerpt, undefined);
+  }
+
+  const sectionExcerpts = researchInput.corpus.sectionExcerpts;
+  if (sectionExcerpts !== undefined) {
+    for (const [sectionId, excerpts] of Object.entries(sectionExcerpts)) {
+      if (!isSupportedSectionId(sectionId)) {
+        continue;
+      }
+
+      for (const excerpt of excerpts) {
+        appendExcerpt(excerpt, sectionId);
+      }
+    }
+  }
+
+  return entries;
+}
+
+function buildStepEvidencePoolEntries({
+  deps,
+  input,
+  steps,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  steps: readonly AgentStep[];
+}): EvidencePoolEntry[] {
+  const fetchedAt = getNow(deps).toISOString();
+
+  return steps.flatMap((step) =>
+    step.toolResults.flatMap((toolResult): EvidencePoolEntry[] => {
+      if (toolResult.toolName === "answer") {
+        return [];
+      }
+
+      const sourceUrl =
+        findFirstSourceUrl(toolResult.output) ??
+        findFirstSourceUrl(toolResult.input);
+
+      return [
+        {
+          kind: inferEvidencePoolEntryKind(toolResult.toolName),
+          ...(sourceUrl === undefined ? {} : { sourceUrl }),
+          fetchedAt,
+          toolName: toolResult.toolName,
+          payload: {
+            input: toolResult.input,
+            output: toolResult.output,
+            stepNumber: step.stepNumber,
+            type: toolResult.type ?? "tool-result",
+          },
+          sectionId: input.sectionId,
+        },
+      ];
+    }),
+  );
+}
+
+async function appendEvidencePoolBestEffort({
+  context,
+  deps,
+  entries,
+  input,
+}: {
+  context: string;
+  deps: RunSectionDeps;
+  entries: readonly EvidencePoolEntry[];
+  input: RunSectionInput;
+}): Promise<void> {
+  if (entries.length === 0) {
+    return;
+  }
+
+  const storage = getEvidencePoolStorageContext(deps);
+  if (storage === null) {
+    return;
+  }
+
+  try {
+    await appendEvidencePoolEntries({
+      entries,
+      parentAuditRunId: storage.parentAuditRunId,
+      runId: input.runId,
+      store: storage.store,
+      now: () => getNow(deps),
+    });
+  } catch (error) {
+    console.warn("[lab-section] evidence pool append failed", {
+      context,
+      message: describeErrorForLog(error),
+      parentAuditRunId: storage.parentAuditRunId,
+      runId: input.runId,
+      sectionId: input.sectionId,
+    });
+  }
+}
+
+async function readEvidencePoolBlockBestEffort({
+  deps,
+  input,
+  maxChars,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  maxChars: number;
+}): Promise<string | undefined> {
+  const storage = getEvidencePoolStorageContext(deps);
+  if (storage === null) {
+    return undefined;
+  }
+
+  try {
+    const data = await storage.store.readArtifactData({
+      parentAuditRunId: storage.parentAuditRunId,
+      runId: input.runId,
+    });
+    const pool = readEvidencePoolFromArtifactData(data, () => getNow(deps));
+
+    return formatEvidencePoolSlice({
+      heading: "Run-level evidence pool",
+      maxChars,
+      pool,
+      sectionId: input.sectionId,
+    });
+  } catch (error) {
+    console.warn("[lab-section] evidence pool read failed", {
+      message: describeErrorForLog(error),
+      parentAuditRunId: storage.parentAuditRunId,
+      runId: input.runId,
+      sectionId: input.sectionId,
+    });
+
+    return undefined;
+  }
+}
+
+async function runThinkerAnalysisBestEffort({
+  deps,
+  input,
+  prompt,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  prompt: string;
+}): Promise<string | null> {
+  if (resolveLabThinkerMode((deps.env ?? process.env) as NodeJS.ProcessEnv) === "off") {
+    return null;
+  }
+
+  const timeoutSignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "section thinker pass",
+    timeoutMs: getDeadlineAwareModelTimeoutMs({
+      deps,
+      input,
+      requestedMs: labSectionThinkerPassTimeoutMs,
+    }),
+  });
+
+  try {
+    const runThinkerPass = deps.runThinkerPass ?? defaultSectionThinkerPassRunner;
+    const analysis = await runThinkerPass({
+      model: sectionThinkerModel,
+      prompt,
+      maxOutputTokens: labSectionThinkerPassMaxOutputTokens,
+      signal: timeoutSignal.signal,
+      telemetry: createLabSectionTelemetry({
+        operation: "thinker-pass",
+        runId: input.runId,
+        sectionId: input.sectionId,
+      }),
+    });
+    const trimmed = analysis.trim();
+
+    return trimmed.length === 0 ? null : trimmed;
+  } catch (error) {
+    console.warn(
+      "[lab-section] thinker pass failed; falling back to single-call structurer",
+      {
+        message: describeErrorForLog(error),
+        runId: input.runId,
+        sectionId: input.sectionId,
+      },
+    );
+
+    return null;
+  } finally {
+    timeoutSignal.cleanup();
+  }
 }
 
 async function appendEvent(
@@ -7438,12 +7829,38 @@ async function runSectionViaAnswerTool(
   }
   const subjectSiteObservationPrepassSteps =
     subjectSiteObservationPrepass?.steps ?? [];
+  await appendEvidencePoolBestEffort({
+    context: "answer-tool-initial",
+    deps,
+    entries: [
+      ...buildCorpusEvidencePoolEntries({ input, researchInput }),
+      ...buildStepEvidencePoolEntries({
+        deps,
+        input,
+        steps: [
+          ...adEvidence.adProbeSteps,
+          ...voiceOfCustomerPrepassSteps,
+          ...buyerPersonaPrepassSteps,
+          ...brandedKeywordPrepassSteps,
+          ...competitorReviewPrepassSteps,
+          ...subjectSiteObservationPrepassSteps,
+        ],
+      }),
+    ],
+    input,
+  });
+  const answerToolEvidencePoolBlock = await readEvidencePoolBlockBestEffort({
+    deps,
+    input,
+    maxChars: STRUCTURER_EVIDENCE_POOL_CHAR_LIMIT,
+  });
   const answerToolInstructions = [
     buildAnswerToolInstructions(
       definition,
       researchInput,
       adEvidence.normalizedAdEvidenceGroups,
       {
+        evidencePoolBlock: answerToolEvidencePoolBlock,
         externalToolNames,
         inputSchemaMode: getAnswerToolInputSchemaMode(sectionRunnerModel),
       },
@@ -7556,6 +7973,16 @@ async function runSectionViaAnswerTool(
   }
 
   await scheduleFlush();
+  await appendEvidencePoolBestEffort({
+    context: "answer-tool-attempt",
+    deps,
+    entries: buildStepEvidencePoolEntries({
+      deps,
+      input,
+      steps: answerResult.steps,
+    }),
+    input,
+  });
 
   const answerResultSteps = [
     ...voiceOfCustomerPrepassSteps,
@@ -7581,6 +8008,16 @@ async function runSectionViaAnswerTool(
   if (adRescue !== undefined) {
     toolEvents.push(...adRescue.events);
     await scheduleFlush();
+    await appendEvidencePoolBestEffort({
+      context: "answer-tool-ad-rescue",
+      deps,
+      entries: buildStepEvidencePoolEntries({
+        deps,
+        input,
+        steps: adRescue.steps,
+      }),
+      input,
+    });
   }
 
   const adProbeStepsWithRescue: readonly AgentStep[] =
@@ -7679,6 +8116,7 @@ async function runSectionViaAnswerTool(
         ...(shouldForceAnswerOnlyRepair ? { externalToolsOverride: {} } : {}),
         prompt: buildRepairPrompt({
           definition,
+          evidencePoolBlock: answerToolEvidencePoolBlock,
           evidenceTranscript: repairEvidenceTranscript,
           externalToolNames,
           issues: repairIssues,
@@ -7689,6 +8127,16 @@ async function runSectionViaAnswerTool(
         }),
       });
       await scheduleFlush();
+      await appendEvidencePoolBestEffort({
+        context: "answer-tool-repair",
+        deps,
+        entries: buildStepEvidencePoolEntries({
+          deps,
+          input,
+          steps: repairResult.steps,
+        }),
+        input,
+      });
       const repairResultSteps = [
         ...voiceOfCustomerPrepassSteps,
         ...buyerPersonaPrepassSteps,
@@ -8126,6 +8574,45 @@ async function runSectionViaStructuredBodyStream(
   ];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
+  await appendEvidencePoolBestEffort({
+    context: "structured-body-initial",
+    deps,
+    entries: [
+      ...buildCorpusEvidencePoolEntries({ input, researchInput }),
+      ...buildStepEvidencePoolEntries({
+        deps,
+        input,
+        steps: [...adEvidence.adProbeSteps, ...modelSteps],
+      }),
+    ],
+    input,
+  });
+  const thinkerEvidencePoolBlock = await readEvidencePoolBlockBestEffort({
+    deps,
+    input,
+    maxChars: THINKER_EVIDENCE_POOL_CHAR_LIMIT,
+  });
+  const structurerEvidencePoolBlock = await readEvidencePoolBlockBestEffort({
+    deps,
+    input,
+    maxChars: STRUCTURER_EVIDENCE_POOL_CHAR_LIMIT,
+  });
+  const thinkerAnalysis = await runThinkerAnalysisBestEffort({
+    deps,
+    input,
+    prompt: buildThinkerPrompt({
+      brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
+      buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
+      competitorReviewCandidateBlock: competitorReviewPrepass?.candidateBlock,
+      definition,
+      evidencePoolBlock: thinkerEvidencePoolBlock,
+      externalToolNames,
+      normalizedAdEvidenceGroups,
+      researchInput,
+      skillMd,
+      voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
+    }),
+  });
   // One seq ref per RUN, shared across every repair attempt. Each
   // buildStructuredBodyAttempt builds a FRESH throttled broadcaster but aliases
   // this same ref (seqRef), so the broadcast seq keeps incrementing across
@@ -8151,17 +8638,35 @@ async function runSectionViaStructuredBodyStream(
     }),
   );
 
-  const structuredBodyPrompt = buildStructuredBodyPrompt({
-    brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
-    buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
-    competitorReviewCandidateBlock: competitorReviewPrepass?.candidateBlock,
-    definition,
-    externalToolNames,
-    normalizedAdEvidenceGroups,
-    researchInput,
-    skillMd,
-    voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
-  });
+  const structuredBodyPrompt =
+    thinkerAnalysis === null
+      ? buildStructuredBodyPrompt({
+          brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
+          buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
+          competitorReviewCandidateBlock:
+            competitorReviewPrepass?.candidateBlock,
+          definition,
+          evidencePoolBlock: structurerEvidencePoolBlock,
+          externalToolNames,
+          normalizedAdEvidenceGroups,
+          researchInput,
+          skillMd,
+          voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
+        })
+      : buildStructurerPrompt({
+          brandedKeywordCandidateBlock: brandedKeywordPrepass?.candidateBlock,
+          buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
+          competitorReviewCandidateBlock:
+            competitorReviewPrepass?.candidateBlock,
+          definition,
+          evidencePoolBlock: structurerEvidencePoolBlock,
+          externalToolNames,
+          normalizedAdEvidenceGroups,
+          researchInput,
+          skillMd,
+          thinkerAnalysis,
+          voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
+        });
 
   let attempt = await buildStructuredBodyAttempt({
     adProbeSteps: adEvidence.adProbeSteps,
@@ -8179,6 +8684,12 @@ async function runSectionViaStructuredBodyStream(
     toolEvents,
   });
   await scheduleFlush();
+  await appendEvidencePoolBestEffort({
+    context: "structured-body-attempt",
+    deps,
+    entries: buildStepEvidencePoolEntries({ deps, input, steps: modelSteps }),
+    input,
+  });
   normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
     deps,
     input,
@@ -8241,6 +8752,12 @@ async function runSectionViaStructuredBodyStream(
       toolEvents,
     });
     await scheduleFlush();
+    await appendEvidencePoolBestEffort({
+      context: "structured-body-length-retry",
+      deps,
+      entries: buildStepEvidencePoolEntries({ deps, input, steps: modelSteps }),
+      input,
+    });
     normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
       deps,
       input,
@@ -8288,6 +8805,16 @@ async function runSectionViaStructuredBodyStream(
     toolEvents.push(...adRescue.events);
     await scheduleFlush();
     adProbeStepsWithRescue = [...adEvidence.adProbeSteps, ...adRescue.steps];
+    await appendEvidencePoolBestEffort({
+      context: "structured-body-ad-rescue",
+      deps,
+      entries: buildStepEvidencePoolEntries({
+        deps,
+        input,
+        steps: adRescue.steps,
+      }),
+      input,
+    });
     normalizedAdEvidenceGroups = mergeAdEvidenceGroups(
       [...adRescue.groups],
       normalizedAdEvidenceGroups ?? [],
@@ -8407,6 +8934,7 @@ async function runSectionViaStructuredBodyStream(
           buyerPersonaCandidateBlock: buyerPersonaPrepass?.candidateBlock,
           competitorReviewCandidateBlock: competitorReviewPrepass?.candidateBlock,
           definition,
+          evidencePoolBlock: structurerEvidencePoolBlock,
           evidenceTranscript: buildEvidenceTranscript(modelSteps),
           externalToolNames,
           issues: repairIssues,
@@ -8422,6 +8950,12 @@ async function runSectionViaStructuredBodyStream(
         toolEvents,
       });
       await scheduleFlush();
+      await appendEvidencePoolBestEffort({
+        context: "structured-body-repair",
+        deps,
+        entries: buildStepEvidencePoolEntries({ deps, input, steps: modelSteps }),
+        input,
+      });
       normalizedAdEvidenceGroups = buildMergedAnswerToolAdEvidenceGroups({
         deps,
         input,
@@ -8730,8 +9264,23 @@ export async function runSection(
           topicContext: buildCompetitorAdTopicContext(researchInput),
         })
       : undefined;
+  await appendEvidencePoolBestEffort({
+    context: "structured-legacy-initial",
+    deps,
+    entries: [
+      ...buildCorpusEvidencePoolEntries({ input, researchInput }),
+      ...buildStepEvidencePoolEntries({ deps, input, steps: evidenceSteps }),
+    ],
+    input,
+  });
+  const structuredEvidencePoolBlock = await readEvidencePoolBlockBestEffort({
+    deps,
+    input,
+    maxChars: STRUCTURER_EVIDENCE_POOL_CHAR_LIMIT,
+  });
   const structuredPrompt = buildStructuredPrompt({
     definition,
+    evidencePoolBlock: structuredEvidencePoolBlock,
     evidenceTranscript,
     normalizedAdEvidenceGroups,
     researchInput,
@@ -8880,6 +9429,7 @@ export async function runSection(
         normalizedAdEvidenceGroups,
         prompt: buildRepairPrompt({
           definition,
+          evidencePoolBlock: structuredEvidencePoolBlock,
           evidenceTranscript,
           issues: firstAttempt.errors,
           normalizedAdEvidenceGroups,
@@ -9013,6 +9563,7 @@ export async function runSection(
       normalizedAdEvidenceGroups,
       prompt: buildRepairPrompt({
         definition,
+        evidencePoolBlock: structuredEvidencePoolBlock,
         evidenceTranscript,
         issues: verifierIssues,
         normalizedAdEvidenceGroups,

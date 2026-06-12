@@ -13,6 +13,8 @@ export const DEEPSEEK_PRO_MODEL_ID = "deepseek-v4-pro";
 export const DEFAULT_DEEPSEEK_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_DEEPSEEK_OLLAMA_MODEL_ID = DEEPSEEK_SECTION_MODEL_ID;
 
+export type LabThinkerMode = "pro" | "off";
+
 export type SectionModelProvider =
   | "anthropic"
   | "deepseek-direct"
@@ -47,6 +49,12 @@ export interface SectionModelMetadata {
   baseURL?: string;
 }
 
+export interface ThinkerModelMetadata {
+  provider: "deepseek-direct";
+  modelId: typeof DEEPSEEK_PRO_MODEL_ID;
+  transport: "deepseek-direct";
+}
+
 export interface SectionModelSelection {
   metadata: SectionModelMetadata;
   repairModel: SectionLanguageModel;
@@ -54,6 +62,11 @@ export interface SectionModelSelection {
   sectionRunnerModel: SectionLanguageModel;
   strategyModel: SectionLanguageModel;
   writerModel: SectionLanguageModel;
+}
+
+export interface ThinkerModelSelection {
+  metadata: ThinkerModelMetadata;
+  model: SectionLanguageModel;
 }
 
 interface WrappedSectionModels {
@@ -87,9 +100,14 @@ const SECTION_MODEL_PROVIDERS: readonly SectionModelProvider[] = [
   "deepseek-direct",
   "deepseek-ollama",
 ];
+const LAB_THINKER_MODES: readonly LabThinkerMode[] = ["pro", "off"];
 
 function isSectionModelProvider(value: string): value is SectionModelProvider {
   return SECTION_MODEL_PROVIDERS.includes(value as SectionModelProvider);
+}
+
+function isLabThinkerMode(value: string): value is LabThinkerMode {
+  return LAB_THINKER_MODES.includes(value as LabThinkerMode);
 }
 
 function hasGatewayAuthContext(env: NodeJS.ProcessEnv): boolean {
@@ -133,6 +151,26 @@ export function resolveSectionModelProvider(
 
   throw new Error(
     `Invalid LAB_ENGINE_PROVIDER="${provider}". Expected one of: ${SECTION_MODEL_PROVIDERS.join(
+      ", ",
+    )}.`,
+  );
+}
+
+export function resolveLabThinkerMode(
+  env: NodeJS.ProcessEnv = process.env,
+): LabThinkerMode {
+  const mode = getTrimmedEnvValue(env, "LAB_THINKER_MODE");
+
+  if (mode === undefined) {
+    return "pro";
+  }
+
+  if (isLabThinkerMode(mode)) {
+    return mode;
+  }
+
+  throw new Error(
+    `Invalid LAB_THINKER_MODE="${mode}". Expected one of: ${LAB_THINKER_MODES.join(
       ", ",
     )}.`,
   );
@@ -515,6 +553,29 @@ function createDeepSeekOllamaSelection(
   };
 }
 
+export function createThinkerModelSelection(
+  env: NodeJS.ProcessEnv = process.env,
+): ThinkerModelSelection {
+  const apiKey = getTrimmedEnvValue(env, "DEEPSEEK_API_KEY");
+
+  if (apiKey === undefined) {
+    throw new Error(
+      "LAB_THINKER_MODE=pro requires DEEPSEEK_API_KEY for deepseek-v4-pro.",
+    );
+  }
+
+  const deepseek = createDeepSeek({ apiKey });
+
+  return {
+    metadata: {
+      provider: "deepseek-direct",
+      modelId: DEEPSEEK_PRO_MODEL_ID,
+      transport: "deepseek-direct",
+    },
+    model: deepseek(DEEPSEEK_PRO_MODEL_ID),
+  };
+}
+
 export function createSectionModelSelection(
   env: NodeJS.ProcessEnv = process.env,
 ): SectionModelSelection {
@@ -532,6 +593,7 @@ export function createSectionModelSelection(
 }
 
 let cachedSelectedSectionModelSelection: SectionModelSelection | undefined;
+let cachedThinkerModelSelection: ThinkerModelSelection | undefined;
 let cachedWrappedSectionModels: WrappedSectionModels | undefined;
 
 function getSelectedSectionModelSelection(): SectionModelSelection {
@@ -553,6 +615,12 @@ function getWrappedSectionModels(): WrappedSectionModels {
   }
 
   return cachedWrappedSectionModels;
+}
+
+function getThinkerModelSelection(): ThinkerModelSelection {
+  cachedThinkerModelSelection ??= createThinkerModelSelection();
+
+  return cachedThinkerModelSelection;
 }
 
 function createLazyObject<T extends object>(resolve: () => T): T {
@@ -606,6 +674,10 @@ export function getWriterModelId(): string {
   return getSelectedSectionModelMetadata().writerModel.modelId;
 }
 
+export function getThinkerModelMetadata(): ThinkerModelMetadata {
+  return getThinkerModelSelection().metadata;
+}
+
 // The writer pen only earns its extra call when the writer is a stronger model
 // than the section runner; with identical ids the pass is a no-op. Resolution
 // failures (e.g. missing provider keys in unit-test envs) disable the pen
@@ -637,4 +709,7 @@ export const strategyModel = createLazyObject<SectionLanguageModel>(
 );
 export const sectionWriterModel = createLazyObject<SectionLanguageModel>(
   () => getWrappedSectionModels().writerModel,
+);
+export const sectionThinkerModel = createLazyObject<SectionLanguageModel>(
+  () => withLocalDevTools(getThinkerModelSelection().model),
 );

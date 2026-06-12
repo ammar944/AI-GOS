@@ -12,6 +12,11 @@ import {
   runExecutiveBrief,
   type ExecutiveBriefSectionInput,
 } from '@/lib/lab-engine/agents/executive-brief';
+import {
+  formatEvidencePoolSlice,
+  readEvidencePoolFromArtifactData,
+  STRUCTURER_EVIDENCE_POOL_CHAR_LIMIT,
+} from '@/lib/lab-engine/evidence/evidence-pool';
 import { findContradictions } from '@/lib/lab-engine/agents/synthesis/contradictions';
 import {
   buildFactLedger,
@@ -51,6 +56,49 @@ interface SectionRow {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function readExecutiveEvidencePoolBlock({
+  parentAuditRunId,
+  runId,
+  supabase,
+}: {
+  parentAuditRunId: string;
+  runId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+}): Promise<string | undefined> {
+  const { data, error } = await supabase
+    .from('research_artifacts')
+    .select('data')
+    .eq('id', parentAuditRunId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[executive-brief] evidence pool read failed', {
+      message: error.message,
+      parentAuditRunId,
+      runId,
+    });
+    return undefined;
+  }
+
+  if (!isRecord(data)) {
+    console.warn('[executive-brief] evidence pool read returned no parent row', {
+      parentAuditRunId,
+      runId,
+    });
+    return undefined;
+  }
+
+  const pool = readEvidencePoolFromArtifactData(data.data);
+
+  return formatEvidencePoolSlice({
+    heading: 'Run-level evidence pool for executive memo',
+    maxChars: STRUCTURER_EVIDENCE_POOL_CHAR_LIMIT,
+    pool,
+    sectionId: PAID_MEDIA_PLAN_SECTION_ID,
+  });
 }
 
 function toBriefSectionInput(row: SectionRow): ExecutiveBriefSectionInput | null {
@@ -208,6 +256,11 @@ async function generateExecutiveBrief(
       factLedger,
       paidMediaBody: paidMediaSection?.body,
     });
+    const evidencePoolBlock = await readExecutiveEvidencePoolBlock({
+      parentAuditRunId: payload.parentAuditRunId,
+      runId: payload.runId,
+      supabase,
+    });
 
     await persistPaidMediaFeasibility({
       feasibilityAudit,
@@ -223,6 +276,7 @@ async function generateExecutiveBrief(
       contradictions,
       conflicts,
       factLedger,
+      evidencePoolBlock,
       feasibilityAudit,
       sections,
     });

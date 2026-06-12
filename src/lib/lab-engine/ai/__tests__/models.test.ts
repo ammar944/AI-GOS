@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   checkSectionModelDispatchPreflight,
   createSectionModelSelection,
+  createThinkerModelSelection,
   DEEPSEEK_PRO_MODEL_ID,
   DEEPSEEK_SECTION_MODEL_ID,
   GATEWAY_GPT_55_REVIEW_MODEL_ID,
   OPUS_REVIEW_MODEL_ID,
+  resolveLabThinkerMode,
   resolveSectionModelProvider,
   SONNET_SECTION_MODEL_ID,
 } from "../models";
@@ -38,6 +40,24 @@ describe("resolveSectionModelProvider", (): void => {
     ).toThrow(
       'Invalid LAB_ENGINE_PROVIDER="openrouter". Expected one of: anthropic, deepseek-direct, deepseek-ollama.',
     );
+  });
+});
+
+describe("resolveLabThinkerMode", (): void => {
+  it("defaults to pro mode when LAB_THINKER_MODE is unset", (): void => {
+    expect(resolveLabThinkerMode(buildEnv())).toBe("pro");
+  });
+
+  it("accepts the off mode for the single-call legacy path", (): void => {
+    expect(resolveLabThinkerMode(buildEnv({ LAB_THINKER_MODE: "off" }))).toBe(
+      "off",
+    );
+  });
+
+  it("rejects unknown thinker mode flags", (): void => {
+    expect(() =>
+      resolveLabThinkerMode(buildEnv({ LAB_THINKER_MODE: "flash" })),
+    ).toThrow('Invalid LAB_THINKER_MODE="flash". Expected one of: pro, off.');
   });
 });
 
@@ -117,6 +137,28 @@ describe("checkSectionModelDispatchPreflight", (): void => {
       modelId: DEEPSEEK_SECTION_MODEL_ID,
       provider: "deepseek-direct",
     });
+  });
+});
+
+describe("createThinkerModelSelection", (): void => {
+  it("requires DeepSeek auth for the pro thinker model", (): void => {
+    expect(() => createThinkerModelSelection(buildEnv())).toThrow(
+      "LAB_THINKER_MODE=pro requires DEEPSEEK_API_KEY for deepseek-v4-pro.",
+    );
+  });
+
+  it("selects direct DeepSeek v4 pro for thinker mode", (): void => {
+    const selection = createThinkerModelSelection(
+      buildEnv({ DEEPSEEK_API_KEY: "test-deepseek-key" }),
+    );
+
+    expect(selection.metadata).toEqual({
+      provider: "deepseek-direct",
+      modelId: DEEPSEEK_PRO_MODEL_ID,
+      transport: "deepseek-direct",
+    });
+    expect(selection.model.provider).toBe("deepseek.chat");
+    expect(selection.model.modelId).toBe(DEEPSEEK_PRO_MODEL_ID);
   });
 });
 

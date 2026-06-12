@@ -9,7 +9,8 @@ export type LabSectionTelemetryOperation =
   | 'evidence-pass'
   | 'evidence-pass-stream'
   | 'structured-output'
-  | 'structured-output-stream';
+  | 'structured-output-stream'
+  | 'thinker-pass';
 
 export interface CreateLabSectionTelemetryInput {
   runId: string;
