@@ -1197,6 +1197,33 @@ function normalizeProjectedResultRow(
   };
 }
 
+// Class rule learned across runs d838ed4e/f3993043: every hard array bound
+// in this body schema is a section-killer under model drift. The normalizer
+// snaps to the bound (truncate overshoot, synthesize-from-own-numbers or
+// honest-gap on undershoot) — the schema bounds then document the contract
+// instead of enforcing it against the model.
+function synthesizeProjectedResultsFromPhases(
+  phases: PaidMediaPlanBody["campaignPhases"],
+  overview: PaidMediaPlanBody["campaignOverview"],
+  options?: NormalizePaidMediaPlanBodyOptions,
+): unknown[] {
+  const rows = phases
+    .filter((phase) => phase.monthlyBudgetValue !== undefined)
+    .map((phase) => ({
+      targetIcp: "See audience types (slots 01-03)",
+      kpi: overview.primaryKpi,
+      kpiCostProvenance: "unknown",
+      objective: phase.phaseName,
+      durationLabel: phase.monthsLabel,
+      phaseMonthlyBudgetValue: phase.monthlyBudgetValue,
+      phaseMonthlyBudgetProvenance: phase.monthlyBudgetProvenance,
+      sourceSection: "gtmBrief",
+    }));
+  return rows.map((row, index) =>
+    normalizeProjectedResultRow(row, index, options),
+  );
+}
+
 export function normalizePaidMediaPlanBody(
   value: unknown,
   options?: NormalizePaidMediaPlanBodyOptions,
@@ -1206,11 +1233,46 @@ export function normalizePaidMediaPlanBody(
     record.creativeFramework,
     "creatives",
   ).map(normalizeCreativeFrameworkSlot);
+  const campaignOverview = normalizeCampaignOverview(record.campaignOverview);
+  const campaignPhases = getNestedArray(record.campaignPhases, "phases").map(
+    normalizeCampaignPhase,
+  );
+  const projectedResults = getNestedArray(record.projectedResults, "rows").map(
+    (row, index) => normalizeProjectedResultRow(row, index, options),
+  );
+  // An omitted SOP table is derivable from the plan's own cascade: one row
+  // per budgeted phase, KPI cost honestly unknown unless the brief-CAC
+  // bridge fills it (run f3993043 died on the empty-array floor).
+  const projectedResultsOrSynthesized =
+    projectedResults.length > 0
+      ? projectedResults
+      : synthesizeProjectedResultsFromPhases(
+          campaignPhases,
+          campaignOverview,
+          options,
+        );
+  const crossSectionInsights = getNestedArray(
+    record.crossSectionInsight,
+    "insights",
+  ).map(normalizeCrossSectionInsight);
+  // Insights citing fewer than two sections are not cross-section; drop
+  // them. If none survive, keep the first with the brief added as the
+  // second leg (the brief feeds every cross-section tension by design).
+  const crossSectionWithTwoLegs = crossSectionInsights.filter(
+    (insight) => insight.sourceSections.length >= 2,
+  );
+  const crossSectionInsight = (crossSectionWithTwoLegs.length > 0
+    ? crossSectionWithTwoLegs
+    : crossSectionInsights.slice(0, 1).map((insight) => ({
+        ...insight,
+        sourceSections: [
+          ...new Set([...insight.sourceSections, "gtmBrief" as const]),
+        ],
+      }))
+  ).slice(0, 3);
   const parsed = paidMediaPlanBodySchema.parse({
-    campaignOverview: normalizeCampaignOverview(record.campaignOverview),
-    campaignPhases: getNestedArray(record.campaignPhases, "phases").map(
-      normalizeCampaignPhase,
-    ),
+    campaignOverview,
+    campaignPhases,
     audienceTypes: getNestedArray(record.audienceTypes, "audiences").map(
       normalizeAudienceType,
     ),
@@ -1238,16 +1300,12 @@ export function normalizePaidMediaPlanBody(
       record.competitorReviewInsights,
       "insights",
     ).map(normalizeCompetitorReviewInsight),
-    channelSuggestions: getNestedArray(record.channelSuggestions, "suggestions").map(
-      normalizeChannelSuggestion,
-    ),
-    projectedResults: getNestedArray(record.projectedResults, "rows").map(
-      (row, index) => normalizeProjectedResultRow(row, index, options),
-    ),
-    kpis: getNestedArray(record.kpis, "kpis").map(normalizeKpi),
-    crossSectionInsight: getNestedArray(record.crossSectionInsight, "insights").map(
-      normalizeCrossSectionInsight,
-    ),
+    channelSuggestions: getNestedArray(record.channelSuggestions, "suggestions")
+      .map(normalizeChannelSuggestion)
+      .slice(0, 6),
+    projectedResults: projectedResultsOrSynthesized,
+    kpis: getNestedArray(record.kpis, "kpis").map(normalizeKpi).slice(0, 5),
+    crossSectionInsight,
     ...(isPlainRecord(record.feasibilityAudit)
       ? { feasibilityAudit: record.feasibilityAudit }
       : {}),

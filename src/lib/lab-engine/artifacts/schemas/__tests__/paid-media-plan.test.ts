@@ -567,13 +567,53 @@ describe("SOP projected-results table (W3)", () => {
     expect(normalized.projectedResults[0]?.projectedCountValue).toBe(22);
   });
 
-  it("fails validation when the model omits the projected-results table", () => {
+  it("synthesizes the projected-results table from budgeted phases when the model omits it", () => {
+    // Run f3993043: the empty-array floor killed the section. The SOP table
+    // is derivable from the plan's own cascade — one row per budgeted phase,
+    // KPI cost honestly unknown unless the brief-CAC bridge fills it.
     const rawBody = structuredClone(
       paidMediaPlanFixtureArtifact.body,
     ) as unknown as Record<string, unknown>;
     delete rawBody.projectedResults;
 
-    expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+    const phases = normalized.campaignPhases.filter(
+      (phase) => phase.monthlyBudgetValue !== undefined,
+    );
+
+    expect(normalized.projectedResults.length).toBe(phases.length);
+    expect(normalized.projectedResults.length).toBeGreaterThan(0);
+    for (const row of normalized.projectedResults) {
+      expect(row.sourceSection).toBe("gtmBrief");
+      expect(row.kpiCostProvenance).toBe("unknown");
+      expect(row.projectedCountValue).toBeUndefined();
+      expect(row.marginOfErrorPercent).toBeUndefined();
+    }
+  });
+
+  it("bridges synthesized projected rows through the brief target CAC", () => {
+    const rawBody = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    delete rawBody.projectedResults;
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.primaryKpi = "Paid signups";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody, {
+      targetCac: "$1,000",
+    });
+
+    const budgeted = normalized.projectedResults.filter(
+      (row) => row.phaseMonthlyBudgetValue !== undefined,
+    );
+    expect(budgeted.length).toBeGreaterThan(0);
+    for (const row of budgeted) {
+      expect(row.kpiCostProvenance).toBe("user-supplied");
+      expect(row.kpiCostValue).toBe(1000);
+      expect(row.projectedCountValue).toBe(
+        Math.floor((row.phaseMonthlyBudgetValue as number) / 1000),
+      );
+    }
   });
 
   it("rejects negative counts at the schema layer", () => {
