@@ -51,6 +51,8 @@ const painQuoteSchema = z
     role: z
       .string()
       .min(1)
+      .nullable()
+      .transform((value) => value ?? undefined)
       .optional()
       .describe(
         "Reviewer/poster role or handle, where the source discloses it.",
@@ -58,6 +60,8 @@ const painQuoteSchema = z
     date: z
       .string()
       .min(1)
+      .nullable()
+      .transform((value) => value ?? undefined)
       .optional()
       .describe("Date the quote was posted/observed, where disclosed."),
   })
@@ -78,7 +82,7 @@ const switchingStorySchema = z
     priorSolution: z.string().min(1),
     reasonToLeave: z.string().min(1),
     decisionPath: z.string().min(1),
-    exampleCompany: z.string().min(1).optional(),
+    exampleCompany: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     sourceUrl: z.string().min(1),
   })
   .strict();

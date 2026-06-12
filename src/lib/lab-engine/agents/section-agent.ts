@@ -1428,10 +1428,19 @@ function structuredOutputErrorDetail(error: unknown): Record<string, unknown> {
       .map((issue) => `${issue.path.join(".")}: ${issue.code}`);
   } else if (error instanceof Error) {
     const cause = error.cause;
-    if (cause instanceof z.ZodError) {
-      detail.zodIssues = cause.issues
-        .slice(0, 8)
-        .map((issue) => `${issue.path.join(".")}: ${issue.code}`);
+    const nestedCause = cause instanceof Error ? cause.cause : undefined;
+    const zodCause =
+      cause instanceof z.ZodError
+        ? cause
+        : nestedCause instanceof z.ZodError
+          ? nestedCause
+          : undefined;
+    if (zodCause !== undefined) {
+      detail.zodIssues = zodCause.issues
+        .slice(0, 12)
+        .map(
+          (issue) => `${issue.path.join(".")}: ${issue.code} ${issue.message}`.slice(0, 200),
+        );
     } else if (cause instanceof Error) {
       detail.causeMessage = cause.message.slice(0, 400);
     }

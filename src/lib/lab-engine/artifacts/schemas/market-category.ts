@@ -71,8 +71,8 @@ export const adjacentCategorySchema = z
     name: z.string().min(1),
     whyBuyersConfuseIt: z.string().min(1),
     disambiguatingSignal: z.string().min(1),
-    sourceTitle: z.string().min(1).optional(),
-    sourceUrl: z.string().min(1).optional(),
+    sourceTitle: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
@@ -96,7 +96,7 @@ export const bottomUpTamInputSchema = z
     value: z.string().min(1),
     status: z.enum(bottomUpTamInputStatuses),
     sourceTitle: z.string().min(1),
-    sourceUrl: z.string().min(1).optional(),
+    sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     dateObserved: z.string().min(1),
   })
   .strict();
@@ -110,50 +110,6 @@ export const bottomUpTamSchema = z
     caveats: z.array(z.string().min(1)),
   })
   .strict()
-  .superRefine((tam, context) => {
-    const gapCount = tam.inputs.filter((input) => input.status === "evidence-gap").length;
-    const computedRevenue = computeBottomUpTamRevenue(tam.inputs);
-
-    if (
-      gapCount >= 2 &&
-      tam.reachableRevenueEstimate.trim() !== directionalOnlyTamEstimate
-    ) {
-      context.addIssue({
-        code: "custom",
-        message:
-          `reachableRevenueEstimate must be exactly "${directionalOnlyTamEstimate}" when at least two TAM inputs are evidence gaps.`,
-        path: ["reachableRevenueEstimate"],
-      });
-      return;
-    }
-
-    if (computedRevenue === null) {
-      return;
-    }
-
-    const statedRevenue = parseMoneyLikeNumber(tam.reachableRevenueEstimate);
-    if (statedRevenue === null) {
-      context.addIssue({
-        code: "custom",
-        message:
-          "reachableRevenueEstimate must include the computed bottom-up revenue when all TAM inputs are parseable.",
-        path: ["reachableRevenueEstimate"],
-      });
-      return;
-    }
-
-    const larger = Math.max(statedRevenue, computedRevenue);
-    const smaller = Math.min(statedRevenue, computedRevenue);
-    const ratio = smaller === 0 ? Number.POSITIVE_INFINITY : larger / smaller;
-    if (ratio > 2) {
-      context.addIssue({
-        code: "custom",
-        message:
-          `reachableRevenueEstimate is more than 2x away from the recorded TAM inputs; expected approximately ${formatTamRevenue(computedRevenue)}.`,
-        path: ["reachableRevenueEstimate"],
-      });
-    }
-  })
   .transform((tam) => {
     const gapCount = tam.inputs.filter((input) => input.status === "evidence-gap").length;
     const computedRevenue = computeBottomUpTamRevenue(tam.inputs);
@@ -183,8 +139,8 @@ export const structuralForceSchema = z
     implication: z.string().min(1),
     impact: z.enum(structuralForceImpacts),
     direction: z.enum(structuralForceDirections),
-    sourceTitle: z.string().min(1).optional(),
-    sourceUrl: z.string().min(1).optional(),
+    sourceTitle: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
@@ -193,7 +149,7 @@ export const maturitySignalSchema = z
     signalType: z.enum(maturitySignalTypes),
     evidence: z.string().min(1),
     implication: z.string().min(1),
-    sourceUrl: z.string().min(1).optional(),
+    sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 

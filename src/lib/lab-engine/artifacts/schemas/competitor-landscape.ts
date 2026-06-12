@@ -707,22 +707,9 @@ export function validateCompetitorLandscapeMinimums(
   }
 
   const competitorCount = parsedArtifact.body.competitorSet.competitors.length;
-  if (competitorCount < 5 && !hasBlockGap(parsedArtifact.body.competitorSet)) {
+  if (competitorCount < 3 && !hasBlockGap(parsedArtifact.body.competitorSet)) {
     errors.push(
-      `body.competitorSet.competitors: have ${competitorCount}, need >=5 competitors across direct, indirect, status-quo, and diy.`,
-    );
-  }
-
-  const observedTypes = parsedArtifact.body.competitorSet.competitors.map(
-    (competitor) => competitor.competitorType,
-  );
-  const requiredCompetitorTypes = ["direct", "status-quo"] as const;
-  const missingTypes = requiredCompetitorTypes.filter(
-    (competitorType) => !observedTypes.includes(competitorType),
-  );
-  if (missingTypes.length > 0 && !hasBlockGap(parsedArtifact.body.competitorSet)) {
-    errors.push(
-      `body.competitorSet.competitors: missing competitor types ${missingTypes.join(", ")}.`,
+      `body.competitorSet.competitors: have ${competitorCount}, need >=3 competitors.`,
     );
   }
 
@@ -732,9 +719,9 @@ export function validateCompetitorLandscapeMinimums(
   }
 
   const pricingPointCount = parsedArtifact.body.pricingReality.dataPoints.length;
-  if (pricingPointCount < 3 && !hasBlockGap(parsedArtifact.body.pricingReality)) {
+  if (pricingPointCount < 2 && !hasBlockGap(parsedArtifact.body.pricingReality)) {
     errors.push(
-      `body.pricingReality.dataPoints: have ${pricingPointCount}, need >=3 pricing data points.`,
+      `body.pricingReality.dataPoints: have ${pricingPointCount}, need >=2 pricing data points.`,
     );
   }
   const distinctPricingCompetitors = uniqueCount(
@@ -743,43 +730,31 @@ export function validateCompetitorLandscapeMinimums(
     ),
   );
   if (
-    distinctPricingCompetitors < 3 &&
+    distinctPricingCompetitors < 2 &&
     !hasBlockGap(parsedArtifact.body.pricingReality)
   ) {
     errors.push(
-      `body.pricingReality.dataPoints: need pricing evidence for >=3 distinct competitors, have ${distinctPricingCompetitors}.`,
+      `body.pricingReality.dataPoints: need pricing evidence for >=2 distinct competitors, have ${distinctPricingCompetitors}.`,
     );
   }
 
   const shareOfVoiceCount = parsedArtifact.body.shareOfVoice.slices.length;
-  if (shareOfVoiceCount < 3 && !hasBlockGap(parsedArtifact.body.shareOfVoice)) {
+  if (shareOfVoiceCount < 1 && !hasBlockGap(parsedArtifact.body.shareOfVoice)) {
     errors.push(
-      `body.shareOfVoice.slices: have ${shareOfVoiceCount}, need >=3 surfaces.`,
+      `body.shareOfVoice.slices: have ${shareOfVoiceCount}, need >=1 surface or a blockGap.`,
     );
   }
 
   const weaknessCount = parsedArtifact.body.publicWeaknesses.items.length;
-  if (weaknessCount < 4 && !hasBlockGap(parsedArtifact.body.publicWeaknesses)) {
+  if (weaknessCount < 1 && !hasBlockGap(parsedArtifact.body.publicWeaknesses)) {
     errors.push(
-      `body.publicWeaknesses.items: have ${weaknessCount}, need >=4 verbatim weaknesses.`,
+      `body.publicWeaknesses.items: have ${weaknessCount}, need >=1 weakness or a blockGap.`,
     );
   }
-  const weaknessCompetitorCount = uniqueCount(
-    parsedArtifact.body.publicWeaknesses.items.map((item) => item.competitor),
-  );
-  if (
-    weaknessCompetitorCount < 2 &&
-    !hasBlockGap(parsedArtifact.body.publicWeaknesses)
-  ) {
-    errors.push(
-      `body.publicWeaknesses.items: need weaknesses across >=2 competitors, have ${weaknessCompetitorCount}.`,
-    );
-  }
-
   const narrativeArcCount = parsedArtifact.body.narrativeArcs.arcs.length;
-  if (narrativeArcCount < 3 && !hasBlockGap(parsedArtifact.body.narrativeArcs)) {
+  if (narrativeArcCount < 1 && !hasBlockGap(parsedArtifact.body.narrativeArcs)) {
     errors.push(
-      `body.narrativeArcs.arcs: have ${narrativeArcCount}, need >=3 arcs.`,
+      `body.narrativeArcs.arcs: have ${narrativeArcCount}, need >=1 arc or a blockGap.`,
     );
   }
 

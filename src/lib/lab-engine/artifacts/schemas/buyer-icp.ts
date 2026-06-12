@@ -250,7 +250,7 @@ const firmographicCutSchema = z
   .object({
     cutType: z.enum(cutTypes),
     value: z.string().min(1),
-    accountCount: z.string().min(1).optional(),
+    accountCount: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     source: z.string().min(1),
     sourceUrl: z.string().min(1),
     dateObserved: z.string().min(1),
@@ -265,13 +265,13 @@ const personaSchema = z
     sourceUrl: z.string().min(1),
     role: z.enum(personaRoles),
     seniority: z.string().min(1),
-    teamSize: z.string().min(1).optional(),
+    teamSize: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     evidence: z.string().min(1),
     // Derived by the runner normalizer (derive-don't-ask): true when the
     // persona's sourceUrl registrable domain equals the audited company's.
     // Vendor-sourced personas still count toward the floor — they are real
     // buyers — they're just labeled for the reader.
-    vendorSourced: z.boolean().optional(),
+    vendorSourced: z.boolean().nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
@@ -280,7 +280,7 @@ const awarenessLevelSchema = z
     level: z.enum(awarenessLevels),
     share: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     evidence: z.string().min(1),
-    sampleQuery: z.string().min(1).optional(),
+    sampleQuery: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
@@ -290,7 +290,7 @@ const triggerSchema = z
     detectionSignal: z.string().min(1),
     window: z.enum(triggerWindows),
     evidence: z.string().min(1),
-    sourceUrl: z.string().min(1).optional(),
+    sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
@@ -355,8 +355,8 @@ export const buyerICPBodySchema = z
         blockGap: blockGapFieldSchema,
       })
       .strict(),
-    evidenceGap: z.literal(true).optional(),
-    evidenceGapReport: evidenceGapReportSchema.optional(),
+    evidenceGap: z.literal(true).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceGapReport: evidenceGapReportSchema.nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
