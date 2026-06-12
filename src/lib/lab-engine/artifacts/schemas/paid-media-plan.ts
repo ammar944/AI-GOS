@@ -1223,9 +1223,12 @@ export function normalizePaidMediaPlanBody(
       value: record.creativeStrategy,
     }),
     creativeFramework,
-    funnelIdeation: getNestedArray(record.funnelIdeation, "recommendations").map(
-      normalizeFunnelPath,
-    ),
+    // Models overshoot the 1-3 funnel ceiling under load; keep the first
+    // three (rank labels are positional: 1 - PRIMARY / 2 - SECONDARY /
+    // 3 - TEST) instead of rejecting the section (run f3993043).
+    funnelIdeation: getNestedArray(record.funnelIdeation, "recommendations")
+      .map(normalizeFunnelPath)
+      .slice(0, 3),
     salesProcess: normalizeSalesProcessAssets(record.salesProcess),
     competitorMarketingInsights: getNestedArray(
       record.competitorMarketingInsights,
