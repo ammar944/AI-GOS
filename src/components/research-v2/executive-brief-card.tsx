@@ -30,8 +30,10 @@ interface BriefMove {
 
 interface BriefConflict {
   factKey: string;
+  label?: string;
   readings: Array<{ sectionId: string; value: string }>;
   resolution: string;
+  setAsideCount?: number;
   winningSectionId: string;
 }
 
@@ -64,6 +66,26 @@ function asConflicts(value: unknown): BriefConflict[] {
   );
 }
 
+function humanizeFactKey(value: string): string {
+  return value
+    .replace(/^subject-price:/, 'Subject price: ')
+    .replace(/^competitor-price:/, 'Competitor price: ')
+    .replace(/^ARR$/, 'ARR')
+    .replace(/^acv$/, 'ACV')
+    .replace(/^cac-target$/, 'CAC target')
+    .replace(/^customer-count$/, 'Customer count')
+    .replace(/^monthly-budget$/, 'Monthly budget')
+    .replace(/^sales-cycle-days$/, 'Sales cycle')
+    .replace(/^keyword-cluster:/, 'Keyword cluster: ')
+    .replace(/-/g, ' ');
+}
+
+function conflictLabel(conflict: BriefConflict): string {
+  return typeof conflict.label === 'string' && conflict.label.trim().length > 0
+    ? conflict.label
+    : humanizeFactKey(conflict.factKey);
+}
+
 export function ExecutiveBriefCard({
   brief,
   sectionLabelOf,
@@ -94,7 +116,13 @@ export function ExecutiveBriefCard({
 
   const labelOf = sectionLabelOf ?? ((sectionId: string) => sectionId);
   const moves = asMoves(brief.rankedMoves);
-  const conflicts = asConflicts(brief.factConflicts);
+  const conflicts = asConflicts(brief.factConflicts)
+    .filter(
+      (conflict) =>
+        conflict.winningSectionId.trim().length > 0 &&
+        conflict.resolution.trim().length > 0,
+    )
+    .slice(0, 6);
 
   return (
     <section
@@ -136,19 +164,8 @@ export function ExecutiveBriefCard({
             {conflicts.map((conflict) => (
               <li key={conflict.factKey} className="text-[13px] leading-relaxed">
                 <p className="font-medium text-foreground">
-                  {scrubReaderText(conflict.factKey)}
+                  {scrubReaderText(conflictLabel(conflict))}
                 </p>
-                {Array.isArray(conflict.readings) &&
-                conflict.readings.length > 0 ? (
-                  <p className="mt-0.5 font-mono text-[11px] leading-relaxed text-muted-foreground/70">
-                    {conflict.readings
-                      .map(
-                        (reading) =>
-                          `${labelOf(reading.sectionId)}: ${reading.value}`,
-                      )
-                      .join(' · ')}
-                  </p>
-                ) : null}
                 <p className="mt-1 max-w-[68ch] text-muted-foreground">
                   {scrubReaderText(conflict.resolution)}
                 </p>

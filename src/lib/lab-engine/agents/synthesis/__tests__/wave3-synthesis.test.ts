@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { StructuredCaller } from "../../section-agent";
 import { runExecutiveBrief } from "../../executive-brief";
-import { findContradictions } from "../contradictions";
+import {
+  findContradictions,
+  reconcileFactLedgerForMemo,
+} from "../contradictions";
 import {
   buildFactLedger,
   type SynthesisSectionInput,
@@ -218,6 +221,114 @@ describe("Wave 3 synthesis layer", (): void => {
           contradiction.sections.includes("positioningPaidMediaPlan"),
       ),
     ).toBe(true);
+  });
+
+  it("regression: collapses five identical inherited price contradictions into one occurrence-counted contradiction", (): void => {
+    const sections: SynthesisSectionInput[] = [
+      {
+        body: { prose: "Buyer source body." },
+        sectionId: "positioningBuyerICP",
+        verifierSummary: {
+          strippedNumericClaims: [
+            { field: "body.price.prose", value: "$20-$45" },
+            { field: "body.price.prose", value: "$20-$45" },
+            { field: "body.price.prose", value: "$20-$45" },
+            { field: "body.price.prose", value: "$20-$45" },
+            { field: "body.price.prose", value: "$20-$45" },
+          ],
+        },
+      },
+      {
+        body: {
+          pricing: {
+            prose: "The memo should not reuse the $20-$45 price range.",
+          },
+        },
+        sectionId: "positioningOfferDiagnostic",
+      },
+    ];
+    const ledger = buildFactLedger({ sections, subjectName: "Airtable" });
+    const contradictions = findContradictions({ ledger, sections });
+    const inherited = contradictions.filter(
+      (contradiction) =>
+        contradiction.kind === "inherited-stripped-claim" &&
+        contradiction.description.includes("$20-$45"),
+    );
+
+    expect(inherited).toHaveLength(1);
+    expect(inherited[0]?.occurrenceCount).toBe(5);
+    expect(inherited[0]?.resolution).toContain("set aside");
+  });
+
+  it("regression: keeps percentage readings out of customer-count contradictions", (): void => {
+    const sections: SynthesisSectionInput[] = [
+      {
+        body: {
+          buyerSignal: {
+            prose: "Airtable says 50% of customers use workflow automation.",
+          },
+        },
+        sectionId: "positioningBuyerICP",
+      },
+      {
+        body: {
+          companyScale: {
+            prose: "Airtable serves 500,000 customers worldwide.",
+          },
+        },
+        sectionId: "positioningOfferDiagnostic",
+      },
+    ];
+    const ledger = buildFactLedger({ sections, subjectName: "Airtable" });
+    const memoLedger = reconcileFactLedgerForMemo(ledger);
+    const customerCount = memoLedger.facts.find(
+      (fact) => fact.factKey === "customer-count",
+    );
+    const contradictions = findContradictions({ ledger, sections });
+
+    expect(customerCount?.readings.map((reading) => reading.value)).toEqual([
+      "500,000",
+    ]);
+    expect(
+      contradictions.some(
+        (contradiction) => contradiction.id === "numeric:customer-count",
+      ),
+    ).toBe(false);
+  });
+
+  it("regression: selects brief-supplied monthly budget over benchmark readings", (): void => {
+    const sections: SynthesisSectionInput[] = [
+      {
+        body: {
+          budget: {
+            prose: "Client brief monthly media budget is $25,000.",
+          },
+        },
+        sectionId: "positioningPaidMediaPlan",
+      },
+      {
+        body: {
+          benchmark: {
+            prose: "Industry benchmark launch spend is $3,000 per month.",
+          },
+        },
+        sectionId: "positioningMarketCategory",
+      },
+    ];
+    const ledger = buildFactLedger({ sections, subjectName: "Airtable" });
+    const memoLedger = reconcileFactLedgerForMemo(ledger);
+    const monthlyBudget = memoLedger.facts.find(
+      (fact) => fact.factKey === "monthly-budget",
+    );
+    const contradictions = findContradictions({ ledger, sections });
+    const budgetContradiction = contradictions.find(
+      (contradiction) => contradiction.id === "numeric:monthly-budget",
+    );
+
+    expect(monthlyBudget?.winner?.value).toBe("$25,000");
+    expect(monthlyBudget?.winnerBasis).toContain("brief-supplied");
+    expect(budgetContradiction?.resolution).toContain("$25,000");
+    expect(budgetContradiction?.resolution).not.toContain("We use $3,000");
   });
 
   it("proves 2,820 searches cannot absorb a $10K monthly allocation under benchmark search math", (): void => {

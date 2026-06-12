@@ -1,6 +1,9 @@
 import type {
+  FactDomain,
   FactLedger,
   FactLedgerFact,
+  FactLedgerReading,
+  FactReadingBasis,
   KeywordMetric,
   SynthesisSectionInput,
 } from "./fact-ledger";
@@ -20,6 +23,7 @@ export interface Contradiction {
   description: string;
   resolution: string;
   resolved: boolean;
+  occurrenceCount?: number;
 }
 
 export interface UnsupportedClaimRegistryEntry {
@@ -46,6 +50,32 @@ interface StrippedClaim {
 }
 
 const lowVolumeThreshold = 200;
+const factOwnerByDomain: Record<FactDomain, string> = {
+  "competitor-price": "positioningCompetitorLandscape",
+  "customer-count": "positioningOfferDiagnostic",
+  "keyword-cluster": "positioningDemandIntent",
+  "operator-economics": "positioningPaidMediaPlan",
+  "sales-cycle": "positioningOfferDiagnostic",
+  "subject-price": "positioningOfferDiagnostic",
+};
+const numericBasisRank: Record<FactReadingBasis, number> = {
+  "measured-tool-data": 50,
+  "subject-own-page-sourced": 40,
+  "corroborated-secondary": 40,
+  benchmark: 10,
+  "model-stated": 5,
+  absent: 0,
+};
+
+type FactReadingUnitClass =
+  | "bare-count"
+  | "currency-absolute"
+  | "currency-monthly"
+  | "currency-rate"
+  | "days"
+  | "percentage"
+  | "searches-per-month"
+  | "unknown";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -116,21 +146,237 @@ function criticalNumericFact(fact: FactLedgerFact): boolean {
   );
 }
 
-function numericContradiction(fact: FactLedgerFact): Contradiction {
-  const sections = [...new Set(fact.readings.map((reading) => reading.sectionId))];
-  const values = fact.readings
+function isBriefSuppliedReading(reading: FactLedgerReading): boolean {
+  return /\b(?:client brief|operator-supplied|user-supplied|user supplied|onboarding|gtm brief|brief)\b/i.test(
+    reading.context,
+  );
+}
+
+function isDerivedReading(reading: FactLedgerReading): boolean {
+  return /\b(?:derived|calculated|computed|formula|modeled from|bridge|cascade|reconciled)\b/i.test(
+    reading.context,
+  );
+}
+
+function rankReading(reading: FactLedgerReading): number {
+  if (isBriefSuppliedReading(reading)) {
+    return 60;
+  }
+
+  if (isDerivedReading(reading)) {
+    return 30;
+  }
+
+  return numericBasisRank[reading.basis];
+}
+
+function readingUnitClassForFact(
+  fact: FactLedgerFact,
+  reading: FactLedgerReading,
+): FactReadingUnitClass {
+  const value = reading.value.toLowerCase();
+  const context = reading.context.toLowerCase();
+  const combined = `${value} ${context}`;
+
+  if (value.includes("%") || reading.unit === "percent") {
+    return "percentage";
+  }
+
+  if (reading.unit === "searches-per-month") {
+    return "searches-per-month";
+  }
+
+  if (reading.unit === "days") {
+    return "days";
+  }
+
+  if (value.includes("$") || reading.unit === "money") {
+    if (
+      /\b(?:cac|cpl|cpc|cpm|cost per|per lead|per trial|per mql|per conversion|per click|\/\s*(?:lead|trial|mql|conversion|click))\b/i.test(
+        combined,
+      )
+    ) {
+      return "currency-rate";
+    }
+
+    if (
+      fact.factKey === "monthly-budget" ||
+      /\b(?:monthly|per month|\/\s*(?:mo|month)|media budget|ad budget|spend)\b/i.test(
+        combined,
+      )
+    ) {
+      return "currency-monthly";
+    }
+
+    return "currency-absolute";
+  }
+
+  if (reading.unit === "count" || /\b(?:customers|brands|organizations|companies)\b/i.test(context)) {
+    return "bare-count";
+  }
+
+  return "unknown";
+}
+
+function expectedUnitClassForFact(
+  fact: FactLedgerFact,
+): FactReadingUnitClass | undefined {
+  if (fact.domain === "customer-count") {
+    return "bare-count";
+  }
+
+  if (fact.domain === "keyword-cluster") {
+    return "searches-per-month";
+  }
+
+  if (fact.domain === "sales-cycle") {
+    return "days";
+  }
+
+  if (fact.factKey === "monthly-budget") {
+    return "currency-monthly";
+  }
+
+  if (fact.factKey === "cac-target") {
+    return "currency-rate";
+  }
+
+  if (fact.factKey === "acv" || fact.factKey === "ARR") {
+    return "currency-absolute";
+  }
+
+  if (fact.domain === "subject-price" || fact.domain === "competitor-price") {
+    return "currency-absolute";
+  }
+
+  return undefined;
+}
+
+function readingParticipatesInFact(
+  fact: FactLedgerFact,
+  reading: FactLedgerReading,
+): boolean {
+  const expected = expectedUnitClassForFact(fact);
+
+  if (expected === undefined) {
+    return true;
+  }
+
+  return readingUnitClassForFact(fact, reading) === expected;
+}
+
+function factIsDisputed(readings: readonly FactLedgerReading[]): boolean {
+  const values = readings
+    .map((reading) => reading.normalizedValue)
+    .filter((value): value is number => value !== undefined && value > 0);
+
+  if (values.length < 2) {
+    return false;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  return (max - min) / Math.max(min, 1) > 0.2;
+}
+
+function deterministicWinnerForFact(
+  fact: FactLedgerFact,
+  readings: readonly FactLedgerReading[],
+): FactLedgerReading | undefined {
+  const owner = factOwnerByDomain[fact.domain];
+
+  return [...readings].sort((left, right) => {
+    const rankDelta = rankReading(right) - rankReading(left);
+
+    if (rankDelta !== 0) {
+      return rankDelta;
+    }
+
+    if (left.sectionId === owner && right.sectionId !== owner) {
+      return -1;
+    }
+
+    if (right.sectionId === owner && left.sectionId !== owner) {
+      return 1;
+    }
+
+    return `${left.sectionId}:${left.value}`.localeCompare(
+      `${right.sectionId}:${right.value}`,
+    );
+  })[0];
+}
+
+function basisLabel(reading: FactLedgerReading): string {
+  if (isBriefSuppliedReading(reading)) {
+    return "brief-supplied";
+  }
+
+  if (isDerivedReading(reading)) {
+    return "derived";
+  }
+
+  return reading.basis;
+}
+
+function reconcileFactForMemo(fact: FactLedgerFact): FactLedgerFact | null {
+  const readings = fact.readings.filter((reading) =>
+    readingParticipatesInFact(fact, reading),
+  );
+
+  if (readings.length === 0) {
+    return null;
+  }
+
+  const winner = deterministicWinnerForFact(fact, readings);
+
+  return {
+    ...fact,
+    disputed: factIsDisputed(readings),
+    readings,
+    ...(winner === undefined ? {} : { winner }),
+    winnerBasis:
+      winner === undefined
+        ? "no comparable readings available"
+        : `${basisLabel(winner)}; selected from ${winner.sectionId}`,
+  };
+}
+
+export function reconcileFactLedgerForMemo(ledger: FactLedger): FactLedger {
+  return {
+    ...ledger,
+    facts: ledger.facts.flatMap((fact) => {
+      const reconciled = reconcileFactForMemo(fact);
+
+      return reconciled === null ? [] : [reconciled];
+    }),
+  };
+}
+
+function numericContradiction(fact: FactLedgerFact): Contradiction | null {
+  const reconciled = reconcileFactForMemo(fact);
+
+  if (reconciled === null || !reconciled.disputed) {
+    return null;
+  }
+
+  const sections = [
+    ...new Set(reconciled.readings.map((reading) => reading.sectionId)),
+  ];
+  const values = reconciled.readings
     .map((reading) => `${reading.sectionId}: ${reading.value}`)
     .join("; ");
+  const winner = reconciled.winner;
 
   return {
     description: `${fact.label} has disagreeing readings: ${values}.`,
     id: `numeric:${fact.factKey}`,
     kind: "numeric",
     resolution:
-      fact.winner === undefined
-        ? "No winning reading could be selected; verify the source sections before using this figure."
-        : `Use ${fact.winner.value} from ${fact.winner.sectionId} (${fact.winnerBasis}).`,
-    resolved: fact.winner !== undefined,
+      winner === undefined
+        ? "We flagged the figure because no comparable reading can safely lead the memo."
+        : `We use ${winner.value} from ${winner.sectionId} (${reconciled.winnerBasis}).`,
+    resolved: winner !== undefined,
     sections,
     severity: criticalNumericFact(fact) ? "critical" : "warning",
   };
@@ -182,7 +428,7 @@ function strategicContradictions({
         id: `strategic:${section.sectionId}:${leaf.path}`,
         kind: "strategic",
         resolution:
-          "Use demand-intent measured volume for these themes and describe them as low-volume unless a new measured table proves otherwise.",
+          "We used measured demand-intent volume for those themes and treated broader-volume language as a caveat.",
         resolved: false,
         sections: [section.sectionId, "positioningDemandIntent"],
         severity: "critical",
@@ -338,7 +584,7 @@ function inheritedStrippedClaimContradictions({
         id: `inherited:${claim.sectionId}:${section.sectionId}:${claim.field ?? "registry"}`,
         kind: "inherited-stripped-claim",
         resolution:
-          "Remove or relabel the inherited statement unless the target section has its own surviving source-backed evidence.",
+          "We set aside an unverified claim that repeated across sections without surviving source-backed evidence.",
         resolved: false,
         sections: [claim.sectionId, section.sectionId],
         severity: "critical",
@@ -349,18 +595,106 @@ function inheritedStrippedClaimContradictions({
   return contradictions;
 }
 
+function severityRank(severity: ContradictionSeverity): number {
+  if (severity === "critical") {
+    return 3;
+  }
+
+  if (severity === "warning") {
+    return 2;
+  }
+
+  return 1;
+}
+
+function maxSeverity(
+  left: ContradictionSeverity,
+  right: ContradictionSeverity,
+): ContradictionSeverity {
+  return severityRank(left) >= severityRank(right) ? left : right;
+}
+
+function contradictionClaimText(contradiction: Contradiction): string | undefined {
+  if (contradiction.kind !== "inherited-stripped-claim") {
+    return undefined;
+  }
+
+  const separatorIndex = contradiction.description.indexOf(": ");
+
+  return separatorIndex === -1
+    ? undefined
+    : normalizeWhitespace(contradiction.description.slice(separatorIndex + 2));
+}
+
+function normalizeContradictionKey(value: string): string {
+  return normalizeWhitespace(value)
+    .toLowerCase()
+    .replace(/[$,\s]+/g, " ")
+    .replace(/[–—]/g, "-")
+    .trim();
+}
+
+function dedupeKeys(contradiction: Contradiction): string[] {
+  const keys = [
+    `${contradiction.kind}:description:${normalizeContradictionKey(contradiction.description)}`,
+  ];
+  const claim = contradictionClaimText(contradiction);
+
+  if (claim !== undefined) {
+    keys.push(
+      [
+        contradiction.kind,
+        "sections-claim",
+        [...contradiction.sections].sort().join("|"),
+        normalizeContradictionKey(claim),
+      ].join(":"),
+    );
+  }
+
+  return keys;
+}
+
+function mergeContradictions(
+  left: Contradiction,
+  right: Contradiction,
+): Contradiction {
+  return {
+    ...left,
+    occurrenceCount: (left.occurrenceCount ?? 1) + (right.occurrenceCount ?? 1),
+    resolved: left.resolved && right.resolved,
+    sections: [...new Set([...left.sections, ...right.sections])],
+    severity: maxSeverity(left.severity, right.severity),
+  };
+}
+
 function dedupeContradictions(
   contradictions: readonly Contradiction[],
 ): Contradiction[] {
-  const byId = new Map<string, Contradiction>();
+  const deduped: Contradiction[] = [];
+  const indexByKey = new Map<string, number>();
 
   for (const contradiction of contradictions) {
-    if (!byId.has(contradiction.id)) {
-      byId.set(contradiction.id, contradiction);
+    const keys = [contradiction.id, ...dedupeKeys(contradiction)];
+    const existingIndex = keys
+      .map((key) => indexByKey.get(key))
+      .find((index): index is number => index !== undefined);
+
+    if (existingIndex === undefined) {
+      const nextIndex = deduped.length;
+
+      deduped.push(contradiction);
+      keys.forEach((key) => indexByKey.set(key, nextIndex));
+      continue;
     }
+
+    deduped[existingIndex] = mergeContradictions(
+      deduped[existingIndex],
+      contradiction,
+    );
+    keys.forEach((key) => indexByKey.set(key, existingIndex));
   }
 
-  return [...byId.values()];
+  return deduped;
 }
 
 export function findContradictions({
@@ -369,7 +703,15 @@ export function findContradictions({
   unsupportedClaimsRegistry,
 }: FindContradictionsParams): Contradiction[] {
   return dedupeContradictions([
-    ...ledger.facts.filter((fact) => fact.disputed).map(numericContradiction),
+    ...ledger.facts.flatMap((fact) => {
+      if (!fact.disputed) {
+        return [];
+      }
+
+      const contradiction = numericContradiction(fact);
+
+      return contradiction === null ? [] : [contradiction];
+    }),
     ...strategicContradictions({
       keywordMetrics: ledger.keywordMetrics,
       sections,

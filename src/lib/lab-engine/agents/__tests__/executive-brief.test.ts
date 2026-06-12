@@ -6,6 +6,7 @@ import {
   type ExecutiveBriefSectionInput,
 } from "../executive-brief";
 import type { StructuredCaller } from "../section-agent";
+import type { Contradiction } from "../synthesis/contradictions";
 
 const sections: ExecutiveBriefSectionInput[] = [
   {
@@ -111,6 +112,7 @@ describe("runExecutiveBrief", (): void => {
     expect(result.factConflicts).toHaveLength(1);
     expect(result.factConflicts[0]?.resolution).toContain("unresolved");
     expect(result.factConflicts[0]?.winningSectionId).toBe("");
+    expect(result.rankedMoves).toHaveLength(1);
   });
 
   it("threads verification tier and confidence into the prompt with the directional rule", async (): Promise<void> => {
@@ -182,5 +184,120 @@ describe("runExecutiveBrief", (): void => {
         sections,
       }),
     ).rejects.toThrow("non-object");
+  });
+
+  it("always composes after auto-resolving an inherited stripped-claim contradiction", async (): Promise<void> => {
+    const captured: Array<{ prompt?: string }> = [];
+    const inherited: Contradiction = {
+      description:
+        "positioningOfferDiagnostic still relies on a claim stripped from positioningBuyerICP: $20-$45",
+      id: "inherited:positioningBuyerICP:positioningOfferDiagnostic:verifierSummary.strippedNumericClaims[0]",
+      kind: "inherited-stripped-claim",
+      resolution:
+        "We set aside an unverified claim that repeated across sections without surviving source-backed evidence.",
+      resolved: false,
+      sections: ["positioningBuyerICP", "positioningOfferDiagnostic"],
+      severity: "critical",
+    };
+    const result = await runExecutiveBrief({
+      callStructured: async (params) => {
+        captured.push({ prompt: params.prompt });
+
+        return {
+          decisions: [
+            {
+              bestEvidence: {
+                sectionRef: "positioningOfferDiagnostic",
+                statement: "Offer evidence survives after reconciliation.",
+              },
+              confidenceBasis: "Sourced offer evidence.",
+              confidenceGrade: "B",
+              cost: "operator effort",
+              decision: "Tighten the offer page around verified pricing proof.",
+              provesWrongIf: {
+                metric: "qualified trials",
+                threshold: "below target",
+                window: "30 days",
+              },
+            },
+          ],
+          thesis: "The report supports a verified offer path.",
+        };
+      },
+      companyName: "Airtable",
+      companyWebsiteUrl: "https://airtable.com",
+      conflicts: [],
+      contradictions: [inherited],
+      model: {} as never,
+      sections: [
+        sections[0],
+        {
+          body: {
+            keyFindings: ["Do not repeat the $20-$45 range without proof."],
+          },
+          sectionId: "positioningOfferDiagnostic",
+          sectionTitle: "Offer Diagnostic",
+          statusSummary: "Offer repeats the $20-$45 range.",
+          verdict: "Use the $20-$45 range.",
+        },
+      ],
+    });
+
+    expect(captured[0]?.prompt).not.toContain("$20-$45");
+    expect(result.executiveThesis).toContain("verified offer path");
+    expect(result.executiveThesis).not.toContain("blocked");
+    expect(result.executiveThesis).not.toContain("Resolve contradiction");
+    expect(result.appendix.contradictions[0]?.resolved).toBe(true);
+    expect(result.appendix.contradictions[0]?.resolution).toContain(
+      "set aside an unverified price range",
+    );
+    expect(result.rankedMoves).toHaveLength(1);
+  });
+
+  it("renders remaining strategic contradictions as client-language memo caveats", async (): Promise<void> => {
+    const strategic: Contradiction = {
+      description:
+        "positioningMarketCategory recommends higher-volume keyword themes while referencing measured low-volume keyword(s): low code app builder 90/mo.",
+      id: "strategic:positioningMarketCategory:body.keyTension",
+      kind: "strategic",
+      resolution:
+        "We used measured demand-intent volume for those themes and treated broader-volume language as a caveat.",
+      resolved: false,
+      sections: ["positioningMarketCategory", "positioningDemandIntent"],
+      severity: "critical",
+    };
+    const result = await runExecutiveBrief({
+      callStructured: buildCaller({
+        decisions: [
+          {
+            bestEvidence: {
+              sectionRef: "positioningDemandIntent",
+              statement: "Demand data is measured.",
+            },
+            confidenceBasis: "Measured demand evidence.",
+            confidenceGrade: "B",
+            cost: "operator effort",
+            decision: "Treat low-volume demand as a focused capture lane.",
+            provesWrongIf: {
+              metric: "qualified trials",
+              threshold: "below target",
+              window: "30 days",
+            },
+          },
+        ],
+        thesis: "The report supports a focused demand capture thesis.",
+      }),
+      companyName: "Airtable",
+      companyWebsiteUrl: "https://airtable.com",
+      conflicts: [],
+      contradictions: [strategic],
+      model: {} as never,
+      sections,
+    });
+
+    expect(result.executiveThesis).toContain("Where the evidence disagrees");
+    expect(result.executiveThesis).toContain("measured demand data");
+    expect(result.executiveThesis).not.toContain("Resolve contradiction");
+    expect(result.rankedMoves).toHaveLength(1);
   });
 });

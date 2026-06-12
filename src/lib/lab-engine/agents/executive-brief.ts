@@ -1,9 +1,13 @@
 import { z } from "zod";
 
 import { sectionWriterModel, type SectionLanguageModel } from "../ai/models";
+import {
+  createTolerantDecodeShortfallError,
+  tolerantDecode,
+} from "../artifacts/tolerant-decode";
 import type { CrossSectionFactConflict } from "./cross-section-facts";
 import {
-  hasUnresolvedCriticalContradiction,
+  reconcileFactLedgerForMemo,
   type Contradiction,
 } from "./synthesis/contradictions";
 import {
@@ -27,7 +31,6 @@ import {
 export const executiveBriefTimeoutMs = 120_000;
 export const executiveBriefMaxOutputTokens = 8_192;
 const maxDecisions = 5;
-const minDecisions = 3;
 
 export interface ExecutiveBriefSectionInput {
   sectionId: string;
@@ -51,8 +54,10 @@ export interface ExecutiveBriefRankedMove {
 
 export interface ExecutiveBriefResolvedConflict {
   factKey: string;
+  label?: string;
   readings: Array<{ sectionId: string; value: string }>;
   resolution: string;
+  setAsideCount?: number;
   winningSectionId: string;
 }
 
@@ -191,6 +196,8 @@ const rawBriefSchema = z
 const briefInstructions = [
   "You are writing the executive decision memo for a paid GTM research report.",
   "Use only the deterministic synthesis packet. Do not recompute math and do not introduce new numbers.",
+  "If evidence disagrees, write a client-language caveat. Never write repair instructions, contradiction IDs, field names, or process vocabulary.",
+  "Do not use the phrase 'Resolve contradiction'.",
   "",
   "Return:",
   "1. thesis: <=120 words, one argument the whole report proves.",
@@ -269,6 +276,281 @@ function factSummary(fact: FactLedgerFact): string {
   ].join(" | ");
 }
 
+function factLabel(factKey: string): string {
+  return factKey
+    .replace(/^subject-price:/, "Subject price: ")
+    .replace(/^competitor-price:/, "Competitor price: ")
+    .replace(/^keyword-cluster:/, "Keyword cluster: ")
+    .replace(/^ARR$/, "ARR")
+    .replace(/^acv$/, "ACV")
+    .replace(/^cac-target$/, "CAC target")
+    .replace(/^customer-count$/, "Customer count")
+    .replace(/^monthly-budget$/, "Monthly budget")
+    .replace(/^sales-cycle-days$/, "Sales cycle")
+    .replace(/-/g, " ");
+}
+
+function clientBasis(value: string): string {
+  if (/brief-supplied/i.test(value)) {
+    return "brief";
+  }
+
+  if (/measured-tool-data/i.test(value)) {
+    return "measured";
+  }
+
+  if (/subject-own-page-sourced|corroborated-secondary/i.test(value)) {
+    return "sourced";
+  }
+
+  if (/derived/i.test(value)) {
+    return "derived";
+  }
+
+  if (/benchmark/i.test(value)) {
+    return "benchmark";
+  }
+
+  return "selected";
+}
+
+function sectionLabel(sectionId: string | undefined): string {
+  if (sectionId === undefined) {
+    return "another section";
+  }
+
+  const labels: Record<string, string> = {
+    deepResearchProgram: "the research corpus",
+    positioningBuyerICP: "Buyer & ICP Validation",
+    positioningCompetitorLandscape: "Competitor Landscape",
+    positioningDemandIntent: "Demand & Intent",
+    positioningMarketCategory: "Market & Category",
+    positioningOfferDiagnostic: "Offer Diagnostic",
+    positioningPaidMediaPlan: "Paid Media Plan",
+    positioningVoiceOfCustomer: "Voice of Customer",
+  };
+
+  return labels[sectionId] ?? "another section";
+}
+
+function clientContradictionLine(contradiction: Contradiction): string {
+  if (contradiction.kind === "strategic") {
+    return [
+      `${sectionLabel(contradiction.sections[0])} disagrees with measured demand volume.`,
+      "We use the measured demand data and keep scale as a caveat.",
+    ].join(" ");
+  }
+
+  if (contradiction.kind === "numeric") {
+    return [
+      contradiction.description.replace(/\s+has disagreeing readings:.*/i, ""),
+      "readings disagree.",
+      contradiction.resolved
+        ? contradiction.resolution
+        : "We keep the figure as a caveat instead of making it a spend premise.",
+    ].join(" ");
+  }
+
+  return contradiction.resolution;
+}
+
+function inheritedClaimText(contradiction: Contradiction): string | undefined {
+  if (contradiction.kind !== "inherited-stripped-claim") {
+    return undefined;
+  }
+
+  const separatorIndex = contradiction.description.indexOf(": ");
+
+  return separatorIndex === -1
+    ? undefined
+    : contradiction.description.slice(separatorIndex + 2).trim();
+}
+
+function resolvedInheritedContradiction(
+  contradiction: Contradiction,
+  claim: string | undefined,
+): Contradiction {
+  return {
+    ...contradiction,
+    resolution: inheritedResolution(claim),
+    resolved: true,
+    severity: "warning",
+  };
+}
+
+function claimNeedle(claim: string): string | undefined {
+  const quoted = /['"`]([^'"`]{4,})['"`]/.exec(claim);
+
+  if (quoted !== null) {
+    return quoted[1].toLowerCase();
+  }
+
+  const moneyOrPercent = claim.match(
+    /\$?\d[\d,]*(?:\.\d+)?(?:\s?[KMBkmb]\b)?(?:\s*[-–]\s*\$?\d[\d,]*(?:\.\d+)?(?:\s?[KMBkmb]\b)?)?(?:%|\/(?:click|lead|trial|mo|month))?/,
+  );
+
+  if (moneyOrPercent !== null) {
+    return moneyOrPercent[0].toLowerCase();
+  }
+
+  const normalized = claim.replace(/\s+/g, " ").trim().toLowerCase();
+
+  return normalized.length >= 24 ? normalized.slice(0, 120) : undefined;
+}
+
+function stripNeedleFromText({
+  needle,
+  value,
+}: {
+  needle: string;
+  value: string;
+}): string {
+  if (!value.toLowerCase().includes(needle)) {
+    return value;
+  }
+
+  const sentences = value.split(/(?<=[.!?])\s+/);
+  const kept = sentences.filter(
+    (sentence) => !sentence.toLowerCase().includes(needle),
+  );
+  const next =
+    kept.length === sentences.length
+      ? value.replace(new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig"), "")
+      : kept.join(" ");
+  const cleaned = next
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,;:])/g, "$1")
+    .trim();
+
+  return cleaned.length === 0 ? numericCoherenceGapLine : cleaned;
+}
+
+function stripNeedleFromValue({
+  needle,
+  value,
+}: {
+  needle: string;
+  value: unknown;
+}): unknown {
+  if (typeof value === "string") {
+    return stripNeedleFromText({ needle, value });
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => stripNeedleFromValue({ needle, value: item }));
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [
+      key,
+      stripNeedleFromValue({ needle, value: child }),
+    ]),
+  );
+}
+
+function inheritedResolution(claim: string | undefined): string {
+  if (claim !== undefined && /\$/.test(claim)) {
+    return "We set aside an unverified price range that two sections repeated from each other.";
+  }
+
+  if (claim !== undefined && /%/.test(claim)) {
+    return "We set aside an unverified percentage that two sections repeated from each other.";
+  }
+
+  return "We set aside an unverified claim that two sections repeated from each other.";
+}
+
+function resolveInheritedContradictions({
+  contradictions,
+  sections,
+}: {
+  contradictions: readonly Contradiction[];
+  sections: readonly ExecutiveBriefSectionInput[];
+}): {
+  contradictions: Contradiction[];
+  sections: ExecutiveBriefSectionInput[];
+} {
+  let nextSections = sections.map((section) => ({
+    ...section,
+    body: { ...section.body },
+  }));
+
+  const nextContradictions = contradictions.map((contradiction) => {
+    if (
+      contradiction.kind !== "inherited-stripped-claim" ||
+      contradiction.resolved
+    ) {
+      return contradiction;
+    }
+
+    const claim = inheritedClaimText(contradiction);
+    const needle = claim === undefined ? undefined : claimNeedle(claim);
+    const dependentSectionId = contradiction.sections[1];
+
+    if (needle !== undefined && dependentSectionId !== undefined) {
+      nextSections = nextSections.map((section) => {
+        if (section.sectionId !== dependentSectionId) {
+          return section;
+        }
+
+        return {
+          ...section,
+          body: stripNeedleFromValue({
+            needle,
+            value: section.body,
+          }) as Record<string, unknown>,
+          statusSummary: stripNeedleFromText({
+            needle,
+            value: section.statusSummary,
+          }),
+          verdict: stripNeedleFromText({
+            needle,
+            value: section.verdict,
+          }),
+        };
+      });
+    }
+
+    return resolvedInheritedContradiction(contradiction, claim);
+  });
+
+  return {
+    contradictions: nextContradictions,
+    sections: nextSections,
+  };
+}
+
+function evidenceDisagreementBlock(
+  contradictions: readonly Contradiction[],
+): string {
+  const bullets = contradictions
+    .filter((contradiction) => !contradiction.resolved)
+    .slice(0, 3)
+    .map((contradiction) => `- ${clientContradictionLine(contradiction)}`);
+
+  if (bullets.length === 0) {
+    return "";
+  }
+
+  return ["", "## Where the evidence disagrees", ...bullets].join("\n");
+}
+
+function appendEvidenceDisagreements({
+  contradictions,
+  thesis,
+}: {
+  contradictions: readonly Contradiction[];
+  thesis: string;
+}): string {
+  const block = evidenceDisagreementBlock(contradictions);
+
+  return block.length === 0 ? thesis : `${thesis.trim()}\n${block}`;
+}
+
 function feasibilitySummary(
   feasibilityAudit: PaidMediaFeasibilityAudit | undefined,
 ): string {
@@ -319,10 +601,10 @@ function buildBriefPrompt({
       ? "none"
       : factLedger.facts.map(factSummary).join("\n"),
     "",
-    "CONTRADICTIONS:",
+    "EVIDENCE DISAGREEMENTS TO HANDLE AS CLIENT-LANGUAGE CAVEATS:",
     contradictions.length === 0
       ? "none"
-      : JSON.stringify(contradictions, null, 1),
+      : contradictions.map(clientContradictionLine).join("\n"),
     "",
     "FEASIBILITY AUDIT:",
     feasibilitySummary(params.feasibilityAudit),
@@ -342,11 +624,43 @@ function buildBriefPrompt({
 
 function alignConflicts({
   conflicts,
+  factLedger,
   modelConflicts,
 }: {
   conflicts: readonly CrossSectionFactConflict[];
+  factLedger: FactLedger;
   modelConflicts: z.infer<typeof rawBriefSchema>["factConflicts"];
 }): ExecutiveBriefResolvedConflict[] {
+  const resolvedFacts = factLedger.facts
+    .filter((fact) => fact.disputed && fact.winner !== undefined)
+    .slice(0, 6)
+    .map((fact): ExecutiveBriefResolvedConflict => {
+      const winner = fact.winner;
+      const setAsideCount = Math.max(0, fact.readings.length - 1);
+      const label = fact.label || factLabel(fact.factKey);
+      const basis = clientBasis(fact.winnerBasis);
+      const figureWord = setAsideCount === 1 ? "figure" : "figures";
+
+      return {
+        factKey: fact.factKey,
+        label,
+        readings: fact.readings.map((reading) => ({
+          sectionId: reading.sectionId,
+          value: reading.value,
+        })),
+        resolution:
+          winner === undefined
+            ? `${label}: we kept this as a caveat because the readings disagree.`
+            : `${label}: we use ${winner.value} (${basis}); ${setAsideCount} conflicting ${figureWord} set aside.`,
+        setAsideCount,
+        winningSectionId: winner?.sectionId ?? "",
+      };
+    });
+
+  if (resolvedFacts.length > 0) {
+    return resolvedFacts;
+  }
+
   return conflicts.map((conflict) => {
     const resolved = modelConflicts.find(
       (candidate) => candidate.factKey === conflict.factKey,
@@ -391,30 +705,7 @@ function fallbackDecisionFromMove(
 function normalizeDecisionCount(
   decisions: readonly ExecutiveBriefDecision[],
 ): ExecutiveBriefDecision[] {
-  if (decisions.length >= minDecisions) {
-    return decisions.slice(0, maxDecisions);
-  }
-
-  const padded = [...decisions];
-
-  while (padded.length < minDecisions) {
-    padded.push({
-      bestEvidence: {
-        statement: "Insufficient synthesized evidence for another decision.",
-      },
-      confidenceBasis: "Missing evidence; confirm before acting.",
-      confidenceGrade: "C",
-      cost: "assumption",
-      decision: "Confirm the missing evidence before making an additional move.",
-      provesWrongIf: {
-        metric: "evidence availability",
-        threshold: "no supporting source",
-        window: "before launch",
-      },
-    });
-  }
-
-  return padded;
+  return decisions.slice(0, maxDecisions);
 }
 
 function parseBrief(raw: unknown): ParsedBrief {
@@ -422,7 +713,24 @@ function parseBrief(raw: unknown): ParsedBrief {
     throw new Error("executive brief returned a non-object result");
   }
 
-  const parsed = rawBriefSchema.parse(raw);
+  const decoded = tolerantDecode(rawBriefSchema, raw, {
+    sectionId: "executive-brief",
+  });
+
+  if (!decoded.ok) {
+    throw createTolerantDecodeShortfallError({
+      context: "executive brief decode failed",
+      shortfalls: decoded.shortfalls,
+    });
+  }
+
+  if (decoded.snaps.length > 0) {
+    console.info("[executive-brief] tolerant decode repaired output", {
+      repairs: decoded.snaps,
+    });
+  }
+
+  const parsed = decoded.value;
   const thesis = parsed.thesis ?? parsed.executiveThesis;
 
   if (thesis === undefined) {
@@ -431,7 +739,7 @@ function parseBrief(raw: unknown): ParsedBrief {
 
   const decisions =
     parsed.decisions ??
-    (parsed.rankedMoves ?? [])
+    [...(parsed.rankedMoves ?? [])]
       .sort((left, right) => left.rank - right.rank)
       .map(fallbackDecisionFromMove);
 
@@ -763,73 +1071,26 @@ function guardBriefNumbers({
 function rankedMovesFromDecisions(
   decisions: readonly ExecutiveBriefDecision[],
 ): ExecutiveBriefRankedMove[] {
-  return decisions.slice(0, 3).map((decision, index) => ({
-    move: decision.decision,
-    provingSections:
-      decision.bestEvidence.sectionRef === undefined
-        ? []
-        : [decision.bestEvidence.sectionRef],
-    rank: index + 1,
-  }));
-}
+  return decisions
+    .filter((decision) => {
+      const text = decision.decision;
 
-function blockedDecision(
-  contradiction: Contradiction,
-  index: number,
-): ExecutiveBriefDecision {
-  return {
-    bestEvidence: {
-      statement: contradiction.description,
-      sectionRef: contradiction.sections[0],
-    },
-    confidenceBasis: "Critical contradiction is unresolved.",
-    confidenceGrade: "C",
-    cost: "analysis rework",
-    decision: `Resolve contradiction ${index + 1}: ${contradiction.resolution}`,
-    provesWrongIf: {
-      metric: "contradiction status",
-      threshold: "still unresolved",
-      window: "before memo publication",
-    },
-  };
-}
-
-function blockedBrief({
-  assumptionsToConfirm,
-  conflicts,
-  contradictions,
-  factLedger,
-  feasibilityAudit,
-}: {
-  assumptionsToConfirm: readonly ExecutiveBriefAssumptionToConfirm[];
-  conflicts: readonly CrossSectionFactConflict[];
-  contradictions: readonly Contradiction[];
-  factLedger: FactLedger;
-  feasibilityAudit?: PaidMediaFeasibilityAudit;
-}): ExecutiveBriefResult {
-  const critical = contradictions.filter(
-    (contradiction) =>
-      contradiction.severity === "critical" && !contradiction.resolved,
-  );
-  const thesis = `Executive decision memo blocked: ${critical.length} critical synthesis contradiction(s) remain unresolved. Use the appendix reconciliation before making a spend or positioning decision.`;
-  const decisions = normalizeDecisionCount(
-    critical.slice(0, maxDecisions).map(blockedDecision),
-  );
-
-  return {
-    appendix: {
-      contradictions: [...contradictions],
-      factLedger,
-    },
-    assumptionsToConfirm: [...assumptionsToConfirm],
-    decisions,
-    executiveThesis: thesis,
-    factConflicts: alignConflicts({ conflicts, modelConflicts: [] }),
-    feasibilityAudit,
-    fidelityStrikes: [],
-    rankedMoves: rankedMovesFromDecisions(decisions),
-    thesis,
-  };
+      return (
+        text.trim().length > 0 &&
+        !/insufficient synthesized evidence|confirm the missing evidence|resolve contradiction/i.test(
+          text,
+        )
+      );
+    })
+    .slice(0, 3)
+    .map((decision, index) => ({
+      move: decision.decision,
+      provingSections:
+        decision.bestEvidence.sectionRef === undefined
+          ? []
+          : [decision.bestEvidence.sectionRef],
+      rank: index + 1,
+    }));
 }
 
 async function callBriefModel({
@@ -878,24 +1139,26 @@ export async function runExecutiveBrief(
 
   const factLedger =
     params.factLedger ?? emptyFactLedger({ companyName: params.companyName });
-  const contradictions = [...(params.contradictions ?? [])];
-  const assumptionsToConfirm = collectOperatorAssumptions(params);
-
-  if (hasUnresolvedCriticalContradiction(contradictions)) {
-    return blockedBrief({
-      assumptionsToConfirm,
-      conflicts: params.conflicts,
-      contradictions,
-      factLedger,
-      feasibilityAudit: params.feasibilityAudit,
-    });
-  }
-
-  let parsed = await callBriefModel({ assumptionsToConfirm, params });
+  const memoFactLedger = reconcileFactLedgerForMemo(factLedger);
+  const resolved = resolveInheritedContradictions({
+    contradictions: [...(params.contradictions ?? [])],
+    sections: params.sections,
+  });
+  const briefParams: RunExecutiveBriefParams = {
+    ...params,
+    contradictions: resolved.contradictions,
+    factLedger: memoFactLedger,
+    sections: resolved.sections,
+  };
+  const assumptionsToConfirm = collectOperatorAssumptions(briefParams);
+  let parsed = await callBriefModel({
+    assumptionsToConfirm,
+    params: briefParams,
+  });
   let guarded = guardBriefNumbers({
     assumptionsToConfirm,
     brief: parsed,
-    factLedger,
+    factLedger: memoFactLedger,
     feasibilityAudit: params.feasibilityAudit,
   });
 
@@ -907,31 +1170,38 @@ export async function runExecutiveBrief(
     parsed = await callBriefModel({
       assumptionsToConfirm,
       extraInstruction: `Numeric fidelity violation from the previous draft: ${violation}. Rewrite without those numbers unless they appear exactly in the fact ledger winners, feasibility audit, or assumptionsToConfirm.`,
-      params,
+      params: briefParams,
     });
     guarded = guardBriefNumbers({
       assumptionsToConfirm,
       brief: parsed,
-      factLedger,
+      factLedger: memoFactLedger,
       feasibilityAudit: params.feasibilityAudit,
     });
   }
 
+  const executiveThesis = appendEvidenceDisagreements({
+    contradictions: resolved.contradictions,
+    thesis: guarded.brief.thesis,
+  });
+  const rankedMoves = rankedMovesFromDecisions(guarded.brief.decisions);
+
   return {
     appendix: {
-      contradictions,
-      factLedger,
+      contradictions: resolved.contradictions,
+      factLedger: memoFactLedger,
     },
     assumptionsToConfirm,
     decisions: guarded.brief.decisions,
-    executiveThesis: guarded.brief.thesis,
+    executiveThesis,
     factConflicts: alignConflicts({
       conflicts: params.conflicts,
+      factLedger: memoFactLedger,
       modelConflicts: guarded.brief.factConflicts,
     }),
     feasibilityAudit: params.feasibilityAudit,
     fidelityStrikes: guarded.strikes,
-    rankedMoves: rankedMovesFromDecisions(guarded.brief.decisions),
-    thesis: guarded.brief.thesis,
+    rankedMoves,
+    thesis: executiveThesis,
   };
 }

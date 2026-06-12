@@ -18,6 +18,7 @@
 - Verification tier/badge chrome is removed from the reader by user decision (2026-06-11): no tier badges, tier dots, tier sublines, flagged-count run summaries, or verified/unverified claim rollups render anywhere in the reader, shared view, or profile surfaces. Verification data still persists in DB/API (`src/lib/research-v2/verification-tier.ts` and server consumers stay); do not reintroduce tier chrome without an explicit ask. The status-axis 'Needs review' subline for FAILED sections (rerun UX) is a different axis and stays. Review metadata renders client-facing `clientQuestions` only — tier rationale and removed-items lists stay hidden.
 - Keep source/citation affordances visible when the artifact provides source data.
 - Renderer behavior must match artifact schemas in `src/lib/lab-engine/artifacts/` and contracts in `src/lib/research-v2/`.
+- The executive brief card renders "The Three Moves" only from real ranked moves and its fact-reconciliation appendix as capped client-language resolved-fact sentences, never as a raw readings wall or contradiction repair instructions.
 - Preserve stable section IDs and zone IDs.
 - UI should degrade cleanly for absent optional fields but must not hide invalid required data upstream.
 

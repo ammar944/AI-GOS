@@ -18,6 +18,7 @@
 - Validate tool results before passing them into generation.
 - Preserve section IDs, run IDs, source URLs, and claim/source attribution through the pipeline.
 - No catch-all repair path may hide the original error context.
+- Executive brief synthesis always composes from surviving evidence when at least one committed section exists; contradictions are deduped, deterministically reconciled where possible, and carried as client-language caveats instead of a blocked client output.
 
 ## Work Guidance
 
