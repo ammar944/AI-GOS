@@ -109,6 +109,16 @@ const internalJargonPatterns: ReadonlyArray<{ id: string; pattern: RegExp }> = [
     pattern:
       /\bquarantined\s+(?:ads?|creatives?|advertisers?)\b|\b(?:ads?|creatives?|advertisers?)\s+(?:were|was|are|is)\s+quarantined\b/i,
   },
+  {
+    id: "quarantine-tier-ads",
+    pattern:
+      /\bquarantine-tier\s+(?:ads?|ad signals?|creatives?|creative signals?|competitor ads?)\b/i,
+  },
+  {
+    id: "quarantine-only-ads",
+    pattern:
+      /\bquarantine-only\s+(?:ads?|ad signals?|creatives?|creative signals?|competitor ads?)\b|\b(?:ads?|ad signals?|creatives?|creative signals?|competitor ads?)\s+(?:were|was|are|is)\s+quarantine-only\b/i,
+  },
 ];
 
 const sectionIdHumanLabels: Record<string, string> = {

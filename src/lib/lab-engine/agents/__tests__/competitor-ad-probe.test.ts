@@ -721,6 +721,8 @@ interface RecordedProbeCall {
 }
 
 const rescueNotePattern = /post-draft rescue probe/;
+const rescueClientNote =
+  'Additional ad evidence was checked after competitors were identified in the draft.';
 const discoveredTopThree = ['PipelinePilot', 'RevenueOS Lab', 'SignalForge'];
 
 function createRecordingAdTool(
@@ -956,7 +958,11 @@ describe('runSection post-draft competitor ad rescue probe', (): void => {
       expect(group?.creatives.length).toBeGreaterThan(0);
       // Visibility: rescue-probed groups carry the post-draft provenance note.
       expect(
-        group?.dataGaps.some((gap) => rescueNotePattern.test(gap.reason)),
+        group?.dataGaps.some(
+          (gap) =>
+            gap.reason === rescueClientNote &&
+            rescueNotePattern.test(gap.internalDetail ?? ''),
+        ),
       ).toBe(true);
     }
 
@@ -1065,7 +1071,11 @@ describe('runSection post-draft competitor ad rescue probe', (): void => {
       expect(group).toBeDefined();
       expect(group?.creatives.length).toBeGreaterThan(0);
       expect(
-        group?.dataGaps.some((gap) => rescueNotePattern.test(gap.reason)),
+        group?.dataGaps.some(
+          (gap) =>
+            gap.reason === rescueClientNote &&
+            rescueNotePattern.test(gap.internalDetail ?? ''),
+        ),
       ).toBe(true);
     }
 

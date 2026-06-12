@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { adCreativeFingerprint } from "../competitor-landscape";
+import {
+  adCreativeFingerprint,
+  normalizeCompetitorLandscapeBody,
+} from "../competitor-landscape";
 
 describe("adCreativeFingerprint", (): void => {
   it("collapses creatives sharing a bare numeric id (tier 1)", (): void => {
@@ -76,5 +79,72 @@ describe("adCreativeFingerprint", (): void => {
     });
 
     expect(fp).toBe("c2:meta:improve forecast accuracy:see how teams win");
+  });
+});
+
+describe("normalizeCompetitorLandscapeBody", (): void => {
+  it("labels third-party pricing rows with the reporting domain", (): void => {
+    const normalized = normalizeCompetitorLandscapeBody({
+      competitorSet: {
+        competitors: [
+          {
+            name: "Airtable",
+            url: "https://www.airtable.com",
+          },
+          {
+            name: "ClickUp",
+            url: "https://clickup.com",
+          },
+        ],
+      },
+      pricingReality: {
+        dataPoints: [
+          {
+            competitor: "Airtable",
+            monthlyPrice: "$20/user/mo",
+            sourceUrl: "https://www.zapier.com/blog/airtable-alternatives/",
+          },
+          {
+            competitor: "ClickUp",
+            monthlyPrice: "$10/user/mo",
+            sourceUrl: "https://clickup.com/pricing",
+          },
+        ],
+      },
+    });
+
+    const pricingReality = normalized.pricingReality as {
+      dataPoints: Array<{ monthlyPrice: string }>;
+    };
+
+    expect(pricingReality.dataPoints[0]?.monthlyPrice).toBe(
+      "$20/user/mo - per zapier.com",
+    );
+    expect(pricingReality.dataPoints[1]?.monthlyPrice).toBe("$10/user/mo");
+  });
+
+  it("does not append a duplicate reporter label", (): void => {
+    const normalized = normalizeCompetitorLandscapeBody({
+      competitorSet: {
+        competitors: [{ name: "Airtable", url: "https://airtable.com" }],
+      },
+      pricingReality: {
+        dataPoints: [
+          {
+            competitor: "Airtable",
+            monthlyPrice: "$20/user/mo - per zite.com",
+            sourceUrl: "https://zite.com/blog/airtable-alternatives",
+          },
+        ],
+      },
+    });
+
+    const pricingReality = normalized.pricingReality as {
+      dataPoints: Array<{ monthlyPrice: string }>;
+    };
+
+    expect(pricingReality.dataPoints[0]?.monthlyPrice).toBe(
+      "$20/user/mo - per zite.com",
+    );
   });
 });

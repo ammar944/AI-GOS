@@ -329,11 +329,13 @@ function denseVoiceOfCustomerSourceUrl({
   }
 
   if (domain === 'capterra.com') {
-    return `https://www.capterra.com/p/saaslaunch/reviews/${index + 1}`;
+    return `https://www.capterra.com/p/12345/saaslaunch/reviews/${index + 1}`;
   }
 
   if (domain === 'trustpilot.com') {
-    return `https://www.trustpilot.com/review/saaslaunch.example/comments/${index + 1}`;
+    return `https://www.trustpilot.com/reviews/0123456789abcdef${index
+      .toString()
+      .padStart(2, '0')}`;
   }
 
   return `https://${domain}/products/saaslaunch/reviews/${index + 1}`;
@@ -418,6 +420,19 @@ function makeDeadZoneVoiceOfCustomerResearchInput(): ResearchInput {
       'capterra.com',
     ],
     runId: 'run_saaslaunch_dead_zone_voc_fixture',
+  });
+}
+
+function makeUnderFloorVoiceOfCustomerResearchInput(): ResearchInput {
+  return makeVoiceOfCustomerCandidateResearchInput({
+    domains: [
+      'capterra.com',
+      'capterra.com',
+      'capterra.com',
+      'trustpilot.com',
+      'trustpilot.com',
+    ],
+    runId: 'run_saaslaunch_under_floor_voc_fixture',
   });
 }
 
@@ -1136,9 +1151,17 @@ describe('runSection VoC candidate prepass', (): void => {
     const record = await store.readRun(saaslaunchResearchInput.runId);
     const evidenceGapReport = result.artifact.body
       .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
 
     expect(result.artifact.sectionId).toBe('positioningVoiceOfCustomer');
     expect(result.artifact.body.evidenceGap).toBe(true);
+    expect(body.painLanguage.quotes).toEqual([]);
+    expect(body.retrievalSummary).toContain(
+      'Evidence gap: independent Voice of Customer acquisition did not meet the committed evidence bar.',
+    );
+    expect(body.painLanguage.blockGap?.summary).toBe(
+      'No pain-language quotes were promoted because independent VoC sourcing did not clear the quote floor.',
+    );
     expect(evidenceGapReport.acquisitionAttempts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1641,6 +1664,70 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
       'completed',
     );
+  });
+
+  // WP6 evidence-floor honesty: under-floor packs still ship usable candidates
+  // under an explicit shortfall note instead of committing an empty section.
+  it('ships under-floor VoC quote candidates with an honest shortfall note', async (): Promise<void> => {
+    const researchInput = makeUnderFloorVoiceOfCustomerResearchInput();
+    const store = await makeStore(researchInput);
+    const streamStructured = vi.fn<StructuredStreamer>(() => {
+      throw new Error('Structured draft should not run for an under-floor prepass.');
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const eventTypes = record.events.map((event) => event.type);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+    const evidenceGapReport =
+      body.evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+
+    expect(streamStructured).not.toHaveBeenCalled();
+    expect(body.evidenceGap).toBe(true);
+    expect(body.painLanguage.quotes).toHaveLength(5);
+    const expectedQuoteUrls = (
+      researchInput.corpus.sectionExcerpts?.positioningVoiceOfCustomer ?? []
+    ).map((excerpt) => excerpt.sourceUrl.replace('https://www.', 'https://'));
+    expect(body.painLanguage.quotes.map((quote) => quote.sourceUrl)).toEqual(
+      expect.arrayContaining(expectedQuoteUrls),
+    );
+    expect(body.retrievalSummary).toContain(
+      'We collected 5 verified quotes across 2 independent source sites.',
+    );
+    expect(body.retrievalSummary).toContain(
+      'Our bar is 6 quotes across 3 sites; treat themes as directional.',
+    );
+    expect(body.painLanguage.blockGap?.summary).toContain(
+      'treat themes as directional',
+    );
+    expect(evidenceGapReport).toMatchObject({
+      foundDistinctPainSourceCount: 2,
+      foundPainQuoteCount: 5,
+      observedPainSourceDomains: ['capterra.com', 'trustpilot.com'],
+      reason: 'insufficient_voice_of_customer_sources',
+    });
+    expect(result.artifact.sources.map((source) => source.url)).toEqual(
+      expect.arrayContaining(
+        body.painLanguage.quotes.map((quote) => quote.sourceUrl),
+      ),
+    );
+    expect(eventTypes).toContain('artifact-saved');
+    expect(eventTypes).toContain('section-completed');
+    expect(eventTypes).not.toContain('section-failed');
   });
 
   // B1 dead-zone regression (deterministic path): the prepass admits packs at

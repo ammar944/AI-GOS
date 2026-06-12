@@ -4,6 +4,7 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from "../artifact-envelope";
+import { getRegistrableDomain } from "../../domain-utils";
 import type { ValidationResult } from "./market-category";
 import {
   evidenceBlockGapFieldSchema,
@@ -225,6 +226,7 @@ const adEvidenceRawSourceSampleSchema = z
 
 const adEvidenceDataGapSchema = z
   .object({
+    internalDetail: z.string().min(1).optional(),
     platform: adPlatformSchema.optional(),
     reason: z.string().min(1),
   })
@@ -232,6 +234,7 @@ const adEvidenceDataGapSchema = z
 
 const adEvidenceSourceErrorSchema = z
   .object({
+    internalDetail: z.string().min(1).optional(),
     platform: adPlatformSchema,
     message: z.string().min(1),
   })
@@ -326,6 +329,123 @@ export type CompetitorLandscapeSectionOutput = z.infer<
 export type CompetitorLandscapeArtifact = ArtifactEnvelope & {
   body: CompetitorLandscapeBody;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+function normalizedName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildCompetitorDomainMap(
+  body: Record<string, unknown>,
+): ReadonlyMap<string, string> {
+  const competitorSet = isRecord(body.competitorSet)
+    ? body.competitorSet
+    : null;
+  const competitors = Array.isArray(competitorSet?.competitors)
+    ? competitorSet.competitors
+    : [];
+  const domains = new Map<string, string>();
+
+  for (const competitor of competitors) {
+    if (!isRecord(competitor)) {
+      continue;
+    }
+
+    const name = readText(competitor.name);
+    const url = readText(competitor.url);
+    const domain = url === null ? null : getRegistrableDomain(url);
+
+    if (name === null || domain === null) {
+      continue;
+    }
+
+    domains.set(normalizedName(name), domain);
+  }
+
+  return domains;
+}
+
+function hasReporterLabel(value: string): boolean {
+  return /\s-\sper\s+[a-z0-9.-]+\b/i.test(value);
+}
+
+function normalizePricingDataPointReporter({
+  competitorDomains,
+  point,
+}: {
+  competitorDomains: ReadonlyMap<string, string>;
+  point: unknown;
+}): unknown {
+  if (!isRecord(point)) {
+    return point;
+  }
+
+  const competitor = readText(point.competitor);
+  const monthlyPrice = readText(point.monthlyPrice);
+  const sourceUrl = readText(point.sourceUrl);
+  const sourceDomain =
+    sourceUrl === null ? null : getRegistrableDomain(sourceUrl);
+  const competitorDomain =
+    competitor === null
+      ? undefined
+      : competitorDomains.get(normalizedName(competitor));
+
+  if (
+    competitor === null ||
+    monthlyPrice === null ||
+    sourceDomain === null ||
+    competitorDomain === undefined ||
+    sourceDomain === competitorDomain ||
+    hasReporterLabel(monthlyPrice)
+  ) {
+    return point;
+  }
+
+  return {
+    ...point,
+    monthlyPrice: `${monthlyPrice} - per ${sourceDomain}`,
+  };
+}
+
+export function normalizeCompetitorLandscapeBody(
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const pricingReality = isRecord(body.pricingReality)
+    ? body.pricingReality
+    : null;
+
+  if (pricingReality === null || !Array.isArray(pricingReality.dataPoints)) {
+    return body;
+  }
+
+  const competitorDomains = buildCompetitorDomainMap(body);
+
+  if (competitorDomains.size === 0) {
+    return body;
+  }
+
+  return {
+    ...body,
+    pricingReality: {
+      ...pricingReality,
+      dataPoints: pricingReality.dataPoints.map((point) =>
+        normalizePricingDataPointReporter({ competitorDomains, point }),
+      ),
+    },
+  };
+}
 
 function canonicalPlatform(platform: string): string {
   const normalized = platform.toLowerCase().trim();

@@ -1305,11 +1305,17 @@ describe('runSection corpus-only mode', (): void => {
       sourceErrors: [
         {
           platform: 'google',
-          message: expect.stringContaining('google_ads tool is unavailable'),
+          message: 'This ad-library lookup could not be completed.',
+          internalDetail: expect.stringContaining(
+            'google_ads tool is unavailable',
+          ),
         },
         {
           platform: 'meta',
-          message: expect.stringContaining('meta_ads tool is unavailable'),
+          message: 'This ad-library lookup could not be completed.',
+          internalDetail: expect.stringContaining(
+            'meta_ads tool is unavailable',
+          ),
         },
       ],
     });
@@ -1320,11 +1326,17 @@ describe('runSection corpus-only mode', (): void => {
       sourceErrors: [
         {
           platform: 'google',
-          message: expect.stringContaining('google_ads tool is unavailable'),
+          message: 'This ad-library lookup could not be completed.',
+          internalDetail: expect.stringContaining(
+            'google_ads tool is unavailable',
+          ),
         },
         {
           platform: 'meta',
-          message: expect.stringContaining('meta_ads tool is unavailable'),
+          message: 'This ad-library lookup could not be completed.',
+          internalDetail: expect.stringContaining(
+            'meta_ads tool is unavailable',
+          ),
         },
       ],
     });
@@ -1499,7 +1511,9 @@ describe('runSection corpus-only mode', (): void => {
         )
         .every((group) =>
           group.dataGaps.some((gap) =>
-            gap.reason.includes('post-draft rescue probe'),
+            gap.reason ===
+              'Additional ad evidence was checked after competitors were identified in the draft.' &&
+            (gap.internalDetail ?? '').includes('post-draft rescue probe'),
           ),
         ),
     ).toBe(true);

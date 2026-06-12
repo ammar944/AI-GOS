@@ -32,7 +32,10 @@ import {
   type BuyerICPBody,
 } from "../artifacts/schemas/buyer-icp";
 import type { CompetitorAdEvidenceGroup } from "../artifacts/schemas/competitor-landscape";
-import { adCreativeFingerprint } from "../artifacts/schemas/competitor-landscape";
+import {
+  adCreativeFingerprint,
+  normalizeCompetitorLandscapeBody,
+} from "../artifacts/schemas/competitor-landscape";
 import {
   normalizePaidMediaPlanBody,
 } from "../artifacts/schemas/paid-media-plan";
@@ -1140,29 +1143,143 @@ function buildVoiceOfCustomerBlockGap({
   };
 }
 
+function pluralize(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
+}
+
+function buildVoiceOfCustomerShortfallNote(
+  facts: VoiceOfCustomerEvidenceGapFacts,
+): string {
+  return [
+    `We collected ${facts.foundPainQuoteCount} verified ${pluralize(
+      facts.foundPainQuoteCount,
+      "quote",
+      "quotes",
+    )} across ${facts.foundDistinctPainSourceCount} independent ${pluralize(
+      facts.foundDistinctPainSourceCount,
+      "source site",
+      "source sites",
+    )}.`,
+    `Our bar is ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} sites; treat themes as directional.`,
+  ].join(" ");
+}
+
+function getVoiceOfCustomerCandidateQuoteSource(
+  candidate: VoiceOfCustomerCandidate,
+): string {
+  if (candidate.domain === "g2.com") {
+    return "g2";
+  }
+
+  if (candidate.domain === "capterra.com") {
+    return "capterra";
+  }
+
+  if (candidate.domain === "trustpilot.com") {
+    return "trustpilot";
+  }
+
+  if (candidate.domain === "trustradius.com") {
+    return "trustradius";
+  }
+
+  if (candidate.domain === "reddit.com") {
+    return "reddit";
+  }
+
+  if (
+    candidate.domain === "news.ycombinator.com" ||
+    candidate.domain === "ycombinator.com"
+  ) {
+    return "hackernews";
+  }
+
+  if (candidate.evidenceKind === "support-thread") {
+    return "support-thread";
+  }
+
+  return "other";
+}
+
+function buildVoiceOfCustomerShortfallPainQuotes(
+  candidates: readonly VoiceOfCustomerCandidate[],
+): Array<Record<string, unknown>> {
+  return candidates.map((candidate, index) => ({
+    painIntensity: index < 3 ? "high" : "medium",
+    painTheme:
+      candidate.snippet.toLowerCase().includes("handoff") ||
+      candidate.snippet.toLowerCase().includes("follow-up")
+        ? "follow-up handoff pain"
+        : "buyer workflow friction",
+    source: getVoiceOfCustomerCandidateQuoteSource(candidate),
+    sourceUrl: candidate.url,
+    verbatimText: candidate.snippet,
+  }));
+}
+
+function buildVoiceOfCustomerEvidenceGapSources({
+  baseSources,
+  observedAt,
+  quoteCandidates,
+}: {
+  baseSources: ReadonlyArray<ArtifactEnvelope["sources"][number]>;
+  observedAt: string;
+  quoteCandidates?: readonly VoiceOfCustomerCandidate[];
+}): ArtifactEnvelope["sources"] {
+  const sources = [...baseSources];
+  const seenUrls = new Set(sources.map((source) => source.url));
+
+  for (const candidate of quoteCandidates ?? []) {
+    if (seenUrls.has(candidate.url)) {
+      continue;
+    }
+
+    sources.push({
+      id: deriveSourceId(candidate.url, sources.length),
+      observedAt,
+      publisher: candidate.domain,
+      title: candidate.title,
+      url: candidate.url,
+    });
+    seenUrls.add(candidate.url);
+  }
+
+  return sources;
+}
+
 function buildVoiceOfCustomerEvidenceGapBody({
   acquisitionAttempts,
   acquisitionLedger,
   facts,
   issue,
+  quoteCandidates,
   subjectDomain,
 }: {
   acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
   acquisitionLedger?: readonly VoiceOfCustomerAcquisitionLedgerRow[];
   facts: VoiceOfCustomerEvidenceGapFacts;
   issue: string;
+  quoteCandidates?: readonly VoiceOfCustomerCandidate[];
   subjectDomain: string | null;
 }): Record<string, unknown> {
+  const shortfallNote = buildVoiceOfCustomerShortfallNote(facts);
+  const painQuotes =
+    quoteCandidates === undefined || quoteCandidates.length === 0
+      ? []
+      : buildVoiceOfCustomerShortfallPainQuotes(quoteCandidates);
+  const hasPromotedPainQuotes = painQuotes.length > 0;
   const observedDomains =
     facts.observedPainSourceDomains.length === 0
       ? "none"
       : facts.observedPainSourceDomains.join(", ");
-  const summary = [
-    "Evidence gap: independent Voice of Customer acquisition did not meet the committed evidence bar.",
-    `Found ${facts.foundPainQuoteCount} usable pain-language candidate(s) across ${facts.foundDistinctPainSourceCount} independent source domain(s); required ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} domains.`,
-    `Observed domains: ${observedDomains}.`,
-    issue,
-  ].join(" ");
+  const summary = hasPromotedPainQuotes
+    ? [shortfallNote, `Observed domains: ${observedDomains}.`, issue].join(" ")
+    : [
+        "Evidence gap: independent Voice of Customer acquisition did not meet the committed evidence bar.",
+        `Found ${facts.foundPainQuoteCount} usable pain-language candidate(s) across ${facts.foundDistinctPainSourceCount} independent source domain(s); required ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} domains.`,
+        `Observed domains: ${observedDomains}.`,
+        issue,
+      ].join(" ");
 
   return {
     retrievalSummary: summary,
@@ -1196,12 +1313,14 @@ function buildVoiceOfCustomerEvidenceGapBody({
     },
     painLanguage: {
       prose: summary,
-      quotes: [],
+      quotes: painQuotes,
       blockGap: buildVoiceOfCustomerBlockGap({
         foundCount: facts.foundPainQuoteCount,
         requiredCount: voiceOfCustomerRequiredPainQuoteCount,
         summary:
-          "No pain-language quotes were promoted because independent VoC sourcing did not clear the quote floor.",
+          hasPromotedPainQuotes
+            ? shortfallNote
+            : "No pain-language quotes were promoted because independent VoC sourcing did not clear the quote floor.",
       }),
     },
     objections: {
@@ -1282,6 +1401,7 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
   facts,
   input,
   issue,
+  quoteCandidates,
   researchInput,
 }: {
   acquisitionAttempts?: readonly VoiceOfCustomerAcquisitionAttempt[];
@@ -1292,10 +1412,23 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
   facts: VoiceOfCustomerEvidenceGapFacts;
   input: RunSectionInput;
   issue: string;
+  quoteCandidates?: readonly VoiceOfCustomerCandidate[];
   researchInput: ResearchInput;
 }): ArtifactEnvelope {
   const observedAt = getNow(deps).toISOString();
   const subjectDomain = getRegistrableDomain(researchInput.company.websiteUrl);
+  const body = buildVoiceOfCustomerEvidenceGapBody({
+    acquisitionAttempts,
+    acquisitionLedger,
+    facts,
+    issue,
+    quoteCandidates,
+    subjectDomain,
+  });
+  const provenanceCheckedBody =
+    quoteCandidates === undefined || quoteCandidates.length === 0
+      ? body
+      : downgradeUnpermalinkedVocQuotes({ body }).body;
 
   return artifactEnvelopeSchema
     .extend({ body: definition.bodySchema })
@@ -1309,14 +1442,12 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
       statusSummary:
         "The section completed with an evidence gap so downstream synthesis can proceed without fabricating customer quotes.",
       confidence: 0.2,
-      sources: baseArtifact?.sources ?? researchInput.sources,
-      body: buildVoiceOfCustomerEvidenceGapBody({
-        acquisitionAttempts,
-        acquisitionLedger,
-        facts,
-        issue,
-        subjectDomain,
+      sources: buildVoiceOfCustomerEvidenceGapSources({
+        baseSources: baseArtifact?.sources ?? researchInput.sources,
+        observedAt,
+        quoteCandidates,
       }),
+      body: provenanceCheckedBody,
       createdAt: observedAt,
     });
 }
@@ -1516,6 +1647,7 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   deps,
   input,
   issue,
+  quoteCandidates,
   researchInput,
   result,
 }: {
@@ -1525,6 +1657,7 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
   deps: RunSectionDeps;
   input: RunSectionInput;
   issue: string;
+  quoteCandidates?: readonly VoiceOfCustomerCandidate[];
   researchInput: ResearchInput;
   result: Exclude<VoiceOfCustomerCandidateResult, { ok: true }>;
 }): ArtifactEnvelope {
@@ -1533,16 +1666,42 @@ function buildVoiceOfCustomerPrepassEvidenceGapArtifact({
     acquisitionLedger,
     definition,
     deps,
-    facts: getVoiceOfCustomerCandidateEvidenceGapFacts(result),
+    facts: getVoiceOfCustomerCandidateEvidenceGapFacts({
+      quoteCandidates,
+      result,
+    }),
     input,
     issue,
+    quoteCandidates,
     researchInput,
   });
 }
 
-function getVoiceOfCustomerCandidateEvidenceGapFacts(
-  result: VoiceOfCustomerCandidateResult,
-): VoiceOfCustomerEvidenceGapFacts {
+function getVoiceOfCustomerCandidateDomains(
+  candidates: readonly VoiceOfCustomerCandidate[],
+): string[] {
+  return Array.from(new Set(candidates.map((candidate) => candidate.domain)));
+}
+
+function getVoiceOfCustomerCandidateEvidenceGapFacts({
+  quoteCandidates,
+  result,
+}: {
+  quoteCandidates?: readonly VoiceOfCustomerCandidate[];
+  result: VoiceOfCustomerCandidateResult;
+}): VoiceOfCustomerEvidenceGapFacts {
+  if (quoteCandidates !== undefined && quoteCandidates.length > 0) {
+    const observedPainSourceDomains =
+      getVoiceOfCustomerCandidateDomains(quoteCandidates);
+
+    return {
+      ok: true,
+      foundPainQuoteCount: quoteCandidates.length,
+      foundDistinctPainSourceCount: observedPainSourceDomains.length,
+      observedPainSourceDomains,
+    };
+  }
+
   if (!result.ok) {
     return {
       ok: true,
@@ -1560,8 +1719,35 @@ function getVoiceOfCustomerCandidateEvidenceGapFacts(
   };
 }
 
+function getVoiceOfCustomerStructuredFailureIssue(
+  errors: readonly string[],
+): string | undefined {
+  if (errors.length === 0) {
+    return undefined;
+  }
+
+  return hasTerminalStructuredError(errors)
+    ? "Voice of Customer structured synthesis timed out before a source-backed artifact could be promoted."
+    : "Voice of Customer structured synthesis failed to produce a parseable source-backed artifact before repair could be trusted.";
+}
+
 const voiceOfCustomerModelAuthoredEvidenceGapIssue =
   "Voice of Customer structured synthesis returned a mixed model-authored gap; the runner must promote deterministic candidate synthesis or a runner-owned evidence-gap artifact instead of committing promoted content with body.evidenceGap=true.";
+
+function isVoiceOfCustomerCandidateFloorGap(reason: string): boolean {
+  return (
+    reason === "insufficient_candidates" ||
+    reason === "insufficient_independent_domains"
+  );
+}
+
+function isVoiceOfCustomerSynthesisQuoteShortfallGap(reason: string): boolean {
+  return (
+    reason === "insufficient_candidates" ||
+    reason === "insufficient_independent_domains" ||
+    reason === "insufficient_success_language"
+  );
+}
 
 function getArrayLength(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
@@ -1640,14 +1826,17 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
     return undefined;
   }
 
-  const facts = getVoiceOfCustomerCandidateEvidenceGapFacts(
-    prepass.result,
-  );
-  const isTimeout = hasTerminalStructuredError(errors);
+  const quoteCandidates = prepass.result.ok
+    ? undefined
+    : prepass.usableCandidates;
+  const facts = getVoiceOfCustomerCandidateEvidenceGapFacts({
+    quoteCandidates,
+    result: prepass.result,
+  });
+  const structuredFailureIssue =
+    getVoiceOfCustomerStructuredFailureIssue(errors);
   const issue = [
-    isTimeout
-      ? "Voice of Customer structured synthesis timed out before a source-backed artifact could be promoted."
-      : "Voice of Customer structured synthesis failed to produce a parseable source-backed artifact before repair could be trusted.",
+    ...(structuredFailureIssue === undefined ? [] : [structuredFailureIssue]),
     `Structured attempt issues: ${errors.join("; ")}`,
   ].join(" ");
 
@@ -1659,6 +1848,7 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
     facts,
     input,
     issue,
+    quoteCandidates,
     researchInput,
   });
 }
@@ -1682,7 +1872,6 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
 }): ArtifactEnvelope | undefined {
   if (
     voiceOfCustomerPrepass === undefined ||
-    !voiceOfCustomerPrepass.result.ok ||
     !hasVoiceOfCustomerStructuredSynthesisFailure({
       errors,
       input,
@@ -1692,6 +1881,40 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
     return undefined;
   }
 
+  if (!voiceOfCustomerPrepass.result.ok) {
+    if (
+      voiceOfCustomerPrepass.usableCandidates.length === 0 ||
+      !isVoiceOfCustomerCandidateFloorGap(
+        voiceOfCustomerPrepass.result.gap.reason,
+      )
+    ) {
+      return undefined;
+    }
+
+    const structuredFailureIssue =
+      getVoiceOfCustomerStructuredFailureIssue(errors);
+    const issue = [
+      voiceOfCustomerPrepass.result.gap.message,
+      ...(structuredFailureIssue === undefined ? [] : [structuredFailureIssue]),
+      `Structured attempt issues: ${errors.join("; ")}`,
+    ].join(" ");
+
+    return buildVoiceOfCustomerEvidenceGapArtifact({
+      acquisitionAttempts: voiceOfCustomerPrepass.acquisitionAttempts,
+      acquisitionLedger: voiceOfCustomerPrepass.acquisitionLedger,
+      definition,
+      deps,
+      facts: getVoiceOfCustomerCandidateEvidenceGapFacts({
+        quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
+        result: voiceOfCustomerPrepass.result,
+      }),
+      input,
+      issue,
+      quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
+      researchInput,
+    });
+  }
+
   const synthesis = synthesizeVoiceOfCustomerFromCandidates({
     candidateResult: voiceOfCustomerPrepass.result,
     now: () => getNow(deps),
@@ -1699,7 +1922,35 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
   });
 
   if (!synthesis.ok) {
-    return undefined;
+    if (
+      voiceOfCustomerPrepass.result.pack.candidates.length === 0 ||
+      !isVoiceOfCustomerSynthesisQuoteShortfallGap(synthesis.gap.reason)
+    ) {
+      return undefined;
+    }
+
+    const structuredFailureIssue =
+      getVoiceOfCustomerStructuredFailureIssue(errors);
+    const issue = [
+      synthesis.gap.message,
+      ...(structuredFailureIssue === undefined ? [] : [structuredFailureIssue]),
+      `Structured attempt issues: ${errors.join("; ")}`,
+    ].join(" ");
+
+    return buildVoiceOfCustomerEvidenceGapArtifact({
+      acquisitionAttempts: voiceOfCustomerPrepass.acquisitionAttempts,
+      acquisitionLedger: voiceOfCustomerPrepass.acquisitionLedger,
+      definition,
+      deps,
+      facts: getVoiceOfCustomerCandidateEvidenceGapFacts({
+        quoteCandidates: voiceOfCustomerPrepass.result.pack.candidates,
+        result: voiceOfCustomerPrepass.result,
+      }),
+      input,
+      issue,
+      quoteCandidates: voiceOfCustomerPrepass.result.pack.candidates,
+      researchInput,
+    });
   }
 
   const output: SectionOutput<Record<string, unknown>> = {
@@ -3178,17 +3429,20 @@ export function withNormalizedCompetitorAdEvidence({
   }
 
   const bodyRecord = getRecord(outputRecord.body) ?? {};
+  const clientFacingGroups = normalizedAdEvidenceGroups.map(
+    toClientFacingAdEvidenceGroup,
+  );
   const adEvidenceRecord = getRecord(bodyRecord.adEvidence);
   // The model's free-text prose is unverified narration. When the deterministic
   // ad evidence has zero displayable creatives, prose that claims specific
   // competitor ad counts cannot be grounded (e.g. a poisoned "idk" advertiser
   // query that returned nothing) — fall back to the deterministic summary so the
   // prose and the (empty) advertiserGroups wall agree. (run 73dfbc0d, 2026-06-09.)
-  const deterministicSummary = summarizeCompetitorAdEvidenceGroups(
-    normalizedAdEvidenceGroups,
+  const deterministicSummary = toClientFacingAdEvidenceProse(
+    summarizeCompetitorAdEvidenceGroups(clientFacingGroups),
   );
   const modelProse = getStringProperty(adEvidenceRecord, "prose");
-  const hasVerifiedAdEvidence = normalizedAdEvidenceGroups.some(
+  const hasVerifiedAdEvidence = clientFacingGroups.some(
     hasVerifiedAdEvidenceGroup,
   );
   const prose =
@@ -3201,9 +3455,13 @@ export function withNormalizedCompetitorAdEvidence({
   // section (prod run 0eeebd93). Substitute one explicit gap group so the rich
   // competitor body commits with an honest "no ad evidence observed" wall.
   const advertiserGroups =
-    normalizedAdEvidenceGroups.length === 0
-      ? [buildEmptyCompetitorAdEvidenceGapGroup(new Date().toISOString())]
-      : normalizedAdEvidenceGroups;
+    clientFacingGroups.length === 0
+      ? [
+          toClientFacingAdEvidenceGroup(
+            buildEmptyCompetitorAdEvidenceGapGroup(new Date().toISOString()),
+          ),
+        ]
+      : clientFacingGroups;
 
   return {
     ...outputRecord,
@@ -3226,6 +3484,140 @@ type AdEvidenceSourceError =
   CompetitorAdEvidenceGroup["sourceErrors"][number];
 type AdEvidenceIdentityConfidence =
   NonNullable<CompetitorAdEvidenceGroup["identityConfidence"]>;
+
+const adGapNoVerifiedAdsReason =
+  "Fewer verified ads than expected for this advertiser.";
+const adGapNoRowsReason =
+  "No ad-library rows were found for this advertiser on this platform.";
+const adGapInsufficientCreativeReason =
+  "The ad library returned rows, but none had enough creative content to review.";
+const adGapReportBoundedReason =
+  "Some ad examples were omitted to keep the report readable.";
+const adGapLookupFailedReason =
+  "This ad-library lookup could not be completed.";
+const adGapLowConfidenceOffTopicReason =
+  "Some low-confidence ad results were excluded because they did not appear related to the category.";
+const adGapLinkedInNotCheckedReason = "LinkedIn ads were not checked in this run.";
+const adGapRescueProbeReason =
+  "Additional ad evidence was checked after competitors were identified in the draft.";
+const adGapNoAdvertisersReason =
+  "No competitor advertisers were identified for live ad checks.";
+
+function withClientFacingAdGapReason(
+  gap: AdEvidenceDataGap,
+  reason: string,
+): AdEvidenceDataGap {
+  if (gap.reason === reason) {
+    return gap;
+  }
+
+  return {
+    ...gap,
+    internalDetail: gap.internalDetail ?? gap.reason,
+    reason,
+  };
+}
+
+function withClientFacingAdSourceError(
+  sourceError: AdEvidenceSourceError,
+): AdEvidenceSourceError {
+  if (sourceError.message === adGapLookupFailedReason) {
+    return sourceError;
+  }
+
+  return {
+    ...sourceError,
+    internalDetail: sourceError.internalDetail ?? sourceError.message,
+    message: adGapLookupFailedReason,
+  };
+}
+
+function toClientFacingAdDataGap(gap: AdEvidenceDataGap): AdEvidenceDataGap {
+  const reason = gap.reason;
+
+  if (/Identity-unverified ad signals only/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapNoVerifiedAdsReason);
+  }
+
+  if (/returned no raw ad-library rows/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapNoRowsReason);
+  }
+
+  if (/no row had headline, body, image, or video evidence/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapInsufficientCreativeReason);
+  }
+
+  if (/^Returned \d+ of \d+ displayable creatives/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapReportBoundedReason);
+  }
+
+  if (/lookup failed:/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapLookupFailedReason);
+  }
+
+  if (/low-confidence creatives?.*topic tokens/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapLowConfidenceOffTopicReason);
+  }
+
+  if (/not-probed sentinel|not probed this run/i.test(reason)) {
+    return withClientFacingAdGapReason(gap, adGapLinkedInNotCheckedReason);
+  }
+
+  if (reason === competitorAdRescueProbeNote) {
+    return withClientFacingAdGapReason(gap, adGapRescueProbeReason);
+  }
+
+  if (
+    /No competitor advertisers were identified.*ad-library wall/i.test(reason)
+  ) {
+    return withClientFacingAdGapReason(gap, adGapNoAdvertisersReason);
+  }
+
+  return gap;
+}
+
+function toClientFacingAdEvidenceGroup(
+  group: CompetitorAdEvidenceGroup,
+): CompetitorAdEvidenceGroup {
+  return {
+    ...group,
+    dataGaps: group.dataGaps.map(toClientFacingAdDataGap),
+    sourceErrors: group.sourceErrors.map(withClientFacingAdSourceError),
+  };
+}
+
+function toClientFacingAdEvidenceProse(value: string): string {
+  return value
+    .replace(
+      /No live ad-library tool results were normalized for this section\./g,
+      "No live ad-library tool results were collected for this section.",
+    )
+    .replace(
+      /Live ad-library evidence was normalized/g,
+      "Live ad-library evidence was collected",
+    )
+    .replace(
+      /Displayable creatives by platform/g,
+      "Reviewable ad examples by platform",
+    )
+    .replace(/Returned creative count/g, "Returned ad example count")
+    .replace(
+      /Verified competitor ad creatives: 0\. Quarantine-tier ad signals: (\d+); these are identity-unverified and must be described as an evidence gap, not confirmed competitor advertising\./g,
+      "Confirmed competitor ad examples: 0. Unverified ad samples requiring caution: $1.",
+    )
+    .replace(
+      /Verified competitor ad creatives: (\d+)\. Identity-unverified quarantine samples: (\d+)\./g,
+      "Confirmed competitor ad examples: $1. Unverified ad samples requiring caution: $2.",
+    )
+    .replace(
+      /Evidence gaps are preserved in advertiserGroups\.dataGaps and advertiserGroups\.sourceErrors\./g,
+      "Evidence gaps are preserved in the ad evidence notes.",
+    )
+    .replace(
+      /No ad-library data gaps were reported by the normalized tool results\./g,
+      "No ad-library data gaps were reported by the collected tool results.",
+    );
+}
 
 function mergeCounts(
   base: AdEvidenceCounts,
@@ -4194,6 +4586,25 @@ function withNormalizedMarketCategoryOutput(rawOutput: unknown): unknown {
   };
 }
 
+function withNormalizedCompetitorLandscapeOutput(rawOutput: unknown): unknown {
+  const outputRecord = getRecord(rawOutput);
+
+  if (outputRecord === null) {
+    return rawOutput;
+  }
+
+  const bodyRecord = getRecord(outputRecord.body);
+
+  if (bodyRecord === null) {
+    return rawOutput;
+  }
+
+  return {
+    ...outputRecord,
+    body: normalizeCompetitorLandscapeBody(bodyRecord),
+  };
+}
+
 function withNormalizedPaidMediaPlanOutput(
   rawOutput: unknown,
   onboarding?: ResearchInput["onboarding"],
@@ -4281,6 +4692,10 @@ function withNormalizedSectionOutput({
 
   if (sectionId === "positioningMarketCategory") {
     return withNormalizedMarketCategoryOutput(outputWithAdEvidence);
+  }
+
+  if (sectionId === "positioningCompetitorLandscape") {
+    return withNormalizedCompetitorLandscapeOutput(outputWithAdEvidence);
   }
 
   if (sectionId === "positioningVoiceOfCustomer") {
@@ -5528,6 +5943,7 @@ interface VoiceOfCustomerCandidatePrepass {
   result: VoiceOfCustomerCandidateResult;
   steps: AgentStep[];
   subjectDomain: string | null;
+  usableCandidates: VoiceOfCustomerCandidate[];
 }
 
 interface VoiceOfCustomerToolCallResult {
@@ -6353,6 +6769,22 @@ function getFirecrawlEnrichmentTarget(
   };
 }
 
+function getAdmissibleVoiceOfCustomerCandidates({
+  candidates,
+  subjectDomain,
+}: {
+  candidates: readonly VoiceOfCustomerCandidate[];
+  subjectDomain: string | null;
+}): VoiceOfCustomerCandidate[] {
+  return candidates.filter((candidate) =>
+    isAdmissibleQuote({
+      sourceUrl: candidate.url,
+      subjectDomain,
+      text: candidate.snippet,
+    }),
+  );
+}
+
 function selectAdmissibleVoiceOfCustomerCandidates({
   candidates,
   subjectDomain,
@@ -6361,13 +6793,7 @@ function selectAdmissibleVoiceOfCustomerCandidates({
   subjectDomain: string | null;
 }): VoiceOfCustomerCandidateResult {
   return selectVoiceOfCustomerCandidates(
-    candidates.filter((candidate) =>
-      isAdmissibleQuote({
-        sourceUrl: candidate.url,
-        subjectDomain,
-        text: candidate.snippet,
-      }),
-    ),
+    getAdmissibleVoiceOfCustomerCandidates({ candidates, subjectDomain }),
   );
 }
 
@@ -6589,6 +7015,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
     result,
     steps,
     subjectDomain,
+    usableCandidates: getAdmissibleVoiceOfCustomerCandidates({
+      candidates,
+      subjectDomain,
+    }),
   };
 }
 
@@ -8037,6 +8467,7 @@ async function runSectionViaAnswerTool(
         deps,
         input,
         issue,
+        quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
         researchInput,
         result: voiceOfCustomerPrepass.result,
       });
@@ -8776,6 +9207,7 @@ async function runSectionViaStructuredBodyStream(
         deps,
         input,
         issue,
+        quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
         researchInput,
         result: voiceOfCustomerPrepass.result,
       });

@@ -43,6 +43,18 @@ function adEvidenceBodyOf(output: unknown): Record<string, unknown> {
   return (output as { body: Record<string, unknown> }).body;
 }
 
+function clientFacingAdEvidenceSummaryForEmptyGroup(): string {
+  return [
+    "Live ad-library evidence was collected for 1 advertiser group.",
+    "Raw rows by platform: google 0, meta 0, linkedin 0.",
+    "Reviewable ad examples by platform: google 0, meta 0, linkedin 0.",
+    "Returned ad example count: 0.",
+    "Confirmed competitor ad examples: 0.",
+    "Unverified ad samples requiring caution: 0.",
+    "No ad-library data gaps were reported by the collected tool results.",
+  ].join(" ");
+}
+
 describe("withNormalizedCompetitorAdEvidence", (): void => {
   // run 73dfbc0d: the model's prose fabricated competitor ad counts against an
   // empty advertiserGroups wall (the poisoned "idk" advertiser returned nothing).
@@ -59,7 +71,10 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
       normalizedAdEvidenceGroups: groups,
     });
 
-    expect(proseOf(result)).toBe(summarizeCompetitorAdEvidenceGroups(groups));
+    expect(proseOf(result)).toBe(clientFacingAdEvidenceSummaryForEmptyGroup());
+    expect(proseOf(result)).not.toBe(
+      summarizeCompetitorAdEvidenceGroups(groups),
+    );
     expect(proseOf(result)).not.toContain("Notion");
     expect(proseOf(result)).not.toContain("ClickUp");
   });
@@ -160,9 +175,82 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
     });
 
     expect(proseOf(result)).not.toBe(fabricatedProse);
-    expect(proseOf(result)).toContain("Verified competitor ad creatives: 0");
-    expect(proseOf(result)).toContain("identity-unverified");
-    expect(proseOf(result)).toContain("evidence gap");
+    expect(proseOf(result)).toContain("Confirmed competitor ad examples: 0");
+    expect(proseOf(result)).toContain(
+      "Unverified ad samples requiring caution: 41",
+    );
+    expect(proseOf(result)).not.toContain("quarantine");
+    expect(proseOf(result)).not.toContain("displayable");
+
+    const adEvidence = (
+      adEvidenceBodyOf(result) as {
+        adEvidence: { advertiserGroups: CompetitorAdEvidenceGroup[] };
+      }
+    ).adEvidence;
+    expect(adEvidence.advertiserGroups[0]?.dataGaps[0]).toMatchObject({
+      internalDetail:
+        "Identity-unverified ad signals only: verifiedCount=0; quarantinedCount=41.",
+      reason: "Fewer verified ads than expected for this advertiser.",
+    });
+  });
+
+  it("rewrites code-authored ad data gaps and source errors for clients", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        dataGaps: [
+          {
+            platform: "meta",
+            reason:
+              "meta returned 12 raw rows, but no row had headline, body, image, or video evidence for a unique displayable creative.",
+          },
+          {
+            reason:
+              "Returned 6 of 12 displayable creatives to keep the structured artifact bounded.",
+          },
+        ],
+        sourceErrors: [
+          {
+            platform: "google",
+            message: "429 rate limited by upstream provider",
+          },
+        ],
+      }),
+    ];
+
+    const result = withNormalizedCompetitorAdEvidence({
+      rawOutput: {
+        body: { adEvidence: { advertiserGroups: [] } },
+      },
+      normalizedAdEvidenceGroups: groups,
+    });
+    const adEvidence = (
+      adEvidenceBodyOf(result) as {
+        adEvidence: { advertiserGroups: CompetitorAdEvidenceGroup[] };
+      }
+    ).adEvidence;
+    const group = adEvidence.advertiserGroups[0];
+
+    expect(group?.dataGaps).toEqual([
+      {
+        internalDetail:
+          "meta returned 12 raw rows, but no row had headline, body, image, or video evidence for a unique displayable creative.",
+        platform: "meta",
+        reason:
+          "The ad library returned rows, but none had enough creative content to review.",
+      },
+      {
+        internalDetail:
+          "Returned 6 of 12 displayable creatives to keep the structured artifact bounded.",
+        reason: "Some ad examples were omitted to keep the report readable.",
+      },
+    ]);
+    expect(group?.sourceErrors).toEqual([
+      {
+        internalDetail: "429 rate limited by upstream provider",
+        message: "This ad-library lookup could not be completed.",
+        platform: "google",
+      },
+    ]);
   });
 
   it("falls back to the deterministic summary when the model omits prose", (): void => {
@@ -173,7 +261,10 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
       normalizedAdEvidenceGroups: groups,
     });
 
-    expect(proseOf(result)).toBe(summarizeCompetitorAdEvidenceGroups(groups));
+    expect(proseOf(result)).toBe(clientFacingAdEvidenceSummaryForEmptyGroup());
+    expect(proseOf(result)).not.toBe(
+      summarizeCompetitorAdEvidenceGroups(groups),
+    );
   });
 
   // Regression for prod run 0eeebd93 (2026-06-09): an empty competitor seed left

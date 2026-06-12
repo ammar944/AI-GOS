@@ -346,6 +346,35 @@ describe("scrubInternalJargon", () => {
     expect(scrubbed.strikes).toEqual([]);
     expect(scrubbed.value).toBe(value);
   });
+
+  it("strips f399-style quarantine ad prose while preserving security-subject prose", () => {
+    const adEvidenceScrubbed = scrubInternalJargon({
+      field: "body.adEvidence.prose",
+      value:
+        "Quarantine-tier ad signals were found for several competitors. Creatives are quarantine-only until advertiser identity clears. The antivirus quarantined files automatically.",
+    });
+
+    expect(adEvidenceScrubbed.strikes.map((strike) => strike.pattern)).toEqual([
+      "quarantine-tier-ads",
+      "quarantine-only-ads",
+    ]);
+    expect(adEvidenceScrubbed.value).toBe(
+      "The antivirus quarantined files automatically.",
+    );
+
+    const adPresenceScrubbed = scrubInternalJargon({
+      field: "body.adPresence.prose",
+      value:
+        "Quarantine-only competitor ads are not confirmed advertising. The antivirus quarantined files automatically.",
+    });
+
+    expect(adPresenceScrubbed.strikes.map((strike) => strike.pattern)).toEqual([
+      "quarantine-only-ads",
+    ]);
+    expect(adPresenceScrubbed.value).toBe(
+      "The antivirus quarantined files automatically.",
+    );
+  });
 });
 
 describe("gateProseNumbers with section truth (envelope strings)", () => {
