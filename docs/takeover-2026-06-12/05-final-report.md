@@ -90,6 +90,9 @@ placeholder (model writes recommendations under `detail`/`rationale`).
    projections get counts.
 5. Cold-load rehydrate status; SpyFu bulk expansion; VoC permalinks; branded PDF/PPTX export;
    capacity policy numbers (3/1, 8/5) need product sign-off.
+6. Smaller, observed on the final screenshots: deck UGC card renders empty when every framework
+   slot classifies as static (split heuristic needs a fallback); share-link creation 404s for this
+   run ("Session not found" — /api/share session lookup vs this run's session shape).
 
 ## 9. Where everything lives
 Branch `refactor/architecture-deepening` — 13 takeover commits, tree clean, gates green.
