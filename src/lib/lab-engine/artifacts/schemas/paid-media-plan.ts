@@ -25,6 +25,7 @@ export const paidMediaMoneyProvenanceValues = [
   "tool-measured",
   "source-reported",
   "model-estimated",
+  "derived",
   "unknown",
 ] as const;
 
@@ -198,6 +199,7 @@ const projectedResultRowSchema = z.object({
   phaseMonthlyBudgetProvenance: z.string().min(1),
   projectedCountValue: z.number().finite().nonnegative().optional(),
   projectedCountProvenance: z.string().min(1).optional(),
+  countBasis: z.string().min(1).optional(),
   marginOfErrorPercent: z.number().finite().nonnegative().optional(),
   sourceSection: sourceSectionSchema,
 });
@@ -407,6 +409,10 @@ export function snapSourceSection(value: unknown): string {
 }
 
 function snapMoneyProvenance(value: unknown): string {
+  if (typeof value === "string" && slugify(value) === "derived") {
+    return "model-estimated";
+  }
+
   if (
     typeof value === "string" &&
     (paidMediaMoneyProvenanceValues as readonly string[]).includes(value)
@@ -536,7 +542,7 @@ function getString(value: unknown, fallback: string): string {
 // trailing provenance parentheticals at the source; the reader's defensive
 // strip stays, but committed data must already be clean.
 const TRAILING_PROVENANCE_PARENTHETICAL_PATTERN =
-  /(?:\s*\((?:user-supplied|tool-measured|source-reported|model-estimated|unknown|operator-supplied)\))+\s*$/i;
+  /(?:\s*\((?:user-supplied|tool-measured|source-reported|model-estimated|derived|unknown|operator-supplied)\))+\s*$/i;
 
 function getMoneyDisplayString(value: unknown, fallback: string): string {
   const display = getString(value, fallback);
@@ -550,6 +556,40 @@ function getMoneyDisplayString(value: unknown, fallback: string): string {
     .trim();
 
   return stripped.length > 0 ? stripped : fallback;
+}
+
+function formatUsd(value: number): string {
+  return `$${value.toLocaleString("en-US", {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  })}`;
+}
+
+function formatMonthlyMoneyDisplay(value: number): string {
+  return `${formatUsd(value)}/month`;
+}
+
+function formatDailyMoneyDisplay(value: number): string {
+  return `${formatUsd(value)}/day`;
+}
+
+function getMoneyDisplayFromValue({
+  fallback,
+  rawDisplay,
+  unit,
+  value,
+}: {
+  fallback: string;
+  rawDisplay: unknown;
+  unit: "day" | "month";
+  value: number | undefined;
+}): string {
+  if (value !== undefined) {
+    return unit === "day"
+      ? formatDailyMoneyDisplay(value)
+      : formatMonthlyMoneyDisplay(value);
+  }
+
+  return getMoneyDisplayString(rawDisplay, fallback);
 }
 
 function getNumber(value: unknown): number | undefined {
@@ -589,6 +629,13 @@ function optionalNumericField<Key extends string>(
   return value === undefined ? {} : { [key]: value } as Partial<Record<Key, number>>;
 }
 
+function optionalStringField<Key extends string>(
+  key: Key,
+  value: string | undefined,
+): Partial<Record<Key, string>> {
+  return value === undefined ? {} : { [key]: value } as Partial<Record<Key, string>>;
+}
+
 function normalizeCampaignOverview(value: unknown): PaidMediaPlanBody["campaignOverview"] {
   const record = getRecord(value);
   const monthlyBudgetProvenance = snapMoneyProvenanceForLabel(
@@ -611,16 +658,20 @@ function normalizeCampaignOverview(value: unknown): PaidMediaPlanBody["campaignO
   return {
     prose: getString(record.prose, "Paid media plan overview needs review."),
     platform: getString(record.platform, "Meta Ads"),
-    monthlyBudget: getMoneyDisplayString(
-      record.monthlyBudget,
-      "Budget not provided — enter a monthly budget to compute the spend plan",
-    ),
+    monthlyBudget: getMoneyDisplayFromValue({
+      fallback: "Budget not provided — enter a monthly budget to compute the spend plan",
+      rawDisplay: record.monthlyBudget,
+      unit: "month",
+      value: monthlyBudgetValue,
+    }),
     ...optionalNumericField("monthlyBudgetValue", monthlyBudgetValue),
     monthlyBudgetProvenance,
-    dailySpend: getMoneyDisplayString(
-      record.dailySpend,
-      "Daily spend not provided",
-    ),
+    dailySpend: getMoneyDisplayFromValue({
+      fallback: "Daily spend not provided",
+      rawDisplay: record.dailySpend,
+      unit: "day",
+      value: dailySpendValue,
+    }),
     ...optionalNumericField("dailySpendValue", dailySpendValue),
     dailySpendProvenance,
     totalMonths: getNumber(record.totalMonths) ?? 4,
@@ -652,10 +703,12 @@ function normalizeCampaignPhase(
       record.monthsLabel,
       index === 0 ? "Months 1-2" : "Months 3-4",
     ),
-    monthlyBudget: getMoneyDisplayString(
-      record.monthlyBudget,
-      "Budget not provided",
-    ),
+    monthlyBudget: getMoneyDisplayFromValue({
+      fallback: "Budget not provided",
+      rawDisplay: record.monthlyBudget,
+      unit: "month",
+      value: monthlyBudgetValue,
+    }),
     ...optionalNumericField("monthlyBudgetValue", monthlyBudgetValue),
     monthlyBudgetProvenance,
     bullets:
@@ -709,10 +762,12 @@ function normalizeAudienceType(
       record.archetype,
       defaults[index]?.archetype ?? "Audience slot needs review",
     ),
-    dailyBudget: getMoneyDisplayString(
-      record.dailyBudget,
-      "Daily budget not provided",
-    ),
+    dailyBudget: getMoneyDisplayFromValue({
+      fallback: "Daily budget not provided",
+      rawDisplay: record.dailyBudget,
+      unit: "day",
+      value: dailyBudgetValue,
+    }),
     ...optionalNumericField("dailyBudgetValue", dailyBudgetValue),
     dailyBudgetProvenance,
     detail: getString(record.detail, "Evidence gap: targeting detail missing."),
@@ -1099,10 +1154,40 @@ function weakestMoneyProvenance(left: string, right: string): string {
 
 const SOP_MARGIN_OF_ERROR_PERCENT = 20;
 
-// CAC-unit KPIs: rows whose KPI denotes an acquisition (signup/customer) may
-// honestly borrow the brief's target CAC as their KPI cost. MQL/SQL/CTR-style
-// units must NOT be costed with a CAC — that would overstate efficiency.
-const CAC_UNIT_KPI_PATTERN = /\b(sign[\s-]?ups?|customers?|acquisitions?)\b/i;
+// CAC-unit KPIs: acquisition rows bridge exactly; funnel-stage rows bridge
+// conservatively at the same target CAC without inventing stage conversion.
+const ACQUISITION_UNIT_PATTERN =
+  /\b(customers?|acquisitions?|sign[\s-]?ups?|sales?)\b/i;
+const FUNNEL_STAGE_UNIT_PATTERN =
+  /\b(trials?|demos?|mqls?|sqls?|leads?|meetings?|bookings?|opportunit(?:y|ies)|pipeline|installs?|subscriptions?|activations?)\b/i;
+
+function getTargetCacBridgeUnit(
+  kpi: string,
+): "acquisition" | "funnel-stage" | null {
+  if (ACQUISITION_UNIT_PATTERN.test(kpi)) {
+    return "acquisition";
+  }
+
+  if (FUNNEL_STAGE_UNIT_PATTERN.test(kpi)) {
+    return "funnel-stage";
+  }
+
+  return null;
+}
+
+function getTargetCacCountBasis(
+  bridgeUnit: "acquisition" | "funnel-stage" | null,
+): string | undefined {
+  if (bridgeUnit === "acquisition") {
+    return "At your target CAC from the GTM brief.";
+  }
+
+  if (bridgeUnit === "funnel-stage") {
+    return "At your target CAC from the GTM brief; no stage-to-customer conversion rate assumed.";
+  }
+
+  return undefined;
+}
 
 // Parse the brief's target CAC string ("≤$4,000", "$4k", "4000") into a
 // number. First numeric token wins; zero/negative parses are rejected.
@@ -1138,6 +1223,7 @@ function normalizeProjectedResultRow(
   const record = getRecord(value);
   const kpi = getString(record.kpi ?? record.metric, "Evidence gap: KPI missing.");
   const snappedKpiCostProvenance = snapMoneyProvenance(record.kpiCostProvenance);
+  const targetCacBridgeUnit = getTargetCacBridgeUnit(kpi);
   // Brief-CAC bridge: when the model honestly reports the KPI cost unknown
   // and the brief supplied a target CAC whose unit matches the row's KPI,
   // the runner sets the cost from the brief (provenance 'user-supplied' —
@@ -1146,7 +1232,7 @@ function normalizeProjectedResultRow(
   const bridgeKpiCostFromTargetCac =
     snappedKpiCostProvenance === "unknown" &&
     targetCacValue !== undefined &&
-    CAC_UNIT_KPI_PATTERN.test(kpi);
+    targetCacBridgeUnit !== null;
   const kpiCostProvenance = bridgeKpiCostFromTargetCac
     ? "user-supplied"
     : snappedKpiCostProvenance;
@@ -1199,6 +1285,12 @@ function normalizeProjectedResultRow(
           projectedCountProvenance: weakestMoneyProvenance(
             kpiCostProvenance,
             phaseMonthlyBudgetProvenance,
+          ),
+          ...optionalStringField(
+            "countBasis",
+            bridgeKpiCostFromTargetCac
+              ? getTargetCacCountBasis(targetCacBridgeUnit)
+              : undefined,
           ),
           marginOfErrorPercent: SOP_MARGIN_OF_ERROR_PERCENT,
         }),
@@ -1332,17 +1424,22 @@ export function normalizePaidMediaPlanBody(
 const AUDIENCE_DAILY_SUM_TOLERANCE_USD = 5;
 const DAILY_TIMES_30_TOLERANCE_USD = 25;
 
-type PaidMediaBudgetCascadeViolation =
+export type PaidMediaBudgetCascadeViolation =
   | { kind: "audience-sum"; message: string }
   | { kind: "daily-vs-monthly"; message: string }
   | { kind: "phase-exceeds-monthly"; message: string; phaseIndex: number };
+
+type AudienceBudgetRepair = {
+  derivedIndexes: ReadonlySet<number>;
+  values: number[];
+};
 
 // Repair-prompt-facing dollar formatting: cents precision, no float artifacts.
 function formatUsdForError(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 
-function collectPaidMediaBudgetCascadeViolations(
+export function collectPaidMediaBudgetCascadeViolations(
   body: PaidMediaPlanBody,
 ): PaidMediaBudgetCascadeViolation[] {
   const violations: PaidMediaBudgetCascadeViolation[] = [];
@@ -1401,61 +1498,235 @@ function collectPaidMediaBudgetCascadeViolations(
   return violations;
 }
 
-// Normalize-time fallback for a cascade the model failed to reconcile: drop
-// the OFFENDING numeric *Value siblings and snap their provenance to
-// "unknown" (the same mechanism normalizeMoneyValue uses to hide numbers),
-// so a committed artifact can NEVER carry a non-reconciling cascade. The
-// anchor is monthlyBudgetValue (typically the brief's own number): the daily
-// spend is validated against it, and the audience split against the daily
-// spend — whichever leg disagrees with its anchor is the one dropped.
+function sumNumbers(values: readonly number[]): number {
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+function allocateWholeDollarsByLargestRemainder(
+  rawValues: readonly number[],
+  targetValue: number,
+): number[] {
+  if (rawValues.length === 0) {
+    return [];
+  }
+
+  const target = Math.max(0, Math.round(targetValue));
+  const nonnegativeValues = rawValues.map((value) =>
+    Number.isFinite(value) && value > 0 ? value : 0,
+  );
+  const rawTotal = sumNumbers(nonnegativeValues);
+  const weights =
+    rawTotal > 0 ? nonnegativeValues : rawValues.map(() => 1);
+  const weightTotal = rawTotal > 0 ? rawTotal : rawValues.length;
+  const quotas = weights.map((value) => (value / weightTotal) * target);
+  const allocations = quotas.map((quota) => Math.floor(quota));
+  const remainders = quotas
+    .map((quota, index) => ({
+      fraction: quota - Math.floor(quota),
+      index,
+    }))
+    .sort((left, right) => right.fraction - left.fraction || left.index - right.index);
+  const remainingDollars = target - sumNumbers(allocations);
+
+  for (let index = 0; index < remainingDollars; index += 1) {
+    const remainder = remainders[index];
+
+    if (remainder !== undefined) {
+      allocations[remainder.index] += 1;
+    }
+  }
+
+  return allocations;
+}
+
+function getAudienceBudgetRepair(
+  audienceTypes: PaidMediaPlanBody["audienceTypes"],
+  dailySpendValue: number | undefined,
+): AudienceBudgetRepair | null {
+  if (dailySpendValue === undefined || audienceTypes.length === 0) {
+    return null;
+  }
+
+  const values = audienceTypes.map((audience) => audience.dailyBudgetValue);
+  const presentEntries = values
+    .map((value, index) => ({ index, value }))
+    .filter(
+      (entry): entry is { index: number; value: number } =>
+        entry.value !== undefined,
+    );
+  const missingIndexes = values
+    .map((value, index) => (value === undefined ? index : null))
+    .filter((index): index is number => index !== null);
+
+  if (presentEntries.length === audienceTypes.length) {
+    const presentValues = presentEntries.map((entry) => entry.value);
+    const presentSum = sumNumbers(presentValues);
+
+    if (
+      Math.abs(presentSum - dailySpendValue) <=
+      AUDIENCE_DAILY_SUM_TOLERANCE_USD
+    ) {
+      return null;
+    }
+
+    return {
+      derivedIndexes: new Set(values.map((_value, index) => index)),
+      values: allocateWholeDollarsByLargestRemainder(
+        presentValues,
+        dailySpendValue,
+      ),
+    };
+  }
+
+  if (presentEntries.length === 0) {
+    return {
+      derivedIndexes: new Set(values.map((_value, index) => index)),
+      values: allocateWholeDollarsByLargestRemainder(
+        values.map(() => 1),
+        dailySpendValue,
+      ),
+    };
+  }
+
+  const presentSum = sumNumbers(presentEntries.map((entry) => entry.value));
+  const remainingBudget = dailySpendValue - presentSum;
+
+  if (remainingBudget > 0) {
+    const missingAllocations = allocateWholeDollarsByLargestRemainder(
+      missingIndexes.map(() => 1),
+      remainingBudget,
+    );
+    const repairedValues = values.map((value) => value ?? 0);
+
+    missingIndexes.forEach((audienceIndex, allocationIndex) => {
+      repairedValues[audienceIndex] = missingAllocations[allocationIndex] ?? 0;
+    });
+
+    return {
+      derivedIndexes: new Set(missingIndexes),
+      values: repairedValues,
+    };
+  }
+
+  const fallbackMissingRawValue =
+    presentEntries.length > 0 ? presentSum / presentEntries.length : 1;
+
+  return {
+    derivedIndexes: new Set(values.map((_value, index) => index)),
+    values: allocateWholeDollarsByLargestRemainder(
+      values.map((value) => value ?? fallbackMissingRawValue),
+      dailySpendValue,
+    ),
+  };
+}
+
+function normalizeCampaignOverviewMoneyDisplays(
+  overview: PaidMediaPlanBody["campaignOverview"],
+): PaidMediaPlanBody["campaignOverview"] {
+  return {
+    ...overview,
+    ...(overview.monthlyBudgetValue === undefined
+      ? {}
+      : { monthlyBudget: formatMonthlyMoneyDisplay(overview.monthlyBudgetValue) }),
+    ...(overview.dailySpendValue === undefined
+      ? {}
+      : { dailySpend: formatDailyMoneyDisplay(overview.dailySpendValue) }),
+  };
+}
+
+function normalizeCampaignPhaseMoneyDisplay(
+  phase: PaidMediaPlanBody["campaignPhases"][number],
+): PaidMediaPlanBody["campaignPhases"][number] {
+  return phase.monthlyBudgetValue === undefined
+    ? phase
+    : {
+        ...phase,
+        monthlyBudget: formatMonthlyMoneyDisplay(phase.monthlyBudgetValue),
+      };
+}
+
+function normalizeAudienceMoneyDisplay(
+  audience: PaidMediaPlanBody["audienceTypes"][number],
+): PaidMediaPlanBody["audienceTypes"][number] {
+  return audience.dailyBudgetValue === undefined
+    ? audience
+    : {
+        ...audience,
+        dailyBudget: formatDailyMoneyDisplay(audience.dailyBudgetValue),
+      };
+}
+
+// Normalize-time repair for a cascade the model failed to reconcile. Monthly
+// budget is the anchor when present; code repairs daily spend, audience split,
+// and phase caps before validation instead of dropping buyer-usable numbers.
 export function reconcilePaidMediaBudgetCascade(
   body: PaidMediaPlanBody,
 ): PaidMediaPlanBody {
   const violations = collectPaidMediaBudgetCascadeViolations(body);
+  const monthlyBudgetValue = body.campaignOverview.monthlyBudgetValue;
+  const shouldDeriveDailySpend =
+    monthlyBudgetValue !== undefined &&
+    (body.campaignOverview.dailySpendValue === undefined ||
+      violations.some((violation) => violation.kind === "daily-vs-monthly"));
+  const dailySpendValue = shouldDeriveDailySpend
+    ? Math.round(monthlyBudgetValue / 30)
+    : body.campaignOverview.dailySpendValue;
 
-  if (violations.length === 0) {
-    return body;
-  }
-
-  console.warn(
-    "[paid-media-plan] budget cascade did not reconcile; dropping offending numeric siblings",
-    { messages: violations.map((violation) => violation.message) },
-  );
-
-  const dropDailySpend = violations.some(
-    (violation) => violation.kind === "daily-vs-monthly",
-  );
-  const dropAudienceBudgets = violations.some(
-    (violation) => violation.kind === "audience-sum",
-  );
-  const phaseIndexesToDrop = new Set(
+  const campaignOverview = normalizeCampaignOverviewMoneyDisplays({
+    ...body.campaignOverview,
+    ...(dailySpendValue === undefined
+      ? {}
+      : { dailySpendValue }),
+    ...(shouldDeriveDailySpend ? { dailySpendProvenance: "derived" } : {}),
+  });
+  const phaseIndexesToClamp = new Set(
     violations.flatMap((violation) =>
       violation.kind === "phase-exceeds-monthly" ? [violation.phaseIndex] : [],
     ),
   );
-
-  const campaignOverview = dropDailySpend
-    ? (() => {
-        const { dailySpendValue: _dropped, ...rest } = body.campaignOverview;
-        return { ...rest, dailySpendProvenance: "unknown" };
-      })()
-    : body.campaignOverview;
-  const audienceTypes = dropAudienceBudgets
-    ? body.audienceTypes.map((audience) => {
-        const { dailyBudgetValue: _dropped, ...rest } = audience;
-        return { ...rest, dailyBudgetProvenance: "unknown" };
-      })
-    : body.audienceTypes;
   const campaignPhases = body.campaignPhases.map((phase, phaseIndex) => {
-    if (!phaseIndexesToDrop.has(phaseIndex)) {
-      return phase;
-    }
+    const shouldClampPhase =
+      monthlyBudgetValue !== undefined && phaseIndexesToClamp.has(phaseIndex);
+    const repairedPhase = shouldClampPhase
+      ? {
+          ...phase,
+          monthlyBudgetValue: monthlyBudgetValue,
+          monthlyBudgetProvenance: "derived",
+        }
+      : phase;
 
-    const { monthlyBudgetValue: _dropped, ...rest } = phase;
-    return { ...rest, monthlyBudgetProvenance: "unknown" };
+    return normalizeCampaignPhaseMoneyDisplay(repairedPhase);
   });
+  const audienceRepair = getAudienceBudgetRepair(
+    body.audienceTypes,
+    dailySpendValue,
+  );
+  const audienceTypes =
+    audienceRepair === null
+      ? body.audienceTypes.map(normalizeAudienceMoneyDisplay)
+      : body.audienceTypes.map((audience, index) =>
+          normalizeAudienceMoneyDisplay({
+            ...audience,
+            dailyBudgetValue: audienceRepair.values[index] ?? 0,
+            ...(audienceRepair.derivedIndexes.has(index)
+              ? { dailyBudgetProvenance: "derived" }
+              : {}),
+          }),
+        );
+  const repaired = { ...body, audienceTypes, campaignOverview, campaignPhases };
+  const remainingViolations = collectPaidMediaBudgetCascadeViolations(repaired);
 
-  return { ...body, audienceTypes, campaignOverview, campaignPhases };
+  if (violations.length > 0 || remainingViolations.length > 0) {
+    console.warn(
+      "[paid-media-plan] budget cascade repaired deterministically",
+      {
+        before: violations.map((violation) => violation.message),
+        after: remainingViolations.map((violation) => violation.message),
+      },
+    );
+  }
+
+  return repaired;
 }
 
 // A substantive SOP row names its own plan facts (ICP, KPI, objective,

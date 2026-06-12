@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { paidMediaPlanFixtureArtifact } from "../../../fixtures/paid-media-plan-artifact";
 import {
+  collectPaidMediaBudgetCascadeViolations,
   normalizePaidMediaPlanBody,
   paidMediaMoneyProvenanceValues,
   paidMediaPlanBodySchema,
@@ -88,6 +89,7 @@ describe("paidMediaPlanSectionOutputSchema", () => {
       "tool-measured",
       "source-reported",
       "model-estimated",
+      "derived",
       "unknown",
     ]);
 
@@ -317,8 +319,9 @@ describe("budget honesty (B3: no placeholder, no fabrication)", () => {
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
-    expect(normalized.campaignOverview.monthlyBudget).toBe("$6,000 / Month");
+    expect(normalized.campaignOverview.monthlyBudget).toBe("$6,000/month");
     expect(normalized.campaignOverview.monthlyBudgetValue).toBe(6000);
+    expect(normalized.campaignOverview.dailySpend).toBe("$200/day");
     expect(normalized.campaignOverview.dailySpendValue).toBe(200);
     // daily = monthly / 30 — the only permitted math holds.
     expect((normalized.campaignOverview.dailySpendValue ?? 0) * 30).toBe(
@@ -326,10 +329,11 @@ describe("budget honesty (B3: no placeholder, no fabrication)", () => {
     );
     for (const phase of normalized.campaignPhases) {
       expect(phase.monthlyBudgetValue).toBe(6000);
-      expect(phase.monthlyBudget).toBe("$6,000 / Month");
+      expect(phase.monthlyBudget).toBe("$6,000/month");
     }
     normalized.audienceTypes.forEach((audience, index) => {
       expect(audience.dailyBudgetValue).toBe(audienceSplits[index]);
+      expect(audience.dailyBudget).toBe(`$${audienceSplits[index]}/day`);
       expect(audience.dailyBudgetProvenance).toBe("user-supplied");
     });
   });
@@ -476,6 +480,20 @@ describe("budget honesty — provenance teeth (B3 supplement)", () => {
 
     expect(normalized.campaignOverview.monthlyBudgetProvenance).toBe("unknown");
     expect(normalized.campaignOverview.monthlyBudgetValue).toBeUndefined();
+  });
+
+  it("snaps model-authored derived money provenance to model-estimated unless code repairs it", () => {
+    const rawBody = getRawBody();
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    audiences[0]!.dailyBudgetProvenance = "derived";
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(collectPaidMediaBudgetCascadeViolations(normalized)).toEqual([]);
+    expect(normalized.audienceTypes[0]?.dailyBudgetValue).toBe(33.33);
+    expect(normalized.audienceTypes[0]?.dailyBudgetProvenance).toBe(
+      "model-estimated",
+    );
   });
 });
 
@@ -711,7 +729,7 @@ describe("budget cascade reconciliation (W2)", () => {
     expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
   });
 
-  it("normalize drops a non-reconciling audience split and snaps its provenance to unknown (run d838ed4e shape)", () => {
+  it("normalizes a non-reconciling audience split by rescaling with largest remainder (run d838ed4e shape)", () => {
     const rawBody = getRawBody();
     const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
     // 300 + 33.33 + 33.33 = 366.66 vs dailySpendValue 100 — violates the $5 rule.
@@ -719,18 +737,22 @@ describe("budget cascade reconciliation (W2)", () => {
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
+    // Code owns the sum: keep the model's ratios, repair to exact dollars.
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudgetValue)).toEqual([
+      82,
+      9,
+      9,
+    ]);
     for (const audience of normalized.audienceTypes) {
-      expect(audience.dailyBudgetValue).toBeUndefined();
-      expect(audience.dailyBudgetProvenance).toBe("unknown");
-      // Display strings survive — only the contradicting numbers drop.
-      expect(audience.dailyBudget.length).toBeGreaterThan(0);
+      expect(audience.dailyBudgetProvenance).toBe("derived");
+      expect(audience.dailyBudget).toBe(`$${audience.dailyBudgetValue}/day`);
     }
     // The anchor legs are untouched.
     expect(normalized.campaignOverview.dailySpendValue).toBe(100);
     expect(normalized.campaignOverview.monthlyBudgetValue).toBe(3000);
   });
 
-  it("normalize drops a daily spend that contradicts the monthly budget and keeps the reconciling audience split", () => {
+  it("normalizes a daily spend that contradicts the monthly budget, then rescales audiences", () => {
     const rawBody = getRawBody();
     const overview = rawBody.campaignOverview as Record<string, unknown>;
     overview.dailySpendValue = 150; // 150 * 30 = 4500 vs monthly 3000
@@ -741,26 +763,123 @@ describe("budget cascade reconciliation (W2)", () => {
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
-    expect(normalized.campaignOverview.dailySpendValue).toBeUndefined();
-    expect(normalized.campaignOverview.dailySpendProvenance).toBe("unknown");
+    // Monthly is the anchor: daily becomes round(3000 / 30), not a dropped value.
+    expect(normalized.campaignOverview.dailySpendValue).toBe(100);
+    expect(normalized.campaignOverview.dailySpend).toBe("$100/day");
+    expect(normalized.campaignOverview.dailySpendProvenance).toBe("derived");
     expect(normalized.campaignOverview.monthlyBudgetValue).toBe(3000);
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudgetValue)).toEqual([
+      34,
+      33,
+      33,
+    ]);
     for (const audience of normalized.audienceTypes) {
-      expect(audience.dailyBudgetValue).toBe(50);
+      expect(audience.dailyBudgetProvenance).toBe("derived");
     }
   });
 
-  it("normalize drops only the offending phase budget when a phase exceeds the monthly budget", () => {
+  it("normalizes an offending phase budget by clamping it to the monthly budget", () => {
     const rawBody = getRawBody();
     const phases = rawBody.campaignPhases as Array<Record<string, unknown>>;
     phases[0]!.monthlyBudgetValue = 9000; // exceeds monthly 3000
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
-    expect(normalized.campaignPhases[0]?.monthlyBudgetValue).toBeUndefined();
+    expect(normalized.campaignPhases[0]?.monthlyBudgetValue).toBe(3000);
+    expect(normalized.campaignPhases[0]?.monthlyBudget).toBe("$3,000/month");
     expect(normalized.campaignPhases[0]?.monthlyBudgetProvenance).toBe(
-      "unknown",
+      "derived",
     );
     expect(normalized.campaignPhases[1]?.monthlyBudgetValue).toBe(3000);
+  });
+
+  it("rescales the f3993043 audience budget fixture to exact-sum daily dollars", () => {
+    const rawBody = getRawBody();
+    const overview = rawBody.campaignOverview as Record<string, unknown>;
+    overview.monthlyBudget = "$25,000 monthly";
+    overview.monthlyBudgetValue = 25000;
+    overview.monthlyBudgetProvenance = "user-supplied";
+    overview.dailySpend = "$833 daily";
+    overview.dailySpendValue = 833;
+    overview.dailySpendProvenance = "user-supplied";
+    rawBody.audienceTypes = [500, 200, 125, 208].map((dailyBudgetValue, index) => ({
+      ...(paidMediaPlanFixtureArtifact.body.audienceTypes[index % 3] ?? {}),
+      slot: `0${index + 1}`,
+      dailyBudget: `$${dailyBudgetValue}/day`,
+      dailyBudgetValue,
+      dailyBudgetProvenance: "user-supplied",
+    }));
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.campaignOverview.monthlyBudget).toBe("$25,000/month");
+    expect(normalized.campaignOverview.dailySpend).toBe("$833/day");
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudgetValue)).toEqual([
+      403,
+      161,
+      101,
+      168,
+    ]);
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudget)).toEqual([
+      "$403/day",
+      "$161/day",
+      "$101/day",
+      "$168/day",
+    ]);
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudgetProvenance)).toEqual([
+      "derived",
+      "derived",
+      "derived",
+      "derived",
+    ]);
+    expect(
+      normalized.audienceTypes.reduce(
+        (sum, audience) => sum + (audience.dailyBudgetValue ?? 0),
+        0,
+      ),
+    ).toBe(833);
+    expect(collectPaidMediaBudgetCascadeViolations(normalized)).toEqual([]);
+  });
+
+  it("fills missing audience values from the remaining daily budget", () => {
+    const rawBody = getRawBody();
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    audiences[0]!.dailyBudgetValue = 40;
+    audiences[1]!.dailyBudgetValue = 20;
+    delete audiences[2]!.dailyBudgetValue;
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudgetValue)).toEqual([
+      40,
+      20,
+      40,
+    ]);
+    expect(normalized.audienceTypes[0]?.dailyBudgetProvenance).toBe("model-estimated");
+    expect(normalized.audienceTypes[1]?.dailyBudgetProvenance).toBe("model-estimated");
+    expect(normalized.audienceTypes[2]?.dailyBudgetProvenance).toBe("derived");
+    expect(collectPaidMediaBudgetCascadeViolations(normalized)).toEqual([]);
+  });
+
+  it("equal-splits audience values when daily spend is known and all audience values are missing", () => {
+    const rawBody = getRawBody();
+    const audiences = rawBody.audienceTypes as Array<Record<string, unknown>>;
+    for (const audience of audiences) {
+      delete audience.dailyBudgetValue;
+    }
+
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+
+    expect(normalized.audienceTypes.map((audience) => audience.dailyBudgetValue)).toEqual([
+      34,
+      33,
+      33,
+    ]);
+    for (const audience of normalized.audienceTypes) {
+      expect(audience.dailyBudgetProvenance).toBe("derived");
+      expect(audience.dailyBudget).toBe(`$${audience.dailyBudgetValue}/day`);
+    }
+    expect(collectPaidMediaBudgetCascadeViolations(normalized)).toEqual([]);
   });
 
   it("a normalized body always re-validates clean — a committed cascade can never contradict itself", () => {
@@ -776,6 +895,7 @@ describe("budget cascade reconciliation (W2)", () => {
     artifact.body = normalizePaidMediaPlanBody(rawBody);
 
     expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
+    expect(collectPaidMediaBudgetCascadeViolations(artifact.body)).toEqual([]);
   });
 });
 
@@ -842,7 +962,7 @@ describe("channel suggestions substantive floor (W2)", () => {
 });
 
 describe("display-string provenance hygiene (W2)", () => {
-  it("strips trailing provenance parentheticals from money display strings — the enum is the only provenance writer", () => {
+  it("regenerates money display strings from numeric siblings — the enum is the only provenance writer", () => {
     const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
       string,
       unknown
@@ -859,21 +979,18 @@ describe("display-string provenance hygiene (W2)", () => {
 
     expect(normalized.campaignOverview.monthlyBudget).toBe("$3,000/month");
     expect(normalized.campaignOverview.dailySpend).toBe("$100/day");
-    expect(normalized.campaignPhases[0]?.monthlyBudget).toBe(
-      "$3,000/month (60% of search budget)",
-    );
-    expect(normalized.audienceTypes[0]?.dailyBudget).toBe(
-      "$33.33/day (20% of total)",
-    );
+    expect(normalized.campaignPhases[0]?.monthlyBudget).toBe("$3,000/month");
+    expect(normalized.audienceTypes[0]?.dailyBudget).toBe("$33.33/day");
   });
 
-  it("keeps non-provenance parentheticals intact", () => {
+  it("keeps non-provenance parentheticals intact only when no numeric sibling exists", () => {
     const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
       string,
       unknown
     >;
     const overview = rawBody.campaignOverview as Record<string, unknown>;
     overview.monthlyBudget = "$3,000/month (60% of search budget)";
+    delete overview.monthlyBudgetValue;
 
     const normalized = normalizePaidMediaPlanBody(rawBody);
 
@@ -988,12 +1105,54 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
     expect(row?.kpiCostProvenance).toBe("user-supplied");
     expect(row?.projectedCountValue).toBe(3); // floor(15000 / 4000)
     expect(row?.projectedCountProvenance).toBe("user-supplied");
+    expect(row?.countBasis).toBe("At your target CAC from the GTM brief.");
     expect(row?.marginOfErrorPercent).toBe(20);
   });
 
-  it("does not bridge a row whose KPI is not a CAC unit", () => {
+  it("bridges funnel-stage KPIs conservatively at the target CAC", () => {
     const normalized = normalizePaidMediaPlanBody(
       rawBodyWithRows([{ ...unknownCostRow, kpi: "SQL" }]),
+      { targetCac: "≤$4,000" },
+    );
+    const row = normalized.projectedResults[0];
+
+    expect(row?.kpiCostValue).toBe(4000);
+    expect(row?.kpiCostProvenance).toBe("user-supplied");
+    expect(row?.projectedCountValue).toBe(3);
+    expect(row?.countBasis).toBe(
+      "At your target CAC from the GTM brief; no stage-to-customer conversion rate assumed.",
+    );
+    expect(row?.marginOfErrorPercent).toBe(20);
+  });
+
+  it("bridges the f3993043 Qualified Business-plan trial rows into counts", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithRows(
+        ["Phase 1", "Phase 2", "Phase 3"].map((objective) => ({
+          ...unknownCostRow,
+          kpi: "Qualified Business-plan trial",
+          objective,
+          phaseMonthlyBudgetValue: 25000,
+        })),
+      ),
+      { targetCac: "≤$4,000" },
+    );
+
+    expect(normalized.projectedResults).toHaveLength(3);
+    for (const row of normalized.projectedResults) {
+      expect(row.kpiCostValue).toBe(4000);
+      expect(row.kpiCostProvenance).toBe("user-supplied");
+      expect(row.projectedCountValue).toBe(6);
+      expect(row.projectedCountProvenance).toBe("user-supplied");
+      expect(row.countBasis).toBe(
+        "At your target CAC from the GTM brief; no stage-to-customer conversion rate assumed.",
+      );
+    }
+  });
+
+  it("does not bridge a row whose KPI has no CAC-compatible unit", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithRows([{ ...unknownCostRow, kpi: "CTR" }]),
       { targetCac: "≤$4,000" },
     );
     const row = normalized.projectedResults[0];
@@ -1001,6 +1160,7 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
     expect(row?.kpiCostValue).toBeUndefined();
     expect(row?.kpiCostProvenance).toBe("unknown");
     expect(row?.projectedCountValue).toBeUndefined();
+    expect(row?.countBasis).toBeUndefined();
     expect(row?.marginOfErrorPercent).toBeUndefined();
   });
 

@@ -405,6 +405,10 @@ const modelAuthoredVerifiedMarkerProbePattern =
 const trustedPaidMediaMoneyProvenances = new Set([
   "tool-measured",
   "source-reported",
+  // Safe because "derived" is code-written only: paid-media schema snapping
+  // converts model-asserted "derived" to "model-estimated", and the budget
+  // cascade reconciler is the sole writer of the committed derived token.
+  "derived",
 ]);
 const userSuppliedMoneyProvenance = "user-supplied";
 const modelEstimatedMoneyProvenance = "model-estimated";

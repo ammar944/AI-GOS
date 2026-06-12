@@ -778,6 +778,24 @@ describe("redactUnsupportedNumericClaims", (): void => {
     ]);
   });
 
+  it("keeps code-derived paid-media money values even when their numeric token is unsupported", (): void => {
+    const body = {
+      campaignOverview: {
+        dailySpend: "$3,333/day",
+        dailySpendValue: 3_333,
+        dailySpendProvenance: "derived",
+      },
+    };
+
+    const result = redactUnsupportedNumericClaims({
+      body,
+      verification: buildUnsupportedNumericReport(["$3,333"]),
+    });
+
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
+  });
+
   it("keeps user-supplied money provenance when the figure appears in the brief economics", (): void => {
     const body = {
       campaignOverview: {
