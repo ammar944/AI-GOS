@@ -34,7 +34,7 @@ export const keyFindingSchema = z
     }
   });
 
-export const keyFindingsSchema = z.array(keyFindingSchema).min(3).max(5);
+export const keyFindingsSchema = z.array(keyFindingSchema).min(1).max(6);
 
 export const keyTensionSchema = z
   .object({
@@ -47,8 +47,8 @@ export const keyTensionSchema = z
 export const strategicInsightSchema = z
   .object({
     strategicVerdict: z.string().min(1),
-    nonObviousRead: z.string().min(1).optional(),
-    secondOrderImplication: z.string().min(1).optional(),
+    nonObviousRead: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    secondOrderImplication: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     keyTension: keyTensionSchema,
   })
   .strict();

@@ -278,7 +278,7 @@ const personaSchema = z
 const awarenessLevelSchema = z
   .object({
     level: z.enum(awarenessLevels),
-    share: z.string().min(1).optional(),
+    share: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     evidence: z.string().min(1),
     sampleQuery: z.string().min(1).optional(),
   })
@@ -298,7 +298,7 @@ const clusterVenueSchema = z
   .object({
     bucketType: z.enum(clusterBuckets),
     name: z.string().min(1),
-    audienceSize: z.string().min(1).optional(),
+    audienceSize: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     sourceUrl: z.string().min(1),
     whyItMatters: z.string().min(1),
   })
@@ -317,7 +317,7 @@ const evidenceGapReportSchema = z
 
 export const buyerICPBodySchema = z
   .object({
-    keyFindings: keyFindingsSchema.optional(),
+    keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
     strategicInsight: strategicInsightSchema,
     icpExistenceCheck: z
       .object({
@@ -336,7 +336,7 @@ export const buyerICPBodySchema = z
     awarenessDistribution: z
       .object({
         prose: z.string().min(1),
-        dominantLevel: z.enum(awarenessLevels).optional(),
+        dominantLevel: z.enum(awarenessLevels).nullable().transform((value) => value ?? undefined).optional(),
         levels: z.array(awarenessLevelSchema),
         blockGap: blockGapFieldSchema,
       })

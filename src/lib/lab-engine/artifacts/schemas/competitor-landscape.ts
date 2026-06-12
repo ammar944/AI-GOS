@@ -282,7 +282,7 @@ const adEvidenceSchema = z
 
 export const competitorLandscapeBodySchema = z
   .object({
-    keyFindings: keyFindingsSchema.optional(),
+    keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
     strategicInsight: strategicInsightSchema,
     whereToAttackVsConcede: whereToAttackVsConcedeSchema,
     incumbentBlindSpot: incumbentBlindSpotSchema,
@@ -727,8 +727,8 @@ export function validateCompetitorLandscapeMinimums(
   }
 
   const axisCount = parsedArtifact.body.positioningTaxonomy.axes.length;
-  if (axisCount < 3 && !hasBlockGap(parsedArtifact.body.positioningTaxonomy)) {
-    errors.push(`body.positioningTaxonomy.axes: have ${axisCount}, need >=3 axes.`);
+  if (axisCount < 2 && !hasBlockGap(parsedArtifact.body.positioningTaxonomy)) {
+    errors.push(`body.positioningTaxonomy.axes: have ${axisCount}, need >=2 axes.`);
   }
 
   const pricingPointCount = parsedArtifact.body.pricingReality.dataPoints.length;

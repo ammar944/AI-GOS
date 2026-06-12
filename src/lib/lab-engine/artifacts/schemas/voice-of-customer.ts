@@ -206,8 +206,8 @@ const blockGapFieldSchema = evidenceBlockGapSchema
 
 export const voiceOfCustomerBodySchema = z
   .object({
-    keyFindings: keyFindingsSchema.optional(),
-    retrievalSummary: z.string().min(1).optional(),
+    keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
+    retrievalSummary: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     strategicInsight: strategicInsightSchema,
     fourForcesBalanceVerdict: fourForcesBalanceVerdictSchema,
     painLanguage: z

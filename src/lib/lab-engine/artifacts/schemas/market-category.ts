@@ -240,7 +240,7 @@ export const categoryMaturitySchema = z
 
 export const marketCategoryBodySchema = z
   .object({
-    keyFindings: keyFindingsSchema.optional(),
+    keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
     strategicInsight: strategicInsightSchema,
     categoryPowerBet: categoryPowerBetSchema,
     categoryDefinition: categoryDefinitionSchema,

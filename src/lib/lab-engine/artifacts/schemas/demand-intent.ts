@@ -98,7 +98,7 @@ const demandVenueSchema = z
 
 export const demandIntentBodySchema = z
   .object({
-    keyFindings: keyFindingsSchema.optional(),
+    keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
     strategicInsight: strategicInsightSchema,
     orderedMoves: z.array(orderedStrategicMoveSchema),
     provesWrongIf: provesWrongIfSchema,
