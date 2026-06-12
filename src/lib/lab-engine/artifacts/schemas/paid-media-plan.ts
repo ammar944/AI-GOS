@@ -14,6 +14,10 @@ export const sourceSectionValues = [
   "positioningDemandIntent",
   "positioningOfferDiagnostic",
   "gtmBrief",
+  // Honest fallback for model-emitted provenance outside the known set:
+  // never silently re-attribute to gtmBrief (fabricated attribution), never
+  // crash at persistence (run d838ed4e). Renders as an "Unattributed" chip.
+  "unattributed",
 ] as const;
 
 export const paidMediaMoneyProvenanceValues = [
@@ -35,8 +39,8 @@ const channelVerdictValues = [
 ] as const;
 
 const paidMediaNumericMoneySchema = z.number().finite().nonnegative().optional();
-const sourceSectionSchema = z.enum(sourceSectionValues);
-const channelVerdictSchema = z.enum(channelVerdictValues);
+const sourceSectionSchema = z.enum(sourceSectionValues).catch("unattributed");
+const channelVerdictSchema = z.enum(channelVerdictValues).catch("REVIEW");
 type SourceSection = z.infer<typeof sourceSectionSchema>;
 type ChannelVerdict = z.infer<typeof channelVerdictSchema>;
 

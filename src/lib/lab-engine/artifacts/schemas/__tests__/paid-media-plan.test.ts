@@ -167,7 +167,7 @@ describe("normalizePaidMediaPlanBody", () => {
     expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
   });
 
-  it("fails unknown sourceSection and channel verdict instead of snapping to defaults", () => {
+  it("maps unknown sourceSection to 'unattributed' and unknown verdict to REVIEW instead of crashing", () => {
     const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
       string,
       unknown
@@ -181,7 +181,10 @@ describe("normalizePaidMediaPlanBody", () => {
       },
     ];
 
-    expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
+    const normalized = normalizePaidMediaPlanBody(rawBody);
+    const suggestion = (normalized.channelSuggestions as Array<Record<string, unknown>>)[0];
+    expect(suggestion?.sourceSection).toBe("unattributed");
+    expect(suggestion?.verdict).toBe("REVIEW");
   });
 
   it("accepts old wrapped arrays during rollout and emits the lean shape", () => {

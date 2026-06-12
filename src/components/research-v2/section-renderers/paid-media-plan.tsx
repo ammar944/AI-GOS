@@ -83,6 +83,8 @@ function getPaidMediaPlanBody(
 }
 
 function sectionLabel(value: string): string {
+  if (value === 'unattributed') return 'Unattributed';
+  if (value === 'gtmBrief') return 'GTM Brief';
   return READER_SECTION_LABELS[value as ReaderSectionId] ?? value;
 }
 
