@@ -69,6 +69,7 @@ interface RefreshV3SharedSessionSnapshotsInput {
 
 interface JourneySessionShareRow {
   id: string;
+  run_id: string;
   metadata: Record<string, unknown> | null;
 }
 
@@ -85,6 +86,7 @@ interface ExistingSharedSessionRow {
 
 interface V3ShareSnapshotContext {
   session: JourneySessionShareRow;
+  runId: string;
   sections: ResearchArtifactSectionShareRow[];
   title: string;
   executiveBrief: string | null;
@@ -98,13 +100,27 @@ export type ShareSnapshotErrorCode =
   | 'insert_failed'
   | 'update_failed';
 
+export interface ShareSnapshotErrorDetails {
+  suppliedId?: string;
+  lookupMisses?: readonly string[];
+  existsForDifferentAccount?: boolean;
+  matchedSessionId?: string;
+  matchedRunId?: string;
+}
+
 export class ShareSnapshotError extends Error {
   public readonly code: ShareSnapshotErrorCode;
+  public readonly details: ShareSnapshotErrorDetails | undefined;
 
-  public constructor(message: string, code: ShareSnapshotErrorCode) {
+  public constructor(
+    message: string,
+    code: ShareSnapshotErrorCode,
+    details?: ShareSnapshotErrorDetails,
+  ) {
     super(message);
     this.name = 'ShareSnapshotError';
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -220,45 +236,30 @@ async function loadV3ShareSnapshotContext(input: {
   runId: string;
   title?: string;
 }): Promise<V3ShareSnapshotContext> {
-  const { data: sessionData, error: sessionError } = await input.supabase
-    .from('journey_sessions')
-    .select('id, metadata')
-    .eq('run_id', input.runId)
-    .eq('user_id', input.userId)
-    .maybeSingle();
+  const session = await loadJourneySessionForShare({
+    supabase: input.supabase,
+    userId: input.userId,
+    suppliedId: input.runId,
+  });
+  const resolvedRunId = session.run_id;
 
-  if (sessionError) {
-    throw new ShareSnapshotError(
-      `journey_sessions share lookup failed for userId=${input.userId} runId=${input.runId}: ${sessionError.message}`,
-      'lookup_failed',
-    );
-  }
-
-  if (!sessionData) {
-    throw new ShareSnapshotError(
-      `Session not found for userId=${input.userId} runId=${input.runId}`,
-      'session_not_found',
-    );
-  }
-
-  const session = sessionData as JourneySessionShareRow;
   const { data: parentData, error: parentError } = await input.supabase
     .from('research_artifacts')
     .select('id, thesis')
-    .eq('run_id', input.runId)
+    .eq('run_id', resolvedRunId)
     .eq('user_id', input.userId)
     .maybeSingle();
 
   if (parentError) {
     throw new ShareSnapshotError(
-      `research_artifacts share lookup failed for userId=${input.userId} runId=${input.runId}: ${parentError.message}`,
+      `research_artifacts share lookup failed for userId=${input.userId} runId=${resolvedRunId}: ${parentError.message}`,
       'lookup_failed',
     );
   }
 
   if (!parentData) {
     throw new ShareSnapshotError(
-      `No v3 research artifact found for userId=${input.userId} runId=${input.runId}`,
+      `No v3 research artifact found for userId=${input.userId} runId=${resolvedRunId}`,
       'v3_artifact_not_found',
     );
   }
@@ -283,7 +284,7 @@ async function loadV3ShareSnapshotContext(input: {
   const sections = (sectionData ?? []) as ResearchArtifactSectionShareRow[];
   const executiveBrief = readExecutiveBriefFromThesis(parent.thesis);
   const snapshot = buildV3ShareSnapshot({
-    runId: input.runId,
+    runId: resolvedRunId,
     title,
     sections,
     executiveBrief,
@@ -291,17 +292,120 @@ async function loadV3ShareSnapshotContext(input: {
 
   if (snapshot.sections.length === 0) {
     throw new ShareSnapshotError(
-      `No complete v3 sections found for userId=${input.userId} runId=${input.runId} artifactId=${parent.id}`,
+      `No complete v3 sections found for userId=${input.userId} runId=${resolvedRunId} artifactId=${parent.id}`,
       'v3_sections_not_found',
     );
   }
 
   return {
     session,
+    runId: resolvedRunId,
     sections,
     title,
     executiveBrief,
   };
+}
+
+async function loadJourneySessionByColumn(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  suppliedId: string;
+  column: 'run_id' | 'id';
+}): Promise<JourneySessionShareRow | null> {
+  const { data, error } = await input.supabase
+    .from('journey_sessions')
+    .select('id, run_id, metadata')
+    .eq(input.column, input.suppliedId)
+    .eq('user_id', input.userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new ShareSnapshotError(
+      `journey_sessions share lookup failed for userId=${input.userId} ${input.column}=${input.suppliedId}: ${error.message}`,
+      'lookup_failed',
+    );
+  }
+
+  return data ? (data as JourneySessionShareRow) : null;
+}
+
+async function findJourneySessionForDifferentAccount(input: {
+  supabase: SupabaseClient;
+  suppliedId: string;
+}): Promise<{ id: string; run_id: string; user_id: string } | null> {
+  const runIdLookup = await input.supabase
+    .from('journey_sessions')
+    .select('id, run_id, user_id')
+    .eq('run_id', input.suppliedId)
+    .maybeSingle();
+
+  if (runIdLookup.error) {
+    throw new ShareSnapshotError(
+      `journey_sessions ownership diagnostic failed for run_id=${input.suppliedId}: ${runIdLookup.error.message}`,
+      'lookup_failed',
+    );
+  }
+  if (runIdLookup.data) {
+    return runIdLookup.data as { id: string; run_id: string; user_id: string };
+  }
+
+  const idLookup = await input.supabase
+    .from('journey_sessions')
+    .select('id, run_id, user_id')
+    .eq('id', input.suppliedId)
+    .maybeSingle();
+
+  if (idLookup.error) {
+    throw new ShareSnapshotError(
+      `journey_sessions ownership diagnostic failed for id=${input.suppliedId}: ${idLookup.error.message}`,
+      'lookup_failed',
+    );
+  }
+
+  return idLookup.data
+    ? (idLookup.data as { id: string; run_id: string; user_id: string })
+    : null;
+}
+
+async function loadJourneySessionForShare(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  suppliedId: string;
+}): Promise<JourneySessionShareRow> {
+  const byRunId = await loadJourneySessionByColumn({
+    ...input,
+    column: 'run_id',
+  });
+  if (byRunId) return byRunId;
+
+  const bySessionId = await loadJourneySessionByColumn({
+    ...input,
+    column: 'id',
+  });
+  if (bySessionId) return bySessionId;
+
+  const otherAccountSession = await findJourneySessionForDifferentAccount({
+    supabase: input.supabase,
+    suppliedId: input.suppliedId,
+  });
+  const existsForDifferentAccount =
+    otherAccountSession !== null && otherAccountSession.user_id !== input.userId;
+
+  throw new ShareSnapshotError(
+    `Session not found for userId=${input.userId} suppliedId=${input.suppliedId}`,
+    'session_not_found',
+    {
+      suppliedId: input.suppliedId,
+      lookupMisses: ['run_id', 'id'],
+      existsForDifferentAccount,
+      matchedSessionId: existsForDifferentAccount
+        ? otherAccountSession.id
+        : undefined,
+      matchedRunId: existsForDifferentAccount
+        ? otherAccountSession.run_id
+        : undefined,
+    },
+  );
 }
 
 export async function createV3SharedSession(
@@ -310,7 +414,7 @@ export async function createV3SharedSession(
   const context = await loadV3ShareSnapshotContext(input);
   const title = context.title;
   const snapshot = buildV3ShareSnapshot({
-    runId: input.runId,
+    runId: context.runId,
     title,
     sections: context.sections,
     executiveBrief: context.executiveBrief,
@@ -376,7 +480,7 @@ export async function refreshV3SharedSessionSnapshots(
 
     const title = nonEmptyString(row.title) ?? context.title;
     const snapshot = buildV3ShareSnapshot({
-      runId: input.runId,
+      runId: context.runId,
       title,
       sections: context.sections,
       executiveBrief: context.executiveBrief,

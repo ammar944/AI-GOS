@@ -16,17 +16,20 @@ const runId = '00000000-0000-4000-8000-0000000000aa';
 const sessionId = '33333333-3333-4333-8333-333333333333';
 const parentAuditRunId = '11111111-1111-4111-8111-111111111111';
 
-function createFakeSupabase(options?: { thesis?: unknown }): {
+function createFakeSupabase(options?: {
+  thesis?: unknown;
+  journeyMatchColumn?: 'run_id' | 'id';
+}): {
   supabase: SupabaseClient;
   insert: ReturnType<typeof vi.fn>;
+  journeyLookups: string[];
 } {
-  const journeyMaybeSingle = vi.fn().mockResolvedValue({
-    data: {
-      id: sessionId,
-      metadata: { companyName: 'SaaSLaunch' },
-    },
-    error: null,
-  });
+  const journeyLookups: string[] = [];
+  const journeyRow = {
+    id: sessionId,
+    run_id: runId,
+    metadata: { companyName: 'SaaSLaunch' },
+  };
   const artifactMaybeSingle = vi.fn().mockResolvedValue({
     data: { id: parentAuditRunId, thesis: options?.thesis ?? null },
     error: null,
@@ -69,13 +72,30 @@ function createFakeSupabase(options?: { thesis?: unknown }): {
 
   const from = vi.fn((table: string) => {
     if (table === 'journey_sessions') {
+      let lookupColumn: 'run_id' | 'id' | null = null;
       const query = {
         select: vi.fn(),
         eq: vi.fn(),
-        maybeSingle: journeyMaybeSingle,
+        maybeSingle: vi.fn(),
       };
       query.select.mockReturnValue(query);
-      query.eq.mockReturnValue(query);
+      query.eq.mockImplementation((column: string) => {
+        if (column === 'run_id' || column === 'id') {
+          lookupColumn = column;
+          journeyLookups.push(column);
+        }
+        return query;
+      });
+      query.maybeSingle.mockImplementation(() =>
+        Promise.resolve({
+          data:
+            options?.journeyMatchColumn === undefined ||
+            lookupColumn === options.journeyMatchColumn
+              ? journeyRow
+              : null,
+          error: null,
+        }),
+      );
       return query;
     }
     if (table === 'research_artifacts') {
@@ -107,6 +127,7 @@ function createFakeSupabase(options?: { thesis?: unknown }): {
   return {
     supabase: { from } as unknown as SupabaseClient,
     insert,
+    journeyLookups,
   };
 }
 
@@ -117,6 +138,7 @@ function createRefreshFakeSupabase(): {
   const journeyMaybeSingle = vi.fn().mockResolvedValue({
     data: {
       id: sessionId,
+      run_id: runId,
       metadata: { companyName: 'SaaSLaunch' },
     },
     error: null,
@@ -474,6 +496,33 @@ describe('v3 share snapshot', (): void => {
       }),
       media_plan_snapshot: null,
     });
+  });
+
+  it('accepts a journey session id and snapshots the resolved run id', async (): Promise<void> => {
+    const fakeSupabase = createFakeSupabase({ journeyMatchColumn: 'id' });
+
+    const result = await createV3SharedSession({
+      supabase: fakeSupabase.supabase,
+      userId,
+      runId: sessionId,
+      title: 'Shared title',
+      appUrl: 'https://app.example',
+      newShareToken: () => 'share_token_123',
+    });
+
+    expect(result).toEqual({
+      shareToken: 'share_token_123',
+      shareUrl: 'https://app.example/shared/share_token_123',
+    });
+    expect(fakeSupabase.journeyLookups).toEqual(['run_id', 'id']);
+    expect(fakeSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: sessionId,
+        research_snapshot: expect.objectContaining({
+          runId,
+        }),
+      }),
+    );
   });
 
   it('populates the shared snapshot executiveBrief from research_artifacts.thesis', async (): Promise<void> => {

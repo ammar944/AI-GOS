@@ -21,6 +21,7 @@ interface ShareRequestBody {
 
 interface LegacyJourneySessionRow {
   id: string;
+  run_id: string;
   user_id: string;
   research_document: unknown;
   research_results: unknown;
@@ -30,6 +31,28 @@ interface LegacyJourneySessionRow {
 interface LegacyShareResult {
   shareUrl: string;
   shareToken: string;
+}
+
+function logShareSessionLookupMiss(input: {
+  userId: string;
+  suppliedId: string;
+  lookupMisses: readonly string[];
+  existsForDifferentAccount?: boolean;
+  matchedSessionId?: string;
+  matchedRunId?: string;
+  source: 'v3' | 'legacy';
+}): void {
+  console.warn('[POST /api/share] session lookup missed', {
+    userId: input.userId,
+    suppliedId: input.suppliedId,
+    lookupMisses: input.lookupMisses,
+    ownership: input.existsForDifferentAccount
+      ? 'different_account'
+      : 'not_found',
+    matchedSessionId: input.matchedSessionId ?? null,
+    matchedRunId: input.matchedRunId ?? null,
+    source: input.source,
+  });
 }
 
 function isLegacyFallbackEligible(error: ShareSnapshotError): boolean {
@@ -47,7 +70,7 @@ function parseRawResults(
     : null;
 }
 
-export function buildLegacyResearchSnapshot(
+function buildLegacyResearchSnapshot(
   researchDocument: unknown,
   rawResults: Record<string, { status?: string; data?: Record<string, unknown> }> | null,
 ): Record<string, CardState[]> | null {
@@ -105,6 +128,54 @@ export function buildLegacyResearchSnapshot(
   return researchSnapshot;
 }
 
+async function loadLegacyJourneySessionByColumn(input: {
+  supabase: ReturnType<typeof createAdminClient>;
+  sessionId: string;
+  column: 'run_id' | 'id';
+}): Promise<LegacyJourneySessionRow | null> {
+  const { data, error } = await input.supabase
+    .from('journey_sessions')
+    .select('id, run_id, user_id, research_document, research_results, metadata')
+    .eq(input.column, input.sessionId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Legacy journey session lookup failed for ${input.column}=${input.sessionId}: ${error.message}`,
+    );
+  }
+
+  return data ? (data as LegacyJourneySessionRow) : null;
+}
+
+async function loadLegacyJourneySession(input: {
+  supabase: ReturnType<typeof createAdminClient>;
+  userId: string;
+  sessionId: string;
+}): Promise<LegacyJourneySessionRow | null> {
+  const byRunId = await loadLegacyJourneySessionByColumn({
+    supabase: input.supabase,
+    sessionId: input.sessionId,
+    column: 'run_id',
+  });
+  if (byRunId) return byRunId;
+
+  const bySessionId = await loadLegacyJourneySessionByColumn({
+    supabase: input.supabase,
+    sessionId: input.sessionId,
+    column: 'id',
+  });
+  if (bySessionId) return bySessionId;
+
+  logShareSessionLookupMiss({
+    userId: input.userId,
+    suppliedId: input.sessionId,
+    lookupMisses: ['run_id', 'id'],
+    source: 'legacy',
+  });
+  return null;
+}
+
 async function createLegacySharedSession(input: {
   supabase: ReturnType<typeof createAdminClient>;
   userId: string;
@@ -112,17 +183,27 @@ async function createLegacySharedSession(input: {
   title?: string;
   appUrl: string;
 }): Promise<LegacyShareResult | NextResponse<{ error: string }>> {
-  const { data: session, error: fetchError } = await input.supabase
-    .from('journey_sessions')
-    .select('id, user_id, research_document, research_results, metadata')
-    .eq('run_id', input.sessionId)
-    .single();
+  let session: LegacyJourneySessionRow | null;
+  try {
+    session = await loadLegacyJourneySession({
+      supabase: input.supabase,
+      userId: input.userId,
+      sessionId: input.sessionId,
+    });
+  } catch (error) {
+    console.error('[POST /api/share] Legacy lookup failed', {
+      userId: input.userId,
+      sessionId: input.sessionId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json({ error: 'Failed to create share link' }, { status: 500 });
+  }
 
-  if (fetchError || !session) {
+  if (!session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
-  const legacySession = session as LegacyJourneySessionRow;
+  const legacySession = session;
   if (legacySession.user_id !== input.userId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -214,13 +295,25 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     if (!isLegacyFallbackEligible(error)) {
-      console.error('[POST /api/share] v3 snapshot failed', {
-        userId,
-        sessionId,
-        code: error.code,
-        message: error.message,
-      });
       const status = error.code === 'session_not_found' ? 404 : 500;
+      if (status === 404) {
+        logShareSessionLookupMiss({
+          userId,
+          suppliedId: sessionId.trim(),
+          lookupMisses: error.details?.lookupMisses ?? ['run_id', 'id'],
+          existsForDifferentAccount: error.details?.existsForDifferentAccount,
+          matchedSessionId: error.details?.matchedSessionId,
+          matchedRunId: error.details?.matchedRunId,
+          source: 'v3',
+        });
+      } else {
+        console.error('[POST /api/share] v3 snapshot failed', {
+          userId,
+          sessionId,
+          code: error.code,
+          message: error.message,
+        });
+      }
       return NextResponse.json(
         {
           error:

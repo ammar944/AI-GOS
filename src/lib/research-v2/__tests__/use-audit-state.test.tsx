@@ -123,6 +123,40 @@ describe('useAuditState post-six dispatch sequencing', (): void => {
     vi.useRealTimers();
   });
 
+  it('keeps pre-first-response loading distinct from queued, then paints a terminal response as ready', async (): Promise<void> => {
+    let resolveFirstPoll: (response: Response) => void = () => {};
+    const firstPoll = new Promise<Response>((resolve) => {
+      resolveFirstPoll = resolve;
+    });
+    const terminalState = sixCompleteWithCapstoneState([
+      completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
+    ]);
+    const fetchMock = vi.fn().mockReturnValue(firstPoll);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result, unmount } = renderHook(() => useAuditState(RUN_ID));
+
+    expect(result.current.loadState).toBe('loading');
+    expect(result.current.workerStates).toEqual([]);
+
+    await act(async () => {
+      resolveFirstPoll(responseForJson(terminalState));
+      await firstPoll;
+    });
+
+    await waitFor(() => expect(result.current.loadState).toBe('ready'));
+    expect(result.current.parent_status).toBe('complete');
+    expect(result.current.workerStates).toContainEqual(
+      expect.objectContaining({
+        section_id: PAID_MEDIA_PLAN_SECTION_ID,
+        status: 'complete',
+      }),
+    );
+    expect(dispatchedSectionIds(fetchMock)).toEqual([]);
+
+    unmount();
+  });
+
   it('dispatches paid-media directly after six sections complete (no thinker, no synthesis)', async (): Promise<void> => {
     const fetchMock = vi
       .fn()

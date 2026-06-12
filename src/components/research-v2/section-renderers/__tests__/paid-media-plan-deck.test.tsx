@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-media-plan-artifact';
@@ -34,6 +34,7 @@ describe('<PaidMediaPlanDeck>', (): void => {
       'Creative Strategy',
       'Creative Framework',
       'Funnel Ideation',
+      'Projected Results',
       'Sales Process',
       'Competitor Insights — Marketing',
       'Competitor Insights — Reviews',
@@ -49,6 +50,12 @@ describe('<PaidMediaPlanDeck>', (): void => {
     expect(screen.getAllByText('Monthly Budget').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('$3,000').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Daily Spend')).toBeInTheDocument();
+    expect(
+      container.textContent?.indexOf('Funnel Ideation') ?? -1,
+    ).toBeLessThan(container.textContent?.indexOf('Projected Results') ?? -1);
+    expect(
+      container.textContent?.indexOf('Projected Results') ?? -1,
+    ).toBeLessThan(container.textContent?.indexOf('KPIs & Success Metrics') ?? -1);
 
     // No analyst chrome: sourceSection enums and gap sentinels never render.
     expect(container.textContent).not.toContain('positioningVoiceOfCustomer');
@@ -115,5 +122,124 @@ describe('<PaidMediaPlanDeck>', (): void => {
     expect(screen.queryByText('$3,000 (user-supplied)')).not.toBeInTheDocument();
     // Provenance still surfaces — once, in the assumptions ledger.
     expect(screen.getAllByText(/from your brief/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders projected results only for rows with computed counts', (): void => {
+    const projected = cloneFixture();
+    projected.body.projectedResults[0].countBasis =
+      'At your target CAC from the GTM brief, this is the conservative count.';
+
+    render(<PaidMediaPlanDeck artifact={projected} />);
+
+    const heading = screen.getByRole('heading', {
+      name: 'Projected Results',
+      level: 2,
+    });
+    const page = heading.closest('section');
+    expect(page).not.toBeNull();
+    const scoped = within(page as HTMLElement);
+
+    expect(scoped.getByText('50')).toBeInTheDocument();
+    expect(scoped.getByText('MQL')).toBeInTheDocument();
+    expect(scoped.getByText(/KPI cost: \$120/)).toBeInTheDocument();
+    expect(
+      scoped.getByText(/At your target CAC from the GTM brief/),
+    ).toBeInTheDocument();
+    expect(scoped.queryByText(/RevOps leaders at mid-market SaaS/)).not.toBeInTheDocument();
+  });
+
+  it('renders a single full-width creative framework card when all rendered slots are static', (): void => {
+    const allStatic = cloneFixture();
+    allStatic.body.creativeFramework = [
+      {
+        label: 'Static 1',
+        angleType: 'Problem-Aware',
+        hook: 'Lead with the campaign-delay problem.',
+        executesAngle: 'Launch Delay Anxiety',
+        sourceSection: 'positioningVoiceOfCustomer',
+        grounding: 'VoC names slow campaign handoff.',
+      },
+      {
+        label: 'Static 2',
+        angleType: 'Comparison',
+        hook: 'Show how generic workflow promises fail paid media.',
+        executesAngle: 'Competitor Drag',
+        sourceSection: 'positioningCompetitorLandscape',
+        grounding: 'Competitor messaging is too broad.',
+      },
+    ];
+    allStatic.body.creativeStrategy.staticCount = 5;
+    allStatic.body.creativeStrategy.videoCount = 3;
+
+    render(<PaidMediaPlanDeck artifact={allStatic} />);
+
+    const heading = screen.getByRole('heading', {
+      name: 'Creative Framework',
+      level: 2,
+    });
+    const page = heading.closest('section');
+    expect(page).not.toBeNull();
+    const scoped = within(page as HTMLElement);
+
+    expect(scoped.getByText('2 creative slots')).toBeInTheDocument();
+    expect(scoped.getAllByText('Static')).toHaveLength(2);
+    expect(scoped.queryByText('UGC Creatives')).not.toBeInTheDocument();
+    expect(scoped.queryByText('3 UGC videos')).not.toBeInTheDocument();
+    expect(
+      scoped.getByText(
+        'UGC slots are planned in the creative strategy — 3 videos — but no UGC concepts were framed this round.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('derives creative chip counts from the rendered slot lists', (): void => {
+    const mismatchedStrategyCounts = cloneFixture();
+    mismatchedStrategyCounts.body.creativeStrategy.staticCount = 99;
+    mismatchedStrategyCounts.body.creativeStrategy.videoCount = 88;
+
+    render(<PaidMediaPlanDeck artifact={mismatchedStrategyCounts} />);
+
+    const heading = screen.getByRole('heading', {
+      name: 'Creative Framework',
+      level: 2,
+    });
+    const page = heading.closest('section');
+    expect(page).not.toBeNull();
+    const scoped = within(page as HTMLElement);
+
+    expect(scoped.getByText('5 static ads')).toBeInTheDocument();
+    expect(scoped.getByText('3 UGC videos')).toBeInTheDocument();
+    expect(scoped.queryByText('99 static ads')).not.toBeInTheDocument();
+    expect(scoped.queryByText('88 UGC videos')).not.toBeInTheDocument();
+  });
+
+  it('does not render stat tiles whose value is absent', (): void => {
+    const missingOverviewStats = cloneFixture();
+    missingOverviewStats.body.campaignOverview.monthlyBudget = '';
+    missingOverviewStats.body.campaignOverview.dailySpend = '';
+    missingOverviewStats.body.campaignPhases = [];
+
+    render(<PaidMediaPlanDeck artifact={missingOverviewStats} />);
+
+    const heading = screen.getByRole('heading', {
+      name: 'Campaign Overview',
+      level: 2,
+    });
+    const page = heading.closest('section');
+    expect(page).not.toBeNull();
+    const scoped = within(page as HTMLElement);
+
+    expect(scoped.queryByText('Monthly Budget')).not.toBeInTheDocument();
+    expect(scoped.queryByText('Daily Spend')).not.toBeInTheDocument();
+  });
+
+  it('labels derived provenance as computed in the deck appendix', (): void => {
+    const derived = cloneFixture();
+    derived.body.projectedResults[0].projectedCountProvenance = 'derived';
+
+    const { container } = render(<PaidMediaPlanDeck artifact={derived} />);
+
+    expect(screen.getByText(/computed/)).toBeInTheDocument();
+    expect(container.textContent).not.toContain('derived');
   });
 });

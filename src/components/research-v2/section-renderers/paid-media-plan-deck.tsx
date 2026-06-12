@@ -35,9 +35,30 @@ export interface PaidMediaPlanDeckProps {
 
 type PaidMediaBody = PaidMediaPlanArtifact['body'];
 type CreativeSlot = PaidMediaBody['creativeFramework'][number];
+type ProjectedResultRow = PaidMediaBody['projectedResults'][number];
 
 function money(value: string): string {
   return stripMoneyProvenanceSuffix(scrubReaderText(value));
+}
+
+function statValue(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (/^not available$/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+function numberStatValue(value: number | undefined): string | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? String(value)
+    : null;
+}
+
+function projectedCountStatValue(value: number | undefined): string | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.floor(value).toLocaleString()
+    : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,14 +109,17 @@ function StatTile({
   label,
   detail,
 }: {
-  value: string;
+  value: string | null | undefined;
   label: string;
   detail?: string;
-}): React.ReactElement {
+}): React.ReactElement | null {
+  const displayValue = statValue(value);
+  if (displayValue === null) return null;
+
   return (
     <div className="flex items-center gap-5 rounded-md bg-primary/5 px-5 py-4">
       <div className="shrink-0 font-sans text-[26px] font-semibold leading-none tabular-nums text-primary">
-        {value}
+        {displayValue}
       </div>
       <div className="min-w-0">
         <div className="text-[14px] font-semibold leading-[1.3] text-foreground">
@@ -137,6 +161,59 @@ function isUgcSlot(slot: CreativeSlot): boolean {
   );
 }
 
+function creativeSlotTypeLabel(slot: CreativeSlot): string {
+  return isUgcSlot(slot) ? 'UGC' : 'Static';
+}
+
+interface CreativeSlotListProps {
+  slots: CreativeSlot[];
+  showTypeLabels?: boolean;
+}
+
+function CreativeSlotList({
+  slots,
+  showTypeLabels = false,
+}: CreativeSlotListProps): React.ReactElement {
+  return (
+    <ul className="grid gap-2.5">
+      {slots.map((slot) => (
+        <li key={slot.label} className="text-[13px] leading-[1.55]">
+          <span className="font-semibold text-primary">{slot.label}: </span>
+          {showTypeLabels ? (
+            <span className="mr-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {creativeSlotTypeLabel(slot)}
+            </span>
+          ) : null}
+          <span className="text-foreground/90">
+            {scrubReaderText(slot.hook)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function missingCreativeModalityNote(
+  body: PaidMediaBody,
+  missing: 'static' | 'ugc',
+): string {
+  const plannedCount =
+    missing === 'ugc'
+      ? body.creativeStrategy.videoCount
+      : body.creativeStrategy.staticCount;
+  const plannedCountText = numberStatValue(plannedCount);
+
+  if (missing === 'ugc') {
+    return plannedCountText === null
+      ? 'No UGC concepts were framed this round.'
+      : `UGC slots are planned in the creative strategy — ${plannedCountText} videos — but no UGC concepts were framed this round.`;
+  }
+
+  return plannedCountText === null
+    ? 'No static concepts were framed this round.'
+    : `Static slots are planned in the creative strategy — ${plannedCountText} static ads — but no static concepts were framed this round.`;
+}
+
 function funnelRankBadge(rank: string): {
   label: string;
   className: string;
@@ -163,39 +240,52 @@ interface ProvenanceRow {
   provenance: string;
 }
 
+function deckProvenanceLabel(value: string | undefined): string {
+  return value === 'derived' ? 'computed' : provenanceLabel(value);
+}
+
 function collectProvenanceRows(body: PaidMediaBody): ProvenanceRow[] {
   const rows: ProvenanceRow[] = [
     {
       label: 'Monthly budget',
       display: money(body.campaignOverview.monthlyBudget),
-      provenance: provenanceLabel(body.campaignOverview.monthlyBudgetProvenance),
+      provenance: deckProvenanceLabel(body.campaignOverview.monthlyBudgetProvenance),
     },
     {
       label: 'Daily spend',
       display: money(body.campaignOverview.dailySpend),
-      provenance: provenanceLabel(body.campaignOverview.dailySpendProvenance),
+      provenance: deckProvenanceLabel(body.campaignOverview.dailySpendProvenance),
     },
     ...body.campaignPhases.map((phase) => ({
       label: `${phase.phaseName} budget`,
       display: money(phase.monthlyBudget),
-      provenance: provenanceLabel(phase.monthlyBudgetProvenance),
+      provenance: deckProvenanceLabel(phase.monthlyBudgetProvenance),
     })),
     ...body.audienceTypes.map((audience) => ({
       label: `${audience.archetype} daily budget`,
       display: money(audience.dailyBudget),
-      provenance: provenanceLabel(audience.dailyBudgetProvenance),
+      provenance: deckProvenanceLabel(audience.dailyBudgetProvenance),
     })),
     ...body.projectedResults.flatMap((row) => [
       {
         label: `${row.targetIcp} — ${row.kpi} cost`,
         display: formatUsdValue(row.kpiCostValue),
-        provenance: provenanceLabel(row.kpiCostProvenance),
+        provenance: deckProvenanceLabel(row.kpiCostProvenance),
       },
       {
         label: `${row.targetIcp} — phase budget`,
         display: formatUsdValue(row.phaseMonthlyBudgetValue),
-        provenance: provenanceLabel(row.phaseMonthlyBudgetProvenance),
+        provenance: deckProvenanceLabel(row.phaseMonthlyBudgetProvenance),
       },
+      ...(row.projectedCountValue === undefined
+        ? []
+        : [
+            {
+              label: `${row.targetIcp} — projected ${row.kpi}`,
+              display: projectedCountStatValue(row.projectedCountValue) ?? '',
+              provenance: deckProvenanceLabel(row.projectedCountProvenance),
+            },
+          ]),
     ]),
   ];
 
@@ -216,6 +306,11 @@ export function PaidMediaPlanDeck({
 
   const staticSlots = body.creativeFramework.filter((slot) => !isUgcSlot(slot));
   const ugcSlots = body.creativeFramework.filter(isUgcSlot);
+  const projectedRowsWithCounts = body.projectedResults.filter(
+    (row): row is ProjectedResultRow & { projectedCountValue: number } =>
+      typeof row.projectedCountValue === 'number' &&
+      Number.isFinite(row.projectedCountValue),
+  );
   const linkedSalesAssets = body.salesProcess.filter(
     (asset) => !isMissingSalesAsset(asset),
   );
@@ -386,17 +481,17 @@ export function PaidMediaPlanDeck({
       >
         <div className="grid gap-3 md:grid-cols-3">
           <StatTile
-            value={String(body.creativeStrategy.staticCount)}
+            value={numberStatValue(body.creativeStrategy.staticCount)}
             label="Static ads"
             detail="Per audience"
           />
           <StatTile
-            value={String(body.creativeStrategy.videoCount)}
+            value={numberStatValue(body.creativeStrategy.videoCount)}
             label="UGC videos"
             detail="Per audience"
           />
           <StatTile
-            value={String(body.creativeStrategy.totalPerAudience)}
+            value={numberStatValue(body.creativeStrategy.totalPerAudience)}
             label="Creatives total"
             detail="Per audience"
           />
@@ -412,38 +507,38 @@ export function PaidMediaPlanDeck({
         subtitle="Every creative is built on a defined framework so test results are clear and repeatable"
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5">
-            <BannerPill>{body.creativeStrategy.staticCount} static ads</BannerPill>
-            <h3 className="text-[16px] font-semibold text-foreground">
-              Static Creatives
-            </h3>
-            <ul className="grid gap-2.5">
-              {staticSlots.map((slot) => (
-                <li key={slot.label} className="text-[13px] leading-[1.55]">
-                  <span className="font-semibold text-primary">{slot.label}: </span>
-                  <span className="text-foreground/90">
-                    {scrubReaderText(slot.hook)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </article>
-          <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5">
-            <BannerPill>{body.creativeStrategy.videoCount} UGC videos</BannerPill>
-            <h3 className="text-[16px] font-semibold text-foreground">
-              UGC Creatives
-            </h3>
-            <ul className="grid gap-2.5">
-              {ugcSlots.map((slot) => (
-                <li key={slot.label} className="text-[13px] leading-[1.55]">
-                  <span className="font-semibold text-primary">{slot.label}: </span>
-                  <span className="text-foreground/90">
-                    {scrubReaderText(slot.hook)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </article>
+          {staticSlots.length === 0 || ugcSlots.length === 0 ? (
+            <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5 md:col-span-2">
+              <BannerPill>{body.creativeFramework.length} creative slots</BannerPill>
+              <h3 className="text-[16px] font-semibold text-foreground">
+                Creative Framework
+              </h3>
+              <CreativeSlotList slots={body.creativeFramework} showTypeLabels />
+              <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                {missingCreativeModalityNote(
+                  body,
+                  ugcSlots.length === 0 ? 'ugc' : 'static',
+                )}
+              </p>
+            </article>
+          ) : (
+            <>
+              <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5">
+                <BannerPill>{staticSlots.length} static ads</BannerPill>
+                <h3 className="text-[16px] font-semibold text-foreground">
+                  Static Creatives
+                </h3>
+                <CreativeSlotList slots={staticSlots} />
+              </article>
+              <article className="grid content-start gap-4 rounded-md border border-border bg-card p-5">
+                <BannerPill>{ugcSlots.length} UGC videos</BannerPill>
+                <h3 className="text-[16px] font-semibold text-foreground">
+                  UGC Creatives
+                </h3>
+                <CreativeSlotList slots={ugcSlots} />
+              </article>
+            </>
+          )}
         </div>
       </DeckPage>
 
@@ -485,7 +580,32 @@ export function PaidMediaPlanDeck({
         </div>
       </DeckPage>
 
-      {/* p9 — sales process */}
+      {/* p9 — projected results */}
+      {projectedRowsWithCounts.length > 0 ? (
+        <DeckPage
+          title="Projected Results"
+          subtitle="Count projections shown only where the plan has budget and KPI cost math"
+        >
+          <div className="grid gap-4">
+            {projectedRowsWithCounts.map((row) => (
+              <div key={`${row.targetIcp}-${row.kpi}`} className="grid gap-2">
+                <StatTile
+                  value={projectedCountStatValue(row.projectedCountValue)}
+                  label={scrubReaderText(row.kpi)}
+                  detail={`${scrubReaderText(row.targetIcp)} · KPI cost: ${formatUsdValue(row.kpiCostValue)}`}
+                />
+                {row.countBasis ? (
+                  <p className="px-1 text-[12px] leading-[1.5] text-muted-foreground">
+                    {scrubReaderText(row.countBasis)}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </DeckPage>
+      ) : null}
+
+      {/* p10 — sales process */}
       {linkedSalesAssets.length > 0 || missingSalesAssets.length > 0 ? (
         <DeckPage
           title="Sales Process"
@@ -532,7 +652,7 @@ export function PaidMediaPlanDeck({
         </DeckPage>
       ) : null}
 
-      {/* p10 — competitor insights: marketing */}
+      {/* p11 — competitor insights: marketing */}
       {body.competitorMarketingInsights.length > 0 ? (
         <DeckPage
           title="Competitor Insights — Marketing"
@@ -570,7 +690,7 @@ export function PaidMediaPlanDeck({
         </DeckPage>
       ) : null}
 
-      {/* p11 — competitor insights: reviews */}
+      {/* p12 — competitor insights: reviews */}
       {body.competitorReviewInsights.length > 0 ? (
         <DeckPage
           title="Competitor Insights — Reviews"
@@ -599,7 +719,7 @@ export function PaidMediaPlanDeck({
         </DeckPage>
       ) : null}
 
-      {/* p12 — current funnel suggestions (gap rows never render; page is
+      {/* p13 — current funnel suggestions (gap rows never render; page is
           omitted entirely if nothing real survives) */}
       {funnelSuggestions.length > 0 ? (
         <DeckPage
@@ -634,7 +754,7 @@ export function PaidMediaPlanDeck({
         </DeckPage>
       ) : null}
 
-      {/* p13 — KPIs */}
+      {/* p14 — KPIs */}
       <DeckPage
         title="KPIs & Success Metrics"
         subtitle="The core metrics we measure to define success across the campaign"

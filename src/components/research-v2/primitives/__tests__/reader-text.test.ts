@@ -58,6 +58,31 @@ describe('reader text scrubber', () => {
     expect(clientGapSentence(raw, 'intent signals')).not.toMatch(/validator|budget/i);
   });
 
+  it('scrubs operator vocabulary from ad-evidence gap strings', () => {
+    const raw = '0 displayable creatives; verifiedCount=12';
+
+    expect(scrubReaderText(raw)).not.toMatch(/displayable|verifiedCount/i);
+    expect(isReaderPipelineChrome(raw)).toBe(true);
+    expect(clientGapSentence(raw, 'ad evidence')).toBe(
+      'Not enough public evidence was found for ad evidence.',
+    );
+    expect(textOrGap(raw, 'ad evidence')).toEqual({
+      kind: 'gap',
+      value: 'Not enough public evidence was found for ad evidence.',
+    });
+  });
+
+  it('scrubs quarantine vocabulary from client-facing prose', () => {
+    const raw =
+      'Competitor ad evidence was sent to quarantine; quarantinedCount=41.';
+
+    expect(scrubReaderText(raw)).not.toMatch(/quarantine|quarantined/i);
+    expect(isReaderPipelineChrome(raw)).toBe(true);
+    expect(clientGapSentence(raw, 'competitor ad evidence')).toBe(
+      'Not enough public evidence was found for competitor ad evidence.',
+    );
+  });
+
   it('flags pipeline tool tokens, including underscore-token web_search only', () => {
     for (const token of [
       'keyword_volume',

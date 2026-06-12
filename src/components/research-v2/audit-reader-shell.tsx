@@ -646,6 +646,57 @@ function PaidMediaPlanTerminalPanel({
   );
 }
 
+function InitialAuditLoadingState(): ReactElement {
+  return (
+    <div
+      data-testid="audit-state-initial-loading"
+      aria-label="Loading audit state"
+      className="mt-2 space-y-8"
+    >
+      <div className="space-y-3" aria-hidden="true">
+        <div className="h-3 w-24 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        <div className="h-9 w-72 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      </div>
+      <div className="grid gap-4 border-l-2 border-primary/30 pl-5" aria-hidden="true">
+        <div className="h-4 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        <div className="h-4 w-4/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      </div>
+      <div className="grid gap-3" aria-hidden="true">
+        <div className="h-20 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+        <div className="h-20 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+      </div>
+    </div>
+  );
+}
+
+function RunStatusLoadingCard(): ReactElement {
+  return (
+    <div
+      data-testid="run-status-loading"
+      aria-label="Loading run status"
+      className="rounded-lg border border-border bg-card p-3 shadow-sm"
+    >
+      <div className="flex items-center justify-between gap-2" aria-hidden="true">
+        <div className="h-4 w-16 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        <div className="h-4 w-10 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      </div>
+      <div className="my-3 h-px bg-border" aria-hidden="true" />
+      <div className="grid gap-2" aria-hidden="true">
+        {READER_SECTION_IDS.map((id) => (
+          <div key={id} className="flex items-center gap-2.5 px-2 py-1.5">
+            <div className="size-[18px] animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="h-3 w-28 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+              <div className="h-2.5 w-16 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Run-status card (merged SectionRail + RunStatusBar) + mobile switcher
 // ---------------------------------------------------------------------------
@@ -874,6 +925,7 @@ export function AuditReaderShell({
     isSharing,
   } = useSessionShare();
   const live = useAuditState(runId, pollRefreshKey);
+  const auditStateLoaded = live.loadState !== 'loading';
 
   useEffect(() => {
     setUserActive(null);
@@ -912,6 +964,8 @@ export function AuditReaderShell({
   // parentless state has persisted for a full poll cycle so it cannot race the
   // page's own in-flight orchestrate POST while the seed is still committing.
   useEffect(() => {
+    if (!auditStateLoaded) return;
+
     const parentless =
       live.parent_audit_run_id === null && live.workerStates.length > 0;
 
@@ -966,7 +1020,7 @@ export function AuditReaderShell({
       AUTO_KICKOFF_MIN_PARENTLESS_AGE_MS - elapsed,
     );
     return () => window.clearTimeout(timer);
-  }, [live.parent_audit_run_id, live.workerStates.length, runId]);
+  }, [auditStateLoaded, live.parent_audit_run_id, live.workerStates.length, runId]);
 
   // ---- Derived state ----------------------------------------------------
   const workerById = useMemo(() => {
@@ -1063,6 +1117,9 @@ export function AuditReaderShell({
   const activeReview = activeTyped?.review ?? null;
   const activeStatus = statusOf(active);
   const activeWorker = workerById.get(active) ?? null;
+  const executiveBrief = isRecord(live.executive_brief)
+    ? live.executive_brief
+    : null;
   const activeDraftArtifact = useMemo(() => {
     const partial = sectionPartials[active];
 
@@ -1101,6 +1158,8 @@ export function AuditReaderShell({
       ),
     [statusOf],
   );
+  const shouldRenderExecutiveBrief =
+    allSectionsTerminal && executiveBrief !== null;
 
   // Active phase label = the running worker's human-readable phase (already
   // customer-safe, e.g. "Reading sources"). Null when nothing is running.
@@ -1131,7 +1190,8 @@ export function AuditReaderShell({
 
   // The run is "dispatched" once a parent exists or any worker row is present.
   const runDispatched =
-    live.parent_audit_run_id !== null || live.workerStates.length > 0;
+    auditStateLoaded &&
+    (live.parent_audit_run_id !== null || live.workerStates.length > 0);
 
   useEffect(() => {
     if (!runDispatched) return;
@@ -1310,114 +1370,123 @@ export function AuditReaderShell({
       <div className="flex min-h-0 flex-1">
         <main ref={mainRef} className="flex-1 overflow-y-auto bg-card">
           <article className="mx-auto max-w-[860px] px-6 py-10 sm:px-10">
-            <MobileSectionSwitcher
-              active={active}
-              onSelect={select}
-              statusOf={statusOf}
-            />
-
-            <ExecutiveBriefCard
-              brief={live.executive_brief}
-              sectionLabelOf={(sectionId) =>
-                READER_SECTION_LABELS[sectionId as ReaderSectionId] ?? sectionId
-              }
-            />
-
-            <div className="no-print flex items-center justify-between gap-4">
-              <Eyebrow>
-                Section {activeIndex + 1} of {READER_SECTION_IDS.length}
-              </Eyebrow>
-              <div className="flex items-center gap-3">
-                <SectionActions
-                  onCopy={activeTyped ? copyActive : undefined}
-                  onRerun={() => rerunSection(active)}
-                  copied={copied}
-                  copyError={copyError}
-                  rerunPending={rerunPending === active}
-                  disabled={!sectionActionsEnabled}
+            {!auditStateLoaded ? (
+              <InitialAuditLoadingState />
+            ) : (
+              <>
+                <MobileSectionSwitcher
+                  active={active}
+                  onSelect={select}
+                  statusOf={statusOf}
                 />
-              </div>
-            </div>
 
-            <SectionTitle className="mt-2">
-              {activeTyped
-                ? cleanTitle(activeTyped.sectionTitle)
-                : READER_SECTION_LABELS[active]}
-            </SectionTitle>
+                {shouldRenderExecutiveBrief ? (
+                  <ExecutiveBriefCard
+                    brief={executiveBrief}
+                    sectionLabelOf={(sectionId) =>
+                      READER_SECTION_LABELS[sectionId as ReaderSectionId] ??
+                      sectionId
+                    }
+                  />
+                ) : null}
 
-            <div className="mt-6 space-y-7">
-              {activeStatus === 'complete' && activeTyped ? (
-                <>
-                  <div className="no-print">
-                    <CompletedActivitySummary
-                      sourceCount={completedActivitySummary.sourceCount}
-                      toolCount={completedActivitySummary.toolCount}
-                      durationLabel={
-                        completedActivitySummary.durationLabel ?? undefined
-                      }
+                <div className="no-print flex items-center justify-between gap-4">
+                  <Eyebrow>
+                    Section {activeIndex + 1} of {READER_SECTION_IDS.length}
+                  </Eyebrow>
+                  <div className="flex items-center gap-3">
+                    <SectionActions
+                      onCopy={activeTyped ? copyActive : undefined}
+                      onRerun={() => rerunSection(active)}
+                      copied={copied}
+                      copyError={copyError}
+                      rerunPending={rerunPending === active}
+                      disabled={!sectionActionsEnabled}
                     />
                   </div>
-                  {active === PAID_MEDIA_PLAN_SECTION_ID ? (
+                </div>
+
+                <SectionTitle className="mt-2">
+                  {activeTyped
+                    ? cleanTitle(activeTyped.sectionTitle)
+                    : READER_SECTION_LABELS[active]}
+                </SectionTitle>
+
+                <div className="mt-6 space-y-7">
+                  {activeStatus === 'complete' && activeTyped ? (
+                    <>
+                      <div className="no-print">
+                        <CompletedActivitySummary
+                          sourceCount={completedActivitySummary.sourceCount}
+                          toolCount={completedActivitySummary.toolCount}
+                          durationLabel={
+                            completedActivitySummary.durationLabel ?? undefined
+                          }
+                        />
+                      </div>
+                      {active === PAID_MEDIA_PLAN_SECTION_ID ? (
+                        <PaidMediaPlanTerminalPanel
+                          artifact={activeTyped}
+                          events={activeEvents}
+                          statusText="Paid media plan committed."
+                          subjectName={company}
+                        />
+                      ) : (
+                        <ReaderSourcesProvider sources={activeReaderSources}>
+                          <TypedArtifactErrorBoundary
+                            key={active}
+                            sectionId={active}
+                          >
+                            <TypedArtifactRenderer
+                              artifact={activeTyped}
+                              zoneId={active}
+                              showSectionTitle={false}
+                            />
+                          </TypedArtifactErrorBoundary>
+                        </ReaderSourcesProvider>
+                      )}
+                      {activeReview ? <ReviewMetadataPanel review={activeReview} /> : null}
+                      {active !== PAID_MEDIA_PLAN_SECTION_ID ? (
+                        <SourcesFooter sources={activeReaderSources} />
+                      ) : null}
+                    </>
+                  ) : activeStatus === 'error' || activeStatus === 'aborted' ? (
+                    <ErrorStateBlock
+                      status={activeStatus}
+                      onRerun={() => rerunSection(active)}
+                      pending={rerunPending === active}
+                    />
+                  ) : activeStatus === 'running' ? (
+                    activeDraftArtifact ? (
+                      <DraftingArtifactView
+                        artifact={activeDraftArtifact}
+                        zoneId={active}
+                        phaseLabel={activeWorker?.phaseLabel ?? 'Drafting section'}
+                      />
+                    ) : (
+                      <RunningActivityView
+                        phaseLabel={activeWorker?.phaseLabel ?? 'Working'}
+                        latestActivity={activeWorker?.latestActivity ?? null}
+                        events={activeEvents}
+                      />
+                    )
+                  ) : active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
                       events={activeEvents}
-                      statusText="Paid media plan committed."
+                      statusText={
+                        activeStatus === 'ready'
+                          ? 'Ready to run.'
+                          : 'Locked - unlocks after the six positioning sections complete.'
+                      }
                       subjectName={company}
                     />
                   ) : (
-                    <ReaderSourcesProvider sources={activeReaderSources}>
-                      <TypedArtifactErrorBoundary
-                        key={active}
-                        sectionId={active}
-                      >
-                        <TypedArtifactRenderer
-                          artifact={activeTyped}
-                          zoneId={active}
-                          showSectionTitle={false}
-                        />
-                      </TypedArtifactErrorBoundary>
-                    </ReaderSourcesProvider>
+                    <QueuedState />
                   )}
-                  {activeReview ? <ReviewMetadataPanel review={activeReview} /> : null}
-                  {active !== PAID_MEDIA_PLAN_SECTION_ID ? (
-                    <SourcesFooter sources={activeReaderSources} />
-                  ) : null}
-                </>
-              ) : activeStatus === 'error' || activeStatus === 'aborted' ? (
-                <ErrorStateBlock
-                  status={activeStatus}
-                  onRerun={() => rerunSection(active)}
-                  pending={rerunPending === active}
-                />
-              ) : activeStatus === 'running' ? (
-                activeDraftArtifact ? (
-                  <DraftingArtifactView
-                    artifact={activeDraftArtifact}
-                    zoneId={active}
-                    phaseLabel={activeWorker?.phaseLabel ?? 'Drafting section'}
-                  />
-                ) : (
-                  <RunningActivityView
-                    phaseLabel={activeWorker?.phaseLabel ?? 'Working'}
-                    latestActivity={activeWorker?.latestActivity ?? null}
-                    events={activeEvents}
-                  />
-                )
-              ) : active === PAID_MEDIA_PLAN_SECTION_ID ? (
-                <PaidMediaPlanTerminalPanel
-                  artifact={activeTyped}
-                  events={activeEvents}
-                  statusText={
-                    activeStatus === 'ready'
-                      ? 'Ready to run.'
-                      : 'Locked - unlocks after the six positioning sections complete.'
-                  }
-                  subjectName={company}
-                />
-              ) : (
-                <QueuedState />
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </article>
         </main>
 
@@ -1425,18 +1494,22 @@ export function AuditReaderShell({
             in-article MobileSectionSwitcher). */}
         <aside className="hidden w-[300px] shrink-0 overflow-y-auto px-4 py-4 lg:block">
           <div className="sticky top-4">
-            <RunStatusCard
-              active={active}
-              onSelect={select}
-              statusOf={statusOf}
-              needsReviewOf={needsReviewOf}
-              needsReviewCount={needsReviewCount}
-              positioningCompletedCount={positioningCompletedCount}
-              activePhaseLabel={activePhaseLabel}
-              elapsedMs={elapsedMs}
-              runDispatched={runDispatched}
-              allSectionsTerminal={allSectionsTerminal}
-            />
+            {!auditStateLoaded ? (
+              <RunStatusLoadingCard />
+            ) : (
+              <RunStatusCard
+                active={active}
+                onSelect={select}
+                statusOf={statusOf}
+                needsReviewOf={needsReviewOf}
+                needsReviewCount={needsReviewCount}
+                positioningCompletedCount={positioningCompletedCount}
+                activePhaseLabel={activePhaseLabel}
+                elapsedMs={elapsedMs}
+                runDispatched={runDispatched}
+                allSectionsTerminal={allSectionsTerminal}
+              />
+            )}
           </div>
         </aside>
       </div>

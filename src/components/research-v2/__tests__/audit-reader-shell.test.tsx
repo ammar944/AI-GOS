@@ -110,6 +110,60 @@ describe('<AuditReaderShell>', () => {
     vi.unstubAllGlobals();
   });
 
+  it('renders neutral skeleton chrome before the first audit-state response', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      loadState: 'loading',
+      executive_brief: { status: 'error' },
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId="positioningMarketCategory"
+      />,
+    );
+
+    expect(screen.getByTestId('audit-state-initial-loading')).toBeInTheDocument();
+    expect(screen.getByTestId('run-status-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('section-progress-strip')).not.toBeInTheDocument();
+    expect(screen.queryByText(/not enough public evidence/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/queued/i)).not.toBeInTheDocument();
+  });
+
+  it('paints completed content from the first ready audit-state response without queued chrome or stale brief banners', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      loadState: 'ready',
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
+      ],
+      sectionsByZone: {
+        positioningMarketCategory: {
+          data: marketCategoryFixtureArtifact,
+        },
+      },
+      executive_brief: null,
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId="positioningMarketCategory"
+      />,
+    );
+
+    expect(screen.getByText(marketCategoryFixtureArtifact.verdict)).toBeInTheDocument();
+    expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
+    expect(screen.queryByText(/not enough public evidence/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/queued/i)).not.toBeInTheDocument();
+  });
+
   it('does not surface section confidence in the header or progress strip', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,

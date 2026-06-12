@@ -30,7 +30,7 @@ vi.mock('@/lib/research-v2/share-snapshot', async () => {
   };
 });
 
-const { POST, buildLegacyResearchSnapshot } = await import('../route');
+const { POST } = await import('../route');
 const { ShareSnapshotError } = await import('@/lib/research-v2/share-snapshot');
 
 function makeRequest(body: unknown): Request {
@@ -87,22 +87,80 @@ describe('POST /api/share', (): void => {
       appUrl: '',
     });
   });
+
+  it('logs structured 404 lookup misses without exposing ownership diagnostics to the client', async (): Promise<void> => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    routeMocks.createV3SharedSession.mockRejectedValue(
+      new ShareSnapshotError('missing session', 'session_not_found', {
+        suppliedId: 'run_missing',
+        lookupMisses: ['run_id', 'id'],
+        existsForDifferentAccount: true,
+        matchedSessionId: 'sess_other',
+        matchedRunId: 'run_missing',
+      }),
+    );
+
+    const response = await POST(makeRequest({ sessionId: 'run_missing' }));
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: 'Session not found' });
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[POST /api/share] session lookup missed',
+      expect.objectContaining({
+        userId: 'user_123',
+        suppliedId: 'run_missing',
+        lookupMisses: ['run_id', 'id'],
+        ownership: 'different_account',
+        matchedSessionId: 'sess_other',
+        matchedRunId: 'run_missing',
+        source: 'v3',
+      }),
+    );
+
+    warnSpy.mockRestore();
+  });
 });
 
 function fakeLegacySupabase(
   session: Record<string, unknown> | null,
-  opts: { insertError?: { message: string } | null } = {},
-): { supabase: unknown; insert: ReturnType<typeof vi.fn> } {
-  const single = vi.fn().mockResolvedValue({
-    data: session,
-    error: session ? null : { message: 'not found' },
-  });
+  opts: {
+    insertError?: { message: string } | null;
+    journeyMatchColumn?: 'run_id' | 'id';
+  } = {},
+): {
+  supabase: unknown;
+  insert: ReturnType<typeof vi.fn>;
+  journeyLookups: string[];
+} {
+  const journeyLookups: string[] = [];
   const insert = vi.fn().mockResolvedValue({ error: opts.insertError ?? null });
   const from = vi.fn((table: string) => {
     if (table === 'journey_sessions') {
-      const query = { select: vi.fn(), eq: vi.fn(), single };
+      let lookupColumn: 'run_id' | 'id' | null = null;
+      const query = {
+        select: vi.fn(),
+        eq: vi.fn(),
+        maybeSingle: vi.fn(),
+      };
       query.select.mockReturnValue(query);
-      query.eq.mockReturnValue(query);
+      query.eq.mockImplementation((column: string) => {
+        if (column === 'run_id' || column === 'id') {
+          lookupColumn = column;
+          journeyLookups.push(column);
+        }
+        return query;
+      });
+      query.maybeSingle.mockImplementation(() =>
+        Promise.resolve({
+          data:
+            session &&
+            (opts.journeyMatchColumn === undefined ||
+              lookupColumn === opts.journeyMatchColumn)
+              ? session
+              : null,
+          error: null,
+        }),
+      );
       return query;
     }
     if (table === 'shared_sessions') {
@@ -110,11 +168,12 @@ function fakeLegacySupabase(
     }
     throw new Error(`Unexpected table ${table}`);
   });
-  return { supabase: { from }, insert };
+  return { supabase: { from }, insert, journeyLookups };
 }
 
 const legacyRow = {
   id: 'sess_legacy_1',
+  run_id: 'run_legacy',
   user_id: 'user_123',
   research_document: { industryMarket: [{ id: 'c1' }] },
   research_results: null,
@@ -143,6 +202,25 @@ describe('POST /api/share — legacy fallback', (): void => {
       expect(fake.insert).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('accepts a journey session id in the legacy fallback lookup', async (): Promise<void> => {
+    routeMocks.createV3SharedSession.mockRejectedValue(
+      new ShareSnapshotError('no v3 data', 'v3_artifact_not_found'),
+    );
+    const fake = fakeLegacySupabase(legacyRow, { journeyMatchColumn: 'id' });
+    routeMocks.createAdminClient.mockReturnValue(fake.supabase);
+
+    const response = await POST(makeRequest({ sessionId: 'sess_legacy_1' }));
+
+    expect(response.status).toBe(200);
+    expect(fake.journeyLookups).toEqual(['run_id', 'id']);
+    expect(fake.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: 'sess_legacy_1',
+        owner_user_id: 'user_123',
+      }),
+    );
+  });
 
   it('returns 404 (no legacy fallback) when the v3 session itself is not found', async (): Promise<void> => {
     routeMocks.createV3SharedSession.mockRejectedValue(
@@ -176,21 +254,5 @@ describe('POST /api/share — legacy fallback', (): void => {
     await expect(POST(makeRequest({ sessionId: 'run_x' }))).rejects.toThrow(
       'unexpected boom',
     );
-  });
-});
-
-describe('buildLegacyResearchSnapshot', (): void => {
-  it('passes a valid research_document object through unchanged', (): void => {
-    const doc = { industryMarket: [{ id: 'c1' }] };
-    expect(buildLegacyResearchSnapshot(doc, null)).toBe(doc);
-  });
-
-  it('returns null when neither a research_document nor raw results are present', (): void => {
-    expect(buildLegacyResearchSnapshot(null, null)).toBeNull();
-  });
-
-  it('returns null when raw results contain no complete sections', (): void => {
-    const rawResults = { positioningMarketCategory: { status: 'queued' } };
-    expect(buildLegacyResearchSnapshot(null, rawResults)).toBeNull();
   });
 });

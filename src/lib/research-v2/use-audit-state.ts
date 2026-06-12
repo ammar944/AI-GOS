@@ -24,15 +24,24 @@ const TERMINAL: ReadonlySet<WorkerStatus> = new Set(['complete', 'error', 'abort
 // /rerun-section.
 const SECTION_ERROR_RETRY_CAP = 1;
 
-const EMPTY: AuditStateResponse = {
-  parent_audit_run_id: null,
-  parent_status: null,
-  children_complete: 0,
-  children_total: 0,
-  workerStates: [],
-  sectionsByZone: {},
-  eventsByZone: {},
+export type AuditStateLoadState = 'loading' | 'ready';
+
+export type AuditStateClientState = AuditStateResponse & {
+  loadState: AuditStateLoadState;
 };
+
+function createLoadingAuditState(): AuditStateClientState {
+  return {
+    loadState: 'loading',
+    parent_audit_run_id: null,
+    parent_status: null,
+    children_complete: 0,
+    children_total: 0,
+    workerStates: [],
+    sectionsByZone: {},
+    eventsByZone: {},
+  };
+}
 
 function hasPaidMediaPlanStarted(state: AuditStateResponse): boolean {
   return (
@@ -198,9 +207,12 @@ function logDispatchError(label: string, runId: string, error: unknown): void {
 export function useAuditState(
   runId: string,
   refreshKey = 0,
-): AuditStateResponse {
-  const [state, setState] = useState<AuditStateResponse>(EMPTY);
+): AuditStateClientState {
+  const [state, setState] = useState<AuditStateClientState>(
+    createLoadingAuditState,
+  );
   const cancelled = useRef(false);
+  const stateRunId = useRef(runId);
   const dispatchedMediaPlanRunIds = useRef<Set<string>>(new Set());
   const sectionRerunKeysInFlight = useRef<Set<string>>(new Set());
   // Per-runId:sectionId count of how many times we've re-dispatched an `error`
@@ -209,6 +221,10 @@ export function useAuditState(
 
   useEffect(() => {
     cancelled.current = false;
+    if (stateRunId.current !== runId) {
+      stateRunId.current = runId;
+      setState(createLoadingAuditState());
+    }
     let timer: ReturnType<typeof setTimeout> | null = null;
     // W3 executive brief: the detached brief route writes thesis
     // {status:'generating'} ~1s after the paid-media commit. Keep a short
@@ -233,7 +249,7 @@ export function useAuditState(
         }
         const next = (await res.json()) as AuditStateResponse;
         if (cancelled.current) return;
-        setState(next);
+        setState({ ...next, loadState: 'ready' });
 
         const sixComplete = hasSixPositioningSectionsComplete(next);
         const coreFanoutTerminal = isCoreFanoutTerminal(next);

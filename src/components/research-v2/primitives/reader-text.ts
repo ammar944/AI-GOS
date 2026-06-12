@@ -4,7 +4,9 @@ const TRUST_MARKER_PATTERN = /\[(?:unverified|verified[^\]]*)\]/gi;
 const AGGREGATE_FOOTNOTE_PATTERN =
   /\[\d+ figures? in this field (?:are|is) unverified[^\]]*\]/gi;
 const PIPELINE_TEXT_PATTERN =
-  /evidence gap:|validator|budget exhausted|exemplar-derived|agentic review unavailable|verifiedCount|quarantinedCount|identity-unverified/i;
+  /evidence gap:|validator|budget exhausted|exemplar-derived|agentic review unavailable|displayable|verifiedCount|quarantine|quarantined|quarantinedCount|identity-unverified/i;
+const OPERATOR_VOCAB_CLAUSE_PATTERN =
+  /(?:^|[.;]\s*)[^.;]*(?:displayable|verifiedCount|quarantine|quarantined|quarantinedCount)[^.;]*(?=$|[.;])/gi;
 const TOOL_NAME_PATTERN =
   /\b(searchapi|serpapi|firecrawl|perplexity|brave search|spyfu|answer-tool|lab engine|keyword_volume|keyword_trends|adlibrary|google_ads|meta_ads|linkedin_ads|web_search)\b/i;
 const MARKDOWN_LINK_PATTERN = /\[[^\]]+\]\([^)]+\)/g;
@@ -36,11 +38,20 @@ function collapseWhitespace(value: string): string {
   return value.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function removeOperatorVocabularyClauses(value: string): string {
+  return value
+    .replace(OPERATOR_VOCAB_CLAUSE_PATTERN, '')
+    .replace(/\s*;\s*;/g, '; ')
+    .replace(/^\s*[;,.:-]\s*/, '')
+    .replace(/\s*[;,:-]\s*$/g, '');
+}
+
 export function scrubReaderText(value: string): string {
   return collapseWhitespace(
     value
       .replace(AGGREGATE_FOOTNOTE_PATTERN, '')
       .replace(TRUST_MARKER_PATTERN, '')
+      .replace(OPERATOR_VOCAB_CLAUSE_PATTERN, '')
       .replace(MARKDOWN_IMAGE_PATTERN, '')
       .replace(MARKDOWN_LINK_LABEL_PATTERN, '$1')
       .replace(SECTION_ENUM_PATTERN, (token) => SECTION_ENUM_LABELS[token] ?? token)
@@ -84,7 +95,7 @@ export function looksLikeNavMenuGarbage(value: string): boolean {
 }
 
 export function clientGapSentence(value: string, subject = 'this point'): string {
-  const scrubbed = scrubReaderText(value)
+  const scrubbed = removeOperatorVocabularyClauses(scrubReaderText(value))
     .replace(/^evidence gap:\s*/i, '')
     .replace(/^data gap:\s*/i, '')
     .replace(/^validator requires\s*/i, '')
