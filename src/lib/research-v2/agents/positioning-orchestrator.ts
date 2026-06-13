@@ -14,10 +14,12 @@
 import 'server-only';
 
 import { anthropic } from '@ai-sdk/anthropic';
-import { ToolLoopAgent, stepCountIs, tool } from 'ai';
+import { ToolLoopAgent, stepCountIs, tool, type Tool } from 'ai';
 import { z } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import { SectionToolBudget } from '@/lib/lab-engine/agents/budget';
+import { buildToolMap } from '@/lib/lab-engine/agents/tool-registry';
 
 const ZoneIdSchema = z.enum(POSITIONING_SECTION_IDS);
 
@@ -25,12 +27,15 @@ const ORCHESTRATOR_INSTRUCTIONS = `You are the orchestrator for an AI-GOS positi
 
 You operate on a structured artifact (thesis + 6 zones). You can:
   - rerunSection({ zone, refinement }) — start a new section_run_id, dispatch worker
+  - draftStrategyBrief({ refinement }) — compose or recompose the Offer & Angle Brief from committed sections
+  - reviseStrategyBrief({ patches, changelogSummary, rationale }) — apply scoped corrections to the committed Offer & Angle Brief
   - editClaim({ zone, claimId, newText, reason }) — surgical claim edit via commit_artifact_section
   - editNarrative({ zone, patch }) — surgical markdown patch via commit_artifact_section
   - explainSource({ sourceId }) — read sources, narrate
   - summarizeArtifact() — read current state, return brief
+  - web_search and perplexity_research — bounded gap-filling research lookups when the current artifact context is not enough
 
-You do NOT do research yourself; you orchestrate. Be terse. When the user asks for new research, use rerunSection. When the user asks for a tweak, prefer editClaim or editNarrative — never re-run the whole section for a one-line change.`;
+You mostly orchestrate over committed evidence. Be terse. When the user asks for new section research, use rerunSection. When the user asks for the offer, angles, reframe, or initial positioning take, use draftStrategyBrief. When they ask for a small correction to the committed brief, use reviseStrategyBrief and describe what changed. Treat gaps as gaps. Never fabricate evidence, quotes, numbers, companies, or market claims. When the user asks for a tweak, prefer editClaim, editNarrative, or reviseStrategyBrief — never re-run a whole section for a one-line change.`;
 
 // ---------------------------------------------------------------------------
 // Tool: rerunSection — dispatch a fresh run for one zone with optional
@@ -69,6 +74,66 @@ const rerunSection = tool({
         refinement: refinement ?? null,
         usePartialContext: usePartialContext === true,
       },
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Tool: draftStrategyBrief — compose or recompose the capstone brief.
+// ---------------------------------------------------------------------------
+
+const draftStrategyBrief = tool({
+  description:
+    'Draft (or redraft) the Offer & Angle Brief from the committed research sections. Use when the operator asks for the strategy brief, a reframe, or an initial positioning take.',
+  inputSchema: z.object({
+    refinement: z
+      .string()
+      .optional()
+      .describe(
+        'Operator framing/corrections to apply, verbatim where possible.',
+      ),
+  }),
+  execute: async ({ refinement }) => {
+    return {
+      type: 'strategy-brief-requested' as const,
+      refinement: refinement ?? null,
+      message:
+        'Drafting the Offer & Angle Brief from committed research. It will appear above the sections in about a minute.',
+      _intent: 'draft_strategy_brief',
+      _payload: { refinement: refinement ?? null },
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Tool: reviseStrategyBrief — surgical strategy-brief patch.
+// ---------------------------------------------------------------------------
+
+const reviseStrategyBrief = tool({
+  description:
+    'Apply scoped patches to the committed strategy brief (path/value pairs) with a changelog entry. Use for small corrections; use draftStrategyBrief with refinement for reframes.',
+  inputSchema: z.object({
+    patches: z
+      .array(
+        z.object({
+          path: z.string().min(1),
+          value: z.string(),
+        }),
+      )
+      .min(1)
+      .describe(
+        'applyPatch paths into the brief body, e.g. positioning.oneLiner or angles[0].adFrame.',
+      ),
+    changelogSummary: z.string().min(1),
+    rationale: z.string().min(1),
+  }),
+  execute: async ({ patches, changelogSummary, rationale }) => {
+    return {
+      type: 'strategy-brief-revision-requested' as const,
+      patchCount: patches.length,
+      message: 'Applying the revision to the strategy brief.',
+      _intent: 'revise_strategy_brief',
+      _payload: { patches, changelogSummary, rationale },
     };
   },
 });
@@ -167,25 +232,48 @@ const summarizeArtifact = tool({
 // Exported agent
 // ---------------------------------------------------------------------------
 
-export const positioningOrchestratorAgent = new ToolLoopAgent({
-  model: anthropic('claude-sonnet-4-6'),
-  instructions: ORCHESTRATOR_INSTRUCTIONS,
-  tools: {
+export function createPositioningOrchestratorTools(): Record<string, Tool> {
+  const chatResearchTools = buildToolMap(
+    ['web_search', 'perplexity_research'],
+    {
+      budget: new SectionToolBudget(4),
+      webSearchMaxUses: 4,
+    },
+  );
+
+  return {
     rerunSection,
+    draftStrategyBrief,
+    reviseStrategyBrief,
     editClaim,
     editNarrative,
     explainSource,
     summarizeArtifact,
-  },
-  stopWhen: stepCountIs(8),
-  experimental_telemetry: {
-    isEnabled: true,
-    functionId: 'positioning-orchestrator',
-  },
-});
+    ...chatResearchTools,
+  };
+}
+
+export const positioningOrchestratorTools = createPositioningOrchestratorTools();
+
+export function createPositioningOrchestratorAgent(): ToolLoopAgent {
+  return new ToolLoopAgent({
+    model: anthropic('claude-sonnet-4-6'),
+    instructions: ORCHESTRATOR_INSTRUCTIONS,
+    tools: createPositioningOrchestratorTools(),
+    stopWhen: stepCountIs(8),
+    experimental_telemetry: {
+      isEnabled: true,
+      functionId: 'positioning-orchestrator',
+    },
+  });
+}
+
+export const positioningOrchestratorAgent = createPositioningOrchestratorAgent();
 
 export type OrchestratorIntent =
   | 'rerun_section'
+  | 'draft_strategy_brief'
+  | 'revise_strategy_brief'
   | 'edit_claim'
   | 'edit_narrative'
   | 'explain_source'

@@ -5,8 +5,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
+  createPositioningOrchestratorAgent,
   extractOrchestratorSideEffects,
-  positioningOrchestratorAgent,
   type OrchestratorSideEffect,
 } from '@/lib/research-v2/agents/positioning-orchestrator';
 import type {
@@ -16,6 +16,11 @@ import type {
 } from '@/lib/research-v2/intent-router.types';
 import { applyPatch } from '@/lib/research-v2/patch-apply';
 import { commitChatPatchAuto } from '@/lib/research-v2/chat-write-through';
+import {
+  STRATEGY_BRIEF_SECTION_ID,
+  strategyBriefArtifactSchema,
+  type StrategyBriefArtifact,
+} from '@/lib/research-v2/strategy-brief/schema';
 import { createAdminClient } from '@/lib/supabase/server';
 
 type ChatPatchSupabase = Parameters<typeof commitChatPatchAuto>[0];
@@ -48,8 +53,28 @@ const chatRequestSchema = z.object({
   focusedZone: z.string().trim().min(1).optional(),
 });
 
+const draftStrategyBriefPayloadSchema = z.object({
+  refinement: z.string().trim().min(1).max(2000).nullable().optional(),
+});
+
+const reviseStrategyBriefPayloadSchema = z.object({
+  patches: z
+    .array(
+      z.object({
+        path: z.string().trim().min(1),
+        value: z.string(),
+      }),
+    )
+    .min(1),
+  changelogSummary: z.string().trim().min(1),
+  rationale: z.string().trim().min(1),
+});
+
 type ChatRequestBody = z.infer<typeof chatRequestSchema>;
 type ChatRequestMessage = ChatRequestBody['messages'][number];
+type ReviseStrategyBriefPayload = z.infer<
+  typeof reviseStrategyBriefPayloadSchema
+>;
 
 interface AuditChatInsert {
   run_id: string;
@@ -59,6 +84,39 @@ interface AuditChatInsert {
   intent?: 'rerun' | 'patch' | 'converse';
   target_section?: string | null;
 }
+
+interface ChatSideEffectContext {
+  userId: string;
+  runId: string;
+  supabase: ChatPatchSupabase;
+  researchResults: Record<string, unknown>;
+  requestUrl: string;
+  cookieHeader: string;
+}
+
+interface SupabaseQueryError {
+  message: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+}
+
+interface SupabaseMaybeSingleResponse {
+  data: unknown;
+  error: SupabaseQueryError | null;
+}
+
+type ParentArtifactLookup =
+  | { ok: true; parentAuditRunId: string }
+  | { ok: false; reason: string };
+
+type StrategyBriefLookup =
+  | { ok: true; artifact: StrategyBriefArtifact }
+  | { ok: false; reason: string };
+
+type StrategyBriefRevision =
+  | { ok: true; artifact: StrategyBriefArtifact }
+  | { ok: false; reason: string };
 
 const POSITIONING_SECTION_KEYS = [
   'positioningMarketCategory',
@@ -140,6 +198,181 @@ function logSupabaseError(
   });
 }
 
+async function postInternalJson(
+  ctx: ChatSideEffectContext,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const dispatchUrl = new URL(path, ctx.requestUrl).toString();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    DISPATCH_TIMEOUT_MS,
+  );
+
+  try {
+    return await fetch(dispatchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: ctx.cookieHeader,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function formatDispatchError(error: unknown): string {
+  const isAbort = error instanceof Error && error.name === 'AbortError';
+  if (isAbort) {
+    return `dispatch timeout after ${DISPATCH_TIMEOUT_MS / 1000}s`;
+  }
+
+  return error instanceof Error ? error.message : String(error);
+}
+
+function readParentArtifactId(data: unknown): string | null {
+  const id = isRecord(data) ? data.id : null;
+  return typeof id === 'string' && id.trim().length > 0 ? id : null;
+}
+
+function readStrategyBriefData(data: unknown): unknown {
+  return isRecord(data) ? data.data : null;
+}
+
+async function loadParentArtifactForSideEffect(
+  ctx: ChatSideEffectContext,
+): Promise<ParentArtifactLookup> {
+  const response = (await ctx.supabase
+    .from('research_artifacts')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .eq('run_id', ctx.runId)
+    .maybeSingle()) as SupabaseMaybeSingleResponse;
+
+  if (response.error) {
+    return {
+      ok: false,
+      reason: `parent artifact lookup failed: ${response.error.message}`,
+    };
+  }
+
+  const parentAuditRunId = readParentArtifactId(response.data);
+  if (parentAuditRunId === null) {
+    return { ok: false, reason: 'parent artifact not found' };
+  }
+
+  return { ok: true, parentAuditRunId };
+}
+
+async function loadCommittedStrategyBrief(
+  ctx: ChatSideEffectContext,
+  parentAuditRunId: string,
+): Promise<StrategyBriefLookup> {
+  const response = (await ctx.supabase
+    .from('research_artifact_sections')
+    .select('data')
+    .eq('artifact_id', parentAuditRunId)
+    .eq('zone', STRATEGY_BRIEF_SECTION_ID)
+    .maybeSingle()) as SupabaseMaybeSingleResponse;
+
+  if (response.error) {
+    return {
+      ok: false,
+      reason: `strategy brief lookup failed: ${response.error.message}`,
+    };
+  }
+
+  const rawArtifact = readStrategyBriefData(response.data);
+  if (rawArtifact === null) {
+    return { ok: false, reason: 'no committed strategy brief to revise' };
+  }
+
+  const parsed = strategyBriefArtifactSchema.safeParse(rawArtifact);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: `committed strategy brief is invalid: ${parsed.error.message}`,
+    };
+  }
+
+  return { ok: true, artifact: parsed.data };
+}
+
+function applyStrategyBriefRevision(
+  artifact: StrategyBriefArtifact,
+  payload: ReviseStrategyBriefPayload,
+): StrategyBriefRevision {
+  let patchedRecord = structuredClone(artifact) as unknown as Record<
+    string,
+    unknown
+  >;
+
+  try {
+    for (const patch of payload.patches) {
+      patchedRecord = applyPatch(patchedRecord, {
+        path: `body.${patch.path}`,
+        value: patch.value,
+      });
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const patched = strategyBriefArtifactSchema.safeParse(patchedRecord);
+  if (!patched.success) {
+    return {
+      ok: false,
+      reason: `revision produced invalid brief: ${patched.error.message}`,
+    };
+  }
+
+  const nextRevision =
+    (patched.data.body.changelog.at(-1)?.revision ?? 0) + 1;
+  const revised = strategyBriefArtifactSchema.safeParse({
+    ...patched.data,
+    body: {
+      ...patched.data.body,
+      changelog: [
+        ...patched.data.body.changelog,
+        {
+          revision: nextRevision,
+          summary: payload.changelogSummary,
+          rationale: payload.rationale,
+          at: new Date().toISOString(),
+        },
+      ],
+    },
+  });
+
+  if (!revised.success) {
+    return {
+      ok: false,
+      reason: `revision produced invalid brief: ${revised.error.message}`,
+    };
+  }
+
+  return { ok: true, artifact: revised.data };
+}
+
+function strategyBriefToPatchedSection(
+  artifact: StrategyBriefArtifact,
+): Record<string, unknown> {
+  return {
+    title: artifact.sectionTitle,
+    markdown: `${artifact.verdict}\n\n${artifact.statusSummary}`,
+    data: artifact,
+    claims: [],
+    sources: artifact.sources,
+  };
+}
+
 /**
  * Phase 4: translate an orchestrator-emitted intent (`rerun_section` /
  * `edit_claim` / `edit_narrative`) into a real side-effect: dispatch route
@@ -151,16 +384,9 @@ function logSupabaseError(
  * already been streamed, so the user sees the orchestrator's intent stated
  * even if the side-effect step fails. The caller decides how to surface it.
  */
-async function applyOrchestratorSideEffect(
+export async function applyOrchestratorSideEffect(
   effect: OrchestratorSideEffect,
-  ctx: {
-    userId: string;
-    runId: string;
-    supabase: ChatPatchSupabase;
-    researchResults: Record<string, unknown>;
-    requestUrl: string;
-    cookieHeader: string;
-  },
+  ctx: ChatSideEffectContext,
 ): Promise<{ ok: boolean; reason?: string }> {
   if (effect.intent === 'rerun_section') {
     const zone =
@@ -178,31 +404,18 @@ async function applyOrchestratorSideEffect(
     // first, mints a new section_run_id, and dispatches. The
     // usePartialContext flag controls whether we additionally inject the
     // prior partial markdown as <previous_attempt_partial> context.
-    const dispatchUrl = new URL(
-      '/api/research-v2/rerun-section',
-      ctx.requestUrl,
-    ).toString();
     const requestBody: Record<string, unknown> = {
       runId: ctx.runId,
       zone,
       usePartialContext,
       ...(refinement ? { refinement } : {}),
     };
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      DISPATCH_TIMEOUT_MS,
-    );
     try {
-      const res = await fetch(dispatchUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: ctx.cookieHeader,
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
+      const res = await postInternalJson(
+        ctx,
+        '/api/research-v2/rerun-section',
+        requestBody,
+      );
       // 409 from the dispatch route means "already running" — the worker
       // is already processing this zone, so the user's rerun intent is
       // satisfied. Treat it as a successful outcome, not a failure.
@@ -217,18 +430,94 @@ async function applyOrchestratorSideEffect(
       }
       return { ok: true };
     } catch (err) {
-      const isAbort = err instanceof Error && err.name === 'AbortError';
       return {
         ok: false,
-        reason: isAbort
-          ? `dispatch timeout after ${DISPATCH_TIMEOUT_MS / 1000}s`
-          : err instanceof Error
-            ? err.message
-            : String(err),
+        reason: formatDispatchError(err),
       };
-    } finally {
-      clearTimeout(timeoutId);
     }
+  }
+
+  if (effect.intent === 'draft_strategy_brief') {
+    const parsed = draftStrategyBriefPayloadSchema.safeParse(effect.payload);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        reason: `draft_strategy_brief invalid payload: ${parsed.error.message}`,
+      };
+    }
+
+    const refinement = parsed.data.refinement?.trim();
+    const requestBody: Record<string, unknown> = {
+      runId: ctx.runId,
+      ...(refinement === undefined || refinement === ''
+        ? {}
+        : { refinement }),
+    };
+
+    try {
+      const res = await postInternalJson(
+        ctx,
+        '/api/research-v2/strategy-brief',
+        requestBody,
+      );
+      if (res.ok || res.status === 202) {
+        return { ok: true };
+      }
+
+      return {
+        ok: false,
+        reason: `strategy-brief dispatch failed: ${res.status} ${res.statusText || 'error'}`,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        reason: formatDispatchError(err),
+      };
+    }
+  }
+
+  if (effect.intent === 'revise_strategy_brief') {
+    const parsed = reviseStrategyBriefPayloadSchema.safeParse(effect.payload);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        reason: `revise_strategy_brief invalid payload: ${parsed.error.message}`,
+      };
+    }
+
+    const parentLookup = await loadParentArtifactForSideEffect(ctx);
+    if (!parentLookup.ok) {
+      return { ok: false, reason: parentLookup.reason };
+    }
+
+    const briefLookup = await loadCommittedStrategyBrief(
+      ctx,
+      parentLookup.parentAuditRunId,
+    );
+    if (!briefLookup.ok) {
+      return { ok: false, reason: briefLookup.reason };
+    }
+
+    const revision = applyStrategyBriefRevision(
+      briefLookup.artifact,
+      parsed.data,
+    );
+    if (!revision.ok) {
+      return { ok: false, reason: revision.reason };
+    }
+
+    const writeResult = await commitChatPatchAuto(ctx.supabase, {
+      userId: ctx.userId,
+      runId: ctx.runId,
+      zone: STRATEGY_BRIEF_SECTION_ID,
+      patchedSection: strategyBriefToPatchedSection(revision.artifact),
+    });
+
+    if (!writeResult.ok) {
+      return { ok: false, reason: `write_through: ${writeResult.reason}` };
+    }
+
+    return { ok: true };
   }
 
   if (effect.intent === 'edit_claim' || effect.intent === 'edit_narrative') {
@@ -423,6 +712,7 @@ async function runOrchestratorTurn(opts: {
     typeof AbortSignal.any === 'function'
       ? AbortSignal.any([timeoutSignal, req.signal])
       : timeoutSignal;
+  const positioningOrchestratorAgent = createPositioningOrchestratorAgent();
 
   // P1 fix: collect tool results across EVERY step via onStepFinish.
   // StreamTextResult.toolResults only carries the FINAL step's results,
