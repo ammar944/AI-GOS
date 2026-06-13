@@ -23,6 +23,7 @@ import {
   type VerificationFlag,
   type VerificationTier,
 } from '@/lib/research-v2/verification-tier';
+import { STRATEGY_BRIEF_SECTION_ID } from '@/lib/research-v2/strategy-brief/schema';
 import { createAdminClient } from '@/lib/supabase/server';
 
 import { deriveSectionPhase } from './derive-section-phase';
@@ -115,6 +116,11 @@ export interface AuditStateResponse {
 
 const TERMINAL: ReadonlySet<string> = new Set(['complete', 'error', 'aborted']);
 const DEFAULT_STALE_RUN_THRESHOLD_MIN = 15;
+const ARTIFACT_SECTION_IDS = [
+  ...POSITIONING_SECTION_IDS,
+  PAID_MEDIA_PLAN_SECTION_ID,
+  STRATEGY_BRIEF_SECTION_ID,
+] as const;
 
 function normalizeStatus(raw: unknown): WorkerStatus {
   if (typeof raw !== 'string') return 'queued';
@@ -494,7 +500,8 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
       .select(
         'zone, section_run_id, status, title, markdown, data, verification_tier, verification_flag',
       )
-      .eq('artifact_id', parentId),
+      .eq('artifact_id', parentId)
+      .in('zone', ARTIFACT_SECTION_IDS),
   ]);
 
   if (runsResp.error || sectionsResp.error) {
@@ -530,7 +537,8 @@ export async function GET(req: Request): Promise<NextResponse<AuditStateResponse
           .select(
             'zone, section_run_id, status, title, markdown, data, verification_tier, verification_flag',
           )
-          .eq('artifact_id', parentId),
+          .eq('artifact_id', parentId)
+          .in('zone', ARTIFACT_SECTION_IDS),
       ]);
 
       if (runsResp.error || sectionsResp.error) {

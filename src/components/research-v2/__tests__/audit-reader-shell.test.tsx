@@ -26,6 +26,47 @@ const EMPTY_AUDIT_STATE: AuditStateResponse = {
   eventsByZone: {},
 };
 
+function validStrategyBrief(): Record<string, unknown> {
+  return {
+    sectionTitle: 'Offer & Angle Brief',
+    verdict: 'Lead with accountable revenue meetings.',
+    statusSummary: 'Ready for media planning.',
+    confidence: 0.82,
+    sources: [{ title: 'Fellow', url: 'https://fellow.app' }],
+    body: {
+      positioning: {
+        oneLiner: 'Fellow keeps revenue meetings accountable.',
+        valueProp: 'Turn meeting chaos into owned execution.',
+        mechanism: 'Shared agendas, notes, and follow-up ownership.',
+      },
+      angles: [
+        {
+          name: 'The dropped handoff',
+          vignette: 'I left the meeting without a clear owner.',
+          coreEmotion: 'frustration',
+          adFrame: 'Open on the missed follow-up.',
+          rank: 1,
+          sourceEvidence: ['positioningVoiceOfCustomer'],
+        },
+      ],
+      lexicon: {
+        approved: ['accountability'],
+        banned: [{ term: 'AI meeting copilot', reason: 'Too generic.' }],
+      },
+      funnelStance: 'Demand capture first.',
+      gaps: [],
+      changelog: [
+        {
+          revision: 1,
+          summary: 'Initial brief.',
+          rationale: 'Six committed sections were available.',
+          at: '2026-06-13T00:00:00.000Z',
+        },
+      ],
+    },
+  };
+}
+
 vi.mock('@/lib/research-v2/use-audit-state', () => ({
   useAuditState: mocks.useAuditState,
 }));
@@ -162,6 +203,44 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(screen.queryByText(/not enough public evidence/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/queued/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the strategy brief above section content and mounts strategist chat', (): void => {
+    mocks.useAuditState.mockReturnValue({
+      ...EMPTY_AUDIT_STATE,
+      loadState: 'ready',
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      parent_status: 'complete',
+      children_complete: 6,
+      children_total: 6,
+      workerStates: [
+        ...POSITIONING_SECTION_IDS.map((sectionId) => completeWorker(sectionId)),
+        completeWorker(PAID_MEDIA_PLAN_SECTION_ID),
+      ],
+      sectionsByZone: {
+        strategyBrief: {
+          data: validStrategyBrief(),
+        },
+        positioningMarketCategory: {
+          data: marketCategoryFixtureArtifact,
+        },
+      },
+      executive_brief: null,
+    });
+
+    render(
+      <AuditReaderShell
+        runId="00000000-0000-4000-8000-0000000000aa"
+        activeSectionId="positioningMarketCategory"
+      />,
+    );
+
+    expect(screen.getByText('Offer & Angle Brief')).toBeInTheDocument();
+    expect(
+      screen.getByText('Lead with accountable revenue meetings.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(marketCategoryFixtureArtifact.verdict)).toBeInTheDocument();
+    expect(screen.getByText('Strategist')).toBeInTheDocument();
   });
 
   it('does not surface section confidence in the header or progress strip', (): void => {

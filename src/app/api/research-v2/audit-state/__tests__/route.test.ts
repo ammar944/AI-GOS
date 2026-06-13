@@ -33,9 +33,11 @@ const routeMocks = vi.hoisted(() => {
   const sectionsQuery = {
     select: vi.fn(),
     eq: vi.fn(),
+    in: vi.fn(),
   };
   sectionsQuery.select.mockReturnValue(sectionsQuery);
-  sectionsQuery.eq.mockResolvedValue({ data: [], error: null });
+  sectionsQuery.eq.mockReturnValue(sectionsQuery);
+  sectionsQuery.in.mockResolvedValue({ data: [], error: null });
 
   const eventsQuery = {
     select: vi.fn(),
@@ -130,6 +132,7 @@ describe('GET /api/research-v2/audit-state', () => {
     routeMocks.parentQuery.maybeSingle.mockReset();
     routeMocks.runsQuery.order.mockReset();
     routeMocks.sectionsQuery.eq.mockReset();
+    routeMocks.sectionsQuery.in.mockReset();
     routeMocks.eventsQuery.limit.mockReset();
     routeMocks.rpc.mockReset();
     routeMocks.parentQuery.select.mockReturnValue(routeMocks.parentQuery);
@@ -147,7 +150,8 @@ describe('GET /api/research-v2/audit-state', () => {
     routeMocks.runsQuery.eq.mockReturnValue(routeMocks.runsQuery);
     routeMocks.runsQuery.order.mockResolvedValue({ data: [], error: null });
     routeMocks.sectionsQuery.select.mockReturnValue(routeMocks.sectionsQuery);
-    routeMocks.sectionsQuery.eq.mockResolvedValue({ data: [], error: null });
+    routeMocks.sectionsQuery.eq.mockReturnValue(routeMocks.sectionsQuery);
+    routeMocks.sectionsQuery.in.mockResolvedValue({ data: [], error: null });
     routeMocks.eventsQuery.select.mockReturnValue(routeMocks.eventsQuery);
     routeMocks.eventsQuery.eq.mockReturnValue(routeMocks.eventsQuery);
     routeMocks.eventsQuery.order.mockReturnValue(routeMocks.eventsQuery);
@@ -408,6 +412,57 @@ describe('GET /api/research-v2/audit-state', () => {
     expect(routeMocks.eventsQuery.limit).toHaveBeenCalledTimes(POSITIONING_ZONES.length);
   });
 
+  it('surfaces strategyBrief artifact data without adding a worker state', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sectionsQuery.in.mockResolvedValue({
+      data: [
+        {
+          zone: 'strategyBrief',
+          section_run_id: 'run-strategy-brief',
+          status: 'complete',
+          title: 'Offer & Angle Brief',
+          markdown: 'Lead with accountable revenue meetings.',
+          data: {
+            sectionTitle: 'Offer & Angle Brief',
+            verdict: 'Lead with accountable revenue meetings.',
+            statusSummary: 'Ready for media planning.',
+            confidence: 0.82,
+            sources: [{ title: 'Fellow', url: 'https://fellow.app' }],
+            body: {
+              positioning: {
+                oneLiner: 'Fellow keeps revenue meetings accountable.',
+              },
+            },
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.sectionsQuery.in).toHaveBeenCalledWith('zone', [
+      ...POSITIONING_ZONES,
+      'positioningPaidMediaPlan',
+      'strategyBrief',
+    ]);
+    expect(body.sectionsByZone.strategyBrief).toMatchObject({
+      title: 'Offer & Angle Brief',
+      markdown: 'Lead with accountable revenue meetings.',
+      data: {
+        sectionTitle: 'Offer & Angle Brief',
+      },
+    });
+    expect(
+      body.workerStates.map((worker: { section_id: string }) => worker.section_id),
+    ).not.toContain('strategyBrief');
+    expect(routeMocks.eventsQuery.limit).toHaveBeenCalledTimes(
+      POSITIONING_ZONES.length,
+    );
+  });
+
   it('reaps stale running lab sections on read and returns the refreshed terminal row', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const staleStartedAt = new Date(Date.now() - 16 * 60 * 1000).toISOString();
@@ -440,7 +495,7 @@ describe('GET /api/research-v2/audit-state', () => {
         ],
         error: null,
       });
-    routeMocks.sectionsQuery.eq
+    routeMocks.sectionsQuery.in
       .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({ data: [], error: null });
     routeMocks.rpc.mockResolvedValue({ data: 1, error: null });
@@ -563,7 +618,7 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.sectionsQuery.eq.mockResolvedValue({
+    routeMocks.sectionsQuery.in.mockResolvedValue({
       data: [
         {
           zone: 'positioningMarketCategory',
@@ -617,7 +672,7 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.sectionsQuery.eq.mockResolvedValue({
+    routeMocks.sectionsQuery.in.mockResolvedValue({
       data: [
         {
           zone: 'positioningMarketCategory',
@@ -684,7 +739,7 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.sectionsQuery.eq.mockResolvedValue({
+    routeMocks.sectionsQuery.in.mockResolvedValue({
       data: [
         {
           zone: 'positioningBuyerICP',
@@ -768,7 +823,7 @@ describe('GET /api/research-v2/audit-state', () => {
       ],
       error: null,
     });
-    routeMocks.sectionsQuery.eq.mockResolvedValue({
+    routeMocks.sectionsQuery.in.mockResolvedValue({
       data: [
         {
           zone: 'positioningVoiceOfCustomer',

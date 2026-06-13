@@ -31,6 +31,7 @@ import {
 import { AlertTriangle, Check, Loader2, Share2 } from 'lucide-react';
 
 import { Shimmer } from '@/components/ai-elements/shimmer';
+import { AuditChatPanel } from '@/components/research-v2/chat/audit-chat-panel';
 import {
   ActivityRail,
   CompletedActivitySummary,
@@ -70,6 +71,7 @@ import {
   READER_SECTION_LABELS,
   type ReaderSectionId,
 } from '@/components/research-v3/reader-sections';
+import { StrategyBriefCard } from '@/components/research-v2/strategy-brief-card';
 import {
   buildSectionActivityFeed,
   sectionFeedToSteps,
@@ -433,7 +435,7 @@ function RunningActivityView({
 
 interface TypedArtifactErrorBoundaryProps {
   children: ReactNode;
-  sectionId: ReaderSectionId;
+  sectionId: string;
 }
 
 interface TypedArtifactErrorBoundaryState {
@@ -1120,6 +1122,9 @@ export function AuditReaderShell({
   const executiveBrief = isRecord(live.executive_brief)
     ? live.executive_brief
     : null;
+  const strategyBriefArtifact = isRecord(live.sectionsByZone.strategyBrief?.data)
+    ? live.sectionsByZone.strategyBrief.data
+    : null;
   const activeDraftArtifact = useMemo(() => {
     const partial = sectionPartials[active];
 
@@ -1325,6 +1330,10 @@ export function AuditReaderShell({
     void handleShare(runId, shareTitle);
   }, [handleShare, runId, shareTitle]);
 
+  const refreshAuditState = useCallback((): void => {
+    setPollRefreshKey((key) => key + 1);
+  }, []);
+
   // ---- Render -----------------------------------------------------------
   return (
     <div
@@ -1379,6 +1388,12 @@ export function AuditReaderShell({
                   onSelect={select}
                   statusOf={statusOf}
                 />
+
+                {strategyBriefArtifact ? (
+                  <TypedArtifactErrorBoundary sectionId="strategyBrief">
+                    <StrategyBriefCard artifact={strategyBriefArtifact} />
+                  </TypedArtifactErrorBoundary>
+                ) : null}
 
                 {shouldRenderExecutiveBrief ? (
                   <ExecutiveBriefCard
@@ -1492,8 +1507,8 @@ export function AuditReaderShell({
 
         {/* Right gutter — compact status card (desktop only; mobile uses the
             in-article MobileSectionSwitcher). */}
-        <aside className="hidden w-[300px] shrink-0 overflow-y-auto px-4 py-4 lg:block">
-          <div className="sticky top-4">
+        <aside className="hidden w-[360px] shrink-0 overflow-y-auto px-4 py-4 lg:block">
+          <div className="sticky top-4 space-y-4">
             {!auditStateLoaded ? (
               <RunStatusLoadingCard />
             ) : (
@@ -1510,6 +1525,13 @@ export function AuditReaderShell({
                 allSectionsTerminal={allSectionsTerminal}
               />
             )}
+            {auditStateLoaded ? (
+              <AuditChatPanel
+                runId={runId}
+                focusedZone={active}
+                onResearchMutated={refreshAuditState}
+              />
+            ) : null}
           </div>
         </aside>
       </div>
