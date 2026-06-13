@@ -565,7 +565,7 @@ describe('POST /api/research-v2/rerun-section', () => {
     expect(routeMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
-  it('rejects lab refinements before abort or reseed side effects', async () => {
+  it('passes lab refinements into the scheduled research input', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -579,8 +579,42 @@ describe('POST /api/research-v2/rerun-section', () => {
     );
     const body = await response.json();
 
+    expect(response.status).toBe(200);
+    expect(body.executionMode).toBe('lab');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(routeMocks.resetSectionRunForRerun).toHaveBeenCalledWith({
+      supabase: expect.any(Object),
+      userId: 'user_1',
+      runId: RUN_ID,
+      sectionId: 'positioningVoiceOfCustomer',
+    });
+    expect(routeMocks.scheduleLabSectionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        researchInput: {
+          runId: RUN_ID,
+          fixtureId: 'brand_fellow',
+          chatRefinement: 'tighten the buyer language',
+        },
+      }),
+    );
+  });
+
+  it('still rejects partial-context replay before abort or reseed side effects', async () => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest({
+        runId: RUN_ID,
+        zone: 'positioningVoiceOfCustomer',
+        usePartialContext: true,
+      }),
+    );
+    const body = await response.json();
+
     expect(response.status).toBe(400);
-    expect(body.error).toBe('lab_refinement_not_supported');
+    expect(body.error).toBe('lab_partial_context_not_supported');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(routeMocks.createAdminClient).not.toHaveBeenCalled();
     expect(routeMocks.seedOrchestration).not.toHaveBeenCalled();

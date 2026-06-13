@@ -135,12 +135,11 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
-  if (usePartialContext || refinement) {
+  if (usePartialContext) {
     return NextResponse.json(
       {
-        error: 'lab_refinement_not_supported',
-        message:
-          'Lab reruns do not support refinement or partial-context replay yet',
+        error: 'lab_partial_context_not_supported',
+        message: 'Lab reruns do not support partial-context replay yet',
       },
       { status: 400 },
     );
@@ -268,6 +267,11 @@ export async function POST(req: Request): Promise<NextResponse> {
       return committedResearchInput.response;
     }
 
+    const researchInputForJob: ResearchInput =
+      refinement === null
+        ? committedResearchInput.researchInput
+        : { ...committedResearchInput.researchInput, chatRefinement: refinement };
+
     await resetSectionRunForRerun({
       supabase,
       userId,
@@ -283,7 +287,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       sectionId: positioningZone,
       zones: [positioningZone],
       supabase,
-      researchInput: committedResearchInput.researchInput,
+      researchInput: researchInputForJob,
       schedule: after,
       ...(rerunInternalKey === undefined || rerunInternalKey === ''
         ? {}
