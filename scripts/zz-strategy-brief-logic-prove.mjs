@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -37,7 +37,11 @@ async function loadTsModule(entry) {
       },
     ],
   });
-  return await import(pathToFileURL(outfile).href);
+  try {
+    return await import(pathToFileURL(outfile).href);
+  } finally {
+    await rm(outdir, { recursive: true, force: true });
+  }
 }
 
 function assertCondition(condition, message) {
