@@ -1,6 +1,5 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { auth } from '@clerk/nextjs/server';
-import { streamText, type ModelMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 

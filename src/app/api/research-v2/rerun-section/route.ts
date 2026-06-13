@@ -13,7 +13,6 @@ import { after, NextResponse } from 'next/server';
 import {
   ALL_POSITIONING_SECTION_IDS,
   PAID_MEDIA_PLAN_SECTION_ID,
-  POSITIONING_SECTION_IDS,
 } from '@/lib/ai/prompts/positioning-skills';
 import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 import {

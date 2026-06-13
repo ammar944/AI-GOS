@@ -572,12 +572,10 @@ function DraftingArtifactView({
 
 function PaidMediaPlanTerminalPanel({
   artifact,
-  events,
   statusText,
   subjectName,
 }: {
   artifact: PositioningTypedArtifact | null;
-  events: readonly SectionEvent[];
   statusText: string;
   subjectName?: string;
 }): ReactElement {
@@ -1442,7 +1440,6 @@ export function AuditReaderShell({
                       {active === PAID_MEDIA_PLAN_SECTION_ID ? (
                         <PaidMediaPlanTerminalPanel
                           artifact={activeTyped}
-                          events={activeEvents}
                           statusText="Paid media plan committed."
                           subjectName={company}
                         />
@@ -1488,7 +1485,6 @@ export function AuditReaderShell({
                   ) : active === PAID_MEDIA_PLAN_SECTION_ID ? (
                     <PaidMediaPlanTerminalPanel
                       artifact={activeTyped}
-                      events={activeEvents}
                       statusText={
                         activeStatus === 'ready'
                           ? 'Ready to run.'
