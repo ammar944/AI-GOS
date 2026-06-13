@@ -99,7 +99,7 @@ Fan-out is the canonical flow. The old per-section "Run section" operator click 
 
 **Research dispatch**: Form submit → `POST /api/research-v2/orchestrate` (multi-section fan-out) OR `POST /api/research-v2/dispatch` (single-section, used by `/api/research-v2/rerun-section` and corpus) → in-process lab engine (DeepSeek section agents + Brave `web_search`) for sections; Railway worker for corpus/identity/meeting → writes results to Supabase → realtime/polling pushes to frontend.
 
-**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/research-v2/chat` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Chat sidebar is post-research editing only — does NOT trigger research.
+**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/research-v2/chat` workspace strategist route. The chat sidebar can draft/revise the `strategyBrief` artifact and trigger scoped refinement reruns; it does not replace the initial URL/corpus/onboarding fan-out flow.
 
 **Verifier/repair phase**: Lab sections use structured schemas, minimum validators, the structural verifier, required-evidence gates, and evidence-support repair. Validate API inputs, run IDs, dispatch envelopes, persistence shape, and parsable JSON; do not accept unsupported load-bearing claims as clean output.
 

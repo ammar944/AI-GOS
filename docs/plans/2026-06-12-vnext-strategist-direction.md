@@ -1,6 +1,6 @@
 # vNext Strategist Direction — chat control plane + strategy artifact chain
 
-- **Status:** ACTIVE — direction approved by Ammar 2026-06-12 (evening session). Slice 1 NOT yet implemented. This is a plan, not shipped behavior.
+- **Status:** ACTIVE — direction approved by Ammar 2026-06-12 (evening session). Slice 1 implementation is present on `refactor/architecture-deepening`; live acceptance remains gated on the Supabase migration apply and Gate 2 run proof.
 - **Grounding:** 12-agent research workflow over `tmp/team-claude-workflow-corpus/` (DialHawk transcript + 13 Cowork sessions), current app/engine, `~/Dev-Projects/ai-sdk-v5-crash-course`, `~/.claude/skills/{ai-sdk,ai-elements,chat-sdk}`, real SaaSLaunch client deliverables (`~/Downloads/SaaSLaunch_Paid_Media_Plan_TEMPLATE.pdf`, bluops Growth Playbook), and market patterns (Manus/ChatGPT/Devin/Canvas). Full findings archived at `tmp/team-claude-workflow-corpus/vnext-grounding-2026-06-12/`.
 
 ## Decision record (Ammar, 2026-06-12)
@@ -50,9 +50,9 @@ On any completed run, mount the chat column and give `positioningOrchestratorAge
 1. `draftStrategyBrief` — composes the versioned Offer & Angle Brief from committed section bodies + evidence pool + onboarding; commits as a `research_artifact_sections` row; passes existing verification gates before display; renders via `GenericTypedArtifactRenderer` day one.
 2. `reviseStrategyBrief(patch, rationale)` — CAS-versioned scoped patch via `commitChatPatchAuto` + appended changelog entry.
 3. `rerunSection({zone, refinement})` — rejection lifted; solo production-path rerun (~2–3 min, proven on run 8081e646).
-4. `web_search` + `perplexity_research` mounted from `TOOL_CATALOG`; results accrue to the evidence pool.
+4. `web_search` + `perplexity_research` mounted from `TOOL_CATALOG` with a four-lookup chat budget. Evidence-pool append from chat turns is deferred.
 
-**Acceptance test (mirrors DialHawk):** open a finished run, say "this is a cold-call agent, not a receptionist — reframe the brief around that, and ban 'operations hub' everywhere" → v2 strategy brief with changelog + enforced lexicon + scoped VoC re-pull, without restarting the run or touching other sections.
+**Acceptance test (mirrors DialHawk):** open a finished run, say "this is a cold-call agent, not a receptionist — reframe the brief around that, and ban 'operations hub' everywhere" → v2 strategy brief with changelog + enforced lexicon + scoped VoC re-pull, without restarting the run or touching other sections. CLI harnesses exist under `scripts/zz-strategy-brief-*.mjs`; live execution is still Gate 2.
 
 **Built-in probe:** before/after diff of a refinement-carrying rerun on a real run to measure untouched-content regression (Mr Dre risk). Outcome decides whether feedback stays rerun-with-refinement or must become anchor-scoped patches sooner.
 
@@ -86,5 +86,5 @@ Three-agent web research over MCP Market, the skills ecosystem, and the Apify ma
 
 ## Verification gates
 
-- Slice 1 ships only with: tsc 0 new errors, targeted tests for the new tools + patch path, and the acceptance test executed live on a real completed run with before/after artifacts archived under `docs/reports/`.
+- Slice 1 ships only with: tsc 0 new errors, targeted tests for the new tools + patch path, and the acceptance test executed live on a real completed run with before/after artifacts archived under `docs/reports/`. As of 2026-06-13, code and offline proof are present; DB/live acceptance remains blocked by Gate 1/Gate 2.
 - Chat-authored artifacts pass the same committable/verification gates as section artifacts (strict-out preserved; V1's free-chat fabrication failure mode is the named risk being guarded).

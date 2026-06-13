@@ -52,7 +52,7 @@ AI-GOS/
 │   │       │   ├── orchestrate/        fan-out all 6 sections
 │   │       │   ├── run-lab-section/    in-process lab engine (per section)
 │   │       │   ├── dispatch/ rerun-section/   single-section (dispatch = worker proxy)
-│   │       │   ├── chat/               workspace chat/edit (post-research only)
+│   │       │   ├── chat/               workspace strategist chat/edit + strategyBrief/rerun side effects
 │   │       │   └── abort-section/ audit-state/ onboarding/ _capabilities/
 │   │       ├── journey/session/ onboarding/ profiles/ share/[token]/
 │   │       ├── documents/ meetings/ transcribe/ integrations/ webhooks/clerk/
