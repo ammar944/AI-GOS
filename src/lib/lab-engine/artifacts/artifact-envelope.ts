@@ -310,6 +310,15 @@ export const researchInputSchema = z
     committedPositioningSectionMarkdown: z
       .record(z.string(), z.string())
       .optional(),
+    chatRefinement: z
+      .string()
+      .trim()
+      .min(1)
+      .max(2000)
+      .describe(
+        "Operator-supplied refinement for a rerun. Rendered as a binding USER REFINEMENT block in section instructions.",
+      )
+      .optional(),
     // ARI: research-evidence readiness, passed to paid-media as a COVERAGE
     // annotation (never a gate). When ready=false the plan reasons over the
     // listed thin sections with caution, and the artifact is degraded to

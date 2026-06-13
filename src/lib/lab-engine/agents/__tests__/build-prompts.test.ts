@@ -15,6 +15,7 @@ import {
   buildStructuredPrompt,
   buildStructurerPrompt,
   buildThinkerPrompt,
+  buildUserRefinementBlock,
   STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT,
   STRUCTURER_NO_NEW_FACTS_RULE,
   type PromptSectionDefinition,
@@ -565,6 +566,23 @@ describe("buildAnswerToolInstructions", (): void => {
       "`body.salesProcess[]` should use supplied sales assets; if none were supplied, emit one explicit gap asset",
     );
     expect(prompt).toContain("never invent spend");
+  });
+});
+
+describe("buildUserRefinementBlock", (): void => {
+  it("renders a binding refinement block when chatRefinement is set", (): void => {
+    const block = buildUserRefinementBlock({
+      chatRefinement:
+        "Real competitors are Notion and ClickUp; drop the agencies.",
+    } as never);
+
+    expect(block).toContain("USER REFINEMENT");
+    expect(block).toContain("Notion and ClickUp");
+    expect(block).toContain("binding");
+  });
+
+  it("returns empty string when chatRefinement is absent", (): void => {
+    expect(buildUserRefinementBlock({} as never)).toBe("");
   });
 });
 

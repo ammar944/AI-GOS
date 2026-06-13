@@ -503,6 +503,26 @@ export function buildClientIdentityPin(researchInput: ResearchInput): string {
   return `CLIENT = ${companyName} (${websiteUrl}). Every verdict, recommendation, and budget directive in this artifact is advice TO ${companyName} about its own go-to-market. Never write advice for a competitor of ${companyName} or for a hypothetical entrant attacking ${companyName}.`;
 }
 
+export function buildUserRefinementBlock(
+  researchInput: Pick<ResearchInput, "chatRefinement">,
+): string {
+  const refinement = researchInput.chatRefinement?.trim();
+  if (refinement === undefined || refinement === "") {
+    return "";
+  }
+
+  return [
+    "USER REFINEMENT (operator-supplied, binding):",
+    refinement,
+    "Treat this as a correction from the operator. It overrides conflicting prior assumptions for this run. Do not restate it as a finding; apply it.",
+  ].join("\n");
+}
+
+function buildUserRefinementPromptBlock(researchInput: ResearchInput): string[] {
+  const block = buildUserRefinementBlock(researchInput);
+  return block === "" ? [] : [block, ""];
+}
+
 function buildResearchInputForPrompt({
   definition,
   researchInput,
@@ -696,6 +716,7 @@ export function buildStructuredPrompt({
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     buildClientIdentityPin(researchInput),
     "",
+    ...buildUserRefinementPromptBlock(researchInput),
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -777,6 +798,7 @@ export function buildThinkerPrompt({
       : [competitorReviewCandidateBlock, ""]),
     buildClientIdentityPin(researchInput),
     "",
+    ...buildUserRefinementPromptBlock(researchInput),
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -850,6 +872,7 @@ export function buildStructurerPrompt({
       : [competitorReviewCandidateBlock, ""]),
     buildClientIdentityPin(researchInput),
     "",
+    ...buildUserRefinementPromptBlock(researchInput),
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -945,6 +968,7 @@ export function buildStructuredBodyPrompt({
       : [competitorReviewCandidateBlock, ""]),
     buildClientIdentityPin(researchInput),
     "",
+    ...buildUserRefinementPromptBlock(researchInput),
     "ResearchInput JSON:",
     JSON.stringify(
       buildResearchInputForPrompt({ definition, researchInput }),
@@ -980,6 +1004,7 @@ export function buildAnswerToolInstructions(
     "",
     buildClientIdentityPin(researchInput),
     "",
+    ...buildUserRefinementPromptBlock(researchInput),
     "ResearchInput JSON:",
     JSON.stringify(buildResearchInputForPrompt({ definition, researchInput })),
     "",
