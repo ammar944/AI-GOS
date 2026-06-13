@@ -4,11 +4,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import {
-  ALL_POSITIONING_SECTION_IDS,
-  POSITIONING_SECTION_IDS,
-} from '@/lib/ai/prompts/positioning-skills';
-import type { AllPositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export type SectionSeedStatus = 'queued' | 'running' | 'complete' | 'error';
@@ -16,7 +12,7 @@ export type SectionSeedStatus = 'queued' | 'running' | 'complete' | 'error';
 export interface SeedOrchestrationResult {
   parent_audit_run_id: string;
   section_run_ids: Array<{
-    section_id: AllPositioningSectionId;
+    section_id: string;
     section_run_id: string;
     ordinal: number;
     reused: boolean;
@@ -48,12 +44,10 @@ const ResetSectionRunForRerunRowsSchema = z.array(
   ResetSectionRunForRerunRowSchema,
 );
 
-const POSITIONING_ZONE_SET: ReadonlySet<string> = new Set(ALL_POSITIONING_SECTION_IDS);
-
 export interface SeedOrchestrationInput {
   userId: string;
   runId: string;
-  zones?: readonly AllPositioningSectionId[];
+  zones?: readonly string[];
 }
 
 export interface ResetSectionRunForRerunInput {
@@ -140,6 +134,7 @@ export async function seedOrchestration(
   input: SeedOrchestrationInput,
 ): Promise<SeedOrchestrationResult> {
   const zones = input.zones ?? POSITIONING_SECTION_IDS;
+  const requestedZoneSet: ReadonlySet<string> = new Set(zones);
 
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc('seed_orchestration', {
@@ -179,14 +174,14 @@ export async function seedOrchestration(
   const section_run_ids = rows
     .sort((a, b) => a.ordinal - b.ordinal)
     .map((row) => {
-      if (!POSITIONING_ZONE_SET.has(row.zone)) {
+      if (!requestedZoneSet.has(row.zone)) {
         throw new OrchestrateRpcError(
-          `seed_orchestration returned unknown zone "${row.zone}"`,
+          `seed_orchestration returned unrequested zone "${row.zone}"`,
           null,
         );
       }
       return {
-        section_id: row.zone as AllPositioningSectionId,
+        section_id: row.zone,
         section_run_id: row.section_run_id,
         ordinal: row.ordinal,
         reused: row.reused,

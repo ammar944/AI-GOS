@@ -119,4 +119,63 @@ describe('seedOrchestration', () => {
       ],
     });
   });
+
+  it('accepts a requested non-registry capstone zone', async () => {
+    dbMocks.rpc.mockResolvedValue({
+      data: [
+        {
+          parent_id: '11111111-1111-4111-8111-111111111111',
+          zone: 'strategyBrief',
+          section_run_id: '22222222-2222-4222-8222-000000000002',
+          ordinal: 1,
+          reused: false,
+          status: 'queued',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      seedOrchestration({
+        userId: 'user_1',
+        runId: '00000000-0000-4000-8000-0000000000aa',
+        zones: ['strategyBrief'],
+      }),
+    ).resolves.toEqual({
+      parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
+      section_run_ids: [
+        {
+          section_id: 'strategyBrief',
+          section_run_id: '22222222-2222-4222-8222-000000000002',
+          ordinal: 1,
+          reused: false,
+          status: 'queued',
+        },
+      ],
+    });
+  });
+
+  it('rejects rows for zones that were not requested', async () => {
+    dbMocks.rpc.mockResolvedValue({
+      data: [
+        {
+          parent_id: '11111111-1111-4111-8111-111111111111',
+          zone: 'unexpectedZone',
+          section_run_id: '22222222-2222-4222-8222-000000000002',
+          ordinal: 1,
+          reused: false,
+          status: 'queued',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      seedOrchestration({
+        userId: 'user_1',
+        runId: '00000000-0000-4000-8000-0000000000aa',
+        zones: ['strategyBrief'],
+      }),
+    ).rejects.toThrow('unrequested zone "unexpectedZone"');
+  });
 });
