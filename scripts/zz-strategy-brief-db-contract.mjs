@@ -4,7 +4,7 @@ config({ path: '.env.local', quiet: true });
 
 import { createClient } from '@supabase/supabase-js';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -41,6 +41,22 @@ async function loadTsModule(entry) {
   await mkdir(tmpRoot, { recursive: true });
   const outdir = await mkdtemp(join(tmpRoot, 'aigos-strategy-brief-'));
   const outfile = join(outdir, `${basename(entry, '.ts')}.mjs`);
+  const supabaseServerStub = join(outdir, 'supabase-server-stub.mjs');
+  await writeFile(
+    supabaseServerStub,
+    [
+      'export function createAdminClient() {',
+      '  const client = globalThis.__AIGOS_STRATEGY_BRIEF_SUPABASE_CLIENT__;',
+      "  if (!client) throw new Error('CLI Supabase client is not initialized');",
+      '  return client;',
+      '}',
+      'export async function createClient() {',
+      '  return createAdminClient();',
+      '}',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
   await build({
     entryPoints: [entry],
     bundle: true,
@@ -52,6 +68,10 @@ async function loadTsModule(entry) {
       {
         name: 'aigos-src-alias',
         setup(builder) {
+          builder.onResolve(
+            { filter: /^@\/lib\/supabase\/server$/ },
+            () => ({ path: supabaseServerStub }),
+          );
           builder.onResolve({ filter: /^@\// }, (args) => ({
             path: resolveSrcPath(args.path),
           }));
@@ -160,6 +180,7 @@ async function main() {
     requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
     { auth: { persistSession: false } },
   );
+  globalThis.__AIGOS_STRATEGY_BRIEF_SUPABASE_CLIENT__ = sb;
   const [{ commitStrategyBrief }, { strategyBriefArtifactSchema }] =
     await Promise.all([
       loadTsModule('src/lib/research-v2/strategy-brief/commit.ts'),
