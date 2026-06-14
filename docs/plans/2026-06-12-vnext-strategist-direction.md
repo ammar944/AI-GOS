@@ -1,6 +1,6 @@
 # vNext Strategist Direction — chat control plane + strategy artifact chain
 
-- **Status:** ACTIVE — direction approved by Ammar 2026-06-12 (evening session). Slice 1 implementation is present on `refactor/architecture-deepening`; live acceptance remains gated on the Supabase migration apply and Gate 2 run proof.
+- **Status:** ACTIVE — direction approved by Ammar 2026-06-12. Slice 1 implemented on `refactor/architecture-deepening`. **Gate 1 CLEARED 2026-06-14**: rollup-exclusion migration applied to live Supabase (`sidrtuxpqftyzwdusdha`), both functions verified carrying the `strategyBrief` exclusion, Tier-2 DB-moat proof GREEN on clean run `d838ed4e` (`rollup=6/6 unchanged`, brief `counts_toward_rollup=false`). Remaining: Gate 2 / Tier-3 live acceptance (chat draft + refinement rerun + Mr Dre probe). Evidence: `docs/reports/2026-06-13-vnext-slice1-acceptance.md`.
 - **Grounding:** 12-agent research workflow over `tmp/team-claude-workflow-corpus/` (DialHawk transcript + 13 Cowork sessions), current app/engine, `~/Dev-Projects/ai-sdk-v5-crash-course`, `~/.claude/skills/{ai-sdk,ai-elements,chat-sdk}`, real SaaSLaunch client deliverables (`~/Downloads/SaaSLaunch_Paid_Media_Plan_TEMPLATE.pdf`, bluops Growth Playbook), and market patterns (Manus/ChatGPT/Devin/Canvas). Full findings archived at `tmp/team-claude-workflow-corpus/vnext-grounding-2026-06-12/`.
 
 ## Decision record (Ammar, 2026-06-12)
