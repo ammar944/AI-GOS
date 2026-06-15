@@ -601,6 +601,7 @@ function buildNormalizedAdEvidenceBlock(
     "Pre-normalized live ad evidence:",
     "Write `body.adEvidence.prose` from these groups. If groups are empty, say that no live ad-library tool results were available and do not use fixture ads.",
     "Quarantine-tier creatives are identity-unverified signals; prose must not present them as confirmed competitor advertising, and when `verifiedCount` is 0 prose must say so.",
+    "These ad-library `sourceUrl`/`landingUrl` permalinks are first-class verified evidence: when an evidence-backed competitorSet, narrativeArc, shareOfVoice, or adPresence claim is supported by a creative in these groups, that row's `sourceUrl` MUST cite the matching ad-library permalink, not a third-party listicle.",
     "Set `body.adEvidence.advertiserGroups` to [] in your generated JSON. The runner injects these exact normalized groups after structured generation so counts, source links, returnedCreativeCount, dataGaps, and sourceErrors cannot drift.",
     "For Competitor Landscape, reconcile `body.competitorSet.competitors` against ResearchInput.competitorSeedHints and the live evidence transcript before introducing generic alternatives.",
     "Compact ad evidence view for reasoning:",
