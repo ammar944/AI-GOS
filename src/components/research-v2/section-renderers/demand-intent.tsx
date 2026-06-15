@@ -310,10 +310,19 @@ export function DemandIntentRenderer({
 
       <SubsectionBlock label="Question mining" prose={questionMining.prose}>
         {questionMining.questions.length === 0 ? (
-          <GapNote
-            subject="buyer questions"
-            howToClose="Pull People Also Ask, Reddit, forum, or support-thread URLs with permalinks."
-          />
+          questionMining.blockGap ? (
+            <GapNote
+              subject="buyer questions"
+              howToClose={questionMining.blockGap.sourcingPlan?.join('; ')}
+            >
+              {questionMining.blockGap.summary}
+            </GapNote>
+          ) : (
+            <GapNote
+              subject="buyer questions"
+              howToClose="Pull People Also Ask, Reddit, forum, or support-thread URLs with permalinks."
+            />
+          )
         ) : (
           <div className="grid gap-5">
             {questionMining.questions.map((question, index) => (
@@ -324,48 +333,96 @@ export function DemandIntentRenderer({
       </SubsectionBlock>
 
       <SubsectionBlock label="Content gaps" prose={contentGaps.prose}>
-        <div className="grid gap-4 md:grid-cols-2">
-          {contentGaps.gaps.map((gap) => (
-            <article key={gap.topic} className="border border-border bg-card p-4" data-testid="gap-item">
-              <h3 className="text-[15px] font-semibold text-foreground">{gap.topic}</h3>
-              <p className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
-                {scrubReaderText(gap.evidenceOfDemand)}
-              </p>
-              <p className="mt-2 text-[13px] leading-[1.55] text-foreground">
-                {scrubReaderText(gap.opportunity)}
-              </p>
-            </article>
-          ))}
-        </div>
+        {contentGaps.gaps.length === 0 ? (
+          contentGaps.blockGap ? (
+            <GapNote
+              subject="content gaps"
+              howToClose={contentGaps.blockGap.sourcingPlan?.join('; ')}
+            >
+              {contentGaps.blockGap.summary}
+            </GapNote>
+          ) : (
+            <GapNote
+              subject="content gaps"
+              howToClose="Compare ranking pages against recurring buyer questions to surface under-served topics."
+            />
+          )
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {contentGaps.gaps.map((gap) => (
+              <article key={gap.topic} className="border border-border bg-card p-4" data-testid="gap-item">
+                <h3 className="text-[15px] font-semibold text-foreground">{gap.topic}</h3>
+                <p className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
+                  {scrubReaderText(gap.evidenceOfDemand)}
+                </p>
+                <p className="mt-2 text-[13px] leading-[1.55] text-foreground">
+                  {scrubReaderText(gap.opportunity)}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
       </SubsectionBlock>
 
       <SubsectionBlock label="Intent signals" prose={intentSignals.prose}>
-        <div className="grid gap-4 md:grid-cols-2">
-          {intentSignals.items.map((signal, index) => (
-            <IntentSignalBlock key={`${signal.signalType}-${index}`} signal={signal} />
-          ))}
-        </div>
+        {intentSignals.items.length === 0 ? (
+          intentSignals.blockGap ? (
+            <GapNote
+              subject="intent signals"
+              howToClose={intentSignals.blockGap.sourcingPlan?.join('; ')}
+            >
+              {intentSignals.blockGap.summary}
+            </GapNote>
+          ) : (
+            <GapNote
+              subject="intent signals"
+              howToClose="Pull job postings, RFPs, funding rounds, or leadership-change news from independent venues."
+            />
+          )
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {intentSignals.items.map((signal, index) => (
+              <IntentSignalBlock key={`${signal.signalType}-${index}`} signal={signal} />
+            ))}
+          </div>
+        )}
       </SubsectionBlock>
 
       <SubsectionBlock label="Venue map" prose={venueMap.prose}>
-        <div className="grid gap-4 md:grid-cols-2">
-          {venueMap.venues.map((venue) => (
-            <article key={venue.name} className="border-l border-border pl-4" data-testid="venue-item">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-[15px] font-semibold text-foreground">
-                  {venue.name}
-                </h3>
-                <MonoBadge>{VENUE_TYPE_LABEL[venue.venueType] ?? venue.venueType}</MonoBadge>
-              </div>
-              <p className="mt-1 text-[13px] leading-[1.55] text-muted-foreground">
-                {venue.audienceSize}
-              </p>
-              <div className="mt-2">
-                <SourceLink url={venue.sourceUrl} />
-              </div>
-            </article>
-          ))}
-        </div>
+        {venueMap.venues.length === 0 ? (
+          venueMap.blockGap ? (
+            <GapNote
+              subject="buyer venues"
+              howToClose={venueMap.blockGap.sourcingPlan?.join('; ')}
+            >
+              {venueMap.blockGap.summary}
+            </GapNote>
+          ) : (
+            <GapNote
+              subject="buyer venues"
+              howToClose="Identify the events, communities, newsletters, podcasts, or Slack groups where buyers gather, with source URLs."
+            />
+          )
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {venueMap.venues.map((venue) => (
+              <article key={venue.name} className="border-l border-border pl-4" data-testid="venue-item">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-[15px] font-semibold text-foreground">
+                    {venue.name}
+                  </h3>
+                  <MonoBadge>{VENUE_TYPE_LABEL[venue.venueType] ?? venue.venueType}</MonoBadge>
+                </div>
+                <p className="mt-1 text-[13px] leading-[1.55] text-muted-foreground">
+                  {venue.audienceSize}
+                </p>
+                <div className="mt-2">
+                  <SourceLink url={venue.sourceUrl} />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </SubsectionBlock>
 
       <StrategicInsightPanel insight={artifact.strategicInsight} />
