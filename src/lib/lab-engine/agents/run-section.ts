@@ -1827,11 +1827,21 @@ function isVoiceOfCustomerCandidateFloorGap(reason: string): boolean {
   );
 }
 
-function isVoiceOfCustomerSynthesisQuoteShortfallGap(reason: string): boolean {
+// Synthesis gaps whose captured candidate pack is SAFE to surface as honest-gap
+// evidence (low-confidence, evidenceGap=true). A `validation_failed` pack has
+// already cleared the self_sourced_candidate (synthesis :436) and
+// single_source_majority (synthesis :448) integrity gates — both return BEFORE
+// validation_failed (:475/:489) — so its real verbatims would otherwise be
+// discarded into empty blocks for no integrity reason. ALLOW-LIST by design:
+// self_sourced_candidate / single_source_majority / candidate_pack_gap are
+// deliberately excluded so this can never re-surface the laundered/empty packs
+// the integrity gate rejects. Never convert this to a deny-list.
+function isVoiceOfCustomerSurfaceableSynthesisGap(reason: string): boolean {
   return (
     reason === "insufficient_candidates" ||
     reason === "insufficient_independent_domains" ||
-    reason === "insufficient_success_language"
+    reason === "insufficient_success_language" ||
+    reason === "validation_failed"
   );
 }
 
@@ -2369,7 +2379,7 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
   if (!synthesis.ok) {
     if (
       voiceOfCustomerPrepass.result.pack.candidates.length === 0 ||
-      !isVoiceOfCustomerSynthesisQuoteShortfallGap(synthesis.gap.reason)
+      !isVoiceOfCustomerSurfaceableSynthesisGap(synthesis.gap.reason)
     ) {
       return undefined;
     }
