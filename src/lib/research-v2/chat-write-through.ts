@@ -11,6 +11,8 @@
 // This helper centralizes the dual-write so the chat route is not the only
 // place that gets it right, and so the contract is testable in isolation.
 
+import { sanitizeArtifactForClientSurface } from './client-surface-sanitizer';
+
 export type ChatWriteThroughResult =
   | { ok: true; normalized_revision: number; conflict: false }
   | { ok: false; conflict: true; reason: 'stale_revision' }
@@ -142,7 +144,15 @@ export async function commitChatPatch(
     return { ok: false, conflict: false, reason: errorMsg ?? 'ensure_artifact_failed' };
   }
 
-  const normalizedPatch = extractNormalizedPatch(input.patchedSection);
+  // Scrub internal pipeline vocabulary / raw validator output from every
+  // client-surface string BEFORE the commit, exactly as buildCommitPatch does
+  // for the fan-out/rerun path (commit-patch.ts). Internal metadata subtrees
+  // (verification/review/blockGap*) are preserved by the sanitizer's skip set,
+  // so this is the only unsanitized write path to research_artifacts.data being
+  // closed. We sanitize the whole section once, then extract the normalized
+  // fields and mirror the legacy JSONB from the same scrubbed copy.
+  const sanitizedSection = sanitizeArtifactForClientSurface(input.patchedSection);
+  const normalizedPatch = extractNormalizedPatch(sanitizedSection);
   const commit = await supabase.rpc('commit_artifact_section', {
     p_artifact_id: ensureArtifactResult,
     p_zone: input.zone,
@@ -192,7 +202,7 @@ export async function commitChatPatch(
     p_user_id: input.userId,
     p_run_id: input.runId,
     p_section: input.zone,
-    p_result: input.patchedSection,
+    p_result: sanitizedSection,
   });
   if (mirror.error) {
     console.warn(

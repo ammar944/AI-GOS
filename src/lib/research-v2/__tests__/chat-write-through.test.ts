@@ -155,6 +155,55 @@ describe('commitChatPatch', () => {
     });
   });
 
+  it('scrubs internal-vocabulary leaves from both the normalized patch and the legacy mirror', async () => {
+    const mock = makeRpcMock();
+    mock.when('ensure_artifact', { data: ARTIFACT_ID });
+    mock.when('commit_artifact_section', {
+      data: [{ ok: true, revision: 2, conflict: false }],
+    });
+    mock.when('merge_journey_session_research_result', { data: null });
+
+    const result = await commitChatPatch(mock, {
+      userId: 'user_1',
+      runId: '00000000-0000-4000-8000-000000000aaa',
+      zone: 'positioningBuyerICP',
+      sectionRunId: '00000000-0000-4000-8000-0000000000bb',
+      expectedRevision: 1,
+      patchedSection: {
+        data: {
+          sectionTitle: 'Buyer ICP',
+          statusSummary: 'We ran a web_search across the corpus to confirm this.',
+        },
+        artifact: {
+          markdown: 'evidence gap: no public pricing was disclosed.',
+          title: 'Buyer ICP',
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+
+    const commitCall = mock.calls.find(
+      (call) => call.fn === 'commit_artifact_section',
+    );
+    const patch = commitCall?.args.p_patch as Record<string, unknown>;
+    expect(patch.markdown).not.toMatch(/evidence gap:/i);
+    const patchData = patch.data as { statusSummary: string };
+    expect(patchData.statusSummary).not.toMatch(/web_search/i);
+    expect(patchData.statusSummary).not.toMatch(/\bcorpus\b/i);
+
+    const mirrorCall = mock.calls.find(
+      (call) => call.fn === 'merge_journey_session_research_result',
+    );
+    const mirrored = mirrorCall?.args.p_result as {
+      data: { statusSummary: string };
+      artifact: { markdown: string };
+    };
+    expect(mirrored.artifact.markdown).not.toMatch(/evidence gap:/i);
+    expect(mirrored.data.statusSummary).not.toMatch(/web_search/i);
+    expect(mirrored.data.statusSummary).not.toMatch(/\bcorpus\b/i);
+  });
+
   it('returns conflict=true on a stale_revision row from commit_artifact_section', async () => {
     const mock = makeRpcMock();
     mock.when('ensure_artifact', { data: ARTIFACT_ID });
