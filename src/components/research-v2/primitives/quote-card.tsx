@@ -44,7 +44,7 @@ export function QuoteCard({
       className={cn('border-l-2 border-primary/50 pl-5', className)}
       data-testid="quote-card"
     >
-      <blockquote className="font-serif text-[18px] leading-[1.5] text-foreground">
+      <blockquote className="font-sans text-[15px] leading-[1.6] text-foreground">
         “{clampReaderText(quote, 280)}”
       </blockquote>
       <figcaption className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">

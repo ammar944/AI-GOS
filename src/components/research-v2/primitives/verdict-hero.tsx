@@ -31,7 +31,7 @@ export function VerdictHero({
           </BasisChip>
         ) : null}
       </div>
-      <h2 className="mt-2 max-w-[64ch] font-heading text-[20px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
+      <h2 className="mt-2 max-w-[60ch] font-sans text-[20px] font-semibold leading-[1.4] tracking-[-0.01em] text-foreground">
         {scrubReaderText(verdict)}
       </h2>
       {whyItMatters ? (

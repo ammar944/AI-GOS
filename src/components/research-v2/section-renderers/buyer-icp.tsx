@@ -13,7 +13,6 @@ import {
   VerdictHero,
   isInvalidReaderUrl,
   scrubReaderText,
-  type EvidenceChipSource,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
 import {
@@ -81,20 +80,6 @@ function parseShare(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function sourceAt(
-  artifact: BuyerICPArtifact,
-  index: number,
-): EvidenceChipSource | undefined {
-  const source = artifact.sources[index];
-  if (!source) return undefined;
-  return {
-    n: index + 1,
-    title: source.title,
-    url: source.url,
-    whyItMatters: source.whyItMatters,
-  };
-}
-
 function isRenderableVenue(venue: Venue): boolean {
   return (
     !isInvalidReaderUrl(venue.sourceUrl) &&
@@ -112,13 +97,6 @@ function buyerKeyFindings(artifact: BuyerICPArtifact): readonly KeyFinding[] {
   const topTrigger = artifact.buyingContext.triggers[0];
 
   return [
-    {
-      sentence: artifact.statusSummary,
-      basis: 'sourced',
-      evidence: [sourceAt(artifact, 0)].filter(
-        (source): source is EvidenceChipSource => source !== undefined,
-      ),
-    },
     strongestPersona
       ? {
           sentence: `${strongestPersona.title} at ${strongestPersona.company} is the clearest buyer pattern: ${strongestPersona.evidence}`,

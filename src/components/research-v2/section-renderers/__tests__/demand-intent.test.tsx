@@ -35,6 +35,14 @@ describe('DemandIntentRenderer', () => {
     expect(screen.getAllByText(/automate lead routing/i).length).toBeGreaterThanOrEqual(2);
   });
 
+  it('shows the status summary once — as the verdict, never duplicated as a key finding', () => {
+    render(<DemandIntentRenderer artifact={demandIntentArtifact} />);
+
+    expect(
+      screen.getAllByText(/category-aware demand with several unserved topics/i),
+    ).toHaveLength(1);
+  });
+
   it('renders validator-style intent gaps as GapNote, never raw validator text', () => {
     const artifact = structuredClone(demandIntentArtifact);
     artifact.intentSignals.items[0].description = 'validator requires >=5 intent signals';

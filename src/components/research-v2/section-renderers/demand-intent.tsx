@@ -17,7 +17,6 @@ import {
   clientGapSentence,
   isReaderPipelineChrome,
   scrubReaderText,
-  type EvidenceChipSource,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
 import type {
@@ -102,20 +101,6 @@ function numericVolume(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function sourceAt(
-  artifact: DemandIntentArtifact,
-  index: number,
-): EvidenceChipSource | undefined {
-  const source = artifact.sources[index];
-  if (!source) return undefined;
-  return {
-    n: index + 1,
-    title: source.title,
-    url: source.url,
-    whyItMatters: source.whyItMatters,
-  };
-}
-
 function demandKeyFindings(artifact: DemandIntentArtifact): readonly KeyFinding[] {
   const topKeyword = [...artifact.keywordDemand.keywords].sort(
     (a, b) => numericVolume(b.monthlyVolume) - numericVolume(a.monthlyVolume),
@@ -126,13 +111,6 @@ function demandKeyFindings(artifact: DemandIntentArtifact): readonly KeyFinding[
   const firstGap = artifact.contentGaps.gaps[0];
 
   return [
-    {
-      sentence: artifact.statusSummary,
-      basis: 'sourced',
-      evidence: [sourceAt(artifact, 0)].filter(
-        (source): source is EvidenceChipSource => source !== undefined,
-      ),
-    },
     topKeyword
       ? {
           sentence: `${topKeyword.keyword} is the largest visible demand cluster at ${gapAwareValue(topKeyword.monthlyVolume)} monthly searches.`,

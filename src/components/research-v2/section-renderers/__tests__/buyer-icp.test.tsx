@@ -17,6 +17,14 @@ describe('BuyerICPRenderer', () => {
     expect(screen.getByText('Who pays')).toBeInTheDocument();
   });
 
+  it('shows the status summary once — as the verdict, never duplicated as a key finding', () => {
+    render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
+
+    expect(
+      screen.getAllByText(/converge on RevOps and CX Ops buyers/i),
+    ).toHaveLength(1);
+  });
+
   it('renders five narrative blocks with expected labels', () => {
     render(<BuyerICPRenderer artifact={buyerIcpArtifact} />);
     const blocks = screen.getAllByTestId('subsection');

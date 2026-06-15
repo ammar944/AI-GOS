@@ -118,13 +118,6 @@ function marketKeyFindings(
   const topSignal = marketSize.signals[0];
   const topForce = structuralForces.forces[0];
   return [
-    {
-      sentence: artifact.statusSummary,
-      basis: 'sourced',
-      evidence: [sourceAt(artifact, 0)].filter(
-        (source): source is EvidenceChipSource => source !== undefined,
-      ),
-    },
     topSignal
       ? {
           sentence: `${topSignal.name}: ${topSignal.evidence}`,

@@ -21,7 +21,6 @@ import {
   clientGapSentence,
   scrubReaderText,
   textOrGap,
-  type EvidenceChipSource,
   type KeyFinding,
   type Positioning2x2Point,
 } from '@/components/research-v2/primitives';
@@ -135,20 +134,6 @@ function countVerifiedCreatives(group: AdEvidenceGroup): number {
   );
 }
 
-function sourceAt(
-  artifact: CompetitorLandscapeArtifact,
-  index: number,
-): EvidenceChipSource | undefined {
-  const source = artifact.sources[index];
-  if (!source) return undefined;
-  return {
-    n: index + 1,
-    title: source.title,
-    url: source.url,
-    whyItMatters: source.whyItMatters,
-  };
-}
-
 function findByCompetitor<T extends { competitor: string }>(
   rows: readonly T[],
   competitorName: string,
@@ -172,13 +157,6 @@ function competitorKeyFindings(
   const adGroup = artifact.adEvidence.advertiserGroups[0];
 
   return [
-    {
-      sentence: artifact.statusSummary,
-      basis: 'sourced',
-      evidence: [sourceAt(artifact, 0)].filter(
-        (source): source is EvidenceChipSource => source !== undefined,
-      ),
-    },
     competitor
       ? {
           sentence: `${competitor.name} sets the clearest comparison frame: ${competitor.oneLinePositioning}`,

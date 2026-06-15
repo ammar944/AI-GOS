@@ -10,7 +10,6 @@ import {
   SubsectionBlock,
   VerdictHero,
   scrubReaderText,
-  type EvidenceChipSource,
   type FunnelMathStep,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
@@ -42,20 +41,6 @@ const CHANNEL_WORKED_LABEL: Record<string, string> = {
   unknown: 'Unknown',
 };
 
-function sourceAt(
-  artifact: OfferPerformanceArtifact,
-  index: number,
-): EvidenceChipSource | undefined {
-  const source = artifact.sources[index];
-  if (!source) return undefined;
-  return {
-    n: index + 1,
-    title: source.title,
-    url: source.url,
-    whyItMatters: source.whyItMatters,
-  };
-}
-
 function offerKeyFindings(
   artifact: OfferPerformanceArtifact,
 ): readonly KeyFinding[] {
@@ -64,13 +49,6 @@ function offerKeyFindings(
   const redFlag = artifact.redFlags.items[0];
 
   return [
-    {
-      sentence: artifact.statusSummary,
-      basis: 'sourced',
-      evidence: [sourceAt(artifact, 0)].filter(
-        (source): source is EvidenceChipSource => source !== undefined,
-      ),
-    },
     artifact.singleBindingConstraint
       ? {
           sentence: `${artifact.singleBindingConstraint.constraint} unlocks when ${artifact.singleBindingConstraint.unlockCondition}`,

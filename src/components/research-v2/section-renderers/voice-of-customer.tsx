@@ -17,7 +17,6 @@ import {
   looksLikeNavMenuGarbage,
   scrubReaderText,
   textOrGap,
-  type EvidenceChipSource,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
 import { MonoBadge } from '@/components/research-v2/ui-kit';
@@ -64,33 +63,12 @@ const DECISION_ROLE_LABEL: Record<string, string> = {
   blocker: 'Blocker',
 };
 
-function sourceAt(
-  artifact: VoiceOfCustomerArtifact,
-  index: number,
-): EvidenceChipSource | undefined {
-  const source = artifact.sources[index];
-  if (!source) return undefined;
-  return {
-    n: index + 1,
-    title: source.title,
-    url: source.url,
-    whyItMatters: source.whyItMatters,
-  };
-}
-
 function vocKeyFindings(artifact: VoiceOfCustomerArtifact): readonly KeyFinding[] {
   const painQuote = artifact.painLanguage.quotes[0];
   const objection = artifact.objections.items[0];
   const criterion = artifact.decisionCriteria.criteria[0];
 
   return [
-    {
-      sentence: artifact.statusSummary,
-      basis: 'sourced',
-      evidence: [sourceAt(artifact, 0)].filter(
-        (source): source is EvidenceChipSource => source !== undefined,
-      ),
-    },
     painQuote
       ? {
           sentence: looksLikeNavMenuGarbage(painQuote.verbatimText)
