@@ -29,7 +29,7 @@ import {
 } from "./section-agent";
 
 export const executiveBriefTimeoutMs = 120_000;
-export const executiveBriefMaxOutputTokens = 8_192;
+export const executiveBriefMaxOutputTokens = 20_000;
 const maxDecisions = 5;
 
 export interface ExecutiveBriefSectionInput {
@@ -1093,6 +1093,16 @@ function rankedMovesFromDecisions(
     }));
 }
 
+function isTruncatedJsonError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /invalid jsonTool JSON|Unterminated string|Unexpected end of JSON|finishReason=length/i.test(
+    error.message,
+  );
+}
+
 async function callBriefModel({
   assumptionsToConfirm,
   extraInstruction,
@@ -1110,7 +1120,7 @@ async function callBriefModel({
     abortSignals.push(params.signal);
   }
 
-  const raw = await callStructured({
+  const callParams = {
     model,
     schema: rawBriefSchema,
     schemaName: "ExecutiveDecisionMemo",
@@ -1123,7 +1133,25 @@ async function callBriefModel({
     prompt: buildBriefPrompt({ assumptionsToConfirm, params }),
     maxOutputTokens: executiveBriefMaxOutputTokens,
     signal: AbortSignal.any(abortSignals),
-  });
+  };
+
+  let raw: unknown;
+
+  try {
+    raw = await callStructured(callParams);
+  } catch (error) {
+    // A truncated memo surfaces as invalid/unterminated JSON or a
+    // length-capped finish. One bounded retry (same params) recovers a
+    // complete memo instead of falling back to a hollow thesis.
+    if (!isTruncatedJsonError(error)) {
+      throw error;
+    }
+
+    console.info("[executive-brief] retrying after truncated memo", {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    raw = await callStructured(callParams);
+  }
 
   return parseBrief(raw);
 }
