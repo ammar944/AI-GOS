@@ -31,11 +31,11 @@ export function VerdictHero({
           </BasisChip>
         ) : null}
       </div>
-      <h2 className="mt-2 max-w-[18ch] font-sans text-[28px] font-semibold leading-[1.08] tracking-[0] text-foreground sm:text-[34px]">
+      <h2 className="mt-2 max-w-[64ch] font-heading text-[20px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
         {scrubReaderText(verdict)}
       </h2>
       {whyItMatters ? (
-        <p className="mt-3 max-w-[68ch] text-[15px] leading-[1.65] text-muted-foreground">
+        <p className="mt-2 max-w-[68ch] text-[14px] leading-[1.6] text-muted-foreground">
           {scrubReaderText(whyItMatters)}
         </p>
       ) : null}

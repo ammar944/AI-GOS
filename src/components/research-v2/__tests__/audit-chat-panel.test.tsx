@@ -17,6 +17,10 @@ vi.mock('ai', () => ({
       mocks.transportOptions(options);
     }
   },
+  isToolUIPart: (part: { type?: string }) =>
+    typeof part?.type === 'string' && part.type.startsWith('tool-'),
+  getToolName: (part: { type?: string }) =>
+    typeof part?.type === 'string' ? part.type.replace(/^tool-/, '') : '',
 }));
 
 const { AuditChatPanel } = await import('../chat/audit-chat-panel');
@@ -72,5 +76,53 @@ describe('AuditChatPanel', () => {
     expect(mocks.sendMessage).toHaveBeenCalledWith({
       text: 'Draft the offer brief',
     });
+  });
+
+  it('renders professional status rows for tool calls and clean failure rows', () => {
+    mocks.useChat.mockReturnValue({
+      error: undefined,
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-rerunSection',
+              toolCallId: 'call-1',
+              state: 'output-available',
+              output: { message: 'Queued rerun for Voice of Customer.' },
+            },
+            {
+              type: 'tool-editClaim',
+              toolCallId: 'call-2',
+              state: 'output-error',
+              errorText: 'TypeError: cannot read properties of undefined',
+            },
+          ],
+        },
+      ],
+      sendMessage: mocks.sendMessage,
+      status: 'ready',
+    });
+
+    render(<AuditChatPanel runId="00000000-0000-4000-8000-0000000000aa" />);
+
+    // Friendly labels + the tool's own clean message, never raw tool ids.
+    expect(screen.getByText('Rerunning section')).toBeInTheDocument();
+    expect(
+      screen.getByText('Queued rerun for Voice of Customer.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/rerunSection\.\.\./)).not.toBeInTheDocument();
+
+    // Failures render as a clean status row, never the raw error text.
+    expect(screen.getByText('Editing claim')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/TypeError: cannot read properties/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This action didn't complete. Try again or rephrase the request.",
+      ),
+    ).toBeInTheDocument();
   });
 });

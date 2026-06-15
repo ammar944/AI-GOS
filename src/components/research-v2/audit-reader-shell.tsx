@@ -1521,16 +1521,21 @@ export function AuditReaderShell({
                 allSectionsTerminal={allSectionsTerminal}
               />
             )}
-            {auditStateLoaded ? (
-              <AuditChatPanel
-                runId={runId}
-                focusedZone={active}
-                onResearchMutated={refreshAuditState}
-              />
-            ) : null}
           </div>
         </aside>
       </div>
+
+      {/* Bottom strategist composer — Codex-style command surface spanning the
+          reader; section status/navigation stays in the right rail above. */}
+      {auditStateLoaded ? (
+        <div className="no-print shrink-0 border-t border-border bg-card">
+          <AuditChatPanel
+            runId={runId}
+            focusedZone={active}
+            onResearchMutated={refreshAuditState}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
