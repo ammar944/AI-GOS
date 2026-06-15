@@ -144,4 +144,22 @@ describe('client-surface-sanitizer', () => {
   it('never empties a required string field (falls back to a neutral phrase)', () => {
     expect(scrubClientSurfaceText('[unverified]')).toBe('Not available.');
   });
+
+  it('replaces raw validator / Zod / decode output with a buyer-facing gap note', () => {
+    const samples = [
+      'VoiceOfCustomerSectionOutputBody failed tolerant decode: sourceUrls may be empty only when basis is assumption.',
+      'switchingStories.stories: Invalid input: expected array, received undefined',
+      'keyFindings: Too small: expected array to have >=1 items',
+      'body.painLanguage.quotes: have 0, need >=6',
+    ];
+    for (const sample of samples) {
+      const cleaned = scrubClientSurfaceText(sample);
+      expect(cleaned).toBe('Not enough public evidence was found for this point.');
+      expect(findInternalVocabularyToken(cleaned)).toBeNull();
+    }
+    // Legitimate buyer prose is not mistaken for validator output.
+    expect(scrubClientSurfaceText('Buyers expected faster onboarding.')).toBe(
+      'Buyers expected faster onboarding.',
+    );
+  });
 });

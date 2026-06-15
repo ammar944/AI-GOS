@@ -109,13 +109,39 @@ function stripToken(text: string, token: string): string {
   return text.replace(new RegExp(pattern, 'gi'), '');
 }
 
+// Buyer-facing fallback for an entire string that is raw validator output.
+const CLIENT_GAP_FALLBACK = 'Not enough public evidence was found for this point.';
+
+// Signatures of raw validator / Zod / tolerant-decode messages that must never
+// reach a buyer (e.g. "VoiceOfCustomerSectionOutputBody failed tolerant
+// decode... sourceUrls may be empty only when basis is assumption"). When a
+// string is recognisably validator output we replace the WHOLE string with a
+// clean GapNote rather than splice it, since the sentence is structured noise.
+const VALIDATOR_MESSAGE_SIGNATURES: readonly RegExp[] = [
+  /failed tolerant decode/i,
+  /tolerant[- ]decode/i,
+  /\bzoderror\b/i,
+  /invalid input:\s*expected/i,
+  /too (?:small|big):\s*expected/i,
+  /expected (?:array|string|object|number|boolean|record)\b.{0,48}\breceived\b/i,
+  /may be empty only when basis is/i,
+  /\b\w+(?:Schema|SectionOutputBody)\b/,
+  /\bhave \d+[,;].{0,40}\b(?:need|add)\b/i,
+];
+
+function looksLikeValidatorMessage(value: string): boolean {
+  return VALIDATOR_MESSAGE_SIGNATURES.some((signature) => signature.test(value));
+}
+
 /**
  * Removes internal pipeline vocabulary from a single client-surface string,
  * re-expressing honest gaps in buyer language. The result is guaranteed to
- * satisfy `findInternalVocabularyToken(result) === null`.
+ * satisfy `findInternalVocabularyToken(result) === null`, and raw validator /
+ * Zod / decode output is replaced wholesale with a buyer-facing gap note.
  */
 export function scrubClientSurfaceText(value: string): string {
   if (value.length === 0 || isUrlLike(value)) return value;
+  if (looksLikeValidatorMessage(value)) return CLIENT_GAP_FALLBACK;
 
   let out = value;
   for (const { pattern, replacement } of READABLE_REWRITES) {
