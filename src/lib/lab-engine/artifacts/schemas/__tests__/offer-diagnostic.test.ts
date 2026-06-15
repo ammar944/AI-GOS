@@ -270,3 +270,75 @@ describe("parseOfferDiagnosticStrategicEvidenceGapPath", (): void => {
     ).toBeNull();
   });
 });
+
+// R1 deadline-exhaustion honest-gap: a heavy section's structured first attempt
+// can fail with no budget left for the fallback. There is no partial to
+// salvage, so run-section authors a from-scratch empty-but-honest body. This
+// mirrors the exact shape buildDeadlineExhaustionHonestGapBody emits for
+// OfferDiagnostic (the live-proof target) — it MUST parse offerDiagnosticBodySchema
+// AND pass validateOfferDiagnosticMinimums so it commits instead of erroring.
+describe("offer-diagnostic deadline-exhaustion honest-gap skeleton (R1)", (): void => {
+  const note = "evidence gap: section exceeded its time budget — rerun to retry";
+  const gapBlock = (requiredCount: number) => ({
+    summary: note,
+    foundCount: 0,
+    requiredCount,
+    sourcingPlan: ["Rerun this section to retry — it exceeded its time budget"],
+  });
+  const deadlineExhaustionBody = {
+    strategicInsight: {
+      strategicVerdict: note,
+      keyTension: {
+        tension: `${note} — no tension could be sourced in time`,
+        side: `${note} — no side could be sourced in time`,
+        costOfPosition: `${note} — cost of position not sourced in time`,
+      },
+    },
+    orderedMoves: [
+      {
+        rank: 1,
+        move: `${note} — first move not derivable until a rerun completes`,
+        dependsOn: [],
+        rationale: `${note} — rationale not derivable until a rerun completes`,
+      },
+      {
+        rank: 2,
+        move: `${note} — second move not derivable until a rerun completes`,
+        dependsOn: [1],
+        rationale: `${note} — second rationale not derivable until a rerun completes`,
+      },
+    ],
+    provesWrongIf: { metric: note, threshold: note, window: note },
+    singleBindingConstraint: {
+      constraint: note,
+      whyBinding: `${note} — why binding not derivable until a rerun completes`,
+      unlockCondition: `${note} — unlock condition not derivable until a rerun completes`,
+    },
+    offerMarketFit: { prose: note, proofPoints: [], blockGap: gapBlock(3) },
+    funnelDiagnosis: { prose: note, breaks: [], blockGap: gapBlock(2) },
+    channelTruth: { prose: note, channels: [], blockGap: gapBlock(3) },
+    retentionHealth: { prose: note, signals: [], blockGap: gapBlock(1) },
+    redFlags: { prose: note, items: [], blockGap: gapBlock(3) },
+  };
+
+  it("parses bodySchema and passes validateOfferDiagnosticMinimums", (): void => {
+    const candidate = artifactEnvelopeSchema
+      .extend({ body: offerDiagnosticBodySchema })
+      .parse({
+        ...offerDiagnosticFixtureArtifact,
+        verdict: note,
+        statusSummary: note,
+        confidence: 0.1,
+        sources: Array.from({ length: 5 }, (_unused, index) => ({
+          id: `deadline-gap-${index + 1}`,
+          observedAt: "2026-06-01T00:00:00.000Z",
+          title:
+            "Placeholder — section exceeded its time budget before sources were committed",
+          url: `https://saaslaunch.example.com#section-gap-${index + 1}`,
+        })),
+        body: deadlineExhaustionBody,
+      });
+
+    expect(validateOfferDiagnosticMinimums(candidate).ok).toBe(true);
+  });
+});

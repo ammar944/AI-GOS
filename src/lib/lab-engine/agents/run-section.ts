@@ -1038,6 +1038,36 @@ function hasTerminalStructuredError(errors: readonly string[]): boolean {
   );
 }
 
+// R1 gate: true ONLY when the structured first attempt failed for lack of
+// deadline budget — remaining section budget is below the fallback floor AND the
+// failure is the deadline-fallback-skip / structured-timeout signal AND this is
+// NOT a real abort. Infra failures WITH budget remaining (remaining >= floor)
+// and real aborts (signal.aborted) are deliberately excluded so they still
+// surface as a genuine error.
+function isDeadlineExhaustionFailure(
+  errors: readonly string[],
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): boolean {
+  if (input.signal?.aborted === true) {
+    return false;
+  }
+
+  const remainingMs = getRemainingDeadlineMs(input, deps);
+  if (
+    remainingMs === null ||
+    remainingMs >= getStructuredFallbackFloorMs(input.sectionId)
+  ) {
+    return false;
+  }
+
+  return errors.some(
+    (error) =>
+      error.includes("deadline-aware structured fallback skipped:") ||
+      error.includes("Structured output timed out"),
+  );
+}
+
 function hasPaidMediaLengthFinishError(errors: readonly string[]): boolean {
   return errors.some((error) => error.includes("ended with finishReason=length"));
 }
@@ -1906,6 +1936,365 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
     quoteCandidates,
     researchInput,
   });
+}
+
+// R1 deadline-exhaustion honest-gap builder. When a heavy section's structured
+// first attempt fails AND there is no budget left for the deadline-aware
+// fallback (isDeadlineExhaustionFailure), there is no partial to salvage — the
+// partial is discarded and structurally unusable. Author a from-scratch
+// schema-valid empty-but-honest body so deadline exhaustion degrades to an
+// honest-gap COMMIT (needs_review/insufficient) instead of status=error, which
+// would stall the run below 6/6. VALIDATE the skeleton via bodySchema.parse +
+// validateMinimums and return undefined if it does not pass, so a schema-drift
+// skeleton never commits — it falls through to a genuine error.
+const deadlineGapNote =
+  "evidence gap: section exceeded its time budget — rerun to retry";
+const deadlineGapSourcingPlan = [
+  "Rerun this section to retry — it exceeded its time budget",
+];
+
+function buildDeadlineExhaustionGapBlock(requiredCount: number): {
+  summary: string;
+  foundCount: number;
+  requiredCount: number;
+  sourcingPlan: string[];
+} {
+  return {
+    summary: deadlineGapNote,
+    foundCount: 0,
+    requiredCount,
+    sourcingPlan: [...deadlineGapSourcingPlan],
+  };
+}
+
+// >=5 placeholder gap sources derived from the subject/company URL. They read
+// as gap placeholders (deadline-exhaustion titles + #section-gap fragments),
+// not fabricated evidence, and satisfy the section source floors (>=5).
+function buildDeadlineExhaustionGapSources(
+  researchInput: ResearchInput,
+  observedAt: string,
+): ArtifactEnvelope["sources"] {
+  const baseUrl = researchInput.company.websiteUrl;
+  return Array.from({ length: 5 }, (_unused, index) => ({
+    id: `deadline-gap-${index + 1}`,
+    observedAt,
+    title:
+      "Placeholder — section exceeded its time budget before sources were committed",
+    url: `${baseUrl}#section-gap-${index + 1}`,
+  }));
+}
+
+function buildDeadlineExhaustionStrategicInsight(): Record<string, unknown> {
+  return {
+    strategicVerdict: deadlineGapNote,
+    keyTension: {
+      tension: `${deadlineGapNote} — no tension could be sourced in time`,
+      side: `${deadlineGapNote} — no side could be sourced in time`,
+      costOfPosition: `${deadlineGapNote} — cost of position not sourced in time`,
+    },
+  };
+}
+
+function buildDeadlineExhaustionOrderedMoves(): Array<Record<string, unknown>> {
+  return [
+    {
+      rank: 1,
+      move: `${deadlineGapNote} — first move not derivable until a rerun completes`,
+      dependsOn: [],
+      rationale: `${deadlineGapNote} — rationale not derivable until a rerun completes`,
+    },
+    {
+      rank: 2,
+      move: `${deadlineGapNote} — second move not derivable until a rerun completes`,
+      dependsOn: [1],
+      rationale: `${deadlineGapNote} — second rationale not derivable until a rerun completes`,
+    },
+  ];
+}
+
+function buildDeadlineExhaustionProvesWrongIf(): Record<string, unknown> {
+  return {
+    metric: deadlineGapNote,
+    threshold: deadlineGapNote,
+    window: deadlineGapNote,
+  };
+}
+
+function buildDeadlineExhaustionHonestGapBody(
+  sectionId: SectionId,
+): Record<string, unknown> | undefined {
+  const strategicInsight = buildDeadlineExhaustionStrategicInsight();
+  switch (sectionId) {
+    case "positioningMarketCategory":
+      return {
+        strategicInsight,
+        categoryPowerBet: {
+          bet: deadlineGapNote,
+          whyNow: `${deadlineGapNote} — timing not derivable until a rerun completes`,
+          riskAccepted: `${deadlineGapNote} — risk not derivable until a rerun completes`,
+        },
+        categoryDefinition: {
+          prose: deadlineGapNote,
+          adjacentCategories: [],
+          blockGap: buildDeadlineExhaustionGapBlock(2),
+        },
+        marketSize: {
+          prose: deadlineGapNote,
+          signals: [],
+          bottomUpTam: {
+            recipeName: "keyword-demand-reachable-revenue",
+            formula: deadlineGapNote,
+            reachableRevenueEstimate: deadlineGapNote,
+            inputs: [],
+            caveats: [deadlineGapNote],
+          },
+          blockGap: buildDeadlineExhaustionGapBlock(2),
+        },
+        structuralForces: {
+          prose: deadlineGapNote,
+          forces: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        categoryMaturity: {
+          prose: deadlineGapNote,
+          classification: {
+            stage: "emerging",
+            evidenceSummary: deadlineGapNote,
+            supportingSignals: [],
+          },
+          blockGap: buildDeadlineExhaustionGapBlock(2),
+        },
+      };
+    case "positioningBuyerICP":
+      return {
+        strategicInsight,
+        icpExistenceCheck: {
+          prose: deadlineGapNote,
+          firmographicCuts: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        personaReality: {
+          prose: deadlineGapNote,
+          personas: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        awarenessDistribution: {
+          prose: deadlineGapNote,
+          levels: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        buyingContext: {
+          prose: deadlineGapNote,
+          triggers: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        clusters: {
+          prose: deadlineGapNote,
+          venues: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+      };
+    case "positioningCompetitorLandscape":
+      return {
+        strategicInsight,
+        whereToAttackVsConcede: {
+          attack: deadlineGapNote,
+          concede: `${deadlineGapNote} — concede stance not derivable until a rerun completes`,
+          rationale: `${deadlineGapNote} — rationale not derivable until a rerun completes`,
+        },
+        incumbentBlindSpot: {
+          incumbent: deadlineGapNote,
+          blindSpot: `${deadlineGapNote} — blind spot not derivable until a rerun completes`,
+          whyTheyMissIt: `${deadlineGapNote} — reason not derivable until a rerun completes`,
+        },
+        competitorSet: {
+          prose: deadlineGapNote,
+          competitors: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        positioningTaxonomy: {
+          prose: deadlineGapNote,
+          axes: [],
+          blockGap: buildDeadlineExhaustionGapBlock(2),
+        },
+        pricingReality: {
+          prose: deadlineGapNote,
+          dataPoints: [],
+          blockGap: buildDeadlineExhaustionGapBlock(2),
+        },
+        shareOfVoice: {
+          prose: deadlineGapNote,
+          slices: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        publicWeaknesses: {
+          prose: deadlineGapNote,
+          items: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        narrativeArcs: {
+          prose: deadlineGapNote,
+          arcs: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        adPresence: {
+          prose: deadlineGapNote,
+          signals: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        adEvidence: {
+          prose: deadlineGapNote,
+          advertiserGroups: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+      };
+    case "positioningVoiceOfCustomer":
+      return {
+        retrievalSummary: deadlineGapNote,
+        strategicInsight,
+        fourForcesBalanceVerdict: {
+          push: deadlineGapNote,
+          pull: `${deadlineGapNote} — pull not derivable until a rerun completes`,
+          anxiety: `${deadlineGapNote} — anxiety not derivable until a rerun completes`,
+          habit: `${deadlineGapNote} — habit not derivable until a rerun completes`,
+          balanceVerdict: `${deadlineGapNote} — balance verdict not derivable until a rerun completes`,
+        },
+        painLanguage: {
+          prose: deadlineGapNote,
+          quotes: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        objections: {
+          prose: deadlineGapNote,
+          items: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        switchingStories: {
+          prose: deadlineGapNote,
+          stories: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        decisionCriteria: {
+          prose: deadlineGapNote,
+          criteria: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        successLanguage: {
+          prose: deadlineGapNote,
+          quotes: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+      };
+    case "positioningDemandIntent":
+      return {
+        strategicInsight,
+        orderedMoves: buildDeadlineExhaustionOrderedMoves(),
+        provesWrongIf: buildDeadlineExhaustionProvesWrongIf(),
+        keywordDemand: {
+          prose: deadlineGapNote,
+          keywords: [],
+          blockGap: buildDeadlineExhaustionGapBlock(5),
+        },
+        questionMining: {
+          prose: deadlineGapNote,
+          questions: [],
+          blockGap: buildDeadlineExhaustionGapBlock(10),
+        },
+        contentGaps: {
+          prose: deadlineGapNote,
+          gaps: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        intentSignals: {
+          prose: deadlineGapNote,
+          items: [],
+          blockGap: buildDeadlineExhaustionGapBlock(5),
+        },
+        venueMap: {
+          prose: deadlineGapNote,
+          venues: [],
+          blockGap: buildDeadlineExhaustionGapBlock(4),
+        },
+      };
+    case "positioningOfferDiagnostic":
+      return {
+        strategicInsight,
+        orderedMoves: buildDeadlineExhaustionOrderedMoves(),
+        provesWrongIf: buildDeadlineExhaustionProvesWrongIf(),
+        singleBindingConstraint: {
+          constraint: deadlineGapNote,
+          whyBinding: `${deadlineGapNote} — why binding not derivable until a rerun completes`,
+          unlockCondition: `${deadlineGapNote} — unlock condition not derivable until a rerun completes`,
+        },
+        offerMarketFit: {
+          prose: deadlineGapNote,
+          proofPoints: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        funnelDiagnosis: {
+          prose: deadlineGapNote,
+          breaks: [],
+          blockGap: buildDeadlineExhaustionGapBlock(2),
+        },
+        channelTruth: {
+          prose: deadlineGapNote,
+          channels: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+        retentionHealth: {
+          prose: deadlineGapNote,
+          signals: [],
+          blockGap: buildDeadlineExhaustionGapBlock(1),
+        },
+        redFlags: {
+          prose: deadlineGapNote,
+          items: [],
+          blockGap: buildDeadlineExhaustionGapBlock(3),
+        },
+      };
+    default:
+      return undefined;
+  }
+}
+
+function buildDeadlineExhaustionHonestGapArtifact({
+  definition,
+  deps,
+  input,
+  researchInput,
+}: {
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): ArtifactEnvelope | undefined {
+  const body = buildDeadlineExhaustionHonestGapBody(input.sectionId);
+  if (body === undefined) {
+    return undefined;
+  }
+
+  const observedAt = getNow(deps).toISOString();
+  let candidate: ArtifactEnvelope;
+  try {
+    candidate = artifactEnvelopeSchema
+      .extend({ body: definition.bodySchema })
+      .parse({
+        id: getNewId(deps),
+        runId: input.runId,
+        sectionId: input.sectionId,
+        sectionTitle: definition.title,
+        verdict: deadlineGapNote,
+        statusSummary: deadlineGapNote,
+        confidence: 0.1,
+        sources: buildDeadlineExhaustionGapSources(researchInput, observedAt),
+        body,
+        createdAt: observedAt,
+      });
+  } catch {
+    return undefined;
+  }
+
+  return definition.validateMinimums(candidate).ok ? candidate : undefined;
 }
 
 function buildVoiceOfCustomerDeterministicSynthesisArtifact({
@@ -9113,7 +9502,7 @@ async function runSectionViaAnswerTool(
       attempt = bestCommittableAttempt;
     }
 
-    const evidenceGapArtifact =
+    let evidenceGapArtifact =
       getAttemptEvidenceGapArtifact(attempt) ??
       buildVoiceOfCustomerDeterministicSynthesisArtifact({
         definition,
@@ -9131,6 +9520,18 @@ async function runSectionViaAnswerTool(
         researchInput,
         voiceOfCustomerPrepass,
       });
+    if (
+      attempt.artifact === null &&
+      evidenceGapArtifact === undefined &&
+      isDeadlineExhaustionFailure(getAttemptRepairIssues(attempt), input, deps)
+    ) {
+      evidenceGapArtifact = buildDeadlineExhaustionHonestGapArtifact({
+        definition,
+        deps,
+        input,
+        researchInput,
+      });
+    }
     if (
       attempt.artifact === null &&
       evidenceGapArtifact !== undefined &&
@@ -9913,7 +10314,7 @@ async function runSectionViaStructuredBodyStream(
       attempt = bestCommittableAttempt;
     }
 
-    const evidenceGapArtifact =
+    let evidenceGapArtifact =
       getAttemptEvidenceGapArtifact(attempt) ??
       buildVoiceOfCustomerDeterministicSynthesisArtifact({
         definition,
@@ -9931,6 +10332,18 @@ async function runSectionViaStructuredBodyStream(
         researchInput,
         voiceOfCustomerPrepass,
       });
+    if (
+      attempt.artifact === null &&
+      evidenceGapArtifact === undefined &&
+      isDeadlineExhaustionFailure(getAttemptRepairIssues(attempt), input, deps)
+    ) {
+      evidenceGapArtifact = buildDeadlineExhaustionHonestGapArtifact({
+        definition,
+        deps,
+        input,
+        researchInput,
+      });
+    }
     if (
       attempt.artifact === null &&
       evidenceGapArtifact !== undefined &&

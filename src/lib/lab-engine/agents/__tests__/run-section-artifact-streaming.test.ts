@@ -710,4 +710,114 @@ describe('runSection artifact streaming path', (): void => {
     const record = await store.readRun(saaslaunchResearchInput.runId);
     expect(record.sections.positioningOfferDiagnostic?.status).toBe('completed');
   });
+
+  // R1 deadline exhaustion: a heavy section whose structured first attempt
+  // fails with NO budget left for the deadline-aware fallback must degrade to an
+  // honest-gap COMMIT (never status=error), so the run can still reach 6/6.
+  const DEADLINE_SKIP_ERROR =
+    'deadline-aware structured fallback skipped: remaining section budget 60000ms below fallback floor 120000ms schemaName=OfferDiagnosticBody';
+  const NOW_MS = new Date('2026-06-01T00:00:00.000Z').getTime();
+
+  it('commits a deadline-exhaustion honest-gap artifact when the structured fallback is skipped below the floor', async (): Promise<void> => {
+    const store = await makeStore(['positioningOfferDiagnostic']);
+    // remaining budget = 60s, below the 120s fallback floor.
+    const streamStructured = vi.fn<StructuredStreamer>(() => ({
+      consumeStream: () => Promise.resolve(),
+      output: Promise.reject(new Error(DEADLINE_SKIP_ERROR)),
+      partialOutputStream: partials([]),
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningOfferDiagnostic',
+        deadlineAt: NOW_MS + 60_000,
+      },
+      {
+        store,
+        loadSkill: async () => 'Offer diagnostic deadline exhaustion.',
+        allowedTools: [],
+        streamStructured,
+        broadcastPartial: vi.fn<SectionPartialPublishFn>(async () => undefined),
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+      },
+    );
+
+    // Committed an honest-gap artifact, not thrown.
+    expect(result.artifact).not.toBeNull();
+    expect(result.artifact.sectionId).toBe('positioningOfferDiagnostic');
+    expect(result.artifact.confidence).toBeLessThanOrEqual(0.1);
+
+    const body = result.artifact.body as typeof offerDiagnosticFixtureArtifact.body;
+    expect(body.offerMarketFit.proofPoints).toHaveLength(0);
+    expect(body.offerMarketFit.blockGap?.summary).toMatch(/time budget/i);
+    expect(body.funnelDiagnosis.blockGap).toBeDefined();
+    expect(body.channelTruth.blockGap).toBeDefined();
+    expect(body.retentionHealth.blockGap).toBeDefined();
+    expect(body.redFlags.blockGap).toBeDefined();
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    expect(record.sections.positioningOfferDiagnostic?.status).toBe('completed');
+  });
+
+  it('still errors on a deadline-skip failure when budget is above the fallback floor', async (): Promise<void> => {
+    const store = await makeStore(['positioningOfferDiagnostic']);
+    // remaining budget = 200s, above the 120s fallback floor -> NOT exhaustion.
+    const streamStructured = vi.fn<StructuredStreamer>(() => ({
+      consumeStream: () => Promise.resolve(),
+      output: Promise.reject(new Error(DEADLINE_SKIP_ERROR)),
+      partialOutputStream: partials([]),
+    }));
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningOfferDiagnostic',
+          deadlineAt: NOW_MS + 200_000,
+        },
+        {
+          store,
+          loadSkill: async () => 'Offer diagnostic budget above floor.',
+          allowedTools: [],
+          streamStructured,
+          broadcastPartial: vi.fn<SectionPartialPublishFn>(async () => undefined),
+          now: () => new Date('2026-06-01T00:00:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow();
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    expect(record.sections.positioningOfferDiagnostic?.status).toBe('failed');
+  });
+
+  it('still errors on a real abort even when budget is below the fallback floor', async (): Promise<void> => {
+    const store = await makeStore(['positioningOfferDiagnostic']);
+    const controller = new AbortController();
+    controller.abort();
+    const streamStructured = vi.fn<StructuredStreamer>(() => ({
+      consumeStream: () => Promise.resolve(),
+      output: Promise.reject(new Error(DEADLINE_SKIP_ERROR)),
+      partialOutputStream: partials([]),
+    }));
+
+    await expect(
+      runSection(
+        {
+          runId: saaslaunchResearchInput.runId,
+          sectionId: 'positioningOfferDiagnostic',
+          deadlineAt: NOW_MS + 60_000,
+          signal: controller.signal,
+        },
+        {
+          store,
+          loadSkill: async () => 'Offer diagnostic aborted.',
+          allowedTools: [],
+          streamStructured,
+          broadcastPartial: vi.fn<SectionPartialPublishFn>(async () => undefined),
+          now: () => new Date('2026-06-01T00:00:00.000Z'),
+        },
+      ),
+    ).rejects.toThrow();
+  });
 });

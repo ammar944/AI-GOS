@@ -264,4 +264,43 @@ describe('tier honesty trust derivation', (): void => {
     expect(trust?.smallNContainmentUnknownCount).toBe(0);
     expect(trust?.confidence).toBe(0.1);
   });
+
+  // R1: a committed deadline-exhaustion honest-gap body (every block empty +
+  // gap-substituted) tiers as an honest gap (needs_review/insufficient) — it
+  // has an honest empty core and its confidence is capped at 0.4, never the
+  // verified tier.
+  it('tiers a deadline-exhaustion honest-gap body as honest-empty-core, not verified', (): void => {
+    const note = 'evidence gap: section exceeded its time budget — rerun to retry';
+    const gapBlock = (requiredCount: number) => ({
+      summary: note,
+      foundCount: 0,
+      requiredCount,
+      sourcingPlan: ['Rerun this section to retry — it exceeded its time budget'],
+    });
+    const body = {
+      offerMarketFit: { prose: note, proofPoints: [], blockGap: gapBlock(3) },
+      funnelDiagnosis: { prose: note, breaks: [], blockGap: gapBlock(2) },
+      channelTruth: { prose: note, channels: [], blockGap: gapBlock(3) },
+      retentionHealth: { prose: note, signals: [], blockGap: gapBlock(1) },
+      redFlags: { prose: note, items: [], blockGap: gapBlock(3) },
+    };
+    const artifact = buildArtifact({
+      body,
+      sectionId: 'positioningOfferDiagnostic',
+      verification: buildVerificationReport({
+        unsupportedCount: 0,
+        verifiedCount: 1,
+      }),
+    });
+    const trust = deriveWave2TrustConfidence({
+      artifact,
+      honestEmptyCore: hasHonestEmptyCore(body),
+      quoteForceEmptied: false,
+      sectionId: 'positioningOfferDiagnostic',
+      sourceLiveness: buildSourceLivenessResult(),
+    });
+
+    expect(trust?.honestEmptyCore).toBe(true);
+    expect(trust?.confidence).toBeLessThanOrEqual(0.4);
+  });
 });
