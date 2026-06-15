@@ -400,6 +400,78 @@ describe("tolerantDecode", (): void => {
     );
   });
 
+  it("defaults a missing required array to [] and records a default-missing-array repair", (): void => {
+    const schema = z
+      .object({
+        offerMarketFit: z
+          .object({
+            prose: z.string().min(1),
+            proofPoints: z.array(z.string().min(1)),
+          })
+          .strict(),
+      })
+      .strict();
+
+    const result = expectOk(
+      tolerantDecode(
+        schema,
+        { offerMarketFit: { prose: "fit prose" } },
+        { sectionId: "positioningOfferDiagnostic" },
+      ),
+    );
+
+    expect(result.value).toEqual({
+      offerMarketFit: { prose: "fit prose", proofPoints: [] },
+    });
+    expect(result.snaps).toEqual([
+      expect.objectContaining({
+        action: "default-missing-array",
+        path: "offerMarketFit.proofPoints",
+        to: [],
+      }),
+    ]);
+  });
+
+  it("still wraps a present-but-non-array value instead of defaulting it", (): void => {
+    const schema = z
+      .object({
+        tags: z.array(z.string().min(1)),
+      })
+      .strict();
+
+    const result = expectOk(
+      tolerantDecode(
+        schema,
+        { tags: "single-tag" },
+        { sectionId: "positioningBuyerICP" },
+      ),
+    );
+
+    expect(result.value).toEqual({ tags: ["single-tag"] });
+    expect(result.snaps).toEqual([
+      expect.objectContaining({ action: "wrap-array" }),
+    ]);
+  });
+
+  it("leaves a clean body with a present array untouched (no array repairs)", (): void => {
+    const schema = z
+      .object({
+        tags: z.array(z.string().min(1)),
+      })
+      .strict();
+
+    const result = expectOk(
+      tolerantDecode(
+        schema,
+        { tags: ["a", "b"] },
+        { sectionId: "positioningBuyerICP" },
+      ),
+    );
+
+    expect(result.value).toEqual({ tags: ["a", "b"] });
+    expect(result.snaps).toEqual([]);
+  });
+
   it("drops irreparable bad rows but returns top-level floors as shortfalls", (): void => {
     const schema = z
       .object({

@@ -469,6 +469,28 @@ function applyInvalidTypeFix<TValue>({
   }
 
   if (
+    issue.code === "invalid_type" &&
+    expected === "array" &&
+    currentValue === undefined
+  ) {
+    const cloned = structuredClone(value);
+    ensureParentRecords(cloned, issue.path);
+    const nextValue = setAtPath(cloned, issue.path, []);
+
+    if (nextValue.changed) {
+      return {
+        value: nextValue.value,
+        repair: {
+          path: formatPath(issue.path),
+          action: "default-missing-array",
+          from: undefined,
+          to: [],
+        },
+      };
+    }
+  }
+
+  if (
     expected === "array" &&
     currentValue !== undefined &&
     currentValue !== null &&
@@ -756,6 +778,42 @@ function setAtPath(
 
   parent[key] = nextValue;
   return { changed: true, value: root };
+}
+
+// Walks the path's parent chain and materializes any missing intermediate
+// record so a leaf value can land on it. Only string segments are created
+// (a missing numeric segment would imply an array we will not fabricate);
+// when an existing segment is a non-record, the walk stops so setAtPath
+// reports changed:false and the caller fails closed.
+function ensureParentRecords(root: unknown, path: DecodePath): void {
+  if (!isMutableRecord(root)) {
+    return;
+  }
+
+  let current: Record<string | symbol, unknown> = root;
+
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const part = path[index];
+
+    if (typeof part !== "string") {
+      return;
+    }
+
+    const next = current[part];
+
+    if (next === undefined) {
+      const created: Record<string | symbol, unknown> = {};
+      current[part] = created;
+      current = created;
+      continue;
+    }
+
+    if (!isMutableRecord(next)) {
+      return;
+    }
+
+    current = next;
+  }
 }
 
 function deleteAtPath(

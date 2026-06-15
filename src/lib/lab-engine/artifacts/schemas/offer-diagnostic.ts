@@ -394,3 +394,139 @@ export function buildOfferDiagnosticEvidenceGapBody({
 
   return patched;
 }
+
+// T2c: structural count-floor escape hatch. The blocks below carry a row-count
+// minimum that a strategic-text gap string cannot satisfy; when the section
+// returns too few rows we attach a schema-valid blockGap (summary + counts +
+// recovery plan) so the body commits as an honest gap instead of hard-failing.
+// Each entry maps a count-floor error to its block field + the floor value.
+const offerStructuralFloorMatchers: ReadonlyArray<{
+  block: string;
+  requiredCount: number;
+  noun: string;
+  matches: (error: string) => number | null;
+}> = [
+  {
+    block: "offerMarketFit",
+    requiredCount: 3,
+    noun: "proof points",
+    matches: (error) =>
+      parseOfferFoundCount(
+        error,
+        /^body\.offerMarketFit\.proofPoints: have (\d+), need >=3\.$/,
+      ),
+  },
+  {
+    block: "funnelDiagnosis",
+    requiredCount: 2,
+    noun: "funnel breaks",
+    matches: (error) =>
+      parseOfferFoundCount(
+        error,
+        /^body\.funnelDiagnosis\.breaks: have (\d+), need >=2\.$/,
+      ),
+  },
+  {
+    block: "channelTruth",
+    requiredCount: 3,
+    noun: "channels",
+    matches: (error) =>
+      parseOfferFoundCount(
+        error,
+        /^body\.channelTruth\.channels: have (\d+), need >=3\.$/,
+      ) ??
+      parseOfferFoundCount(
+        error,
+        /^body\.channelTruth\.channels: need >=3 distinct channel names, have (\d+)\.$/,
+      ),
+  },
+  {
+    block: "retentionHealth",
+    requiredCount: 1,
+    noun: "retention signals",
+    matches: (error) =>
+      parseOfferFoundCount(
+        error,
+        /^body\.retentionHealth\.signals: have (\d+), need >=1 or body\.retentionHealth\.blockGap\.$/,
+      ),
+  },
+  {
+    block: "redFlags",
+    requiredCount: 3,
+    noun: "red flags",
+    matches: (error) =>
+      parseOfferFoundCount(
+        error,
+        /^body\.redFlags\.items: have (\d+), need >=3\.$/,
+      ),
+  },
+];
+
+function parseOfferFoundCount(error: string, pattern: RegExp): number | null {
+  const match = pattern.exec(error);
+  if (match === null) {
+    return null;
+  }
+  const found = Number(match[1]);
+  return Number.isInteger(found) ? found : null;
+}
+
+/**
+ * Patch the failing OfferDiagnostic structural count-floors with schema-valid
+ * blockGaps. Existing rows are preserved; only the block's `blockGap` field is
+ * set. Returns null when ANY flagged error is not a recognized structural floor
+ * (so the caller hard-fails rather than committing un-softened defects). The
+ * caller re-validates minimums before committing — this only builds the body.
+ */
+export function buildOfferDiagnosticBlockGapBody({
+  body,
+  errors,
+}: {
+  body: Record<string, unknown>;
+  errors: readonly string[];
+}): Record<string, unknown> | null {
+  if (errors.length === 0) {
+    return null;
+  }
+
+  // Resolve each error to its block; bail if any error is unrecognized so the
+  // caller still hard-fails on genuinely unknown failures.
+  const resolved: Array<{ block: string; requiredCount: number; noun: string; foundCount: number }> = [];
+  for (const error of errors) {
+    let matched = false;
+    for (const matcher of offerStructuralFloorMatchers) {
+      const foundCount = matcher.matches(error);
+      if (foundCount !== null) {
+        resolved.push({
+          block: matcher.block,
+          requiredCount: matcher.requiredCount,
+          noun: matcher.noun,
+          foundCount,
+        });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      return null;
+    }
+  }
+
+  const patched = structuredClone(body);
+  for (const entry of resolved) {
+    const block = patched[entry.block];
+    if (block === null || typeof block !== "object" || Array.isArray(block)) {
+      return null;
+    }
+    (block as Record<string, unknown>).blockGap = {
+      summary: `Only ${entry.foundCount} of the required ${entry.requiredCount} ${entry.noun} could be sourced from the fetched evidence.`,
+      foundCount: entry.foundCount,
+      requiredCount: entry.requiredCount,
+      sourcingPlan: [
+        `Re-run acquisition for ${entry.block} to source ${entry.requiredCount - entry.foundCount} more ${entry.noun} from verified sources.`,
+      ],
+    };
+  }
+
+  return patched;
+}

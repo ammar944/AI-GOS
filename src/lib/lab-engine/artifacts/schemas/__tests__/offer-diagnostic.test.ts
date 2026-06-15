@@ -5,6 +5,7 @@ import {
   artifactEnvelopeSchema,
 } from "../../artifact-envelope";
 import {
+  buildOfferDiagnosticBlockGapBody,
   buildOfferDiagnosticEvidenceGapBody,
   offerDiagnosticBodySchema,
   parseOfferDiagnosticStrategicEvidenceGapPath,
@@ -177,6 +178,62 @@ describe("offer-diagnostic evidence-gap escape hatch (T2b)", (): void => {
     };
 
     expect(validateOfferDiagnosticMinimums(rebuildArtifact(body)).ok).toBe(true);
+  });
+});
+
+describe("offer-diagnostic structural blockGap escape hatch (T2c)", (): void => {
+  it("softens a too-few-proofPoints floor into a schema-valid offerMarketFit blockGap, retaining real rows", (): void => {
+    const realProofPoints =
+      offerDiagnosticFixtureArtifact.body.offerMarketFit.proofPoints.slice(0, 2);
+    expect(realProofPoints).toHaveLength(2);
+
+    const body: OfferDiagnosticBody = {
+      ...offerDiagnosticFixtureArtifact.body,
+      offerMarketFit: {
+        ...offerDiagnosticFixtureArtifact.body.offerMarketFit,
+        proofPoints: realProofPoints,
+      },
+    };
+
+    const failing = rebuildArtifact(body);
+    const minimums = validateOfferDiagnosticMinimums(failing);
+    expect(minimums.ok).toBe(false);
+
+    const patchedBody = buildOfferDiagnosticBlockGapBody({
+      body: failing.body as unknown as Record<string, unknown>,
+      errors: minimums.errors,
+    });
+    expect(patchedBody).not.toBeNull();
+
+    const candidate = artifactEnvelopeSchema
+      .extend({ body: offerDiagnosticBodySchema })
+      .parse({ ...offerDiagnosticFixtureArtifact, body: patchedBody });
+
+    // Re-validates clean now that the block carries an honest gap.
+    expect(validateOfferDiagnosticMinimums(candidate).ok).toBe(true);
+
+    // Real rows preserved (not blanked).
+    expect(candidate.body.offerMarketFit.proofPoints).toEqual(realProofPoints);
+
+    // blockGap present and schema-valid (survived the field transform).
+    const blockGap = candidate.body.offerMarketFit.blockGap;
+    expect(blockGap).toBeDefined();
+    expect(blockGap?.foundCount).toBe(2);
+    expect(blockGap?.requiredCount).toBe(3);
+    expect(blockGap?.summary.length).toBeGreaterThan(0);
+    expect(blockGap?.sourcingPlan.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("returns null for an unrecognized error so unknown failures still hard-fail", (): void => {
+    expect(
+      buildOfferDiagnosticBlockGapBody({
+        body: offerDiagnosticFixtureArtifact.body as unknown as Record<
+          string,
+          unknown
+        >,
+        errors: ["body.somethingElse: this is not a known structural floor."],
+      }),
+    ).toBeNull();
   });
 });
 

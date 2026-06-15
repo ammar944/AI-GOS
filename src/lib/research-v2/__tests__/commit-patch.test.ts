@@ -254,4 +254,42 @@ describe('buildCommitPatch', (): void => {
 
     expect(patch.verificationTier).toBe('verified');
   });
+
+  it('commits an OfferDiagnostic structural-gap artifact as complete + needs_review/insufficient', (): void => {
+    // Mirrors the body buildOfferDiagnosticEvidenceGapArtifact produces for a
+    // structural floor miss: real rows kept, an honest blockGap injected, a
+    // gap-aware verdict/summary, and a low verified share from the gapped block.
+    const patch = buildCommitPatch('positioningOfferDiagnostic', {
+      sectionTitle: 'Offer Diagnostic',
+      verdict:
+        'Some offer-diagnostic blocks are below the evidence bar; treat the gapped findings as unproven.',
+      statusSummary:
+        'The section completed with structural evidence gaps so downstream synthesis can proceed without fabricated rows.',
+      confidence: 0.3,
+      body: {
+        offerMarketFit: {
+          prose: 'Fit prose.',
+          proofPoints: [],
+          blockGap: {
+            summary:
+              'Only 2 of the required 3 proof points could be sourced from the fetched evidence.',
+            foundCount: 2,
+            requiredCount: 3,
+            sourcingPlan: [
+              'Re-run acquisition for offerMarketFit to source 1 more proof points from verified sources.',
+            ],
+          },
+        },
+      },
+      verification: {
+        verifiedCount: 2,
+        unsupportedCount: 3,
+        claims: [],
+      },
+      sources: [],
+    });
+
+    expect(patch.status).toBe('complete');
+    expect(['insufficient', 'needs_review']).toContain(patch.verificationTier);
+  });
 });

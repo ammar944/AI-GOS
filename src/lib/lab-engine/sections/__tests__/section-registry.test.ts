@@ -4,7 +4,13 @@ import {
   ALL_POSITIONING_SECTION_IDS,
   POSITIONING_SECTION_IDS,
 } from "@/lib/ai/prompts/positioning-skills";
-import { SECTION_REGISTRY } from "../section-registry";
+import { offerDiagnosticFixtureArtifact } from "../../fixtures/offer-diagnostic-artifact";
+import type { ArtifactEnvelope } from "../../artifacts/artifact-envelope";
+import {
+  SECTION_REGISTRY,
+  SectionArtifactValidationError,
+  assertSectionArtifactPersistable,
+} from "../section-registry";
 
 describe("SECTION_REGISTRY live-tool budgets", (): void => {
   it("matches the Phase D bounded in-section tool contract", (): void => {
@@ -119,6 +125,36 @@ describe("post-six section registration", (): void => {
     );
     expect(ALL_POSITIONING_SECTION_IDS as readonly string[]).toContain(
       "positioningPaidMediaPlan",
+    );
+  });
+});
+
+describe("assertSectionArtifactPersistable corruption gate", (): void => {
+  it("accepts the clean fixture artifact (control)", (): void => {
+    expect(() =>
+      assertSectionArtifactPersistable(offerDiagnosticFixtureArtifact),
+    ).not.toThrow();
+  });
+
+  it("throws SectionArtifactValidationError on a structurally corrupt envelope", (): void => {
+    // Envelope-level corruption (missing required runId) must still hard-fail —
+    // the honest-gap softening only relaxes content floors, never the envelope.
+    const { runId: _runId, ...withoutRunId } = offerDiagnosticFixtureArtifact;
+    const corrupt = withoutRunId as unknown as ArtifactEnvelope;
+
+    expect(() => assertSectionArtifactPersistable(corrupt)).toThrow(
+      SectionArtifactValidationError,
+    );
+  });
+
+  it("throws SectionArtifactValidationError on an unsupported sectionId", (): void => {
+    const corrupt = {
+      ...offerDiagnosticFixtureArtifact,
+      sectionId: "positioningNotARealSection",
+    } as unknown as ArtifactEnvelope;
+
+    expect(() => assertSectionArtifactPersistable(corrupt)).toThrow(
+      SectionArtifactValidationError,
     );
   });
 });

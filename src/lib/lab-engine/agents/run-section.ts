@@ -45,7 +45,11 @@ import {
   softenDemandIntentForSpyFuToolGap,
   type DemandIntentBody,
 } from "../artifacts/schemas/demand-intent";
-import { buildOfferDiagnosticEvidenceGapBody } from "../artifacts/schemas/offer-diagnostic";
+import {
+  buildOfferDiagnosticBlockGapBody,
+  buildOfferDiagnosticEvidenceGapBody,
+  parseOfferDiagnosticStrategicEvidenceGapPath,
+} from "../artifacts/schemas/offer-diagnostic";
 import {
   classifyVoiceOfCustomerEvidenceGap,
   checkVoiceOfCustomerSelfSourcing,
@@ -1623,18 +1627,60 @@ function buildOfferDiagnosticEvidenceGapArtifact({
     return undefined;
   }
 
-  const patchedBody = buildOfferDiagnosticEvidenceGapBody({
-    body: originalBody,
-    errors,
-  });
-  if (patchedBody === null) {
-    return undefined;
+  // Partition the flagged minimums errors: strategic-text/falsifiability paths
+  // get evidence-gap strings; structural count-floors get schema-valid
+  // blockGaps. Any error in neither bucket falls through to a hard fail.
+  const strategicErrors = errors.filter(
+    (error) => parseOfferDiagnosticStrategicEvidenceGapPath(error) !== null,
+  );
+  const structuralErrors = errors.filter(
+    (error) => parseOfferDiagnosticStrategicEvidenceGapPath(error) === null,
+  );
+
+  let patchedBody: Record<string, unknown> = originalBody;
+
+  if (strategicErrors.length > 0) {
+    const next = buildOfferDiagnosticEvidenceGapBody({
+      body: patchedBody,
+      errors: strategicErrors,
+    });
+    if (next === null) {
+      return undefined;
+    }
+    patchedBody = next;
   }
+
+  let hasStructuralGap = false;
+  if (structuralErrors.length > 0) {
+    const next = buildOfferDiagnosticBlockGapBody({
+      body: patchedBody,
+      errors: structuralErrors,
+    });
+    if (next === null) {
+      return undefined;
+    }
+    patchedBody = next;
+    hasStructuralGap = true;
+  }
+
+  // When a structural blockGap was injected, force the artifact to read as an
+  // honest gap so the commit tiers to needs_review/insufficient (mirrors the
+  // BuyerICP gap builder).
+  const gapOverrides = hasStructuralGap
+    ? {
+        verdict:
+          "Some offer-diagnostic blocks are below the evidence bar; treat the gapped findings as unproven.",
+        statusSummary:
+          "The section completed with structural evidence gaps so downstream synthesis can proceed without fabricated rows.",
+        confidence: Math.min(artifact.confidence, 0.3),
+      }
+    : {};
 
   const candidate = artifactEnvelopeSchema
     .extend({ body: definition.bodySchema })
     .parse({
       ...artifact,
+      ...gapOverrides,
       body: patchedBody,
     });
   const minimums = definition.validateMinimums(candidate);
@@ -2130,7 +2176,8 @@ function hasVoiceOfCustomerStructuredSynthesisFailure({
       lowerError.includes("agent did not call answer tool") ||
       lowerError.includes("model-authored gap") ||
       lowerError.includes("could not parse") ||
-      lowerError.includes("response did not match schema")
+      lowerError.includes("response did not match schema") ||
+      lowerError.includes("failed tolerant decode")
     );
   });
 }
