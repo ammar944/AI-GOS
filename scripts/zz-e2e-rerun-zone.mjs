@@ -1,6 +1,6 @@
 import { chromium } from 'playwright-core';
 const CDP = process.env.E2E_CDP_URL ?? 'http://localhost:9223';
-const RUN = 'f3993043-b6ce-4b27-a547-7ef02929f3fa';
+const RUN = process.env.E2E_RUN_ID ?? 'f3993043-b6ce-4b27-a547-7ef02929f3fa';
 const zone = process.argv[2];
 if (!zone) throw new Error('usage: zz-e2e-rerun-zone.mjs <zone>');
 const browser = await chromium.connectOverCDP(CDP);
