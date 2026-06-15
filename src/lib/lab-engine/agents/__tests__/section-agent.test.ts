@@ -339,6 +339,36 @@ describe("section-agent provider-specific options", (): void => {
     await expect(result.output).resolves.toEqual({ ok: true });
     expect(aiMocks.generateTextCalls).toHaveLength(1);
   });
+
+  it("proceeds with the non-streaming fallback at 134s under the real (120s) floor", async (): Promise<void> => {
+    // Regression: under the old 260s floor a fallback launched with 134s left was
+    // skipped ("remaining section budget 134000ms below fallback floor 260000ms")
+    // and the section died. With the production floor lowered to 120s, the same
+    // 134s budget now clears the gate and the deadline-aware fallback fires.
+    aiMocks.streamTextOutput = Promise.reject(
+      new Error("No object generated: response did not match schema."),
+    );
+
+    // 120_000 is the production floor returned by run-section
+    // getStructuredFallbackFloorMs (pinned in timeout-constants.test.ts).
+    // Imported as a literal here to keep this suite off run-section's heavy tool
+    // graph, which the partial `ai` mock cannot satisfy.
+    const result = defaultStructuredStreamer({
+      fallbackBudget: {
+        minRemainingMs: 120_000,
+        remainingMs: () => 134_000,
+      },
+      maxOutputTokens: 1000,
+      model: createModel("deepseek.chat"),
+      prompt: "prompt",
+      schema: structuredSchema,
+      schemaDescription: "schema",
+      schemaName: "MarketCategorySectionOutputBody",
+    });
+
+    await expect(result.output).resolves.toEqual({ ok: true });
+    expect(aiMocks.generateTextCalls).toHaveLength(1);
+  });
 });
 
 describe("dropEmptyUrlStrings", (): void => {

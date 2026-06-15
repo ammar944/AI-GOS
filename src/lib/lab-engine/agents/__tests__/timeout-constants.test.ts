@@ -4,6 +4,7 @@ import { LAB_SECTION_JOB_TIMEOUT_MS } from '@/lib/research-v2/lab-section-dispat
 
 import {
   answerToolTimeoutMs,
+  getStructuredFallbackFloorMs,
   labSectionRepairFloorMs,
   labSectionStructuredFallbackMinFloorMs,
 } from '../run-section';
@@ -47,5 +48,30 @@ describe('lab section timeout hierarchy', (): void => {
     expect(
       labSectionStructuredFallbackMinFloorMs + (ROUTE_MAX_DURATION_MS - LAB_SECTION_JOB_TIMEOUT_MS),
     ).toBeLessThan(LAB_SECTION_JOB_TIMEOUT_MS);
+  });
+
+  it('returns the 120s minimum fallback floor for a normal section and VoC', (): void => {
+    // The fallback shares the attempt's deadline-aware timeoutSignal, so the
+    // floor is the 120s minimum (not 240s+emit). A higher per-section floor made
+    // the fallback unreachable inside the 300s cap once a slow first attempt had
+    // burned budget. Both a normal section and the slower VoC section must clear
+    // the gate whenever >=120s remain.
+    expect(getStructuredFallbackFloorMs('positioningMarketCategory')).toBe(
+      labSectionStructuredFallbackMinFloorMs,
+    );
+    expect(getStructuredFallbackFloorMs('positioningMarketCategory')).toBe(120_000);
+    expect(getStructuredFallbackFloorMs('positioningVoiceOfCustomer')).toBe(
+      120_000,
+    );
+  });
+
+  it('keeps the fallback floor reachable after a slow deadline-aware first attempt', (): void => {
+    // Regression for the "remaining section budget Xms below fallback floor
+    // 260000ms" death: within the 300s cap a 240s first attempt + a fresh 260s
+    // fallback can never both fit. With the floor at 120s, a fallback launched
+    // with budget left (e.g. 134s after a slow attempt) still fires.
+    expect(getStructuredFallbackFloorMs('positioningMarketCategory')).toBeLessThan(
+      134_000,
+    );
   });
 });

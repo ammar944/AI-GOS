@@ -519,11 +519,18 @@ function formatDeadlineRepairSkipIssue(
   ].join(" ");
 }
 
-function getStructuredFallbackFloorMs(sectionId: SectionId): number {
-  return Math.max(
-    labSectionStructuredFallbackMinFloorMs,
-    getStructuredOutputTimeoutMs(sectionId) + labSectionEmitFloorMs,
-  );
+// The fallback floor is the MINIMUM remaining section budget at which we still
+// attempt the non-streaming structured fallback. It is deliberately the 120s
+// minimum (not 240s+emit) because the fallback shares the attempt's
+// deadline-aware timeoutSignal (buildStructuredBodyAttempt -> createTimeoutSignal
+// clamped to min(structuredOutputTimeout, remaining - emit)); the fallback can
+// therefore never run a fresh full-length call past the deadline. Demanding the
+// old 260s floor made the fallback unreachable inside the 300s Vercel cap once a
+// slow first attempt had already consumed budget — the section died instead of
+// retrying with whatever (clamped) budget remained. sectionId is retained for
+// signature parity with the call site.
+export function getStructuredFallbackFloorMs(_sectionId: SectionId): number {
+  return labSectionStructuredFallbackMinFloorMs;
 }
 
 function createEvent({
