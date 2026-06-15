@@ -344,25 +344,25 @@ describe('<AuditReaderShell>', () => {
         'Insufficient evidence · Declared evidence gap · 90% grounded',
       ),
     ).not.toBeInTheDocument();
-    // The rail row carries the tier-honest subline + amber dot — one quiet
-    // signal, never a claim-count badge.
+    // The rail row carries the buyer-facing trust label + dot — one quiet
+    // signal, never a claim-count badge or "needs review" spam. insufficient +
+    // an unsupported load-bearing claim → "Needs source check".
     expect(
       screen.getByRole('button', {
-        name: /market & category.*complete — needs review/i,
+        name: /market & category.*needs source check/i,
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('section-tier-dot-positioningMarketCategory'),
-    ).toBeInTheDocument();
+    ).toHaveAttribute('data-tier-key', 'source_check');
   });
 
-  // REVERSAL (2026-06-12): this test previously pinned the 2026-06-11
-  // "done is done" decision (unconditional green Done, no tier sublines or
-  // dots). The new bar forbids success chrome over needs_review content, so
-  // the rail is now tier-honest: flagged committed sections read
-  // 'Complete — needs review' with one amber dot, and the rollup 'Done'
-  // carries a quiet 'N of 6 need review' qualifier.
-  it('qualifies Done and flags committed needs_review/insufficient sections with a subline + dot', (): void => {
+  // Trust-tier honesty (2026-06-15): a finished audit must not read as a wall
+  // of "needs review". The same verifier signal maps to buyer-facing labels —
+  // verified=Complete, needs_review=Directional, insufficient=Evidence limited /
+  // Needs source check — and the rollup shows a positive "N of 6 strongly
+  // evidenced" qualifier, never a raw needs-review count.
+  it('maps committed tiers to buyer trust labels and a positive rollup, never "needs review"', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -382,33 +382,36 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    // Rollup still says Done, but with the honest qualifier beside it.
+    // Rollup says Done with a POSITIVE evidence-strength qualifier; the literal
+    // phrase "needs review" must not appear anywhere in buyer-facing copy.
     expect(screen.getByText('Done')).toBeInTheDocument();
-    expect(screen.getByText('2 of 6 need review')).toBeInTheDocument();
+    expect(screen.getByText(/strongly evidenced/i)).toBeInTheDocument();
+    expect(screen.queryByText(/need review/i)).toBeNull();
 
-    // Flagged committed rows read 'Complete — needs review'; verified rows
-    // stay plain 'Complete'.
+    // insufficient (bare tier) → Evidence limited; needs_review → Directional;
+    // verified → plain Complete.
     expect(
       screen.getByRole('button', {
-        name: /market & category.*complete — needs review/i,
+        name: /market & category.*evidence limited/i,
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: /buyer \/ icp.*complete — needs review/i,
+        name: /buyer \/ icp.*directional/i,
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /^competitors: complete$/i }),
     ).toBeInTheDocument();
 
-    // One amber dot per flagged row — none for verified sections.
+    // A dot on the two flagged rows (amber for evidence-limited, slate for
+    // directional); none for the verified section.
     expect(
       screen.getByTestId('section-tier-dot-positioningMarketCategory'),
-    ).toBeInTheDocument();
+    ).toHaveAttribute('data-tier-key', 'evidence_limited');
     expect(
       screen.getByTestId('section-tier-dot-positioningBuyerICP'),
-    ).toBeInTheDocument();
+    ).toHaveAttribute('data-tier-key', 'directional');
     expect(
       screen.queryByTestId('section-tier-dot-positioningCompetitorLandscape'),
     ).not.toBeInTheDocument();
@@ -814,7 +817,7 @@ describe('<AuditReaderShell>', () => {
       />,
     );
 
-    expect(screen.getByText('Section needs review')).toBeInTheDocument();
+    expect(screen.getByText('Couldn’t complete this section')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /rerun section/i }),
     ).toBeEnabled();

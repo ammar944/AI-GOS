@@ -40,7 +40,7 @@ export const STATUS_META: Record<
 > = {
   running: { icon: Loader2, cls: 'text-primary', label: 'Running', spin: true },
   complete: { icon: Check, cls: 'text-emerald-600', label: 'Complete' },
-  error: { icon: AlertTriangle, cls: 'text-red-600', label: 'Needs review' },
+  error: { icon: AlertTriangle, cls: 'text-red-600', label: 'Couldn’t complete' },
   aborted: { icon: X, cls: 'text-red-600', label: 'Aborted' },
   queued: { icon: CircleDot, cls: 'text-muted-foreground/60', label: 'Queued' },
   locked: { icon: Lock, cls: 'text-muted-foreground/50', label: 'Locked' },

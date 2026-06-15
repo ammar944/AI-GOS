@@ -36,7 +36,7 @@ export function ErrorStateBlock({
     <div className="border-l-2 border-red-500 pl-4">
       <div className="flex items-center gap-2 text-[14px] font-medium text-red-600">
         <AlertTriangle className="size-4" />
-        {isAborted ? 'Aborted' : 'Section needs review'}
+        {isAborted ? 'Aborted' : 'Couldn’t complete this section'}
       </div>
       <p className="mt-1.5 max-w-[60ch] text-[14px] leading-[1.55] text-muted-foreground">
         {isAborted

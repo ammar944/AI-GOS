@@ -87,6 +87,11 @@ import { cn } from '@/lib/utils';
 import { TypedArtifactRenderer } from './typed-artifact-renderer';
 import { PaidMediaPlanDeck } from './section-renderers/paid-media-plan-deck';
 import { scrubReaderText } from './primitives';
+import {
+  deriveTrustTier,
+  trustTierDotClass,
+  type TrustTier,
+} from './trust-tier';
 
 // ---------------------------------------------------------------------------
 // Labels + small helpers
@@ -337,19 +342,12 @@ function ReviewMetadataPanel({
   );
 }
 
-// `needsReview` is the verification tier delivered in the audit-state payload
-// (needs_review / insufficient). A committed section that the verifier flagged
-// reads honestly as 'Complete — needs review' instead of plain 'Complete'.
-// This reverses the 2026-06-11 "done is done" decision per the 2026-06-12 bar
-// (success chrome may not overclaim needs_review content).
-function sectionStatusSubline(
-  status: ReaderSectionStatus,
-  needsReview = false,
-): string {
-  if (status === 'complete') {
-    return needsReview ? 'Complete — needs review' : 'Complete';
-  }
-  if (status === 'error') return 'Failed';
+// Non-complete statuses only. For a committed section the rail shows the
+// buyer-facing trust label (deriveTrustTier) instead of a binary
+// "needs review" — see trustTierOf.
+function sectionStatusSubline(status: ReaderSectionStatus): string {
+  if (status === 'complete') return 'Complete';
+  if (status === 'error') return 'Couldn’t complete';
   if (status === 'aborted') return 'Aborted';
   if (status === 'ready') return 'Ready after 6/6';
   if (status === 'locked') return 'Locked until 6/6';
@@ -712,8 +710,8 @@ interface RunStatusCardProps {
   active: ReaderSectionId;
   onSelect: (id: ReaderSectionId) => void;
   statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
-  needsReviewOf: (id: ReaderSectionId) => boolean;
-  needsReviewCount: number;
+  trustTierOf: (id: ReaderSectionId) => TrustTier;
+  stronglyEvidencedCount: number;
   positioningCompletedCount: number;
   activePhaseLabel: string | null;
   elapsedMs: number | null;
@@ -729,8 +727,8 @@ function RunStatusCard({
   active,
   onSelect,
   statusOf,
-  needsReviewOf,
-  needsReviewCount,
+  trustTierOf,
+  stronglyEvidencedCount,
   positioningCompletedCount,
   activePhaseLabel,
   elapsedMs,
@@ -742,10 +740,10 @@ function RunStatusCard({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-      {/* Header: rollup + elapsed clock + run state. The rollup is tier-honest:
-          'Done' carries a quiet 'N of 6 need review' qualifier when the
-          verifier flagged committed sections (reverses the 2026-06-11
-          "done is done" decision per the 2026-06-12 bar). */}
+      {/* Header: rollup + elapsed clock + run state. The rollup is tier-honest
+          but positive: 'Done' carries a quiet 'N of 6 strongly evidenced'
+          qualifier (never a raw needs-review count) so a finished audit reads
+          like a finished deliverable, not a wall of failures. */}
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
           {running ? (
@@ -763,9 +761,11 @@ function RunStatusCard({
           {allSectionsTerminal ? (
             <span className="text-[12px] font-medium text-muted-foreground">Done</span>
           ) : null}
-          {allSectionsTerminal && needsReviewCount > 0 ? (
+          {allSectionsTerminal &&
+          stronglyEvidencedCount < POSITIONING_SECTION_IDS.length ? (
             <span className="text-[11px] text-muted-foreground/80">
-              {needsReviewCount} of {POSITIONING_SECTION_IDS.length} need review
+              {stronglyEvidencedCount} of {POSITIONING_SECTION_IDS.length} strongly
+              evidenced
             </span>
           ) : null}
         </span>
@@ -793,8 +793,8 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          const needsReview = status === 'complete' && needsReviewOf(id);
-          const subLine = sectionStatusSubline(status, needsReview);
+          const trust = status === 'complete' ? trustTierOf(id) : null;
+          const subLine = trust ? trust.label : sectionStatusSubline(status);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -823,11 +823,15 @@ function RunStatusCard({
                   {SECTION_SHORT_LABEL[id]}
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  {needsReview ? (
+                  {trust?.showDot ? (
                     <span
                       data-testid={`section-tier-dot-${id}`}
+                      data-tier-key={trust.key}
                       aria-hidden="true"
-                      className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500"
+                      className={cn(
+                        'inline-block size-1.5 shrink-0 rounded-full',
+                        trustTierDotClass(trust.tone),
+                      )}
                     />
                   ) : null}
                   {subLine}
@@ -1040,13 +1044,14 @@ export function AuditReaderShell({
 
   const sixSectionsComplete = hasSixPositioningSectionsComplete(live);
 
-  // Tier honesty: the audit-state payload ships verificationTier per zone.
-  // A committed section flagged needs_review/insufficient surfaces as
-  // 'Complete — needs review' with a quiet amber dot in the rail.
-  const needsReviewOf = useCallback(
-    (id: ReaderSectionId): boolean => {
-      const tier = live.sectionsByZone[id]?.verificationTier;
-      return tier === 'needs_review' || tier === 'insufficient';
+  // Tier honesty: the audit-state payload ships the verification flag (claim
+  // counts) per zone. Map it to buyer-facing trust language so a finished
+  // section reads as Complete / Directional / Evidence limited / Needs source
+  // check — never a wall of "needs review".
+  const trustTierOf = useCallback(
+    (id: ReaderSectionId): TrustTier => {
+      const section = live.sectionsByZone[id];
+      return deriveTrustTier(section?.verificationFlag, section?.verificationTier);
     },
     [live.sectionsByZone],
   );
@@ -1145,12 +1150,12 @@ export function AuditReaderShell({
     [statusOf],
   );
 
-  const needsReviewCount = useMemo(
+  const stronglyEvidencedCount = useMemo(
     () =>
       POSITIONING_SECTION_IDS.filter(
-        (id) => statusOf(id) === 'complete' && needsReviewOf(id),
+        (id) => statusOf(id) === 'complete' && trustTierOf(id).key === 'complete',
       ).length,
-    [needsReviewOf, statusOf],
+    [statusOf, trustTierOf],
   );
 
 
@@ -1512,8 +1517,8 @@ export function AuditReaderShell({
                 active={active}
                 onSelect={select}
                 statusOf={statusOf}
-                needsReviewOf={needsReviewOf}
-                needsReviewCount={needsReviewCount}
+                trustTierOf={trustTierOf}
+                stronglyEvidencedCount={stronglyEvidencedCount}
                 positioningCompletedCount={positioningCompletedCount}
                 activePhaseLabel={activePhaseLabel}
                 elapsedMs={elapsedMs}

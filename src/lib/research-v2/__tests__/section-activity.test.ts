@@ -226,8 +226,8 @@ describe('buildSectionActivityFeed — customer-safe adapter', () => {
 
     const [failed] = feed.items;
     expect(failed.phase).toBe('done');
-    expect(failed.title).toBe('Section needs review');
-    expect(failed.detail).toBe('This section needs another pass');
+    expect(failed.title).toBe('Couldn’t complete this section');
+    expect(failed.detail).toBe('Rerun it without restarting the rest of the audit');
     expect(JSON.stringify(failed)).not.toContain('TypeError');
     expect(JSON.stringify(failed)).not.toContain('not iterable');
     feed.items.forEach(assertNoRawLeak);

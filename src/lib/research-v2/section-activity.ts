@@ -304,8 +304,8 @@ function buildActivityItem(event: SectionEvent): SectionActivityItem | null {
     case 'section-failed':
       return {
         ...base,
-        title: 'Section needs review',
-        detail: 'This section needs another pass',
+        title: 'Couldn’t complete this section',
+        detail: 'Rerun it without restarting the rest of the audit',
         kind: 'section',
         tone: 'error',
       };
