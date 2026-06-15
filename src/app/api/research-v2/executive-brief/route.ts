@@ -27,6 +27,11 @@ import {
   type PaidMediaFeasibilityAudit,
 } from '@/lib/lab-engine/agents/synthesis/feasibility';
 import {
+  buildIncompleteExecutiveThesis,
+  sanitizeExecutiveThesis,
+  type IncompleteThesisSection,
+} from '@/lib/research-v2/executive-thesis-sanitizer';
+import {
   readVerificationFlag,
   readVerificationTier,
 } from '@/lib/research-v2/verification-tier';
@@ -208,9 +213,12 @@ async function generateExecutiveBrief(
 ): Promise<void> {
   const supabase = createAdminClient();
   const writeThesis = async (thesis: Record<string, unknown>): Promise<void> => {
+    // Single thesis-persistence chokepoint: scrub internal/process vocabulary
+    // and de-duplicate rankedMoves so the buyer-eval MEMO + DENY-LIST scans
+    // pass. Status is preserved as set by the caller.
     const { error } = await supabase
       .from('research_artifacts')
-      .update({ thesis })
+      .update({ thesis: sanitizeExecutiveThesis(thesis) })
       .eq('id', payload.parentAuditRunId)
       .eq('user_id', payload.userId);
 
@@ -221,6 +229,8 @@ async function generateExecutiveBrief(
       });
     }
   };
+
+  let incompleteSections: IncompleteThesisSection[] = [];
 
   await writeThesis({
     claimedAt: new Date().toISOString(),
@@ -243,6 +253,13 @@ async function generateExecutiveBrief(
     const sections = rows
       .map(toBriefSectionInput)
       .filter((section): section is ExecutiveBriefSectionInput => section !== null);
+    incompleteSections = sections.map((section) => ({
+      sectionId: section.sectionId,
+      label: isAllPositioningSectionId(section.sectionId)
+        ? ALL_POSITIONING_SECTION_LABELS[section.sectionId]
+        : section.sectionId,
+      verificationTier: section.verificationTier ?? null,
+    }));
     const synthesisSections = rows
       .map(toSynthesisSectionInput)
       .filter((section): section is SynthesisSectionInput => section !== null);
@@ -333,11 +350,16 @@ async function generateExecutiveBrief(
       runId: payload.runId,
     });
 
-    await writeThesis({
-      failedAt: new Date().toISOString(),
-      message,
-      status: 'error',
-    });
+    // Compose-always: ship a buyer-facing incomplete memo (status complete)
+    // with explicit gaps + next actions instead of a client-visible error.
+    // The failure reason is logged above and never persisted into the thesis.
+    await writeThesis(
+      buildIncompleteExecutiveThesis({
+        companyName: payload.companyName,
+        generatedAt: new Date().toISOString(),
+        sections: incompleteSections,
+      }),
+    );
   }
 }
 
