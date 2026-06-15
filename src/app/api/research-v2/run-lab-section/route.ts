@@ -236,6 +236,34 @@ export async function dispatchAutoRerunForErroredSections({
     );
   }
 
+  // Per-zone attempt cap (at most one auto-rescue per zone per run): each
+  // rescue calls resetSectionRunForRerun, which INSERTs a fresh
+  // research_section_runs row, so a zone's run-row count is its attempt count.
+  // A never-rescued zone has exactly the one seeded run row; a zone already
+  // rescued once has >= 2. Retrying a deterministic shape/editorial failure
+  // (VoC/OfferDiagnostic floors) never converges, so cap it here instead of
+  // re-dispatching on every drained wave for the full run-deadline window.
+  const { data: runRowsData, error: runRowsError } = await supabase
+    .from('research_section_runs')
+    .select('zone')
+    .eq('artifact_id', parentAuditRunId);
+
+  if (runRowsError) {
+    throw new Error(
+      `auto-rerun attempt-count lookup failed for run_id=${runId}: ${runRowsError.message}`,
+    );
+  }
+
+  const attemptCountByZone = new Map<string, number>();
+  for (const row of (runRowsData ?? []) as { zone?: unknown }[]) {
+    if (typeof row.zone === 'string') {
+      attemptCountByZone.set(
+        row.zone,
+        (attemptCountByZone.get(row.zone) ?? 0) + 1,
+      );
+    }
+  }
+
   const coreZones = POSITIONING_SECTION_IDS as readonly string[];
   const coreRows = (
     (data ?? []) as { zone?: unknown; status?: unknown; data?: unknown }[]
@@ -269,7 +297,10 @@ export async function dispatchAutoRerunForErroredSections({
     )
     .map((row) => row.zone)
     .filter(isPositioningSectionId);
-  const rescueZones = [...erroredZones, ...starvedVoiceOfCustomerZones];
+  const rescueZones = [
+    ...erroredZones,
+    ...starvedVoiceOfCustomerZones,
+  ].filter((zone) => (attemptCountByZone.get(zone) ?? 0) < 2);
 
   if (!waveDrained || rescueZones.length === 0) {
     return 0;

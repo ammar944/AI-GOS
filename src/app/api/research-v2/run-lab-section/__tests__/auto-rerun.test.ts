@@ -36,7 +36,15 @@ type SectionRow = { zone: string; status: string; data?: unknown };
 // Column-faithful like PostgREST: only selected columns come back. A route
 // that forgets `data` in its select sees every VoC as quote-less here — the
 // healthy-VoC tests below would then dispatch a phantom rescue and fail.
-function fakeSupabase(rows: SectionRow[] | null, errorMessage?: string) {
+function fakeSupabase(
+  rows: SectionRow[] | null,
+  errorMessage?: string,
+  // Per-zone research_section_runs attempt counts. Each rescue mints a fresh
+  // run row, so a never-rescued zone has 1 and an already-rescued zone has >=2.
+  // Defaults to 1 per known zone (the seed row) so the attempt cap is inert
+  // for every test that does not exercise it.
+  runCountByZone: Partial<Record<string, number>> = {},
+) {
   const sectionsSelect = vi.fn((columns: string) => ({
     eq: vi.fn().mockResolvedValue(
       errorMessage === undefined
@@ -54,6 +62,19 @@ function fakeSupabase(rows: SectionRow[] | null, errorMessage?: string) {
         : { data: null, error: { message: errorMessage } },
     ),
   }));
+  // research_section_runs attempt-count lookup: one { zone } row per attempt.
+  const sectionRunRows =
+    rows === null
+      ? []
+      : rows.flatMap((row) =>
+          Array.from(
+            { length: runCountByZone[row.zone] ?? 1 },
+            () => ({ zone: row.zone }),
+          ),
+        );
+  const sectionRunsSelect = vi.fn(() => ({
+    eq: vi.fn().mockResolvedValue({ data: sectionRunRows, error: null }),
+  }));
   // research_artifacts rollup lookup (reached only when a rescue's own
   // onJobComplete is invoked): resolves "no rollup row" so the paid-media
   // check early-returns without dispatching.
@@ -68,7 +89,9 @@ function fakeSupabase(rows: SectionRow[] | null, errorMessage?: string) {
   const from = vi.fn((table: string) =>
     table === 'research_artifacts'
       ? { select: vi.fn().mockReturnValue(artifactsChain) }
-      : { select: sectionsSelect },
+      : table === 'research_section_runs'
+        ? { select: sectionRunsSelect }
+        : { select: sectionsSelect },
   );
   return { from } as never;
 }
@@ -354,5 +377,94 @@ describe('dispatchAutoRerunForErroredSections (ADR-0012)', () => {
 
     expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledTimes(1);
     expect(dispatchMocks.scheduleLabSectionJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('rescues an errored zone at most once per run (errors twice -> one rescue)', async () => {
+    // First drained wave: the zone errored with only its seed run row (1
+    // attempt) -> rescued exactly once.
+    const first = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(rows({ positioningOfferDiagnostic: 'error' }), undefined, {
+          positioningOfferDiagnostic: 1,
+        }),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(first).toBe(1);
+    expect(dispatchMocks.scheduleLabSectionJob).toHaveBeenCalledTimes(1);
+
+    dispatchMocks.scheduleLabSectionJob.mockClear();
+    orchestrateDbMocks.resetSectionRunForRerun.mockClear();
+
+    // The rescue mints a second run row and errors AGAIN (deterministic
+    // editorial-floor failure). A later drained wave re-invokes this pass, but
+    // the zone now has 2 attempt rows -> no second rescue, the run settles.
+    const second = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(rows({ positioningOfferDiagnostic: 'error' }), undefined, {
+          positioningOfferDiagnostic: 2,
+        }),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(second).toBe(0);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(dispatchMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+  });
+
+  it('caps a starved VoC to a single rescue across drained waves', async () => {
+    const consoleInfoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
+
+    // VoC committed starved again after its one rescue (2 run rows): the
+    // deterministic quote-floor failure must not loop for the whole run.
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows({}, { positioningVoiceOfCustomer: STARVED_VOC_DATA }),
+          undefined,
+          { positioningVoiceOfCustomer: 2 },
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(0);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).not.toHaveBeenCalled();
+    expect(dispatchMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
+
+    consoleInfoSpy.mockRestore();
+  });
+
+  it('throws when the attempt-count lookup fails', async () => {
+    // research_section_runs returns an error; the rest of the fake is healthy.
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'research_section_runs'
+          ? {
+              select: vi.fn(() => ({
+                eq: vi
+                  .fn()
+                  .mockResolvedValue({ data: null, error: { message: 'boom' } }),
+              })),
+            }
+          : {
+              select: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({
+                  data: rows({ positioningBuyerICP: 'error' }),
+                  error: null,
+                }),
+              })),
+            },
+      ),
+    } as never;
+
+    await expect(
+      dispatchAutoRerunForErroredSections(
+        baseInput(supabase) as Parameters<
+          typeof dispatchAutoRerunForErroredSections
+        >[0],
+      ),
+    ).rejects.toThrow('auto-rerun attempt-count lookup failed');
   });
 });

@@ -31,15 +31,19 @@ const DISPATCH_TIMEOUT_MS = 10_000;
 
 export const maxDuration = 60;
 
-const chatTextPartSchema = z.object({
-  type: z.literal('text'),
-  text: z.string(),
-});
+// useChat resends prior assistant messages verbatim on every turn, and those
+// carry tool-call / step parts (type: 'tool-...', 'step-start', etc.) alongside
+// text parts. The schema must accept any part shape — extractText() already
+// filters to part.type === 'text' before reading `.text`, so non-text parts are
+// inert. Pinning this to a text-only literal 400'd every multi-turn request.
+const chatMessagePartSchema = z
+  .object({ type: z.string() })
+  .passthrough();
 
 const chatMessageSchema = z.object({
   id: z.string().optional(),
   role: z.enum(['user', 'assistant']),
-  parts: z.array(chatTextPartSchema),
+  parts: z.array(chatMessagePartSchema),
 });
 
 const chatRequestSchema = z.object({
@@ -133,7 +137,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function extractText(message: ChatRequestMessage): string {
   return message.parts
     .filter((part) => part.type === 'text')
-    .map((part) => part.text)
+    .map((part) => (typeof part.text === 'string' ? part.text : ''))
     .join('')
     .trim();
 }
@@ -178,6 +182,61 @@ function extractSectionSummaries(
       return { sectionId: key, title, statusSummary, keyFindingTitles };
     },
   );
+}
+
+/**
+ * Load the committed positioning sections for this run from the normalized
+ * research_artifact_sections table — the source of truth the artifact UI reads.
+ *
+ * The chat panel's useChat body only sends { runId, focusedZone }; it never
+ * sends the committed sections. journey_sessions.research_results (the legacy
+ * JSONB column the route used to read) is stale/empty on live v3 runs, so the
+ * orchestrator's system context said "No sections generated yet" even with 4-8
+ * committed sections — the chat was blind to its own artifact. We load the
+ * sections server-side instead. Each row's `data` is the typed section artifact
+ * (sectionTitle / statusSummary / keyFindings) that extractSectionSummaries
+ * reads. Returns a researchResults-shaped Record keyed by zone, or {} when the
+ * parent artifact / sections aren't found yet.
+ */
+async function loadCommittedSectionResults(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  runId: string,
+): Promise<Record<string, unknown>> {
+  const { data: parent, error: parentError } = await supabase
+    .from('research_artifacts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (parentError || !isRecord(parent) || typeof parent.id !== 'string') {
+    return {};
+  }
+
+  const { data: rows, error: rowsError } = await supabase
+    .from('research_artifact_sections')
+    .select('zone, data')
+    .eq('artifact_id', parent.id)
+    .eq('status', 'complete')
+    .in('zone', POSITIONING_SECTION_KEYS as unknown as string[]);
+
+  if (rowsError || !Array.isArray(rows)) {
+    return {};
+  }
+
+  const results: Record<string, unknown> = {};
+  for (const row of rows) {
+    if (
+      isRecord(row) &&
+      typeof row.zone === 'string' &&
+      row.data !== null &&
+      row.data !== undefined
+    ) {
+      results[row.zone] = row.data;
+    }
+  }
+  return results;
 }
 
 function logSupabaseError(
@@ -957,9 +1016,20 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // Build audit context + load recent chat history for the intent classifier.
-  const researchResults = isRecord(session.research_results)
+  // Prefer the committed sections from research_artifact_sections (the artifact
+  // UI's source of truth) over the legacy journey_sessions.research_results
+  // JSONB, which is stale/empty on live v3 runs. Never trust the client for
+  // this — the chat panel never sends sections — so it is always server-loaded.
+  const committedResults = await loadCommittedSectionResults(
+    supabase,
+    userId,
+    runId,
+  );
+  const legacyResults = isRecord(session.research_results)
     ? (session.research_results as Record<string, unknown>)
     : {};
+  const researchResults =
+    Object.keys(committedResults).length > 0 ? committedResults : legacyResults;
   const auditContext: AuditContextSummary = {
     runId,
     sections: extractSectionSummaries(researchResults),
