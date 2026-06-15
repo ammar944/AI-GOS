@@ -292,4 +292,50 @@ describe('buildCommitPatch', (): void => {
     expect(patch.status).toBe('complete');
     expect(['insufficient', 'needs_review']).toContain(patch.verificationTier);
   });
+
+  it('scrubs internal vocabulary from persisted client-surface data', (): void => {
+    const patch = buildCommitPatch('positioningCompetitorLandscape', {
+      sectionTitle: 'Competitor Landscape & Positioning',
+      verdict: 'Competitors lean on displayable creatives sourced from the corpus.',
+      statusSummary: 'Synthesized from web_search and keyword_volume signals.',
+      body: {
+        adPresence: {
+          signals: [
+            {
+              competitor: 'Acme',
+              evidence: 'verifiedCount was 0 across the corpus for this advertiser.',
+              sourceUrl: 'https://example.com/ads',
+            },
+          ],
+        },
+        adEvidence: {
+          advertiserGroups: [
+            {
+              advertiserName: 'Acme',
+              verifiedCount: 4,
+              dataGaps: [
+                {
+                  internalDetail: 'only displayable creatives counted',
+                  reason: 'No active ads found.',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      verification: { verifiedCount: 4, unsupportedCount: 0, claims: [] },
+      sources: [],
+    });
+
+    const serialized = JSON.stringify(patch.data);
+    for (const token of ['corpus', 'web_search', 'keyword_volume', 'displayable', 'internalDetail']) {
+      expect(serialized).not.toContain(token);
+    }
+    // Honest data + URLs preserved.
+    expect(serialized).toContain('https://example.com/ads');
+    expect(serialized).toContain('No active ads found.');
+    // verdict/summary feeding the markdown column are scrubbed too.
+    expect(patch.markdown).not.toContain('displayable');
+    expect(patch.markdown).not.toContain('corpus');
+  });
 });

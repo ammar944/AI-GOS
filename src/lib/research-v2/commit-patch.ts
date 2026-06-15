@@ -5,6 +5,7 @@ import {
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { sectionReviewResultSchema } from '@/lib/lab-engine/artifacts/artifact-envelope';
+import { sanitizeArtifactForClientSurface } from '@/lib/research-v2/client-surface-sanitizer';
 import {
   buildReviewVerificationFlag,
   buildVerificationFlag,
@@ -147,7 +148,11 @@ export function buildCommitPatch(
   artifact: unknown,
   opts?: { degradeToNeedsReview?: boolean },
 ): CommitArtifactSectionInput['patch'] {
-  const a = artifact as Record<string, unknown>;
+  // Scrub internal pipeline vocabulary from every client-surface string before
+  // it is persisted. Internal metadata subtrees (verification/review/blockGap*)
+  // are preserved so tier/flag derivation below reads the original values.
+  const sanitizedArtifact = sanitizeArtifactForClientSurface(artifact);
+  const a = sanitizedArtifact as Record<string, unknown>;
   const title = typeof a.sectionTitle === 'string'
     ? a.sectionTitle
     : isPositioningSectionId(sectionId)
@@ -193,7 +198,7 @@ export function buildCommitPatch(
     status: 'complete',
     title,
     markdown,
-    data: artifact,
+    data: sanitizedArtifact,
     claims: [],
     sources: Array.isArray(a.sources) ? (a.sources as unknown[]) : [],
     error: null,
