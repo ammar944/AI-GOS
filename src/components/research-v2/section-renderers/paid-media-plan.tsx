@@ -101,6 +101,9 @@ export function provenanceLabel(value: string | undefined): string {
   if (value === 'source-reported') {
     return 'from a published source';
   }
+  if (value === 'derived') {
+    return 'computed (modeled)';
+  }
   return 'assumption — confirm';
 }
 
@@ -224,21 +227,74 @@ function creativeItems(slots: readonly CreativeSlot[]): CreativeMatrixItem[] {
   }));
 }
 
+function basisForProvenance(
+  provenance: string | undefined,
+): 'measured' | 'benchmark' | 'assumption' {
+  const label = provenanceLabel(provenance);
+  if (label.includes('assumption')) return 'assumption';
+  if (label === 'measured') return 'measured';
+  return 'benchmark';
+}
+
 function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
+  // Forward demand projection: spend -> CPC -> clicks -> blended CVR ->
+  // projected count -> implied CAC, shown beside the brief's target CAC so the
+  // gap is visible (the count is NOT back-solved from the target).
+  if (row.cpcValue !== undefined && row.impliedCacValue !== undefined) {
+    return [
+      {
+        label: 'Budget',
+        value: formatUsdValue(row.phaseMonthlyBudgetValue),
+        basis: basisForProvenance(row.phaseMonthlyBudgetProvenance),
+      },
+      { label: 'CPC', value: formatUsdValue(row.cpcValue), basis: 'benchmark' },
+      {
+        label: 'Clicks',
+        value:
+          row.projectedClicks === undefined
+            ? '—'
+            : row.projectedClicks.toLocaleString(),
+        basis: 'benchmark',
+      },
+      {
+        label: 'Conversion',
+        value:
+          row.blendedCvrPercent === undefined
+            ? '—'
+            : `${row.blendedCvrPercent}%`,
+        basis: 'benchmark',
+      },
+      {
+        label: 'Projected count',
+        value:
+          row.projectedCountValue === undefined
+            ? 'not computed'
+            : row.projectedCountValue.toLocaleString(),
+        basis: 'benchmark',
+      },
+      {
+        label: 'Implied CAC',
+        value: formatUsdValue(row.impliedCacValue),
+        basis: 'benchmark',
+      },
+      {
+        label: 'Target CAC',
+        value: formatUsdValue(row.kpiCostValue),
+        basis: basisForProvenance(row.kpiCostProvenance),
+      },
+    ];
+  }
+
   return [
     {
       label: 'Budget',
       value: formatUsdValue(row.phaseMonthlyBudgetValue),
-      basis: provenanceLabel(row.phaseMonthlyBudgetProvenance).includes('assumption')
-        ? 'assumption'
-        : 'measured',
+      basis: basisForProvenance(row.phaseMonthlyBudgetProvenance),
     },
     {
       label: 'KPI cost',
       value: formatUsdValue(row.kpiCostValue),
-      basis: provenanceLabel(row.kpiCostProvenance).includes('assumption')
-        ? 'assumption'
-        : 'benchmark',
+      basis: basisForProvenance(row.kpiCostProvenance),
     },
     {
       label: 'Projected count',
@@ -246,9 +302,7 @@ function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
         row.projectedCountValue === undefined
           ? 'not computed'
           : row.projectedCountValue.toLocaleString(),
-      basis: provenanceLabel(row.projectedCountProvenance).includes('assumption')
-        ? 'assumption'
-        : 'benchmark',
+      basis: basisForProvenance(row.projectedCountProvenance),
     },
     { label: 'Duration', value: row.durationLabel, basis: 'assumption' },
   ];
@@ -407,7 +461,7 @@ export function PaidMediaPlanRenderer({
 
       <SubsectionBlock
         label="Assumptions and funnel ledger"
-        prose="Projection rows show the budget, KPI cost, projected count, and duration assumptions used by the plan."
+        prose="Each row projects demand forward — spend ÷ CPC × funnel conversion — to a count and an implied CAC, shown beside your target CAC so any shortfall is explicit. Modeled inputs are marked computed."
       >
         <div className="grid gap-5">
           {body.projectedResults.map((row) => (
@@ -420,6 +474,7 @@ export function PaidMediaPlanRenderer({
                 <MonoBadge>{sectionLabel(row.sourceSection)}</MonoBadge>
               </div>
               <FunnelMath steps={projectionSteps(row)} />
+              {row.goalGapNote ? <GapNote>{row.goalGapNote}</GapNote> : null}
               <p className="text-[13px] leading-[1.55] text-muted-foreground">
                 {scrubReaderText(row.objective)}
               </p>

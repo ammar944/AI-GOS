@@ -342,6 +342,7 @@ function buildEconomicsBriefFields(
     ["targetPlan", ["targetPlan", "target_plan"]],
     ["avgLtv", ["avgLtv", "avg_ltv"]],
     ["targetCac", ["targetCac", "target_cac"]],
+    ["targetTrialsPerMonth", ["targetTrialsPerMonth", "target_trials_per_month"]],
     ["monthlyAdBudget", ["monthlyAdBudget", "monthly_ad_budget"]],
     ["budgetSplit", ["budgetSplit", "budget_split"]],
     ["currentCac", ["currentCac", "current_cac"]],

@@ -38,6 +38,7 @@ import {
 } from "../artifacts/schemas/competitor-landscape";
 import {
   normalizePaidMediaPlanBody,
+  parsePaidMediaPercentToFraction,
 } from "../artifacts/schemas/paid-media-plan";
 import {
   checkDemandIntentIntentSignalIndependence,
@@ -5251,6 +5252,29 @@ function withNormalizedPaidMediaPlanOutput(
       ...(onboarding?.economics?.targetCac === undefined
         ? {}
         : { targetCac: onboarding.economics.targetCac }),
+      ...(onboarding?.economics?.targetTrialsPerMonth === undefined
+        ? {}
+        : { targetTrialsPerMonth: onboarding.economics.targetTrialsPerMonth }),
+      // Funnel conversion rates drive the FORWARD demand projection (spend ->
+      // clicks -> conversions); the count is never back-solved from target CAC.
+      ...(onboarding?.economics === undefined
+        ? {}
+        : {
+            cvrChain: {
+              visitorToSignup: parsePaidMediaPercentToFraction(
+                onboarding.economics.visitorToSignup,
+              ),
+              signupToActivation: parsePaidMediaPercentToFraction(
+                onboarding.economics.signupToActivation,
+              ),
+              activationToPaid: parsePaidMediaPercentToFraction(
+                onboarding.economics.activationToPaid,
+              ),
+            },
+          }),
+      ...(onboarding?.distributionChannels === undefined
+        ? {}
+        : { channelHint: onboarding.distributionChannels.join(" ") }),
     }),
   };
 }

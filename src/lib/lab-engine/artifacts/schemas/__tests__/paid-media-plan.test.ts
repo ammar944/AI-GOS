@@ -8,6 +8,7 @@ import {
   paidMediaMoneyProvenanceValues,
   paidMediaPlanBodySchema,
   paidMediaPlanSectionOutputSchema,
+  parsePaidMediaPercentToFraction,
   parsePaidMediaTargetCacValue,
   snapSourceSection,
   validatePaidMediaPlanMinimums,
@@ -609,7 +610,7 @@ describe("SOP projected-results table (W3)", () => {
     }
   });
 
-  it("bridges synthesized projected rows through the brief target CAC", () => {
+  it("shows the brief target CAC as the goal reference but never back-solves the count from it", () => {
     const rawBody = structuredClone(
       paidMediaPlanFixtureArtifact.body,
     ) as unknown as Record<string, unknown>;
@@ -617,6 +618,8 @@ describe("SOP projected-results table (W3)", () => {
     const overview = rawBody.campaignOverview as Record<string, unknown>;
     overview.primaryKpi = "Paid signups";
 
+    // No funnel conversion rate supplied -> the count must NOT be the old
+    // circular budget/targetCac back-solve. The target CAC is the goal column.
     const normalized = normalizePaidMediaPlanBody(rawBody, {
       targetCac: "$1,000",
     });
@@ -628,9 +631,8 @@ describe("SOP projected-results table (W3)", () => {
     for (const row of budgeted) {
       expect(row.kpiCostProvenance).toBe("user-supplied");
       expect(row.kpiCostValue).toBe(1000);
-      expect(row.projectedCountValue).toBe(
-        Math.floor((row.phaseMonthlyBudgetValue as number) / 1000),
-      );
+      expect(row.projectedCountValue).toBeUndefined();
+      expect(row.goalGapNote).toMatch(/funnel conversion rate/i);
     }
   });
 
@@ -1094,7 +1096,10 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
     sourceSection: "positioningDemandIntent",
   };
 
-  it("bridges the brief's target CAC into an unknown-cost acquisition row and runs the SOP math", () => {
+  it("keeps the brief target CAC as the goal reference and refuses to back-solve the count from it", () => {
+    // The circular bug: count = floor(budget / targetCac) made implied CAC ==
+    // target CAC by construction. With no funnel conversion rate the row now
+    // carries NO count (honest gap) and an explicit note — never a fake count.
     const normalized = normalizePaidMediaPlanBody(
       rawBodyWithRows([unknownCostRow]),
       { targetCac: "≤$4,000" },
@@ -1103,51 +1108,69 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
 
     expect(row?.kpiCostValue).toBe(4000);
     expect(row?.kpiCostProvenance).toBe("user-supplied");
-    expect(row?.projectedCountValue).toBe(3); // floor(15000 / 4000)
-    expect(row?.projectedCountProvenance).toBe("user-supplied");
-    expect(row?.countBasis).toBe("At your target CAC from the GTM brief.");
-    expect(row?.marginOfErrorPercent).toBe(20);
+    expect(row?.projectedCountValue).toBeUndefined();
+    expect(row?.impliedCacValue).toBeUndefined();
+    expect(row?.goalGapNote).toMatch(/funnel conversion rate/i);
   });
 
-  it("bridges funnel-stage KPIs conservatively at the target CAC", () => {
+  it("forward-projects the count from CPC x CVR and tags it derived (implied CAC != target CAC)", () => {
     const normalized = normalizePaidMediaPlanBody(
-      rawBodyWithRows([{ ...unknownCostRow, kpi: "SQL" }]),
-      { targetCac: "≤$4,000" },
+      rawBodyWithRows([unknownCostRow]),
+      {
+        targetCac: "$4,000",
+        channelHint: "google search",
+        cvrChain: { visitorToSignup: 0.03 },
+      },
     );
     const row = normalized.projectedResults[0];
 
+    // budget 15000 / $4 CPC = 3750 clicks; 3750 * 3% = 112; CAC = 15000/112.
+    expect(row?.cpcValue).toBe(4);
+    expect(row?.cpcProvenance).toBe("derived");
+    expect(row?.projectedClicks).toBe(3750);
+    expect(row?.blendedCvrPercent).toBe(3);
+    expect(row?.projectedCountValue).toBe(112);
+    expect(row?.projectedCountProvenance).toBe("derived");
+    expect(row?.impliedCacValue).toBeCloseTo(133.93, 1);
+    expect(row?.impliedCacProvenance).toBe("derived");
+    // The target CAC stays the goal reference; the implied CAC is computed and
+    // diverges from it — the tautology is broken.
     expect(row?.kpiCostValue).toBe(4000);
-    expect(row?.kpiCostProvenance).toBe("user-supplied");
-    expect(row?.projectedCountValue).toBe(3);
-    expect(row?.countBasis).toBe(
-      "At your target CAC from the GTM brief; no stage-to-customer conversion rate assumed.",
-    );
-    expect(row?.marginOfErrorPercent).toBe(20);
+    expect(row?.impliedCacValue).not.toBe(row?.kpiCostValue);
   });
 
-  it("bridges the f3993043 Qualified Business-plan trial rows into counts", () => {
+  it("surfaces the projected-vs-goal shortfall honestly when below the trials goal", () => {
     const normalized = normalizePaidMediaPlanBody(
-      rawBodyWithRows(
-        ["Phase 1", "Phase 2", "Phase 3"].map((objective) => ({
+      rawBodyWithRows([
+        {
           ...unknownCostRow,
           kpi: "Qualified Business-plan trial",
-          objective,
           phaseMonthlyBudgetValue: 25000,
-        })),
-      ),
-      { targetCac: "≤$4,000" },
+        },
+      ]),
+      {
+        targetCac: "≤$4,000",
+        targetTrialsPerMonth: "120",
+        channelHint: "linkedin",
+        cvrChain: { visitorToSignup: 0.02 },
+      },
     );
+    const row = normalized.projectedResults[0];
 
-    expect(normalized.projectedResults).toHaveLength(3);
-    for (const row of normalized.projectedResults) {
-      expect(row.kpiCostValue).toBe(4000);
-      expect(row.kpiCostProvenance).toBe("user-supplied");
-      expect(row.projectedCountValue).toBe(6);
-      expect(row.projectedCountProvenance).toBe("user-supplied");
-      expect(row.countBasis).toBe(
-        "At your target CAC from the GTM brief; no stage-to-customer conversion rate assumed.",
-      );
-    }
+    // 25000 / $10 LinkedIn CPC = 2500 clicks; 2500 * 2% = 50 trials vs 120 goal.
+    expect(row?.projectedCountValue).toBe(50);
+    expect(row?.projectedCountProvenance).toBe("derived");
+    expect(row?.goalGapNote).toMatch(/120/);
+    expect(row?.goalGapNote).toMatch(/short/i);
+  });
+
+  it("parses funnel conversion percentages to fractions", () => {
+    expect(parsePaidMediaPercentToFraction("3%")).toBe(0.03);
+    expect(parsePaidMediaPercentToFraction("40")).toBe(0.4);
+    expect(parsePaidMediaPercentToFraction("0.4")).toBe(0.4);
+    expect(parsePaidMediaPercentToFraction("0%")).toBeUndefined();
+    expect(parsePaidMediaPercentToFraction("nope")).toBeUndefined();
+    expect(parsePaidMediaPercentToFraction(undefined)).toBeUndefined();
   });
 
   it("does not bridge a row whose KPI has no CAC-compatible unit", () => {

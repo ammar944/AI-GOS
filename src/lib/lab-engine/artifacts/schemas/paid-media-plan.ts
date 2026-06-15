@@ -37,9 +37,26 @@ export type PaidMediaCreativeCapacity = "lean" | "standard" | "high";
 // - creativeCapacity keys the single-writer creative counts.
 // - targetCac (raw brief string, e.g. "≤$4,000") bridges the SOP
 //   projected-results math when the model honestly reports KPI cost unknown.
+// Funnel conversion rates from onboarding economics, parsed to fractions
+// (e.g. "3%" -> 0.03). Drives the FORWARD demand projection so the projected
+// count is computed from spend -> clicks -> conversions, never back-solved from
+// the target CAC (which made implied CAC == target CAC by construction and hid
+// the real shortfall).
+export interface PaidMediaCvrChain {
+  visitorToSignup?: number;
+  signupToActivation?: number;
+  activationToPaid?: number;
+}
+
 export interface NormalizePaidMediaPlanBodyOptions {
   creativeCapacity?: PaidMediaCreativeCapacity;
   targetCac?: string;
+  // The buyer's funnel-stage goal (e.g. "120") — when set, the projected count
+  // is compared against it and an honest shortfall note is surfaced.
+  targetTrialsPerMonth?: string;
+  cvrChain?: PaidMediaCvrChain;
+  // Primary platform/channel hint for the stated-default CPC lookup.
+  channelHint?: string;
 }
 
 const channelVerdictValues = [
@@ -201,6 +218,19 @@ const projectedResultRowSchema = z.object({
   projectedCountProvenance: z.string().min(1).optional(),
   countBasis: z.string().min(1).optional(),
   marginOfErrorPercent: z.number().finite().nonnegative().optional(),
+  // Forward-demand projection inputs/outputs (all provenance 'derived'):
+  // spend ÷ CPC = clicks; clicks × blended CVR = projected count;
+  // spend ÷ projected count = implied CAC. impliedCac is the HONEST cost the
+  // plan actually buys — compared against the brief target CAC, not equal to it.
+  cpcValue: z.number().finite().nonnegative().optional(),
+  cpcProvenance: z.string().min(1).optional(),
+  projectedClicks: z.number().finite().nonnegative().optional(),
+  blendedCvrPercent: z.number().finite().nonnegative().optional(),
+  impliedCacValue: z.number().finite().nonnegative().optional(),
+  impliedCacProvenance: z.string().min(1).optional(),
+  // Honest gap vs the brief's target CAC / funnel-stage goal. Surfaced to the
+  // reader; never hard-fails the section.
+  goalGapNote: z.string().min(1).optional(),
   sourceSection: sourceSectionSchema,
 });
 
@@ -1177,15 +1207,131 @@ function getTargetCacBridgeUnit(
   return null;
 }
 
-function getTargetCacCountBasis(
-  bridgeUnit: "acquisition" | "funnel-stage" | null,
-): string | undefined {
-  if (bridgeUnit === "acquisition") {
-    return "At your target CAC from the GTM brief.";
+// Stated industry-average CPC by platform (USD). No CPC field exists in
+// onboarding and demand-intent SpyFu CPC is not threaded into this boundary,
+// so the forward projection uses a conservative modeled CPC, always tagged
+// 'derived'. A blended/unknown platform falls back to the cross-channel mean.
+// Longer keys first so "google search" wins over "google".
+const STATED_DEFAULT_CPC_BY_PLATFORM: ReadonlyArray<readonly [string, number]> = [
+  ["linkedin", 10],
+  ["google search", 4],
+  ["google ads", 4],
+  ["search", 4],
+  ["google", 4],
+  ["youtube", 2],
+  ["twitter", 2],
+  ["reddit", 1.5],
+  ["instagram", 1.5],
+  ["facebook", 1.5],
+  ["meta", 1.5],
+  ["tiktok", 1],
+];
+const DEFAULT_BLENDED_CPC = 2.5;
+
+function resolveStatedCpc(channelHint: string | undefined): number {
+  if (typeof channelHint === "string" && channelHint.trim().length > 0) {
+    const hint = channelHint.toLowerCase();
+    for (const [key, cpc] of STATED_DEFAULT_CPC_BY_PLATFORM) {
+      if (hint.includes(key)) return cpc;
+    }
+  }
+  return DEFAULT_BLENDED_CPC;
+}
+
+// "3%" / "3" / "0.03" -> 0.03. A literal "%" or a bare number > 1 reads as a
+// percent; a bare number <= 1 is already a fraction. Out-of-range -> undefined.
+export function parsePaidMediaPercentToFraction(
+  value: string | undefined,
+): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  if (match === null) return undefined;
+  const raw = Number(match[1]);
+  if (!Number.isFinite(raw) || raw <= 0) return undefined;
+  const fraction = value.includes("%") || raw > 1 ? raw / 100 : raw;
+  return fraction > 0 && fraction <= 1 ? fraction : undefined;
+}
+
+// Blended click->conversion rate for the row's KPI unit. Funnel-stage KPIs
+// (trials/leads/signups) convert a click (visitor) to a signup. Acquisition
+// KPIs (customers/sales) carry through activation and paid. Returns undefined
+// when no stage rate is available -> the projection degrades to an honest gap
+// rather than back-solving from the target CAC.
+function blendedCvrForUnit(
+  unit: "acquisition" | "funnel-stage",
+  chain: PaidMediaCvrChain | undefined,
+): number | undefined {
+  if (chain === undefined) return undefined;
+  const stages =
+    unit === "acquisition"
+      ? [chain.visitorToSignup, chain.signupToActivation, chain.activationToPaid]
+      : [chain.visitorToSignup];
+  const present = stages.filter(
+    (rate): rate is number => typeof rate === "number" && rate > 0,
+  );
+  if (present.length === 0) return undefined;
+  return present.reduce((product, rate) => product * rate, 1);
+}
+
+function roundTo(value: number, places: number): number {
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
+}
+
+function formatPercent(fraction: number | undefined): string {
+  return fraction === undefined ? "—" : `${roundTo(fraction * 100, 2)}%`;
+}
+
+// Honest gap note: projected count vs an explicit funnel-stage goal, or modeled
+// CAC vs target CAC (only for acquisition KPIs, where the units are
+// apples-to-apples). Never invents a count from the target CAC.
+function buildProjectedGoalGapNote(input: {
+  countMethod: "forward" | "cost" | null;
+  bridgeUnit: "acquisition" | "funnel-stage" | null;
+  projectedCountValue: number | undefined;
+  impliedCacValue: number | undefined;
+  targetCacValue: number | undefined;
+  targetTrials: number | undefined;
+  hasBudget: boolean;
+}): string | undefined {
+  const {
+    countMethod,
+    bridgeUnit,
+    projectedCountValue,
+    impliedCacValue,
+    targetCacValue,
+    targetTrials,
+    hasBudget,
+  } = input;
+
+  if (countMethod === null) {
+    // Could not project demand — say so honestly instead of back-solving.
+    if (hasBudget && bridgeUnit !== null) {
+      return "Projected volume needs a funnel conversion rate (visitor → signup) from the brief; target CAC alone can’t forecast demand.";
+    }
+    return undefined;
+  }
+  if (countMethod !== "forward" || projectedCountValue === undefined) {
+    return undefined;
   }
 
-  if (bridgeUnit === "funnel-stage") {
-    return "At your target CAC from the GTM brief; no stage-to-customer conversion rate assumed.";
+  if (
+    targetTrials !== undefined &&
+    targetTrials > 0 &&
+    projectedCountValue < targetTrials
+  ) {
+    const multiple = targetTrials / Math.max(projectedCountValue, 1);
+    return `Projects ~${projectedCountValue.toLocaleString("en-US")}/mo against your ~${targetTrials.toLocaleString("en-US")}/mo goal — about ${roundTo(multiple, 1)}× short at this budget and conversion rate.`;
+  }
+
+  if (
+    bridgeUnit === "acquisition" &&
+    impliedCacValue !== undefined &&
+    targetCacValue !== undefined &&
+    impliedCacValue > targetCacValue
+  ) {
+    const multiple = impliedCacValue / Math.max(targetCacValue, 1);
+    return `Modeled CAC ${formatUsd(impliedCacValue)} runs ~${roundTo(multiple, 1)}× your ${formatUsd(targetCacValue)} target — tighten conversion or budget to close it.`;
   }
 
   return undefined;
@@ -1226,26 +1372,11 @@ function normalizeProjectedResultRow(
   const kpi = getString(record.kpi ?? record.metric, "Evidence gap: KPI missing.");
   const snappedKpiCostProvenance = snapMoneyProvenance(record.kpiCostProvenance);
   const targetCacBridgeUnit = getTargetCacBridgeUnit(kpi);
-  // Brief-CAC bridge: when the model honestly reports the KPI cost unknown
-  // and the brief supplied a target CAC whose unit matches the row's KPI,
-  // the runner sets the cost from the brief (provenance 'user-supplied' —
-  // it IS the client's own number) so the SOP floor() math below can run.
   const targetCacValue = parsePaidMediaTargetCacValue(options?.targetCac);
-  const bridgeKpiCostFromTargetCac =
-    snappedKpiCostProvenance === "unknown" &&
-    targetCacValue !== undefined &&
-    targetCacBridgeUnit !== null;
-  const kpiCostProvenance = bridgeKpiCostFromTargetCac
-    ? "user-supplied"
-    : snappedKpiCostProvenance;
+
   const phaseMonthlyBudgetProvenance = snapMoneyProvenance(
     record.phaseMonthlyBudgetProvenance,
   );
-  const kpiCostValue = bridgeKpiCostFromTargetCac
-    ? targetCacValue
-    : kpiCostProvenance === "unknown"
-      ? undefined
-      : getMoneyNumber(record.kpiCostValue ?? record.kpiCost);
   const phaseMonthlyBudgetValue =
     phaseMonthlyBudgetProvenance === "unknown"
       ? undefined
@@ -1254,15 +1385,90 @@ function normalizeProjectedResultRow(
             record.phaseBudget ??
             record.monthlyBudgetValue,
         );
-  // The model never does the math: any model-authored count is overwritten,
-  // and an uncostable row carries NO count rather than an invented one.
-  const projectedCountValue =
-    kpiCostValue !== undefined &&
-    kpiCostValue > 0 &&
-    phaseMonthlyBudgetValue !== undefined &&
-    phaseMonthlyBudgetValue > 0
-      ? Math.floor(phaseMonthlyBudgetValue / kpiCostValue)
+  const hasBudget =
+    phaseMonthlyBudgetValue !== undefined && phaseMonthlyBudgetValue > 0;
+
+  // KPI-COST column: a genuine model/tool cost when present, else the brief's
+  // target CAC shown as the GOAL reference. The target CAC is NEVER used to
+  // back-solve the projected count — doing so made implied CAC == target CAC
+  // by construction and hid the real (~18x) shortfall.
+  const hasModelKpiCost = snappedKpiCostProvenance !== "unknown";
+  const modelKpiCost = hasModelKpiCost
+    ? getMoneyNumber(record.kpiCostValue ?? record.kpiCost)
+    : undefined;
+  const useTargetReference =
+    !hasModelKpiCost &&
+    targetCacValue !== undefined &&
+    targetCacBridgeUnit !== null;
+  const kpiCostValue = hasModelKpiCost
+    ? modelKpiCost
+    : useTargetReference
+      ? targetCacValue
       : undefined;
+  const kpiCostProvenance = hasModelKpiCost
+    ? snappedKpiCostProvenance
+    : useTargetReference
+      ? "user-supplied"
+      : "unknown";
+
+  // FORWARD demand projection: spend -> CPC -> clicks -> blended CVR -> count.
+  const cpcValue = resolveStatedCpc(options?.channelHint);
+  const blendedCvr =
+    targetCacBridgeUnit !== null
+      ? blendedCvrForUnit(targetCacBridgeUnit, options?.cvrChain)
+      : undefined;
+  const canForwardProject =
+    hasBudget && blendedCvr !== undefined && blendedCvr > 0 && cpcValue > 0;
+  const projectedClicks = canForwardProject
+    ? Math.floor(phaseMonthlyBudgetValue! / cpcValue)
+    : undefined;
+
+  let projectedCountValue =
+    canForwardProject && projectedClicks !== undefined
+      ? Math.floor(projectedClicks * blendedCvr!)
+      : undefined;
+  let countMethod: "forward" | "cost" | null =
+    projectedCountValue !== undefined ? "forward" : null;
+
+  // Legitimate cost-based count ONLY when the model gave a REAL KPI cost and we
+  // could not forward-project. Never back-solve from a target-CAC reference.
+  if (
+    projectedCountValue === undefined &&
+    hasModelKpiCost &&
+    modelKpiCost !== undefined &&
+    modelKpiCost > 0 &&
+    hasBudget
+  ) {
+    projectedCountValue = Math.floor(phaseMonthlyBudgetValue! / modelKpiCost);
+    countMethod = "cost";
+  }
+
+  const impliedCacValue =
+    countMethod === "forward" &&
+    projectedCountValue !== undefined &&
+    projectedCountValue > 0
+      ? roundTo(phaseMonthlyBudgetValue! / projectedCountValue, 2)
+      : undefined;
+
+  const targetTrials = parsePaidMediaTargetCacValue(
+    options?.targetTrialsPerMonth,
+  );
+  const goalGapNote = buildProjectedGoalGapNote({
+    countMethod,
+    bridgeUnit: targetCacBridgeUnit,
+    projectedCountValue,
+    impliedCacValue,
+    targetCacValue,
+    targetTrials,
+    hasBudget,
+  });
+
+  const countBasis =
+    countMethod === "forward"
+      ? `Projected from spend ÷ $${cpcValue} CPC × ${formatPercent(blendedCvr)} funnel conversion (modeled).`
+      : countMethod === "cost"
+        ? "At the reported KPI cost."
+        : undefined;
 
   return {
     targetIcp: getString(
@@ -1284,18 +1490,36 @@ function normalizeProjectedResultRow(
       ? {}
       : {
           projectedCountValue,
-          projectedCountProvenance: weakestMoneyProvenance(
-            kpiCostProvenance,
-            phaseMonthlyBudgetProvenance,
-          ),
-          ...optionalStringField(
-            "countBasis",
-            bridgeKpiCostFromTargetCac
-              ? getTargetCacCountBasis(targetCacBridgeUnit)
-              : undefined,
-          ),
+          // Forward-projected counts are DERIVED, written directly (snap maps
+          // 'derived' -> 'model-estimated'); a cost-based count inherits its
+          // weakest input.
+          projectedCountProvenance:
+            countMethod === "forward"
+              ? "derived"
+              : weakestMoneyProvenance(
+                  kpiCostProvenance,
+                  phaseMonthlyBudgetProvenance,
+                ),
+          ...optionalStringField("countBasis", countBasis),
           marginOfErrorPercent: SOP_MARGIN_OF_ERROR_PERCENT,
         }),
+    // Forward-funnel exhibits — only when the count was demand-projected.
+    ...(countMethod === "forward"
+      ? {
+          cpcValue,
+          cpcProvenance: "derived",
+          ...optionalNumericField("projectedClicks", projectedClicks),
+          ...optionalNumericField(
+            "blendedCvrPercent",
+            blendedCvr === undefined ? undefined : roundTo(blendedCvr * 100, 2),
+          ),
+          ...optionalNumericField("impliedCacValue", impliedCacValue),
+          ...(impliedCacValue === undefined
+            ? {}
+            : { impliedCacProvenance: "derived" }),
+        }
+      : {}),
+    ...optionalStringField("goalGapNote", goalGapNote),
     sourceSection: normalizeSourceSection(record.sourceSection),
   };
 }

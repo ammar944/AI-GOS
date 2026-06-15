@@ -40,6 +40,7 @@ export interface OnboardingV2Data {
   targetPlan: string;
   avgLtv: string;
   targetCac: string;
+  targetTrialsPerMonth: string;
   monthlyAdBudget: string;
 
   // Section 5: Competition & Positioning
@@ -188,6 +189,7 @@ export const OnboardingV2Schema = z.object({
   targetPlan: z.string().optional().default(''),
   avgLtv: z.string().optional().default(''),
   targetCac: z.string().optional().default(''),
+  targetTrialsPerMonth: z.string().optional().default(''),
   monthlyAdBudget: z.string().min(1, 'Required'),
   // Section 5
   topCompetitors: z.string().min(1, 'Required'),
@@ -239,7 +241,7 @@ export const SECTION_SCHEMAS: Record<number, z.ZodSchema> = {
     coreFeatures: true, firstValueMoment: true, activationEvent: true, retentionDrivers: true,
   }),
   3: OnboardingV2Schema.pick({
-    pricingTiers: true, targetPlan: true, avgLtv: true, targetCac: true, monthlyAdBudget: true,
+    pricingTiers: true, targetPlan: true, avgLtv: true, targetCac: true, targetTrialsPerMonth: true, monthlyAdBudget: true,
   }),
   4: OnboardingV2Schema.pick({
     topCompetitors: true, whyCustomersChooseYou: true, lossReasons: true, competitorAdvantages: true,
@@ -382,6 +384,7 @@ export const SECTION_META: SectionMeta[] = [
       { key: 'targetPlan', label: "What is your target customer's typical plan?", type: 'text', required: false, placeholder: 'e.g. Growth plan', description: 'optional — sharpens economics' },
       { key: 'avgLtv', label: 'Average LTV', type: 'text', required: false, placeholder: 'e.g. $2,400', description: 'optional — sharpens economics' },
       { key: 'targetCac', label: 'Target CAC', type: 'text', required: false, placeholder: 'e.g. $400', description: 'optional — sharpens economics' },
+      { key: 'targetTrialsPerMonth', label: 'Target trials / leads per month', type: 'text', required: false, placeholder: 'e.g. 120', description: 'optional — surfaces the projected-vs-goal gap in the media plan' },
       { key: 'monthlyAdBudget', label: 'Monthly ad budget (or planned budget)', type: 'text', required: true, placeholder: 'e.g. $10,000/mo' },
     ],
   },
@@ -515,6 +518,7 @@ export const EMPTY_ONBOARDING_V2: OnboardingV2Data = {
   targetPlan: '',
   avgLtv: '',
   targetCac: '',
+  targetTrialsPerMonth: '',
   monthlyAdBudget: '',
   topCompetitors: '',
   whyCustomersChooseYou: '',
