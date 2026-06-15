@@ -139,5 +139,23 @@ The owner authorized moving grill → build. Fixes are landing in the working tr
 Made `tolerant-decode` default missing required arrays to `[]`, added VoC decode-shortfall salvage, and made OfferDiagnostic editorial-floor failures inject schema-valid `blockGap`s (real rows preserved) → honest-gap commit + `insufficient` tier instead of `status=error`. `assertSectionArtifactPersistable` still throws on genuine envelope/structural corruption. **tsc 0; 752 tests pass; adversarial verifier confirmed no garbage commits.**
 - **Live proof (rerun the 2 stuck zones on `09f694d7`):** **VoiceOfCustomer RECOVERED → `complete`** (was dying on a decode/editorial floor) — R1 confirmed working live for its target failure mode. Auto-rescue cap also confirmed (no churn).
 
-### Wave 2b — NEW autonomy blocker found live (deadline boundary)
+### AUTONOMY FACADE → WORKING (live-proven)
+After Wave 1 + R1 + the two deadline fixes (fallback fires with available budget; deadline-exhaustion → honest-gap commit), run `09f694d7` — stuck at 4/6 all session, media plan "Locked until 6/6" — reached **6/6 + paid-media plan complete + strategy brief composing**, live:
+```
+OfferD: complete (REAL content, insufficient tier)  →  6/6  →  PaidMedia: queued → complete
+```
+The "complete ≠ usable / sections can't finish" facade is closed. OfferDiagnostic — stuck all session — committed **real content** once the deadline-fallback fix let its fallback fire with available budget (verified: 42KB body, funnelDiagnosis/proofPoints/redFlags, no honest-gap markers). The deadline honest-gap skeleton is the verified safety-net for the residual "can't generate at all" case (all 6 skeletons pass the real registry schema+minimums; not triggered on this run). Committed: `9b4103a0` (deadline honest-gap), `93ea2ed8` (fallback budget), `0aa5e77b` (R1), `a85dfd16` (chat+rescue), `5e79bf14` (verdict+harness). All tsc 0; full suites green.
+
+### FINAL GRADE — complete deliverable, two independent judges CONVERGED: **6/10, would-pay with-caveats**
+Up from a deliverable that **could not complete at all** (locked 4/6) and the contaminated baseline's 3/10. Deterministic buyer-eval independently: **6/10 (cap 7)**, up from 1/10.
+- **Integrity is real:** NO fabrication — the `$45.4B Integrate.io` TAM is **gone** (honestly "not computed"); no fake quotes; no invented creatives. Cross-section numbers reconcile (one CAC, one price, one branded floor, keyword cluster sums).
+- **Media-plan math now PASSES the cascade** (audience dailies sum to $833 = daily spend; phase sub-totals reconcile) — defect #1 resolved on this run.
+- **The path from 6 → 8–9 (both judges' levers, concrete):**
+  1. **Media-plan funnel is hollow/circular** (#1 lever): trials are back-solved from the target CAC ($17,500/$3,000=5) instead of computed via CPC→clicks→CVR; it projects ~6–13 trials/mo against the brief's own ~120/mo goal with the ~18× shortfall **unflagged**. Compute trials from spend→demand and surface the true implied CAC + the goal gap.
+  2. **VoC = 3/10** — a raw Zod decoder stack-trace leaks into 3 client-facing fields; 0 quotes (honest gap, but no VoC value). Sanitize.
+  3. **R2 client-language** (deny-list 56): internal vocab (`internalDetail`, "displayable creatives", "quarantinedCount=12", `verifiedCount`, bare-domain SpyFu cites) on the client surface.
+  4. **VoC→PaidMedia laundering**: paid-media cites VoC review candidates the VoC gate explicitly *rejected*.
+  5. **Provenance lie**: `projectedCount` tagged `user-supplied` when it's budget÷CAC derived; and the executive **thesis errored** (buyer-eval MEMO fail) — compose it always.
+
+### Wave 2b — the deadline boundary (detail)
 After R1, `positioningOfferDiagnostic` no longer dies on the `proofPoints≥3` floor — it now dies on a **different, deeper** cause: `deadline-aware structured fallback skipped: remaining section budget 134381ms below fallback floor 260000ms` (`section-agent.ts:1553`). Root cause: the structured fallback is itself a full ~240s call (floor = `getStructuredOutputTimeoutMs` 240s + 20s emit = 260s; `run-section.ts:522`), so first-attempt (240s) + fallback (260s) ≈ 500s **cannot fit inside a section's deadline** (prod Vercel `maxDuration=300`). When the first attempt fails on a slow section, there's no room for the fallback → it **errors** instead of degrading. **Fix = apply the R1 doctrine to the deadline boundary:** a deadline-skip should commit a from-scratch honest-gap artifact (insufficient tier, "section exceeded time budget — rerun to retry") so the run still reaches 6/6, rather than `status=error` locking the whole deliverable. This is a distinct, non-trivial fix (per-section minimal gap skeletons) — pending owner direction.
