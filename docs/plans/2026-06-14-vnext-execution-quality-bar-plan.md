@@ -36,7 +36,7 @@ All four validation lanes returned **sound-with-risks at high confidence**. The 
 
 **Everything else dies or is demoted:** row-count floors, awareness/force enum-coverage quotas, confidence self-report, substring "verified," mandatory insight quotas, and any gate that forces padding or strikes honest gaps. (This is exactly Wave 1 of the 9/10 bar doc: "kill the fabrication-forcers.")
 
-**The judge harness** becomes a first-class, re-runnable CLI gate: `scripts/zz-judge-run.mjs <run_id>` dumps a run's persisted inputs+outputs from Supabase and has a strong model render the value verdict + per-section read + would-I-pay + the 3 highest-leverage fixes. It is **`$0` of browser** (reads the DB; only model spend), fast, repeatable — which also removes the Clerk/browser dependency from the quality gate entirely.
+**The judge harness** is a first-class, re-runnable CLI gate, and **the judge is always a LOCAL agent (Codex / Claude Code) — never an API model** (owner rule 2026-06-15): no key, never billed, strongest reasoning available. Three deterministic steps: `zz-judge-run.mjs <run>` GATHERS the persisted inputs+outputs into a bundle → a local Codex/Claude Code agent reads `prompt.txt` and writes `verdict.json` (shape via `--print-schema`) → `zz-judge-run.mjs <run> --gate` passes/fails (≥9, zero fabrication). **`$0` of browser AND `$0` of API** — removing both the Clerk dependency and any model-key dependency from the quality gate. (Proven 2026-06-15: three independent judges converged on the same defects on the Airtable baseline; `--gate` returns exit 2 below bar. A `--provider` API path exists only as a non-canonical headless-CI escape hatch.)
 
 ## 4. Codex one-prompt fan-out — real, native, already enabled
 
@@ -93,7 +93,7 @@ Empirical probe (2026-06-14): dev server **UP** (`localhost:3000` → 200); **CD
 - `npm run test:run` → no new failures; new colocated suites green.
 - `npm run build` → exit 0.
 - Per-lane **CLI proof script** committed + green (`$0`): the existing `zz-strategy-brief-*` tiers + new `zz-paid-feasibility-gate.mjs`, `zz-reconcile-pass.mjs`, `zz-source-admission.mjs`, `zz-media-gate.mjs`.
-- **Terminal acceptance:** `node scripts/zz-judge-run.mjs <fresh_run_id>` → value verdict "genuinely valuable / would-pay", budget arithmetic reconciles, zero containment-fabrication findings, deny-list clean. This is the product's score.
+- **Terminal acceptance:** `node scripts/zz-judge-run.mjs <fresh_run_id>` (gather) → a local Codex/Claude Code agent writes the verdict → `--gate` requires value verdict "genuinely valuable / would-pay", budget arithmetic reconciles, zero containment-fabrication findings, deny-list clean. This is the product's score.
 
 ## 8. Open items / explicit non-goals
 
