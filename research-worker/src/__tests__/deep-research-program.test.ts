@@ -11,6 +11,8 @@ import {
   normalizeTopCompetitorsValue,
   runDeepResearchProgram,
   scrubDeepResearchProcessTalk,
+  scrubProcessTalkFromCorpus,
+  trimUngroundedProse,
   validateDeepResearchMinimums,
 } from '../runners/deep-research-program';
 import type { RunnerProgressUpdate } from '../runner';
@@ -1289,6 +1291,84 @@ describe('scrubDeepResearchProcessTalk', () => {
       'Ramp passes SOC 2 audits and runs spend programs for finance teams.';
 
     expect(scrubDeepResearchProcessTalk(text)).toBe(text);
+  });
+
+  it('strips out-of-range / bracketed inline citation markers from prose', () => {
+    expect(
+      scrubDeepResearchProcessTalk(
+        'Ramp automates spend controls for finance teams [40] across mid-market accounts [49-58].',
+      ),
+    ).toBe('Ramp automates spend controls for finance teams across mid-market accounts.');
+    expect(
+      scrubDeepResearchProcessTalk('Ramp lists pricing tiers on its site [12, 13].'),
+    ).toBe('Ramp lists pricing tiers on its site.');
+  });
+});
+
+describe('trimUngroundedProse', () => {
+  const citedHosts = new Set(['ramp.com']);
+
+  it('trims a sentence asserting an external platform absent from cited hosts', () => {
+    const text =
+      'Ramp markets spend controls to finance teams. High volumes of reviews on G2 and Capterra signal strong adoption.';
+
+    expect(trimUngroundedProse(text, citedHosts)).toBe(
+      'Ramp markets spend controls to finance teams.',
+    );
+  });
+
+  it('trims an invented Reddit-community claim and ends at the honest gap', () => {
+    const text =
+      'Ramp positions one finance platform. Active Reddit communities discuss the product daily.';
+
+    expect(trimUngroundedProse(text, citedHosts)).toBe('Ramp positions one finance platform.');
+  });
+
+  it('keeps a review-platform sentence when that platform IS in the cited hosts', () => {
+    const text =
+      'Ramp markets spend controls. G2 reviews rate the platform highly for finance teams.';
+
+    expect(trimUngroundedProse(text, new Set(['ramp.com', 'g2.com']))).toBe(text);
+  });
+
+  it('keeps grounded prose with no external-platform claim untouched', () => {
+    const text =
+      'Ramp combines cards, expenses, bill pay, and procurement for finance teams.';
+
+    expect(trimUngroundedProse(text, citedHosts)).toBe(text);
+  });
+});
+
+describe('scrubProcessTalkFromCorpus', () => {
+  it('strips inline citation markers from evidence claim and quote fields', () => {
+    const fixture = buildCorpusFixture() as unknown as Parameters<
+      typeof scrubProcessTalkFromCorpus
+    >[0];
+    fixture.corpus.evidence[0]!.claim = 'Ramp offers corporate cards [40] for finance teams.';
+    fixture.corpus.evidence[0]!.quote = 'Ramp markets corporate cards [49-58] as spend control.';
+
+    const scrubbed = scrubProcessTalkFromCorpus(fixture);
+
+    expect(scrubbed.corpus.evidence[0]!.claim).toBe(
+      'Ramp offers corporate cards for finance teams.',
+    );
+    expect(scrubbed.corpus.evidence[0]!.quote).toBe(
+      'Ramp markets corporate cards as spend control.',
+    );
+  });
+
+  it('trims invented review-platform filler from the research summary', () => {
+    const fixture = buildCorpusFixture() as unknown as Parameters<
+      typeof scrubProcessTalkFromCorpus
+    >[0];
+    fixture.corpus.researchSummary =
+      'Ramp is a spend management platform for businesses. High volumes of reviews on G2 and Capterra plus active Reddit communities confirm adoption.';
+
+    const scrubbed = scrubProcessTalkFromCorpus(fixture);
+
+    expect(scrubbed.corpus.researchSummary).toBe(
+      'Ramp is a spend management platform for businesses.',
+    );
   });
 });
 

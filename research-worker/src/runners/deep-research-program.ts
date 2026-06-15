@@ -1394,7 +1394,10 @@ function appendCrossSectionDeepResearchMemo(input: {
       'sonar-deep-research produced a cited cross-section research memo for downstream GTM section drafting.',
     source: source.title,
     url: source.url,
-    quote: memoText,
+    // The memo is the researcher's synthesis across sources, not a verbatim
+    // excerpt — label it as a sentiment/research summary so it is never
+    // presented downstream as a literal source quote.
+    quote: `Research memo summary (not a verbatim source quote): ${memoText}`,
     confidence: 80,
   };
   const withMemo = {
@@ -1447,7 +1450,30 @@ const PROCESS_TALK_IN_THIS_PATTERN =
 const PROCESS_TALK_DEFERRAL_PATTERN =
   /([^.!?\n]*?)\s*\b(?:should|will|can|must|may) be deferred to a dedicated[^.!?\n]*?(?:pass|call|sweep|fan-?outs?)[^.!?\n]*([.!?]|$)/gi;
 
+// Perplexity copies inline citation markers ([40], [49-58], [12, 13]) into the
+// prose and evidence text it returns. A standalone bracketed number / number
+// range / number list is never legitimate client-facing prose, so strip it
+// wherever it lands. When a citation count is known we only need to confirm the
+// marker is numeric — out-of-range markers (beyond the citation array length)
+// are the worst offenders and are removed by the same rule.
+const INLINE_CITATION_MARKER_PATTERN = /\s*\[\d+(?:\s*[-–]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–]\s*\d+)?)*\]/g;
+
+function stripInlineCitationMarkers(value: string): string {
+  if (!value.includes('[')) {
+    return value;
+  }
+
+  const scrubbed = value
+    .replace(INLINE_CITATION_MARKER_PATTERN, '')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+
+  return scrubbed.length > 0 ? scrubbed : value.trim();
+}
+
 export function scrubDeepResearchProcessTalk(value: string): string {
+  value = stripInlineCitationMarkers(value);
   const scrubbed = value
     .replace(PROCESS_TALK_DEFERRAL_PATTERN, (_match, subject: string, terminator: string) => {
       const leadingWhitespace = /^\s*/.exec(subject)?.[0] ?? '';
@@ -1470,9 +1496,87 @@ export function scrubDeepResearchProcessTalk(value: string): string {
   return scrubbed.length > 0 ? scrubbed : value.trim();
 }
 
-function scrubProcessTalkFromCorpus(
+// Named external review/community platforms the model likes to invent as
+// "social proof" filler ("High volumes of reviews on G2 and Capterra ...
+// active Reddit communities") even when none of the cited sources are from
+// those hosts. Each maps to the host token we expect in a real citation.
+const EXTERNAL_PLATFORM_HOST_TOKENS: ReadonlyArray<{ pattern: RegExp; hostToken: string }> = [
+  { pattern: /\bG2\b/, hostToken: 'g2' },
+  { pattern: /\bG2\s*Crowd\b/i, hostToken: 'g2' },
+  { pattern: /\bCapterra\b/i, hostToken: 'capterra' },
+  { pattern: /\bGetApp\b/i, hostToken: 'getapp' },
+  { pattern: /\bTrustRadius\b/i, hostToken: 'trustradius' },
+  { pattern: /\bTrustpilot\b/i, hostToken: 'trustpilot' },
+  { pattern: /\bGartner\b/i, hostToken: 'gartner' },
+  { pattern: /\bReddit\b/i, hostToken: 'reddit' },
+  { pattern: /\bQuora\b/i, hostToken: 'quora' },
+  { pattern: /\bGlassdoor\b/i, hostToken: 'glassdoor' },
+  { pattern: /\bProduct\s*Hunt\b/i, hostToken: 'producthunt' },
+  { pattern: /\bHacker\s*News\b/i, hostToken: 'ycombinator' },
+];
+
+// Conservative sentence-level trimmer: drop a sentence ONLY when it asserts a
+// named external platform (G2/Capterra/Reddit/...) whose host is NOT among the
+// corpus's cited source hosts. Allowed tokens are derived from host BASENAMES
+// (getUrlHost), not full-URL strings — matching against full URLs would drop
+// legitimately-cited sentences. When in doubt the sentence is kept; the
+// summary ends at the honest gap rather than inventing a fill.
+export function trimUngroundedProse(value: string, allowedHosts: ReadonlySet<string>): string {
+  const platformsInPlay = EXTERNAL_PLATFORM_HOST_TOKENS.filter((platform) =>
+    platform.pattern.test(value),
+  );
+
+  if (platformsInPlay.length === 0) {
+    return value;
+  }
+
+  const sentences = value.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+  if (sentences === null) {
+    return value;
+  }
+
+  const kept = sentences.filter((sentence) => {
+    const unsourcedPlatform = platformsInPlay.some(
+      (platform) =>
+        platform.pattern.test(sentence) &&
+        ![...allowedHosts].some((host) => host.includes(platform.hostToken)),
+    );
+
+    return !unsourcedPlatform;
+  });
+
+  const trimmed = kept.join('').replace(/ {2,}/g, ' ').trim();
+
+  // Never empty out load-bearing prose: if every sentence tripped the guard,
+  // keep the original rather than emitting a blank summary.
+  return trimmed.length > 0 ? trimmed : value;
+}
+
+function collectCorpusSourceHosts(parsed: DeepResearchCorpusOutput): Set<string> {
+  const hosts = new Set<string>();
+
+  for (const source of parsed.corpus.sources) {
+    const host = getUrlHost(source.url);
+    if (host !== null) {
+      hosts.add(host);
+    }
+  }
+
+  return hosts;
+}
+
+export function scrubProcessTalkFromCorpus(
   parsed: DeepResearchCorpusOutput,
 ): DeepResearchCorpusOutput {
+  const allowedHosts = collectCorpusSourceHosts(parsed);
+  const scrubProse = (text: string): string =>
+    trimUngroundedProse(scrubDeepResearchProcessTalk(text), allowedHosts);
+  const scrubEvidenceRow = (evidence: DeepResearchEvidence): DeepResearchEvidence => ({
+    ...evidence,
+    claim: stripInlineCitationMarkers(evidence.claim),
+    quote: stripInlineCitationMarkers(evidence.quote),
+  });
+
   const onboardingFields = Object.fromEntries(
     Object.entries(parsed.onboardingFields).map(([fieldName, field]) => [
       fieldName,
@@ -1486,10 +1590,12 @@ function scrubProcessTalkFromCorpus(
     ...parsed,
     corpus: {
       ...parsed.corpus,
-      researchSummary: scrubDeepResearchProcessTalk(parsed.corpus.researchSummary),
+      researchSummary: scrubProse(parsed.corpus.researchSummary),
+      evidence: parsed.corpus.evidence.map(scrubEvidenceRow),
       intelligenceTopics: parsed.corpus.intelligenceTopics.map((topic) => ({
         ...topic,
-        summary: scrubDeepResearchProcessTalk(topic.summary),
+        summary: scrubProse(topic.summary),
+        evidence: topic.evidence.map(scrubEvidenceRow),
       })),
     },
     onboardingFields,
