@@ -1,0 +1,204 @@
+{
+  "runId": "d2abf018-529c-4582-822e-585fecc53808",
+  "artifact": {
+    "id": "a017459c-c743-402b-a286-064aebd2c477",
+    "status": "complete",
+    "childrenTotal": 6,
+    "childrenComplete": 6
+  },
+  "sections": [
+    {
+      "zone": "deepResearchProgram",
+      "status": "complete",
+      "verificationTier": null,
+      "countsTowardRollup": true
+    },
+    {
+      "zone": "positioningBuyerICP",
+      "status": "complete",
+      "verificationTier": "insufficient",
+      "countsTowardRollup": true
+    },
+    {
+      "zone": "positioningCompetitorLandscape",
+      "status": "complete",
+      "verificationTier": "insufficient",
+      "countsTowardRollup": true
+    },
+    {
+      "zone": "positioningDemandIntent",
+      "status": "complete",
+      "verificationTier": "insufficient",
+      "countsTowardRollup": true
+    },
+    {
+      "zone": "positioningMarketCategory",
+      "status": "complete",
+      "verificationTier": "insufficient",
+      "countsTowardRollup": true
+    },
+    {
+      "zone": "positioningOfferDiagnostic",
+      "status": "complete",
+      "verificationTier": "insufficient",
+      "countsTowardRollup": true
+    },
+    {
+      "zone": "positioningPaidMediaPlan",
+      "status": "complete",
+      "verificationTier": "needs_review",
+      "countsTowardRollup": false
+    },
+    {
+      "zone": "positioningVoiceOfCustomer",
+      "status": "complete",
+      "verificationTier": "insufficient",
+      "countsTowardRollup": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "CASCADE",
+      "status": "PASS",
+      "evidence": "monthlyBudgetValue=$25,000; dailySpend=$833; dailySpend*30_delta=$10; audienceDailyBudgets=4/4; audienceDailySum=$833; audienceDailyDelta=$0; phaseBudgets=2/2; phaseOverMonthly=0",
+      "core": true,
+      "neverShipReasons": []
+    },
+    {
+      "id": "PROJECTIONS",
+      "status": "PASS",
+      "evidence": "rows=2; rowsWithPhaseBudget=2; missingKpiCostValue=0; missingProjectedCount=0; badKpiCostProvenance=0",
+      "core": true,
+      "neverShipReasons": []
+    },
+    {
+      "id": "BUDGET-PARTITION",
+      "status": "PASS",
+      "evidence": "monthlyBudgetValue=$25,000; phaseBudgetRows=2/2; phaseBudgetSum=$50,000; sumVsMonthlyDelta=$25,000; windows=2; maxWindowSum=$25,000; overAllocatedWindows=0; rowsCarryingFullMonthly=2; duplicateFullSpend=false",
+      "core": true,
+      "neverShipReasons": []
+    },
+    {
+      "id": "CAC-UNIT",
+      "status": "PASS",
+      "evidence": "rows=2; funnelStageKpiRows=2; rowsWithTrialToPaidBridge=2; unitMismatchOffenders=0",
+      "core": true,
+      "neverShipReasons": []
+    },
+    {
+      "id": "CHANNELS",
+      "status": "PASS",
+      "evidence": "rows=6; substantiveRecommendations=6; gapStringRecommendations=0",
+      "core": true,
+      "neverShipReasons": []
+    },
+    {
+      "id": "ANGLES",
+      "status": "PASS",
+      "evidence": "rows=5; completeShortNameAndDescription=5",
+      "core": true,
+      "neverShipReasons": []
+    },
+    {
+      "id": "CREATIVE",
+      "status": "PASS",
+      "evidence": "creativeFrameworkCount=4; numericCreativeStrategyCounts=3/3",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "MEMO",
+      "status": "PASS",
+      "evidence": "status=complete; stringLeaves=2044; blockedOrStubHits=0; rankedMoves=3; duplicateRankedMoves=0",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "DENY-LIST",
+      "status": "PASS",
+      "evidence": "hits=0; scannedZones=7; thesisScanned=true",
+      "core": false,
+      "neverShipReasons": [],
+      "denyHits": []
+    },
+    {
+      "id": "QUOTES",
+      "status": "PASS",
+      "evidence": "quoteRecords=2; permalinkedQuotes=2; retrievalSummary=present",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "PERSONA-CONTAINMENT",
+      "status": "PASS",
+      "evidence": "personaRecords=0; namedHumanPersonas=0; vendorSourcedNamedHumans=0; live-page name containment enforced by engine source-liveness gate + cold judge noFabrication (not verifiable offline)",
+      "core": false,
+      "neverShipReasons": [],
+      "vendorSourcedNamedPersonaCount": 0
+    },
+    {
+      "id": "COMPETITOR-COUNT",
+      "status": "PASS",
+      "evidence": "capturedCreatives=36; advertiserGroups=6; attributedClaims=2; inflatedPerAdvertiser=0",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "VOC-LAUNDERING",
+      "status": "PASS",
+      "evidence": "vocUsableQuoteRecords=2; vocSourcedPaidRows=1 (creativeFramework[3])",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "VOC-EMPTY-DESPITE-EVIDENCE",
+      "status": "FAIL",
+      "evidence": "acquired=71; usableQuotes=2; shipsEmpty=true; promotableRejectedForCountSelection=51",
+      "core": false,
+      "neverShipReasons": [
+        "VOC-EMPTY-DESPITE-EVIDENCE: VoC shipped empty despite 71 successfully scraped+parsed candidate(s)",
+        "VOC-EMPTY-DESPITE-EVIDENCE: 51 promotable candidate(s) rejected for count/selection reasons (not quality)"
+      ]
+    },
+    {
+      "id": "PRICING",
+      "status": "PASS",
+      "evidence": "pricingRows=6; vendorDomainRows=2; thirdPartyRows=4; unknownRows=0; competitorDomains=8",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "SECTION-EMPTINESS",
+      "status": "PASS",
+      "evidence": "clientSections=7; hollowWithoutHonestGap=0",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "TIERS",
+      "status": "PASS",
+      "evidence": "clientSections=7; insufficient=6, needs_review=1",
+      "core": false,
+      "neverShipReasons": []
+    },
+    {
+      "id": "SHARE",
+      "status": "N-A",
+      "evidence": "not requested; use --share with BASE_URL to POST localhost share route",
+      "core": false,
+      "neverShipReasons": []
+    }
+  ],
+  "score": {
+    "score": 8,
+    "cap": 10,
+    "capReasons": [],
+    "neverShipReasons": [
+      "VOC-EMPTY-DESPITE-EVIDENCE: VoC shipped empty despite 71 successfully scraped+parsed candidate(s)",
+      "VOC-EMPTY-DESPITE-EVIDENCE: 51 promotable candidate(s) rejected for count/selection reasons (not quality)"
+    ],
+    "hardFail": true,
+    "clean": false
+  },
+  "reportPath": "docs/reports/buyer-eval-d2abf018.md"
+}
