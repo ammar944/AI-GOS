@@ -112,7 +112,7 @@ The 6-section grounding swarm (verified against the real Ramp artifacts + curren
 5. **BuyerICP** (WS5) — budget-aware prepass + solo rerun (timeout) **+** subject-own-exec rejection **+** the second source-liveness persona-grounding gate, all in one wave (Fix A alone leaves it ~1/10).
 6. **Demand discovery** (WS5) — wire the 4 dead-code SpyFu discovery endpoints as a `keyword_discovery` tool. Most code; depends on SpyFu coverage.
 
-WS2 RPM (render-time `toPresentationModel` at the `pickPositioningTypedArtifact` seam — `audit-reader-shell.tsx:1001`) continues as the parallel readability floor. atom-A = pure classifier (`docs/handoffs/2026-06-17-ws2-atom-A-rpm-core.codex.md`).
+**WS2 / RPM tier-classifier — DROPPED 2026-06-17.** It is *not* an eval (it scores/gates nothing) but it is unnecessary internal machinery. The carpet-bomb problem it targeted mostly evaporates once the content fixes land (a full section has nothing to apologize for), and the genuine-empty case is a **~10-line per-renderer copy of `isOfferDiagnosticHonestlyUnavailable`** (`offer-diagnostic.tsx:48`) — done inline while touching each renderer for its content fix; no central classifier, no tier taxonomy. WS1 telemetry-strip (`5fbf5b98`) stays — that was a pure win, not a scorer. **The only bar is an offline Opus/Codex value-read of the rendered research. Build no more scorers/classifiers/evals.**
 
 ---
 
