@@ -267,7 +267,7 @@ describe("applySourceLivenessGate", (): void => {
     // numbers over an empty table: it carries the same honest gap summary.
     expect(shareOfVoice.slices).toEqual([]);
     expect(shareOfVoice.prose).toBe(
-      "Rows in this block were removed before publishing because their cited sources could not be verified live.",
+      "Public sources for this block could not be independently verified, so those rows are not shown.",
     );
     expect((shareOfVoice.blockGap as Record<string, unknown>).summary).toBe(
       shareOfVoice.prose,
@@ -311,6 +311,185 @@ describe("applySourceLivenessGate", (): void => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result.checkedUrls).toHaveLength(2);
+    expect(result.droppedRows).toEqual([]);
+  });
+
+  it("drops a fabricated-name persona row on a LIVE page while keeping the real one", async (): Promise<void> => {
+    // Both URLs are HTTP 200 case-study pages on the SAME real company (West
+    // Elm). The fabricated persona names a human who is NOT on the page; the
+    // real persona names the human who IS. Before the requiredEntities fix,
+    // the shared real company name "West Elm" carried the fabricated row past
+    // .some()-over-all-entities containment.
+    const fetchImpl = vi.fn(
+      async (input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+
+        if (input.includes("fabricated")) {
+          return response({
+            body: "West Elm uses Airtable. Read how Korin Thorig leads the team.",
+            status: 200,
+          });
+        }
+
+        return response({
+          body: "Korin Thorig at West Elm built the base on Airtable.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Rachel Pleasants McLean",
+            company: "West Elm",
+            sourceUrl: "https://www.airtable.com/customer-stories/fabricated",
+          },
+          {
+            name: "Korin Thorig",
+            company: "West Elm",
+            sourceUrl: "https://www.airtable.com/customer-stories/west-elm",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as {
+      personas?: Array<{ name?: string }>;
+    };
+
+    expect(body.personas).toHaveLength(1);
+    expect(body.personas?.[0]?.name).toBe("Korin Thorig");
+    expect(result.droppedRows).toEqual([
+      expect.objectContaining({
+        path: "body.personas[0]",
+        reason: "containment-mismatch",
+        sourceUrl: "https://www.airtable.com/customer-stories/fabricated",
+      }),
+    ]);
+  });
+
+  it("keeps a persona whose name and company BOTH appear on the live page", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (_input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+
+        return response({
+          body: "Stephanie Hartgrove at Baker Hughes scaled Airtable across teams.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Stephanie Hartgrove",
+            company: "Baker Hughes",
+            sourceUrl: "https://www.airtable.com/customer-stories/baker-hughes",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { personas?: unknown[] };
+
+    expect(body.personas).toHaveLength(1);
+    expect(result.droppedRows).toEqual([]);
+    expect(result.containmentPassRate).toBe(1);
+  });
+
+  it("grounds a named persona on a PREVERIFIED live page (preverified spares the probe, never the name containment)", async (): Promise<void> => {
+    // Reproduces run c9bc2056: the agent fetched airtable.com/breakthroughs during
+    // generation, so the URL is preverified. The live page is HTTP 200 but its
+    // text does NOT contain "Sarah Koo". A preverified URL means "real/live", not
+    // "this row's named human is on it" — the persona must still be name-grounded
+    // and dropped when absent.
+    const fetchImpl = vi.fn(
+      async (_input: string, _init?: RequestInit): Promise<Response> =>
+        response({
+          body: "Airtable Breakthroughs showcases how teams build with Airtable.",
+          status: 200,
+        }),
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Sarah Koo",
+            company: "Salesforce",
+            sourceUrl: "https://www.airtable.com/breakthroughs",
+          },
+        ],
+      },
+      fetchImpl,
+      preverifiedUrls: new Set(["https://www.airtable.com/breakthroughs"]),
+    });
+    const body = result.body as { personas?: unknown[] };
+
+    expect(body.personas).toEqual([]);
+    expect(result.droppedRows).toEqual([
+      expect.objectContaining({
+        path: "body.personas[0]",
+        reason: "containment-mismatch",
+        sourceUrl: "https://www.airtable.com/breakthroughs",
+      }),
+    ]);
+  });
+
+  it("keeps a preverified named persona whose name IS on the live page", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (_input: string, _init?: RequestInit): Promise<Response> =>
+        response({
+          body: "Sarah Koo of Salesforce shares how her team adopted Airtable.",
+          status: 200,
+        }),
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Sarah Koo",
+            company: "Salesforce",
+            sourceUrl: "https://www.airtable.com/breakthroughs",
+          },
+        ],
+      },
+      fetchImpl,
+      preverifiedUrls: new Set(["https://www.airtable.com/breakthroughs"]),
+    });
+    const body = result.body as { personas?: unknown[] };
+
+    expect(body.personas).toHaveLength(1);
+    expect(result.droppedRows).toEqual([]);
+  });
+
+  it("keeps a preverified named persona when the verify-time probe fetch-errors (URL is known-real)", async (): Promise<void> => {
+    // A preverified URL was already fetched by the agent; a transient verify-time
+    // network failure must NOT drop the row (route to livenessUnknown, not drop).
+    const fetchImpl = vi.fn(async (): Promise<Response> => {
+      throw new Error("network down");
+    });
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Sarah Koo",
+            company: "Salesforce",
+            sourceUrl: "https://www.airtable.com/breakthroughs",
+          },
+        ],
+      },
+      fetchImpl,
+      preverifiedUrls: new Set(["https://www.airtable.com/breakthroughs"]),
+    });
+    const body = result.body as { personas?: unknown[] };
+
+    expect(body.personas).toHaveLength(1);
     expect(result.droppedRows).toEqual([]);
   });
 });

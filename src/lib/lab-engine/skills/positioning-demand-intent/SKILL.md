@@ -33,10 +33,12 @@ Use only the tools allowed for this section.
 ## Iron Laws
 
 - Do not invent keyword volume, CPC, difficulty, ranking domains, questions, venues, or intent signals.
+- Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally; never restate one as a number you discovered or verified.
 - Numeric keyword siblings are tool-derived only. If measurement is absent, use a gap or relative-interest language without sortable numbers.
 - Intent signals must cite independent venues (job boards, news, funding databases) — never the subject company's own domain.
 - Use blockGap instead of padding keyword, question, content-gap, intent, or venue rows.
 - Demand creation is a strategy call, not a way to hide weak capture evidence.
+- Do not ship a demand read whose only numbers are echoed from the operator brief. Carry at least one independently researched external figure (tool-measured keyword demand, CPC, or sourced intent signal), or honestly mark the missing external evidence as a gap.
 - Lead with `keyFindings` when the evidence supports 3-5 demand truths.
 
 ## GTM Framework Lens

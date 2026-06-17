@@ -9,7 +9,6 @@ import {
   KeyFindings,
   MilestoneTimeline,
   ReaderExhibit,
-  SectionCoverageNote,
   StatCallout,
   SubsectionBlock,
   VerdictHero,
@@ -58,7 +57,6 @@ const PAID_MEDIA_BODY_KEYS = [
 
 type PaidMediaBody = PaidMediaPlanArtifact['body'];
 type CampaignPhase = PaidMediaBody['campaignPhases'][number];
-type AudienceType = PaidMediaBody['audienceTypes'][number];
 type Angle = PaidMediaBody['anglesToTest'][number];
 type CreativeSlot = PaidMediaBody['creativeFramework'][number];
 type FunnelPath = PaidMediaBody['funnelIdeation'][number];
@@ -236,11 +234,33 @@ function basisForProvenance(
   return 'benchmark';
 }
 
+// Optional paid-CAC fields the schema/composer attaches when a trial->paid
+// bridge is modeled. Read defensively: they may be absent on older artifacts or
+// before the composer fills them, so the renderer must never assume presence.
+interface CustomerCacFields {
+  customerCacValue?: number;
+  customerCacBasis?: string;
+  customerCacProvenance?: string;
+  costPerTrialLabel?: string;
+  customerCacBandLowValue?: number;
+  customerCacBandHighValue?: number;
+  customerCacBandBasis?: string;
+}
+
+function readCustomerCacFields(row: ProjectedResultRow): CustomerCacFields {
+  return row as ProjectedResultRow & CustomerCacFields;
+}
+
 function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
   // Forward demand projection: spend -> CPC -> clicks -> blended CVR ->
-  // projected count -> implied CAC, shown beside the brief's target CAC so the
-  // gap is visible (the count is NOT back-solved from the target).
+  // projected count -> cost per qualified trial, then (if modeled) the
+  // trial->paid bridge to a customer CAC, shown beside the brief's target CAC.
+  // The count is NOT back-solved from the target.
   if (row.cpcValue !== undefined && row.impliedCacValue !== undefined) {
+    const cac = readCustomerCacFields(row);
+    // impliedCac is cost per qualified TRIAL/signup — label it so a media buyer
+    // can never read it as paid-customer CAC.
+    const trialLabel = cac.costPerTrialLabel ?? 'Cost per qualified trial (signup)';
     return [
       {
         label: 'Budget',
@@ -273,9 +293,19 @@ function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
         basis: 'benchmark',
       },
       {
-        label: 'Implied CAC',
+        label: trialLabel,
         value: formatUsdValue(row.impliedCacValue),
         basis: 'benchmark',
+      },
+      // Modeled paid-customer CAC after the trial->paid bridge. FunnelMath drops
+      // this step automatically when the value is absent (no bridge modeled).
+      {
+        label: 'Modeled customer CAC (after trial→paid)',
+        value:
+          cac.customerCacValue === undefined
+            ? undefined
+            : formatUsdValue(cac.customerCacValue),
+        basis: cac.customerCacBasis ?? basisForProvenance(cac.customerCacProvenance),
       },
       {
         label: 'Target CAC',
@@ -285,6 +315,30 @@ function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
     ];
   }
 
+  // Cost / cost-window path (no forward exhibit fields). A funnel-stage row still
+  // carries the customer-CAC bridge (cost-per-trial label + modeled band), so
+  // surface it here too — a per-trial cost must never read as a flat customer CAC.
+  const cac = readCustomerCacFields(row);
+  const kpiCostLabel = cac.costPerTrialLabel ?? 'KPI cost';
+  const modeledCustomerCacStep: FunnelMathStep | undefined =
+    cac.customerCacValue !== undefined
+      ? {
+          label: 'Modeled customer CAC (after trial→paid)',
+          value: formatUsdValue(cac.customerCacValue),
+          basis:
+            cac.customerCacBasis ?? basisForProvenance(cac.customerCacProvenance),
+        }
+      : cac.customerCacBandLowValue !== undefined &&
+          cac.customerCacBandHighValue !== undefined
+        ? {
+            label: 'Modeled customer CAC (after trial→paid)',
+            value: `${formatUsdValue(cac.customerCacBandLowValue)}–${formatUsdValue(cac.customerCacBandHighValue)}`,
+            basis:
+              cac.customerCacBandBasis ??
+              'modeled range (trial→paid rate not disclosed)',
+          }
+        : undefined;
+
   return [
     {
       label: 'Budget',
@@ -292,7 +346,7 @@ function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
       basis: basisForProvenance(row.phaseMonthlyBudgetProvenance),
     },
     {
-      label: 'KPI cost',
+      label: kpiCostLabel,
       value: formatUsdValue(row.kpiCostValue),
       basis: basisForProvenance(row.kpiCostProvenance),
     },
@@ -304,6 +358,7 @@ function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
           : row.projectedCountValue.toLocaleString(),
       basis: basisForProvenance(row.projectedCountProvenance),
     },
+    ...(modeledCustomerCacStep === undefined ? [] : [modeledCustomerCacStep]),
     { label: 'Duration', value: row.durationLabel, basis: 'assumption' },
   ];
 }
@@ -392,7 +447,6 @@ export function PaidMediaPlanRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={paidMediaKeyFindings(body, artifact)} />
 
@@ -461,7 +515,7 @@ export function PaidMediaPlanRenderer({
 
       <SubsectionBlock
         label="Assumptions and funnel ledger"
-        prose="Each row projects demand forward — spend ÷ CPC × funnel conversion — to a count and an implied CAC, shown beside your target CAC so any shortfall is explicit. Modeled inputs are marked computed."
+        prose="Each row projects demand forward — spend ÷ CPC × funnel conversion — to a count and cost per action. Customer-CAC bands appear only when the row includes the trial-to-paid bridge. Modeled inputs are marked computed."
       >
         <div className="grid gap-5">
           {body.projectedResults.map((row) => (
@@ -530,27 +584,6 @@ export function PaidMediaPlanRenderer({
           <DataTable columns={kpiColumns} rows={body.kpis} />
         </div>
       </ReaderExhibit>
-
-      <SectionCoverageNote
-        verified={[
-          `${body.campaignPhases.length} campaign phases`,
-          `${body.creativeFramework.length} creative slots`,
-          `${body.projectedResults.length} projection rows`,
-        ]}
-        assumed={[
-          ...body.audienceTypes
-            .filter((audience: AudienceType) =>
-              provenanceLabel(audience.dailyBudgetProvenance).includes('assumption'),
-            )
-            .map((audience) => `${audience.archetype} budget`),
-          ...body.projectedResults
-            .filter((row) =>
-              provenanceLabel(row.projectedCountProvenance).includes('assumption'),
-            )
-            .map((row) => `${row.targetIcp} projection`),
-        ]}
-        missing={missingSalesAssets.map((asset) => asset.label)}
-      />
     </div>
   );
 }

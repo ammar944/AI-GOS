@@ -29,13 +29,12 @@ You operate on a structured artifact (thesis + 6 zones). You can:
   - rerunSection({ zone, refinement }) — start a new section_run_id, dispatch worker
   - draftStrategyBrief({ refinement }) — compose or recompose the Offer & Angle Brief from committed sections
   - reviseStrategyBrief({ patches, changelogSummary, rationale }) — apply scoped corrections to the committed Offer & Angle Brief
-  - editClaim({ zone, claimId, newText, reason }) — surgical claim edit via commit_artifact_section
-  - editNarrative({ zone, patch }) — surgical markdown patch via commit_artifact_section
+  - editSectionField({ zone, path, value, reason }) — edit ANY field inside a committed section's typed body via commit_artifact_section. The path is a dotted body path with [index] brackets (e.g. keyFindings[2].finding, competitorSet[0].name, marketSize.tam, sources[1].url). Do NOT prefix "body." — it is added automatically. The edit is rejected if the path doesn't resolve or if the result fails the section's schema.
   - explainSource({ sourceId }) — read sources, narrate
   - summarizeArtifact() — read current state, return brief
   - web_search and perplexity_research — bounded gap-filling research lookups when the current artifact context is not enough
 
-You mostly orchestrate over committed evidence. Be terse. When the user asks for new section research, use rerunSection. When the user asks for the offer, angles, reframe, or initial positioning take, use draftStrategyBrief. When they ask for a small correction to the committed brief, use reviseStrategyBrief and describe what changed. Treat gaps as gaps. Never fabricate evidence, quotes, numbers, companies, or market claims. When the user asks for a tweak, prefer editClaim, editNarrative, or reviseStrategyBrief — never re-run a whole section for a one-line change.`;
+You mostly orchestrate over committed evidence. Be terse. When the user asks for new section research, use rerunSection. When the user asks for the offer, angles, reframe, or initial positioning take, use draftStrategyBrief. When they ask for a small correction to the committed brief, use reviseStrategyBrief and describe what changed. When the user asks to fix one field inside a section (a competitor name, a TAM number, an ICP attribute, a source URL, a key finding's wording), use editSectionField with the exact body path — never re-run a whole section for a one-line change. Read the section snapshot in your system context to choose the right path and index. Treat gaps as gaps. Never fabricate evidence, quotes, numbers, companies, or market claims.`;
 
 // ---------------------------------------------------------------------------
 // Tool: rerunSection — dispatch a fresh run for one zone with optional
@@ -139,55 +138,42 @@ const reviseStrategyBrief = tool({
 });
 
 // ---------------------------------------------------------------------------
-// Tool: editClaim — surgical claim edit via commit_artifact_section.
+// Tool: editSectionField — edit ANY field inside a committed section's typed
+// body via commit_artifact_section. Replaces the dead editClaim/editNarrative
+// pair, which patched paths (keyFindings[n].title / artifact.markdown) that do
+// not exist in the typed envelope — committed sections store content under
+// body.* (e.g. body.keyFindings[n].finding). The chat route resolves `path`
+// against the section's body, schema-validates the patched body for that zone,
+// and commits via commitChatPatchAuto. Invalid paths / schema failures are
+// rejected with a clear message rather than writing a malformed body.
 // ---------------------------------------------------------------------------
 
-const editClaim = tool({
+const editSectionField = tool({
   description:
-    "Edit a single claim's text inside a zone. Use for one-line corrections — do NOT use to add new claims (use rerunSection for that).",
+    "Edit a single field inside a committed section's typed body. Use for one-line corrections — a competitor name, a TAM number, an ICP attribute, a source URL, a key finding's wording. The path is a dotted body path with [index] brackets (e.g. keyFindings[2].finding, competitorSet[0].name, sources[1].url); do NOT prefix it with \"body.\". The edit is rejected if the path doesn't resolve or the result fails the section schema. Do NOT use to add new items — use rerunSection for that.",
   inputSchema: z.object({
     zone: ZoneIdSchema,
-    claimId: z.string(),
-    newText: z.string(),
+    path: z
+      .string()
+      .min(1)
+      .describe(
+        'Dotted body path with optional [index] brackets, relative to the section body (no "body." prefix). E.g. keyFindings[0].finding, competitorSet[2].name, marketSize.tam, sources[1].url.',
+      ),
+    value: z
+      .string()
+      .describe('Replacement value for the field at `path`.'),
     reason: z.string().optional(),
   }),
-  execute: async ({ zone, claimId, newText, reason }) => {
+  execute: async ({ zone, path, value, reason }) => {
     return {
-      type: 'edit-claim-requested' as const,
+      type: 'edit-section-field-requested' as const,
       zone,
-      claimId,
-      newText,
+      path,
+      value,
       reason: reason ?? null,
-      message: `Edited claim ${claimId} in ${zone}: "${newText.slice(0, 80)}"`,
-      _intent: 'edit_claim',
-      _payload: { zone, claimId, newText, reason: reason ?? null },
-    };
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Tool: editNarrative — surgical markdown patch.
-// ---------------------------------------------------------------------------
-
-const editNarrative = tool({
-  description:
-    "Apply a small markdown patch to a zone's narrative. Use for tone/structure tweaks. For substantive changes, use rerunSection.",
-  inputSchema: z.object({
-    zone: ZoneIdSchema,
-    patch: z
-      .string()
-      .describe(
-        'Replacement markdown for the zone. Keep it short — orchestrator-level edits are surgical, not rewrites.',
-      ),
-  }),
-  execute: async ({ zone, patch }) => {
-    return {
-      type: 'edit-narrative-requested' as const,
-      zone,
-      patch,
-      message: `Patched narrative for ${zone} (${patch.length} chars)`,
-      _intent: 'edit_narrative',
-      _payload: { zone, patch },
+      message: `Editing ${zone} field ${path}: "${value.slice(0, 80)}"`,
+      _intent: 'edit_section_field',
+      _payload: { zone, path, value, reason: reason ?? null },
     };
   },
 });
@@ -245,8 +231,7 @@ export function createPositioningOrchestratorTools(): Record<string, Tool> {
     rerunSection,
     draftStrategyBrief,
     reviseStrategyBrief,
-    editClaim,
-    editNarrative,
+    editSectionField,
     explainSource,
     summarizeArtifact,
     ...chatResearchTools,
@@ -274,8 +259,7 @@ export type OrchestratorIntent =
   | 'rerun_section'
   | 'draft_strategy_brief'
   | 'revise_strategy_brief'
-  | 'edit_claim'
-  | 'edit_narrative'
+  | 'edit_section_field'
   | 'explain_source'
   | 'summarize_artifact';
 

@@ -30,7 +30,9 @@ export interface SourceLivenessCheck {
 export interface SourceLivenessUnknownRow {
   path: string;
   sourceUrl: string;
-  status: number;
+  // Bot-hostile carve-outs carry the HTTP status (403/429/503); a preverified
+  // row kept after a verify-time fetch-error has no HTTP status (null).
+  status: number | null;
 }
 
 export interface SourceLivenessResult {
@@ -74,7 +76,18 @@ interface UrlProbe {
 }
 
 interface NormalizedContainmentNeed {
+  // Lenient bucket: proper nouns mined from prose. Noisy, so any-one suffices
+  // (.some). A free-text mention need not be reproduced verbatim on the page.
   entities: string[];
+  // Strict bucket: values pulled from the load-bearing entity NAME fields
+  // (persona, name, company, competitor...). A persona row that names a
+  // specific human at a specific company is an explicit "this individual
+  // appears here" claim — EACH such value must be contained on the live page,
+  // or the named human is unverifiable and the row is dropped. This closes the
+  // fabricated-name-on-a-live-HTTP-200-page hole that .some()-over-all-entities
+  // let through (a real company name carried the row past containment while the
+  // invented person name was never checked on its own).
+  requiredEntities: string[];
   numbers: string[];
 }
 
@@ -417,7 +430,8 @@ function containmentNeeds(row: Record<string, unknown>): NormalizedContainmentNe
   const text = extractEvidenceText(row);
 
   return {
-    entities: uniqueStrings([...extractEntityFields(row), ...extractProperNouns(text)]),
+    entities: uniqueStrings(extractProperNouns(text)),
+    requiredEntities: uniqueStrings(extractEntityFields(row)),
     numbers: uniqueStrings(extractNumbers(text)),
   };
 }
@@ -469,7 +483,11 @@ function containmentPasses({
   needs: NormalizedContainmentNeed;
   text: string | null;
 }): boolean {
-  if (needs.numbers.length === 0 && needs.entities.length === 0) {
+  if (
+    needs.numbers.length === 0 &&
+    needs.entities.length === 0 &&
+    needs.requiredEntities.length === 0
+  ) {
     return true;
   }
 
@@ -484,8 +502,15 @@ function containmentPasses({
   const entitiesPass =
     needs.entities.length === 0 ||
     needs.entities.some((entity) => containsEntity(normalized, entity));
+  // Strict: a row that names specific entities in its NAME fields (e.g. a
+  // persona's named human + employer) must reproduce EVERY such value on the
+  // live page. One real entity can no longer carry a fabricated sibling past
+  // containment.
+  const requiredEntitiesPass = needs.requiredEntities.every((entity) =>
+    containsEntity(normalized, entity),
+  );
 
-  return numbersPass && entitiesPass;
+  return numbersPass && entitiesPass && requiredEntitiesPass;
 }
 
 async function mapWithConcurrency<T, R>({
@@ -516,7 +541,7 @@ async function mapWithConcurrency<T, R>({
 }
 
 const emptiedBlockGapSummary =
-  "Rows in this block were removed before publishing because their cited sources could not be verified live.";
+  "Public sources for this block could not be independently verified, so those rows are not shown.";
 
 // When liveness/containment drops empty out a standard evidence block
 // ({ prose, <rows>[], blockGap? }), install an honest blockGap so the
@@ -671,11 +696,25 @@ export async function applySourceLivenessGate({
 }): Promise<SourceLivenessResult> {
   const cloned = cloneJsonRecord(body);
   const rows = collectSourceUrlRows({ body: cloned });
+  // A preverified URL means the agent fetched it during the run (it is real and
+  // live) — it does NOT mean the named human/company this row attributes to it
+  // actually appears on the page. Rows that name a specific entity in their NAME
+  // fields must still be grounded, so their URLs are probed even when preverified.
+  // This closes the c9bc2056 hole where a real vendor page
+  // (airtable.com/breakthroughs) was preverified and carried fabricated personas
+  // (Sarah Koo, Michelle Bandler) past the containment check entirely.
+  const entityGroundedUrls = new Set(
+    rows
+      .filter((row) => containmentNeeds(row.row).requiredEntities.length > 0)
+      .map((row) => row.sourceUrl),
+  );
   const urlsToProbe = Array.from(
     new Set(
       rows
         .map((row) => row.sourceUrl)
-        .filter((url) => !preverifiedUrls.has(url))
+        .filter(
+          (url) => !preverifiedUrls.has(url) || entityGroundedUrls.has(url),
+        )
         .slice(0, maxChecks),
     ),
   );
@@ -687,8 +726,14 @@ export async function applySourceLivenessGate({
     items: urlsToProbe,
     mapper: async (url): Promise<void> => {
       const row = rowsByUrl.get(url);
-      const needs = row === undefined ? { entities: [], numbers: [] } : containmentNeeds(row);
-      const needsText = needs.entities.length > 0 || needs.numbers.length > 0;
+      const needs =
+        row === undefined
+          ? { entities: [], requiredEntities: [], numbers: [] }
+          : containmentNeeds(row);
+      const needsText =
+        needs.entities.length > 0 ||
+        needs.requiredEntities.length > 0 ||
+        needs.numbers.length > 0;
       probes.set(
         url,
         await probeUrl({
@@ -714,7 +759,11 @@ export async function applySourceLivenessGate({
   let containmentPassed = 0;
 
   for (const row of rows) {
-    if (preverifiedUrls.has(row.sourceUrl)) {
+    const rowNeedsEntityGrounding =
+      containmentNeeds(row.row).requiredEntities.length > 0;
+    if (preverifiedUrls.has(row.sourceUrl) && !rowNeedsEntityGrounding) {
+      // Preverified + no named entity to ground: spare the probe (cost saving),
+      // the agent already established the URL is real/live.
       checkedUrls.push({
         containmentChecked: false,
         containmentPassed: true,
@@ -742,6 +791,27 @@ export async function applySourceLivenessGate({
       // Bot-walled host: the probe was blocked, not the evidence refuted.
       // Keep the row, record it, and leave it out of the passRate
       // denominator (mirrors the networkUnavailable carve-out below).
+      livenessUnknownRows.push({
+        path: row.path,
+        sourceUrl: row.sourceUrl,
+        status: probe.status,
+      });
+      checkedUrls.push({
+        containmentChecked: false,
+        containmentPassed: false,
+        livenessPassed: false,
+        sourceUrl: row.sourceUrl,
+        status: probe.status,
+      });
+      continue;
+    }
+
+    if (preverifiedUrls.has(row.sourceUrl) && probe.type !== "live") {
+      // The agent already fetched this URL successfully during the run, so a
+      // verify-time probe failure (network/http) does not refute it. Keep the
+      // row and exclude it from the liveness denominator (mirrors the
+      // bot-hostile carve-out above). We could not re-fetch text to run name
+      // containment, so the row is kept rather than dropped.
       livenessUnknownRows.push({
         path: row.path,
         sourceUrl: row.sourceUrl,
@@ -790,7 +860,9 @@ export async function applySourceLivenessGate({
 
     const needs = containmentNeeds(row.row);
     const containmentChecked =
-      needs.entities.length > 0 || needs.numbers.length > 0;
+      needs.entities.length > 0 ||
+      needs.requiredEntities.length > 0 ||
+      needs.numbers.length > 0;
     const contained = containmentPasses({ needs, text: probe.text });
 
     if (containmentChecked) {

@@ -34,6 +34,8 @@ Use only the tools allowed for this section.
 ## Iron Laws
 
 - Do not invent competitors, pricing, spend, ad presence, reviews, or weaknesses.
+- Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally; never restate one as a number you discovered or verified.
+- Do not invent numeric precision that is not present in fetched evidence; pricing, spend, or share figures need a fetched or normalized source.
 - Competitor type is an evidence claim: direct, status-quo, indirect, and DIY need different support.
 - If ad tools return no live evidence, do not turn silence into "no ads"; state the gap.
 - Use blockGap instead of inventing axes, pricing data, share-of-voice slices, weaknesses, narrative arcs, or ad evidence.

@@ -8,6 +8,8 @@ import {
 import { Cite } from '@/components/research-v2/reader-sources';
 import { cn } from '@/lib/utils';
 
+import { scrubReaderText } from './reader-text';
+
 export interface EvidenceChipSource {
   n?: number;
   title: string;
@@ -58,7 +60,7 @@ export function EvidenceDrawer({
         ) : null}
         {source.excerpt ?? source.whyItMatters ? (
           <p className="mt-2 text-[13px] leading-snug text-muted-foreground">
-            {source.excerpt ?? source.whyItMatters}
+            {scrubReaderText(source.excerpt ?? source.whyItMatters ?? '')}
           </p>
         ) : null}
       </HoverCardContent>
@@ -79,7 +81,9 @@ export function EvidenceChip({
             n: source.n,
             title: source.title,
             url: sourceUrl(source),
-            whyItMatters: source.excerpt ?? source.whyItMatters,
+            whyItMatters: scrubReaderText(
+              source.excerpt ?? source.whyItMatters ?? '',
+            ),
           }}
         />
       </span>

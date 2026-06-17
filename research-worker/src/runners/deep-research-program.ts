@@ -1530,7 +1530,13 @@ export function trimUngroundedProse(value: string, allowedHosts: ReadonlySet<str
     return value;
   }
 
-  const sentences = value.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+  // Mask decimal points (4.2 stars, 4.5 on Trustpilot) before sentence
+  // splitting — otherwise the splitter treats the "." in a rating as a sentence
+  // boundary and a dropped "...a 4" fragment leaves a garbled "2 score." orphan
+  // (the dominant real shape of invented social proof carries a decimal rating).
+  const DECIMAL_GUARD = '\u0000';
+  const guarded = value.replace(/(?<=\d)\.(?=\d)/g, DECIMAL_GUARD);
+  const sentences = guarded.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
   if (sentences === null) {
     return value;
   }
@@ -1545,7 +1551,11 @@ export function trimUngroundedProse(value: string, allowedHosts: ReadonlySet<str
     return !unsourcedPlatform;
   });
 
-  const trimmed = kept.join('').replace(/ {2,}/g, ' ').trim();
+  const trimmed = kept
+    .join('')
+    .replaceAll(DECIMAL_GUARD, '.')
+    .replace(/ {2,}/g, ' ')
+    .trim();
 
   // Never empty out load-bearing prose: if every sentence tripped the guard,
   // keep the original rather than emitting a blank summary.

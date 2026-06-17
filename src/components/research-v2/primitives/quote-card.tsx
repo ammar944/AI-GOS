@@ -56,7 +56,7 @@ export function QuoteCard({
             rel="noreferrer"
             className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-primary"
           >
-            Permalink
+            Source
             <ExternalLink className="size-3" aria-hidden="true" />
           </a>
         ) : null}

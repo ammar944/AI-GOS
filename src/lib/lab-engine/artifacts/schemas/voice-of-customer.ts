@@ -11,6 +11,7 @@ import {
 } from "../voice-of-customer-floors";
 import type { ValidationResult } from "./market-category";
 import {
+  acquisitionSufficiencyFieldSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   fourForcesBalanceVerdictSchema,
@@ -203,6 +204,11 @@ const evidenceGapReportSchema = z
           .strict(),
       )
       .optional(),
+    // Acquisition sufficiency summary (Wave 2): a deterministic roll-up of the
+    // acquisitionLedger above (candidates found / promoted / rejected + tier) that the
+    // SaaSLaunch coverage eval and live-quality gate read as the upstream-sufficiency
+    // verdict. 'sufficient' is self-report only and never overrides a real quote floor.
+    sufficiency: acquisitionSufficiencyFieldSchema,
     sourcingPlan: z.array(z.string().min(1)).min(1),
   })
   .strict();

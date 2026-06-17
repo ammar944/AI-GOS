@@ -734,6 +734,93 @@ describe('runSection corpus-only mode', (): void => {
     );
   });
 
+  it('attaches the BuyerICP acquisition ledger and sufficiency when the venue prepass acquired candidates', async (): Promise<void> => {
+    // Override the source-liveness-unavailable fetch: perplexity venue lookups
+    // now return named-persona leads, everything else still fails like prod-offline.
+    const personaAnswer = [
+      'Jane Doe — VP Finance — Acme Corp — https://www.g2.com/users/jane-doe',
+      'Carlos Vega — Director of RevOps — Globex — https://www.capterra.com/reviewers/carlos-vega',
+    ].join('\n');
+    vi.stubEnv('PERPLEXITY_API_KEY', 'test-perplexity-key');
+    vi.stubGlobal('fetch', async (input: unknown): Promise<Response> => {
+      if (String(input).includes('api.perplexity.ai')) {
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: personaAnswer } }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      throw new Error('source liveness network unavailable in test');
+    });
+
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningBuyerICP'],
+      now: () => new Date('2026-06-05T04:39:37.613Z'),
+    });
+    await store.createRun(saaslaunchResearchInput);
+
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [],
+      text: '',
+      answerInput: buildBuyerICPOutputWithGenericPersonaNames(),
+    }));
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningBuyerICP',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        runAnswerTool,
+        now: () => new Date('2026-06-05T04:39:37.613Z'),
+      },
+    );
+
+    const body = requireRecord(result.artifact.body);
+    const evidenceGapReport = requireRecord(body.evidenceGapReport);
+    const acquisitionLedger = evidenceGapReport.acquisitionLedger;
+
+    // Requirement #3: acquisition attempts existed (the prepass surfaced named
+    // leads), so the committed section MUST carry a ledger AND a sufficiency
+    // roll-up — never silently omit them.
+    if (!Array.isArray(acquisitionLedger)) {
+      throw new Error('Expected BuyerICP acquisitionLedger to be populated.');
+    }
+    expect(acquisitionLedger.length).toBeGreaterThanOrEqual(2);
+    expect(
+      acquisitionLedger.every(
+        (row) => requireRecord(row).promotionStatus === 'rejected',
+      ),
+    ).toBe(true);
+    // Generic-only personas => zero promoted => honest insufficient.
+    expect(evidenceGapReport.sufficiency).toMatchObject({
+      tier: 'insufficient',
+      promoted: 0,
+      rejected: acquisitionLedger.length,
+      candidatesFound: acquisitionLedger.length,
+    });
+
+    // Requirement #5 (persistence proof): the enriched fields survive
+    // saveArtifact + reload — the local-store analog of the Supabase
+    // research_artifact_sections.data jsonb column.
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const persistedArtifact = requireRecord(
+      requireRecord(record.sections.positioningBuyerICP).artifact,
+    );
+    const persistedReport = requireRecord(
+      requireRecord(persistedArtifact.body).evidenceGapReport,
+    );
+    expect(Array.isArray(persistedReport.acquisitionLedger)).toBe(true);
+    expect(persistedReport.sufficiency).toMatchObject({
+      tier: 'insufficient',
+      promoted: 0,
+    });
+  });
+
   it('strips model-authored nested BuyerICP evidence-gap keys before committing the runner-owned gap', async (): Promise<void> => {
     const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-'));
     const store = createRunStore({

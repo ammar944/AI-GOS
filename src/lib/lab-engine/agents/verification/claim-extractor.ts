@@ -39,6 +39,21 @@ export const quoteAttributionFieldNames = [
   "quote",
 ] as const;
 
+// Quote-bearing fields the cross-block DEDUP (quote-admission.ts) must see —
+// SUPERSET of quoteAttributionFieldNames. It adds the VoC objection / decision /
+// switching quote fields so reusing one customer sentence as a pain quote AND an
+// objection AND a switching reason AND a decision criterion is caught as a
+// duplicate. Kept SEPARATE from quoteAttributionFieldNames on purpose: that list
+// feeds claim extraction and the misattribution strip (both keyed off a quote +
+// asserted source), and widening it there would change verifier behaviour /
+// claim counts. Dedup needs the wider field set; the verifier does not.
+export const dedupQuoteFieldNames = [
+  ...quoteAttributionFieldNames,
+  "objectionText",
+  "evidenceQuote",
+  "reasonToLeave",
+] as const;
+
 const currencyPattern =
   /(?:[$£€]\s?\d[\d,]*(?:\.\d{1,2})?(?:\s?(?:[kmb]\b|thousand\b|million\b|billion\b))?(?:\s?\/\s?(?:mo|month|yr|year))?)/gi;
 const percentPattern = /\b\d+(?:\.\d+)?%(?=\s|[.,;:!?)]|$)/g;

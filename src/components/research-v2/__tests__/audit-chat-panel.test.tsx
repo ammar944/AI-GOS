@@ -93,7 +93,7 @@ describe('AuditChatPanel', () => {
               output: { message: 'Queued rerun for Voice of Customer.' },
             },
             {
-              type: 'tool-editClaim',
+              type: 'tool-editSectionField',
               toolCallId: 'call-2',
               state: 'output-error',
               errorText: 'TypeError: cannot read properties of undefined',
@@ -115,7 +115,7 @@ describe('AuditChatPanel', () => {
     expect(screen.queryByText(/rerunSection\.\.\./)).not.toBeInTheDocument();
 
     // Failures render as a clean status row, never the raw error text.
-    expect(screen.getByText('Editing claim')).toBeInTheDocument();
+    expect(screen.getByText('Editing section')).toBeInTheDocument();
     expect(
       screen.queryByText(/TypeError: cannot read properties/),
     ).not.toBeInTheDocument();

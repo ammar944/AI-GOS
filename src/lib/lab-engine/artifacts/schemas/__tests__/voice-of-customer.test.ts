@@ -169,6 +169,36 @@ describe("Voice of Customer evidence-gap classification", (): void => {
     expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
   });
 
+  it("accepts an evidenceGap body carrying an acquisition sufficiency summary", (): void => {
+    const body = {
+      ...voiceOfCustomerFixtureArtifact.body,
+      evidenceGap: true,
+      evidenceGapReport: {
+        foundDistinctPainSourceCount: 2,
+        foundPainQuoteCount: 6,
+        observedPainSourceDomains: ["g2.com", "reddit.com"],
+        reason: "insufficient_voice_of_customer_sources",
+        requiredDistinctPainSourceCount: 3,
+        requiredPainQuoteCount: 10,
+        sufficiency: {
+          tier: "insufficient",
+          rationale:
+            "Only two independent pain-language domains cleared the floor.",
+          candidatesFound: 4,
+          promoted: 2,
+          rejected: 2,
+        },
+        sourcingPlan: [
+          "Pull first-party review bodies from G2/Capterra/Trustpilot or an approved review data provider.",
+        ],
+        summary:
+          "Two independent pain domains in budget; acquisition sufficiency summary attached.",
+      },
+    };
+
+    expect(() => voiceOfCustomerBodySchema.parse(body)).not.toThrow();
+  });
+
   it("classifies self-sourced pain quotes as a degradable sourcing gap", (): void => {
     const artifact = withPainQuotes([
       painQuote("https://g2.com/review/1", 1),

@@ -160,8 +160,11 @@ describe('ResearchV3Page runId rehydrate', () => {
     // transient RunStatusBar collapses on done. The live corpus stream stays absent.
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
     expect(screen.queryByTestId('corpus')).toBeNull();
-    // The client-facing deck is now the default paid-media view; the operator
-    // renderer stays reachable behind the Working view toggle.
-    expect(screen.getByTestId('paid-media-plan-deck')).toBeInTheDocument();
+    // The working plan is the default paid-media view; the deck remains
+    // reachable behind the Deck toggle.
+    expect(
+      screen.getByTestId('typed-artifact-renderer-positioningPaidMediaPlan'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('paid-media-plan-deck')).not.toBeInTheDocument();
   });
 });

@@ -88,6 +88,26 @@ describe('createVoiceOfCustomerCandidate', (): void => {
     ).toBeNull();
   });
 
+  it('strips a trailing review-platform chrome tail from the stored snippet', (): void => {
+    const candidate = createVoiceOfCustomerCandidate({
+      acquisitionMode: 'review_body',
+      auditedCompanyDomain: 'https://ramp.com',
+      evidenceKind: 'review',
+      snippet:
+        'We switched because our finance team kept losing receipts, and now reconciliation finally takes minutes. Verified User Mid-Market (51-1000 emp.)',
+      source: 'reviews',
+      title: 'Finance reviewer',
+      url: 'https://www.g2.com/products/acme/reviews/acme-review-12345',
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.snippet).toBe(
+      'We switched because our finance team kept losing receipts, and now reconciliation finally takes minutes.',
+    );
+    expect(candidate?.snippet).not.toContain('Verified User');
+    expect(candidate?.snippet).not.toContain('(51-1000 emp.)');
+  });
+
   it('keeps third-party review and forum URLs even when the path mentions the audited company', (): void => {
     const candidate = createVoiceOfCustomerCandidate({
       acquisitionMode: 'review_body',

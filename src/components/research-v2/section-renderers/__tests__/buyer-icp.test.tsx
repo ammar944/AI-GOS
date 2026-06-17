@@ -15,6 +15,12 @@ describe('BuyerICPRenderer', () => {
     expect(screen.getByTestId('key-findings')).toBeInTheDocument();
     expect(screen.getByText('ICP thesis')).toBeInTheDocument();
     expect(screen.getByText('Who pays')).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        /excludes lower-complexity teams that only want lightweight task automation/i,
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/low-complexity teams without/i)).not.toBeInTheDocument();
   });
 
   it('shows the status summary once — as the verdict, never duplicated as a key finding', () => {

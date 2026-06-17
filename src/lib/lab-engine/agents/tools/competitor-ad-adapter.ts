@@ -874,6 +874,63 @@ function buildQuarantineOnlyDowngradeGaps({
   ];
 }
 
+// Deterministic count reconciliation. The headline scalars a downstream section
+// surfaces into keyFindings/verdict/shareOfVoice must be tied to what the captured
+// `creatives` array actually holds, never an inferred marketplace/listicle number.
+// This recomputes the array-derived scalars — returnedCreativeCount, verifiedCount,
+// quarantinedCount, identityConfidence — directly from `creatives` so a group can
+// never carry a headline that diverges UPWARD from its own evidence (e.g. "35
+// verified" when 6 creatives are captured). Verified/quarantined membership is read
+// from each creative's own `verified` flag.
+//
+// displayableCounts / displayableTotal count the full unique displayable set found
+// before the per-tier returnedCreativeLimit cap, so within a platform that has
+// captured creatives `displayableTotal >= returnedCreativeCount` is legitimate (the
+// truncation is documented in dataGaps as "Returned X of Y"). Two guards are applied
+// per platform: (1) a platform with ZERO captured creatives is forced to 0 — never an
+// invented platform count ("15 LinkedIn" with zero LinkedIn creatives is the exact
+// fabrication this kills); (2) a no-under-report floor so a platform's count can never
+// read BELOW the number of that platform's creatives actually shipped. The `creatives`
+// array is the source of truth and is returned unchanged.
+export function reconcileAdEvidenceGroupCounts(
+  group: CompetitorAdEvidenceGroup,
+): CompetitorAdEvidenceGroup {
+  const shippedPlatformCounts = emptyCounts();
+  let verifiedCount = 0;
+  let quarantinedCount = 0;
+
+  for (const creative of group.creatives) {
+    incrementCount(shippedPlatformCounts, creative.platform, 1);
+
+    if (creative.verified === true) {
+      verifiedCount += 1;
+    } else {
+      quarantinedCount += 1;
+    }
+  }
+
+  const reconcilePlatform = (platform: AdEvidencePlatform): number =>
+    shippedPlatformCounts[platform] === 0
+      ? 0
+      : Math.max(group.displayableCounts[platform], shippedPlatformCounts[platform]);
+
+  const displayableCounts: PlatformCounts = {
+    google: reconcilePlatform("google"),
+    meta: reconcilePlatform("meta"),
+    linkedin: reconcilePlatform("linkedin"),
+  };
+
+  return {
+    ...group,
+    displayableCounts,
+    displayableTotal: getDisplayableTotal(displayableCounts),
+    returnedCreativeCount: group.creatives.length,
+    verifiedCount,
+    quarantinedCount,
+    identityConfidence: verifiedCount > 0 ? "verified" : "low",
+  };
+}
+
 function finalizeGroup(
   group: MutableAdEvidenceGroup,
   returnedCreativeLimit: number,
@@ -942,7 +999,13 @@ function finalizeGroup(
     }),
   ]);
 
-  return {
+  // Reconcile every headline scalar against the final `creatives` array so the
+  // counts that surface into keyFindings/verdict/shareOfVoice can never diverge
+  // upward from the captured evidence. displayableCounts above counts ALL unique
+  // creatives, but `creatives` is capped at returnedCreativeLimit per tier — the
+  // reconciliation recomputes the surfaced scalars from the truncated array that
+  // actually ships, so "X displayable" always equals what the wall holds.
+  return reconcileAdEvidenceGroupCounts({
     advertiserName: group.advertiserName,
     domain: group.domain,
     platforms: platformOrder.filter((platform) => group.platforms.has(platform)),
@@ -959,7 +1022,7 @@ function finalizeGroup(
     identityConfidence,
     quarantinedCount,
     verifiedCount,
-  };
+  });
 }
 
 export function buildCompetitorAdEvidenceGroups({

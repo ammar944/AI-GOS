@@ -2,7 +2,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
-import { OfferDiagnosticRenderer } from '../offer-diagnostic';
+import {
+  OfferDiagnosticRenderer,
+  isOfferDiagnosticHonestlyUnavailable,
+} from '../offer-diagnostic';
 import type { OfferPerformanceArtifact } from '@/types/positioning-artifact';
 
 const fixture: OfferPerformanceArtifact = {
@@ -200,5 +203,44 @@ describe('OfferDiagnosticRenderer', () => {
     expect(screen.getAllByTestId('red-flag-item').length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('Tripwire')).toBeInTheDocument();
     expect(screen.getByText('enterprise-intent traffic to sales-qualified opportunity rate')).toBeInTheDocument();
+  });
+
+  function buildHonestlyUnavailableArtifact(): OfferPerformanceArtifact {
+    const artifact = structuredClone(fixture);
+    artifact.confidence = 0.1;
+    artifact.offerMarketFit.proofPoints = [];
+    artifact.offerMarketFit.blockGap = {
+      summary: 'evidence gap: section exceeded its time budget — rerun to retry',
+      foundCount: 0,
+      requiredCount: 3,
+      sourcingPlan: ['Rerun this section to retry — it exceeded its time budget'],
+    };
+    artifact.funnelDiagnosis.breaks = [];
+    artifact.channelTruth.channels = [];
+    artifact.retentionHealth.signals = [];
+    artifact.redFlags.items = [];
+    return artifact;
+  }
+
+  it('detects a deadline-exhaustion (all-empty) artifact as honestly unavailable', () => {
+    expect(isOfferDiagnosticHonestlyUnavailable(fixture)).toBe(false);
+    expect(
+      isOfferDiagnosticHonestlyUnavailable(buildHonestlyUnavailableArtifact()),
+    ).toBe(true);
+  });
+
+  it('renders ONE compact honest gap note, not 38 placeholder fields, when unavailable', () => {
+    render(<OfferDiagnosticRenderer artifact={buildHonestlyUnavailableArtifact()} />);
+
+    expect(screen.getByTestId('offer-honestly-unavailable')).toBeInTheDocument();
+    // Exactly one quiet trust note — no subsection walls, no funnel-math placeholder grid.
+    expect(screen.getAllByTestId('gap-note')).toHaveLength(1);
+    expect(screen.queryAllByTestId('subsection')).toHaveLength(0);
+    expect(screen.queryAllByTestId('funnel-math')).toHaveLength(0);
+    // Honest framing, never the raw pipeline placeholder string.
+    expect(screen.getByText(/Not enough public evidence was found/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/exceeded its time budget — rerun to retry/i),
+    ).not.toBeInTheDocument();
   });
 });

@@ -87,12 +87,6 @@ import { cn } from '@/lib/utils';
 import { TypedArtifactRenderer } from './typed-artifact-renderer';
 import { PaidMediaPlanDeck } from './section-renderers/paid-media-plan-deck';
 import { scrubReaderText } from './primitives';
-import {
-  deriveTrustTier,
-  trustTierDotClass,
-  type TrustTier,
-} from './trust-tier';
-
 // ---------------------------------------------------------------------------
 // Labels + small helpers
 // ---------------------------------------------------------------------------
@@ -342,9 +336,6 @@ function ReviewMetadataPanel({
   );
 }
 
-// Non-complete statuses only. For a committed section the rail shows the
-// buyer-facing trust label (deriveTrustTier) instead of a binary
-// "needs review" — see trustTierOf.
 function sectionStatusSubline(status: ReaderSectionStatus): string {
   if (status === 'complete') return 'Complete';
   if (status === 'error') return 'Couldn’t complete';
@@ -577,9 +568,9 @@ function PaidMediaPlanTerminalPanel({
   statusText: string;
   subjectName?: string;
 }): ReactElement {
-  // The deck is the deliverable; the operator renderer stays reachable behind
-  // a small 'Working view' toggle.
-  const [view, setView] = useState<'deck' | 'working'>('deck');
+  // Default to the working plan so readers see the concrete strategy, rows,
+  // sources, and gaps before a presentation-oriented deck view.
+  const [view, setView] = useState<'deck' | 'working'>('working');
   const readerSources = artifact ? toReaderSources(artifact.sources) : [];
 
   return (
@@ -710,8 +701,6 @@ interface RunStatusCardProps {
   active: ReaderSectionId;
   onSelect: (id: ReaderSectionId) => void;
   statusOf: (id: ReaderSectionId) => ReaderSectionStatus;
-  trustTierOf: (id: ReaderSectionId) => TrustTier;
-  stronglyEvidencedCount: number;
   positioningCompletedCount: number;
   activePhaseLabel: string | null;
   elapsedMs: number | null;
@@ -727,8 +716,6 @@ function RunStatusCard({
   active,
   onSelect,
   statusOf,
-  trustTierOf,
-  stronglyEvidencedCount,
   positioningCompletedCount,
   activePhaseLabel,
   elapsedMs,
@@ -740,10 +727,7 @@ function RunStatusCard({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-      {/* Header: rollup + elapsed clock + run state. The rollup is tier-honest
-          but positive: 'Done' carries a quiet 'N of 6 strongly evidenced'
-          qualifier (never a raw needs-review count) so a finished audit reads
-          like a finished deliverable, not a wall of failures. */}
+      {/* Header: rollup + elapsed clock + run state. */}
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
           {running ? (
@@ -760,13 +744,6 @@ function RunStatusCard({
           </span>
           {allSectionsTerminal ? (
             <span className="text-[12px] font-medium text-muted-foreground">Done</span>
-          ) : null}
-          {allSectionsTerminal &&
-          stronglyEvidencedCount < POSITIONING_SECTION_IDS.length ? (
-            <span className="text-[11px] text-muted-foreground/80">
-              {stronglyEvidencedCount} of {POSITIONING_SECTION_IDS.length} strongly
-              evidenced
-            </span>
           ) : null}
         </span>
         {running && elapsedMs !== null ? (
@@ -793,8 +770,7 @@ function RunStatusCard({
       >
         {READER_SECTION_IDS.map((id) => {
           const status = statusOf(id);
-          const trust = status === 'complete' ? trustTierOf(id) : null;
-          const subLine = trust ? trust.label : sectionStatusSubline(status);
+          const subLine = sectionStatusSubline(status);
           const label = `${SECTION_SHORT_LABEL[id]}: ${subLine}`;
           const isActive = id === active;
 
@@ -822,18 +798,7 @@ function RunStatusCard({
                 >
                   {SECTION_SHORT_LABEL[id]}
                 </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  {trust?.showDot ? (
-                    <span
-                      data-testid={`section-tier-dot-${id}`}
-                      data-tier-key={trust.key}
-                      aria-hidden="true"
-                      className={cn(
-                        'inline-block size-1.5 shrink-0 rounded-full',
-                        trustTierDotClass(trust.tone),
-                      )}
-                    />
-                  ) : null}
+                <span className="block text-[11px] text-muted-foreground">
                   {subLine}
                 </span>
               </span>
@@ -1044,18 +1009,6 @@ export function AuditReaderShell({
 
   const sixSectionsComplete = hasSixPositioningSectionsComplete(live);
 
-  // Tier honesty: the audit-state payload ships the verification flag (claim
-  // counts) per zone. Map it to buyer-facing trust language so a finished
-  // section reads as Complete / Directional / Evidence limited / Needs source
-  // check — never a wall of "needs review".
-  const trustTierOf = useCallback(
-    (id: ReaderSectionId): TrustTier => {
-      const section = live.sectionsByZone[id];
-      return deriveTrustTier(section?.verificationFlag, section?.verificationTier);
-    },
-    [live.sectionsByZone],
-  );
-
   const statusOf = useCallback(
     (id: ReaderSectionId): ReaderSectionStatus => {
       const worker = workerById.get(id);
@@ -1149,15 +1102,6 @@ export function AuditReaderShell({
       POSITIONING_SECTION_IDS.filter((id) => statusOf(id) === 'complete').length,
     [statusOf],
   );
-
-  const stronglyEvidencedCount = useMemo(
-    () =>
-      POSITIONING_SECTION_IDS.filter(
-        (id) => statusOf(id) === 'complete' && trustTierOf(id).key === 'complete',
-      ).length,
-    [statusOf, trustTierOf],
-  );
-
 
   const allSectionsTerminal = useMemo(
     () =>
@@ -1517,8 +1461,6 @@ export function AuditReaderShell({
                 active={active}
                 onSelect={select}
                 statusOf={statusOf}
-                trustTierOf={trustTierOf}
-                stronglyEvidencedCount={stronglyEvidencedCount}
                 positioningCompletedCount={positioningCompletedCount}
                 activePhaseLabel={activePhaseLabel}
                 elapsedMs={elapsedMs}

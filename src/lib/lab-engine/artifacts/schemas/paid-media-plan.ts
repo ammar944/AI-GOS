@@ -57,6 +57,13 @@ export interface NormalizePaidMediaPlanBodyOptions {
   cvrChain?: PaidMediaCvrChain;
   // Primary platform/channel hint for the stated-default CPC lookup.
   channelHint?: string;
+  // True when the sibling Voice-of-Customer section declared an evidence gap
+  // (body.evidenceGap === true OR it produced zero usable quotes). When set,
+  // any competitor review/marketing insight that claims sourceSection
+  // 'positioningVoiceOfCustomer' is re-stamped to 'unattributed' — the plan must
+  // not launder customer-voice proof from a VoC that produced nothing usable
+  // (run 3b568ea0 VOC-LAUNDERING).
+  voiceOfCustomerEvidenceGap?: boolean;
 }
 
 const channelVerdictValues = [
@@ -111,6 +118,42 @@ const campaignPhaseSchema = z.object({
   bullets: z.array(z.string().min(1)).describe("4-5 phase bullets"),
 });
 
+// Row-level evidence pack (Wave 2C). DETERMINISTICALLY built post-commit by
+// withPaidMediaEvidencePack (paid-media-evidence-pack.ts), never model-authored.
+// Each ref ties a synthesized row to the EXACT upstream committed row(s) it was
+// composed from via a real anchor-token match; an honest gap when none matched.
+// Optional + additive: legacy payloads (and the normalize* fallbacks) parse
+// unchanged.
+const paidMediaEvidenceRefSchema = z
+  .object({
+    sourceSection: z.string().min(1),
+    evidenceKind: z.string().min(1),
+    locator: z.string().min(1),
+    excerpt: z.string().min(1),
+  })
+  .strict();
+
+const paidMediaEvidencePackSchema = z
+  .object({
+    status: z.enum(["grounded", "gap"]),
+    refs: z.array(paidMediaEvidenceRefSchema),
+    note: z.string().min(1).optional(),
+  })
+  .strict();
+
+export interface PaidMediaEvidenceRef {
+  sourceSection: string;
+  evidenceKind: string;
+  locator: string;
+  excerpt: string;
+}
+
+export interface PaidMediaEvidencePack {
+  status: "grounded" | "gap";
+  refs: PaidMediaEvidenceRef[];
+  note?: string;
+}
+
 const audienceTypeSchema = z.object({
   slot: z.string().min(1),
   archetype: z.string().min(1),
@@ -120,6 +163,7 @@ const audienceTypeSchema = z.object({
   detail: z.string().min(1),
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
+  evidencePack: paidMediaEvidencePackSchema.optional(),
 });
 
 const angleSchema = z.object({
@@ -128,6 +172,7 @@ const angleSchema = z.object({
   angleType: z.string().min(1),
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
+  evidencePack: paidMediaEvidencePackSchema.optional(),
 });
 
 // staticCount/videoCount/totalPerAudience are COMPUTED by the runner
@@ -148,6 +193,7 @@ const creativeFrameworkSlotSchema = z.object({
   executesAngle: z.string().min(1),
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
+  evidencePack: paidMediaEvidencePackSchema.optional(),
 });
 
 const funnelIdeationSchema = z.object({
@@ -175,6 +221,7 @@ const competitorMarketingInsightSchema = z.object({
   offer: z.string().min(1),
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
+  evidencePack: paidMediaEvidencePackSchema.optional(),
 });
 
 const competitorReviewInsightSchema = z.object({
@@ -182,6 +229,7 @@ const competitorReviewInsightSchema = z.object({
   howWeLeverage: z.string().min(1),
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
+  evidencePack: paidMediaEvidencePackSchema.optional(),
 });
 
 const channelSuggestionSchema = z.object({
@@ -189,6 +237,7 @@ const channelSuggestionSchema = z.object({
   recommendation: z.string().min(1),
   verdict: channelVerdictSchema,
   sourceSection: sourceSectionSchema,
+  evidencePack: paidMediaEvidencePackSchema.optional(),
 });
 
 const kpiSchema = z.object({
@@ -228,6 +277,21 @@ const projectedResultRowSchema = z.object({
   blendedCvrPercent: z.number().finite().nonnegative().optional(),
   impliedCacValue: z.number().finite().nonnegative().optional(),
   impliedCacProvenance: z.string().min(1).optional(),
+  // TRIAL->PAID BRIDGE. impliedCac on a funnel-stage row (trials/leads/signups)
+  // is the cost per TRIAL SIGNUP, NOT a paid-customer CAC — comparing it to a
+  // paid-customer target CAC understates true CAC by the trial->paid multiple.
+  // When the brief discloses signup->activation->paid rates we roll the trial
+  // cost up to a modeled customer CAC (single value); when it does not, we
+  // surface an honest sensitivity BAND instead of a fake-precise number.
+  // costPerTrialLabel makes the unit explicit so the reader never conflates the
+  // two. All customer-CAC fields are provenance 'derived' (code-computed).
+  costPerTrialLabel: z.string().min(1).optional(),
+  customerCacValue: z.number().finite().nonnegative().optional(),
+  customerCacProvenance: z.string().min(1).optional(),
+  customerCacBasis: z.string().min(1).optional(),
+  customerCacBandLowValue: z.number().finite().nonnegative().optional(),
+  customerCacBandHighValue: z.number().finite().nonnegative().optional(),
+  customerCacBandBasis: z.string().min(1).optional(),
   // Honest gap vs the brief's target CAC / funnel-stage goal. Surfaced to the
   // reader; never hard-fails the section.
   goalGapNote: z.string().min(1).optional(),
@@ -1007,9 +1071,24 @@ function normalizeSalesProcessAssets(
   return assets.slice(0, 4).map(normalizeSalesAsset);
 }
 
+// Re-stamp a customer-voice-sourced insight to 'unattributed' when the sibling
+// VoC section declared an evidence gap. Citing VoC as the proof source when VoC
+// produced nothing usable is laundering (run 3b568ea0 VOC-LAUNDERING); the chip
+// becomes "Unattributed" rather than a false VoC attribution.
+function restampVocSourceSection(
+  sourceSection: SourceSection,
+  options: NormalizePaidMediaPlanBodyOptions | undefined,
+): SourceSection {
+  return options?.voiceOfCustomerEvidenceGap === true &&
+    sourceSection === "positioningVoiceOfCustomer"
+    ? "unattributed"
+    : sourceSection;
+}
+
 function normalizeCompetitorMarketingInsight(
   value: unknown,
   index: number,
+  options?: NormalizePaidMediaPlanBodyOptions,
 ): PaidMediaPlanBody["competitorMarketingInsights"][number] {
   const record = getRecord(value);
   const adPlatforms = Array.isArray(record.adPlatforms)
@@ -1028,7 +1107,10 @@ function normalizeCompetitorMarketingInsight(
       "Evidence gap: positioning missing.",
     ),
     offer: getString(record.offer, "Evidence gap: offer missing."),
-    sourceSection: normalizeSourceSection(record.sourceSection),
+    sourceSection: restampVocSourceSection(
+      normalizeSourceSection(record.sourceSection),
+      options,
+    ),
     grounding: getString(record.grounding, "UNVERIFIED"),
   };
 }
@@ -1036,6 +1118,7 @@ function normalizeCompetitorMarketingInsight(
 function normalizeCompetitorReviewInsight(
   value: unknown,
   index: number,
+  options?: NormalizePaidMediaPlanBodyOptions,
 ): PaidMediaPlanBody["competitorReviewInsights"][number] {
   const record = getRecord(value);
 
@@ -1048,7 +1131,10 @@ function normalizeCompetitorReviewInsight(
       record.howWeLeverage ?? record.adLeverage,
       "Evidence gap: ad leverage missing.",
     ),
-    sourceSection: normalizeSourceSection(record.sourceSection),
+    sourceSection: restampVocSourceSection(
+      normalizeSourceSection(record.sourceSection),
+      options,
+    ),
     grounding: getString(record.grounding, "UNVERIFIED"),
   };
 }
@@ -1196,12 +1282,17 @@ const FUNNEL_STAGE_UNIT_PATTERN =
 function getTargetCacBridgeUnit(
   kpi: string,
 ): "acquisition" | "funnel-stage" | null {
-  if (ACQUISITION_UNIT_PATTERN.test(kpi)) {
-    return "acquisition";
-  }
-
+  // Funnel-stage wins when a KPI matches BOTH patterns: "free trial signups"
+  // carries the acquisition token "signups" AND the funnel token "trial". A
+  // trial/lead/signup-as-funnel KPI is NOT a paid customer, so it must bridge
+  // through a trial->paid step rather than be treated as an acquisition (which
+  // would equate the per-trial cost to a paid-customer CAC — the c9bc2056 bug).
   if (FUNNEL_STAGE_UNIT_PATTERN.test(kpi)) {
     return "funnel-stage";
+  }
+
+  if (ACQUISITION_UNIT_PATTERN.test(kpi)) {
+    return "acquisition";
   }
 
   return null;
@@ -1282,14 +1373,99 @@ function formatPercent(fraction: number | undefined): string {
   return fraction === undefined ? "—" : `${roundTo(fraction * 100, 2)}%`;
 }
 
+// When the brief does not disclose a trial->paid (signup->activation->paid)
+// conversion, a funnel-stage cost-per-trial cannot collapse to a single
+// customer CAC. Rather than assert a fake-precise number or (worse) compare a
+// cost-per-trial directly against a paid-customer CAC target, surface a band
+// over a conservative, explicitly-labeled trial->paid range.
+const DEFAULT_TRIAL_TO_PAID_LOW = 0.1;
+const DEFAULT_TRIAL_TO_PAID_HIGH = 0.25;
+
+const COST_PER_TRIAL_LABEL = "Cost per qualified trial (signup) — not customer CAC";
+
+export interface CustomerCacBridge {
+  costPerTrialLabel?: string;
+  customerCacValue?: number;
+  customerCacProvenance?: string;
+  customerCacBasis?: string;
+  customerCacBandLowValue?: number;
+  customerCacBandHighValue?: number;
+  customerCacBandBasis?: string;
+}
+
+// Roll a forward-projected cost figure up to a paid-customer CAC the buyer can
+// honestly compare to their target. Acquisition-unit KPIs already run the funnel
+// through to paid, so impliedCac IS the customer CAC. Funnel-stage KPIs
+// (trials/leads/signups) need a trial->paid bridge: with disclosed rates we emit
+// a single modeled customer CAC; without them, an honest sensitivity band — and
+// either way an explicit cost-per-trial label so the units are never conflated.
+export function computeCustomerCacBridge(input: {
+  bridgeUnit: "acquisition" | "funnel-stage" | null;
+  impliedCacValue: number | undefined;
+  cvrChain: PaidMediaCvrChain | undefined;
+}): CustomerCacBridge {
+  const { bridgeUnit, impliedCacValue, cvrChain } = input;
+
+  if (impliedCacValue === undefined || impliedCacValue <= 0) {
+    return {};
+  }
+
+  if (bridgeUnit === "acquisition") {
+    return {
+      customerCacValue: impliedCacValue,
+      customerCacProvenance: "derived",
+      customerCacBasis:
+        "Acquisition-unit KPI: the modeled cost already carries a click through activation to a paid customer, so it is the customer CAC.",
+    };
+  }
+
+  if (bridgeUnit !== "funnel-stage") {
+    return {};
+  }
+
+  const signupToActivation = cvrChain?.signupToActivation;
+  const activationToPaid = cvrChain?.activationToPaid;
+
+  if (
+    typeof signupToActivation === "number" &&
+    signupToActivation > 0 &&
+    typeof activationToPaid === "number" &&
+    activationToPaid > 0
+  ) {
+    const trialToPaid = signupToActivation * activationToPaid;
+    const customerCacValue = roundTo(impliedCacValue / trialToPaid, 2);
+
+    return {
+      costPerTrialLabel: COST_PER_TRIAL_LABEL,
+      customerCacValue,
+      customerCacProvenance: "derived",
+      customerCacBasis: `${formatUsd(impliedCacValue)} per trial signup ÷ ${formatPercent(trialToPaid)} trial→paid (signup→active ${formatPercent(signupToActivation)} × active→paid ${formatPercent(activationToPaid)}) = ${formatUsd(customerCacValue)} modeled customer CAC.`,
+    };
+  }
+
+  // No disclosed trial->paid rate: honest band, never a fake point CAC. A higher
+  // trial->paid rate yields a LOWER customer CAC, so HIGH rate -> low CAC.
+  const bandLow = roundTo(impliedCacValue / DEFAULT_TRIAL_TO_PAID_HIGH, 2);
+  const bandHigh = roundTo(impliedCacValue / DEFAULT_TRIAL_TO_PAID_LOW, 2);
+
+  return {
+    costPerTrialLabel: COST_PER_TRIAL_LABEL,
+    customerCacBandLowValue: bandLow,
+    customerCacBandHighValue: bandHigh,
+    customerCacBandBasis: `${formatUsd(impliedCacValue)} is cost per free-trial signup, NOT customer CAC. The brief did not disclose a trial→paid rate; at a ${formatPercent(DEFAULT_TRIAL_TO_PAID_LOW)}–${formatPercent(DEFAULT_TRIAL_TO_PAID_HIGH)} trial→paid assumption, modeled customer CAC = ${formatUsd(bandLow)}–${formatUsd(bandHigh)} (confirm with client).`,
+  };
+}
+
 // Honest gap note: projected count vs an explicit funnel-stage goal, or modeled
 // CAC vs target CAC (only for acquisition KPIs, where the units are
 // apples-to-apples). Never invents a count from the target CAC.
 function buildProjectedGoalGapNote(input: {
-  countMethod: "forward" | "cost" | null;
+  countMethod: "forward" | "cost" | "cost-window" | null;
   bridgeUnit: "acquisition" | "funnel-stage" | null;
   projectedCountValue: number | undefined;
   impliedCacValue: number | undefined;
+  customerCacValue: number | undefined;
+  customerCacBandHighValue: number | undefined;
   targetCacValue: number | undefined;
   targetTrials: number | undefined;
   hasBudget: boolean;
@@ -1298,7 +1474,8 @@ function buildProjectedGoalGapNote(input: {
     countMethod,
     bridgeUnit,
     projectedCountValue,
-    impliedCacValue,
+    customerCacValue,
+    customerCacBandHighValue,
     targetCacValue,
     targetTrials,
     hasBudget,
@@ -1308,6 +1485,24 @@ function buildProjectedGoalGapNote(input: {
     // Could not project demand — say so honestly instead of back-solving.
     if (hasBudget && bridgeUnit !== null) {
       return "Projected volume needs a funnel conversion rate (visitor → signup) from the brief; target CAC alone can’t forecast demand.";
+    }
+    return undefined;
+  }
+  // A window-total projection divides phase spend by the GOAL cost — the count
+  // only lands IF the channel actually buys results at that cost, so flag the
+  // assumption rather than presenting it as forecast demand.
+  if (countMethod === "cost-window") {
+    if (projectedCountValue === undefined) {
+      return undefined;
+    }
+    return `Projects ~${projectedCountValue.toLocaleString("en-US")} over the phase at your goal cost per result — actuals depend on hitting that cost; supply a funnel conversion rate to forecast demand independently.`;
+  }
+  // A single-cost projection against a FUNNEL-STAGE KPI: the goal cost is per
+  // funnel action (e.g. free-trial signup), NOT a paid-customer CAC. Name the
+  // gap explicitly so the buyer never reads the per-trial cost as customer CAC.
+  if (countMethod === "cost") {
+    if (bridgeUnit === "funnel-stage" && customerCacBandHighValue !== undefined) {
+      return "This goal cost is per funnel-stage result (e.g. a free-trial signup), not a paid-customer CAC — see the modeled customer-CAC band. Confirm the trial→paid rate to forecast paid customers.";
     }
     return undefined;
   }
@@ -1324,14 +1519,27 @@ function buildProjectedGoalGapNote(input: {
     return `Projects ~${projectedCountValue.toLocaleString("en-US")}/mo against your ~${targetTrials.toLocaleString("en-US")}/mo goal — about ${roundTo(multiple, 1)}× short at this budget and conversion rate.`;
   }
 
+  // Compare the PAID-CUSTOMER CAC (not a funnel-stage trial cost) to the target.
+  // For acquisition KPIs customerCac == impliedCac; for funnel-stage it is the
+  // trial->paid-bridged value. A bare cost-per-trial is NEVER compared to a
+  // customer-CAC target — that conflation is what flattered the plan ~22x.
   if (
-    bridgeUnit === "acquisition" &&
-    impliedCacValue !== undefined &&
+    customerCacValue !== undefined &&
     targetCacValue !== undefined &&
-    impliedCacValue > targetCacValue
+    customerCacValue > targetCacValue
   ) {
-    const multiple = impliedCacValue / Math.max(targetCacValue, 1);
-    return `Modeled CAC ${formatUsd(impliedCacValue)} runs ~${roundTo(multiple, 1)}× your ${formatUsd(targetCacValue)} target — tighten conversion or budget to close it.`;
+    const multiple = customerCacValue / Math.max(targetCacValue, 1);
+    return `Modeled customer CAC ${formatUsd(customerCacValue)} runs ~${roundTo(multiple, 1)}× your ${formatUsd(targetCacValue)} target — tighten conversion or budget to close it.`;
+  }
+
+  if (
+    bridgeUnit === "funnel-stage" &&
+    customerCacValue === undefined &&
+    customerCacBandHighValue !== undefined &&
+    targetCacValue !== undefined &&
+    customerCacBandHighValue > targetCacValue
+  ) {
+    return `The projected cost is per free-trial signup, not customer CAC. Confirm the trial→paid rate: at conservative assumptions modeled customer CAC can exceed your ${formatUsd(targetCacValue)} target.`;
   }
 
   return undefined;
@@ -1361,6 +1569,40 @@ export function parsePaidMediaTargetCacValue(
   const suffix = match[2]?.toLowerCase();
 
   return suffix === "k" ? base * 1000 : suffix === "m" ? base * 1_000_000 : base;
+}
+
+// Number of months a projected-results row runs, parsed from its durationLabel.
+// "Months 1-2" -> 2, "Month 3" -> 1, "Months 1-3" -> 3. The window length lets
+// a phase budget × months ÷ KPI cost project the TOTAL results over the phase,
+// not just a single month. A month RANGE parses to (end - start + 1); a single
+// month index parses to 1. Labels NOT denominated in months ("Days 1-60",
+// "Weeks 1-4", or an unparseable / placeholder label) return 1 so the budget×
+// months math degrades to a conservative single-month projection rather than
+// mistaking a day/week index for a month count.
+export function parsePaidMediaDurationMonths(value: string | undefined): number {
+  if (value === undefined || BUDGET_PLACEHOLDER_PATTERN.test(value)) {
+    return 1;
+  }
+
+  // Only a month-denominated label may span more than one month.
+  if (!/\bmonths?\b/i.test(value)) {
+    return 1;
+  }
+
+  const numbers = value
+    .match(/\d+(?:\.\d+)?/g)
+    ?.map(Number)
+    .filter((candidate) => Number.isFinite(candidate) && candidate > 0);
+
+  if (numbers === undefined || numbers.length < 2) {
+    // "Month 3" (single index) or "Month" (no index) spans one month.
+    return 1;
+  }
+
+  const start = numbers[0];
+  const end = numbers[numbers.length - 1];
+  const span = Math.floor(end - start) + 1;
+  return span > 0 ? span : 1;
 }
 
 function normalizeProjectedResultRow(
@@ -1427,7 +1669,7 @@ function normalizeProjectedResultRow(
     canForwardProject && projectedClicks !== undefined
       ? Math.floor(projectedClicks * blendedCvr!)
       : undefined;
-  let countMethod: "forward" | "cost" | null =
+  let countMethod: "forward" | "cost" | "cost-window" | null =
     projectedCountValue !== undefined ? "forward" : null;
 
   // Legitimate cost-based count ONLY when the model gave a REAL KPI cost and we
@@ -1443,12 +1685,61 @@ function normalizeProjectedResultRow(
     countMethod = "cost";
   }
 
+  // WINDOW-TOTAL fallback: when neither a forward demand projection nor a real
+  // model KPI cost is available but the row carries a budget AND a usable KPI
+  // cost (e.g. the brief target-CAC reference), the buyer must still be able to
+  // read "$X budget × N months ÷ $Y cost = projected results" rather than an
+  // empty cell. durationMonths spreads the projection across the phase window;
+  // the goalGapNote flags that the count only lands at the GOAL cost (not a
+  // hidden CAC == target identity — implied CAC is never shown for this path).
+  const durationMonths = parsePaidMediaDurationMonths(
+    getString(record.durationLabel ?? record.duration, ""),
+  );
+  if (
+    projectedCountValue === undefined &&
+    hasBudget &&
+    kpiCostValue !== undefined &&
+    kpiCostValue > 0
+  ) {
+    const windowCount = Math.floor(
+      (phaseMonthlyBudgetValue! * durationMonths) / kpiCostValue,
+    );
+    if (windowCount > 0) {
+      projectedCountValue = windowCount;
+      countMethod = "cost-window";
+    }
+  }
+
   const impliedCacValue =
     countMethod === "forward" &&
     projectedCountValue !== undefined &&
     projectedCountValue > 0
       ? roundTo(phaseMonthlyBudgetValue! / projectedCountValue, 2)
       : undefined;
+
+  // Bridge the forward cost to a paid-customer CAC the buyer can compare to the
+  // target. Funnel-stage rows get an explicit cost-per-trial label + a customer
+  // CAC (point estimate when trial->paid disclosed, else a sensitivity band).
+  const customerBridge =
+    countMethod === "forward"
+      ? computeCustomerCacBridge({
+          bridgeUnit: targetCacBridgeUnit,
+          impliedCacValue,
+          cvrChain: options?.cvrChain,
+        })
+      : // Funnel-stage cost / cost-window rows have no forward implied CAC, but
+        // their kpiCostValue IS the cost-per-funnel-action (e.g. cost per free-
+        // trial signup). Bridge from that so a per-trial cost is shown with its
+        // honest modeled-customer-CAC band, never as a flat paid-customer CAC.
+        targetCacBridgeUnit === "funnel-stage" &&
+          countMethod !== null &&
+          kpiCostValue !== undefined
+        ? computeCustomerCacBridge({
+            bridgeUnit: targetCacBridgeUnit,
+            impliedCacValue: kpiCostValue,
+            cvrChain: options?.cvrChain,
+          })
+        : {};
 
   const targetTrials = parsePaidMediaTargetCacValue(
     options?.targetTrialsPerMonth,
@@ -1458,17 +1749,22 @@ function normalizeProjectedResultRow(
     bridgeUnit: targetCacBridgeUnit,
     projectedCountValue,
     impliedCacValue,
+    customerCacValue: customerBridge.customerCacValue,
+    customerCacBandHighValue: customerBridge.customerCacBandHighValue,
     targetCacValue,
     targetTrials,
     hasBudget,
   });
 
+  const windowMonths = durationMonths;
   const countBasis =
     countMethod === "forward"
       ? `Projected from spend ÷ $${cpcValue} CPC × ${formatPercent(blendedCvr)} funnel conversion (modeled).`
       : countMethod === "cost"
         ? "At the reported KPI cost."
-        : undefined;
+        : countMethod === "cost-window"
+          ? `Budget × ${windowMonths} month${windowMonths === 1 ? "" : "s"} ÷ goal cost per result.`
+          : undefined;
 
   return {
     targetIcp: getString(
@@ -1490,11 +1786,11 @@ function normalizeProjectedResultRow(
       ? {}
       : {
           projectedCountValue,
-          // Forward-projected counts are DERIVED, written directly (snap maps
-          // 'derived' -> 'model-estimated'); a cost-based count inherits its
-          // weakest input.
+          // Forward-projected and window-total counts are both DERIVED (the
+          // math is code-computed from budget/cost/window), written directly;
+          // a model-cost count inherits its weakest input.
           projectedCountProvenance:
-            countMethod === "forward"
+            countMethod === "forward" || countMethod === "cost-window"
               ? "derived"
               : weakestMoneyProvenance(
                   kpiCostProvenance,
@@ -1517,8 +1813,14 @@ function normalizeProjectedResultRow(
           ...(impliedCacValue === undefined
             ? {}
             : { impliedCacProvenance: "derived" }),
+          ...bridgeToRowFields(customerBridge),
         }
       : {}),
+    // Funnel-stage cost / cost-window rows carry the customer-CAC bridge too, so
+    // a per-trial cost is shown with its honest modeled-CAC band rather than as a
+    // flat paid-customer CAC. (Forward rows already include it in the block above;
+    // non-funnel / acquisition rows get an empty bridge, so this is a no-op.)
+    ...(countMethod !== "forward" ? bridgeToRowFields(customerBridge) : {}),
     ...optionalStringField("goalGapNote", goalGapNote),
     sourceSection: normalizeSourceSection(record.sourceSection),
   };
@@ -1622,11 +1924,15 @@ export function normalizePaidMediaPlanBody(
     competitorMarketingInsights: getNestedArray(
       record.competitorMarketingInsights,
       "competitors",
-    ).map(normalizeCompetitorMarketingInsight),
+    ).map((insight, index) =>
+      normalizeCompetitorMarketingInsight(insight, index, options),
+    ),
     competitorReviewInsights: getNestedArray(
       record.competitorReviewInsights,
       "insights",
-    ).map(normalizeCompetitorReviewInsight),
+    ).map((insight, index) =>
+      normalizeCompetitorReviewInsight(insight, index, options),
+    ),
     channelSuggestions: getNestedArray(record.channelSuggestions, "suggestions")
       .map(normalizeChannelSuggestion)
       .slice(0, 6),
@@ -1638,7 +1944,8 @@ export function normalizePaidMediaPlanBody(
       : {}),
   });
 
-  return reconcilePaidMediaBudgetCascade(parsed);
+  const partitioned = reconcileProjectedResultsBudgetPartition(parsed, options);
+  return reconcilePaidMediaBudgetCascade(partitioned);
 }
 
 // The budget cascade reconciliation contract (section-prompt-guidance.ts $5
@@ -1649,11 +1956,18 @@ export function normalizePaidMediaPlanBody(
 // budget (phases may overlap, so there is deliberately NO phase-sum check).
 const AUDIENCE_DAILY_SUM_TOLERANCE_USD = 5;
 const DAILY_TIMES_30_TOLERANCE_USD = 25;
+// Projected-results rows that share a durationLabel run CONCURRENTLY, so their
+// per-move monthly budgets must PARTITION (sum to, not exceed) the plan's
+// monthly budget. Rows on different durations are sequential/overlapping phases
+// and are deliberately not summed. Run c77ff0e1 summed 25000+5000+5000=$35,000
+// against a $25,000 plan — phantom spend that inflated the trial projection.
+const PROJECTED_PARTITION_TOLERANCE_USD = 50;
 
 export type PaidMediaBudgetCascadeViolation =
   | { kind: "audience-sum"; message: string }
   | { kind: "daily-vs-monthly"; message: string }
-  | { kind: "phase-exceeds-monthly"; message: string; phaseIndex: number };
+  | { kind: "phase-exceeds-monthly"; message: string; phaseIndex: number }
+  | { kind: "projected-partition"; message: string; durationLabel: string };
 
 type AudienceBudgetRepair = {
   derivedIndexes: ReadonlySet<number>;
@@ -1716,6 +2030,39 @@ export function collectPaidMediaBudgetCascadeViolations(
           kind: "phase-exceeds-monthly",
           message: `body.campaignPhases[${phaseIndex}]: monthlyBudgetValue ($${formatUsdForError(phase.monthlyBudgetValue)}) exceeds body.campaignOverview.monthlyBudgetValue ($${formatUsdForError(monthlyBudgetValue)}); a single phase cannot budget more than the plan's monthly budget.`,
           phaseIndex,
+        });
+      }
+    });
+
+    // TWO OR MORE concurrent projected-results rows (same durationLabel) must
+    // partition, not exceed, the monthly budget — otherwise the trial
+    // projection sums phantom spend (run c77ff0e1: 25000+5000+5000=$35,000 vs a
+    // $25,000 plan). A single row is left to its own (possibly larger) budget;
+    // one row cannot double-count against itself.
+    const concurrentByDuration = new Map<string, { sum: number; count: number }>();
+    body.projectedResults.forEach((row) => {
+      if (
+        row.phaseMonthlyBudgetValue !== undefined &&
+        isSubstantiveProjectedResultRow(row)
+      ) {
+        const entry = concurrentByDuration.get(row.durationLabel) ?? {
+          sum: 0,
+          count: 0,
+        };
+        entry.sum += row.phaseMonthlyBudgetValue;
+        entry.count += 1;
+        concurrentByDuration.set(row.durationLabel, entry);
+      }
+    });
+    concurrentByDuration.forEach((entry, durationLabel) => {
+      if (
+        entry.count >= 2 &&
+        entry.sum > monthlyBudgetValue + PROJECTED_PARTITION_TOLERANCE_USD
+      ) {
+        violations.push({
+          kind: "projected-partition",
+          durationLabel,
+          message: `body.projectedResults: ${entry.count} concurrent rows for "${durationLabel}" budget $${formatUsdForError(entry.sum)} total against a $${formatUsdForError(monthlyBudgetValue)} monthly plan; per-move budgets in one window must partition the monthly budget, not exceed it.`,
         });
       }
     });
@@ -1880,6 +2227,186 @@ function normalizeAudienceMoneyDisplay(
         ...audience,
         dailyBudget: formatDailyMoneyDisplay(audience.dailyBudgetValue),
       };
+}
+
+// Single-source mapping from a CustomerCacBridge to the optional row fields so
+// the row normalizer and the partition reconciler can never diverge.
+function bridgeToRowFields(
+  bridge: CustomerCacBridge,
+): Partial<PaidMediaPlanBody["projectedResults"][number]> {
+  return {
+    ...optionalStringField("costPerTrialLabel", bridge.costPerTrialLabel),
+    ...optionalNumericField("customerCacValue", bridge.customerCacValue),
+    ...optionalStringField(
+      "customerCacProvenance",
+      bridge.customerCacProvenance,
+    ),
+    ...optionalStringField("customerCacBasis", bridge.customerCacBasis),
+    ...optionalNumericField(
+      "customerCacBandLowValue",
+      bridge.customerCacBandLowValue,
+    ),
+    ...optionalNumericField(
+      "customerCacBandHighValue",
+      bridge.customerCacBandHighValue,
+    ),
+    ...optionalStringField("customerCacBandBasis", bridge.customerCacBandBasis),
+  };
+}
+
+// Rebuild one projected-results row's forward funnel + customer-CAC bridge at a
+// partition-corrected budget. cost-per-trial and customer CAC are budget-
+// invariant ratios, but clicks/count scale with spend; we re-derive the bridge
+// (and its basis string) so no stale value survives. Cost-based rows (no
+// forward CPC) just rescale their count.
+function recomputeProjectedRowForBudget(
+  row: PaidMediaPlanBody["projectedResults"][number],
+  newBudget: number,
+  options: NormalizePaidMediaPlanBodyOptions | undefined,
+): PaidMediaPlanBody["projectedResults"][number] {
+  const {
+    costPerTrialLabel: _label,
+    customerCacValue: _cac,
+    customerCacProvenance: _cacProv,
+    customerCacBasis: _cacBasis,
+    customerCacBandLowValue: _bandLow,
+    customerCacBandHighValue: _bandHigh,
+    customerCacBandBasis: _bandBasis,
+    goalGapNote: _goalGapNote,
+    ...rowWithoutDerived
+  } = row;
+  const base = { ...rowWithoutDerived, phaseMonthlyBudgetValue: newBudget };
+
+  if (
+    row.cpcValue !== undefined &&
+    row.cpcValue > 0 &&
+    row.blendedCvrPercent !== undefined &&
+    row.blendedCvrPercent > 0
+  ) {
+    const projectedClicks = Math.floor(newBudget / row.cpcValue);
+    const projectedCountValue = Math.floor(
+      projectedClicks * (row.blendedCvrPercent / 100),
+    );
+
+    if (projectedCountValue > 0) {
+      const impliedCacValue = roundTo(newBudget / projectedCountValue, 2);
+      const bridgeUnit = getTargetCacBridgeUnit(row.kpi);
+      const bridge = computeCustomerCacBridge({
+        bridgeUnit,
+        impliedCacValue,
+        cvrChain: options?.cvrChain,
+      });
+      const goalGapNote = buildProjectedGoalGapNote({
+        countMethod: "forward",
+        bridgeUnit,
+        projectedCountValue,
+        impliedCacValue,
+        customerCacValue: bridge.customerCacValue,
+        customerCacBandHighValue: bridge.customerCacBandHighValue,
+        targetCacValue: parsePaidMediaTargetCacValue(options?.targetCac),
+        targetTrials: parsePaidMediaTargetCacValue(
+          options?.targetTrialsPerMonth,
+        ),
+        hasBudget: true,
+      });
+
+      return {
+        ...base,
+        projectedClicks,
+        projectedCountValue,
+        impliedCacValue,
+        ...bridgeToRowFields(bridge),
+        ...optionalStringField("goalGapNote", goalGapNote),
+      };
+    }
+
+    return { ...base, projectedClicks };
+  }
+
+  if (
+    row.kpiCostValue !== undefined &&
+    row.kpiCostValue > 0 &&
+    row.projectedCountValue !== undefined
+  ) {
+    const projectedCountValue = Math.floor(newBudget / row.kpiCostValue);
+    if (projectedCountValue > 0) {
+      return { ...base, projectedCountValue };
+    }
+  }
+
+  return base;
+}
+
+// Deterministically partition the monthly budget across concurrent (same
+// durationLabel) projected-results rows so per-move budgets SUM to the plan's
+// monthly budget instead of exceeding it, then re-derive each row's forward
+// funnel at the corrected budget. Rows on distinct durations are sequential /
+// overlapping phases and are deliberately left untouched.
+function reconcileProjectedResultsBudgetPartition(
+  body: PaidMediaPlanBody,
+  options: NormalizePaidMediaPlanBodyOptions | undefined,
+): PaidMediaPlanBody {
+  const monthlyBudgetValue = body.campaignOverview.monthlyBudgetValue;
+
+  if (monthlyBudgetValue === undefined || monthlyBudgetValue <= 0) {
+    return body;
+  }
+
+  const indexesByDuration = new Map<string, number[]>();
+  body.projectedResults.forEach((row, index) => {
+    if (
+      row.phaseMonthlyBudgetValue !== undefined &&
+      isSubstantiveProjectedResultRow(row)
+    ) {
+      const list = indexesByDuration.get(row.durationLabel) ?? [];
+      list.push(index);
+      indexesByDuration.set(row.durationLabel, list);
+    }
+  });
+
+  const rows = [...body.projectedResults];
+  let changed = false;
+
+  indexesByDuration.forEach((indexes) => {
+    // One concurrent row cannot double-count against itself; only partition a
+    // window with two or more competing per-move budgets.
+    if (indexes.length < 2) {
+      return;
+    }
+
+    const budgets = indexes.map(
+      (index) => rows[index].phaseMonthlyBudgetValue as number,
+    );
+    const sum = sumNumbers(budgets);
+
+    if (sum <= monthlyBudgetValue + PROJECTED_PARTITION_TOLERANCE_USD) {
+      return;
+    }
+
+    const partitioned = allocateWholeDollarsByLargestRemainder(
+      budgets,
+      monthlyBudgetValue,
+    );
+    indexes.forEach((rowIndex, allocationIndex) => {
+      rows[rowIndex] = recomputeProjectedRowForBudget(
+        rows[rowIndex],
+        partitioned[allocationIndex] ?? 0,
+        options,
+      );
+    });
+    changed = true;
+  });
+
+  if (!changed) {
+    return body;
+  }
+
+  console.warn(
+    "[paid-media-plan] projected-results budget partition repaired deterministically",
+    { monthlyBudgetValue },
+  );
+
+  return { ...body, projectedResults: rows };
 }
 
 // Normalize-time repair for a cascade the model failed to reconcile. Monthly

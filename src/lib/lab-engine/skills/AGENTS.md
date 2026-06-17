@@ -14,6 +14,7 @@
 - Prompt changes must stay aligned with the code schemas and verifier expectations.
 - Do not encode fake examples as expected live facts.
 - Do not move schema enforcement from code into prompt-only requirements.
+- The BuyerICP, VoC, and paid-media skills encode the acquisition-ledger + sufficiency contract and the SaaSLaunch fulfillment contract (Perplexity/Sonar = bounded source discovery only; DeepSeek = writer/repair authority). Keep these aligned with `acquisitionSufficiencyFieldSchema` and the coverage eval; sparse acquisition must produce honest gaps, never fabricated rows.
 
 ## Work Guidance
 

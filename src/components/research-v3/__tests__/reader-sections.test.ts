@@ -8,15 +8,15 @@ import {
 } from '../reader-sections';
 
 describe('reader section helpers', () => {
-  it('orders sections in reader argument order with paid media last', (): void => {
+  it('orders sections in research pipeline order with paid media last', (): void => {
     expect(READER_SECTION_IDS).toHaveLength(7);
     expect(READER_SECTION_IDS.slice(0, 6)).toEqual([
-      'positioningDemandIntent',
+      'positioningMarketCategory',
       'positioningBuyerICP',
       'positioningCompetitorLandscape',
       'positioningVoiceOfCustomer',
+      'positioningDemandIntent',
       'positioningOfferDiagnostic',
-      'positioningMarketCategory',
     ]);
     expect(READER_SECTION_IDS.at(-1)).toBe(PAID_MEDIA_PLAN_SECTION_ID);
   });

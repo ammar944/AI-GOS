@@ -2,6 +2,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
+import type { DemandIntentArtifact } from '@/types/positioning-artifact';
+
 import { DemandIntentRenderer } from '../demand-intent';
 import { demandIntentArtifact } from './fixtures';
 
@@ -53,5 +55,62 @@ describe('DemandIntentRenderer', () => {
     expect(screen.queryByText(/validator requires/i)).not.toBeInTheDocument();
     expect(screen.getAllByTestId('gap-note').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryAllByTestId('question-item')).toHaveLength(0);
+  });
+
+  it('backfill: empty questionMining/contentGaps/intentSignals/venueMap each collapse to one honest GapNote that surfaces the engine blockGap', () => {
+    const artifact: DemandIntentArtifact = structuredClone(demandIntentArtifact);
+    artifact.questionMining.questions = [];
+    artifact.questionMining.blockGap = {
+      summary: 'No buyer questions cleared the permalink bar this run.',
+      foundCount: 0,
+      requiredCount: 3,
+      sourcingPlan: ['Pull People Also Ask permalinks'],
+    };
+    artifact.contentGaps.gaps = [];
+    artifact.contentGaps.blockGap = {
+      summary: 'No content gaps could be sourced against ranking pages.',
+      foundCount: 0,
+      requiredCount: 1,
+      sourcingPlan: ['Compare ranking pages to buyer questions'],
+    };
+    artifact.intentSignals.items = [];
+    artifact.intentSignals.blockGap = {
+      summary: 'No independent intent signals were captured.',
+      foundCount: 0,
+      requiredCount: 1,
+      sourcingPlan: ['Pull job postings and RFP venues'],
+    };
+    artifact.venueMap.venues = [];
+    artifact.venueMap.blockGap = {
+      summary: 'No buyer venues were sourced with URLs.',
+      foundCount: 0,
+      requiredCount: 1,
+      sourcingPlan: ['Identify communities and newsletters with source URLs'],
+    };
+
+    render(<DemandIntentRenderer artifact={artifact} />);
+
+    // Each empty block surfaces its OWN honest engine blockGap summary, not a
+    // generic placeholder, and not an empty grid header over nothing.
+    expect(
+      screen.getByText('No buyer questions cleared the permalink bar this run.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No content gaps could be sourced against ranking pages.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No independent intent signals were captured.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No buyer venues were sourced with URLs.'),
+    ).toBeInTheDocument();
+    // How-to-close lines come from each block's own sourcingPlan.
+    expect(screen.getByText(/Pull People Also Ask permalinks/i)).toBeInTheDocument();
+    // Four collapsed blocks => four gap notes (no rows rendered for any).
+    expect(screen.getAllByTestId('gap-note')).toHaveLength(4);
+    expect(screen.queryAllByTestId('question-item')).toHaveLength(0);
+    expect(screen.queryAllByTestId('gap-item')).toHaveLength(0);
+    expect(screen.queryAllByTestId('intent-item')).toHaveLength(0);
+    expect(screen.queryAllByTestId('venue-item')).toHaveLength(0);
   });
 });

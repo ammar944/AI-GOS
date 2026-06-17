@@ -5,6 +5,7 @@ import {
   buildCompetitorAdEvidenceGroups,
   markSubjectAdvertiserGroups,
   QUARANTINE_ONLY_AD_EVIDENCE_GAP_PREFIX,
+  reconcileAdEvidenceGroupCounts,
 } from "../competitor-ad-adapter";
 import type { CompetitorAdEvidenceGroup } from "../../../artifacts/schemas/competitor-landscape";
 
@@ -678,5 +679,132 @@ describe("markSubjectAdvertiserGroups", () => {
     });
 
     expect(marked[0]?.isSubject).toBeUndefined();
+  });
+});
+
+describe("reconcileAdEvidenceGroupCounts", () => {
+  const creative = (
+    platform: "google" | "meta" | "linkedin",
+    id: string,
+    verified: boolean,
+  ): CompetitorAdEvidenceGroup["creatives"][number] =>
+    ({
+      id,
+      platform,
+      advertiserName: "ClickUp",
+      headline: "One App, 10x More Done",
+      body: null,
+      landingUrl: null,
+      creativeUrl: null,
+      imageUrl: null,
+      videoUrl: null,
+      detailsUrl: null,
+      sourceUrl: `https://www.facebook.com/ads/library/?id=${id}`,
+      firstSeen: null,
+      lastSeen: null,
+      format: "text",
+      isActive: true,
+      source: null,
+      transcript: null,
+      cta: null,
+      verified,
+    }) as unknown as CompetitorAdEvidenceGroup["creatives"][number];
+
+  const inflatedGroup = (
+    creatives: CompetitorAdEvidenceGroup["creatives"],
+  ): CompetitorAdEvidenceGroup =>
+    ({
+      advertiserName: "ClickUp",
+      domain: "clickup.com",
+      platforms: ["meta", "linkedin"],
+      rawCounts: { google: 0, meta: 6, linkedin: 0 },
+      // Deliberately INFLATED headline scalars, mirroring the run-c77ff0e1 defect
+      // ("35 verified / 20 Meta / 15 LinkedIn" backed by 6 captured, all Meta).
+      displayableCounts: { google: 0, meta: 20, linkedin: 15 },
+      displayableTotal: 35,
+      returnedCreativeCount: 35,
+      creatives,
+      libraryLinks: {},
+      rawSourceSamples: [],
+      dataGaps: [],
+      sourceErrors: [],
+      observedAt: "2026-06-16T00:00:00.000Z",
+      identityConfidence: "verified",
+      quarantinedCount: 0,
+      verifiedCount: 35,
+    }) as unknown as CompetitorAdEvidenceGroup;
+
+  it("clamps inflated array-derived headline counts down to the captured creatives array length", () => {
+    // 6 captured creatives, ALL Meta, zero LinkedIn (the c77ff0e1 ground truth).
+    // The input group fabricates returnedCreativeCount/verifiedCount = 35.
+    const creatives = Array.from({ length: 6 }, (_unused, index) =>
+      creative("meta", `clickup-${index}`, true),
+    ) as unknown as CompetitorAdEvidenceGroup["creatives"];
+
+    const reconciled = reconcileAdEvidenceGroupCounts(inflatedGroup(creatives));
+
+    // returnedCreativeCount/verifiedCount/quarantinedCount derive 1:1 from the
+    // shipped array and can never exceed it — the "35 verified" inflation is dead.
+    expect(reconciled.returnedCreativeCount).toBe(6);
+    expect(reconciled.verifiedCount).toBe(6);
+    expect(reconciled.quarantinedCount).toBe(0);
+    expect(reconciled.returnedCreativeCount).toBeLessThanOrEqual(
+      reconciled.creatives.length,
+    );
+    expect(reconciled.verifiedCount).toBeLessThanOrEqual(
+      reconciled.creatives.length,
+    );
+  });
+
+  it("forces a zero-captured platform to 0 instead of an invented count", () => {
+    const creatives = Array.from({ length: 6 }, (_unused, index) =>
+      creative("meta", `clickup-${index}`, true),
+    ) as unknown as CompetitorAdEvidenceGroup["creatives"];
+
+    const reconciled = reconcileAdEvidenceGroupCounts(inflatedGroup(creatives));
+
+    // The inflated input claimed 15 LinkedIn; zero LinkedIn creatives are
+    // captured, so LinkedIn (and Google) must be forced to exactly 0 — no
+    // invented platform headline can survive.
+    expect(reconciled.displayableCounts.linkedin).toBe(0);
+    expect(reconciled.displayableCounts.google).toBe(0);
+    // Meta HAS captured creatives, so its measured pre-cap count is trusted and
+    // never read below the shipped array.
+    expect(reconciled.displayableCounts.meta).toBeGreaterThanOrEqual(6);
+  });
+
+  it("recomputes verified/quarantined membership from each creative's own flag", () => {
+    const creatives = [
+      creative("google", "smartsheet-g-1", true),
+      creative("google", "smartsheet-g-2", true),
+      creative("linkedin", "smartsheet-l-1", false),
+      creative("linkedin", "smartsheet-l-2", false),
+    ] as unknown as CompetitorAdEvidenceGroup["creatives"];
+
+    const reconciled = reconcileAdEvidenceGroupCounts({
+      ...inflatedGroup(creatives),
+      advertiserName: "Smartsheet",
+    } as CompetitorAdEvidenceGroup);
+
+    expect(reconciled.verifiedCount).toBe(2);
+    expect(reconciled.quarantinedCount).toBe(2);
+    // Captured platforms never read below their shipped count; the meta platform
+    // has zero captured creatives so its inflated count is forced to 0.
+    expect(reconciled.displayableCounts.google).toBeGreaterThanOrEqual(2);
+    expect(reconciled.displayableCounts.linkedin).toBeGreaterThanOrEqual(2);
+    expect(reconciled.displayableCounts.meta).toBe(0);
+    expect(reconciled.identityConfidence).toBe("verified");
+  });
+
+  it("marks identityConfidence 'low' when no captured creative is verified", () => {
+    const creatives = [
+      creative("meta", "lowconf-1", false),
+      creative("meta", "lowconf-2", false),
+    ] as unknown as CompetitorAdEvidenceGroup["creatives"];
+
+    const reconciled = reconcileAdEvidenceGroupCounts(inflatedGroup(creatives));
+
+    expect(reconciled.verifiedCount).toBe(0);
+    expect(reconciled.identityConfidence).toBe("low");
   });
 });

@@ -13,9 +13,7 @@ describe('MarketCategoryRenderer', () => {
       /workflow automation category/i,
     );
     expect(screen.getByTestId('key-findings')).toBeInTheDocument();
-    expect(screen.getByTestId('section-coverage-note')).toHaveTextContent(
-      /what we verified/i,
-    );
+    expect(screen.queryByTestId('section-coverage-note')).not.toBeInTheDocument();
   });
 
   it('renders four narrative blocks with compact category cards and TAM formula', () => {

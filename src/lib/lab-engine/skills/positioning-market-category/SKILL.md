@@ -31,8 +31,11 @@ Use only the tools allowed for this section.
 ## Iron Laws
 
 - Do not invent market data, category labels, category maturity, buyer alternatives, or TAM inputs.
+- Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally (protect the stated target, work within the stated budget); never restate one as a number you discovered or verified.
+- Do not invent numeric precision that is not present in fetched evidence; a number without a source, benchmark, measurement, or explicit gap basis does not belong in the output.
 - Do not turn analyst opinion into market fact; every load-bearing claim needs measured, sourced, benchmark, assumption, or gap basis.
 - If evidence is thin, use the schema's blockGap or an evidence gap sentence instead of inventing rows.
+- Do not ship a market or category call whose only numbers are echoed from the operator brief. Carry at least one independently researched external figure (sourced market signal, keyword demand input, or benchmark), or honestly mark the missing external evidence as a gap.
 - Preserve the subject's scale and position. Incumbents defend, exploit, concede, or reframe; new entrants wedge and sequence.
 - Lead with `keyFindings` when evidence supports 3-5 reader-worthy findings.
 

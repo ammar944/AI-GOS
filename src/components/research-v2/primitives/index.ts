@@ -43,10 +43,6 @@ export {
   type Positioning2x2Props,
 } from './positioning-2x2';
 export { DecisionCard, type DecisionCardProps } from './decision-card';
-export {
-  SectionCoverageNote,
-  type SectionCoverageNoteProps,
-} from './section-coverage-note';
 export { ReaderExhibit, type ReaderExhibitProps } from './reader-exhibit';
 export {
   clampReaderText,

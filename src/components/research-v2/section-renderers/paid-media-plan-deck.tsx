@@ -61,6 +61,23 @@ function projectedCountStatValue(value: number | undefined): string | null {
     : null;
 }
 
+// Optional paid-CAC fields the composer attaches when a trial->paid bridge is
+// modeled. Read defensively — absent on older artifacts or before the composer
+// fills them.
+interface DeckCustomerCacFields {
+  impliedCacValue?: number;
+  customerCacValue?: number;
+  costPerTrialLabel?: string;
+  customerCacBandLowValue?: number;
+  customerCacBandHighValue?: number;
+}
+
+function readDeckCustomerCacFields(
+  row: ProjectedResultRow,
+): DeckCustomerCacFields {
+  return row as ProjectedResultRow & DeckCustomerCacFields;
+}
+
 // ---------------------------------------------------------------------------
 // Deck-local layout primitives
 // ---------------------------------------------------------------------------
@@ -587,20 +604,51 @@ export function PaidMediaPlanDeck({
           subtitle="Count projections shown only where the plan has budget and KPI cost math"
         >
           <div className="grid gap-4">
-            {projectedRowsWithCounts.map((row) => (
-              <div key={`${row.targetIcp}-${row.kpi}`} className="grid gap-2">
-                <StatTile
-                  value={projectedCountStatValue(row.projectedCountValue)}
-                  label={scrubReaderText(row.kpi)}
-                  detail={`${scrubReaderText(row.targetIcp)} · KPI cost: ${formatUsdValue(row.kpiCostValue)}`}
-                />
-                {row.countBasis ? (
-                  <p className="px-1 text-[12px] leading-[1.5] text-muted-foreground">
-                    {scrubReaderText(row.countBasis)}
-                  </p>
-                ) : null}
-              </div>
-            ))}
+            {projectedRowsWithCounts.map((row) => {
+              const cac = readDeckCustomerCacFields(row);
+              const trialLabel =
+                cac.costPerTrialLabel ?? 'Cost per qualified trial (signup)';
+              return (
+                <div key={`${row.targetIcp}-${row.kpi}`} className="grid gap-2">
+                  <StatTile
+                    value={projectedCountStatValue(row.projectedCountValue)}
+                    label={scrubReaderText(row.kpi)}
+                    detail={`${scrubReaderText(row.targetIcp)} · KPI cost: ${formatUsdValue(row.kpiCostValue)}`}
+                  />
+                  {cac.impliedCacValue !== undefined ? (
+                    <StatTile
+                      value={formatUsdValue(cac.impliedCacValue)}
+                      label={trialLabel}
+                      detail="Per qualified trial / signup — not paid-customer CAC"
+                    />
+                  ) : null}
+                  {cac.customerCacValue !== undefined ? (
+                    <StatTile
+                      value={formatUsdValue(cac.customerCacValue)}
+                      label="Modeled customer CAC (after trial→paid)"
+                      detail="After the trial→paid bridge — compare to your target CAC"
+                    />
+                  ) : cac.customerCacBandLowValue !== undefined &&
+                    cac.customerCacBandHighValue !== undefined ? (
+                    <StatTile
+                      value={`${formatUsdValue(cac.customerCacBandLowValue)}–${formatUsdValue(cac.customerCacBandHighValue)}`}
+                      label="Modeled customer CAC (after trial→paid)"
+                      detail="Modeled range — trial→paid rate not disclosed; confirm with client"
+                    />
+                  ) : null}
+                  {row.countBasis ? (
+                    <p className="px-1 text-[12px] leading-[1.5] text-muted-foreground">
+                      {scrubReaderText(row.countBasis)}
+                    </p>
+                  ) : null}
+                  {row.goalGapNote ? (
+                    <p className="border-l-2 border-amber-500/60 px-3 text-[12px] leading-[1.5] text-muted-foreground">
+                      {scrubReaderText(row.goalGapNote)}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </DeckPage>
       ) : null}

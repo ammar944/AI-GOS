@@ -239,6 +239,32 @@ function extractAnswer(output: unknown): string | null {
   return null;
 }
 
+export type BuyerPersonaLookupGapReason =
+  | "missing_credential"
+  | "no_named_individuals"
+  | "no_result";
+
+/**
+ * Classify why a single venue lookup yielded no promoted persona, for an
+ * honest query-level attempt row: a credential gap aborted the call
+ * (`missing_credential`); the call returned no usable answer (`no_result`);
+ * or an answer came back but no named buyer identity survived parsing
+ * (`no_named_individuals`).
+ */
+export function classifyBuyerPersonaLookupGap(
+  output: unknown,
+): BuyerPersonaLookupGapReason {
+  if (isCredentialGapOutput(output)) {
+    return "missing_credential";
+  }
+
+  if (extractAnswer(output) === null) {
+    return "no_result";
+  }
+
+  return "no_named_individuals";
+}
+
 export async function acquireBuyerPersonaCandidates({
   company,
   executeLookup,

@@ -11,7 +11,6 @@ import {
   KeyFindings,
   QuoteCard,
   ReaderExhibit,
-  SectionCoverageNote,
   SubsectionBlock,
   VerdictHero,
   clientGapSentence,
@@ -266,7 +265,6 @@ export function DemandIntentRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={demandKeyFindings(artifact)} />
 
@@ -426,19 +424,6 @@ export function DemandIntentRenderer({
       </SubsectionBlock>
 
       <StrategicInsightPanel insight={artifact.strategicInsight} />
-
-      <SectionCoverageNote
-        verified={[
-          `${keywordDemand.keywords.length} keyword rows`,
-          `${questionMining.questions.length} buyer-question rows`,
-        ]}
-        assumed={keywordDemand.keywords
-          .filter((keyword) => !keyword.cpc)
-          .map((keyword) => `${keyword.keyword} CPC`)}
-        missing={intentSignals.items
-          .filter((signal) => isReaderPipelineChrome(signal.description))
-          .map((signal) => SIGNAL_TYPE_LABEL[signal.signalType] ?? signal.signalType)}
-      />
     </div>
   );
 }

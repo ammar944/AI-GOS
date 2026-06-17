@@ -128,6 +128,19 @@ const STARVED_VOC_DATA = {
   },
 };
 
+// Offer-diagnostic committed `complete` only via the R1 deadline honest-gap body
+// (the placeholder wall). The sanitizer rewrites "evidence gap:" but preserves
+// the "exceeded its time budget" marker the rescue keys on.
+const DEADLINE_EXHAUSTED_OFFER_DATA = {
+  sectionTitle: 'positioningOfferDiagnostic',
+  body: {
+    verdict:
+      'Not enough public evidence: section exceeded its time budget — rerun to retry',
+    strategicVerdict:
+      'Not enough public evidence: section exceeded its time budget — rerun to retry',
+  },
+};
+
 function rows(
   statusByZone: Partial<Record<string, string>>,
   dataByZone: Partial<Record<string, unknown>> = {},
@@ -256,6 +269,52 @@ describe('dispatchAutoRerunForErroredSections (ADR-0012)', () => {
     );
 
     consoleInfoSpy.mockRestore();
+  });
+
+  it('rescues a deadline-exhausted section (offer placeholder wall) exactly once', async () => {
+    const consoleInfoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
+
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows({}, { positioningOfferDiagnostic: DEADLINE_EXHAUSTED_OFFER_DATA }),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(1);
+    expect(orchestrateDbMocks.resetSectionRunForRerun).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: 'positioningOfferDiagnostic' }),
+    );
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[run-lab-section] deadline-exhausted auto-rescue dispatching',
+      { runId: 'run-1', sectionId: 'positioningOfferDiagnostic' },
+    );
+
+    consoleInfoSpy.mockRestore();
+  });
+
+  it('does not rescue a complete section that carries real content (no deadline marker)', async () => {
+    const rescues = await dispatchAutoRerunForErroredSections(
+      baseInput(
+        fakeSupabase(
+          rows(
+            {},
+            {
+              positioningOfferDiagnostic: {
+                sectionTitle: 'positioningOfferDiagnostic',
+                body: { verdict: 'Strong offer-market fit with proof points.' },
+              },
+            },
+          ),
+        ),
+      ) as Parameters<typeof dispatchAutoRerunForErroredSections>[0],
+    );
+
+    expect(rescues).toBe(0);
+    expect(dispatchMocks.scheduleLabSectionJob).not.toHaveBeenCalled();
   });
 
   it('does not rescue a complete VoC that carries at least one real buyer quote', async () => {

@@ -6,7 +6,6 @@ import {
   GapNote,
   KeyFindings,
   ReaderExhibit,
-  SectionCoverageNote,
   StatCallout,
   SubsectionBlock,
   VerdictHero,
@@ -34,7 +33,6 @@ export interface MarketCategoryRendererProps {
 type MarketCategoryBottomUpTam = NonNullable<
   MarketCategoryArtifact['marketSize']['bottomUpTam']
 >;
-type MarketCategoryBottomUpTamInput = MarketCategoryBottomUpTam['inputs'][number];
 type MarketSignal = MarketCategoryArtifact['marketSize']['signals'][number];
 
 const legacyBottomUpTam: MarketCategoryBottomUpTam = {
@@ -270,7 +268,6 @@ export function MarketCategoryRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={marketKeyFindings(artifact)} />
 
@@ -389,14 +386,6 @@ export function MarketCategoryRenderer({
           />
         </StrategicInsightPanel>
       ) : null}
-
-      <SectionCoverageNote
-        verified={marketSize.signals.slice(0, 3).map((signal) => signal.name)}
-        assumed={bottomUpTam.inputs
-          .filter((input) => input.status !== 'sourced')
-          .map((input) => input.label)}
-        missing={bottomUpTam.caveats}
-      />
     </div>
   );
 }

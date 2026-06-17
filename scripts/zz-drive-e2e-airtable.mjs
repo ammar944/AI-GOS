@@ -342,10 +342,32 @@ async function dismissResumeIfPresent(page) {
 }
 
 async function fillByLabel(page, label, value) {
-  const control = page.getByLabel(label, { exact: true });
-  await control.scrollIntoViewIfNeeded();
+  // Locate by the stable onboarding-field wrapper rather than getByLabel: the
+  // wizard appends a required-marker "*" to labels, so getByLabel(exact:true)
+  // resolves to 0 matches and scrollIntoViewIfNeeded() hangs. hasText substring-
+  // matches the decorated label; the input inside the wrapper is then filled.
+  const wrapper = page.locator('[data-testid^="onboarding-field-"]', { hasText: label }).first();
+  await wrapper.scrollIntoViewIfNeeded();
+  const control = wrapper.locator('textarea, input[type="text"], input:not([type])').first();
   await control.fill(value);
   log('Filled field', label);
+}
+
+// Corpus auto-prefill is non-deterministic run-to-run: some required fields
+// arrive populated, others blank. Fill a required field ONLY when the corpus
+// left it empty, so we never clobber grounded corpus values but the wizard
+// always has every required field satisfied before advancing.
+async function fillIfEmpty(page, label, value) {
+  const wrapper = page.locator('[data-testid^="onboarding-field-"]', { hasText: label }).first();
+  await wrapper.scrollIntoViewIfNeeded();
+  const control = wrapper.locator('textarea, input[type="text"], input:not([type])').first();
+  const current = await control.inputValue().catch(() => '');
+  if (!current || current.trim() === '') {
+    await control.fill(value);
+    log('Filled field (was empty)', label);
+  } else {
+    log('Kept prefilled field', label);
+  }
 }
 
 async function clickOption(page, fieldKey, role, name) {
@@ -378,6 +400,8 @@ async function fillWizard(page) {
   log('Wizard visible');
 
   await fillByLabel(page, 'Who is it built for?', 'Cross-functional teams at mid-market & enterprise: ops, marketing, product, PM.');
+  await fillIfEmpty(page, 'Company Name', 'Airtable');
+  await fillIfEmpty(page, 'What does your product/SaaS do?', 'Airtable is a no-code platform for building relational databases, views, and automated workflows from a familiar spreadsheet interface.');
   await clickOption(page, 'salesMotion', 'radio', 'Hybrid');
   await clickOption(page, 'pricingModel', 'radio', 'Per seat');
   await clickOption(page, 'conversionPath', 'radio', 'Free trial');
@@ -385,27 +409,42 @@ async function fillWizard(page) {
   await continueToStep(page, 1);
 
   await fillByLabel(page, 'What are they currently using instead?', 'Google Sheets/Excel, Notion, legacy PM tools (Asana/Jira).');
+  await fillIfEmpty(page, 'Describe your ideal customer', 'Mid-market & enterprise cross-functional teams (ops, product, marketing) standardizing workflows; champion is an ops or PM lead.');
+  await fillIfEmpty(page, 'What industry do they operate in?', 'B2B SaaS and horizontal productivity (cross-industry).');
+  await fillIfEmpty(page, 'What job titles do you sell to?', 'Head of Ops, PM Lead, RevOps, Marketing Ops.');
+  await fillIfEmpty(page, 'Company size (employees or revenue range)', '50–5,000 employees, $10M–$1B revenue.');
+  await fillIfEmpty(page, 'Geographic focus', 'North America and EMEA; global.');
+  await fillIfEmpty(page, 'What triggers them to look for a solution like yours?', 'Outgrowing spreadsheets, scattered tools, and the need for one shared system of record across teams.');
   await clickOption(page, 'awarenessLevel', 'radio', 'Solution-aware');
   await continueToStep(page, 2);
 
   await fillByLabel(page, 'What is the first "value moment" users experience?', 'Turn a spreadsheet into a linked base in minutes.');
   await fillByLabel(page, 'What action defines an activated user?', 'Invite a teammate + first automation runs.');
   await fillByLabel(page, 'What keeps your best customers using the product?', "Becomes the team's shared system of record.");
+  await fillIfEmpty(page, 'Core features / main outcome', 'Relational bases, multiple views (grid, kanban, calendar, gallery), automations, interfaces/apps, and 2-way integrations.');
   await continueToStep(page, 3);
 
   await fillByLabel(page, "What is your target customer's typical plan?", 'Business plan');
   await fillByLabel(page, 'Average LTV', '$18,000');
   await fillByLabel(page, 'Target CAC', '$3,000');
   await fillByLabel(page, 'Monthly ad budget (or planned budget)', '$25,000/month');
+  await fillIfEmpty(page, 'List your pricing tiers', 'Free; Team ~$20/seat/mo; Business ~$45/seat/mo; Enterprise Scale custom.');
   await continueToStep(page, 4);
 
   await fillByLabel(page, 'Who are your top competitors (minimum 3)?', 'Notion, monday.com, ClickUp, Smartsheet, Coda');
+  await fillIfEmpty(page, 'Why do customers choose you over alternatives?', 'The flexibility of a database with the ease of a spreadsheet — fast to build, with strong automations and integrations.');
   await fillByLabel(page, 'In deals you lose, what do prospects say before choosing a competitor?', 'Lose on perceived complexity vs Notion; price vs Sheets.');
   await fillByLabel(page, 'What do competitors do better than you?', 'Competitors win on brand familiarity and bundled docs.');
   await continueToStep(page, 5);
 
   await fillByLabel(page, 'What is your primary goal in the next 90 days?', 'Qualified Business-plan trials from ops/PM teams.');
   await fillByLabel(page, 'Monthly pipeline target ($ or # of demos)', '$400K pipeline / ~120 trials/mo');
+  // Required goals-strategy fields the corpus does not reliably auto-prefill
+  // (commonObjections especially) — fill explicitly so the wizard advances
+  // regardless of prefill variance run-to-run.
+  await fillIfEmpty(page, 'Common objections from prospects', '"We already use Notion/Sheets", "Too complex for our team", "Not the right time."');
+  await fillIfEmpty(page, 'Key promises', 'Turn scattered spreadsheets into one reliable system of record in days, not months.');
+  await fillIfEmpty(page, 'Current brand positioning', 'Airtable lets cross-functional teams run critical workflows in a flexible no-code platform — without rigid legacy PM tools.');
   await continueToStep(page, 6);
 
   await clickOption(page, 'channels', 'checkbox', 'Meta');

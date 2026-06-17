@@ -304,7 +304,7 @@ describe('<AuditReaderShell>', () => {
     expect(screen.queryByText('2 unverified')).not.toBeInTheDocument();
   });
 
-  it('renders the persisted verification tier as a quiet subline + dot, never a metric badge', (): void => {
+  it('does not surface persisted verification tiers in the reader progress strip', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -344,25 +344,18 @@ describe('<AuditReaderShell>', () => {
         'Insufficient evidence · Declared evidence gap · 90% grounded',
       ),
     ).not.toBeInTheDocument();
-    // The rail row carries the buyer-facing trust label + dot — one quiet
-    // signal, never a claim-count badge or "needs review" spam. insufficient +
-    // an unsupported load-bearing claim → "Needs source check".
     expect(
       screen.getByRole('button', {
-        name: /market & category.*needs source check/i,
+        name: /market & category.*complete/i,
       }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/needs source check/i)).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('section-tier-dot-positioningMarketCategory'),
-    ).toHaveAttribute('data-tier-key', 'source_check');
+      screen.queryByTestId('section-tier-dot-positioningMarketCategory'),
+    ).not.toBeInTheDocument();
   });
 
-  // Trust-tier honesty (2026-06-15): a finished audit must not read as a wall
-  // of "needs review". The same verifier signal maps to buyer-facing labels —
-  // verified=Complete, needs_review=Directional, insufficient=Evidence limited /
-  // Needs source check — and the rollup shows a positive "N of 6 strongly
-  // evidenced" qualifier, never a raw needs-review count.
-  it('maps committed tiers to buyer trust labels and a positive rollup, never "needs review"', (): void => {
+  it('keeps completed-progress copy neutral regardless of committed verifier tiers', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -382,36 +375,30 @@ describe('<AuditReaderShell>', () => {
 
     render(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    // Rollup says Done with a POSITIVE evidence-strength qualifier; the literal
-    // phrase "needs review" must not appear anywhere in buyer-facing copy.
     expect(screen.getByText('Done')).toBeInTheDocument();
-    expect(screen.getByText(/strongly evidenced/i)).toBeInTheDocument();
+    expect(screen.queryByText(/strongly evidenced/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/need review/i)).toBeNull();
 
-    // insufficient (bare tier) → Evidence limited; needs_review → Directional;
-    // verified → plain Complete.
     expect(
       screen.getByRole('button', {
-        name: /market & category.*evidence limited/i,
+        name: /market & category.*complete/i,
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: /buyer \/ icp.*directional/i,
+        name: /buyer \/ icp.*complete/i,
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /^competitors: complete$/i }),
     ).toBeInTheDocument();
 
-    // A dot on the two flagged rows (amber for evidence-limited, slate for
-    // directional); none for the verified section.
     expect(
-      screen.getByTestId('section-tier-dot-positioningMarketCategory'),
-    ).toHaveAttribute('data-tier-key', 'evidence_limited');
+      screen.queryByTestId('section-tier-dot-positioningMarketCategory'),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('section-tier-dot-positioningBuyerICP'),
-    ).toHaveAttribute('data-tier-key', 'directional');
+      screen.queryByTestId('section-tier-dot-positioningBuyerICP'),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByTestId('section-tier-dot-positioningCompetitorLandscape'),
     ).not.toBeInTheDocument();
@@ -469,7 +456,7 @@ describe('<AuditReaderShell>', () => {
     expect(screen.queryByText('{"should":"not render"}')).not.toBeInTheDocument();
   });
 
-  it('renders the paid media deck by default with a Working view toggle to the operator renderer', (): void => {
+  it('renders the paid media working view by default with a Deck toggle', (): void => {
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
       parent_audit_run_id: '11111111-1111-4111-8111-111111111111',
@@ -497,8 +484,13 @@ describe('<AuditReaderShell>', () => {
     expect(screen.getByText('Section 7 of 7')).toBeInTheDocument();
     expect(screen.getByTestId('section-progress-strip')).toBeInTheDocument();
 
-    // Deck is the default client-facing view; the operator renderer is not
-    // mounted until the toggle is used.
+    expect(
+      screen.getByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('paid-media-plan-deck')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deck' }));
+
     expect(screen.getByTestId('paid-media-plan-deck')).toBeInTheDocument();
     expect(
       screen.queryByTestId(`typed-artifact-renderer-${PAID_MEDIA_PLAN_SECTION_ID}`),
@@ -515,9 +507,6 @@ describe('<AuditReaderShell>', () => {
       ).getByTestId('verdict-hero'),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('paid-media-plan-deck')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Deck' }));
-    expect(screen.getByTestId('paid-media-plan-deck')).toBeInTheDocument();
   });
 
   it('uses the controlled section change callback for keyboard navigation', (): void => {
@@ -526,7 +515,7 @@ describe('<AuditReaderShell>', () => {
     render(
         <AuditReaderShell
           runId="00000000-0000-4000-8000-0000000000aa"
-          activeSectionId="positioningDemandIntent"
+          activeSectionId="positioningMarketCategory"
           onSectionChange={onSectionChange}
         />,
     );
@@ -549,7 +538,7 @@ describe('<AuditReaderShell>', () => {
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
 
-    expect(onSectionChange).toHaveBeenCalledWith('positioningDemandIntent');
+    expect(onSectionChange).toHaveBeenCalledWith('positioningMarketCategory');
   });
 
   it('ignores arrow keys while an editable field has focus', (): void => {
@@ -774,8 +763,8 @@ describe('<AuditReaderShell>', () => {
       <AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />,
     );
 
-    expect(screen.getByText('Section 6 of 7')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Section 6 of 7')).toBeInTheDocument());
+    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Section 1 of 7')).toBeInTheDocument());
 
     mocks.useAuditState.mockReturnValue({
       ...EMPTY_AUDIT_STATE,
@@ -795,7 +784,7 @@ describe('<AuditReaderShell>', () => {
     });
     rerender(<AuditReaderShell runId="00000000-0000-4000-8000-0000000000aa" />);
 
-    expect(screen.getByText('Section 6 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Section 1 of 7')).toBeInTheDocument();
     expect(vi.mocked(HTMLElement.prototype.scrollTo)).not.toHaveBeenCalled();
   });
 

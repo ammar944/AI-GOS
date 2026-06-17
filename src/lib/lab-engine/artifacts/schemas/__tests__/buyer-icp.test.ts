@@ -91,6 +91,58 @@ describe("validateBuyerICPMinimums", (): void => {
     });
   });
 
+  it("accepts a persona evidence-gap report carrying an acquisition ledger and sufficiency summary", (): void => {
+    const base = withPersonaCount(2);
+    const artifact: BuyerICPArtifact = {
+      ...base,
+      body: {
+        ...base.body,
+        evidenceGap: true,
+        evidenceGapReport: {
+          reason: "insufficient_named_buyer_personas",
+          summary: "Found 2 named buyer personas; required 3.",
+          foundNamedPersonaCount: 2,
+          requiredNamedPersonaCount: 3,
+          rejectedPersonaLabels: ["Finance leaders"],
+          acquisitionLedger: [
+            {
+              sourceUrl: "https://example.com/team",
+              domain: "example.com",
+              query: "RevOps leaders mid-market SaaS",
+              source: "Perplexity sonar-pro",
+              candidateLabel: "Dana Ruiz, VP RevOps",
+              promotionStatus: "promoted",
+              observedAt: "2026-06-16T00:00:00.000Z",
+            },
+            {
+              sourceUrl: "https://example.org/directory",
+              domain: "example.org",
+              query: "finance buyer persona SaaS",
+              source: "web_search",
+              candidateLabel: "Finance leaders",
+              promotionStatus: "rejected",
+              rejectionReason: "not_named_individual",
+              observedAt: "2026-06-16T00:00:00.000Z",
+            },
+          ],
+          sufficiency: {
+            tier: "insufficient",
+            rationale: "Only 2 of 3 named buyers cleared the evidence bar.",
+            candidatesFound: 2,
+            promoted: 1,
+            rejected: 1,
+          },
+          sourcingPlan: ["Recover one more named buyer identity."],
+        },
+      },
+    };
+
+    expect(validateBuyerICPMinimums(artifact)).toMatchObject({
+      ok: true,
+      errors: [],
+    });
+  });
+
   it("accepts a persona carrying the derived vendorSourced label", (): void => {
     const artifact = replacePersona(0, { vendorSourced: true });
 

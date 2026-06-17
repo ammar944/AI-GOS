@@ -19,6 +19,7 @@
 - Tolerant decode may snap declared enum fallbacks, clamp array ceilings, strip unknown keys, and drop irreparable rows, but it must never synthesize missing content.
 - Editorial floors, required evidence, and minimum validators remain strict after decode; genuine content gaps surface as structured shortfalls for repair.
 - Decode repairs must be carried as telemetry on the artifact envelope when a section commits.
+- `strategic-insight.ts` exports the shared `acquisitionSufficiencyFieldSchema` (`sufficient | partial | insufficient` + `candidatesFound`/`promoted`/`rejected` counts), attached optionally to the BuyerICP and VoC `evidenceGapReport`. The SaaSLaunch coverage eval (`scripts/zz-saaslaunch-coverage-eval.mjs`) reads its `tier` as an ADDITIONAL insufficiency trip-wire only — a self-reported `sufficient` never clears a real floor. Keep both sections' sufficiency shape identical via the shared schema.
 
 ## Work Guidance
 

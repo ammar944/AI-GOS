@@ -31,6 +31,9 @@ Use only the tools allowed for this section.
 
 - Do not invent proof points, retention signals, funnel metrics, channel results, or red flags.
 - A company claim is not proof unless source evidence supports the metric or outcome.
+- Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally (protect the stated target, close the gap to the stated target); never restate one as a number you discovered or verified.
+- Causal and root-cause claims must be framed as testable hypotheses unless fetched evidence supports them (foundCount greater than zero). Do not assert that one factor explains a metric gap when the same diagnosis says the cause is impossible to observe — name it as a hypothesis to test, not a finding.
+- A funnel break that describes in-product or trial behavior must not cite a pricing or marketing URL as proof of that behavior. When no trial or in-product observation exists, word the break as an explicit assumption to verify, never as an observed break.
 - Use blockGap instead of padding proof, funnel, channel, retention, or red-flag rows.
 - The section should expose the single binding constraint, not distribute blame evenly.
 - Lead with `keyFindings` when the evidence supports 3-5 offer truths.

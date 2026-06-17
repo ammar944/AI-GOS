@@ -1,5 +1,5 @@
 import { getRegistrableDomain } from "../../domain-utils";
-import { quoteAttributionFieldNames } from "./claim-extractor";
+import { dedupQuoteFieldNames } from "./claim-extractor";
 
 export interface QuoteAdmissionInput {
   text: string;
@@ -26,6 +26,16 @@ export interface QuoteDeduplicationResult {
 
 const quoteMaxCharacters = 400;
 const quoteDedupMinCharacters = 200;
+const quoteMinCharactersAfterChromeStrip = 25;
+// Review-platform DOM chrome that SearchAPI index pages glue onto truncated
+// review fragments (live: run c9bc2056). Each token marks the START of a chrome
+// tail that is not part of the human's quote: "Verified User", "Mid-Market",
+// employee-count labels like "(50 or fewer emp.)", reviewer-attribute headers.
+const chromeTokenPattern =
+  /(?:Verified (?:User|Reviewer)|See Related User Reviews|Show More|Read more|Mid-Market|Small[- ]Business|Enterprise(?:\s*\(|\b)|Reviewer Function|Industry:|Time Used|\((?:\d[\d,]*|\d+\s*-\s*\d+)\s*(?:or (?:fewer|more) )?emp\.?\))/i;
+// A mid-word truncation marker ("...as strong as Microsoft Project, bu...!"):
+// 1-3 surviving characters before an ellipsis, optionally trailing punctuation.
+const truncationMarkerPattern = /\b\w{1,3}\.\.\.[!?.]?(?=\s|$)/;
 const markdownLinkPattern = /\[[^\]]+\]\([^)]+\)/g;
 const numberedMarkdownLinkPattern = /\b\d{2}\.\s+\[[^\]]+\]\(/;
 const markdownHeadingPattern = /(^|\n)##\s+/;
@@ -37,9 +47,21 @@ const experientialSpeakerPattern =
   /\b(?:user|users|buyer|buyers|customer|customers|reviewer|reviewers|admin|admins|founder|founders|operator|operators|team|teams|marketer|marketers|analyst|analysts)\s+(?:says?|said|complains?|complained|reports?|reported|mentions?|mentioned|describes?|described|struggles?|struggled|needs?|needed|wants?|wanted|likes?|liked|hates?|hated)\b/i;
 const experienceLanguagePattern =
   /\b(?:hard to|difficult to|easy to|frustrating|love|loved|hate|hated|struggle|struggled|wish|needed|saved us|helped us|switched from|moved from|before we|after we)\b/i;
+// Index/filter/listing query strings that pin a page to an aggregate view of
+// MANY reviews, not one — these are never per-review permalinks (live c9bc2056:
+// g2.com/.../reviews?qs=pros-and-cons, trustpilot.com/review/x?page=4).
+const indexQueryPattern = /[?&#](?:qs|page|sort|filter|tab)=/i;
+const permalinkQueryPattern = /[?&#](?:id|review|comment|thread|post)=/i;
 const permalinkPathPattern =
   /(?:^|\/)(?:reviews?|review|comments?|comment|threads?|thread|discussions?|discussion|forums?|forum|community|answers?|answer|questions?|question|posts?|post|item)(?:\/|$|[?#])/i;
-const permalinkQueryPattern = /[?&#](?:id|review|comment|thread|post)=/i;
+// A path that ENDS at a bare listing segment (…/reviews, …/review) — i.e. the
+// product's review-listing root, not a single review (live c9bc2056:
+// capterra.com/.../reviews/, softwareadvice.com/.../reviews/).
+const listingRootPattern =
+  /\/(?:reviews?|comments?|threads?|discussions?|forums?|community|answers?|questions?|posts?)$/i;
+// A leaf that is itself a hostname/domain (e.g. trustpilot.com/review/airtable.com)
+// is an INDEX of all reviews for that product, not a single review.
+const hostnameLikeLeafPattern = /\/[A-Za-z0-9-]+(?:\.[A-Za-z]{2,})+\/?$/;
 const trustedQuoteHosts = new Set([
   "capterra.com",
   "community.atlassian.com",
@@ -106,6 +128,20 @@ function isPermalinkishUrl(url: URL): boolean {
     return false;
   }
 
+  // Reject the specific INDEX/LISTING shapes that ship as fake permalinks (live
+  // c9bc2056): filter/page query strings, a bare review-listing root, or a leaf
+  // that is itself a product hostname (trustpilot.com/review/<domain>). An
+  // explicit per-item query (?review=, ?id=) still counts as a permalink.
+  if (!permalinkQueryPattern.test(url.search)) {
+    if (
+      indexQueryPattern.test(url.search) ||
+      listingRootPattern.test(path) ||
+      hostnameLikeLeafPattern.test(url.pathname)
+    ) {
+      return false;
+    }
+  }
+
   if (permalinkPathPattern.test(path) || permalinkQueryPattern.test(url.search)) {
     return true;
   }
@@ -143,15 +179,71 @@ export function normalizeQuoteText(value: string): string {
     .toLowerCase();
 }
 
+/**
+ * Strip a single TRAILING review-platform chrome tail off a quote. SearchAPI
+ * index pages append the reviewer's tier/employee-count labels (and sometimes a
+ * neighbouring review's title) after the review body; this removes that tail so
+ * a clean review survives intact while chrome-only suffixes fall away. Interior
+ * chrome (a chrome token at position 0, or one that survives because the quote
+ * is a multi-review concatenation) is left in place so the admission check can
+ * reject it as unsalvageable.
+ */
+// A run of alphabetic characters long enough to be a real review sentence (not
+// a tier label or employee-count). Used to decide whether a chrome tail is a
+// pure trailing artifact (salvageable) or glues on a second review (not).
+const substantialProsePattern = /[A-Za-z][A-Za-z' ]{24,}/;
+
+export function cleanQuoteText(raw: string): string {
+  if (typeof raw !== "string") {
+    return "";
+  }
+
+  const text = normalizeWhitespace(raw);
+  const match = text.match(chromeTokenPattern);
+
+  if (match?.index !== undefined && match.index > 0) {
+    const tail = text.slice(match.index + match[0].length);
+
+    // Only salvage when the chrome tail is a pure artifact. If a real review
+    // sentence follows the chrome token, the quote glues two reviews together
+    // and must NOT be salvaged — leaving the chrome in place lets the admission
+    // check reject it as `contains-ui-chrome`.
+    if (!substantialProsePattern.test(tail)) {
+      return text.slice(0, match.index).replace(/[\s"'“”‘’]+$/g, "").trim();
+    }
+  }
+
+  return text.replace(/[\s"'“”‘’]+$/g, "").trim();
+}
+
 export function evaluateQuoteAdmission(
   input: QuoteAdmissionInput,
 ): QuoteAdmissionResult {
-  const normalizedText = normalizeWhitespace(input.text);
+  // Strip a trailing chrome tail first so a salvageable review survives and so
+  // the rest of the checks (and the returned normalizedText) run on clean text.
+  const normalizedText = cleanQuoteText(input.text);
   const reasons: string[] = [];
   const url = safeUrl(input.sourceUrl);
 
   if (normalizedText.length === 0) {
     reasons.push("empty-quote");
+  }
+
+  // Chrome that survives the trailing strip means the quote is a multi-review
+  // concatenation (chrome at position 0 or interior) — not a single human quote.
+  if (chromeTokenPattern.test(normalizedText)) {
+    reasons.push("contains-ui-chrome");
+  }
+
+  if (truncationMarkerPattern.test(normalizedText)) {
+    reasons.push("truncated-fragment");
+  }
+
+  if (
+    normalizedText.length > 0 &&
+    normalizedText.length < quoteMinCharactersAfterChromeStrip
+  ) {
+    reasons.push("too-short-after-chrome-strip");
   }
 
   if (normalizedText.length > quoteMaxCharacters) {
@@ -200,7 +292,7 @@ function cloneJsonRecord(value: Record<string, unknown>): Record<string, unknown
 function quoteFieldEntries(
   record: Record<string, unknown>,
 ): Array<{ field: string; value: string }> {
-  return quoteAttributionFieldNames.flatMap((field) => {
+  return dedupQuoteFieldNames.flatMap((field) => {
     const value = record[field];
 
     return typeof value === "string" ? [{ field, value }] : [];

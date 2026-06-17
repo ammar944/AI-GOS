@@ -20,6 +20,12 @@ import {
   strategyBriefArtifactSchema,
   type StrategyBriefArtifact,
 } from '@/lib/research-v2/strategy-brief/schema';
+import { buyerICPBodySchema } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
+import { competitorLandscapeBodySchema } from '@/lib/lab-engine/artifacts/schemas/competitor-landscape';
+import { demandIntentBodySchema } from '@/lib/lab-engine/artifacts/schemas/demand-intent';
+import { marketCategoryBodySchema } from '@/lib/lab-engine/artifacts/schemas/market-category';
+import { offerDiagnosticBodySchema } from '@/lib/lab-engine/artifacts/schemas/offer-diagnostic';
+import { voiceOfCustomerBodySchema } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
 import { createAdminClient } from '@/lib/supabase/server';
 
 type ChatPatchSupabase = Parameters<typeof commitChatPatchAuto>[0];
@@ -130,6 +136,32 @@ const POSITIONING_SECTION_KEYS = [
   'positioningOfferDiagnostic',
 ] as const;
 
+// Per-zone body schema for editSectionField: after a path edit we revalidate
+// the section's typed `body` against the same schema the lab engine commits, so
+// an out-of-grammar value (bad URL, wrong shape) is rejected before write
+// instead of corrupting the committed artifact. Keyed by the zone the
+// orchestrator's editSectionField tool emits.
+const ZONE_BODY_SCHEMAS = {
+  positioningMarketCategory: marketCategoryBodySchema,
+  positioningBuyerICP: buyerICPBodySchema,
+  positioningCompetitorLandscape: competitorLandscapeBodySchema,
+  positioningVoiceOfCustomer: voiceOfCustomerBodySchema,
+  positioningDemandIntent: demandIntentBodySchema,
+  positioningOfferDiagnostic: offerDiagnosticBodySchema,
+} as const satisfies Record<
+  (typeof POSITIONING_SECTION_KEYS)[number],
+  z.ZodTypeAny
+>;
+
+// Char budget per section in the widened orchestrator system context so a few
+// large sections can't blow the context window. Applied to the joined key
+// findings + source URLs slice.
+const SECTION_CONTEXT_CHAR_BUDGET = 800;
+
+function clipToBudget(text: string, budget: number): string {
+  return text.length > budget ? `${text.slice(0, budget - 1)}…` : text;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -162,6 +194,9 @@ function extractSectionSummaries(
       const raw = researchResults[key];
       const wrapper = isRecord(raw) ? raw : {};
       const inner = isRecord(wrapper.data) ? wrapper.data : wrapper;
+      // Committed sections store content under body.*; the legacy/test shape
+      // keeps it flat. Read from body when present, else fall back to inner.
+      const body = isRecord(inner.body) ? inner.body : inner;
 
       const title =
         (typeof inner.sectionTitle === 'string' && inner.sectionTitle.trim()) ||
@@ -169,17 +204,57 @@ function extractSectionSummaries(
       const statusSummary =
         (typeof inner.statusSummary === 'string' && inner.statusSummary.trim()) ||
         '';
-      const keyFindingTitles = Array.isArray(inner.keyFindings)
-        ? (inner.keyFindings as Array<unknown>)
-            .map((finding) =>
-              isRecord(finding) && typeof finding.title === 'string'
-                ? finding.title.trim()
-                : '',
-            )
-            .filter((t): t is string => t.length > 0)
-        : [];
 
-      return { sectionId: key, title, statusSummary, keyFindingTitles };
+      const keyFindings = Array.isArray(body.keyFindings)
+        ? (body.keyFindings as Array<unknown>)
+        : Array.isArray(inner.keyFindings)
+          ? (inner.keyFindings as Array<unknown>)
+          : [];
+
+      // Titles kept for backward compatibility with the existing snapshot.
+      const keyFindingTitles = keyFindings
+        .map((finding) =>
+          isRecord(finding) && typeof finding.title === 'string'
+            ? finding.title.trim()
+            : '',
+        )
+        .filter((t): t is string => t.length > 0);
+
+      // The real, renderer-visible content: finding ?? sentence ?? title
+      // (mirrors the audit reader's item.sentence ?? item.finding ?? item.title).
+      const keyFindingSentences = keyFindings
+        .map((finding) => {
+          if (!isRecord(finding)) return '';
+          const text =
+            (typeof finding.finding === 'string' && finding.finding) ||
+            (typeof finding.sentence === 'string' && finding.sentence) ||
+            (typeof finding.title === 'string' && finding.title) ||
+            '';
+          return text.trim();
+        })
+        .filter((t): t is string => t.length > 0);
+
+      // Source URLs come off the envelope (top-level sources[]), with a body
+      // fallback for the flat/test shape.
+      const sourceRows = Array.isArray(inner.sources)
+        ? (inner.sources as Array<unknown>)
+        : Array.isArray(body.sources)
+          ? (body.sources as Array<unknown>)
+          : [];
+      const sourceUrls = sourceRows
+        .map((src) =>
+          isRecord(src) && typeof src.url === 'string' ? src.url.trim() : '',
+        )
+        .filter((u): u is string => u.length > 0);
+
+      return {
+        sectionId: key,
+        title,
+        statusSummary,
+        keyFindingTitles,
+        keyFindingSentences,
+        sourceUrls,
+      };
     },
   );
 }
@@ -433,19 +508,85 @@ function strategyBriefToPatchedSection(
 
 /**
  * Phase 4: translate an orchestrator-emitted intent (`rerun_section` /
- * `edit_claim` / `edit_narrative`) into a real side-effect: dispatch route
- * call for reruns, atomic JSONB merge for surgical edits. Narration-only
- * intents (`explain_source`, `summarize_artifact`) are no-ops here — they
- * are answered in the assistant's text reply.
+ * `edit_section_field` / `draft_strategy_brief` / `revise_strategy_brief`)
+ * into a real side-effect: dispatch route call for reruns, schema-validated
+ * write-through for surgical edits. Narration-only intents (`explain_source`,
+ * `summarize_artifact`) are no-ops here — they are answered in the
+ * assistant's text reply.
  *
  * Failures are logged but do not throw — the assistant's text response has
  * already been streamed, so the user sees the orchestrator's intent stated
  * even if the side-effect step fails. The caller decides how to surface it.
  */
+/**
+ * A deterministic, client-safe summary of what an edit/revise side-effect
+ * changed in the artifact. Surfaced back to the user as a follow-up assistant
+ * message so the chat acts as a transparent artifact editor: it names the
+ * section (zone), the fields it touched, and a short before/after of each.
+ */
+export interface ChatEditChangeReport {
+  zone: string;
+  intent: OrchestratorSideEffect['intent'];
+  fields: Array<{ field: string; before: string; after: string }>;
+}
+
+type OrchestratorSideEffectOutcome = {
+  ok: boolean;
+  reason?: string;
+  changed?: ChatEditChangeReport;
+};
+
+/**
+ * Read-only resolver for the patch path grammar (dotted keys + `[index]`
+ * brackets, same grammar applyPatch writes). Used to capture the BEFORE value
+ * of an edited field for the change report. Returns undefined when the path
+ * does not resolve.
+ */
+function readPatchPath(root: unknown, path: string): unknown {
+  const segments = path
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .filter((seg) => seg.length > 0);
+  let cursor: unknown = root;
+  for (const seg of segments) {
+    if (Array.isArray(cursor) && /^\d+$/.test(seg)) {
+      cursor = cursor[Number(seg)];
+    } else if (isRecord(cursor)) {
+      cursor = cursor[seg];
+    } else {
+      return undefined;
+    }
+  }
+  return cursor;
+}
+
+/** Clip a before/after value to a one-line, client-safe summary. */
+function summarizeFieldValue(value: unknown): string {
+  const text =
+    typeof value === 'string'
+      ? value
+      : value === undefined || value === null
+        ? ''
+        : JSON.stringify(value);
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length > 120 ? `${oneLine.slice(0, 117)}…` : oneLine;
+}
+
+/** Render a change report as a single client-safe line for the chat surface. */
+export function formatChangeReport(report: ChatEditChangeReport): string {
+  const fieldList = report.fields
+    .map(
+      (f) =>
+        `${f.field}: "${f.before || '(empty)'}" → "${f.after || '(empty)'}"`,
+    )
+    .join('; ');
+  return `Updated ${report.zone} (${report.intent}). Changed ${fieldList}.`;
+}
+
 export async function applyOrchestratorSideEffect(
   effect: OrchestratorSideEffect,
   ctx: ChatSideEffectContext,
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<OrchestratorSideEffectOutcome> {
   if (effect.intent === 'rerun_section') {
     const zone =
       typeof effect.payload.zone === 'string' ? effect.payload.zone : null;
@@ -575,13 +716,46 @@ export async function applyOrchestratorSideEffect(
       return { ok: false, reason: `write_through: ${writeResult.reason}` };
     }
 
-    return { ok: true };
+    // Report exactly which brief fields the patch touched, with a short
+    // before/after of each, so the chat names its own edits to the user.
+    const beforeBody = briefLookup.artifact.body as Record<string, unknown>;
+    return {
+      ok: true,
+      changed: {
+        zone: STRATEGY_BRIEF_SECTION_ID,
+        intent: effect.intent,
+        fields: parsed.data.patches.map((patch) => ({
+          field: `body.${patch.path}`,
+          before: summarizeFieldValue(readPatchPath(beforeBody, patch.path)),
+          after: summarizeFieldValue(patch.value),
+        })),
+      },
+    };
   }
 
-  if (effect.intent === 'edit_claim' || effect.intent === 'edit_narrative') {
+  if (effect.intent === 'edit_section_field') {
     const zone =
       typeof effect.payload.zone === 'string' ? effect.payload.zone : null;
-    if (!zone) return { ok: false, reason: `${effect.intent} missing zone` };
+    const path =
+      typeof effect.payload.path === 'string'
+        ? effect.payload.path.trim()
+        : null;
+    const value =
+      typeof effect.payload.value === 'string' ? effect.payload.value : null;
+    if (!zone) return { ok: false, reason: 'edit_section_field missing zone' };
+    if (!path) return { ok: false, reason: 'edit_section_field missing path' };
+    if (value === null) {
+      return { ok: false, reason: 'edit_section_field missing value' };
+    }
+
+    const bodySchema =
+      ZONE_BODY_SCHEMAS[zone as keyof typeof ZONE_BODY_SCHEMAS];
+    if (!bodySchema) {
+      return {
+        ok: false,
+        reason: `edit_section_field: ${zone} is not an editable positioning zone`,
+      };
+    }
 
     const wrapper = isRecord(ctx.researchResults[zone])
       ? (ctx.researchResults[zone] as Record<string, unknown>)
@@ -589,89 +763,93 @@ export async function applyOrchestratorSideEffect(
     if (!wrapper) {
       return {
         ok: false,
-        reason: `${effect.intent}: zone ${zone} not yet generated`,
+        reason: `edit_section_field: zone ${zone} not yet generated`,
       };
     }
+    // Committed sections may arrive wrapped ({ data: envelope }) or as the
+    // envelope itself; mirror extractSectionSummaries' unwrap. Content lives
+    // under the envelope's body.*, so paths resolve against `body.${path}`
+    // exactly like applyStrategyBriefRevision does for the brief.
     const isWrapped = isRecord(wrapper.data);
     const inner = isWrapped
       ? (wrapper.data as Record<string, unknown>)
       : wrapper;
-
-    // Build a structured patch the existing applyPatch helper can apply.
-    // The patch path grammar (src/lib/research-v2/patch-apply.ts) uses
-    // bracket index syntax: `keyFindings[0].title`, NOT `keyFindings.0.title`.
-    // edit_claim: when claimId is "kf-<n>", patch the n-th key finding's title.
-    // edit_narrative: patch `artifact.markdown` — that's the rendered field
-    // the workspace UI displays (see writeResearchResult in the worker:
-    // `artifact: { title, markdown }`).
-    let patchPath: string | null = null;
-    let patchValue: unknown = null;
-    if (effect.intent === 'edit_claim') {
-      const claimId =
-        typeof effect.payload.claimId === 'string'
-          ? effect.payload.claimId
-          : null;
-      const newText =
-        typeof effect.payload.newText === 'string'
-          ? effect.payload.newText
-          : null;
-      if (!claimId || newText === null) {
-        return { ok: false, reason: 'edit_claim missing claimId or newText' };
-      }
-      const match = /^kf-(\d+)$/.exec(claimId);
-      if (!match) {
-        return {
-          ok: false,
-          reason: `edit_claim: only kf-<idx> claim ids are supported in Phase 4 (got "${claimId}")`,
-        };
-      }
-      patchPath = `keyFindings[${match[1]}].title`;
-      patchValue = newText;
-    } else {
-      const patch =
-        typeof effect.payload.patch === 'string'
-          ? effect.payload.patch
-          : null;
-      if (patch === null) {
-        return { ok: false, reason: 'edit_narrative missing patch' };
-      }
-      patchPath = 'artifact.markdown';
-      patchValue = patch;
+    if (!isRecord(inner.body)) {
+      return {
+        ok: false,
+        reason: `edit_section_field: zone ${zone} has no typed body to edit`,
+      };
     }
 
-    try {
-      const patchedInner = applyPatch(inner, {
-        path: patchPath,
-        value: patchValue,
-      });
-      const newSection: Record<string, unknown> = isWrapped
-        ? { ...wrapper, data: patchedInner }
-        : { ...patchedInner };
+    const fullPath = `body.${path}`;
 
-      // Phase 3: write through the normalized research_artifact_sections row
-      // (source of truth for the artifact UI) before mirroring into the legacy
-      // journey_sessions.research_results JSONB. commitChatPatchAuto handles
-      // the section_run_id + expectedRevision lookup so the chat route stays
-      // ignorant of artifact internals.
-      const writeResult = await commitChatPatchAuto(
-        ctx.supabase,
-        {
-          userId: ctx.userId,
-          runId: ctx.runId,
-          zone,
-          patchedSection: newSection,
-        },
-      );
-      if (!writeResult.ok) {
-        return { ok: false, reason: `write_through: ${writeResult.reason}` };
-      }
-      return { ok: true };
+    // Capture the BEFORE value for the change report and to confirm the path
+    // resolves to an existing field — reject edits to paths that don't exist
+    // (applyPatch throws "Path missing intermediate" for those anyway, but a
+    // pre-check gives a clearer message).
+    const beforeValue = readPatchPath(inner, fullPath);
+    if (beforeValue === undefined) {
+      return {
+        ok: false,
+        reason: `edit_section_field: path "${path}" does not resolve in ${zone}`,
+      };
+    }
+
+    let patchedInner: Record<string, unknown>;
+    try {
+      patchedInner = applyPatch(inner, { path: fullPath, value });
     } catch (err) {
       return {
         ok: false,
-        reason: err instanceof Error ? err.message : String(err),
+        reason: `edit_section_field: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       };
     }
+
+    // Schema-validate the patched body for this zone BEFORE writing. Never
+    // commit an invalid body. We validate the body subtree against the same
+    // schema the lab engine commits so a malformed value (bad URL, wrong
+    // shape) is rejected with the zod message.
+    const validated = bodySchema.safeParse(patchedInner.body);
+    if (!validated.success) {
+      return {
+        ok: false,
+        reason: `edit_section_field: result fails ${zone} schema: ${validated.error.message}`,
+      };
+    }
+
+    const newSection: Record<string, unknown> = isWrapped
+      ? { ...wrapper, data: patchedInner }
+      : { ...patchedInner };
+
+    // Write through the normalized research_artifact_sections row (the
+    // artifact UI's source of truth) then mirror the legacy JSONB.
+    // commitChatPatchAuto handles section_run_id + expectedRevision lookup.
+    const writeResult = await commitChatPatchAuto(ctx.supabase, {
+      userId: ctx.userId,
+      runId: ctx.runId,
+      zone,
+      patchedSection: newSection,
+    });
+    if (!writeResult.ok) {
+      return { ok: false, reason: `write_through: ${writeResult.reason}` };
+    }
+
+    return {
+      ok: true,
+      changed: {
+        zone,
+        intent: effect.intent,
+        fields: [
+          {
+            field: fullPath,
+            before: summarizeFieldValue(beforeValue),
+            after: summarizeFieldValue(value),
+          },
+        ],
+      },
+    };
   }
 
   // explain_source and summarize_artifact are narration-only — handled
@@ -714,11 +892,29 @@ async function runOrchestratorTurn(opts: {
     focusedZone,
   } = opts;
 
+  // Widened per-section projection: real key-finding sentences (not just
+  // titles) + cited source URLs, each section clipped to a char budget so the
+  // orchestrator reasons over actual content without blowing the context
+  // window. Falls back to titles when sentences are absent (legacy/flat shape).
   const auditSummary = auditContext.sections
-    .map(
-      (s) =>
-        `## ${s.title}\nStatus: ${s.statusSummary}\nKey findings: ${s.keyFindingTitles.join('; ')}`,
-    )
+    .map((s) => {
+      const findings =
+        s.keyFindingSentences && s.keyFindingSentences.length > 0
+          ? s.keyFindingSentences
+          : s.keyFindingTitles;
+      const findingsLine = clipToBudget(
+        findings.join('; '),
+        SECTION_CONTEXT_CHAR_BUDGET,
+      );
+      const sourcesLine =
+        s.sourceUrls && s.sourceUrls.length > 0
+          ? `\nSources: ${clipToBudget(
+              s.sourceUrls.join(' '),
+              SECTION_CONTEXT_CHAR_BUDGET,
+            )}`
+          : '';
+      return `## ${s.title} (zone: ${s.sectionId})\nStatus: ${s.statusSummary}\nKey findings: ${findingsLine}${sourcesLine}`;
+    })
     .join('\n\n');
 
   // System message carries per-request audit state. The agent's persistent
@@ -732,9 +928,9 @@ async function runOrchestratorTurn(opts: {
     // P2b — selection context. When the user says "tighten this claim",
     // "cite source", "rerun this section", they mean the section they're
     // currently viewing in the artifact. Surface that here so the
-    // orchestrator's editClaim / editNarrative / rerunSection tools can
-    // resolve "this" → focusedZone without forcing the user to name the
-    // section explicitly.
+    // orchestrator's editSectionField / rerunSection tools can resolve
+    // "this" → focusedZone without forcing the user to name the section
+    // explicitly.
     ...(focusedZone
       ? [{
           role: 'system' as const,
@@ -858,6 +1054,7 @@ async function runOrchestratorTurn(opts: {
 
       const effects = extractOrchestratorSideEffects(collectedToolResults);
       const failureReasons: string[] = [];
+      const changeReports: ChatEditChangeReport[] = [];
       for (const effect of effects) {
         const outcome = await applyOrchestratorSideEffect(effect, {
           userId,
@@ -867,6 +1064,9 @@ async function runOrchestratorTurn(opts: {
           requestUrl,
           cookieHeader,
         });
+        if (outcome.ok && outcome.changed) {
+          changeReports.push(outcome.changed);
+        }
         if (!outcome.ok) {
           console.error(
             '[research-v2/chat orchestrator] side-effect failed',
@@ -903,6 +1103,30 @@ async function runOrchestratorTurn(opts: {
             'insert_orchestrator_failure_followup',
             { runId, userId, role: 'assistant' },
             failureInsertError,
+          );
+        }
+      }
+
+      // Report exactly what changed back to the user. The chat is an artifact
+      // editor: after a successful edit/revise side-effect we persist a
+      // follow-up assistant message naming the section, the fields touched,
+      // and a short before/after of each so the change is transparent.
+      if (changeReports.length > 0) {
+        const changeInsert: AuditChatInsert = {
+          run_id: runId,
+          user_id: userId,
+          role: 'assistant',
+          content: changeReports.map(formatChangeReport).join('\n'),
+          intent: 'converse',
+        };
+        const { error: changeInsertError } = await supabase
+          .from('audit_chat_messages')
+          .insert(changeInsert);
+        if (changeInsertError) {
+          logSupabaseError(
+            'insert_orchestrator_change_followup',
+            { runId, userId, role: 'assistant' },
+            changeInsertError,
           );
         }
       }
@@ -1052,11 +1276,12 @@ export async function POST(req: Request): Promise<Response> {
     .map((row) => ({ role: row.role, content: row.content }))
     .reverse();
 
-  // Phase 7: every turn runs through the ToolLoopAgent. The agent's 5
-  // meta-tools (rerunSection / editClaim / editNarrative / explainSource /
-  // summarizeArtifact) handle the entire chat command surface. Side-effects
-  // are applied here via extractOrchestratorSideEffects →
-  // applyOrchestratorSideEffect; the legacy intent-router branch is gone.
+  // Phase 7: every turn runs through the ToolLoopAgent. The agent's
+  // meta-tools (rerunSection / draftStrategyBrief / reviseStrategyBrief /
+  // editSectionField / explainSource / summarizeArtifact) handle the entire
+  // chat command surface. Side-effects are applied here via
+  // extractOrchestratorSideEffects → applyOrchestratorSideEffect; the legacy
+  // intent-router branch is gone.
   return await runOrchestratorTurn({
     userId,
     runId,

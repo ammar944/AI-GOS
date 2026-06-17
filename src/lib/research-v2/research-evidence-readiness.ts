@@ -74,6 +74,24 @@ export function realBuyerQuoteCountFromArtifactData(data: unknown): number {
   return realBuyerQuoteCount(artifactBody(data));
 }
 
+// A core section that committed `complete` only by degrading to the R1 deadline
+// honest-gap body carries the "exceeded its time budget" marker across its
+// leaves (the commit-boundary sanitizer rewrites "evidence gap:" but preserves
+// this phrase). Detecting it lets the ADR-0012 auto-rerun give the section one
+// solo retry — no fan-out contention, ~2-3 min — instead of shipping the
+// 38-leaf "rerun to retry" placeholder wall a buyer paid for (offer-diagnostic).
+export function committedAsDeadlineExhaustedFromArtifactData(
+  data: unknown,
+): boolean {
+  const body = artifactBody(data);
+
+  if (Object.keys(body).length === 0) {
+    return false;
+  }
+
+  return /exceeded its time budget/i.test(JSON.stringify(body));
+}
+
 function namedBuyerIdentityCount(body: Record<string, unknown>): number {
   const personaReality = isRecord(body.personaReality)
     ? body.personaReality

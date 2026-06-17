@@ -8,8 +8,21 @@ import {
   scrubQuoteEmails,
   stripExemplarEchoes,
   stripPlaceholderSourceUrls,
+  stripUncontainedSourceUrls,
   stripUnverifiedSourceUrls,
 } from "../provenance-gate";
+
+// Mirrors voice-of-customer.ts getSourceKey (distinct VoC pain sources are
+// keyed by hostname): used to prove the systemic containment strip preserves
+// the VOC_MIN_DOMAINS distinct-host count instead of collapsing every
+// relabeled row onto one marker host.
+function sourceHostKey(sourceUrl: string): string {
+  try {
+    return new URL(sourceUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return sourceUrl;
+  }
+}
 
 // Fixtures mirror run 8081e646 (Airtable E2E, 2026-06-11): the cold judge
 // found Ramp-era exemplar copy inside deployable paid-media fields, an
@@ -547,6 +560,48 @@ describe("downgradeUnpermalinkedVocQuotes", (): void => {
     );
   });
 
+  it("records the downgrade without prefixing text when prefixQuoteText is false", (): void => {
+    const body = buildVocBody();
+    const result = downgradeUnpermalinkedVocQuotes({
+      body,
+      prefixQuoteText: false,
+    });
+
+    // The deterministic downgrade is still RECORDED for the audit trail.
+    expect(result.stripped.map((item) => item.field)).toEqual([
+      "body.painLanguage.quotes[0].verbatimText",
+      "body.successLanguage.quotes[0].verbatimText",
+      "body.decisionCriteria.criteria[0].evidenceQuote",
+    ]);
+
+    const painLanguage = result.body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const successLanguage = result.body.successLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const decisionCriteria = result.body.decisionCriteria as {
+      criteria: Array<Record<string, unknown>>;
+    };
+
+    // No "Paraphrased pattern …" prefix leaks into client-facing quote text on
+    // the gap path; the block-level directional verdict carries the permalink
+    // caveat instead.
+    expect(painLanguage.quotes[0]?.verbatimText).toBe(
+      "the base just stops syncing once you cross 50k rows",
+    );
+    expect(successLanguage.quotes[0]?.verbatimText).toBe(
+      "we shipped our tracker in a single afternoon",
+    );
+    expect(decisionCriteria.criteria[0]?.evidenceQuote).toBe(
+      "we picked it because it talks to everything we use",
+    );
+    // The real Reddit thread permalink still survives untouched.
+    expect(painLanguage.quotes[1]?.verbatimText).toBe(
+      "we hit the API rate limit weekly",
+    );
+  });
+
   it("is idempotent and ignores bodies without VoC quote blocks", (): void => {
     const first = downgradeUnpermalinkedVocQuotes({ body: buildVocBody() });
     const second = downgradeUnpermalinkedVocQuotes({ body: first.body });
@@ -673,6 +728,184 @@ describe("stripUnverifiedSourceUrls", (): void => {
     // No tool-observed sibling = no differential fabrication signal: a
     // wholesale relabel would collapse VoC distinct-source minimums into a
     // persistence hard-fail, so the array ships unchanged.
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
+  });
+});
+
+describe("stripUncontainedSourceUrls", (): void => {
+  it("relabels a fabricated-persona sourceUrl graded unsupported by the verifier", (): void => {
+    const body = {
+      personas: [
+        {
+          name: "Rachel Pleasants McLean",
+          company: "West Elm",
+          sourceUrl: "https://www.airtable.com/customer-stories/fabricated",
+        },
+        {
+          name: "Korin Thorig",
+          company: "West Elm",
+          sourceUrl: "https://www.airtable.com/customer-stories/west-elm",
+        },
+      ],
+    };
+
+    const result = stripUncontainedSourceUrls({
+      body,
+      unsupportedUrls: new Set([
+        "https://www.airtable.com/customer-stories/fabricated",
+      ]),
+    });
+    const personas = result.body.personas as Array<Record<string, unknown>>;
+
+    // The fabricated persona's URL is relabeled to a per-row evidence-gap
+    // marker host; the real one is untouched. The named human survives — only
+    // the unverifiable provenance is removed.
+    expect(personas[0]?.sourceUrl).not.toBe(
+      "https://www.airtable.com/customer-stories/fabricated",
+    );
+    expect(personas[0]?.sourceUrl as string).toMatch(
+      /^https:\/\/evidence-gap-\d+\.invalid\//,
+    );
+    expect(personas[0]?.name).toBe("Rachel Pleasants McLean");
+    expect(personas[1]?.sourceUrl).toBe(
+      "https://www.airtable.com/customer-stories/west-elm",
+    );
+    expect(result.stripped).toEqual([
+      expect.objectContaining({
+        field: "body.personas[0].sourceUrl",
+        sourceUrl: "https://www.airtable.com/customer-stories/fabricated",
+      }),
+    ]);
+  });
+
+  it("relabels an inline market-stat URL the verifier graded unsupported", (): void => {
+    const body = {
+      marketSize: {
+        signals: [
+          {
+            evidence: "The no-code market grows 23% annually.",
+            sourceUrl: "https://invented-analyst.example/report",
+          },
+        ],
+      },
+    };
+
+    const result = stripUncontainedSourceUrls({
+      body,
+      unsupportedUrls: new Set(["https://invented-analyst.example/report"]),
+    });
+    const signals = (result.body.marketSize as Record<string, unknown>)
+      .signals as Array<Record<string, unknown>>;
+
+    // Unlike stripUnverifiedSourceUrls, this strip is NOT gated on a quote-card
+    // field or a tool-observed sibling, so a lone inline market-stat URL is
+    // caught. The evidence text survives.
+    expect(signals[0]?.sourceUrl as string).toMatch(
+      /^https:\/\/evidence-gap-\d+\.invalid\//,
+    );
+    expect(signals[0]?.evidence).toBe("The no-code market grows 23% annually.");
+    expect(result.stripped).toHaveLength(1);
+  });
+
+  it("does NOT relabel a trusted host even when graded unsupported", (): void => {
+    const body = {
+      personas: [
+        {
+          name: "Korin Thorig",
+          company: "West Elm",
+          sourceUrl: "https://www.airtable.com/customer-stories/west-elm",
+        },
+      ],
+    };
+
+    const result = stripUncontainedSourceUrls({
+      body,
+      unsupportedUrls: new Set([
+        "https://www.airtable.com/customer-stories/west-elm",
+      ]),
+      trustedHosts: new Set(["airtable.com"]),
+    });
+
+    expect(result.body).toBe(body);
+    expect(result.stripped).toEqual([]);
+  });
+
+  it("CRITICAL REGRESSION: 3 uncontained VoC pain sources still persist as 3 distinct hosts", (): void => {
+    // The VoC distinct-source minimum (VOC_MIN_DOMAINS=3) keys on hostname.
+    // A shared marker host would collapse these three uncontained rows to ONE
+    // host and kill the section at persistence. Per-row UNIQUE marker hosts
+    // keep the distinct-host count at 3.
+    const body = {
+      painLanguage: {
+        prose: "Reviewers report recurring sync and mobile friction.",
+        quotes: [
+          {
+            verbatimText: "sync silently fails",
+            source: "g2",
+            sourceUrl: "https://www.g2.com/products/airtable/reviews/1",
+          },
+          {
+            verbatimText: "mobile app is read-only",
+            source: "capterra",
+            sourceUrl: "https://www.capterra.com/p/146652/Airtable/reviews/2",
+          },
+          {
+            verbatimText: "randomly stops working",
+            source: "trustpilot",
+            sourceUrl: "https://www.trustpilot.com/review/airtable.com/3",
+          },
+        ],
+      },
+    };
+
+    const result = stripUncontainedSourceUrls({
+      body,
+      unsupportedUrls: new Set([
+        "https://www.g2.com/products/airtable/reviews/1",
+        "https://www.capterra.com/p/146652/Airtable/reviews/2",
+        "https://www.trustpilot.com/review/airtable.com/3",
+      ]),
+    });
+    const quotes = (result.body.painLanguage as Record<string, unknown>)
+      .quotes as Array<Record<string, unknown>>;
+
+    // All three relabeled, every quote text preserved.
+    expect(result.stripped).toHaveLength(3);
+    expect(quotes.map((quote) => quote.verbatimText)).toEqual([
+      "sync silently fails",
+      "mobile app is read-only",
+      "randomly stops working",
+    ]);
+
+    // The load-bearing guard: distinct hostname count stays at 3, so the
+    // VOC_MIN_DOMAINS floor is NOT collapsed and the section persists.
+    const distinctHosts = new Set(
+      quotes.map((quote) => sourceHostKey(quote.sourceUrl as string)),
+    );
+    expect(distinctHosts.size).toBe(3);
+    // ...and none of them is the shared single-host marker that would have
+    // tripped the floor.
+    expect(distinctHosts.has(sourceHostKey(placeholderSourceUrlRelabel))).toBe(
+      false,
+    );
+  });
+
+  it("returns the same body when no unsupported url claims exist", (): void => {
+    const body = {
+      personas: [
+        {
+          name: "Korin Thorig",
+          sourceUrl: "https://www.airtable.com/customer-stories/west-elm",
+        },
+      ],
+    };
+
+    const result = stripUncontainedSourceUrls({
+      body,
+      unsupportedUrls: new Set<string>(),
+    });
+
     expect(result.body).toBe(body);
     expect(result.stripped).toEqual([]);
   });

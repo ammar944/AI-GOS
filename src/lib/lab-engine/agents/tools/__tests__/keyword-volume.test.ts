@@ -16,6 +16,7 @@ import {
   formatKeywordVolumeDisplay,
   KeywordVolumeOutputSchema,
   keywordVolumeAgentTool,
+  spyfuKeywordUrl,
   SPYFU_SOURCE_URL,
 } from "../keyword-volume";
 
@@ -83,6 +84,7 @@ describe("keywordVolumeAgentTool", (): void => {
       searchVolume: 4800,
       cpc: 38.63,
       difficulty: 27,
+      sourceUrl: "https://www.spyfu.com/keyword/overview/us?query=airtable%20pricing",
       display:
         '"airtable pricing" — 4,800 searches/mo, CPC $38.63, difficulty 27 (SpyFu-estimated)',
     });
@@ -90,10 +92,76 @@ describe("keywordVolumeAgentTool", (): void => {
     expect(parsed.keywords[1]).toEqual(
       expect.objectContaining({
         cpc: null,
+        sourceUrl:
+          "https://www.spyfu.com/keyword/overview/us?query=airtable%20vs%20notion",
         display:
           '"airtable vs notion" — 660 searches/mo, CPC n/a, difficulty 15 (SpyFu-estimated)',
       }),
     );
+
+    // Two distinct keywords must yield two distinct spyfu.com permalinks so the
+    // judge never sees 15 rows citing one bare homepage root.
+    expect(parsed.keywords[0].sourceUrl).not.toBe(parsed.keywords[1].sourceUrl);
+  });
+
+  it("builds a distinct encoded spyfu.com permalink per keyword the schema accepts", (): void => {
+    const first = spyfuKeywordUrl("airtable pricing");
+    const second = spyfuKeywordUrl("notion alternatives");
+
+    // Two different keywords → two different permalinks, both on spyfu.com,
+    // both carrying the URL-encoded query (space → %20).
+    expect(first).not.toBe(second);
+    expect(first).toBe(
+      "https://www.spyfu.com/keyword/overview/us?query=airtable%20pricing",
+    );
+    expect(second).toBe(
+      "https://www.spyfu.com/keyword/overview/us?query=notion%20alternatives",
+    );
+    for (const url of [first, second]) {
+      expect(new URL(url).hostname).toBe("www.spyfu.com");
+      expect(url).toContain("%20");
+    }
+
+    // The output schema accepts the per-keyword permalinks on row sourceUrl.
+    const parsed = KeywordVolumeOutputSchema.parse({
+      type: "result",
+      source: "SpyFu",
+      sourceUrl: SPYFU_SOURCE_URL,
+      keywords: [
+        {
+          keyword: "airtable pricing",
+          searchVolume: 4800,
+          cpc: 38.63,
+          difficulty: 27,
+          sourceUrl: first,
+          display: formatKeywordVolumeDisplay({
+            cpc: 38.63,
+            difficulty: 27,
+            keyword: "airtable pricing",
+            searchVolume: 4800,
+          }),
+        },
+        {
+          keyword: "notion alternatives",
+          searchVolume: 1900,
+          cpc: 12.5,
+          difficulty: 33,
+          sourceUrl: second,
+          display: formatKeywordVolumeDisplay({
+            cpc: 12.5,
+            difficulty: 33,
+            keyword: "notion alternatives",
+            searchVolume: 1900,
+          }),
+        },
+      ],
+    });
+
+    if (parsed.type !== "result") {
+      throw new Error(`expected result, got ${parsed.type}`);
+    }
+    expect(parsed.keywords[0].sourceUrl).toBe(first);
+    expect(parsed.keywords[1].sourceUrl).toBe(second);
   });
 
   it("returns a credential gap without the key", async (): Promise<void> => {

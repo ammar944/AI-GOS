@@ -6,6 +6,7 @@ import {
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
 import {
+  acquisitionSufficiencyFieldSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
   keyFindingsSchema,
@@ -44,8 +45,8 @@ const clusterBuckets = [
   "slack-group",
   "event",
 ] as const;
-const modelEstimateLabel = "[model estimate - not tool-measured]";
-const buyerICPEvidenceGapReason = "insufficient_named_buyer_personas";
+export const modelEstimateLabel = "[model estimate - not tool-measured]";
+export const buyerICPEvidenceGapReason = "insufficient_named_buyer_personas";
 const genericIdentityTokens = new Set([
   "account",
   "accounts",
@@ -309,6 +310,45 @@ const evidenceGapReportSchema = z
     foundNamedPersonaCount: z.number().int().nonnegative(),
     requiredNamedPersonaCount: z.number().int().positive(),
     rejectedPersonaLabels: z.array(z.string().min(1)),
+    // Acquisition ledger (Wave 2): the bounded persona/source discovery trail behind
+    // this section. Perplexity/web discovery surfaces candidate named buyers; DeepSeek
+    // remains the writer/repair authority. Each row records a searched source, the
+    // candidate found, whether it was promoted into personaReality or rejected, and the
+    // rejection reason. Sparse acquisition must produce honest rejected rows here, never
+    // fabricated personas. Mirrors the VoC acquisitionLedger contract.
+    acquisitionLedger: z
+      .array(
+        z
+          .object({
+            // Optional for query-level attempt rows (a venue pass that surfaced
+            // no candidate has no source URL/domain — honest, not a floor dodge).
+            sourceUrl: z.string().min(1).optional(),
+            domain: z.string().min(1).optional(),
+            query: z.string().min(1),
+            source: z.string().min(1),
+            candidateLabel: z.string().min(1).optional(),
+            promotionStatus: z.enum(["promoted", "rejected", "not_applicable"]),
+            // Candidate-classification reason (candidate rows only).
+            rejectionReason: z
+              .enum([
+                "not_named_individual",
+                "not_buyer_role",
+                "unverifiable_source",
+                "duplicate",
+                "insufficient_evidence",
+                "not_selected",
+              ])
+              .optional(),
+            // Lookup-outcome reason for query-level attempt rows.
+            toolGapReason: z
+              .enum(["missing_credential", "no_named_individuals", "no_result"])
+              .optional(),
+            observedAt: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
+    sufficiency: acquisitionSufficiencyFieldSchema,
     sourcingPlan: z.array(z.string().min(1)).min(1),
   })
   .strict();

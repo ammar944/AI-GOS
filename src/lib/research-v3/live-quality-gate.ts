@@ -598,6 +598,45 @@ function countRealBuyerQuoteRecords(artifact: ArtifactEnvelope | null): number {
   ].filter((quote) => asString(quote.verbatimText) !== null).length;
 }
 
+// evidenceGapReport.acquisitionLedger rejectionReasons that mean a PROMOTABLE
+// candidate was dropped for COUNT / SELECTION reasons (not a quality failure).
+const VOC_COUNT_SELECTION_REJECTION_REASONS: ReadonlySet<string> = new Set([
+  'insufficient_candidates',
+  'insufficient_independent_domains',
+  'not_selected',
+]);
+
+// Reads the VoC acquisitionLedger to distinguish "empty DESPITE evidence" (the
+// scrape+parser actually succeeded) from an honest evidence desert. acquiredCount
+// counts rows where BOTH scrape and parser succeeded; countSelectionRejectedCount
+// counts those that were then rejected for count/selection (not quality) reasons.
+function summarizeVocAcquisition(artifact: ArtifactEnvelope | null): {
+  acquiredCount: number;
+  countSelectionRejectedCount: number;
+} {
+  const body = isRecord(artifact?.body) ? artifact.body : {};
+  const report = isRecord(body.evidenceGapReport) ? body.evidenceGapReport : {};
+  const rows = Array.isArray(report.acquisitionLedger)
+    ? report.acquisitionLedger.filter(isRecord)
+    : [];
+
+  let acquiredCount = 0;
+  let countSelectionRejectedCount = 0;
+  for (const row of rows) {
+    if (asString(row.scrapeStatus) !== 'succeeded') continue;
+    if (asString(row.parserStatus) !== 'succeeded') continue;
+    acquiredCount += 1;
+    if (
+      asString(row.promotionStatus) === 'rejected' &&
+      VOC_COUNT_SELECTION_REJECTION_REASONS.has(asString(row.rejectionReason) ?? '')
+    ) {
+      countSelectionRejectedCount += 1;
+    }
+  }
+
+  return { acquiredCount, countSelectionRejectedCount };
+}
+
 function getBuyerPersonaRecords(
   artifact: ArtifactEnvelope | null,
 ): Record<string, unknown>[] {
@@ -736,9 +775,23 @@ function classifySectionResearchQuality(input: {
     );
 
     if (realBuyerQuoteCount === 0) {
+      // Empty-despite-evidence: only assert it when the acquisitionLedger PROVES
+      // scrape+parser success. A true evidence desert keeps the plain reason and is
+      // not labelled empty-despite-evidence (decision #2: don't punish honest gaps).
+      const acquisition = summarizeVocAcquisition(input.artifact);
       const reasons = uniqueStrings([
         ...generic.qualityReasons,
         'positioningVoiceOfCustomer has zero real buyer quotes',
+        ...(acquisition.acquiredCount > 0
+          ? [
+              `positioningVoiceOfCustomer is empty despite ${acquisition.acquiredCount} successfully acquired candidate(s) (empty-despite-evidence)`,
+            ]
+          : []),
+        ...(acquisition.countSelectionRejectedCount > 0
+          ? [
+              `positioningVoiceOfCustomer rejected ${acquisition.countSelectionRejectedCount} promotable candidate(s) for count/selection reasons`,
+            ]
+          : []),
       ]);
 
       return {

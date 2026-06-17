@@ -10,7 +10,6 @@ import {
   GapNote,
   KeyFindings,
   QuoteCard,
-  SectionCoverageNote,
   SubsectionBlock,
   VerdictHero,
   clampReaderText,
@@ -203,7 +202,6 @@ export function VoiceOfCustomerRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={vocKeyFindings(artifact)} />
 
@@ -337,25 +335,6 @@ export function VoiceOfCustomerRenderer({
           </div>
         )}
       </SubsectionBlock>
-
-      <SectionCoverageNote
-        verified={[
-          `${usablePainQuotes.length} usable pain quotes`,
-          `${successLanguage.quotes.length} success quotes`,
-          `${decisionCriteria.criteria.length} decision criteria`,
-        ]}
-        assumed={objections.items
-          .filter(
-            (item) =>
-              item.frequency === 'one-off' &&
-              !looksLikeNavMenuGarbage(item.objectionText),
-          )
-          .map((item) => clampReaderText(item.objectionText, 140))}
-        missing={[
-          ...unusablePainQuotes.map(() => 'A clean permalinked pain quote'),
-          ...(usablePainQuotes.length === 0 ? ['Customer pain quote set'] : []),
-        ]}
-      />
     </div>
   );
 }

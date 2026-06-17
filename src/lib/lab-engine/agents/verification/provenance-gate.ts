@@ -449,6 +449,16 @@ interface VerbatimQuoteSurface {
   // suffix; VoC `source` is a closed enum (vocSourceTypes) where any append
   // would fail schema re-parse at persistence.
   appendSourceSuffix: boolean;
+  // Whether to prepend the explicit paraphrase prefix into the client-facing
+  // quote text. True where the prefix is the ONLY surfaced permalink caveat
+  // (competitor, and the VoC synthesis-commit path whose verdict is
+  // model-authored). The VoC gap-with-quotes path sets this false: it already
+  // emits a block-level directional verdict + statusSummary on the SAME
+  // hasSurfacedQuotes gate, so prepending the prefix into verbatimText is
+  // redundant and reads as a trust-killer. The downgrade is still RETURNED in
+  // the helper's `stripped` array regardless of this flag (callers persist it
+  // where they need the audit trail).
+  prefixQuoteText: boolean;
 }
 
 const unpermalinkedDowngradeReason =
@@ -502,7 +512,9 @@ function downgradeQuoteSurface({
       return;
     }
 
-    clonedItem[surface.quoteField] = `${paraphrasedQuotePrefix}${quote}`;
+    if (surface.prefixQuoteText) {
+      clonedItem[surface.quoteField] = `${paraphrasedQuotePrefix}${quote}`;
+    }
 
     if (
       surface.appendSourceSuffix &&
@@ -549,6 +561,7 @@ export function downgradeUnpermalinkedVerbatimQuotes({
         appendSourceSuffix: true,
         blockKey: "publicWeaknesses",
         itemsKey: "items",
+        prefixQuoteText: true,
         quoteField: "verbatimQuote",
       },
     ],
@@ -561,8 +574,13 @@ export function downgradeUnpermalinkedVerbatimQuotes({
 // `source` enum is never touched.
 export function downgradeUnpermalinkedVocQuotes({
   body,
+  prefixQuoteText = true,
 }: {
   body: Record<string, unknown>;
+  // Default true preserves the model-authored synthesis-commit path (no other
+  // surfaced caveat). The gap-with-quotes path passes false: its block-level
+  // directional verdict + statusSummary already caveat the missing permalinks.
+  prefixQuoteText?: boolean;
 }): ProvenanceGateResult<DowngradedVerbatimQuote> {
   return downgradeUnpermalinkedQuoteSurfaces({
     body,
@@ -571,18 +589,21 @@ export function downgradeUnpermalinkedVocQuotes({
         appendSourceSuffix: false,
         blockKey: "painLanguage",
         itemsKey: "quotes",
+        prefixQuoteText,
         quoteField: "verbatimText",
       },
       {
         appendSourceSuffix: false,
         blockKey: "successLanguage",
         itemsKey: "quotes",
+        prefixQuoteText,
         quoteField: "verbatimText",
       },
       {
         appendSourceSuffix: false,
         blockKey: "decisionCriteria",
         itemsKey: "criteria",
+        prefixQuoteText,
         quoteField: "evidenceQuote",
       },
     ],
@@ -966,6 +987,130 @@ export function stripUnverifiedSourceUrls({
   walkForUnverifiedSourceUrls({
     path: "body",
     stripped,
+    unsupportedUrls,
+    value: cloned,
+  });
+
+  return stripped.length === 0
+    ? { body, stripped: [] }
+    : { body: cloned, stripped };
+}
+
+const uncontainedSourceUrlReason =
+  "sourceUrl graded unsupported by the claim verifier and not vouched for by a trusted host: the cited page does not contain the attributed entity/fact";
+
+// Each relabel needs a DISTINCT host so getSourceKey-style distinct-source
+// minimums (VoC painLanguage.quotes needs >=VOC_MIN_DOMAINS hostnames) are not
+// collapsed to one host when several rows in the same array are uncontained.
+// The shared placeholderSourceUrlRelabel keeps the same host on every row,
+// which WOULD drop a 3-source pain-quote array below the floor and kill the
+// section at persistence (assertSectionArtifactPersistable). A per-strip host
+// counter preserves uniqueCount while still pointing at the RFC-2606
+// .invalid space that never resolves.
+function uncontainedRelabelMarker(index: number): string {
+  return `https://evidence-gap-${index}.invalid/uncontained-source-removed`;
+}
+
+function walkForUncontainedSourceUrls({
+  counter,
+  path,
+  stripped,
+  trustedHosts,
+  unsupportedUrls,
+  value,
+}: {
+  counter: { next: number };
+  path: string;
+  stripped: StrippedPlaceholderUrl[];
+  trustedHosts: ReadonlySet<string>;
+  unsupportedUrls: ReadonlySet<string>;
+  value: unknown;
+}): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      walkForUncontainedSourceUrls({
+        counter,
+        path: `${path}[${index}]`,
+        stripped,
+        trustedHosts,
+        unsupportedUrls,
+        value: item,
+      });
+    });
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  for (const [key, childValue] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+
+    if (key === "sourceUrl" && typeof childValue === "string") {
+      // Guard (a): the verifier stores the cleaned form as claim.value, so a
+      // raw Set-membership test on the already-cleaned sourceUrl string is the
+      // correct comparison — there is no cleanUrl helper in scope to call.
+      if (
+        childValue !== placeholderSourceUrlRelabel &&
+        unsupportedUrls.has(childValue) &&
+        !isTrustedHost({ trustedHosts, url: childValue })
+      ) {
+        const marker = uncontainedRelabelMarker(counter.next);
+        counter.next += 1;
+        value[key] = marker;
+        stripped.push({
+          field: childPath,
+          reason: uncontainedSourceUrlReason,
+          sourceUrl: childValue,
+        });
+      }
+
+      continue;
+    }
+
+    walkForUncontainedSourceUrls({
+      counter,
+      path: childPath,
+      stripped,
+      trustedHosts,
+      unsupportedUrls,
+      value: childValue,
+    });
+  }
+}
+
+// Systemic containment strip (Wave-3 lever): the structural verifier already
+// grades fabricated persona URLs, laundered/wrong-source URLs, and inline
+// market-stat URLs as unsupported (no_match) url-claims. Those land in
+// unsupportedUrls. For every sourceUrl in unsupportedUrls whose host is NOT
+// vouched for by a trusted host, relabel it to a per-row evidence-gap marker.
+// Unlike stripUnverifiedSourceUrls this is NOT gated on a quote-card field or a
+// tool-observed sibling, so it catches the persona / competitor / inline
+// market-stat URLs those guards let slip — while the per-row UNIQUE marker host
+// preserves any distinct-source-by-URL minimum (VoC pain quotes). The row and
+// its claim survive; only the unverifiable provenance goes.
+export function stripUncontainedSourceUrls({
+  body,
+  unsupportedUrls,
+  trustedHosts = new Set<string>(),
+}: {
+  body: Record<string, unknown>;
+  unsupportedUrls: ReadonlySet<string>;
+  trustedHosts?: ReadonlySet<string>;
+}): ProvenanceGateResult<StrippedPlaceholderUrl> {
+  if (unsupportedUrls.size === 0) {
+    return { body, stripped: [] };
+  }
+
+  const cloned = structuredClone(body);
+  const stripped: StrippedPlaceholderUrl[] = [];
+
+  walkForUncontainedSourceUrls({
+    counter: { next: 0 },
+    path: "body",
+    stripped,
+    trustedHosts,
     unsupportedUrls,
     value: cloned,
   });

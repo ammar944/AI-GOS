@@ -4,8 +4,8 @@ import {
   BasisChip,
   EvidenceChip,
   FunnelMath,
+  GapNote,
   KeyFindings,
-  SectionCoverageNote,
   StatCallout,
   SubsectionBlock,
   VerdictHero,
@@ -40,6 +40,22 @@ const CHANNEL_WORKED_LABEL: Record<string, string> = {
   no: 'No',
   unknown: 'Unknown',
 };
+
+// An honest-unavailable offer artifact (deadline-exhaustion commit): every
+// evidence block committed empty with a blockGap. We detect it deterministically
+// from the five block arrays so the reader sees ONE quiet trust note, not 38
+// identical 'rerun to retry' placeholder fields dressed as a full diagnosis.
+export function isOfferDiagnosticHonestlyUnavailable(
+  artifact: OfferPerformanceArtifact,
+): boolean {
+  return (
+    artifact.offerMarketFit.proofPoints.length === 0 &&
+    artifact.funnelDiagnosis.breaks.length === 0 &&
+    artifact.channelTruth.channels.length === 0 &&
+    artifact.retentionHealth.signals.length === 0 &&
+    artifact.redFlags.items.length === 0
+  );
+}
 
 function offerKeyFindings(
   artifact: OfferPerformanceArtifact,
@@ -116,12 +132,32 @@ export function OfferDiagnosticRenderer({
   } = artifact;
   const constraint = artifact.singleBindingConstraint;
 
+  if (isOfferDiagnosticHonestlyUnavailable(artifact)) {
+    const sourcingPlan =
+      offerMarketFit.blockGap?.sourcingPlan?.join('; ') ??
+      'Rerun this section — it did not gather enough public evidence in its time budget.';
+
+    return (
+      <div
+        className={cn('flex flex-col gap-4', className)}
+        data-testid="offer-honestly-unavailable"
+      >
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          Offer diagnostic
+        </div>
+        <GapNote subject="this offer diagnostic" howToClose={sourcingPlan}>
+          Not enough public evidence was found to diagnose this offer in this run.
+          Nothing here was fabricated — the section is reporting an honest gap.
+        </GapNote>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('flex flex-col gap-10', className)}>
       <VerdictHero
         verdict={constraint?.constraint ?? artifact.verdict}
         whyItMatters={constraint?.unlockCondition ?? artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={offerKeyFindings(artifact)} />
 
@@ -272,19 +308,6 @@ export function OfferDiagnosticRenderer({
           />
         </StrategicInsightPanel>
       ) : null}
-
-      <SectionCoverageNote
-        verified={[
-          `${offerMarketFit.proofPoints.length} offer proof points`,
-          `${funnelDiagnosis.breaks.length} funnel breaks`,
-        ]}
-        assumed={channelTruth.channels
-          .filter((channel) => channel.hasWorked === 'unknown')
-          .map((channel) => channel.channelName)}
-        missing={redFlags.items
-          .filter((flag) => flag.severity === 'high')
-          .map((flag) => flag.claimedMotion)}
-      />
     </div>
   );
 }

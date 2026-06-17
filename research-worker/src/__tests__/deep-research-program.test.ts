@@ -1337,6 +1337,27 @@ describe('trimUngroundedProse', () => {
 
     expect(trimUngroundedProse(text, citedHosts)).toBe(text);
   });
+
+  it('does not split a decimal rating into a garbled orphan (4.2 stays whole)', () => {
+    const text =
+      'Trustpilot shows a 4.2 score for the product. Ramp leads in spend management.';
+
+    // Pre-fix the splitter cut "4.2" at the decimal and left a garbled
+    // "2 score..." orphan; the sentence must be dropped whole, leaving only the
+    // grounded Ramp sentence — no stray "2 score." fragment.
+    const result = trimUngroundedProse(text, citedHosts);
+    expect(result).toBe('Ramp leads in spend management.');
+    expect(result).not.toMatch(/^2 score/);
+  });
+
+  it('preserves a grounded decimal rating intact', () => {
+    const text =
+      'G2 rates Ramp 4.6 stars across finance teams. Ramp ships fast.';
+
+    expect(trimUngroundedProse(text, new Set(['ramp.com', 'g2.com']))).toBe(
+      text,
+    );
+  });
 });
 
 describe('scrubProcessTalkFromCorpus', () => {

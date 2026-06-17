@@ -77,6 +77,28 @@ function collectSourceUrls(value: unknown): string[] {
   ];
 }
 
+function collectVoiceOfCustomerQuoteTexts(
+  body: VoiceOfCustomerSectionOutput['body'],
+): string[] {
+  return [
+    ...body.painLanguage.quotes.map((quote) => quote.verbatimText),
+    ...body.objections.items.map((item) => item.objectionText),
+    ...body.switchingStories.stories.map((story) => story.reasonToLeave),
+    ...body.decisionCriteria.criteria.map((criterion) => criterion.evidenceQuote),
+    ...body.successLanguage.quotes.map((quote) => quote.verbatimText),
+  ];
+}
+
+function expectNoRepeatedVoiceOfCustomerQuote(
+  body: VoiceOfCustomerSectionOutput['body'],
+): void {
+  const normalizedQuotes = collectVoiceOfCustomerQuoteTexts(body).map((quote) =>
+    quote.replace(/\s+/g, ' ').trim().toLowerCase(),
+  );
+
+  expect(new Set(normalizedQuotes).size).toBe(normalizedQuotes.length);
+}
+
 function collapseSourceUrls(
   value: Record<string, unknown>,
   urls: readonly string[],
@@ -537,17 +559,17 @@ function installSuccessfulToolFetches({
         return jsonResponse({
           organic_results: [
             {
-              link: 'https://www.g2.com/products/saaslaunch/reviews',
+              link: 'https://www.g2.com/products/saaslaunch/reviews/saaslaunch-review-1',
               snippet:
                 'Users say pipeline follow-up still falls through the cracks without a weekly operating loop.',
             },
             {
-              link: 'https://www.capterra.com/p/saaslaunch/reviews',
+              link: 'https://www.capterra.com/p/saaslaunch/reviews/1769670/',
               snippet:
                 'Teams complain that account research and next steps stay scattered across notes.',
             },
             {
-              link: 'https://www.trustpilot.com/review/saaslaunch.example',
+              link: 'https://www.trustpilot.com/reviews/0123456789abcdef01',
               snippet:
                 'Reviewers mention manual CRM cleanup and missed handoffs as recurring pain.',
             },
@@ -641,27 +663,27 @@ function installExpandedReviewBodyFetches(): {
         return jsonResponse({
           organic_results: [
             {
-              link: 'https://www.g2.com/products/saaslaunch/reviews',
+              link: 'https://www.g2.com/products/saaslaunch/reviews/saaslaunch-review-1',
               snippet: 'Users mention approval handoff pain.',
               title: 'SaaSLaunch reviews on G2',
             },
             {
-              link: 'https://www.capterra.com/p/saaslaunch/reviews',
+              link: 'https://www.capterra.com/p/saaslaunch/reviews/1769670/',
               snippet: 'Teams complain about scattered account notes.',
               title: 'SaaSLaunch reviews on Capterra',
             },
             {
-              link: 'https://www.trustpilot.com/review/saaslaunch.example',
+              link: 'https://www.trustpilot.com/reviews/0123456789abcdef01',
               snippet: 'Reviewers mention manual CRM cleanup.',
               title: 'SaaSLaunch reviews on Trustpilot',
             },
             {
-              link: 'https://www.getapp.com/sales-software/a/saaslaunch/reviews',
+              link: 'https://www.getapp.com/sales-software/a/saaslaunch/reviews/1769671/',
               snippet: 'Operators report missed sales handoffs.',
               title: 'SaaSLaunch reviews on GetApp',
             },
             {
-              link: 'https://www.softwareadvice.com/crm/saaslaunch-profile/reviews',
+              link: 'https://www.softwareadvice.com/crm/saaslaunch-profile/reviews/1769672/',
               snippet: 'Buyers describe slow support cleanup.',
               title: 'SaaSLaunch reviews on Software Advice',
             },
@@ -909,7 +931,7 @@ function installWebSearchSnippetToolFetches(): {
                   'Reviewers mention slow support and confusing cleanup after card-policy exceptions.',
                 ],
                 title: 'Ramp reviews on G2',
-                url: 'https://www.g2.com/products/ramp/reviews',
+                url: 'https://www.g2.com/products/ramp/reviews/ramp-review-1',
               },
               {
                 description:
@@ -918,7 +940,7 @@ function installWebSearchSnippetToolFetches(): {
                   'Operators report difficult month-end cleanup when spend requests are blocked.',
                 ],
                 title: 'Ramp reviews on Capterra',
-                url: 'https://www.capterra.com/p/ramp/reviews',
+                url: 'https://www.capterra.com/p/ramp/reviews/1769670/',
               },
               {
                 description:
@@ -1087,11 +1109,11 @@ describe('runSection VoC candidate prepass', (): void => {
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
       expect(firecrawlTargetUrls).toEqual(
         expect.arrayContaining([
-          'https://www.g2.com/products/saaslaunch/reviews',
-          'https://www.capterra.com/p/saaslaunch/reviews',
-          'https://www.trustpilot.com/review/saaslaunch.example',
-          'https://www.getapp.com/sales-software/a/saaslaunch/reviews',
-          'https://www.softwareadvice.com/crm/saaslaunch-profile/reviews',
+          'https://www.g2.com/products/saaslaunch/reviews/saaslaunch-review-1',
+          'https://www.capterra.com/p/saaslaunch/reviews/1769670/',
+          'https://www.trustpilot.com/reviews/0123456789abcdef01',
+          'https://www.getapp.com/sales-software/a/saaslaunch/reviews/1769671/',
+          'https://www.softwareadvice.com/crm/saaslaunch-profile/reviews/1769672/',
         ]),
       );
       expect(params.prompt).toContain('getapp.com');
@@ -1224,6 +1246,15 @@ describe('runSection VoC candidate prepass', (): void => {
         }),
       ]),
     );
+    // Wave 2B: sufficiency is computed deterministically from the ledger above.
+    // Every scrape failed, so no candidate was promoted -> honest "insufficient".
+    expect(evidenceGapReport.sufficiency).toEqual({
+      tier: 'insufficient',
+      rationale: expect.any(String),
+      candidatesFound: 0,
+      promoted: 0,
+      rejected: 0,
+    });
     expect(streamStructured).not.toHaveBeenCalled();
     // Firecrawl accounting [B1]: when review bodies yield no candidates, the
     // prepass retries all 3 subject-brand review queries (name / "name
@@ -1498,7 +1529,7 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
-  it('commits an evidence-gap artifact when structured synthesis times out after a valid candidate prepass', async (): Promise<void> => {
+  it('commits deterministic VoC evidence when structured synthesis times out after a floor-clearing candidate prepass', async (): Promise<void> => {
     const store = await makeStore();
     installSuccessfulToolFetches();
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
@@ -1533,24 +1564,15 @@ describe('runSection VoC candidate prepass', (): void => {
     const validationEvent = record.events.find(
       (event) => event.type === 'validation-failed',
     );
-    const evidenceGapReport = result.artifact.body
-      .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
 
     expect(streamStructured).toHaveBeenCalledTimes(1);
-    expect(result.artifact.body.evidenceGap).toBe(true);
-    expect(evidenceGapReport).toMatchObject({
-      foundDistinctPainSourceCount: 3,
-      foundPainQuoteCount: 6,
-      observedPainSourceDomains: [
-        'g2.com',
-        'capterra.com',
-        'trustpilot.com',
-      ],
-      reason: 'insufficient_voice_of_customer_sources',
-    });
-    expect(evidenceGapReport.summary).toContain(
-      'structured synthesis timed out',
-    );
+    // Structured synthesis timed out, but the candidate prepass cleared the pain
+    // floor (6 snippets / 3 domains), so the deterministic fallback now commits
+    // real disjoint VoC evidence instead of collapsing to an evidence-gap shell.
+    expect(body.evidenceGap).not.toBe(true);
+    expect(collectVoiceOfCustomerQuoteTexts(body).length).toBeGreaterThanOrEqual(6);
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(validationEvent?.metadata.issues.join('\n')).toContain(
       'Structured output timed out after 150000ms.',
     );
@@ -1562,7 +1584,7 @@ describe('runSection VoC candidate prepass', (): void => {
     );
   });
 
-  it('commits an evidence-gap artifact when structured synthesis cannot produce a parseable object', async (): Promise<void> => {
+  it('commits deterministic VoC evidence when structured synthesis cannot produce a parseable object after a floor-clearing prepass', async (): Promise<void> => {
     const store = await makeStore();
     installSuccessfulToolFetches();
     const streamStructured = vi.fn<StructuredStreamer>((params) => {
@@ -1594,17 +1616,15 @@ describe('runSection VoC candidate prepass', (): void => {
 
     const record = await store.readRun(saaslaunchResearchInput.runId);
     const eventTypes = record.events.map((event) => event.type);
-    const evidenceGapReport = result.artifact.body
-      .evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
 
     expect(streamStructured).toHaveBeenCalledTimes(1);
-    expect(result.artifact.body.evidenceGap).toBe(true);
-    expect(evidenceGapReport.summary).toContain(
-      'failed to produce a parseable source-backed artifact',
-    );
-    expect(evidenceGapReport.summary).toContain(
-      'No object generated: response did not match schema.',
-    );
+    // Parseable-object generation failed, but the candidate prepass cleared the
+    // floor, so the deterministic fallback now commits real disjoint VoC
+    // evidence.
+    expect(body.evidenceGap).not.toBe(true);
+    expect(collectVoiceOfCustomerQuoteTexts(body).length).toBeGreaterThanOrEqual(6);
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');
     expect(eventTypes).not.toContain('repair-started');
@@ -1648,15 +1668,24 @@ describe('runSection VoC candidate prepass', (): void => {
     const record = await store.readRun(researchInput.runId);
     const eventTypes = record.events.map((event) => event.type);
     const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
-    const quotes = body.painLanguage.quotes;
+    const quotes = collectVoiceOfCustomerQuoteTexts(body);
 
     expect(streamStructured).toHaveBeenCalledTimes(1);
     expect(body.evidenceGap).not.toBe(true);
     expect(body.evidenceGapReport).toBeUndefined();
     expect(quotes).toHaveLength(10);
-    expect(quotes[0]?.verbatimText).toContain('Dense candidate 1');
+    expect(quotes[0]).toContain('Dense candidate 1');
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(result.artifact.sources.map((source) => source.url)).toEqual(
-      expect.arrayContaining(quotes.map((quote) => quote.sourceUrl)),
+      expect.arrayContaining(
+        [
+          ...body.painLanguage.quotes.map((quote) => quote.sourceUrl),
+          ...body.objections.items.map((item) => item.sourceUrl),
+          ...body.switchingStories.stories.map((story) => story.sourceUrl),
+          ...body.decisionCriteria.criteria.map((criterion) => criterion.sourceUrl),
+          ...body.successLanguage.quotes.map((quote) => quote.sourceUrl),
+        ],
+      ),
     );
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');
@@ -1714,6 +1743,12 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(body.painLanguage.blockGap?.summary).toContain(
       'treat themes as directional',
     );
+    expect(body.objections.items).toHaveLength(0);
+    expect(body.switchingStories.stories).toHaveLength(0);
+    expect(body.decisionCriteria.criteria).toHaveLength(0);
+    expect(body.objections.blockGap).toBeDefined();
+    expect(body.switchingStories.blockGap).toBeDefined();
+    expect(body.decisionCriteria.blockGap).toBeDefined();
     expect(evidenceGapReport).toMatchObject({
       foundDistinctPainSourceCount: 2,
       foundPainQuoteCount: 5,
@@ -1767,12 +1802,17 @@ describe('runSection VoC candidate prepass', (): void => {
 
     expect(body.evidenceGap).not.toBe(true);
     expect(body.evidenceGapReport).toBeUndefined();
-    expect(body.painLanguage.quotes).toHaveLength(6);
+    expect(collectVoiceOfCustomerQuoteTexts(body)).toHaveLength(6);
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(
       new Set(
-        body.painLanguage.quotes.map(
-          (quote) => new URL(quote.sourceUrl).hostname,
-        ),
+        [
+          ...body.painLanguage.quotes.map((quote) => quote.sourceUrl),
+          ...body.objections.items.map((item) => item.sourceUrl),
+          ...body.switchingStories.stories.map((story) => story.sourceUrl),
+          ...body.decisionCriteria.criteria.map((criterion) => criterion.sourceUrl),
+          ...body.successLanguage.quotes.map((quote) => quote.sourceUrl),
+        ].map((sourceUrl) => new URL(sourceUrl).hostname),
       ),
     ).toEqual(new Set(['g2.com', 'reddit.com', 'capterra.com']));
     expect(eventTypes).toContain('artifact-saved');
@@ -1872,7 +1912,8 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(streamStructured).toHaveBeenCalledTimes(1);
     expect(body.evidenceGap).not.toBe(true);
     expect(body.evidenceGapReport).toBeUndefined();
-    expect(body.painLanguage.quotes).toHaveLength(10);
+    expect(collectVoiceOfCustomerQuoteTexts(body)).toHaveLength(10);
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(body.painLanguage.quotes[0]?.sourceUrl).toContain('g2.com');
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');
@@ -1921,10 +1962,17 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(runAnswerTool).toHaveBeenCalledTimes(3);
     expect(body.evidenceGap).not.toBe(true);
     expect(body.evidenceGapReport).toBeUndefined();
-    expect(body.painLanguage.quotes).toHaveLength(10);
+    expect(collectVoiceOfCustomerQuoteTexts(body)).toHaveLength(10);
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(
       new Set(
-        body.painLanguage.quotes.map((quote) => new URL(quote.sourceUrl).hostname),
+        [
+          ...body.painLanguage.quotes.map((quote) => quote.sourceUrl),
+          ...body.objections.items.map((item) => item.sourceUrl),
+          ...body.switchingStories.stories.map((story) => story.sourceUrl),
+          ...body.decisionCriteria.criteria.map((criterion) => criterion.sourceUrl),
+          ...body.successLanguage.quotes.map((quote) => quote.sourceUrl),
+        ].map((sourceUrl) => new URL(sourceUrl).hostname),
       ),
     ).toEqual(new Set(['g2.com', 'reddit.com', 'capterra.com']));
     expect(eventTypes).toContain('artifact-saved');
@@ -1978,7 +2026,8 @@ describe('runSection VoC candidate prepass', (): void => {
     expect(runAnswerTool).toHaveBeenCalledTimes(3);
     expect(body.evidenceGap).not.toBe(true);
     expect(body.evidenceGapReport).toBeUndefined();
-    expect(body.painLanguage.quotes).toHaveLength(10);
+    expect(collectVoiceOfCustomerQuoteTexts(body)).toHaveLength(10);
+    expectNoRepeatedVoiceOfCustomerQuote(body);
     expect(body.painLanguage.quotes[0]?.sourceUrl).toContain('g2.com');
     expect(eventTypes).toContain('artifact-saved');
     expect(eventTypes).toContain('section-completed');

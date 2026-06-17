@@ -318,6 +318,15 @@ function hasDemandSignalOrGap(body: Record<string, unknown>): boolean {
   );
 }
 
+function hasOfferBlockGap(body: Record<string, unknown>): boolean {
+  return [body.offerMarketFit, body.funnelDiagnosis, body.channelTruth].some(
+    (block) => {
+      const blockGap = asRecord(asRecord(block).blockGap);
+      return hasText(blockGap.summary);
+    },
+  );
+}
+
 function hasOfferAxis(body: Record<string, unknown>): boolean {
   const offerMarketFit = asRecord(body.offerMarketFit);
   const funnelDiagnosis = asRecord(body.funnelDiagnosis);
@@ -326,7 +335,9 @@ function hasOfferAxis(body: Record<string, unknown>): boolean {
   return (
     hasRecordWithText(offerMarketFit.proofPoints, "metric") ||
     hasRecordWithText(funnelDiagnosis.breaks, "stageName") ||
-    hasRecordWithText(channelTruth.channels, "channelName")
+    hasRecordWithText(channelTruth.channels, "channelName") ||
+    hasOfferBlockGap(body) ||
+    hasNestedGap(body)
   );
 }
 

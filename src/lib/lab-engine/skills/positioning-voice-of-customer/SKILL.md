@@ -2,8 +2,8 @@
 name: positioning-voice-of-customer
 description: Use this skill when AI-GOS needs to extract honest buyer language, objections, switching stories, decision criteria, and success language from sourced customer evidence.
 metadata:
-  version: 3.1.0-lab
-  updated: 2026-06-11
+  version: 3.2.0-lab
+  updated: 2026-06-16
   author: AI-GOS
   category: GTM/positioning-audit
   tags: [voice-of-customer, jtbd, objections, reviews, gtm]
@@ -28,13 +28,21 @@ Use only the tools allowed for this section.
 | `firecrawl` | Fetch source pages to verify full quote text and context. |
 | `perplexity_research` | Collect source leads that still need quote-level verification. |
 
+## Acquisition Ledger & Sufficiency
+
+Review/forum/support discovery uses `perplexity_research`, `web_search`, and `reviews` for **bounded source discovery only**. You (DeepSeek) extract and verify the verbatim quotes; a discovery answer is a lead to a source, never a quote you may attribute.
+
+When admissible quotes fall short, record the discovery trail in `body.evidenceGapReport.acquisitionLedger` — each row carries the searched `source` / `query` / `sourceUrl` / `domain`, `acquisitionMode`, scrape/parser status, the `candidateText` recovered, `promotionStatus`, and a `rejectionReason` for rejected candidates. Summarize it in `body.evidenceGapReport.sufficiency`: `tier` (`sufficient` | `partial` | `insufficient`), `rationale`, and the `candidatesFound` / `promoted` / `rejected` counts. A section that successfully acquired candidates but rejected them is "empty despite evidence" — the ledger must show that honestly, never invent a quote to avoid it.
+
 ## Iron Laws
 
 - Do not invent quotes, reviewers, roles, dates, source URLs, or frequencies.
+- Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally; never restate one as a number you discovered or verified.
 - A `verbatimText` field must contain human-authored text from the cited source, not company marketing copy or journalist prose.
 - If the run does not retrieve admissible quotes, use blockGap plus `retrievalSummary` instead of inventing.
 - Objections, decision criteria, switching stories, and success language are evidence blocks, not quota slots.
 - Lead with `keyFindings` when evidence supports 3-5 language truths.
+- The downstream SaaSLaunch paid-media plan draws its Creative Framework hooks and Competitor-Reviews insights from `body.painLanguage.quotes` and `body.objections.items`. A synthesized paid-media row may cite this section only when `sufficiency.tier` is not `insufficient`; a thin VoC hands down honest gaps the plan shows as gaps, never quotes the plan would launder into creative.
 
 ## GTM Framework Lens
 

@@ -11,12 +11,12 @@ export type ReaderSectionId =
   | PaidMediaPlanSectionId;
 
 export const READER_SECTION_IDS = [
-  'positioningDemandIntent',
+  'positioningMarketCategory',
   'positioningBuyerICP',
   'positioningCompetitorLandscape',
   'positioningVoiceOfCustomer',
+  'positioningDemandIntent',
   'positioningOfferDiagnostic',
-  'positioningMarketCategory',
   PAID_MEDIA_PLAN_SECTION_ID,
 ] as const satisfies readonly ReaderSectionId[];
 

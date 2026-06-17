@@ -419,25 +419,203 @@ function normalizePricingDataPointReporter({
   };
 }
 
+// Captured creatives per advertiser, keyed on normalized advertiser identity —
+// MUST mirror the buyer-eval COMPETITOR-COUNT cross-check (scripts/zz-buyer-eval.mjs
+// buildCapturedCreativeMap): key on the group's advertiserName / its creatives'
+// advertiserName / domain first-token, value = the group's creatives.length. The
+// captured `creatives` array is the single source of truth for how many ads were
+// actually verified for an advertiser; any "N verified" claim in free text must
+// not exceed it.
+function buildCapturedCreativeCountByAdvertiser(
+  body: Record<string, unknown>,
+): ReadonlyMap<string, number> {
+  const adEvidence = isRecord(body.adEvidence) ? body.adEvidence : null;
+  const groups = Array.isArray(adEvidence?.advertiserGroups)
+    ? adEvidence.advertiserGroups
+    : [];
+  const byAdvertiser = new Map<string, number>();
+
+  for (const group of groups) {
+    if (!isRecord(group)) {
+      continue;
+    }
+    const creatives = Array.isArray(group.creatives) ? group.creatives : [];
+    const captured = creatives.length;
+    const keys = new Set<string>();
+    const groupName = readText(group.advertiserName);
+    if (groupName !== null) {
+      keys.add(normalizedName(groupName));
+    }
+    const creativeAdvertiserName = creatives
+      .map((creative) => (isRecord(creative) ? readText(creative.advertiserName) : null))
+      .find((name): name is string => name !== null);
+    if (creativeAdvertiserName !== undefined && creativeAdvertiserName !== null) {
+      keys.add(normalizedName(creativeAdvertiserName));
+    }
+    const domain = readText(group.domain);
+    if (domain !== null) {
+      const firstToken = domain
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split(".")[0];
+      if (firstToken.length > 0) {
+        keys.add(normalizedName(firstToken));
+      }
+    }
+    for (const key of keys) {
+      byAdvertiser.set(key, (byAdvertiser.get(key) ?? 0) + captured);
+    }
+  }
+
+  return byAdvertiser;
+}
+
+// Mirror the buyer-eval lookupCapturedForCompetitor: exact normalized-key match
+// first, then a substring match either direction ("Zapier Tables" -> "zapier").
+function lookupCapturedForAdvertiser(
+  byAdvertiser: ReadonlyMap<string, number>,
+  advertiserName: string,
+): number | null {
+  const key = normalizedName(advertiserName);
+  if (key.length === 0) {
+    return null;
+  }
+  const exact = byAdvertiser.get(key);
+  if (exact !== undefined) {
+    return exact;
+  }
+  for (const [advKey, count] of byAdvertiser) {
+    if (advKey.length > 0 && (key.includes(advKey) || advKey.includes(key))) {
+      return count;
+    }
+  }
+  return null;
+}
+
+// Clamp every "<N> verified" / "<N> total verified" count in a free-text claim
+// down to the captured creatives for the attributed advertiser. The model bakes
+// inflated counts into adPresence.signals[].evidence and shareOfVoice.slices
+// evidence/winner text ("15 verified Google ads" when 12 are captured — run
+// 3b568ea0); the structured verifiedCount is already clamped by the ad adapter,
+// but these narrative numbers leak past it. Same regex the buyer-eval reads.
+const VERIFIED_COUNT_CLAIM_PATTERN = /(\d+)(\s+(?:total\s+)?verified)/gi;
+
+function clampVerifiedClaimText(text: string, capturedCeiling: number): string {
+  return text.replace(VERIFIED_COUNT_CLAIM_PATTERN, (match, digits, tail) => {
+    const claimed = Number(digits);
+    if (!Number.isFinite(claimed) || claimed <= capturedCeiling) {
+      return match;
+    }
+    return `${capturedCeiling}${tail}`;
+  });
+}
+
+function clampAdPresenceSignalsVerifiedClaims(
+  body: Record<string, unknown>,
+  byAdvertiser: ReadonlyMap<string, number>,
+): Record<string, unknown> {
+  const adPresence = isRecord(body.adPresence) ? body.adPresence : null;
+  if (adPresence === null || !Array.isArray(adPresence.signals)) {
+    return body;
+  }
+  const signals = adPresence.signals.map((signal) => {
+    if (!isRecord(signal)) {
+      return signal;
+    }
+    const competitor = readText(signal.competitor);
+    if (competitor === null) {
+      return signal;
+    }
+    const captured = lookupCapturedForAdvertiser(byAdvertiser, competitor);
+    if (captured === null) {
+      return signal;
+    }
+    const evidence = readText(signal.evidence);
+    if (evidence === null) {
+      return signal;
+    }
+    const clamped = clampVerifiedClaimText(evidence, captured);
+    return clamped === evidence ? signal : { ...signal, evidence: clamped };
+  });
+  return { ...body, adPresence: { ...adPresence, signals } };
+}
+
+function clampShareOfVoiceVerifiedClaims(
+  body: Record<string, unknown>,
+  byAdvertiser: ReadonlyMap<string, number>,
+): Record<string, unknown> {
+  const shareOfVoice = isRecord(body.shareOfVoice) ? body.shareOfVoice : null;
+  if (shareOfVoice === null || !Array.isArray(shareOfVoice.slices)) {
+    return body;
+  }
+  const slices = shareOfVoice.slices.map((slice) => {
+    if (!isRecord(slice)) {
+      return slice;
+    }
+    const winner = readText(slice.winner);
+    if (winner === null) {
+      return slice;
+    }
+    const captured = lookupCapturedForAdvertiser(byAdvertiser, winner);
+    if (captured === null) {
+      return slice;
+    }
+    const evidence = readText(slice.evidence);
+    const clampedEvidence =
+      evidence === null ? null : clampVerifiedClaimText(evidence, captured);
+    const clampedWinner = clampVerifiedClaimText(winner, captured);
+    const evidenceChanged =
+      clampedEvidence !== null && clampedEvidence !== evidence;
+    const winnerChanged = clampedWinner !== winner;
+    if (!evidenceChanged && !winnerChanged) {
+      return slice;
+    }
+    return {
+      ...slice,
+      ...(evidenceChanged ? { evidence: clampedEvidence } : {}),
+      ...(winnerChanged ? { winner: clampedWinner } : {}),
+    };
+  });
+  return { ...body, shareOfVoice: { ...shareOfVoice, slices } };
+}
+
 export function normalizeCompetitorLandscapeBody(
   body: Record<string, unknown>,
 ): Record<string, unknown> {
-  const pricingReality = isRecord(body.pricingReality)
-    ? body.pricingReality
+  // Single-writer clamp: no claimed/"N verified" ad count anywhere in the
+  // committed body may exceed the captured creatives for that advertiser. The
+  // ad adapter already clamps the structured verifiedCount; this catches the
+  // narrative "15 verified Google ads" claims the model bakes into
+  // adPresence.signals + shareOfVoice text that leak past it (run 3b568ea0).
+  const capturedByAdvertiser = buildCapturedCreativeCountByAdvertiser(body);
+  let workingBody = body;
+  if (capturedByAdvertiser.size > 0) {
+    workingBody = clampAdPresenceSignalsVerifiedClaims(
+      workingBody,
+      capturedByAdvertiser,
+    );
+    workingBody = clampShareOfVoiceVerifiedClaims(
+      workingBody,
+      capturedByAdvertiser,
+    );
+  }
+
+  const pricingReality = isRecord(workingBody.pricingReality)
+    ? workingBody.pricingReality
     : null;
 
   if (pricingReality === null || !Array.isArray(pricingReality.dataPoints)) {
-    return body;
+    return workingBody;
   }
 
-  const competitorDomains = buildCompetitorDomainMap(body);
+  const competitorDomains = buildCompetitorDomainMap(workingBody);
 
   if (competitorDomains.size === 0) {
-    return body;
+    return workingBody;
   }
 
   return {
-    ...body,
+    ...workingBody,
     pricingReality: {
       ...pricingReality,
       dataPoints: pricingReality.dataPoints.map((point) =>
@@ -445,6 +623,87 @@ export function normalizeCompetitorLandscapeBody(
       ),
     },
   };
+}
+
+/**
+ * Pricing source-diversity gate (returned as a ValidationResult so the answer-
+ * tool repair loop retries on failure). Modeled on checkVoiceOfCustomerSelfSourcing:
+ * reject when a single THIRD-PARTY domain (not the subject's own vendor domain and
+ * not a competitor's own domain) supplies a majority (> floor(n/2)) of the pricing
+ * rows. A vendor or competitor pricing PAGE is legitimate first-party evidence; a
+ * single alternatives-listicle/blog monopolizing the pricing table is laundering a
+ * lone aggregator as if it were diverse research. Vendor-own and competitor-own
+ * rows are excluded from the dominance count entirely. Honors the hasBlockGap
+ * escape to match every other competitor minimum.
+ */
+export function checkCompetitorPricingSourceDiversity({
+  artifact,
+  subjectDomain,
+}: {
+  artifact: ArtifactEnvelope;
+  subjectDomain: string;
+}): ValidationResult {
+  const parsed = artifactEnvelopeSchema
+    .extend({ body: competitorLandscapeBodySchema })
+    .parse(artifact);
+  const errors: string[] = [];
+  const pricingReality = parsed.body.pricingReality;
+
+  if (hasBlockGap(pricingReality)) {
+    return { ok: true, errors };
+  }
+
+  const points = pricingReality.dataPoints;
+
+  if (points.length === 0) {
+    return { ok: true, errors };
+  }
+
+  const subjectRegistrable = getRegistrableDomain(subjectDomain);
+  const competitorDomains = buildCompetitorDomainMap(
+    parsed.body as unknown as Record<string, unknown>,
+  );
+  const competitorOwnDomains = new Set(competitorDomains.values());
+
+  // Count only THIRD-PARTY rows: a row sourced from the subject's own domain or a
+  // competitor's own domain is first-party pricing evidence and never monopolizes.
+  const thirdPartyCounts = new Map<string, number>();
+  let thirdPartyRows = 0;
+
+  for (const point of points) {
+    const sourceDomain = getRegistrableDomain(point.sourceUrl);
+
+    if (sourceDomain === null) {
+      continue;
+    }
+
+    if (sourceDomain === subjectRegistrable) {
+      continue;
+    }
+
+    if (competitorOwnDomains.has(sourceDomain)) {
+      continue;
+    }
+
+    thirdPartyRows += 1;
+    thirdPartyCounts.set(sourceDomain, (thirdPartyCounts.get(sourceDomain) ?? 0) + 1);
+  }
+
+  if (thirdPartyRows === 0) {
+    return { ok: true, errors };
+  }
+
+  const majorityThreshold = Math.floor(points.length / 2);
+
+  for (const [host, count] of thirdPartyCounts) {
+    if (count > majorityThreshold) {
+      errors.push(
+        `body.pricingReality.dataPoints: third-party source ${host} supplies ${count} of ${points.length} pricing rows (a single-source majority); pricing evidence must draw from the competitors' own pages or multiple independent sources, not one aggregator/listicle.`,
+      );
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
 }
 
 function canonicalPlatform(platform: string): string {
@@ -509,6 +768,23 @@ function uniqueCount(values: readonly string[]): number {
 
 function hasBlockGap(block: { blockGap?: unknown }): boolean {
   return block.blockGap !== undefined;
+}
+
+// True when ANY core block carries a blockGap — i.e. the body is already an
+// honest degraded artifact. Used to waive the section-level sources floor so the
+// structural-blockGap injector (run-section.ts) can commit a degraded body
+// instead of hard-erroring the whole section when sources fell short too.
+function bodyHasAnyBlockGap(body: CompetitorLandscapeBody): boolean {
+  return [
+    body.competitorSet,
+    body.positioningTaxonomy,
+    body.pricingReality,
+    body.shareOfVoice,
+    body.publicWeaknesses,
+    body.narrativeArcs,
+    body.adPresence,
+    body.adEvidence,
+  ].some(hasBlockGap);
 }
 
 function validateUrl(errors: string[], path: string, url: string): void {
@@ -818,7 +1094,10 @@ export function validateCompetitorLandscapeMinimums(
     parsedArtifact.body.incumbentBlindSpot.whyTheyMissIt,
   );
 
-  if (parsedArtifact.sources.length < 5) {
+  if (
+    parsedArtifact.sources.length < 5 &&
+    !bodyHasAnyBlockGap(parsedArtifact.body)
+  ) {
     errors.push(
       `sources: have ${parsedArtifact.sources.length}, need >=5 Section-level sources.`,
     );

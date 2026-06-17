@@ -83,6 +83,17 @@ describe('reader text scrubber', () => {
     );
   });
 
+  it('scrubs source-liveness and block-gap vocabulary from client-facing prose', () => {
+    const raw =
+      'Source-liveness check failed for this blockGap; rerun the evidenceGap recovery.';
+
+    expect(scrubReaderText(raw)).not.toMatch(/source-liveness|blockGap|evidenceGap/i);
+    expect(isReaderPipelineChrome(raw)).toBe(true);
+    expect(clientGapSentence(raw, 'source support')).toBe(
+      'Not enough public evidence was found for source support.',
+    );
+  });
+
   it('flags pipeline tool tokens, including underscore-token web_search only', () => {
     for (const token of [
       'keyword_volume',

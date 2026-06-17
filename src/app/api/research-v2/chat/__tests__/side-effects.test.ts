@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { buyerICPFixtureArtifact } from '@/lib/lab-engine/fixtures/buyer-icp-artifact';
 import type { StrategyBriefArtifact } from '@/lib/research-v2/strategy-brief/schema';
 
 const RUN_ID = '00000000-0000-4000-8000-0000000000aa';
@@ -188,7 +189,20 @@ describe('applyOrchestratorSideEffect strategy brief branches', () => {
       sideEffectContext(supabase),
     );
 
-    expect(outcome).toEqual({ ok: true });
+    expect(outcome.ok).toBe(true);
+    // Change report (Lane 8): the chat names its own edit back to the user —
+    // the section it touched, the field path, and a before/after summary.
+    expect(outcome.changed).toEqual({
+      zone: 'strategyBrief',
+      intent: 'revise_strategy_brief',
+      fields: [
+        {
+          field: 'body.positioning.oneLiner',
+          before: 'Fellow keeps revenue meetings accountable.',
+          after: 'Fellow turns revenue meetings into owned execution.',
+        },
+      ],
+    });
     expect(routeMocks.commitChatPatchAuto).toHaveBeenCalledTimes(1);
     expect(routeMocks.commitChatPatchAuto).toHaveBeenCalledWith(
       supabase,
@@ -244,6 +258,143 @@ describe('applyOrchestratorSideEffect strategy brief branches', () => {
       ok: false,
       reason: 'no committed strategy brief to revise',
     });
+    expect(routeMocks.commitChatPatchAuto).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyOrchestratorSideEffect editSectionField', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    routeMocks.commitChatPatchAuto.mockResolvedValue({
+      ok: true,
+      conflict: false,
+      normalized_revision: 3,
+    });
+  });
+
+  // The committed section is the real typed envelope: content lives under
+  // body.*, NOT at the top level. This is the shape the dead editClaim/
+  // editNarrative tools could never patch (they aimed at keyFindings[n].title /
+  // artifact.markdown, which don't exist here).
+  function committedBuyerICP(): { data: typeof buyerICPFixtureArtifact } {
+    return { data: structuredClone(buyerICPFixtureArtifact) };
+  }
+
+  it('resolves a real body path, schema-validates, and commits the patched section', async () => {
+    const ctx = sideEffectContext();
+    ctx.researchResults = { positioningBuyerICP: committedBuyerICP() };
+    // keyTension.side is a real <120-char body field, so before/after are exact
+    // (summarizeFieldValue does not clip them).
+    const before = buyerICPFixtureArtifact.body.strategicInsight.keyTension.side;
+    const after =
+      'Lead with the lightweight operating-ritual wedge before any RevOps rebuild.';
+
+    const outcome = await applyOrchestratorSideEffect(
+      {
+        intent: 'edit_section_field',
+        payload: {
+          zone: 'positioningBuyerICP',
+          path: 'strategicInsight.keyTension.side',
+          value: after,
+        },
+      },
+      ctx,
+    );
+
+    expect(outcome.ok).toBe(true);
+    expect(outcome.changed).toEqual({
+      zone: 'positioningBuyerICP',
+      intent: 'edit_section_field',
+      fields: [
+        {
+          field: 'body.strategicInsight.keyTension.side',
+          before,
+          after,
+        },
+      ],
+    });
+    expect(routeMocks.commitChatPatchAuto).toHaveBeenCalledTimes(1);
+    // The committed payload carries the patched body under data.body.* — the
+    // exact field the renderer reads — so the edit is durable, not lost.
+    expect(routeMocks.commitChatPatchAuto).toHaveBeenCalledWith(
+      ctx.supabase,
+      expect.objectContaining({
+        zone: 'positioningBuyerICP',
+        patchedSection: expect.objectContaining({
+          data: expect.objectContaining({
+            body: expect.objectContaining({
+              strategicInsight: expect.objectContaining({
+                keyTension: expect.objectContaining({ side: after }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('rejects a path that does not resolve in the section body, without committing', async () => {
+    const ctx = sideEffectContext();
+    ctx.researchResults = { positioningBuyerICP: committedBuyerICP() };
+
+    const outcome = await applyOrchestratorSideEffect(
+      {
+        intent: 'edit_section_field',
+        payload: {
+          zone: 'positioningBuyerICP',
+          path: 'keyFindings[7].finding',
+          value: 'No such finding.',
+        },
+      },
+      ctx,
+    );
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toMatch(/does not resolve/);
+    expect(routeMocks.commitChatPatchAuto).not.toHaveBeenCalled();
+  });
+
+  it('rejects a value that fails the zone schema, without committing', async () => {
+    const ctx = sideEffectContext();
+    ctx.researchResults = { positioningBuyerICP: committedBuyerICP() };
+
+    // strategicVerdict is z.string().min(1) — an empty string is a valid path
+    // but an invalid body, so the schema gate must block the write.
+    const outcome = await applyOrchestratorSideEffect(
+      {
+        intent: 'edit_section_field',
+        payload: {
+          zone: 'positioningBuyerICP',
+          path: 'strategicInsight.strategicVerdict',
+          value: '',
+        },
+      },
+      ctx,
+    );
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toMatch(/fails positioningBuyerICP schema/);
+    expect(routeMocks.commitChatPatchAuto).not.toHaveBeenCalled();
+  });
+
+  it('rejects an edit when the zone has not been generated', async () => {
+    const ctx = sideEffectContext();
+    ctx.researchResults = {};
+
+    const outcome = await applyOrchestratorSideEffect(
+      {
+        intent: 'edit_section_field',
+        payload: {
+          zone: 'positioningBuyerICP',
+          path: 'strategicInsight.strategicVerdict',
+          value: 'anything',
+        },
+      },
+      ctx,
+    );
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toMatch(/not yet generated/);
     expect(routeMocks.commitChatPatchAuto).not.toHaveBeenCalled();
   });
 });

@@ -538,4 +538,60 @@ describe("checkRequiredEvidenceClasses", (): void => {
       ).toBeNull();
     });
   });
+
+  describe("offer_axis (Fix 4: blockGap parity)", (): void => {
+    const emptyOfferBody = {
+      offerMarketFit: { prose: "evidence gap", proofPoints: [] },
+      funnelDiagnosis: { prose: "evidence gap", breaks: [] },
+      channelTruth: { prose: "evidence gap", channels: [] },
+    };
+    const offerBlockGap = {
+      foundCount: 0,
+      requiredCount: 3,
+      sourcingPlan: ["Re-run acquisition for offerMarketFit."],
+      summary: "Only 0 of the required 3 proof points could be sourced.",
+    };
+
+    it("fails an all-empty offer body with no axis and no gap signal", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: emptyOfferBody,
+          requiredEvidenceClasses: ["offer_axis"],
+          sectionId: "positioningOfferDiagnostic",
+        }),
+      ).toBe("offer_axis");
+    });
+
+    it("accepts an offerMarketFit blockGap as the honest alternative (degraded commits, does not throw RequiredEvidenceMissing)", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyOfferBody,
+            offerMarketFit: {
+              ...emptyOfferBody.offerMarketFit,
+              blockGap: offerBlockGap,
+            },
+          },
+          requiredEvidenceClasses: ["offer_axis"],
+          sectionId: "positioningOfferDiagnostic",
+        }),
+      ).toBeNull();
+    });
+
+    it("accepts a channelTruth blockGap as the honest alternative", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyOfferBody,
+            channelTruth: {
+              ...emptyOfferBody.channelTruth,
+              blockGap: { ...offerBlockGap, requiredCount: 3 },
+            },
+          },
+          requiredEvidenceClasses: ["offer_axis"],
+          sectionId: "positioningOfferDiagnostic",
+        }),
+      ).toBeNull();
+    });
+  });
 });

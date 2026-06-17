@@ -5,10 +5,9 @@ import {
   BarBreakdown,
   BasisChip,
   EvidenceChip,
+  GapNote,
   KeyFindings,
   ReaderExhibit,
-  SectionCoverageNote,
-  StatCallout,
   SubsectionBlock,
   VerdictHero,
   isInvalidReaderUrl,
@@ -151,6 +150,7 @@ function IcpThesisCard({
   const employeeBand = cuts.find((cut) => cut.cutType === 'employeeBands')?.value;
   const techStack = cuts.find((cut) => cut.cutType === 'techStack')?.value;
   const persona = artifact.personaReality.personas[0];
+  const exclusion = artifact.strategicInsight?.keyTension?.costOfPosition;
 
   return (
     <section className="grid gap-4 border border-border bg-card p-5">
@@ -169,9 +169,15 @@ function IcpThesisCard({
         </div>
         <div>
           <p className="text-[12px] text-muted-foreground">Who does not</p>
-          <p className="mt-1 text-[15px] font-medium leading-[1.45] text-foreground">
-            Low-complexity teams without cross-functional handoff risk.
-          </p>
+          {exclusion ? (
+            <p className="mt-1 text-[15px] font-medium leading-[1.45] text-foreground">
+              {scrubReaderText(exclusion)}
+            </p>
+          ) : (
+            <div className="mt-2">
+              <GapNote subject="ICP exclusion evidence" />
+            </div>
+          )}
         </div>
         <div>
           <p className="text-[12px] text-muted-foreground">Disqualifiers</p>
@@ -259,7 +265,6 @@ export function BuyerICPRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={buyerKeyFindings(artifact)} />
       <IcpThesisCard artifact={artifact} />
@@ -379,19 +384,6 @@ export function BuyerICPRenderer({
       </SubsectionBlock>
 
       <StrategicInsightPanel insight={artifact.strategicInsight} />
-
-      <SectionCoverageNote
-        verified={[
-          `${personaReality.personas.length} persona signals`,
-          `${renderableVenues.length} usable venue rows`,
-        ]}
-        assumed={awarenessDistribution.levels
-          .filter((level) => parseShare(level.share ?? '0') === 0)
-          .map((level) => AWARENESS_LABEL[level.level] ?? level.level)}
-        missing={clusters.venues
-          .filter((venue) => !isRenderableVenue(venue))
-          .map((venue) => `${venue.name} venue evidence`)}
-      />
     </div>
   );
 }

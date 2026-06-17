@@ -8,6 +8,7 @@ import {
   paidMediaMoneyProvenanceValues,
   paidMediaPlanBodySchema,
   paidMediaPlanSectionOutputSchema,
+  parsePaidMediaDurationMonths,
   parsePaidMediaPercentToFraction,
   parsePaidMediaTargetCacValue,
   snapSourceSection,
@@ -102,6 +103,80 @@ describe("paidMediaPlanSectionOutputSchema", () => {
     expect(paidMediaPlanSectionOutputSchema.safeParse(output).success).toBe(
       true,
     );
+  });
+});
+
+describe("paidMediaPlanBodySchema row-level evidencePack (Wave 2C)", () => {
+  it("parses synthesized rows that carry a valid evidencePack", () => {
+    const output = buildPaidMediaPlanOutput();
+    const body = output.body as Record<string, unknown>;
+
+    const audienceTypes = body.audienceTypes as Array<Record<string, unknown>>;
+    audienceTypes[0].evidencePack = {
+      status: "grounded",
+      refs: [
+        {
+          sourceSection: "positioningBuyerICP",
+          evidenceKind: "persona",
+          locator: "body.personaReality.personas[0]",
+          excerpt: "Dana Ruiz — economic_buyer — messy CRM handoffs.",
+        },
+      ],
+    };
+
+    const competitorReviewInsights = body.competitorReviewInsights as Array<
+      Record<string, unknown>
+    >;
+    competitorReviewInsights[0].evidencePack = {
+      status: "gap",
+      refs: [],
+      note: "No exact upstream row in positioningVoiceOfCustomer matched this synthesized row; cited at section level only.",
+    };
+
+    const parsed = paidMediaPlanBodySchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const parsedAudience = (
+        parsed.data.audienceTypes as Array<Record<string, unknown>>
+      )[0];
+      expect(parsedAudience.evidencePack).toBeDefined();
+      const parsedReview = (
+        parsed.data.competitorReviewInsights as Array<Record<string, unknown>>
+      )[0];
+      expect(
+        (parsedReview.evidencePack as Record<string, unknown>).status,
+      ).toBe("gap");
+    }
+  });
+
+  it("rejects an evidencePack with a malformed ref (missing excerpt)", () => {
+    const output = buildPaidMediaPlanOutput();
+    const body = output.body as Record<string, unknown>;
+    const audienceTypes = body.audienceTypes as Array<Record<string, unknown>>;
+    audienceTypes[0].evidencePack = {
+      status: "grounded",
+      refs: [
+        {
+          sourceSection: "positioningBuyerICP",
+          evidenceKind: "persona",
+          locator: "body.personaReality.personas[0]",
+          // excerpt intentionally omitted
+        },
+      ],
+    };
+
+    const parsed = paidMediaPlanBodySchema.safeParse(body);
+    expect(parsed.success).toBe(false);
+  });
+
+  it("still parses bodies whose synthesized rows omit evidencePack (backward compat)", () => {
+    const output = buildPaidMediaPlanOutput();
+    const body = output.body as Record<string, unknown>;
+    const audienceTypes = body.audienceTypes as Array<Record<string, unknown>>;
+    expect(audienceTypes[0]).not.toHaveProperty("evidencePack");
+
+    const parsed = paidMediaPlanBodySchema.safeParse(body);
+    expect(parsed.success).toBe(true);
   });
 });
 
@@ -610,7 +685,7 @@ describe("SOP projected-results table (W3)", () => {
     }
   });
 
-  it("shows the brief target CAC as the goal reference but never back-solves the count from it", () => {
+  it("shows the brief target CAC as the goal reference and projects a window-total count at that goal cost (no implied-CAC == target identity)", () => {
     const rawBody = structuredClone(
       paidMediaPlanFixtureArtifact.body,
     ) as unknown as Record<string, unknown>;
@@ -618,8 +693,11 @@ describe("SOP projected-results table (W3)", () => {
     const overview = rawBody.campaignOverview as Record<string, unknown>;
     overview.primaryKpi = "Paid signups";
 
-    // No funnel conversion rate supplied -> the count must NOT be the old
-    // circular budget/targetCac back-solve. The target CAC is the goal column.
+    // No funnel conversion rate supplied -> we never forward-project, but the
+    // buyer must still read "$budget × months ÷ $goal cost = N results". The
+    // count is the WINDOW total at the goal cost (provenance derived), NOT the
+    // old single-month circular identity, and we never emit impliedCacValue for
+    // this path (which is what made implied CAC == target CAC by construction).
     const normalized = normalizePaidMediaPlanBody(rawBody, {
       targetCac: "$1,000",
     });
@@ -631,8 +709,16 @@ describe("SOP projected-results table (W3)", () => {
     for (const row of budgeted) {
       expect(row.kpiCostProvenance).toBe("user-supplied");
       expect(row.kpiCostValue).toBe(1000);
-      expect(row.projectedCountValue).toBeUndefined();
-      expect(row.goalGapNote).toMatch(/funnel conversion rate/i);
+      expect(row.projectedCountValue).toBeGreaterThan(0);
+      expect(row.projectedCountProvenance).toBe("derived");
+      // The honest window-total math: floor(budget × months ÷ goal cost).
+      const months = parsePaidMediaDurationMonths(row.durationLabel);
+      expect(row.projectedCountValue).toBe(
+        Math.floor((row.phaseMonthlyBudgetValue! * months) / 1000),
+      );
+      // Never the tautological implied CAC == target identity.
+      expect(row.impliedCacValue).toBeUndefined();
+      expect(row.goalGapNote).toMatch(/goal cost/i);
     }
   });
 
@@ -678,6 +764,140 @@ describe("SOP projected-results table (W3)", () => {
     ).projectedResults;
 
     expect(validatePaidMediaPlanMinimums(artifact).ok).toBe(true);
+  });
+
+  // Defect 1 (run 3b568ea0): rows carried phaseMonthlyBudgetValue + kpiCostValue
+  // (the brief target-CAC reference) but NO projected count, so the buyer could
+  // not read "$X budget ÷ $Y cost = N results" and PROJECTIONS failed
+  // (missingProjectedCount=2). The window-total fallback derives the count.
+  describe("window-total projected count (Defect 1)", () => {
+    it("derives floor(budget × durationMonths ÷ kpiCost) over a multi-month window and tags it derived", () => {
+      // 10000/mo × 2 months (Months 1-2) ÷ 1000 goal cost = 20.
+      const normalized = normalizePaidMediaPlanBody(
+        rawBodyWithProjectedResults([
+          {
+            ...baseRow,
+            kpi: "Paid signups",
+            kpiCostValue: undefined,
+            kpiCostProvenance: "unknown",
+            durationLabel: "Months 1-2",
+          },
+        ]),
+        { targetCac: "$1,000" },
+      );
+      const row = normalized.projectedResults[0];
+
+      expect(row?.kpiCostValue).toBe(1000);
+      expect(row?.projectedCountValue).toBe(20);
+      expect(row?.projectedCountProvenance).toBe("derived");
+      expect(row?.impliedCacValue).toBeUndefined();
+      expect(row?.countBasis).toMatch(/2 months/i);
+    });
+
+    it("uses a single-month window for a single month index ('Month 3')", () => {
+      const normalized = normalizePaidMediaPlanBody(
+        rawBodyWithProjectedResults([
+          {
+            ...baseRow,
+            kpi: "Paid signups",
+            kpiCostValue: undefined,
+            kpiCostProvenance: "unknown",
+            durationLabel: "Month 3",
+          },
+        ]),
+        { targetCac: "$1,000" },
+      );
+
+      // 10000 × 1 ÷ 1000 = 10 (NOT 30 — "Month 3" is one month, not three).
+      expect(normalized.projectedResults[0]?.projectedCountValue).toBe(10);
+    });
+
+    it("leaves an honest gap (no count) when budget or cost is missing — never fabricates", () => {
+      const normalized = normalizePaidMediaPlanBody(
+        rawBodyWithProjectedResults([
+          // No budget AND no usable cost -> no count.
+          {
+            ...baseRow,
+            kpiCostValue: undefined,
+            kpiCostProvenance: "unknown",
+            phaseMonthlyBudgetValue: undefined,
+            phaseMonthlyBudgetProvenance: "unknown",
+          },
+        ]),
+      );
+
+      expect(
+        normalized.projectedResults[0]?.projectedCountValue,
+      ).toBeUndefined();
+    });
+
+    it("parsePaidMediaDurationMonths reads month ranges and refuses non-month labels", () => {
+      expect(parsePaidMediaDurationMonths("Months 1-2")).toBe(2);
+      expect(parsePaidMediaDurationMonths("Months 1-3")).toBe(3);
+      expect(parsePaidMediaDurationMonths("Month 3")).toBe(1);
+      // Day/week-denominated and unparseable labels degrade to one month.
+      expect(parsePaidMediaDurationMonths("Days 1-60")).toBe(1);
+      expect(parsePaidMediaDurationMonths("Weeks 1-4")).toBe(1);
+      expect(parsePaidMediaDurationMonths(undefined)).toBe(1);
+    });
+  });
+
+  describe("funnel-stage CAC bridge on the cost path (c9bc2056)", () => {
+    it("bridges a funnel-stage cost-path KPI to a customer-CAC band instead of presenting the per-trial cost as a flat CAC", () => {
+      // Reproduces c9bc2056: kpi='Free trial signups', kpiCostValue=$3,000 (the
+      // brief's paid-customer CAC target), no cvrChain -> forward projection
+      // impossible -> lands on the cost path. The $3,000 is cost-per-FREE-TRIAL-
+      // signup, NOT a paid-customer CAC; the row must carry an honest customer-CAC
+      // band + cost-per-trial label, not present $3,000 as if it buys a customer.
+      const normalized = normalizePaidMediaPlanBody(
+        rawBodyWithProjectedResults([
+          {
+            ...baseRow,
+            kpi: "Free trial signups from Business-plan-target ICP",
+            kpiCostValue: 3000,
+            kpiCostProvenance: "user-supplied",
+          },
+        ]),
+      );
+      const row = normalized.projectedResults[0];
+
+      expect(row?.kpiCostValue).toBe(3000);
+      expect(row?.costPerTrialLabel).toBeDefined();
+      expect(row?.customerCacBandHighValue).toBeGreaterThan(0);
+      expect(row?.goalGapNote).toMatch(
+        /trial.{0,4}(?:to|→).{0,4}paid|paid.customer cac|customer cac/i,
+      );
+    });
+
+    it("classifies a free-trial-signup KPI as funnel-stage, not acquisition", () => {
+      // 'Free trial signups' matches BOTH the acquisition ('signups') and
+      // funnel-stage ('trial') patterns; funnel-stage must win so the row gets a
+      // trial->paid bridge rather than being treated as a paid customer.
+      const funnel = normalizePaidMediaPlanBody(
+        rawBodyWithProjectedResults([
+          {
+            ...baseRow,
+            kpi: "Free trial signups",
+            kpiCostValue: 3000,
+            kpiCostProvenance: "user-supplied",
+          },
+        ]),
+      ).projectedResults[0];
+      expect(funnel?.costPerTrialLabel).toBeDefined();
+
+      // A genuine acquisition KPI on the cost path must NOT sprout a trial bridge.
+      const acquisition = normalizePaidMediaPlanBody(
+        rawBodyWithProjectedResults([
+          {
+            ...baseRow,
+            kpi: "New paid customers",
+            kpiCostValue: 3000,
+            kpiCostProvenance: "user-supplied",
+          },
+        ]),
+      ).projectedResults[0];
+      expect(acquisition?.costPerTrialLabel).toBeUndefined();
+    });
   });
 });
 
@@ -1096,10 +1316,13 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
     sourceSection: "positioningDemandIntent",
   };
 
-  it("keeps the brief target CAC as the goal reference and refuses to back-solve the count from it", () => {
-    // The circular bug: count = floor(budget / targetCac) made implied CAC ==
-    // target CAC by construction. With no funnel conversion rate the row now
-    // carries NO count (honest gap) and an explicit note — never a fake count.
+  it("keeps the brief target CAC as the goal reference and projects a window-total count at that goal cost without an implied-CAC identity", () => {
+    // The OLD circular bug: count = floor(budget / targetCac) made implied CAC
+    // == target CAC by construction and HID the shortfall. The honest fix still
+    // gives the buyer a count — floor(budget × months ÷ goal cost) — but never
+    // emits impliedCacValue for this path, so no tautology, and the goalGapNote
+    // flags the count is conditional on hitting the goal cost. "Days 1-60" is
+    // not month-denominated -> one-month window: floor(15000 / 4000) = 3.
     const normalized = normalizePaidMediaPlanBody(
       rawBodyWithRows([unknownCostRow]),
       { targetCac: "≤$4,000" },
@@ -1108,9 +1331,10 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
 
     expect(row?.kpiCostValue).toBe(4000);
     expect(row?.kpiCostProvenance).toBe("user-supplied");
-    expect(row?.projectedCountValue).toBeUndefined();
+    expect(row?.projectedCountValue).toBe(3);
+    expect(row?.projectedCountProvenance).toBe("derived");
     expect(row?.impliedCacValue).toBeUndefined();
-    expect(row?.goalGapNote).toMatch(/funnel conversion rate/i);
+    expect(row?.goalGapNote).toMatch(/goal cost/i);
   });
 
   it("forward-projects the count from CPC x CVR and tags it derived (implied CAC != target CAC)", () => {
@@ -1222,5 +1446,250 @@ describe("brief target-CAC bridge for projected results (W2)", () => {
     expect(parsePaidMediaTargetCacValue("under $1.5k blended")).toBe(1500);
     expect(parsePaidMediaTargetCacValue("not disclosed")).toBeUndefined();
     expect(parsePaidMediaTargetCacValue(undefined)).toBeUndefined();
+  });
+});
+
+// Reproduces the exact run c77ff0e1 numeric defects a media buyer caught:
+// (1) three concurrent projected-results rows summed 25000+5000+5000=$35,000
+//     against a $25,000 plan (phantom spend inflating the trial projection); and
+// (2) impliedCac ($134, cost per free-trial signup) was presented next to a
+//     $3,000 customer-CAC target with no trial->paid bridge — flattering the
+//     plan ~22x by conflating two different units.
+describe("Lane 1: budget partition + trial->paid CAC bridge (c77ff0e1 defects)", () => {
+  function partitionRawBody(
+    rows: unknown[],
+    overview?: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const rawBody = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    const overviewRecord = rawBody.campaignOverview as Record<string, unknown>;
+    overviewRecord.monthlyBudgetValue = 25000;
+    overviewRecord.dailySpendValue = 833;
+    overviewRecord.primaryKpi = "Qualified Business-plan trial";
+    Object.assign(overviewRecord, overview ?? {});
+    rawBody.projectedResults = rows;
+    return rawBody;
+  }
+
+  const concurrentMoveRow = (
+    phaseMonthlyBudgetValue: number,
+    objective: string,
+    sourceSection: string,
+  ) => ({
+    targetIcp: "Ops leaders in Marketing (50-1,000 emp.)",
+    kpi: "Qualified Business-plan trial",
+    objective,
+    durationLabel: "Months 1-3",
+    phaseMonthlyBudgetValue,
+    phaseMonthlyBudgetProvenance: "user-supplied",
+    kpiCostProvenance: "unknown",
+    sourceSection,
+  });
+
+  // The three c77 "moves" — all run concurrently (same durationLabel) and so
+  // must partition the $25k budget, not sum past it.
+  const c77Rows = () => [
+    concurrentMoveRow(25000, "Branded defense + problem-aware", "positioningBuyerICP"),
+    concurrentMoveRow(5000, "Own comparison SERPs", "positioningDemandIntent"),
+    concurrentMoveRow(5000, "AI-intent learning", "positioningMarketCategory"),
+  ];
+
+  const bandOptions = {
+    channelHint: "google search",
+    targetCac: "$3,000",
+    cvrChain: { visitorToSignup: 0.03 },
+  };
+
+  it("partitions concurrent move budgets to sum EXACTLY to the monthly budget (no $35k phantom spend)", () => {
+    const normalized = normalizePaidMediaPlanBody(partitionRawBody(c77Rows()), bandOptions);
+    const concurrent = normalized.projectedResults.filter(
+      (row) => row.durationLabel === "Months 1-3",
+    );
+    const budgetSum = concurrent.reduce(
+      (sum, row) => sum + (row.phaseMonthlyBudgetValue ?? 0),
+      0,
+    );
+
+    expect(concurrent.length).toBe(3);
+    expect(budgetSum).toBe(25000); // not 35000
+    for (const row of concurrent) {
+      expect(row.phaseMonthlyBudgetValue ?? 0).toBeLessThanOrEqual(25000);
+    }
+    const violations = collectPaidMediaBudgetCascadeViolations(normalized);
+    expect(violations.some((v) => v.kind === "projected-partition")).toBe(false);
+  });
+
+  it("the partitioned forward funnel is internally coherent (clicks, CVR, count, implied cost)", () => {
+    const normalized = normalizePaidMediaPlanBody(partitionRawBody(c77Rows()), bandOptions);
+    for (const row of normalized.projectedResults) {
+      if (row.projectedCountValue === undefined) continue;
+      const budget = row.phaseMonthlyBudgetValue ?? 0;
+      const cpc = row.cpcValue ?? 0;
+      const cvr = (row.blendedCvrPercent ?? 0) / 100;
+      expect(row.projectedClicks).toBe(Math.floor(budget / cpc));
+      expect(row.projectedCountValue).toBe(
+        Math.floor((row.projectedClicks ?? 0) * cvr),
+      );
+      expect(row.impliedCacValue).toBe(
+        Math.round((budget / row.projectedCountValue) * 100) / 100,
+      );
+    }
+  });
+
+  it("total projected trials reflect ONLY the real $25k budget, not the phantom $35k", () => {
+    const normalized = normalizePaidMediaPlanBody(partitionRawBody(c77Rows()), bandOptions);
+    const totalTrials = normalized.projectedResults.reduce(
+      (sum, row) => sum + (row.projectedCountValue ?? 0),
+      0,
+    );
+    // $25k / $4 CPC * 3% = ~187 trials. The pre-fix double-count produced 261
+    // (187 + 37 + 37). Allow small per-row flooring drift around the true 187.
+    expect(totalTrials).toBeGreaterThan(170);
+    expect(totalTrials).toBeLessThan(200);
+  });
+
+  it("labels impliedCac as a cost-per-trial — never a customer CAC — and emits a sensitivity band when trial->paid is undisclosed", () => {
+    const normalized = normalizePaidMediaPlanBody(partitionRawBody(c77Rows()), bandOptions);
+    const forwardRows = normalized.projectedResults.filter(
+      (row) => row.impliedCacValue !== undefined,
+    );
+    expect(forwardRows.length).toBeGreaterThan(0);
+    for (const row of forwardRows) {
+      expect(row.costPerTrialLabel).toMatch(/not customer cac/i);
+      expect(row.customerCacValue).toBeUndefined();
+      expect(row.customerCacBandLowValue).toBeDefined();
+      expect(row.customerCacBandHighValue).toBeDefined();
+      expect(row.customerCacBandLowValue!).toBeLessThan(
+        row.customerCacBandHighValue!,
+      );
+      expect(row.customerCacBandLowValue).toBe(
+        Math.round((row.impliedCacValue! / 0.25) * 100) / 100,
+      );
+      expect(row.customerCacBandHighValue).toBe(
+        Math.round((row.impliedCacValue! / 0.1) * 100) / 100,
+      );
+      expect(row.customerCacBandBasis).toMatch(/not customer cac/i);
+    }
+  });
+
+  it("rolls trial cost up to a single modeled customer CAC when the brief discloses trial->paid rates", () => {
+    const normalized = normalizePaidMediaPlanBody(partitionRawBody(c77Rows()), {
+      channelHint: "google search",
+      targetCac: "$3,000",
+      cvrChain: {
+        visitorToSignup: 0.03,
+        signupToActivation: 0.5,
+        activationToPaid: 0.25,
+      },
+    });
+    const forwardRows = normalized.projectedResults.filter(
+      (row) => row.impliedCacValue !== undefined,
+    );
+    expect(forwardRows.length).toBeGreaterThan(0);
+    for (const row of forwardRows) {
+      expect(row.costPerTrialLabel).toMatch(/not customer cac/i);
+      expect(row.customerCacValue).toBe(
+        Math.round((row.impliedCacValue! / 0.125) * 100) / 100,
+      );
+      expect(row.customerCacProvenance).toBe("derived");
+      expect(row.customerCacBasis).toMatch(/trial→paid/i);
+      expect(row.customerCacBandLowValue).toBeUndefined();
+    }
+  });
+
+  it("leaves a single sub-budget move (legitimate under-allocation) untouched", () => {
+    const rows = [
+      concurrentMoveRow(10000, "Single move under budget", "positioningBuyerICP"),
+    ];
+    const normalized = normalizePaidMediaPlanBody(partitionRawBody(rows), bandOptions);
+    expect(normalized.projectedResults[0]?.phaseMonthlyBudgetValue).toBe(10000);
+  });
+});
+
+describe("VoC laundering guard (Defect 3)", () => {
+  function rawBodyWithReviewInsights(
+    insights: unknown[],
+    marketingInsights?: unknown[],
+  ): Record<string, unknown> {
+    const rawBody = structuredClone(
+      paidMediaPlanFixtureArtifact.body,
+    ) as unknown as Record<string, unknown>;
+    rawBody.competitorReviewInsights = insights;
+    if (marketingInsights !== undefined) {
+      rawBody.competitorMarketingInsights = marketingInsights;
+    }
+    return rawBody;
+  }
+
+  const vocReviewInsight = {
+    complaint: "Reviewers say onboarding drags for weeks.",
+    howWeLeverage: "Lead with fast time-to-value in the hook.",
+    sourceSection: "positioningVoiceOfCustomer",
+    grounding: "Customer review evidence.",
+  };
+
+  it("re-stamps a VoC-sourced review insight to 'unattributed' when the VoC gap is set", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithReviewInsights([vocReviewInsight]),
+      { voiceOfCustomerEvidenceGap: true },
+    );
+
+    expect(normalized.competitorReviewInsights[0]?.sourceSection).toBe(
+      "unattributed",
+    );
+  });
+
+  it("leaves a VoC-sourced insight attributed when there is no VoC gap (legit attribution)", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithReviewInsights([vocReviewInsight]),
+    );
+
+    expect(normalized.competitorReviewInsights[0]?.sourceSection).toBe(
+      "positioningVoiceOfCustomer",
+    );
+  });
+
+  it("only re-stamps VoC-sourced rows — other source sections are untouched under a VoC gap", () => {
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithReviewInsights([
+        vocReviewInsight,
+        {
+          ...vocReviewInsight,
+          sourceSection: "positioningCompetitorLandscape",
+        },
+      ]),
+      { voiceOfCustomerEvidenceGap: true },
+    );
+
+    expect(normalized.competitorReviewInsights[0]?.sourceSection).toBe(
+      "unattributed",
+    );
+    expect(normalized.competitorReviewInsights[1]?.sourceSection).toBe(
+      "positioningCompetitorLandscape",
+    );
+  });
+
+  it("re-stamps a VoC-sourced competitor MARKETING insight under a VoC gap too", () => {
+    const marketingInsight = {
+      competitor: "Acme",
+      messaging: "All-in-one workspace",
+      adPlatforms: "Meta; Google",
+      estSpendProvenance: "source-reported",
+      icp: "Ops teams",
+      angles: "Speed",
+      positioning: "Fastest setup",
+      offer: "Free trial",
+      sourceSection: "positioningVoiceOfCustomer",
+      grounding: "Customer review evidence.",
+    };
+    const normalized = normalizePaidMediaPlanBody(
+      rawBodyWithReviewInsights([], [marketingInsight]),
+      { voiceOfCustomerEvidenceGap: true },
+    );
+
+    expect(normalized.competitorMarketingInsights[0]?.sourceSection).toBe(
+      "unattributed",
+    );
   });
 });

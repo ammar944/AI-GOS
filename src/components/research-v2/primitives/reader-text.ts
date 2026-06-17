@@ -4,9 +4,9 @@ const TRUST_MARKER_PATTERN = /\[(?:unverified|verified[^\]]*)\]/gi;
 const AGGREGATE_FOOTNOTE_PATTERN =
   /\[\d+ figures? in this field (?:are|is) unverified[^\]]*\]/gi;
 const PIPELINE_TEXT_PATTERN =
-  /evidence gap:|validator|budget exhausted|exemplar-derived|agentic review unavailable|displayable|verifiedCount|quarantine|quarantined|quarantinedCount|identity-unverified/i;
+  /evidence gap:|evidenceGap|blockGap|source-liveness|validator|budget exhausted|exemplar-derived|agentic review unavailable|displayable|verifiedCount|quarantine|quarantined|quarantinedCount|identity-unverified/i;
 const OPERATOR_VOCAB_CLAUSE_PATTERN =
-  /(?:^|[.;]\s*)[^.;]*(?:displayable|verifiedCount|quarantine|quarantined|quarantinedCount)[^.;]*(?=$|[.;])/gi;
+  /(?:^|[.;]\s*)[^.;]*(?:evidenceGap|blockGap|source-liveness|displayable|verifiedCount|quarantine|quarantined|quarantinedCount)[^.;]*(?=$|[.;])/gi;
 const TOOL_NAME_PATTERN =
   /\b(searchapi|serpapi|firecrawl|perplexity|brave search|spyfu|answer-tool|lab engine|keyword_volume|keyword_trends|adlibrary|google_ads|meta_ads|linkedin_ads|web_search)\b/i;
 const MARKDOWN_LINK_PATTERN = /\[[^\]]+\]\([^)]+\)/g;

@@ -63,11 +63,9 @@ interface CompactAdEvidenceCreative {
 interface CompactAdEvidenceGroup {
   advertiserName: string;
   dataGaps: CompetitorAdEvidenceGroup["dataGaps"];
-  displayableCounts: CompetitorAdEvidenceGroup["displayableCounts"];
   identityConfidence: CompetitorAdEvidenceGroup["identityConfidence"] | null;
   platforms: CompetitorAdEvidenceGroup["platforms"];
   quarantinedCount: number;
-  rawCounts: CompetitorAdEvidenceGroup["rawCounts"];
   returnedCreativeCount: number;
   sampleCreatives: CompactAdEvidenceCreative[];
   sourceErrors: CompetitorAdEvidenceGroup["sourceErrors"];
@@ -616,13 +614,16 @@ function compactAdEvidenceGroups(
   return groups.map((group) => ({
     advertiserName: group.advertiserName,
     dataGaps: group.dataGaps,
-    displayableCounts: group.displayableCounts,
     identityConfidence: group.identityConfidence ?? null,
     platforms: group.platforms,
     quarantinedCount:
       group.quarantinedCount ??
       group.creatives.filter((creative) => creative.verified === false).length,
-    rawCounts: group.rawCounts,
+    // NOTE: displayableCounts / rawCounts (library-reported totals, e.g. 15) are
+    // intentionally NOT exposed to the model — the model used to transcribe them
+    // into prose as "15 ... verified", contradicting the true captured count.
+    // Prose must derive any count from returnedCreativeCount / verifiedCount /
+    // sampleCreatives only. displayableTotal stays in the structured output.
     returnedCreativeCount: group.returnedCreativeCount,
     sampleCreatives: group.creatives.slice(0, 2).map((creative) => ({
       body: creative.body,

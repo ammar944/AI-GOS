@@ -6,7 +6,7 @@ import { VerdictHero } from '../verdict-hero';
 
 describe('VerdictHero', () => {
   it('renders the verdict in the body sans, never the display serif (guards the faux-bold regression)', () => {
-    render(<VerdictHero verdict="Own the fastest-implementation position" confidence={0.7} />);
+    render(<VerdictHero verdict="Own the fastest-implementation position" />);
 
     const heading = screen.getByTestId('verdict-hero').querySelector('h2');
     expect(heading).not.toBeNull();
@@ -23,11 +23,11 @@ describe('VerdictHero', () => {
       <VerdictHero
         verdict="Lead with integration depth"
         whyItMatters="Buyers compare on breadth; depth is the wedge."
-        confidence="0.62"
       />,
     );
 
     expect(screen.getByTestId('verdict-hero')).toHaveTextContent(/lead with integration depth/i);
     expect(screen.getByText(/depth is the wedge/i)).toBeInTheDocument();
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
 });

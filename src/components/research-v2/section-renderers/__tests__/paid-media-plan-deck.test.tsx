@@ -242,4 +242,51 @@ describe('<PaidMediaPlanDeck>', (): void => {
     expect(screen.getByText(/computed/)).toBeInTheDocument();
     expect(container.textContent).not.toContain('derived');
   });
+
+  it('renders cost-per-trial and modeled customer CAC as distinct, unconfusable tiles', (): void => {
+    const artifact = cloneFixture();
+    (artifact.body.projectedResults as Array<Record<string, unknown>>)[0] = {
+      ...artifact.body.projectedResults[0],
+      projectedCountValue: 45,
+      impliedCacValue: 133.69,
+      customerCacValue: 668.45,
+      goalGapNote: 'Modeled customer CAC $668 is under the $3,000 target.',
+    };
+
+    render(<PaidMediaPlanDeck artifact={artifact} />);
+
+    expect(
+      screen.getByText('Cost per qualified trial (signup)'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Modeled customer CAC (after trial→paid)'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('$133.69')).toBeInTheDocument();
+    expect(screen.getByText('$668.45')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Modeled customer CAC \$668 is under the \$3,000 target/i),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the modeled customer-CAC band on a cost-path funnel row (no forward exhibit fields)', (): void => {
+    const artifact = cloneFixture();
+    (artifact.body.projectedResults as Array<Record<string, unknown>>)[0] = {
+      ...artifact.body.projectedResults[0],
+      kpi: 'Free trial signups',
+      kpiCostValue: 3000,
+      projectedCountValue: 8,
+      impliedCacValue: undefined,
+      customerCacValue: undefined,
+      costPerTrialLabel: 'Cost per free-trial signup',
+      customerCacBandLowValue: 9000,
+      customerCacBandHighValue: 30000,
+    };
+
+    render(<PaidMediaPlanDeck artifact={artifact} />);
+
+    expect(
+      screen.getByText('Modeled customer CAC (after trial→paid)'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/\$9,000.+\$30,000/)).toBeInTheDocument();
+  });
 });

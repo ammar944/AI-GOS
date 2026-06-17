@@ -29,8 +29,7 @@ const TOOL_LABELS: Record<string, string> = {
   rerunSection: 'Rerunning section',
   draftStrategyBrief: 'Drafting offer & angle brief',
   reviseStrategyBrief: 'Revising offer & angle brief',
-  editClaim: 'Editing claim',
-  editNarrative: 'Editing narrative',
+  editSectionField: 'Editing section',
   explainSource: 'Explaining source',
   summarizeArtifact: 'Summarizing research',
 };

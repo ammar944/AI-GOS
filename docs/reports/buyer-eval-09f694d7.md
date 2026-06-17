@@ -2,7 +2,7 @@
 
 Run id: `09f694d7-8424-4cd5-87c4-8c855a3a763d`
 Artifact id: `de01341d-dc95-4422-ae7c-67bc5430cb91`
-Generated at: `2026-06-15T13:28:33.570Z`
+Generated at: `2026-06-15T15:05:23.966Z`
 Command: `node scripts/zz-buyer-eval.mjs 09f694d7-8424-4cd5-87c4-8c855a3a763d`
 
 ## Verdict

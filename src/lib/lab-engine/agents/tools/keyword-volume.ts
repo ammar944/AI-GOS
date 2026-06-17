@@ -13,12 +13,23 @@ import {
   type ToolGap,
 } from "./_shared";
 
-// Canonical citation URL for SpyFu-measured rows. The tool output carries it so
-// the structural verifier's toolResult source holds the SAME URL the section
-// body asserts on keyword rows — without it, numericAttribution claims like
-// "4,800 (SpyFu-estimated)" filter to zero sources and die as no_match even
-// though the number came from this tool (W5 provenance bridge).
+// Canonical SpyFu domain for the W5 provenance bridge: the top-level tool
+// output still carries it so the structural verifier's toolResult source holds
+// a stable SpyFu URL. Per-row citations use the deep permalink below instead of
+// this bare root — 15+ rows all citing the identical homepage root read as
+// uncontained self-reported sources to the judge.
 export const SPYFU_SOURCE_URL = "https://www.spyfu.com/";
+
+// Per-keyword SpyFu permalink. Each measured row cites its OWN overview page so
+// citations are distinct and resolvable instead of 15 copies of the bare root.
+// The verifier collects every URL in the tool output into its searchable set,
+// so a body row that cites this exact permalink verifies against the row it
+// came from (W5 numericAttribution bridge: match is per-URL exact-string after
+// trailing-punctuation cleanup, and the encoded query has no spaces to break
+// extraction).
+export function spyfuKeywordUrl(keyword: string): string {
+  return `https://www.spyfu.com/keyword/overview/us?query=${encodeURIComponent(keyword)}`;
+}
 
 // Prose-formatted row digest: the body cites figures as "4,800" / "$7.28", but
 // raw JSON serializes 4800 / 7.28, which never substring-matches. One display
@@ -45,7 +56,9 @@ export const KeywordVolumeOutputSchema = z.union([
     .object({
       type: z.literal("result"),
       source: z.literal("SpyFu"),
-      sourceUrl: z.literal(SPYFU_SOURCE_URL),
+      // Canonical SpyFu domain (W5 bridge anchor). Per-row sourceUrl below
+      // carries the distinct deep permalink each row should be cited with.
+      sourceUrl: z.string().url(),
       keywords: z.array(
         z
           .object({
@@ -56,6 +69,9 @@ export const KeywordVolumeOutputSchema = z.union([
             // null here so no downstream surface can cite $0 CPC as cheap.
             cpc: z.number().nullable(),
             difficulty: z.number(),
+            // Per-keyword SpyFu overview permalink: cite THIS, not the bare
+            // root, so each measured row carries a distinct resolvable source.
+            sourceUrl: z.string().url(),
             display: z.string().min(1),
           })
           .strict(),
@@ -67,7 +83,7 @@ export const KeywordVolumeOutputSchema = z.union([
 
 export const keywordVolumeAgentTool = tool({
   description:
-    "SpyFu-estimated monthly search volume, top-of-page CPC, and ranking difficulty for a list of keywords (bulk: up to 100 keywords in one call). Use this to put a falsifiable demand signal on every keyword row. Values are SpyFu estimates (label them as such), not exact auction data. A null cpc means SpyFu has no auction data for that keyword: render it as `n/a` and never describe it as a cheap or $0 CPC opportunity. Cite each row with sourceUrl exactly as returned (https://www.spyfu.com/) and copy figures in the row's display formatting.",
+    "SpyFu-estimated monthly search volume, top-of-page CPC, and ranking difficulty for a list of keywords (bulk: up to 100 keywords in one call). Use this to put a falsifiable demand signal on every keyword row. Values are SpyFu estimates (label them as such), not exact auction data. A null cpc means SpyFu has no auction data for that keyword: render it as `n/a` and never describe it as a cheap or $0 CPC opportunity. Cite each row with its OWN sourceUrl exactly as returned (a per-keyword spyfu.com/keyword/overview permalink, NOT the bare root) and copy figures in the row's display formatting.",
   inputSchema: z
     .object({
       keywords: z
@@ -100,6 +116,7 @@ export const keywordVolumeAgentTool = tool({
             searchVolume: result.searchVolume,
             cpc,
             difficulty: result.difficulty,
+            sourceUrl: spyfuKeywordUrl(result.keyword),
             display: formatKeywordVolumeDisplay({
               cpc,
               difficulty: result.difficulty,

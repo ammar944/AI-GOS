@@ -7,6 +7,7 @@ import {
   normalizeHostname,
   parseUrlLike,
 } from "../domain-utils";
+import { cleanQuoteText } from "./verification/quote-admission";
 
 export type VoiceOfCustomerCandidateSource =
   | "reviews"
@@ -269,7 +270,10 @@ export function acquisitionModeForEvidenceKind(
 export function createVoiceOfCustomerCandidate(
   input: CreateVoiceOfCustomerCandidateInput,
 ): VoiceOfCustomerCandidate | null {
-  const snippet = input.snippet.trim();
+  // Strip review-platform DOM chrome (tier/employee-count labels, "Verified
+  // User", appended neighbour-review titles) before the snippet is stored, so a
+  // laundered blob never reaches synthesis as a "verbatim" quote.
+  const snippet = cleanQuoteText(input.snippet);
   const normalizedUrl = normalizeCandidateUrl(input.url);
   const domain =
     normalizedUrl === null ? null : getRegistrableDomain(normalizedUrl);

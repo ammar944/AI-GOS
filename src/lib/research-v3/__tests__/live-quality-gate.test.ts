@@ -119,6 +119,69 @@ function withZeroVocQuotes(artifact: ArtifactEnvelope): ArtifactEnvelope {
   };
 }
 
+// VoC ships zero quotes, but the acquisitionLedger proves scrape+parser SUCCEEDED
+// (and then rejected promotable candidates for count/selection reasons) — the
+// empty-despite-evidence case, distinct from the failed-scrape desert above.
+function withVocEmptyDespiteEvidence(
+  artifact: ArtifactEnvelope,
+): ArtifactEnvelope {
+  const painLanguage = isRecord(artifact.body.painLanguage)
+    ? artifact.body.painLanguage
+    : {};
+  const successLanguage = isRecord(artifact.body.successLanguage)
+    ? artifact.body.successLanguage
+    : {};
+
+  return {
+    ...artifact,
+    body: {
+      ...artifact.body,
+      painLanguage: { ...painLanguage, quotes: [] },
+      successLanguage: { ...successLanguage, quotes: [] },
+      evidenceGap: true,
+      evidenceGapReport: {
+        reason: 'insufficient_voice_of_customer_sources',
+        summary:
+          'Review bodies were scraped and parsed but none were promoted to quotes.',
+        foundPainQuoteCount: 0,
+        requiredPainQuoteCount: 10,
+        foundDistinctPainSourceCount: 0,
+        requiredDistinctPainSourceCount: 3,
+        observedPainSourceDomains: [],
+        acquisitionLedger: [
+          {
+            sourceUrl: 'https://www.g2.com/products/saaslaunch/reviews/1',
+            domain: 'g2.com',
+            query: 'saaslaunch review',
+            source: 'reviews',
+            acquisitionMode: 'review_body',
+            evidenceKind: 'review',
+            scrapeStatus: 'succeeded',
+            parserStatus: 'succeeded',
+            promotionStatus: 'rejected',
+            rejectionReason: 'insufficient_independent_domains',
+            observedAt: '2026-06-05T12:00:00.000Z',
+          },
+          {
+            sourceUrl: 'https://www.g2.com/products/saaslaunch/reviews/2',
+            domain: 'g2.com',
+            query: 'saaslaunch review',
+            source: 'reviews',
+            acquisitionMode: 'review_body',
+            evidenceKind: 'review',
+            scrapeStatus: 'succeeded',
+            parserStatus: 'succeeded',
+            promotionStatus: 'rejected',
+            rejectionReason: 'not_selected',
+            observedAt: '2026-06-05T12:00:00.000Z',
+          },
+        ],
+        sourcingPlan: ['Broaden to additional independent review domains.'],
+      },
+    },
+  };
+}
+
 function withBuyerPersonas(
   artifact: ArtifactEnvelope,
   personas: readonly Record<string, unknown>[],
@@ -544,6 +607,62 @@ describe('live quality gate', (): void => {
     );
     expect(result.gates.researchQuality.status).toBe('insufficient');
     expect(result.gates.actionability.status).toBe('not_verified');
+  });
+
+  it('labels VoC empty-despite-evidence when the acquisition ledger proves scrape+parser success', (): void => {
+    const base = createCompleteInput();
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningVoiceOfCustomer'
+        ? createSectionRow({
+            zone: 'positioningVoiceOfCustomer',
+            tier: 'insufficient',
+            artifact: withVocEmptyDespiteEvidence(
+              defaultArtifactForZone(section.zone),
+            ),
+          })
+        : section,
+    );
+
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+    const vocEvidence = result.sectionEvidence.find(
+      (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+    );
+
+    expect(vocEvidence?.qualityStatus).toBe('insufficient');
+    expect(vocEvidence?.qualityReasons).toContain(
+      'positioningVoiceOfCustomer is empty despite 2 successfully acquired candidate(s) (empty-despite-evidence)',
+    );
+    expect(vocEvidence?.qualityReasons).toContain(
+      'positioningVoiceOfCustomer rejected 2 promotable candidate(s) for count/selection reasons',
+    );
+    expect(result.gates.researchQuality.status).toBe('insufficient');
+  });
+
+  it('does NOT label a failed-scrape VoC evidence desert as empty-despite-evidence', (): void => {
+    const base = createCompleteInput();
+    const sections = base.sections.map((section) =>
+      section.zone === 'positioningVoiceOfCustomer'
+        ? createSectionRow({
+            zone: 'positioningVoiceOfCustomer',
+            tier: 'insufficient',
+            artifact: withZeroVocQuotes(defaultArtifactForZone(section.zone)),
+          })
+        : section,
+    );
+
+    const result = evaluateLiveQualityGate(withInputSections(base, sections));
+    const vocEvidence = result.sectionEvidence.find(
+      (evidence) => evidence.zone === 'positioningVoiceOfCustomer',
+    );
+
+    expect(vocEvidence?.qualityReasons).toContain(
+      'positioningVoiceOfCustomer has zero real buyer quotes',
+    );
+    expect(
+      vocEvidence?.qualityReasons.some((reason) =>
+        reason.includes('empty-despite-evidence'),
+      ),
+    ).toBe(false);
   });
 
   it('keeps BuyerICP fewer than two named identities insufficient and not actionable', (): void => {

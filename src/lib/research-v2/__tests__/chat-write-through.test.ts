@@ -4,6 +4,33 @@ import {
   commitChatPatch,
   extractNormalizedPatch,
 } from '../chat-write-through';
+import { findInternalVocabularyToken } from '../client-surface-sanitizer';
+
+/**
+ * Walks every string leaf of a value and returns the first internal-vocabulary
+ * token found, or null when the whole subtree is client-clean. Used to prove
+ * the committed payload carries zero deny-list vocabulary after sanitize.
+ */
+function findInternalTokenDeep(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return findInternalVocabularyToken(value);
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const hit = findInternalTokenDeep(item);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value as Record<string, unknown>)) {
+      const hit = findInternalTokenDeep(v);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  return null;
+}
 
 const ARTIFACT_ID = '00000000-0000-4000-8000-000000000123';
 
@@ -202,6 +229,53 @@ describe('commitChatPatch', () => {
     expect(mirrored.artifact.markdown).not.toMatch(/evidence gap:/i);
     expect(mirrored.data.statusSummary).not.toMatch(/web_search/i);
     expect(mirrored.data.statusSummary).not.toMatch(/\bcorpus\b/i);
+  });
+
+  it('commits via the commit_artifact_section RPC with zero internal-vocabulary leaves, then mirrors the same clean payload', async () => {
+    const mock = makeRpcMock();
+    mock.when('ensure_artifact', { data: ARTIFACT_ID });
+    mock.when('commit_artifact_section', {
+      data: [{ ok: true, revision: 4, conflict: false }],
+    });
+    mock.when('merge_journey_session_research_result', { data: null });
+
+    const result = await commitChatPatch(mock, {
+      userId: 'user_1',
+      runId: '00000000-0000-4000-8000-000000000aaa',
+      zone: 'positioningBuyerICP',
+      sectionRunId: '00000000-0000-4000-8000-0000000000bb',
+      expectedRevision: 1,
+      patchedSection: {
+        data: {
+          sectionTitle: 'Buyer ICP',
+          statusSummary:
+            'We ran a web_search across the corpus and the verifier flagged an evidence gap.',
+        },
+        artifact: {
+          markdown:
+            'evidence gap: the blockGap validator could not corroborate pricing.',
+          title: 'Buyer ICP',
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+
+    // (b) the patch applies through the safe write path — the
+    // commit_artifact_section RPC — not a raw overwrite.
+    const commitCall = mock.calls.find(
+      (call) => call.fn === 'commit_artifact_section',
+    );
+    expect(commitCall).toBeDefined();
+
+    // (a) the COMMITTED payload carries zero internal-vocabulary tokens.
+    expect(findInternalTokenDeep(commitCall?.args.p_patch)).toBeNull();
+
+    // The legacy JSONB mirror is sanitized from the same clean copy.
+    const mirrorCall = mock.calls.find(
+      (call) => call.fn === 'merge_journey_session_research_result',
+    );
+    expect(findInternalTokenDeep(mirrorCall?.args.p_result)).toBeNull();
   });
 
   it('returns conflict=true on a stale_revision row from commit_artifact_section', async () => {

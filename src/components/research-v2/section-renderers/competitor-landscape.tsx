@@ -15,7 +15,6 @@ import {
   Positioning2x2,
   QuoteCard,
   ReaderExhibit,
-  SectionCoverageNote,
   SubsectionBlock,
   VerdictHero,
   clientGapSentence,
@@ -474,7 +473,6 @@ export function CompetitorLandscapeRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
-        confidence={artifact.confidence}
       />
       <KeyFindings findings={competitorKeyFindings(artifact)} />
 
@@ -650,23 +648,6 @@ export function CompetitorLandscapeRenderer({
           </>
         )}
       </SubsectionBlock>
-
-      <SectionCoverageNote
-        verified={[
-          `${competitorSet.competitors.length} competitors`,
-          `${pricingReality.dataPoints.length} pricing points`,
-          `${adEvidence.advertiserGroups.reduce(
-            (sum, group) => sum + countVerifiedCreatives(group),
-            0,
-          )} verified ad creatives`,
-        ]}
-        assumed={shareOfVoice.slices
-          .filter((slice) => slice.winner.trim().length === 0)
-          .map((slice) => slice.surface)}
-        missing={adEvidence.advertiserGroups
-          .filter((group) => countVerifiedCreatives(group) === 0)
-          .map((group) => `${group.advertiserName} confirmed ad creative`)}
-      />
     </div>
   );
 }

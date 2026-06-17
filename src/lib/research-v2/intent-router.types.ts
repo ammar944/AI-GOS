@@ -28,6 +28,14 @@ export interface SectionSummary {
   title: string;
   statusSummary: string;
   keyFindingTitles: string[];
+  /**
+   * Bounded slice of the section's actual key-finding sentences
+   * (body.keyFindings[].finding / .sentence) so the orchestrator reasons over
+   * real content, not just titles. Char-budgeted by the chat route.
+   */
+  keyFindingSentences?: string[];
+  /** Bounded slice of the section's cited source URLs. */
+  sourceUrls?: string[];
 }
 
 export interface ChatMessageForRouter {

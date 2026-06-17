@@ -69,6 +69,102 @@ export const evidenceBlockGapFieldSchema = evidenceBlockGapSchema
   })
   .optional();
 
+// Shared acquisition-sufficiency summary. Attached (optionally) to a section's
+// evidenceGapReport so the SaaSLaunch coverage eval and the live-quality gate can read
+// ONE deterministic verdict on whether upstream evidence was actually acquired, rather
+// than re-deriving it per section. It is a DIAGNOSTIC roll-up of the section's
+// acquisition ledger: how many candidate sources were found, how many were promoted
+// into the artifact, how many were rejected, and the resulting sufficiency tier.
+// IMPORTANT: 'sufficient' is the section's self-report only. Consumers must still apply
+// their own floors — a self-reported 'sufficient' must NEVER override a real evidence
+// gap. The coverage eval treats only 'insufficient' as load-bearing (an extra
+// trip-wire), never as an escape hatch.
+export const acquisitionSufficiencySchema = z
+  .object({
+    tier: z.enum(["sufficient", "partial", "insufficient"]),
+    rationale: z.string().min(1),
+    candidatesFound: z.number().int().nonnegative(),
+    promoted: z.number().int().nonnegative(),
+    rejected: z.number().int().nonnegative(),
+  })
+  .strict();
+
+// Canonical optional sufficiency field. Mirrors evidenceBlockGapFieldSchema's
+// nullable -> undefined -> optional collapse so DeepSeek's explicit null fills coerce
+// to undefined instead of failing the strict body parse.
+export const acquisitionSufficiencyFieldSchema = acquisitionSufficiencySchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+/**
+ * Deterministic acquisition-sufficiency roll-up (Wave 2B). A pure tally of an
+ * acquisition ledger's promotionStatus values plus section floors -> tier. No
+ * LLM, no fabrication: zero promoted is ALWAYS "insufficient", and "sufficient"
+ * is reached ONLY by clearing an absolute floor (the promoted count, or an
+ * optional independent-domain floor) — never by a promotion ratio, so a thin
+ * pack can never launder itself up. Mirrors the AGENTS.md upstream-sufficiency
+ * iron law: only "insufficient" is load-bearing downstream; "sufficient" is the
+ * section's self-report and must never clear a real evidence floor.
+ *
+ * candidatesFound = promoted + rejected (rows representing a classified
+ * candidate). "not_applicable" attempt rows are excluded from every tally.
+ */
+export function computeAcquisitionSufficiency(
+  rows: ReadonlyArray<{
+    promotionStatus: "promoted" | "rejected" | "not_applicable";
+    domain?: string | null;
+  }>,
+  {
+    promotedFloor,
+    promotedDomainFloor,
+  }: { promotedFloor: number; promotedDomainFloor?: number },
+): AcquisitionSufficiency {
+  const promotedRows = rows.filter((row) => row.promotionStatus === "promoted");
+  const promoted = promotedRows.length;
+  const rejected = rows.filter(
+    (row) => row.promotionStatus === "rejected",
+  ).length;
+  const candidatesFound = promoted + rejected;
+
+  if (promoted === 0) {
+    return {
+      tier: "insufficient",
+      rationale: "Zero candidates were promoted; evidence acquisition failed.",
+      candidatesFound,
+      promoted,
+      rejected,
+    };
+  }
+
+  const promotedDomains = new Set(
+    promotedRows
+      .map((row) => (row.domain ?? "").trim().toLowerCase())
+      .filter((domain) => domain.length > 0),
+  ).size;
+  const meetsAbsoluteFloor =
+    promoted >= promotedFloor ||
+    (promotedDomainFloor !== undefined && promotedDomains >= promotedDomainFloor);
+
+  if (meetsAbsoluteFloor) {
+    return {
+      tier: "sufficient",
+      rationale: `${promoted} of ${candidatesFound} candidate(s) promoted cleared the sufficiency floor.`,
+      candidatesFound,
+      promoted,
+      rejected,
+    };
+  }
+
+  return {
+    tier: "partial",
+    rationale: `${promoted} of ${candidatesFound} candidate(s) promoted; below the sufficiency floor but above zero.`,
+    candidatesFound,
+    promoted,
+    rejected,
+  };
+}
+
 export const keyFindingSchema = z
   .object({
     finding: z.string().min(1),
@@ -167,6 +263,7 @@ export const bindingConstraintSchema = z
 
 export type StrategicInsight = z.infer<typeof strategicInsightSchema>;
 export type EvidenceBlockGap = z.infer<typeof evidenceBlockGapSchema>;
+export type AcquisitionSufficiency = z.infer<typeof acquisitionSufficiencySchema>;
 export type KeyFinding = z.infer<typeof keyFindingSchema>;
 export type OrderedStrategicMove = z.infer<typeof orderedStrategicMoveSchema>;
 export type ProvesWrongIf = z.infer<typeof provesWrongIfSchema>;

@@ -97,4 +97,88 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     expect(screen.getByText('REVIEW')).toHaveClass(toneToClass('flagged'));
     expect(screen.getByText('ADD')).toHaveClass(toneToClass('active'));
   });
+
+  it('labels cost-per-trial and modeled customer CAC so a buyer cannot confuse them', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    // Inject a forward-projection row carrying both the cost-per-trial (implied
+    // CAC) and the modeled paid-customer CAC after the trial->paid bridge.
+    (artifact.body.projectedResults as Array<Record<string, unknown>>)[0] = {
+      ...artifact.body.projectedResults[0],
+      cpcValue: 4,
+      cpcProvenance: 'derived',
+      projectedClicks: 1500,
+      blendedCvrPercent: 3,
+      projectedCountValue: 45,
+      impliedCacValue: 133.69,
+      impliedCacProvenance: 'derived',
+      customerCacValue: 668.45,
+      customerCacBasis: 'benchmark',
+      customerCacProvenance: 'derived',
+      goalGapNote:
+        'Modeled customer CAC $668 runs under your $3,000 target at a 20% trial→paid rate.',
+    };
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    expect(
+      screen.getByText('Cost per qualified trial (signup)'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Modeled customer CAC (after trial→paid)'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('$133.69')).toBeInTheDocument();
+    expect(screen.getByText('$668.45')).toBeInTheDocument();
+    expect(screen.getByText(/runs under your \$3,000 target/i)).toBeInTheDocument();
+  });
+
+  it('respects a composer-supplied costPerTrialLabel and omits the customer-CAC row when no bridge is modeled', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    (artifact.body.projectedResults as Array<Record<string, unknown>>)[0] = {
+      ...artifact.body.projectedResults[0],
+      cpcValue: 4,
+      projectedClicks: 1500,
+      blendedCvrPercent: 3,
+      projectedCountValue: 45,
+      impliedCacValue: 133.69,
+      costPerTrialLabel: 'Cost per free signup',
+      // No customerCacValue -> the modeled-customer-CAC step must not appear.
+    };
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    expect(screen.getByText('Cost per free signup')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Modeled customer CAC (after trial→paid)'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders the cost-per-trial label and modeled customer-CAC band on a cost-path funnel row (no forward exhibit fields)', (): void => {
+    // c9bc2056 shape: a funnel-stage row projected on the cost path (no cpcValue /
+    // impliedCacValue) carrying the honest cost-per-trial label + customer-CAC
+    // band. The renderer must surface the band so $3,000 is never read as a flat
+    // paid-customer CAC.
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    (artifact.body.projectedResults as Array<Record<string, unknown>>)[0] = {
+      ...artifact.body.projectedResults[0],
+      kpi: 'Free trial signups from Business-plan-target ICP',
+      kpiCostValue: 3000,
+      kpiCostProvenance: 'user-supplied',
+      projectedCountValue: 8,
+      cpcValue: undefined,
+      impliedCacValue: undefined,
+      costPerTrialLabel: 'Cost per free-trial signup',
+      customerCacBandLowValue: 9000,
+      customerCacBandHighValue: 30000,
+      customerCacBandBasis:
+        '$3,000 is cost per free-trial signup, NOT customer CAC; modeled customer CAC = $9,000–$30,000.',
+    };
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    expect(screen.getByText('Cost per free-trial signup')).toBeInTheDocument();
+    expect(
+      screen.getByText('Modeled customer CAC (after trial→paid)'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/\$9,000.+\$30,000/)).toBeInTheDocument();
+  });
 });

@@ -2,8 +2,8 @@
 name: positioning-buyer-icp
 description: Use this skill when AI-GOS needs to identify the real buyer, ICP boundaries, awareness state, buying triggers, and reachable venues for the audited company.
 metadata:
-  version: 3.1.0-lab
-  updated: 2026-06-11
+  version: 3.2.0-lab
+  updated: 2026-06-16
   author: AI-GOS
   category: GTM/positioning-audit
   tags: [buyer-icp, persona, demand, gtm, positioning]
@@ -30,10 +30,13 @@ Use only the tools allowed for this section.
 ## Iron Laws
 
 - Do not invent named people, roles, venues, audience sizes, account counts, or trigger events.
+- Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally; never restate one as a number you discovered or verified.
+- Do not invent numeric precision that is not present in fetched evidence; an audience size, count, or rate without a sourced basis does not belong in the output.
 - A persona row needs an evidenced identity or public handle; a department label is not a person.
 - Audience size is optional. If the size is not verified, omit it.
 - Use blockGap instead of inventing rows when personas, firmographic cuts, triggers, awareness evidence, or venues are thin.
 - Lead with `keyFindings` when the evidence supports 3-5 buyer truths.
+- The downstream SaaSLaunch paid-media plan composes its Audience Types and targeting slots from `body.personaReality.personas` and `body.buyingContext.triggers`. A synthesized paid-media row may cite this section only when `sufficiency.tier` is not `insufficient`; an insufficient section hands down honest gaps, never padded personas the plan would launder into audiences.
 
 ## GTM Framework Lens
 
@@ -52,6 +55,14 @@ Apply these moves only where evidence permits — skipping a move with thin evid
 When support is absent, write one evidence gap in the relevant block instead of filling the schema with invented buyer detail.
 
 Schema anchors this skill must satisfy: `body.icpExistenceCheck.prose`, `body.icpExistenceCheck.firmographicCuts`, `body.buyingContext.triggers`, `body.personaReality.personas`, `body.buyingContext.prose`, `body.awarenessDistribution.levels`, `body.awarenessDistribution.prose`, `body.clusters.prose`, and `body.clusters.venues`.
+
+## Acquisition Ledger & Sufficiency
+
+Persona and venue discovery uses `perplexity_research` / `web_search` for **bounded source discovery only** — surfacing candidate named buyers and reachable surfaces to verify. You (DeepSeek) remain the writer and repair authority: a discovery answer is a lead, never quotable prose or a citation by itself.
+
+When the section degrades (fewer named personas clear the bar than required), record the discovery trail in `body.evidenceGapReport.acquisitionLedger`. Each row carries the searched `source` / `query` / `sourceUrl` / `domain`, the `candidateLabel` found, `promotionStatus` (`promoted` into `personaReality.personas`, or `rejected`), and a `rejectionReason` for rejected candidates. Summarize the trail in `body.evidenceGapReport.sufficiency`: `tier` (`sufficient` | `partial` | `insufficient`), `rationale`, and the `candidatesFound` / `promoted` / `rejected` counts.
+
+Sparse acquisition must produce honest rejected rows and an honest `sufficiency` tier — never a fabricated persona to fill the count. A rejected candidate stays in the ledger as a rejection; it never becomes a persona row.
 
 ## Output Shape Example
 

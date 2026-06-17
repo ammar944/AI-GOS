@@ -203,6 +203,117 @@ function hasSelfSourcedCandidate({
   });
 }
 
+// Per-block disjoint candidate partition. The c9bc2056 defect fanned ONE
+// candidate list into five blocks via slice(), so the same laundered blob
+// shipped as a pain quote AND an objection AND a switching reason AND a decision
+// criterion AND success language. A genuine customer sentence belongs in exactly
+// one block; reusing a verbatim across blocks is laundering one quote into four
+// "distinct" evidence types. So we partition: success first (after-state, pulled
+// off the tail so pain keeps the top-ranked snippets), then carve disjoint
+// slices for the derived blocks while painLanguage keeps >=VOC_MIN_DOMAINS
+// distinct sources, and any block the partition empties carries an honest
+// blockGap instead of a reused pain quote.
+const VOC_SUCCESS_BLOCK_CAP = 3;
+const VOC_OBJECTION_BLOCK_CAP = 5;
+const VOC_SWITCHING_BLOCK_CAP = 3;
+const VOC_DECISION_BLOCK_CAP = 5;
+// Keep pain comfortably above the >=VOC_MIN_DOMAINS / non-empty floor before
+// carving a candidate into a derived block.
+const VOC_PAIN_MIN_RESERVE = Math.max(VOC_MIN_DOMAINS + 1, 4);
+
+interface VoiceOfCustomerPartition {
+  pain: VoiceOfCustomerCandidate[];
+  objections: VoiceOfCustomerCandidate[];
+  switchingStories: VoiceOfCustomerCandidate[];
+  decisionCriteria: VoiceOfCustomerCandidate[];
+  success: VoiceOfCustomerCandidate[];
+}
+
+function distinctDomainCount(
+  candidates: readonly VoiceOfCustomerCandidate[],
+): number {
+  return new Set(candidates.map((candidate) => candidate.domain)).size;
+}
+
+function partitionVoiceOfCustomerCandidates(
+  candidates: readonly VoiceOfCustomerCandidate[],
+): VoiceOfCustomerPartition {
+  const pool = [...candidates];
+
+  // Move a candidate out of the pool into `target` only while painLanguage (what
+  // remains in `pool`) keeps its reserve AND >=VOC_MIN_DOMAINS distinct sources.
+  // `predicate` lets success carve only after-state candidates; the derived
+  // blocks carve any candidate. Pulling from the TAIL keeps pain's top-ranked
+  // snippets. The floor guard runs on success too, so success extraction can
+  // never strip an entire domain out of pain (which would trip the pain
+  // single-source-majority / distinct-source floor).
+  const carve = (
+    cap: number,
+    predicate?: (candidate: VoiceOfCustomerCandidate) => boolean,
+  ): VoiceOfCustomerCandidate[] => {
+    const carved: VoiceOfCustomerCandidate[] = [];
+
+    while (carved.length < cap) {
+      let moved = false;
+
+      for (let i = pool.length - 1; i >= 0; i -= 1) {
+        if (predicate !== undefined && !predicate(pool[i])) {
+          continue;
+        }
+
+        const trial = [...pool.slice(0, i), ...pool.slice(i + 1)];
+
+        if (
+          trial.length >= VOC_PAIN_MIN_RESERVE &&
+          distinctDomainCount(trial) >= VOC_MIN_DOMAINS
+        ) {
+          carved.unshift(pool[i]);
+          pool.splice(i, 1);
+          moved = true;
+          break;
+        }
+      }
+
+      if (!moved) {
+        break;
+      }
+    }
+
+    return carved;
+  };
+
+  const success = carve(VOC_SUCCESS_BLOCK_CAP, expressesAfterState);
+  const objections = carve(VOC_OBJECTION_BLOCK_CAP);
+  const switchingStories = carve(VOC_SWITCHING_BLOCK_CAP);
+  const decisionCriteria = carve(VOC_DECISION_BLOCK_CAP);
+
+  return { pain: pool, objections, switchingStories, decisionCriteria, success };
+}
+
+function buildBlockGap({
+  found,
+  required,
+  summary,
+  sourcingPlan,
+}: {
+  found: number;
+  required: number;
+  summary: string;
+  sourcingPlan: string[];
+}): {
+  summary: string;
+  foundCount: number;
+  requiredCount: number;
+  sourcingPlan: string[];
+} {
+  return {
+    summary,
+    foundCount: found,
+    requiredCount: required,
+    sourcingPlan,
+  };
+}
+
 function buildVoiceOfCustomerOutput({
   candidates,
   domains,
@@ -210,13 +321,21 @@ function buildVoiceOfCustomerOutput({
   candidates: readonly VoiceOfCustomerCandidate[];
   domains: readonly string[];
 }): VoiceOfCustomerSectionOutput {
-  // Promote the WHOLE selected pack (already deduped, ranked, and capped at
-  // VOC_CANDIDATE_PACK_MAX_SIZE) — the shared floors are minimums, not caps.
-  const painCandidates = [...candidates];
-  const successCandidates = candidates.filter(expressesAfterState);
-  const objections = painCandidates.slice(0, 5);
-  const switchingStories = painCandidates.slice(0, 3);
-  const criteria = painCandidates.slice(0, 5);
+  const partition = partitionVoiceOfCustomerCandidates(candidates);
+  const painCandidates = partition.pain;
+  const successCandidates = partition.success;
+  const objections = partition.objections;
+  const switchingStories = partition.switchingStories;
+  const criteria = partition.decisionCriteria;
+  // Top-level sources list every URL actually cited across all blocks, not just
+  // pain — each block now cites DISTINCT evidence after partitioning.
+  const promotedCandidates = [
+    ...painCandidates,
+    ...objections,
+    ...switchingStories,
+    ...criteria,
+    ...successCandidates,
+  ];
   const domainList = domains.join(", ");
 
   return voiceOfCustomerSectionOutputSchema.parse({
@@ -225,7 +344,7 @@ function buildVoiceOfCustomerOutput({
       "Independent buyer-language candidates point to follow-up control as the credible VoC wedge, so promote source-backed workflow proof before broad automation claims.",
     statusSummary: `Deterministic synthesis promoted ${painCandidates.length} acquired candidate snippets across ${domains.length} independent domains (${domainList}) without inventing reviewer names, dates, statistics, or customer claims.`,
     confidence: 0.72,
-    sources: topLevelSources(painCandidates),
+    sources: topLevelSources(promotedCandidates),
     body: {
       strategicInsight: {
         strategicVerdict:
@@ -278,6 +397,19 @@ function buildVoiceOfCustomerOutput({
           objectionText: candidate.snippet,
           sourceUrl: candidate.url,
         })),
+        ...(objections.length === 0
+          ? {
+              blockGap: buildBlockGap({
+                found: 0,
+                required: 1,
+                summary:
+                  "Distinct objection evidence was routed to the pain-language bank; no independent quote remained to source an objection without reusing a pain quote.",
+                sourcingPlan: [
+                  "Acquire additional independent review/forum quotes so objections can be sourced without reusing pain-language evidence.",
+                ],
+              }),
+            }
+          : {}),
       },
       switchingStories: {
         prose:
@@ -289,6 +421,19 @@ function buildVoiceOfCustomerOutput({
           reasonToLeave: candidate.snippet,
           sourceUrl: candidate.url,
         })),
+        ...(switchingStories.length === 0
+          ? {
+              blockGap: buildBlockGap({
+                found: 0,
+                required: 1,
+                summary:
+                  "Distinct switching-story evidence was routed to the pain-language bank; no independent quote remained to source a switching story without reusing a pain quote.",
+                sourcingPlan: [
+                  "Acquire additional independent review/forum quotes so switching stories can be sourced without reusing pain-language evidence.",
+                ],
+              }),
+            }
+          : {}),
       },
       decisionCriteria: {
         prose:
@@ -309,17 +454,50 @@ function buildVoiceOfCustomerOutput({
               index
             ] ?? "buyer",
         })),
+        ...(criteria.length === 0
+          ? {
+              blockGap: buildBlockGap({
+                found: 0,
+                required: 1,
+                summary:
+                  "Distinct decision-criteria evidence was routed to the pain-language bank; no independent quote remained to source a decision criterion without reusing a pain quote.",
+                sourcingPlan: [
+                  "Acquire additional independent review/forum quotes so decision criteria can be sourced without reusing pain-language evidence.",
+                ],
+              }),
+            }
+          : {}),
       },
-      successLanguage: {
-        prose:
-          "Success language is promoted only from snippets that express an after-state or recovered operating control.",
-        quotes: successCandidates.map((candidate) => ({
-          afterStatePattern: "weekly account-action control restored",
-          source: quoteSourceForCandidate(candidate),
-          sourceUrl: candidate.url,
-          verbatimText: candidate.snippet,
-        })),
-      },
+      successLanguage:
+        successCandidates.length === 0
+          ? {
+              // Honest block-gap: no after-state quotes cleared the bar, but the
+              // pain/objection/switching/decision evidence above is unaffected.
+              // Keeps the section committable (schema requires a blockGap when
+              // quotes are empty) instead of collapsing the whole section.
+              prose:
+                "No independent after-state (success) quotes cleared the promotion bar; the pain, objection, switching, and decision evidence in this section is unaffected.",
+              quotes: [],
+              blockGap: {
+                summary:
+                  "No independent after-state (success) quotes were found above the promotion bar. The pain, objection, switching, and decision evidence in this section is unaffected.",
+                foundCount: 0,
+                requiredCount: VOC_MIN_SUCCESS_QUOTES,
+                sourcingPlan: [
+                  "Collect verified post-purchase / outcome reviews (e.g. case studies, G2 'what do you like best') to promote success language.",
+                ],
+              },
+            }
+          : {
+              prose:
+                "Success language is promoted only from snippets that express an after-state or recovered operating control.",
+              quotes: successCandidates.map((candidate) => ({
+                afterStatePattern: "weekly account-action control restored",
+                source: quoteSourceForCandidate(candidate),
+                sourceUrl: candidate.url,
+                verbatimText: candidate.snippet,
+              })),
+            },
     },
   });
 }
@@ -449,14 +627,13 @@ export function synthesizeVoiceOfCustomerFromCandidates({
     });
   }
 
-  if (candidates.filter(expressesAfterState).length < VOC_MIN_SUCCESS_QUOTES) {
-    return buildGap({
-      candidateCount: candidates.length,
-      domains,
-      message: `Found fewer than ${VOC_MIN_SUCCESS_QUOTES} candidate snippets with a clear after-state; deterministic success language cannot be promoted honestly.`,
-      reason: "insufficient_success_language",
-    });
-  }
+  // A shortfall in after-state (success) language is NOT a whole-section
+  // failure. The pain floor (VOC_MIN_QUOTES / VOC_MIN_DOMAINS, already enforced
+  // above) is the real gate; success language is an OPTIONAL block. When fewer
+  // than VOC_MIN_SUCCESS_QUOTES after-state snippets exist, buildVoiceOfCustomerOutput
+  // emits successLanguage as an honest block-gap so the section still ships its
+  // pain, objections, switching, and decision evidence instead of collapsing to
+  // an empty evidence-gap shell over one optional block.
 
   let output: VoiceOfCustomerSectionOutput;
   try {

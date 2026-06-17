@@ -28,7 +28,10 @@ import {
   resetSectionRunForRerun,
 } from '@/lib/research-v2/orchestrate-db';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
-import { realBuyerQuoteCountFromArtifactData } from '@/lib/research-v2/research-evidence-readiness';
+import {
+  committedAsDeadlineExhaustedFromArtifactData,
+  realBuyerQuoteCountFromArtifactData,
+} from '@/lib/research-v2/research-evidence-readiness';
 import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/uploaded-document-context.server';
 import { createAdminClient } from '@/lib/supabase/server';
 
@@ -297,10 +300,25 @@ export async function dispatchAutoRerunForErroredSections({
     )
     .map((row) => row.zone)
     .filter(isPositioningSectionId);
-  const rescueZones = [
-    ...erroredZones,
-    ...starvedVoiceOfCustomerZones,
-  ].filter((zone) => (attemptCountByZone.get(zone) ?? 0) < 2);
+  // Deadline-exhausted honest-gap commits: a section committed `complete` only
+  // because it ran out of time under fan-out and degraded to the placeholder
+  // wall (e.g. offer-diagnostic). A solo rerun completes without contention —
+  // turning 38 "rerun to retry" leaves into a real section.
+  const deadlineExhaustedZones = coreRows
+    .filter(
+      (row) =>
+        row.status === 'complete' &&
+        committedAsDeadlineExhaustedFromArtifactData(row.data),
+    )
+    .map((row) => row.zone)
+    .filter(isPositioningSectionId);
+  const rescueZones = Array.from(
+    new Set([
+      ...erroredZones,
+      ...starvedVoiceOfCustomerZones,
+      ...deadlineExhaustedZones,
+    ]),
+  ).filter((zone) => (attemptCountByZone.get(zone) ?? 0) < 2);
 
   if (!waveDrained || rescueZones.length === 0) {
     return 0;
@@ -311,7 +329,9 @@ export async function dispatchAutoRerunForErroredSections({
     console.info(
       erroredZones.includes(sectionId)
         ? '[run-lab-section] ADR-0012 auto-rerun dispatching'
-        : '[run-lab-section] starved-VoC auto-rescue dispatching',
+        : deadlineExhaustedZones.includes(sectionId)
+          ? '[run-lab-section] deadline-exhausted auto-rescue dispatching'
+          : '[run-lab-section] starved-VoC auto-rescue dispatching',
       {
         runId,
         sectionId,

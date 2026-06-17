@@ -2,8 +2,8 @@
 name: positioning-paid-media-plan
 description: Use this skill when AI-GOS turns committed positioning artifacts into a grounded paid-media plan: budget logic, audiences, angles, creative, funnel, sales assets, channels, KPIs, and cross-section reasoning.
 metadata:
-  version: 3.2.0-lab
-  updated: 2026-06-11
+  version: 3.3.0-lab
+  updated: 2026-06-16
   author: AI-GOS
   category: GTM/paid-media-plan
   tags: [paid-media, media-buying, direct-response, cross-section, gtm]
@@ -42,6 +42,28 @@ Use `ResearchInput.committedPositioningArtifacts` as source of truth for the six
 - Never invent URLs for sales assets. If no sales-process asset was supplied, emit one gap asset saying the client did not supply assets and what to upload.
 - Never compute projected counts. The runner computes count and margin from budget and KPI cost.
 - Every hook, audience, and channel recommendation must tie to a committed section or explicit operator input.
+- A synthesized row may cite an upstream section only when that section is present in the run and its acquisition `sufficiency.tier` is not `insufficient`. Never launder a confident audience, angle, creative hook, or competitor insight off an insufficient or missing upstream section — emit an honest gap row instead.
+
+## SaaSLaunch Fulfillment Contract
+
+This section is the artifact behind the 13-slide SaaSLaunch paid-media deck (slide 1 is the cover; the 12 content slides map to body keys). Fill every slot from real evidence; an unfillable slot is an honest gap, never filler.
+
+| Slide | Fulfillment slot | Body key | Source |
+| --- | --- | --- | --- |
+| 1 | Campaign Overview | `campaignOverview` | operator economics |
+| 2 | Campaign Phases | `campaignPhases` | operator economics |
+| 3 | Audience Types | `audienceTypes` | BuyerICP |
+| 4 | Angles to Test | `anglesToTest` | VoC / DemandIntent / Offer |
+| 5 | Creative Strategy | `creativeStrategy` | methodology |
+| 6 | Creative Framework | `creativeFramework` | VoC / Competitor |
+| 7 | Funnel Ideation | `funnelIdeation` | Offer / methodology |
+| 8 | Sales Process | `salesProcess` | operator-supplied assets or one gap |
+| 9 | Competitor Insights — Marketing | `competitorMarketingInsights` | CompetitorLandscape |
+| 10 | Competitor Insights — Reviews | `competitorReviewInsights` | VoC / CompetitorLandscape |
+| 11 | Current Funnel / Channel Suggestions | `channelSuggestions` | DemandIntent / Offer |
+| 12 | KPIs & Success Metrics | `kpis` + `projectedResults` | operator economics |
+
+Templated slots (overview, phases, creative strategy, funnel, KPIs) come from operator economics and methodology. Synthesized slots (audiences, angles, creative, competitor insights, channels) must trace to a committed upstream section via `sourceSection` + grounding and obey the upstream-sufficiency Iron Law above. The offline `scripts/zz-saaslaunch-coverage-eval.mjs` grades this fulfillment contract; it never blocks runtime UX.
 
 ## GTM Framework Lens
 

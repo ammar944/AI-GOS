@@ -23,7 +23,7 @@ const sb = createClient(
 async function main() {
   const { data: arts, error: ae } = await sb
     .from('research_artifacts')
-    .select('id, run_id, status, children_total, children_complete')
+    .select('id, run_id, status, children_total, children_complete, thesis')
     .eq('run_id', RUN_ID);
   if (ae) { console.error('DB error:', ae.message); process.exit(2); }
   if (!arts?.length) { console.error(`No artifact for run_id ${RUN_ID}`); process.exit(2); }
@@ -55,7 +55,27 @@ async function main() {
     });
   }
   manifest.sort((a, b) => a.zone.localeCompare(b.zone));
-  await writeFile(join(OUT_DIR, '_manifest.json'), JSON.stringify({ run_id: RUN_ID, artifact_id: parent.id, status: parent.status, rollup: `${parent.children_complete}/${parent.children_total}`, sections: manifest }, null, 2), 'utf8');
+
+  // Brief / subject metadata so an offline judge bundle is self-describing
+  // (zz-judge-run.mjs --bundle reads subjectUrl + briefInput from here).
+  const { data: sessionRow } = await sb
+    .from('journey_sessions')
+    .select('metadata, onboarding_data')
+    .eq('run_id', RUN_ID)
+    .maybeSingle();
+
+  await writeFile(join(OUT_DIR, '_manifest.json'), JSON.stringify({
+    run_id: RUN_ID,
+    artifact_id: parent.id,
+    status: parent.status,
+    children_total: parent.children_total ?? null,
+    children_complete: parent.children_complete ?? null,
+    rollup: `${parent.children_complete}/${parent.children_total}`,
+    thesis: parent.thesis ?? null,
+    subjectUrl: sessionRow?.metadata?.websiteUrl ?? null,
+    briefInput: sessionRow?.onboarding_data ?? null,
+    sections: manifest,
+  }, null, 2), 'utf8');
 
   console.log(`Dumped ${manifest.length} sections for run ${RUN_ID} -> ${OUT_DIR}`);
   for (const m of manifest) {
