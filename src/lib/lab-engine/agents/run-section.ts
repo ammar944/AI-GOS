@@ -1400,7 +1400,21 @@ function buildVoiceOfCustomerEvidenceGapSources({
   return sources;
 }
 
-function buildVoiceOfCustomerEvidenceGapBody({
+const readerTelemetryTokenPattern =
+  /\b(runId|sectionId|subjectDomain|candidateCount|painQuoteCount|successQuoteCount|promotedContentCount|observedDomains|message|reason)=\S*/giu;
+const genericReaderTelemetrySegmentPattern = /\b[\w]+=[^\s;]+;?/gu;
+
+function stripReaderTelemetryTail(value: string): string {
+  return value
+    .replace(readerTelemetryTokenPattern, "")
+    .replace(genericReaderTelemetrySegmentPattern, "")
+    .replace(/(?:\s*;\s*){2,}/gu, "; ")
+    .replace(/^[\s;]+|[\s;]+$/gu, "")
+    .replace(/\s{2,}/gu, " ")
+    .trim();
+}
+
+export function buildVoiceOfCustomerEvidenceGapBody({
   acquisitionAttempts,
   acquisitionLedger,
   facts,
@@ -1434,13 +1448,18 @@ function buildVoiceOfCustomerEvidenceGapBody({
     facts.observedPainSourceDomains.length === 0
       ? "none"
       : facts.observedPainSourceDomains.join(", ");
+  const issueForReader = stripReaderTelemetryTail(issue);
   const summary = hasPromotedPainQuotes
-    ? [shortfallNote, `Observed domains: ${observedDomains}.`, issue].join(" ")
+    ? [
+        shortfallNote,
+        `Observed domains: ${observedDomains}.`,
+        ...(issueForReader === "" ? [] : [issueForReader]),
+      ].join(" ")
     : [
         "Evidence gap: independent Voice of Customer acquisition did not meet the committed evidence bar.",
         `Found ${facts.foundPainQuoteCount} usable pain-language candidate(s) across ${facts.foundDistinctPainSourceCount} independent source domain(s); required ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} domains.`,
         `Observed domains: ${observedDomains}.`,
-        issue,
+        ...(issueForReader === "" ? [] : [issueForReader]),
       ].join(" ");
 
   return {
@@ -2538,14 +2557,7 @@ function getVoiceOfCustomerModelAuthoredEvidenceGapIssue({
     return null;
   }
 
-  return [
-    voiceOfCustomerModelAuthoredEvidenceGapIssue,
-    `painQuoteCount=${painQuoteCount}`,
-    `successQuoteCount=${successQuoteCount}`,
-    `promotedContentCount=${promotedContentCount}`,
-    `runId=${input.runId}`,
-    `sectionId=${input.sectionId}`,
-  ].join(" ");
+  return voiceOfCustomerModelAuthoredEvidenceGapIssue;
 }
 
 function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
@@ -9419,7 +9431,17 @@ async function buildBuyerPersonaCandidatePrepass({
   }
 }
 
-function formatVoiceOfCustomerCandidateGapIssue({
+export function formatVoiceOfCustomerCandidateGapIssue({
+  gap,
+}: {
+  gap: Exclude<VoiceOfCustomerCandidateResult, { ok: true }>["gap"];
+  input: RunSectionInput;
+  subjectDomain: string | null;
+}): string {
+  return gap.message;
+}
+
+function formatVoiceOfCustomerCandidateGapMetadataIssue({
   gap,
   input,
   subjectDomain,
@@ -10507,6 +10529,11 @@ async function runSectionViaAnswerTool(
         input,
         subjectDomain: voiceOfCustomerPrepass.subjectDomain,
       });
+      const metadataIssue = formatVoiceOfCustomerCandidateGapMetadataIssue({
+        gap: voiceOfCustomerPrepass.result.gap,
+        input,
+        subjectDomain: voiceOfCustomerPrepass.subjectDomain,
+      });
 
       await appendEvent(
         deps,
@@ -10517,7 +10544,7 @@ async function runSectionViaAnswerTool(
           sectionId: input.sectionId,
           type: "validation-failed",
           message: "Voice of Customer candidate prepass failed validation",
-          metadata: { attempt: 1, issues: [issue] },
+          metadata: { attempt: 1, issues: [metadataIssue] },
         }),
       );
 
@@ -11262,6 +11289,11 @@ async function runSectionViaStructuredBodyStream(
         input,
         subjectDomain: voiceOfCustomerPrepass.subjectDomain,
       });
+      const metadataIssue = formatVoiceOfCustomerCandidateGapMetadataIssue({
+        gap: voiceOfCustomerPrepass.result.gap,
+        input,
+        subjectDomain: voiceOfCustomerPrepass.subjectDomain,
+      });
 
       await appendEvent(
         deps,
@@ -11272,7 +11304,7 @@ async function runSectionViaStructuredBodyStream(
           sectionId: input.sectionId,
           type: "validation-failed",
           message: "Voice of Customer candidate prepass failed validation",
-          metadata: { attempt: 1, issues: [issue] },
+          metadata: { attempt: 1, issues: [metadataIssue] },
         }),
       );
 
