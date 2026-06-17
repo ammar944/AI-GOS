@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
 
 import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
+import { startManagedAudit } from '@/lib/managed-agents/start-audit';
 import {
   freezeReviewedBriefSnapshot,
   OrchestrateRpcError,
@@ -29,9 +30,15 @@ const RequestSchema = z
   .object({
     run_id: z.string().uuid(),
     journey_session_id: z.string().uuid().optional(),
-    executionMode: z.enum(['draft', 'deep']).optional(),
+    // 'managed' is gated behind MANAGED_AGENTS_POSITIONING_ENABLED; Phase 3
+    // will flip the default away from 'deep'.
+    executionMode: z.enum(['draft', 'deep', 'managed']).optional(),
   })
   .passthrough();
+
+function managedAgentsPositioningEnabled(): boolean {
+  return process.env.MANAGED_AGENTS_POSITIONING_ENABLED === 'true';
+}
 
 interface JourneySessionRow {
   id: string;
@@ -134,6 +141,56 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
+    // Managed Agents path (Phase 1): gated behind the feature flag AND
+    // explicit executionMode opt-in. seedOrchestration is still the source
+    // of truth for parent + 6 section run ids — startManagedAudit calls it
+    // internally.
+    if (body.executionMode === 'managed') {
+      if (!managedAgentsPositioningEnabled()) {
+        return NextResponse.json(
+          {
+            error: 'managed_agents_disabled',
+            message:
+              'executionMode=managed requires MANAGED_AGENTS_POSITIONING_ENABLED=true',
+          },
+          { status: 403 },
+        );
+      }
+      const managed = await startManagedAudit({
+        userId,
+        runId: body.run_id,
+        gtmBrief: session.onboarding_data ?? {},
+        corpusExcerpt:
+          (session.research_results?.['deepResearchProgram'] as Record<
+            string,
+            unknown
+          > | null) ?? null,
+      });
+      await freezeReviewedBriefSnapshot({
+        parentAuditRunId: managed.parentAuditRunId,
+        gtmBriefSnapshot: session.onboarding_data ?? {},
+        gtmBriefReview: getOnboardingReviewMetadata(session.metadata),
+      });
+      return NextResponse.json(
+        {
+          parent_audit_run_id: managed.parentAuditRunId,
+          section_run_ids: managed.sectionRunIds.map((row) => ({
+            section_id: row.sectionId,
+            section_run_id: row.sectionRunId,
+            ordinal: row.ordinal,
+            reused: row.reused,
+          })),
+          managed_agents: {
+            session_id: managed.sessionId,
+            coordinator_agent_id: managed.coordinatorAgentId,
+            environment_id: managed.environmentId,
+            specialist_agent_ids: managed.specialistAgentIds,
+          },
+        },
+        { status: 200 },
+      );
+    }
+
     const seeded = await seedOrchestration({
       userId,
       runId: body.run_id,

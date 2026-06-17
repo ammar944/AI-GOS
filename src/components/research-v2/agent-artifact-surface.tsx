@@ -32,6 +32,7 @@ import {
 
 import { POSITIONING_SECTION_IDS, POSITIONING_SECTION_LABELS } from '@/lib/ai/prompts/positioning-skills';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
+import { defaultOrchestrateExecutionMode } from '@/lib/research-v2/orchestrate-client';
 import {
   isBuyerICPArtifact,
   isCompetitorLandscapeArtifact,
@@ -424,7 +425,12 @@ export function AgentArtifactSurface({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ run_id: runId }),
+      body: JSON.stringify({
+        run_id: runId,
+        ...(defaultOrchestrateExecutionMode()
+          ? { executionMode: defaultOrchestrateExecutionMode() }
+          : {}),
+      }),
     }).catch((err) => {
       console.warn('[artifact-surface] auto-kickoff failed:', err);
       kickoffFired.current = false;
@@ -497,7 +503,12 @@ export function AgentArtifactSurface({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ run_id: runId }),
+        body: JSON.stringify({
+        run_id: runId,
+        ...(defaultOrchestrateExecutionMode()
+          ? { executionMode: defaultOrchestrateExecutionMode() }
+          : {}),
+      }),
       });
       setDispatchState(res.ok ? 'fired' : 'error');
       // Reset to idle after a beat so the button can be re-fired.

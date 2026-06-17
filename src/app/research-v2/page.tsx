@@ -12,6 +12,7 @@ import {
   researchV2Reducer,
   INITIAL_STATE,
 } from '@/lib/research-v2/state-machine';
+import { defaultOrchestrateExecutionMode } from '@/lib/research-v2/orchestrate-client';
 import type {
   OnboardingReviewMetadata,
   OnboardingV2Data,
@@ -412,14 +413,20 @@ export default function ResearchV2Page() {
       dispatch({ type: 'ONBOARDING_COMPLETE' });
 
       // Phase 7.5 kickoff: seed the parent + six queued children and
-      // fire-and-forget the worker /orchestrate route. The page-level
+      // fire-and-forget the orchestrate route. The page-level
       // AgentArtifactSurface polls /api/research-v2/audit-state for live
-      // chip + section state once it mounts.
+      // chip + section state once it mounts. When NEXT_PUBLIC_MANAGED_AGENTS_ENABLED
+      // is set, the body also requests executionMode='managed' to route
+      // the audit through the Managed Agents path.
+      const onboardingExecutionMode = defaultOrchestrateExecutionMode();
       void fetch('/api/research-v2/orchestrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ run_id: runId }),
+        body: JSON.stringify({
+          run_id: runId,
+          ...(onboardingExecutionMode ? { executionMode: onboardingExecutionMode } : {}),
+        }),
       }).catch((err) => {
         console.warn('[research-v2] orchestrate kickoff failed:', err);
       });
