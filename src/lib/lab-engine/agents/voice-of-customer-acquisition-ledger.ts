@@ -67,6 +67,7 @@ export interface VoiceOfCustomerAcquisitionLedgerInput {
   attempts: readonly VoiceOfCustomerAcquisitionAttemptWithQuery[];
   candidates: readonly VoiceOfCustomerCandidate[];
   observedAt: string;
+  promotedCandidates?: readonly VoiceOfCustomerCandidate[];
   result: VoiceOfCustomerCandidateResult;
   sourceQueries: Partial<Record<VoiceOfCustomerCandidateSource, string>>;
 }
@@ -146,33 +147,71 @@ function truncateCandidateText(snippet: string): string {
 }
 
 function getCandidatePromotionStatus({
-  candidate,
-  selectedCandidateKeys,
+  isPromoted,
 }: {
-  candidate: VoiceOfCustomerCandidate;
-  selectedCandidateKeys: ReadonlySet<string>;
+  isPromoted: boolean;
 }): VoiceOfCustomerLedgerPromotionStatus {
-  return selectedCandidateKeys.has(getCandidateKey(candidate))
-    ? "promoted"
-    : "rejected";
+  return isPromoted ? "promoted" : "rejected";
 }
 
 function getCandidateRejectionReason({
-  candidate,
+  isSelectedCandidateKey,
   result,
-  selectedCandidateKeys,
+  promotionStatus,
 }: {
-  candidate: VoiceOfCustomerCandidate;
+  isSelectedCandidateKey: boolean;
   result: VoiceOfCustomerCandidateResult;
-  selectedCandidateKeys: ReadonlySet<string>;
+  promotionStatus: VoiceOfCustomerLedgerPromotionStatus;
 }): VoiceOfCustomerLedgerRejectionReason | undefined {
+  if (promotionStatus === "promoted") {
+    return undefined;
+  }
+
+  if (isSelectedCandidateKey) {
+    return "not_selected";
+  }
+
   if (!result.ok) {
     return result.gap.reason;
   }
 
-  return selectedCandidateKeys.has(getCandidateKey(candidate))
-    ? undefined
-    : "not_selected";
+  return "not_selected";
+}
+
+function buildPromotedCandidateKeyCounts(
+  candidates: readonly VoiceOfCustomerCandidate[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+
+  for (const candidate of candidates) {
+    const key = getCandidateKey(candidate);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function consumePromotedCandidateKey({
+  candidate,
+  promotedCandidateKeyCounts,
+}: {
+  candidate: VoiceOfCustomerCandidate;
+  promotedCandidateKeyCounts: Map<string, number>;
+}): boolean {
+  const key = getCandidateKey(candidate);
+  const count = promotedCandidateKeyCounts.get(key) ?? 0;
+
+  if (count === 0) {
+    return false;
+  }
+
+  if (count === 1) {
+    promotedCandidateKeyCounts.delete(key);
+  } else {
+    promotedCandidateKeyCounts.set(key, count - 1);
+  }
+
+  return true;
 }
 
 function buildAttemptQueryByUrl(
@@ -237,22 +276,23 @@ function buildCandidateLedgerRow({
   observedAt,
   query,
   result,
-  selectedCandidateKeys,
+  isSelectedCandidateKey,
+  isPromoted,
 }: {
   candidate: VoiceOfCustomerCandidate;
   observedAt: string;
   query: string;
   result: VoiceOfCustomerCandidateResult;
-  selectedCandidateKeys: ReadonlySet<string>;
+  isSelectedCandidateKey: boolean;
+  isPromoted: boolean;
 }): VoiceOfCustomerAcquisitionLedgerRow {
   const promotionStatus = getCandidatePromotionStatus({
-    candidate,
-    selectedCandidateKeys,
+    isPromoted,
   });
   const rejectionReason = getCandidateRejectionReason({
-    candidate,
+    isSelectedCandidateKey,
+    promotionStatus,
     result,
-    selectedCandidateKeys,
   });
   const fetchStatus = getCandidateFetchStatus(candidate);
 
@@ -276,24 +316,30 @@ export function buildVoiceOfCustomerAcquisitionLedger({
   attempts,
   candidates,
   observedAt,
+  promotedCandidates,
   result,
   sourceQueries,
 }: VoiceOfCustomerAcquisitionLedgerInput): VoiceOfCustomerAcquisitionLedgerRow[] {
-  const selectedCandidateKeys = new Set(
-    result.ok ? result.pack.candidates.map(getCandidateKey) : [],
+  const promotedCandidateKeyCounts = buildPromotedCandidateKeyCounts(
+    promotedCandidates ?? (result.ok ? result.pack.candidates : []),
   );
+  const selectedCandidateKeys = new Set(promotedCandidateKeyCounts.keys());
   const queryByUrl = buildAttemptQueryByUrl(attempts);
-  const attemptRows = attempts.map(({ attempt, query }) =>
-    buildAttemptLedgerRow({ attempt, observedAt, query }),
-  );
   const candidateRows = candidates.map((candidate) =>
     buildCandidateLedgerRow({
       candidate,
       observedAt,
       query: getCandidateQuery({ candidate, queryByUrl, sourceQueries }),
       result,
-      selectedCandidateKeys,
+      isSelectedCandidateKey: selectedCandidateKeys.has(getCandidateKey(candidate)),
+      isPromoted: consumePromotedCandidateKey({
+        candidate,
+        promotedCandidateKeyCounts,
+      }),
     }),
+  );
+  const attemptRows = attempts.map(({ attempt, query }) =>
+    buildAttemptLedgerRow({ attempt, observedAt, query }),
   );
 
   return [...attemptRows, ...candidateRows];

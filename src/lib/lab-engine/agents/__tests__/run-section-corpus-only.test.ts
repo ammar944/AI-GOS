@@ -407,6 +407,13 @@ function requireRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function requireArray(value: unknown): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error('Expected array.');
+  }
+  return value;
+}
+
 async function sourceLivenessUnavailableFetch(): Promise<Response> {
   throw new Error('source liveness network unavailable in test');
 }
@@ -2498,6 +2505,111 @@ describe('runSection corpus-only mode', (): void => {
       'positioningOfferDiagnostic',
       'gtmBrief',
     ]);
+    expect(callStructured).toHaveBeenCalledTimes(1);
+  });
+
+  // P0a: the paid-media inline capstone path (runSectionViaStructuredBodyStream)
+  // commits verifierGate.artifact directly and never calls saveCompletedArtifact,
+  // so withPaidMediaEvidencePack was structurally unreachable for the one section
+  // it exists to enrich. This router-level test drives the REAL runSection path
+  // for positioningPaidMediaPlan and asserts the persisted body carries
+  // evidencePack on non-gap synthesized rows. RED on HEAD (bypassed path) -> green
+  // after the inline-capstone wiring fix.
+  it('attaches evidencePack to non-gap paid-media rows on the inline capstone path', async (): Promise<void> => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'aigos-lab-engine-p0a-'));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: ['positioningPaidMediaPlan'],
+      now: () => new Date('2026-06-17T00:00:00.000Z'),
+    });
+
+    const researchInputWithCommitted = {
+      ...saaslaunchResearchInput,
+      committedPositioningArtifacts: {
+        positioningBuyerICP: {
+          body: {
+            personaReality: {
+              personas: [
+                {
+                  name: 'Dana Ruiz',
+                  title: 'VP Revenue Operations',
+                  company: 'Northwind Logistics',
+                  role: 'economic-buyer',
+                  seniority: 'VP',
+                  evidence:
+                    'Dana Ruiz publicly described messy CRM handoffs slowing campaign launch.',
+                  sourceUrl: 'https://example.com/dana-ruiz',
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    await store.createRun(researchInputWithCommitted);
+
+    const paidMediaOutput = buildPaidMediaPlanOutput();
+    const outputBody = requireRecord(paidMediaOutput.body);
+    const audiences = requireArray(outputBody.audienceTypes);
+    requireRecord(audiences[0]).detail =
+      'Targets VP RevOps buyers like Dana Ruiz at logistics firms.';
+    requireRecord(audiences[0]).grounding =
+      'Buyer ICP names Dana Ruiz, a VP Revenue Operations buyer.';
+    requireRecord(audiences[0]).sourceSection = 'positioningBuyerICP';
+
+    const runEvidencePass = vi.fn<EvidencePassRunner>(async () => ({
+      steps: [],
+      text: '',
+    }));
+    const callStructured = vi.fn<StructuredCaller>(async () => paidMediaOutput);
+
+    const result = await runSection(
+      {
+        runId: saaslaunchResearchInput.runId,
+        sectionId: 'positioningPaidMediaPlan',
+      },
+      {
+        store,
+        loadSkill: async () => 'Use the injected corpus only.',
+        allowedTools: [],
+        env: { LAB_SECTION_STREAMING: 'false' },
+        runEvidencePass,
+        callStructured,
+        verifyPaidMediaPlan: createPaidMediaVerifierMock(),
+        now: () => new Date('2026-06-17T00:00:00.000Z'),
+      },
+    );
+
+    const record = await store.readRun(saaslaunchResearchInput.runId);
+    const persistedArtifact = record.sections.positioningPaidMediaPlan?.artifact;
+    expect(persistedArtifact).not.toBeNull();
+    const persistedBody = requireRecord(
+      requireRecord(persistedArtifact as object).body as object,
+    );
+    const persistedAudiences = requireArray(persistedBody.audienceTypes);
+    const firstAudience = requireRecord(persistedAudiences[0]);
+    // P0a: evidencePack must be present on the non-gap audience row. RED on HEAD
+    // because the inline capstone path bypassed saveCompletedArtifact ->
+    // withPaidMediaEvidencePack never ran.
+    expect(firstAudience.evidencePack).toBeDefined();
+    const evidencePack = requireRecord(firstAudience.evidencePack as object);
+    expect(evidencePack.status).toBe('grounded');
+    const refs = requireArray(evidencePack.refs);
+    expect(refs.length).toBeGreaterThanOrEqual(1);
+    const personaRef = refs.find(
+      (ref) => requireRecord(ref).evidenceKind === 'persona',
+    );
+    expect(personaRef).toBeDefined();
+    expect(requireRecord(personaRef as object).sourceSection).toBe(
+      'positioningBuyerICP',
+    );
+    // The returned result.artifact must also carry the evidencePack (same body).
+    const resultAudiences = requireArray(
+      requireRecord(result.artifact.body).audienceTypes as object,
+    );
+    expect(
+      requireRecord(resultAudiences[0]).evidencePack,
+    ).toBeDefined();
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });

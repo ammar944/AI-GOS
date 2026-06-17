@@ -2228,4 +2228,211 @@ describe('runSection VoC candidate prepass', (): void => {
       'completed',
     );
   });
+
+  // P1: VoC gap-path quote dedupe. The Ramp run (d2abf018) duplicated 2 G2
+  // review URLs 3x each across cross-pass merges, producing 6-over-2 quote
+  // padding and noFabrication=false. getAdmissibleVoiceOfCustomerCandidates
+  // filtered admissible candidates but did NOT dedupe on the same key the
+  // selection track uses (sourceInstanceId ?? url). This test feeds 6 excerpts
+  // at 2 distinct G2 URLs (each URL repeated 3x) and asserts the committed pain
+  // quotes are deduped to 2 and evidenceGapReport.foundPainQuoteCount is 2.
+  // RED on HEAD (no dedupe -> 6 quotes, foundPainQuoteCount 6) -> green after.
+  it('deduplicates VoC gap-path quotes on sourceInstanceId ?? url across repeated passes', async (): Promise<void> => {
+    const g2Url1 = 'https://www.g2.com/products/saaslaunch/reviews/12943564';
+    const g2Url2 = 'https://www.g2.com/products/saaslaunch/reviews/12922111';
+    const expectedNormalizedUrl1 = 'https://g2.com/products/saaslaunch/reviews/12943564';
+    const expectedNormalizedUrl2 = 'https://g2.com/products/saaslaunch/reviews/12922111';
+    const repeatedUrls = [g2Url1, g2Url2, g2Url1, g2Url2, g2Url1, g2Url2];
+    const excerpts = repeatedUrls.map((sourceUrl, index) => ({
+      id: `excerpt_dup_voc_${index + 1}`,
+      observedAt: '2026-06-01T00:00:00.000Z',
+      sourceId: `source_dup_voc_${index + 1}`,
+      sourceUrl,
+      text: `Pain candidate ${index + 1} says missed handoffs happen when our account context is scattered and CRM cleanup is manual.`,
+      title: `Duplicate G2 candidate ${index + 1}`,
+    }));
+    const researchInput = researchInputSchema.parse({
+      ...saaslaunchResearchInput,
+      runId: 'run_saaslaunch_dup_voc_fixture',
+      sources: [
+        ...saaslaunchResearchInput.sources,
+        ...excerpts.map((excerpt) => ({
+          id: excerpt.sourceId,
+          observedAt: excerpt.observedAt,
+          title: excerpt.title,
+          url: excerpt.sourceUrl,
+        })),
+      ],
+      corpus: {
+        ...saaslaunchResearchInput.corpus,
+        excerpts: [...saaslaunchResearchInput.corpus.excerpts, ...excerpts],
+        sectionExcerpts: {
+          ...saaslaunchResearchInput.corpus.sectionExcerpts,
+          positioningMarketCategory: [],
+          positioningBuyerICP: [],
+          positioningCompetitorLandscape: [],
+          positioningVoiceOfCustomer: excerpts,
+          positioningDemandIntent: [],
+          positioningOfferDiagnostic: [],
+          positioningPaidMediaPlan: [],
+        },
+      },
+    });
+    const store = await makeStore(researchInput);
+    const streamStructured = vi.fn<StructuredStreamer>(() => {
+      throw new Error('Structured draft should not run for a gap-path dedupe test.');
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const record = await store.readRun(researchInput.runId);
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+    const evidenceGapReport =
+      body.evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+
+    expect(streamStructured).not.toHaveBeenCalled();
+    expect(body.evidenceGap).toBe(true);
+    // P1: 6 excerpts at 2 distinct URLs must dedupe to 2 committed pain quotes.
+    expect(body.painLanguage.quotes).toHaveLength(2);
+    // The 2 distinct URLs must be exactly the 2 promoted (normalized: www. stripped).
+    expect(body.painLanguage.quotes.map((quote) => quote.sourceUrl).sort()).toEqual(
+      [expectedNormalizedUrl1, expectedNormalizedUrl2].sort(),
+    );
+    expect(body.painLanguage.blockGap?.foundCount).toBe(2);
+    expect(evidenceGapReport.foundPainQuoteCount).toBe(2);
+    expect(evidenceGapReport.observedPainSourceDomains).toEqual(['g2.com']);
+    expect(
+      evidenceGapReport.acquisitionLedger?.filter(
+        (row) => row.promotionStatus === 'promoted',
+      ),
+    ).toHaveLength(2);
+    expect(evidenceGapReport.sufficiency).toMatchObject({
+      promoted: 2,
+      tier: 'partial',
+    });
+    expect(record.sections.positioningVoiceOfCustomer?.status).toBe(
+      'completed',
+    );
+  });
+
+  it('counts only surfaced pain quotes in VoC gap metadata and sources', async (): Promise<void> => {
+    const painUrl1 = 'https://www.g2.com/survey_responses/ramp-review-12943564';
+    const painUrl2 = 'https://www.g2.com/survey_responses/ramp-review-12922111';
+    const afterStateUrl = 'https://www.g2.com/sellers/ramp-financial';
+    const expectedPainUrl1 =
+      'https://g2.com/survey_responses/ramp-review-12943564';
+    const expectedPainUrl2 =
+      'https://g2.com/survey_responses/ramp-review-12922111';
+    const expectedAfterStateUrl = 'https://g2.com/sellers/ramp-financial';
+    const excerpts = [
+      {
+        id: 'excerpt_voc_pain_1',
+        observedAt: '2026-06-01T00:00:00.000Z',
+        sourceId: 'source_voc_pain_1',
+        sourceUrl: painUrl1,
+        text: 'Though Ramp integrates with many accounting software brands, it does not connect with ours. We still have to download a spreadsheet.',
+        title: 'Ramp G2 review 12943564',
+      },
+      {
+        id: 'excerpt_voc_pain_2',
+        observedAt: '2026-06-01T00:00:00.000Z',
+        sourceId: 'source_voc_pain_2',
+        sourceUrl: painUrl2,
+        text: 'The lack of banking integration with Campfire has been a bit of a bummer. I would like to give HR partial access to certain spend programs, but that limited-access permission setup does not seem to exist yet.',
+        title: 'Ramp G2 review 12922111',
+      },
+      {
+        id: 'excerpt_voc_after_state',
+        observedAt: '2026-06-01T00:00:00.000Z',
+        sourceId: 'source_voc_after_state',
+        sourceUrl: afterStateUrl,
+        text: 'Real-time spend visibility and control: Ramp makes it very easy to see where company money is going, with instant transaction tracking and strong controls like spend limits and automated approvals. This helps teams avoid overspending and keeps finance teams in control without slowing people down.',
+        title: 'Ramp G2 seller profile',
+      },
+    ];
+    const researchInput = researchInputSchema.parse({
+      ...saaslaunchResearchInput,
+      runId: 'run_saaslaunch_voc_pain_count_fixture',
+      sources: [
+        ...saaslaunchResearchInput.sources,
+        ...excerpts.map((excerpt) => ({
+          id: excerpt.sourceId,
+          observedAt: excerpt.observedAt,
+          title: excerpt.title,
+          url: excerpt.sourceUrl,
+        })),
+      ],
+      corpus: {
+        ...saaslaunchResearchInput.corpus,
+        excerpts: [...saaslaunchResearchInput.corpus.excerpts, ...excerpts],
+        sectionExcerpts: {
+          ...saaslaunchResearchInput.corpus.sectionExcerpts,
+          positioningMarketCategory: [],
+          positioningBuyerICP: [],
+          positioningCompetitorLandscape: [],
+          positioningVoiceOfCustomer: excerpts,
+          positioningDemandIntent: [],
+          positioningOfferDiagnostic: [],
+          positioningPaidMediaPlan: [],
+        },
+      },
+    });
+    const store = await makeStore(researchInput);
+    const streamStructured = vi.fn<StructuredStreamer>(() => {
+      throw new Error('Structured draft should not run for a gap-path count test.');
+    });
+
+    const result = await runSection(
+      {
+        runId: researchInput.runId,
+        sectionId: 'positioningVoiceOfCustomer',
+      },
+      {
+        allowedTools: [],
+        env: { LAB_VERIFIER_MAX_UNSUPPORTED: '3' },
+        loadSkill: async () => 'Use deterministic VoC candidates.',
+        now: () => new Date('2026-06-01T00:00:00.000Z'),
+        store,
+        streamStructured,
+      },
+    );
+
+    const body = voiceOfCustomerBodySchema.parse(result.artifact.body);
+    const evidenceGapReport =
+      body.evidenceGapReport as VoiceOfCustomerEvidenceGapReport;
+    const sourceUrls = result.artifact.sources.map((source) => source.url);
+
+    expect(streamStructured).not.toHaveBeenCalled();
+    expect(body.evidenceGap).toBe(true);
+    expect(body.painLanguage.quotes).toHaveLength(2);
+    expect(body.painLanguage.quotes.map((quote) => quote.sourceUrl).sort()).toEqual(
+      [expectedPainUrl1, expectedPainUrl2].sort(),
+    );
+    expect(body.painLanguage.blockGap?.foundCount).toBe(2);
+    expect(body.painLanguage.blockGap?.summary).toContain('2 verified quotes');
+    expect(evidenceGapReport.foundPainQuoteCount).toBe(2);
+    expect(evidenceGapReport.foundDistinctPainSourceCount).toBe(1);
+    expect(evidenceGapReport.summary).toContain('2 verified quotes');
+    expect(evidenceGapReport.observedPainSourceDomains).toEqual(['g2.com']);
+    expect(result.artifact.statusSummary).toContain('Surfaced 2 real pain extracts');
+    expect(result.artifact.statusSummary).toContain('review-page permalinks');
+    expect(result.artifact.verdict).not.toContain('without per-review permalinks');
+    expect(result.artifact.statusSummary).not.toContain('lacking per-review permalinks');
+    expect(sourceUrls).toContain(expectedPainUrl1);
+    expect(sourceUrls).toContain(expectedPainUrl2);
+    expect(sourceUrls).not.toContain(expectedAfterStateUrl);
+  });
 });

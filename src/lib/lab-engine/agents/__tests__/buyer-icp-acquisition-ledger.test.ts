@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { buyerICPFixtureArtifact } from "../../fixtures/buyer-icp-artifact";
-import { buyerICPBodySchema } from "../../artifacts/schemas/buyer-icp";
+import {
+  buyerICPBodySchema,
+  buyerICPEvidenceGapReason,
+  validateBuyerICPMinimums,
+} from "../../artifacts/schemas/buyer-icp";
 import { acquisitionSufficiencySchema } from "../../artifacts/schemas/strategic-insight";
 import type { ArtifactEnvelope } from "../../artifacts/artifact-envelope";
 import {
@@ -351,5 +355,171 @@ describe("withBuyerICPAcquisitionLedger — attempted-but-empty lookups path", (
     expect(report.acquisitionLedger).toBeUndefined();
     expect(report.sufficiency).toBeUndefined();
     expect(enriched).toBe(artifact);
+  });
+});
+
+// P0b: degraded BuyerICP runs must persist acquisition diagnostics. The Ramp run
+// (d2abf018) took the persona-blockGap exit (personaReality.blockGap with 0
+// personas) but carried NO evidenceGapReport, so withBuyerICPAcquisitionLedger
+// no-opped — the ledger/sufficiency had nowhere to live. The fix synthesizes a
+// COMPLETE schema-valid evidenceGapReport carrying acquisitionLedger + sufficiency
+// and sets body.evidenceGap=true for coherence with validateBuyerICPMinimums.
+// This test reproduces the degraded shape (blockGap, no report, non-empty
+// lookups) and asserts the synthesized report is complete + schema-valid.
+
+// A degraded BuyerICP artifact mirroring Ramp: personaReality.blockGap present,
+// 0 personas, NO evidenceGapReport, NO evidenceGap flag. Derived from the live
+// fixture so the body validates against buyerICPBodySchema as a whole.
+function degradedPersonaBlockGapArtifact(): ArtifactEnvelope {
+  const fixtureBody = buyerICPFixtureArtifact.body;
+
+  return {
+    ...buyerICPFixtureArtifact,
+    body: {
+      ...fixtureBody,
+      personaReality: {
+        prose:
+          "Evidence gap: every venue prepass ran but no named buyer cleared the grounding bar.",
+        personas: [],
+        blockGap: {
+          summary:
+            "No named buyer personas could be independently verified from public surfaces.",
+          foundCount: 0,
+          requiredCount: 3,
+          sourcingPlan: [
+            "Recover named buyer personas from approved public surfaces and re-run this section.",
+          ],
+        },
+      },
+      // Ramp's degraded body had NO evidenceGapReport and evidenceGap was null/absent.
+    },
+  } as unknown as ArtifactEnvelope;
+}
+
+describe("withBuyerICPAcquisitionLedger — degraded persona-blockGap synthesis (P0b)", () => {
+  it("synthesizes a complete evidenceGapReport with acquisitionLedger+sufficiency when the body has personaReality.blockGap but no report (lookups path)", () => {
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: degradedPersonaBlockGapArtifact(),
+      candidates: [],
+      lookups: [credentialGapLookup(), answeredLookup(), noResultLookup()],
+      observedAt,
+    });
+
+    const body = enriched.body as Record<string, unknown>;
+
+    // P0b: body.evidenceGap must be set true for coherence with
+    // validateBuyerICPMinimums (evidenceGap=true requires a matching report).
+    expect(body.evidenceGap).toBe(true);
+
+    const report = body.evidenceGapReport as Record<string, unknown>;
+    expect(report).toBeDefined();
+    expect(typeof report).toBe("object");
+    expect(Array.isArray(report)).toBe(false);
+
+    // Every .strict() required field must be present and schema-valid.
+    expect(report.reason).toBe(buyerICPEvidenceGapReason);
+    expect(typeof report.summary).toBe("string");
+    expect((report.summary as string).length).toBeGreaterThan(0);
+    expect(report.foundNamedPersonaCount).toBe(0);
+    expect(report.requiredNamedPersonaCount).toBe(3);
+    expect(Array.isArray(report.rejectedPersonaLabels)).toBe(true);
+    expect(report.rejectedPersonaLabels as unknown[]).toEqual([]);
+
+    // The acquisitionLedger carries honest query-level attempt rows.
+    expect(Array.isArray(report.acquisitionLedger)).toBe(true);
+    const ledger = report.acquisitionLedger as ReadonlyArray<
+      Record<string, unknown>
+    >;
+    expect(ledger).toHaveLength(3);
+    expect(
+      ledger.every((row) => row.promotionStatus === "not_applicable"),
+    ).toBe(true);
+
+    // Sufficiency is deterministic and honest: 0 promoted -> insufficient.
+    const sufficiency = acquisitionSufficiencySchema.parse(report.sufficiency);
+    expect(sufficiency.tier).toBe("insufficient");
+    expect(sufficiency.promoted).toBe(0);
+    expect(sufficiency.candidatesFound).toBe(0);
+
+    // sourcingPlan must carry at least one actionable string.
+    expect(Array.isArray(report.sourcingPlan)).toBe(true);
+    expect((report.sourcingPlan as unknown[]).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("synthesizes a complete evidenceGapReport when candidates exist but none were promoted (candidates path)", () => {
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: degradedPersonaBlockGapArtifact(),
+      candidates: [
+        candidate({ name: "Jane Doe", url: "https://g2.com/u/jane" }),
+        candidate({ name: "Carlos Vega", url: "https://linkedin.com/in/carlos" }),
+      ],
+      observedAt,
+    });
+
+    const body = enriched.body as Record<string, unknown>;
+    expect(body.evidenceGap).toBe(true);
+
+    const report = body.evidenceGapReport as Record<string, unknown>;
+    expect(report.reason).toBe(buyerICPEvidenceGapReason);
+    expect(report.foundNamedPersonaCount).toBe(0);
+    expect(report.requiredNamedPersonaCount).toBe(3);
+    expect(report.rejectedPersonaLabels).toEqual([]);
+
+    const ledger = report.acquisitionLedger as ReadonlyArray<
+      Record<string, unknown>
+    >;
+    expect(ledger).toHaveLength(2);
+    expect(
+      ledger.every((row) => row.promotionStatus === "rejected"),
+    ).toBe(true);
+
+    const sufficiency = acquisitionSufficiencySchema.parse(report.sufficiency);
+    expect(sufficiency.tier).toBe("insufficient");
+    expect(sufficiency.promoted).toBe(0);
+    expect(sufficiency.candidatesFound).toBe(2);
+    expect(sufficiency.rejected).toBe(2);
+  });
+
+  it("produces a synthesized body that validates against buyerICPBodySchema + validateBuyerICPMinimums (persistability)", () => {
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: degradedPersonaBlockGapArtifact(),
+      candidates: [],
+      lookups: [credentialGapLookup(), answeredLookup(), noResultLookup()],
+      observedAt,
+    });
+
+    // The synthesized body must pass strict schema parse — a partial report
+    // would fail here and turn the silent no-op into a hard commit failure.
+    const parsedBody = buyerICPBodySchema.parse(enriched.body);
+
+    // validateBuyerICPMinimums runs at both save and review; the synthesized
+    // evidenceGap=true + matching report must pass its coherence check.
+    const minimums = validateBuyerICPMinimums({
+      ...enriched,
+      body: parsedBody,
+    });
+    expect(minimums.ok).toBe(true);
+  });
+
+  it("preserves existing behavior when evidenceGapReport already exists (no synthesis)", () => {
+    // The existing gap artifact already has a report — the synthesis branch
+    // must NOT fire. The existing report is enriched in place.
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: emptyPersonaGapArtifact(),
+      candidates: [],
+      lookups: [credentialGapLookup(), answeredLookup(), noResultLookup()],
+      observedAt,
+    });
+
+    const body = enriched.body as Record<string, unknown>;
+    // evidenceGap was already true on the input; no synthesis needed.
+    expect(body.evidenceGap).toBe(true);
+
+    const report = body.evidenceGapReport as Record<string, unknown>;
+    // The existing report's summary is preserved (not the synthesized one).
+    expect(report.summary).toBe("Found 0 named buyer personas; required 3.");
+    // The ledger is attached additively.
+    expect(Array.isArray(report.acquisitionLedger)).toBe(true);
+    expect((report.acquisitionLedger as unknown[]).length).toBe(3);
   });
 });

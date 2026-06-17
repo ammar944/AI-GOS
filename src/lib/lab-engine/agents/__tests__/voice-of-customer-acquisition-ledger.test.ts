@@ -17,16 +17,22 @@ function makeAttempt(
   return { attempt, query };
 }
 
-function makeCandidate(): VoiceOfCustomerCandidate {
+function makeCandidate(
+  input: {
+    snippet?: string;
+    url?: string;
+  } = {},
+): VoiceOfCustomerCandidate {
   const candidate = createVoiceOfCustomerCandidate({
     acquisitionMode: 'review_body',
     auditedCompanyDomain: 'https://ramp.com',
     evidenceKind: 'review',
     snippet:
+      input.snippet ??
       'Finance teams say exception cleanup stays manual when approvals and receipts are scattered.',
     source: 'reviews',
     title: 'Ramp G2 reviews',
-    url: 'https://www.g2.com/products/ramp/reviews',
+    url: input.url ?? 'https://www.g2.com/products/ramp/reviews',
   });
 
   if (candidate === null) {
@@ -146,5 +152,71 @@ describe('buildVoiceOfCustomerAcquisitionLedger', (): void => {
         sourceUrl: 'https://g2.com/products/ramp/reviews',
       }),
     ]);
+  });
+
+  it('marks surfaced gap-path candidates as promoted instead of rejected', (): void => {
+    const promotedCandidate = makeCandidate({
+      url: 'https://www.g2.com/survey_responses/ramp-review-12943564',
+    });
+    const duplicatePromotedCandidate = makeCandidate({
+      url: 'https://www.g2.com/survey_responses/ramp-review-12943564',
+    });
+    const rejectedCandidate = makeCandidate({
+      snippet:
+        'Real-time spend visibility and control: Ramp makes it very easy to see where company money is going, with instant transaction tracking and strong controls like spend limits and automated approvals.',
+      url: 'https://www.g2.com/sellers/ramp-financial',
+    });
+    const ledger = buildVoiceOfCustomerAcquisitionLedger({
+      attempts: [],
+      candidates: [
+        promotedCandidate,
+        duplicatePromotedCandidate,
+        rejectedCandidate,
+      ],
+      observedAt: '2026-06-01T00:00:00.000Z',
+      promotedCandidates: [promotedCandidate],
+      result: {
+        ok: false,
+        gap: {
+          candidateCount: 2,
+          domains: ['g2.com'],
+          message: 'Found one domain; need three.',
+          reason: 'insufficient_independent_domains',
+        },
+      },
+      sourceQueries: { reviews: 'Ramp reviews' },
+    });
+
+    const promotedRow = ledger.find(
+      (row) => row.sourceUrl === promotedCandidate.url,
+    );
+    const promotedRows = ledger.filter(
+      (row) => row.promotionStatus === 'promoted',
+    );
+    const duplicateRows = ledger.filter(
+      (row) => row.sourceUrl === duplicatePromotedCandidate.url,
+    );
+    const rejectedRow = ledger.find(
+      (row) => row.sourceUrl === rejectedCandidate.url,
+    );
+
+    expect(promotedRows).toHaveLength(1);
+    expect(promotedRow).toMatchObject({
+      promotionStatus: 'promoted',
+      sourceUrl: promotedCandidate.url,
+    });
+    expect(promotedRow).not.toHaveProperty('rejectionReason');
+    expect(duplicateRows).toEqual([
+      expect.objectContaining({ promotionStatus: 'promoted' }),
+      expect.objectContaining({
+        promotionStatus: 'rejected',
+        rejectionReason: 'not_selected',
+      }),
+    ]);
+    expect(rejectedRow).toMatchObject({
+      promotionStatus: 'rejected',
+      rejectionReason: 'insufficient_independent_domains',
+      sourceUrl: rejectedCandidate.url,
+    });
   });
 });

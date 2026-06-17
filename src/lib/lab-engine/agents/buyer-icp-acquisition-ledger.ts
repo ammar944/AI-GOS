@@ -10,7 +10,7 @@
 // never inflate the promoted count. Rejected leads stay rejected.
 
 import type { ArtifactEnvelope } from "../artifacts/artifact-envelope";
-import { isLikelyNamedBuyerIdentity } from "../artifacts/schemas/buyer-icp";
+import { buyerICPEvidenceGapReason, isLikelyNamedBuyerIdentity } from "../artifacts/schemas/buyer-icp";
 import { computeAcquisitionSufficiency } from "../artifacts/schemas/strategic-insight";
 import { getRegistrableDomain } from "../domain-utils";
 import {
@@ -156,10 +156,16 @@ export function buildBuyerICPAttemptLedgerRows({
 /**
  * Enrich a committed BuyerICP evidence-gap artifact with its acquisition ledger
  * and the deterministic sufficiency roll-up, derived from the persona-venue
- * prepass candidates. No-op unless this is a BuyerICP artifact that (a) carries
- * an evidenceGapReport, (b) had candidates acquired, and (c) does not already
- * carry a ledger. Purely additive: only the two optional evidenceGapReport
- * fields are written, both schema-valid.
+ * prepass candidates. No-op unless this is a BuyerICP artifact that had
+ * candidates/lookups acquired and does not already carry a ledger.
+ *
+ * P0b: when the committed body carries NO evidenceGapReport (the degraded
+ * persona-blockGap exit — personaReality.blockGap present, 0 personas, no
+ * report), synthesize a COMPLETE schema-valid evidenceGapReport carrying the
+ * acquisitionLedger + sufficiency so the app explains failed acquisition
+ * instead of silently omitting diagnostics. body.evidenceGap is set true for
+ * coherence with validateBuyerICPMinimums, which requires a matching report
+ * whenever evidenceGap=true. Purely additive; never weakens schema fields.
  */
 export function withBuyerICPAcquisitionLedger({
   artifact,
@@ -184,14 +190,6 @@ export function withBuyerICPAcquisitionLedger({
 
   const body = artifact.body as Record<string, unknown>;
   const report = body.evidenceGapReport;
-  if (report === null || typeof report !== "object" || Array.isArray(report)) {
-    return artifact;
-  }
-
-  const reportRecord = report as Record<string, unknown>;
-  if (reportRecord.acquisitionLedger !== undefined) {
-    return artifact;
-  }
 
   let acquisitionLedger: BuyerICPAcquisitionLedgerRow[];
 
@@ -228,6 +226,52 @@ export function withBuyerICPAcquisitionLedger({
   const sufficiency = computeAcquisitionSufficiency(acquisitionLedger, {
     promotedFloor: BUYER_ICP_PROMOTED_PERSONA_FLOOR,
   });
+
+  // P0b: degraded persona-blockGap exit carries personaReality.blockGap with
+  // 0 personas but NO evidenceGapReport, so the ledger/sufficiency had nowhere
+  // to live. Synthesize a COMPLETE schema-valid report — every .strict()
+  // required field — carrying the ledger, and set body.evidenceGap=true so
+  // validateBuyerICPMinimums' coherence check (evidenceGap=true requires a
+  // matching report) passes. Never partial; the report schema is .strict().
+  if (report === null || typeof report !== "object" || Array.isArray(report)) {
+    const personaReality = body.personaReality;
+    const personas =
+      personaReality !== null &&
+      typeof personaReality === "object" &&
+      Array.isArray((personaReality as Record<string, unknown>).personas)
+        ? ((personaReality as Record<string, unknown>)
+            .personas as ReadonlyArray<Record<string, unknown>>)
+        : [];
+    const groundedPersonaCount = personas.filter(isNamedBuyerPersona).length;
+
+    const synthesizedReport = {
+      reason: buyerICPEvidenceGapReason,
+      summary:
+        "Evidence gap: the buyer-persona venue prepass ran but no named buyer cleared the grounding bar, so personaReality is empty. Acquisition diagnostics are persisted below.",
+      foundNamedPersonaCount: groundedPersonaCount,
+      requiredNamedPersonaCount: BUYER_ICP_PROMOTED_PERSONA_FLOOR,
+      rejectedPersonaLabels: [],
+      acquisitionLedger,
+      sufficiency,
+      sourcingPlan: [
+        "Recover named buyer personas from approved public surfaces (G2/Capterra/TrustRadius reviewer identities, case-study champions, webinar/event speakers, podcast bylines) and re-run this section.",
+      ],
+    };
+
+    return {
+      ...artifact,
+      body: {
+        ...body,
+        evidenceGap: true,
+        evidenceGapReport: synthesizedReport,
+      },
+    };
+  }
+
+  const reportRecord = report as Record<string, unknown>;
+  if (reportRecord.acquisitionLedger !== undefined) {
+    return artifact;
+  }
 
   return {
     ...artifact,

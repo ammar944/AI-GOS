@@ -1377,8 +1377,12 @@ function buildVoiceOfCustomerEvidenceGapSources({
 }): ArtifactEnvelope["sources"] {
   const sources = [...baseSources];
   const seenUrls = new Set(sources.map((source) => source.url));
+  const surfacedPainCandidates =
+    quoteCandidates === undefined
+      ? []
+      : selectVoiceOfCustomerPainCandidates(quoteCandidates);
 
-  for (const candidate of quoteCandidates ?? []) {
+  for (const candidate of surfacedPainCandidates) {
     if (seenUrls.has(candidate.url)) {
       continue;
     }
@@ -1580,6 +1584,40 @@ function buildVoiceOfCustomerEvidenceGapBody({
   };
 }
 
+function buildVoiceOfCustomerGapVerdict({
+  hasUnpermalinkedQuotes,
+  surfacedQuoteCount,
+}: {
+  hasUnpermalinkedQuotes: boolean;
+  surfacedQuoteCount: number;
+}): string {
+  const quoteNoun =
+    surfacedQuoteCount === 1 ? "customer-pain extract" : "customer-pain extracts";
+
+  if (hasUnpermalinkedQuotes) {
+    return `Captured ${surfacedQuoteCount} ${quoteNoun} from review pages, but at least one lacks a per-review permalink; treat the block as directional buyer signal, not independently verified VoC.`;
+  }
+
+  return `Captured ${surfacedQuoteCount} ${quoteNoun} from review-page permalinks, but the source floor is still unmet; treat the block as directional buyer signal, not independently verified VoC.`;
+}
+
+function buildVoiceOfCustomerGapStatusSummary({
+  hasUnpermalinkedQuotes,
+  surfacedQuoteCount,
+}: {
+  hasUnpermalinkedQuotes: boolean;
+  surfacedQuoteCount: number;
+}): string {
+  const quoteNoun =
+    surfacedQuoteCount === 1 ? "real pain extract" : "real pain extracts";
+
+  if (hasUnpermalinkedQuotes) {
+    return `Surfaced ${surfacedQuoteCount} ${quoteNoun}; at least one lacks a per-review permalink, so the block is directional and below the VoC sourcing floor.`;
+  }
+
+  return `Surfaced ${surfacedQuoteCount} ${quoteNoun} with review-page permalinks, but the block is still below the VoC sourcing floor.`;
+}
+
 function buildVoiceOfCustomerEvidenceGapArtifact({
   acquisitionAttempts,
   acquisitionLedger,
@@ -1605,6 +1643,10 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
 }): ArtifactEnvelope {
   const observedAt = getNow(deps).toISOString();
   const subjectDomain = getRegistrableDomain(researchInput.company.websiteUrl);
+  const surfacedPainCandidates =
+    quoteCandidates === undefined
+      ? []
+      : selectVoiceOfCustomerPainCandidates(quoteCandidates);
   const body = buildVoiceOfCustomerEvidenceGapBody({
     acquisitionAttempts,
     acquisitionLedger,
@@ -1613,18 +1655,16 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
     quoteCandidates,
     subjectDomain,
   });
-  const surfacedQuoteCount = quoteCandidates?.length ?? 0;
+  const surfacedQuoteCount = surfacedPainCandidates.length;
   const hasSurfacedQuotes = surfacedQuoteCount > 0;
-  // Surfaced gap-path quotes already carry a block-level directional verdict +
-  // statusSummary (set below on the SAME hasSurfacedQuotes gate), so the
-  // per-quote paraphrase prefix would only duplicate that caveat inside
-  // client-facing verbatimText (judge-flagged trust-killer). We consume only
-  // the rewritten body; this path's surfaced permalink caveat IS the
-  // block-level verdict/statusSummary (the helper's `stripped` audit list is
-  // intentionally not persisted on this path).
-  const provenanceCheckedBody = hasSurfacedQuotes
-    ? downgradeUnpermalinkedVocQuotes({ body, prefixQuoteText: false }).body
-    : body;
+  // Surfaced gap-path quotes carry a block-level provenance verdict/status
+  // summary, so the per-quote paraphrase prefix would duplicate that caveat
+  // inside client-facing verbatimText.
+  const provenanceCheck = hasSurfacedQuotes
+    ? downgradeUnpermalinkedVocQuotes({ body, prefixQuoteText: false })
+    : { body, stripped: [] };
+  const provenanceCheckedBody = provenanceCheck.body;
+  const hasUnpermalinkedQuotes = provenanceCheck.stripped.length > 0;
 
   return artifactEnvelopeSchema
     .extend({ body: definition.bodySchema })
@@ -1633,23 +1673,26 @@ function buildVoiceOfCustomerEvidenceGapArtifact({
       runId: input.runId,
       sectionId: input.sectionId,
       sectionTitle: definition.title,
-      // When real customer-pain extracts WERE captured (just without per-review
-      // permalinks), the section is NOT empty — it is an honest directional
-      // signal. Disowning surfaced quotes as "not buyer-language truth" was an
-      // internal contradiction (surface N quotes, then say there are none) and
-      // it laundered as a fail flag downstream. Frame them as directional, and
-      // keep the strict gap verdict ONLY when nothing was captured.
+      // When real customer-pain extracts WERE captured, the section is NOT
+      // empty; it is an honest directional signal that remains below the source
+      // floor. Keep the strict gap verdict ONLY when nothing was captured.
       verdict: hasSurfacedQuotes
-        ? `Captured ${surfacedQuoteCount} customer-pain extract${surfacedQuoteCount === 1 ? "" : "s"} from review pages, but without per-review permalinks — treat them as directional buyer signal, not independently-verified verbatim quotes.`
+        ? buildVoiceOfCustomerGapVerdict({
+            hasUnpermalinkedQuotes,
+            surfacedQuoteCount,
+          })
         : "Voice of Customer evidence is below the independent-source bar; treat this section as a sourcing gap, not buyer-language truth.",
       statusSummary: hasSurfacedQuotes
-        ? `Surfaced ${surfacedQuoteCount} real pain extract${surfacedQuoteCount === 1 ? "" : "s"}; lacking per-review permalinks they are directional, not verified verbatim.`
+        ? buildVoiceOfCustomerGapStatusSummary({
+            hasUnpermalinkedQuotes,
+            surfacedQuoteCount,
+          })
         : "The section completed with an evidence gap so downstream synthesis can proceed without fabricating customer quotes.",
       confidence: hasSurfacedQuotes ? 0.45 : 0.2,
       sources: buildVoiceOfCustomerEvidenceGapSources({
         baseSources: baseArtifact?.sources ?? researchInput.sources,
         observedAt,
-        quoteCandidates,
+        quoteCandidates: surfacedPainCandidates,
       }),
       body: provenanceCheckedBody,
       createdAt: observedAt,
@@ -2387,12 +2430,14 @@ function getVoiceOfCustomerCandidateEvidenceGapFacts({
   result: VoiceOfCustomerCandidateResult;
 }): VoiceOfCustomerEvidenceGapFacts {
   if (quoteCandidates !== undefined && quoteCandidates.length > 0) {
+    const surfacedPainCandidates =
+      selectVoiceOfCustomerPainCandidates(quoteCandidates);
     const observedPainSourceDomains =
-      getVoiceOfCustomerCandidateDomains(quoteCandidates);
+      getVoiceOfCustomerCandidateDomains(surfacedPainCandidates);
 
     return {
       ok: true,
-      foundPainQuoteCount: quoteCandidates.length,
+      foundPainQuoteCount: surfacedPainCandidates.length,
       foundDistinctPainSourceCount: observedPainSourceDomains.length,
       observedPainSourceDomains,
     };
@@ -8630,13 +8675,30 @@ function getAdmissibleVoiceOfCustomerCandidates({
   candidates: readonly VoiceOfCustomerCandidate[];
   subjectDomain: string | null;
 }): VoiceOfCustomerCandidate[] {
-  return candidates.filter((candidate) =>
-    isAdmissibleQuote({
-      sourceUrl: candidate.url,
-      subjectDomain,
-      text: candidate.snippet,
-    }),
-  );
+  const seen = new Set<string>();
+  const admissible: VoiceOfCustomerCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (
+      !isAdmissibleQuote({
+        sourceUrl: candidate.url,
+        subjectDomain,
+        text: candidate.snippet,
+      })
+    ) {
+      continue;
+    }
+
+    const dedupeKey = candidate.sourceInstanceId ?? candidate.url;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    admissible.push(candidate);
+  }
+
+  return admissible;
 }
 
 function selectAdmissibleVoiceOfCustomerCandidates({
@@ -8835,10 +8897,18 @@ async function buildVoiceOfCustomerCandidatePrepass({
     }
   }
 
+  const usableCandidates = getAdmissibleVoiceOfCustomerCandidates({
+    candidates,
+    subjectDomain,
+  });
+  const promotedCandidates = result.ok
+    ? result.pack.candidates
+    : selectVoiceOfCustomerPainCandidates(usableCandidates);
   const acquisitionLedger = buildVoiceOfCustomerAcquisitionLedger({
     attempts: acquisitionAttemptsWithQuery,
     candidates,
     observedAt: getNow(deps).toISOString(),
+    promotedCandidates,
     result,
     sourceQueries: {
       firecrawl: "firecrawl quote recovery",
@@ -8869,10 +8939,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
     result,
     steps,
     subjectDomain,
-    usableCandidates: getAdmissibleVoiceOfCustomerCandidates({
-      candidates,
-      subjectDomain,
-    }),
+    usableCandidates,
   };
 }
 
@@ -12415,7 +12482,10 @@ export async function runSection(
     }
   }
 
-  artifact = verifierGate.artifact;
+  artifact = withPaidMediaEvidencePack({
+    artifact: verifierGate.artifact,
+    committedArtifacts: researchInput.committedPositioningArtifacts,
+  });
 
   await appendSubSectionCommittedEvents({
     artifact,
