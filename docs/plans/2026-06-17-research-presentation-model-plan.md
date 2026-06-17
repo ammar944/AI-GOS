@@ -98,6 +98,24 @@ Phase 1 alone should lift the average materially because most of the 3.6/10 is s
 
 ---
 
+## 5b. Grounded execution queue — DECIDED 2026-06-17
+
+The 6-section grounding swarm (verified against the real Ramp artifacts + current code, guardrail CLEAN) refined WS3/WS4/WS5 into concrete, file-anchored fixes. Full detail + per-section root causes + 8/10 value-read targets: **`docs/reports/2026-06-17-content-quality-grounding.md`**.
+
+**Key realization:** the value is mostly *suppressed, not missing* — 4 of 6 fixes need **zero new data**. Only BuyerICP + Demand need genuine new acquisition.
+
+**Leverage order (locked):**
+1. **Paid Media Fix A** (WS4) — renderer reads `evidencePack.status`; gap rows → "hypothesis to test", not allocations. Zero new data, capstone, biggest trust delta.
+2. **VoC permalinks** (WS3/5) — Trustpilot/TrustRadius per-review resolver → 31 clean quotes pass admission honestly. *Needs one live-scrape probe first.*
+3. **Market containment** (WS3) — bidirectional + whitespace-insensitive magnitude → real $13B/70k facts stop being dropped. Zero new data.
+4. **Competitor prose** (WS4) — single-writer clamps ad-evidence prose down to `verifiedCount`. Zero new data; raises the bar.
+5. **BuyerICP** (WS5) — budget-aware prepass + solo rerun (timeout) **+** subject-own-exec rejection **+** the second source-liveness persona-grounding gate, all in one wave (Fix A alone leaves it ~1/10).
+6. **Demand discovery** (WS5) — wire the 4 dead-code SpyFu discovery endpoints as a `keyword_discovery` tool. Most code; depends on SpyFu coverage.
+
+WS2 RPM (render-time `toPresentationModel` at the `pickPositioningTypedArtifact` seam — `audit-reader-shell.tsx:1001`) continues as the parallel readability floor. atom-A = pure classifier (`docs/handoffs/2026-06-17-ws2-atom-A-rpm-core.codex.md`).
+
+---
+
 ## 6. Execution model & measurement
 
 - **Execution:** Claude authors specs + reviews diffs; Codex executes (it volunteered for these exact files). Isolated file-based handoffs; verify every diff against the spec.
