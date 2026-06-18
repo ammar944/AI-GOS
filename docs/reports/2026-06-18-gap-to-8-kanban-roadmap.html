@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI-GOS Gap-to-8 Kanban Roadmap</title>
+  <style>
+    :root {
+      --ink: #1f2933;
+      --muted: #5b6775;
+      --line: #d7dde4;
+      --paper: #f7f8f5;
+      --panel: #ffffff;
+      --now: #b42318;
+      --next: #b54708;
+      --later: #175cd3;
+      --done: #067647;
+      --park: #59606b;
+      --accent: #0f766e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      padding: 40px 32px 28px;
+      background: #fbfcf9;
+      border-bottom: 1px solid var(--line);
+    }
+
+    main {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 1080px;
+      font-size: clamp(32px, 4vw, 54px);
+      font-weight: 760;
+    }
+
+    h2 {
+      margin-top: 34px;
+      font-size: 24px;
+    }
+
+    h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin: 8px 0 0;
+    }
+
+    code {
+      padding: 1px 5px;
+      border: 1px solid #d8dee6;
+      border-radius: 5px;
+      background: #f4f6f8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .subtitle {
+      max-width: 980px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 4px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: #354052;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .pill.red { border-color: #f1b8b1; color: var(--now); background: #fff5f3; }
+    .pill.amber { border-color: #f6cc8c; color: var(--next); background: #fff8eb; }
+    .pill.green { border-color: #9ad4b7; color: var(--done); background: #effaf3; }
+    .pill.blue { border-color: #adcbff; color: var(--later); background: #f0f6ff; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      min-height: 112px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border: 1px solid #f0b3aa;
+      border-left: 5px solid var(--now);
+      border-radius: 8px;
+      background: #fff6f4;
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .section-table {
+      width: 100%;
+      margin-top: 14px;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .section-table th,
+    .section-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .section-table th {
+      background: #eef2f1;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #3d4954;
+    }
+
+    .section-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .status {
+      display: inline-flex;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .status.blocked { color: var(--now); background: #fff0ee; }
+    .status.patch { color: var(--next); background: #fff4df; }
+    .status.proven { color: var(--done); background: #eaf8ef; }
+    .status.partial { color: var(--later); background: #edf5ff; }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(230px, 1fr));
+      gap: 12px;
+      align-items: start;
+      margin-top: 14px;
+    }
+
+    .column {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fdfefd;
+      overflow: hidden;
+    }
+
+    .column h3 {
+      padding: 13px 14px;
+      color: #fff;
+      margin: 0;
+    }
+
+    .column.now h3 { background: var(--now); }
+    .column.next h3 { background: var(--next); }
+    .column.later h3 { background: var(--later); }
+    .column.done h3 { background: var(--done); }
+    .column.park h3 { background: var(--park); }
+
+    .cards {
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .card {
+      border: 1px solid #d8dee6;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(31, 41, 51, .04);
+    }
+
+    .card .title {
+      display: block;
+      margin-bottom: 7px;
+      font-weight: 780;
+      line-height: 1.25;
+    }
+
+    .card dl {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+    }
+
+    .card dt {
+      color: #384554;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .card dd {
+      margin: 0 0 3px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .lane {
+      display: inline-flex;
+      margin-bottom: 8px;
+      padding: 2px 6px;
+      border: 1px solid #d8dee6;
+      border-radius: 5px;
+      color: #3d4954;
+      background: #f6f8fa;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .track {
+      margin: 4px 0 2px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      color: #fff;
+      background: var(--now);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .track:first-child {
+      margin-top: 0;
+    }
+
+    .track-sub {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .ordered {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+      padding-left: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .ordered li {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      counter-increment: step;
+    }
+
+    .ordered li::before {
+      content: counter(step);
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 800;
+    }
+
+    .evidence {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .evidence article {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    footer {
+      margin-top: 32px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1180px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .kanban {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      header {
+        padding: 30px 18px 24px;
+      }
+
+      main {
+        padding: 20px 14px 36px;
+      }
+
+      .summary-grid,
+      .kanban,
+      .evidence {
+        grid-template-columns: 1fr;
+      }
+
+      .section-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI-GOS Gap-to-8 Kanban Roadmap</h1>
+    <p class="subtitle">Current app status and roadmap to get every rendered research section to an 8/10 offline media-buyer value-read. This report separates code patches, live proof, and buyer-visible value.</p>
+    <div class="meta">
+      <span class="pill red">Status: not production-grade</span>
+      <span class="pill amber">Branch: refactor/architecture-deepening</span>
+      <span class="pill blue">Date: 2026-06-18</span>
+      <span class="pill green">Primary bar: rendered value, not eval green</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Current App Status</h2>
+      <div class="summary-grid">
+        <div class="metric">
+          <strong>~6.5</strong>
+          <span>Estimated current production-readiness score from the latest audit. Trending toward 7 with uncommitted patches, still below the 8 bar.</span>
+        </div>
+        <div class="metric">
+          <strong>3/10</strong>
+          <span>Latest Buyer ICP value-read after commit mechanics were fixed. The section commits, but persona laundering makes it unbuyable.</span>
+        </div>
+        <div class="metric">
+          <strong>21 + 12</strong>
+          <span>Current dirty tree shape: 21 modified tracked files and 12 untracked files, interleaved across workstreams.</span>
+        </div>
+        <div class="metric">
+          <strong>0</strong>
+          <span>Full live runs on the complete uncommitted patch set. Existing full Ramp dump reflects committed code only.</span>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>Senior PM/SWE read (2026-06-18 roadmap review):</strong>
+        Roadmap is directionally correct but mis-sequenced: the free re-judge must run first (step 0, zero cost), Demand is a long-pole critical path hidden in "Next", the carpet-bomb / honest-unavailable generalization has no card, the VoC card's "evidence cap" escape is a disguised floor-lowering, and the ACV/valuation contamination is buried in "Offer reconciliation". Buyer ICP stays the top value blocker (its laundered personas feed Paid Media), but it is not the first action. Ordering revised to three parallel Now tracks below.
+      </div>
+    </section>
+
+    <section>
+      <h2>Section Status</h2>
+      <table class="section-table">
+        <thead>
+          <tr>
+            <th>Section</th>
+            <th>Status</th>
+            <th>Score Signal</th>
+            <th>Current Truth</th>
+            <th>Next Proof</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Market Category</td>
+            <td><span class="status patch">Patched, unproven</span></td>
+            <td>6 to ~7</td>
+            <td><code>numberVariants</code> still risks matching <code>$13B</code> to <code>$13M</code>; bottom-up TAM remains thin.</td>
+            <td>Negative containment test, then live rerun with real market-size signals.</td>
+          </tr>
+          <tr>
+            <td>Buyer ICP</td>
+            <td><span class="status blocked">Blocked</span></td>
+            <td>3/10 latest value-read</td>
+            <td>Commit path is fixed, but 7 G2 personas share one aggregate listing URL and zero names/companies appear in corpus.</td>
+            <td>Suppress shared-listing personas, prefer case studies, rerun solo, value-read >=8.</td>
+          </tr>
+          <tr>
+            <td>Competitor Landscape</td>
+            <td><span class="status partial">Strong core, patch incomplete</span></td>
+            <td>~7.5</td>
+            <td>Ad wall is the strongest asset, but subject creatives and recruiter posts can inflate or mislabel competitor proof.</td>
+            <td>Subject exclusion, recruiter downgrade, rendered value-read.</td>
+          </tr>
+          <tr>
+            <td>Voice of Customer</td>
+            <td><span class="status blocked">Blocked</span></td>
+            <td>3 to ~5 patched</td>
+            <td>VoC count contract is fixed, but Trustpilot cannot provide per-review anchors in the current probe; no directional lane exists.</td>
+            <td>Build the labeled directional lane as primary (probe already decided Trustpilot non-viable); allow the honest cap only if a fresh probe also kills the directional lane. Fresh VoC rerun, no count mismatch, value-read &gt;=8.</td>
+          </tr>
+          <tr>
+            <td>Demand Intent</td>
+            <td><span class="status patch">Patched, unproven</span></td>
+            <td>6.5 to ~7.5</td>
+            <td><code>keyword_discovery</code> wraps 2 of 4 SpyFu discovery endpoints; non-branded discovery still not live-proven.</td>
+            <td>Complete endpoints, rerun Demand, prove at least 10 non-branded terms with volume and URLs.</td>
+          </tr>
+          <tr>
+            <td>Offer Diagnostic</td>
+            <td><span class="status blocked">Contradicted thesis</span></td>
+            <td>~6.5</td>
+            <td>The thesis is useful but rests on unsupported 40% CAC overshoot and conflicts with Ramp's free-signup CTA.</td>
+            <td>Reframe or label the thesis honestly; rerun Offer and value-read.</td>
+          </tr>
+          <tr>
+            <td>Paid Media Plan</td>
+            <td><span class="status partial">Mechanics proven, capped upstream</span></td>
+            <td>~7</td>
+            <td>Evidence packs are real, but many rows are gaps because Buyer ICP and Demand are empty or weak. Gap budgets still look too confident.</td>
+            <td>After BICP/Demand, inspect rendered plan for fewer gaps and test-budget framing.</td>
+          </tr>
+          <tr>
+            <td>Exec Synthesis</td>
+            <td><span class="status blocked">Noisy fact ledger</span></td>
+            <td>~6.5</td>
+            <td>Clear thesis, but <code>$13B</code> valuation leaks into ACV and the 40% claim is not validated.</td>
+            <td>Fix fact extraction and value-read synthesis after Offer/Market corrections.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Kanban Board</h2>
+      <div class="kanban">
+        <section class="column now">
+          <h3>Now</h3>
+          <div class="cards">
+            <div class="track">Track 0 &mdash; free, first</div>
+            <p class="track-sub">Zero code, zero cost, ~15 min. Run alone today before anything else.</p>
+            <article class="card">
+              <span class="lane">Proof / QA</span>
+              <span class="title">Re-judge current Ramp dump</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>The current <code>noFabrication:false</code> verdict judged stale pre-P1 VoC count data. Audit calls this the cheapest, highest-leverage proof step on the board. Closes the only fabrication finding on committed code.</dd>
+                <dt>Acceptance</dt>
+                <dd>Judge <code>tmp/grill/ramp-current-status/</code> directly and write the verdict path.</dd>
+                <dt>Proof</dt>
+                <dd>Saved judge output confirms the committed count=2 dump clears fabrication (<code>noFabrication:true</code>).</dd>
+              </dl>
+            </article>
+
+            <div class="track">Track A &mdash; cheap defect patches</div>
+            <p class="track-sub">One wave. Independent files; can run in parallel with Track B. Market capped at ~7 until Demand lands (bottomUpTam needs keyword volume).</p>
+            <article class="card">
+              <span class="lane">Verification</span>
+              <span class="title">Market exact-magnitude containment</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>False support for market numbers is a trust-killer.</dd>
+                <dt>Acceptance</dt>
+                <dd><code>$13B</code> does not match <code>$13M</code> or bare <code>13</code>; <code>$13 billion</code> still matches.</dd>
+                <dt>Proof</dt>
+                <dd>RED-first negative test then fresh Market rerun without stale magnitude false positives.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Research engine</span>
+              <span class="title">Competitor prose truth clamp</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>The strongest section (7.5) cannot overclaim using subject ads or recruiter posts.</dd>
+                <dt>Acceptance</dt>
+                <dd>Exclude subject creatives from <code>totalVerified</code>; downgrade hiring/recruiter copy wording.</dd>
+                <dt>Proof</dt>
+                <dd>Tests for subject exclusion and recruiter downgrade; rendered value-read does not regress below 7.5 (regression-protected).</dd>
+              </dl>
+            </article>
+
+            <div class="track">Track B &mdash; long poles, start now</div>
+            <p class="track-sub">Start immediately in parallel with Track A. These are the critical path; none are sequential Next items.</p>
+            <article class="card">
+              <span class="lane">Research engine</span>
+              <span class="title">Buyer ICP persona-laundering gate</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>BICP is 3/10 and poisons Paid Media audience targeting. Commit fix is done (uncommitted); the blocker is laundered 7 G2 personas on one aggregate listing URL with zero names/companies in corpus.</dd>
+                <dt>Acceptance</dt>
+                <dd>Hard-fail/suppress personas sharing one non-permalink listing URL; prefer case-study champions; ship 3+ individually grounded external personas (name+company grep-verified in corpus). Suppression alone is insufficient &mdash; the case-study path must be the dominant path. Suppression that empties the set must mark the block honestly unavailable, not carpet-bomb.</dd>
+                <dt>Proof</dt>
+                <dd>Two BICP solo reruns; BOTH land &ge;3 grounded personas; corpus grep for names/companies; no aggregate-URL laundering; media-buyer value-read &ge;8.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Data acquisition</span>
+              <span class="title">Complete Demand discovery</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>Long pole on the critical path for two sections: Market bottomUpTam needs keyword volume, and Paid Media audience sizing has <code>volumeBasis:"missing measured keyword volume"</code> for all 4 audiences. Not a sequential Next item.</dd>
+                <dt>Acceptance</dt>
+                <dd>Wrap all 4 SpyFu discovery endpoints (<code>getCompetingPpc/SeoKeywords</code> still dead); parametrize <code>MIN_SEARCH_VOLUME</code>; preserve provenance.</dd>
+                <dt>Proof</dt>
+                <dd>Fresh Demand rerun ships 10+ non-branded terms with volume, CPC, and source URLs; proven across &ge;2 reruns (acquisition non-determinism applies here too).</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Research engine / PM</span>
+              <span class="title">VoC directional lane build</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>VoC is unbuyable; the probe already decided Trustpilot cannot provide per-review anchors. The "evidence cap" escape is a disguised floor-lowering &mdash; a 2-quote VoC with an "evidence cap" label is still 3/10.</dd>
+                <dt>Acceptance</dt>
+                <dd>Build the clearly labeled directional lane as primary. Allow the honest cap only if a fresh probe also kills the directional lane.</dd>
+                <dt>Proof</dt>
+                <dd>Fresh VoC rerun, no count mismatch, no telemetry, value-read &ge;8.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Renderer</span>
+              <span class="title">Carpet-bomb / honest-unavailable generalization</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>The always-commit pressure (<code>run-section.ts:2320</code>) manufactures gap-skeletons; BICP still carpet-bombs every block. Presentation-model plan §2 named this as the core incentive defect; the ~10-line generalization was never done.</dd>
+                <dt>Acceptance</dt>
+                <dd>Generalize <code>isOfferDiagnosticHonestlyUnavailable</code> inline for VoC / Demand / BuyerICP renderers; a shortfall in one block no longer replaces the whole body with apology prose stamped into every block.</dd>
+                <dt>Proof</dt>
+                <dd>No section renders more than one gap panel; gap/apology hit-count per section drops to a single status line.</dd>
+              </dl>
+            </article>
+          </div>
+        </section>
+
+        <section class="column next">
+          <h3>Next</h3>
+          <div class="cards">
+            <article class="card">
+              <span class="lane">Renderer / PM</span>
+              <span class="title">Paid Media gap budgets become test budgets</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>An unverified pill next to a confident allocation still reads as fake certainty.</dd>
+                <dt>Acceptance</dt>
+                <dd>Gap rows render as hypothesis/test budget, not final allocation; unsupported daily spend is removed or sourced. Concrete: no gap audience row renders a <code>money(dailyBudget)</code> BudgetBar; <code>$833/day</code> sourced or removed.</dd>
+                <dt>Proof</dt>
+                <dd>Rendered inspection after BICP and Demand reruns.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">PM / synthesis</span>
+              <span class="title">Offer and exec thesis reconciliation</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>The current thesis is sharp but internally contradicted and over-relies on an operator assertion.</dd>
+                <dt>Acceptance (two items, both required)</dt>
+                <dd>(a) 40% CAC overshoot claim labeled operator-asserted or sourced; free-signup CTA reconciled with pricing-opacity thesis. (b) ACV/valuation contamination purged from <code>factLedger</code> ($13B valuation must not leak into ACV); monthly-budget winner picked correctly.</dd>
+                <dt>Proof</dt>
+                <dd>Offer plus executive synthesis value-read &ge;8.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Proof / QA</span>
+              <span class="title">Fresh Ramp proof run</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>Patched code is not product proof.</dd>
+                <dt>Acceptance</dt>
+                <dd>Confirmed-HEAD Ramp reruns for BICP, VoC, Demand, Market, Offer, and Paid Media.</dd>
+                <dt>Proof</dt>
+                <dd>Fresh dump with grep gates and offline value-read. Target Ramp &ge;7.5, <code>noFabrication:true</code> before 3-subject sweep.</dd>
+              </dl>
+            </article>
+          </div>
+        </section>
+
+        <section class="column later">
+          <h3>Later</h3>
+          <div class="cards">
+            <article class="card">
+              <span class="lane">Proof / PM</span>
+              <span class="title">3-subject value sweep</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>Ramp-only success is not production proof.</dd>
+                <dt>Acceptance</dt>
+                <dd>Ramp, Fathom, and Plain all hit section value-reads &ge;8 with <code>noFabrication:true</code>. Must be fresh runs on confirmed HEAD for all three &mdash; Fathom/Plain have no post-fix runs; re-judging old dumps would pass this card falsely.</dd>
+                <dt>Proof</dt>
+                <dd>Saved judge/value-read artifacts per subject, all from confirmed-HEAD runs.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Data model / synthesis</span>
+              <span class="title">Row-level Demand to Paid Media linkage</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>Current Demand-to-Paid link is mostly section-level and prose-mediated.</dd>
+                <dt>Acceptance</dt>
+                <dd>Paid Media keyword and audience rows inherit exact Demand keyword rows, volume, CPC, and refs.</dd>
+                <dt>Proof</dt>
+                <dd>Evidence packs point to concrete Demand row paths, not section fallback.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Research engine</span>
+              <span class="title">Acquisition-depth expansion</span>
+              <dl>
+                <dt>Why</dt>
+                <dd>Only after current evidence is honestly used should the system fetch more.</dd>
+                <dt>Acceptance</dt>
+                <dd>More VoC domains, question mining, and competitor depth without lowering floors.</dd>
+                <dt>Proof</dt>
+                <dd>Cross-subject value-read improves without new unsupported claims.</dd>
+              </dl>
+            </article>
+          </div>
+        </section>
+
+        <section class="column done">
+          <h3>Done</h3>
+          <div class="cards">
+            <article class="card">
+              <span class="lane">Renderer / engine</span>
+              <span class="title">Telemetry stripped from reader prose</span>
+              <dl>
+                <dt>Proof</dt>
+                <dd>Committed WS1 telemetry strip <code>5fbf5b98</code>.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Engine / synthesis</span>
+              <span class="title">Paid Media evidence-pack inheritance</span>
+              <dl>
+                <dt>Proof</dt>
+                <dd>Rows carry <code>grounded</code>/<code>gap</code>, source section, exact locators, and excerpts.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Engine</span>
+              <span class="title">VoC count contract fixed in committed dump</span>
+              <dl>
+                <dt>Proof</dt>
+                <dd>Current dump has count=2 matching emitted quotes; needs re-judge to close stale fabrication finding.</dd>
+              </dl>
+            </article>
+            <article class="card">
+              <span class="lane">Engine</span>
+              <span class="title">BICP commit mechanics fixed</span>
+              <dl>
+                <dt>Proof</dt>
+                <dd>Run <code>c44ab4fa</code> commits end-to-end; value remains blocked by persona laundering.</dd>
+              </dl>
+            </article>
+          </div>
+        </section>
+
+        <section class="column park">
+          <h3>Parking Lot</h3>
+          <div class="cards">
+            <article class="card">
+              <span class="title">Central RPM/tier classifier</span>
+              <p>Parked because it risks building another internal scorer before rendered value is fixed.</p>
+            </article>
+            <article class="card">
+              <span class="title">Review/persist path rewrite</span>
+              <p>Parked because the latest audit refuted the review-drop hypothesis.</p>
+            </article>
+            <article class="card">
+              <span class="title">More scorers or eval dashboards</span>
+              <p>Parked because internal evals are liar-catcher floors, not the product bar.</p>
+            </article>
+            <article class="card">
+              <span class="title">Broad E2E before Ramp is green</span>
+              <p>Parked because known local defects make an expensive full run premature.</p>
+            </article>
+            <article class="card">
+              <span class="title">Unrelated dirty-tree cleanup</span>
+              <p>Parked unless explicitly requested; the current tree is interleaved and scope-sensitive.</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section>
+      <h2>Execution Order</h2>
+      <ol class="ordered">
+        <li>
+          <div>
+            <h3>Re-judge the current Ramp dump (step 0, free)</h3>
+            <p>Run alone today before anything else. Closes the only fabrication finding on committed code at zero cost.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Patch cheap correctness defects (Track A, one wave)</h3>
+            <p>Bound market number containment and fix competitor subject/recruiter overclaim paths so the next live run is worth burning. Regression-protect Competitor at &ge;7.5.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Start long poles in parallel (Track B, do not sequence)</h3>
+            <p>Buyer ICP laundering gate, Demand discovery, VoC directional lane, and the carpet-bomb generalization all start now. BICP and Demand are the critical path for Market (bottomUpTam) and Paid Media (audience sizing); they are not sequential Next items.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Reconcile Offer thesis and fact ledger (Next)</h3>
+            <p>Label or source the 40% CAC claim; purge $13B valuation from ACV; reconcile the free-signup CTA with pricing opacity. Both acceptance items required.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Run targeted Ramp proof on confirmed HEAD</h3>
+            <p>Rerun the affected sections, dump artifacts, grep acceptance gates, and value-read the rendered output. Target Ramp &ge;7.5, <code>noFabrication:true</code>.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Only then run the 3-subject sweep (fresh confirmed-HEAD runs)</h3>
+            <p>Ramp, Fathom, and Plain must all hit 8+ on fresh confirmed-HEAD runs before calling the app production-grade. Re-judging old dumps does not count.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Merge And Proof Guidance</h2>
+      <div class="evidence">
+        <article>
+          <h3>Do Not Commit As-Is</h3>
+          <p>The tree has drifted beyond the earlier audit snapshot. Current checkout has 21 modified tracked files and 12 untracked files, with feature work, report artifacts, probe scripts, and harness changes mixed together. <code>run-section.ts</code> carries 32 interleaved hunks across 5+ workstreams; no <code>git add -p</code> in this env &mdash; a partial commit risks a non-compiling snapshot. Commit must be atomic.</p>
+        </article>
+        <article>
+          <h3>Keep Out Of Feature Commit</h3>
+          <p><code>CLAUDE-FABLE-5.md</code> (unrelated), probe scripts (<code>scripts/zz-probe-*.mjs</code>, <code>scripts/zz-build-ramp-research-input.ts</code>), and report docs should not be bundled with the core grounding feature unless intentionally split into separate commits.</p>
+        </article>
+        <article>
+          <h3>Must Commit (currently untracked, wired into live path)</h3>
+          <p><code>src/lib/lab-engine/agents/buyer-persona-case-study-mining.ts</code> and <code>src/lib/lab-engine/agents/tools/keyword-discovery.ts</code> are real acquisition code wired into the live path, not stubs. Leaving them untracked breaks the build for anyone else and risks losing them on <code>git clean</code>. They must be in the atomic feature commit.</p>
+        </article>
+        <article>
+          <h3>Decide Before Commit: ZZ_DUMP_ARTIFACT hook</h3>
+          <p>The <code>ZZ_DUMP_ARTIFACT</code> env-gated debug-dump hook lives in the live path at <code>run-section.ts</code> (~3682 + ~12809). Handoff says KEEP (env-gated, best-effort try/catch), but it must be explicitly decided before commit &mdash; either keep-with-comment or gate behind a non-prod flag. Do not leave it silently.</p>
+        </article>
+        <article>
+          <h3>Pre-Commit Gates</h3>
+          <p>After blockers are fixed: <code>git diff --check</code>, <code>npx tsc --noEmit</code> (0 errors), and focused tests over lab-engine, sections, verification, and research-v2 components. Do <strong>not</strong> claim the live path is proven &mdash; only that units are green.</p>
+        </article>
+        <article>
+          <h3>Post-Commit Gates</h3>
+          <p>Record the commit hash, re-judge the current Ramp dump (step 0), run fresh Ramp section proof on confirmed HEAD, then run the 3-subject sweep only after Ramp is clean (&ge;7.5, <code>noFabrication:true</code>). Proof-state honesty: nothing in the patch set is "live-proven" until a confirmed-HEAD Ramp rerun lands; any claim above "code-patched / unit-tested" is false before then.</p>
+        </article>
+      </div>
+    </section>
+
+    <footer>
+      Evidence sources: <code>docs/reports/2026-06-18-production-readiness-audit.md</code>, <code>/var/folders/m3/rrdfc4ss0zdchb48fg766h2c0000gn/T/handoff-XXXXXX.md.ShGvt927TP</code>, <code>docs/reports/2026-06-17-content-quality-grounding.md</code>, <code>docs/plans/2026-06-17-research-presentation-model-plan.md</code>, current <code>git status</code>/<code>git diff --stat</code>, and read-only subagent syntheses from section-status, proof-readiness, and kanban-roadmap lanes. Revised 2026-06-18 by senior PM/SWE review: re-sequenced to three parallel Now tracks, escalated the free re-judge to step 0, moved Demand to Now, added the carpet-bomb generalization card, split the Offer acceptance items, and tightened the 3-subject sweep proof.
+      <br><br>
+      Proof-state vocabulary (do not conflate): <em>code-patched</em> = diff written, may be uncommitted &middot; <em>unit-tested</em> = focused test suite green &middot; <em>live-proven</em> = fresh confirmed-HEAD Ramp rerun with grep gates passing &middot; <em>buyer-value-proven</em> = offline media-buyer value-read &ge;8 on the rendered section. Internal evals are liar-catcher floors only, never the product bar.
+    </footer>
+  </main>
+</body>
+</html>
