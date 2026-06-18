@@ -14,7 +14,9 @@
     "soak:monitor": "tsx scripts/soak-monitor.ts",
     "test": "vitest",
     "test:run": "NODE_ENV=test vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "agency:probe": "node scripts/zz-probe-agency-state.mjs",
+    "agency:sync-corpus": "node scripts/zz-sync-saaslaunch-corpus.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",
