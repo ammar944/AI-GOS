@@ -50,6 +50,43 @@ describe('ExecutiveBriefCard', () => {
     );
   });
 
+  it('suppresses an out-of-context monthly-budget reconciliation from the appendix', () => {
+    const { container } = render(
+      <ExecutiveBriefCard
+        brief={{
+          executiveThesis: 'The report supports a focused capture thesis.',
+          factConflicts: [
+            {
+              factKey: 'monthly-budget',
+              label: 'Monthly budget',
+              readings: [
+                { sectionId: 'positioningPaidMediaPlan', value: '$100' },
+              ],
+              resolution: 'Monthly budget: we use $100 (user-supplied).',
+              winningSectionId: 'positioningPaidMediaPlan',
+            },
+            {
+              factKey: 'customer-count',
+              label: 'Customer count',
+              readings: [
+                { sectionId: 'positioningOfferDiagnostic', value: '500,000+' },
+              ],
+              resolution:
+                'Customer count: we use 500,000+ (measured); 1 conflicting figure set aside.',
+              winningSectionId: 'positioningOfferDiagnostic',
+            },
+          ],
+          rankedMoves: [],
+          status: 'complete',
+        }}
+      />,
+    );
+
+    expect(container.textContent).not.toContain('$100');
+    expect(container.textContent).not.toContain('Monthly budget');
+    expect(screen.getByText('Customer count')).toBeInTheDocument();
+  });
+
   it('omits The Three Moves when no real ranked moves exist', () => {
     render(
       <ExecutiveBriefCard

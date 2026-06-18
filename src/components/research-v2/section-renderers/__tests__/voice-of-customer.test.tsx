@@ -303,6 +303,38 @@ describe('VoiceOfCustomerRenderer', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('suppresses the strategic panel when every strategic field is an evidence-gap placeholder', () => {
+    const artifact = structuredClone(fixture);
+    const gapPlaceholder =
+      'evidence gap: independent Voice of Customer evidence did not clear the sourcing floor';
+    artifact.strategicInsight = {
+      strategicVerdict: gapPlaceholder,
+      keyTension: {
+        tension: gapPlaceholder,
+        side: gapPlaceholder,
+        costOfPosition: gapPlaceholder,
+      },
+    };
+    artifact.fourForcesBalanceVerdict = {
+      push: 'evidence gap: independent Voice of Customer evidence did not clear the sourcing floor',
+      pull: 'evidence gap: independent Voice of Customer evidence did not clear the sourcing floor',
+      anxiety:
+        'evidence gap: independent Voice of Customer evidence did not clear the sourcing floor',
+      habit:
+        'evidence gap: independent Voice of Customer evidence did not clear the sourcing floor',
+      balanceVerdict:
+        'evidence gap: independent Voice of Customer evidence did not clear the sourcing floor',
+    };
+
+    const { container } = render(<VoiceOfCustomerRenderer artifact={artifact} />);
+
+    expect(screen.queryByTestId('strategic-insight-panel')).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('evidence gap:');
+    expect(
+      screen.queryByText(/did not clear the sourcing floor/i),
+    ).not.toBeInTheDocument();
+  });
+
   it('keeps the full body for a PARTIAL shortfall (one block populated)', () => {
     const artifact = buildHonestlyUnavailableVoc();
     // Restore one block — this is a partial shortfall, not wholly unavailable.

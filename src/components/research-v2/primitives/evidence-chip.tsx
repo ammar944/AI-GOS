@@ -8,7 +8,7 @@ import {
 import { Cite } from '@/components/research-v2/reader-sources';
 import { cn } from '@/lib/utils';
 
-import { scrubReaderText } from './reader-text';
+import { isReaderPipelineChrome, scrubReaderText } from './reader-text';
 
 export interface EvidenceChipSource {
   n?: number;
@@ -34,6 +34,13 @@ function sourceUrl(source: EvidenceChipSource): string {
   return source.url ?? '';
 }
 
+// Source titles are sometimes tool labels ("SpyFu keyword_volume") that leak
+// operator chrome into the reader. Scrub clean titles; replace chrome-bearing
+// titles with a neutral fallback so no forbidden term reaches the DOM.
+function safeTitle(title: string): string {
+  return isReaderPipelineChrome(title) ? 'source' : scrubReaderText(title);
+}
+
 export function EvidenceDrawer({
   source,
   children,
@@ -42,7 +49,7 @@ export function EvidenceDrawer({
     <HoverCard openDelay={80} closeDelay={40}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent className="w-80 rounded-md p-3 text-sm">
-        <div className="font-medium leading-snug text-foreground">{source.title}</div>
+        <div className="font-medium leading-snug text-foreground">{safeTitle(source.title)}</div>
         {source.url ? (
           <a
             href={source.url}
@@ -79,7 +86,7 @@ export function EvidenceChip({
         <Cite
           source={{
             n: source.n,
-            title: source.title,
+            title: safeTitle(source.title),
             url: sourceUrl(source),
             whyItMatters: scrubReaderText(
               source.excerpt ?? source.whyItMatters ?? '',

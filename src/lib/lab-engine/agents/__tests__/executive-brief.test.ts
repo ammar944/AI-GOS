@@ -7,6 +7,29 @@ import {
 } from "../executive-brief";
 import type { StructuredCaller } from "../section-agent";
 import type { Contradiction } from "../synthesis/contradictions";
+import type {
+  FactLedger,
+  FactLedgerReading,
+} from "../synthesis/fact-ledger";
+
+function singleWinnerLedger(reading: FactLedgerReading): FactLedger {
+  return {
+    absentSections: [],
+    facts: [
+      {
+        disputed: false,
+        domain: "operator-economics",
+        factKey: reading.factKey,
+        label: reading.label,
+        readings: [reading],
+        winner: reading,
+        winnerBasis: reading.basis,
+      },
+    ],
+    keywordMetrics: [],
+    subjectName: "Airtable",
+  };
+}
 
 const sections: ExecutiveBriefSectionInput[] = [
   {
@@ -299,5 +322,95 @@ describe("runExecutiveBrief", (): void => {
     expect(result.executiveThesis).toContain("measured demand data");
     expect(result.executiveThesis).not.toContain("Resolve contradiction");
     expect(result.rankedMoves).toHaveLength(1);
+  });
+
+  it("scrubs a thesis percent backed only by a non-percent pooled value (40% over a count 40)", async (): Promise<void> => {
+    const result = await runExecutiveBrief({
+      callStructured: buildCaller({
+        decisions: [
+          {
+            bestEvidence: {
+              sectionRef: "positioningOfferDiagnostic",
+              statement: "Offer evidence survives.",
+            },
+            confidenceBasis: "Sourced offer evidence.",
+            confidenceGrade: "B",
+            cost: "operator effort",
+            decision: "Tighten the offer page.",
+            provesWrongIf: {
+              metric: "qualified trials",
+              threshold: "below target",
+              window: "30 days",
+            },
+          },
+        ],
+        thesis:
+          "Switching removes the pricing opacity that inflates trial-start CAC by 40%.",
+      }),
+      companyName: "Airtable",
+      companyWebsiteUrl: "https://airtable.com",
+      conflicts: [],
+      // Pool carries a count 40, no 40% anywhere. The fabricated percent must
+      // not be validated by the bare count.
+      factLedger: singleWinnerLedger({
+        basis: "measured-tool-data",
+        context: "Paying customers, measured",
+        factKey: "customer-count",
+        label: "Customer count",
+        normalizedValue: 40,
+        sectionId: "positioningBuyerICP",
+        unit: "count",
+        value: "40 customers",
+      }),
+      model: {} as never,
+      sections,
+    });
+
+    expect(result.thesis).not.toContain("40%");
+    expect(result.executiveThesis).not.toContain("40%");
+  });
+
+  it("keeps a thesis percent backed by a real percent in the pool (40% over a 40.0% reading)", async (): Promise<void> => {
+    const result = await runExecutiveBrief({
+      callStructured: buildCaller({
+        decisions: [
+          {
+            bestEvidence: {
+              sectionRef: "positioningOfferDiagnostic",
+              statement: "Offer evidence survives.",
+            },
+            confidenceBasis: "Sourced offer evidence.",
+            confidenceGrade: "B",
+            cost: "operator effort",
+            decision: "Tighten the offer page.",
+            provesWrongIf: {
+              metric: "qualified trials",
+              threshold: "below target",
+              window: "30 days",
+            },
+          },
+        ],
+        thesis:
+          "Switching removes the pricing opacity that inflates trial-start CAC by 40%.",
+      }),
+      companyName: "Airtable",
+      companyWebsiteUrl: "https://airtable.com",
+      conflicts: [],
+      // Pool carries a real 40.0% percent — the same-kind figure backs 40%.
+      factLedger: singleWinnerLedger({
+        basis: "measured-tool-data",
+        context: "Trial CAC inflation, measured",
+        factKey: "cac-inflation",
+        label: "CAC inflation",
+        normalizedValue: 40,
+        sectionId: "positioningOfferDiagnostic",
+        unit: "percent",
+        value: "40.0%",
+      }),
+      model: {} as never,
+      sections,
+    });
+
+    expect(result.thesis).toContain("40%");
   });
 });

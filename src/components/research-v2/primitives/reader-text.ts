@@ -9,6 +9,15 @@ const OPERATOR_VOCAB_CLAUSE_PATTERN =
   /(?:^|[.;]\s*)[^.;]*(?:evidenceGap|blockGap|source-liveness|displayable|verifiedCount|quarantine|quarantined|quarantinedCount)[^.;]*(?=$|[.;])/gi;
 const TOOL_NAME_PATTERN =
   /\b(searchapi|serpapi|firecrawl|perplexity|brave search|spyfu|answer-tool|lab engine|keyword_volume|keyword_trends|adlibrary|google_ads|meta_ads|linkedin_ads|web_search)\b/i;
+// Internal tool *identifiers* (snake_case / pipeline-only) that have no clean
+// reader form and must never reach the DOM. Deliberately EXCLUDES human-readable
+// data-vendor brand names (SpyFu, Perplexity, Firecrawl, Brave Search) — those
+// are legitimate sourcing labels a buyer SHOULD see (e.g. "live SpyFu output").
+// Drives the gap-note COLLAPSE decision: a string carrying one of these has no
+// honest rendering, so it collapses to a clean gap sentence; a string that only
+// names a vendor brand passes through scrubbed (the brand is kept).
+const READER_TOOL_IDENTIFIER_PATTERN =
+  /\b(keyword_volume|keyword_trends|web_search|google_ads|meta_ads|linkedin_ads|adlibrary|answer-tool|prepass|rate_limited)\b/i;
 const MARKDOWN_LINK_PATTERN = /\[[^\]]+\]\([^)]+\)/g;
 // Image links carry no readable label — drop them outright.
 const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*\]\([^)]*\)/g;
@@ -70,6 +79,19 @@ export function stripMoneyProvenanceSuffix(value: string): string {
 
 export function isReaderPipelineChrome(value: string): boolean {
   return PIPELINE_TEXT_PATTERN.test(value) || TOOL_NAME_PATTERN.test(value);
+}
+
+// True reader chrome that must COLLAPSE to a clean gap sentence: pipeline
+// markers (evidence gap:, blockGap, …) or internal tool identifiers
+// (keyword_volume, web_search, …). Unlike isReaderPipelineChrome, this does NOT
+// fire on a bare data-vendor brand mention — a legitimate caveat such as
+// "replace with live SpyFu output" stays (rendered scrubbed) instead of being
+// nuked to "Not enough public evidence was found…".
+export function containsReaderForbiddenChrome(value: string): boolean {
+  return (
+    PIPELINE_TEXT_PATTERN.test(value) ||
+    READER_TOOL_IDENTIFIER_PATTERN.test(value)
+  );
 }
 
 export function isInvalidReaderUrl(value: string | null | undefined): boolean {

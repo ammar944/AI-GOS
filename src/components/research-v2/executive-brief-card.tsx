@@ -120,7 +120,11 @@ export function ExecutiveBriefCard({
     .filter(
       (conflict) =>
         conflict.winningSectionId.trim().length > 0 &&
-        conflict.resolution.trim().length > 0,
+        conflict.resolution.trim().length > 0 &&
+        // monthly-budget is a buyer-supplied brief input, not a researched
+        // figure — surfacing it as a reconciled "fact conflict" (e.g. a stray
+        // "$100") is out of context for the buyer; keep it out of the appendix.
+        conflict.factKey !== 'monthly-budget',
     )
     .slice(0, 6);
 

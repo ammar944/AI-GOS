@@ -134,6 +134,21 @@ describe('DemandIntentRenderer', () => {
     expect(screen.queryAllByTestId('venue-item')).toHaveLength(0);
   });
 
+  it('never leaks a forbidden tool term from a blockGap.summary', () => {
+    const artifact: DemandIntentArtifact = structuredClone(demandIntentArtifact);
+    artifact.questionMining.questions = [];
+    artifact.questionMining.blockGap = {
+      summary: "A web_search for 'ramp spend management reddit' returned no clean buyer questions.",
+      foundCount: 0,
+      requiredCount: 3,
+      sourcingPlan: ['Pull People Also Ask permalinks'],
+    };
+
+    const { container } = render(<DemandIntentRenderer artifact={artifact} />);
+
+    expect(container.textContent).not.toContain('web_search');
+  });
+
   it('detects a wholly-empty artifact as honestly unavailable', () => {
     expect(isDemandIntentHonestlyUnavailable(demandIntentArtifact)).toBe(false);
     expect(

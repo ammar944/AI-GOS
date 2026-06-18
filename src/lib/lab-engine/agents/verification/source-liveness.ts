@@ -1120,7 +1120,7 @@ function observedSelfServeCtas(
 }
 
 const contradictedSubjectCtaPlaceholder =
-  "Evidence gap: subject-site CTA claim removed because fetched subject pages showed a free/signup path.";
+  "This company offers a free, self-serve signup, so a pricing-gate constraint does not bind here.";
 
 // A sentence contradicts an observed free/signup CTA only when it explicitly
 // asserts the subject site's CTA/gating state: either an affirmative

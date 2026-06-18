@@ -126,6 +126,10 @@ interface ParsedBrief {
 interface NumericEvidence {
   rawValues: Set<string>;
   values: number[];
+  // Pooled values that came from a percent figure. A percent token in brief
+  // prose may only be backed numerically by one of these — a bare count or
+  // dollar amount that happens to equal 40 must never validate "40%".
+  percentValues: number[];
 }
 
 const bestEvidenceSchema = z
@@ -818,6 +822,10 @@ function addNumericEvidenceFromValue(value: unknown, evidence: NumericEvidence):
     for (const token of extractNumericTokens(value)) {
       for (const numericValue of token.values) {
         evidence.values.push(numericValue);
+
+        if (token.isPercent) {
+          evidence.percentValues.push(numericValue);
+        }
       }
     }
     return;
@@ -848,7 +856,11 @@ function buildNumericEvidence({
   factLedger: FactLedger;
   feasibilityAudit?: PaidMediaFeasibilityAudit;
 }): NumericEvidence {
-  const evidence: NumericEvidence = { rawValues: new Set<string>(), values: [] };
+  const evidence: NumericEvidence = {
+    percentValues: [],
+    rawValues: new Set<string>(),
+    values: [],
+  };
 
   for (const reading of ledgerWinnerReadings(factLedger)) {
     addNumericEvidenceFromValue(reading.value, evidence);
@@ -866,10 +878,12 @@ function buildNumericEvidence({
 
 function numericTokenAllowed({
   evidence,
+  isPercent,
   raw,
   values,
 }: {
   evidence: NumericEvidence;
+  isPercent: boolean;
   raw: string;
   values: readonly number[];
 }): boolean {
@@ -881,8 +895,12 @@ function numericTokenAllowed({
     }
   }
 
+  // A percent token may only be backed numerically by a pooled percent value;
+  // a bare count or dollar amount that equals 40 must never validate "40%".
+  const candidates = isPercent ? evidence.percentValues : evidence.values;
+
   return values.every((value) =>
-    evidence.values.some((candidate) => {
+    candidates.some((candidate) => {
       const denominator = Math.max(Math.abs(candidate), 1);
 
       return Math.abs(candidate - value) / denominator <= 0.02;
@@ -921,6 +939,7 @@ function scrubFieldNumbers({
         (token.raw.includes("$") || token.raw.includes("%")) &&
         !numericTokenAllowed({
           evidence,
+          isPercent: token.isPercent,
           raw: token.raw,
           values: token.values,
         }),

@@ -25,6 +25,7 @@ import {
   formatUsdValue,
   getPaidMediaPlanBody,
   isMissingSalesAsset,
+  PAID_MEDIA_TEST_BUDGET_LABEL,
   provenanceLabel,
   verdictTone,
 } from './paid-media-plan';
@@ -39,6 +40,8 @@ export interface PaidMediaPlanDeckProps {
 type PaidMediaBody = PaidMediaPlanArtifact['body'];
 type CreativeSlot = PaidMediaBody['creativeFramework'][number];
 type ProjectedResultRow = PaidMediaBody['projectedResults'][number];
+type FeasibilityAudit = NonNullable<PaidMediaBody['feasibilityAudit']>;
+type FeasibilityVerdict = FeasibilityAudit['verdicts'][number];
 
 function money(value: string): string {
   return stripMoneyProvenanceSuffix(scrubReaderText(value));
@@ -342,6 +345,84 @@ function collectProvenanceRows(body: PaidMediaBody): ProvenanceRow[] {
   return rows;
 }
 
+function feasibilityVerdictTone(
+  verdict: FeasibilityVerdict['verdict'],
+): { label: string; className: string } {
+  if (verdict === 'fits') {
+    return { label: 'FITS', className: 'bg-emerald-500/10 text-emerald-700' };
+  }
+  if (verdict === 'exceeds') {
+    return { label: 'EXCEEDS SUPPLY', className: 'bg-amber-500/10 text-amber-700' };
+  }
+  return { label: 'UNKNOWN', className: 'bg-muted text-muted-foreground' };
+}
+
+// Budget feasibility audit — WHY each audience's spend is or is not deliverable
+// against measured search supply. The composer computes verdicts (matched
+// keywords, volume basis, budget provenance) but the deck otherwise never shows
+// them; surface them here so the buyer sees the reasoning, not just the number.
+// Renders nothing when the audit is absent — never crashes on legacy artifacts.
+function FeasibilityAuditPanel({
+  audit,
+}: {
+  audit: FeasibilityAudit | undefined;
+}): React.ReactElement | null {
+  if (audit === undefined || audit.verdicts.length === 0) return null;
+
+  return (
+    <section
+      data-testid="paid-media-feasibility-audit"
+      className="deck-page rounded-md border border-border bg-card p-6"
+    >
+      <h2 className="text-[15px] font-semibold text-foreground">
+        Budget feasibility
+      </h2>
+      <p className="mt-1 text-[12px] leading-[1.5] text-muted-foreground">
+        {scrubReaderText(audit.summary)}
+      </p>
+      <ul className="mt-4 grid gap-4">
+        {audit.verdicts.map((verdict) => {
+          const tone = feasibilityVerdictTone(verdict.verdict);
+          return (
+            <li key={verdict.audience} className="grid gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.06em]',
+                    tone.className,
+                  )}
+                >
+                  {tone.label}
+                </span>
+                <span className="text-[13px] font-semibold text-foreground">
+                  {scrubReaderText(verdict.audience)}
+                </span>
+              </div>
+              <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                Volume basis: {scrubReaderText(verdict.volumeBasis)}
+              </p>
+              <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                Budget basis: {scrubReaderText(verdict.allocationBasis)}
+              </p>
+              {verdict.matchedKeywords.length > 0 ? (
+                <p className="text-[12px] leading-[1.5] text-muted-foreground">
+                  Matched keywords:{' '}
+                  {verdict.matchedKeywords
+                    .map(
+                      (keyword) =>
+                        `${scrubReaderText(keyword.keyword)} (${keyword.monthlyVolume.toLocaleString()}/mo)`,
+                    )
+                    .join(', ')}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -493,9 +574,17 @@ export function PaidMediaPlanDeck({
                   {scrubReaderText(audience.grounding)}
                 </p>
                 <GapStatusMarker evidencePack={audience.evidencePack} />
-                <div className="mt-auto rounded-md bg-primary/5 px-4 py-2 text-center text-[14px] font-semibold tabular-nums text-primary">
-                  {money(audience.dailyBudget)}
-                </div>
+                {audience.evidencePack?.status === 'gap' ? (
+                  // Ungrounded synthesized row — its dailyBudget is a probe, not a
+                  // committed allocation. Never let it read as a confident "$X/day".
+                  <div className="mt-auto rounded-md bg-amber-500/10 px-4 py-2 text-center text-[12px] font-semibold leading-[1.4] text-amber-700">
+                    {PAID_MEDIA_TEST_BUDGET_LABEL}
+                  </div>
+                ) : (
+                  <div className="mt-auto rounded-md bg-primary/5 px-4 py-2 text-center text-[14px] font-semibold tabular-nums text-primary">
+                    {money(audience.dailyBudget)}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -889,6 +978,8 @@ export function PaidMediaPlanDeck({
           ))}
         </ul>
       </section>
+
+      <FeasibilityAuditPanel audit={body.feasibilityAudit} />
     </div>
   );
 }

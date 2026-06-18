@@ -192,14 +192,31 @@ function paidMediaKeyFindings(
   ];
 }
 
+// A gap audience was synthesized without a row-level anchor match (cited at
+// section level only), so its dailyBudget is a probe, not a real allocation. A
+// media buyer must never read it as a committed "$X/day" spend identical to a
+// grounded row — surface it as a test budget to validate before scaling.
+export const PAID_MEDIA_TEST_BUDGET_LABEL =
+  'test budget — validate before scaling';
+
+function isGapAudience(audience: {
+  evidencePack?: PaidMediaEvidencePack;
+}): boolean {
+  return audience.evidencePack?.status === 'gap';
+}
+
 export function budgetSegments(body: PaidMediaBody): BudgetBarSegment[] {
   return body.audienceTypes.map((audience) => ({
     label: audience.archetype,
     value: numericMoney(audience.dailyBudget),
-    displayValue: stripMoneyProvenanceSuffix(audience.dailyBudget),
-    basis: provenanceLabel(audience.dailyBudgetProvenance).includes('assumption')
+    displayValue: isGapAudience(audience)
+      ? PAID_MEDIA_TEST_BUDGET_LABEL
+      : stripMoneyProvenanceSuffix(audience.dailyBudget),
+    basis: isGapAudience(audience)
       ? 'assumption'
-      : 'measured',
+      : provenanceLabel(audience.dailyBudgetProvenance).includes('assumption')
+        ? 'assumption'
+        : 'measured',
   }));
 }
 

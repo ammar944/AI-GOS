@@ -178,6 +178,43 @@ describe("enforceNumericCoherence", () => {
     expect(segments.prose).toBe(numericCoherenceGapLine);
   });
 
+  it("strips a percent backed only by a non-percent value in the truth (40% over a count 40)", () => {
+    const body = {
+      segments: {
+        prose: "About 40% of the ICP sits in ops teams.",
+        rows: [{ accountCount: 40, segment: "ops" }],
+      },
+    };
+
+    const result = enforceNumericCoherence({
+      body,
+      sectionId: "positioningBuyerICP",
+    });
+
+    expect(result.stripped).toHaveLength(1);
+    expect(result.stripped[0]?.numbers).toContain("40%");
+
+    const segments = result.body.segments as { prose: string };
+
+    expect(segments.prose).toBe(numericCoherenceGapLine);
+  });
+
+  it("keeps a percent that traces to a real percent figure in a structured cell", () => {
+    const body = {
+      segments: {
+        prose: "About 40% of the ICP sits in ops teams.",
+        rows: [{ segment: "ops", share: "40% (survey)" }],
+      },
+    };
+
+    const result = enforceNumericCoherence({
+      body,
+      sectionId: "positioningBuyerICP",
+    });
+
+    expect(result.stripped).toHaveLength(0);
+  });
+
   it("returns the original body untouched when nothing strikes", () => {
     const body = demandBody({
       prose: "Pricing intent dominates the mix.",

@@ -523,3 +523,78 @@ describe("withBuyerICPAcquisitionLedger — degraded persona-blockGap synthesis 
     expect((report.acquisitionLedger as unknown[]).length).toBe(3);
   });
 });
+
+// C-LEDGER: the report-absent branch must NOT fabricate an evidence gap when the
+// committed body already cleared the persona floor. The Ramp run shipped
+// evidenceGap=true + reason=insufficient_named_buyer_personas + a "personaReality
+// is empty" summary while personaReality.personas carried 3 grounded named buyers
+// (Beatriz Go, Paul Klein IV, Keith Frantz) and sufficiency.tier='sufficient' — a
+// flat self-contradiction. When groundedPersonaCount >= floor and no report
+// exists, the ledger must attach as a DIAGNOSTIC ONLY: no evidenceGap flip, no
+// "personaReality is empty" summary, no insufficient reason literal.
+
+// A BuyerICP body that already cleared the persona floor (the fixture's 5 named
+// personas) but carries NO evidenceGapReport and NO evidenceGap flag. Mirrors the
+// degraded report-absent exit, except personaReality is genuinely sufficient.
+function sufficientPersonaNoReportArtifact(): ArtifactEnvelope {
+  const fixtureBody = buyerICPFixtureArtifact.body;
+
+  return {
+    ...buyerICPFixtureArtifact,
+    body: {
+      ...fixtureBody,
+      // No evidenceGapReport and no evidenceGap flag on the committed body.
+      evidenceGapReport: null,
+    },
+  } as unknown as ArtifactEnvelope;
+}
+
+describe("withBuyerICPAcquisitionLedger — sufficient personas, report absent (C-LEDGER)", () => {
+  it("does NOT fabricate an evidence gap when the persona floor is already cleared", () => {
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: sufficientPersonaNoReportArtifact(),
+      candidates: [
+        candidate({ name: "Ava Chen", url: "https://g2.com/u/ava" }),
+        candidate({ name: "Maya Singh", url: "https://capterra.com/u/maya" }),
+        candidate({ name: "Leo Grant", url: "https://linkedin.com/in/leo" }),
+      ],
+      observedAt,
+    });
+
+    const body = enriched.body as Record<string, unknown>;
+
+    // (a) The honest sufficient state must NOT be flipped to an evidence gap.
+    expect(body.evidenceGap).not.toBe(true);
+
+    // (b) The dishonest "personaReality is empty" summary must appear nowhere.
+    expect(JSON.stringify(body)).not.toContain("personaReality is empty");
+
+    // (c) Any attached report must NOT carry the insufficient reason literal.
+    const report = body.evidenceGapReport;
+    if (report !== null && typeof report === "object" && !Array.isArray(report)) {
+      expect((report as Record<string, unknown>).reason).not.toBe(
+        buyerICPEvidenceGapReason,
+      );
+    }
+  });
+
+  it("produces a body that still validates against buyerICPBodySchema + validateBuyerICPMinimums", () => {
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: sufficientPersonaNoReportArtifact(),
+      candidates: [
+        candidate({ name: "Ava Chen", url: "https://g2.com/u/ava" }),
+        candidate({ name: "Maya Singh", url: "https://capterra.com/u/maya" }),
+        candidate({ name: "Leo Grant", url: "https://linkedin.com/in/leo" }),
+      ],
+      observedAt,
+    });
+
+    // (d) The result must still parse strict + pass the section minimums.
+    const parsedBody = buyerICPBodySchema.parse(enriched.body);
+    const minimums = validateBuyerICPMinimums({
+      ...enriched,
+      body: parsedBody,
+    });
+    expect(minimums.ok).toBe(true);
+  });
+});

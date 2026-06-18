@@ -50,6 +50,14 @@ interface StrippedClaim {
 }
 
 const lowVolumeThreshold = 200;
+// Magnitude sanity for operator-economics facts. A monthly media budget below
+// this floor is implausibly small (a campaign-level or daily mention, not the
+// operator's monthly spend); a value at/above the ceiling is a valuation/ARR
+// figure. Readings outside the plausible band are demoted in winner selection
+// so a stray sub-$1000 number can never lead the memo when a plausible reading
+// exists.
+const monthlyBudgetPlausibleFloor = 1_000;
+const operatorEconomicsMagnitudeCeiling = 1_000_000_000;
 const factOwnerByDomain: Record<FactDomain, string> = {
   "competitor-price": "positioningCompetitorLandscape",
   "customer-count": "positioningOfferDiagnostic",
@@ -199,8 +207,10 @@ function readingUnitClassForFact(
       return "currency-rate";
     }
 
+    // A currency value reads as a monthly budget only when its own value/
+    // context carries monthly/spend signal — the factKey alone must not force
+    // an arbitrary currency (e.g. a stray valuation) into the monthly class.
     if (
-      fact.factKey === "monthly-budget" ||
       /\b(?:monthly|per month|\/\s*(?:mo|month)|media budget|ad budget|spend)\b/i.test(
         combined,
       )
@@ -280,6 +290,35 @@ function factIsDisputed(readings: readonly FactLedgerReading[]): boolean {
   return (max - min) / Math.max(min, 1) > 0.2;
 }
 
+// True when a reading's magnitude is plausible for the fact it leads. Used to
+// keep a stray sub-$1000 number or a billion-dollar valuation from winning a
+// monthly-budget / ACV / CAC fact when a magnitude-plausible reading exists.
+function readingMagnitudeIsPlausible(
+  fact: FactLedgerFact,
+  reading: FactLedgerReading,
+): boolean {
+  const value = reading.normalizedValue;
+
+  if (value === undefined) {
+    return true;
+  }
+
+  if (
+    (fact.factKey === "acv" ||
+      fact.factKey === "cac-target" ||
+      fact.factKey === "monthly-budget") &&
+    value >= operatorEconomicsMagnitudeCeiling
+  ) {
+    return false;
+  }
+
+  if (fact.factKey === "monthly-budget" && value < monthlyBudgetPlausibleFloor) {
+    return false;
+  }
+
+  return true;
+}
+
 function deterministicWinnerForFact(
   fact: FactLedgerFact,
   readings: readonly FactLedgerReading[],
@@ -287,6 +326,14 @@ function deterministicWinnerForFact(
   const owner = factOwnerByDomain[fact.domain];
 
   return [...readings].sort((left, right) => {
+    const plausibilityDelta =
+      Number(readingMagnitudeIsPlausible(fact, right)) -
+      Number(readingMagnitudeIsPlausible(fact, left));
+
+    if (plausibilityDelta !== 0) {
+      return plausibilityDelta;
+    }
+
     const rankDelta = rankReading(right) - rankReading(left);
 
     if (rankDelta !== 0) {

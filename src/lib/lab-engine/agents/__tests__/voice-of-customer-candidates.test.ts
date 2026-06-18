@@ -108,6 +108,43 @@ describe('createVoiceOfCustomerCandidate', (): void => {
     expect(candidate?.snippet).not.toContain('(51-1000 emp.)');
   });
 
+  it('strips a synthesized meta-summary lead-in, keeping only the verbatim quote', (): void => {
+    const candidate = createVoiceOfCustomerCandidate({
+      acquisitionMode: 'review_body',
+      auditedCompanyDomain: 'https://ramp.com',
+      evidenceKind: 'review',
+      snippet:
+        'Customer reviews on Trustpilot highlight unexpected charges — They billed me twice and support never refunded the duplicate charge.',
+      source: 'reviews',
+      title: 'Finance reviewer',
+      url: 'https://www.trustpilot.com/reviews/acme-review-9001',
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.snippet).toBe(
+      'They billed me twice and support never refunded the duplicate charge.',
+    );
+    expect(candidate?.snippet).not.toContain('Customer reviews on Trustpilot');
+    expect(candidate?.snippet).not.toContain('highlight');
+  });
+
+  it('keeps a natural mid-quote em-dash in a single first-person review', (): void => {
+    const candidate = createVoiceOfCustomerCandidate({
+      acquisitionMode: 'review_body',
+      auditedCompanyDomain: 'https://ramp.com',
+      evidenceKind: 'review',
+      snippet:
+        'Support never responds — I waited a week for a ticket reply and got ignored.',
+      source: 'reviews',
+      title: 'Support reviewer',
+      url: 'https://www.capterra.com/reviews/acme-review-9002',
+    });
+
+    expect(candidate?.snippet).toBe(
+      'Support never responds — I waited a week for a ticket reply and got ignored.',
+    );
+  });
+
   it('keeps third-party review and forum URLs even when the path mentions the audited company', (): void => {
     const candidate = createVoiceOfCustomerCandidate({
       acquisitionMode: 'review_body',

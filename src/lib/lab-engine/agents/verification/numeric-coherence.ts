@@ -35,6 +35,10 @@ export interface InternalJargonStrike {
 
 export interface NumericTruthIndex {
   values: number[];
+  // Subset of values that came from a percent figure. A percent narrative
+  // token may only be backed numerically by one of these — a bare count or
+  // dollar amount that equals 40 must never validate "40%".
+  percentValues: number[];
   rawText: string;
 }
 
@@ -361,6 +365,18 @@ function addStructuredStringNumbers(text: string, values: number[]): void {
   }
 }
 
+// Percent figures inside a structured cell ("40% (survey)") are the only
+// numeric backing a percent narrative claim may match against.
+function addStructuredStringPercents(text: string, percentValues: number[]): void {
+  for (const match of text.matchAll(/\b\d{1,3}(?:\.\d+)?%/g)) {
+    const value = canonicalNumber(match[0]);
+
+    if (value !== null) {
+      percentValues.push(value);
+    }
+  }
+}
+
 const maxGroupCountDistinctValues = 24;
 
 // Derivable aggregates of an array of records: per-column numeric sums (the
@@ -433,11 +449,13 @@ function addRecordArrayAggregates(
 
 function walkTruth({
   excludeFields,
+  percentValues,
   rawParts,
   value,
   values,
 }: {
   excludeFields: ReadonlySet<string>;
+  percentValues: number[];
   rawParts: string[];
   value: unknown;
   values: number[];
@@ -451,6 +469,7 @@ function walkTruth({
   if (typeof value === "string") {
     rawParts.push(value);
     addStructuredStringNumbers(value, values);
+    addStructuredStringPercents(value, percentValues);
     return;
   }
 
@@ -464,7 +483,7 @@ function walkTruth({
     }
 
     for (const item of value) {
-      walkTruth({ excludeFields, rawParts, value: item, values });
+      walkTruth({ excludeFields, percentValues, rawParts, value: item, values });
     }
 
     return;
@@ -479,7 +498,7 @@ function walkTruth({
       continue;
     }
 
-    walkTruth({ excludeFields, rawParts, value: childValue, values });
+    walkTruth({ excludeFields, percentValues, rawParts, value: childValue, values });
   }
 }
 
@@ -491,11 +510,12 @@ export function buildNumericTruthIndex({
   value: unknown;
 }): NumericTruthIndex {
   const values: number[] = [];
+  const percentValues: number[] = [];
   const rawParts: string[] = [];
 
-  walkTruth({ excludeFields, rawParts, value, values });
+  walkTruth({ excludeFields, percentValues, rawParts, value, values });
 
-  return { rawText: rawParts.join("\n"), values };
+  return { percentValues, rawText: rawParts.join("\n"), values };
 }
 
 function valueTraceable({
@@ -515,12 +535,14 @@ function valueTraceable({
     return true;
   }
 
-  for (const candidate of truth.values) {
-    if (Math.abs(candidate - value) < 1e-6) {
-      return true;
-    }
+  // A percent token may only be matched (exactly or within tolerance) against
+  // pooled percent figures; a bare count or dollar amount that equals 40 must
+  // never validate "40%". The fractional rule (a stored ratio 0.40 backing
+  // 40%) still scans all values.
+  const sameKind = isPercent ? truth.percentValues : truth.values;
 
-    if (isPercent && Math.abs(candidate * 100 - value) < 1e-6) {
+  for (const candidate of sameKind) {
+    if (Math.abs(candidate - value) < 1e-6) {
       return true;
     }
 
@@ -530,6 +552,14 @@ function valueTraceable({
         approxRelativeTolerance
     ) {
       return true;
+    }
+  }
+
+  if (isPercent) {
+    for (const candidate of truth.values) {
+      if (Math.abs(candidate * 100 - value) < 1e-6) {
+        return true;
+      }
     }
   }
 
@@ -712,14 +742,16 @@ function buildVerifiedClaimTruth(
   verifiedClaimValues: readonly string[],
 ): NumericTruthIndex {
   const values: number[] = [];
+  const percentValues: number[] = [];
   const rawParts: string[] = [];
 
   for (const claimValue of verifiedClaimValues) {
     rawParts.push(claimValue);
     addStructuredStringNumbers(claimValue, values);
+    addStructuredStringPercents(claimValue, percentValues);
   }
 
-  return { rawText: rawParts.join("\n"), values };
+  return { percentValues, rawText: rawParts.join("\n"), values };
 }
 
 export function buildSectionNumericTruth({
@@ -749,13 +781,18 @@ export function buildSectionNumericTruth({
   // fabrication-class.
   const inputTruth =
     auxiliaryEvidence === undefined
-      ? { rawText: "", values: [] as number[] }
+      ? { percentValues: [] as number[], rawText: "", values: [] as number[] }
       : buildNumericTruthIndex({
           excludeFields: new Set<string>(),
           value: auxiliaryEvidence,
         });
 
   return {
+    percentValues: [
+      ...ownTruth.percentValues,
+      ...inputTruth.percentValues,
+      ...claimTruth.percentValues,
+    ],
     rawText: [ownTruth.rawText, inputTruth.rawText, claimTruth.rawText]
       .filter((part) => part.length > 0)
       .join("\n"),

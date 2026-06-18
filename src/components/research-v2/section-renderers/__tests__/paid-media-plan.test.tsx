@@ -181,4 +181,40 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     ).toBeInTheDocument();
     expect(screen.getByText(/\$9,000.+\$30,000/)).toBeInTheDocument();
   });
+
+  it('shows a gap audience budget as test/probe language in the budget bar, never a bare confident allocation', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    // Gap row: synthesized with no row-level anchor, cited at section level only.
+    artifact.body.audienceTypes[0].evidencePack = {
+      status: 'gap',
+      refs: [],
+      note: 'Cited at section level only — no row-level anchor matched.',
+    };
+    artifact.body.audienceTypes[0].dailyBudget = '$300/day';
+    // Grounded row: tied to a real upstream committed row; keeps its money budget.
+    artifact.body.audienceTypes[1].evidencePack = {
+      status: 'grounded',
+      refs: [
+        {
+          sourceSection: 'positioningVoiceOfCustomer',
+          evidenceKind: 'quote',
+          locator: 'voc#3',
+          excerpt: 'Slow handoffs block campaign launch.',
+        },
+      ],
+    };
+    artifact.body.audienceTypes[1].dailyBudget = '$200/day';
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    const budgetBar = screen.getByTestId('budget-bar');
+    const scoped = within(budgetBar);
+
+    // The gap segment never prints its confident "$300/day" allocation; it reads
+    // as a test/probe budget instead.
+    expect(scoped.queryByText('$300/day')).not.toBeInTheDocument();
+    expect(scoped.getByText(/test budget/i)).toBeInTheDocument();
+    // The grounded segment still shows its confident money allocation.
+    expect(scoped.getByText('$200/day')).toBeInTheDocument();
+  });
 });

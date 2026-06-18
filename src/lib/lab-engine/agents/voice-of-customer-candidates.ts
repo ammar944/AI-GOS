@@ -118,6 +118,20 @@ const sourceRank: Readonly<Record<VoiceOfCustomerCandidateSource, number>> = {
   perplexity_research: 4,
 };
 
+// A synthesized meta-summary lead-in is a THIRD-PERSON analyst framing of an
+// aggregate of reviews ("Customer reviews on Trustpilot highlight unexpected
+// charges — <verbatim>") prepended to the real first-person quote. Only the
+// post-em-dash verbatim should ship. The pattern is anchored to the start and
+// requires the aggregate-noun + synthesis-verb signature, so it never strips a
+// natural mid-quote em-dash inside a single first-person review.
+const SYNTHESIZED_QUOTE_LEAD_IN_PATTERN =
+  /^(?:customer |buyer |user |verified )?(?:reviews?|reviewers?|customers?|users?|buyers?|comments?|complaints?|feedback)\b[^—]*?\b(?:highlight|highlights|show|shows|note|notes|mention|mentions|reveal|reveals|indicate|indicates|report|reports|describe|describes|say|says|suggest|suggests|cite|cites|emphasize|emphasizes)\b[^—]*?\s+—\s+/i;
+
+function stripSynthesizedQuoteLeadIn(snippet: string): string {
+  const stripped = snippet.replace(SYNTHESIZED_QUOTE_LEAD_IN_PATTERN, "");
+  return stripped.trim().length > 0 ? stripped.trim() : snippet;
+}
+
 function normalizeCandidateUrl(input: string): string | null {
   const parsedUrl = parseUrlLike(input);
   const hostname =
@@ -272,8 +286,9 @@ export function createVoiceOfCustomerCandidate(
 ): VoiceOfCustomerCandidate | null {
   // Strip review-platform DOM chrome (tier/employee-count labels, "Verified
   // User", appended neighbour-review titles) before the snippet is stored, so a
-  // laundered blob never reaches synthesis as a "verbatim" quote.
-  const snippet = cleanQuoteText(input.snippet);
+  // laundered blob never reaches synthesis as a "verbatim" quote. Also drop a
+  // synthesized meta-summary lead-in so verbatimText ships the real quote only.
+  const snippet = stripSynthesizedQuoteLeadIn(cleanQuoteText(input.snippet));
   const normalizedUrl = normalizeCandidateUrl(input.url);
   const domain =
     normalizedUrl === null ? null : getRegistrableDomain(normalizedUrl);

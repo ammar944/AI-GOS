@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 import { EvidenceChip, type EvidenceChipSource } from './evidence-chip';
-import { scrubReaderText } from './reader-text';
+import { isReaderPipelineChrome, scrubReaderText } from './reader-text';
 
 export interface DecisionCardProps {
   number: number;
@@ -18,6 +18,12 @@ export function DecisionCard({
   meta,
   className,
 }: DecisionCardProps): React.ReactElement {
+  // meta is a rationale line; drop it when it carries operator chrome
+  // (e.g. "evidence gap: … blockGap …") so no forbidden term reaches the DOM.
+  const safeMeta =
+    typeof meta === 'string' && !isReaderPipelineChrome(meta)
+      ? scrubReaderText(meta)
+      : undefined;
   return (
     <article className={cn('grid grid-cols-[34px_1fr] gap-3 border-b border-border pb-4', className)}>
       <span className="font-mono text-[16px] font-semibold tabular-nums text-foreground">
@@ -35,9 +41,9 @@ export function DecisionCard({
               label="proven by"
             />
           ))}
-          {meta ? (
+          {safeMeta ? (
             <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-              {meta}
+              {safeMeta}
             </span>
           ) : null}
         </div>

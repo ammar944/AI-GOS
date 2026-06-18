@@ -129,6 +129,32 @@ const subjectPricePlans: readonly string[] = [
 
 const contextLimit = 240;
 
+// A billion-dollar number is never an ACV, a CAC, or a monthly ad budget — it
+// is a valuation/funding/ARR figure that contaminates these facts when a "$"
+// token is harvested leaf-wide. Readings at or above this ceiling are dropped
+// from the magnitude-gated facts below.
+const operatorEconomicsMagnitudeCeiling = 1_000_000_000;
+const magnitudeGatedFactKeys: ReadonlySet<string> = new Set([
+  "acv",
+  "cac-target",
+  "monthly-budget",
+]);
+
+function exceedsOperatorEconomicsCeiling(token: string): boolean {
+  const value = normalizedValue(token);
+
+  return value !== undefined && value >= operatorEconomicsMagnitudeCeiling;
+}
+
+// A currency token only reads as a monthly budget when its sentence carries
+// monthly/per-month/spend context. Without it, the value (e.g. a campaign-level
+// $200 mention) is not a monthly-budget reading.
+function sentenceHasMonthlyBudgetContext(sentence: string): boolean {
+  return /\b(?:monthly|per month|\/\s*(?:mo|month)|media budget|ad budget|monthly spend|budget|spend)\b/i.test(
+    sentence,
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -600,7 +626,32 @@ function addTextReadings({
           domain === "operator-economics" ||
           domain === "competitor-price"
         ) {
-          return token.includes("$") || token.includes("%");
+          if (!token.includes("$") && !token.includes("%")) {
+            return false;
+          }
+
+          // Magnitude ceiling: a billion-dollar number is a valuation/ARR
+          // figure, never an ACV, CAC, or monthly budget — drop it so it
+          // cannot contaminate these facts or win their reconciliation.
+          if (
+            magnitudeGatedFactKeys.has(factKey) &&
+            token.includes("$") &&
+            exceedsOperatorEconomicsCeiling(token)
+          ) {
+            return false;
+          }
+
+          // A currency value only reads as a monthly budget when its own
+          // sentence carries monthly/spend context.
+          if (factKey === "monthly-budget" && token.includes("$")) {
+            const owningSentence =
+              sentences.find((sentence) => sentence.includes(token)) ??
+              fullText;
+
+            return sentenceHasMonthlyBudgetContext(owningSentence);
+          }
+
+          return true;
         }
 
         return true;
@@ -787,7 +838,10 @@ function addStructuredAcvReadings({
     }
 
     const sourceUrl = getRecordString(input, "sourceUrl");
-    const tokens = extractNumberTokens(value).filter((token) => token.includes("$"));
+    const tokens = extractNumberTokens(value).filter(
+      (token) =>
+        token.includes("$") && !exceedsOperatorEconomicsCeiling(token),
+    );
     const context = truncateContext(`${label}: ${value}`);
 
     for (const token of tokens) {

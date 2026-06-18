@@ -662,7 +662,7 @@ describe("subject CTA observation", (): void => {
     });
     const body = result.body as { funnel?: { claim?: string } };
 
-    expect(body.funnel?.claim).toContain("Evidence gap");
+    expect(body.funnel?.claim).toContain("free, self-serve signup");
     expect(result.stripped).toEqual([
       expect.objectContaining({
         path: "body.funnel.claim",
@@ -681,7 +681,7 @@ describe("subject CTA observation", (): void => {
     });
     const body = result.body as { funnel?: { claim?: string } };
 
-    expect(body.funnel?.claim).toContain("Evidence gap");
+    expect(body.funnel?.claim).toContain("free, self-serve signup");
     expect(result.stripped).toHaveLength(1);
   });
 
@@ -750,10 +750,27 @@ describe("subject CTA observation", (): void => {
     // run d838ed4e pasted the identical placeholder into five strategic
     // fields. Only the FIRST fully-offending field carries it now; the
     // second keeps its text (the strike machinery records only real strips).
-    expect(body.first?.claim).toContain("Evidence gap");
+    expect(body.first?.claim).toContain("free, self-serve signup");
     expect(body.second?.claim).toBe(
       "Every CTA on the homepage routes to a demo.",
     );
+    expect(result.stripped).toHaveLength(1);
+  });
+
+  it("emits reader-clean placeholder prose with no internal jargon (W4 E-CTA)", (): void => {
+    const result = stripContradictedSubjectCtaClaims({
+      body: {
+        offer: {
+          whyBinding: "Every CTA on the site routes to a demo.",
+        },
+      },
+      observations: [freeSignupObservation()],
+    });
+    const body = result.body as { offer?: { whyBinding?: string } };
+    const placeholder = body.offer?.whyBinding ?? "";
+
+    expect(placeholder.trim().length).toBeGreaterThan(0);
+    expect(placeholder).not.toMatch(/CTA|fetched|subject pages|prepass|evidence gap:/i);
     expect(result.stripped).toHaveLength(1);
   });
 });

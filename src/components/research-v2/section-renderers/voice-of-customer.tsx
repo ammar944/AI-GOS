@@ -243,21 +243,40 @@ export function VoiceOfCustomerRenderer({
       />
       <KeyFindings findings={vocKeyFindings(artifact)} />
 
-      {artifact.strategicInsight || artifact.fourForcesBalanceVerdict ? (
-        <StrategicInsightPanel insight={artifact.strategicInsight}>
-          <StrategicField
-            label="four-forces verdict"
-            value={artifact.fourForcesBalanceVerdict?.balanceVerdict}
-          />
-          <StrategicField label="push" value={artifact.fourForcesBalanceVerdict?.push} />
-          <StrategicField label="pull" value={artifact.fourForcesBalanceVerdict?.pull} />
-          <StrategicField
-            label="anxiety"
-            value={artifact.fourForcesBalanceVerdict?.anxiety}
-          />
-          <StrategicField label="habit" value={artifact.fourForcesBalanceVerdict?.habit} />
-        </StrategicInsightPanel>
-      ) : null}
+      {(() => {
+        // Suppress the strategic hero when every strategic field is an
+        // 'evidence gap:' placeholder — a 26px bold "evidence gap: …" verdict is
+        // the worst reader experience in the deliverable. Render only fields
+        // that classify as real text; drop the panel entirely when none do.
+        const fourForces = [
+          { label: 'four-forces verdict', value: artifact.fourForcesBalanceVerdict?.balanceVerdict },
+          { label: 'push', value: artifact.fourForcesBalanceVerdict?.push },
+          { label: 'pull', value: artifact.fourForcesBalanceVerdict?.pull },
+          { label: 'anxiety', value: artifact.fourForcesBalanceVerdict?.anxiety },
+          { label: 'habit', value: artifact.fourForcesBalanceVerdict?.habit },
+        ].filter(
+          (field): field is { label: string; value: string } =>
+            typeof field.value === 'string' &&
+            textOrGap(field.value, field.label).kind === 'text',
+        );
+        const insightVerdict = artifact.strategicInsight?.strategicVerdict;
+        const hasRealInsight =
+          typeof insightVerdict === 'string' &&
+          textOrGap(insightVerdict, 'strategic verdict').kind === 'text';
+        const insight = hasRealInsight ? artifact.strategicInsight : undefined;
+
+        if (!insight && fourForces.length === 0) {
+          return null;
+        }
+
+        return (
+          <StrategicInsightPanel insight={insight}>
+            {fourForces.map((field) => (
+              <StrategicField key={field.label} label={field.label} value={field.value} />
+            ))}
+          </StrategicInsightPanel>
+        );
+      })()}
 
       <SubsectionBlock label="Pain language" prose={painLanguage.prose}>
         {usablePainQuotes.length === 0 ? (

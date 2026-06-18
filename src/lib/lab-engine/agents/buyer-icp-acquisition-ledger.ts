@@ -161,11 +161,14 @@ export function buildBuyerICPAttemptLedgerRows({
  *
  * P0b: when the committed body carries NO evidenceGapReport (the degraded
  * persona-blockGap exit — personaReality.blockGap present, 0 personas, no
- * report), synthesize a COMPLETE schema-valid evidenceGapReport carrying the
- * acquisitionLedger + sufficiency so the app explains failed acquisition
- * instead of silently omitting diagnostics. body.evidenceGap is set true for
- * coherence with validateBuyerICPMinimums, which requires a matching report
- * whenever evidenceGap=true. Purely additive; never weakens schema fields.
+ * report) AND fewer than the persona floor are grounded, synthesize a COMPLETE
+ * schema-valid evidenceGapReport carrying the acquisitionLedger + sufficiency so
+ * the app explains failed acquisition instead of silently omitting diagnostics.
+ * body.evidenceGap is set true for coherence with validateBuyerICPMinimums,
+ * which requires a matching report whenever evidenceGap=true. When the body
+ * already cleared the persona floor, the report-absent body is left untouched —
+ * fabricating an "insufficient" gap over grounded personas would be a self-
+ * contradiction. Purely additive; never weakens schema fields.
  */
 export function withBuyerICPAcquisitionLedger({
   artifact,
@@ -243,6 +246,17 @@ export function withBuyerICPAcquisitionLedger({
             .personas as ReadonlyArray<Record<string, unknown>>)
         : [];
     const groundedPersonaCount = personas.filter(isNamedBuyerPersona).length;
+
+    // Sufficient personas, report absent: the body already cleared the floor, so
+    // synthesizing an "insufficient" gap here would be a flat self-contradiction
+    // (evidenceGap=true + "personaReality is empty" while personaReality.personas
+    // is grounded). The only schema-legal report reason is the insufficient
+    // literal, and the .strict() body has no top-level home for the ledger — so
+    // when sufficient we attach NO gap report and leave the honest committed body
+    // untouched, rather than fabricate a gap to host the diagnostics.
+    if (groundedPersonaCount >= BUYER_ICP_PROMOTED_PERSONA_FLOOR) {
+      return artifact;
+    }
 
     const synthesizedReport = {
       reason: buyerICPEvidenceGapReason,

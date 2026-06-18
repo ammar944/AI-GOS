@@ -335,4 +335,93 @@ describe('<PaidMediaPlanDeck>', (): void => {
       within(groundedCard as HTMLElement).queryByTestId('paid-media-gap-marker'),
     ).not.toBeInTheDocument();
   });
+
+  it('renders a gap audience budget as test/probe language, never a bare confident allocation', (): void => {
+    const artifact = cloneFixture();
+    // Gap row: synthesized with no row-level anchor, cited at section level only.
+    // A distinct budget value so the assertion scopes to this audience alone.
+    artifact.body.audienceTypes[0].evidencePack = {
+      status: 'gap',
+      refs: [],
+      note: 'Cited at section level only — no row-level anchor matched.',
+    };
+    artifact.body.audienceTypes[0].dailyBudget = '$300/day';
+    // Grounded row: tied to a real upstream committed row; keeps its money budget.
+    artifact.body.audienceTypes[1].evidencePack = {
+      status: 'grounded',
+      refs: [
+        {
+          sourceSection: 'positioningVoiceOfCustomer',
+          evidenceKind: 'quote',
+          locator: 'voc#3',
+          excerpt: 'Slow handoffs block campaign launch.',
+        },
+      ],
+    };
+    artifact.body.audienceTypes[1].dailyBudget = '$200/day';
+
+    render(<PaidMediaPlanDeck artifact={artifact} />);
+
+    const page = screen
+      .getByRole('heading', { name: 'Audience Types', level: 2 })
+      .closest('section');
+    expect(page).not.toBeNull();
+    const scoped = within(page as HTMLElement);
+
+    // The gap audience card carries probe/test language, not the confident
+    // "$300/day" allocation a grounded row would show.
+    const gapCard = scoped
+      .getByText('Broad Prospecting', { exact: false })
+      .closest('article');
+    expect(gapCard).not.toBeNull();
+    const gapScoped = within(gapCard as HTMLElement);
+    expect(gapScoped.queryByText('$300/day')).not.toBeInTheDocument();
+    expect(gapScoped.getByText(/test budget/i)).toBeInTheDocument();
+
+    // The grounded audience card still shows its confident money allocation.
+    const groundedCard = scoped
+      .getByText('ABM ICP List + 1% Lookalike')
+      .closest('article');
+    expect(groundedCard).not.toBeNull();
+    const groundedScoped = within(groundedCard as HTMLElement);
+    expect(groundedScoped.getByText('$200/day')).toBeInTheDocument();
+    expect(groundedScoped.queryByText(/test budget/i)).not.toBeInTheDocument();
+  });
+
+  it('renders feasibilityAudit verdicts in the capstone (matched keyword + volume basis)', (): void => {
+    const artifact = cloneFixture();
+    (artifact.body as Record<string, unknown>).feasibilityAudit = {
+      summary: 'Two of three audiences fit the modeled spend.',
+      verdicts: [
+        {
+          audience: 'Broad Prospecting - Interest Stack',
+          allocationBasis: 'even split across test audiences',
+          volumeBasis: 'SearchAPI keyword volume, 30-day window',
+          verdict: 'fits',
+          math: ['$300/day ÷ $4.50 CPC = 66 clicks/day'],
+          matchedKeywords: [
+            { keyword: 'workflow automation software', monthlyVolume: 18100, cpc: 4.5 },
+          ],
+        },
+      ],
+    };
+
+    render(<PaidMediaPlanDeck artifact={artifact} />);
+
+    expect(
+      screen.getByText(/SearchAPI keyword volume, 30-day window/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/workflow automation software/i),
+    ).toBeInTheDocument();
+  });
+
+  it('does not throw and renders no feasibility verdicts when feasibilityAudit is absent', (): void => {
+    const artifact = cloneFixture();
+    // The fixture has no feasibilityAudit — render must be a clean no-op.
+    expect(() =>
+      render(<PaidMediaPlanDeck artifact={artifact} />),
+    ).not.toThrow();
+    expect(screen.queryByText(/SearchAPI keyword volume, 30-day window/i)).toBeNull();
+  });
 });
