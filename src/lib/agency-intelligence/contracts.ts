@@ -21,6 +21,10 @@ export const EvidenceKind = z.enum([
   'corpus_promise',
   'corpus_gap',
   'site_registry',
+  'fathom_transcript',
+  'fathom_signal',
+  'corpus_risk_signal',
+  'corpus_delivery',
 ]);
 export type EvidenceKind = z.infer<typeof EvidenceKind>;
 
@@ -33,6 +37,20 @@ export const DbRowLocator = z.object({
 });
 export type DbRowLocator = z.infer<typeof DbRowLocator>;
 
+/**
+ * A pointer at a live Supabase row keyed by a non-UUID natural key
+ * (e.g. `sl_fathom_transcripts.recording_id`, where `DbRowLocator`'s
+ * uuid `id` cannot apply).
+ */
+export const DbKeyLocator = z.object({
+  type: z.literal('db_key'),
+  table: z.string().min(1),
+  key_column: z.string().min(1),
+  key_value: z.string().min(1),
+  column: z.string().min(1).optional(),
+});
+export type DbKeyLocator = z.infer<typeof DbKeyLocator>;
+
 /** A pointer at a corpus file on disk + optional JSON pointer into it. */
 export const CorpusFileLocator = z.object({
   type: z.literal('corpus_file'),
@@ -41,7 +59,7 @@ export const CorpusFileLocator = z.object({
 });
 export type CorpusFileLocator = z.infer<typeof CorpusFileLocator>;
 
-export const Locator = z.union([DbRowLocator, CorpusFileLocator]);
+export const Locator = z.union([DbRowLocator, DbKeyLocator, CorpusFileLocator]);
 export type Locator = z.infer<typeof Locator>;
 
 export const Evidence = z.object({
@@ -178,6 +196,66 @@ export const AgencyInsight = z.object({
 export type AgencyInsight = z.infer<typeof AgencyInsight>;
 
 // ---------------------------------------------------------------------------
+// Fathom transcripts + signals (sl_fathom_transcripts, sl_fathom_signals)
+// ---------------------------------------------------------------------------
+
+export const FathomSignalType = z.enum([
+  'churn_escalation',
+  'going_dark',
+  'payment_risk',
+  'verbal_promise',
+  'upsell_intent',
+]);
+export type FathomSignalType = z.infer<typeof FathomSignalType>;
+
+export const FathomSignalSeverity = z.enum(['low', 'medium', 'high']);
+export type FathomSignalSeverity = z.infer<typeof FathomSignalSeverity>;
+
+export const FathomCallType = z.enum([
+  'sales',
+  'cs_checkin',
+  'onboarding',
+  'other',
+  'unknown',
+]);
+export type FathomCallType = z.infer<typeof FathomCallType>;
+
+export const FathomTranscriptRow = z.object({
+  recording_id: z.string().min(1),
+  client_slug: z.string().nullable().optional(),
+  title: z.string().nullable().optional(),
+  meeting_title: z.string().nullable().optional(),
+  call_type: FathomCallType.default('unknown'),
+  call_date: z.string().min(1),
+  transcript: z.array(z.record(z.string(), z.unknown())).default([]),
+  summary: z.string().nullable().optional(),
+  action_items: z.array(z.record(z.string(), z.unknown())).default([]),
+  share_url: z.string().nullable().optional(),
+  call_url: z.string().nullable().optional(),
+  transcript_turns: z.number().int().min(0).default(0),
+  raw_sha256: z.string().min(1),
+  source_metadata: z.record(z.string(), z.unknown()).default({}),
+  ingested_at: z.string().min(1).optional(),
+  updated_at: z.string().min(1).optional(),
+});
+export type FathomTranscriptRow = z.infer<typeof FathomTranscriptRow>;
+
+export const FathomSignalRow = z.object({
+  id: z.string().uuid().optional(),
+  client_slug: z.string().min(1),
+  recording_id: z.string().min(1),
+  signal_type: FathomSignalType,
+  severity: FathomSignalSeverity,
+  quote: z.string().min(12).max(1200),
+  quote_sha256: z.string().min(1),
+  speaker: z.string().nullable().optional(),
+  call_date: z.string().min(1),
+  extracted_at: z.string().min(1).optional(),
+  source_metadata: z.record(z.string(), z.unknown()).default({}),
+});
+export type FathomSignalRow = z.infer<typeof FathomSignalRow>;
+
+// ---------------------------------------------------------------------------
 // Parsed corpus client file helpers (subset of corpus/clients/*.json shape).
 // Kept narrow — only the fields the deterministic insight reads.
 // ---------------------------------------------------------------------------
@@ -216,6 +294,22 @@ export function dbRowLocator(
   column?: string
 ): DbRowLocator {
   return { type: 'db_row', table, id, column };
+}
+
+/** Build a DbKeyLocator for a Supabase row keyed by a non-UUID natural key. */
+export function dbKeyLocator(
+  table: string,
+  keyColumn: string,
+  keyValue: string,
+  column?: string
+): DbKeyLocator {
+  return {
+    type: 'db_key',
+    table,
+    key_column: keyColumn,
+    key_value: keyValue,
+    column,
+  };
 }
 
 /** Parse a corpus client file JSON into the narrow typed subset used by insights. */

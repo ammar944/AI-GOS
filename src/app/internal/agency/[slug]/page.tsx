@@ -36,6 +36,31 @@ function severityClassName(severity: string): string {
   return 'text-blue-300 bg-blue-500/10';
 }
 
+// Verbal-signal severity tokens: high=red, medium=amber, low=blue.
+function signalSeverityClassName(severity: string): string {
+  if (severity === 'high') return 'text-red-300 bg-red-500/10';
+  if (severity === 'medium') return 'text-amber-300 bg-amber-500/10';
+  return 'text-blue-300 bg-blue-500/10';
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return '—';
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(timestamp));
+}
+
+/** Recording link: `source_metadata.share_url ?? source_metadata.call_url` (spec §8). */
+function recordingUrl(meta: Record<string, unknown>): string | null {
+  if (typeof meta.share_url === 'string' && meta.share_url) return meta.share_url;
+  if (typeof meta.call_url === 'string' && meta.call_url) return meta.call_url;
+  return null;
+}
+
 function StatBlock({
   label,
   value,
@@ -71,6 +96,14 @@ function LocatorText({ locator }: { locator: Locator }): React.JSX.Element {
     return (
       <span className="font-mono text-[11px] text-[var(--text-quaternary)]">
         {locator.table}.{locator.column ?? 'id'} = {locator.id}
+      </span>
+    );
+  }
+  if (locator.type === 'db_key') {
+    return (
+      <span className="font-mono text-[11px] text-[var(--text-quaternary)]">
+        {locator.table}.{locator.key_column} = {locator.key_value}
+        {locator.column ? ` (${locator.column})` : ''}
       </span>
     );
   }
@@ -237,6 +270,61 @@ export default async function AgencyClientPage({
               <DataNote
                 error={detail.corpus.error}
                 empty="No corpus snapshot synced for this client."
+              />
+            )}
+          </section>
+
+          {/* Verbal signals (from calls) — extracted Fathom escalations (spec §8.3).
+              Honest empty state when none; "Not provisioned" when the table is absent. */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Verbal signals (from calls)
+            </h2>
+            {detail.fathomSignals.error ? (
+              <DataNote error={detail.fathomSignals.error} empty="" />
+            ) : detail.fathomSignals.rows.length > 0 ? (
+              <ul className="space-y-2">
+                {detail.fathomSignals.rows.map((sig) => {
+                  const link = recordingUrl(sig.source_metadata);
+                  return (
+                    <li
+                      key={sig.id}
+                      className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${signalSeverityClassName(sig.severity)}`}>
+                          {sig.severity}
+                        </span>
+                        <span className="text-sm font-medium text-[var(--text-primary)]">{sig.signal_type}</span>
+                        <span className="ml-auto text-[11px] text-[var(--text-quaternary)]">{formatDate(sig.call_date)}</span>
+                      </div>
+                      <blockquote className="mt-2 border-l-2 border-[var(--border-default)] pl-3 text-sm italic text-[var(--text-tertiary)]">
+                        “{sig.quote}”
+                      </blockquote>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-quaternary)]">
+                        <span>{sig.speaker ?? 'unknown speaker'}</span>
+                        {link ? (
+                          <a
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[var(--accent-green)] hover:underline"
+                          >
+                            recording ↗
+                          </a>
+                        ) : null}
+                        <span className="ml-auto font-mono">
+                          sl_fathom_signals.id = {sig.id} · rec {sig.recording_id}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <DataNote
+                error={null}
+                empty="No attributed Fathom risk signals extracted for this client."
               />
             )}
           </section>

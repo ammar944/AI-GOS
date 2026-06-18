@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Account-Health Cockpit — turning a green-washed console into a ranked risk radar</title>
+<meta name="description" content="Engineering brief: fusing 42 SaaSLaunch corpus clients with verified verbal signals from 442 Fathom calls into a deterministic fleet risk-radar." />
+<style>
+  :root{
+    /* warm editorial palette — the single surviving accent system */
+    --paper:#fbfaf7;
+    --paper-2:#f4f1ea;
+    --card:#ffffff;
+    --ink:#1c1a17;
+    --ink-2:#403b34;
+    --muted:#6b6358;
+    --muted-2:#938a7c;
+    --line:#e7e1d6;
+    --line-2:#d8d0c2;
+    --accent:#9a3412;       /* burnt sienna — the only accent */
+    --accent-soft:#fbeee6;
+    --accent-line:#e7c3ad;
+    --critical:#b42318;
+    --critical-bg:#fdecea;
+    --critical-line:#f3c0ba;
+    --warning:#b54708;
+    --warning-bg:#fdf3e7;
+    --warning-line:#f2d6ad;
+    --healthy:#067647;
+    --healthy-bg:#e9f6ef;
+    --healthy-line:#bfe3d0;
+    --shadow:0 1px 2px rgba(28,26,23,.04), 0 8px 30px -12px rgba(28,26,23,.14);
+    --shadow-sm:0 1px 2px rgba(28,26,23,.05), 0 2px 8px -4px rgba(28,26,23,.10);
+    --shadow-inset:inset 0 1px 0 rgba(255,255,255,.6), 0 1px 0 var(--line-2), 0 22px 50px -28px rgba(28,26,23,.45);
+    --radius:14px;
+    --maxw:1120px;
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 520px at 88% -8%, #f7efe4 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- typographic primitives ---------- */
+  .eyebrow{
+    font-family:var(--sans);
+    font-size:12.5px;
+    font-weight:650;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 14px;
+  }
+  h1,h2,h3{font-family:var(--serif);font-weight:600;color:var(--ink);letter-spacing:-.01em}
+  h1{font-size:clamp(2.4rem,5.5vw,3.7rem);line-height:1.04;margin:0 0 22px;letter-spacing:-.02em}
+  h2{font-size:clamp(1.7rem,3.6vw,2.3rem);line-height:1.12;margin:0 0 16px}
+  h3{font-size:1.16rem;line-height:1.3;margin:0 0 8px;letter-spacing:-.005em}
+  p{margin:0 0 16px;color:var(--ink-2)}
+  .lead{font-size:clamp(1.12rem,1.9vw,1.32rem);color:var(--ink-2);line-height:1.55}
+  .small{font-size:14px;color:var(--muted)}
+  .mono{font-family:var(--mono);font-size:.86em;letter-spacing:-.01em}
+  code{font-family:var(--mono);font-size:.84em;background:var(--paper-2);border:1px solid var(--line);
+    border-radius:5px;padding:.08em .4em;color:var(--ink);white-space:nowrap}
+
+  /* ---------- section rhythm ---------- */
+  section{padding:64px 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+  .section-head{max-width:780px;margin-bottom:42px}
+  .section-num{
+    font-family:var(--mono);font-size:13px;color:var(--accent);
+    letter-spacing:.04em;display:inline-block;margin-bottom:10px;
+  }
+
+  /* ---------- hero ---------- */
+  header.hero{padding:78px 0 60px;position:relative}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:22px 0 54px;flex-wrap:wrap}
+  .brandmark{display:flex;align-items:center;gap:11px;font-family:var(--serif);
+    font-weight:600;font-size:1.02rem;letter-spacing:-.01em}
+  .brandmark svg{display:block}
+  .topbar .meta{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em}
+  .hero-grid{display:grid;grid-template-columns:1.45fr .9fr;gap:54px;align-items:start}
+  .hero-tension{
+    background:var(--accent-soft);
+    border:1px solid var(--warning-line);
+    border-left:3px solid var(--accent);
+    border-radius:12px;
+    padding:22px 24px;
+    margin-top:8px;
+  }
+  .hero-tension .label{font-family:var(--sans);font-weight:650;font-size:12px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+  .hero-tension p{margin:0;color:var(--ink);font-size:1.05rem;line-height:1.5}
+  .hero-side{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);padding:26px 24px;
+  }
+  .hero-side h4{margin:0 0 18px;font-family:var(--sans);font-size:12px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);font-weight:650}
+  .stat-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:13px 0;border-bottom:1px dashed var(--line)}
+  .stat-row:last-child{border-bottom:0;padding-bottom:0}
+  .stat-row:first-child{padding-top:0}
+  .stat-num{font-family:var(--serif);font-size:1.7rem;font-weight:600;color:var(--ink);line-height:1}
+  .stat-lab{font-size:13.5px;color:var(--muted);text-align:right;max-width:184px}
+
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  .pill{font-family:var(--mono);font-size:12px;color:var(--ink-2);background:var(--paper-2);
+    border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+
+  /* ---------- generic cards ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);padding:26px 26px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+
+  /* ---------- broken-signal cards (section 1) ---------- */
+  .broken{border-color:var(--critical-line);background:linear-gradient(180deg,#fff 0%, #fff8f7 100%)}
+  .broken .tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--critical);font-weight:600;margin-bottom:14px}
+  .broken h3{font-family:var(--sans);font-size:1.02rem;font-weight:650}
+  .broken .dataline{font-family:var(--mono);font-size:13px;color:var(--ink-2);margin:16px 0 0;
+    padding-top:14px;border-top:1px solid var(--critical-line)}
+
+  /* signal 1 — 42-cell green grid (grafted from A, warm-recolored) */
+  .greengrid{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;margin:16px 0 4px}
+  .greengrid i{aspect-ratio:1/1;border-radius:3px;background:var(--healthy);opacity:.5;
+    border:1px solid var(--healthy-line)}
+
+  /* signal 2 — proportional churn bars (kept from B; only real buckets {0,3}) */
+  .bars{display:flex;align-items:flex-end;gap:14px;height:96px;margin:18px 0 6px}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end;height:100%}
+  .bar .fill{width:100%;border-radius:6px 6px 0 0}
+  .bar .fill.b0{background:var(--muted-2);opacity:.55}
+  .bar .fill.b3{background:var(--critical);opacity:.85}
+  .bar .cap{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .bar .val{font-family:var(--serif);font-size:1.05rem;color:var(--ink);font-weight:600}
+  .floorline{display:flex;align-items:center;gap:8px;margin-top:10px;font-family:var(--mono);
+    font-size:11.5px;color:var(--critical)}
+  .floorline .ln{flex:1;height:0;border-top:1px dashed var(--critical-line)}
+
+  /* signal 3 — pollution fill bar (grafted from A, warm-recolored) */
+  .pollution{margin:18px 0 4px}
+  .pollution .track{height:11px;border-radius:6px;background:var(--paper-2);overflow:hidden;border:1px solid var(--line-2)}
+  .pollution .fill{height:100%;width:61.9%;background:linear-gradient(90deg,var(--critical),var(--warning))}
+  .pollution .cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px}
+
+  .examples{margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .ex{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--critical);
+    border-radius:10px;padding:18px 20px}
+  .ex .name{font-family:var(--serif);font-size:1.18rem;font-weight:600;margin-bottom:4px}
+  .ex .quote{color:var(--ink-2);font-size:15px;margin:0 0 12px}
+  .ex .verdict{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
+  .ex .verdict .now{color:var(--healthy);font-weight:600}
+  .ex .arrow{color:var(--muted-2)}
+
+  /* ---------- pipeline diagram (section 2) — two-lane, grafted from C, warm-recolored ---------- */
+  .pipe{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:26px 24px 22px;overflow-x:auto;
+  }
+  .pipe-meta{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;
+    margin-bottom:20px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-2)}
+  .lane{position:relative;border:1px dashed var(--line-2);border-radius:12px;
+    padding:34px 18px 22px;margin-bottom:22px;background:var(--paper)}
+  .lane:last-of-type{margin-bottom:0}
+  .lane > .lane-tag{position:absolute;top:-10px;left:18px;background:var(--card);padding:2px 11px;
+    border:1px solid var(--line);border-radius:6px;font-family:var(--mono);font-size:10.5px;
+    letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+  .flow{display:flex;align-items:stretch;gap:0;min-width:760px}
+  .node{
+    flex:1;min-width:0;background:var(--card);border:1px solid var(--line-2);border-radius:11px;
+    padding:14px 14px;display:flex;flex-direction:column;gap:5px;position:relative;
+  }
+  .node .ntype{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2)}
+  .node .nname{font-family:var(--sans);font-weight:650;font-size:13.5px;line-height:1.25;color:var(--ink)}
+  .node .nname .tbl{font-family:var(--mono);font-size:12.5px;color:var(--accent)}
+  .node .ndesc{font-size:12px;color:var(--muted);line-height:1.4;margin-top:auto}
+  .node .ncount{font-family:var(--mono);font-size:11px;color:var(--accent)}
+  .node.table{background:var(--accent-soft);border-color:var(--warning-line)}
+  .node.table .ntype{color:var(--accent)}
+  .node.engine{background:var(--paper-2);border-color:var(--line-2)}
+  .node.engine .ntype{color:var(--ink-2)}
+  .node.cockpit{background:var(--healthy-bg);border-color:var(--healthy-line)}
+  .node.cockpit .ntype{color:var(--healthy)}
+  .node .badge-new{position:absolute;top:-9px;right:10px;font-family:var(--mono);font-size:9.5px;
+    letter-spacing:.06em;background:var(--accent);color:#fff;border-radius:4px;padding:2px 6px;font-weight:600}
+  .arr{display:flex;align-items:center;justify-content:center;flex:0 0 56px;color:var(--line-2);position:relative}
+  .arr svg{display:block}
+  .arr .clab{position:absolute;top:-4px;left:50%;transform:translate(-50%,-100%);
+    white-space:nowrap;font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.02em}
+  .arr.gate{color:var(--accent)}
+  .arr.gate .clab{color:var(--accent);font-weight:600}
+
+  .gate-callout{margin-top:18px;display:flex;gap:14px;align-items:flex-start;
+    background:var(--accent-soft);border:1px solid var(--warning-line);border-radius:11px;padding:16px 18px}
+  .gate-callout svg{flex:0 0 auto;margin-top:2px}
+  .gate-callout p{margin:0;font-size:14px;color:var(--ink-2)}
+  .gate-callout strong{color:var(--ink)}
+  .gate-callout code{background:var(--card)}
+
+  /* ---------- schema cards (section 2) — grafted from C, warm-recolored ---------- */
+  .schemas{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px}
+  .schema{background:var(--card);border:1px solid var(--line-2);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm)}
+  .schema .sch-head{background:var(--ink);color:var(--paper);padding:11px 16px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .schema .sch-head .nm{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.01em}
+  .schema .sch-head .badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid rgba(251,250,247,.4);padding:1px 7px;border-radius:10px;color:var(--paper)}
+  .schema .sch-cap{padding:9px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+  .col-list{padding:6px 0}
+  .col{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline;
+    padding:6px 16px;border-bottom:1px solid var(--line)}
+  .col:last-child{border-bottom:none}
+  .col .cn{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+  .col .cn.pk{color:var(--accent);font-weight:600}
+  .col .cn .key{font-size:9px;color:var(--accent);border:1px solid var(--accent-line);border-radius:3px;
+    padding:0 4px;margin-left:6px;vertical-align:middle;letter-spacing:.05em}
+  .col .ct{font-family:var(--mono);font-size:11px;color:var(--muted-2);text-align:right}
+  .col .note{grid-column:1 / -1;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .col .note b{color:var(--accent);font-weight:600}
+
+  /* ---------- true-risk logic (section 3) ---------- */
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .tier-card{border-radius:var(--radius);border:1px solid var(--line);background:var(--card);
+    box-shadow:var(--shadow-sm);overflow:hidden}
+  .tier-card .tc-head{padding:16px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line)}
+  .tier-card .tc-head .tt{font-family:var(--sans);font-weight:700;letter-spacing:.04em;font-size:13px;text-transform:uppercase}
+  .tier-card .tc-head .op{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--muted-2)}
+  .tier-card.crit .tc-head{background:var(--critical-bg);border-bottom-color:var(--critical-line)}
+  .tier-card.crit .tt{color:var(--critical)}
+  .tier-card.warn .tc-head{background:var(--warning-bg);border-bottom-color:var(--warning-line)}
+  .tier-card.warn .tt{color:var(--warning)}
+  .tier-card.heal .tc-head{background:var(--healthy-bg);border-bottom-color:var(--healthy-line)}
+  .tier-card.heal .tt{color:var(--healthy)}
+  .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .dot.crit{background:var(--critical)} .dot.warn{background:var(--warning)} .dot.heal{background:var(--healthy)}
+  .rule{display:flex;gap:11px;padding:13px 20px;border-bottom:1px dashed var(--line);font-size:14px;color:var(--ink-2)}
+  .rule:last-child{border-bottom:0}
+  .rule .pts{font-family:var(--mono);font-size:11.5px;color:var(--muted-2);margin-left:auto;flex:0 0 auto;
+    background:var(--paper-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;align-self:flex-start}
+  .rule .rk{flex:0 0 auto;color:var(--muted-2);font-family:var(--mono);font-size:13px;line-height:1.5}
+  .rule code{font-size:.8em}
+
+  .demote{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .demote .d{background:var(--paper-2);border:1px dashed var(--line-2);border-radius:11px;padding:16px 18px}
+  .demote .d .dh{display:flex;align-items:center;gap:9px;margin-bottom:7px;flex-wrap:wrap}
+  .demote .d .dh .strike{font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:line-through;text-decoration-color:var(--critical)}
+  .demote .d .dh .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted-2);background:var(--card);border:1px solid var(--line);border-radius:4px;padding:2px 6px;margin-left:auto}
+  .demote .d p{margin:0;font-size:13.5px;color:var(--muted)}
+  .demote .d p code{font-size:.82em}
+
+  .override{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);padding:24px 26px}
+  .override h3{font-family:var(--sans);font-size:1.05rem;font-weight:650;margin-bottom:18px}
+  .ov-row{display:grid;grid-template-columns:170px 1fr auto;gap:18px;align-items:center;
+    padding:16px 0;border-top:1px solid var(--line)}
+  .ov-row:first-of-type{border-top:0;padding-top:0}
+  .ov-name{font-family:var(--serif);font-size:1.18rem;font-weight:600}
+  .ov-name .sub{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400;margin-top:3px;letter-spacing:0}
+  .ov-trigger{font-size:14px;color:var(--ink-2)}
+  .ov-trigger .q{color:var(--ink);font-style:italic}
+  .ov-move{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;white-space:nowrap}
+
+  /* ---------- why-churn explainer (grafted from C) ---------- */
+  details.more{margin-top:22px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);overflow:hidden}
+  details.more>summary{cursor:pointer;list-style:none;padding:13px 18px;font-size:13.5px;font-weight:600;
+    color:var(--accent);display:flex;align-items:center;gap:8px}
+  details.more>summary::-webkit-details-marker{display:none}
+  details.more>summary .chev{transition:transform .2s ease}
+  details.more[open]>summary .chev{transform:rotate(90deg)}
+  details.more .body{padding:2px 18px 16px;font-size:13.5px;color:var(--muted)}
+  details.more .body p{margin:6px 0}
+  details.more .body strong{color:var(--ink-2)}
+
+  /* ---------- badges ---------- */
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--sans);font-weight:700;
+    font-size:11px;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:4px 9px;border:1px solid transparent;white-space:nowrap}
+  .badge .lt{width:7px;height:7px;border-radius:50%;flex:none}
+  .badge.crit{color:var(--critical);background:var(--critical-bg);border-color:var(--critical-line)}
+  .badge.crit .lt{background:var(--critical);box-shadow:0 0 6px var(--critical)}
+  .badge.warn{color:var(--warning);background:var(--warning-bg);border-color:var(--warning-line)}
+  .badge.warn .lt{background:var(--warning);box-shadow:0 0 6px var(--warning)}
+  .badge.heal{color:var(--healthy);background:var(--healthy-bg);border-color:var(--healthy-line)}
+  .badge.heal .lt{background:var(--healthy);box-shadow:0 0 6px var(--healthy)}
+  .badge.now-green{color:var(--healthy);background:var(--healthy-bg);border-color:var(--healthy-line)}
+
+  /* ---------- cockpit mockup (section 4) — B's data + A's craft (warm-recolored) ---------- */
+  .cockpit-frame{background:var(--card);border:1px solid var(--line-2);border-radius:16px;
+    box-shadow:var(--shadow-inset);overflow:hidden}
+  .cp-chrome{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .cp-dots{display:flex;gap:7px}
+  .cp-dots i{width:11px;height:11px;border-radius:50%;background:var(--line-2);display:block}
+  .cp-url{font-family:var(--mono);font-size:12.5px;color:var(--muted);background:var(--card);
+    border:1px solid var(--line);border-radius:7px;padding:5px 12px;flex:1;max-width:340px}
+  .cp-illus{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);border:1px solid var(--warning-line);border-radius:6px;padding:4px 9px;font-weight:600}
+  .cp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:24px 26px 18px;flex-wrap:wrap}
+  .cp-head h3{font-family:var(--serif);font-size:1.45rem;margin:0}
+  .cp-head .sub{font-size:13.5px;color:var(--muted);margin-top:4px}
+  .cp-stats{display:flex;gap:10px;flex-wrap:wrap}
+  .cp-stat{border:1px solid var(--line);border-radius:10px;padding:10px 16px;background:var(--paper);min-width:96px}
+  .cp-stat .n{font-family:var(--serif);font-size:1.5rem;font-weight:600;line-height:1}
+  .cp-stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:5px}
+  .cp-stat.crit{border-color:var(--critical-line);background:var(--critical-bg)}
+  .cp-stat.crit .n{color:var(--critical)}
+  .cp-stat.warn{border-color:var(--warning-line);background:var(--warning-bg)}
+  .cp-stat.warn .n{color:var(--warning)}
+  .cp-stat.heal{border-color:var(--healthy-line);background:var(--healthy-bg)}
+  .cp-stat.heal .n{color:var(--healthy)}
+
+  .cp-table-scroll{overflow-x:auto}
+  table.cockpit{width:100%;border-collapse:collapse;min-width:960px;font-size:13.5px}
+  table.cockpit thead th{
+    text-align:left;font-family:var(--sans);font-weight:600;font-size:10.5px;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--muted-2);padding:11px 14px;border-bottom:1px solid var(--line-2);
+    white-space:nowrap;background:var(--paper)
+  }
+  table.cockpit th.deemph, table.cockpit td.deemph{color:var(--muted-2)}
+  table.cockpit tbody td{padding:14px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cockpit tbody tr:last-child td{border-bottom:0}
+  /* tier status-light glow on the badge dot is on .lt; left risk-rail per row (grafted from A) */
+  table.cockpit tbody tr.t-crit td:first-child{box-shadow:inset 3px 0 0 var(--critical)}
+  table.cockpit tbody tr.t-warn td:first-child{box-shadow:inset 3px 0 0 var(--warning)}
+  table.cockpit tbody tr.t-heal td:first-child{box-shadow:inset 3px 0 0 var(--healthy)}
+  table.cockpit tbody tr.t-crit{background:linear-gradient(90deg, rgba(180,35,24,.05), transparent 46%)}
+  table.cockpit tbody tr:hover{background:var(--paper-2)}
+  .cp-client{font-family:var(--serif);font-size:1.05rem;font-weight:600;color:var(--ink)}
+  .cp-client .slug{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted-2);font-weight:400;margin-top:2px}
+  .cp-driver{color:var(--ink-2)}
+  .cp-action{color:var(--ink);font-weight:500}
+  .cp-sig{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+  .cp-sig .sev-high{color:var(--critical);font-weight:600}
+  .cp-sig .sev-med{color:var(--warning);font-weight:600}
+  .cp-none{color:var(--muted-2)}
+  .cp-num{font-family:var(--mono);font-size:13px}
+  .cp-launch.no{color:var(--critical);font-weight:600}
+  .cp-launch.yes{color:var(--healthy);font-weight:600}
+  .cp-score{font-family:var(--mono);font-size:12px;color:var(--muted-2)}
+  .cp-foot{padding:14px 26px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--paper)}
+  .cp-foot .ok-tag{color:var(--healthy);font-weight:600;font-family:var(--mono)}
+
+  /* ---------- ship (section 5) ---------- */
+  .ship-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:start}
+  ol.steps{list-style:none;counter-reset:s;margin:0;padding:0}
+  ol.steps li{counter-increment:s;position:relative;padding:0 0 20px 46px;border-left:2px solid var(--line);margin-left:14px}
+  ol.steps li:last-child{padding-bottom:0;border-left-color:transparent}
+  ol.steps li::before{content:counter(s);position:absolute;left:-16px;top:-2px;width:30px;height:30px;
+    border-radius:50%;background:var(--card);border:1.5px solid var(--line-2);color:var(--ink);
+    font-family:var(--mono);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+  ol.steps li .st{font-weight:650;color:var(--ink);font-size:15px;display:block;margin-bottom:3px}
+  ol.steps li .sd{font-size:13.5px;color:var(--muted)}
+  ol.steps li .sd code{font-size:.82em}
+  .sidebox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:var(--shadow-sm);margin-bottom:20px}
+  .sidebox:last-child{margin-bottom:0}
+  .sidebox h4{margin:0 0 14px;font-family:var(--sans);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:650}
+  .check{display:flex;gap:10px;align-items:flex-start;padding:9px 0;font-size:13.5px;color:var(--ink-2);border-bottom:1px dashed var(--line)}
+  .check:last-child{border-bottom:0}
+  .check svg{flex:0 0 auto;margin-top:3px}
+  .check code{font-size:.8em}
+  .gap{display:flex;gap:10px;align-items:flex-start;padding:9px 0;font-size:13px;color:var(--muted);border-bottom:1px dashed var(--line)}
+  .gap:last-child{border-bottom:0}
+  .gap .gx{flex:0 0 auto;color:var(--warning);font-family:var(--mono);margin-top:1px}
+  .gap b{color:var(--ink-2);font-weight:600}
+  .gap code{font-size:.8em}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);background:var(--paper-2);padding:48px 0 56px}
+  .foot-grid{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  .foot-status{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-2);margin-bottom:10px}
+  .foot-status .live{width:9px;height:9px;border-radius:50%;background:var(--warning);box-shadow:0 0 0 4px var(--warning-bg)}
+  .foot-next{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .foot-next code{background:var(--card)}
+  .foot-note{font-size:12px;color:var(--muted-2);max-width:330px}
+  .foot-note strong{color:var(--muted)}
+
+  .footnote{font-size:12.5px;color:var(--muted-2);margin-top:20px;max-width:720px}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:880px){
+    .hero-grid{grid-template-columns:1fr;gap:34px}
+    .grid-2,.grid-3,.tiers,.schemas,.demote,.examples,.ship-grid{grid-template-columns:1fr}
+    .ov-row{grid-template-columns:1fr;gap:8px}
+    .ov-move{justify-content:flex-start}
+    .greengrid{grid-template-columns:repeat(21,1fr)}
+  }
+  @media (max-width:560px){
+    body{font-size:16px}
+    .wrap{padding:0 18px}
+    section{padding:48px 0}
+    .topbar{padding:16px 0 36px}
+    .hero-side{padding:22px 18px}
+    .card,.pipe,.override{padding:20px 18px}
+    .lane{padding:30px 14px 18px}
+    .cp-head{padding:18px}
+    .bars{height:78px}
+  }
+  @media print{
+    body{background:#fff}
+    .cp-chrome,.topbar .meta{display:none}
+    section{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brandmark">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="#9a3412" stroke-width="1.6"/>
+        <path d="M12 12 L12 4" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M12 12 L18.4 15" stroke="#b42318" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="1.8" fill="#9a3412"/>
+      </svg>
+      SaaSLaunch · Agency Intelligence
+    </div>
+    <div class="meta">Engineering brief — slice 2 · 2026-06-18</div>
+  </div>
+</div>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">The data → product brief</p>
+        <h1>Account-Health Cockpit</h1>
+        <p class="lead">A deterministic fleet risk-radar that fuses the agency corpus with the
+          verbal escalations buried in 442 call recordings — so the accounts that are actually
+          churning stop hiding in plain sight.</p>
+
+        <div class="hero-tension">
+          <p class="label">The headline tension</p>
+          <p>Today the console paints churning accounts <strong>green</strong>. The risk columns come
+          straight from a corpus where every tier is <code>"green"</code> and churn is capped at 3 —
+          so the real escalations never surface. This turns that overview into a
+          <strong>ranked risk radar</strong>.</p>
+        </div>
+
+        <div class="pill-row">
+          <span class="pill">deterministic · no-LLM scoring</span>
+          <span class="pill">verbatim anti-fabrication gate</span>
+          <span class="pill">extends /internal/agency</span>
+        </div>
+      </div>
+
+      <aside class="hero-side" aria-label="Data at a glance">
+        <h4>The data, at a glance</h4>
+        <div class="stat-row">
+          <span class="stat-num">42</span>
+          <span class="stat-lab">corpus clients · ~180 data points each · in Supabase</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-num">442</span>
+          <span class="stat-lab">Fathom recordings · local-only · what we ingest</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-num">109</span>
+          <span class="stat-lab">attributed to a client · 333 unattributed, kept raw</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-num" style="color:var(--critical)">0</span>
+          <span class="stat-lab">clients above the churn warning floor — so it never fires</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ===================== 1. THE DATA WE HAVE ===================== -->
+<section id="data" aria-labelledby="h-data">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="section-num">01 / The data we have</span>
+      <h2 id="h-data">Rich inputs, three broken signals</h2>
+      <p>We are not short on data. We have 42 fully-extracted corpus clients and 442 call recordings.
+        The problem is that the three fields driving the current console are each, measurably, lying.</p>
+    </div>
+
+    <div class="grid-3">
+      <div class="card broken">
+        <span class="tag" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 8v5M12 16.5v.5" stroke="#b42318" stroke-width="2" stroke-linecap="round"/><path d="M10.3 3.6 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" stroke="#b42318" stroke-width="1.6"/></svg>
+          Signal 1 — risk.tier
+        </span>
+        <h3>Every tier is <code>"green"</code></h3>
+        <div class="greengrid" role="img" aria-label="All 42 clients carry risk.tier green — 42 identical green cells">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i>
+        </div>
+        <p class="small">All 42 corpus clients carry <code>risk.tier = "green"</code>. A column where
+          every row is identical carries zero information — it cannot rank, sort, or warn.</p>
+        <div class="dataline">42 / 42 green &nbsp;·&nbsp; information content ≈ 0 bits</div>
+      </div>
+
+      <div class="card broken">
+        <span class="tag" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 8v5M12 16.5v.5" stroke="#b42318" stroke-width="2" stroke-linecap="round"/><path d="M10.3 3.6 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" stroke="#b42318" stroke-width="1.6"/></svg>
+          Signal 2 — churn_score
+        </span>
+        <h3>Bimodal, capped at 3</h3>
+        <div class="bars" role="img" aria-label="churn_score distribution: 20 clients score 0, 22 clients score 3, nothing reaches the warning floor of 5">
+          <div class="bar"><span class="val">20</span><span class="fill b0" style="height:48%"></span><span class="cap">score 0 · 20 clients</span></div>
+          <div class="bar"><span class="val">22</span><span class="fill b3" style="height:53%"></span><span class="cap">score 3 · 22 clients</span></div>
+        </div>
+        <div class="floorline"><span>floor 5+ · 0 clients — never reached</span><span class="ln" aria-hidden="true"></span></div>
+        <div class="dataline">Shipped warning fires at <code>CHURN_HIGH_FLOOR = 5</code> — nothing reaches it.</div>
+      </div>
+
+      <div class="card broken">
+        <span class="tag" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 8v5M12 16.5v.5" stroke="#b42318" stroke-width="2" stroke-linecap="round"/><path d="M10.3 3.6 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" stroke="#b42318" stroke-width="1.6"/></svg>
+          Signal 3 — risk.incidents
+        </span>
+        <h3>Polluted with false-positives</h3>
+        <div class="pollution" role="img" aria-label="26 of 42 clients carry incidents — 113 incidents total, mostly extraction false-positives">
+          <div class="track"><div class="fill"></div></div>
+          <div class="cap"><span>26 / 42 clients flagged</span><span>113 incidents</span></div>
+        </div>
+        <p class="small">26 / 42 clients carry incidents (113 total) — mostly extraction errors pulled
+          from product marketing copy. PocketMarketer shows 7 “account_compromise” at churn 0.</p>
+        <div class="dataline">Standalone, it would paint <strong>26/42 red</strong> — so it can only corroborate.</div>
+      </div>
+    </div>
+
+    <h3 style="margin:38px 0 4px;font-family:var(--serif);font-size:1.3rem;font-weight:600">What the green wash hides</h3>
+    <p class="small" style="max-width:680px">The real escalations are verbal — they live only in Fathom transcripts.
+      The corpus never sees them, so today these accounts render <span class="badge now-green">green</span>:</p>
+
+    <div class="examples">
+      <div class="ex">
+        <div class="name">Zuppler</div>
+        <p class="quote">CEO threatened to terminate the contract — verbal, in Fathom recording
+          <span class="mono">146193190</span> (~May 13).</p>
+        <div class="verdict">
+          <span>churn_score 3</span><span class="arrow">→</span>
+          <span class="now">renders GREEN today</span>
+        </div>
+      </div>
+      <div class="ex">
+        <div class="name">PathfinderCRO</div>
+        <p class="quote">Client said the money — ~$10K — was “wasted.” Verbal, recording
+          <span class="mono">124463291</span>. 0 of 73 deliverables done; not launched.</p>
+        <div class="verdict">
+          <span>churn_score 3</span><span class="arrow">→</span>
+          <span class="now">renders GREEN today</span>
+        </div>
+      </div>
+      <div class="ex">
+        <div class="name">RapportScore</div>
+        <p class="quote">Going dark — not launched, 24 weeks in, 0% shipped — at the lowest possible churn score.</p>
+        <div class="verdict">
+          <span>churn_score 0</span><span class="arrow">→</span>
+          <span class="now">renders GREEN today</span>
+        </div>
+      </div>
+      <div class="ex">
+        <div class="name">PocketMarketer</div>
+        <p class="quote">Stalled launch, also at churn 0 — invisible to a console that only watches the churn floor.</p>
+        <div class="verdict">
+          <span>churn_score 0</span><span class="arrow">→</span>
+          <span class="now">renders GREEN today</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 2. WHAT WE BUILD ===================== -->
+<section id="build" aria-labelledby="h-build">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="section-num">02 / What we build with it</span>
+      <h2 id="h-build">From raw call JSON to a ranked radar</h2>
+      <p>Two lanes. An offline ingestion lane lands raw transcripts and runs the one bounded LLM step
+        behind a code-side anti-fabrication gate; a runtime lane re-derives the ranked cockpit
+        deterministically on every page load. Signals are inputs, never re-extracted.</p>
+    </div>
+
+    <div class="pipe">
+      <div class="pipe-meta">
+        <span>data-flow · offline ingestion → runtime scoring</span>
+        <span>scoring re-derives on every load · signals are inputs, never re-extracted</span>
+      </div>
+
+      <!-- OFFLINE lane -->
+      <div class="lane">
+        <span class="lane-tag">Offline · scripts · service_role · run only on explicit OK</span>
+        <div class="flow" role="img" aria-label="Offline ingestion lane: raw Fathom JSON to sl_fathom_transcripts; then an LLM extract with sonnet through an anti-fabrication gate to sl_fathom_signals.">
+          <div class="node">
+            <span class="ncount">442 files</span>
+            <span class="ntype">Source · disk</span>
+            <span class="nname">Raw Fathom JSON</span>
+            <span class="ndesc">transcript + summary + action_items</span>
+          </div>
+          <div class="arr" aria-hidden="true">
+            <span class="clab">deterministic</span>
+            <svg width="30" height="14"><path d="M0 7h23M23 7l-5-4M23 7l-5 4" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+          </div>
+          <div class="node table">
+            <span class="badge-new">NEW</span>
+            <span class="ncount">442 rows · 109 attributed</span>
+            <span class="ntype">Supabase · raw</span>
+            <span class="nname"><span class="tbl">sl_fathom_transcripts</span></span>
+            <span class="ndesc">attribution join → client_slug (nullable)</span>
+          </div>
+          <div class="arr gate" aria-hidden="true">
+            <span class="clab">LLM extract · sonnet</span>
+            <svg width="30" height="14"><path d="M0 7h23M23 7l-5-4M23 7l-5 4" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+          </div>
+          <div class="node table">
+            <span class="badge-new">NEW</span>
+            <span class="ncount">gated survivors only</span>
+            <span class="ntype">Supabase · signals</span>
+            <span class="nname"><span class="tbl">sl_fathom_signals</span></span>
+            <span class="ndesc">compact · only attributed calls produce rows</span>
+          </div>
+        </div>
+
+        <div class="gate-callout">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3 4 6v5c0 4.5 3.2 8.4 8 9.8 4.8-1.4 8-5.3 8-9.8V6l-8-3Z" stroke="#9a3412" stroke-width="1.5"/>
+            <path d="M9 12l2.2 2.2L15.5 10" stroke="#9a3412" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <p><strong>The anti-fabrication gate is code, not prompt.</strong> Every extracted signal quote
+            must be a verbatim substring of a single transcript turn — normalized (NFKC → ASCII →
+            lowercase → collapsed whitespace) and matched in the script, never trusted from the model.
+            Quotes that appear only in the summary, span turns, or fall under 12 chars are
+            <strong>rejected before write</strong>; speaker, date &amp; <code>quote_sha256</code> are
+            resolved from the matched turn. The LLM proposes; deterministic code disposes.</p>
+        </div>
+      </div>
+
+      <!-- RUNTIME lane -->
+      <div class="lane">
+        <span class="lane-tag">Runtime · Next.js server component · RLS internal-only SELECT</span>
+        <div class="flow" role="img" aria-label="Runtime scoring lane: corpus plus signals into a deterministic no-LLM true-risk engine, then sorted by tier then score descending into the ranked cockpit.">
+          <div class="node">
+            <span class="ncount">42 clients</span>
+            <span class="ntype">Loader · corpus</span>
+            <span class="nname">sl_corpus_clients_current</span>
+            <span class="ndesc">client_json + churn_score + raw risk.tier</span>
+          </div>
+          <div class="arr" aria-hidden="true">
+            <span class="clab">+ signals by slug</span>
+            <svg width="30" height="14"><path d="M0 7h23M23 7l-5-4M23 7l-5 4" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+          </div>
+          <div class="node engine">
+            <span class="ntype">Pure fn · no LLM · no I/O</span>
+            <span class="nname">computeAccountHealth()</span>
+            <span class="ndesc">true-risk engine — fuses corpus + verbal Fathom signals</span>
+          </div>
+          <div class="arr" aria-hidden="true">
+            <span class="clab">sort: tier · score↓</span>
+            <svg width="30" height="14"><path d="M0 7h23M23 7l-5-4M23 7l-5 4" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+          </div>
+          <div class="node cockpit">
+            <span class="ncount">/internal/agency</span>
+            <span class="ntype">Surface</span>
+            <span class="nname">Ranked cockpit</span>
+            <span class="ndesc">tier-sorted fleet radar · re-derived every load</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- two new tables, drawn as schema cards (grafted from C) -->
+    <div class="schemas">
+      <div class="schema" aria-label="sl_fathom_transcripts table schema">
+        <div class="sch-head">
+          <span class="nm">sl_fathom_transcripts</span>
+          <span class="badge">new · raw · 442 rows</span>
+        </div>
+        <div class="sch-cap">Full raw transcripts, idempotent by content hash. Unattributed rows kept (client_slug null).</div>
+        <div class="col-list">
+          <div class="col"><span class="cn pk">recording_id<span class="key">PK</span></span><span class="ct">text</span><span class="note">normalized <b>String</b> of the Fathom int — natural + join key</span></div>
+          <div class="col"><span class="cn">client_slug</span><span class="ct">text · null</span><span class="note">nullable — <b>null = unattributed</b> (333) → excluded from cockpit</span></div>
+          <div class="col"><span class="cn">call_type</span><span class="ct">text</span><span class="note">sales · cs_checkin · … · 'unknown' if unattributed</span></div>
+          <div class="col"><span class="cn">call_date</span><span class="ct">timestamptz</span></div>
+          <div class="col"><span class="cn">transcript</span><span class="ct">jsonb[]</span></div>
+          <div class="col"><span class="cn">summary</span><span class="ct">text</span><span class="note">context only — never a quote source</span></div>
+          <div class="col"><span class="cn">raw_sha256</span><span class="ct">text</span><span class="note">content hash → idempotent re-sync</span></div>
+        </div>
+      </div>
+
+      <div class="schema" aria-label="sl_fathom_signals table schema">
+        <div class="sch-head">
+          <span class="nm">sl_fathom_signals</span>
+          <span class="badge">new · compact · gated</span>
+        </div>
+        <div class="sch-cap">Extracted escalation/commitment signals. NOT NULL slug — only attributed calls produce rows.</div>
+        <div class="col-list">
+          <div class="col"><span class="cn pk">id<span class="key">PK</span></span><span class="ct">uuid</span></div>
+          <div class="col"><span class="cn">recording_id<span class="key">FK</span></span><span class="ct">text → transcripts</span><span class="note"><b>ON DELETE CASCADE</b> — signals die with their transcript</span></div>
+          <div class="col"><span class="cn">client_slug</span><span class="ct">text · NOT NULL</span><span class="note">attributed calls only — no orphan signals</span></div>
+          <div class="col"><span class="cn">signal_type</span><span class="ct">enum</span><span class="note">churn_escalation · going_dark · payment_risk · verbal_promise · upsell_intent</span></div>
+          <div class="col"><span class="cn">severity</span><span class="ct">low · medium · high</span></div>
+          <div class="col"><span class="cn">quote</span><span class="ct">text · 12–1200</span><span class="note"><b>verbatim transcript substring</b> — the anti-fab gate's only output</span></div>
+          <div class="col"><span class="cn">quote_sha256 · speaker · call_date</span><span class="ct">resolved from matched turn</span><span class="note">+ unique(rec, type, sha) for idempotency</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 3. TRUE-RISK LOGIC ===================== -->
+<section id="logic" aria-labelledby="h-logic">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="section-num">03 / True-risk logic</span>
+      <h2 id="h-logic">Verbal signals set the tier — not churn</h2>
+      <p>Each driver carries its own severity; the tier is the worst driver that fires, and the score
+        is just a sort key beneath it. Crucially, the two fields that lie — raw churn_score and
+        risk.incidents — are demoted out of the tier decision entirely.</p>
+    </div>
+
+    <div class="tiers">
+      <div class="tier-card crit">
+        <div class="tc-head"><span class="dot crit"></span><span class="tt">Critical</span><span class="op">any → critical</span></div>
+        <div class="rule"><span class="rk">↯</span> High-severity verbal <strong>churn_escalation</strong><span class="pts">120</span></div>
+        <div class="rule"><span class="rk">↯</span> High-severity verbal <strong>going_dark</strong><span class="pts">115</span></div>
+        <div class="rule"><span class="rk">↯</span> High-severity verbal <strong>payment_risk</strong><span class="pts">110</span></div>
+        <div class="rule"><span class="rk">↯</span> Stalled launch — not launched <strong>6+ wks</strong> &amp; &lt;20% done<span class="pts">90</span></div>
+        <div class="rule"><span class="rk">↯</span> Negative sentiment corroborated by a verbal escalation — <strong>including a medium</strong> verbal signal<span class="pts">85</span></div>
+      </div>
+
+      <div class="tier-card warn">
+        <div class="tc-head"><span class="dot warn"></span><span class="tt">Warning</span><span class="op">only if no critical</span></div>
+        <div class="rule"><span class="rk">·</span> Medium verbal churn / dark / payment signal<span class="pts">60</span></div>
+        <div class="rule"><span class="rk">·</span> <strong>3+</strong> unowned open actions<span class="pts">45</span></div>
+        <div class="rule"><span class="rk">·</span> Not launched <strong>4+ weeks</strong><span class="pts">40</span></div>
+        <div class="rule"><span class="rk">·</span> Negative sentiment (uncorroborated)<span class="pts">35</span></div>
+        <div class="rule"><span class="rk">·</span> Incident corroborated by neg sentiment (never alone)<span class="pts">20</span></div>
+      </div>
+
+      <div class="tier-card heal">
+        <div class="tc-head"><span class="dot heal"></span><span class="tt">Healthy</span><span class="op">none of the above</span></div>
+        <div class="rule"><span class="rk">✓</span> None of the above fires</div>
+        <div class="rule"><span class="rk">✓</span> Launched, deliverables on track</div>
+        <div class="rule"><span class="rk">✓</span> No verbal escalations on record</div>
+        <div class="rule" style="color:var(--muted)"><span class="rk">i</span> <code>verbal_promise</code> / <code>upsell_intent</code> never promote tier — info only</div>
+        <div class="rule" style="color:var(--muted)"><span class="rk">i</span> churn 0 does <em>not</em> imply healthy; stalled-launch can still fire</div>
+      </div>
+    </div>
+
+    <div class="demote">
+      <div class="d">
+        <div class="dh"><span class="strike">churn_score</span><span class="lbl">demoted · sort + audit only</span></div>
+        <p>22 clients sit at 3. A floor of 3 would flood 52% of the fleet into warning and destroy the
+          radar; the field is unreliable by construction. It adds <code>× 2</code> to the score for
+          tie-breaking and shows as a de-emphasized, transparency-only column — it never sets a tier.</p>
+      </div>
+      <div class="d">
+        <div class="dh"><span class="strike">risk.incidents</span><span class="lbl">demoted · corroboration only</span></div>
+        <p>113 incidents across 26 clients, mostly false-positives from product copy. Admissible only
+          alongside negative sentiment (a low-points warning) — never standalone, never critical. A
+          transparency-only column, never a tier driver.</p>
+      </div>
+    </div>
+
+    <div class="override">
+      <h3>The override that flips the brief on its head</h3>
+      <div class="ov-row">
+        <div class="ov-name">Zuppler<span class="sub">rec 146193190 · churn 3</span></div>
+        <div class="ov-trigger">High-severity verbal <strong>churn_escalation</strong> — <span class="q">“absolutely not happy with the responsiveness from your team”</span> — fires <code>high_verbal_churn_escalation</code>.</div>
+        <div class="ov-move"><span class="badge now-green">green today</span><span class="arrow">→</span><span class="badge crit"><span class="lt"></span>Critical</span></div>
+      </div>
+      <div class="ov-row">
+        <div class="ov-name">PathfinderCRO<span class="sub">rec 124463291 · churn 3</span></div>
+        <div class="ov-trigger">High-severity verbal <strong>payment_risk</strong> — <span class="q">“13K was for you guys to build out”</span> — plus stalled launch (0/73) and neg sentiment.</div>
+        <div class="ov-move"><span class="badge now-green">green today</span><span class="arrow">→</span><span class="badge crit"><span class="lt"></span>Critical</span></div>
+      </div>
+      <p class="footnote" style="margin-top:18px">Acceptance criterion: Zuppler &amp; PathfinderCRO are no longer green — they sit at the
+        <strong>top</strong> of the table as CRITICAL, with raw churn still shown (3) but no longer ordering rows.</p>
+
+      <details class="more">
+        <summary><span class="chev" aria-hidden="true">›</span> Why churn_score can't set the tier</summary>
+        <div class="body">
+          <p>A floor of 5 (the shipped bug) never fires; a floor of 3 would flood <strong>52% of the fleet</strong>
+            into WARNING from churn alone, destroying the radar. The field is bimodal <code>{0, 3}</code> by
+            construction — it carries almost no signal.</p>
+          <p>The genuine escalations (Zuppler / PathfinderCRO, both <code>churn = 3</code>) are promoted by
+            verbal Fathom signals — not by churn. A tier-distribution sanity test asserts the pre-extraction
+            critical set stays <strong>≤ ~6</strong>, so the engine can never paint a half-red fleet.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 4. THE COCKPIT ===================== -->
+<section id="cockpit" aria-labelledby="h-cock">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="section-num">04 / The cockpit</span>
+      <h2 id="h-cock">The fleet, ranked by what's actually true</h2>
+      <p>Sorted by tier (critical → warning → healthy), then risk score descending. The accounts that
+        were green an hour ago are now the first thing the team sees.</p>
+    </div>
+
+    <div class="cockpit-frame">
+      <div class="cp-chrome">
+        <div class="cp-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="cp-url">aigos.saaslaunch.com/internal/agency</div>
+        <span class="cp-illus">Illustrative</span>
+      </div>
+
+      <div class="cp-head">
+        <div>
+          <h3>Account-Health Cockpit</h3>
+          <div class="sub">Ranked risk radar · 42 clients · re-derived from stored signals on load</div>
+        </div>
+        <div class="cp-stats" aria-label="Full-fleet tier counts">
+          <div class="cp-stat crit"><div class="n">3</div><div class="l">Critical</div></div>
+          <div class="cp-stat warn"><div class="n">2</div><div class="l">Warning</div></div>
+          <div class="cp-stat heal"><div class="n">37</div><div class="l">Healthy</div></div>
+        </div>
+      </div>
+
+      <div class="cp-table-scroll">
+        <table class="cockpit">
+          <caption class="footnote" style="text-align:left;padding:0 14px 10px;margin:0;max-width:none">
+            Full fleet: 3 critical · 2 warning · 37 healthy = 42 clients. The 7 rows below are <strong>illustrative</strong>.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Tier</th>
+              <th scope="col">Client</th>
+              <th scope="col">Top driver</th>
+              <th scope="col">Next action</th>
+              <th scope="col">Last verbal signal</th>
+              <th scope="col" class="deemph">Churn</th>
+              <th scope="col" class="deemph">Launched</th>
+              <th scope="col" class="deemph">Unowned</th>
+              <th scope="col" class="deemph">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="t-crit">
+              <td><span class="badge crit"><span class="lt"></span>Critical</span></td>
+              <td><span class="cp-client">Zuppler<span class="slug">zuppler</span></span></td>
+              <td class="cp-driver">CEO threatened termination (verbal, May 13)</td>
+              <td class="cp-action">Escalate to owner before next cadence</td>
+              <td class="cp-sig"><span class="sev-high">churn_escalation · high</span> · May 13</td>
+              <td class="cp-num deemph">3</td>
+              <td class="cp-launch no">✗</td>
+              <td class="cp-num deemph">8</td>
+              <td class="cp-score">126</td>
+            </tr>
+            <tr class="t-crit">
+              <td><span class="badge crit"><span class="lt"></span>Critical</span></td>
+              <td><span class="cp-client">PathfinderCRO<span class="slug">pathfindercro</span></span></td>
+              <td class="cp-driver">“Wasted ~$10K” — payment risk (verbal)</td>
+              <td class="cp-action">Recover launch — 0/73 deliverables done</td>
+              <td class="cp-sig"><span class="sev-high">payment_risk · high</span> · —</td>
+              <td class="cp-num deemph">3</td>
+              <td class="cp-launch no">✗</td>
+              <td class="cp-num deemph">5</td>
+              <td class="cp-score">116</td>
+            </tr>
+            <tr class="t-crit">
+              <td><span class="badge crit"><span class="lt"></span>Critical</span></td>
+              <td><span class="cp-client">RapportScore<span class="slug">rapportscore</span></span></td>
+              <td class="cp-driver">Not launched, 24 wks in, 0% shipped</td>
+              <td class="cp-action">Assign owner + launch date</td>
+              <td class="cp-sig"><span class="sev-med">going_dark · medium</span> · —</td>
+              <td class="cp-num deemph">0</td>
+              <td class="cp-launch no">✗</td>
+              <td class="cp-num deemph">4</td>
+              <td class="cp-score">90</td>
+            </tr>
+            <tr class="t-warn">
+              <td><span class="badge warn"><span class="lt"></span>Warning</span></td>
+              <td><span class="cp-client">PocketMarketer<span class="slug">pocketmarketer</span></span></td>
+              <td class="cp-driver">Not launched, 5 wks in</td>
+              <td class="cp-action">Assign owner + launch date</td>
+              <td class="cp-sig cp-none">—</td>
+              <td class="cp-num deemph">0</td>
+              <td class="cp-launch no">✗</td>
+              <td class="cp-num deemph">2</td>
+              <td class="cp-score">40</td>
+            </tr>
+            <tr class="t-warn">
+              <td><span class="badge warn"><span class="lt"></span>Warning</span></td>
+              <td><span class="cp-client">Ekhosoft<span class="slug">ekhosoft</span></span></td>
+              <td class="cp-driver">3 unowned open actions</td>
+              <td class="cp-action">Assign owners</td>
+              <td class="cp-sig cp-none">—</td>
+              <td class="cp-num deemph">3</td>
+              <td class="cp-launch yes">✓</td>
+              <td class="cp-num deemph">3</td>
+              <td class="cp-score">51</td>
+            </tr>
+            <tr class="t-heal">
+              <td><span class="badge heal"><span class="lt"></span>Healthy</span></td>
+              <td><span class="cp-client">Checkle<span class="slug">checkle</span></span></td>
+              <td class="cp-driver">No open escalations</td>
+              <td class="cp-action">Maintain cadence</td>
+              <td class="cp-sig cp-none">—</td>
+              <td class="cp-num deemph">0</td>
+              <td class="cp-launch yes">✓</td>
+              <td class="cp-num deemph">1</td>
+              <td class="cp-score">0</td>
+            </tr>
+            <tr class="t-heal">
+              <td><span class="badge heal"><span class="lt"></span>Healthy</span></td>
+              <td><span class="cp-client">Anura<span class="slug">anura</span></span></td>
+              <td class="cp-driver">No open escalations</td>
+              <td class="cp-action">Maintain cadence</td>
+              <td class="cp-sig cp-none">—</td>
+              <td class="cp-num deemph">0</td>
+              <td class="cp-launch yes">✓</td>
+              <td class="cp-num deemph">0</td>
+              <td class="cp-score">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cp-foot">
+        <span><span class="ok-tag">ACCEPTANCE ✓</span> Zuppler &amp; PathfinderCRO are NOT green — top of the table as CRITICAL; raw churn still shown (3), no longer ordering rows.</span>
+        <span class="mono">sorted by tier → score desc → last-signal desc → slug</span>
+      </div>
+    </div>
+
+    <details class="more">
+      <summary><span class="chev" aria-hidden="true">›</span> What lands on each client's detail page</summary>
+      <div class="body">
+        <p>A new <strong>“Verbal signals (from calls)”</strong> section sits below “Corpus truth”: each row
+          is a severity badge + signal type + the <em>verbatim</em> quote + speaker + call date + a link to
+          the recording. Empty state reads “No attributed Fathom risk signals extracted for this client.”</p>
+        <p>The existing live <code>client-health</code> section is left untouched — account-health is purely additive.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================== 5. HOW IT SHIPS ===================== -->
+<section id="ship" aria-labelledby="h-ship">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="section-num">05 / How it ships</span>
+      <h2 id="h-ship">Build sequence &amp; the gates that prove it</h2>
+      <p>Six steps, each verifiable. The deterministic pieces ship first; the one paid LLM step runs on
+        a single client before the full sweep, honoring “paid APIs never loop without an abort condition.”</p>
+    </div>
+
+    <div class="ship-grid">
+      <ol class="steps">
+        <li><span class="st">Migration</span><span class="sd">Two new tables + RLS internal-only SELECT + extend <code>sl_refresh_runs</code> run-kinds. Dated after the agency-intelligence migration so it applies later.</span></li>
+        <li><span class="st">Fathom ingestion (phase A)</span><span class="sd">Deterministic raw sync → <code>sl_fathom_transcripts</code>. Attribution join; collisions fail the guard with zero writes.</span></li>
+        <li><span class="st">Anti-fabrication gate</span><span class="sd">Pure <code>fathom/gate.ts</code> — verbatim substring match. G1–G6 tests: verbatim kept, paraphrase / cross-turn / summary-only / len&lt;12 rejected.</span></li>
+        <li><span class="st">Phase B extraction (sonnet)</span><span class="sd">Only LLM step, <code>Output.object</code> + gate. First run <code>--client=zuppler --extract-only</code>, eyeball the quote, then the ~109-call sweep.</span></li>
+        <li><span class="st">True-risk engine + tests</span><span class="sd">Pure, no-LLM scoring. Fixtures F1–F13 green; Zuppler / PathfinderCRO / RapportScore must be CRITICAL.</span></li>
+        <li><span class="st">Cockpit UI + live verify</span><span class="sd">Risk-sorted overview + “Critical accounts” stat + per-client verbal-signals section. Authenticated browse: Zuppler &amp; PathfinderCRO at top as CRITICAL, raw churn still 3.</span></li>
+      </ol>
+
+      <div>
+        <div class="sidebox">
+          <h4>Verification gates</h4>
+          <div class="check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.2 4.2L19 7" stroke="#067647" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Dry-run asserts <span class="mono">442 / 109 / 333 / 0&nbsp;dups</span> — no DB or creds</div>
+          <div class="check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.2 4.2L19 7" stroke="#067647" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> First extraction = <span class="mono">--client=zuppler</span>, quote eyeballed before the ~109-call sweep</div>
+          <div class="check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.2 4.2L19 7" stroke="#067647" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Tier-distribution sanity: critical set ≤ ~6 pre-extraction</div>
+          <div class="check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.2 4.2L19 7" stroke="#067647" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Prod writes (migration, sync, extract) gated on explicit user “yes”</div>
+          <div class="check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.2 4.2L19 7" stroke="#067647" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> tsc · lint · build exit 0 in the isolated worktree</div>
+        </div>
+
+        <div class="sidebox">
+          <h4>Known data gaps — stated honestly</h4>
+          <div class="gap"><span class="gx">!</span> <b>No onboarding date</b> in corpus (<code>timeline=[]</code>) → earliest-call proxy; no calls = risk not assessable</div>
+          <div class="gap"><span class="gx">!</span> <b><code>risk.signals[]</code> severity unverified</b> → if absent, the corpus-fallback critical driver demotes conservatively to warning</div>
+          <div class="gap"><span class="gx">!</span> <b>Meta-ads data exists for Checkle only</b> → efficiency reconciler out of scope for v1</div>
+          <div class="gap"><span class="gx">!</span> <b>333 unattributed calls</b> kept raw but excluded from the cockpit — no client to attribute them to</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="foot-status"><span class="live" aria-hidden="true"></span> Status — spec draft on branch <code>feat/agency-cockpit</code></div>
+        <div class="foot-next">Next → <code>superpowers:writing-plans</code> → build in the isolated worktree</div>
+      </div>
+      <div class="foot-note">
+        Cockpit table values above are an <strong>illustrative mockup</strong> for layout review — not a
+        live query. Corpus / Fathom counts (42 · 442 · 109 · churn {0:20, 3:22}) are verified from the data.
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  /* Progressive enhancement only — the page is fully readable with JS disabled.
+     <details> already toggles natively; this only adds keyboard parity. */
+  document.querySelectorAll('details.more > summary').forEach(function (s) {
+    s.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); s.parentElement.open = !s.parentElement.open; }
+    });
+  });
+</script>
+</body>
+</html>

@@ -12,6 +12,12 @@ import {
   type TrackerTruth,
   type CorpusTruth,
 } from './insights/client-health';
+import {
+  computeAccountHealth,
+  compareAccountHealth,
+  type AccountHealth,
+  type FathomSignalLite,
+} from './insights/account-health';
 import type { AgencyInsight as AgencyInsightType } from './contracts';
 
 // ---------------------------------------------------------------------------
@@ -62,9 +68,46 @@ export interface InsightRow {
   generated_at: string;
 }
 
+// Row shape for `sl_fathom_signals` (not in the generated Supabase types yet).
+export interface FathomSignalDbRow {
+  id: string;
+  client_slug: string;
+  recording_id: string;
+  signal_type: FathomSignalLite['signal_type'];
+  severity: FathomSignalLite['severity'];
+  quote: string;
+  quote_sha256: string;
+  speaker: string | null;
+  call_date: string;
+  extracted_at: string;
+  source_metadata: Record<string, unknown>;
+}
+
 export interface SectionResult<T> {
   rows: T[];
   error: string | null;
+}
+
+/** Project a `sl_fathom_signals` DB row to the engine's `FathomSignalLite`. */
+function toFathomSignalLite(
+  row: FathomSignalDbRow,
+  callType: string | null
+): FathomSignalLite {
+  const meta = row.source_metadata;
+  const shareUrl =
+    meta && typeof meta === 'object' && typeof meta.share_url === 'string'
+      ? meta.share_url
+      : null;
+  return {
+    signal_type: row.signal_type,
+    severity: row.severity,
+    quote: row.quote,
+    speaker: row.speaker,
+    call_date: row.call_date,
+    recording_id: row.recording_id,
+    call_type: callType,
+    share_url: shareUrl,
+  };
 }
 
 interface DbError {
@@ -180,6 +223,90 @@ export async function getAgencyOverview(): Promise<AgencyOverview> {
 }
 
 // ---------------------------------------------------------------------------
+// Account-health cockpit — true-risk overview (spec §8.1).
+// Selects all corpus clients + all Fathom signals in one pass, groups signals
+// by client_slug, runs the deterministic engine per client, returns rows
+// pre-sorted by (tierRank, score desc, lastSignalDate desc nulls last, slug).
+// `sl_fathom_signals` is safeSelect-wrapped: a not-yet-provisioned table
+// degrades to a verified-absent error string instead of crashing the page.
+// ---------------------------------------------------------------------------
+
+export interface AccountHealthOverview {
+  /** AccountHealth rows pre-sorted true-risk desc (empty if corpus absent). */
+  rows: AccountHealth[];
+  /** Count of `tier === 'critical'` — the at-risk-dozen headline stat. */
+  criticalCount: number;
+  /** Non-fatal: corpus could not be read (rows is then empty). */
+  corpusError: string | null;
+  /**
+   * Non-fatal: `sl_fathom_signals` not provisioned / unreadable. When set,
+   * the engine still ran on corpus-only signals (empty fathom_signals) and
+   * the UI should surface "Verbal signals: Not provisioned".
+   */
+  signalsError: string | null;
+}
+
+export async function getAccountHealthOverview(): Promise<AccountHealthOverview> {
+  const supabase = await createClient();
+  const generatedAt = new Date().toISOString();
+
+  const [corpusClients, signals, transcriptTypes] = await Promise.all([
+    safeSelect<CorpusClientCurrentRow>(() =>
+      supabase
+        .from('sl_corpus_clients_current')
+        .select('*')
+        .order('client_slug', { ascending: true })
+    ),
+    safeSelect<FathomSignalDbRow>(() =>
+      supabase
+        .from('sl_fathom_signals')
+        .select('*')
+        .order('call_date', { ascending: false })
+    ),
+    // call_type lives on the transcripts table; fetched separately so a failure
+    // here can't hide signals — it only forgoes the sales-call tier exclusion.
+    safeSelect<{ recording_id: string; call_type: string }>(() =>
+      supabase.from('sl_fathom_transcripts').select('recording_id, call_type')
+    ),
+  ]);
+
+  const callTypeByRecording = new Map<string, string>();
+  for (const t of transcriptTypes.rows) {
+    callTypeByRecording.set(t.recording_id, t.call_type);
+  }
+
+  // Group signals by client_slug (empty map if the table is absent).
+  const signalsBySlug = new Map<string, FathomSignalLite[]>();
+  for (const row of signals.rows) {
+    const lite = toFathomSignalLite(row, callTypeByRecording.get(row.recording_id) ?? null);
+    const bucket = signalsBySlug.get(row.client_slug);
+    if (bucket) bucket.push(lite);
+    else signalsBySlug.set(row.client_slug, [lite]);
+  }
+
+  const rows: AccountHealth[] = corpusClients.rows.map((c) =>
+    computeAccountHealth({
+      client_slug: c.client_slug,
+      client_display_name: c.client_display_name,
+      churn_score: c.churn_score,
+      risk_tier: c.risk_tier,
+      client_json: c.client_json,
+      fathom_signals: signalsBySlug.get(c.client_slug) ?? [],
+      generated_at: generatedAt,
+    })
+  );
+
+  rows.sort(compareAccountHealth);
+
+  return {
+    rows,
+    criticalCount: rows.reduce((n, r) => n + (r.tier === 'critical' ? 1 : 0), 0),
+    corpusError: corpusClients.error,
+    signalsError: signals.error,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Client detail — assembles tracker + corpus truth, computes the live insight.
 // ---------------------------------------------------------------------------
 
@@ -213,6 +340,8 @@ export interface ClientDetail {
   corpus: { row: CorpusClientCurrentRow | null; error: string | null };
   insight: { insight: AgencyInsightType | null; error: string | null };
   persistedInsights: SectionResult<InsightRow>;
+  /** This client's verbal Fathom signals, newest call first (verified-absent on error). */
+  fathomSignals: SectionResult<FathomSignalDbRow>;
   tracker: TrackerTruth;
   trackerErrors: string[];
 }
@@ -246,6 +375,16 @@ export async function getClientDetail(slug: string): Promise<ClientDetail> {
       .eq('client_slug', slug)
       .order('generated_at', { ascending: false })
       .limit(5)
+  );
+
+  // 3b) verbal Fathom signals for slug, newest call first. safeSelect so a
+  // not-yet-provisioned `sl_fathom_signals` table degrades to "Not provisioned".
+  const fathomSignals = await safeSelect<FathomSignalDbRow>(() =>
+    supabase
+      .from('sl_fathom_signals')
+      .select('*')
+      .eq('client_slug', slug)
+      .order('call_date', { ascending: false })
   );
 
   // 4) tracker truth — only meaningful if we resolved the client id.
@@ -352,6 +491,7 @@ export async function getClientDetail(slug: string): Promise<ClientDetail> {
     corpus,
     insight: { insight, error: insightError },
     persistedInsights,
+    fathomSignals,
     tracker,
     trackerErrors,
   };

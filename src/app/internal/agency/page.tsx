@@ -1,7 +1,8 @@
 import type React from 'react';
 import Link from 'next/link';
 import { AppSidebar } from '@/components/shell/app-sidebar';
-import { getAgencyOverview } from '@/lib/agency-intelligence/loaders';
+import { getAccountHealthOverview, getAgencyOverview } from '@/lib/agency-intelligence/loaders';
+import type { RiskTier } from '@/lib/agency-intelligence/insights/account-health';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,31 @@ function formatDateTime(value: string | null): string {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(timestamp));
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return '—';
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(timestamp));
+}
+
+// True-risk tier badge tokens (cockpit ordering tier — distinct from the raw
+// corpus risk_tier which uses red/amber/green strings).
+function healthTierClassName(tier: RiskTier): string {
+  if (tier === 'critical') return 'text-red-300 bg-red-500/10';
+  if (tier === 'warning') return 'text-amber-300 bg-amber-500/10';
+  return 'text-emerald-300 bg-emerald-500/10';
+}
+
+function launchedGlyph(launched: boolean | null): string {
+  if (launched === true) return '✓';
+  if (launched === false) return '✗';
+  return '—';
 }
 
 function StatBlock({
@@ -47,13 +73,6 @@ function severityClassName(severity: string): string {
   return 'text-blue-300 bg-blue-500/10';
 }
 
-function tierClassName(tier: string | null): string {
-  if (tier === 'red') return 'text-red-300 bg-red-500/10';
-  if (tier === 'amber') return 'text-amber-300 bg-amber-500/10';
-  if (tier === 'green') return 'text-emerald-300 bg-emerald-500/10';
-  return 'text-[var(--text-quaternary)] bg-[var(--bg-hover)]';
-}
-
 function DataNote({ error, empty }: { error: string | null; empty: string }): React.JSX.Element {
   if (error) {
     return (
@@ -66,9 +85,17 @@ function DataNote({ error, empty }: { error: string | null; empty: string }): Re
 }
 
 export default async function AgencyIntelligencePage(): Promise<React.JSX.Element> {
-  const overview = await getAgencyOverview();
+  const [overview, accountHealth] = await Promise.all([
+    getAgencyOverview(),
+    getAccountHealthOverview(),
+  ]);
 
   const corpusCount = overview.corpusClients.rows.length;
+  // Slug → display name + updated_at from the corpus overview (AccountHealth
+  // rows carry only slug; the corpus rows carry the display fields).
+  const corpusBySlug = new Map(
+    overview.corpusClients.rows.map((c) => [c.client_slug, c])
+  );
   const latestRun = overview.latestRun.rows[0] ?? null;
   const latestInsight = overview.latestInsight.rows[0] ?? null;
   const trackerError = overview.trackerTotals.errors.length > 0
@@ -93,6 +120,17 @@ export default async function AgencyIntelligencePage(): Promise<React.JSX.Elemen
 
           {/* Portfolio stat blocks */}
           <div className="grid gap-6 border-y border-[var(--border-default)] py-5 sm:grid-cols-3 lg:grid-cols-6">
+            <StatBlock
+              label="Critical accounts"
+              value={accountHealth.corpusError ? '—' : accountHealth.criticalCount}
+              hint={
+                accountHealth.corpusError
+                  ? 'corpus not provisioned'
+                  : accountHealth.signalsError
+                    ? 'corpus-only — verbal signals absent'
+                    : 'true-risk tier === critical'
+              }
+            />
             <StatBlock label="Corpus clients" value={corpusCount} hint={overview.corpusClients.error ? 'table not provisioned' : 'sl_corpus_clients_current'} />
             <StatBlock label="Tracker clients" value={overview.trackerTotals.clients ?? '—'} hint={trackerError ? 'table not provisioned' : 'agency_clients'} />
             <StatBlock label="Tracker sites" value={overview.trackerTotals.sites ?? '—'} hint={trackerError ? 'table not provisioned' : 'agency_client_sites'} />
@@ -157,54 +195,100 @@ export default async function AgencyIntelligencePage(): Promise<React.JSX.Elemen
             )}
           </section>
 
-          {/* Client list */}
+          {/* Fleet risk radar — true-risk cockpit, sorted critical → healthy.
+              Tier here is the computed true-risk tier (verbal Fathom signals +
+              corpus). Raw corpus churn stays visible but no longer orders rows. */}
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-              Clients ({corpusCount})
-            </h2>
-            {overview.corpusClients.rows.length > 0 ? (
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                Fleet risk radar ({accountHealth.rows.length})
+              </h2>
+              {accountHealth.signalsError ? (
+                <p className="text-[11px] text-amber-300">
+                  Verbal signals not provisioned — ranked on corpus signals only.
+                </p>
+              ) : null}
+            </div>
+            {accountHealth.rows.length > 0 ? (
               <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]">
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--bg-hover)] text-[11px] uppercase tracking-wide text-[var(--text-quaternary)]">
                     <tr>
+                      <th className="px-3 py-2 text-left">Tier</th>
                       <th className="px-3 py-2 text-left">Client</th>
-                      <th className="px-3 py-2 text-left">Risk</th>
-                      <th className="px-3 py-2 text-right">Churn</th>
-                      <th className="px-3 py-2 text-right">Actions</th>
-                      <th className="px-3 py-2 text-right">Promises</th>
-                      <th className="px-3 py-2 text-right">Gaps</th>
-                      <th className="px-3 py-2 text-right">Fathom</th>
+                      <th className="px-3 py-2 text-left">Top driver</th>
+                      <th className="px-3 py-2 text-left">Next action</th>
+                      <th className="px-3 py-2 text-left">Last verbal signal</th>
+                      <th className="px-3 py-2 text-right">Churn (raw)</th>
+                      <th className="px-3 py-2 text-center">Launched</th>
+                      <th className="px-3 py-2 text-right">Unowned</th>
+                      <th className="px-3 py-2 text-right">Signals</th>
+                      <th className="px-3 py-2 text-right">Score</th>
                       <th className="px-3 py-2 text-left">Updated</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-default)]">
-                    {overview.corpusClients.rows.map((c) => (
-                      <tr key={c.client_slug} className="hover:bg-[var(--bg-hover)]">
-                        <td className="px-3 py-2">
-                          <Link href={`/internal/agency/${c.client_slug}`} className="font-medium text-[var(--text-primary)] hover:underline">
-                            {c.client_display_name ?? c.client_slug}
-                          </Link>
-                          <span className="ml-2 text-[11px] text-[var(--text-quaternary)]">{c.client_slug}</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className={`rounded px-2 py-0.5 text-[11px] ${tierClassName(c.risk_tier)}`}>
-                            {c.risk_tier ?? '—'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">{c.churn_score ?? '—'}</td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">{c.actions_count}</td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">{c.promises_count}</td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">{c.gaps_count}</td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">{c.fathom_meetings_count}</td>
-                        <td className="px-3 py-2 text-[11px] text-[var(--text-quaternary)]">{formatDateTime(c.updated_at)}</td>
-                      </tr>
-                    ))}
+                    {accountHealth.rows.map((row) => {
+                      const corpusRow = corpusBySlug.get(row.client_slug);
+                      const topDriver = row.drivers[0] ?? null;
+                      const verbalSignalCount = row.drivers.reduce(
+                        (n, d) => n + d.evidence.filter((e) => e.kind === 'fathom_signal').length,
+                        0
+                      );
+                      return (
+                        <tr key={row.client_slug} className="align-top hover:bg-[var(--bg-hover)]">
+                          <td className="px-3 py-2">
+                            <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${healthTierClassName(row.tier)}`}>
+                              {row.tier}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Link
+                              href={`/internal/agency/${row.client_slug}`}
+                              className="font-medium text-[var(--text-primary)] hover:underline"
+                            >
+                              {corpusRow?.client_display_name ?? row.client_slug}
+                            </Link>
+                            <span className="ml-2 text-[11px] text-[var(--text-quaternary)]">{row.client_slug}</span>
+                          </td>
+                          <td className="px-3 py-2 text-[var(--text-secondary)]">
+                            {topDriver ? topDriver.label : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-[var(--text-tertiary)]">{row.topUnblockAction}</td>
+                          <td className="px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
+                            {row.last_signal ? (
+                              <span>
+                                {row.last_signal.type}
+                                <span className="text-[var(--text-quaternary)]"> · {row.last_signal.severity} · </span>
+                                {formatDate(row.last_signal.call_date)}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          {/* Raw churn — de-emphasized, non-ordering (§6.4.1). */}
+                          <td className="px-3 py-2 text-right font-mono tabular-nums text-[var(--text-quaternary)]">
+                            {row.churn_score ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 text-center font-mono">{launchedGlyph(row.launched)}</td>
+                          <td className="px-3 py-2 text-right font-mono tabular-nums">{row.unowned_open_actions}</td>
+                          <td className="px-3 py-2 text-right font-mono tabular-nums">{verbalSignalCount}</td>
+                          {/* Score — de-emphasized, audit-only sort key. */}
+                          <td className="px-3 py-2 text-right font-mono tabular-nums text-[var(--text-quaternary)]">
+                            {row.score}
+                          </td>
+                          <td className="px-3 py-2 text-[11px] text-[var(--text-quaternary)]">
+                            {formatDateTime(corpusRow?.updated_at ?? null)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             ) : (
               <DataNote
-                error={overview.corpusClients.error}
+                error={accountHealth.corpusError}
                 empty="No corpus clients synced yet. Run `npm run agency:sync-corpus` to populate."
               />
             )}
