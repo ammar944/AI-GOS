@@ -2749,8 +2749,94 @@ function buildDeadlineExhaustionProvesWrongIf(): Record<string, unknown> {
   };
 }
 
-function buildDeadlineExhaustionHonestGapBody(
+// Deadline-salvage persona rescue. When BuyerICP exhausts its clock, the gap
+// body used to hardcode personas:[] and silently discard the named customer
+// champions the venue/case-study prepass had ALREADY acquired (run b0d12b45:
+// grounded buyers thrown away, then committed as an empty "evidence gap" — the
+// acquisitionLedger "not_selected" labels were a mirror of the empty body, not
+// a quality decision). Promote the grounded, named candidates we already hold
+// into real personas instead. NO fabrication: only candidates that pass the
+// SAME named-identity + http-url + shared-listing-laundering gates the normal
+// commit path enforces are promoted.
+const DEADLINE_FINANCE_BUYER_TITLE_PATTERN =
+  /\b(cfo|controller|treasur\w*|fp&a|finance|accounting|spend)\b/i;
+const DEADLINE_EXECUTIVE_TITLE_PATTERN =
+  /\b(chief|c[a-z]o|controller|vp|vice\s+president|head|director|founder|owner|president|partner)\b/i;
+const DEADLINE_MANAGER_TITLE_PATTERN = /\b(manager|lead|principal|senior)\b/i;
+
+function inferDeadlinePersonaRole(title: string): string {
+  return DEADLINE_FINANCE_BUYER_TITLE_PATTERN.test(title)
+    ? "economic-buyer"
+    : "champion";
+}
+
+function inferDeadlinePersonaSeniority(title: string): string {
+  if (DEADLINE_EXECUTIVE_TITLE_PATTERN.test(title)) {
+    return "executive";
+  }
+  if (DEADLINE_MANAGER_TITLE_PATTERN.test(title)) {
+    return "manager";
+  }
+  return "individual-contributor";
+}
+
+export function promoteDeadlineBuyerICPPersonas(
+  buyerPersonaCandidates: readonly BuyerPersonaCandidate[],
+): Array<Record<string, unknown>> {
+  const seenNameKeys = new Set<string>();
+  const personas: Array<Record<string, unknown>> = [];
+  for (const candidate of buyerPersonaCandidates) {
+    if (
+      candidate.venue !== "case_study_champions" &&
+      candidate.venue !== "event_speakers"
+    ) {
+      continue;
+    }
+    if (!isHttpUrl(candidate.url)) {
+      continue;
+    }
+    if (
+      !isLikelyNamedBuyerIdentity(candidate.name, {
+        company: candidate.company,
+        title: candidate.title,
+      })
+    ) {
+      continue;
+    }
+    const nameKey = normalizeNameKey(candidate.name);
+    if (nameKey.length === 0 || seenNameKeys.has(nameKey)) {
+      continue;
+    }
+    seenNameKeys.add(nameKey);
+    personas.push({
+      name: candidate.name,
+      title: candidate.title,
+      company: candidate.company,
+      sourceUrl: candidate.url,
+      role: inferDeadlinePersonaRole(candidate.title),
+      seniority: inferDeadlinePersonaSeniority(candidate.title),
+      evidence:
+        candidate.venue === "case_study_champions"
+          ? `Named customer champion on ${candidate.company}'s public case study (${candidate.url}).`
+          : `Named as a customer/speaker in public event materials (${candidate.url}).`,
+    });
+  }
+
+  // Same shared-listing laundering gate the normal commit path applies: >=2
+  // personas behind one non-permalink URL are dropped unless they are
+  // co-champions mined from that exact case-study page.
+  const guarded = suppressSharedListingUrlPersonas(
+    { prose: deadlineGapNote, personas },
+    buyerPersonaCandidates,
+  );
+  return Array.isArray(guarded.personas)
+    ? (guarded.personas as Array<Record<string, unknown>>)
+    : personas;
+}
+
+export function buildDeadlineExhaustionHonestGapBody(
   sectionId: SectionId,
+  buyerPersonaCandidates: readonly BuyerPersonaCandidate[] = [],
 ): Record<string, unknown> | undefined {
   const strategicInsight = buildDeadlineExhaustionStrategicInsight();
   switch (sectionId) {
@@ -2794,7 +2880,32 @@ function buildDeadlineExhaustionHonestGapBody(
           blockGap: buildDeadlineExhaustionGapBlock(2),
         },
       };
-    case "positioningBuyerICP":
+    case "positioningBuyerICP": {
+      // Rescue the named champions the prepass already acquired instead of
+      // committing an empty persona block (run b0d12b45). Drop the persona
+      // blockGap only when >=3 grounded personas clear the floor by count;
+      // 1-2 commit alongside an honest gap; 0 keeps the original empty gap.
+      const rescuedPersonas =
+        promoteDeadlineBuyerICPPersonas(buyerPersonaCandidates);
+      const personaReality =
+        rescuedPersonas.length >= 3
+          ? {
+              prose:
+                "Full ICP rerun pending, but named customer champions were recovered from public case studies before the deadline.",
+              personas: rescuedPersonas,
+            }
+          : rescuedPersonas.length > 0
+            ? {
+                prose:
+                  "Partial named-champion evidence recovered before the deadline; the full persona panel is incomplete pending a rerun.",
+                personas: rescuedPersonas,
+                blockGap: buildDeadlineExhaustionGapBlock(3),
+              }
+            : {
+                prose: deadlineGapNote,
+                personas: [],
+                blockGap: buildDeadlineExhaustionGapBlock(3),
+              };
       return {
         strategicInsight,
         icpExistenceCheck: {
@@ -2802,11 +2913,7 @@ function buildDeadlineExhaustionHonestGapBody(
           firmographicCuts: [],
           blockGap: buildDeadlineExhaustionGapBlock(3),
         },
-        personaReality: {
-          prose: deadlineGapNote,
-          personas: [],
-          blockGap: buildDeadlineExhaustionGapBlock(3),
-        },
+        personaReality,
         awarenessDistribution: {
           prose: deadlineGapNote,
           levels: [],
@@ -2823,6 +2930,7 @@ function buildDeadlineExhaustionHonestGapBody(
           blockGap: buildDeadlineExhaustionGapBlock(1),
         },
       };
+    }
     case "positioningCompetitorLandscape":
       return {
         strategicInsight,
@@ -2987,17 +3095,22 @@ function buildDeadlineExhaustionHonestGapBody(
 }
 
 function buildDeadlineExhaustionHonestGapArtifact({
+  buyerPersonaCandidates,
   definition,
   deps,
   input,
   researchInput,
 }: {
+  buyerPersonaCandidates?: readonly BuyerPersonaCandidate[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
   researchInput: ResearchInput;
 }): ArtifactEnvelope | undefined {
-  const body = buildDeadlineExhaustionHonestGapBody(input.sectionId);
+  const body = buildDeadlineExhaustionHonestGapBody(
+    input.sectionId,
+    buyerPersonaCandidates ?? [],
+  );
   if (body === undefined) {
     return undefined;
   }
@@ -11937,6 +12050,7 @@ async function runSectionViaAnswerTool(
       isDeadlineExhaustionFailure(getAttemptRepairIssues(attempt), input, deps)
     ) {
       evidenceGapArtifact = buildDeadlineExhaustionHonestGapArtifact({
+        buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
         definition,
         deps,
         input,
@@ -12770,6 +12884,7 @@ async function runSectionViaStructuredBodyStream(
       isDeadlineExhaustionFailure(getAttemptRepairIssues(attempt), input, deps)
     ) {
       evidenceGapArtifact = buildDeadlineExhaustionHonestGapArtifact({
+        buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
         definition,
         deps,
         input,
