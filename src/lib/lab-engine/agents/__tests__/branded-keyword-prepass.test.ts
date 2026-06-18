@@ -7,6 +7,8 @@ import {
   buildBrandedKeywordPrepass,
   buildBrandedKeywordTerms,
   buildCategoryDemandKeywordTerms,
+  categoryDemandHeadTokens,
+  isCommercialDemandKeyword,
   isUnfilledKeywordMeasurementMove,
 } from "../run-section";
 import { keywordVolumeKeywords } from "../run-section-keyword-results";
@@ -52,15 +54,31 @@ describe("buildBrandedKeywordTerms", () => {
 });
 
 describe("buildCategoryDemandKeywordTerms", () => {
-  it("seeds non-branded problem-aware terms from the stable category descriptor", () => {
-    // Derived from company.category, NOT from model-generated orderedMoves text.
-    expect(
-      buildCategoryDemandKeywordTerms("AI-native GTM operations", "SaaSLaunch"),
-    ).toEqual([
-      "ai-native gtm operations",
-      "ai-native gtm operations software",
-      "best ai-native gtm operations",
-      "ai-native gtm operations alternatives",
+  it("extracts clean commercial head terms from a parenthetical category descriptor", () => {
+    // Ramp's prose category wraps the searchable heads in parentheses and joins
+    // them with "&". The seed must surface the searchable commercial heads, not
+    // the unsearchable whole-string wrap, and must drop the over-generic
+    // umbrella head ("financial technology").
+    const terms = buildCategoryDemandKeywordTerms(
+      "Financial technology (corporate cards & spend management)",
+      "Ramp",
+    );
+    expect(terms).toContain("spend management");
+    expect(terms).toContain("spend management software");
+    expect(terms).toContain("corporate cards");
+    // No whole-string wrap and no over-generic umbrella head.
+    for (const term of terms) {
+      expect(term).not.toContain("financial technology");
+      expect(term).not.toContain("(");
+    }
+  });
+
+  it("emits the bare/software/alternatives commercial variants per clean head", () => {
+    const terms = buildCategoryDemandKeywordTerms("Spend management", "Ramp");
+    expect(terms).toEqual([
+      "spend management",
+      "spend management software",
+      "spend management alternatives",
     ]);
   });
 
@@ -68,14 +86,43 @@ describe("buildCategoryDemandKeywordTerms", () => {
     expect(buildCategoryDemandKeywordTerms("   ", "SaaSLaunch")).toEqual([]);
   });
 
-  it("drops a category term that collapses into the brand head terms", () => {
-    // A descriptor that is literally the brand adds no non-branded signal.
+  it("drops a category head that collapses into the brand head terms", () => {
+    // A descriptor whose only head is literally the brand adds no non-branded
+    // signal — the "<brand> alternatives" variant collapses into the branded
+    // head terms and is dropped; the bare brand head is dropped too.
     const terms = buildCategoryDemandKeywordTerms("Acme", "Acme");
     expect(terms).not.toContain("acme");
     expect(terms).not.toContain("acme alternatives");
-    // The remaining shapes that are NOT branded head terms still seed.
+    // The remaining commercial shape that is NOT a branded head term still seeds.
     expect(terms).toContain("acme software");
-    expect(terms).toContain("best acme");
+  });
+});
+
+describe("isCommercialDemandKeyword", () => {
+  // The category head tokens for Ramp's commercial heads.
+  const ramp = categoryDemandHeadTokens(
+    "Financial technology (corporate cards & spend management)",
+  );
+
+  it("drops educational / definitional / government junk", () => {
+    expect(isCommercialDemandKeyword("opportunity cost", ramp)).toBe(false);
+    expect(isCommercialDemandKeyword("california secretary of state", ramp)).toBe(
+      false,
+    );
+    expect(isCommercialDemandKeyword("mission statement examples", ramp)).toBe(
+      false,
+    );
+  });
+
+  it("keeps a row that matches a commercial-intent modifier", () => {
+    expect(isCommercialDemandKeyword("spend management software", ramp)).toBe(
+      true,
+    );
+  });
+
+  it("keeps a row that shares a token with the category heads", () => {
+    // "expense management" shares "management" with the "spend management" head.
+    expect(isCommercialDemandKeyword("expense management", ramp)).toBe(true);
   });
 });
 
@@ -155,7 +202,6 @@ describe("buildBrandedKeywordPrepass", () => {
         "saaslaunch reviews",
         "ai-native gtm operations",
         "ai-native gtm operations software",
-        "best ai-native gtm operations",
         "ai-native gtm operations alternatives",
       ],
     });
@@ -172,6 +218,15 @@ describe("buildBrandedKeywordPrepass", () => {
     expect(prepass?.candidateBlock).toContain('dateObserved "2026-06-11"');
     expect(prepass?.candidateBlock).toContain("2,400/mo (SpyFu-estimated)");
     expect(prepass?.candidateBlock).toContain("branded-vs-non-branded");
+
+    // R-G: the reader-bound sourceTitle the model copies must be human-facing,
+    // never the raw tool identifier "keyword_volume" (a forbidden reader term
+    // that leaked into the keyword table Source column).
+    expect(prepass?.candidateBlock).toContain(
+      'sourceTitle "SpyFu monthly search volume"',
+    );
+    expect(prepass?.candidateBlock).not.toContain("keyword_volume");
+    expect(prepass?.candidateBlock).not.toContain("keyword_discovery");
   });
 
   it("seeds non-branded category terms into the SAME keyword_volume call as the branded terms", async () => {
@@ -225,7 +280,6 @@ describe("buildBrandedKeywordPrepass", () => {
       "saaslaunch reviews",
       "ai-native gtm operations",
       "ai-native gtm operations software",
-      "best ai-native gtm operations",
       "ai-native gtm operations alternatives",
     ]);
 
@@ -350,6 +404,11 @@ describe("buildBrandedKeywordPrepass", () => {
     company: {
       ...saaslaunchResearchInput.company,
       websiteUrl: "https://airtable.com",
+      // Finance-aligned category so the discovery-relevance filter keeps the
+      // commercial finance gap keywords this fixture returns ("corporate cards"
+      // shares the "corporate cards" head; "expense management software" carries
+      // the commercial modifier).
+      category: "Corporate cards & spend management",
     },
     competitorSeeds: [
       { name: "Ramp", domain: "ramp.com", provenance: "user-supplied" as const },
@@ -523,5 +582,61 @@ describe("buildBrandedKeywordPrepass", () => {
       "NON-BRANDED COMPETITOR GAP KEYWORDS",
     );
     expect(prepass?.candidateBlock).toContain("airtable");
+  });
+
+  // R-A: the same deterministic keyword_volume prepass also serves the Market &
+  // Category section, where the measured commercial demand sources
+  // marketSize.signals + bottomUpTam.inputs (an honest, sourced TAM read instead
+  // of the empty signals:[] + 4/4 evidence-gap the section shipped). The block
+  // text branches on sectionId so the Market model is instructed to populate the
+  // TAM, NOT the demand-intent keyword table.
+  const marketInput = {
+    runId: "run-market-prepass",
+    sectionId: "positioningMarketCategory",
+  } as unknown as RunSectionInput;
+
+  it("instructs the Market model to source marketSize.signals + bottomUpTam.inputs from the measured commercial rows", async () => {
+    const prepass = await buildBrandedKeywordPrepass({
+      deps,
+      input: marketInput,
+      researchInput: saaslaunchResearchInput,
+      researchTools: keywordVolumeToolReturning({
+        type: "result",
+        source: "SpyFu",
+        sourceUrl: "https://www.spyfu.com/",
+        keywords: [
+          {
+            keyword: "ai-native gtm operations software",
+            searchVolume: 880,
+            cpc: 6.4,
+            difficulty: 31,
+            sourceUrl:
+              "https://www.spyfu.com/keyword/overview/us?query=ai-native%20gtm%20operations%20software",
+            display:
+              '"ai-native gtm operations software" — 880/mo (SpyFu-estimated), CPC $6.40 (SpyFu-estimated), difficulty 31',
+          },
+        ],
+      }),
+    });
+
+    expect(prepass).toBeDefined();
+    // The Market block is TAM-flavored, not the demand keyword table.
+    expect(prepass?.candidateBlock).toContain("marketSize.signals");
+    expect(prepass?.candidateBlock).toContain("bottomUpTam.inputs");
+    // The four TAM input types are addressed: keyword-volume + commercial-intent
+    // share sourced, conversion-rate an honest gap, acv from operator brief.
+    expect(prepass?.candidateBlock).toContain("keyword-volume");
+    expect(prepass?.candidateBlock).toContain("commercial-intent-share");
+    expect(prepass?.candidateBlock).toContain("conversion-rate");
+    // No fabricated TAM: the conversion gap keeps the estimate directional.
+    expect(prepass?.candidateBlock.toLowerCase()).toContain("evidence gap");
+    expect(prepass?.candidateBlock).not.toContain("keywordDemand.keywords");
+    // The measured row + its permalink are present to copy into a signal.
+    expect(prepass?.candidateBlock).toContain(
+      "ai-native gtm operations software",
+    );
+    expect(prepass?.candidateBlock).toContain(
+      "https://www.spyfu.com/keyword/overview/us?query=ai-native%20gtm%20operations%20software",
+    );
   });
 });

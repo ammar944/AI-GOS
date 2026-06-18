@@ -221,6 +221,7 @@ import {
   deriveClaimSupportCountsForTrust,
   deriveGroundedConfidence,
   getMaxUnsupportedAllowed,
+  moneyDigitVariants,
   redactUnsupportedNumericClaims,
   stripModelAuthoredVerifiedMarkers,
   stripMisattributedQuoteAttributions,
@@ -1234,20 +1235,33 @@ function pluralize(count: number, singular: string, plural: string): string {
   return count === 1 ? singular : plural;
 }
 
-function buildVoiceOfCustomerShortfallNote(
+// The promoted VoC quotes here failed the verified-admission bar — they lack a
+// per-review permalink, so they read as directional buyer signal, not
+// independently confirmed VoC. Calling them "verified" is a lie, and quoting the
+// "6 quotes across 3 sites" bar once the pack EXCEEDS it self-contradicts (an
+// over-floor pack is still directional for the permalink reason, not the count).
+// State the count, the directional status, and the real reason; only add the
+// under-floor line when the pack is genuinely below the quote floor.
+export function buildVoiceOfCustomerShortfallNote(
   facts: VoiceOfCustomerEvidenceGapFacts,
 ): string {
+  const collected = `We collected ${facts.foundPainQuoteCount} directional ${pluralize(
+    facts.foundPainQuoteCount,
+    "quote",
+    "quotes",
+  )} across ${facts.foundDistinctPainSourceCount} independent ${pluralize(
+    facts.foundDistinctPainSourceCount,
+    "source site",
+    "source sites",
+  )} that lack per-review permalinks, so they read as directional buyer signal, not independently confirmed VoC.`;
+
+  if (facts.foundPainQuoteCount >= voiceOfCustomerRequiredPainQuoteCount) {
+    return collected;
+  }
+
   return [
-    `We collected ${facts.foundPainQuoteCount} verified ${pluralize(
-      facts.foundPainQuoteCount,
-      "quote",
-      "quotes",
-    )} across ${facts.foundDistinctPainSourceCount} independent ${pluralize(
-      facts.foundDistinctPainSourceCount,
-      "source site",
-      "source sites",
-    )}.`,
-    `Our bar is ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} sites; treat themes as directional.`,
+    collected,
+    `That is below our bar of ${voiceOfCustomerRequiredPainQuoteCount} quotes across ${voiceOfCustomerRequiredDistinctPainSourceCount} sites, so treat the themes as directional.`,
   ].join(" ");
 }
 
@@ -4039,6 +4053,132 @@ export function deriveWave2TrustConfidence({
   };
 }
 
+// R-E: the offer diagnostic laundered a FABRICATED customer-acquisition figure
+// ("$4,200 CAC exceeds the $3,000 target by 40%") as "operator-reported / client
+// brief" fact. Only the brief's stated economics ($3,000 target, $25K budget,
+// $18K LTV) are real operator numbers — the $4,200 CAC and the 40% overshoot
+// derived from it are invented. The verifier accepts the laundered figure and
+// numeric-coherence can't catch it (the model planted 4200/40 across its own
+// structured fields, so each reads as self-traceable). This deterministic gate
+// relabels any CAC/LTV/CPA money figure that does NOT appear in the brief
+// operator economics — only brief-sourced operator numbers may stand as figures;
+// everything else is relabeled "operator-reported (actual figure not disclosed)"
+// so the read stays honest without fabricating or hard-failing the section.
+
+// A CAC / LTV / CPA / acquisition-cost economics cue scoped tightly enough that a
+// sourced non-economics money figure ("$13B valuation", "70,000+ customers") is
+// never touched — only customer-economics claims fall in scope.
+const offerAcquisitionEconomicsCuePattern =
+  /\b(cac|ltv|cpa|cpl|customer acquisition cost|acquisition cost|cost per acquisition|lifetime value)\b/iu;
+// A money token: "$4,200", "$3,000", "$25K", "$13B", "$1K–$10K" each match once.
+const offerMoneyTokenPattern = /\$\s?\d[\d,]*(?:\.\d+)?\s?[kmb]?/giu;
+// A derived overshoot percent ("by 40%", "40% overshoot", "40% above target")
+// computed FROM the fabricated CAC — when the figure goes, the derived margin
+// goes with it (it is not an independently measured percent).
+const offerDerivedOvershootPercentPattern =
+  /\b\d{1,3}(?:\.\d+)?\s?%(?=[^%]*\b(overshoot|over target|above target|over the target)\b)|\b(?:by|of)\s\d{1,3}(?:\.\d+)?\s?%/giu;
+
+const offerUnattributedMoneyRelabel = "operator-reported (actual figure not disclosed)";
+const offerDerivedOvershootRelabel = "an undisclosed margin";
+
+function tokenInBriefMoneyDigits(
+  token: string,
+  briefMoneyDigits: ReadonlySet<string>,
+): boolean {
+  return moneyDigitVariants(token).some((variant) =>
+    briefMoneyDigits.has(variant),
+  );
+}
+
+// Relabel fabricated CAC/LTV money figures (and the overshoot percent derived
+// from them) in a single string; returns the cleaned string + whether anything
+// was struck. A string is in scope only if it carries an acquisition-economics
+// cue, so non-economics money ("$13B valuation") is left untouched.
+function relabelUnattributedEconomicsString(
+  value: string,
+  briefMoneyDigits: ReadonlySet<string>,
+): { value: string; struck: boolean } {
+  if (!offerAcquisitionEconomicsCuePattern.test(value)) {
+    return { value, struck: false };
+  }
+
+  let struck = false;
+  const moneyRelabeled = value.replace(offerMoneyTokenPattern, (token) => {
+    if (tokenInBriefMoneyDigits(token, briefMoneyDigits)) {
+      return token;
+    }
+    struck = true;
+    return offerUnattributedMoneyRelabel;
+  });
+
+  if (!struck) {
+    // Every money figure traces to the brief — nothing fabricated to relabel,
+    // so the derived-percent neutralization must not fire either.
+    return { value, struck: false };
+  }
+
+  const overshootNeutralized = moneyRelabeled.replace(
+    offerDerivedOvershootPercentPattern,
+    offerDerivedOvershootRelabel,
+  );
+
+  return { value: overshootNeutralized, struck: true };
+}
+
+export interface StrippedOperatorEconomicsClaim {
+  field: string;
+  removedText: string;
+}
+
+// Walk every string leaf of the offer body and relabel fabricated operator
+// economics. Mirrors the whole-body string walk the CTA-contradiction strip uses
+// so the figure is scrubbed wherever it was asserted (prose AND structured
+// magnitude/value cells). Brief-sourced operator numbers are preserved.
+export function stripUnattributedOperatorEconomics({
+  body,
+  briefMoneyDigits,
+}: {
+  body: Record<string, unknown>;
+  briefMoneyDigits: ReadonlySet<string>;
+}): { body: Record<string, unknown>; stripped: StrippedOperatorEconomicsClaim[] } {
+  const cloned = structuredClone(body);
+  const stripped: StrippedOperatorEconomicsClaim[] = [];
+
+  const visit = (holder: Record<string, unknown>): void => {
+    for (const [key, child] of Object.entries(holder)) {
+      if (typeof child === "string") {
+        const relabeled = relabelUnattributedEconomicsString(
+          child,
+          briefMoneyDigits,
+        );
+        if (relabeled.struck) {
+          holder[key] = relabeled.value;
+          stripped.push({
+            field: key,
+            removedText: child,
+          });
+        }
+      } else if (Array.isArray(child)) {
+        for (const item of child) {
+          const record = getRecord(item);
+          if (record !== null) {
+            visit(record);
+          }
+        }
+      } else {
+        const record = getRecord(child);
+        if (record !== null) {
+          visit(record);
+        }
+      }
+    }
+  };
+
+  visit(cloned);
+
+  return stripped.length === 0 ? { body, stripped } : { body: cloned, stripped };
+}
+
 async function annotateEvidenceSupportReview({
   artifact,
   fetchImpl,
@@ -4176,13 +4316,27 @@ async function annotateEvidenceSupportReview({
           ]
         : [],
   });
+  // R-E: relabel fabricated CAC/LTV operator economics the model laundered as
+  // brief-sourced fact (offer only). Only money figures that actually appear in
+  // the brief operator economics may stand; an invented CAC + its derived
+  // overshoot percent are relabeled honestly so the read never asserts a number
+  // the operator did not supply.
+  const offerEconomics =
+    sectionId === "positioningOfferDiagnostic"
+      ? stripUnattributedOperatorEconomics({
+          body: subjectCta.body,
+          briefMoneyDigits: collectBriefMoneyDigits(
+            researchInput?.onboarding?.economics,
+          ),
+        })
+      : { body: subjectCta.body, stripped: [] as StrippedOperatorEconomicsClaim[] };
   // Coherence pack (run 8081e646 cold-judge fixes): pipeline vocabulary out of
   // client prose, then narrative numbers must trace to the section's own
   // structured evidence (values, column sums, lengths, group counts) or the
   // sentence goes. Runs before the verification-driven numeric redactor so the
   // table-contradiction class is caught even for claims the verifier graded.
   const jargonScrub = scrubBodyInternalJargon({
-    body: subjectCta.body,
+    body: offerEconomics.body,
     sectionId,
   });
   const numericCoherence = enforceNumericCoherence({
@@ -4321,6 +4475,7 @@ async function annotateEvidenceSupportReview({
     sourceLiveness.droppedRows.length === 0 &&
     quoteDedup.dropped.length === 0 &&
     subjectCta.stripped.length === 0 &&
+    offerEconomics.stripped.length === 0 &&
     internalJargonStrikes.length === 0 &&
     numericCoherenceStrikes.length === 0 &&
     namedEntityStrip.stripped.length === 0 &&
@@ -4391,6 +4546,9 @@ async function annotateEvidenceSupportReview({
             strippedSubjectCtaClaims:
               subjectCta.stripped satisfies SubjectCtaClaimStrip[],
           }
+        : {}),
+      ...(offerEconomics.stripped.length > 0
+        ? { strippedUnattributedOperatorEconomics: offerEconomics.stripped }
         : {}),
       ...(internalJargonStrikes.length > 0
         ? { internalJargonStrikes }
@@ -9382,13 +9540,89 @@ export function buildBrandedKeywordTerms(companyName: string): string[] {
 // is the demand read a media buyer checks before committing budget. Returned
 // terms are deterministic, deduped, lowercased, and exclude any term that
 // collapses into a branded head term already measured by buildBrandedKeywordTerms.
+// Over-generic umbrella heads that are not useful commercial keywords on their
+// own — a SpyFu lookup on "financial technology" or "software" returns noise,
+// not the category demand a media buyer sizes against. Dropped when a parsed
+// head EQUALS one of these (single over-generic token). Multi-word heads that
+// merely CONTAIN one of these are kept ("spend management" survives).
+const categoryDemandOverGenericHeads = new Set<string>([
+  "financial technology",
+  "fintech",
+  "technology",
+  "software",
+  "platform",
+  "saas",
+  "solution",
+  "solutions",
+  "tool",
+  "tools",
+  "service",
+  "services",
+  "company",
+  "app",
+  "apps",
+  "system",
+  "systems",
+  "industry",
+  "sector",
+]);
+
+// Parse a prose category descriptor into clean, searchable commercial head
+// phrases. The descriptor often wraps the searchable heads in parentheses and
+// joins multiple heads with "&"/","/"and"/"/" (e.g. Ramp's "Financial
+// technology (corporate cards & spend management)"). Splitting on those
+// separators — across BOTH the parenthetical and outside text — yields the
+// commercial heads a SpyFu lookup can actually measure, instead of the
+// unsearchable whole-string wrap. Over-generic umbrella heads are dropped.
+function parseCategoryDemandHeads(category: string): string[] {
+  const normalizedCategory = category.trim().toLowerCase();
+  if (normalizedCategory.length === 0) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const heads: string[] = [];
+  // Split on parentheses first (so the inside and outside become separate
+  // segments), then on the head separators within each segment.
+  for (const segment of normalizedCategory.split(/[()]/u)) {
+    for (const rawHead of segment.split(/&|,|;|\/|\sand\s/u)) {
+      const head = rawHead.trim().replace(/\s+/gu, " ");
+      if (
+        head.length === 0 ||
+        seen.has(head) ||
+        categoryDemandOverGenericHeads.has(head)
+      ) {
+        continue;
+      }
+      seen.add(head);
+      heads.push(head);
+    }
+  }
+
+  return heads;
+}
+
+// The token set across all clean category heads — used by the demand-discovery
+// relevance filter to keep keyword rows that share a category token. Exported
+// so the filter predicate can be driven from a single source of head tokens.
+export function categoryDemandHeadTokens(category: string): ReadonlySet<string> {
+  const tokens = new Set<string>();
+  for (const head of parseCategoryDemandHeads(category)) {
+    for (const token of head.split(/\s+/u)) {
+      if (token.length > 0) {
+        tokens.add(token);
+      }
+    }
+  }
+  return tokens;
+}
+
 export function buildCategoryDemandKeywordTerms(
   category: string,
   companyName: string,
 ): string[] {
-  const normalizedCategory = category.trim().toLowerCase();
-
-  if (normalizedCategory.length === 0) {
+  const heads = parseCategoryDemandHeads(category);
+  if (heads.length === 0) {
     return [];
   }
 
@@ -9397,28 +9631,60 @@ export function buildCategoryDemandKeywordTerms(
   const seen = new Set<string>();
   const terms: string[] = [];
 
-  for (const term of [
-    normalizedCategory,
-    `${normalizedCategory} software`,
-    `best ${normalizedCategory}`,
-    `${normalizedCategory} alternatives`,
-  ]) {
-    const trimmed = term.trim();
-    if (
-      trimmed.length === 0 ||
-      seen.has(trimmed) ||
-      brandedTerms.has(trimmed) ||
-      // A category descriptor that is literally the brand name adds no
-      // non-branded signal — drop it so the seed stays a real demand probe.
-      (brand.length > 0 && trimmed === brand)
-    ) {
-      continue;
+  for (const head of heads) {
+    for (const term of [head, `${head} software`, `${head} alternatives`]) {
+      const trimmed = term.trim();
+      if (
+        trimmed.length === 0 ||
+        seen.has(trimmed) ||
+        brandedTerms.has(trimmed) ||
+        // A category head that is literally the brand name adds no non-branded
+        // signal — drop it so the seed stays a real demand probe.
+        (brand.length > 0 && trimmed === brand)
+      ) {
+        continue;
+      }
+      seen.add(trimmed);
+      terms.push(trimmed);
     }
-    seen.add(trimmed);
-    terms.push(trimmed);
   }
 
-  return terms;
+  // Bound the keyword_volume call: a noisy multi-head category descriptor must
+  // not blow the seed list out (~3 variants per head). Cap total at 8 terms.
+  return terms.slice(0, 8);
+}
+
+// Commercial-intent modifier pattern: a keyword carrying one of these tokens is
+// a real buyer-intent search a media buyer measures demand against, regardless
+// of which category head it shares. Conservative + generalizable — no
+// per-subject dictionary. The filter keeps a row when it matches this pattern
+// OR shares a token with the cleaned category heads; everything else (the
+// educational / definitional / government junk SpyFu kombat surfaces) is dropped.
+const commercialDemandModifierPattern =
+  /\b(software|pricing|alternative|alternatives|vs|versus|best|top|tool|tools|platform|automation|management|solution|competitor|competitors|review|reviews|demo|trial|for (startups|business|teams|enterprise))\b/iu;
+
+// Keep a discovered demand keyword only if it shares a token with the category
+// heads OR carries a commercial-intent modifier. Drops educational /
+// definitional / government junk ("opportunity cost", "california secretary of
+// state", "mission statement examples"). Relevance, NOT volume — a low-volume
+// commercial row is still kept.
+export function isCommercialDemandKeyword(
+  keyword: string,
+  categoryHeadTokens: ReadonlySet<string>,
+): boolean {
+  const normalized = keyword.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return false;
+  }
+  if (commercialDemandModifierPattern.test(normalized)) {
+    return true;
+  }
+  for (const token of normalized.split(/\s+/u)) {
+    if (token.length > 0 && categoryHeadTokens.has(token)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // The demand-intent agent is handed a deterministic keyword_volume prepass and
@@ -9439,6 +9705,56 @@ export function isUnfilledKeywordMeasurementMove(move: string): boolean {
     /\bkeyword\b/u.test(text) &&
     /\b(volume|search volume|demand|cpc|traffic|searches?)\b/u.test(text);
   return mentionsMeasurement && mentionsKeywordVolume;
+}
+
+// R-A: the Market & Category branch of the keyword_volume prepass. The same
+// measured commercial rows that feed demand-intent's keyword table source a
+// sourced bottom-up TAM read here: every row becomes a search-trend
+// marketSize.signal, and the rows source the bottomUpTam keyword-volume +
+// commercial-intent-share inputs. conversion-rate stays an HONEST evidence gap
+// (the section schema then keeps reachableRevenueEstimate "directional only" —
+// the correct cap), and acv is operator-reported from the brief when present.
+// No fabricated TAM number — the win is real sourced demand, not invented revenue.
+function buildMarketTamCandidateBlock({
+  categoryTerms,
+  dateObserved,
+  operatorAcv,
+  rows,
+}: {
+  categoryTerms: readonly string[];
+  dateObserved: string;
+  operatorAcv: string | undefined;
+  rows: readonly BrandedKeywordMeasuredRow[];
+}): string {
+  const renderRow = (row: BrandedKeywordMeasuredRow): string =>
+    `- ${row.display} | sourceUrl "${spyfuKeywordUrl(row.keyword)}"`;
+  const hasOperatorAcv =
+    operatorAcv !== undefined && operatorAcv.trim().length > 0;
+
+  if (rows.length === 0) {
+    return [
+      "MARKET DEMAND PREPASS (deterministic SpyFu monthly search volume — already ran):",
+      `SpyFu returned no monthly search volume for the category demand terms${categoryTerms.length === 0 ? " (no category descriptor available)" : ` (${categoryTerms.join(", ")})`}.`,
+      "Leave marketSize.signals empty and set every bottomUpTam input status:'evidence-gap'; never estimate a TAM. The schema keeps reachableRevenueEstimate 'directional only — not computed', which is correct.",
+    ].join("\n");
+  }
+
+  return [
+    "MARKET DEMAND PREPASS (deterministic SpyFu monthly search volume — already ran; do NOT re-fetch these terms):",
+    "The measured commercial keyword rows below are real SpyFu monthly volume/CPC. Source the market-size read from them — do NOT write a keywordDemand keyword table (that is the demand section's job).",
+    "1) Copy EVERY row into marketSize.signals as a signal with signalType 'search-trend', methodology 'bottom-up', sourceTitle 'SpyFu monthly search volume', the row's OWN per-keyword sourceUrl shown below, and dateObserved " +
+      `"${dateObserved}".`,
+    "2) Populate bottomUpTam.inputs (recipe 'keyword-demand-reachable-revenue'):",
+    "   - inputType 'keyword-volume': status 'sourced', value = the summed measured monthly volume across the rows, sourceUrl = a measured row's permalink.",
+    "   - inputType 'commercial-intent-share': status 'sourced', value = the commercial-intent volume as a share of total measured volume (commercial vs. total split), sourceTitle 'SpyFu monthly search volume'.",
+    hasOperatorAcv
+      ? `   - inputType 'acv': status 'sourced', value "${operatorAcv} (operator-reported)"; this is the brief-supplied ACV — never invent one.`
+      : "   - inputType 'acv': status 'evidence-gap' (no operator ACV supplied in the brief; never invent one).",
+    "   - inputType 'conversion-rate': status 'evidence-gap' (no sourced category conversion rate; this is an honest evidence gap, not an estimate).",
+    "Because conversion-rate stays an evidence gap, the schema keeps reachableRevenueEstimate 'directional only — not computed'. That honest cap is correct — do NOT fabricate a TAM revenue figure.",
+    "MEASURED COMMERCIAL KEYWORD ROWS:",
+    ...rows.map(renderRow),
+  ].join("\n");
 }
 
 export async function buildBrandedKeywordPrepass({
@@ -9546,8 +9862,8 @@ export async function buildBrandedKeywordPrepass({
   }
 
   const gapBlock = [
-    "DEMAND PREPASS (deterministic SpyFu keyword_volume — already ran):",
-    `keyword_volume returned no data for the subject's branded head terms (${brandedTerms.join(", ")})${categoryTerms.length === 0 ? "" : ` or category demand terms (${categoryTerms.join(", ")})`}.`,
+    "DEMAND PREPASS (deterministic SpyFu monthly search volume — already ran):",
+    `SpyFu returned no data for the subject's branded head terms (${brandedTerms.join(", ")})${categoryTerms.length === 0 ? "" : ` or category demand terms (${categoryTerms.join(", ")})`}.`,
     "State the branded-volume and non-branded-demand gap honestly in keywordDemand.prose; never estimate volumes.",
   ].join("\n");
 
@@ -9560,6 +9876,29 @@ export async function buildBrandedKeywordPrepass({
     }),
   );
   const steps = calls.map((recordedCall) => recordedCall.step);
+
+  // R-A: the Market & Category section reuses this exact keyword_volume prepass,
+  // but the same measured commercial rows source a sourced TAM read
+  // (marketSize.signals + bottomUpTam.inputs) instead of the demand keyword
+  // table. Branch the candidate-block text on sectionId; Market never has
+  // keyword_discovery in allowedTools, so discoveryRows is empty here and the
+  // branded/category split below is the whole measured set.
+  if (input.sectionId === "positioningMarketCategory") {
+    return {
+      candidateBlock: buildMarketTamCandidateBlock({
+        categoryTerms,
+        dateObserved: getNow(deps).toISOString().slice(0, 10),
+        // The brief economics carries avgLtv + targetCac + monthlyBudget — but
+        // NOT an ACV. LTV (lifetime value) is not ACV (annual contract value);
+        // feeding LTV into the TAM ACV input would overstate per-customer value
+        // 3–6x. With no real operator ACV, leave it an honest evidence gap.
+        operatorAcv: undefined,
+        rows,
+      }),
+      events,
+      steps,
+    };
+  }
 
   // Only the pure-gap block ships when BOTH the branded keyword_volume call AND
   // non-branded discovery came back empty — discovery rows alone are enough to
@@ -9580,9 +9919,9 @@ export async function buildBrandedKeywordPrepass({
   const hasNonBrandedRows =
     categoryRows.length > 0 || discoveryRows.rows.length > 0;
   const candidateBlock = [
-    "DEMAND PREPASS (deterministic SpyFu keyword_volume + keyword_discovery — already ran; do NOT re-fetch these terms):",
+    "DEMAND PREPASS (deterministic SpyFu monthly search volume + competitor-gap keywords — already ran; do NOT re-fetch these terms):",
     "The measured terms below are real SpyFu volume/CPC. Include EVERY row in keywordDemand.keywords with:",
-    `- sourceTitle "SpyFu keyword_volume"; dateObserved "${dateObserved}"; and the row's OWN per-keyword sourceUrl shown below (each is a distinct spyfu.com/keyword/overview permalink — cite it exactly, NEVER the bare homepage root);`,
+    `- sourceTitle "SpyFu monthly search volume"; dateObserved "${dateObserved}"; and the row's OWN per-keyword sourceUrl shown below (each is a distinct spyfu.com/keyword/overview permalink — cite it exactly, NEVER the bare homepage root);`,
     "- monthlyVolume/cpc copied in the row's display formatting (keep the (SpyFu-estimated) label; a null cpc renders as n/a, never $0).",
     "Open keywordDemand.prose with the branded-vs-non-branded demand split — the branded floor is the denominator a media buyer checks first, the category/problem-aware rows are the real market demand.",
     `BRANDED HEAD TERMS (intentType "navigational"):`,
@@ -9591,12 +9930,12 @@ export async function buildBrandedKeywordPrepass({
       : brandedRows.map(renderRow)),
     hasNonBrandedRows
       ? `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS (classify intentType per the term — typically "commercial" or "informational", NOT "navigational"):`
-      : `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS: none measured${categoryTerms.length === 0 ? " (no category descriptor available)" : ` (keyword_volume returned no data for ${categoryTerms.join(", ")}); state this non-branded-demand gap honestly`}.`,
+      : `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS: none measured${categoryTerms.length === 0 ? " (no category descriptor available)" : ` (SpyFu returned no monthly search volume for ${categoryTerms.join(", ")}); state this non-branded-demand gap honestly`}.`,
     ...categoryRows.map(renderRow),
     ...(discoveryRows.rows.length === 0
       ? []
       : [
-          `NON-BRANDED COMPETITOR GAP KEYWORDS (keyword_discovery — keywords competitors rank/bid on that ${researchInput.company.name} does not; classify intentType "commercial" or "informational", NEVER "navigational"; sourceTitle "SpyFu keyword_discovery"):`,
+          `NON-BRANDED COMPETITOR GAP KEYWORDS (keywords competitors rank/bid on that ${researchInput.company.name} does not; classify intentType "commercial" or "informational", NEVER "navigational"; sourceTitle "SpyFu competitor-gap keywords"):`,
           ...discoveryRows.rows.map(renderDiscoveryRow),
         ]),
   ].join("\n");
@@ -9695,9 +10034,22 @@ async function discoverNonBrandedDemandRows({
     return { call, rows: [] };
   }
 
+  // SpyFu kombat gap mode returns the highest-VOLUME competitor terms, which
+  // skews toward generic educational/definitional/government junk ("opportunity
+  // cost", "california secretary of state", "mission statement examples"). Keep
+  // only rows that read as commercial category demand — share a category token
+  // or carry a commercial-intent modifier — before they reach the candidate
+  // block. Relevance, not volume: a low-volume commercial row is still kept.
+  const categoryHeadTokens = categoryDemandHeadTokens(
+    researchInput.company.category,
+  );
+  const commercialRows = parsed.data.keywords.filter((row) =>
+    isCommercialDemandKeyword(row.keyword, categoryHeadTokens),
+  );
+
   return {
     call,
-    rows: parsed.data.keywords.slice(0, keywordDiscoveryPrepassMaxRows),
+    rows: commercialRows.slice(0, keywordDiscoveryPrepassMaxRows),
   };
 }
 
@@ -11138,7 +11490,8 @@ async function runSectionViaAnswerTool(
   }
   const buyerPersonaPrepassSteps = buyerPersonaPrepass?.steps ?? [];
   const brandedKeywordPrepass =
-    input.sectionId === "positioningDemandIntent"
+    input.sectionId === "positioningDemandIntent" ||
+    input.sectionId === "positioningMarketCategory"
       ? await buildBrandedKeywordPrepass({
           deps,
           input,
@@ -11907,7 +12260,8 @@ async function runSectionViaStructuredBodyStream(
   }
 
   const brandedKeywordPrepass =
-    input.sectionId === "positioningDemandIntent"
+    input.sectionId === "positioningDemandIntent" ||
+    input.sectionId === "positioningMarketCategory"
       ? await buildBrandedKeywordPrepass({
           deps,
           input,

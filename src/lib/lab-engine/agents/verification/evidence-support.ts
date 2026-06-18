@@ -887,7 +887,7 @@ function relabelBottomUpTamRecord({
 // magnitudes expanded ("$3,000" -> "3000"; "5k" -> "5" and "5000"). Used to
 // check whether a model-claimed "user-supplied" money figure actually appears
 // in the brief economics.
-function moneyDigitVariants(value: string): string[] {
+export function moneyDigitVariants(value: string): string[] {
   const variants: string[] = [];
 
   for (const match of value.matchAll(/\d[\d,]*(?:\.\d+)?\s?(?:[kmb]\b)?/gi)) {

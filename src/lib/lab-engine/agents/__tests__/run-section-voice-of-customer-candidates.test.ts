@@ -1735,13 +1735,13 @@ describe('runSection VoC candidate prepass', (): void => {
       expect.arrayContaining(expectedQuoteUrls),
     );
     expect(body.retrievalSummary).toContain(
-      'We collected 5 verified quotes across 2 independent source sites.',
+      'We collected 5 directional quotes across 2 independent source sites that lack per-review permalinks, so they read as directional buyer signal, not independently confirmed VoC.',
     );
     expect(body.retrievalSummary).toContain(
-      'Our bar is 6 quotes across 3 sites; treat themes as directional.',
+      'That is below our bar of 6 quotes across 3 sites, so treat the themes as directional.',
     );
     expect(body.painLanguage.blockGap?.summary).toContain(
-      'treat themes as directional',
+      'treat the themes as directional',
     );
     expect(body.objections.items).toHaveLength(0);
     expect(body.switchingStories.stories).toHaveLength(0);
@@ -2422,10 +2422,10 @@ describe('runSection VoC candidate prepass', (): void => {
       [expectedPainUrl1, expectedPainUrl2].sort(),
     );
     expect(body.painLanguage.blockGap?.foundCount).toBe(2);
-    expect(body.painLanguage.blockGap?.summary).toContain('2 verified quotes');
+    expect(body.painLanguage.blockGap?.summary).toContain('2 directional quotes');
     expect(evidenceGapReport.foundPainQuoteCount).toBe(2);
     expect(evidenceGapReport.foundDistinctPainSourceCount).toBe(1);
-    expect(evidenceGapReport.summary).toContain('2 verified quotes');
+    expect(evidenceGapReport.summary).toContain('2 directional quotes');
     expect(evidenceGapReport.observedPainSourceDomains).toEqual(['g2.com']);
     expect(result.artifact.statusSummary).toContain('Surfaced 2 real pain extracts');
     expect(result.artifact.statusSummary).toContain('review-page permalinks');

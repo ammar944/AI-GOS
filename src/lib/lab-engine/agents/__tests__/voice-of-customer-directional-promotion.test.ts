@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { downgradeUnpermalinkedVocQuotes } from "../verification/provenance-gate";
 import {
   buildVoiceOfCustomerEvidenceGapBody,
+  buildVoiceOfCustomerShortfallNote,
   buildVoiceOfCustomerShortfallPainQuotes,
   getDirectionalVoiceOfCustomerCandidates,
   getVoiceOfCustomerCandidateEvidenceGapFacts,
@@ -199,5 +200,48 @@ describe("VoC directional admission lane (FIX-VOC)", () => {
     expect(String(g2Quote?.verbatimText)).not.toContain(
       "Paraphrased pattern (no per-review permalink):",
     );
+  });
+});
+
+// R-D: the shortfall note framed a directional VoC pack as "verified" and
+// contradicted itself by quoting the 6/3 bar even when the pack EXCEEDED it.
+// The honest note states the quotes are directional (they failed verified
+// admission), names the real reason (no per-review permalink), and drops the
+// "Our bar is 6 quotes across 3 sites" line once the pack is over the floor.
+describe("buildVoiceOfCustomerShortfallNote", () => {
+  it("is honest when the pack EXCEEDS the floor: directional, real reason, no bar line", () => {
+    const note = buildVoiceOfCustomerShortfallNote({
+      ok: true,
+      foundPainQuoteCount: 11,
+      foundDistinctPainSourceCount: 5,
+      observedPainSourceDomains: [
+        "g2.com",
+        "capterra.com",
+        "trustpilot.com",
+        "reddit.com",
+        "trustradius.com",
+      ],
+    });
+
+    expect(note).toContain("directional");
+    expect(note).not.toContain("verified");
+    // The self-contradicting "exceeds the bar yet directional" line is dropped.
+    expect(note).not.toContain("Our bar is 6 quotes");
+    // The real reason for directional status is the missing permalink.
+    expect(note.toLowerCase()).toContain("permalink");
+  });
+
+  it("keeps an honest under-floor line when the pack is genuinely below the bar", () => {
+    const note = buildVoiceOfCustomerShortfallNote({
+      ok: true,
+      foundPainQuoteCount: 2,
+      foundDistinctPainSourceCount: 1,
+      observedPainSourceDomains: ["g2.com"],
+    });
+
+    expect(note).toContain("directional");
+    expect(note).not.toContain("verified");
+    // Genuinely under the floor → an honest under-floor line is allowed.
+    expect(note).toContain("6 quotes");
   });
 });
