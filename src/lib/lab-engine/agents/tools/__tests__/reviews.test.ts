@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isProductReviewText } from "../reviews";
+import { isProductReviewText, isReviewPermalinkUrl } from "../reviews";
 
 import { reviewsAgentTool } from "../reviews";
 
@@ -769,5 +769,29 @@ describe("isProductReviewText", (): void => {
         "The reconciliation feature kept failing and support took weeks to respond, so we churned.",
       ),
     ).toBe(true);
+  });
+});
+
+describe("isReviewPermalinkUrl — TrustRadius per-review permalinks", (): void => {
+  it("treats a TrustRadius per-review slug-plus-id URL as a permalink", (): void => {
+    expect(
+      isReviewPermalinkUrl(
+        "https://www.trustradius.com/reviews/airtable-flexible-but-pricey-2026-01-15",
+      ),
+    ).toBe(true);
+  });
+
+  it("treats the TrustRadius #review-<id> permalink form as a permalink", (): void => {
+    expect(
+      isReviewPermalinkUrl(
+        "https://www.trustradius.com/reviews/airtable-review-5512#review-5512",
+      ),
+    ).toBe(true);
+  });
+
+  it("does NOT treat a bare TrustRadius product listing as a permalink", (): void => {
+    expect(
+      isReviewPermalinkUrl("https://www.trustradius.com/products/airtable"),
+    ).toBe(false);
   });
 });

@@ -148,6 +148,10 @@ function deriveReviewSource(url: string): string {
     return "Trustpilot";
   }
 
+  if (url.includes("trustradius")) {
+    return "TrustRadius";
+  }
+
   return "Web";
 }
 
@@ -161,6 +165,7 @@ const reviewPermalinkPatternSources = [
   String.raw`https?://(?:www\.)?g2\.com/survey_responses/[a-z0-9_-]+`,
   String.raw`https?://(?:www\.)?capterra\.com/p/\d+/[a-zA-Z0-9_-]+/reviews/\d+/?`,
   String.raw`https?://(?:www\.)?trustpilot\.com/reviews/[a-f0-9]{16,}`,
+  String.raw`https?://(?:www\.)?trustradius\.com/reviews/[a-z0-9-]+-\d+(?:#review-\d+)?[a-z0-9/_#?=&-]*`,
 ];
 
 export function isReviewPermalinkUrl(url: string): boolean {
@@ -221,7 +226,8 @@ function getReviewBodyScrapePriority(result: ReviewSearchResult): number {
   if (
     result.source === "G2" ||
     result.source === "Capterra" ||
-    result.source === "Trustpilot"
+    result.source === "Trustpilot" ||
+    result.source === "TrustRadius"
   ) {
     // A SERP hit that IS a review permalink yields born-traceable excerpts —
     // spend the scrape budget there before platform index pages.
@@ -1226,8 +1232,8 @@ export const reviewsAgentTool = tool<ReviewsInput, ReviewsOutput>({
     try {
       const query =
         mode === "bodies"
-          ? `${brand} reviews complaints pain points (site:g2.com OR site:capterra.com OR site:trustpilot.com OR site:reddit.com OR site:news.ycombinator.com)`
-          : `${brand} reviews (site:g2.com OR site:capterra.com OR site:trustpilot.com)`;
+          ? `${brand} reviews complaints pain points (site:g2.com OR site:capterra.com OR site:trustpilot.com OR site:reddit.com OR site:news.ycombinator.com OR site:trustradius.com)`
+          : `${brand} reviews (site:g2.com OR site:capterra.com OR site:trustpilot.com OR site:trustradius.com)`;
       const url = `https://www.searchapi.io/api/v1/search?engine=google&q=${encodeURIComponent(
         query,
       )}&num=${max_results}&api_key=${apiKey}`;

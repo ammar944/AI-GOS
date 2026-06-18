@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildVoiceOfCustomerShortfallPainQuotes } from "../run-section";
+import { downgradeUnpermalinkedVocQuotes } from "../verification/provenance-gate";
+import {
+  buildVoiceOfCustomerEvidenceGapBody,
+  buildVoiceOfCustomerShortfallPainQuotes,
+  getDirectionalVoiceOfCustomerCandidates,
+  getVoiceOfCustomerCandidateEvidenceGapFacts,
+} from "../run-section";
 import type { VoiceOfCustomerCandidate } from "../voice-of-customer-candidates";
 
 // Sparse VoC sourcing-shortfall mode only promotes captured extracts into the
@@ -101,5 +107,97 @@ describe("VoC pain classification (Gap 2)", () => {
 describe("VoC sparse-gap promotion", () => {
   it("keeps pain quotes empty when there are no candidates", () => {
     expect(buildVoiceOfCustomerShortfallPainQuotes([])).toEqual([]);
+  });
+});
+
+// FIX-VOC directional lane: a clean independent-domain pain quote that lacks a
+// per-review permalink (Trustpilot/TrustRadius/Reddit LISTING url) must be KEPT
+// and labeled directional, not dropped before any surfacing. Without the
+// directional tier the second domain disappears and the section renders one G2
+// domain + empty blocks (4.5/10).
+describe("VoC directional admission lane (FIX-VOC)", () => {
+  const g2PermalinkQuote = candidate({
+    url: "https://www.g2.com/products/x/reviews/x-review-99001",
+    domain: "g2.com",
+    snippet:
+      "The pricing is way too expensive for what you get and the billing is confusing.",
+  });
+  // Clean human-voice pain quote on a Trustpilot LISTING url
+  // (trustpilot.com/review/<domain>) — admissible on every check EXCEPT the
+  // per-review-permalink shape. isAdmissibleQuote drops it today.
+  const trustpilotListingQuote = candidate({
+    url: "https://www.trustpilot.com/review/acme.example",
+    domain: "trustpilot.com",
+    snippet:
+      "We struggled for months — the dashboard is painfully slow and support never responds.",
+  });
+
+  it("keeps the trusted-host listing-url quote as a directional candidate", () => {
+    const directional = getDirectionalVoiceOfCustomerCandidates({
+      candidates: [g2PermalinkQuote, trustpilotListingQuote],
+      subjectDomain: "acme.example",
+    });
+
+    expect(directional.map((entry) => entry.url)).toEqual([
+      g2PermalinkQuote.url,
+      trustpilotListingQuote.url,
+    ]);
+  });
+
+  it("carries both domains into the gap body with the listing quote downgraded, not dropped", () => {
+    const directional = getDirectionalVoiceOfCustomerCandidates({
+      candidates: [g2PermalinkQuote, trustpilotListingQuote],
+      subjectDomain: "acme.example",
+    });
+    const facts = getVoiceOfCustomerCandidateEvidenceGapFacts({
+      quoteCandidates: directional,
+      result: {
+        ok: false,
+        gap: {
+          reason: "insufficient_independent_domains",
+          message: "shortfall",
+          domains: ["g2.com", "trustpilot.com"],
+          candidateCount: 2,
+        },
+      },
+    });
+
+    expect(facts.foundDistinctPainSourceCount).toBe(2);
+
+    const body = buildVoiceOfCustomerEvidenceGapBody({
+      facts,
+      issue: "",
+      quoteCandidates: directional,
+      subjectDomain: "acme.example",
+    });
+    const painLanguage = body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+
+    expect(painLanguage.quotes).toHaveLength(2);
+    expect(painLanguage.quotes.map((quote) => quote.sourceUrl)).toContain(
+      trustpilotListingQuote.url,
+    );
+
+    // The listing-url quote must be relabeled directional (paraphrase prefix),
+    // never surfaced as independently-verified verbatim VoC.
+    const downgraded = downgradeUnpermalinkedVocQuotes({ body });
+    const downgradedPain = downgraded.body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const trustpilotQuote = downgradedPain.quotes.find(
+      (quote) => quote.sourceUrl === trustpilotListingQuote.url,
+    );
+    expect(String(trustpilotQuote?.verbatimText)).toContain(
+      "Paraphrased pattern (no per-review permalink):",
+    );
+
+    // The G2 per-review permalink quote stays verbatim (no directional prefix).
+    const g2Quote = downgradedPain.quotes.find(
+      (quote) => quote.sourceUrl === g2PermalinkQuote.url,
+    );
+    expect(String(g2Quote?.verbatimText)).not.toContain(
+      "Paraphrased pattern (no per-review permalink):",
+    );
   });
 });

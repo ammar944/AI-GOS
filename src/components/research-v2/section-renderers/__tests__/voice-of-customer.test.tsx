@@ -1,7 +1,10 @@
 /** @vitest-environment jsdom */
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { VoiceOfCustomerRenderer } from '../voice-of-customer';
+import {
+  VoiceOfCustomerRenderer,
+  isVoiceOfCustomerHonestlyUnavailable,
+} from '../voice-of-customer';
 import type { VoiceOfCustomerArtifact } from '@/types/positioning-artifact';
 
 const fixture: VoiceOfCustomerArtifact = {
@@ -175,6 +178,23 @@ const fixture: VoiceOfCustomerArtifact = {
   },
 };
 
+function buildHonestlyUnavailableVoc(): VoiceOfCustomerArtifact {
+  const artifact = structuredClone(fixture);
+  artifact.confidence = 0.1;
+  artifact.painLanguage.quotes = [];
+  artifact.painLanguage.blockGap = {
+    summary: 'evidence gap: section exceeded its time budget — rerun to retry',
+    foundCount: 0,
+    requiredCount: 3,
+    sourcingPlan: ['Rerun this section to retry — it exceeded its time budget'],
+  };
+  artifact.objections.items = [];
+  artifact.switchingStories.stories = [];
+  artifact.decisionCriteria.criteria = [];
+  artifact.successLanguage.quotes = [];
+  return artifact;
+}
+
 describe('VoiceOfCustomerRenderer', () => {
   it('renders 5 editorial blocks with verdict and findings', () => {
     render(<VoiceOfCustomerRenderer artifact={fixture} />);
@@ -256,5 +276,46 @@ describe('VoiceOfCustomerRenderer', () => {
     expect(screen.queryByText(/Menu 0/)).not.toBeInTheDocument();
     expect(screen.getAllByTestId('gap-note').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryAllByTestId('voc-quote')).toHaveLength(0);
+  });
+
+  it('detects a wholly-empty artifact as honestly unavailable', () => {
+    expect(isVoiceOfCustomerHonestlyUnavailable(fixture)).toBe(false);
+    expect(
+      isVoiceOfCustomerHonestlyUnavailable(buildHonestlyUnavailableVoc()),
+    ).toBe(true);
+  });
+
+  it('renders ONE compact honest gap note, not five carpet-bombed panels, when wholly unavailable', () => {
+    render(<VoiceOfCustomerRenderer artifact={buildHonestlyUnavailableVoc()} />);
+
+    expect(screen.getByTestId('voc-honestly-unavailable')).toBeInTheDocument();
+    // Exactly one quiet trust note — no subsection walls.
+    expect(screen.getAllByTestId('gap-note')).toHaveLength(1);
+    expect(screen.queryAllByTestId('subsection')).toHaveLength(0);
+    expect(screen.queryAllByTestId('voc-quote')).toHaveLength(0);
+    expect(screen.queryAllByTestId('objection-item')).toHaveLength(0);
+    // Honest framing, never the raw pipeline placeholder string.
+    expect(
+      screen.getByText(/Not enough public evidence was found/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/exceeded its time budget — rerun to retry/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the full body for a PARTIAL shortfall (one block populated)', () => {
+    const artifact = buildHonestlyUnavailableVoc();
+    // Restore one block — this is a partial shortfall, not wholly unavailable.
+    artifact.objections.items = structuredClone(fixture).objections.items;
+
+    expect(isVoiceOfCustomerHonestlyUnavailable(artifact)).toBe(false);
+
+    render(<VoiceOfCustomerRenderer artifact={artifact} />);
+
+    expect(
+      screen.queryByTestId('voc-honestly-unavailable'),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('subsection')).toHaveLength(5);
+    expect(screen.getAllByTestId('objection-item').length).toBeGreaterThanOrEqual(3);
   });
 });

@@ -263,6 +263,38 @@ describe("deriveVendorSourced", (): void => {
   });
 });
 
+describe("buildBuyerPersonaCandidates own-company filter (Fix B)", (): void => {
+  const subject = { name: "Ramp", websiteUrl: "https://ramp.com" };
+
+  it("drops subject-own-exec leads by company name and own-domain url, keeps externals", (): void => {
+    const answer = [
+      "Eric Glyman — Co-founder & CEO — Ramp — https://www.youtube.com/watch?v=abc",
+      "Jane Doe — Controller — Ramp — https://ramp.com/team",
+      "Bob Lee — VP Finance — Acme Corp — https://acme.com/story",
+    ].join("\n");
+
+    const candidates = buildBuyerPersonaCandidates({
+      answer,
+      venue: "event_speakers",
+      subject,
+    });
+    const names = candidates.map((candidate) => candidate.name);
+
+    expect(names).toContain("Bob Lee");
+    expect(names).not.toContain("Eric Glyman");
+    expect(names).not.toContain("Jane Doe");
+  });
+
+  it("without a subject keeps all named leads (back-compat)", (): void => {
+    const candidates = buildBuyerPersonaCandidates({
+      answer: "Eric Glyman — CEO — Ramp — https://www.youtube.com/watch?v=abc",
+      venue: "event_speakers",
+    });
+
+    expect(candidates.map((candidate) => candidate.name)).toContain("Eric Glyman");
+  });
+});
+
 describe("formatBuyerPersonaCandidateBlock", (): void => {
   it("renders leads with full identity fields and the promotion rule", (): void => {
     const candidates = buildBuyerPersonaCandidates({

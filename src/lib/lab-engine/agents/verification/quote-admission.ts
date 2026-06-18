@@ -75,6 +75,7 @@ const trustedQuoteHosts = new Set([
   "sourceforge.net",
   "stackexchange.com",
   "stackoverflow.com",
+  "trustradius.com",
   "trustpilot.com",
 ]);
 
@@ -279,6 +280,31 @@ export function evaluateQuoteAdmission(
 
 export function isAdmissibleQuote(input: QuoteAdmissionInput): boolean {
   return evaluateQuoteAdmission(input).admissible;
+}
+
+// FIX-VOC directional lane: a clean independent-domain pain quote on a trusted
+// review/forum host (Trustpilot/TrustRadius/Reddit, …) whose ONLY admission
+// failure is the per-review-permalink shape is KEPT and labeled directional
+// instead of dropped. Every other rejection — chrome concatenation, truncation,
+// not-human-voice, overlong, subject-domain source, invalid URL — is still
+// fatal, so this never weakens the truth floor; it only tolerates the lone
+// `source-url-not-permalink` reason on a trusted host. Downstream surfacing must
+// relabel the quote as a paraphrased/directional pattern (it is never presented
+// as independently-verified verbatim VoC).
+export function isDirectionalAdmissibleQuote(input: QuoteAdmissionInput): boolean {
+  const { admissible, reasons } = evaluateQuoteAdmission(input);
+
+  if (admissible) {
+    return true;
+  }
+
+  if (reasons.length !== 1 || reasons[0] !== "source-url-not-permalink") {
+    return false;
+  }
+
+  const url = safeUrl(input.sourceUrl);
+
+  return url !== null && isTrustedQuoteHost(url.hostname);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

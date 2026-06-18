@@ -5,6 +5,7 @@ import {
   dedupeQuoteBearingFields,
   evaluateQuoteAdmission,
   isAdmissibleQuote,
+  isDirectionalAdmissibleQuote,
 } from "../quote-admission";
 
 // The exact laundered blob shipped as a "verbatim" customer quote on run
@@ -154,6 +155,119 @@ describe("permalink vs index/filter source URLs", (): void => {
     for (const url of indexUrls) {
       expect(reasonsFor(url), url).toContain("source-url-not-permalink");
     }
+  });
+
+  it("admits a TrustRadius per-review permalink via the /reviews/ path", (): void => {
+    expect(
+      reasonsFor("https://www.trustradius.com/reviews/airtable-review-5512"),
+    ).not.toContain("source-url-not-permalink");
+  });
+
+  // Exercises the trusted-host allowlist branch directly: this TrustRadius
+  // per-review deep link (a #review-<id> fragment on a product path) has no
+  // /reviews/ path segment and no permalink query, so it only survives the
+  // permalink floor because trustradius.com is a trusted quote host.
+  it("admits a TrustRadius product deep link only because the host is trusted", (): void => {
+    expect(
+      reasonsFor("https://www.trustradius.com/products/airtable#review-5512"),
+    ).not.toContain("source-url-not-permalink");
+  });
+
+  it("still rejects a TrustRadius product listing leaf (floor not weakened)", (): void => {
+    const listingUrls = [
+      // hostname-like-leaf listing: the leaf is itself a vendor domain — an
+      // index of all reviews for that product, not a single review.
+      "https://www.trustradius.com/products/airtable.com",
+      // bare review-listing root.
+      "https://www.trustradius.com/products/airtable/reviews",
+    ];
+
+    for (const url of listingUrls) {
+      expect(reasonsFor(url), url).toContain("source-url-not-permalink");
+    }
+  });
+});
+
+describe("isDirectionalAdmissibleQuote (FIX-VOC directional lane)", (): void => {
+  // A clean, human, salvageable quote so the ONLY admission failure is the URL.
+  const cleanQuote =
+    "We switched because our finance team kept losing receipts, and now reconciliation finally takes minutes.";
+
+  it("tolerates a lone non-permalink rejection on a trusted host", (): void => {
+    // Strict admission drops it; the directional lane keeps it.
+    expect(
+      isAdmissibleQuote({
+        sourceUrl: "https://www.trustpilot.com/review/acme.example",
+        subjectDomain: "https://airtable.com",
+        text: cleanQuote,
+      }),
+    ).toBe(false);
+    expect(
+      isDirectionalAdmissibleQuote({
+        sourceUrl: "https://www.trustpilot.com/review/acme.example",
+        subjectDomain: "https://airtable.com",
+        text: cleanQuote,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps strictly-admissible per-review permalinks admissible", (): void => {
+    expect(
+      isDirectionalAdmissibleQuote({
+        sourceUrl: "https://www.g2.com/products/acme/reviews/acme-review-12345",
+        subjectDomain: "https://airtable.com",
+        text: cleanQuote,
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT tolerate a non-permalink on an untrusted host", (): void => {
+    // Sanity-check the fixture: this untrusted-host listing URL really does
+    // trip the lone source-url-not-permalink rejection (so the directional
+    // gate is what rejects it, not some other reason).
+    expect(
+      evaluateQuoteAdmission({
+        sourceUrl: "https://random-blog.example/products",
+        subjectDomain: "https://airtable.com",
+        text: cleanQuote,
+      }).reasons,
+    ).toEqual(["source-url-not-permalink"]);
+    expect(
+      isDirectionalAdmissibleQuote({
+        sourceUrl: "https://random-blog.example/products",
+        subjectDomain: "https://airtable.com",
+        text: cleanQuote,
+      }),
+    ).toBe(false);
+  });
+
+  it("never tolerates chrome / truncation / not-human-voice alongside the URL gap", (): void => {
+    // chrome concatenation on a trusted host — must still be rejected.
+    expect(
+      isDirectionalAdmissibleQuote({
+        sourceUrl: "https://www.trustpilot.com/review/acme.example",
+        subjectDomain: "https://airtable.com",
+        text: 'Approvals were slow before we switched. Mid-Market (51-1000 emp.) "A totally different review about onboarding pain."',
+      }),
+    ).toBe(false);
+    // product prose (not-human-voice) on a trusted host — must still be rejected.
+    expect(
+      isDirectionalAdmissibleQuote({
+        sourceUrl: "https://www.trustpilot.com/review/acme.example",
+        subjectDomain: "https://airtable.com",
+        text: "The platform includes reporting, dashboards, and workflow automation for operations teams.",
+      }),
+    ).toBe(false);
+  });
+
+  it("never tolerates a subject-domain source even on a non-permalink", (): void => {
+    expect(
+      isDirectionalAdmissibleQuote({
+        sourceUrl: "https://www.airtable.com/customers",
+        subjectDomain: "https://airtable.com",
+        text: cleanQuote,
+      }),
+    ).toBe(false);
   });
 });
 

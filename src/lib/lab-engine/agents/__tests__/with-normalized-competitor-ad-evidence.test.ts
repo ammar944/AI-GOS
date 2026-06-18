@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { summarizeCompetitorAdEvidenceGroups } from "@/lib/lab-engine/agents/tools/competitor-ad-adapter";
+import {
+  reconcileAdEvidenceProseWithVerifiedCounts,
+  summarizeCompetitorAdEvidenceGroups,
+} from "@/lib/lab-engine/agents/tools/competitor-ad-adapter";
 import { competitorAdEvidenceGroupSchema } from "@/lib/lab-engine/artifacts/schemas/competitor-landscape";
 import type { CompetitorAdEvidenceGroup } from "@/lib/lab-engine/artifacts/schemas/competitor-landscape";
 import { checkRequiredEvidenceClasses } from "@/lib/lab-engine/sections/required-evidence";
@@ -79,7 +82,10 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
     expect(proseOf(result)).not.toContain("ClickUp");
   });
 
-  it("keeps the model prose when displayable ad creatives exist", (): void => {
+  // run 73dfbc0d follow-up: a single verified creative is NOT license to keep
+  // prose that claims 4/5 ads. The clamp replaces prose whose max claimed count
+  // exceeds totalVerified with the grounded deterministic summary.
+  it("replaces overclaiming model prose (claims 4/5 vs 1 verified) with the deterministic summary", (): void => {
     const groups = [
       adEvidenceGroup({
         advertiserName: "Notion",
@@ -115,14 +121,162 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
       }),
     ];
 
-    const result = withNormalizedCompetitorAdEvidence({
-      rawOutput: {
-        body: { adEvidence: { prose: fabricatedProse, advertiserGroups: [] } },
-      },
-      normalizedAdEvidenceGroups: groups,
+    const deterministicSummary = summarizeCompetitorAdEvidenceGroups(groups);
+    const prose = reconcileAdEvidenceProseWithVerifiedCounts({
+      prose: fabricatedProse,
+      groups,
+      deterministicSummary,
     });
 
-    expect(proseOf(result)).toBe(fabricatedProse);
+    // totalVerified = 1, but prose claims 4 and 5 → clamp to the grounded summary.
+    expect(prose).toBe(deterministicSummary);
+    expect(prose).not.toContain("Notion ran 4");
+    expect(prose).not.toContain("ClickUp ran 5");
+  });
+
+  it("keeps model prose verbatim when its claimed counts do not exceed totalVerified", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Notion",
+        displayableTotal: 5,
+        returnedCreativeCount: 5,
+        displayableCounts: { google: 5, meta: 0, linkedin: 0 },
+        verifiedCount: 5,
+        quarantinedCount: 0,
+      }),
+    ];
+
+    const deterministicSummary = summarizeCompetitorAdEvidenceGroups(groups);
+    const underClaimProse =
+      "Notion ran 4 video ads on Google; we confirmed a workspace headline.";
+    const prose = reconcileAdEvidenceProseWithVerifiedCounts({
+      prose: underClaimProse,
+      groups,
+      deterministicSummary,
+    });
+
+    // max claimed count (4) <= totalVerified (5) → prose kept verbatim.
+    expect(prose).toBe(underClaimProse);
+  });
+
+  it("clamps prose that uses a vague-large quantity word while few ads are verified", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Notion",
+        displayableTotal: 1,
+        returnedCreativeCount: 1,
+        displayableCounts: { google: 1, meta: 0, linkedin: 0 },
+        verifiedCount: 1,
+        quarantinedCount: 0,
+      }),
+    ];
+
+    const deterministicSummary = summarizeCompetitorAdEvidenceGroups(groups);
+    const vagueProse = "Notion is running dozens of ads across Meta and Google.";
+    const prose = reconcileAdEvidenceProseWithVerifiedCounts({
+      prose: vagueProse,
+      groups,
+      deterministicSummary,
+    });
+
+    // "dozens" while totalVerified <= 2 → clamp to the grounded summary.
+    expect(prose).toBe(deterministicSummary);
+    expect(prose).not.toContain("dozens");
+  });
+
+  function verifiedHiringCreative(
+    id: string,
+    headline: string,
+  ): CompetitorAdEvidenceGroup["creatives"][number] {
+    return {
+      id,
+      platform: "linkedin",
+      advertiserName: "Airbase",
+      headline,
+      body: null,
+      landingUrl: null,
+      creativeUrl: null,
+      imageUrl: null,
+      videoUrl: null,
+      detailsUrl: null,
+      sourceUrl: "https://www.linkedin.com/ad-library/airbase",
+      firstSeen: null,
+      lastSeen: null,
+      format: "text",
+      isActive: true,
+      source: null,
+      transcript: null,
+      cta: null,
+      verified: true,
+      identityBasis: "domain",
+    };
+  }
+
+  // Track A.2 (a): the subject is probed on its own wall, so its verified ads
+  // must NOT inflate the COMPETITOR verified total the prose clamp gates on.
+  it("excludes the subject's own verified creatives from the competitor totalVerified", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Ramp",
+        domain: "ramp.com",
+        verifiedCount: 6,
+        isSubject: true,
+      }),
+      adEvidenceGroup({
+        advertiserName: "Brex",
+        domain: "brex.com",
+        verifiedCount: 1,
+      }),
+    ];
+
+    const deterministicSummary = summarizeCompetitorAdEvidenceGroups(groups);
+    const prose = reconcileAdEvidenceProseWithVerifiedCounts({
+      prose: "Brex ran 4 video ads on Meta.",
+      groups,
+      deterministicSummary,
+    });
+
+    // competitor totalVerified = 1 (subject's 6 excluded); claim 4 > 1 → clamp.
+    expect(prose).toBe(deterministicSummary);
+    expect(prose).not.toContain("Brex ran 4");
+  });
+
+  // Track A.2 (b): recruiter/hiring creatives are not product advertising and
+  // must be downgraded out of the verified competitor-ad count (never deleted).
+  it("downgrades recruiter/hiring creatives so they do not count as verified competitor ads", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Airbase",
+        domain: "airbase.com",
+        verifiedCount: 3,
+        creatives: [
+          verifiedHiringCreative(
+            "airbase-1",
+            "We're hiring a Senior AP Manager — join our team",
+          ),
+          verifiedHiringCreative(
+            "airbase-2",
+            "Now hiring: Finance Operations Lead",
+          ),
+          verifiedHiringCreative(
+            "airbase-3",
+            "Join our team — open roles across GTM",
+          ),
+        ],
+      }),
+    ];
+
+    const deterministicSummary = summarizeCompetitorAdEvidenceGroups(groups);
+    const prose = reconcileAdEvidenceProseWithVerifiedCounts({
+      prose: "Airbase ran 3 ads on LinkedIn.",
+      groups,
+      deterministicSummary,
+    });
+
+    // all 3 verified creatives are hiring posts → competitor totalVerified = 0;
+    // claim 3 > 0 → clamp to the grounded summary.
+    expect(prose).toBe(deterministicSummary);
+    expect(prose).not.toContain("Airbase ran 3");
   });
 
   it("replaces model prose when creatives are quarantine-only despite displayable counts", (): void => {
@@ -346,5 +500,185 @@ describe("withNormalizedCompetitorAdEvidence", (): void => {
     expect(merged?.verifiedCount).toBe(1);
     expect(merged?.quarantinedCount).toBe(3);
     expect(merged?.identityConfidence).toBe("verified");
+  });
+});
+
+describe("summarizeCompetitorAdEvidenceGroups", (): void => {
+  // FIX-COMP: the deterministic summary is what the prose clamp swaps in when
+  // the model overclaims. Its verifiedCount/quarantinedCount reducers must
+  // exclude the subject's own group (the subject is probed on the same wall) —
+  // otherwise the swapped-in summary reports a SUBJECT-INFLATED competitor count
+  // (e.g. Ramp's own 6 verified folded into a single competitor's 1).
+  it("reports the COMPETITOR verified count, excluding the subject's own group", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Ramp",
+        domain: "ramp.com",
+        verifiedCount: 6,
+        isSubject: true,
+      }),
+      adEvidenceGroup({
+        advertiserName: "Brex",
+        domain: "brex.com",
+        verifiedCount: 1,
+      }),
+    ];
+
+    const summary = summarizeCompetitorAdEvidenceGroups(groups);
+
+    expect(summary).toContain("Verified competitor ad creatives: 1.");
+    expect(summary).not.toContain("Verified competitor ad creatives: 7.");
+  });
+
+  it("reports the COMPETITOR quarantine count, excluding the subject's own group", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        advertiserName: "Ramp",
+        domain: "ramp.com",
+        verifiedCount: 0,
+        quarantinedCount: 4,
+        isSubject: true,
+      }),
+      adEvidenceGroup({
+        advertiserName: "Brex",
+        domain: "brex.com",
+        verifiedCount: 0,
+        quarantinedCount: 2,
+      }),
+    ];
+
+    const summary = summarizeCompetitorAdEvidenceGroups(groups);
+
+    // Both groups are quarantine-only → identityLine uses the "0 verified" form
+    // and must report ONLY the competitor's 2 quarantine signals, not 6.
+    expect(summary).toContain("Quarantine-tier ad signals: 2;");
+    expect(summary).not.toContain("Quarantine-tier ad signals: 6;");
+  });
+});
+
+describe("reconcileAdEvidenceProseWithVerifiedCounts", (): void => {
+  const SUMMARY = "Confirmed competitor ad examples: 1.";
+
+  it("returns prose unchanged when no count claim is present", (): void => {
+    const groups = [adEvidenceGroup({ verifiedCount: 1 })];
+    const prose = "Notion runs ads on Google and Meta.";
+
+    expect(
+      reconcileAdEvidenceProseWithVerifiedCounts({
+        prose,
+        groups,
+        deterministicSummary: SUMMARY,
+      }),
+    ).toBe(prose);
+  });
+
+  it("clamps when the single max claimed count exceeds totalVerified", (): void => {
+    const groups = [adEvidenceGroup({ verifiedCount: 1 })];
+
+    expect(
+      reconcileAdEvidenceProseWithVerifiedCounts({
+        prose: "Notion ran 4 ads.",
+        groups,
+        deterministicSummary: SUMMARY,
+      }),
+    ).toBe(SUMMARY);
+  });
+
+  it("clamps on the MAX claim across multiple count claims", (): void => {
+    const groups = [adEvidenceGroup({ verifiedCount: 3 })];
+
+    // 2 <= 3 but 5 > 3 → the max claim governs and we clamp.
+    expect(
+      reconcileAdEvidenceProseWithVerifiedCounts({
+        prose: "Notion ran 2 video ads; ClickUp ran 5 carousel ads.",
+        groups,
+        deterministicSummary: SUMMARY,
+      }),
+    ).toBe(SUMMARY);
+  });
+
+  it("keeps prose when the max claimed count equals totalVerified", (): void => {
+    const groups = [adEvidenceGroup({ verifiedCount: 5 })];
+    const prose = "Notion ran 5 carousel ads.";
+
+    expect(
+      reconcileAdEvidenceProseWithVerifiedCounts({
+        prose,
+        groups,
+        deterministicSummary: SUMMARY,
+      }),
+    ).toBe(prose);
+  });
+
+  it("sums totalVerified across groups using the creatives fallback", (): void => {
+    const groups = [
+      adEvidenceGroup({
+        verifiedCount: undefined as unknown as number,
+        creatives: [
+          {
+            id: "g1-c1",
+            platform: "google",
+            advertiserName: "Notion",
+            headline: "h",
+            body: null,
+            landingUrl: null,
+            creativeUrl: null,
+            imageUrl: null,
+            videoUrl: null,
+            detailsUrl: null,
+            sourceUrl: "https://adstransparency.google.com/advertiser/x",
+            firstSeen: null,
+            lastSeen: null,
+            format: "text",
+            isActive: true,
+            source: null,
+            transcript: null,
+            cta: null,
+            verified: true,
+            identityBasis: "domain",
+          },
+        ],
+      }),
+      adEvidenceGroup({ verifiedCount: 2 }),
+    ];
+    const prose = "Competitors ran 3 ads in total.";
+
+    // 1 (creatives fallback) + 2 = 3, max claim 3 <= 3 → kept verbatim.
+    expect(
+      reconcileAdEvidenceProseWithVerifiedCounts({
+        prose,
+        groups,
+        deterministicSummary: SUMMARY,
+      }),
+    ).toBe(prose);
+  });
+
+  it.each(["dozens", "hundreds", "many"])(
+    "clamps the vague-large quantity word %s when totalVerified is small",
+    (word): void => {
+      const groups = [adEvidenceGroup({ verifiedCount: 2 })];
+
+      expect(
+        reconcileAdEvidenceProseWithVerifiedCounts({
+          prose: `Notion is running ${word} of ads.`,
+          groups,
+          deterministicSummary: SUMMARY,
+        }),
+      ).toBe(SUMMARY);
+    },
+  );
+
+  it("keeps a vague-large quantity word when totalVerified is not small", (): void => {
+    const groups = [adEvidenceGroup({ verifiedCount: 9 })];
+    const prose = "Notion is running dozens of ads.";
+
+    // totalVerified (9) > 2 → vague-large word is tolerated, no integer overclaim.
+    expect(
+      reconcileAdEvidenceProseWithVerifiedCounts({
+        prose,
+        groups,
+        deterministicSummary: SUMMARY,
+      }),
+    ).toBe(prose);
   });
 });

@@ -457,6 +457,19 @@ function numberVariants(value: string): string[] {
     const expanded = Math.round(amount * multiplier).toString();
     variants.add(expanded);
     variants.add(Number(expanded).toLocaleString("en-US"));
+
+    // Emit both alternate magnitude spellings so "$13 billion" matches a page
+    // saying "$13B" and vice-versa (currency- and whitespace-stripped).
+    const letter =
+      suffix === "k" || suffix === "thousand"
+        ? "k"
+        : suffix === "m" || suffix === "million"
+          ? "m"
+          : "b";
+    const word =
+      letter === "k" ? "thousand" : letter === "m" ? "million" : "billion";
+    variants.add(`${magnitudeMatch[1]}${letter}`);
+    variants.add(`${magnitudeMatch[1]}${word}`);
   }
 
   if (/^\d+$/.test(noCommas)) {
@@ -466,10 +479,34 @@ function numberVariants(value: string): string[] {
   return Array.from(variants).filter((variant) => variant.length > 0);
 }
 
-function containsNumber(haystack: string, value: string): boolean {
-  return numberVariants(value).some((variant) =>
-    haystack.includes(variant.toLowerCase()),
+// A bare run of digits (e.g. "13") must only match a STANDALONE quantity on the
+// page — never digits glued into a longer number or carrying a magnitude suffix.
+// Tested against the space-preserving haystack (NOT the compacted copy) because
+// the trailing-suffix boundary depends on the real whitespace: without it a
+// claim's bare "13" substring-matches "$13M"/"$13 billion" (a different
+// magnitude) and a false-positive citation slips through containment.
+function bareIntegerMatches(haystack: string, digits: string): boolean {
+  const re = new RegExp(
+    `(?<![\\d.,])${digits}(?![\\d.,]|\\s?(?:k|m|b|thousand|million|billion)\\b)`,
+    "i",
   );
+  return re.test(haystack);
+}
+
+function containsNumber(haystack: string, value: string): boolean {
+  // The haystack collapses-but-keeps spaces while variants are whitespace-
+  // stripped, so also compare against a space-stripped haystack copy.
+  const compact = haystack.replace(/\s+/g, "");
+  return numberVariants(value).some((variant) => {
+    const v = variant.toLowerCase();
+    // Bare digit-only variants need word-boundary + magnitude-suffix guards so
+    // "13" does not match "$13M"; richer variants ($, commas, k/m/b, spelled-out
+    // magnitudes) are distinctive enough for a plain substring test.
+    if (/^\d+$/.test(v)) {
+      return bareIntegerMatches(haystack, v);
+    }
+    return haystack.includes(v) || compact.includes(v);
+  });
 }
 
 function containsEntity(haystack: string, value: string): boolean {

@@ -289,4 +289,50 @@ describe('<PaidMediaPlanDeck>', (): void => {
     ).toBeInTheDocument();
     expect(screen.getByText(/\$9,000.+\$30,000/)).toBeInTheDocument();
   });
+
+  it('renders gap-status rows visibly distinct from grounded rows', (): void => {
+    const artifact = cloneFixture();
+    // Gap row: synthesized with no anchor match, cited at section level only.
+    artifact.body.audienceTypes[0].evidencePack = {
+      status: 'gap',
+      refs: [],
+      note: 'Cited at section level only — no row-level anchor matched.',
+    };
+    // Grounded row: tied to a real upstream committed row.
+    artifact.body.audienceTypes[1].evidencePack = {
+      status: 'grounded',
+      refs: [
+        {
+          sourceSection: 'positioningVoiceOfCustomer',
+          evidenceKind: 'quote',
+          locator: 'voc#3',
+          excerpt: 'Slow handoffs block campaign launch.',
+        },
+      ],
+    };
+
+    render(<PaidMediaPlanDeck artifact={artifact} />);
+
+    const heading = screen.getByRole('heading', {
+      name: 'Audience Types',
+      level: 2,
+    });
+    const page = heading.closest('section');
+    expect(page).not.toBeNull();
+    const scoped = within(page as HTMLElement);
+
+    // The gap row carries a distinct unverified marker.
+    const gapMarkers = scoped.getAllByTestId('paid-media-gap-marker');
+    expect(gapMarkers).toHaveLength(1);
+    expect(gapMarkers[0].textContent).toMatch(/section-level citation only/i);
+
+    // The grounded row (slot 02 archetype) renders without the gap marker.
+    const groundedCard = scoped
+      .getByText('ABM ICP List + 1% Lookalike')
+      .closest('article');
+    expect(groundedCard).not.toBeNull();
+    expect(
+      within(groundedCard as HTMLElement).queryByTestId('paid-media-gap-marker'),
+    ).not.toBeInTheDocument();
+  });
 });

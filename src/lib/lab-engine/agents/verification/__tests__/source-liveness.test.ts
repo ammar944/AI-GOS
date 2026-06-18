@@ -492,6 +492,126 @@ describe("applySourceLivenessGate", (): void => {
     expect(body.personas).toHaveLength(1);
     expect(result.droppedRows).toEqual([]);
   });
+
+  it("accepts a word-form magnitude claim against an abbreviated page form", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          body: "Ramp processes $13B in annualized card spend.",
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        observations: [
+          {
+            evidence: "Ramp processes $13 billion in annualized card spend.",
+            sourceUrl: "https://ramp.com/spend",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { observations?: unknown[] };
+
+    expect(body.observations).toHaveLength(1);
+    expect(result.droppedRows).toEqual([]);
+  });
+
+  it("accepts an abbreviated magnitude claim against a word-form page form", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          body: "Ramp processes $13 billion in annualized card spend.",
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        observations: [
+          {
+            evidence: "Ramp processes $13B in annualized card spend.",
+            sourceUrl: "https://ramp.com/spend",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { observations?: unknown[] };
+
+    expect(body.observations).toHaveLength(1);
+    expect(result.droppedRows).toEqual([]);
+  });
+
+  it("drops an abbreviated magnitude claim when the live page shows a different magnitude", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          body: "Ramp processes $13M in annualized card spend.",
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        observations: [
+          {
+            evidence: "Ramp processes $13B in annualized card spend.",
+            sourceUrl: "https://ramp.com/spend",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { observations?: unknown[] };
+
+    expect(body.observations).toEqual([]);
+    expect(result.droppedRows).toHaveLength(1);
+  });
+
+  it("drops a bare-integer claim that only substring-matches a larger magnitude on the page", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          body: "Ramp raised $13M in seed funding.",
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        observations: [
+          {
+            evidence: "Ramp operates 13 distinct product lines.",
+            sourceUrl: "https://ramp.com/products",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { observations?: unknown[] };
+
+    expect(body.observations).toEqual([]);
+    expect(result.droppedRows).toHaveLength(1);
+  });
 });
 
 describe("collectPreverifiedSourceUrlsFromSteps", (): void => {

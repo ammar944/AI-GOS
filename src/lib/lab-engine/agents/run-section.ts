@@ -178,6 +178,7 @@ import {
   type BuyerPersonaCandidate,
   type BuyerPersonaLookup,
 } from "./buyer-persona-acquisition";
+import { acquireCaseStudyChampionCandidates } from "./buyer-persona-case-study-mining";
 import { withBuyerICPAcquisitionLedger } from "./buyer-icp-acquisition-ledger";
 import { withPaidMediaEvidencePack } from "./paid-media-evidence-pack";
 import { computeAcquisitionSufficiency } from "../artifacts/schemas/strategic-insight";
@@ -190,6 +191,7 @@ import {
   buildCompetitorAdEvidenceGroups,
   buildEmptyCompetitorAdEvidenceGapGroup,
   markSubjectAdvertiserGroups,
+  reconcileAdEvidenceProseWithVerifiedCounts,
   summarizeCompetitorAdEvidenceGroups,
   textReconcilesWithCompetitorAdTopicContext,
 } from "./tools/competitor-ad-adapter";
@@ -197,6 +199,7 @@ import {
   KeywordVolumeOutputSchema,
   spyfuKeywordUrl,
 } from "./tools/keyword-volume";
+import { KeywordDiscoveryOutputSchema } from "./tools/keyword-discovery";
 import {
   isReviewPermalinkUrl,
   ReviewsOutputSchema,
@@ -254,6 +257,7 @@ import {
 import {
   dedupeQuoteBearingFields,
   isAdmissibleQuote,
+  isDirectionalAdmissibleQuote,
   type DroppedDuplicateQuoteField,
 } from "./verification/quote-admission";
 import {
@@ -431,7 +435,7 @@ interface RuntimeSectionDefinition {
   };
 }
 
-function getRuntimeSectionDefinition(
+export function getRuntimeSectionDefinition(
   sectionId: SupportedSectionId,
 ): RuntimeSectionDefinition {
   return SECTION_REGISTRY[sectionId] as unknown as RuntimeSectionDefinition;
@@ -763,6 +767,34 @@ function buildStepEvidencePoolEntries({
       ];
     }),
   );
+}
+
+function buildCaseStudyPageEvidencePoolEntries({
+  deps,
+  input,
+  pages,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  pages: readonly { url: string; markdown: string }[] | undefined;
+}): EvidencePoolEntry[] {
+  if (pages === undefined) {
+    return [];
+  }
+
+  const fetchedAt = getNow(deps).toISOString();
+
+  return pages.map((page): EvidencePoolEntry => ({
+    kind: "webSearchResult",
+    sourceUrl: page.url,
+    fetchedAt,
+    toolName: "buyerPersonaCaseStudyMining",
+    payload: {
+      url: page.url,
+      markdown: page.markdown,
+    },
+    sectionId: input.sectionId,
+  }));
 }
 
 async function appendEvidencePoolBestEffort({
@@ -2441,7 +2473,7 @@ function getVoiceOfCustomerCandidateDomains(
   return Array.from(new Set(candidates.map((candidate) => candidate.domain)));
 }
 
-function getVoiceOfCustomerCandidateEvidenceGapFacts({
+export function getVoiceOfCustomerCandidateEvidenceGapFacts({
   quoteCandidates,
   result,
 }: {
@@ -2596,7 +2628,7 @@ function buildVoiceOfCustomerStructuredFailureEvidenceGapArtifact({
   // reasons before this point, so this cannot re-launder a tainted pack.
   const quoteCandidates = prepass.result.ok
     ? prepass.result.pack.candidates
-    : prepass.usableCandidates;
+    : prepass.directionalCandidates;
   const facts = getVoiceOfCustomerCandidateEvidenceGapFacts({
     quoteCandidates,
     result: prepass.result,
@@ -3010,7 +3042,7 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
 
   if (!voiceOfCustomerPrepass.result.ok) {
     if (
-      voiceOfCustomerPrepass.usableCandidates.length === 0 ||
+      voiceOfCustomerPrepass.directionalCandidates.length === 0 ||
       !isVoiceOfCustomerCandidateFloorGap(
         voiceOfCustomerPrepass.result.gap.reason,
       )
@@ -3032,12 +3064,12 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
       definition,
       deps,
       facts: getVoiceOfCustomerCandidateEvidenceGapFacts({
-        quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
+        quoteCandidates: voiceOfCustomerPrepass.directionalCandidates,
         result: voiceOfCustomerPrepass.result,
       }),
       input,
       issue,
-      quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
+      quoteCandidates: voiceOfCustomerPrepass.directionalCandidates,
       researchInput,
     });
   }
@@ -3621,8 +3653,15 @@ async function saveCompletedArtifact({
   // persona-venue prepass candidates — or honest query-level attempt rows when the
   // prepass ran but surfaced no candidate. No-op for non-BuyerICP sections or when
   // the committed body carries no evidenceGapReport.
+  // Final honest-floor guard before persistence (BuyerICP only; no-op otherwise):
+  // re-inject any blockGap a downstream step dropped so a thinned block commits
+  // degraded instead of hard-erroring the run + blocking the 6-section rollup.
+  const flooredArtifact =
+    input.sectionId === "positioningBuyerICP"
+      ? withBuyerICPCommitFloorRepair(committedArtifact)
+      : committedArtifact;
   const ledgerArtifact = withBuyerICPAcquisitionLedger({
-    artifact: committedArtifact,
+    artifact: flooredArtifact,
     candidates: buyerPersonaCandidates ?? [],
     lookups: buyerPersonaLookups,
     observedAt: getNow(deps).toISOString(),
@@ -3639,6 +3678,21 @@ async function saveCompletedArtifact({
     deps,
     input,
   });
+  // Sandbox-only, env-gated, best-effort: dump the fully-built artifact before
+  // persistence validation so a CLI proof run can inspect it even when the
+  // persistence gate throws (e.g. an authoring-minimum shortfall). Off in prod.
+  if (process.env.ZZ_DUMP_ARTIFACT !== undefined) {
+    try {
+      const { writeFileSync, mkdirSync } = await import("node:fs");
+      mkdirSync("tmp/zz-section-out", { recursive: true });
+      writeFileSync(
+        `tmp/zz-section-out/_dump-${input.sectionId}.json`,
+        JSON.stringify(artifact, null, 2),
+      );
+    } catch {
+      // best-effort debug aid; never affects the run
+    }
+  }
   await deps.store.saveArtifact(input.runId, artifact);
   await appendEvent(
     deps,
@@ -4109,7 +4163,10 @@ async function annotateEvidenceSupportReview({
   const subjectCta = stripContradictedSubjectCtaClaims({
     body: quoteDedup.body,
     observations:
-      sectionId === "positioningOfferDiagnostic" && researchInput !== undefined
+      (sectionId === "positioningOfferDiagnostic" ||
+        sectionId === "positioningDemandIntent" ||
+        sectionId === "positioningPaidMediaPlan") &&
+      researchInput !== undefined
         ? [
             ...collectSubjectSiteObservations({
               corpusExcerpts: researchInput.corpus.excerpts,
@@ -4796,7 +4853,11 @@ export function withNormalizedCompetitorAdEvidence({
   );
   const prose =
     hasVerifiedAdEvidence && modelProse !== null
-      ? modelProse
+      ? reconcileAdEvidenceProseWithVerifiedCounts({
+          prose: modelProse,
+          groups: normalizedAdEvidenceGroups,
+          deterministicSummary,
+        })
       : deterministicSummary;
 
   // Never persist an empty advertiserGroups wall: hasAdEvidenceOrGap iterates
@@ -5556,6 +5617,218 @@ function dropRowsWithoutHttpSourceUrl(value: unknown): unknown {
   });
 }
 
+const inlineHttpUrlPattern = /https?:\/\/[^\s)>"'\]]+/;
+
+// Ground-don't-drop: when a row's sourceUrl is missing/non-http but a real
+// http(s) URL is already present in the row's own citation text (e.g. the model
+// wrote the link into `source`/`whyItMatters` but left `sourceUrl` empty), lift
+// that URL into sourceUrl so the grounded row survives the per-row floor instead
+// of being dropped. The URL comes from the row itself — never invented. Rows with
+// no URL anywhere are left untouched (dropRowsWithoutHttpSourceUrl still gaps them
+// honestly).
+function liftSourceUrlFromTextFields(
+  value: unknown,
+  textFields: readonly string[],
+): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((item) => {
+    const record = getRecord(item);
+    if (record === null) {
+      return item;
+    }
+    const existing = getStringProperty(record, "sourceUrl");
+    if (existing !== null && isHttpUrl(existing)) {
+      return item;
+    }
+    for (const field of textFields) {
+      const text = getStringProperty(record, field);
+      if (text === null) {
+        continue;
+      }
+      const match = inlineHttpUrlPattern.exec(text);
+      if (match === null) {
+        continue;
+      }
+      const candidate = match[0].replace(/[.,;]+$/, "");
+      if (isHttpUrl(candidate)) {
+        return { ...record, sourceUrl: candidate };
+      }
+    }
+    return item;
+  });
+}
+
+function normalizeNameKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+// A persona's company is compatible with a candidate's when it is absent (can't
+// disconfirm) or shares the company identity (equality / containment / a shared
+// 3+ char token). Guards the name-keyed backfill against a same-name, different-
+// company collision attaching the wrong page.
+function caseStudyCompanyCompatible(
+  personaCompany: string | null,
+  candidateCompany: string,
+): boolean {
+  if (personaCompany === null || personaCompany.trim().length === 0) {
+    return true;
+  }
+  const a = normalizeNameKey(personaCompany);
+  const b = normalizeNameKey(candidateCompany);
+  if (
+    a.length === 0 ||
+    b.length === 0 ||
+    a === b ||
+    a.includes(b) ||
+    b.includes(a)
+  ) {
+    return true;
+  }
+  const aTokens = new Set(a.split(" ").filter((token) => token.length > 2));
+  return b.split(" ").some((token) => token.length > 2 && aTokens.has(token));
+}
+
+// Deterministic source-URL backfill for personas the writer authored from the
+// case-study champion LEADS. The miner extracts each champion's name+employer
+// FROM a specific case-study page, so that page is guaranteed to contain them on
+// the source-liveness re-fetch (Gate C). DeepSeek frequently cites a different,
+// JS-rendered, non-containing URL (live: containmentPassRate 0.077 on Ramp), which
+// Gate C then strips, emptying the persona block. When a persona's name matches a
+// mined candidate and the company is compatible, pin sourceUrl to the candidate's
+// page. This NEVER invents a URL — it only relocates the citation to the page the
+// lead was actually scraped from. Runs BEFORE the non-http drop so it can also
+// rescue a persona the writer left without any sourceUrl.
+// Persona-laundering gate (B.1): the writer sometimes files MANY distinct
+// "named" reviewers under ONE shared aggregate review-listing URL (e.g. seven
+// personas all citing g2.com/products/<x>/reviews — the run d2abf018 failure).
+// An aggregate listing page lists hundreds of reviewers; it cannot individually
+// ground a specific named person, so >=2 personas sharing one NON-permalink URL
+// are laundered, not grounded — suppress them deterministically. Exempt: a
+// per-review permalink (isReviewPermalinkUrl, unique-by-construction) and a
+// case-study champion whose name was actually mined from that exact page (two
+// co-champions legitimately share their customer-story page). The thinned set
+// then hits the >=3 floor, which injects an honest gap downstream.
+function suppressSharedListingUrlPersonas(
+  personaRealityRecord: Record<string, unknown>,
+  caseStudyCandidates: readonly BuyerPersonaCandidate[],
+): Record<string, unknown> {
+  if (!Array.isArray(personaRealityRecord.personas)) {
+    return personaRealityRecord;
+  }
+
+  // (name-key :: url) pairs the case-study miner actually scraped the name from.
+  const groundedCaseStudyPairs = new Set<string>();
+  for (const candidate of caseStudyCandidates) {
+    if (
+      candidate.venue !== "case_study_champions" ||
+      !isHttpUrl(candidate.url)
+    ) {
+      continue;
+    }
+    const key = normalizeNameKey(candidate.name);
+    if (key.length > 0) {
+      groundedCaseStudyPairs.add(`${key}::${candidate.url}`);
+    }
+  }
+
+  const personaCountByUrl = new Map<string, number>();
+  for (const persona of personaRealityRecord.personas) {
+    const url = getStringProperty(getRecord(persona) ?? {}, "sourceUrl");
+    if (url !== null) {
+      personaCountByUrl.set(url, (personaCountByUrl.get(url) ?? 0) + 1);
+    }
+  }
+
+  return {
+    ...personaRealityRecord,
+    personas: personaRealityRecord.personas.filter((persona) => {
+      const personaRecord = getRecord(persona);
+      if (personaRecord === null) {
+        return true;
+      }
+      const url = getStringProperty(personaRecord, "sourceUrl");
+      // Unsourced rows are handled by the vendor-sourced drop, not here.
+      if (url === null) {
+        return true;
+      }
+      const sharedListing =
+        (personaCountByUrl.get(url) ?? 0) >= 2 && !isReviewPermalinkUrl(url);
+      if (!sharedListing) {
+        return true;
+      }
+      const name = getStringProperty(personaRecord, "name");
+      const nameKey = name === null ? "" : normalizeNameKey(name);
+      return (
+        nameKey.length > 0 &&
+        groundedCaseStudyPairs.has(`${nameKey}::${url}`)
+      );
+    }),
+  };
+}
+
+function withCaseStudyPersonaSourceUrlBackfill(
+  personaRealityRecord: Record<string, unknown>,
+  caseStudyCandidates: readonly BuyerPersonaCandidate[],
+): Record<string, unknown> {
+  if (
+    caseStudyCandidates.length === 0 ||
+    !Array.isArray(personaRealityRecord.personas)
+  ) {
+    return personaRealityRecord;
+  }
+
+  const candidateByName = new Map<string, BuyerPersonaCandidate>();
+  for (const candidate of caseStudyCandidates) {
+    // Only case-study-mined leads carry a URL that was actually scraped to find
+    // the name (so it re-fetches with the name present). Perplexity-venue leads
+    // carry answer-parsed URLs with no such guarantee — never pin to those.
+    if (candidate.venue !== "case_study_champions") {
+      continue;
+    }
+    const key = normalizeNameKey(candidate.name);
+    if (key.length > 0 && isHttpUrl(candidate.url) && !candidateByName.has(key)) {
+      candidateByName.set(key, candidate);
+    }
+  }
+  if (candidateByName.size === 0) {
+    return personaRealityRecord;
+  }
+
+  return {
+    ...personaRealityRecord,
+    personas: personaRealityRecord.personas.map((persona) => {
+      const personaRecord = getRecord(persona);
+      if (personaRecord === null) {
+        return persona;
+      }
+      const name = getStringProperty(personaRecord, "name");
+      if (name === null) {
+        return persona;
+      }
+      const candidate = candidateByName.get(normalizeNameKey(name));
+      if (
+        candidate === undefined ||
+        !caseStudyCompanyCompatible(
+          getStringProperty(personaRecord, "company"),
+          candidate.company,
+        )
+      ) {
+        return persona;
+      }
+      if (getStringProperty(personaRecord, "sourceUrl") === candidate.url) {
+        return persona;
+      }
+      return { ...personaRecord, sourceUrl: candidate.url };
+    }),
+  };
+}
+
 function withDerivedVendorSourcedPersonas({
   personaRealityRecord,
   subjectCompanyName,
@@ -5940,12 +6213,30 @@ function repairBuyerICPEscapableFloors(output: unknown): unknown {
   return { ...outputRecord, body: candidateBody };
 }
 
+// Persistence-time guard: a downstream step (a source-liveness row drop, the
+// narrative writer pass) can push a BuyerICP count floor below threshold AFTER
+// the body builder's floor repair already ran, leaving no blockGap and hard-
+// failing persistence (e.g. triggers 3 -> 2 with no gap). Re-drive the SAME
+// honest blockGap repair off the real validator at the commit chokepoint so a
+// thinned block commits DEGRADED instead of erroring the whole run. Idempotent:
+// a body that already clears its floors is returned unchanged. Never fabricates.
+export function withBuyerICPCommitFloorRepair(
+  artifact: ArtifactEnvelope,
+): ArtifactEnvelope {
+  return repairBuyerICPEscapableFloors(artifact) as ArtifactEnvelope;
+}
+
 export function withNormalizedBuyerICPOutput(
   rawOutput: unknown,
   {
     subjectCompanyName,
     subjectWebsiteUrl,
-  }: { subjectCompanyName?: string; subjectWebsiteUrl?: string } = {},
+    caseStudyCandidates = [],
+  }: {
+    subjectCompanyName?: string;
+    subjectWebsiteUrl?: string;
+    caseStudyCandidates?: readonly BuyerPersonaCandidate[];
+  } = {},
 ): unknown {
   const outputRecord = getRecord(rawOutput);
 
@@ -5967,7 +6258,13 @@ export function withNormalizedBuyerICPOutput(
     personaRealityRecord === null
       ? null
       : withDerivedVendorSourcedPersonas({
-          personaRealityRecord: withoutEvidenceGapKeys(personaRealityRecord),
+          personaRealityRecord: suppressSharedListingUrlPersonas(
+            withCaseStudyPersonaSourceUrlBackfill(
+              withoutEvidenceGapKeys(personaRealityRecord),
+              caseStudyCandidates,
+            ),
+            caseStudyCandidates,
+          ),
           subjectCompanyName,
           subjectWebsiteUrl,
         });
@@ -6043,7 +6340,10 @@ export function withNormalizedBuyerICPOutput(
               firmographicCuts: dedupeRecordArrayByStringKey({
                 key: "cutType",
                 value: dropRowsWithoutHttpSourceUrl(
-                  icpExistenceCheckRecord.firmographicCuts,
+                  liftSourceUrlFromTextFields(
+                    icpExistenceCheckRecord.firmographicCuts,
+                    ["source"],
+                  ),
                 ),
               }),
             },
@@ -6066,8 +6366,13 @@ export function withNormalizedBuyerICPOutput(
               ...clustersRecord,
               // Same honest drop for cluster venues (per-row sourceUrl floor has
               // no blockGap escape); the >=1 venue count floor then injects a
-              // blockGap downstream.
-              venues: dropRowsWithoutHttpSourceUrl(clustersRecord.venues),
+              // blockGap downstream. Lift an in-row URL from whyItMatters first so
+              // a grounded venue the model misfiled is kept, not gapped.
+              venues: dropRowsWithoutHttpSourceUrl(
+                liftSourceUrlFromTextFields(clustersRecord.venues, [
+                  "whyItMatters",
+                ]),
+              ),
             },
           }),
     },
@@ -6434,6 +6739,7 @@ function withNormalizedPaidMediaPlanOutput(
 }
 
 function withNormalizedSectionOutput({
+  buyerPersonaCandidates,
   normalizedAdEvidenceGroups,
   onboarding,
   rawOutput,
@@ -6444,6 +6750,7 @@ function withNormalizedSectionOutput({
   voiceOfCustomerEvidenceGap,
 }: {
   rawOutput: unknown;
+  buyerPersonaCandidates?: readonly BuyerPersonaCandidate[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
   onboarding?: ResearchInput["onboarding"];
   researchInputSources?: ResearchInput["sources"];
@@ -6461,6 +6768,7 @@ function withNormalizedSectionOutput({
     return withNormalizedBuyerICPOutput(outputWithAdEvidence, {
       subjectCompanyName,
       subjectWebsiteUrl,
+      caseStudyCandidates: buyerPersonaCandidates,
     });
   }
 
@@ -7774,6 +8082,12 @@ interface VoiceOfCustomerCandidatePrepass {
   acquisitionLedger: VoiceOfCustomerAcquisitionLedgerRow[];
   candidateBlock: string;
   classCandidates: VoiceOfCustomerClassCandidates;
+  // FIX-VOC directional lane: usableCandidates plus clean trusted-host quotes
+  // whose only gap is the missing per-review permalink. The evidence-gap paths
+  // surface this pool so a second independent domain reaches the gap body
+  // (relabeled directional), instead of collapsing to a single permalinked
+  // domain. The commit path still uses the strict pool.
+  directionalCandidates: VoiceOfCustomerCandidate[];
   events: ActivityEvent[];
   result: VoiceOfCustomerCandidateResult;
   steps: AgentStep[];
@@ -8713,6 +9027,48 @@ function getAdmissibleVoiceOfCustomerCandidates({
   return admissible;
 }
 
+// FIX-VOC directional lane: the tolerant counterpart to
+// getAdmissibleVoiceOfCustomerCandidates. It keeps every strictly-admissible
+// candidate AND keeps clean independent-domain quotes on trusted review/forum
+// hosts whose ONLY failure is the missing per-review permalink (Trustpilot /
+// TrustRadius / Reddit LISTING urls). The strict pool drops those before any
+// surfacing, collapsing the section to a single G2 domain + empty blocks; this
+// pool keeps them so a second independent domain reaches the gap body, where
+// downgradeUnpermalinkedVocQuotes relabels them as directional (never verbatim).
+// Chrome / truncation / not-human-voice / subject-domain rejections stay fatal.
+export function getDirectionalVoiceOfCustomerCandidates({
+  candidates,
+  subjectDomain,
+}: {
+  candidates: readonly VoiceOfCustomerCandidate[];
+  subjectDomain: string | null;
+}): VoiceOfCustomerCandidate[] {
+  const seen = new Set<string>();
+  const directional: VoiceOfCustomerCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (
+      !isDirectionalAdmissibleQuote({
+        sourceUrl: candidate.url,
+        subjectDomain,
+        text: candidate.snippet,
+      })
+    ) {
+      continue;
+    }
+
+    const dedupeKey = candidate.sourceInstanceId ?? candidate.url;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    directional.push(candidate);
+  }
+
+  return directional;
+}
+
 function selectAdmissibleVoiceOfCustomerCandidates({
   candidates,
   subjectDomain,
@@ -8913,6 +9269,10 @@ async function buildVoiceOfCustomerCandidatePrepass({
     candidates,
     subjectDomain,
   });
+  const directionalCandidates = getDirectionalVoiceOfCustomerCandidates({
+    candidates,
+    subjectDomain,
+  });
   const promotedCandidates = result.ok
     ? result.pack.candidates
     : selectVoiceOfCustomerPainCandidates(usableCandidates);
@@ -8947,6 +9307,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
         : []),
     ].join("\n\n"),
     classCandidates,
+    directionalCandidates,
     events,
     result,
     steps,
@@ -8958,6 +9319,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
 interface BuyerPersonaCandidatePrepass {
   candidateBlock: string;
   candidates: BuyerPersonaCandidate[];
+  caseStudyPages: Array<{ url: string; markdown: string }>;
   lookups: BuyerPersonaLookup[];
   events: ActivityEvent[];
   steps: AgentStep[];
@@ -8976,6 +9338,16 @@ const brandedKeywordPrepassDeadlineMs = 20_000;
 // at t0 must not freeze a "returned no data" gap block into every subsequent
 // prompt for the rest of the run (SpyFu-resilience lane).
 export const brandedKeywordPrepassRetryDelayMs = 8_000;
+
+// keyword_discovery (SpyFu kombat gap-keyword) deadline + volume floor for the
+// non-branded measured rows. The branded keyword_volume call only measures the
+// brand defending itself + a handful of stable category descriptors; discovery
+// surfaces the keywords COMPETITORS rank/bid on that the subject does not — the
+// real non-branded demand a media buyer sizes feasibility against. Best-effort:
+// no seed domains, a tool gap, or a 429 keeps the honest-gap fallback.
+const keywordDiscoveryPrepassDeadlineMs = 20_000;
+const keywordDiscoveryPrepassMinSearchVolume = 50;
+const keywordDiscoveryPrepassMaxRows = 12;
 
 interface BrandedKeywordPrepass {
   candidateBlock: string;
@@ -9154,6 +9526,25 @@ export async function buildBrandedKeywordPrepass({
     }
   }
 
+  // Non-branded gap-keyword discovery (SpyFu kombat): the branded keyword_volume
+  // call above measures the brand defending itself plus a few stable category
+  // descriptors — it can NOT surface the keywords competitors actually rank/bid
+  // on that the subject does not. That gap set IS the non-branded measured
+  // demand a media buyer sizes Paid Media feasibility against; without it the
+  // section reports "unknown" non-branded demand. One deterministic
+  // keyword_discovery call over the subject domain vs the discovered competitor
+  // seed domains supplies it. Best-effort — no seed domains, a tool gap, or a
+  // 429 leaves the honest-gap fallback untouched.
+  const discoveryRows = await discoverNonBrandedDemandRows({
+    input,
+    researchInput,
+    researchTools,
+    stepNumber: calls.length,
+  });
+  if (discoveryRows.call !== null) {
+    calls.push(discoveryRows.call);
+  }
+
   const gapBlock = [
     "DEMAND PREPASS (deterministic SpyFu keyword_volume — already ran):",
     `keyword_volume returned no data for the subject's branded head terms (${brandedTerms.join(", ")})${categoryTerms.length === 0 ? "" : ` or category demand terms (${categoryTerms.join(", ")})`}.`,
@@ -9170,7 +9561,10 @@ export async function buildBrandedKeywordPrepass({
   );
   const steps = calls.map((recordedCall) => recordedCall.step);
 
-  if (rows.length === 0) {
+  // Only the pure-gap block ships when BOTH the branded keyword_volume call AND
+  // non-branded discovery came back empty — discovery rows alone are enough to
+  // carry real non-branded measured demand even when branded volume is missing.
+  if (rows.length === 0 && discoveryRows.rows.length === 0) {
     return { candidateBlock: gapBlock, events, steps };
   }
 
@@ -9179,8 +9573,14 @@ export async function buildBrandedKeywordPrepass({
   const categoryRows = rows.filter((row) => !brandedTermSet.has(row.keyword));
   const renderRow = (row: BrandedKeywordMeasuredRow): string =>
     `- ${row.display} | sourceUrl "${spyfuKeywordUrl(row.keyword)}"`;
+  // Discovery rows carry their OWN per-keyword permalink as returned by SpyFu;
+  // cite it exactly, never recompute the URL.
+  const renderDiscoveryRow = (row: KeywordDiscoveryMeasuredRow): string =>
+    `- ${row.display} | sourceUrl "${row.sourceUrl}"`;
+  const hasNonBrandedRows =
+    categoryRows.length > 0 || discoveryRows.rows.length > 0;
   const candidateBlock = [
-    "DEMAND PREPASS (deterministic SpyFu keyword_volume — already ran; do NOT re-fetch these terms):",
+    "DEMAND PREPASS (deterministic SpyFu keyword_volume + keyword_discovery — already ran; do NOT re-fetch these terms):",
     "The measured terms below are real SpyFu volume/CPC. Include EVERY row in keywordDemand.keywords with:",
     `- sourceTitle "SpyFu keyword_volume"; dateObserved "${dateObserved}"; and the row's OWN per-keyword sourceUrl shown below (each is a distinct spyfu.com/keyword/overview permalink — cite it exactly, NEVER the bare homepage root);`,
     "- monthlyVolume/cpc copied in the row's display formatting (keep the (SpyFu-estimated) label; a null cpc renders as n/a, never $0).",
@@ -9189,13 +9589,116 @@ export async function buildBrandedKeywordPrepass({
     ...(brandedRows.length === 0
       ? ["- (none measured — state the branded-volume gap honestly)"]
       : brandedRows.map(renderRow)),
-    categoryRows.length === 0
-      ? `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS: none measured${categoryTerms.length === 0 ? " (no category descriptor available)" : ` (keyword_volume returned no data for ${categoryTerms.join(", ")}); state this non-branded-demand gap honestly`}.`
-      : `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS (classify intentType per the term — typically "commercial" or "informational", NOT "navigational"):`,
+    hasNonBrandedRows
+      ? `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS (classify intentType per the term — typically "commercial" or "informational", NOT "navigational"):`
+      : `NON-BRANDED CATEGORY / PROBLEM-AWARE TERMS: none measured${categoryTerms.length === 0 ? " (no category descriptor available)" : ` (keyword_volume returned no data for ${categoryTerms.join(", ")}); state this non-branded-demand gap honestly`}.`,
     ...categoryRows.map(renderRow),
+    ...(discoveryRows.rows.length === 0
+      ? []
+      : [
+          `NON-BRANDED COMPETITOR GAP KEYWORDS (keyword_discovery — keywords competitors rank/bid on that ${researchInput.company.name} does not; classify intentType "commercial" or "informational", NEVER "navigational"; sourceTitle "SpyFu keyword_discovery"):`,
+          ...discoveryRows.rows.map(renderDiscoveryRow),
+        ]),
   ].join("\n");
 
   return { candidateBlock, events, steps };
+}
+
+type KeywordDiscoveryMeasuredRow = Extract<
+  z.infer<typeof KeywordDiscoveryOutputSchema>,
+  { type: "result" }
+>["keywords"][number];
+
+// One deterministic keyword_discovery (SpyFu kombat) call over the subject
+// domain vs the discovered competitor seed domains. Returns the non-branded gap
+// keywords (keywords competitors rank/bid on that the subject does not) plus the
+// recorded step so the keyword provenance validator accepts the rows. Returns
+// no rows (best-effort) when the tool is absent, no usable seed domains resolve,
+// or the call gaps (credential / rate_limited / api_error).
+async function discoverNonBrandedDemandRows({
+  input,
+  researchInput,
+  researchTools,
+  stepNumber,
+}: {
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+  researchTools: Record<string, unknown>;
+  stepNumber: number;
+}): Promise<{
+  call: VoiceOfCustomerToolCallResult | null;
+  rows: KeywordDiscoveryMeasuredRow[];
+}> {
+  if (getPrepassExecutableTool(researchTools, "keyword_discovery") === null) {
+    return { call: null, rows: [] };
+  }
+
+  const subjectDomain = getHostname(
+    getValidHttpUrl(researchInput.company.websiteUrl),
+  );
+  if (subjectDomain === null) {
+    return { call: null, rows: [] };
+  }
+
+  // Seed competitor domains the section already resolved (corpus-derived or
+  // user-supplied) — the same source the ad probe and competitor review prepass
+  // read. Drop seeds with no domain and any that collapse onto the subject's own
+  // registrable domain (a self-comparison surfaces no gap).
+  const competitorDomains = Array.from(
+    new Set(
+      (researchInput.competitorSeeds ?? [])
+        .map((seed) => seed.domain)
+        .filter(
+          (domain): domain is string =>
+            domain !== undefined &&
+            domain.trim().length > 0 &&
+            !isSameRegistrableDomain(domain, subjectDomain),
+        )
+        .map((domain) => domain.trim().toLowerCase()),
+    ),
+  );
+
+  if (competitorDomains.length === 0) {
+    return { call: null, rows: [] };
+  }
+
+  const discoverySignal = createTimeoutSignal({
+    parentSignal: input.signal,
+    reasonLabel: "Keyword discovery prepass",
+    timeoutMs: keywordDiscoveryPrepassDeadlineMs,
+  });
+  let call: VoiceOfCustomerToolCallResult | null;
+  try {
+    call = await executeVoiceOfCustomerPrepassTool({
+      input: { ...input, signal: discoverySignal.signal },
+      researchTools,
+      stepNumber,
+      toolInput: {
+        domain: subjectDomain,
+        competitorDomains,
+        minSearchVolume: keywordDiscoveryPrepassMinSearchVolume,
+      },
+      toolName: "keyword_discovery",
+    });
+  } finally {
+    discoverySignal.cleanup();
+  }
+
+  if (call === null) {
+    return { call: null, rows: [] };
+  }
+
+  const parsed = KeywordDiscoveryOutputSchema.safeParse(call.output);
+  if (!parsed.success || parsed.data.type !== "result") {
+    // A gap (credential / rate_limited / api_error) still records the step so
+    // the activity feed shows the attempt, but contributes no measured rows.
+    return { call, rows: [] };
+  }
+
+  return {
+    call,
+    rows: parsed.data.keywords.slice(0, keywordDiscoveryPrepassMaxRows),
+  };
 }
 
 // Competitor review-permalink prepass (competitor landscape only): the W5 VoC
@@ -9370,10 +9873,24 @@ async function buildBuyerPersonaCandidatePrepass({
   input: RunSectionInput;
   researchInput: ResearchInput;
 }): Promise<BuyerPersonaCandidatePrepass> {
+  // Clamp the fixed prepass deadline to the remaining section budget (minus the
+  // emit floor) so the prepass can't time out under 6-way fan-out contention —
+  // mirrors getDeadlineAwareModelTimeoutMs.
+  const remainingMs = getRemainingDeadlineMs(input, deps);
+  const prepassDeadlineMs =
+    remainingMs === null
+      ? buyerPersonaPrepassDeadlineMs
+      : Math.max(
+          1,
+          Math.min(
+            buyerPersonaPrepassDeadlineMs,
+            remainingMs - labSectionEmitFloorMs,
+          ),
+        );
   const prepassSignal = createTimeoutSignal({
     parentSignal: input.signal,
     reasonLabel: "Buyer persona venue prepass",
-    timeoutMs: buyerPersonaPrepassDeadlineMs,
+    timeoutMs: prepassDeadlineMs,
   });
   const steps: AgentStep[] = [];
   // Unwrapped tool: the venue pass has its own structural cap and must not
@@ -9384,6 +9901,13 @@ async function buildBuyerPersonaCandidatePrepass({
   };
 
   try {
+    const caseStudy = await acquireCaseStudyChampionCandidates({
+      subject: {
+        name: researchInput.company.name,
+        websiteUrl: researchInput.company.websiteUrl,
+      },
+      signal: prepassSignal.signal,
+    });
     const acquisition = await acquireBuyerPersonaCandidates({
       company: {
         category: researchInput.company.category,
@@ -9412,9 +9936,15 @@ async function buildBuyerPersonaCandidatePrepass({
       step.stepNumber = index + 1;
     });
 
+    // Case-study champions are the subject's own named external buyers (already
+    // proven to clear the source-liveness gate on re-fetch); merge them AHEAD of
+    // the less-reliable Perplexity leads.
+    const mergedCandidates = [...caseStudy.candidates, ...acquisition.candidates];
+
     return {
-      candidateBlock: formatBuyerPersonaCandidateBlock(acquisition.candidates),
-      candidates: acquisition.candidates,
+      candidateBlock: formatBuyerPersonaCandidateBlock(mergedCandidates),
+      candidates: mergedCandidates,
+      caseStudyPages: caseStudy.pages,
       lookups: acquisition.lookups,
       events: steps.flatMap((step) =>
         buildToolEvents({
@@ -9952,6 +10482,7 @@ async function buildVerifiedAttemptFromFinalOutput({
 async function buildAnswerToolAttempt({
   adProbeSteps,
   answerInput,
+  buyerPersonaCandidates,
   definition,
   deps,
   input,
@@ -9961,6 +10492,7 @@ async function buildAnswerToolAttempt({
 }: {
   adProbeSteps?: readonly AgentStep[];
   answerInput: unknown | undefined;
+  buyerPersonaCandidates?: readonly BuyerPersonaCandidate[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   input: RunSectionInput;
@@ -9987,6 +10519,7 @@ async function buildAnswerToolAttempt({
       rawValue: withNormalizedSectionOutput({
         rawOutput: answerInputMetadata.value,
         sectionId: input.sectionId,
+        buyerPersonaCandidates,
         normalizedAdEvidenceGroups,
         onboarding: researchInput.onboarding,
         researchInputSources: researchInput.sources,
@@ -10062,8 +10595,9 @@ interface DecodedSectionOutput {
   output: SectionOutput<Record<string, unknown>>;
 }
 
-function buildOutputFromStructuredBody({
+export function buildOutputFromStructuredBody({
   body,
+  buyerPersonaCandidates,
   definition,
   input,
   normalizedAdEvidenceGroups,
@@ -10073,6 +10607,7 @@ function buildOutputFromStructuredBody({
   subjectWebsiteUrl,
 }: {
   body: unknown;
+  buyerPersonaCandidates?: readonly BuyerPersonaCandidate[];
   definition: RuntimeSectionDefinition;
   input: RunSectionInput;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
@@ -10119,6 +10654,7 @@ function buildOutputFromStructuredBody({
   };
   const normalizedOutput = withNormalizedSectionOutput({
     rawOutput: authoredOutput,
+    buyerPersonaCandidates,
     normalizedAdEvidenceGroups,
     onboarding,
     researchInputSources,
@@ -10171,6 +10707,7 @@ function buildOutputFromStructuredBody({
 async function buildStructuredBodyAttempt({
   adProbeSteps,
   attempt,
+  buyerPersonaCandidates,
   definition,
   deps,
   externalTools,
@@ -10186,6 +10723,7 @@ async function buildStructuredBodyAttempt({
 }: {
   adProbeSteps?: readonly AgentStep[];
   attempt: number;
+  buyerPersonaCandidates?: readonly BuyerPersonaCandidate[];
   definition: RuntimeSectionDefinition;
   deps: RunSectionDeps;
   externalTools: Record<string, unknown>;
@@ -10330,6 +10868,7 @@ async function buildStructuredBodyAttempt({
     const body = bodyResult.value;
     const decodedOutput = buildOutputFromStructuredBody({
       body,
+      buyerPersonaCandidates,
       definition,
       input,
       normalizedAdEvidenceGroups,
@@ -10570,7 +11109,10 @@ async function runSectionViaAnswerTool(
         deps,
         input,
         issue,
-        quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
+        // FIX-VOC: surface the directional pool (strict-admissible + trusted-host
+        // non-permalink quotes) so a second independent domain reaches the gap
+        // body, relabeled directional rather than dropped.
+        quoteCandidates: voiceOfCustomerPrepass.directionalCandidates,
         researchInput,
         result: voiceOfCustomerPrepass.result,
       });
@@ -10654,6 +11196,11 @@ async function runSectionViaAnswerTool(
           ...competitorReviewPrepassSteps,
           ...subjectSiteObservationPrepassSteps,
         ],
+      }),
+      ...buildCaseStudyPageEvidencePoolEntries({
+        deps,
+        input,
+        pages: buyerPersonaPrepass?.caseStudyPages,
       }),
     ],
     input,
@@ -10852,6 +11399,7 @@ async function runSectionViaAnswerTool(
   let attempt = await buildAnswerToolAttempt({
     adProbeSteps: adProbeStepsWithRescue,
     answerInput: answerResult.answerInput,
+    buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
     definition,
     deps,
     input,
@@ -10966,6 +11514,7 @@ async function runSectionViaAnswerTool(
       attempt = await buildAnswerToolAttempt({
         adProbeSteps: adProbeStepsWithRescue,
         answerInput: repairResult.answerInput,
+        buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
         definition,
         deps,
         input,
@@ -11330,7 +11879,10 @@ async function runSectionViaStructuredBodyStream(
         deps,
         input,
         issue,
-        quoteCandidates: voiceOfCustomerPrepass.usableCandidates,
+        // FIX-VOC: surface the directional pool (strict-admissible + trusted-host
+        // non-permalink quotes) so a second independent domain reaches the gap
+        // body, relabeled directional rather than dropped.
+        quoteCandidates: voiceOfCustomerPrepass.directionalCandidates,
         researchInput,
         result: voiceOfCustomerPrepass.result,
       });
@@ -11414,6 +11966,11 @@ async function runSectionViaStructuredBodyStream(
         deps,
         input,
         steps: [...adEvidence.adProbeSteps, ...modelSteps],
+      }),
+      ...buildCaseStudyPageEvidencePoolEntries({
+        deps,
+        input,
+        pages: buyerPersonaPrepass?.caseStudyPages,
       }),
     ],
     input,
@@ -11502,6 +12059,7 @@ async function runSectionViaStructuredBodyStream(
   let attempt = await buildStructuredBodyAttempt({
     adProbeSteps: adEvidence.adProbeSteps,
     attempt: validationAttempt,
+    buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
     definition,
     deps,
     externalTools,
@@ -11569,6 +12127,7 @@ async function runSectionViaStructuredBodyStream(
     attempt = await buildStructuredBodyAttempt({
       adProbeSteps: adEvidence.adProbeSteps,
       attempt: validationAttempt,
+      buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
       definition,
       deps,
       externalTools,
@@ -11655,6 +12214,7 @@ async function runSectionViaStructuredBodyStream(
       attempt = await buildAnswerToolAttempt({
         adProbeSteps: adProbeStepsWithRescue,
         answerInput: attempt.output,
+        buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
         definition,
         deps,
         input,
@@ -11753,6 +12313,7 @@ async function runSectionViaStructuredBodyStream(
       attempt = await buildStructuredBodyAttempt({
         adProbeSteps: adProbeStepsWithRescue,
         attempt: validationAttempt,
+        buyerPersonaCandidates: buyerPersonaPrepass?.candidates,
         definition,
         deps,
         externalTools,
@@ -12524,6 +13085,21 @@ export async function runSection(
     deps,
     input,
   });
+  // Sandbox-only, env-gated, best-effort: dump the fully-built artifact before
+  // persistence validation so a CLI proof run can inspect it even when the
+  // persistence gate throws (e.g. an authoring-minimum shortfall). Off in prod.
+  if (process.env.ZZ_DUMP_ARTIFACT !== undefined) {
+    try {
+      const { writeFileSync, mkdirSync } = await import("node:fs");
+      mkdirSync("tmp/zz-section-out", { recursive: true });
+      writeFileSync(
+        `tmp/zz-section-out/_dump-${input.sectionId}.json`,
+        JSON.stringify(artifact, null, 2),
+      );
+    } catch {
+      // best-effort debug aid; never affects the run
+    }
+  }
   await deps.store.saveArtifact(input.runId, artifact);
   await appendEvent(
     deps,

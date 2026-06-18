@@ -8,7 +8,10 @@
 // No mono-uppercase analyst chrome, no sourceSection badges, no per-row
 // provenance chips — provenance lives in ONE assumptions panel at the end.
 
-import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
+import type {
+  PaidMediaEvidencePack,
+  PaidMediaPlanArtifact,
+} from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
 import { cn } from '@/lib/utils';
 import type { PositioningTypedArtifact } from '@/types/positioning-artifact';
 import {
@@ -157,6 +160,36 @@ function BannerPill({ children }: { children: React.ReactNode }): React.ReactEle
     <div className="rounded-md bg-primary px-4 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-primary-foreground">
       {children}
     </div>
+  );
+}
+
+// A row whose evidencePack.status === 'gap' was synthesized without a row-level
+// anchor match (cited at section level only). A grounded row ties to a real
+// upstream committed row. The deck otherwise carries no per-row chrome — this
+// minimal amber marker is a deliberate exception so an ungrounded synthesized
+// row never reads identically to a grounded one. Read defensively: evidencePack
+// is optional on every row, and the enum is only 'grounded' | 'gap'.
+function GapStatusMarker({
+  evidencePack,
+}: {
+  evidencePack?: PaidMediaEvidencePack;
+}): React.ReactElement | null {
+  if (evidencePack?.status !== 'gap') return null;
+  const note = statValue(evidencePack.note);
+  return (
+    <p
+      data-testid="paid-media-gap-marker"
+      className="border-l-2 border-amber-500/60 pl-3 text-[11px] font-medium leading-[1.45] text-amber-700"
+    >
+      <span className="uppercase tracking-[0.04em]">
+        Unverified — section-level citation only
+      </span>
+      {note ? (
+        <span className="mt-0.5 block normal-case tracking-normal text-muted-foreground">
+          {scrubReaderText(note)}
+        </span>
+      ) : null}
+    </p>
   );
 }
 
@@ -459,6 +492,7 @@ export function PaidMediaPlanDeck({
                 <p className="text-[12px] leading-[1.5] text-muted-foreground">
                   {scrubReaderText(audience.grounding)}
                 </p>
+                <GapStatusMarker evidencePack={audience.evidencePack} />
                 <div className="mt-auto rounded-md bg-primary/5 px-4 py-2 text-center text-[14px] font-semibold tabular-nums text-primary">
                   {money(audience.dailyBudget)}
                 </div>
@@ -486,6 +520,7 @@ export function PaidMediaPlanDeck({
               <p className="text-[13px] leading-[1.55] text-foreground/90">
                 {scrubReaderText(angle.description)}
               </p>
+              <GapStatusMarker evidencePack={angle.evidencePack} />
             </article>
           ))}
         </div>
@@ -732,6 +767,7 @@ export function PaidMediaPlanDeck({
                     </span>
                   </p>
                 ))}
+                <GapStatusMarker evidencePack={insight.evidencePack} />
               </article>
             ))}
           </div>
@@ -761,6 +797,7 @@ export function PaidMediaPlanDeck({
                     {scrubReaderText(insight.howWeLeverage)}
                   </span>
                 </p>
+                <GapStatusMarker evidencePack={insight.evidencePack} />
               </article>
             ))}
           </div>
@@ -796,6 +833,7 @@ export function PaidMediaPlanDeck({
                     {scrubReaderText(suggestion.recommendation)}
                   </span>
                 </p>
+                <GapStatusMarker evidencePack={suggestion.evidencePack} />
               </article>
             ))}
           </div>

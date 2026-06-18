@@ -91,6 +91,22 @@ const VENUE_TYPE_LABEL: Record<string, string> = {
   slack: 'Slack',
 };
 
+// An honest-unavailable demand-intent artifact (deadline/acquisition-exhaustion
+// commit): every evidence block committed empty. We detect it deterministically
+// from the five block arrays so the reader sees ONE quiet trust note, not five
+// carpet-bombed 'rerun to retry' gap panels dressed as a full demand read.
+export function isDemandIntentHonestlyUnavailable(
+  artifact: DemandIntentArtifact,
+): boolean {
+  return (
+    artifact.keywordDemand.keywords.length === 0 &&
+    artifact.questionMining.questions.length === 0 &&
+    artifact.contentGaps.gaps.length === 0 &&
+    artifact.intentSignals.items.length === 0 &&
+    artifact.venueMap.venues.length === 0
+  );
+}
+
 function gapAwareValue(value: string): string {
   return /^data gap:/i.test(value) ? '—' : scrubReaderText(value);
 }
@@ -218,6 +234,28 @@ export function DemandIntentRenderer({
   className,
 }: DemandIntentRendererProps): React.ReactElement {
   const { keywordDemand, questionMining, contentGaps, intentSignals, venueMap } = artifact;
+
+  if (isDemandIntentHonestlyUnavailable(artifact)) {
+    const sourcingPlan =
+      keywordDemand.blockGap?.sourcingPlan?.join('; ') ??
+      'Rerun this section — it did not gather enough public evidence in its time budget.';
+
+    return (
+      <div
+        className={cn('flex flex-col gap-4', className)}
+        data-testid="demand-honestly-unavailable"
+      >
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          Demand &amp; intent
+        </div>
+        <GapNote subject="this demand & intent read" howToClose={sourcingPlan}>
+          Not enough public evidence was found to map demand and intent in this
+          run. Nothing here was fabricated — the section is reporting an honest
+          gap.
+        </GapNote>
+      </div>
+    );
+  }
 
   const keywordColumns: ReadonlyArray<DataTableColumn<KeywordRow>> = [
     {

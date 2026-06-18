@@ -193,18 +193,79 @@ export function buildBuyerPersonaVenueQuestion({
   ].join("\n");
 }
 
+/**
+ * Subject-own-company reconciliation (Fix B). A lead is the subject's OWN
+ * employee — not an external buyer — when its company label or its source URL
+ * resolves to the audited company. Catches "Eric Glyman — CEO — Ramp" (company
+ * label) regardless of whether the lead URL is the subject's domain or a third
+ * party (youtube.com). The company label is truncated at the first clause so
+ * "Ramp, the spend platform" still reconciles. Shared by the lead filter and
+ * the case-study miner.
+ */
+export function personaCompanyReconcilesWithSubject({
+  company,
+  sourceUrl,
+  subjectName,
+  subjectWebsiteUrl,
+}: {
+  company: string;
+  sourceUrl?: string;
+  subjectName: string;
+  subjectWebsiteUrl: string;
+}): boolean {
+  const subjectDomain = getRegistrableDomain(subjectWebsiteUrl);
+  const subjectNameSlug = subjectName.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const companyHead = company.split(/[,;.]/)[0] ?? company;
+  const companySlug = companyHead.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (subjectNameSlug.length > 0 && companySlug === subjectNameSlug) {
+    return true;
+  }
+  const companyDomain = getRegistrableDomain(companyHead);
+  if (
+    subjectDomain !== null &&
+    (companyDomain === subjectDomain ||
+      companySlug === subjectDomain.replace(/[^a-z0-9]/g, ""))
+  ) {
+    return true;
+  }
+  if (sourceUrl !== undefined) {
+    const sourceDomain = getRegistrableDomain(sourceUrl);
+    if (subjectDomain !== null && sourceDomain === subjectDomain) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function buildBuyerPersonaCandidates({
   answer,
   venue,
+  subject,
 }: {
   answer: string;
   venue: BuyerPersonaVenue;
+  subject?: Pick<BuyerPersonaSubjectCompany, "name" | "websiteUrl">;
 }): BuyerPersonaCandidate[] {
   return parseNamedPersonaLines(answer).flatMap((line) => {
     if (
       !isLikelyNamedBuyerIdentity(line.name, {
         company: line.company,
         title: line.title,
+      })
+    ) {
+      return [];
+    }
+
+    // Fix B: a subject-own employee is not an external buyer. Reject at the lead
+    // stage so own-execs never reach the agent prompt and crowd out real buyers.
+    if (
+      subject !== undefined &&
+      personaCompanyReconcilesWithSubject({
+        company: line.company,
+        sourceUrl: line.url,
+        subjectName: subject.name,
+        subjectWebsiteUrl: subject.websiteUrl,
       })
     ) {
       return [];
@@ -307,7 +368,9 @@ export async function acquireBuyerPersonaCandidates({
 
       const answer = extractAnswer(output);
       if (answer !== null) {
-        collected.push(...buildBuyerPersonaCandidates({ answer, venue }));
+        collected.push(
+          ...buildBuyerPersonaCandidates({ answer, venue, subject: company }),
+        );
       }
 
       if (collected.length > 0) {

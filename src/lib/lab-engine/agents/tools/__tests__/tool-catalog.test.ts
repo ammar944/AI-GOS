@@ -12,6 +12,10 @@ describe("TOOL_CATALOG", (): void => {
     expect(TOOL_CATALOG).toHaveProperty("keyword_volume");
   });
 
+  it("registers keyword_discovery (SpyFu keyword discovery for Demand Intent)", (): void => {
+    expect(TOOL_CATALOG).toHaveProperty("keyword_discovery");
+  });
+
   it("registers keyword_trends (SearchAPI Trends fallback for Demand Intent)", (): void => {
     expect(TOOL_CATALOG).toHaveProperty("keyword_trends");
   });

@@ -279,6 +279,7 @@ export const SECTION_REGISTRY = {
       "keyword_ad_probe",
       "keyword_volume",
       "keyword_trends",
+      "keyword_discovery",
       "firecrawl",
       "perplexity_research",
     ],

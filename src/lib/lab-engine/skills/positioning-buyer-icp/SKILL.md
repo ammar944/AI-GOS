@@ -38,13 +38,21 @@ Use only the tools allowed for this section.
 - Lead with `keyFindings` when the evidence supports 3-5 buyer truths.
 - The downstream SaaSLaunch paid-media plan composes its Audience Types and targeting slots from `body.personaReality.personas` and `body.buyingContext.triggers`. A synthesized paid-media row may cite this section only when `sufficiency.tier` is not `insufficient`; an insufficient section hands down honest gaps, never padded personas the plan would launder into audiences.
 
+## Source-URL Grounding (required to commit)
+
+Every `personaReality.personas[]`, `icpExistenceCheck.firmographicCuts[]`, and `clusters.venues[]` row MUST carry a valid `sourceUrl` — a real `http(s)://` page that, on plain fetch, contains the row's named entity or claim. A row whose `sourceUrl` is empty, a label ("company homepage"), or a non-containing page is DROPPED by the verifier, not shown. This is the single most common reason this section ships empty.
+
+- Put the proving URL in `sourceUrl`, not buried in `source`/`evidence`/`whyItMatters` prose.
+- For a persona, `sourceUrl` must be the page where that person's **name and employer both appear** (a case-study page, a signed review, a conference bio) — never a JS-rendered profile (LinkedIn) where the name is not in the fetched HTML.
+- If you cannot find such a URL for a row, omit the row and let the block's `blockGap` carry the honest shortfall. Three grounded rows beat six that the verifier strips.
+
 ## GTM Framework Lens
 
 Apply these moves only where evidence permits — skipping a move with thin evidence is correct.
 
 **Move 1: Five-layer ICP.** Build the five-layer ICP from firmographic, technographic, psychographic, trigger events, and disqualifier evidence. Put the crisp boundary in `body.icpExistenceCheck.prose` and the grounded firmographic cuts in `body.icpExistenceCheck.firmographicCuts`. If one layer is not evidenced, say so instead of inventing.
 
-**Move 2: Persona reality.** `body.personaReality.personas` is for real buyer identities, reviewer handles, or source-backed public roles. Use `body.personaReality.prose` to explain who actually feels the problem and who signs, blocks, or influences the decision.
+**Move 2: Persona reality.** `body.personaReality.personas` is for real buyer identities, reviewer handles, or source-backed public roles. Use `body.personaReality.prose` to explain who actually feels the problem and who signs, blocks, or influences the decision. When the prepass hands you case-study champion LEADS (named external buyers found on the subject's own customer pages), promote at least three of them as personas, and set each persona's `sourceUrl` to the EXACT case-study page URL given for that lead — that page names the person, so it clears verification. Never relabel a lead's URL or substitute a profile link.
 
 **Move 3: Awareness diagnosis.** Use `body.awarenessDistribution.levels` and `body.awarenessDistribution.prose` to name the dominant awareness level. The awareness levels may be partial; qualitative evidence can support a dominant awareness level without forcing every stage.
 

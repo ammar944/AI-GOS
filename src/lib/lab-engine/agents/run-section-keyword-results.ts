@@ -37,7 +37,7 @@ function keywordToolResultKeywords({
   toolName,
 }: {
   modelSteps: readonly AgentStep[];
-  toolName: "keyword_trends" | "keyword_volume";
+  toolName: "keyword_trends" | "keyword_volume" | "keyword_discovery";
 }): readonly string[] {
   return modelSteps.flatMap((step) =>
     step.toolResults.flatMap((toolResult) => {
@@ -50,8 +50,18 @@ function keywordToolResultKeywords({
   );
 }
 
+// keyword_volume AND keyword_discovery both return SpyFu volume/CPC rows with
+// identical provenance semantics (each row carries a SpyFu per-keyword
+// permalink and SpyFu-estimated economics). The demand provenance guard treats
+// any "SpyFu …" sourceTitle the same, so a keyword measured by EITHER tool is
+// real SpyFu evidence — fold both result sets into the SpyFu evidence list so a
+// discovered non-branded gap keyword is not flagged as an unsupported SpyFu
+// claim and softened away.
 export function keywordVolumeKeywords(modelSteps: readonly AgentStep[]): readonly string[] {
-  return keywordToolResultKeywords({ modelSteps, toolName: "keyword_volume" });
+  return [
+    ...keywordToolResultKeywords({ modelSteps, toolName: "keyword_volume" }),
+    ...keywordToolResultKeywords({ modelSteps, toolName: "keyword_discovery" }),
+  ];
 }
 
 export function keywordTrendKeywords(modelSteps: readonly AgentStep[]): readonly string[] {

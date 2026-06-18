@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  getCompetingPpcKeywords,
+  getCompetingSeoKeywords,
   getKeywordsByBulkSearch,
   getRelatedKeywords,
   SpyFuRateLimitError,
@@ -84,6 +86,65 @@ describe('429 exhaustion', () => {
 
     expect(error).toBeInstanceOf(SpyFuRateLimitError);
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('kombat 429 propagation', () => {
+  // The kombat weaknesses call is the keyword_discovery competing path. A 429
+  // there MUST surface as SpyFuRateLimitError so keyword-discovery.ts maps it
+  // to a retryable rate_limited gap — swallowing it to {results:[]} makes the
+  // tool's rate_limited mapping dead code and reports an empty (not throttled)
+  // gap to the demand prepass.
+  it('rethrows SpyFuRateLimitError from getCompetingSeoKeywords when the kombat call is 429-exhausted', async () => {
+    vi.stubEnv('SPYFU_API_KEY', 'test-key');
+    const fetchMock = vi.fn(async () => rateLimited());
+    vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers();
+
+    const resultPromise = getCompetingSeoKeywords('airtable.com', [
+      'ramp.com',
+    ]).catch((error: unknown) => error);
+    await vi.runAllTimersAsync();
+    const error = await resultPromise;
+
+    expect(error).toBeInstanceOf(SpyFuRateLimitError);
+    expect((error as SpyFuRateLimitError).status).toBe(429);
+  });
+
+  it('rethrows SpyFuRateLimitError from getCompetingPpcKeywords when the kombat call is 429-exhausted', async () => {
+    vi.stubEnv('SPYFU_API_KEY', 'test-key');
+    const fetchMock = vi.fn(async () => rateLimited());
+    vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers();
+
+    const resultPromise = getCompetingPpcKeywords('airtable.com', [
+      'ramp.com',
+    ]).catch((error: unknown) => error);
+    await vi.runAllTimersAsync();
+    const error = await resultPromise;
+
+    expect(error).toBeInstanceOf(SpyFuRateLimitError);
+    expect((error as SpyFuRateLimitError).status).toBe(429);
+  });
+
+  it('still maps non-429 kombat failures to empty results (not a throw)', async () => {
+    // Only 429 must propagate; a generic 500 stays best-effort empty so a
+    // single sub-call failure never poisons the whole gap-keyword discovery.
+    vi.stubEnv('SPYFU_API_KEY', 'test-key');
+    const fetchMock = vi.fn(
+      async () => new Response('boom', { status: 500 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers();
+
+    const resultPromise = getCompetingSeoKeywords('airtable.com', ['ramp.com']);
+    await vi.runAllTimersAsync();
+
+    await expect(resultPromise).resolves.toEqual({
+      weaknesses: [],
+      shared: [],
+      strengths: [],
+    });
   });
 });
 

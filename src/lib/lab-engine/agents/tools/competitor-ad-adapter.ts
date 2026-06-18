@@ -1160,22 +1160,30 @@ export function summarizeCompetitorAdEvidenceGroups(
     (total, group) => total + group.returnedCreativeCount,
     0,
   );
-  const verifiedCount = groups.reduce(
-    (total, group) =>
-      total +
-      (group.verifiedCount ??
-        group.creatives.filter((creative) => creative.verified === true)
-          .length),
-    0,
-  );
-  const quarantinedCount = groups.reduce(
-    (total, group) =>
-      total +
-      (group.quarantinedCount ??
-        group.creatives.filter((creative) => creative.verified === false)
-          .length),
-    0,
-  );
+  // The summary narrates COMPETITOR ad presence and is what the prose clamp
+  // swaps in when the model overclaims. The subject is probed on the same wall,
+  // so its own verified/quarantine creatives must NOT inflate the competitor
+  // counts the summary reports (matches reconcileAdEvidenceProseWithVerifiedCounts).
+  const verifiedCount = groups
+    .filter((group) => group.isSubject !== true)
+    .reduce(
+      (total, group) =>
+        total +
+        (group.verifiedCount ??
+          group.creatives.filter((creative) => creative.verified === true)
+            .length),
+      0,
+    );
+  const quarantinedCount = groups
+    .filter((group) => group.isSubject !== true)
+    .reduce(
+      (total, group) =>
+        total +
+        (group.quarantinedCount ??
+          group.creatives.filter((creative) => creative.verified === false)
+            .length),
+      0,
+    );
   const gapCount = groups.reduce(
     (total, group) => total + group.dataGaps.length + group.sourceErrors.length,
     0,
@@ -1197,6 +1205,80 @@ export function summarizeCompetitorAdEvidenceGroups(
       ? `Evidence gaps are preserved in advertiserGroups.dataGaps and advertiserGroups.sourceErrors.`
       : "No ad-library data gaps were reported by the normalized tool results.",
   ].join(" ");
+}
+
+// Vague-large quantity words the model uses to imply heavy advertising without
+// committing to a number. When few ads are actually verified, these overclaim
+// just as surely as an inflated integer would.
+const VAGUE_LARGE_QUANTITY_PATTERN =
+  /\b(dozens|hundreds|thousands|countless|numerous|many)\b/i;
+
+// Recruiter / hiring posts (common on LinkedIn ad libraries) are NOT product
+// advertising. They must never count toward the COMPETITOR "verified ad" total
+// the prose leans on — describing a "we're hiring" post as verified paid
+// acquisition overclaims a competitor's media presence. We downgrade such a
+// creative out of the verified total (the creative itself is never deleted; it
+// stays on the wall, just not counted as confirmed competitor advertising).
+const RECRUITER_POST_PATTERN =
+  /\b(?:now hiring|we['’]re hiring|hiring|join (?:our|the) team|open roles?|apply now)\b/i;
+
+function isRecruiterPostCreative(
+  creative: CompetitorAdEvidenceGroup["creatives"][number],
+): boolean {
+  const copy = [creative.headline, creative.body, creative.transcript, creative.cta]
+    .filter((part): part is string => typeof part === "string" && part.length > 0)
+    .join(" ");
+  return RECRUITER_POST_PATTERN.test(copy);
+}
+
+// The model's free-text adEvidence.prose is unverified narration. Even when at
+// least one creative is verified (so the prose is not wholesale dropped), the
+// prose can still overclaim the ad COUNT — e.g. "Notion ran 4 video ads;
+// ClickUp ran 5 carousel ads" while only one creative is identity-verified.
+// This clamps such prose back to the grounded, count-accurate deterministic
+// summary. It returns the prose unchanged when its claimed counts are
+// consistent with the verified total.
+export function reconcileAdEvidenceProseWithVerifiedCounts({
+  prose,
+  groups,
+  deterministicSummary,
+}: {
+  prose: string;
+  groups: readonly CompetitorAdEvidenceGroup[];
+  deterministicSummary: string;
+}): string {
+  // The prose narrates COMPETITOR advertising, so the subject's own verified
+  // creatives (it is probed on the same wall) must not loosen the clamp, and
+  // recruiter/hiring posts are downgraded out of the verified total.
+  const totalVerified = groups
+    .filter((group) => group.isSubject !== true)
+    .reduce((total, group) => {
+      const groupVerified =
+        group.verifiedCount ??
+        group.creatives.filter((creative) => creative.verified === true).length;
+      const recruiterVerified = group.creatives.filter(
+        (creative) =>
+          creative.verified === true && isRecruiterPostCreative(creative),
+      ).length;
+      return total + Math.max(0, groupVerified - recruiterVerified);
+    }, 0);
+
+  // Largest integer ad-count claim in the prose: a number sitting a few words
+  // before "ad"/"ads" (e.g. "ran 4 ads", "5 carousel ads", "4 video ads").
+  let maxClaimedCount = 0;
+  const claimPattern = /\b(\d{1,4})\b(?:\s+\w+){0,3}?\s+ads?\b/gi;
+  for (const match of prose.matchAll(claimPattern)) {
+    const claimed = Number.parseInt(match[1], 10);
+    if (Number.isFinite(claimed) && claimed > maxClaimedCount) {
+      maxClaimedCount = claimed;
+    }
+  }
+
+  const overclaimsInteger = maxClaimedCount > totalVerified;
+  const overclaimsVague =
+    totalVerified <= 2 && VAGUE_LARGE_QUANTITY_PATTERN.test(prose);
+
+  return overclaimsInteger || overclaimsVague ? deterministicSummary : prose;
 }
 
 // Marks the subject's own group on the wall (the subject is probed alongside

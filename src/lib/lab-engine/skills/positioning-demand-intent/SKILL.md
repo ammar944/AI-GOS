@@ -26,6 +26,7 @@ Use only the tools allowed for this section.
 | `web_search` | Find questions, SERP evidence, content gaps, and intent surfaces. |
 | `keyword_ad_probe` | Probe keyword-ad surfaces where paid-search evidence is needed. |
 | `keyword_volume` | Measure search volume, CPC, and difficulty for candidate keywords. |
+| `keyword_discovery` | Surface the non-branded keywords competitors rank/bid on that the subject does not (`domain` + `competitorDomains`), or expand a `seed` into related queries — the demand you don't already know. |
 | `keyword_trends` | Use relative-interest fallback when volume data is unavailable. |
 | `firecrawl` | Fetch pages behind promising snippets. |
 | `perplexity_research` | Collect source leads that still need validation. |

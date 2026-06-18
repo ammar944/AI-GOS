@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { withNormalizedBuyerICPOutput } from "../run-section";
+import {
+  buildOutputFromStructuredBody,
+  getRuntimeSectionDefinition,
+  withBuyerICPCommitFloorRepair,
+  withNormalizedBuyerICPOutput,
+} from "../run-section";
 import {
   modelEstimateLabel,
   validateBuyerICPMinimums,
 } from "../../artifacts/schemas/buyer-icp";
+import { buyerICPFixtureArtifact } from "../../fixtures/buyer-icp-artifact";
 
 function buyerOutput(personas: Record<string, unknown>[]): Record<string, unknown> {
   return {
@@ -26,6 +32,85 @@ function personasOf(output: unknown): Record<string, unknown>[] {
 }
 
 const subjectWebsiteUrl = "https://anura.io";
+
+describe("withNormalizedBuyerICPOutput shared-listing-url laundering gate", (): void => {
+  function namedPersona(
+    name: string,
+    company: string,
+    sourceUrl: string,
+  ): Record<string, unknown> {
+    return {
+      name,
+      company,
+      role: "champion",
+      seniority: "vp",
+      title: "VP of Finance",
+      sourceUrl,
+    };
+  }
+
+  it("suppresses personas that share one aggregate review-listing URL (laundering)", (): void => {
+    const launderedUrl = "https://g2.com/products/anura/reviews";
+    const output = withNormalizedBuyerICPOutput(
+      buyerOutput([
+        namedPersona("Brian Robbins", "Customer.io", launderedUrl),
+        namedPersona("Jeff Fowle", "Luma", launderedUrl),
+        namedPersona("Dana Lee", "Acme Corp", launderedUrl),
+      ]),
+      { subjectWebsiteUrl, subjectCompanyName: "Anura" },
+    );
+
+    // All three cite ONE non-permalink aggregate listing URL → none is
+    // individually grounded → all suppressed (the <3 floor then injects a gap).
+    expect(personasOf(output)).toHaveLength(0);
+  });
+
+  it("keeps personas that each cite a distinct (unshared) review URL", (): void => {
+    const output = withNormalizedBuyerICPOutput(
+      buyerOutput([
+        namedPersona("Maya Lin", "Customer.io", "https://g2.com/products/anura/reviews/maya"),
+        namedPersona("Jordan Pike", "Luma", "https://capterra.com/p/anura/jordan"),
+        namedPersona("Sasha Ito", "Acme Corp", "https://trustradius.com/anura/sasha"),
+      ]),
+      { subjectWebsiteUrl, subjectCompanyName: "Anura" },
+    );
+
+    expect(personasOf(output)).toHaveLength(3);
+  });
+
+  it("keeps case-study champions that share a customer-story page they were mined from", (): void => {
+    const storyUrl = "https://anura.io/customers/brightpath";
+    const output = withNormalizedBuyerICPOutput(
+      buyerOutput([
+        namedPersona("Bill Cox", "New Way Landscape", storyUrl),
+        namedPersona("Lauren Feeney", "Perplexity", storyUrl),
+      ]),
+      {
+        subjectWebsiteUrl,
+        subjectCompanyName: "Anura",
+        caseStudyCandidates: [
+          {
+            name: "Bill Cox",
+            company: "New Way Landscape",
+            title: "VP of Finance",
+            url: storyUrl,
+            venue: "case_study_champions",
+          },
+          {
+            name: "Lauren Feeney",
+            company: "Perplexity",
+            title: "Controller",
+            url: storyUrl,
+            venue: "case_study_champions",
+          },
+        ],
+      },
+    );
+
+    // Both names were mined from that exact page → individually grounded → kept.
+    expect(personasOf(output)).toHaveLength(2);
+  });
+});
 
 describe("withNormalizedBuyerICPOutput vendorSourced derivation", (): void => {
   it("labels subject-domain personas vendorSourced=true (www/subdomain collapse)", (): void => {
@@ -589,5 +674,257 @@ describe("withNormalizedBuyerICPOutput escapable-floor tolerant-out", (): void =
     expect(validateBuyerICPMinimums(asBuyerICPArtifact(result) as never).ok).toBe(
       true,
     );
+  });
+});
+
+describe("withNormalizedBuyerICPOutput case-study sourceUrl backfill", (): void => {
+  const caseStudyCandidates = [
+    {
+      name: "Lauren Feeney",
+      title: "Controller",
+      company: "Perplexity",
+      url: "https://next.ramp.com/customers/perplexity",
+      venue: "case_study_champions" as const,
+    },
+    {
+      name: "Bill Cox",
+      title: "VP of Finance",
+      company: "New Way Landscape",
+      url: "https://ramp.com/customers/new-way-landscape",
+      venue: "case_study_champions" as const,
+    },
+  ];
+  const opts = {
+    subjectWebsiteUrl: "https://ramp.com",
+    subjectCompanyName: "Ramp",
+    caseStudyCandidates,
+  };
+
+  it("overrides a persona's non-containing URL with the mined case-study page that names them", (): void => {
+    const personas = personasOf(
+      withNormalizedBuyerICPOutput(
+        buyerOutput([
+          {
+            name: "Lauren Feeney",
+            company: "Perplexity",
+            // The model cited a JS-rendered profile the containment gate strips;
+            // the mined page is where the name+employer were actually scraped.
+            sourceUrl: "https://www.linkedin.com/in/lauren-feeney",
+          },
+        ]),
+        opts,
+      ),
+    );
+    expect(personas).toHaveLength(1);
+    expect(personas[0]?.sourceUrl).toBe(
+      "https://next.ramp.com/customers/perplexity",
+    );
+  });
+
+  it("rescues a matching persona the model left without a sourceUrl (would otherwise be dropped)", (): void => {
+    const personas = personasOf(
+      withNormalizedBuyerICPOutput(
+        buyerOutput([
+          { name: "Bill Cox", company: "New Way Landscape", sourceUrl: "" },
+        ]),
+        opts,
+      ),
+    );
+    expect(personas).toHaveLength(1);
+    expect(personas[0]?.sourceUrl).toBe(
+      "https://ramp.com/customers/new-way-landscape",
+    );
+  });
+
+  it("never attaches a candidate URL to a persona that does not match a mined lead", (): void => {
+    const personas = personasOf(
+      withNormalizedBuyerICPOutput(
+        buyerOutput([
+          {
+            name: "Jane Doe",
+            company: "Acme Corp",
+            sourceUrl: "https://g2.com/products/x/reviews",
+          },
+        ]),
+        opts,
+      ),
+    );
+    expect(personas[0]?.sourceUrl).toBe("https://g2.com/products/x/reviews");
+  });
+
+  it("does not cross-attach when the name matches but the company clearly differs", (): void => {
+    const personas = personasOf(
+      withNormalizedBuyerICPOutput(
+        buyerOutput([
+          {
+            name: "Bill Cox",
+            company: "Unrelated Industries",
+            sourceUrl: "https://g2.com/products/x/reviews",
+          },
+        ]),
+        opts,
+      ),
+    );
+    expect(personas[0]?.sourceUrl).toBe("https://g2.com/products/x/reviews");
+  });
+});
+
+describe("withNormalizedBuyerICPOutput in-row sourceUrl backfill", (): void => {
+  it("lifts a firmographic cut's URL from its source field when sourceUrl is empty (ground-don't-drop)", (): void => {
+    const input = completeBuyerICPOutput();
+    const icp = bodyOf(input).icpExistenceCheck as Record<string, unknown>;
+    const cuts = icp.firmographicCuts as Record<string, unknown>[];
+    cuts[0].sourceUrl = "";
+    cuts[0].source =
+      "Ramp customer story — see https://ramp.com/customers/new-way-landscape.";
+
+    const result = withNormalizedBuyerICPOutput(input);
+    const resultCuts = (
+      bodyOf(result).icpExistenceCheck as Record<string, unknown>
+    ).firmographicCuts as Record<string, unknown>[];
+
+    expect(resultCuts).toHaveLength(3);
+    const industryCut = resultCuts.find((cut) => cut.cutType === "industry");
+    expect(industryCut?.sourceUrl).toBe(
+      "https://ramp.com/customers/new-way-landscape",
+    );
+    expect(
+      validateBuyerICPMinimums(asBuyerICPArtifact(result) as never).ok,
+    ).toBe(true);
+  });
+
+  it("still drops a cut with no URL anywhere in its fields (honest gap, never fabrication)", (): void => {
+    const input = completeBuyerICPOutput();
+    const icp = bodyOf(input).icpExistenceCheck as Record<string, unknown>;
+    const cuts = icp.firmographicCuts as Record<string, unknown>[];
+    cuts[0].sourceUrl = "";
+    cuts[0].source = "internal hypothesis, no public source";
+
+    const result = withNormalizedBuyerICPOutput(input);
+    const resultCuts = (
+      bodyOf(result).icpExistenceCheck as Record<string, unknown>
+    ).firmographicCuts as Record<string, unknown>[];
+
+    expect(resultCuts).toHaveLength(2);
+  });
+});
+
+describe("withBuyerICPCommitFloorRepair persistence guard", (): void => {
+  it("re-injects an honest trigger blockGap when a downstream step thinned the block below floor", (): void => {
+    // Reproduces the live failure: after the body builder's floor repair runs,
+    // the source-liveness gate drops a URL-bearing trigger (3 -> 2) leaving no
+    // blockGap, and persistence hard-fails on the >=3 floor.
+    const input = completeBuyerICPOutput();
+    const bc = bodyOf(input).buyingContext as Record<string, unknown>;
+    bc.triggers = (bc.triggers as unknown[]).slice(0, 2);
+    delete bc.blockGap;
+    const artifact = asBuyerICPArtifact(input);
+    expect(validateBuyerICPMinimums(artifact as never).ok).toBe(false);
+
+    const repaired = withBuyerICPCommitFloorRepair(artifact as never);
+
+    expect(
+      (bodyOf(repaired).buyingContext as Record<string, unknown>).blockGap,
+    ).toBeDefined();
+    expect(validateBuyerICPMinimums(repaired as never).ok).toBe(true);
+  });
+
+  it("is a no-op for a body that already satisfies its floors", (): void => {
+    const artifact = asBuyerICPArtifact(completeBuyerICPOutput());
+    const repaired = withBuyerICPCommitFloorRepair(artifact as never);
+
+    expect(
+      (bodyOf(repaired).buyingContext as Record<string, unknown>).blockGap,
+    ).toBeUndefined();
+    expect(validateBuyerICPMinimums(repaired as never).ok).toBe(true);
+  });
+});
+
+// FIX-BICP Part A: the DEFAULT streaming commit path decodes section output via
+// buildOutputFromStructuredBody. That decoder must forward buyerPersonaCandidates
+// into the buyerICP normalizer so case-study champions mined from a shared
+// customer-story page clear the shared-listing-url laundering gate (the
+// answer-tool fallback already threads them). Without the wire, the exemption
+// set is empty and co-champions on one story URL are stripped → personas:[].
+describe("buildOutputFromStructuredBody buyerICP case-study persona wire", (): void => {
+  const subjectWebsiteUrl = "https://ramp.com";
+  const storyUrl = "https://ramp.com/customers/brightpath";
+
+  function bodyWithSharedStoryChampions(): Record<string, unknown> {
+    const fixtureBody = buyerICPFixtureArtifact.body as Record<string, unknown>;
+    const personaReality = fixtureBody.personaReality as Record<string, unknown>;
+    return {
+      ...fixtureBody,
+      personaReality: {
+        ...personaReality,
+        personas: [
+          {
+            name: "Bill Cox",
+            title: "VP of Finance",
+            company: "New Way Landscape",
+            sourceUrl: storyUrl,
+            role: "champion",
+            seniority: "Executive",
+            evidence: "Named in the Ramp customer story for New Way Landscape.",
+          },
+          {
+            name: "Lauren Feeney",
+            title: "Controller",
+            company: "Perplexity",
+            sourceUrl: storyUrl,
+            role: "decision-maker",
+            seniority: "Executive",
+            evidence: "Named in the Ramp customer story for Perplexity.",
+          },
+        ],
+      },
+    };
+  }
+
+  const caseStudyCandidates = [
+    {
+      name: "Bill Cox",
+      company: "New Way Landscape",
+      title: "VP of Finance",
+      url: storyUrl,
+      venue: "case_study_champions" as const,
+    },
+    {
+      name: "Lauren Feeney",
+      company: "Perplexity",
+      title: "Controller",
+      url: storyUrl,
+      venue: "case_study_champions" as const,
+    },
+  ];
+
+  function decodedPersonas(buyerPersonaCandidates?: typeof caseStudyCandidates) {
+    const decoded = buildOutputFromStructuredBody({
+      body: { body: bodyWithSharedStoryChampions() },
+      definition: getRuntimeSectionDefinition("positioningBuyerICP"),
+      input: { runId: "run_test", sectionId: "positioningBuyerICP" },
+      subjectCompanyName: "Ramp",
+      subjectWebsiteUrl,
+      buyerPersonaCandidates,
+    });
+    const output = decoded.output as { body: Record<string, unknown> };
+    const personaReality = output.body.personaReality as Record<string, unknown>;
+    return personaReality.personas as Record<string, unknown>[];
+  }
+
+  it("KEEPS shared-story-url case-study champions when candidates are threaded", (): void => {
+    const personas = decodedPersonas(caseStudyCandidates);
+    expect(personas).toHaveLength(2);
+    expect(personas.map((persona) => persona.name).sort()).toEqual([
+      "Bill Cox",
+      "Lauren Feeney",
+    ]);
+  });
+
+  it("strips shared-story-url champions when no candidates flow through (the bug)", (): void => {
+    // Control: with NO candidates the laundering gate has an empty exemption
+    // set and suppresses both co-champions. Proves the keep above is caused by
+    // the threaded candidates, not an unconditional pass-through.
+    expect(decodedPersonas(undefined)).toHaveLength(0);
   });
 });

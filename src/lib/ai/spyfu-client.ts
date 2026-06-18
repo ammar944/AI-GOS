@@ -425,6 +425,18 @@ export async function getDomainStats(domain: string): Promise<SpyFuDomainStats> 
   return emptyStats;
 }
 
+// A single kombat sub-call (weaknesses/shared/strengths) is best-effort: a
+// non-429 failure must not poison the other two parallel calls, so it collapses
+// to empty results. But a 429 MUST propagate — keyword-discovery.ts maps it to a
+// retryable rate_limited gap, and swallowing it to {results:[]} made that
+// mapping dead code (the demand prepass saw an empty, not throttled, result).
+function swallowNon429KombatError(error: unknown): RawListResponse {
+  if (error instanceof SpyFuRateLimitError) {
+    throw error;
+  }
+  return { results: [] } as RawListResponse;
+}
+
 /**
  * Kombat: Get SEO keyword gaps between client and competitors
  * v2 API requires separate calls for weaknesses, shared, and strengths
@@ -450,7 +462,7 @@ export async function getCompetingSeoKeywords(
         isIntersection: false,
         pageSize: maxResults,
       },
-    ).catch(() => ({ results: [] } as RawListResponse)),
+    ).catch(swallowNon429KombatError),
 
     // Shared: all domains rank
     spyfuFetch<RawListResponse>(
@@ -460,7 +472,7 @@ export async function getCompetingSeoKeywords(
         isIntersection: true,
         pageSize: maxResults,
       },
-    ).catch(() => ({ results: [] } as RawListResponse)),
+    ).catch(swallowNon429KombatError),
 
     // Strengths: client ranks, competitors don't
     spyfuFetch<RawListResponse>(
@@ -471,7 +483,7 @@ export async function getCompetingSeoKeywords(
         isIntersection: false,
         pageSize: maxResults,
       },
-    ).catch(() => ({ results: [] } as RawListResponse)),
+    ).catch(swallowNon429KombatError),
   ]);
 
   return {
@@ -504,7 +516,7 @@ export async function getCompetingPpcKeywords(
         isIntersection: false,
         pageSize: maxResults,
       },
-    ).catch(() => ({ results: [] } as RawListResponse)),
+    ).catch(swallowNon429KombatError),
 
     spyfuFetch<RawListResponse>(
       '/keyword_api/v2/kombat/getCompetingPpcKeywords',
@@ -513,7 +525,7 @@ export async function getCompetingPpcKeywords(
         isIntersection: true,
         pageSize: maxResults,
       },
-    ).catch(() => ({ results: [] } as RawListResponse)),
+    ).catch(swallowNon429KombatError),
 
     spyfuFetch<RawListResponse>(
       '/keyword_api/v2/kombat/getCompetingPpcKeywords',
@@ -523,7 +535,7 @@ export async function getCompetingPpcKeywords(
         isIntersection: false,
         pageSize: maxResults,
       },
-    ).catch(() => ({ results: [] } as RawListResponse)),
+    ).catch(swallowNon429KombatError),
   ]);
 
   return {
@@ -541,6 +553,7 @@ export async function getCompetingPpcKeywords(
 export async function getMostValuableKeywords(
   domain: string,
   maxResults = 50,
+  minSearchVolume = MIN_SEARCH_VOLUME,
 ): Promise<SpyFuKeywordResult[]> {
   const cleanDomain = extractDomain(domain);
   const raw = await spyfuFetch<RawListResponse>(
@@ -549,7 +562,7 @@ export async function getMostValuableKeywords(
       query: cleanDomain,
       pageSize: maxResults,
       excludeTerms: EXCLUDE_TERMS,
-      'searchVolume.min': MIN_SEARCH_VOLUME,
+      'searchVolume.min': minSearchVolume,
     },
   );
 
@@ -564,6 +577,7 @@ export async function getMostValuableKeywords(
 export async function getRelatedKeywords(
   keyword: string,
   maxResults = 50,
+  minSearchVolume = MIN_SEARCH_VOLUME,
 ): Promise<SpyFuKeywordResult[]> {
   const raw = await spyfuFetch<RawListResponse>(
     '/keyword_api/v2/related/getRelatedKeywords',
@@ -571,7 +585,7 @@ export async function getRelatedKeywords(
       query: keyword,
       pageSize: maxResults,
       excludeTerms: EXCLUDE_TERMS,
-      'searchVolume.min': MIN_SEARCH_VOLUME,
+      'searchVolume.min': minSearchVolume,
     },
   );
 

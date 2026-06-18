@@ -338,4 +338,190 @@ describe("buildBrandedKeywordPrepass", () => {
 
     expect(prepass).toBeUndefined();
   });
+
+  // FIX-DEMAND: the branded keyword_volume call only measures the brand
+  // defending itself + a few stable category descriptors — it never surfaces the
+  // non-branded keywords competitors rank/bid on that the subject does not. That
+  // gap set IS the non-branded measured demand a media buyer sizes feasibility
+  // against; without invoking keyword_discovery the section reports "unknown"
+  // non-branded demand. These tests pin the deterministic discovery invocation.
+  const researchInputWithCompetitorSeeds = {
+    ...saaslaunchResearchInput,
+    company: {
+      ...saaslaunchResearchInput.company,
+      websiteUrl: "https://airtable.com",
+    },
+    competitorSeeds: [
+      { name: "Ramp", domain: "ramp.com", provenance: "user-supplied" as const },
+      { name: "Brex", domain: "brex.com", provenance: "user-supplied" as const },
+    ],
+  };
+
+  function brandedRowsVolumeOutput(): unknown {
+    return {
+      type: "result",
+      source: "SpyFu",
+      sourceUrl: "https://www.spyfu.com/",
+      keywords: [
+        {
+          keyword: "airtable",
+          searchVolume: 2400,
+          cpc: 3.1,
+          difficulty: 22,
+          sourceUrl: "https://www.spyfu.com/keyword/overview/us?query=airtable",
+          display:
+            '"airtable" — 2,400/mo (SpyFu-estimated), CPC $3.10 (SpyFu-estimated), difficulty 22',
+        },
+      ],
+    };
+  }
+
+  function discoveryRowsOutput(): unknown {
+    return {
+      type: "result",
+      source: "SpyFu",
+      sourceUrl: "https://www.spyfu.com/",
+      keywords: [
+        {
+          keyword: "expense management software",
+          searchVolume: 5400,
+          cpc: 22.1,
+          difficulty: 41,
+          sourceUrl:
+            "https://www.spyfu.com/keyword/overview/us?query=expense%20management%20software",
+          display:
+            '"expense management software" — 5,400/mo (SpyFu-estimated), CPC $22.10 (SpyFu-estimated), difficulty 41',
+        },
+        {
+          keyword: "corporate cards",
+          searchVolume: 2900,
+          cpc: 14.0,
+          difficulty: 36,
+          sourceUrl:
+            "https://www.spyfu.com/keyword/overview/us?query=corporate%20cards",
+          display:
+            '"corporate cards" — 2,900/mo (SpyFu-estimated), CPC $14.00 (SpyFu-estimated), difficulty 36',
+        },
+      ],
+    };
+  }
+
+  it("invokes keyword_discovery against the competitor seed domains and lands non-branded measured rows", async () => {
+    const discoveryInputs: unknown[] = [];
+    const prepass = await buildBrandedKeywordPrepass({
+      deps,
+      input,
+      researchInput: researchInputWithCompetitorSeeds,
+      researchTools: {
+        keyword_volume: {
+          execute: async (): Promise<unknown> => brandedRowsVolumeOutput(),
+        },
+        keyword_discovery: {
+          execute: async (toolInput: unknown): Promise<unknown> => {
+            discoveryInputs.push(toolInput);
+            return discoveryRowsOutput();
+          },
+        },
+      },
+    });
+
+    // keyword_discovery was invoked once, deterministically, with the subject
+    // domain vs the resolved competitor seed domains and the volume floor.
+    expect(discoveryInputs).toHaveLength(1);
+    expect(discoveryInputs[0]).toEqual({
+      domain: "airtable.com",
+      competitorDomains: ["ramp.com", "brex.com"],
+      minSearchVolume: 50,
+    });
+
+    // The recorded discovery step rides the steps list so the keyword
+    // provenance validator (keywordVolumeKeywords) accepts the discovered rows.
+    expect(keywordVolumeKeywords(prepass?.steps ?? [])).toEqual([
+      "airtable",
+      "expense management software",
+      "corporate cards",
+    ]);
+
+    // The non-branded discovered gap keywords land in the candidate block with
+    // their own SpyFu permalinks — the demand read a media buyer needs.
+    expect(prepass?.candidateBlock).toContain(
+      "NON-BRANDED COMPETITOR GAP KEYWORDS",
+    );
+    expect(prepass?.candidateBlock).toContain("expense management software");
+    expect(prepass?.candidateBlock).toContain("corporate cards");
+    expect(prepass?.candidateBlock).toContain(
+      "https://www.spyfu.com/keyword/overview/us?query=expense%20management%20software",
+    );
+  });
+
+  it("lands discovered non-branded rows even when the branded keyword_volume call is empty", async () => {
+    vi.useFakeTimers();
+    const prepassPromise = buildBrandedKeywordPrepass({
+      deps,
+      input,
+      researchInput: researchInputWithCompetitorSeeds,
+      researchTools: {
+        keyword_volume: {
+          execute: async (): Promise<unknown> => ({
+            type: "gap",
+            message: "SpyFu keyword volume rate-limited",
+          }),
+        },
+        keyword_discovery: {
+          execute: async (): Promise<unknown> => discoveryRowsOutput(),
+        },
+      },
+    });
+    await vi.advanceTimersByTimeAsync(brandedKeywordPrepassRetryDelayMs);
+    const prepass = await prepassPromise;
+
+    // Branded volume came back empty (after the retry), but discovery surfaced
+    // real non-branded demand — the block must NOT collapse to the pure gap.
+    expect(prepass?.candidateBlock).not.toContain(
+      "State the branded-volume and non-branded-demand gap honestly",
+    );
+    expect(prepass?.candidateBlock).toContain(
+      "NON-BRANDED COMPETITOR GAP KEYWORDS",
+    );
+    expect(prepass?.candidateBlock).toContain("expense management software");
+    expect(keywordVolumeKeywords(prepass?.steps ?? [])).toEqual([
+      "expense management software",
+      "corporate cards",
+    ]);
+  });
+
+  it("keeps the honest gap when no competitor seed domains are available", async () => {
+    let discoveryCalled = false;
+    const prepass = await buildBrandedKeywordPrepass({
+      deps,
+      input,
+      // No competitorSeeds → keyword_discovery has no domains to compare against.
+      researchInput: {
+        ...saaslaunchResearchInput,
+        company: {
+          ...saaslaunchResearchInput.company,
+          websiteUrl: "https://airtable.com",
+        },
+      },
+      researchTools: {
+        keyword_volume: {
+          execute: async (): Promise<unknown> => brandedRowsVolumeOutput(),
+        },
+        keyword_discovery: {
+          execute: async (): Promise<unknown> => {
+            discoveryCalled = true;
+            return discoveryRowsOutput();
+          },
+        },
+      },
+    });
+
+    // Discovery is NOT invoked with zero usable competitor domains — no
+    // self-comparison, no wasted paid lookup. The branded rows still ship.
+    expect(discoveryCalled).toBe(false);
+    expect(prepass?.candidateBlock).not.toContain(
+      "NON-BRANDED COMPETITOR GAP KEYWORDS",
+    );
+    expect(prepass?.candidateBlock).toContain("airtable");
+  });
 });

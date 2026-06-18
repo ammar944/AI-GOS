@@ -4,8 +4,28 @@ import { describe, it, expect } from 'vitest';
 
 import type { DemandIntentArtifact } from '@/types/positioning-artifact';
 
-import { DemandIntentRenderer } from '../demand-intent';
+import {
+  DemandIntentRenderer,
+  isDemandIntentHonestlyUnavailable,
+} from '../demand-intent';
 import { demandIntentArtifact } from './fixtures';
+
+function buildHonestlyUnavailableDemandIntent(): DemandIntentArtifact {
+  const artifact: DemandIntentArtifact = structuredClone(demandIntentArtifact);
+  artifact.confidence = 0.1;
+  artifact.keywordDemand.keywords = [];
+  artifact.keywordDemand.blockGap = {
+    summary: 'evidence gap: section exceeded its time budget — rerun to retry',
+    foundCount: 0,
+    requiredCount: 3,
+    sourcingPlan: ['Rerun this section to retry — it exceeded its time budget'],
+  };
+  artifact.questionMining.questions = [];
+  artifact.contentGaps.gaps = [];
+  artifact.intentSignals.items = [];
+  artifact.venueMap.venues = [];
+  return artifact;
+}
 
 describe('DemandIntentRenderer', () => {
   it('renders the editorial template and five narrative blocks', () => {
@@ -112,5 +132,51 @@ describe('DemandIntentRenderer', () => {
     expect(screen.queryAllByTestId('gap-item')).toHaveLength(0);
     expect(screen.queryAllByTestId('intent-item')).toHaveLength(0);
     expect(screen.queryAllByTestId('venue-item')).toHaveLength(0);
+  });
+
+  it('detects a wholly-empty artifact as honestly unavailable', () => {
+    expect(isDemandIntentHonestlyUnavailable(demandIntentArtifact)).toBe(false);
+    expect(
+      isDemandIntentHonestlyUnavailable(buildHonestlyUnavailableDemandIntent()),
+    ).toBe(true);
+  });
+
+  it('renders ONE compact honest gap note, not five carpet-bombed panels, when wholly unavailable', () => {
+    render(
+      <DemandIntentRenderer
+        artifact={buildHonestlyUnavailableDemandIntent()}
+      />,
+    );
+
+    expect(screen.getByTestId('demand-honestly-unavailable')).toBeInTheDocument();
+    // Exactly one quiet trust note — no subsection walls.
+    expect(screen.getAllByTestId('gap-note')).toHaveLength(1);
+    expect(screen.queryAllByTestId('subsection')).toHaveLength(0);
+    expect(screen.queryAllByTestId('keyword-item')).toHaveLength(0);
+    expect(screen.queryAllByTestId('venue-item')).toHaveLength(0);
+    // Honest framing, never the raw pipeline placeholder string.
+    expect(
+      screen.getByText(/Not enough public evidence was found/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/exceeded its time budget — rerun to retry/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the full body for a PARTIAL shortfall (one block populated)', () => {
+    const artifact = buildHonestlyUnavailableDemandIntent();
+    // Restore one block — this is a partial shortfall, not wholly unavailable.
+    artifact.keywordDemand.keywords =
+      structuredClone(demandIntentArtifact).keywordDemand.keywords;
+
+    expect(isDemandIntentHonestlyUnavailable(artifact)).toBe(false);
+
+    render(<DemandIntentRenderer artifact={artifact} />);
+
+    expect(
+      screen.queryByTestId('demand-honestly-unavailable'),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('subsection')).toHaveLength(5);
+    expect(screen.getAllByTestId('keyword-item').length).toBeGreaterThanOrEqual(3);
   });
 });

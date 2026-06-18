@@ -1,4 +1,7 @@
-import type { PaidMediaPlanArtifact } from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
+import type {
+  PaidMediaEvidencePack,
+  PaidMediaPlanArtifact,
+} from '@/lib/lab-engine/artifacts/schemas/paid-media-plan';
 import { cn } from '@/lib/utils';
 import { isRecord, type PositioningTypedArtifact } from '@/types/positioning-artifact';
 import {
@@ -363,6 +366,23 @@ function projectionSteps(row: ProjectedResultRow): FunnelMathStep[] {
   ];
 }
 
+// A synthesized row whose evidencePack.status === 'gap' had no row-level anchor
+// match (cited at section level only). Render it visibly distinct from a
+// grounded row so an ungrounded row never reads as evidence-backed. Read
+// defensively: evidencePack is optional and the enum is only 'grounded' | 'gap'.
+function evidenceGapCell(row: {
+  evidencePack?: PaidMediaEvidencePack;
+}): React.ReactNode {
+  if (row.evidencePack?.status !== 'gap') return null;
+  return (
+    <StatusPill tone="flagged">
+      {row.evidencePack.note
+        ? `Unverified — ${scrubReaderText(row.evidencePack.note)}`
+        : 'Unverified — section-level citation only'}
+    </StatusPill>
+  );
+}
+
 export function PaidMediaPlanRenderer({
   artifact,
   className,
@@ -384,6 +404,7 @@ export function PaidMediaPlanRenderer({
     { key: 'angleType', header: 'Type' },
     { key: 'description', header: 'Description', wrap: 'clamp', clampLines: 3 },
     { key: 'grounding', header: 'Grounding', wrap: 'clamp', clampLines: 3 },
+    { key: 'evidencePack', header: 'Evidence', render: evidenceGapCell },
   ];
   const funnelColumns: ReadonlyArray<DataTableColumn<FunnelPath>> = [
     { key: 'rank', header: 'Rank', className: 'font-medium text-foreground' },
@@ -407,6 +428,7 @@ export function PaidMediaPlanRenderer({
     { key: 'adPlatforms', header: 'Platforms', wrap: 'clamp', clampLines: 2 },
     { key: 'positioning', header: 'Positioning', wrap: 'clamp', clampLines: 3 },
     { key: 'offer', header: 'Offer', wrap: 'clamp', clampLines: 2 },
+    { key: 'evidencePack', header: 'Evidence', render: evidenceGapCell },
   ];
   const reviewColumns: ReadonlyArray<DataTableColumn<CompetitorReview>> = [
     { key: 'complaint', header: 'Complaint', wrap: 'clamp', clampLines: 3 },
@@ -416,6 +438,7 @@ export function PaidMediaPlanRenderer({
       header: 'Source',
       render: (row) => <MonoBadge>{sectionLabel(row.sourceSection)}</MonoBadge>,
     },
+    { key: 'evidencePack', header: 'Evidence', render: evidenceGapCell },
   ];
   const channelColumns: ReadonlyArray<DataTableColumn<ChannelSuggestion>> = [
     { key: 'channel', header: 'Channel', className: 'font-medium text-foreground' },
@@ -432,6 +455,7 @@ export function PaidMediaPlanRenderer({
       header: 'Source',
       render: (row) => <MonoBadge>{sectionLabel(row.sourceSection)}</MonoBadge>,
     },
+    { key: 'evidencePack', header: 'Evidence', render: evidenceGapCell },
   ];
   const kpiColumns: ReadonlyArray<DataTableColumn<Kpi>> = [
     { key: 'metric', header: 'Metric', className: 'font-medium text-foreground' },

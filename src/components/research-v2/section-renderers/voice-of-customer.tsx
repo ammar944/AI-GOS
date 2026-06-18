@@ -62,6 +62,22 @@ const DECISION_ROLE_LABEL: Record<string, string> = {
   blocker: 'Blocker',
 };
 
+// An honest-unavailable VoC artifact (deadline/acquisition-exhaustion commit):
+// every evidence block committed empty. We detect it deterministically from the
+// five block arrays so the reader sees ONE quiet trust note, not five
+// carpet-bombed 'rerun to retry' gap panels dressed as a full VoC read.
+export function isVoiceOfCustomerHonestlyUnavailable(
+  artifact: VoiceOfCustomerArtifact,
+): boolean {
+  return (
+    artifact.painLanguage.quotes.length === 0 &&
+    artifact.successLanguage.quotes.length === 0 &&
+    artifact.objections.items.length === 0 &&
+    artifact.switchingStories.stories.length === 0 &&
+    artifact.decisionCriteria.criteria.length === 0
+  );
+}
+
 function vocKeyFindings(artifact: VoiceOfCustomerArtifact): readonly KeyFinding[] {
   const painQuote = artifact.painLanguage.quotes[0];
   const objection = artifact.objections.items[0];
@@ -189,6 +205,28 @@ export function VoiceOfCustomerRenderer({
     decisionCriteria,
     successLanguage,
   } = artifact;
+
+  if (isVoiceOfCustomerHonestlyUnavailable(artifact)) {
+    const sourcingPlan =
+      painLanguage.blockGap?.sourcingPlan?.join('; ') ??
+      'Rerun this section — it did not gather enough public evidence in its time budget.';
+
+    return (
+      <div
+        className={cn('flex flex-col gap-4', className)}
+        data-testid="voc-honestly-unavailable"
+      >
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          Voice of customer
+        </div>
+        <GapNote subject="this voice-of-customer read" howToClose={sourcingPlan}>
+          Not enough public evidence was found to read the voice of the customer
+          in this run. Nothing here was fabricated — the section is reporting an
+          honest gap.
+        </GapNote>
+      </div>
+    );
+  }
 
   const unusablePainQuotes = painLanguage.quotes.filter((quote) =>
     looksLikeNavMenuGarbage(quote.verbatimText),

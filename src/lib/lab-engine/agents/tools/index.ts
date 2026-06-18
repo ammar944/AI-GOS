@@ -3,6 +3,7 @@ import { firecrawlAgentTool } from "./firecrawl";
 import { firecrawlSearchAgentTool } from "./firecrawl-search";
 import { googleAdsAgentTool } from "./google-ads";
 import { keywordAdProbeAgentTool } from "./keyword-ad-probe";
+import { keywordDiscoveryAgentTool } from "./keyword-discovery";
 import { keywordTrendsAgentTool } from "./keyword-trends";
 import { keywordVolumeAgentTool } from "./keyword-volume";
 import { linkedInAdsAgentTool } from "./linkedin-ads";
@@ -22,6 +23,7 @@ export const TOOL_CATALOG = {
   keyword_ad_probe: keywordAdProbeAgentTool,
   keyword_trends: keywordTrendsAgentTool,
   keyword_volume: keywordVolumeAgentTool,
+  keyword_discovery: keywordDiscoveryAgentTool,
   perplexity_research: perplexityResearchAgentTool,
   reviews: reviewsAgentTool,
 } as const;

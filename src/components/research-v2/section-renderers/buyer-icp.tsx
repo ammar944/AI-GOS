@@ -74,6 +74,22 @@ const BUCKET_LABEL: Record<string, string> = {
   event: 'Event',
 };
 
+// An honest-unavailable buyer-ICP artifact (deadline/acquisition-exhaustion
+// commit): every evidence block committed empty. We detect it deterministically
+// from the five block arrays so the reader sees ONE quiet trust note, not five
+// carpet-bombed 'rerun to retry' gap panels dressed as a full ICP read.
+export function isBuyerICPHonestlyUnavailable(
+  artifact: BuyerICPArtifact,
+): boolean {
+  return (
+    artifact.icpExistenceCheck.firmographicCuts.length === 0 &&
+    artifact.personaReality.personas.length === 0 &&
+    artifact.awarenessDistribution.levels.length === 0 &&
+    artifact.buyingContext.triggers.length === 0 &&
+    artifact.clusters.venues.length === 0
+  );
+}
+
 function parseShare(value: string): number {
   const parsed = Number.parseFloat(value.replace('%', ''));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -230,6 +246,28 @@ export function BuyerICPRenderer({
     buyingContext,
     clusters,
   } = artifact;
+  if (isBuyerICPHonestlyUnavailable(artifact)) {
+    const sourcingPlan =
+      icpExistenceCheck.blockGap?.sourcingPlan?.join('; ') ??
+      'Rerun this section — it did not gather enough public evidence in its time budget.';
+
+    return (
+      <div
+        className={cn('flex flex-col gap-4', className)}
+        data-testid="buyer-icp-honestly-unavailable"
+      >
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          Buyer &amp; ICP
+        </div>
+        <GapNote subject="this buyer & ICP read" howToClose={sourcingPlan}>
+          Not enough public evidence was found to validate the buyer and ICP in
+          this run. Nothing here was fabricated — the section is reporting an
+          honest gap.
+        </GapNote>
+      </div>
+    );
+  }
+
   const renderableVenues = clusters.venues.filter(isRenderableVenue);
 
   const cutColumns: ReadonlyArray<DataTableColumn<FirmographicCut>> = [

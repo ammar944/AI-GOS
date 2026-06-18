@@ -2,8 +2,30 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
-import { BuyerICPRenderer } from '../buyer-icp';
+import type { BuyerICPArtifact } from '@/types/positioning-artifact';
+
+import {
+  BuyerICPRenderer,
+  isBuyerICPHonestlyUnavailable,
+} from '../buyer-icp';
 import { buyerIcpArtifact } from './fixtures';
+
+function buildHonestlyUnavailableBuyerIcp(): BuyerICPArtifact {
+  const artifact: BuyerICPArtifact = structuredClone(buyerIcpArtifact);
+  artifact.confidence = 0.1;
+  artifact.icpExistenceCheck.firmographicCuts = [];
+  artifact.icpExistenceCheck.blockGap = {
+    summary: 'evidence gap: section exceeded its time budget — rerun to retry',
+    foundCount: 0,
+    requiredCount: 3,
+    sourcingPlan: ['Rerun this section to retry — it exceeded its time budget'],
+  };
+  artifact.personaReality.personas = [];
+  artifact.awarenessDistribution.levels = [];
+  artifact.buyingContext.triggers = [];
+  artifact.clusters.venues = [];
+  return artifact;
+}
 
 describe('BuyerICPRenderer', () => {
   it('renders verdict, key findings, and ICP thesis', () => {
@@ -63,5 +85,51 @@ describe('BuyerICPRenderer', () => {
     render(<BuyerICPRenderer artifact={artifact} />);
 
     expect(screen.queryByText('Placeholder Venue')).not.toBeInTheDocument();
+  });
+
+  it('detects a wholly-empty artifact as honestly unavailable', () => {
+    expect(isBuyerICPHonestlyUnavailable(buyerIcpArtifact)).toBe(false);
+    expect(
+      isBuyerICPHonestlyUnavailable(buildHonestlyUnavailableBuyerIcp()),
+    ).toBe(true);
+  });
+
+  it('renders ONE compact honest gap note, not five carpet-bombed panels, when wholly unavailable', () => {
+    render(
+      <BuyerICPRenderer artifact={buildHonestlyUnavailableBuyerIcp()} />,
+    );
+
+    expect(
+      screen.getByTestId('buyer-icp-honestly-unavailable'),
+    ).toBeInTheDocument();
+    // Exactly one quiet trust note — no subsection walls.
+    expect(screen.getAllByTestId('gap-note')).toHaveLength(1);
+    expect(screen.queryAllByTestId('subsection')).toHaveLength(0);
+    expect(screen.queryAllByTestId('persona-card')).toHaveLength(0);
+    expect(screen.queryAllByTestId('firmographic-item')).toHaveLength(0);
+    // Honest framing, never the raw pipeline placeholder string.
+    expect(
+      screen.getByText(/Not enough public evidence was found/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/exceeded its time budget — rerun to retry/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the full body for a PARTIAL shortfall (one block populated)', () => {
+    const artifact = buildHonestlyUnavailableBuyerIcp();
+    // Restore one block — this is a partial shortfall, not wholly unavailable.
+    artifact.personaReality.personas =
+      structuredClone(buyerIcpArtifact).personaReality.personas;
+
+    expect(isBuyerICPHonestlyUnavailable(artifact)).toBe(false);
+
+    render(<BuyerICPRenderer artifact={artifact} />);
+
+    expect(
+      screen.queryByTestId('buyer-icp-honestly-unavailable'),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('subsection')).toHaveLength(5);
+    expect(screen.getAllByTestId('persona-card').length).toBeGreaterThanOrEqual(1);
   });
 });
