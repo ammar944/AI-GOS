@@ -1,11 +1,12 @@
-# 2026-06-19 — Phase 4 Rollout Verdict (BuyerICP pilot closed; Step 2 re-scoped from evidence)
+# 2026-06-19 — Phase 4 Rollout Verdict (BuyerICP pilot closed; unblock committed; Step 2 re-scoped from evidence)
 
-Branch `refactor/architecture-deepening`. Commits `29b46bb8` (pilot) + `00f95f7d` (foundation).
+Branch `refactor/architecture-deepening`. Commits `29b46bb8` (pilot) + `00f95f7d` (foundation) + `9001fb87` (unblock — Market/Offer/Demand commit at prod defaults).
 
 ## TL;DR
 
-- **Step 1 (BuyerICP pilot): DONE, strict-harness proven, Codex-reviewed, committed.** The section that shipped 0 personas / confidence 0 for weeks now commits 4 grounded personas at prod-default verifier settings with 0 `.invalid` URLs and reconciled, honestly-tiered coverage.
-- **Step 2 (other 6 sections): re-scoped.** The harness proved the handoff's "mechanically flip every section to downgrade mode" assumption is wrong. Only 3 sections fail to commit (Market, Demand, Offer), and their fix is **not** the BuyerICP gate flag — it is honest gap/inference authoring with the strong gate intact. Details below. NOT yet executed.
+- **Step 1 (BuyerICP pilot): DONE, strict-harness proven, Codex-reviewed, committed (`29b46bb8`).** The section that shipped 0 personas / confidence 0 for weeks now commits 4 grounded personas at prod-default verifier settings with 0 `.invalid` URLs and reconciled, honestly-tiered coverage.
+- **Step 1b (Market/Offer/Demand unblock): DONE, strict-harness proven, committed (`9001fb87`).** All 7 sections now commit honest, accurately-tiered output at prod-default verifier settings. Root cause was unsourced numerics gate-failing; fix = verifier credits brief-sourced operator numbers + per-section SKILL gap-prose Iron Law + gate diagnostic. See the unblock handoff `docs/handoffs/2026-06-20-phase4-enrichment-handoff.md` §1 for the change set and proof run IDs.
+- **Step 2 (full §4.7 enrichment, all 6 sections): NOT yet executed.** Additive tier/coverage fields + shared reconciler + renderer distinctions. Re-scoped below — do it the proven BuyerICP way (optional additive fields + a reconciler), NOT the heavy `coverageBlock()` rewrite from the plan.
 - **Phase 5 (net-new acquisition): out of scope, untouched.**
 
 ## Step 1 — what shipped and the proof
@@ -69,5 +70,6 @@ The `isVerifierDowngradeSection` foundation (commit `00f95f7d`) is the single sw
 
 ## State
 
-- `main`-mergeable increment on the branch: 2 commits (`29b46bb8`, `00f95f7d`). Tree otherwise carries the pre-existing in-flight lanes + scratch (`.agent-native/`, `CLAUDE-FABLE-5.md`, scratch HTML) — untouched, not staged.
-- BuyerICP pilot is the proven template; Step 2's 6-section conversion (3 to unblock honestly + 3 to enrich + renderer) is the remaining work, re-scoped above. Not started.
+- `main`-mergeable increment on the branch: 3 commits (`29b46bb8` pilot, `00f95f7d` foundation, `9001fb87` unblock). All 7 sections commit clean at prod defaults.
+- Tree otherwise carries the pre-existing in-flight lanes + scratch (`.agent-native/`, `CLAUDE-FABLE-5.md`, scratch HTML) — untouched, not staged.
+- BuyerICP pilot + the unblock are the proven template; Step 2's 6-section enrichment (optional tier/coverage fields + shared `reconcileBlockCoverage` + renderer tier/gap UI) is the remaining work, re-scoped above. Not started.
