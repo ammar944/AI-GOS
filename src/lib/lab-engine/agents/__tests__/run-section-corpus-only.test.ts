@@ -1793,7 +1793,10 @@ describe('runSection corpus-only mode', (): void => {
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan: createPaidMediaVerifierMock(),
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         now: () => new Date('2026-05-25T12:00:00.000Z'),
       },
     );
@@ -1958,7 +1961,10 @@ describe('runSection corpus-only mode', (): void => {
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan: createPaidMediaVerifierMock(),
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         now: () => new Date('2026-06-05T12:00:00.000Z'),
       },
     );
@@ -2021,7 +2027,10 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan: createPaidMediaVerifierMock(),
@@ -2157,7 +2166,10 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan,
@@ -2252,7 +2264,10 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan,
@@ -2302,7 +2317,10 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan,
@@ -2361,7 +2379,10 @@ describe('runSection corpus-only mode', (): void => {
           store,
           loadSkill: async () => 'Use the injected corpus only.',
           allowedTools: [],
-          env: { LAB_SECTION_STREAMING: 'false' },
+          env: {
+            LAB_SECTION_STREAMING: 'false',
+            LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+          },
           runEvidencePass,
           callStructured,
           verifyPaidMediaPlan,
@@ -2455,7 +2476,10 @@ describe('runSection corpus-only mode', (): void => {
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan: createPaidMediaVerifierMock(),
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         now: () => new Date('2026-05-27T04:22:16.000Z'),
       },
     );

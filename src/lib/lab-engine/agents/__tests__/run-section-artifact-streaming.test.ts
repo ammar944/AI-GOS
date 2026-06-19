@@ -278,6 +278,7 @@ describe('runSection artifact streaming path', (): void => {
   beforeEach((): void => {
     vi.stubGlobal('fetch', sourceLivenessUnavailableFetch);
     vi.stubEnv('LAB_THINKER_MODE', 'off');
+    vi.stubEnv('LAB_VERIFIER_MAX_UNSUPPORTED', '999');
   });
 
   afterEach((): void => {
@@ -426,7 +427,7 @@ describe('runSection artifact streaming path', (): void => {
         store,
         loadSkill: async () => 'Use research-first thinker output.',
         allowedTools: [],
-        env: { LAB_THINKER_MODE: 'pro' },
+        env: { LAB_THINKER_MODE: 'pro', LAB_VERIFIER_MAX_UNSUPPORTED: '999' },
         evidencePoolStore: pool.store,
         parentAuditRunId: 'parent-1',
         runThinkerPass,
