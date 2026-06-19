@@ -782,6 +782,21 @@ export function getRuntimeSectionDefinition(
   return SECTION_REGISTRY[sectionId] as unknown as RuntimeSectionDefinition;
 }
 
+// Single source of truth for the verifier downgrade-not-delete posture (§4.6):
+// a section runs the source-liveness verifier in downgrade mode (kept-and-
+// demoted uncontained rows) AND its run-level evidence gate counts only
+// affirmatively-refuted load-bearing claims. Driven by the registry flag so
+// enabling a section is one declaration, not scattered sectionId checks.
+export function isVerifierDowngradeSection(sectionId: SectionId): boolean {
+  if (!isSupportedSectionId(sectionId)) {
+    return false;
+  }
+  const definition = SECTION_REGISTRY[sectionId] as unknown as {
+    verifierDowngradeMode?: boolean;
+  };
+  return definition.verifierDowngradeMode === true;
+}
+
 function getNow(deps: RunSectionDeps): Date {
   return (deps.now ?? (() => new Date()))();
 }
@@ -5084,7 +5099,7 @@ async function annotateEvidenceSupportReview({
   // an uncontained/unreachable persona row is kept-and-demoted (real URL
   // preserved, tier hard->directional, verification meta written) instead of
   // dropped. The other 6 sections keep the existing delete behaviour.
-  const livenessDowngradeMode = sectionId === "positioningBuyerICP";
+  const livenessDowngradeMode = isVerifierDowngradeSection(sectionId);
   const sourceLiveness = await applySourceLivenessGate({
     body: placeholderUrlStrip.body,
     downgradeMode: livenessDowngradeMode,
