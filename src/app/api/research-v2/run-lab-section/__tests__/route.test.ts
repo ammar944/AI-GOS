@@ -557,6 +557,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
     routeMocks.claimSectionRun.mockResolvedValue(claimResult('claimed'));
     routeMocks.corpusToResearchInput.mockReturnValue(validResearchInput());
     routeMocks.store.createRun.mockResolvedValue({});
+    // scheduleLabSectionJob reads the run back via store.readRun to build the
+    // PreparedSectionContext; the real createSupabaseRunStore returns a record
+    // carrying the researchInput, so mirror that here (record.input is consumed).
+    routeMocks.store.readRun.mockResolvedValue({ input: validResearchInput() });
     routeMocks.runLabSectionJob.mockResolvedValue(undefined);
   });
 
@@ -629,6 +633,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
       evidencePoolStore: expect.objectContaining({
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
+      }),
+      preparedContext: expect.objectContaining({
+        sectionId: 'positioningBuyerICP',
       }),
     });
   });
@@ -749,6 +756,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
       evidencePoolStore: expect.objectContaining({
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
+      }),
+      preparedContext: expect.objectContaining({
+        sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       }),
     });
   });
@@ -1288,6 +1298,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
       }),
+      preparedContext: expect.objectContaining({
+        sectionId: PAID_MEDIA_PLAN_SECTION_ID,
+      }),
     });
   });
 
@@ -1347,6 +1360,9 @@ describe('POST /api/research-v2/run-lab-section', () => {
       evidencePoolStore: expect.objectContaining({
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
+      }),
+      preparedContext: expect.objectContaining({
+        sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       }),
     });
   });
