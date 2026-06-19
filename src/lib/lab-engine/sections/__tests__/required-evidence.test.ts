@@ -91,6 +91,65 @@ describe("checkRequiredEvidenceClasses", (): void => {
     });
   });
 
+  it("rejects competitor rows that only carry names without a domain or source URL", (): void => {
+    const body = structuredClone(competitorLandscapeFixtureArtifact.body);
+    body.competitorSet.competitors = body.competitorSet.competitors.map(
+      (competitor) => ({
+        ...competitor,
+        sourceUrl: "",
+        url: "",
+      }),
+    );
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body,
+        requiredEvidenceClasses: ["competitor"],
+        sectionId: "positioningCompetitorLandscape",
+      }),
+    ).toBe("competitor");
+  });
+
+  it("accepts a competitor blockGap only when it carries found and required counts", (): void => {
+    const baseBody = structuredClone(competitorLandscapeFixtureArtifact.body);
+    baseBody.competitorSet.competitors = [];
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body: {
+          ...baseBody,
+          competitorSet: {
+            ...baseBody.competitorSet,
+            blockGap: {
+              summary: "Competitor discovery returned no domain-resolvable rows.",
+            },
+          },
+        },
+        requiredEvidenceClasses: ["competitor"],
+        sectionId: "positioningCompetitorLandscape",
+      }),
+    ).toBe("competitor");
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body: {
+          ...baseBody,
+          competitorSet: {
+            ...baseBody.competitorSet,
+            blockGap: {
+              foundCount: 0,
+              requiredCount: 3,
+              sourcingPlan: ["Run competitor discovery against SERP results."],
+              summary: "Competitor discovery returned no domain-resolvable rows.",
+            },
+          },
+        },
+        requiredEvidenceClasses: ["competitor"],
+        sectionId: "positioningCompetitorLandscape",
+      }),
+    ).toBeNull();
+  });
+
   it("rejects BuyerICP persona rows when every persona name is only a role or segment label", (): void => {
     const body = structuredClone(buyerICPFixtureArtifact.body);
     body.personaReality.personas = body.personaReality.personas.map((persona) => ({
@@ -132,6 +191,29 @@ describe("checkRequiredEvidenceClasses", (): void => {
         sectionId: "positioningBuyerICP",
       }),
     ).toBeNull();
+  });
+
+  it("rejects BuyerICP named-persona gaps without numeric found and required counts", (): void => {
+    const body = {
+      ...buyerICPFixtureArtifact.body,
+      personaReality: {
+        ...buyerICPFixtureArtifact.body.personaReality,
+        personas: [],
+      },
+      evidenceGap: true,
+      evidenceGapReport: {
+        reason: "insufficient_named_buyer_personas",
+        summary: "No named buyer personas surfaced.",
+      },
+    };
+
+    expect(
+      checkRequiredEvidenceClasses({
+        body,
+        requiredEvidenceClasses: ["icp_persona"],
+        sectionId: "positioningBuyerICP",
+      }),
+    ).toBe("icp_persona");
   });
 
   it("rejects generic BuyerICP evidence filler when there is no explicit nested gap", (): void => {
@@ -458,6 +540,24 @@ describe("checkRequiredEvidenceClasses", (): void => {
       ).toBeNull();
     });
 
+    it("rejects a presence-only per-block gap without found and required counts", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyVocBody,
+            objections: {
+              ...emptyVocBody.objections,
+              blockGap: {
+                summary: "No independent objection language surfaced.",
+              },
+            },
+          },
+          requiredEvidenceClasses: ["voc_quote_or_gap"],
+          sectionId: "positioningVoiceOfCustomer",
+        }),
+      ).toBe("voc_quote_or_gap");
+    });
+
     it("accepts a verbatim pain quote without any gap", (): void => {
       expect(
         checkRequiredEvidenceClasses({
@@ -470,6 +570,61 @@ describe("checkRequiredEvidenceClasses", (): void => {
                   verbatimText: "the renewal doubled overnight",
                   source: "g2",
                   sourceUrl: "https://g2.com/x",
+                  painTheme: "pricing",
+                  painIntensity: "high",
+                },
+              ],
+            },
+          },
+          requiredEvidenceClasses: ["voc_quote_or_gap"],
+          sectionId: "positioningVoiceOfCustomer",
+        }),
+      ).toBeNull();
+    });
+
+    it("rejects quote text without a real HTTP source URL", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyVocBody,
+            painLanguage: {
+              prose: "pain",
+              quotes: [
+                {
+                  verbatimText: "the renewal doubled overnight",
+                  source: "g2",
+                  sourceUrl: "",
+                  painTheme: "pricing",
+                  painIntensity: "high",
+                },
+              ],
+            },
+          },
+          requiredEvidenceClasses: ["voc_quote_or_gap"],
+          sectionId: "positioningVoiceOfCustomer",
+        }),
+      ).toBe("voc_quote_or_gap");
+    });
+
+    it("deduplicates identical VoC text and source pairs before accepting source-backed quote evidence", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyVocBody,
+            painLanguage: {
+              prose: "pain",
+              quotes: [
+                {
+                  verbatimText: "the renewal doubled overnight",
+                  source: "g2",
+                  sourceUrl: "https://g2.com/products/acme/reviews/1",
+                  painTheme: "pricing",
+                  painIntensity: "high",
+                },
+                {
+                  verbatimText: "The renewal doubled overnight",
+                  source: "g2",
+                  sourceUrl: "https://g2.com/products/acme/reviews/1",
                   painTheme: "pricing",
                   painIntensity: "high",
                 },
@@ -500,6 +655,48 @@ describe("checkRequiredEvidenceClasses", (): void => {
       expect(
         checkRequiredEvidenceClasses({
           body: emptyDemandBody,
+          requiredEvidenceClasses: ["demand_signal_or_gap"],
+          sectionId: "positioningDemandIntent",
+        }),
+      ).toBe("demand_signal_or_gap");
+    });
+
+    it("rejects keyword text without a real HTTP source URL", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyDemandBody,
+            keywordDemand: {
+              ...emptyDemandBody.keywordDemand,
+              keywords: [
+                {
+                  cpc: "data gap",
+                  keyword: "sales intelligence software",
+                  monthlyVolume: "data gap",
+                  sourceTitle: "Keyword source",
+                  sourceUrl: "",
+                },
+              ],
+            },
+          },
+          requiredEvidenceClasses: ["demand_signal_or_gap"],
+          sectionId: "positioningDemandIntent",
+        }),
+      ).toBe("demand_signal_or_gap");
+    });
+
+    it("rejects presence-only demand blockGaps without numeric accounting", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyDemandBody,
+            questionMining: {
+              ...emptyDemandBody.questionMining,
+              blockGap: {
+                summary: "No verbatim buyer questions surfaced.",
+              },
+            },
+          },
           requiredEvidenceClasses: ["demand_signal_or_gap"],
           sectionId: "positioningDemandIntent",
         }),
@@ -556,6 +753,45 @@ describe("checkRequiredEvidenceClasses", (): void => {
       expect(
         checkRequiredEvidenceClasses({
           body: emptyOfferBody,
+          requiredEvidenceClasses: ["offer_axis"],
+          sectionId: "positioningOfferDiagnostic",
+        }),
+      ).toBe("offer_axis");
+    });
+
+    it("rejects offer rows without real HTTP source URLs", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyOfferBody,
+            offerMarketFit: {
+              ...emptyOfferBody.offerMarketFit,
+              proofPoints: [
+                {
+                  metric: "activation lift",
+                  sourceUrl: "",
+                },
+              ],
+            },
+          },
+          requiredEvidenceClasses: ["offer_axis"],
+          sectionId: "positioningOfferDiagnostic",
+        }),
+      ).toBe("offer_axis");
+    });
+
+    it("rejects presence-only offer blockGaps without numeric accounting", (): void => {
+      expect(
+        checkRequiredEvidenceClasses({
+          body: {
+            ...emptyOfferBody,
+            offerMarketFit: {
+              ...emptyOfferBody.offerMarketFit,
+              blockGap: {
+                summary: "No proof points could be sourced.",
+              },
+            },
+          },
           requiredEvidenceClasses: ["offer_axis"],
           sectionId: "positioningOfferDiagnostic",
         }),

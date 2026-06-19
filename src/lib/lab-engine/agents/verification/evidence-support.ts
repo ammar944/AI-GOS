@@ -47,12 +47,9 @@ export interface DeriveClaimSupportCountsForTrustInput {
 
 const defaultLoadBearingKinds = ["numeric", "sourceAttribution", "url"] as const;
 const verifierMaxUnsupportedEnvKey = "LAB_VERIFIER_MAX_UNSUPPORTED";
-// Default OPEN (Infinity): the evidence gate is advisory unless an operator sets
-// LAB_VERIFIER_MAX_UNSUPPORTED to a finite integer. A finite default would hard-fail
-// most sections after repairs (the verifier is substring-match, ~65% verified on real
-// runs) and revive the per-section repair storm. Low-confidence sections are surfaced
-// for review via grounded confidence at commit time, not by deleting the section here.
-const defaultMaxUnsupportedAllowed = Infinity;
+// Default closed: live runs may raise this with LAB_VERIFIER_MAX_UNSUPPORTED,
+// but unset/empty/invalid values must not silently make the gate advisory.
+const defaultMaxUnsupportedAllowed = 0;
 const operatorProvenanceMarkers = ["operator-supplied", "client brief"] as const;
 const trustedUserProvidedNumericFields = new Set([
   "acv",

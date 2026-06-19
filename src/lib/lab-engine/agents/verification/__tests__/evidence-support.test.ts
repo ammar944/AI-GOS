@@ -503,17 +503,17 @@ describe("deriveGroundedConfidence", (): void => {
 });
 
 describe("getMaxUnsupportedAllowed", (): void => {
-  it("returns Infinity when the verifier threshold is unset, empty, or invalid", (): void => {
-    expect(getMaxUnsupportedAllowed({})).toBe(Infinity);
+  it("returns the finite default when the verifier threshold is unset, empty, or invalid", (): void => {
+    expect(getMaxUnsupportedAllowed({})).toBe(0);
     expect(
       getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "" }),
-    ).toBe(Infinity);
+    ).toBe(0);
     expect(
       getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "not-a-number" }),
-    ).toBe(Infinity);
+    ).toBe(0);
     expect(
       getMaxUnsupportedAllowed({ LAB_VERIFIER_MAX_UNSUPPORTED: "-1" }),
-    ).toBe(Infinity);
+    ).toBe(0);
   });
 
   it("returns the configured integer verifier threshold", (): void => {

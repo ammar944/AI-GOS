@@ -57,6 +57,81 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function hasHttpUrl(value: unknown): value is string {
+  return typeof value === "string" && isHttpUrl(value);
+}
+
+function hasHttpSourceUrl(record: Record<string, unknown>): boolean {
+  return hasHttpUrl(record.sourceUrl);
+}
+
+function hasRecordWithTextAndHttpSourceUrl(
+  value: unknown,
+  key: string,
+): boolean {
+  return asRecordArray(value).some(
+    (record) => hasText(record[key]) && hasHttpSourceUrl(record),
+  );
+}
+
+function isDomainLike(value: string): boolean {
+  const candidate = value.trim();
+
+  if (candidate.length === 0 || /\s/.test(candidate)) {
+    return false;
+  }
+
+  const urlValue = /^https?:\/\//i.test(candidate)
+    ? candidate
+    : `https://${candidate}`;
+
+  if (!URL.canParse(urlValue)) {
+    return false;
+  }
+
+  const hostname = new URL(urlValue).hostname.toLowerCase();
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(hostname);
+}
+
+function hasDomainOrHttpUrl(value: unknown): boolean {
+  return typeof value === "string" && (isHttpUrl(value) || isDomainLike(value));
+}
+
+function hasAccountedShortfall({
+  foundCount,
+  requiredCount,
+}: {
+  foundCount: unknown;
+  requiredCount: unknown;
+}): boolean {
+  if (
+    typeof foundCount !== "number" ||
+    typeof requiredCount !== "number" ||
+    !Number.isInteger(foundCount) ||
+    !Number.isInteger(requiredCount)
+  ) {
+    return false;
+  }
+
+  return (
+    foundCount >= 0 &&
+    requiredCount > 0 &&
+    foundCount < requiredCount
+  );
+}
+
+function hasAccountedBlockGap(value: unknown): boolean {
+  const blockGap = asRecord(value);
+
+  return (
+    hasText(blockGap.summary) &&
+    hasAccountedShortfall({
+      foundCount: blockGap.foundCount,
+      requiredCount: blockGap.requiredCount,
+    })
+  );
+}
+
 function hasSubstantiveIcpEvidence(value: unknown): boolean {
   if (!hasText(value)) {
     return false;
@@ -118,7 +193,11 @@ function hasBuyerICPNamedPersonaEvidenceGap(
   const evidenceGapReport = asRecord(body.evidenceGapReport);
   return (
     body.evidenceGap === true &&
-    evidenceGapReport.reason === "insufficient_named_buyer_personas"
+    evidenceGapReport.reason === "insufficient_named_buyer_personas" &&
+    hasAccountedShortfall({
+      foundCount: evidenceGapReport.foundNamedPersonaCount,
+      requiredCount: evidenceGapReport.requiredNamedPersonaCount,
+    })
   );
 }
 
@@ -165,7 +244,16 @@ function hasIcpQuoteOrGap(body: Record<string, unknown>): boolean {
 
 function hasCompetitor(body: Record<string, unknown>): boolean {
   const competitorSet = asRecord(body.competitorSet);
-  return hasRecordWithText(competitorSet.competitors, "name");
+  return (
+    asRecordArray(competitorSet.competitors).some(
+      (competitor) =>
+        hasText(competitor.name) &&
+        (hasDomainOrHttpUrl(competitor.url) ||
+          hasDomainOrHttpUrl(competitor.sourceUrl) ||
+          hasDomainOrHttpUrl(competitor.domain)),
+    ) ||
+    hasAccountedBlockGap(competitorSet.blockGap)
+  );
 }
 
 // A genuine probe-attempt gap is a real provider failure (any sourceError) or a
@@ -243,26 +331,61 @@ function hasAdEvidenceOrGap(
 // signal in its own right — same standing as the section-level evidenceGap.
 function hasVocBlockGap(body: Record<string, unknown>): boolean {
   return [
+    body.painLanguage,
     body.successLanguage,
     body.objections,
     body.switchingStories,
     body.decisionCriteria,
   ].some((block) => {
-    const blockGap = asRecord(asRecord(block).blockGap);
-    return hasText(blockGap.summary);
+    return hasAccountedBlockGap(asRecord(block).blockGap);
   });
 }
 
-function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
+function addUniqueSourceBackedQuote({
+  record,
+  seen,
+  textKey,
+}: {
+  record: Record<string, unknown>;
+  seen: Set<string>;
+  textKey: string;
+}): void {
+  const quoteText = record[textKey];
+  const sourceUrl = record.sourceUrl;
+
+  if (!hasText(quoteText) || !hasHttpUrl(sourceUrl)) {
+    return;
+  }
+
+  seen.add(
+    `${quoteText.trim().toLowerCase()}\n${sourceUrl.trim().toLowerCase()}`,
+  );
+}
+
+function countUniqueSourceBackedVocQuotes(
+  body: Record<string, unknown>,
+): number {
+  const seen = new Set<string>();
   const painLanguage = asRecord(body.painLanguage);
   const successLanguage = asRecord(body.successLanguage);
   const decisionCriteria = asRecord(body.decisionCriteria);
 
+  asRecordArray(painLanguage.quotes).forEach((record) => {
+    addUniqueSourceBackedQuote({ record, seen, textKey: "verbatimText" });
+  });
+  asRecordArray(successLanguage.quotes).forEach((record) => {
+    addUniqueSourceBackedQuote({ record, seen, textKey: "verbatimText" });
+  });
+  asRecordArray(decisionCriteria.criteria).forEach((record) => {
+    addUniqueSourceBackedQuote({ record, seen, textKey: "evidenceQuote" });
+  });
+
+  return seen.size;
+}
+
+function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
   return (
-    body.evidenceGap === true ||
-    hasRecordWithText(painLanguage.quotes, "verbatimText") ||
-    hasRecordWithText(successLanguage.quotes, "verbatimText") ||
-    hasRecordWithText(decisionCriteria.criteria, "evidenceQuote") ||
+    countUniqueSourceBackedVocQuotes(body) > 0 ||
     hasVocBlockGap(body) ||
     hasNestedGap(body)
   );
@@ -270,8 +393,7 @@ function hasVocQuoteOrGap(body: Record<string, unknown>): boolean {
 
 function hasDemandBlockGap(body: Record<string, unknown>): boolean {
   return [body.questionMining, body.intentSignals].some((block) => {
-    const blockGap = asRecord(asRecord(block).blockGap);
-    return hasText(blockGap.summary);
+    return hasAccountedBlockGap(asRecord(block).blockGap);
   });
 }
 
@@ -281,9 +403,9 @@ function hasDemandSignalOrGap(body: Record<string, unknown>): boolean {
   const questionMining = asRecord(body.questionMining);
 
   return (
-    hasRecordWithText(keywordDemand.keywords, "keyword") ||
-    hasRecordWithText(intentSignals.items, "description") ||
-    hasRecordWithText(questionMining.questions, "question") ||
+    hasRecordWithTextAndHttpSourceUrl(keywordDemand.keywords, "keyword") ||
+    hasRecordWithTextAndHttpSourceUrl(intentSignals.items, "description") ||
+    hasRecordWithTextAndHttpSourceUrl(questionMining.questions, "question") ||
     hasDemandBlockGap(body) ||
     hasNestedGap(body)
   );
@@ -292,8 +414,7 @@ function hasDemandSignalOrGap(body: Record<string, unknown>): boolean {
 function hasOfferBlockGap(body: Record<string, unknown>): boolean {
   return [body.offerMarketFit, body.funnelDiagnosis, body.channelTruth].some(
     (block) => {
-      const blockGap = asRecord(asRecord(block).blockGap);
-      return hasText(blockGap.summary);
+      return hasAccountedBlockGap(asRecord(block).blockGap);
     },
   );
 }
@@ -304,9 +425,9 @@ function hasOfferAxis(body: Record<string, unknown>): boolean {
   const channelTruth = asRecord(body.channelTruth);
 
   return (
-    hasRecordWithText(offerMarketFit.proofPoints, "metric") ||
-    hasRecordWithText(funnelDiagnosis.breaks, "stageName") ||
-    hasRecordWithText(channelTruth.channels, "channelName") ||
+    hasRecordWithTextAndHttpSourceUrl(offerMarketFit.proofPoints, "metric") ||
+    hasRecordWithTextAndHttpSourceUrl(funnelDiagnosis.breaks, "stageName") ||
+    hasRecordWithTextAndHttpSourceUrl(channelTruth.channels, "channelName") ||
     hasOfferBlockGap(body) ||
     hasNestedGap(body)
   );
