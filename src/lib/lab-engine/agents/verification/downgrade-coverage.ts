@@ -26,6 +26,13 @@ const evidenceTiers: readonly EvidenceTier[] = [
   "operator_input",
 ];
 
+function isEvidenceTier(value: unknown): value is EvidenceTier {
+  return (
+    typeof value === "string" &&
+    (evidenceTiers as readonly string[]).includes(value)
+  );
+}
+
 function effectivePersonaTier(persona: Record<string, unknown>): EvidenceTier {
   const verification = isRecord(persona.verification)
     ? persona.verification
@@ -35,11 +42,8 @@ function effectivePersonaTier(persona: Record<string, unknown>): EvidenceTier {
     // tier the model authored (often null).
     return "directional_signal";
   }
-  if (
-    typeof persona.evidenceTier === "string" &&
-    (evidenceTiers as readonly string[]).includes(persona.evidenceTier)
-  ) {
-    return persona.evidenceTier as EvidenceTier;
+  if (isEvidenceTier(persona.evidenceTier)) {
+    return persona.evidenceTier;
   }
   // A grounded persona that passed liveness is hard evidence.
   return "hard_evidence";
@@ -86,6 +90,98 @@ function blockGapToAcquisitionGap(
   };
 }
 
+// A row's effective tier: downgraded → directional_signal; else the model's
+// authored tier if valid; else the block's default tier (the §4.7 dominant tier
+// for that block — passed in by the caller because only the section knows it).
+function effectiveRowTier(
+  row: Record<string, unknown>,
+  defaultTier: EvidenceTier,
+): EvidenceTier {
+  const verification = isRecord(row.verification) ? row.verification : null;
+  if (verification?.outcome === "downgraded") {
+    return "directional_signal";
+  }
+  if (isEvidenceTier(row.evidenceTier)) {
+    return row.evidenceTier;
+  }
+  return defaultTier;
+}
+
+// Shared reconciliation core (§4.7 rollout): counts byTier, backfills per-row
+// evidenceTier, fills strippedByVerifier from the downgraded rows whose path
+// belongs to this block, folds a cleared legacy blockGap into an acquisition
+// gap when real rows remain, and derives readiness. Pure — clones the block.
+export function reconcileBlockCoverage({
+  block,
+  rowsKey,
+  blockPath,
+  defaultTier,
+  downgradedRows,
+}: {
+  block: Record<string, unknown>;
+  rowsKey: string;
+  blockPath: string;
+  defaultTier: EvidenceTier;
+  downgradedRows: readonly DowngradedRow[];
+}): Record<string, unknown> {
+  const next = structuredClone(block) as Record<string, unknown>;
+  const rows = Array.isArray(next[rowsKey])
+    ? (next[rowsKey] as unknown[]).filter(isRecord)
+    : [];
+
+  const coverage = isRecord(next.coverage)
+    ? next.coverage
+    : ((next.coverage = {
+        byTier: {
+          hard_evidence: 0,
+          directional_signal: 0,
+          strategic_inference: 0,
+          operator_input: 0,
+        },
+        acquisitionGaps: [],
+        strippedByVerifier: [],
+        readiness: "gap",
+      }),
+      next.coverage as Record<string, unknown>);
+
+  const byTier: BlockCoverage["byTier"] = {
+    hard_evidence: 0,
+    directional_signal: 0,
+    strategic_inference: 0,
+    operator_input: 0,
+  };
+  for (const row of rows) {
+    const tier = effectiveRowTier(row, defaultTier);
+    byTier[tier] += 1;
+    row.evidenceTier = tier;
+  }
+
+  const rowPrefix = `${blockPath}.`;
+  const strippedByVerifier = downgradedRows
+    .filter((row) => row.path.startsWith(rowPrefix))
+    .map((row) => row.strippedRow);
+
+  const acquisitionGaps: AcquisitionGap[] = Array.isArray(
+    coverage.acquisitionGaps,
+  )
+    ? (coverage.acquisitionGaps as AcquisitionGap[])
+    : [];
+
+  const blockGap = isRecord(next.blockGap) ? next.blockGap : null;
+  if (blockGap !== null && rows.length > 0) {
+    acquisitionGaps.push(blockGapToAcquisitionGap(blockGap));
+    delete next.blockGap;
+  }
+
+  coverage.byTier = byTier;
+  coverage.strippedByVerifier = strippedByVerifier;
+  coverage.acquisitionGaps = acquisitionGaps;
+  coverage.readiness = deriveReadiness(byTier);
+
+  next.coverage = coverage;
+  return next;
+}
+
 export function reconcilePersonaRealityCoverage({
   body,
   downgradedRows,
@@ -101,65 +197,57 @@ export function reconcilePersonaRealityCoverage({
     return next;
   }
 
-  const personas = Array.isArray(personaReality.personas)
-    ? personaReality.personas.filter(isRecord)
-    : [];
+  next.personaReality = reconcileBlockCoverage({
+    block: personaReality,
+    rowsKey: "personas",
+    blockPath: "body.personaReality",
+    defaultTier: "hard_evidence",
+    downgradedRows,
+  });
+  return next;
+}
 
-  // The model authors `coverage` best-effort and may omit it. A downgraded
-  // persona block MUST still carry the verifier's strippedByVerifier record, so
-  // synthesize the coverage block when it is absent (never silently drop it).
-  const coverage = isRecord(personaReality.coverage)
-    ? personaReality.coverage
-    : ((personaReality.coverage = {
-        byTier: {
-          hard_evidence: 0,
-          directional_signal: 0,
-          strategic_inference: 0,
-          operator_input: 0,
-        },
-        acquisitionGaps: [],
-        strippedByVerifier: [],
-        readiness: "gap",
-      }),
-      personaReality.coverage as Record<string, unknown>);
+// Phase 4 §4.7 — Competitor Landscape per-block default tiers.
+// competitorSet / publicWeaknesses → directional (+ some hard);
+// positioningTaxonomy / narrativeArcs → strategic_inference;
+// pricingReality / shareOfVoice → directional (gaps when no tool);
+// adPresence → hard_evidence (tool-measured ad creatives).
+export function reconcileCompetitorLandscapeCoverage({
+  body,
+  downgradedRows,
+}: {
+  body: Record<string, unknown>;
+  downgradedRows: readonly DowngradedRow[];
+}): Record<string, unknown> {
+  const next = structuredClone(body) as Record<string, unknown>;
 
-  const byTier: BlockCoverage["byTier"] = {
-    hard_evidence: 0,
-    directional_signal: 0,
-    strategic_inference: 0,
-    operator_input: 0,
-  };
-  for (const persona of personas) {
-    const tier = effectivePersonaTier(persona);
-    byTier[tier] += 1;
-    // Backfill the per-row evidenceTier so a downgraded persona is self-labelled
-    // directional_signal (the model authors it null/absent; the count alone is
-    // not enough — every row that holds real data must carry its honest tier).
-    persona.evidenceTier = tier;
+  const blocks: Array<{
+    key: string;
+    rowsKey: string;
+    defaultTier: EvidenceTier;
+  }> = [
+    { key: "competitorSet", rowsKey: "competitors", defaultTier: "directional_signal" },
+    { key: "positioningTaxonomy", rowsKey: "axes", defaultTier: "strategic_inference" },
+    { key: "pricingReality", rowsKey: "dataPoints", defaultTier: "directional_signal" },
+    { key: "shareOfVoice", rowsKey: "slices", defaultTier: "directional_signal" },
+    { key: "publicWeaknesses", rowsKey: "items", defaultTier: "directional_signal" },
+    { key: "narrativeArcs", rowsKey: "arcs", defaultTier: "strategic_inference" },
+    { key: "adPresence", rowsKey: "signals", defaultTier: "hard_evidence" },
+  ];
+
+  for (const { key, rowsKey, defaultTier } of blocks) {
+    const block = isRecord(next[key]) ? next[key] : null;
+    if (block === null) {
+      continue;
+    }
+    next[key] = reconcileBlockCoverage({
+      block,
+      rowsKey,
+      blockPath: `body.${key}`,
+      defaultTier,
+      downgradedRows,
+    });
   }
-
-  const strippedByVerifier = downgradedRows
-    .filter((row) => row.path.startsWith(personaRealityRowPrefix))
-    .map((row) => row.strippedRow);
-
-  const acquisitionGaps: AcquisitionGap[] = Array.isArray(
-    coverage.acquisitionGaps,
-  )
-    ? (coverage.acquisitionGaps as AcquisitionGap[])
-    : [];
-
-  const blockGap = isRecord(personaReality.blockGap)
-    ? personaReality.blockGap
-    : null;
-  if (blockGap !== null && personas.length > 0) {
-    acquisitionGaps.push(blockGapToAcquisitionGap(blockGap));
-    delete personaReality.blockGap;
-  }
-
-  coverage.byTier = byTier;
-  coverage.strippedByVerifier = strippedByVerifier;
-  coverage.acquisitionGaps = acquisitionGaps;
-  coverage.readiness = deriveReadiness(byTier);
 
   return next;
 }

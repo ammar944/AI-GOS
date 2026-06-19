@@ -277,7 +277,7 @@ import {
   type SubjectCtaClaimStrip,
 } from "./verification/source-liveness";
 import { isValidGroundedBuyerUnit } from "./verification/grounded-buyer-unit";
-import { reconcilePersonaRealityCoverage } from "./verification/downgrade-coverage";
+import { reconcileCompetitorLandscapeCoverage, reconcilePersonaRealityCoverage } from "./verification/downgrade-coverage";
 import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
@@ -5322,6 +5322,20 @@ async function annotateEvidenceSupportReview({
         downgradedRows: sourceLiveness.downgradedRows,
       })
     : numericStrip.body;
+  // Phase 4 §4.7 enrichment: Competitor Landscape tier/coverage reconciliation.
+  // Runs always (not downgrade-gated) — backfills per-row evidenceTier with the
+  // §4.7 default tier per block so every committed row carries its honest tier,
+  // and synthesizes coverage blocks so the renderer can distinguish
+  // hard/directional/inference/gap. Non-BuyerICP sections do NOT run
+  // verifierDowngradeMode (see verdict report — it launders fabrications), so
+  // downgradedRows is empty here and strippedByVerifier stays [].
+  const competitorEnriched =
+    sectionId === "positioningCompetitorLandscape"
+      ? reconcileCompetitorLandscapeCoverage({
+          body: reconciledBody,
+          downgradedRows: sourceLiveness.downgradedRows,
+        })
+      : reconciledBody;
   // needs_review only when the gap dominates OR a provenance/attribution strip
   // fired: kept-and-downgraded personas are a known directional signal, but a
   // misattribution / placeholder-URL / coherence strike is a fabrication signal
@@ -5367,7 +5381,7 @@ async function annotateEvidenceSupportReview({
 
   return artifactEnvelopeSchema.parse({
     ...artifact,
-    body: reconciledBody,
+    body: competitorEnriched,
     statusSummary: statusSummaryCoherence.value,
     verdict: verdictCoherence.value,
     confidence,

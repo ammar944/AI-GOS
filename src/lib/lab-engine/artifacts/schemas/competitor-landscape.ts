@@ -7,10 +7,13 @@ import {
 import { getRegistrableDomain } from "../../domain-utils";
 import type { ValidationResult } from "./market-category";
 import {
+  blockCoverageSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
+  evidenceTierSchema,
   incumbentBlindSpotSchema,
   keyFindingsSchema,
+  rowVerificationSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
   validateStrategicText,
@@ -23,6 +26,26 @@ const validUrlPattern = /^https?:\/\/\S+\.\S+/;
 const adPlatformSchema = z.enum(adPlatforms);
 const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
+// Phase 4 enrichment (§4.7): optional per-row evidence tier + verifier-written
+// verification meta. Additive — a row without these behaves exactly as before.
+// The reconciler backfills the tier deterministically post-authoring; the model
+// never authors these (mirrors the BuyerICP pilot template).
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const blockCoverageFieldSchema = blockCoverageSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 const competitorSchema = z
   .object({
     name: z.string().min(1),
@@ -32,6 +55,8 @@ const competitorSchema = z
     verbatimHeroCopy: z.string().min(1),
     pricingPosition: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -48,6 +73,8 @@ const positioningAxisSchema = z
     ourPosition: z.string().min(1),
     competitorPositions: z.array(competitorPositionSchema),
     evidenceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -59,6 +86,8 @@ const pricingDataPointSchema = z
     packagingPattern: z.string().min(1),
     gatedSignals: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -68,6 +97,8 @@ const shareOfVoiceSliceSchema = z
     winner: z.string().min(1),
     evidence: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -78,6 +109,8 @@ const competitorWeaknessSchema = z
     source: z.string().min(1),
     sourceUrl: z.string().min(1),
     whyItMatters: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -88,6 +121,8 @@ const narrativeArcSchema = z
     hero: z.string().min(1),
     transformationClaim: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -96,6 +131,7 @@ const competitorSetSchema = z
     prose: z.string().min(1),
     competitors: z.array(competitorSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -104,6 +140,7 @@ const positioningTaxonomySchema = z
     prose: z.string().min(1),
     axes: z.array(positioningAxisSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -112,6 +149,7 @@ const pricingRealitySchema = z
     prose: z.string().min(1),
     dataPoints: z.array(pricingDataPointSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -120,6 +158,7 @@ const shareOfVoiceSchema = z
     prose: z.string().min(1),
     slices: z.array(shareOfVoiceSliceSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -128,6 +167,7 @@ const publicWeaknessesSchema = z
     prose: z.string().min(1),
     items: z.array(competitorWeaknessSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -136,6 +176,7 @@ const narrativeArcsSchema = z
     prose: z.string().min(1),
     arcs: z.array(narrativeArcSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -146,6 +187,8 @@ const adPresenceSignalSchema = z
     estSpend: z.string().min(1),
     evidence: z.string().min(1),
     sourceUrl: z.string().url(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -154,6 +197,7 @@ const adPresenceSchema = z
     prose: z.string().min(1),
     signals: z.array(adPresenceSignalSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
