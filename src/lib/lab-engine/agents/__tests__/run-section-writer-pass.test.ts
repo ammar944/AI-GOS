@@ -11,6 +11,7 @@ import { createRunStore } from "@/lib/lab-engine/runs/run-store";
 import type { SectionOutput } from "@/lib/lab-engine/sections/section-registry";
 
 import { runSection } from "../run-section";
+import { reconcileMarketCategoryCoverage } from "../verification/downgrade-coverage";
 import type { AgentStep, AnswerToolRunner } from "../section-agent";
 import type { SectionWriterPassRunner } from "../writer-pass";
 
@@ -27,6 +28,14 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
     })),
     body: marketCategoryFixtureArtifact.body,
   };
+}
+
+// Phase 4 §4.7 enrichment: the runner reconciles tier/coverage onto the body.
+function reconciledMarketCategoryFixtureBody(): typeof marketCategoryFixtureArtifact.body {
+  return reconcileMarketCategoryCoverage({
+    body: structuredClone(marketCategoryFixtureArtifact.body) as Record<string, unknown>,
+    downgradedRows: [],
+  }) as typeof marketCategoryFixtureArtifact.body;
 }
 
 function buildMarketCategorySupportStep(): AgentStep {
@@ -114,7 +123,7 @@ describe("runSection writer pen integration", (): void => {
 
     expect(runWriterPass).toHaveBeenCalledTimes(1);
     expect(result.artifact.statusSummary).toBe(pennedStatusSummary);
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(reconciledMarketCategoryFixtureBody());
   });
 
   it("falls back to the runner draft when the penned output fails minimums", async (): Promise<void> => {
@@ -174,6 +183,6 @@ describe("runSection writer pen integration", (): void => {
     expect(result.artifact.statusSummary).toBe(
       marketCategoryFixtureArtifact.statusSummary,
     );
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(reconciledMarketCategoryFixtureBody());
   });
 });

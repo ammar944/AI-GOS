@@ -23,6 +23,7 @@ import { createRunStore } from '@/lib/lab-engine/runs/run-store';
 import { createInMemoryResearchFactStore } from '@/lib/lab-engine/evidence/research-fact';
 
 import { labSectionRepairFloorMs, runSection } from '../run-section';
+import { reconcileMarketCategoryCoverage } from '../verification/downgrade-coverage';
 import type {
   PaidMediaPlanVerificationResult,
   VerifyPaidMediaPlanInput,
@@ -47,6 +48,15 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
     })),
     body: marketCategoryFixtureArtifact.body,
   };
+}
+
+// Phase 4 §4.7 enrichment: the runner reconciles tier/coverage onto the body,
+// so the committed body is the fixture body with evidenceTier/coverage added.
+function reconciledMarketCategoryFixtureBody(): typeof marketCategoryFixtureArtifact.body {
+  return reconcileMarketCategoryCoverage({
+    body: structuredClone(marketCategoryFixtureArtifact.body) as Record<string, unknown>,
+    downgradedRows: [],
+  }) as typeof marketCategoryFixtureArtifact.body;
 }
 
 function buildBuyerICPOutputWithGenericPersonaNames(): BuyerICPSectionOutput {
@@ -494,7 +504,7 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     expect(result.artifact.sectionId).toBe('positioningMarketCategory');
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(reconciledMarketCategoryFixtureBody());
     expect(result.artifact.verification).toEqual(
       expect.objectContaining({
         claims: expect.any(Array),
@@ -601,7 +611,7 @@ describe('runSection corpus-only mode', (): void => {
     const eventTypes = record.events.map((event) => event.type);
 
     expect(result.artifact.sectionId).toBe('positioningMarketCategory');
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(reconciledMarketCategoryFixtureBody());
     expect(runAnswerTool).toHaveBeenCalledTimes(2);
     expect(eventTypes).toContain('validation-failed');
     expect(eventTypes).toContain('repair-started');
@@ -662,7 +672,7 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     expect(result.artifact.sectionId).toBe('positioningMarketCategory');
-    expect(result.artifact.body).toEqual(marketCategoryFixtureArtifact.body);
+    expect(result.artifact.body).toEqual(reconciledMarketCategoryFixtureBody());
     expect(runAnswerTool).toHaveBeenCalledTimes(3);
     expect(validationFailures).toHaveLength(2);
     expect(repairStarts).toHaveLength(2);

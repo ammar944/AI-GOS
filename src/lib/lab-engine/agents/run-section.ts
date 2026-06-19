@@ -5392,6 +5392,18 @@ async function annotateEvidenceSupportReview({
       })
     : true;
 
+  // Phase 4 §4.7 enrichment: the tier/coverage reconciler MUST run for every
+  // enriched section even when no strip/flag fired (a clean run still needs
+  // per-row evidenceTier + coverage synthesized). The early-return below would
+  // skip it for clean Market/VoC/etc. runs; the guard forces the enriched path.
+  const needsSectionEnrichment =
+    sectionId === "positioningCompetitorLandscape" ||
+    sectionId === "positioningVoiceOfCustomer" ||
+    sectionId === "positioningDemandIntent" ||
+    sectionId === "positioningMarketCategory" ||
+    sectionId === "positioningOfferDiagnostic" ||
+    sectionId === "positioningPaidMediaPlan";
+
   if (
     provenanceFlags.length === 0 &&
     strip.stripped.length === 0 &&
@@ -5410,7 +5422,8 @@ async function annotateEvidenceSupportReview({
     namedEntityStrip.stripped.length === 0 &&
     strippedNumericClaims.length === 0 &&
     strippedVerificationMarkers.length === 0 &&
-    !confidenceChanged
+    !confidenceChanged &&
+    !needsSectionEnrichment
   ) {
     return artifact;
   }
