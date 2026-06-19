@@ -1,3 +1,4 @@
+import { BUYER_PERSONA_GROUNDING_FIELD } from "../../artifacts/schemas/buyer-icp-constants";
 import { getRegistrableDomain } from "../../domain-utils";
 
 export interface SourceUrlRow {
@@ -120,6 +121,12 @@ const entityFieldNames = new Set([
   "exampleCompany",
   "name",
   "persona",
+  // Option B: a persona's role/segment grounding label. Imported as a shared
+  // constant from buyer-icp.ts so the schema -> strict-containment wire is a
+  // compile-time dependency (string-literal coupling would silently let a
+  // fabricated segment ship). A segmentLabel lands in requiredEntities and MUST
+  // appear verbatim on the live page via the .every() strict bucket.
+  BUYER_PERSONA_GROUNDING_FIELD,
 ]);
 const numberPattern =
   /(?:[$£€]\s*)?\b\d[\d,]*(?:\.\d+)?(?:\s?(?:%|k|m|b|thousand|million|billion))?(?:\s?\/\s?(?:mo|month|yr|year))?\b/gi;
@@ -511,6 +518,20 @@ function containsNumber(haystack: string, value: string): boolean {
 
 function containsEntity(haystack: string, value: string): boolean {
   return haystack.includes(normalizeForContainment(value));
+}
+
+// Shared strict-containment primitive: does `value` appear verbatim in the live
+// page `text`, using the SAME normalization the requiredEntities (.every) bucket
+// uses? Exported so the grounded-buyer-unit validator runs the identical check
+// rather than forking a weaker matcher.
+export function isEntityContainedInLiveText(
+  text: string,
+  value: string,
+): boolean {
+  if (value.trim().length === 0) {
+    return false;
+  }
+  return containsEntity(normalizeForContainment(text), value);
 }
 
 function containmentPasses({

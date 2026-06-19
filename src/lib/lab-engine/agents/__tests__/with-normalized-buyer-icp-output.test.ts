@@ -347,6 +347,57 @@ describe("withNormalizedBuyerICPOutput tolerant-out persona gap injection", (): 
   });
 });
 
+describe("withNormalizedBuyerICPOutput role/segment-grounded personas (Option B)", (): void => {
+  // Three distinct buyer units with NO human name — each grounded by a sourced
+  // ROLE + segmentLabel on a distinct live source URL. Today these are dropped
+  // (countValidatorGradePersonas demands a named human), shipping an empty
+  // section. Under Option B they are valid grounded buyer units and must survive
+  // to the committed output with no injected evidence gap.
+  const threeRoleSegmentPersonas = [
+    {
+      name: "VP of Finance",
+      title: "VP of Finance",
+      company: "WizeHire",
+      role: "economic-buyer",
+      seniority: "vp",
+      segmentLabel: "Finance leaders at mid-market SaaS, 200-1000 employees",
+      evidence: "Customer story names the finance buyer and segment.",
+      sourceUrl: "https://ramp.com/customers/wizehire",
+    },
+    {
+      name: "Controller",
+      title: "Controller",
+      company: "Quora",
+      role: "decision-maker",
+      seniority: "director",
+      segmentLabel: "Controllers at 500-1000 employee technology companies",
+      evidence: "Case study names the controller role and segment.",
+      sourceUrl: "https://ramp.com/customers/quora",
+    },
+    {
+      name: "Head of Accounting",
+      title: "Head of Accounting",
+      company: "Glossier",
+      role: "champion",
+      seniority: "head",
+      segmentLabel: "Accounting leaders at high-growth consumer brands",
+      evidence: "Customer page names the accounting champion and segment.",
+      sourceUrl: "https://ramp.com/customers/glossier",
+    },
+  ];
+
+  it("TEST 2: keeps >=3 role/segment-grounded units and injects no gap", (): void => {
+    const output = withNormalizedBuyerICPOutput(
+      buyerOutput(threeRoleSegmentPersonas),
+      { subjectWebsiteUrl: "https://ramp.com", subjectCompanyName: "Ramp" },
+    ) as { body: Record<string, unknown> };
+
+    expect(personasOf(output)).toHaveLength(3);
+    expect(output.body.evidenceGap).toBeUndefined();
+    expect(output.body.evidenceGapReport).toBeUndefined();
+  });
+});
+
 // Tolerant-out (R1) backstop: the OTHER buyer-ICP floors (beyond the persona
 // floor) must commit DEGRADED via their honest escapes instead of hard-erroring
 // the run and blocking the downstream paid-media dispatch.
@@ -715,10 +766,11 @@ describe("withNormalizedBuyerICPOutput case-study sourceUrl backfill", (): void 
         opts,
       ),
     );
-    expect(personas).toHaveLength(1);
-    expect(personas[0]?.sourceUrl).toBe(
-      "https://next.ramp.com/customers/perplexity",
-    );
+    // The authored persona's bad URL is relocated to her mined case-study page.
+    const lauren = personas.find((p) => p.name === "Lauren Feeney");
+    expect(lauren?.sourceUrl).toBe("https://next.ramp.com/customers/perplexity");
+    // The other mined champion the model omitted is also backfilled.
+    expect(personas.some((p) => p.name === "Bill Cox")).toBe(true);
   });
 
   it("rescues a matching persona the model left without a sourceUrl (would otherwise be dropped)", (): void => {
@@ -730,10 +782,13 @@ describe("withNormalizedBuyerICPOutput case-study sourceUrl backfill", (): void 
         opts,
       ),
     );
-    expect(personas).toHaveLength(1);
-    expect(personas[0]?.sourceUrl).toBe(
+    // The authored persona's empty URL is rescued to his mined case-study page.
+    const billCox = personas.find((p) => p.name === "Bill Cox");
+    expect(billCox?.sourceUrl).toBe(
       "https://ramp.com/customers/new-way-landscape",
     );
+    // The other mined champion the model omitted is also backfilled.
+    expect(personas.some((p) => p.name === "Lauren Feeney")).toBe(true);
   });
 
   it("never attaches a candidate URL to a persona that does not match a mined lead", (): void => {
@@ -766,6 +821,108 @@ describe("withNormalizedBuyerICPOutput case-study sourceUrl backfill", (): void 
       ),
     );
     expect(personas[0]?.sourceUrl).toBe("https://g2.com/products/x/reviews");
+  });
+});
+
+describe("withNormalizedBuyerICPOutput mined case-study champion backfill", (): void => {
+  // The three real named champions the prepass mined on run jsl0fh. The model
+  // committed personaReality.personas:[] (authored an ungrounded persona instead
+  // of these), so they were dropped → <3 → evidence gap → empty section. The
+  // finalizer must append the mined champions the model omitted, not only
+  // relocate URLs for ones it authored.
+  const minedChampions = [
+    {
+      name: "Bill Cox",
+      title: "VP of Finance",
+      company: "New Way Landscape",
+      url: "https://ramp.com/customers/new-way-landscape",
+      venue: "case_study_champions" as const,
+    },
+    {
+      name: "Lauren Feeney",
+      title: "Controller",
+      company: "Perplexity",
+      url: "https://next.ramp.com/customers/perplexity",
+      venue: "case_study_champions" as const,
+    },
+    {
+      name: "Alicia Coleman",
+      title: "Marketing Operations Manager",
+      company: "WizeHire",
+      url: "https://ramp.com/customers/wizehire",
+      venue: "case_study_champions" as const,
+    },
+  ];
+  const opts = {
+    subjectWebsiteUrl: "https://ramp.com",
+    subjectCompanyName: "Ramp",
+    caseStudyCandidates: minedChampions,
+  };
+
+  it("appends the mined champions when the model committed an empty persona block", (): void => {
+    const output = withNormalizedBuyerICPOutput(buyerOutput([]), opts);
+    const personas = personasOf(output);
+    const names = personas.map((p) => p.name);
+    expect(personas.length).toBeGreaterThanOrEqual(3);
+    expect(names).toContain("Bill Cox");
+    expect(names).toContain("Lauren Feeney");
+    expect(names).toContain("Alicia Coleman");
+    // >=3 grounded named champions clear the floor → no persona evidence gap.
+    expect((output as { body: Record<string, unknown> }).body.evidenceGap).not.toBe(true);
+  });
+
+  it("appends mined champions the model omitted even when it authored an ungrounded persona", (): void => {
+    const output = withNormalizedBuyerICPOutput(
+      buyerOutput([
+        // The model invented "Sarah Bird" with no live source URL — it is dropped
+        // by the unsourced-row guard; the 3 mined champions must still be added.
+        { name: "Sarah Bird", company: "Acme", sourceUrl: "" },
+      ]),
+      opts,
+    );
+    const personas = personasOf(output);
+    const names = personas.map((p) => p.name);
+    expect(personas.length).toBeGreaterThanOrEqual(3);
+    expect(names).toContain("Bill Cox");
+    expect(names).toContain("Lauren Feeney");
+    expect(names).toContain("Alicia Coleman");
+    expect((output as { body: Record<string, unknown> }).body.evidenceGap).not.toBe(true);
+  });
+
+  it("does not duplicate a mined champion the model already authored (name-key dedup)", (): void => {
+    const output = withNormalizedBuyerICPOutput(
+      buyerOutput([
+        {
+          name: "Bill Cox",
+          company: "New Way Landscape",
+          role: "champion",
+          seniority: "vp",
+          title: "VP of Finance",
+          sourceUrl: "https://ramp.com/customers/new-way-landscape",
+        },
+        {
+          name: "Lauren Feeney",
+          company: "Perplexity",
+          role: "champion",
+          seniority: "director",
+          title: "Controller",
+          sourceUrl: "https://next.ramp.com/customers/perplexity",
+        },
+        {
+          name: "Alicia Coleman",
+          company: "WizeHire",
+          role: "champion",
+          seniority: "manager",
+          title: "Marketing Operations Manager",
+          sourceUrl: "https://ramp.com/customers/wizehire",
+        },
+      ]),
+      opts,
+    );
+    const personas = personasOf(output);
+    const billCoxCount = personas.filter((p) => p.name === "Bill Cox").length;
+    expect(billCoxCount).toBe(1);
+    expect(personas).toHaveLength(3);
   });
 });
 

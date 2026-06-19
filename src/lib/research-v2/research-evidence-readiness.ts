@@ -3,10 +3,7 @@ import {
   isPositioningSectionId,
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
-import {
-  isHttpUrl,
-  isLikelyNamedBuyerIdentity,
-} from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
+import { isValidGroundedBuyerUnit } from '@/lib/lab-engine/agents/verification/grounded-buyer-unit';
 import {
   readVerificationFlag,
   readVerificationTier,
@@ -97,21 +94,11 @@ function namedBuyerIdentityCount(body: Record<string, unknown>): number {
     ? body.personaReality
     : {};
 
-  return recordArray(personaReality.personas).filter((persona) => {
-    const name = readString(persona.name);
-    const sourceUrl = readString(persona.sourceUrl);
-
-    if (name === null || sourceUrl === null || !isHttpUrl(sourceUrl)) {
-      return false;
-    }
-
-    return isLikelyNamedBuyerIdentity(name, {
-      company: readString(persona.company) ?? undefined,
-      role: readString(persona.role) ?? undefined,
-      seniority: readString(persona.seniority) ?? undefined,
-      title: readString(persona.title) ?? undefined,
-    });
-  }).length;
+  // Option B: count valid grounded buyer units (live-sourced role/segment OR
+  // named human), not strictly named humans.
+  return recordArray(personaReality.personas).filter((persona) =>
+    isValidGroundedBuyerUnit(persona),
+  ).length;
 }
 
 function uniqueStrings(values: readonly string[]): string[] {

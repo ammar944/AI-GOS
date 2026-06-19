@@ -31,7 +31,6 @@ import {
 import {
   buyerICPEvidenceGapReason,
   isHttpUrl,
-  isLikelyNamedBuyerIdentity,
   modelEstimateLabel,
   validateBuyerICPMinimums,
   type BuyerICPBody,
@@ -274,6 +273,7 @@ import {
   type SubjectSiteObservation,
   type SubjectCtaClaimStrip,
 } from "./verification/source-liveness";
+import { isValidGroundedBuyerUnit } from "./verification/grounded-buyer-unit";
 import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
@@ -2795,10 +2795,15 @@ export function promoteDeadlineBuyerICPPersonas(
     if (!isHttpUrl(candidate.url)) {
       continue;
     }
+    // Option B: validate as a grounded buyer unit (named human OR sourced
+    // role/segment). Mined champions carry a human name in `name`, which still
+    // passes; the unified validator centralizes the gate.
     if (
-      !isLikelyNamedBuyerIdentity(candidate.name, {
-        company: candidate.company,
+      !isValidGroundedBuyerUnit({
+        name: candidate.name,
         title: candidate.title,
+        company: candidate.company,
+        sourceUrl: candidate.url,
       })
     ) {
       continue;
@@ -3312,7 +3317,7 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
 }
 
 const buyerICPPersonaNameErrorPattern =
-  /^body\.personaReality\.personas\[\d+\]\.name: must be a named person, public reviewer handle, or named source identity; generic role\/segment\/company labels do not qualify\.$/;
+  /^body\.personaReality\.personas\[\d+\]\.name: must be a named person, public reviewer handle, or a sourced role\/segment buyer unit \(segmentLabel grounded on the live source\); a bare generic role\/segment\/company label with no grounding does not qualify\.$/;
 const buyerICPPersonaCountErrorPattern =
   /^body\.personaReality\.personas: have \d+, need >=3\.$/;
 const buyerICPPersonaEvidenceGapReason = "insufficient_named_buyer_personas";
@@ -3343,12 +3348,12 @@ function isBuyerICPPersonaEvidenceGapFailure({
 function isNamedBuyerPersona(
   persona: BuyerICPBody["personaReality"]["personas"][number],
 ): boolean {
-  return isLikelyNamedBuyerIdentity(persona.name, {
-    company: persona.company,
-    role: persona.role,
-    seniority: persona.seniority,
-    title: persona.title,
-  });
+  // Option B: a valid grounded buyer unit (live-sourced role/segment OR named
+  // human), not strictly a named human. Keeps grounded role/segment personas
+  // when the gap-artifact partition runs.
+  return isValidGroundedBuyerUnit(
+    persona as unknown as Record<string, unknown>,
+  );
 }
 
 function buildBuyerICPPersonaEvidenceGapArtifact({
@@ -6043,6 +6048,56 @@ function suppressSharedListingUrlPersonas(
   };
 }
 
+// Add the named champions the prepass mined but the writer OMITTED. The normal
+// commit path only relocated sourceUrls for personas the model authored by name
+// (withCaseStudyPersonaSourceUrlBackfill) — it never added a champion the model
+// dropped. Run jsl0fh: the prepass mined Bill Cox / Lauren Feeney / Alicia
+// Coleman, the model authored an ungrounded persona instead, so all three were
+// dropped → <3 → empty section. Promote the mined leads through the SAME gate
+// the deadline path uses (promoteDeadlineBuyerICPPersonas already filters by
+// isValidGroundedBuyerUnit + isHttpUrl + venue + shared-listing laundering),
+// keep only those the model did not already author (name-key dedup), and append
+// them so they count toward the >=3 floor. Never fabricates — only mined leads.
+function withMinedCaseStudyChampionBackfill(
+  personaRealityRecord: Record<string, unknown>,
+  caseStudyCandidates: readonly BuyerPersonaCandidate[],
+): Record<string, unknown> {
+  if (
+    caseStudyCandidates.length === 0 ||
+    !Array.isArray(personaRealityRecord.personas)
+  ) {
+    return personaRealityRecord;
+  }
+
+  const existingNameKeys = new Set<string>();
+  for (const persona of personaRealityRecord.personas) {
+    const name = getStringProperty(getRecord(persona) ?? {}, "name");
+    if (name !== null) {
+      const key = normalizeNameKey(name);
+      if (key.length > 0) {
+        existingNameKeys.add(key);
+      }
+    }
+  }
+
+  const minedToAppend = promoteDeadlineBuyerICPPersonas(caseStudyCandidates).filter(
+    (persona) => {
+      const name = getStringProperty(persona, "name");
+      const key = name === null ? "" : normalizeNameKey(name);
+      return key.length > 0 && !existingNameKeys.has(key);
+    },
+  );
+
+  if (minedToAppend.length === 0) {
+    return personaRealityRecord;
+  }
+
+  return {
+    ...personaRealityRecord,
+    personas: [...personaRealityRecord.personas, ...minedToAppend],
+  };
+}
+
 function withCaseStudyPersonaSourceUrlBackfill(
   personaRealityRecord: Record<string, unknown>,
   caseStudyCandidates: readonly BuyerPersonaCandidate[],
@@ -6191,18 +6246,11 @@ function countValidatorGradePersonas(
       return false;
     }
 
-    const name = getStringProperty(personaRecord, "name") ?? "";
-    const sourceUrl = getStringProperty(personaRecord, "sourceUrl") ?? "";
-
-    return (
-      /^https?:\/\//i.test(sourceUrl) &&
-      isLikelyNamedBuyerIdentity(name, {
-        company: getStringProperty(personaRecord, "company") ?? undefined,
-        role: getStringProperty(personaRecord, "role") ?? undefined,
-        seniority: getStringProperty(personaRecord, "seniority") ?? undefined,
-        title: getStringProperty(personaRecord, "title") ?? undefined,
-      })
-    );
+    // Option B: a valid grounded buyer unit is a live-sourced ROLE/SEGMENT or a
+    // named human (names optional). source-liveness has already strict-contained
+    // the segmentLabel/name on the live page upstream, so here we only check the
+    // unit shape (live URL + grounded claim).
+    return isValidGroundedBuyerUnit(personaRecord);
   }).length;
 }
 
@@ -6531,7 +6579,10 @@ export function withNormalizedBuyerICPOutput(
       : withDerivedVendorSourcedPersonas({
           personaRealityRecord: suppressSharedListingUrlPersonas(
             withCaseStudyPersonaSourceUrlBackfill(
-              withoutEvidenceGapKeys(personaRealityRecord),
+              withMinedCaseStudyChampionBackfill(
+                withoutEvidenceGapKeys(personaRealityRecord),
+                caseStudyCandidates,
+              ),
               caseStudyCandidates,
             ),
             caseStudyCandidates,

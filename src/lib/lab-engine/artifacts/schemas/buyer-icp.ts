@@ -4,6 +4,7 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from "../artifact-envelope";
+import { isValidGroundedBuyerUnit } from "../../agents/verification/grounded-buyer-unit";
 import type { ValidationResult } from "./market-category";
 import {
   acquisitionSufficiencyFieldSchema,
@@ -22,6 +23,15 @@ const personaRoles = [
   "end-user",
   "gatekeeper",
 ] as const;
+
+// Option B grounding carrier. A persona need not name a human — a sourced
+// ROLE/SEGMENT label is a valid grounded buyer unit. This field name is shared
+// with source-liveness.ts (added to its entityFieldNames STRICT set) so the
+// schema -> strict-containment wire is a compile-time dependency: a fabricated
+// segmentLabel that is not on the live page is dropped by the requiredEntities
+// .every() containment, closing the West Elm fabricated-persona class of exploit
+// (regression c9bc2056), re-aimed at segments.
+export { BUYER_PERSONA_GROUNDING_FIELD } from "./buyer-icp-constants";
 const cutTypes = [
   "industry",
   "employeeBands",
@@ -265,6 +275,12 @@ const personaSchema = z
     role: z.enum(personaRoles),
     seniority: z.string().min(1),
     teamSize: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    // Option B grounding carrier (BUYER_PERSONA_GROUNDING_FIELD): a sourced
+    // role/segment label, e.g. "Finance leaders at mid-market SaaS, 200-1000
+    // employees". When present it MUST appear verbatim on the live sourceUrl
+    // page (source-liveness strict requiredEntities). Optional — a named-human
+    // persona grounds on its name instead.
+    segmentLabel: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     evidence: z.string().min(1),
     // Derived by the runner normalizer (derive-don't-ask): true when the
     // persona's sourceUrl registrable domain equals the audited company's.
@@ -480,16 +496,15 @@ export function validateBuyerICPMinimums(
   }
 
   personas.forEach((persona, index) => {
-    if (
-      !isLikelyNamedBuyerIdentity(persona.name, {
-        company: persona.company,
-        role: persona.role,
-        seniority: persona.seniority,
-        title: persona.title,
-      })
-    ) {
+    // Option B: a persona is a valid grounded buyer unit when it carries a live
+    // source URL AND a grounded claim — EITHER a named human OR a sourced
+    // role/segment label (segmentLabel). The bare role enum is not grounding;
+    // the free-text segmentLabel is strict-contained on the live page by
+    // source-liveness before this gate runs. Generic name labels with no
+    // segmentLabel still fail (no human, no grounded segment).
+    if (!isValidGroundedBuyerUnit(persona as Record<string, unknown>)) {
       errors.push(
-        `body.personaReality.personas[${index}].name: must be a named person, public reviewer handle, or named source identity; generic role/segment/company labels do not qualify.`,
+        `body.personaReality.personas[${index}].name: must be a named person, public reviewer handle, or a sourced role/segment buyer unit (segmentLabel grounded on the live source); a bare generic role/segment/company label with no grounding does not qualify.`,
       );
     }
 

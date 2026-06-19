@@ -429,7 +429,27 @@ describe("buildAnswerToolInstructions", (): void => {
       "Role labels, segments, departments, seniority labels, and company names do not satisfy `body.personaReality.personas[].name`",
     );
     expect(prompt).toContain(
-      "If no named buyer identity exists in the fetched evidence, use `body.personaReality.blockGap` instead of padding persona rows",
+      "If no named buyer identity exists and no `segmentLabel` can be grounded on a live page, use `body.personaReality.blockGap` instead of padding persona rows",
+    );
+  });
+
+  it("teaches segmentLabel as valid persona path when no named person is available", (): void => {
+    const prompt = buildAnswerToolInstructions(
+      buyerICPDefinition,
+      saaslaunchResearchInput,
+    );
+
+    // The directive must tell the model segmentLabel is a valid grounding path.
+    expect(prompt).toContain(
+      "When you cannot name a specific person, author a `segmentLabel` instead",
+    );
+    // Must convey that segmentLabel+sourceUrl is fully valid (preferred over nothing).
+    expect(prompt).toContain(
+      "A persona with a substantive `segmentLabel` and a live `sourceUrl` is fully valid",
+    );
+    // Must warn that the text is strict-checked against the live page.
+    expect(prompt).toContain(
+      "The `segmentLabel` text MUST appear verbatim on the cited `sourceUrl` page",
     );
   });
 
@@ -457,6 +477,13 @@ describe("buildAnswerToolInstructions", (): void => {
     );
     expect(prompt).toContain(
       "Never repair by copying `title`, `role`, `seniority`, `company`, `targetCustomer`, or `targetSegments` into `name`",
+    );
+    // Must offer segmentLabel as the valid alternative to shipping nothing.
+    expect(prompt).toContain(
+      "author a `segmentLabel` instead",
+    );
+    expect(prompt).toContain(
+      "A persona with a substantive `segmentLabel` and a live `sourceUrl` is fully valid",
     );
   });
 

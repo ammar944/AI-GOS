@@ -371,6 +371,69 @@ describe("applySourceLivenessGate", (): void => {
     ]);
   });
 
+  it("drops a persona whose fabricated segmentLabel is NOT on the LIVE page while keeping the grounded one", async (): Promise<void> => {
+    // Option B: a persona's grounding can be a sourced ROLE/SEGMENT, not a named
+    // human. The segmentLabel is the grounding claim and MUST appear verbatim on
+    // the live page (routed through the STRICT requiredEntities bucket via
+    // entityFieldNames). The fabricated segment names a market that is NOT on the
+    // page; the real one IS. The shared real company "Ramp" must not carry the
+    // fabricated segment past containment (the c9bc2056 hole, re-aimed at segments).
+    const fetchImpl = vi.fn(
+      async (input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+        // Both pages mention the same name ("Bill Cox") + company ("Ramp"); only
+        // the real page carries the attributed SEGMENT — so segmentLabel is the
+        // sole containment discriminator.
+        if (input.includes("fabricated")) {
+          return response({
+            body: "Bill Cox uses Ramp to control company spend.",
+            status: 200,
+          });
+        }
+        return response({
+          body: "Bill Cox at Ramp serves mid-market SaaS finance teams of 200-1000 employees.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Bill Cox",
+            company: "Ramp",
+            segmentLabel: "Quantum logistics directors at deep-sea mining startups",
+            sourceUrl: "https://ramp.com/customers/fabricated",
+          },
+          {
+            name: "Bill Cox",
+            company: "Ramp",
+            segmentLabel: "mid-market SaaS finance teams of 200-1000 employees",
+            sourceUrl: "https://ramp.com/customers/real",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as {
+      personas?: Array<{ segmentLabel?: string }>;
+    };
+
+    expect(body.personas).toHaveLength(1);
+    expect(body.personas?.[0]?.segmentLabel).toBe(
+      "mid-market SaaS finance teams of 200-1000 employees",
+    );
+    expect(result.droppedRows).toEqual([
+      expect.objectContaining({
+        path: "body.personas[0]",
+        reason: "containment-mismatch",
+        sourceUrl: "https://ramp.com/customers/fabricated",
+      }),
+    ]);
+  });
+
   it("keeps a persona whose name and company BOTH appear on the live page", async (): Promise<void> => {
     const fetchImpl = vi.fn(
       async (_input: string, init?: RequestInit): Promise<Response> => {

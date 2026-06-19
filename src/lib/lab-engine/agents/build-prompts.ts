@@ -1075,7 +1075,9 @@ function buildIssueSpecificRepairGuidance(
     "BuyerICP persona-name repair:",
     "- Replace invalid persona rows only with another exact identity observed in fetched tool evidence or the ResearchInput/corpus.",
     "- Never repair by copying `title`, `role`, `seniority`, `company`, `targetCustomer`, or `targetSegments` into `name`.",
-    "- If you cannot find enough exact named identities, keep the evidence gap explicit instead of padding with generic persona labels.",
+    "- If you cannot find a named identity for a row, author a `segmentLabel` instead (e.g. \"VP of Finance at mid-market SaaS companies\"). A persona with a substantive `segmentLabel` and a live `sourceUrl` is fully valid — preferred over shipping nothing or padding with generic names.",
+    "- The `segmentLabel` text MUST appear verbatim on the cited `sourceUrl` page (strict-checked against live page text); only use words you found on the fetched page.",
+    "- If neither a named identity nor a grounded `segmentLabel` can be sourced, keep the evidence gap explicit in `blockGap` instead of padding.",
   ];
 }
 

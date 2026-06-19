@@ -1,8 +1,6 @@
 import type { SectionId } from "../events/activity-event";
-import {
-  isHttpUrl,
-  isLikelyNamedBuyerIdentity,
-} from "../artifacts/schemas/buyer-icp";
+import { isHttpUrl } from "../artifacts/schemas/buyer-icp";
+import { isValidGroundedBuyerUnit } from "../agents/verification/grounded-buyer-unit";
 import { isNotProbedSentinel } from "./sentinels";
 
 export type RequiredEvidenceClass =
@@ -130,26 +128,11 @@ function hasIcpPersona(body: Record<string, unknown>): boolean {
   }
 
   const personaReality = asRecord(body.personaReality);
-  return asRecordArray(personaReality.personas).some((persona) => {
-    const name = typeof persona.name === "string" ? persona.name : "";
-    const sourceUrl = typeof persona.sourceUrl === "string" ? persona.sourceUrl : "";
-    const title = typeof persona.title === "string" ? persona.title : undefined;
-    const company =
-      typeof persona.company === "string" ? persona.company : undefined;
-    const role = typeof persona.role === "string" ? persona.role : undefined;
-    const seniority =
-      typeof persona.seniority === "string" ? persona.seniority : undefined;
-
-    return (
-      isHttpUrl(sourceUrl) &&
-      isLikelyNamedBuyerIdentity(name, {
-        company,
-        role,
-        seniority,
-        title,
-      })
-    );
-  });
+  // Option B: a valid grounded buyer unit (live-sourced role/segment OR named
+  // human), not strictly a named human.
+  return asRecordArray(personaReality.personas).some((persona) =>
+    isValidGroundedBuyerUnit(persona),
+  );
 }
 
 function hasIcpQuoteOrGap(body: Record<string, unknown>): boolean {
@@ -158,24 +141,12 @@ function hasIcpQuoteOrGap(body: Record<string, unknown>): boolean {
   return (
     asRecordArray(personaReality.personas).some((persona) => {
       const evidence = persona.evidence;
-      const sourceUrl = typeof persona.sourceUrl === "string" ? persona.sourceUrl : "";
-      const name = typeof persona.name === "string" ? persona.name : "";
-      const title = typeof persona.title === "string" ? persona.title : undefined;
-      const company =
-        typeof persona.company === "string" ? persona.company : undefined;
-      const role = typeof persona.role === "string" ? persona.role : undefined;
-      const seniority =
-        typeof persona.seniority === "string" ? persona.seniority : undefined;
 
+      // Option B: substantive evidence on a valid grounded buyer unit
+      // (live-sourced role/segment OR named human).
       return (
         hasSubstantiveIcpEvidence(evidence) &&
-        isHttpUrl(sourceUrl) &&
-        isLikelyNamedBuyerIdentity(name, {
-          company,
-          role,
-          seniority,
-          title,
-        })
+        isValidGroundedBuyerUnit(persona)
       );
     }) ||
     asRecordArray(buyingContext.triggers).some((trigger) => {
