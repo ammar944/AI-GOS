@@ -7,11 +7,14 @@ import {
 import { getRegistrableDomain } from "../../domain-utils";
 import type { ValidationResult } from "./market-category";
 import {
+  blockCoverageSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
+  evidenceTierSchema,
   keyFindingsSchema,
   orderedStrategicMoveSchema,
   provesWrongIfSchema,
+  rowVerificationSchema,
   strategicInsightSchema,
   validateOrderedStrategicMovesMinimums,
   validateProvesWrongIfMinimums,
@@ -43,6 +46,22 @@ const signalTypes = [
 const venueTypes = ["event", "community", "newsletter", "podcast", "slack"] as const;
 const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const blockCoverageFieldSchema = blockCoverageSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 export const keywordSignalSchema = z
   .object({
     keyword: z.string().min(1),
@@ -56,6 +75,8 @@ export const keywordSignalSchema = z
     sourceTitle: z.string().min(1),
     sourceUrl: z.string().min(1),
     dateObserved: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -65,6 +86,8 @@ const buyerQuestionSchema = z
     surface: z.enum(questionSurfaces),
     sourceUrl: z.string().min(1),
     frequency: z.enum(frequencies),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -74,6 +97,8 @@ const contentGapSchema = z
     evidenceOfDemand: z.string().min(1),
     weakCompetitorAnswerEvidence: z.string().min(1),
     opportunity: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -83,6 +108,8 @@ const intentSignalSchema = z
     description: z.string().min(1),
     sourceUrl: z.string().min(1),
     exampleCompany: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -92,6 +119,8 @@ const demandVenueSchema = z
     venueType: z.enum(venueTypes),
     audienceSize: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -106,6 +135,7 @@ export const demandIntentBodySchema = z
         prose: z.string().min(1),
         keywords: z.array(keywordSignalSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     questionMining: z
@@ -113,6 +143,7 @@ export const demandIntentBodySchema = z
         prose: z.string().min(1),
         questions: z.array(buyerQuestionSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     contentGaps: z
@@ -120,6 +151,7 @@ export const demandIntentBodySchema = z
         prose: z.string().min(1),
         gaps: z.array(contentGapSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     intentSignals: z
@@ -127,6 +159,7 @@ export const demandIntentBodySchema = z
         prose: z.string().min(1),
         items: z.array(intentSignalSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     venueMap: z
@@ -134,6 +167,7 @@ export const demandIntentBodySchema = z
         prose: z.string().min(1),
         venues: z.array(demandVenueSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
   })

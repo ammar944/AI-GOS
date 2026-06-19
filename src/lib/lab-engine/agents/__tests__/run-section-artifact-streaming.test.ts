@@ -26,6 +26,7 @@ import {
 
 import { runSection, type SectionThinkerPassRunner } from '../run-section';
 import type { AnswerToolRunner, StructuredStreamer } from '../section-agent';
+import { reconcileMarketCategoryCoverage } from '../verification/downgrade-coverage';
 
 async function makeStore(
   defaultSectionIds: SectionId[] = ['positioningMarketCategory'],
@@ -69,10 +70,14 @@ function buildMarketCategoryOutput(): MarketCategorySectionOutput {
 }
 
 // The verifier records unsupported figures as verifierSummary metadata and
-// never writes into the body: the committed body is the fixture body, with
-// no inline [unverified] splices or aggregate footnotes.
+// never writes into the body. Phase 4 §4.7 enrichment: the runner now
+// reconciles tier/coverage onto the body, so the committed body is the fixture
+// body with evidenceTier/coverage fields added by reconcileMarketCategoryCoverage.
 function buildRedactedMarketCategoryFixtureBody(): typeof marketCategoryFixtureArtifact.body {
-  return structuredClone(marketCategoryFixtureArtifact.body);
+  return reconcileMarketCategoryCoverage({
+    body: structuredClone(marketCategoryFixtureArtifact.body) as Record<string, unknown>,
+    downgradedRows: [],
+  }) as typeof marketCategoryFixtureArtifact.body;
 }
 
 interface ModelSourceDraft {

@@ -5,6 +5,11 @@ import {
   type ArtifactEnvelope,
 } from "../artifact-envelope";
 import type { ValidationResult } from "./market-category";
+import {
+  blockCoverageSchema,
+  evidenceTierSchema,
+  rowVerificationSchema,
+} from "./strategic-insight";
 
 export const sourceSectionValues = [
   "positioningMarketCategory",
@@ -109,6 +114,17 @@ const campaignOverviewSchema = z.object({
   primaryKpi: z.string().min(1),
 });
 
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 const campaignPhaseSchema = z.object({
   phaseName: z.string().min(1),
   monthsLabel: z.string().min(1),
@@ -164,6 +180,8 @@ const audienceTypeSchema = z.object({
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
   evidencePack: paidMediaEvidencePackSchema.optional(),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 const angleSchema = z.object({
@@ -173,6 +191,8 @@ const angleSchema = z.object({
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
   evidencePack: paidMediaEvidencePackSchema.optional(),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 // staticCount/videoCount/totalPerAudience are COMPUTED by the runner
@@ -194,6 +214,8 @@ const creativeFrameworkSlotSchema = z.object({
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
   evidencePack: paidMediaEvidencePackSchema.optional(),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 const funnelIdeationSchema = z.object({
@@ -222,6 +244,8 @@ const competitorMarketingInsightSchema = z.object({
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
   evidencePack: paidMediaEvidencePackSchema.optional(),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 const competitorReviewInsightSchema = z.object({
@@ -230,6 +254,8 @@ const competitorReviewInsightSchema = z.object({
   sourceSection: sourceSectionSchema,
   grounding: z.string().min(1),
   evidencePack: paidMediaEvidencePackSchema.optional(),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 const channelSuggestionSchema = z.object({
@@ -238,6 +264,8 @@ const channelSuggestionSchema = z.object({
   verdict: channelVerdictSchema,
   sourceSection: sourceSectionSchema,
   evidencePack: paidMediaEvidencePackSchema.optional(),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 const kpiSchema = z.object({
@@ -305,6 +333,8 @@ const crossSectionInsightSchema = z.object({
   clientBlindSpot: z.string().min(1),
   secondOrderRisk: z.string().min(1),
   contrarianInversion: z.string().min(1),
+  evidenceTier: evidenceTierFieldSchema,
+  verification: rowVerificationFieldSchema,
 });
 
 const feasibilityAuditSchema = z

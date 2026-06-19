@@ -7,11 +7,14 @@ import {
 import type { ValidationResult } from "./market-category";
 import {
   bindingConstraintSchema,
+  blockCoverageSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
+  evidenceTierSchema,
   keyFindingsSchema,
   orderedStrategicMoveSchema,
   provesWrongIfSchema,
+  rowVerificationSchema,
   strategicInsightSchema,
   validateOrderedStrategicMovesMinimums,
   validateProvesWrongIfMinimums,
@@ -30,6 +33,22 @@ const retentionSignalTypes = [
 const severityValues = ["high", "medium", "low"] as const;
 const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const blockCoverageFieldSchema = blockCoverageSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 const fitProofPointSchema = z
   .object({
     metric: z.string().min(1),
@@ -37,6 +56,8 @@ const fitProofPointSchema = z
     reportedBy: z.enum(reportedByValues),
     confidence: z.enum(confidenceValues),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -47,6 +68,8 @@ const funnelBreakSchema = z
     magnitude: z.string().min(1),
     hypothesis: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -56,6 +79,8 @@ const channelEvidenceSchema = z
     hasWorked: z.enum(channelWorkedValues),
     quantifiedEvidence: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -65,6 +90,8 @@ const retentionSignalSchema = z
     metric: z.string().min(1),
     value: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -74,6 +101,8 @@ const redFlagSchema = z
     actualEvidence: z.string().min(1),
     contradiction: z.string().min(1),
     severity: z.enum(severityValues),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -89,6 +118,7 @@ export const offerDiagnosticBodySchema = z
         prose: z.string().min(1),
         proofPoints: z.array(fitProofPointSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     funnelDiagnosis: z
@@ -96,6 +126,7 @@ export const offerDiagnosticBodySchema = z
         prose: z.string().min(1),
         breaks: z.array(funnelBreakSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     channelTruth: z
@@ -103,6 +134,7 @@ export const offerDiagnosticBodySchema = z
         prose: z.string().min(1),
         channels: z.array(channelEvidenceSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     retentionHealth: z
@@ -110,6 +142,7 @@ export const offerDiagnosticBodySchema = z
         prose: z.string().min(1),
         signals: z.array(retentionSignalSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     redFlags: z
@@ -117,6 +150,7 @@ export const offerDiagnosticBodySchema = z
         prose: z.string().min(1),
         items: z.array(redFlagSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
   })

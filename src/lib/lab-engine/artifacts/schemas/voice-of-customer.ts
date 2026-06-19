@@ -12,10 +12,13 @@ import {
 import type { ValidationResult } from "./market-category";
 import {
   acquisitionSufficiencyFieldSchema,
+  blockCoverageSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
+  evidenceTierSchema,
   fourForcesBalanceVerdictSchema,
   keyFindingsSchema,
+  rowVerificationSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
   validateStrategicText,
@@ -46,6 +49,22 @@ const objectionCategories = [
 const frequencies = ["recurring", "occasional", "one-off"] as const;
 const decisionRoles = ["buyer", "champion", "influencer", "blocker"] as const;
 
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const blockCoverageFieldSchema = blockCoverageSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 const painQuoteSchema = z
   .object({
     verbatimText: z.string().min(1),
@@ -69,6 +88,8 @@ const painQuoteSchema = z
       .transform((value) => value ?? undefined)
       .optional()
       .describe("Date the quote was posted/observed, where disclosed."),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -79,6 +100,8 @@ const objectionSchema = z
     frequency: z.enum(frequencies),
     howToHandle: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -89,6 +112,8 @@ const switchingStorySchema = z
     decisionPath: z.string().min(1),
     exampleCompany: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -98,6 +123,8 @@ const decisionCriterionSchema = z
     statedBy: z.enum(decisionRoles),
     evidenceQuote: z.string().min(1),
     sourceUrl: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -107,6 +134,8 @@ const successQuoteSchema = z
     source: z.enum(vocSourceTypes),
     sourceUrl: z.string().min(1),
     afterStatePattern: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -226,6 +255,7 @@ export const voiceOfCustomerBodySchema = z
         prose: z.string().min(1),
         quotes: z.array(painQuoteSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     objections: z
@@ -233,6 +263,7 @@ export const voiceOfCustomerBodySchema = z
         prose: z.string().min(1),
         items: z.array(objectionSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     switchingStories: z
@@ -240,6 +271,7 @@ export const voiceOfCustomerBodySchema = z
         prose: z.string().min(1),
         stories: z.array(switchingStorySchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     decisionCriteria: z
@@ -247,6 +279,7 @@ export const voiceOfCustomerBodySchema = z
         prose: z.string().min(1),
         criteria: z.array(decisionCriterionSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     successLanguage: z
@@ -254,6 +287,7 @@ export const voiceOfCustomerBodySchema = z
         prose: z.string().min(1),
         quotes: z.array(successQuoteSchema),
         blockGap: blockGapFieldSchema,
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     evidenceGap: z.literal(true).optional(),

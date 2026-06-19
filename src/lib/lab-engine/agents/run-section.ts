@@ -277,7 +277,15 @@ import {
   type SubjectCtaClaimStrip,
 } from "./verification/source-liveness";
 import { isValidGroundedBuyerUnit } from "./verification/grounded-buyer-unit";
-import { reconcileCompetitorLandscapeCoverage, reconcilePersonaRealityCoverage } from "./verification/downgrade-coverage";
+import {
+  reconcileCompetitorLandscapeCoverage,
+  reconcileDemandIntentCoverage,
+  reconcileMarketCategoryCoverage,
+  reconcileOfferDiagnosticCoverage,
+  reconcilePaidMediaPlanCoverage,
+  reconcilePersonaRealityCoverage,
+  reconcileVoiceOfCustomerCoverage,
+} from "./verification/downgrade-coverage";
 import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
@@ -5336,6 +5344,34 @@ async function annotateEvidenceSupportReview({
           downgradedRows: sourceLiveness.downgradedRows,
         })
       : reconciledBody;
+  // Phase 4 §4.7 enrichment: the remaining sections' tier/coverage
+  // reconciliation. Each runs always (not downgrade-gated) and backfills
+  // per-row evidenceTier with the §4.7 default tier per block/array so every
+  // committed row carries its honest tier, and synthesizes coverage blocks.
+  const sectionEnriched =
+    sectionId === "positioningVoiceOfCustomer"
+      ? reconcileVoiceOfCustomerCoverage({
+          body: competitorEnriched,
+          downgradedRows: sourceLiveness.downgradedRows,
+        })
+      : sectionId === "positioningDemandIntent"
+        ? reconcileDemandIntentCoverage({
+            body: competitorEnriched,
+            downgradedRows: sourceLiveness.downgradedRows,
+          })
+        : sectionId === "positioningMarketCategory"
+          ? reconcileMarketCategoryCoverage({
+              body: competitorEnriched,
+              downgradedRows: sourceLiveness.downgradedRows,
+            })
+          : sectionId === "positioningOfferDiagnostic"
+            ? reconcileOfferDiagnosticCoverage({
+                body: competitorEnriched,
+                downgradedRows: sourceLiveness.downgradedRows,
+              })
+            : sectionId === "positioningPaidMediaPlan"
+              ? reconcilePaidMediaPlanCoverage({ body: competitorEnriched })
+              : competitorEnriched;
   // needs_review only when the gap dominates OR a provenance/attribution strip
   // fired: kept-and-downgraded personas are a known directional signal, but a
   // misattribution / placeholder-URL / coherence strike is a fabrication signal
@@ -5381,7 +5417,7 @@ async function annotateEvidenceSupportReview({
 
   return artifactEnvelopeSchema.parse({
     ...artifact,
-    body: competitorEnriched,
+    body: sectionEnriched,
     statusSummary: statusSummaryCoherence.value,
     verdict: verdictCoherence.value,
     confidence,

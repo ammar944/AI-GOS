@@ -6,9 +6,12 @@ import {
 } from "../artifact-envelope";
 import {
   categoryPowerBetSchema,
+  blockCoverageSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
+  evidenceTierSchema,
   keyFindingsSchema,
+  rowVerificationSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
   validateStrategicText,
@@ -64,6 +67,22 @@ const directionalOnlyTamEstimate = "directional only — not computed";
 
 const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+const blockCoverageFieldSchema = blockCoverageSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 export const adjacentCategorySchema = z
   .object({
     name: z.string().min(1),
@@ -71,6 +90,8 @@ export const adjacentCategorySchema = z
     disambiguatingSignal: z.string().min(1),
     sourceTitle: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -84,6 +105,8 @@ export const marketSizeSignalSchema = z
     sourceTitle: z.string().min(1),
     sourceUrl: z.string().min(1),
     dateObserved: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -162,6 +185,8 @@ export const structuralForceSchema = z
     direction: z.enum(structuralForceDirections),
     sourceTitle: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -171,6 +196,8 @@ export const maturitySignalSchema = z
     evidence: z.string().min(1),
     implication: z.string().min(1),
     sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -187,6 +214,7 @@ export const categoryDefinitionSchema = z
     prose: z.string().min(1),
     adjacentCategories: z.array(adjacentCategorySchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -196,6 +224,7 @@ export const marketSizeSchema = z
     signals: z.array(marketSizeSignalSchema),
     bottomUpTam: bottomUpTamSchema,
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -204,6 +233,7 @@ export const structuralForcesSchema = z
     prose: z.string().min(1),
     forces: z.array(structuralForceSchema),
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
@@ -212,6 +242,7 @@ export const categoryMaturitySchema = z
     prose: z.string().min(1),
     classification: maturityClassificationSchema,
     blockGap: blockGapFieldSchema,
+    coverage: blockCoverageFieldSchema,
   })
   .strict();
 
