@@ -31,6 +31,11 @@ export interface EvidenceSupportShortfall {
 export interface EvaluateEvidenceSupportInput {
   verification: VerificationReport;
   loadBearingKinds?: readonly LoadBearingClaimKind[];
+  // Downgrade-not-delete posture (§4.6): when true, the run-level gate counts
+  // only affirmatively-refuted load-bearing claims — never inference (no_match
+  // with no source) or unreachable (kept-and-downgraded rows). A no_match claim
+  // is kept-and-labelled by the verifier, not a fabrication to hard-fail on.
+  gateRefutedOnly?: boolean;
 }
 
 export interface ClaimSupportCounts {
@@ -343,13 +348,14 @@ function evaluateProvenanceFlags(
 }
 
 export function evaluateEvidenceSupport({
+  gateRefutedOnly = false,
   loadBearingKinds = defaultLoadBearingKinds,
   verification,
 }: EvaluateEvidenceSupportInput): EvidenceSupportShortfall {
   const loadBearingKindSet = new Set<Claim["kind"]>(loadBearingKinds);
-  const unsupportedLoadBearing = verification.claims.filter((verdict) =>
-    isUnsupportedLoadBearingClaim(verdict, loadBearingKindSet),
-  );
+  const unsupportedLoadBearing = verification.claims
+    .filter((verdict) => isUnsupportedLoadBearingClaim(verdict, loadBearingKindSet))
+    .filter((verdict) => !gateRefutedOnly || verdict.entailmentVerdict === "refuted");
 
   return {
     unsupportedLoadBearing,

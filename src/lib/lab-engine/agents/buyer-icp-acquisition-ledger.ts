@@ -59,6 +59,8 @@ const venueQueryLabel: Readonly<Record<BuyerPersonaVenue, string>> = {
     "Perplexity venue prepass: named champions quoted in customer case studies",
   event_speakers:
     "Perplexity venue prepass: named speakers from webinars and conference rosters",
+  segment_evidence:
+    "Corpus segment prepass: buyer role/segment phrases mined from live pages",
 };
 
 function normalizePersonaName(name: string): string {

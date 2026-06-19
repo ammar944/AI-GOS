@@ -7,6 +7,7 @@ import type {
 import type { SectionId } from '@/lib/lab-engine/events/activity-event';
 
 import {
+  deriveDowngradeNeedsReview,
   deriveWave2TrustConfidence,
   hasHonestEmptyCore,
 } from '../run-section';
@@ -88,6 +89,7 @@ function buildSourceLivenessResult(
     checkedUrls: [],
     containmentPassRate: 1,
     droppedRows: [],
+    downgradedRows: [],
     livenessPassRate: 1,
     livenessUnknownRows: [],
     networkUnavailable: false,
@@ -265,6 +267,113 @@ describe('tier honesty trust derivation', (): void => {
     expect(trust?.confidence).toBe(0.1);
   });
 
+  it('lifts BuyerICP confidence off the containment floor when rows were kept-and-downgraded', (): void => {
+    const artifact = buildArtifact({
+      body: {
+        personaReality: {
+          personas: [
+            {
+              name: 'Lauren Feeney',
+              sourceUrl: 'https://next.ramp.com/customers/perplexity',
+              verification: { outcome: 'downgraded', reach: 'uncontained' },
+            },
+          ],
+        },
+      },
+      sectionId: 'positioningBuyerICP',
+      verification: buildVerificationReport({
+        unsupportedCount: 5,
+        verifiedCount: 5,
+      }),
+    });
+    const trust = deriveWave2TrustConfidence({
+      artifact,
+      honestEmptyCore: false,
+      quoteForceEmptied: false,
+      sectionId: 'positioningBuyerICP',
+      sourceLiveness: buildSourceLivenessResult({
+        checkedUrls: Array.from({ length: 10 }, (_, index) => ({
+          containmentChecked: true,
+          containmentPassed: index === 0,
+          livenessPassed: true,
+          sourceUrl: `https://plain-blog-${index}.example.com/post`,
+          status: 200,
+        })),
+        containmentPassRate: 0.1,
+        downgradedRows: [
+          {
+            path: 'body.personaReality.personas[0]',
+            strippedRow: {
+              summary: 'Lauren Feeney, Controller at Perplexity',
+              originalTier: 'hard_evidence',
+              droppedReason: 'containment-mismatch: not on live page',
+              sourceUrl: 'https://next.ramp.com/customers/perplexity',
+            },
+          },
+        ],
+      }),
+    });
+
+    // Containment "failures" that were deliberately kept-and-downgraded must not
+    // re-tank the floor; confidence tracks the claim-support share instead.
+    expect(trust?.claimSupportShare).toBeCloseTo(0.5, 6);
+    expect(trust?.confidence).toBeCloseTo(0.5, 6);
+  });
+
+  it('caps the downgrade confidence lift at a directional ceiling when containment is poor', (): void => {
+    const artifact = buildArtifact({
+      body: {
+        personaReality: {
+          personas: [
+            {
+              name: 'Lauren Feeney',
+              sourceUrl: 'https://next.ramp.com/customers/perplexity',
+              verification: { outcome: 'downgraded', reach: 'uncontained' },
+            },
+          ],
+        },
+      },
+      sectionId: 'positioningBuyerICP',
+      verification: buildVerificationReport({
+        unsupportedCount: 1,
+        verifiedCount: 19,
+      }),
+    });
+    const trust = deriveWave2TrustConfidence({
+      artifact,
+      honestEmptyCore: false,
+      quoteForceEmptied: false,
+      sectionId: 'positioningBuyerICP',
+      sourceLiveness: buildSourceLivenessResult({
+        checkedUrls: Array.from({ length: 10 }, (_, index) => ({
+          containmentChecked: true,
+          containmentPassed: index === 0,
+          livenessPassed: true,
+          sourceUrl: `https://plain-blog-${index}.example.com/post`,
+          status: 200,
+        })),
+        containmentPassRate: 0.1,
+        downgradedRows: [
+          {
+            path: 'body.personaReality.personas[0]',
+            strippedRow: {
+              summary: 'Lauren Feeney, Controller at Perplexity',
+              originalTier: 'hard_evidence',
+              droppedReason: 'containment-mismatch: not on live page',
+              sourceUrl: 'https://next.ramp.com/customers/perplexity',
+            },
+          },
+        ],
+      }),
+    });
+
+    // claimSupportShare is 19/20 = 0.95, but containment is 0.1 — a single
+    // downgraded row must not let a low-containment section read 0.95. The lift
+    // is bounded by a directional ceiling.
+    expect(trust?.claimSupportShare).toBeCloseTo(0.95, 6);
+    expect(trust?.confidence).toBeCloseTo(0.6, 6);
+  });
+
   // R1: a committed deadline-exhaustion honest-gap body (every block empty +
   // gap-substituted) tiers as an honest gap (needs_review/insufficient) — it
   // has an honest empty core and its confidence is capped at 0.4, never the
@@ -302,5 +411,25 @@ describe('tier honesty trust derivation', (): void => {
 
     expect(trust?.honestEmptyCore).toBe(true);
     expect(trust?.confidence).toBeLessThanOrEqual(0.4);
+  });
+});
+
+describe('deriveDowngradeNeedsReview', (): void => {
+  it('relaxes the review badge only for a clean downgrade with kept personas', (): void => {
+    expect(
+      deriveDowngradeNeedsReview({ personaCount: 3, hasProvenanceConcern: false }),
+    ).toBe(false);
+  });
+
+  it('keeps the review badge when the persona gap dominates', (): void => {
+    expect(
+      deriveDowngradeNeedsReview({ personaCount: 0, hasProvenanceConcern: false }),
+    ).toBe(true);
+  });
+
+  it('keeps the review badge when a provenance/attribution strip fired', (): void => {
+    expect(
+      deriveDowngradeNeedsReview({ personaCount: 3, hasProvenanceConcern: true }),
+    ).toBe(true);
   });
 });

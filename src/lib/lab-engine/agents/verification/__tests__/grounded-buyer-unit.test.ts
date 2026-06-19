@@ -118,4 +118,30 @@ describe("isValidGroundedBuyerUnit", (): void => {
 
     expect(isValidGroundedBuyerUnit(unit)).toBe(true);
   });
+
+  it("(Task 3) keeps a verifier-DOWNGRADED named champion whose page is unreachable (real URL + tier preserved)", (): void => {
+    // Phase 2/3: an uncontained/unreachable persona is kept-and-demoted, NOT
+    // dropped or URL-rewritten. Its REAL sourceUrl survives and the new tier +
+    // verification meta do not affect grounding validity — a downgraded-but-real
+    // persona still clears isValidGroundedBuyerUnit.
+    const downgraded = {
+      name: "Bill Cox",
+      title: "VP of Finance",
+      role: "champion",
+      seniority: "vp",
+      company: "WizeHire",
+      sourceUrl: "https://ramp.com/customers/wizehire",
+      // Demoted by the verifier; real URL preserved (no evidence-gap-0.invalid).
+      tier: "directional_signal",
+      verification: {
+        reach: "unreachable",
+        outcome: "downgraded",
+        method: "node-fetch re-check",
+      },
+      confidence: 0.7,
+    };
+
+    expect(isValidGroundedBuyerUnit(downgraded)).toBe(true);
+    expect(downgraded.sourceUrl).toBe("https://ramp.com/customers/wizehire");
+  });
 });

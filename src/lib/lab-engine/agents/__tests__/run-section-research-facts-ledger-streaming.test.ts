@@ -89,7 +89,17 @@ function buildFixtureBodyStreamer(): StructuredStreamer {
         url: source.url,
         ...(source.publisher ? { publisher: source.publisher } : {}),
       })),
-      body: buyerICPFixtureArtifact.body,
+      // Empty the personas so the body genuinely fails the relaxed grounded
+      // floor (>=1): with downgrade-not-delete keeping example.com rows, a valid
+      // body would now COMMIT — this forces the deadline/gap discard path the
+      // durability contract depends on.
+      body: {
+        ...buyerICPFixtureArtifact.body,
+        personaReality: {
+          ...buyerICPFixtureArtifact.body.personaReality,
+          personas: [],
+        },
+      },
     }),
     partialOutputStream: (async function* () {
       // intentionally empty — durability does not depend on streamed partials
@@ -165,12 +175,21 @@ describe("research-fact ledger durability on the streaming-DEFAULT path (a timeo
     expect(runAnswerTool).not.toHaveBeenCalled();
     expect(streamStructured).toHaveBeenCalled();
 
-    // The deadline floor was breached: the structured body is discarded and the
-    // committed artifact is the honest evidence-gap body — exactly the path that
-    // dropped champions in run b0d12b45. (Proves the facts did NOT merely ride
-    // the structured body.)
-    const body = result.artifact.body as { evidenceGap?: unknown };
-    expect(body.evidenceGap).toBe(true);
+    // The deadline floor was breached and the streamed body carried ZERO
+    // personas, so it could not stand on its own — exactly the path that dropped
+    // champions in run b0d12b45. The deadline rescue salvages the acquired
+    // champions into the committed body (downgrade-not-delete + the relaxed >=1
+    // grounded floor now SHIP the salvaged champions rather than an empty gap),
+    // proving the facts did NOT merely ride the model's structured body.
+    const body = result.artifact.body as {
+      personaReality?: { personas?: Array<{ name?: unknown }> };
+    };
+    const committedNames = (body.personaReality?.personas ?? []).map(
+      (persona) => persona.name,
+    );
+    expect(committedNames).toEqual(
+      expect.arrayContaining(["Jane Doe", "John Smith", "Maria Garcia"]),
+    );
 
     // The champion acquisition ran exactly once (the stub seam is exercised).
     expect(acquireBuyerPersonaPrepass).toHaveBeenCalledTimes(1);

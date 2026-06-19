@@ -120,6 +120,11 @@ export interface SectionDefinition<TBody, TOutput extends SectionOutput<TBody>> 
   // Claim kinds the committable gate treats as load-bearing for this section
   // (was committable-gate.getLoadBearingKindsForSection). Phase 4.
   loadBearingKinds: readonly LoadBearingClaimKind[];
+  // Verifier downgrade-not-delete posture (§4.6): the section keeps an
+  // uncontained/unreachable row (demoted to directional_signal) instead of
+  // dropping it, and the run-level evidence gate counts only affirmatively-
+  // refuted load-bearing claims — never inference or unreachable. Defaults off.
+  verifierDowngradeMode?: boolean;
   // Strategic-depth cardinality block prepended to the section minimums for the
   // 6 core sections; empty for paid-media (was build-prompts strategic-depth
   // schemaName chain). Phase 4.
@@ -224,6 +229,10 @@ export const SECTION_REGISTRY = {
     maxExternalLookups: 6,
     requiredEvidenceClasses: ["icp_persona", "icp_quote_or_gap"],
     loadBearingKinds: ["numeric", "url"],
+    // Pilot: BuyerICP runs the verifier in downgrade-not-delete mode (kept
+    // personas demoted to directional_signal, real sourceUrl preserved), so the
+    // gate must count only refuted claims — not the uncontained kept rows.
+    verifierDowngradeMode: true,
     strategicDepthGuidance: buyerICPStrategicDepthGuidance,
     promptMinimumGuidance: buyerICPMinimumGuidance,
     bodySchema: buyerICPBodySchema,

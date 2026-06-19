@@ -51,19 +51,27 @@ describe("validateBuyerICPMinimums", (): void => {
     });
   });
 
-  it("accepts exactly 3 named personas (floor 3)", (): void => {
+  it("accepts exactly 3 named personas (above the floor)", (): void => {
     expect(validateBuyerICPMinimums(withPersonaCount(3))).toMatchObject({
       ok: true,
       errors: [],
     });
   });
 
-  it("rejects 2 personas without a gap report", (): void => {
-    const result = validateBuyerICPMinimums(withPersonaCount(2));
+  it("accepts a single grounded persona (floor 1, quality-aware)", (): void => {
+    // Floor relaxed from 3 -> 1 grounded: one real promoted champion clears it.
+    expect(validateBuyerICPMinimums(withPersonaCount(1))).toMatchObject({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it("rejects ZERO grounded personas without a gap report", (): void => {
+    const result = validateBuyerICPMinimums(withPersonaCount(0));
 
     expect(result.ok).toBe(false);
     expect(result.errors.join(" ")).toContain(
-      "body.personaReality.personas: have 2, need >=3.",
+      "body.personaReality.personas: have 0 grounded, need >=1.",
     );
   });
 
@@ -392,5 +400,84 @@ describe("validateBuyerICPMinimums", (): void => {
 
     expect(result.ok).toBe(true);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it("(Task 3) accepts an optional per-row evidenceTier on a persona (additive)", (): void => {
+    const artifact = replacePersona(0, { evidenceTier: "directional_signal" });
+
+    const result = validateBuyerICPMinimums(artifact);
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(
+      validateBuyerICPMinimums(artifact) &&
+        artifact.body.personaReality.personas[0]?.evidenceTier,
+    ).toBe("directional_signal");
+  });
+
+  it("(Task 3) renders clusters acquisition_gap distinctly from persona strippedByVerifier", (): void => {
+    // clusters: NO venue-discovery tool wired -> acquisitionGap. personaReality:
+    // a verifier-downgraded row -> strippedByVerifier. The two coverage states
+    // are distinct, additive, and both validate.
+    const artifact: BuyerICPArtifact = {
+      ...buyerICPFixtureArtifact,
+      body: {
+        ...buyerICPFixtureArtifact.body,
+        clusters: {
+          ...buyerICPFixtureArtifact.body.clusters,
+          coverage: {
+            byTier: {
+              hard_evidence: 0,
+              directional_signal: 0,
+              strategic_inference: 0,
+              operator_input: 0,
+            },
+            acquisitionGaps: [
+              {
+                whatWasSought: "buyer venue clusters",
+                reason: "no_tool_wired",
+                surfacesQueried: [],
+                sourcingPlan: ["Wire a venue-discovery tool (PAA/Reddit)."],
+              },
+            ],
+            strippedByVerifier: [],
+            readiness: "gap",
+          },
+        },
+        personaReality: {
+          ...buyerICPFixtureArtifact.body.personaReality,
+          coverage: {
+            byTier: {
+              hard_evidence: 0,
+              directional_signal: 1,
+              strategic_inference: 0,
+              operator_input: 0,
+            },
+            acquisitionGaps: [],
+            strippedByVerifier: [
+              {
+                summary: "Promoted champion Bill Cox at Ramp",
+                originalTier: "hard_evidence",
+                droppedReason: "unreachable: re-fetch redirected to interstitial",
+                sourceUrl: "https://ramp.com/customers/wizehire",
+              },
+            ],
+            readiness: "thin",
+          },
+        },
+      },
+    };
+
+    const result = validateBuyerICPMinimums(artifact);
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    // The two states are distinguishable: clusters reports a void, persona a strip.
+    expect(artifact.body.clusters.coverage?.acquisitionGaps).toHaveLength(1);
+    expect(artifact.body.clusters.coverage?.strippedByVerifier).toHaveLength(0);
+    expect(artifact.body.personaReality.coverage?.acquisitionGaps).toHaveLength(0);
+    expect(
+      artifact.body.personaReality.coverage?.strippedByVerifier,
+    ).toHaveLength(1);
   });
 });

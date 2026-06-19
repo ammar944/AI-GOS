@@ -538,3 +538,123 @@ export function validateProvesWrongIfMinimums(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Phase 1 — Evidence-tier primitives (context-engineering redesign §4.1–4.5).
+//
+// Pure ADDITIONS consumed by nobody yet (BuyerICP pilot wires them in Phase 3).
+// They model the five real data types the tools deliver so the verifier can
+// DOWNGRADE instead of DELETE. Optional/additive — no existing schema changes.
+// ---------------------------------------------------------------------------
+
+// §4.1 — the core new primitive. The tier a row declares decides whether it is
+// re-fetch-gated (only hard_evidence is) and whether it requires a source.
+export const evidenceTierSchema = z.enum([
+  "hard_evidence", // live URL + verbatim quote/number on the page; the ONLY tier re-fetch-gated
+  "directional_signal", // real source, weaker provenance; kept + labelled, never auto-stripped
+  "strategic_inference", // analyst synthesis; NO citation required; validated on reasoning
+  "operator_input", // value from the operator brief; labelled as input, never a finding
+]);
+export type EvidenceTier = z.infer<typeof evidenceTierSchema>;
+
+// §4.2 — the evidence-meta mixin (every block row gets this).
+export const evidenceSourceSchema = z.object({
+  url: z.string().url(),
+  quote: z.string().min(1), // verbatim supporting text
+  retrievedVia: z.string().min(1), // firecrawl | spyfu | searchapi | review-scraper | corpus | ad-library
+});
+
+// Written by the VERIFIER after authoring — never by the model.
+export const rowVerificationSchema = z
+  .object({
+    reach: z.enum(["contained", "uncontained", "unreachable", "not_checked"]),
+    //  contained   = re-fetch confirmed the claim on the page
+    //  uncontained = re-fetch succeeded, text lacked the claim (JS-render OR genuine mismatch)
+    //  unreachable = re-fetch failed/redirected/empty shell — NOT evidence of falsity
+    outcome: z.enum(["verified", "downgraded", "refuted"]),
+    method: z.string().min(1),
+    note: z.string().optional(),
+  })
+  .optional();
+
+export const evidenceMetaSchema = z.object({
+  tier: evidenceTierSchema,
+  source: evidenceSourceSchema.nullable(), // required for hard/directional; null for inference/operator
+  derivedFrom: z.string().min(1).optional(), // required for strategic_inference: what it reasons from
+  verification: rowVerificationSchema,
+});
+
+// Wrap any section-specific row payload. One refinement enforces tier↔source.
+// The merge always carries the evidenceMeta keys; the generic shape `T` loses
+// the literal property types through the merge, so the refinement reads `row`
+// via the known EvidenceMeta shape.
+export function withEvidenceMeta<T extends z.ZodRawShape>(
+  payload: z.ZodObject<T>,
+) {
+  return payload.merge(evidenceMetaSchema).superRefine((value, ctx) => {
+    const row = value as unknown as EvidenceMeta;
+    const needsSource =
+      row.tier === "hard_evidence" || row.tier === "directional_signal";
+    if (needsSource && row.source === null)
+      ctx.addIssue({
+        code: "custom",
+        message: `${row.tier} requires source {url, quote}`,
+      });
+    if (row.tier === "strategic_inference" && !row.derivedFrom)
+      ctx.addIssue({
+        code: "custom",
+        message: "strategic_inference requires derivedFrom",
+      });
+    if (row.tier === "operator_input" && row.source !== null)
+      ctx.addIssue({
+        code: "custom",
+        message: "operator_input must not carry a source",
+      });
+  });
+}
+
+// §4.3 — first-class gap + stripped states (no more identical boilerplate).
+export const acquisitionGapSchema = z.object({
+  whatWasSought: z.string().min(1),
+  reason: z.enum(["no_tool_wired", "tool_returned_empty", "not_applicable"]),
+  surfacesQueried: z.array(z.string()).default([]),
+  sourcingPlan: z.array(z.string().min(1)).min(1),
+});
+
+// Verifier-written: what was removed and WHY, so the reader sees the loss.
+export const strippedRowSchema = z.object({
+  summary: z.string().min(1), // what the row claimed
+  originalTier: evidenceTierSchema,
+  droppedReason: z.string().min(1), // containment-mismatch | http-404 | unreachable
+  sourceUrl: z.string().optional(),
+});
+
+// §4.4 — the coverage block (replaces count-floor + blockGap).
+export const blockCoverageSchema = z.object({
+  byTier: z.object({
+    hard_evidence: z.number().int().nonnegative(),
+    directional_signal: z.number().int().nonnegative(),
+    strategic_inference: z.number().int().nonnegative(),
+    operator_input: z.number().int().nonnegative(),
+  }),
+  acquisitionGaps: z.array(acquisitionGapSchema).default([]),
+  strippedByVerifier: z.array(strippedRowSchema).default([]), // verifier-written
+  readiness: z.enum(["rich", "adequate", "thin", "gap"]), // honest self-report
+});
+
+export function coverageBlock<T extends z.ZodRawShape>(
+  rowPayload: z.ZodObject<T>,
+) {
+  return z.object({
+    prose: z.string().min(1),
+    rows: z.array(withEvidenceMeta(rowPayload)), // MAY be empty when coverage explains why
+    coverage: blockCoverageSchema,
+  });
+}
+
+export type EvidenceSource = z.infer<typeof evidenceSourceSchema>;
+export type RowVerification = z.infer<typeof rowVerificationSchema>;
+export type EvidenceMeta = z.infer<typeof evidenceMetaSchema>;
+export type AcquisitionGap = z.infer<typeof acquisitionGapSchema>;
+export type StrippedRow = z.infer<typeof strippedRowSchema>;
+export type BlockCoverage = z.infer<typeof blockCoverageSchema>;

@@ -837,3 +837,235 @@ describe("subject CTA observation", (): void => {
     expect(result.stripped).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 2 — downgrade-not-delete (context-engineering redesign §4.6).
+//
+// In downgradeMode an uncontained / unreachable row is KEPT (not dropped, not
+// URL-rewritten): its verification meta is written, its tier demoted, and a
+// strippedRow recorded for coverage.strippedByVerifier. Hard removal is reserved
+// for an affirmative contradiction (outcome:"refuted"), which this gate does not
+// synthesize, so in downgradeMode nothing is dropped.
+// ---------------------------------------------------------------------------
+describe("applySourceLivenessGate downgrade-not-delete (downgradeMode)", (): void => {
+  it("(a) keeps an uncontained row, sets outcome:'downgraded', demotes tier, and does NOT drop it", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (_input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+        // Live 200 page whose text lacks the attributed number — uncontained.
+        return response({
+          body: "MOPs Weekly is an active community newsletter.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        observations: [
+          {
+            evidence: "MOPs Weekly has 112,403 members.",
+            sourceUrl: "https://mopsweekly.com/",
+            tier: "hard_evidence",
+          },
+        ],
+      },
+      fetchImpl,
+      downgradeMode: true,
+    });
+    const body = result.body as {
+      observations?: Array<Record<string, unknown>>;
+    };
+
+    // The row survives.
+    expect(body.observations).toHaveLength(1);
+    const row = body.observations?.[0];
+    // Its real URL is preserved — NOT rewritten to an .invalid marker.
+    expect(row?.sourceUrl).toBe("https://mopsweekly.com/");
+    // Tier demoted hard_evidence -> directional_signal.
+    expect(row?.tier).toBe("directional_signal");
+    // Verification meta is the downgrade record.
+    expect(row?.verification).toEqual(
+      expect.objectContaining({
+        reach: "uncontained",
+        outcome: "downgraded",
+      }),
+    );
+    // It is NOT in the hard-drop set.
+    expect(result.droppedRows).toEqual([]);
+    // It IS recorded for the reader as a verifier downgrade.
+    expect(result.downgradedRows).toEqual([
+      expect.objectContaining({
+        path: "body.observations[0]",
+        strippedRow: expect.objectContaining({
+          originalTier: "hard_evidence",
+          droppedReason: expect.stringContaining("containment"),
+          sourceUrl: "https://mopsweekly.com/",
+        }),
+      }),
+    ]);
+  });
+
+  it("keeps an unreachable row (fetch-error) with reach:'unreachable', not dropped", async (): Promise<void> => {
+    const fetchImpl = vi.fn(async (): Promise<Response> => {
+      throw new Error("ENOTFOUND mopsweekly");
+    });
+    const result = await applySourceLivenessGate({
+      body: {
+        // Two rows so the global-network-unavailable carve-out (>=80% fetch
+        // errors) does NOT fire — one reachable, one not.
+        observations: [
+          {
+            evidence: "MOPs Weekly has 112,403 members.",
+            sourceUrl: "https://offline.example/dead",
+            tier: "hard_evidence",
+          },
+        ],
+        extras: [
+          {
+            evidence: "A reachable control row.",
+            sourceUrl: "https://reachable.example/ok",
+          },
+        ],
+      },
+      fetchImpl: vi.fn(
+        async (input: string, init?: RequestInit): Promise<Response> => {
+          if (input.includes("offline")) {
+            throw new Error("ENOTFOUND");
+          }
+          if (init?.method === "HEAD") {
+            return response({ status: 200 });
+          }
+          return response({ body: "control page", status: 200 });
+        },
+      ),
+      downgradeMode: true,
+    });
+    const body = result.body as {
+      observations?: Array<Record<string, unknown>>;
+    };
+
+    void fetchImpl;
+    expect(body.observations).toHaveLength(1);
+    const row = body.observations?.[0];
+    expect(row?.sourceUrl).toBe("https://offline.example/dead");
+    expect(row?.tier).toBe("directional_signal");
+    expect(row?.verification).toEqual(
+      expect.objectContaining({ reach: "unreachable", outcome: "downgraded" }),
+    );
+    expect(result.droppedRows).toEqual([]);
+  });
+
+  it("(b) a block with one kept-downgraded row does NOT get installBlockGapsForEmptiedBlocks boilerplate", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (_input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+        return response({
+          body: "Smartsheet is a work-management platform.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        shareOfVoice: {
+          prose:
+            "Smartsheet leads the share of voice with 42 creatives across Google and Meta.",
+          slices: [
+            {
+              evidence: "Smartsheet runs 42 creatives.",
+              sourceUrl: "https://example.com/share-of-voice",
+              tier: "hard_evidence",
+            },
+          ],
+        },
+      },
+      fetchImpl,
+      downgradeMode: true,
+    });
+    const shareOfVoice = (result.body as Record<string, unknown>)
+      .shareOfVoice as Record<string, unknown>;
+
+    // The row is kept (downgraded), so the block is NOT blanked: no blockGap,
+    // original prose preserved.
+    expect(shareOfVoice.slices).toHaveLength(1);
+    expect(shareOfVoice.blockGap).toBeUndefined();
+    expect(shareOfVoice.prose).toBe(
+      "Smartsheet leads the share of voice with 42 creatives across Google and Meta.",
+    );
+  });
+
+  it("(c) .some() entity match keeps a row when only the company matches (missing name -> downgrade)", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (_input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+        // Company "Ramp" is present; the named human is NOT — a missing sibling
+        // token. Under .some() the company carries the row, kept-but-downgraded.
+        return response({
+          body: "Ramp helps finance teams control spend.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        personas: [
+          {
+            name: "Bill Cox",
+            company: "Ramp",
+            sourceUrl: "https://ramp.com/customers/real",
+            tier: "hard_evidence",
+          },
+        ],
+      },
+      fetchImpl,
+      downgradeMode: true,
+    });
+    const body = result.body as {
+      personas?: Array<Record<string, unknown>>;
+    };
+
+    expect(body.personas).toHaveLength(1);
+    expect(body.personas?.[0]?.sourceUrl).toBe("https://ramp.com/customers/real");
+    // Partial entity match -> downgraded, kept.
+    expect(body.personas?.[0]?.tier).toBe("directional_signal");
+    expect(result.droppedRows).toEqual([]);
+  });
+
+  it("default (downgradeMode off) still DELETES an uncontained row — other 6 sections unchanged", async (): Promise<void> => {
+    const fetchImpl = vi.fn(
+      async (_input: string, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "HEAD") {
+          return response({ status: 200 });
+        }
+        return response({
+          body: "The page mentions MOPs Weekly but no member count.",
+          status: 200,
+        });
+      },
+    );
+    const result = await applySourceLivenessGate({
+      body: {
+        observations: [
+          {
+            evidence: "MOPs Weekly has 112,403 members.",
+            sourceUrl: "https://mopsweekly.com/",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { observations?: unknown[] };
+
+    expect(body.observations).toEqual([]);
+    expect(result.droppedRows[0]).toEqual(
+      expect.objectContaining({ reason: "containment-mismatch" }),
+    );
+    expect(result.downgradedRows ?? []).toEqual([]);
+  });
+});

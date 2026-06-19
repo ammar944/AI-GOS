@@ -53,16 +53,19 @@ function buildDefinition({
   requiredEvidenceClasses = [],
   sectionId = "positioningMarketCategory",
   loadBearingKinds = defaultLoadBearingKindsFor(sectionId),
+  verifierDowngradeMode = false,
 }: {
   errors?: string[];
   requiredEvidenceClasses?: readonly RequiredEvidenceClass[];
   sectionId?: SectionId;
   loadBearingKinds?: readonly LoadBearingClaimKind[];
+  verifierDowngradeMode?: boolean;
 } = {}): CommittableSectionDefinition {
   return {
     id: sectionId,
     requiredEvidenceClasses,
     loadBearingKinds,
+    verifierDowngradeMode,
     validateMinimums: (): { ok: boolean; errors: string[] } => ({
       ok: errors.length === 0,
       errors,
@@ -93,6 +96,22 @@ function unsupportedClaim(
     },
     reason: "no_match",
     status: "unsupported",
+  };
+}
+
+function refutedClaim(
+  kind: "numeric" | "quote" | "url",
+  value: string,
+): VerificationReport["claims"][number] {
+  return {
+    claim: {
+      kind,
+      raw: value,
+      value,
+    },
+    reason: "no_match",
+    status: "unsupported",
+    entailmentVerdict: "refuted",
   };
 }
 
@@ -303,6 +322,50 @@ describe("evaluateCommittableAttempt", (): void => {
         (claim) => claim.claim.kind,
       ),
     ).toEqual(["numeric"]);
+  });
+
+  it("under verifierDowngradeMode keeps no_match load-bearing claims out of the gate, committing", (): void => {
+    const artifact = buildArtifact({ sectionId: "positioningBuyerICP" });
+    const verdict = evaluateCommittableAttempt({
+      artifact,
+      definition: buildDefinition({
+        sectionId: "positioningBuyerICP",
+        verifierDowngradeMode: true,
+      }),
+      env: {},
+      verification: buildVerificationReport([
+        // Kept-and-downgraded persona URL (unreachable) + directional firmographic
+        // numeric — neither is an affirmatively-refuted fabrication.
+        unsupportedClaim("url", "https://next.ramp.com/customers/perplexity"),
+        unsupportedClaim("numeric", "10–1,000"),
+      ]),
+    });
+
+    expect(verdict.kind).toBe("committable");
+  });
+
+  it("under verifierDowngradeMode still gates an affirmatively-refuted load-bearing claim", (): void => {
+    const artifact = buildArtifact({ sectionId: "positioningBuyerICP" });
+    const verdict = evaluateCommittableAttempt({
+      artifact,
+      definition: buildDefinition({
+        sectionId: "positioningBuyerICP",
+        verifierDowngradeMode: true,
+      }),
+      env: {},
+      verification: buildVerificationReport([
+        unsupportedClaim("url", "https://next.ramp.com/customers/perplexity"),
+        refutedClaim("numeric", "$10M ARR"),
+      ]),
+    });
+
+    expect(verdict.kind).toBe("evidenceShortfall");
+    if (verdict.kind !== "evidenceShortfall") {
+      throw new Error("expected evidence shortfall");
+    }
+    expect(
+      verdict.shortfall.unsupportedLoadBearing.map((claim) => claim.claim.value),
+    ).toEqual(["$10M ARR"]);
   });
 
   it("scopes paid-media load-bearing claims to urls only", (): void => {

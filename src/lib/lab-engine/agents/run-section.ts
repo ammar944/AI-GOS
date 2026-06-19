@@ -174,10 +174,12 @@ import {
   acquireBuyerPersonaCandidates,
   deriveVendorSourced,
   formatBuyerPersonaCandidateBlock,
+  SEGMENT_EVIDENCE_VENUE,
   type BuyerPersonaCandidate,
   type BuyerPersonaLookup,
 } from "./buyer-persona-acquisition";
 import { acquireCaseStudyChampionCandidates } from "./buyer-persona-case-study-mining";
+import { mineSegmentEvidenceCandidates } from "./buyer-segment-mining";
 import { withBuyerICPAcquisitionLedger } from "./buyer-icp-acquisition-ledger";
 import { withPaidMediaEvidencePack } from "./paid-media-evidence-pack";
 import { computeAcquisitionSufficiency } from "../artifacts/schemas/strategic-insight";
@@ -244,6 +246,7 @@ import {
   stripUncontainedSourceUrls,
   stripUnverifiedSourceUrls,
   type DowngradedVerbatimQuote,
+  type StrippedPlaceholderUrl,
 } from "./verification/provenance-gate";
 import {
   buildSectionNumericTruth,
@@ -274,6 +277,7 @@ import {
   type SubjectCtaClaimStrip,
 } from "./verification/source-liveness";
 import { isValidGroundedBuyerUnit } from "./verification/grounded-buyer-unit";
+import { reconcilePersonaRealityCoverage } from "./verification/downgrade-coverage";
 import {
   keywordTrendKeywords,
   keywordVolumeKeywords,
@@ -3398,13 +3402,51 @@ export function promoteDeadlineBuyerICPPersonas(
   const seenNameKeys = new Set<string>();
   const personas: Array<Record<string, unknown>> = [];
   for (const candidate of buyerPersonaCandidates) {
+    if (!isHttpUrl(candidate.url)) {
+      continue;
+    }
+
+    // Segment-evidence venue: an ICP is a buyer SEGMENT/ROLE, not a named
+    // human. Author a grounded persona whose segmentLabel is the verbatim phrase
+    // mined from the live page (it is strict-contained on the sourceUrl page by
+    // source-liveness), giving the segment-first path a deterministic floor even
+    // when no named champion was found. Distinct from the named-champion venues.
+    if (candidate.venue === SEGMENT_EVIDENCE_VENUE) {
+      const segmentLabel = candidate.segmentLabel?.trim();
+      if (segmentLabel === undefined || segmentLabel.length === 0) {
+        continue;
+      }
+      const unit: Record<string, unknown> = {
+        name: candidate.name,
+        title: candidate.title,
+        company: candidate.company,
+        sourceUrl: candidate.url,
+        // BUYER_PERSONA_GROUNDING_FIELD === "segmentLabel": copy the mined
+        // phrase verbatim into the grounding carrier.
+        segmentLabel,
+      };
+      if (!isValidGroundedBuyerUnit(unit)) {
+        continue;
+      }
+      // Dedupe on the segment phrase, not a human name (these share role names).
+      const segmentKey = normalizeNameKey(segmentLabel);
+      if (segmentKey.length === 0 || seenNameKeys.has(segmentKey)) {
+        continue;
+      }
+      seenNameKeys.add(segmentKey);
+      personas.push({
+        ...unit,
+        role: inferDeadlinePersonaRole(candidate.title),
+        seniority: inferDeadlinePersonaSeniority(candidate.title),
+        evidence: `Buyer segment "${segmentLabel}" sourced from live page (${candidate.url}).`,
+      });
+      continue;
+    }
+
     if (
       candidate.venue !== "case_study_champions" &&
       candidate.venue !== "event_speakers"
     ) {
-      continue;
-    }
-    if (!isHttpUrl(candidate.url)) {
       continue;
     }
     // Option B: validate as a grounded buyer unit (named human OR sourced
@@ -3931,10 +3973,11 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
 const buyerICPPersonaNameErrorPattern =
   /^body\.personaReality\.personas\[\d+\]\.name: must be a named person, public reviewer handle, or a sourced role\/segment buyer unit \(segmentLabel grounded on the live source\); a bare generic role\/segment\/company label with no grounding does not qualify\.$/;
 const buyerICPPersonaCountErrorPattern =
-  /^body\.personaReality\.personas: have \d+, need >=3\.$/;
+  /^body\.personaReality\.personas: have \d+ grounded, need >=1\.$/;
 const buyerICPPersonaEvidenceGapReason = "insufficient_named_buyer_personas";
-// Floor 3 (was 5) — kept in lockstep with validateBuyerICPMinimums.
-const buyerICPRequiredNamedPersonaCount = 3;
+// Floor 1, quality-aware (was 3) — kept in lockstep with
+// validateBuyerICPMinimums: one grounded promoted champion clears the floor.
+const buyerICPRequiredNamedPersonaCount = 1;
 
 function isBuyerICPPersonaEvidenceGapError(error: string): boolean {
   return (
@@ -3994,9 +4037,9 @@ function buildBuyerICPPersonaEvidenceGapArtifact({
     ),
   );
   const summary = [
-    "Evidence gap: public research did not clear the named BuyerICP persona bar.",
-    `Found ${validPersonas.length} named buyer persona(s); required ${buyerICPRequiredNamedPersonaCount}.`,
-    "Generic role, segment, seniority, and company labels were dropped instead of being promoted as persona proof.",
+    "Evidence gap: public research did not clear the BuyerICP persona bar.",
+    `Found ${validPersonas.length} buyer persona(s); required ${buyerICPRequiredNamedPersonaCount}.`,
+    "Ungrounded role, segment, seniority, and company labels were dropped instead of being promoted as persona proof (a verbatim segment phrase on a live URL is valid grounding — a named human is not required).",
   ].join(" ");
   const candidate = artifactEnvelopeSchema
     .extend({ body: definition.bodySchema })
@@ -4767,11 +4810,21 @@ export function deriveWave2TrustConfidence({
     containmentKnownRate,
     smallNContainmentUnknownCount,
   } = deriveContainmentKnownRate(sourceLiveness);
-  const rawConfidence = Math.min(
-    livenessKnownRate,
-    containmentKnownRate,
-    claimSupportShare,
-  );
+  // Downgrade-not-delete (§4.6): a row that failed containment but was KEPT and
+  // demoted to directional_signal is honestly handled — it must not ALSO bind
+  // the confidence floor as if it were a silent fabrication. When rows were
+  // kept-and-downgraded, confidence tracks claim support — but the lift is
+  // bounded by a directional ceiling so a single downgrade cannot let a
+  // low-containment section read as fully grounded.
+  const downgradeDirectionalCeiling = 0.6;
+  const containmentBinds = sourceLiveness.downgradedRows.length === 0;
+  const rawConfidence = containmentBinds
+    ? Math.min(livenessKnownRate, containmentKnownRate, claimSupportShare)
+    : Math.min(
+        livenessKnownRate,
+        claimSupportShare,
+        Math.max(containmentKnownRate, downgradeDirectionalCeiling),
+      );
   const quoteCapped = quoteForceEmptied
     ? Math.min(rawConfidence, 0.6)
     : rawConfidence;
@@ -4913,6 +4966,33 @@ export function stripUnattributedOperatorEconomics({
   return stripped.length === 0 ? { body, stripped } : { body: cloned, stripped };
 }
 
+function getDowngradedPersonaCount(body: Record<string, unknown>): number {
+  const personaReality = getRecord(body.personaReality);
+  if (personaReality === null) {
+    return 0;
+  }
+  return Array.isArray(personaReality.personas)
+    ? personaReality.personas.length
+    : 0;
+}
+
+// Honest review badge for a downgrade-not-delete commit: relax needs_review only
+// when the block kept real personas AND no provenance/attribution strip fired.
+// A directional inference numeric does not force review (handoff: "needs_review
+// only when acquisition-gap dominates, not when inference does"), but a
+// provenance flag / misattribution / placeholder-URL / coherence strip is a
+// fabrication signal that must keep the badge on (do not let a single kept
+// persona suppress it).
+export function deriveDowngradeNeedsReview({
+  personaCount,
+  hasProvenanceConcern,
+}: {
+  personaCount: number;
+  hasProvenanceConcern: boolean;
+}): boolean {
+  return personaCount === 0 || hasProvenanceConcern;
+}
+
 async function annotateEvidenceSupportReview({
   artifact,
   fetchImpl,
@@ -5000,8 +5080,14 @@ async function annotateEvidenceSupportReview({
     body: emailScrub.body,
     trustedHosts: buildPlaceholderTrustedHosts(researchInput),
   });
+  // Phase 2/3 pilot: BuyerICP runs the verifier in downgrade-not-delete mode —
+  // an uncontained/unreachable persona row is kept-and-demoted (real URL
+  // preserved, tier hard->directional, verification meta written) instead of
+  // dropped. The other 6 sections keep the existing delete behaviour.
+  const livenessDowngradeMode = sectionId === "positioningBuyerICP";
   const sourceLiveness = await applySourceLivenessGate({
     body: placeholderUrlStrip.body,
+    downgradeMode: livenessDowngradeMode,
     ...(fetchImpl === undefined ? {} : { fetchImpl }),
     ...(preverifiedSourceUrls === undefined
       ? {}
@@ -5021,11 +5107,18 @@ async function annotateEvidenceSupportReview({
   // provenance. This unconditionally relabels any unsupported, non-trusted-host
   // sourceUrl to a per-row UNIQUE evidence-gap marker — catching all three at
   // once while the unique marker host preserves the VoC distinct-source minimum.
-  const containmentStrip = stripUncontainedSourceUrls({
-    body: unverifiedUrlStrip.body,
-    unsupportedUrls: unsupportedUrlClaims,
-    trustedHosts: buildPlaceholderTrustedHosts(researchInput),
-  });
+  // BuyerICP (downgrade-not-delete pilot): a kept-and-downgraded persona row
+  // already carries its honest verification meta + strippedByVerifier record,
+  // so the .invalid URL rewrite must NOT fire — the real sourceUrl is preserved
+  // (Task 3: no evidence-gap-0.invalid on a promoted champion). The other 6
+  // sections keep the systemic containment strip unchanged.
+  const containmentStrip = livenessDowngradeMode
+    ? { body: unverifiedUrlStrip.body, stripped: [] as StrippedPlaceholderUrl[] }
+    : stripUncontainedSourceUrls({
+        body: unverifiedUrlStrip.body,
+        unsupportedUrls: unsupportedUrlClaims,
+        trustedHosts: buildPlaceholderTrustedHosts(researchInput),
+      });
   const placeholderUrlStrikes = [
     ...placeholderUrlStrip.stripped,
     ...unverifiedUrlStrip.stripped,
@@ -5198,6 +5291,39 @@ async function annotateEvidenceSupportReview({
     artifact.verification !== undefined &&
     Math.abs(confidence - artifact.confidence) > 0.000001;
 
+  // Downgrade-not-delete (§4.6 / Gap B): fold the verifier's downgrade events
+  // into the block coverage so byTier, strippedByVerifier and readiness reflect
+  // the post-downgrade rows (not the model's pre-verification self-report), and
+  // a legacy blockGap is promoted to a first-class acquisition gap once real
+  // rows remain. Scoped to the section that runs the verifier in downgrade mode.
+  const coverageReconciled =
+    livenessDowngradeMode && sourceLiveness.downgradedRows.length > 0;
+  const reconciledBody = coverageReconciled
+    ? reconcilePersonaRealityCoverage({
+        body: numericStrip.body,
+        downgradedRows: sourceLiveness.downgradedRows,
+      })
+    : numericStrip.body;
+  // needs_review only when the gap dominates OR a provenance/attribution strip
+  // fired: kept-and-downgraded personas are a known directional signal, but a
+  // misattribution / placeholder-URL / coherence strike is a fabrication signal
+  // that a single kept persona must not suppress.
+  const reconciledPersonaCount = coverageReconciled
+    ? getDowngradedPersonaCount(reconciledBody)
+    : 0;
+  const downgradeProvenanceConcern =
+    provenanceFlags.length > 0 ||
+    strip.stripped.length > 0 ||
+    placeholderUrlStrikes.length > 0 ||
+    namedEntityStrip.stripped.length > 0 ||
+    numericCoherenceStrikes.length > 0;
+  const needsReview = coverageReconciled
+    ? deriveDowngradeNeedsReview({
+        personaCount: reconciledPersonaCount,
+        hasProvenanceConcern: downgradeProvenanceConcern,
+      })
+    : true;
+
   if (
     provenanceFlags.length === 0 &&
     strip.stripped.length === 0 &&
@@ -5207,6 +5333,7 @@ async function annotateEvidenceSupportReview({
     emailScrub.stripped.length === 0 &&
     placeholderUrlStrikes.length === 0 &&
     sourceLiveness.droppedRows.length === 0 &&
+    !coverageReconciled &&
     quoteDedup.dropped.length === 0 &&
     subjectCta.stripped.length === 0 &&
     offerEconomics.stripped.length === 0 &&
@@ -5222,11 +5349,11 @@ async function annotateEvidenceSupportReview({
 
   return artifactEnvelopeSchema.parse({
     ...artifact,
-    body: numericStrip.body,
+    body: reconciledBody,
     statusSummary: statusSummaryCoherence.value,
     verdict: verdictCoherence.value,
     confidence,
-    needs_review: true,
+    needs_review: needsReview,
     verifierSummary: {
       ...(artifact.verifierSummary ?? {}),
       ...(provenanceFlags.length > 0 ? { provenanceFlags } : {}),
@@ -6911,8 +7038,10 @@ const BUYER_ICP_BLOCK_GAP_TARGETS: ReadonlyArray<{
     pattern: /^body\.personaReality\.personas: have/,
     key: "personaReality",
     rowsKey: "personas",
-    required: 3,
-    label: "named buyer personas",
+    // Floor 1, quality-aware (was 3): one grounded promoted champion clears
+    // the floor; a block-gap repair only needs to cover the >=1 shortfall.
+    required: 1,
+    label: "buyer personas",
   },
 ];
 
@@ -7248,14 +7377,15 @@ export function withNormalizedBuyerICPOutput(
             evidenceGap: true,
             evidenceGapReport: {
               reason: buyerICPEvidenceGapReason,
-              summary: `Only ${validatorGradePersonaCount} named buyer persona${
+              summary: `Only ${validatorGradePersonaCount} buyer persona${
                 validatorGradePersonaCount === 1 ? "" : "s"
-              } could be grounded in fetched evidence with a live source URL — below the 3-persona floor. Treat the buyer picture as directional until more named reviewers or case-study buyers are sourced.`,
+              } could be grounded in fetched evidence with a live source URL — below the 3-persona floor. Treat the buyer picture as directional until more grounded buyer units (role/segment 'segmentLabel' personas from live pages, or named case-study champions) are sourced.`,
               foundNamedPersonaCount: validatorGradePersonaCount,
               requiredNamedPersonaCount: 3,
               rejectedPersonaLabels: [],
               sourcingPlan: [
-                "Mine named reviewers and case-study buyers from G2, Capterra, TrustRadius, and vendor case-study pages for this subject, capturing each name with a live source URL.",
+                "Author grounded 'segmentLabel' buyer personas from role/segment language on live pages (about-us, 'who uses', case-study role lines, review title distributions) — a named human is not required, a verbatim segment phrase on a live URL is valid grounding.",
+                "Additionally mine named case-study champions and reviewers from G2/Capterra/TrustRadius/vendor case-study pages to add color.",
               ],
             },
           }
@@ -11046,6 +11176,17 @@ async function buildBuyerPersonaCandidatePrepass({
       },
       signal: prepassSignal.signal,
     });
+    // Segment-evidence miner (the segment-first primitive): pure, I/O-free.
+    // Mines role/segment phrases from the buyer_icp-scoped + global corpus
+    // excerpts so the model can author `segmentLabel` personas — the ICP
+    // deliverable is a buyer segment/role, not a named-person list. Runs ahead
+    // of the named-champion miners so segment leads are the default path.
+    const sectionExcerpts =
+      researchInput.corpus.sectionExcerpts?.[input.sectionId] ?? [];
+    const segmentCandidates = mineSegmentEvidenceCandidates([
+      ...sectionExcerpts,
+      ...researchInput.corpus.excerpts,
+    ]);
     const acquisition = await acquireBuyerPersonaCandidates({
       company: {
         category: researchInput.company.category,
@@ -11074,10 +11215,14 @@ async function buildBuyerPersonaCandidatePrepass({
       step.stepNumber = index + 1;
     });
 
-    // Case-study champions are the subject's own named external buyers (already
-    // proven to clear the source-liveness gate on re-fetch); merge them AHEAD of
-    // the less-reliable Perplexity leads.
-    const mergedCandidates = [...caseStudy.candidates, ...acquisition.candidates];
+    // Segment-evidence leads are the primary ICP primitive (a buyer segment/
+    // role, not a named-person list). Merge them AHEAD of the named-champion
+    // miners so the model reaches for the segment path first.
+    const mergedCandidates = [
+      ...segmentCandidates,
+      ...caseStudy.candidates,
+      ...acquisition.candidates,
+    ];
 
     return {
       candidateBlock: formatBuyerPersonaCandidateBlock(mergedCandidates),

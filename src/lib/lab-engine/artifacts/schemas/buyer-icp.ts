@@ -8,12 +8,44 @@ import { isValidGroundedBuyerUnit } from "../../agents/verification/grounded-buy
 import type { ValidationResult } from "./market-category";
 import {
   acquisitionSufficiencyFieldSchema,
+  blockCoverageSchema,
   evidenceBlockGapFieldSchema,
   evidenceBlockGapSchema,
+  evidenceTierSchema,
   keyFindingsSchema,
+  rowVerificationSchema,
   strategicInsightSchema,
   validateStrategicInsightMinimums,
 } from "./strategic-insight";
+
+// Phase 3 (BuyerICP tier pilot): an optional per-row evidence tier. Additive
+// and optional — the renderer and the other consumers are unaffected, and a
+// row without it behaves exactly as before. A promoted-then-downgraded persona
+// carries `directional_signal`; a hard-evidence persona carries `hard_evidence`.
+const evidenceTierFieldSchema = evidenceTierSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+// Phase 2/3: the verifier writes this onto a kept-but-downgraded row
+// (reach/outcome/method). The BuyerICP row schemas are strict, so they must
+// ACCEPT the key or persistence rejects a downgraded row. Additive + optional;
+// authored by the verifier, never by the model. `rowVerificationSchema` is the
+// shared shape (already .optional()); the field tolerates an explicit null fill.
+const rowVerificationFieldSchema = rowVerificationSchema
+  .unwrap()
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
+
+// Optional per-block coverage report: distinguishes verifier-stripped/downgraded
+// rows (strippedByVerifier) from genuine acquisition voids (acquisitionGaps), so
+// "we found it and downgraded it" no longer renders identically to "no tool was
+// wired". Additive — absent on every block today, populated only where wired.
+const blockCoverageFieldSchema = blockCoverageSchema
+  .nullable()
+  .transform((value) => value ?? undefined)
+  .optional();
 
 const personaRoles = [
   "champion",
@@ -263,6 +295,8 @@ const firmographicCutSchema = z
     source: z.string().min(1),
     sourceUrl: z.string().min(1),
     dateObserved: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -287,6 +321,8 @@ const personaSchema = z
     // Vendor-sourced personas still count toward the floor — they are real
     // buyers — they're just labeled for the reader.
     vendorSourced: z.boolean().nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -296,6 +332,8 @@ const awarenessLevelSchema = z
     share: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     evidence: z.string().min(1),
     sampleQuery: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -306,6 +344,8 @@ const triggerSchema = z
     window: z.enum(triggerWindows),
     evidence: z.string().min(1),
     sourceUrl: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -316,6 +356,8 @@ const clusterVenueSchema = z
     audienceSize: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
     sourceUrl: z.string().min(1),
     whyItMatters: z.string().min(1),
+    evidenceTier: evidenceTierFieldSchema,
+    verification: rowVerificationFieldSchema,
   })
   .strict();
 
@@ -337,10 +379,14 @@ const evidenceGapReportSchema = z
         z
           .object({
             // Optional for query-level attempt rows (a venue pass that surfaced
-            // no candidate has no source URL/domain — honest, not a floor dodge).
+            // no candidate has no source URL/domain — honest, not a floor dodge)
+            // and for segment-evidence rows (mined from corpus, not searched).
             sourceUrl: z.string().min(1).optional(),
             domain: z.string().min(1).optional(),
-            query: z.string().min(1),
+            // Optional for segment-evidence rows (mined from corpus, not searched
+            // — the segmentLabel is the carrier, not a query). Required for
+            // Perplexity/case-study venue rows.
+            query: z.string().min(1).optional(),
             source: z.string().min(1),
             candidateLabel: z.string().min(1).optional(),
             promotionStatus: z.enum(["promoted", "rejected", "not_applicable"]),
@@ -385,6 +431,10 @@ export const buyerICPBodySchema = z
         prose: z.string().min(1),
         personas: z.array(personaSchema),
         blockGap: blockGapFieldSchema,
+        // Phase 3: when the verifier downgrades a persona row (uncontained /
+        // unreachable re-fetch), the kept-but-demoted record is reported here —
+        // distinct from an acquisition gap. Optional + additive.
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     awarenessDistribution: z
@@ -407,6 +457,11 @@ export const buyerICPBodySchema = z
         prose: z.string().min(1),
         venues: z.array(clusterVenueSchema),
         blockGap: blockGapFieldSchema,
+        // Phase 3: the clusters block has NO venue-discovery tool wired, so an
+        // empty venues array is an ACQUISITION GAP (not stripped data). The
+        // coverage carries the acquisitionGaps entry; distinct boilerplate from
+        // a verifier-stripped block. Optional + additive.
+        coverage: blockCoverageFieldSchema,
       })
       .strict(),
     evidenceGap: z.literal(true).nullable().transform((value) => value ?? undefined).optional(),
@@ -484,15 +539,22 @@ export function validateBuyerICPMinimums(
     );
   }
 
-  // Floor 3 (was 5): the venue prepass + perplexity mining make 3 reachable
-  // for quote-sparse subjects; below 3 the structured evidence-gap path is
-  // the honest exit.
+  // Floor 1, quality-aware (was 3): a real promoted champion — even ONE — must
+  // clear the floor. We count personas that pass isValidGroundedBuyerUnit (a
+  // live source URL + a named human OR a sourced role/segment), so the bar is
+  // grounded quality, not a raw row count. With zero grounded personas and no
+  // gap/blockGap, the structured evidence-gap path is the honest exit.
+  const groundedPersonaCount = personas.filter((persona) =>
+    isValidGroundedBuyerUnit(persona as unknown as Record<string, unknown>),
+  ).length;
   if (
     !personaEvidenceGap &&
-    personas.length < 3 &&
+    groundedPersonaCount < 1 &&
     !hasBlockGap(parsedArtifact.body.personaReality)
   ) {
-    errors.push(`body.personaReality.personas: have ${personas.length}, need >=3.`);
+    errors.push(
+      `body.personaReality.personas: have ${groundedPersonaCount} grounded, need >=1.`,
+    );
   }
 
   personas.forEach((persona, index) => {

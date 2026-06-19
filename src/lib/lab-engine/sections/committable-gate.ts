@@ -20,6 +20,10 @@ export interface CommittableSectionDefinition {
   id: SectionId;
   requiredEvidenceClasses: readonly RequiredEvidenceClass[];
   loadBearingKinds: readonly LoadBearingClaimKind[];
+  // Verifier downgrade-not-delete posture (§4.6). When true, the run-level
+  // evidence gate counts only affirmatively-refuted load-bearing claims — an
+  // uncontained/unreachable row is kept-and-downgraded, not a gate failure.
+  verifierDowngradeMode?: boolean;
   validateMinimums: (
     artifact: ArtifactEnvelope & { body: Record<string, unknown> },
   ) => MinimumValidationResult;
@@ -136,6 +140,7 @@ export function evaluateCommittableAttempt({
   const shortfall = evaluateEvidenceSupport({
     verification,
     loadBearingKinds: definition.loadBearingKinds,
+    gateRefutedOnly: definition.verifierDowngradeMode ?? false,
   });
 
   if (shortfall.unsupportedLoadBearing.length > 0) {

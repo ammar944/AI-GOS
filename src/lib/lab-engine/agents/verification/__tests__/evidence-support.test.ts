@@ -455,6 +455,50 @@ describe("evaluateEvidenceSupport", (): void => {
       verifiedCount: 0,
     })).toBe(0);
   });
+
+  it("under gateRefutedOnly counts only affirmatively-refuted load-bearing claims, never no_match", (): void => {
+    const report: VerificationReport = {
+      claims: [
+        // Kept-and-downgraded persona URL: unreachable, not a fabrication.
+        {
+          claim: {
+            kind: "url",
+            raw: "https://next.ramp.com/customers/perplexity",
+            value: "https://next.ramp.com/customers/perplexity",
+          },
+          reason: "no_match",
+          status: "unsupported",
+        },
+        // Directional firmographic range: inference, no source claimed.
+        {
+          claim: { kind: "numeric", raw: "10–1,000 employees", value: "10–1,000" },
+          reason: "no_match",
+          status: "unsupported",
+        },
+        // Affirmatively refuted hard-evidence numeric: a reached source contradicts it.
+        {
+          claim: { kind: "numeric", raw: "$10M ARR", value: "$10M" },
+          reason: "no_match",
+          status: "unsupported",
+          entailmentVerdict: "refuted",
+        },
+      ],
+      unsupportedCount: 3,
+      verifiedCount: 0,
+    };
+
+    const moderated = evaluateEvidenceSupport({
+      verification: report,
+      gateRefutedOnly: true,
+    });
+    expect(
+      moderated.unsupportedLoadBearing.map((verdict) => verdict.claim.value),
+    ).toEqual(["$10M"]);
+
+    // Default posture (no flag) still counts every unsupported load-bearing claim.
+    const strict = evaluateEvidenceSupport({ verification: report });
+    expect(strict.unsupportedLoadBearing).toHaveLength(3);
+  });
 });
 
 describe("deriveGroundedConfidence", (): void => {

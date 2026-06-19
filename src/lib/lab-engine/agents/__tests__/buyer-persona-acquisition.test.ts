@@ -12,6 +12,7 @@ import {
   formatBuyerPersonaCandidateBlock,
   parseNamedPersonaLines,
 } from "../buyer-persona-acquisition";
+import type { BuyerPersonaCandidate } from "../buyer-persona-acquisition";
 
 const company = {
   category: "ad-fraud detection platform",
@@ -296,7 +297,7 @@ describe("buildBuyerPersonaCandidates own-company filter (Fix B)", (): void => {
 });
 
 describe("formatBuyerPersonaCandidateBlock", (): void => {
-  it("renders leads with full identity fields and the promotion rule", (): void => {
+  it("leads segment-first with an ordered authoring contract (segmentLabel personas FIRST, named champion bonus SECOND)", (): void => {
     const candidates = buildBuyerPersonaCandidates({
       answer: personaLine(1, "g2.com"),
       venue: "reviewer_identities",
@@ -305,15 +306,55 @@ describe("formatBuyerPersonaCandidateBlock", (): void => {
     const block = formatBuyerPersonaCandidateBlock(candidates);
 
     expect(block).toContain("Maya Chen");
-    expect(block).toContain("VP Demand Generation");
-    expect(block).toContain("Brightpath Labs");
     expect(block).toContain("https://g2.com/podcast/1");
-    expect(block.toLowerCase()).toContain("promote a persona only");
+    // Ordered segment-first contract is present.
+    expect(block).toContain("1. FIRST");
+    expect(block).toContain("2. SECOND");
+    expect(block.toLowerCase()).toContain("segmentlabel");
+    expect(block.toLowerCase()).toContain("named champion never replaces");
+    // Perplexity leads flagged unverified.
+    expect(block).toContain("Perplexity name leads");
   });
 
-  it("renders the empty state with the gap-report rule", (): void => {
+  it("renders segment-evidence leads as the PRIMARY authoring source when present", (): void => {
+    const candidates: BuyerPersonaCandidate[] = [
+      {
+        company: "",
+        name: "Finance team buyer",
+        title: "",
+        url: "https://ramp.com/about-us",
+        venue: "segment_evidence",
+        segmentLabel: "modern finance teams",
+      },
+      {
+        company: "WizeHire",
+        name: "Alicia Coleman",
+        title: "Marketing Operations Manager",
+        url: "https://ramp.com/customers/wizehire",
+        venue: "case_study_champions",
+      },
+    ];
+
+    const block = formatBuyerPersonaCandidateBlock(candidates);
+
+    // Segment-evidence leads render first with the verbatim phrase.
+    expect(block).toContain("SEGMENT-EVIDENCE leads");
+    expect(block).toContain("modern finance teams");
+    expect(block).toContain("https://ramp.com/about-us");
+    // Named champion renders as the bonus layer.
+    expect(block).toContain("Alicia Coleman");
+    expect(block).toContain("bonus layer");
+    // Ordered contract still present.
+    expect(block).toContain("1. FIRST");
+    expect(block.toLowerCase()).toContain("segmentlabel");
+  });
+
+  it("renders the empty state as segment-first (proceed with step 1, no name-hunting panic)", (): void => {
     const block = formatBuyerPersonaCandidateBlock([]);
 
-    expect(block.toLowerCase()).toContain("none acquired");
+    expect(block.toLowerCase()).toContain("no segment or named-champion leads");
+    expect(block.toLowerCase()).toContain("proceed with step 1");
+    expect(block.toLowerCase()).toContain("segmentlabel");
+    expect(block.toLowerCase()).toContain("evidence-gap report");
   });
 });

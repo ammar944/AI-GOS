@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { isLikelyNamedBuyerIdentity } from "../../artifacts/schemas/buyer-icp";
-import type { BuyerPersonaCandidate } from "../buyer-persona-acquisition";
+import {
+  SEGMENT_EVIDENCE_VENUE,
+  type BuyerPersonaCandidate,
+} from "../buyer-persona-acquisition";
 import {
   buildDeadlineExhaustionHonestGapBody,
   promoteDeadlineBuyerICPPersonas,
@@ -94,6 +97,30 @@ describe("BuyerICP deadline-exhaustion persona rescue (run b0d12b45 regression)"
     expect(names).not.toContain("Finance Team");
     expect(names).not.toContain("Quinn Rivera");
     expect(names).not.toContain("Riley Ng");
+  });
+
+  it("(Task 3.5) authors a persona from a segment_evidence candidate (segment-first floor)", () => {
+    const segmentCandidate: BuyerPersonaCandidate = {
+      name: "Finance leaders",
+      title: "Finance leader",
+      company: "Ramp",
+      url: "https://ramp.com/about-us",
+      venue: SEGMENT_EVIDENCE_VENUE,
+      segmentLabel: "Mid-market SaaS finance teams of 200-1000 employees",
+    };
+
+    const personas = promoteDeadlineBuyerICPPersonas([segmentCandidate]);
+
+    expect(personas).toHaveLength(1);
+    const persona = personas[0]!;
+    // The verbatim mined phrase is copied into the grounding carrier.
+    expect(persona.segmentLabel).toBe(
+      "Mid-market SaaS finance teams of 200-1000 employees",
+    );
+    expect(persona.sourceUrl).toBe("https://ramp.com/about-us");
+    // No name gate — a segment-grounded unit needs no named human.
+    expect(persona.role).toBeDefined();
+    expect(persona.evidence as string).toContain("Mid-market SaaS finance teams");
   });
 
   it("commits the rescued personas in the deadline gap body instead of discarding them", () => {

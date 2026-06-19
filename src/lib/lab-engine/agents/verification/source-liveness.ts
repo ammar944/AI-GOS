@@ -1,10 +1,20 @@
 import { BUYER_PERSONA_GROUNDING_FIELD } from "../../artifacts/schemas/buyer-icp-constants";
+import type { StrippedRow } from "../../artifacts/schemas/strategic-insight";
 import { getRegistrableDomain } from "../../domain-utils";
 
 export interface SourceUrlRow {
   path: string;
   sourceUrl: string;
   row: Record<string, unknown>;
+}
+
+// Phase 2 (downgrade-not-delete): a row that failed containment/liveness but was
+// KEPT (its tier demoted, verification meta written). The caller folds the
+// strippedRow into the owning block's coverage.strippedByVerifier so the reader
+// sees what was downgraded and why — distinct from an acquisition gap.
+export interface DowngradedRow {
+  path: string;
+  strippedRow: StrippedRow;
 }
 
 export interface SourceLivenessDrop {
@@ -41,6 +51,9 @@ export interface SourceLivenessResult {
   checkedUrls: SourceLivenessCheck[];
   droppedRows: SourceLivenessDrop[];
   livenessUnknownRows: SourceLivenessUnknownRow[];
+  // Phase 2 downgrade-not-delete: rows kept-but-demoted instead of dropped.
+  // Empty in the default (delete) path; populated only under downgradeMode.
+  downgradedRows: DowngradedRow[];
   containmentPassRate: number | null;
   livenessPassRate: number | null;
   networkUnavailable: boolean;
@@ -571,6 +584,66 @@ function containmentPasses({
   return numbersPass && entitiesPass && requiredEntitiesPass;
 }
 
+// Phase 2 — three-way containment classification used by downgradeMode.
+//   "contained"   — every required signal is on the page (strict pass).
+//   "partial"     — SOME (but not all) required entity tokens match: a missing
+//                   sibling (e.g. company present, named human absent). Kept and
+//                   DOWNGRADED, never dropped (§4.6: missing sibling -> downgrade).
+//   "uncontained" — no required signal matched / page empty. Kept + downgraded.
+// Numbers and lenient proper-noun entities follow the same .some() spirit here:
+// their absence demotes confidence, it does not refute the claim.
+function classifyContainment({
+  needs,
+  text,
+}: {
+  needs: NormalizedContainmentNeed;
+  text: string | null;
+}): "contained" | "partial" | "uncontained" {
+  if (
+    needs.numbers.length === 0 &&
+    needs.entities.length === 0 &&
+    needs.requiredEntities.length === 0
+  ) {
+    return "contained";
+  }
+
+  if (text === null || text.length === 0) {
+    return "uncontained";
+  }
+
+  const normalized = normalizeForContainment(text);
+  const numbersAllPass =
+    needs.numbers.length === 0 ||
+    needs.numbers.every((number) => containsNumber(normalized, number));
+  const lenientEntitiesPass =
+    needs.entities.length === 0 ||
+    needs.entities.some((entity) => containsEntity(normalized, entity));
+
+  const requiredMatches = needs.requiredEntities.filter((entity) =>
+    containsEntity(normalized, entity),
+  ).length;
+  const requiredAllPass =
+    needs.requiredEntities.length === 0 ||
+    requiredMatches === needs.requiredEntities.length;
+  const requiredAnyPass =
+    needs.requiredEntities.length === 0 || requiredMatches > 0;
+
+  if (numbersAllPass && lenientEntitiesPass && requiredAllPass) {
+    return "contained";
+  }
+
+  // EITHER the name OR the company token (a required entity) is present, OR a
+  // number/lenient entity matched — enough real signal to keep-and-downgrade.
+  if (requiredAnyPass && (numbersAllPass || lenientEntitiesPass)) {
+    return "partial";
+  }
+  if (requiredAnyPass && needs.numbers.length === 0 && needs.entities.length === 0) {
+    return "partial";
+  }
+
+  return "uncontained";
+}
+
 async function mapWithConcurrency<T, R>({
   concurrency,
   items,
@@ -660,6 +733,55 @@ function installBlockGapsForEmptiedBlocks({
   return next;
 }
 
+// Phase 2 — demote a kept row in place: write its verification meta, demote a
+// hard_evidence tier to directional_signal (other tiers are left as-is), and
+// return the strippedRow the caller folds into coverage.strippedByVerifier. The
+// row's REAL sourceUrl is never rewritten. `row` is a node inside the cloned
+// body, so the mutation surfaces in the returned body.
+function downgradeRowInPlace({
+  detail,
+  reach,
+  row,
+}: {
+  detail: string;
+  reach: "uncontained" | "unreachable";
+  row: Record<string, unknown>;
+}): StrippedRow {
+  const originalTier =
+    row.tier === "hard_evidence" ||
+    row.tier === "directional_signal" ||
+    row.tier === "strategic_inference" ||
+    row.tier === "operator_input"
+      ? row.tier
+      : "hard_evidence";
+
+  // Only hard_evidence is re-fetch-gated, so only it can be demoted here; a row
+  // carrying a weaker tier keeps it (already not re-fetch-gated).
+  if (row.tier === "hard_evidence") {
+    row.tier = "directional_signal";
+  }
+
+  row.verification = {
+    reach,
+    outcome: "downgraded",
+    method: "node-fetch re-check",
+    note: detail,
+  };
+
+  const sourceUrl =
+    typeof row.sourceUrl === "string" ? row.sourceUrl : undefined;
+
+  return {
+    summary: extractEvidenceText(row) || `Row at ${reach} source`,
+    originalTier,
+    droppedReason:
+      reach === "unreachable"
+        ? `unreachable: ${detail}`
+        : `containment-mismatch: ${detail}`,
+    ...(sourceUrl !== undefined ? { sourceUrl } : {}),
+  };
+}
+
 function dropRowsByPath({
   drops,
   value,
@@ -738,6 +860,7 @@ function isGlobalNetworkUnavailable(
 export async function applySourceLivenessGate({
   body,
   concurrency = defaultConcurrency,
+  downgradeMode = false,
   fetchImpl = fetch,
   maxChecks = defaultMaxChecks,
   preverifiedUrls = new Set<string>(),
@@ -746,6 +869,11 @@ export async function applySourceLivenessGate({
 }: {
   body: Record<string, unknown>;
   concurrency?: number;
+  // Phase 2 (§4.6): when true, an uncontained/unreachable row is KEPT and
+  // demoted (tier hard_evidence -> directional_signal, verification meta
+  // written, strippedRow recorded) instead of dropped + URL-rewritten. Default
+  // false preserves the existing delete behaviour for the other 6 sections.
+  downgradeMode?: boolean;
   fetchImpl?: SourceLivenessFetch;
   maxChecks?: number;
   preverifiedUrls?: ReadonlySet<string>;
@@ -810,6 +938,7 @@ export async function applySourceLivenessGate({
   const droppedRows: SourceLivenessDrop[] = [];
   const checkedUrls: SourceLivenessCheck[] = [];
   const livenessUnknownRows: SourceLivenessUnknownRow[] = [];
+  const downgradedRows: DowngradedRow[] = [];
   const droppedPaths = new Set<string>();
   let liveTotal = 0;
   let livePassed = 0;
@@ -897,6 +1026,26 @@ export async function applySourceLivenessGate({
         status: probe.status,
       });
       continue;
+    } else if (downgradeMode) {
+      // §4.6: an unreachable re-fetch (fetch error / non-200 from a non-bot-
+      // hostile host) is ABSENCE OF CONFIRMATION, not evidence of falsity —
+      // keep the row and demote it instead of dropping + URL-rewriting.
+      downgradedRows.push({
+        path: row.path,
+        strippedRow: downgradeRowInPlace({
+          detail: probe.detail,
+          reach: "unreachable",
+          row: row.row,
+        }),
+      });
+      checkedUrls.push({
+        containmentChecked: false,
+        containmentPassed: false,
+        livenessPassed: false,
+        sourceUrl: row.sourceUrl,
+        status: probe.status,
+      });
+      continue;
     } else {
       const drop: SourceLivenessDrop = {
         path: row.path,
@@ -921,6 +1070,43 @@ export async function applySourceLivenessGate({
       needs.entities.length > 0 ||
       needs.requiredEntities.length > 0 ||
       needs.numbers.length > 0;
+
+    if (downgradeMode) {
+      // §4.6: classify three ways. "contained" passes; "partial" (a missing
+      // sibling token — .some() over required entities) and "uncontained" are
+      // KEPT + demoted, never dropped. Only an affirmative contradiction would
+      // refute, which this gate does not synthesize.
+      const containment = classifyContainment({ needs, text: probe.text });
+
+      if (containmentChecked) {
+        containmentTotal += 1;
+        if (containment === "contained") {
+          containmentPassed += 1;
+        } else {
+          downgradedRows.push({
+            path: row.path,
+            strippedRow: downgradeRowInPlace({
+              detail:
+                containment === "partial"
+                  ? "Live page contained only part of the attributed entity (missing sibling token)."
+                  : "Fetched page text did not contain the attributed number or named entity.",
+              reach: "uncontained",
+              row: row.row,
+            }),
+          });
+        }
+      }
+
+      checkedUrls.push({
+        containmentChecked,
+        containmentPassed: !containmentChecked || containment === "contained",
+        livenessPassed: true,
+        sourceUrl: row.sourceUrl,
+        status: probe.status,
+      });
+      continue;
+    }
+
     const contained = containmentPasses({ needs, text: probe.text });
 
     if (containmentChecked) {
@@ -959,6 +1145,7 @@ export async function applySourceLivenessGate({
     checkedUrls,
     droppedRows: networkUnavailable ? [] : droppedRows,
     livenessUnknownRows: networkUnavailable ? [] : livenessUnknownRows,
+    downgradedRows: networkUnavailable ? [] : downgradedRows,
     containmentPassRate: networkUnavailable
       ? null
       : passRate({

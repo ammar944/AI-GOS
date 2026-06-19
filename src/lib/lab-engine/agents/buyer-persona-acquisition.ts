@@ -28,9 +28,19 @@ export const BUYER_PERSONA_SECOND_PASS_VENUES = [
   "event_speakers",
 ] as const;
 
+// Deterministic, I/O-free venue: role/segment phrases extracted from the
+// prepared corpus excerpts (about-us, "who uses", analyst research, review
+// title distributions). This is the SEGMENT-first primitive — an ICP is a
+// buyer segment/role, not a named-person list, and every subject exposes
+// role/segment language on live pages. Never counted toward the Perplexity
+// call budget; mined locally from researchInput.corpus by
+// buyer-segment-mining.ts.
+export const SEGMENT_EVIDENCE_VENUE = "segment_evidence" as const;
+
 export type BuyerPersonaVenue =
   | (typeof BUYER_PERSONA_VENUES)[number]
-  | (typeof BUYER_PERSONA_SECOND_PASS_VENUES)[number];
+  | (typeof BUYER_PERSONA_SECOND_PASS_VENUES)[number]
+  | typeof SEGMENT_EVIDENCE_VENUE;
 
 /**
  * First pass: 2 venues x (1 initial + at most 1 retry). Thin-pack second
@@ -56,6 +66,12 @@ export interface BuyerPersonaCandidate {
   title: string;
   url: string;
   venue: BuyerPersonaVenue;
+  // Segment-evidence venue only: the verbatim role/segment phrase mined from
+  // the sourceUrl page (e.g. "modern finance teams", "CFOs and controllers").
+  // The model authors the persona's `segmentLabel` field from this phrase,
+  // verbatim, so it clears source-liveness strict-containment. Absent for the
+  // named-champion / Perplexity venues (those ground on `name`).
+  segmentLabel?: string;
 }
 
 export interface ParsedNamedPersonaLine {
@@ -170,6 +186,15 @@ const venueQuestionSpecs: Readonly<Record<BuyerPersonaVenue, VenueQuestionSpec>>
       ask: "Find NAMED speakers from recent webinars, conference sessions, summits, and meetups about this category — speaker full name, stated title, and company, from event agenda/roster pages or LinkedIn event posts",
       retryAsk:
         "Search conference agendas, webinar registration pages, podcast guest lists, and LinkedIn event posts for NAMED speakers (full name, title, company) presenting on this category's problem space",
+    },
+    // Segment-evidence is mined deterministically from the prepared corpus, not
+    // searched via Perplexity, so these asks are never dispatched. The framing
+    // mirrors the segment-first path: surface the buyer SEGMENT/ROLE language
+    // present on live pages, not a named-person list.
+    segment_evidence: {
+      ask: "Extract the buyer SEGMENT/ROLE language for this category from the prepared corpus — role/segment phrases on about-us, 'who uses', analyst research, and case-study role lines",
+      retryAsk:
+        "Re-scan the prepared corpus for buyer SEGMENT/ROLE phrases (e.g. 'modern finance teams', 'controllers at mid-market firms') present verbatim on live pages",
     },
   };
 
@@ -455,26 +480,84 @@ export function deriveVendorSourced({
 export function formatBuyerPersonaCandidateBlock(
   candidates: readonly BuyerPersonaCandidate[],
 ): string {
-  if (candidates.length === 0) {
-    return [
-      "Buyer persona venue leads (perplexity prepass)",
+  // An ICP is a buyer SEGMENT/ROLE, not a list of named humans. The primary
+  // grounding primitive is the `segmentLabel` ("VP of Finance at mid-market
+  // SaaS", "Controllers at 200–1000-employee firms", "modern finance teams")
+  // carried on a live sourceUrl — the role/segment language already appears in
+  // the Prepared evidence rows (case-study role lines, "who uses" pages, about-us
+  // positioning, review title distributions, Contrary/analyst research). The
+  // model should author segmentLabel personas from those rows FIRST, then layer
+  // a named champion on top only when one is available.
+  //
+  // Leading with named champions when they exist is the failure mode: it makes
+  // the section depend on finding public named buyers (most subjects expose
+  // few/none) and ships empty when the miner comes up short. The segment path
+  // works on every subject because every subject exposes role/segment language
+  // on live pages.
+  const lines: string[] = [
+    "Buyer ICP segment leads (prepass)",
+    "",
+    "An ICP is a buyer SEGMENT/ROLE, not a list of named humans. Author `personaReality.personas` in this order:",
+    "",
+    "1. FIRST — author 2–3 grounded `segmentLabel` personas. The SEGMENT-EVIDENCE leads below are role/segment phrases mined from live pages (about-us, 'who uses', analyst research, case-study role lines). For each, author a persona whose `segmentLabel` is the VERBATIM phrase shown (it is strict-contained on the sourceUrl page by the verifier), `sourceUrl` is the listed URL, `name` is a short role label, and `role`/`seniority`/`company` come from the segment. These are ready-to-author — the grounding is pre-verified. If no segment leads are listed, author `segmentLabel` personas directly from the role/segment language in the Prepared evidence rows.",
+    "2. SECOND — if a named champion is listed below, you MAY add ONE as a bonus persona to color the segment. A named champion never replaces a segmentLabel persona and never fills the count alone. Three grounded segmentLabel personas with zero named champions is a complete section.",
+    "",
+    "Do NOT hunt for named humans as the deliverable. Do NOT ship empty waiting for names when segment leads or prepared-evidence role language exist. Do NOT author `vendorSourced` (the runner derives it).",
+  ];
+
+  const segment = candidates.filter(
+    (c) => c.venue === SEGMENT_EVIDENCE_VENUE,
+  );
+  const verified = candidates.filter(
+    (c) => c.venue === "case_study_champions",
+  );
+  const unverified = candidates.filter(
+    (c) =>
+      c.venue !== "case_study_champions" && c.venue !== SEGMENT_EVIDENCE_VENUE,
+  );
+
+  if (segment.length > 0) {
+    lines.push(
       "",
-      "None acquired — the venue passes surfaced no named individuals. Mine your own tool fills (case studies, webinar rosters, named reviewers); below the floor, file the structured evidence-gap report instead of padding.",
-    ].join("\n");
+      "SEGMENT-EVIDENCE leads (role/segment phrases mined from live pages — author segmentLabel personas from these FIRST):",
+    );
+    segment.forEach((candidate, i) => {
+      lines.push(
+        `${i + 1}. ${candidate.segmentLabel ?? candidate.name}\n   URL: ${candidate.url}`,
+      );
+    });
   }
 
-  return [
-    "Buyer persona venue leads (perplexity prepass)",
-    "",
-    "Instructions:",
-    "- These are LEADS, not personas. Promote a persona only after the named evidence at its URL supports it; `sourceUrl` is that URL.",
-    "- Keep names exactly as the source states them; never merge leads or upgrade a handle to a full name.",
-    "- Do not author `vendorSourced` — the runner derives it from the sourceUrl domain.",
-    "",
-    "Leads:",
-    ...candidates.map(
-      (candidate, index) =>
-        `${index + 1}. [${candidate.venue}] ${candidate.name} — ${candidate.title} — ${candidate.company}\n   URL: ${candidate.url}`,
-    ),
-  ].join("\n");
+  if (verified.length > 0) {
+    lines.push(
+      "",
+      "Named champions (bonus layer — name+employer on the page by construction; usable as ONE persona with sourceUrl = the listed URL):",
+    );
+    verified.forEach((candidate, i) => {
+      lines.push(
+        `${i + 1}. [${candidate.venue}] ${candidate.name} — ${candidate.title} — ${candidate.company}\n   URL: ${candidate.url}`,
+      );
+    });
+  }
+
+  if (unverified.length > 0) {
+    lines.push(
+      "",
+      "Perplexity name leads (unverified — confirm the named evidence at the URL before using; drop if you cannot):",
+    );
+    unverified.forEach((candidate, i) => {
+      lines.push(
+        `${i + 1}. [${candidate.venue}] ${candidate.name} — ${candidate.title} — ${candidate.company}\n   URL: ${candidate.url}`,
+      );
+    });
+  }
+
+  if (segment.length === 0 && verified.length === 0 && unverified.length === 0) {
+    lines.push(
+      "",
+      "No segment or named-champion leads acquired. Proceed with step 1 using role/segment language from the Prepared evidence rows. Below the floor of 3, file the structured evidence-gap report — never pad with invented names or generic roles.",
+    );
+  }
+
+  return lines.join("\n");
 }
