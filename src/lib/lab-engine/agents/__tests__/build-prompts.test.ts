@@ -9,6 +9,7 @@ import {
   buildClientIdentityPin,
   buildEvidenceTranscript,
   buildOnboardingStrategicFrame,
+  buildPreparedEvidencePromptRows,
   buildRepairPrompt,
   buildSectionObjectiveRecap,
   buildStructuredBodyPrompt,
@@ -18,6 +19,7 @@ import {
   buildUserRefinementBlock,
   STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT,
   STRUCTURER_NO_NEW_FACTS_RULE,
+  type PromptPreparedSectionContext,
   type PromptSectionDefinition,
 } from "../build-prompts";
 
@@ -107,6 +109,48 @@ function buildScopedResearchInput(): ResearchInput {
         positioningPaidMediaPlan: [],
       },
     },
+  };
+}
+
+function buildPreparedPromptContext(): PromptPreparedSectionContext {
+  return {
+    sectionId: "positioningPaidMediaPlan",
+    corpusRows: [
+      {
+        id: "corpus_market_1",
+        sourceId: "source_market_1",
+        sourceUrl: "https://example.com/market",
+        title: "Market source",
+        text: "Market row text with source-backed category evidence.",
+        observedAt: "2026-06-19T00:00:00.000Z",
+        scope: "global",
+      },
+    ],
+    factRows: [
+      {
+        id: "fact_buyer_named_champion_1",
+        sectionId: "positioningBuyerICP",
+        factKind: "named_champion",
+        sourceId: "research_fact:positioningBuyerICP:named_champion:1",
+        sourceUrl: "https://example.com/customer-story",
+        title: "Research fact: Buyer ICP / named_champion",
+        text: "A sourced buyer quote from a customer story.",
+        observedAt: "2026-06-19T00:01:00.000Z",
+        claimToken: "buyer quote",
+      },
+    ],
+    coverageRows: [
+      {
+        sectionId: "positioningBuyerICP",
+        requirementId: "buyer-personas",
+        status: "satisfied",
+        foundCount: 1,
+        requiredCount: 1,
+        message: "Prepared row available.",
+      },
+    ],
+    toolGapRows: [],
+    researchUseful: true,
   };
 }
 
@@ -770,6 +814,103 @@ describe("buildStructuredPrompt", (): void => {
     expect(paidMediaPrompt).toContain("never invent quotes");
   });
 
+  it("injects addressable prepared rows into paid-media prompts before ResearchInput JSON", (): void => {
+    const preparedContext = buildPreparedPromptContext();
+    const paidMediaPrompt = buildStructuredPrompt({
+      definition: paidMediaDefinition,
+      evidenceTranscript: "Committed artifacts are available in ResearchInput.",
+      preparedContext,
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Paid Media Plan",
+    });
+
+    expect(paidMediaPrompt).toContain("Prepared evidence rows:");
+    expect(paidMediaPrompt).toContain("fact_buyer_named_champion_1");
+    expect(paidMediaPrompt).toContain("fact:named_champion");
+    expect(paidMediaPrompt).toContain("https://example.com/customer-story");
+    expect(paidMediaPrompt).not.toContain("UPSTREAM POSITIONING FINDINGS");
+    expect(paidMediaPrompt.indexOf("Prepared evidence rows:")).toBeLessThan(
+      paidMediaPrompt.indexOf("ResearchInput JSON:"),
+    );
+  });
+
+  it("builds bounded deterministic prepared prompt rows with fact rows before corpus rows", (): void => {
+    const rows = buildPreparedEvidencePromptRows(buildPreparedPromptContext());
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        rowId: "fact_buyer_named_champion_1",
+        kind: "fact:named_champion",
+        sectionId: "positioningBuyerICP",
+        sourceUrl: "https://example.com/customer-story",
+        sourceQuoteOrText: "A sourced buyer quote from a customer story.",
+      }),
+    );
+    expect(rows[1]).toEqual(
+      expect.objectContaining({
+        rowId: "corpus_market_1",
+        kind: "corpus:global",
+        sectionId: "positioningPaidMediaPlan",
+        sourceUrl: "https://example.com/market",
+      }),
+    );
+  });
+
+  it("threads prepared rows through all prompt modes before ResearchInput JSON", (): void => {
+    const preparedContext = buildPreparedPromptContext();
+    const answerPrompt = buildAnswerToolInstructions(
+      paidMediaDefinition,
+      saaslaunchResearchInput,
+      undefined,
+      { preparedContext },
+    );
+    const thinkerPrompt = buildThinkerPrompt({
+      definition: paidMediaDefinition,
+      evidencePoolBlock: "Run-level evidence pool",
+      preparedContext,
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Paid Media Plan",
+    });
+    const structurerPrompt = buildStructurerPrompt({
+      definition: paidMediaDefinition,
+      evidencePoolBlock: "Run-level evidence pool",
+      preparedContext,
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Paid Media Plan",
+      thinkerAnalysis: "Use prepared facts.",
+    });
+    const bodyPrompt = buildStructuredBodyPrompt({
+      definition: paidMediaDefinition,
+      preparedContext,
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Paid Media Plan",
+    });
+    const repairPrompt = buildRepairPrompt({
+      definition: paidMediaDefinition,
+      evidenceTranscript: "prior evidence",
+      issues: ["body.channelSuggestions[0].grounding unsupported"],
+      preparedContext,
+      previousOutput: {},
+      researchInput: saaslaunchResearchInput,
+      skillMd: "# Paid Media Plan",
+    });
+
+    for (const prompt of [
+      answerPrompt,
+      thinkerPrompt,
+      structurerPrompt,
+      bodyPrompt,
+      repairPrompt,
+    ]) {
+      expect(prompt).toContain("Prepared evidence rows:");
+      expect(prompt).toContain("fact_buyer_named_champion_1");
+      expect(prompt.indexOf("Prepared evidence rows:")).toBeLessThan(
+        prompt.indexOf("ResearchInput JSON:"),
+      );
+    }
+  });
+
   it("carries paid-media budget and platform constraints through the real prompt chain", (): void => {
     const researchInput: ResearchInput = {
       ...buildScopedResearchInput(),
@@ -806,6 +947,8 @@ describe("buildSectionObjectiveRecap", (): void => {
     expect(recap).toContain("re-anchor before you answer");
     expect(recap).toContain(definition.title);
     expect(recap).toContain(definition.mission);
-    expect(recap).toContain("Ground every card in fetched tool evidence");
+    expect(recap).toContain(
+      "Ground every card in Prepared evidence rows, fetched tool evidence",
+    );
   });
 });

@@ -20,6 +20,7 @@ import { paidMediaPlanFixtureArtifact } from '@/lib/lab-engine/fixtures/paid-med
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 import { sectionRunnerModel } from '@/lib/lab-engine/ai/models';
 import { createRunStore } from '@/lib/lab-engine/runs/run-store';
+import { createInMemoryResearchFactStore } from '@/lib/lab-engine/evidence/research-fact';
 
 import { labSectionRepairFloorMs, runSection } from '../run-section';
 import type {
@@ -2547,6 +2548,20 @@ describe('runSection corpus-only mode', (): void => {
       },
     };
     await store.createRun(researchInputWithCommitted);
+    const factStore = createInMemoryResearchFactStore();
+    await factStore.appendFacts([
+      {
+        runId: 'buyer_section_run_1',
+        parentAuditRunId: 'parent_audit_fact_test',
+        sectionId: 'positioningBuyerICP',
+        factKind: 'named_champion',
+        sourceUrl: 'https://example.com/dana-ruiz',
+        sourceQuote:
+          'Dana Ruiz publicly described messy CRM handoffs slowing campaign launch.',
+        claimToken: 'Dana Ruiz',
+        createdAt: '2026-06-17T00:00:00.000Z',
+      },
+    ]);
 
     const paidMediaOutput = buildPaidMediaPlanOutput();
     const outputBody = requireRecord(paidMediaOutput.body);
@@ -2572,10 +2587,15 @@ describe('runSection corpus-only mode', (): void => {
         store,
         loadSkill: async () => 'Use the injected corpus only.',
         allowedTools: [],
-        env: { LAB_SECTION_STREAMING: 'false' },
+        env: {
+          LAB_SECTION_STREAMING: 'false',
+          LAB_VERIFIER_MAX_UNSUPPORTED: '999',
+        },
         runEvidencePass,
         callStructured,
         verifyPaidMediaPlan: createPaidMediaVerifierMock(),
+        factStore,
+        parentAuditRunId: 'parent_audit_fact_test',
         now: () => new Date('2026-06-17T00:00:00.000Z'),
       },
     );
@@ -2610,6 +2630,23 @@ describe('runSection corpus-only mode', (): void => {
     expect(
       requireRecord(resultAudiences[0]).evidencePack,
     ).toBeDefined();
+    const structuredPrompt = callStructured.mock.calls[0]?.[0].prompt;
+    if (structuredPrompt === undefined) {
+      throw new Error('Expected paid-media structured prompt to be captured.');
+    }
+    expect(structuredPrompt).toContain('Prepared evidence rows:');
+    expect(structuredPrompt).toContain(
+      'fact_positioningbuyericp_named-champion_dana-ruiz_1',
+    );
+    expect(structuredPrompt).toContain('fact:named_champion');
+    expect(structuredPrompt).toContain('https://example.com/dana-ruiz');
+    expect(structuredPrompt).toContain(
+      'Dana Ruiz publicly described messy CRM handoffs slowing campaign launch.',
+    );
+    expect(structuredPrompt).not.toContain('UPSTREAM POSITIONING FINDINGS');
+    expect(structuredPrompt.indexOf('Prepared evidence rows:')).toBeLessThan(
+      structuredPrompt.indexOf('ResearchInput JSON:'),
+    );
     expect(callStructured).toHaveBeenCalledTimes(1);
   });
 });

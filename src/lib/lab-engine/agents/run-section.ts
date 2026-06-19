@@ -332,6 +332,19 @@ import {
   type EvidencePoolEntryKind,
   type EvidencePoolStore,
 } from "../evidence/evidence-pool";
+import {
+  appendResearchFactsBestEffort as appendResearchFactsToStore,
+  buildResearchFactsFromBuyerPersonaCandidates,
+  buildResearchFactsFromCorpusExcerpts,
+  buildResearchFactsFromVoiceOfCustomerCandidates,
+  getResearchFactStorageContext,
+  readResearchFactsFromStore,
+  type ResearchFact,
+  type ResearchFactKind,
+  type ResearchFactPromoterContext,
+  type ResearchFactStore,
+  type VoiceOfCustomerFactCandidate,
+} from "../evidence/research-fact";
 
 export interface RunSectionInput {
   runId: string;
@@ -359,6 +372,9 @@ export interface PreparedFactRow {
   text: string;
   observedAt: string;
   sourceId: string;
+  sectionId: SupportedSectionId;
+  factKind: ResearchFactKind;
+  claimToken: string;
 }
 
 export interface PreparedCoverageRow {
@@ -393,6 +409,8 @@ export interface PrepareSectionContextInput {
 
 export interface PrepareSectionContextDeps {
   store: Pick<RunStore, "readRun">;
+  factStore?: Pick<ResearchFactStore, "getFacts">;
+  parentAuditRunId?: string;
 }
 
 export interface SectionThinkerPassParams {
@@ -414,7 +432,18 @@ export interface RunSectionDeps {
   preparedContext?: PreparedSectionContext;
   env?: Record<string, string | undefined>;
   evidencePoolStore?: EvidencePoolStore;
+  // Durable evidence ledger: facts are written AS FOUND so a timeout discarding
+  // the structured body can never discard the acquired facts (failure mode #3).
+  // No-ops unless BOTH factStore and parentAuditRunId are present.
+  factStore?: ResearchFactStore;
   parentAuditRunId?: string;
+  // Test seam for the BuyerICP champion prepass — production uses the default
+  // network-backed builder; tests inject grounded champions offline.
+  acquireBuyerPersonaPrepass?: (args: {
+    deps: RunSectionDeps;
+    input: RunSectionInput;
+    researchInput: ResearchInput;
+  }) => Promise<BuyerPersonaCandidatePrepass>;
   runAnswerTool?: AnswerToolRunner;
   runEvidencePass?: EvidencePassRunner;
   runThinkerPass?: SectionThinkerPassRunner;
@@ -523,15 +552,125 @@ function buildPreparedCorpusRows({
   return [...rowsByKey.values()];
 }
 
-function buildPreparedSectionContext({
-  researchInput,
+function slugPreparedFactIdPart(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+
+  return slug.length === 0 ? "unknown" : slug;
+}
+
+function factMatchesPreparedRun({
+  fact,
+  parentAuditRunId,
+  runId,
+}: {
+  fact: ResearchFact;
+  parentAuditRunId?: string;
+  runId: string;
+}): boolean {
+  return (
+    fact.runId === runId ||
+    fact.parentAuditRunId === runId ||
+    (parentAuditRunId !== undefined &&
+      fact.parentAuditRunId === parentAuditRunId)
+  );
+}
+
+function factMatchesPreparedSection({
+  fact,
   sectionId,
 }: {
+  fact: ResearchFact;
+  sectionId: SupportedSectionId;
+}): boolean {
+  if (!isSupportedSectionId(fact.sectionId)) {
+    return false;
+  }
+
+  if (sectionId === "positioningPaidMediaPlan") {
+    return fact.sectionId !== "positioningPaidMediaPlan";
+  }
+
+  return fact.sectionId === sectionId;
+}
+
+function compareResearchFacts(left: ResearchFact, right: ResearchFact): number {
+  return (
+    left.sectionId.localeCompare(right.sectionId) ||
+    left.factKind.localeCompare(right.factKind) ||
+    left.sourceUrl.localeCompare(right.sourceUrl) ||
+    left.claimToken.localeCompare(right.claimToken) ||
+    left.createdAt.localeCompare(right.createdAt)
+  );
+}
+
+function buildPreparedFactRows({
+  facts,
+  parentAuditRunId,
+  runId,
+  sectionId,
+}: {
+  facts: readonly ResearchFact[];
+  parentAuditRunId?: string;
+  runId: string;
+  sectionId: SupportedSectionId;
+}): readonly PreparedFactRow[] {
+  return facts
+    .filter((fact) =>
+      factMatchesPreparedRun({ fact, parentAuditRunId, runId }) &&
+      factMatchesPreparedSection({ fact, sectionId }),
+    )
+    .sort(compareResearchFacts)
+    .map((fact, index) => {
+      const factSectionId = fact.sectionId as SupportedSectionId;
+      const sectionTitle = SECTION_REGISTRY[factSectionId].title;
+
+      return {
+        id: [
+          "fact",
+          slugPreparedFactIdPart(fact.sectionId),
+          slugPreparedFactIdPart(fact.factKind),
+          slugPreparedFactIdPart(fact.claimToken),
+          String(index + 1),
+        ].join("_"),
+        sourceUrl: fact.sourceUrl,
+        title: `Research fact: ${sectionTitle} / ${fact.factKind}`,
+        text: fact.sourceQuote,
+        observedAt: fact.createdAt,
+        sourceId: `research_fact:${fact.sectionId}:${fact.factKind}:${index + 1}`,
+        sectionId: factSectionId,
+        factKind: fact.factKind,
+        claimToken: fact.claimToken,
+      };
+    });
+}
+
+function buildPreparedSectionContext({
+  factStore,
+  parentAuditRunId,
+  researchInput,
+  runId,
+  sectionId,
+}: {
+  factStore?: Pick<ResearchFactStore, "getFacts">;
+  parentAuditRunId?: string;
   researchInput: ResearchInput;
+  runId: string;
   sectionId: SupportedSectionId;
 }): PreparedSectionContext {
   const corpusRows = buildPreparedCorpusRows({ researchInput, sectionId });
-  const factRows: readonly PreparedFactRow[] = [];
+  const factRows =
+    factStore === undefined
+      ? []
+      : buildPreparedFactRows({
+          facts: readResearchFactsFromStore(factStore),
+          parentAuditRunId,
+          runId,
+          sectionId,
+        });
 
   return {
     sectionId,
@@ -575,7 +714,10 @@ function getPreparedSectionContext({
   }
 
   return buildPreparedSectionContext({
+    factStore: deps.factStore,
+    parentAuditRunId: deps.parentAuditRunId,
     researchInput: record.input,
+    runId: input.runId,
     sectionId: input.sectionId,
   });
 }
@@ -584,18 +726,6 @@ function shouldUsePreparedContext(
   deps: Pick<RunSectionDeps, "preparedContext">,
 ): boolean {
   return deps.preparedContext !== undefined;
-}
-
-function ensurePreparedSectionContext({
-  deps,
-  input,
-  record,
-}: {
-  deps: RunSectionDeps;
-  input: RunSectionInput;
-  record: RunRecord;
-}): void {
-  getPreparedSectionContext({ deps, input, record });
 }
 
 export async function prepareSectionContext(
@@ -608,7 +738,10 @@ export async function prepareSectionContext(
 
   const record = await deps.store.readRun(input.runId);
   return buildPreparedSectionContext({
+    factStore: deps.factStore,
+    parentAuditRunId: deps.parentAuditRunId,
     researchInput: record.input,
+    runId: input.runId,
     sectionId: input.sectionId,
   });
 }
@@ -1038,6 +1171,131 @@ async function appendEvidencePoolBestEffort({
       sectionId: input.sectionId,
     });
   }
+}
+
+// Durable evidence ledger: write ResearchFacts AS FOUND so a timeout discarding
+// the structured body can never discard the acquired facts (failure mode #3).
+// Mirrors appendEvidencePoolBestEffort — no-ops unless BOTH factStore and
+// parentAuditRunId are present; never takes down the section run.
+function getResearchFactPromoterContext(
+  deps: RunSectionDeps,
+  input: RunSectionInput,
+): ResearchFactPromoterContext | null {
+  const storage = getResearchFactStorageContext({
+    parentAuditRunId: deps.parentAuditRunId,
+    factStore: deps.factStore,
+  });
+  if (storage === null) {
+    return null;
+  }
+
+  return {
+    runId: input.runId,
+    sectionId: input.sectionId,
+    createdAt: getNow(deps).toISOString(),
+    parentAuditRunId: storage.parentAuditRunId,
+  };
+}
+
+async function emitResearchFactsBestEffort({
+  context,
+  deps,
+  facts,
+  input,
+}: {
+  context: string;
+  deps: RunSectionDeps;
+  facts: readonly ResearchFact[];
+  input: RunSectionInput;
+}): Promise<void> {
+  if (facts.length === 0 || deps.factStore === undefined) {
+    return;
+  }
+
+  try {
+    await appendResearchFactsToStore(deps.factStore, facts);
+  } catch (error) {
+    console.warn("[lab-section] research fact append failed", {
+      context,
+      message: describeErrorForLog(error),
+      runId: input.runId,
+      sectionId: input.sectionId,
+    });
+  }
+}
+
+async function emitBuyerPersonaChampionFactsBestEffort({
+  candidates,
+  deps,
+  input,
+}: {
+  candidates: readonly BuyerPersonaCandidate[];
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+}): Promise<void> {
+  const ctx = getResearchFactPromoterContext(deps, input);
+  if (ctx === null) {
+    return;
+  }
+
+  await emitResearchFactsBestEffort({
+    context: "buyer-persona-champions",
+    deps,
+    facts: buildResearchFactsFromBuyerPersonaCandidates(candidates, ctx),
+    input,
+  });
+}
+
+async function emitVoiceOfCustomerQuoteFactsBestEffort({
+  candidates,
+  deps,
+  input,
+}: {
+  candidates: readonly VoiceOfCustomerCandidate[];
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+}): Promise<void> {
+  const ctx = getResearchFactPromoterContext(deps, input);
+  if (ctx === null) {
+    return;
+  }
+
+  const vocCandidates: VoiceOfCustomerFactCandidate[] = candidates.map(
+    (candidate) => ({ verbatim: candidate.snippet, sourceUrl: candidate.url }),
+  );
+
+  await emitResearchFactsBestEffort({
+    context: "voice-of-customer-quotes",
+    deps,
+    facts: buildResearchFactsFromVoiceOfCustomerCandidates(vocCandidates, ctx),
+    input,
+  });
+}
+
+async function emitCorpusExcerptFactsBestEffort({
+  deps,
+  input,
+  researchInput,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): Promise<void> {
+  const ctx = getResearchFactPromoterContext(deps, input);
+  if (ctx === null) {
+    return;
+  }
+
+  const sectionExcerpts =
+    researchInput.corpus.sectionExcerpts?.[input.sectionId] ?? [];
+  const excerpts = [...researchInput.corpus.excerpts, ...sectionExcerpts];
+
+  await emitResearchFactsBestEffort({
+    context: "corpus-excerpts",
+    deps,
+    facts: buildResearchFactsFromCorpusExcerpts(excerpts, ctx),
+    input,
+  });
 }
 
 async function readEvidencePoolBlockBestEffort({
@@ -3916,7 +4174,7 @@ function buildAnswerToolPrompt({
 }): string {
   const evidenceInstruction =
     externalToolNames.length === 0
-      ? "No external research tools are available. Use the ResearchInput JSON and skill guidance only, then call answer with the complete section output."
+      ? "No external research tools are available. Use prepared evidence rows, the ResearchInput JSON, and skill guidance only, then call answer with the complete section output."
       : "Use the available tools for evidence gathering, then call answer with the complete section output.";
 
   return [
@@ -9851,7 +10109,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
   };
 }
 
-interface BuyerPersonaCandidatePrepass {
+export interface BuyerPersonaCandidatePrepass {
   candidateBlock: string;
   candidates: BuyerPersonaCandidate[];
   caseStudyPages: Array<{ url: string; markdown: string }>;
@@ -10688,6 +10946,32 @@ async function buildBuyerPersonaCandidatePrepass({
   } finally {
     prepassSignal.cleanup();
   }
+}
+
+// Resolve the BuyerICP champion prepass through the injectable dep (production
+// default = the network-backed builder; tests inject grounded champions). The
+// acquired champions are written to the durable ledger AS FOUND, so the later
+// deadline-discard path can never drop them (failure mode #3).
+async function runBuyerPersonaCandidatePrepass({
+  deps,
+  input,
+  researchInput,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): Promise<BuyerPersonaCandidatePrepass> {
+  const acquire =
+    deps.acquireBuyerPersonaPrepass ?? buildBuyerPersonaCandidatePrepass;
+  const prepass = await acquire({ deps, input, researchInput });
+
+  await emitBuyerPersonaChampionFactsBestEffort({
+    candidates: prepass.candidates,
+    deps,
+    input,
+  });
+
+  return prepass;
 }
 
 export function formatVoiceOfCustomerCandidateGapIssue({
@@ -11641,7 +11925,7 @@ async function runSectionViaAnswerTool(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  ensurePreparedSectionContext({ deps, input, record });
+  const preparedContext = getPreparedSectionContext({ deps, input, record });
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -11793,6 +12077,15 @@ async function runSectionViaAnswerTool(
     toolEvents.push(...voiceOfCustomerPrepass.events);
     await scheduleFlush();
 
+    // Write acquired VoC quotes to the durable ledger AS FOUND — before the gap
+    // / deadline path can discard the body (failure mode #3). Use the directional
+    // pool so trusted-host quotes survive even when the strict floors fail.
+    await emitVoiceOfCustomerQuoteFactsBestEffort({
+      candidates: voiceOfCustomerPrepass.directionalCandidates,
+      deps,
+      input,
+    });
+
     if (!voiceOfCustomerPrepass.result.ok) {
       const issue = formatVoiceOfCustomerCandidateGapIssue({
         gap: voiceOfCustomerPrepass.result.gap,
@@ -11861,7 +12154,7 @@ async function runSectionViaAnswerTool(
   const voiceOfCustomerPrepassSteps = voiceOfCustomerPrepass?.steps ?? [];
   const buyerPersonaPrepass =
     input.sectionId === "positioningBuyerICP" && !shouldUsePreparedContext(deps)
-      ? await buildBuyerPersonaCandidatePrepass({ deps, input, researchInput })
+      ? await runBuyerPersonaCandidatePrepass({ deps, input, researchInput })
       : undefined;
   if (buyerPersonaPrepass !== undefined) {
     toolEvents.push(...buyerPersonaPrepass.events);
@@ -11915,6 +12208,7 @@ async function runSectionViaAnswerTool(
   }
   const subjectSiteObservationPrepassSteps =
     subjectSiteObservationPrepass?.steps ?? [];
+  await emitCorpusExcerptFactsBestEffort({ deps, input, researchInput });
   await appendEvidencePoolBestEffort({
     context: "answer-tool-initial",
     deps,
@@ -11954,6 +12248,7 @@ async function runSectionViaAnswerTool(
         evidencePoolBlock: answerToolEvidencePoolBlock,
         externalToolNames,
         inputSchemaMode: getAnswerToolInputSchemaMode(sectionRunnerModel),
+        preparedContext,
       },
     ),
     ...(voiceOfCustomerPrepass === undefined
@@ -12214,6 +12509,7 @@ async function runSectionViaAnswerTool(
           externalToolNames,
           issues: repairIssues,
           normalizedAdEvidenceGroups,
+          preparedContext,
           previousOutput: attempt.output,
           researchInput,
           skillMd,
@@ -12428,7 +12724,7 @@ async function runSectionViaStructuredBodyStream(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  ensurePreparedSectionContext({ deps, input, record });
+  const preparedContext = getPreparedSectionContext({ deps, input, record });
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -12570,6 +12866,15 @@ async function runSectionViaStructuredBodyStream(
     toolEvents.push(...voiceOfCustomerPrepass.events);
     await scheduleFlush();
 
+    // Write acquired VoC quotes to the durable ledger AS FOUND — before the gap
+    // / deadline path can discard the body (failure mode #3). Use the directional
+    // pool so trusted-host quotes survive even when the strict floors fail.
+    await emitVoiceOfCustomerQuoteFactsBestEffort({
+      candidates: voiceOfCustomerPrepass.directionalCandidates,
+      deps,
+      input,
+    });
+
     if (!voiceOfCustomerPrepass.result.ok) {
       const issue = formatVoiceOfCustomerCandidateGapIssue({
         gap: voiceOfCustomerPrepass.result.gap,
@@ -12637,7 +12942,7 @@ async function runSectionViaStructuredBodyStream(
 
   const buyerPersonaPrepass =
     input.sectionId === "positioningBuyerICP" && !shouldUsePreparedContext(deps)
-      ? await buildBuyerPersonaCandidatePrepass({ deps, input, researchInput })
+      ? await runBuyerPersonaCandidatePrepass({ deps, input, researchInput })
       : undefined;
   if (buyerPersonaPrepass !== undefined) {
     toolEvents.push(...buyerPersonaPrepass.events);
@@ -12699,6 +13004,7 @@ async function runSectionViaStructuredBodyStream(
   ];
   let normalizedAdEvidenceGroups = adEvidence.normalizedAdEvidenceGroups;
   let validationAttempt = 1;
+  await emitCorpusExcerptFactsBestEffort({ deps, input, researchInput });
   await appendEvidencePoolBestEffort({
     context: "structured-body-initial",
     deps,
@@ -12738,6 +13044,7 @@ async function runSectionViaStructuredBodyStream(
       evidencePoolBlock: thinkerEvidencePoolBlock,
       externalToolNames,
       normalizedAdEvidenceGroups,
+      preparedContext,
       researchInput,
       skillMd,
       voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
@@ -12779,6 +13086,7 @@ async function runSectionViaStructuredBodyStream(
           evidencePoolBlock: structurerEvidencePoolBlock,
           externalToolNames,
           normalizedAdEvidenceGroups,
+          preparedContext,
           researchInput,
           skillMd,
           voiceOfCustomerCandidateBlock: voiceOfCustomerPrepass?.candidateBlock,
@@ -12792,6 +13100,7 @@ async function runSectionViaStructuredBodyStream(
           evidencePoolBlock: structurerEvidencePoolBlock,
           externalToolNames,
           normalizedAdEvidenceGroups,
+          preparedContext,
           researchInput,
           skillMd,
           thinkerAnalysis,
@@ -13073,6 +13382,7 @@ async function runSectionViaStructuredBodyStream(
           externalToolNames,
           issues: repairIssues,
           normalizedAdEvidenceGroups,
+          preparedContext,
           previousOutput: attempt.output,
           researchInput,
           skillMd,
@@ -13282,7 +13592,7 @@ export async function runSection(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  ensurePreparedSectionContext({ deps, input, record });
+  const preparedContext = getPreparedSectionContext({ deps, input, record });
   // Gate is armed by default. LAB_VERIFIER_MAX_UNSUPPORTED can raise the
   // threshold for calibrated sections. Mirrors the answer-tool path.
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
@@ -13415,6 +13725,7 @@ export async function runSection(
           topicContext: buildCompetitorAdTopicContext(researchInput),
         })
       : undefined;
+  await emitCorpusExcerptFactsBestEffort({ deps, input, researchInput });
   await appendEvidencePoolBestEffort({
     context: "structured-legacy-initial",
     deps,
@@ -13434,6 +13745,7 @@ export async function runSection(
     evidencePoolBlock: structuredEvidencePoolBlock,
     evidenceTranscript,
     normalizedAdEvidenceGroups,
+    preparedContext,
     researchInput,
     skillMd,
   });
@@ -13584,6 +13896,7 @@ export async function runSection(
           evidenceTranscript,
           issues: firstAttempt.errors,
           normalizedAdEvidenceGroups,
+          preparedContext,
           previousOutput: firstAttempt.output,
           researchInput,
           skillMd,
@@ -13718,6 +14031,7 @@ export async function runSection(
         evidenceTranscript,
         issues: verifierIssues,
         normalizedAdEvidenceGroups,
+        preparedContext,
         previousOutput: committedAttempt.output ?? artifact,
         researchInput,
         skillMd,

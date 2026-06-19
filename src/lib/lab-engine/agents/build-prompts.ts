@@ -27,6 +27,7 @@ export interface AnswerToolInstructionOptions {
   evidencePoolBlock?: string;
   externalToolNames?: readonly string[];
   inputSchemaMode?: AnswerToolInputSchemaMode;
+  preparedContext?: PromptPreparedSectionContext;
 }
 
 interface CompetitorSeedHint {
@@ -34,6 +35,64 @@ interface CompetitorSeedHint {
   landingUrl: string | null;
   name: string;
   sourceUrl: string | null;
+}
+
+export interface PromptPreparedCorpusRow {
+  id: string;
+  sourceUrl: string;
+  title: string;
+  text: string;
+  observedAt: string;
+  sourceId: string;
+  scope: "global" | "section";
+}
+
+export interface PromptPreparedFactRow {
+  id: string;
+  sourceUrl: string;
+  title: string;
+  text: string;
+  observedAt: string;
+  sourceId: string;
+  sectionId: string;
+  factKind: string;
+  claimToken: string;
+}
+
+export interface PromptPreparedCoverageRow {
+  sectionId: string;
+  requirementId: string;
+  status: "satisfied" | "gap";
+  foundCount: number;
+  requiredCount: number;
+  message: string;
+}
+
+export interface PromptPreparedToolGapRow {
+  sectionId: string;
+  toolName: string;
+  reason: string;
+  message?: string;
+}
+
+export interface PromptPreparedSectionContext {
+  sectionId: string;
+  corpusRows: readonly PromptPreparedCorpusRow[];
+  factRows: readonly PromptPreparedFactRow[];
+  coverageRows: readonly PromptPreparedCoverageRow[];
+  toolGapRows: readonly PromptPreparedToolGapRow[];
+  researchUseful: boolean;
+}
+
+export interface PreparedPromptRow {
+  rowId: string;
+  kind: string;
+  sectionId: string;
+  sourceUrl: string;
+  sourceId: string;
+  title: string;
+  observedAt: string;
+  sourceQuoteOrText: string;
 }
 
 const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
@@ -49,6 +108,8 @@ const sectionIdByOutputSchemaName: Readonly<Record<string, SectionId>> = {
 export const STRUCTURED_EVIDENCE_TRANSCRIPT_CHAR_LIMIT = 48_000;
 export const STRUCTURER_NO_NEW_FACTS_RULE =
   "Extract and organize the analysis into the schema. You may REORGANIZE and TRIM; you may NOT add facts, numbers, names, or URLs that are not in the analysis or evidence pool.";
+export const PREPARED_PROMPT_ROW_LIMIT = 60;
+export const PREPARED_PROMPT_TEXT_CHAR_LIMIT = 700;
 
 interface CompactAdEvidenceCreative {
   body: string | null;
@@ -245,6 +306,118 @@ function buildEvidencePoolPromptBlock(
   return [
     "Evidence pool:",
     evidencePoolBlock,
+    "",
+  ];
+}
+
+function truncatePreparedPromptText(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+
+  if (normalized.length <= PREPARED_PROMPT_TEXT_CHAR_LIMIT) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, PREPARED_PROMPT_TEXT_CHAR_LIMIT - 14)}...truncated`;
+}
+
+function toPreparedCorpusPromptRow(
+  row: PromptPreparedCorpusRow,
+  sectionId: string,
+): PreparedPromptRow {
+  return {
+    rowId: row.id,
+    kind: `corpus:${row.scope}`,
+    sectionId,
+    sourceUrl: row.sourceUrl,
+    sourceId: row.sourceId,
+    title: row.title,
+    observedAt: row.observedAt,
+    sourceQuoteOrText: truncatePreparedPromptText(row.text),
+  };
+}
+
+function toPreparedFactPromptRow(row: PromptPreparedFactRow): PreparedPromptRow {
+  return {
+    rowId: row.id,
+    kind: `fact:${row.factKind}`,
+    sectionId: row.sectionId,
+    sourceUrl: row.sourceUrl,
+    sourceId: row.sourceId,
+    title: row.title,
+    observedAt: row.observedAt,
+    sourceQuoteOrText: truncatePreparedPromptText(row.text),
+  };
+}
+
+function comparePreparedPromptRows(
+  left: PreparedPromptRow,
+  right: PreparedPromptRow,
+): number {
+  return (
+    left.sectionId.localeCompare(right.sectionId) ||
+    left.kind.localeCompare(right.kind) ||
+    left.sourceUrl.localeCompare(right.sourceUrl) ||
+    left.rowId.localeCompare(right.rowId)
+  );
+}
+
+export function buildPreparedEvidencePromptRows(
+  preparedContext: PromptPreparedSectionContext,
+): PreparedPromptRow[] {
+  const factRows = preparedContext.factRows
+    .map(toPreparedFactPromptRow)
+    .sort(comparePreparedPromptRows);
+  const corpusRows = preparedContext.corpusRows.map((row) =>
+    toPreparedCorpusPromptRow(row, preparedContext.sectionId),
+  );
+
+  return [...factRows, ...corpusRows].slice(0, PREPARED_PROMPT_ROW_LIMIT);
+}
+
+function buildPreparedEvidencePromptBlock(
+  preparedContext: PromptPreparedSectionContext | undefined,
+): string[] {
+  if (preparedContext === undefined) {
+    return [];
+  }
+
+  const rows = buildPreparedEvidencePromptRows(preparedContext);
+  const hasRows = rows.length > 0;
+  const omittedRowCount =
+    preparedContext.factRows.length +
+    preparedContext.corpusRows.length -
+    rows.length;
+  const coverageRows = preparedContext.coverageRows.slice(0, 20);
+  const toolGapRows = preparedContext.toolGapRows.slice(0, 20);
+
+  return [
+    "Prepared evidence rows:",
+    "Use this row-level evidence before ResearchInput JSON or tool transcript context. Ground sourced claims in rowId + sourceUrl pairs from this block; do not cite source-less prose summaries as evidence.",
+    hasRows
+      ? JSON.stringify(
+          {
+            sectionId: preparedContext.sectionId,
+            researchUseful: preparedContext.researchUseful,
+            rows,
+            omittedRowCount: Math.max(0, omittedRowCount),
+            coverageRows,
+            toolGapRows,
+          },
+          null,
+          2,
+        )
+      : JSON.stringify(
+          {
+            sectionId: preparedContext.sectionId,
+            researchUseful: preparedContext.researchUseful,
+            rows: [],
+            omittedRowCount: 0,
+            coverageRows,
+            toolGapRows,
+          },
+          null,
+          2,
+        ),
     "",
   ];
 }
@@ -690,6 +863,7 @@ export function buildStructuredPrompt({
   evidenceTranscript,
   externalToolNames,
   normalizedAdEvidenceGroups,
+  preparedContext,
   researchInput,
   skillMd,
 }: {
@@ -697,6 +871,7 @@ export function buildStructuredPrompt({
   evidencePoolBlock?: string;
   evidenceTranscript: string;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  preparedContext?: PromptPreparedSectionContext;
   researchInput: ResearchInput;
   skillMd: string;
   externalToolNames?: readonly string[];
@@ -711,6 +886,7 @@ export function buildStructuredPrompt({
     "Skill analyst guidance:",
     skillMd,
     "",
+    ...buildPreparedEvidencePromptBlock(preparedContext),
     "Evidence from the loop:",
     evidenceTranscript,
     "",
@@ -749,6 +925,7 @@ export function buildThinkerPrompt({
   evidencePoolBlock,
   externalToolNames,
   normalizedAdEvidenceGroups,
+  preparedContext,
   researchInput,
   skillMd,
   voiceOfCustomerCandidateBlock,
@@ -759,6 +936,7 @@ export function buildThinkerPrompt({
   definition: PromptSectionDefinition;
   evidencePoolBlock?: string;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  preparedContext?: PromptPreparedSectionContext;
   researchInput: ResearchInput;
   skillMd: string;
   externalToolNames?: readonly string[];
@@ -784,6 +962,7 @@ export function buildThinkerPrompt({
     "Skill analyst guidance:",
     skillMd,
     "",
+    ...buildPreparedEvidencePromptBlock(preparedContext),
     ...buildEvidencePoolPromptBlock(evidencePoolBlock),
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...(voiceOfCustomerCandidateBlock === undefined
@@ -827,6 +1006,7 @@ export function buildStructurerPrompt({
   evidencePoolBlock,
   externalToolNames,
   normalizedAdEvidenceGroups,
+  preparedContext,
   researchInput,
   skillMd,
   thinkerAnalysis,
@@ -838,6 +1018,7 @@ export function buildStructurerPrompt({
   definition: PromptSectionDefinition;
   evidencePoolBlock?: string;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  preparedContext?: PromptPreparedSectionContext;
   researchInput: ResearchInput;
   skillMd: string;
   thinkerAnalysis: string;
@@ -858,6 +1039,7 @@ export function buildStructurerPrompt({
     "Thinker analysis:",
     thinkerAnalysis,
     "",
+    ...buildPreparedEvidencePromptBlock(preparedContext),
     ...buildEvidencePoolPromptBlock(evidencePoolBlock),
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...(voiceOfCustomerCandidateBlock === undefined
@@ -923,6 +1105,7 @@ export function buildStructuredBodyPrompt({
   evidencePoolBlock,
   externalToolNames,
   normalizedAdEvidenceGroups,
+  preparedContext,
   researchInput,
   skillMd,
   voiceOfCustomerCandidateBlock,
@@ -933,6 +1116,7 @@ export function buildStructuredBodyPrompt({
   definition: PromptSectionDefinition;
   evidencePoolBlock?: string;
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  preparedContext?: PromptPreparedSectionContext;
   researchInput: ResearchInput;
   skillMd: string;
   externalToolNames?: readonly string[];
@@ -954,6 +1138,7 @@ export function buildStructuredBodyPrompt({
     "Skill analyst guidance:",
     skillMd,
     "",
+    ...buildPreparedEvidencePromptBlock(preparedContext),
     ...buildEvidencePoolPromptBlock(evidencePoolBlock),
     ...buildNormalizedAdEvidenceBlock(normalizedAdEvidenceGroups),
     ...(voiceOfCustomerCandidateBlock === undefined
@@ -1007,6 +1192,7 @@ export function buildAnswerToolInstructions(
     buildClientIdentityPin(researchInput),
     "",
     ...buildUserRefinementPromptBlock(researchInput),
+    ...buildPreparedEvidencePromptBlock(options.preparedContext),
     "ResearchInput JSON:",
     JSON.stringify(buildResearchInputForPrompt({ definition, researchInput })),
     "",
@@ -1052,7 +1238,7 @@ export function buildSectionObjectiveRecap(
     "Section objective (re-anchor before you answer):",
     `- Deliver ${definition.title}: ${definition.mission}`,
     `- Subject company: ${researchInput.company.websiteUrl}`,
-    "- Ground every card in fetched tool evidence or the ResearchInput above; where evidence is thin, name the gap — do not invent or pad.",
+    "- Ground every card in Prepared evidence rows, fetched tool evidence, or the ResearchInput above; where evidence is thin, name the gap — do not invent or pad.",
   ].join("\n");
 }
 
@@ -1087,6 +1273,7 @@ export function buildRepairPrompt({
   evidenceTranscript,
   issues,
   normalizedAdEvidenceGroups,
+  preparedContext,
   previousOutput,
   researchInput,
   externalToolNames,
@@ -1096,6 +1283,7 @@ export function buildRepairPrompt({
   evidenceTranscript: string;
   issues: string[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  preparedContext?: PromptPreparedSectionContext;
   previousOutput: unknown;
   researchInput: ResearchInput;
   // Accepted for call-site compatibility; the repair prompt intentionally does
@@ -1111,6 +1299,7 @@ export function buildRepairPrompt({
       evidenceTranscript,
       externalToolNames,
       normalizedAdEvidenceGroups,
+      preparedContext,
       researchInput,
       skillMd:
         "Apply the section skill rubric you were given in the first attempt — it is already in your context.",
@@ -1138,6 +1327,7 @@ export function buildStructuredBodyRepairPrompt({
   externalToolNames,
   issues,
   normalizedAdEvidenceGroups,
+  preparedContext,
   previousOutput,
   researchInput,
   skillMd,
@@ -1151,6 +1341,7 @@ export function buildStructuredBodyRepairPrompt({
   evidenceTranscript: string;
   issues: string[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
+  preparedContext?: PromptPreparedSectionContext;
   previousOutput: unknown;
   researchInput: ResearchInput;
   skillMd: string;
@@ -1166,6 +1357,7 @@ export function buildStructuredBodyRepairPrompt({
       evidencePoolBlock,
       externalToolNames,
       normalizedAdEvidenceGroups,
+      preparedContext,
       researchInput,
       skillMd,
       voiceOfCustomerCandidateBlock,

@@ -383,6 +383,16 @@ describe("corpusToResearchInput", (): void => {
     expect(buyerExcerpts.map((excerpt) => excerpt.text)).not.toEqual(
       expect.arrayContaining([expect.stringContaining("category and market")]),
     );
+    expect(marketExcerpts[0]).toEqual(
+      expect.objectContaining({
+        id: "excerpt_evidence_1",
+        sourceUrl: "https://www.airtable.com/category-report",
+        title: "Airtable category report",
+        text: expect.stringContaining("category and market"),
+        observedAt: "2026-05-25T12:00:00.000Z",
+        sourceId: "source_airtable-category-report_1",
+      }),
+    );
   });
 
   it("routes intelligence topic evidence into global and section-scoped corpus excerpts", (): void => {

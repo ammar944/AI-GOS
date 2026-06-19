@@ -31,6 +31,17 @@ Use only the tools allowed for this section.
 | `firecrawl` | Fetch pages behind promising snippets. |
 | `perplexity_research` | Collect source leads that still need validation. |
 
+## Inputs
+
+When the prompt includes a `Prepared evidence rows` block, consume those pre-normalized rows before using any tool or prose context.
+
+- Treat each row's `rowId`, `kind`, `sectionId`, `sourceUrl`, `sourceId`, `title`, `observedAt`, and `sourceQuoteOrText` as the addressable evidence contract.
+- Use `fact:*` rows and `corpus:*` rows as citation-bearing inputs only when their `sourceUrl` supports the claim you write.
+- Prefer rows scoped to this section when they answer the field; use global rows only for shared context.
+- Treat `coverageRows` and `toolGapRows` as gap accounting, not as evidence for a demand claim.
+- Keep `ResearchInput JSON` as compatibility context; it does not replace row-level citation requirements when prepared rows are present.
+- If the prepared rows do not support a required field, write the relevant blockGap or evidence gap instead of filling from unstated assumptions.
+
 ## Iron Laws
 
 - Do not invent keyword volume, CPC, difficulty, ranking domains, questions, venues, or intent signals.

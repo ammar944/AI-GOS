@@ -9,6 +9,7 @@ import {
   prepareSectionContext,
   runSection,
 } from "@/lib/lab-engine/agents/run-section";
+import { createInMemoryResearchFactStore } from "@/lib/lab-engine/evidence/research-fact";
 import type {
   AgentStep,
   AnswerToolRunner,
@@ -199,6 +200,71 @@ describe("PreparedSectionContext", (): void => {
     });
   });
 
+  it("populates fact rows from the research fact ledger read side", async (): Promise<void> => {
+    const researchInput = buildPreparedContextResearchInput();
+    const factStore = createInMemoryResearchFactStore();
+    await factStore.appendFacts([
+      {
+        runId: "section_run_buyer",
+        parentAuditRunId: "parent_audit_1",
+        sectionId: "positioningBuyerICP",
+        factKind: "named_champion",
+        sourceUrl: "https://fellow.app/customers/revops",
+        sourceQuote: "A RevOps leader uses Fellow before weekly reviews.",
+        claimToken: "RevOps",
+        createdAt: "2026-06-19T02:00:00.000Z",
+      },
+      {
+        runId: "section_run_offer",
+        parentAuditRunId: "parent_audit_1",
+        sectionId: "positioningOfferDiagnostic",
+        factKind: "corpus_excerpt",
+        sourceUrl: "https://fellow.app/pricing",
+        sourceQuote: "Pricing page evidence belongs to a different section.",
+        claimToken: "Pricing",
+        createdAt: "2026-06-19T02:01:00.000Z",
+      },
+    ]);
+
+    const buyerContext = await prepareSectionContext(
+      {
+        runId: "section_run_buyer",
+        sectionId: "positioningBuyerICP",
+      },
+      {
+        store: createReadOnlyStore(researchInput),
+        factStore,
+        parentAuditRunId: "parent_audit_1",
+      },
+    );
+    const paidMediaContext = await prepareSectionContext(
+      {
+        runId: "section_run_paid_media",
+        sectionId: "positioningPaidMediaPlan",
+      },
+      {
+        store: createReadOnlyStore(researchInput),
+        factStore,
+        parentAuditRunId: "parent_audit_1",
+      },
+    );
+
+    expect(buyerContext.factRows).toEqual([
+      expect.objectContaining({
+        factKind: "named_champion",
+        sectionId: "positioningBuyerICP",
+        sourceUrl: "https://fellow.app/customers/revops",
+        text: "A RevOps leader uses Fellow before weekly reviews.",
+        observedAt: "2026-06-19T02:00:00.000Z",
+        claimToken: "RevOps",
+      }),
+    ]);
+    expect(paidMediaContext.factRows.map((row) => row.sectionId)).toEqual([
+      "positioningBuyerICP",
+      "positioningOfferDiagnostic",
+    ]);
+  });
+
   it("does not expose external writer tools when a prepared context is supplied", async (): Promise<void> => {
     vi.stubEnv("DEEPSEEK_API_KEY", "test-deepseek-key");
     vi.stubEnv("LAB_SECTION_STREAMING", "false");
@@ -214,6 +280,11 @@ describe("PreparedSectionContext", (): void => {
     );
     const runAnswerTool = vi.fn<AnswerToolRunner>(async (params) => {
       expect(Object.keys(params.externalTools)).toEqual([]);
+      expect(params.instructions).toContain("Prepared evidence rows:");
+      expect(params.instructions).toContain("excerpt_homepage_positioning");
+      expect(params.instructions.indexOf("Prepared evidence rows:")).toBeLessThan(
+        params.instructions.indexOf("ResearchInput JSON:"),
+      );
       return {
         steps: [buildMarketCategorySupportStep()],
         text: "",
