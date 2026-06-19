@@ -20,6 +20,8 @@ Fallbacks are declared only where an existing member is semantically neutral:
 | positioningBuyerICP | buyingTriggers.triggers[].window | immediate, weeks, quarters | none |
 | positioningBuyerICP | clusterVenues.venues[].bucketType | community, newsletter, conference, podcast, slack-group, event | none |
 | positioningBuyerICP | evidenceGapReport.reason | insufficient_named_buyer_personas | none |
+| positioningBuyerICP | evidenceGapReport.acquisitionLedger[].rejectionReason | not_named_individual, not_buyer_role, unverifiable_source, duplicate, insufficient_evidence, not_selected | insufficient_evidence |
+| positioningBuyerICP | evidenceGapReport.acquisitionLedger[].toolGapReason | missing_credential, no_named_individuals, no_result | no_result |
 | positioningMarketCategory | marketSize.signals[].signalType | public-data, funding-flow, hiring-velocity, search-trend, analyst-report | none |
 | positioningMarketCategory | marketSize.signals[].trajectory | expanding, stable, contracting, unclear | unclear |
 | positioningMarketCategory | marketSize.signals[].methodology | top-down, bottom-up | none |
@@ -66,6 +68,20 @@ Fallbacks are declared only where an existing member is semantically neutral:
 */
 
 export const DECODE_ENUM_FALLBACKS: readonly DecodeEnumFallback[] = [
+  {
+    sectionId: "positioningBuyerICP",
+    pathPattern: "evidenceGapReport.acquisitionLedger[].rejectionReason",
+    fallback: "insufficient_evidence",
+    reason:
+      "insufficient_evidence preserves a rejected candidate without inventing a sharper reason.",
+  },
+  {
+    sectionId: "positioningBuyerICP",
+    pathPattern: "evidenceGapReport.acquisitionLedger[].toolGapReason",
+    fallback: "no_result",
+    reason:
+      "no_result preserves a query attempt without claiming a credential or named-buyer result.",
+  },
   {
     sectionId: "positioningMarketCategory",
     pathPattern: "marketSize.signals[].trajectory",

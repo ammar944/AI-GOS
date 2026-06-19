@@ -79,6 +79,69 @@ const roleDepartmentStopwords = new Set([
 const titleRoleKeywordPattern =
   /\b(?:chief|c[efot]o|cmo|cro|vp|vice president|head|director|senior director|controller|founder|co-?founder|president|manager|lead|officer|treasurer|finance|accounting|accountant|procurement|owner|partner)\b/i;
 
+// Connectives, prepositions, articles, determiners, pronouns, and common
+// sentence-start verbs that begin a narrative clause but never a person name.
+// Live regression (run jsl0fh): the em-dash attribution pattern matched the
+// start of a marketing sentence — "With Ramp — the finance team has also
+// streamlined..." — and the trailing finance noun satisfied the title-role
+// check, so a clause was extracted as a champion named "With Ramp". A name is
+// rejected if ANY of its bare tokens is in this set.
+const nonNameWords = new Set([
+  "with",
+  "before",
+  "after",
+  "when",
+  "while",
+  "the",
+  "a",
+  "an",
+  "and",
+  "but",
+  "or",
+  "nor",
+  "so",
+  "our",
+  "your",
+  "their",
+  "his",
+  "her",
+  "its",
+  "this",
+  "that",
+  "these",
+  "those",
+  "from",
+  "into",
+  "onto",
+  "by",
+  "for",
+  "to",
+  "of",
+  "in",
+  "on",
+  "at",
+  "as",
+  "how",
+  "why",
+  "what",
+  "since",
+  "because",
+  "although",
+  "though",
+  "during",
+  "once",
+  "said",
+  "says",
+  "using",
+  "used",
+  "founded",
+  "here",
+  "there",
+  "we",
+  "they",
+  "it",
+]);
+
 const subjectCtaStopAttribution = /\b(?:said|says|according to|explains|notes|adds|recalls)\b/i;
 
 function stripEmphasis(value: string): string {
@@ -156,7 +219,7 @@ function looksLikePersonName(name: string): boolean {
       return false;
     }
     const bare = token.toLowerCase().replace(/[^a-z]/g, "");
-    if (roleDepartmentStopwords.has(bare)) {
+    if (roleDepartmentStopwords.has(bare) || nonNameWords.has(bare)) {
       return false;
     }
   }

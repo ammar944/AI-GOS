@@ -9,11 +9,24 @@ import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fillWizardNeutral } from './zz-e2e-fill-wizard-neutral.mjs';
 
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 const CDP_URL = process.env.E2E_CDP_URL ?? 'http://localhost:9222';
-const TARGET_URL = 'https://airtable.com';
-const OUT_DIR = join(process.cwd(), 'tmp', 'e2e-2026-06-11-w5');
+const SUBJECT_CONFIGS = {
+  airtable: { url: 'https://airtable.com' },
+  ramp: { url: 'https://ramp.com' },
+  fathom: { url: 'https://usefathom.com' },
+  plain: { url: 'https://plain.com' },
+};
+const E2E_SUBJECT = (process.env.E2E_SUBJECT ?? 'airtable').trim().toLowerCase();
+const TARGET_URL = process.env.E2E_TARGET_URL ?? SUBJECT_CONFIGS[E2E_SUBJECT]?.url;
+if (!TARGET_URL) {
+  throw new Error(
+    `Unknown E2E_SUBJECT=${E2E_SUBJECT}; expected one of ${Object.keys(SUBJECT_CONFIGS).join(', ')} or set E2E_TARGET_URL`,
+  );
+}
+const OUT_DIR = join(process.cwd(), 'tmp', `e2e-gap8-${E2E_SUBJECT}`);
 
 const CORPUS_TIMEOUT_MS = 10 * 60 * 1000;
 const SECTIONS_TIMEOUT_MS = 25 * 60 * 1000;
@@ -634,7 +647,7 @@ async function main() {
 
   const runId = await waitForRunId(page);
   const corpus = await pollCorpusComplete(supabase, runId);
-  await fillWizard(page);
+  await fillWizardNeutral(page);
   await clickRunAudit(page);
 
   const sectionResult = await pollSectionsComplete(supabase, runId);

@@ -10,10 +10,8 @@ import {
   artifactEnvelopeSchema,
   type ArtifactEnvelope,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
-import {
-  isHttpUrl,
-  isLikelyNamedBuyerIdentity,
-} from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
+import { BUYER_PERSONA_GROUNDING_FIELD } from '@/lib/lab-engine/artifacts/schemas/buyer-icp';
+import { isValidGroundedBuyerUnit } from '@/lib/lab-engine/agents/verification/grounded-buyer-unit';
 import {
   SectionArtifactValidationError,
   assertSectionArtifactPersistable,
@@ -653,19 +651,15 @@ function getBuyerPersonaRecords(
 function getNamedBuyerIdentityLabels(artifact: ArtifactEnvelope | null): string[] {
   return uniqueStrings(
     getBuyerPersonaRecords(artifact).map((persona) => {
-      const name = asString(persona.name);
-      if (!name) return null;
-      const sourceUrl = asString(persona.sourceUrl);
-      if (!sourceUrl || !isHttpUrl(sourceUrl)) return null;
-
-      return isLikelyNamedBuyerIdentity(name, {
-        company: asString(persona.company) ?? undefined,
-        role: asString(persona.role) ?? undefined,
-        seniority: asString(persona.seniority) ?? undefined,
-        title: asString(persona.title) ?? undefined,
-      })
-        ? name
-        : null;
+      // Option B: a valid grounded buyer unit (live-sourced role/segment OR
+      // named human). The distinct label is the human name when present, else
+      // the sourced segment label.
+      if (!isValidGroundedBuyerUnit(persona)) return null;
+      return (
+        asString(persona.name) ??
+        asString(persona[BUYER_PERSONA_GROUNDING_FIELD]) ??
+        null
+      );
     }),
   );
 }

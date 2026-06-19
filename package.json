@@ -82,6 +82,7 @@
   },
   "devDependencies": {
     "@ai-sdk/devtools": "^0.0.18",
+    "@electric-sql/pglite": "^0.5.3",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",

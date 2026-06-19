@@ -661,7 +661,11 @@ function buildEvidencePackForRow(
         overlap += 1;
       }
     }
-    if (overlap >= 1) {
+    // Require ≥2 meaningful shared tokens to award grounded status.
+    // A single incidental shared token (e.g. a common word like a name
+    // fragment that also appears in a generic audience row) must NOT
+    // promote a thin or synthesized gap row to status:'grounded'.
+    if (overlap >= 2) {
       scored.push({ candidate, overlap });
     }
   }

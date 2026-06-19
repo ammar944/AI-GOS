@@ -11,10 +11,18 @@ import {
   type VoiceOfCustomerArtifact,
   type VoiceOfCustomerSectionOutput,
 } from '@/lib/lab-engine/artifacts/schemas/voice-of-customer';
+import {
+  VOC_MIN_DOMAINS,
+  VOC_MIN_QUOTES,
+  VOC_MIN_TOP_LEVEL_SOURCES,
+} from '@/lib/lab-engine/artifacts/voice-of-customer-floors';
 import { saaslaunchResearchInput } from '@/lib/lab-engine/fixtures/saaslaunch';
 
+import { isVoiceOfCustomerSurfaceableSynthesisGap } from '../run-section';
 import {
   createVoiceOfCustomerCandidate,
+  VOC_CANDIDATE_MIN_COUNT,
+  VOC_CANDIDATE_MIN_DOMAINS,
   type VoiceOfCustomerAcquisitionMode,
   type VoiceOfCustomerCandidate,
   type VoiceOfCustomerCandidatePack,
@@ -587,5 +595,66 @@ describe('synthesizeVoiceOfCustomerFromCandidates', (): void => {
         }),
       );
     });
+  });
+});
+
+// TEST 3: a single-source-majority pack is a CONCENTRATION signal, not an
+// integrity violation (it is not laundering and not an empty pack). Synthesis
+// still flags it ok:false reason single_source_majority — the strict verbatim
+// synthesis body must NOT confidently ship a source-concentrated pain block —
+// but the gap reason is now DIRECTIONALLY SURFACEABLE so the runner downgrades
+// to a labeled directional commit instead of killing the section to empty.
+describe('VoC single-source-majority directional downgrade (TEST 3)', (): void => {
+  it('synthesis preserves the single_source_majority integrity signal', (): void => {
+    const singleSourceMajority = makeCandidatePack([
+      { domain: 'g2.com', evidenceKind: 'review' },
+      { domain: 'g2.com', evidenceKind: 'review' },
+      { domain: 'g2.com', evidenceKind: 'review' },
+      { domain: 'g2.com', evidenceKind: 'review' },
+      { domain: 'g2.com', evidenceKind: 'review' },
+      { domain: 'g2.com', evidenceKind: 'review' },
+      { domain: 'reddit.com', evidenceKind: 'forum' },
+      { domain: 'capterra.com', evidenceKind: 'review' },
+    ]);
+
+    const result = synthesizeVoiceOfCustomerFromCandidates({
+      candidateResult: { ok: true, pack: singleSourceMajority },
+      now: () => new Date('2026-06-05T00:00:00.000Z'),
+      researchInput: saaslaunchResearchInput,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.gap.reason).toBe('single_source_majority');
+    }
+  });
+
+  it('routes single_source_majority as a directional-surfaceable gap (NOT a section kill)', (): void => {
+    // The routing layer treats this gap as surfaceable so the runner builds a
+    // labeled directional gap body, not undefined (which would empty/kill VoC).
+    expect(
+      isVoiceOfCustomerSurfaceableSynthesisGap('single_source_majority'),
+    ).toBe(true);
+    // Laundering / empty-pack reasons stay NON-surfaceable (c9bc2056 guard).
+    expect(
+      isVoiceOfCustomerSurfaceableSynthesisGap('self_sourced_candidate'),
+    ).toBe(false);
+    expect(isVoiceOfCustomerSurfaceableSynthesisGap('candidate_pack_gap')).toBe(
+      false,
+    );
+  });
+});
+
+// LOCKSTEP: VOC_MIN_TOP_LEVEL_SOURCES (and the floors it tracks) must be a single
+// source of truth across candidates.ts, synthesis.ts, and the schema. The whole
+// directional lane depends on the prepass-admit floor equaling the commit floor.
+describe('VoC floor lockstep (VOC_MIN consistency)', (): void => {
+  it('keeps VOC_MIN_TOP_LEVEL_SOURCES / VOC_MIN_DOMAINS identical across all three readers', (): void => {
+    expect(VOC_MIN_TOP_LEVEL_SOURCES).toBe(3);
+    expect(VOC_MIN_DOMAINS).toBe(3);
+    // candidates.ts re-exports the same floor constant (no independent copy).
+    expect(VOC_CANDIDATE_MIN_DOMAINS).toBe(VOC_MIN_DOMAINS);
+    expect(VOC_CANDIDATE_MIN_COUNT).toBe(VOC_MIN_QUOTES);
+    expect(VOC_MIN_TOP_LEVEL_SOURCES).toBe(VOC_MIN_DOMAINS);
   });
 });

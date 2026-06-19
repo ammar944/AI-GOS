@@ -574,6 +574,68 @@ describe("historical decode kill-shape regressions", (): void => {
     );
   });
 
+  it("b6de319f: unknown BuyerICP acquisition ledger reasons snap instead of stripping the gap report", (): void => {
+    const definition = SECTION_REGISTRY.positioningBuyerICP;
+    const body = cloneValue(definition.fixtureArtifact.body);
+    asRecord(body).evidenceGapReport = {
+      reason: "insufficient_named_buyer_personas",
+      summary:
+        "The model found buyer candidates, but some rows did not clear the evidence bar.",
+      foundNamedPersonaCount: 1,
+      requiredNamedPersonaCount: 3,
+      rejectedPersonaLabels: ["Unknown RevOps buyer"],
+      acquisitionLedger: [
+        {
+          sourceUrl: "https://example.com/revops",
+          domain: "example.com",
+          query: "RevOps buyer public proof",
+          source: "Perplexity venue prepass",
+          candidateLabel: "Unknown RevOps buyer",
+          promotionStatus: "rejected",
+          rejectionReason: "weak_source_match",
+          observedAt: "2026-06-19T00:00:00.000Z",
+        },
+        {
+          query: "CFO podcast proof",
+          source: "Perplexity venue prepass",
+          promotionStatus: "not_applicable",
+          toolGapReason: "rate_limited",
+          observedAt: "2026-06-19T00:00:00.000Z",
+        },
+      ],
+      sufficiency: {
+        tier: "insufficient",
+        rationale: "One rejected candidate and no promoted candidates.",
+        candidatesFound: 1,
+        promoted: 0,
+        rejected: 1,
+      },
+      sourcingPlan: ["Search named buyer proof in case studies and reviews."],
+    };
+
+    const result = expectOk(
+      tolerantDecode(definition.bodySchema, body, {
+        sectionId: definition.id,
+      }),
+    );
+    const report = asRecord(asRecord(result.value).evidenceGapReport);
+    const ledger = asArray(report.acquisitionLedger);
+
+    expect(report.summary).toContain("buyer candidates");
+    expect(asRecord(ledger[0]).rejectionReason).toBe("insufficient_evidence");
+    expect(asRecord(ledger[1]).toolGapReason).toBe("no_result");
+    expect(result.snaps).toEqual([
+      expect.objectContaining({
+        action: "fallback-enum",
+        to: "insufficient_evidence",
+      }),
+      expect.objectContaining({
+        action: "fallback-enum",
+        to: "no_result",
+      }),
+    ]);
+  });
+
   it("f5bdddd0: missing TAM input-type rows decode without parse death", (): void => {
     const definition = SECTION_REGISTRY.positioningMarketCategory;
     const body = cloneValue(definition.fixtureArtifact.body);

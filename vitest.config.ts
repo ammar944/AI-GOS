@@ -15,7 +15,12 @@ export default defineConfig({
     testTimeout: 20_000,
     hookTimeout: 20_000,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "scripts/lib/**/*.{test,spec}.{ts,tsx}",
+      "scripts/__tests__/**/*.{test,spec}.{ts,tsx}",
+      "supabase/migrations/__tests__/**/*.{test,spec}.{ts,tsx}",
+    ],
     exclude: ["node_modules", ".next", "coverage"],
     coverage: {
       provider: "v8",

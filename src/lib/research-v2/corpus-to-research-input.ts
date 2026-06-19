@@ -5,6 +5,9 @@ import {
   type ResearchProvenance,
   type ResearchInput,
   type SourceRef,
+  type VoiceOfClient,
+  type ChannelSignals,
+  type SuppliedAssetUrls,
 } from "../lab-engine/artifacts/artifact-envelope";
 import {
   getRegistrableDomain,
@@ -183,6 +186,106 @@ function getFieldValue(
 ): unknown {
   const field = asRecord(onboardingFields[key]);
   return field.value;
+}
+
+// GAP 2: returns field value AND preserves sourceUrl/confidence metadata.
+function getFieldWithMeta(
+  onboardingFields: Record<string, unknown>,
+  key: string,
+): { value: unknown; sourceUrl: string | null } {
+  const field = asRecord(onboardingFields[key]);
+  return {
+    value: field.value,
+    sourceUrl: getValidUrl(field.sourceUrl),
+  };
+}
+
+// GAP 2: collect sourceUrls from brief fields for injection into sources[].
+function collectBriefFieldSourceUrls(
+  onboardingFields: Record<string, unknown>,
+  keys: readonly string[],
+): string[] {
+  const urls: string[] = [];
+  for (const key of keys) {
+    const meta = getFieldWithMeta(onboardingFields, key);
+    if (meta.sourceUrl !== null) {
+      urls.push(meta.sourceUrl);
+    }
+  }
+  return urls;
+}
+
+// GAP 1: build voiceOfClient from onboardingData.
+function buildVoiceOfClientFields(
+  onboardingData: Record<string, unknown>,
+): { voiceOfClient?: VoiceOfClient } {
+  const fields: Partial<VoiceOfClient> = {};
+  const mapping: Array<[keyof VoiceOfClient, string[]]> = [
+    ["buyingTriggers", ["buyingTriggers", "buying_triggers"]],
+    ["commonObjections", ["commonObjections", "common_objections"]],
+    ["competitorFrustrations", ["competitorFrustrations", "competitor_frustrations"]],
+    ["situationBeforeBuying", ["situationBeforeBuying", "situation_before_buying"]],
+    ["desiredTransformation", ["desiredTransformation", "desired_transformation"]],
+    ["easiestToClose", ["easiestToClose", "easiest_to_close"]],
+    ["bestClientSources", ["bestClientSources", "best_client_sources"]],
+    ["salesProcessOverview", ["salesProcessOverview", "sales_process_overview"]],
+    ["salesCycleLength", ["salesCycleLength", "sales_cycle_length"]],
+    ["testimonialQuote", ["testimonialQuote", "testimonial_quote"]],
+    ["marketProblem", ["marketProblem", "market_problem"]],
+    ["marketBottlenecks", ["marketBottlenecks", "market_bottlenecks"]],
+    ["uniqueEdge", ["uniqueEdge", "unique_edge"]],
+    ["valueProp", ["valueProp", "value_prop"]],
+    ["guarantees", ["guarantees"]],
+    ["jobTitles", ["jobTitles", "job_titles"]],
+  ];
+  for (const [outputKey, inputKeys] of mapping) {
+    const value = firstString(...inputKeys.map((k) => getValue(onboardingData, k)));
+    if (value !== null) {
+      fields[outputKey] = value;
+    }
+  }
+  if (Object.keys(fields).length === 0) return {};
+  return { voiceOfClient: fields };
+}
+
+// GAP 4: build channelSignals from onboardingData.
+function buildChannelSignalsFields(
+  onboardingData: Record<string, unknown>,
+): { channelSignals?: ChannelSignals } {
+  const currentMarketingActivities = firstString(
+    getValue(onboardingData, "currentMarketingActivities"),
+    getValue(onboardingData, "current_marketing_activities"),
+  );
+  const bestClientSources = firstString(
+    getValue(onboardingData, "bestClientSources"),
+    getValue(onboardingData, "best_client_sources"),
+  );
+  if (currentMarketingActivities === null && bestClientSources === null) return {};
+  const signals: ChannelSignals = {};
+  if (currentMarketingActivities !== null) signals.currentMarketingActivities = currentMarketingActivities;
+  if (bestClientSources !== null) signals.bestClientSources = bestClientSources;
+  return { channelSignals: signals };
+}
+
+// GAP 3: build suppliedAssetUrls from onboardingData.
+function buildSuppliedAssetUrlsFields(
+  onboardingData: Record<string, unknown>,
+): { suppliedAssetUrls?: SuppliedAssetUrls } {
+  const fields: Partial<SuppliedAssetUrls> = {};
+  const mapping: Array<[keyof SuppliedAssetUrls, string[]]> = [
+    ["caseStudiesUrl", ["caseStudiesUrl", "case_studies_url"]],
+    ["pricingUrl", ["pricingUrl", "pricing_url"]],
+    ["testimonialsUrl", ["testimonialsUrl", "testimonials_url"]],
+    ["demoUrl", ["demoUrl", "demo_url"]],
+  ];
+  for (const [outputKey, inputKeys] of mapping) {
+    const url = getValidUrl(firstString(...inputKeys.map((k) => getValue(onboardingData, k))));
+    if (url !== null) {
+      fields[outputKey] = url;
+    }
+  }
+  if (Object.keys(fields).length === 0) return {};
+  return { suppliedAssetUrls: fields };
 }
 
 function slugify(value: string): string {
@@ -429,6 +532,7 @@ function buildSources({
   sourceRecords,
   uploadedDocuments,
   websiteUrl,
+  briefFieldSourceUrls,
 }: {
   companyName: string;
   evidenceRecords: Record<string, unknown>[];
@@ -436,6 +540,8 @@ function buildSources({
   sourceRecords: Record<string, unknown>[];
   uploadedDocuments: readonly UploadedDocumentContext[];
   websiteUrl: string;
+  // GAP 2: sourceUrls scraped from brief field metadata (user-supplied provenance)
+  briefFieldSourceUrls?: readonly string[];
 }): SourceRef[] {
   const sourceUrls = new Set<string>();
   const corpusSources = sourceRecords.flatMap((source, index): SourceRef[] => {
@@ -478,7 +584,24 @@ function buildSources({
       },
     ];
   });
-  const sources = [...corpusSources, ...evidenceSources];
+  // GAP 2: inject brief field sourceUrls as user-supplied SourceRefs
+  const briefFieldSources: SourceRef[] = (briefFieldSourceUrls ?? []).flatMap(
+    (url, index): SourceRef[] => {
+      if (sourceUrls.has(url)) return [];
+      sourceUrls.add(url);
+      return [
+        {
+          id: `source_brief_field_${index + 1}`,
+          title: `Operator-supplied: ${url}`,
+          url,
+          publisher: "Operator brief",
+          observedAt,
+        },
+      ];
+    },
+  );
+
+  const sources = [...corpusSources, ...evidenceSources, ...briefFieldSources];
 
   const uploadedDocumentSources = uploadedDocuments.map((document, index) => ({
     id: `source_uploaded_${slugify(document.fileName)}_${index + 1}`,
@@ -1145,6 +1268,16 @@ export function corpusToResearchInput(
     fallbackUrl: firstCorpusSourceUrl,
     slug: companySlug,
   });
+  // GAP 2: collect sourceUrls from onboarding field metadata for provenance injection
+  const briefFieldSourceUrls = collectBriefFieldSourceUrls(onboardingFields, [
+    "buyingTriggers", "commonObjections", "competitorFrustrations",
+    "situationBeforeBuying", "desiredTransformation", "easiestToClose",
+    "bestClientSources", "salesProcessOverview", "salesCycleLength",
+    "testimonialQuote", "marketProblem", "marketBottlenecks",
+    "uniqueEdge", "valueProp", "guarantees", "jobTitles",
+    "caseStudiesUrl", "pricingUrl", "testimonialsUrl", "demoUrl",
+  ]);
+
   const sources = buildSources({
     companyName,
     evidenceRecords: allEvidenceRecords,
@@ -1152,6 +1285,7 @@ export function corpusToResearchInput(
     sourceRecords,
     uploadedDocuments,
     websiteUrl,
+    briefFieldSourceUrls,
   });
   const droppedEvidenceExcerptCount = countDroppedEvidenceExcerpts({
     evidenceRecords: allEvidenceRecords,
@@ -1198,13 +1332,20 @@ export function corpusToResearchInput(
         getValue(onboardingData, "core_deliverables"),
         productDescription,
       ),
-      distributionChannels: withFallback(
-        firstStringArray(
+      // GAP 4: detect when we fell back to the hardcoded default channel
+      ...(() => {
+        const operatorChannels = firstStringArray(
           getValue(onboardingData, "distributionChannels"),
           getValue(onboardingData, "distribution_channels"),
-        ),
-        defaultDistributionChannel,
-      ),
+        );
+        if (operatorChannels.length > 0) {
+          return { distributionChannels: operatorChannels };
+        }
+        return {
+          distributionChannels: [defaultDistributionChannel],
+          distributionChannelsMeta: "model-estimated" as const,
+        };
+      })(),
       constraints: firstStringArray(
         getValue(onboardingData, "constraints"),
         getFieldValue(onboardingFields, "constraints"),
@@ -1212,6 +1353,10 @@ export function corpusToResearchInput(
       notes: researchSummary,
       ...mediaPlanBriefFields,
       ...economicsBriefFields,
+      // GAP 1: operator voice (highest provenance)
+      ...buildVoiceOfClientFields(onboardingData),
+      // GAP 4: channel signals
+      ...buildChannelSignalsFields(onboardingData),
     },
     corpus: {
       excerpts: corpusExcerpts,
@@ -1229,6 +1374,8 @@ export function corpusToResearchInput(
           getValue(onboardingData, "top_competitors"),
         ) ?? undefined,
     }),
+    // GAP 3: operator-supplied asset URLs
+    ...buildSuppliedAssetUrlsFields(onboardingData),
     ...(droppedEvidenceExcerptCount === 0
       ? {}
       : {

@@ -238,14 +238,31 @@ describe("normalizePaidMediaPlanBody", () => {
     expect(normalized.channelSuggestions[0]?.verdict).toBe("ADD");
   });
 
-  it("fails under-count arrays instead of padding repair rows", () => {
+  it("synthesizes honest gap rows instead of throwing when anglesToTest undershoots the floor", () => {
+    // OLD behaviour: .parse() threw a ZodError on undershoot (too few rows).
+    // NEW behaviour: pre-parse gap-row synthesis pads to the floor with
+    // "Evidence gap:"-prefixed rows so the section commits honestly instead of
+    // crashing when BuyerICP / VoC evidence is thin.
     const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<
       string,
       unknown
     >;
     rawBody.anglesToTest = getRepeatedRows(rawBody.anglesToTest, 1);
 
-    expect(() => normalizePaidMediaPlanBody(rawBody)).toThrow();
+    let result: ReturnType<typeof normalizePaidMediaPlanBody> | undefined;
+    expect(() => {
+      result = normalizePaidMediaPlanBody(rawBody);
+    }).not.toThrow();
+
+    expect(result).toBeDefined();
+    expect(result!.anglesToTest.length).toBeGreaterThanOrEqual(2);
+
+    // The synthesized gap row must be detectable as honest gap text.
+    const gapRow = result!.anglesToTest[1];
+    expect(
+      gapRow?.description.toLowerCase().startsWith("evidence gap:") ||
+        gapRow?.grounding.toLowerCase().startsWith("evidence gap:"),
+    ).toBe(true);
   });
 
   it("maps unknown sourceSection to 'unattributed' and unknown verdict to REVIEW instead of crashing", () => {

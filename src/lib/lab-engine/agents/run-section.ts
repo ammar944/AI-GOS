@@ -1921,6 +1921,141 @@ function stripReaderTelemetryTail(value: string): string {
     .trim();
 }
 
+// Objection-category enum values the schema accepts (artifacts/schemas/voice-of-customer.ts).
+const voiceOfCustomerObjectionCategories = [
+  "trust",
+  "switching-cost",
+  "timing",
+  "stakeholder",
+  "feature",
+] as const;
+const voiceOfCustomerDecisionRoles = ["buyer", "champion", "influencer"] as const;
+
+// FIX-VOC: when the directional pool has SURPLUS above the pain floor, carve the
+// surplus DISJOINTLY into objections / switching stories / decision criteria —
+// each candidate feeds at most ONE block (never the c9bc2056 slice-fan that
+// laundered one verbatim into five blocks). Pain keeps the top-ranked snippets
+// at/above the floor; only the tail surplus is carved. A floor-sized pack yields
+// no surplus, so every secondary block stays an honest blockGap.
+interface VoiceOfCustomerDirectionalPartition {
+  pain: VoiceOfCustomerCandidate[];
+  objections: VoiceOfCustomerCandidate[];
+  switchingStories: VoiceOfCustomerCandidate[];
+  decisionCriteria: VoiceOfCustomerCandidate[];
+}
+
+// Keep pain comfortably above the commit floor before carving surplus into a
+// derived block (mirrors the synthesis-path VOC_PAIN_MIN_RESERVE).
+const voiceOfCustomerDirectionalPainReserve = Math.max(VOC_MIN_QUOTES, 6);
+const voiceOfCustomerDirectionalObjectionCap = 4;
+const voiceOfCustomerDirectionalSwitchingCap = 3;
+const voiceOfCustomerDirectionalDecisionCap = 4;
+
+function partitionDirectionalVoiceOfCustomerCandidates(
+  painCandidates: readonly VoiceOfCustomerCandidate[],
+): VoiceOfCustomerDirectionalPartition {
+  const pool = [...painCandidates];
+  // The directional gap body is a BELOW-FLOOR commit (evidenceGap=true), so it
+  // may legitimately rest on < VOC_MIN_DOMAINS distinct domains. Never strip pain
+  // below the independent-domain spread it STARTED with (capped at the commit
+  // floor) — that would launder real coverage away — but do not demand a spread
+  // the directional pack never had in the first place.
+  const startingDomains = new Set(
+    pool.map((candidate) => candidate.domain),
+  ).size;
+  const painDomainFloor = Math.min(startingDomains, VOC_MIN_DOMAINS);
+
+  // Carve up to `cap` candidates off the TAIL only while pain keeps its count
+  // reserve AND its starting independent-domain spread, so a carve can never
+  // strip pain below the directional floor or collapse a domain out of pain.
+  const carve = (cap: number): VoiceOfCustomerCandidate[] => {
+    const carved: VoiceOfCustomerCandidate[] = [];
+
+    while (carved.length < cap) {
+      let moved = false;
+
+      for (let i = pool.length - 1; i >= 0; i -= 1) {
+        const trial = [...pool.slice(0, i), ...pool.slice(i + 1)];
+        const trialDomains = new Set(
+          trial.map((candidate) => candidate.domain),
+        ).size;
+
+        if (
+          trial.length >= voiceOfCustomerDirectionalPainReserve &&
+          trialDomains >= painDomainFloor
+        ) {
+          carved.unshift(pool[i]);
+          pool.splice(i, 1);
+          moved = true;
+          break;
+        }
+      }
+
+      if (!moved) {
+        break;
+      }
+    }
+
+    return carved;
+  };
+
+  const objections = carve(voiceOfCustomerDirectionalObjectionCap);
+  const switchingStories = carve(voiceOfCustomerDirectionalSwitchingCap);
+  const decisionCriteria = carve(voiceOfCustomerDirectionalDecisionCap);
+
+  return { pain: pool, objections, switchingStories, decisionCriteria };
+}
+
+function buildDirectionalObjection(
+  candidate: VoiceOfCustomerCandidate,
+  index: number,
+): Record<string, unknown> {
+  return {
+    category:
+      voiceOfCustomerObjectionCategories[
+        index % voiceOfCustomerObjectionCategories.length
+      ],
+    frequency: index < 2 ? "recurring" : "occasional",
+    howToHandle: `Probe this directional ${candidate.domain} signal with the buyer before treating it as a settled objection; confirm the underlying concern and the proof that resolves it.`,
+    objectionText: candidate.snippet,
+    sourceUrl: candidate.url,
+  };
+}
+
+function buildDirectionalSwitchingStory(
+  candidate: VoiceOfCustomerCandidate,
+  index: number,
+): Record<string, unknown> {
+  return {
+    decisionPath:
+      "Validate this directional switch trigger with the buyer before relying on it as a displacement story.",
+    priorSolution: `Current workflow evidenced by a directional ${candidate.domain} extract (candidate ${index + 1})`,
+    reasonToLeave: candidate.snippet,
+    sourceUrl: candidate.url,
+  };
+}
+
+function buildDirectionalDecisionCriterion(
+  candidate: VoiceOfCustomerCandidate,
+  index: number,
+): Record<string, unknown> {
+  return {
+    criterion:
+      ([
+        "Source-backed proof of the recurring problem",
+        "Lower switching and handoff risk",
+        "Workflow fit for the weekly loop",
+        "Visible, traceable evidence before trust",
+      ] as const)[index] ?? "Directional buyer criterion to confirm",
+    evidenceQuote: candidate.snippet,
+    sourceUrl: candidate.url,
+    statedBy:
+      voiceOfCustomerDecisionRoles[
+        index % voiceOfCustomerDecisionRoles.length
+      ],
+  };
+}
+
 export function buildVoiceOfCustomerEvidenceGapBody({
   acquisitionAttempts,
   acquisitionLedger,
@@ -1941,16 +2076,26 @@ export function buildVoiceOfCustomerEvidenceGapBody({
     quoteCandidates === undefined || quoteCandidates.length === 0
       ? []
       : quoteCandidates;
-  const painQuotes = buildVoiceOfCustomerShortfallPainQuotes(
+  // Pain candidates first (drops pure after-state snippets), then carve the
+  // SURPLUS above the pain floor disjointly into the secondary blocks so a large
+  // directional pool no longer dead-ends with empty objections/switching/criteria
+  // while the same quotes are NEVER reused across blocks.
+  const directionalPainCandidates = selectVoiceOfCustomerPainCandidates(
     promotableCandidates,
   );
+  const directionalPartition = partitionDirectionalVoiceOfCustomerCandidates(
+    directionalPainCandidates,
+  );
+  const painQuotes = buildVoiceOfCustomerShortfallPainQuotes(
+    directionalPartition.pain,
+  );
   const hasPromotedPainQuotes = painQuotes.length > 0;
-  // Sparse evidence-gap mode must not fan the same captured snippets into
-  // objections, switching stories, and decision criteria. Keep surfaced extracts
-  // in painLanguage only; every secondary block carries its own honest blockGap.
-  const directionalObjections: Array<Record<string, unknown>> = [];
-  const directionalSwitchingStories: Array<Record<string, unknown>> = [];
-  const directionalDecisionCriteria: Array<Record<string, unknown>> = [];
+  const directionalObjections: Array<Record<string, unknown>> =
+    directionalPartition.objections.map(buildDirectionalObjection);
+  const directionalSwitchingStories: Array<Record<string, unknown>> =
+    directionalPartition.switchingStories.map(buildDirectionalSwitchingStory);
+  const directionalDecisionCriteria: Array<Record<string, unknown>> =
+    directionalPartition.decisionCriteria.map(buildDirectionalDecisionCriterion);
   const observedDomains =
     facts.observedPainSourceDomains.length === 0
       ? "none"
@@ -3010,18 +3155,24 @@ function isVoiceOfCustomerCandidateFloorGap(reason: string): boolean {
 
 // Synthesis gaps whose captured candidate pack is SAFE to surface as honest-gap
 // evidence (low-confidence, evidenceGap=true). A `validation_failed` pack has
-// already cleared the self_sourced_candidate (synthesis :436) and
-// single_source_majority (synthesis :448) integrity gates — both return BEFORE
-// validation_failed (:475/:489) — so its real verbatims would otherwise be
-// discarded into empty blocks for no integrity reason. ALLOW-LIST by design:
-// self_sourced_candidate / single_source_majority / candidate_pack_gap are
-// deliberately excluded so this can never re-surface the laundered/empty packs
-// the integrity gate rejects. Never convert this to a deny-list.
-function isVoiceOfCustomerSurfaceableSynthesisGap(reason: string): boolean {
+// already cleared the self_sourced_candidate integrity gate (synthesis returns
+// it BEFORE validation_failed), so its real verbatims would otherwise be
+// discarded into empty blocks for no integrity reason. `single_source_majority`
+// is a CONCENTRATION signal (one domain over-indexed), NOT laundering and NOT an
+// empty pack — the strict verbatim synthesis body refuses to ship it confidently,
+// but a directional gap commit honestly caveats it (block-level "directional
+// buyer signal, not independently confirmed VoC") and the disjoint partition in
+// buildVoiceOfCustomerEvidenceGapBody spreads the surplus across blocks instead
+// of dropping real quotes — so it is downgraded, not killed to empty. ALLOW-LIST
+// by design: self_sourced_candidate / candidate_pack_gap stay excluded so this
+// can never re-surface the laundered/empty packs the integrity gate rejects.
+// Never convert this to a deny-list.
+export function isVoiceOfCustomerSurfaceableSynthesisGap(reason: string): boolean {
   return (
     reason === "insufficient_candidates" ||
     reason === "insufficient_independent_domains" ||
     reason === "insufficient_success_language" ||
+    reason === "single_source_majority" ||
     reason === "validation_failed"
   );
 }

@@ -116,12 +116,66 @@ const onboardingEconomicsSchema = z
   })
   .strict();
 
+// Operator-supplied customer voice fields (highest provenance).
+// These are explicit answers the operator typed in the onboarding brief —
+// NOT scraped or inferred. Sections must use them as ground truth.
+export const voiceOfClientSchema = z
+  .object({
+    buyingTriggers: z.string().describe("What triggers a prospect to start looking").optional(),
+    commonObjections: z.string().describe("Objections that kill deals").optional(),
+    competitorFrustrations: z.string().describe("What buyers hate about competitors").optional(),
+    situationBeforeBuying: z.string().describe("Buyer's before-state / pain context").optional(),
+    desiredTransformation: z.string().describe("Buyer's desired after-state").optional(),
+    easiestToClose: z.string().describe("Which buyer profile closes fastest").optional(),
+    bestClientSources: z.string().describe("Where best clients come from").optional(),
+    salesProcessOverview: z.string().describe("How deals are run").optional(),
+    salesCycleLength: z.string().describe("Typical sales cycle duration").optional(),
+    testimonialQuote: z.string().describe("A real customer quote").optional(),
+    marketProblem: z.string().describe("The broad market problem being solved").optional(),
+    marketBottlenecks: z.string().describe("What slows down buyers in this market").optional(),
+    uniqueEdge: z.string().describe("What makes the product uniquely defensible").optional(),
+    valueProp: z.string().describe("Core value proposition statement").optional(),
+    guarantees: z.string().describe("Risk-reversals or guarantees offered").optional(),
+    jobTitles: z.string().describe("Target job titles for outreach").optional(),
+  })
+  .strict();
+
+// Operator-supplied asset URLs that should be scraped before any web_search.
+export const suppliedAssetUrlsSchema = z
+  .object({
+    caseStudiesUrl: z.string().url().describe("Case studies page URL").optional(),
+    pricingUrl: z.string().url().describe("Pricing page URL").optional(),
+    testimonialsUrl: z.string().url().describe("Testimonials page URL").optional(),
+    demoUrl: z.string().url().describe("Demo / book-a-demo page URL").optional(),
+  })
+  .strict();
+
+// Operator-supplied channel signals. Distinct from distributionChannels
+// (which is the model's working list); channelSignals captures what the
+// operator TOLD us they actually do.
+export const channelSignalsSchema = z
+  .object({
+    currentMarketingActivities: z
+      .string()
+      .describe("What the operator is currently doing for marketing")
+      .optional(),
+    bestClientSources: z
+      .string()
+      .describe("Where best clients actually come from")
+      .optional(),
+  })
+  .strict();
+
 export const onboardingSnapshotSchema = z
   .object({
     primaryGoal: z.string().min(1),
     targetSegments: z.array(z.string().min(1)).min(1),
     keyOffers: z.array(z.string().min(1)).min(1),
     distributionChannels: z.array(z.string().min(1)).min(1),
+    // When distributionChannels fell back to the hardcoded default because the
+    // operator did not supply any channel data, this flag is set to
+    // "model-estimated" so sections know NOT to treat it as operator intent.
+    distributionChannelsMeta: z.literal("model-estimated").optional(),
     constraints: z.array(z.string().min(1)),
     notes: z.string().min(1),
     salesProcessDocs: z.array(salesProcessDocRefSchema).max(4).optional(),
@@ -130,6 +184,10 @@ export const onboardingSnapshotSchema = z
     creativeCapacity: z.enum(["lean", "standard", "high"]).optional(),
     leadListAvailable: z.boolean().optional(),
     economics: onboardingEconomicsSchema.optional(),
+    // GAP 1: operator voice (highest provenance — never inferred)
+    voiceOfClient: voiceOfClientSchema.optional(),
+    // GAP 4: channel signals (what the operator actually does)
+    channelSignals: channelSignalsSchema.optional(),
   })
   .strict();
 
@@ -356,6 +414,8 @@ export const researchInputSchema = z
       })
       .strict()
       .optional(),
+    // GAP 3: operator-supplied asset URLs that should be scraped before web_search
+    suppliedAssetUrls: suppliedAssetUrlsSchema.optional(),
   })
   .strict();
 
@@ -463,6 +523,9 @@ export type SourceRef = z.infer<typeof sourceRefSchema>;
 export type CompetitorAd = z.infer<typeof competitorAdSchema>;
 export type CompanyProfile = z.infer<typeof companyProfileSchema>;
 export type OnboardingSnapshot = z.infer<typeof onboardingSnapshotSchema>;
+export type VoiceOfClient = z.infer<typeof voiceOfClientSchema>;
+export type SuppliedAssetUrls = z.infer<typeof suppliedAssetUrlsSchema>;
+export type ChannelSignals = z.infer<typeof channelSignalsSchema>;
 export type CorpusExcerpt = z.infer<typeof corpusExcerptSchema>;
 export type CorpusSnapshot = z.infer<typeof corpusSnapshotSchema>;
 export type ResearchProvenance = z.infer<typeof researchProvenanceSchema>;

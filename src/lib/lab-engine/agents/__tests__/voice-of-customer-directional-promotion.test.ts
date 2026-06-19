@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { voiceOfCustomerBodySchema } from "../../artifacts/schemas/voice-of-customer";
 import { downgradeUnpermalinkedVocQuotes } from "../verification/provenance-gate";
 import {
   buildVoiceOfCustomerEvidenceGapBody,
@@ -10,10 +11,12 @@ import {
 } from "../run-section";
 import type { VoiceOfCustomerCandidate } from "../voice-of-customer-candidates";
 
-// Sparse VoC sourcing-shortfall mode only promotes captured extracts into the
-// pain-language block. Secondary blocks must stay honest blockGaps so a sparse
-// quote pack is never fanned out as fake objections / switching stories /
-// decision criteria. These tests keep the pain classifier precise.
+// Sparse VoC sourcing-shortfall mode promotes captured extracts into the
+// pain-language block AND, ONLY when the directional pool exceeds the pain
+// floor, carves the surplus DISJOINTLY into objections / switching stories /
+// decision criteria (each quote feeds at most one block — never the c9bc2056
+// slice-fan that laundered one verbatim into five blocks). A floor-sized (or
+// smaller) pack keeps every surplus block as an honest blockGap.
 
 function candidate(
   partial: Partial<VoiceOfCustomerCandidate> & { snippet: string; url: string },
@@ -243,5 +246,219 @@ describe("buildVoiceOfCustomerShortfallNote", () => {
     expect(note).not.toContain("verified");
     // Genuinely under the floor → an honest under-floor line is allowed.
     expect(note).toContain("6 quotes");
+  });
+});
+
+// FIX-VOC directional COMMIT lane. A 2-domain pack of admissible-but-directional
+// quotes (strict select returns ok:false on the >=3-domain floor) must COMMIT a
+// directional body — pain quotes labeled directional — and the body must pass
+// the schema validator instead of zeroing to an empty gap shell.
+function directionalCandidate(
+  partial: Partial<VoiceOfCustomerCandidate> & { snippet: string; url: string },
+): VoiceOfCustomerCandidate {
+  return candidate(partial);
+}
+
+describe("VoC directional COMMIT lane — 2-domain pack (TEST 1)", () => {
+  // 8 admissible (per-review-permalink) pain quotes across exactly 2 domains —
+  // strict selection ok:false on the 3-domain floor, but every quote is real.
+  const twoDomainPack: VoiceOfCustomerCandidate[] = [
+    directionalCandidate({
+      url: "https://www.g2.com/products/x/reviews/p-1",
+      domain: "g2.com",
+      snippet:
+        "The pricing is way too expensive for what you get and the billing is confusing.",
+    }),
+    directionalCandidate({
+      url: "https://www.g2.com/products/x/reviews/p-2",
+      domain: "g2.com",
+      snippet:
+        "Support never responds — I waited a week for a ticket reply and got ignored.",
+    }),
+    directionalCandidate({
+      url: "https://www.g2.com/products/x/reviews/p-3",
+      domain: "g2.com",
+      snippet:
+        "It crashes constantly and is painfully slow, a total nightmare to rely on.",
+    }),
+    directionalCandidate({
+      url: "https://www.g2.com/products/x/reviews/p-4",
+      domain: "g2.com",
+      snippet:
+        "The integration with our CRM keeps breaking and the API sync drops records.",
+    }),
+    directionalCandidate({
+      url: "https://www.capterra.com/reviews/p-5",
+      domain: "capterra.com",
+      snippet:
+        "It is confusing and hard to use; the onboarding learning curve is steep.",
+    }),
+    directionalCandidate({
+      url: "https://www.capterra.com/reviews/p-6",
+      domain: "capterra.com",
+      snippet:
+        "Missing the one feature we need; there is no way to export tags at all.",
+    }),
+    directionalCandidate({
+      url: "https://www.capterra.com/reviews/p-7",
+      domain: "capterra.com",
+      snippet:
+        "The handoff between teams keeps getting dropped and follow-up falls through.",
+    }),
+    directionalCandidate({
+      url: "https://www.capterra.com/reviews/p-8",
+      domain: "capterra.com",
+      snippet:
+        "Refunds are a nightmare and the charges on our invoice never reconcile.",
+    }),
+  ];
+
+  function buildBody(): Record<string, unknown> {
+    const facts = getVoiceOfCustomerCandidateEvidenceGapFacts({
+      quoteCandidates: twoDomainPack,
+      result: {
+        ok: false,
+        gap: {
+          reason: "insufficient_independent_domains",
+          message: "shortfall",
+          domains: ["g2.com", "capterra.com"],
+          candidateCount: twoDomainPack.length,
+        },
+      },
+    });
+
+    return buildVoiceOfCustomerEvidenceGapBody({
+      facts,
+      issue: "",
+      quoteCandidates: twoDomainPack,
+      subjectDomain: "acme.example",
+    });
+  }
+
+  it("commits the directional pain quotes (not a zeroed gap body)", () => {
+    const body = buildBody();
+    const painLanguage = body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+
+    expect(painLanguage.quotes.length).toBeGreaterThanOrEqual(6);
+    expect(body.evidenceGap).toBe(true);
+  });
+
+  it("passes the voiceOfCustomerBodySchema validator", () => {
+    const body = buildBody();
+    const parsed = voiceOfCustomerBodySchema.safeParse(body);
+
+    if (!parsed.success) {
+      throw new Error(
+        `directional body failed schema: ${parsed.error.issues
+          .map((issue) => issue.message)
+          .join("; ")}`,
+      );
+    }
+
+    expect(parsed.success).toBe(true);
+  });
+
+  // TEST 2: when the directional pool EXCEEDS the pain floor, objections /
+  // switching stories / decision criteria are populated from the SURPLUS with
+  // DISJOINT partitioning — no quote/source feeds two blocks.
+  it("populates secondary blocks DISJOINTLY from the surplus (TEST 2)", () => {
+    const body = buildBody();
+    const painLanguage = body.painLanguage as {
+      quotes: Array<Record<string, unknown>>;
+    };
+    const objections = body.objections as {
+      items: Array<Record<string, unknown>>;
+    };
+    const switchingStories = body.switchingStories as {
+      stories: Array<Record<string, unknown>>;
+    };
+    const decisionCriteria = body.decisionCriteria as {
+      criteria: Array<Record<string, unknown>>;
+    };
+
+    const secondaryCount =
+      objections.items.length +
+      switchingStories.stories.length +
+      decisionCriteria.criteria.length;
+    // An 8-quote pack has surplus above the 6-quote pain floor, so at least one
+    // secondary block must carry directional content (the 86→9 throughput fix).
+    expect(secondaryCount).toBeGreaterThanOrEqual(1);
+
+    const usage = new Map<string, string[]>();
+    const record = (block: string, sourceUrl: unknown, verbatim: unknown) => {
+      const key = `${String(sourceUrl)}::${String(verbatim)}`;
+      usage.set(key, [...(usage.get(key) ?? []), block]);
+    };
+
+    painLanguage.quotes.forEach((quote) =>
+      record("pain", quote.sourceUrl, quote.verbatimText),
+    );
+    objections.items.forEach((item) =>
+      record("objections", item.sourceUrl, item.objectionText),
+    );
+    switchingStories.stories.forEach((story) =>
+      record("switching", story.sourceUrl, story.reasonToLeave),
+    );
+    decisionCriteria.criteria.forEach((criterion) =>
+      record("decision", criterion.sourceUrl, criterion.evidenceQuote),
+    );
+
+    // DISJOINT: no (sourceUrl, verbatim) appears in two distinct blocks.
+    for (const [key, blocks] of usage) {
+      const distinctBlocks = new Set(blocks);
+      expect(
+        distinctBlocks.size,
+        `quote ${key} laundered across blocks ${[...distinctBlocks].join(", ")}`,
+      ).toBe(1);
+    }
+  });
+
+  it("still passes the schema validator with secondary blocks populated", () => {
+    const body = buildBody();
+    expect(voiceOfCustomerBodySchema.safeParse(body).success).toBe(true);
+  });
+});
+
+// TEST 4 (no-regression): a floor-sized (or smaller) directional pack keeps the
+// surplus blocks as honest blockGaps — the disjoint carve only fires on surplus,
+// so a 6-quote pack does NOT fan out fake objections (c9bc2056 guard).
+describe("VoC directional COMMIT lane — floor-sized pack keeps empty blocks gapped (TEST 4 no-regression)", () => {
+  it("does not populate secondary blocks for a 6-quote pack", () => {
+    const body = buildVoiceOfCustomerEvidenceGapBody({
+      facts: getVoiceOfCustomerCandidateEvidenceGapFacts({
+        quoteCandidates: mixedPack,
+        result: {
+          ok: false,
+          gap: {
+            reason: "insufficient_candidates",
+            message: "shortfall",
+            domains: ["g2.com", "capterra.com", "trustpilot.com"],
+            candidateCount: mixedPack.length,
+          },
+        },
+      }),
+      issue: "",
+      quoteCandidates: mixedPack,
+      subjectDomain: "acme.example",
+    });
+
+    const objections = body.objections as { items: unknown[] };
+    const switchingStories = body.switchingStories as { stories: unknown[] };
+    const decisionCriteria = body.decisionCriteria as { criteria: unknown[] };
+
+    // mixedPack has exactly 6 pain candidates (= floor), so there is no surplus
+    // to carve — every secondary block stays an honest blockGap.
+    expect(objections.items).toHaveLength(0);
+    expect(switchingStories.stories).toHaveLength(0);
+    expect(decisionCriteria.criteria).toHaveLength(0);
+    expect((body.objections as { blockGap?: unknown }).blockGap).toBeDefined();
+    expect(
+      (body.switchingStories as { blockGap?: unknown }).blockGap,
+    ).toBeDefined();
+    expect(
+      (body.decisionCriteria as { blockGap?: unknown }).blockGap,
+    ).toBeDefined();
   });
 });

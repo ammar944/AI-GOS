@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Engine — Value-First Plan: good research from every input</title>
+<style>
+  :root{
+    --bg:#0e1117; --panel:#161b22; --panel-2:#1c2230; --line:#2a313c;
+    --ink:#e6edf3; --ink-dim:#9aa7b4; --ink-faint:#6b7785;
+    --good:#3fb950; --good-bg:rgba(63,185,80,.12);
+    --warn:#d29922; --warn-bg:rgba(210,153,34,.12);
+    --bad:#f85149; --bad-bg:rgba(248,81,73,.12);
+    --accent:#58a6ff; --accent-bg:rgba(88,166,255,.12);
+    --purple:#bc8cff; --purple-bg:rgba(188,140,255,.12);
+    --mono:'SFMono-Regular',ui-monospace,'JetBrains Mono',Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;font-size:15px}
+  code{font-family:var(--mono);font-size:.86em;color:var(--accent);background:var(--accent-bg);padding:1px 5px;border-radius:4px}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header.hero{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:18px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 14px;font-weight:700;letter-spacing:-.01em}
+  .northstar{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:16px 18px;color:var(--ink-dim);font-size:14.5px}
+  .northstar strong{color:var(--ink)}
+  .verdict-pill{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--good-bg);color:var(--good);border:1px solid rgba(63,185,80,.4);margin-top:14px;letter-spacing:.04em}
+  h2{font-size:20px;margin:46px 0 8px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+  h2 .num{font-family:var(--mono);font-size:13px;color:var(--ink-faint);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .sub{color:var(--ink-dim);font-size:14px;margin:0 0 20px;max-width:840px}
+  em{color:var(--ink);font-style:normal;font-weight:600}
+
+  /* locked decisions banner */
+  .locked{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0 6px}
+  .lock{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--good);border-radius:8px;padding:12px 14px}
+  .lock .lh{font-family:var(--mono);font-size:11px;color:var(--good);font-weight:700;margin-bottom:4px}
+  .lock .ld{font-size:12.5px;color:var(--ink-dim)}
+
+  /* the discovery callout */
+  .discovery{background:linear-gradient(180deg,rgba(188,140,255,.10),rgba(88,166,255,.06));border:1px solid rgba(188,140,255,.4);border-radius:12px;padding:22px 24px;margin:14px 0}
+  .discovery .tag{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--purple);text-transform:uppercase}
+  .discovery h3{margin:8px 0 8px;font-size:18px}
+  .discovery p{color:var(--ink-dim);font-size:14px;margin:0 0 10px}
+  .discovery .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:3px 8px}
+  .chip.dropped{color:var(--bad);border-color:rgba(248,81,73,.4);background:var(--bad-bg)}
+
+  /* engine flow */
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin-top:6px}
+  .lane{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .stage{flex:1;min-width:140px;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .stage .box{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:13px 12px;width:100%;min-height:78px;display:flex;flex-direction:column;justify-content:center}
+  .stage .box .t{font-weight:600;font-size:13px}
+  .stage .box .d{font-size:11px;color:var(--ink-faint);font-family:var(--mono);margin-top:3px}
+  .conn{align-self:center;color:var(--ink-faint);font-size:20px;padding:22px 6px 0;flex:none}
+  .drops{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+  .drop{background:var(--bad-bg);border:1px solid rgba(248,81,73,.35);border-radius:9px;padding:12px 14px}
+  .drop .dn{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--bad);margin-bottom:5px}
+  .drop .dt{font-size:12.5px;color:var(--ink-dim)}
+
+  /* producer fix cards */
+  .fixes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .fix{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;border-top:3px solid var(--accent)}
+  .fix.big{border-top-color:var(--purple)}
+  .fix.insurance{border-top-color:var(--ink-faint);background:var(--panel-2)}
+  .fix .fh{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+  .fix h3{margin:0;font-size:15px}
+  .fix .badge{font-family:var(--mono);font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap}
+  .badge.value{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(188,140,255,.4)}
+  .badge.prod{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(88,166,255,.4)}
+  .badge.thin{background:var(--panel);color:var(--ink-faint);border:1px solid var(--line)}
+  .fix .broke{font-size:13px;color:var(--ink-dim);margin:8px 0}
+  .fix .broke b{color:var(--bad)}
+  .fix .does{font-size:13px;color:var(--ink-dim);margin:8px 0}
+  .fix .does b{color:var(--good)}
+  .fix .files{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+
+  /* safety wire */
+  .wire{background:var(--warn-bg);border:1px solid rgba(210,153,34,.4);border-radius:12px;padding:20px 22px;margin-top:6px}
+  .wire .wt{font-weight:700;color:var(--warn);font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .wire p{color:var(--ink-dim);font-size:13.5px;margin:0 0 10px}
+  .wire .routes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .route{border-radius:8px;padding:11px 13px;font-size:12px}
+  .route.ok{background:var(--good-bg);border:1px solid rgba(63,185,80,.4)}
+  .route.bad{background:var(--bad-bg);border:1px solid rgba(248,81,73,.4)}
+  .route .rl{font-family:var(--mono);font-size:11px;font-weight:700;margin-bottom:4px}
+  .route.ok .rl{color:var(--good)} .route.bad .rl{color:var(--bad)}
+  .route .rd{color:var(--ink-dim)}
+  .wire .verified{margin-top:12px;font-size:12.5px;color:var(--good);font-family:var(--mono)}
+
+  /* roadmap */
+  .road{display:grid;grid-template-columns:1fr;gap:14px;margin-top:6px}
+  .phase{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;border-left:4px solid var(--accent)}
+  .phase.p1{border-left-color:var(--purple)}
+  .phase.p2{border-left-color:var(--bad)}
+  .phase.p3{border-left-color:var(--warn)}
+  .phase.p4{border-left-color:var(--ink-faint)}
+  .phase .ph{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .phase .pnum{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--bg);background:var(--accent);border-radius:6px;padding:3px 9px}
+  .phase.p1 .pnum{background:var(--purple)} .phase.p2 .pnum{background:var(--bad)}
+  .phase.p3 .pnum{background:var(--warn)} .phase.p4 .pnum{background:var(--ink-faint)}
+  .phase .ptitle{font-weight:700;font-size:16px}
+  .phase .peffort{font-family:var(--mono);font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:5px;padding:2px 8px;margin-left:auto}
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+  .pcell .pl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin-bottom:4px}
+  .pcell .pv{font-size:13px;color:var(--ink-dim)}
+  .pcell.gate-cell .pv{color:var(--ink)}
+  .pcell.gate-cell{background:var(--panel-2);border-radius:7px;padding:9px 11px;border:1px solid var(--line)}
+  .seq{margin-top:14px;background:var(--accent-bg);border:1px solid rgba(88,166,255,.35);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--ink-dim)}
+  .seq b{color:var(--accent)}
+
+  footer{margin-top:50px;border-top:1px solid var(--line);padding-top:20px;color:var(--ink-faint);font-size:12.5px;font-family:var(--mono);line-height:1.7}
+  @media(max-width:860px){
+    .locked,.drops,.fixes,.pgrid,.wire .routes{grid-template-columns:1fr}
+    .lane{flex-direction:column}.conn{transform:rotate(90deg);padding:6px 0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">Research engine &middot; value-first plan &middot; 2026-06-19 &middot; code-verified (8-agent map)</div>
+    <h1>Good, complete, honest research from every input we hand the agent</h1>
+    <div class="northstar">
+      <strong>The bar (your words):</strong> the agent takes the inputs we give it and produces research a real media buyer can use. Not 50% empty. Not dishonest. Not "needs review."
+      <strong>The cause of the empty 50%:</strong> the pipeline keeps <em>finding evidence and throwing it away</em> at four spots. We fix the producers so what it finds survives to the page. One thin honesty floor stays so it can never backfill a gap with a lie. That's the whole plan. No eval theater.
+    </div>
+    <span class="verdict-pill">DIRECTION LOCKED &middot; FIX THE PRODUCERS, NOT THE GATES</span>
+    <div class="locked">
+      <div class="lock"><div class="lh">DECISION 1</div><div class="ld">Centralize the buyer check behind ONE function (<code>isValidGroundedBuyerUnit</code>), then change the rule once instead of in 12 places.</div></div>
+      <div class="lock"><div class="lh">DECISION 2</div><div class="ld">Build the producer fixes offline-green, wire the thin floor, THEN spend the one paid live run so it's actually observed.</div></div>
+      <div class="lock"><div class="lh">DECISION 3</div><div class="ld">No new "readiness barrier." Honest emptiness falls out of fixing the producers; the existing DB rollup is the only counting authority.</div></div>
+    </div>
+  </header>
+
+  <!-- THE DISCOVERY -->
+  <h2><span class="num">!</span> The biggest finding: we throw away your own answers</h2>
+  <div class="discovery">
+    <div class="tag">Single biggest "50% empty" driver &mdash; and it's pure plumbing</div>
+    <h3>The operator fills in ~15 fields about why customers buy, object, and churn &mdash; and not one section ever sees them.</h3>
+    <p>The brief collects buying triggers, common objections, competitor frustrations, the situation before buying, desired transformation, value prop, guarantees, best client sources, the testimonial quote, sales process. Then <code>corpusToResearchInput</code> builds the agent's input from a <em>closed</em> key set that reads none of them, and the schema it must pass is <code>.strict()</code> so they'd be rejected anyway. So Voice-of-Customer, BuyerICP, and Demand go web-searching for pain points and objections <em>the operator already typed in</em> &mdash; and often come back emptier and more generic than the answer they were handed.</p>
+    <p>Same story with the URLs you supply: the case-study, pricing, and testimonial links never reach the scraper (it's switched on but never told the URL), so the highest-signal first-party pages go unfetched. And the final Paid Media plan never gets a readable summary of the five sections that ran before it &mdash; only a mechanical row-match &mdash; so it can't reason over the pains and quotes the pipeline just produced.</p>
+    <div class="chips">
+      <span class="chip dropped">buyingTriggers &times;</span>
+      <span class="chip dropped">commonObjections &times;</span>
+      <span class="chip dropped">competitorFrustrations &times;</span>
+      <span class="chip dropped">desiredTransformation &times;</span>
+      <span class="chip dropped">valueProp / uniqueEdge &times;</span>
+      <span class="chip dropped">testimonialQuote &times;</span>
+      <span class="chip dropped">caseStudiesUrl / pricingUrl &times;</span>
+      <span class="chip dropped">cross-section digest &times;</span>
+    </div>
+  </div>
+
+  <!-- HOW THE ENGINE WORKS -->
+  <h2><span class="num">A</span> How the engine works &mdash; and where it drops data today</h2>
+  <p class="sub">One URL plus your brief flows left to right. The shell (budget math, deck layout, two healthy sections) works. The evidence spine leaks at four points. Fix the four leaks and the deck fills with real research.</p>
+  <div class="flow">
+    <div class="lane">
+      <div class="stage"><div class="box"><div class="t">Inputs</div><div class="d">URL + brief (~45) + asset URLs + corpus</div></div></div>
+      <div class="conn">&rarr;</div>
+      <div class="stage"><div class="box"><div class="t">Assemble input</div><div class="d">corpusToResearchInput</div></div></div>
+      <div class="conn">&rarr;</div>
+      <div class="stage"><div class="box"><div class="t">6 sections</div><div class="d">DeepSeek + web/firecrawl</div></div></div>
+      <div class="conn">&rarr;</div>
+      <div class="stage"><div class="box"><div class="t">Paid Media capstone</div><div class="d">synthesis</div></div></div>
+      <div class="conn">&rarr;</div>
+      <div class="stage"><div class="box"><div class="t">Deck</div><div class="d">reader + profile</div></div></div>
+    </div>
+    <div class="drops">
+      <div class="drop"><div class="dn">DROP 1 &mdash; at the door</div><div class="dt">~33 brief fields + your supplied URLs discarded before any section runs. The agent re-searches what you typed.</div></div>
+      <div class="drop"><div class="dn">DROP 2 &mdash; BuyerICP</div><div class="dt">Finds real buyers, demands a <em>named human</em>, rejects them, commits 0 personas. Wrong unit.</div></div>
+      <div class="drop"><div class="dn">DROP 3 &mdash; Voice of Customer</div><div class="dt">Finds 86 quotes, ships ~9. A permalink rule + a 3-domain floor throw away usable quotes.</div></div>
+      <div class="drop"><div class="dn">DROP 4 &mdash; capstone</div><div class="dt">Schema forces ~10 blocks when ~6 have evidence, so it pads confident-looking placeholders.</div></div>
+    </div>
+  </div>
+
+  <!-- THE FIXES -->
+  <h2><span class="num">B</span> The fixes &mdash; make the producers keep what they find</h2>
+  <p class="sub">Four producer fixes (the product) plus one thin honesty floor (insurance, kept small). Each is grounded in the real code the verification pass read.</p>
+  <div class="fixes">
+
+    <div class="fix big">
+      <div class="fh"><h3>1. Feed the agent its own inputs</h3><span class="badge value">highest value</span></div>
+      <div class="broke"><b>Broken:</b> your brief answers + supplied URLs are collected then dropped; sections re-search the web for what you already told us.</div>
+      <div class="does"><b>Fix:</b> widen the input schema with a "customer voice" block, map the ~15 brief fields through, feed supplied URLs straight to the scraper, and hand the capstone a readable digest of the five prior sections.</div>
+      <div class="files">corpus-to-research-input.ts:1179 &middot; artifact-envelope.ts:119 (.strict) &middot; build-prompts.ts:420 &middot; firecrawl tool</div>
+    </div>
+
+    <div class="fix big">
+      <div class="fh"><h3>2. BuyerICP grounds on roles/segments</h3><span class="badge value">root-cause</span></div>
+      <div class="broke"><b>Broken:</b> a buyer "counts" only if it's a named person, so found buyers (e.g. a sourced Controller at a real company) get rejected and the section ships empty.</div>
+      <div class="does"><b>Fix:</b> one new check <code>isValidGroundedBuyerUnit</code> &mdash; a sourced role/segment + a live URL; the name becomes optional corroboration. Re-point the 8 sites that want "a usable buyer," keep the 4 that genuinely want a name. The existing name-free <code>firmographicCuts</code> proves this works.</div>
+      <div class="files">buyer-icp.ts:191/484 &middot; required-evidence.ts:145/173 &middot; run-section.ts:2946/3493/6396 &middot; live-quality-gate.ts:661 &middot; +4 keep-as-is</div>
+    </div>
+
+    <div class="fix">
+      <div class="fh"><h3>3. Voice of Customer keeps usable quotes</h3><span class="badge prod">producer</span></div>
+      <div class="broke"><b>Broken:</b> two pools are built but only the strictest can commit, so ~31 real quotes (missing a per-review permalink) and any 1-2 domain pack get zeroed; objections/switching/criteria ship empty by construction.</div>
+      <div class="does"><b>Fix:</b> open a "directional commit" lane &mdash; real quotes ship clearly labeled <em>source-backed, not permalink-verified</em> instead of vanishing, and the secondary blocks fill from that pool. Every fabrication guard (not-human-voice, self-sourced, UI-chrome) stays fatal.</div>
+      <div class="files">voice-of-customer-candidates.ts:334 &middot; run-section.ts:9570/1610 &middot; voice-of-customer-synthesis.ts:238/620</div>
+    </div>
+
+    <div class="fix">
+      <div class="fh"><h3>4. Capstone shows honest gaps, not padding</h3><span class="badge prod">producer</span></div>
+      <div class="broke"><b>Broken:</b> the schema forces a fixed number of blocks; when evidence is thin the model pads with confident-sounding placeholders ("AI Optimized", "UNVERIFIED") that don't read as gaps.</div>
+      <div class="does"><b>Fix:</b> copy the pattern the deck already uses for sales assets &mdash; when a block has no evidence, emit one honest <code>Evidence gap:</code> row so the deck degrades it to an amber "test probe" instead of a confident number.</div>
+      <div class="files">paid-media-plan.ts:371/1902 &middot; mirror normalizeSalesProcessAssets:1050 &middot; paid-media-evidence-pack.ts</div>
+    </div>
+
+    <div class="fix insurance">
+      <div class="fh"><h3>+ One thin honesty floor (insurance)</h3><span class="badge thin">kept small</span></div>
+      <div class="broke"><b>Today:</b> the durable evidence ledger + the deterministic liar-catcher + the rollup migrations are all built but switched OFF on the live path. Nothing stops a gap being backfilled with a lie.</div>
+      <div class="does"><b>Fix (wiring only):</b> construct the Supabase-backed factStore at the dispatch site, call the liar-catcher once at commit (and <em>downgrade a cell to an honest gap</em> rather than hard-failing), apply the 2 migrations. <span style="color:var(--bad)">Critical:</span> the ledger read must pull every section's facts by audit-run, or the capstone's own (empty) ledger would block legitimate cells.</div>
+      <div class="files">research-fact.ts:307 (cross-section read) &middot; lab-section-dispatch.ts:113 &middot; run-section.ts:13794 &middot; 2 migrations</div>
+    </div>
+
+  </div>
+
+  <!-- SAFETY WIRE -->
+  <h2><span class="num">C</span> The one wire we cannot get wrong</h2>
+  <div class="wire">
+    <div class="wt">&#9888; The fabrication door &mdash; where a fake segment could sneak back in</div>
+    <p>When BuyerICP grounds on a role/segment instead of a name, that role/segment token has to be re-checked against the live page. There are three places it could land, and only one is safe. The adversarial pass tried five attacks against the safe routing and all were blocked &mdash; the danger is purely a wiring slip.</p>
+    <div class="routes">
+      <div class="route ok"><div class="rl">STRICT &mdash; correct</div><div class="rd">Add the field to <code>entityFieldNames</code>. The full phrase must appear verbatim on the page (<code>.every</code>). Fabrication blocked.</div></div>
+      <div class="route bad"><div class="rl">SCHEMA-ONLY &mdash; worst</div><div class="rd">Add to the persona schema but forget the gate. Checked by nobody; the row even skips the re-probe. A fake segment ships. Worse than the old hole.</div></div>
+      <div class="route bad"><div class="rl">LENIENT &mdash; the trap</div><div class="rd">Add it to the prose-text list. The phrase fragments to single words; any one match passes (<code>.some</code>). The old fabrication hole, reopened.</div></div>
+    </div>
+    <div class="verified">VERIFIED: routing is fragile across two files by string-match only &rarr; make it ONE shared constant (compile-time safe) + one regression test that proves a fabricated segment is dropped and a real one is kept. Then the door stays shut.</div>
+  </div>
+
+  <!-- ROADMAP -->
+  <h2><span class="num">D</span> The roadmap &mdash; ordered by value, not by ceremony</h2>
+  <p class="sub">Four phases. Value leads: feed the agent everything first (cheapest, highest visible lift), then the BuyerICP unit, then stop the other drops, then wire the thin floor and prove it by reading the output.</p>
+  <div class="road">
+
+    <div class="phase p1">
+      <div class="ph"><span class="pnum">1</span><span class="ptitle">Feed the agent everything it's already given</span><span class="peffort">EFFORT &middot; S/M</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Stop the agent re-searching what the operator typed. Every section reads the operator's stated triggers, objections, value prop, and supplied URLs as highest-provenance evidence.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">Widen the input schema (customer-voice block) + map ~15 brief fields + carry field sourceUrl/confidence + feed supplied URLs to the scraper + add a cross-section digest for the capstone.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Done when</div><div class="pv">VoC/BuyerICP/Demand cite the operator's own objections/triggers; firecrawl scrapes the supplied case-study/pricing/testimonial pages first; the capstone reasons over a readable upstream summary.</div></div>
+      </div>
+    </div>
+
+    <div class="phase p2">
+      <div class="ph"><span class="pnum">2</span><span class="ptitle">BuyerICP grounds on roles/segments (Option B)</span><span class="peffort">EFFORT &middot; XL</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Found buyers survive to the page. The load-bearing unit is a sourced role/segment with a live URL; the name is optional corroboration.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">One <code>isValidGroundedBuyerUnit</code> seam; re-point the 8 "is this a usable buyer?" sites, keep the 4 "is this a name?" sites; move all 5 count-floor sites in lockstep; route the segment token into the STRICT bucket via a shared constant + reproduce-the-old-hole test.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Done when</div><div class="pv">Under full fan-out, BuyerICP commits &ge;3 role/segment-grounded buyers, each URL re-fetch confirms the token verbatim, confidence &gt; 0 &mdash; no empty-despite-evidence.</div></div>
+      </div>
+    </div>
+
+    <div class="phase p3">
+      <div class="ph"><span class="pnum">3</span><span class="ptitle">Stop the other drops: VoC + capstone honesty</span><span class="peffort">EFFORT &middot; M</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Real quotes ship instead of vanishing; the capstone shows honest gaps instead of confident padding.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">Open the VoC directional-commit lane (labeled, fabrication guards intact) + fill the secondary blocks; capstone gap-row synthesis with <code>Evidence gap:</code> text so blocks degrade visibly.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Done when</div><div class="pv">VoC ships usable single-domain quotes labeled directional + non-empty objections/switching/criteria; capstone thin blocks render as amber gaps, never confident placeholders.</div></div>
+      </div>
+    </div>
+
+    <div class="phase p4">
+      <div class="ph"><span class="pnum">4</span><span class="ptitle">Wire the thin floor + prove it by reading</span><span class="peffort">EFFORT &middot; S + 1 live run</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">A gap can't be backfilled with a lie, and the deck reads good to a human (you) &mdash; not to a score.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">Wire factStore (with the cross-section ledger read) + liar-catcher once at commit (downgrade-to-gap) + apply 2 migrations; then one live 3-subject run under fan-out.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Done when</div><div class="pv">Ledger writes across sections, the liar-catcher downgrades rather than blocks, and you read Ramp/Fathom/Plain decks and they're genuinely useful &mdash; no empty-despite-evidence anywhere.</div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="seq"><b>One sequencing rule (Decision 2):</b> build Phases 1&ndash;3 to offline-green, wire the Phase-4 floor, THEN spend the single paid live run &mdash; so the run is observed and produces durable, gated evidence instead of being thrown away.</div>
+
+  <footer>
+    Verified by an 8-agent code-mapping pass (6 surface mappers + 2 adversarial checks) across the real working tree on refactor/architecture-deepening @ e94c9e2b, uncommitted, live app unchanged.<br>
+    Grounded counts: 12 buyer-check call sites (8 re-point / 4 keep) &middot; VoC 86 found &rarr; ~9 shipped &middot; capstone .min() floors force ~10 blocks &middot; ~15 brief voice fields + supplied URLs dropped at corpus-to-research-input.ts:1179 &middot; fabrication door verified closed when the segment token routes STRICT.<br>
+    Direction: fix the producers so found research survives; one thin honesty floor; the proof is you reading the deck, not an eval score.
+  </footer>
+
+</div>
+</body>
+</html>

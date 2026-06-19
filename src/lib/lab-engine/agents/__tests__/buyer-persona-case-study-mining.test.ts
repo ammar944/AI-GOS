@@ -107,6 +107,47 @@ describe("extractCaseStudyChampions", (): void => {
     );
     expect(champ?.company).toBe("Perplexity");
   });
+
+  it("rejects a narrative clause whose leading tokens are connectives ('With Ramp', 'Before Ramp')", (): void => {
+    // Live regression (run jsl0fh): the em-dash pattern matched the start of a
+    // marketing sentence, "With Ramp — the finance team has also streamlined...",
+    // and the trailing finance noun satisfied the title-role check, so a clause
+    // was extracted as a champion named "With Ramp". A connective/preposition is
+    // never a person name — reject it at the miner.
+    const withRamp = extractCaseStudyChampions(
+      "With Ramp — the finance team has also streamlined its vendor onboarding process despite multiple entities",
+      "Rustic Canyon",
+    );
+    expect(withRamp.some((c) => /^With\b/i.test(c.name))).toBe(false);
+
+    const beforeRamp = extractCaseStudyChampions(
+      "Before Ramp — Studs ran finance on four disconnected platforms, one for corporate cards",
+      "Studs",
+    );
+    expect(beforeRamp.some((c) => /^Before\b/i.test(c.name))).toBe(false);
+  });
+
+  it("still extracts a real human name with a buyer-role title (dash and comma forms)", (): void => {
+    // The connective guard must not regress real attributions.
+    const dashForm = extractCaseStudyChampions(
+      "Bill Cox — VP of Finance at New Way Landscape",
+      "New Way Landscape",
+    );
+    expect(dashForm).toContainEqual(
+      expect.objectContaining({
+        name: "Bill Cox",
+        title: expect.stringMatching(/VP of Finance/i),
+      }),
+    );
+
+    const commaForm = extractCaseStudyChampions(
+      "Bill Cox, VP of Finance, New Way Landscape",
+      "New Way Landscape",
+    );
+    expect(commaForm).toContainEqual(
+      expect.objectContaining({ name: "Bill Cox", title: expect.stringMatching(/VP of Finance/i) }),
+    );
+  });
 });
 
 describe("acquireCaseStudyChampionCandidates", (): void => {

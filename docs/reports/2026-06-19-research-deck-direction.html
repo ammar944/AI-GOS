@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Deck — Direction, Infrastructure &amp; Roadmap (Fusion-verified)</title>
+<style>
+  :root{
+    --bg:#0e1117; --panel:#161b22; --panel-2:#1c2230; --line:#2a313c;
+    --ink:#e6edf3; --ink-dim:#9aa7b4; --ink-faint:#6b7785;
+    --good:#3fb950; --good-bg:rgba(63,185,80,.12);
+    --warn:#d29922; --warn-bg:rgba(210,153,34,.12);
+    --bad:#f85149; --bad-bg:rgba(248,81,73,.12);
+    --accent:#58a6ff; --accent-bg:rgba(88,166,255,.12);
+    --mono:'SFMono-Regular',ui-monospace,'JetBrains Mono',Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;font-size:15px}
+  code{font-family:var(--mono)}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header.hero{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:36px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:10px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 14px;font-weight:700;letter-spacing:-.01em}
+  .northstar{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:16px 18px;color:var(--ink-dim);font-size:14.5px}
+  .northstar strong{color:var(--ink)}
+  .verdict-pill{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:600;
+    padding:5px 12px;border-radius:999px;background:var(--warn-bg);color:var(--warn);
+    border:1px solid rgba(210,153,34,.4);margin-top:14px;letter-spacing:.04em}
+  h2{font-size:20px;margin:48px 0 8px;font-weight:700;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:10px}
+  h2 .num{font-family:var(--mono);font-size:13px;color:var(--ink-faint);
+    border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .sub{color:var(--ink-dim);font-size:14px;margin:0 0 20px;max-width:820px}
+  em{color:var(--ink);font-style:normal;font-weight:600}
+
+  .legend{display:flex;flex-wrap:wrap;gap:18px;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:14px 18px;margin:18px 0 26px;font-size:13px}
+  .legend .item{display:flex;align-items:center;gap:8px;color:var(--ink-dim)}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block;flex:none}
+  .dot.good{background:var(--good)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+  .badge{font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;letter-spacing:.03em;white-space:nowrap}
+  .badge.wired{background:var(--good-bg);color:var(--good);border:1px solid rgba(63,185,80,.4)}
+  .badge.offline{background:var(--bad-bg);color:var(--bad);border:1px solid rgba(248,81,73,.4)}
+
+  /* QA cards */
+  .qa{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+  .qacard{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px 15px}
+  .qacard .qh{font-size:12px;font-family:var(--mono);color:var(--ink-faint);margin-bottom:6px}
+  .qacard .qv{font-family:var(--mono);font-weight:700;font-size:13px}
+  .qv.c{color:var(--good)} .qv.p{color:var(--warn)} .qv.r{color:var(--bad)}
+  .qacard .qd{font-size:12px;color:var(--ink-dim);margin-top:6px}
+
+  /* section health matrix */
+  .matrix{display:grid;grid-template-columns:1fr;gap:10px}
+  .srow{display:grid;grid-template-columns:30px 1.5fr 120px 2.2fr;gap:14px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+  .srow .health{width:14px;height:14px;border-radius:50%;justify-self:center}
+  .srow .name{font-weight:600;font-size:14.5px}
+  .srow .name small{display:block;font-family:var(--mono);font-size:11px;color:var(--ink-faint);font-weight:400;margin-top:2px}
+  .srow .smell{font-family:var(--mono);font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;text-align:center;letter-spacing:.02em}
+  .smell.ok{background:var(--good-bg);color:var(--good)}
+  .smell.brittle{background:var(--bad-bg);color:var(--bad)}
+  .smell.empty{background:var(--warn-bg);color:var(--warn)}
+  .srow .why{color:var(--ink-dim);font-size:13px}
+  .health.g{background:var(--good)} .health.b{background:var(--bad)} .health.w{background:var(--warn)}
+  .tally{margin-top:14px;font-size:13.5px;color:var(--ink-dim);background:var(--panel-2);
+    border:1px dashed var(--line);border-radius:8px;padding:12px 16px}
+  .tally b{color:var(--ink)}
+
+  /* per-section reader-shape cards */
+  .section-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:6px}
+  .scard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .scard.good{border-left:4px solid var(--good)}
+  .scard.warn{border-left:4px solid var(--warn)}
+  .scard.bad{border-left:4px solid var(--bad)}
+  .scard .sct{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+  .scard h3{margin:0;font-size:14px;font-family:var(--mono)}
+  .tagpill{font-size:10.5px;font-family:var(--mono);font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap}
+  .tagpill.good{background:var(--good-bg);color:var(--good)}
+  .tagpill.warn{background:var(--warn-bg);color:var(--warn)}
+  .tagpill.bad{background:var(--bad-bg);color:var(--bad)}
+  .tagpill.info{background:var(--accent-bg);color:var(--accent)}
+  .row{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:8px 10px;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:6px;font-size:12.5px;margin-bottom:7px}
+  .row:last-child{margin-bottom:0}
+  .row b{color:var(--ink);font-size:11.5px}
+  .row span{color:var(--ink-dim)}
+
+  /* before/after bundles */
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+  .bacard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .bacard.before{border-top:3px solid var(--bad)}
+  .bacard.after{border-top:3px solid var(--warn)}
+  .bacard h4{margin:0 0 4px;font-size:14px;font-family:var(--mono);letter-spacing:.03em}
+  .bacard .tag{font-size:11.5px;color:var(--ink-faint);font-family:var(--mono)}
+  .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .stat:last-child{border-bottom:none}
+  .stat .k{color:var(--ink-dim)}
+  .stat .v{font-family:var(--mono);font-weight:600}
+  .v.bad{color:var(--bad)} .v.warn{color:var(--warn)} .v.good{color:var(--good)}
+  .note{font-size:12.5px;color:var(--ink-faint);margin-top:10px;font-style:italic}
+
+  /* unit re-grounding box */
+  .unitbox{display:grid;grid-template-columns:1fr 46px 1fr;gap:14px;align-items:center;margin-top:20px}
+  .unit{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .unit.old{border-color:rgba(248,81,73,.4)}
+  .unit.new{border-color:rgba(63,185,80,.4)}
+  .unit h4{margin:0 0 10px;font-size:14px}
+  .unit .lbl{font-family:var(--mono);font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em}
+  .unit ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--ink-dim)}
+  .unit ul li{margin:4px 0}
+  .unit code{font-size:12px;color:var(--accent);background:var(--accent-bg);padding:1px 5px;border-radius:4px}
+  .arrow{font-size:26px;color:var(--ink-faint);text-align:center}
+  .proof{margin-top:16px;background:var(--good-bg);border:1px solid rgba(63,185,80,.35);
+    border-radius:8px;padding:13px 16px;font-size:13.5px;color:var(--ink-dim)}
+  .proof b{color:var(--good)}
+  .proof code{font-size:12px;color:var(--accent);background:var(--accent-bg);padding:1px 5px;border-radius:4px}
+
+  /* architecture */
+  .arch{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin-top:20px}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .stage{flex:1;min-width:150px;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .stage .box{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:13px 12px;width:100%;min-height:74px;display:flex;flex-direction:column;justify-content:center}
+  .stage .box .t{font-weight:600;font-size:13px}
+  .stage .box .d{font-size:11px;color:var(--ink-faint);font-family:var(--mono);margin-top:3px}
+  .stage .bdg{margin-top:6px}
+  .conn{align-self:center;color:var(--ink-faint);font-size:20px;padding:18px 6px 0;flex:none}
+  .gates{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px}
+  .gate{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .gate .gh{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+  .gate .gh .gt{font-weight:600;font-size:13.5px}
+  .gate .gp{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-bottom:8px;word-break:break-all}
+  .gate .gd{font-size:12.5px;color:var(--ink-dim)}
+  .gate code{font-size:11.5px;color:var(--accent)}
+  .ledger-strip{margin-top:22px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .ledger-strip .lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px}
+  .ledger-strip .lh .lt{font-weight:600;font-size:14px}
+  .ledger-strip .ld{font-size:12.5px;color:var(--ink-dim)}
+  .ledger-strip code{font-size:11.5px;color:var(--accent)}
+  .danger{margin-top:22px;background:var(--bad-bg);border:1px solid rgba(248,81,73,.4);
+    border-radius:10px;padding:16px 18px}
+  .danger .dt{font-weight:700;color:var(--bad);font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .danger .dd{font-size:13.5px;color:var(--ink-dim)}
+  .danger code{font-size:12px;color:var(--ink);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px}
+
+  /* roadmap */
+  .road{display:grid;grid-template-columns:1fr;gap:14px;margin-top:20px}
+  .phase{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;
+    border-left:4px solid var(--accent)}
+  .phase.p1{border-left-color:var(--good)}
+  .phase.p2{border-left-color:var(--bad)}
+  .phase.p3{border-left-color:var(--warn)}
+  .phase.p4{border-left-color:var(--accent)}
+  .phase .ph{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .phase .pnum{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--bg);
+    background:var(--accent);border-radius:6px;padding:3px 9px}
+  .phase.p1 .pnum{background:var(--good)} .phase.p2 .pnum{background:var(--bad)}
+  .phase.p3 .pnum{background:var(--warn)} .phase.p4 .pnum{background:var(--accent)}
+  .phase .ptitle{font-weight:700;font-size:16px}
+  .phase .peffort{font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    border:1px solid var(--line);border-radius:5px;padding:2px 8px;margin-left:auto}
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+  .pcell .pl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin-bottom:4px}
+  .pcell .pv{font-size:13px;color:var(--ink-dim)}
+  .pcell .pv code{font-size:11.5px;color:var(--accent)}
+  .pcell.gate-cell .pv{color:var(--ink)}
+  .pcell.gate-cell{background:var(--panel-2);border-radius:7px;padding:9px 11px;border:1px solid var(--line)}
+
+  footer{margin-top:56px;border-top:1px solid var(--line);padding-top:20px;
+    color:var(--ink-faint);font-size:12.5px;font-family:var(--mono);line-height:1.7}
+  @media(max-width:820px){
+    .ba,.gates,.pgrid,.qa,.unitbox,.section-grid{grid-template-columns:1fr}
+    .unitbox .arrow{transform:rotate(90deg)}
+    .srow{grid-template-columns:30px 1fr;row-gap:6px}
+    .srow .smell,.srow .why{grid-column:1/-1}
+    .flow{flex-direction:column}.conn{transform:rotate(90deg);padding:6px 0}
+    .row{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">Research Deck · Alignment Artifact · 2026-06-19 · Fusion-verified (Opus 4.8 + GPT-5.5)</div>
+    <h1>One URL &rarr; an executable Paid-Media deck — verified direction, infrastructure &amp; roadmap</h1>
+    <div class="northstar">
+      <strong>North star:</strong> every load-bearing cell is either grounded on a sourced claim with a live http(s) URL,
+      or an <strong>honest gap only where data is genuinely unfindable</strong> — never where the pipeline found evidence and then dropped it.
+      <strong>Acceptance:</strong> a 3-subject sweep (Ramp / Fathom / Plain) where <code>zz-buyer-eval</code> is clean,
+      no section ships empty-despite-evidence, Audience Types sits on a non-empty BuyerICP, projected numbers carry a derivation trace,
+      and an offline value-read judge scores <strong>&ge;8 with wouldPay:yes</strong>.
+    </div>
+    <span class="verdict-pill">QA VERDICT&nbsp;·&nbsp;GO-WITH-CHANGES</span>
+  </header>
+
+  <!-- QA SUMMARY -->
+  <h2><span class="num">QA</span> What we verified (gates run, not asserted)</h2>
+  <p class="sub">All four handoff claims re-run independently against the uncommitted working tree on
+    <code>refactor/architecture-deepening</code> @ <code>e94c9e2b</code>. The live app is unchanged; everything below is on-disk evidence.</p>
+  <div class="qa">
+    <div class="qacard">
+      <div class="qh">Claim 1 · the fix</div>
+      <div class="qv c">CONFIRMED</div>
+      <div class="qd">53 targeted + 832 agents tests green; tsc 0 new. Miner stopword guard + champion-backfill — surgical, never fabricates. (A partial cure of a wrong premise, not the cure.)</div>
+    </div>
+    <div class="qacard">
+      <div class="qh">Claim 2 · safety net dead</div>
+      <div class="qv c">CONFIRMED</div>
+      <div class="qd">No live <code>factStore</code> injection (only the internal consumer at run-section.ts:872); <code>checkDeckAgainstLedger</code> 0 commit-path callers; both 20260618 migrations absent from live Supabase.</div>
+    </div>
+    <div class="qacard">
+      <div class="qh">Claim 3 · deck-health</div>
+      <div class="qv c">CONFIRMED</div>
+      <div class="qd">4/7 ground well, 3 brittle. Bundles show 0&rarr;2 lift; VOC floors = 6 quotes &amp; 3 domains; capstone 106 .min(). "~3&ndash;4 phases" honest.</div>
+    </div>
+    <div class="qacard">
+      <div class="qh">Claim 4 · Option B scope</div>
+      <div class="qv p">PARTIAL</div>
+      <div class="qd">Critical risk described correctly. But <code>isLikelyNamedBuyerIdentity</code> = <b>12 invocations / 9 files, not 5</b> (judge-verified). Scope is XL.</div>
+    </div>
+  </div>
+
+  <!-- SECTION A: THE 7 SECTIONS -->
+  <h2><span class="num">A</span> The 7 positioning sections — grounding health</h2>
+  <p class="sub">The deck <em>shell</em> is done (budget math, cascade, reader cleanliness, two healthy sections).
+    The <em>evidence spine</em> is not. The disease is concentrated in 3 sections — and it is the same disease: the grounding GOAL is right (no claim without a sourced URL), but the grounding <em>UNIT</em> is wrong.</p>
+
+  <div class="legend">
+    <div class="item"><span class="dot good"></span> Reasonably grounded</div>
+    <div class="item"><span class="dot warn"></span> Confident-over-empty</div>
+    <div class="item"><span class="dot bad"></span> Brittle / over-specified (self-empties)</div>
+  </div>
+
+  <div class="matrix">
+    <div class="srow">
+      <span class="health b"></span>
+      <span class="name">Buyer &amp; ICP Validation<small>positioningBuyerICP</small></span>
+      <span class="smell brittle">BRITTLE</span>
+      <span class="why"><b>WORST.</b> Grounds on <em>named individual humans</em>. On fresh Ramp data it found champions and committed <b>0 personas</b> while the ledger held 139 facts. Wrong unit &rarr; all-or-nothing empty exit.</span>
+    </div>
+    <div class="srow">
+      <span class="health b"></span>
+      <span class="name">Voice of Customer<small>positioningVoiceOfCustomer</small></span>
+      <span class="smell brittle">BRITTLE</span>
+      <span class="why">Real quotes get dropped by the <code>VOC_MIN_QUOTES=6</code> + <code>VOC_MIN_DOMAINS=3</code> floors; objections / switching / criteria can come back empty. Needs keep-usable-pack behavior.</span>
+    </div>
+    <div class="srow">
+      <span class="health w"></span>
+      <span class="name">Paid Media Plan (capstone)<small>positioningPaidMediaPlan</small></span>
+      <span class="smell empty">CONFIDENT-EMPTY</span>
+      <span class="why">Structurally spendable — but Audience Types sits on a 0-persona BuyerICP. 106 <code>.min()</code> floors force blocks; projected results can look complete while upstream evidence is missing.</span>
+    </div>
+    <div class="srow">
+      <span class="health g"></span>
+      <span class="name">Demand &amp; Intent<small>positioningDemandIntent</small></span>
+      <span class="smell ok">GROUNDED</span>
+      <span class="why">Keyword provenance model is genuinely good. Weakness is acquisition breadth, not grounding.</span>
+    </div>
+    <div class="srow">
+      <span class="health g"></span>
+      <span class="name">Offer Diagnostic<small>positioningOfferDiagnostic</small></span>
+      <span class="smell ok">GROUNDED</span>
+      <span class="why">Healthiest. sourceUrl proof blocks, explicit blockGaps, CAC/LTV wording honestly relabeled.</span>
+    </div>
+    <div class="srow">
+      <span class="health g"></span>
+      <span class="name">Market Category<small>positioningMarketCategory</small></span>
+      <span class="smell ok">GROUNDED</span>
+      <span class="why">Bottom-up TAM grounds honestly; degrades to "directional only" when inputs are gapped.</span>
+    </div>
+    <div class="srow">
+      <span class="health g"></span>
+      <span class="name">Competitor Landscape<small>positioningCompetitorLandscape</small></span>
+      <span class="smell ok">GROUNDED</span>
+      <span class="why">Structurally rich (URL checks, pricing-diversity, ad-evidence wall); pricing / creatives thin — an honest acquisition-depth gap, not a grounding fault.</span>
+    </div>
+  </div>
+  <div class="tally"><b>4 of 7 sections are reasonably grounded.</b> The disease lives in BuyerICP, VoC, and the capstone's confident-over-empty behavior. <span style="color:var(--ink-faint)">Caveat: the 4 "healthy" sections were spot-checked against their schemas, not fully re-graded under a live fan-out run.</span></div>
+
+  <!-- SECTION A.1: WHAT EACH SECTION LOOKS LIKE -->
+  <h2><span class="num">A&middot;1</span> What each section looks like after alignment</h2>
+  <p class="sub">The reader shape we are aiming for: source-backed rows, honest gaps, no padded confidence. This is the card-level field shape of every section.</p>
+  <div class="section-grid">
+    <div class="scard good">
+      <div class="sct"><h3>positioningMarketCategory</h3><span class="tagpill good">Grounded</span></div>
+      <div class="row"><b>Category Definition</b><span>Adjacent categories, buyer confusion, disambiguating signal, sourceUrl.</span></div>
+      <div class="row"><b>Market Size</b><span>Bottom-up TAM recipe; gapped inputs degrade to "directional only".</span></div>
+      <div class="row"><b>Structural Forces</b><span>Force + evidence + implication + direction + sourceTitle/sourceUrl.</span></div>
+    </div>
+    <div class="scard bad">
+      <div class="sct"><h3>positioningBuyerICP</h3><span class="tagpill info">Option B core</span></div>
+      <div class="row"><b>Role / Segment</b><span>role (enum) + segmentLabel + seniority + firmographic profile.</span></div>
+      <div class="row"><b>Trigger Context</b><span>Event or operational trigger the buyer can be targeted on.</span></div>
+      <div class="row"><b>Source Proof</b><span>Required http(s) sourceUrl; role/segment token must pass STRICT source-liveness.</span></div>
+      <div class="row"><b>Optional Champion</b><span>championName / championCompany = corroboration only, never the floor.</span></div>
+    </div>
+    <div class="scard good">
+      <div class="sct"><h3>positioningCompetitorLandscape</h3><span class="tagpill good">Grounded</span></div>
+      <div class="row"><b>Competitor Set</b><span>Names, URLs, sourceUrls, one-line positioning.</span></div>
+      <div class="row"><b>Pricing Reality</b><span>Pricing rows need multiple competitors or an honest blockGap.</span></div>
+      <div class="row"><b>Ad Evidence</b><span>Verified creative wall, raw samples, source errors, data gaps.</span></div>
+    </div>
+    <div class="scard bad">
+      <div class="sct"><h3>positioningVoiceOfCustomer</h3><span class="tagpill bad">Brittle floor</span></div>
+      <div class="row"><b>Pain Language</b><span>Verbatim quotes, source type, sourceUrl, pain theme.</span></div>
+      <div class="row"><b>Objections</b><span>Objection text, category, how-to-handle, sourceUrl.</span></div>
+      <div class="row"><b>Switching / Criteria</b><span>Keep real single-domain packs instead of emptying the section.</span></div>
+    </div>
+    <div class="scard good">
+      <div class="sct"><h3>positioningDemandIntent</h3><span class="tagpill good">Grounded</span></div>
+      <div class="row"><b>Keyword Demand</b><span>Rows with monthlyVolume, CPC, top domains, sourceUrl.</span></div>
+      <div class="row"><b>Question Mining</b><span>Questions from PAA / Reddit / forum / support, or honest blockGap.</span></div>
+      <div class="row"><b>Intent Signals</b><span>Independent signals, not subject-domain self-vouching.</span></div>
+    </div>
+    <div class="scard good">
+      <div class="sct"><h3>positioningOfferDiagnostic</h3><span class="tagpill good">Healthiest</span></div>
+      <div class="row"><b>Offer Fit</b><span>Proof points with metric, value, confidence, sourceUrl.</span></div>
+      <div class="row"><b>Funnel Diagnosis</b><span>Breaks with stage, magnitude, hypothesis, sourceUrl.</span></div>
+      <div class="row"><b>Channel Truth</b><span>Channel evidence and blockGaps instead of forced claims.</span></div>
+    </div>
+    <div class="scard warn">
+      <div class="sct"><h3>positioningPaidMediaPlan</h3><span class="tagpill warn">Dependent capstone</span></div>
+      <div class="row"><b>Audience Types</b><span>Must sit on a non-empty role/segment-grounded BuyerICP, not named-person scraps.</span></div>
+      <div class="row"><b>Angles / Creative</b><span>EvidencePack status grounded-or-gap; no section-level laundering.</span></div>
+      <div class="row"><b>Projected Results</b><span>Derived math only; unknown KPI cost stays unknown (carries a derivation trace).</span></div>
+    </div>
+  </div>
+
+  <!-- SECTION A.2: BUYERICP RE-GROUNDING -->
+  <h2><span class="num">A&middot;2</span> BuyerICP re-grounding — roles/segments, not named humans</h2>
+  <p class="sub">A media buyer targets <em>roles, seniority, firmographic segments, and triggers</em> — never a specific person.
+    Grounding on named individuals is the source of every brittleness (name extraction, source-liveness re-fetch, laundering) and the all-or-nothing empty exit. The live before/after, on fresh Ramp data:</p>
+
+  <div class="ba">
+    <div class="bacard before">
+      <h4>RUN 1 — BEFORE</h4>
+      <div class="tag">tmp/replay-live/live-BuyerICP-jsl0fh</div>
+      <div style="margin-top:12px">
+        <div class="stat"><span class="k">committed</span><span class="v">true</span></div>
+        <div class="stat"><span class="k">personaCount</span><span class="v bad">0</span></div>
+        <div class="stat"><span class="k">confidence</span><span class="v bad">0</span></div>
+        <div class="stat"><span class="k">ledger: named champions</span><span class="v good">5</span></div>
+        <div class="stat"><span class="k">ledger: facts total</span><span class="v good">139</span></div>
+      </div>
+      <div class="note">Committed EMPTY while the ledger captured the buyers it found. Dropped data masquerading as scarcity — the north-star violation.</div>
+    </div>
+    <div class="bacard after">
+      <h4>RUN 2 — AFTER FIX</h4>
+      <div class="tag">tmp/replay-live/live-BuyerICP-ju7hqx</div>
+      <div style="margin-top:12px">
+        <div class="stat"><span class="k">committed</span><span class="v">true</span></div>
+        <div class="stat"><span class="k">personaCount</span><span class="v warn">2</span></div>
+        <div class="stat"><span class="k">confidence</span><span class="v warn">0.25</span></div>
+        <div class="stat"><span class="k">grounded &amp; backed</span><span class="v good">2 / 2</span></div>
+        <div class="stat"><span class="k">evidenceGap still true</span><span class="v warn">yes</span></div>
+      </div>
+      <div class="note">0&rarr;2 is real. But still below the 3 floor, still flags a gap — and it dropped Lauren Feeney (Controller, the on-target buyer) while surfacing an off-target Marketing-Ops persona. The named-human unit produced the <em>wrong</em> personas. A patch on a wrong premise &rarr; fix the UNIT.</div>
+    </div>
+  </div>
+
+  <div class="unitbox">
+    <div class="unit old">
+      <div class="lbl">Today — load-bearing unit</div>
+      <h4>A sourced PERSON</h4>
+      <ul>
+        <li><code>name</code> (required) — must pass <code>isLikelyNamedBuyerIdentity</code></li>
+        <li><code>title</code>, <code>company</code> (required)</li>
+        <li><code>sourceUrl</code> (required, http)</li>
+        <li>Re-fetch confirms the <b>human name</b> verbatim on the page</li>
+      </ul>
+    </div>
+    <div class="arrow">&rarr;</div>
+    <div class="unit new">
+      <div class="lbl">Option B — load-bearing unit</div>
+      <h4>A sourced ROLE / SEGMENT claim</h4>
+      <ul>
+        <li><code>role</code> (existing enum) + required <code>segmentLabel</code> / firmographic</li>
+        <li>optional <code>triggerContext</code>, <code>seniority</code></li>
+        <li><code>sourceUrl</code> (required, http)</li>
+        <li>optional <code>championName</code> / <code>championCompany</code> = corroboration only</li>
+        <li>Re-fetch confirms the <b>role/segment token</b> verbatim on the page</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="proof">
+    <b>The model already works name-free.</b> The existing <code>firmographicCuts</code> floor in the very same schema
+    (<code>cutType</code> &isin; industry / employeeBands / revenueBands / geography / techStack, plus <code>value</code> + <code>source</code> + required <code>sourceUrl</code> — no <code>name</code> field)
+    enforces a &ge;3 floor and ships today; the <code>personaRoles</code> enum (champion / economic-buyer / decision-maker / influencer / end-user / gatekeeper) is the role vocabulary Option B reuses.
+    Option B promotes this proven, sourced, name-free unit from a side-floor to the load-bearing persona unit — it is not a new grounding model, it is the one we already trust.
+  </div>
+
+  <!-- SECTION B: ARCHITECTURE -->
+  <h2><span class="num">B</span> Back-end infrastructure — what's WIRED vs BUILT-BUT-OFFLINE</h2>
+  <p class="sub">The system meant to prevent hollow decks is built and offline-green — but unwired in production today. Phase 1 turns it live.</p>
+
+  <div class="legend">
+    <div class="item"><span class="badge wired">WIRED</span> runs on the live dispatch / commit path</div>
+    <div class="item"><span class="badge offline">BUILT-BUT-OFFLINE</span> exists + passes offline tests, but no live caller / not deployed</div>
+  </div>
+
+  <div class="arch">
+    <div class="flow">
+      <div class="stage">
+        <div class="box"><div class="t">URL &rarr; corpus</div><div class="d">deepResearchProgram</div></div>
+        <div class="bdg"><span class="badge wired">WIRED</span></div>
+      </div>
+      <div class="conn">&rarr;</div>
+      <div class="stage">
+        <div class="box"><div class="t">6 sections</div><div class="d">DeepSeek · in-process</div></div>
+        <div class="bdg"><span class="badge wired">WIRED</span></div>
+      </div>
+      <div class="conn">&rarr;</div>
+      <div class="stage">
+        <div class="box"><div class="t">Commit path</div><div class="d">runLabSectionJob &rarr; runSection</div></div>
+        <div class="bdg"><span class="badge wired">WIRED</span></div>
+      </div>
+      <div class="conn">&rarr;</div>
+      <div class="stage">
+        <div class="box"><div class="t">Rollup</div><div class="d">Supabase trigger</div></div>
+        <div class="bdg"><span class="badge wired">WIRED</span></div>
+      </div>
+    </div>
+
+    <div class="gates">
+      <div class="gate">
+        <div class="gh"><span class="gt">source-liveness gate</span><span class="badge wired">WIRED</span></div>
+        <div class="gp">agents/verification/source-liveness.ts</div>
+        <div class="gd">Re-fetches each <code>sourceUrl</code> and confirms entities verbatim. STRICT <code>requiredEntities.every()</code> bucket closed the c9bc2056 fabrication hole. <b>Option B must re-aim this at the role/segment token.</b></div>
+      </div>
+      <div class="gate">
+        <div class="gh"><span class="gt">required-evidence gate</span><span class="badge wired">WIRED</span></div>
+        <div class="gp">sections/required-evidence.ts · section-registry ~225</div>
+        <div class="gd">HARD gate — throws <code>RequiredEvidenceMissingError</code>. <code>hasIcpPersona</code> today demands a named identity &rarr; MUST change in the Option-B commit.</div>
+      </div>
+      <div class="gate">
+        <div class="gh"><span class="gt">liar-catcher</span><span class="badge offline">OFFLINE</span></div>
+        <div class="gp">verification/deck-ledger-gate.ts · checkDeckAgainstLedger</div>
+        <div class="gd">Deterministic deck-vs-ledger check; never mutates, never throws. <b>Zero commit-path callers</b> (only the offline proof script). Phase 1 wires it post-commit / pre-complete.</div>
+      </div>
+    </div>
+
+    <div class="ledger-strip">
+      <div class="lh"><span class="lt">research-fact ledger — durable evidence (write-as-found)</span><span class="badge offline">BUILT-BUT-OFFLINE</span></div>
+      <div class="ld">The append-only <code>research_facts</code> store + promoters exist and write facts AS FOUND, so a timeout discarding the body can never discard acquired evidence (the root failure mode). <b>But the live dispatch (<code>runLabSectionJob</code>) never injects <code>factStore</code></b> — the only non-test reference is the internal consumer at <code>run-section.ts:872</code>. With no store + parentAuditRunId pair, every ledger write no-ops in prod.</div>
+    </div>
+
+    <div class="gates" style="margin-top:14px">
+      <div class="gate">
+        <div class="gh"><span class="gt">Migration · research_facts ledger</span><span class="badge offline">NOT APPLIED</span></div>
+        <div class="gp">supabase/migrations/20260618_research_facts_ledger.sql</div>
+        <div class="gd">Append-only ledger table; <code>source_url</code> NOT NULL. On disk; <b>absent from live Supabase</b> (latest live migration = account_health_cockpit_fathom).</div>
+      </div>
+      <div class="gate">
+        <div class="gh"><span class="gt">Migration · content-aware rollup</span><span class="badge offline">NOT APPLIED</span></div>
+        <div class="gp">supabase/migrations/20260618_content_aware_rollup_allow_list.sql</div>
+        <div class="gd">Rollup ignores <code>verification_tier='insufficient'</code> + exact-six allow-list (fail-closed). pglite-tested green. <b>Absent from live Supabase.</b></div>
+      </div>
+    </div>
+
+    <div class="danger">
+      <div class="dt">&#9888; The single biggest risk — fabrication door via bucket routing</div>
+      <div class="dd">Option B's new role/segment token <b>MUST</b> route into source-liveness's STRICT <code>requiredEntities</code> (<code>.every()</code>) bucket — not the lenient <code>entities</code> (<code>.some()</code>) bucket. If it lands lenient, a real proper noun on a live page carries an <em>invented</em> segment past containment, re-opening the exact c9bc2056 hole (airtable.com &rarr; fabricated personas Sarah Koo / Michelle Bandler). This one wire is where a silent regression becomes a fabrication. Ship it with a dedicated reproduce-c9bc2056 test.</div>
+    </div>
+  </div>
+
+  <!-- SECTION C: ROADMAP -->
+  <h2><span class="num">C</span> The roadmap — ~3&ndash;4 work-phases to the goal</h2>
+  <p class="sub">Not "almost done." The shell is built; the evidence spine is the real distance. Phase 1 unblocks the proof loop; Phases 2&ndash;3 are the work; Phase 4 is the acceptance bar. Honest status: we are <em>aligned on direction</em> but <em>not yet validated on acceptance</em> — that has never passed once.</p>
+
+  <div class="road">
+    <div class="phase p1">
+      <div class="ph"><span class="pnum">1</span><span class="ptitle">Wire the safety net</span><span class="peffort">EFFORT · S</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Turn built-but-dead infra live so the proof loop can actually run. Do this <b>before</b> the Phase-2 live re-run.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">Apply 2 migrations to live Supabase · inject a Supabase-backed <code>factStore</code> into live dispatch · call <code>checkDeckAgainstLedger</code> on the commit / pre-display path.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Exit gate</div><div class="pv">Migrations present in <code>list_migrations</code>; a live section writes &ge;1 <code>research_facts</code> row; liar-catcher <code>blocked</code> fails the readiness barrier.</div></div>
+      </div>
+    </div>
+
+    <div class="phase p2">
+      <div class="ph"><span class="pnum">2</span><span class="ptitle">BuyerICP grounding-unit rethink (the core fix)</span><span class="peffort">EFFORT · XL</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Re-ground BuyerICP on sourced role/segment/firmographic/trigger claims + a readiness barrier so an empty section can't be padded. Auto-rescue found champions as an optional ABM layer.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv"><b>12 invocations across 9 files</b> move in lockstep (judge-verified, not 5): schema, validator, <code>required-evidence.ts</code>, source-liveness re-aim (STRICT bucket), miner broadening, prompts, tests + fixture. Write an ADR first.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Exit gate</div><div class="pv">Offline (tsc + suites green) &rarr; live run where BuyerICP commits &ge;3 role/segment-grounded personas, each sourceUrl re-fetch confirms the token, confidence &gt; 0 — <b>validated UNDER fan-out</b>.</div></div>
+      </div>
+    </div>
+
+    <div class="phase p3">
+      <div class="ph"><span class="pnum">3</span><span class="ptitle">VoC + Competitor acquisition depth</span><span class="peffort">EFFORT · M</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Stop VoC self-emptying; deepen objections / switching / criteria; source competitor pricing rows.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">Relax the <code>VOC_MIN_DOMAINS=3</code> distinct-domain floor to keep usable single-domain packs · extend extraction · ground competitor pricing from first-party or diverse sources.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Exit gate</div><div class="pv">VoC commits objections/switching/criteria (not just pain quotes); usable single-domain packs survive; competitor pricing rows carry sourceUrls.</div></div>
+      </div>
+    </div>
+
+    <div class="phase p4">
+      <div class="ph"><span class="pnum">4</span><span class="ptitle">Capstone honesty + proof sweep (acceptance)</span><span class="peffort">EFFORT · M</span></div>
+      <div class="pgrid">
+        <div class="pcell"><div class="pl">Goal</div><div class="pv">Kill confident-over-empty in the capstone, then prove the deck has actually cleared the floor.</div></div>
+        <div class="pcell"><div class="pl">Scope</div><div class="pv">Extend <code>evidencePack</code> / gap markers to the synthesized blocks (confident-over-empty &rarr; <code>status:gap</code>); Audience Types depends on non-empty BuyerICP; then the 3-subject sweep.</div></div>
+        <div class="pcell gate-cell"><div class="pl">Exit gate</div><div class="pv">3-subject sweep (Ramp / Fathom / Plain): <code>zz-buyer-eval</code> CLEAN, no empty-despite-evidence, judge value-read <b>&ge;8 with wouldPay:yes</b>.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Fusion panel: Opus 4.8 + GPT-5.5 (codex), judged by Opus 4.8 · branch refactor/architecture-deepening @ e94c9e2b · everything UNCOMMITTED · live app unchanged.<br>
+    Gates run: 53 + 832 vitest green · tsc 0 new · 31 safety-net offline tests green · live bundles 0&rarr;2 · migrations absent from project sidrtuxpqftyzwdusdha · isLikelyNamedBuyerIdentity = 12 sites / 9 files (judge-verified).<br>
+    Verdict: GO-WITH-CHANGES — (1) re-scope Option B to 12 sites / 9 files &amp; budget XL · (2) ADR + STRICT-bucket routing with a reproduce-c9bc2056 test · (3) make UNDER-fan-out live re-verify a hard exit gate · do Phase 1 before Phase 2's live run.
+  </footer>
+
+</div>
+</body>
+</html>

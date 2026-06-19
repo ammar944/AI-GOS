@@ -1853,15 +1853,115 @@ function synthesizeProjectedResultsFromPhases(
   );
 }
 
+// ---- Honest-gap-row synthesis (mirrors normalizeSalesProcessAssets pattern) --
+// When the model undershoots a schema floor (e.g. BuyerICP is thin → 0
+// audienceTypes), synthesize honest rows whose load-bearing text is prefixed
+// "Evidence gap:" so isGapText / rowIsHonestGap in paid-media-evidence-pack.ts
+// correctly flags them as amber-probe cards instead of confident grounded blocks.
+// The schema .min(N) floors are NOT weakened — these rows satisfy them honestly.
+
+function synthesizeAudienceTypeGapRows(
+  rows: PaidMediaPlanBody["audienceTypes"],
+  floor: number,
+): PaidMediaPlanBody["audienceTypes"] {
+  if (rows.length >= floor) {
+    return rows;
+  }
+  const filled = [...rows];
+  const slotLabels = ["01", "02", "03", "04"];
+  while (filled.length < floor) {
+    const index = filled.length;
+    filled.push({
+      slot: slotLabels[index] ?? `0${index + 1}`,
+      archetype: `Evidence gap: audience slot ${index + 1} not grounded`,
+      dailyBudget: "Daily budget not provided",
+      dailyBudgetProvenance: "unknown",
+      detail: "Evidence gap: no buyer audience data from upstream BuyerICP.",
+      sourceSection: "unattributed",
+      grounding: "Evidence gap: no upstream evidence to ground this row.",
+    });
+  }
+  return filled;
+}
+
+function synthesizeAngleGapRows(
+  rows: PaidMediaPlanBody["anglesToTest"],
+  floor: number,
+): PaidMediaPlanBody["anglesToTest"] {
+  if (rows.length >= floor) {
+    return rows;
+  }
+  const filled = [...rows];
+  while (filled.length < floor) {
+    const index = filled.length;
+    filled.push({
+      shortName: `Evidence gap: angle ${index + 1}`,
+      description: `Evidence gap: creative angle ${index + 1} not grounded from upstream evidence.`,
+      angleType: "REVIEW",
+      sourceSection: "unattributed",
+      grounding: "Evidence gap: no upstream evidence to ground this angle.",
+    });
+  }
+  return filled;
+}
+
+function synthesizeCreativeFrameworkGapRows(
+  rows: PaidMediaPlanBody["creativeFramework"],
+  floor: number,
+): PaidMediaPlanBody["creativeFramework"] {
+  if (rows.length >= floor) {
+    return rows;
+  }
+  const filled = [...rows];
+  const slotLabels = ["PST 1", "PST 2", "PST 3", "Objection 1", "Objection 2", "USP"];
+  while (filled.length < floor) {
+    const index = filled.length;
+    filled.push({
+      label: slotLabels[index] ?? `Slot ${index + 1}`,
+      angleType: "REVIEW",
+      hook: `Evidence gap: hook for slot ${index + 1} not grounded from upstream.`,
+      executesAngle: `Angle ${Math.min(index + 1, 4)}`,
+      sourceSection: "unattributed",
+      grounding: "Evidence gap: no upstream evidence to ground this creative slot.",
+    });
+  }
+  return filled;
+}
+
+function synthesizeKpiGapRows(
+  rows: PaidMediaPlanBody["kpis"],
+  floor: number,
+): PaidMediaPlanBody["kpis"] {
+  if (rows.length >= floor) {
+    return rows;
+  }
+  const filled = [...rows];
+  const defaults = [
+    { metric: "Evidence gap: primary KPI", role: "Primary outcome" },
+    { metric: "Evidence gap: secondary KPI", role: "Efficiency" },
+  ];
+  while (filled.length < floor) {
+    const index = filled.length;
+    filled.push({
+      metric: defaults[index]?.metric ?? `Evidence gap: KPI ${index + 1}`,
+      role: defaults[index]?.role ?? "Measurement role",
+      definition: `Evidence gap: KPI definition ${index + 1} not grounded from upstream evidence.`,
+    });
+  }
+  return filled;
+}
+
 export function normalizePaidMediaPlanBody(
   value: unknown,
   options?: NormalizePaidMediaPlanBodyOptions,
 ): PaidMediaPlanBody {
   const record = getRecord(value);
-  const creativeFramework = getNestedArray(
-    record.creativeFramework,
-    "creatives",
-  ).map(normalizeCreativeFrameworkSlot);
+  const creativeFramework = synthesizeCreativeFrameworkGapRows(
+    getNestedArray(record.creativeFramework, "creatives").map(
+      normalizeCreativeFrameworkSlot,
+    ),
+    3,
+  );
   const campaignOverview = normalizeCampaignOverview(record.campaignOverview);
   const campaignPhases = getNestedArray(record.campaignPhases, "phases").map(
     normalizeCampaignPhase,
@@ -1902,11 +2002,13 @@ export function normalizePaidMediaPlanBody(
   const parsed = paidMediaPlanBodySchema.parse({
     campaignOverview,
     campaignPhases,
-    audienceTypes: getNestedArray(record.audienceTypes, "audiences").map(
-      normalizeAudienceType,
+    audienceTypes: synthesizeAudienceTypeGapRows(
+      getNestedArray(record.audienceTypes, "audiences").map(normalizeAudienceType),
+      1,
     ),
-    anglesToTest: getNestedArray(record.anglesToTest, "angles").map(
-      normalizeAngle,
+    anglesToTest: synthesizeAngleGapRows(
+      getNestedArray(record.anglesToTest, "angles").map(normalizeAngle),
+      2,
     ),
     creativeStrategy: normalizeCreativeStrategy({
       creativeCapacity: options?.creativeCapacity,
@@ -1937,7 +2039,10 @@ export function normalizePaidMediaPlanBody(
       .map(normalizeChannelSuggestion)
       .slice(0, 6),
     projectedResults: projectedResultsOrSynthesized,
-    kpis: getNestedArray(record.kpis, "kpis").map(normalizeKpi).slice(0, 5),
+    kpis: synthesizeKpiGapRows(
+      getNestedArray(record.kpis, "kpis").map(normalizeKpi).slice(0, 5),
+      2,
+    ),
     crossSectionInsight,
     ...(isPlainRecord(record.feasibilityAudit)
       ? { feasibilityAudit: record.feasibilityAudit }

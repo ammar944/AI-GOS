@@ -4,6 +4,7 @@
 // empty fields with neutral, non-fabricated placeholders so we never inject one
 // company's facts into another's run. Same robust step loop as v2.
 import { chromium } from 'playwright-core';
+import { pathToFileURL } from 'node:url';
 const CDP_URL = process.env.E2E_CDP_URL ?? 'http://localhost:9223';
 
 // Neutral gap values — deliberately generic; corpus prefill supplies real facts.
@@ -94,13 +95,11 @@ async function fillStep(page) {
     log(`text ${key}${TEXT_VALUES[key] ? '' : ' (generic)'}`);
   }
 }
-async function main() {
-  const browser = await chromium.connectOverCDP(CDP_URL);
-  const context = browser.contexts()[0];
-  const page = context.pages().find((p) => p.url().includes('/research-v3'));
-  if (!page) throw new Error('No /research-v3 page found over CDP');
-  page.setDefaultTimeout(20_000);
-  log(`page ${page.url()}`);
+
+export async function fillWizardNeutral(page) {
+  await page.getByTestId('onboarding-section-product-revenue').waitFor({ state: 'visible', timeout: 120_000 });
+  log('wizard visible');
+
   let guard = 0;
   while (guard < 16) {
     guard += 1;
@@ -121,6 +120,16 @@ async function main() {
       }
     }
   }
+}
+
+async function main() {
+  const browser = await chromium.connectOverCDP(CDP_URL);
+  const context = browser.contexts()[0];
+  const page = context.pages().find((p) => p.url().includes('/research-v3'));
+  if (!page) throw new Error('No /research-v3 page found over CDP');
+  page.setDefaultTimeout(20_000);
+  log(`page ${page.url()}`);
+  await fillWizardNeutral(page);
   const runAudit = page.getByRole('button', { name: /Run audit/i });
   await runAudit.waitFor({ state: 'visible', timeout: 15_000 });
   await runAudit.click();
@@ -129,4 +138,7 @@ async function main() {
     .then(() => log('audit reader visible — fan-out started')).catch(() => log('WARN reader not visible in 60s; rely on DB polling'));
   await browser.close();
 }
-main().catch((e) => { console.error(`[neutral] FAILED: ${e instanceof Error ? e.message : String(e)}`); process.exit(1); });
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => { console.error(`[neutral] FAILED: ${e instanceof Error ? e.message : String(e)}`); process.exit(1); });
+}

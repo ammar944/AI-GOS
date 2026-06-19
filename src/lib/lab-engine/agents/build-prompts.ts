@@ -594,13 +594,45 @@ export function buildOnboardingStrategicFrame(
   researchInput: ResearchInput,
 ): string {
   const { onboarding } = researchInput;
+
+  // GAP 3: PRE-SUPPLIED URLS directive — must appear before web_search guidance
+  const suppliedUrlLines: string[] = [];
+  const assetUrls = researchInput.suppliedAssetUrls;
+  if (assetUrls !== undefined) {
+    const urlEntries = [
+      assetUrls.caseStudiesUrl !== undefined
+        ? `Case studies: ${assetUrls.caseStudiesUrl}`
+        : null,
+      assetUrls.pricingUrl !== undefined
+        ? `Pricing: ${assetUrls.pricingUrl}`
+        : null,
+      assetUrls.testimonialsUrl !== undefined
+        ? `Testimonials: ${assetUrls.testimonialsUrl}`
+        : null,
+      assetUrls.demoUrl !== undefined
+        ? `Demo: ${assetUrls.demoUrl}`
+        : null,
+    ].filter((e): e is string => e !== null);
+    if (urlEntries.length > 0) {
+      suppliedUrlLines.push(
+        `PRE-SUPPLIED URLS — scrape these first with firecrawl before any web_search:`,
+        ...urlEntries.map((e) => `  ${e}`),
+      );
+    }
+  }
+
   const lines = [
+    ...suppliedUrlLines,
     `Primary objective: ${onboarding.primaryGoal}.`,
     `Target segments: ${joinList(onboarding.targetSegments) ?? "unknown"}.`,
     `Key offers: ${joinList(onboarding.keyOffers) ?? "unknown"}.`,
-    `Distribution channels: ${
-      joinList(onboarding.distributionChannels) ?? "unknown"
-    }.`,
+    onboarding.distributionChannelsMeta === "model-estimated"
+      ? `Distribution channels (model-estimated — not operator-supplied): ${
+          joinList(onboarding.distributionChannels) ?? "unknown"
+        }.`
+      : `Distribution channels: ${
+          joinList(onboarding.distributionChannels) ?? "unknown"
+        }.`,
     onboarding.constraints.length === 0
       ? null
       : `Constraints: ${onboarding.constraints.join(", ")}.`,
@@ -661,6 +693,43 @@ export function buildOnboardingStrategicFrame(
     const implications = buildEconomicsImplications(economics);
     if (implications.length > 0) {
       lines.push(`Strategic implications: ${implications.join("; ")}.`);
+    }
+  }
+
+  // GAP 1: OPERATOR-SUPPLIED CUSTOMER VOICE block (highest provenance).
+  // These are exact answers from the operator — treat as ground truth, not a
+  // hypothesis to be verified. Sections must use these before web-searching.
+  const voc = onboarding.voiceOfClient;
+  if (voc !== undefined) {
+    const vocLines: string[] = [];
+    const vocFields: Array<[string, string | undefined]> = [
+      ["Buying triggers", voc.buyingTriggers],
+      ["Common objections", voc.commonObjections],
+      ["Competitor frustrations", voc.competitorFrustrations],
+      ["Before state (situation before buying)", voc.situationBeforeBuying],
+      ["Desired transformation", voc.desiredTransformation],
+      ["Easiest-to-close profile", voc.easiestToClose],
+      ["Best client sources", voc.bestClientSources],
+      ["Sales process overview", voc.salesProcessOverview],
+      ["Sales cycle length", voc.salesCycleLength],
+      ["Testimonial quote", voc.testimonialQuote],
+      ["Market problem", voc.marketProblem],
+      ["Market bottlenecks", voc.marketBottlenecks],
+      ["Unique edge", voc.uniqueEdge],
+      ["Value proposition", voc.valueProp],
+      ["Guarantees", voc.guarantees],
+      ["Target job titles", voc.jobTitles],
+    ];
+    for (const [label, value] of vocFields) {
+      if (value !== undefined && value.trim().length > 0) {
+        vocLines.push(`  ${label}: ${value}`);
+      }
+    }
+    if (vocLines.length > 0) {
+      lines.push(
+        "OPERATOR-SUPPLIED CUSTOMER VOICE (highest provenance — use as ground truth, do NOT replace with web-search inferences):",
+        ...vocLines,
+      );
     }
   }
 
