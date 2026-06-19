@@ -958,6 +958,54 @@ function tokenAppearsInBriefEconomics({
   );
 }
 
+// Significant money tokens are magnitude-resolved or multi-digit variants
+// (e.g. "1000", "10000", "4200") — NOT bare 1–3 digit tokens like "20" that a
+// percentage or count elsewhere in the brief would coincidentally share.
+const SIGNIFICANT_MONEY_TOKEN_MIN_LENGTH = 4;
+
+function significantMoneyTokens(value: string): string[] {
+  // Brief select-values encode a range with an underscore ("1k_10k"). The
+  // underscore is a \w char, so it suppresses the magnitude word-boundary in
+  // moneyDigitVariants and the first endpoint never resolves ("1k" → "1", not
+  // "1000"). Treat it as the range separator it is before tokenizing.
+  return moneyDigitVariants(value.replace(/_/g, " ")).filter(
+    (variant) => variant.length >= SIGNIFICANT_MONEY_TOKEN_MIN_LENGTH,
+  );
+}
+
+// True when every significant money token in `value` appears in the operator
+// brief economics. An operator-supplied number (ACV, CAC, LTV, budget) is
+// honestly user_asserted even when the section prose formats it differently
+// (en-dash range, "$"/"k" vs the stored "1k_10k"). An invented magnitude
+// ($20B TAM, a CAC not in the brief) shares no significant token and stays
+// unsupported — the gate is not laundered by a bare small-digit collision.
+export function numericValueIsBriefEconomicsSupported(
+  value: string,
+  economics: unknown,
+): boolean {
+  const claimTokens = significantMoneyTokens(value);
+
+  if (claimTokens.length === 0) {
+    return false;
+  }
+
+  const briefTokens = new Set<string>();
+
+  if (isRecord(economics)) {
+    for (const briefValue of Object.values(economics)) {
+      if (typeof briefValue !== "string") {
+        continue;
+      }
+
+      for (const token of significantMoneyTokens(briefValue)) {
+        briefTokens.add(token);
+      }
+    }
+  }
+
+  return claimTokens.every((token) => briefTokens.has(token));
+}
+
 function moneyValueKey(fieldName: string): string {
   return `${fieldName}Value`;
 }

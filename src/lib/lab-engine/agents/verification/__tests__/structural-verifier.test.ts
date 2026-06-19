@@ -58,6 +58,76 @@ describe("structuralVerifier", (): void => {
     );
   });
 
+  it("credits a brief-economics money range as user_asserted despite format variance", (): void => {
+    // The operator brief stores the ACV range as "1k_10k" (underscore-joined,
+    // no currency symbol). The section model writes it as "$1k–$10k" and
+    // honestly flags it operator-reported. The current substring/range matcher
+    // misses it (underscore separator breaks the full-span match) and the
+    // literal operator-provenance markers ("operator-supplied"/"client brief")
+    // do not match "operator-reported" — so the honest operator number gate-fails.
+    // It must be credited as user_asserted: the value IS in the brief.
+    const report = structuralVerifier({
+      body: {
+        marketSize: {
+          prose:
+            "Operator-reported ACV is $1k–$10k; no independently sourced ACV benchmark was found.",
+        },
+      },
+      toolResults: [],
+      corpusExcerpts: [],
+      onboarding: {
+        economics: {
+          acv: "1k_10k",
+        },
+      },
+    });
+
+    expect(report.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "verified",
+          claim: expect.objectContaining({
+            kind: "numeric",
+            value: "$1k–$10k",
+          }),
+          entailmentVerdict: "user_asserted",
+          matchedSourceRef: expect.objectContaining({ kind: "userProvided" }),
+        }),
+      ]),
+    );
+  });
+
+  it("does not credit an invented magnitude numeric as operator input when only small digits overlap the brief", (): void => {
+    // $20B is fabricated. A NAIVE brief-digit exemption would credit it because
+    // the bare token "20" appears in the brief (demoToClose "20%"). The credit
+    // must require the claim's SIGNIFICANT money tokens (magnitude-resolved /
+    // multi-digit) to be present in the brief — never a bare small-int overlap —
+    // or the gate is laundered.
+    const report = structuralVerifier({
+      body: {
+        marketSize: {
+          prose: "The total addressable market is $20B.",
+        },
+      },
+      toolResults: [],
+      corpusExcerpts: [],
+      onboarding: {
+        economics: {
+          acv: "1k_10k",
+          demoToClose: "20%",
+        },
+      },
+    });
+
+    expect(
+      report.claims.filter(
+        (verdict) =>
+          verdict.claim.kind === "numeric" &&
+          verdict.entailmentVerdict === "user_asserted",
+      ),
+    ).toEqual([]);
+  });
+
   it("verifies numeric, quote, url, and entity-name claims against tool results and corpus excerpts", (): void => {
     const report = structuralVerifier({
       body: {

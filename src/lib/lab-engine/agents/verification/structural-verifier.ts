@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { sectionRunnerModel } from "../../ai/models";
 import { extractClaims } from "./claim-extractor";
+import { numericValueIsBriefEconomicsSupported } from "./evidence-support";
 import type {
   Claim,
   ClaimVerdict,
@@ -573,6 +574,10 @@ export function structuralVerifier({
     toolResults,
   });
   const claims = extractClaims(body);
+  const briefEconomics =
+    typeof onboarding === "object" && onboarding !== null
+      ? (onboarding as { economics?: unknown }).economics
+      : undefined;
   const verdicts: ClaimVerdict[] = claims.map((claim) => {
     const match = findClaimMatch(claim, sources);
 
@@ -587,6 +592,22 @@ export function structuralVerifier({
     }
 
     if (hasOperatorProvenanceMarker(claim)) {
+      return {
+        status: "verified",
+        claim,
+        matchedSourceRef: { kind: "userProvided" },
+        entailmentVerdict: "user_asserted",
+      };
+    }
+
+    // Operator-supplied economics (ACV/CAC/LTV/budget) are user_asserted even
+    // when the section prose formats the figure differently than the stored
+    // brief value. Only credited when the claim's significant money tokens are
+    // ALL present in the brief — an invented magnitude stays unsupported.
+    if (
+      claim.kind === "numeric" &&
+      numericValueIsBriefEconomicsSupported(claim.value, briefEconomics)
+    ) {
       return {
         status: "verified",
         claim,

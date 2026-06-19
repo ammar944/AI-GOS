@@ -4586,7 +4586,10 @@ function getEvidenceGateFailureReason(
     return null;
   }
 
-  return `evidence-gate: ${unsupportedLoadBearingCount} unsupported load-bearing claims exceed max ${maxUnsupportedAllowed}`;
+  const issues = attempt.evidenceSupportShortfall?.issues ?? [];
+  const detail = issues.length > 0 ? ` — ${issues.join(" | ")}` : "";
+
+  return `evidence-gate: ${unsupportedLoadBearingCount} unsupported load-bearing claims exceed max ${maxUnsupportedAllowed}${detail}`;
 }
 
 function annotatePaidMediaVerifierReview({

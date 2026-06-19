@@ -1169,10 +1169,13 @@ describe('runSection corpus-only mode', (): void => {
     );
 
     expect(runAnswerTool).toHaveBeenCalledTimes(3);
-    expect(validationFailures.at(-1)?.metadata.issues).toEqual([
+    // The gate reason now appends the specific unsupported claim(s) for
+    // diagnosability; assert the core reason is present rather than pinning the
+    // model-dependent claim detail.
+    expect(validationFailures.at(-1)?.metadata.issues?.[0]).toContain(
       expectedReason,
-    ]);
-    expect(sectionFailed?.metadata.error).toBe(expectedReason);
+    );
+    expect(sectionFailed?.metadata.error).toContain(expectedReason);
     expect(record.sections.positioningMarketCategory?.status).toBe('failed');
     expect(record.sections.positioningMarketCategory?.artifact).toBeNull();
     expect(record.events.map((event) => event.type)).not.toContain(

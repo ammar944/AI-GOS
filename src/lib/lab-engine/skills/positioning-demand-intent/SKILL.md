@@ -48,6 +48,7 @@ When the prompt includes a `Prepared evidence rows` block, consume those pre-nor
 - Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally; never restate one as a number you discovered or verified.
 - Numeric keyword siblings are tool-derived only. If measurement is absent, use a gap or relative-interest language without sortable numbers.
 - Intent signals must cite independent venues (job boards, news, funding databases) — never the subject company's own domain.
+- When you mark a figure as an evidence gap or directional-only, name the metric and the gap WITHOUT restating a specific unsourced number in the prose. "No sourced category conversion benchmark is available" is correct; "conversion is ~3%, unsourced" re-introduces an unverifiable figure that fails the evidence gate. Only restate a specific number when it is sourced to a live URL/tool or supplied verbatim by the operator brief.
 - Use blockGap instead of padding keyword, question, content-gap, intent, or venue rows.
 - Demand creation is a strategy call, not a way to hide weak capture evidence.
 - Do not ship a demand read whose only numbers are echoed from the operator brief. Carry at least one independently researched external figure (tool-measured keyword demand, CPC, or sourced intent signal), or honestly mark the missing external evidence as a gap.
