@@ -248,10 +248,10 @@ async function main() {
       printInsight('SEARCHAPI RESULTS', result, verbose);
     }
   } else {
-    // Default: fallback mode (Apify first, supplement with SearchAPI if thin)
+    // Default path mirrors the worker's current live ad fetcher: SearchAPI only.
     const startTime = Date.now();
     const insight = await fetchCompetitorAds(companyName, domain);
-    const source = process.env.APIFY_API_TOKEN ? 'apify+searchapi' : 'searchapi';
+    const source = 'searchapi';
     console.log(`\nTime: ${((Date.now() - startTime) / 1000).toFixed(1)}s | Source: ${source}`);
 
     if (jsonOutput) {

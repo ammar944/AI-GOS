@@ -395,7 +395,12 @@ export async function fetchApifyAds(
   const metaCreatives = normalizeMetaAds(metaRaw, companyName, domain);
   const googleCreatives = normalizeGoogleAds(googleRaw, companyName, domain);
   const linkedInCreatives = normalizeLinkedInAds(linkedInRaw, companyName, domain);
-  const allCreatives = [...metaCreatives, ...googleCreatives, ...linkedInCreatives];
+  const rawCreatives = [...metaCreatives, ...googleCreatives, ...linkedInCreatives];
+  const allCreatives = filterRelevantAds(
+    deduplicateCreatives(rawCreatives),
+    companyName,
+    domain,
+  );
 
   // Build themes from ad copy
   const allMessages = allCreatives
@@ -417,10 +422,11 @@ export async function fetchApifyAds(
         : 'low';
 
   const durationMs = Date.now() - startTime;
+  const rawCount = metaRaw.length + googleRaw.length + linkedInRaw.length;
   const evidence =
     totalAds > 0
-      ? `Apify scraped ${totalAds} ads across ${platformsCovered.join(', ')} in ${(durationMs / 1000).toFixed(1)}s. Meta: ${metaRaw.length}, Google: ${googleRaw.length}, LinkedIn: ${linkedInRaw.length}.`
-      : 'No ads found via Apify scrapers.';
+      ? `Apify accepted ${totalAds} relevant ads from ${rawCount} raw rows across ${platformsCovered.join(', ')} in ${(durationMs / 1000).toFixed(1)}s. Meta raw: ${metaRaw.length}, Google raw: ${googleRaw.length}, LinkedIn raw: ${linkedInRaw.length}.`
+      : `No relevant ads found via Apify scrapers. Raw rows fetched: ${rawCount}.`;
 
   const libraryLinks = buildLibraryLinks(companyName, domain, allCreatives);
 
@@ -444,14 +450,6 @@ export async function fetchApifyAds(
   };
 }
 
-/**
- * Fetch competitor ads using the best source per platform:
- *   - Meta/Facebook → Apify (rich data: headlines, body, images, videos, spend)
- *   - Google        → Apify (only working option, SearchAPI engine not enabled)
- *   - LinkedIn      → SearchAPI (all Apify LinkedIn actors are broken)
- *
- * If APIFY_API_TOKEN is missing, falls back to SearchAPI for everything.
- */
 /**
  * Fetch competitor ads from all 3 platforms using advertiser-first lookup.
  * SearchAPI only (Apify removed — account maxed, actors too slow for parallel pipeline).
