@@ -6,6 +6,7 @@ import {
   createResearchArtifactsEvidencePoolStore,
   type SupabaseEvidencePoolClient,
 } from '@/lib/lab-engine/evidence/evidence-pool';
+import { prepareSectionContext } from '@/lib/lab-engine/agents/run-section';
 import type { SupportedSectionId } from '@/lib/lab-engine/sections/section-registry';
 import { runLabSectionJob } from '@/lib/research-v2/lab-section-job';
 import {
@@ -115,6 +116,13 @@ export async function scheduleLabSectionJob(
   );
 
   await store.createRun(input.researchInput);
+  const preparedContext = await prepareSectionContext(
+    {
+      runId: input.runId,
+      sectionId: input.sectionId,
+    },
+    { store },
+  );
 
   input.schedule(async (): Promise<void> => {
     const controller = new AbortController();
@@ -133,6 +141,7 @@ export async function scheduleLabSectionJob(
         deadlineAt,
         evidencePoolStore,
         parentAuditRunId: seeded.parent_audit_run_id,
+        preparedContext,
         signal: controller.signal,
         store,
       });

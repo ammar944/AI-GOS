@@ -8,7 +8,9 @@ import {
   type ActivityEvent,
 } from '@/lib/lab-engine/events/activity-event';
 import {
+  prepareSectionContext,
   runSection,
+  type PreparedSectionContext,
   type RunSectionDeps,
   type RunSectionInput,
   type RunSectionResult,
@@ -35,6 +37,7 @@ export interface RunLabSectionJobInput {
   store: RunStore;
   evidencePoolStore?: EvidencePoolStore;
   parentAuditRunId?: string;
+  preparedContext?: PreparedSectionContext;
   runSectionImpl?: LabRunSection;
   now?: () => Date;
   newId?: () => string;
@@ -56,6 +59,15 @@ export async function runLabSectionJob(
   }
 
   try {
+    const preparedContext =
+      input.preparedContext ??
+      (await prepareSectionContext(
+        {
+          runId: input.runId,
+          sectionId,
+        },
+        { store: input.store },
+      ));
     const sectionPromise = runSectionImpl(
       {
         runId: input.runId,
@@ -67,6 +79,7 @@ export async function runLabSectionJob(
         store: input.store,
         loadSkill: loadLabSkill,
         allowedTools: getLabEngineAllowedTools(),
+        preparedContext,
         ...(input.evidencePoolStore === undefined
           ? {}
           : { evidencePoolStore: input.evidencePoolStore }),

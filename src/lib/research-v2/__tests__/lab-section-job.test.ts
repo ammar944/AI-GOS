@@ -11,6 +11,7 @@ import {
   type SectionRunRecord,
 } from '@/lib/lab-engine/artifacts/artifact-envelope';
 import {
+  type PreparedSectionContext,
   type RunSectionDeps,
   type RunSectionInput,
   type RunSectionResult,
@@ -89,6 +90,29 @@ function createRunSectionResult(input: RunSectionInput): RunSectionResult {
     runId: input.runId,
     sectionId: input.sectionId,
     artifact: marketCategoryFixtureArtifact,
+  };
+}
+
+function createPreparedContext(
+  sectionId: PreparedSectionContext['sectionId'] = 'positioningMarketCategory',
+): PreparedSectionContext {
+  return {
+    sectionId,
+    corpusRows: [
+      {
+        id: 'prepared_1',
+        sourceUrl: 'https://example.com/prepared',
+        title: 'Prepared context source',
+        text: 'Prepared context row text.',
+        observedAt: '2026-06-19T01:00:00.000Z',
+        sourceId: 'prepared_source_1',
+        scope: 'global',
+      },
+    ],
+    factRows: [],
+    coverageRows: [],
+    toolGapRows: [],
+    researchUseful: true,
   };
 }
 
@@ -250,6 +274,64 @@ describe('runLabSectionJob', (): void => {
 
     expect(observedDeps[0]?.allowedTools).toBeUndefined();
     expect(observedDeps[1]?.allowedTools).toEqual([]);
+  });
+
+  it('prepares and passes section context into the runSection implementation', async (): Promise<void> => {
+    const { store } = createMockRunStore();
+    const observedDeps: RunSectionDeps[] = [];
+    const runSectionImpl = vi.fn(
+      async (
+        input: RunSectionInput,
+        deps: RunSectionDeps,
+      ): Promise<RunSectionResult> => {
+        observedDeps.push(deps);
+        return createRunSectionResult(input);
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      store,
+      runSectionImpl,
+    });
+
+    expect(runSectionImpl).toHaveBeenCalledTimes(1);
+    expect(observedDeps[0]?.preparedContext).toEqual(
+      expect.objectContaining({
+        sectionId: 'positioningMarketCategory',
+        researchUseful: true,
+      }),
+    );
+    expect(observedDeps[0]?.preparedContext?.corpusRows.length).toBeGreaterThan(0);
+  });
+
+  it('passes a supplied prepared section context without rebuilding it', async (): Promise<void> => {
+    const { store } = createMockRunStore();
+    const preparedContext = createPreparedContext('positioningMarketCategory');
+    const readRun = vi.spyOn(store, 'readRun');
+    const observedDeps: RunSectionDeps[] = [];
+    const runSectionImpl = vi.fn(
+      async (
+        input: RunSectionInput,
+        deps: RunSectionDeps,
+      ): Promise<RunSectionResult> => {
+        observedDeps.push(deps);
+        return createRunSectionResult(input);
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      store,
+      preparedContext,
+      runSectionImpl,
+    });
+
+    expect(runSectionImpl).toHaveBeenCalledTimes(1);
+    expect(observedDeps[0]?.preparedContext).toBe(preparedContext);
+    expect(readRun).not.toHaveBeenCalled();
   });
 
   it('prepends the GTM Strategic Standard once before every registered skill', async (): Promise<void> => {

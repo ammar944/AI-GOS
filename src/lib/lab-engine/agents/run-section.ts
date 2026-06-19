@@ -340,6 +340,61 @@ export interface RunSectionInput {
   deadlineAt?: number;
 }
 
+export type PreparedCorpusRowScope = "global" | "section";
+
+export interface PreparedCorpusRow {
+  id: string;
+  sourceUrl: string;
+  title: string;
+  text: string;
+  observedAt: string;
+  sourceId: string;
+  scope: PreparedCorpusRowScope;
+}
+
+export interface PreparedFactRow {
+  id: string;
+  sourceUrl: string;
+  title: string;
+  text: string;
+  observedAt: string;
+  sourceId: string;
+}
+
+export interface PreparedCoverageRow {
+  sectionId: SupportedSectionId;
+  requirementId: string;
+  status: "satisfied" | "gap";
+  foundCount: number;
+  requiredCount: number;
+  message: string;
+}
+
+export interface PreparedToolGapRow {
+  sectionId: SupportedSectionId;
+  toolName: ToolName;
+  reason: ToolGap["reason"];
+  message?: string;
+}
+
+export interface PreparedSectionContext {
+  sectionId: SupportedSectionId;
+  corpusRows: readonly PreparedCorpusRow[];
+  factRows: readonly PreparedFactRow[];
+  coverageRows: readonly PreparedCoverageRow[];
+  toolGapRows: readonly PreparedToolGapRow[];
+  researchUseful: boolean;
+}
+
+export interface PrepareSectionContextInput {
+  runId: string;
+  sectionId: SupportedSectionId;
+}
+
+export interface PrepareSectionContextDeps {
+  store: Pick<RunStore, "readRun">;
+}
+
 export interface SectionThinkerPassParams {
   maxOutputTokens: number;
   model: SectionLanguageModel;
@@ -356,6 +411,7 @@ export interface RunSectionDeps {
   store: RunStore;
   loadSkill: (slug: string) => Promise<string>;
   allowedTools?: readonly ToolName[];
+  preparedContext?: PreparedSectionContext;
   env?: Record<string, string | undefined>;
   evidencePoolStore?: EvidencePoolStore;
   parentAuditRunId?: string;
@@ -408,6 +464,153 @@ export class SectionRunnerError extends Error {
     this.sectionId = sectionId;
     this.errors = errors;
   }
+}
+
+function normalizePreparedCorpusKeyPart(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function buildPreparedCorpusRowKey(row: PreparedCorpusRow): string {
+  return [
+    normalizePreparedCorpusKeyPart(row.id),
+    normalizePreparedCorpusKeyPart(row.sourceId),
+    normalizePreparedCorpusKeyPart(row.sourceUrl),
+    normalizePreparedCorpusKeyPart(row.text),
+  ].join("\u001f");
+}
+
+function toPreparedCorpusRow({
+  excerpt,
+  scope,
+}: {
+  excerpt: ResearchInput["corpus"]["excerpts"][number];
+  scope: PreparedCorpusRowScope;
+}): PreparedCorpusRow {
+  return {
+    id: excerpt.id,
+    sourceUrl: excerpt.sourceUrl,
+    title: excerpt.title,
+    text: excerpt.text,
+    observedAt: excerpt.observedAt,
+    sourceId: excerpt.sourceId,
+    scope,
+  };
+}
+
+function buildPreparedCorpusRows({
+  researchInput,
+  sectionId,
+}: {
+  researchInput: ResearchInput;
+  sectionId: SupportedSectionId;
+}): readonly PreparedCorpusRow[] {
+  const rowsByKey = new Map<string, PreparedCorpusRow>();
+  const globalRows = researchInput.corpus.excerpts.map((excerpt) =>
+    toPreparedCorpusRow({ excerpt, scope: "global" }),
+  );
+  const sectionRows = (
+    researchInput.corpus.sectionExcerpts?.[sectionId] ?? []
+  ).map((excerpt) => toPreparedCorpusRow({ excerpt, scope: "section" }));
+
+  for (const row of [...globalRows, ...sectionRows]) {
+    const key = buildPreparedCorpusRowKey(row);
+    const existing = rowsByKey.get(key);
+    if (existing === undefined || row.scope === "section") {
+      rowsByKey.set(key, row);
+    }
+  }
+
+  return [...rowsByKey.values()];
+}
+
+function buildPreparedSectionContext({
+  researchInput,
+  sectionId,
+}: {
+  researchInput: ResearchInput;
+  sectionId: SupportedSectionId;
+}): PreparedSectionContext {
+  const corpusRows = buildPreparedCorpusRows({ researchInput, sectionId });
+  const factRows: readonly PreparedFactRow[] = [];
+
+  return {
+    sectionId,
+    corpusRows,
+    factRows,
+    coverageRows: [],
+    toolGapRows: [],
+    researchUseful: corpusRows.length > 0 || factRows.length > 0,
+  };
+}
+
+function assertPreparedContextMatchesInput({
+  input,
+  preparedContext,
+}: {
+  input: RunSectionInput;
+  preparedContext: PreparedSectionContext;
+}): void {
+  if (preparedContext.sectionId !== input.sectionId) {
+    throw new Error(
+      `PreparedSectionContext sectionId ${preparedContext.sectionId} does not match input sectionId ${input.sectionId}`,
+    );
+  }
+}
+
+function getPreparedSectionContext({
+  deps,
+  input,
+  record,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  record: RunRecord;
+}): PreparedSectionContext {
+  if (deps.preparedContext !== undefined) {
+    assertPreparedContextMatchesInput({
+      input,
+      preparedContext: deps.preparedContext,
+    });
+    return deps.preparedContext;
+  }
+
+  return buildPreparedSectionContext({
+    researchInput: record.input,
+    sectionId: input.sectionId,
+  });
+}
+
+function shouldUsePreparedContext(
+  deps: Pick<RunSectionDeps, "preparedContext">,
+): boolean {
+  return deps.preparedContext !== undefined;
+}
+
+function ensurePreparedSectionContext({
+  deps,
+  input,
+  record,
+}: {
+  deps: RunSectionDeps;
+  input: RunSectionInput;
+  record: RunRecord;
+}): void {
+  getPreparedSectionContext({ deps, input, record });
+}
+
+export async function prepareSectionContext(
+  input: PrepareSectionContextInput,
+  deps: PrepareSectionContextDeps,
+): Promise<PreparedSectionContext> {
+  if (!isSupportedSectionId(input.sectionId)) {
+    throw new Error(`Unsupported sectionId ${input.sectionId}`);
+  }
+
+  const record = await deps.store.readRun(input.runId);
+  return buildPreparedSectionContext({
+    researchInput: record.input,
+    sectionId: input.sectionId,
+  });
 }
 
 interface RuntimeSectionDefinition {
@@ -3679,6 +3882,10 @@ function getAllowedTools(
   definition: RuntimeSectionDefinition,
   deps: RunSectionDeps,
 ): readonly ToolName[] {
+  if (shouldUsePreparedContext(deps)) {
+    return [];
+  }
+
   return deps.allowedTools ?? definition.allowedTools;
 }
 
@@ -8200,7 +8407,10 @@ async function buildAnswerToolAdEvidence({
   events: ActivityEvent[];
   normalizedAdEvidenceGroups?: readonly CompetitorAdEvidenceGroup[];
 }> {
-  if (input.sectionId !== "positioningCompetitorLandscape") {
+  if (
+    input.sectionId !== "positioningCompetitorLandscape" ||
+    shouldUsePreparedContext(deps)
+  ) {
     return { adProbeSteps: [], events: [] };
   }
 
@@ -8318,7 +8528,10 @@ async function runCompetitorAdRescueProbe({
     }
   | undefined
 > {
-  if (input.sectionId !== "positioningCompetitorLandscape") {
+  if (
+    input.sectionId !== "positioningCompetitorLandscape" ||
+    shouldUsePreparedContext(deps)
+  ) {
     return undefined;
   }
 
@@ -11428,6 +11641,7 @@ async function runSectionViaAnswerTool(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
+  ensurePreparedSectionContext({ deps, input, record });
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -11562,7 +11776,8 @@ async function runSectionViaAnswerTool(
     | undefined;
   try {
     voiceOfCustomerPrepass =
-      input.sectionId === "positioningVoiceOfCustomer"
+      input.sectionId === "positioningVoiceOfCustomer" &&
+      !shouldUsePreparedContext(deps)
         ? await buildVoiceOfCustomerCandidatePrepass({
             deps,
             input: { ...input, signal: voiceOfCustomerPrepassSignal.signal },
@@ -11645,7 +11860,7 @@ async function runSectionViaAnswerTool(
 
   const voiceOfCustomerPrepassSteps = voiceOfCustomerPrepass?.steps ?? [];
   const buyerPersonaPrepass =
-    input.sectionId === "positioningBuyerICP"
+    input.sectionId === "positioningBuyerICP" && !shouldUsePreparedContext(deps)
       ? await buildBuyerPersonaCandidatePrepass({ deps, input, researchInput })
       : undefined;
   if (buyerPersonaPrepass !== undefined) {
@@ -11654,8 +11869,9 @@ async function runSectionViaAnswerTool(
   }
   const buyerPersonaPrepassSteps = buyerPersonaPrepass?.steps ?? [];
   const brandedKeywordPrepass =
-    input.sectionId === "positioningDemandIntent" ||
-    input.sectionId === "positioningMarketCategory"
+    !shouldUsePreparedContext(deps) &&
+    (input.sectionId === "positioningDemandIntent" ||
+      input.sectionId === "positioningMarketCategory")
       ? await buildBrandedKeywordPrepass({
           deps,
           input,
@@ -11669,7 +11885,8 @@ async function runSectionViaAnswerTool(
   }
   const brandedKeywordPrepassSteps = brandedKeywordPrepass?.steps ?? [];
   const competitorReviewPrepass =
-    input.sectionId === "positioningCompetitorLandscape"
+    input.sectionId === "positioningCompetitorLandscape" &&
+    !shouldUsePreparedContext(deps)
       ? await buildCompetitorReviewPrepass({
           deps,
           input,
@@ -11683,7 +11900,8 @@ async function runSectionViaAnswerTool(
   }
   const competitorReviewPrepassSteps = competitorReviewPrepass?.steps ?? [];
   const subjectSiteObservationPrepass =
-    input.sectionId === "positioningOfferDiagnostic"
+    input.sectionId === "positioningOfferDiagnostic" &&
+    !shouldUsePreparedContext(deps)
       ? await buildSubjectSiteObservationPrepass({
           deps,
           input,
@@ -12210,6 +12428,7 @@ async function runSectionViaStructuredBodyStream(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
+  ensurePreparedSectionContext({ deps, input, record });
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -12334,7 +12553,8 @@ async function runSectionViaStructuredBodyStream(
     | undefined;
   try {
     voiceOfCustomerPrepass =
-      input.sectionId === "positioningVoiceOfCustomer"
+      input.sectionId === "positioningVoiceOfCustomer" &&
+      !shouldUsePreparedContext(deps)
         ? await buildVoiceOfCustomerCandidatePrepass({
             deps,
             input: { ...input, signal: voiceOfCustomerPrepassSignal.signal },
@@ -12416,7 +12636,7 @@ async function runSectionViaStructuredBodyStream(
   }
 
   const buyerPersonaPrepass =
-    input.sectionId === "positioningBuyerICP"
+    input.sectionId === "positioningBuyerICP" && !shouldUsePreparedContext(deps)
       ? await buildBuyerPersonaCandidatePrepass({ deps, input, researchInput })
       : undefined;
   if (buyerPersonaPrepass !== undefined) {
@@ -12425,8 +12645,9 @@ async function runSectionViaStructuredBodyStream(
   }
 
   const brandedKeywordPrepass =
-    input.sectionId === "positioningDemandIntent" ||
-    input.sectionId === "positioningMarketCategory"
+    !shouldUsePreparedContext(deps) &&
+    (input.sectionId === "positioningDemandIntent" ||
+      input.sectionId === "positioningMarketCategory")
       ? await buildBrandedKeywordPrepass({
           deps,
           input,
@@ -12440,7 +12661,8 @@ async function runSectionViaStructuredBodyStream(
   }
 
   const competitorReviewPrepass =
-    input.sectionId === "positioningCompetitorLandscape"
+    input.sectionId === "positioningCompetitorLandscape" &&
+    !shouldUsePreparedContext(deps)
       ? await buildCompetitorReviewPrepass({
           deps,
           input,
@@ -12454,7 +12676,8 @@ async function runSectionViaStructuredBodyStream(
   }
 
   const subjectSiteObservationPrepass =
-    input.sectionId === "positioningOfferDiagnostic"
+    input.sectionId === "positioningOfferDiagnostic" &&
+    !shouldUsePreparedContext(deps)
       ? await buildSubjectSiteObservationPrepass({
           deps,
           input,
@@ -13059,6 +13282,7 @@ export async function runSection(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
+  ensurePreparedSectionContext({ deps, input, record });
   // Gate is armed by default. LAB_VERIFIER_MAX_UNSUPPORTED can raise the
   // threshold for calibrated sections. Mirrors the answer-tool path.
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
@@ -13096,7 +13320,8 @@ export async function runSection(
   const toolEvents: ActivityEvent[] = [];
   const runEvidencePass = deps.runEvidencePass ?? defaultEvidencePassRunner;
   const toolBudget = new ToolBudget(definition.maxExternalLookups);
-  const researchTools = buildToolMap(getAllowedTools(definition, deps), {
+  const allowedTools = getAllowedTools(definition, deps);
+  const researchTools = buildToolMap(allowedTools, {
     budget: toolBudget,
     webSearchMaxUses: definition.maxExternalLookups,
   });
@@ -13125,9 +13350,7 @@ export async function runSection(
         readResearchInput: fixtureTools.readResearchInput,
         ...researchTools,
       },
-      requiredToolSequence: buildRequiredToolSequence(
-        getAllowedTools(definition, deps),
-      ),
+      requiredToolSequence: buildRequiredToolSequence(allowedTools),
       maxStepCount: 4,
       maxOutputTokens: 2048,
       signal: input.signal,
@@ -13158,7 +13381,8 @@ export async function runSection(
   }
 
   const adProbeSteps =
-    input.sectionId === "positioningCompetitorLandscape"
+    input.sectionId === "positioningCompetitorLandscape" &&
+    !shouldUsePreparedContext(deps)
       ? await runCompetitorAdProbeSteps({
           researchInput,
           researchTools,

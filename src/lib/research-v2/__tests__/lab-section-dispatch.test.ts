@@ -191,6 +191,7 @@ describe('scheduleLabSectionJob', () => {
     dispatchMocks.seedOrchestration.mockResolvedValue(seededRows());
     dispatchMocks.claimSectionRun.mockResolvedValue(claimResult('claimed'));
     dispatchMocks.store.createRun.mockResolvedValue({});
+    dispatchMocks.store.readRun.mockResolvedValue({ input: validResearchInput() });
     dispatchMocks.runLabSectionJob.mockResolvedValue(undefined);
   });
 
@@ -246,11 +247,52 @@ describe('scheduleLabSectionJob', () => {
         writeArtifactData: expect.any(Function),
       }),
       parentAuditRunId: PARENT_ID,
+      preparedContext: expect.objectContaining({
+        sectionId: SECTION_ID,
+        researchUseful: true,
+      }),
       runId: RUN_ID,
       sectionId: SECTION_ID,
       signal: expect.any(AbortSignal),
       store: dispatchMocks.store,
     });
+  });
+
+  it('prepares section context through the run store before the scheduled lab job runs', async () => {
+    const callbacks: Array<() => Promise<void>> = [];
+    const schedule = vi.fn((task: () => Promise<void>) => {
+      callbacks.push(task);
+    });
+
+    await scheduleLabSectionJob({
+      userId: USER_ID,
+      runId: RUN_ID,
+      sectionId: SECTION_ID,
+      zones: [SECTION_ID],
+      researchInput: validResearchInput(),
+      supabase: supabaseClient(),
+      schedule,
+    });
+
+    expect(dispatchMocks.store.readRun).toHaveBeenCalledWith(RUN_ID);
+    expect(dispatchMocks.runLabSectionJob).not.toHaveBeenCalled();
+
+    await runScheduled(callbacks);
+
+    expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preparedContext: expect.objectContaining({
+          sectionId: SECTION_ID,
+          corpusRows: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'excerpt_1',
+              sourceUrl: 'https://fellow.app',
+              scope: 'global',
+            }),
+          ]),
+        }),
+      }),
+    );
   });
 
   it('binds the run store to the claimed section_run_id when seed data is stale', async () => {
