@@ -14,6 +14,7 @@ import {
   scrubReaderText,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
+import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
 import {
   DataTable,
   MonoBadge,
@@ -303,6 +304,7 @@ export function BuyerICPRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
+        valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
       <KeyFindings findings={buyerKeyFindings(artifact)} />
       <IcpThesisCard artifact={artifact} />

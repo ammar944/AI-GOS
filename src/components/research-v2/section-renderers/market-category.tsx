@@ -17,6 +17,7 @@ import {
   type EvidenceChipSource,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
+import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
 import {
   DataTable,
   MonoBadge,
@@ -268,6 +269,7 @@ export function MarketCategoryRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
+        valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
       <KeyFindings findings={marketKeyFindings(artifact)} />
 

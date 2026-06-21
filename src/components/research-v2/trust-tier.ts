@@ -84,3 +84,72 @@ export function deriveTrustTier(
 export function trustTierDotClass(tone: TrustTierTone): string {
   return tone === 'caution' ? 'bg-amber-500' : 'bg-muted-foreground/40';
 }
+
+export type ValueReadinessLevel = 'rich' | 'adequate' | 'thin' | 'gap';
+
+export interface ValueReadinessBadge {
+  /** Strongest per-block readiness present, or null when none self-reported. */
+  leadReadiness: ValueReadinessLevel | null;
+  /** True when at least one block self-reports "rich" coverage. */
+  anyRich: boolean;
+  /** Count of committed blocks at each self-reported readiness level. */
+  blocksByReadiness: Record<ValueReadinessLevel, number>;
+}
+
+function isValueReadinessLevel(value: unknown): value is ValueReadinessLevel {
+  return (
+    value === 'rich' ||
+    value === 'adequate' ||
+    value === 'thin' ||
+    value === 'gap'
+  );
+}
+
+function readReadinessCount(
+  source: Record<string, unknown>,
+  level: ValueReadinessLevel,
+): number {
+  const raw = source[level];
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+}
+
+// Phase-1 keystone (read side): pull the per-block value-readiness rollup the
+// writer stamped into verifierSummary.computedTrust.valueReadiness. Null-tolerant
+// — legacy artifacts (no computedTrust / no valueReadiness key) return null and
+// the renderer shows nothing new. The split lets the hero surface a "rich" lead
+// block even when the section confidence headline is honestly low on one gap.
+export function deriveValueReadinessBadge(
+  verifierSummary: unknown,
+): ValueReadinessBadge | null {
+  if (typeof verifierSummary !== 'object' || verifierSummary === null) {
+    return null;
+  }
+  const computedTrust = (verifierSummary as Record<string, unknown>)
+    .computedTrust;
+  if (typeof computedTrust !== 'object' || computedTrust === null) {
+    return null;
+  }
+  const valueReadiness = (computedTrust as Record<string, unknown>)
+    .valueReadiness;
+  if (typeof valueReadiness !== 'object' || valueReadiness === null) {
+    return null;
+  }
+  const record = valueReadiness as Record<string, unknown>;
+  const blocksRecord =
+    typeof record.blocksByReadiness === 'object' &&
+    record.blocksByReadiness !== null
+      ? (record.blocksByReadiness as Record<string, unknown>)
+      : {};
+  return {
+    leadReadiness: isValueReadinessLevel(record.leadReadiness)
+      ? record.leadReadiness
+      : null,
+    anyRich: record.anyRich === true,
+    blocksByReadiness: {
+      rich: readReadinessCount(blocksRecord, 'rich'),
+      adequate: readReadinessCount(blocksRecord, 'adequate'),
+      thin: readReadinessCount(blocksRecord, 'thin'),
+      gap: readReadinessCount(blocksRecord, 'gap'),
+    },
+  };
+}

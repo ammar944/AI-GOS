@@ -30,4 +30,42 @@ describe('VerdictHero', () => {
     expect(screen.getByText(/depth is the wedge/i)).toBeInTheDocument();
     expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
+
+  it('surfaces a muted rich-count line when a block self-reports rich coverage', () => {
+    render(
+      <VerdictHero
+        verdict="Lead with integration depth"
+        valueReadiness={{
+          leadReadiness: 'rich',
+          anyRich: true,
+          blocksByReadiness: { rich: 2, adequate: 1, thin: 0, gap: 0 },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('verdict-hero-readiness')).toHaveTextContent(
+      '2 of 3 blocks fully evidenced',
+    );
+  });
+
+  it('renders no readiness line when no block is rich (or none provided)', () => {
+    const { rerender } = render(
+      <VerdictHero
+        verdict="Directional only"
+        valueReadiness={{
+          leadReadiness: 'adequate',
+          anyRich: false,
+          blocksByReadiness: { rich: 0, adequate: 2, thin: 1, gap: 0 },
+        }}
+      />,
+    );
+    expect(
+      screen.queryByTestId('verdict-hero-readiness'),
+    ).not.toBeInTheDocument();
+
+    rerender(<VerdictHero verdict="No readiness data" />);
+    expect(
+      screen.queryByTestId('verdict-hero-readiness'),
+    ).not.toBeInTheDocument();
+  });
 });

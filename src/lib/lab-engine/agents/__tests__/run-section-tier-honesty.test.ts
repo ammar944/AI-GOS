@@ -8,6 +8,7 @@ import type { SectionId } from '@/lib/lab-engine/events/activity-event';
 
 import {
   deriveDowngradeNeedsReview,
+  deriveValueReadiness,
   deriveWave2TrustConfidence,
   hasHonestEmptyCore,
 } from '../run-section';
@@ -181,6 +182,47 @@ describe('tier honesty trust derivation', (): void => {
     expect(trust?.honestEmptyCore).toBe(true);
     expect(trust?.claimSupportShare).toBe(0.9);
     expect(trust?.confidence).toBe(0.4);
+  });
+
+  it('keeps the 0.4 honest-empty-core confidence while value-readiness reports the rich lead block (Phase-1 split)', (): void => {
+    const body = {
+      competitorSet: {
+        competitors: [{ name: 'Brex' }],
+        coverage: { readiness: 'rich' },
+      },
+      voiceOfCustomer: {
+        blockGap: {
+          summary:
+            'Rows in this block were removed before publishing because their cited sources could not be verified live.',
+        },
+        slices: [],
+      },
+    };
+    const artifact = buildArtifact({
+      body,
+      sectionId: 'positioningCompetitorLandscape',
+      verification: buildVerificationReport({
+        unsupportedCount: 1,
+        verifiedCount: 9,
+      }),
+    });
+    const honestEmptyCore = hasHonestEmptyCore(body);
+    const trust = deriveWave2TrustConfidence({
+      artifact,
+      honestEmptyCore,
+      quoteForceEmptied: false,
+      sectionId: 'positioningCompetitorLandscape',
+      sourceLiveness: buildSourceLivenessResult(),
+    });
+    const valueReadiness = deriveValueReadiness(body);
+
+    // The honest gap still caps the groundingConfidence headline...
+    expect(honestEmptyCore).toBe(true);
+    expect(trust?.confidence).toBe(0.4);
+    // ...but the orthogonal per-block rollup surfaces the rich lead block.
+    expect(valueReadiness.leadReadiness).toBe('rich');
+    expect(valueReadiness.anyRich).toBe(true);
+    expect(valueReadiness.blocksByReadiness.rich).toBe(1);
   });
 
   it('treats small-N JS-walled containment failures as unknown instead of binding the confidence min', (): void => {

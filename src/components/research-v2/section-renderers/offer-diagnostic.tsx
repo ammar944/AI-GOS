@@ -13,6 +13,7 @@ import {
   type FunnelMathStep,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
+import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
 import { MonoBadge } from '@/components/research-v2/ui-kit';
 import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
@@ -158,6 +159,7 @@ export function OfferDiagnosticRenderer({
       <VerdictHero
         verdict={constraint?.constraint ?? artifact.verdict}
         whyItMatters={constraint?.unlockCondition ?? artifact.statusSummary}
+        valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
       <KeyFindings findings={offerKeyFindings(artifact)} />
 

@@ -23,6 +23,7 @@ import {
   type KeyFinding,
   type MilestoneItem,
 } from '@/components/research-v2/primitives';
+import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
 import {
   DataTable,
   MonoBadge,
@@ -488,6 +489,7 @@ export function PaidMediaPlanRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
+        valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
       <KeyFindings findings={paidMediaKeyFindings(body, artifact)} />
 

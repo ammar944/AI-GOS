@@ -4698,6 +4698,76 @@ export function hasHonestEmptyCore(value: unknown): boolean {
   return Object.values(record).some(hasHonestEmptyCore);
 }
 
+export type ValueReadinessLevel = "rich" | "adequate" | "thin" | "gap";
+
+export interface ValueReadiness {
+  /** Strongest per-block readiness present, or null when no block self-reports. */
+  leadReadiness: ValueReadinessLevel | null;
+  /** True when at least one block self-reports "rich" coverage. */
+  anyRich: boolean;
+  /** Count of blocks at each self-reported readiness level. */
+  blocksByReadiness: Record<ValueReadinessLevel, number>;
+}
+
+const VALUE_READINESS_LEVELS = [
+  "rich",
+  "adequate",
+  "thin",
+  "gap",
+] as const satisfies readonly ValueReadinessLevel[];
+
+function isValueReadinessLevel(value: unknown): value is ValueReadinessLevel {
+  return (
+    value === "rich" ||
+    value === "adequate" ||
+    value === "thin" ||
+    value === "gap"
+  );
+}
+
+// Phase-1 keystone: a per-block value-readiness rollup that is ORTHOGONAL to the
+// 0.4 groundingConfidence headline. A section can be honestly low-confidence on
+// one sibling gap (hasHonestEmptyCore) while its lead block is "rich" — this
+// surfaces that split so the renderer can show the strongest block instead of
+// reading the whole section as 40% confident. Reads coverage.readiness (the
+// model's honest self-report, blockCoverageSchema) across every block of the
+// post-reconcile committed body. Additive: it never touches confidence.
+export function deriveValueReadiness(value: unknown): ValueReadiness {
+  const blocksByReadiness: Record<ValueReadinessLevel, number> = {
+    rich: 0,
+    adequate: 0,
+    thin: 0,
+    gap: 0,
+  };
+
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    const record = getRecord(node);
+    if (record === null) {
+      return;
+    }
+    const coverage = getRecord(record.coverage);
+    if (coverage !== null && isValueReadinessLevel(coverage.readiness)) {
+      blocksByReadiness[coverage.readiness] += 1;
+    }
+    Object.values(record).forEach(walk);
+  };
+
+  walk(value);
+
+  const leadReadiness =
+    VALUE_READINESS_LEVELS.find((level) => blocksByReadiness[level] > 0) ?? null;
+
+  return {
+    leadReadiness,
+    anyRich: blocksByReadiness.rich > 0,
+    blocksByReadiness,
+  };
+}
+
 function isJsWalledContainmentUrl(sourceUrl: string): boolean {
   const registrableDomain = getRegistrableDomain(sourceUrl);
 
@@ -5527,6 +5597,7 @@ async function annotateEvidenceSupportReview({
                 ? { networkUnavailable: true }
                 : {}),
               quoteForceEmptied: trust.quoteForceEmptied,
+              valueReadiness: deriveValueReadiness(sectionEnriched),
             },
           }),
     },

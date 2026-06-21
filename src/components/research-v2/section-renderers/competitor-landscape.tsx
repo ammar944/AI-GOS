@@ -23,6 +23,7 @@ import {
   type KeyFinding,
   type Positioning2x2Point,
 } from '@/components/research-v2/primitives';
+import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
 import {
   DataTable,
   MonoBadge,
@@ -473,6 +474,7 @@ export function CompetitorLandscapeRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
+        valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
       <KeyFindings findings={competitorKeyFindings(artifact)} />
 

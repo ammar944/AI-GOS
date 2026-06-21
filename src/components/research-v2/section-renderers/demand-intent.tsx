@@ -18,6 +18,7 @@ import {
   scrubReaderText,
   type KeyFinding,
 } from '@/components/research-v2/primitives';
+import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
 import type {
   KeywordVolumeChartProps,
   KeywordVolumeDatum,
@@ -303,6 +304,7 @@ export function DemandIntentRenderer({
       <VerdictHero
         verdict={artifact.verdict}
         whyItMatters={artifact.statusSummary}
+        valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
       <KeyFindings findings={demandKeyFindings(artifact)} />
 
