@@ -3180,6 +3180,40 @@ function isVoiceOfCustomerCandidateFloorGap(reason: string): boolean {
   );
 }
 
+// §4.2: stamp evidenceTier='directional_signal' on every quote-bearing row of a
+// VoC body. Used when the directional-pack fallback promoted review-page (non-
+// permalink) quotes into the synthesis commit — the honest badge that these are
+// directional buyer signal, not independently-verified verbatim VoC. Claim-inert
+// (enum field only); never touches verbatimText, so verification is unaffected.
+// Only fills an absent tier — never downgrades a row that already declares one.
+export function stampDirectionalVoiceOfCustomerEvidenceTier(
+  body: Record<string, unknown>,
+): void {
+  const surfaces: ReadonlyArray<readonly [string, string]> = [
+    ["painLanguage", "quotes"],
+    ["successLanguage", "quotes"],
+    ["objections", "items"],
+    ["switchingStories", "stories"],
+    ["decisionCriteria", "criteria"],
+  ];
+  for (const [blockKey, itemsKey] of surfaces) {
+    const block = getRecord(body[blockKey]);
+    if (block === null) {
+      continue;
+    }
+    const items = block[itemsKey];
+    if (!Array.isArray(items)) {
+      continue;
+    }
+    for (const item of items) {
+      const row = getRecord(item);
+      if (row !== null && row.evidenceTier === undefined) {
+        row.evidenceTier = "directional_signal";
+      }
+    }
+  }
+}
+
 // Synthesis gaps whose captured candidate pack is SAFE to surface as honest-gap
 // evidence (low-confidence, evidenceGap=true). A `validation_failed` pack has
 // already cleared the self_sourced_candidate integrity gate (synthesis returns
@@ -3933,6 +3967,15 @@ function buildVoiceOfCustomerDeterministicSynthesisArtifact({
     ...synthesis.output,
     body: dedupedBody,
   };
+  // §4.2: when the pack reached synthesis via the directional fallback, the
+  // promoted quotes are trusted-host review-page extracts (no per-review
+  // permalink). Stamp evidenceTier='directional_signal' on the quote-bearing rows
+  // so the reader sees review-sourced directional signal, never independently-
+  // verified verbatim VoC. Claim-inert (enum only) — verbatimText and the
+  // verification below are untouched; strategicInsight / fourForces stay intact.
+  if (voiceOfCustomerPrepass.directionalFallback) {
+    stampDirectionalVoiceOfCustomerEvidenceTier(output.body);
+  }
   const verification = verifySectionBody({
     body: output.body,
     evidenceSteps: voiceOfCustomerPrepass.steps,
@@ -9314,6 +9357,10 @@ interface VoiceOfCustomerCandidatePrepass {
   // (relabeled directional), instead of collapsing to a single permalinked
   // domain. The commit path still uses the strict pool.
   directionalCandidates: VoiceOfCustomerCandidate[];
+  // §4.2: true when the strict pack failed on the permalink-only floor gap and
+  // the directional pool was promoted into the SYNTHESIS pack (quotes badged
+  // directional_signal). The synthesis-fallback reads this to stamp the tier.
+  directionalFallback: boolean;
   events: ActivityEvent[];
   result: VoiceOfCustomerCandidateResult;
   steps: AgentStep[];
@@ -10491,6 +10538,26 @@ async function buildVoiceOfCustomerCandidatePrepass({
     }
   }
 
+  // §4.2 directional-pack fallback: when the strict pack failed ONLY because the
+  // trusted-host review quotes lack a per-review permalink (the permalink-driven
+  // floor gap), promote the directional pool into the SYNTHESIS pack so the
+  // section commits a real grounded body (quotes badged directional_signal in the
+  // synthesis-fallback) instead of the evidence-gap apology. The directional pool
+  // already excludes subject-domain / chrome / not-human-voice quotes
+  // (isDirectionalAdmissibleQuote keeps those reasons fatal) — only the lone
+  // permalink reason is tolerated on trusted hosts — so the truth floor is
+  // unchanged. No-op when the strict pack already succeeded.
+  let directionalFallback = false;
+  if (!result.ok && isVoiceOfCustomerCandidateFloorGap(result.gap.reason)) {
+    const directionalResult = selectVoiceOfCustomerCandidates(
+      getDirectionalVoiceOfCustomerCandidates({ candidates, subjectDomain }),
+    );
+    if (directionalResult.ok) {
+      result = directionalResult;
+      directionalFallback = true;
+    }
+  }
+
   const usableCandidates = getAdmissibleVoiceOfCustomerCandidates({
     candidates,
     subjectDomain,
@@ -10534,6 +10601,7 @@ async function buildVoiceOfCustomerCandidatePrepass({
     ].join("\n\n"),
     classCandidates,
     directionalCandidates,
+    directionalFallback,
     events,
     result,
     steps,

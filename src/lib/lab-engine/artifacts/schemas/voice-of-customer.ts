@@ -351,11 +351,13 @@ function hasBlockGap(block: { blockGap?: unknown }): boolean {
 }
 
 function getSourceKey(sourceUrl: string, fallback: string): string {
-  try {
-    return new URL(sourceUrl).hostname.replace(/^www\./, "");
-  } catch {
-    return fallback;
-  }
+  // §4.2 defensive hardening: collapse subdomain variants (ca.trustpilot.com →
+  // trustpilot.com) so the schema painSourceCount floor counts the same
+  // registrable domains the synthesis counter (uniqueDomains, already on
+  // getRegistrableDomain) does — a future subdomain-bearing directional pack
+  // can't pass synthesis then trip this floor. getRegistrableDomain returns null
+  // on unparseable input, so the fallback still covers the old catch branch.
+  return getRegistrableDomain(sourceUrl) ?? fallback;
 }
 
 function getOrderedUniqueSourceKeys(

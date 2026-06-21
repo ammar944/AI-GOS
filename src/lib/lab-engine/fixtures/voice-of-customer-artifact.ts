@@ -63,7 +63,14 @@ export const voiceOfCustomerFixtureArtifact = artifactEnvelopeSchema
         quotes: Array.from({ length: 10 }, (_, index) => ({
           verbatimText: `We keep losing track of the next best account action ${index + 1}.`,
           source: index % 3 === 0 ? "g2" : index % 3 === 1 ? "reddit" : "other",
-          sourceUrl: `https://voc-source-${(index % 3) + 1}.example.com/pain/${index + 1}`,
+          // Three DISTINCT registrable domains (not subdomains of one host) so
+          // painSourceCount counts 3 independent sources under getRegistrableDomain.
+          sourceUrl:
+            index % 3 === 0
+              ? `https://www.g2.com/reviews/pain/${index + 1}`
+              : index % 3 === 1
+                ? `https://www.reddit.com/r/saas/pain/${index + 1}`
+                : `https://www.trustpilot.com/review/pain/${index + 1}`,
           painTheme: index % 2 === 0 ? "follow-up chaos" : "account context loss",
           painIntensity: index % 2 === 0 ? "high" : "medium",
         })),

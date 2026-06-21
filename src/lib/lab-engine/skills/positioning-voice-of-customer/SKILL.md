@@ -2,8 +2,8 @@
 name: positioning-voice-of-customer
 description: Use this skill when AI-GOS needs to extract honest buyer language, objections, switching stories, decision criteria, and success language from sourced customer evidence.
 metadata:
-  version: 3.2.0-lab
-  updated: 2026-06-16
+  version: 3.2.1-lab
+  updated: 2026-06-22
   author: AI-GOS
   category: GTM/positioning-audit
   tags: [voice-of-customer, jtbd, objections, reviews, gtm]
@@ -51,6 +51,7 @@ When admissible quotes fall short, record the discovery trail in `body.evidenceG
 - Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally; never restate one as a number you discovered or verified.
 - A `verbatimText` field must contain human-authored text from the cited source, not company marketing copy or journalist prose.
 - If the run does not retrieve admissible quotes, use blockGap plus `retrievalSummary` instead of inventing.
+- Review-page (non-permalink) quotes from trusted review hosts are admissible DIRECTIONAL buyer signal: carry them with `evidenceTier: directional_signal` (review-sourced), never relabel a real quote pool into a section-wide evidence-gap apology, and never present a review-page extract as independently-verified verbatim VoC. The four-forces verdict and strategic verdict are DERIVED inference layered on those quotes — a planner read, not buyer-stated language; frame them as such.
 - Objections, decision criteria, switching stories, and success language are evidence blocks, not quota slots.
 - Lead with `keyFindings` when evidence supports 3-5 language truths.
 - The downstream SaaSLaunch paid-media plan draws its Creative Framework hooks and Competitor-Reviews insights from `body.painLanguage.quotes` and `body.objections.items`. A synthesized paid-media row may cite this section only when `sufficiency.tier` is not `insufficient`; a thin VoC hands down honest gaps the plan shows as gaps, never quotes the plan would launder into creative.
