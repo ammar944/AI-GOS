@@ -9,13 +9,17 @@
  * empty vs what the handoff claims.
  *
  * No browser, no Clerk, no Supabase writes. Filesystem RunStore only.
- * Real model + real tools (Firecrawl/SpyFu/Perplexity/SearchAPI/Reviews) by
- * default; --corpus-only disables live tools so you can validate the plumbing
- * with zero tool keys in seconds.
+ *
+ * SAFETY DEFAULT (P4): corpus-only (FREE, no paid tools) UNLESS --live is passed.
+ * Paid live runs are gated by a budget ledger (tmp/zz-full-run/_budget.json):
+ * --max-runs (default 3 live runs) and --max-spend-usd (default $6) abort before
+ * any paid call once the ceiling is hit. Drop a tmp/zz-full-run/_ABORT file to
+ * hard-halt any loop immediately.
  *
  * Usage:
- *   npx tsx scripts/zz-full-run-harness.ts                       # Ramp, live tools
- *   npx tsx scripts/zz-full-run-harness.ts --corpus-only          # Ramp, no live tools (fast smoke)
+ *   npx tsx scripts/zz-full-run-harness.ts                       # Ramp, corpus-only (FREE, default)
+ *   npx tsx scripts/zz-full-run-harness.ts --live                 # Ramp, LIVE paid tools (budget-gated)
+ *   npx tsx scripts/zz-full-run-harness.ts --live --max-runs 1     # one paid run, then abort
  *   npx tsx scripts/zz-full-run-harness.ts --subject fathom        # Fathom (needs frozen corpus)
  *   npx tsx scripts/zz-full-run-harness.ts --sections positioningBuyerICP   # run one section only
  *
@@ -23,6 +27,7 @@
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvConfig } from "@next/env";
 import { randomUUID } from "node:crypto";
@@ -59,8 +64,69 @@ function readFlag(args: string[], name: string): string | null {
 
 const args = process.argv.slice(2);
 const subject = readFlag(args, "subject") ?? "ramp";
-const corpusOnly = args.includes("--corpus-only");
+// SAFETY DEFAULT (P4): corpus-only (FREE, no paid tools) UNLESS --live is
+// explicitly passed. An unsupervised actor that runs the harness with no flags
+// must NOT trigger ~40 paid calls. --corpus-only is still accepted and WINS if
+// both flags are present (safety beats live).
+const live = args.includes("--live");
+const corpusOnly = args.includes("--corpus-only") || !live;
 const sectionsArg = readFlag(args, "sections");
+
+// Budget / abort guardrails (P4). The repo rule is "paid APIs never loop without
+// an abort condition"; this is that condition, in code.
+const ABORT_FILE = join(process.cwd(), "tmp", "zz-full-run", "_ABORT");
+const BUDGET_FILE = join(process.cwd(), "tmp", "zz-full-run", "_budget.json");
+const EST_LIVE_COST_USD = 1.5; // ~one full live deck (≈40 paid calls)
+const EST_LIVE_CALLS = 40;
+const maxRuns = Number(readFlag(args, "max-runs") ?? "3"); // live-run ceiling (per ledger)
+const maxSpendUsd = Number(readFlag(args, "max-spend-usd") ?? "6"); // est-spend ceiling (USD)
+
+interface BudgetLedger {
+  runs: Array<{ runId: string; startedAt: string; mode: string; estCalls: number; estCostUsd: number }>;
+  totalRuns: number;
+  totalLiveRuns: number;
+  totalEstCostUsd: number;
+}
+
+// Hard kill-switch + spend ceiling. Runs BEFORE any model/tool call. A live run
+// is appended to the ledger at START so a crashed run still counts toward spend
+// (fail-safe toward NOT spending). Corpus-only runs are free and never blocked.
+async function enforceBudgetOrAbort(runId: string): Promise<void> {
+  if (existsSync(ABORT_FILE)) {
+    console.error(`[harness] 🛑 ABORT file present (${ABORT_FILE}) — refusing to run. Delete it to resume.`);
+    process.exit(1);
+  }
+  let ledger: BudgetLedger = { runs: [], totalRuns: 0, totalLiveRuns: 0, totalEstCostUsd: 0 };
+  try {
+    ledger = { ...ledger, ...JSON.parse(await readFile(BUDGET_FILE, "utf8")) };
+  } catch {
+    // no ledger yet — first run.
+  }
+  const estCost = corpusOnly ? 0 : EST_LIVE_COST_USD;
+  const estCalls = corpusOnly ? 0 : EST_LIVE_CALLS;
+  if (!corpusOnly) {
+    if (ledger.totalLiveRuns >= maxRuns) {
+      console.error(
+        `[harness] 🛑 BUDGET ABORT: ${ledger.totalLiveRuns} live runs already logged ≥ --max-runs ${maxRuns}. No paid run. Raise --max-runs or reset ${BUDGET_FILE}.`,
+      );
+      process.exit(1);
+    }
+    if (ledger.totalEstCostUsd + estCost > maxSpendUsd) {
+      console.error(
+        `[harness] 🛑 BUDGET ABORT: est $${(ledger.totalEstCostUsd + estCost).toFixed(2)} would exceed --max-spend-usd $${maxSpendUsd}. No paid run.`,
+      );
+      process.exit(1);
+    }
+  }
+  ledger.runs.push({ runId, startedAt: new Date().toISOString(), mode: corpusOnly ? "corpus-only" : "live", estCalls, estCostUsd: estCost });
+  ledger.totalRuns += 1;
+  ledger.totalLiveRuns += corpusOnly ? 0 : 1;
+  ledger.totalEstCostUsd = +(ledger.totalEstCostUsd + estCost).toFixed(2);
+  await writeFile(BUDGET_FILE, JSON.stringify(ledger, null, 2), "utf8");
+  console.log(
+    `[harness] budget: live ${ledger.totalLiveRuns}/${maxRuns} runs  ·  est spend $${ledger.totalEstCostUsd}/${maxSpendUsd}  ·  this run: ${corpusOnly ? "FREE (corpus-only)" : `~$${estCost} (~${estCalls} paid calls)`}`,
+  );
+}
 const requestedSections = sectionsArg
   ? sectionsArg.split(",").map((s) => s.trim())
   : null;
@@ -184,11 +250,14 @@ async function main(): Promise<void> {
   const outDir = join(process.cwd(), "tmp", "zz-full-run", runId);
   await mkdir(outDir, { recursive: true });
 
+  // P4 — hard budget/abort gate BEFORE any paid work.
+  await enforceBudgetOrAbort(runId);
+
   console.log("=".repeat(72));
   console.log(`AI-GOS FULL-RUN HARNESS`);
   console.log(`  subject:    ${subject}  (${subjectDir})`);
   console.log(`  runId:      ${runId}`);
-  console.log(`  corpusOnly: ${corpusOnly}`);
+  console.log(`  mode:       ${corpusOnly ? "corpus-only (FREE — default; pass --live for paid tools)" : "LIVE (paid tools enabled via --live)"}`);
   console.log(`  model:      ${process.env.LAB_ENGINE_PROVIDER ?? "(default)"}`);
   console.log(`  liveTools:  ${corpusOnly ? "OFF" : "ON (Firecrawl/SpyFu/Perplexity/SearchAPI/Reviews)"}`);
   console.log("=".repeat(72));

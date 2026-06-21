@@ -16,7 +16,7 @@
     "test": "vitest",
     "test:run": "NODE_ENV=test vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:gate": "node --test scripts/zz-buyer-eval.checks.test.mjs scripts/zz-judge-run.gate.test.mjs scripts/zz-release-gate.gate.test.mjs scripts/zz-saaslaunch-coverage-eval.checks.test.mjs"
+    "test:gate": "node --test scripts/zz-buyer-eval.checks.test.mjs scripts/zz-judge-run.gate.test.mjs scripts/zz-release-gate.gate.test.mjs scripts/zz-saaslaunch-coverage-eval.checks.test.mjs scripts/zz-value-read.gate.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",

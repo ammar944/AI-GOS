@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIGOS — Value-First Rescope Status</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141925; --panel2:#1b2230; --line:#28324a;
+    --ink:#e6ebf5; --muted:#8593ad; --faint:#5c6883;
+    --good:#33d69f; --ok:#7bc96f; --warn:#f0b429; --bad:#f0506e; --dead:#5c6883;
+    --accent:#5b8def; --accent2:#a06bf0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:0 0 80px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#161d2e 0%,#10141f 60%);
+    border-bottom:1px solid var(--line);padding:34px 0 30px;margin-bottom:30px}
+  h1{margin:0 0 6px;font-size:27px;letter-spacing:-.4px}
+  h1 .v{color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px}
+  .meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    padding:4px 11px;border-radius:20px;font-size:12px}
+  .chip b{color:var(--ink);font-weight:600}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--faint);
+    margin:38px 0 16px;font-weight:700;display:flex;align-items:center;gap:10px}
+  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  .grid{display:grid;gap:14px}
+  .stats{grid-template-columns:repeat(4,1fr);margin-bottom:6px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px}
+  .stat .n{font-size:30px;font-weight:700;letter-spacing:-.5px}
+  .stat .l{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .stat .n.g{color:var(--good)} .stat .n.w{color:var(--warn)} .stat .n.b{color:var(--bad)} .stat .n.a{color:var(--accent)}
+
+  /* section health bars */
+  .sec{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:13px 16px;margin-bottom:9px;display:grid;grid-template-columns:200px 1fr 92px;
+    align-items:center;gap:16px}
+  .sec .name{font-weight:600;font-size:14.5px}
+  .sec .name small{display:block;color:var(--faint);font-weight:400;font-size:11.5px;margin-top:2px}
+  .track{height:11px;background:#0d1119;border-radius:6px;overflow:hidden;position:relative;border:1px solid #222b40}
+  .fill{height:100%;border-radius:6px}
+  .verdict{text-align:right;font-size:12px;font-weight:600}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.3px}
+  .t-good{background:rgba(51,214,159,.13);color:var(--good)}
+  .t-warn{background:rgba(240,180,41,.13);color:var(--warn)}
+  .t-bad{background:rgba(240,80,110,.14);color:var(--bad)}
+  .scoreN{font-size:16px;font-weight:700;margin-bottom:2px}
+
+  .two{grid-template-columns:1fr 1fr}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .card.have{border-color:rgba(51,214,159,.3)}
+  .card.gap{border-color:rgba(240,80,110,.28)}
+  .card h3{margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .card.have h3{color:var(--good)} .card.gap h3{color:var(--bad)}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+  .row:first-of-type{border-top:0}
+  .row .k{color:var(--ink)} .row .k small{color:var(--faint);display:block;font-size:11px}
+  .row .v{color:var(--muted);text-align:right;white-space:nowrap;font-size:12px}
+  .pill{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
+  .pill.hard{background:rgba(91,141,239,.16);color:#8fb3ff}
+  .pill.dir{background:rgba(240,180,41,.14);color:var(--warn)}
+  .pill.live{background:rgba(160,107,240,.16);color:#c4a3f5}
+  .arrow{color:var(--faint);font-weight:400;margin:0 3px}
+  .ceil{font-size:11px;font-weight:700;color:var(--ok)}
+
+  /* diagnosis layers */
+  .layer{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin-bottom:10px;display:grid;grid-template-columns:30px 1fr;gap:14px}
+  .layer .lid{font-size:19px;font-weight:800;color:var(--faint);text-align:center}
+  .layer.key{border-color:var(--accent2);background:linear-gradient(180deg,rgba(160,107,240,.07),transparent)}
+  .layer.key .lid{color:var(--accent2)}
+  .layer .lt{font-weight:700;font-size:14px;margin-bottom:3px}
+  .layer .ld{color:var(--muted);font-size:13px}
+  .layer code{background:#0d1119;border:1px solid #222b40;border-radius:5px;padding:1px 6px;font-size:12px;color:#9fb4d6}
+  .keybadge{font-size:9.5px;font-weight:800;letter-spacing:.5px;color:#0b0e14;background:var(--accent2);padding:2px 7px;border-radius:10px;margin-left:8px;vertical-align:middle}
+
+  /* phase timeline */
+  .phase{display:grid;grid-template-columns:34px 1fr auto;gap:14px;align-items:start;
+    padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+  .dot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;margin-top:1px}
+  .dot.done{background:var(--good);color:#06251b}
+  .dot.now{background:var(--accent);color:#06183d;box-shadow:0 0 0 4px rgba(91,141,239,.18)}
+  .dot.next{background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+  .phase .pt{font-weight:700;font-size:14px}
+  .phase .pd{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .phase .ps{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;margin-top:2px}
+  .ps.done{background:rgba(51,214,159,.13);color:var(--good)}
+  .ps.now{background:rgba(91,141,239,.16);color:#8fb3ff}
+  .ps.next{background:var(--panel2);color:var(--faint)}
+
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent2);
+    border-radius:8px;padding:13px 16px;color:var(--muted);font-size:13px;margin-top:6px}
+  .note b{color:var(--ink)}
+  ol.dec{counter-reset:d;list-style:none;padding:0;margin:0}
+  ol.dec li{counter-increment:d;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:11px 16px 11px 46px;position:relative;margin-bottom:7px;font-size:13px;color:var(--muted)}
+  ol.dec li::before{content:counter(d);position:absolute;left:14px;top:11px;width:20px;height:20px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;
+    font-size:11px;font-weight:700;color:var(--accent)}
+  ol.dec li b{color:var(--ink)}
+  footer{color:var(--faint);font-size:12px;margin-top:40px;border-top:1px solid var(--line);padding-top:18px}
+  @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}.sec{grid-template-columns:1fr;gap:8px}.verdict{text-align:left}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>AIGOS — <span class="v">Value-First Rescope</span> · Status</h1>
+    <div class="sub">Where the 7-section research deck stands, and the path to "yeah man, this is actually really good."</div>
+    <div class="meta">
+      <span class="chip">📅 <b>2026-06-20</b></span>
+      <span class="chip">branch <b>refactor/architecture-deepening</b></span>
+      <span class="chip">subject <b>Ramp</b> · harness-ramp-2e3adf77</span>
+      <span class="chip">plan source <b>Fusion · opus4.8-gpt5.5</b></span>
+      <span class="chip">build phase <b>Phase 0 COMPLETE · per-section build next</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div style="margin:22px 0 4px;padding:18px 20px;border:1px solid #1f7a4d;border-radius:12px;background:linear-gradient(180deg,rgba(31,122,77,.16),rgba(31,122,77,.05))">
+    <div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#5fd49a;font-weight:700">✅ Phase 0 EXECUTED — 2026-06-21 — autonomous-handoff verdict flips 🔴 NO-GO → 🟢 GO (supervised model)</div>
+    <div style="margin-top:10px;color:#cfe9da;font-size:14.5px;line-height:1.55">The safety infra that blocked autonomous execution is <b>built &amp; proven</b>. The loop now has a terminator + brake.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px">
+      <div style="padding:10px 12px;border:1px solid #2a3b33;border-radius:9px;background:#0f1714"><b style="color:#7fe3ab">P1 · value-read gate</b><br><span style="color:#9fb3aa;font-size:13px"><code>scripts/zz-value-read.mjs</code> — deterministic ceiling (absent→2, fabrication→4, unsupported→7, clean→9) × LLM read; <code>min(llm,ceiling)</code>.</span></div>
+      <div style="padding:10px 12px;border:1px solid #2a3b33;border-radius:9px;background:#0f1714"><b style="color:#7fe3ab">P2 · calibrated</b><br><span style="color:#9fb3aa;font-size:13px">reproduces human Ramp read — maxErr 1.0, meanErr 0.29, 7/7 coverage. Absolute-bar mode proven on a fresh deck.</span></div>
+      <div style="padding:10px 12px;border:1px solid #2a3b33;border-radius:9px;background:#0f1714"><b style="color:#7fe3ab">P4 · budget kill-switch</b><br><span style="color:#9fb3aa;font-size:13px">harness default → corpus-only; <code>--live</code> budget-gated + <code>_ABORT</code> file. Aborts before spend.</span></div>
+      <div style="padding:10px 12px;border:1px solid #2a3b33;border-radius:9px;background:#0f1714"><b style="color:#7fe3ab">P5 · plan fixes</b><br><span style="color:#9fb3aa;font-size:13px">§4.1 key fixed; <b>§4.3 "$13B trap" DEBUNKED</b> (it's corpus-grounded, 24 ledger facts).</span></div>
+      <div style="padding:10px 12px;border:1px solid #2a3b33;border-radius:9px;background:#0f1714"><b style="color:#7fe3ab">P3 · floor (revised)</b><br><span style="color:#9fb3aa;font-size:13px">naive ledger gate would FALSE-POSITIVE (Demand's 19 SpyFu rows 0% ledger-backed) → reuse verifier verdict.</span></div>
+      <div style="padding:10px 12px;border:1px solid #2a3b33;border-radius:9px;background:#0f1714"><b style="color:#7fe3ab">red-team · 4 holes fixed</b><br><span style="color:#9fb3aa;font-size:13px">count-blind clean→10, string counts, Ramp-hardcoded gate, section-omission gaming — all closed. 113/113 tests, tsc 0.</span></div>
+    </div>
+    <div style="margin-top:12px;color:#c9a96a;font-size:13px;line-height:1.5"><b style="color:#e0bf7a">⚠ Honest boundary:</b> the deterministic floor catches <i>structured</i> laundering (numbers/URLs/quotes/gate-violations) but is blind to prose fabrication, wrong-company quote attribution, and token-subset entity matches — the LLM read is the only net there. Keep a human spot-check on value-jumps; add a 2nd archetype anchor before fully trusting cross-corpus scores.</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- SUMMARY -->
+  <div class="grid stats">
+    <div class="stat"><div class="n g">2<span style="font-size:18px;color:var(--faint)">/7</span></div><div class="l">sections valuable today</div></div>
+    <div class="stat"><div class="n a">7<span style="font-size:18px;color:var(--faint)">/7</span></div><div class="l">target · honest 7.5–9 ceiling</div></div>
+    <div class="stat"><div class="n w">2754</div><div class="l">tests green · tsc clean</div></div>
+    <div class="stat"><div class="n">$1<span style="font-size:18px;color:var(--faint)">/run</span></div><div class="l">paid harness · no loops</div></div>
+  </div>
+  <div class="note"><b>Reading:</b> The offline harness works, but the committed deck is <b>NOT a clean 7/7</b> — a 17-agent verification workflow proved it's <b>6/7 committed + Competitor hard-failed</b>, and the overall gate is <b>BLOCKED</b> (2 Paid-Media <code>token-not-in-ledger</code> violations). Only <b>Offer</b> and <b>Demand</b> read as valuable. The other 5 are honest-but-empty because the schema demands data Ramp (and most SaaS) never publishes. The fix is schema + floor + ordering work, not new acquisition tooling.</div>
+
+  <!-- VERIFIED FINAL-STRETCH PANEL -->
+  <h2>Final-stretch verification · 17-agent workflow · 28 min</h2>
+  <div class="grid two" style="margin-bottom:14px">
+    <div class="card" style="border-color:rgba(240,180,41,.3)">
+      <h3 style="color:var(--warn)">⚠ What the adversarial pass caught</h3>
+      <div class="row"><div class="k">"9/10 for every section" is <b>not honestly reachable</b><small>only Demand can hit 9 on real data; the rest cap at 7.5–8</small></div></div>
+      <div class="row"><div class="k">Keyword / ad / review data is <b>live-tool-fetched, not in the frozen corpus</b><small>"live-tool-fragile" — can starve under 6-way fan-out</small></div></div>
+      <div class="row"><div class="k">Offer's 8→9 thesis was a <b>fabrication</b><small>"zero non-branded demand" contradicted its OWN 13 SpyFu commercial keywords</small></div></div>
+      <div class="row"><div class="k">Competitor "publicWeaknesses = gap" was <b>wrong</b><small>2 real Brex G2 complaint quotes w/ permalinks already in the artifact</small></div></div>
+      <div class="row"><div class="k">VoC "12 quotes / 4 domains" was <b>inflated</b><small>painLanguage really has 6 quotes / 3 domains</small></div></div>
+    </div>
+    <div class="card" style="border-color:rgba(51,214,159,.3)">
+      <h3 style="color:var(--good)">✓ Verified honest ceilings</h3>
+      <div class="row"><div class="k">Demand &amp; Intent</div><div class="v" style="color:var(--good);font-weight:700">7.5 → 9 ✓ the clean 9</div></div>
+      <div class="row"><div class="k">Offer Diagnostic</div><div class="v" style="color:var(--ok);font-weight:700">8 → 8 (honest reframe)</div></div>
+      <div class="row"><div class="k">Paid Media Plan</div><div class="v" style="color:var(--ok);font-weight:700">5 → 8</div></div>
+      <div class="row"><div class="k">Market &amp; Category</div><div class="v" style="color:var(--ok);font-weight:700">3 → 8</div></div>
+      <div class="row"><div class="k">Voice of Customer</div><div class="v" style="color:var(--ok);font-weight:700">2 → 8</div></div>
+      <div class="row"><div class="k">Competitor Landscape</div><div class="v" style="color:var(--ok);font-weight:700">0 → 8</div></div>
+      <div class="row"><div class="k">Buyer &amp; ICP</div><div class="v" style="color:var(--warn);font-weight:700">5.5 → 7.5 (verifier-capped)</div></div>
+    </div>
+  </div>
+  <div class="note" style="border-left-color:var(--good)"><b>The honest answer to "9/10 everywhere":</b> a deck of <b>1 section at 9, 5 at 8, 1 at 7.5</b> — every number traced to a real ledger row, zero laundering. That's "2/7 valuable → 7/7 genuinely good." An honest 8 with amber-labeled gaps beats a laundered 9. <b>QA baseline GREEN:</b> tsc 0 errors · 2754 tests pass · tree clean.</div>
+
+  <!-- SECTION HEALTH -->
+  <h2>Current deck health · human-judged read</h2>
+
+  <div class="sec">
+    <div class="name">Offer Diagnostic <small>5 proof points · 3 funnel breaks · binding constraint</small></div>
+    <div class="track"><div class="fill" style="width:80%;background:linear-gradient(90deg,#2bb98a,#33d69f)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--good)">8.0 <span class="arrow">→</span><span class="ceil">8</span></div><span class="tag t-good">VALUABLE</span></div>
+  </div>
+  <div class="sec">
+    <div class="name">Demand Intent <small>19 SpyFu keywords · the branded/category/adjacent triangle</small></div>
+    <div class="track"><div class="fill" style="width:75%;background:linear-gradient(90deg,#2bb98a,#33d69f)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--good)">7.5 <span class="arrow">→</span><span class="ceil">9</span></div><span class="tag t-good">VALUABLE</span></div>
+  </div>
+  <div class="sec">
+    <div class="name">Buyer ICP <small>4 sharp triggers + firmographics, but persona floor forces thin output</small></div>
+    <div class="track"><div class="fill" style="width:55%;background:linear-gradient(90deg,#caa12f,#f0b429)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--warn)">5.5 <span class="arrow">→</span><span class="ceil" style="color:var(--warn)">7.5</span></div><span class="tag t-warn">BORDERLINE</span></div>
+  </div>
+  <div class="sec">
+    <div class="name">Paid Media Plan <small>sound frame, but 19 evidencePacks = gap vs 1 grounded</small></div>
+    <div class="track"><div class="fill" style="width:50%;background:linear-gradient(90deg,#caa12f,#f0b429)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--warn)">5.0 <span class="arrow">→</span><span class="ceil">8</span></div><span class="tag t-warn">CAVEAT-LADEN</span></div>
+  </div>
+  <div class="sec">
+    <div class="name">Market Category <small>correct but generic — TAM is a permanent gap, leads with the gap</small></div>
+    <div class="track"><div class="fill" style="width:30%;background:linear-gradient(90deg,#c8425c,#f0506e)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--bad)">3.0 <span class="arrow">→</span><span class="ceil">8</span></div><span class="tag t-bad">NOT YET</span></div>
+  </div>
+  <div class="sec">
+    <div class="name">Voice of Customer <small>12 real quotes exist, but flagged "insufficient" for missing permalinks</small></div>
+    <div class="track"><div class="fill" style="width:20%;background:linear-gradient(90deg,#c8425c,#f0506e)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--bad)">2.0 <span class="arrow">→</span><span class="ceil">8</span></div><span class="tag t-bad">NOT YET</span></div>
+  </div>
+  <div class="sec">
+    <div class="name">Competitor Landscape <small>gate-failed on a decode bug (empty url strings) — NOT the data</small></div>
+    <div class="track"><div class="fill" style="width:8%;background:repeating-linear-gradient(45deg,#3a2530,#3a2530 6px,#2a1a22 6px,#2a1a22 12px)"></div></div>
+    <div class="verdict"><div class="scoreN" style="color:var(--dead)">fail <span class="arrow">→</span><span class="ceil">8</span></div><span class="tag t-bad">GATE BUG</span></div>
+  </div>
+
+  <!-- DATA INVENTORY -->
+  <h2>Why · the data-shape mismatch (Ramp inventory)</h2>
+  <div class="grid two">
+    <div class="card have">
+      <h3>✓ What we acquire</h3>
+      <div style="font-size:11px;color:var(--faint);margin:-4px 0 6px;text-transform:uppercase;letter-spacing:.8px">Frozen corpus — always present</div>
+      <div class="row"><div class="k">Corpus evidence <small>own pages · Wikipedia · Contrary · 5 listicles · Trustpilot</small></div><div class="v">17 src · 46 claims</div></div>
+      <div class="row"><div class="k">Onboarding / brief <small>category · valueProp · job titles · 18 competitors</small></div><div class="v">16 fields populated</div></div>
+      <div style="font-size:11px;color:#c4a3f5;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.8px">⚡ Live-tool — fetched per run, NOT in the frozen corpus</div>
+      <div class="row"><div class="k">SpyFu keywords <small>27.2k branded · category · adjacent — in the run output body</small></div><div class="v"><span class="pill live">LIVE</span> fragile<br>can starve on fan-out</div></div>
+      <div class="row"><div class="k">Ad Library creatives <small>Ramp / Brex / Airbase…</small></div><div class="v"><span class="pill live">LIVE</span> fragile</div></div>
+      <div class="row"><div class="k">Review quotes <small>G2 / TrustRadius scrape — corpus alone has only 3 Trustpilot rows</small></div><div class="v"><span class="pill live">LIVE</span> 6 pain / 3 dom</div></div>
+    </div>
+    <div class="card gap">
+      <h3>✗ What no public tool can get</h3>
+      <div class="row"><div class="k">ACV / deal size / pricing tiers</div><div class="v">not published</div></div>
+      <div class="row"><div class="k">TAM / market-size numbers</div><div class="v">no source</div></div>
+      <div class="row"><div class="k">Quantified share-of-voice</div><div class="v">no tool</div></div>
+      <div class="row"><div class="k">Per-review permalinks <small>Trustpilot / G2 block them</small></div><div class="v">blocked</div></div>
+      <div class="row"><div class="k">Monthly ad budget · channel CAC</div><div class="v">not public</div></div>
+      <div class="row"><div class="k">PAA / Reddit / forum questions</div><div class="v">no tool wired</div></div>
+    </div>
+  </div>
+  <div class="note">This is <b>not a Ramp problem</b> — it's the shape of SaaS data for most companies. The current schema treats these absences as <i>failures</i> and forces fabrication, laundered gaps, or gate-fails. The fix: lead with what we have, label the rest as honest <code>acquisition_gap</code>.</div>
+
+  <!-- DIAGNOSIS -->
+  <h2>The corrected diagnosis · 3 layers, not 1</h2>
+  <div class="layer">
+    <div class="lid">A</div>
+    <div><div class="lt">Ordering — sections lead with their weakest block</div>
+      <div class="ld">Market leads with TAM (a permanent gap); VoC's verdict leads with the permalink gap. The strong material is buried. Fix: adaptive lead-block selection drives render order off the strongest <i>acquired</i> block.</div></div>
+  </div>
+  <div class="layer key">
+    <div class="lid">B</div>
+    <div><div class="lt">Confidence semantics <span class="keybadge">KEYSTONE · zero-risk</span></div>
+      <div class="ld"><code>confidence = min(livenessKnownRate, claimSupportShare, containmentKnownRate)</code> measures <b>verification rate, not value</b>. Demand — 19 hard rows, 0 unsupported, the 2nd-best section — still shows <b>0.4</b>. This is why truthful sections "look empty." Fix: split <code>groundingConfidence</code> (internal) from <code>valueReadiness</code> (reader-facing). The handoff misses this entirely.</div></div>
+  </div>
+  <div class="layer">
+    <div class="lid">C</div>
+    <div><div class="lt">Residual point-floors — a few floors still demand a specific data point</div>
+      <div class="ld">VoC needs a per-review <b>permalink</b> even after 12 quotes / 4 domains clear the count floor → it laundered every insight field (<code>run-section.ts:2295</code>). Competitor demands pricing/SOV. Fix: convert to availability floors. <i>Note: floors are already escape-hatched — Market committed and scored 3 anyway, so "relax floors" alone is not enough.</i></div></div>
+  </div>
+
+  <!-- PLAN -->
+  <h2>The path · verified build order, one section at a time</h2>
+  <div class="phase">
+    <div class="dot done">✓</div>
+    <div><div class="pt">Phase 4 — Enrichment + offline harness</div><div class="pd">All 7 commit at prod defaults · tier/coverage enrichment · 2754 tests green · harness reads real tool data.</div></div>
+    <div class="ps done">DONE</div>
+  </div>
+  <div class="phase">
+    <div class="dot now">▶</div>
+    <div><div class="pt">Phase 0 — Build the free regression set + the gate</div><div class="pd">Data-shape profiler · freeze 7 niche corpora (~$12–16) · build the offline value-read agent &amp; prove it reproduces the known human read.</div></div>
+    <div class="ps now">NEXT</div>
+  </div>
+  <div class="phase">
+    <div class="dot next">1</div>
+    <div><div class="pt">Phase 1 — Fix B (confidence split)</div><div class="pd">Split <code>groundingConfidence</code> / <code>valueReadiness</code>. Highest leverage, no fabrication risk — only changes a displayed number + render order.</div></div>
+    <div class="ps next">queued</div>
+  </div>
+  <div class="phase">
+    <div class="dot next">2</div>
+    <div><div class="pt">Phases 2–7 — Rescope, in the verified order</div><div class="pd"><b>Competitor (0→8) → VoC (2→8) → Market (3→8) → Buyer ICP (5.5→7.5) → Offer (8→8 honest reframe) → Demand (7.5→9)</b>. <b>Competitor first</b> — its failure is a one-line gate-contract bug that also starves Paid Media, so it returns the most value per edit. Each: offline fix vs frozen corpus → one paid run → value-read → iterate.</div></div>
+    <div class="ps next">queued</div>
+  </div>
+  <div class="phase">
+    <div class="dot next">8</div>
+    <div><div class="pt">Phase 8 — Paid Media Plan (LAST, 5→8)</div><div class="pd">Consumes the others. <code>evidencePack</code> required (grounded); audience→ICP, angle→Demand/Offer/VoC/Competitor; untraced rows render as honest amber gaps. Capped at 8 this run by the upstream Competitor dependency.</div></div>
+    <div class="ps next">queued</div>
+  </div>
+  <div class="phase">
+    <div class="dot next">7</div>
+    <div><div class="pt">Phase 7 — Full deck + niche sweep</div><div class="pd">All archetypes (tiny vertical → enterprise → non-SaaS control) through the full deck. <b>Finish line:</b> a skeptical human reads any deck and says "this is actually really good" — every section at its honest ceiling, zero laundering.</div></div>
+    <div class="ps next">queued</div>
+  </div>
+
+  <!-- OPEN DECISIONS -->
+  <h2>Open decisions · your call (panel blind spots)</h2>
+  <ol class="dec">
+    <li><b>Viz build scope</b> — which chart components already exist vs need building? Inventory <code>src/components/research-v2/</code> before the viz pass.</li>
+    <li><b>Writer-model capability</b> — can DeepSeek author the richer value-spine + non-obvious insight, or does the insight layer need a stronger model?</li>
+    <li><b>Where the value-read verdict lives</b> — dev/CI gate only, or a runtime quality signal surfaced to the user?</li>
+    <li><b>Corpus staleness</b> — frozen corpora finalize the schema against a snapshot. Set a refresh cadence, or accept drift?</li>
+    <li><b>Confirm the goal reframe</b> — "9/10 <i>relative to acquirable data</i>, zero laundering" replaces "9/10 every section" (a stealth startup can't hit 9 on absent data).</li>
+  </ol>
+
+  <footer>
+    Fusion panel: <b>opus4.8-gpt5.5</b> (GLM 5.2 dropped — degenerate output). Both panelists read the live repo.
+    Full plan: <code>/tmp/fusion_final.md</code> · provenance: <code>~/.claude/fusion-runs/2026-06-20_143809_*.md</code>.
+    Scores are the human-judged read of <code>harness-ramp-2e3adf77</code> per the handoff §3.
+  </footer>
+</div>
+</body>
+</html>
