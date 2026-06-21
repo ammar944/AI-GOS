@@ -21,6 +21,17 @@ const selfAuthoredLabelPaths = new Set([
   "body.structuralForces.forces.name",
   "body.buyingContext.triggers.name",
 ]);
+// Display/navigation URL paths: the competitor card's homepage (competitor.url)
+// is an identity the section AUTHORS for navigation, NOT a citation (the citation
+// is the sibling sourceUrl). Harvesting it as a load-bearing url claim guarantees
+// an unsupported flag whenever the model writes a bare, never-fetched homepage
+// there — which hard-failed positioningCompetitorLandscape under the armed gate
+// (run harness-ramp-2e3adf77: 8 bare homepages > max 0). Index-less fieldPath
+// because walkValue elides array indices (it stays ...competitors.url, never
+// ...competitors.N.url). Exact-string scoped: the real sourceUrl citation and
+// every other section's url fields sit at different fieldPaths and stay
+// load-bearing — do NOT re-key this on fieldName === "url".
+const displayUrlFieldPaths = new Set(["body.competitorSet.competitors.url"]);
 const countFieldNames = new Set([
   "accountCount",
   "audienceSize",
@@ -269,6 +280,14 @@ function extractStringClaims({
     const url = cleanUrl(match[0]);
 
     if (constructedAdLibraryLinkPattern.test(url)) {
+      continue;
+    }
+
+    // The competitor display/navigation homepage is not a citation — exempt it
+    // from load-bearing url-claim extraction (see displayUrlFieldPaths). The
+    // structural verifier still requires the field to be a present, valid URL;
+    // only the claim harvest is suppressed.
+    if (displayUrlFieldPaths.has(fieldPath)) {
       continue;
     }
 

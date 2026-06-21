@@ -2,8 +2,8 @@
 name: positioning-competitor-landscape
 description: Use this skill when AI-GOS needs to map competitive alternatives, pricing reality, public weaknesses, ad evidence, and the positioning attack/concede call.
 metadata:
-  version: 3.1.0-lab
-  updated: 2026-06-11
+  version: 3.1.1-lab
+  updated: 2026-06-21
   author: AI-GOS
   category: GTM/positioning-audit
   tags: [competitor-landscape, positioning, pricing, ads, gtm]
@@ -41,6 +41,10 @@ When the prompt includes a `Prepared evidence rows` block, consume those pre-nor
 - Treat `coverageRows` and `toolGapRows` as gap accounting, not as evidence for a competitive claim.
 - Keep `ResearchInput JSON` as compatibility context; it does not replace row-level citation requirements when prepared rows are present.
 - If the prepared rows do not support a required field, write the relevant blockGap or evidence gap instead of filling from unstated assumptions.
+
+### URL discipline
+
+- Put the competitor's real fetched page (the listicle, pricing, or review URL you actually read) in `sourceUrl`. The `url` field is the competitor's homepage, for navigation only — never invent or paste a bare homepage as if it were a citation. Every numeric or quote claim must trace to a `sourceUrl` you fetched.
 
 ## Iron Laws
 

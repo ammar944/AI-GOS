@@ -223,6 +223,50 @@ describe("extractClaims", (): void => {
     expect(claims.filter((claim) => claim.value === "https://ramp.com")).toHaveLength(1);
     expect(claims.filter((claim) => claim.value === "12%")).toHaveLength(1);
   });
+
+  it("exempts the competitor display homepage (competitor.url) from url claims while keeping every sourceUrl citation load-bearing", (): void => {
+    const claims = extractClaims({
+      competitorSet: {
+        competitors: [
+          {
+            name: "Brex",
+            url: "https://brex.com",
+            sourceUrl: "https://www.brex.com/spend-trends/ramp-competitors",
+          },
+        ],
+      },
+      keywordDemand: {
+        topKeywords: [
+          { sourceUrl: "https://www.spyfu.com/overview/domain?query=ramp.com" },
+        ],
+      },
+    });
+
+    // (a) the bare competitor display/navigation homepage is NOT a load-bearing
+    // url claim (the field at fieldPath body.competitorSet.competitors.url is exempt).
+    expect(
+      claims.some(
+        (claim) => claim.kind === "url" && claim.value === "https://brex.com",
+      ),
+    ).toBe(false);
+
+    // (b) the sibling competitor.sourceUrl citation IS still load-bearing, and
+    // (c) a url at a DIFFERENT fieldPath (keywordDemand…sourceUrl) IS still
+    // load-bearing — proving the exemption is exact-fieldPath-scoped, NOT
+    // fieldName-scoped (a fieldName==='url' rebroadening would mute these).
+    expect(claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "url",
+          value: "https://www.brex.com/spend-trends/ramp-competitors",
+        }),
+        expect.objectContaining({
+          kind: "url",
+          value: "https://www.spyfu.com/overview/domain?query=ramp.com",
+        }),
+      ]),
+    );
+  });
 });
 
 describe("self-authored label paths", (): void => {

@@ -49,6 +49,10 @@ const blockCoverageFieldSchema = blockCoverageSchema
 const competitorSchema = z
   .object({
     name: z.string().min(1),
+    // url = the competitor's homepage, for navigation/display only (authored by
+    // the section, NOT a citation). The citation is the sibling sourceUrl below
+    // (the real fetched page). The claim-extractor exempts this exact fieldPath
+    // from load-bearing url-claim extraction; this field stays required + URL-shaped.
     url: z.string().min(1),
     competitorType: z.enum(competitorTypes),
     oneLinePositioning: z.string().min(1),
