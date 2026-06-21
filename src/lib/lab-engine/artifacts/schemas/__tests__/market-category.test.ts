@@ -231,3 +231,48 @@ describe("validateMarketCategoryMinimums — bottom-up TAM recipe", (): void => 
     expect(result.errors).toHaveLength(0);
   });
 });
+
+describe("market-category optional honesty fields (additive)", (): void => {
+  it("parses the fixture body unchanged when all three fields are omitted (back-compat)", (): void => {
+    const body = structuredClone(marketCategoryFixtureArtifact.body);
+
+    const result = marketCategoryBodySchema.safeParse(body);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("parses and round-trips confidenceBasis, categoryVerdict, and tamGapPosture when all are set", (): void => {
+    const body: MarketCategoryArtifact["body"] = {
+      ...structuredClone(marketCategoryFixtureArtifact.body),
+      confidenceBasis:
+        "Three independent analyst sizings agree within one order of magnitude.",
+      categoryVerdict: "create-new-category",
+      tamGapPosture:
+        "TAM is directional only; treat the sizing as a floor, not a ceiling.",
+    };
+
+    const result = marketCategoryBodySchema.safeParse(body);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.confidenceBasis).toBe(
+        "Three independent analyst sizings agree within one order of magnitude.",
+      );
+      expect(result.data.categoryVerdict).toBe("create-new-category");
+      expect(result.data.tamGapPosture).toBe(
+        "TAM is directional only; treat the sizing as a floor, not a ceiling.",
+      );
+    }
+  });
+
+  it("rejects an out-of-enum categoryVerdict value", (): void => {
+    const body = {
+      ...structuredClone(marketCategoryFixtureArtifact.body),
+      categoryVerdict: "made-up",
+    };
+
+    const result = marketCategoryBodySchema.safeParse(body);
+
+    expect(result.success).toBe(false);
+  });
+});

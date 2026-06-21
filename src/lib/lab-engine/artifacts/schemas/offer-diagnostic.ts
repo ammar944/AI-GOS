@@ -70,6 +70,17 @@ const funnelBreakSchema = z
     sourceUrl: z.string().min(1),
     evidenceTier: evidenceTierFieldSchema,
     verification: rowVerificationFieldSchema,
+    benchmark: z
+      .object({
+        stageLabel: z.string().min(1),
+        typicalRange: z.string().min(1),
+        excellentRange: z.string().min(1),
+        sourceUrl: z.string().url(),
+      })
+      .strict()
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
   })
   .strict();
 

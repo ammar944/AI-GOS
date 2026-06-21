@@ -342,3 +342,77 @@ describe("offer-diagnostic deadline-exhaustion honest-gap skeleton (R1)", (): vo
     expect(validateOfferDiagnosticMinimums(candidate).ok).toBe(true);
   });
 });
+
+// Additive optional `benchmark` band on each funnelBreak. The band is
+// self-policing: its sourceUrl is z.string().url() (NOT min(1)) so an unfetched
+// benchmark cannot ride a non-url placeholder past the claim-extractor.
+describe("offer-diagnostic benchmark field (additive)", (): void => {
+  function bodyWithFirstBreak(
+    overrides: Record<string, unknown>,
+  ): OfferDiagnosticBody {
+    const [firstBreak, ...restBreaks] =
+      offerDiagnosticFixtureArtifact.body.funnelDiagnosis.breaks;
+    if (firstBreak === undefined) {
+      throw new Error("Expected offer diagnostic funnel break fixture.");
+    }
+    return {
+      ...offerDiagnosticFixtureArtifact.body,
+      funnelDiagnosis: {
+        ...offerDiagnosticFixtureArtifact.body.funnelDiagnosis,
+        breaks: [{ ...firstBreak, ...overrides }, ...restBreaks],
+      },
+    } as OfferDiagnosticBody;
+  }
+
+  const validBenchmark = {
+    stageLabel: "Cold ad click",
+    typicalRange: "1.5% - 3%",
+    excellentRange: "5%+",
+    sourceUrl: "https://example.com/offer/funnel-benchmark-1",
+  };
+
+  it("parses and passes minimums when a funnel break omits benchmark (back-compat)", (): void => {
+    const body = offerDiagnosticFixtureArtifact.body;
+    expect(() =>
+      artifactEnvelopeSchema
+        .extend({ body: offerDiagnosticBodySchema })
+        .parse({ ...offerDiagnosticFixtureArtifact, body }),
+    ).not.toThrow();
+    expect(
+      validateOfferDiagnosticMinimums(rebuildArtifact(body)).ok,
+    ).toBe(true);
+  });
+
+  it("parses a funnel break carrying a valid benchmark band", (): void => {
+    const body = bodyWithFirstBreak({ benchmark: validBenchmark });
+    const candidate = artifactEnvelopeSchema
+      .extend({ body: offerDiagnosticBodySchema })
+      .parse({ ...offerDiagnosticFixtureArtifact, body });
+
+    expect(candidate.body.funnelDiagnosis.breaks[0].benchmark).toEqual(
+      validBenchmark,
+    );
+  });
+
+  it("rejects a benchmark whose sourceUrl is a non-url placeholder", (): void => {
+    const body = bodyWithFirstBreak({
+      benchmark: { ...validBenchmark, sourceUrl: "not disclosed" },
+    });
+    const result = artifactEnvelopeSchema
+      .extend({ body: offerDiagnosticBodySchema })
+      .safeParse({ ...offerDiagnosticFixtureArtifact, body });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a benchmark with an unknown extra key (.strict())", (): void => {
+    const body = bodyWithFirstBreak({
+      benchmark: { ...validBenchmark, fabricatedExtraKey: "x" },
+    });
+    const result = artifactEnvelopeSchema
+      .extend({ body: offerDiagnosticBodySchema })
+      .safeParse({ ...offerDiagnosticFixtureArtifact, body });
+
+    expect(result.success).toBe(false);
+  });
+});

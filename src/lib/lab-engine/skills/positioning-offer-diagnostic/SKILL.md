@@ -43,6 +43,7 @@ When the prompt includes a `Prepared evidence rows` block, consume those pre-nor
 - Do not invent proof points, retention signals, funnel metrics, channel results, or red flags.
 - A company claim is not proof unless source evidence supports the metric or outcome.
 - Never present the subject's internal or private metrics (CAC, LTV, budget, spend, conversion rates, targets) as researched fact. These come only from the operator brief, never from your sources. On first use, tag them "operator-reported" and speak directionally (protect the stated target, close the gap to the stated target); never restate one as a number you discovered or verified.
+- Distinguish DEMAND evidence (publicly acquirable: search volume, CPC, intent mix, branded share) from PERFORMANCE evidence (operator-only: CAC, CPL, conversion-by-channel). Demand evidence may be cited from web_search; per-channel performance stays unknown unless the operator supplied it.
 - Causal and root-cause claims must be framed as testable hypotheses unless fetched evidence supports them (foundCount greater than zero). Do not assert that one factor explains a metric gap when the same diagnosis says the cause is impossible to observe — name it as a hypothesis to test, not a finding.
 - A funnel break that describes in-product or trial behavior must not cite a pricing or marketing URL as proof of that behavior. When no trial or in-product observation exists, word the break as an explicit assumption to verify, never as an observed break.
 - When you mark a figure as an evidence gap or directional-only, name the metric and the gap WITHOUT restating a specific unsourced number in the prose. "No sourced trial-to-paid conversion is available" is correct; "conversion is ~12%, unsourced" re-introduces an unverifiable figure that fails the evidence gate. Only restate a specific number when it is sourced to a live URL/tool or supplied verbatim by the operator brief.
@@ -58,9 +59,9 @@ Apply these moves only where evidence permits — skipping a move with thin evid
 
 **Move 2: Proof classification.** Classify claims as Defensible / Comparative / Assumed. A Defensible claim has source-backed proof; Comparative claims depend on named alternatives; Assumed claims need client confirmation. A proof gap is better than fake proof.
 
-**Move 3: Funnel diagnosis.** `body.funnelDiagnosis.breaks` and `body.funnelDiagnosis.prose` identify where the buyer journey loses trust or intent. Use fetched page observations, performance signals, or source-backed funnel evidence.
+**Move 3: Funnel diagnosis.** `body.funnelDiagnosis.breaks` and `body.funnelDiagnosis.prose` identify where the buyer journey loses trust or intent. Use fetched page observations, performance signals, or source-backed funnel evidence. When stating a funnel break threshold, contextualize it with the published benchmark band (typical vs excellent) and its source url rather than asserting a bare cutoff.
 
-**Move 4: Channel truth.** `body.channelTruth.channels` separates worked, partial, failed, and unknown channels. Do not infer channel performance from a channel's existence.
+**Move 4: Channel truth.** `body.channelTruth.channels` separates worked, partial, failed, and unknown channels. Do not infer channel performance from a channel's existence. Characterize each channel's DEMAND reality from whatever demand evidence is actually present in Prepared evidence (search volume, CPC, intent mix, branded vs commercial share). If demand evidence is absent for a channel, say the demand read is unknown — never infer that non-branded demand is zero. Never assert a "zero non-branded demand" or "demand creation is the only lever" thesis: that strategic inference is not extracted by the verifier (it checks numbers, quotes, and urls, not the inference), so it must be earned from present demand evidence or left unknown.
 
 **Move 5: Retention and red flags.** `body.retentionHealth.signals` captures activation, retention, or first-value evidence when present. `body.redFlags.items` names contradictions that would waste spend. Use blockGap when the surface is not evidenced instead of inventing.
 
@@ -84,3 +85,4 @@ Before answering, ask:
 - Are proof points defensible, comparative, assumed, or gapped?
 - Did empty retention/funnel/channel surfaces use blockGap?
 - Would a founder know what to fix before increasing spend?
+- Did channelTruth give a media buyer something actionable (the branded-vs-commercial demand read), or just mark everything unknown and self-label coverage 'adequate'? If every channel is hasWorked=unknown with no per-channel demand read, downgrade channelTruth.coverage.readiness from 'adequate' to 'thin'.

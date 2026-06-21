@@ -71,7 +71,14 @@ const percentPattern = /\b\d+(?:\.\d+)?%(?=\s|[.,;:!?)]|$)/g;
 const magnitudePattern =
   /\b\d+(?:\.\d+)?\s?(?:k|m|b|thousand|million|billion)\b(?:\s+[A-Za-z][A-Za-z-]*)?/gi;
 const quotePattern = /"([^"]+)"/g;
-const urlPattern = /https?:\/\/[^\s)"'>\]}]+/gi;
+// Allows "(" and ")" inside the URL so Wikipedia disambiguation slugs
+// (".../Ramp_(company)") are captured whole; cleanUrl() then strips only an
+// UNBALANCED trailing ")" (a sentence delimiter, e.g. "(see https://x.com)").
+// Previously ")" was excluded here, which truncated ".../Ramp_(company)" to
+// ".../Ramp_(company" — a string that matches no fetched source, so a VALID
+// citation was falsely flagged as an unsupported load-bearing url claim and the
+// section hard-failed at the evidence gate (live run harness-ramp-76eae7ee).
+const urlPattern = /https?:\/\/[^\s"'>\]}]+/gi;
 // Deterministic ad-library *search* deep-links are constructed by the ad adapter
 // (buildLibraryLink) as UI affordances ("go search this advertiser"), not factual
 // citations. They are never returned by a fetched source, so the structural
@@ -117,7 +124,17 @@ function countWords(value: string): number {
 }
 
 function cleanUrl(value: string): string {
-  return value.replace(/[.,;:!?]+$/g, "");
+  let url = value.replace(/[.,;:!?]+$/g, "");
+  // Strip a trailing ")" ONLY while it is unbalanced (closes a "(" the URL never
+  // opened) so a Wikipedia disambiguation slug (".../Ramp_(company)") keeps its
+  // paren, but a sentence delimiter ("(see https://x.com)") is removed.
+  while (
+    url.endsWith(")") &&
+    (url.match(/\)/g)?.length ?? 0) > (url.match(/\(/g)?.length ?? 0)
+  ) {
+    url = url.slice(0, -1).replace(/[.,;:!?]+$/g, "");
+  }
+  return url;
 }
 
 function normalizeClaim(claim: Claim): Claim | null {

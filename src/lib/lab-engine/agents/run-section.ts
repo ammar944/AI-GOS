@@ -3015,6 +3015,144 @@ export function buildMarketCategoryEvidenceGapArtifact({
   return minimums.ok ? candidate : undefined;
 }
 
+// §4.3 — Promote a verifier-supported, corpus-sourced billion-scale valuation
+// claim into a SECOND marketSize funding-flow signal so the ">=2 public
+// trajectory signals" floor clears with REAL evidence instead of dropping the
+// section to the 0.3-confidence apology gap. Runs AFTER verifySectionBody (the
+// verification counts are already frozen, so this can never add an unsupported
+// claim) and BEFORE buildEnvelope (so the committed body carries the signal).
+// Every field traces to the verified claim text or its real sourceUrl — nothing
+// is synthesized. No-op unless every safe condition holds.
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const billionValuationPattern = /\$?\s?\d[\d.,]*\s*(?:b\b|bn\b|billion)/i;
+
+function extractObservedDate(text: string): string | undefined {
+  const longMonth =
+    /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b/i;
+  const longMatch = text.match(longMonth);
+  if (longMatch) {
+    return longMatch[0]
+      .replace(/\s+/g, " ")
+      .replace(/^\w/, (c) => c.toUpperCase());
+  }
+  const slugMonth = text.match(
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*-(\d{4})\b/i,
+  );
+  if (slugMonth) {
+    const monthMap: Record<string, string> = {
+      jan: "January",
+      feb: "February",
+      mar: "March",
+      apr: "April",
+      may: "May",
+      jun: "June",
+      jul: "July",
+      aug: "August",
+      sep: "September",
+      oct: "October",
+      nov: "November",
+      dec: "December",
+    };
+    const month = monthMap[slugMonth[1].slice(0, 3).toLowerCase()];
+    if (month) return `${month} ${slugMonth[2]}`;
+  }
+  const year = text.match(/\b(?:19|20)\d{2}\b/);
+  return year ? year[0] : undefined;
+}
+
+function humanizeUrlSlugTitle(sourceUrl: string): string | undefined {
+  try {
+    const parsed = new URL(sourceUrl);
+    const segment = parsed.pathname.split("/").filter(Boolean).pop();
+    const words = segment ? segment.replace(/[-_]+/g, " ").trim() : "";
+    if (words.length > 0) {
+      // Title-case the real slug so the derived source title reads like a page
+      // title ("Behind The Valuation March 2025") instead of a bare slug.
+      return words.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+    return parsed.hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+export function promoteVerifiedValuationSignal(
+  body: unknown,
+  verification: { claims?: readonly unknown[] } | null | undefined,
+): void {
+  if (!isPlainRecord(body)) return;
+  const marketSize = body.marketSize;
+  if (!isPlainRecord(marketSize) || !Array.isArray(marketSize.signals)) return;
+  const signals = marketSize.signals as unknown[];
+  // Floor is >=2; once cleared, leave the model's signals untouched. Never add a
+  // duplicate funding-flow signalType (validateMarketCategoryMinimums rejects
+  // duplicate signalTypes; the guard below also prevents it independently).
+  if (signals.length >= 2) return;
+  if (signals.some((s) => isPlainRecord(s) && s.signalType === "funding-flow")) {
+    return;
+  }
+
+  const claims = Array.isArray(verification?.claims) ? verification.claims : [];
+  for (const candidate of claims) {
+    if (!isPlainRecord(candidate)) continue;
+    if (candidate.status !== "verified") continue;
+    if (candidate.entailmentVerdict !== "supported") continue;
+    const ref = candidate.matchedSourceRef;
+    if (!isPlainRecord(ref) || ref.kind !== "corpusExcerpt") continue;
+    const sourceUrl = typeof ref.sourceUrl === "string" ? ref.sourceUrl : "";
+    if (sourceUrl.length === 0) continue;
+    const claim = candidate.claim;
+    if (!isPlainRecord(claim) || claim.kind !== "numeric") continue;
+    const raw = typeof claim.raw === "string" ? claim.raw : "";
+    const value = typeof claim.value === "string" ? claim.value : "";
+    const haystack = `${value} ${raw}`;
+    if (!/valuation|funding|raised|\bround\b|series\s+[a-z]/i.test(haystack)) {
+      continue;
+    }
+    if (!billionValuationPattern.test(haystack)) continue;
+    const dateObserved =
+      extractObservedDate(raw) ?? extractObservedDate(sourceUrl);
+    if (!dateObserved) continue; // never fabricate a date
+    const sourceTitle = humanizeUrlSlugTitle(sourceUrl);
+    if (!sourceTitle) continue;
+    const valuationLabel = (
+      value.match(billionValuationPattern)?.[0] ??
+      raw.match(billionValuationPattern)?.[0] ??
+      value
+    ).trim();
+    const trajectory = /growth|expand|tailwind|surg|accelerat|rising/i.test(raw)
+      ? "expanding"
+      : "unclear";
+    signals.push({
+      signalType: "funding-flow",
+      name: `${valuationLabel} valuation (${dateObserved})`,
+      evidence: raw.length > 0 ? raw : value,
+      trajectory,
+      methodology: "top-down",
+      sourceTitle,
+      sourceUrl,
+      dateObserved,
+    });
+    // Reconcile the now-stale marketSize gap: a "only 1 of 2 sourced" card must
+    // not ride alongside the signal we just promoted. Clear it once the floor is
+    // met; otherwise keep its found count honest.
+    const gap = marketSize.blockGap;
+    if (isPlainRecord(gap)) {
+      const requiredCount =
+        typeof gap.requiredCount === "number" ? gap.requiredCount : 2;
+      if (signals.length >= requiredCount) {
+        delete marketSize.blockGap;
+      } else {
+        gap.foundCount = signals.length;
+      }
+    }
+    return; // promote exactly one
+  }
+}
+
 // DemandIntent evidence-gap escape hatch. No softenable strategic-text/structural
 // partition is needed: the deadline-exhaustion honest body (which ALREADY passes
 // validateDemandIntentMinimums via per-block blockGaps + ordered moves) is the
@@ -8876,6 +9014,9 @@ async function callStructuredAttempt({
       evidenceSteps: modelSteps,
       researchInput,
     });
+    if (input.sectionId === "positioningMarketCategory") {
+      promoteVerifiedValuationSignal(output.body, verification);
+    }
     const artifact = buildEnvelope({
       definition,
       deps,
@@ -11703,6 +11844,9 @@ async function buildVerifiedAttemptFromFinalOutput({
     evidenceSteps,
     researchInput,
   });
+  if (input.sectionId === "positioningMarketCategory") {
+    promoteVerifiedValuationSignal(output.body, verification);
+  }
   const artifact = buildEnvelope({
     definition,
     deps,

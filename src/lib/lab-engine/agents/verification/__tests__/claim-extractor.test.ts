@@ -267,6 +267,67 @@ describe("extractClaims", (): void => {
       ]),
     );
   });
+
+  it("surfaces a benchmark.typicalRange percent as a load-bearing numeric claim", (): void => {
+    const claims = extractClaims({
+      funnelDiagnosis: {
+        breaks: [
+          {
+            stageName: "Trial activation",
+            metric: "Trial-to-paid conversion",
+            magnitude: "below median",
+            hypothesis: "Onboarding friction stalls first-value.",
+            sourceUrl: "https://example.com/x",
+            benchmark: {
+              stageLabel: "Trial-to-paid",
+              typicalRange: "trial-to-paid typically 15–20%",
+              excellentRange: "above 25%",
+              sourceUrl: "https://example.com/bench",
+            },
+          },
+        ],
+      },
+    });
+
+    // The benchmark band is verifier-visible (a load-bearing numeric claim),
+    // NOT a blind fabrication surface: at least one numeric claim must carry
+    // the percent token from benchmark.typicalRange.
+    const numericPercentClaim = claims.find(
+      (claim) =>
+        claim.kind === "numeric" &&
+        claim.value.includes("15") &&
+        claim.value.includes("%"),
+    );
+
+    expect(numericPercentClaim).toBeDefined();
+  });
+
+  it("captures a Wikipedia disambiguation URL whole (balanced parens) and strips an unbalanced trailing paren", (): void => {
+    const claims = extractClaims({
+      marketSize: {
+        prose:
+          "Ramp is a corporate card company (see https://en.wikipedia.org/wiki/Ramp_(company)).",
+        signals: [
+          {
+            signalType: "funding-flow",
+            sourceUrl: "https://en.wikipedia.org/wiki/Ramp_(company)",
+          },
+        ],
+      },
+    });
+
+    const urlValues = claims
+      .filter((claim) => claim.kind === "url")
+      .map((claim) => claim.value);
+
+    // The balanced disambiguation slug is preserved WITH its closing paren — the
+    // truncated ".../Ramp_(company" that hard-failed the live evidence gate must
+    // never be emitted.
+    expect(urlValues).toContain("https://en.wikipedia.org/wiki/Ramp_(company)");
+    expect(
+      urlValues.some((v) => v === "https://en.wikipedia.org/wiki/Ramp_(company"),
+    ).toBe(false);
+  });
 });
 
 describe("self-authored label paths", (): void => {

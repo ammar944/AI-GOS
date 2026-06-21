@@ -255,6 +255,27 @@ export const marketCategoryBodySchema = z
     marketSize: marketSizeSchema,
     structuralForces: structuralForcesSchema,
     categoryMaturity: categoryMaturitySchema,
+    // §4.3 — additive, optional honest-framing slots. Absent on every prior
+    // committed artifact (pure-optional, backward compatible). confidenceBasis /
+    // tamGapPosture are QUALITATIVE prose (no unsourced numerics — see SKILL);
+    // categoryVerdict is the strategic shelf call.
+    confidenceBasis: z
+      .string()
+      .min(1)
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
+    categoryVerdict: z
+      .enum(["own-existing-shelf", "create-new-category", "defend-current-frame"])
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
+    tamGapPosture: z
+      .string()
+      .min(1)
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
   })
   .strict();
 
