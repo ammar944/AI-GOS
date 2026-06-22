@@ -1,0 +1,82 @@
+Using prior AI-GOS memory only for the proof-state and section-readiness framing; the critique below is based on the roadmap you gave.
+
+**A. Most Likely Pilot Failure**
+
+The biggest unaddressed failure is **URL-only strategy colliding with operator/client reality**.
+
+For real ad-budget work, operators know facts the public web will not: budget ceiling, CAC/margin, geos, excluded verticals, sales motion, compliance limits, current campaigns, product priority, customer segment, founder preferences, and what the client will never approve. A deck can be fully sourced and still be unusable because it recommends the wrong audience, offer, channel, or budget assumption.
+
+Fix: add a small pre-run operator intake and treat those facts as highest-priority sources. Every section should either respect those facts or explicitly flag conflict. Supervised pilot is the perfect time to use operator context; ignoring it is self-serve thinking.
+
+**B. Sequencing**
+
+The sequencing is too migration-heavy too early.
+
+P2’s `run-section.ts` strangler should **follow**, not precede, proving the GLM writer works cross-subject on all 7 sections. Right now the new architecture is proven on VoC + Demand Intent, not the full deck. Rebuilding the spine before proving the full deck risks industrializing the wrong contract.
+
+Reorder:
+
+1. z.ai GLM parity, typed emission, latency/cost/error proof.
+2. Sidecar all-7 GLM writer on 3 real subjects, outside the big app surgery.
+3. Thin deterministic floor on the rendered typed body.
+4. Deck-level coherence check: ICP, pain, demand, competitors, offer, paid-media assumptions must agree.
+5. Minimal internal app path: run, inspect sources, edit/approve/lock, export/share.
+6. After pilot proof, strangle and retire the old path.
+
+For a 2-operator pilot, the full “strangler-don’t-swap parallel diff every commit-vs-absent decision” is over-engineering. Keep limited shadow logging for strip/gap/commit decisions, but do not make old-path parity the migration god. The old path’s quality semantics are already bad.
+
+**C. Deterministic Floor vs Agentic Repair**
+
+Case for deterministic floor: it is auditable, stable, cheap, and defensible. If the typed body includes quote IDs, source IDs, numeric leaves, formulas, and provenance, deterministic code can verify quote support, recompute ratios, strip unsupported claims, and gap missing evidence. That is the right final safety layer.
+
+Case against pure deterministic floor: many failures are semantic. “This quote supports this strategic claim,” “these reviews indicate onboarding pain,” or “this keyword cluster implies urgent purchase intent” are judgment calls. A pure strip layer can preserve truth while hollowing the deck below 8/8.
+
+My pick: **final floor deterministic, repair/editor agentic before the floor**.
+
+Do not make the floor itself LLM-based. That reintroduces laundering. But do add a small evidence-bound repair pass that rewrites unsupported or overbroad claims using available sources, then the deterministic floor strips whatever remains unsupported. So the real architecture is: agentic writer → evidence-bound repair/editor → deterministic floor.
+
+**D. Pilot Scope**
+
+Over-built for supervised pilot:
+
+- SHA-freezing all 12 verifier files.
+- Per-guard snapshot suite as a phase gate.
+- Full `run-section.ts` strangler before pilot proof.
+- Old-path parallel diff as a required migration gate.
+- Retiring the old path before operators prove the new path.
+- Product-grade self-serve UX.
+
+Under-built and likely to bite:
+
+- Operator/client intake.
+- Editable section corrections with approval locks.
+- Rerun protection for approved sections.
+- Deck-level coherence, not just section scores.
+- Paid-media assumption provenance: budget, CAC, geo, channel, keyword volume, CPC.
+- Export/share artifact operators can actually use.
+- Provider latency, timeout, quota, and failed-tool handling.
+- Human acceptance criteria: “would use in client work” is not the same as rubric 8/8.
+
+Leanest path to “operators trust 3 real subjects”:
+
+1. Pick 3 real diverse subjects and define operator pass/fail before running.
+2. Collect operator intake for each subject.
+3. Run z.ai GLM all-7 sidecar with typed output and frozen source packs.
+4. Apply deterministic floor plus deck-level coherence check.
+5. Give operators source-linked decks with edit/approve/lock controls.
+6. Record trust breakers, required edits, and whether PaidMedia is usable for real planning.
+7. Only then integrate deeper into the lab-engine spine.
+
+Pilot pass bar should be concrete: no critical unsupported claims, PaidMedia assumptions traceable, no cross-section contradictions, and both operators would use the deck after bounded edits.
+
+**E. Blind Spot**
+
+The framing still gives the writer too much power over both evidence selection and strategy synthesis.
+
+A stronger architecture may be: acquisition agents → normalized evidence/fact pack → section writers → deterministic deck compiler/floor. The writer should not be discovering, interpreting, structuring, and defending everything in one pass.
+
+Also, “section absent only on schema death” is dangerous unless you have a strong partial/needs-review state. A committed but weak section can look more trustworthy than an absent one. For pilot, the useful states are not just committed/absent; they are approved, needs operator review, source-thin, and blocked.
+
+Bottom line: do not make the pilot a migration project. Make it a supervised proof lane around the new writer, operator facts, typed output, deterministic final floor, section locks, and deck-level coherence. The app spine can be cleaned up after the operators prove the deck is worth cleaning the app around.
+
+
