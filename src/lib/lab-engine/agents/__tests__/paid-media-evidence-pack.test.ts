@@ -101,6 +101,47 @@ function buildAudienceRow(
   };
 }
 
+// A committed DemandIntent body whose keywordDemand.keywords[] rows key on
+// keyword/monthlyVolume/cpc/intentType (no name/competitor) — shaped like the
+// frozen artifact. These rows only bind once looksLikeNamedRecords admits
+// keyword-keyed records.
+function buildDemandIntentBody(): Record<string, unknown> {
+  return {
+    keywordDemand: {
+      keywords: [
+        {
+          keyword: "expense management software",
+          monthlyVolume: 14800,
+          cpc: 22.5,
+          intentType: "commercial",
+        },
+        {
+          keyword: "corporate card platform",
+          monthlyVolume: 3600,
+          cpc: 18.1,
+          intentType: "commercial",
+        },
+      ],
+    },
+  };
+}
+
+// An angle row citing DemandIntent whose salient text overlaps a real
+// keywordDemand row by >=2 meaningful tokens (the keyword phrase).
+function buildDemandAngleRow(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    shortName: "Expense management capture",
+    description:
+      "Target buyers searching expense management software with a high-intent capture angle.",
+    grounding:
+      "DemandIntent shows commercial demand for expense management software.",
+    sourceSection: "positioningDemandIntent",
+    ...overrides,
+  };
+}
+
 function buildCompetitorReviewRow(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
@@ -324,5 +365,59 @@ describe("withPaidMediaEvidencePack", () => {
     const originalRow = (artifact.body as Record<string, unknown>)
       .audienceTypes as Array<Record<string, unknown>>;
     expect(originalRow[0].evidencePack).toBeUndefined();
+  });
+
+  it("gaps a DemandIntent-cited angle — keyword rows are not quote-bearing deck-ledger evidence (LOCUS B reverted)", () => {
+    const artifact = buildPaidMediaArtifact({
+      anglesToTest: [buildDemandAngleRow()],
+    });
+
+    const result = withPaidMediaEvidencePack({
+      artifact,
+      committedArtifacts: {
+        positioningDemandIntent: { body: buildDemandIntentBody() },
+      },
+    });
+
+    const angles = (result.body as Record<string, unknown>)
+      .anglesToTest as Array<Record<string, unknown>>;
+    const pack = angles[0]?.evidencePack as Record<string, unknown>;
+    expect(pack).toBeDefined();
+    // keywordDemand.keywords rows carry no (sourceUrl, quote) pair the
+    // deck-ledger gate's resolveCellSourceUrls can resolve, so a keyword-only
+    // citation MUST gap rather than bind to an unresolvable locator (binding
+    // them produced 10 fabrication-cap violations on run harness-ramp-7acea2f3).
+    expect(pack.status).toBe("gap");
+  });
+
+  it("writes a deterministic evidenceBinding rollup across synthesized rows", () => {
+    const artifact = buildPaidMediaArtifact({
+      // One audience row that binds to a committed BuyerICP persona and one that
+      // gaps (no matching upstream row).
+      audienceTypes: [
+        buildAudienceRow(),
+        buildAudienceRow({
+          detail: "Targets enterprise security architects in aerospace.",
+          grounding: "Enterprise security architects evaluate aerospace tooling.",
+        }),
+      ],
+    });
+
+    const result = withPaidMediaEvidencePack({
+      artifact,
+      committedArtifacts: {
+        positioningBuyerICP: { body: buildBuyerICPBody() },
+      },
+    });
+
+    const binding = (result.body as Record<string, unknown>).evidenceBinding as
+      | Record<string, unknown>
+      | undefined;
+    expect(binding).toBeDefined();
+    expect(binding?.groundedRows).toBe(1);
+    expect(binding?.gapRows).toBe(1);
+    expect(binding?.bindRate).toBe(0.5);
+    // byTier tallies grounded refs by evidenceKind.
+    expect((binding?.byTier as Record<string, number>).persona).toBe(1);
   });
 });

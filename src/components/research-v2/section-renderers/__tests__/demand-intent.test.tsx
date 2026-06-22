@@ -194,4 +194,38 @@ describe('DemandIntentRenderer', () => {
     expect(screen.getAllByTestId('subsection')).toHaveLength(5);
     expect(screen.getAllByTestId('keyword-item').length).toBeGreaterThanOrEqual(3);
   });
+
+  it('lead finding names the largest CATEGORY cluster, not a higher-volume navigational keyword', () => {
+    const artifact: DemandIntentArtifact = structuredClone(demandIntentArtifact);
+    artifact.keywordDemand.keywords = [
+      {
+        keyword: 'acme brand',
+        monthlyVolume: '50,000',
+        intentType: 'navigational',
+        top3RankingDomains: ['acme.com'],
+        sourceTitle: 'Keyword sample',
+        sourceUrl: 'https://example.com/acme-brand',
+        dateObserved: '2026-05-20',
+      },
+      {
+        keyword: 'workflow automation software',
+        monthlyVolume: '12,000',
+        intentType: 'commercial',
+        top3RankingDomains: ['zapier.com', 'monday.com', 'asana.com'],
+        sourceTitle: 'Keyword sample',
+        sourceUrl: 'https://example.com/keyword-sample',
+        dateObserved: '2026-05-20',
+      },
+    ];
+
+    render(<DemandIntentRenderer artifact={artifact} />);
+
+    const keyFindings = screen.getByTestId('key-findings');
+    expect(keyFindings).toHaveTextContent(
+      /workflow automation software is the largest visible demand cluster/i,
+    );
+    expect(keyFindings).not.toHaveTextContent(
+      /acme brand is the largest visible demand cluster/i,
+    );
+  });
 });

@@ -276,6 +276,25 @@ function buyerICPCandidates(
         return;
       }
       const value = asString(cut.value);
+      // Refuse to enumerate inference-disclaimed cuts: binding an audience to an
+      // un-grounded inferred band (e.g. an "approximate ... no precise floor"
+      // employee range) produces a deck-ledger token-not-in-ledger violation.
+      // Purely subtractive — grounded cuts (industry, geography) stay enumerable.
+      const INFERENCE_DISCLAIMER_MARKERS = [
+        "approximate",
+        "no precise",
+        "not verified",
+        "inferred",
+        "directional",
+        "sourced from",
+        "estimated",
+        "no floor",
+        "no ceiling",
+      ];
+      const lowerValue = value.toLowerCase();
+      if (INFERENCE_DISCLAIMER_MARKERS.some((m) => lowerValue.includes(m))) {
+        return;
+      }
       out.push(
         makeCandidate(
           "firmographicCut",
@@ -406,8 +425,16 @@ function voiceOfCustomerCandidates(
   return out;
 }
 
-// Heuristic: does this array look like a list of competitor records?
-function looksLikeNamedRecords(value: unknown): value is Record<string, unknown>[] {
+// Heuristic: does this array look like a list of named/keyed records?
+// Only name/competitor-keyed rows bind. LOCUS B (admitting keyword/term-keyed
+// DemandIntent rows) was REVERTED: those rows carry no (sourceUrl, quote) pair,
+// so the deck-ledger gate's resolveCellSourceUrls returns `unresolvable` for
+// every keyword ref — binding them turned an llm bind-rate cap into a hard
+// fabrication-cap (10 deck-ledger violations on run harness-ramp-7acea2f3).
+// Keyword rows are numeric demand data, not quote-bearing deck-ledger evidence.
+export function looksLikeNamedRecords(
+  value: unknown,
+): value is Record<string, unknown>[] {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
@@ -731,6 +758,13 @@ export function withPaidMediaEvidencePack({
   const nextBody: Record<string, unknown> = { ...body };
   let changed = false;
 
+  // Deterministic bind-rate rollup, tallied as the per-row evidence packs are
+  // built. byTier counts grounded refs by their evidenceKind (the only
+  // tier-like dimension the pack carries deterministically).
+  let groundedRows = 0;
+  let gapRows = 0;
+  const byTier: Record<string, number> = {};
+
   for (const rowKind of SYNTHESIZED_ROW_ARRAYS) {
     const rows = body[rowKind];
     if (!Array.isArray(rows)) {
@@ -742,6 +776,7 @@ export function withPaidMediaEvidencePack({
       }
       if (rowIsHonestGap(rowKind, row)) {
         // Honest gap row: leave intact, omit evidencePack.
+        gapRows += 1;
         return row;
       }
       const evidencePack = buildEvidencePackForRow(
@@ -749,6 +784,14 @@ export function withPaidMediaEvidencePack({
         row,
         committedArtifacts,
       );
+      if (evidencePack.status === "grounded") {
+        groundedRows += 1;
+        for (const ref of evidencePack.refs) {
+          byTier[ref.evidenceKind] = (byTier[ref.evidenceKind] ?? 0) + 1;
+        }
+      } else {
+        gapRows += 1;
+      }
       changed = true;
       return { ...row, evidencePack };
     });
@@ -757,6 +800,14 @@ export function withPaidMediaEvidencePack({
   if (!changed) {
     return artifact;
   }
+
+  const totalRows = groundedRows + gapRows;
+  nextBody.evidenceBinding = {
+    groundedRows,
+    gapRows,
+    bindRate: totalRows > 0 ? groundedRows / totalRows : 0,
+    ...(Object.keys(byTier).length > 0 ? { byTier } : {}),
+  };
 
   return { ...artifact, body: nextBody };
 }

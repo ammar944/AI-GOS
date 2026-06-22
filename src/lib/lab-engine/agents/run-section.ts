@@ -2874,6 +2874,16 @@ const marketCategoryStructuralFloorMatchers: ReadonlyArray<{
       ),
   },
   {
+    block: "marketSize",
+    requiredCount: 1,
+    noun: "bottom-up TAM caveats",
+    matches: (error) =>
+      parseCompetitorFoundCount(
+        error,
+        /^body\.marketSize\.bottomUpTam\.caveats: have (\d+), need >=1 caveat or body\.marketSize\.blockGap\.$/,
+      ),
+  },
+  {
     block: "structuralForces",
     requiredCount: 1,
     noun: "structural forces",
@@ -7692,7 +7702,7 @@ export function withNormalizedBuyerICPOutput(
   const injectPersonaGap =
     normalizedPersonaReality !== null &&
     !stripUnnecessaryGap &&
-    validatorGradePersonaCount < 3 &&
+    validatorGradePersonaCount === 0 &&
     !personaRealityHasBlockGap &&
     !alreadyDeclaresPersonaGap;
   const {
@@ -7710,9 +7720,8 @@ export function withNormalizedBuyerICPOutput(
             evidenceGap: true,
             evidenceGapReport: {
               reason: buyerICPEvidenceGapReason,
-              summary: `Only ${validatorGradePersonaCount} buyer persona${
-                validatorGradePersonaCount === 1 ? "" : "s"
-              } could be grounded in fetched evidence with a live source URL — below the 3-persona floor. Treat the buyer picture as directional until more grounded buyer units (role/segment 'segmentLabel' personas from live pages, or named case-study champions) are sourced.`,
+              summary:
+                "No buyer persona could be grounded in fetched evidence with a live source URL. Treat the buyer picture as directional until more grounded buyer units (role/segment 'segmentLabel' personas from live pages, or named case-study champions) are sourced.",
               foundNamedPersonaCount: validatorGradePersonaCount,
               requiredNamedPersonaCount: 3,
               rejectedPersonaLabels: [],
@@ -11828,6 +11837,95 @@ async function buildVerifiedAttemptFromOutput(
   return buildVerifiedAttemptFromFinalOutput(args);
 }
 
+// Save-time count-floor regression repair.
+//
+// The committable gate (evaluateCommittableAttempt) runs validateMinimums on
+// the post-writer-pen body and routes a count-floor failure to the section gap
+// builder. But the POST-gate evidence-strip chain inside
+// annotateEvidenceSupportReview (source-liveness / placeholder-url /
+// uncontained-url / contradicted-cta strips) can DROP a sourceUrl-bearing row
+// from a count-floored block (e.g. funnelDiagnosis.breaks 2 -> 1) with no
+// re-validate. That mutated body then hard-fails the IDENTICAL validateMinimums
+// inside assertSectionArtifactPersistable (section-registry.ts) at save time,
+// which has no degrade route -> SectionArtifactValidationError -> section ABSENT.
+//
+// This re-runs the SAME validateMinimums the gate used. If it still passes, the
+// body is returned untouched (healthy sections are unaffected). If a recognized
+// COUNT-FLOOR regressed, the section's EXISTING errors-driven gap builder is
+// invoked exactly once with the same validateMinimums error strings; that
+// builder partitions only recognized count-floors, injects a schema-valid
+// blockGap, forces confidence <= 0.3 + an honest verdict, and self-re-validates,
+// returning undefined if a NON-count-floor minimum is what failed. On undefined
+// (or no matching builder) the original artifact is returned so the current
+// hard-fail behavior at save time is preserved. This re-touches only the same
+// structural count validator the gate already passed — it never re-opens the
+// evidence-support or deck-ledger truth gates (those ran earlier and stay hard).
+export function redegradeIfCountFloorRegressed({
+  artifact,
+  definition,
+  input,
+  researchInput,
+}: {
+  artifact: ArtifactEnvelope;
+  definition: RuntimeSectionDefinition;
+  input: RunSectionInput;
+  researchInput: ResearchInput;
+}): ArtifactEnvelope {
+  const minimums = definition.validateMinimums(
+    artifact as ArtifactEnvelope & { body: Record<string, unknown> },
+  );
+  if (minimums.ok) {
+    return artifact;
+  }
+
+  const errors = minimums.errors;
+
+  // Dispatch to the section's EXISTING errors-driven count-floor gap builder.
+  // Each returns undefined when no recognized count-floor matched (a non-count
+  // shape/text/truth failure), in which case we keep the artifact unchanged so
+  // the save-time assertion hard-fails exactly as it does today.
+  let degraded: ArtifactEnvelope | undefined;
+  switch (input.sectionId) {
+    case "positioningOfferDiagnostic":
+      degraded = buildOfferDiagnosticEvidenceGapArtifact({
+        artifact,
+        definition,
+        errors,
+        input,
+      });
+      break;
+    case "positioningMarketCategory":
+      degraded = buildMarketCategoryEvidenceGapArtifact({
+        artifact,
+        definition,
+        errors,
+        input,
+        researchInput,
+      });
+      break;
+    case "positioningCompetitorLandscape":
+      degraded = buildCompetitorStrategicEvidenceGapArtifact({
+        artifact,
+        definition,
+        errors,
+        input,
+      });
+      break;
+    case "positioningBuyerICP":
+      degraded = buildBuyerICPPersonaEvidenceGapArtifact({
+        artifact,
+        definition,
+        errors,
+        input,
+      });
+      break;
+    default:
+      degraded = undefined;
+  }
+
+  return degraded ?? artifact;
+}
+
 async function buildVerifiedAttemptFromFinalOutput({
   definition,
   deps,
@@ -12103,39 +12201,12 @@ async function buildVerifiedAttemptFromFinalOutput({
   }
 
   if (verdict.kind === "evidenceShortfall") {
-    return {
-      output,
-      artifact: await annotateEvidenceSupportReview({
-        artifact: verdict.committableArtifact,
-        fetchImpl: deps.fetchImpl,
-        preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
-          steps: evidenceSteps,
-        }),
-        researchInput,
-        sectionId: input.sectionId,
-        shortfall: verdict.shortfall,
-        signal: input.signal,
-        subjectSiteObservations: collectSubjectSiteObservationsFromSteps({
-          steps: evidenceSteps,
-          subjectWebsiteUrl: researchInput.company.websiteUrl,
-        }),
-      }),
-      errors: [],
-      evidenceSupportShortfall: verdict.shortfall,
-    };
-  }
-
-  return {
-    output,
-    artifact: await annotateEvidenceSupportReview({
+    const annotated = await annotateEvidenceSupportReview({
       artifact: verdict.committableArtifact,
       fetchImpl: deps.fetchImpl,
       preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
         steps: evidenceSteps,
       }),
-      // The clean commit path passes the same researchInput as the shortfall
-      // path above: a clean section must never face a SMALLER numeric-
-      // coherence truth universe than a shortfall section.
       researchInput,
       sectionId: input.sectionId,
       shortfall: verdict.shortfall,
@@ -12144,6 +12215,51 @@ async function buildVerifiedAttemptFromFinalOutput({
         steps: evidenceSteps,
         subjectWebsiteUrl: researchInput.company.websiteUrl,
       }),
+    });
+    return {
+      output,
+      // The post-gate evidence strips above can drop a sourceUrl-bearing row
+      // out of a count-floored block; re-degrade in place so a recognized
+      // count-floor regression commits with a blockGap instead of hard-failing
+      // the save-time assertion. Runs once; no-op when minimums still pass.
+      artifact: redegradeIfCountFloorRegressed({
+        artifact: annotated,
+        definition,
+        input,
+        researchInput,
+      }),
+      errors: [],
+      evidenceSupportShortfall: verdict.shortfall,
+    };
+  }
+
+  const annotated = await annotateEvidenceSupportReview({
+    artifact: verdict.committableArtifact,
+    fetchImpl: deps.fetchImpl,
+    preverifiedSourceUrls: collectPreverifiedSourceUrlsFromSteps({
+      steps: evidenceSteps,
+    }),
+    // The clean commit path passes the same researchInput as the shortfall
+    // path above: a clean section must never face a SMALLER numeric-
+    // coherence truth universe than a shortfall section.
+    researchInput,
+    sectionId: input.sectionId,
+    shortfall: verdict.shortfall,
+    signal: input.signal,
+    subjectSiteObservations: collectSubjectSiteObservationsFromSteps({
+      steps: evidenceSteps,
+      subjectWebsiteUrl: researchInput.company.websiteUrl,
+    }),
+  });
+  return {
+    output,
+    // Same save-time count-floor regression repair on the clean-commit path,
+    // kept in parity with the evidenceShortfall branch above.
+    artifact: redegradeIfCountFloorRegressed({
+      artifact: annotated,
+      definition,
+      input,
+      researchInput,
     }),
     errors: [],
     ...(verdict.shortfall === undefined

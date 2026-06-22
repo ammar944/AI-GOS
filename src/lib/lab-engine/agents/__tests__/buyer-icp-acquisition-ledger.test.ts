@@ -549,6 +549,39 @@ function sufficientPersonaNoReportArtifact(): ArtifactEnvelope {
   } as unknown as ArtifactEnvelope;
 }
 
+// A report-absent body carrying exactly ONE grounded named persona (the exact
+// Ramp shape: isNamedBuyerPersona counts a single named human). personaReality
+// is NOT empty, so the early-return guard (>= 1) must skip synthesis entirely.
+function oneGroundedPersonaNoReportArtifact(): ArtifactEnvelope {
+  const fixtureBody = buyerICPFixtureArtifact.body as Record<string, unknown>;
+  const personaReality = fixtureBody.personaReality as Record<string, unknown>;
+
+  return {
+    ...buyerICPFixtureArtifact,
+    body: {
+      ...fixtureBody,
+      personaReality: {
+        ...personaReality,
+        personas: [
+          {
+            name: "Alicia Coleman",
+            title: "Controller",
+            company: "WizeHire",
+            sourceUrl: "https://example.com/buyer/persona-1",
+            role: "champion",
+            seniority: "Manager",
+            teamSize: "small finance team",
+            evidence:
+              "Named case-study champion whose role line matches the finance-buyer ICP.",
+          },
+        ],
+      },
+      // No evidenceGapReport and no evidenceGap flag on the committed body.
+      evidenceGapReport: null,
+    },
+  } as unknown as ArtifactEnvelope;
+}
+
 describe("withBuyerICPAcquisitionLedger — sufficient personas, report absent (C-LEDGER)", () => {
   it("does NOT fabricate an evidence gap when the persona floor is already cleared", () => {
     const enriched = withBuyerICPAcquisitionLedger({
@@ -596,5 +629,35 @@ describe("withBuyerICPAcquisitionLedger — sufficient personas, report absent (
       body: parsedBody,
     });
     expect(minimums.ok).toBe(true);
+  });
+
+  // The report-absent early-return guard moved from >= floor(3) to >= 1: a body
+  // carrying a SINGLE grounded persona is already grounded, so synthesizing the
+  // "personaReality is empty" insufficient report would be a flat self-
+  // contradiction. (The Ramp case: isNamedBuyerPersona counts only Alicia
+  // Coleman -> groundedPersonaCount === 1; under the old >= 3 guard this
+  // false-synthesized an insufficient report onto a non-empty personaReality.)
+  it("does NOT synthesize an insufficient report for a 1-grounded-persona report-absent body", () => {
+    const enriched = withBuyerICPAcquisitionLedger({
+      artifact: oneGroundedPersonaNoReportArtifact(),
+      candidates: [candidate({ name: "Alicia Coleman", url: "https://g2.com/u/alicia" })],
+      observedAt,
+    });
+
+    const body = enriched.body as Record<string, unknown>;
+
+    // The single-grounded honest state must NOT be flipped to an evidence gap.
+    expect(body.evidenceGap).not.toBe(true);
+
+    // The dishonest "personaReality is empty" summary must appear nowhere.
+    expect(JSON.stringify(body)).not.toContain("personaReality is empty");
+
+    // No synthesized insufficient report (reason literal) was attached.
+    const report = body.evidenceGapReport;
+    if (report !== null && typeof report === "object" && !Array.isArray(report)) {
+      expect((report as Record<string, unknown>).reason).not.toBe(
+        buyerICPEvidenceGapReason,
+      );
+    }
   });
 });

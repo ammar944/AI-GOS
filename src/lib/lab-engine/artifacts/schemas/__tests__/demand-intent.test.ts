@@ -7,6 +7,7 @@ import {
   DEMAND_INTENT_SPYFU_TOOLGAP_VOLUME,
   checkDemandIntentIntentSignalIndependence,
   checkDemandIntentKeywordProvenance,
+  demandIntentBodySchema,
   keywordSignalSchema,
   softenDemandIntentForSpyFuToolGap,
   validateDemandIntentMinimums,
@@ -620,6 +621,60 @@ describe("keywordSignalSchema — optional cpc", (): void => {
       keywordSignalSchema.safeParse({
         ...baseRow,
         [field]: value,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a row WITH economicsProvenance", (): void => {
+    expect(
+      keywordSignalSchema.safeParse({
+        ...baseRow,
+        economicsProvenance: "tool-measured",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an unknown economicsProvenance enum value", (): void => {
+    expect(
+      keywordSignalSchema.safeParse({
+        ...baseRow,
+        economicsProvenance: "guessed",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("demandIntentBodySchema — optional operatorEconomics", (): void => {
+  it("accepts a body WITHOUT operatorEconomics", (): void => {
+    expect(
+      demandIntentBodySchema.safeParse(demandIntentFixtureArtifact.body).success,
+    ).toBe(true);
+  });
+
+  it("accepts a body WITH operatorEconomics", (): void => {
+    expect(
+      demandIntentBodySchema.safeParse({
+        ...demandIntentFixtureArtifact.body,
+        operatorEconomics: {
+          targetCac: "$3,000",
+          monthlyBudget: "$25,000/mo",
+          googleAllocation: "60%",
+          provenance: "operator-brief",
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects operatorEconomics with provenance other than operator-brief", (): void => {
+    expect(
+      demandIntentBodySchema.safeParse({
+        ...demandIntentFixtureArtifact.body,
+        operatorEconomics: {
+          targetCac: "$3,000",
+          monthlyBudget: "$25,000/mo",
+          googleAllocation: "60%",
+          provenance: "tool-measured",
+        },
       }).success,
     ).toBe(false);
   });

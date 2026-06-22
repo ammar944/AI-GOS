@@ -401,6 +401,44 @@ function evidenceGapCell(row: {
   );
 }
 
+// Plan-wide bind-rate strip. Renders only when the deterministic evidenceBinding
+// rollup is present; a frozen artifact lacking it renders nothing.
+function planProvenanceStrip(
+  binding: PaidMediaBody['evidenceBinding'],
+): React.ReactNode {
+  if (!binding) return null;
+  const total = binding.groundedRows + binding.gapRows;
+  const isWeak = binding.bindRate < 0.5;
+  return (
+    <div
+      data-testid="plan-provenance-strip"
+      className={cn(
+        'flex items-center gap-3 rounded-md border px-4 py-2 text-[13px] leading-[1.5]',
+        isWeak
+          ? 'border-red-500/60 bg-red-500/5 text-red-700 dark:text-red-400'
+          : 'border-border text-muted-foreground',
+      )}
+    >
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.06em]">
+        Plan provenance
+      </span>
+      <span>
+        {binding.groundedRows} of {total} rows traced; {binding.gapRows} gaps
+      </span>
+    </div>
+  );
+}
+
+// A competitor-sourced row is an explicit unbound gap when its evidence pack is
+// present AND flagged gap (no exact upstream Competitor Landscape row matched).
+// A row with no pack at all is un-instrumented, not a gap — it must not trigger
+// the section-absent collapse on its own.
+function competitorRowIsGap(row: {
+  evidencePack?: PaidMediaEvidencePack;
+}): boolean {
+  return row.evidencePack?.status === 'gap';
+}
+
 export function PaidMediaPlanRenderer({
   artifact,
   className,
@@ -410,6 +448,18 @@ export function PaidMediaPlanRenderer({
     (asset) => !isMissingSalesAsset(asset),
   );
   const missingSalesAssets = body.salesProcess.filter(isMissingSalesAsset);
+  // Competitor section did not commit this run when the competitor-sourced rows
+  // were enriched (carry packs) but every bind attempt gapped and none grounded.
+  // Degrade the hollow tables to one honest amber GapNote rather than render
+  // empty refs. Un-instrumented rows (no pack) leave the tables intact.
+  const competitorRows = [
+    ...body.competitorMarketingInsights,
+    ...body.competitorReviewInsights,
+  ];
+  const competitorSectionAbsent =
+    competitorRows.length > 0 &&
+    competitorRows.some(competitorRowIsGap) &&
+    !competitorRows.some((row) => row.evidencePack?.status === 'grounded');
 
   const phaseColumns: ReadonlyArray<DataTableColumn<CampaignPhase>> = [
     { key: 'phaseName', header: 'Phase', className: 'font-medium text-foreground' },
@@ -491,6 +541,7 @@ export function PaidMediaPlanRenderer({
         whyItMatters={artifact.statusSummary}
         valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
+      {planProvenanceStrip(body.evidenceBinding)}
       <KeyFindings findings={paidMediaKeyFindings(body, artifact)} />
 
       <SubsectionBlock label="Plan brief" prose={body.campaignOverview.prose}>
@@ -613,6 +664,12 @@ export function PaidMediaPlanRenderer({
         }
       >
         <div className="grid gap-6">
+          {competitorSectionAbsent ? (
+            <GapNote>
+              No competitor rows bound to a committed Competitor Landscape row this
+              run — the exhibit below is directional, not independently verified.
+            </GapNote>
+          ) : null}
           <DataTable
             columns={competitorColumns}
             rows={body.competitorMarketingInsights}

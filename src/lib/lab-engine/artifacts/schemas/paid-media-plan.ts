@@ -455,6 +455,16 @@ export const paidMediaPlanBodySchema = z.object({
     .max(3)
     .describe("1-3 cross-section tensions that drove the plan"),
   feasibilityAudit: feasibilityAuditSchema.optional(),
+  evidenceBinding: z
+    .object({
+      groundedRows: z.number(),
+      gapRows: z.number(),
+      bindRate: z.number(),
+      byTier: z.record(z.string(), z.number()).optional(),
+    })
+    .nullable()
+    .transform((v) => v ?? undefined)
+    .optional(),
 });
 
 export const paidMediaPlanSectionOutputSchema = z

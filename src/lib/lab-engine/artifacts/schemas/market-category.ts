@@ -732,8 +732,11 @@ export function validateMarketCategoryMinimums(
       }
     }
   }
-  if (parsedArtifact.body.marketSize.bottomUpTam.caveats.length < 1) {
-    errors.push("body.marketSize.bottomUpTam.caveats: have 0, need >=1 caveat.");
+  if (
+    parsedArtifact.body.marketSize.bottomUpTam.caveats.length < 1 &&
+    !hasBlockGap(parsedArtifact.body.marketSize)
+  ) {
+    errors.push("body.marketSize.bottomUpTam.caveats: have 0, need >=1 caveat or body.marketSize.blockGap.");
   }
 
   const forceCount = parsedArtifact.body.structuralForces.forces.length;

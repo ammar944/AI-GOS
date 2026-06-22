@@ -44,6 +44,7 @@ const signalTypes = [
   "leadership-change",
 ] as const;
 const venueTypes = ["event", "community", "newsletter", "podcast", "slack"] as const;
+const economicsProvenanceTypes = ["tool-measured", "operator-brief", "derived"] as const;
 const blockGapFieldSchema = evidenceBlockGapFieldSchema;
 
 const evidenceTierFieldSchema = evidenceTierSchema
@@ -77,6 +78,7 @@ export const keywordSignalSchema = z
     dateObserved: z.string().min(1),
     evidenceTier: evidenceTierFieldSchema,
     verification: rowVerificationFieldSchema,
+    economicsProvenance: z.enum(economicsProvenanceTypes).nullable().transform((value) => value ?? undefined).optional(),
   })
   .strict();
 
@@ -170,6 +172,17 @@ export const demandIntentBodySchema = z
         coverage: blockCoverageFieldSchema,
       })
       .strict(),
+    operatorEconomics: z
+      .object({
+        targetCac: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+        monthlyBudget: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+        googleAllocation: z.string().min(1).nullable().transform((value) => value ?? undefined).optional(),
+        provenance: z.literal("operator-brief"),
+      })
+      .strict()
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
   })
   .strict();
 

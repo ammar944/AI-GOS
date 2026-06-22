@@ -255,11 +255,26 @@ describe("withNormalizedBuyerICPOutput unnecessary-gap strip", (): void => {
     expect(output.body.evidenceGapReport).toBeUndefined();
   });
 
-  it("keeps the gap when fewer than 3 validator-grade personas remain", (): void => {
+  it("keeps a model-authored gap below the >=3 strip floor (strip path unchanged)", (): void => {
+    // The unnecessary-gap STRIP path is still gated at >=3 (edit 1 only relaxed
+    // the separate INJECTION path to ===0). A model-authored gap on a 2-persona
+    // body is therefore left intact here — the injection path (which now fires
+    // ONLY at zero grounded personas) is exercised in the persona-gap-injection
+    // describe block below.
     const output = withNormalizedBuyerICPOutput(
       gappedOutput(threeValidPersonas.slice(0, 2)),
       { subjectWebsiteUrl, subjectCompanyName: "Anura" },
     ) as { body: Record<string, unknown> };
+
+    expect(output.body.evidenceGap).toBe(true);
+    expect(output.body.evidenceGapReport).toBeDefined();
+  });
+
+  it("keeps a model-authored gap when zero validator-grade personas remain", (): void => {
+    const output = withNormalizedBuyerICPOutput(gappedOutput([]), {
+      subjectWebsiteUrl,
+      subjectCompanyName: "Anura",
+    }) as { body: Record<string, unknown> };
 
     expect(output.body.evidenceGap).toBe(true);
     expect(output.body.evidenceGapReport).toBeDefined();
@@ -288,8 +303,22 @@ describe("withNormalizedBuyerICPOutput tolerant-out persona gap injection", (): 
     },
   ];
 
-  it("injects an honest persona gap when <3 validator-grade personas and no gap declared (was a HARD ERROR that blocked the run)", (): void => {
+  it("does NOT inject for 2 grounded personas (directional partial, not apology)", (): void => {
     const output = withNormalizedBuyerICPOutput(buyerOutput(twoValidPersonas), {
+      subjectWebsiteUrl,
+      subjectCompanyName: "Anura",
+    }) as { body: Record<string, unknown> };
+
+    // 2 grounded-but-downgraded personas commit as a usable directional ICP —
+    // no force-injected evidenceGap apology.
+    expect(output.body.evidenceGap).toBeUndefined();
+    expect(output.body.evidenceGapReport).toBeUndefined();
+    // the two real personas are still carried (directional, not erased)
+    expect(personasOf(output)).toHaveLength(2);
+  });
+
+  it("injects an honest persona gap when ZERO grounded personas and no gap declared", (): void => {
+    const output = withNormalizedBuyerICPOutput(buyerOutput([]), {
       subjectWebsiteUrl,
       subjectCompanyName: "Anura",
     }) as { body: Record<string, unknown> };
@@ -297,12 +326,10 @@ describe("withNormalizedBuyerICPOutput tolerant-out persona gap injection", (): 
     expect(output.body.evidenceGap).toBe(true);
     const report = output.body.evidenceGapReport as Record<string, unknown>;
     expect(report.reason).toBe("insufficient_named_buyer_personas");
-    expect(report.foundNamedPersonaCount).toBe(2);
+    expect(report.foundNamedPersonaCount).toBe(0);
     expect(report.requiredNamedPersonaCount).toBe(3);
     expect(Array.isArray(report.sourcingPlan)).toBe(true);
     expect((report.sourcingPlan as string[]).length).toBeGreaterThanOrEqual(1);
-    // the two real personas are still carried (directional, not erased)
-    expect(personasOf(output)).toHaveLength(2);
   });
 
   it("does NOT inject when >=3 validator-grade personas exist", (): void => {
@@ -698,7 +725,11 @@ describe("withNormalizedBuyerICPOutput escapable-floor tolerant-out", (): void =
     });
     const resultBody = bodyOf(result);
 
-    expect(resultBody.evidenceGap).toBe(true);
+    // The 2 grounded personas commit as a directional partial (no body-level
+    // persona-apology evidenceGap — injection now fires only at ZERO grounded
+    // personas). The thin firmographic + trigger blocks still declare honest
+    // block-level gaps below.
+    expect(resultBody.evidenceGap).toBeUndefined();
     expect(
       (resultBody.icpExistenceCheck as Record<string, unknown>).blockGap,
     ).toBeDefined();

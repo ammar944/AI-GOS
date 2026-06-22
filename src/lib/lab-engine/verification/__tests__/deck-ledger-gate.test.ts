@@ -230,6 +230,93 @@ describe("checkDeckAgainstLedger", () => {
     expect(verdict.violations[0]?.reason).toBe("locator-unresolvable");
   });
 
+  it("does NOT block a PaidMedia audienceTypes[0] cell whose refs dereference ONLY to a clean firmographicCut + a clean persona (PaidMedia cap-clear)", () => {
+    // §4.7 cap-clear regression guard. After the LOCUS A inference-disclaimer
+    // guard drops the un-grounded firmographicCut[1] ref, audienceTypes[0] binds
+    // only to a ledger-backed industry cut + a ledger-backed persona. Both refs
+    // resolve to a real (sourceUrl, quote) pair backed by a containing ledger
+    // fact, so the gate must NOT block. (No case-insensitive gate test is added
+    // — HARD RULE 1: the gate stays case-sensitive; the cut[0] casing fix lives
+    // in §4.4, not here.)
+    const cutUrl = "https://ramp.com/";
+    const personaUrl = "https://ramp.com/customers/acme";
+    const cutValue = "technology, ecommerce, professional services";
+    const personaEvidence =
+      "Procurement leaders consolidated five tools into Ramp.";
+
+    const cell: GroundedCell = {
+      sectionId: "positioningPaidMediaPlan",
+      rowKind: "audienceTypes",
+      rowIndex: 0,
+      evidencePack: {
+        status: "grounded",
+        refs: [
+          {
+            sourceSection: "positioningBuyerICP",
+            evidenceKind: "firmographicCut",
+            locator: "body.icpExistenceCheck.firmographicCuts[0]",
+            excerpt: cutValue,
+          },
+          {
+            sourceSection: "positioningBuyerICP",
+            evidenceKind: "persona",
+            locator: "body.personaReality.personas[0]",
+            excerpt: personaEvidence,
+          },
+        ],
+      },
+    };
+
+    const deck: DeckBundle = {
+      positioningPaidMediaPlan: {
+        body: {
+          audienceTypes: [
+            {
+              slot: "01",
+              archetype: "Technology and ecommerce operators",
+              sourceSection: "positioningBuyerICP",
+              grounding: "Industry cut + persona evidence.",
+              evidencePack: cell.evidencePack,
+            },
+          ],
+        },
+      },
+      positioningBuyerICP: {
+        body: {
+          icpExistenceCheck: {
+            firmographicCuts: [
+              {
+                cutType: "industry",
+                value: cutValue,
+                sourceUrl: cutUrl,
+                dateObserved: "2026-01-01",
+              },
+            ],
+          },
+          personaReality: {
+            personas: [
+              {
+                name: "Procurement leaders",
+                evidence: personaEvidence,
+                sourceUrl: personaUrl,
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const ledger: ResearchFact[] = [
+      voiceFact({ sourceUrl: cutUrl, sourceQuote: cutValue }),
+      voiceFact({ sourceUrl: personaUrl, sourceQuote: personaEvidence }),
+    ];
+
+    const verdict = checkDeckAgainstLedger({ deck, ledger });
+
+    expect(verdict.blocked).toBe(false);
+    expect(verdict.violations).toEqual([]);
+  });
+
   it("does NOT block when every grounded cell is backed by a containing ledger fact and honest-gap cells are skipped", () => {
     const url = "https://www.g2.com/products/acme/reviews";
     const verbatim = "Closing the books takes us a full week every month.";

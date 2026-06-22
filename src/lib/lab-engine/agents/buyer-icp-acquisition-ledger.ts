@@ -21,8 +21,12 @@ import {
   type BuyerPersonaVenue,
 } from "./buyer-persona-acquisition";
 
-// Mirrors buyerICPRequiredNamedPersonaCount / validateBuyerICPMinimums: a section
-// reports "sufficient" acquisition only once >= 3 leads are grounded as personas.
+// Promotion floor for computeAcquisitionSufficiency banding: a section reports a
+// "sufficient" acquisition tier only once >= 3 leads are grounded as personas.
+// NOTE: this is the SUFFICIENCY floor, NOT the minimum-to-commit floor —
+// validateBuyerICPMinimums (buyer-icp.ts:556) is floor-1 quality-aware
+// ("have N grounded, need >= 1"), so the report-absent early-return guard below
+// gates on >= 1 (any grounded persona), not on this constant.
 const BUYER_ICP_PROMOTED_PERSONA_FLOOR = 3;
 
 export type BuyerICPAcquisitionLedgerRejectionReason =
@@ -249,14 +253,16 @@ export function withBuyerICPAcquisitionLedger({
         : [];
     const groundedPersonaCount = personas.filter(isNamedBuyerPersona).length;
 
-    // Sufficient personas, report absent: the body already cleared the floor, so
-    // synthesizing an "insufficient" gap here would be a flat self-contradiction
-    // (evidenceGap=true + "personaReality is empty" while personaReality.personas
-    // is grounded). The only schema-legal report reason is the insufficient
-    // literal, and the .strict() body has no top-level home for the ledger — so
-    // when sufficient we attach NO gap report and leave the honest committed body
-    // untouched, rather than fabricate a gap to host the diagnostics.
-    if (groundedPersonaCount >= BUYER_ICP_PROMOTED_PERSONA_FLOOR) {
+    // Any grounded persona, report absent: the body already carries a grounded
+    // buyer unit, so synthesizing an "insufficient" gap here would be a flat
+    // self-contradiction (evidenceGap=true + "personaReality is empty" while
+    // personaReality.personas is grounded). The only schema-legal report reason
+    // is the insufficient literal, and the .strict() body has no top-level home
+    // for the ledger — so whenever there is >= 1 grounded persona we attach NO
+    // gap report and leave the honest committed body untouched, rather than
+    // fabricate a gap to host the diagnostics. The synthesized "personaReality
+    // is empty" report is reserved for the genuine zero-grounded case below.
+    if (groundedPersonaCount >= 1) {
       return artifact;
     }
 

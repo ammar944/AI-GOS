@@ -180,6 +180,46 @@ describe("paidMediaPlanBodySchema row-level evidencePack (Wave 2C)", () => {
   });
 });
 
+describe("paidMediaPlanBodySchema evidenceBinding rollup (additive)", () => {
+  it("parses a frozen-shaped body WITHOUT evidenceBinding (additive-safe)", () => {
+    const output = buildPaidMediaPlanOutput();
+    const body = output.body as Record<string, unknown>;
+    expect(body).not.toHaveProperty("evidenceBinding");
+
+    const parsed = paidMediaPlanBodySchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("parses a body WITH a valid evidenceBinding rollup", () => {
+    const output = buildPaidMediaPlanOutput();
+    const body = output.body as Record<string, unknown>;
+    body.evidenceBinding = {
+      groundedRows: 7,
+      gapRows: 3,
+      bindRate: 0.7,
+      byTier: { keyword: 4, persona: 3 },
+    };
+
+    const parsed = paidMediaPlanBodySchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const binding = (parsed.data as Record<string, unknown>)
+        .evidenceBinding as Record<string, unknown>;
+      expect(binding.groundedRows).toBe(7);
+      expect(binding.bindRate).toBe(0.7);
+      expect((binding.byTier as Record<string, number>).keyword).toBe(4);
+    }
+  });
+
+  it("rejects an unknown top-level OUTPUT key (.strict() intact)", () => {
+    const output = buildPaidMediaPlanOutput();
+    (output as Record<string, unknown>).unexpectedTopLevelKey = "reject me";
+
+    const parsed = paidMediaPlanSectionOutputSchema.safeParse(output);
+    expect(parsed.success).toBe(false);
+  });
+});
+
 describe("normalizePaidMediaPlanBody", () => {
   it("preserves delivered row counts without padding or truncation", () => {
     const rawBody = structuredClone(paidMediaPlanFixtureArtifact.body) as Record<

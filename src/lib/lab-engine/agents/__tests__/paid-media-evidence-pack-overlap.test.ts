@@ -253,6 +253,99 @@ describe("withPaidMediaEvidencePack — overlap threshold tightening", () => {
     expect(audienceRow?.evidencePack?.status).not.toBe("grounded");
   });
 
+  it("TEST 3: an audience row whose only candidate match is an inference-disclaimed firmographicCut[1] is gap; a clean firmographicCut[0] match still binds grounded", () => {
+    // BuyerICP body with TWO firmographicCuts:
+    //   [0] clean industry value (grounded, ledger-backable)
+    //   [1] inferred employee band carrying disclaimer words — the LOCUS A
+    //       guard must refuse to enumerate it so an audience can never bind to
+    //       an un-ledger-backable inferred band.
+    const committedArtifacts = {
+      positioningBuyerICP: {
+        personaReality: { personas: [] },
+        buyingContext: { triggers: [] },
+        clusters: { venues: [] },
+        icpExistenceCheck: {
+          firmographicCuts: [
+            {
+              cutType: "industry",
+              value: "Technology, ecommerce, professional services",
+              source: "G2",
+              sourceUrl: "https://example.com/industry",
+              dateObserved: "2026-01-01",
+            },
+            {
+              cutType: "headcount",
+              value:
+                "10-2,000 employees (approximate range, no precise floor/ceiling verified)",
+              source: "inferred",
+              sourceUrl: "https://example.com/headcount",
+              dateObserved: "2026-01-01",
+            },
+          ],
+        },
+      },
+    };
+
+    // Row A: only overlaps the inference-disclaimed cut[1] (employees +
+    // approximate). The guard skips cut[1], so this row must be a gap.
+    const gapArtifact = buildThinAudienceArtifact();
+    (gapArtifact.body as Record<string, unknown>).audienceTypes = [
+      {
+        slot: "01",
+        archetype: "Mid-market headcount band",
+        dailyBudget: "$100/day",
+        dailyBudgetValue: 100,
+        dailyBudgetProvenance: "model-estimated",
+        detail:
+          "Targets companies by employees count in the approximate mid-market band.",
+        sourceSection: "positioningBuyerICP",
+        grounding: "Sized to the employees headcount approximate band.",
+      },
+    ];
+
+    const gapResult = withPaidMediaEvidencePack({
+      artifact: gapArtifact,
+      committedArtifacts,
+    });
+    const gapRow = (gapResult.body as {
+      audienceTypes: Array<{ evidencePack?: { status: string } }>;
+    }).audienceTypes[0];
+    expect(gapRow?.evidencePack?.status).toBe("gap");
+
+    // Row B: overlaps the clean industry cut[0] (technology + ecommerce +
+    // professional). The clean cut stays enumerable, so this row binds grounded.
+    const groundedArtifact = buildThinAudienceArtifact();
+    (groundedArtifact.body as Record<string, unknown>).audienceTypes = [
+      {
+        slot: "01",
+        archetype: "Technology and ecommerce buyers",
+        dailyBudget: "$100/day",
+        dailyBudgetValue: 100,
+        dailyBudgetProvenance: "model-estimated",
+        detail:
+          "Targets technology, ecommerce and professional services operators.",
+        sourceSection: "positioningBuyerICP",
+        grounding:
+          "Industry cut names technology, ecommerce, professional services.",
+      },
+    ];
+
+    const groundedResult = withPaidMediaEvidencePack({
+      artifact: groundedArtifact,
+      committedArtifacts,
+    });
+    const groundedRow = (groundedResult.body as {
+      audienceTypes: Array<{
+        evidencePack?: { status: string; refs: Array<{ locator: string }> };
+      }>;
+    }).audienceTypes[0];
+    expect(groundedRow?.evidencePack?.status).toBe("grounded");
+    // It binds to the CLEAN cut[0], never the skipped cut[1].
+    expect(groundedRow?.evidencePack?.refs[0]?.locator).toBe(
+      "body.icpExistenceCheck.firmographicCuts[0]",
+    );
+  });
+
   it("TEST 2c: a well-matched audience row sharing 3+ tokens with a persona IS still marked grounded", () => {
     // This is the no-regression path for the overlap fix — real matches
     // with substantial token overlap must still be grounded.

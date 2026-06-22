@@ -324,6 +324,35 @@ describe("evaluateCommittableAttempt", (): void => {
     ).toEqual(["numeric"]);
   });
 
+  // GOAL (c) / WAVE 0.5 firewall: the count-minimums degrade-commit lives on the
+  // `minimumsFailed` verdict branch (committable-gate.ts:92-94). The
+  // evidence-support gate lives on a SEPARATE branch (committable-gate.ts:140-152),
+  // reached only AFTER minimums pass. So a body that clears the count floors but
+  // carries an unsupported load-bearing claim must STILL hard-fail with
+  // `evidenceShortfall` — the count-floor degrade path can never reach or swallow
+  // this truth gate.
+  it("still returns evidenceShortfall for an unsupported load-bearing claim even when minimums pass (degrade path cannot swallow the truth gate)", (): void => {
+    const artifact = buildArtifact();
+    const verdict = evaluateCommittableAttempt({
+      // No minimums errors -> the count-floor degrade path is never entered.
+      artifact,
+      definition: buildDefinition({ errors: [] }),
+      env: {},
+      verification: buildVerificationReport([
+        unsupportedClaim("numeric", "$4.2B TAM"),
+      ]),
+    });
+
+    expect(verdict.kind).toBe("evidenceShortfall");
+    if (verdict.kind !== "evidenceShortfall") {
+      throw new Error("expected evidence shortfall");
+    }
+    expect(verdict.shortfall.unsupportedLoadBearing).toHaveLength(1);
+    expect(verdict.shortfall.unsupportedLoadBearing[0]?.claim.value).toBe(
+      "$4.2B TAM",
+    );
+  });
+
   it("under verifierDowngradeMode keeps no_match load-bearing claims out of the gate, committing", (): void => {
     const artifact = buildArtifact({ sectionId: "positioningBuyerICP" });
     const verdict = evaluateCommittableAttempt({

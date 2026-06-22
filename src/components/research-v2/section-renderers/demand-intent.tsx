@@ -118,7 +118,12 @@ function numericVolume(value: string): number {
 }
 
 function demandKeyFindings(artifact: DemandIntentArtifact): readonly KeyFinding[] {
-  const topKeyword = [...artifact.keywordDemand.keywords].sort(
+  const categoryKeywords = artifact.keywordDemand.keywords.filter(
+    (keyword) => keyword.intentType !== 'navigational',
+  );
+  const topKeywordPool =
+    categoryKeywords.length > 0 ? categoryKeywords : artifact.keywordDemand.keywords;
+  const topKeyword = [...topKeywordPool].sort(
     (a, b) => numericVolume(b.monthlyVolume) - numericVolume(a.monthlyVolume),
   )[0];
   const recurringQuestion = artifact.questionMining.questions.find(

@@ -217,4 +217,100 @@ describe('<PaidMediaPlanRenderer>', (): void => {
     // The grounded segment still shows its confident money allocation.
     expect(scoped.getByText('$200/day')).toBeInTheDocument();
   });
+
+  it('renders the Plan Provenance strip from evidenceBinding', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    (artifact.body as Record<string, unknown>).evidenceBinding = {
+      groundedRows: 8,
+      gapRows: 2,
+      bindRate: 0.8,
+    };
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    const strip = screen.getByTestId('plan-provenance-strip');
+    expect(strip).toBeInTheDocument();
+    expect(strip).toHaveTextContent('8 of 10 rows traced');
+    expect(strip).toHaveTextContent('2 gaps');
+    // bindRate 0.8 >= 0.5 -> no red banner.
+    expect(strip.className).not.toContain('border-red-500');
+  });
+
+  it('shows the red banner on the Plan Provenance strip when bindRate < 0.5', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    (artifact.body as Record<string, unknown>).evidenceBinding = {
+      groundedRows: 3,
+      gapRows: 7,
+      bindRate: 0.3,
+    };
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    const strip = screen.getByTestId('plan-provenance-strip');
+    expect(strip.className).toContain('border-red-500');
+  });
+
+  it('renders no Plan Provenance strip when the body lacks evidenceBinding', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    expect(
+      (artifact.body as Record<string, unknown>).evidenceBinding,
+    ).toBeUndefined();
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    expect(screen.queryByTestId('plan-provenance-strip')).not.toBeInTheDocument();
+  });
+
+  it('shows a directional banner over the competitor exhibit when no row bound, without hiding the committed data', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    // Every competitor-sourced row carries an explicit gap pack (no upstream
+    // Competitor Landscape row matched this run) and none grounded.
+    const gapPack = {
+      status: 'gap' as const,
+      refs: [],
+      note: 'No exact upstream row in positioningCompetitorLandscape matched this synthesized row; cited at section level only.',
+    };
+    for (const row of artifact.body.competitorMarketingInsights) {
+      (row as Record<string, unknown>).evidencePack = gapPack;
+    }
+    for (const row of artifact.body.competitorReviewInsights) {
+      (row as Record<string, unknown>).evidencePack = gapPack;
+    }
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    // Binding-honest banner — NOT a false "section did not commit" pipeline claim.
+    expect(
+      screen.getByText(
+        /No competitor rows bound to a committed Competitor Landscape row this run/,
+      ),
+    ).toBeInTheDocument();
+    // The committed competitor data is shown as directional, NOT hidden.
+    expect(screen.getAllByText('Competitor 1').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('keeps competitor tables when at least one competitor row is grounded', (): void => {
+    const artifact = structuredClone(paidMediaPlanFixtureArtifact);
+    (artifact.body.competitorMarketingInsights[0] as Record<string, unknown>).evidencePack =
+      {
+        status: 'grounded',
+        refs: [
+          {
+            sourceSection: 'positioningCompetitorLandscape',
+            evidenceKind: 'competitor',
+            locator: 'body.competitorSet.competitors[0]',
+            excerpt: 'Competitor 1 — workflow automation.',
+          },
+        ],
+      };
+
+    render(<PaidMediaPlanRenderer artifact={artifact} />);
+
+    expect(
+      screen.queryByText(
+        /No competitor rows bound to a committed Competitor Landscape row this run/,
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText('Competitor 1').length).toBeGreaterThanOrEqual(1);
+  });
 });

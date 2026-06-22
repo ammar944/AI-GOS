@@ -224,6 +224,62 @@ describe("offer-diagnostic structural blockGap escape hatch (T2c)", (): void => 
     expect(blockGap?.sourcingPlan.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("softens co-occurring channelTruth + redFlags count-floors into honest blockGaps (degrade-commit, not hard-fail)", (): void => {
+    // GOAL (b): a body with only 2 channels and 2 redFlags must commit a
+    // degraded body that re-passes minimums, carrying a blockGap per
+    // under-filled block — never hard-error to a .error.json.
+    const twoChannels =
+      offerDiagnosticFixtureArtifact.body.channelTruth.channels.slice(0, 2);
+    const twoRedFlags =
+      offerDiagnosticFixtureArtifact.body.redFlags.items.slice(0, 2);
+    expect(twoChannels).toHaveLength(2);
+    expect(twoRedFlags).toHaveLength(2);
+
+    const body: OfferDiagnosticBody = {
+      ...offerDiagnosticFixtureArtifact.body,
+      channelTruth: {
+        ...offerDiagnosticFixtureArtifact.body.channelTruth,
+        channels: twoChannels,
+      },
+      redFlags: {
+        ...offerDiagnosticFixtureArtifact.body.redFlags,
+        items: twoRedFlags,
+      },
+    };
+
+    const failing = rebuildArtifact(body);
+    const minimums = validateOfferDiagnosticMinimums(failing);
+    expect(minimums.ok).toBe(false);
+
+    const patchedBody = buildOfferDiagnosticBlockGapBody({
+      body: failing.body as unknown as Record<string, unknown>,
+      errors: minimums.errors,
+    });
+    expect(patchedBody).not.toBeNull();
+
+    const candidate = artifactEnvelopeSchema
+      .extend({ body: offerDiagnosticBodySchema })
+      .parse({ ...offerDiagnosticFixtureArtifact, body: patchedBody });
+
+    // Re-validates clean now that both blocks carry an honest gap.
+    expect(validateOfferDiagnosticMinimums(candidate).ok).toBe(true);
+
+    // Real rows preserved on both blocks.
+    expect(candidate.body.channelTruth.channels).toEqual(twoChannels);
+    expect(candidate.body.redFlags.items).toEqual(twoRedFlags);
+
+    // Each under-filled block carries an honest, schema-valid blockGap.
+    const channelGap = candidate.body.channelTruth.blockGap;
+    expect(channelGap?.foundCount).toBe(2);
+    expect(channelGap?.requiredCount).toBe(3);
+    expect(channelGap?.sourcingPlan.length).toBeGreaterThanOrEqual(1);
+
+    const redFlagsGap = candidate.body.redFlags.blockGap;
+    expect(redFlagsGap?.foundCount).toBe(2);
+    expect(redFlagsGap?.requiredCount).toBe(3);
+    expect(redFlagsGap?.sourcingPlan.length).toBeGreaterThanOrEqual(1);
+  });
+
   it("returns null for an unrecognized error so unknown failures still hard-fail", (): void => {
     expect(
       buildOfferDiagnosticBlockGapBody({
