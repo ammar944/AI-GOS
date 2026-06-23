@@ -130,6 +130,23 @@ import {
   defaultSectionWriterPassRunner,
   type SectionWriterPassRunner,
 } from "./writer-pass";
+import {
+  AGENTIC_GLM_MAX_STEPS,
+  buildAgenticTools,
+  generateAgenticGLMSection,
+} from "./agentic-glm-runner";
+import {
+  projectMarkdownToTypedBody,
+  type ProjectableSectionId,
+} from "./agentic-glm-projector";
+import {
+  detectProvenanceViolations,
+  type TranscriptRecord,
+} from "./verification/provenance-detect";
+import {
+  remediateProvenance,
+  stripViolationsDeterministically,
+} from "./review/provenance-remediate";
 import { createLabSectionTelemetry } from "./telemetry";
 import { consumePartialsUntilAbort } from "./consume-partials";
 import { createFixtureTools } from "./section-tools";
@@ -6055,6 +6072,26 @@ function isLabSectionStreamingEnabled(
   // Streaming is on by default; only an explicit "false" (case-insensitive) disables
   // it. Any other value (unset, "true", "1", ...) keeps the structured-stream path.
   return env[labSectionStreamingEnvKey]?.trim().toLowerCase() !== "false";
+}
+
+const labAgenticGlmSectionsEnvKey = "LAB_AGENTIC_GLM_SECTIONS";
+
+// Per-section canary for the agentic GLM writer. LAB_AGENTIC_GLM_SECTIONS is a
+// csv of sectionIds; a sectionId present in that set routes to
+// runAgenticGLMSection. Empty/unset = off (default = the existing answer-tool /
+// streaming path), so flipping it back to "" is an instant, code-free rollback.
+export function shouldUseAgenticGLM(
+  sectionId: string,
+  env: Record<string, string | undefined>,
+): boolean {
+  const raw = env[labAgenticGlmSectionsEnvKey]?.trim();
+  if (raw === undefined || raw.length === 0) {
+    return false;
+  }
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .some((entry) => entry === sectionId);
 }
 
 function buildStructuredSectionDraftSchema(
@@ -12691,6 +12728,657 @@ async function buildStructuredBodyAttempt({
   }
 }
 
+// ===========================================================================
+// Agentic GLM section path (T-E3). Gated by LAB_AGENTIC_GLM_SECTIONS (off by
+// default). Composes the leaf modules — generateAgenticGLMSection (E1),
+// projectMarkdownToTypedBody (E2), detectProvenanceViolations + remediateProvenance
+// (the provenance floor) — and reuses the EXISTING answer-tool commit spine
+// (buildAnswerToolAttempt -> saveCompletedArtifact). committable-gate.ts,
+// createAnswerTool, and the answer-tool path itself are untouched.
+// ===========================================================================
+
+// Detector/remediation short ids (the provenance modules were authored against
+// the proof harness's short names). Keyed by the STABLE full SupportedSectionId
+// union (not the volatile ProjectableSectionId, which the projector extends as
+// sections come online) so widening the projectable set never breaks this map.
+const AGENTIC_SHORT_SECTION_ID: Record<SupportedSectionId, string> = {
+  positioningMarketCategory: "market",
+  positioningBuyerICP: "buyer",
+  positioningCompetitorLandscape: "competitor",
+  positioningVoiceOfCustomer: "voc",
+  positioningDemandIntent: "demand",
+  positioningOfferDiagnostic: "offer",
+  positioningPaidMediaPlan: "paidmedia",
+};
+
+// A section is agentic-projectable iff the projector has a spec for it. This
+// list mirrors the projector's ProjectableSectionId union; the `satisfies`
+// pins it to the union so adding a section to the projector (T-E2x) without
+// updating this list is a COMPILE error here, not a silent runtime fallback.
+const PROJECTABLE_SECTION_IDS = [
+  "positioningVoiceOfCustomer",
+  "positioningDemandIntent",
+  "positioningOfferDiagnostic",
+  "positioningBuyerICP",
+  "positioningCompetitorLandscape",
+  "positioningMarketCategory",
+] as const satisfies readonly ProjectableSectionId[];
+
+function isProjectableSectionId(
+  sectionId: string,
+): sectionId is ProjectableSectionId {
+  return (PROJECTABLE_SECTION_IDS as readonly string[]).includes(sectionId);
+}
+
+/**
+ * THE ADAPTER. buildAnswerToolAttempt's `modelSteps: readonly AgentStep[]` feeds
+ * the internal evidence verifier — if we pass [], the verifier sees ZERO tool
+ * evidence and over-flags every load-bearing claim as unsupported. Each
+ * TranscriptRecord (one tool call+result) maps to one AgentStep carrying the
+ * tool name + the real tool output, so the verifier mines the same evidence the
+ * answer-tool path would. Grouped by transcript step to preserve step boundaries.
+ */
+export function buildAgentStepsFromTranscript(
+  transcript: readonly TranscriptRecord[],
+): AgentStep[] {
+  const byStep = new Map<number, TranscriptRecord[]>();
+  for (const record of transcript) {
+    const bucket = byStep.get(record.step);
+    if (bucket === undefined) {
+      byStep.set(record.step, [record]);
+    } else {
+      bucket.push(record);
+    }
+  }
+
+  return [...byStep.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([stepNumber, records]) => ({
+      stepNumber,
+      finishReason: "tool-calls",
+      text: "",
+      toolCalls: records.map((record) => ({
+        toolName: record.toolName,
+        input: record.input,
+      })),
+      toolResults: records.map((record) => ({
+        toolName: record.toolName,
+        output: record.output,
+        input: record.input,
+        type: record.isError
+          ? ("tool-error" as const)
+          : ("tool-result" as const),
+      })),
+    }));
+}
+
+/**
+ * Real, grounded sources for the output envelope. The sectionOutputSchema
+ * requires sources.min(1) with valid URLs; we harvest URLs the agent actually
+ * retrieved (transcript tool outputs) so we never fabricate a source. Falls back
+ * to the subject site only when the transcript yielded no URL at all.
+ */
+function extractTranscriptSources(
+  transcript: readonly TranscriptRecord[],
+  fallbackUrl: string,
+): Array<{ title: string; url: string }> {
+  const urls = new Set<string>();
+  const urlPattern = /https?:\/\/[^\s"'<>)\]]+/g;
+  for (const record of transcript) {
+    if (record.isError) {
+      continue;
+    }
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(record.output);
+    } catch {
+      continue;
+    }
+    if (serialized === undefined) {
+      continue;
+    }
+    for (const match of serialized.matchAll(urlPattern)) {
+      const cleaned = match[0].replace(/[.,;]+$/, "");
+      if (isLikelyValidHttpUrl(cleaned)) {
+        urls.add(cleaned);
+      }
+      if (urls.size >= 12) {
+        break;
+      }
+    }
+    if (urls.size >= 12) {
+      break;
+    }
+  }
+
+  if (urls.size === 0 && isLikelyValidHttpUrl(fallbackUrl)) {
+    urls.add(fallbackUrl);
+  }
+
+  return [...urls].map((url) => ({ title: hostnameForUrl(url) ?? url, url }));
+}
+
+function isLikelyValidHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function hostnameForUrl(value: string): string | undefined {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
+/** First non-empty markdown line, stripped of heading markers; bounded length. */
+function deriveLeadLine(markdown: string, fallback: string): string {
+  for (const rawLine of markdown.split("\n")) {
+    const line = rawLine.replace(/^#+\s*/, "").replace(/^[>*-]\s*/, "").trim();
+    if (line.length > 0) {
+      return line.slice(0, 280);
+    }
+  }
+  return fallback;
+}
+
+type AgenticEvidenceVerdict = {
+  outcome: "clean" | "unverified-directional" | "overclaim" | "refuted";
+  verifiedRowCount: number;
+  unsupportedRowCount: number;
+  rowsMissingRealSource: number;
+  note?: string;
+};
+
+/**
+ * Deterministic evidenceVerdict — NEVER from the model. Combines the final
+ * provenance detector stats (post-remediation) with the attempt's verifier
+ * shortfall. After remediation the body carries zero surviving inventions, so an
+ * 'overclaim' outcome should not occur; it is kept as a defensive floor.
+ */
+export function deriveAgenticEvidenceVerdict({
+  provViolationCount,
+  survivingInventionCount,
+  verifiedRowCount,
+  unsupportedRowCount,
+}: {
+  provViolationCount: number;
+  survivingInventionCount: number;
+  verifiedRowCount: number;
+  unsupportedRowCount: number;
+}): AgenticEvidenceVerdict {
+  const rowsMissingRealSource = unsupportedRowCount;
+
+  if (survivingInventionCount > 0) {
+    // Force the COUNTS to reflect the fabrication so the value-read ceiling caps
+    // it (the ceiling reads counts, not the outcome string). Without this, an
+    // overclaim with 0/0 counts would otherwise read as ceiling-9 clean.
+    const overclaimUnsupported = Math.max(
+      unsupportedRowCount,
+      survivingInventionCount,
+    );
+    return {
+      outcome: "overclaim",
+      verifiedRowCount,
+      unsupportedRowCount: overclaimUnsupported,
+      rowsMissingRealSource: Math.max(
+        rowsMissingRealSource,
+        survivingInventionCount,
+      ),
+      note: `${survivingInventionCount} invented claim(s) survived remediation`,
+    };
+  }
+
+  if (rowsMissingRealSource > 0 || unsupportedRowCount > 0) {
+    return {
+      outcome: "unverified-directional",
+      verifiedRowCount,
+      unsupportedRowCount,
+      rowsMissingRealSource,
+      ...(provViolationCount > 0
+        ? {
+            note: `${provViolationCount} directional claim(s) demoted to honest gaps`,
+          }
+        : {}),
+    };
+  }
+
+  if (verifiedRowCount >= 4) {
+    return {
+      outcome: "clean",
+      verifiedRowCount,
+      unsupportedRowCount,
+      rowsMissingRealSource,
+    };
+  }
+
+  return {
+    outcome: "unverified-directional",
+    verifiedRowCount,
+    unsupportedRowCount,
+    rowsMissingRealSource,
+  };
+}
+
+// Below this length, or when the whole "body" reads as a research-narration stub
+// ("I have enough evidence, let me compile…") rather than the section, the
+// generation is treated as THIN and gets one retry with a stronger write-now
+// close. Rich agentic bodies run 15k-27k chars; a real section is never < ~1.5k.
+const AGENTIC_THIN_BODY_MIN_CHARS = 1500;
+const AGENTIC_STUB_MARKERS = [
+  "let me compile",
+  "i have enough evidence",
+  "i have sufficient evidence",
+  "i now have",
+  "now i have",
+  "i have substantial",
+];
+
+export function isThinAgenticBody(markdown: string): boolean {
+  const trimmed = markdown.trim();
+  if (trimmed.length < AGENTIC_THIN_BODY_MIN_CHARS) {
+    return true;
+  }
+  // A genuine section opens with structure (a heading) and runs long. A short
+  // body whose opening line is a research-narration stub is thin even if it
+  // squeaks past the length floor.
+  const firstLine = trimmed.split("\n", 1)[0]?.toLowerCase() ?? "";
+  const looksLikeStub = AGENTIC_STUB_MARKERS.some((marker) =>
+    firstLine.includes(marker),
+  );
+  return looksLikeStub && trimmed.length < AGENTIC_THIN_BODY_MIN_CHARS * 2;
+}
+
+async function runAgenticGLMSection(
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): Promise<RunSectionResult> {
+  const env = deps.env ?? process.env;
+
+  // Only VoC + Demand have a projector today. Any other gated section falls back
+  // to the existing path rather than crashing (reversibility).
+  if (!isProjectableSectionId(input.sectionId)) {
+    console.warn(
+      `[lab-section] agentic GLM requested for non-projectable section ${input.sectionId}; falling back to answer-tool path`,
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+  const projectableSectionId: ProjectableSectionId = input.sectionId;
+  const shortSectionId = AGENTIC_SHORT_SECTION_ID[projectableSectionId];
+
+  const definition = getRuntimeSectionDefinition(input.sectionId);
+  const startedAt = getNow(deps).getTime();
+  const record = await deps.store.readRun(input.runId);
+  const researchInput: ResearchInput = record.input;
+  const preparedContext = getPreparedSectionContext({ deps, input, record });
+  const subject = researchInput.company.name;
+
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "section-started",
+      message: `${definition.title} started (agentic GLM)`,
+      metadata: { sectionTitle: definition.title },
+    }),
+  );
+  await deps.store.markSectionRunning(input.runId, input.sectionId);
+
+  const skillMd = await deps.loadSkill(definition.skillSlug);
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "skill-loaded",
+      message: `Loaded ${definition.skillSlug}`,
+      metadata: { skillSlug: definition.skillSlug },
+    }),
+  );
+
+  // Assemble a LEAN, generation-oriented prompt — mirrors the PROVEN harness
+  // (scripts/zz-agentic-section.ts), NOT the 62k-char answer-tool instructions.
+  // The full buildAnswerToolInstructions dump is built to make the model call
+  // the answer() TOOL; fed to a free-markdown agentic loop it causes GLM to
+  // over-research and emit a "I have enough evidence, let me compile" stub that
+  // never writes the body (diagnosed live: 62k prompt -> 71-char stub, 0 quotes;
+  // lean prompt -> 27k body, painQ=7/successQ=11/obj=16). generateAgenticGLMSection
+  // prepends GROUNDING_LAW, so we do NOT add it here.
+  // Source the allowed-tools list from getAllowedTools — the SAME gate the three
+  // other commit paths honor — so the agentic path respects prepared-context
+  // tool-disabling and the deps.allowedTools / LAB_ENGINE_LIVE_TOOLS kill-switch
+  // (returns [] when live tools are off), instead of reading the registry directly.
+  const agenticAllowedTools = getAllowedTools(definition, deps);
+  const tools = buildAgenticTools(input.sectionId, env, agenticAllowedTools);
+  const externalToolNames = Object.keys(tools).sort();
+  // If no tools survived (kill-switch off, or no credential present), the agent can
+  // only write from prior knowledge — which violates the evidence floor (empty
+  // transcript -> 0 grounded quotes). Don't try the agentic path; commit honestly.
+  if (externalToolNames.length === 0) {
+    console.warn(
+      `[lab-section] agentic GLM has no usable tools for ${input.sectionId} (live tools off or missing API keys); falling back to answer-tool path`,
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+  // LEAN system prompt — mirrors the PROVEN harness (scripts/zz-agentic-section.ts,
+  // scored 8-9): role + mission + a COMPACT, TOOL-POSITIVE section instruction that
+  // NAMES the tools to call. We deliberately DROP the full 13.7k-char answer-tool
+  // skillMd here: it is answer-tool-shaped and contains anti-fetch bias (e.g.
+  // "consume Prepared evidence rows BEFORE using any tool"), which live-caused GLM
+  // to narrate research and call ZERO tools (transcript empty -> projector extracts
+  // 0 quotes -> fallback). The agentic loop needs a generation+fetch prompt, not the
+  // answer-tool dump. (skillMd is unused on this path; the skill still governs the
+  // answer-tool path.)
+  void skillMd;
+  const systemPrompt = [
+    `You are the AI-GOS section analyst for ${definition.title}.`,
+    `Mission: ${definition.mission}`,
+    `Subject: ${subject} (${researchInput.company.websiteUrl}).`,
+    "",
+    "You have live research tools: " + externalToolNames.join(", ") + ".",
+    "You MUST call these tools to fetch REAL, verbatim, source-attributed evidence",
+    "(customer quotes, review permalinks, search volumes/CPCs, competitor facts)",
+    "BEFORE you write. Do not rely on prior knowledge or summaries — fetch the real",
+    "thing. Every load-bearing quote/number/URL in your output must trace to a tool",
+    "result you actually received this session; where evidence is thin, name the gap",
+    "honestly — never invent a quote, number, reviewer name, or URL.",
+    buildSectionObjectiveRecap(definition, researchInput),
+  ].join("\n");
+  // CRITICAL: do NOT inline the prepared-corpus rows as "evidence" in the prompt.
+  // ROOT-CAUSED LIVE: when the corpus rows are dumped in, GLM reads "I have rich
+  // prepared evidence from Trustpilot" and SKIPS tool calls entirely → empty
+  // transcript → the projector (which grounds quotes on the TRANSCRIPT) extracts
+  // 0 quotes and the body fails minimums. The provenance detector + projector +
+  // source extraction all depend on REAL tool results, so the agent MUST fetch.
+  // Telling it the corpus holds SUMMARIES (not verbatim quotes) restores tool use:
+  // no-grounding/fetch-forcing prompt → 6 tool calls, painQ=7/successQ=8/obj=8.
+  const hasPreparedCorpus = preparedContext.corpusRows.length > 0;
+  // HARD write-now rules. Without the explicit "your FINAL message MUST be the
+  // section, a status line = FAILURE" tail, GLM intermittently spends every step
+  // researching and emits an "I have enough evidence, let me compile" STUB.
+  const userPrompt = [
+    `Write the ${definition.title} section for ${subject}.`,
+    hasPreparedCorpus
+      ? "A prepared research corpus exists for this subject, but it holds only SUMMARIES — it does NOT contain the verbatim customer quotes, review permalinks, or fresh numbers this section needs. You MUST use the tools to fetch real, verbatim, source-attributed evidence before writing."
+      : "You MUST use the tools to fetch real, verbatim, source-attributed evidence before writing.",
+    "HARD RULES:",
+    "- Make AT MOST 6 tool calls total. After your 6th tool result (or sooner once",
+    "  you have 2-3 real, on-topic sources), you MUST stop calling tools.",
+    "- Your FINAL message MUST be the COMPLETE section as clean markdown prose with",
+    "  real source-attributed quotes/URLs/numbers — NOT a status update like",
+    "  'let me compile' or 'I have enough evidence'. A status line = FAILURE.",
+    "- Every quote/number/URL must come from a tool result you actually received;",
+    "  otherwise write that point as an explicit honest gap.",
+  ].join("\n");
+
+  // NOTE (runtime placement): the full agentic pipeline — generate (~150s) +
+  // project (~70-250s) + optional remediation — may exceed the in-process ~285s
+  // Vercel budget on a rich section. Deadline-aware commit below is the interim
+  // guard (commit-what-we-have at honest badge rather than throwing); a worker /
+  // longer-budget placement is the durable fix and is flagged for the runtime
+  // decision, not solved here.
+  // CONDITIONAL retry closers, chosen by the FAILURE MODE (the prior close was
+  // counterproductive: it told a model that never fetched to "stop researching").
+  // - WROTE-A-STUB (tools were called but the body is thin) -> stop & write now.
+  const writeNowCloser = [
+    "",
+    "You have already researched enough. STOP calling tools and WRITE THE",
+    "COMPLETE BODY NOW — every required block, with all quotes/rows and their",
+    "source URLs spelled out in prose. Do NOT emit a status line; emit the section.",
+  ].join("\n");
+  // - DID-NOT-FETCH (zero tool calls; GLM narrated research but never executed a
+  //   tool) -> compel a real fetch before writing.
+  const compelFetchCloser = [
+    "",
+    "You have NOT gathered any evidence yet — you called ZERO research tools.",
+    `You MUST call the research tools (${externalToolNames.join(", ")}) to fetch`,
+    "real, verbatim customer quotes / numbers / competitor facts WITH their source",
+    "URLs BEFORE you write. Do NOT narrate your plan or say you will research —",
+    "CALL A TOOL NOW, then write the complete section from what you fetched.",
+  ].join("\n");
+
+  const generateOnce = (
+    prompt: string,
+  ): ReturnType<typeof generateAgenticGLMSection> =>
+    generateAgenticGLMSection({
+      sectionId: input.sectionId,
+      subject,
+      systemPrompt,
+      userPrompt: prompt,
+      tools,
+      signal: input.signal,
+      // The proven flat step cap (16). The registry's maxExternalLookups (VoC=8)
+      // is a per-tool budget, NOT a step cap — using it here starves the loop:
+      // GLM spends every step on tool calls and has none left to WRITE the body
+      // (diagnosed live — an 8-step run emitted only a 255-char "I have enough
+      // evidence, let me compile" stub). Keep the proven 16.
+      maxSteps: AGENTIC_GLM_MAX_STEPS,
+      env,
+    });
+
+  let markdown: string;
+  let transcript: TranscriptRecord[];
+  try {
+    let generated = await generateOnce(userPrompt);
+    // (b) CONDITIONAL retry ONCE, keyed to the failure mode:
+    //   - zero tool calls (GLM narrated but never fetched) -> compel-fetch close,
+    //   - tools called but the body is a thin stub        -> write-now close.
+    // If it is STILL thin after the retry, the graceful fallback below commits via
+    // the proven answer-tool path. Only retry when there is deadline budget.
+    const didNotFetch = generated.transcript.length === 0;
+    const wroteStub = isThinAgenticBody(generated.markdown);
+    if ((didNotFetch || wroteStub) && canStartDeadlineFundedRepair(input, deps)) {
+      const closer = didNotFetch ? compelFetchCloser : writeNowCloser;
+      console.warn(
+        `[lab-section] agentic GLM retry for ${input.sectionId}: ${
+          didNotFetch ? "zero tool calls (compel-fetch)" : "thin body (write-now)"
+        } (len=${generated.markdown.length}, toolCalls=${generated.transcript.length})`,
+      );
+      generated = await generateOnce(`${userPrompt}${closer}`);
+    }
+    markdown = generated.markdown;
+    transcript = generated.transcript;
+    if (env.ZZ_AGENTIC_DEBUG !== undefined) {
+      const toolCounts: Record<string, number> = {};
+      for (const r of transcript) {
+        toolCounts[r.toolName] = (toolCounts[r.toolName] ?? 0) + 1;
+      }
+      console.info("[lab-section] agentic GLM generation", {
+        sectionId: input.sectionId,
+        markdownChars: markdown.length,
+        transcriptRecords: transcript.length,
+        toolCounts,
+        head: markdown.slice(0, 160).replace(/\n/g, " "),
+      });
+    }
+  } catch (error) {
+    // Never throw out of the agentic path. A generation failure (provider error,
+    // abort, etc.) gracefully falls back to the proven answer-tool path so the
+    // section still gets an honest commit. The gate stays on for the next run.
+    console.warn(
+      `[lab-section] agentic GLM generation failed for ${input.sectionId}; falling back to answer-tool path`,
+      { errors: getErrorIssues(error).slice(0, 4) },
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+
+  // Provenance floor (deadline-aware). detect -> if any invention (ceiling<=4)
+  // and budget remains, run one bounded GLM remediation round; the deterministic
+  // strip inside remediateProvenance guarantees zero surviving inventions. When
+  // budget is tight, still run remediateProvenance (its strip is cheap + clean).
+  let cleanMarkdown = markdown;
+  let finalDetect = detectProvenanceViolations({
+    body: markdown,
+    transcript,
+    section: shortSectionId,
+    subject,
+  });
+  const hasInvention = finalDetect.violations.some(
+    (violation) => violation.ceiling <= 4,
+  );
+  if (finalDetect.violations.length > 0) {
+    const remainingMs = getRemainingDeadlineMs(input, deps);
+    const budgetTight = remainingMs !== null && remainingMs < labSectionRepairFloorMs;
+    try {
+      const remediated = await remediateProvenance({
+        body: markdown,
+        transcript,
+        section: shortSectionId,
+        subject,
+        // Skip the paid GLM rounds when an invention must be cleared but budget
+        // is tight (the deterministic strip still runs and guarantees clean), or
+        // when there is nothing invented to remediate beyond the strip.
+        selfAudit: hasInvention && !budgetTight,
+        maxRounds: hasInvention && !budgetTight ? 1 : 0,
+        // Thread deps.env so the default GLM rewrite uses the run's env, not process.env.
+        env,
+      });
+      cleanMarkdown = remediated.remediatedBody;
+      finalDetect = detectProvenanceViolations({
+        body: cleanMarkdown,
+        transcript,
+        section: shortSectionId,
+        subject,
+      });
+    } catch (error) {
+      // Remediation throw must not ship the DIRTY body. Run the deterministic strip
+      // (cheap, pure, cannot throw) on the detected violations so the committed body
+      // is still clean — then re-detect to reflect the strip in the verdict.
+      console.warn(
+        `[lab-section] agentic GLM remediation failed for ${input.sectionId}; deterministically stripping violations before commit`,
+        { errors: getErrorIssues(error).slice(0, 4) },
+      );
+      cleanMarkdown = stripViolationsDeterministically(
+        markdown,
+        finalDetect.violations,
+      );
+      finalDetect = detectProvenanceViolations({
+        body: cleanMarkdown,
+        transcript,
+        section: shortSectionId,
+        subject,
+      });
+    }
+  }
+
+  // Project the clean markdown into the typed body. projectMarkdownToTypedBody
+  // returns {validates:false} on a VALIDATION miss, but a generate() REJECTION
+  // (provider error/timeout/abort) THROWS — and this sits outside the generation
+  // try/catch — so wrap it: on throw, fall back to the proven path (never crash).
+  let projection: Awaited<ReturnType<typeof projectMarkdownToTypedBody>>;
+  try {
+    projection = await projectMarkdownToTypedBody({
+      sectionId: projectableSectionId,
+      markdown: cleanMarkdown,
+      transcript,
+      env,
+    });
+  } catch (error) {
+    console.warn(
+      `[lab-section] agentic GLM projection threw for ${input.sectionId}; falling back to answer-tool path`,
+      { errors: getErrorIssues(error).slice(0, 4) },
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+  if (!projection.validates) {
+    // A projection bug must never brick a section — fall back to the existing
+    // path for this run (reversibility). The gate stays on for the next run.
+    console.warn(
+      `[lab-section] agentic GLM projection failed validation for ${input.sectionId}; falling back to answer-tool path`,
+      { zodError: projection.zodError?.slice(0, 800) },
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+
+  // Wrap the typed body into the section OUTPUT envelope that buildAnswerToolAttempt
+  // decodes against definition.sectionOutputSchema. sources are real transcript
+  // URLs (grounded, never fabricated); verdict/statusSummary are derived
+  // deterministically from the markdown lead.
+  const lead = deriveLeadLine(
+    cleanMarkdown,
+    `${definition.title} for ${subject}`,
+  );
+  const answerInput = {
+    sectionTitle: definition.title,
+    verdict: lead,
+    statusSummary: lead,
+    confidence: 0.6,
+    sources: extractTranscriptSources(
+      transcript,
+      researchInput.company.websiteUrl,
+    ),
+    body: projection.body,
+  };
+
+  // Reuse the EXISTING commit spine — verify + gate + artifact build.
+  const modelSteps = buildAgentStepsFromTranscript(transcript);
+  const attempt = await buildAnswerToolAttempt({
+    answerInput,
+    modelSteps,
+    definition,
+    deps,
+    input,
+    researchInput,
+  });
+
+  if (attempt.artifact === null) {
+    // The committable gate rejected (minimums / required-evidence). If the spine
+    // built a section-level gap artifact, that's an honest commit — take it.
+    const gapArtifact = getAttemptEvidenceGapArtifact(attempt);
+    if (gapArtifact !== undefined) {
+      return saveCompletedArtifact({
+        artifact: gapArtifact,
+        definition,
+        deps,
+        input,
+        startedAt,
+      });
+    }
+    // GRACEFUL FALLBACK (interim honest floor): a still-thin agentic body that
+    // failed minimums and built no gap artifact falls back to the PROVEN
+    // answer-tool path for a guaranteed honest commit — NEVER a SectionRunnerError.
+    // FUTURE REFINEMENT (full option a): reuse the section gap-injection builders
+    // (buildVoiceOfCustomerEvidenceGap / the §4.x save-time blockGap injectors) so a
+    // thin AGENTIC body degrades to honest blockGaps while STAYING on the agentic
+    // artifact, instead of handing the section back to the answer-tool path.
+    console.warn(
+      `[lab-section] agentic GLM body failed minimums for ${input.sectionId} with no gap artifact; falling back to answer-tool path`,
+      { issues: getAttemptRepairIssues(attempt).slice(0, 4) },
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+
+  // Populate evidenceVerdict DETERMINISTICALLY on the typed body before saving.
+  const survivingInventionCount = finalDetect.violations.filter(
+    (violation) => violation.ceiling <= 4,
+  ).length;
+  const evidenceVerdict = deriveAgenticEvidenceVerdict({
+    provViolationCount: finalDetect.violations.length,
+    survivingInventionCount,
+    verifiedRowCount: finalDetect.stats.citedUrls + finalDetect.stats.citedQuotes,
+    unsupportedRowCount: getUnsupportedLoadBearingCount(attempt),
+  });
+  const artifactBody = attempt.artifact.body as Record<string, unknown>;
+  artifactBody.evidenceVerdict = evidenceVerdict;
+
+  return saveCompletedArtifact({
+    artifact: attempt.artifact,
+    definition,
+    deps,
+    input,
+    startedAt,
+  });
+}
+
 // Explicit fallback kept for B2 streaming sign-off rollback via
 // LAB_SECTION_STREAMING=false. Do not remove until streaming is signed off.
 async function runSectionViaAnswerTool(
@@ -14357,6 +15045,10 @@ export async function runSection(
   }
 
   if (answerToolSectionIds.has(input.sectionId)) {
+    if (shouldUseAgenticGLM(input.sectionId, deps.env ?? process.env)) {
+      return runAgenticGLMSection(input, deps);
+    }
+
     if (isLabSectionStreamingEnabled(deps.env ?? process.env)) {
       return runSectionViaStructuredBodyStream(input, deps);
     }

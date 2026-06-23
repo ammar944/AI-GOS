@@ -12,13 +12,16 @@ export const DEEPSEEK_SECTION_MODEL_ID = "deepseek-v4-flash";
 export const DEEPSEEK_PRO_MODEL_ID = "deepseek-v4-pro";
 export const DEFAULT_DEEPSEEK_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_DEEPSEEK_OLLAMA_MODEL_ID = DEEPSEEK_SECTION_MODEL_ID;
+export const DEFAULT_GLM_BASE_URL = "http://localhost:11434/v1";
+export const DEFAULT_GLM_MODEL_ID = "glm-5.2:cloud";
 
 export type LabThinkerMode = "pro" | "off";
 
 export type SectionModelProvider =
   | "anthropic"
   | "deepseek-direct"
-  | "deepseek-ollama";
+  | "deepseek-ollama"
+  | "glm-openai-compatible";
 
 export type ReviewModelProvider =
   | "anthropic"
@@ -99,6 +102,7 @@ const SECTION_MODEL_PROVIDERS: readonly SectionModelProvider[] = [
   "anthropic",
   "deepseek-direct",
   "deepseek-ollama",
+  "glm-openai-compatible",
 ];
 const LAB_THINKER_MODES: readonly LabThinkerMode[] = ["pro", "off"];
 
@@ -245,6 +249,14 @@ export function checkSectionModelDispatchPreflight(
       modelId:
         getTrimmedEnvValue(env, "DEEPSEEK_OLLAMA_MODEL_ID") ??
         DEFAULT_DEEPSEEK_OLLAMA_MODEL_ID,
+      provider,
+    };
+  }
+
+  if (provider === "glm-openai-compatible") {
+    return {
+      ok: true,
+      modelId: getTrimmedEnvValue(env, "GLM_MODEL_ID") ?? DEFAULT_GLM_MODEL_ID,
       provider,
     };
   }
@@ -553,6 +565,90 @@ function createDeepSeekOllamaSelection(
   };
 }
 
+function createGLMSelection(env: NodeJS.ProcessEnv): SectionModelSelection {
+  const baseURL =
+    getTrimmedEnvValue(env, "GLM_BASE_URL") ?? DEFAULT_GLM_BASE_URL;
+  const modelId =
+    getTrimmedEnvValue(env, "GLM_MODEL_ID") ?? DEFAULT_GLM_MODEL_ID;
+  const glm = createOpenAICompatible({
+    apiKey: getTrimmedEnvValue(env, "GLM_API_KEY") ?? "ollama",
+    baseURL,
+    name: "glm",
+  });
+  const sectionRunnerModel = glm(modelId);
+  const reviewModelSelection =
+    getTrimmedEnvValue(env, "LAB_REVIEW_MODEL") === undefined
+      ? createDefaultReviewModelSelection({
+          model: sectionRunnerModel,
+          modelId,
+          provider: "deepseek-ollama",
+          transport: "ollama-openai-compatible",
+        })
+      : createReviewModelSelection(env);
+
+  return {
+    metadata: {
+      baseURL,
+      provider: "glm-openai-compatible",
+      modelId,
+      repairModelId: modelId,
+      reviewModel: reviewModelSelection.metadata,
+      strategyModel: reviewModelSelection.metadata,
+      writerModel: {
+        provider: "deepseek-ollama",
+        modelId,
+        transport: "ollama-openai-compatible",
+      },
+      transport: "ollama-openai-compatible",
+    },
+    repairModel: sectionRunnerModel,
+    reviewModel: reviewModelSelection.model,
+    sectionRunnerModel,
+    strategyModel: reviewModelSelection.model,
+    writerModel: sectionRunnerModel,
+  };
+}
+
+/**
+ * On-demand accessor for the GLM section model, regardless of the globally
+ * selected provider. The agentic section runner calls this directly so it can
+ * run GLM while the default LAB_ENGINE_PROVIDER stays on DeepSeek/Anthropic.
+ */
+export function getAgenticGLMModel(
+  env: Record<string, string | undefined> = process.env,
+): SectionLanguageModel {
+  return createGLMSelection(env as NodeJS.ProcessEnv).sectionRunnerModel;
+}
+
+export interface AgenticGLMPreflightResult {
+  ok: boolean;
+  modelId: string;
+  baseURL: string;
+  error?: string;
+}
+
+/**
+ * Validates that the GLM model id + base URL are resolvable. Cheap and safe to
+ * call when the default provider is something other than GLM.
+ */
+export function checkAgenticGLMPreflight(
+  env: Record<string, string | undefined> = process.env,
+): AgenticGLMPreflightResult {
+  const processEnv = env as NodeJS.ProcessEnv;
+  const baseURL =
+    getTrimmedEnvValue(processEnv, "GLM_BASE_URL") ?? DEFAULT_GLM_BASE_URL;
+  const modelId =
+    getTrimmedEnvValue(processEnv, "GLM_MODEL_ID") ?? DEFAULT_GLM_MODEL_ID;
+
+  if (modelId.length === 0) {
+    return { ok: false, modelId, baseURL, error: "glm_model_id_missing" };
+  }
+  if (baseURL.length === 0) {
+    return { ok: false, modelId, baseURL, error: "glm_base_url_missing" };
+  }
+  return { ok: true, modelId, baseURL };
+}
+
 export function createThinkerModelSelection(
   env: NodeJS.ProcessEnv = process.env,
 ): ThinkerModelSelection {
@@ -587,6 +683,10 @@ export function createSectionModelSelection(
 
   if (provider === "deepseek-ollama") {
     return createDeepSeekOllamaSelection(env);
+  }
+
+  if (provider === "glm-openai-compatible") {
+    return createGLMSelection(env);
   }
 
   return createAnthropicSelection(env);

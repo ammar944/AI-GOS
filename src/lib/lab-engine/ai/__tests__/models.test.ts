@@ -38,7 +38,7 @@ describe("resolveSectionModelProvider", (): void => {
         buildEnv({ LAB_ENGINE_PROVIDER: "openrouter" }),
       ),
     ).toThrow(
-      'Invalid LAB_ENGINE_PROVIDER="openrouter". Expected one of: anthropic, deepseek-direct, deepseek-ollama.',
+      'Invalid LAB_ENGINE_PROVIDER="openrouter". Expected one of: anthropic, deepseek-direct, deepseek-ollama, glm-openai-compatible.',
     );
   });
 });

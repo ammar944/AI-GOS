@@ -28,6 +28,7 @@ import {
   MonoBadge,
   SourceLink,
   type DataTableColumn,
+  type StatusPillTone,
 } from '@/components/research-v2/ui-kit';
 import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
@@ -39,6 +40,8 @@ export interface DemandIntentRendererProps {
 type KeywordRow = DemandIntentArtifact['keywordDemand']['keywords'][number];
 type QuestionRow = DemandIntentArtifact['questionMining']['questions'][number];
 type IntentSignal = DemandIntentArtifact['intentSignals']['items'][number];
+type IntentCluster = NonNullable<DemandIntentArtifact['intentClusters']>[number];
+type EvidenceVerdict = NonNullable<DemandIntentArtifact['evidenceVerdict']>;
 
 const KeywordVolumeChart = dynamic<KeywordVolumeChartProps>(
   () =>
@@ -235,11 +238,81 @@ function IntentSignalBlock({
   );
 }
 
+const EVIDENCE_VERDICT_TONE: Record<EvidenceVerdict['outcome'], StatusPillTone> = {
+  clean: 'complete',
+  'unverified-directional': 'flagged',
+  overclaim: 'error',
+  refuted: 'error',
+};
+
+const EVIDENCE_VERDICT_LABEL: Record<EvidenceVerdict['outcome'], string> = {
+  clean: 'Evidence: clean',
+  'unverified-directional': 'Evidence: directional',
+  overclaim: 'Evidence: overclaim',
+  refuted: 'Evidence: refuted',
+};
+
+// Small trust badge populated deterministically by the provenance gate (Gate E).
+// Render only when present; absent on every artifact committed before the gate ran.
+export function EvidenceVerdictBadge({
+  verdict,
+}: {
+  verdict: EvidenceVerdict;
+}): React.ReactElement {
+  const counts = `${verdict.verifiedRowCount} verified · ${verdict.unsupportedRowCount} unsupported`;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="demand-evidence-verdict">
+      <MonoBadge tone={EVIDENCE_VERDICT_TONE[verdict.outcome]}>
+        {EVIDENCE_VERDICT_LABEL[verdict.outcome] ?? verdict.outcome}
+      </MonoBadge>
+      <span className="font-mono text-[11px] text-muted-foreground">{counts}</span>
+      {verdict.note ? (
+        <span className="text-[12px] leading-[1.5] text-muted-foreground">
+          {scrubReaderText(verdict.note)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function IntentClusterBlock({ cluster }: { cluster: IntentCluster }): React.ReactElement {
+  return (
+    <article className="border-l-2 border-primary pl-4" data-testid="intent-cluster">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-foreground">
+          {cluster.tier}
+        </h3>
+        {cluster.budgetShare ? <MonoBadge>{cluster.budgetShare}</MonoBadge> : null}
+      </div>
+      <p className="mt-2 text-[13px] leading-[1.55] text-muted-foreground">
+        {scrubReaderText(cluster.read)}
+      </p>
+      {cluster.keywords.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {cluster.keywords.map((keyword, index) => (
+            <MonoBadge key={`${keyword}-${index}`}>{keyword}</MonoBadge>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 export function DemandIntentRenderer({
   artifact,
   className,
 }: DemandIntentRendererProps): React.ReactElement {
-  const { keywordDemand, questionMining, contentGaps, intentSignals, venueMap } = artifact;
+  const {
+    keywordDemand,
+    questionMining,
+    contentGaps,
+    intentSignals,
+    venueMap,
+    intentClusters,
+    negativeKeywords,
+    evidenceVerdict,
+  } = artifact;
 
   if (isDemandIntentHonestlyUnavailable(artifact)) {
     const sourcingPlan =
@@ -311,6 +384,7 @@ export function DemandIntentRenderer({
         whyItMatters={artifact.statusSummary}
         valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
+      {evidenceVerdict ? <EvidenceVerdictBadge verdict={evidenceVerdict} /> : null}
       <KeyFindings findings={demandKeyFindings(artifact)} />
 
       {artifact.orderedMoves || artifact.provesWrongIf ? (
@@ -350,6 +424,32 @@ export function DemandIntentRenderer({
           />
         </ReaderExhibit>
       </SubsectionBlock>
+
+      {intentClusters && intentClusters.length > 0 ? (
+        <SubsectionBlock
+          label="Intent clusters"
+          prose="How the keyword demand splits into strategic tiers, with the read and budget posture for each."
+        >
+          <div className="grid gap-4">
+            {intentClusters.map((cluster, index) => (
+              <IntentClusterBlock key={`${cluster.tier}-${index}`} cluster={cluster} />
+            ))}
+          </div>
+        </SubsectionBlock>
+      ) : null}
+
+      {negativeKeywords && negativeKeywords.length > 0 ? (
+        <SubsectionBlock
+          label="Negative keywords"
+          prose="Terms to exclude so spend stays on in-market demand."
+        >
+          <div className="flex flex-wrap gap-1.5" data-testid="negative-keywords">
+            {negativeKeywords.map((keyword, index) => (
+              <MonoBadge key={`${keyword}-${index}`}>{keyword}</MonoBadge>
+            ))}
+          </div>
+        </SubsectionBlock>
+      ) : null}
 
       <SubsectionBlock label="Question mining" prose={questionMining.prose}>
         {questionMining.questions.length === 0 ? (

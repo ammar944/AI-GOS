@@ -143,7 +143,12 @@ function findByCompetitor<T extends { competitor: string }>(
 
 // Hero copy is model-fetched verbatim text; when it carries a gap sentinel or
 // nav garbage it must not surface as an evidence excerpt at all.
-function heroCopyExcerpt(value: string): string | undefined {
+function heroCopyExcerpt(value: string | undefined): string | undefined {
+  // verbatimHeroCopy is optional (T-E2x): an omitted hero copy renders no
+  // excerpt rather than a gap note.
+  if (value === undefined) {
+    return undefined;
+  }
   const result = textOrGap(value, 'hero copy');
   return result.kind === 'text' ? result.value : undefined;
 }

@@ -19,7 +19,13 @@ import {
   type KeyFinding,
 } from '@/components/research-v2/primitives';
 import { deriveValueReadinessBadge } from '@/components/research-v2/trust-tier';
-import { MonoBadge } from '@/components/research-v2/ui-kit';
+import {
+  DataTable,
+  MonoBadge,
+  SourceLink,
+  type DataTableColumn,
+  type StatusPillTone,
+} from '@/components/research-v2/ui-kit';
 import { StrategicField, StrategicInsightPanel } from './strategic-insight-panel';
 
 export interface VoiceOfCustomerRendererProps {
@@ -29,6 +35,9 @@ export interface VoiceOfCustomerRendererProps {
 
 type PainQuote = VoiceOfCustomerArtifact['painLanguage']['quotes'][number];
 type SuccessQuote = VoiceOfCustomerArtifact['successLanguage']['quotes'][number];
+type AdAngle = NonNullable<VoiceOfCustomerArtifact['adAngles']>[number];
+type OutcomeProof = NonNullable<VoiceOfCustomerArtifact['outcomeProof']>[number];
+type EvidenceVerdict = NonNullable<VoiceOfCustomerArtifact['evidenceVerdict']>;
 
 const VOC_SOURCE_LABEL: Record<string, string> = {
   g2: 'G2',
@@ -195,6 +204,87 @@ function SuccessQuoteCard({
   );
 }
 
+const EVIDENCE_VERDICT_TONE: Record<EvidenceVerdict['outcome'], StatusPillTone> = {
+  clean: 'complete',
+  'unverified-directional': 'flagged',
+  overclaim: 'error',
+  refuted: 'error',
+};
+
+const EVIDENCE_VERDICT_LABEL: Record<EvidenceVerdict['outcome'], string> = {
+  clean: 'Evidence: clean',
+  'unverified-directional': 'Evidence: directional',
+  overclaim: 'Evidence: overclaim',
+  refuted: 'Evidence: refuted',
+};
+
+// Small trust badge populated deterministically by the provenance gate (Gate E).
+// Render only when present; absent on every artifact committed before the gate ran.
+export function EvidenceVerdictBadge({
+  verdict,
+}: {
+  verdict: EvidenceVerdict;
+}): React.ReactElement {
+  const counts = `${verdict.verifiedRowCount} verified · ${verdict.unsupportedRowCount} unsupported`;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="voc-evidence-verdict">
+      <MonoBadge tone={EVIDENCE_VERDICT_TONE[verdict.outcome]}>
+        {EVIDENCE_VERDICT_LABEL[verdict.outcome] ?? verdict.outcome}
+      </MonoBadge>
+      <span className="font-mono text-[11px] text-muted-foreground">{counts}</span>
+      {verdict.note ? (
+        <span className="text-[12px] leading-[1.5] text-muted-foreground">
+          {scrubReaderText(verdict.note)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function AdAngleCard({ angle }: { angle: AdAngle }): React.ReactElement {
+  return (
+    <article className="border-l border-border pl-4" data-testid="voc-ad-angle">
+      <h3 className="text-[15px] font-semibold text-foreground">{angle.angle}</h3>
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <MonoBadge>{angle.targeting}</MonoBadge>
+      </div>
+      <p className="mt-2 text-[13px] leading-[1.55] text-foreground">
+        {scrubReaderText(angle.hook)}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] text-muted-foreground">
+          from: {angle.sourcePainTheme}
+        </span>
+        {angle.sourceUrl ? <SourceLink url={angle.sourceUrl} /> : null}
+      </div>
+    </article>
+  );
+}
+
+const OUTCOME_PROOF_COLUMNS: ReadonlyArray<DataTableColumn<OutcomeProof>> = [
+  {
+    key: 'company',
+    header: 'Company',
+    render: (row) => <span className="font-medium text-foreground">{row.company}</span>,
+  },
+  {
+    key: 'metric',
+    header: 'Metric',
+    render: (row) => <span>{scrubReaderText(row.metric)}</span>,
+  },
+  {
+    key: 'beforeAfter',
+    header: 'Before → after',
+    render: (row) => <span>{scrubReaderText(row.beforeAfter)}</span>,
+  },
+  {
+    key: 'sourceUrl',
+    header: 'Source',
+    render: (row) => <SourceLink url={row.sourceUrl} />,
+  },
+];
+
 export function VoiceOfCustomerRenderer({
   artifact,
   className,
@@ -205,6 +295,9 @@ export function VoiceOfCustomerRenderer({
     switchingStories,
     decisionCriteria,
     successLanguage,
+    adAngles,
+    outcomeProof,
+    evidenceVerdict,
   } = artifact;
 
   if (isVoiceOfCustomerHonestlyUnavailable(artifact)) {
@@ -243,6 +336,7 @@ export function VoiceOfCustomerRenderer({
         whyItMatters={artifact.statusSummary}
         valueReadiness={deriveValueReadinessBadge(artifact.verifierSummary)}
       />
+      {evidenceVerdict ? <EvidenceVerdictBadge verdict={evidenceVerdict} /> : null}
       <KeyFindings findings={vocKeyFindings(artifact)} />
 
       {(() => {
@@ -394,6 +488,33 @@ export function VoiceOfCustomerRenderer({
           </div>
         )}
       </SubsectionBlock>
+
+      {outcomeProof && outcomeProof.length > 0 ? (
+        <SubsectionBlock
+          label="Outcome proof"
+          prose="Named customers with quantified before/after outcomes."
+        >
+          <DataTable
+            columns={OUTCOME_PROOF_COLUMNS}
+            rows={outcomeProof}
+            rowKey={(row) => `${row.company}-${row.metric}`}
+            rowTestId={() => 'outcome-proof-item'}
+          />
+        </SubsectionBlock>
+      ) : null}
+
+      {adAngles && adAngles.length > 0 ? (
+        <SubsectionBlock
+          label="Ad angles to test"
+          prose="Ready-to-run hooks, each grounded in a named pain theme from the voice-of-customer evidence above."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {adAngles.map((angle, index) => (
+              <AdAngleCard key={`${angle.angle}-${index}`} angle={angle} />
+            ))}
+          </div>
+        </SubsectionBlock>
+      ) : null}
     </div>
   );
 }

@@ -139,6 +139,36 @@ const successQuoteSchema = z
   })
   .strict();
 
+const adAngleSchema = z
+  .object({
+    angle: z.string().min(1),
+    targeting: z.string().min(1),
+    hook: z.string().min(1),
+    sourcePainTheme: z.string().min(1),
+    sourceUrl: z.string().min(1).optional(),
+  })
+  .strict();
+
+const outcomeProofSchema = z
+  .object({
+    company: z.string().min(1),
+    metric: z.string().min(1),
+    beforeAfter: z.string().min(1),
+    sourceUrl: z.string().min(1),
+  })
+  .strict();
+
+// Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
+const evidenceVerdictSchema = z
+  .object({
+    outcome: z.enum(["clean", "unverified-directional", "overclaim", "refuted"]),
+    verifiedRowCount: z.number().int().nonnegative(),
+    unsupportedRowCount: z.number().int().nonnegative(),
+    rowsMissingRealSource: z.number().int().nonnegative(),
+    note: z.string().min(1).optional(),
+  })
+  .optional();
+
 const evidenceGapReportSchema = z
   .object({
     reason: z.literal("insufficient_voice_of_customer_sources"),
@@ -290,6 +320,10 @@ export const voiceOfCustomerBodySchema = z
         coverage: blockCoverageFieldSchema,
       })
       .strict(),
+    adAngles: z.array(adAngleSchema).optional(),
+    outcomeProof: z.array(outcomeProofSchema).optional(),
+    // Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
+    evidenceVerdict: evidenceVerdictSchema,
     evidenceGap: z.literal(true).optional(),
     evidenceGapReport: evidenceGapReportSchema.optional(),
   })

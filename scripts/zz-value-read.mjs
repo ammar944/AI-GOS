@@ -226,6 +226,59 @@ function isSubstantiveBody(body) {
   });
 }
 
+// Derive the ceiling from a body-level `evidenceVerdict` (populated deterministically by
+// the provenance gate at commit time). Returns a ceiling result when the field is present
+// and usable, or null to fall through to the existing verifier-count logic.
+//
+// The rules read COUNTS, never the `outcome` string blindly — a laundered model could write
+// outcome:'clean' over dirty counts, so the counts (+ a refuted/overclaim signal) are the guard:
+//   - refuted signal (outcome === 'refuted') -> 4 (fabrication cap)
+//   - overclaim signal (outcome === 'overclaim') -> 4 (fabrication cap)
+//   - rowsMissingRealSource > 0 OR unsupportedRowCount > 0 -> 7 (overclaim / missing source)
+//   - both zero AND verifiedRowCount >= MIN_SUBSTANTIVE_CLAIMS -> CLEAN_CEILING (9)
+//   - both zero AND verifiedRowCount < MIN_SUBSTANTIVE_CLAIMS -> 7 (clean-thin)
+function evidenceVerdictCeiling({ artifact, verified, unsupported, refuted }) {
+  const ev = artifact?.body?.evidenceVerdict;
+  if (!ev || typeof ev !== 'object' || Array.isArray(ev)) return null;
+
+  // A refuted declaration caps at 4 even if its counts are unreadable (explicit laundering).
+  if (ev.outcome === 'refuted') {
+    return { ceiling: 4, band: 'fabrication-cap', reason: "evidenceVerdict outcome 'refuted' — evidence-contradicted rows", verified, unsupported, refuted };
+  }
+
+  // An 'overclaim' declaration ALSO caps at 4, regardless of the numeric fields. The agentic
+  // runner emits outcome:'overclaim' when an invented claim survived remediation; in that case
+  // its rowsMissingRealSource/unsupportedRowCount can both be 0 (an invention ≠ a missing-source
+  // row), so the count rules below would otherwise let it read clean-9. A surviving invention is
+  // proven laundering — it can NEVER read clean. (Belt-and-suspenders with the runner's own
+  // count-forcing guard.)
+  if (ev.outcome === 'overclaim') {
+    return { ceiling: 4, band: 'fabrication-cap', reason: "evidenceVerdict outcome 'overclaim' — invented claim survived remediation", verified, unsupported, refuted };
+  }
+
+  const verifiedRows = toFiniteCount(ev.verifiedRowCount);
+  const unsupportedRows = toFiniteCount(ev.unsupportedRowCount);
+  const missingSource = toFiniteCount(ev.rowsMissingRealSource);
+  // Counts present-but-unreadable -> cannot derive a verdict from this field; fall through to
+  // the existing verifier logic rather than silently certifying.
+  if (verifiedRows === null || unsupportedRows === null || missingSource === null) return null;
+
+  if (missingSource > 0 || unsupportedRows > 0) {
+    return {
+      ceiling: 7,
+      band: 'overclaim',
+      reason: `evidenceVerdict: ${unsupportedRows} unsupported + ${missingSource} missing-real-source row(s) (verified ${verifiedRows})`,
+      verified,
+      unsupported,
+      refuted,
+    };
+  }
+  if (verifiedRows < MIN_SUBSTANTIVE_CLAIMS) {
+    return { ceiling: 7, band: 'thin-clean', reason: `evidenceVerdict clean but only ${verifiedRows} verified row(s) — too thin to certify as exceptional`, verified, unsupported, refuted };
+  }
+  return { ceiling: CLEAN_CEILING, band: 'clean', reason: `evidenceVerdict clean (${verifiedRows} verified rows, 0 unsupported, 0 missing-source)`, verified, unsupported, refuted };
+}
+
 // The deterministic ceiling: reuses the section's OWN in-run verifier verdict
 // (source-class-aware) + deck gate + body presence. Honest gaps never lower it,
 // but ABSENCE OF PROOF (no verifier, unreadable counts, thin coverage) can never
@@ -239,13 +292,20 @@ export function deterministicCeiling({ artifact, errored, gateViolations }) {
   const unsupported = verification ? toFiniteCount(verification.unsupportedCount) : null;
   const verified = verification ? toFiniteCount(verification.verifiedCount) : null;
 
-  // 1. Proven laundering — the §5 hard cap (outranks everything).
+  // 1. Proven laundering — the §5 hard cap (outranks everything, incl. evidenceVerdict).
   if (refuted > 0 || gateViolations > 0) {
     const why = [];
     if (refuted > 0) why.push(`${refuted} refuted (evidence-contradicted) claim(s)`);
     if (gateViolations > 0) why.push(`${gateViolations} deck-ledger gate violation(s)`);
     return { ceiling: 4, band: 'fabrication-cap', reason: `proven laundering: ${why.join(' + ')}`, verified, unsupported, refuted };
   }
+
+  // 1b. evidenceVerdict (deterministic provenance-gate verdict on the body) — when present,
+  //     the ceiling is derived from its COUNTS, NOT the `outcome` string (a laundered model
+  //     could mislabel; counts + these rules are the guard). Absent -> fall through to the
+  //     existing verifier-count logic (no regression on current runs).
+  const ev = evidenceVerdictCeiling({ artifact, verified, unsupported, refuted });
+  if (ev) return ev;
 
   // 2. Verifier object present but counts unreadable -> cannot certify -> 7.
   if (verification !== null && (unsupported === null || verified === null)) {
@@ -302,12 +362,26 @@ async function gather(runDir) {
       errored,
       gateViolations: gateBySection[sectionId] ?? 0,
     });
+    // Surface the body-level evidenceVerdict counts into facts (when present) so a reviewer
+    // can see exactly what drove the ceiling. The ceiling itself already derives from these.
+    const ev = committed?.body?.evidenceVerdict;
+    const evidenceVerdict =
+      ev && typeof ev === 'object' && !Array.isArray(ev)
+        ? {
+            outcome: ev.outcome ?? null,
+            verifiedRowCount: toFiniteCount(ev.verifiedRowCount),
+            unsupportedRowCount: toFiniteCount(ev.unsupportedRowCount),
+            rowsMissingRealSource: toFiniteCount(ev.rowsMissingRealSource),
+          }
+        : null;
+
     sections.push({
       sectionId,
       label: SECTION_LABEL[sectionId] ?? sectionId,
       present: Boolean(committed),
       confidence: typeof committed?.confidence === 'number' ? committed.confidence : null,
       gateViolations: gateBySection[sectionId] ?? 0,
+      evidenceVerdict,
       ...ceiling,
     });
 

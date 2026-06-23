@@ -134,3 +134,117 @@ test('countRefuted counts entailmentVerdict OR status === refuted, ignores suppo
   assert.equal(countRefuted(null), 0);
   assert.equal(countRefuted(undefined), 0);
 });
+
+// ---------------------------------------------------------------------------
+// evidenceVerdict — body-level deterministic provenance-gate verdict (ceiling-9 path).
+// When present, the ceiling derives from its COUNTS, not the outcome string.
+// ---------------------------------------------------------------------------
+// helper: a clean evidenceVerdict body. `verification` is intentionally OMITTED so we prove
+// the ceiling comes from evidenceVerdict, not the legacy verifier counts.
+function evArtifact(ev, body = { keyFindings: ['x'] }) {
+  return { body: { ...body, evidenceVerdict: ev } };
+}
+
+test('(a) evidenceVerdict clean + verifiedRowCount>=4, 0 unsupported, 0 missing -> ceiling 9 (clean)', () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: 11, unsupportedRowCount: 0, rowsMissingRealSource: 0 }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 9);
+  assert.equal(r.band, 'clean');
+});
+
+test('(b) rowsMissingRealSource>0 -> ceiling 7 (overclaim), even if outcome lies "clean"', () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: 12, unsupportedRowCount: 0, rowsMissingRealSource: 3 }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 7, 'a missing-real-source row caps below clean regardless of the outcome label');
+  assert.equal(r.band, 'overclaim');
+});
+
+test('(b2) unsupportedRowCount>0 -> ceiling 7 (overclaim), even if outcome lies "clean"', () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: 12, unsupportedRowCount: 5, rowsMissingRealSource: 0 }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 7);
+  assert.equal(r.band, 'overclaim');
+});
+
+test('(c) verifiedRowCount<4 clean -> ceiling 7 (thin-clean), never 9', () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: 2, unsupportedRowCount: 0, rowsMissingRealSource: 0 }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 7, '2 verified rows cannot certify a clean-9');
+  assert.equal(r.band, 'thin-clean');
+});
+
+test("evidenceVerdict outcome 'refuted' -> HARD CAP at 4 (fabrication-cap)", () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'refuted', verifiedRowCount: 5, unsupportedRowCount: 0, rowsMissingRealSource: 0 }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 4);
+  assert.equal(r.band, 'fabrication-cap');
+});
+
+test("evidenceVerdict outcome 'overclaim' with 0/0 counts -> HARD CAP at 4 (a surviving invention can NEVER read clean)", () => {
+  // The agentic runner emits outcome:'overclaim' when an invented claim survives remediation,
+  // and in that case rowsMissingRealSource/unsupportedRowCount can both be 0 (an invention is
+  // not a missing-source row). Without the explicit overclaim cap this would fall through to
+  // clean-9 — the P1-1 Codex finding. The verdict string + cap is the belt; the runner forcing
+  // unsupportedRowCount=survivingInventionCount is the suspenders.
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'overclaim', verifiedRowCount: 12, unsupportedRowCount: 0, rowsMissingRealSource: 0 }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 4, 'an overclaim verdict must never read clean even with 0/0 numeric counts');
+  assert.equal(r.band, 'fabrication-cap');
+});
+
+test('evidenceVerdict counts are not blindly string-trusted: "3" missing-source -> overclaim 7', () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: '12', unsupportedRowCount: '0', rowsMissingRealSource: '3' }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 7);
+  assert.equal(r.band, 'overclaim');
+});
+
+test('evidenceVerdict present but counts unreadable -> falls through to existing verifier logic (no false clean)', () => {
+  // unreadable counts + NO verification object -> the no-verifier directional band (7), not clean.
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: 'lots', unsupportedRowCount: null, rowsMissingRealSource: undefined }),
+    errored: false,
+    gateViolations: 0,
+  });
+  assert.equal(r.ceiling, 7);
+  assert.equal(r.band, 'unverified-directional');
+});
+
+test('(d) a section WITHOUT evidenceVerdict scores EXACTLY as before (verifier-clean -> 9)', () => {
+  // identical to the legacy clean test — proves the new branch is inert when the field is absent.
+  const r = deterministicCeiling({ artifact: artifact(), errored: false, gateViolations: 0 });
+  assert.equal(r.ceiling, 9);
+  assert.equal(r.band, 'clean');
+  assert.equal(r.reason, 'verifier clean (verified 18, 0 unsupported)', 'no-evidenceVerdict path is unchanged — same legacy reason string');
+});
+
+test('precedence: a deck-ledger gate violation still caps at 4 even with a clean evidenceVerdict', () => {
+  const r = deterministicCeiling({
+    artifact: evArtifact({ outcome: 'clean', verifiedRowCount: 11, unsupportedRowCount: 0, rowsMissingRealSource: 0 }),
+    errored: false,
+    gateViolations: 2,
+  });
+  assert.equal(r.ceiling, 4, 'proven laundering (gate violation) outranks a clean evidenceVerdict');
+  assert.equal(r.band, 'fabrication-cap');
+});

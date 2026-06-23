@@ -117,6 +117,17 @@ const redFlagSchema = z
   })
   .strict();
 
+// Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
+const evidenceVerdictSchema = z
+  .object({
+    outcome: z.enum(["clean", "unverified-directional", "overclaim", "refuted"]),
+    verifiedRowCount: z.number().int().nonnegative(),
+    unsupportedRowCount: z.number().int().nonnegative(),
+    rowsMissingRealSource: z.number().int().nonnegative(),
+    note: z.string().min(1).optional(),
+  })
+  .optional();
+
 export const offerDiagnosticBodySchema = z
   .object({
     keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
@@ -164,6 +175,8 @@ export const offerDiagnosticBodySchema = z
         coverage: blockCoverageFieldSchema,
       })
       .strict(),
+    // Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
+    evidenceVerdict: evidenceVerdictSchema,
   })
   .strict();
 

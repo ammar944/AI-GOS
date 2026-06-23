@@ -56,7 +56,13 @@ const competitorSchema = z
     url: z.string().min(1),
     competitorType: z.enum(competitorTypes),
     oneLinePositioning: z.string().min(1),
-    verbatimHeroCopy: z.string().min(1),
+    // Optional (T-E2x strangle fix, parallels the VoC ad-angles loosening): the
+    // answer-tool path scrapes a competitor's hero copy, but the agentic
+    // markdown path often names a competitor without quoting it. Required here
+    // forced a "Not found in source markdown" placeholder that the honest gate
+    // then flagged unsupported. Omitting it is honest; existing artifacts that
+    // carry it still validate (backward-compatible).
+    verbatimHeroCopy: z.string().min(1).optional(),
     pricingPosition: z.string().min(1),
     sourceUrl: z.string().min(1),
     evidenceTier: evidenceTierFieldSchema,
@@ -329,6 +335,17 @@ const adEvidenceSchema = z
   })
   .strict();
 
+// Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
+const evidenceVerdictSchema = z
+  .object({
+    outcome: z.enum(["clean", "unverified-directional", "overclaim", "refuted"]),
+    verifiedRowCount: z.number().int().nonnegative(),
+    unsupportedRowCount: z.number().int().nonnegative(),
+    rowsMissingRealSource: z.number().int().nonnegative(),
+    note: z.string().min(1).optional(),
+  })
+  .optional();
+
 export const competitorLandscapeBodySchema = z
   .object({
     keyFindings: keyFindingsSchema.nullable().transform((value) => value ?? undefined).optional(),
@@ -343,6 +360,8 @@ export const competitorLandscapeBodySchema = z
     narrativeArcs: narrativeArcsSchema,
     adPresence: adPresenceSchema,
     adEvidence: adEvidenceSchema,
+    // Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
+    evidenceVerdict: evidenceVerdictSchema,
   })
   .strict();
 
@@ -879,11 +898,8 @@ function validateRequiredFields(
       `body.competitorSet.competitors[${index}].oneLinePositioning`,
       competitor.oneLinePositioning,
     );
-    pushMissingText(
-      errors,
-      `body.competitorSet.competitors[${index}].verbatimHeroCopy`,
-      competitor.verbatimHeroCopy,
-    );
+    // verbatimHeroCopy is optional (T-E2x strangle fix): no longer a
+    // required-field minimum — an omitted hero copy is honest, not a defect.
     pushMissingText(
       errors,
       `body.competitorSet.competitors[${index}].pricingPosition`,
