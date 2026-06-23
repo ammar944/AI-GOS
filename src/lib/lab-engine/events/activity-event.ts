@@ -18,6 +18,7 @@ export const activityEventTypes = [
   "artifact-saved",
   "section-completed",
   "section-failed",
+  "agentic-fallback",
 ] as const;
 
 export const isoDateSchema = z
@@ -216,6 +217,25 @@ export const activityEventSchema = z.discriminatedUnion("type", [
           missingClass: z.string().min(1).optional(),
           unsupportedCount: z.number().int().nonnegative().optional(),
           verifiedCount: z.number().int().nonnegative().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...activityBaseFields,
+      type: z.literal("agentic-fallback"),
+      sectionId: sectionIdSchema,
+      metadata: z
+        .object({
+          reason: z.enum([
+            "no_tools",
+            "live_tools_disabled",
+            "missing_credential",
+            "agentic_error",
+          ]),
+          resolvedToolCount: z.number().int().min(0),
+          hasPreparedContext: z.boolean(),
         })
         .strict(),
     })

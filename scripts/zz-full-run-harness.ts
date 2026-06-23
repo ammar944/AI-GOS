@@ -22,6 +22,7 @@
  *   npx tsx scripts/zz-full-run-harness.ts --live --max-runs 1     # one paid run, then abort
  *   npx tsx scripts/zz-full-run-harness.ts --subject fathom        # Fathom (needs frozen corpus)
  *   npx tsx scripts/zz-full-run-harness.ts --sections positioningBuyerICP   # run one section only
+ *   npx tsx scripts/zz-full-run-harness.ts --agentic                          # route gated sections through the agentic GLM path (mirrors prod)
  *
  * Output: tmp/zz-full-run/<runId>/{per-section.json, deck.json, ledger.json, gate.json, report.md}
  */
@@ -42,7 +43,10 @@ import {
 } from "../src/lib/lab-engine/artifacts/artifact-envelope";
 import { createRunStore } from "../src/lib/lab-engine/runs/run-store";
 import { isSupportedSectionId } from "../src/lib/lab-engine/sections/section-registry";
-import { runSection } from "../src/lib/lab-engine/agents/run-section";
+import {
+  prepareSectionContext,
+  runSection,
+} from "../src/lib/lab-engine/agents/run-section";
 import {
   createInMemoryResearchFactStore,
   type ResearchFact,
@@ -71,6 +75,11 @@ const subject = readFlag(args, "subject") ?? "ramp";
 const live = args.includes("--live");
 const corpusOnly = args.includes("--corpus-only") || !live;
 const sectionsArg = readFlag(args, "sections");
+// --agentic: exercise the agentic GLM section path the way prod does (sets
+// LAB_AGENTIC_GLM_SECTIONS to the requested sections). Without this the harness
+// runs the bare no-preparedContext answer-tool path, which masked the original
+// unbypass bug (prod passes a preparedContext; the harness did not).
+const agentic = args.includes("--agentic");
 
 // Budget / abort guardrails (P4). The repo rule is "paid APIs never loop without
 // an abort condition"; this is that condition, in code.
@@ -260,6 +269,7 @@ async function main(): Promise<void> {
   console.log(`  mode:       ${corpusOnly ? "corpus-only (FREE — default; pass --live for paid tools)" : "LIVE (paid tools enabled via --live)"}`);
   console.log(`  model:      ${process.env.LAB_ENGINE_PROVIDER ?? "(default)"}`);
   console.log(`  liveTools:  ${corpusOnly ? "OFF" : "ON (Firecrawl/SpyFu/Perplexity/SearchAPI/Reviews)"}`);
+  console.log(`  agentic:    ${agentic ? "ON (LAB_AGENTIC_GLM_SECTIONS set per section)" : "off (answer-tool / streaming path)"}`);
   console.log("=".repeat(72));
 
   // 1. Build ResearchInput from frozen corpus + brief.
@@ -300,15 +310,30 @@ async function main(): Promise<void> {
     console.log(`\n[harness] >>> ${sectionId}`);
     const start = Date.now();
     try {
+      // Mirror prod (lab-section-job.ts:62-64): prepare the section context and
+      // pass it into runSection. The bare no-preparedContext call that used to
+      // live here masked the agentic unbypass bug — prod always passes one.
+      const preparedContext = await prepareSectionContext(
+        { runId, sectionId },
+        { store, factStore, parentAuditRunId },
+      );
+      const env: Record<string, string | undefined> = {
+        ...process.env,
+        _HARNESS_SECTION: sectionId,
+      };
+      if (agentic) {
+        env.LAB_AGENTIC_GLM_SECTIONS = sectionId;
+      }
       const result = await runSection(
         { runId, sectionId },
         {
           store,
           loadSkill: loadLabSkill,
           allowedTools: corpusOnly ? [] : undefined,
+          preparedContext,
           factStore,
           parentAuditRunId,
-          env: { ...process.env, _HARNESS_SECTION: sectionId },
+          env,
         },
       );
       results[sectionId] = result.artifact;
@@ -367,12 +392,20 @@ async function main(): Promise<void> {
       await store.createRun(paidMediaInput);
       const start = Date.now();
       try {
+        // Paid Media is not an agentic-projectable section (PROJECTABLE_SECTION_IDS
+        // excludes it), so --agentic does not apply here; still pass preparedContext
+        // to mirror prod.
+        const preparedContext = await prepareSectionContext(
+          { runId: paidMediaRunId, sectionId: PAID_MEDIA_PLAN_SECTION_ID },
+          { store, factStore, parentAuditRunId },
+        );
         const result = await runSection(
           { runId: paidMediaRunId, sectionId: PAID_MEDIA_PLAN_SECTION_ID },
           {
             store,
             loadSkill: loadLabSkill,
             allowedTools: corpusOnly ? [] : undefined,
+            preparedContext,
             factStore,
             parentAuditRunId,
             env: { ...process.env, _HARNESS_SECTION: PAID_MEDIA_PLAN_SECTION_ID },

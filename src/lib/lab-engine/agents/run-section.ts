@@ -13053,19 +13053,45 @@ async function runAgenticGLMSection(
   // never writes the body (diagnosed live: 62k prompt -> 71-char stub, 0 quotes;
   // lean prompt -> 27k body, painQ=7/successQ=11/obj=16). generateAgenticGLMSection
   // prepends GROUNDING_LAW, so we do NOT add it here.
-  // Source the allowed-tools list from getAllowedTools — the SAME gate the three
-  // other commit paths honor — so the agentic path respects prepared-context
-  // tool-disabling and the deps.allowedTools / LAB_ENGINE_LIVE_TOOLS kill-switch
-  // (returns [] when live tools are off), instead of reading the registry directly.
-  const agenticAllowedTools = getAllowedTools(definition, deps);
+  // Agentic path sources tools from deps.allowedTools ?? definition.allowedTools,
+  // NOT getAllowedTools — which returns [] under prepared-context (the answer-tool
+  // path's tool-disabling semantics). The agentic path must keep its Firecrawl
+  // tools even when a preparedContext is present. The LAB_ENGINE_LIVE_TOOLS==='false'
+  // kill-switch is still honored: it forces deps.allowedTools=[] upstream
+  // (lab-section-job.ts getLabEngineAllowedTools), so the empty-tools guard below
+  // still catches it.
+  const agenticAllowedTools = deps.allowedTools ?? definition.allowedTools;
   const tools = buildAgenticTools(input.sectionId, env, agenticAllowedTools);
   const externalToolNames = Object.keys(tools).sort();
   // If no tools survived (kill-switch off, or no credential present), the agent can
   // only write from prior knowledge — which violates the evidence floor (empty
   // transcript -> 0 grounded quotes). Don't try the agentic path; commit honestly.
+  // Emit an observe-only agentic-fallback event so this silent fallback becomes
+  // observable telemetry (no throw — the answer-tool fallback still runs).
   if (externalToolNames.length === 0) {
-    console.warn(
-      `[lab-section] agentic GLM has no usable tools for ${input.sectionId} (live tools off or missing API keys); falling back to answer-tool path`,
+    const liveToolsOff =
+      deps.allowedTools !== undefined &&
+      deps.allowedTools.length === 0 &&
+      env.LAB_ENGINE_LIVE_TOOLS === "false";
+    const reason: "live_tools_disabled" | "missing_credential" =
+      liveToolsOff ? "live_tools_disabled" : "missing_credential";
+    const fallbackMessage = `[lab-section] agentic GLM has no usable tools for ${input.sectionId} (${reason}); falling back to answer-tool path`;
+    console.warn(fallbackMessage);
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "agentic-fallback",
+        message: fallbackMessage,
+        metadata: {
+          reason,
+          resolvedToolCount: agenticAllowedTools.length,
+          hasPreparedContext: deps.preparedContext !== undefined,
+        },
+      }),
     );
     return runSectionViaAnswerTool(input, deps);
   }
