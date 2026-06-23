@@ -4,6 +4,7 @@ import {
   applySourceLivenessGate,
   collectPreverifiedSourceUrlsFromSteps,
   extractSubjectSiteObservation,
+  isQuoteContainedInLiveText,
   stripContradictedSubjectCtaClaims,
 } from "../source-liveness";
 
@@ -674,6 +675,188 @@ describe("applySourceLivenessGate", (): void => {
 
     expect(body.observations).toEqual([]);
     expect(result.droppedRows).toHaveLength(1);
+  });
+
+  // Phase 2 quote-at-URL: a verbatim quote stapled onto a real fetched URL must
+  // appear in the fetched page text. This is the keystone that catches the
+  // "confident-with-a-citation-it-never-opened" fabrication pattern.
+  it("accepts a verbatim quote present in the fetched page text (at-URL containment)", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          body: 'A reviewer wrote: "The API is incredibly powerful and the people are great."',
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        quotes: [
+          {
+            verbatimText:
+              "The API is incredibly powerful and the people are great.",
+            sourceUrl: "https://example.com/reviews",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { quotes?: unknown[] };
+
+    expect(body.quotes).toHaveLength(1);
+    expect(result.droppedRows).toEqual([]);
+    expect(result.containmentPassRate).toBe(1);
+  });
+
+  it("drops a fabricated quote absent from the fetched page text (at-URL containment mismatch)", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          // The page is real (200) and mentions the product, but does NOT contain
+          // the invented quote the row staples onto it.
+          body: "Plain is an API-first support tool. The page lists features and pricing.",
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        quotes: [
+          {
+            verbatimText:
+              "It was night and day. Support engineers were visibly happier using Plain even in the pilot phase.",
+            sourceUrl: "https://example.com/reviews",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+    const body = result.body as { quotes?: unknown[] };
+
+    expect(body.quotes).toEqual([]);
+    expect(result.droppedRows[0]).toEqual(
+      expect.objectContaining({
+        reason: "containment-mismatch",
+        sourceUrl: "https://example.com/reviews",
+      }),
+    );
+    expect(result.droppedRows[0]?.detail).toMatch(/verbatim quote/i);
+  });
+
+  it("does NOT hard-fail a quote when the source URL 404s (network-unavailable carve-out)", async (): Promise<void> => {
+    const fetchImpl = vi.fn(async (): Promise<Response> => response({ status: 404 }));
+    const result = await applySourceLivenessGate({
+      body: {
+        quotes: [
+          {
+            verbatimText:
+              "It was night and day. Support engineers were visibly happier using Plain even in the pilot phase.",
+            sourceUrl: "https://example.com/dead-reviews",
+          },
+        ],
+      },
+      fetchImpl,
+    });
+
+    // A 404 is "absence of confirmation," NOT fabrication — the row is dropped
+    // as a liveness failure (http-error), never marked a quote containment
+    // mismatch. The quote-at-URL hard-block fires ONLY when the page WAS fetched.
+    expect(result.droppedRows[0]?.reason).toBe("http-error");
+    expect(result.droppedRows[0]?.detail).not.toMatch(/verbatim quote/i);
+  });
+
+  it("downgrades (not drops) a fabricated quote under downgradeMode", async (): Promise<void> => {
+    const fetchImpl = vi
+      .fn(
+        async (_input: string, _init?: RequestInit): Promise<Response> =>
+          response({ status: 200 }),
+      )
+      .mockResolvedValueOnce(response({ status: 200 }))
+      .mockResolvedValueOnce(
+        response({
+          body: "Plain is an API-first support tool. No review quotes on this page.",
+          status: 200,
+        }),
+      );
+    const result = await applySourceLivenessGate({
+      body: {
+        quotes: [
+          {
+            verbatimText:
+              "It was night and day. Support engineers were visibly happier using Plain even in the pilot phase.",
+            sourceUrl: "https://example.com/reviews",
+          },
+        ],
+      },
+      fetchImpl,
+      downgradeMode: true,
+    });
+    const body = result.body as { quotes?: unknown[] };
+
+    // downgradeMode keeps the row (demoted), never drops it.
+    expect(body.quotes).toHaveLength(1);
+    expect(result.droppedRows).toEqual([]);
+    expect(result.downgradedRows).toHaveLength(1);
+    expect(result.downgradedRows[0]?.strippedRow.droppedReason).toMatch(
+      /verbatim quote/i,
+    );
+  });
+});
+
+describe("isQuoteContainedInLiveText (Phase 2 quote-at-URL primitive)", (): void => {
+  it("passes when the normalized quote is a substring of the page text", (): void => {
+    const page =
+      'A reviewer wrote: "The API is incredibly powerful and the people are great."';
+    expect(
+      isQuoteContainedInLiveText(
+        page,
+        "The API is incredibly powerful and the people are great.",
+      ),
+    ).toBe(true);
+  });
+
+  it("fails when the quote is absent from the fetched page text", (): void => {
+    const page = "Plain is an API-first support tool. No review quotes here.";
+    expect(
+      isQuoteContainedInLiveText(
+        page,
+        "It was night and day. Support engineers were visibly happier using Plain even in the pilot phase.",
+      ),
+    ).toBe(false);
+  });
+
+  it("skips quotes shorter than 15 chars (too short to judge)", (): void => {
+    expect(isQuoteContainedInLiveText("anything", "yes")).toBe(true);
+    expect(isQuoteContainedInLiveText("", "tiny")).toBe(true);
+  });
+
+  it("tolerates punctuation/whitespace drift via a contiguous-fragment fallback", (): void => {
+    const page = "The onboarding was smooth and the team was responsive throughout.";
+    // Same content, different punctuation/whitespace — a real (drifted) quote.
+    const quote = "the onboarding was smooth, and the team was responsive";
+    expect(isQuoteContainedInLiveText(page, quote)).toBe(true);
+  });
+
+  it("rejects a quote assembled from scattered page words (no contiguous fragment)", (): void => {
+    const page = "Pricing is clear. The team is responsive. Onboarding takes a day.";
+    // Assembles words present on the page but never contiguous in this order.
+    const quote = "Pricing team onboarding responsive clear day takes a is the";
+    expect(isQuoteContainedInLiveText(page, quote)).toBe(false);
+  });
+
+  it("strips editorial insertions inside a real quote before matching", (): void => {
+    const page = "The reviewer said the support engineer was visibly happier using Plain.";
+    const quote =
+      "The support engineer was [visibly] happier using Plain [ Plain support tool].";
+    expect(isQuoteContainedInLiveText(page, quote)).toBe(true);
   });
 });
 

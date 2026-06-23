@@ -103,6 +103,12 @@ interface NormalizedContainmentNeed {
   // invented person name was never checked on its own).
   requiredEntities: string[];
   numbers: string[];
+  // Phase 2 quote-at-URL: verbatim quote strings pulled from the row's quote-
+  // bearing fields (verbatimQuote/verbatimText/quote). A fabricated quote stapled
+  // onto a real fetched URL clears entity/number containment but is NOT in the
+  // page text — this bucket closes that hole. Each quote must be contained at
+  // its cited URL (.every, strict) or the row is uncontained.
+  quotes: string[];
 }
 
 const defaultMaxChecks = 25;
@@ -123,6 +129,15 @@ const evidenceTextKeys = new Set([
   "text",
   "title",
   "value",
+  "verbatimQuote",
+  "verbatimText",
+]);
+// Phase 2 quote-at-URL: the subset of evidence-text fields that hold a VERBATIM
+// customer/source quote (not a paraphrase, summary, or title). Only these are
+// strict-containment-checked against the fetched page text — a fabricated quote
+// stapled onto a real URL clears entity/number containment but fails here.
+const quoteFieldNames = new Set([
+  "quote",
   "verbatimQuote",
   "verbatimText",
 ]);
@@ -430,6 +445,26 @@ function extractEntityFields(row: Record<string, unknown>): string[] {
   return entities;
 }
 
+// Phase 2 quote-at-URL: pull the row's VERBATIM quote strings (the quote-bearing
+// fields only — not paraphrases/summaries/titles). A quote <15 chars is too short
+// to judge (the containment primitive skips it), so don't harvest it.
+function extractQuoteFields(row: Record<string, unknown>): string[] {
+  const quotes: string[] = [];
+
+  for (const [key, value] of Object.entries(row)) {
+    if (!quoteFieldNames.has(key) || typeof value !== "string") {
+      continue;
+    }
+
+    const normalized = normalizeWhitespace(value);
+    if (normalized.length >= 15) {
+      quotes.push(normalized);
+    }
+  }
+
+  return quotes;
+}
+
 function extractProperNouns(value: string): string[] {
   return Array.from(value.matchAll(properNounPattern))
     .map((match) => normalizeWhitespace(match[0]))
@@ -453,6 +488,7 @@ function containmentNeeds(row: Record<string, unknown>): NormalizedContainmentNe
     entities: uniqueStrings(extractProperNouns(text)),
     requiredEntities: uniqueStrings(extractEntityFields(row)),
     numbers: uniqueStrings(extractNumbers(text)),
+    quotes: uniqueStrings(extractQuoteFields(row)),
   };
 }
 
@@ -547,6 +583,96 @@ export function isEntityContainedInLiveText(
   return containsEntity(normalizeForContainment(text), value);
 }
 
+// Phase 2 quote-at-URL: does the normalized `quote` appear verbatim in the live
+// page `text`? A quote <15 chars is too short to judge (skip = pass). Tolerates
+// punctuation/whitespace drift via a contiguous-fragment fallback (a ≥4-token
+// hyphen-normalized run of the quote appears verbatim in the page) so a real
+// quote with author-inserted connective words still passes, while a quote
+// assembled from scattered page words does not. Exported for unit testing +
+// reuse by sibling validators that need the identical at-URL quote check.
+export function isQuoteContainedInLiveText(
+  text: string,
+  quote: string,
+): boolean {
+  const normalizedQuote = normalizeWhitespace(quote).toLowerCase();
+  if (normalizedQuote.length < 15) {
+    return true; // too short to judge — skip (mirrors the transcript-side gate)
+  }
+  // strip editorial insertions the writer adds inside a real quote: "[are superior]", "[…]"
+  const cleaned = normalizedQuote
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\.\.\.|…/g, " ")
+    .replace(/["']/g, "");
+  if (cleaned.trim().length === 0) {
+    return true;
+  }
+  return containsQuote(normalizeForContainment(text), cleaned);
+}
+
+// The at-URL quote containment check. Mirrors the transcript-side `quoteGrounded`
+// (scripts/provenance/gate.ts:349): substring first, then a contiguous-fragment
+// fallback that tolerates punctuation/whitespace drift while rejecting quotes
+// assembled from scattered page words.
+function containsQuote(haystack: string, quote: string): boolean {
+  if (haystack.includes(quote)) {
+    return true;
+  }
+  // tolerate terminal/internal punctuation drift: strip non-word chars and retry
+  const strippedQuote = quote.replace(/[^\w ]/g, "").replace(/\s+/g, " ").trim();
+  if (
+    strippedQuote.length > 0 &&
+    haystack.replace(/[^\w ]/g, "").includes(strippedQuote)
+  ) {
+    return true;
+  }
+  return hasContiguousQuoteFragment(haystack, quote);
+}
+
+// True iff a CONTIGUOUS run of ≥4 quote tokens (hyphen-normalized) is a verbatim
+// substring of the haystack. A genuine (possibly drifted) quote shares a long
+// contiguous run with its source; a quote assembled from scattered words does
+// not. Ported from scripts/provenance/gate.ts:332 (hasContiguousFragment).
+function hasContiguousQuoteFragment(
+  haystack: string,
+  quote: string,
+): boolean {
+  const hyphenNormalize = (s: string): string =>
+    s.replace(/[^\w ]/g, " ").replace(/\s+/g, " ").trim();
+  const haystackHN = hyphenNormalize(haystack);
+  const tokens = hyphenNormalize(quote).split(" ").filter(Boolean);
+  const MIN_TOKENS = 4;
+  if (tokens.length < MIN_TOKENS) {
+    return false;
+  }
+  for (let i = 0; i + MIN_TOKENS <= tokens.length; i++) {
+    for (let j = tokens.length; j >= i + MIN_TOKENS; j--) {
+      const fragment = tokens.slice(i, j).join(" ");
+      if (fragment.length >= 18 && haystackHN.includes(fragment)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Phase 2 quote-at-URL: a containment-mismatch detail that names the missing
+// signal class, so a dropped/demoted row's telemetry distinguishes a fabricated
+// QUOTE (the keystone pattern) from a missing number/entity.
+function containmentMismatchDetail(
+  needs: NormalizedContainmentNeed,
+  text: string | null,
+): string {
+  if (needs.quotes.length > 0) {
+    const missingQuotes = needs.quotes.filter(
+      (quote) => !isQuoteContainedInLiveText(text ?? "", quote),
+    );
+    if (missingQuotes.length > 0) {
+      return `Fetched page text did not contain the attributed verbatim quote (${missingQuotes.length} uncontained).`;
+    }
+  }
+  return "Fetched page text did not contain the attributed number or named entity.";
+}
+
 function containmentPasses({
   needs,
   text,
@@ -557,7 +683,8 @@ function containmentPasses({
   if (
     needs.numbers.length === 0 &&
     needs.entities.length === 0 &&
-    needs.requiredEntities.length === 0
+    needs.requiredEntities.length === 0 &&
+    needs.quotes.length === 0
   ) {
     return true;
   }
@@ -580,8 +707,15 @@ function containmentPasses({
   const requiredEntitiesPass = needs.requiredEntities.every((entity) =>
     containsEntity(normalized, entity),
   );
+  // Phase 2 quote-at-URL: a verbatim quote stapled onto a real fetched URL must
+  // appear in the fetched page text (strict .every). This is the keystone that
+  // catches "confident-with-a-citation-it-never-opened" — a fabricated quote
+  // clears entity/number containment but is absent from the real page.
+  const quotesPass = needs.quotes.every((quote) =>
+    isQuoteContainedInLiveText(text, quote),
+  );
 
-  return numbersPass && entitiesPass && requiredEntitiesPass;
+  return numbersPass && entitiesPass && requiredEntitiesPass && quotesPass;
 }
 
 // Phase 2 — three-way containment classification used by downgradeMode.
@@ -602,7 +736,8 @@ function classifyContainment({
   if (
     needs.numbers.length === 0 &&
     needs.entities.length === 0 &&
-    needs.requiredEntities.length === 0
+    needs.requiredEntities.length === 0 &&
+    needs.quotes.length === 0
   ) {
     return "contained";
   }
@@ -628,16 +763,36 @@ function classifyContainment({
   const requiredAnyPass =
     needs.requiredEntities.length === 0 || requiredMatches > 0;
 
-  if (numbersAllPass && lenientEntitiesPass && requiredAllPass) {
+  // Phase 2 quote-at-URL: verbatim quotes are strict (.every). A missing quote
+  // on a fetched page is the fabrication signal — it demotes the row, never
+  // silently passes.
+  const quotesAllPass =
+    needs.quotes.length === 0 ||
+    needs.quotes.every((quote) => isQuoteContainedInLiveText(text, quote));
+  const quotesAnyPass =
+    needs.quotes.length === 0 ||
+    needs.quotes.some((quote) => isQuoteContainedInLiveText(text, quote));
+
+  if (numbersAllPass && lenientEntitiesPass && requiredAllPass && quotesAllPass) {
     return "contained";
   }
 
   // EITHER the name OR the company token (a required entity) is present, OR a
   // number/lenient entity matched — enough real signal to keep-and-downgrade.
-  if (requiredAnyPass && (numbersAllPass || lenientEntitiesPass)) {
+  // A quote that partially matches (some quote present, one absent) also counts
+  // as partial: real signal exists, the row is demoted not dropped.
+  if (
+    (requiredAnyPass && (numbersAllPass || lenientEntitiesPass)) ||
+    (quotesAnyPass && (requiredAnyPass || numbersAllPass || lenientEntitiesPass))
+  ) {
     return "partial";
   }
-  if (requiredAnyPass && needs.numbers.length === 0 && needs.entities.length === 0) {
+  if (
+    requiredAnyPass &&
+    needs.numbers.length === 0 &&
+    needs.entities.length === 0 &&
+    needs.quotes.length === 0
+  ) {
     return "partial";
   }
 
@@ -914,12 +1069,13 @@ export async function applySourceLivenessGate({
       const row = rowsByUrl.get(url);
       const needs =
         row === undefined
-          ? { entities: [], requiredEntities: [], numbers: [] }
+          ? { entities: [], requiredEntities: [], numbers: [], quotes: [] }
           : containmentNeeds(row);
       const needsText =
         needs.entities.length > 0 ||
         needs.requiredEntities.length > 0 ||
-        needs.numbers.length > 0;
+        needs.numbers.length > 0 ||
+        needs.quotes.length > 0;
       probes.set(
         url,
         await probeUrl({
@@ -1069,7 +1225,8 @@ export async function applySourceLivenessGate({
     const containmentChecked =
       needs.entities.length > 0 ||
       needs.requiredEntities.length > 0 ||
-      needs.numbers.length > 0;
+      needs.numbers.length > 0 ||
+      needs.quotes.length > 0;
 
     if (downgradeMode) {
       // §4.6: classify three ways. "contained" passes; "partial" (a missing
@@ -1086,10 +1243,15 @@ export async function applySourceLivenessGate({
           downgradedRows.push({
             path: row.path,
             strippedRow: downgradeRowInPlace({
+              // The detail names the missing signal class. A quote-mismatch takes
+              // precedence (the keystone pattern) — even when classifyContainment
+              // returned "partial" on entity grounds, a missing verbatim quote is
+              // the load-bearing failure and the telemetry must say so.
               detail:
-                containment === "partial"
+                containment === "partial" &&
+                needs.quotes.length === 0
                   ? "Live page contained only part of the attributed entity (missing sibling token)."
-                  : "Fetched page text did not contain the attributed number or named entity.",
+                  : containmentMismatchDetail(needs, probe.text),
               reach: "uncontained",
               row: row.row,
             }),
@@ -1118,7 +1280,7 @@ export async function applySourceLivenessGate({
           path: row.path,
           reason: "containment-mismatch",
           sourceUrl: row.sourceUrl,
-          detail: "Fetched page text did not contain the attributed number or named entity.",
+          detail: containmentMismatchDetail(needs, probe.text),
         };
         droppedRows.push(drop);
         droppedPaths.add(row.path);

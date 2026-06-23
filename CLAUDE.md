@@ -55,7 +55,7 @@ Also used by adjacent worker/tools paths: `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `
 The lab engine reads exactly **three** behavior knobs. Verified against code 2026-05-29:
 
 - `LAB_ENGINE_PROVIDER` — section model provider (`src/lib/lab-engine/ai/models.ts`). Default `anthropic` when unset; live runs set `deepseek-direct`.
-- `LAB_VERIFIER_MAX_UNSUPPORTED` — verifier hard-fail ceiling for unsupported load-bearing claims (`src/lib/lab-engine/agents/verification/evidence-support.ts`, `getMaxUnsupportedAllowed`). Default `Infinity` (unset/empty/invalid) = commit-with-honest-badge, never hard-fail. Set a non-negative integer to fail the section above that many unsupported claims.
+- `LAB_VERIFIER_MAX_UNSUPPORTED` — verifier hard-fail ceiling for unsupported load-bearing claims (`src/lib/lab-engine/agents/verification/evidence-support.ts`, `getMaxUnsupportedAllowed`). Default `0` (armed — hard-fails the section when unsupported load-bearing claims exceed 0). Set a higher non-negative integer to raise the ceiling.
 - `LAB_ENGINE_LIVE_TOOLS` — live research tools toggle (`src/lib/research-v2/lab-section-job.ts`). Default tools-on; only the literal string `'false'` disables them.
 
 The six positioning sections run **in-process** in `src/lib/lab-engine/` (DeepSeek section agents + live research tools). The `research-worker/src/competitors/` directory is a legacy copy — do not touch it.
@@ -138,7 +138,7 @@ Fan-out is the canonical flow. The old per-section "Run section" operator click 
 ## AI SDK Patterns (Vercel AI SDK v6)
 
 IMPORTANT — these cause silent bugs if wrong:
-- Use first-party AI SDK provider packages already in the repo (`@ai-sdk/anthropic`, `@ai-sdk/deepseek`, `@ai-sdk/perplexity`, and `@ai-sdk/openai-compatible` for Ollama-compatible DeepSeek). Never OpenRouter.
+- Use first-party AI SDK provider packages already in the repo (`@ai-sdk/anthropic`, `@ai-sdk/deepseek`, `@ai-sdk/perplexity`, and `@ai-sdk/openai-compatible` for Ollama-compatible DeepSeek). Exception: the GLM-5.2 agentic research transport may use OpenRouter (`z-ai/glm-5.2`) via `@ai-sdk/openai-compatible` over env (`GLM_BASE_URL`/`GLM_MODEL_ID`/`GLM_API_KEY`) — see ADR-0012.
 - `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatch = silent failure.
 - Tool definitions use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`).
 - `convertToModelMessages()` throws `MissingToolResultsError` — sanitize incomplete tool parts first.
