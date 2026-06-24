@@ -38,10 +38,11 @@ import type { PositioningSectionId } from "@/lib/ai/prompts/positioning-skills";
 // ---------------------------------------------------------------------------
 // Composer loop constants. The deck is a single high-value synthesis emit —
 // it needs room for the 13 blocks but NOT a 16-step tool loop (the gather is
-// done; the composer reconciles + writes). 3 tool round-trips for top-up
-// verification only, generous output ceiling for the full deck.
+// done; the composer reconciles + writes). 2 round-trips (1 optional top-up +
+// 1 emit) — a reasoning model burns an EMPTY completion when given 4 steps with
+// no tools to spend them on (LOCK 2026-06-24: empty-completion blocker).
 // ---------------------------------------------------------------------------
-export const COMPOSER_MAX_STEPS = 4;
+export const COMPOSER_MAX_STEPS = 2;
 const COMPOSER_MAX_OUTPUT_TOKENS = 12000;
 
 export const COMPOSER_COHERENCE_LAW = `
@@ -84,6 +85,8 @@ export interface ComposePaidMediaPlanResult {
   deckMarkdown: string;
   transcript: TranscriptRecord[];
   stepCount: number;
+  /** AI SDK finishReason of the compose call; 'length' => truncated, treat as not-composed. */
+  finishReason?: string;
 }
 
 export async function composePaidMediaPlan(
@@ -160,6 +163,7 @@ CRITICAL: the \`\`\`paid-media-plan JSON block must come before any prose, and i
     deckMarkdown,
     transcript,
     stepCount: Array.isArray(result.steps) ? result.steps.length : 0,
+    finishReason: result.finishReason,
   };
 }
 
@@ -309,7 +313,21 @@ export interface ComposerStripVerdict {
   reasons: string[];
 }
 
-export function composerStripFloor(deck: PaidMediaPlanBody | null): ComposerStripVerdict {
+export function composerStripFloor(
+  deck: PaidMediaPlanBody | null,
+  meta?: { deckSource?: ComposerDeckSource; finishReason?: string },
+): ComposerStripVerdict {
+  // A parse-miss / empty-completion deck is a gap SHELL built to satisfy the
+  // shape floors below — it must NEVER read as "composed". A truncated deck
+  // (finishReason 'length') may partially decode yet be a half-deck. Reject both
+  // BEFORE the shape checks. (LOCK 2026-06-24: the gap shell must not masquerade
+  // as a billable deck — this is exactly what let an empty composer slide through.)
+  if (meta?.deckSource === "honest_gap") {
+    return { admitted: false, reasons: ["honest_gap_not_composable"] };
+  }
+  if (meta?.finishReason === "length") {
+    return { admitted: false, reasons: ["composer_truncated_length"] };
+  }
   if (deck === null) {
     return { admitted: false, reasons: ["deck_body_missing"] };
   }

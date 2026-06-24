@@ -168,6 +168,35 @@ describe("composer-glm — composerStripFloor", () => {
     expect(verdict.admitted).toBe(false);
     expect(verdict.reasons).toContain("kpis_below_floor");
   });
+
+  it("REJECTS an honest_gap deck even when its shape satisfies the floor (deckSource meta)", () => {
+    // The honest-gap shell is built to satisfy angles>=2 / reviews===3 / kpis>=2,
+    // so on shape alone it passes. A parse-miss / empty-completion deck must NEVER
+    // read as 'composed' — the gap shell cannot masquerade as a billable deck.
+    const body = buildValidDeckBody();
+    const verdict = composerStripFloor(body, { deckSource: "honest_gap" });
+    expect(verdict.admitted).toBe(false);
+    expect(verdict.reasons).toContain("honest_gap_not_composable");
+  });
+
+  it("REJECTS a length-truncated composer result (finishReason meta)", () => {
+    // A deck the model truncated (finishReason 'length') may partially decode yet
+    // be a half-deck — it must not be admitted as composed.
+    const body = buildValidDeckBody();
+    const verdict = composerStripFloor(body, { finishReason: "length" });
+    expect(verdict.admitted).toBe(false);
+    expect(verdict.reasons).toContain("composer_truncated_length");
+  });
+
+  it("admits a decoded deck when meta confirms decoded + stop", () => {
+    const body = buildValidDeckBody();
+    const verdict = composerStripFloor(body, {
+      deckSource: "decoded",
+      finishReason: "stop",
+    });
+    expect(verdict.admitted).toBe(true);
+    expect(verdict.reasons).toEqual([]);
+  });
 });
 
 describe("composer-glm — constants + law", () => {

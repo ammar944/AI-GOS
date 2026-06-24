@@ -121,7 +121,10 @@ async function main(): Promise<void> {
   });
   const elapsedMs = Date.now() - startedAt;
 
-  const strip = composerStripFloor(result.deck);
+  const strip = composerStripFloor(result.deck, {
+    deckSource: result.deckSource,
+    finishReason: result.finishReason,
+  });
 
   console.log(
     `[composer-proof] done stepCount=${result.stepCount} elapsedMs=${elapsedMs} deck=${result.deck ? "yes" : "null"} deckMarkdownLen=${result.deckMarkdown.length} stripAdmitted=${strip.admitted} stripReasons=${strip.reasons.join(",") || "(none)"}`,
