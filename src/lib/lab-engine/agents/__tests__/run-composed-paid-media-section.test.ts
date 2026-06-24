@@ -49,7 +49,7 @@ function makeResult(
 }
 
 describe("run-section — buildComposedPaidMediaArtifact", () => {
-  it("commits a DECODED deck as an admitted artifact (narrativeMarkdown preserved, not flagged)", () => {
+  it("commits a DECODED deck as an admitted artifact (strategistMemo preserved, not flagged)", () => {
     const artifact = buildComposedPaidMediaArtifact({
       composerResult: makeResult({ deckSource: "decoded", finishReason: "stop" }),
       definition: DEFINITION,
@@ -61,9 +61,14 @@ describe("run-section — buildComposedPaidMediaArtifact", () => {
     expect(artifact.sectionId).toBe("positioningPaidMediaPlan");
     expect(artifact.needs_review).toBeFalsy();
     expect(artifact.confidence).toBe(0.6);
-    expect((artifact.body as { narrativeMarkdown?: string }).narrativeMarkdown).toBe(
+    expect((artifact.body as { strategistMemo?: string }).strategistMemo).toBe(
       "# Paid Media Plan\n\nThe billable deck narrative.",
     );
+    // paid-media no longer stamps narrativeMarkdown (the typed deck is primary;
+    // the memo rides strategistMemo). The 6 research sections still stamp it.
+    expect(
+      (artifact.body as { narrativeMarkdown?: string }).narrativeMarkdown,
+    ).toBeUndefined();
     expect(artifact.sources.length).toBeGreaterThanOrEqual(1);
   });
 

@@ -32,6 +32,7 @@ import {
   type DataTableColumn,
   type StatusPillTone,
 } from '@/components/research-v2/ui-kit';
+import { StrategistMemo, readStrategistMemo } from './strategist-memo';
 import {
   READER_SECTION_LABELS,
   type ReaderSectionId,
@@ -684,6 +685,8 @@ export function PaidMediaPlanRenderer({
           <DataTable columns={kpiColumns} rows={body.kpis} />
         </div>
       </ReaderExhibit>
+
+      <StrategistMemo memo={readStrategistMemo(artifact)} />
     </div>
   );
 }

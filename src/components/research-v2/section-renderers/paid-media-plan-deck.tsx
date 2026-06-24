@@ -29,6 +29,7 @@ import {
   provenanceLabel,
   verdictTone,
 } from './paid-media-plan';
+import { StrategistMemo, readStrategistMemo } from './strategist-memo';
 
 export interface PaidMediaPlanDeckProps {
   artifact: PaidMediaPlanArtifact | PositioningTypedArtifact;
@@ -427,6 +428,13 @@ function FeasibilityAuditPanel({
 // Component
 // ---------------------------------------------------------------------------
 
+/**
+ * Collapsible "Full strategist memo" — the composer's free-markdown deck
+ * readout, preserved verbatim alongside the typed deck. The typed deck is the
+ * primary billable surface; the memo is the human-readable companion the
+ * operator can expand to see the strategist's full reasoning. Renders through
+ * SectionNarrativeMarkdown so emphasis/lists/citations format (no raw `**`).
+ */
 export function PaidMediaPlanDeck({
   artifact,
   subjectName,
@@ -978,6 +986,8 @@ export function PaidMediaPlanDeck({
       </section>
 
       <FeasibilityAuditPanel audit={body.feasibilityAudit} />
+
+      <StrategistMemo memo={readStrategistMemo(artifact)} />
     </div>
   );
 }

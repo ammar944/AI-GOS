@@ -13152,9 +13152,14 @@ export function buildComposedPaidMediaArtifact(params: {
       needs_review: !admission.admitted,
       createdAt: observedAt,
     });
-  // narrativeMarkdown is an additive optional key the body schemas accept; it is
-  // the primary Audit Reader surface and carries the full deck readout verbatim.
-  (envelope.body as Record<string, unknown>).narrativeMarkdown =
+  // strategistMemo is an additive optional key the body schemas accept; it
+  // carries the full deck readout verbatim for the collapsible "Full strategist
+  // memo" in the typed renderers. Unlike the 6 research sections (which stamp
+  // narrativeMarkdown to render markdown-primary), paid-media renders the
+  // TYPED deck as primary and keeps the memo as an expandable companion — so
+  // the typed-artifact-renderer override (which skips typed render when
+  // narrativeMarkdown is present) does NOT fire for paid-media.
+  (envelope.body as Record<string, unknown>).strategistMemo =
     composerResult.deckMarkdown;
   return envelope;
 }
