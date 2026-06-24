@@ -44,7 +44,13 @@ import {
 import {
   normalizePaidMediaPlanBody,
   parsePaidMediaPercentToFraction,
+  type NormalizePaidMediaPlanBodyOptions,
 } from "../artifacts/schemas/paid-media-plan";
+import {
+  composePaidMediaPlan,
+  composerStripFloor,
+  type ComposePaidMediaPlanResult,
+} from "./composer-glm";
 import {
   checkDemandIntentIntentSignalIndependence,
   checkDemandIntentKeywordProvenance,
@@ -797,7 +803,7 @@ export async function prepareSectionContext(
   });
 }
 
-interface RuntimeSectionDefinition {
+export interface RuntimeSectionDefinition {
   id: SectionId;
   title: string;
   skillSlug: string;
@@ -13022,6 +13028,219 @@ export function isThinAgenticBody(markdown: string): boolean {
   return looksLikeStub && trimmed.length < AGENTIC_THIN_BODY_MIN_CHARS * 2;
 }
 
+/**
+ * Best-effort cross-section digest for the composer, built from the committed
+ * section markdowns (the composer also receives the six full section bodies,
+ * which are its primary evidence — this is a short supplement).
+ * TODO: replace with the orchestrator's persisted research_facts digest once it
+ * is surfaced into the section-run context.
+ */
+function buildComposerLedgerDigest(
+  committedSectionMarkdown: Partial<Record<string, string>>,
+): string {
+  const lines = Object.entries(committedSectionMarkdown)
+    .filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && entry[1].length > 0,
+    )
+    .map(
+      ([sectionId, markdown]) =>
+        `- ${sectionId}: ${deriveLeadLine(markdown, sectionId)}`,
+    );
+  return lines.length > 0
+    ? `Cross-section lead findings (from the committed positioning sections):\n${lines.join("\n")}`
+    : "(no committed section digest available)";
+}
+
+/**
+ * Wrap a composer result into the section ArtifactEnvelope the commit spine
+ * persists. The admission floor (composerStripFloor) decides needs_review: a
+ * gap-shell (deckSource 'honest_gap') or truncated (finishReason 'length') deck
+ * is flagged for review with lower confidence and MUST NOT read as a clean,
+ * composed deck. The free-markdown readout is preserved as narrativeMarkdown so
+ * the Audit Reader renders the real deck. Exported for unit testing.
+ */
+export function buildComposedPaidMediaArtifact(params: {
+  composerResult: ComposePaidMediaPlanResult;
+  definition: RuntimeSectionDefinition;
+  input: RunSectionInput;
+  deps: RunSectionDeps;
+  fallbackUrl: string;
+}): ArtifactEnvelope {
+  const { composerResult, definition, input, deps, fallbackUrl } = params;
+  const admission = composerStripFloor(composerResult.deck, {
+    deckSource: composerResult.deckSource,
+    finishReason: composerResult.finishReason,
+  });
+  const observedAt = getNow(deps).toISOString();
+  const sources = extractTranscriptSources(
+    composerResult.transcript,
+    fallbackUrl,
+  ).map((source, index) => ({
+    id: `composer-source-${index + 1}`,
+    title: source.title,
+    url: source.url,
+    observedAt,
+  }));
+  const lead = deriveLeadLine(
+    composerResult.deckMarkdown,
+    `${definition.title} for ${input.runId}`,
+  );
+  const envelope = artifactEnvelopeSchema
+    .extend({ body: definition.bodySchema })
+    .parse({
+      id: getNewId(deps),
+      runId: input.runId,
+      sectionId: input.sectionId,
+      sectionTitle: definition.title,
+      verdict: lead,
+      statusSummary: lead,
+      confidence: admission.admitted ? 0.6 : 0.4,
+      sources,
+      body: composerResult.deck,
+      needs_review: !admission.admitted,
+      createdAt: observedAt,
+    });
+  // narrativeMarkdown is an additive optional key the body schemas accept; it is
+  // the primary Audit Reader surface and carries the full deck readout verbatim.
+  (envelope.body as Record<string, unknown>).narrativeMarkdown =
+    composerResult.deckMarkdown;
+  return envelope;
+}
+
+/**
+ * GLM composer path for the paid-media plan (LOCK 2026-06-24). Gated by
+ * LAB_AGENTIC_GLM_SECTIONS including positioningPaidMediaPlan; unset => the
+ * legacy structured path runs unchanged. Reads the six committed section
+ * markdowns off the prepared researchInput, composes the 13-block deck via
+ * composePaidMediaPlan, then commits straight to the store. (saveCompletedArtifact
+ * runs withPaidMediaEvidencePack, which expects committed artifact ENVELOPES this
+ * synthesis path does not carry; a direct saveArtifact is the correct commit here.)
+ */
+async function runComposedPaidMediaSection(
+  input: RunSectionInput,
+  deps: RunSectionDeps,
+): Promise<RunSectionResult> {
+  const env = deps.env ?? process.env;
+  const definition = getRuntimeSectionDefinition(input.sectionId);
+  const startedAt = getNow(deps).getTime();
+  const record = await deps.store.readRun(input.runId);
+  const researchInput: ResearchInput = record.input;
+
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "section-started",
+      message: `${definition.title} started (GLM composer)`,
+      metadata: { sectionTitle: definition.title },
+    }),
+  );
+  console.info("[lab-section] composed_paid_media_start", {
+    sectionId: input.sectionId,
+    runId: input.runId,
+  });
+  await deps.store.markSectionRunning(input.runId, input.sectionId);
+
+  const committedSectionMarkdown =
+    researchInput.committedPositioningSectionMarkdown ?? {};
+  const onboarding = researchInput.onboarding;
+  const onboardingFrame = JSON.stringify({
+    companyName: researchInput.company.name,
+    websiteUrl: researchInput.company.websiteUrl,
+    ...(onboarding?.economics?.monthlyAdBudget === undefined
+      ? {}
+      : { monthlyAdBudget: onboarding.economics.monthlyAdBudget }),
+    ...(onboarding?.primaryGoal === undefined
+      ? {}
+      : { primaryGoal: onboarding.primaryGoal }),
+  });
+  const normalizeOptions: NormalizePaidMediaPlanBodyOptions = {
+    ...(onboarding?.creativeCapacity === undefined
+      ? {}
+      : { creativeCapacity: onboarding.creativeCapacity }),
+    ...(onboarding?.economics?.targetCac === undefined
+      ? {}
+      : { targetCac: onboarding.economics.targetCac }),
+    ...(onboarding?.economics?.targetTrialsPerMonth === undefined
+      ? {}
+      : { targetTrialsPerMonth: onboarding.economics.targetTrialsPerMonth }),
+    ...(onboarding?.economics === undefined
+      ? {}
+      : {
+          cvrChain: {
+            visitorToSignup: parsePaidMediaPercentToFraction(
+              onboarding.economics.visitorToSignup,
+            ),
+            signupToActivation: parsePaidMediaPercentToFraction(
+              onboarding.economics.signupToActivation,
+            ),
+            activationToPaid: parsePaidMediaPercentToFraction(
+              onboarding.economics.activationToPaid,
+            ),
+          },
+        }),
+    ...(onboarding?.distributionChannels === undefined
+      ? {}
+      : { channelHint: onboarding.distributionChannels.join(" ") }),
+  };
+
+  const composerResult = await composePaidMediaPlan({
+    committedSectionMarkdown,
+    ledgerDigest: buildComposerLedgerDigest(committedSectionMarkdown),
+    onboardingFrame,
+    normalizeOptions,
+    env,
+    ...(input.signal === undefined ? {} : { signal: input.signal }),
+  });
+
+  const artifact = buildComposedPaidMediaArtifact({
+    composerResult,
+    definition,
+    input,
+    deps,
+    fallbackUrl: researchInput.company.websiteUrl,
+  });
+
+  await deps.store.saveArtifact(input.runId, artifact);
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "artifact-saved",
+      message: `${definition.title} artifact saved (GLM composer, deckSource=${composerResult.deckSource})`,
+      metadata: { artifactId: artifact.id },
+    }),
+  );
+  await appendEvent(
+    deps,
+    input.runId,
+    createEvent({
+      deps,
+      runId: input.runId,
+      sectionId: input.sectionId,
+      type: "section-completed",
+      message: `${definition.title} completed (GLM composer)`,
+      metadata: {
+        sectionTitle: definition.title,
+        durationMs: Math.max(0, getNow(deps).getTime() - startedAt),
+      },
+    }),
+  );
+
+  return {
+    runId: input.runId,
+    sectionId: input.sectionId,
+    artifact,
+  };
+}
+
 async function runAgenticGLMSection(
   input: RunSectionInput,
   deps: RunSectionDeps,
@@ -15311,6 +15530,16 @@ export async function runSection(
     }
 
     return runSectionViaAnswerTool(input, deps);
+  }
+
+  // GLM composer path for the paid-media plan (LOCK 2026-06-24): gated by
+  // LAB_AGENTIC_GLM_SECTIONS including positioningPaidMediaPlan. Unset => the
+  // legacy structured path below runs unchanged (instant, code-free rollback).
+  if (
+    input.sectionId === "positioningPaidMediaPlan" &&
+    shouldUseAgenticGLM(input.sectionId, deps.env ?? process.env)
+  ) {
+    return runComposedPaidMediaSection(input, deps);
   }
 
   const definition = getRuntimeSectionDefinition(input.sectionId);
