@@ -59,7 +59,7 @@ describe("createInMemoryResearchFactStore", () => {
     await store.appendFacts([factA]);
     await store.appendFacts([factB]);
 
-    const stored = store.getFacts();
+    const stored = await store.getFacts();
     expect(stored).toHaveLength(2);
     expect(stored.map((fact) => fact.claimToken)).toEqual([
       "Bill Cox",
@@ -69,17 +69,17 @@ describe("createInMemoryResearchFactStore", () => {
 });
 
 describe("readResearchFactsFromStore", () => {
-  it("validates getFacts output before callers consume ledger rows", () => {
+  it("validates getFacts output before callers consume ledger rows", async () => {
     const store = createInMemoryResearchFactStore();
     const fact = makeValidFact({ claimToken: "Validated" });
     store.appendFacts([fact]);
 
-    expect(readResearchFactsFromStore(store)).toEqual([fact]);
+    expect(await readResearchFactsFromStore(store)).toEqual([fact]);
   });
 
-  it("throws an actionable error for malformed ledger facts", () => {
+  it("throws an actionable error for malformed ledger facts", async () => {
     const malformedStore = {
-      getFacts: (): ResearchFact[] =>
+      getFacts: async (): Promise<ResearchFact[]> =>
         [
           {
             ...makeValidFact(),
@@ -88,7 +88,7 @@ describe("readResearchFactsFromStore", () => {
         ] as ResearchFact[],
     };
 
-    expect(() => readResearchFactsFromStore(malformedStore)).toThrow(
+    await expect(readResearchFactsFromStore(malformedStore)).rejects.toThrow(
       "research_facts getFacts returned invalid facts",
     );
   });
@@ -127,7 +127,7 @@ describe("appendResearchFactsBestEffort", () => {
       appendFacts: (): void => {
         throw new Error("boom");
       },
-      getFacts: (): ResearchFact[] => [],
+      getFacts: async (): Promise<ResearchFact[]> => [],
     };
 
     await expect(
@@ -140,6 +140,6 @@ describe("appendResearchFactsBestEffort", () => {
     await expect(
       appendResearchFactsBestEffort(store, [makeValidFact()]),
     ).resolves.toBeUndefined();
-    expect(store.getFacts()).toEqual([]);
+    expect(await store.getFacts()).toEqual([]);
   });
 });

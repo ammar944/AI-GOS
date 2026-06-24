@@ -16,7 +16,6 @@ import {
 import { buildCommittedArtifactsResearchInput } from '@/lib/research-v2/committed-positioning-artifacts';
 import { corpusToResearchInput } from '@/lib/research-v2/corpus-to-research-input';
 import {
-  corpusReady,
   getDeepResearchProgramData,
   loadOwnedResearchSession,
 } from '@/lib/research-v2/orchestration-session';
@@ -390,17 +389,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
   }
 
-  if (!corpusReady(session)) {
-    return NextResponse.json(
-      {
-        error: 'corpus_not_ready',
-        message:
-          'deepResearchProgram corpus must finish before drafting the strategy brief',
-      },
-      { status: 409 },
-    );
-  }
-
   if (!parentAuditRunId) {
     return NextResponse.json(
       {
@@ -412,15 +400,6 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const deepResearchProgramData = getDeepResearchProgramData(session);
-  if (deepResearchProgramData === null) {
-    return NextResponse.json(
-      {
-        error: 'corpus_data_missing',
-        message: `deepResearchProgram status is complete for run ${body.runId}, but data is missing`,
-      },
-      { status: 500 },
-    );
-  }
 
   const uploadedDocuments = await loadUploadedDocumentContextsForSession({
     metadata: session.metadata,

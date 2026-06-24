@@ -1,37 +1,24 @@
-// Pure TypeScript state machine for the /research-v2 flow.
+// Pure TypeScript state machine for the /research-v3 flow.
 // No side effects, no DB calls, no fetch. All IO lives in page.tsx useEffect.
+//
+// Flow (LOCK 2026-06-24): user fills onboarding → submit → research.
+// No corpus-before-onboarding gate. Onboarding is user-filled from blank.
 
-import type {
-  OnboardingPrefillMetadata,
-  OnboardingV2Data,
-} from './onboarding-v2-types';
+import type { OnboardingV2Data } from './onboarding-v2-types';
 import type { PositioningSectionId } from '@/lib/ai/prompts/positioning-skills';
 
-// A cited source captured by the corpus run, surfaced read-only in the
-// GTM brief review. Mirrors the worker's corpus.sources shape.
-export interface CorpusSourceLink {
-  title: string;
-  url: string;
-  whyItMatters?: string;
-}
-
 // ---------------------------------------------------------------------------
-// State union (Premise 8 from design doc)
+// State union
 // ---------------------------------------------------------------------------
 
 export type ResearchV2State =
   | { kind: 'welcome' }
   | {
-      kind: 'corpus';
-      runId: string;
-      phase: 'starting' | 'streaming' | 'finalizing';
-    }
-  | {
       kind: 'onboarding';
       runId: string;
-      prefill: Partial<OnboardingV2Data>;
-      prefillMetadata: OnboardingPrefillMetadata;
-      corpusSources?: CorpusSourceLink[];
+      // Optional seed from the operator's OWN prior run (profile-cached
+      // onboarding). Never a corpus prefill — that gate is gone.
+      initialData?: Partial<OnboardingV2Data>;
     }
   | {
       kind: 'sections';
@@ -40,7 +27,7 @@ export type ResearchV2State =
     }
   | {
       kind: 'error';
-      from: 'corpus' | 'onboarding' | 'section';
+      from: 'onboarding' | 'section';
       runId: string;
       sectionId?: PositioningSectionId;
       message: string;
@@ -51,28 +38,23 @@ export type ResearchV2State =
 // ---------------------------------------------------------------------------
 
 export type ResearchV2Action =
-  // Welcome → Corpus: user submits URL, corpus dispatch started
-  | { type: 'CORPUS_START'; runId: string }
-  // Corpus phase transitions
-  | { type: 'CORPUS_STREAMING' }
-  | { type: 'CORPUS_FINALIZING' }
-  // Corpus → Onboarding: worker completed, prefill available
+  // Welcome → Onboarding: user submitted URL + docs, a runId was minted
+  | { type: 'ONBOARDING_START'; runId: string }
+  // Resume into onboarding with a seed from the operator's prior run
   | {
-      type: 'CORPUS_COMPLETE';
-      runId?: string;
-      prefill: Partial<OnboardingV2Data>;
-      prefillMetadata?: OnboardingPrefillMetadata;
-      corpusSources?: CorpusSourceLink[];
+      type: 'RESUME_ONBOARDING';
+      runId: string;
+      initialData?: Partial<OnboardingV2Data>;
     }
-  // Onboarding → Sections: user submitted onboarding form
+  // Onboarding → Sections: user submitted the onboarding form
   | { type: 'ONBOARDING_COMPLETE' }
   // Sections: track active section
   | { type: 'SECTION_START'; sectionId: PositioningSectionId }
   | { type: 'SECTION_COMPLETE'; sectionId: PositioningSectionId }
-  // Error transitions from any stage
+  // Error transitions from onboarding or a section
   | {
       type: 'ERROR';
-      from: 'corpus' | 'onboarding' | 'section';
+      from: 'onboarding' | 'section';
       message: string;
       sectionId?: PositioningSectionId;
     }
@@ -90,26 +72,14 @@ export function researchV2Reducer(
   action: ResearchV2Action,
 ): ResearchV2State {
   switch (action.type) {
-    case 'CORPUS_START':
-      return { kind: 'corpus', runId: action.runId, phase: 'starting' };
+    case 'ONBOARDING_START':
+      return { kind: 'onboarding', runId: action.runId };
 
-    case 'CORPUS_STREAMING':
-      if (state.kind !== 'corpus') return state;
-      return { ...state, phase: 'streaming' };
-
-    case 'CORPUS_FINALIZING':
-      if (state.kind !== 'corpus') return state;
-      return { ...state, phase: 'finalizing' };
-
-    case 'CORPUS_COMPLETE':
-      if (state.kind !== 'corpus') return state;
-      if (action.runId && action.runId !== state.runId) return state;
+    case 'RESUME_ONBOARDING':
       return {
         kind: 'onboarding',
-        runId: state.runId,
-        prefill: action.prefill,
-        prefillMetadata: action.prefillMetadata ?? {},
-        corpusSources: action.corpusSources,
+        runId: action.runId,
+        initialData: action.initialData,
       };
 
     case 'ONBOARDING_COMPLETE':
@@ -129,8 +99,7 @@ export function researchV2Reducer(
       return { ...state, currentSection: null };
 
     case 'ERROR': {
-      const runId =
-        state.kind === 'welcome' ? '' : state.runId;
+      const runId = state.kind === 'welcome' ? '' : state.runId;
       return {
         kind: 'error',
         from: action.from,

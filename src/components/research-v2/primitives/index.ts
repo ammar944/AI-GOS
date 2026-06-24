@@ -14,7 +14,11 @@ export {
   type MilestoneItem,
   type MilestoneTimelineProps,
 } from './milestone-timeline';
-export { NarrativeBlock, type NarrativeBlockProps } from './narrative-block';
+export {
+  NarrativeBlock,
+  SectionNarrativeMarkdown,
+  type NarrativeBlockProps,
+} from './narrative-block';
 export { SubsectionBlock, type SubsectionBlockProps } from './subsection-block';
 export { BasisChip, type BasisChipProps, type EvidenceBasis } from './basis-chip';
 export {

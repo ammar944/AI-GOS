@@ -1,9 +1,9 @@
 'use client';
 
-// /research-v3 — light Audit Reader variant.
-// Mirrors /research-v2/page.tsx state machine exactly:
-//   welcome → corpus → onboarding → sections → error
-// Only the sections phase differs: mounts the v3 backend against the light reader shell.
+// /research-v3 — Audit Reader front door.
+// Flow (LOCK 2026-06-24): user fills onboarding → submit → research.
+// No corpus-before-onboarding gate. Onboarding is user-filled from blank.
+//   welcome → onboarding → sections → error
 
 import { useReducer, useEffect, useCallback, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -21,14 +21,12 @@ import {
   inferPersistedResearchV2State,
   type PersistedResearchV2Session,
 } from '@/lib/research-v2/session-state';
-import { buildCorpusContext } from '@/lib/research-v2/corpus-context';
 import {
   buildUploadedDocumentMetadata,
   type UploadedDocumentContext,
 } from '@/lib/research-v2/uploaded-document-context';
 
 import { WelcomeForm } from '@/components/research-v2/welcome-form';
-import { CorpusStream } from '@/components/research-v2/corpus-stream';
 import { ErrorRecovery } from '@/components/research-v2/error-recovery';
 import { OnboardingWizard } from '@/components/onboarding';
 import { AuditReaderShell } from '@/components/research-v2/audit-reader-shell';
@@ -39,7 +37,7 @@ import {
 } from '@/components/research-v3/reader-sections';
 
 // ---------------------------------------------------------------------------
-// Helpers (identical to research-v2/page.tsx)
+// Helpers
 // ---------------------------------------------------------------------------
 
 interface JourneySessionResponse {
@@ -138,13 +136,6 @@ function resolveProfileRerunWebsiteUrl(
   );
 }
 
-function hasCorpusRunStarted(data: JourneySessionResponse): boolean {
-  return Boolean(
-    data.researchResults?.deepResearchProgram ||
-      data.jobStatus?.deepResearchProgram,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -155,7 +146,7 @@ export default function ResearchV3Page() {
   const { user, isLoaded: isUserLoaded } = useUser();
 
   const [state, dispatch] = useReducer(researchV2Reducer, INITIAL_STATE);
-  const [isCorpusStarting, setIsCorpusStarting] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
   const lastUrlRef = useRef<string>('');
@@ -163,10 +154,6 @@ export default function ResearchV3Page() {
 
   // -----------------------------------------------------------------------
   // Collapse the app nav to its icon strip while a run is in flight.
-  // We capture the operator's prior sidebar state on entering the 'sections'
-  // phase and restore it when leaving that phase (or on unmount). We read the
-  // shell optionally so the page still mounts if rendered outside a provider
-  // (e.g. unit tests); collapse is a no-op when no shell is present.
   // -----------------------------------------------------------------------
   const shell = useOptionalShell();
   const setSidebarCollapsed = shell?.setSidebarCollapsed;
@@ -175,8 +162,6 @@ export default function ResearchV3Page() {
   const liveSidebarCollapsedRef = useRef(sidebarCollapsed);
   const inSectionsPhase = state.kind === 'sections';
 
-  // Keep a live mirror of the current collapsed value so the collapse effect
-  // can read the operator's most recent choice without re-running on toggle.
   useEffect(() => {
     liveSidebarCollapsedRef.current = sidebarCollapsed;
   }, [sidebarCollapsed]);
@@ -234,17 +219,10 @@ export default function ResearchV3Page() {
     runId: string;
   } | null>(null);
   const hasAttemptedResume = useRef(false);
-  const activeCorpusRunIdRef = useRef<string | null>(null);
-  const corpusTransitionedRunIdsRef = useRef<Set<string>>(new Set());
-  const corpusCompletionFetchesRef = useRef<Set<string>>(new Set());
   const profileCacheRef = useRef<{
     profileId: string;
     cache: ProfileOnboardingCache | null;
   } | null>(null);
-
-  useEffect(() => {
-    activeCorpusRunIdRef.current = state.kind === 'corpus' ? state.runId : null;
-  }, [state]);
 
   const fetchProfileOnboardingCache = useCallback(
     async (profileId: string): Promise<ProfileOnboardingCache | null> => {
@@ -284,46 +262,9 @@ export default function ResearchV3Page() {
     [],
   );
 
-  const dispatchCorpusRun = useCallback(
-    async ({
-      runId,
-      websiteUrl,
-      uploadedDocuments = [],
-    }: {
-      runId: string;
-      websiteUrl: string;
-      uploadedDocuments?: UploadedDocumentContext[];
-    }): Promise<void> => {
-      const context = buildCorpusContext({
-        websiteUrl,
-        uploadedDocuments,
-      });
-      const dispatchRes = await fetch('/api/research-v2/dispatch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          sectionId: 'deepResearchProgram',
-          runId,
-          context,
-        }),
-      });
-
-      if (!dispatchRes.ok) {
-        throw new Error(
-          await readErrorMessage(
-            dispatchRes,
-            `Corpus dispatch failed for run ${runId}`,
-          ),
-        );
-      }
-    },
-    [],
-  );
-
   const startProfileRerun = useCallback(
     async (profileId: string): Promise<void> => {
-      setIsCorpusStarting(true);
+      setIsStarting(true);
       setResumeBanner(null);
 
       let runId = '';
@@ -357,37 +298,32 @@ export default function ResearchV3Page() {
         }
         runId = sessionData.runId;
 
-        dispatch({ type: 'CORPUS_START', runId });
-        setRunIdInUrl(runId);
-
         const websiteUrl = resolveProfileRerunWebsiteUrl(profileCache);
-        if (!websiteUrl) {
-          dispatch({
-            type: 'ERROR',
-            from: 'corpus',
-            message: `Profile ${profileId} is missing a website URL for a fresh audit run`,
-          });
-          return;
-        }
-
-        lastUrlRef.current = websiteUrl;
+        lastUrlRef.current = websiteUrl ?? '';
         lastUploadedDocumentsRef.current = [];
-        await dispatchCorpusRun({ runId, websiteUrl });
-        dispatch({ type: 'CORPUS_STREAMING' });
+
+        dispatch({
+          type: 'RESUME_ONBOARDING',
+          runId,
+          initialData: profileCache?.cachedOnboarding as
+            | Partial<OnboardingV2Data>
+            | undefined,
+        });
+        setRunIdInUrl(runId);
       } catch (error) {
         if (runId) {
-          dispatch({ type: 'CORPUS_START', runId });
+          dispatch({ type: 'ONBOARDING_START', runId });
         }
         dispatch({
           type: 'ERROR',
-          from: 'corpus',
+          from: 'onboarding',
           message: describeError(error),
         });
       } finally {
-        setIsCorpusStarting(false);
+        setIsStarting(false);
       }
     },
-    [dispatchCorpusRun, fetchProfileOnboardingCache, setRunIdInUrl],
+    [fetchProfileOnboardingCache, setRunIdInUrl],
   );
 
   const hydrateFromRunId = useCallback(
@@ -412,31 +348,6 @@ export default function ResearchV3Page() {
           buildPersistedSession(runId, data, profileCache?.cachedOnboarding),
         );
         if (resumed) {
-          if (
-            profileIdFromUrl &&
-            resumed.kind === 'corpus' &&
-            !hasCorpusRunStarted(data)
-          ) {
-            dispatch({ type: 'CORPUS_START', runId });
-            setRunIdInUrl(runId);
-
-            const websiteUrl = resolveProfileRerunWebsiteUrl(profileCache, data);
-            if (!websiteUrl) {
-              dispatch({
-                type: 'ERROR',
-                from: 'corpus',
-                message: `Profile ${profileIdFromUrl} is missing a website URL for a fresh audit run`,
-              });
-              return;
-            }
-
-            lastUrlRef.current = websiteUrl;
-            lastUploadedDocumentsRef.current = [];
-            await dispatchCorpusRun({ runId, websiteUrl });
-            dispatch({ type: 'CORPUS_STREAMING' });
-            return;
-          }
-
           dispatch({ type: 'RESUME', state: resumed });
           setRunIdInUrl(runId);
         }
@@ -447,12 +358,7 @@ export default function ResearchV3Page() {
         });
       }
     },
-    [
-      dispatchCorpusRun,
-      fetchProfileOnboardingCache,
-      profileIdFromUrl,
-      setRunIdInUrl,
-    ],
+    [fetchProfileOnboardingCache, profileIdFromUrl, setRunIdInUrl],
   );
 
   useEffect(() => {
@@ -528,17 +434,17 @@ export default function ResearchV3Page() {
   }
 
   // -----------------------------------------------------------------------
-  // Corpus dispatch
+  // Welcome submit — mint a runId and enter onboarding (user-filled)
   // -----------------------------------------------------------------------
 
-  const startCorpus = useCallback(
+  const startOnboarding = useCallback(
     async (
       websiteUrl: string,
       uploadedDocuments: UploadedDocumentContext[] = [],
     ) => {
       lastUrlRef.current = websiteUrl;
       lastUploadedDocumentsRef.current = uploadedDocuments;
-      setIsCorpusStarting(true);
+      setIsStarting(true);
 
       try {
         const metadata = {
@@ -558,7 +464,7 @@ export default function ResearchV3Page() {
           };
           dispatch({
             type: 'ERROR',
-            from: 'corpus',
+            from: 'onboarding',
             message:
               errBody.error ??
               `Failed to create journey session (HTTP ${sessionRes.status})`,
@@ -572,121 +478,31 @@ export default function ResearchV3Page() {
         if (!sessionData.runId) {
           dispatch({
             type: 'ERROR',
-            from: 'corpus',
+            from: 'onboarding',
             message: 'Journey session response missing runId',
           });
           return;
         }
         const runId: string = sessionData.runId;
 
-        dispatch({ type: 'CORPUS_START', runId });
+        dispatch({ type: 'ONBOARDING_START', runId });
         setRunIdInUrl(runId);
-
-        await dispatchCorpusRun({
-          runId,
-          websiteUrl,
-          uploadedDocuments,
-        });
-
-        dispatch({ type: 'CORPUS_STREAMING' });
       } catch (err) {
         dispatch({
           type: 'ERROR',
-          from: 'corpus',
+          from: 'onboarding',
           message:
-            err instanceof Error ? err.message : 'Failed to start research',
+            err instanceof Error ? err.message : 'Failed to start onboarding',
         });
       } finally {
-        setIsCorpusStarting(false);
+        setIsStarting(false);
       }
     },
-    [dispatchCorpusRun, setRunIdInUrl],
+    [setRunIdInUrl],
   );
 
   // -----------------------------------------------------------------------
-  // Corpus completion polling
-  // -----------------------------------------------------------------------
-
-  const attemptCorpusCompletionTransition = useCallback(
-    async (runId: string, source: 'activity' | 'poll'): Promise<void> => {
-      if (corpusTransitionedRunIdsRef.current.has(runId)) return;
-      if (corpusCompletionFetchesRef.current.has(runId)) return;
-
-      corpusCompletionFetchesRef.current.add(runId);
-      try {
-        const res = await fetch(`/api/journey/session?runId=${runId}`, {
-          cache: 'no-store',
-          credentials: 'same-origin',
-        });
-        if (!res.ok) {
-          console.warn('[research-v3] corpus completion session fetch failed', {
-            runId,
-            source,
-            status: res.status,
-          });
-          return;
-        }
-
-        const data = (await res.json()) as JourneySessionResponse;
-        const profileCache = profileIdFromUrl
-          ? await fetchProfileOnboardingCache(profileIdFromUrl)
-          : null;
-        const inferred = inferPersistedResearchV2State(
-          buildPersistedSession(runId, data, profileCache?.cachedOnboarding),
-        );
-
-        if (activeCorpusRunIdRef.current !== runId) return;
-
-        if (inferred?.kind === 'onboarding') {
-          corpusTransitionedRunIdsRef.current.add(runId);
-          dispatch({
-            type: 'CORPUS_COMPLETE',
-            runId,
-            prefill: inferred.prefill,
-            prefillMetadata: inferred.prefillMetadata,
-            corpusSources: inferred.corpusSources,
-          });
-          return;
-        }
-
-        if (inferred?.kind === 'sections') {
-          corpusTransitionedRunIdsRef.current.add(runId);
-          dispatch({ type: 'RESUME', state: inferred });
-        }
-      } catch (error) {
-        console.warn('[research-v3] corpus completion session fetch failed', {
-          runId,
-          source,
-          error: describeError(error),
-        });
-      } finally {
-        corpusCompletionFetchesRef.current.delete(runId);
-      }
-    },
-    [fetchProfileOnboardingCache, profileIdFromUrl],
-  );
-
-  useEffect(() => {
-    if (state.kind !== 'corpus') return;
-
-    const runId = state.runId;
-    void attemptCorpusCompletionTransition(runId, 'poll');
-
-    const intervalId = window.setInterval(() => {
-      void attemptCorpusCompletionTransition(runId, 'poll');
-    }, 2_500);
-
-    return () => window.clearInterval(intervalId);
-  }, [attemptCorpusCompletionTransition, state]);
-
-  const handleCorpusComplete = useCallback(() => {
-    if (state.kind !== 'corpus') return;
-    dispatch({ type: 'CORPUS_FINALIZING' });
-    void attemptCorpusCompletionTransition(state.runId, 'activity');
-  }, [attemptCorpusCompletionTransition, state]);
-
-  // -----------------------------------------------------------------------
-  // Onboarding complete
+  // Onboarding complete — persist, then orchestrate sections
   // -----------------------------------------------------------------------
 
   const handleOnboardingComplete = useCallback(
@@ -750,34 +566,10 @@ export default function ResearchV3Page() {
     setIsRetrying(true);
 
     try {
-      if (state.from === 'corpus') {
-        dispatch({ type: 'CORPUS_START', runId: state.runId });
-        const context = buildCorpusContext({
-          websiteUrl: lastUrlRef.current,
-          uploadedDocuments: lastUploadedDocumentsRef.current,
-        });
-        const res = await fetch('/api/research-v2/dispatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            sectionId: 'deepResearchProgram',
-            runId: state.runId,
-            context,
-          }),
-        });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          dispatch({
-            type: 'ERROR',
-            from: 'corpus',
-            message: body.error ?? `Retry failed (HTTP ${res.status})`,
-          });
-        } else {
-          dispatch({ type: 'CORPUS_STREAMING' });
-        }
+      if (state.from === 'onboarding' && state.runId) {
+        // Re-enter the onboarding phase for the same runId so the user can
+        // resubmit. The session row already exists.
+        dispatch({ type: 'ONBOARDING_START', runId: state.runId });
       }
     } finally {
       setIsRetrying(false);
@@ -794,13 +586,10 @@ export default function ResearchV3Page() {
   // Render
   // -----------------------------------------------------------------------
 
-  const userId = user?.id ?? null;
-
   return (
     <>
       {state.kind === 'welcome' && (
         <div className="flex h-full flex-col">
-          {/* Resume notice — subtle, in-flow (no longer a fixed bar over the shell) */}
           {resumeBanner && (
             <div className="mx-auto mt-6 flex w-full max-w-lg items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-[13px] shadow-sm">
               <span className="min-w-0 truncate text-muted-foreground">
@@ -828,25 +617,15 @@ export default function ResearchV3Page() {
             </div>
           )}
           <div className="min-h-0 flex-1">
-            <WelcomeForm onSubmit={startCorpus} isLoading={isCorpusStarting} />
+            <WelcomeForm onSubmit={startOnboarding} isLoading={isStarting} />
           </div>
         </div>
-      )}
-
-      {state.kind === 'corpus' && userId && (
-        <CorpusStream
-          userId={userId}
-          runId={state.runId}
-          onComplete={handleCorpusComplete}
-        />
       )}
 
       {state.kind === 'onboarding' && (
         <div className="h-full overflow-y-auto px-4 py-10">
           <OnboardingWizard
-            initialData={state.prefill}
-            initialPrefillMetadata={state.prefillMetadata}
-            corpusSources={state.corpusSources}
+            initialData={state.initialData}
             onComplete={handleOnboardingComplete}
           />
         </div>

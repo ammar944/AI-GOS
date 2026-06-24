@@ -265,6 +265,66 @@ describe("PreparedSectionContext", (): void => {
     ]);
   });
 
+  it("admits orchestrator-seeded facts into every section's fact rows", async (): Promise<void> => {
+    const researchInput = buildPreparedContextResearchInput();
+    const factStore = createInMemoryResearchFactStore();
+    await factStore.appendFacts([
+      {
+        runId: "orchestrator_run",
+        parentAuditRunId: "parent_audit_seed",
+        sectionId: "orchestrator",
+        factKind: "corpus_excerpt",
+        sourceUrl: "https://fellow.app/about",
+        sourceQuote: "Fellow is the cross-section company seed evidence.",
+        claimToken: "Fellow",
+        createdAt: "2026-06-19T03:00:00.000Z",
+      },
+    ]);
+
+    // The orchestrator fact carries section_id "orchestrator"; it must reach an
+    // arbitrary positioning section (not its own id) because it is the
+    // cross-section seed written before the sections run.
+    const marketContext = await prepareSectionContext(
+      {
+        runId: "section_run_market",
+        sectionId: "positioningMarketCategory",
+      },
+      {
+        store: createReadOnlyStore(researchInput),
+        factStore,
+        parentAuditRunId: "parent_audit_seed",
+      },
+    );
+    const voiceContext = await prepareSectionContext(
+      {
+        runId: "section_run_voice",
+        sectionId: "positioningVoiceOfCustomer",
+      },
+      {
+        store: createReadOnlyStore(researchInput),
+        factStore,
+        parentAuditRunId: "parent_audit_seed",
+      },
+    );
+
+    // The orchestrator seed is presented under the CONSUMING section id (it is
+    // the cross-section seed, so each section reads it as its own evidence),
+    // but the source/quote identify the orchestrator origin.
+    expect(marketContext.factRows).toEqual([
+      expect.objectContaining({
+        sectionId: "positioningMarketCategory",
+        sourceUrl: "https://fellow.app/about",
+        text: "Fellow is the cross-section company seed evidence.",
+      }),
+    ]);
+    expect(voiceContext.factRows).toEqual([
+      expect.objectContaining({
+        sectionId: "positioningVoiceOfCustomer",
+        sourceUrl: "https://fellow.app/about",
+      }),
+    ]);
+  });
+
   it("does not expose external writer tools when a prepared context is supplied", async (): Promise<void> => {
     vi.stubEnv("DEEPSEEK_API_KEY", "test-deepseek-key");
     vi.stubEnv("LAB_SECTION_STREAMING", "false");

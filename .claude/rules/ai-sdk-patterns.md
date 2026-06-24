@@ -2,7 +2,7 @@
 
 ## Provider Rules
 - ALL AI calls use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly
-- NEVER use OpenRouter — it was removed in V2
+- GLM-5.2 agentic research may use OpenRouter (`z-ai/glm-5.2`) via `@ai-sdk/openai-compatible` over `GLM_BASE_URL`/`GLM_MODEL_ID`/`GLM_API_KEY` (see ADR-0012). Other providers remain first-party only.
 - Provider config lives in `src/lib/ai/providers.ts`
 
 ## Pattern Reference

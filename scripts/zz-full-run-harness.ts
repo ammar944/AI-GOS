@@ -24,6 +24,9 @@
  *   npx tsx scripts/zz-full-run-harness.ts --sections positioningBuyerICP   # run one section only
  *   npx tsx scripts/zz-full-run-harness.ts --agentic                          # route gated sections through the agentic GLM path (mirrors prod)
  *
+ * Core sections run CONCURRENTLY (wall-clock = slowest section, not the sum).
+ * The RunStore serializes per-file writes, so concurrent commits are safe.
+ *
  * Output: tmp/zz-full-run/<runId>/{per-section.json, deck.json, ledger.json, gate.json, report.md}
  */
 
@@ -300,68 +303,89 @@ async function main(): Promise<void> {
   const includesPaidMedia = sectionsToRun.includes(PAID_MEDIA_PLAN_SECTION_ID);
   const coreSections = sectionsToRun.filter((s) => s !== PAID_MEDIA_PLAN_SECTION_ID);
 
-  // 5. Run core sections.
+  // 5. Run core sections CONCURRENTLY. Core sections do not read each other's
+  // committed artifacts (only PaidMedia consumes the 6 core, and it runs last
+  // below). The RunStore serializes per-file writes via withSerializedRunWrite,
+  // and createInMemoryResearchFactStore.appendFacts is synchronous, so
+  // concurrent section runs are safe. This makes wall-clock = slowest section
+  // (~6min) instead of the ~40min sequential sum, which is the difference
+  // between an interactive full-deck proof and a run you have to babysit.
   const results: Record<string, unknown> = {};
-  for (const sectionId of coreSections) {
+  const supportedCore = coreSections.filter((sectionId) => {
     if (!isSupportedSectionId(sectionId)) {
       console.error(`[harness] unsupported sectionId ${sectionId}`);
-      continue;
+      return false;
     }
-    console.log(`\n[harness] >>> ${sectionId}`);
-    const start = Date.now();
-    try {
-      // Mirror prod (lab-section-job.ts:62-64): prepare the section context and
-      // pass it into runSection. The bare no-preparedContext call that used to
-      // live here masked the agentic unbypass bug — prod always passes one.
-      const preparedContext = await prepareSectionContext(
-        { runId, sectionId },
-        { store, factStore, parentAuditRunId },
-      );
-      const env: Record<string, string | undefined> = {
-        ...process.env,
-        _HARNESS_SECTION: sectionId,
-      };
-      if (agentic) {
-        env.LAB_AGENTIC_GLM_SECTIONS = sectionId;
-      }
-      const result = await runSection(
-        { runId, sectionId },
-        {
-          store,
-          loadSkill: loadLabSkill,
-          allowedTools: corpusOnly ? [] : undefined,
-          preparedContext,
-          factStore,
-          parentAuditRunId,
-          env,
-        },
-      );
-      results[sectionId] = result.artifact;
-      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      const s = artifactSummary(result.artifact);
-      console.log(
-        `[harness] <<< ${sectionId}  ${elapsed}s  confidence=${s.confidence}  sources=${s.sourceCount}  gapBlocks=[${s.gapBlocks.join(",")}]`,
-      );
-      await writeFile(
-        join(outDir, `${sectionId}.json`),
-        JSON.stringify(result.artifact, null, 2),
-        "utf8",
-      );
-    } catch (err) {
-      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      console.error(`[harness] !!! ${sectionId} FAILED after ${elapsed}s:`, err);
-      results[sectionId] = { error: err instanceof Error ? err.message : String(err) };
-      await writeFile(
-        join(outDir, `${sectionId}.error.json`),
-        JSON.stringify(
-          { error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined },
-          null,
-          2,
-        ),
-        "utf8",
-      );
-    }
+    return true;
+  });
+  const coreStart = Date.now();
+  console.log(
+    `\n[harness] >>> launching ${supportedCore.length} core sections concurrently`,
+  );
+  for (const sectionId of supportedCore) {
+    console.log(`[harness]     · ${sectionId}`);
   }
+  await Promise.all(
+    supportedCore.map(async (sectionId): Promise<void> => {
+      const start = Date.now();
+      try {
+        // Mirror prod (lab-section-job.ts:62-64): prepare the section context and
+        // pass it into runSection. The bare no-preparedContext call that used to
+        // live here masked the agentic unbypass bug — prod always passes one.
+        const preparedContext = await prepareSectionContext(
+          { runId, sectionId },
+          { store, factStore, parentAuditRunId },
+        );
+        const env: Record<string, string | undefined> = {
+          ...process.env,
+          _HARNESS_SECTION: sectionId,
+        };
+        if (agentic) {
+          env.LAB_AGENTIC_GLM_SECTIONS = sectionId;
+        }
+        const result = await runSection(
+          { runId, sectionId },
+          {
+            store,
+            loadSkill: loadLabSkill,
+            allowedTools: corpusOnly ? [] : undefined,
+            preparedContext,
+            factStore,
+            parentAuditRunId,
+            env,
+          },
+        );
+        results[sectionId] = result.artifact;
+        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+        const s = artifactSummary(result.artifact);
+        console.log(
+          `[harness] <<< ${sectionId}  ${elapsed}s  confidence=${s.confidence}  sources=${s.sourceCount}  gapBlocks=[${s.gapBlocks.join(",")}]`,
+        );
+        await writeFile(
+          join(outDir, `${sectionId}.json`),
+          JSON.stringify(result.artifact, null, 2),
+          "utf8",
+        );
+      } catch (err) {
+        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+        console.error(`[harness] !!! ${sectionId} FAILED after ${elapsed}s:`, err);
+        results[sectionId] = { error: err instanceof Error ? err.message : String(err) };
+        await writeFile(
+          join(outDir, `${sectionId}.error.json`),
+          JSON.stringify(
+            { error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined },
+            null,
+            2,
+          ),
+          "utf8",
+        );
+      }
+    }),
+  );
+  const coreElapsed = ((Date.now() - coreStart) / 1000).toFixed(1);
+  console.log(
+    `[harness] all core sections resolved in ${coreElapsed}s (concurrent wall-clock)`,
+  );
 
   // 6. Paid Media last — inject the committed core artifacts as its input.
   if (includesPaidMedia) {

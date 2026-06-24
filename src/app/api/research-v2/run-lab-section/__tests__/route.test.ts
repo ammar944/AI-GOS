@@ -634,6 +634,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
       }),
+      factStore: expect.objectContaining({
+        appendFacts: expect.any(Function),
+        getFacts: expect.any(Function),
+      }),
       preparedContext: expect.objectContaining({
         sectionId: 'positioningBuyerICP',
       }),
@@ -756,6 +760,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
       evidencePoolStore: expect.objectContaining({
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
+      }),
+      factStore: expect.objectContaining({
+        appendFacts: expect.any(Function),
+        getFacts: expect.any(Function),
       }),
       preparedContext: expect.objectContaining({
         sectionId: PAID_MEDIA_PLAN_SECTION_ID,
@@ -1298,6 +1306,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
       }),
+      factStore: expect.objectContaining({
+        appendFacts: expect.any(Function),
+        getFacts: expect.any(Function),
+      }),
       preparedContext: expect.objectContaining({
         sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       }),
@@ -1360,6 +1372,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
       evidencePoolStore: expect.objectContaining({
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
+      }),
+      factStore: expect.objectContaining({
+        appendFacts: expect.any(Function),
+        getFacts: expect.any(Function),
       }),
       preparedContext: expect.objectContaining({
         sectionId: PAID_MEDIA_PLAN_SECTION_ID,

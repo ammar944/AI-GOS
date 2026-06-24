@@ -15,7 +15,6 @@ const FROM_LABELS: Record<
   Extract<ResearchV2State, { kind: 'error' }>['from'],
   string
 > = {
-  corpus: 'Deep research',
   onboarding: 'Onboarding',
   section: 'Section research',
 };

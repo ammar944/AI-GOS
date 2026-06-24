@@ -41,6 +41,7 @@ import {
 } from './section-renderers';
 import {
   GapNote,
+  SectionNarrativeMarkdown,
   SubsectionBlock,
   isReaderPipelineChrome,
   scrubReaderText,
@@ -458,6 +459,16 @@ export function TypedArtifactRenderer({
   zoneId,
   showSectionTitle = true,
 }: TypedArtifactRendererProps): React.ReactElement {
+  // §4.1 (RAW un-caged GLM): when the section carries GLM's source-class-labeled
+  // research markdown, render THAT as the primary card body — the un-thinned
+  // analysis the owner judged tonight. The typed projection still persists in
+  // `data` as the machine feed for the paid-media deck; it is not re-rendered
+  // here. Absent (every non-agentic section / older artifact) → typed render.
+  const narrative = artifact.narrativeMarkdown;
+  if (typeof narrative === 'string' && narrative.trim().length > 0) {
+    return <SectionNarrativeMarkdown prose={narrative} />;
+  }
+
   switch (zoneId) {
     case 'positioningMarketCategory':
       return <MarketCategoryRenderer artifact={artifact as unknown as MarketCategoryArtifact} />;

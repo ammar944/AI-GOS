@@ -128,6 +128,7 @@ import {
 } from "./section-agent";
 import {
   defaultSectionWriterPassRunner,
+  noopSectionWriterPassRunner,
   type SectionWriterPassRunner,
 } from "./writer-pass";
 import {
@@ -139,6 +140,8 @@ import {
   projectMarkdownToTypedBody,
   type ProjectableSectionId,
 } from "./agentic-glm-projector";
+import { stripThinkingPreamble } from "./strip-preamble";
+import { annotateSourceProvenance } from "./verification/source-class";
 import {
   detectProvenanceViolations,
   type TranscriptRecord,
@@ -608,6 +611,11 @@ function factMatchesPreparedRun({
   );
 }
 
+// The orchestrator writes its cross-section company seed facts under this
+// reserved section_id (orchestrator-glm.ts buildOrchestratorFactsFromTranscript).
+// It is NOT a SupportedSectionId — it is a seed every section reads.
+const ORCHESTRATOR_SEED_SECTION_ID = "orchestrator";
+
 function factMatchesPreparedSection({
   fact,
   sectionId,
@@ -615,6 +623,13 @@ function factMatchesPreparedSection({
   fact: ResearchFact;
   sectionId: SupportedSectionId;
 }): boolean {
+  // Orchestrator-seeded facts (the cross-section company seed) match EVERY
+  // section of the same parent audit run — the parent match is already enforced
+  // by factMatchesPreparedRun, so this only admits the seed, not foreign runs.
+  if (fact.sectionId === ORCHESTRATOR_SEED_SECTION_ID) {
+    return true;
+  }
+
   if (!isSupportedSectionId(fact.sectionId)) {
     return false;
   }
@@ -654,7 +669,14 @@ function buildPreparedFactRows({
     )
     .sort(compareResearchFacts)
     .map((fact, index) => {
-      const factSectionId = fact.sectionId as SupportedSectionId;
+      // Orchestrator seed facts are presented under the CONSUMING section id
+      // (they carry no SupportedSectionId of their own); real section facts keep
+      // their own id. Both resolve to a valid SECTION_REGISTRY title.
+      const isOrchestratorSeed =
+        fact.sectionId === ORCHESTRATOR_SEED_SECTION_ID;
+      const factSectionId: SupportedSectionId = isOrchestratorSeed
+        ? sectionId
+        : (fact.sectionId as SupportedSectionId);
       const sectionTitle = SECTION_REGISTRY[factSectionId].title;
 
       return {
@@ -677,7 +699,7 @@ function buildPreparedFactRows({
     });
 }
 
-function buildPreparedSectionContext({
+async function buildPreparedSectionContext({
   factStore,
   parentAuditRunId,
   researchInput,
@@ -689,13 +711,13 @@ function buildPreparedSectionContext({
   researchInput: ResearchInput;
   runId: string;
   sectionId: SupportedSectionId;
-}): PreparedSectionContext {
+}): Promise<PreparedSectionContext> {
   const corpusRows = buildPreparedCorpusRows({ researchInput, sectionId });
   const factRows =
     factStore === undefined
       ? []
       : buildPreparedFactRows({
-          facts: readResearchFactsFromStore(factStore),
+          facts: await readResearchFactsFromStore(factStore),
           parentAuditRunId,
           runId,
           sectionId,
@@ -725,7 +747,7 @@ function assertPreparedContextMatchesInput({
   }
 }
 
-function getPreparedSectionContext({
+async function getPreparedSectionContext({
   deps,
   input,
   record,
@@ -733,7 +755,7 @@ function getPreparedSectionContext({
   deps: RunSectionDeps;
   input: RunSectionInput;
   record: RunRecord;
-}): PreparedSectionContext {
+}): Promise<PreparedSectionContext> {
   if (deps.preparedContext !== undefined) {
     assertPreparedContextMatchesInput({
       input,
@@ -766,7 +788,7 @@ export async function prepareSectionContext(
   }
 
   const record = await deps.store.readRun(input.runId);
-  return buildPreparedSectionContext({
+  return await buildPreparedSectionContext({
     factStore: deps.factStore,
     parentAuditRunId: deps.parentAuditRunId,
     researchInput: record.input,
@@ -12201,6 +12223,13 @@ async function buildVerifiedAttemptFromFinalOutput({
       verifiedCount: verdict.verifiedCount,
     });
 
+    // NOTE: Market's marketCategory_name has no in-validator gap escape. The
+    // AGENTIC path handles this without re-thinning via tryBuildAgenticHonestArtifact
+    // (commits GLM's valid projection body + narrativeMarkdown as an honest gap).
+    // We deliberately do NOT inject section gap builders here: this branch is
+    // SHARED with the answer-tool path, the marketCategory builder returns
+    // undefined for a requiredEvidenceMissing error string anyway, and changing
+    // the answer-tool throw contract is out of scope for the agentic slice.
     return {
       output,
       artifact: null,
@@ -13005,6 +13034,22 @@ async function runAgenticGLMSection(
     console.warn(
       `[lab-section] agentic GLM requested for non-projectable section ${input.sectionId}; falling back to answer-tool path`,
     );
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "agentic-fallback",
+        message: `[lab-section] agentic GLM requested for non-projectable section ${input.sectionId}; falling back to answer-tool path`,
+        metadata: {
+          reason: "non_projectable_section",
+          resolvedToolCount: 0,
+          hasPreparedContext: deps.preparedContext !== undefined,
+        },
+      }),
+    );
     return runSectionViaAnswerTool(input, deps);
   }
   const projectableSectionId: ProjectableSectionId = input.sectionId;
@@ -13014,7 +13059,11 @@ async function runAgenticGLMSection(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  const preparedContext = getPreparedSectionContext({ deps, input, record });
+  const preparedContext = await getPreparedSectionContext({
+    deps,
+    input,
+    record,
+  });
   const subject = researchInput.company.name;
 
   await appendEvent(
@@ -13029,6 +13078,13 @@ async function runAgenticGLMSection(
       metadata: { sectionTitle: definition.title },
     }),
   );
+  // Positive, machine-greppable signal that the agentic GLM path actually began
+  // for this section (the counterpart to the agentic-fallback events below). If
+  // logs show a start with no matching fallback, GLM ran end-to-end.
+  console.info("[lab-section] agentic_glm_section_start", {
+    sectionId: input.sectionId,
+    runId: input.runId,
+  });
   await deps.store.markSectionRunning(input.runId, input.sectionId);
 
   const skillMd = await deps.loadSkill(definition.skillSlug);
@@ -13234,6 +13290,22 @@ async function runAgenticGLMSection(
       `[lab-section] agentic GLM generation failed for ${input.sectionId}; falling back to answer-tool path`,
       { errors: getErrorIssues(error).slice(0, 4) },
     );
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "agentic-fallback",
+        message: `[lab-section] agentic GLM generation failed for ${input.sectionId}; falling back to answer-tool path`,
+        metadata: {
+          reason: "generation_failed",
+          resolvedToolCount: agenticAllowedTools.length,
+          hasPreparedContext: deps.preparedContext !== undefined,
+        },
+      }),
+    );
     return runSectionViaAnswerTool(input, deps);
   }
 
@@ -13296,11 +13368,25 @@ async function runAgenticGLMSection(
     }
   }
 
+  // §4.5 + §4.4 (RAW un-caged GLM): strip the GLM thinking-preamble, then build
+  // the source-class-labeled narrative that becomes the PRIMARY section card
+  // body. This is GLM's actual research; the typed projection below is only the
+  // machine feed for the paid-media deck. cleanMarkdown (stripped) feeds the
+  // projector + the lead line; narrativeMarkdown (stripped + provenance footer)
+  // is persisted onto whichever artifact this section commits.
+  cleanMarkdown = stripThinkingPreamble(cleanMarkdown);
+  const narrativeMarkdown = annotateSourceProvenance(cleanMarkdown, transcript);
+
   // Project the clean markdown into the typed body. projectMarkdownToTypedBody
-  // returns {validates:false} on a VALIDATION miss, but a generate() REJECTION
-  // (provider error/timeout/abort) THROWS — and this sits outside the generation
-  // try/catch — so wrap it: on throw, fall back to the proven path (never crash).
-  let projection: Awaited<ReturnType<typeof projectMarkdownToTypedBody>>;
+  // returns {validates:false} on a VALIDATION miss; a generate() REJECTION
+  // (provider error/timeout/abort) THROWS. NEITHER is a reason to discard GLM's
+  // research: when GLM SUCCEEDED we NEVER fall back to the DeepSeek answer-tool
+  // path (that re-thins the deck — the exact thing this path exists to stop). A
+  // projection miss/throw flows through to the commit spine below, which commits
+  // an honest-gap artifact that still carries narrativeMarkdown.
+  let projection:
+    | Awaited<ReturnType<typeof projectMarkdownToTypedBody>>
+    | undefined;
   try {
     projection = await projectMarkdownToTypedBody({
       sectionId: projectableSectionId,
@@ -13310,19 +13396,16 @@ async function runAgenticGLMSection(
     });
   } catch (error) {
     console.warn(
-      `[lab-section] agentic GLM projection threw for ${input.sectionId}; falling back to answer-tool path`,
+      `[lab-section] agentic GLM projection threw for ${input.sectionId}; committing GLM markdown with a best-effort/gap typed body (no DeepSeek fallback)`,
       { errors: getErrorIssues(error).slice(0, 4) },
     );
-    return runSectionViaAnswerTool(input, deps);
+    projection = undefined;
   }
-  if (!projection.validates) {
-    // A projection bug must never brick a section — fall back to the existing
-    // path for this run (reversibility). The gate stays on for the next run.
+  if (projection !== undefined && !projection.validates) {
     console.warn(
-      `[lab-section] agentic GLM projection failed validation for ${input.sectionId}; falling back to answer-tool path`,
+      `[lab-section] agentic GLM projection failed strict validation for ${input.sectionId}; committing GLM markdown with a best-effort/gap typed body (no DeepSeek fallback)`,
       { zodError: projection.zodError?.slice(0, 800) },
     );
-    return runSectionViaAnswerTool(input, deps);
   }
 
   // Wrap the typed body into the section OUTPUT envelope that buildAnswerToolAttempt
@@ -13342,7 +13425,11 @@ async function runAgenticGLMSection(
       transcript,
       researchInput.company.websiteUrl,
     ),
-    body: projection.body,
+    // Best-effort typed body. On a projection miss/throw this is undefined or a
+    // partial object; buildAnswerToolAttempt decodes it and nulls the artifact
+    // gracefully (never throws), routing to the honest-gap commit below — which
+    // still carries narrativeMarkdown. GLM's research is never discarded.
+    body: projection?.body,
   };
 
   // Reuse the EXISTING commit spine — verify + gate + artifact build.
@@ -13351,39 +13438,19 @@ async function runAgenticGLMSection(
     answerInput,
     modelSteps,
     definition,
-    deps,
+    // GLM authored the narrative end-to-end; skip the DeepSeek writer pen on the
+    // agentic path so it cannot rewrite (or sink) the GLM body — the pen runs
+    // inside buildVerifiedAttemptFromOutput and on failure forces a fallback to
+    // the answer-tool path (live-observed sinking Market/VoC to all-gaps). The
+    // fallbacks below still receive the original `deps`, keeping the real pen on
+    // the answer-tool path.
+    deps: { ...deps, runWriterPass: noopSectionWriterPassRunner },
     input,
     researchInput,
   });
 
-  if (attempt.artifact === null) {
-    // The committable gate rejected (minimums / required-evidence). If the spine
-    // built a section-level gap artifact, that's an honest commit — take it.
-    const gapArtifact = getAttemptEvidenceGapArtifact(attempt);
-    if (gapArtifact !== undefined) {
-      return saveCompletedArtifact({
-        artifact: gapArtifact,
-        definition,
-        deps,
-        input,
-        startedAt,
-      });
-    }
-    // GRACEFUL FALLBACK (interim honest floor): a still-thin agentic body that
-    // failed minimums and built no gap artifact falls back to the PROVEN
-    // answer-tool path for a guaranteed honest commit — NEVER a SectionRunnerError.
-    // FUTURE REFINEMENT (full option a): reuse the section gap-injection builders
-    // (buildVoiceOfCustomerEvidenceGap / the §4.x save-time blockGap injectors) so a
-    // thin AGENTIC body degrades to honest blockGaps while STAYING on the agentic
-    // artifact, instead of handing the section back to the answer-tool path.
-    console.warn(
-      `[lab-section] agentic GLM body failed minimums for ${input.sectionId} with no gap artifact; falling back to answer-tool path`,
-      { issues: getAttemptRepairIssues(attempt).slice(0, 4) },
-    );
-    return runSectionViaAnswerTool(input, deps);
-  }
-
-  // Populate evidenceVerdict DETERMINISTICALLY on the typed body before saving.
+  // Populate evidenceVerdict DETERMINISTICALLY (never from the model) BEFORE the
+  // commit branches so it can ride EVERY agentic commit path — gap, honest, clean.
   const survivingInventionCount = finalDetect.violations.filter(
     (violation) => violation.ceiling <= 4,
   ).length;
@@ -13393,8 +13460,87 @@ async function runAgenticGLMSection(
     verifiedRowCount: finalDetect.stats.citedUrls + finalDetect.stats.citedQuotes,
     unsupportedRowCount: getUnsupportedLoadBearingCount(attempt),
   });
+
+  if (attempt.artifact === null) {
+    // The committable gate rejected (minimums / required-evidence / model-gap).
+    // GLM SUCCEEDED, so we NEVER re-thin via the DeepSeek answer-tool path while a
+    // committable typed body exists — that re-thinning is the exact thing this
+    // path exists to stop. Preference order:
+    //   1. an honest section gap artifact the spine already built, ELSE
+    //   2. the projection's OWN schema-valid body committed as an honest gap (a
+    //      missing required-evidence class / model-authored gap is an honest gap,
+    //      not a reason to discard GLM's research).
+    // Either way GLM's narrativeMarkdown + the deterministic evidenceVerdict ride
+    // the committed artifact. Only a body we cannot structure into the strict
+    // schema AT ALL falls through to the proven answer-tool path.
+    const gapArtifact = getAttemptEvidenceGapArtifact(attempt);
+    if (gapArtifact !== undefined) {
+      const gapBody = gapArtifact.body as Record<string, unknown>;
+      gapBody.narrativeMarkdown = narrativeMarkdown;
+      gapBody.evidenceVerdict = evidenceVerdict;
+      return saveCompletedArtifact({
+        artifact: gapArtifact,
+        definition,
+        deps,
+        input,
+        startedAt,
+      });
+    }
+
+    if (projection?.validates === true) {
+      const honestArtifact = tryBuildAgenticHonestArtifact({
+        body: projection.body,
+        definition,
+        deps,
+        evidenceVerdict,
+        input,
+        lead,
+        narrativeMarkdown,
+        sources: answerInput.sources,
+      });
+      if (honestArtifact !== undefined) {
+        return saveCompletedArtifact({
+          artifact: honestArtifact,
+          definition,
+          deps,
+          input,
+          startedAt,
+        });
+      }
+    }
+
+    // Last resort: GLM markdown could not be structured into the strict typed
+    // schema at all (projector miss with an unusable best-effort body). The
+    // proven answer-tool path gives a guaranteed honest typed commit.
+    console.warn(
+      `[lab-section] agentic GLM body produced no committable typed artifact for ${input.sectionId}; falling back to answer-tool path`,
+      { issues: getAttemptRepairIssues(attempt).slice(0, 4) },
+    );
+    await appendEvent(
+      deps,
+      input.runId,
+      createEvent({
+        deps,
+        runId: input.runId,
+        sectionId: input.sectionId,
+        type: "agentic-fallback",
+        message: `[lab-section] agentic GLM body produced no committable typed artifact for ${input.sectionId}; falling back to answer-tool path`,
+        metadata: {
+          reason: "no_committable_artifact",
+          resolvedToolCount: agenticAllowedTools.length,
+          hasPreparedContext: deps.preparedContext !== undefined,
+        },
+      }),
+    );
+    return runSectionViaAnswerTool(input, deps);
+  }
+
   const artifactBody = attempt.artifact.body as Record<string, unknown>;
   artifactBody.evidenceVerdict = evidenceVerdict;
+  // §4.1 — persist GLM's source-class-labeled research as the card body. The
+  // strict body schemas accept narrativeMarkdown as an additive optional key, so
+  // this survives assertSectionArtifactPersistable; commit-patch renders it.
+  artifactBody.narrativeMarkdown = narrativeMarkdown;
 
   return saveCompletedArtifact({
     artifact: attempt.artifact,
@@ -13403,6 +13549,83 @@ async function runAgenticGLMSection(
     input,
     startedAt,
   });
+}
+
+/**
+ * Build a schema-valid honest-gap artifact for the AGENTIC path when the
+ * committable gate nulled the attempt but the projector produced a VALID typed
+ * body (a missing required-evidence class / model-authored gap). Reuses the
+ * envelope + body schema so persistence's strict re-validation passes; the caller
+ * attaches GLM's narrativeMarkdown so the card still shows the real research
+ * instead of re-thinning the section through DeepSeek. Returns undefined (caller
+ * falls back) only if a valid envelope cannot be built — e.g. zero usable sources
+ * (the envelope requires >=1) or the body unexpectedly fails strict re-parse.
+ */
+function tryBuildAgenticHonestArtifact({
+  body,
+  definition,
+  deps,
+  evidenceVerdict,
+  input,
+  lead,
+  narrativeMarkdown,
+  sources,
+}: {
+  body: unknown;
+  definition: RuntimeSectionDefinition;
+  deps: RunSectionDeps;
+  evidenceVerdict: ReturnType<typeof deriveAgenticEvidenceVerdict>;
+  input: RunSectionInput;
+  lead: string;
+  narrativeMarkdown: string;
+  sources: unknown;
+}): ArtifactEnvelope | undefined {
+  try {
+    const observedAt = getNow(deps).toISOString();
+    // extractTranscriptSources yields {title,url}; sourceRefSchema requires
+    // {id,title,url,observedAt} — normalize so the envelope parse passes.
+    const normalizedSources = (Array.isArray(sources) ? sources : [])
+      .map((entry, index) => {
+        const record = getRecord(entry);
+        if (record === null) return null;
+        const title = getStringProperty(record, "title");
+        const url = getValidHttpUrl(getStringProperty(record, "url"));
+        if (title === null || url === null) return null;
+        return { id: `agentic-source-${index + 1}`, title, url, observedAt };
+      })
+      .filter(
+        (
+          value,
+        ): value is { id: string; title: string; url: string; observedAt: string } =>
+          value !== null,
+      );
+    if (normalizedSources.length === 0) return undefined;
+
+    const envelope = artifactEnvelopeSchema
+      .extend({ body: definition.bodySchema })
+      .parse({
+        id: getNewId(deps),
+        runId: input.runId,
+        sectionId: input.sectionId,
+        sectionTitle: definition.title,
+        verdict: lead,
+        statusSummary: lead,
+        confidence: 0.5,
+        sources: normalizedSources,
+        body,
+        createdAt: observedAt,
+      });
+    const envelopeBody = envelope.body as Record<string, unknown>;
+    envelopeBody.narrativeMarkdown = narrativeMarkdown;
+    envelopeBody.evidenceVerdict = evidenceVerdict;
+    return envelope;
+  } catch (error) {
+    console.warn(
+      `[lab-section] agentic honest-gap artifact build failed for ${input.sectionId}; falling back to answer-tool path`,
+      { errors: getErrorIssues(error).slice(0, 4) },
+    );
+    return undefined;
+  }
 }
 
 // Explicit fallback kept for B2 streaming sign-off rollback via
@@ -13415,7 +13638,11 @@ async function runSectionViaAnswerTool(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  const preparedContext = getPreparedSectionContext({ deps, input, record });
+  const preparedContext = await getPreparedSectionContext({
+    deps,
+    input,
+    record,
+  });
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -14214,7 +14441,11 @@ async function runSectionViaStructuredBodyStream(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  const preparedContext = getPreparedSectionContext({ deps, input, record });
+  const preparedContext = await getPreparedSectionContext({
+    deps,
+    input,
+    record,
+  });
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(
     deps.env ?? process.env,
   );
@@ -15086,7 +15317,11 @@ export async function runSection(
   const startedAt = getNow(deps).getTime();
   const record = await deps.store.readRun(input.runId);
   const researchInput: ResearchInput = record.input;
-  const preparedContext = getPreparedSectionContext({ deps, input, record });
+  const preparedContext = await getPreparedSectionContext({
+    deps,
+    input,
+    record,
+  });
   // Gate is armed by default. LAB_VERIFIER_MAX_UNSUPPORTED can raise the
   // threshold for calibrated sections. Mirrors the answer-tool path.
   const maxUnsupportedAllowed = getMaxUnsupportedAllowed(

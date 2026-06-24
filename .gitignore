@@ -99,3 +99,7 @@ docs/handoffs/
 
 # Local research run data (ephemeral)
 /.data/
+
+# loose helper carrying a live key — never commit
+wire-glm-openrouter.sh
+.agent-native/

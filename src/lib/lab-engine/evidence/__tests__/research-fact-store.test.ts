@@ -24,9 +24,22 @@ interface CapturedInsert {
   rows: Record<string, unknown>[];
 }
 
+interface CapturedSelect {
+  table: string;
+  columns: string;
+  column: string;
+  value: unknown;
+}
+
 function createFakeSupabaseClient(captured: CapturedInsert[]): {
   from: (table: string) => {
     insert: (rows: Record<string, unknown>[]) => Promise<{ error: null }>;
+    select: (columns: string) => {
+      eq: (
+        column: string,
+        value: unknown,
+      ) => Promise<{ data: Record<string, unknown>[]; error: null }>;
+    };
   };
 } {
   return {
@@ -37,7 +50,64 @@ function createFakeSupabaseClient(captured: CapturedInsert[]): {
         captured.push({ table, rows });
         return { error: null };
       },
+      // These insert-only tests never call getFacts; stub select to satisfy
+      // the (now select-capable) ResearchFactsSupabaseClient interface.
+      select: (_columns: string) => ({
+        eq: async (): Promise<{
+          data: Record<string, unknown>[];
+          error: null;
+        }> => ({ data: [], error: null }),
+      }),
     }),
+  };
+}
+
+// A fake client backed by an in-memory rows table so a SELECT issued by one
+// store instance returns rows INSERTed by a different (sibling) store instance
+// — the cross-instance case the in-process echo array structurally cannot
+// cover. Mirrors the real Supabase `.select(cols).eq(col, val)` builder shape.
+function createBackedSupabaseClient(table: Record<string, unknown>[]): {
+  capturedSelects: CapturedSelect[];
+  client: {
+    from: (table: string) => {
+      insert: (rows: Record<string, unknown>[]) => Promise<{ error: null }>;
+      select: (columns: string) => {
+        eq: (
+          column: string,
+          value: unknown,
+        ) => Promise<{
+          data: Record<string, unknown>[];
+          error: null;
+        }>;
+      };
+    };
+  };
+} {
+  const capturedSelects: CapturedSelect[] = [];
+  return {
+    capturedSelects,
+    client: {
+      from: (tableName: string) => ({
+        insert: async (
+          rows: Record<string, unknown>[],
+        ): Promise<{ error: null }> => {
+          for (const row of rows) table.push(row);
+          return { error: null };
+        },
+        select: (columns: string) => ({
+          eq: async (
+            column: string,
+            value: unknown,
+          ): Promise<{ data: Record<string, unknown>[]; error: null }> => {
+            capturedSelects.push({ table: tableName, columns, column, value });
+            return {
+              data: table.filter((row) => row[column] === value),
+              error: null,
+            };
+          },
+        }),
+      }),
+    },
   };
 }
 
@@ -88,5 +158,113 @@ describe("createResearchArtifactsResearchFactStore", () => {
     expect(row.fact_kind).toBe("named_champion");
     expect(row.source_quote).toBe("Bill Cox — VP Finance, Example Co");
     expect(row.claim_token).toBe("Bill Cox");
+  });
+
+  it("getFacts SELECTs research_facts by parent_audit_run_id and returns a SIBLING-written fact (cross-instance)", async () => {
+    const table: Record<string, unknown>[] = [];
+    const { client, capturedSelects } = createBackedSupabaseClient(table);
+
+    // Sibling instance A (e.g. the orchestrator) writes a fact.
+    const writerStore = createResearchArtifactsResearchFactStore(
+      client,
+      "parent_xyz",
+    );
+    await writerStore.appendFacts([
+      makeValidFact({
+        runId: "orchestrator_run",
+        parentAuditRunId: "parent_xyz",
+        claimToken: "Sibling Fact",
+        sourceQuote: "Sibling Fact — written by instance A",
+      }),
+    ]);
+
+    // Instance B (a section) has an EMPTY in-process array but must still see
+    // the sibling fact via the DB SELECT.
+    const readerStore = createResearchArtifactsResearchFactStore(
+      client,
+      "parent_xyz",
+    );
+    const facts = await readerStore.getFacts();
+
+    expect(capturedSelects).toEqual([
+      expect.objectContaining({
+        table: "research_facts",
+        column: "parent_audit_run_id",
+        value: "parent_xyz",
+      }),
+    ]);
+    expect(facts.map((f) => f.claimToken)).toContain("Sibling Fact");
+    const sibling = facts.find((f) => f.claimToken === "Sibling Fact");
+    expect(sibling?.parentAuditRunId).toBe("parent_xyz");
+    expect(sibling?.sourceUrl).toBe("https://ramp.com/customers/example");
+  });
+
+  it("getFacts returns the UNION of in-process appended facts AND DB-selected facts, deduped", async () => {
+    const table: Record<string, unknown>[] = [];
+    const { client } = createBackedSupabaseClient(table);
+
+    // A pre-existing DB row written by a sibling under the same parent.
+    table.push({
+      run_id: "sibling_run",
+      parent_audit_run_id: "parent_xyz",
+      section_id: "positioningVoiceOfCustomer",
+      fact_kind: "voc_quote",
+      source_url: "https://example.com/review",
+      source_quote: "DB-only fact",
+      claim_token: "DB-only",
+      payload: null,
+      created_at: "2026-06-24T00:00:00.000Z",
+    });
+
+    const store = createResearchArtifactsResearchFactStore(client, "parent_xyz");
+
+    // This store appends its OWN in-process fact (which is also written to the
+    // backing table, so it would appear in BOTH the appended array AND the
+    // SELECT — the dedup must collapse it to one).
+    await store.appendFacts([
+      makeValidFact({
+        runId: "own_run",
+        parentAuditRunId: "parent_xyz",
+        claimToken: "Own Fact",
+        sourceQuote: "Own Fact — appended in-process",
+      }),
+    ]);
+
+    const facts = await store.getFacts();
+    const tokens = facts.map((f) => f.claimToken).sort();
+
+    // Union: both the DB-only fact and the own appended fact are present.
+    expect(tokens).toContain("DB-only");
+    expect(tokens).toContain("Own Fact");
+    // Dedup: the own fact (in BOTH appended array and SELECT) appears once.
+    expect(facts.filter((f) => f.claimToken === "Own Fact")).toHaveLength(1);
+  });
+
+  it("getFacts returns ONLY in-process appended facts when no parentAuditRunId is supplied (no SELECT)", async () => {
+    const table: Record<string, unknown>[] = [];
+    const { client, capturedSelects } = createBackedSupabaseClient(table);
+
+    // A row exists under some parent, but this store was constructed WITHOUT a
+    // parentAuditRunId, so it must not issue a SELECT.
+    table.push({
+      run_id: "other_run",
+      parent_audit_run_id: "parent_other",
+      section_id: "positioningVoiceOfCustomer",
+      fact_kind: "voc_quote",
+      source_url: "https://example.com/review",
+      source_quote: "Unrelated DB fact",
+      claim_token: "Unrelated",
+      payload: null,
+      created_at: "2026-06-24T00:00:00.000Z",
+    });
+
+    const store = createResearchArtifactsResearchFactStore(client);
+    await store.appendFacts([
+      makeValidFact({ claimToken: "Echo Only", sourceQuote: "Echo Only fact" }),
+    ]);
+
+    const facts = await store.getFacts();
+    expect(capturedSelects).toHaveLength(0);
+    expect(facts.map((f) => f.claimToken)).toEqual(["Echo Only"]);
   });
 });

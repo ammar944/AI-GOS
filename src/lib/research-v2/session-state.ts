@@ -1,10 +1,5 @@
-import type { CorpusSourceLink, ResearchV2State } from './state-machine';
-import type {
-  OnboardingPrefillMetadata,
-  OnboardingV2Data,
-} from './onboarding-v2-types';
-import type { CorpusOnboardingField } from './prefill-from-corpus';
-import { prefillFromCorpusWithMetadata } from './prefill-from-corpus';
+import type { OnboardingV2Data } from './onboarding-v2-types';
+import type { ResearchV2State } from './state-machine';
 
 export interface PersistedResearchV2Session {
   runId: string;
@@ -27,115 +22,16 @@ function hasPersistedOnboardingData(
   return Boolean(onboardingData && Object.keys(onboardingData).length > 0);
 }
 
-function readCorpus(
-  researchResults: Record<string, unknown> | null,
-): { status?: string; data?: unknown } | null {
-  const value = researchResults?.deepResearchProgram;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as { status?: string; data?: unknown };
-}
-
-function readCorpusOnboardingFields(
-  corpusData: unknown,
-): Record<string, CorpusOnboardingField> | null {
-  if (!corpusData || typeof corpusData !== 'object' || Array.isArray(corpusData)) {
-    return null;
-  }
-
-  const onboardingFields = (corpusData as Record<string, unknown>).onboardingFields;
-  if (
-    !onboardingFields ||
-    typeof onboardingFields !== 'object' ||
-    Array.isArray(onboardingFields)
-  ) {
-    return null;
-  }
-
-  return onboardingFields as Record<string, CorpusOnboardingField>;
-}
-
-function mergeCachedOnboardingPrefill({
-  cachedOnboardingData,
-  corpusPrefill,
-  corpusPrefillMetadata,
-}: {
-  cachedOnboardingData: Record<string, unknown> | null | undefined;
-  corpusPrefill: Partial<OnboardingV2Data>;
-  corpusPrefillMetadata: OnboardingPrefillMetadata;
-}): {
-  data: Partial<OnboardingV2Data>;
-  metadata: OnboardingPrefillMetadata;
-} {
-  if (!cachedOnboardingData || Object.keys(cachedOnboardingData).length === 0) {
-    return { data: corpusPrefill, metadata: corpusPrefillMetadata };
-  }
-
-  const metadata = { ...corpusPrefillMetadata };
-  for (const key of Object.keys(cachedOnboardingData)) {
-    delete metadata[key as keyof OnboardingV2Data];
-  }
-
-  return {
-    data: {
-      ...corpusPrefill,
-      ...(cachedOnboardingData as Partial<OnboardingV2Data>),
-    },
-    metadata,
-  };
-}
-
 /**
- * Extracts the corpus's cited sources so they survive into resumed state.
+ * Infers the visible /research-v3 state from persisted session data.
  *
- * Worker shape is `corpus.data.corpus.sources` (array of
- * `{ title, url, whyItMatters }`). The frontend previously dropped this on
- * the floor; threading it through lets the GTM brief review render a
- * persistent "Researched N sources" surface across reload/resume.
- */
-function readCorpusSources(corpusData: unknown): CorpusSourceLink[] {
-  if (!corpusData || typeof corpusData !== 'object' || Array.isArray(corpusData)) {
-    return [];
-  }
-
-  const inner = (corpusData as Record<string, unknown>).corpus;
-  if (!inner || typeof inner !== 'object' || Array.isArray(inner)) {
-    return [];
-  }
-
-  const sources = (inner as Record<string, unknown>).sources;
-  if (!Array.isArray(sources)) return [];
-
-  const seen = new Set<string>();
-  const links: CorpusSourceLink[] = [];
-  for (const entry of sources) {
-    if (!entry || typeof entry !== 'object') continue;
-    const record = entry as Record<string, unknown>;
-    const url = typeof record.url === 'string' ? record.url.trim() : '';
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    const title = typeof record.title === 'string' ? record.title.trim() : '';
-    const whyItMatters =
-      typeof record.whyItMatters === 'string' ? record.whyItMatters.trim() : '';
-    links.push({
-      title: title || url,
-      url,
-      ...(whyItMatters ? { whyItMatters } : {}),
-    });
-  }
-
-  return links;
-}
-
-/**
- * Infers the visible /research-v2 state from persisted session data.
- *
- * The ordering intentionally mirrors the page contract:
+ * Flow (LOCK 2026-06-24): there is no corpus-before-onboarding gate.
  * 1. Any positioning result/job means the audit reader should be shown.
- * 2. Saved onboarding data means the review has already been completed.
- * 3. A complete corpus means the GTM Brief Review should be shown.
- * 4. Missing or incomplete corpus means the corpus phase is still active.
+ * 2. Saved onboarding data means the onboarding has already been completed
+ *    (sections were orchestrated), so show the reader.
+ * 3. Otherwise the user is still in the onboarding phase. The wizard is
+ *    user-filled from blank; a profile's cached onboarding (the operator's
+ *    OWN prior input, never a corpus prefill) may seed the form.
  */
 export function inferPersistedResearchV2State({
   runId,
@@ -159,27 +55,9 @@ export function inferPersistedResearchV2State({
     return { kind: 'sections', runId, currentSection: null };
   }
 
-  const corpus = readCorpus(researchResults);
-  if (!corpus || corpus.status !== 'complete') {
-    return { kind: 'corpus', runId, phase: 'streaming' };
-  }
-
-  const onboardingFields = readCorpusOnboardingFields(corpus.data);
-  const corpusPrefill = onboardingFields
-    ? prefillFromCorpusWithMetadata(onboardingFields)
-    : { data: {}, metadata: {} };
-  const prefill = mergeCachedOnboardingPrefill({
-    cachedOnboardingData,
-    corpusPrefill: corpusPrefill.data,
-    corpusPrefillMetadata: corpusPrefill.metadata,
-  });
-  const corpusSources = readCorpusSources(corpus.data);
-
   return {
     kind: 'onboarding',
     runId,
-    prefill: prefill.data,
-    prefillMetadata: prefill.metadata,
-    corpusSources,
+    initialData: cachedOnboardingData as Partial<OnboardingV2Data> | undefined,
   };
 }

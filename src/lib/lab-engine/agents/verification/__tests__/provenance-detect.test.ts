@@ -806,3 +806,87 @@ describe("detectProvenanceViolations() contract", () => {
     expect(out.ceiling).toBe(10);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Check 2b — quote-at-URL laundering (per-record, P2 bugfix)
+//
+// The blob-level Check 2 grounds a quote against the WHOLE transcript. That
+// lets a laundered quote pass: a real quote retrieved from URL-A, but ATTRIBUTED
+// in the body to a DIFFERENT URL-B (also fetched, page text does NOT contain the
+// quote). The per-record check binds each quote to the text of ITS attributed
+// URL only. Carve-out (commit 7afc84fc): fire ONLY when the attributed URL was
+// fetched (has text). An attributed URL never seen in the transcript is left to
+// Check 1 (url_not_in_transcript) / the network-unavailable carve-out.
+// ---------------------------------------------------------------------------
+describe("Check 2b — quote-at-URL laundering", () => {
+  it("flags a real quote attributed to the WRONG fetched URL (blob has it, attributed page does not)", () => {
+    const { violations } = run({
+      section: "voc",
+      body:
+        '> *"This product completely changed how our team operates daily and we love it."* — Source (g2.com/products/acme/reviews)',
+      transcript: [
+        // URL-A genuinely carries the quote...
+        rec({
+          toolName: "firecrawl",
+          output: {
+            url: "https://capterra.com/p/acme",
+            text: "This product completely changed how our team operates daily and we love it.",
+          },
+        }),
+        // ...but the body attributes it to URL-B, whose fetched page is unrelated.
+        rec({
+          toolName: "firecrawl",
+          output: {
+            url: "https://g2.com/products/acme/reviews",
+            text: "Acme pricing plans start at twenty dollars per seat per month.",
+          },
+        }),
+      ],
+    });
+    expect(checks(violations)).toContain("quote_not_in_transcript");
+  });
+
+  it("clears a quote attributed to the SAME URL whose fetched page contains it", () => {
+    const { violations } = run({
+      section: "voc",
+      body:
+        '> *"This product completely changed how our team operates daily and we love it."* — Source (g2.com/products/acme/reviews)',
+      transcript: [
+        rec({
+          toolName: "firecrawl",
+          output: {
+            url: "https://g2.com/products/acme/reviews",
+            text: "This product completely changed how our team operates daily and we love it.",
+          },
+        }),
+      ],
+    });
+    expect(checks(violations)).not.toContain("quote_not_in_transcript");
+  });
+
+  it("does NOT fire the at-URL check when the attributed URL was never fetched (carve-out left to Check 1)", () => {
+    const { violations } = run({
+      section: "voc",
+      body:
+        '> *"This product completely changed how our team operates daily and we love it."* — Source (neverfetched.com/page)',
+      transcript: [
+        rec({
+          toolName: "firecrawl",
+          output: {
+            url: "https://capterra.com/p/acme",
+            text: "This product completely changed how our team operates daily and we love it.",
+          },
+        }),
+      ],
+    });
+    // The attributed URL (neverfetched.com) was not in the transcript, so the
+    // PER-RECORD at-URL check abstains. (Check 1 may still flag the URL itself;
+    // we only assert the at-URL quote check did not synthesize a false drop here
+    // beyond what the blob check would do — the quote IS in the blob, so the
+    // blob-level Check 2 clears it.)
+    const quoteViolations = violations.filter(
+      (v) => v.check === "quote_not_in_transcript",
+    );
+    expect(quoteViolations).toHaveLength(0);
+  });
+});

@@ -324,6 +324,16 @@ export const voiceOfCustomerBodySchema = z
     outcomeProof: z.array(outcomeProofSchema).optional(),
     // Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
     evidenceVerdict: evidenceVerdictSchema,
+    // §4.1 (RAW un-caged GLM) — the un-thinned GLM research markdown, carried on
+    // the typed body so it survives strict persist-time re-validation and renders
+    // as the primary section card body. Additive, optional, source-class labeled
+    // before persist; absent on every prior committed artifact (backward compatible).
+    narrativeMarkdown: z
+      .string()
+      .min(1)
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
     evidenceGap: z.literal(true).optional(),
     evidenceGapReport: evidenceGapReportSchema.optional(),
   })

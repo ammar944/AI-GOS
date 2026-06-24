@@ -766,11 +766,17 @@ function buildCorpusExcerpts({
   observedAt,
   sources,
   uploadedDocuments,
+  companyName,
+  productDescription,
+  websiteUrl,
 }: {
   evidenceRecords: Record<string, unknown>[];
   observedAt: string;
   sources: SourceRef[];
   uploadedDocuments: readonly UploadedDocumentContext[];
+  companyName: string;
+  productDescription: string;
+  websiteUrl: string;
 }): CorpusExcerpt[] {
   const evidenceExcerpts = evidenceRecords.flatMap((evidence, index) => {
     const excerpt = buildEvidenceExcerpt({
@@ -796,7 +802,31 @@ function buildCorpusExcerpts({
     };
   });
 
-  return [...evidenceExcerpts, ...uploadedDocumentExcerpts];
+  const excerpts = [...evidenceExcerpts, ...uploadedDocumentExcerpts];
+
+  // No corpus run and no uploaded docs: seed one excerpt from the operator's
+  // own onboarding (website + product description). This is user-supplied
+  // context — same provenance class as uploaded documents — and keeps
+  // corpusSnapshotSchema.min(1) intact without fabricating research. The
+  // agentic sections still research live with tools; this is the floor that
+  // lets the ResearchInput validate in the no-corpus interim.
+  if (excerpts.length === 0) {
+    const websiteSource = sources.find(
+      (source) => source.url === websiteUrl,
+    );
+    if (websiteSource !== undefined) {
+      excerpts.push({
+        id: `excerpt_${slugify(companyName)}_website_onboarding`,
+        sourceId: websiteSource.id,
+        sourceUrl: websiteUrl,
+        title: `${companyName} website (operator-supplied)`,
+        text: productDescription || `${companyName} onboarding brief`,
+        observedAt,
+      });
+    }
+  }
+
+  return excerpts;
 }
 
 function excerptMatchesKeywords(
@@ -1297,6 +1327,9 @@ export function corpusToResearchInput(
     observedAt,
     sources,
     uploadedDocuments,
+    companyName,
+    productDescription,
+    websiteUrl,
   });
   return researchInputSchema.parse({
     runId: params.runId,

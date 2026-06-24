@@ -12,6 +12,12 @@
 // Idempotent: a second call with the same (journey_session_id, run_id) returns
 // the same parent_audit_run_id and the same six section_run_ids — guaranteed
 // by the seed_orchestration Postgres RPC.
+//
+// After seeding + freezing the brief, this route kicks off the chained GLM
+// orchestrator (/run-orchestrator) and returns the seeded 200 immediately. The
+// GLM orchestrator + the six-section fan-out now run in /run-orchestrator's
+// after() (NOT inline here) so the ~161-340s orchestrator latency never blocks
+// this response.
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
@@ -21,7 +27,6 @@ import { POSITIONING_SECTION_IDS } from '@/lib/ai/prompts/positioning-skills';
 import { jsonError, requireApiUser } from '@/lib/auth/app-access';
 import { buildLabSectionProviderPreflightResponse } from '@/lib/research-v2/lab-section-preflight';
 import {
-  corpusReady,
   getOnboardingReviewMetadata,
   loadOwnedResearchSession,
 } from '@/lib/research-v2/orchestration-session';
@@ -43,23 +48,16 @@ const RequestSchema = z
   })
   .passthrough();
 
-// run-lab-section now ACKs 202 in milliseconds (it defers the long job to
-// after()), so a kickoff fetch only has to deliver the request + read the ACK.
-// Keep a generous ceiling for serverless cold starts; the work itself runs in
-// the sub-invocation, not here.
-const LAB_SECTION_KICKOFF_TIMEOUT_MS = 30_000;
+// run-orchestrator ACKs 202 in milliseconds (it defers the long GLM
+// orchestrator + section fan-out to after()), so this kickoff fetch only has to
+// deliver the request + read the ACK. Keep a generous ceiling for serverless
+// cold starts; the orchestrator work runs in the chained sub-invocation.
+const ORCHESTRATOR_KICKOFF_TIMEOUT_MS = 30_000;
 
-interface DispatchLabSectionJobsInput {
+interface KickoffOrchestratorInput {
   request: Request;
   runId: string;
   seeded: SeedOrchestrationResult;
-}
-
-interface KickoffLabSectionJobInput {
-  headers: Record<string, string>;
-  runId: string;
-  sectionId: (typeof POSITIONING_SECTION_IDS)[number];
-  url: string;
 }
 
 function buildForwardedLabSectionHeaders(
@@ -82,80 +80,75 @@ function buildForwardedLabSectionHeaders(
   return headers;
 }
 
-function getLabSectionUrl(request: Request): string {
-  return new URL('/api/research-v2/run-lab-section', request.url).toString();
-}
-
-async function dispatchLabSectionJobs(
-  input: DispatchLabSectionJobsInput,
+// Kick off the chained GLM orchestrator (run-orchestrator), which runs the
+// research orchestrator, promotes its facts to the shared ledger, and THEN fans
+// out the six positioning sections to /run-lab-section so they start AFTER the
+// orchestrator facts are written. The long work happens in run-orchestrator's
+// after() (maxDuration=800), NOT inline here — a 300s blocking /orchestrate
+// response would be fragile against the ~161-340s orchestrator latency.
+//
+// Dispatch gating (layer 1): only kick the orchestrator when the seed still
+// reports queued sections. A repeated orchestrate POST whose sections are
+// already running or complete becomes a no-op kickoff, so two competing POSTs
+// cannot double the GLM orchestrator run (and the downstream fan-out). The
+// seeded result is still returned to the caller unchanged, so idempotency is
+// preserved.
+async function kickoffOrchestrator(
+  input: KickoffOrchestratorInput,
 ): Promise<void> {
-  const url = getLabSectionUrl(input.request);
+  const hasQueuedSections = input.seeded.section_run_ids.some(
+    (row) =>
+      row.status === 'queued' &&
+      (POSITIONING_SECTION_IDS as readonly string[]).includes(row.section_id),
+  );
+
+  if (!hasQueuedSections) {
+    console.info('[orchestrate] no queued sections — skipping orchestrator', {
+      runId: input.runId,
+    });
+    return;
+  }
+
+  const url = new URL(
+    '/api/research-v2/run-orchestrator',
+    input.request.url,
+  ).toString();
   const headers = buildForwardedLabSectionHeaders(input.request);
 
-  // Dispatch gating (layer 1): only kick off zones the seed reports as still
-  // 'queued'. A repeated orchestrate POST whose sections are already running or
-  // complete becomes a no-op kickoff, so two competing POSTs cannot double the
-  // run-lab-section invocations per zone (the dispatch race that produced false
-  // section-failed via lost CAS). The seeded result is still returned to the
-  // caller unchanged, so idempotency is preserved.
-  const queuedSectionIds = input.seeded.section_run_ids
-    .filter((row) => row.status === 'queued')
-    .map((row) => row.section_id)
-    .filter((sectionId): sectionId is (typeof POSITIONING_SECTION_IDS)[number] =>
-      (POSITIONING_SECTION_IDS as readonly string[]).includes(sectionId),
-    );
+  console.info('[orchestrate] kicking off chained orchestrator', {
+    runId: input.runId,
+    parentAuditRunId: input.seeded.parent_audit_run_id,
+  });
 
-  // Await every kickoff. Awaiting is what keeps THIS invocation alive long
-  // enough to actually send all the requests — returning before they're sent
-  // lets Vercel freeze the function and drop the un-sent fetches, leaving every
-  // section stuck at queued. kickoffLabSectionJob never rejects (it logs and
-  // resolves), so allSettled simply guarantees they're all delivered.
-  await Promise.allSettled(
-    queuedSectionIds.map((sectionId) =>
-      kickoffLabSectionJob({
-        headers,
-        runId: input.runId,
-        sectionId,
-        url,
-      }),
-    ),
-  );
-}
-
-async function kickoffLabSectionJob(
-  input: KickoffLabSectionJobInput,
-): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(
     () => controller.abort(),
-    LAB_SECTION_KICKOFF_TIMEOUT_MS,
+    ORCHESTRATOR_KICKOFF_TIMEOUT_MS,
   );
 
   try {
-    const res = await fetch(input.url, {
+    const res = await fetch(url, {
       method: 'POST',
-      headers: input.headers,
+      headers,
       body: JSON.stringify({
         run_id: input.runId,
-        section_id: input.sectionId,
+        parent_audit_run_id: input.seeded.parent_audit_run_id,
       }),
       signal: controller.signal,
     });
 
     if (!res.ok) {
       const body = await res.text().catch((): string => '');
-      console.warn('[orchestrate:lab] section kickoff returned non-2xx', {
+      console.warn('[orchestrate] orchestrator kickoff returned non-2xx', {
         runId: input.runId,
-        sectionId: input.sectionId,
         status: res.status,
         body: body.slice(0, 200),
       });
     }
   } catch (err) {
     const isAbort = err instanceof Error && err.name === 'AbortError';
-    console.warn('[orchestrate:lab] section kickoff failed', {
+    console.warn('[orchestrate] orchestrator kickoff failed', {
       runId: input.runId,
-      sectionId: input.sectionId,
       reason: isAbort ? 'timeout' : 'error',
       message: err instanceof Error ? err.message : String(err),
     });
@@ -207,16 +200,6 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
   }
 
-  if (!corpusReady(session)) {
-    return NextResponse.json(
-      {
-        error: 'corpus_not_ready',
-        message: 'deepResearchProgram corpus must finish before orchestrating',
-      },
-      { status: 409 },
-    );
-  }
-
   const preflightResponse = buildLabSectionProviderPreflightResponse({
     runId: body.run_id,
     logTag: '[orchestrate]',
@@ -238,7 +221,7 @@ export async function POST(request: Request): Promise<Response> {
       gtmBriefReview: getOnboardingReviewMetadata(session.metadata),
     });
 
-    await dispatchLabSectionJobs({
+    await kickoffOrchestrator({
       request,
       runId: body.run_id,
       seeded,

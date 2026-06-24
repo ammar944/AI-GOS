@@ -161,6 +161,65 @@ export function scrubClientSurfaceText(value: string): string {
   return out.length > 0 ? out : 'Not available.';
 }
 
+/**
+ * Markdown-safe vocab scrub for the long GLM narrative blob persisted to the
+ * section card (§4.1 RAW un-caged GLM). It removes internal pipeline vocabulary
+ * exactly like {@link scrubClientSurfaceText}, but differs in two ways that
+ * matter for multi-paragraph prose:
+ *   1. It PRESERVES newlines — collapsing only horizontal whitespace runs per
+ *      line — so markdown structure (headings, lists, paragraphs) survives.
+ *   2. It does NOT wholesale-replace on a validator-message signature. That
+ *      replace exists to nuke short structured-noise leaves; on 2,000-word
+ *      research prose a single incidental "...Schema" word would otherwise wipe
+ *      the entire body. Source-class labeling, not this scrub, is the anti-fab.
+ * The result is guaranteed free of deny tokens line-by-line.
+ */
+// Residual internal-jargon tokens to remove from the GLM markdown body AFTER
+// READABLE_REWRITES. DELIBERATELY EXCLUDES the genuinely-English deny tokens
+// ('containment', 'liveness') — Ramp is a cost-CONTAINMENT company and 'liveness'
+// is real eng prose; the general substring strip would eat 'cost containment' ->
+// 'cost '. These are matched on WORD boundaries (not substring) so inflected
+// real words are never clipped. Tokens already handled by READABLE_REWRITES
+// (corpus, web_search, keyword_volume/trends, displayable, quarantine, evidence
+// gap:, [unverified]/[verified]) are omitted here.
+const MARKDOWN_RESIDUAL_DENY_TOKENS: readonly string[] = [
+  'blockGap',
+  'prepass',
+  'verifiedCount',
+  'in this pass',
+  'fan-out',
+  'tool budget',
+  'section badge',
+  'analysis rework',
+  'contradiction status',
+];
+
+export function scrubMarkdownVocabOnly(value: string): string {
+  if (value.length === 0) return value;
+
+  let out = value;
+  for (const { pattern, replacement } of READABLE_REWRITES) {
+    out = out.replace(pattern, replacement);
+  }
+  for (const token of MARKDOWN_RESIDUAL_DENY_TOKENS) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(token)}\\b`, 'gi'), '');
+  }
+
+  return out
+    .split('\n')
+    .map((line) => {
+      // Preserve LEADING indentation so nested lists and indented code blocks
+      // keep their structure; collapse only INTERIOR horizontal whitespace.
+      const lead = line.match(/^[ \t]*/)?.[0] ?? '';
+      const rest = line
+        .slice(lead.length)
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/[ \t]+([.,;:!?])/g, '$1');
+      return lead + rest;
+    })
+    .join('\n');
+}
+
 function sanitizeNode(node: unknown): unknown {
   if (typeof node === 'string') return scrubClientSurfaceText(node);
   if (Array.isArray(node)) return node.map((item) => sanitizeNode(item));

@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   isoDateTimeSchema,
   sectionIdSchema,
-  type SectionId,
 } from "@/lib/lab-engine/events/activity-event";
 import {
   isHttpUrl,
@@ -20,6 +19,17 @@ import type { CorpusExcerpt } from "@/lib/lab-engine/artifacts/artifact-envelope
 // and must be an http(s) URL. A fact whose provenance cannot be pinned to a
 // live page is not a fact — it is noise, and the ledger refuses it at the
 // boundary.
+//
+// section_id admits the 6 positioning section IDs PLUS "orchestrator" (the
+// GLM orchestrator's corpus-gather facts seed the sections and belong in the
+// same ledger). The DB column is plain text (no CHECK), so this is additive.
+export const researchFactSectionIdSchema = z.enum([
+  ...sectionIdSchema.options,
+  "orchestrator",
+]);
+
+export type ResearchFactSectionId = z.infer<typeof researchFactSectionIdSchema>;
+
 export const researchFactKindSchema = z.enum([
   "named_champion",
   "voc_quote",
@@ -32,7 +42,7 @@ export type ResearchFactKind = z.infer<typeof researchFactKindSchema>;
 export const researchFactSchema = z
   .object({
     runId: z.string().min(1),
-    sectionId: sectionIdSchema,
+    sectionId: researchFactSectionIdSchema,
     factKind: researchFactKindSchema,
     sourceUrl: z
       .string()
@@ -50,7 +60,11 @@ export type ResearchFact = z.infer<typeof researchFactSchema>;
 
 export interface ResearchFactStore {
   appendFacts: (facts: readonly ResearchFact[]) => void | Promise<void>;
-  getFacts: () => ResearchFact[];
+  // ASYNC: a Supabase-backed store returns the UNION of its own in-process
+  // appended facts AND a real DB SELECT (cross-invocation reads — the
+  // orchestrator writes facts before fan-out; a section reads them here). The
+  // in-memory / noop stores resolve synchronously to their array.
+  getFacts: () => Promise<ResearchFact[]>;
 }
 
 export function createInMemoryResearchFactStore(): ResearchFactStore {
@@ -62,21 +76,21 @@ export function createInMemoryResearchFactStore(): ResearchFactStore {
         facts.push(fact);
       }
     },
-    getFacts: (): ResearchFact[] => [...facts],
+    getFacts: async (): Promise<ResearchFact[]> => [...facts],
   };
 }
 
 export function createNoopResearchFactStore(): ResearchFactStore {
   return {
     appendFacts: (): void => {},
-    getFacts: (): ResearchFact[] => [],
+    getFacts: async (): Promise<ResearchFact[]> => [],
   };
 }
 
-export function readResearchFactsFromStore(
+export async function readResearchFactsFromStore(
   store: Pick<ResearchFactStore, "getFacts">,
-): ResearchFact[] {
-  const result = researchFactSchema.array().safeParse(store.getFacts());
+): Promise<ResearchFact[]> {
+  const result = researchFactSchema.array().safeParse(await store.getFacts());
 
   if (!result.success) {
     throw new Error(
@@ -134,7 +148,7 @@ export async function appendResearchFactsBestEffort(
 
 export interface ResearchFactPromoterContext {
   runId: string;
-  sectionId: SectionId;
+  sectionId: ResearchFactSectionId;
   createdAt: string;
   parentAuditRunId?: string;
 }
@@ -273,14 +287,27 @@ export interface ResearchFactsInsertResult {
   error: { message: string } | null;
 }
 
-export interface ResearchFactsInsertBuilder {
+export interface ResearchFactsSelectResult {
+  data: Record<string, unknown>[] | null;
+  error: { message: string } | null;
+}
+
+export interface ResearchFactsSelectBuilder {
+  eq: (column: string, value: string) => Promise<ResearchFactsSelectResult>;
+}
+
+// The table builder now carries BOTH insert and select (mirrors
+// evidence-pool.ts:519-522) so a Supabase-backed store can read
+// cross-invocation rows, not just append-only.
+export interface ResearchFactsTableBuilder {
   insert: (
     rows: Record<string, unknown>[],
   ) => Promise<ResearchFactsInsertResult>;
+  select: (columns: string) => ResearchFactsSelectBuilder;
 }
 
 export interface ResearchFactsSupabaseClient {
-  from: (table: "research_facts") => ResearchFactsInsertBuilder;
+  from: (table: "research_facts") => ResearchFactsTableBuilder;
 }
 
 function toResearchFactRow(fact: ResearchFact): Record<string, unknown> {
@@ -297,8 +324,50 @@ function toResearchFactRow(fact: ResearchFact): Record<string, unknown> {
   };
 }
 
+// Inverse of toResearchFactRow: snake_case DB row -> canonical ResearchFact.
+// A NULL parent_audit_run_id is OMITTED (the schema field is .optional(), not
+// nullable). Returns null when the row fails schema validation so a single
+// malformed row never poisons the whole SELECT.
+function fromResearchFactRow(row: Record<string, unknown>): ResearchFact | null {
+  const candidate = {
+    runId: row.run_id,
+    sectionId: row.section_id,
+    factKind: row.fact_kind,
+    sourceUrl: row.source_url,
+    sourceQuote: row.source_quote,
+    claimToken: row.claim_token,
+    createdAt: row.created_at,
+    ...(row.parent_audit_run_id === null || row.parent_audit_run_id === undefined
+      ? {}
+      : { parentAuditRunId: row.parent_audit_run_id }),
+    ...(row.payload === null || row.payload === undefined
+      ? {}
+      : { payload: row.payload }),
+  };
+
+  const result = researchFactSchema.safeParse(candidate);
+  return result.success ? result.data : null;
+}
+
+// The table has NO unique constraint (migration :4-5), so the in-process
+// appended array and the DB SELECT can both surface the same fact. Dedup by a
+// deterministic content key (there is no `id` field on ResearchFact — the DB
+// `id` is generated and not round-tripped through the row mapper).
+function researchFactDedupKey(fact: ResearchFact): string {
+  return [
+    fact.runId,
+    fact.parentAuditRunId ?? "",
+    fact.sectionId,
+    fact.factKind,
+    fact.sourceUrl,
+    fact.claimToken,
+    fact.sourceQuote,
+  ].join(" ");
+}
+
 export function createResearchArtifactsResearchFactStore(
   client: ResearchFactsSupabaseClient,
+  parentAuditRunId?: string,
 ): ResearchFactStore {
   const appended: ResearchFact[] = [];
 
@@ -320,6 +389,42 @@ export function createResearchArtifactsResearchFactStore(
         appended.push(fact);
       }
     },
-    getFacts: (): ResearchFact[] => [...appended],
+    // UNION of (a) this instance's in-process appended facts AND (b) a DB
+    // SELECT of all rows under parent_audit_run_id (the cross-invocation read
+    // — a sibling/orchestrator instance's writes). Deduped by content key.
+    // When no parentAuditRunId is supplied there is nothing to filter a SELECT
+    // by, so we return the in-process echo only (matches prior behavior).
+    getFacts: async (): Promise<ResearchFact[]> => {
+      const byKey = new Map<string, ResearchFact>();
+      for (const fact of appended) {
+        byKey.set(researchFactDedupKey(fact), fact);
+      }
+
+      if (parentAuditRunId !== undefined) {
+        const response = await client
+          .from("research_facts")
+          .select("*")
+          .eq("parent_audit_run_id", parentAuditRunId);
+
+        if (response.error) {
+          throw new Error(
+            `research_facts select failed: ${response.error.message}`,
+          );
+        }
+
+        for (const row of response.data ?? []) {
+          const fact = fromResearchFactRow(row);
+          if (fact === null) {
+            continue;
+          }
+          const key = researchFactDedupKey(fact);
+          if (!byKey.has(key)) {
+            byKey.set(key, fact);
+          }
+        }
+      }
+
+      return [...byKey.values()];
+    },
   };
 }

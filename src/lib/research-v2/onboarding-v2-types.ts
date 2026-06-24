@@ -9,6 +9,15 @@ export interface SalesProcessDocRef {
   url: string;
 }
 
+// A cited source captured during research, surfaced read-only in the GTM
+// brief review. Kept here so the onboarding wizard's corpusSources prop shape
+// stays stable independent of the research state machine.
+export interface CorpusSourceLink {
+  title: string;
+  url: string;
+  whyItMatters?: string;
+}
+
 export interface OnboardingV2Data {
   // Section 1: Product & Revenue Model
   companyName: string;

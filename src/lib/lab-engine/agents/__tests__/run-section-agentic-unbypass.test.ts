@@ -21,6 +21,13 @@ import type { TranscriptRecord } from "@/lib/lab-engine/agents/verification/prov
 // The mocked generator returns a real transcript whose URLs/quotes the provenance
 // detector accepts, so no remediation round fires (which would call live GLM).
 
+// Records the `allowedOverride` buildAgenticTools received per call, so a test
+// can assert the agentic path resolved a NON-EMPTY tool set for a section.
+const buildAgenticToolsCalls: Array<{
+  sectionId: string;
+  allowedOverride: readonly string[] | undefined;
+}> = [];
+
 const generateAgenticGLMSectionMock = vi.fn(
   async (..._args: unknown[]): Promise<{
     markdown: string;
@@ -102,10 +109,11 @@ vi.mock("../agentic-glm-runner", () => ({
   // When tools are allowed (test 1), it returns one fake tool per allowed name
   // so the agentic path proceeds past the guard to the generation runner.
   buildAgenticTools: (
-    _sectionId: string,
+    sectionId: string,
     _env: unknown,
     allowedOverride?: readonly string[],
   ): Record<string, unknown> => {
+    buildAgenticToolsCalls.push({ sectionId, allowedOverride });
     if (allowedOverride !== undefined && allowedOverride.length > 0) {
       return Object.fromEntries(
         allowedOverride.map((name) => [name, { execute: async () => ({}) }]),
@@ -212,6 +220,7 @@ describe("runAgenticGLMSection unbypass (Phase 1 regression)", (): void => {
   beforeEach((): void => {
     generateAgenticGLMSectionMock.mockClear();
     projectMarkdownToTypedBodyMock.mockClear();
+    buildAgenticToolsCalls.length = 0;
   });
 
   afterEach((): void => {
@@ -384,5 +393,155 @@ describe("runAgenticGLMSection unbypass (Phase 1 regression)", (): void => {
     const events = await readEvents(store, runId);
     const fallback = events.find((e) => e.type === "agentic-fallback");
     expect(fallback).toBeUndefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // P2 — Market (positioningMarketCategory): the section the live pilot flips.
+  // The tool-sourcing logic is section-agnostic, so prove it for Market: flag ON
+  // + live tools on -> the agentic GENERATION runner is reached with a NON-EMPTY
+  // tool set resolved from definition.allowedTools, and the answer-tool fallback
+  // does NOT run.
+  // ---------------------------------------------------------------------------
+  it("Market: flag ON + live tools on resolves a NON-EMPTY tool set and reaches the agentic GLM path (no answer-tool fallback)", async (): Promise<void> => {
+    const marketSectionId = "positioningMarketCategory";
+    const rootDir = await mkdtemp(join(tmpdir(), "aigos-agentic-market-"));
+    const store = createRunStore({
+      rootDir,
+      defaultSectionIds: [marketSectionId],
+      now: () => new Date("2026-06-23T12:00:00.000Z"),
+    });
+    const { saaslaunchResearchInput } = await import(
+      "@/lib/lab-engine/fixtures/saaslaunch"
+    );
+    await store.createRun({ ...saaslaunchResearchInput, runId: "run-agentic-market" });
+    const runSection = (await import("../run-section")).runSection;
+    const { marketCategoryFixtureArtifact, marketCategoryFixtureSectionOutput } =
+      await import("@/lib/lab-engine/fixtures/market-category-artifact");
+    // Return the MARKET body from the projector so the agentic commit validates
+    // and the no-committable fallback (which calls runAnswerTool) is not reached.
+    projectMarkdownToTypedBodyMock.mockImplementation(async () => ({
+      body: marketCategoryFixtureArtifact.body,
+      validates: true as const,
+      completeness: [],
+    }));
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [],
+      text: "",
+      answerInput: marketCategoryFixtureSectionOutput,
+    }));
+
+    let commitError: unknown = undefined;
+    try {
+      await runSection(
+        { runId: "run-agentic-market", sectionId: marketSectionId },
+        {
+          store,
+          loadSkill: async () => "skill md",
+          preparedContext: {
+            sectionId: marketSectionId,
+            corpusRows: [
+              {
+                id: "prepared_1",
+                sourceUrl: "https://example.com/prepared",
+                title: "Prepared context source",
+                text: "Prepared context row text.",
+                observedAt: "2026-06-23T01:00:00.000Z",
+                sourceId: "prepared_source_1",
+                scope: "global",
+              },
+            ],
+            factRows: [],
+            coverageRows: [],
+            toolGapRows: [],
+            researchUseful: true,
+          },
+          env: {
+            LAB_AGENTIC_GLM_SECTIONS: marketSectionId,
+            LAB_ENGINE_LIVE_TOOLS: "true",
+          },
+          now: () => new Date("2026-06-23T12:00:00.000Z"),
+          newId: () => "evt-market",
+          runAnswerTool,
+        },
+      );
+    } catch (error) {
+      commitError = error;
+    }
+
+    // The agentic GLM generation runner was reached for Market.
+    expect(generateAgenticGLMSectionMock).toHaveBeenCalled();
+    // The answer-tool fallback did NOT run.
+    expect(runAnswerTool).not.toHaveBeenCalled();
+    // No agentic-fallback event was emitted.
+    const events = await readEvents(store, "run-agentic-market");
+    expect(events.find((e) => e.type === "agentic-fallback")).toBeUndefined();
+    // Tool-sourcing resolved a NON-EMPTY override for Market (definition.allowedTools).
+    const marketCall = buildAgenticToolsCalls.find(
+      (c) => c.sectionId === marketSectionId,
+    );
+    expect(marketCall).toBeDefined();
+    expect(marketCall?.allowedOverride).toBeDefined();
+    expect((marketCall?.allowedOverride ?? []).length).toBeGreaterThan(0);
+
+    if (commitError !== undefined) {
+      expect(String((commitError as Error).message)).toMatch(
+        /failed persistence validation|minimums/i,
+      );
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // P2 — loud fallback telemetry. A generation failure used to be console.warn-
+  // only: the section could flip ON, fail, and silently serve DeepSeek with NO
+  // event trail. Now it emits agentic-fallback reason=generation_failed.
+  // ---------------------------------------------------------------------------
+  it("emits agentic-fallback reason=generation_failed when the agentic generation throws, then falls back to answer-tool", async (): Promise<void> => {
+    const { store, runId } = await makeStore("run-agentic-genfail");
+    const runSection = (await import("../run-section")).runSection;
+    const { voiceOfCustomerFixtureSectionOutput } = await import(
+      "@/lib/lab-engine/fixtures/voice-of-customer-artifact"
+    );
+    // Force the agentic generation to throw -> the generation-failure fallback.
+    generateAgenticGLMSectionMock.mockRejectedValue(
+      new Error("forced GLM provider error"),
+    );
+    const supportStep = await buildVoCSupportStep();
+    const runAnswerTool = vi.fn<AnswerToolRunner>(async () => ({
+      steps: [supportStep],
+      text: "",
+      answerInput: voiceOfCustomerFixtureSectionOutput,
+    }));
+
+    try {
+      await runSection(
+        { runId, sectionId },
+        {
+          store,
+          loadSkill: async () => "skill md",
+          preparedContext: preparedContextForVoC(),
+          env: {
+            LAB_AGENTIC_GLM_SECTIONS: sectionId,
+            LAB_ENGINE_LIVE_TOOLS: "true",
+          },
+          now: () => new Date("2026-06-23T12:00:00.000Z"),
+          newId: () => "evt-genfail",
+          runAnswerTool,
+        },
+      );
+    } catch {
+      // Persistence-minimums throw is acceptable; the telemetry assertion is below.
+    }
+
+    // The agentic generation was attempted then threw.
+    expect(generateAgenticGLMSectionMock).toHaveBeenCalled();
+    // The answer-tool fallback ran.
+    expect(runAnswerTool).toHaveBeenCalled();
+    // The fallback is now OBSERVABLE telemetry, not a silent console.warn.
+    const events = await readEvents(store, runId);
+    const fallback = events.find((e) => e.type === "agentic-fallback");
+    expect(fallback).toBeDefined();
+    if (fallback?.type === "agentic-fallback") {
+      expect(fallback.metadata.reason).toBe("generation_failed");
+    }
   });
 });

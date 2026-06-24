@@ -60,17 +60,18 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, stepCountIs } from "ai";
 
 import { TOOL_CATALOG } from "../src/lib/lab-engine/agents/tools/index";
+import { getAgenticGLMModel } from "../src/lib/lab-engine/ai/models";
 
 // ---------------------------------------------------------------------------
 // Provider (verbatim from the proven probe)
 // ---------------------------------------------------------------------------
-const baseURL = process.env.DEEPSEEK_OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
-const modelId = process.env.DEEPSEEK_OLLAMA_MODEL_ID ?? "glm-5.2:cloud";
-const ollama = createOpenAICompatible({
-  apiKey: process.env.OLLAMA_API_KEY ?? "ollama", // localhost proxies cloud via CLI auth
-  baseURL,
-  name: "ollama",
-});
+// FAITHFUL OpenRouter path: use the APP's real model resolver
+// (getAgenticGLMModel → createGLMSelection → @ai-sdk/openai-compatible against
+// GLM_BASE_URL/GLM_MODEL_ID/GLM_API_KEY = OpenRouter z-ai/glm-5.2 in prod).
+// NOT the localhost Ollama shortcut — this exercises the same wiring the app uses.
+const baseURL = process.env.GLM_BASE_URL ?? "http://localhost:11434/v1";
+const modelId = process.env.GLM_MODEL_ID ?? "glm-5.2:cloud";
+const sectionModel = getAgenticGLMModel(process.env);
 
 const DEFAULT_CORPUS_PATH = "tmp/zz-section-out/ramp-research-input.json";
 const OUT_ROOT = "tmp/zz-agentic-glm";
@@ -740,7 +741,7 @@ async function main() {
   let result: Awaited<ReturnType<typeof generateText>>;
   try {
     result = await generateText({
-      model: ollama(modelId),
+      model: sectionModel,
       tools,
       stopWhen: stepCountIs(MAX_STEPS),
       system,

@@ -158,9 +158,9 @@ describe("research-fact ledger durability (a timeout kills the agent, never its 
     // The champion acquisition ran exactly once (the stub seam is exercised).
     expect(acquireBuyerPersonaPrepass).toHaveBeenCalledTimes(1);
 
-    const championFacts = factStore
-      .getFacts()
-      .filter((fact) => fact.factKind === "named_champion");
+    const championFacts = (await factStore.getFacts()).filter(
+      (fact) => fact.factKind === "named_champion",
+    );
 
     // The marquee assertion: a timeout discarded the body, but the facts survive.
     expect(championFacts.length).toBeGreaterThanOrEqual(3);

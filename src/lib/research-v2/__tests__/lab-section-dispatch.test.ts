@@ -174,7 +174,35 @@ function claimResult(
 }
 
 function supabaseClient(): SupabaseClient {
-  return { rpc: vi.fn() } as unknown as SupabaseClient;
+  // The dispatch now threads a factStore with parentAuditRunId into
+  // prepareSectionContext, so getFacts issues a real research_facts SELECT.
+  // The base client returns no ledger rows (the cross-instance read is covered
+  // by supabaseClientWithFacts below).
+  return supabaseClientWithFacts([]);
+}
+
+// A supabase client whose `research_facts` SELECT returns the supplied rows.
+// Used to prove the dispatch threads factStore + parentAuditRunId into
+// prepareSectionContext so a ledger fact (written by the orchestrator / a
+// sibling section) actually reaches preparedContext.factRows (R1 keystone).
+function supabaseClientWithFacts(
+  rows: Record<string, unknown>[],
+): SupabaseClient {
+  return {
+    rpc: vi.fn(),
+    from: (_table: string) => ({
+      insert: async (): Promise<{ error: null }> => ({ error: null }),
+      select: (_columns: string) => ({
+        eq: async (
+          column: string,
+          value: unknown,
+        ): Promise<{ data: Record<string, unknown>[]; error: null }> => ({
+          data: rows.filter((row) => row[column] === value),
+          error: null,
+        }),
+      }),
+    }),
+  } as unknown as SupabaseClient;
 }
 
 async function runScheduled(
@@ -246,6 +274,10 @@ describe('scheduleLabSectionJob', () => {
         readArtifactData: expect.any(Function),
         writeArtifactData: expect.any(Function),
       }),
+      factStore: expect.objectContaining({
+        appendFacts: expect.any(Function),
+        getFacts: expect.any(Function),
+      }),
       parentAuditRunId: PARENT_ID,
       preparedContext: expect.objectContaining({
         sectionId: SECTION_ID,
@@ -288,6 +320,55 @@ describe('scheduleLabSectionJob', () => {
               id: 'excerpt_1',
               sourceUrl: 'https://fellow.app',
               scope: 'global',
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('threads factStore + parentAuditRunId into prepareSectionContext so a ledger fact reaches preparedContext.factRows (R1 keystone)', async () => {
+    const callbacks: Array<() => Promise<void>> = [];
+    const schedule = vi.fn((task: () => Promise<void>) => {
+      callbacks.push(task);
+    });
+
+    // A fact written by a sibling section under the SAME parent_audit_run_id.
+    // The dispatch-time SELECT must surface it into the prepared context.
+    const supabase = supabaseClientWithFacts([
+      {
+        run_id: 'sibling_run',
+        parent_audit_run_id: PARENT_ID,
+        section_id: SECTION_ID,
+        fact_kind: 'named_champion',
+        source_url: 'https://example.com/case-study',
+        source_quote: 'Jane Doe — VP Finance, Acme',
+        claim_token: 'Jane Doe',
+        payload: null,
+        created_at: '2026-06-24T00:00:00.000Z',
+      },
+    ]);
+
+    await scheduleLabSectionJob({
+      userId: USER_ID,
+      runId: RUN_ID,
+      sectionId: SECTION_ID,
+      zones: [SECTION_ID],
+      researchInput: validResearchInput(),
+      supabase,
+      schedule,
+    });
+
+    await runScheduled(callbacks);
+
+    expect(dispatchMocks.runLabSectionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preparedContext: expect.objectContaining({
+          sectionId: SECTION_ID,
+          factRows: expect.arrayContaining([
+            expect.objectContaining({
+              sourceUrl: 'https://example.com/case-study',
+              claimToken: 'Jane Doe',
             }),
           ]),
         }),

@@ -123,3 +123,28 @@ export function NarrativeBlock({
     </div>
   );
 }
+
+/**
+ * Long-form section research markdown — the un-caged GLM body (§4.1). Unlike
+ * NarrativeBlock this does NOT route the prose through textOrGap: that guard
+ * (looksLikeNavMenuGarbage) collapses any body over 1000 chars OR with >=3
+ * markdown links into a generic gap note, which EVERY real ~2000-word research
+ * body with cited URLs trips — so the whole feature would render nothing. Here
+ * the prose is already deterministically vocab-scrubbed at commit time; we only
+ * gate on genuinely-empty content and otherwise render the full markdown
+ * (headings, nested lists, links, inline [n] citations) via Streamdown.
+ */
+export function SectionNarrativeMarkdown({
+  prose,
+  className,
+}: {
+  prose: string;
+  className?: string;
+}): React.ReactElement | null {
+  if (prose.trim().length === 0) return null;
+  return (
+    <div className={cn('flex flex-col gap-4', className)}>
+      <Response components={CITED_MARKDOWN_COMPONENTS}>{prose}</Response>
+    </div>
+  );
+}

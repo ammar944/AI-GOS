@@ -29,7 +29,7 @@ import {
   type SalesProcessDocRef,
   type SectionField,
 } from "@/lib/research-v2/onboarding-v2-types";
-import type { CorpusSourceLink } from "@/lib/research-v2/state-machine";
+import type { CorpusSourceLink } from "@/lib/research-v2/onboarding-v2-types";
 import { cn } from "@/lib/utils";
 
 interface OnboardingWizardProps {

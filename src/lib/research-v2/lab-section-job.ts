@@ -16,6 +16,7 @@ import {
   type RunSectionResult,
 } from '@/lib/lab-engine/agents/run-section';
 import type { EvidencePoolStore } from '@/lib/lab-engine/evidence/evidence-pool';
+import type { ResearchFactStore } from '@/lib/lab-engine/evidence/research-fact';
 import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import {
   isSupportedSectionId,
@@ -36,6 +37,7 @@ export interface RunLabSectionJobInput {
   deadlineAt?: number;
   store: RunStore;
   evidencePoolStore?: EvidencePoolStore;
+  factStore?: ResearchFactStore;
   parentAuditRunId?: string;
   preparedContext?: PreparedSectionContext;
   runSectionImpl?: LabRunSection;
@@ -66,7 +68,18 @@ export async function runLabSectionJob(
           runId: input.runId,
           sectionId,
         },
-        { store: input.store },
+        {
+          store: input.store,
+          // Defense-in-depth: the dispatch pre-builds preparedContext today, so
+          // this fallback rarely fires — but when it does, thread the ledger
+          // read path so factRows are populated even without a pre-built ctx.
+          ...(input.factStore === undefined
+            ? {}
+            : { factStore: input.factStore }),
+          ...(input.parentAuditRunId === undefined
+            ? {}
+            : { parentAuditRunId: input.parentAuditRunId }),
+        },
       ));
     const sectionPromise = runSectionImpl(
       {
@@ -83,6 +96,9 @@ export async function runLabSectionJob(
         ...(input.evidencePoolStore === undefined
           ? {}
           : { evidencePoolStore: input.evidencePoolStore }),
+        ...(input.factStore === undefined
+          ? {}
+          : { factStore: input.factStore }),
         ...(input.parentAuditRunId === undefined
           ? {}
           : { parentAuditRunId: input.parentAuditRunId }),

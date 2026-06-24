@@ -23,6 +23,8 @@
  * this module is transcript-grounding. The two are additive, not overlapping.
  */
 
+import { isQuoteContainedInLiveText } from "./source-liveness";
+
 // ---------------------------------------------------------------------------
 // Public contract
 // ---------------------------------------------------------------------------
@@ -1079,6 +1081,88 @@ function urlGroundedInTranscript(citedUrl: string, gt: GroundTruth): boolean {
 // ---------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Per-record quote-at-URL grounding (P2 bugfix)
+//
+// Check 2 grounds a quote against the WHOLE transcript blob, which lets a
+// laundered quote pass: a real quote retrieved from URL-A, but attributed in the
+// body to a DIFFERENT URL-B (also fetched, page text does not contain it). These
+// helpers bind each quote to the text of ITS attributed URL. The at-URL check
+// fires ONLY when the attributed URL WAS fetched (has text in the per-URL map) —
+// an unfetched URL is left to Check 1 / the network-unavailable carve-out
+// (mirrors commit 7afc84fc's at-URL containment contract).
+// ---------------------------------------------------------------------------
+
+/**
+ * Map each normalized URL seen in a transcript record to the normalized text of
+ * EVERY record whose serialized output/input mentions that URL. A single tool
+ * output blob can carry several URLs + snippets; binding the whole record text
+ * to each of its URLs is the honest, conservative association (it can only make
+ * the at-URL check MORE forgiving, never invent a false drop).
+ */
+function buildPerUrlText(records: TranscriptRecord[]): Map<string, string> {
+  const perUrl = new Map<string, string>();
+  for (const r of records) {
+    if (r.isError) continue;
+    const serialized = safeStringify(r.output) + "  " + safeStringify(r.input);
+    const recordUrls = extractTranscriptUrls(serialized);
+    if (recordUrls.size === 0) continue;
+    const recordText = normalizeText(serialized);
+    for (const u of recordUrls) {
+      const prior = perUrl.get(u);
+      perUrl.set(u, prior === undefined ? recordText : `${prior}  ${recordText}`);
+    }
+  }
+  return perUrl;
+}
+
+/**
+ * Return the per-URL text for a body-cited URL, tolerating sub-path / query
+ * drift between the body citation and the transcript URL (same matching policy
+ * as urlGrounded). Returns null when no fetched record carries the URL.
+ */
+function lookupPerUrlText(
+  perUrl: Map<string, string>,
+  citedUrl: string,
+): string | null {
+  const n = normalizeUrl(citedUrl);
+  if (!n) return null;
+  const direct = perUrl.get(n);
+  if (direct !== undefined) return direct;
+  for (const [u, text] of perUrl) {
+    if (u.includes(n) || n.includes(u)) return text;
+  }
+  return null;
+}
+
+/**
+ * Extract `{ quote, url }` pairs from the body: an evidence quote whose line ALSO
+ * carries a cited URL (markdown target, bare https, or parenthetical bare domain
+ * with a TLD). Only attributed-URL quotes are returned — the blob-level Check 2
+ * already handles quotes with no URL attribution. Mirrors extractEvidenceQuotes'
+ * blockquote / italic-attributed acceptance so the two stay aligned.
+ */
+function extractAttributedQuotePairs(
+  body: string,
+): Array<{ quote: string; url: string }> {
+  const pairs: Array<{ quote: string; url: string }> = [];
+  const lines = body.split(/\n/);
+  for (const line of lines) {
+    if (/^\s*#{1,6}\s/.test(line)) continue;
+    const urls = extractBodyUrls(line);
+    if (urls.length === 0) continue;
+    const re = /[“"]([^”"]{15,})[”"]/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(line))) {
+      const text = m[1].trim();
+      if (text.length < 15) continue;
+      // bind the quote to the FIRST cited URL on the line (the attribution target)
+      pairs.push({ quote: text, url: urls[0] });
+    }
+  }
+  return pairs;
+}
+
 /**
  * In-memory detector entry point. Same logic as the script's `detect()` but the body and
  * transcript records are passed in (already parsed) rather than read from disk.
@@ -1130,6 +1214,29 @@ export function detectProvenanceViolations(args: DetectProvenanceArgs): DetectPr
         ceiling: CEIL_LAUNDERED,
         span: q.slice(0, 200),
         reason: `Quoted span (≥15 chars) is not found in the transcript (substring + ≥90% token-overlap both miss).`,
+      });
+    }
+  }
+
+  // Check 2b — quote-at-URL laundering (per-record). A quote attributed to a
+  // SPECIFIC fetched URL must appear in THAT URL's page text, not merely somewhere
+  // in the transcript blob. Fires only when the attributed URL was fetched (has
+  // text) and the quote is absent there — the missing-page carve-out leaves
+  // unfetched URLs to Check 1. De-duped against the blob-level Check 2 above so a
+  // quote is never double-counted.
+  const perUrlText = buildPerUrlText(records);
+  for (const { quote, url } of extractAttributedQuotePairs(body)) {
+    if (ungroundedQuotes.includes(quote)) continue; // already flagged by Check 2
+    const urlText = lookupPerUrlText(perUrlText, url);
+    if (urlText === null) continue; // attributed URL never fetched -> Check 1's job
+    if (!isQuoteContainedInLiveText(urlText, quote)) {
+      ungroundedQuotes.push(quote);
+      violations.push({
+        check: "quote_not_in_transcript",
+        severity: "laundered",
+        ceiling: CEIL_LAUNDERED,
+        span: quote.slice(0, 200),
+        reason: `Quoted span (≥15 chars) is attributed to "${normalizeUrl(url)}" but is not present in that source's fetched page text (quote laundered onto the wrong URL).`,
       });
     }
   }

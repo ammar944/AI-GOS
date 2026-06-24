@@ -19,7 +19,6 @@ import {
   type ScheduleLabSectionTask,
 } from '@/lib/research-v2/lab-section-dispatch';
 import {
-  corpusReady,
   getDeepResearchProgramData,
   loadOwnedResearchSession,
 } from '@/lib/research-v2/orchestration-session';
@@ -489,27 +488,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
   }
 
-  if (!corpusReady(session)) {
-    return NextResponse.json(
-      {
-        error: 'corpus_not_ready',
-        message:
-          'deepResearchProgram corpus must finish before running a section',
-      },
-      { status: 409 },
-    );
-  }
-
   const deepResearchProgramData = getDeepResearchProgramData(session);
-  if (deepResearchProgramData === null) {
-    return NextResponse.json(
-      {
-        error: 'corpus_data_missing',
-        message: `deepResearchProgram status is complete for run ${body.run_id}, but data is missing`,
-      },
-      { status: 500 },
-    );
-  }
 
   const preflightResponse = buildLabSectionProviderPreflightResponse({
     runId: body.run_id,

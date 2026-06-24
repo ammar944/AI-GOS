@@ -207,6 +207,16 @@ export const demandIntentBodySchema = z
     negativeKeywords: z.array(z.string().min(1)).optional(),
     // Populated DETERMINISTICALLY by the provenance gate at commit time (Gate E), NEVER by the model — model self-certification here would launder past the trust ceiling.
     evidenceVerdict: evidenceVerdictSchema,
+    // §4.1 (RAW un-caged GLM) — GLM's un-thinned research markdown, carried on
+    // the typed body so it survives strict persist-time re-validation and renders
+    // as the primary card body. Additive, optional, backward compatible. Present
+    // on every PROJECTABLE section so the agentic path can attach it uniformly.
+    narrativeMarkdown: z
+      .string()
+      .min(1)
+      .nullable()
+      .transform((value) => value ?? undefined)
+      .optional(),
   })
   .strict();
 

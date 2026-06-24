@@ -26,7 +26,6 @@ import { buildLabSectionProviderPreflightResponse } from '@/lib/research-v2/lab-
 import { isSupportedSectionId } from '@/lib/lab-engine/sections/section-registry';
 import { scheduleLabSectionJob } from '@/lib/research-v2/lab-section-dispatch';
 import {
-  corpusReady,
   getDeepResearchProgramData,
   loadOwnedResearchSession,
 } from '@/lib/research-v2/orchestration-session';
@@ -176,27 +175,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (!session) {
       return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
     }
-    if (!corpusReady(session)) {
-      return NextResponse.json(
-        {
-          error: 'corpus_not_ready',
-          message:
-            'deepResearchProgram corpus must finish before rerunning a lab section',
-        },
-        { status: 409 },
-      );
-    }
 
     const deepResearchProgramData = getDeepResearchProgramData(session);
-    if (deepResearchProgramData === null) {
-      return NextResponse.json(
-        {
-          error: 'corpus_data_missing',
-          message: `deepResearchProgram status is complete for run ${runId}, but data is missing`,
-        },
-        { status: 500 },
-      );
-    }
 
     const preflightResponse = buildLabSectionProviderPreflightResponse({
       runId,

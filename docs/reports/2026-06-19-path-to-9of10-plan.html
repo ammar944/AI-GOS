@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI-GOS — The Path to 9/10 (2026-06-19)</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141a24; --panel2:#1b2330; --line:#27313f;
+    --ink:#e6edf3; --muted:#8b98a9; --faint:#5d6b7d;
+    --green:#3fb950; --amber:#e3a008; --red:#f15b50; --blue:#58a6ff; --violet:#bc8cff;
+    --proven:#1f6f3f; --shadow:0 1px 0 rgba(255,255,255,.03),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16202e 0,var(--bg) 60%);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1140px;margin:0 auto;padding:40px 28px 80px}
+  h1{font-size:30px;letter-spacing:-.02em;margin:0 0 6px}
+  h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:46px 0 16px;font-weight:600}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 4px}
+  .meta{color:var(--faint);font-size:13px;margin-top:10px}
+  code{background:#0d1420;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#cdd9e5;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .truth{background:linear-gradient(180deg,#1a1410,#15110d);border:1px solid #5a3a12;border-radius:14px;padding:22px 24px;margin-top:24px;box-shadow:var(--shadow)}
+  .truth .tag{color:var(--amber);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+  .truth p{margin:10px 0 0}
+  .truth b{color:#ffd98a}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow)}
+  .card.proven{border-color:#2c5a3a;background:linear-gradient(180deg,#10231a,#0f1a16)}
+  .card.unproven{border-color:#5a2c2c;background:linear-gradient(180deg,#231312,#1a0f0f)}
+  .card h3{margin:0 0 10px;font-size:15px}
+  .card.proven h3{color:#7ee2a0}
+  .card.unproven h3{color:#ff9b90}
+  ul{margin:8px 0 0;padding-left:18px}
+  li{margin:6px 0;color:#cdd9e5}
+  li .why{color:var(--faint);font-size:13px}
+  .status{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:6px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .stat .k{color:var(--faint);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .stat .v{font-size:17px;margin-top:5px;font-weight:600}
+  .v.good{color:var(--green)} .v.warn{color:var(--amber)} .v.bad{color:var(--red)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .sec{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;position:relative;box-shadow:var(--shadow)}
+  .sec .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .sec .name{font-weight:650;font-size:15.5px}
+  .score{font-family:ui-monospace,monospace;font-size:13px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+  .score.s7{background:#13351f;color:#7ee2a0;border:1px solid #2c5a3a}
+  .score.s6{background:#33260f;color:#f0c45a;border:1px solid #5a4312}
+  .score.s5{background:#331b18;color:#ff9b90;border:1px solid #5a2c2c}
+  .mode{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:6px;margin-top:9px}
+  .mode.empty{background:#3a1414;color:#ff8a7e} .mode.confident{background:#3a1414;color:#ff8a7e}
+  .mode.shallow{background:#33260f;color:#f0c45a} .mode.gap{background:#22303f;color:#8fc3ff} .mode.healthy{background:#13351f;color:#7ee2a0}
+  .sec .blk{color:var(--muted);font-size:13.5px;margin:10px 0 0}
+  .sec .fix{font-size:13.5px;margin:9px 0 0;color:#cdd9e5}
+  .sec .fix b{color:#fff}
+  .bars{height:5px;background:#0d1420;border-radius:4px;overflow:hidden;margin-top:12px;border:1px solid var(--line)}
+  .bars > i{display:block;height:100%}
+  .phase{display:flex;gap:16px;margin-top:14px}
+  .phase .dot{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;border:1px solid var(--line);background:var(--panel2)}
+  .phase .body{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;flex:1;box-shadow:var(--shadow)}
+  .phase.key .dot{background:#2a1d05;border-color:#5a3a12;color:#ffd98a}
+  .phase.key .body{border-color:#5a3a12;background:linear-gradient(180deg,#1a1510,#13110d)}
+  .phase .body h4{margin:0 0 4px;font-size:15px}
+  .phase.key .body h4{color:#ffd98a}
+  .phase .body .o{color:var(--faint);font-size:13px;margin-top:8px}
+  .keytag{font-size:10px;letter-spacing:.12em;color:#ffd98a;font-weight:700}
+  .prov{font-size:11px;color:var(--faint);border-top:1px dashed var(--line);margin-top:14px;padding-top:6px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-top:10px}
+  .legend b{color:var(--ink)}
+  a{color:var(--blue)}
+  .foot{margin-top:50px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px}
+  @media(max-width:780px){.cols,.grid,.status{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>AI-GOS — The Path to 9/10</h1>
+  <p class="sub">Honest status &amp; build plan for the research deck. No "simple patching" story.</p>
+  <p class="meta">2026-06-19 · branch <code>refactor/architecture-deepening</code> @ <code>d23837de</code> + <code>f9733b4d</code> · tree green, not pushed</p>
+
+  <div class="truth">
+    <span class="tag">⚑ Your question, answered straight</span>
+    <p><b>"Did we prove everything in CLI — is it now just a matter of wiring it to the agent?"</b> &nbsp;No. We proved <b>ingredients</b> in CLI, not the <b>dish</b>. "Just wiring" is the comforting story that has burned this project run after run ("fixed it" → live run disproves it). The honest gap to 9/10 is <b>three different bodies of work</b>, and only one of them is wiring:</p>
+    <p style="margin-top:14px">① <b>Wiring</b> (real but small): inject the fact-ledger at dispatch, fix the <code>getFacts()</code> cross-section read bug, apply migrations. &nbsp; ② <b>Producer truth-fixes</b> (the bulk — this is logic, not wiring): stop the sections that <b>manufacture empty</b> (BuyerICP) and <b>manufacture confident</b> (Paid Media), stop dropping promotable evidence (VoC), fix fan-out starvation. &nbsp; ③ <b>The proof loop</b> (the keystone): there is <b>no</b> way to run a full deck end-to-end and grade it without a browser today — so none of ①/② is verifiable. Build that first or the cycle repeats.</p>
+  </div>
+
+  <h2>What we actually proved in CLI &nbsp;vs&nbsp; what we did not</h2>
+  <div class="cols">
+    <div class="card proven">
+      <h3>✓ Proven ingredients (real)</h3>
+      <ul>
+        <li>The evidence <b>ledger captures facts</b> — 139 http-pinned facts in the live spine test, including the dropped champions <span class="why">(Pillar&nbsp;1 proven)</span></li>
+        <li><b>Corpus arrives clean</b> with per-row source URLs <span class="why">(corpus-to-research-input)</span></li>
+        <li>BuyerICP <b>can</b> produce 7 grounded, source-linked personas <span class="why">(0→7, solo, frozen corpus, F0 fix — UNCOMMITTED)</span></li>
+        <li><b>Gates now refuse slop</b> — verifier Infinity→0, blockGap quality-aware, VoC commit-anyway removed <span class="why">(committed Phase 0, verified)</span></li>
+        <li>Structured corpus evidence + URLs <b>now reach the model live</b> <span class="why">(PreparedSectionContext, verified)</span></li>
+      </ul>
+    </div>
+    <div class="card unproven">
+      <h3>✗ Not proven — the dish</h3>
+      <ul>
+        <li>The <b>ledger half is dead on the live path</b>: no factStore instantiated, <code>getFacts()</code> has 0 live callers <span class="why">(verified this session)</span></li>
+        <li>The only <b>gated full-deck run hard-failed ~6.5–7/10</b> <span class="why">(Ramp b0d12b45)</span></li>
+        <li>The <b>3-subject 8/10 sweep was never run</b> <span class="why">(Fathom/Plain gated on Ramp clearing first)</span></li>
+        <li>The 7 personas were all <b>named humans, none via segment</b> — Option B's role/segment grounding is NOT exercised live</li>
+        <li><b>8/10 cannot be proven autonomously</b> — full run is browser/Clerk-gated, CDP dead, no in-process harness</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Current status at a glance</h2>
+  <div class="status">
+    <div class="stat"><div class="k">Branch / tree</div><div class="v good">Green · clean</div></div>
+    <div class="stat"><div class="k">Tests / build</div><div class="v good">2705 pass · build OK</div></div>
+    <div class="stat"><div class="k">Live consumption plumbing</div><div class="v warn">Half-wired</div></div>
+    <div class="stat"><div class="k">Best gated full run</div><div class="v bad">~6.5–7 / 10</div></div>
+  </div>
+  <p class="meta">Phase 0 committed real progress (corpus+URLs reach the model; gates armed) — and shipped a hidden 11-test route regression, now fixed in <code>f9733b4d</code>. Detail: <code>memory/project_phase0_stabilized_regression_fixed_2026_06_19.md</code>.</p>
+
+  <h2>The 7 sections — where each stands &amp; what 9/10 requires</h2>
+  <div class="legend">
+    <span><b>Failure modes:</b></span>
+    <span class="mode empty">manufactures empty</span>
+    <span class="mode confident">manufactures confident</span>
+    <span class="mode shallow">ships shallow</span>
+    <span class="mode gap">acquisition gap</span>
+    <span class="mode healthy">healthy producer</span>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+
+    <div class="sec">
+      <div class="top"><span class="name">Buyer ICP</span><span class="score s6">6 → 9</span></div>
+      <span class="mode empty">manufactures empty</span>
+      <p class="blk">Found 3 real champions live → shipped <b>0</b>. <code>buildDeadlineExhaustionHonestGapBody</code> hardcodes <code>personas:[]</code> and discards acquired champions; starves to 0 under 6-way fan-out.</p>
+      <p class="fix"><b>To 9:</b> commit F0 candidate-threading · fix fan-out budget starvation · promote from ledger · ground role/segment (not only named humans) · fix acquisitionLedger enum that strips the gap report.</p>
+      <div class="bars"><i style="width:67%;background:linear-gradient(90deg,#e3a008,#f0c45a)"></i></div>
+    </div>
+
+    <div class="sec">
+      <div class="top"><span class="name">Paid Media Plan</span><span class="score s5">5 → 9</span></div>
+      <span class="mode confident">manufactures confident</span>
+      <p class="blk">Ships a launch-ready <b>$833/day</b> buy with <b>15/29 claims unsupported</b>. Hard <code>.min(1)</code> arrays + <code>synthesizeProjectedResultsFromPhases</code> fabricate rows to beat the floor. GAP-5 upstream digest built but <b>unwired</b>.</p>
+      <p class="fix"><b>To 9:</b> remove <code>.min(1)</code> fabrication (honest-empty instead) · wire the upstream-findings digest into the model · ground projections in real benchmarks.</p>
+      <div class="bars"><i style="width:55%;background:linear-gradient(90deg,#f15b50,#ff9b90)"></i></div>
+    </div>
+
+    <div class="sec">
+      <div class="top"><span class="name">Voice of Customer</span><span class="score s5">5 → 9</span></div>
+      <span class="mode shallow">ships shallow</span>
+      <p class="blk">Acquired <b>66 quotes, shipped 9</b> — 48 promotable rejected by selection caps; objections / switching / criteria / success all empty.</p>
+      <p class="fix"><b>To 9:</b> fix selection caps (the uncommitted directional-surplus partition lane addresses this) · permalink coverage · fill switching / criteria / success.</p>
+      <div class="bars"><i style="width:55%;background:linear-gradient(90deg,#e3a008,#f0c45a)"></i></div>
+    </div>
+
+    <div class="sec">
+      <div class="top"><span class="name">Competitor Landscape</span><span class="score s7">7 → 9</span></div>
+      <span class="mode gap">acquisition gap</span>
+      <p class="blk">Strongest section. Missing pricing &amp; share-of-voice; class gate is shape-only (a name with no domain passes); leaks <code>verifiedCount</code> + a 429 into reader prose (G1).</p>
+      <p class="fix"><b>To 9:</b> acquire pricing + SoV · require a domain in the class gate · scrub telemetry from prose.</p>
+      <div class="bars"><i style="width:78%;background:linear-gradient(90deg,#3fb950,#7ee2a0)"></i></div>
+    </div>
+
+    <div class="sec">
+      <div class="top"><span class="name">Demand Intent</span><span class="score s5">5 → 9</span></div>
+      <span class="mode gap">acquisition gap</span>
+      <p class="blk">Provenance guard against fabricated keyword economics exists; discovery fires but value is modest. Missing buyer questions / venues. SpyFu CPC <b>$4.10</b> contaminates a "monthly budget" fact (E3).</p>
+      <p class="fix"><b>To 9:</b> commercial seeds · raise keyword-discovery value · add buyer questions/venues · fix CPC→budget contamination.</p>
+      <div class="bars"><i style="width:55%;background:linear-gradient(90deg,#e3a008,#f0c45a)"></i></div>
+    </div>
+
+    <div class="sec">
+      <div class="top"><span class="name">Market Category</span><span class="score s5">5 → 9</span></div>
+      <span class="mode healthy">healthy producer</span>
+      <p class="blk">Producer fills honestly given data + time. Blocker is acquisition: missing market sizing / TAM evidence.</p>
+      <p class="fix"><b>To 9:</b> acquire + deliver TAM / sizing evidence to the section. Low structural risk.</p>
+      <div class="bars"><i style="width:55%;background:linear-gradient(90deg,#3fb950,#7ee2a0)"></i></div>
+    </div>
+
+    <div class="sec">
+      <div class="top"><span class="name">Offer Diagnostic</span><span class="score s5">5 → 9</span></div>
+      <span class="mode healthy">healthy producer</span>
+      <p class="blk">Producer fills honestly given data + time. Blocker is acquisition: missing proof points / retention evidence.</p>
+      <p class="fix"><b>To 9:</b> acquire proof + retention evidence. Low structural risk.</p>
+      <div class="bars"><i style="width:55%;background:linear-gradient(90deg,#3fb950,#7ee2a0)"></i></div>
+    </div>
+
+    <div class="sec" style="border-style:dashed">
+      <div class="top"><span class="name">Cross-cutting (all 7)</span><span class="score s6">required</span></div>
+      <span class="mode gap">renderer + gates</span>
+      <p class="blk">A 0.0-confidence section renders identical to a 1.0 one — <b>confidence is invisible</b>. The richest honesty data (evidenceGapReport, sources[]) is rendered by no renderer. Commit gates check shape, not value.</p>
+      <p class="fix"><b>To 9:</b> render confidence + honesty data · make commit gates value-based not shape-based.</p>
+    </div>
+
+  </div>
+  <p class="prov">Per-section failure mechanisms, scores &amp; bug IDs (E3, G1) are sourced from the project's own analysis — <code>docs/reports/2026-06-18-gap-to-8-session-findings.md</code>, <code>2026-06-19-gap-to-8-overnight-results.md</code>, <code>2026-06-18-research-pipeline-master-plan.md</code>, and <code>docs/plans/2026-06-19-section-readiness-after-corpus-proof-plan.md</code>. The next session should re-verify each against the named code before fixing. Verified-this-session items are tagged inline above.</p>
+
+  <h2>How we get there — sequence, not scatter</h2>
+
+  <div class="phase key">
+    <div class="dot">A</div>
+    <div class="body">
+      <span class="keytag">★ KEYSTONE — do this first</span>
+      <h4>Build the proof loop + finish the wiring</h4>
+      <div>In-process <b>full-run + DB-persist harness</b> so the deterministic 8/10 gate runs without a browser. Inject the fact-ledger at dispatch and fix the <code>getFacts()</code> cross-section read bug (it would otherwise block every legitimate grounded deck under fan-out). Apply the two <code>20260618_*</code> migrations.</div>
+      <div class="o">Unlocks: every fix after this is provable end-to-end in minutes. Without it, ②/③ stay guesswork — this is why the project keeps looping.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">B</div>
+    <div class="body">
+      <h4>Producer truth — the validation triad: Competitor → BuyerICP → VoC</h4>
+      <div>Fix the manufacture-empty (BuyerICP), manufacture-confident (Paid Media's sibling logic), and ships-shallow (VoC) bugs. These three (best + worst + middle) calibrate the bar; <b>each fix gated by the Phase-A harness</b> on a real run, not a unit test or a solo dump.</div>
+      <div class="o">Exit: the triad clears the deterministic floor on a fresh Ramp run.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">C</div>
+    <div class="body">
+      <h4>Remaining producers + render honesty</h4>
+      <div>Paid Media de-fabrication + upstream digest wiring · acquisition gaps for Market / Demand / Offer · render confidence and the honesty data · convert commit gates from shape to value.</div>
+      <div class="o">Exit: all 7 sections + Paid Media fill or honestly gap on a fresh run, with confidence visible.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">D</div>
+    <div class="body">
+      <h4>The definition of done — 3-subject sweep</h4>
+      <div>Full live runs for <b>Ramp · Fathom · Plain</b>, each through the gate, then an offline value-read judge. 8/10 first (clears the floor), then 9/10 (genuinely usable by a media buyer — no half-empty pages, no fabricated confidence).</div>
+      <div class="o">This is the ONLY thing that counts as "it works." Not unit tests, not solo sections, not an average.</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>The one-line truth:</b> the corpus and the ledger ingredients are proven; the producers that turn them into a deck still manufacture empty/confident output, and we have no way to prove a full deck end-to-end. 9/10 = build the proof loop → fix the producers against it → pass the 3-subject sweep. Reaching it is achievable systematically — it is not "just wiring," and it is not "simple patching."<br><br>
+    Sources: workflow ground-truth assessment (this session) · <code>memory/MEMORY.md</code> open threads · reports under <code>docs/reports/2026-06-1{8,9}-*</code> · plan <code>docs/plans/2026-06-19-section-readiness-after-corpus-proof-plan.md</code>.
+  </div>
+
+</div>
+</body>
+</html>

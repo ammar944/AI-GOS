@@ -60,6 +60,21 @@ export type SectionWriterPassRunner = (
   params: SectionWriterPassParams,
 ) => Promise<SectionWriterPassResult>;
 
+// No-op writer pass: returns the input untouched. Used on the GLM-agentic path
+// where GLM already authored the narrative prose end-to-end (mirrors the proven
+// 8/9 standalone harness). Running the DeepSeek writer pen on GLM output both
+// slows the section (~30-300s extra) AND can sink a committable GLM body when
+// DeepSeek's rewrite fails the gate, forcing a fallback to the answer-tool path.
+export const noopSectionWriterPassRunner: SectionWriterPassRunner = async (
+  params,
+): Promise<SectionWriterPassResult> => ({
+  output: params.output,
+  applied: false,
+  rewrittenFieldCount: 0,
+  durationMs: 0,
+  skipReason: "writer_pen_disabled_glm_agentic",
+});
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

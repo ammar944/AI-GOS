@@ -10,11 +10,10 @@ import {
 } from '@/lib/research-v2/state-machine';
 
 /**
- * Phase 6: resume / partial / abort robustness.
- *
- * The contract is: any /research-v2 run can be reconstructed purely from
- * server tables, retries reopen the same parent through idempotent seeding,
- * and a reload during partial progress keeps completed children visible.
+ * Resume / partial robustness for the no-corpus-before-onboarding flow
+ * (LOCK 2026-06-24). The contract: any /research-v3 run is reconstructed
+ * purely from server tables. Positioning work or saved onboarding data →
+ * sections. Otherwise the user is still in the user-filled onboarding phase.
  */
 
 const RUN_ID = 'run-session-state';
@@ -28,7 +27,7 @@ function inferSession(
   });
 }
 
-describe('Phase 6 resume reducer contract', () => {
+describe('resume reducer contract (no corpus-before-onboarding)', () => {
   it('resumes to sections when at least one positioning result exists', () => {
     const state = inferSession({
       researchResults: {
@@ -49,64 +48,29 @@ describe('Phase 6 resume reducer contract', () => {
     expect(state?.kind).toBe('sections');
   });
 
-  it('resumes to onboarding with corpus prefill when corpus is complete but no positioning work has started', () => {
+  it('resumes to sections when onboarding data has been persisted', () => {
     const state = inferSession({
-      researchResults: {
-        deepResearchProgram: {
-          status: 'complete',
-          data: {
-            onboardingFields: {
-              companyName: {
-                value: 'Clay',
-                confidence: 0.91,
-                sourceUrl: 'https://www.clay.com',
-                reasoning: 'Homepage identity.',
-              },
-            },
-          },
-        },
-      },
+      researchResults: null,
+      onboardingData: { companyName: 'Clay' },
+      jobStatus: null,
+    });
+    expect(state).toMatchObject({ kind: 'sections', runId: RUN_ID });
+  });
+
+  it('resumes to onboarding (blank, no seed) when nothing is persisted', () => {
+    const state = inferSession({
+      researchResults: null,
       onboardingData: null,
       jobStatus: null,
     });
-    expect(state).toMatchObject({
-      kind: 'onboarding',
-      runId: RUN_ID,
-      prefill: { companyName: 'Clay' },
-      prefillMetadata: {
-        companyName: {
-          value: 'Clay',
-          confidence: 0.91,
-          sourceUrl: 'https://www.clay.com',
-          reasoning: 'Homepage identity.',
-        },
-      },
-    });
+    expect(state).toMatchObject({ kind: 'onboarding', runId: RUN_ID });
+    if (state?.kind !== 'onboarding') throw new Error('expected onboarding');
+    expect(state.initialData).toBeUndefined();
   });
 
-  it('overlays cached profile onboarding over corpus prefill for saved-profile reruns', () => {
+  it('seeds onboarding from the operator own profile-cached onboarding (never a corpus prefill)', () => {
     const state = inferSession({
-      researchResults: {
-        deepResearchProgram: {
-          status: 'complete',
-          data: {
-            onboardingFields: {
-              companyName: {
-                value: 'Corpus Clay',
-                confidence: 0.91,
-                sourceUrl: 'https://www.clay.com',
-                reasoning: 'Homepage identity.',
-              },
-              productDescription: {
-                value: 'A GTM data platform.',
-                confidence: 0.93,
-                sourceUrl: 'https://www.clay.com',
-                reasoning: 'Homepage description.',
-              },
-            },
-          },
-        },
-      },
+      researchResults: null,
       onboardingData: null,
       jobStatus: null,
       cachedOnboardingData: {
@@ -114,147 +78,61 @@ describe('Phase 6 resume reducer contract', () => {
         pricingTiers: 'Enterprise pricing reviewed by the operator.',
       },
     });
-
     expect(state?.kind).toBe('onboarding');
     if (state?.kind !== 'onboarding') throw new Error('expected onboarding');
-    expect(state.prefill).toMatchObject({
+    expect(state.initialData).toMatchObject({
       companyName: 'Human-edited Clay',
-      productDescription: 'A GTM data platform.',
       pricingTiers: 'Enterprise pricing reviewed by the operator.',
     });
-    expect(state.prefillMetadata.companyName).toBeUndefined();
-    expect(state.prefillMetadata.productDescription).toMatchObject({
-      value: 'A GTM data platform.',
-      confidence: 0.93,
-      sourceUrl: 'https://www.clay.com',
-      reasoning: 'Homepage description.',
-    });
   });
 
-  it('threads corpus.sources into resumed onboarding state (deduped, persistent)', () => {
-    const state = inferSession({
-      researchResults: {
-        deepResearchProgram: {
-          status: 'complete',
-          data: {
-            onboardingFields: {
-              companyName: { value: 'Clay', confidence: 0.9 },
-            },
-            corpus: {
-              sources: [
-                {
-                  title: 'Clay homepage',
-                  url: 'https://www.clay.com',
-                  whyItMatters: 'Primary identity.',
-                },
-                // Duplicate URL is dropped.
-                { title: 'Clay homepage (dup)', url: 'https://www.clay.com' },
-                // Missing URL is dropped.
-                { title: 'No URL', url: '' },
-                { title: 'Clay pricing', url: 'https://www.clay.com/pricing' },
-              ],
-            },
-          },
-        },
-      },
-      onboardingData: null,
-      jobStatus: null,
-    });
-    expect(state?.kind).toBe('onboarding');
-    if (state?.kind !== 'onboarding') throw new Error('expected onboarding');
-    expect(state.corpusSources).toEqual([
+  it('ONBOARDING_START lands in onboarding with a runId and no seed', () => {
+    const state = researchV2Reducer(
+      { kind: 'welcome' },
+      { type: 'ONBOARDING_START', runId: RUN_ID },
+    );
+    expect(state).toEqual({ kind: 'onboarding', runId: RUN_ID });
+  });
+
+  it('RESUME_ONBOARDING carries the operator own prior onboarding as initialData', () => {
+    const state = researchV2Reducer(
+      { kind: 'welcome' },
       {
-        title: 'Clay homepage',
-        url: 'https://www.clay.com',
-        whyItMatters: 'Primary identity.',
+        type: 'RESUME_ONBOARDING',
+        runId: RUN_ID,
+        initialData: { companyName: 'Clay' },
       },
-      { title: 'Clay pricing', url: 'https://www.clay.com/pricing' },
-    ]);
-  });
-
-  it('resumes to onboarding with empty prefill only when a persisted corpus is complete without onboarding fields', () => {
-    const state = inferSession({
-      researchResults: {
-        deepResearchProgram: {
-          status: 'complete',
-          data: {},
-        },
-      },
-      onboardingData: null,
-      jobStatus: null,
-    });
-    expect(state).toMatchObject({
+    );
+    expect(state).toEqual({
       kind: 'onboarding',
       runId: RUN_ID,
-      prefill: {},
-      prefillMetadata: {},
+      initialData: { companyName: 'Clay' },
     });
   });
 
-  it('resumes to corpus when corpus is mid-stream', () => {
-    const state = inferSession({
-      researchResults: {
-        deepResearchProgram: { status: 'running' },
-      },
-      onboardingData: null,
-      jobStatus: null,
-    });
-    expect(state?.kind).toBe('corpus');
-  });
-
-  it('resumes to corpus when no persisted corpus exists yet', () => {
-    const state = inferSession({
-      researchResults: null,
-      onboardingData: null,
-      jobStatus: null,
-    });
-    expect(state).toMatchObject({
-      kind: 'corpus',
-      runId: RUN_ID,
-      phase: 'streaming',
-    });
-  });
-
-  it('ignores duplicate and stale corpus completion actions after the first transition', () => {
-    const first = researchV2Reducer(
-      { kind: 'corpus', runId: RUN_ID, phase: 'streaming' },
-      {
-        type: 'CORPUS_COMPLETE',
-        runId: RUN_ID,
-        prefill: { companyName: 'Clay' },
-        prefillMetadata: {},
-      },
+  it('ONBOARDING_COMPLETE transitions onboarding → sections', () => {
+    const state = researchV2Reducer(
+      { kind: 'onboarding', runId: RUN_ID },
+      { type: 'ONBOARDING_COMPLETE' },
     );
-
-    const duplicate = researchV2Reducer(first, {
-      type: 'CORPUS_COMPLETE',
+    expect(state).toEqual({
+      kind: 'sections',
       runId: RUN_ID,
-      prefill: { companyName: 'Should not replace state' },
-      prefillMetadata: {},
+      currentSection: null,
     });
+  });
 
-    const stale = researchV2Reducer(
-      { kind: 'corpus', runId: 'new-run', phase: 'streaming' },
-      {
-        type: 'CORPUS_COMPLETE',
-        runId: RUN_ID,
-        prefill: { companyName: 'Old run' },
-        prefillMetadata: {},
-      },
+  it('ONBOARDING_COMPLETE is ignored outside the onboarding phase', () => {
+    const welcome = researchV2Reducer(
+      { kind: 'welcome' },
+      { type: 'ONBOARDING_COMPLETE' },
     );
-
-    expect(duplicate).toBe(first);
-    expect(stale).toEqual({ kind: 'corpus', runId: 'new-run', phase: 'streaming' });
+    expect(welcome).toEqual({ kind: 'welcome' });
   });
 
   it('reload during a partial parent run reconstructs to "sections" — completed children remain visible', () => {
-    // Simulates the reload-during-run path: three positioning sections have
-    // committed via commit_artifact_section, three are still queued. The
-    // resume reducer sees the three complete ones in research_results and
-    // lands on 'sections', so the worker chips show their statuses.
     const state = inferSession({
       researchResults: {
-        deepResearchProgram: { status: 'complete' },
         positioningMarketCategory: { status: 'complete' },
         positioningBuyerICP: { status: 'complete' },
         positioningCompetitorLandscape: { status: 'complete' },

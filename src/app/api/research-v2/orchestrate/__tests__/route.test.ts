@@ -279,32 +279,6 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(response.status).toBe(404);
   });
 
-  it('returns 409 when the deepResearchProgram corpus is missing', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    mockOwnedSession({ ownerId: 'user_1', corpusStatus: null });
-    const response = await POST(
-      makeRequest({
-        journey_session_id: VALID_SESSION_ID,
-        run_id: VALID_RUN_ID,
-      }),
-    );
-    expect(response.status).toBe(409);
-    const body = await response.json();
-    expect(body.error).toBe('corpus_not_ready');
-  });
-
-  it('returns 409 when the corpus has not reached status=complete yet', async () => {
-    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
-    mockOwnedSession({ ownerId: 'user_1', corpusStatus: 'running' });
-    const response = await POST(
-      makeRequest({
-        journey_session_id: VALID_SESSION_ID,
-        run_id: VALID_RUN_ID,
-      }),
-    );
-    expect(response.status).toBe(409);
-  });
-
   it('fails before seeding or fan-out when local lab provider preflight fails', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession({ ownerId: 'user_1' });
@@ -350,7 +324,7 @@ describe('POST /api/research-v2/orchestrate', () => {
     ).toEqual([...POSITIONING_SECTION_IDS]);
   });
 
-  it('dispatches lab section jobs by default', async () => {
+  it('kicks off the chained orchestrator by default (fan-out lives there now)', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession({ ownerId: 'user_1' });
     const fetchMock = vi
@@ -366,21 +340,16 @@ describe('POST /api/research-v2/orchestrate', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(6);
-    const fetchCalls = fetchMock.mock.calls as [string, RequestInit][];
-    expect(fetchCalls.map(([url]) => url)).toEqual(
-      POSITIONING_SECTION_IDS.map(
-        () => 'http://localhost/api/research-v2/run-lab-section',
-      ),
-    );
-    expect(
-      fetchCalls.map(([, init]) => {
-        const parsedBody = JSON.parse(String(init.body)) as {
-          section_id: string;
-        };
-        return parsedBody.section_id;
-      }),
-    ).toEqual([...POSITIONING_SECTION_IDS]);
+    // Exactly one kickoff — to /run-orchestrator, NOT six to /run-lab-section.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [[url, init]] = fetchMock.mock.calls as [string, RequestInit][];
+    expect(url).toBe('http://localhost/api/research-v2/run-orchestrator');
+    const parsedBody = JSON.parse(String(init.body)) as {
+      run_id: string;
+      parent_audit_run_id: string;
+    };
+    expect(parsedBody.run_id).toBe(VALID_RUN_ID);
+    expect(parsedBody.parent_audit_run_id).toBe(PARENT_ID);
   });
 
   it('passes the canonical six POSITIONING_SECTION_IDS to seed_orchestration', async () => {
@@ -449,7 +418,7 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(b1).toEqual(b2);
   });
 
-  it('dispatches each lab section through the internal route without running sections inline', async () => {
+  it('kicks the chained orchestrator without running sections inline', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     const deepResearchProgramData = {
       corpus: {
@@ -474,44 +443,35 @@ describe('POST /api/research-v2/orchestrate', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    // Exactly one kickoff — to /run-orchestrator (the fan-out lives there now).
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(routeMocks.corpusToResearchInput).not.toHaveBeenCalled();
     expect(routeMocks.createSupabaseRunStore).not.toHaveBeenCalled();
     expect(routeMocks.store.createRun).not.toHaveBeenCalled();
     expect(routeMocks.runSection).not.toHaveBeenCalled();
 
-    const fetchCalls = fetchMock.mock.calls as [string, RequestInit][];
-    expect(fetchCalls.map(([url]) => url)).toEqual(
-      POSITIONING_SECTION_IDS.map(
-        () => 'http://localhost/api/research-v2/run-lab-section',
-      ),
-    );
-    expect(
-      fetchCalls.map(([, init]) => {
-        const parsedBody = JSON.parse(String(init.body)) as {
-          section_id: string;
-        };
-        return parsedBody.section_id;
-      }),
-    ).toEqual([...POSITIONING_SECTION_IDS]);
-    for (const [, init] of fetchCalls) {
-      const parsedBody = JSON.parse(String(init.body)) as { run_id: string };
-      expect(parsedBody.run_id).toBe(VALID_RUN_ID);
-      expect(init.headers).toMatchObject({
-        'Content-Type': 'application/json',
-        Cookie: '__session=abc',
-      });
-    }
+    const [[url, init]] = fetchMock.mock.calls as [string, RequestInit][];
+    expect(url).toBe('http://localhost/api/research-v2/run-orchestrator');
+    const parsedBody = JSON.parse(String(init.body)) as {
+      run_id: string;
+      parent_audit_run_id: string;
+    };
+    expect(parsedBody.run_id).toBe(VALID_RUN_ID);
+    expect(parsedBody.parent_audit_run_id).toBe(PARENT_ID);
+    expect(init.headers).toMatchObject({
+      'Content-Type': 'application/json',
+      Cookie: '__session=abc',
+    });
   });
 
-  it('awaits all six lab kickoffs before responding (survives the serverless freeze)', async () => {
+  it('awaits the orchestrator kickoff before responding (survives the serverless freeze)', async () => {
     routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
     mockOwnedSession({ ownerId: 'user_1' });
 
-    // Deferred fetch: each kickoff hangs until released. Proves orchestrate
-    // keeps the invocation alive until the kickoffs are delivered, instead of
-    // fire-and-forgetting them (which dies when Vercel freezes the function
-    // after the response, leaving every section stuck at queued).
+    // Deferred fetch: the kickoff hangs until released. Proves orchestrate
+    // keeps the invocation alive until the run-orchestrator kickoff is
+    // delivered, instead of fire-and-forgetting it (which dies when Vercel
+    // freezes the function after the response, leaving the run stuck at queued).
     const releases: Array<() => void> = [];
     const fetchMock = vi.fn(
       () =>
@@ -535,8 +495,8 @@ describe('POST /api/research-v2/orchestrate', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    // All six dispatched, but the handler is still awaiting them.
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    // Kickoff dispatched, but the handler is still awaiting it.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(responded).toBe(false);
 
     releases.forEach((release) => release());
@@ -571,7 +531,11 @@ describe('POST /api/research-v2/orchestrate', () => {
       }),
     );
     expect(r1.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    // One run-orchestrator kickoff when the sections are queued.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe(
+      'http://localhost/api/research-v2/run-orchestrator',
+    );
 
     fetchMock.mockClear();
 
@@ -581,7 +545,8 @@ describe('POST /api/research-v2/orchestrate', () => {
         run_id: VALID_RUN_ID,
       }),
     );
-    // Idempotent: same parent + section ids, but zero re-dispatch.
+    // Idempotent: same parent + section ids, but zero re-dispatch (sections are
+    // already running, so the orchestrator is not re-kicked).
     expect(r2.status).toBe(200);
     const b2 = await r2.json();
     expect(b2.parent_audit_run_id).toBe(PARENT_ID);
@@ -628,17 +593,20 @@ describe('POST /api/research-v2/orchestrate', () => {
     expect(r1.status).toBe(200);
     expect(r2.status).toBe(200);
 
-    // Exactly six run-lab-section kickoffs across both POSTs — not twelve.
-    const kickoffCalls = (fetchMock.mock.calls as [string, RequestInit][]).filter(
-      ([url]) => url === 'http://localhost/api/research-v2/run-lab-section',
+    // Exactly one run-orchestrator kickoff across both racing POSTs — the
+    // queued-only gate means the second (running) POST does not re-kick. The
+    // fan-out itself now lives in run-orchestrator's completion.
+    const kickoffCalls = (
+      fetchMock.mock.calls as [string, RequestInit][]
+    ).filter(
+      ([url]) => url === 'http://localhost/api/research-v2/run-orchestrator',
     );
-    expect(kickoffCalls).toHaveLength(6);
-    const dispatchedSectionIds = kickoffCalls.map(([, init]) => {
-      const parsedBody = JSON.parse(String(init.body)) as { section_id: string };
-      return parsedBody.section_id;
-    });
-    expect([...dispatchedSectionIds].sort()).toEqual(
-      [...POSITIONING_SECTION_IDS].sort(),
-    );
+    expect(kickoffCalls).toHaveLength(1);
+    const parsedBody = JSON.parse(String(kickoffCalls[0][1].body)) as {
+      run_id: string;
+      parent_audit_run_id: string;
+    };
+    expect(parsedBody.run_id).toBe(VALID_RUN_ID);
+    expect(parsedBody.parent_audit_run_id).toBe(PARENT_ID);
   });
 });

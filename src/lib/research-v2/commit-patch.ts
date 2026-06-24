@@ -5,7 +5,10 @@ import {
   type PositioningSectionId,
 } from '@/lib/ai/prompts/positioning-skills';
 import { sectionReviewResultSchema } from '@/lib/lab-engine/artifacts/artifact-envelope';
-import { sanitizeArtifactForClientSurface } from '@/lib/research-v2/client-surface-sanitizer';
+import {
+  sanitizeArtifactForClientSurface,
+  scrubMarkdownVocabOnly,
+} from '@/lib/research-v2/client-surface-sanitizer';
 import {
   buildReviewVerificationFlag,
   buildVerificationFlag,
@@ -161,7 +164,7 @@ export function buildCommitPatch(
   const summary = typeof a.statusSummary === 'string' ? a.statusSummary : null;
   const verdict = typeof a.verdict === 'string' ? a.verdict : null;
   const review = readSectionReview(a);
-  // The markdown column is always the deterministic verdict/summary lines.
+  // The markdown column defaults to the deterministic verdict/summary lines.
   // review.upgradedMarkdown is regenerated model prose with zero evidence
   // verification — it must never replace the canonical markdown (it shipped
   // invented quotes/prices to the share view). Review stays tier +
@@ -169,7 +172,39 @@ export function buildCommitPatch(
   const markdownLines: string[] = [];
   if (verdict) markdownLines.push(`**Verdict:** ${verdict}`);
   if (summary) markdownLines.push('', summary);
-  const markdown = markdownLines.join('\n');
+  const deterministicMarkdown = markdownLines.join('\n');
+
+  // §4.1 (RAW un-caged GLM): when the artifact carries body.narrativeMarkdown,
+  // that is GLM's own source-class-labeled research — persist THAT as the card
+  // body (vocab-scrubbed for internal tool names, structure preserved), read
+  // from the RAW artifact so the full client-surface sanitizer (whose wholesale
+  // validator-replace + whitespace collapse would corrupt long prose) never
+  // touches it. Unlike the killed upgradedMarkdown path this prose was produced
+  // and grounded by the section run itself, not regenerated post-hoc.
+  const rawBody = (artifact as { body?: unknown }).body;
+  const rawNarrative =
+    rawBody !== null && typeof rawBody === 'object'
+      ? (rawBody as Record<string, unknown>).narrativeMarkdown
+      : undefined;
+  const cleanNarrative =
+    typeof rawNarrative === 'string' && rawNarrative.trim().length > 0
+      ? scrubMarkdownVocabOnly(rawNarrative)
+      : null;
+  const markdown = cleanNarrative ?? deterministicMarkdown;
+
+  // Overwrite the sanitized body's narrativeMarkdown with the markdown-safe
+  // clean copy: the full client-surface sanitizer above runs scrubClientSurfaceText
+  // on every string, which would have collapsed this blob's newlines (and could
+  // wholesale-replace it on an incidental validator-message match). The Audit
+  // Reader renders artifact.narrativeMarkdown from this `data`, so it must carry
+  // the structure-preserving copy, not the mangled one.
+  if (cleanNarrative !== null) {
+    const sanitizedBody = (a as { body?: unknown }).body;
+    if (sanitizedBody !== null && typeof sanitizedBody === 'object') {
+      (sanitizedBody as Record<string, unknown>).narrativeMarkdown =
+        cleanNarrative;
+    }
+  }
   const deterministicVerificationFlag = clampFlagToComputedTrust(
     buildVerificationFlag({
       verification: a.verification,
