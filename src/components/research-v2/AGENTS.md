@@ -19,6 +19,7 @@
 - Keep source/citation affordances visible when the artifact provides source data.
 - Renderer behavior must match artifact schemas in `src/lib/lab-engine/artifacts/` and contracts in `src/lib/research-v2/`.
 - The executive brief card renders "The Three Moves" only from real ranked moves and its fact-reconciliation appendix as capped client-language resolved-fact sentences, never as a raw readings wall or contradiction repair instructions.
+- The paid-media section renders the TYPED deck as primary (BudgetBar/tables/timeline via `PaidMediaPlanRenderer` and `PaidMediaPlanDeck`). The composer's free-markdown memo rides a dedicated additive `strategistMemo` field (not `narrativeMarkdown`) and renders as a collapsible "Full strategist memo" companion (`strategist-memo.tsx`). The 6 research sections keep their markdown-primary `narrativeMarkdown` override in `typed-artifact-renderer.tsx`.
 - Preserve stable section IDs and zone IDs.
 - UI should degrade cleanly for absent optional fields but must not hide invalid required data upstream.
 

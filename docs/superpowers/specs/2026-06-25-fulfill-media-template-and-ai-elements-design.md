@@ -2,7 +2,15 @@
 
 > Date: 2026-06-25 · Branch: `refactor/architecture-deepening`
 > Source: `docs/handoffs/2026-06-25-fulfill-media-template-and-ai-elements.md` (owner-locked)
-> Status: design approved, implementation in progress
+> Status: Tasks 1-3 shipped and verified; Task 4 deferred
+
+## Status
+
+- Task 3 ✅ shipped (commit `8b8c2680`) — 3 raw-markdown leaks fixed.
+- Task 1 ✅ shipped (commit on `paid-media-projector.ts` + composer wiring) — EXTRACT-ONLY 2nd GLM pass fallback; 5 unit tests. **Pending: one owner-gated clay run** to validate the live GLM projection path (`deckSource=decoded finishReason=stop stripAdmitted=true`).
+- Task 2 ✅ shipped — typed deck is primary, memo is a collapsible companion via `strategistMemo` (no schema change); 7 strategist-memo tests.
+- Task 4 ⏸️ deferred — the existing section copy/rerun + activity rail are already custom-built; the one material gap (registry `Tool` in the activity rail for live tool-call input/output/state) is non-trivial wiring and genuinely optional polish. Revisit separately.
+- Verification: `tsc` 0 · `npm run test:run` 3029 passed / 1 skipped (live probe) · `npm run build` green · lint clean on changed files (pre-existing `tmp/` scratch errors untouched).
 
 ## Goal
 
