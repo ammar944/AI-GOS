@@ -1,10 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   decodePaidMediaPlanFromText,
   type ComposePaidMediaPlanResult,
 } from "@/lib/lab-engine/agents/composer-glm";
-import { buildComposedPaidMediaArtifact } from "@/lib/lab-engine/agents/run-section";
+import {
+  buildComposedPaidMediaArtifact,
+  makeComposerProgressEmitter,
+} from "@/lib/lab-engine/agents/run-section";
 import { paidMediaPlanBodySchema } from "@/lib/lab-engine/artifacts/schemas/paid-media-plan";
 import type { RunSectionDeps, RunSectionInput } from "@/lib/lab-engine/agents/run-section";
 import type { RuntimeSectionDefinition } from "@/lib/lab-engine/agents/run-section";
@@ -88,5 +91,87 @@ describe("run-section — buildComposedPaidMediaArtifact", () => {
 
     expect(artifact.needs_review).toBe(true);
     expect(artifact.confidence).toBe(0.4);
+  });
+});
+
+describe("run-section — makeComposerProgressEmitter", () => {
+  it("increments seq per call and uses step.stepNumber when present", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const emit = makeComposerProgressEmitter({
+      runId: "run-1",
+      sectionId: "positioningPaidMediaPlan",
+      publish,
+    });
+
+    await emit({ stepNumber: 0 });
+    await emit({ stepNumber: 1 });
+    await emit({ stepNumber: 2 });
+
+    expect(publish).toHaveBeenCalledTimes(3);
+    expect(publish.mock.calls[0][0].seq).toBe(1);
+    expect(publish.mock.calls[1][0].seq).toBe(2);
+    expect(publish.mock.calls[2][0].seq).toBe(3);
+    expect(publish.mock.calls[0][0].snapshot.step).toBe(0);
+    expect(publish.mock.calls[2][0].snapshot.step).toBe(2);
+  });
+
+  it("publishes the full 5-key envelope + snapshot wire contract", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const emit = makeComposerProgressEmitter({
+      runId: "run-9",
+      sectionId: "positioningPaidMediaPlan",
+      publish,
+    });
+
+    await emit({ stepNumber: 4 });
+
+    // The envelope is {runId, zone, sectionId, seq, snapshot}; the flat
+    // {phase, step, message} lives only on the nested .snapshot field.
+    expect(publish).toHaveBeenCalledWith({
+      runId: "run-9",
+      zone: "positioningPaidMediaPlan",
+      sectionId: "positioningPaidMediaPlan",
+      seq: 1,
+      snapshot: {
+        phase: "composing",
+        step: 4,
+        message: "Composing paid-media deck (step 5)",
+      },
+    });
+  });
+
+  it("falls back to seq-1 for the step number when the step has no stepNumber", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const emit = makeComposerProgressEmitter({
+      runId: "run-1",
+      sectionId: "positioningPaidMediaPlan",
+      publish,
+    });
+
+    await emit(null);
+    await emit({});
+    await emit("not-an-object");
+
+    expect(publish.mock.calls[0][0].snapshot.step).toBe(0);
+    expect(publish.mock.calls[0][0].snapshot.message).toBe(
+      "Composing paid-media deck (step 1)",
+    );
+    expect(publish.mock.calls[1][0].snapshot.step).toBe(1);
+    expect(publish.mock.calls[2][0].snapshot.step).toBe(2);
+  });
+
+  it("swallows a rejecting publish (never rethrows) and warns once", async () => {
+    const publish = vi.fn().mockRejectedValue(new Error("realtime down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const emit = makeComposerProgressEmitter({
+      runId: "run-1",
+      sectionId: "positioningPaidMediaPlan",
+      publish,
+    });
+
+    await expect(emit({ stepNumber: 0 })).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    warn.mockRestore();
   });
 });

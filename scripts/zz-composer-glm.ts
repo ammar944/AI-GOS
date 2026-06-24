@@ -127,7 +127,7 @@ async function main(): Promise<void> {
   });
 
   console.log(
-    `[composer-proof] done stepCount=${result.stepCount} elapsedMs=${elapsedMs} deck=${result.deck ? "yes" : "null"} deckMarkdownLen=${result.deckMarkdown.length} stripAdmitted=${strip.admitted} stripReasons=${strip.reasons.join(",") || "(none)"}`,
+    `[composer-proof] done stepCount=${result.stepCount} elapsedMs=${elapsedMs} deck=${result.deck ? "yes" : "null"} deckSource=${result.deckSource} finishReason=${result.finishReason} deckMarkdownLen=${result.deckMarkdown.length} stripAdmitted=${strip.admitted} stripReasons=${strip.reasons.join(",") || "(none)"}`,
   );
 
   writeFileSync(join(outDir, "deck.json"), JSON.stringify(result.deck, null, 2));

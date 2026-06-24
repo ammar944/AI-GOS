@@ -13053,6 +13053,57 @@ function buildComposerLedgerDigest(
 }
 
 /**
+ * Best-effort composer progress broadcaster. The composer runs ~250s; this
+ * surfaces each compose step over the SAME Realtime section-partials channel
+ * the structured-body path uses (`section-partials:<runId>`), under the
+ * composer's own sectionId + zone, so the operator sees "composing" progress
+ * instead of a silent multi-minute gap. Never throws — a realtime outage must
+ * not stall or fail the compose call. Mirrors the orchestrator progress emitter
+ * (run-orchestrator/route.ts:96) and the throttled section broadcaster
+ * (buildStructuredBodyAttempt:12613).
+ */
+export function makeComposerProgressEmitter({
+  runId,
+  sectionId,
+  publish,
+}: {
+  runId: string;
+  sectionId: SupportedSectionId;
+  publish: SectionPartialPublishFn;
+}): (step: unknown) => Promise<void> {
+  let seq = 0;
+  return async (step: unknown): Promise<void> => {
+    seq += 1;
+    const stepNumber =
+      step !== null &&
+      typeof step === "object" &&
+      typeof (step as { stepNumber?: unknown }).stepNumber === "number"
+        ? (step as { stepNumber: number }).stepNumber
+        : seq - 1;
+    try {
+      await publish({
+        runId,
+        zone: sectionId,
+        sectionId,
+        seq,
+        snapshot: {
+          phase: "composing",
+          step: stepNumber,
+          message: `Composing paid-media deck (step ${stepNumber + 1})`,
+        },
+      });
+    } catch (err) {
+      console.warn("[lab-section] composer progress broadcast failed", {
+        runId,
+        sectionId,
+        seq,
+        error: describeErrorForLog(err),
+      });
+    }
+  };
+}
+
+/**
  * Wrap a composer result into the section ArtifactEnvelope the commit spine
  * persists. The admission floor (composerStripFloor) decides needs_review: a
  * gap-shell (deckSource 'honest_gap') or truncated (finishReason 'length') deck
@@ -13195,6 +13246,15 @@ async function runComposedPaidMediaSection(
     normalizeOptions,
     env,
     ...(input.signal === undefined ? {} : { signal: input.signal }),
+    ...(deps.broadcastPartial === undefined
+      ? {}
+      : {
+          onStepFinish: makeComposerProgressEmitter({
+            runId: input.runId,
+            sectionId: input.sectionId,
+            publish: deps.broadcastPartial,
+          }),
+        }),
   });
 
   const artifact = buildComposedPaidMediaArtifact({

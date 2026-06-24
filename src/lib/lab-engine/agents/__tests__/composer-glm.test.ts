@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   decodePaidMediaPlanFromText,
   parsePaidMediaPlanFromText,
   stripPaidMediaPlanFence,
   composerStripFloor,
+  composePaidMediaPlan,
   COMPOSER_MAX_STEPS,
   COMPOSER_COHERENCE_LAW,
 } from "@/lib/lab-engine/agents/composer-glm";
@@ -209,6 +210,64 @@ describe("composer-glm — constants + law", () => {
     expect(COMPOSER_COHERENCE_LAW.toLowerCase()).toContain("coherence");
     expect(COMPOSER_COHERENCE_LAW).toContain("ICP");
     expect(COMPOSER_COHERENCE_LAW).toContain("competitors");
+  });
+});
+
+describe("composer-glm — onStepFinish progress hook", () => {
+  it("threads onStepFinish into generateText and surfaces each step", async () => {
+    const onStepFinish = vi.fn();
+    // DI seam: a fake generateText that drives two steps through the callback,
+    // then returns the minimal shape the composer reads (text + steps).
+    const generateTextImpl = vi.fn(async (options: {
+      onStepFinish?: unknown;
+    }) => {
+      const cb = options.onStepFinish as
+        | ((step: unknown) => void | Promise<void>)
+        | undefined;
+      await cb?.({ stepNumber: 0 });
+      await cb?.({ stepNumber: 1 });
+      return { text: "", steps: [{}, {}], finishReason: "stop" };
+    }) as unknown as Parameters<
+      typeof composePaidMediaPlan
+    >[0]["generateTextImpl"];
+
+    const result = await composePaidMediaPlan({
+      committedSectionMarkdown: {},
+      ledgerDigest: "",
+      onboardingFrame: "{}",
+      env: {},
+      tools: {},
+      onStepFinish,
+      generateTextImpl,
+    });
+
+    expect(onStepFinish).toHaveBeenCalledTimes(2);
+    expect(onStepFinish).toHaveBeenNthCalledWith(1, { stepNumber: 0 });
+    expect(result.stepCount).toBe(2);
+    // empty text -> no fence -> honest_gap (the deck content is preserved as
+    // deckMarkdown and flagged for review; never a content-losing null).
+    expect(result.deckSource).toBe("honest_gap");
+  });
+
+  it("omits onStepFinish from the generateText call when not supplied", async () => {
+    let receivedKeys: string[] = [];
+    const generateTextImpl = vi.fn(async (options: Record<string, unknown>) => {
+      receivedKeys = Object.keys(options);
+      return { text: "", steps: [], finishReason: "stop" };
+    }) as unknown as Parameters<
+      typeof composePaidMediaPlan
+    >[0]["generateTextImpl"];
+
+    await composePaidMediaPlan({
+      committedSectionMarkdown: {},
+      ledgerDigest: "",
+      onboardingFrame: "{}",
+      env: {},
+      tools: {},
+      generateTextImpl,
+    });
+
+    expect(receivedKeys).not.toContain("onStepFinish");
   });
 });
 

@@ -43,7 +43,12 @@ import type { PositioningSectionId } from "@/lib/ai/prompts/positioning-skills";
 // no tools to spend them on (LOCK 2026-06-24: empty-completion blocker).
 // ---------------------------------------------------------------------------
 export const COMPOSER_MAX_STEPS = 2;
-const COMPOSER_MAX_OUTPUT_TOKENS = 12000;
+// The 13-block deck is a single high-value synthesis emit. The old 12000 ceiling
+// truncated the JSON fence (finishReason 'length') → extractPaidMediaPlanJson
+// found no closing fence → honest_gap, even when the deck content survived as
+// markdown. 24000 matches the proven projector ceiling (agentic-glm-projector
+// emits a comparably large structured projection on the same GLM model).
+const COMPOSER_MAX_OUTPUT_TOKENS = 24000;
 
 export const COMPOSER_COHERENCE_LAW = `
 CROSS-SECTION COHERENCE (non-negotiable):
@@ -66,6 +71,15 @@ export interface ComposePaidMediaPlanArgs {
   signal?: AbortSignal;
   env?: Record<string, string | undefined>;
   /**
+   * Best-effort per-step progress hook (passed straight to generateText's
+   * onStepFinish). The composer runs ~250s; the caller (runComposedPaidMediaSection)
+   * uses this to broadcast a "composing" snapshot over the section-partials
+   * channel so the operator does not stare at a silent multi-minute gap. Never
+   * block the call — broadcast best-effort and swallow errors. Mirrors the
+   * orchestrator's onStepFinish seam (orchestrator-glm.ts:139).
+   */
+  onStepFinish?: (step: unknown) => void | Promise<void>;
+  /**
    * Structured onboarding economics (targetCac / cvrChain / creativeCapacity /
    * channelHint), threaded the same way `withNormalizedPaidMediaPlanOutput`
    * does (run-section.ts) so the budget cascade + CAC math survive the deck
@@ -73,6 +87,8 @@ export interface ComposePaidMediaPlanArgs {
    * the decoder still produces a valid deck, just without the economics bridge.
    */
   normalizeOptions?: NormalizePaidMediaPlanBodyOptions;
+  /** DI seam for tests — defaults to the real `ai` generateText. */
+  generateTextImpl?: typeof generateText;
 }
 
 /** How the deck body was obtained — visible so a parse-miss is not silent. */
@@ -131,7 +147,8 @@ CRITICAL: the \`\`\`paid-media-plan JSON block must come before any prose, and i
     "Compose the 13-block Paid Media Plan. Reconcile cross-section coherence by construction. Emit the paid-media-plan JSON block + the markdown readout.",
   ].join("\n\n");
 
-  const result = await generateText({
+  const generateTextFn = args.generateTextImpl ?? generateText;
+  const result = await generateTextFn({
     model: getAgenticGLMModel(env),
     ...(Object.keys(tools).length > 0
       ? { tools: tools as Parameters<typeof generateText>[0]["tools"] }
@@ -141,6 +158,9 @@ CRITICAL: the \`\`\`paid-media-plan JSON block must come before any prose, and i
     prompt: userPrompt,
     abortSignal: args.signal,
     maxOutputTokens: COMPOSER_MAX_OUTPUT_TOKENS,
+    ...(args.onStepFinish === undefined
+      ? {}
+      : { onStepFinish: args.onStepFinish }),
   });
 
   const transcript = buildTranscriptRecord(result.steps, "paidMediaPlan");
