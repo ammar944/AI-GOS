@@ -19,7 +19,7 @@ import {
   scrubReaderText,
   stripMoneyProvenanceSuffix,
 } from '@/components/research-v2/primitives';
-import { StatusPill } from '@/components/research-v2/ui-kit';
+import { BodyProse, StatusPill } from '@/components/research-v2/ui-kit';
 import {
   budgetSegments,
   formatUsdValue,
@@ -637,9 +637,7 @@ export function PaidMediaPlanDeck({
             detail="Per audience"
           />
         </div>
-        <p className="max-w-[68ch] text-[14px] leading-[1.6] text-foreground/90">
-          {scrubReaderText(body.creativeStrategy.prose)}
-        </p>
+        <BodyProse>{scrubReaderText(body.creativeStrategy.prose)}</BodyProse>
       </DeckPage>
 
       {/* p7 — creative framework */}

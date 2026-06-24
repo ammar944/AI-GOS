@@ -16,6 +16,7 @@ import {
   Palette,
 } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
+import { BodyProse } from '@/components/research-v2/ui-kit';
 import { PROFILE_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile, ProfileSession } from '@/lib/profiles/business-profiles';
 import { StyleRefsTab } from '@/components/assets/style-refs-tab';
@@ -415,7 +416,7 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
               key={i}
               className="border-l-2 border-[var(--text-primary)] pl-3 py-1"
             >
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{insight}</p>
+              <BodyProse>{insight}</BodyProse>
             </div>
           ))}
         </div>

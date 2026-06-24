@@ -11,7 +11,10 @@ import {
   VerdictCallout,
 } from '@/components/research-v2/ui-kit';
 import { MEMO_PROSE_CLASS } from '@/components/research-v2/executive-brief-card';
-import { scrubReaderText } from '@/components/research-v2/primitives';
+import {
+  scrubReaderText,
+  SectionNarrativeMarkdown,
+} from '@/components/research-v2/primitives';
 import { PaidMediaPlanDeck } from '@/components/research-v2/section-renderers/paid-media-plan-deck';
 import { TypedArtifactRenderer } from '@/components/research-v2/typed-artifact-renderer';
 import { ShaderMeshBackground, BackgroundPattern } from '@/components/ui/sl-background';
@@ -247,9 +250,10 @@ function V3SharedSessionView({
                     <SharedReviewMetadata artifact={activeSection.artifact} />
                   </div>
                 ) : activeSection.markdown ? (
-                  <pre className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">
-                    {activeSection.markdown}
-                  </pre>
+                  <SectionNarrativeMarkdown
+                    prose={activeSection.markdown}
+                    className="mt-6"
+                  />
                 ) : (
                   <div className="mt-6 border-l-2 border-border pl-4 text-sm text-muted-foreground">
                     No data available for this section
