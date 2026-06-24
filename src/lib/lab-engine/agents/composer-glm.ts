@@ -27,6 +27,7 @@ import {
   buildTranscriptRecord,
   GROUNDING_LAW,
 } from "./agentic-glm-runner";
+import { projectPaidMediaPlan } from "./paid-media-projector";
 import {
   normalizePaidMediaPlanBody,
   type NormalizePaidMediaPlanBodyOptions,
@@ -168,7 +169,7 @@ CRITICAL: the \`\`\`paid-media-plan JSON block must come before any prose, and i
   // billable deck on any shape drift the section path already survives. We snap
   // aliased/wrapper keys via the proven normalizePaidMediaPlanBody and, on a
   // hard parse miss, return an honest-gap body — never a content-losing null.
-  const { deck, deckSource } = decodePaidMediaPlanFromText(
+  let { deck, deckSource } = decodePaidMediaPlanFromText(
     result.text,
     args.normalizeOptions,
   );
@@ -176,6 +177,37 @@ CRITICAL: the \`\`\`paid-media-plan JSON block must come before any prose, and i
   // [grounded]/[inferred]/[gap] markers the model emitted) regardless of the
   // JSON decode — the human reviews it even when deckSource === "honest_gap".
   const deckMarkdown = stripPaidMediaPlanFence(result.text);
+
+  // PROJECTOR FALLBACK (2026-06-25): GLM reliably writes a billable markdown
+  // memo but, on the observed failure mode, ignores the `emit the JSON block
+  // first` instruction — the inline decode returns honest_gap while the memo
+  // is rich. Run a 2nd EXTRACT-ONLY GLM pass over the memo (markdown is INPUT,
+  // only JSON is output — no competing prose, so the structural blocker that
+  // defeated inline composition does not apply). Mirrors the proven section
+  // projector (agentic-glm-projector.ts). Only fires on a miss, never on a
+  // clean inline decode. On a projector miss we keep the original honest-gap
+  // deck (never content-losing) and surface the projector source for triage.
+  if (deckSource === "honest_gap" && deckMarkdown.trim().length > 0) {
+    try {
+      const projection = await projectPaidMediaPlan({
+        deckMarkdown,
+        env,
+        normalizeOptions: args.normalizeOptions,
+      });
+      if (projection.deckSource === "decoded") {
+        deck = projection.deck;
+        deckSource = "decoded";
+        console.info("[composer] projector_filled_deck", {
+          runId: args.env?.RUN_ID,
+          projectionLen: projection.projectionText.length,
+        });
+      }
+    } catch (error) {
+      console.warn("[composer] projector_fallback_threw", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   return {
     deck,

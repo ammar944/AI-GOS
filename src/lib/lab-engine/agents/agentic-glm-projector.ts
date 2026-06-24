@@ -304,8 +304,9 @@ Omit an OPTIONAL field ONLY when the markdown genuinely has no such block. For a
 /**
  * Strip a ```json ... ``` (or bare ```) fence wrapper if the model added one,
  * then return the inner JSON text. Falls back to the original text untouched.
+ * Exported for reuse by the paid-media projector (same fence-strip discipline).
  */
-function stripCodeFences(raw: string): string {
+export function stripCodeFences(raw: string): string {
   const trimmed = raw.trim();
   const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
   if (fenceMatch) {
@@ -346,6 +347,14 @@ function tryParseJson(raw: string): { ok: true; value: unknown } | { ok: false }
   } catch {
     return { ok: false };
   }
+}
+
+/**
+ * Exported for reuse by the paid-media projector (same JSON-parse + envelope
+ * unwrap discipline). Tolerates code fences and single-key envelopes.
+ */
+export function parseProjectedJson(raw: string): { ok: true; value: unknown } | { ok: false } {
+  return tryParseJson(raw);
 }
 
 function buildProjectionPrompt(spec: SectionProjectionSpec, markdown: string): string {
