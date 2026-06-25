@@ -8,6 +8,7 @@ import {
   Compass,
   Building2,
   BarChart3,
+  Megaphone,
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ const BASE_NAV_ITEMS: NavEntry[] = [
 
 const INTERNAL_NAV_ITEMS: NavEntry[] = [
   { icon: BarChart3, label: 'SaaSLaunch', href: '/internal/saaslaunch' },
+  { icon: Megaphone, label: 'Meta Ads', href: '/internal/meta-ads' },
 ];
 
 interface AuthMeResponse {

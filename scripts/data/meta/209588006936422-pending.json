@@ -1,0 +1,15 @@
+{
+  "account": {
+    "meta_account_id": "209588006936422",
+    "client_slug": "anura",
+    "account_name": "Anura",
+    "currency": "USD",
+    "status": "ACTIVE",
+    "is_mcp_enabled": false
+  },
+  "window": {
+    "date_preset": "pending",
+    "pulled_at": null
+  },
+  "rows": []
+}
