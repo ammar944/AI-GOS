@@ -18,6 +18,7 @@
     "agency:probe": "node scripts/zz-probe-agency-state.mjs",
     "agency:sync-corpus": "node scripts/zz-sync-saaslaunch-corpus.mjs",
     "agency:sync-fathom": "node scripts/zz-sync-fathom.mjs",
+    "meta:sync": "node scripts/zz-sync-meta.mjs",
     "agency:upload-signals": "node scripts/zz-upload-fathom-signals.mjs"
   },
   "dependencies": {
