@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   PAID_MEDIA_PLAN_SECTION_ID,
@@ -504,6 +504,7 @@ describe('POST /api/research-v2/run-lab-section', () => {
   beforeEach((): void => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-deepseek-key');
     vi.stubEnv('LAB_ENGINE_PROVIDER', 'deepseek-direct');
     routeMocks.afterCallbacks.length = 0;
@@ -562,6 +563,10 @@ describe('POST /api/research-v2/run-lab-section', () => {
     // carrying the researchInput, so mirror that here (record.input is consumed).
     routeMocks.store.readRun.mockResolvedValue({ input: validResearchInput() });
     routeMocks.runLabSectionJob.mockResolvedValue(undefined);
+  });
+
+  afterEach((): void => {
+    vi.unstubAllGlobals();
   });
 
   it('ACKs 202 and seeds synchronously, then runs the section job in after()', async (): Promise<void> => {
@@ -682,6 +687,45 @@ describe('POST /api/research-v2/run-lab-section', () => {
     expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
   });
 
+  it('uses session metadata websiteUrl when onboarding data lacks the website', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    routeMocks.sessionQuery.maybeSingle.mockResolvedValue({
+      data: {
+        id: '00000000-0000-4000-8000-000000000001',
+        user_id: 'user_1',
+        run_id: VALID_RUN_ID,
+        research_results: {
+          deepResearchProgram: {
+            status: 'complete',
+            data: { corpus: { researchSummary: 'Fellow automates meetings.' } },
+          },
+        },
+        onboarding_data: { companyName: 'Fellow' },
+        metadata: { websiteUrl: 'https://fellow.app' },
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(routeMocks.corpusToResearchInput).toHaveBeenCalledWith({
+      runId: VALID_RUN_ID,
+      deepResearchProgramData: {
+        corpus: { researchSummary: 'Fellow automates meetings.' },
+      },
+      onboardingData: {
+        companyName: 'Fellow',
+        websiteUrl: 'https://fellow.app',
+      },
+    });
+  });
+
   it('server-dispatches the paid-media plan once after the sixth positioning section commits', async (): Promise<void> => {
     // W3-A pure-lean: the sixth core-section commit fans out paid-media directly
     // off the 6/6 rollup from the SERVER (autonomy invariant — survives a closed
@@ -769,6 +813,69 @@ describe('POST /api/research-v2/run-lab-section', () => {
         sectionId: PAID_MEDIA_PLAN_SECTION_ID,
       }),
     });
+  });
+
+  it('kicks the dedicated paid-media route after the sixth positioning section commits when internal auth is configured', async (): Promise<void> => {
+    routeMocks.auth.mockResolvedValue({ userId: 'user_1' });
+    vi.stubEnv('RAILWAY_API_KEY', 'internal-route-key');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+    mockOwnedSession();
+    routeMocks.parentArtifactQuery.maybeSingle.mockResolvedValue({
+      data: {
+        status: 'complete',
+        children_complete: POSITIONING_SECTION_IDS.length,
+        children_total: POSITIONING_SECTION_IDS.length,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        run_id: VALID_RUN_ID,
+        section_id: 'positioningBuyerICP',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    await drainAfter();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string,
+      {
+        body?: string;
+        headers?: Record<string, string>;
+        method?: string;
+        signal?: AbortSignal;
+      },
+    ];
+    expect(url).toBe('http://localhost/api/research-v2/run-paid-media-plan');
+    expect(init).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-internal-key': 'internal-route-key',
+        },
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(JSON.parse(init.body ?? '{}')).toEqual(
+      expect.objectContaining({
+        user_id: 'user_1',
+        run_id: VALID_RUN_ID,
+        research_input: expect.objectContaining({
+          committedPositioningArtifacts: Object.fromEntries(
+            committedPositioningRows().map((row) => [row.zone, row.data]),
+          ),
+        }),
+      }),
+    );
+    expect(routeMocks.seedOrchestration).toHaveBeenCalledTimes(1);
+    expect(routeMocks.claimSectionRun).toHaveBeenCalledTimes(1);
+    expect(routeMocks.after).toHaveBeenCalledTimes(1);
+    expect(routeMocks.runLabSectionJob).toHaveBeenCalledTimes(1);
   });
 
   it('does NOT dispatch paid-media when the rollup is only 5/6 complete (autonomy gate)', async (): Promise<void> => {

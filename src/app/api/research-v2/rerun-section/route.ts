@@ -33,7 +33,7 @@ import { loadUploadedDocumentContextsForSession } from '@/lib/research-v2/upload
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 const ABORT_TIMEOUT_MS = 3_000;
 

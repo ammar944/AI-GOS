@@ -290,6 +290,59 @@ describe('scheduleLabSectionJob', () => {
     });
   });
 
+  it('uses the supplied jobTimeoutMs for the section deadline so the composer gets a longer clock', async () => {
+    const callbacks: Array<() => Promise<void>> = [];
+    const schedule = vi.fn((task: () => Promise<void>) => {
+      callbacks.push(task);
+    });
+
+    const before = Date.now();
+    await scheduleLabSectionJob({
+      userId: USER_ID,
+      runId: RUN_ID,
+      sectionId: SECTION_ID,
+      zones: [SECTION_ID],
+      researchInput: validResearchInput(),
+      supabase: supabaseClient(),
+      schedule,
+      jobTimeoutMs: 760_000,
+    });
+
+    await runScheduled(callbacks);
+
+    const arg = dispatchMocks.runLabSectionJob.mock.calls[0]?.[0] as {
+      deadlineAt: number;
+    };
+    expect(arg.deadlineAt).toBeGreaterThanOrEqual(before + 760_000);
+    expect(arg.deadlineAt).toBeLessThan(before + 760_000 + 10_000);
+  });
+
+  it('defaults the section deadline to the 285s job timeout when no override is supplied', async () => {
+    const callbacks: Array<() => Promise<void>> = [];
+    const schedule = vi.fn((task: () => Promise<void>) => {
+      callbacks.push(task);
+    });
+
+    const before = Date.now();
+    await scheduleLabSectionJob({
+      userId: USER_ID,
+      runId: RUN_ID,
+      sectionId: SECTION_ID,
+      zones: [SECTION_ID],
+      researchInput: validResearchInput(),
+      supabase: supabaseClient(),
+      schedule,
+    });
+
+    await runScheduled(callbacks);
+
+    const arg = dispatchMocks.runLabSectionJob.mock.calls[0]?.[0] as {
+      deadlineAt: number;
+    };
+    expect(arg.deadlineAt).toBeGreaterThanOrEqual(before + 285_000);
+    expect(arg.deadlineAt).toBeLessThan(before + 285_000 + 10_000);
+  });
+
   it('prepares section context through the run store before the scheduled lab job runs', async () => {
     const callbacks: Array<() => Promise<void>> = [];
     const schedule = vi.fn((task: () => Promise<void>) => {

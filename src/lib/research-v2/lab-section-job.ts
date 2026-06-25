@@ -23,6 +23,8 @@ import {
   type SupportedSectionId,
 } from '@/lib/lab-engine/sections/section-registry';
 import { withGtmStrategicStandardPreamble } from '@/lib/lab-engine/skills/gtm-strategic-standard';
+import { broadcastSectionPartial } from '@/lib/research-v2/realtime-broadcast';
+import type { SectionPartialPublishFn } from '@/lib/research-v2/section-partial-broadcaster';
 import { SupabaseRunStoreCommitConflictError } from '@/lib/research-v2/supabase-run-store';
 
 export type LabRunSection = (
@@ -41,6 +43,7 @@ export interface RunLabSectionJobInput {
   parentAuditRunId?: string;
   preparedContext?: PreparedSectionContext;
   runSectionImpl?: LabRunSection;
+  broadcastPartial?: SectionPartialPublishFn;
   now?: () => Date;
   newId?: () => string;
 }
@@ -50,6 +53,13 @@ export async function runLabSectionJob(
 ): Promise<void> {
   const sectionId = toSupportedSectionId(input.sectionId);
   const runSectionImpl = input.runSectionImpl ?? runSection;
+  // Thread the Realtime section-partials publisher so the long-running agentic
+  // composer (~385s) and structured-body path stream progress over
+  // `section-partials:<runId>` (the channel the Audit Reader subscribes to via
+  // useSectionPartials), instead of a silent multi-minute gap. Defaults to the
+  // real Supabase broadcaster; both emitters swallow realtime errors so a
+  // broadcast outage never stalls or fails the section.
+  const broadcastPartial = input.broadcastPartial ?? broadcastSectionPartial;
 
   if (input.signal?.aborted === true) {
     await recordJobFailure({
@@ -93,6 +103,7 @@ export async function runLabSectionJob(
         loadSkill: loadLabSkill,
         allowedTools: getLabEngineAllowedTools(),
         preparedContext,
+        broadcastPartial,
         ...(input.evidencePoolStore === undefined
           ? {}
           : { evidencePoolStore: input.evidencePoolStore }),

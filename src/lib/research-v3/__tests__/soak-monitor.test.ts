@@ -39,7 +39,7 @@ describe('soak monitor health evaluation', () => {
     });
   });
 
-  it('fails on artifact errors, section errors, error events, and stale queued work without progress', (): void => {
+  it('fails on artifact errors, section errors, error events, and stale active work without progress', (): void => {
     const result = evaluateSoakHealth({
       now: '2026-05-26T12:10:00.000Z',
       previousChildrenComplete: 2,
@@ -63,7 +63,7 @@ describe('soak monitor health evaluation', () => {
         {
           zone: 'positioningCompetitorLandscape',
           status: 'queued',
-          updatedAt: '2026-05-26T12:00:00.000Z',
+          updatedAt: '2026-05-26T11:50:00.000Z',
         },
         {
           zone: 'deepResearchProgram',
@@ -86,8 +86,36 @@ describe('soak monitor health evaluation', () => {
       'research_artifacts artifact-1 status is error',
       'research_section_runs positioningBuyerICP status is error',
       'research_section_events positioningBuyerICP emitted error: validator failed',
-      'research_section_runs positioningCompetitorLandscape is stale in queued for 600000ms',
+      'research_section_runs positioningCompetitorLandscape is stale in queued for 1200000ms',
       'research_section_runs deepResearchProgram is stale in running for 1200000ms',
     ]);
+  });
+
+  it('allows active section work under the 15 minute route budget', (): void => {
+    const result = evaluateSoakHealth({
+      now: '2026-05-26T12:10:00.000Z',
+      previousChildrenComplete: 2,
+      artifact: {
+        id: 'artifact-1',
+        status: 'running',
+        childrenComplete: 2,
+        childrenTotal: 6,
+      },
+      sectionRuns: [
+        {
+          zone: 'positioningMarketCategory',
+          status: 'running',
+          updatedAt: '2026-05-26T12:00:01.000Z',
+        },
+      ],
+      events: [],
+    });
+
+    expect(result).toEqual({
+      status: 'healthy',
+      failures: [],
+      childrenComplete: 2,
+      childrenTotal: 6,
+    });
   });
 });

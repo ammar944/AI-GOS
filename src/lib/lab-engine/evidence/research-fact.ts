@@ -284,12 +284,12 @@ export function buildResearchFactsFromCorpusExcerpts(
 // ---------------------------------------------------------------------------
 
 export interface ResearchFactsInsertResult {
-  error: { message: string } | null;
+  error: { code?: string; message: string } | null;
 }
 
 export interface ResearchFactsSelectResult {
   data: Record<string, unknown>[] | null;
-  error: { message: string } | null;
+  error: { code?: string; message: string } | null;
 }
 
 export interface ResearchFactsSelectBuilder {
@@ -322,6 +322,19 @@ function toResearchFactRow(fact: ResearchFact): Record<string, unknown> {
     payload: fact.payload ?? null,
     created_at: fact.createdAt,
   };
+}
+
+function isMissingResearchFactsTableError(error: {
+  code?: string;
+  message: string;
+}): boolean {
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    /research_facts.*(does not exist|schema cache|not find the table)/iu.test(
+      error.message,
+    )
+  );
 }
 
 // Inverse of toResearchFactRow: snake_case DB row -> canonical ResearchFact.
@@ -407,6 +420,15 @@ export function createResearchArtifactsResearchFactStore(
           .eq("parent_audit_run_id", parentAuditRunId);
 
         if (response.error) {
+          if (isMissingResearchFactsTableError(response.error)) {
+            console.warn("[research-fact] research_facts table missing; using in-process facts only", {
+              parentAuditRunId,
+              code: response.error.code ?? null,
+              message: response.error.message,
+            });
+            return [...byKey.values()];
+          }
+
           throw new Error(
             `research_facts select failed: ${response.error.message}`,
           );

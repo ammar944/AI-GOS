@@ -21,6 +21,7 @@ import {
 import {
   getDeepResearchProgramData,
   loadOwnedResearchSession,
+  type JourneySessionRow,
 } from '@/lib/research-v2/orchestration-session';
 import {
   OrchestrateRpcError,
@@ -86,6 +87,39 @@ function getDispatchZones(
     return [PAID_MEDIA_PLAN_SECTION_ID];
   }
   return POSITIONING_SECTION_IDS;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+function getSessionWebsiteUrl(
+  metadata: Record<string, unknown> | null,
+): string | null {
+  const raw = metadata?.websiteUrl ?? metadata?.companyUrl;
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+}
+
+function buildSectionOnboardingData(
+  session: JourneySessionRow,
+): Record<string, unknown> {
+  const onboardingData = session.onboarding_data ?? {};
+  if (
+    typeof onboardingData.websiteUrl === 'string' &&
+    onboardingData.websiteUrl.trim().length > 0
+  ) {
+    return onboardingData;
+  }
+
+  const websiteUrl = getSessionWebsiteUrl(asRecord(session.metadata));
+  if (websiteUrl === null) {
+    return onboardingData;
+  }
+
+  return { ...onboardingData, websiteUrl };
 }
 
 async function loadParentAuditRunId({
@@ -380,6 +414,69 @@ export async function dispatchAutoRerunForErroredSections({
   return rescuesDispatched;
 }
 
+// Dedicated composer route kickoff. The paid-media plan runs ~385s (owner-paid
+// live clay run), so it ships to its own maxDuration=800 route
+// (run-paid-media-plan), derived from the review dispatch URL exactly like the
+// executive-brief kickoff. Returns true when the kickoff is accepted (the
+// composer now runs on an isolated 800s route); false means the caller should
+// run it inline on this route's clock (no internal key in local/dev, or a
+// rejected/failed kickoff).
+// Best-effort: never throws.
+async function kickoffPaidMediaPlanRoute({
+  researchInput,
+  reviewDispatch,
+  runId,
+  userId,
+}: {
+  researchInput: ResearchInput;
+  reviewDispatch?: { url: string; internalKey: string };
+  runId: string;
+  userId: string;
+}): Promise<boolean> {
+  if (reviewDispatch === undefined) {
+    return false;
+  }
+  if (!/review-section\/?$/.test(reviewDispatch.url)) {
+    return false;
+  }
+  const url = reviewDispatch.url.replace(
+    /review-section\/?$/,
+    'run-paid-media-plan',
+  );
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-key': reviewDispatch.internalKey,
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        run_id: runId,
+        research_input: researchInput,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (response.ok) {
+      return true;
+    }
+    console.warn(
+      '[paid-media] dedicated composer route kickoff rejected; running inline',
+      { runId, status: response.status },
+    );
+    return false;
+  } catch (error) {
+    console.warn(
+      '[paid-media] dedicated composer route kickoff threw; running inline',
+      {
+        runId,
+        message: error instanceof Error ? error.message : String(error),
+      },
+    );
+    return false;
+  }
+}
+
 // W3-A pure-lean: once the six positioning sections roll up complete, dispatch
 // the paid-media plan directly off the 6/6 rollup. Paid-media is now the only
 // post-six section in the dispatch chain. This fires from the SERVER-side
@@ -430,6 +527,19 @@ async function dispatchPaidMediaIfSixComplete({
     throw new Error(
       `paid-media dispatch failed while preparing committed artifacts for run_id=${runId} parent_audit_run_id=${parentAuditRunId}: response status ${paidMediaResearchInput.response.status}`,
     );
+  }
+
+  // Prefer the dedicated maxDuration=800 composer route so paid-media's GLM
+  // compose has its own invocation. On a rejected kickoff or no internal-key
+  // dispatch target (local/dev), fall back to running inline on this route.
+  const kickedOff = await kickoffPaidMediaPlanRoute({
+    researchInput: paidMediaResearchInput.researchInput,
+    reviewDispatch,
+    runId,
+    userId,
+  });
+  if (kickedOff) {
+    return;
   }
 
   await scheduleLabSectionJob({
@@ -510,7 +620,7 @@ export async function POST(request: Request): Promise<Response> {
     const baseResearchInput = corpusToResearchInput({
       runId: body.run_id,
       deepResearchProgramData,
-      onboardingData: session.onboarding_data ?? {},
+      onboardingData: buildSectionOnboardingData(session),
       ...(uploadedDocuments.length > 0 ? { uploadedDocuments } : {}),
     });
     const needsCommittedArtifacts = requiresCommittedPositioningArtifacts(

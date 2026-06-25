@@ -20,7 +20,7 @@ The canonical user surface is **`/research-v3`** (the old `/research-v2` *page* 
 
 4. **Fan-out — `POST /api/research-v2/orchestrate`** — `src/app/api/research-v2/orchestrate/route.ts` (`runtime='nodejs'`, `maxDuration=300`). It seeds a `seed_orchestration` row (idempotency guard against double-kickoff) and `dispatchLabSectionJobs(...)` kicks off each section by calling the per-section route. Section list = `POSITIONING_SECTION_IDS` from `src/lib/ai/prompts/positioning-skills/index.ts`.
 
-5. **Per-section execution — `POST /api/research-v2/run-lab-section`** — `src/app/api/research-v2/run-lab-section/route.ts` (`maxDuration=300`). This runs the **lab engine in-process on Vercel** (NOT the worker). It builds input via `src/lib/research-v2/corpus-to-research-input.ts`, then calls the lab-engine entry `runSection()` in `src/lib/lab-engine/agents/run-section.ts`. (`POST /api/research-v2/dispatch` and `/rerun-section` are the single-section variants; `dispatch` still proxies the *worker*, lab sections do not.)
+5. **Per-section execution — `POST /api/research-v2/run-lab-section`** — `src/app/api/research-v2/run-lab-section/route.ts` (`maxDuration=800`). This runs the **lab engine in-process on Vercel** (NOT the worker). It builds input via `src/lib/research-v2/corpus-to-research-input.ts`, then calls the lab-engine entry `runSection()` in `src/lib/lab-engine/agents/run-section.ts`. Paid media can be kicked to `POST /api/research-v2/run-paid-media-plan` for an isolated composer clock after the six positioning sections are complete. (`POST /api/research-v2/dispatch` and `/rerun-section` are the single-section variants; `dispatch` still proxies the *worker*, lab sections do not.)
 
 6. **The 6 positioning sections (lab engine)** — agent loop in `src/lib/lab-engine/agents/` (`run-section.ts` answer-tool path → repair → rescue; `section-agent.ts`, `answer-tool.ts`, `section-tools.ts`, `tool-registry.ts`). Section definitions/output schemas: `src/lib/lab-engine/sections/section-registry.ts`. Per-section prompt skills: `src/lib/lab-engine/skills/positioning-*/SKILL.md`. Real tools (ad libraries, keyword/SEO, reviews, pagespeed, web fetch): `src/lib/lab-engine/agents/tools/`. Each section emits an artifact validated against `src/lib/lab-engine/artifacts/schemas/<section>.ts`.
 
@@ -51,6 +51,7 @@ AI-GOS/
 │   │       ├── research-v2/          ★ live research backend (v3 page calls this)
 │   │       │   ├── orchestrate/        fan-out all 6 sections
 │   │       │   ├── run-lab-section/    in-process lab engine (per section)
+│   │       │   ├── run-paid-media-plan/ dedicated paid-media composer dispatch
 │   │       │   ├── dispatch/ rerun-section/   single-section (dispatch = worker proxy)
 │   │       │   ├── chat/               workspace strategist chat/edit + strategyBrief/rerun side effects
 │   │       │   └── abort-section/ audit-state/ onboarding/ _capabilities/
@@ -113,7 +114,7 @@ AI-GOS/
 | Dir | Owns |
 |---|---|
 | `src/app/` | Next.js App Router. Pages (`research-v3/`, `profiles/`, `onboarding/`, `dashboard/`, root `page.tsx`) + all API routes under `src/app/api/`. |
-| `src/app/api/research-v2/` | The live research backend routes: `orchestrate/` (fan-out), `run-lab-section/` (in-process section), `dispatch/` + `rerun-section/` (single-section, worker proxy), `abort-section/`, `audit-state/`, `chat/`, `onboarding/`, `_capabilities/`. |
+| `src/app/api/research-v2/` | The live research backend routes: `orchestrate/` (fan-out), `run-lab-section/` (in-process section), `run-paid-media-plan/` (dedicated paid-media composer dispatch), `dispatch/` + `rerun-section/` (single-section, worker proxy), `abort-section/`, `audit-state/`, `chat/`, `onboarding/`, `_capabilities/`. |
 | `src/lib/lab-engine/` | **The heart of section research.** In-process AI agent: `agents/` (run-section, tools, verification), `sections/` (registry, sub-sections, required-evidence), `artifacts/schemas/` (per-section Zod output schemas), `skills/positioning-*/SKILL.md` (prompts), `ai/models.ts` (provider switch), `runs/` (run store), `streaming/`, `events/`, `fixtures/`. |
 | `src/lib/research-v2/` | Orchestration glue: state machine, corpus→input mapping, onboarding-review, orchestrate DB/session, realtime broadcast, section partials, audit artifact schema, dispatch job plumbing. |
 | `src/lib/journey/` | Journey/session domain: `server/dispatch-research.ts` (worker proxy), `research-realtime.ts` (client subscribe), field-catalog, schemas, session-state, research-result contract. |

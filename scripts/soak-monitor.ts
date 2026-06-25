@@ -29,8 +29,14 @@ interface ArtifactRow {
 interface SectionRunRow {
   zone: string | null;
   status: string | null;
-  updated_at: string | null;
   started_at: string | null;
+  completed_at: string | null;
+  aborted_at: string | null;
+}
+
+interface ArtifactSectionRow {
+  zone: string | null;
+  updated_at: string | null;
 }
 
 interface EventRow {
@@ -98,12 +104,19 @@ function normalizeArtifact(row: ArtifactRow | null): SoakArtifactSnapshot | null
   };
 }
 
-function normalizeSectionRun(row: SectionRunRow): SoakSectionRunSnapshot | null {
+function normalizeSectionRun(
+  row: SectionRunRow,
+  artifactSectionUpdatedAtByZone: Map<string, string>,
+): SoakSectionRunSnapshot | null {
   if (!row.zone) return null;
   return {
     zone: row.zone,
     status: row.status,
-    updatedAt: row.updated_at ?? row.started_at,
+    updatedAt:
+      row.completed_at ??
+      row.aborted_at ??
+      artifactSectionUpdatedAtByZone.get(row.zone) ??
+      row.started_at,
   };
 }
 
@@ -140,10 +153,14 @@ async function readSnapshot(runId: string): Promise<Snapshot> {
     };
   }
 
-  const [runsResponse, eventsResponse] = await Promise.all([
+  const [runsResponse, sectionsResponse, eventsResponse] = await Promise.all([
     supabase
       .from('research_section_runs')
-      .select('zone, status, updated_at, started_at')
+      .select('zone, status, started_at, completed_at, aborted_at')
+      .eq('artifact_id', artifact.id),
+    supabase
+      .from('research_artifact_sections')
+      .select('zone, updated_at')
       .eq('artifact_id', artifact.id),
     supabase
       .from('research_section_events')
@@ -158,16 +175,28 @@ async function readSnapshot(runId: string): Promise<Snapshot> {
       `research_section_runs read failed for runId=${runId} artifact=${artifact.id}: ${runsResponse.error.message}`,
     );
   }
+  if (sectionsResponse.error) {
+    throw new Error(
+      `research_artifact_sections read failed for runId=${runId} artifact=${artifact.id}: ${sectionsResponse.error.message}`,
+    );
+  }
   if (eventsResponse.error) {
     throw new Error(
       `research_section_events read failed for runId=${runId} artifact=${artifact.id}: ${eventsResponse.error.message}`,
     );
   }
 
+  const artifactSectionUpdatedAtByZone = new Map(
+    (((sectionsResponse.data as ArtifactSectionRow[] | null) ?? []).flatMap(
+      (row): [string, string][] =>
+        row.zone && row.updated_at ? [[row.zone, row.updated_at]] : [],
+    )),
+  );
+
   return {
     artifact,
     sectionRuns: ((runsResponse.data as SectionRunRow[] | null) ?? [])
-      .map(normalizeSectionRun)
+      .map((row) => normalizeSectionRun(row, artifactSectionUpdatedAtByZone))
       .filter((row): row is SoakSectionRunSnapshot => row !== null),
     events: ((eventsResponse.data as EventRow[] | null) ?? [])
       .map(normalizeEvent)

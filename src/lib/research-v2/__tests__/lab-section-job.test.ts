@@ -23,6 +23,8 @@ import type { RunStore } from '@/lib/lab-engine/runs/run-store';
 import { SECTION_REGISTRY } from '@/lib/lab-engine/sections/section-registry';
 
 import { runLabSectionJob } from '../lab-section-job';
+import { broadcastSectionPartial } from '../realtime-broadcast';
+import type { SectionPartialPublishFn } from '../section-partial-broadcaster';
 import {
   SupabaseRunStoreCommitConflictError,
   SupabaseRunStoreError,
@@ -510,5 +512,55 @@ describe('runLabSectionJob', (): void => {
     });
 
     expect(markSectionFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it('defaults broadcastPartial to the realtime section publisher so the composer can stream progress', async (): Promise<void> => {
+    const { store } = createMockRunStore();
+    const observedDeps: RunSectionDeps[] = [];
+    const runSectionImpl = vi.fn(
+      async (
+        input: RunSectionInput,
+        deps: RunSectionDeps,
+      ): Promise<RunSectionResult> => {
+        observedDeps.push(deps);
+        return createRunSectionResult(input);
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      store,
+      runSectionImpl,
+    });
+
+    expect(observedDeps[0]?.broadcastPartial).toBe(broadcastSectionPartial);
+  });
+
+  it('threads a supplied broadcastPartial publisher into the runSection deps', async (): Promise<void> => {
+    const { store } = createMockRunStore();
+    const observedDeps: RunSectionDeps[] = [];
+    const broadcastPartial: SectionPartialPublishFn = vi.fn(
+      async (): Promise<void> => undefined,
+    );
+    const runSectionImpl = vi.fn(
+      async (
+        input: RunSectionInput,
+        deps: RunSectionDeps,
+      ): Promise<RunSectionResult> => {
+        observedDeps.push(deps);
+        return createRunSectionResult(input);
+      },
+    );
+
+    await runLabSectionJob({
+      runId,
+      sectionId: 'positioningMarketCategory',
+      store,
+      runSectionImpl,
+      broadcastPartial,
+    });
+
+    expect(observedDeps[0]?.broadcastPartial).toBe(broadcastPartial);
   });
 });

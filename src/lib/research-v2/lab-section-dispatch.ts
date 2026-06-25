@@ -41,6 +41,14 @@ export const LAB_SECTION_JOB_TIMEOUT_MS =
     ? parsedLabSectionJobTimeoutMs
     : 285_000;
 
+// The paid-media composer runs on its OWN route (run-paid-media-plan/route.ts,
+// maxDuration=800) — isolated from the six-section fan-out route — because a
+// single GLM compose runs ~385s (owner-paid live clay run) and would be killed
+// by a short shared route clock. 760s clears that with margin while staying
+// under the 800s route cap (>=15s salvage-commit headroom). Pinned in
+// timeout-constants.test.ts. Passed via scheduleLabSectionJob({ jobTimeoutMs }).
+export const PAID_MEDIA_PLAN_JOB_TIMEOUT_MS = 760_000;
+
 export type ScheduleLabSectionTask = (task: () => Promise<void>) => void;
 
 export interface ScheduleLabSectionJobInput {
@@ -51,6 +59,10 @@ export interface ScheduleLabSectionJobInput {
   researchInput: ResearchInput;
   supabase: SupabaseClient;
   schedule: ScheduleLabSectionTask;
+  // Per-dispatch override of the default section job deadline. The paid-media
+  // composer passes PAID_MEDIA_PLAN_JOB_TIMEOUT_MS from its own maxDuration=800
+  // route so its composer clock stays isolated from the six-section fan-out.
+  jobTimeoutMs?: number;
   onJobComplete?: (context: ScheduleLabSectionJobContext) => Promise<void>;
   // True W3 detach: forwarded to the run store so the post-commit agentic
   // review runs in its own route invocation instead of this one's clock.
@@ -149,16 +161,15 @@ export async function scheduleLabSectionJob(
     { store, factStore, parentAuditRunId: seeded.parent_audit_run_id },
   );
 
+  const jobTimeoutMs = input.jobTimeoutMs ?? LAB_SECTION_JOB_TIMEOUT_MS;
   input.schedule(async (): Promise<void> => {
     const controller = new AbortController();
-    const deadlineAt = Date.now() + LAB_SECTION_JOB_TIMEOUT_MS;
+    const deadlineAt = Date.now() + jobTimeoutMs;
     const timer = setTimeout(() => {
       controller.abort(
-        new Error(
-          `lab section job timed out after ${LAB_SECTION_JOB_TIMEOUT_MS}ms`,
-        ),
+        new Error(`lab section job timed out after ${jobTimeoutMs}ms`),
       );
-    }, LAB_SECTION_JOB_TIMEOUT_MS);
+    }, jobTimeoutMs);
     try {
       await runLabSectionJob({
         runId: input.runId,

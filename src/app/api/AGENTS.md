@@ -15,7 +15,7 @@
 - Validate request bodies, query params, and route params with Zod or existing typed helpers.
 - Return structured errors with useful IDs and context. Do not swallow provider, worker, or DB errors.
 - Use `export const runtime = 'nodejs'` for AI, Supabase service, worker, or file-processing routes.
-- Use `export const maxDuration = 300` for long-running Vercel Pro research routes where already required.
+- Use explicit `maxDuration` exports for long-running Vercel Pro research routes; keep the value aligned with the route's controlled job timeout.
 - Do not invent API endpoints. Search existing routes first.
 
 ## Work Guidance

@@ -240,6 +240,50 @@ describe("createResearchArtifactsResearchFactStore", () => {
     expect(facts.filter((f) => f.claimToken === "Own Fact")).toHaveLength(1);
   });
 
+  it("getFacts falls back to in-process facts when the research_facts table is absent", async () => {
+    const table: Record<string, unknown>[] = [];
+    const client = {
+      from: (tableName: string) => ({
+        insert: async (
+          rows: Record<string, unknown>[],
+        ): Promise<{ error: null }> => {
+          expect(tableName).toBe("research_facts");
+          for (const row of rows) table.push(row);
+          return { error: null };
+        },
+        select: (_columns: string) => ({
+          eq: async (): Promise<{
+            data: null;
+            error: { code: string; message: string };
+          }> => ({
+            data: null,
+            error: {
+              code: "PGRST205",
+              message:
+                "Could not find the table 'public.research_facts' in the schema cache",
+            },
+          }),
+        }),
+      }),
+    };
+    const store = createResearchArtifactsResearchFactStore(
+      client,
+      "parent_xyz",
+    );
+
+    await store.appendFacts([
+      makeValidFact({
+        parentAuditRunId: "parent_xyz",
+        claimToken: "Own Fact",
+        sourceQuote: "Own Fact — appended in-process",
+      }),
+    ]);
+
+    await expect(store.getFacts()).resolves.toMatchObject([
+      { claimToken: "Own Fact" },
+    ]);
+  });
+
   it("getFacts returns ONLY in-process appended facts when no parentAuditRunId is supplied (no SELECT)", async () => {
     const table: Record<string, unknown>[] = [];
     const { client, capturedSelects } = createBackedSupabaseClient(table);

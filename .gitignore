@@ -51,6 +51,7 @@ nul
 # Playwright MCP logs
 .playwright-mcp/
 .playwright-cli/
+.playwright-v3-soak-user/
 
 # Claude local state
 .claude/worktrees/

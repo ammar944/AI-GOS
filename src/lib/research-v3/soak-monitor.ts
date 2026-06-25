@@ -30,6 +30,7 @@ export interface SoakHealthInput {
   sectionRuns: SoakSectionRunSnapshot[];
   events: SoakEventSnapshot[];
   defaultStaleMs?: number;
+  queuedStaleMs?: number;
   corpusStaleMs?: number;
 }
 
@@ -40,7 +41,8 @@ export interface SoakHealthResult {
   childrenTotal: number;
 }
 
-const DEFAULT_STALE_MS = 5 * 60 * 1000;
+const DEFAULT_STALE_MS = 15 * 60 * 1000;
+const QUEUED_STALE_MS = 15 * 60 * 1000;
 const CORPUS_STALE_MS = 15 * 60 * 1000;
 const ACTIVE_STATUSES: ReadonlySet<string> = new Set(['queued', 'running']);
 
@@ -62,10 +64,13 @@ function isProgressStalled(
 
 function getStaleThresholdMs(
   zone: string,
+  status: string,
   defaultStaleMs: number,
+  queuedStaleMs: number,
   corpusStaleMs: number,
 ): number {
-  return zone === 'deepResearchProgram' ? corpusStaleMs : defaultStaleMs;
+  if (zone === 'deepResearchProgram') return corpusStaleMs;
+  return status === 'queued' ? queuedStaleMs : defaultStaleMs;
 }
 
 function hasCompleteRun(sectionRuns: SoakSectionRunSnapshot[], zone: string): boolean {
@@ -86,6 +91,7 @@ export function evaluateSoakHealth(input: SoakHealthInput): SoakHealthResult {
   const childrenComplete = input.artifact?.childrenComplete ?? 0;
   const childrenTotal = input.artifact?.childrenTotal ?? POSITIONING_SECTION_IDS.length;
   const defaultStaleMs = input.defaultStaleMs ?? DEFAULT_STALE_MS;
+  const queuedStaleMs = input.queuedStaleMs ?? QUEUED_STALE_MS;
   const corpusStaleMs = input.corpusStaleMs ?? CORPUS_STALE_MS;
   const nowMs = Date.parse(input.now);
 
@@ -127,7 +133,9 @@ export function evaluateSoakHealth(input: SoakHealthInput): SoakHealthResult {
     const ageMs = nowMs - updatedAtMs;
     const thresholdMs = getStaleThresholdMs(
       run.zone,
+      run.status,
       defaultStaleMs,
+      queuedStaleMs,
       corpusStaleMs,
     );
     if (ageMs >= thresholdMs) {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { LAB_SECTION_JOB_TIMEOUT_MS } from '@/lib/research-v2/lab-section-dispatch';
+import {
+  LAB_SECTION_JOB_TIMEOUT_MS,
+  PAID_MEDIA_PLAN_JOB_TIMEOUT_MS,
+} from '@/lib/research-v2/lab-section-dispatch';
 
 import {
   answerToolTimeoutMs,
@@ -72,6 +75,38 @@ describe('lab section timeout hierarchy', (): void => {
     // with budget left (e.g. 134s after a slow attempt) still fires.
     expect(getStructuredFallbackFloorMs('positioningMarketCategory')).toBeLessThan(
       134_000,
+    );
+  });
+});
+
+describe('paid-media composer timeout hierarchy (dedicated route)', (): void => {
+  // The composer runs on its OWN route (run-paid-media-plan/route.ts) at
+  // maxDuration=800 so a ~385s GLM compose has an isolated clock. Mirrored as a
+  // literal here (importing the route pulls
+  // in Clerk/Supabase server modules); if the route changes its cap, change
+  // this in lockstep.
+  const PAID_MEDIA_ROUTE_MAX_DURATION_MS = 800 * 1000;
+
+  it('orders composer job timeout < composer route maxDuration with commit headroom', (): void => {
+    expect(PAID_MEDIA_PLAN_JOB_TIMEOUT_MS).toBeLessThan(
+      PAID_MEDIA_ROUTE_MAX_DURATION_MS,
+    );
+    // Same >=15s salvage-commit headroom invariant the section route holds.
+    expect(
+      PAID_MEDIA_ROUTE_MAX_DURATION_MS - PAID_MEDIA_PLAN_JOB_TIMEOUT_MS,
+    ).toBeGreaterThanOrEqual(15_000);
+  });
+
+  it('gives the composer enough budget for the observed ~385s GLM compose', (): void => {
+    // The owner-paid live clay compose ran ~385s (inline GLM step + projector
+    // second pass). The composer deadline must clear it with margin for cold
+    // starts / slower prod GLM.
+    expect(PAID_MEDIA_PLAN_JOB_TIMEOUT_MS).toBeGreaterThan(385_000);
+  });
+
+  it('keeps the composer clock decoupled from the section deadline', (): void => {
+    expect(PAID_MEDIA_PLAN_JOB_TIMEOUT_MS).toBeGreaterThanOrEqual(
+      LAB_SECTION_JOB_TIMEOUT_MS,
     );
   });
 });
